@@ -1,0 +1,36 @@
+[Unit]
+Description=DurisWeb Full Stack (Backend API + Frontend Static Files via PM2)
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=resakse
+Group=resakse
+WorkingDirectory=/home/resakse/DurisWeb
+
+# Environment variables
+Environment="NODE_ENV=production"
+Environment="PM2_HOME=/home/resakse/.pm2"
+
+# Start PM2 process using ecosystem config
+ExecStart=/usr/bin/bash -c '/usr/local/bin/pm2 delete durismud-api 2>/dev/null || true; /usr/local/bin/pm2 start /home/resakse/DurisWeb/ecosystem.config.js --env production; /usr/local/bin/pm2 save'
+
+# Reload gracefully
+ExecReload=/usr/local/bin/pm2 reload durismud-api
+
+# Stop PM2 process
+ExecStop=/usr/local/bin/pm2 stop durismud-api
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=durisweb
+
+[Install]
+WantedBy=multi-user.target

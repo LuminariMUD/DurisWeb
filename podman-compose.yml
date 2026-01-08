@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: duris-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_USER: duris
+      MYSQL_PASSWORD: duris
+      MYSQL_DATABASE: duris_dev
+    ports:
+      - "3306:3306"
+    volumes:
+      - duris-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uduris", "-pduris"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: duris-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - duris-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  duris-mysql-data:
+  duris-redis-data:
