@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useMudConnection } from '@/composables/useMudConnection'
 import { useMudStore } from '@/stores/mudStore'
 import { useAuth } from '@/composables/useAuth'
@@ -112,14 +112,11 @@ const handleRegister = () => {
 }
 
 // Watch for successful authentication
-const checkAuth = () => {
-  if (store.isAuthenticated) {
+watch(() => store.isAuthenticated, (isAuth) => {
+  if (isAuth) {
     emit('authenticated')
   }
-}
-
-// Check periodically for auth state changes
-setInterval(checkAuth, 100)
+}, { immediate: true })
 
 // Auto-login if we have stored credentials
 onMounted(async () => {

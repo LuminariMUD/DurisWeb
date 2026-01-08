@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/vue-query';
-import { ref, computed } from 'vue';
+import { ref, computed, onScopeDispose } from 'vue';
 import { apiClient } from '@/services/api';
 
 interface CurrentReboot {
@@ -59,7 +59,12 @@ export function useCurrentUptime() {
 
   // Initial update and set interval
   updateLiveUptime();
-  setInterval(updateLiveUptime, 1000);
+  const intervalId = setInterval(updateLiveUptime, 1000);
+
+  // Clean up interval when scope is disposed
+  onScopeDispose(() => {
+    clearInterval(intervalId);
+  });
 
   return {
     bootTime,
