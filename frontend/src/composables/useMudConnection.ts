@@ -1,9 +1,8 @@
-import { ref, onUnmounted, watch } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
 import { useTriggers } from '@/composables/useTriggers'
 import { useTimers } from '@/composables/useTimers'
 import { useSiteConfig } from '@/composables/useSiteConfig'
-import { useWebSocket } from '@/composables/useWebSocket'
 import { useAuth } from '@/composables/useAuth'
 import { generateDurisWebSignature } from '@/utils/duriswebAuth'
 import type {
@@ -81,9 +80,8 @@ const maxReconnectAttempts = 5
 const _reconnectDelay = 3000 // 3 seconds (reserved for future use)
 let reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null
 let pingIntervalId: ReturnType<typeof setInterval> | null = null
-let latencyIntervalId: ReturnType<typeof setInterval> | null = null
+let lastCommandSentAt: number | null = null // Track when command was sent for latency
 const PING_INTERVAL = 30000 // 30 seconds - keeps MUD connection alive
-const LATENCY_INTERVAL = 5000 // 5 seconds - measure latency via backend WebSocket
 
 // copyover reconnect settings
 const COPYOVER_FAST_INTERVAL = 500 // 500ms during fast phase
@@ -181,21 +179,6 @@ export function useMudConnection() {
           }
         }, PING_INTERVAL)
 
-        // Start latency measurement via backend WebSocket (not MUD - avoids game loop delay)
-        const { measureLatency, latency: wsLatency } = useWebSocket()
-        if (latencyIntervalId) {
-          clearInterval(latencyIntervalId)
-        }
-        measureLatency() // Initial measurement
-        latencyIntervalId = setInterval(() => measureLatency(), LATENCY_INTERVAL)
-
-        // Sync WebSocket latency to mudStore
-        watch(wsLatency, (newLatency) => {
-          if (newLatency !== null) {
-            store.setLatency(newLatency)
-          }
-        }, { immediate: true })
-
         // Auto-login will be triggered by MudLoginPanel.onMounted when it mounts
       }
 
@@ -269,11 +252,7 @@ export function useMudConnection() {
       clearInterval(pingIntervalId)
       pingIntervalId = null
     }
-    // Clear latency interval
-    if (latencyIntervalId) {
-      clearInterval(latencyIntervalId)
-      latencyIntervalId = null
-    }
+    lastCommandSentAt = null
     store.setLatency(null)
     reconnectAttempts.value = maxReconnectAttempts // Prevent auto-reconnect
     setLoggingIn(false) // Clear login in progress flag
@@ -335,7 +314,7 @@ export function useMudConnection() {
   const handleMessage = (message: MudServerMessage) => {
     switch (message.type) {
       case 'pong':
-        // Ignore - latency is measured via backend HTTP ping instead
+        // Ignore - latency is measured via backend WebSocket instead
         break
       case 'auth':
         handleAuthMessage(message as MudAuthMessage)
@@ -728,6 +707,13 @@ export function useMudConnection() {
   }
 
   const handleTextMessage = (message: MudTextMessage) => {
+    // Calculate latency from command send to response receive
+    if (lastCommandSentAt !== null) {
+      const latency = Math.round(performance.now() - lastCommandSentAt)
+      store.setLatency(latency)
+      lastCommandSentAt = null
+    }
+
     // Process through triggers BEFORE adding to log
     const { processLine, playSounds, echoTriggers } = useTriggers()
 
@@ -988,6 +974,8 @@ export function useMudConnection() {
   }
 
   const sendGameCommand = (command: string) => {
+    // Track when command sent for latency measurement
+    lastCommandSentAt = performance.now()
     return sendCommand({
       type: 'cmd',
       cmd: 'game',

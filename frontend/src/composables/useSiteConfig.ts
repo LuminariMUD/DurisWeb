@@ -39,9 +39,31 @@ export function useSiteConfig() {
   // Full MUD address for display
   const mudAddress = computed(() => `${mudHost.value}:${mudPort.value}`)
 
+  // Get user's proxy settings from localStorage
+  function getUserProxySettings(): { enabled: boolean; host: string; port: string } {
+    if (typeof window === 'undefined') return { enabled: false, host: '', port: '' }
+    try {
+      const stored = localStorage.getItem('duris-ws-proxy')
+      if (stored) {
+        return JSON.parse(stored)
+      }
+    } catch {}
+    return { enabled: false, host: '', port: '' }
+  }
+
   // WebSocket URL for MUD client (auto-switch ws/wss based on page protocol)
   const mudWsUrl = computed(() => {
     const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:'
+
+    // check user's proxy settings from localStorage
+    const proxy = getUserProxySettings()
+    if (proxy.enabled && proxy.host) {
+      const protocol = isSecure ? 'wss' : 'ws'
+      const port = proxy.port ? `:${proxy.port}` : ''
+      return `${protocol}://${proxy.host}${port}`
+    }
+
+    // default behavior
     if (isSecure) {
       // WSS via NPM proxy on port 443
       return `wss://${mudHost.value}`

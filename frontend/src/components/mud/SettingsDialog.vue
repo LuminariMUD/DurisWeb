@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useSettings } from '@/composables/useSettings'
 import { useMudStore } from '@/stores/mudStore'
 import { useMudChatNotifications } from '@/composables/useMudChatNotifications'
@@ -24,7 +24,8 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Download, Upload, Settings, Bell, Type, Gamepad2, RotateCcw } from 'lucide-vue-next'
+import { Download, Upload, Settings, Bell, Type, Gamepad2, RotateCcw, Wifi } from 'lucide-vue-next'
+import { Input } from '@/components/ui/input'
 import * as icons from 'lucide-vue-next'
 import type { Component } from 'vue'
 import { toast } from 'vue-sonner'
@@ -43,6 +44,35 @@ const { settings: fontSettings, applyFontSettings } = useFontSettings()
 const { settings: hotbarSettings, updateButton, setButtonCount, setVisible, setOrientation, setButtonSize, resetPosition } =
   useHotbarSettings()
 const { echoCommands, setEchoCommands } = useAliases()
+// Proxy settings (per-user, stored in localStorage)
+const PROXY_STORAGE_KEY = 'duris-ws-proxy'
+
+interface ProxySettings {
+  enabled: boolean
+  host: string
+  port: string
+}
+
+function loadProxySettings(): ProxySettings {
+  try {
+    const stored = localStorage.getItem(PROXY_STORAGE_KEY)
+    if (stored) {
+      return JSON.parse(stored)
+    }
+  } catch {}
+  return { enabled: false, host: '', port: '' }
+}
+
+function saveProxySettings(settings: ProxySettings) {
+  localStorage.setItem(PROXY_STORAGE_KEY, JSON.stringify(settings))
+}
+
+const proxySettings = ref<ProxySettings>(loadProxySettings())
+
+// Watch and save on changes
+watch(proxySettings, (newSettings) => {
+  saveProxySettings(newSettings)
+}, { deep: true })
 
 // get icon component by name for preview
 function getIcon(name: string): Component {
@@ -191,6 +221,47 @@ async function handleImportFile(event: Event) {
           <div class="text-xs text-muted-foreground bg-muted/30 p-3 rounded-md space-y-1">
             <p><strong>Export:</strong> Saves all settings to a JSON file for backup or sharing.</p>
             <p><strong>Import:</strong> Merges settings from a file (skips duplicates).</p>
+          </div>
+
+          <!-- WebSocket Proxy -->
+          <div class="pt-4 border-t space-y-3">
+            <div class="flex items-center gap-2">
+              <Wifi class="h-4 w-4" />
+              <span class="text-sm font-medium">WebSocket Proxy</span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <Label class="text-sm">Enable Proxy</Label>
+              <Switch
+                v-model="proxySettings.enabled"
+              />
+            </div>
+
+            <div v-if="proxySettings.enabled" class="space-y-3">
+              <div class="space-y-1">
+                <Label class="text-xs text-muted-foreground">Proxy Host</Label>
+                <Input
+                  v-model="proxySettings.host"
+                  type="text"
+                  placeholder="proxy.example.com"
+                  class="h-8 text-sm"
+                />
+              </div>
+
+              <div class="space-y-1">
+                <Label class="text-xs text-muted-foreground">Proxy Port (optional)</Label>
+                <Input
+                  v-model="proxySettings.port"
+                  type="text"
+                  placeholder="443"
+                  class="h-8 text-sm w-24"
+                />
+              </div>
+            </div>
+
+            <p class="text-xs text-muted-foreground">
+              Route MUD connection through your own proxy for lower latency. Reconnect to apply.
+            </p>
           </div>
         </TabsContent>
 
