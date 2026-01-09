@@ -2,6 +2,8 @@ import fs from 'fs';
 import { Tail } from 'tail';
 import { pool as db } from '../db/connection.js';
 import logger from '../utils/logger.js';
+import { analyzeAndFlagAccount } from './multiAccountDetectionService.js';
+import { broadcastConnectionEvent } from '../index.js';
 
 /**
  * MUD Connection Log Parser
@@ -198,16 +200,13 @@ export function startRealtimeMonitoring(): void {
           const accountName = await getAccountForCharacter(event.characterName);
           if (accountName) {
             // Trigger async analysis (don't await to avoid blocking)
-            import('./multiAccountDetectionService.js')
-              .then(({ analyzeAndFlagAccount }) => analyzeAndFlagAccount(accountName))
+            analyzeAndFlagAccount(accountName)
               .catch(err => logger.error('Error analyzing account:', err));
           }
         }
 
         // Trigger WebSocket event for real-time updates
-        import('../index.js')
-          .then(({ broadcastConnectionEvent }) => broadcastConnectionEvent(event))
-          .catch(err => logger.error('Error broadcasting connection event:', err));
+        broadcastConnectionEvent(event);
       }
     });
 
