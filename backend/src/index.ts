@@ -43,8 +43,6 @@ import { getLatestEvents, getPvPEventDetail } from './services/pvpService.js';
 import fs from 'fs';
 import { startGuildSync, stopGuildSync } from './services/guildSyncService.js';
 import { startAccountSyncService } from './services/accountCharacterSync.js';
-import { getCurrentOnlinePlayers, getWhoList } from './services/analyticsService.js';
-import { getPeakPlayerCount } from './services/statisticsParser.js';
 import { NetstatWatcher } from './services/netstatWatcher.js';
 import { watchLog, unwatchLog, cleanupLogWatchers } from './services/logWatchService.js';
 import {
@@ -331,42 +329,6 @@ export function broadcastNewEvent(event: any) {
       client.send(message);
     }
   });
-}
-
-// Broadcast stats update to all connected WebSocket clients
-async function broadcastStatsUpdate() {
-  if (!wss) return;
-
-  try {
-    const onlinePlayers = await getCurrentOnlinePlayers();
-    const peakData = await getPeakPlayerCount();
-    const whoList = await getWhoList();
-
-    const message = JSON.stringify({
-      type: 'STATS_UPDATE',
-      data: {
-        onlinePlayers,
-        peakPlayerCount: peakData.count,
-        peakPlayerTimestamp: peakData.timestamp?.toISOString() || null,
-        whoList,
-        timestamp: new Date().toISOString(),
-      },
-    });
-
-    let sentCount = 0;
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(message);
-        sentCount++;
-      }
-    });
-
-    if (sentCount > 0) {
-      logger.info(`Broadcast stats to ${sentCount} clients (${onlinePlayers} online)`);
-    }
-  } catch (error) {
-    logger.error('Error broadcasting stats update:', error);
-  }
 }
 
 // Broadcast frag leaderboard update to all connected WebSocket clients
@@ -826,24 +788,6 @@ async function startServer() {
       // Store client-specific subscriptions with their callbacks for proper cleanup
       (ws as any).logSubscriptions = new Map<string, (newLines: string[]) => void>();
 
-      // Send initial stats immediately
-      getCurrentOnlinePlayers().then(async (onlinePlayers) => {
-        const peakData = await getPeakPlayerCount();
-        const whoList = await getWhoList();
-        ws.send(JSON.stringify({
-          type: 'STATS_UPDATE',
-          data: {
-            onlinePlayers,
-            peakPlayerCount: peakData.count,
-            peakPlayerTimestamp: peakData.timestamp?.toISOString() || null,
-            whoList,
-            timestamp: new Date().toISOString(),
-          },
-        }));
-      }).catch((error) => {
-        logger.error('Error sending initial stats:', error);
-      });
-
       // Handle incoming messages
       ws.on('message', async (message: string | Buffer) => {
         // Security: Message size limit (10KB max)
@@ -1284,17 +1228,21 @@ async function startServer() {
       );
     });
 
-    // Start polling for new events every 10 seconds
-    eventCheckInterval = setInterval(checkForNewEvents, 10000);
+    // Get pvp delay setting for polling interval
+    const settings = await getWebSettings();
+    const pvpPollInterval = settings.pvpDelayMinutes * 60 * 1000;
+    logger.info(`PvP/frag polling interval set to ${settings.pvpDelayMinutes} minutes`);
 
-    // Start polling for frag updates every 30 seconds
-    fragCheckInterval = setInterval(checkForFragUpdates, 30000);
+    // Start polling for new events using pvpDelayMinutes setting
+    eventCheckInterval = setInterval(checkForNewEvents, pvpPollInterval);
 
-    // Start event-driven netstat watcher
+    // Start polling for frag updates using same interval
+    fragCheckInterval = setInterval(checkForFragUpdates, pvpPollInterval);
+
+    // Start event-driven netstat watcher (logs player count changes)
     netstatWatcher = new NetstatWatcher();
     netstatWatcher.on('change', (count) => {
       logger.info(`Player connection change detected: ${count} online`);
-      broadcastStatsUpdate();
     });
     netstatWatcher.start();
 

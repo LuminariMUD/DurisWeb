@@ -23,7 +23,7 @@ const pageSize = ref(100);
 const searchText = ref('');
 const startDateStr = ref('');
 const endDateStr = ref('');
-const autoRefreshEnabled = ref(true);
+const autoRefreshEnabled = ref(false);
 const searchDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 
 // Flatpickr instances

@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useOverviewStats, usePlayerActivity, useWhoList, formatUptime, formatRelativeTime } from '@/composables/useAdminAnalytics'
-import { useWebSocket } from '@/composables/useWebSocket'
-import { useQueryClient } from '@tanstack/vue-query'
 import StatCard from './StatCard.vue'
 import LineChart from '@/components/charts/LineChart.vue'
 import { Users, TrendingUp, MessageSquare, Swords, UsersRound, Shield, Clock, Database, RefreshCw } from 'lucide-vue-next'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { AlertCircle, Wifi } from 'lucide-vue-next'
+import { AlertCircle } from 'lucide-vue-next'
 import { parseAnsiForVue } from '@/utils/ansiParser'
 import { useToast } from '@/composables/useToast'
 import { analyticsApi } from '@/services/api'
@@ -16,59 +14,18 @@ import type { ChartData } from 'chart.js'
 
 const { data: stats, isLoading, error } = useOverviewStats()
 
-// Fetch WHO list data (initial fetch only - WebSocket will provide updates)
-// Start enabled to fetch initial data, will be disabled after WebSocket connects
+// Fetch WHO list data with 30-second polling (admin-only, no websocket broadcast)
 const whoListEnabled = ref(true)
-const { data: whoListData, isLoading: whoListLoading } = useWhoList(whoListEnabled)
+const { data: whoListData, isLoading: whoListLoading, refetch: refetchWhoList } = useWhoList(whoListEnabled)
 
 const isServerRunning = computed(() => {
   return !!(stats.value && stats.value.serverUptime > 0)
 })
 
-const { isConnected, onStatsUpdate } = useWebSocket()
-const queryClient = useQueryClient()
-
-// Real-time stats from WebSocket
-const liveOnlinePlayers = ref<number | null>(null)
-const livePeakCount = ref<number | null>(null)
-const livePeakTimestamp = ref<string | null>(null)
-const liveWhoList = ref<any[] | null>(null)
-
-// Handle WebSocket stats updates - register immediately, not in onMounted
-onStatsUpdate((data) => {
-  // Update live stats
-  liveOnlinePlayers.value = data.onlinePlayers
-  livePeakCount.value = data.peakPlayerCount
-  livePeakTimestamp.value = data.peakPlayerTimestamp
-  liveWhoList.value = data.whoList || []
-
-  // Disable WHO list polling once WebSocket provides data
-  whoListEnabled.value = false
-
-  // Update the query cache with new data
-  queryClient.setQueryData(['admin-analytics', 'overview'], (old: any) => {
-    if (!old) return old
-    return {
-      ...old,
-      currentOnlinePlayers: data.onlinePlayers,
-      peakPlayerCount: data.peakPlayerCount,
-      peakPlayerTimestamp: data.peakPlayerTimestamp,
-    }
-  })
-})
-
-// Use live data if available, otherwise fallback to query data
-const currentOnlinePlayers = computed(() =>
-  liveOnlinePlayers.value !== null ? liveOnlinePlayers.value : stats.value?.currentOnlinePlayers ?? 0
-)
-
-const peakPlayerCount = computed(() =>
-  livePeakCount.value !== null ? livePeakCount.value : stats.value?.peakPlayerCount ?? 0
-)
-
-const peakPlayerTimestampValue = computed(() =>
-  livePeakTimestamp.value !== null ? livePeakTimestamp.value : stats.value?.peakPlayerTimestamp
-)
+// Use stats data directly from query
+const currentOnlinePlayers = computed(() => stats.value?.currentOnlinePlayers ?? 0)
+const peakPlayerCount = computed(() => stats.value?.peakPlayerCount ?? 0)
+const peakPlayerTimestampValue = computed(() => stats.value?.peakPlayerTimestamp)
 
 const formattedUptime = computed(() => {
   if (!stats.value || stats.value.serverUptime === 0) {
@@ -137,8 +94,8 @@ async function refreshWhoList() {
   try {
     const result = await analyticsApi.cleanupAndRefreshWho()
 
-    // Update local state
-    liveWhoList.value = result.whoList
+    // Refetch the query to update the list
+    await refetchWhoList()
 
     // Show success message
     success(result.message, 'Refreshed', 3000)
@@ -153,14 +110,6 @@ async function refreshWhoList() {
 
 <template>
   <div class="space-y-6">
-    <!-- WebSocket Connection Status -->
-    <Alert v-if="!isConnected" variant="default" class="bg-yellow-500/10 border-yellow-500/50">
-      <Wifi class="h-4 w-4 text-yellow-500" />
-      <AlertDescription class="text-yellow-200">
-        Connecting to WebSocket for real-time updates...
-      </AlertDescription>
-    </Alert>
-
     <!-- Error Alert -->
     <Alert v-if="error" variant="destructive">
       <AlertCircle class="h-4 w-4" />
@@ -177,7 +126,6 @@ async function refreshWhoList() {
         :value="currentOnlinePlayers"
         :icon="Users"
         :is-loading="isLoading"
-        :live="isConnected"
         subtitle="Currently in-game"
       />
 
@@ -272,17 +220,17 @@ async function refreshWhoList() {
           Refresh
         </Button>
       </div>
-      <div v-if="whoListLoading && !liveWhoList && !whoListData" class="space-y-2">
+      <div v-if="whoListLoading && !whoListData" class="space-y-2">
         <div class="h-10 bg-muted animate-pulse rounded"></div>
         <div class="h-10 bg-muted animate-pulse rounded"></div>
         <div class="h-10 bg-muted animate-pulse rounded"></div>
       </div>
-      <div v-else-if="(liveWhoList || whoListData || []).length === 0" class="text-center py-8 text-muted-foreground">
+      <div v-else-if="!whoListData || whoListData.length === 0" class="text-center py-8 text-muted-foreground">
         No players online
       </div>
       <div v-else class="space-y-2">
         <div
-          v-for="player in (liveWhoList || whoListData || [])"
+          v-for="player in whoListData"
           :key="`${player.char_name}-${player.level}-${player.last_connect}`"
           class="flex items-center gap-4 p-3 rounded-lg bg-muted/50"
         >
