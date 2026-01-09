@@ -75,6 +75,8 @@ import { cleanupOrphanImages } from './services/postImageService.js';
 import { getWebSettings } from './services/webSettingsService.js';
 import { startMudAuctionClient, stopMudAuctionClient, setAuctionBroadcaster } from './services/mudAuctionClient.js';
 import { setNotificationBroadcaster, setNewsBroadcaster, notifyPvpBattle } from './services/unifiedNotificationService.js';
+import { getServerHealth, getHealthStatus, updateWebSocketCount } from './services/serverHealthService.js';
+import { pool } from './db/connection.js';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -605,8 +607,6 @@ async function broadcastHealthUpdate() {
   if (!wss) return;
 
   try {
-    const { getServerHealth, getHealthStatus } = await import('./services/serverHealthService.js');
-
     const health = await getServerHealth();
     const status = getHealthStatus(health);
 
@@ -631,10 +631,9 @@ async function broadcastHealthUpdate() {
 }
 
 // Update WebSocket connection count for health monitoring
-async function updateWebSocketConnectionCount() {
+function updateWebSocketConnectionCount() {
   if (!wss) return;
 
-  const { updateWebSocketCount } = await import('./services/serverHealthService.js');
   const count = wss.clients.size;
   updateWebSocketCount(count);
 }
@@ -643,7 +642,6 @@ async function updateWebSocketConnectionCount() {
 async function checkForFragUpdates() {
   try {
     // Query for any frag records updated since last check
-    const { pool } = await import('./db/connection.js');
     const [rows] = await pool.query<any[]>(
       'SELECT COUNT(*) as count FROM frag_leaderboard WHERE last_updated > ?',
       [lastFragUpdateCheck]
