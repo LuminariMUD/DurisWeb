@@ -307,7 +307,6 @@ let wss: WebSocketServer;
 let eventCheckInterval: NodeJS.Timeout | null = null;
 let fragCheckInterval: NodeJS.Timeout | null = null;
 let netstatWatcher: NetstatWatcher | null = null;
-let bootTimeCheckInterval: NodeJS.Timeout | null = null;
 let orphanImageCleanupInterval: NodeJS.Timeout | null = null;
 let healthBroadcastInterval: NodeJS.Timeout | null = null;
 let wsConnectionCountInterval: NodeJS.Timeout | null = null;
@@ -694,7 +693,6 @@ const gracefulShutdown = async () => {
   if (eventCheckInterval) clearInterval(eventCheckInterval);
   if (fragCheckInterval) clearInterval(fragCheckInterval);
   if (netstatWatcher) netstatWatcher.stop();
-  if (bootTimeCheckInterval) clearInterval(bootTimeCheckInterval);
   if (orphanImageCleanupInterval) clearInterval(orphanImageCleanupInterval);
   if (healthBroadcastInterval) clearInterval(healthBroadcastInterval);
   if (wsConnectionCountInterval) clearInterval(wsConnectionCountInterval);
@@ -1337,13 +1335,6 @@ async function startServer() {
     // Start MUD connection log sync service (real-time monitoring)
     const { initializeMudConnectionSync } = await import('./services/mudConnectionLogSync.js');
     await initializeMudConnectionSync();
-
-    // Start server reboot tracking (polls every 60 seconds)
-    const { pollBootTime } = await import('./services/serverRebootService.js');
-    bootTimeCheckInterval = setInterval(pollBootTime, 60000);
-    // Initialize immediately
-    pollBootTime();
-    logger.info('Server reboot tracking started');
 
     // Initialize backup service broadcaster and scheduler
     const { setProgressBroadcaster, setRestoreProgressBroadcaster, startHourlyBackupScheduler } = await import('./services/backupService.js');
