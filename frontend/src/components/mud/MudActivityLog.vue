@@ -107,36 +107,39 @@ const scrollPageDown = () => {
 
 // Store scroll position before split
 const savedScrollTop = ref(0)
+const pendingWheelDelta = ref(0)
+
+// instant split on wheel up (before scroll happens)
+const handleWheel = (e: WheelEvent) => {
+  if (e.deltaY < 0 && !isSplitView.value && scrollContainerRef.value) {
+    e.preventDefault()
+    savedScrollTop.value = scrollContainerRef.value.scrollTop
+    pendingWheelDelta.value = e.deltaY
+    splitIndex.value = filteredLog.value.length
+    isSplitView.value = true
+  }
+}
 
 const handleScroll = () => {
   if (scrollContainerRef.value) {
     const el = scrollContainerRef.value
     const threshold = 50
-    const wasAtBottom = isAtBottom.value
     isAtBottom.value = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
-
-    // Trigger split view when scrolling away from bottom
-    if (wasAtBottom && !isAtBottom.value && !isSplitView.value) {
-      // Save current scroll position before switching
-      savedScrollTop.value = el.scrollTop
-      splitIndex.value = filteredLog.value.length
-      isSplitView.value = true
-    }
-
     autoScroll.value = isAtBottom.value
   }
 }
 
-// Restore scroll position when split view activates
+// Restore scroll position when split view activates and apply pending scroll
 watch(isSplitView, async (newVal) => {
-  if (newVal && savedScrollTop.value > 0) {
+  if (newVal) {
     await nextTick()
-    // Wait for DOM to render
-    setTimeout(() => {
-      if (historyScrollRef.value) {
-        historyScrollRef.value.scrollTop = savedScrollTop.value
-      }
-    }, 0)
+    await nextTick()
+    if (historyScrollRef.value) {
+      const el = historyScrollRef.value
+      // scroll up from bottom by a visible amount
+      el.scrollTop = el.scrollHeight - el.clientHeight - 150
+    }
+    pendingWheelDelta.value = 0
   }
 })
 
@@ -291,6 +294,7 @@ defineExpose({
         ref="scrollContainerRef"
         class="absolute inset-0 overflow-y-auto bg-black"
         @scroll="handleScroll"
+        @wheel="handleWheel"
       >
         <div class="p-2 space-y-0.5 mud-output">
           <div
