@@ -94,8 +94,6 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
       items.push({ label: 'Rules', isActive: true })
     } else if (route.path === '/admin/credits') {
       items.push({ label: 'Credits', isActive: true })
-    } else if (route.path === '/admin/info') {
-      items.push({ label: 'Info', isActive: true })
     } else if (route.path === '/admin/wizlist') {
       items.push({ label: 'Wizlist', isActive: true })
     } else if (route.path === '/admin/faq') {

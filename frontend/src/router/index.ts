@@ -239,12 +239,6 @@ const router = createRouter({
           meta: { requiresAuth: true, requiredPermission: 'manage_motd' },
         },
         {
-          path: 'info',
-          name: 'admin-info',
-          component: () => import('../views/admin/InfoView.vue'),
-          meta: { requiresAuth: true, requiredPermission: 'manage_motd' },
-        },
-        {
           path: 'wizlist',
           name: 'admin-wizlist',
           component: () => import('../views/admin/WizlistView.vue'),

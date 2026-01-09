@@ -1,11 +1,5 @@
 import { pool } from '../db/connection.js';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
-import { promises as fs } from 'fs';
-import path from 'path';
-
-// MUD directory for flat file storage
-const MUD_DIR = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
-const INFORMATION_DIR = path.join(MUD_DIR, 'lib', 'information');
 
 // ===== TYPE DEFINITIONS =====
 
@@ -35,21 +29,23 @@ export interface MudInfo extends RowDataPacket {
 
 // ===== HELP FILES SERVICE (pages table) =====
 
+// category name sql fragment (based on MUD wikihelp.c)
+const CATEGORY_NAME_SQL = `
+  CASE p.category_id
+    WHEN 0 THEN 'General'
+    WHEN 1 THEN 'Redirect'
+    WHEN 9 THEN 'Class'
+    WHEN 10 THEN 'Class Skillsets'
+    WHEN 16 THEN 'Spec'
+    WHEN 25 THEN 'Race'
+    ELSE 'Uncategorized'
+  END as category_name`;
+
 export async function getAllHelpPages(page: number = 1, limit: number = 50, categoryId?: number) {
   const offset = (page - 1) * limit;
 
-  // Hardcoded category names based on MUD wikihelp.c
   let query = `
-    SELECT p.*,
-      CASE p.category_id
-        WHEN 0 THEN 'General'
-        WHEN 1 THEN 'Redirect'
-        WHEN 9 THEN 'Class'
-        WHEN 10 THEN 'Class Skillsets'
-        WHEN 16 THEN 'Spec'
-        WHEN 25 THEN 'Race'
-        ELSE 'Uncategorized'
-      END as category_name
+    SELECT p.*, ${CATEGORY_NAME_SQL}
     FROM pages p
   `;
   const params: any[] = [];
@@ -85,18 +81,7 @@ export async function getAllHelpPages(page: number = 1, limit: number = 50, cate
 
 export async function getHelpPageById(id: number) {
   const [rows] = await pool.query<HelpPage[]>(
-    `SELECT p.*,
-      CASE p.category_id
-        WHEN 0 THEN 'General'
-        WHEN 1 THEN 'Redirect'
-        WHEN 9 THEN 'Class'
-        WHEN 10 THEN 'Class Skillsets'
-        WHEN 16 THEN 'Spec'
-        WHEN 25 THEN 'Race'
-        ELSE 'Uncategorized'
-      END as category_name
-     FROM pages p
-     WHERE p.id = ?`,
+    `SELECT p.*, ${CATEGORY_NAME_SQL} FROM pages p WHERE p.id = ?`,
     [id]
   );
   return rows[0] || null;
@@ -104,18 +89,7 @@ export async function getHelpPageById(id: number) {
 
 export async function getHelpPageByTitle(title: string) {
   const [rows] = await pool.query<HelpPage[]>(
-    `SELECT p.*,
-      CASE p.category_id
-        WHEN 0 THEN 'General'
-        WHEN 1 THEN 'Redirect'
-        WHEN 9 THEN 'Class'
-        WHEN 10 THEN 'Class Skillsets'
-        WHEN 16 THEN 'Spec'
-        WHEN 25 THEN 'Race'
-        ELSE 'Uncategorized'
-      END as category_name
-     FROM pages p
-     WHERE p.title = ?`,
+    `SELECT p.*, ${CATEGORY_NAME_SQL} FROM pages p WHERE p.title = ?`,
     [title]
   );
   return rows[0] || null;
@@ -178,18 +152,11 @@ export async function deleteHelpPage(id: number) {
 }
 
 export async function searchHelpPages(query: string) {
-  const searchTerm = `%${query}%`;
+  // escape sql wildcards to match literal % and _ characters
+  const escaped = query.replace(/[%_]/g, '\\$&');
+  const searchTerm = `%${escaped}%`;
   const [rows] = await pool.query<HelpPage[]>(
-    `SELECT p.*,
-      CASE p.category_id
-        WHEN 0 THEN 'General'
-        WHEN 1 THEN 'Redirect'
-        WHEN 9 THEN 'Class'
-        WHEN 10 THEN 'Class Skillsets'
-        WHEN 16 THEN 'Spec'
-        WHEN 25 THEN 'Race'
-        ELSE 'Uncategorized'
-      END as category_name
+    `SELECT p.*, ${CATEGORY_NAME_SQL}
      FROM pages p
      WHERE p.title LIKE ?
      ORDER BY p.title ASC
@@ -259,77 +226,61 @@ export async function deleteCategory(id: number) {
 // ===== MUD INFO SERVICE (mud_info table - key-value store) =====
 
 export async function getMudInfo(name: string) {
-  const [rows] = await pool.query<MudInfo[]>(
-    'SELECT * FROM mud_info WHERE name = ?',
-    [name]
-  );
-  return rows[0] || null;
-}
-
-// ===== FLAT FILE HELPERS =====
-
-// map content names to their flat file paths
-const FLAT_FILE_MAP: Record<string, string> = {
-  rules: 'rules',
-  credits: 'credits',
-  info: 'info',
-  wizlist: 'wizlist',
-  faq: 'faq',
-};
-
-async function readFlatFile(name: string): Promise<{ name: string; content: string } | null> {
-  const fileName = FLAT_FILE_MAP[name];
-  if (!fileName) return null;
-
-  const filePath = path.join(INFORMATION_DIR, fileName);
   try {
-    const content = await fs.readFile(filePath, 'utf-8');
-    return { name, content };
+    const [rows] = await pool.query<MudInfo[]>(
+      'SELECT * FROM mud_info WHERE name = ?',
+      [name]
+    );
+    return rows[0] || null;
   } catch (error: any) {
-    if (error.code === 'ENOENT') {
+    // table might not exist in dev
+    if (error.code === 'ER_NO_SUCH_TABLE') {
       return null;
     }
     throw error;
   }
 }
 
-async function writeFlatFile(name: string, content: string): Promise<{ name: string; content: string } | null> {
-  const fileName = FLAT_FILE_MAP[name];
-  if (!fileName) return null;
-
-  const filePath = path.join(INFORMATION_DIR, fileName);
-  await fs.writeFile(filePath, content, 'utf-8');
-  return { name, content };
-}
-
 export async function getAllMudInfo() {
-  const [rows] = await pool.query<MudInfo[]>(
-    'SELECT * FROM mud_info ORDER BY name ASC'
-  );
-  return rows;
+  try {
+    const [rows] = await pool.query<MudInfo[]>(
+      'SELECT * FROM mud_info ORDER BY name ASC'
+    );
+    return rows;
+  } catch (error: any) {
+    if (error.code === 'ER_NO_SUCH_TABLE') {
+      return [];
+    }
+    throw error;
+  }
 }
 
 export async function setMudInfo(name: string, content: string) {
-  // Try to update first
-  const [result] = await pool.query<ResultSetHeader>(
-    'UPDATE mud_info SET content = ? WHERE name = ?',
-    [content, name]
-  );
-
-  // If no rows affected, insert new row
-  if (result.affectedRows === 0) {
+  try {
+    // upsert to avoid race condition between UPDATE check and INSERT
     await pool.query(
-      'INSERT INTO mud_info (name, content) VALUES (?, ?)',
+      'INSERT INTO mud_info (name, content) VALUES (?, ?) ON DUPLICATE KEY UPDATE content = VALUES(content)',
       [name, content]
     );
+    return { name, content } as MudInfo;
+  } catch (error: any) {
+    if (error.code === 'ER_NO_SUCH_TABLE') {
+      return null;
+    }
+    throw error;
   }
-
-  return getMudInfo(name);
 }
 
 export async function deleteMudInfo(name: string) {
-  await pool.query('DELETE FROM mud_info WHERE name = ?', [name]);
-  return true;
+  try {
+    await pool.query('DELETE FROM mud_info WHERE name = ?', [name]);
+    return true;
+  } catch (error: any) {
+    if (error.code === 'ER_NO_SUCH_TABLE') {
+      return true; // delete is idempotent
+    }
+    throw error;
+  }
 }
 
 // Convenience functions for specific mud_info entries
@@ -357,44 +308,34 @@ export async function setWizMotd(content: string) {
   return setMudInfo('wizmotd', content);
 }
 
-// ===== FLAT FILE CONTENT (reads/writes directly to MUD lib/information/) =====
-
 export async function getRules() {
-  return readFlatFile('rules');
+  return getMudInfo('rules');
 }
 
 export async function setRules(content: string) {
-  return writeFlatFile('rules', content);
+  return setMudInfo('rules', content);
 }
 
 export async function getCredits() {
-  return readFlatFile('credits');
+  return getMudInfo('credits');
 }
 
 export async function setCredits(content: string) {
-  return writeFlatFile('credits', content);
-}
-
-export async function getInfo() {
-  return readFlatFile('info');
-}
-
-export async function setInfo(content: string) {
-  return writeFlatFile('info', content);
+  return setMudInfo('credits', content);
 }
 
 export async function getWizlist() {
-  return readFlatFile('wizlist');
+  return getMudInfo('wizlist');
 }
 
 export async function setWizlist(content: string) {
-  return writeFlatFile('wizlist', content);
+  return setMudInfo('wizlist', content);
 }
 
 export async function getFaq() {
-  return readFlatFile('faq');
+  return getMudInfo('faq');
 }
 
 export async function setFaq(content: string) {
-  return writeFlatFile('faq', content);
+  return setMudInfo('faq', content);
 }

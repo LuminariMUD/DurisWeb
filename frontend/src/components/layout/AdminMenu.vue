@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import {
   Activity, Sparkles, GitBranch, HardDrive, Power, ChevronDown, Map,
   LayoutDashboard, Settings, ScrollText, Users, ShieldCheck, BookOpen,
-  Newspaper, Megaphone, Wand2, Scale, Palette, Info, Crown, HelpCircle,
+  Newspaper, Megaphone, Wand2, Scale, Palette, Crown, HelpCircle,
   FileText, ClipboardList, Gamepad2, Cog, AlertTriangle, TrendingUp, Timer, MapPin,
   BarChart3, Home, History
 } from 'lucide-vue-next'
@@ -286,17 +286,6 @@ onMounted(() => {
                 >
                   <Palette class="h-4 w-4" />
                   <span>Credits</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              <SidebarMenuItem v-if="hasPermission('manage_motd')">
-                <SidebarMenuButton
-                  tooltip="Info"
-                  @click="router.push('/admin/info')"
-                  :isActive="router.currentRoute.value.path === '/admin/info'"
-                >
-                  <Info class="h-4 w-4" />
-                  <span>Info</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 

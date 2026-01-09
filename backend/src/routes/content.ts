@@ -524,46 +524,6 @@ router.put('/credits', requireAuth, requirePermission('manage_motd'), async (req
   }
 });
 
-// GET /api/content/info - Get MUD Info (requires manage_motd permission)
-router.get('/info', requireAuth, requirePermission('manage_motd'), async (_req, res) => {
-  try {
-    const info = await contentService.getInfo();
-    res.json({ info: info ? info.content : null });
-  } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
-  }
-});
-
-// PUT /api/content/info - Update MUD Info (requires manage_motd permission)
-router.put('/info', requireAuth, requirePermission('manage_motd'), async (req, res) => {
-  try {
-    const { content } = req.body;
-
-    if (!content) {
-      return res.status(400).json({ error: 'Content is required' });
-    }
-
-    // Sanitize HTML content
-    const { content: sanitizedContent } = processForumContent(content);
-    const info = await contentService.setInfo(sanitizedContent);
-
-    // Audit log
-    await logAdminAction(
-      req.user!.accountName,
-      'motd_edit',
-      'MUD Info',
-      undefined,
-      'Updated MUD Info',
-      undefined,
-      extractClientIP(req)
-    );
-
-    return res.json({ info: info?.content || null });
-  } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
-  }
-});
-
 // GET /api/content/wizlist - Get MUD Wizlist (requires manage_motd permission)
 router.get('/wizlist', requireAuth, requirePermission('manage_motd'), async (_req, res) => {
   try {
