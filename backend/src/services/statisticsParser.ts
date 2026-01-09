@@ -6,6 +6,10 @@ import logger, { isErrorWithCode } from '../utils/logger.js';
 const MUD_DIR = process.env.MUD_DIR!;
 const STATISTICS_DIR = path.join(MUD_DIR, 'lib/statistics');
 
+// cache for peak player count (avoid reading 30 files on every player connect)
+let peakPlayerCache: { count: number; timestamp: Date | null; cachedAt: number } | null = null;
+const PEAK_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 interface HourlyStats {
   hour: number;
   goods: number;
@@ -96,8 +100,14 @@ async function parseStatisticsFile(date: Date): Promise<HourlyStats[]> {
 /**
  * Get peak player count from statistics files
  * Searches last 30 days of statistics files
+ * Results are cached for 5 minutes to avoid reading 30 files on every call
  */
 export async function getPeakPlayerCount(): Promise<{ count: number; timestamp: Date | null }> {
+  // check cache first
+  if (peakPlayerCache && (Date.now() - peakPlayerCache.cachedAt) < PEAK_CACHE_TTL) {
+    return { count: peakPlayerCache.count, timestamp: peakPlayerCache.timestamp };
+  }
+
   const today = new Date();
   let maxPlayers = 0;
   let maxTimestamp: Date | null = null;
@@ -124,6 +134,9 @@ export async function getPeakPlayerCount(): Promise<{ count: number; timestamp: 
       continue;
     }
   }
+
+  // update cache
+  peakPlayerCache = { count: maxPlayers, timestamp: maxTimestamp, cachedAt: Date.now() };
 
   return { count: maxPlayers, timestamp: maxTimestamp };
 }
