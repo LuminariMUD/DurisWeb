@@ -1,7 +1,11 @@
 import { pool } from '../db/connection.js';
 import { RowDataPacket } from 'mysql2';
 import os from 'os';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import logger from '../utils/logger.js';
+
+const execAsync = promisify(exec);
 
 export interface DiskSpaceInfo {
   used: number; // bytes
@@ -44,10 +48,6 @@ export interface ServerHealthInfo {
 export async function getDiskSpace(): Promise<DiskSpaceInfo> {
   try {
     // Use df command to get disk usage
-    const { exec } = await import('child_process');
-    const { promisify } = await import('util');
-    const execAsync = promisify(exec);
-
     const { stdout } = await execAsync('df -k /');
     const lines = stdout.trim().split('\n');
 
@@ -101,10 +101,6 @@ export function getMemoryUsage(): MemoryUsageInfo {
  */
 export async function getServerUptime(): Promise<number> {
   try {
-    const { exec } = await import('child_process');
-    const { promisify } = await import('util');
-    const execAsync = promisify(exec);
-
     // Get dms process start time
     const { stdout } = await execAsync('ps -eo pid,etime,cmd | grep -E "[d]ms|[.]/dms" | head -1');
 

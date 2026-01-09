@@ -1,5 +1,6 @@
 import { pool } from '../db/connection.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
+import fs from 'fs/promises';
 import logger from '../utils/logger.js';
 
 interface ServerReboot {
@@ -40,7 +41,6 @@ interface RebootHistory {
  */
 export async function getCurrentBootTime(): Promise<number | null> {
   try {
-    const fs = await import('fs/promises');
     const uptimeData = await fs.readFile('/proc/uptime', 'utf-8');
     const uptimeSeconds = parseFloat(uptimeData.split(' ')[0]);
 
