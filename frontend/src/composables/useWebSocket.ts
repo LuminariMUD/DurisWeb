@@ -234,7 +234,6 @@ export function useWebSocket() {
 
           // Handle player login
           if (message.type === 'PLAYER_LOGIN' && message.data) {
-            console.log('[WebSocket] PLAYER_LOGIN, callbacks:', playerLoginCallbacks.value.length);
             playerLoginCallbacks.value.forEach((callback) => {
               callback(message.data);
             });
@@ -242,7 +241,6 @@ export function useWebSocket() {
 
           // Handle player logout
           if (message.type === 'PLAYER_LOGOUT' && message.data) {
-            console.log('[WebSocket] PLAYER_LOGOUT, callbacks:', playerLogoutCallbacks.value.length);
             playerLogoutCallbacks.value.forEach((callback) => {
               callback(message.data);
             });
