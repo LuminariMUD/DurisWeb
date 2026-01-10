@@ -73,7 +73,7 @@ import { cleanupOrphanImages } from './services/postImageService.js';
 import { getWebSettings } from './services/webSettingsService.js';
 import { startMudAuctionClient, stopMudAuctionClient, setAuctionBroadcaster } from './services/mudAuctionClient.js';
 import { setNotificationBroadcaster, setNewsBroadcaster, notifyPvpBattle } from './services/unifiedNotificationService.js';
-import { getServerHealth, getHealthStatus, updateWebSocketCount } from './services/serverHealthService.js';
+import { updateWebSocketCount } from './services/serverHealthService.js';
 import { pool } from './db/connection.js';
 
 // Get __dirname equivalent in ES modules
@@ -305,7 +305,7 @@ let wss: WebSocketServer;
 let eventCheckInterval: NodeJS.Timeout | null = null;
 let fragCheckInterval: NodeJS.Timeout | null = null;
 let orphanImageCleanupInterval: NodeJS.Timeout | null = null;
-let healthBroadcastInterval: NodeJS.Timeout | null = null;
+const healthBroadcastInterval: NodeJS.Timeout | null = null;
 let wsConnectionCountInterval: NodeJS.Timeout | null = null;
 
 // Track last event ID for new event detection
@@ -560,34 +560,6 @@ export function broadcastNewsUpdate(data: { date: string; items: string[] }) {
   });
 
   logger.info(`[Broadcast] News update sent to ${wss.clients.size} clients`);
-}
-
-// Broadcast health update to all connected WebSocket clients
-async function broadcastHealthUpdate() {
-  if (!wss) return;
-
-  try {
-    const health = await getServerHealth();
-    const status = getHealthStatus(health);
-
-    const message = JSON.stringify({
-      type: 'HEALTH_UPDATE',
-      data: {
-        status: status.status,
-        message: status.message,
-        health,
-        timestamp: new Date().toISOString(),
-      },
-    });
-
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(message);
-      }
-    });
-  } catch (error) {
-    logger.error('Error broadcasting health update:', error);
-  }
 }
 
 // Update WebSocket connection count for health monitoring

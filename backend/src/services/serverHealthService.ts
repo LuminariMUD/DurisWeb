@@ -3,7 +3,7 @@ import { promisify } from 'util';
 import os from 'os';
 import { pool as db } from '../db/connection.js';
 import { getDmsProcessStats } from './processMonitor.js';
-import { getOnlineCount, isMudConnected } from './mudAuctionClient.js';
+import { getOnlineCount } from './mudAuctionClient.js';
 import logger from '../utils/logger.js';
 
 const execAsync = promisify(exec);

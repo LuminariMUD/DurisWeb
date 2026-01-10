@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { useOverviewStats, usePlayerActivity, useWhoList, formatUptime, formatRelativeTime } from '@/composables/useAdminAnalytics'
+import { useOverviewStats, usePlayerActivity, useWhoList, formatRelativeTime } from '@/composables/useAdminAnalytics'
 import StatCard from './StatCard.vue'
 import LineChart from '@/components/charts/LineChart.vue'
 import { Users, TrendingUp, MessageSquare, Swords, UsersRound, Shield, Clock, Database, RefreshCw } from 'lucide-vue-next'
@@ -46,15 +46,15 @@ function updateUptime() {
 }
 
 // websocket handlers for real-time updates
-const handlePlayerLogin = (data: any) => {
+const handlePlayerLogin = (_data: any) => {
   refetchWhoList()
 }
 
-const handlePlayerLogout = (data: any) => {
+const handlePlayerLogout = (_data: any) => {
   refetchWhoList()
 }
 
-const handleWholist = (data: any) => {
+const handleWholist = (_data: any) => {
   // wholist already handled by polling
 }
 

@@ -32,7 +32,7 @@ export interface PlayerInfo {
 }
 
 // in-memory state for online players
-let onlinePlayers: Map<string, PlayerInfo> = new Map();
+const onlinePlayers: Map<string, PlayerInfo> = new Map();
 let factionCounts = { none: 0, goods: 0, evils: 0, undeads: 0, neutrals: 0 };
 let lastShutdownType: string | null = null; // track if shutdown was graceful
 let mudWasDown: boolean = false; // true if mud shutdown/crashed, used to broadcast MUD_ONLINE on reconnect
