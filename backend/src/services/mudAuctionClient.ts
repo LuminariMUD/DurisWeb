@@ -146,7 +146,6 @@ async function connect(): Promise<void> {
     ws.on('message', (data: WebSocket.Data) => {
       try {
         const msg = JSON.parse(data.toString());
-        console.log('[MUD WS]', msg.type, JSON.stringify(msg.data));
         handleMessage(msg);
       } catch (err) {
         logger.error('[MUD Auction] Error parsing message:', err);

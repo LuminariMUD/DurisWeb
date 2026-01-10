@@ -40,7 +40,7 @@ export function watchLog(
     // Create file watcher
     const watcher = fs.watch(logPath, { persistent: false }, (eventType) => {
       if (eventType === 'change') {
-        handleLogChange(key);
+        handleLogChange(key).catch(err => logger.error(`Log change handler error for ${key}:`, err));
       }
     });
 
@@ -90,7 +90,7 @@ export function unwatchLog(
 /**
  * Handle log file change event
  */
-function handleLogChange(key: string): void {
+async function handleLogChange(key: string): Promise<void> {
   const logWatcher = activeWatchers.get(key);
   if (!logWatcher) return;
 
@@ -109,19 +109,35 @@ function handleLogChange(key: string): void {
       return;
     }
 
-    // Read new content from last position
+    // Read new content using createReadStream to avoid large buffer allocations
     const bytesToRead = currentSize - logWatcher.lastSize;
-    const buffer = Buffer.alloc(bytesToRead);
+    const startPos = logWatcher.lastSize;
 
-    const fd = fs.openSync(logPath, 'r');
-    fs.readSync(fd, buffer, 0, bytesToRead, logWatcher.lastSize);
-    fs.closeSync(fd);
-
-    // Update last size
+    // Update last size first to avoid re-reading on rapid changes
     logWatcher.lastSize = currentSize;
 
-    // Parse new lines
-    const newContent = buffer.toString('utf-8');
+    // Use streams for large reads, direct buffer for small reads
+    let newContent: string;
+    if (bytesToRead > 64 * 1024) {
+      // For large reads (>64KB), use streaming
+      const chunks: Buffer[] = [];
+      const stream = fs.createReadStream(logPath, {
+        start: startPos,
+        end: currentSize - 1,
+        highWaterMark: 64 * 1024
+      });
+      for await (const chunk of stream) {
+        chunks.push(chunk as Buffer);
+      }
+      newContent = Buffer.concat(chunks).toString('utf-8');
+    } else {
+      // For small reads, use direct buffer (already optimized by V8)
+      const buffer = Buffer.allocUnsafe(bytesToRead);
+      const fd = fs.openSync(logPath, 'r');
+      fs.readSync(fd, buffer, 0, bytesToRead, startPos);
+      fs.closeSync(fd);
+      newContent = buffer.toString('utf-8');
+    }
     const newLines = newContent
       .split('\n')
       .filter(line => line.trim().length > 0);
