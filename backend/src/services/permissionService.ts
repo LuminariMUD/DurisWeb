@@ -111,13 +111,6 @@ export async function getCharacterInfo(characterNames: string[]): Promise<Charac
       money: row.money || 0
     }));
 
-    // log if we got fewer characters than requested (helps debug missing characters)
-    if (result.length < characterNames.length) {
-      const foundNames = result.map(c => c.name.toLowerCase());
-      const missingNames = characterNames.filter(n => !foundNames.includes(n.toLowerCase()));
-      logger.warn(`[Permissions] Character lookup mismatch: requested ${characterNames.length}, found ${result.length}. Missing: ${missingNames.join(', ')}`);
-    }
-
     return result;
   } catch (error) {
     logger.error('[Permissions] Error fetching character info:', error);

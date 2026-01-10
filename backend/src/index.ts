@@ -1358,12 +1358,6 @@ async function startServer() {
       logger.info(`  WS   /ws (Real-time updates)`);
       logger.info(`${'='.repeat(50)}\n`);
 
-      // memory leak tracking (temporary for debugging)
-      setInterval(() => {
-        const mem = process.memoryUsage();
-        const wsClients = wss ? wss.clients.size : 0;
-        logger.info(`[MEM] heap: ${Math.round(mem.heapUsed / 1024 / 1024)}MB, rss: ${Math.round(mem.rss / 1024 / 1024)}MB | ws: ${wsClients}`);
-      }, 10000);
     });
   } catch (error) {
     logger.error('Failed to start server:', error);
