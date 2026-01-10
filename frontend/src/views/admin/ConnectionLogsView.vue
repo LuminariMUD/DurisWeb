@@ -586,9 +586,11 @@ const debouncedFetch = () => {
   }, 500)
 }
 
-// Format timestamp
 const formatTimestamp = (timestamp: string) => {
-  return new Date(timestamp).toLocaleString()
+  if (!timestamp) return '-'
+  let ts = timestamp.replace(' ', 'T')
+  if (!ts.endsWith('Z') && !ts.includes('+')) ts += 'Z'
+  return new Date(ts).toLocaleString()
 }
 
 // Format geolocation

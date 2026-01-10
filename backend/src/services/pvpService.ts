@@ -864,6 +864,84 @@ export async function getClassMatchups(period: '7d' | '30d' | '90d' | 'all' = 'a
   return result.sort((a, b) => b.wins - a.wins);
 }
 
+/**
+ * Get MUD client usage statistics
+ */
+export async function getClientStats(period: '7d' | '30d' | '90d' | 'all' = '30d'): Promise<{
+  clients: Array<{
+    name: string;
+    count: number;
+    percentage: number;
+    versions: Array<{ version: string; count: number }>;
+  }>;
+  total: number;
+  period: string;
+}> {
+  const periodDays: Record<string, number | null> = {
+    '7d': 7,
+    '30d': 30,
+    '90d': 90,
+    'all': null,
+  };
+
+  const days = periodDays[period];
+
+  const sql = days
+    ? `
+      SELECT client, client_version, COUNT(*) as count
+      FROM account_login_history
+      WHERE status = 'login'
+        AND client IS NOT NULL
+        AND client != ''
+        AND timestamp >= DATE_SUB(NOW(), INTERVAL ? DAY)
+      GROUP BY client, client_version
+      ORDER BY client, count DESC
+    `
+    : `
+      SELECT client, client_version, COUNT(*) as count
+      FROM account_login_history
+      WHERE status = 'login'
+        AND client IS NOT NULL
+        AND client != ''
+      GROUP BY client, client_version
+      ORDER BY client, count DESC
+    `;
+
+  const [rows] = days
+    ? await pool.query<RowDataPacket[]>(sql, [days])
+    : await pool.query<RowDataPacket[]>(sql);
+
+  // group by client, with versions nested
+  const clientMap = new Map<string, { count: number; versions: Array<{ version: string; count: number }> }>();
+
+  for (const row of rows) {
+    const client = row.client as string;
+    const version = (row.client_version as string) || 'unknown';
+    const count = Number(row.count);
+
+    if (!clientMap.has(client)) {
+      clientMap.set(client, { count: 0, versions: [] });
+    }
+    const entry = clientMap.get(client)!;
+    entry.count += count;
+    entry.versions.push({ version, count });
+  }
+
+  const total = Array.from(clientMap.values()).reduce((sum, c) => sum + c.count, 0);
+
+  // sort by total count desc, versions already sorted by count desc from sql
+  const clients = Array.from(clientMap.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .map(([name, data]) => ({
+      name,
+      count: data.count,
+      percentage: total > 0 ? Math.round((data.count / total) * 1000) / 10 : 0,
+      versions: data.versions,
+    }));
+
+  return { clients, total, period };
+}
+
 // ==================== BATTLE INTERACTIONS ====================
 
 /**

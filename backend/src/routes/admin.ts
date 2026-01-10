@@ -56,6 +56,7 @@ import {
 } from '../services/logService.js';
 import { createReadStream } from 'fs';
 import { pool as db } from '../db/connection.js';
+import { requestWhoList, getOnlinePlayers, isMudConnected, getMudBootTime } from '../services/mudAuctionClient.js';
 import { getCategorizedProperties, searchProperties, updateProperty, validatePropertyValue, getPropertyHistory } from '../services/propertiesParser.js';
 import { RowDataPacket } from 'mysql2';
 import {
@@ -758,6 +759,16 @@ router.get('/analytics/overview', requireAuth, requireOverlord, async (_req: Req
   }
 });
 
+router.get('/mud-boot-time', requireAuth, async (_req: Request, res: Response) => {
+  try {
+    const bootTime = await getMudBootTime();
+    return res.json({ bootTime });
+  } catch (error) {
+    logger.error('Get mud boot time error:', error);
+    return res.status(500).json({ error: 'Failed to get MUD boot time' });
+  }
+});
+
 /**
  * GET /api/admin/analytics/forum
  * Get forum analytics
@@ -871,8 +882,29 @@ router.get('/analytics/server', requireAuth, requireOverlord, async (_req: Reque
  */
 router.get('/who', requireAuth, requireOverlord, async (_req: Request, res: Response) => {
   try {
+    // use in-memory state from mud websocket, fallback to db query
+    const mudConnected = isMudConnected();
+
+    if (mudConnected) {
+      // map websocket fields to frontend expected format
+      const wsPlayers = getOnlinePlayers();
+      const players = wsPlayers.map(p => ({
+        char_name: p.character,
+        account: p.account,
+        last_ip: p.ip,
+        level: p.level,
+        race: p.race,
+        class: p.class,
+        faction: p.faction,
+        client: p.client,
+        clientVersion: p.clientVersion,
+        uptime_seconds: p.uptime_seconds,
+      }));
+      return res.json({ players, source: 'websocket' });
+    }
+
     const players = await getWhoList();
-    return res.json({ players });
+    return res.json({ players, source: 'database' });
   } catch (error) {
     logger.error('Get WHO list error:', error);
     return res.status(500).json({ error: 'Failed to get WHO list' });
@@ -895,12 +927,18 @@ router.post('/analytics/cleanup-connections', requireAuth, requireOverlord, asyn
 
     const rowsAffected = (cleanupResult as any).affectedRows;
 
-    // Step 2: Get fresh WHO list
-    const whoList = await getWhoList();
+    // Step 2: Request fresh wholist from MUD via websocket
+    const mudConnected = isMudConnected();
+    if (mudConnected) {
+      requestWhoList();
+    }
+
+    // Step 3: Return current in-memory state (will be updated when MUD responds)
+    const whoList = getOnlinePlayers();
 
     return res.json({
       success: true,
-      message: `Cleaned up ${rowsAffected} stale connection(s)`,
+      message: `Cleaned up ${rowsAffected} stale connection(s)${mudConnected ? ', requested fresh wholist from MUD' : ' (MUD not connected)'}`,
       whoList
     });
   } catch (error) {

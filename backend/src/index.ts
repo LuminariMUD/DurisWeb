@@ -43,7 +43,7 @@ import { getLatestEvents, getPvPEventDetail } from './services/pvpService.js';
 import fs from 'fs';
 import { startGuildSync, stopGuildSync } from './services/guildSyncService.js';
 import { startAccountSyncService } from './services/accountCharacterSync.js';
-import { NetstatWatcher } from './services/netstatWatcher.js';
+// netstatWatcher removed - player count now tracked via mud websocket events
 import { watchLog, unwatchLog, cleanupLogWatchers } from './services/logWatchService.js';
 import {
   createSession as createTerminalSession,
@@ -304,7 +304,6 @@ let wss: WebSocketServer;
 // Interval timers that need to be cleared on shutdown
 let eventCheckInterval: NodeJS.Timeout | null = null;
 let fragCheckInterval: NodeJS.Timeout | null = null;
-let netstatWatcher: NetstatWatcher | null = null;
 let orphanImageCleanupInterval: NodeJS.Timeout | null = null;
 let healthBroadcastInterval: NodeJS.Timeout | null = null;
 let wsConnectionCountInterval: NodeJS.Timeout | null = null;
@@ -654,7 +653,6 @@ const gracefulShutdown = async () => {
   // Clear all interval timers
   if (eventCheckInterval) clearInterval(eventCheckInterval);
   if (fragCheckInterval) clearInterval(fragCheckInterval);
-  if (netstatWatcher) netstatWatcher.stop();
   if (orphanImageCleanupInterval) clearInterval(orphanImageCleanupInterval);
   if (healthBroadcastInterval) clearInterval(healthBroadcastInterval);
   if (wsConnectionCountInterval) clearInterval(wsConnectionCountInterval);
@@ -666,14 +664,12 @@ const gracefulShutdown = async () => {
   const { stopAccountSyncService } = await import('./services/accountCharacterSync.js');
   stopAccountSyncService();
 
-  const { stopCrashMonitoring } = await import('./services/crashDetectionService.js');
-  stopCrashMonitoring();
+  // crash detection now handled by mud websocket disconnect
 
   const { stopHealthMonitoring } = await import('./services/serverHealthService.js');
   stopHealthMonitoring();
 
-  const { stopRealtimeMonitoring } = await import('./services/mudConnectionLogSync.js');
-  stopRealtimeMonitoring();
+  // mud connection log sync removed - now using websocket events
 
   // Stop MUD auction client
   stopMudAuctionClient();
@@ -781,12 +777,15 @@ async function startServer() {
     wss = new WebSocketServer({ server, path: '/ws' });
 
     wss.on('connection', (ws: WebSocket) => {
-      // Rate limiting state per connection
+      logger.info(`[WS] client connected, total: ${wss.clients.size}`);
+
       (ws as any).messageCount = 0;
       (ws as any).lastReset = Date.now();
-
-      // Store client-specific subscriptions with their callbacks for proper cleanup
       (ws as any).logSubscriptions = new Map<string, (newLines: string[]) => void>();
+
+      ws.on('close', () => {
+        logger.info(`[WS] client disconnected, total: ${wss.clients.size}`);
+      });
 
       // Handle incoming messages
       ws.on('message', async (message: string | Buffer) => {
@@ -1239,12 +1238,7 @@ async function startServer() {
     // Start polling for frag updates using same interval
     fragCheckInterval = setInterval(checkForFragUpdates, pvpPollInterval);
 
-    // Start event-driven netstat watcher (logs player count changes)
-    netstatWatcher = new NetstatWatcher();
-    netstatWatcher.on('change', (count) => {
-      logger.info(`Player connection change detected: ${count} online`);
-    });
-    netstatWatcher.start();
+    // netstat watcher removed - player count now tracked via mud websocket events
 
     // Start guild auto-access sync service (polls every 5 minutes)
     // DISABLED by default - set ENABLE_GUILD_SYNC=true in .env to enable
@@ -1255,20 +1249,13 @@ async function startServer() {
       logger.info('Guild sync service disabled (set ENABLE_GUILD_SYNC=true to enable)');
     }
 
-    // Start crash detection monitoring (polls every 30 seconds)
-    const { startCrashMonitoring } = await import('./services/crashDetectionService.js');
-    await startCrashMonitoring();
-    logger.info('Crash detection monitoring started');
+    // crash detection now handled by mud websocket disconnect in mudAuctionClient
 
     // Start server health monitoring (records metrics every 5 minutes)
     const { startHealthMonitoring } = await import('./services/serverHealthService.js');
     startHealthMonitoring();
     logger.info('Server health monitoring started');
 
-    // Broadcast health updates every 30 seconds
-    healthBroadcastInterval = setInterval(broadcastHealthUpdate, 30000);
-    // Send initial health update
-    broadcastHealthUpdate();
 
     // Update WebSocket connection count every 10 seconds
     wsConnectionCountInterval = setInterval(updateWebSocketConnectionCount, 10000);
@@ -1280,9 +1267,7 @@ async function startServer() {
     const { initializeGeoIP } = await import('./utils/geoip.js');
     await initializeGeoIP();
 
-    // Start MUD connection log sync service (real-time monitoring)
-    const { initializeMudConnectionSync } = await import('./services/mudConnectionLogSync.js');
-    await initializeMudConnectionSync();
+    // mud connection log sync removed - now using websocket events from mudAuctionClient
 
     // Initialize backup service broadcaster and scheduler
     const { setProgressBroadcaster, setRestoreProgressBroadcaster, startHourlyBackupScheduler } = await import('./services/backupService.js');

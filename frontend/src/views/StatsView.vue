@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { useLeaderboard, usePlayerStats } from '@/composables/usePvPEvents'
-import { useKillTimeline, useActiveHours, usePopularLocations, useClassMatchups } from '@/composables/useAnalytics'
+import { useKillTimeline, useActiveHours, usePopularLocations, useClassMatchups, useClientStats } from '@/composables/useAnalytics'
 import { Bar, Doughnut, Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -126,6 +126,7 @@ const { data: killTimeline, isLoading: isLoadingTimeline } = useKillTimeline(ana
 const { data: activeHours, isLoading: isLoadingHours } = useActiveHours(analyticsPeriod)
 const { data: popularLocations, isLoading: isLoadingLocations } = usePopularLocations(10, analyticsPeriod)
 const { data: classMatchups, isLoading: isLoadingMatchups } = useClassMatchups(analyticsPeriod)
+const { data: clientStats, isLoading: isLoadingClients } = useClientStats(analyticsPeriod)
 
 // Type labels
 const typeLabels: Record<string, string> = {
@@ -371,6 +372,80 @@ const activeHoursChartOptions = computed(() => ({
   },
   onClick: handleActiveHoursClick
 }));
+
+// Client Stats Chart Data
+const clientStatsChartData = computed(() => {
+  if (!clientStats.value || !clientStats.value.clients || clientStats.value.clients.length === 0) return null
+
+  return {
+    labels: clientStats.value.clients.map(c => c.name),
+    datasets: [
+      {
+        label: 'Logins',
+        data: clientStats.value.clients.map(c => c.count),
+        backgroundColor: [
+          'rgba(34, 211, 238, 0.8)',
+          'rgba(6, 182, 212, 0.8)',
+          'rgba(8, 145, 178, 0.8)',
+          'rgba(21, 94, 117, 0.8)',
+          'rgba(22, 78, 99, 0.8)',
+          'rgba(34, 211, 238, 0.6)',
+          'rgba(6, 182, 212, 0.6)',
+          'rgba(8, 145, 178, 0.6)',
+          'rgba(21, 94, 117, 0.6)',
+          'rgba(22, 78, 99, 0.6)',
+        ],
+        borderColor: [
+          'rgb(34, 211, 238)',
+          'rgb(6, 182, 212)',
+          'rgb(8, 145, 178)',
+          'rgb(21, 94, 117)',
+          'rgb(22, 78, 99)',
+          'rgb(34, 211, 238)',
+          'rgb(6, 182, 212)',
+          'rgb(8, 145, 178)',
+          'rgb(21, 94, 117)',
+          'rgb(22, 78, 99)',
+        ],
+        borderWidth: 1
+      }
+    ]
+  }
+})
+
+const clientStatsChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      position: 'right' as const,
+      labels: {
+        color: '#e5e7eb',
+        font: { size: 12 }
+      }
+    },
+    title: {
+      display: true,
+      text: `MUD Clients (${periodLabel.value})`,
+      color: '#e5e7eb',
+      font: { size: 16 }
+    },
+    tooltip: {
+      callbacks: {
+        title: (items: any[]) => {
+          if (!items.length) return ''
+          return items[0].label
+        },
+        label: (context: any) => {
+          const idx = context.dataIndex
+          const client = clientStats.value?.clients?.[idx]
+          if (!client || !client.versions) return [`  logins: ${context.raw}`]
+          return client.versions.map((v: { version: string; count: number }) => `  ${v.version}: ${v.count}`)
+        }
+      }
+    }
+  }
+}))
 
 // Popular Locations Chart Data
 const locationsChartData = computed(() => {
@@ -803,14 +878,26 @@ const navigateToPlayer = async (playerName: string) => {
 
       <!-- Active Hours and Popular Locations -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-        <!-- Active Hours -->
-        <div v-if="activeHoursChartData" class="rounded-lg border border-gray-800 bg-gray-950 p-3 lg:p-6">
-          <div class="h-[250px] lg:h-[350px]">
-            <Bar :data="activeHoursChartData" :options="activeHoursChartOptions" />
+        <!-- Active Hours + MUD Clients -->
+        <div class="flex flex-col gap-4">
+          <div v-if="activeHoursChartData" class="rounded-lg border border-gray-800 bg-gray-950 p-3 lg:p-6">
+            <div class="h-[250px] lg:h-[350px]">
+              <Bar :data="activeHoursChartData" :options="activeHoursChartOptions" />
+            </div>
           </div>
-        </div>
-        <div v-else-if="isLoadingHours" class="rounded-lg border border-gray-800 bg-gray-950 p-3 lg:p-6 flex items-center justify-center h-[250px] lg:h-[350px]">
-          <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
+          <div v-else-if="isLoadingHours" class="rounded-lg border border-gray-800 bg-gray-950 p-3 lg:p-6 flex items-center justify-center h-[250px] lg:h-[350px]">
+            <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
+          </div>
+
+          <!-- MUD Clients -->
+          <div v-if="clientStatsChartData" class="flex-1 rounded-lg border border-gray-800 bg-gray-950 p-3 lg:p-6">
+            <div class="h-full">
+              <Doughnut :data="clientStatsChartData" :options="clientStatsChartOptions" />
+            </div>
+          </div>
+          <div v-else-if="isLoadingClients" class="flex-1 rounded-lg border border-gray-800 bg-gray-950 p-3 lg:p-6 flex items-center justify-center">
+            <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
+          </div>
         </div>
 
         <!-- Popular Locations -->

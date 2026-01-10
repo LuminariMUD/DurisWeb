@@ -233,6 +233,11 @@ export const pvpApi = {
     return data
   },
 
+  async getClientStats(period: string = '30d'): Promise<{ clients: Array<{ name: string; count: number; percentage: number; versions: Array<{ version: string; count: number }> }>; total: number; period: string }> {
+    const { data } = await api.get(`/api/pvp/analytics/client-stats?period=${period}`)
+    return data
+  },
+
   /**
    * Health check
    */

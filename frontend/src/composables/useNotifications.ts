@@ -62,15 +62,7 @@ export function useNotifications() {
 
   // Show browser notification
   const showNotification = (options: NotificationOptions) => {
-    if (!isSupported.value) {
-      return null
-    }
-
-    if (!hasPermission.value) {
-      return null
-    }
-
-    if (!isEnabled.value) {
+    if (!isSupported.value || !hasPermission.value || !isEnabled.value) {
       return null
     }
 
@@ -78,10 +70,7 @@ export function useNotifications() {
       const notification = new Notification(options.title, {
         body: options.body,
         icon: options.icon || '/favicon.ico',
-        tag: options.tag,
         data: options.data,
-        requireInteraction: false,
-        silent: false,
       })
 
       // Play sound if requested
@@ -127,26 +116,35 @@ export function useNotifications() {
   // Generate beep sound using Web Audio API (fallback)
   const playBeepSound = () => {
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+      if (!AudioContextClass) return
+
+      const audioContext = new AudioContextClass()
+
+      // Check if context is suspended (requires user gesture)
+      if (audioContext.state === 'suspended') {
+        audioContext.close()
+        return
+      }
+
       const oscillator = audioContext.createOscillator()
       const gainNode = audioContext.createGain()
 
       oscillator.connect(gainNode)
       gainNode.connect(audioContext.destination)
 
-      // Create a pleasant two-tone beep
-      oscillator.frequency.value = 800 // 800 Hz
-      gainNode.gain.value = 0.2 // 20% volume (subtle)
+      oscillator.frequency.value = 800
+      gainNode.gain.value = 0.2
 
       oscillator.start()
 
-      // Change to lower tone after 100ms
       setTimeout(() => {
-        oscillator.frequency.value = 600 // 600 Hz
+        oscillator.frequency.value = 600
       }, 100)
 
-      oscillator.stop(audioContext.currentTime + 0.25) // 250ms total
+      oscillator.stop(audioContext.currentTime + 0.25)
     } catch {
+      // Silently ignore audio errors
     }
   }
 

@@ -12,6 +12,31 @@ import { getWebSettings } from './webSettingsService.js';
 import * as notificationService from './unifiedNotificationService.js';
 import { pool as db } from '../db/connection.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { getDmsProcessStats } from './processMonitor.js';
+import redis from '../db/redis.js';
+
+const MUD_BOOT_TIME_KEY = 'mud:boot_timestamp';
+
+// player info from mud events
+export interface PlayerInfo {
+  character: string;
+  account: string;
+  ip: string;
+  level: number;
+  race: string;
+  class: string;
+  faction: number; // racewar: 0=none, 1=good, 2=evil, 3=undead, 4=neutral
+  client: string;
+  clientVersion: string;
+  loginTime: number; // timestamp when backend received login
+}
+
+// in-memory state for online players
+let onlinePlayers: Map<string, PlayerInfo> = new Map();
+let factionCounts = { none: 0, goods: 0, evils: 0, undeads: 0, neutrals: 0 };
+let lastShutdownType: string | null = null; // track if shutdown was graceful
+let mudWasDown: boolean = false; // true if mud shutdown/crashed, used to broadcast MUD_ONLINE on reconnect
+let alreadyBroadcastCrash: boolean = false; // prevent spamming MUD_CRASH on reconnect failures
 
 // auction event types from MUD
 export interface AuctionNewEvent {
@@ -119,6 +144,7 @@ async function connect(): Promise<void> {
     ws.on('message', (data: WebSocket.Data) => {
       try {
         const msg = JSON.parse(data.toString());
+        console.log('[MUD WS]', msg.type, JSON.stringify(msg.data));
         handleMessage(msg);
       } catch (err) {
         logger.error('[MUD Auction] Error parsing message:', err);
@@ -127,6 +153,7 @@ async function connect(): Promise<void> {
 
     ws.on('close', (code, reason) => {
       logger.info(`[MUD Auction] Connection closed: ${code} ${reason}`);
+      handleWebSocketClose();
       cleanup();
       scheduleReconnect();
     });
@@ -204,18 +231,33 @@ function handleMessage(msg: any): void {
       logger.info(`[MUD Auction] Bid on #${msg.data.id}: ${msg.data.amount}c by ${msg.data.bidder}`);
       broadcast('AUCTION_BID', msg.data as AuctionBidEvent);
       // Notify previous bidder they were outbid
-      handleAuctionBid(msg.data as AuctionBidEvent);
+      handleAuctionBid(msg.data as AuctionBidEvent).catch(err => logger.error('[MUD] auction_bid error:', err));
       break;
 
     case 'auction_close':
       logger.info(`[MUD Auction] Auction #${msg.data.id} closed: ${msg.data.reason}`);
       broadcast('AUCTION_CLOSE', msg.data as AuctionCloseEvent);
       // Create notifications for sold auctions
-      handleAuctionClose(msg.data as AuctionCloseEvent);
+      handleAuctionClose(msg.data as AuctionCloseEvent).catch(err => logger.error('[MUD] auction_close error:', err));
+      break;
+
+    case 'wholist':
+      handleWhoList(msg.data.players || []).catch(err => logger.error('[MUD] wholist error:', err));
+      break;
+
+    case 'player_login':
+      handlePlayerLogin(msg.data).catch(err => logger.error('[MUD] player_login error:', err));
+      break;
+
+    case 'player_logout':
+      handlePlayerLogout(msg.data).catch(err => logger.error('[MUD] player_logout error:', err));
+      break;
+
+    case 'mud_shutdown':
+      handleMudShutdown(msg.data);
       break;
 
     default:
-      // ignore other message types
       break;
   }
 }
@@ -317,6 +359,164 @@ async function handleAuctionClose(event: AuctionCloseEvent): Promise<void> {
 }
 
 /**
+ * get faction key from racewar number
+ */
+function getFactionKey(faction: number): keyof typeof factionCounts {
+  switch (faction) {
+    case 1: return 'goods';
+    case 2: return 'evils';
+    case 3: return 'undeads';
+    case 4: return 'neutrals';
+    default: return 'none';
+  }
+}
+
+/**
+ * handle wholist - initial sync of all online players
+ */
+async function handleWhoList(players: any[]): Promise<void> {
+  onlinePlayers.clear();
+  factionCounts = { none: 0, goods: 0, evils: 0, undeads: 0, neutrals: 0 };
+
+  const now = Date.now();
+  for (const p of players) {
+    const player: PlayerInfo = {
+      ...p,
+      loginTime: now - ((p.uptime || 0) * 1000),
+    };
+    onlinePlayers.set(player.character.toLowerCase(), player);
+    factionCounts[getFactionKey(player.faction)]++;
+  }
+
+  logger.info(`[MUD] wholist received: ${players.length} players online`);
+  broadcast('WHOLIST', { players: Array.from(onlinePlayers.values()), counts: factionCounts });
+
+  // broadcast MUD_ONLINE only after crash/shutdown/reboot, not on regular backend restart
+  if (mudWasDown) {
+    mudWasDown = false;
+    alreadyBroadcastCrash = false; // reset for next potential crash
+    // mud just came back, save boot time (uptime is 0 or very small)
+    await saveMudBootTime(0);
+    logger.info('[MUD] mud is back online after downtime');
+    // invalidate cached stats so dashboard shows fresh data (use dynamic import to avoid circular dep)
+    try {
+      const { invalidateOverviewStats } = await import('./analyticsService.js');
+      await invalidateOverviewStats();
+    } catch (err) {
+      logger.error('[MUD] failed to invalidate stats cache:', err);
+    }
+    broadcast('MUD_ONLINE', { timestamp: Date.now(), onlineCount: players.length });
+  }
+}
+
+/**
+ * handle player login
+ */
+async function handlePlayerLogin(player: PlayerInfo): Promise<void> {
+  const key = player.character.toLowerCase();
+  player.loginTime = Date.now();
+
+  if (!onlinePlayers.has(key)) {
+    onlinePlayers.set(key, player);
+    factionCounts[getFactionKey(player.faction)]++;
+  }
+
+  logger.info(`[MUD] player login: ${player.character} (${player.account}) - ${onlinePlayers.size} online`);
+
+  try {
+    await db.query(
+      'INSERT IGNORE INTO account_login_history (account_name, character_name, ip_address, status, timestamp, hostname, client, client_version) VALUES (?, ?, ?, ?, NOW(), ?, ?, ?)',
+      [player.account, player.character, player.ip, 'login', null, player.client || null, player.clientVersion || null]
+    );
+  } catch (err) {
+    logger.error('[MUD] failed to store login:', err);
+  }
+
+  broadcast('PLAYER_LOGIN', { player, onlineCount: onlinePlayers.size, factionCounts });
+}
+
+/**
+ * handle player logout
+ */
+async function handlePlayerLogout(data: { character: string; faction: number }): Promise<void> {
+  const key = data.character.toLowerCase();
+  const player = onlinePlayers.get(key);
+
+  if (player) {
+    onlinePlayers.delete(key);
+    factionCounts[getFactionKey(data.faction)]--;
+    // clamp to 0
+    const fk = getFactionKey(data.faction);
+    if (factionCounts[fk] < 0) factionCounts[fk] = 0;
+  }
+
+  logger.info(`[MUD] player logout: ${data.character} - ${onlinePlayers.size} online`);
+
+  // store in db for history
+  try {
+    // get account from player if we had it, otherwise lookup
+    const account = player?.account;
+    if (account) {
+      await db.query(
+        'INSERT IGNORE INTO account_login_history (account_name, character_name, ip_address, status, timestamp, hostname) VALUES (?, ?, ?, ?, NOW(), ?)',
+        [account, data.character, player?.ip || '', 'logout', null]
+      );
+    }
+  } catch (err) {
+    logger.error('[MUD] failed to store logout:', err);
+  }
+
+  broadcast('PLAYER_LOGOUT', { character: data.character, onlineCount: onlinePlayers.size, factionCounts });
+}
+
+/**
+ * handle graceful mud shutdown
+ */
+function handleMudShutdown(data: { type: string; timestamp?: number }): void {
+  lastShutdownType = data.type;
+  mudWasDown = true; // flag for MUD_ONLINE broadcast on reconnect
+  logger.info(`[MUD] graceful shutdown: ${data.type}`);
+
+  // clear online players since mud is going down
+  onlinePlayers.clear();
+  factionCounts = { none: 0, goods: 0, evils: 0, undeads: 0, neutrals: 0 };
+
+  broadcast('MUD_SHUTDOWN', { type: data.type, timestamp: data.timestamp || Date.now() });
+}
+
+/**
+ * called when websocket closes - detect crash if no graceful shutdown
+ */
+async function handleWebSocketClose(): Promise<void> {
+  // check if MUD process is still running via ps
+  const processStats = await getDmsProcessStats();
+
+  if (lastShutdownType !== null) {
+    // graceful shutdown was received
+    mudWasDown = true;
+    alreadyBroadcastCrash = false;
+    await clearMudBootTime();
+    logger.info('[MUD] websocket closed after graceful shutdown');
+  } else if (!processStats.isRunning && !alreadyBroadcastCrash) {
+    // process not running = real crash
+    mudWasDown = true;
+    alreadyBroadcastCrash = true;
+    await clearMudBootTime();
+    logger.warn('[MUD] MUD process crashed (not running)');
+    broadcast('MUD_CRASH', { timestamp: Date.now() });
+  } else if (processStats.isRunning) {
+    // process still running = just websocket disconnect, not a crash
+    await saveMudBootTime(processStats.uptime);
+    logger.info('[MUD] websocket disconnected but MUD still running (uptime: ' + processStats.uptime + 's)');
+  }
+
+  // clear state
+  onlinePlayers.clear();
+  factionCounts = { none: 0, goods: 0, evils: 0, undeads: 0, neutrals: 0 };
+  lastShutdownType = null;
+}
+
+/**
  * cleanup resources
  */
 function cleanup(): void {
@@ -350,11 +550,36 @@ export function setAuctionBroadcaster(fn: AuctionBroadcaster): void {
   broadcaster = fn;
 }
 
+async function saveMudBootTime(uptimeSeconds: number): Promise<void> {
+  const bootTimestamp = Date.now() - (uptimeSeconds * 1000);
+  await redis.set(MUD_BOOT_TIME_KEY, bootTimestamp.toString());
+  logger.info(`[MUD] boot timestamp saved: ${new Date(bootTimestamp).toISOString()}`);
+}
+
+async function clearMudBootTime(): Promise<void> {
+  await redis.del(MUD_BOOT_TIME_KEY);
+  logger.info('[MUD] boot timestamp cleared');
+}
+
+export async function getMudBootTime(): Promise<number | null> {
+  const value = await redis.get(MUD_BOOT_TIME_KEY);
+  return value ? parseInt(value, 10) : null;
+}
+
 /**
  * start the MUD auction client
  */
-export function startMudAuctionClient(): void {
+export async function startMudAuctionClient(): Promise<void> {
   isShuttingDown = false;
+
+  // check ps for mud uptime on backend start
+  const processStats = await getDmsProcessStats();
+  if (processStats.isRunning && processStats.uptime > 0) {
+    await saveMudBootTime(processStats.uptime);
+  } else {
+    await clearMudBootTime();
+  }
+
   connect();
 }
 
@@ -478,4 +703,50 @@ export function sendMudCommandAsync(
  */
 export function isMudConnected(): boolean {
   return ws !== null && ws.readyState === WebSocket.OPEN;
+}
+
+/**
+ * get current online player count
+ */
+export function getOnlineCount(): number {
+  return onlinePlayers.size;
+}
+
+/**
+ * get current faction counts
+ */
+export function getFactionCounts(): typeof factionCounts {
+  return { ...factionCounts };
+}
+
+/**
+ * get online players list
+ */
+export function getOnlinePlayers(): (PlayerInfo & { uptime_seconds: number })[] {
+  const now = Date.now();
+  return Array.from(onlinePlayers.values()).map(p => ({
+    ...p,
+    uptime_seconds: Math.floor((now - p.loginTime) / 1000),
+  }));
+}
+
+
+/**
+ * request fresh wholist from mud
+ */
+export function requestWhoList(): boolean {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    logger.warn('[MUD] cannot request wholist - not connected');
+    return false;
+  }
+
+  const msg = {
+    type: 'cmd',
+    cmd: 'request_wholist',
+    data: {},
+  };
+
+  ws.send(JSON.stringify(msg));
+  logger.info('[MUD] requested fresh wholist');
+  return true;
 }

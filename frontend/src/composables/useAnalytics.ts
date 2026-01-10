@@ -34,3 +34,11 @@ export function useClassMatchups(period: MaybeRef<AnalyticsPeriod> = 'all') {
     staleTime: 1000 * 60 * 10, // 10 minutes
   });
 }
+
+export function useClientStats(period: MaybeRef<AnalyticsPeriod> = '30d') {
+  return useQuery({
+    queryKey: computed(() => ['client-stats', unref(period)]),
+    queryFn: () => pvpApi.getClientStats(unref(period)),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
+}

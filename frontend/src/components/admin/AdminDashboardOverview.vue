@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useOverviewStats, usePlayerActivity, useWhoList, formatUptime, formatRelativeTime } from '@/composables/useAdminAnalytics'
 import StatCard from './StatCard.vue'
 import LineChart from '@/components/charts/LineChart.vue'
@@ -10,29 +10,110 @@ import { AlertCircle } from 'lucide-vue-next'
 import { parseAnsiForVue } from '@/utils/ansiParser'
 import { useToast } from '@/composables/useToast'
 import { analyticsApi } from '@/services/api'
+import { useWebSocket } from '@/composables/useWebSocket'
 import type { ChartData } from 'chart.js'
 
-const { data: stats, isLoading, error } = useOverviewStats()
+const { data: stats, isLoading, error, refetch: refetchStats } = useOverviewStats()
+const { onPlayerLogin, offPlayerLogin, onPlayerLogout, offPlayerLogout, onWholist, offWholist, onMudOnline, offMudOnline, onMudCrash, offMudCrash } = useWebSocket()
 
 // Fetch WHO list data with 30-second polling (admin-only, no websocket broadcast)
 const whoListEnabled = ref(true)
 const { data: whoListData, isLoading: whoListLoading, refetch: refetchWhoList } = useWhoList(whoListEnabled)
 
-const isServerRunning = computed(() => {
-  return !!(stats.value && stats.value.serverUptime > 0)
+// mud boot time from redis (fetched on load)
+const mudBootTime = ref<number | null>(null)
+const uptimeSeconds = ref<number>(0)
+let uptimeInterval: ReturnType<typeof setInterval> | null = null
+
+async function fetchBootTime() {
+  try {
+    const response = await fetch('/api/admin/mud-boot-time')
+    const data = await response.json()
+    mudBootTime.value = data.bootTime
+    updateUptime()
+  } catch (err) {
+    console.error('Failed to fetch boot time:', err)
+    mudBootTime.value = null
+  }
+}
+
+function updateUptime() {
+  if (mudBootTime.value) {
+    uptimeSeconds.value = Math.floor((Date.now() - mudBootTime.value) / 1000)
+  } else {
+    uptimeSeconds.value = 0
+  }
+}
+
+// websocket handlers for real-time updates
+const handlePlayerLogin = (data: any) => {
+  refetchWhoList()
+}
+
+const handlePlayerLogout = (data: any) => {
+  refetchWhoList()
+}
+
+const handleWholist = (data: any) => {
+  // wholist already handled by polling
+}
+
+const handleMudOnline = async () => {
+  // mud came back online, refetch boot time
+  await fetchBootTime()
+  refetchStats()
+  refetchWhoList()
+}
+
+const handleMudCrash = () => {
+  // mud crashed, clear boot time
+  mudBootTime.value = null
+  uptimeSeconds.value = 0
+  refetchStats()
+}
+
+let bootTimeInterval: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  fetchBootTime()
+  uptimeInterval = setInterval(updateUptime, 10000)
+  bootTimeInterval = setInterval(fetchBootTime, 30000)
+
+  onPlayerLogin(handlePlayerLogin)
+  onPlayerLogout(handlePlayerLogout)
+  onWholist(handleWholist)
+  onMudOnline(handleMudOnline)
+  onMudCrash(handleMudCrash)
 })
 
-// Use stats data directly from query
-const currentOnlinePlayers = computed(() => stats.value?.currentOnlinePlayers ?? 0)
+onUnmounted(() => {
+  if (uptimeInterval) clearInterval(uptimeInterval)
+  if (bootTimeInterval) clearInterval(bootTimeInterval)
+  offPlayerLogin(handlePlayerLogin)
+  offPlayerLogout(handlePlayerLogout)
+  offWholist(handleWholist)
+  offMudOnline(handleMudOnline)
+  offMudCrash(handleMudCrash)
+})
+
+const isServerRunning = computed(() => mudBootTime.value !== null)
+
+// use wholist data as single source of truth
+const currentOnlinePlayers = computed(() => whoListData.value?.length ?? 0)
 const peakPlayerCount = computed(() => stats.value?.peakPlayerCount ?? 0)
 const peakPlayerTimestampValue = computed(() => stats.value?.peakPlayerTimestamp)
 
-const formattedUptime = computed(() => {
-  if (!stats.value || stats.value.serverUptime === 0) {
-    return 'Not Running'
-  }
-  return formatUptime(stats.value.serverUptime)
-})
+function formatUptimeSeconds(seconds: number): string {
+  if (seconds <= 0) return 'Not Running'
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.floor((seconds % 86400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  if (days > 0) return `${days}d ${hours}h`
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
+}
+
+const formattedUptime = computed(() => formatUptimeSeconds(uptimeSeconds.value))
 
 const peakTimestamp = computed(() => {
   return peakPlayerTimestampValue.value
@@ -251,6 +332,8 @@ async function refreshWhoList() {
           </div>
           <div class="flex-1"></div>
           <div class="text-xs text-muted-foreground font-mono">
+            <span v-if="player.client">{{ player.client }}</span>
+            <span v-if="player.client" class="mx-2">•</span>
             <span>{{ formatPlayerUptime(player.uptime_seconds) }}</span>
             <span class="mx-2">•</span>
             <RouterLink

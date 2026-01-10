@@ -32,7 +32,7 @@ import {
 const route = useRoute();
 const router = useRouter();
 
-const { isConnected, onNewEvent, onCrashAlert, connect, disconnect } = useWebSocket();
+const { isConnected, onNewEvent, onCrashAlert, onMudOnline, onMudCrash, onMudShutdown, connect, disconnect } = useWebSocket();
 const { success, successHtml, warning } = useToast();
 const { loadUser, isOverlord, isLesserGod, permissions, isAuthenticated, accountName, avatarUrl, getRoleDisplayName, getRoleBadgeColor, logout } = useAuth();
 const { siteTitle, siteLogoUrl, mudHost, mudPort, mudPortTls, loadConfig } = useSiteConfig();
@@ -54,6 +54,7 @@ const {
   isEnabled,
   requestPermission,
   toggleNotifications,
+  showNotification,
   showPvPNotification,
   showCrashNotification,
   wasPermissionRequested,
@@ -211,6 +212,52 @@ onCrashAlert((incident) => {
   } else if (incident.incident_type === 'crash' || incident.incident_type === 'hung') {
     title = 'NewDuris MUD is DOWN';
     // No details for crashes/hangs
+  }
+
+  warning(message, title, 10000);
+});
+
+// Handle MUD online (after crash/reboot)
+onMudOnline(() => {
+  success('The game server is back online!', 'MUD is UP', 10000);
+  if (hasPermission.value) {
+    showNotification({
+      title: 'NewDuris MUD is Back UP!',
+      body: 'The game server is back online.',
+      tag: 'mud-online',
+      sound: true,
+    });
+  }
+});
+
+// Handle MUD crash
+onMudCrash(() => {
+  warning('The game server has crashed unexpectedly.', 'MUD Crashed', 10000);
+  if (hasPermission.value) {
+    showNotification({
+      title: 'NewDuris MUD is DOWN',
+      body: 'The game server has crashed unexpectedly.',
+      tag: 'mud-crash',
+      sound: true,
+    });
+  }
+});
+
+// Handle MUD shutdown
+onMudShutdown((data) => {
+  const type = data?.type || 'unknown';
+  let title = 'MUD Shutdown';
+  let message = 'The game server is shutting down.';
+
+  if (type === 'reboot') {
+    title = 'MUD Rebooting';
+    message = 'The game server is rebooting.';
+  } else if (type === 'copyover') {
+    title = 'MUD Copyover';
+    message = 'The game server is performing a copyover (hot restart).';
+  } else if (type === 'autoreboot') {
+    title = 'MUD Auto-Reboot';
+    message = 'The game server is performing scheduled auto-reboot.';
   }
 
   warning(message, title, 10000);

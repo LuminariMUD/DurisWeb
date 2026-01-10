@@ -2,7 +2,7 @@ import { pool } from '../db/connection.js';
 import { RowDataPacket } from 'mysql2';
 import { getServerUptime } from './serverMonitor.js';
 import { getOnlinePlayerCount } from './serverHealthService.js';
-import { getCache, setCache } from '../db/redis.js';
+import { getCache, setCache, deleteCache } from '../db/redis.js';
 
 // Cache TTL for analytics (in seconds for Redis)
 const ANALYTICS_CACHE_TTL = 5 * 60; // 5 minutes
@@ -120,6 +120,13 @@ export async function getOverviewStats(): Promise<OverviewStats> {
 
   await setCache(cacheKey, stats, ANALYTICS_CACHE_TTL);
   return stats;
+}
+
+/**
+ * Invalidate overview stats cache (called when MUD comes online)
+ */
+export async function invalidateOverviewStats(): Promise<void> {
+  await deleteCache(`${REDIS_KEY_PREFIX}overview`);
 }
 
 /**

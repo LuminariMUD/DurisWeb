@@ -3,6 +3,7 @@ import { promisify } from 'util';
 import os from 'os';
 import { pool as db } from '../db/connection.js';
 import { getDmsProcessStats } from './processMonitor.js';
+import { getOnlineCount, isMudConnected } from './mudAuctionClient.js';
 import logger from '../utils/logger.js';
 
 const execAsync = promisify(exec);
@@ -81,23 +82,10 @@ function getSystemLoad(): { load1m: number; load5m: number; load15m: number } {
 }
 
 /**
- * Get online player count by counting active TCP connections to MUD port 7777
- * EXPORTED - Single source of truth for online player counting
+ * get online player count from mud websocket state
  */
-export async function getOnlinePlayerCount(): Promise<number> {
-  try {
-    // Count established TCP connections where local port is 7777 (server side only)
-    // Using awk to match only the 4th column (local address) ending with :7777
-    // This avoids double-counting (netstat shows both sides of each connection)
-    const { stdout } = await execAsync(
-      "netstat -tn 2>/dev/null | awk '$4 ~ /:7777$/ && /ESTABLISHED/ {print}' | wc -l"
-    );
-    const count = parseInt(stdout.trim(), 10) || 0;
-    return count;
-  } catch (error) {
-    logger.error('Error counting online players:', error);
-    return 0;
-  }
+export function getOnlinePlayerCount(): number {
+  return getOnlineCount();
 }
 
 /**
@@ -169,13 +157,13 @@ export function updateWebSocketCount(count: number): void {
  * Get complete server health metrics
  */
 export async function getServerHealth(): Promise<ServerHealth> {
-  const [processStats, diskUsage, dbHealth, poolStats, onlinePlayers] = await Promise.all([
+  const [processStats, diskUsage, dbHealth, poolStats] = await Promise.all([
     getDmsProcessStats(),
     getDiskUsage(),
     testDatabaseHealth(),
     Promise.resolve(getDatabasePoolStats()),
-    getOnlinePlayerCount(),
   ]);
+  const onlinePlayers = getOnlinePlayerCount();
 
   const systemLoad = getSystemLoad();
 

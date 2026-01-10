@@ -16,6 +16,8 @@ const isConnected = ref(false);
 const lastMessage = ref<WebSocketMessage | null>(null);
 const latency = ref<number | null>(null);
 let pingSentAt: number | null = null;
+let intentionalClose = false;
+let reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null;
 const newEventCallbacks = ref<Array<(event: any) => void>>([]);
 const statsUpdateCallbacks = ref<Array<(stats: any) => void>>([]);
 const fragUpdateCallbacks = ref<Array<() => void>>([]);
@@ -31,12 +33,30 @@ const auctionBidCallbacks = ref<Array<(data: any) => void>>([]);
 const auctionCloseCallbacks = ref<Array<(data: any) => void>>([]);
 const notificationCallbacks = ref<Array<(accountName: string, data: any) => void>>([]);
 const deleteProgressCallbacks = ref<Array<(data: { requestId: string; message: string; status: string }) => void>>([]);
+const mudOnlineCallbacks = ref<Array<(data: any) => void>>([]);
+const mudCrashCallbacks = ref<Array<(data: any) => void>>([]);
+const mudShutdownCallbacks = ref<Array<(data: any) => void>>([]);
+const wholistCallbacks = ref<Array<(data: any) => void>>([]);
+const playerLoginCallbacks = ref<Array<(data: any) => void>>([]);
+const playerLogoutCallbacks = ref<Array<(data: any) => void>>([]);
 
 export function useWebSocket() {
 
   const connect = () => {
+    // Clear any pending reconnect
+    if (reconnectTimeoutId) {
+      clearTimeout(reconnectTimeoutId);
+      reconnectTimeoutId = null;
+    }
+
+    // Skip if already connected or connecting
+    if (ws.value && (ws.value.readyState === WebSocket.OPEN || ws.value.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
     // Force close any existing connection first (handles HMR and stale connections)
     if (ws.value) {
+      intentionalClose = true;
       try {
         ws.value.close();
       } catch {
@@ -183,6 +203,50 @@ export function useWebSocket() {
               callback(message.data);
             });
           }
+
+          // Handle MUD online (after crash/reboot)
+          if (message.type === 'MUD_ONLINE' && message.data) {
+            mudOnlineCallbacks.value.forEach((callback) => {
+              callback(message.data);
+            });
+          }
+
+          // Handle MUD crash
+          if (message.type === 'MUD_CRASH' && message.data) {
+            mudCrashCallbacks.value.forEach((callback) => {
+              callback(message.data);
+            });
+          }
+
+          // Handle MUD shutdown
+          if (message.type === 'MUD_SHUTDOWN' && message.data) {
+            mudShutdownCallbacks.value.forEach((callback) => {
+              callback(message.data);
+            });
+          }
+
+          // Handle wholist update
+          if (message.type === 'WHOLIST' && message.data) {
+            wholistCallbacks.value.forEach((callback) => {
+              callback(message.data);
+            });
+          }
+
+          // Handle player login
+          if (message.type === 'PLAYER_LOGIN' && message.data) {
+            console.log('[WebSocket] PLAYER_LOGIN, callbacks:', playerLoginCallbacks.value.length);
+            playerLoginCallbacks.value.forEach((callback) => {
+              callback(message.data);
+            });
+          }
+
+          // Handle player logout
+          if (message.type === 'PLAYER_LOGOUT' && message.data) {
+            console.log('[WebSocket] PLAYER_LOGOUT, callbacks:', playerLogoutCallbacks.value.length);
+            playerLogoutCallbacks.value.forEach((callback) => {
+              callback(message.data);
+            });
+          }
         } catch {
         }
       };
@@ -193,8 +257,15 @@ export function useWebSocket() {
       ws.value.onclose = () => {
         isConnected.value = false;
 
+        // Don't reconnect if intentionally closed
+        if (intentionalClose) {
+          intentionalClose = false;
+          return;
+        }
+
         // Attempt to reconnect after 5 seconds
-        setTimeout(() => {
+        reconnectTimeoutId = setTimeout(() => {
+          reconnectTimeoutId = null;
           connect();
         }, 5000);
       };
@@ -203,7 +274,12 @@ export function useWebSocket() {
   };
 
   const disconnect = () => {
+    if (reconnectTimeoutId) {
+      clearTimeout(reconnectTimeoutId);
+      reconnectTimeoutId = null;
+    }
     if (ws.value) {
+      intentionalClose = true;
       ws.value.close();
       ws.value = null;
       isConnected.value = false;
@@ -375,6 +451,72 @@ export function useWebSocket() {
     }
   };
 
+  const onMudOnline = (callback: (data: any) => void) => {
+    mudOnlineCallbacks.value.push(callback);
+  };
+
+  const offMudOnline = (callback: (data: any) => void) => {
+    const index = mudOnlineCallbacks.value.indexOf(callback);
+    if (index > -1) {
+      mudOnlineCallbacks.value.splice(index, 1);
+    }
+  };
+
+  const onMudCrash = (callback: (data: any) => void) => {
+    mudCrashCallbacks.value.push(callback);
+  };
+
+  const offMudCrash = (callback: (data: any) => void) => {
+    const index = mudCrashCallbacks.value.indexOf(callback);
+    if (index > -1) {
+      mudCrashCallbacks.value.splice(index, 1);
+    }
+  };
+
+  const onMudShutdown = (callback: (data: any) => void) => {
+    mudShutdownCallbacks.value.push(callback);
+  };
+
+  const offMudShutdown = (callback: (data: any) => void) => {
+    const index = mudShutdownCallbacks.value.indexOf(callback);
+    if (index > -1) {
+      mudShutdownCallbacks.value.splice(index, 1);
+    }
+  };
+
+  const onWholist = (callback: (data: any) => void) => {
+    wholistCallbacks.value.push(callback);
+  };
+
+  const offWholist = (callback: (data: any) => void) => {
+    const index = wholistCallbacks.value.indexOf(callback);
+    if (index > -1) {
+      wholistCallbacks.value.splice(index, 1);
+    }
+  };
+
+  const onPlayerLogin = (callback: (data: any) => void) => {
+    playerLoginCallbacks.value.push(callback);
+  };
+
+  const offPlayerLogin = (callback: (data: any) => void) => {
+    const index = playerLoginCallbacks.value.indexOf(callback);
+    if (index > -1) {
+      playerLoginCallbacks.value.splice(index, 1);
+    }
+  };
+
+  const onPlayerLogout = (callback: (data: any) => void) => {
+    playerLogoutCallbacks.value.push(callback);
+  };
+
+  const offPlayerLogout = (callback: (data: any) => void) => {
+    const index = playerLogoutCallbacks.value.indexOf(callback);
+    if (index > -1) {
+      playerLogoutCallbacks.value.splice(index, 1);
+    }
+  };
+
   const sendMessage = (message: any) => {
     if (ws.value && isConnected.value) {
       ws.value.send(JSON.stringify(message));
@@ -427,5 +569,17 @@ export function useWebSocket() {
     offNotification,
     onDeleteProgress,
     offDeleteProgress,
+    onMudOnline,
+    offMudOnline,
+    onMudCrash,
+    offMudCrash,
+    onMudShutdown,
+    offMudShutdown,
+    onWholist,
+    offWholist,
+    onPlayerLogin,
+    offPlayerLogin,
+    onPlayerLogout,
+    offPlayerLogout,
   };
 }

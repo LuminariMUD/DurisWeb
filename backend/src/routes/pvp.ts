@@ -21,6 +21,7 @@ import {
   getActiveHours,
   getPopularLocations,
   getClassMatchups,
+  getClientStats,
   addBattleLike,
   removeBattleLike,
   addBattleFavorite,
@@ -307,6 +308,23 @@ router.get(
       return;
     }
     const data = await getClassMatchups(period);
+    res.json(data);
+  })
+);
+
+/**
+ * GET /api/pvp/analytics/client-stats?period=30d
+ * Get MUD client usage statistics
+ */
+router.get(
+  '/analytics/client-stats',
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const period = (req.query.period as '7d' | '30d' | '90d' | 'all') || '30d';
+    if (!['7d', '30d', '90d', 'all'].includes(period)) {
+      res.status(400).json({ error: 'Invalid period. Must be 7d, 30d, 90d, or all' });
+      return;
+    }
+    const data = await getClientStats(period);
     res.json(data);
   })
 );
