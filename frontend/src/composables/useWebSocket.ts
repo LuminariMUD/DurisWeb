@@ -528,6 +528,22 @@ export function useWebSocket() {
     }
   };
 
+  const subscribePlayerEvents = () => {
+    sendMessage({ type: 'SUBSCRIBE_PLAYER_EVENTS' });
+  };
+
+  const unsubscribePlayerEvents = () => {
+    sendMessage({ type: 'UNSUBSCRIBE_PLAYER_EVENTS' });
+  };
+
+  const subscribeWholist = () => {
+    sendMessage({ type: 'SUBSCRIBE_WHOLIST' });
+  };
+
+  const unsubscribeWholist = () => {
+    sendMessage({ type: 'UNSUBSCRIBE_WHOLIST' });
+  };
+
   return {
     socket: ws,
     isConnected,
@@ -579,5 +595,9 @@ export function useWebSocket() {
     offPlayerLogin,
     onPlayerLogout,
     offPlayerLogout,
+    subscribePlayerEvents,
+    unsubscribePlayerEvents,
+    subscribeWholist,
+    unsubscribeWholist,
   };
 }

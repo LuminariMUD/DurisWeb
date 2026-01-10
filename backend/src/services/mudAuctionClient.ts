@@ -72,6 +72,8 @@ type AuctionBroadcaster = (type: string, data: any) => void;
 let ws: WebSocket | null = null;
 let reconnectTimeout: NodeJS.Timeout | null = null;
 let broadcaster: AuctionBroadcaster | null = null;
+let playerEventBroadcaster: AuctionBroadcaster | null = null;
+let wholistBroadcaster: AuctionBroadcaster | null = null;
 let isShuttingDown = false;
 
 const RECONNECT_DELAY = 5000; // 5 seconds
@@ -389,7 +391,9 @@ async function handleWhoList(players: any[]): Promise<void> {
   }
 
   logger.info(`[MUD] wholist received: ${players.length} players online`);
-  broadcast('WHOLIST', { players: Array.from(onlinePlayers.values()), counts: factionCounts });
+  if (wholistBroadcaster) {
+    wholistBroadcaster('WHOLIST', { players: Array.from(onlinePlayers.values()), counts: factionCounts });
+  }
 
   // broadcast MUD_ONLINE only after crash/shutdown/reboot, not on regular backend restart
   if (mudWasDown) {
@@ -432,7 +436,10 @@ async function handlePlayerLogin(player: PlayerInfo): Promise<void> {
     logger.error('[MUD] failed to store login:', err);
   }
 
-  broadcast('PLAYER_LOGIN', { player, onlineCount: onlinePlayers.size, factionCounts });
+  // broadcast to subscribed admin clients only
+  if (playerEventBroadcaster) {
+    playerEventBroadcaster('PLAYER_LOGIN', { player, onlineCount: onlinePlayers.size, factionCounts });
+  }
 }
 
 /**
@@ -466,7 +473,10 @@ async function handlePlayerLogout(data: { character: string; faction: number }):
     logger.error('[MUD] failed to store logout:', err);
   }
 
-  broadcast('PLAYER_LOGOUT', { character: data.character, onlineCount: onlinePlayers.size, factionCounts });
+  // broadcast to subscribed admin clients only
+  if (playerEventBroadcaster) {
+    playerEventBroadcaster('PLAYER_LOGOUT', { character: data.character, onlineCount: onlinePlayers.size, factionCounts });
+  }
 }
 
 /**
@@ -548,6 +558,20 @@ function scheduleReconnect(): void {
  */
 export function setAuctionBroadcaster(fn: AuctionBroadcaster): void {
   broadcaster = fn;
+}
+
+/**
+ * set the broadcaster function for player events (admin-only subscribed clients)
+ */
+export function setPlayerEventBroadcaster(fn: AuctionBroadcaster): void {
+  playerEventBroadcaster = fn;
+}
+
+/**
+ * set the broadcaster function for wholist (subscribed clients only)
+ */
+export function setWholistBroadcaster(fn: AuctionBroadcaster): void {
+  wholistBroadcaster = fn;
 }
 
 async function saveMudBootTime(uptimeSeconds: number): Promise<void> {

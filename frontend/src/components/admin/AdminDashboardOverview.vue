@@ -14,11 +14,10 @@ import { useWebSocket } from '@/composables/useWebSocket'
 import type { ChartData } from 'chart.js'
 
 const { data: stats, isLoading, error, refetch: refetchStats } = useOverviewStats()
-const { onPlayerLogin, offPlayerLogin, onPlayerLogout, offPlayerLogout, onWholist, offWholist, onMudOnline, offMudOnline, onMudCrash, offMudCrash } = useWebSocket()
+const { onPlayerLogin, offPlayerLogin, onPlayerLogout, offPlayerLogout, onWholist, offWholist, onMudOnline, offMudOnline, onMudCrash, offMudCrash, subscribePlayerEvents, unsubscribePlayerEvents, subscribeWholist, unsubscribeWholist } = useWebSocket()
 
-// Fetch WHO list data with 30-second polling (admin-only, no websocket broadcast)
-const whoListEnabled = ref(true)
-const { data: whoListData, isLoading: whoListLoading, refetch: refetchWhoList } = useWhoList(whoListEnabled)
+// WHO list data - initial fetch, then updated via websocket events
+const { data: whoListData, isLoading: whoListLoading, refetch: refetchWhoList } = useWhoList()
 
 // mud boot time from redis (fetched on load)
 const mudBootTime = ref<number | null>(null)
@@ -79,6 +78,8 @@ onMounted(() => {
   uptimeInterval = setInterval(updateUptime, 10000)
   bootTimeInterval = setInterval(fetchBootTime, 30000)
 
+  subscribePlayerEvents()
+  subscribeWholist()
   onPlayerLogin(handlePlayerLogin)
   onPlayerLogout(handlePlayerLogout)
   onWholist(handleWholist)
@@ -89,6 +90,8 @@ onMounted(() => {
 onUnmounted(() => {
   if (uptimeInterval) clearInterval(uptimeInterval)
   if (bootTimeInterval) clearInterval(bootTimeInterval)
+  unsubscribePlayerEvents()
+  unsubscribeWholist()
   offPlayerLogin(handlePlayerLogin)
   offPlayerLogout(handlePlayerLogout)
   offWholist(handleWholist)

@@ -71,7 +71,7 @@ import {
 import { getCurrentCommitHash } from './services/gitService.js';
 import { cleanupOrphanImages } from './services/postImageService.js';
 import { getWebSettings } from './services/webSettingsService.js';
-import { startMudAuctionClient, stopMudAuctionClient, setAuctionBroadcaster } from './services/mudAuctionClient.js';
+import { startMudAuctionClient, stopMudAuctionClient, setAuctionBroadcaster, setPlayerEventBroadcaster, setWholistBroadcaster } from './services/mudAuctionClient.js';
 import { setNotificationBroadcaster, setNewsBroadcaster, notifyPvpBattle } from './services/unifiedNotificationService.js';
 import { updateWebSocketCount } from './services/serverHealthService.js';
 import { pool } from './db/connection.js';
@@ -459,8 +459,32 @@ export function broadcastAuctionEvent(type: string, data: any) {
       client.send(message);
     }
   });
+}
 
-  logger.info(`[Auction] Broadcast ${type} to ${wss.clients.size} clients`);
+// Broadcast player events to subscribed clients only (admin dashboard)
+export function broadcastPlayerEvent(type: string, data: any) {
+  if (!wss) return;
+
+  const message = JSON.stringify({ type, data });
+
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN && (client as any).playerEventsSubscribed) {
+      client.send(message);
+    }
+  });
+}
+
+// Broadcast wholist to subscribed clients only
+export function broadcastWholist(type: string, data: any) {
+  if (!wss) return;
+
+  const message = JSON.stringify({ type, data });
+
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN && (client as any).wholistSubscribed) {
+      client.send(message);
+    }
+  });
 }
 
 // Broadcast MUD control output to all connected WebSocket clients
@@ -752,6 +776,8 @@ async function startServer() {
       (ws as any).messageCount = 0;
       (ws as any).lastReset = Date.now();
       (ws as any).logSubscriptions = new Map<string, (newLines: string[]) => void>();
+      (ws as any).playerEventsSubscribed = false;
+      (ws as any).wholistSubscribed = false;
 
       ws.on('close', () => {
         // cleanup handled below
@@ -854,6 +880,23 @@ async function startServer() {
               category,
               logName,
             }));
+          }
+
+          // Handle player events subscription (admin only)
+          if (data.type === 'SUBSCRIBE_PLAYER_EVENTS') {
+            (ws as any).playerEventsSubscribed = true;
+          }
+
+          if (data.type === 'UNSUBSCRIBE_PLAYER_EVENTS') {
+            (ws as any).playerEventsSubscribed = false;
+          }
+
+          if (data.type === 'SUBSCRIBE_WHOLIST') {
+            (ws as any).wholistSubscribed = true;
+          }
+
+          if (data.type === 'UNSUBSCRIBE_WHOLIST') {
+            (ws as any).wholistSubscribed = false;
           }
 
           // Handle terminal connection request
@@ -1254,6 +1297,8 @@ async function startServer() {
 
     // Initialize MUD auction websocket client
     setAuctionBroadcaster(broadcastAuctionEvent);
+    setPlayerEventBroadcaster(broadcastPlayerEvent);
+    setWholistBroadcaster(broadcastWholist);
     startMudAuctionClient();
     logger.info('MUD auction client started');
 

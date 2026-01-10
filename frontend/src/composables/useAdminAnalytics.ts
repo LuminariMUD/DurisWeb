@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/vue-query'
 import { analyticsApi } from '@/services/api'
-import type { Ref } from 'vue'
 
 export interface OverviewStats {
   currentOnlinePlayers: number
@@ -154,19 +153,14 @@ export function useServerHealth() {
   })
 }
 
-export function useWhoList(enabled: Ref<boolean>) {
+export function useWhoList() {
   return useQuery({
     queryKey: ['admin', 'who'],
     queryFn: async () => {
       const response = await analyticsApi.getWhoList()
       return response.players
     },
-    staleTime: 30 * 1000, // 30 seconds
-    refetchInterval: () => {
-      // Only refetch if enabled
-      return enabled.value ? 30 * 1000 : false
-    },
-    enabled: enabled,
+    staleTime: 30 * 1000,
   })
 }
 
