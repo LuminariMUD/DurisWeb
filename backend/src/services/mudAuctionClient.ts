@@ -736,6 +736,13 @@ export function getOnlineCount(): number {
 }
 
 /**
+ * get pending requests count (for debugging)
+ */
+export function getPendingRequestsCount(): number {
+  return pendingRequests.size;
+}
+
+/**
  * get current faction counts
  */
 export function getFactionCounts(): typeof factionCounts {
