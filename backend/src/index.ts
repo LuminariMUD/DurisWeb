@@ -1357,6 +1357,12 @@ async function startServer() {
       logger.info(`  GET  /api/frag/classes`);
       logger.info(`  WS   /ws (Real-time updates)`);
       logger.info(`${'='.repeat(50)}\n`);
+
+      // memory tracking (temporary for debugging)
+      setInterval(() => {
+        const mem = process.memoryUsage();
+        logger.info(`[MEM] heap: ${Math.round(mem.heapUsed / 1024 / 1024)}MB / ${Math.round(mem.heapTotal / 1024 / 1024)}MB, rss: ${Math.round(mem.rss / 1024 / 1024)}MB, external: ${Math.round(mem.external / 1024 / 1024)}MB`);
+      }, 30000);
     });
   } catch (error) {
     logger.error('Failed to start server:', error);
