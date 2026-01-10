@@ -1359,18 +1359,10 @@ async function startServer() {
       logger.info(`${'='.repeat(50)}\n`);
 
       // memory leak tracking (temporary for debugging)
-      setInterval(async () => {
+      setInterval(() => {
         const mem = process.memoryUsage();
-        const { getLogWatchStats } = await import('./services/logWatchService.js');
-        const { getActiveSessionCount } = await import('./services/terminalService.js');
-        const { getOnlineCount, getPendingRequestsCount } = await import('./services/mudAuctionClient.js');
-        const logStats = getLogWatchStats();
-        const terminalCount = getActiveSessionCount();
         const wsClients = wss ? wss.clients.size : 0;
-        const mudPlayers = getOnlineCount();
-        const mudPending = getPendingRequestsCount();
-
-        logger.info(`[MEM] heap: ${Math.round(mem.heapUsed / 1024 / 1024)}MB, rss: ${Math.round(mem.rss / 1024 / 1024)}MB | ws: ${wsClients}, term: ${terminalCount}, logW: ${logStats.activeWatchers}, mudP: ${mudPlayers}, mudReq: ${mudPending}`);
+        logger.info(`[MEM] heap: ${Math.round(mem.heapUsed / 1024 / 1024)}MB, rss: ${Math.round(mem.rss / 1024 / 1024)}MB | ws: ${wsClients}`);
       }, 10000);
     });
   } catch (error) {
