@@ -749,14 +749,12 @@ async function startServer() {
     wss = new WebSocketServer({ server, path: '/ws' });
 
     wss.on('connection', (ws: WebSocket) => {
-      logger.info(`[WS] client connected, total: ${wss.clients.size}`);
-
       (ws as any).messageCount = 0;
       (ws as any).lastReset = Date.now();
       (ws as any).logSubscriptions = new Map<string, (newLines: string[]) => void>();
 
       ws.on('close', () => {
-        logger.info(`[WS] client disconnected, total: ${wss.clients.size}`);
+        // cleanup handled below
       });
 
       // Handle incoming messages
