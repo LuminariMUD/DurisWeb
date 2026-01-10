@@ -2152,8 +2152,8 @@ const DEFAULT_BG_RGB: [number, number, number] = [30, 58, 138];
  * @param layer - The z_coord layer (0=surface, -1=underdark, etc.)
  * @returns PNG buffer
  */
-export async function generateMapImage(layer: number = 0): Promise<Buffer> {
-  const cacheKey = `wiki:mapImage:${layer}`;
+export async function generateMapImage(layer: number = 0, scale: number = 4): Promise<Buffer> {
+  const cacheKey = `wiki:mapImage:${layer}:${scale}`;
 
   // Try cache first (store as base64 in Redis)
   const cached = await getCache<string>(cacheKey);
@@ -2163,14 +2163,16 @@ export async function generateMapImage(layer: number = 0): Promise<Buffer> {
 
   // Get map bounds
   const bounds = await getMapBounds(layer);
-  const width = bounds.maxX - bounds.minX + 1;
-  const height = bounds.maxY - bounds.minY + 1;
+  const baseWidth = bounds.maxX - bounds.minX + 1;
+  const baseHeight = bounds.maxY - bounds.minY + 1;
+  const width = baseWidth * scale;
+  const height = baseHeight * scale;
 
-  if (width <= 0 || height <= 0) {
+  if (baseWidth <= 0 || baseHeight <= 0) {
     throw new Error('Invalid map bounds');
   }
 
-  logger.info(`Generating map image for layer ${layer}: ${width}x${height} pixels`);
+  logger.info(`Generating map image for layer ${layer}: ${width}x${height} pixels (scale ${scale}x)`);
 
   // Query all tiles for this layer
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -2192,20 +2194,27 @@ export async function generateMapImage(layer: number = 0): Promise<Buffer> {
     buffer[offset + 3] = 255;               // A (fully opaque)
   }
 
-  // Draw each tile
+  // Draw each tile as a scaled block
   for (const row of rows) {
-    const x = row.x_coord - bounds.minX;
-    const y = row.y_coord - bounds.minY;
+    const baseX = row.x_coord - bounds.minX;
+    const baseY = row.y_coord - bounds.minY;
     const sectorType = row.sector_type;
+    const color = SECTOR_COLORS_RGB[sectorType] || DEFAULT_BG_RGB;
 
-    if (x >= 0 && x < width && y >= 0 && y < height) {
-      const offset = (y * width + x) * 4;
-      const color = SECTOR_COLORS_RGB[sectorType] || DEFAULT_BG_RGB;
+    // Draw scale x scale block for each room
+    for (let dy = 0; dy < scale; dy++) {
+      for (let dx = 0; dx < scale; dx++) {
+        const x = baseX * scale + dx;
+        const y = baseY * scale + dy;
 
-      buffer[offset] = color[0];     // R
-      buffer[offset + 1] = color[1]; // G
-      buffer[offset + 2] = color[2]; // B
-      buffer[offset + 3] = 255;      // A
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+          const offset = (y * width + x) * 4;
+          buffer[offset] = color[0];     // R
+          buffer[offset + 1] = color[1]; // G
+          buffer[offset + 2] = color[2]; // B
+          buffer[offset + 3] = 255;      // A
+        }
+      }
     }
   }
 
@@ -2226,4 +2235,79 @@ export async function generateMapImage(layer: number = 0): Promise<Buffer> {
   await setCache(cacheKey, pngBuffer.toString('base64'), 60 * 60);
 
   return pngBuffer;
+}
+
+/**
+ * Generate and save static map images to disk for all layers
+ */
+export async function generateStaticMapImages(): Promise<{ layer: number; path: string; size: number }[]> {
+  const fs = await import('fs/promises');
+  const path = await import('path');
+
+  const layers = [0, -1, -2]; // surface, underdark, alatorin
+  const results: { layer: number; path: string; size: number }[] = [];
+  const outputDir = path.join(process.cwd(), 'public', 'maps');
+
+  // ensure output dir exists
+  await fs.mkdir(outputDir, { recursive: true });
+
+  for (const layer of layers) {
+    try {
+      logger.info(`Generating static map for layer ${layer}...`);
+      const pngBuffer = await generateMapImage(layer);
+
+      const filename = `layer-${layer}.png`;
+      const filePath = path.join(outputDir, filename);
+
+      await fs.writeFile(filePath, pngBuffer);
+
+      results.push({
+        layer,
+        path: `/maps/${filename}`,
+        size: pngBuffer.length
+      });
+
+      logger.info(`Saved static map: ${filePath} (${pngBuffer.length} bytes)`);
+    } catch (error) {
+      logger.error(`Failed to generate map for layer ${layer}:`, error);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Get static map info (check if files exist)
+ */
+export async function getStaticMapInfo(): Promise<{ layer: number; path: string; exists: boolean; size: number }[]> {
+  const fs = await import('fs/promises');
+  const path = await import('path');
+
+  const layers = [0, -1, -2];
+  const results: { layer: number; path: string; exists: boolean; size: number }[] = [];
+  const outputDir = path.join(process.cwd(), 'public', 'maps');
+
+  for (const layer of layers) {
+    const filename = `layer-${layer}.png`;
+    const filePath = path.join(outputDir, filename);
+
+    try {
+      const stats = await fs.stat(filePath);
+      results.push({
+        layer,
+        path: `/maps/${filename}`,
+        exists: true,
+        size: stats.size
+      });
+    } catch {
+      results.push({
+        layer,
+        path: `/maps/${filename}`,
+        exists: false,
+        size: 0
+      });
+    }
+  }
+
+  return results;
 }

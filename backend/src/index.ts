@@ -195,14 +195,16 @@ app.use('/api/auction', auctionRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/changelog', changelogRoutes);
 
+// Serve static maps (works in both dev and prod)
+const publicPath = path.join(process.cwd(), 'public');
+app.use(express.static(publicPath, { maxAge: '7d' }));
+
 // Serve frontend static files in production
 if (process.env.NODE_ENV === 'production') {
   const frontendDistPath = path.join(__dirname, '../../frontend/dist');
   const indexHtmlPath = path.join(frontendDistPath, 'index.html');
 
-  logger.info(`[Static] Serving frontend static files from: ${frontendDistPath}`);
-
-  // Serve static files
+  // Serve frontend static files
   app.use(express.static(frontendDistPath));
 
   // Helper to strip ANSI codes from text

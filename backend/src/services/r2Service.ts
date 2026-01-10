@@ -224,3 +224,27 @@ export async function deleteAllAvatars(accountName: string, type: ImageUploadTyp
 
   await deleteOldImages(accountName, type);
 }
+
+/**
+ * Upload a static map image to R2
+ * Returns the public URL
+ */
+export async function uploadMapImage(pngBuffer: Buffer, layer: number): Promise<string> {
+  if (!isR2Configured()) {
+    throw new Error('R2 storage is not configured');
+  }
+
+  const key = `duris/maps/layer-${layer}.png`;
+
+  await s3Client.send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: pngBuffer,
+      ContentType: 'image/png',
+      CacheControl: 'public, max-age=604800', // 7 days
+    })
+  );
+
+  return `${R2_PUBLIC_URL}/${key}`;
+}
