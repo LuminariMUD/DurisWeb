@@ -3,8 +3,10 @@ import { pool as db } from '../db/connection.js';
 import type { MudAccountCharacter } from './mudAccountParser.js';
 import { getForumSettings } from './forumSettingsService.js';
 import { getUserPermissions as getAdminPermissions } from './adminPermissionService.js';
-import { deleteCache } from '../db/redis.js';
+import { getCache, setCache, deleteCache } from '../db/redis.js';
 import logger from '../utils/logger.js';
+
+const PERMISSIONS_CACHE_TTL = 300; // 5 minutes
 
 export interface CharacterInfo {
   pid: number;
@@ -174,12 +176,20 @@ export async function calculatePermissions(accountName: string, characters: Char
 }
 
 /**
- * Get full user permissions (no caching - always fresh from database)
+ * Get full user permissions (cached for 5 minutes)
  */
 export async function getUserPermissions(
   accountName: string,
   mudCharacters: MudAccountCharacter[]
 ): Promise<UserPermissions> {
+  const cacheKey = `perms:${accountName}`;
+
+  // check cache first
+  const cached = await getCache<UserPermissions>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   // Get character names from MUD account
   const characterNames = mudCharacters.map(c => c.name);
 
@@ -189,7 +199,17 @@ export async function getUserPermissions(
   // Calculate permissions (reads from database settings)
   const permissions = await calculatePermissions(accountName, characters);
 
+  // cache for 5 minutes
+  await setCache(cacheKey, permissions, PERMISSIONS_CACHE_TTL);
+
   return permissions;
+}
+
+/**
+ * Invalidate permissions cache for an account
+ */
+export async function invalidatePermissionsCache(accountName: string): Promise<void> {
+  await deleteCache(`perms:${accountName}`);
 }
 
 /**
