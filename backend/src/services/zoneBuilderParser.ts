@@ -79,8 +79,7 @@ async function speciesCodeToIndex(code: string): Promise<number> {
     return numericValue;
   }
 
-  // Unknown code - log warning and return 0 (Unknown Race)
-  logger.warn(`Unknown species code: "${code}", defaulting to 0`);
+  // unknown code - return 0 (unknown race)
   return 0;
 }
 
