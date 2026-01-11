@@ -293,8 +293,10 @@ function getAdvancedAffectName(location: string): string {
 
 // Select affect in advanced filter
 function selectAdvancedAffect(idx: number, affectId: string) {
-  affectFilters.value[idx].location = affectId
-  affectFilters.value[idx].open = false
+  const filter = affectFilters.value[idx]
+  if (!filter) return
+  filter.location = affectId
+  filter.open = false
   currentPage.value = 1
   loadObjects()
 }
