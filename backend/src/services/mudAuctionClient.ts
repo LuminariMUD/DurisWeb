@@ -424,8 +424,6 @@ async function handlePlayerLogin(player: PlayerInfo): Promise<void> {
     factionCounts[getFactionKey(player.faction)]++;
   }
 
-  logger.info(`[MUD] player login: ${player.character} (${player.account}) - ${onlinePlayers.size} online`);
-
   try {
     await db.query(
       'INSERT IGNORE INTO account_login_history (account_name, character_name, ip_address, status, timestamp, hostname, client, client_version) VALUES (?, ?, ?, ?, NOW(), ?, ?, ?)',
@@ -455,8 +453,6 @@ async function handlePlayerLogout(data: { character: string; faction: number }):
     const fk = getFactionKey(data.faction);
     if (factionCounts[fk] < 0) factionCounts[fk] = 0;
   }
-
-  logger.info(`[MUD] player logout: ${data.character} - ${onlinePlayers.size} online`);
 
   // store in db for history
   try {
