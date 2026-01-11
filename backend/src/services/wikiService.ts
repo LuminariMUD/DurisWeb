@@ -117,6 +117,9 @@ export interface WikiObjectDetail extends WikiObject {
   values: number[];
   extraFlags: number;
   wearFlags: number;
+  extraFlagNames: string[];
+  classRestrictions: { className: string; isAllowed: boolean }[];
+  raceRestrictions: { raceName: string; isAllowed: boolean }[];
   zoneLocations: { zoneNumber: number; zoneName: string }[];
   roomLoads: { roomVnum: number; roomName: string; zoneNumber: number }[];
   mobDrops: { mobVnum: number; mobName: string; zoneNumber: number }[];
@@ -153,6 +156,8 @@ export interface WikiObjectFilters {
   // Advanced filters - multiple conditions (AND logic)
   affects?: { location: number; minModifier?: number }[];  // e.g., [{location: 19, minModifier: 5}] for +5 damroll
   spellEffects?: string[];  // e.g., ['Detect Invisible', 'Sense Life']
+  allowedClass?: number;  // class bit value - filter items usable by this class
+  allowedRace?: number;   // race id - filter items usable by this race
 }
 
 export interface PaginationParams {
@@ -208,6 +213,46 @@ interface ZoneRow extends RowDataPacket {
   room_count?: number;
   mob_count?: number;
   object_count?: number;
+}
+
+// row types for wiki objects/mobs queries
+interface WikiObjectRow extends RowDataPacket {
+  vnum: number;
+  name: string;
+  name_ansi: string | null;
+  type: number;
+  level: number;
+  weight: number;
+  extra_flags: number;
+  wear_flags: number;
+  zone_number: number;
+  obj_values: string | null;
+  description: string | null;
+  slot_ids: string | null;      // GROUP_CONCAT result
+  affect_data: string | null;   // JSON_ARRAYAGG result
+  spell_effects: string | null; // GROUP_CONCAT result
+}
+
+interface WikiMobRow extends RowDataPacket {
+  zone_number: number;
+  vnum: number;
+  name: string;
+  name_ansi: string | null;
+  keywords: string | null;
+  level: number;
+  alignment: number;
+  mob_class: number;
+  species: number;
+  gold: number;
+  exp: number;
+  act_flags: number;
+  hit_dice: string | null;
+  dam_dice: string | null;
+  ac: number;
+  thac0: number;
+  long_desc: string | null;
+  detailed_desc: string | null;
+  zone_name: string | null;
 }
 
 // =============================================================================
@@ -724,6 +769,85 @@ const OBJECT_TYPE_NAMES: Record<number, string> = {
   43: 'Keyring',
 };
 
+// Extra flags names (BIT_1 to BIT_32)
+const EXTRA_FLAG_NAMES: Record<number, string> = {
+  1: 'Glow',
+  2: 'No Show',
+  4: 'Buried',
+  8: 'No Sell',
+  16: 'Thrown Ranged',
+  32: 'Invisible',
+  64: 'Non-Repairable',
+  128: 'No Drop',
+  256: 'Auto-Returning',
+  512: 'Allowed Races',
+  1024: 'Allowed Classes',
+  2048: 'Generic Proc',
+  4096: 'Secret',
+  8192: 'Floats',
+  16384: 'No Reset',
+  32768: 'No Locate',
+  65536: 'No Identify',
+  131072: 'No Summon',
+  262144: 'Lit',
+  524288: 'Transient',
+  1048576: 'No Sleep',
+  2097152: 'No Charm',
+  4194304: 'Two-Handed',
+  8388608: 'No Rent',
+  16777216: 'Thrown Close',
+  33554432: 'Hum',
+  67108864: 'Levitates',
+  134217728: 'Ignore Item',
+  268435456: 'Artifact',
+  536870912: 'Whole Body',
+  1073741824: 'Whole Head',
+  2147483648: 'Was Encrusted',
+};
+
+// Extra2 flags names
+const EXTRA2_FLAG_NAMES: Record<number, string> = {
+  1: 'Silver',
+  2: 'Blessed',
+  4: 'Slaying Good',
+  8: 'Slaying Evil',
+  16: 'Slaying Undead',
+  32: 'Slaying Living',
+  64: 'Magic',
+  128: 'Linkable',
+  256: 'Ignore Proc',
+  512: 'Ignore Timer',
+  1024: 'Not Lootable',
+  2048: 'Crumble Loot',
+  4096: 'Store Item',
+  8192: 'Soul Bound',
+  16384: 'Crafted',
+  32768: 'Quest Item',
+  65536: 'Transparent',
+};
+
+// parse extra flags bitvector into names
+function parseExtraFlags(extraFlags: number, extraFlags2: number = 0): string[] {
+  const names: string[] = [];
+  for (const [bit, name] of Object.entries(EXTRA_FLAG_NAMES)) {
+    if (extraFlags & parseInt(bit)) {
+      // skip internal flags that users don't care about
+      if (!['No Show', 'Buried', 'Generic Proc', 'No Reset', 'Ignore Item', 'Was Encrusted', 'Allowed Races', 'Allowed Classes'].includes(name)) {
+        names.push(name);
+      }
+    }
+  }
+  for (const [bit, name] of Object.entries(EXTRA2_FLAG_NAMES)) {
+    if (extraFlags2 & parseInt(bit)) {
+      // skip internal flags
+      if (!['Ignore Proc', 'Ignore Timer', 'Store Item'].includes(name)) {
+        names.push(name);
+      }
+    }
+  }
+  return names;
+}
+
 // Wear slot names mapping (from DurisMUD defines.h BIT_X values)
 // Note: BIT_1 = 1 (ITEM_TAKE), not a wear slot
 const WEAR_SLOT_NAMES: Record<number, string> = {
@@ -749,7 +873,17 @@ const WEAR_SLOT_NAMES: Record<number, string> = {
   524288: 'ear',    // BIT_20 = ITEM_WEAR_EARRING
 };
 
-// Affect location names
+// slot_id (sequential) to name - matches import script mapping
+const SLOT_ID_NAMES: Record<number, string> = {
+  1: 'finger', 2: 'neck', 3: 'body', 4: 'head', 5: 'legs',
+  6: 'feet', 7: 'hands', 8: 'arms', 9: 'shield', 10: 'about',
+  11: 'waist', 12: 'wrist', 13: 'wield', 14: 'hold', 15: 'throw',
+  16: 'light', 17: 'eyes', 18: 'face', 19: 'ear', 20: 'quiver',
+  21: 'insignia', 22: 'back', 23: 'belt', 24: 'horse body',
+  25: 'tail', 26: 'nose', 27: 'horn', 28: 'ioun', 29: 'spider body',
+};
+
+// Affect location names (APPLY_* from MUD)
 const AFFECT_LOCATION_NAMES: Record<number, string> = {
   0: 'None',
   1: 'STR',
@@ -757,7 +891,7 @@ const AFFECT_LOCATION_NAMES: Record<number, string> = {
   3: 'INT',
   4: 'WIS',
   5: 'CON',
-  6: 'CHA',
+  6: 'SEX',
   7: 'Class',
   8: 'Level',
   9: 'Age',
@@ -767,28 +901,49 @@ const AFFECT_LOCATION_NAMES: Record<number, string> = {
   13: 'Hit Points',
   14: 'Move',
   15: 'Gold',
-  16: 'Experience',
+  16: 'EXP',
   17: 'AC',
   18: 'Hitroll',
   19: 'Damroll',
-  20: 'Save vs Paralysis',
-  21: 'Save vs Rod',
-  22: 'Save vs Petrification',
-  23: 'Save vs Breath',
-  24: 'Save vs Spell',
-  25: 'Spell Damage',
-  26: 'Spell Duration',
-  27: 'Spell Cost',
-  28: 'Spell Critical',
-  29: 'KI',
-  30: 'POW',
-  31: 'Regen Hit',
-  32: 'Regen Mana',
-  33: 'Regen Move',
-  34: 'Para Immunity',
-  35: 'Fire Immunity',
-  36: 'Cold Immunity',
-  37: 'Elec Immunity',
+  20: 'Save Para',
+  21: 'Save Rod',
+  22: 'Save Fear',
+  23: 'Save Breath',
+  24: 'Save Spell',
+  25: 'Fire Prot',
+  26: 'AGI',
+  27: 'POW',
+  28: 'CHA',
+  29: 'Karma',
+  30: 'Luck',
+  31: 'Max STR',
+  32: 'Max DEX',
+  33: 'Max INT',
+  34: 'Max WIS',
+  35: 'Max CON',
+  36: 'Max AGI',
+  37: 'Max POW',
+  38: 'Max CHA',
+  39: 'Max Karma',
+  40: 'Max Luck',
+  41: 'Race STR',
+  42: 'Race DEX',
+  43: 'Race INT',
+  44: 'Race WIS',
+  45: 'Race CON',
+  46: 'Race AGI',
+  47: 'Race POW',
+  48: 'Race CHA',
+  49: 'Race Karma',
+  50: 'Race Luck',
+  51: 'Curse',
+  52: 'Skill Grant',
+  53: 'Skill Add',
+  54: 'Hit Regen',
+  55: 'Move Regen',
+  56: 'Mana Regen',
+  57: 'Spell Pulse',
+  58: 'Combat Pulse',
 };
 
 // Bitvector (AFF_) spell effect names - BIT_X where BIT_1=1, BIT_2=2, etc.
@@ -936,6 +1091,7 @@ interface CachedObjectDetail {
   longDesc: string;
   values: number[];
   extraFlags: number;
+  extraFlags2: number;
   wearFlags: number;
   bitvector: number;
   bitvector2: number;
@@ -944,35 +1100,22 @@ interface CachedObjectDetail {
   cost: number;
 }
 
-// Redis cache keys for objects
-const REDIS_KEY_OBJECTS_LIST = 'wiki:objects:list';
+// Redis cache key for object details (list now comes from database)
 const REDIS_KEY_OBJECTS_DETAILS = 'wiki:objects:details';
 
-// Helper to strip ANSI codes for search matching
-function stripAnsiCodes(text: string): string {
-  return text.replace(/&[+=-][A-Za-z]|&[nN]/g, '').toLowerCase();
-}
-
-// Build object caches and store in Redis
-async function buildObjectCachesFromSource(): Promise<{ list: WikiObject[]; details: Map<number, CachedObjectDetail> }> {
-  // Get all zones
+// build object details cache from flatfiles (for getObjectByVnum which needs extra info)
+// note: list data now comes from wiki_objects table, only details need flatfile parsing
+async function buildObjectDetailsCacheFromSource(): Promise<Map<number, CachedObjectDetail>> {
   const { zones } = await listZones({ page: 1, limit: 10000 });
-
   const detailsCache = new Map<number, CachedObjectDetail>();
-  const listCache: WikiObject[] = [];
 
-  // Parse objects from each zone
   for (const zone of zones) {
     try {
       const zoneObjects = await parseObjFile(zone.id);
       for (const obj of zoneObjects) {
-        // Skip duplicate vnums - first zone wins (matches MUD behavior)
-        if (detailsCache.has(obj.vnum)) {
-          continue;
-        }
+        if (detailsCache.has(obj.vnum)) continue;
 
         const level = obj.values[0] || 0;
-
         const spellEffects = getSpellEffects(
           obj.bitvector || 0,
           obj.bitvector2 || 0,
@@ -997,8 +1140,6 @@ async function buildObjectCachesFromSource(): Promise<{ list: WikiObject[]; deta
           zoneNumber: zone.number,
         };
 
-        listCache.push(wikiObject);
-
         detailsCache.set(obj.vnum, {
           obj: wikiObject,
           zoneId: zone.id,
@@ -1007,6 +1148,7 @@ async function buildObjectCachesFromSource(): Promise<{ list: WikiObject[]; deta
           longDesc: obj.longDesc,
           values: obj.values,
           extraFlags: obj.extraFlags,
+          extraFlags2: obj.extraFlags2 || 0,
           wearFlags: obj.wearFlags,
           bitvector: obj.bitvector || 0,
           bitvector2: obj.bitvector2 || 0,
@@ -1016,44 +1158,21 @@ async function buildObjectCachesFromSource(): Promise<{ list: WikiObject[]; deta
         });
       }
     } catch {
-      // Zone has no .obj file, skip it
+      // zone has no .obj file
     }
   }
 
-  // Sort list by vnum for consistent ordering
-  listCache.sort((a, b) => a.vnum - b.vnum);
-
-  // Store in Redis
-  await setCache(REDIS_KEY_OBJECTS_LIST, listCache, OBJECTS_CACHE_TTL_SECONDS);
   await setCache(REDIS_KEY_OBJECTS_DETAILS, mapToObject(detailsCache), OBJECTS_CACHE_TTL_SECONDS);
-
-  return { list: listCache, details: detailsCache };
+  return detailsCache;
 }
 
-// Get list of all objects (from Redis or rebuild)
-async function getAllObjectsCached(): Promise<WikiObject[]> {
-  // Try Redis first
-  const cached = await getCache<WikiObject[]>(REDIS_KEY_OBJECTS_LIST);
-  if (cached) {
-    return cached;
-  }
-
-  // Cache miss - rebuild from source
-  const { list } = await buildObjectCachesFromSource();
-  return list;
-}
-
-// Get detail cache map (from Redis or rebuild)
+// get object details cache (from redis or rebuild from flatfiles)
 async function getObjectDetailsCached(): Promise<Map<number, CachedObjectDetail>> {
-  // Try Redis first
   const cached = await getCache<Record<string, CachedObjectDetail>>(REDIS_KEY_OBJECTS_DETAILS);
   if (cached) {
     return objectToMapNumeric(cached);
   }
-
-  // Cache miss - rebuild from source
-  const { details } = await buildObjectCachesFromSource();
-  return details;
+  return buildObjectDetailsCacheFromSource();
 }
 
 export async function getObjects(
@@ -1062,112 +1181,189 @@ export async function getObjects(
 ): Promise<{ objects: WikiObject[]; total: number; page: number; limit: number; totalPages: number }> {
   const { page, limit, sortBy = 'vnum', sortOrder = 'asc' } = pagination;
 
-  // Get all objects from cache
-  let filteredObjects = await getAllObjectsCached();
+  // build WHERE conditions
+  const conditions: string[] = ['1=1'];
+  const params: (string | number)[] = [];
 
-  // Apply filters
   if (filters.search) {
-    const searchLower = filters.search.toLowerCase();
-    filteredObjects = filteredObjects.filter((obj) => stripAnsiCodes(obj.name).includes(searchLower));
+    conditions.push('(o.name LIKE ? OR o.name_ansi LIKE ?)');
+    const searchPattern = `%${filters.search}%`;
+    params.push(searchPattern, searchPattern);
   }
 
   if (filters.type !== undefined) {
-    filteredObjects = filteredObjects.filter((obj) => obj.type === filters.type);
+    conditions.push('o.type = ?');
+    params.push(filters.type);
   }
 
-  if (filters.slot !== undefined) {
-    // Check if object has this wear slot
-    const slotName = WEAR_SLOT_NAMES[filters.slot];
-    if (slotName) {
-      filteredObjects = filteredObjects.filter((obj) => obj.slots.includes(slotName));
-    }
+  if (filters.excludeTypes && filters.excludeTypes.length > 0) {
+    conditions.push(`o.type NOT IN (${filters.excludeTypes.map(() => '?').join(',')})`);
+    params.push(...filters.excludeTypes);
   }
 
   if (filters.minLevel !== undefined) {
-    filteredObjects = filteredObjects.filter((obj) => obj.level >= filters.minLevel!);
+    conditions.push('o.level >= ?');
+    params.push(filters.minLevel);
   }
 
   if (filters.maxLevel !== undefined) {
-    filteredObjects = filteredObjects.filter((obj) => obj.level <= filters.maxLevel!);
+    conditions.push('o.level <= ?');
+    params.push(filters.maxLevel);
   }
 
-  if (filters.affectType !== undefined) {
-    filteredObjects = filteredObjects.filter((obj) =>
-      obj.affects.some((a) => a.location === filters.affectType)
-    );
-  }
-
-  // Exclude types (e.g., exclude Trash)
-  if (filters.excludeTypes && filters.excludeTypes.length > 0) {
-    filteredObjects = filteredObjects.filter((obj) => !filters.excludeTypes!.includes(obj.type));
-  }
-
-  // Multiple affects filter (AND logic) - e.g., must have +5 damroll AND +5 hitroll
-  if (filters.affects && filters.affects.length > 0) {
-    filteredObjects = filteredObjects.filter((obj) => {
-      return filters.affects!.every((reqAffect) => {
-        const objAffect = obj.affects.find((a) => a.location === reqAffect.location);
-        if (!objAffect) return false;
-        if (reqAffect.minModifier !== undefined) {
-          return objAffect.modifier >= reqAffect.minModifier;
-        }
-        return true;
-      });
-    });
-  }
-
-  // Multiple spell effects filter (AND logic) - e.g., must have Detect Invisible AND Sense Life
-  if (filters.spellEffects && filters.spellEffects.length > 0) {
-    filteredObjects = filteredObjects.filter((obj) => {
-      return filters.spellEffects!.every((reqEffect) =>
-        obj.spellEffects.some((e) => e.toLowerCase() === reqEffect.toLowerCase())
-      );
-    });
-  }
-
-  // Zone filter
   if (filters.zone !== undefined) {
-    filteredObjects = filteredObjects.filter((obj) => obj.zoneNumber === filters.zone);
+    conditions.push('o.zone_number = ?');
+    params.push(filters.zone);
   }
 
-  // Sort
-  const sortMultiplier = sortOrder === 'desc' ? -1 : 1;
-  filteredObjects = [...filteredObjects].sort((a, b) => {
-    let aVal: any;
-    let bVal: any;
+  // slot filter - check wiki_object_slots
+  if (filters.slot !== undefined) {
+    conditions.push('EXISTS (SELECT 1 FROM wiki_object_slots WHERE object_vnum = o.vnum AND slot_id = ?)');
+    params.push(filters.slot);
+  }
 
-    switch (sortBy) {
-      case 'short_desc':
-        aVal = stripAnsiCodes(a.name);
-        bVal = stripAnsiCodes(b.name);
-        return aVal.localeCompare(bVal) * sortMultiplier;
-      case 'obj_type':
-        aVal = a.type;
-        bVal = b.type;
-        break;
-      case 'level':
-        aVal = a.level;
-        bVal = b.level;
-        break;
-      case 'weight':
-        aVal = a.weight;
-        bVal = b.weight;
-        break;
-      default: // vnum
-        aVal = a.vnum;
-        bVal = b.vnum;
+  // single affect type filter
+  if (filters.affectType !== undefined) {
+    conditions.push('EXISTS (SELECT 1 FROM wiki_object_affects WHERE object_vnum = o.vnum AND location = ?)');
+    params.push(filters.affectType);
+  }
+
+  // multiple affects filter (AND logic)
+  if (filters.affects && filters.affects.length > 0) {
+    for (const reqAffect of filters.affects) {
+      if (reqAffect.minModifier !== undefined) {
+        conditions.push('EXISTS (SELECT 1 FROM wiki_object_affects WHERE object_vnum = o.vnum AND location = ? AND modifier >= ?)');
+        params.push(reqAffect.location, reqAffect.minModifier);
+      } else {
+        conditions.push('EXISTS (SELECT 1 FROM wiki_object_affects WHERE object_vnum = o.vnum AND location = ?)');
+        params.push(reqAffect.location);
+      }
+    }
+  }
+
+  // spell effects filter (AND logic)
+  if (filters.spellEffects && filters.spellEffects.length > 0) {
+    for (const effectName of filters.spellEffects) {
+      conditions.push('EXISTS (SELECT 1 FROM wiki_object_spell_effects WHERE object_vnum = o.vnum AND LOWER(effect_name) = LOWER(?))');
+      params.push(effectName);
+    }
+  }
+
+  // class restriction filter - find items usable by this class
+  // if is_allowed=true: class must be in wiki_object_classes OR no restrictions exist
+  // if is_allowed=false: class must NOT be in wiki_object_classes
+  if (filters.allowedClass !== undefined) {
+    conditions.push(`(
+      NOT EXISTS (SELECT 1 FROM wiki_object_classes WHERE object_vnum = o.vnum)
+      OR EXISTS (SELECT 1 FROM wiki_object_classes WHERE object_vnum = o.vnum AND class_id = ? AND is_allowed = 1)
+      OR (
+        EXISTS (SELECT 1 FROM wiki_object_classes WHERE object_vnum = o.vnum AND is_allowed = 0)
+        AND NOT EXISTS (SELECT 1 FROM wiki_object_classes WHERE object_vnum = o.vnum AND class_id = ? AND is_allowed = 0)
+      )
+    )`);
+    params.push(filters.allowedClass, filters.allowedClass);
+  }
+
+  // race restriction filter - find items usable by this race
+  if (filters.allowedRace !== undefined) {
+    conditions.push(`(
+      NOT EXISTS (SELECT 1 FROM wiki_object_races WHERE object_vnum = o.vnum)
+      OR EXISTS (SELECT 1 FROM wiki_object_races WHERE object_vnum = o.vnum AND race_id = ? AND is_allowed = 1)
+      OR (
+        EXISTS (SELECT 1 FROM wiki_object_races WHERE object_vnum = o.vnum AND is_allowed = 0)
+        AND NOT EXISTS (SELECT 1 FROM wiki_object_races WHERE object_vnum = o.vnum AND race_id = ? AND is_allowed = 0)
+      )
+    )`);
+    params.push(filters.allowedRace, filters.allowedRace);
+  }
+
+  const whereClause = conditions.join(' AND ');
+
+  // determine sort column
+  let orderBy = 'o.vnum';
+  switch (sortBy) {
+    case 'short_desc':
+      orderBy = 'o.name';
+      break;
+    case 'obj_type':
+      orderBy = 'o.type';
+      break;
+    case 'level':
+      orderBy = 'o.level';
+      break;
+    case 'weight':
+      orderBy = 'o.weight';
+      break;
+  }
+  const orderDir = sortOrder === 'desc' ? 'DESC' : 'ASC';
+
+  // get total count first
+  const [countRows] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) as total FROM wiki_objects o WHERE ${whereClause}`,
+    params
+  );
+  const total = countRows[0].total as number;
+
+  // get paginated results with related data
+  const offset = (page - 1) * limit;
+  const [rows] = await pool.query<WikiObjectRow[]>(
+    `SELECT o.*,
+       (SELECT GROUP_CONCAT(DISTINCT slot_id) FROM wiki_object_slots WHERE object_vnum = o.vnum) as slot_ids,
+       (SELECT JSON_ARRAYAGG(JSON_OBJECT('location', location, 'modifier', modifier))
+        FROM wiki_object_affects WHERE object_vnum = o.vnum) as affect_data,
+       (SELECT GROUP_CONCAT(DISTINCT effect_name) FROM wiki_object_spell_effects WHERE object_vnum = o.vnum) as spell_effects
+     FROM wiki_objects o
+     WHERE ${whereClause}
+     ORDER BY ${orderBy} ${orderDir}
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+
+  // transform rows to WikiObject
+  const objects: WikiObject[] = rows.map((row) => {
+    // parse slots
+    const slotIds = row.slot_ids ? row.slot_ids.split(',').map((s) => parseInt(s)) : [];
+    const slots = slotIds.map((id) => SLOT_ID_NAMES[id]).filter(Boolean);
+
+    // parse affects
+    let affects: WikiObjectAffect[] = [];
+    if (row.affect_data) {
+      try {
+        const parsed = typeof row.affect_data === 'string' ? JSON.parse(row.affect_data) : row.affect_data;
+        if (Array.isArray(parsed)) {
+          affects = parsed
+            .filter((a: { location: number; modifier: number }) => a && a.location > 0)
+            .map((a: { location: number; modifier: number }) => ({
+              location: a.location,
+              locationName: AFFECT_LOCATION_NAMES[a.location] || `Unknown (${a.location})`,
+              modifier: a.modifier,
+            }));
+        }
+      } catch {
+        // ignore parse errors
+      }
     }
 
-    return (aVal - bVal) * sortMultiplier;
+    // parse spell effects
+    const spellEffects = row.spell_effects ? row.spell_effects.split(',') : [];
+
+    return {
+      vnum: row.vnum,
+      name: row.name_ansi || row.name, // prefer ansi version for display
+      nameAnsi: row.name_ansi || undefined,
+      type: row.type,
+      typeName: OBJECT_TYPE_NAMES[row.type] || `Unknown (${row.type})`,
+      level: row.level,
+      weight: row.weight,
+      slots,
+      affects,
+      spellEffects,
+      zoneNumber: row.zone_number,
+    };
   });
 
-  // Paginate
-  const total = filteredObjects.length;
-  const offset = (page - 1) * limit;
-  const paginatedObjects = filteredObjects.slice(offset, offset + limit);
-
   return {
-    objects: paginatedObjects,
+    objects,
     total,
     page,
     limit,
@@ -1258,6 +1454,39 @@ export async function getObjectByVnum(vnum: number): Promise<WikiObjectDetail | 
     logger.error('Failed to get load locations for object:', e);
   }
 
+  // Parse extra flag names
+  const extraFlagNames = parseExtraFlags(cached.extraFlags, cached.extraFlags2);
+
+  // Query class restrictions from database
+  const classRestrictions: { className: string; isAllowed: boolean }[] = [];
+  const raceRestrictions: { raceName: string; isAllowed: boolean }[] = [];
+
+  try {
+    const [classRows] = await pool.query<RowDataPacket[]>(
+      'SELECT class_id, is_allowed FROM wiki_object_classes WHERE object_vnum = ?',
+      [vnum]
+    );
+    for (const row of classRows) {
+      classRestrictions.push({
+        className: OBJECT_CLASS_NAMES[row.class_id] || `Class ${row.class_id}`,
+        isAllowed: row.is_allowed === 1,
+      });
+    }
+
+    const [raceRows] = await pool.query<RowDataPacket[]>(
+      'SELECT race_id, is_allowed FROM wiki_object_races WHERE object_vnum = ?',
+      [vnum]
+    );
+    for (const row of raceRows) {
+      raceRestrictions.push({
+        raceName: RACE_NAMES[row.race_id] || `Race ${row.race_id}`,
+        isAllowed: row.is_allowed === 1,
+      });
+    }
+  } catch (e) {
+    logger.error('Failed to get class/race restrictions for object:', e);
+  }
+
   return {
     vnum: cached.obj.vnum,
     name: cached.obj.name,
@@ -1273,6 +1502,9 @@ export async function getObjectByVnum(vnum: number): Promise<WikiObjectDetail | 
     values: cached.values.slice(0, 4),
     extraFlags: cached.extraFlags,
     wearFlags: cached.wearFlags,
+    extraFlagNames,
+    classRestrictions,
+    raceRestrictions,
     zoneLocations: [{ zoneNumber: cached.zoneNumber, zoneName: cached.zoneName }],
     roomLoads,
     mobDrops,
@@ -1281,38 +1513,99 @@ export async function getObjectByVnum(vnum: number): Promise<WikiObjectDetail | 
 }
 
 // =============================================================================
-// Object Type and Affect Lists (for filters)
+// Object Type and Affect Lists (for filters) - dynamic from database
 // =============================================================================
 
-export function getObjectTypes(): { id: number; name: string }[] {
-  return Object.entries(OBJECT_TYPE_NAMES).map(([id, name]) => ({
-    id: parseInt(id),
-    name,
+export async function getObjectTypes(): Promise<{ id: number; name: string }[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT DISTINCT type FROM wiki_objects ORDER BY type'
+  );
+  return rows.map((row) => ({
+    id: row.type,
+    name: OBJECT_TYPE_NAMES[row.type] || `Unknown (${row.type})`,
   }));
 }
 
-export function getWearSlotTypes(): { id: number; name: string }[] {
-  return Object.entries(WEAR_SLOT_NAMES).map(([id, name]) => ({
-    id: parseInt(id),
-    name,
+export async function getWearSlotTypes(): Promise<{ id: number; name: string }[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT DISTINCT slot_id FROM wiki_object_slots ORDER BY slot_id'
+  );
+  return rows.map((row) => ({
+    id: row.slot_id,
+    name: SLOT_ID_NAMES[row.slot_id] || `Slot ${row.slot_id}`,
   }));
 }
 
-export function getAffectTypes(): { id: number; name: string }[] {
-  return Object.entries(AFFECT_LOCATION_NAMES).map(([id, name]) => ({
-    id: parseInt(id),
-    name,
+export async function getAffectTypes(): Promise<{ id: number; name: string }[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT DISTINCT location FROM wiki_object_affects WHERE location > 0 ORDER BY location'
+  );
+  return rows.map((row) => ({
+    id: row.location,
+    name: AFFECT_LOCATION_NAMES[row.location] || `Unknown (${row.location})`,
   }));
 }
 
-export function getSpellEffectTypes(): string[] {
-  // Combine all spell effect names from all bitvector mappings
-  const effects = new Set<string>();
-  for (const name of Object.values(AFF_NAMES)) effects.add(name);
-  for (const name of Object.values(AFF2_NAMES)) effects.add(name);
-  for (const name of Object.values(AFF3_NAMES)) effects.add(name);
-  for (const name of Object.values(AFF4_NAMES)) effects.add(name);
-  return Array.from(effects).sort();
+export async function getSpellEffectTypes(): Promise<string[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT DISTINCT effect_name FROM wiki_object_spell_effects ORDER BY effect_name'
+  );
+  return rows.map((row) => row.effect_name);
+}
+
+// class bit values for object restrictions (same as mob classes)
+const OBJECT_CLASS_NAMES: Record<number, string> = {
+  1: 'Warrior',
+  2: 'Ranger',
+  4: 'Psionicist',
+  8: 'Paladin',
+  16: 'Anti-Paladin',
+  32: 'Cleric',
+  64: 'Monk',
+  128: 'Druid',
+  256: 'Shaman',
+  512: 'Sorcerer',
+  1024: 'Necromancer',
+  2048: 'Conjurer',
+  4096: 'Rogue',
+  8192: 'Assassin',
+  16384: 'Mercenary',
+  32768: 'Bard',
+  65536: 'Thief',
+  131072: 'Warlock',
+  262144: 'Mindflayer',
+  524288: 'Alchemist',
+  1048576: 'Berserker',
+  2097152: 'Reaver',
+  4194304: 'Illusionist',
+  8388608: 'Blighter',
+  16777216: 'Dreadlord',
+  33554432: 'Ethermancer',
+  67108864: 'Avenger',
+  134217728: 'Theurgist',
+  268435456: 'Summoner',
+};
+
+// classes that have items with restrictions in the database
+export async function getObjectClasses(): Promise<{ id: number; name: string }[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT DISTINCT class_id FROM wiki_object_classes ORDER BY class_id'
+  );
+  return rows.map((row) => ({
+    id: row.class_id,
+    name: OBJECT_CLASS_NAMES[row.class_id] || `Class ${row.class_id}`,
+  }));
+}
+
+// races that have items with restrictions in the database
+export async function getObjectRaces(): Promise<{ id: number; name: string }[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT DISTINCT race_id FROM wiki_object_races ORDER BY race_id'
+  );
+  return rows.map((row) => ({
+    id: row.race_id,
+    name: RACE_NAMES[row.race_id] || `Race ${row.race_id}`,
+  }));
 }
 
 // =============================================================================
@@ -1577,12 +1870,11 @@ interface CachedMobDetail {
   thac0: number;
 }
 
-// Redis cache keys for mobs
-const REDIS_KEY_MOBS_LIST = 'wiki:mobs:list';
+// Redis cache key for mob details (list now comes from database)
 const REDIS_KEY_MOBS_DETAILS = 'wiki:mobs:details';
-const MOBS_CACHE_TTL_SECONDS = 30 * 60; // 30 minutes - data rarely changes
+const MOBS_CACHE_TTL_SECONDS = 30 * 60; // 30 minutes
 
-// Get connected zone numbers (zones with entrances from the world map)
+// get connected zone numbers (zones with entrances from the world map)
 async function getConnectedZoneNumbers(): Promise<Set<number>> {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT DISTINCT to_zone_number FROM wiki_zone_entrances WHERE to_zone_number > 0`
@@ -1590,30 +1882,23 @@ async function getConnectedZoneNumbers(): Promise<Set<number>> {
   return new Set(rows.map((r) => r.to_zone_number as number));
 }
 
-// Build mob caches and store in Redis
-async function buildMobCachesFromSource(): Promise<{ list: WikiMob[]; details: Map<string, CachedMobDetail> }> {
-  // Get all zones and connected zone numbers
+// build mob details cache from flatfiles (for getMobByZoneAndVnum which needs extra info)
+// note: list data now comes from wiki_mobs table, only details need flatfile parsing
+async function buildMobDetailsCacheFromSource(): Promise<Map<string, CachedMobDetail>> {
   const [{ zones }, connectedZones] = await Promise.all([
     listZones({ page: 1, limit: 10000 }),
     getConnectedZoneNumbers(),
   ]);
 
-  // Use composite key: "zoneNumber:vnum" for uniqueness
   const detailsCache = new Map<string, CachedMobDetail>();
-  const listCache: WikiMob[] = [];
 
-  // Parse mobs from each connected zone only
   for (const zone of zones) {
-    // Skip unconnected zones
-    if (!connectedZones.has(zone.number)) {
-      continue;
-    }
+    if (!connectedZones.has(zone.number)) continue;
     try {
-      const { parseMobFile } = await import('./zoneBuilderParser.js');
       const zoneMobs = await parseMobFile(zone.id);
       for (const mob of zoneMobs) {
-        const classname = MOB_CLASS_NAMES[mob.mobClass] || `Unknown (${mob.mobClass})`;
         const compositeKey = `${zone.number}:${mob.vnum}`;
+        const classname = MOB_CLASS_NAMES[mob.mobClass] || `Unknown (${mob.mobClass})`;
         const raceName = getRaceName(mob.species);
         const flags = getActFlagNames(mob.actFlags);
 
@@ -1629,14 +1914,11 @@ async function buildMobCachesFromSource(): Promise<{ list: WikiMob[]; details: M
           exp: mob.exp,
           zoneNumber: zone.number,
           zoneName: zone.name,
-          // New fields
           species: mob.species,
           raceName,
           actFlags: mob.actFlags,
           flags,
         };
-
-        listCache.push(wikiMob);
 
         detailsCache.set(compositeKey, {
           mob: wikiMob,
@@ -1652,44 +1934,21 @@ async function buildMobCachesFromSource(): Promise<{ list: WikiMob[]; details: M
         });
       }
     } catch {
-      // Zone has no .mob file, skip it
+      // zone has no .mob file
     }
   }
 
-  // Sort list by vnum for consistent ordering
-  listCache.sort((a, b) => a.vnum - b.vnum);
-
-  // Store in Redis
-  await setCache(REDIS_KEY_MOBS_LIST, listCache, MOBS_CACHE_TTL_SECONDS);
   await setCache(REDIS_KEY_MOBS_DETAILS, mapToObject(detailsCache), MOBS_CACHE_TTL_SECONDS);
-
-  return { list: listCache, details: detailsCache };
+  return detailsCache;
 }
 
-// Get list of all mobs (from Redis or rebuild)
-async function getAllMobsCached(): Promise<WikiMob[]> {
-  // Try Redis first
-  const cached = await getCache<WikiMob[]>(REDIS_KEY_MOBS_LIST);
-  if (cached) {
-    return cached;
-  }
-
-  // Cache miss - rebuild from source
-  const { list } = await buildMobCachesFromSource();
-  return list;
-}
-
-// Get detail cache map (from Redis or rebuild, keyed by "zoneNumber:vnum")
+// get mob details cache (from redis or rebuild from flatfiles)
 async function getMobDetailsCached(): Promise<Map<string, CachedMobDetail>> {
-  // Try Redis first
   const cached = await getCache<Record<string, CachedMobDetail>>(REDIS_KEY_MOBS_DETAILS);
   if (cached) {
     return objectToMap(cached);
   }
-
-  // Cache miss - rebuild from source
-  const { details } = await buildMobCachesFromSource();
-  return details;
+  return buildMobDetailsCacheFromSource();
 }
 
 export async function getMobs(
@@ -1698,98 +1957,129 @@ export async function getMobs(
 ): Promise<{ mobs: WikiMob[]; total: number; page: number; limit: number; totalPages: number }> {
   const { page, limit, sortBy = 'vnum', sortOrder = 'asc' } = pagination;
 
-  // Get all mobs from cache
-  let filteredMobs = await getAllMobsCached();
+  // build WHERE conditions
+  const conditions: string[] = ['1=1'];
+  const params: (string | number)[] = [];
 
-  // Apply filters
   if (filters.search) {
-    const searchLower = filters.search.toLowerCase();
-    filteredMobs = filteredMobs.filter((mob) =>
-      stripAnsiCodes(mob.name).includes(searchLower) ||
-      stripAnsiCodes(mob.keywords).includes(searchLower)
-    );
+    conditions.push('(m.name LIKE ? OR m.name_ansi LIKE ? OR m.keywords LIKE ?)');
+    const searchPattern = `%${filters.search}%`;
+    params.push(searchPattern, searchPattern, searchPattern);
   }
 
   if (filters.minLevel !== undefined) {
-    filteredMobs = filteredMobs.filter((mob) => mob.level >= filters.minLevel!);
+    conditions.push('m.level >= ?');
+    params.push(filters.minLevel);
   }
 
   if (filters.maxLevel !== undefined) {
-    filteredMobs = filteredMobs.filter((mob) => mob.level <= filters.maxLevel!);
+    conditions.push('m.level <= ?');
+    params.push(filters.maxLevel);
   }
 
   if (filters.alignmentMin !== undefined) {
-    filteredMobs = filteredMobs.filter((mob) => mob.alignment >= filters.alignmentMin!);
+    conditions.push('m.alignment >= ?');
+    params.push(filters.alignmentMin);
   }
 
   if (filters.alignmentMax !== undefined) {
-    filteredMobs = filteredMobs.filter((mob) => mob.alignment <= filters.alignmentMax!);
+    conditions.push('m.alignment <= ?');
+    params.push(filters.alignmentMax);
   }
 
   if (filters.mobClass !== undefined) {
-    filteredMobs = filteredMobs.filter((mob) => mob.mobClass === filters.mobClass);
+    conditions.push('m.mob_class = ?');
+    params.push(filters.mobClass);
   }
 
-  // New filters
   if (filters.race !== undefined) {
-    filteredMobs = filteredMobs.filter((mob) => mob.species === filters.race);
+    conditions.push('m.species = ?');
+    params.push(filters.race);
   }
 
   if (filters.flag !== undefined) {
-    filteredMobs = filteredMobs.filter((mob) => mob.actFlags & filters.flag!);
+    // bitwise AND check for act flag
+    conditions.push('(m.act_flags & ?) != 0');
+    params.push(filters.flag);
   }
 
-  // Zone filter
   if (filters.zone !== undefined) {
-    filteredMobs = filteredMobs.filter((mob) => mob.zoneNumber === filters.zone);
+    conditions.push('m.zone_number = ?');
+    params.push(filters.zone);
   }
 
-  // Sort
-  const sortMultiplier = sortOrder === 'desc' ? -1 : 1;
-  filteredMobs = [...filteredMobs].sort((a, b) => {
-    let aVal: any;
-    let bVal: any;
+  const whereClause = conditions.join(' AND ');
 
-    switch (sortBy) {
-      case 'name':
-        aVal = stripAnsiCodes(a.name);
-        bVal = stripAnsiCodes(b.name);
-        return aVal.localeCompare(bVal) * sortMultiplier;
-      case 'level':
-        aVal = a.level;
-        bVal = b.level;
-        break;
-      case 'alignment':
-        aVal = a.alignment;
-        bVal = b.alignment;
-        break;
-      case 'class':
-        aVal = a.classname;
-        bVal = b.classname;
-        return aVal.localeCompare(bVal) * sortMultiplier;
-      case 'race':
-        aVal = a.raceName;
-        bVal = b.raceName;
-        return aVal.localeCompare(bVal) * sortMultiplier;
-      case 'zone':
-        aVal = stripAnsiCodes(a.zoneName);
-        bVal = stripAnsiCodes(b.zoneName);
-        return aVal.localeCompare(bVal) * sortMultiplier;
-      default: // vnum
-        aVal = a.vnum;
-        bVal = b.vnum;
-    }
+  // determine sort column
+  let orderBy = 'm.vnum';
+  switch (sortBy) {
+    case 'name':
+      orderBy = 'm.name';
+      break;
+    case 'level':
+      orderBy = 'm.level';
+      break;
+    case 'alignment':
+      orderBy = 'm.alignment';
+      break;
+    case 'class':
+      orderBy = 'm.mob_class';
+      break;
+    case 'race':
+      orderBy = 'm.species';
+      break;
+    case 'zone':
+      orderBy = 'z.name';
+      break;
+  }
+  const orderDir = sortOrder === 'desc' ? 'DESC' : 'ASC';
 
-    return (aVal - bVal) * sortMultiplier;
+  // get total count first
+  const [countRows] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) as total FROM wiki_mobs m WHERE ${whereClause}`,
+    params
+  );
+  const total = countRows[0].total as number;
+
+  // get paginated results with zone name
+  const offset = (page - 1) * limit;
+  const [rows] = await pool.query<WikiMobRow[]>(
+    `SELECT m.*, z.name as zone_name
+     FROM wiki_mobs m
+     LEFT JOIN zones z ON m.zone_number = z.number
+     WHERE ${whereClause}
+     ORDER BY ${orderBy} ${orderDir}
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+
+  // transform rows to WikiMob
+  const mobs: WikiMob[] = rows.map((row) => {
+    const classname = MOB_CLASS_NAMES[row.mob_class] || `Unknown (${row.mob_class})`;
+    const raceName = RACE_NAMES[row.species] || `Unknown (${row.species})`;
+    const flags = getActFlagNames(row.act_flags);
+
+    return {
+      vnum: row.vnum,
+      name: row.name_ansi || row.name, // prefer ansi version for display
+      keywords: row.keywords || '',
+      level: row.level,
+      alignment: row.alignment,
+      mobClass: Number(row.mob_class), // bigint comes as string
+      classname,
+      gold: row.gold,
+      exp: row.exp,
+      zoneNumber: row.zone_number,
+      zoneName: row.zone_name || `Zone ${row.zone_number}`,
+      species: row.species,
+      raceName,
+      actFlags: row.act_flags,
+      flags,
+    };
   });
 
-  // Paginate
-  const total = filteredMobs.length;
-  const offset = (page - 1) * limit;
-  const paginatedMobs = filteredMobs.slice(offset, offset + limit);
-
   return {
-    mobs: paginatedMobs,
+    mobs,
     total,
     page,
     limit,
@@ -1925,28 +2215,50 @@ export async function getMobByZoneAndVnum(zoneNumber: number, vnum: number): Pro
   };
 }
 
-export function getMobClasses(): { id: number; name: string }[] {
-  return Object.entries(MOB_CLASS_NAMES).map(([id, name]) => ({
-    id: parseInt(id),
-    name,
+export async function getMobClasses(): Promise<{ id: number; name: string }[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT DISTINCT mob_class FROM wiki_mobs ORDER BY mob_class'
+  );
+  return rows.map((row) => ({
+    id: Number(row.mob_class), // bigint comes as string
+    name: MOB_CLASS_NAMES[row.mob_class] || `Unknown (${row.mob_class})`,
   }));
 }
 
-// Export races list for filter dropdown
-export function getMobRaces(): { id: number; name: string }[] {
-  return Object.entries(RACE_NAMES).map(([id, name]) => ({
-    id: parseInt(id),
-    name,
+// export races list for filter dropdown - dynamic from database
+export async function getMobRaces(): Promise<{ id: number; name: string }[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT DISTINCT species FROM wiki_mobs ORDER BY species'
+  );
+  return rows.map((row) => ({
+    id: row.species,
+    name: RACE_NAMES[row.species] || `Unknown (${row.species})`,
   }));
 }
 
-// Export act flags for legend
-export function getActFlags(): { id: number; name: string; description: string }[] {
-  return Object.entries(ACT_FLAG_NAMES).map(([id, info]) => ({
-    id: parseInt(id),
-    name: info.name,
-    description: info.description,
-  }));
+// export act flags for legend - dynamic from database
+export async function getActFlags(): Promise<{ id: number; name: string; description: string }[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT DISTINCT flag_id FROM wiki_mob_flags ORDER BY flag_id'
+  );
+  // convert flag_id back to bitvector value for lookup
+  const flagBitValues: Record<number, number> = {
+    1: 1, 2: 2, 3: 4, 4: 8, 5: 16, 6: 32, 7: 64, 8: 128,
+    9: 256, 10: 512, 11: 1024, 12: 2048, 13: 4096, 14: 8192,
+    15: 16384, 16: 32768, 17: 65536, 18: 131072, 19: 262144,
+    20: 524288, 21: 1048576, 22: 2097152, 23: 4194304, 24: 8388608,
+    25: 16777216, 26: 33554432, 27: 67108864, 28: 134217728,
+    29: 268435456, 30: 536870912, 31: 1073741824, 32: 2147483648,
+  };
+  return rows.map((row) => {
+    const bitValue = flagBitValues[row.flag_id] || 0;
+    const info = ACT_FLAG_NAMES[bitValue] || { name: `Flag ${row.flag_id}`, description: '' };
+    return {
+      id: bitValue,
+      name: info.name,
+      description: info.description,
+    };
+  }).filter((f) => f.id > 0);
 }
 
 // =============================================================================

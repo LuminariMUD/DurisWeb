@@ -5,7 +5,6 @@ import { useDebounceFn } from '@vueuse/core'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import {
@@ -56,6 +55,8 @@ const objectTypes = ref<WikiObjectType[]>([])
 const wearSlots = ref<WikiWearSlot[]>([])
 const affectTypes = ref<WikiAffectType[]>([])
 const spellEffectTypes = ref<string[]>([])
+const objectClasses = ref<{ id: number; name: string }[]>([])
+const objectRaces = ref<{ id: number; name: string }[]>([])
 
 // Zone search state
 const zoneSearchResults = ref<{ number: number; name: string }[]>([])
@@ -87,8 +88,12 @@ const showFilters = ref(false)
 
 // Advanced Filters
 const advancedOpen = ref(false)
-const affectFilters = ref<{ location: string; minModifier: string }[]>([])
+const affectFilters = ref<{ location: string; minModifier: string; open: boolean }[]>([])
 const selectedSpellEffects = ref<string[]>([])
+const selectedClass = ref<string>('')
+const selectedRace = ref<string>('')
+const classOpen = ref(false)
+const raceOpen = ref(false)
 
 // Sorting
 const sortBy = ref('vnum')
@@ -150,22 +155,36 @@ const filters = computed((): WikiObjectFilters => {
     f.spellEffects = selectedSpellEffects.value
   }
 
+  // Class restriction filter
+  if (selectedClass.value) {
+    f.allowedClass = parseInt(selectedClass.value)
+  }
+
+  // Race restriction filter
+  if (selectedRace.value) {
+    f.allowedRace = parseInt(selectedRace.value)
+  }
+
   return f
 })
 
 // Load filter options
 async function loadFilterOptions() {
   try {
-    const [types, slots, affects, spellEffects] = await Promise.all([
+    const [types, slots, affects, spellEffects, classes, races] = await Promise.all([
       wikiApi.getObjectTypes(),
       wikiApi.getWearSlots(),
       wikiApi.getAffectTypes(),
       wikiApi.getSpellEffectTypes(),
+      wikiApi.getObjectClasses(),
+      wikiApi.getObjectRaces(),
     ])
     objectTypes.value = types.filter((t) => t.id > 0) // Filter out "Undefined"
     wearSlots.value = slots
     affectTypes.value = affects.filter((a) => a.id > 0) // Filter out "None"
     spellEffectTypes.value = spellEffects
+    objectClasses.value = classes
+    objectRaces.value = races
   } catch (e) {
     console.error('Failed to load filter options:', e)
   }
@@ -262,7 +281,52 @@ function selectZone(zone: { number: number; name: string } | null) {
 
 // Add affect filter row
 function addAffectFilter() {
-  affectFilters.value.push({ location: '', minModifier: '' })
+  affectFilters.value.push({ location: '', minModifier: '', open: false })
+}
+
+// Get affect name for advanced filter display
+function getAdvancedAffectName(location: string): string {
+  if (!location) return 'Select affect'
+  const affect = affectTypes.value.find((a) => a.id.toString() === location)
+  return affect?.name || 'Select affect'
+}
+
+// Select affect in advanced filter
+function selectAdvancedAffect(idx: number, affectId: string) {
+  affectFilters.value[idx].location = affectId
+  affectFilters.value[idx].open = false
+  currentPage.value = 1
+  loadObjects()
+}
+
+// Get selected class name
+const selectedClassName = computed(() => {
+  if (!selectedClass.value) return 'All classes'
+  const cls = objectClasses.value.find((c) => c.id.toString() === selectedClass.value)
+  return cls?.name || 'All classes'
+})
+
+// Get selected race name
+const selectedRaceName = computed(() => {
+  if (!selectedRace.value) return 'All races'
+  const race = objectRaces.value.find((r) => r.id.toString() === selectedRace.value)
+  return race?.name || 'All races'
+})
+
+// Select class
+function selectClass(value: string) {
+  selectedClass.value = value
+  classOpen.value = false
+  currentPage.value = 1
+  loadObjects()
+}
+
+// Select race
+function selectRace(value: string) {
+  selectedRace.value = value
+  raceOpen.value = false
+  currentPage.value = 1
+  loadObjects()
 }
 
 // Remove affect filter row
@@ -311,11 +375,11 @@ watch([selectedType, selectedSlot, selectedAffect, selectedZone, minLevel, maxLe
   loadObjects()
 })
 
-// Watch for affect filter changes (deep watch)
-watch(affectFilters, () => {
+// Debounced handler for affect modifier changes
+const debouncedAffectModifierChange = useDebounceFn(() => {
   currentPage.value = 1
   loadObjects()
-}, { deep: true })
+}, 300)
 
 // Handle search input
 watch(search, () => {
@@ -359,6 +423,8 @@ function clearFilters() {
   excludeTrash.value = false
   affectFilters.value = []
   selectedSpellEffects.value = []
+  selectedClass.value = ''
+  selectedRace.value = ''
   currentPage.value = 1
   loadObjects()
 }
@@ -374,7 +440,9 @@ const hasActiveFilters = computed(() => {
     maxLevel.value ||
     excludeTrash.value ||
     affectFilters.value.length > 0 ||
-    selectedSpellEffects.value.length > 0
+    selectedSpellEffects.value.length > 0 ||
+    selectedClass.value ||
+    selectedRace.value
 })
 
 // Format affects for display
@@ -867,21 +935,46 @@ onMounted(async () => {
                       :key="idx"
                       class="flex flex-col sm:flex-row items-start sm:items-center gap-2"
                     >
-                      <Select v-model="af.location" class="w-full sm:w-[150px]">
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select affect" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem v-for="affect in affectTypes" :key="affect.id" :value="affect.id.toString()">
-                            {{ affect.name }}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Popover v-model:open="af.open">
+                        <PopoverTrigger as-child>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            class="w-full sm:w-[150px] justify-between font-normal"
+                          >
+                            <span class="truncate">{{ getAdvancedAffectName(af.location) }}</span>
+                            <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent class="w-[200px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search affect..." />
+                            <CommandEmpty>No affect found.</CommandEmpty>
+                            <CommandList>
+                              <CommandGroup>
+                                <CommandItem
+                                  v-for="affect in affectTypes"
+                                  :key="affect.id"
+                                  :value="affect.name"
+                                  @select="selectAdvancedAffect(idx, affect.id.toString())"
+                                >
+                                  <Check
+                                    class="mr-2 h-4 w-4"
+                                    :class="af.location === affect.id.toString() ? 'opacity-100' : 'opacity-0'"
+                                  />
+                                  {{ affect.name }}
+                                </CommandItem>
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                       <Input
                         v-model="af.minModifier"
                         type="number"
                         placeholder="Min value"
                         class="w-full sm:w-[100px]"
+                        @input="debouncedAffectModifierChange"
                       />
                       <Button variant="ghost" size="icon" @click="removeAffectFilter(idx)">
                         <Trash2 class="h-4 w-4 text-destructive" />
@@ -907,6 +1000,101 @@ onMounted(async () => {
                   <p v-if="selectedSpellEffects.length > 0" class="text-sm text-muted-foreground mt-2">
                     Selected: {{ selectedSpellEffects.join(', ') }}
                   </p>
+                </div>
+
+                <!-- Class/Race Restriction Filters -->
+                <div class="flex flex-col sm:flex-row gap-4">
+                  <!-- Class Filter -->
+                  <div class="flex-1">
+                    <label class="text-sm font-medium mb-2 block">Usable by Class</label>
+                    <Popover v-model:open="classOpen">
+                      <PopoverTrigger as-child>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          class="w-full justify-between font-normal"
+                        >
+                          <span class="truncate">{{ selectedClassName }}</span>
+                          <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent class="w-[200px] p-0">
+                        <Command>
+                          <CommandInput placeholder="Search class..." />
+                          <CommandEmpty>No class found.</CommandEmpty>
+                          <CommandList>
+                            <CommandGroup>
+                              <CommandItem value="all" @select="selectClass('')">
+                                <Check
+                                  class="mr-2 h-4 w-4"
+                                  :class="selectedClass === '' ? 'opacity-100' : 'opacity-0'"
+                                />
+                                All Classes
+                              </CommandItem>
+                              <CommandItem
+                                v-for="cls in objectClasses"
+                                :key="cls.id"
+                                :value="cls.name"
+                                @select="selectClass(cls.id.toString())"
+                              >
+                                <Check
+                                  class="mr-2 h-4 w-4"
+                                  :class="selectedClass === cls.id.toString() ? 'opacity-100' : 'opacity-0'"
+                                />
+                                {{ cls.name }}
+                              </CommandItem>
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <!-- Race Filter -->
+                  <div class="flex-1">
+                    <label class="text-sm font-medium mb-2 block">Usable by Race</label>
+                    <Popover v-model:open="raceOpen">
+                      <PopoverTrigger as-child>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          class="w-full justify-between font-normal"
+                        >
+                          <span class="truncate">{{ selectedRaceName }}</span>
+                          <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent class="w-[200px] p-0">
+                        <Command>
+                          <CommandInput placeholder="Search race..." />
+                          <CommandEmpty>No race found.</CommandEmpty>
+                          <CommandList>
+                            <CommandGroup>
+                              <CommandItem value="all" @select="selectRace('')">
+                                <Check
+                                  class="mr-2 h-4 w-4"
+                                  :class="selectedRace === '' ? 'opacity-100' : 'opacity-0'"
+                                />
+                                All Races
+                              </CommandItem>
+                              <CommandItem
+                                v-for="race in objectRaces"
+                                :key="race.id"
+                                :value="race.name"
+                                @select="selectRace(race.id.toString())"
+                              >
+                                <Check
+                                  class="mr-2 h-4 w-4"
+                                  :class="selectedRace === race.id.toString() ? 'opacity-100' : 'opacity-0'"
+                                />
+                                {{ race.name }}
+                              </CommandItem>
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
               </CollapsibleContent>
             </Collapsible>

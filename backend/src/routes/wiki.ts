@@ -362,7 +362,7 @@ router.get('/zones/:number/map-data', checkWikiAccess, detailLimiter, async (req
 // GET /api/wiki/objects/types - Get object type list (for filters)
 router.get('/objects/types', checkWikiAccess, async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const types = wikiService.getObjectTypes();
+    const types = await wikiService.getObjectTypes();
     res.json(types);
   } catch (error) {
     next(error);
@@ -372,7 +372,7 @@ router.get('/objects/types', checkWikiAccess, async (_req: Request, res: Respons
 // GET /api/wiki/objects/slots - Get wear slot list (for filters)
 router.get('/objects/slots', checkWikiAccess, async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const slots = wikiService.getWearSlotTypes();
+    const slots = await wikiService.getWearSlotTypes();
     res.json(slots);
   } catch (error) {
     next(error);
@@ -382,7 +382,7 @@ router.get('/objects/slots', checkWikiAccess, async (_req: Request, res: Respons
 // GET /api/wiki/objects/affects - Get affect type list (for filters)
 router.get('/objects/affects', checkWikiAccess, async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const affects = wikiService.getAffectTypes();
+    const affects = await wikiService.getAffectTypes();
     res.json(affects);
   } catch (error) {
     next(error);
@@ -392,8 +392,28 @@ router.get('/objects/affects', checkWikiAccess, async (_req: Request, res: Respo
 // GET /api/wiki/objects/spell-effects - Get spell effect list (for filters)
 router.get('/objects/spell-effects', checkWikiAccess, async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const effects = wikiService.getSpellEffectTypes();
+    const effects = await wikiService.getSpellEffectTypes();
     res.json(effects);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/wiki/objects/classes - Get class restriction list (for filters)
+router.get('/objects/classes', checkWikiAccess, async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const classes = await wikiService.getObjectClasses();
+    res.json(classes);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/wiki/objects/races - Get race restriction list (for filters)
+router.get('/objects/races', checkWikiAccess, async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const races = await wikiService.getObjectRaces();
+    res.json(races);
   } catch (error) {
     next(error);
   }
@@ -417,6 +437,8 @@ router.get('/objects', checkWikiAccess, listLimiter, async (req: Request, res: R
       affects,
       spellEffects,
       zone,
+      allowedClass,
+      allowedRace,
     } = req.query;
 
     const filters: wikiService.WikiObjectFilters = {};
@@ -471,6 +493,16 @@ router.get('/objects', checkWikiAccess, listLimiter, async (req: Request, res: R
       filters.zone = Number(zone);
     }
 
+    // Class restriction filter - find items usable by this class
+    if (allowedClass !== undefined) {
+      filters.allowedClass = Number(allowedClass);
+    }
+
+    // Race restriction filter - find items usable by this race
+    if (allowedRace !== undefined) {
+      filters.allowedRace = Number(allowedRace);
+    }
+
     const pagination: wikiService.PaginationParams = {
       page: Number(page),
       limit: Math.min(Number(limit), 100), // Cap at 100
@@ -515,7 +547,7 @@ router.get('/objects/:vnum', checkWikiAccess, detailLimiter, async (req: Request
 // GET /api/wiki/mobs/classes - Get mob class list (for filters)
 router.get('/mobs/classes', checkWikiAccess, async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const classes = wikiService.getMobClasses();
+    const classes = await wikiService.getMobClasses();
     res.json(classes);
   } catch (error) {
     next(error);
@@ -525,7 +557,7 @@ router.get('/mobs/classes', checkWikiAccess, async (_req: Request, res: Response
 // GET /api/wiki/mobs/races - Get mob race list (for filters)
 router.get('/mobs/races', checkWikiAccess, async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const races = wikiService.getMobRaces();
+    const races = await wikiService.getMobRaces();
     res.json(races);
   } catch (error) {
     next(error);
@@ -535,7 +567,7 @@ router.get('/mobs/races', checkWikiAccess, async (_req: Request, res: Response, 
 // GET /api/wiki/mobs/flags - Get act flags list (for legend)
 router.get('/mobs/flags', checkWikiAccess, async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const flags = wikiService.getActFlags();
+    const flags = await wikiService.getActFlags();
     res.json(flags);
   } catch (error) {
     next(error);

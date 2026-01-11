@@ -1428,6 +1428,9 @@ export interface WikiObjectDetail extends WikiObject {
   values: number[]
   extraFlags: number
   wearFlags: number
+  extraFlagNames: string[]
+  classRestrictions: { className: string; isAllowed: boolean }[]
+  raceRestrictions: { raceName: string; isAllowed: boolean }[]
   zoneLocations: { zoneNumber: number; zoneName: string }[]
   roomLoads: { roomVnum: number; roomName: string; zoneNumber: number }[]
   mobDrops: { mobVnum: number; mobName: string; zoneNumber: number }[]
@@ -1456,6 +1459,8 @@ export interface WikiObjectFilters {
   zone?: number
   affects?: { location: number; minModifier?: number }[]
   spellEffects?: string[]
+  allowedClass?: number
+  allowedRace?: number
 }
 
 export interface WikiPaginatedResponse<T> {

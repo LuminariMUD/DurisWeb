@@ -2522,6 +2522,8 @@ export const wikiApi = {
       params.append('spellEffects', filters.spellEffects.join(','))
     }
     if (filters.zone !== undefined) params.append('zone', filters.zone.toString())
+    if (filters.allowedClass !== undefined) params.append('allowedClass', filters.allowedClass.toString())
+    if (filters.allowedRace !== undefined) params.append('allowedRace', filters.allowedRace.toString())
 
     const { data } = await api.get(`/api/wiki/objects?${params}`)
     return data
@@ -2532,6 +2534,22 @@ export const wikiApi = {
    */
   async getSpellEffectTypes(): Promise<string[]> {
     const { data } = await api.get<string[]>('/api/wiki/objects/spell-effects')
+    return data
+  },
+
+  /**
+   * Get object classes for restriction filtering
+   */
+  async getObjectClasses(): Promise<{ id: number; name: string }[]> {
+    const { data } = await api.get<{ id: number; name: string }[]>('/api/wiki/objects/classes')
+    return data
+  },
+
+  /**
+   * Get object races for restriction filtering
+   */
+  async getObjectRaces(): Promise<{ id: number; name: string }[]> {
+    const { data } = await api.get<{ id: number; name: string }[]>('/api/wiki/objects/races')
     return data
   },
 

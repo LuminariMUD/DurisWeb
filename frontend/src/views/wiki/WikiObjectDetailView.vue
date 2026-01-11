@@ -163,90 +163,150 @@ watch(() => props.vnum, () => {
           </CardContent>
         </Card>
 
-        <!-- Wear Slots -->
+        <!-- Wear Slots & Flags -->
         <Card>
           <CardHeader class="pb-3 sm:pb-6">
             <CardTitle class="flex items-center gap-2 text-base sm:text-lg">
               <Sword class="h-4 w-4 sm:h-5 sm:w-5" />
-              Wear Slots
+              Wear Slots & Flags
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div v-if="object.slots.length > 0" class="flex flex-wrap gap-2">
-              <Badge
-                v-for="slot in object.slots"
-                :key="slot"
-                variant="secondary"
-              >
-                {{ slot }}
-              </Badge>
+          <CardContent class="space-y-4">
+            <!-- Wear Slots -->
+            <div>
+              <p class="text-xs sm:text-sm font-medium mb-2">Wear Slots</p>
+              <div v-if="object.slots.length > 0" class="flex flex-wrap gap-2">
+                <Badge
+                  v-for="slot in object.slots"
+                  :key="slot"
+                  variant="secondary"
+                >
+                  {{ slot }}
+                </Badge>
+              </div>
+              <p v-else class="text-muted-foreground text-sm">
+                Cannot be worn
+              </p>
             </div>
-            <p v-else class="text-muted-foreground text-sm">
-              This object cannot be worn.
-            </p>
+            <!-- Item Flags -->
+            <div v-if="object.extraFlagNames && object.extraFlagNames.length > 0">
+              <p class="text-xs sm:text-sm font-medium mb-2">Item Flags</p>
+              <div class="flex flex-wrap gap-2">
+                <Badge
+                  v-for="flag in object.extraFlagNames"
+                  :key="flag"
+                  variant="outline"
+                >
+                  {{ flag }}
+                </Badge>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      <!-- Affects -->
-      <Card v-if="object.affects.length > 0">
-        <CardHeader class="pb-3 sm:pb-6">
-          <CardTitle class="flex items-center gap-2 text-base sm:text-lg">
-            <Sparkles class="h-4 w-4 sm:h-5 sm:w-5" />
-            Affects / Bonuses
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
-            <div
-              v-for="(affect, index) in object.affects"
-              :key="index"
-              class="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-muted/50"
-            >
-              <span class="text-xs sm:text-sm font-medium">{{ affect.locationName }}</span>
-              <Badge :variant="getAffectVariant(affect.modifier)">
-                {{ affect.modifier > 0 ? '+' : '' }}{{ affect.modifier }}
+      <!-- Secondary info grid - 2 columns on desktop -->
+      <div class="grid md:grid-cols-2 gap-4 md:gap-6">
+        <!-- Affects -->
+        <Card v-if="object.affects.length > 0">
+          <CardHeader class="pb-3 sm:pb-6">
+            <CardTitle class="flex items-center gap-2 text-base sm:text-lg">
+              <Sparkles class="h-4 w-4 sm:h-5 sm:w-5" />
+              Affects / Bonuses
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div class="grid grid-cols-2 gap-2 sm:gap-3">
+              <div
+                v-for="(affect, index) in object.affects"
+                :key="index"
+                class="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-muted/50"
+              >
+                <span class="text-xs sm:text-sm font-medium">{{ affect.locationName }}</span>
+                <Badge :variant="getAffectVariant(affect.modifier)">
+                  {{ affect.modifier > 0 ? '+' : '' }}{{ affect.modifier }}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- Spell Effects -->
+        <Card v-if="object.spellEffects && object.spellEffects.length > 0">
+          <CardHeader class="pb-3 sm:pb-6">
+            <CardTitle class="flex items-center gap-2 text-base sm:text-lg">
+              <Zap class="h-4 w-4 sm:h-5 sm:w-5" />
+              Spell Effects
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div class="flex flex-wrap gap-2">
+              <Badge
+                v-for="effect in object.spellEffects"
+                :key="effect"
+                variant="outline"
+                class="bg-purple-500/10 text-purple-500 border-purple-500/20"
+              >
+                {{ effect }}
               </Badge>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <!-- Spell Effects -->
-      <Card v-if="object.spellEffects && object.spellEffects.length > 0">
-        <CardHeader class="pb-3 sm:pb-6">
-          <CardTitle class="flex items-center gap-2 text-base sm:text-lg">
-            <Zap class="h-4 w-4 sm:h-5 sm:w-5" />
-            Spell Effects
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div class="flex flex-wrap gap-2">
-            <Badge
-              v-for="effect in object.spellEffects"
-              :key="effect"
-              variant="outline"
-              class="bg-purple-500/10 text-purple-500 border-purple-500/20"
-            >
-              {{ effect }}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
+        <!-- Class/Race Restrictions -->
+        <Card v-if="(object.classRestrictions && object.classRestrictions.length > 0) || (object.raceRestrictions && object.raceRestrictions.length > 0)">
+          <CardHeader class="pb-3 sm:pb-6">
+            <CardTitle class="flex items-center gap-2 text-base sm:text-lg">
+              <Shield class="h-4 w-4 sm:h-5 sm:w-5" />
+              Restrictions
+            </CardTitle>
+          </CardHeader>
+          <CardContent class="space-y-4">
+            <!-- Class Restrictions -->
+            <div v-if="object.classRestrictions && object.classRestrictions.length > 0">
+              <p class="text-xs sm:text-sm font-medium mb-2">
+                {{ object.classRestrictions[0]?.isAllowed ? 'Allowed Classes:' : 'Restricted Classes:' }}
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <Badge
+                  v-for="cls in object.classRestrictions"
+                  :key="cls.className"
+                  :variant="cls.isAllowed ? 'default' : 'destructive'"
+                >
+                  {{ cls.className }}
+                </Badge>
+              </div>
+            </div>
+            <!-- Race Restrictions -->
+            <div v-if="object.raceRestrictions && object.raceRestrictions.length > 0">
+              <p class="text-xs sm:text-sm font-medium mb-2">
+                {{ object.raceRestrictions[0]?.isAllowed ? 'Allowed Races:' : 'Restricted Races:' }}
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <Badge
+                  v-for="race in object.raceRestrictions"
+                  :key="race.raceName"
+                  :variant="race.isAllowed ? 'default' : 'destructive'"
+                >
+                  {{ race.raceName }}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-      <!-- Where to Find -->
-      <Card>
-        <CardHeader class="pb-3 sm:pb-6">
-          <CardTitle class="flex items-center gap-2 text-base sm:text-lg">
-            <MapPin class="h-4 w-4 sm:h-5 sm:w-5" />
-            Where to Find
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div class="grid md:grid-cols-2 gap-4 md:gap-6">
+        <!-- Where to Find -->
+        <Card>
+          <CardHeader class="pb-3 sm:pb-6">
+            <CardTitle class="flex items-center gap-2 text-base sm:text-lg">
+              <MapPin class="h-4 w-4 sm:h-5 sm:w-5" />
+              Where to Find
+            </CardTitle>
+          </CardHeader>
+          <CardContent class="space-y-4">
             <!-- Zone Locations -->
             <div v-if="object.zoneLocations.length > 0">
-              <p class="text-xs sm:text-sm font-medium mb-2 sm:mb-3">Loads in Zones:</p>
+              <p class="text-xs sm:text-sm font-medium mb-2">Zone:</p>
               <div class="flex flex-col gap-1.5">
                 <Button
                   v-for="loc in object.zoneLocations"
@@ -264,7 +324,7 @@ watch(() => props.vnum, () => {
 
             <!-- Loads in Rooms -->
             <div v-if="object.roomLoads && object.roomLoads.length > 0">
-              <p class="text-xs sm:text-sm font-medium mb-2 sm:mb-3">Loads in Rooms:</p>
+              <p class="text-xs sm:text-sm font-medium mb-2">Rooms:</p>
               <div class="flex flex-col gap-1.5">
                 <Button
                   v-for="room in object.roomLoads"
@@ -282,7 +342,7 @@ watch(() => props.vnum, () => {
 
             <!-- Loads on Mobs -->
             <div v-if="object.mobDrops && object.mobDrops.length > 0">
-              <p class="text-xs sm:text-sm font-medium mb-2 sm:mb-3">Loads on Mobs:</p>
+              <p class="text-xs sm:text-sm font-medium mb-2">Mobs:</p>
               <div class="flex flex-col gap-1.5">
                 <Button
                   v-for="drop in object.mobDrops"
@@ -300,7 +360,7 @@ watch(() => props.vnum, () => {
 
             <!-- Loads in Containers -->
             <div v-if="object.containerLoads && object.containerLoads.length > 0">
-              <p class="text-xs sm:text-sm font-medium mb-2 sm:mb-3">Loads in Containers:</p>
+              <p class="text-xs sm:text-sm font-medium mb-2">Containers:</p>
               <div class="flex flex-col gap-1.5">
                 <Button
                   v-for="container in object.containerLoads"
@@ -315,17 +375,17 @@ watch(() => props.vnum, () => {
                 </Button>
               </div>
             </div>
-          </div>
 
-          <!-- No locations -->
-          <div
-            v-if="object.zoneLocations.length === 0 && (!object.roomLoads || object.roomLoads.length === 0) && (!object.mobDrops || object.mobDrops.length === 0) && (!object.containerLoads || object.containerLoads.length === 0)"
-            class="text-center text-muted-foreground py-4"
-          >
-            No load locations found for this object.
-          </div>
-        </CardContent>
-      </Card>
+            <!-- No locations -->
+            <div
+              v-if="object.zoneLocations.length === 0 && (!object.roomLoads || object.roomLoads.length === 0) && (!object.mobDrops || object.mobDrops.length === 0) && (!object.containerLoads || object.containerLoads.length === 0)"
+              class="text-center text-muted-foreground py-4"
+            >
+              No load locations found.
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
     </div>
   </div>

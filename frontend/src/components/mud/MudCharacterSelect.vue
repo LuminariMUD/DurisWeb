@@ -145,7 +145,7 @@ const handleDeleteConfirmed = () => {
                       </div>
                       <div class="flex items-center gap-2 text-xs lg:text-sm text-muted-foreground">
                         <span>Level {{ char.level }}</span>
-                        <span>{{ char.race }}</span>
+                        <span v-html="parseAnsiToHtml(char.race || '')"></span>
                       </div>
                       <div v-if="char.lastRoom" class="text-xs text-muted-foreground truncate mt-0.5" v-html="parseAnsiToHtml(char.lastRoom)">
                       </div>
