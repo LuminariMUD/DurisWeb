@@ -58,7 +58,7 @@ const navigateToPlayer = async (characterName: string) => {
   }
 }
 
-// Check all characters when data loads
+// Check all characters when data loads (batch lookup)
 const checkCharacterAccounts = async () => {
   if (!data.value?.participants) return
 
@@ -68,13 +68,16 @@ const checkCharacterAccounts = async () => {
     if (name) charNames.add(name)
   }
 
-  for (const charName of charNames) {
-    try {
-      await profileApi.getCharacterAccount(charName)
-      characterExists.value.set(charName.toLowerCase(), true)
-    } catch {
-      characterExists.value.set(charName.toLowerCase(), false)
+  if (charNames.size === 0) return
+
+  try {
+    const accounts = await profileApi.getCharacterAccountsBatch(Array.from(charNames))
+    for (const charName of charNames) {
+      const exists = charName in accounts
+      characterExists.value.set(charName.toLowerCase(), exists)
     }
+  } catch {
+    // on error, mark all as unknown (won't show deleted styling)
   }
 }
 
@@ -327,7 +330,7 @@ const logLines = computed(() => {
   const log = showFullLog.value
     ? selectedParticipant.value.log
     : getLimitedLog(selectedParticipant.value.log)
-  return log.split('\n')
+  return log.replace(/\r/g, '').split('\n')
 })
 
 // Handle clicking a line to quote it
@@ -827,9 +830,9 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
 
     <!-- Fullscreen Combat Log Dialog -->
     <Dialog v-model:open="isFullscreenOpen" :title-html="`Combat Log - ${selectedParticipant ? parseAnsiForVue(selectedParticipant.player_description) : ''}`" noPadding>
-      <div v-if="selectedParticipant">
+      <div v-if="selectedParticipant" class="h-full">
         <!-- Combat Log Only -->
-        <div class="bg-black font-mono text-xs lg:text-sm text-gray-100 overflow-x-auto h-[calc(95vh-150px)] overflow-y-auto">
+        <div class="bg-black font-mono text-xs lg:text-sm text-gray-100 overflow-x-auto h-full overflow-y-auto">
           <pre v-if="selectedParticipant.log" class="whitespace-pre-wrap px-2 py-1" v-html="parseAnsiForVue(selectedParticipant.log, true)"></pre>
           <p v-else class="text-gray-400 p-4">No combat log available for this participant</p>
         </div>

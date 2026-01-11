@@ -2056,6 +2056,36 @@ router.get('/characters/:characterName/account', async (req: Request, res: Respo
   }
 });
 
+// batch lookup for multiple characters
+router.post('/characters/batch/accounts', async (req: Request, res: Response) => {
+  try {
+    const { characterNames } = req.body;
+
+    if (!Array.isArray(characterNames) || characterNames.length === 0) {
+      return res.status(400).json({ error: 'characterNames array required' });
+    }
+
+    if (characterNames.length > 50) {
+      return res.status(400).json({ error: 'maximum 50 characters per batch' });
+    }
+
+    const results: Record<string, string> = {};
+    await Promise.all(
+      characterNames.map(async (name: string) => {
+        const accountName = await findAccountByCharacter(name);
+        if (accountName) {
+          results[name] = accountName;
+        }
+      })
+    );
+
+    return res.json(results);
+  } catch (error) {
+    logger.error('Batch character account lookup error:', error);
+    return res.status(500).json({ error: 'Failed to lookup character accounts' });
+  }
+});
+
 // ============================================================================
 // Avatar Upload Routes
 // ============================================================================

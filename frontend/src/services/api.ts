@@ -1569,6 +1569,14 @@ export const profileApi = {
   },
 
   /**
+   * Batch lookup account names for multiple characters
+   */
+  async getCharacterAccountsBatch(characterNames: string[]): Promise<Record<string, string>> {
+    const { data } = await api.post<Record<string, string>>('/api/forum/characters/batch/accounts', { characterNames })
+    return data
+  },
+
+  /**
    * Upload own banner
    */
   async uploadBanner(file: File): Promise<{ bannerUrl: string }> {
