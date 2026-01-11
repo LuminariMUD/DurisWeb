@@ -2456,8 +2456,9 @@ const SECTOR_COLORS_RGB: Record<number, [number, number, number]> = {
   29: [88, 28, 135],    // SECT_UNDRWLD_LOWCEIL - dark purple
 };
 
-// Default background color (ocean)
-const DEFAULT_BG_RGB: [number, number, number] = [30, 58, 138];
+// Background colors
+const SURFACE_BG_RGB: [number, number, number] = [30, 58, 138]; // ocean blue
+const UNDERDARK_BG_RGB: [number, number, number] = [0, 0, 0];   // black
 
 /**
  * Generate a PNG image of the world map from tile data
@@ -2497,13 +2498,16 @@ export async function generateMapImage(layer: number = 0, scale: number = 4): Pr
   // Create RGBA buffer (4 bytes per pixel)
   const buffer = Buffer.alloc(width * height * 4);
 
-  // Fill with default background color (ocean)
+  // Pick background color (ocean blue for surface only, black for everything else)
+  const bgColor = layer === 0 ? SURFACE_BG_RGB : UNDERDARK_BG_RGB;
+
+  // Fill with background color
   for (let i = 0; i < width * height; i++) {
     const offset = i * 4;
-    buffer[offset] = DEFAULT_BG_RGB[0];     // R
-    buffer[offset + 1] = DEFAULT_BG_RGB[1]; // G
-    buffer[offset + 2] = DEFAULT_BG_RGB[2]; // B
-    buffer[offset + 3] = 255;               // A (fully opaque)
+    buffer[offset] = bgColor[0];     // R
+    buffer[offset + 1] = bgColor[1]; // G
+    buffer[offset + 2] = bgColor[2]; // B
+    buffer[offset + 3] = 255;        // A (fully opaque)
   }
 
   // Draw each tile as a scaled block
@@ -2511,7 +2515,7 @@ export async function generateMapImage(layer: number = 0, scale: number = 4): Pr
     const baseX = row.x_coord - bounds.minX;
     const baseY = row.y_coord - bounds.minY;
     const sectorType = row.sector_type;
-    const color = SECTOR_COLORS_RGB[sectorType] || DEFAULT_BG_RGB;
+    const color = SECTOR_COLORS_RGB[sectorType] || bgColor;
 
     // Draw scale x scale block for each room
     for (let dy = 0; dy < scale; dy++) {
