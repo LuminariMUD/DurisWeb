@@ -54,7 +54,7 @@ const handlePlayerLogout = (_data: any) => {
 }
 
 const handleWholist = (_data: any) => {
-  // wholist already handled by polling
+  refetchWhoList()
 }
 
 const handleMudOnline = async () => {
