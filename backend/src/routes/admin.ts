@@ -96,6 +96,7 @@ import {
 import { searchAccounts, accountExists, updateAccountPassword } from '../services/mudAccountParser.js';
 import bcrypt from 'bcrypt';
 import { getGodLevelFromCharacterLevel } from '../services/permissionService.js';
+import { testWebhook, manualPostBattle } from '../services/discordService.js';
 
 const router: IRouter = Router();
 
@@ -3921,6 +3922,55 @@ router.delete('/web/hero-image', requireAuth, requirePermission('manage_front_pa
     logger.error('Delete hero image error:', error);
     const message = error instanceof Error ? error.message : 'Failed to delete hero image';
     return res.status(500).json({ error: message });
+  }
+});
+
+// ============================================
+// Discord Integration
+// ============================================
+
+/**
+ * POST /api/admin/discord/test
+ * test discord webhook by sending a test message
+ */
+router.post('/discord/test', requireAuth, requirePermission('manage_front_page'), async (req: Request, res: Response) => {
+  try {
+    const { webhookUrl } = req.body;
+
+    if (!webhookUrl) {
+      return res.status(400).json({ error: 'webhook url is required' });
+    }
+
+    const result = await testWebhook(webhookUrl);
+    return res.json(result);
+  } catch (error) {
+    logger.error('Discord test webhook error:', error);
+    return res.status(500).json({ success: false, error: 'failed to test webhook' });
+  }
+});
+
+/**
+ * POST /api/admin/pvp/events/:id/discord
+ * manually post a battle to discord
+ */
+router.post('/pvp/events/:id/discord', requireAuth, requirePermission('manage_front_page'), async (req: Request, res: Response) => {
+  try {
+    const eventId = parseInt(req.params.id, 10);
+
+    if (isNaN(eventId)) {
+      return res.status(400).json({ error: 'invalid event id' });
+    }
+
+    const result = await manualPostBattle(eventId);
+
+    if (result.success) {
+      return res.json({ success: true, message: 'battle posted to discord' });
+    }
+
+    return res.status(400).json({ success: false, error: result.error });
+  } catch (error) {
+    logger.error('Discord manual post error:', error);
+    return res.status(500).json({ success: false, error: 'failed to post to discord' });
   }
 });
 

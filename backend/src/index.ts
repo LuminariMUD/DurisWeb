@@ -74,6 +74,7 @@ import { getWebSettings } from './services/webSettingsService.js';
 import { startMudAuctionClient, stopMudAuctionClient, setAuctionBroadcaster, setPlayerEventBroadcaster, setWholistBroadcaster } from './services/mudAuctionClient.js';
 import { setNotificationBroadcaster, setNewsBroadcaster, notifyPvpBattle } from './services/unifiedNotificationService.js';
 import { updateWebSocketCount } from './services/serverHealthService.js';
+import { isDiscordEnabled, postBattleToDiscord } from './services/discordService.js';
 import { pool } from './db/connection.js';
 
 // Get __dirname equivalent in ES modules
@@ -636,6 +637,35 @@ async function checkForNewEvents() {
             latestEvent.killers,
             latestEvent.room_name || 'Unknown'
           ).catch(err => logger.error('failed to send pvp push notification:', err));
+
+          // post to discord if enabled
+          (async () => {
+            try {
+              const enabled = await isDiscordEnabled();
+              if (enabled) {
+                const participants = [
+                  ...latestEvent.killers.map((k: { description: string; isLeader: boolean }) => ({
+                    description: k.description,
+                    pk_type: k.isLeader ? 'KILLER' : 'KILLER-GROUP',
+                    leader: k.isLeader,
+                  })),
+                  ...latestEvent.victims.map((v: { description: string; isLeader: boolean; died: boolean }) => ({
+                    description: v.description,
+                    pk_type: v.died ? 'VICTIM' : 'VICTIM-GROUP',
+                    leader: v.isLeader,
+                  })),
+                ];
+                await postBattleToDiscord(
+                  latestEvent.id,
+                  latestEvent.stamp,
+                  latestEvent.room_name || 'Unknown',
+                  participants
+                );
+              }
+            } catch (err) {
+              logger.error('failed to post to discord:', err);
+            }
+          })();
         }
       }
     }

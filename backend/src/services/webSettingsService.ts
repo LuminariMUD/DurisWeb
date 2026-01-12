@@ -40,6 +40,9 @@ export interface WebSettings {
   maxHourlyBackups: number;
   // Privacy settings
   respectWebinfoToggle: boolean;
+  // Discord settings
+  discordWebhookUrl: string;
+  discordWebhookEnabled: boolean;
 }
 
 export interface WebSettingRow {
@@ -107,6 +110,9 @@ export async function getWebSettings(): Promise<WebSettings> {
     maxHourlyBackups: 24,
     // Privacy defaults (respect player's webinfo toggle by default)
     respectWebinfoToggle: true,
+    // Discord defaults
+    discordWebhookUrl: '',
+    discordWebhookEnabled: false,
   };
 
   rows.forEach((row: RowDataPacket) => {
@@ -155,6 +161,12 @@ export async function getWebSettings(): Promise<WebSettings> {
         break;
       case 'respect_webinfo_toggle':
         settings.respectWebinfoToggle = value !== 'false';
+        break;
+      case 'discord_webhook_url':
+        settings.discordWebhookUrl = value || '';
+        break;
+      case 'discord_webhook_enabled':
+        settings.discordWebhookEnabled = value === 'true';
         break;
     }
   });
@@ -211,7 +223,8 @@ export async function updateWebSetting(
   const validKeys = [
     'pvp_delay_minutes', 'mud_host', 'mud_port', 'mud_port_tls', 'mud_ws_port', 'site_title', 'site_logo_url',
     'front_page_hero_enabled', 'front_page_hero_title', 'front_page_hero_subtitle',
-    'front_page_hero_image_url', 'front_page_content', 'max_hourly_backups', 'respect_webinfo_toggle'
+    'front_page_hero_image_url', 'front_page_content', 'max_hourly_backups', 'respect_webinfo_toggle',
+    'discord_webhook_url', 'discord_webhook_enabled'
   ];
   if (!validKeys.includes(key)) {
     throw new Error(`Invalid setting key: ${key}`);
@@ -228,6 +241,23 @@ export async function updateWebSetting(
   if (key === 'respect_webinfo_toggle') {
     if (value !== 'true' && value !== 'false') {
       throw new Error('Respect webinfo toggle must be "true" or "false"');
+    }
+  }
+
+  // Validate discord_webhook_enabled is boolean string
+  if (key === 'discord_webhook_enabled') {
+    if (value !== 'true' && value !== 'false') {
+      throw new Error('Discord webhook enabled must be "true" or "false"');
+    }
+  }
+
+  // Validate discord_webhook_url format (allow empty or valid discord webhook url)
+  if (key === 'discord_webhook_url') {
+    if (value && !value.startsWith('https://discord.com/api/webhooks/')) {
+      throw new Error('Invalid discord webhook url format');
+    }
+    if (value && value.length > 200) {
+      throw new Error('Discord webhook url too long');
     }
   }
 

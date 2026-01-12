@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Cog, Globe, Image, Clock, Server, Trash2, Upload, Shield, Info } from 'lucide-vue-next'
+import { Cog, Globe, Image, Clock, Server, Trash2, Upload, Shield, Info, MessageSquare } from 'lucide-vue-next'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
@@ -196,6 +196,31 @@ function cancelLogoUpload() {
   }
 }
 
+// discord webhook testing
+const isTestingWebhook = ref(false)
+
+async function testDiscordWebhook() {
+  const webhookUrl = editedSettings.value.discord_webhook_url
+  if (!webhookUrl) {
+    toast.error('Please enter a webhook URL first', 'Error')
+    return
+  }
+
+  isTestingWebhook.value = true
+  try {
+    const result = await adminApi.testDiscordWebhook(webhookUrl)
+    if (result.success) {
+      toast.success('Test message sent to Discord!', 'Success')
+    } else {
+      toast.error(result.error || 'Failed to send test message', 'Error')
+    }
+  } catch (err: any) {
+    toast.error(err.response?.data?.error || 'Failed to test webhook', 'Error')
+  } finally {
+    isTestingWebhook.value = false
+  }
+}
+
 onMounted(async () => {
   if (!isOverlord.value && !hasPermission('manage_front_page')) {
     router.push('/forum')
@@ -311,6 +336,75 @@ onMounted(async () => {
                 saveSetting('respect_webinfo_toggle')
               }"
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      <!-- Discord Integration Card -->
+      <Card>
+        <CardHeader>
+          <div class="flex items-center gap-2">
+            <MessageSquare class="w-5 h-5" />
+            <CardTitle>Discord Integration</CardTitle>
+          </div>
+          <CardDescription>
+            Post PvP battles to a Discord channel via webhook
+          </CardDescription>
+        </CardHeader>
+        <CardContent v-if="isLoading">
+          <Skeleton class="h-20 w-full" />
+        </CardContent>
+        <CardContent v-else class="space-y-4">
+          <!-- Enable/Disable Toggle -->
+          <div class="flex items-center justify-between">
+            <div class="space-y-1">
+              <Label for="discord_webhook_enabled">Auto-post battles to Discord</Label>
+              <p class="text-xs text-muted-foreground">
+                Automatically post new PvP battles to Discord
+              </p>
+            </div>
+            <Switch
+              id="discord_webhook_enabled"
+              :model-value="editedSettings.discord_webhook_enabled === 'true'"
+              :disabled="isSaving.discord_webhook_enabled"
+              @update:model-value="(val: boolean) => {
+                editedSettings.discord_webhook_enabled = val ? 'true' : 'false'
+                saveSetting('discord_webhook_enabled')
+              }"
+            />
+          </div>
+
+          <!-- Webhook URL Input -->
+          <div class="space-y-2">
+            <Label for="discord_webhook_url">Discord Webhook URL</Label>
+            <div class="flex gap-2">
+              <Input
+                id="discord_webhook_url"
+                v-model="editedSettings.discord_webhook_url"
+                type="password"
+                placeholder="https://discord.com/api/webhooks/..."
+                :disabled="isSaving.discord_webhook_url"
+                class="flex-1"
+              />
+              <Button
+                @click="saveSetting('discord_webhook_url')"
+                :disabled="isSaving.discord_webhook_url || !hasChanges('discord_webhook_url')"
+                size="sm"
+              >
+                {{ isSaving.discord_webhook_url ? 'Saving...' : 'Save' }}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                @click="testDiscordWebhook"
+                :disabled="isTestingWebhook || !editedSettings.discord_webhook_url"
+              >
+                {{ isTestingWebhook ? 'Testing...' : 'Test' }}
+              </Button>
+            </div>
+            <p class="text-xs text-muted-foreground">
+              Create a webhook in your Discord channel settings. The URL should start with https://discord.com/api/webhooks/
+            </p>
           </div>
         </CardContent>
       </Card>

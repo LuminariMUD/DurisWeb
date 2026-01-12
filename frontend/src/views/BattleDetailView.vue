@@ -4,8 +4,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { useBattleDetail } from '@/composables/usePvPEvents'
 import { format } from 'date-fns'
 import { parseAnsiForVue, stripAnsiCodes } from '@/utils/ansiParser'
-import { profileApi, pvpApi } from '@/services/api'
+import { profileApi, pvpApi, adminApi } from '@/services/api'
 import { useToast } from '@/composables/useToast'
+import { useAuth } from '@/composables/useAuth'
 import Select from '@/components/ui/Select.vue'
 import Dialog from '@/components/ui/Dialog.vue'
 import BattleLikeButton from '@/components/pvp/BattleLikeButton.vue'
@@ -29,6 +30,29 @@ const extractPlayerName = (description: string): string | null => {
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const { permissions } = useAuth()
+
+// check if user can post to discord (level 57+)
+const canPostToDiscord = computed(() => {
+  return permissions.value?.immortalLevel != null && permissions.value.immortalLevel >= 57
+})
+
+// discord posting state
+const isPostingToDiscord = ref(false)
+
+async function postToDiscord() {
+  if (isPostingToDiscord.value) return
+
+  isPostingToDiscord.value = true
+  try {
+    await adminApi.postBattleToDiscord(eventId.value)
+    toast.success('Battle posted to Discord!')
+  } catch (err: any) {
+    toast.error(err.response?.data?.error || 'Failed to post to Discord', 'Error')
+  } finally {
+    isPostingToDiscord.value = false
+  }
+}
 
 // Track which characters exist (have accounts)
 const characterExists = ref<Map<string, boolean>>(new Map())
@@ -212,9 +236,20 @@ watch(data, (newData) => {
   }
 }, { immediate: true })
 
-// Reset showFullLog when POV changes
-watch(selectedPovId, () => {
+// Reset showFullLog and update URL when POV changes
+watch(selectedPovId, (newId) => {
   showFullLog.value = false
+
+  // update url with pov param
+  if (newId && data.value?.participants) {
+    const participant = data.value.participants.find(p => p.id === newId)
+    if (participant) {
+      const playerName = extractPlayerName(participant.player_description)
+      if (playerName) {
+        router.replace({ query: { ...route.query, pov: playerName } })
+      }
+    }
+  }
 })
 
 // Group participants by team
@@ -444,6 +479,16 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                 <Share2 class="h-4 w-4" />
               </button>
             </div>
+            <div v-if="canPostToDiscord" class="flex flex-col items-center gap-1">
+              <button
+                @click="postToDiscord"
+                :disabled="isPostingToDiscord"
+                class="inline-flex items-center justify-center rounded-full text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 h-10 w-10"
+                title="Post to Discord"
+              >
+                <MessageSquare class="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           <!-- Mobile Teams Mini -->
@@ -514,6 +559,16 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                     :initial-favorited="battleStats.userFavorited"
                   />
                 </template>
+                <button
+                  v-if="canPostToDiscord"
+                  @click="postToDiscord"
+                  :disabled="isPostingToDiscord"
+                  class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 h-9 px-3"
+                  title="Post to Discord"
+                >
+                  <MessageSquare class="h-4 w-4 mr-1.5" />
+                  {{ isPostingToDiscord ? 'Posting...' : 'Discord' }}
+                </button>
               </div>
             </div>
 

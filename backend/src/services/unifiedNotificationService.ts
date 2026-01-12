@@ -357,7 +357,7 @@ export async function notifyPvpBattle(
     body: `${killerNames} killed ${victimNames} at ${location}`,
     icon: '/icons/icon-192x192.svg',
     tag: `pvp-${battleId}`,
-    data: { url: `/pvp/battle/${battleId}` },
+    data: { url: `/pvp/${battleId}` },
   });
 }
 

@@ -1330,6 +1330,24 @@ export const adminApi = {
     await api.delete('/api/admin/web/hero-image')
   },
 
+  /**
+   * Test discord webhook
+   */
+  async testDiscordWebhook(webhookUrl: string): Promise<{ success: boolean; error?: string }> {
+    const { data } = await api.post<{ success: boolean; error?: string }>(
+      '/api/admin/discord/test',
+      { webhookUrl }
+    )
+    return data
+  },
+
+  /**
+   * Manually post a battle to discord
+   */
+  async postBattleToDiscord(eventId: number): Promise<void> {
+    await api.post(`/api/admin/pvp/events/${eventId}/discord`)
+  },
+
 }
 
 /**

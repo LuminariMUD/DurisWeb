@@ -241,7 +241,7 @@ export async function sendPvpNotification(
     body: `${data.killers} killed ${data.victims} at ${data.location}`,
     icon: '/icons/icon-192x192.svg',
     tag: `pvp-${data.battleId}`,
-    data: { url: `/pvp/battle/${data.battleId}` },
+    data: { url: `/pvp/${data.battleId}` },
   })
 }
 
