@@ -379,14 +379,30 @@ async function handleWhoList(players: any[]): Promise<void> {
   onlinePlayers.clear();
   factionCounts = { none: 0, goods: 0, evils: 0, undeads: 0, neutrals: 0 };
 
+  // build player data in memory
   const now = Date.now();
+  const redisData: Record<string, string> = {};
   for (const p of players) {
     const player: PlayerInfo = {
       ...p,
       loginTime: now - ((p.uptime || 0) * 1000),
     };
-    onlinePlayers.set(player.character.toLowerCase(), player);
+    const key = player.character.toLowerCase();
+    onlinePlayers.set(key, player);
     factionCounts[getFactionKey(player.faction)]++;
+    redisData[key] = JSON.stringify(player);
+  }
+
+  // atomic redis update: clear + rebuild in single pipeline
+  try {
+    const pipe = redis.pipeline();
+    pipe.del('online_players');
+    if (Object.keys(redisData).length > 0) {
+      pipe.hmset('online_players', redisData);
+    }
+    await pipe.exec();
+  } catch (err) {
+    logger.error('[MUD] failed to sync online_players to redis:', err);
   }
 
   logger.info(`[MUD] wholist received: ${players.length} players online`);
@@ -424,6 +440,13 @@ async function handlePlayerLogin(player: PlayerInfo): Promise<void> {
     factionCounts[getFactionKey(player.faction)]++;
   }
 
+  // store in redis
+  try {
+    await redis.hset('online_players', key, JSON.stringify(player));
+  } catch (err) {
+    logger.error('[MUD] failed to store player in redis:', err);
+  }
+
   try {
     await db.query(
       'INSERT IGNORE INTO account_login_history (account_name, character_name, ip_address, status, timestamp, hostname, client, client_version) VALUES (?, ?, ?, ?, NOW(), ?, ?, ?)',
@@ -452,6 +475,13 @@ async function handlePlayerLogout(data: { character: string; faction: number }):
     // clamp to 0
     const fk = getFactionKey(data.faction);
     if (factionCounts[fk] < 0) factionCounts[fk] = 0;
+  }
+
+  // remove from redis
+  try {
+    await redis.hdel('online_players', key);
+  } catch (err) {
+    logger.error('[MUD] failed to remove player from redis:', err);
   }
 
   // store in db for history
@@ -586,10 +616,39 @@ export async function getMudBootTime(): Promise<number | null> {
 }
 
 /**
+ * load online players from redis on startup
+ */
+async function loadOnlinePlayersFromRedis(): Promise<void> {
+  try {
+    const data = await redis.hgetall('online_players');
+    if (data && Object.keys(data).length > 0) {
+      onlinePlayers.clear();
+      factionCounts = { none: 0, goods: 0, evils: 0, undeads: 0, neutrals: 0 };
+
+      for (const [key, value] of Object.entries(data)) {
+        try {
+          const player = JSON.parse(value) as PlayerInfo;
+          onlinePlayers.set(key, player);
+          factionCounts[getFactionKey(player.faction)]++;
+        } catch (parseErr) {
+          logger.error(`[MUD] failed to parse redis player data for ${key}:`, parseErr);
+        }
+      }
+      logger.info(`[MUD] loaded ${onlinePlayers.size} players from redis cache`);
+    }
+  } catch (err) {
+    logger.error('[MUD] failed to load online players from redis:', err);
+  }
+}
+
+/**
  * start the MUD auction client
  */
 export async function startMudAuctionClient(): Promise<void> {
   isShuttingDown = false;
+
+  // load cached online players from redis
+  await loadOnlinePlayersFromRedis();
 
   // check ps for mud uptime on backend start
   const processStats = await getDmsProcessStats();

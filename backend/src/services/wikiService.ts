@@ -721,53 +721,25 @@ export async function getZoneMapData(zoneNumber: number): Promise<{
 // Objects
 // =============================================================================
 
-// Object type names mapping
-const OBJECT_TYPE_NAMES: Record<number, string> = {
-  0: 'Undefined',
-  1: 'Light',
-  2: 'Scroll',
-  3: 'Wand',
-  4: 'Staff',
-  5: 'Weapon',
-  6: 'Fire Weapon',
-  7: 'Missile',
-  8: 'Treasure',
-  9: 'Armor',
-  10: 'Potion',
-  11: 'Worn',
-  12: 'Other',
-  13: 'Trash',
-  14: 'Trap',
-  15: 'Container',
-  16: 'Note',
-  17: 'Drink Container',
-  18: 'Key',
-  19: 'Food',
-  20: 'Money',
-  21: 'Pen',
-  22: 'Boat',
-  23: 'Audio',
-  24: 'Board',
-  25: 'Tree',
-  26: 'Rock',
-  27: 'Quiver',
-  28: 'Bow',
-  29: 'Sling',
-  30: 'Crossbow',
-  31: 'Bolt',
-  32: 'Arrow',
-  33: 'Hand Xbow',
-  34: 'Stone',
-  35: 'Dart',
-  36: 'Throwing',
-  37: 'Spellbag',
-  38: 'Totem',
-  39: 'Component',
-  40: 'Comp Container',
-  41: 'Portal',
-  42: 'Instrument',
-  43: 'Keyring',
-};
+// cached object type names from builder_flags table
+let objectTypeNamesCache: Record<number, string> | null = null;
+
+async function getObjectTypeNameMap(): Promise<Record<number, string>> {
+  if (objectTypeNamesCache) return objectTypeNamesCache;
+  try {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT value, name FROM builder_flags WHERE category = 'obj_type'`
+    );
+    objectTypeNamesCache = {};
+    for (const row of rows) {
+      objectTypeNamesCache[Number(row.value)] = row.name;
+    }
+    return objectTypeNamesCache;
+  } catch (err) {
+    logger.error('[Wiki] failed to load object type names:', err);
+    return {};
+  }
+}
 
 // Extra flags names (BIT_1 to BIT_32)
 const EXTRA_FLAG_NAMES: Record<number, string> = {
@@ -1108,6 +1080,7 @@ const REDIS_KEY_OBJECTS_DETAILS = 'wiki:objects:details';
 async function buildObjectDetailsCacheFromSource(): Promise<Map<number, CachedObjectDetail>> {
   const { zones } = await listZones({ page: 1, limit: 10000 });
   const detailsCache = new Map<number, CachedObjectDetail>();
+  const typeNames = await getObjectTypeNameMap();
 
   for (const zone of zones) {
     try {
@@ -1127,7 +1100,7 @@ async function buildObjectDetailsCacheFromSource(): Promise<Map<number, CachedOb
           vnum: obj.vnum,
           name: obj.shortDesc,
           type: obj.itemType,
-          typeName: OBJECT_TYPE_NAMES[obj.itemType] || `Unknown (${obj.itemType})`,
+          typeName: typeNames[obj.itemType] || `Unknown (${obj.itemType})`,
           level,
           weight: obj.weight,
           slots: getWearSlots(obj.wearFlags),
@@ -1319,6 +1292,9 @@ export async function getObjects(
     [...params, limit, offset]
   );
 
+  // get type names for mapping
+  const typeNames = await getObjectTypeNameMap();
+
   // transform rows to WikiObject
   const objects: WikiObject[] = rows.map((row) => {
     // parse slots
@@ -1352,7 +1328,7 @@ export async function getObjects(
       name: row.name_ansi || row.name, // prefer ansi version for display
       nameAnsi: row.name_ansi || undefined,
       type: row.type,
-      typeName: OBJECT_TYPE_NAMES[row.type] || `Unknown (${row.type})`,
+      typeName: typeNames[row.type] || `Unknown (${row.type})`,
       level: row.level,
       weight: row.weight,
       slots,
@@ -1518,11 +1494,13 @@ export async function getObjectByVnum(vnum: number): Promise<WikiObjectDetail | 
 
 export async function getObjectTypes(): Promise<{ id: number; name: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT DISTINCT type FROM wiki_objects ORDER BY type'
+    `SELECT value, name FROM builder_flags
+     WHERE category = 'obj_type'
+     ORDER BY value`
   );
   return rows.map((row) => ({
-    id: row.type,
-    name: OBJECT_TYPE_NAMES[row.type] || `Unknown (${row.type})`,
+    id: Number(row.value),
+    name: row.name,
   }));
 }
 
@@ -2106,10 +2084,11 @@ export async function getMobByZoneAndVnum(zoneNumber: number, vnum: number): Pro
     const zoneBaseName = await getZoneBaseName(zoneNumber);
     if (zoneBaseName) {
       // Parse zone data in parallel
-      const [zonData, rooms, objects] = await Promise.all([
+      const [zonData, rooms, objects, typeNames] = await Promise.all([
         parseZonFile(zoneBaseName),
         parseWldFile(zoneNumber),
         parseObjFile(zoneBaseName),
+        getObjectTypeNameMap(),
       ]);
 
       // Build lookup maps
@@ -2153,7 +2132,7 @@ export async function getMobByZoneAndVnum(zoneNumber: number, vnum: number): Pro
                 name: obj.shortDesc,
                 slot: 'Inventory',
                 itemType: obj.itemType,
-                itemTypeName: OBJECT_TYPE_NAMES[obj.itemType] || `Unknown (${obj.itemType})`,
+                itemTypeName: typeNames[obj.itemType] || `Unknown (${obj.itemType})`,
               });
             }
           }
@@ -2173,7 +2152,7 @@ export async function getMobByZoneAndVnum(zoneNumber: number, vnum: number): Pro
                 name: obj.shortDesc,
                 slot: slotName,
                 itemType: obj.itemType,
-                itemTypeName: OBJECT_TYPE_NAMES[obj.itemType] || `Unknown (${obj.itemType})`,
+                itemTypeName: typeNames[obj.itemType] || `Unknown (${obj.itemType})`,
               });
             }
           }
@@ -2299,12 +2278,13 @@ export async function getZoneSpawns(zoneNumber: number): Promise<WikiZoneSpawns>
   }
 
   // Parse zone data, shop data, and global object cache in parallel
-  const [zonData, mobs, objects, shopMap, globalObjectCache] = await Promise.all([
+  const [zonData, mobs, objects, shopMap, globalObjectCache, typeNames] = await Promise.all([
     parseZonFile(zoneBaseName),
     parseMobFile(zoneBaseName),
     parseObjFile(zoneBaseName),
     parseAllShopFiles(),
     getObjectDetailsCached(),
+    getObjectTypeNameMap(),
   ]);
 
   // Build lookup maps
@@ -2322,7 +2302,7 @@ export async function getZoneSpawns(zoneNumber: number): Promise<WikiZoneSpawns>
         vnum: objVnum,
         name: localObj.shortDesc,
         itemType: localObj.itemType,
-        itemTypeName: OBJECT_TYPE_NAMES[localObj.itemType] || `Unknown (${localObj.itemType})`,
+        itemTypeName: typeNames[localObj.itemType] || `Unknown (${localObj.itemType})`,
         price: price > 0 ? price : undefined,
       };
     }
@@ -2406,7 +2386,7 @@ export async function getZoneSpawns(zoneNumber: number): Promise<WikiZoneSpawns>
             name: obj.longDesc,
             shortDesc: obj.shortDesc,
             itemType: obj.itemType,
-            itemTypeName: OBJECT_TYPE_NAMES[obj.itemType] || `Unknown (${obj.itemType})`,
+            itemTypeName: typeNames[obj.itemType] || `Unknown (${obj.itemType})`,
           });
         }
       }

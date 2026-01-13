@@ -773,6 +773,17 @@ async function validateMudDirectory(): Promise<void> {
   logger.info(`mud directory validated: ${MUD_DIR}`);
 }
 
+// helper to verify websocket auth with minimum level requirement
+async function verifyWebSocketAuth(token: string | undefined, minLevel: number): Promise<boolean> {
+  if (!token) return false;
+  const payload = verifyToken(token);
+  if (!payload) return false;
+  const accountData = await parseAccountFile(payload.accountName);
+  if (!accountData) return false;
+  const permissions = await getUserPermissions(payload.accountName, accountData.characters);
+  return permissions.maxLevel >= minLevel;
+}
+
 // Start server
 async function startServer() {
   try {
@@ -914,8 +925,9 @@ async function startServer() {
             }));
           }
 
-          // Handle player events subscription (admin only)
+          // Handle player events subscription (level 57+ only)
           if (data.type === 'SUBSCRIBE_PLAYER_EVENTS') {
+            if (!await verifyWebSocketAuth(data.token, 57)) return;
             (ws as any).playerEventsSubscribed = true;
           }
 
@@ -923,7 +935,9 @@ async function startServer() {
             (ws as any).playerEventsSubscribed = false;
           }
 
+          // Handle wholist subscription (level 57+ only)
           if (data.type === 'SUBSCRIBE_WHOLIST') {
+            if (!await verifyWebSocketAuth(data.token, 57)) return;
             (ws as any).wholistSubscribed = true;
           }
 

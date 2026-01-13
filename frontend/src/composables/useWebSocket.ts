@@ -529,7 +529,8 @@ export function useWebSocket() {
   };
 
   const subscribePlayerEvents = () => {
-    sendMessage({ type: 'SUBSCRIBE_PLAYER_EVENTS' });
+    const token = localStorage.getItem('authToken');
+    sendMessage({ type: 'SUBSCRIBE_PLAYER_EVENTS', token });
   };
 
   const unsubscribePlayerEvents = () => {
@@ -537,7 +538,8 @@ export function useWebSocket() {
   };
 
   const subscribeWholist = () => {
-    sendMessage({ type: 'SUBSCRIBE_WHOLIST' });
+    const token = localStorage.getItem('authToken');
+    sendMessage({ type: 'SUBSCRIBE_WHOLIST', token });
   };
 
   const unsubscribeWholist = () => {
