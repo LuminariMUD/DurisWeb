@@ -4,12 +4,16 @@ import { useMudStore } from '@/stores/mudStore'
 import { useMudConnection } from '@/composables/useMudConnection'
 import { useKeypadBindings } from '@/composables/useKeypadBindings'
 import { useTimers } from '@/composables/useTimers'
+import { useFloatingPanels } from '@/composables/useFloatingPanels'
 import MudStatusBar from './MudStatusBar.vue'
 import MudRoomDisplay from './MudRoomDisplay.vue'
 import MudActivityLog from './MudActivityLog.vue'
 import MudCommandInput from './MudCommandInput.vue'
 import MudChatPanel from './MudChatPanel.vue'
 import MudAffects from './MudAffects.vue'
+import MudAffectsOnly from './MudAffectsOnly.vue'
+import MudGroupPanel from './MudGroupPanel.vue'
+import MudShipPanel from './MudShipPanel.vue'
 import MudMap from './MudMap.vue'
 import ShipRadar from './ShipRadar.vue'
 import FloatingMapWindow from './FloatingMapWindow.vue'
@@ -53,7 +57,10 @@ const handleLogout = () => {
   emit('logout')
 }
 
-// Map detach state
+// Floating panels state
+const { floatingPanels, setFloating } = useFloatingPanels()
+
+// Map detach state (separate from other panels for backwards compatibility)
 const isMapDetached = ref(false)
 
 // Panel minimized states
@@ -68,6 +75,54 @@ function handleMapDetach() {
 
 function handleMapDock() {
   isMapDetached.value = false
+}
+
+function handleChatDetach() {
+  setFloating('chat', true)
+}
+
+function handleChatDock() {
+  setFloating('chat', false)
+}
+
+function handleAffectsDetach() {
+  setFloating('affects', true)
+}
+
+function handleAffectsDock() {
+  setFloating('affects', false)
+}
+
+function handleRoomDetach() {
+  setFloating('room', true)
+}
+
+function handleRoomDock() {
+  setFloating('room', false)
+}
+
+function handleAffectsOnlyDetach() {
+  setFloating('affectsOnly', true)
+}
+
+function handleAffectsOnlyDock() {
+  setFloating('affectsOnly', false)
+}
+
+function handleGroupDetach() {
+  setFloating('group', true)
+}
+
+function handleGroupDock() {
+  setFloating('group', false)
+}
+
+function handleShipDetach() {
+  setFloating('ship', true)
+}
+
+function handleShipDock() {
+  setFloating('ship', false)
 }
 
 // Radar state
@@ -449,17 +504,17 @@ onUnmounted(() => {
       <div class="flex-1 flex flex-col min-w-0">
         <!-- Chat Panel (shoutbox style at top) -->
         <div
+          v-if="!floatingPanels.chat"
           ref="chatPanelRef"
           class="m-2 mb-0 shrink-0"
           :class="isChatMinimized ? '' : (isMobile ? 'h-28' : '')"
           :style="isChatMinimized || isMobile ? {} : { height: `${chatHeight}px` }"
         >
-          <MudChatPanel v-model:minimized="isChatMinimized" class="h-full" />
+          <MudChatPanel v-model:minimized="isChatMinimized" class="h-full" @detach="handleChatDetach" />
         </div>
-
-        <!-- Chat Resize Handle - hidden on mobile -->
+        <!-- Chat Resize Handle - hidden on mobile and when floating -->
         <div
-          v-if="!isChatMinimized"
+          v-if="!isChatMinimized && !floatingPanels.chat"
           class="hidden lg:block h-1 mx-2 bg-border hover:bg-primary/50 cursor-row-resize transition-colors shrink-0"
           :class="{ 'bg-primary/50': isResizingChat }"
           @mousedown="startChatResize"
@@ -496,26 +551,15 @@ onUnmounted(() => {
           class="m-2 mb-0 overflow-hidden"
           :class="[
             isMapMinimized ? 'h-auto shrink-0' : 'shrink-0',
-            !isMapMinimized && (isAffectsMinimized || isRoomMinimized) ? 'flex-1' : ''
+            !isMapMinimized && (isAffectsMinimized || isRoomMinimized || floatingPanels.affects || floatingPanels.room) ? 'flex-1' : ''
           ]"
-          :style="isMapMinimized || isAffectsMinimized || isRoomMinimized ? {} : { height: `${mapPercent}%` }"
+          :style="isMapMinimized || isAffectsMinimized || isRoomMinimized || floatingPanels.affects || floatingPanels.room ? {} : { height: `${mapPercent}%` }"
         >
           <MudMap v-model:minimized="isMapMinimized" class="h-full" @detach="handleMapDetach" />
         </div>
-        <!-- Map placeholder when detached -->
+        <!-- Resize Handle (Map) - hidden when map or affects is floating -->
         <div
-          v-else
-          class="m-2 mb-0 shrink-0 flex items-center justify-center border border-dashed border-border rounded-lg"
-          :style="{ height: `${mapPercent}%` }"
-        >
-          <Button variant="outline" size="sm" class="gap-2" @click="handleMapDock">
-            <Map class="h-4 w-4" />
-            Dock Map
-          </Button>
-        </div>
-
-        <!-- Resize Handle (Map) -->
-        <div
+          v-if="!isMapDetached && !floatingPanels.affects"
           class="h-1 mx-2 bg-border hover:bg-primary/50 cursor-row-resize transition-colors shrink-0"
           :class="{ 'bg-primary/50': isResizingMap }"
           @mousedown="startMapResize"
@@ -523,18 +567,27 @@ onUnmounted(() => {
 
         <!-- Affects -->
         <div
+          v-if="!floatingPanels.affects"
           class="m-2 my-0 overflow-hidden"
           :class="[
             isAffectsMinimized ? 'h-auto shrink-0' : 'min-h-0',
-            !isAffectsMinimized && (isMapMinimized || isRoomMinimized) ? 'flex-1' : ''
+            !isAffectsMinimized && (isMapMinimized || isRoomMinimized || isMapDetached || floatingPanels.room) ? 'flex-1' : ''
           ]"
-          :style="isAffectsMinimized || isMapMinimized || isRoomMinimized ? {} : { height: `${affectsPercent}%` }"
+          :style="isAffectsMinimized || isMapMinimized || isRoomMinimized || isMapDetached || floatingPanels.room ? {} : { height: `${affectsPercent}%` }"
         >
-          <MudAffects v-model:minimized="isAffectsMinimized" class="h-full" @open-radar="handleOpenRadar" />
+          <MudAffects
+            v-model:minimized="isAffectsMinimized"
+            class="h-full"
+            @open-radar="handleOpenRadar"
+            @detach="handleAffectsDetach"
+            @detach-affects="handleAffectsOnlyDetach"
+            @detach-group="handleGroupDetach"
+            @detach-ship="handleShipDetach"
+          />
         </div>
-
-        <!-- Resize Handle (Room) -->
+        <!-- Resize Handle (Room) - hidden when affects or room is floating -->
         <div
+          v-if="!floatingPanels.affects && !floatingPanels.room"
           class="h-1 mx-2 bg-border hover:bg-primary/50 cursor-row-resize transition-colors shrink-0"
           :class="{ 'bg-primary/50': isResizingRoom }"
           @mousedown="startRoomResize"
@@ -542,14 +595,15 @@ onUnmounted(() => {
 
         <!-- Room Display -->
         <div
+          v-if="!floatingPanels.room"
           class="m-2 mt-0 overflow-auto"
           :class="[
             isRoomMinimized ? 'h-auto shrink-0' : 'shrink-0',
-            !isRoomMinimized && (isMapMinimized || isAffectsMinimized) ? 'flex-1' : ''
+            !isRoomMinimized && (isMapMinimized || isAffectsMinimized || isMapDetached || floatingPanels.affects) ? 'flex-1' : ''
           ]"
-          :style="isRoomMinimized || isMapMinimized || isAffectsMinimized ? {} : { height: `${roomPercent}%` }"
+          :style="isRoomMinimized || isMapMinimized || isAffectsMinimized || isMapDetached || floatingPanels.affects ? {} : { height: `${roomPercent}%` }"
         >
-          <MudRoomDisplay v-model:minimized="isRoomMinimized" />
+          <MudRoomDisplay v-model:minimized="isRoomMinimized" @detach="handleRoomDetach" />
         </div>
       </div>
     </div>
@@ -557,6 +611,43 @@ onUnmounted(() => {
     <!-- Floating Map Window (when detached) -->
     <FloatingMapWindow v-model="isMapDetached">
       <MudMap class="h-full" @detach="handleMapDock" />
+    </FloatingMapWindow>
+
+    <!-- Floating Chat Window -->
+    <FloatingMapWindow v-model="floatingPanels.chat" storage-key="mud-floating-chat" title="Chat">
+      <MudChatPanel class="h-full" @detach="handleChatDock" />
+    </FloatingMapWindow>
+
+    <!-- Floating Affects Window (whole panel) -->
+    <FloatingMapWindow v-model="floatingPanels.affects" storage-key="mud-floating-affects" title="Affects Panel">
+      <MudAffects
+        class="h-full"
+        @open-radar="handleOpenRadar"
+        @detach="handleAffectsDock"
+        @detach-affects="handleAffectsOnlyDetach"
+        @detach-group="handleGroupDetach"
+        @detach-ship="handleShipDetach"
+      />
+    </FloatingMapWindow>
+
+    <!-- Floating Affects Only Window -->
+    <FloatingMapWindow v-model="floatingPanels.affectsOnly" storage-key="mud-floating-affects-only" title="Affects">
+      <MudAffectsOnly class="h-full" @detach="handleAffectsOnlyDock" />
+    </FloatingMapWindow>
+
+    <!-- Floating Group Window -->
+    <FloatingMapWindow v-model="floatingPanels.group" storage-key="mud-floating-group" title="Group">
+      <MudGroupPanel class="h-full" @detach="handleGroupDock" />
+    </FloatingMapWindow>
+
+    <!-- Floating Ship Window -->
+    <FloatingMapWindow v-model="floatingPanels.ship" storage-key="mud-floating-ship" title="Ship">
+      <MudShipPanel class="h-full" @detach="handleShipDock" @open-radar="handleOpenRadar" />
+    </FloatingMapWindow>
+
+    <!-- Floating Room Window -->
+    <FloatingMapWindow v-model="floatingPanels.room" storage-key="mud-floating-room" title="Room">
+      <MudRoomDisplay @detach="handleRoomDock" />
     </FloatingMapWindow>
 
     <!-- Floating Radar Window -->

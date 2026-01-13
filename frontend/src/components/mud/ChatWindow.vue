@@ -13,7 +13,7 @@ import { CHANNEL_KEYS } from '@/types/chat'
 const props = defineProps<{
   playerName: string
   windowType: ChatWindowType
-  position: number // CSS right offset in pixels
+  position: { bottom: number; right: number } // CSS positioning
   isMinimized: boolean
   unreadCount: number
 }>()
@@ -181,8 +181,8 @@ const formatTime = (timestamp: number): string => {
 <template>
   <Teleport to="body">
     <div
-      class="fixed bottom-0 z-50 flex flex-col bg-background border border-border rounded-t-lg shadow-lg overflow-hidden"
-      :style="{ right: `${position}px`, width: '280px' }"
+      class="fixed z-50 flex flex-col bg-background border border-border rounded-lg shadow-lg overflow-hidden transition-all duration-150"
+      :style="{ bottom: `${position.bottom}px`, right: `${position.right}px`, width: '280px' }"
     >
       <!-- header bar (always visible) -->
       <div

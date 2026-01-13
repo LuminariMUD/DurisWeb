@@ -38,6 +38,7 @@ import {
   Anchor,
   Crosshair,
   ExternalLink,
+  PictureInPicture2,
 } from 'lucide-vue-next'
 
 import type { Component } from 'vue'
@@ -46,9 +47,13 @@ import type { MudShipContact } from '@/types/mud'
 // Minimized state
 const isMinimized = defineModel<boolean>('minimized', { default: false })
 
-// Emit for opening radar
+// Emit for opening radar and detaching
 const emit = defineEmits<{
   openRadar: []
+  detach: []
+  detachAffects: []
+  detachGroup: []
+  detachShip: []
 }>()
 
 const store = useMudStore()
@@ -252,39 +257,66 @@ const executeShipAction = (command: string, contact: MudShipContact) => {
     <CardHeader class="py-2 px-3 shrink-0 flex flex-row items-center justify-between">
       <!-- Tab Navigation -->
       <div class="flex items-center gap-1">
-        <button
-          class="flex items-center gap-1 px-2 py-1 text-sm rounded transition-colors"
-          :class="activeTab === 'affects' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'"
-          @click="activeTab = 'affects'"
-        >
-          <Shield class="h-3.5 w-3.5" />
-          Affects
-          <Badge v-if="affects.length > 0" variant="outline" class="ml-1 h-5 px-1.5 text-xs">
-            {{ affects.length }}
-          </Badge>
-        </button>
-        <button
-          class="flex items-center gap-1 px-2 py-1 text-sm rounded transition-colors"
-          :class="activeTab === 'group' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'"
-          @click="activeTab = 'group'"
-        >
-          <Users class="h-3.5 w-3.5" />
-          Group
-          <Badge v-if="group && group.size > 0" variant="outline" class="ml-1 h-5 px-1.5 text-xs">
-            {{ group.size }}/{{ group.maxSize }}
-          </Badge>
-        </button>
-        <button
-          class="flex items-center gap-1 px-2 py-1 text-sm rounded transition-colors"
-          :class="activeTab === 'ship' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'"
-          @click="activeTab = 'ship'"
-        >
-          <Anchor class="h-3.5 w-3.5" />
-          Ship
-          <Badge v-if="shipContacts && shipContacts.contacts.length > 0" variant="outline" class="ml-1 h-5 px-1.5 text-xs">
-            {{ shipContacts.contacts.length }}
-          </Badge>
-        </button>
+        <div class="flex items-center">
+          <button
+            class="flex items-center gap-1 px-2 py-1 text-sm rounded-l transition-colors"
+            :class="activeTab === 'affects' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'"
+            @click="activeTab = 'affects'"
+          >
+            <Shield class="h-3.5 w-3.5" />
+            Affects
+            <Badge v-if="affects.length > 0" variant="outline" class="ml-1 h-5 px-1.5 text-xs">
+              {{ affects.length }}
+            </Badge>
+          </button>
+          <button
+            class="px-1 py-1 text-muted-foreground/50 hover:text-foreground transition-colors"
+            title="Pop out affects"
+            @click.stop="emit('detachAffects')"
+          >
+            <PictureInPicture2 class="h-3 w-3" />
+          </button>
+        </div>
+        <div class="flex items-center">
+          <button
+            class="flex items-center gap-1 px-2 py-1 text-sm rounded-l transition-colors"
+            :class="activeTab === 'group' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'"
+            @click="activeTab = 'group'"
+          >
+            <Users class="h-3.5 w-3.5" />
+            Group
+            <Badge v-if="group && group.size > 0" variant="outline" class="ml-1 h-5 px-1.5 text-xs">
+              {{ group.size }}/{{ group.maxSize }}
+            </Badge>
+          </button>
+          <button
+            class="px-1 py-1 text-muted-foreground/50 hover:text-foreground transition-colors"
+            title="Pop out group"
+            @click.stop="emit('detachGroup')"
+          >
+            <PictureInPicture2 class="h-3 w-3" />
+          </button>
+        </div>
+        <div class="flex items-center">
+          <button
+            class="flex items-center gap-1 px-2 py-1 text-sm rounded-l transition-colors"
+            :class="activeTab === 'ship' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'"
+            @click="activeTab = 'ship'"
+          >
+            <Anchor class="h-3.5 w-3.5" />
+            Ship
+            <Badge v-if="shipContacts && shipContacts.contacts.length > 0" variant="outline" class="ml-1 h-5 px-1.5 text-xs">
+              {{ shipContacts.contacts.length }}
+            </Badge>
+          </button>
+          <button
+            class="px-1 py-1 text-muted-foreground/50 hover:text-foreground transition-colors"
+            title="Pop out ship"
+            @click.stop="emit('detachShip')"
+          >
+            <PictureInPicture2 class="h-3 w-3" />
+          </button>
+        </div>
         <!-- Group Actions Settings -->
         <Button
           v-if="activeTab === 'group'"
@@ -308,17 +340,29 @@ const executeShipAction = (command: string, contact: MudShipContact) => {
           <ExternalLink class="h-3 w-3" />
         </Button>
       </div>
-      <!-- Minimize button -->
-      <Button
-        variant="ghost"
-        size="icon"
-        class="h-5 w-5 text-muted-foreground hover:text-foreground"
-        :title="isMinimized ? 'Expand panel' : 'Minimize panel'"
-        @click="isMinimized = !isMinimized"
-      >
-        <Plus v-if="isMinimized" class="h-3 w-3" />
-        <Minus v-else class="h-3 w-3" />
-      </Button>
+      <div class="flex items-center gap-1">
+        <!-- Popout button -->
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-5 w-5 text-muted-foreground hover:text-foreground"
+          title="Pop out to floating window"
+          @click="emit('detach')"
+        >
+          <PictureInPicture2 class="h-3 w-3" />
+        </Button>
+        <!-- Minimize button -->
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-5 w-5 text-muted-foreground hover:text-foreground"
+          :title="isMinimized ? 'Expand panel' : 'Minimize panel'"
+          @click="isMinimized = !isMinimized"
+        >
+          <Plus v-if="isMinimized" class="h-3 w-3" />
+          <Minus v-else class="h-3 w-3" />
+        </Button>
+      </div>
     </CardHeader>
     <CardContent v-if="!isMinimized" class="flex-1 px-3 pb-3 overflow-hidden">
       <!-- Affects Tab -->

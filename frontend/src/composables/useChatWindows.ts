@@ -6,9 +6,11 @@ import { CHANNEL_KEYS } from '@/types/chat'
 const openWindows = ref<ChatWindowState[]>([])
 
 // configuration
-const MAX_WINDOWS = 3
+const MAX_WINDOWS = 5
 const WINDOW_WIDTH = 280
-const WINDOW_GAP = 4
+const WINDOW_HEIGHT_MINIMIZED = 32 // header bar only
+const WINDOW_HEIGHT_EXPANDED = 320 // full window height
+const STACK_GAP = 4
 const BASE_OFFSET = 8
 
 export function useChatWindows() {
@@ -34,8 +36,15 @@ export function useChatWindows() {
       (w) => getWindowKey(w.playerName, w.windowType) === windowKey
     )
 
+    // if opening expanded, minimize all other windows first
+    if (!minimized) {
+      openWindows.value.forEach((w) => {
+        w.isMinimized = true
+      })
+    }
+
     if (existingIndex !== -1) {
-      // window exists - bring to front (rightmost) and expand if minimized
+      // window exists - bring to front and set state
       const window = openWindows.value[existingIndex]!
       openWindows.value.splice(existingIndex, 1)
       openWindows.value.unshift({
@@ -50,7 +59,7 @@ export function useChatWindows() {
 
     // create new window
     if (openWindows.value.length >= MAX_WINDOWS) {
-      // remove the oldest (leftmost) window
+      // remove the oldest window
       openWindows.value.pop()
     }
 
@@ -121,14 +130,21 @@ export function useChatWindows() {
   }
 
   /**
-   * bring window to front (rightmost position)
+   * bring window to front and expand (minimize all others)
    */
   function focusWindow(playerName: string, windowType: ChatWindowType = 'player'): void {
     const windowKey = getWindowKey(playerName, windowType)
     const index = openWindows.value.findIndex(
       (w) => getWindowKey(w.playerName, w.windowType) === windowKey
     )
-    if (index > 0) {
+    if (index >= 0) {
+      // minimize all other windows first
+      openWindows.value.forEach((w, i) => {
+        if (i !== index) {
+          w.isMinimized = true
+        }
+      })
+      // expand the focused window and move to front
       const window = openWindows.value.splice(index, 1)[0]!
       openWindows.value.unshift({
         id: window.id,
@@ -137,10 +153,6 @@ export function useChatWindows() {
         isMinimized: false,
         unreadCount: 0,
       })
-    } else if (index === 0 && openWindows.value[0]) {
-      // already at front, just expand
-      openWindows.value[0].isMinimized = false
-      openWindows.value[0].unreadCount = 0
     }
   }
 
@@ -195,11 +207,19 @@ export function useChatWindows() {
   // =========================================================================
 
   /**
-   * calculate CSS right position for window at given index
-   * index 0 = rightmost window
+   * calculate CSS bottom position for window at given index
+   * windows stack vertically from bottom - index 0 is at bottom
    */
-  function getWindowPosition(index: number): number {
-    return BASE_OFFSET + index * (WINDOW_WIDTH + WINDOW_GAP)
+  function getWindowPosition(index: number): { bottom: number; right: number } {
+    let bottom = BASE_OFFSET
+    // stack windows from bottom up - calculate cumulative height of windows below this one
+    for (let i = 0; i < index; i++) {
+      const w = openWindows.value[i]
+      if (w) {
+        bottom += (w.isMinimized ? WINDOW_HEIGHT_MINIMIZED : WINDOW_HEIGHT_EXPANDED) + STACK_GAP
+      }
+    }
+    return { bottom, right: BASE_OFFSET }
   }
 
   // =========================================================================
@@ -231,5 +251,7 @@ export function useChatWindows() {
 
     // config
     WINDOW_WIDTH,
+    WINDOW_HEIGHT_MINIMIZED,
+    WINDOW_HEIGHT_EXPANDED,
   }
 }

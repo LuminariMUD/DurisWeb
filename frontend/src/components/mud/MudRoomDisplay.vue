@@ -15,10 +15,15 @@ import {
 import MobActionsDialog from './MobActionsDialog.vue'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import { MUD_DIRECTION_SHORTCUTS, type MudDirection } from '@/types/mud'
-import { Users, Skull, Package, DoorOpen, Lock, Plus, Minus, MapPin, Settings } from 'lucide-vue-next'
+import { Users, Skull, Package, DoorOpen, Lock, Plus, Minus, MapPin, Settings, PictureInPicture2 } from 'lucide-vue-next'
 
 // Minimized state
 const isMinimized = defineModel<boolean>('minimized', { default: false })
+
+// Emit for detaching
+const emit = defineEmits<{
+  detach: []
+}>()
 
 const store = useMudStore()
 const { move, sendGameCommand } = useMudConnection()
@@ -129,17 +134,29 @@ const processedNpcs = computed(() => {
           </Badge>
         </div>
       </div>
-      <!-- Minimize button -->
-      <Button
-        variant="ghost"
-        size="icon"
-        class="h-5 w-5 text-muted-foreground hover:text-foreground shrink-0"
-        :title="isMinimized ? 'Expand room info' : 'Minimize room info'"
-        @click="isMinimized = !isMinimized"
-      >
-        <Plus v-if="isMinimized" class="h-3 w-3" />
-        <Minus v-else class="h-3 w-3" />
-      </Button>
+      <div class="flex items-center gap-1">
+        <!-- Popout button -->
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-5 w-5 text-muted-foreground hover:text-foreground shrink-0"
+          title="Pop out to floating window"
+          @click="emit('detach')"
+        >
+          <PictureInPicture2 class="h-3 w-3" />
+        </Button>
+        <!-- Minimize button -->
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-5 w-5 text-muted-foreground hover:text-foreground shrink-0"
+          :title="isMinimized ? 'Expand room info' : 'Minimize room info'"
+          @click="isMinimized = !isMinimized"
+        >
+          <Plus v-if="isMinimized" class="h-3 w-3" />
+          <Minus v-else class="h-3 w-3" />
+        </Button>
+      </div>
     </div>
 
     <div v-if="!isMinimized" class="px-3 py-2 space-y-2">

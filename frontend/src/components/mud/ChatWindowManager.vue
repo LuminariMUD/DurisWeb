@@ -85,8 +85,6 @@ watch(
             text: msg.text,
             type: 'tell',
           })
-          // open window expanded (not minimized) for outgoing
-          openWindow(target, 'player', false)
         }
         continue
       }
@@ -146,8 +144,6 @@ watch(
             text: msg.text,
             type: 'ptell',
           })
-          // open window expanded (not minimized) for outgoing
-          openWindow(target, 'player', false)
         }
         continue
       }
@@ -198,7 +194,7 @@ watch(
 
       // handle outgoing messages (sender is "You" or our character name)
       if (isOwnMessage(sender, myName)) {
-        // outgoing gsay - add as sent and open group window
+        // outgoing gsay - add as sent
         if (!isMobile.value) {
           addMessage(CHANNEL_KEYS.group, {
             timestamp: Date.now(),
@@ -206,8 +202,6 @@ watch(
             text: msg.text,
             type: 'gsay',
           })
-          // open group window expanded (not minimized) for outgoing
-          openWindow('Group', 'group', false)
         }
         continue
       }
@@ -254,7 +248,7 @@ watch(
 
       // handle outgoing messages (sender is "You" or our character name)
       if (isOwnMessage(sender, myName)) {
-        // outgoing gcc - add as sent and open guild window
+        // outgoing gcc - add as sent
         if (!isMobile.value) {
           addMessage(CHANNEL_KEYS.guild, {
             timestamp: Date.now(),
@@ -262,8 +256,6 @@ watch(
             text: msg.text,
             type: 'gcc',
           })
-          // open guild window expanded (not minimized) for outgoing
-          openWindow('Guild', 'guild', false)
         }
         continue
       }

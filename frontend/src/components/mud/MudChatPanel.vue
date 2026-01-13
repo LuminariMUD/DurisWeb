@@ -2,7 +2,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
 import { parseAnsiToHtml, stripAnsiCodes } from '@/utils/ansiParser'
-import { Trash2, Minus, Plus, ArrowDown } from 'lucide-vue-next'
+import { Trash2, Minus, Plus, ArrowDown, PictureInPicture2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import ChatWindowManager from './ChatWindowManager.vue'
 
@@ -10,6 +10,11 @@ const store = useMudStore()
 
 // Minimized state - use defineModel for two-way binding with parent
 const isMinimized = defineModel<boolean>('minimized', { default: false })
+
+// Emit for detaching
+const emit = defineEmits<{
+  detach: []
+}>()
 
 // Track active tab
 const activeTab = ref('all')
@@ -293,6 +298,15 @@ const openDirectChat = (senderName: string) => {
           @click="clearCurrentChannel"
         >
           <Trash2 class="h-3 w-3" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-5 w-5 text-muted-foreground hover:text-foreground"
+          title="Pop out to floating window"
+          @click="emit('detach')"
+        >
+          <PictureInPicture2 class="h-3 w-3" />
         </Button>
         <Button
           variant="ghost"
