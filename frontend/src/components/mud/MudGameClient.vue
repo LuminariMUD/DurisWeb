@@ -58,16 +58,31 @@ const handleLogout = () => {
 }
 
 // Floating panels state
-const { floatingPanels, setFloating } = useFloatingPanels()
+const { floatingPanels, minimizedPanels, setFloating, setMinimized } = useFloatingPanels()
 
-// Map detach state (separate from other panels for backwards compatibility)
-const isMapDetached = ref(false)
+// Map detach state (now using floatingPanels for persistence)
+const isMapDetached = computed({
+  get: () => floatingPanels.value.map,
+  set: (val) => setFloating('map', val),
+})
 
-// Panel minimized states
-const isChatMinimized = ref(false)
-const isMapMinimized = ref(false)
-const isAffectsMinimized = ref(false)
-const isRoomMinimized = ref(false)
+// Panel minimized states (computed getters/setters linked to composable)
+const isChatMinimized = computed({
+  get: () => minimizedPanels.value.chat,
+  set: (val) => setMinimized('chat', val),
+})
+const isMapMinimized = computed({
+  get: () => minimizedPanels.value.map,
+  set: (val) => setMinimized('map', val),
+})
+const isAffectsMinimized = computed({
+  get: () => minimizedPanels.value.affects,
+  set: (val) => setMinimized('affects', val),
+})
+const isRoomMinimized = computed({
+  get: () => minimizedPanels.value.room,
+  set: (val) => setMinimized('room', val),
+})
 
 function handleMapDetach() {
   isMapDetached.value = true

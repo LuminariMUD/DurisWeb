@@ -106,12 +106,12 @@ function parseBlockToken(content: string, start: number, end: number): ScriptTok
   const trimmed = content.trim()
   const lower = trimmed.toLowerCase()
 
-  // {if condition}
-  if (lower.startsWith('if ')) {
+  // {if condition} or {if } (empty condition)
+  if (lower === 'if' || lower.startsWith('if ')) {
     return {
       type: 'if',
       value: trimmed,
-      condition: trimmed.substring(3).trim(),
+      condition: lower === 'if' ? '' : trimmed.substring(3).trim(),
       start,
       end,
     }
@@ -669,7 +669,7 @@ function tokenizeMath(expr: string): string[] {
  * check if a string contains any script blocks
  */
 export function hasScriptBlocks(input: string): boolean {
-  return /\{(if|repeat|set|math)\s/i.test(input)
+  return /\{(if|repeat|set|math)[\s}]/i.test(input)
 }
 
 /**
