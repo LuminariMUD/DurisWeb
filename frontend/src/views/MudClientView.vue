@@ -63,7 +63,10 @@ const clientState = computed<ClientState>(() => {
 
   switch (store.connectionState) {
     case 'disconnected':
-      // Show login form when disconnected (connection happens on login submit)
+      // if was in game, keep showing game view with reconnect dialog overlay
+      if (store.character) {
+        return 'in_game'
+      }
       return 'login'
     case 'connecting':
       return 'connecting'

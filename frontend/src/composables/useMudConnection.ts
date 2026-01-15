@@ -224,10 +224,9 @@ export function useMudConnection() {
 
         store.setConnectionState('disconnected')
 
-        // show reconnect dialog if connection was lost unexpectedly
-        if (!event.wasClean) {
-          store.openReconnectDialog()
-        }
+        // show reconnect dialog on any disconnect (clean or not)
+        // this prevents auto-login from triggering when kicked by another session
+        store.openReconnectDialog()
       }
     } catch (error) {
       console.error('Failed to create MUD WebSocket:', error)
