@@ -570,6 +570,88 @@ export function useTriggers() {
     return result
   }
 
+  /**
+   * Evaluate GMCP-only triggers when vitals/state changes.
+   * Called when Char.Vitals is received to check triggers that depend on GMCP state.
+   * Returns commands and sounds to execute.
+   */
+  function evaluateGmcpTriggers(): { commandsToSend: { command: string; delay: number }[]; soundsToPlay: TriggerActionSound[]; echoTexts: string[] } {
+    const result: { commandsToSend: { command: string; delay: number }[]; soundsToPlay: TriggerActionSound[]; echoTexts: string[] } = {
+      commandsToSend: [],
+      soundsToPlay: [],
+      echoTexts: [],
+    }
+
+    for (const trigger of effectiveTriggers.value) {
+      const textPatterns = trigger.patterns.filter(p => p && p.value && !p.isGmcp)
+      const gmcpPatterns = trigger.patterns.filter(p => p && p.value && p.isGmcp)
+
+      // Only process GMCP-only triggers here
+      const isGmcpOnly = textPatterns.length === 0 && gmcpPatterns.length > 0
+      if (!isGmcpOnly) continue
+
+      // Evaluate all GMCP conditions (AND logic)
+      const allConditionsTrue = gmcpPatterns.every(p => evaluateCondition(p.value))
+
+      // Get previous combined state
+      if (!gmcpConditionStates.has(trigger.id)) {
+        gmcpConditionStates.set(trigger.id, new Map())
+      }
+      const triggerStates = gmcpConditionStates.get(trigger.id)!
+      const previousCombinedState = triggerStates.get('__combined__') ?? false
+
+      // Update combined state
+      triggerStates.set('__combined__', allConditionsTrue)
+
+      // Fire only on rising edge (false -> true)
+      if (allConditionsTrue && !previousCombinedState) {
+        // Process actions
+        for (const action of trigger.actions) {
+          switch (action.type) {
+            case 'command': {
+              let commandStr = action.commands
+              commandStr = expandGmcpVariables(commandStr)
+              commandStr = expandScript(commandStr)
+              const commands = commandStr
+                .split(';')
+                .map((cmd) => cmd.trim())
+                .filter((cmd) => cmd.length > 0)
+              for (const cmd of commands) {
+                result.commandsToSend.push({
+                  command: cmd,
+                  delay: action.delay ?? 0,
+                })
+              }
+              break
+            }
+
+            case 'sound':
+              result.soundsToPlay.push(action)
+              break
+
+            case 'echo': {
+              let echoText = expandGmcpVariables(action.text)
+              echoText = expandScript(echoText)
+              if (echoText) {
+                result.echoTexts.push(echoText)
+              }
+              break
+            }
+
+            // gag and highlight don't apply to GMCP-only triggers (no line to modify)
+          }
+        }
+
+        // Stop processing if this trigger says so
+        if (trigger.stopProcessing) {
+          break
+        }
+      }
+    }
+
+    return result
+  }
+
   // =========================================================================
   // Sound Playback
   // =========================================================================
@@ -803,6 +885,7 @@ export function useTriggers() {
 
     // Processing
     processLine,
+    evaluateGmcpTriggers,
     playSounds,
 
     // Helpers

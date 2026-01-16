@@ -1,5 +1,6 @@
 import { Router, Request, Response, type IRouter } from 'express';
 import logger, { getErrorMessage } from '../utils/logger.js';
+import { createNotification } from '../services/unifiedNotificationService.js';
 import { body, param, validationResult } from 'express-validator';
 import {
   getForumSettings,
@@ -2401,36 +2402,58 @@ router.post('/mud/wipe/execute',
 
 /**
  * POST /api/admin/ai-analysis/run
- * Run Gemini AI analysis on login data
+ * Run Gemini AI analysis on login data (async - notifies via websocket when done)
  */
 router.post(
   '/ai-analysis/run',
   requireAuth,
   requirePermission('use_ai_analysis'),
   async (req: Request, res: Response) => {
-    try {
-      const { daysBack = 30 } = req.body;
+    const { daysBack = 30 } = req.body;
+    const accountName = req.user!.accountName;
 
-      // Import Gemini service
-      const { analyzeWithGemini, storeAnalysis } = await import('../services/geminiSuspicionAnalyzer.js');
+    // return immediately, run analysis in background
+    res.json({
+      success: true,
+      message: 'Analysis started. You will be notified when complete.'
+    });
 
-      // Run analysis
-      const analysis = await analyzeWithGemini(Number(daysBack));
+    // run analysis async
+    (async () => {
+      try {
+        const { analyzeWithGemini, storeAnalysis } = await import('../services/geminiSuspicionAnalyzer.js');
+        const analysis = await analyzeWithGemini(Number(daysBack));
+        await storeAnalysis(analysis);
 
-      // Store results
-      await storeAnalysis(analysis);
-
-      return res.json({
-        success: true,
-        data: analysis
-      });
-    } catch (error) {
-      logger.error('AI analysis error:', error);
-      return res.status(500).json({
-        success: false,
-        error: getErrorMessage(error) || 'Failed to run AI analysis'
-      });
-    }
+        // notify the requesting user
+        try {
+          await createNotification({
+            accountName,
+            source: 'ai_analysis',
+            notificationType: 'ai_analysis_complete',
+            message: `AI analysis complete: found ${analysis.suspicious_accounts?.length || 0} suspicious accounts`,
+            link: '/admin/ai-analysis',
+          });
+          logger.info(`Notification sent to ${accountName} for AI analysis complete`);
+        } catch (notifError) {
+          logger.error('Failed to send AI analysis complete notification:', notifError);
+        }
+      } catch (error) {
+        logger.error('AI analysis error:', error);
+        try {
+          await createNotification({
+            accountName,
+            source: 'ai_analysis',
+            notificationType: 'ai_analysis_error',
+            message: `AI analysis failed: ${getErrorMessage(error) || 'Unknown error'}`,
+            link: '/admin/ai-analysis',
+          });
+          logger.info(`Notification sent to ${accountName} for AI analysis error`);
+        } catch (notifError) {
+          logger.error('Failed to send AI analysis error notification:', notifError);
+        }
+      }
+    })();
   }
 );
 

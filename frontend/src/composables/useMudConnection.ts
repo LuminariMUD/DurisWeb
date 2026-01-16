@@ -627,9 +627,29 @@ export function useMudConnection() {
         }
         break
       }
-      case 'Char.Vitals':
+      case 'Char.Vitals': {
         store.updateVitals(message.data)
+        // evaluate gmcp-only triggers when vitals change
+        const { evaluateGmcpTriggers, playSounds } = useTriggers()
+        const gmcpResult = evaluateGmcpTriggers()
+        if (gmcpResult.soundsToPlay.length > 0) {
+          playSounds(gmcpResult.soundsToPlay)
+        }
+        for (const { command, delay } of gmcpResult.commandsToSend) {
+          if (delay > 0) {
+            setTimeout(() => sendGameCommand(command), delay)
+          } else {
+            sendGameCommand(command)
+          }
+        }
+        // echo texts for gmcp triggers
+        if (gmcpResult.echoTexts.length > 0) {
+          for (const text of gmcpResult.echoTexts) {
+            store.addLogEntry('system', text)
+          }
+        }
         break
+      }
       case 'Char.Status':
         store.setCharacter(message.data)
         break

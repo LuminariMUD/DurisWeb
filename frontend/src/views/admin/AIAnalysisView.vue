@@ -98,6 +98,15 @@
           </Button>
         </div>
 
+        <Alert v-if="isRunning" class="border-purple-500/50 bg-purple-950/20">
+          <Loader2 class="h-4 w-4 animate-spin text-purple-400" />
+          <AlertTitle class="text-purple-300">Analysis in Progress</AlertTitle>
+          <AlertDescription class="text-purple-200/80">
+            Gemini is analyzing your connection logs. This may take 2-3 minutes.
+            Feel free to navigate away - you'll receive a notification when the analysis is complete.
+          </AlertDescription>
+        </Alert>
+
         <Alert v-if="analysisError" variant="destructive">
           <AlertTriangle class="h-4 w-4" />
           <AlertTitle>Analysis Failed</AlertTitle>
@@ -262,9 +271,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import { apiClient as api } from '@/services/api'
+import { useWebSocket } from '@/composables/useWebSocket'
+import { useAuth } from '@/composables/useAuth'
 import {
   Activity,
   AlertTriangle,
@@ -287,7 +298,8 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 const router = useRouter()
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const { onNotification, offNotification } = useWebSocket()
+const { accountName } = useAuth()
 
 // State
 const daysBack = ref('30')
@@ -298,30 +310,38 @@ const latestAnalysis = ref<any>(null)
 const history = ref<any[]>([])
 const historyLoading = ref(false)
 
-// Run AI analysis
+// Handle notification when analysis completes
+const handleNotification = (notifAccountName: string, data: any) => {
+  // only process ai_analysis notifications for the current user
+  if (notifAccountName !== accountName.value) return
+  if (data.source !== 'ai_analysis') return
+
+  isRunning.value = false
+
+  if (data.notificationType === 'ai_analysis_complete') {
+    fetchHistory()
+  } else if (data.notificationType === 'ai_analysis_error') {
+    analysisError.value = data.message || 'Failed to run AI analysis'
+  }
+}
+
+// Run AI analysis (async - returns immediately)
 const runAnalysis = async () => {
   isRunning.value = true
   analysisError.value = null
   apiKeyMissing.value = false
 
   try {
-    const response = await axios.post(
-      `${API_URL}/api/admin/ai-analysis/run`,
-      { daysBack: Number(daysBack.value) },
-      { withCredentials: true }
-    )
-
-    latestAnalysis.value = response.data.data
-    await fetchHistory() // Refresh history
+    await api.post('/api/admin/ai-analysis/run', { daysBack: Number(daysBack.value) })
+    // response returns immediately, actual result comes via websocket
   } catch (error: any) {
     console.error('AI analysis error:', error)
+    isRunning.value = false
     if (error.response?.data?.error?.includes('GEMINI_API_KEY')) {
       apiKeyMissing.value = true
     } else {
-      analysisError.value = error.response?.data?.error || 'Failed to run AI analysis'
+      analysisError.value = error.response?.data?.error || 'Failed to start AI analysis'
     }
-  } finally {
-    isRunning.value = false
   }
 }
 
@@ -329,9 +349,7 @@ const runAnalysis = async () => {
 const fetchHistory = async () => {
   historyLoading.value = true
   try {
-    const response = await axios.get(`${API_URL}/api/admin/ai-analysis/history?limit=10`, {
-      withCredentials: true,
-    })
+    const response = await api.get('/api/admin/ai-analysis/history?limit=10')
     history.value = response.data.data
   } catch (error) {
     console.error('Fetch history error:', error)
@@ -343,9 +361,7 @@ const fetchHistory = async () => {
 // View specific analysis
 const viewAnalysis = async (id: number) => {
   try {
-    const response = await axios.get(`${API_URL}/api/admin/ai-analysis/${id}`, {
-      withCredentials: true,
-    })
+    const response = await api.get(`/api/admin/ai-analysis/${id}`)
     // MySQL JSON column returns parsed object, not string
     const fullResults = response.data.data.full_results
     latestAnalysis.value = typeof fullResults === 'string'
@@ -364,5 +380,10 @@ const formatTimestamp = (timestamp: string) => {
 // Lifecycle
 onMounted(() => {
   fetchHistory()
+  onNotification(handleNotification)
+})
+
+onUnmounted(() => {
+  offNotification(handleNotification)
 })
 </script>

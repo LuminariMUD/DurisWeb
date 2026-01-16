@@ -245,6 +245,7 @@ export function useWebSocket() {
               callback(message.data);
             });
           }
+
         } catch {
         }
       };

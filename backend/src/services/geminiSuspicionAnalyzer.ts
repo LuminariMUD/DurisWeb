@@ -215,9 +215,9 @@ export async function analyzeWithGemini(daysBack: number = 30): Promise<GeminiAn
 
   let text: string;
   try {
-    // Add 3 minute timeout (free tier can be slow)
+    // Add 10 minute timeout (free tier can be slow)
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Gemini API request timeout after 3 minutes')), 180000);
+      setTimeout(() => reject(new Error('Gemini API request timeout after 10 minutes')), 600000);
     });
 
     const result = await Promise.race([
