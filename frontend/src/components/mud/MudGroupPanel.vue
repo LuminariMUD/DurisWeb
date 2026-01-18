@@ -65,7 +65,13 @@ const getTargetRef = (member: { targetNum: number | null; targetKeyword: string 
 
 // handle group action
 const handleGroupAction = (action: { command: string }, targetRef: string) => {
-  const cmd = action.command.replace('{target}', targetRef)
+  let cmd = action.command
+  if (cmd.includes('{target}')) {
+    cmd = cmd.replace('{target}', targetRef)
+  } else {
+    // append target if no placeholder
+    cmd = `${cmd} ${targetRef}`
+  }
   sendGameCommand(cmd)
 }
 </script>

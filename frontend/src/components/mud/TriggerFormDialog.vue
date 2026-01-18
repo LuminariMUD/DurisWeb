@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { Trigger, TriggerPattern, TriggerFormData, TriggerScope, TriggerAction } from '@/types/trigger'
+import type { Trigger, TriggerPattern, TriggerFormData, TriggerScope, TriggerAction, TriggerPatternLogic } from '@/types/trigger'
 import { useMudStore } from '@/stores/mudStore'
 import { useTriggers } from '@/composables/useTriggers'
 import { validateCondition } from '@/utils/gmcpVariables'
@@ -46,6 +46,7 @@ const { isNameInUse, validatePattern } = useTriggers()
 // Form state
 const name = ref('')
 const patterns = ref<TriggerPattern[]>([{ value: '', isGmcp: false }])
+const patternLogic = ref<TriggerPatternLogic>('or')
 const patternType = ref<'substring' | 'regex'>('substring')
 const caseSensitive = ref(false)
 const actions = ref<TriggerAction[]>([])
@@ -77,6 +78,7 @@ watch(
         // Edit mode: populate from existing trigger
         name.value = props.trigger.name
         patterns.value = props.trigger.patterns.map(p => ({ value: p.value, isGmcp: Boolean(p.isGmcp) }))
+        patternLogic.value = props.trigger.patternLogic || 'or'
         patternType.value = props.trigger.patternType
         caseSensitive.value = props.trigger.caseSensitive
         actions.value = JSON.parse(JSON.stringify(props.trigger.actions))
@@ -90,6 +92,7 @@ watch(
         // Add mode: reset to defaults
         name.value = ''
         patterns.value = [{ value: '', isGmcp: false }]
+        patternLogic.value = 'or'
         patternType.value = 'substring'
         caseSensitive.value = false
         actions.value = []
@@ -219,6 +222,7 @@ function handleSave() {
   const data: TriggerFormData = {
     name: name.value.trim(),
     patterns: validPatterns,
+    patternLogic: patternLogic.value,
     patternType: patternType.value,
     caseSensitive: caseSensitive.value,
     actions: JSON.parse(JSON.stringify(actions.value)),
@@ -288,9 +292,20 @@ function handleCancel() {
                 Add Pattern
               </Button>
             </div>
-            <p class="text-sm text-muted-foreground">
-              Any matching pattern triggers the actions (OR logic)
-            </p>
+            <div class="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Match</span>
+              <RadioGroup v-model="patternLogic" class="flex gap-2">
+                <div class="flex items-center space-x-1">
+                  <RadioGroupItem id="logic-or" value="or" class="h-3.5 w-3.5" />
+                  <Label for="logic-or" class="font-normal cursor-pointer text-sm">ANY</Label>
+                </div>
+                <div class="flex items-center space-x-1">
+                  <RadioGroupItem id="logic-and" value="and" class="h-3.5 w-3.5" />
+                  <Label for="logic-and" class="font-normal cursor-pointer text-sm">ALL</Label>
+                </div>
+              </RadioGroup>
+              <span>pattern{{ patterns.length > 1 ? 's' : '' }}</span>
+            </div>
             <div class="space-y-2">
               <div v-for="(pattern, index) in patterns" :key="index" class="space-y-1">
                 <div class="flex gap-2 items-center">
@@ -548,14 +563,15 @@ function handleCancel() {
         </div>
 
         <div>
-          <h4 class="font-semibold mb-2 text-green-400">Multiple GMCP Patterns (AND logic)</h4>
-          <p class="text-muted-foreground mb-2">Add multiple GMCP patterns - ALL must be true to trigger. Fires once when conditions become true.</p>
+          <h4 class="font-semibold mb-2 text-green-400">Multiple Patterns - AND vs OR</h4>
+          <p class="text-muted-foreground mb-2">Choose how multiple patterns combine:</p>
           <div class="bg-muted p-2 rounded font-mono text-xs space-y-1">
-            <p class="text-muted-foreground">Example: Auto-heal when fighting and low HP</p>
-            <p>Pattern 1: <span class="text-cyan-400">%hppct% &lt; 50</span> [GMCP]</p>
-            <p>Pattern 2: <span class="text-cyan-400">%target% != </span> [GMCP]</p>
-            <p>Action: <span class="text-green-400">cast 'heal'</span></p>
-            <p class="mt-2 text-muted-foreground">This triggers ONCE when HP drops below 50% while fighting.</p>
+            <p><span class="text-yellow-400">ANY (OR)</span> - trigger fires if any single pattern matches</p>
+            <p><span class="text-yellow-400">ALL (AND)</span> - trigger fires only if all patterns match the same line</p>
+            <p class="mt-2 text-muted-foreground">Example with AND: match lines containing both "orc" AND "attacks"</p>
+            <p>Pattern 1: <span class="text-green-400">orc</span></p>
+            <p>Pattern 2: <span class="text-green-400">attacks</span></p>
+            <p class="mt-2 text-muted-foreground">Note: GMCP patterns always use AND logic with text patterns.</p>
           </div>
         </div>
 

@@ -17,6 +17,13 @@ export type TriggerScope = 'global' | 'character'
 export type TriggerPatternType = 'substring' | 'regex'
 
 /**
+ * Pattern logic - how multiple patterns are combined
+ * 'or' = any pattern match triggers (default)
+ * 'and' = all patterns must match
+ */
+export type TriggerPatternLogic = 'or' | 'and'
+
+/**
  * Predefined highlight colors
  */
 export type TriggerHighlightColor =
@@ -116,8 +123,11 @@ export interface Trigger {
   /** Display name for this trigger */
   name: string
 
-  /** Patterns to match (OR logic - any match triggers). Can be text or GMCP conditions. */
+  /** Patterns to match. Can be text or GMCP conditions. */
   patterns: TriggerPattern[]
+
+  /** Pattern logic: how multiple patterns are combined ('or' = any, 'and' = all) */
+  patternLogic: TriggerPatternLogic
 
   /** Pattern type: substring (simple) or regex - applies to text patterns only */
   patternType: TriggerPatternType
@@ -159,6 +169,7 @@ export interface Trigger {
 export interface TriggerFormData {
   name: string
   patterns: TriggerPattern[]
+  patternLogic: TriggerPatternLogic
   patternType: TriggerPatternType
   caseSensitive: boolean
   actions: TriggerAction[]

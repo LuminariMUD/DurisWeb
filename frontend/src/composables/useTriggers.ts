@@ -10,11 +10,12 @@ import type {
   TriggerStorage,
   TriggerProcessResult,
   TriggerScope,
+  TriggerPatternLogic,
   TriggerActionSound,
 } from '@/types/trigger'
 import { HIGHLIGHT_COLORS, PREDEFINED_SOUNDS } from '@/types/trigger'
 
-const STORAGE_VERSION = 3
+const STORAGE_VERSION = 4
 const STORAGE_KEY_PREFIX = 'duris_triggers_'
 
 // Global state (shared across components)
@@ -127,6 +128,16 @@ export function useTriggers() {
         })
       }
 
+      // Version 3 -> 4: Add patternLogic field (default to 'or' for backward compatibility)
+      if (data.version < 4) {
+        migratedTriggers = migratedTriggers.map((trigger) => {
+          if (!trigger.patternLogic) {
+            return { ...trigger, patternLogic: 'or' as TriggerPatternLogic }
+          }
+          return trigger
+        })
+      }
+
       triggers.value = migratedTriggers as Trigger[]
       echoTriggers.value = data.echoTriggers ?? false
       muteSounds.value = data.muteSounds ?? false
@@ -202,6 +213,7 @@ export function useTriggers() {
       patterns: formData.patterns
         .filter((p) => p.value.trim().length > 0)
         .map((p) => ({ value: p.value.trim(), isGmcp: p.isGmcp })),
+      patternLogic: formData.patternLogic || 'or',
       patternType: formData.patternType,
       caseSensitive: formData.caseSensitive,
       actions: JSON.parse(JSON.stringify(formData.actions)), // Deep copy
@@ -239,6 +251,7 @@ export function useTriggers() {
               .filter((p) => p.value.trim().length > 0)
               .map((p) => ({ value: p.value.trim(), isGmcp: p.isGmcp }))
           : trigger.patterns,
+      patternLogic: formData.patternLogic !== undefined ? formData.patternLogic : trigger.patternLogic,
       patternType: formData.patternType !== undefined ? formData.patternType : trigger.patternType,
       caseSensitive:
         formData.caseSensitive !== undefined ? formData.caseSensitive : trigger.caseSensitive,
@@ -330,6 +343,7 @@ export function useTriggers() {
     return addTrigger({
       name: `${original.name} (copy)`,
       patterns: original.patterns.map((p) => ({ value: p.value, isGmcp: p.isGmcp })),
+      patternLogic: original.patternLogic || 'or',
       patternType: original.patternType,
       caseSensitive: original.caseSensitive,
       actions: JSON.parse(JSON.stringify(original.actions)),
@@ -483,23 +497,51 @@ export function useTriggers() {
           triggerMatched = true
         }
       } else {
-        // Mixed trigger or text-only: OR logic for text patterns, GMCP as additional filter
-        // First, check text patterns
-        for (const pattern of textPatterns) {
-          match = matchPattern(plainText, pattern.value, trigger.patternType, trigger.caseSensitive)
-          if (match) {
-            // Text matched, now check if GMCP conditions pass (AND logic with text)
+        // Mixed trigger or text-only
+        const useAndLogic = trigger.patternLogic === 'and'
+
+        if (useAndLogic && textPatterns.length > 0) {
+          // AND logic: all text patterns must match
+          let allTextMatched = true
+          for (const pattern of textPatterns) {
+            const patternMatch = matchPattern(plainText, pattern.value, trigger.patternType, trigger.caseSensitive)
+            if (patternMatch) {
+              // keep last match for capture groups
+              match = patternMatch
+            } else {
+              allTextMatched = false
+              break
+            }
+          }
+          if (allTextMatched) {
+            // All text patterns matched, check GMCP conditions
             if (gmcpPatterns.length > 0) {
-              // All GMCP conditions must pass
               const gmcpPasses = gmcpPatterns.every(gp => evaluateCondition(gp.value))
               if (gmcpPasses) {
                 triggerMatched = true
-                break
               }
             } else {
-              // No GMCP conditions, text match is enough
               triggerMatched = true
-              break
+            }
+          }
+        } else {
+          // OR logic: any text pattern match triggers
+          for (const pattern of textPatterns) {
+            match = matchPattern(plainText, pattern.value, trigger.patternType, trigger.caseSensitive)
+            if (match) {
+              // Text matched, now check if GMCP conditions pass (AND logic with text)
+              if (gmcpPatterns.length > 0) {
+                // All GMCP conditions must pass
+                const gmcpPasses = gmcpPatterns.every(gp => evaluateCondition(gp.value))
+                if (gmcpPasses) {
+                  triggerMatched = true
+                  break
+                }
+              } else {
+                // No GMCP conditions, text match is enough
+                triggerMatched = true
+                break
+              }
             }
           }
         }
