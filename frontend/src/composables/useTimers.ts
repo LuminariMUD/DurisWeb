@@ -711,6 +711,17 @@ export function useTimers() {
     }
   })
 
+  // Watch for entering in_game state - auto-start enabled timers
+  watch(
+    () => store.connectionState,
+    (newState, oldState) => {
+      if (newState === 'in_game' && oldState !== 'in_game') {
+        // small delay to ensure character/account state is ready
+        setTimeout(() => startAllTimers(), 100)
+      }
+    }
+  )
+
   return {
     // State
     timers,
