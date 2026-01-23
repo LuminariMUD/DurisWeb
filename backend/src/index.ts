@@ -32,6 +32,7 @@ import auctionRoutes from './routes/auction.js';
 import pushRoutes from './routes/push.js';
 import changelogRoutes from './routes/changelog.js';
 import publicStatisticsRoutes from './routes/publicStatistics.js';
+import kofiRoutes from './routes/kofi.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { generateCsrfToken, verifyCsrfToken } from './middleware/csrf.js';
 import {
@@ -170,6 +171,9 @@ app.get('/api/site-config', async (_req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to get site configuration' });
   }
 });
+
+// ko-fi webhook (outside /api prefix, no csrf)
+app.use('/kofihook', kofiRoutes);
 
 // API routes
 app.use('/api/pvp', pvpRoutes);
