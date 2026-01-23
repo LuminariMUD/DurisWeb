@@ -471,14 +471,78 @@ export async function placeBid(
 
 /**
  * Deduct money from character
+ * Updates player_data to match game's coin storage
  */
-export async function deductCharacterMoney(pid: number, amount: number): Promise<boolean> {
-  const [result] = await pool.query<any>(
-    `UPDATE players_core SET money = money - ? WHERE pid = ? AND money >= ?`,
-    [amount, pid, amount]
-  );
+export async function deductCharacterMoney(pid: number, amountCopper: number): Promise<boolean> {
+  const connection = await pool.getConnection();
 
-  return result.affectedRows > 0;
+  try {
+    await connection.beginTransaction();
+
+    // get current coins with lock
+    const [rows] = await connection.query<RowDataPacket[]>(
+      `SELECT copper, silver, gold, platinum FROM player_data WHERE pid = ? FOR UPDATE`,
+      [pid]
+    );
+
+    if (!rows[0]) {
+      await connection.rollback();
+      return false;
+    }
+
+    let { copper, silver, gold, platinum } = rows[0];
+    const totalCopper = copper + (silver * 10) + (gold * 100) + (platinum * 1000);
+
+    if (totalCopper < amountCopper) {
+      await connection.rollback();
+      return false;
+    }
+
+    // deduct starting from lowest denomination
+    let remaining = amountCopper;
+
+    if (remaining > 0 && copper > 0) {
+      const take = Math.min(remaining, copper);
+      copper -= take;
+      remaining -= take;
+    }
+    if (remaining > 0 && silver > 0) {
+      const takeCopper = Math.min(remaining, silver * 10);
+      const takeSilver = Math.ceil(takeCopper / 10);
+      silver -= takeSilver;
+      remaining -= takeSilver * 10;
+    }
+    if (remaining > 0 && gold > 0) {
+      const takeCopper = Math.min(remaining, gold * 100);
+      const takeGold = Math.ceil(takeCopper / 100);
+      gold -= takeGold;
+      remaining -= takeGold * 100;
+    }
+    if (remaining > 0 && platinum > 0) {
+      const takeCopper = Math.min(remaining, platinum * 1000);
+      const takePlat = Math.ceil(takeCopper / 1000);
+      platinum -= takePlat;
+      remaining -= takePlat * 1000;
+    }
+
+    // if we over-deducted, add change back as copper
+    if (remaining < 0) {
+      copper -= remaining; // remaining is negative, so this adds
+    }
+
+    await connection.query(
+      `UPDATE player_data SET copper = ?, silver = ?, gold = ?, platinum = ? WHERE pid = ?`,
+      [copper, silver, gold, platinum, pid]
+    );
+
+    await connection.commit();
+    return true;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 /**
