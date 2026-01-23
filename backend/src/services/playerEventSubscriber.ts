@@ -73,7 +73,7 @@ export function startPlayerEventSubscriber(): void {
         broadcaster('PLAYER_LOGOUT', { pid: event.pid })
       }
 
-      logger.debug(`[PlayerEventSubscriber] ${event.event} pid=${event.pid}`)
+      logger.info(`[PlayerEventSubscriber] ${event.event} pid=${event.pid}`)
     } catch (err) {
       logger.error('[PlayerEventSubscriber] failed to parse message:', message)
     }

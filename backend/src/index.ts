@@ -476,12 +476,16 @@ export function broadcastPlayerEvent(type: string, data: any) {
   if (!wss) return;
 
   const message = JSON.stringify({ type, data });
+  let sent = 0;
 
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN && (client as any).playerEventsSubscribed) {
       client.send(message);
+      sent++;
     }
   });
+
+  logger.info(`[broadcastPlayerEvent] ${type} sent to ${sent} clients`);
 }
 
 // Broadcast wholist to subscribed clients only
@@ -785,12 +789,22 @@ async function validateMudDirectory(): Promise<void> {
 
 // helper to verify websocket auth with minimum level requirement
 async function verifyWebSocketAuth(token: string | undefined, minLevel: number): Promise<boolean> {
-  if (!token) return false;
+  if (!token) {
+    logger.warn('[verifyWebSocketAuth] no token provided');
+    return false;
+  }
   const payload = verifyToken(token);
-  if (!payload) return false;
+  if (!payload) {
+    logger.warn('[verifyWebSocketAuth] invalid token');
+    return false;
+  }
   const accountData = await parseAccountFile(payload.accountName);
-  if (!accountData) return false;
+  if (!accountData) {
+    logger.warn(`[verifyWebSocketAuth] no account data for ${payload.accountName}`);
+    return false;
+  }
   const permissions = await getUserPermissions(payload.accountName, accountData.characters);
+  logger.info(`[verifyWebSocketAuth] ${payload.accountName} maxLevel=${permissions.maxLevel} minLevel=${minLevel}`);
   return permissions.maxLevel >= minLevel;
 }
 
@@ -937,8 +951,13 @@ async function startServer() {
 
           // Handle player events subscription (level 57+ only)
           if (data.type === 'SUBSCRIBE_PLAYER_EVENTS') {
-            if (!await verifyWebSocketAuth(data.token, 57)) return;
+            logger.info('[WebSocket] SUBSCRIBE_PLAYER_EVENTS received');
+            if (!await verifyWebSocketAuth(data.token, 57)) {
+              logger.warn('[WebSocket] player events subscription auth failed');
+              return;
+            }
             (ws as any).playerEventsSubscribed = true;
+            logger.info('[WebSocket] client subscribed to player events');
           }
 
           if (data.type === 'UNSUBSCRIBE_PLAYER_EVENTS') {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useOverviewStats, usePlayerActivity, useWhoList, formatRelativeTime } from '@/composables/useAdminAnalytics'
 import StatCard from './StatCard.vue'
 import LineChart from '@/components/charts/LineChart.vue'
@@ -14,7 +14,7 @@ import { useWebSocket } from '@/composables/useWebSocket'
 import type { ChartData } from 'chart.js'
 
 const { data: stats, isLoading, error, refetch: refetchStats } = useOverviewStats()
-const { onPlayerLogin, offPlayerLogin, onPlayerLogout, offPlayerLogout, onWholist, offWholist, onMudOnline, offMudOnline, onMudCrash, offMudCrash, subscribePlayerEvents, unsubscribePlayerEvents, subscribeWholist, unsubscribeWholist } = useWebSocket()
+const { isConnected, onPlayerLogin, offPlayerLogin, onPlayerLogout, offPlayerLogout, onWholist, offWholist, onMudOnline, offMudOnline, onMudCrash, offMudCrash, subscribePlayerEvents, unsubscribePlayerEvents } = useWebSocket()
 
 // WHO list data - initial fetch, then updated via websocket events
 const { data: whoListData, isLoading: whoListLoading, refetch: refetchWhoList } = useWhoList()
@@ -73,13 +73,19 @@ const handleMudCrash = () => {
 
 let bootTimeInterval: ReturnType<typeof setInterval> | null = null
 
+// subscribe to player events and refetch wholist when websocket connects/reconnects
+watch(isConnected, async (connected) => {
+  if (connected) {
+    await subscribePlayerEvents()
+    refetchWhoList()
+  }
+}, { immediate: true })
+
 onMounted(() => {
   fetchBootTime()
   uptimeInterval = setInterval(updateUptime, 10000)
   bootTimeInterval = setInterval(fetchBootTime, 30000)
 
-  subscribePlayerEvents()
-  subscribeWholist()
   onPlayerLogin(handlePlayerLogin)
   onPlayerLogout(handlePlayerLogout)
   onWholist(handleWholist)
@@ -91,7 +97,6 @@ onUnmounted(() => {
   if (uptimeInterval) clearInterval(uptimeInterval)
   if (bootTimeInterval) clearInterval(bootTimeInterval)
   unsubscribePlayerEvents()
-  unsubscribeWholist()
   offPlayerLogin(handlePlayerLogin)
   offPlayerLogout(handlePlayerLogout)
   offWholist(handleWholist)
