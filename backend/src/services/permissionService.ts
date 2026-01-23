@@ -1,6 +1,6 @@
 import { RowDataPacket } from 'mysql2';
 import { pool as db } from '../db/connection.js';
-import type { MudAccountCharacter } from './mudAccountParser.js';
+import type { MudAccountCharacter } from './accountService.js';
 import { getForumSettings } from './forumSettingsService.js';
 import { getUserPermissions as getAdminPermissions } from './adminPermissionService.js';
 import { getCache, setCache, deleteCache } from '../db/redis.js';

@@ -293,3 +293,32 @@ export async function parseAccountFile(accountName: string): Promise<MudAccountD
 
   return account;
 }
+
+/**
+ * update account password hash in database
+ */
+export async function updateAccountPassword(accountName: string, newPasswordHash: string): Promise<void> {
+  const lowerName = accountName.toLowerCase();
+
+  try {
+    const [result] = await pool.query(
+      'UPDATE accounts SET password = ? WHERE LOWER(account_name) = ?',
+      [newPasswordHash, lowerName]
+    );
+
+    // check if any row was affected
+    const affectedRows = (result as { affectedRows: number }).affectedRows;
+    if (affectedRows === 0) {
+      throw new Error(`Account '${accountName}' not found`);
+    }
+
+    // clear cache for this account
+    await clearAccountCache(accountName);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('not found')) {
+      throw error;
+    }
+    logger.error(`error updating password for '${accountName}':`, error);
+    throw new Error(`Failed to update password for '${accountName}'`);
+  }
+}

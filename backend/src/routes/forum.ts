@@ -78,7 +78,7 @@ import {
 } from '../services/pollService.js';
 import { requireAuth, requireModerator, optionalAuth, requirePermission } from '../middleware/auth.js';
 import { getCharacterInfo, type UserPermissions } from '../services/permissionService.js';
-import { parseAccountFile, findAccountByCharacter } from '../services/mudAccountParser.js';
+import { parseAccountFile, findAccountByCharacter } from '../services/accountService.js';
 import { extractClientIP } from '../utils/ipExtractor.js';
 import { uploadAvatar, deleteAllAvatars, validateAvatarFile, isR2Configured } from '../services/r2Service.js';
 import { broadcastForumPost } from '../index.js';

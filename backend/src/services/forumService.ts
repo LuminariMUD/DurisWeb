@@ -1,7 +1,7 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool as db } from '../db/connection.js';
 import { UserPermissions } from './permissionService.js';
-import { findCharacterGuild } from './mudGuildParser.js';
+import { findCharacterGuild } from './guildService.js';
 import { processForumContent } from '../utils/contentParser.js';
 import { extractImageUrls, linkImagesToPost, linkImagesToThread } from './postImageService.js';
 import logger, { isErrorWithCode } from '../utils/logger.js';
@@ -2381,8 +2381,8 @@ export async function createMentions(
   }
 }
 
-// Re-export searchAccounts from mudAccountParser for convenience
-export { searchAccounts } from './mudAccountParser.js';
+// Re-export searchAccounts from accountService for convenience
+export { searchAccounts } from './accountService.js';
 
 /**
  * Get character profile by character name

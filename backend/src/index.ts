@@ -53,7 +53,7 @@ import {
   getSessionByWebSocket
 } from './services/terminalService.js';
 import { verifyToken } from './middleware/auth.js';
-import { parseAccountFile } from './services/mudAccountParser.js';
+import { parseAccountFile } from './services/accountService.js';
 import { getUserPermissions } from './services/permissionService.js';
 import {
   deployToCommit,

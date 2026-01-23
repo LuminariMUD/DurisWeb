@@ -10,7 +10,7 @@ import {
   accountExists,
   isBcryptHash,
   updateAccountPassword
-} from '../services/mudAccountParser.js';
+} from '../services/accountService.js';
 import {
   getFullUserContext
 } from '../services/permissionService.js';

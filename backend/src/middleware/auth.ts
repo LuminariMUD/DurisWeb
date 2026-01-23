@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { UserPermissions, getUserPermissions } from '../services/permissionService.js';
-import { parseAccountFile } from '../services/mudAccountParser.js';
+import { parseAccountFile } from '../services/accountService.js';
 import { getUserPermissions as getAdminPermissions } from '../services/adminPermissionService.js';
 import logger from '../utils/logger.js';
 

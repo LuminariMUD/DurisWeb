@@ -94,7 +94,7 @@ import {
   grantPermission,
   revokePermission
 } from '../services/adminPermissionService.js';
-import { searchAccounts, accountExists, updateAccountPassword } from '../services/mudAccountParser.js';
+import { searchAccounts, accountExists, updateAccountPassword } from '../services/accountService.js';
 import bcrypt from 'bcrypt';
 import { getGodLevelFromCharacterLevel } from '../services/permissionService.js';
 import { testWebhook, manualPostBattle } from '../services/discordService.js';
