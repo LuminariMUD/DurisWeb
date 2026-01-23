@@ -19,14 +19,15 @@ const KOFI_VERIFICATION_TOKEN = process.env.KOFI_VERIFICATION_TOKEN || '';
  * content-type: application/x-www-form-urlencoded
  * body: data={json string}
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     // ko-fi sends data as form field containing json string
     const dataString = req.body.data;
 
     if (!dataString) {
       logger.warn('kofi webhook: missing data field');
-      return res.status(400).send('missing data');
+      res.status(400).send('missing data');
+      return;
     }
 
     let donation: KofiDonation & { verification_token?: string };
@@ -34,19 +35,22 @@ router.post('/', async (req: Request, res: Response) => {
       donation = JSON.parse(dataString);
     } catch {
       logger.warn('kofi webhook: invalid json in data field');
-      return res.status(400).send('invalid json');
+      res.status(400).send('invalid json');
+      return;
     }
 
     // verify token if configured
     if (KOFI_VERIFICATION_TOKEN && donation.verification_token !== KOFI_VERIFICATION_TOKEN) {
       logger.warn('kofi webhook: invalid verification token');
-      return res.status(403).send('invalid token');
+      res.status(403).send('invalid token');
+      return;
     }
 
     // check for duplicate (ko-fi retries on non-200)
     if (await isDuplicateDonation(donation.message_id)) {
       logger.info(`kofi webhook: duplicate donation ${donation.message_id}, ignoring`);
-      return res.status(200).send('ok');
+      res.status(200).send('ok');
+      return;
     }
 
     // process the donation
