@@ -17,7 +17,7 @@ import ChangelogBanner from './components/changelog/ChangelogBanner.vue';
 import { Toaster } from 'vue-sonner';
 import { parseAnsiForVue } from './utils/ansiParser';
 import BuilderNotificationBell from './components/builder/BuilderNotificationBell.vue';
-import { Play, User, KeyRound, LogOut, Bell, BellOff, LogIn, Map, Layers, Package, Skull, BookOpen, FileText, ChevronDown, BarChart3, Trophy, Gavel, WifiOff, RefreshCw, X, Activity } from 'lucide-vue-next';
+import { Play, User, KeyRound, LogOut, Bell, BellOff, LogIn, Map, Layers, Package, Skull, BookOpen, FileText, ChevronDown, BarChart3, Trophy, Gavel, WifiOff, RefreshCw, X, Activity, Heart, Radio } from 'lucide-vue-next';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -342,7 +342,7 @@ const isPlayPage = computed(() => route.path === '/play');
                   <DropdownMenuTrigger class="focus:outline-none">
                     <span
                       class="text-sm font-medium transition-colors hover:text-cyan-400 flex items-center gap-1"
-                      :class="$route.path === '/pvp/stats' || $route.path.startsWith('/statistics/') || $route.path === '/frag-leaderboard' || $route.path.startsWith('/auction') ? 'text-cyan-400' : 'text-gray-400'"
+                      :class="$route.path === '/pvp/stats' || $route.path.startsWith('/statistics/') || $route.path === '/frag-leaderboard' || $route.path.startsWith('/auction') || $route.path === '/status' ? 'text-cyan-400' : 'text-gray-400'"
                     >
                       Browse
                       <ChevronDown class="h-3 w-3" />
@@ -364,6 +364,11 @@ const isPlayPage = computed(() => route.path === '/play');
                     <DropdownMenuItem @click="router.push('/auction')" class="cursor-pointer">
                       <Gavel class="mr-2 h-4 w-4" />
                       <span>Auction House</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem @click="router.push('/status')" class="cursor-pointer">
+                      <Radio class="mr-2 h-4 w-4" />
+                      <span>Server Status</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -413,13 +418,15 @@ const isPlayPage = computed(() => route.path === '/play');
                 >
                   Forum
                 </RouterLink>
-                <RouterLink
-                  to="/status"
-                  class="text-sm font-medium transition-colors hover:text-cyan-400"
-                  :class="$route.path === '/status' ? 'text-cyan-400' : 'text-gray-400'"
+                <a
+                  href="https://ko-fi.com/newduris"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="flex items-center gap-1 text-sm font-medium text-pink-400 hover:text-pink-300 transition-colors"
                 >
-                  Status
-                </RouterLink>
+                  <Heart class="h-4 w-4" />
+                  Donate
+                </a>
                 <RouterLink
                   v-if="hasAnyAdminAccess"
                   to="/admin/dashboard"
