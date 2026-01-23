@@ -2469,7 +2469,7 @@ router.get(
     try {
       const { limit = 10 } = req.query;
 
-      const [analyses] = await db.query(
+      const [analyses] = await db.query<any[]>(
         `SELECT id, analysis_timestamp, suspicious_count, patterns_count, summary, created_at
          FROM gemini_analysis_log
          ORDER BY created_at DESC
@@ -2477,7 +2477,14 @@ router.get(
         [Number(limit)]
       );
 
-      return res.json({ success: true, data: analyses });
+      // convert mysql datetime strings to iso format with utc timezone
+      const data = analyses.map((row: any) => ({
+        ...row,
+        analysis_timestamp: row.analysis_timestamp ? String(row.analysis_timestamp).replace(' ', 'T') + 'Z' : null,
+        created_at: row.created_at ? String(row.created_at).replace(' ', 'T') + 'Z' : null,
+      }));
+
+      return res.json({ success: true, data });
     } catch (error) {
       logger.error('Get AI history error:', error);
       return res.status(500).json({
@@ -2512,7 +2519,15 @@ router.get(
         });
       }
 
-      return res.json({ success: true, data: analyses[0] });
+      // convert mysql datetime strings to iso format with utc timezone
+      const row = analyses[0];
+      const data = {
+        ...row,
+        analysis_timestamp: row.analysis_timestamp ? String(row.analysis_timestamp).replace(' ', 'T') + 'Z' : null,
+        created_at: row.created_at ? String(row.created_at).replace(' ', 'T') + 'Z' : null,
+      };
+
+      return res.json({ success: true, data });
     } catch (error) {
       logger.error('Get AI analysis error:', error);
       return res.status(500).json({
@@ -2545,13 +2560,20 @@ router.get('/crashes', requireAuth, requirePermission('view_server_health'), asy
     const [countRows] = await db.query(`SELECT COUNT(*) as total FROM crash_log${whereClause}`, params);
     const total = (countRows as any)[0].total;
 
-    const [crashes] = await db.query(
+    const [crashes] = await db.query<any[]>(
       `SELECT * FROM crash_log${whereClause} ORDER BY crash_timestamp DESC LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
 
+    // convert mysql datetime strings to iso format with utc timezone
+    const crashesWithTz = crashes.map((row: any) => ({
+      ...row,
+      crash_timestamp: row.crash_timestamp ? String(row.crash_timestamp).replace(' ', 'T') + 'Z' : null,
+      analyzed_at: row.analyzed_at ? String(row.analyzed_at).replace(' ', 'T') + 'Z' : null,
+    }));
+
     return res.json({
-      crashes,
+      crashes: crashesWithTz,
       pagination: {
         page,
         limit,
@@ -2574,11 +2596,18 @@ router.get('/crashes/:id', requireAuth, requirePermission('view_server_health'),
     const { id } = req.params;
 
     const [crashes] = await db.query('SELECT * FROM crash_log WHERE id = ?', [id]);
-    const crash = (crashes as any[])[0];
+    const row = (crashes as any[])[0];
 
-    if (!crash) {
+    if (!row) {
       return res.status(404).json({ error: 'Crash not found' });
     }
+
+    // convert mysql datetime strings to iso format with utc timezone
+    const crash = {
+      ...row,
+      crash_timestamp: row.crash_timestamp ? String(row.crash_timestamp).replace(' ', 'T') + 'Z' : null,
+      analyzed_at: row.analyzed_at ? String(row.analyzed_at).replace(' ', 'T') + 'Z' : null,
+    };
 
     return res.json({ crash });
   } catch (error) {

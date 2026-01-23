@@ -8,6 +8,12 @@ import {
 } from './pushNotificationService.js';
 import { extractPlayerName } from '../utils/stringUtils.js';
 
+// convert mysql datetime string to iso format with utc timezone
+function toISOString(mysqlDate: string): string {
+  // mysql returns 'YYYY-MM-DD HH:MM:SS', convert to iso with Z suffix
+  return mysqlDate.replace(' ', 'T') + 'Z';
+}
+
 // Broadcaster function set by index.ts to avoid circular dependencies
 let notificationBroadcaster: ((accountName: string, notification: any) => void) | null = null;
 let newsBroadcaster: ((data: { date: string; items: string[] }) => void) | null = null;
@@ -118,8 +124,8 @@ export async function getNotifications(
     message: row.message,
     link: row.link,
     isRead: Boolean(row.is_read),
-    createdAt: row.created_at,
-    readAt: row.read_at,
+    createdAt: toISOString(row.created_at),
+    readAt: row.read_at ? toISOString(row.read_at) : null,
     triggeredByAccount: row.triggered_by_account,
     triggeredByCharacter: row.triggered_by_character,
     data: row.data ? (typeof row.data === 'string' ? JSON.parse(row.data) : row.data) : null,
