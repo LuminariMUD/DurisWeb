@@ -73,7 +73,8 @@ import {
 import { getCurrentCommitHash } from './services/gitService.js';
 import { cleanupOrphanImages } from './services/postImageService.js';
 import { getWebSettings } from './services/webSettingsService.js';
-import { startMudAuctionClient, stopMudAuctionClient, setAuctionBroadcaster, setPlayerEventBroadcaster, setWholistBroadcaster } from './services/mudAuctionClient.js';
+import { startMudAuctionClient, stopMudAuctionClient, setAuctionBroadcaster } from './services/mudAuctionClient.js';
+import { startPlayerEventSubscriber, stopPlayerEventSubscriber, setPlayerEventBroadcaster } from './services/playerEventSubscriber.js';
 import { setNotificationBroadcaster, setNewsBroadcaster, notifyPvpBattle } from './services/unifiedNotificationService.js';
 import { updateWebSocketCount } from './services/serverHealthService.js';
 import { isDiscordEnabled, postBattleToDiscord } from './services/discordService.js';
@@ -707,6 +708,9 @@ const gracefulShutdown = async () => {
 
   // Stop MUD auction client
   stopMudAuctionClient();
+
+  // Stop player event subscriber
+  await stopPlayerEventSubscriber();
 
   // Cleanup log watchers
   cleanupLogWatchers();
@@ -1349,10 +1353,13 @@ async function startServer() {
 
     // Initialize MUD auction websocket client
     setAuctionBroadcaster(broadcastAuctionEvent);
-    setPlayerEventBroadcaster(broadcastPlayerEvent);
-    setWholistBroadcaster(broadcastWholist);
     startMudAuctionClient();
     logger.info('MUD auction client started');
+
+    // Initialize player event subscriber (redis pub/sub for login/logout)
+    setPlayerEventBroadcaster(broadcastPlayerEvent);
+    startPlayerEventSubscriber();
+    logger.info('Player event subscriber started');
 
     // Initialize notification broadcaster
     setNotificationBroadcaster(broadcastNotification);
