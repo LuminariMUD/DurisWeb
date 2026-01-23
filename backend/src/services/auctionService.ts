@@ -230,14 +230,21 @@ export async function getAuctionKeywords(): Promise<string[]> {
 
 /**
  * Get character's money (copper) for bid validation
+ * Reads from player_data to match game's coin storage
  */
 export async function getCharacterMoney(pid: number): Promise<number> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT money FROM players_core WHERE pid = ?`,
+    `SELECT copper, silver, gold, platinum FROM player_data WHERE pid = ?`,
     [pid]
   );
 
-  return rows[0]?.money || 0;
+  if (!rows[0]) return 0;
+
+  // convert to copper (same formula as game)
+  return rows[0].copper +
+    (rows[0].silver * 10) +
+    (rows[0].gold * 100) +
+    (rows[0].platinum * 1000);
 }
 
 /**
