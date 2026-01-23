@@ -23,6 +23,7 @@ import {
   LogIn,
   User,
   Bell,
+  Activity,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -42,6 +43,7 @@ const moreNavItems = computed(() => [
   { name: 'Auction', path: '/auction', icon: Gavel },
   { name: 'Map', path: '/wiki/map', icon: Map },
   { name: 'Stats', path: '/pvp/stats', icon: BarChart3 },
+  { name: 'Faction', path: '/statistics/faction-activity', icon: Activity },
   { name: 'Leaderboard', path: '/frag-leaderboard', icon: Trophy },
   { name: 'Guide', path: '/guide', icon: BookOpen },
   ...(isAuthenticated.value

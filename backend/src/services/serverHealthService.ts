@@ -3,7 +3,7 @@ import { promisify } from 'util';
 import os from 'os';
 import { pool as db } from '../db/connection.js';
 import { getDmsProcessStats } from './processMonitor.js';
-import { getOnlineCount } from './mudAuctionClient.js';
+import { getOnlinePlayerCount as getOnlineCountFromRedis } from './onlinePlayersService.js';
 import logger from '../utils/logger.js';
 
 const execAsync = promisify(exec);
@@ -82,10 +82,10 @@ function getSystemLoad(): { load1m: number; load5m: number; load15m: number } {
 }
 
 /**
- * get online player count from mud websocket state
+ * get online player count from mud:online redis key
  */
-export function getOnlinePlayerCount(): number {
-  return getOnlineCount();
+export async function getOnlinePlayerCount(): Promise<number> {
+  return await getOnlineCountFromRedis();
 }
 
 /**
@@ -157,13 +157,13 @@ export function updateWebSocketCount(count: number): void {
  * Get complete server health metrics
  */
 export async function getServerHealth(): Promise<ServerHealth> {
-  const [processStats, diskUsage, dbHealth, poolStats] = await Promise.all([
+  const [processStats, diskUsage, dbHealth, poolStats, onlinePlayers] = await Promise.all([
     getDmsProcessStats(),
     getDiskUsage(),
     testDatabaseHealth(),
     Promise.resolve(getDatabasePoolStats()),
+    getOnlinePlayerCount(),
   ]);
-  const onlinePlayers = getOnlinePlayerCount();
 
   const systemLoad = getSystemLoad();
 

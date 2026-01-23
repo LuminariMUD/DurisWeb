@@ -32,6 +32,11 @@ const router = createRouter({
       component: () => import('../views/StatsView.vue'),
     },
     {
+      path: '/statistics/faction-activity',
+      name: 'faction-activity',
+      component: () => import('../views/FactionActivityView.vue'),
+    },
+    {
       path: '/frag-leaderboard',
       name: 'frag-leaderboard',
       component: () => import('../views/FragLeaderboardView.vue'),

@@ -57,7 +57,8 @@ import {
 } from '../services/logService.js';
 import { createReadStream } from 'fs';
 import { pool as db } from '../db/connection.js';
-import { requestWhoList, getOnlinePlayers, isMudConnected, getMudBootTime } from '../services/mudAuctionClient.js';
+import { requestWhoList, isMudConnected, getMudBootTime } from '../services/mudAuctionClient.js';
+import { getOnlinePlayers as getOnlinePlayersFromRedis } from '../services/onlinePlayersService.js';
 import { getCategorizedProperties, searchProperties, updateProperty, validatePropertyValue, getPropertyHistory } from '../services/propertiesParser.js';
 import { RowDataPacket } from 'mysql2';
 import {
@@ -880,31 +881,30 @@ router.get('/analytics/server', requireAuth, requireOverlord, async (_req: Reque
 
 /**
  * GET /api/admin/who
- * Get WHO list (currently online players)
+ * Get WHO list (currently online players) from mud:online redis key
  */
 router.get('/who', requireAuth, requireOverlord, async (_req: Request, res: Response) => {
   try {
-    // use in-memory state from mud websocket, fallback to db query
-    const mudConnected = isMudConnected();
+    const redisPlayers = await getOnlinePlayersFromRedis();
+    const now = Date.now();
 
-    if (mudConnected) {
-      // map websocket fields to frontend expected format
-      const wsPlayers = getOnlinePlayers();
-      const players = wsPlayers.map(p => ({
-        char_name: p.character,
+    if (redisPlayers.length > 0) {
+      const players = redisPlayers.map(p => ({
+        char_name: p.name,
         account: p.account,
         last_ip: p.ip,
         level: p.level,
         race: p.race,
         class: p.class,
-        faction: p.faction,
+        faction: p.racewar,
         client: p.client,
         clientVersion: p.clientVersion,
-        uptime_seconds: p.uptime_seconds,
+        uptime_seconds: p.loginTime > 0 ? Math.floor((now - p.loginTime * 1000) / 1000) : 0,
       }));
-      return res.json({ players, source: 'websocket' });
+      return res.json({ players, source: 'redis' });
     }
 
+    // fallback to database if redis is empty
     const players = await getWhoList();
     return res.json({ players, source: 'database' });
   } catch (error) {
@@ -929,14 +929,14 @@ router.post('/analytics/cleanup-connections', requireAuth, requireOverlord, asyn
 
     const rowsAffected = (cleanupResult as any).affectedRows;
 
-    // Step 2: Request fresh wholist from MUD via websocket
+    // Step 2: Request fresh wholist from MUD via websocket (optional, for login history tracking)
     const mudConnected = isMudConnected();
     if (mudConnected) {
       requestWhoList();
     }
 
-    // Step 3: Return current in-memory state (will be updated when MUD responds)
-    const whoList = getOnlinePlayers();
+    // Step 3: Return current state from redis
+    const whoList = await getOnlinePlayersFromRedis();
 
     return res.json({
       success: true,

@@ -73,11 +73,10 @@ export interface ServerHealth {
 }
 
 /**
- * Get current online players - now uses netstat for accurate real-time count
- * Single source of truth - delegates to serverHealthService
+ * get current online players from redis (mud:online)
  */
 export async function getCurrentOnlinePlayers(): Promise<number> {
-  return await getOnlinePlayerCount();
+  return getOnlinePlayerCount();
 }
 
 /**

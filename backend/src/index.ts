@@ -31,6 +31,7 @@ import notificationsRoutes from './routes/notifications.js';
 import auctionRoutes from './routes/auction.js';
 import pushRoutes from './routes/push.js';
 import changelogRoutes from './routes/changelog.js';
+import publicStatisticsRoutes from './routes/publicStatistics.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { generateCsrfToken, verifyCsrfToken } from './middleware/csrf.js';
 import {
@@ -195,6 +196,7 @@ app.use('/api/admin/analytics/web', webAnalyticsRoutes);
 app.use('/api/auction', auctionRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/changelog', changelogRoutes);
+app.use('/api/public/statistics', publicStatisticsRoutes);
 
 // Serve static maps (works in both dev and prod)
 const publicPath = path.join(process.cwd(), 'public');

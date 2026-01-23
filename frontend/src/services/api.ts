@@ -3072,6 +3072,29 @@ export const changelogApi = {
   },
 }
 
+// Public Statistics API
+export interface FactionActivityPoint {
+  timestamp: number
+  goods: number
+  evils: number
+  neutrals: number
+  undeads: number
+}
+
+export const publicStatsApi = {
+  getFactionActivity: async (date: string) => {
+    const response = await api.get(`/api/public/statistics/faction-activity`, {
+      params: { date },
+    })
+    return response.data as { data: FactionActivityPoint[]; date: string }
+  },
+
+  getAvailableDates: async () => {
+    const response = await api.get(`/api/public/statistics/available-dates`)
+    return response.data as { dates: string[] }
+  },
+}
+
 // Export axios instance for direct use
 export { api as apiClient }
 
