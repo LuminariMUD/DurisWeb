@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -14,6 +14,10 @@ import {
   type ChartData,
   type ChartOptions,
 } from 'chart.js'
+import flatpickr from 'flatpickr'
+import 'flatpickr/dist/flatpickr.min.css'
+import 'flatpickr/dist/themes/dark.css'
+import { Calendar } from 'lucide-vue-next'
 import { useFactionActivity, useAvailableDates } from '@/composables/usePublicStatistics'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
@@ -21,13 +25,26 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 const { data: availableDatesData, isLoading: loadingDates } = useAvailableDates()
 
 const selectedDate = ref('')
+const dateInput = ref<HTMLInputElement | null>(null)
+let datePicker: flatpickr.Instance | null = null
 
 // set default date when available dates load
 watch(availableDatesData, (data) => {
   if (data?.dates?.length && !selectedDate.value) {
     selectedDate.value = data.dates[0]
+    // update flatpickr if initialized
+    if (datePicker) {
+      datePicker.setDate(data.dates[0], false)
+    }
   }
 }, { immediate: true })
+
+// update flatpickr enabled dates when available dates change
+watch(availableDatesData, (data) => {
+  if (datePicker && data?.dates?.length) {
+    datePicker.set('enable', data.dates)
+  }
+})
 
 const { data: activityData, isLoading: loadingActivity } = useFactionActivity(selectedDate)
 
@@ -85,10 +102,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
       labels: { color: 'rgb(156, 163, 175)' },
     },
     title: {
-      display: true,
-      text: `Faction Activity - ${selectedDate.value}`,
-      color: 'rgb(229, 231, 235)',
-      font: { size: 16 },
+      display: false,
     },
     tooltip: {
       mode: 'index',
@@ -115,34 +129,55 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
   },
 }))
 
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-}
+onMounted(() => {
+  if (dateInput.value) {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    datePicker = flatpickr(dateInput.value, {
+      dateFormat: 'Y-m-d',
+      maxDate: yesterday,
+      enable: availableDatesData.value?.dates || [],
+      defaultDate: selectedDate.value || undefined,
+      onChange: (_selectedDates: Date[], dateStr: string) => {
+        selectedDate.value = dateStr
+      },
+    })
+  }
+})
+
+onUnmounted(() => {
+  if (datePicker) {
+    datePicker.destroy()
+    datePicker = null
+  }
+})
 </script>
 
 <template>
   <div class="container mx-auto px-4 py-8">
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-white mb-2">Faction Activity</h1>
-      <p class="text-gray-400">
-        Historical player activity by faction. Data is delayed by 24 hours.
-      </p>
-    </div>
+    <!-- Header with date picker on right -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
+      <div>
+        <h1 class="text-3xl font-bold text-white mb-2">Faction Activity</h1>
+        <p class="text-gray-400">
+          Historical player activity by faction. Data is delayed by 24 hours.
+        </p>
+      </div>
 
-    <!-- Date Selector -->
-    <div class="mb-6">
-      <label class="block text-sm font-medium text-gray-300 mb-2">Select Date</label>
-      <div v-if="loadingDates" class="text-gray-400">Loading dates...</div>
-      <select
-        v-else
-        v-model="selectedDate"
-        class="bg-slate-700 border border-slate-600 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      >
-        <option v-for="date in availableDatesData?.dates" :key="date" :value="date">
-          {{ formatDate(date) }}
-        </option>
-      </select>
+      <!-- Date Picker -->
+      <div class="flex items-center gap-2">
+        <Calendar class="w-5 h-5 text-gray-400" />
+        <div v-if="loadingDates" class="text-gray-400 text-sm">Loading...</div>
+        <input
+          v-else
+          ref="dateInput"
+          type="text"
+          placeholder="Select date"
+          readonly
+          class="bg-slate-700 border border-slate-600 text-white rounded-lg px-4 py-2 w-40 cursor-pointer focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+      </div>
     </div>
 
     <!-- Chart -->
