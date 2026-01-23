@@ -50,4 +50,65 @@ describe('auctionService', () => {
       expect(result).toBe(0);
     });
   });
+
+  describe('deductCharacterMoney', () => {
+    let richPid: number;
+    let originalCoins: { copper: number; silver: number; gold: number; platinum: number };
+
+    beforeAll(async () => {
+      // find a character with some platinum for testing
+      const [rows] = await pool.query(
+        'SELECT pid, copper, silver, gold, platinum FROM player_data WHERE platinum > 0 LIMIT 1'
+      ) as any;
+
+      if (rows.length === 0) {
+        throw new Error('no character with platinum found for testing');
+      }
+
+      richPid = rows[0].pid;
+      originalCoins = {
+        copper: rows[0].copper,
+        silver: rows[0].silver,
+        gold: rows[0].gold,
+        platinum: rows[0].platinum,
+      };
+    });
+
+    afterAll(async () => {
+      // restore original coins
+      await pool.query(
+        'UPDATE player_data SET copper = ?, silver = ?, gold = ?, platinum = ? WHERE pid = ?',
+        [originalCoins.copper, originalCoins.silver, originalCoins.gold, originalCoins.platinum, richPid]
+      );
+    });
+
+    it('should deduct money from player_data', async () => {
+      const { deductCharacterMoney } = await import('../auctionService.js');
+
+      const beforeMoney = await getCharacterMoney(richPid);
+      const deductAmount = 100; // 100 copper
+
+      const result = await deductCharacterMoney(richPid, deductAmount);
+
+      expect(result).toBe(true);
+
+      const afterMoney = await getCharacterMoney(richPid);
+      expect(afterMoney).toBe(beforeMoney - deductAmount);
+    });
+
+    it('should return false if insufficient funds', async () => {
+      const { deductCharacterMoney } = await import('../auctionService.js');
+
+      const beforeMoney = await getCharacterMoney(richPid);
+      const deductAmount = beforeMoney + 1000000; // more than they have
+
+      const result = await deductCharacterMoney(richPid, deductAmount);
+
+      expect(result).toBe(false);
+
+      // verify money unchanged
+      const afterMoney = await getCharacterMoney(richPid);
+      expect(afterMoney).toBe(beforeMoney);
+    });
+  });
 });
