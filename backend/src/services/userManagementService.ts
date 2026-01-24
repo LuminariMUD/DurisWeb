@@ -8,23 +8,14 @@ import type {
 import { sendMudCommandAsync, isMudConnected } from './mudAuctionClient.js';
 
 /**
- * Strip ANSI color codes from a string
- */
-function stripAnsiCodes(text: string): string {
-  return text
-    .replace(/&\+R/g, '')
-    .replace(/&\+G/g, '')
-    .replace(/&\+B/g, '')
-    .replace(/&\+Y/g, '')
-    .replace(/&\+W/g, '')
-    .replace(/&\+L/g, '')
-    .replace(/&\+r/g, '')
-    .replace(/&\+g/g, '')
-    .replace(/&n/g, '');
-}
-
-/**
  * Get paginated list of users with filters
+ *
+ * Uses account_characters as the base table (every character must have an account).
+ * Joins to:
+ * - players_core: for race, classname (with spec), level, racewar
+ * - ip_info: for last_connect timestamp and last_ip
+ * - user_bans: for ban status
+ * - web_sessions: for web login time
  */
 export async function getUserList(
   filters: UserManagementFilters
@@ -43,48 +34,45 @@ export async function getUserList(
 
   const offset = (page - 1) * limit;
 
-  // Build WHERE clauses
+  // build where clauses - use account_characters as base
   const whereClauses: string[] = [];
   const params: any[] = [];
 
-  // Search filter (account, character, IP)
+  // only show active (non-deleted) characters
+  whereClauses.push('ac.deleted_at IS NULL');
+
+  // search filter (account, character, ip, pid)
   if (search) {
     whereClauses.push(`(
       ac.account_name LIKE ? OR
-      pc.name LIKE ? OR
-      latest_char.last_ip LIKE ?
+      ac.char_name LIKE ? OR
+      ii.last_ip LIKE ? OR
+      ac.pid = ?
     )`);
     const searchPattern = `%${search}%`;
-    params.push(searchPattern, searchPattern, searchPattern);
+    const pidSearch = parseInt(search) || 0;
+    params.push(searchPattern, searchPattern, searchPattern, pidSearch);
   }
 
-  // Race filter (stripped ANSI comparison)
+  // race filter (from players_core)
   if (race) {
-    whereClauses.push(`REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-      REPLACE(REPLACE(REPLACE(REPLACE(pc.race,
-        '&+R', ''), '&+G', ''), '&+B', ''), '&+Y', ''), '&+W', ''),
-        '&+L', ''), '&+r', ''), '&+g', ''), '&n', ''
-    ) = ?`);
-    params.push(stripAnsiCodes(race));
+    whereClauses.push(`pc.race = ?`);
+    params.push(race);
   }
 
-  // Class filter (stripped ANSI comparison)
+  // class filter (from players_core)
   if (classFilter) {
-    whereClauses.push(`REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-      REPLACE(REPLACE(REPLACE(REPLACE(pc.classname,
-        '&+R', ''), '&+G', ''), '&+B', ''), '&+Y', ''), '&+W', ''),
-        '&+L', ''), '&+r', ''), '&+g', ''), '&n', ''
-    ) = ?`);
-    params.push(stripAnsiCodes(classFilter));
+    whereClauses.push(`pc.classname = ?`);
+    params.push(classFilter);
   }
 
-  // Alignment filter (racewar)
+  // alignment filter (racewar from player_data)
   if (alignment) {
-    whereClauses.push('pc.racewar = ?');
+    whereClauses.push('pd.racewar = ?');
     params.push(alignment);
   }
 
-  // Ban status filter
+  // ban status filter
   if (ban_status === 'banned') {
     whereClauses.push('ub.is_active = TRUE');
   } else if (ban_status === 'active') {
@@ -93,45 +81,28 @@ export async function getUserList(
 
   const whereSQL = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-  // Map sort_by to actual column
+  // map sort_by to actual column
   const sortColumnMap: Record<string, string> = {
+    pid: 'ac.pid',
     account_name: 'ac.account_name',
-    character_name: 'pc.name',
+    character_name: 'ac.char_name',
     race: 'pc.race',
     class: 'pc.classname',
-    email: 'ac.account_name', // No email available, sort by account name
-    last_login: 'mud_login.last_login'
+    email: 'a.email',
+    last_login: 'ii.last_connect'
   };
 
-  const sortColumn = sortColumnMap[sort_by] || 'mud_login.last_login';
+  const sortColumn = sortColumnMap[sort_by] || 'ii.last_connect';
   const sortDirection = sort_order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-  // Get total count - use account_characters as base table (source of truth)
+  // get total count
   const countQuery = `
-    SELECT COUNT(DISTINCT ac.account_name) as total
-    FROM (
-      SELECT DISTINCT account_name
-      FROM account_characters
-    ) ac
-    LEFT JOIN account_characters ac_latest ON ac.account_name  = ac_latest.account_name      AND ac_latest.deleted_at IS NULL
-      AND ac_latest.created_at = (
-        SELECT MAX(created_at)
-        FROM account_characters
-        WHERE account_name  = ac.account_name  AND deleted_at IS NULL
-      )
-    LEFT JOIN players_core pc ON ac_latest.pid = pc.pid
-    LEFT JOIN user_bans ub ON ac.account_name  = ub.account_name  AND ub.is_active = TRUE
-    LEFT JOIN (
-      SELECT account_name, MAX(created_at) as last_login
-      FROM web_sessions
-      GROUP BY account_name
-    ) ws ON ac.account_name  = ws.account_name
-    LEFT JOIN (
-      SELECT account_name, ANY_VALUE(last_ip) as last_ip
-      FROM account_characters
-      WHERE deleted_at IS NULL
-      GROUP BY account_name
-    ) latest_char ON ac.account_name = latest_char.account_name
+    SELECT COUNT(*) as total
+    FROM account_characters ac
+    LEFT JOIN accounts a ON ac.account_name = a.account_name
+    LEFT JOIN players_core pc ON LOWER(ac.char_name) = LOWER(pc.name)
+    LEFT JOIN ip_info ii ON ac.pid = ii.pid
+    LEFT JOIN user_bans ub ON ac.account_name = ub.account_name AND ub.is_active = TRUE
     ${whereSQL}
   `;
 
@@ -139,47 +110,30 @@ export async function getUserList(
   const total = countResult[0].total;
   const totalPages = Math.ceil(total / limit);
 
-  // Get paginated data - use account_characters as base table (source of truth)
-  // Get ALL characters for each account (including deleted ones)
+  // get paginated data
   const dataQuery = `
     SELECT
-      ac_all.account_name,
-      pc.name as character_name,
-      pc.race,
-      pc.classname as class,
+      ac.pid,
+      ac.account_name,
+      ac.char_name as character_name,
+      COALESCE(pc.race, '') as race,
+      COALESCE(pc.classname, '') as class,
       pc.level,
       pc.racewar,
-      latest_char.email,
-      latest_char.last_ip,
-      mud_login.last_login,
+      a.email,
+      ii.last_ip,
+      ii.last_connect as last_login,
       ws.web_last_login,
       CASE WHEN ub.is_active = TRUE THEN 1 ELSE 0 END as is_banned,
       ub.reason as ban_reason,
       ub.banned_at,
       ub.banned_by,
-      CASE WHEN ac_all.deleted_at IS NOT NULL THEN 1 ELSE 0 END as is_deleted,
-      ac_all.deleted_at
-    FROM (
-      SELECT DISTINCT account_name
-      FROM account_characters
-    ) ac
-    LEFT JOIN account_characters ac_all ON ac.account_name = ac_all.account_name
-    LEFT JOIN players_core pc ON ac_all.pid = pc.pid
-    LEFT JOIN (
-      SELECT account_name, ANY_VALUE(email) as email, ANY_VALUE(last_ip) as last_ip
-      FROM account_characters
-      WHERE deleted_at IS NULL
-      GROUP BY account_name
-    ) latest_char ON ac.account_name = latest_char.account_name
-    LEFT JOIN LATERAL (
-      SELECT ii.last_connect as last_login
-      FROM account_characters ac_inner
-      JOIN ip_info ii ON ac_inner.pid = ii.pid
-      WHERE ac_inner.account_name = ac.account_name
-        AND ac_inner.deleted_at IS NULL
-      ORDER BY ii.last_connect DESC
-      LIMIT 1
-    ) mud_login ON TRUE
+      CASE WHEN ac.deleted_at IS NOT NULL THEN 1 ELSE 0 END as is_deleted,
+      ac.deleted_at
+    FROM account_characters ac
+    LEFT JOIN accounts a ON ac.account_name = a.account_name
+    LEFT JOIN players_core pc ON LOWER(ac.char_name) = LOWER(pc.name)
+    LEFT JOIN ip_info ii ON ac.pid = ii.pid
     LEFT JOIN user_bans ub ON ac.account_name = ub.account_name AND ub.is_active = TRUE
     LEFT JOIN LATERAL (
       SELECT created_at as web_last_login
@@ -189,13 +143,14 @@ export async function getUserList(
       LIMIT 1
     ) ws ON TRUE
     ${whereSQL}
-    ORDER BY ${sortColumn} ${sortDirection}, ac_all.account_name, ac_all.deleted_at ASC, pc.name
+    ORDER BY ${sortColumn} ${sortDirection}, ac.char_name
     LIMIT ? OFFSET ?
   `;
 
   const [rows]: any = await pool.query(dataQuery, [...params, limit, offset]);
 
   const data: UserListItem[] = rows.map((row: any) => ({
+    pid: row.pid,
     account_name: row.account_name,
     character_name: row.character_name,
     race: row.race,
@@ -315,13 +270,12 @@ export async function deleteCharacter(
     };
   }
 
-  // Check if the character exists and belongs to this account
+  // check if the character exists and belongs to this account
   const checkQuery = `
     SELECT ac.pid
     FROM account_characters ac
-    JOIN players_core pc ON ac.pid = pc.pid
     WHERE ac.account_name = ?
-      AND pc.name = ?
+      AND ac.char_name = ?
       AND ac.deleted_at IS NULL
   `;
 
@@ -358,18 +312,14 @@ export async function deleteCharacter(
 }
 
 /**
- * Get unique races for filter dropdown (with ANSI codes for display, but need stripped version for filtering)
+ * Get unique races for filter dropdown
  */
 export async function getUniqueRaces(): Promise<string[]> {
   const query = `
     SELECT DISTINCT race
     FROM players_core
     WHERE race IS NOT NULL AND race != ''
-    ORDER BY REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-        REPLACE(REPLACE(REPLACE(REPLACE(race,
-          '&+R', ''), '&+G', ''), '&+B', ''), '&+Y', ''), '&+W', ''),
-          '&+L', ''), '&+r', ''), '&+g', ''), '&n', ''
-      )
+    ORDER BY race
   `;
 
   const [rows]: any = await pool.query(query);
@@ -377,18 +327,14 @@ export async function getUniqueRaces(): Promise<string[]> {
 }
 
 /**
- * Get unique classes for filter dropdown (with ANSI codes for display, but need stripped version for filtering)
+ * Get unique classes for filter dropdown (includes specializations)
  */
 export async function getUniqueClasses(): Promise<string[]> {
   const query = `
     SELECT DISTINCT classname as class
     FROM players_core
     WHERE classname IS NOT NULL AND classname != ''
-    ORDER BY REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-        REPLACE(REPLACE(REPLACE(REPLACE(classname,
-          '&+R', ''), '&+G', ''), '&+B', ''), '&+Y', ''), '&+W', ''),
-          '&+L', ''), '&+r', ''), '&+g', ''), '&n', ''
-      )
+    ORDER BY classname
   `;
 
   const [rows]: any = await pool.query(query);

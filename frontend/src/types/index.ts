@@ -779,19 +779,35 @@ export interface BackupInfo {
 
 export interface BackupContents {
   accounts: string[]
-  characters: string[]
+  characters: { pid: number; name: string }[]
 }
 
-export interface RestoreTarget {
-  type: 'account' | 'character'
-  name: string
+export interface RestoreCategories {
+  coreData: boolean
+  inventory: boolean
+  skills: boolean
+  progression: boolean
+  auction: boolean
+  guild: boolean
+  pvpHistory: boolean
+  misc: boolean
+}
+
+export interface RestoreRequest {
+  backupId: number
+  restoreType: 'full' | 'account' | 'character'
+  accounts?: string[]
+  characters?: { pid: number; name: string }[]
+  categories?: RestoreCategories
 }
 
 export interface RestoreInfo {
   id: number
   backupId: number
-  restoreType: 'full' | 'selective'
-  targets: RestoreTarget[] | null
+  restoreType: 'full' | 'account' | 'character'
+  accounts: string[] | null
+  characters: { pid: number; name: string }[] | null
+  categories: RestoreCategories | null
   status: 'pending' | 'in_progress' | 'completed' | 'failed'
   progress: number
   currentStep: string | null
@@ -800,6 +816,17 @@ export interface RestoreInfo {
   ipAddress: string
   startedAt: string
   completedAt: string | null
+}
+
+export const DEFAULT_RESTORE_CATEGORIES: RestoreCategories = {
+  coreData: false,
+  inventory: true,
+  skills: false,
+  progression: false,
+  auction: false,
+  guild: false,
+  pvpHistory: false,
+  misc: false,
 }
 
 // ============================================================================

@@ -281,18 +281,19 @@ export async function parseGuildFile(guildId: number): Promise<GuildData | null>
 
 /**
  * search guilds for autocomplete
- * queries distinct guild names from players_core table (existing behavior)
+ * queries distinct guild names via associations table
  */
 export async function searchGuilds(query: string, limit: number = 20): Promise<string[]> {
   const safeLimit = Math.min(Math.max(Math.floor(limit), 1), 100);
   try {
     const [rows] = await pool.execute<GuildSearchRow[]>(
-      `SELECT DISTINCT guild
-       FROM players_core
-       WHERE guild IS NOT NULL
-         AND guild != ''
-         AND guild LIKE ?
-       ORDER BY guild
+      `SELECT DISTINCT a.name as guild
+       FROM player_data pd
+       JOIN associations a ON pd.assoc_id = a.id
+       WHERE a.name IS NOT NULL
+         AND a.name != ''
+         AND a.name LIKE ?
+       ORDER BY a.name
        LIMIT ?`,
       [`%${query || ''}%`, safeLimit]
     );

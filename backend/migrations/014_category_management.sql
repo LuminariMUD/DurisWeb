@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS forum_category_permissions (
 
   -- Foreign keys
   FOREIGN KEY (category_id) REFERENCES forum_categories(id) ON DELETE CASCADE,
-  -- Note: character_pid references players_core(pid) but no FK constraint (MyISAM table)
+  -- Note: character_pid references player_data(pid) but no FK constraint (MyISAM table)
 
   -- Indexes for performance
   INDEX idx_category (category_id),

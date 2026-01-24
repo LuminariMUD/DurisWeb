@@ -91,7 +91,13 @@ export async function getAvailableDates(): Promise<string[]> {
       [Math.floor(oneDayAgo.getTime() / 1000)]
     );
 
-    const dates = rows.map(row => row.stat_date);
+    const dates = rows.map(row => {
+      // convert Date object to YYYY-MM-DD string
+      if (row.stat_date instanceof Date) {
+        return row.stat_date.toISOString().split('T')[0];
+      }
+      return String(row.stat_date);
+    });
     await setCache(cacheKey, dates, CACHE_TTL);
     return dates;
   } catch (err) {

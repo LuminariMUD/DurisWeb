@@ -95,21 +95,32 @@ export async function getCharacterInfo(characterNames: string[]): Promise<Charac
 
   try {
     const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT pid, name, level, guild, race, classname, racewar, active, money
-       FROM players_core
-       WHERE name IN (?)`,
+      `SELECT pd.pid, pd.name, pd.level,
+              COALESCE(a.name, '') as guild,
+              COALESCE(fl.race, '') as race, COALESCE(fl.class, '') as classname,
+              pd.racewar,
+              pd.copper + pd.silver * 10 + pd.gold * 100 + pd.platinum * 1000 as money
+       FROM player_data pd
+       LEFT JOIN frag_leaderboard fl ON pd.pid = fl.pid
+       LEFT JOIN associations a ON pd.assoc_id = a.id
+       WHERE pd.name IN (?)`,
       [characterNames]
     );
+
+    logger.info(`[Permissions] Query returned ${rows.length} rows for characters: ${characterNames.join(', ')}`);
+    if (rows.length > 0) {
+      logger.info(`[Permissions] First row: pid=${rows[0].pid}, name=${rows[0].name}, level=${rows[0].level}`);
+    }
 
     const result = rows.map((row: RowDataPacket) => ({
       pid: row.pid,
       name: row.name,
       level: row.level,
-      guild: row.guild,
+      guild: row.guild || '',
       race: row.race,
       classname: row.classname,
       racewar: row.racewar,
-      active: row.active === 1,
+      active: true,
       money: row.money || 0
     }));
 
@@ -117,7 +128,8 @@ export async function getCharacterInfo(characterNames: string[]): Promise<Charac
   } catch (error) {
     logger.error('[Permissions] Error fetching character info:', error);
     logger.error(`[Permissions] Requested characters: ${characterNames.join(', ')}`);
-    return [];
+    // Re-throw to see the actual error instead of silently returning empty
+    throw error;
   }
 }
 
@@ -137,11 +149,14 @@ export async function calculatePermissions(accountName: string, characters: Char
   // Find highest level character
   const maxLevel = characters.length > 0 ? Math.max(...characters.map(c => c.level)) : 0;
 
+  logger.info(`[Permissions] Calculating for ${accountName}: ${characters.length} characters, maxLevel=${maxLevel}`);
+
   // Extract unique guilds (filter out empty strings)
   const guilds = [...new Set(characters.map(c => c.guild).filter(Boolean))];
 
   // Determine role based on highest character level
   const { role, immortalLevel } = getGodLevelFromCharacterLevel(maxLevel);
+  logger.info(`[Permissions] Role for ${accountName}: ${role}, immortalLevel=${immortalLevel}`);
 
   // Get dynamic forum settings from database
   const settings = await getForumSettings();

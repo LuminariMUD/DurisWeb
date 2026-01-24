@@ -96,19 +96,19 @@ export async function getFragLeaderboard(
   const [countRows] = await pool.query<RowDataPacket[]>(countQuery, queryParams);
   const total = countRows[0].total;
 
-  // Main data query - join with players_core to get ANSI-colored race/class
+  // Main data query - join with account_characters for account
   const query = `
     SELECT
       fl.char_name,
-      fl.account_name,
+      COALESCE(ac.account_name, fl.account_name) AS account_name,
       fl.total_frags / 100.0 AS total_frags,
       fl.racewar,
-      COALESCE(pc.race, fl.race) AS race,
-      COALESCE(pc.classname, fl.class) AS class,
+      fl.race,
+      fl.class,
       fl.level,
       fl.last_updated
     FROM frag_leaderboard fl
-    LEFT JOIN players_core pc ON fl.char_name = pc.name
+    LEFT JOIN account_characters ac ON fl.char_name COLLATE utf8mb4_unicode_ci = ac.char_name AND ac.deleted_at IS NULL
     ${whereClause.replace(/race =/g, 'fl.race =').replace(/class =/g, 'fl.class =').replace(/racewar/g, 'fl.racewar').replace(/level/g, 'fl.level').replace(/deleted_at/g, 'fl.deleted_at').replace(/total_frags/g, 'fl.total_frags').replace(/account_name/g, 'fl.account_name').replace(/char_name/g, 'fl.char_name')}
     ORDER BY fl.total_frags DESC
     LIMIT ? OFFSET ?
@@ -148,16 +148,15 @@ export async function getTopGainers(
       fl.char_name,
       fl.account_name,
       SUM(p.delta) / 100.0 AS frags_gained,
-      COALESCE(pc.race, fl.race) AS race,
-      COALESCE(pc.classname, fl.class) AS class,
+      fl.race,
+      fl.class,
       fl.level
     FROM progress p
     JOIN frag_leaderboard fl ON p.pid = fl.pid
-    LEFT JOIN players_core pc ON fl.char_name = pc.name
     WHERE p.var_type = 'FRAGS'
       AND p.stamp >= DATE_SUB(NOW(), INTERVAL ? DAY)
       AND fl.deleted_at IS NULL
-    GROUP BY p.pid, fl.char_name, fl.account_name, pc.race, fl.race, pc.classname, fl.class, fl.level
+    GROUP BY p.pid, fl.char_name, fl.account_name, fl.race, fl.class, fl.level
     HAVING frags_gained > 0
     ORDER BY frags_gained DESC
     LIMIT ?
@@ -255,13 +254,12 @@ export async function getCharacterFragStats(charName: string): Promise<FragLeade
         fl.account_name,
         fl.total_frags,
         fl.racewar,
-        COALESCE(pc.race, fl.race) AS race,
-        COALESCE(pc.classname, fl.class) AS class,
+        fl.race,
+        fl.class,
         fl.level,
         fl.last_updated,
         RANK() OVER (ORDER BY fl.total_frags DESC) AS global_rank
       FROM frag_leaderboard fl
-      LEFT JOIN players_core pc ON fl.char_name = pc.name
       WHERE fl.deleted_at IS NULL
     ) ranked
     WHERE char_name = ?
@@ -312,8 +310,8 @@ export async function getAccountFragStats(accountName: string): Promise<FragLead
         fl.account_name,
         fl.total_frags,
         fl.racewar,
-        COALESCE(pc.race, fl.race) AS race,
-        COALESCE(pc.classname, fl.class) AS class,
+        fl.race,
+        fl.class,
         fl.level,
         fl.last_updated,
         fl.deleted_at,
@@ -322,7 +320,6 @@ export async function getAccountFragStats(accountName: string): Promise<FragLead
           ELSE 0
         END AS global_rank
       FROM frag_leaderboard fl
-      LEFT JOIN players_core pc ON fl.char_name = pc.name
       WHERE fl.deleted_at IS NULL OR fl.account_name = ?
     ) ranked
     WHERE account_name = ?

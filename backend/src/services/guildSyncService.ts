@@ -13,16 +13,17 @@ const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
 let syncIntervalId: NodeJS.Timeout | null = null;
 
 /**
- * Get all unique guild names from players_core table
+ * Get all unique guild names via associations table
  */
 async function getAllGuilds(): Promise<string[]> {
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT DISTINCT guild
-     FROM players_core
-     WHERE guild IS NOT NULL
-       AND guild != ''
-       AND guild NOT LIKE '%backup%'
-     ORDER BY guild`
+    `SELECT DISTINCT a.name as guild
+     FROM player_data pd
+     JOIN associations a ON pd.assoc_id = a.id
+     WHERE a.name IS NOT NULL
+       AND a.name != ''
+       AND a.name NOT LIKE '%backup%'
+     ORDER BY a.name`
   );
 
   return rows.map(row => row.guild);

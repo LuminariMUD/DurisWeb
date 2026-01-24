@@ -266,6 +266,12 @@ function formatDate(date: string | null) {
   return format(new Date(date), 'MMM d, yyyy HH:mm')
 }
 
+// Title case for character names
+function titleCase(str: string | null) {
+  if (!str) return ''
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
+}
+
 // Group users by account
 const groupedUsers = computed(() => {
   if (!userData.value?.data) return []
@@ -290,6 +296,7 @@ const groupedUsers = computed(() => {
 
     const group = groups.get(user.account_name)
     group.characters.push({
+      pid: user.pid,
       character_name: user.character_name,
       race: user.race,
       class: user.class,
@@ -413,6 +420,12 @@ const groupedUsers = computed(() => {
                     <ArrowUpDown class="h-4 w-4" />
                   </div>
                 </TableHead>
+                <TableHead @click="toggleSort('pid')" class="cursor-pointer hover:bg-muted/50">
+                  <div class="flex items-center gap-2">
+                    PID
+                    <ArrowUpDown class="h-4 w-4" />
+                  </div>
+                </TableHead>
                 <TableHead @click="toggleSort('race')" class="cursor-pointer hover:bg-muted/50">
                   <div class="flex items-center gap-2">
                     Race
@@ -460,13 +473,13 @@ const groupedUsers = computed(() => {
                         v-if="account.characters[0].character_name && account.characters[0].level"
                         :class="{ 'line-through text-muted-foreground': account.characters[0].is_deleted }"
                       >
-                        {{ account.characters[0].character_name }} ({{ account.characters[0].level }})
+                        {{ titleCase(account.characters[0].character_name) }} ({{ account.characters[0].level }})
                       </span>
                       <span
                         v-else-if="account.characters[0].character_name"
                         :class="{ 'line-through text-muted-foreground': account.characters[0].is_deleted }"
                       >
-                        {{ account.characters[0].character_name }}
+                        {{ titleCase(account.characters[0].character_name) }}
                       </span>
                       <span v-else class="text-muted-foreground">—</span>
                       <TooltipProvider v-if="account.characters[0].character_name && !account.characters[0].is_deleted">
@@ -488,6 +501,9 @@ const groupedUsers = computed(() => {
                         </Tooltip>
                       </TooltipProvider>
                     </div>
+                  </TableCell>
+                  <TableCell class="text-sm font-mono text-muted-foreground">
+                    {{ account.characters[0].pid || '—' }}
                   </TableCell>
                   <TableCell>
                     <span v-if="account.characters[0].race" v-html="parseAnsiToHtml(account.characters[0].race)" />
@@ -559,13 +575,13 @@ const groupedUsers = computed(() => {
                         v-if="char.character_name && char.level"
                         :class="{ 'line-through text-muted-foreground': char.is_deleted }"
                       >
-                        {{ char.character_name }} ({{ char.level }})
+                        {{ titleCase(char.character_name) }} ({{ char.level }})
                       </span>
                       <span
                         v-else-if="char.character_name"
                         :class="{ 'line-through text-muted-foreground': char.is_deleted }"
                       >
-                        {{ char.character_name }}
+                        {{ titleCase(char.character_name) }}
                       </span>
                       <span v-else class="text-muted-foreground">—</span>
                       <TooltipProvider v-if="char.character_name && !char.is_deleted">
@@ -587,6 +603,9 @@ const groupedUsers = computed(() => {
                         </Tooltip>
                       </TooltipProvider>
                     </div>
+                  </TableCell>
+                  <TableCell class="text-sm font-mono text-muted-foreground">
+                    {{ char.pid || '—' }}
                   </TableCell>
                   <TableCell>
                     <span v-if="char.race" v-html="parseAnsiToHtml(char.race)" />

@@ -49,7 +49,7 @@ export async function getAuctions(
   const limit = Math.min(100, Math.max(1, filters.limit || 50));
   const offset = (page - 1) * limit;
 
-  const whereConditions: string[] = ["status = 'OPEN'", "end_time > UNIX_TIMESTAMP()"];
+  const whereConditions: string[] = ["status = 'OPEN'", "UNIX_TIMESTAMP(end_time) > UNIX_TIMESTAMP()"];
   const queryParams: any[] = [];
 
   // Search filter (obj_short and id_keywords)
@@ -115,9 +115,9 @@ export async function getAuctions(
       a.id,
       a.seller_pid,
       a.seller_name,
-      a.start_time,
-      a.end_time,
-      (a.end_time - UNIX_TIMESTAMP()) as secs_remaining,
+      UNIX_TIMESTAMP(a.start_time) as start_time,
+      UNIX_TIMESTAMP(a.end_time) as end_time,
+      (UNIX_TIMESTAMP(a.end_time) - UNIX_TIMESTAMP()) as secs_remaining,
       a.status,
       a.cur_price,
       a.buy_price,
@@ -152,9 +152,9 @@ export async function getAuctionDetail(auctionId: number): Promise<AuctionDetail
       a.id,
       a.seller_pid,
       a.seller_name,
-      a.start_time,
-      a.end_time,
-      (a.end_time - UNIX_TIMESTAMP()) as secs_remaining,
+      UNIX_TIMESTAMP(a.start_time) as start_time,
+      UNIX_TIMESTAMP(a.end_time) as end_time,
+      (UNIX_TIMESTAMP(a.end_time) - UNIX_TIMESTAMP()) as secs_remaining,
       a.status,
       a.cur_price,
       a.buy_price,
@@ -184,7 +184,7 @@ export async function getAuctionDetail(auctionId: number): Promise<AuctionDetail
  */
 export async function getAuctionBidHistory(auctionId: number): Promise<AuctionBidHistory[]> {
   const query = `
-    SELECT id, date, auction_id, bidder_pid, bidder_name, bid_amount
+    SELECT id, UNIX_TIMESTAMP(date) as date, auction_id, bidder_pid, bidder_name, bid_amount
     FROM auction_bid_history
     WHERE auction_id = ?
     ORDER BY date DESC
@@ -252,7 +252,7 @@ export async function getCharacterMoney(pid: number): Promise<number> {
  */
 export async function getCharacterName(pid: number): Promise<string | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT name FROM players_core WHERE pid = ?`,
+    `SELECT name FROM player_data WHERE pid = ?`,
     [pid]
   );
 
@@ -302,7 +302,7 @@ export async function placeBid(
     // Get current auction state with lock
     const [auctionRows] = await connection.query<RowDataPacket[]>(
       `SELECT id, cur_price, buy_price, winning_bidder_pid, winning_bidder_name,
-              (end_time - UNIX_TIMESTAMP()) as secs_remaining, quantity, status, seller_pid
+              (UNIX_TIMESTAMP(end_time) - UNIX_TIMESTAMP()) as secs_remaining, quantity, status, seller_pid
        FROM auctions WHERE id = ? FOR UPDATE`,
       [auctionId]
     );
@@ -393,7 +393,7 @@ export async function placeBid(
         // New bidder - extend time by 5 minutes
         await connection.query(
           `UPDATE auctions SET cur_price = ?, winning_bidder_pid = ?,
-           winning_bidder_name = ?, end_time = end_time + ? WHERE id = ?`,
+           winning_bidder_name = ?, end_time = DATE_ADD(end_time, INTERVAL ? SECOND) WHERE id = ?`,
           [bidAmountCopper, bidderPid, bidderName, BID_TIME_EXTENSION, auctionId]
         );
       }
@@ -402,7 +402,7 @@ export async function placeBid(
     // Record bid in history
     await connection.query(
       `INSERT INTO auction_bid_history (date, auction_id, bidder_pid, bidder_name, bid_amount)
-       VALUES (UNIX_TIMESTAMP(), ?, ?, ?, ?)`,
+       VALUES (NOW(), ?, ?, ?, ?)`,
       [auctionId, bidderPid, bidderName, bidAmountCopper]
     );
 
@@ -621,7 +621,7 @@ export async function getAuctionHistory(
   const offset = (page - 1) * limit;
 
   // Only show closed auctions from last 30 days
-  const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60);
+  const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
 
   const whereConditions: string[] = [
     "status = 'CLOSED'",
@@ -670,7 +670,7 @@ export async function getAuctionHistory(
       a.winning_bidder_name as buyer_name,
       a.obj_short,
       a.cur_price as sale_price,
-      a.end_time as sold_at,
+      UNIX_TIMESTAMP(a.end_time) as sold_at,
       (SELECT COUNT(*) FROM auction_bid_history WHERE auction_id = a.id) as bid_count
     FROM auctions a
     ${whereClause}
@@ -706,9 +706,9 @@ export async function getAuctionStats(): Promise<{
     SELECT
       COUNT(*) as total_open,
       COALESCE(SUM(cur_price), 0) as total_value,
-      SUM(CASE WHEN (end_time - UNIX_TIMESTAMP()) < 3600 THEN 1 ELSE 0 END) as ending_soon
+      SUM(CASE WHEN (UNIX_TIMESTAMP(end_time) - UNIX_TIMESTAMP()) < 3600 THEN 1 ELSE 0 END) as ending_soon
     FROM auctions
-    WHERE status = 'OPEN' AND end_time > UNIX_TIMESTAMP()
+    WHERE status = 'OPEN' AND end_time > NOW()
   `);
 
   return {

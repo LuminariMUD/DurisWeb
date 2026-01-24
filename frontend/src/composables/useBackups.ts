@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { adminApi } from '@/services/api'
 import { useWebSocket } from './useWebSocket'
-import type { BackupInfo, RestoreTarget } from '@/types'
+import type { BackupInfo, RestoreRequest, RestoreCategories } from '@/types'
 
 export function useBackups() {
   const queryClient = useQueryClient()
@@ -63,16 +63,8 @@ export function useBackups() {
 
   // Mutation for creating restore
   const createRestoreMutation = useMutation({
-    mutationFn: async ({
-      backupId,
-      restoreType,
-      targets,
-    }: {
-      backupId: number
-      restoreType: 'full' | 'selective'
-      targets?: RestoreTarget[]
-    }) => {
-      return await adminApi.createRestore(backupId, restoreType, targets)
+    mutationFn: async (request: RestoreRequest) => {
+      return await adminApi.createRestore(request)
     },
     onSuccess: (data) => {
       // Set initial restore state
@@ -96,14 +88,11 @@ export function useBackups() {
   const restoreFromUploadMutation = useMutation({
     mutationFn: async ({
       tempPath,
-      restoreType,
-      targets,
+      ...request
     }: {
       tempPath: string
-      restoreType: 'full' | 'selective'
-      targets?: RestoreTarget[]
-    }) => {
-      return await adminApi.createRestoreFromUpload(tempPath, restoreType, targets)
+    } & Omit<RestoreRequest, 'backupId'>) => {
+      return await adminApi.createRestoreFromUpload(tempPath, request)
     },
     onSuccess: (data) => {
       // Set initial restore state
@@ -160,10 +149,11 @@ export function useBackups() {
     currentStep: string
     status: string
   }) => {
-    // Update the current restore state
-    if (currentRestore.value && currentRestore.value.id === data.id) {
+    // Update the current restore state, or create it if we receive progress for a new restore
+    // (this handles race condition where WebSocket message arrives before mutation completes)
+    if (currentRestore.value?.id === data.id || !currentRestore.value) {
       currentRestore.value = {
-        ...currentRestore.value,
+        id: data.id,
         progress: data.progress,
         currentStep: data.currentStep,
         status: data.status,

@@ -180,7 +180,7 @@ export async function getTableSizes(): Promise<TableSizeInfo[]> {
          AND table_name IN (
            'forum_threads', 'forum_posts', 'forum_categories', 'forum_reactions',
            'forum_notifications', 'forum_moderation_log', 'forum_polls', 'poll_options', 'poll_votes',
-           'pkill_event', 'pkill_info', 'players_core', 'web_sessions', 'statistics',
+           'pkill_event', 'pkill_info', 'player_data', 'web_sessions', 'statistics',
            'ip_info', 'guildhalls', 'frag_leaderboard'
          )
        ORDER BY sizeBytes DESC`

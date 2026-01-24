@@ -1131,7 +1131,7 @@ export const adminApi = {
    * Get backup download URL
    */
   getBackupDownloadUrl(id: number): string {
-    return `${api.defaults.baseURL}/api/admin/backup/download/${id}`
+    return `/api/admin/backup/download/${id}`
   },
 
   /**
@@ -1154,15 +1154,9 @@ export const adminApi = {
    * Create a restore operation
    */
   async createRestore(
-    backupId: number,
-    restoreType: 'full' | 'selective',
-    targets?: import('@/types').RestoreTarget[]
+    request: import('@/types').RestoreRequest
   ): Promise<{ success: boolean; id: number; message: string }> {
-    const { data } = await api.post('/api/admin/backup/restore', {
-      backupId,
-      restoreType,
-      targets,
-    })
+    const { data } = await api.post('/api/admin/backup/restore', request)
     return data
   },
 
@@ -1205,13 +1199,11 @@ export const adminApi = {
    */
   async createRestoreFromUpload(
     tempPath: string,
-    restoreType: 'full' | 'selective',
-    targets?: import('@/types').RestoreTarget[]
+    request: Omit<import('@/types').RestoreRequest, 'backupId'>
   ): Promise<{ success: boolean; id: number; message: string }> {
     const { data } = await api.post('/api/admin/backup/upload/restore', {
       tempPath,
-      restoreType,
-      targets,
+      ...request,
     })
     return data
   },

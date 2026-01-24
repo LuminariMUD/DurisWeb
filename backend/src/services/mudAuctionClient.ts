@@ -686,14 +686,14 @@ export function stopMudAuctionClient(): void {
  */
 async function softDeleteCharacter(accountName: string, characterName: string): Promise<void> {
   try {
-    // Find the character's pid from players_core
+    // Find the character's pid from player_data
     const [rows] = await db.query<RowDataPacket[]>(
-      'SELECT pid FROM players_core WHERE name = ?',
+      'SELECT pid FROM player_data WHERE name = ?',
       [characterName]
     );
 
     if (rows.length === 0) {
-      logger.warn(`[MUD Command] Character ${characterName} not found in players_core`);
+      logger.warn(`[MUD Command] Character ${characterName} not found in player_data`);
       return;
     }
 

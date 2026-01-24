@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -28,22 +28,39 @@ const selectedDate = ref('')
 const dateInput = ref<HTMLInputElement | null>(null)
 let datePicker: flatpickr.Instance | null = null
 
-// set default date when available dates load
-watch(availableDatesData, (data) => {
-  if (data?.dates?.length && !selectedDate.value) {
-    selectedDate.value = data.dates[0]
-    // update flatpickr if initialized
-    if (datePicker) {
-      datePicker.setDate(data.dates[0], false)
-    }
-  }
-}, { immediate: true })
+function initFlatpickr() {
+  if (datePicker || !dateInput.value || !availableDatesData.value?.dates?.length) return
 
-// update flatpickr enabled dates when available dates change
-watch(availableDatesData, (data) => {
-  if (datePicker && data?.dates?.length) {
-    datePicker.set('enable', data.dates)
+  const dates = availableDatesData.value.dates
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayStr = yesterday.toISOString().split('T')[0]
+
+  // use yesterday if available, otherwise first available date
+  const defaultDate = dates.includes(yesterdayStr) ? yesterdayStr : dates[0]
+  selectedDate.value = defaultDate
+
+  datePicker = flatpickr(dateInput.value, {
+    dateFormat: 'Y-m-d',
+    maxDate: yesterday,
+    enable: dates,
+    defaultDate,
+    onChange: (_selectedDates: Date[], dateStr: string) => {
+      selectedDate.value = dateStr
+    },
+  })
+}
+
+// when data loads, wait for DOM update then init
+watch(availableDatesData, async (data) => {
+  if (data?.dates?.length) {
+    await nextTick()
+    initFlatpickr()
   }
+})
+
+onMounted(() => {
+  initFlatpickr()
 })
 
 const { data: activityData, isLoading: loadingActivity } = useFactionActivity(selectedDate)
@@ -128,23 +145,6 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
     intersect: false,
   },
 }))
-
-onMounted(() => {
-  if (dateInput.value) {
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    datePicker = flatpickr(dateInput.value, {
-      dateFormat: 'Y-m-d',
-      maxDate: yesterday,
-      enable: availableDatesData.value?.dates || [],
-      defaultDate: selectedDate.value || undefined,
-      onChange: (_selectedDates: Date[], dateStr: string) => {
-        selectedDate.value = dateStr
-      },
-    })
-  }
-})
 
 onUnmounted(() => {
   if (datePicker) {

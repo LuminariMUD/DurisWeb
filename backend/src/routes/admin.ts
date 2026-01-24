@@ -2048,10 +2048,15 @@ router.get('/mud/wipe/players',
   async (_req: Request, res: Response) => {
     try {
       const [playerRows] = await db.query<any[]>(
-        `SELECT pid, name, level, classname, spec, race, guild, money, balance
-         FROM players_core
-         WHERE active = 1
-         ORDER BY level DESC, name ASC`
+        `SELECT fl.pid, fl.char_name as name, fl.level, fl.class as classname, pd.spec, fl.race,
+                COALESCE(a.name, '') as guild,
+                pd.copper + pd.silver * 10 + pd.gold * 100 + pd.platinum * 1000 as money,
+                pd.bank_copper + pd.bank_silver * 10 + pd.bank_gold * 100 + pd.bank_platinum * 1000 as balance
+         FROM frag_leaderboard fl
+         JOIN player_data pd ON fl.pid = pd.pid
+         LEFT JOIN associations a ON pd.assoc_id = a.id
+         WHERE pd.active = 1 AND fl.deleted_at IS NULL
+         ORDER BY fl.level DESC, fl.char_name ASC`
       );
 
       const players = playerRows.map(row => ({
@@ -2168,7 +2173,7 @@ router.post('/mud/wipe/execute',
       let excludedPlayers: any[] = [];
       if (excludedPids.length > 0) {
         const [excludedRows] = await connection.query<any[]>(
-          `SELECT pid, name FROM players_core WHERE pid IN (?)`,
+          `SELECT pid, name FROM player_data WHERE pid IN (?)`,
           [excludedPids]
         );
         excludedPlayers = excludedRows;
@@ -2287,12 +2292,12 @@ router.post('/mud/wipe/execute',
       totalRowsAffected += cooldownResult.affectedRows;
       if (cooldownResult.affectedRows > 0) tablesAffected.push('player_cooldowns');
 
-      // 16. UPDATE players_core - set active=0 (soft delete)
+      // 16. UPDATE player_data - set active=0 (soft delete)
       const [coreResult] = await connection.query<any>(
-        `UPDATE players_core SET active = 0 ${whereClause}`
+        `UPDATE player_data SET active = 0 ${whereClause}`
       );
       totalRowsAffected += coreResult.affectedRows;
-      if (coreResult.affectedRows > 0) tablesAffected.push('players_core');
+      if (coreResult.affectedRows > 0) tablesAffected.push('player_data');
 
       // 17. DELETE pkill_info (PvP history)
       const [pkillInfoResult] = await connection.query<any>(
@@ -3081,7 +3086,7 @@ router.get('/accounts', requireAuth, requireOverlord, async (_req: Request, res:
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT
         a.account_name,
-        MAX(pc.level) as max_level,
+        MAX(pd.level) as max_level,
         GROUP_CONCAT(DISTINCT CONCAT(r.id, ':', r.role_name) SEPARATOR '|') as roles,
         GROUP_CONCAT(DISTINCT CONCAT(p.id, ':', p.permission_name) SEPARATOR '|') as permissions
       FROM (
@@ -3091,11 +3096,11 @@ router.get('/accounts', requireAuth, requireOverlord, async (_req: Request, res:
         UNION
         SELECT DISTINCT ac.account_name
         FROM account_characters ac
-        INNER JOIN players_core pc ON ac.pid = pc.pid
-        WHERE pc.level >= 57 AND ac.deleted_at IS NULL
+        INNER JOIN player_data pd ON ac.pid = pd.pid
+        WHERE pd.level >= 57 AND ac.deleted_at IS NULL
       ) AS a
       LEFT JOIN account_characters ac ON a.account_name = ac.account_name AND ac.deleted_at IS NULL
-      LEFT JOIN players_core pc ON ac.pid = pc.pid
+      LEFT JOIN player_data pd ON ac.pid = pd.pid
       LEFT JOIN admin_account_roles ar ON a.account_name = ar.account_name
       LEFT JOIN admin_roles r ON ar.role_id = r.id
       LEFT JOIN admin_account_permissions ap ON a.account_name = ap.account_name
@@ -3516,31 +3521,39 @@ router.get('/backup/mud-status', requireAuth, requirePermission('manage_mud_back
 /**
  * POST /api/admin/backup/restore
  * Create a new restore operation
+ *
+ * Request body:
+ * - backupId: number (required)
+ * - restoreType: 'full' | 'account' | 'character' (required)
+ * - accounts: string[] (required for account restore)
+ * - characters: { pid: number; name: string }[] (required for character restore)
+ * - categories: RestoreCategories (optional for character restore, defaults applied)
  */
 router.post('/backup/restore', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response) => {
   try {
-    const { backupId, restoreType, targets } = req.body;
+    const { backupId, restoreType, accounts, characters, categories } = req.body;
 
     if (!backupId || !restoreType) {
       return res.status(400).json({ error: 'backupId and restoreType are required' });
     }
 
-    if (restoreType !== 'full' && restoreType !== 'selective') {
-      return res.status(400).json({ error: 'restoreType must be "full" or "selective"' });
+    if (!['full', 'account', 'character'].includes(restoreType)) {
+      return res.status(400).json({ error: 'restoreType must be "full", "account", or "character"' });
     }
 
-    if (restoreType === 'selective' && (!targets || !Array.isArray(targets) || targets.length === 0)) {
-      return res.status(400).json({ error: 'targets array is required for selective restore' });
+    if (restoreType === 'account' && (!accounts || !Array.isArray(accounts) || accounts.length === 0)) {
+      return res.status(400).json({ error: 'accounts array is required for account restore' });
     }
 
-    // Validate targets format
-    if (targets) {
-      for (const target of targets) {
-        if (!target.type || !target.name) {
-          return res.status(400).json({ error: 'Each target must have type and name' });
-        }
-        if (target.type !== 'account' && target.type !== 'character') {
-          return res.status(400).json({ error: 'Target type must be "account" or "character"' });
+    if (restoreType === 'character' && (!characters || !Array.isArray(characters) || characters.length === 0)) {
+      return res.status(400).json({ error: 'characters array is required for character restore' });
+    }
+
+    // validate characters format
+    if (characters) {
+      for (const char of characters) {
+        if (typeof char.pid !== 'number' || typeof char.name !== 'string') {
+          return res.status(400).json({ error: 'Each character must have pid (number) and name (string)' });
         }
       }
     }
@@ -3549,9 +3562,7 @@ router.post('/backup/restore', requireAuth, requirePermission('manage_mud_backup
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
 
     const result = await createRestore(
-      backupId,
-      restoreType,
-      restoreType === 'selective' ? targets : null,
+      { backupId, restoreType, accounts, characters, categories },
       accountName,
       ipAddress
     );
@@ -3681,31 +3692,39 @@ router.post('/backup/upload', requireAuth, requirePermission('manage_mud_backup'
 /**
  * POST /api/admin/backup/upload/restore
  * Restore from an uploaded backup file
+ *
+ * Request body:
+ * - tempPath: string (required)
+ * - restoreType: 'full' | 'account' | 'character' (required)
+ * - accounts: string[] (required for account restore)
+ * - characters: { pid: number; name: string }[] (required for character restore)
+ * - categories: RestoreCategories (optional for character restore)
  */
 router.post('/backup/upload/restore', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response) => {
   try {
-    const { tempPath, restoreType, targets } = req.body;
+    const { tempPath, restoreType, accounts, characters, categories } = req.body;
 
     if (!tempPath || !restoreType) {
       return res.status(400).json({ error: 'tempPath and restoreType are required' });
     }
 
-    if (restoreType !== 'full' && restoreType !== 'selective') {
-      return res.status(400).json({ error: 'restoreType must be "full" or "selective"' });
+    if (!['full', 'account', 'character'].includes(restoreType)) {
+      return res.status(400).json({ error: 'restoreType must be "full", "account", or "character"' });
     }
 
-    if (restoreType === 'selective' && (!targets || !Array.isArray(targets) || targets.length === 0)) {
-      return res.status(400).json({ error: 'targets array is required for selective restore' });
+    if (restoreType === 'account' && (!accounts || !Array.isArray(accounts) || accounts.length === 0)) {
+      return res.status(400).json({ error: 'accounts array is required for account restore' });
     }
 
-    // Validate targets format
-    if (targets) {
-      for (const target of targets) {
-        if (!target.type || !target.name) {
-          return res.status(400).json({ error: 'Each target must have type and name' });
-        }
-        if (target.type !== 'account' && target.type !== 'character') {
-          return res.status(400).json({ error: 'Target type must be "account" or "character"' });
+    if (restoreType === 'character' && (!characters || !Array.isArray(characters) || characters.length === 0)) {
+      return res.status(400).json({ error: 'characters array is required for character restore' });
+    }
+
+    // validate characters format
+    if (characters) {
+      for (const char of characters) {
+        if (typeof char.pid !== 'number' || typeof char.name !== 'string') {
+          return res.status(400).json({ error: 'Each character must have pid (number) and name (string)' });
         }
       }
     }
@@ -3715,8 +3734,7 @@ router.post('/backup/upload/restore', requireAuth, requirePermission('manage_mud
 
     const result = await createRestoreFromUpload(
       tempPath,
-      restoreType,
-      restoreType === 'selective' ? targets : null,
+      { restoreType, accounts, characters, categories },
       accountName,
       ipAddress
     );
