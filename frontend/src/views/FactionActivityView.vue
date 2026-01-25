@@ -34,10 +34,10 @@ function initFlatpickr() {
   const dates = availableDatesData.value.dates
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = yesterday.toISOString().split('T')[0]
+  const yesterdayStr = yesterday.toISOString().split('T')[0]!
 
   // use yesterday if available, otherwise first available date
-  const defaultDate = dates.includes(yesterdayStr) ? yesterdayStr : dates[0]
+  const defaultDate = dates.includes(yesterdayStr) ? yesterdayStr : dates[0]!
   selectedDate.value = defaultDate
 
   datePicker = flatpickr(dateInput.value, {

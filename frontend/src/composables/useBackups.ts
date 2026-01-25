@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { adminApi } from '@/services/api'
 import { useWebSocket } from './useWebSocket'
-import type { BackupInfo, RestoreRequest, RestoreCategories } from '@/types'
+import type { BackupInfo, RestoreRequest } from '@/types'
 
 export function useBackups() {
   const queryClient = useQueryClient()

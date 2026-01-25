@@ -74,7 +74,7 @@ export function startPlayerEventSubscriber(): void {
       }
 
       logger.info(`[PlayerEventSubscriber] ${event.event} pid=${event.pid}`)
-    } catch (err) {
+    } catch (_err) {
       logger.error('[PlayerEventSubscriber] failed to parse message:', message)
     }
   })
