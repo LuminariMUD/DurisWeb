@@ -107,11 +107,6 @@ export async function getCharacterInfo(characterNames: string[]): Promise<Charac
       [characterNames]
     );
 
-    logger.info(`[Permissions] Query returned ${rows.length} rows for characters: ${characterNames.join(', ')}`);
-    if (rows.length > 0) {
-      logger.info(`[Permissions] First row: pid=${rows[0].pid}, name=${rows[0].name}, level=${rows[0].level}`);
-    }
-
     const result = rows.map((row: RowDataPacket) => ({
       pid: row.pid,
       name: row.name,
@@ -149,14 +144,11 @@ export async function calculatePermissions(accountName: string, characters: Char
   // Find highest level character
   const maxLevel = characters.length > 0 ? Math.max(...characters.map(c => c.level)) : 0;
 
-  logger.info(`[Permissions] Calculating for ${accountName}: ${characters.length} characters, maxLevel=${maxLevel}`);
-
   // Extract unique guilds (filter out empty strings)
   const guilds = [...new Set(characters.map(c => c.guild).filter(Boolean))];
 
   // Determine role based on highest character level
   const { role, immortalLevel } = getGodLevelFromCharacterLevel(maxLevel);
-  logger.info(`[Permissions] Role for ${accountName}: ${role}, immortalLevel=${immortalLevel}`);
 
   // Get dynamic forum settings from database
   const settings = await getForumSettings();
