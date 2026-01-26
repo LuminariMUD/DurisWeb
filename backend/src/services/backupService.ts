@@ -598,7 +598,7 @@ const CATEGORY_TABLES: Record<keyof RestoreCategories, string[]> = {
 // all tables that can be restored (for full restore)
 const ALL_RESTORE_TABLES = [
   // core
-  'player_data', 'account_characters',
+  'player_data', 'account_characters', 'account_banks',
   // items (inventory + equipment in same table)
   'player_items', 'player_item_affects',
   // skills
@@ -951,8 +951,8 @@ async function restoreAccountDatabase(zipPath: string, accountNames: string[]): 
           'player_witnesses'
         ];
 
-        if (tableName === 'account_characters') {
-          // format: (id,'account_name',pid,'char_name',...) - match by account_name (second field)
+        if (tableName === 'account_characters' || tableName === 'account_banks') {
+          // format: (id,'account_name',...) - match by account_name (second field)
           const accountMatch = row.match(/^\(\d+,'([^']+)'/);
           if (accountMatch && accountSet.has(accountMatch[1].toLowerCase())) {
             shouldInclude = true;
