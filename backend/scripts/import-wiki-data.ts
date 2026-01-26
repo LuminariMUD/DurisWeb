@@ -9,8 +9,6 @@ import { pool, closeDatabaseConnection } from '../src/db/connection.js';
 import { closeRedisConnection } from '../src/db/redis.js';
 import { listZones, parseMobFile, parseObjFile } from '../src/services/zoneBuilderParser.js';
 import {
-  WEAR_SLOT_FLAGS,
-  ACT_FLAGS,
   ITEM_ALLOWED_RACES,
   ITEM_ALLOWED_CLASSES,
   CLASS_BITS,

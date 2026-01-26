@@ -29,7 +29,7 @@ async function seedHealthMetrics() {
       let mudMemory = 800 + Math.random() * 400; // 800-1200 MB
       let onlinePlayers = Math.floor(Math.random() * 20); // 0-20 players
       let dbQueryTime = 1 + Math.random() * 4; // 1-5ms
-      let diskPercent = 45 + Math.random() * 10; // 45-55%
+      const diskPercent = 45 + Math.random() * 10; // 45-55%
 
       // 3% chance of degraded performance
       if (rand < 0.03) {

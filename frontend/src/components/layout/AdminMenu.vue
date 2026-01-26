@@ -82,14 +82,15 @@ async function loadDupeCount() {
 
 function notifyNewDupes(newDupes: DupedItem[]) {
   // group by players string (could be single player or multiple)
-  const byPlayers = new Map<string, DupedItem[]>()
+  const byPlayers: Record<string, DupedItem[]> = {}
   for (const dupe of newDupes) {
-    const existing = byPlayers.get(dupe.players) || []
-    existing.push(dupe)
-    byPlayers.set(dupe.players, existing)
+    if (!byPlayers[dupe.players]) {
+      byPlayers[dupe.players] = []
+    }
+    byPlayers[dupe.players].push(dupe)
   }
 
-  const playerGroups = Array.from(byPlayers.entries())
+  const playerGroups = Object.entries(byPlayers)
 
   // limit toast spam - if too many players, show summary
   if (playerGroups.length > 3) {
