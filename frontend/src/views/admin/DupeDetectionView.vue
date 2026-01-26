@@ -83,6 +83,16 @@
             <Button variant="outline" size="sm" @click="fetchData" :disabled="isLoading">
               <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
             </Button>
+            <Button
+              v-if="items.length > 0"
+              variant="destructive"
+              size="sm"
+              @click="confirmDeleteAllOpen = true"
+              :disabled="isLoading || deleteAllLoading"
+            >
+              <Trash2 class="h-4 w-4 mr-1" />
+              Delete All
+            </Button>
           </div>
         </div>
       </CardHeader>
@@ -317,6 +327,26 @@
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    <!-- Confirm Delete All Dialog -->
+    <AlertDialog v-model:open="confirmDeleteAllOpen">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete ALL Duplicates?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will delete all {{ summary?.total_duped_records }} duplicate records across {{ items.length }} items,
+            keeping only one copy of each. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction @click="executeDeleteAll" class="bg-destructive text-white hover:bg-destructive/90">
+            <Loader2 v-if="deleteAllLoading" class="h-4 w-4 mr-2 animate-spin" />
+            Delete All Duplicates
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>
 
@@ -399,6 +429,9 @@ const itemToDelete = ref<DupedItem | null>(null)
 
 const confirmBulkDeleteOpen = ref(false)
 const bulkDeleteLoading = ref(false)
+
+const confirmDeleteAllOpen = ref(false)
+const deleteAllLoading = ref(false)
 
 // filtered based on search
 const filteredItems = computed(() => {
@@ -542,6 +575,24 @@ async function executeBulkDelete() {
   } finally {
     bulkDeleteLoading.value = false
     confirmBulkDeleteOpen.value = false
+  }
+}
+
+async function executeDeleteAll() {
+  deleteAllLoading.value = true
+  try {
+    let totalDeleted = 0
+    for (const item of items.value) {
+      const result = await dupeApi.deleteAllDupes(item.obj_uid, item.vnum)
+      totalDeleted += result.deletedCount
+    }
+    success(`Deleted ${totalDeleted} duplicate(s) from ${items.value.length} item(s)`)
+    await fetchData()
+  } catch (e) {
+    console.error('Failed to delete all:', e)
+  } finally {
+    deleteAllLoading.value = false
+    confirmDeleteAllOpen.value = false
   }
 }
 
