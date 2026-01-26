@@ -84,10 +84,11 @@ function notifyNewDupes(newDupes: DupedItem[]) {
   // group by players string (could be single player or multiple)
   const byPlayers: Record<string, DupedItem[]> = {}
   for (const dupe of newDupes) {
-    if (!byPlayers[dupe.players]) {
-      byPlayers[dupe.players] = []
+    const key = dupe.players
+    if (!byPlayers[key]) {
+      byPlayers[key] = []
     }
-    byPlayers[dupe.players].push(dupe)
+    byPlayers[key]!.push(dupe)
   }
 
   const playerGroups = Object.entries(byPlayers)
