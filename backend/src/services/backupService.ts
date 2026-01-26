@@ -94,7 +94,9 @@ interface RestoreRow extends RowDataPacket {
   id: number;
   backup_id: number;
   restore_type: string;
-  targets: string | null;
+  accounts: string | null;
+  characters: string | null;
+  categories: string | null;
   status: string;
   progress: number;
   current_step: string | null;
@@ -148,14 +150,13 @@ function mapRowToBackupInfo(row: BackupRow): BackupInfo {
 }
 
 function mapRowToRestoreInfo(row: RestoreRow): RestoreInfo {
-  const targets = row.targets ? JSON.parse(row.targets) : {};
   return {
     id: row.id,
     backupId: row.backup_id,
     restoreType: row.restore_type as RestoreInfo['restoreType'],
-    accounts: targets.accounts || null,
-    characters: targets.characters || null,
-    categories: targets.categories || null,
+    accounts: row.accounts ? JSON.parse(row.accounts) : null,
+    characters: row.characters ? JSON.parse(row.characters) : null,
+    categories: row.categories ? JSON.parse(row.categories) : null,
     status: row.status as RestoreInfo['status'],
     progress: row.progress,
     currentStep: row.current_step,
@@ -667,17 +668,16 @@ export async function createRestore(
 ): Promise<{ id: number }> {
   const { backupId, restoreType, accounts, characters, categories } = request;
 
-  // Build targets JSON
-  const targets = JSON.stringify({ accounts, characters, categories });
-
   // Insert pending restore record
   const [result] = await pool.execute<ResultSetHeader>(
-    `INSERT INTO mud_restores (backup_id, restore_type, targets, status, progress, current_step, created_by, ip_address, started_at)
-     VALUES (?, ?, ?, 'pending', 0, 'Initializing...', ?, ?, NOW())`,
+    `INSERT INTO mud_restores (backup_id, restore_type, accounts, characters, categories, status, progress, current_step, created_by, ip_address, started_at)
+     VALUES (?, ?, ?, ?, ?, 'pending', 0, 'Initializing...', ?, ?, NOW())`,
     [
       backupId,
       restoreType,
-      targets,
+      accounts && accounts.length > 0 ? JSON.stringify(accounts) : null,
+      characters && characters.length > 0 ? JSON.stringify(characters) : null,
+      categories ? JSON.stringify(categories) : null,
       accountName,
       ipAddress
     ]
@@ -797,6 +797,57 @@ export function extractInsertBlocks(sqlContent: string, tableName: string): stri
 }
 
 /**
+ * Get column names for a table from database
+ */
+async function getTableColumns(tableName: string): Promise<string[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+     ORDER BY ORDINAL_POSITION`,
+    [process.env.DB_NAME || 'duris_dev', tableName]
+  );
+  return rows.map(r => r.COLUMN_NAME);
+}
+
+/**
+ * Count values in a SQL row string like "(1,2,'text',NULL,...)"
+ */
+function countRowValues(row: string): number {
+  let count = 0;
+  let inString = false;
+  let escapeNext = false;
+  let depth = 0;
+
+  for (let i = 0; i < row.length; i++) {
+    const char = row[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+    if (char === '\\') {
+      escapeNext = true;
+      continue;
+    }
+    if (char === "'" && !escapeNext) {
+      inString = !inString;
+      continue;
+    }
+    if (!inString) {
+      if (char === '(') {
+        depth++;
+        if (depth === 1) count = 1; // first value starts
+      } else if (char === ')') {
+        depth--;
+      } else if (char === ',' && depth === 1) {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+/**
  * Execute SQL statements via mysql command
  */
 async function executeSqlStatements(statements: string[], label: string): Promise<void> {
@@ -835,7 +886,19 @@ async function restoreFullDatabase(zipPath: string): Promise<void> {
   for (const tableName of ALL_RESTORE_TABLES) {
     const insertBlocks = extractInsertBlocks(sqlData.content, tableName);
     for (const block of insertBlocks) {
-      filteredStatements.push(block.replace(/^INSERT INTO/, 'REPLACE INTO'));
+      const rows = parseMultiValueInsert(block.replace(/^INSERT INTO `[^`]+` VALUES\s*/i, '').replace(/;$/, ''));
+      if (rows.length > 0) {
+        // handle schema changes - use explicit column names matching backup value count
+        const backupColCount = countRowValues(rows[0]);
+        const tableColumns = await getTableColumns(tableName);
+        if (backupColCount > 0 && backupColCount < tableColumns.length) {
+          const columnsToUse = tableColumns.slice(0, backupColCount);
+          const columnList = columnsToUse.map(c => `\`${c}\``).join(',');
+          filteredStatements.push(`REPLACE INTO \`${tableName}\` (${columnList}) VALUES ${rows.join(',')};`);
+        } else {
+          filteredStatements.push(`REPLACE INTO \`${tableName}\` VALUES ${rows.join(',')};`);
+        }
+      }
     }
   }
 
@@ -914,7 +977,17 @@ async function restoreAccountDatabase(zipPath: string, accountNames: string[]): 
       }
 
       if (filteredRows.length > 0) {
-        filteredStatements.push(`REPLACE INTO \`${tableName}\` VALUES ${filteredRows.join(',')};`);
+        // handle schema changes - use explicit column names matching backup value count
+        const backupColCount = countRowValues(filteredRows[0]);
+        const tableColumns = await getTableColumns(tableName);
+        if (backupColCount > 0 && backupColCount < tableColumns.length) {
+          // backup has fewer columns than current table - use explicit column list
+          const columnsToUse = tableColumns.slice(0, backupColCount);
+          const columnList = columnsToUse.map(c => `\`${c}\``).join(',');
+          filteredStatements.push(`REPLACE INTO \`${tableName}\` (${columnList}) VALUES ${filteredRows.join(',')};`);
+        } else {
+          filteredStatements.push(`REPLACE INTO \`${tableName}\` VALUES ${filteredRows.join(',')};`);
+        }
       }
     }
   }
@@ -1027,7 +1100,16 @@ async function restoreCharacterDatabase(
 
       logger.info(`Table ${tableName}: ${rows.length} rows parsed, ${filteredRows.length} matched`);
       if (filteredRows.length > 0) {
-        filteredStatements.push(`REPLACE INTO \`${tableName}\` VALUES ${filteredRows.join(',')};`);
+        // handle schema changes - use explicit column names matching backup value count
+        const backupColCount = countRowValues(filteredRows[0]);
+        const tableColumns = await getTableColumns(tableName);
+        if (backupColCount > 0 && backupColCount < tableColumns.length) {
+          const columnsToUse = tableColumns.slice(0, backupColCount);
+          const columnList = columnsToUse.map(c => `\`${c}\``).join(',');
+          filteredStatements.push(`REPLACE INTO \`${tableName}\` (${columnList}) VALUES ${filteredRows.join(',')};`);
+        } else {
+          filteredStatements.push(`REPLACE INTO \`${tableName}\` VALUES ${filteredRows.join(',')};`);
+        }
       }
     }
   }
@@ -1257,16 +1339,15 @@ export async function createRestoreFromUpload(
 ): Promise<{ id: number }> {
   const { restoreType, accounts, characters, categories } = request;
 
-  // Build targets JSON
-  const targets = JSON.stringify({ accounts, characters, categories });
-
   // Insert pending restore record with backup_id = 0 (uploaded file)
   const [result] = await pool.execute<ResultSetHeader>(
-    `INSERT INTO mud_restores (backup_id, restore_type, targets, status, progress, current_step, created_by, ip_address, started_at)
-     VALUES (0, ?, ?, 'pending', 0, 'Initializing...', ?, ?, NOW())`,
+    `INSERT INTO mud_restores (backup_id, restore_type, accounts, characters, categories, status, progress, current_step, created_by, ip_address, started_at)
+     VALUES (0, ?, ?, ?, ?, 'pending', 0, 'Initializing...', ?, ?, NOW())`,
     [
       restoreType,
-      targets,
+      accounts && accounts.length > 0 ? JSON.stringify(accounts) : null,
+      characters && characters.length > 0 ? JSON.stringify(characters) : null,
+      categories ? JSON.stringify(categories) : null,
       accountName,
       ipAddress
     ]
@@ -1276,7 +1357,8 @@ export async function createRestoreFromUpload(
 
   // Start the restore process asynchronously
   runRestoreFromUpload(restoreId, filePath, request).catch((error) => {
-    logger.error(`Restore ${restoreId} from upload failed:`, error);
+    const msg = error instanceof Error ? error.stack || error.message : String(error);
+    logger.error(`Restore ${restoreId} from upload failed: ${msg}`);
   });
 
   return { id: restoreId };
@@ -1318,7 +1400,9 @@ async function runRestoreFromUpload(
     logger.info(`Restore ${restoreId} from upload completed successfully`);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(`Restore ${restoreId} from upload failed:`, errorMessage);
+    const errorStack = error instanceof Error ? error.stack : String(error);
+    logger.error(`Restore ${restoreId} from upload failed: ${errorMessage}`);
+    logger.error(`Stack trace: ${errorStack}`);
 
     await pool.execute(
       `UPDATE mud_restores SET status = 'failed', error_message = ?, completed_at = NOW() WHERE id = ?`,

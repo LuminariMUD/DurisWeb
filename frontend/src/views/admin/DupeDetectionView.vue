@@ -341,12 +341,35 @@
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction @click="executeDeleteAll" class="bg-destructive text-white hover:bg-destructive/90">
-            <Loader2 v-if="deleteAllLoading" class="h-4 w-4 mr-2 animate-spin" />
             Delete All Duplicates
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    <!-- Delete Progress Dialog -->
+    <Dialog v-model:open="deleteProgressOpen">
+      <DialogContent class="sm:!max-w-md" @pointer-down-outside.prevent @escape-key-down.prevent>
+        <DialogHeader>
+          <DialogTitle>Deleting Duplicates...</DialogTitle>
+          <DialogDescription>
+            Please wait while duplicates are being removed.
+          </DialogDescription>
+        </DialogHeader>
+        <div class="space-y-4 py-4">
+          <Progress :model-value="deleteProgress" class="h-3" />
+          <div class="flex justify-between text-sm text-muted-foreground">
+            <span>{{ deleteProgressCurrent }} / {{ deleteProgressTotal }}</span>
+            <span>{{ Math.round(deleteProgress) }}%</span>
+          </div>
+          <div class="text-sm">
+            <span class="text-muted-foreground">Deleting: </span>
+            <AnsiText v-if="deleteProgressItemAnsi" :text="deleteProgressItemAnsi" />
+            <span v-else>{{ deleteProgressItem }}</span>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
@@ -405,6 +428,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
 import AnsiText from '@/components/ui/AnsiText.vue'
+import { Progress } from '@/components/ui/progress'
 
 const { success } = useToast()
 
@@ -432,6 +456,13 @@ const bulkDeleteLoading = ref(false)
 
 const confirmDeleteAllOpen = ref(false)
 const deleteAllLoading = ref(false)
+
+const deleteProgressOpen = ref(false)
+const deleteProgress = ref(0)
+const deleteProgressCurrent = ref(0)
+const deleteProgressTotal = ref(0)
+const deleteProgressItem = ref('')
+const deleteProgressItemAnsi = ref<string | null>(null)
 
 // filtered based on search
 const filteredItems = computed(() => {
@@ -579,20 +610,33 @@ async function executeBulkDelete() {
 }
 
 async function executeDeleteAll() {
-  deleteAllLoading.value = true
+  confirmDeleteAllOpen.value = false
+  deleteProgressOpen.value = true
+  deleteProgress.value = 0
+  deleteProgressCurrent.value = 0
+  deleteProgressTotal.value = items.value.length
+  deleteProgressItem.value = ''
+  deleteProgressItemAnsi.value = null
+
   try {
     let totalDeleted = 0
-    for (const item of items.value) {
+    const itemsCopy = [...items.value]
+    for (let i = 0; i < itemsCopy.length; i++) {
+      const item = itemsCopy[i]!
+      deleteProgressCurrent.value = i + 1
+      deleteProgress.value = ((i + 1) / itemsCopy.length) * 100
+      deleteProgressItem.value = item.item_name || 'Unknown item'
+      deleteProgressItemAnsi.value = item.item_name_ansi
+
       const result = await dupeApi.deleteAllDupes(item.obj_uid, item.vnum)
       totalDeleted += result.deletedCount
     }
-    success(`Deleted ${totalDeleted} duplicate(s) from ${items.value.length} item(s)`)
+    success(`Deleted ${totalDeleted} duplicate(s) from ${itemsCopy.length} item(s)`)
     await fetchData()
   } catch (e) {
     console.error('Failed to delete all:', e)
   } finally {
-    deleteAllLoading.value = false
-    confirmDeleteAllOpen.value = false
+    deleteProgressOpen.value = false
   }
 }
 
