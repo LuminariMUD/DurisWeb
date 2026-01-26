@@ -132,7 +132,7 @@
                   <TableHead class="w-10">
                     <Checkbox
                       :model-value="isAllSelected"
-                      @update:model-value="toggleSelectAll"
+                      @update:model-value="(v) => toggleSelectAll(v === true)"
                     />
                   </TableHead>
                   <TableHead>UID</TableHead>
@@ -149,7 +149,7 @@
                   <TableCell>
                     <Checkbox
                       :model-value="selectedIds[`${item.obj_uid}-${item.vnum}`] || false"
-                      @update:model-value="(v: boolean) => toggleSelect(item, v)"
+                      @update:model-value="(v) => toggleSelect(item, v === true)"
                     />
                   </TableCell>
                   <TableCell class="font-mono">{{ item.obj_uid }}</TableCell>
@@ -432,12 +432,6 @@ const isAllSelected = computed(() => {
   return paginatedItems.value.every(item => selectedIds.value[`${item.obj_uid}-${item.vnum}`])
 })
 
-const isIndeterminate = computed(() => {
-  if (paginatedItems.value.length === 0) return false
-  const count = paginatedItems.value.filter(item => selectedIds.value[`${item.obj_uid}-${item.vnum}`]).length
-  return count > 0 && count < paginatedItems.value.length
-})
-
 function toggleSelectAll(checked: boolean) {
   paginatedItems.value.forEach(item => {
     selectedIds.value[`${item.obj_uid}-${item.vnum}`] = checked
@@ -537,7 +531,7 @@ async function executeBulkDelete() {
     const selected = Object.keys(selectedIds.value).filter(k => selectedIds.value[k])
     let totalDeleted = 0
     for (const key of selected) {
-      const [objUid, vnum] = key.split('-').map(Number)
+      const [objUid, vnum] = key.split('-').map(Number) as [number, number]
       const result = await dupeApi.deleteAllDupes(objUid, vnum)
       totalDeleted += result.deletedCount
     }
