@@ -139,9 +139,16 @@ export async function getDupeSummary(): Promise<DupeSummary> {
     FROM (
       SELECT obj_uid, COUNT(*) as cnt
       FROM (
-        SELECT obj_uid, vnum FROM player_items WHERE obj_uid > 0
+        SELECT pi.obj_uid, pi.vnum
+        FROM player_items pi
+        JOIN player_data pd ON pi.pid = pd.pid
+        WHERE pi.obj_uid > 0
         UNION ALL
-        SELECT obj_uid, vnum FROM locker_items WHERE obj_uid > 0
+        SELECT li.obj_uid, li.vnum
+        FROM locker_items li
+        JOIN lockers l ON li.locker_id = l.id
+        JOIN player_data pd ON l.owner_pid = pd.pid
+        WHERE li.obj_uid > 0
       ) all_items
       GROUP BY obj_uid, vnum
       HAVING cnt > 1
