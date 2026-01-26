@@ -39,38 +39,28 @@ const pages = computed<(number | 'ellipsis')[]>(() => {
     return Array.from({ length: totalPages }, (_, i) => i + 1)
   }
 
-  const leftSibling = Math.max(currentPage - siblingCount, 1)
-  const rightSibling = Math.min(currentPage + siblingCount, totalPages)
-
-  const showLeftEllipsis = leftSibling > 2
-  const showRightEllipsis = rightSibling < totalPages - 1
-
   const result: (number | 'ellipsis')[] = []
 
   // Always show first page
   result.push(1)
 
-  // Left ellipsis
-  if (showLeftEllipsis) {
+  // Calculate range of middle pages (excluding first and last)
+  const rangeStart = Math.max(2, currentPage - siblingCount)
+  const rangeEnd = Math.min(totalPages - 1, currentPage + siblingCount)
+
+  // Left ellipsis (only if gap between 1 and rangeStart)
+  if (rangeStart > 2) {
     result.push('ellipsis')
-  } else if (leftSibling === 2) {
-    // Show page 2 instead of ellipsis
-    result.push(2)
   }
 
   // Middle pages
-  for (let i = leftSibling; i <= rightSibling; i++) {
-    if (i !== 1 && i !== totalPages) {
-      result.push(i)
-    }
+  for (let i = rangeStart; i <= rangeEnd; i++) {
+    result.push(i)
   }
 
-  // Right ellipsis
-  if (showRightEllipsis) {
+  // Right ellipsis (only if gap between rangeEnd and last page)
+  if (rangeEnd < totalPages - 1) {
     result.push('ellipsis')
-  } else if (rightSibling === totalPages - 1) {
-    // Show second-to-last page instead of ellipsis
-    result.push(totalPages - 1)
   }
 
   // Always show last page
@@ -118,24 +108,26 @@ function goToPage(page: number) {
         </Button>
       </PaginationPrevious>
 
-      <!-- Page Numbers with Ellipsis -->
-      <template v-for="(page, index) in pages" :key="index">
-        <PaginationEllipsis v-if="page === 'ellipsis'" />
-        <PaginationItem v-else :value="typeof page === 'number' ? page : 0">
-          <button
-            :class="[
-              'inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium transition-colors',
-              'h-8 w-8',
-              page === currentPage
-                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                : 'hover:bg-accent hover:text-accent-foreground'
-            ]"
-            @click="goToPage(typeof page === 'number' ? page : 1)"
-          >
-            {{ page }}
-          </button>
-        </PaginationItem>
-      </template>
+      <!-- Page Numbers with Ellipsis - fixed width container to prevent jumping -->
+      <div class="flex items-center justify-center gap-1 w-[252px]">
+        <template v-for="(page, index) in pages" :key="index">
+          <PaginationEllipsis v-if="page === 'ellipsis'" />
+          <PaginationItem v-else :value="typeof page === 'number' ? page : 0">
+            <button
+              :class="[
+                'inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium transition-colors',
+                'h-8 w-8',
+                page === currentPage
+                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  : 'hover:bg-accent hover:text-accent-foreground'
+              ]"
+              @click="goToPage(typeof page === 'number' ? page : 1)"
+            >
+              {{ page }}
+            </button>
+          </PaginationItem>
+        </template>
+      </div>
 
       <!-- Next Button -->
       <PaginationNext

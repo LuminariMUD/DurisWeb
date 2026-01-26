@@ -274,6 +274,12 @@ const router = createRouter({
           meta: { requiresAuth: true, requiresOverlord: true },
         },
         {
+          path: 'dupes',
+          name: 'admin-dupes',
+          component: () => import('../views/admin/DupeDetectionView.vue'),
+          meta: { requiresAuth: true, requiresOverlord: true },
+        },
+        {
           path: 'ai-analysis',
           name: 'admin-ai-analysis',
           component: () => import('../views/admin/AIAnalysisView.vue'),

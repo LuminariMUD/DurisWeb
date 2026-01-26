@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Settings, ScrollText, Users, ShieldCheck, BookOpen,
   Newspaper, Megaphone, Wand2, Scale, Palette, Crown, HelpCircle,
   FileText, ClipboardList, Gamepad2, Cog, AlertTriangle, TrendingUp, Timer, MapPin,
-  BarChart3, Home, History
+  BarChart3, Home, History, Copy
 } from 'lucide-vue-next'
 import { useAuth } from '@/composables/useAuth'
 import { helpSuggestionApi } from '@/services/api'
@@ -496,6 +496,17 @@ onMounted(() => {
                 >
                   <MapPin class="h-4 w-4" />
                   <span>Zone Management</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem v-if="isOverlord">
+                <SidebarMenuButton
+                  tooltip="Item Dupes"
+                  @click="router.push('/admin/dupes')"
+                  :isActive="router.currentRoute.value.path === '/admin/dupes'"
+                >
+                  <Copy class="h-4 w-4" />
+                  <span>Item Dupes</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

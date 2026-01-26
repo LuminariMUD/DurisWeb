@@ -880,10 +880,24 @@ async function restoreAccountDatabase(zipPath: string, accountNames: string[]): 
       for (const row of rows) {
         let shouldInclude = false;
 
+        // tables with (id, pid, ...) format - pid is second column
+        const pidInSecondCol = [
+          'player_items', 'player_skills', 'player_spellbooks', 'player_affects',
+          'player_timers', 'player_forged_items', 'player_granted_cmds', 'player_intros',
+          'player_languages', 'player_recipes', 'player_shapechanges', 'player_undead_slots',
+          'player_witnesses'
+        ];
+
         if (tableName === 'account_characters') {
           // format: (id,'account_name',pid,'char_name',...) - match by account_name (second field)
           const accountMatch = row.match(/^\(\d+,'([^']+)'/);
           if (accountMatch && accountSet.has(accountMatch[1].toLowerCase())) {
+            shouldInclude = true;
+          }
+        } else if (pidInSecondCol.includes(tableName)) {
+          // (id, pid, ...) - pid is second column
+          const pidMatch = row.match(/^\(\d+,(\d+),/);
+          if (pidMatch && characterPids.has(parseInt(pidMatch[1]))) {
             shouldInclude = true;
           }
         } else {
