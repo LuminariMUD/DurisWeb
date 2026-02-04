@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { HelpCircle } from 'lucide-vue-next'
+import GroupSelectDropdown from './GroupSelectDropdown.vue'
 
 const props = defineProps<{
   open: boolean
@@ -45,6 +46,7 @@ const trigger = ref('')
 const expansion = ref('')
 const scope = ref<AliasScope>('global')
 const characterName = ref<string | null>(null)
+const groupId = ref<string | null>(null)
 const description = ref('')
 const enabled = ref(true)
 
@@ -69,6 +71,7 @@ watch(
         expansion.value = props.alias.expansion
         scope.value = props.alias.scope
         characterName.value = props.alias.characterName
+        groupId.value = props.alias.groupId ?? null
         description.value = props.alias.description || ''
         enabled.value = props.alias.enabled
       } else {
@@ -77,6 +80,7 @@ watch(
         expansion.value = ''
         scope.value = 'global'
         characterName.value = currentCharacter.value
+        groupId.value = null
         description.value = ''
         enabled.value = true
       }
@@ -140,6 +144,7 @@ function handleSave() {
     expansion: expansion.value.trim(),
     scope: scope.value,
     characterName: scope.value === 'character' ? characterName.value : null,
+    groupId: groupId.value,
     description: description.value.trim() || undefined,
     enabled: enabled.value,
   }
@@ -233,6 +238,12 @@ function handleCancel() {
               </SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <!-- Group -->
+        <div class="space-y-2">
+          <Label>Group</Label>
+          <GroupSelectDropdown v-model="groupId" />
         </div>
 
         <!-- Description -->
