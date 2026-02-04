@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Trigger } from '@/types/trigger'
+import { useGroups } from '@/composables/useGroups'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
@@ -30,6 +31,8 @@ const emit = defineEmits<{
   toggle: [id: string, enabled: boolean]
   duplicate: [trigger: Trigger]
 }>()
+
+const { getGroupPath } = useGroups()
 
 // Sort triggers: enabled first, then by priority (descending), then by name
 const sortedTriggers = computed(() => {
@@ -70,12 +73,13 @@ function getActionSummary(trigger: Trigger): string {
           <TableHead class="w-[80px]">Type</TableHead>
           <TableHead class="w-[100px]">Actions</TableHead>
           <TableHead class="w-[100px]">Scope</TableHead>
+          <TableHead class="w-[120px]">Group</TableHead>
           <TableHead class="w-[50px]"></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         <TableRow v-if="sortedTriggers.length === 0">
-          <TableCell colspan="7" class="h-24 text-center text-muted-foreground">
+          <TableCell colspan="8" class="h-24 text-center text-muted-foreground">
             No triggers defined. Click "Add Trigger" to create one.
           </TableCell>
         </TableRow>
@@ -127,6 +131,11 @@ function getActionSummary(trigger: Trigger): string {
             <Badge v-else variant="outline" :title="trigger.characterName ?? undefined">
               {{ truncate(trigger.characterName || '', 10) }}
             </Badge>
+          </TableCell>
+          <TableCell>
+            <span class="text-xs text-muted-foreground">
+              {{ trigger.groupId ? getGroupPath(trigger.groupId) : '—' }}
+            </span>
           </TableCell>
           <TableCell>
             <DropdownMenu>

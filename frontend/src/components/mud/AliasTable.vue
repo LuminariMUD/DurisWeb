@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Alias } from '@/types/alias'
+import { useGroups } from '@/composables/useGroups'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +32,8 @@ const emit = defineEmits<{
   duplicate: [alias: Alias]
 }>()
 
+const { getGroupPath } = useGroups()
+
 // Sort aliases: enabled first, then by trigger alphabetically
 const sortedAliases = computed(() => {
   return [...props.aliases].sort((a, b) => {
@@ -58,12 +61,13 @@ function truncate(text: string, maxLength: number): string {
           <TableHead class="w-[120px]">Trigger</TableHead>
           <TableHead>Expansion</TableHead>
           <TableHead class="w-[100px]">Scope</TableHead>
+          <TableHead class="w-[120px]">Group</TableHead>
           <TableHead class="w-[50px]"></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         <TableRow v-if="sortedAliases.length === 0">
-          <TableCell colspan="5" class="h-24 text-center text-muted-foreground">
+          <TableCell colspan="6" class="h-24 text-center text-muted-foreground">
             No aliases defined. Click "Add Alias" to create one.
           </TableCell>
         </TableRow>
@@ -86,6 +90,11 @@ function truncate(text: string, maxLength: number): string {
             <Badge v-else variant="outline" :title="alias.characterName ?? undefined">
               {{ truncate(alias.characterName || '', 10) }}
             </Badge>
+          </TableCell>
+          <TableCell>
+            <span class="text-xs text-muted-foreground">
+              {{ alias.groupId ? getGroupPath(alias.groupId) : '—' }}
+            </span>
           </TableCell>
           <TableCell>
             <DropdownMenu>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, onUnmounted } from 'vue'
 import type { Timer, TimerState } from '@/types/timer'
+import { useGroups } from '@/composables/useGroups'
 import { formatInterval } from '@/types/timer'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -35,6 +36,8 @@ const emit = defineEmits<{
   start: [id: string]
   stop: [id: string]
 }>()
+
+const { getGroupPath } = useGroups()
 
 // Current time for countdown display (updated every second)
 const now = ref(Date.now())
@@ -105,12 +108,13 @@ function getCountdown(id: string): string {
           <TableHead class="w-[100px]">Status</TableHead>
           <TableHead class="w-[100px]">Actions</TableHead>
           <TableHead class="w-[100px]">Scope</TableHead>
+          <TableHead class="w-[120px]">Group</TableHead>
           <TableHead class="w-[50px]"></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         <TableRow v-if="sortedTimers.length === 0">
-          <TableCell colspan="8" class="h-24 text-center text-muted-foreground">
+          <TableCell colspan="9" class="h-24 text-center text-muted-foreground">
             No timers defined. Click "Add Timer" to create one.
           </TableCell>
         </TableRow>
@@ -162,6 +166,11 @@ function getCountdown(id: string): string {
             <Badge v-else variant="outline" :title="timer.characterName ?? undefined">
               {{ truncate(timer.characterName || '', 10) }}
             </Badge>
+          </TableCell>
+          <TableCell>
+            <span class="text-xs text-muted-foreground">
+              {{ timer.groupId ? getGroupPath(timer.groupId) : '—' }}
+            </span>
           </TableCell>
           <TableCell>
             <DropdownMenu>
