@@ -28,6 +28,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Plus, Terminal, Highlighter, Volume2, EyeOff, MessageSquare, X, HelpCircle } from 'lucide-vue-next'
 import TriggerActionCard from './TriggerActionCard.vue'
+import GroupSelectDropdown from './GroupSelectDropdown.vue'
 
 const props = defineProps<{
   open: boolean
@@ -56,6 +57,7 @@ const description = ref('')
 const priority = ref(50)
 const stopProcessing = ref(false)
 const enabled = ref(true)
+const groupId = ref<string | null>(null)
 
 // Validation
 const nameError = ref('')
@@ -88,6 +90,7 @@ watch(
         priority.value = props.trigger.priority
         stopProcessing.value = props.trigger.stopProcessing
         enabled.value = props.trigger.enabled
+        groupId.value = props.trigger.groupId ?? null
       } else {
         // Add mode: reset to defaults
         name.value = ''
@@ -102,6 +105,7 @@ watch(
         priority.value = 50
         stopProcessing.value = false
         enabled.value = true
+        groupId.value = null
       }
       nameError.value = ''
       patternErrors.value = []
@@ -228,6 +232,7 @@ function handleSave() {
     actions: JSON.parse(JSON.stringify(actions.value)),
     scope: scope.value,
     characterName: scope.value === 'character' ? characterName.value : null,
+    groupId: groupId.value,
     description: description.value.trim() || undefined,
     priority: priority.value,
     stopProcessing: stopProcessing.value,
@@ -450,6 +455,12 @@ function handleCancel() {
                 </SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <!-- Group -->
+          <div class="space-y-2">
+            <Label>Group</Label>
+            <GroupSelectDropdown v-model="groupId" />
           </div>
 
           <!-- Priority -->
