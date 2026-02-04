@@ -75,21 +75,34 @@ function createDefaultSettings(): HotbarSettings {
 }
 
 function loadSettings(): HotbarSettings {
+  const defaults = createDefaultSettings()
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
-      const parsed = JSON.parse(saved) as HotbarSettings
+      const parsed = JSON.parse(saved) as Partial<HotbarSettings>
       // ensure all buttons have required fields
-      parsed.buttons = parsed.buttons.map((btn, i) => ({
+      const buttons = (parsed.buttons || []).map((btn, i) => ({
         ...createDefaultButton(i),
         ...btn,
       }))
-      return parsed
+      // merge with defaults to handle missing properties from old saves
+      const result: HotbarSettings = {
+        ...defaults,
+        ...parsed,
+        buttons,
+      }
+      // migration: if visible was never set (undefined/null), default to true
+      if (parsed.visible === undefined || parsed.visible === null) {
+        result.visible = true
+        // save immediately to persist the migration
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(result))
+      }
+      return result
     }
   } catch (e) {
     console.error('[Hotbar] Failed to load settings:', e)
   }
-  return createDefaultSettings()
+  return defaults
 }
 
 // singleton state

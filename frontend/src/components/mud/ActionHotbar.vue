@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useHotbarSettings } from '@/composables/useHotbarSettings'
 import { useMudConnection } from '@/composables/useMudConnection'
 import * as icons from 'lucide-vue-next'
@@ -8,17 +8,23 @@ import type { Component } from 'vue'
 const { settings, enabledButtons, isVertical, setPosition, setSnapEdge, saveSettings } = useHotbarSettings()
 const { sendGameCommand } = useMudConnection()
 
-// clamp position to viewport on mount (fixes off-screen on mobile)
-onMounted(() => {
-  const hotbarSize = 50 // approximate size
+// clamp position to container on mount (fixes off-screen positioning)
+onMounted(async () => {
+  await nextTick()
+  const container = hotbarRef.value?.parentElement
+  if (!container) return
+
+  const hotbarSize = 50
+  const maxX = container.offsetWidth - hotbarSize
+  const maxY = container.offsetHeight - hotbarSize
   let needsSave = false
 
-  if (settings.value.position.x > window.innerWidth - hotbarSize) {
-    settings.value.position.x = 16
+  if (settings.value.position.x > maxX || settings.value.position.x < 0) {
+    settings.value.position.x = Math.max(8, Math.min(settings.value.position.x, maxX - 8))
     needsSave = true
   }
-  if (settings.value.position.y > window.innerHeight - hotbarSize) {
-    settings.value.position.y = 100
+  if (settings.value.position.y > maxY || settings.value.position.y < 0) {
+    settings.value.position.y = Math.max(8, Math.min(settings.value.position.y, maxY - 8))
     needsSave = true
   }
 
