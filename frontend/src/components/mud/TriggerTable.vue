@@ -522,63 +522,6 @@ function getActionSummary(trigger: Trigger): string {
           </div>
         </div>
       </div>
-
-      <!-- If no groups exist, show flat list -->
-      <template v-if="rootGroups.length === 0">
-        <div class="border rounded-md">
-          <div
-            v-for="trigger in ungroupedTriggers"
-            :key="trigger.id"
-            class="flex items-center gap-2 p-2 hover:bg-muted/50 border-b last:border-b-0"
-            :class="{ 'opacity-50': !trigger.enabled }"
-          >
-            <Switch
-              :model-value="trigger.enabled"
-              @update:model-value="(val: boolean) => emit('toggle', trigger.id, val)"
-            />
-            <span class="font-medium w-32 truncate" :title="trigger.name">
-              {{ truncate(trigger.name, 15) }}
-              <Badge v-if="trigger.stopProcessing" variant="outline" class="text-[10px] px-1 ml-1">
-                stop
-              </Badge>
-            </span>
-            <span class="font-mono text-sm text-muted-foreground flex-1 truncate" :title="trigger.patterns.map(p => p.value).join('\n')">
-              <span v-if="trigger.patterns[0]?.isGmcp" class="text-cyan-400 mr-1">[GMCP]</span>
-              {{ truncate(trigger.patterns[0]?.value ?? '', 30) }}
-              <Badge v-if="trigger.patterns.length > 1" variant="outline" class="text-[10px] px-1 ml-1">
-                +{{ trigger.patterns.length - 1 }}
-              </Badge>
-            </span>
-            <Badge :variant="trigger.patternType === 'regex' ? 'default' : 'secondary'" class="shrink-0">
-              {{ trigger.patternType === 'regex' ? 'Regex' : 'Text' }}
-            </Badge>
-            <Badge variant="outline" class="shrink-0" :title="getActionSummary(trigger)">
-              {{ trigger.actions.length }}
-            </Badge>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0">
-                  <MoreHorizontal class="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem @click="emit('edit', trigger)">
-                  <Pencil class="mr-2 h-4 w-4" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem @click="emit('duplicate', trigger)">
-                  <Copy class="mr-2 h-4 w-4" />
-                  Duplicate
-                </DropdownMenuItem>
-                <DropdownMenuItem class="text-destructive" @click="emit('delete', trigger)">
-                  <Trash2 class="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </template>
     </template>
   </div>
 </template>

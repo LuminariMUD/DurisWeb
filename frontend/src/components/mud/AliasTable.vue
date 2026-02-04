@@ -486,54 +486,6 @@ function truncate(text: string, maxLength: number): string {
           </div>
         </div>
       </div>
-
-      <!-- If no groups exist, show flat list -->
-      <template v-if="rootGroups.length === 0">
-        <div class="border rounded-md">
-          <div
-            v-for="alias in ungroupedAliases"
-            :key="alias.id"
-            class="flex items-center gap-2 p-2 hover:bg-muted/50 border-b last:border-b-0"
-            :class="{ 'opacity-50': !alias.enabled }"
-          >
-            <Switch
-              :model-value="alias.enabled"
-              @update:model-value="(val: boolean) => emit('toggle', alias.id, val)"
-            />
-            <span class="font-mono font-medium w-24 truncate" :title="alias.trigger">
-              {{ truncate(alias.trigger, 12) }}
-            </span>
-            <span class="font-mono text-sm text-muted-foreground flex-1 truncate" :title="alias.expansion">
-              {{ truncate(alias.expansion, 40) }}
-            </span>
-            <Badge v-if="alias.scope === 'global'" variant="secondary" class="shrink-0">Global</Badge>
-            <Badge v-else variant="outline" class="shrink-0" :title="alias.characterName ?? undefined">
-              {{ truncate(alias.characterName || '', 8) }}
-            </Badge>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0">
-                  <MoreHorizontal class="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem @click="emit('edit', alias)">
-                  <Pencil class="mr-2 h-4 w-4" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem @click="emit('duplicate', alias)">
-                  <Copy class="mr-2 h-4 w-4" />
-                  Duplicate
-                </DropdownMenuItem>
-                <DropdownMenuItem class="text-destructive" @click="emit('delete', alias)">
-                  <Trash2 class="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </template>
     </template>
   </div>
 </template>
