@@ -147,6 +147,9 @@ export interface Trigger {
   /** Character name if scope is 'character' (null for global) */
   characterName: string | null
 
+  /** Group ID this trigger belongs to (null = ungrouped) */
+  groupId: string | null
+
   /** Optional description for user reference */
   description?: string
 
@@ -176,6 +179,7 @@ export interface TriggerFormData {
   enabled: boolean
   scope: TriggerScope
   characterName: string | null
+  groupId: string | null
   description?: string
   priority: number
   stopProcessing: boolean
