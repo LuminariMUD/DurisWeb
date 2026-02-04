@@ -46,8 +46,12 @@ const selectedLabel = computed(() => {
   return group?.name || 'Unknown'
 })
 
-function handleChange(value: string) {
-  emit('update:modelValue', value === '__none__' ? null : value)
+function handleChange(value: unknown) {
+  if (value === '__none__' || value === null || value === undefined) {
+    emit('update:modelValue', null)
+  } else {
+    emit('update:modelValue', String(value))
+  }
 }
 </script>
 

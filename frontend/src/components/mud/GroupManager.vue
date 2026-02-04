@@ -320,9 +320,9 @@ function handleToggle(id: string) {
                 <Input
                   placeholder="Subgroup name..."
                   class="h-7 flex-1"
-                  @keyup.enter="(e) => confirmAddSubgroup(group.id, (e.target as HTMLInputElement).value)"
+                  @keyup.enter="(e: KeyboardEvent) => confirmAddSubgroup(group.id, (e.target as HTMLInputElement).value)"
                   @keyup.escape="newSubgroupParent = null"
-                  @blur="(e) => confirmAddSubgroup(group.id, (e.target as HTMLInputElement).value)"
+                  @blur="(e: FocusEvent) => confirmAddSubgroup(group.id, (e.target as HTMLInputElement).value)"
                   autofocus
                 />
               </div>
