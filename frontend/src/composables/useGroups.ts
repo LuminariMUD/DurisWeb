@@ -1,6 +1,9 @@
 import { ref, computed, watch } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
 import type { Group, GroupFormData, GroupStorage } from '@/types/group'
+import { useTriggers } from './useTriggers'
+import { useAliases } from './useAliases'
+import { useTimers } from './useTimers'
 
 const STORAGE_VERSION = 1
 const STORAGE_KEY_PREFIX = 'duris_groups_'
@@ -119,14 +122,26 @@ export function useGroups() {
   }
 
   function deleteGroup(id: string): boolean {
+    // get all group ids to delete (this group + subgroups)
+    const idsToDelete = [id, ...groups.value.filter(g => g.parentId === id).map(g => g.id)]
+
+    // clear groupId from items - import inside function to avoid circular deps
+    const { triggers, setTriggerGroup } = useTriggers()
+    const { aliases, setAliasGroup } = useAliases()
+    const { timers, setTimerGroup } = useTimers()
+
+    for (const gid of idsToDelete) {
+      triggers.value.filter(t => t.groupId === gid).forEach(t => setTriggerGroup(t.id, null))
+      aliases.value.filter(a => a.groupId === gid).forEach(a => setAliasGroup(a.id, null))
+      timers.value.filter(t => t.groupId === gid).forEach(t => setTimerGroup(t.id, null))
+    }
+
+    // delete subgroups
+    groups.value = groups.value.filter(g => g.parentId !== id)
+
+    // delete group
     const index = groups.value.findIndex(g => g.id === id)
     if (index === -1) return false
-
-    // also delete all subgroups
-    const subgroups = groups.value.filter(g => g.parentId === id)
-    for (const sub of subgroups) {
-      groups.value = groups.value.filter(g => g.id !== sub.id)
-    }
 
     groups.value.splice(index, 1)
     saveGroups()
