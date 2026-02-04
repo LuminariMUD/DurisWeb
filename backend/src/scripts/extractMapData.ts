@@ -35,7 +35,7 @@ const Z_ALATORIN = -2;
 const Z_NEWBIE = 1;
 
 // Direction names for exits
-const DIRECTIONS = ['north', 'east', 'south', 'west', 'up', 'down', 'northeast', 'northwest', 'southeast', 'southwest'];
+const DIRECTIONS = ['north', 'east', 'south', 'west', 'up', 'down', 'northwest', 'southwest', 'northeast', 'southeast'];
 
 interface ParsedRoom {
   vnum: number;

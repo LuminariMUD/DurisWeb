@@ -11,10 +11,10 @@ export interface FlagDefinition {
 }
 
 // Direction constants (structural, not flag data)
-export const DIRECTIONS = ['north', 'east', 'south', 'west', 'up', 'down', 'northeast', 'northwest', 'southeast', 'southwest'] as const;
+export const DIRECTIONS = ['north', 'east', 'south', 'west', 'up', 'down', 'northwest', 'southwest', 'northeast', 'southeast'] as const;
 export type Direction = typeof DIRECTIONS[number];
 export const DIRECTION_INDEX: Record<Direction, number> = {
-  north: 0, east: 1, south: 2, west: 3, up: 4, down: 5, northeast: 6, northwest: 7, southeast: 8, southwest: 9
+  north: 0, east: 1, south: 2, west: 3, up: 4, down: 5, northwest: 6, southwest: 7, northeast: 8, southeast: 9
 };
 
 // Exit interface
