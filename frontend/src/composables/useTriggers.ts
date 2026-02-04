@@ -1,5 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
+import { useGroups } from './useGroups'
 import { stripAnsiCodes } from '@/utils/ansiParser'
 import { expandGmcpVariables, evaluateCondition } from '@/utils/gmcpVariables'
 import { expandScript } from '@/utils/scriptExpander'
@@ -15,7 +16,7 @@ import type {
 } from '@/types/trigger'
 import { HIGHLIGHT_COLORS, PREDEFINED_SOUNDS } from '@/types/trigger'
 
-const STORAGE_VERSION = 4
+const STORAGE_VERSION = 5
 const STORAGE_KEY_PREFIX = 'duris_triggers_'
 
 // Global state (shared across components)
@@ -33,6 +34,7 @@ const gmcpConditionStates = new Map<string, Map<string, boolean>>()
 
 export function useTriggers() {
   const store = useMudStore()
+  const { isGroupEffectivelyEnabled } = useGroups()
 
   // Computed: current account name
   const accountName = computed(() => store.account)
@@ -138,6 +140,16 @@ export function useTriggers() {
         })
       }
 
+      // Version 4 -> 5: Add groupId field
+      if (data.version < 5) {
+        migratedTriggers = migratedTriggers.map((trigger) => {
+          if (trigger.groupId === undefined) {
+            return { ...trigger, groupId: null }
+          }
+          return trigger
+        })
+      }
+
       triggers.value = migratedTriggers as Trigger[]
       echoTriggers.value = data.echoTriggers ?? false
       muteSounds.value = data.muteSounds ?? false
@@ -223,6 +235,7 @@ export function useTriggers() {
       description: formData.description?.trim() || undefined,
       priority: formData.priority,
       stopProcessing: formData.stopProcessing,
+      groupId: formData.groupId ?? null,
       createdAt: now,
       updatedAt: now,
     }
@@ -274,6 +287,7 @@ export function useTriggers() {
       priority: formData.priority !== undefined ? formData.priority : trigger.priority,
       stopProcessing:
         formData.stopProcessing !== undefined ? formData.stopProcessing : trigger.stopProcessing,
+      groupId: formData.groupId !== undefined ? formData.groupId : trigger.groupId,
       createdAt: trigger.createdAt,
       updatedAt: Date.now(),
     }
@@ -333,6 +347,22 @@ export function useTriggers() {
     return true
   }
 
+  function setTriggerGroup(id: string, groupId: string | null): boolean {
+    const index = triggers.value.findIndex(t => t.id === id)
+    if (index === -1) return false
+
+    const trigger = triggers.value[index]
+    if (!trigger) return false
+
+    triggers.value[index] = {
+      ...trigger,
+      groupId,
+      updatedAt: Date.now(),
+    }
+    saveTriggers()
+    return true
+  }
+
   /**
    * Duplicate a trigger.
    */
@@ -353,6 +383,7 @@ export function useTriggers() {
       description: original.description,
       priority: original.priority,
       stopProcessing: original.stopProcessing,
+      groupId: original.groupId,
     })
   }
 
@@ -372,6 +403,7 @@ export function useTriggers() {
     // Filter to enabled triggers that apply to current context
     const applicable = triggers.value.filter((trigger) => {
       if (!trigger.enabled) return false
+      if (!isGroupEffectivelyEnabled(trigger.groupId)) return false
       if (trigger.scope === 'global') return true
       if (trigger.scope === 'character' && trigger.characterName === currentChar) return true
       return false
@@ -923,6 +955,7 @@ export function useTriggers() {
     deleteTrigger,
     toggleTrigger,
     setTriggerEnabled,
+    setTriggerGroup,
     duplicateTrigger,
 
     // Processing
