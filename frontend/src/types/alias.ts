@@ -33,6 +33,9 @@ export interface Alias {
   /** Character name if scope is 'character' (null for global) */
   characterName: string | null
 
+  /** Group ID this alias belongs to (null = ungrouped) */
+  groupId: string | null
+
   /** Optional description for user reference */
   description?: string
 
@@ -52,6 +55,7 @@ export interface AliasFormData {
   enabled: boolean
   scope: AliasScope
   characterName: string | null
+  groupId: string | null
   description?: string
 }
 
