@@ -27,6 +27,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Plus, Terminal, Volume2, MessageSquare, HelpCircle } from 'lucide-vue-next'
 import TriggerActionCard from './TriggerActionCard.vue'
+import GroupSelectDropdown from './GroupSelectDropdown.vue'
 
 const props = defineProps<{
   open: boolean
@@ -50,6 +51,7 @@ const isOneShot = ref(false)
 const actions = ref<TimerAction[]>([])
 const scope = ref<TimerScope>('global')
 const characterName = ref<string | null>(null)
+const groupId = ref<string | null>(null)
 const description = ref('')
 const enabled = ref(true)
 
@@ -78,6 +80,7 @@ watch(
         actions.value = JSON.parse(JSON.stringify(props.timer.actions))
         scope.value = props.timer.scope
         characterName.value = props.timer.characterName
+        groupId.value = props.timer.groupId ?? null
         description.value = props.timer.description || ''
         enabled.value = props.timer.enabled
       } else {
@@ -89,6 +92,7 @@ watch(
         actions.value = []
         scope.value = 'global'
         characterName.value = currentCharacter.value
+        groupId.value = null
         description.value = ''
         enabled.value = true
       }
@@ -189,6 +193,7 @@ function handleSave() {
     actions: JSON.parse(JSON.stringify(actions.value)),
     scope: scope.value,
     characterName: scope.value === 'character' ? characterName.value : null,
+    groupId: groupId.value,
     description: description.value.trim() || undefined,
     enabled: enabled.value,
   }
@@ -338,6 +343,12 @@ function handleCancel() {
                 </SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <!-- Group -->
+          <div class="space-y-2">
+            <Label>Group</Label>
+            <GroupSelectDropdown v-model="groupId" />
           </div>
 
           <!-- Description -->
