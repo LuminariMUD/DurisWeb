@@ -10,12 +10,13 @@ import {
   ResizableHandle,
 } from '@/components/ui/resizable'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
-import { Trash2, ArrowDown, Terminal, Zap, Clock, Settings, Activity, Merge } from 'lucide-vue-next'
+import { Trash2, ArrowDown, Terminal, Zap, Clock, Settings, Activity, Merge, FolderTree } from 'lucide-vue-next'
 import type { MudLogEntry } from '@/types/mud'
 import AliasManager from './AliasManager.vue'
 import TriggerManager from './TriggerManager.vue'
 import TimerManager from './TimerManager.vue'
 import SettingsDialog from './SettingsDialog.vue'
+import GroupManager from './GroupManager.vue'
 import ActionHotbar from './ActionHotbar.vue'
 
 // Initialize MUD chat notifications watcher (must be called in a mounted component)
@@ -45,6 +46,7 @@ const aliasManagerOpen = ref(false)
 const triggerManagerOpen = ref(false)
 const timerManagerOpen = ref(false)
 const settingsDialogOpen = ref(false)
+const groupManagerOpen = ref(false)
 
 // Split-screen state
 const isSplitView = ref(false)
@@ -270,6 +272,15 @@ defineExpose({
         >
           <Settings class="h-3 w-3" />
         </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          class="h-6 px-2"
+          title="Manage Groups"
+          @click="groupManagerOpen = true"
+        >
+          <FolderTree class="h-3 w-3" />
+        </Button>
         <Button variant="ghost" size="sm" class="h-6 px-2" title="Clear Log" @click="clearLog">
           <Trash2 class="h-3 w-3" />
         </Button>
@@ -287,6 +298,9 @@ defineExpose({
 
     <!-- Settings Dialog -->
     <SettingsDialog v-model:open="settingsDialogOpen" />
+
+    <!-- Group Manager Dialog -->
+    <GroupManager v-model:open="groupManagerOpen" />
 
     <!-- Normal single-pane view -->
     <div v-if="!isSplitView" class="flex-1 relative">
