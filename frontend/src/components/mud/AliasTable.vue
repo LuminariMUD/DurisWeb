@@ -60,8 +60,9 @@ const expandedGroups = ref<Set<string>>(new Set())
 const dragAlias = ref<Alias | null>(null)
 const dragOverGroupId = ref<string | null | 'ungrouped'>(null)
 
-// initialize all groups as expanded
+// initialize all groups as expanded (including ungrouped)
 function initExpanded() {
+  expandedGroups.value.add('__ungrouped__')
   for (const g of groups.value) {
     expandedGroups.value.add(g.id)
   }
@@ -98,11 +99,6 @@ function getAliasesForGroup(groupId: string | null): Alias[] {
 
 // ungrouped aliases
 const ungroupedAliases = computed(() => getAliasesForGroup(null))
-
-// check if any group has aliases
-const hasGroupedAliases = computed(() => {
-  return props.aliases.some(a => a.groupId !== null)
-})
 
 // drag handlers
 function handleDragStart(e: DragEvent, alias: Alias) {
@@ -431,7 +427,7 @@ function truncate(text: string, maxLength: number): string {
             {{ ungroupedAliases.length }}
           </Badge>
         </div>
-        <div v-if="expandedGroups.has('__ungrouped__') || !hasGroupedAliases" class="border-t">
+        <div v-if="expandedGroups.has('__ungrouped__')" class="border-t">
           <div
             v-for="alias in ungroupedAliases"
             :key="alias.id"

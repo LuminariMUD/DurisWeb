@@ -60,8 +60,9 @@ const expandedGroups = ref<Set<string>>(new Set())
 const dragTrigger = ref<Trigger | null>(null)
 const dragOverGroupId = ref<string | null | 'ungrouped'>(null)
 
-// initialize all groups as expanded
+// initialize all groups as expanded (including ungrouped)
 function initExpanded() {
+  expandedGroups.value.add('__ungrouped__')
   for (const g of groups.value) {
     expandedGroups.value.add(g.id)
   }
@@ -99,11 +100,6 @@ function getTriggersForGroup(groupId: string | null): Trigger[] {
 
 // ungrouped triggers
 const ungroupedTriggers = computed(() => getTriggersForGroup(null))
-
-// check if any group has triggers
-const hasGroupedTriggers = computed(() => {
-  return props.triggers.some(t => t.groupId !== null)
-})
 
 // drag handlers
 function handleDragStart(e: DragEvent, trigger: Trigger) {
@@ -458,7 +454,7 @@ function getActionSummary(trigger: Trigger): string {
             {{ ungroupedTriggers.length }}
           </Badge>
         </div>
-        <div v-if="expandedGroups.has('__ungrouped__') || !hasGroupedTriggers" class="border-t">
+        <div v-if="expandedGroups.has('__ungrouped__')" class="border-t">
           <div
             v-for="trigger in ungroupedTriggers"
             :key="trigger.id"

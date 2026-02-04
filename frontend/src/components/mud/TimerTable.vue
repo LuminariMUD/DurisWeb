@@ -81,8 +81,9 @@ const expandedGroups = ref<Set<string>>(new Set())
 const dragTimer = ref<Timer | null>(null)
 const dragOverGroupId = ref<string | null | 'ungrouped'>(null)
 
-// initialize all groups as expanded
+// initialize all groups as expanded (including ungrouped)
 function initExpanded() {
+  expandedGroups.value.add('__ungrouped__')
   for (const g of groups.value) {
     expandedGroups.value.add(g.id)
   }
@@ -119,11 +120,6 @@ function getTimersForGroup(groupId: string | null): Timer[] {
 
 // ungrouped timers
 const ungroupedTimers = computed(() => getTimersForGroup(null))
-
-// check if any group has timers
-const hasGroupedTimers = computed(() => {
-  return props.timers.some(t => t.groupId !== null)
-})
 
 // drag handlers
 function handleDragStart(e: DragEvent, timer: Timer) {
@@ -536,7 +532,7 @@ function getCountdown(id: string): string {
             {{ ungroupedTimers.length }}
           </Badge>
         </div>
-        <div v-if="expandedGroups.has('__ungrouped__') || !hasGroupedTimers" class="border-t">
+        <div v-if="expandedGroups.has('__ungrouped__')" class="border-t">
           <div
             v-for="timer in ungroupedTimers"
             :key="timer.id"
