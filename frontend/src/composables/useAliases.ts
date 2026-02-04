@@ -2,6 +2,7 @@ import { ref, computed, watch } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
 import { expandGmcpVariables } from '@/utils/gmcpVariables'
 import { expandScript } from '@/utils/scriptExpander'
+import { useGroups } from './useGroups'
 import type {
   Alias,
   AliasFormData,
@@ -10,7 +11,7 @@ import type {
   AliasScope,
 } from '@/types/alias'
 
-const STORAGE_VERSION = 1
+const STORAGE_VERSION = 2
 const STORAGE_KEY_PREFIX = 'duris_aliases_'
 
 // Global state (shared across components)
@@ -21,6 +22,7 @@ const echoCommands = ref(true)
 
 export function useAliases() {
   const store = useMudStore()
+  const { isGroupEffectivelyEnabled } = useGroups()
 
   // Computed: current account name
   const accountName = computed(() => store.account)
@@ -62,12 +64,17 @@ export function useAliases() {
 
       const data: AliasStorage = JSON.parse(stored)
 
-      // Handle future version migrations here
-      if (data.version !== STORAGE_VERSION) {
-        // Migration logic would go here
+      // Version 1 -> 2: Add groupId field
+      if (data.version < 2) {
+        aliases.value = (data.aliases || []).map((alias: any) => {
+          if (alias.groupId === undefined) {
+            return { ...alias, groupId: null }
+          }
+          return alias
+        })
+      } else {
+        aliases.value = data.aliases || []
       }
-
-      aliases.value = data.aliases || []
       echoExpansion.value = data.echoExpansion ?? false
       echoCommands.value = data.echoCommands ?? true
       isLoaded.value = true
@@ -138,6 +145,7 @@ export function useAliases() {
       enabled: formData.enabled,
       scope: formData.scope,
       characterName: formData.scope === 'character' ? formData.characterName : null,
+      groupId: formData.groupId ?? null,
       description: formData.description?.trim() || undefined,
       createdAt: now,
       updatedAt: now,
@@ -172,6 +180,7 @@ export function useAliases() {
           : formData.scope === 'character' && formData.characterName !== undefined
             ? formData.characterName
             : alias.characterName,
+      groupId: formData.groupId !== undefined ? formData.groupId : alias.groupId,
       description:
         formData.description !== undefined
           ? formData.description.trim() || undefined
@@ -237,6 +246,22 @@ export function useAliases() {
     return true
   }
 
+  function setAliasGroup(id: string, groupId: string | null): boolean {
+    const index = aliases.value.findIndex(a => a.id === id)
+    if (index === -1) return false
+
+    const alias = aliases.value[index]
+    if (!alias) return false
+
+    aliases.value[index] = {
+      ...alias,
+      groupId,
+      updatedAt: Date.now(),
+    }
+    saveAliases()
+    return true
+  }
+
   /**
    * Duplicate an alias.
    */
@@ -250,6 +275,7 @@ export function useAliases() {
       enabled: false,
       scope: original.scope,
       characterName: original.characterName,
+      groupId: original.groupId,
       description: original.description ? `${original.description} (copy)` : undefined,
     })
   }
@@ -270,6 +296,7 @@ export function useAliases() {
     // Filter to enabled aliases that apply to current context
     const applicable = aliases.value.filter((alias) => {
       if (!alias.enabled) return false
+      if (!isGroupEffectivelyEnabled(alias.groupId)) return false
       if (alias.scope === 'global') return true
       if (alias.scope === 'character' && alias.characterName === currentChar) return true
       return false
@@ -516,6 +543,7 @@ export function useAliases() {
     deleteAlias,
     toggleAlias,
     setAliasEnabled,
+    setAliasGroup,
     duplicateAlias,
 
     // Resolution
