@@ -1,6 +1,7 @@
 import { ref, computed, watch, shallowReactive } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
 import { expandGmcpVariables } from '@/utils/gmcpVariables'
+import { useGroups } from './useGroups'
 import type {
   Timer,
   TimerFormData,
@@ -12,7 +13,7 @@ import { TIMER_CONSTRAINTS, formatInterval } from '@/types/timer'
 import type { TriggerActionSound } from '@/types/trigger'
 import { PREDEFINED_SOUNDS } from '@/types/trigger'
 
-const STORAGE_VERSION = 1
+const STORAGE_VERSION = 2
 const STORAGE_KEY_PREFIX = 'duris_timers_'
 
 // Global state (shared across components)
@@ -35,6 +36,7 @@ let addLogEntryFn: ((category: string, text: string) => void) | null = null
 
 export function useTimers() {
   const store = useMudStore()
+  const { isGroupEffectivelyEnabled } = useGroups()
 
   // Computed: current account name
   const accountName = computed(() => store.account)
@@ -74,8 +76,17 @@ export function useTimers() {
 
       const data: TimerStorage = JSON.parse(stored)
 
-      // Handle version migrations (none yet for v1)
-      timers.value = data.timers || []
+      // Version 1 -> 2: Add groupId field
+      if (data.version < 2) {
+        timers.value = (data.timers || []).map((timer: any) => {
+          if (timer.groupId === undefined) {
+            return { ...timer, groupId: null }
+          }
+          return timer
+        })
+      } else {
+        timers.value = data.timers || []
+      }
       echoTimers.value = data.echoTimers ?? false
       isLoaded.value = true
     } catch (error) {
@@ -137,6 +148,7 @@ export function useTimers() {
       enabled: formData.enabled,
       scope: formData.scope,
       characterName: formData.scope === 'character' ? formData.characterName : null,
+      groupId: formData.groupId ?? null,
       description: formData.description?.trim() || undefined,
       createdAt: now,
       updatedAt: now,
@@ -186,6 +198,7 @@ export function useTimers() {
           : formData.scope === 'character' && formData.characterName !== undefined
             ? formData.characterName
             : timer.characterName,
+      groupId: formData.groupId !== undefined ? formData.groupId : timer.groupId,
       description:
         formData.description !== undefined
           ? formData.description.trim() || undefined
@@ -276,6 +289,22 @@ export function useTimers() {
     return true
   }
 
+  function setTimerGroup(id: string, groupId: string | null): boolean {
+    const index = timers.value.findIndex(t => t.id === id)
+    if (index === -1) return false
+
+    const timer = timers.value[index]
+    if (!timer) return false
+
+    timers.value[index] = {
+      ...timer,
+      groupId,
+      updatedAt: Date.now(),
+    }
+    saveTimers()
+    return true
+  }
+
   /**
    * Duplicate a timer.
    */
@@ -291,6 +320,7 @@ export function useTimers() {
       enabled: false, // Start disabled
       scope: original.scope,
       characterName: original.characterName,
+      groupId: original.groupId,
       description: original.description,
     })
   }
@@ -311,6 +341,7 @@ export function useTimers() {
     // Filter to enabled timers that apply to current context
     const applicable = timers.value.filter((timer) => {
       if (!timer.enabled) return false
+      if (!isGroupEffectivelyEnabled(timer.groupId)) return false
       if (timer.scope === 'global') return true
       if (timer.scope === 'character' && timer.characterName === currentChar) return true
       return false
@@ -744,6 +775,7 @@ export function useTimers() {
     deleteTimer,
     toggleTimer,
     setTimerEnabled,
+    setTimerGroup,
     duplicateTimer,
 
     // Execution
