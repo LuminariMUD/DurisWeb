@@ -47,6 +47,9 @@ export interface Timer {
   /** Character name if scope is 'character' (null for global) */
   characterName: string | null
 
+  /** Group ID this timer belongs to (null = ungrouped) */
+  groupId: string | null
+
   /** Optional description for user reference */
   description?: string
 
@@ -68,6 +71,7 @@ export interface TimerFormData {
   enabled: boolean
   scope: TimerScope
   characterName: string | null
+  groupId: string | null
   description?: string
 }
 
