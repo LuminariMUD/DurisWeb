@@ -24,11 +24,12 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { Plus, Download, Upload } from 'lucide-vue-next'
+import { Plus, Download, Upload, FolderTree } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
 import AliasTable from './AliasTable.vue'
 import AliasFormDialog from './AliasFormDialog.vue'
+import GroupManager from './GroupManager.vue'
 
 const props = defineProps<{
   open: boolean
@@ -84,6 +85,9 @@ const aliasToDelete = ref<Alias | null>(null)
 
 // Import dialog state (simplified - uses file input)
 const fileInputRef = ref<HTMLInputElement | null>(null)
+
+// Group manager dialog state
+const groupManagerOpen = ref(false)
 
 function openAddDialog() {
   formMode.value = 'add'
@@ -210,6 +214,10 @@ async function handleImportFile(event: Event) {
             <Upload class="h-4 w-4 mr-1" />
             Import
           </Button>
+          <Button variant="outline" size="sm" @click="groupManagerOpen = true">
+            <FolderTree class="h-4 w-4 mr-1" />
+            Groups
+          </Button>
           <input
             ref="fileInputRef"
             type="file"
@@ -280,4 +288,6 @@ async function handleImportFile(event: Event) {
       </AlertDialogFooter>
     </AlertDialogContent>
   </AlertDialog>
+
+  <GroupManager v-model:open="groupManagerOpen" />
 </template>
