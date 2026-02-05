@@ -2,7 +2,6 @@ import { pool } from '../db/connection.js';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import archiver from 'archiver';
 import unzipper from 'unzipper';
 import fs from 'fs';
 import path from 'path';
@@ -262,6 +261,7 @@ async function runBackup(
 
 /**
  * Create the zip archive with database dump and MUD folders
+ * Uses system zip command instead of archiver library for reliability
  */
 async function createZipArchive(
   backupId: number,
@@ -269,54 +269,52 @@ async function createZipArchive(
   zipPath: string,
   sqlPath: string
 ): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const output = fs.createWriteStream(zipPath);
-    const archive = archiver('zip', { zlib: { level: 6 } });
+  const tempDir = path.join(BACKUP_DIR, `temp_staging_${backupId}`);
 
-    output.on('close', () => resolve());
-    archive.on('error', (err) => reject(err));
-    archive.on('warning', (err) => {
-      if (err.code !== 'ENOENT') {
-        logger.warn('Archiver warning:', err);
-      }
-    });
+  try {
+    // create temp staging directory with database subfolder
+    const dbDir = path.join(tempDir, 'database');
+    await fs.promises.mkdir(dbDir, { recursive: true });
 
-    // Track progress
-    let lastProgress = 45;
-    archive.on('progress', (progress) => {
-      // Scale progress from 45% to 95%
-      const entries = progress.entries.processed;
-      const total = progress.entries.total || 1;
-      const newProgress = Math.min(95, 45 + Math.floor((entries / total) * 50));
-      if (newProgress > lastProgress) {
-        lastProgress = newProgress;
-        const step = newProgress < 60 ? 'Zipping database...' :
-                     newProgress < 75 ? 'Zipping Accounts...' :
-                     'Zipping Players...';
-        updateBackupStatus(backupId, 'in_progress', newProgress, step).catch(() => {});
-        broadcastProgress({ id: backupId, progress: newProgress, currentStep: step, status: 'in_progress', filename });
-      }
-    });
+    // copy sql file to staging
+    const dbName = process.env.DB_NAME || 'duris_dev';
+    await fs.promises.copyFile(sqlPath, path.join(dbDir, `${dbName}.sql`));
 
-    archive.pipe(output);
+    await updateBackupStatus(backupId, 'in_progress', 50, 'Zipping database...');
+    broadcastProgress({ id: backupId, progress: 50, currentStep: 'Zipping database...', status: 'in_progress', filename });
 
-    // Add database dump
-    archive.file(sqlPath, { name: `database/${process.env.DB_NAME || 'duris_dev'}.sql` });
+    // build zip command - start with database folder
+    const zipParts: string[] = [];
+    zipParts.push(`cd "${tempDir}" && zip -r "${zipPath}" database`);
 
-    // Add Accounts directory
+    // add Accounts directory if exists
     const accountsPath = path.join(MUD_BASE, 'Accounts');
     if (fs.existsSync(accountsPath)) {
-      archive.directory(accountsPath, 'Accounts');
+      await updateBackupStatus(backupId, 'in_progress', 60, 'Zipping Accounts...');
+      broadcastProgress({ id: backupId, progress: 60, currentStep: 'Zipping Accounts...', status: 'in_progress', filename });
+      zipParts.push(`cd "${MUD_BASE}" && zip -r "${zipPath}" Accounts`);
     }
 
-    // Add Players directory
+    // add Players directory if exists
     const playersPath = path.join(MUD_BASE, 'Players');
     if (fs.existsSync(playersPath)) {
-      archive.directory(playersPath, 'Players');
+      await updateBackupStatus(backupId, 'in_progress', 75, 'Zipping Players...');
+      broadcastProgress({ id: backupId, progress: 75, currentStep: 'Zipping Players...', status: 'in_progress', filename });
+      zipParts.push(`cd "${MUD_BASE}" && zip -r "${zipPath}" Players`);
     }
 
-    archive.finalize();
-  });
+    // execute zip commands
+    for (const cmd of zipParts) {
+      await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 });
+    }
+
+    await updateBackupStatus(backupId, 'in_progress', 95, 'Finalizing...');
+    broadcastProgress({ id: backupId, progress: 95, currentStep: 'Finalizing...', status: 'in_progress', filename });
+
+  } finally {
+    // cleanup temp staging directory
+    await fs.promises.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+  }
 }
 
 /**
