@@ -80,3 +80,4 @@ docs/
 
 # Generated content
 backend/public/maps/
+*.kate-swp
