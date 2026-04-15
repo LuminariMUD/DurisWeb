@@ -507,7 +507,7 @@ const isPlayPage = computed(() => route.path === '/play');
                 <RouterLink
                   v-else
                   to="/login"
-                  class="flex items-center gap-1 text-sm font-medium text-gray-400 hover:text-cyan-400 transition-colors"
+                  class="flex items-center gap-1 ml-2 text-sm font-medium text-gray-400 hover:text-cyan-400 transition-colors"
                 >
                   <LogIn class="h-4 w-4" />
                   Login
