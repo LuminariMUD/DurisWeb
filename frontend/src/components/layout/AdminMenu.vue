@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Activity, Sparkles, GitBranch, HardDrive, Power, ChevronDown, Map,
   LayoutDashboard, Settings, ScrollText, Users, ShieldCheck, BookOpen,
   Newspaper, Megaphone, Wand2, Scale, Palette, Crown, HelpCircle,
   FileText, ClipboardList, Gamepad2, Cog, AlertTriangle, TrendingUp, Timer, MapPin,
-  BarChart3, Home, History
+  BarChart3, Home, History, Copy
 } from 'lucide-vue-next'
 import { useAuth } from '@/composables/useAuth'
-import { helpSuggestionApi } from '@/services/api'
+import { useToast } from '@/composables/useToast'
+import { helpSuggestionApi, dupeApi, type DupedItem } from '@/services/api'
 import { Badge } from '@/components/ui/badge'
 import {
   CollapsibleRoot,
@@ -27,6 +28,7 @@ import {
 
 const router = useRouter()
 const { hasPermission, isOverlord } = useAuth()
+const { warning } = useToast()
 
 // Collapsible state for each section (default all open)
 const dashboardOpen = ref(true)
@@ -37,6 +39,12 @@ const mudSettingsOpen = ref(true)
 
 // Pending suggestions count
 const pendingSuggestionsCount = ref(0)
+
+// Dupe items count and tracking
+const dupeCount = ref(0)
+const knownDupeUids = ref<Set<number>>(new Set())
+let dupeCountInterval: ReturnType<typeof setInterval> | null = null
+const isFirstDupeLoad = ref(true)
 
 async function loadPendingCount() {
   if (hasPermission('manage_help_suggestions')) {
@@ -49,8 +57,73 @@ async function loadPendingCount() {
   }
 }
 
+async function loadDupeCount() {
+  if (isOverlord.value) {
+    try {
+      const { items, summary } = await dupeApi.getDupes()
+      dupeCount.value = summary.total_duped_uids
+
+      // detect new dupes (skip first load to avoid spamming on page load)
+      if (!isFirstDupeLoad.value && items.length > 0) {
+        const newDupes = items.filter(item => !knownDupeUids.value.has(item.obj_uid))
+        if (newDupes.length > 0) {
+          notifyNewDupes(newDupes)
+        }
+      }
+
+      // update known uids
+      knownDupeUids.value = new Set(items.map(item => item.obj_uid))
+      isFirstDupeLoad.value = false
+    } catch {
+      // Ignore errors
+    }
+  }
+}
+
+function notifyNewDupes(newDupes: DupedItem[]) {
+  // group by players string (could be single player or multiple)
+  const byPlayers: Record<string, DupedItem[]> = {}
+  for (const dupe of newDupes) {
+    const key = dupe.players
+    if (!byPlayers[key]) {
+      byPlayers[key] = []
+    }
+    byPlayers[key]!.push(dupe)
+  }
+
+  const playerGroups = Object.entries(byPlayers)
+
+  // limit toast spam - if too many players, show summary
+  if (playerGroups.length > 3) {
+    const totalItems = newDupes.length
+    warning(`${totalItems} new duplicated items detected across ${playerGroups.length} players`)
+  } else {
+    for (const [players, dupes] of playerGroups) {
+      const count = dupes.length
+      const itemText = count === 1 ? 'item' : 'items'
+      warning(`${count} duplicated ${itemText} detected for ${players}`)
+    }
+  }
+}
+
 onMounted(() => {
   loadPendingCount()
+
+  // reset dupe tracking state on mount
+  isFirstDupeLoad.value = true
+  knownDupeUids.value = new Set()
+
+  loadDupeCount()
+  // refresh dupe count every 30 seconds
+  if (isOverlord.value) {
+    dupeCountInterval = setInterval(loadDupeCount, 30000)
+  }
+})
+
+onUnmounted(() => {
+  if (dupeCountInterval) {
+    clearInterval(dupeCountInterval)
+  }
 })
 </script>
 
@@ -496,6 +569,20 @@ onMounted(() => {
                 >
                   <MapPin class="h-4 w-4" />
                   <span>Zone Management</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem v-if="isOverlord">
+                <SidebarMenuButton
+                  tooltip="Item Dupes"
+                  @click="router.push('/admin/dupes')"
+                  :isActive="router.currentRoute.value.path === '/admin/dupes'"
+                >
+                  <Copy class="h-4 w-4" />
+                  <span class="flex-1">Item Dupes</span>
+                  <Badge v-if="dupeCount > 0" variant="destructive" class="ml-auto h-5 min-w-5 px-1.5 text-xs">
+                    {{ dupeCount }}
+                  </Badge>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

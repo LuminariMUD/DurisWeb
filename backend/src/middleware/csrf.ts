@@ -37,6 +37,7 @@ export function generateCsrfToken(req: Request, res: Response, next: NextFunctio
 // Paths exempt from CSRF protection (public endpoints with no security-sensitive state changes)
 const CSRF_EXEMPT_PATHS = [
   '/api/analytics/track', // Public page view tracking
+  '/kofihook', // ko-fi webhook (external, can't send csrf)
 ];
 
 /**

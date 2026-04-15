@@ -1,6 +1,6 @@
 import { RowDataPacket } from 'mysql2';
 import { pool as db } from '../db/connection.js';
-import type { MudAccountCharacter } from './mudAccountParser.js';
+import type { MudAccountCharacter } from './accountService.js';
 import { getForumSettings } from './forumSettingsService.js';
 import { getUserPermissions as getAdminPermissions } from './adminPermissionService.js';
 import { getCache, setCache, deleteCache } from '../db/redis.js';
@@ -95,9 +95,15 @@ export async function getCharacterInfo(characterNames: string[]): Promise<Charac
 
   try {
     const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT pid, name, level, guild, race, classname, racewar, active, money
-       FROM players_core
-       WHERE name IN (?)`,
+      `SELECT pd.pid, pd.name, pd.level,
+              COALESCE(a.name, '') as guild,
+              COALESCE(fl.race, '') as race, COALESCE(fl.class, '') as classname,
+              pd.racewar,
+              pd.copper + pd.silver * 10 + pd.gold * 100 + pd.platinum * 1000 as money
+       FROM player_data pd
+       LEFT JOIN frag_leaderboard fl ON pd.pid = fl.pid
+       LEFT JOIN associations a ON pd.assoc_id = a.id
+       WHERE pd.name IN (?)`,
       [characterNames]
     );
 
@@ -105,11 +111,11 @@ export async function getCharacterInfo(characterNames: string[]): Promise<Charac
       pid: row.pid,
       name: row.name,
       level: row.level,
-      guild: row.guild,
+      guild: row.guild || '',
       race: row.race,
       classname: row.classname,
       racewar: row.racewar,
-      active: row.active === 1,
+      active: true,
       money: row.money || 0
     }));
 
@@ -117,7 +123,8 @@ export async function getCharacterInfo(characterNames: string[]): Promise<Charac
   } catch (error) {
     logger.error('[Permissions] Error fetching character info:', error);
     logger.error(`[Permissions] Requested characters: ${characterNames.join(', ')}`);
-    return [];
+    // Re-throw to see the actual error instead of silently returning empty
+    throw error;
   }
 }
 

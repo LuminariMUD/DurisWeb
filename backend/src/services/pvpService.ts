@@ -228,10 +228,11 @@ export async function getPvPEventDetail(eventId: number): Promise<PvPEventDetail
     queryParams.push(pvpDelayMinutes);
   }
 
-  // If respectWebinfoToggle is enabled, hide equipment when player's webinfo_toggle is off
-  // If respectWebinfoToggle is disabled, always show equipment
+  // If respectWebinfoToggle is enabled, hide equipment when player's webinfo is off
+  // webinfo is stored as bit 28 (134217728) in act2 column
+  const PLR2_WEBINFO = 134217728;
   const equipSelect = respectWebinfo
-    ? 'CASE WHEN pc.webinfo_toggle = 1 THEN p.equip ELSE NULL END as equip'
+    ? `CASE WHEN (pd.act2 & ${PLR2_WEBINFO}) != 0 THEN p.equip ELSE NULL END as equip`
     : 'p.equip';
 
   const query = `
@@ -247,11 +248,10 @@ export async function getPvPEventDetail(eventId: number): Promise<PvPEventDetail
       p.log,
       p.inroom,
       p.leader,
-      p.pid,
-      pc.webinfo_toggle
+      p.pid
     FROM pkill_event e
     LEFT JOIN pkill_info p ON e.id = p.event_id AND p.inroom = 1
-    LEFT JOIN players_core pc ON p.pid = pc.pid
+    LEFT JOIN player_data pd ON p.pid = pd.pid
     WHERE ${whereConditions.join(' AND ')}
     ORDER BY
       CASE p.pk_type
@@ -1180,12 +1180,12 @@ export async function getBattleComments(eventId: number): Promise<PvPBattleComme
       c.quoted_text,
       c.line_number,
       c.participant_id,
-      pc.name as character_name,
-      pc.race as character_race,
-      pc.classname as character_class,
-      pc.level as character_level
+      fl.char_name as character_name,
+      fl.race as character_race,
+      fl.class as character_class,
+      fl.level as character_level
     FROM pvp_battle_comments c
-    LEFT JOIN players_core pc ON c.character_pid = pc.pid
+    LEFT JOIN frag_leaderboard fl ON c.character_pid = fl.pid
     WHERE c.event_id = ?
     ORDER BY c.created_at ASC
   `;
@@ -1278,10 +1278,10 @@ export async function createBattleComment(
       `SELECT
         c.id, c.event_id, c.account_name, c.character_pid, c.content, c.parent_id,
         c.is_deleted, c.created_at, c.updated_at, c.quoted_text, c.line_number, c.participant_id,
-        pc.name as character_name, pc.race as character_race,
-        pc.classname as character_class, pc.level as character_level
+        fl.char_name as character_name, fl.race as character_race,
+        fl.class as character_class, fl.level as character_level
       FROM pvp_battle_comments c
-      LEFT JOIN players_core pc ON c.character_pid = pc.pid
+      LEFT JOIN frag_leaderboard fl ON c.character_pid = fl.pid
       WHERE c.id = ?`,
       [commentId]
     );

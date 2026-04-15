@@ -73,11 +73,10 @@ export interface ServerHealth {
 }
 
 /**
- * Get current online players - now uses netstat for accurate real-time count
- * Single source of truth - delegates to serverHealthService
+ * get current online players from redis (mud:online)
  */
 export async function getCurrentOnlinePlayers(): Promise<number> {
-  return await getOnlinePlayerCount();
+  return getOnlinePlayerCount();
 }
 
 /**
@@ -92,8 +91,8 @@ export async function getOverviewStats(): Promise<OverviewStats> {
     getCurrentOnlinePlayers(),
     pool.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM forum_posts WHERE deleted_at IS NULL'),
     pool.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM pkill_event'),
-    pool.query<RowDataPacket[]>('SELECT COUNT(DISTINCT pid) as count FROM players_core'),
-    pool.query<RowDataPacket[]>('SELECT COUNT(DISTINCT guild) as count FROM players_core WHERE guild IS NOT NULL AND guild != ""'),
+    pool.query<RowDataPacket[]>('SELECT COUNT(DISTINCT pid) as count FROM frag_leaderboard WHERE deleted_at IS NULL'),
+    pool.query<RowDataPacket[]>('SELECT COUNT(DISTINCT a.id) as count FROM associations a JOIN player_data pd ON pd.assoc_id = a.id WHERE a.active = 1'),
     pool.query<RowDataPacket[]>(
       `SELECT
          (goods_count + evils_count + illithids_count + undeads_count + gods_count) as peak,
@@ -319,9 +318,9 @@ export async function getPlayerStats(): Promise<PlayerStats> {
     guildsResult,
     levelDistResult,
   ] = await Promise.all([
-    pool.query<RowDataPacket[]>('SELECT COUNT(DISTINCT pid) as count FROM players_core'),
-    pool.query<RowDataPacket[]>('SELECT MAX(level) as maxLevel FROM players_core'),
-    pool.query<RowDataPacket[]>('SELECT AVG(level) as avgLevel FROM players_core'),
+    pool.query<RowDataPacket[]>('SELECT COUNT(DISTINCT pid) as count FROM frag_leaderboard WHERE deleted_at IS NULL'),
+    pool.query<RowDataPacket[]>('SELECT MAX(level) as maxLevel FROM frag_leaderboard WHERE deleted_at IS NULL'),
+    pool.query<RowDataPacket[]>('SELECT AVG(level) as avgLevel FROM frag_leaderboard WHERE deleted_at IS NULL'),
     pool.query<RowDataPacket[]>(
       `SELECT
          SUM(CASE WHEN racewar = 0 THEN 1 ELSE 0 END) as none,
@@ -329,13 +328,15 @@ export async function getPlayerStats(): Promise<PlayerStats> {
          SUM(CASE WHEN racewar = 2 THEN 1 ELSE 0 END) as evils,
          SUM(CASE WHEN racewar = 3 THEN 1 ELSE 0 END) as undeads,
          SUM(CASE WHEN racewar = 4 THEN 1 ELSE 0 END) as neutrals
-       FROM players_core`
+       FROM frag_leaderboard WHERE deleted_at IS NULL`
     ),
     pool.query<RowDataPacket[]>(
-      `SELECT guild, COUNT(*) as memberCount
-       FROM players_core
-       WHERE guild IS NOT NULL AND guild != ''
-       GROUP BY guild
+      `SELECT a.name as guild, COUNT(*) as memberCount
+       FROM frag_leaderboard fl
+       JOIN player_data pd ON fl.pid = pd.pid
+       JOIN associations a ON pd.assoc_id = a.id
+       WHERE a.active = 1 AND fl.deleted_at IS NULL
+       GROUP BY a.id, a.name
        ORDER BY memberCount DESC
        LIMIT 10`
     ),
@@ -351,7 +352,7 @@ export async function getPlayerStats(): Promise<PlayerStats> {
            ELSE '57+'
          END as \`range\`,
          COUNT(*) as count
-       FROM players_core
+       FROM frag_leaderboard WHERE deleted_at IS NULL
        GROUP BY \`range\`
        ORDER BY MIN(level)`
     ),
@@ -415,22 +416,23 @@ export async function getPlayerActivity(hours: number = 24): Promise<any[]> {
 export async function getWhoList(): Promise<any[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT
-      pc.name as char_name,
-      pc.level,
-      pc.race,
-      pc.classname as class,
-      pc.racewar,
+      fl.char_name,
+      fl.level,
+      fl.race,
+      fl.class,
+      fl.racewar,
       ii.last_connect,
       ii.last_ip,
       ac.account_name as account,
       TIMESTAMPDIFF(SECOND, ii.last_connect, NOW()) as uptime_seconds
-    FROM players_core pc
-    JOIN ip_info ii ON pc.pid = ii.pid
-    LEFT JOIN account_characters ac ON pc.pid = ac.pid
+    FROM frag_leaderboard fl
+    JOIN ip_info ii ON fl.pid = ii.pid
+    LEFT JOIN account_characters ac ON fl.pid = ac.pid
     WHERE ii.last_connect > COALESCE(ii.last_disconnect, 0)
       AND ii.last_connect >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
       AND ii.last_connect IS NOT NULL
-    ORDER BY pc.level DESC, pc.name ASC`
+      AND fl.deleted_at IS NULL
+    ORDER BY fl.level DESC, fl.char_name ASC`
   );
 
   return rows;

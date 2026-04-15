@@ -32,6 +32,11 @@ const router = createRouter({
       component: () => import('../views/StatsView.vue'),
     },
     {
+      path: '/statistics/faction-activity',
+      name: 'faction-activity',
+      component: () => import('../views/FactionActivityView.vue'),
+    },
+    {
       path: '/frag-leaderboard',
       name: 'frag-leaderboard',
       component: () => import('../views/FragLeaderboardView.vue'),
@@ -266,6 +271,12 @@ const router = createRouter({
           path: 'connections/suspicious',
           name: 'admin-connections-suspicious',
           component: () => import('../views/admin/SuspiciousAccountsView.vue'),
+          meta: { requiresAuth: true, requiresOverlord: true },
+        },
+        {
+          path: 'dupes',
+          name: 'admin-dupes',
+          component: () => import('../views/admin/DupeDetectionView.vue'),
           meta: { requiresAuth: true, requiresOverlord: true },
         },
         {

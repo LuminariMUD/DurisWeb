@@ -210,7 +210,7 @@ export async function syncStatisticsToDatabase(date: Date): Promise<number> {
     try {
       await pool.query(
         `INSERT INTO statistics (
-          stamp, goods_count, evils_count, illithids_count, undeads_count, gods_count,
+          date, goods_count, evils_count, illithids_count, undeads_count, gods_count,
           in_guildhall_count, sum_goods_levels, sum_evils_levels, sum_illithids_levels,
           sum_undeads_levels, unique_ips_count
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -227,7 +227,7 @@ export async function syncStatisticsToDatabase(date: Date): Promise<number> {
           sum_undeads_levels = VALUES(sum_undeads_levels),
           unique_ips_count = VALUES(unique_ips_count)`,
         [
-          timestamp,
+          Math.floor(timestamp.getTime() / 1000),
           hourStat.goods,
           hourStat.evils,
           hourStat.illithids,

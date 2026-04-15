@@ -383,6 +383,7 @@ export interface RoomNpc {
   colored_name?: string
   vnum: number
   keyword?: string
+  fighting?: string
 }
 
 export interface RoomItem {

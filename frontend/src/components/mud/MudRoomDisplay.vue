@@ -15,7 +15,7 @@ import {
 import MobActionsDialog from './MobActionsDialog.vue'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import { MUD_DIRECTION_SHORTCUTS, type MudDirection } from '@/types/mud'
-import { Users, Skull, Package, DoorOpen, Lock, Plus, Minus, MapPin, Settings, PictureInPicture2 } from 'lucide-vue-next'
+import { Users, Skull, Package, DoorOpen, Lock, Plus, Minus, MapPin, Settings, PictureInPicture2, Swords } from 'lucide-vue-next'
 
 // Minimized state
 const isMinimized = defineModel<boolean>('minimized', { default: false })
@@ -223,6 +223,7 @@ const processedNpcs = computed(() => {
                     class="text-yellow-400 cursor-pointer hover:underline flex-1 min-w-0"
                     @click="handleMobClick(npc.targetRef)"
                   >
+                    <Swords v-if="npc.fighting === 'you'" class="h-3 w-3 inline-block text-red-500 mr-1" title="Fighting you!" />
                     <span v-html="parseAnsiToHtml(npc.colored_name || npc.name)" />
                     <span class="text-muted-foreground/50 text-xs ml-1">({{ npc.targetRef }})</span>
                   </div>

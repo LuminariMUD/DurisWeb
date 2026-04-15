@@ -57,7 +57,8 @@ import {
 } from '../services/logService.js';
 import { createReadStream } from 'fs';
 import { pool as db } from '../db/connection.js';
-import { requestWhoList, getOnlinePlayers, isMudConnected, getMudBootTime } from '../services/mudAuctionClient.js';
+import { requestWhoList, isMudConnected, getMudBootTime } from '../services/mudAuctionClient.js';
+import { getOnlinePlayers as getOnlinePlayersFromRedis } from '../services/onlinePlayersService.js';
 import { getCategorizedProperties, searchProperties, updateProperty, validatePropertyValue, getPropertyHistory } from '../services/propertiesParser.js';
 import { RowDataPacket } from 'mysql2';
 import {
@@ -94,9 +95,18 @@ import {
   grantPermission,
   revokePermission
 } from '../services/adminPermissionService.js';
-import { searchAccounts, accountExists, updateAccountPassword } from '../services/mudAccountParser.js';
+import { searchAccounts, accountExists, updateAccountPassword } from '../services/accountService.js';
 import bcrypt from 'bcrypt';
 import { getGodLevelFromCharacterLevel } from '../services/permissionService.js';
+import {
+  getDupedItems,
+  getDupeDetails,
+  getDupeSummary,
+  deletePlayerItem,
+  deleteLockerItem,
+  deletePlayerItems,
+  deleteAllDupesForUid
+} from '../services/dupeDetectionService.js';
 import { testWebhook, manualPostBattle } from '../services/discordService.js';
 
 const router: IRouter = Router();
@@ -880,31 +890,30 @@ router.get('/analytics/server', requireAuth, requireOverlord, async (_req: Reque
 
 /**
  * GET /api/admin/who
- * Get WHO list (currently online players)
+ * Get WHO list (currently online players) from mud:online redis key
  */
 router.get('/who', requireAuth, requireOverlord, async (_req: Request, res: Response) => {
   try {
-    // use in-memory state from mud websocket, fallback to db query
-    const mudConnected = isMudConnected();
+    const redisPlayers = await getOnlinePlayersFromRedis();
+    const now = Date.now();
 
-    if (mudConnected) {
-      // map websocket fields to frontend expected format
-      const wsPlayers = getOnlinePlayers();
-      const players = wsPlayers.map(p => ({
-        char_name: p.character,
+    if (redisPlayers.length > 0) {
+      const players = redisPlayers.map(p => ({
+        char_name: p.name,
         account: p.account,
         last_ip: p.ip,
         level: p.level,
         race: p.race,
         class: p.class,
-        faction: p.faction,
+        faction: p.racewar,
         client: p.client,
         clientVersion: p.clientVersion,
-        uptime_seconds: p.uptime_seconds,
+        uptime_seconds: p.loginTime > 0 ? Math.floor((now - p.loginTime * 1000) / 1000) : 0,
       }));
-      return res.json({ players, source: 'websocket' });
+      return res.json({ players, source: 'redis' });
     }
 
+    // fallback to database if redis is empty
     const players = await getWhoList();
     return res.json({ players, source: 'database' });
   } catch (error) {
@@ -929,14 +938,14 @@ router.post('/analytics/cleanup-connections', requireAuth, requireOverlord, asyn
 
     const rowsAffected = (cleanupResult as any).affectedRows;
 
-    // Step 2: Request fresh wholist from MUD via websocket
+    // Step 2: Request fresh wholist from MUD via websocket (optional, for login history tracking)
     const mudConnected = isMudConnected();
     if (mudConnected) {
       requestWhoList();
     }
 
-    // Step 3: Return current in-memory state (will be updated when MUD responds)
-    const whoList = getOnlinePlayers();
+    // Step 3: Return current state from redis
+    const whoList = await getOnlinePlayersFromRedis();
 
     return res.json({
       success: true,
@@ -2048,10 +2057,15 @@ router.get('/mud/wipe/players',
   async (_req: Request, res: Response) => {
     try {
       const [playerRows] = await db.query<any[]>(
-        `SELECT pid, name, level, classname, spec, race, guild, money, balance
-         FROM players_core
-         WHERE active = 1
-         ORDER BY level DESC, name ASC`
+        `SELECT fl.pid, fl.char_name as name, fl.level, fl.class as classname, pd.spec, fl.race,
+                COALESCE(a.name, '') as guild,
+                pd.copper + pd.silver * 10 + pd.gold * 100 + pd.platinum * 1000 as money,
+                pd.bank_copper + pd.bank_silver * 10 + pd.bank_gold * 100 + pd.bank_platinum * 1000 as balance
+         FROM frag_leaderboard fl
+         JOIN player_data pd ON fl.pid = pd.pid
+         LEFT JOIN associations a ON pd.assoc_id = a.id
+         WHERE pd.active = 1 AND fl.deleted_at IS NULL
+         ORDER BY fl.level DESC, fl.char_name ASC`
       );
 
       const players = playerRows.map(row => ({
@@ -2168,7 +2182,7 @@ router.post('/mud/wipe/execute',
       let excludedPlayers: any[] = [];
       if (excludedPids.length > 0) {
         const [excludedRows] = await connection.query<any[]>(
-          `SELECT pid, name FROM players_core WHERE pid IN (?)`,
+          `SELECT pid, name FROM player_data WHERE pid IN (?)`,
           [excludedPids]
         );
         excludedPlayers = excludedRows;
@@ -2287,12 +2301,12 @@ router.post('/mud/wipe/execute',
       totalRowsAffected += cooldownResult.affectedRows;
       if (cooldownResult.affectedRows > 0) tablesAffected.push('player_cooldowns');
 
-      // 16. UPDATE players_core - set active=0 (soft delete)
+      // 16. UPDATE player_data - set active=0 (soft delete)
       const [coreResult] = await connection.query<any>(
-        `UPDATE players_core SET active = 0 ${whereClause}`
+        `UPDATE player_data SET active = 0 ${whereClause}`
       );
       totalRowsAffected += coreResult.affectedRows;
-      if (coreResult.affectedRows > 0) tablesAffected.push('players_core');
+      if (coreResult.affectedRows > 0) tablesAffected.push('player_data');
 
       // 17. DELETE pkill_info (PvP history)
       const [pkillInfoResult] = await connection.query<any>(
@@ -2469,7 +2483,7 @@ router.get(
     try {
       const { limit = 10 } = req.query;
 
-      const [analyses] = await db.query(
+      const [analyses] = await db.query<any[]>(
         `SELECT id, analysis_timestamp, suspicious_count, patterns_count, summary, created_at
          FROM gemini_analysis_log
          ORDER BY created_at DESC
@@ -2477,7 +2491,14 @@ router.get(
         [Number(limit)]
       );
 
-      return res.json({ success: true, data: analyses });
+      // convert mysql datetime strings to iso format with utc timezone
+      const data = analyses.map((row: any) => ({
+        ...row,
+        analysis_timestamp: row.analysis_timestamp ? String(row.analysis_timestamp).replace(' ', 'T') + 'Z' : null,
+        created_at: row.created_at ? String(row.created_at).replace(' ', 'T') + 'Z' : null,
+      }));
+
+      return res.json({ success: true, data });
     } catch (error) {
       logger.error('Get AI history error:', error);
       return res.status(500).json({
@@ -2512,7 +2533,15 @@ router.get(
         });
       }
 
-      return res.json({ success: true, data: analyses[0] });
+      // convert mysql datetime strings to iso format with utc timezone
+      const row = analyses[0];
+      const data = {
+        ...row,
+        analysis_timestamp: row.analysis_timestamp ? String(row.analysis_timestamp).replace(' ', 'T') + 'Z' : null,
+        created_at: row.created_at ? String(row.created_at).replace(' ', 'T') + 'Z' : null,
+      };
+
+      return res.json({ success: true, data });
     } catch (error) {
       logger.error('Get AI analysis error:', error);
       return res.status(500).json({
@@ -2545,13 +2574,20 @@ router.get('/crashes', requireAuth, requirePermission('view_server_health'), asy
     const [countRows] = await db.query(`SELECT COUNT(*) as total FROM crash_log${whereClause}`, params);
     const total = (countRows as any)[0].total;
 
-    const [crashes] = await db.query(
+    const [crashes] = await db.query<any[]>(
       `SELECT * FROM crash_log${whereClause} ORDER BY crash_timestamp DESC LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
 
+    // convert mysql datetime strings to iso format with utc timezone
+    const crashesWithTz = crashes.map((row: any) => ({
+      ...row,
+      crash_timestamp: row.crash_timestamp ? String(row.crash_timestamp).replace(' ', 'T') + 'Z' : null,
+      analyzed_at: row.analyzed_at ? String(row.analyzed_at).replace(' ', 'T') + 'Z' : null,
+    }));
+
     return res.json({
-      crashes,
+      crashes: crashesWithTz,
       pagination: {
         page,
         limit,
@@ -2574,11 +2610,18 @@ router.get('/crashes/:id', requireAuth, requirePermission('view_server_health'),
     const { id } = req.params;
 
     const [crashes] = await db.query('SELECT * FROM crash_log WHERE id = ?', [id]);
-    const crash = (crashes as any[])[0];
+    const row = (crashes as any[])[0];
 
-    if (!crash) {
+    if (!row) {
       return res.status(404).json({ error: 'Crash not found' });
     }
+
+    // convert mysql datetime strings to iso format with utc timezone
+    const crash = {
+      ...row,
+      crash_timestamp: row.crash_timestamp ? String(row.crash_timestamp).replace(' ', 'T') + 'Z' : null,
+      analyzed_at: row.analyzed_at ? String(row.analyzed_at).replace(' ', 'T') + 'Z' : null,
+    };
 
     return res.json({ crash });
   } catch (error) {
@@ -3052,7 +3095,7 @@ router.get('/accounts', requireAuth, requireOverlord, async (_req: Request, res:
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT
         a.account_name,
-        MAX(pc.level) as max_level,
+        MAX(pd.level) as max_level,
         GROUP_CONCAT(DISTINCT CONCAT(r.id, ':', r.role_name) SEPARATOR '|') as roles,
         GROUP_CONCAT(DISTINCT CONCAT(p.id, ':', p.permission_name) SEPARATOR '|') as permissions
       FROM (
@@ -3062,11 +3105,11 @@ router.get('/accounts', requireAuth, requireOverlord, async (_req: Request, res:
         UNION
         SELECT DISTINCT ac.account_name
         FROM account_characters ac
-        INNER JOIN players_core pc ON ac.pid = pc.pid
-        WHERE pc.level >= 57 AND ac.deleted_at IS NULL
+        INNER JOIN player_data pd ON ac.pid = pd.pid
+        WHERE pd.level >= 57 AND ac.deleted_at IS NULL
       ) AS a
       LEFT JOIN account_characters ac ON a.account_name = ac.account_name AND ac.deleted_at IS NULL
-      LEFT JOIN players_core pc ON ac.pid = pc.pid
+      LEFT JOIN player_data pd ON ac.pid = pd.pid
       LEFT JOIN admin_account_roles ar ON a.account_name = ar.account_name
       LEFT JOIN admin_roles r ON ar.role_id = r.id
       LEFT JOIN admin_account_permissions ap ON a.account_name = ap.account_name
@@ -3487,31 +3530,39 @@ router.get('/backup/mud-status', requireAuth, requirePermission('manage_mud_back
 /**
  * POST /api/admin/backup/restore
  * Create a new restore operation
+ *
+ * Request body:
+ * - backupId: number (required)
+ * - restoreType: 'full' | 'account' | 'character' (required)
+ * - accounts: string[] (required for account restore)
+ * - characters: { pid: number; name: string }[] (required for character restore)
+ * - categories: RestoreCategories (optional for character restore, defaults applied)
  */
 router.post('/backup/restore', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response) => {
   try {
-    const { backupId, restoreType, targets } = req.body;
+    const { backupId, restoreType, accounts, characters, categories } = req.body;
 
     if (!backupId || !restoreType) {
       return res.status(400).json({ error: 'backupId and restoreType are required' });
     }
 
-    if (restoreType !== 'full' && restoreType !== 'selective') {
-      return res.status(400).json({ error: 'restoreType must be "full" or "selective"' });
+    if (!['full', 'account', 'character'].includes(restoreType)) {
+      return res.status(400).json({ error: 'restoreType must be "full", "account", or "character"' });
     }
 
-    if (restoreType === 'selective' && (!targets || !Array.isArray(targets) || targets.length === 0)) {
-      return res.status(400).json({ error: 'targets array is required for selective restore' });
+    if (restoreType === 'account' && (!accounts || !Array.isArray(accounts) || accounts.length === 0)) {
+      return res.status(400).json({ error: 'accounts array is required for account restore' });
     }
 
-    // Validate targets format
-    if (targets) {
-      for (const target of targets) {
-        if (!target.type || !target.name) {
-          return res.status(400).json({ error: 'Each target must have type and name' });
-        }
-        if (target.type !== 'account' && target.type !== 'character') {
-          return res.status(400).json({ error: 'Target type must be "account" or "character"' });
+    if (restoreType === 'character' && (!characters || !Array.isArray(characters) || characters.length === 0)) {
+      return res.status(400).json({ error: 'characters array is required for character restore' });
+    }
+
+    // validate characters format
+    if (characters) {
+      for (const char of characters) {
+        if (typeof char.pid !== 'number' || typeof char.name !== 'string') {
+          return res.status(400).json({ error: 'Each character must have pid (number) and name (string)' });
         }
       }
     }
@@ -3520,9 +3571,7 @@ router.post('/backup/restore', requireAuth, requirePermission('manage_mud_backup
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
 
     const result = await createRestore(
-      backupId,
-      restoreType,
-      restoreType === 'selective' ? targets : null,
+      { backupId, restoreType, accounts, characters, categories },
       accountName,
       ipAddress
     );
@@ -3652,31 +3701,39 @@ router.post('/backup/upload', requireAuth, requirePermission('manage_mud_backup'
 /**
  * POST /api/admin/backup/upload/restore
  * Restore from an uploaded backup file
+ *
+ * Request body:
+ * - tempPath: string (required)
+ * - restoreType: 'full' | 'account' | 'character' (required)
+ * - accounts: string[] (required for account restore)
+ * - characters: { pid: number; name: string }[] (required for character restore)
+ * - categories: RestoreCategories (optional for character restore)
  */
 router.post('/backup/upload/restore', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response) => {
   try {
-    const { tempPath, restoreType, targets } = req.body;
+    const { tempPath, restoreType, accounts, characters, categories } = req.body;
 
     if (!tempPath || !restoreType) {
       return res.status(400).json({ error: 'tempPath and restoreType are required' });
     }
 
-    if (restoreType !== 'full' && restoreType !== 'selective') {
-      return res.status(400).json({ error: 'restoreType must be "full" or "selective"' });
+    if (!['full', 'account', 'character'].includes(restoreType)) {
+      return res.status(400).json({ error: 'restoreType must be "full", "account", or "character"' });
     }
 
-    if (restoreType === 'selective' && (!targets || !Array.isArray(targets) || targets.length === 0)) {
-      return res.status(400).json({ error: 'targets array is required for selective restore' });
+    if (restoreType === 'account' && (!accounts || !Array.isArray(accounts) || accounts.length === 0)) {
+      return res.status(400).json({ error: 'accounts array is required for account restore' });
     }
 
-    // Validate targets format
-    if (targets) {
-      for (const target of targets) {
-        if (!target.type || !target.name) {
-          return res.status(400).json({ error: 'Each target must have type and name' });
-        }
-        if (target.type !== 'account' && target.type !== 'character') {
-          return res.status(400).json({ error: 'Target type must be "account" or "character"' });
+    if (restoreType === 'character' && (!characters || !Array.isArray(characters) || characters.length === 0)) {
+      return res.status(400).json({ error: 'characters array is required for character restore' });
+    }
+
+    // validate characters format
+    if (characters) {
+      for (const char of characters) {
+        if (typeof char.pid !== 'number' || typeof char.name !== 'string') {
+          return res.status(400).json({ error: 'Each character must have pid (number) and name (string)' });
         }
       }
     }
@@ -3686,8 +3743,7 @@ router.post('/backup/upload/restore', requireAuth, requirePermission('manage_mud
 
     const result = await createRestoreFromUpload(
       tempPath,
-      restoreType,
-      restoreType === 'selective' ? targets : null,
+      { restoreType, accounts, characters, categories },
       accountName,
       ipAddress
     );
@@ -4086,5 +4142,121 @@ router.post(
     }
   }
 );
+
+/**
+ * GET /api/admin/dupes
+ * Get list of all duplicated items
+ */
+router.get('/dupes', requireAuth, requireOverlord, async (_req: Request, res: Response) => {
+  try {
+    const items = await getDupedItems();
+    const summary = await getDupeSummary();
+    return res.json({ items, summary });
+  } catch (error) {
+    logger.error('Get duped items error:', error);
+    return res.status(500).json({ error: 'Failed to get duplicated items' });
+  }
+});
+
+/**
+ * GET /api/admin/dupes/:objUid
+ * Get details for a specific duped item uid
+ */
+router.get('/dupes/:objUid', requireAuth, requireOverlord, async (req: Request, res: Response) => {
+  try {
+    const objUid = parseInt(req.params.objUid, 10);
+    if (isNaN(objUid)) {
+      return res.status(400).json({ error: 'Invalid obj_uid' });
+    }
+    const details = await getDupeDetails(objUid);
+    return res.json({ details });
+  } catch (error) {
+    logger.error('Get dupe details error:', error);
+    return res.status(500).json({ error: 'Failed to get dupe details' });
+  }
+});
+
+/**
+ * DELETE /api/admin/dupes/item/:id
+ * Delete a specific item by its id
+ */
+router.delete('/dupes/item/:id', requireAuth, requireOverlord, async (req: Request, res: Response) => {
+  try {
+    const itemId = parseInt(req.params.id, 10);
+    if (isNaN(itemId)) {
+      return res.status(400).json({ error: 'Invalid item id' });
+    }
+    const deleted = await deletePlayerItem(itemId);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    return res.json({ success: true });
+  } catch (error) {
+    logger.error('Delete item error:', error);
+    return res.status(500).json({ error: 'Failed to delete item' });
+  }
+});
+
+/**
+ * DELETE /api/admin/dupes/locker-item/:id
+ * Delete a specific locker item by its id
+ */
+router.delete('/dupes/locker-item/:id', requireAuth, requireOverlord, async (req: Request, res: Response) => {
+  try {
+    const itemId = parseInt(req.params.id, 10);
+    if (isNaN(itemId)) {
+      return res.status(400).json({ error: 'Invalid item id' });
+    }
+    const deleted = await deleteLockerItem(itemId);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Locker item not found' });
+    }
+    return res.json({ success: true });
+  } catch (error) {
+    logger.error('Delete locker item error:', error);
+    return res.status(500).json({ error: 'Failed to delete locker item' });
+  }
+});
+
+/**
+ * DELETE /api/admin/dupes/uid/:objUid/:vnum
+ * Delete all duplicate copies of an item (keeps original)
+ */
+router.delete('/dupes/uid/:objUid/:vnum', requireAuth, requireOverlord, async (req: Request, res: Response) => {
+  try {
+    const objUid = parseInt(req.params.objUid, 10);
+    const vnum = parseInt(req.params.vnum, 10);
+    if (isNaN(objUid) || isNaN(vnum)) {
+      return res.status(400).json({ error: 'Invalid parameters' });
+    }
+    const deletedCount = await deleteAllDupesForUid(objUid, vnum);
+    return res.json({ success: true, deletedCount });
+  } catch (error) {
+    logger.error('Delete dupes for uid error:', error);
+    return res.status(500).json({ error: 'Failed to delete duplicates' });
+  }
+});
+
+/**
+ * POST /api/admin/dupes/bulk-delete
+ * Delete multiple items by their ids
+ */
+router.post('/dupes/bulk-delete', requireAuth, requireOverlord, async (req: Request, res: Response) => {
+  try {
+    const { itemIds } = req.body;
+    if (!Array.isArray(itemIds) || itemIds.length === 0) {
+      return res.status(400).json({ error: 'itemIds must be a non-empty array' });
+    }
+    const ids = itemIds.map((id: any) => parseInt(id, 10)).filter((id: number) => !isNaN(id));
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'No valid item ids provided' });
+    }
+    const deletedCount = await deletePlayerItems(ids);
+    return res.json({ success: true, deletedCount });
+  } catch (error) {
+    logger.error('Bulk delete items error:', error);
+    return res.status(500).json({ error: 'Failed to delete items' });
+  }
+});
 
 export default router;

@@ -407,6 +407,14 @@ export const authApi = {
       newPassword,
     })
   },
+
+  /**
+   * Check if account exists (for registration validation)
+   */
+  async accountExists(accountName: string): Promise<boolean> {
+    const { data } = await api.get<{ exists: boolean }>(`/api/auth/account-exists/${encodeURIComponent(accountName)}`)
+    return data.exists
+  },
 }
 
 /**
@@ -1131,7 +1139,7 @@ export const adminApi = {
    * Get backup download URL
    */
   getBackupDownloadUrl(id: number): string {
-    return `${api.defaults.baseURL}/api/admin/backup/download/${id}`
+    return `/api/admin/backup/download/${id}`
   },
 
   /**
@@ -1154,15 +1162,9 @@ export const adminApi = {
    * Create a restore operation
    */
   async createRestore(
-    backupId: number,
-    restoreType: 'full' | 'selective',
-    targets?: import('@/types').RestoreTarget[]
+    request: import('@/types').RestoreRequest
   ): Promise<{ success: boolean; id: number; message: string }> {
-    const { data } = await api.post('/api/admin/backup/restore', {
-      backupId,
-      restoreType,
-      targets,
-    })
+    const { data } = await api.post('/api/admin/backup/restore', request)
     return data
   },
 
@@ -1205,13 +1207,11 @@ export const adminApi = {
    */
   async createRestoreFromUpload(
     tempPath: string,
-    restoreType: 'full' | 'selective',
-    targets?: import('@/types').RestoreTarget[]
+    request: Omit<import('@/types').RestoreRequest, 'backupId'>
   ): Promise<{ success: boolean; id: number; message: string }> {
     const { data } = await api.post('/api/admin/backup/upload/restore', {
       tempPath,
-      restoreType,
-      targets,
+      ...request,
     })
     return data
   },
@@ -1348,6 +1348,73 @@ export const adminApi = {
     await api.post(`/api/admin/pvp/events/${eventId}/discord`)
   },
 
+}
+
+// ============================================================================
+// Dupe Detection Types & API (Overlord only)
+// ============================================================================
+
+export interface DupedItem {
+  obj_uid: number
+  vnum: number
+  item_name: string | null
+  item_name_ansi: string | null
+  players: string
+  total_count: number
+  player_count: number
+  created_at: string | null
+}
+
+export interface DupeDetail {
+  id: number
+  obj_uid: number
+  vnum: number
+  item_name: string | null
+  item_name_ansi: string | null
+  player_name: string
+  pid: number
+  location: string
+  source: 'inventory' | 'locker'
+  created_at: string | null
+}
+
+export interface DupeSummary {
+  total_duped_uids: number
+  total_duped_records: number
+  player_pairs: Array<{ players: string; duped_items: number }>
+}
+
+/**
+ * Dupe Detection API (Overlord only)
+ */
+export const dupeApi = {
+  async getDupes(): Promise<{ items: DupedItem[]; summary: DupeSummary }> {
+    const { data } = await api.get('/api/admin/dupes')
+    return data
+  },
+
+  async getDupeDetails(objUid: number): Promise<{ details: DupeDetail[] }> {
+    const { data } = await api.get(`/api/admin/dupes/${objUid}`)
+    return data
+  },
+
+  async deleteItem(itemId: number): Promise<void> {
+    await api.delete(`/api/admin/dupes/item/${itemId}`)
+  },
+
+  async deleteLockerItem(itemId: number): Promise<void> {
+    await api.delete(`/api/admin/dupes/locker-item/${itemId}`)
+  },
+
+  async deleteAllDupes(objUid: number, vnum: number): Promise<{ deletedCount: number }> {
+    const { data } = await api.delete(`/api/admin/dupes/uid/${objUid}/${vnum}`)
+    return data
+  },
+
+  async bulkDelete(itemIds: number[]): Promise<{ deletedCount: number }> {
+    const { data } = await api.post('/api/admin/dupes/bulk-delete', { itemIds })
+    return data
+  },
 }
 
 /**
@@ -3069,6 +3136,29 @@ export const changelogApi = {
   async deleteEntry(id: number): Promise<{ success: boolean }> {
     const { data } = await api.delete<{ success: boolean }>(`/api/changelog/${id}`)
     return data
+  },
+}
+
+// Public Statistics API
+export interface FactionActivityPoint {
+  timestamp: number
+  goods: number
+  evils: number
+  neutrals: number
+  undeads: number
+}
+
+export const publicStatsApi = {
+  getFactionActivity: async (date: string) => {
+    const response = await api.get(`/api/public/statistics/faction-activity`, {
+      params: { date },
+    })
+    return response.data as { data: FactionActivityPoint[]; date: string }
+  },
+
+  getAvailableDates: async () => {
+    const response = await api.get(`/api/public/statistics/available-dates`)
+    return response.data as { dates: string[] }
   },
 }
 

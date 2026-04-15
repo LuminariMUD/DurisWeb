@@ -23,6 +23,9 @@ import {
   LogIn,
   User,
   Bell,
+  Activity,
+  Radio,
+  Heart,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -42,8 +45,11 @@ const moreNavItems = computed(() => [
   { name: 'Auction', path: '/auction', icon: Gavel },
   { name: 'Map', path: '/wiki/map', icon: Map },
   { name: 'Stats', path: '/pvp/stats', icon: BarChart3 },
+  { name: 'Faction', path: '/statistics/faction-activity', icon: Activity },
   { name: 'Leaderboard', path: '/frag-leaderboard', icon: Trophy },
   { name: 'Guide', path: '/guide', icon: BookOpen },
+  { name: 'Status', path: '/status', icon: Radio },
+  { name: 'Donate', path: 'https://ko-fi.com/newduris', icon: Heart, external: true, highlight: true },
   ...(isAuthenticated.value
     ? [
         { name: 'Profile', path: `/user/${accountName.value}`, icon: User },
@@ -57,8 +63,14 @@ const isActive = (path: string) => {
   return route.path.startsWith(path)
 }
 
-const navigateTo = (path: string) => {
-  router.push(path)
+const navigateTo = (item: string | { path: string; external?: boolean }) => {
+  if (typeof item === 'string') {
+    router.push(item)
+  } else if (item.external) {
+    window.open(item.path, '_blank', 'noopener,noreferrer')
+  } else {
+    router.push(item.path)
+  }
 }
 </script>
 
@@ -95,9 +107,9 @@ const navigateTo = (path: string) => {
             <button
               v-for="item in moreNavItems"
               :key="item.path"
-              @click="navigateTo(item.path)"
+              @click="navigateTo(item)"
               class="flex flex-col items-center gap-2 p-3 rounded-lg transition-colors hover:bg-gray-800"
-              :class="isActive(item.path) ? 'text-cyan-400 bg-gray-800/50' : 'text-gray-300'"
+              :class="item.highlight ? 'text-pink-400' : isActive(item.path) ? 'text-cyan-400 bg-gray-800/50' : 'text-gray-300'"
             >
               <component :is="item.icon" class="w-6 h-6" />
               <span class="text-xs">{{ item.name }}</span>

@@ -13,7 +13,6 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -53,7 +52,9 @@ import {
   Settings,
   Save,
 } from 'lucide-vue-next'
-import type { BackupInfo, BackupContents, RestoreTarget } from '@/types'
+import type { BackupInfo, BackupContents, RestoreCategories } from '@/types'
+import { DEFAULT_RESTORE_CATEGORIES } from '@/types'
+import { MultiSelect } from '@/components/ui/multi-select'
 
 const {
   backups,
@@ -85,12 +86,33 @@ const { success, error: showError, info } = useToast()
 // Restore dialog state
 const restoreDialogOpen = ref(false)
 const restoreBackup = ref<BackupInfo | null>(null)
-const restoreTab = ref('selective')
+const restoreTab = ref<'full' | 'account' | 'character'>('character')
 const backupContents = ref<BackupContents | null>(null)
 const loadingContents = ref(false)
 const mudRunning = ref(false)
-const selectedAccounts = ref<string[]>([])
-const selectedCharacters = ref<string[]>([])
+const selectedAccountNames = ref<string[]>([])
+const selectedCharacterPids = ref<number[]>([])
+const restoreCategories = ref<RestoreCategories>({ ...DEFAULT_RESTORE_CATEGORIES })
+
+// Computed options for MultiSelect
+const accountOptions = computed(() => {
+  const contents = backupContents.value || uploadedContents.value
+  if (!contents) return []
+  return contents.accounts.map(name => ({ value: name, label: name }))
+})
+
+const characterOptions = computed(() => {
+  const contents = backupContents.value || uploadedContents.value
+  if (!contents) return []
+  return contents.characters.map(c => ({ value: c.pid, label: c.name }))
+})
+
+// Convert selected pids back to character objects for API
+const selectedCharacters = computed(() => {
+  const contents = backupContents.value || uploadedContents.value
+  if (!contents) return []
+  return contents.characters.filter(c => selectedCharacterPids.value.includes(c.pid))
+})
 
 // Upload state
 const uploadDialogOpen = ref(false)
@@ -231,9 +253,10 @@ async function openRestoreDialog(backup: BackupInfo) {
   restoreBackup.value = backup
   restoreDialogOpen.value = true
   loadingContents.value = true
-  selectedAccounts.value = []
-  selectedCharacters.value = []
-  restoreTab.value = 'selective'
+  selectedAccountNames.value = []
+  selectedCharacterPids.value = []
+  restoreTab.value = 'character'
+  restoreCategories.value = { ...DEFAULT_RESTORE_CATEGORIES }
 
   try {
     // Load backup contents and MUD status in parallel
@@ -258,80 +281,34 @@ function closeRestoreDialog() {
   backupContents.value = null
 }
 
-// Toggle account selection
-function toggleAccount(account: string) {
-  const index = selectedAccounts.value.indexOf(account)
-  if (index > -1) {
-    selectedAccounts.value.splice(index, 1)
-  } else {
-    selectedAccounts.value.push(account)
-  }
-}
-
-// Toggle character selection
-function toggleCharacter(character: string) {
-  const index = selectedCharacters.value.indexOf(character)
-  if (index > -1) {
-    selectedCharacters.value.splice(index, 1)
-  } else {
-    selectedCharacters.value.push(character)
-  }
-}
-
-// Select all accounts (works for both regular restore and upload restore)
-function selectAllAccounts() {
-  const contents = backupContents.value || uploadedContents.value
-  if (!contents) return
-  if (selectedAccounts.value.length === contents.accounts.length) {
-    selectedAccounts.value = []
-  } else {
-    selectedAccounts.value = [...contents.accounts]
-  }
-}
-
-// Select all characters (works for both regular restore and upload restore)
-function selectAllCharacters() {
-  const contents = backupContents.value || uploadedContents.value
-  if (!contents) return
-  if (selectedCharacters.value.length === contents.characters.length) {
-    selectedCharacters.value = []
-  } else {
-    selectedCharacters.value = [...contents.characters]
-  }
-}
-
 // Execute restore
-function executeRestore(type: 'full' | 'selective') {
+function executeRestore() {
   if (!restoreBackup.value) return
 
-  if (type === 'full') {
+  if (restoreTab.value === 'full') {
     createRestore({
       backupId: restoreBackup.value.id,
       restoreType: 'full',
     })
-  } else {
-    const targets: RestoreTarget[] = []
-    selectedAccounts.value.forEach((name) => {
-      targets.push({ type: 'account', name })
-    })
-    selectedCharacters.value.forEach((name) => {
-      targets.push({ type: 'character', name })
-    })
-
-    if (targets.length === 0) return
-
+  } else if (restoreTab.value === 'account') {
+    if (selectedAccountNames.value.length === 0) return
     createRestore({
       backupId: restoreBackup.value.id,
-      restoreType: 'selective',
-      targets,
+      restoreType: 'account',
+      accounts: selectedAccountNames.value,
+    })
+  } else {
+    if (selectedCharacters.value.length === 0) return
+    createRestore({
+      backupId: restoreBackup.value.id,
+      restoreType: 'character',
+      characters: selectedCharacters.value,
+      categories: restoreCategories.value,
     })
   }
 
   closeRestoreDialog()
 }
-
-// Computed: has selection
-const hasSelection = () => selectedAccounts.value.length > 0 || selectedCharacters.value.length > 0
 
 // Upload handlers
 function triggerFileInput() {
@@ -359,9 +336,10 @@ async function handleFileSelect(event: Event) {
 
     // Open dialog with restore options
     uploadDialogOpen.value = true
-    restoreTab.value = 'selective'
-    selectedAccounts.value = []
-    selectedCharacters.value = []
+    restoreTab.value = 'character'
+    selectedAccountNames.value = []
+    selectedCharacterPids.value = []
+    restoreCategories.value = { ...DEFAULT_RESTORE_CATEGORIES }
     success('Backup uploaded successfully')
   } catch (err: any) {
     const errorMsg = err.response?.data?.error || err.message || 'Failed to upload backup'
@@ -384,29 +362,28 @@ function closeUploadDialog() {
   uploadError.value = null
 }
 
-function executeUploadRestore(type: 'full' | 'selective') {
+function executeUploadRestore() {
   if (!uploadedTempPath.value) return
 
-  if (type === 'full') {
+  if (restoreTab.value === 'full') {
     restoreFromUpload({
       tempPath: uploadedTempPath.value,
       restoreType: 'full',
     })
-  } else {
-    const targets: RestoreTarget[] = []
-    selectedAccounts.value.forEach((name) => {
-      targets.push({ type: 'account', name })
-    })
-    selectedCharacters.value.forEach((name) => {
-      targets.push({ type: 'character', name })
-    })
-
-    if (targets.length === 0) return
-
+  } else if (restoreTab.value === 'account') {
+    if (selectedAccountNames.value.length === 0) return
     restoreFromUpload({
       tempPath: uploadedTempPath.value,
-      restoreType: 'selective',
-      targets,
+      restoreType: 'account',
+      accounts: selectedAccountNames.value,
+    })
+  } else {
+    if (selectedCharacters.value.length === 0) return
+    restoreFromUpload({
+      tempPath: uploadedTempPath.value,
+      restoreType: 'character',
+      characters: selectedCharacters.value,
+      categories: restoreCategories.value,
     })
   }
 
@@ -620,6 +597,7 @@ function executeUploadRestore(type: 'full' | 'selective') {
                     v-if="backup.status === 'completed'"
                     variant="outline"
                     size="icon"
+                    title="Restore from this backup"
                     @click="openRestoreDialog(backup)"
                     :disabled="!!currentRestore"
                   >
@@ -630,6 +608,7 @@ function executeUploadRestore(type: 'full' | 'selective') {
                     v-if="backup.status === 'completed'"
                     variant="outline"
                     size="icon"
+                    title="Download backup"
                     @click="handleDownload(backup.id)"
                   >
                     <Download class="h-4 w-4" />
@@ -640,6 +619,7 @@ function executeUploadRestore(type: 'full' | 'selective') {
                       <Button
                         variant="outline"
                         size="icon"
+                        title="Delete backup"
                         class="text-destructive hover:text-destructive"
                         :disabled="backup.status === 'in_progress' || backup.status === 'pending'"
                       >
@@ -734,14 +714,21 @@ function executeUploadRestore(type: 'full' | 'selective') {
       <CardContent class="pt-6">
         <h4 class="font-semibold mb-2">Backup Contents</h4>
         <ul class="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-          <li>MySQL database dump (all tables)</li>
-          <li>Player files (/Players directory)</li>
-          <li>Account files (/Accounts directory)</li>
+          <li>MySQL database dump (player data, accounts, game state)</li>
         </ul>
         <p class="text-xs text-muted-foreground mt-4">
           Backups are automatically cleaned up - manual backups keep last 5, hourly backups keep last
           {{ maxHourlyBackupsOriginal }}.
         </p>
+
+        <div class="border-t mt-6 pt-6">
+          <h4 class="font-semibold mb-2">Restore Options</h4>
+          <ul class="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+            <li><strong>Full Restore:</strong> Restore all game data tables</li>
+            <li><strong>Account Restore:</strong> Restore an account and all its characters (for hacked/deleted accounts)</li>
+            <li><strong>Character Restore:</strong> Restore specific character data with selectable categories (for player reimbursement)</li>
+          </ul>
+        </div>
 
         <div class="border-t mt-6 pt-6">
           <h4 class="font-semibold mb-2">For Developers (Beta MUD Backup)</h4>
@@ -752,25 +739,19 @@ function executeUploadRestore(type: 'full' | 'selective') {
             <li>
               Create a ZIP file with this structure:
               <pre class="mt-1 ml-4 text-xs bg-background/50 p-2 rounded font-mono">backup.zip/
-  database.sql      # MySQL dump
-  Accounts/         # Account files
-    {letter}/
-      {account_name}
-  Players/          # Player files
-    {letter}/
-      {character_name}</pre>
+  database/
+    duris.sql       # MySQL dump</pre>
             </li>
             <li>
               Database dump command:
               <code class="ml-1 text-xs bg-background/50 px-1 rounded font-mono"
-                >mysqldump -u [user] -p [database] > database.sql</code
+                >mysqldump -u [user] -p [database] > database/duris.sql</code
               >
             </li>
-            <li>Copy the Accounts/ and Players/ directories from your MUD</li>
             <li>
               Create ZIP:
               <code class="ml-1 text-xs bg-background/50 px-1 rounded font-mono"
-                >zip -r backup.zip database.sql Accounts/ Players/</code
+                >zip -r backup.zip database/</code
               >
             </li>
             <li>Upload using the "Upload Backup" button above</li>
@@ -810,124 +791,131 @@ function executeUploadRestore(type: 'full' | 'selective') {
         <!-- Contents Loaded -->
         <template v-else-if="backupContents">
           <Tabs v-model="restoreTab" class="w-full">
-            <TabsList class="grid w-full grid-cols-2">
-              <TabsTrigger value="selective">Selective Restore</TabsTrigger>
-              <TabsTrigger value="full">Full Restore</TabsTrigger>
+            <TabsList class="grid w-full grid-cols-3">
+              <TabsTrigger value="character">Character</TabsTrigger>
+              <TabsTrigger value="account">Account</TabsTrigger>
+              <TabsTrigger value="full">Full</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="selective" class="mt-4">
-              <div class="grid grid-cols-2 gap-4">
-                <!-- Accounts Column -->
-                <div class="border rounded-lg p-4">
-                  <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2 font-semibold">
-                      <User class="h-4 w-4" />
-                      Accounts ({{ backupContents.accounts.length }})
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      @click="selectAllAccounts"
-                      v-if="backupContents.accounts.length > 0"
-                    >
-                      {{
-                        selectedAccounts.length === backupContents.accounts.length
-                          ? 'Deselect All'
-                          : 'Select All'
-                      }}
-                    </Button>
-                  </div>
-                  <ScrollArea class="h-[200px]">
-                    <div
-                      v-if="backupContents.accounts.length === 0"
-                      class="text-sm text-muted-foreground text-center py-4"
-                    >
-                      No accounts in backup
-                    </div>
-                    <div v-else class="space-y-2">
-                      <div
-                        v-for="account in backupContents.accounts"
-                        :key="account"
-                        class="flex items-center space-x-2"
-                      >
-                        <Checkbox
-                          :id="`account-${account}`"
-                          :model-value="selectedAccounts.includes(account)"
-                          @update:model-value="() => toggleAccount(account)"
-                        />
-                        <Label :for="`account-${account}`" class="text-sm cursor-pointer">
-                          {{ account }}
-                        </Label>
-                      </div>
-                    </div>
-                  </ScrollArea>
+            <!-- Character Restore Tab (with categories) -->
+            <TabsContent value="character" class="mt-4">
+              <p class="text-sm text-muted-foreground mb-4">
+                Restore specific characters with selectable data categories. Use this for player reimbursement.
+              </p>
+
+              <div class="space-y-4">
+                <!-- Characters Selection -->
+                <div>
+                  <Label class="text-sm font-semibold mb-2 flex items-center gap-2">
+                    <Users class="h-4 w-4" />
+                    Characters ({{ backupContents.characters.length }})
+                  </Label>
+                  <MultiSelect
+                    v-model="selectedCharacterPids"
+                    :options="characterOptions"
+                    placeholder="Search and select characters..."
+                    search-placeholder="Type to search characters..."
+                    empty-message="No characters found."
+                  />
                 </div>
 
-                <!-- Characters Column -->
+                <!-- Categories -->
                 <div class="border rounded-lg p-4">
-                  <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2 font-semibold">
-                      <Users class="h-4 w-4" />
-                      Characters ({{ backupContents.characters.length }})
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      @click="selectAllCharacters"
-                      v-if="backupContents.characters.length > 0"
-                    >
-                      {{
-                        selectedCharacters.length === backupContents.characters.length
-                          ? 'Deselect All'
-                          : 'Select All'
-                      }}
-                    </Button>
+                  <div class="flex items-center gap-2 font-semibold mb-3">
+                    <Settings class="h-4 w-4" />
+                    Restore Categories
                   </div>
-                  <ScrollArea class="h-[200px]">
-                    <div
-                      v-if="backupContents.characters.length === 0"
-                      class="text-sm text-muted-foreground text-center py-4"
-                    >
-                      No characters in backup
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="cat-inventory" v-model:checked="restoreCategories.inventory" />
+                      <Label for="cat-inventory" class="text-sm cursor-pointer">
+                        Inventory & Equipment
+                      </Label>
                     </div>
-                    <div v-else class="space-y-2">
-                      <div
-                        v-for="character in backupContents.characters"
-                        :key="character"
-                        class="flex items-center space-x-2"
-                      >
-                        <Checkbox
-                          :id="`char-${character}`"
-                          :model-value="selectedCharacters.includes(character)"
-                          @update:model-value="() => toggleCharacter(character)"
-                        />
-                        <Label :for="`char-${character}`" class="text-sm cursor-pointer">
-                          {{ character }}
-                        </Label>
-                      </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="cat-coreData" v-model:checked="restoreCategories.coreData" />
+                      <Label for="cat-coreData" class="text-sm cursor-pointer">
+                        Core Data (level, stats)
+                      </Label>
                     </div>
-                  </ScrollArea>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="cat-skills" v-model:checked="restoreCategories.skills" />
+                      <Label for="cat-skills" class="text-sm cursor-pointer">
+                        Skills & Spells
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="cat-progression" v-model:checked="restoreCategories.progression" />
+                      <Label for="cat-progression" class="text-sm cursor-pointer">
+                        Progression (quests, epics)
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="cat-auction" v-model:checked="restoreCategories.auction" />
+                      <Label for="cat-auction" class="text-sm cursor-pointer">
+                        Auction Pickups
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="cat-guild" v-model:checked="restoreCategories.guild" />
+                      <Label for="cat-guild" class="text-sm cursor-pointer">
+                        Guild Membership
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="cat-pvpHistory" v-model:checked="restoreCategories.pvpHistory" />
+                      <Label for="cat-pvpHistory" class="text-sm cursor-pointer">
+                        PvP History
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="cat-misc" v-model:checked="restoreCategories.misc" />
+                      <Label for="cat-misc" class="text-sm cursor-pointer">
+                        Misc (aliases, mail, pets)
+                      </Label>
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              <div class="mt-4 text-sm text-muted-foreground">
-                Selected: {{ selectedAccounts.length }} account(s), {{ selectedCharacters.length }}
-                character(s)
               </div>
             </TabsContent>
 
+            <!-- Account Restore Tab -->
+            <TabsContent value="account" class="mt-4">
+              <p class="text-sm text-muted-foreground mb-4">
+                Restore entire account(s) and all their characters. Use this for hacked/deleted accounts.
+              </p>
+
+              <div>
+                <Label class="text-sm font-semibold mb-2 flex items-center gap-2">
+                  <User class="h-4 w-4" />
+                  Accounts ({{ backupContents.accounts.length }})
+                </Label>
+                <MultiSelect
+                  v-model="selectedAccountNames"
+                  :options="accountOptions"
+                  placeholder="Search and select accounts..."
+                  search-placeholder="Type to search accounts..."
+                  empty-message="No accounts found."
+                />
+              </div>
+            </TabsContent>
+
+            <!-- Full Restore Tab -->
             <TabsContent value="full" class="mt-4">
               <Alert variant="destructive">
                 <AlertTriangle class="h-4 w-4" />
                 <AlertTitle>Warning: Full Restore</AlertTitle>
                 <AlertDescription>
-                  This will restore ALL accounts and player files from this backup, overwriting any
+                  This will restore ALL game data tables from this backup, overwriting any
                   current data. This action is potentially destructive.
                 </AlertDescription>
               </Alert>
-              <div class="mt-4 text-sm text-muted-foreground">
-                This backup contains {{ backupContents.accounts.length }} accounts and
-                {{ backupContents.characters.length }} characters.
+              <div class="mt-4 p-4 bg-muted rounded-lg">
+                <div class="text-sm font-medium mb-2">Backup contains:</div>
+                <div class="text-sm text-muted-foreground">
+                  • {{ backupContents.accounts.length }} accounts<br>
+                  • {{ backupContents.characters.length }} characters
+                </div>
               </div>
             </TabsContent>
           </Tabs>
@@ -941,12 +929,20 @@ function executeUploadRestore(type: 'full' | 'selective') {
         <DialogFooter>
           <Button variant="outline" @click="closeRestoreDialog">Cancel</Button>
           <Button
-            v-if="restoreTab === 'selective'"
-            @click="executeRestore('selective')"
-            :disabled="!hasSelection() || isRestoring"
+            v-if="restoreTab === 'character'"
+            @click="executeRestore"
+            :disabled="selectedCharacterPids.length === 0 || isRestoring"
           >
             <RotateCcw class="h-4 w-4 mr-2" />
-            Restore Selected
+            Restore {{ selectedCharacterPids.length }} Character(s)
+          </Button>
+          <Button
+            v-else-if="restoreTab === 'account'"
+            @click="executeRestore"
+            :disabled="selectedAccountNames.length === 0 || isRestoring"
+          >
+            <RotateCcw class="h-4 w-4 mr-2" />
+            Restore {{ selectedAccountNames.length }} Account(s)
           </Button>
           <AlertDialog v-else>
             <AlertDialogTrigger as-child>
@@ -959,7 +955,7 @@ function executeUploadRestore(type: 'full' | 'selective') {
               <AlertDialogHeader>
                 <AlertDialogTitle>Confirm Full Restore</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you absolutely sure? This will overwrite all current account and player files
+                  Are you absolutely sure? This will overwrite all current game data
                   with data from this backup. This action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -967,7 +963,7 @@ function executeUploadRestore(type: 'full' | 'selective') {
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  @click="executeRestore('full')"
+                  @click="executeRestore"
                 >
                   Yes, Restore Everything
                 </AlertDialogAction>
@@ -1002,124 +998,131 @@ function executeUploadRestore(type: 'full' | 'selective') {
         <!-- Contents -->
         <template v-if="uploadedContents">
           <Tabs v-model="restoreTab" class="w-full">
-            <TabsList class="grid w-full grid-cols-2">
-              <TabsTrigger value="selective">Selective Restore</TabsTrigger>
-              <TabsTrigger value="full">Full Restore</TabsTrigger>
+            <TabsList class="grid w-full grid-cols-3">
+              <TabsTrigger value="character">Character</TabsTrigger>
+              <TabsTrigger value="account">Account</TabsTrigger>
+              <TabsTrigger value="full">Full</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="selective" class="mt-4">
-              <div class="grid grid-cols-2 gap-4">
-                <!-- Accounts Column -->
-                <div class="border rounded-lg p-4">
-                  <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2 font-semibold">
-                      <User class="h-4 w-4" />
-                      Accounts ({{ uploadedContents.accounts.length }})
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      @click="selectAllAccounts"
-                      v-if="uploadedContents.accounts.length > 0"
-                    >
-                      {{
-                        selectedAccounts.length === uploadedContents.accounts.length
-                          ? 'Deselect All'
-                          : 'Select All'
-                      }}
-                    </Button>
-                  </div>
-                  <ScrollArea class="h-[200px]">
-                    <div
-                      v-if="uploadedContents.accounts.length === 0"
-                      class="text-sm text-muted-foreground text-center py-4"
-                    >
-                      No accounts in backup
-                    </div>
-                    <div v-else class="space-y-2">
-                      <div
-                        v-for="account in uploadedContents.accounts"
-                        :key="account"
-                        class="flex items-center space-x-2"
-                      >
-                        <Checkbox
-                          :id="`upload-account-${account}`"
-                          :model-value="selectedAccounts.includes(account)"
-                          @update:model-value="() => toggleAccount(account)"
-                        />
-                        <Label :for="`upload-account-${account}`" class="text-sm cursor-pointer">
-                          {{ account }}
-                        </Label>
-                      </div>
-                    </div>
-                  </ScrollArea>
+            <!-- Character Restore Tab (with categories) -->
+            <TabsContent value="character" class="mt-4">
+              <p class="text-sm text-muted-foreground mb-4">
+                Restore specific characters with selectable data categories.
+              </p>
+
+              <div class="space-y-4">
+                <!-- Characters Selection -->
+                <div>
+                  <Label class="text-sm font-semibold mb-2 flex items-center gap-2">
+                    <Users class="h-4 w-4" />
+                    Characters ({{ uploadedContents.characters.length }})
+                  </Label>
+                  <MultiSelect
+                    v-model="selectedCharacterPids"
+                    :options="characterOptions"
+                    placeholder="Search and select characters..."
+                    search-placeholder="Type to search characters..."
+                    empty-message="No characters found."
+                  />
                 </div>
 
-                <!-- Characters Column -->
+                <!-- Categories -->
                 <div class="border rounded-lg p-4">
-                  <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2 font-semibold">
-                      <Users class="h-4 w-4" />
-                      Characters ({{ uploadedContents.characters.length }})
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      @click="selectAllCharacters"
-                      v-if="uploadedContents.characters.length > 0"
-                    >
-                      {{
-                        selectedCharacters.length === uploadedContents.characters.length
-                          ? 'Deselect All'
-                          : 'Select All'
-                      }}
-                    </Button>
+                  <div class="flex items-center gap-2 font-semibold mb-3">
+                    <Settings class="h-4 w-4" />
+                    Restore Categories
                   </div>
-                  <ScrollArea class="h-[200px]">
-                    <div
-                      v-if="uploadedContents.characters.length === 0"
-                      class="text-sm text-muted-foreground text-center py-4"
-                    >
-                      No characters in backup
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="upload-cat-inventory" v-model:checked="restoreCategories.inventory" />
+                      <Label for="upload-cat-inventory" class="text-sm cursor-pointer">
+                        Inventory & Equipment
+                      </Label>
                     </div>
-                    <div v-else class="space-y-2">
-                      <div
-                        v-for="character in uploadedContents.characters"
-                        :key="character"
-                        class="flex items-center space-x-2"
-                      >
-                        <Checkbox
-                          :id="`upload-char-${character}`"
-                          :model-value="selectedCharacters.includes(character)"
-                          @update:model-value="() => toggleCharacter(character)"
-                        />
-                        <Label :for="`upload-char-${character}`" class="text-sm cursor-pointer">
-                          {{ character }}
-                        </Label>
-                      </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="upload-cat-coreData" v-model:checked="restoreCategories.coreData" />
+                      <Label for="upload-cat-coreData" class="text-sm cursor-pointer">
+                        Core Data (level, stats)
+                      </Label>
                     </div>
-                  </ScrollArea>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="upload-cat-skills" v-model:checked="restoreCategories.skills" />
+                      <Label for="upload-cat-skills" class="text-sm cursor-pointer">
+                        Skills & Spells
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="upload-cat-progression" v-model:checked="restoreCategories.progression" />
+                      <Label for="upload-cat-progression" class="text-sm cursor-pointer">
+                        Progression (quests, epics)
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="upload-cat-auction" v-model:checked="restoreCategories.auction" />
+                      <Label for="upload-cat-auction" class="text-sm cursor-pointer">
+                        Auction Pickups
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="upload-cat-guild" v-model:checked="restoreCategories.guild" />
+                      <Label for="upload-cat-guild" class="text-sm cursor-pointer">
+                        Guild Membership
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="upload-cat-pvpHistory" v-model:checked="restoreCategories.pvpHistory" />
+                      <Label for="upload-cat-pvpHistory" class="text-sm cursor-pointer">
+                        PvP History
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="upload-cat-misc" v-model:checked="restoreCategories.misc" />
+                      <Label for="upload-cat-misc" class="text-sm cursor-pointer">
+                        Misc (aliases, mail, pets)
+                      </Label>
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              <div class="mt-4 text-sm text-muted-foreground">
-                Selected: {{ selectedAccounts.length }} account(s), {{ selectedCharacters.length }}
-                character(s)
               </div>
             </TabsContent>
 
+            <!-- Account Restore Tab -->
+            <TabsContent value="account" class="mt-4">
+              <p class="text-sm text-muted-foreground mb-4">
+                Restore entire account(s) and all their characters.
+              </p>
+
+              <div>
+                <Label class="text-sm font-semibold mb-2 flex items-center gap-2">
+                  <User class="h-4 w-4" />
+                  Accounts ({{ uploadedContents.accounts.length }})
+                </Label>
+                <MultiSelect
+                  v-model="selectedAccountNames"
+                  :options="accountOptions"
+                  placeholder="Search and select accounts..."
+                  search-placeholder="Type to search accounts..."
+                  empty-message="No accounts found."
+                />
+              </div>
+            </TabsContent>
+
+            <!-- Full Restore Tab -->
             <TabsContent value="full" class="mt-4">
               <Alert variant="destructive">
                 <AlertTriangle class="h-4 w-4" />
                 <AlertTitle>Warning: Full Restore</AlertTitle>
                 <AlertDescription>
-                  This will restore ALL accounts and player files from this backup, overwriting any
+                  This will restore ALL game data tables from this backup, overwriting any
                   current data. This action is potentially destructive.
                 </AlertDescription>
               </Alert>
-              <div class="mt-4 text-sm text-muted-foreground">
-                This backup contains {{ uploadedContents.accounts.length }} accounts and
-                {{ uploadedContents.characters.length }} characters.
+              <div class="mt-4 p-4 bg-muted rounded-lg">
+                <div class="text-sm font-medium mb-2">Backup contains:</div>
+                <div class="text-sm text-muted-foreground">
+                  • {{ uploadedContents.accounts.length }} accounts<br>
+                  • {{ uploadedContents.characters.length }} characters
+                </div>
               </div>
             </TabsContent>
           </Tabs>
@@ -1128,12 +1131,20 @@ function executeUploadRestore(type: 'full' | 'selective') {
         <DialogFooter>
           <Button variant="outline" @click="closeUploadDialog">Cancel</Button>
           <Button
-            v-if="restoreTab === 'selective'"
-            @click="executeUploadRestore('selective')"
-            :disabled="!hasSelection() || isRestoring"
+            v-if="restoreTab === 'character'"
+            @click="executeUploadRestore"
+            :disabled="selectedCharacterPids.length === 0 || isRestoring"
           >
             <RotateCcw class="h-4 w-4 mr-2" />
-            Restore Selected
+            Restore {{ selectedCharacterPids.length }} Character(s)
+          </Button>
+          <Button
+            v-else-if="restoreTab === 'account'"
+            @click="executeUploadRestore"
+            :disabled="selectedAccountNames.length === 0 || isRestoring"
+          >
+            <RotateCcw class="h-4 w-4 mr-2" />
+            Restore {{ selectedAccountNames.length }} Account(s)
           </Button>
           <AlertDialog v-else>
             <AlertDialogTrigger as-child>
@@ -1146,7 +1157,7 @@ function executeUploadRestore(type: 'full' | 'selective') {
               <AlertDialogHeader>
                 <AlertDialogTitle>Confirm Full Restore</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you absolutely sure? This will overwrite all current account and player files
+                  Are you absolutely sure? This will overwrite all current game data
                   with data from this uploaded backup. This action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -1154,7 +1165,7 @@ function executeUploadRestore(type: 'full' | 'selective') {
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  @click="executeUploadRestore('full')"
+                  @click="executeUploadRestore"
                 >
                   Yes, Restore Everything
                 </AlertDialogAction>

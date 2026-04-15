@@ -31,6 +31,8 @@ import notificationsRoutes from './routes/notifications.js';
 import auctionRoutes from './routes/auction.js';
 import pushRoutes from './routes/push.js';
 import changelogRoutes from './routes/changelog.js';
+import publicStatisticsRoutes from './routes/publicStatistics.js';
+import kofiRoutes from './routes/kofi.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { generateCsrfToken, verifyCsrfToken } from './middleware/csrf.js';
 import {
@@ -53,7 +55,7 @@ import {
   getSessionByWebSocket
 } from './services/terminalService.js';
 import { verifyToken } from './middleware/auth.js';
-import { parseAccountFile } from './services/mudAccountParser.js';
+import { parseAccountFile } from './services/accountService.js';
 import { getUserPermissions } from './services/permissionService.js';
 import {
   deployToCommit,
@@ -71,7 +73,8 @@ import {
 import { getCurrentCommitHash } from './services/gitService.js';
 import { cleanupOrphanImages } from './services/postImageService.js';
 import { getWebSettings } from './services/webSettingsService.js';
-import { startMudAuctionClient, stopMudAuctionClient, setAuctionBroadcaster, setPlayerEventBroadcaster, setWholistBroadcaster } from './services/mudAuctionClient.js';
+import { startMudAuctionClient, stopMudAuctionClient, setAuctionBroadcaster } from './services/mudAuctionClient.js';
+import { startPlayerEventSubscriber, stopPlayerEventSubscriber, setPlayerEventBroadcaster } from './services/playerEventSubscriber.js';
 import { setNotificationBroadcaster, setNewsBroadcaster, notifyPvpBattle } from './services/unifiedNotificationService.js';
 import { updateWebSocketCount } from './services/serverHealthService.js';
 import { isDiscordEnabled, postBattleToDiscord } from './services/discordService.js';
@@ -170,6 +173,9 @@ app.get('/api/site-config', async (_req: Request, res: Response) => {
   }
 });
 
+// ko-fi webhook (outside /api prefix, no csrf)
+app.use('/kofihook', kofiRoutes);
+
 // API routes
 app.use('/api/pvp', pvpRoutes);
 app.use('/api/news', newsRoutes);
@@ -195,6 +201,7 @@ app.use('/api/admin/analytics/web', webAnalyticsRoutes);
 app.use('/api/auction', auctionRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/changelog', changelogRoutes);
+app.use('/api/public/statistics', publicStatisticsRoutes);
 
 // Serve static maps (works in both dev and prod)
 const publicPath = path.join(process.cwd(), 'public');
@@ -469,12 +476,16 @@ export function broadcastPlayerEvent(type: string, data: any) {
   if (!wss) return;
 
   const message = JSON.stringify({ type, data });
+  let sent = 0;
 
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN && (client as any).playerEventsSubscribed) {
       client.send(message);
+      sent++;
     }
   });
+
+  logger.info(`[broadcastPlayerEvent] ${type} sent to ${sent} clients`);
 }
 
 // Broadcast wholist to subscribed clients only
@@ -702,6 +713,9 @@ const gracefulShutdown = async () => {
   // Stop MUD auction client
   stopMudAuctionClient();
 
+  // Stop player event subscriber
+  await stopPlayerEventSubscriber();
+
   // Cleanup log watchers
   cleanupLogWatchers();
 
@@ -775,12 +789,22 @@ async function validateMudDirectory(): Promise<void> {
 
 // helper to verify websocket auth with minimum level requirement
 async function verifyWebSocketAuth(token: string | undefined, minLevel: number): Promise<boolean> {
-  if (!token) return false;
+  if (!token) {
+    logger.warn('[verifyWebSocketAuth] no token provided');
+    return false;
+  }
   const payload = verifyToken(token);
-  if (!payload) return false;
+  if (!payload) {
+    logger.warn('[verifyWebSocketAuth] invalid token');
+    return false;
+  }
   const accountData = await parseAccountFile(payload.accountName);
-  if (!accountData) return false;
+  if (!accountData) {
+    logger.warn(`[verifyWebSocketAuth] no account data for ${payload.accountName}`);
+    return false;
+  }
   const permissions = await getUserPermissions(payload.accountName, accountData.characters);
+  logger.info(`[verifyWebSocketAuth] ${payload.accountName} maxLevel=${permissions.maxLevel} minLevel=${minLevel}`);
   return permissions.maxLevel >= minLevel;
 }
 
@@ -927,8 +951,13 @@ async function startServer() {
 
           // Handle player events subscription (level 57+ only)
           if (data.type === 'SUBSCRIBE_PLAYER_EVENTS') {
-            if (!await verifyWebSocketAuth(data.token, 57)) return;
+            logger.info('[WebSocket] SUBSCRIBE_PLAYER_EVENTS received');
+            if (!await verifyWebSocketAuth(data.token, 57)) {
+              logger.warn('[WebSocket] player events subscription auth failed');
+              return;
+            }
             (ws as any).playerEventsSubscribed = true;
+            logger.info('[WebSocket] client subscribed to player events');
           }
 
           if (data.type === 'UNSUBSCRIBE_PLAYER_EVENTS') {
@@ -1343,10 +1372,13 @@ async function startServer() {
 
     // Initialize MUD auction websocket client
     setAuctionBroadcaster(broadcastAuctionEvent);
-    setPlayerEventBroadcaster(broadcastPlayerEvent);
-    setWholistBroadcaster(broadcastWholist);
     startMudAuctionClient();
     logger.info('MUD auction client started');
+
+    // Initialize player event subscriber (redis pub/sub for login/logout)
+    setPlayerEventBroadcaster(broadcastPlayerEvent);
+    startPlayerEventSubscriber();
+    logger.info('Player event subscriber started');
 
     // Initialize notification broadcaster
     setNotificationBroadcaster(broadcastNotification);

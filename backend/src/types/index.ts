@@ -237,6 +237,7 @@ export interface UserBan {
 }
 
 export interface UserListItem {
+  pid: number;
   account_name: string;
   character_name: string | null;
   race: string | null;          // With ANSI codes

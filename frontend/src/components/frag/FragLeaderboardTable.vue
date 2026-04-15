@@ -27,6 +27,7 @@ withDefaults(defineProps<Props>(), {
 const router = useRouter()
 
 function goToUserProfile(accountName: string) {
+  if (!accountName) return
   router.push(`/user/${encodeURIComponent(accountName)}`)
 }
 
@@ -75,7 +76,7 @@ function getAlignmentColor(racewar: number) {
         <div
           v-for="entry in entries"
           :key="entry.char_name"
-          class="rounded-md border p-3 cursor-pointer hover:bg-accent transition-colors"
+          :class="['rounded-md border p-3 transition-colors', entry.account_name ? 'cursor-pointer hover:bg-accent' : '']"
           @click="goToUserProfile(entry.account_name)"
         >
           <div class="flex items-start justify-between gap-3">
@@ -145,7 +146,7 @@ function getAlignmentColor(racewar: number) {
             <TableRow
               v-for="entry in entries"
               :key="entry.char_name"
-              class="cursor-pointer hover:bg-accent transition-colors"
+              :class="['transition-colors', entry.account_name ? 'cursor-pointer hover:bg-accent' : '']"
               @click="goToUserProfile(entry.account_name)"
             >
               <!-- Rank -->

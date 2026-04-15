@@ -58,7 +58,7 @@ import zoneInfoService from '../services/zoneInfoService.js';
 import procRequestService from '../services/procRequestService.js';
 import zoneCommentService from '../services/zoneCommentService.js';
 import builderNotificationService from '../services/builderNotificationService.js';
-import { searchAccounts } from '../services/mudAccountParser.js';
+import { searchAccounts } from '../services/accountService.js';
 import type { RowDataPacket } from 'mysql2';
 import type {
   Room,

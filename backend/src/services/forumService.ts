@@ -1,7 +1,7 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool as db } from '../db/connection.js';
 import { UserPermissions } from './permissionService.js';
-import { findCharacterGuild } from './mudGuildParser.js';
+import { findCharacterGuild } from './guildService.js';
 import { processForumContent } from '../utils/contentParser.js';
 import { extractImageUrls, linkImagesToPost, linkImagesToThread } from './postImageService.js';
 import logger, { isErrorWithCode } from '../utils/logger.js';
@@ -207,11 +207,11 @@ export async function getCategories(
       `SELECT
         t.id as thread_id,
         t.title as thread_title,
-        pc.name as author_name,
+        pc.char_name as author_name,
         p.created_at
       FROM forum_posts p
       JOIN forum_threads t ON p.thread_id = t.id
-      LEFT JOIN players_core pc ON p.author_character_pid = pc.pid
+      LEFT JOIN frag_leaderboard pc ON p.author_character_pid = pc.pid
       WHERE t.category_id = ? AND t.is_deleted = 0 AND p.is_deleted = 0
       ORDER BY p.created_at DESC
       LIMIT 1`,
@@ -347,12 +347,12 @@ export async function getChildCategories(
           t.category_id,
           t.id as thread_id,
           t.title as thread_title,
-          pc.name as author_name,
+          pc.char_name as author_name,
           p.created_at,
           ROW_NUMBER() OVER (PARTITION BY t.category_id ORDER BY p.created_at DESC) as rn
         FROM forum_posts p
         JOIN forum_threads t ON p.thread_id = t.id
-        LEFT JOIN players_core pc ON p.author_character_pid = pc.pid
+        LEFT JOIN frag_leaderboard pc ON p.author_character_pid = pc.pid
         WHERE t.category_id IN (?) AND t.is_deleted = 0 AND p.is_deleted = 0
       ) ranked
       WHERE rn = 1`,
@@ -535,9 +535,9 @@ export async function getThreadsByCategory(
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT
       t.*,
-      pc.name as author_character_name
+      pc.char_name as author_character_name
     FROM forum_threads t
-    LEFT JOIN players_core pc ON t.author_character_pid = pc.pid
+    LEFT JOIN frag_leaderboard pc ON t.author_character_pid = pc.pid
     WHERE t.category_id = ? AND t.is_deleted = 0
     ORDER BY t.is_pinned DESC, t.last_post_at DESC
     LIMIT ? OFFSET ?`,
@@ -560,11 +560,11 @@ export async function getThreadById(
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT
       t.*,
-      pc.name as author_character_name,
+      pc.char_name as author_character_name,
       up.avatar_url as author_avatar_url,
       (SELECT COUNT(*) FROM forum_polls WHERE thread_id = t.id) > 0 as has_poll
     FROM forum_threads t
-    LEFT JOIN players_core pc ON t.author_character_pid = pc.pid
+    LEFT JOIN frag_leaderboard pc ON t.author_character_pid = pc.pid
     LEFT JOIN user_profiles up ON t.author_account_name = up.account_name
     WHERE t.id = ?`,
     [threadId]
@@ -756,10 +756,10 @@ export async function getPostsByThread(
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT
       p.*,
-      pc.name as author_character_name,
+      pc.char_name as author_character_name,
       up.avatar_url as author_avatar_url
     FROM forum_posts p
-    LEFT JOIN players_core pc ON p.author_character_pid = pc.pid
+    LEFT JOIN frag_leaderboard pc ON p.author_character_pid = pc.pid
     LEFT JOIN user_profiles up ON p.author_account_name = up.account_name
     WHERE p.thread_id = ?
     ORDER BY p.created_at ASC
@@ -825,10 +825,10 @@ export async function getPostById(
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT
       p.*,
-      pc.name as author_character_name,
+      pc.char_name as author_character_name,
       up.avatar_url as author_avatar_url
     FROM forum_posts p
-    LEFT JOIN players_core pc ON p.author_character_pid = pc.pid
+    LEFT JOIN frag_leaderboard pc ON p.author_character_pid = pc.pid
     LEFT JOIN user_profiles up ON p.author_account_name = up.account_name
     WHERE p.id = ?`,
     [postId]
@@ -934,7 +934,7 @@ export async function createPost(
     let characterName: string | null = null;
     if (authorCharacterPid) {
       const [chars] = await connection.query<RowDataPacket[]>(
-        'SELECT name FROM players_core WHERE pid = ?',
+        'SELECT COALESCE(fl.char_name, pd.name) as name FROM player_data pd LEFT JOIN frag_leaderboard fl ON pd.pid = fl.pid WHERE pd.pid = ?',
         [authorCharacterPid]
       );
       if (chars.length > 0) {
@@ -1220,13 +1220,13 @@ export async function searchForum(
         t.category_id,
         c.name as category_name,
         t.author_account_name as author,
-        pc.name as character_name,
+        pc.char_name as character_name,
         t.content,
         t.created_at,
         MATCH(t.title, t.content) AGAINST(? IN NATURAL LANGUAGE MODE) as relevance_score
       FROM forum_threads t
       JOIN forum_categories c ON t.category_id = c.id
-      LEFT JOIN players_core pc ON t.author_character_pid = pc.pid
+      LEFT JOIN frag_leaderboard pc ON t.author_character_pid = pc.pid
       ${whereClause}
         AND t.is_deleted = 0
         AND MATCH(t.title, t.content) AGAINST(? IN NATURAL LANGUAGE MODE)
@@ -1247,14 +1247,14 @@ export async function searchForum(
         t.category_id,
         c.name as category_name,
         p.author_account_name as author,
-        pc.name as character_name,
+        pc.char_name as character_name,
         p.content,
         p.created_at,
         MATCH(p.content) AGAINST(? IN NATURAL LANGUAGE MODE) as relevance_score
       FROM forum_posts p
       JOIN forum_threads t ON p.thread_id = t.id
       JOIN forum_categories c ON t.category_id = c.id
-      LEFT JOIN players_core pc ON p.author_character_pid = pc.pid
+      LEFT JOIN frag_leaderboard pc ON p.author_character_pid = pc.pid
       ${whereClause}
         AND p.is_deleted = 0
         AND t.is_deleted = 0
@@ -2043,7 +2043,7 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
         COALESCE(SUM(FLOOR(COALESCE(fl.total_frags, 0) / 100)), 0) as total_frags,
         COALESCE(SUM(pc.money + pc.balance), 0) as total_wealth
        FROM account_characters ac
-       LEFT JOIN players_core pc ON ac.pid = pc.pid
+       LEFT JOIN frag_leaderboard pc ON ac.pid = pc.pid
        LEFT JOIN frag_leaderboard fl ON ac.pid = fl.pid AND fl.deleted_at IS NULL
        WHERE ac.account_name = ? AND ac.deleted_at IS NULL`,
       [accountName]
@@ -2182,11 +2182,11 @@ export async function getUserPosts(
         t.title as thread_title,
         t.category_id,
         c.name as category_name,
-        pc.name as character_name
+        pc.char_name as character_name
        FROM forum_posts p
        JOIN forum_threads t ON p.thread_id = t.id
        JOIN forum_categories c ON t.category_id = c.id
-       LEFT JOIN players_core pc ON p.author_character_pid = pc.pid
+       LEFT JOIN frag_leaderboard pc ON p.author_character_pid = pc.pid
        WHERE p.author_account_name = ? AND p.is_deleted = 0 AND t.is_deleted = 0
        ORDER BY p.created_at DESC
        LIMIT ? OFFSET ?`,
@@ -2226,10 +2226,10 @@ export async function getUserThreads(
       `SELECT
         t.*,
         c.name as category_name,
-        pc.name as character_name
+        pc.char_name as character_name
        FROM forum_threads t
        JOIN forum_categories c ON t.category_id = c.id
-       LEFT JOIN players_core pc ON t.author_character_pid = pc.pid
+       LEFT JOIN frag_leaderboard pc ON t.author_character_pid = pc.pid
        WHERE t.author_account_name = ? AND t.is_deleted = 0
        ORDER BY t.created_at DESC
        LIMIT ? OFFSET ?`,
@@ -2353,7 +2353,7 @@ export async function createMentions(
     let characterName: string | null = null;
     if (post.author_character_pid) {
       const [chars] = await connection.query<RowDataPacket[]>(
-        'SELECT name FROM players_core WHERE pid = ?',
+        'SELECT COALESCE(fl.char_name, pd.name) as name FROM player_data pd LEFT JOIN frag_leaderboard fl ON pd.pid = fl.pid WHERE pd.pid = ?',
         [post.author_character_pid]
       );
       if (chars.length > 0) {
@@ -2381,8 +2381,8 @@ export async function createMentions(
   }
 }
 
-// Re-export searchAccounts from mudAccountParser for convenience
-export { searchAccounts } from './mudAccountParser.js';
+// Re-export searchAccounts from accountService for convenience
+export { searchAccounts } from './accountService.js';
 
 /**
  * Get character profile by character name
@@ -2394,11 +2394,21 @@ export async function getCharacterProfile(characterName: string): Promise<any | 
     const webSettings = await getWebSettings();
     const respectWebinfo = webSettings.respectWebinfoToggle;
 
-    // Get character data from players_core
+    // webinfo is stored as bit 28 (134217728) in act2 column
+    const PLR2_WEBINFO = 134217728;
+
+    // Get character data from player_data with optional frag_leaderboard for race/class
     const [characters] = await connection.query<RowDataPacket[]>(
-      `SELECT pid, name, race, classname, spec, guild, racewar, level, money, balance, playtime, epics, active, webinfo_toggle
-       FROM players_core
-       WHERE name = ?`,
+      `SELECT pd.pid, pd.name, COALESCE(fl.race, '') as race, COALESCE(fl.class, '') as classname, pd.spec,
+              COALESCE(a.name, '') as guild, pd.racewar, pd.level,
+              pd.copper + pd.silver * 10 + pd.gold * 100 + pd.platinum * 1000 as money,
+              pd.bank_copper + pd.bank_silver * 10 + pd.bank_gold * 100 + pd.bank_platinum * 1000 as balance,
+              pd.played_time as playtime, pd.epics, pd.active,
+              (pd.act2 & ${PLR2_WEBINFO}) != 0 as webinfo_enabled
+       FROM player_data pd
+       LEFT JOIN frag_leaderboard fl ON pd.pid = fl.pid
+       LEFT JOIN associations a ON pd.assoc_id = a.id
+       WHERE pd.name = ?`,
       [characterName]
     );
 
@@ -2407,7 +2417,7 @@ export async function getCharacterProfile(characterName: string): Promise<any | 
     }
 
     const character = characters[0];
-    const webInfoEnabled = character.webinfo_toggle === 1;
+    const webInfoEnabled = Boolean(character.webinfo_enabled);
 
     // If respectWebinfoToggle is enabled AND player's webinfo is disabled, return limited profile
     if (respectWebinfo && !webInfoEnabled) {
@@ -2506,7 +2516,7 @@ export async function getCharacterPosts(characterName: string, page: number = 1,
   try {
     // First get the character's PID
     const [characters] = await connection.query<RowDataPacket[]>(
-      'SELECT pid FROM players_core WHERE name = ?',
+      'SELECT pid FROM player_data WHERE name = ?',
       [characterName]
     );
 
@@ -2568,7 +2578,7 @@ export async function getCharacterPvPEvents(characterName: string, page: number 
   try {
     // First get the character's PID
     const [characters] = await connection.query<RowDataPacket[]>(
-      'SELECT pid FROM players_core WHERE name = ?',
+      'SELECT pid FROM player_data WHERE name = ?',
       [characterName]
     );
 
@@ -2635,11 +2645,12 @@ export async function getGuildProfile(guildNameOrSlug: string): Promise<any | nu
     // Import slug function
     const { slugify } = await import('../utils/stringUtils.js');
 
-    // Get all guilds from players_core (we'll match by slug)
+    // Get all guilds via associations table
     const [allGuildRows] = await connection.query<RowDataPacket[]>(
-      `SELECT DISTINCT guild
-       FROM players_core
-       WHERE guild IS NOT NULL AND guild != ''`
+      `SELECT DISTINCT a.name as guild
+       FROM player_data pd
+       JOIN associations a ON pd.assoc_id = a.id
+       WHERE a.name IS NOT NULL AND a.name != ''`
     );
 
     // Find the guild that matches the slug
@@ -2673,9 +2684,12 @@ export async function getGuildProfile(guildNameOrSlug: string): Promise<any | nu
       return null;
     }
 
-    // Get member count and stats from players_core (use actualGuildName with ANSI codes)
+    // Get member count from player_data via associations table
     const [memberCountRows] = await connection.query<RowDataPacket[]>(
-      'SELECT COUNT(*) as member_count FROM players_core WHERE guild = ?',
+      `SELECT COUNT(*) as member_count
+       FROM player_data pd
+       JOIN associations a ON pd.assoc_id = a.id
+       WHERE a.name = ?`,
       [actualGuildName]
     );
 
@@ -2684,10 +2698,11 @@ export async function getGuildProfile(guildNameOrSlug: string): Promise<any | nu
       `SELECT
          COUNT(DISTINCT p.id) as post_count,
          COUNT(DISTINCT t.id) as thread_count
-       FROM players_core pc
-       LEFT JOIN forum_posts p ON pc.pid = p.author_character_pid AND p.is_deleted = 0
-       LEFT JOIN forum_threads t ON pc.pid = t.author_character_pid AND t.is_deleted = 0
-       WHERE pc.guild = ?`,
+       FROM player_data pd
+       JOIN associations a ON pd.assoc_id = a.id
+       LEFT JOIN forum_posts p ON pd.pid = p.author_character_pid AND p.is_deleted = 0
+       LEFT JOIN forum_threads t ON pd.pid = t.author_character_pid AND t.is_deleted = 0
+       WHERE a.name = ?`,
       [actualGuildName]
     );
 
@@ -2696,18 +2711,21 @@ export async function getGuildProfile(guildNameOrSlug: string): Promise<any | nu
       `SELECT
          COUNT(CASE WHEN pi.pk_type IN ('KILLER', 'KILLER-GROUP') THEN 1 END) as kills,
          COUNT(CASE WHEN pi.pk_type = 'VICTIM' THEN 1 END) as deaths
-       FROM players_core pc
-       JOIN pkill_info pi ON pc.pid = pi.pid
-       WHERE pc.guild = ?`,
+       FROM player_data pd
+       JOIN associations a ON pd.assoc_id = a.id
+       JOIN pkill_info pi ON pd.pid = pi.pid
+       WHERE a.name = ?`,
       [actualGuildName]
     );
 
     // Get active member list with character data
     const [activeMembers] = await connection.query<RowDataPacket[]>(
-      `SELECT pc.pid, pc.name, pc.level, pc.race, pc.classname, pc.active
-       FROM players_core pc
-       WHERE pc.guild = ?
-       ORDER BY pc.level DESC, pc.name ASC`,
+      `SELECT pd.pid, pd.name, pd.level, COALESCE(fl.race, '') as race, COALESCE(fl.class, '') as classname, pd.active
+       FROM player_data pd
+       JOIN associations a ON pd.assoc_id = a.id
+       LEFT JOIN frag_leaderboard fl ON pd.pid = fl.pid
+       WHERE a.name = ?
+       ORDER BY pd.level DESC, pd.name ASC`,
       [actualGuildName]
     );
 
@@ -2785,8 +2803,9 @@ export async function getGuildForumActivity(guildName: string, page: number = 1,
     const [countRows] = await connection.query<RowDataPacket[]>(
       `SELECT COUNT(*) as total
        FROM forum_posts p
-       JOIN players_core pc ON p.author_character_pid = pc.pid
-       WHERE pc.guild = ? AND p.is_deleted = 0`,
+       JOIN player_data pd ON p.author_character_pid = pd.pid
+       JOIN associations a ON pd.assoc_id = a.id
+       WHERE a.name = ? AND p.is_deleted = 0`,
       [guildName]
     );
 
@@ -2794,14 +2813,15 @@ export async function getGuildForumActivity(guildName: string, page: number = 1,
     const [posts] = await connection.query<RowDataPacket[]>(
       `SELECT
          p.id, p.thread_id, p.content, p.created_at,
-         pc.name as character_name,
+         pd.name as character_name,
          t.title as thread_title, t.category_id,
          c.name as category_name
        FROM forum_posts p
-       JOIN players_core pc ON p.author_character_pid = pc.pid
+       JOIN player_data pd ON p.author_character_pid = pd.pid
+       JOIN associations a ON pd.assoc_id = a.id
        JOIN forum_threads t ON p.thread_id = t.id
        JOIN forum_categories c ON t.category_id = c.id
-       WHERE pc.guild = ? AND p.is_deleted = 0
+       WHERE a.name = ? AND p.is_deleted = 0
        ORDER BY p.created_at DESC
        LIMIT ? OFFSET ?`,
       [guildName, limit, offset]
@@ -3076,20 +3096,22 @@ export async function getAccountCharacters(accountName: string): Promise<{
       `SELECT
         ac.pid,
         ac.char_name,
-        pc.race,
-        pc.classname,
-        pc.spec,
-        pc.level,
-        pc.guild,
-        pc.money,
-        pc.balance,
-        pc.playtime,
-        pc.epics,
-        pc.active
+        COALESCE(fl.race, '') as race,
+        COALESCE(fl.class, '') as classname,
+        pd.spec,
+        pd.level,
+        COALESCE(a.name, '') as guild,
+        pd.copper + pd.silver * 10 + pd.gold * 100 + pd.platinum * 1000 as money,
+        pd.bank_copper + pd.bank_silver * 10 + pd.bank_gold * 100 + pd.bank_platinum * 1000 as balance,
+        pd.played_time as playtime,
+        pd.epics,
+        pd.active
       FROM account_characters ac
-      LEFT JOIN players_core pc ON ac.pid = pc.pid
+      LEFT JOIN player_data pd ON ac.pid = pd.pid
+      LEFT JOIN frag_leaderboard fl ON ac.pid = fl.pid
+      LEFT JOIN associations a ON pd.assoc_id = a.id
       WHERE ac.account_name = ? AND ac.deleted_at IS NULL
-      ORDER BY pc.level DESC, ac.char_name ASC`,
+      ORDER BY pd.level DESC, ac.char_name ASC`,
       [accountName]
     );
 

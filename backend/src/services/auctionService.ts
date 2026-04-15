@@ -49,7 +49,7 @@ export async function getAuctions(
   const limit = Math.min(100, Math.max(1, filters.limit || 50));
   const offset = (page - 1) * limit;
 
-  const whereConditions: string[] = ["status = 'OPEN'", "end_time > UNIX_TIMESTAMP()"];
+  const whereConditions: string[] = ["status = 'OPEN'", "UNIX_TIMESTAMP(end_time) > UNIX_TIMESTAMP()"];
   const queryParams: any[] = [];
 
   // Search filter (obj_short and id_keywords)
@@ -115,9 +115,9 @@ export async function getAuctions(
       a.id,
       a.seller_pid,
       a.seller_name,
-      a.start_time,
-      a.end_time,
-      (a.end_time - UNIX_TIMESTAMP()) as secs_remaining,
+      UNIX_TIMESTAMP(a.start_time) as start_time,
+      UNIX_TIMESTAMP(a.end_time) as end_time,
+      (UNIX_TIMESTAMP(a.end_time) - UNIX_TIMESTAMP()) as secs_remaining,
       a.status,
       a.cur_price,
       a.buy_price,
@@ -152,9 +152,9 @@ export async function getAuctionDetail(auctionId: number): Promise<AuctionDetail
       a.id,
       a.seller_pid,
       a.seller_name,
-      a.start_time,
-      a.end_time,
-      (a.end_time - UNIX_TIMESTAMP()) as secs_remaining,
+      UNIX_TIMESTAMP(a.start_time) as start_time,
+      UNIX_TIMESTAMP(a.end_time) as end_time,
+      (UNIX_TIMESTAMP(a.end_time) - UNIX_TIMESTAMP()) as secs_remaining,
       a.status,
       a.cur_price,
       a.buy_price,
@@ -184,7 +184,7 @@ export async function getAuctionDetail(auctionId: number): Promise<AuctionDetail
  */
 export async function getAuctionBidHistory(auctionId: number): Promise<AuctionBidHistory[]> {
   const query = `
-    SELECT id, date, auction_id, bidder_pid, bidder_name, bid_amount
+    SELECT id, UNIX_TIMESTAMP(date) as date, auction_id, bidder_pid, bidder_name, bid_amount
     FROM auction_bid_history
     WHERE auction_id = ?
     ORDER BY date DESC
@@ -230,14 +230,21 @@ export async function getAuctionKeywords(): Promise<string[]> {
 
 /**
  * Get character's money (copper) for bid validation
+ * Reads from player_data to match game's coin storage
  */
 export async function getCharacterMoney(pid: number): Promise<number> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT money FROM players_core WHERE pid = ?`,
+    `SELECT copper, silver, gold, platinum FROM player_data WHERE pid = ?`,
     [pid]
   );
 
-  return rows[0]?.money || 0;
+  if (!rows[0]) return 0;
+
+  // convert to copper (same formula as game)
+  return rows[0].copper +
+    (rows[0].silver * 10) +
+    (rows[0].gold * 100) +
+    (rows[0].platinum * 1000);
 }
 
 /**
@@ -245,7 +252,7 @@ export async function getCharacterMoney(pid: number): Promise<number> {
  */
 export async function getCharacterName(pid: number): Promise<string | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT name FROM players_core WHERE pid = ?`,
+    `SELECT name FROM player_data WHERE pid = ?`,
     [pid]
   );
 
@@ -295,7 +302,7 @@ export async function placeBid(
     // Get current auction state with lock
     const [auctionRows] = await connection.query<RowDataPacket[]>(
       `SELECT id, cur_price, buy_price, winning_bidder_pid, winning_bidder_name,
-              (end_time - UNIX_TIMESTAMP()) as secs_remaining, quantity, status, seller_pid
+              (UNIX_TIMESTAMP(end_time) - UNIX_TIMESTAMP()) as secs_remaining, quantity, status, seller_pid
        FROM auctions WHERE id = ? FOR UPDATE`,
       [auctionId]
     );
@@ -386,7 +393,7 @@ export async function placeBid(
         // New bidder - extend time by 5 minutes
         await connection.query(
           `UPDATE auctions SET cur_price = ?, winning_bidder_pid = ?,
-           winning_bidder_name = ?, end_time = end_time + ? WHERE id = ?`,
+           winning_bidder_name = ?, end_time = DATE_ADD(end_time, INTERVAL ? SECOND) WHERE id = ?`,
           [bidAmountCopper, bidderPid, bidderName, BID_TIME_EXTENSION, auctionId]
         );
       }
@@ -395,7 +402,7 @@ export async function placeBid(
     // Record bid in history
     await connection.query(
       `INSERT INTO auction_bid_history (date, auction_id, bidder_pid, bidder_name, bid_amount)
-       VALUES (UNIX_TIMESTAMP(), ?, ?, ?, ?)`,
+       VALUES (NOW(), ?, ?, ?, ?)`,
       [auctionId, bidderPid, bidderName, bidAmountCopper]
     );
 
@@ -464,14 +471,78 @@ export async function placeBid(
 
 /**
  * Deduct money from character
+ * Updates player_data to match game's coin storage
  */
-export async function deductCharacterMoney(pid: number, amount: number): Promise<boolean> {
-  const [result] = await pool.query<any>(
-    `UPDATE players_core SET money = money - ? WHERE pid = ? AND money >= ?`,
-    [amount, pid, amount]
-  );
+export async function deductCharacterMoney(pid: number, amountCopper: number): Promise<boolean> {
+  const connection = await pool.getConnection();
 
-  return result.affectedRows > 0;
+  try {
+    await connection.beginTransaction();
+
+    // get current coins with lock
+    const [rows] = await connection.query<RowDataPacket[]>(
+      `SELECT copper, silver, gold, platinum FROM player_data WHERE pid = ? FOR UPDATE`,
+      [pid]
+    );
+
+    if (!rows[0]) {
+      await connection.rollback();
+      return false;
+    }
+
+    let { copper, silver, gold, platinum } = rows[0];
+    const totalCopper = copper + (silver * 10) + (gold * 100) + (platinum * 1000);
+
+    if (totalCopper < amountCopper) {
+      await connection.rollback();
+      return false;
+    }
+
+    // deduct starting from lowest denomination
+    let remaining = amountCopper;
+
+    if (remaining > 0 && copper > 0) {
+      const take = Math.min(remaining, copper);
+      copper -= take;
+      remaining -= take;
+    }
+    if (remaining > 0 && silver > 0) {
+      const takeCopper = Math.min(remaining, silver * 10);
+      const takeSilver = Math.ceil(takeCopper / 10);
+      silver -= takeSilver;
+      remaining -= takeSilver * 10;
+    }
+    if (remaining > 0 && gold > 0) {
+      const takeCopper = Math.min(remaining, gold * 100);
+      const takeGold = Math.ceil(takeCopper / 100);
+      gold -= takeGold;
+      remaining -= takeGold * 100;
+    }
+    if (remaining > 0 && platinum > 0) {
+      const takeCopper = Math.min(remaining, platinum * 1000);
+      const takePlat = Math.ceil(takeCopper / 1000);
+      platinum -= takePlat;
+      remaining -= takePlat * 1000;
+    }
+
+    // if we over-deducted, add change back as copper
+    if (remaining < 0) {
+      copper -= remaining; // remaining is negative, so this adds
+    }
+
+    await connection.query(
+      `UPDATE player_data SET copper = ?, silver = ?, gold = ?, platinum = ? WHERE pid = ?`,
+      [copper, silver, gold, platinum, pid]
+    );
+
+    await connection.commit();
+    return true;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 /**
@@ -550,7 +621,7 @@ export async function getAuctionHistory(
   const offset = (page - 1) * limit;
 
   // Only show closed auctions from last 30 days
-  const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60);
+  const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
 
   const whereConditions: string[] = [
     "status = 'CLOSED'",
@@ -599,7 +670,7 @@ export async function getAuctionHistory(
       a.winning_bidder_name as buyer_name,
       a.obj_short,
       a.cur_price as sale_price,
-      a.end_time as sold_at,
+      UNIX_TIMESTAMP(a.end_time) as sold_at,
       (SELECT COUNT(*) FROM auction_bid_history WHERE auction_id = a.id) as bid_count
     FROM auctions a
     ${whereClause}
@@ -635,9 +706,9 @@ export async function getAuctionStats(): Promise<{
     SELECT
       COUNT(*) as total_open,
       COALESCE(SUM(cur_price), 0) as total_value,
-      SUM(CASE WHEN (end_time - UNIX_TIMESTAMP()) < 3600 THEN 1 ELSE 0 END) as ending_soon
+      SUM(CASE WHEN (UNIX_TIMESTAMP(end_time) - UNIX_TIMESTAMP()) < 3600 THEN 1 ELSE 0 END) as ending_soon
     FROM auctions
-    WHERE status = 'OPEN' AND end_time > UNIX_TIMESTAMP()
+    WHERE status = 'OPEN' AND end_time > NOW()
   `);
 
   return {

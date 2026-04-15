@@ -40,6 +40,21 @@ const wholistCallbacks = ref<Array<(data: any) => void>>([]);
 const playerLoginCallbacks = ref<Array<(data: any) => void>>([]);
 const playerLogoutCallbacks = ref<Array<(data: any) => void>>([]);
 
+// fetch auth token from api (for websocket subscriptions that require auth)
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const response = await fetch(`${apiUrl}/api/auth/terminal-token`, {
+      credentials: 'include',
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.token || null;
+  } catch {
+    return null;
+  }
+}
+
 export function useWebSocket() {
 
   const connect = () => {
@@ -529,8 +544,8 @@ export function useWebSocket() {
     }
   };
 
-  const subscribePlayerEvents = () => {
-    const token = localStorage.getItem('authToken');
+  const subscribePlayerEvents = async () => {
+    const token = await getAuthToken();
     sendMessage({ type: 'SUBSCRIBE_PLAYER_EVENTS', token });
   };
 
@@ -538,8 +553,8 @@ export function useWebSocket() {
     sendMessage({ type: 'UNSUBSCRIBE_PLAYER_EVENTS' });
   };
 
-  const subscribeWholist = () => {
-    const token = localStorage.getItem('authToken');
+  const subscribeWholist = async () => {
+    const token = await getAuthToken();
     sendMessage({ type: 'SUBSCRIBE_WHOLIST', token });
   };
 
