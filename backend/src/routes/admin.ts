@@ -49,6 +49,7 @@ import {
 import { getServerHealth } from '../services/serverMonitor.js';
 import { getPeakPlayerCount } from '../services/statisticsParser.js';
 import { getDmsProcessStats } from '../services/processMonitor.js';
+import { getMudState } from '../services/mudControlService.js';
 import {
   listLogs,
   readLogPaginated,
@@ -2026,10 +2027,17 @@ router.get('/mud/wipe/status',
         cooldownEndsAt = cooldownEnd.toISOString();
       }
 
+      // use getMudState() - detects actual process state, not stale cache
+      const mud = await getMudState();
+      const mudState = mud.state;
+      const mudRunning = mudState !== 'stopped';
+
       return res.json({
         success: true,
         isOnCooldown,
         cooldownEndsAt,
+        mudRunning,
+        mudState,
         lastWipe: lastWipe ? {
           executedAt: lastWipe.executed_at,
           executedBy: lastWipe.executed_by,
@@ -2151,9 +2159,9 @@ router.get('/mud/wipe/history',
 
 /**
  * POST /api/admin/mud/wipe/execute
- * Execute player wipe with optional exclusions
- * Requires: Overlord (Level 61+)
- * Body: { reason: string, excludedPids: number[], verificationCode: string }
+ * execute player wipe with optional exclusions
+ * requires: Overlord
+ * body: { reason: string, excludedPids: number[], confirmation: string }
  */
 router.post('/mud/wipe/execute',
   requireAuth,
@@ -2161,7 +2169,8 @@ router.post('/mud/wipe/execute',
   [
     body('reason').isString().isLength({ min: 10 }).withMessage('Reason must be at least 10 characters'),
     body('excludedPids').optional().isArray(),
-    body('verificationCode').equals('1723699').withMessage('Invalid verification code'),
+    body('excludedPids.*').optional().isInt({ min: 1 }).withMessage('excludedPids must be positive integers'),
+    body('confirmation').equals('WIPE PLAYERS').withMessage('Confirmation text must be "WIPE PLAYERS"'),
   ],
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
@@ -2169,185 +2178,174 @@ router.post('/mud/wipe/execute',
       return res.status(400).json({ error: errors.array()[0].msg });
     }
 
+    // mud must be stopped - connected chars would re-save after wipe
+    const mud = await getMudState();
+    if (mud.state !== 'stopped') {
+      return res.status(409).json({
+        error: 'mud_running',
+        message: `MUD must be stopped before wipe (current state: ${mud.state})`,
+      });
+    }
+
+    // 7-day cooldown enforced server-side (not just in status UI)
+    const [lastOkRows] = await db.query<any[]>(
+      `SELECT executed_at FROM wipe_history WHERE success = 1 ORDER BY executed_at DESC LIMIT 1`
+    );
+    if (lastOkRows[0]) {
+      const end = new Date(lastOkRows[0].executed_at).getTime() + 7 * 24 * 60 * 60 * 1000;
+      if (Date.now() < end) {
+        return res.status(429).json({
+          error: 'cooldown_active',
+          message: `Wipe cooldown in effect until ${new Date(end).toISOString()}`,
+        });
+      }
+    }
+
     const { reason, excludedPids = [] } = req.body;
     const startTime = Date.now();
     let connection;
 
     try {
-      // Get connection for transaction
       connection = await db.getConnection();
       await connection.beginTransaction();
 
-      // Get excluded player names for logging
-      let excludedPlayers: any[] = [];
-      if (excludedPids.length > 0) {
-        const [excludedRows] = await connection.query<any[]>(
-          `SELECT pid, name FROM player_data WHERE pid IN (?)`,
-          [excludedPids]
-        );
-        excludedPlayers = excludedRows;
+      const safeExcluded = (excludedPids as any[])
+        .map(Number)
+        .filter((n) => Number.isInteger(n) && n > 0);
+      const excludedClause = safeExcluded.length > 0
+        ? `WHERE pid NOT IN (${safeExcluded.join(',')})`
+        : '';
+
+      const [targetRows] = await connection.query<any[]>(
+        `SELECT pid, name FROM player_data ${excludedClause}`
+      );
+      const wipedPids: number[] = targetRows.map((r: any) => Number(r.pid));
+      const wipedNames: string[] = targetRows.map((r: any) => r.name);
+
+      if (wipedPids.length === 0) {
+        await connection.rollback();
+        return res.status(400).json({
+          error: 'no_targets',
+          message: 'No players would be wiped with the current exclusion set',
+        });
       }
 
-      // Build WHERE clause for exclusions
-      const whereClause = excludedPids.length > 0
-        ? `WHERE pid NOT IN (${excludedPids.join(',')})`
-        : '';
+      const pidList = wipedPids.join(',');
+      const wipedPidStrings = wipedPids.map((n) => `'${n}'`).join(',');
+
+      let excludedPlayers: { pid: number; name: string }[] = [];
+      if (safeExcluded.length > 0) {
+        const [excludedRows] = await connection.query<any[]>(
+          `SELECT pid, name FROM player_data WHERE pid IN (${safeExcluded.join(',')})`
+        );
+        excludedPlayers = excludedRows.map((r: any) => ({ pid: Number(r.pid), name: r.name }));
+      }
 
       let totalRowsAffected = 0;
       const tablesAffected: string[] = [];
 
-      // 1. DELETE player equipment
-      const [equipResult] = await connection.query<any>(
-        `DELETE FROM player_equipment ${whereClause}`
-      );
-      totalRowsAffected += equipResult.affectedRows;
-      if (equipResult.affectedRows > 0) tablesAffected.push('player_equipment');
+      const runDelete = async (table: string, sql: string, params?: any[]) => {
+        const [result] = await connection!.query(sql, params) as any;
+        const n = result.affectedRows ?? 0;
+        totalRowsAffected += n;
+        if (n > 0) tablesAffected.push(table);
+      };
 
-      // 2. DELETE player inventory
-      const [invResult] = await connection.query<any>(
-        `DELETE FROM player_inventory ${whereClause}`
+      // personal lockers - guild lockers (owner_assoc_id > 0) untouched
+      await runDelete(
+        'locker_items',
+        `DELETE FROM locker_items WHERE locker_id IN (
+           SELECT id FROM lockers WHERE owner_pid IN (${pidList}) AND owner_assoc_id = 0
+         )`
       );
-      totalRowsAffected += invResult.affectedRows;
-      if (invResult.affectedRows > 0) tablesAffected.push('player_inventory');
-
-      // 3. DELETE player aliases
-      const [aliasResult] = await connection.query<any>(
-        `DELETE FROM player_aliases ${whereClause}`
+      await runDelete(
+        'lockers',
+        `DELETE FROM lockers WHERE owner_pid IN (${pidList}) AND owner_assoc_id = 0`
       );
-      totalRowsAffected += aliasResult.affectedRows;
-      if (aliasResult.affectedRows > 0) tablesAffected.push('player_aliases');
 
-      // 4. DELETE player quests
-      const [questResult] = await connection.query<any>(
-        `DELETE FROM player_quests ${whereClause}`
-      );
-      totalRowsAffected += questResult.affectedRows;
-      if (questResult.affectedRows > 0) tablesAffected.push('player_quests');
+      if (wipedNames.length > 0) {
+        await runDelete('corpses', `DELETE FROM corpses WHERE player_name IN (?)`, [wipedNames]);
+      }
 
-      // 5. DELETE player skills
-      const [skillResult] = await connection.query<any>(
-        `DELETE FROM player_skills ${whereClause}`
-      );
-      totalRowsAffected += skillResult.affectedRows;
-      if (skillResult.affectedRows > 0) tablesAffected.push('player_skills');
+      const pidTables: Array<[string, string]> = [
+        ['pkill_info',               `DELETE FROM pkill_info               WHERE pid IN (${pidList})`],
+        ['player_recipes',           `DELETE FROM player_recipes           WHERE pid IN (${pidList})`],
+        ['player_shapechanges',      `DELETE FROM player_shapechanges      WHERE pid IN (${pidList})`],
+        ['account_characters',       `DELETE FROM account_characters       WHERE pid IN (${pidList})`],
+        ['frag_leaderboard',         `DELETE FROM frag_leaderboard         WHERE pid IN (${pidList})`],
+        ['artifact_bind',            `DELETE FROM artifact_bind            WHERE owner_pid IN (${pidList})`],
+        ['auction_item_pickups',     `DELETE FROM auction_item_pickups     WHERE pid IN (${pidList})`],
+        ['auction_money_pickups',    `DELETE FROM auction_money_pickups    WHERE pid IN (${pidList})`],
+        ['boons_progress',           `DELETE FROM boons_progress           WHERE pid IN (${pidList})`],
+        ['boons_shop',               `DELETE FROM boons_shop               WHERE pid IN (${pidList})`],
+        ['log_entries',              `DELETE FROM log_entries              WHERE pid IN (${pidList})`],
+        ['ctf_data',                 `DELETE FROM ctf_data                 WHERE pid IN (${pidList})`],
+        ['epic_bonus',               `DELETE FROM epic_bonus               WHERE pid IN (${pidList})`],
+        ['epic_gain',                `DELETE FROM epic_gain                WHERE pid IN (${pidList})`],
+        ['guild_members',            `DELETE FROM guild_members            WHERE player_pid IN (${pidList})`],
+        ['ip_info',                  `DELETE FROM ip_info                  WHERE pid IN (${pidList})`],
+        ['offline_messages',         `DELETE FROM offline_messages         WHERE pid IN (${pidList})`],
+        ['progress',                 `DELETE FROM progress                 WHERE pid IN (${pidList})`],
+        ['zone_trophy',              `DELETE FROM zone_trophy              WHERE pid IN (${pidList})`],
+        // world_quest_accomplished.pid is varchar(45) - quote the pid list
+        ['world_quest_accomplished', `DELETE FROM world_quest_accomplished WHERE pid IN (${wipedPidStrings})`],
+      ];
 
-      // 6. DELETE player spells
-      const [spellResult] = await connection.query<any>(
-        `DELETE FROM player_spells ${whereClause}`
-      );
-      totalRowsAffected += spellResult.affectedRows;
-      if (spellResult.affectedRows > 0) tablesAffected.push('player_spells');
+      for (const [table, sql] of pidTables) {
+        await runDelete(table, sql);
+      }
 
-      // 7. DELETE player affects
-      const [affectResult] = await connection.query<any>(
-        `DELETE FROM player_affects ${whereClause}`
-      );
-      totalRowsAffected += affectResult.affectedRows;
-      if (affectResult.affectedRows > 0) tablesAffected.push('player_affects');
+      // boons is season-scoped global config (all rows pid=0, admin-authored).
+      // with the season ending, these go with it - admins can reauthor.
+      await runDelete('boons', `DELETE FROM boons`);
 
-      // 8. DELETE player mail
-      const [mailResult] = await connection.query<any>(
-        `DELETE FROM player_mail ${whereClause}`
-      );
-      totalRowsAffected += mailResult.affectedRows;
-      if (mailResult.affectedRows > 0) tablesAffected.push('player_mail');
+      // players_core is myisam - not part of the txn, best-effort
+      try {
+        await runDelete('players_core', `DELETE FROM players_core WHERE pid IN (${pidList})`);
+      } catch (pcErr) {
+        logger.warn('players_core wipe failed (non-fatal):', pcErr);
+      }
 
-      // 9. DELETE player banks
-      const [bankResult] = await connection.query<any>(
-        `DELETE FROM player_banks ${whereClause}`
-      );
-      totalRowsAffected += bankResult.affectedRows;
-      if (bankResult.affectedRows > 0) tablesAffected.push('player_banks');
+      // pre-count cascaded children for accurate audit
+      // (affectedRows on the parent DELETE does not include cascaded rows)
+      const cascadedTables = [
+        'player_affects', 'player_forged_items', 'player_granted_cmds',
+        'player_intros', 'player_items', 'player_item_affects', 'player_item_extra_descr',
+        'player_languages', 'player_pets', 'player_pet_items',
+        'player_pet_item_affects', 'player_pet_item_extra_descr',
+        'player_skills', 'player_spellbooks', 'player_timers',
+        'player_undead_slots', 'player_witnesses',
+      ];
+      for (const t of cascadedTables) {
+        let countSql: string;
+        if (t === 'player_item_affects' || t === 'player_item_extra_descr') {
+          countSql = `SELECT COUNT(*) AS n FROM ${t} WHERE item_id IN (SELECT id FROM player_items WHERE pid IN (${pidList}))`;
+        } else if (t === 'player_pet_items') {
+          countSql = `SELECT COUNT(*) AS n FROM ${t} WHERE pet_id IN (SELECT id FROM player_pets WHERE owner_pid IN (${pidList}))`;
+        } else if (t === 'player_pet_item_affects' || t === 'player_pet_item_extra_descr') {
+          countSql = `SELECT COUNT(*) AS n FROM ${t} WHERE item_id IN (SELECT id FROM player_pet_items WHERE pet_id IN (SELECT id FROM player_pets WHERE owner_pid IN (${pidList})))`;
+        } else if (t === 'player_pets') {
+          countSql = `SELECT COUNT(*) AS n FROM ${t} WHERE owner_pid IN (${pidList})`;
+        } else {
+          countSql = `SELECT COUNT(*) AS n FROM ${t} WHERE pid IN (${pidList})`;
+        }
+        const [cntRows] = await connection.query<any[]>(countSql);
+        const n = Number(cntRows[0]?.n ?? 0);
+        if (n > 0) {
+          totalRowsAffected += n;
+          tablesAffected.push(t);
+        }
+      }
 
-      // 10. DELETE player notes
-      const [noteResult] = await connection.query<any>(
-        `DELETE FROM player_notes ${whereClause}`
-      );
-      totalRowsAffected += noteResult.affectedRows;
-      if (noteResult.affectedRows > 0) tablesAffected.push('player_notes');
+      // the actual cascade trigger
+      await runDelete('player_data', `DELETE FROM player_data WHERE pid IN (${pidList})`);
 
-      // 11. DELETE player titles
-      const [titleResult] = await connection.query<any>(
-        `DELETE FROM player_titles ${whereClause}`
-      );
-      totalRowsAffected += titleResult.affectedRows;
-      if (titleResult.affectedRows > 0) tablesAffected.push('player_titles');
-
-      // 12. DELETE player ignore lists
-      const [ignoreResult] = await connection.query<any>(
-        `DELETE FROM player_ignore ${whereClause}`
-      );
-      totalRowsAffected += ignoreResult.affectedRows;
-      if (ignoreResult.affectedRows > 0) tablesAffected.push('player_ignore');
-
-      // 13. DELETE player achievements
-      const [achieveResult] = await connection.query<any>(
-        `DELETE FROM player_achievements ${whereClause}`
-      );
-      totalRowsAffected += achieveResult.affectedRows;
-      if (achieveResult.affectedRows > 0) tablesAffected.push('player_achievements');
-
-      // 14. DELETE player pets
-      const [petResult] = await connection.query<any>(
-        `DELETE FROM player_pets ${whereClause}`
-      );
-      totalRowsAffected += petResult.affectedRows;
-      if (petResult.affectedRows > 0) tablesAffected.push('player_pets');
-
-      // 15. DELETE player cooldowns
-      const [cooldownResult] = await connection.query<any>(
-        `DELETE FROM player_cooldowns ${whereClause}`
-      );
-      totalRowsAffected += cooldownResult.affectedRows;
-      if (cooldownResult.affectedRows > 0) tablesAffected.push('player_cooldowns');
-
-      // 16. UPDATE player_data - set active=0 (soft delete)
-      const [coreResult] = await connection.query<any>(
-        `UPDATE player_data SET active = 0 ${whereClause}`
-      );
-      totalRowsAffected += coreResult.affectedRows;
-      if (coreResult.affectedRows > 0) tablesAffected.push('player_data');
-
-      // 17. DELETE pkill_info (PvP history)
-      const [pkillInfoResult] = await connection.query<any>(
-        `DELETE FROM pkill_info ${whereClause}`
-      );
-      totalRowsAffected += pkillInfoResult.affectedRows;
-      if (pkillInfoResult.affectedRows > 0) tablesAffected.push('pkill_info');
-
-      // 18. DELETE player_factions
-      const [factionResult] = await connection.query<any>(
-        `DELETE FROM player_factions ${whereClause}`
-      );
-      totalRowsAffected += factionResult.affectedRows;
-      if (factionResult.affectedRows > 0) tablesAffected.push('player_factions');
-
-      // 19. DELETE player_reputations
-      const [repResult] = await connection.query<any>(
-        `DELETE FROM player_reputations ${whereClause}`
-      );
-      totalRowsAffected += repResult.affectedRows;
-      if (repResult.affectedRows > 0) tablesAffected.push('player_reputations');
-
-      // 20. DELETE player_currencies
-      const [currResult] = await connection.query<any>(
-        `DELETE FROM player_currencies ${whereClause}`
-      );
-      totalRowsAffected += currResult.affectedRows;
-      if (currResult.affectedRows > 0) tablesAffected.push('player_currencies');
-
-      // Calculate duration
       const durationSeconds = Math.floor((Date.now() - startTime) / 1000);
-
-      // Log to wipe_history
-      const excludedPlayersJson = JSON.stringify(excludedPlayers.map(p => ({
-        pid: p.pid,
-        name: p.name
-      })));
+      const excludedPlayersJson = JSON.stringify(excludedPlayers);
 
       await connection.query(
         `INSERT INTO wipe_history
-         (executed_by, reason, excluded_players, tables_affected, rows_affected, duration_seconds, success, ip_address)
+           (executed_by, reason, excluded_players, tables_affected, rows_affected, duration_seconds, success, ip_address)
          VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
         [
           req.user!.accountName,
@@ -2356,47 +2354,39 @@ router.post('/mud/wipe/execute',
           tablesAffected.length,
           totalRowsAffected,
           durationSeconds,
-          req.ip
+          req.ip,
         ]
       );
 
-      // Log to admin action log
       await connection.query(
         `INSERT INTO admin_action_log
-         (account_name, action_type, target, old_value, new_value, notes, ip_address)
+           (account_name, action_type, target, old_value, new_value, notes, ip_address)
          VALUES (?, 'player_wipe', 'all_players', ?, ?, ?, ?)`,
         [
           req.user!.accountName,
           `${totalRowsAffected} rows`,
           `${tablesAffected.length} tables`,
           reason,
-          req.ip
+          req.ip,
         ]
       );
 
-      // Commit transaction
       await connection.commit();
 
       return res.json({
         success: true,
-        message: `Player wipe completed successfully. ${totalRowsAffected} rows affected across ${tablesAffected.length} tables.`,
+        message: `Player wipe completed. ${totalRowsAffected} rows across ${tablesAffected.length} tables.`,
         tablesAffected: tablesAffected.length,
         rowsAffected: totalRowsAffected,
         durationSeconds,
-        excludedCount: excludedPlayers.length
+        excludedCount: excludedPlayers.length,
       });
-
     } catch (error) {
-      // Rollback on error
-      if (connection) {
-        await connection.rollback();
-      }
+      if (connection) await connection.rollback();
 
-      // Log failed wipe attempt
       try {
         await db.query(
-          `INSERT INTO wipe_history
-           (executed_by, reason, success, error_message, ip_address)
+          `INSERT INTO wipe_history (executed_by, reason, success, error_message, ip_address)
            VALUES (?, ?, 0, ?, ?)`,
           [req.user!.accountName, reason, getErrorMessage(error), req.ip]
         );
@@ -2407,9 +2397,7 @@ router.post('/mud/wipe/execute',
       logger.error('Error executing player wipe:', error);
       return res.status(500).json({ error: getErrorMessage(error) || 'Failed to execute player wipe' });
     } finally {
-      if (connection) {
-        connection.release();
-      }
+      if (connection) connection.release();
     }
   }
 );

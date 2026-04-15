@@ -208,7 +208,7 @@
               This action cannot be undone!
             </p>
             <Button
-              @click="showWipeDialog = true"
+              @click="handleExecuteClick"
               :disabled="wipeStatus.isOnCooldown"
               variant="destructive"
             >
@@ -350,12 +350,12 @@
           <div>
             <p class="text-sm text-blue-300 font-medium">About Player Wipe</p>
             <ul class="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
-              <li>Wipes ALL player data from 20+ database tables</li>
-              <li>Protected players will keep all their data and progress</li>
-              <li>7-day cooldown between wipes for safety</li>
-              <li>All wipes are logged to the audit trail</li>
-              <li>Requires verification code and 10-second countdown</li>
-              <li>Transaction-based - rolls back on any error</li>
+              <li>Hard-deletes character data — accounts are preserved, players can re-roll</li>
+              <li>Protected players keep everything</li>
+              <li>Refuses to run while the MUD is up</li>
+              <li>7-day cooldown between wipes</li>
+              <li>Fully logged to the audit trail</li>
+              <li>Transaction-based — rolls back on any error (except players_core, a MyISAM cache)</li>
             </ul>
           </div>
         </div>
@@ -371,18 +371,44 @@
       @confirm="handleConfirmWipe"
       @cancel="handleCancelWipe"
     />
+
+    <!-- MUD Running Prompt -->
+    <Dialog :open="showShutdownPrompt" @update:open="showShutdownPrompt = $event">
+      <DialogContent class="bg-gray-800 border border-yellow-500">
+        <DialogHeader>
+          <DialogTitle class="text-yellow-300 flex items-center gap-2">
+            <AlertTriangle class="w-5 h-5" /> MUD is running
+          </DialogTitle>
+          <DialogDescription>
+            The player wipe cannot run while the MUD is up — connected characters would re-save
+            after the wipe. Current state:
+            <span class="font-mono">{{ wipeStatus?.mudState }}</span>.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter class="gap-2">
+          <Button variant="outline" :disabled="isShuttingDown" @click="showShutdownPrompt = false">
+            Cancel
+          </Button>
+          <Button variant="destructive" :disabled="isShuttingDown" @click="handleShutdownMud">
+            <Loader2 v-if="isShuttingDown" class="w-4 h-4 mr-2 animate-spin" />
+            {{ isShuttingDown ? 'Shutting down...' : 'Shutdown MUD' }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { RefreshCw, AlertTriangle, Clock, History, Users, Shield, Search, Info, CheckCircle, XCircle } from 'lucide-vue-next';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { RefreshCw, AlertTriangle, Clock, History, Users, Shield, Search, Info, CheckCircle, XCircle, Loader2 } from 'lucide-vue-next';
 import { apiClient as api } from '@/services/api';
 import { toast } from 'vue-sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import WipeConfirmationDialog from '@/components/admin/WipeConfirmationDialog.vue';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { formatWealth } from '@/utils/formatWealth';
 
 interface Player {
@@ -403,6 +429,8 @@ interface Player {
 interface WipeStatus {
   isOnCooldown: boolean;
   cooldownEndsAt: string | null;
+  mudRunning: boolean;
+  mudState: string;
   lastWipe: {
     executedAt: string;
     executedBy: string;
@@ -441,6 +469,13 @@ const isLoadingHistory = ref(false);
 const guildWipeReason = ref('');
 const guildWipeConfirm = ref('');
 const isGuildWiping = ref(false);
+const showShutdownPrompt = ref(false);
+const isShuttingDown = ref(false);
+const shutdownAborted = ref(false);
+
+onBeforeUnmount(() => {
+  shutdownAborted.value = true;
+});
 
 const handleGuildWipe = async () => {
   isGuildWiping.value = true;
@@ -543,6 +578,8 @@ const loadData = async () => {
     wipeStatus.value = {
       isOnCooldown: statusResponse.data.isOnCooldown,
       cooldownEndsAt: statusResponse.data.cooldownEndsAt,
+      mudRunning: Boolean((statusResponse.data as any).mudRunning),
+      mudState: (statusResponse.data as any).mudState ?? 'unknown',
       lastWipe: statusResponse.data.lastWipe
     };
 
@@ -574,14 +611,60 @@ const loadWipeHistory = async () => {
   }
 };
 
-const handleConfirmWipe = async (reason: string, verificationCode: string) => {
+const handleExecuteClick = () => {
+  if (wipeStatus.value?.mudRunning) {
+    showShutdownPrompt.value = true;
+    return;
+  }
+  showWipeDialog.value = true;
+};
+
+const handleShutdownMud = async () => {
+  isShuttingDown.value = true;
+  shutdownAborted.value = false;
+
+  try {
+    await api.post('/api/mud/stop', { reason: 'pre-wipe shutdown' });
+    toast.success('Shutdown requested', { description: 'Waiting for MUD to stop...' });
+
+    const refreshMudState = async () => {
+      const r = await api.get<{ mudRunning: boolean; mudState: string }>('/api/admin/mud/wipe/status');
+      if (wipeStatus.value) {
+        wipeStatus.value.mudRunning = Boolean(r.data.mudRunning);
+        wipeStatus.value.mudState = r.data.mudState ?? 'unknown';
+      }
+    };
+
+    for (let i = 0; i < 15; i++) {
+      if (shutdownAborted.value) return;
+      await new Promise((r) => setTimeout(r, 2000));
+      if (shutdownAborted.value) return;
+      await refreshMudState();
+      if (!wipeStatus.value?.mudRunning) break;
+    }
+
+    if (wipeStatus.value?.mudRunning) {
+      toast.error('MUD did not stop in time', { description: 'Check MUD control, then retry' });
+      return;
+    }
+
+    showShutdownPrompt.value = false;
+    showWipeDialog.value = true;
+  } catch (err: any) {
+    toast.error('Shutdown failed', { description: err.response?.data?.error ?? String(err) });
+  } finally {
+    isShuttingDown.value = false;
+  }
+};
+
+const handleConfirmWipe = async (reason: string) => {
   isSaving.value = true;
 
   try {
     const response = await api.post('/api/admin/mud/wipe/execute', {
       reason,
       excludedPids: excludedPlayerPids.value,
-      verificationCode
+      confirmation: 'WIPE PLAYERS'
     });
 
     toast.success('Player wipe completed successfully!', {

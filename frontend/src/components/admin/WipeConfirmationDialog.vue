@@ -19,10 +19,9 @@
             <div class="space-y-2">
               <p class="text-red-300 font-semibold">You are about to wipe ALL player data!</p>
               <ul class="text-sm text-red-200 space-y-1 list-disc list-inside">
-                <li>20+ database tables will be affected</li>
-                <li>All player equipment, inventory, quests, skills, spells will be deleted</li>
-                <li>All characters will be marked as inactive</li>
-                <li>This operation is logged and tracked</li>
+                <li>All character data, items, lockers, pets, skills, and mail will be hard-deleted</li>
+                <li>Accounts are NOT touched — players can log in and re-roll</li>
+                <li>This operation is logged and irreversible</li>
                 <li v-if="excludedCount > 0" class="text-yellow-300 font-semibold">
                   {{ excludedCount }} player(s) will be EXCLUDED from this wipe
                 </li>
@@ -66,31 +65,17 @@
           <p v-if="reasonError" class="text-sm text-red-400">{{ reasonError }}</p>
         </div>
 
-        <!-- Verification Code Input -->
+        <!-- Typed Confirmation -->
         <div class="space-y-2">
           <label class="text-sm font-medium text-gray-300">
-            Type <span class="font-mono text-red-400">WIPE</span> to confirm <span class="text-red-400">*</span>
+            Type <span class="font-mono text-red-400">WIPE PLAYERS</span> to confirm <span class="text-red-400">*</span>
           </label>
           <Input
             v-model="confirmText"
-            placeholder="Type WIPE here"
+            placeholder="Type WIPE PLAYERS here"
             :disabled="saving"
             class="bg-gray-900 border-gray-700 text-white placeholder-gray-500 font-mono text-lg"
           />
-        </div>
-
-        <!-- Verification Code -->
-        <div class="space-y-2">
-          <label class="text-sm font-medium text-gray-300">
-            Enter Verification Code <span class="text-red-400">*</span>
-          </label>
-          <Input
-            v-model="verificationCode"
-            placeholder="Enter code: 1723699"
-            :disabled="saving"
-            class="bg-gray-900 border-gray-700 text-white placeholder-gray-500 font-mono text-lg"
-          />
-          <p class="text-xs text-gray-500">Code: 1723699</p>
         </div>
 
         <!-- Countdown Timer (after all fields filled) -->
@@ -134,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import {
   Dialog,
   DialogContent,
@@ -172,74 +157,69 @@ interface Props {
 const props = defineProps<Props>();
 const emit = defineEmits<{
   'update:open': [value: boolean];
-  'confirm': [reason: string, verificationCode: string];
+  'confirm': [reason: string];
   'cancel': [];
 }>();
 
 const reason = ref('');
 const confirmText = ref('');
-const verificationCode = ref('');
-const countdown = ref(10); // 10 second countdown
+const countdown = ref(10);
 const reasonError = ref('');
 
 const excludedCount = computed(() => props.excludedPlayers.length);
 
 const isFormValid = computed(() => {
-  return (
-    reason.value.trim().length >= 10 &&
-    confirmText.value === 'WIPE' &&
-    verificationCode.value === '1723699'
-  );
+  return reason.value.trim().length >= 10 && confirmText.value === 'WIPE PLAYERS';
 });
 
 const canExecute = computed(() => {
   return isFormValid.value && countdown.value === 0 && !props.saving;
 });
 
-// Start countdown when form becomes valid
+let countdownInterval: ReturnType<typeof setInterval> | null = null;
+
+const stopCountdown = () => {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+};
+
 watch(isFormValid, (valid) => {
-  if (valid && countdown.value === 10) {
-    const interval = setInterval(() => {
+  if (valid && countdown.value === 10 && !countdownInterval) {
+    countdownInterval = setInterval(() => {
       countdown.value--;
-      if (countdown.value === 0) {
-        clearInterval(interval);
+      if (countdown.value <= 0) {
+        stopCountdown();
       }
     }, 1000);
   }
 });
 
-// Reset form when dialog closes
 watch(() => props.open, (open) => {
   if (!open) {
+    stopCountdown();
     reason.value = '';
     confirmText.value = '';
-    verificationCode.value = '';
     countdown.value = 10;
     reasonError.value = '';
   }
 });
 
+onBeforeUnmount(() => {
+  stopCountdown();
+});
+
 const handleConfirm = () => {
-  // Validate reason
   if (reason.value.trim().length < 10) {
     reasonError.value = 'Reason must be at least 10 characters';
     return;
   }
-
-  if (confirmText.value !== 'WIPE') {
-    return;
-  }
-
-  if (verificationCode.value !== '1723699') {
-    return;
-  }
-
-  if (countdown.value > 0) {
-    return;
-  }
+  if (confirmText.value !== 'WIPE PLAYERS') return;
+  if (countdown.value > 0) return;
 
   reasonError.value = '';
-  emit('confirm', reason.value.trim(), verificationCode.value);
+  emit('confirm', reason.value.trim());
 };
 
 const handleCancel = () => {
