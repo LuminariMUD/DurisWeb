@@ -2415,6 +2415,57 @@ router.post('/mud/wipe/execute',
 );
 
 /**
+ * POST /api/admin/mud/wipe/guilds
+ * Delete all guild forum categories. GuildSync will recreate them on next tick.
+ * Requires: Overlord (Level 61+)
+ */
+router.post('/mud/wipe/guilds',
+  requireAuth,
+  requireOverlord,
+  [
+    body('reason').isString().isLength({ min: 10 }).withMessage('Reason must be at least 10 characters'),
+    body('confirmation').equals('WIPE').withMessage('Confirmation text must be "WIPE"'),
+  ],
+  async (req: Request, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+
+    const { reason } = req.body;
+
+    try {
+      const [result] = await db.query<any>(
+        `DELETE FROM forum_categories WHERE access_type = 'guild'`
+      );
+      const rowsDeleted = result.affectedRows || 0;
+
+      await db.query(
+        `INSERT INTO admin_action_log
+         (account_name, action_type, target, old_value, new_value, notes, ip_address)
+         VALUES (?, 'guild_wipe', 'forum_categories', ?, ?, ?, ?)`,
+        [
+          req.user!.accountName,
+          `${rowsDeleted} rows`,
+          'deleted',
+          reason,
+          req.ip
+        ]
+      );
+
+      return res.json({
+        success: true,
+        message: `Deleted ${rowsDeleted} guild categories. Guild sync will recreate them shortly.`,
+        rowsDeleted
+      });
+    } catch (error) {
+      logger.error('Error executing guild wipe:', error);
+      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to execute guild wipe' });
+    }
+  }
+);
+
+/**
  * POST /api/admin/ai-analysis/run
  * Run Gemini AI analysis on login data (async - notifies via websocket when done)
  */

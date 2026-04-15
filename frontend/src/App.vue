@@ -5,6 +5,7 @@ import { useWebSocket } from './composables/useWebSocket';
 import { useToast } from './composables/useToast';
 import { useNotifications } from './composables/useNotifications';
 import { useAuth } from './composables/useAuth';
+import { useMudConnection } from './composables/useMudConnection';
 import { useSiteConfig } from './composables/useSiteConfig';
 import { useOfflineStatus } from './composables/useOfflineStatus';
 import { usePwaUpdate } from './composables/usePwaUpdate';
@@ -34,7 +35,8 @@ const router = useRouter();
 
 const { isConnected, onNewEvent, onCrashAlert, onMudOnline, onMudCrash, onMudShutdown, connect, disconnect } = useWebSocket();
 const { success, successHtml, warning } = useToast();
-const { loadUser, isOverlord, isLesserGod, permissions, isAuthenticated, accountName, avatarUrl, getRoleDisplayName, getRoleBadgeColor, logout } = useAuth();
+const { loadUser, isOverlord, isLesserGod, permissions, isAuthenticated, accountName, avatarUrl, getRoleDisplayName, getRoleBadgeColor, logout, clearMudCredentials } = useAuth();
+const { disconnect: disconnectMud } = useMudConnection();
 const { siteTitle, siteLogoUrl, mudHost, mudPort, mudPortTls, loadConfig } = useSiteConfig();
 
 // pwa and offline status
@@ -131,6 +133,12 @@ const handleNotificationClick = async () => {
 async function handleLogout() {
   await logout();
   router.push('/login');
+}
+
+async function handleMudLogout() {
+  clearMudCredentials();
+  try { disconnectMud(); } catch { /* ignore */ }
+  success('Logged out from MUD. Next /play will prompt for password.', 'MUD Logout', 3000);
 }
 
 // Handle new PvP events
@@ -484,6 +492,10 @@ const isPlayPage = computed(() => route.path === '/play');
                       {{ hasPermission && isEnabled ? 'Disable Notifications' : 'Enable Notifications' }}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem @click="handleMudLogout">
+                      <Play class="mr-2 h-4 w-4" />
+                      Logout from MUD
+                    </DropdownMenuItem>
                     <DropdownMenuItem @click="handleLogout">
                       <LogOut class="mr-2 h-4 w-4" />
                       Logout

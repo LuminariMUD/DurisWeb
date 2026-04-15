@@ -219,6 +219,38 @@
         </div>
       </div>
 
+      <!-- Danger Zone - Guild Wipe -->
+      <div class="rounded-lg border border-orange-500/40 bg-orange-500/10 p-6">
+        <div class="flex items-start gap-4">
+          <AlertTriangle class="w-8 h-8 text-orange-400 flex-shrink-0" />
+          <div class="flex-1">
+            <h2 class="text-xl font-semibold text-orange-300 mb-2">Guild Wipe</h2>
+            <p class="mb-4 text-sm">
+              Deletes all guild forum categories. The guild sync service will recreate them from current guild membership within a minute. Use this to clean up stale or duplicate guild categories.
+            </p>
+            <div class="space-y-3">
+              <div>
+                <label class="text-xs text-muted-foreground">Reason (min 10 chars)</label>
+                <Input v-model="guildWipeReason" placeholder="e.g. cleanup duplicate beltorin categories" class="mt-1" />
+              </div>
+              <div>
+                <label class="text-xs text-muted-foreground">Type <span class="font-mono font-bold">WIPE</span> to confirm</label>
+                <Input v-model="guildWipeConfirm" placeholder="WIPE" class="mt-1 font-mono" />
+              </div>
+              <Button
+                @click="handleGuildWipe"
+                :disabled="isGuildWiping || guildWipeReason.length < 10 || guildWipeConfirm !== 'WIPE'"
+                variant="destructive"
+                class="bg-orange-600 hover:bg-orange-700"
+              >
+                <AlertTriangle class="w-4 h-4 mr-2" />
+                {{ isGuildWiping ? 'Wiping...' : 'Execute Guild Wipe' }}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Wipe History -->
       <Card>
         <CardHeader>
@@ -406,6 +438,26 @@ const showWipeDialog = ref(false);
 const isSaving = ref(false);
 const wipeHistory = ref<WipeHistoryEntry[]>([]);
 const isLoadingHistory = ref(false);
+const guildWipeReason = ref('');
+const guildWipeConfirm = ref('');
+const isGuildWiping = ref(false);
+
+const handleGuildWipe = async () => {
+  isGuildWiping.value = true;
+  try {
+    const response = await api.post('/api/admin/mud/wipe/guilds', {
+      reason: guildWipeReason.value,
+      confirmation: guildWipeConfirm.value
+    });
+    toast.success('Guild wipe complete', { description: response.data.message });
+    guildWipeReason.value = '';
+    guildWipeConfirm.value = '';
+  } catch (err: any) {
+    toast.error('Guild wipe failed', { description: err.response?.data?.error || 'An error occurred' });
+  } finally {
+    isGuildWiping.value = false;
+  }
+};
 
 const cooldownDaysRemaining = computed(() => {
   if (!wipeStatus.value?.cooldownEndsAt) return 0;
