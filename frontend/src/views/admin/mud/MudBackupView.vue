@@ -51,6 +51,7 @@ import {
   Upload,
   Settings,
   Save,
+  Copy,
 } from 'lucide-vue-next'
 import type { BackupInfo, BackupContents, RestoreCategories } from '@/types'
 import { DEFAULT_RESTORE_CATEGORIES } from '@/types'
@@ -243,6 +244,16 @@ function getBackupTypeBadge(backupType: string): { class: string; label: string 
 }
 
 // Handle download
+async function copyErrorMessage(msg: string | null) {
+  if (!msg) return
+  try {
+    await navigator.clipboard.writeText(msg)
+    success('Error message copied')
+  } catch {
+    showError('Failed to copy')
+  }
+}
+
 function handleDownload(id: number) {
   const url = getDownloadUrl(id)
   window.open(url, '_blank')
@@ -575,10 +586,23 @@ function executeUploadRestore() {
                 </div>
                 <div
                   v-if="backup.errorMessage"
-                  class="text-xs text-destructive mt-1 max-w-[200px] truncate"
-                  :title="backup.errorMessage"
+                  class="flex items-center gap-1 mt-1 max-w-[220px]"
                 >
-                  {{ backup.errorMessage }}
+                  <span
+                    class="text-xs text-destructive truncate"
+                    :title="backup.errorMessage"
+                  >
+                    {{ backup.errorMessage }}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="h-5 w-5 shrink-0"
+                    :title="'Copy error'"
+                    @click="copyErrorMessage(backup.errorMessage)"
+                  >
+                    <Copy class="h-3 w-3" />
+                  </Button>
                 </div>
               </TableCell>
               <TableCell class="text-sm">
@@ -869,9 +893,33 @@ function executeUploadRestore() {
                       </Label>
                     </div>
                     <div class="flex items-center space-x-2">
-                      <Checkbox id="cat-misc" v-model:checked="restoreCategories.misc" />
-                      <Label for="cat-misc" class="text-sm cursor-pointer">
-                        Misc (aliases, mail, pets)
+                      <Checkbox id="cat-lockers" v-model:checked="restoreCategories.lockers" />
+                      <Label for="cat-lockers" class="text-sm cursor-pointer">
+                        Lockers & Chests
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="cat-pets" v-model:checked="restoreCategories.pets" />
+                      <Label for="cat-pets" class="text-sm cursor-pointer">
+                        Pets & Pet Gear
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="cat-ships" v-model:checked="restoreCategories.ships" />
+                      <Label for="cat-ships" class="text-sm cursor-pointer">
+                        Ships
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="cat-corpses" v-model:checked="restoreCategories.corpses" />
+                      <Label for="cat-corpses" class="text-sm cursor-pointer">
+                        Corpses
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="cat-mail" v-model:checked="restoreCategories.mail" />
+                      <Label for="cat-mail" class="text-sm cursor-pointer">
+                        Offline Mail
                       </Label>
                     </div>
                   </div>
@@ -1076,9 +1124,33 @@ function executeUploadRestore() {
                       </Label>
                     </div>
                     <div class="flex items-center space-x-2">
-                      <Checkbox id="upload-cat-misc" v-model:checked="restoreCategories.misc" />
-                      <Label for="upload-cat-misc" class="text-sm cursor-pointer">
-                        Misc (aliases, mail, pets)
+                      <Checkbox id="upload-cat-lockers" v-model:checked="restoreCategories.lockers" />
+                      <Label for="upload-cat-lockers" class="text-sm cursor-pointer">
+                        Lockers & Chests
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="upload-cat-pets" v-model:checked="restoreCategories.pets" />
+                      <Label for="upload-cat-pets" class="text-sm cursor-pointer">
+                        Pets & Pet Gear
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="upload-cat-ships" v-model:checked="restoreCategories.ships" />
+                      <Label for="upload-cat-ships" class="text-sm cursor-pointer">
+                        Ships
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="upload-cat-corpses" v-model:checked="restoreCategories.corpses" />
+                      <Label for="upload-cat-corpses" class="text-sm cursor-pointer">
+                        Corpses
+                      </Label>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <Checkbox id="upload-cat-mail" v-model:checked="restoreCategories.mail" />
+                      <Label for="upload-cat-mail" class="text-sm cursor-pointer">
+                        Offline Mail
                       </Label>
                     </div>
                   </div>

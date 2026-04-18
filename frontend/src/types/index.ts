@@ -785,12 +785,16 @@ export interface BackupContents {
 export interface RestoreCategories {
   coreData: boolean
   inventory: boolean
+  lockers: boolean
   skills: boolean
   progression: boolean
   auction: boolean
   guild: boolean
   pvpHistory: boolean
-  misc: boolean
+  pets: boolean
+  ships: boolean
+  corpses: boolean
+  mail: boolean
 }
 
 export interface RestoreRequest {
@@ -821,12 +825,16 @@ export interface RestoreInfo {
 export const DEFAULT_RESTORE_CATEGORIES: RestoreCategories = {
   coreData: false,
   inventory: true,
+  lockers: false,
   skills: false,
   progression: false,
   auction: false,
   guild: false,
   pvpHistory: false,
-  misc: false,
+  pets: false,
+  ships: false,
+  corpses: false,
+  mail: false,
 }
 
 // ============================================================================

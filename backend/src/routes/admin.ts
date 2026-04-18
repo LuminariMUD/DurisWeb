@@ -3566,6 +3566,24 @@ router.get('/backup/mud-status', requireAuth, requirePermission('manage_mud_back
   }
 });
 
+// fast-fail guard: mud must be offline and no other restore recently active.
+// best-effort only; runRestoreInternal's atomic insert is the actual race-safe check.
+async function assertRestorePreconditions(): Promise<string | null> {
+  if (isMudRunning()) {
+    return 'Cannot restore while MUD is running.';
+  }
+  const [rows] = await db.execute<RowDataPacket[]>(
+    `SELECT id FROM mud_restores
+     WHERE status IN ('pending', 'in_progress')
+       AND started_at > DATE_SUB(NOW(), INTERVAL 30 MINUTE)
+     LIMIT 1`,
+  );
+  if (rows.length > 0) {
+    return 'Another restore is already in progress.';
+  }
+  return null;
+}
+
 /**
  * POST /api/admin/backup/restore
  * Create a new restore operation
@@ -3605,6 +3623,9 @@ router.post('/backup/restore', requireAuth, requirePermission('manage_mud_backup
         }
       }
     }
+
+    const pre = await assertRestorePreconditions();
+    if (pre) return res.status(409).json({ error: pre });
 
     const accountName = req.user?.accountName || 'unknown';
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
@@ -3776,6 +3797,9 @@ router.post('/backup/upload/restore', requireAuth, requirePermission('manage_mud
         }
       }
     }
+
+    const pre = await assertRestorePreconditions();
+    if (pre) return res.status(409).json({ error: pre });
 
     const accountName = req.user?.accountName || 'unknown';
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';

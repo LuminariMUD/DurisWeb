@@ -113,20 +113,38 @@ export function useBackups() {
     status: string
     filename: string
   }) => {
-    // Update the backup in the cache
+    // Update the backup in the cache. if the backup isn't in cache yet (fast
+    // backups can finish before the post-mutation refetch lands), synthesize a
+    // placeholder row so the progress still renders. the next refetch will fill
+    // in the missing fields (createdBy, startedAt, fileSize, etc).
     queryClient.setQueryData<BackupInfo[]>(['backups'], (oldData) => {
-      if (!oldData) return oldData
-      return oldData.map((backup) => {
-        if (backup.id === data.id) {
-          return {
-            ...backup,
-            progress: data.progress,
-            currentStep: data.currentStep,
-            status: data.status as BackupInfo['status'],
-          }
-        }
-        return backup
-      })
+      const existing = oldData?.find((b) => b.id === data.id)
+      if (existing) {
+        return oldData!.map((backup) =>
+          backup.id === data.id
+            ? {
+                ...backup,
+                progress: data.progress,
+                currentStep: data.currentStep,
+                status: data.status as BackupInfo['status'],
+              }
+            : backup,
+        )
+      }
+      const placeholder: BackupInfo = {
+        id: data.id,
+        filename: data.filename,
+        backupType: 'manual',
+        status: data.status as BackupInfo['status'],
+        progress: data.progress,
+        currentStep: data.currentStep,
+        fileSize: null,
+        errorMessage: null,
+        createdBy: '',
+        startedAt: new Date().toISOString(),
+        completedAt: null,
+      }
+      return oldData ? [placeholder, ...oldData] : [placeholder]
     })
 
     // If backup completed or failed, refetch to get final data

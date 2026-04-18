@@ -35,19 +35,16 @@ export interface BackupInfo {
 
 export interface BackupContents {
   accounts: string[];
-  characters: string[];
-}
-
-export interface RestoreTarget {
-  type: 'account' | 'character';
-  name: string;
+  characters: { pid: number; name: string }[];
 }
 
 export interface RestoreInfo {
   id: number;
   backupId: number;
-  restoreType: 'full' | 'selective';
-  targets: RestoreTarget[] | null;
+  restoreType: 'full' | 'account' | 'character';
+  accounts: string[] | null;
+  characters: { pid: number; name: string }[] | null;
+  categories: RestoreCategories | null;
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   progress: number;
   currentStep: string | null;
@@ -57,6 +54,153 @@ export interface RestoreInfo {
   startedAt: string;
   completedAt: string | null;
 }
+
+export interface RestoreCategories {
+  coreData: boolean;
+  inventory: boolean;
+  lockers: boolean;
+  skills: boolean;
+  progression: boolean;
+  auction: boolean;
+  guild: boolean;
+  pvpHistory: boolean;
+  pets: boolean;
+  ships: boolean;
+  corpses: boolean;
+  mail: boolean;
+}
+
+export const CATEGORY_TABLES: Readonly<Record<keyof RestoreCategories, readonly string[]>> = {
+  coreData: ['player_data', 'account_characters', 'player_affects', 'player_timers',
+             'player_languages', 'player_intros', 'player_undead_slots', 'player_granted_cmds'],
+  inventory: ['player_items', 'player_item_affects', 'player_item_extra_descr',
+              'player_forged_items', 'artifact_bind'],
+  lockers: ['lockers', 'locker_items', 'locker_item_affects',
+            'private_chests', 'private_chest_log'],
+  skills: ['player_skills', 'player_spellbooks', 'player_recipes',
+           'player_shapechanges', 'player_witnesses'],
+  progression: ['progress', 'epic_gain', 'epic_bonus', 'boons', 'boons_progress',
+                'world_quest_accomplished'],
+  auction: ['auction_money_pickups', 'auction_item_pickups', 'auction_bid_history'],
+  guild: ['guild_members'],
+  pvpHistory: ['pkill_info', 'pkill_event', 'frag_leaderboard'],
+  pets: ['player_pets', 'player_pet_items', 'player_pet_item_affects',
+         'player_pet_item_extra_descr'],
+  ships: ['ships', 'ship_armor', 'ship_crew', 'ship_slots'],
+  corpses: ['corpses', 'corpse_items', 'corpse_item_affects'],
+  mail: ['offline_messages'],
+};
+
+export const PER_ACCOUNT_TABLES: readonly string[] = ['accounts', 'account_ips', 'account_banks'];
+
+export const ALL_RESTORE_TABLES: readonly string[] = [
+  ...Object.values(CATEGORY_TABLES).flat(),
+  ...PER_ACCOUNT_TABLES,
+];
+
+// for each restore table, the column used to filter rows.
+// columns whose name is a pid-ish number (e.g. 'pid', 'owner_pid'): match against pidSet.
+// columns whose name contains 'name': match against name set (accountSet or character-name set).
+// cascade-child tables use their FK column (e.g. 'item_id', 'locker_id').
+export const FILTER_COLUMN_MAP: Readonly<Record<string, string>> = {
+  // direct per-character, keyed by pid
+  player_data: 'id',
+  account_characters: 'pid',
+  player_affects: 'pid',
+  player_timers: 'pid',
+  player_skills: 'pid',
+  player_spellbooks: 'pid',
+  player_recipes: 'pid',
+  player_shapechanges: 'pid',
+  player_witnesses: 'pid',
+  player_languages: 'pid',
+  player_intros: 'pid',
+  player_undead_slots: 'pid',
+  player_granted_cmds: 'pid',
+  player_forged_items: 'pid',
+  player_items: 'pid',
+  progress: 'pid',
+  epic_gain: 'pid',
+  epic_bonus: 'pid',
+  boons: 'pid',
+  boons_progress: 'pid',
+  world_quest_accomplished: 'pid',
+  auction_money_pickups: 'pid',
+  auction_item_pickups: 'pid',
+  auction_bid_history: 'bidder_pid',
+  frag_leaderboard: 'pid',
+  offline_messages: 'pid',
+  player_pets: 'pid',
+  pkill_info: 'pid',
+  artifact_bind: 'owner_pid',
+  guild_members: 'player_pid',
+  lockers: 'owner_pid',
+  // keyed by character name
+  corpses: 'player_name',
+  ships: 'owner_name',
+  // cascade-child tables (filter key set is resolved at runtime from parent)
+  player_item_affects: 'item_id',
+  player_item_extra_descr: 'item_id',
+  player_pet_items: 'pet_id',
+  player_pet_item_affects: 'item_id',
+  player_pet_item_extra_descr: 'item_id',
+  locker_items: 'locker_id',
+  locker_item_affects: 'item_id',
+  private_chests: 'locker_id',
+  private_chest_log: 'chest_id',
+  corpse_items: 'corpse_id',
+  corpse_item_affects: 'item_id',
+  ship_armor: 'ship_id',
+  ship_crew: 'ship_id',
+  ship_slots: 'ship_id',
+  pkill_event: 'id',
+  // per-account
+  accounts: 'name',
+  account_ips: 'account_name',
+  account_banks: 'account_name',
+};
+
+export interface CascadeEdge {
+  parentTable: string;
+  parentKeyCol: string;   // column in parent whose values form the key set for children
+  childTable: string;
+  childFilterCol: string; // column in child to match against the key set
+}
+
+// topological order: parents before children
+export const CASCADE_EDGES: readonly CascadeEdge[] = [
+  { parentTable: 'player_items', parentKeyCol: 'id',
+    childTable: 'player_item_affects', childFilterCol: 'item_id' },
+  { parentTable: 'player_items', parentKeyCol: 'id',
+    childTable: 'player_item_extra_descr', childFilterCol: 'item_id' },
+  { parentTable: 'player_pets', parentKeyCol: 'id',
+    childTable: 'player_pet_items', childFilterCol: 'pet_id' },
+  { parentTable: 'player_pet_items', parentKeyCol: 'id',
+    childTable: 'player_pet_item_affects', childFilterCol: 'item_id' },
+  { parentTable: 'player_pet_items', parentKeyCol: 'id',
+    childTable: 'player_pet_item_extra_descr', childFilterCol: 'item_id' },
+  { parentTable: 'lockers', parentKeyCol: 'id',
+    childTable: 'locker_items', childFilterCol: 'locker_id' },
+  { parentTable: 'locker_items', parentKeyCol: 'id',
+    childTable: 'locker_item_affects', childFilterCol: 'item_id' },
+  { parentTable: 'lockers', parentKeyCol: 'id',
+    childTable: 'private_chests', childFilterCol: 'locker_id' },
+  { parentTable: 'private_chests', parentKeyCol: 'id',
+    childTable: 'private_chest_log', childFilterCol: 'chest_id' },
+  { parentTable: 'corpses', parentKeyCol: 'id',
+    childTable: 'corpse_items', childFilterCol: 'corpse_id' },
+  { parentTable: 'corpse_items', parentKeyCol: 'id',
+    childTable: 'corpse_item_affects', childFilterCol: 'item_id' },
+  { parentTable: 'ships', parentKeyCol: 'id',
+    childTable: 'ship_armor', childFilterCol: 'ship_id' },
+  { parentTable: 'ships', parentKeyCol: 'id',
+    childTable: 'ship_crew', childFilterCol: 'ship_id' },
+  { parentTable: 'ships', parentKeyCol: 'id',
+    childTable: 'ship_slots', childFilterCol: 'ship_id' },
+  // special: pkill_info.event_id (not id) -> pkill_event.id
+  { parentTable: 'pkill_info', parentKeyCol: 'event_id',
+    childTable: 'pkill_event', childFilterCol: 'id' },
+];
 
 interface BackupRow extends RowDataPacket {
   id: number;
@@ -77,7 +221,9 @@ interface RestoreRow extends RowDataPacket {
   id: number;
   backup_id: number;
   restore_type: string;
-  targets: string | null;
+  accounts: string | null;
+  characters: string | null;
+  categories: string | null;
   status: string;
   progress: number;
   current_step: string | null;
@@ -130,12 +276,23 @@ function mapRowToBackupInfo(row: BackupRow): BackupInfo {
   };
 }
 
+function safeJsonParse<T>(s: string | null): T | null {
+  if (!s) return null;
+  try {
+    return JSON.parse(s) as T;
+  } catch {
+    return null;
+  }
+}
+
 function mapRowToRestoreInfo(row: RestoreRow): RestoreInfo {
   return {
     id: row.id,
     backupId: row.backup_id,
     restoreType: row.restore_type as RestoreInfo['restoreType'],
-    targets: row.targets ? JSON.parse(row.targets) : null,
+    accounts: safeJsonParse<string[]>(row.accounts),
+    characters: safeJsonParse<{ pid: number; name: string }[]>(row.characters),
+    categories: safeJsonParse<RestoreCategories>(row.categories),
     status: row.status as RestoreInfo['status'],
     progress: row.progress,
     currentStep: row.current_step,
@@ -210,9 +367,27 @@ async function runBackup(
     const dbPassword = process.env.DB_PASSWORD || 'duris';
     const dbHost = process.env.DB_HOST || '127.0.0.1';
 
+    // skip views entirely: they can reference tables dropped by past migrations,
+    // which makes mysqldump fail with "references invalid table(s)". our restore
+    // pipeline only processes INSERT rows on real tables (ALL_RESTORE_TABLES), so
+    // dumping views adds fragility without value. migrations are the source of
+    // truth for views.
+    const [viewRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT TABLE_NAME FROM information_schema.tables
+       WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'VIEW'`,
+      [dbName]
+    );
+    const ignoreFlags = (viewRows as { TABLE_NAME: string }[])
+      .map(r => `--ignore-table=${dbName}.${r.TABLE_NAME}`)
+      .join(' ');
+
+    // --single-transaction: innodb-consistent snapshot without LOCK TABLES
+    // (avoids needing the LOCK TABLES privilege).
+    // --no-tablespaces: skip tablespace metadata dump
+    // (avoids needing the PROCESS privilege, required by default in mysql 8.0+).
     await execAsync(
-      `mysqldump -h ${dbHost} -u ${dbUser} -p'${dbPassword}' ${dbName} > "${tempSqlPath}"`,
-      { maxBuffer: 100 * 1024 * 1024 } // 100MB buffer
+      `mysqldump --single-transaction --no-tablespaces ${ignoreFlags} -h ${dbHost} -u ${dbUser} -p'${dbPassword}' ${dbName} > "${tempSqlPath}"`,
+      { maxBuffer: 100 * 1024 * 1024 }
     );
 
     await updateBackupStatus(backupId, 'in_progress', 40, 'Database dump complete');
@@ -283,27 +458,10 @@ async function createZipArchive(
     await updateBackupStatus(backupId, 'in_progress', 50, 'Zipping database...');
     broadcastProgress({ id: backupId, progress: 50, currentStep: 'Zipping database...', status: 'in_progress', filename });
 
-    // build zip command - start with database folder
+    // build zip command - database folder only (player data lives in db now)
     const zipParts: string[] = [];
     zipParts.push(`cd "${tempDir}" && zip -r "${zipPath}" database`);
 
-    // add Accounts directory if exists
-    const accountsPath = path.join(MUD_BASE, 'Accounts');
-    if (fs.existsSync(accountsPath)) {
-      await updateBackupStatus(backupId, 'in_progress', 60, 'Zipping Accounts...');
-      broadcastProgress({ id: backupId, progress: 60, currentStep: 'Zipping Accounts...', status: 'in_progress', filename });
-      zipParts.push(`cd "${MUD_BASE}" && zip -r "${zipPath}" Accounts`);
-    }
-
-    // add Players directory if exists
-    const playersPath = path.join(MUD_BASE, 'Players');
-    if (fs.existsSync(playersPath)) {
-      await updateBackupStatus(backupId, 'in_progress', 75, 'Zipping Players...');
-      broadcastProgress({ id: backupId, progress: 75, currentStep: 'Zipping Players...', status: 'in_progress', filename });
-      zipParts.push(`cd "${MUD_BASE}" && zip -r "${zipPath}" Players`);
-    }
-
-    // execute zip commands
     for (const cmd of zipParts) {
       await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 });
     }
@@ -512,42 +670,60 @@ export function startHourlyBackupScheduler(): void {
 // ============================================================================
 
 /**
- * List accounts and characters contained in a backup
+ * extract the accounts + characters lists from a sql dump by parsing the
+ * account_characters table's INSERT blocks. exported for unit testing.
  */
-export async function listBackupContents(backupId: number): Promise<BackupContents | null> {
-  const backup = await getBackupById(backupId);
-  if (!backup || backup.status !== 'completed') {
-    return null;
+export function parseBackupContentsFromSql(sqlContent: string): BackupContents {
+  const accountsSet = new Set<string>();
+  const chars: { pid: number; name: string }[] = [];
+
+  const columns = parseCreateTableColumns(sqlContent, 'account_characters');
+  if (columns.length === 0) return { accounts: [], characters: [] };
+  const accIdx = columns.indexOf('account_name');
+  const nameIdx = columns.indexOf('char_name');
+  const pidIdx = columns.indexOf('pid');
+  if (accIdx === -1 || nameIdx === -1 || pidIdx === -1) {
+    return { accounts: [], characters: [] };
   }
 
-  const filePath = path.join(BACKUP_DIR, backup.filename);
-  if (!fs.existsSync(filePath)) {
-    return null;
-  }
-
-  const accounts: string[] = [];
-  const characters: string[] = [];
-
-  const directory = await unzipper.Open.file(filePath);
-
-  for (const file of directory.files) {
-    // Match Accounts/{letter}/{name} pattern (not subdirs or .backup files)
-    const accountMatch = file.path.match(/^Accounts\/([a-z])\/([^\/\.]+)$/);
-    if (accountMatch) {
-      accounts.push(accountMatch[2]);
-    }
-
-    // Match Players/{letter}/{name} pattern (not subdirs, .old, .preconvert, etc.)
-    const playerMatch = file.path.match(/^Players\/([a-z])\/([^\/\.]+)$/);
-    if (playerMatch) {
-      characters.push(playerMatch[2]);
+  const blocks = extractInsertBlocks(sqlContent, 'account_characters');
+  for (const block of blocks) {
+    for (const row of parseMultiValueInsert(block)) {
+      const acc = extractColValue(row, accIdx);
+      const name = extractColValue(row, nameIdx);
+      const pidStr = extractColValue(row, pidIdx);
+      if (acc) accountsSet.add(acc);
+      if (name && pidStr) {
+        const pid = parseInt(pidStr, 10);
+        if (!isNaN(pid)) chars.push({ pid, name });
+      }
     }
   }
 
   return {
-    accounts: accounts.sort(),
-    characters: characters.sort(),
+    accounts: [...accountsSet].sort(),
+    characters: chars.sort((a, b) => a.name.localeCompare(b.name)),
   };
+}
+
+/**
+ * list accounts and characters contained in a backup by reading its sql dump.
+ */
+export async function listBackupContents(backupId: number): Promise<BackupContents | null> {
+  const backup = await getBackupById(backupId);
+  if (!backup || backup.status !== 'completed') return null;
+
+  const filePath = path.join(BACKUP_DIR, backup.filename);
+  if (!fs.existsSync(filePath)) return null;
+
+  const directory = await unzipper.Open.file(filePath);
+  const sqlFile = directory.files.find(f =>
+    f.path.endsWith('.sql') && (f.path.startsWith('database/') || f.path === 'database.sql')
+  );
+  if (!sqlFile) return { accounts: [], characters: [] };
+
+  const content = (await sqlFile.buffer()).toString('utf-8');
+  return parseBackupContentsFromSql(content);
 }
 
 // ============================================================================
@@ -586,30 +762,159 @@ export function isMudRunning(): boolean {
 }
 
 /**
- * Create a restore operation (async - returns immediately with restore ID)
+ * shape of the restore request body sent by the admin routes into the service layer.
  */
-export async function createRestore(
-  backupId: number,
-  restoreType: 'full' | 'selective',
-  targets: RestoreTarget[] | null,
-  accountName: string,
-  ipAddress: string
-): Promise<{ id: number }> {
-  // Insert pending restore record
-  const [result] = await pool.execute<ResultSetHeader>(
-    `INSERT INTO mud_restores (backup_id, restore_type, targets, status, progress, current_step, created_by, ip_address, started_at)
-     VALUES (?, ?, ?, 'pending', 0, 'Initializing...', ?, ?, NOW())`,
-    [backupId, restoreType, targets ? JSON.stringify(targets) : null, accountName, ipAddress]
-  );
+export interface RestoreRequest {
+  restoreType: 'full' | 'account' | 'character';
+  accounts?: string[];
+  characters?: { pid: number; name: string }[];
+  categories?: RestoreCategories;
+}
 
+export interface CreateRestoreRequest extends RestoreRequest {
+  backupId: number;
+}
+
+/**
+ * core restore pipeline shared by createRestore (backup id) and
+ * createRestoreFromUpload (direct file path). atomically inserts the mud_restores
+ * row only if no other pending/in_progress restore exists in the last 30 minutes —
+ * the route-level guard is best-effort, this insert is the race-safe check.
+ * kicks off the async pipeline, wires broadcasts. returns { id }.
+ */
+async function runRestoreInternal(
+  req: RestoreRequest,
+  filePath: string,
+  backupId: number,
+  accountName: string,
+  ipAddress: string,
+): Promise<{ id: number }> {
+  // atomic: insert only if no active restore exists. closes the TOCTOU gap
+  // between route-level assertRestorePreconditions and the insert below.
+  const [result] = await pool.execute<ResultSetHeader>(
+    `INSERT INTO mud_restores
+      (backup_id, restore_type, accounts, characters, categories,
+       status, progress, current_step, created_by, ip_address, started_at)
+     SELECT ?, ?, ?, ?, ?, 'pending', 0, 'Initializing...', ?, ?, NOW()
+     FROM (SELECT 1) AS _
+     WHERE NOT EXISTS (
+       SELECT 1 FROM mud_restores
+       WHERE status IN ('pending', 'in_progress')
+         AND started_at > DATE_SUB(NOW(), INTERVAL 30 MINUTE)
+     )`,
+    [
+      backupId,
+      req.restoreType,
+      req.accounts ? JSON.stringify(req.accounts) : null,
+      req.characters ? JSON.stringify(req.characters) : null,
+      req.categories ? JSON.stringify(req.categories) : null,
+      accountName,
+      ipAddress,
+    ],
+  );
+  if (result.affectedRows === 0) {
+    throw new Error('Another restore is already in progress');
+  }
   const restoreId = result.insertId;
 
-  // Start the restore process asynchronously
-  runRestore(restoreId, backupId, restoreType, targets).catch((error) => {
-    logger.error(`Restore ${restoreId} failed:`, error);
+  executeRestorePipeline(restoreId, filePath, req).catch(err => {
+    logger.error(`restore ${restoreId} failed:`, err);
   });
 
   return { id: restoreId };
+}
+
+/**
+ * load dump, filter, write temp sql, execute via mysql CLI.
+ */
+async function executeRestorePipeline(
+  restoreId: number,
+  filePath: string,
+  req: RestoreRequest,
+): Promise<void> {
+  const bump = async (progress: number, step: string, status = 'in_progress') => {
+    await updateRestoreStatus(restoreId, status, progress, step);
+    broadcastRestoreProgress({ id: restoreId, progress, currentStep: step, status });
+  };
+
+  const tempSqlPath = path.join(os.tmpdir(), `restore-${restoreId}-${Date.now()}.sql`);
+
+  try {
+    await bump(5, 'Loading backup...');
+    if (!fs.existsSync(filePath)) throw new Error('Backup file not found');
+    const directory = await unzipper.Open.file(filePath);
+    const sqlFile = directory.files.find(f =>
+      f.path.endsWith('.sql') && (f.path.startsWith('database/') || f.path === 'database.sql')
+    );
+    if (!sqlFile) throw new Error('No database/*.sql inside backup');
+
+    await bump(15, 'Reading SQL dump...');
+    const sqlContent = (await sqlFile.buffer()).toString('utf-8');
+
+    await bump(30, 'Filtering rows...');
+    let filtered: Record<string, string[]>;
+    if (req.restoreType === 'full') {
+      filtered = filterDumpForFullRestore(sqlContent);
+    } else if (req.restoreType === 'account') {
+      filtered = filterDumpForAccountRestore(sqlContent, new Set(req.accounts || []));
+    } else {
+      const pidSet = new Set((req.characters || []).map(c => String(c.pid)));
+      const nameSet = new Set((req.characters || []).map(c => c.name));
+      filtered = filterDumpForCharacterRestore(sqlContent, pidSet, req.categories || {}, nameSet);
+    }
+
+    await bump(60, 'Writing restore SQL...');
+    await fs.promises.writeFile(tempSqlPath, buildRestoreSql(filtered));
+
+    await bump(80, 'Executing restore...');
+    const dbHost = process.env.DURIS_DB_HOST || '127.0.0.1';
+    const dbUser = process.env.DURIS_DB_USER || 'duris';
+    const dbPassword = process.env.DURIS_DB_PASSWORD || 'duris';
+    const dbName = process.env.DURIS_DB_NAME || 'duris_dev';
+    // 30-minute hard timeout: matches the concurrency-guard window. if mysql cli
+    // hangs (deadlock, lost connection, oom-killed), the timeout kills the child
+    // process so the catch+finally below can mark the restore as failed and
+    // unlink the temp file.
+    await execAsync(
+      `mysql -h ${dbHost} -u ${dbUser} -p'${dbPassword}' ${dbName} < "${tempSqlPath}"`,
+      {
+        maxBuffer: 100 * 1024 * 1024,
+        timeout: 30 * 60 * 1000,
+        killSignal: 'SIGKILL',
+      },
+    );
+
+    await pool.execute(
+      `UPDATE mud_restores SET status = 'completed', progress = 100,
+       current_step = 'Restore complete', completed_at = NOW() WHERE id = ?`,
+      [restoreId],
+    );
+    broadcastRestoreProgress({ id: restoreId, progress: 100, currentStep: 'Restore complete', status: 'completed' });
+    logger.info(`restore ${restoreId} completed`);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`restore ${restoreId} failed:`, msg);
+    await pool.execute(
+      `UPDATE mud_restores SET status = 'failed', error_message = ?, completed_at = NOW() WHERE id = ?`,
+      [msg, restoreId],
+    );
+    broadcastRestoreProgress({ id: restoreId, progress: 0, currentStep: `Failed: ${msg}`, status: 'failed' });
+  } finally {
+    await fs.promises.unlink(tempSqlPath).catch(() => {});
+  }
+}
+
+export async function createRestore(
+  req: CreateRestoreRequest,
+  accountName: string,
+  ipAddress: string,
+): Promise<{ id: number }> {
+  const backup = await getBackupById(req.backupId);
+  if (!backup || backup.status !== 'completed') {
+    throw new Error('Backup not found or not completed');
+  }
+  const filePath = path.join(BACKUP_DIR, backup.filename);
+  return runRestoreInternal(req, filePath, req.backupId, accountName, ipAddress);
 }
 
 /**
@@ -627,284 +932,428 @@ async function updateRestoreStatus(
   );
 }
 
+
 /**
- * Run the actual restore process
+ * extract every INSERT INTO `tableName` ... VALUES (...); statement for a specific table
+ * from a sql dump string. returns the VALUES payload of each statement (without the
+ * INSERT prefix or trailing semicolon). handles multiline statements, single-quoted
+ * strings that contain parens/semicolons, and escaped quotes.
+ * mysqldump always emits sql keywords in uppercase, so we do not need a case-insensitive
+ * search for VALUES (which would cost a full dump copy per call).
  */
-async function runRestore(
-  restoreId: number,
-  backupId: number,
-  restoreType: 'full' | 'selective',
-  targets: RestoreTarget[] | null
-): Promise<void> {
-  try {
-    await updateRestoreStatus(restoreId, 'in_progress', 5, 'Starting restore...');
-    broadcastRestoreProgress({ id: restoreId, progress: 5, currentStep: 'Starting restore...', status: 'in_progress' });
+export function extractInsertBlocks(sqlContent: string, tableName: string): string[] {
+  const blocks: string[] = [];
+  const prefix = "INSERT INTO `" + tableName + "`";
+  let i = 0;
 
-    const backup = await getBackupById(backupId);
-    if (!backup || backup.status !== 'completed') {
-      throw new Error('Backup not found or not completed');
+  while (i < sqlContent.length) {
+    const start = sqlContent.indexOf(prefix, i);
+    if (start === -1) break;
+
+    // must match the whole table name — reject `player_data_backup` when looking for `player_data`
+    const nextChar = sqlContent[start + prefix.length];
+    if (nextChar !== ' ' && nextChar !== '\t' && nextChar !== '\n' && nextChar !== '(') {
+      i = start + prefix.length;
+      continue;
     }
 
-    const zipPath = path.join(BACKUP_DIR, backup.filename);
-    if (!fs.existsSync(zipPath)) {
-      throw new Error('Backup file not found');
+    // find VALUES (mysqldump always emits keywords uppercase)
+    const valuesIdx = sqlContent.indexOf('VALUES', start + prefix.length);
+    if (valuesIdx === -1) break;
+
+    let j = valuesIdx + 'VALUES'.length;
+    while (j < sqlContent.length && /\s/.test(sqlContent[j])) j++;
+
+    let depth = 0;
+    let inString = false;
+    let escapeNext = false;
+    const valuesStart = j;
+
+    while (j < sqlContent.length) {
+      const c = sqlContent[j];
+      if (escapeNext) { escapeNext = false; j++; continue; }
+      if (c === '\\') { escapeNext = true; j++; continue; }
+      if (c === "'") { inString = !inString; j++; continue; }
+      if (!inString) {
+        if (c === '(') depth++;
+        else if (c === ')') depth--;
+        else if (c === ';' && depth === 0) {
+          blocks.push(sqlContent.slice(valuesStart, j).trimEnd());
+          j++;
+          break;
+        }
+      }
+      j++;
     }
 
-    if (restoreType === 'full') {
-      await runFullRestore(restoreId, zipPath);
+    i = j;
+  }
+
+  return blocks;
+}
+
+/**
+ * extract ordered column names from a CREATE TABLE block in a sql dump.
+ * returns [] if the table's CREATE block isn't present.
+ * ignores constraint-only lines (PRIMARY KEY, UNIQUE KEY, KEY, FOREIGN KEY, CONSTRAINT).
+ */
+export function parseCreateTableColumns(sqlContent: string, tableName: string): string[] {
+  const marker = "CREATE TABLE `" + tableName + "`";
+  const start = sqlContent.indexOf(marker);
+  if (start === -1) return [];
+
+  const openParen = sqlContent.indexOf('(', start);
+  if (openParen === -1) return [];
+
+  let depth = 0;
+  let inString = false;
+  let escapeNext = false;
+  let closeParen = -1;
+
+  for (let i = openParen; i < sqlContent.length; i++) {
+    const c = sqlContent[i];
+    if (escapeNext) { escapeNext = false; continue; }
+    if (c === '\\') { escapeNext = true; continue; }
+    if (c === "'") { inString = !inString; continue; }
+    if (!inString) {
+      if (c === '(') depth++;
+      else if (c === ')') {
+        depth--;
+        if (depth === 0) { closeParen = i; break; }
+      }
+    }
+  }
+
+  if (closeParen === -1) return [];
+
+  const body = sqlContent.slice(openParen + 1, closeParen);
+
+  // split the body by top-level commas (ignore commas inside parens like int(11)
+  // or inside quoted default values). this handles both multi-line mysqldump
+  // output and single-line CREATE TABLEs.
+  const pieces: string[] = [];
+  let current = '';
+  let parenDepth = 0;
+  inString = false;
+  escapeNext = false;
+  for (const c of body) {
+    if (escapeNext) { current += c; escapeNext = false; continue; }
+    if (c === '\\') { escapeNext = true; current += c; continue; }
+    if (c === "'") { inString = !inString; current += c; continue; }
+    if (!inString) {
+      if (c === '(') parenDepth++;
+      else if (c === ')') parenDepth--;
+      else if (c === ',' && parenDepth === 0) {
+        if (current.trim()) pieces.push(current.trim());
+        current = '';
+        continue;
+      }
+    }
+    current += c;
+  }
+  if (current.trim()) pieces.push(current.trim());
+
+  const columns: string[] = [];
+  const constraintPrefixes = ['PRIMARY KEY', 'UNIQUE KEY', 'UNIQUE INDEX', 'KEY ', 'INDEX ',
+                               'FOREIGN KEY', 'CONSTRAINT', 'FULLTEXT', 'SPATIAL'];
+
+  for (const piece of pieces) {
+    const upper = piece.toUpperCase();
+    if (constraintPrefixes.some(p => upper.startsWith(p))) continue;
+    const m = piece.match(/^`([^`]+)`/);
+    if (m) columns.push(m[1]);
+  }
+
+  return columns;
+}
+
+export interface TableColumnInfo {
+  columns: string[];
+  filterColIndex: number;
+}
+
+export type FilterColumnIndex = Record<string, TableColumnInfo>;
+
+/**
+ * build the runtime table→column-index map by parsing CREATE TABLE blocks
+ * from a sql dump. a missing CREATE TABLE leaves that entry undefined (restore
+ * will log-and-skip for those tables).
+ */
+export function buildFilterColumnIndex(sqlContent: string): FilterColumnIndex {
+  const idx: FilterColumnIndex = {};
+  for (const tbl of ALL_RESTORE_TABLES) {
+    const columns = parseCreateTableColumns(sqlContent, tbl);
+    if (columns.length === 0) continue;
+    const filterCol = FILTER_COLUMN_MAP[tbl];
+    const filterColIndex = columns.indexOf(filterCol);
+    if (filterColIndex === -1) continue;
+    idx[tbl] = { columns, filterColIndex };
+  }
+  return idx;
+}
+
+/**
+ * one-pass parse of the sql dump: for each restore table, collect every row
+ * across all its INSERT blocks. tables not in ALL_RESTORE_TABLES are ignored.
+ */
+export function parseDumpIntoRowMap(sqlContent: string): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const tbl of ALL_RESTORE_TABLES) {
+    const blocks = extractInsertBlocks(sqlContent, tbl);
+    if (blocks.length === 0) continue;
+    const rows: string[] = [];
+    for (const block of blocks) {
+      for (const row of parseMultiValueInsert(block)) rows.push(row);
+    }
+    out[tbl] = rows;
+  }
+  return out;
+}
+
+/**
+ * unescape mysql's backslash-escaped string literal back to the raw string.
+ * mysqldump emits e.g. O'Brien as 'O\'Brien' — so after stripping the outer
+ * quotes we must convert '\\'' back to "'" so equality checks against raw
+ * user input (sets of account/character names) match.
+ */
+function unescapeMysqlString(s: string): string {
+  let out = '';
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === '\\' && i + 1 < s.length) {
+      const next = s[i + 1];
+      if (next === "'") { out += "'"; i++; }
+      else if (next === '"') { out += '"'; i++; }
+      else if (next === '\\') { out += '\\'; i++; }
+      else if (next === 'n') { out += '\n'; i++; }
+      else if (next === 'r') { out += '\r'; i++; }
+      else if (next === '0') { out += '\0'; i++; }
+      else if (next === 'Z') { out += '\x1A'; i++; }
+      else { out += s[i]; }
     } else {
-      await runSelectiveRestore(restoreId, zipPath, targets || []);
-    }
-
-    // Mark as completed
-    await pool.execute(
-      `UPDATE mud_restores SET status = 'completed', progress = 100, current_step = 'Restore complete', completed_at = NOW() WHERE id = ?`,
-      [restoreId]
-    );
-    broadcastRestoreProgress({ id: restoreId, progress: 100, currentStep: 'Restore complete', status: 'completed' });
-
-    logger.info(`Restore ${restoreId} completed successfully`);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(`Restore ${restoreId} failed:`, errorMessage);
-
-    await pool.execute(
-      `UPDATE mud_restores SET status = 'failed', error_message = ?, completed_at = NOW() WHERE id = ?`,
-      [errorMessage, restoreId]
-    );
-    broadcastRestoreProgress({ id: restoreId, progress: 0, currentStep: `Failed: ${errorMessage}`, status: 'failed' });
-  }
-}
-
-// ============================================================================
-// DATABASE RESTORE FUNCTIONS
-// ============================================================================
-
-// Tables allowed to be restored (MUD game data only)
-const ALLOWED_RESTORE_TABLES = [
-  'players_core',
-  'pkill_info',
-  'pkill_event',
-  'frag_leaderboard',
-];
-
-/**
- * Restore database for full restore - only MUD tables
- * Filters SQL to only include allowed tables, uses REPLACE INTO
- */
-async function restoreFullDatabase(zipPath: string): Promise<void> {
-  const directory = await unzipper.Open.file(zipPath);
-  // Look for SQL file in database/ directory or at root
-  const sqlFile = directory.files.find(f =>
-    f.path.endsWith('.sql') && (f.path.startsWith('database/') || f.path === 'database.sql')
-  );
-
-  if (!sqlFile) {
-    logger.info('No database SQL file found in backup, skipping database restore');
-    return;
-  }
-
-  logger.info(`Found database file: ${sqlFile.path}`);
-
-  const content = (await sqlFile.buffer()).toString('utf-8');
-  const filteredStatements: string[] = ['SET FOREIGN_KEY_CHECKS=0;'];
-
-  // Parse line by line
-  const lines = content.split('\n');
-  for (const line of lines) {
-    // Only process INSERT statements for allowed tables
-    if (line.startsWith('INSERT INTO')) {
-      const tableMatch = line.match(/INSERT INTO `([^`]+)`/);
-      if (tableMatch && ALLOWED_RESTORE_TABLES.includes(tableMatch[1])) {
-        // Change INSERT to REPLACE to handle existing rows
-        const replaceLine = line.replace(/^INSERT INTO/, 'REPLACE INTO');
-        filteredStatements.push(replaceLine);
-      }
+      out += s[i];
     }
   }
-
-  filteredStatements.push('SET FOREIGN_KEY_CHECKS=1;');
-
-  if (filteredStatements.length <= 2) {
-    logger.info('No matching MUD tables found in database.sql');
-    return;
-  }
-
-  // Write filtered SQL and execute
-  const tempSqlPath = path.join(os.tmpdir(), `restore-full-${Date.now()}.sql`);
-  await fs.promises.writeFile(tempSqlPath, filteredStatements.join('\n'));
-
-  try {
-    const dbHost = process.env.DURIS_DB_HOST || '127.0.0.1';
-    const dbUser = process.env.DURIS_DB_USER || 'duris';
-    const dbPassword = process.env.DURIS_DB_PASSWORD || 'duris';
-    const dbName = process.env.DURIS_DB_NAME || 'duris_dev';
-
-    await execAsync(
-      `mysql -h ${dbHost} -u ${dbUser} -p'${dbPassword}' ${dbName} < "${tempSqlPath}"`
-    );
-    logger.info('Full database restore completed');
-  } finally {
-    await fs.promises.unlink(tempSqlPath).catch(() => {});
-  }
+  return out;
 }
 
 /**
- * Restore database for selective restore - only rows matching selected characters
- * Filters SQL to only include rows for selected characters, uses REPLACE INTO
+ * parse the filter-col value out of one row-string and return it as a plain string.
+ * numeric values stay as digit strings ('42'); quoted values have their outer quotes
+ * stripped and mysql-escape sequences unescaped so equality checks against raw user
+ * input match.
  */
-async function restoreSelectiveDatabase(
-  zipPath: string,
-  targets: RestoreTarget[]
-): Promise<void> {
-  const directory = await unzipper.Open.file(zipPath);
-  // Look for SQL file in database/ directory or at root
-  const sqlFile = directory.files.find(f =>
-    f.path.endsWith('.sql') && (f.path.startsWith('database/') || f.path === 'database.sql')
-  );
+function extractColValue(rowStr: string, colIndex: number): string | null {
+  if (!rowStr.startsWith('(') || !rowStr.endsWith(')')) return null;
+  const inner = rowStr.slice(1, -1);
+  let currentStart = 0;
+  let col = 0;
+  let inString = false;
+  let escapeNext = false;
+  let depth = 0;
 
-  if (!sqlFile) {
-    logger.info('No database SQL file found in backup, skipping database restore');
-    return;
-  }
-
-  logger.info(`Found database file: ${sqlFile.path}`);
-
-  const content = (await sqlFile.buffer()).toString('utf-8');
-
-  // Get character names from targets
-  const characterNames = targets
-    .filter(t => t.type === 'character')
-    .map(t => t.name.toLowerCase());
-
-  if (characterNames.length === 0) {
-    logger.info('No characters selected for restore, skipping database restore');
-    return;
-  }
-
-  // First pass: extract PIDs for selected characters from players_core
-  const pidMap = new Map<string, number>();
-  const lines = content.split('\n');
-
-  for (const line of lines) {
-    if (line.includes('`players_core`') && line.startsWith('INSERT INTO')) {
-      // Parse multi-value INSERT: INSERT INTO `players_core` VALUES (pid,'name',...),(pid,'name',...)
-      const valuesMatch = line.match(/VALUES\s*(.+)$/i);
-      if (valuesMatch) {
-        // Split by '),(' to get individual rows
-        const valuesStr = valuesMatch[1];
-        // Match each (pid,'name',...) group
-        const rowRegex = /\((\d+),'([^']+)'/g;
-        let match;
-        while ((match = rowRegex.exec(valuesStr)) !== null) {
-          const pid = parseInt(match[1]);
-          const name = match[2].toLowerCase();
-          if (characterNames.includes(name)) {
-            pidMap.set(name, pid);
+  for (let i = 0; i <= inner.length; i++) {
+    const c = i < inner.length ? inner[i] : ',';
+    if (escapeNext) { escapeNext = false; continue; }
+    if (c === '\\') { escapeNext = true; continue; }
+    if (c === "'") { inString = !inString; continue; }
+    if (!inString) {
+      if (c === '(') depth++;
+      else if (c === ')') depth--;
+      else if (c === ',' && depth === 0) {
+        if (col === colIndex) {
+          let val = inner.slice(currentStart, i).trim();
+          if (val.startsWith("'") && val.endsWith("'") && val.length >= 2) {
+            val = unescapeMysqlString(val.slice(1, -1));
           }
+          return val;
         }
+        col++;
+        currentStart = i + 1;
+      }
+    }
+  }
+  return null;
+}
+
+export function filterTableRows(
+  rows: string[],
+  info: TableColumnInfo,
+  keySet: Set<string>,
+): string[] {
+  const out: string[] = [];
+  for (const row of rows) {
+    const v = extractColValue(row, info.filterColIndex);
+    if (v !== null && keySet.has(v)) out.push(row);
+  }
+  return out;
+}
+
+/**
+ * from a set of parent rows + info, keep only rows matching `keySet` on filterCol,
+ * then collect the values of `outColName` from surviving rows. used for cascade
+ * filtering: parent rows feed the key set for child filtering.
+ */
+export function resolveCascadeKeys(
+  parentRows: string[],
+  parentInfo: TableColumnInfo,
+  parentKeySet: Set<string>,
+  outColName: string,
+): Set<string> {
+  const outIdx = parentInfo.columns.indexOf(outColName);
+  if (outIdx === -1) return new Set();
+  const surviving = filterTableRows(parentRows, parentInfo, parentKeySet);
+  const out = new Set<string>();
+  for (const row of surviving) {
+    const v = extractColValue(row, outIdx);
+    if (v !== null) out.add(v);
+  }
+  return out;
+}
+
+/**
+ * assemble the final restore sql from per-table filtered row arrays.
+ * wraps in FOREIGN_KEY_CHECKS toggle and a transaction so partial failure rolls back.
+ */
+export function buildRestoreSql(filtered: Record<string, string[]>): string {
+  const parts: string[] = [];
+  parts.push('SET FOREIGN_KEY_CHECKS=0;');
+  parts.push('START TRANSACTION;');
+  for (const [tbl, rows] of Object.entries(filtered)) {
+    if (rows.length === 0) continue;
+    parts.push('REPLACE INTO `' + tbl + '` VALUES ' + rows.join(',') + ';');
+  }
+  parts.push('COMMIT;');
+  parts.push('SET FOREIGN_KEY_CHECKS=1;');
+  return parts.join('\n');
+}
+
+/**
+ * expand the set of tables selected by checked categories.
+ */
+function tablesForCategories(categories: Partial<RestoreCategories>): string[] {
+  const out: string[] = [];
+  for (const [cat, tables] of Object.entries(CATEGORY_TABLES)) {
+    if (categories[cat as keyof RestoreCategories]) out.push(...tables);
+  }
+  return out;
+}
+
+/**
+ * filter a parsed dump into the set of rows to restore for a character (or set of pids),
+ * honoring the checked categories and cascade chains.
+ */
+export function filterDumpForCharacterRestore(
+  sqlContent: string,
+  pidSet: Set<string>,
+  categories: Partial<RestoreCategories>,
+  nameSet: Set<string> = new Set(),
+): Record<string, string[]> {
+  const columnIndex = buildFilterColumnIndex(sqlContent);
+  const rowMap = parseDumpIntoRowMap(sqlContent);
+  const selected = new Set(tablesForCategories(categories));
+  const filtered: Record<string, string[]> = {};
+
+  const cascadeChildren = new Set(CASCADE_EDGES.map(e => e.childTable));
+
+  for (const tbl of selected) {
+    if (cascadeChildren.has(tbl)) continue;
+    const info = columnIndex[tbl];
+    const rows = rowMap[tbl];
+    if (!info || !rows) continue;
+    const filterCol = FILTER_COLUMN_MAP[tbl];
+    const keySet = (filterCol === 'player_name' || filterCol === 'owner_name') ? nameSet : pidSet;
+    filtered[tbl] = filterTableRows(rows, info, keySet);
+  }
+
+  for (const edge of CASCADE_EDGES) {
+    if (!selected.has(edge.parentTable) || !selected.has(edge.childTable)) continue;
+    const parentInfo = columnIndex[edge.parentTable];
+    // use pre-filtered parent rows. for level-1 cascade parents (lockers, player_pets,
+    // etc), these come from the direct pass above. for level-2+ parents (locker_items,
+    // private_chests, corpse_items, player_pet_items), they come from an earlier edge
+    // in this loop. CASCADE_EDGES is in topological order so parents are always filled
+    // by the time their children are processed. the rowMap fallback is a safety net —
+    // shouldn't fire in practice because `selected.has(parent)` above implies the parent
+    // was eligible for direct or cascade filtering.
+    const parentRows = filtered[edge.parentTable] ?? rowMap[edge.parentTable];
+    const childInfo = columnIndex[edge.childTable];
+    const childRows = rowMap[edge.childTable];
+    if (!parentInfo || !parentRows || !childInfo || !childRows) continue;
+
+    // parent rows are already filtered to the current character/account scope, so
+    // collect outColName (usually 'id') values directly. no need to re-filter.
+    const outIdx = parentInfo.columns.indexOf(edge.parentKeyCol);
+    if (outIdx === -1) continue;
+    const childKeySet = new Set<string>();
+    for (const row of parentRows) {
+      const v = extractColValue(row, outIdx);
+      if (v !== null) childKeySet.add(v);
+    }
+    filtered[edge.childTable] = filterTableRows(childRows, childInfo, childKeySet);
+  }
+
+  return filtered;
+}
+
+/**
+ * full restore: every row of every restore table.
+ */
+export function filterDumpForFullRestore(sqlContent: string): Record<string, string[]> {
+  return parseDumpIntoRowMap(sqlContent);
+}
+
+/**
+ * account restore: all per-account tables for selected account names, plus all per-character
+ * tables for every pid owned by those accounts.
+ */
+export function filterDumpForAccountRestore(
+  sqlContent: string,
+  accountSet: Set<string>,
+): Record<string, string[]> {
+  const columnIndex = buildFilterColumnIndex(sqlContent);
+  const rowMap = parseDumpIntoRowMap(sqlContent);
+
+  const filtered: Record<string, string[]> = {};
+  for (const tbl of PER_ACCOUNT_TABLES) {
+    const info = columnIndex[tbl];
+    const rows = rowMap[tbl];
+    if (!info || !rows) continue;
+    filtered[tbl] = filterTableRows(rows, info, accountSet);
+  }
+
+  const acInfo = columnIndex.account_characters;
+  const acRows = rowMap.account_characters;
+  const pidSet = new Set<string>();
+  const nameSet = new Set<string>();
+  if (acInfo && acRows) {
+    const accIdx = acInfo.columns.indexOf('account_name');
+    const pidIdx = acInfo.columns.indexOf('pid');
+    const nameIdx = acInfo.columns.indexOf('char_name');
+    for (const row of acRows) {
+      const acc = extractColValue(row, accIdx);
+      if (acc && accountSet.has(acc)) {
+        const pid = extractColValue(row, pidIdx);
+        const name = extractColValue(row, nameIdx);
+        if (pid) pidSet.add(pid);
+        if (name) nameSet.add(name);
       }
     }
   }
 
-  const selectedPids = Array.from(pidMap.values());
-  logger.info(`Found ${selectedPids.length} PIDs for selected characters:`, pidMap);
-
-  // Second pass: filter rows for selected characters
-  const filteredStatements: string[] = ['SET FOREIGN_KEY_CHECKS=0;'];
-
-  for (const line of lines) {
-    if (!line.startsWith('INSERT INTO')) continue;
-
-    const tableMatch = line.match(/INSERT INTO `([^`]+)`/);
-    if (!tableMatch || !ALLOWED_RESTORE_TABLES.includes(tableMatch[1])) continue;
-
-    const tableName = tableMatch[1];
-    const valuesMatch = line.match(/VALUES\s*(.+)$/i);
-    if (!valuesMatch) continue;
-
-    // Parse the VALUES section and filter rows
-    const filteredRows: string[] = [];
-    const valuesStr = valuesMatch[1];
-
-    // Split multi-value INSERT into individual rows
-    // This is complex because values can contain commas and parentheses in strings
-    const rows = parseMultiValueInsert(valuesStr);
-
-    for (const row of rows) {
-      let shouldInclude = false;
-
-      if (tableName === 'players_core') {
-        // Match by name (second column)
-        const nameMatch = row.match(/^\((\d+),'([^']+)'/);
-        if (nameMatch && characterNames.includes(nameMatch[2].toLowerCase())) {
-          shouldInclude = true;
-        }
-      } else if (tableName === 'pkill_info') {
-        // Match by pid (third column after id and event_id)
-        const pidMatch = row.match(/^\(\d+,\d+,(\d+),/);
-        if (pidMatch && selectedPids.includes(parseInt(pidMatch[1]))) {
-          shouldInclude = true;
-        }
-      } else if (tableName === 'pkill_event') {
-        // For pkill_event, include all events (they're linked to pkill_info)
-        // A more precise approach would be to pre-scan pkill_info for event_ids
-        shouldInclude = true;
-      } else if (tableName === 'frag_leaderboard') {
-        // Match by pid or char_name
-        const pidMatch = row.match(/^\(\d+,(\d+),/);
-        const nameMatch = row.match(/'([^']+)'/);
-        if (pidMatch && selectedPids.includes(parseInt(pidMatch[1]))) {
-          shouldInclude = true;
-        } else if (nameMatch && characterNames.includes(nameMatch[1].toLowerCase())) {
-          shouldInclude = true;
-        }
-      }
-
-      if (shouldInclude) {
-        filteredRows.push(row);
-      }
-    }
-
-    if (filteredRows.length > 0) {
-      const columnsPart = line.match(/INSERT INTO `[^`]+`\s*(\([^)]+\))?\s*VALUES/i);
-      const columnsStr = columnsPart && columnsPart[1] ? columnsPart[1] + ' ' : '';
-      const stmt = `REPLACE INTO \`${tableName}\` ${columnsStr}VALUES ${filteredRows.join(',')};`;
-      filteredStatements.push(stmt);
-    }
-  }
-
-  filteredStatements.push('SET FOREIGN_KEY_CHECKS=1;');
-
-  if (filteredStatements.length <= 2) {
-    logger.info('No matching database rows for selected characters');
-    return;
-  }
-
-  // Write filtered SQL and execute
-  const tempSqlPath = path.join(os.tmpdir(), `restore-selective-${Date.now()}.sql`);
-  await fs.promises.writeFile(tempSqlPath, filteredStatements.join('\n'));
-
-  try {
-    const dbHost = process.env.DURIS_DB_HOST || '127.0.0.1';
-    const dbUser = process.env.DURIS_DB_USER || 'duris';
-    const dbPassword = process.env.DURIS_DB_PASSWORD || 'duris';
-    const dbName = process.env.DURIS_DB_NAME || 'duris_dev';
-
-    await execAsync(
-      `mysql -h ${dbHost} -u ${dbUser} -p'${dbPassword}' ${dbName} < "${tempSqlPath}"`
-    );
-    logger.info('Selective database restore completed');
-  } finally {
-    await fs.promises.unlink(tempSqlPath).catch(() => {});
-  }
+  const allCategoriesChecked: RestoreCategories = {
+    coreData: true, inventory: true, lockers: true, skills: true,
+    progression: true, auction: true, guild: true, pvpHistory: true,
+    pets: true, ships: true, corpses: true, mail: true,
+  };
+  const perChar = filterDumpForCharacterRestore(sqlContent, pidSet, allCategoriesChecked, nameSet);
+  return { ...filtered, ...perChar };
 }
 
 /**
  * Parse multi-value INSERT VALUES section into individual row strings
  * Handles nested parentheses and quoted strings with commas
  */
-function parseMultiValueInsert(valuesStr: string): string[] {
+export function parseMultiValueInsert(valuesStr: string): string[] {
   const rows: string[] = [];
   let depth = 0;
   let currentRow = '';
@@ -960,146 +1409,6 @@ function parseMultiValueInsert(valuesStr: string): string[] {
   return rows;
 }
 
-/**
- * Run a full restore (all files + database)
- */
-async function runFullRestore(restoreId: number, zipPath: string): Promise<void> {
-  const timestamp = Date.now();
-
-  // Step 1: Restore database
-  await updateRestoreStatus(restoreId, 'in_progress', 5, 'Restoring database...');
-  broadcastRestoreProgress({ id: restoreId, progress: 5, currentStep: 'Restoring database...', status: 'in_progress' });
-
-  await restoreFullDatabase(zipPath);
-
-  // Step 2: Extract backup files
-  await updateRestoreStatus(restoreId, 'in_progress', 20, 'Extracting backup...');
-  broadcastRestoreProgress({ id: restoreId, progress: 20, currentStep: 'Extracting backup...', status: 'in_progress' });
-
-  const directory = await unzipper.Open.file(zipPath);
-
-  // Backup current files before overwriting
-  await updateRestoreStatus(restoreId, 'in_progress', 20, 'Backing up current files...');
-  broadcastRestoreProgress({ id: restoreId, progress: 20, currentStep: 'Backing up current files...', status: 'in_progress' });
-
-  // Extract and restore files
-  let progress = 30;
-  const totalFiles = directory.files.length;
-  let processedFiles = 0;
-
-  for (const file of directory.files) {
-    if (file.type === 'Directory') continue;
-
-    // Handle Accounts and Players directories
-    if (file.path.startsWith('Accounts/') || file.path.startsWith('Players/')) {
-      const targetPath = path.join(MUD_BASE, file.path);
-      const targetDir = path.dirname(targetPath);
-
-      // Backup existing file if it exists
-      if (fs.existsSync(targetPath)) {
-        const backupPath = `${targetPath}.pre-restore.${timestamp}`;
-        await fs.promises.rename(targetPath, backupPath);
-      }
-
-      // Ensure directory exists
-      await fs.promises.mkdir(targetDir, { recursive: true });
-
-      // Extract file
-      const content = await file.buffer();
-      await fs.promises.writeFile(targetPath, content);
-    }
-
-    processedFiles++;
-    const newProgress = Math.min(90, 30 + Math.floor((processedFiles / totalFiles) * 60));
-    if (newProgress > progress) {
-      progress = newProgress;
-      await updateRestoreStatus(restoreId, 'in_progress', progress, `Restoring files... (${processedFiles}/${totalFiles})`);
-      broadcastRestoreProgress({ id: restoreId, progress, currentStep: `Restoring files... (${processedFiles}/${totalFiles})`, status: 'in_progress' });
-    }
-  }
-
-  await updateRestoreStatus(restoreId, 'in_progress', 95, 'Finalizing restore...');
-  broadcastRestoreProgress({ id: restoreId, progress: 95, currentStep: 'Finalizing restore...', status: 'in_progress' });
-}
-
-/**
- * Run a selective restore (specific accounts/characters)
- */
-async function runSelectiveRestore(
-  restoreId: number,
-  zipPath: string,
-  targets: RestoreTarget[]
-): Promise<void> {
-  const timestamp = Date.now();
-
-  await updateRestoreStatus(restoreId, 'in_progress', 10, 'Opening backup...');
-  broadcastRestoreProgress({ id: restoreId, progress: 10, currentStep: 'Opening backup...', status: 'in_progress' });
-
-  const directory = await unzipper.Open.file(zipPath);
-
-  // Build list of paths to restore
-  const pathsToRestore: string[] = [];
-  for (const target of targets) {
-    const firstLetter = target.name.charAt(0).toLowerCase();
-    if (target.type === 'account') {
-      pathsToRestore.push(`Accounts/${firstLetter}/${target.name}`);
-    } else {
-      pathsToRestore.push(`Players/${firstLetter}/${target.name}`);
-    }
-  }
-
-  await updateRestoreStatus(restoreId, 'in_progress', 20, `Restoring ${targets.length} items...`);
-  broadcastRestoreProgress({ id: restoreId, progress: 20, currentStep: `Restoring ${targets.length} items...`, status: 'in_progress' });
-
-  let progress = 20;
-  let restored = 0;
-
-  for (const file of directory.files) {
-    if (file.type === 'Directory') continue;
-
-    // Check if this file matches any of our targets
-    const shouldRestore = pathsToRestore.some(p => file.path === p || file.path.startsWith(p + '/'));
-
-    if (shouldRestore) {
-      const targetPath = path.join(MUD_BASE, file.path);
-      const targetDir = path.dirname(targetPath);
-
-      // Backup existing file if it exists
-      if (fs.existsSync(targetPath)) {
-        const backupPath = `${targetPath}.pre-restore.${timestamp}`;
-        await fs.promises.rename(targetPath, backupPath);
-      }
-
-      // Ensure directory exists
-      await fs.promises.mkdir(targetDir, { recursive: true });
-
-      // Extract file
-      const content = await file.buffer();
-      await fs.promises.writeFile(targetPath, content);
-
-      restored++;
-      const newProgress = Math.min(90, 20 + Math.floor((restored / pathsToRestore.length) * 70));
-      if (newProgress > progress) {
-        progress = newProgress;
-        await updateRestoreStatus(restoreId, 'in_progress', progress, `Restored ${restored}/${pathsToRestore.length} items`);
-        broadcastRestoreProgress({ id: restoreId, progress, currentStep: `Restored ${restored}/${pathsToRestore.length} items`, status: 'in_progress' });
-      }
-    }
-  }
-
-  // Restore database rows for selected characters
-  await updateRestoreStatus(restoreId, 'in_progress', 92, 'Restoring database records...');
-  broadcastRestoreProgress({ id: restoreId, progress: 92, currentStep: 'Restoring database records...', status: 'in_progress' });
-
-  await restoreSelectiveDatabase(zipPath, targets);
-
-  await updateRestoreStatus(restoreId, 'in_progress', 95, 'Finalizing...');
-  broadcastRestoreProgress({ id: restoreId, progress: 95, currentStep: 'Finalizing...', status: 'in_progress' });
-}
-
-// ============================================================================
-// UPLOAD BACKUP FUNCTIONS
-// ============================================================================
 
 export interface UploadedBackupInfo {
   tempPath: string;
@@ -1122,57 +1431,33 @@ export async function validateUploadedBackup(filePath: string): Promise<Uploaded
         errorMessage: 'File not found',
       };
     }
-
     const directory = await unzipper.Open.file(filePath);
-
-    // Check for required structure
-    let hasAccounts = false;
-    let hasPlayers = false;
-
-    const accounts: string[] = [];
-    const characters: string[] = [];
-
-    for (const file of directory.files) {
-      // Check for Accounts directory
-      if (file.path.startsWith('Accounts/')) {
-        hasAccounts = true;
-        // Match Accounts/{letter}/{name} pattern
-        const accountMatch = file.path.match(/^Accounts\/([a-z])\/([^\/\.]+)$/);
-        if (accountMatch) {
-          accounts.push(accountMatch[2]);
-        }
-      }
-
-      // Check for Players directory
-      if (file.path.startsWith('Players/')) {
-        hasPlayers = true;
-        // Match Players/{letter}/{name} pattern
-        const playerMatch = file.path.match(/^Players\/([a-z])\/([^\/\.]+)$/);
-        if (playerMatch) {
-          characters.push(playerMatch[2]);
-        }
-      }
-
-    }
-
-    // Must have at least Accounts or Players directory
-    if (!hasAccounts && !hasPlayers) {
+    const sqlFile = directory.files.find(f =>
+      f.path.endsWith('.sql') && (f.path.startsWith('database/') || f.path === 'database.sql')
+    );
+    if (!sqlFile) {
       return {
         tempPath: filePath,
         contents: { accounts: [], characters: [] },
         isValid: false,
-        errorMessage: 'Invalid backup: missing Accounts and Players directories',
+        errorMessage: 'Invalid backup: no database/*.sql file found',
       };
     }
 
-    return {
-      tempPath: filePath,
-      contents: {
-        accounts: accounts.sort(),
-        characters: characters.sort(),
-      },
-      isValid: true,
-    };
+    const content = (await sqlFile.buffer()).toString('utf-8');
+
+    if (!content.includes('CREATE TABLE `account_characters`') ||
+        !content.includes('CREATE TABLE `player_data`')) {
+      return {
+        tempPath: filePath,
+        contents: { accounts: [], characters: [] },
+        isValid: false,
+        errorMessage: 'Invalid backup: missing account_characters or player_data table definition',
+      };
+    }
+
+    const contents = parseBackupContentsFromSql(content);
+    return { tempPath: filePath, contents, isValid: true };
   } catch (error) {
     return {
       tempPath: filePath,
@@ -1188,73 +1473,11 @@ export async function validateUploadedBackup(filePath: string): Promise<Uploaded
  */
 export async function createRestoreFromUpload(
   filePath: string,
-  restoreType: 'full' | 'selective',
-  targets: RestoreTarget[] | null,
+  req: RestoreRequest,
   accountName: string,
-  ipAddress: string
+  ipAddress: string,
 ): Promise<{ id: number }> {
-  // Insert pending restore record with backup_id = 0 (uploaded file)
-  const [result] = await pool.execute<ResultSetHeader>(
-    `INSERT INTO mud_restores (backup_id, restore_type, targets, status, progress, current_step, created_by, ip_address, started_at)
-     VALUES (0, ?, ?, 'pending', 0, 'Initializing...', ?, ?, NOW())`,
-    [restoreType, targets ? JSON.stringify(targets) : null, accountName, ipAddress]
-  );
-
-  const restoreId = result.insertId;
-
-  // Start the restore process asynchronously
-  runRestoreFromUpload(restoreId, filePath, restoreType, targets).catch((error) => {
-    logger.error(`Restore ${restoreId} from upload failed:`, error);
-  });
-
-  return { id: restoreId };
-}
-
-/**
- * Run restore from an uploaded file
- */
-async function runRestoreFromUpload(
-  restoreId: number,
-  filePath: string,
-  restoreType: 'full' | 'selective',
-  targets: RestoreTarget[] | null
-): Promise<void> {
-  try {
-    await updateRestoreStatus(restoreId, 'in_progress', 5, 'Starting restore from uploaded file...');
-    broadcastRestoreProgress({ id: restoreId, progress: 5, currentStep: 'Starting restore from uploaded file...', status: 'in_progress' });
-
-    if (!fs.existsSync(filePath)) {
-      throw new Error('Uploaded backup file not found');
-    }
-
-    if (restoreType === 'full') {
-      await runFullRestore(restoreId, filePath);
-    } else {
-      await runSelectiveRestore(restoreId, filePath, targets || []);
-    }
-
-    // Mark as completed
-    await pool.execute(
-      `UPDATE mud_restores SET status = 'completed', progress = 100, current_step = 'Restore complete', completed_at = NOW() WHERE id = ?`,
-      [restoreId]
-    );
-    broadcastRestoreProgress({ id: restoreId, progress: 100, currentStep: 'Restore complete', status: 'completed' });
-
-    logger.info(`Restore ${restoreId} from upload completed successfully`);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(`Restore ${restoreId} from upload failed:`, errorMessage);
-
-    await pool.execute(
-      `UPDATE mud_restores SET status = 'failed', error_message = ?, completed_at = NOW() WHERE id = ?`,
-      [errorMessage, restoreId]
-    );
-    broadcastRestoreProgress({ id: restoreId, progress: 0, currentStep: `Failed: ${errorMessage}`, status: 'failed' });
-  } finally {
-    // Cleanup uploaded file after restore completes (success or failure)
-    await fs.promises.unlink(filePath).catch(() => {});
-    logger.info(`Cleaned up uploaded backup file: ${filePath}`);
-  }
+  return runRestoreInternal(req, filePath, 0, accountName, ipAddress);
 }
 
 /**
@@ -1278,9 +1501,21 @@ export async function getRestoreById(id: number): Promise<RestoreInfo | null> {
 }
 
 /**
- * Get list of all restores
+ * Get list of all restores (also cleans up stuck rows)
  */
 export async function getRestoreList(): Promise<RestoreInfo[]> {
+  // mark stuck restores as failed (in_progress/pending for more than 30 minutes).
+  // mirrors the same cleanup in getBackupList. covers node-crash-mid-restore and
+  // mysql-cli-killed-by-timeout scenarios so the row doesn't sit at in_progress forever.
+  await pool.execute(
+    `UPDATE mud_restores
+     SET status = 'failed',
+         error_message = 'Restore timed out (stuck for over 30 minutes)',
+         completed_at = NOW()
+     WHERE status IN ('in_progress', 'pending')
+       AND started_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)`
+  );
+
   const [rows] = await pool.execute<RestoreRow[]>(
     `SELECT * FROM mud_restores ORDER BY started_at DESC`
   );
