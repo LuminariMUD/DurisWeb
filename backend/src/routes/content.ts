@@ -1,7 +1,7 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import logger, { getErrorMessage } from '../utils/logger.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
-import { processForumContent } from '../utils/contentParser.js';
+import { processContentForWrite } from '../utils/contentParser.js';
 import * as contentService from '../services/contentService.js';
 import * as categoryService from '../services/categoryService.js';
 import { extractClientIP } from '../utils/ipExtractor.js';
@@ -10,6 +10,13 @@ import { parseLatestNewsEntry } from '../utils/newsParser.js';
 import { notifyNewsUpdate } from '../services/unifiedNotificationService.js';
 
 const router: ExpressRouter = Router();
+
+type ContentWriteResult = { content: string } | { error: string };
+
+function validateContentForWrite(value: unknown): ContentWriteResult {
+  const result = processContentForWrite(value);
+  return result.error ? { error: result.error } : { content: result.content };
+}
 
 // Helper function to log admin actions
 async function logAdminAction(
@@ -97,7 +104,11 @@ router.post('/help', requireAuth, requirePermission('manage_help_files'), async 
     }
 
     // Sanitize HTML content
-    const { content: sanitizedText } = processForumContent(text);
+    const processed = validateContentForWrite(text);
+    if ('error' in processed) {
+      return res.status(400).json({ error: processed.error });
+    }
+    const sanitizedText = processed.content;
 
     const page = await contentService.createHelpPage({
       title,
@@ -140,7 +151,11 @@ router.patch('/help/:id', requireAuth, requirePermission('manage_help_files'), a
 
     // Sanitize HTML content if provided
     if (text !== undefined) {
-      const { content: sanitizedText } = processForumContent(text);
+      const processed = validateContentForWrite(text);
+      if ('error' in processed) {
+        return res.status(400).json({ error: processed.error });
+      }
+      const sanitizedText = processed.content;
       updates.text = sanitizedText;
     }
 
@@ -292,7 +307,11 @@ router.put('/motd', requireAuth, requirePermission('manage_motd'), async (req, r
     }
 
     // Sanitize HTML content
-    const { content: sanitizedContent } = processForumContent(content);
+    const processed = validateContentForWrite(content);
+    if ('error' in processed) {
+      return res.status(400).json({ error: processed.error });
+    }
+    const sanitizedContent = processed.content;
     const motd = await contentService.setMotd(sanitizedContent);
 
     // Audit log
@@ -332,7 +351,11 @@ router.put('/news', requireAuth, requirePermission('manage_news'), async (req, r
     }
 
     // Sanitize HTML content
-    const { content: sanitizedContent } = processForumContent(content);
+    const processed = validateContentForWrite(content);
+    if ('error' in processed) {
+      return res.status(400).json({ error: processed.error });
+    }
+    const sanitizedContent = processed.content;
     const news = await contentService.setNews(sanitizedContent);
 
     // Audit log
@@ -414,7 +437,11 @@ router.put('/wizmotd', requireAuth, requirePermission('manage_motd'), async (req
     }
 
     // Sanitize HTML content
-    const { content: sanitizedContent } = processForumContent(content);
+    const processed = validateContentForWrite(content);
+    if ('error' in processed) {
+      return res.status(400).json({ error: processed.error });
+    }
+    const sanitizedContent = processed.content;
     const wizmotd = await contentService.setWizMotd(sanitizedContent);
 
     // Audit log
@@ -464,7 +491,11 @@ router.put('/rules', requireAuth, requirePermission('manage_motd'), async (req, 
     }
 
     // Sanitize HTML content
-    const { content: sanitizedContent } = processForumContent(content);
+    const processed = validateContentForWrite(content);
+    if ('error' in processed) {
+      return res.status(400).json({ error: processed.error });
+    }
+    const sanitizedContent = processed.content;
     const rules = await contentService.setRules(sanitizedContent);
 
     // Audit log
@@ -504,7 +535,11 @@ router.put('/credits', requireAuth, requirePermission('manage_motd'), async (req
     }
 
     // Sanitize HTML content
-    const { content: sanitizedContent } = processForumContent(content);
+    const processed = validateContentForWrite(content);
+    if ('error' in processed) {
+      return res.status(400).json({ error: processed.error });
+    }
+    const sanitizedContent = processed.content;
     const credits = await contentService.setCredits(sanitizedContent);
 
     // Audit log
@@ -544,7 +579,11 @@ router.put('/wizlist', requireAuth, requirePermission('manage_motd'), async (req
     }
 
     // Sanitize HTML content
-    const { content: sanitizedContent } = processForumContent(content);
+    const processed = validateContentForWrite(content);
+    if ('error' in processed) {
+      return res.status(400).json({ error: processed.error });
+    }
+    const sanitizedContent = processed.content;
     const wizlist = await contentService.setWizlist(sanitizedContent);
 
     // Audit log
@@ -584,7 +623,11 @@ router.put('/faq', requireAuth, requirePermission('manage_motd'), async (req, re
     }
 
     // Sanitize HTML content
-    const { content: sanitizedContent } = processForumContent(content);
+    const processed = validateContentForWrite(content);
+    if ('error' in processed) {
+      return res.status(400).json({ error: processed.error });
+    }
+    const sanitizedContent = processed.content;
     const faq = await contentService.setFaq(sanitizedContent);
 
     // Audit log

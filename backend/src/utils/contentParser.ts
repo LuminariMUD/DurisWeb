@@ -1,9 +1,10 @@
 import DOMPurify from 'dompurify';
-import { parseHTML } from 'linkedom';
+import { JSDOM } from 'jsdom';
 
-// Create a lightweight DOM window using linkedom (faster and lighter than jsdom)
-const { window } = parseHTML('<!DOCTYPE html><html></html>');
-const purify = DOMPurify(window as any);
+// Use a standards-compliant DOM implementation. DOMPurify's security behavior
+// is not reliable when initialized with the lightweight linkedom window.
+const { window } = new JSDOM('<!DOCTYPE html><html></html>');
+const purify = DOMPurify(window);
 
 /**
  * Configuration for DOMPurify
@@ -211,6 +212,41 @@ export function processForumContent(html: string): {
     mentions,
     mudColors,
     error: null,
+  };
+}
+
+/**
+ * Process content at a durable-write boundary.
+ *
+ * Unlike the lower-level parser, this also rejects content that becomes empty
+ * after sanitization so callers cannot persist a blank replacement while
+ * ignoring the validation result.
+ */
+export function processContentForWrite(html: unknown): {
+  content: string;
+  mentions: string[];
+  mudColors: string[];
+  error: string | null;
+} {
+  if (typeof html !== 'string') {
+    return {
+      content: '',
+      mentions: [],
+      mudColors: [],
+      error: 'Content must be a string',
+    };
+  }
+
+  const result = processForumContent(html);
+  if (result.error || result.content.trim()) {
+    return result;
+  }
+
+  return {
+    content: '',
+    mentions: [],
+    mudColors: [],
+    error: 'Content cannot be empty after sanitization',
   };
 }
 

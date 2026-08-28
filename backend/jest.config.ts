@@ -9,7 +9,6 @@ const config: Config = {
   extensionsToTreatAsEsm: ['.ts'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
-    '^jsdom$': '<rootDir>/test/mocks/jsdom.ts',
   },
   transform: {
     '^.+\\.ts$': [
