@@ -6,6 +6,7 @@ import { useAuth } from '@/composables/useAuth'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronDown, Circle, CheckCircle2 } from 'lucide-vue-next'
+import { sanitizeChangelogContent } from '@/utils/sanitizeChangelogContent'
 
 const { isAuthenticated, accountName } = useAuth()
 const queryClient = useQueryClient()
@@ -170,7 +171,7 @@ function goToPage(page: number) {
           v-show="isExpanded(entry.id)"
           :ref="(el) => { if (el) contentRefs.set(entry.id, el as HTMLElement) }"
           class="border-t border-gray-800 px-4 py-4 prose prose-invert prose-sm max-w-none tiptap-content"
-          v-html="entry.content"
+          v-html="sanitizeChangelogContent(entry.content)"
         ></div>
       </div>
 

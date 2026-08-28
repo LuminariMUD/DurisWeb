@@ -1,6 +1,7 @@
 import { pool as db } from '../db/connection.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { createNotification } from './unifiedNotificationService.js';
+import { processContentForWrite } from '../utils/contentParser.js';
 
 export interface ChangelogEntry {
   id: number;
@@ -20,6 +21,14 @@ export interface ChangelogListOptions {
   accountName?: string;
   page?: number;
   limit?: number;
+}
+
+function sanitizeChangelogContent(content: string): string {
+  const processed = processContentForWrite(content);
+  if (processed.error) {
+    throw new Error(processed.error);
+  }
+  return processed.content;
 }
 
 /**
@@ -178,10 +187,11 @@ export async function createChangelogEntry(data: {
   createdBy: string;
   isPublished?: boolean;
 }): Promise<number> {
+  const content = sanitizeChangelogContent(data.content);
   const [result] = await db.query<ResultSetHeader>(
     `INSERT INTO website_changelog (version, title, content, category, created_by, is_published)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [data.version, data.title, data.content, data.category, data.createdBy, data.isPublished ?? false]
+    [data.version, data.title, content, data.category, data.createdBy, data.isPublished ?? false]
   );
 
   return result.insertId;
@@ -213,7 +223,7 @@ export async function updateChangelogEntry(
   }
   if (data.content !== undefined) {
     updates.push('content = ?');
-    params.push(data.content);
+    params.push(sanitizeChangelogContent(data.content));
   }
   if (data.category !== undefined) {
     updates.push('category = ?');

@@ -2,6 +2,7 @@ import { Router, type Router as ExpressRouter } from 'express';
 import { requireAuth, requirePermission, optionalAuth } from '../middleware/auth.js';
 import { getErrorMessage } from '../utils/logger.js';
 import * as changelogService from '../services/changelogService.js';
+import { processContentForWrite } from '../utils/contentParser.js';
 
 const router: ExpressRouter = Router();
 
@@ -104,10 +105,15 @@ router.post('/', requireAuth, requirePermission('manage_news'), async (req, res)
       return res.status(400).json({ error: 'Category must be "public" or "admin"' });
     }
 
+    const processedContent = processContentForWrite(content);
+    if (processedContent.error) {
+      return res.status(400).json({ error: processedContent.error });
+    }
+
     const id = await changelogService.createChangelogEntry({
       version,
       title,
-      content,
+      content: processedContent.content,
       category: category || 'public',
       createdBy: req.user!.accountName,
       isPublished: isPublished ?? false,
@@ -137,6 +143,15 @@ router.put('/:id', requireAuth, requirePermission('manage_news'), async (req, re
       return res.status(400).json({ error: 'Category must be "public" or "admin"' });
     }
 
+    let processedContent: string | undefined;
+    if (content !== undefined) {
+      const result = processContentForWrite(content);
+      if (result.error) {
+        return res.status(400).json({ error: result.error });
+      }
+      processedContent = result.content;
+    }
+
     // check if entry was previously unpublished (for notification)
     const existingEntry = await changelogService.getChangelogEntry(id);
     const wasUnpublished = existingEntry && !existingEntry.isPublished;
@@ -144,7 +159,7 @@ router.put('/:id', requireAuth, requirePermission('manage_news'), async (req, re
     const updated = await changelogService.updateChangelogEntry(id, {
       version,
       title,
-      content,
+      content: processedContent,
       category,
       isPublished,
     });
