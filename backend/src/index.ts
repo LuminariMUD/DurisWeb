@@ -35,6 +35,7 @@ import publicStatisticsRoutes from './routes/publicStatistics.js';
 import kofiRoutes from './routes/kofi.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { generateCsrfToken, verifyCsrfToken } from './middleware/csrf.js';
+import { configureRequestBodyParsers } from './middleware/requestLimits.js';
 import {
   checkDatabaseConnection,
   verifyDatabaseSchema,
@@ -98,8 +99,7 @@ app.set('trust proxy', 1);
 
 // Middleware
 app.use(compression()); // Enable gzip/deflate compression for all responses
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+configureRequestBodyParsers(app);
 app.use(cookieParser());
 
 // CORS configuration
