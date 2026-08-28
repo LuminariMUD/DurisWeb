@@ -5,6 +5,7 @@ import * as path from 'path';
 import archiver from 'archiver';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { pool } from '../db/connection.js';
+import { processContentForWrite } from '../utils/contentParser.js';
 
 const MUD_DIR = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
 const AREAS_DIR = path.join(MUD_DIR, 'areas');
@@ -73,6 +74,23 @@ import type {
 } from '../types/builder.js';
 
 const router: Router = express.Router();
+
+type OptionalHtmlResult = { contentHtml: string | null } | { error: string };
+
+function validateOptionalHtml(value: unknown): OptionalHtmlResult {
+  if (value === undefined || value === null || value === '') {
+    return { contentHtml: null };
+  }
+
+  if (typeof value !== 'string') {
+    return { error: 'Comment HTML must be a string' };
+  }
+
+  const processed = processContentForWrite(value);
+  return processed.error
+    ? { error: processed.error }
+    : { contentHtml: processed.content };
+}
 
 // Helper function to log builder activity to the dedicated activity log table
 async function logBuilderActivity(
@@ -2412,13 +2430,19 @@ router.post('/zones/:id/comments', async (req: Request, res: Response) => {
       return;
     }
 
+    const processedHtml = validateOptionalHtml(contentHtml);
+    if ('error' in processedHtml) {
+      res.status(400).json({ error: processedHtml.error });
+      return;
+    }
+
     const data: CreateZoneComment = {
       zoneId,
       parentId: parentId ?? null,
       procRequestId: procRequestId ?? null,
       characterName: characterName ?? null,
       content,
-      contentHtml,
+      contentHtml: processedHtml.contentHtml ?? undefined,
     };
 
     // Get zone name for notification message
@@ -2469,13 +2493,19 @@ router.put('/zones/:id/comments/:commentId', async (req: Request, res: Response)
       return;
     }
 
+    const processedHtml = validateOptionalHtml(contentHtml);
+    if ('error' in processedHtml) {
+      res.status(400).json({ error: processedHtml.error });
+      return;
+    }
+
     // Check if user is admin (can edit any comment)
     const isAdmin = req.user?.permissions?.role === 'overlord' ||
       req.user?.adminPermissions?.has('manage_zones');
 
     const comment = await zoneCommentService.updateComment(
       commentId,
-      { content, contentHtml },
+      { content, contentHtml: processedHtml.contentHtml ?? undefined },
       accountName,
       isAdmin
     );

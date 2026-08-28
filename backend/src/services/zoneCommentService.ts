@@ -2,6 +2,7 @@ import { pool as db } from '../db/connection.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import type { ZoneComment, CreateZoneComment, UpdateZoneComment } from '../types/builder.js';
 import { extractMentions, createMentions, deleteMentions } from './builderNotificationService.js';
+import { processContentForWrite } from '../utils/contentParser.js';
 
 // ============================================================================
 // Zone Comment Functions
@@ -23,6 +24,23 @@ function mapRowToComment(row: RowDataPacket): ZoneComment {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function sanitizeOptionalCommentHtml(value: unknown): string | null {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    throw new Error('Comment HTML must be a string');
+  }
+
+  const processed = processContentForWrite(value);
+  if (processed.error) {
+    throw new Error(processed.error);
+  }
+
+  return processed.content;
 }
 
 /**
@@ -113,6 +131,8 @@ export async function createComment(
   accountName: string,
   zoneName?: string | null
 ): Promise<ZoneComment> {
+  const sanitizedContentHtml = sanitizeOptionalCommentHtml(data.contentHtml);
+
   // Validate parent exists if specified
   if (data.parentId) {
     const parent = await getComment(data.parentId);
@@ -136,7 +156,7 @@ export async function createComment(
       accountName,
       data.characterName ?? null,
       data.content,
-      data.contentHtml ?? null,
+      sanitizedContentHtml,
     ]
   );
 
@@ -173,6 +193,7 @@ export async function updateComment(
   accountName: string,
   isAdmin: boolean = false
 ): Promise<ZoneComment | null> {
+  const sanitizedContentHtml = sanitizeOptionalCommentHtml(data.contentHtml);
   const existing = await getComment(id);
   if (!existing) {
     return null;
@@ -187,7 +208,7 @@ export async function updateComment(
     `UPDATE builder_zone_comments
      SET content = ?, content_html = ?, updated_at = NOW()
      WHERE id = ?`,
-    [data.content, data.contentHtml ?? null, id]
+    [data.content, sanitizedContentHtml, id]
   );
 
   return getComment(id);

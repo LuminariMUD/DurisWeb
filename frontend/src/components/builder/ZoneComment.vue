@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { formatDistanceToNow } from 'date-fns'
 import { Reply, Trash2, User } from 'lucide-vue-next'
 import { highlightMentions } from '@/utils/mentionHighlight'
+import { sanitizeChangelogContent } from '@/utils/sanitizeChangelogContent'
 import type { ZoneComment } from '@/types'
 
 const props = defineProps<{
@@ -28,10 +29,14 @@ const timeAgo = computed(() => {
 // Is this comment being replied to
 const isReplyingToThis = computed(() => props.replyingTo === props.comment.id)
 
+function sanitizeAndHighlight(contentHtml: string): string {
+  return highlightMentions(sanitizeChangelogContent(contentHtml))
+}
+
 // Highlighted content with @mentions styled
 const highlightedContent = computed(() => {
   if (props.comment.contentHtml) {
-    return highlightMentions(props.comment.contentHtml)
+    return sanitizeAndHighlight(props.comment.contentHtml)
   }
   return null
 })
@@ -39,7 +44,7 @@ const highlightedContent = computed(() => {
 // Helper to highlight reply content
 function getHighlightedReplyContent(reply: ZoneComment): string | null {
   if (reply.contentHtml) {
-    return highlightMentions(reply.contentHtml)
+    return sanitizeAndHighlight(reply.contentHtml)
   }
   return null
 }
