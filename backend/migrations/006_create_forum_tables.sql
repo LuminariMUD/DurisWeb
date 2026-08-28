@@ -9,7 +9,7 @@
 CREATE TABLE IF NOT EXISTS web_sessions (
   id VARCHAR(255) PRIMARY KEY,
   account_name VARCHAR(50) NOT NULL,
-  refresh_token VARCHAR(255) NOT NULL,
+  refresh_token VARCHAR(512) NOT NULL,
   expires_at TIMESTAMP NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_account (account_name),
