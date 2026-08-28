@@ -70,6 +70,7 @@ import {
 import {
   createPoll,
   getPollByThreadId,
+  getPollById,
   castVote,
   removeVote,
   closePoll,
@@ -78,6 +79,7 @@ import {
 } from '../services/pollService.js';
 import { requireAuth, requireModerator, optionalAuth, requirePermission } from '../middleware/auth.js';
 import { getCharacterInfo, type UserPermissions } from '../services/permissionService.js';
+import { getCategoryAccessForAccount } from '../services/categoryService.js';
 import { parseAccountFile, findAccountByCharacter } from '../services/accountService.js';
 import { extractClientIP } from '../utils/ipExtractor.js';
 import { uploadAvatar, deleteAllAvatars, validateAvatarFile, isR2Configured } from '../services/r2Service.js';
@@ -112,6 +114,22 @@ const ANONYMOUS_PERMISSIONS: UserPermissions = {
   canLockThreads: false,
   adminPermissions: []
 };
+
+type ForumThreadAccessMode = 'view' | 'post';
+
+async function getAuthorizedThread(
+  threadId: number,
+  permissions: UserPermissions,
+  mode: ForumThreadAccessMode = 'view',
+): Promise<{ thread: NonNullable<Awaited<ReturnType<typeof getThreadById>>>; canPost: boolean; canModerate: boolean } | null> {
+  const thread = await getThreadById(threadId);
+  if (!thread) return null;
+
+  const access = await getCategoryAccessForAccount(thread.category_id, permissions);
+  if (!access.canView || (mode === 'post' && !access.canPost)) return null;
+
+  return { thread, canPost: access.canPost, canModerate: access.canModerate };
+}
 
 // Apply optional authentication to all forum routes (anonymous users can view public content)
 router.use(optionalAuth);
@@ -440,7 +458,7 @@ router.get(
         return res.status(404).json({ error: 'Category not found or access denied' });
       }
 
-      const result = await getThreadsByCategory(categoryId, page, limit);
+      const result = await getThreadsByCategory(categoryId, page, limit, permissions);
 
       return res.json({
         data: result.threads,
@@ -566,6 +584,11 @@ router.post(
         return res.status(403).json({ error: 'Category not found or access denied' });
       }
 
+      const categoryAccess = await getCategoryAccessForAccount(categoryId, req.user.permissions);
+      if (!categoryAccess.canPost) {
+        return res.status(403).json({ error: 'You do not have permission to post in this category' });
+      }
+
       // Validate character ownership if characterPid is provided
       let validatedCharacterPid: bigint | null = null;
       if (characterPid) {
@@ -601,7 +624,8 @@ router.post(
         validatedCharacterPid,
         title,
         content,
-        ipAddress
+        ipAddress,
+        req.user.permissions
       );
 
       // Auto-subscribe to own thread
@@ -659,6 +683,11 @@ router.patch(
         return res.status(404).json({ error: 'Thread not found' });
       }
 
+      const categoryAccess = await getCategoryAccessForAccount(thread.category_id, req.user.permissions);
+      if (!categoryAccess.canPost) {
+        return res.status(403).json({ error: 'You do not have permission to edit this category' });
+      }
+
       // Check ownership
       if (thread.author_account_name !== req.user.accountName) {
         return res.status(403).json({ error: 'You can only edit your own threads' });
@@ -709,11 +738,11 @@ router.delete(
         return res.status(404).json({ error: 'Thread not found' });
       }
 
-      // Check ownership or moderator status
+      const categoryAccess = await getCategoryAccessForAccount(thread.category_id, req.user.permissions);
       const isModerator = req.user.permissions.canModerate;
       const isAuthor = thread.author_account_name === req.user.accountName;
-
-      if (!isAuthor && !isModerator) {
+      const canDelete = (isAuthor && categoryAccess.canPost) || (isModerator && categoryAccess.canModerate);
+      if (!canDelete) {
         return res.status(403).json({ error: 'Not authorized to delete this thread' });
       }
 
@@ -752,6 +781,10 @@ router.post(
 
       const threadId = parseInt(req.params.id);
       const { isPinned } = req.body;
+      const authorizedThread = await getAuthorizedThread(threadId, req.user!.permissions, 'view');
+      if (!authorizedThread?.canModerate) {
+        return res.status(403).json({ error: 'Category moderator access required' });
+      }
 
       const success = await togglePinThread(threadId, isPinned);
 
@@ -791,6 +824,10 @@ router.post(
 
       const threadId = parseInt(req.params.id);
       const { isLocked } = req.body;
+      const authorizedThread = await getAuthorizedThread(threadId, req.user!.permissions, 'view');
+      if (!authorizedThread?.canModerate) {
+        return res.status(403).json({ error: 'Category moderator access required' });
+      }
 
       const success = await toggleLockThread(threadId, isLocked);
 
@@ -860,6 +897,11 @@ router.post(
         return res.status(403).json({ error: 'Access denied to this category' });
       }
 
+      const categoryAccess = await getCategoryAccessForAccount(thread.category_id, req.user.permissions);
+      if (!categoryAccess.canPost) {
+        return res.status(403).json({ error: 'You do not have permission to post in this category' });
+      }
+
       // Validate character ownership if characterPid is provided
       let validatedCharacterPid: bigint | null = null;
       if (characterPid) {
@@ -896,7 +938,8 @@ router.post(
         validatedCharacterPid,
         content,
         parentPostId || null,
-        ipAddress
+        ipAddress,
+        req.user.permissions
       );
 
       // Notifications are now handled automatically within createPost
@@ -950,6 +993,14 @@ router.patch(
 
       const postId = parseInt(req.params.id);
       const { content } = req.body;
+      const post = await getPostById(postId, req.user.accountName);
+      if (!post) {
+        return res.status(404).json({ error: 'Post not found' });
+      }
+      const categoryAccess = await getAuthorizedThread(post.thread_id, req.user.permissions, 'post');
+      if (!categoryAccess) {
+        return res.status(403).json({ error: 'You do not have permission to edit this category' });
+      }
 
       // Check if user can edit (author only)
       const canEdit = await canEditPost(postId, req.user.accountName);
@@ -993,11 +1044,15 @@ router.delete(
       }
 
       const postId = parseInt(req.params.id);
-
-      // Check if moderator (can delete any post) or check ownership
-      const canDelete =
-        req.user.permissions?.canModerate ||
-        (await canEditPost(postId, req.user.accountName));
+      const post = await getPostById(postId, req.user.accountName);
+      if (!post) {
+        return res.status(404).json({ error: 'Post not found' });
+      }
+      const authorizedThread = await getAuthorizedThread(post.thread_id, req.user.permissions, 'view');
+      const isModerator = req.user.permissions.canModerate;
+      const isAuthor = post.author_account_name === req.user.accountName;
+      const canDelete = authorizedThread !== null &&
+        ((isAuthor && authorizedThread.canPost) || (isModerator && authorizedThread.canModerate));
 
       if (!canDelete) {
         return res.status(403).json({ error: 'Not authorized to delete this post' });
@@ -1048,6 +1103,14 @@ router.post(
 
       const postId = parseInt(req.params.id);
       const { emoji } = req.body;
+      const post = await getPostById(postId, req.user.accountName);
+      if (!post) {
+        return res.status(404).json({ error: 'Post not found' });
+      }
+      const authorizedThread = await getAuthorizedThread(post.thread_id, req.user.permissions, 'post');
+      if (!authorizedThread) {
+        return res.status(403).json({ error: 'Access denied to this category' });
+      }
 
       const success = await addReaction(postId, req.user.accountName, emoji);
 
@@ -1087,6 +1150,14 @@ router.delete(
 
       const postId = parseInt(req.params.id);
       const emoji = req.params.emoji;
+      const post = await getPostById(postId, req.user.accountName);
+      if (!post) {
+        return res.status(404).json({ error: 'Post not found' });
+      }
+      const authorizedThread = await getAuthorizedThread(post.thread_id, req.user.permissions, 'post');
+      if (!authorizedThread) {
+        return res.status(403).json({ error: 'Access denied to this category' });
+      }
 
       const success = await removeReaction(postId, req.user.accountName, emoji);
 
@@ -1129,6 +1200,10 @@ router.post(
 
       const threadId = parseInt(req.params.id);
       const { emoji } = req.body;
+      const authorizedThread = await getAuthorizedThread(threadId, req.user.permissions, 'post');
+      if (!authorizedThread) {
+        return res.status(403).json({ error: 'Access denied to this category' });
+      }
 
       const success = await addReaction(null, req.user.accountName, emoji, threadId);
 
@@ -1168,6 +1243,10 @@ router.delete(
 
       const threadId = parseInt(req.params.id);
       const emoji = req.params.emoji;
+      const authorizedThread = await getAuthorizedThread(threadId, req.user.permissions, 'post');
+      if (!authorizedThread) {
+        return res.status(403).json({ error: 'Access denied to this category' });
+      }
 
       const success = await removeReaction(null, req.user.accountName, emoji, threadId);
 
@@ -1213,6 +1292,10 @@ router.post(
       }
 
       const threadId = parseInt(req.params.id);
+      const authorizedThread = await getAuthorizedThread(threadId, req.user.permissions, 'view');
+      if (!authorizedThread) {
+        return res.status(403).json({ error: 'Access denied to this thread' });
+      }
       const notificationPreference = req.body.notificationPreference || 'all';
 
       await subscribeToThread(req.user.accountName, threadId, notificationPreference);
@@ -1245,6 +1328,10 @@ router.delete(
       }
 
       const threadId = parseInt(req.params.id);
+      const authorizedThread = await getAuthorizedThread(threadId, req.user.permissions, 'view');
+      if (!authorizedThread) {
+        return res.status(403).json({ error: 'Access denied to this thread' });
+      }
 
       await unsubscribeFromThread(req.user.accountName, threadId);
 
@@ -1298,6 +1385,10 @@ router.post(
       }
 
       const threadId = parseInt(req.params.id);
+      const authorizedThread = await getAuthorizedThread(threadId, req.user.permissions, 'view');
+      if (!authorizedThread) {
+        return res.status(403).json({ error: 'Access denied to this thread' });
+      }
       const notificationPreference = req.body.notificationPreference || 'all';
 
       await subscribeToThread(req.user.accountName, threadId, notificationPreference);
@@ -1333,6 +1424,10 @@ router.delete(
       }
 
       const threadId = parseInt(req.params.id);
+      const authorizedThread = await getAuthorizedThread(threadId, req.user.permissions, 'view');
+      if (!authorizedThread) {
+        return res.status(403).json({ error: 'Access denied to this thread' });
+      }
 
       await unsubscribeFromThread(req.user.accountName, threadId);
 
@@ -1364,6 +1459,10 @@ router.get(
       }
 
       const threadId = parseInt(req.params.id);
+      const authorizedThread = await getAuthorizedThread(threadId, req.user.permissions, 'view');
+      if (!authorizedThread) {
+        return res.status(403).json({ error: 'Access denied to this thread' });
+      }
 
       const isSubscribed = await isSubscribedToThread(req.user.accountName, threadId);
 
@@ -1398,6 +1497,10 @@ router.post(
       }
 
       const categoryId = parseInt(req.params.id);
+      const category = await getCategoryById(categoryId, req.user.permissions);
+      if (!category) {
+        return res.status(403).json({ error: 'Access denied to this category' });
+      }
       const notificationPreference = req.body.notificationPreference || 'all';
 
       await subscribeToCategory(req.user.accountName, categoryId, notificationPreference);
@@ -1433,6 +1536,10 @@ router.delete(
       }
 
       const categoryId = parseInt(req.params.id);
+      const category = await getCategoryById(categoryId, req.user.permissions);
+      if (!category) {
+        return res.status(403).json({ error: 'Access denied to this category' });
+      }
 
       await unsubscribeFromCategory(req.user.accountName, categoryId);
 
@@ -1464,6 +1571,10 @@ router.get(
       }
 
       const categoryId = parseInt(req.params.id);
+      const category = await getCategoryById(categoryId, req.user.permissions);
+      if (!category) {
+        return res.status(403).json({ error: 'Access denied to this category' });
+      }
 
       const isSubscribed = await isSubscribedToCategory(req.user.accountName, categoryId);
 
@@ -1706,6 +1817,14 @@ router.delete(
       }
 
       const postId = parseInt(req.params.id);
+      const post = await getPostById(postId, req.user.accountName);
+      if (!post) {
+        return res.status(404).json({ error: 'Post not found' });
+      }
+      const authorizedThread = await getAuthorizedThread(post.thread_id, req.user.permissions, 'view');
+      if (!authorizedThread?.canModerate) {
+        return res.status(403).json({ error: 'Category moderator access required' });
+      }
       const reason = req.body.reason || null;
 
       await moderatorDeletePost(postId, req.user.accountName, reason);
@@ -1739,6 +1858,14 @@ router.post(
       }
 
       const postId = parseInt(req.params.id);
+      const post = await getPostById(postId, req.user.accountName);
+      if (!post) {
+        return res.status(404).json({ error: 'Post not found' });
+      }
+      const authorizedThread = await getAuthorizedThread(post.thread_id, req.user.permissions, 'view');
+      if (!authorizedThread?.canModerate) {
+        return res.status(403).json({ error: 'Category moderator access required' });
+      }
 
       await restorePost(postId, req.user.accountName);
 
@@ -1770,6 +1897,10 @@ router.delete(
       }
 
       const threadId = parseInt(req.params.id);
+      const authorizedThread = await getAuthorizedThread(threadId, req.user.permissions, 'view');
+      if (!authorizedThread?.canModerate) {
+        return res.status(403).json({ error: 'Category moderator access required' });
+      }
       const reason = req.body.reason || null;
 
       await moderatorDeleteThread(threadId, req.user.accountName, reason);
@@ -1803,6 +1934,10 @@ router.post(
       }
 
       const threadId = parseInt(req.params.id);
+      const authorizedThread = await getAuthorizedThread(threadId, req.user.permissions, 'view');
+      if (!authorizedThread?.canModerate) {
+        return res.status(403).json({ error: 'Category moderator access required' });
+      }
 
       await restoreThread(threadId, req.user.accountName);
 
@@ -1839,6 +1974,11 @@ router.post(
 
       const threadId = parseInt(req.params.id);
       const newCategoryId = parseInt(req.body.categoryId);
+      const sourceAccess = await getAuthorizedThread(threadId, req.user.permissions, 'view');
+      const destinationAccess = await getCategoryAccessForAccount(newCategoryId, req.user.permissions);
+      if (!sourceAccess?.canModerate || !destinationAccess.canModerate) {
+        return res.status(403).json({ error: 'Category moderator access required for source and destination' });
+      }
       const reason = req.body.reason || null;
 
       await moveThread(threadId, newCategoryId, req.user.accountName, reason);
@@ -2584,9 +2724,14 @@ router.post(
       const accountName = req.user!.accountName;
 
       // Verify thread exists and user is the creator
-      const thread = await getThreadById(parseInt(threadId));
+      const thread = await getThreadById(parseInt(threadId), req.user!.permissions);
       if (!thread) {
-        return res.status(404).json({ error: 'Thread not found' });
+        return res.status(404).json({ error: 'Thread not found or access denied' });
+      }
+
+      const categoryAccess = await getCategoryAccessForAccount(thread.category_id, req.user!.permissions);
+      if (!categoryAccess.canPost) {
+        return res.status(403).json({ error: 'You do not have permission to post in this category' });
       }
 
       if (thread.author_account_name !== accountName) {
@@ -2614,6 +2759,12 @@ router.post(
 router.get('/threads/:threadId/poll', async (req: Request, res: Response) => {
   try {
     const { threadId } = req.params;
+    const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
+    const thread = await getThreadById(parseInt(threadId), permissions);
+    if (!thread) {
+      return res.status(404).json({ error: 'Thread not found or access denied' });
+    }
+
     const voterAccount = req.user?.accountName;
 
     const pollData = await getPollByThreadId(parseInt(threadId), voterAccount);
@@ -2633,6 +2784,12 @@ router.get('/threads/:threadId/poll', async (req: Request, res: Response) => {
 router.get('/threads/:threadId/has-poll', async (req: Request, res: Response) => {
   try {
     const { threadId } = req.params;
+    const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
+    const thread = await getThreadById(parseInt(threadId), permissions);
+    if (!thread) {
+      return res.status(404).json({ error: 'Thread not found or access denied' });
+    }
+
     const pollData = await getPollByThreadId(parseInt(threadId));
 
     return res.json({ hasPoll: pollData !== null });
@@ -2662,6 +2819,14 @@ router.post(
       const { pollId } = req.params;
       const { optionIds } = req.body;
       const voterAccount = req.user!.accountName;
+      const poll = await getPollById(parseInt(pollId));
+      if (!poll) {
+        return res.status(404).json({ error: 'Poll not found' });
+      }
+      const thread = await getThreadById(poll.thread_id, req.user!.permissions);
+      if (!thread) {
+        return res.status(404).json({ error: 'Poll not found or access denied' });
+      }
 
       await castVote(parseInt(pollId), optionIds, voterAccount);
 
@@ -2687,6 +2852,14 @@ router.delete(
     try {
       const { pollId } = req.params;
       const voterAccount = req.user!.accountName;
+      const poll = await getPollById(parseInt(pollId));
+      if (!poll) {
+        return res.status(404).json({ error: 'Poll not found' });
+      }
+      const thread = await getThreadById(poll.thread_id, req.user!.permissions);
+      if (!thread) {
+        return res.status(404).json({ error: 'Poll not found or access denied' });
+      }
 
       await removeVote(parseInt(pollId), voterAccount);
 
@@ -2713,11 +2886,21 @@ router.patch(
       const { pollId } = req.params;
       const accountName = req.user!.accountName;
       const permissions = req.user!.permissions;
+      const poll = await getPollById(parseInt(pollId));
+      if (!poll) {
+        return res.status(404).json({ error: 'Poll not found' });
+      }
+      const thread = await getThreadById(poll.thread_id, permissions);
+      if (!thread) {
+        return res.status(404).json({ error: 'Poll not found or access denied' });
+      }
+      const categoryAccess = await getCategoryAccessForAccount(thread.category_id, permissions);
 
-      // Check if user is poll creator or moderator
+      // Check if user is poll creator or moderator, including category ACLs.
       const isCreator = await isPollCreator(parseInt(pollId), accountName);
-      if (!isCreator && !permissions?.canModerate) {
-        return res.status(403).json({ error: 'Only poll creator or moderators can close polls' });
+      const canManage = (isCreator && categoryAccess.canPost) || categoryAccess.canModerate;
+      if (!canManage) {
+        return res.status(403).json({ error: 'Only an authorized poll creator or category moderator can close polls' });
       }
 
       await closePoll(parseInt(pollId));
@@ -2745,11 +2928,21 @@ router.delete(
       const { pollId } = req.params;
       const accountName = req.user!.accountName;
       const permissions = req.user!.permissions;
+      const poll = await getPollById(parseInt(pollId));
+      if (!poll) {
+        return res.status(404).json({ error: 'Poll not found' });
+      }
+      const thread = await getThreadById(poll.thread_id, permissions);
+      if (!thread) {
+        return res.status(404).json({ error: 'Poll not found or access denied' });
+      }
+      const categoryAccess = await getCategoryAccessForAccount(thread.category_id, permissions);
 
-      // Check if user is poll creator or moderator
+      // Check if user is poll creator or moderator, including category ACLs.
       const isCreator = await isPollCreator(parseInt(pollId), accountName);
-      if (!isCreator && !permissions?.canModerate) {
-        return res.status(403).json({ error: 'Only poll creator or moderators can delete polls' });
+      const canManage = (isCreator && categoryAccess.canPost) || categoryAccess.canModerate;
+      if (!canManage) {
+        return res.status(403).json({ error: 'Only an authorized poll creator or category moderator can delete polls' });
       }
 
       await deletePoll(parseInt(pollId));

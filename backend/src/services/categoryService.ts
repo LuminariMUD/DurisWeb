@@ -618,8 +618,8 @@ export async function checkCategoryAccess(
       return aclResult;
     }
 
-    // If no ACL rules matched, default to authenticated access
-    return { canView: true, canPost: true, canModerate: userPermissions.canModerate };
+    // Custom ACL categories are allow-lists: no matching rule is default deny.
+    return { canView: false, canPost: false, canModerate: false };
   }
 
   // Role-based access
@@ -657,10 +657,19 @@ export async function checkCategoryAccess(
   }
 
   // Authenticated and public access
-  if (category.access_type === 'authenticated' || category.access_type === 'public') {
+  if (category.access_type === 'authenticated') {
+    const isAuthenticated = Boolean(accountName);
+    return {
+      canView: isAuthenticated,
+      canPost: isAuthenticated,
+      canModerate: isAuthenticated && userPermissions.canModerate
+    };
+  }
+
+  if (category.access_type === 'public') {
     return {
       canView: true,
-      canPost: true,
+      canPost: Boolean(accountName),
       canModerate: userPermissions.canModerate
     };
   }
@@ -738,9 +747,49 @@ async function evaluateACLPermissions(
   return null; // No matching rules
 }
 
-// ============================================================================
-// Archive Management
-// ============================================================================
+/**
+ * Resolve category access using the authenticated account's current characters.
+ * This is the canonical bridge used by forum routes and services so character-
+ * scoped ACL rules cannot be bypassed by direct-ID lookups.
+ */
+export async function getCategoryAccessForAccount(
+  categoryId: number,
+  userPermissions: UserPermissions,
+): Promise<CategoryAccessResult> {
+  const characterPids: number[] = [];
+
+  if (userPermissions.accountName) {
+    const [rows] = await db.query<RowDataPacket[]>(
+      'SELECT pid FROM account_characters WHERE account_name = ? AND deleted_at IS NULL',
+      [userPermissions.accountName],
+    );
+
+    for (const row of rows) {
+      const pid = Number(row.pid);
+      if (Number.isSafeInteger(pid)) characterPids.push(pid);
+    }
+  }
+
+  const characters = characterPids.map((pid) => ({
+    pid,
+    name: '',
+    level: 0,
+    guild: '',
+    race: '',
+    classname: '',
+    racewar: 0,
+    active: true,
+    money: 0,
+  } satisfies CharacterInfo));
+
+  return checkCategoryAccess(
+    categoryId,
+    userPermissions.accountName,
+    userPermissions,
+    characters,
+  );
+}
+
 
 /**
  * Get all archived categories with deletion metadata

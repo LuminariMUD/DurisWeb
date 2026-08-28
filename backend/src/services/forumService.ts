@@ -1,6 +1,7 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool as db } from '../db/connection.js';
 import { UserPermissions } from './permissionService.js';
+import { getCategoryAccessForAccount } from './categoryService.js';
 import { findCharacterGuild } from './guildService.js';
 import { processForumContent } from '../utils/contentParser.js';
 import { extractImageUrls, linkImagesToPost, linkImagesToThread } from './postImageService.js';
@@ -130,73 +131,12 @@ export async function getCategories(
     ORDER BY c.sort_order ASC, c.id ASC`
   );
 
-  // Filter categories based on permissions
+  // Use the canonical ACL decision for every category, including direct
+  // role-based/custom-ACL rules and character-scoped permissions.
   const filtered: RowDataPacket[] = [];
-
   for (const cat of rows) {
-    if (cat.access_type === 'public') {
-      filtered.push(cat);
-      continue;
-    }
-    if (cat.access_type === 'authenticated') {
-      // Only show to authenticated users (check if accountName exists)
-      if (permissions.accountName) {
-        filtered.push(cat);
-      }
-      continue;
-    }
-    if (cat.access_type === 'god' && permissions.canAccessGodForum) {
-      filtered.push(cat);
-      continue;
-    }
-    if (cat.access_type === 'immortal' && permissions.canAccessImmortalForum) {
-      filtered.push(cat);
-      continue;
-    }
-    if (cat.access_type === 'guild') {
-      // Overlords (level 62+) can see all guild forums for moderation
-      if (permissions.immortalLevel && permissions.immortalLevel >= 62) {
-        filtered.push(cat);
-        continue;
-      }
-      if (cat.guild_name && permissions.guilds.includes(cat.guild_name)) {
-        filtered.push(cat);
-      }
-      continue;
-    }
-    if (cat.access_type === 'role_based') {
-      // Check forum_category_permissions table
-      const [permRows] = await db.query<RowDataPacket[]>(
-        `SELECT * FROM forum_category_permissions WHERE category_id = ?`,
-        [cat.id]
-      );
-
-      if (permRows.length === 0) {
-        // No permissions set - only overlords can see it
-        if (permissions.role === 'overlord' || (permissions.immortalLevel && permissions.immortalLevel >= 60)) {
-          filtered.push(cat);
-        }
-        continue;
-      }
-
-      // Check if user meets any of the permission requirements
-      for (const perm of permRows) {
-        let hasAccess = false;
-
-        if (perm.permission_type === 'immortal_level' && perm.min_immortal_level) {
-          hasAccess = (permissions.immortalLevel || 0) >= perm.min_immortal_level;
-        } else if (perm.permission_type === 'account' && perm.account_name) {
-          hasAccess = permissions.accountName === perm.account_name;
-        } else if (perm.permission_type === 'guild' && perm.guild_name) {
-          hasAccess = permissions.guilds.includes(perm.guild_name);
-        }
-
-        if (hasAccess) {
-          filtered.push(cat);
-          break;
-        }
-      }
-    }
+    const access = await getCategoryAccessForAccount(Number(cat.id), permissions);
+    if (access.canView) filtered.push(cat);
   }
 
   // Get last post info for each category
@@ -257,18 +197,8 @@ export async function getCategoryById(
   if (rows.length === 0) return null;
 
   const cat = rows[0];
-
-  // Check access
-  if (cat.access_type === 'public' || cat.access_type === 'authenticated') {
-    return cat as ForumCategory;
-  }
-  if (cat.access_type === 'god' && !permissions.canAccessGodForum) return null;
-  if (cat.access_type === 'immortal' && !permissions.canAccessImmortalForum) return null;
-  if (cat.access_type === 'guild') {
-    // Overlords (level 62+) can access all guild forums
-    const isOverlord = permissions.immortalLevel && permissions.immortalLevel >= 62;
-    if (!isOverlord && (!cat.guild_name || !permissions.guilds.includes(cat.guild_name))) return null;
-  }
+  const access = await getCategoryAccessForAccount(categoryId, permissions);
+  if (!access.canView) return null;
 
   return cat as ForumCategory;
 }
@@ -292,43 +222,11 @@ export async function getChildCategories(
     [parentId]
   );
 
-  // Filter by access permissions (same logic as getCategories)
+  // Use the same canonical ACL decision as direct category reads.
   const filtered: ForumCategory[] = [];
-  const isOverlord = permissions.immortalLevel && permissions.immortalLevel >= 62;
-
   for (const cat of rows) {
-    if (cat.access_type === 'public') {
-      filtered.push(cat as ForumCategory);
-      continue;
-    }
-    if (cat.access_type === 'authenticated' && permissions.accountName) {
-      filtered.push(cat as ForumCategory);
-      continue;
-    }
-    if (cat.access_type === 'god' && permissions.canAccessGodForum) {
-      filtered.push(cat as ForumCategory);
-      continue;
-    }
-    if (cat.access_type === 'immortal' && permissions.canAccessImmortalForum) {
-      filtered.push(cat as ForumCategory);
-      continue;
-    }
-    if (cat.access_type === 'guild') {
-      // Overlords can see all guild forums
-      if (isOverlord) {
-        filtered.push(cat as ForumCategory);
-        continue;
-      }
-      if (cat.guild_name && permissions.guilds.includes(cat.guild_name)) {
-        filtered.push(cat as ForumCategory);
-      }
-      continue;
-    }
-    if (cat.access_type === 'role_based') {
-      if (isOverlord || (permissions.immortalLevel && permissions.immortalLevel >= (cat.min_level || 60))) {
-        filtered.push(cat as ForumCategory);
-      }
-    }
+    const access = await getCategoryAccessForAccount(Number(cat.id), permissions);
+    if (access.canView) filtered.push(cat as ForumCategory);
   }
 
   // Get last post info for ALL categories in one query using ROW_NUMBER()
@@ -519,8 +417,14 @@ export async function archiveCategory(categoryId: number): Promise<boolean> {
 export async function getThreadsByCategory(
   categoryId: number,
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
+  userPermissions?: UserPermissions,
 ): Promise<{ threads: ForumThread[]; total: number }> {
+  if (userPermissions) {
+    const access = await getCategoryAccessForAccount(categoryId, userPermissions);
+    if (!access.canView) return { threads: [], total: 0 };
+  }
+
   const offset = (page - 1) * limit;
 
   // Get total count
@@ -574,6 +478,11 @@ export async function getThreadById(
 
   const thread = rows[0];
 
+  if (userPermissions) {
+    const access = await getCategoryAccessForAccount(Number(thread.category_id), userPermissions);
+    if (!access.canView) return null;
+  }
+
   // Fetch guild data if character exists
   let guildInfo = null;
   if (thread.author_character_name) {
@@ -625,8 +534,14 @@ export async function createThread(
   authorCharacterPid: bigint | null,
   title: string,
   content: string,
-  ipAddress: string | null = null
+  ipAddress: string | null = null,
+  userPermissions?: UserPermissions,
 ): Promise<number> {
+  if (userPermissions) {
+    const access = await getCategoryAccessForAccount(categoryId, userPermissions);
+    if (!access.canPost) throw new Error('You do not have permission to post in this category');
+  }
+
   // Sanitize and process content
   const processed = processForumContent(content);
   if (processed.error) {
@@ -742,6 +657,16 @@ export async function getPostsByThread(
   limit: number = 50,
   userPermissions?: UserPermissions
 ): Promise<{ posts: ForumPost[]; total: number }> {
+  if (userPermissions) {
+    const [threadRows] = await db.query<RowDataPacket[]>(
+      'SELECT category_id FROM forum_threads WHERE id = ?',
+      [threadId],
+    );
+    if (threadRows.length === 0) return { posts: [], total: 0 };
+    const access = await getCategoryAccessForAccount(Number(threadRows[0].category_id), userPermissions);
+    if (!access.canView) return { posts: [], total: 0 };
+  }
+
   const offset = (page - 1) * limit;
 
   // Get total count (include deleted posts)
@@ -840,6 +765,16 @@ export async function getPostById(
 
   const post = rows[0];
 
+  if (userPermissions) {
+    const [threadRows] = await db.query<RowDataPacket[]>(
+      'SELECT category_id FROM forum_threads WHERE id = ?',
+      [post.thread_id],
+    );
+    if (threadRows.length === 0) return null;
+    const access = await getCategoryAccessForAccount(Number(threadRows[0].category_id), userPermissions);
+    if (!access.canView) return null;
+  }
+
   // Get reactions
   const [reactionRows] = await db.query<RowDataPacket[]>(
     `SELECT
@@ -890,7 +825,8 @@ export async function createPost(
   authorCharacterPid: bigint | null,
   content: string,
   parentPostId: number | null = null,
-  ipAddress: string | null = null
+  ipAddress: string | null = null,
+  userPermissions?: UserPermissions,
 ): Promise<number> {
   // Sanitize and process content first
   const processed = processForumContent(content);
@@ -913,6 +849,13 @@ export async function createPost(
     }
 
     const categoryId = threads[0].category_id;
+
+    if (userPermissions) {
+      const access = await getCategoryAccessForAccount(Number(categoryId), userPermissions);
+      if (!access.canPost) {
+        throw new Error('You do not have permission to post in this category');
+      }
+    }
 
     // Insert post with sanitized content
     const [result] = await connection.query<ResultSetHeader>(
@@ -1287,20 +1230,16 @@ export async function searchForum(
  */
 async function getAccessibleCategoryIds(permissions: UserPermissions): Promise<number[]> {
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT id FROM forum_categories
-     WHERE access_type = 'public'
-        OR (access_type = 'authenticated')
-        OR (access_type = 'guild' AND ? > 0)
-        OR (access_type = 'immortal' AND ?)
-        OR (access_type = 'god' AND ?)`,
-    [
-      permissions.guilds.length,
-      permissions.canAccessImmortalForum,
-      permissions.canAccessGodForum,
-    ]
+    'SELECT id FROM forum_categories WHERE is_archived = 0',
   );
 
-  return rows.map((r) => r.id);
+  const decisions = await Promise.all(rows.map(async (row) => {
+    const categoryId = Number(row.id);
+    const access = await getCategoryAccessForAccount(categoryId, permissions);
+    return access.canView ? categoryId : null;
+  }));
+
+  return decisions.filter((id): id is number => id !== null);
 }
 
 // ============================================================================
