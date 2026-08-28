@@ -59,10 +59,9 @@ const {
   showNotification,
   showPvPNotification,
   showCrashNotification,
-  wasPermissionRequested,
 } = useNotifications();
 
-// Request notification permission on mount and restore session
+// Restore session on mount
 onMounted(async () => {
   // Initialize WebSocket connection (singleton - only creates one connection)
   connect();
@@ -73,29 +72,6 @@ onMounted(async () => {
   // Restore user session from cookies
   await loadUser();
 
-  // Only request if not previously asked
-  if (isSupported.value && !wasPermissionRequested()) {
-    const permission = await requestPermission();
-
-    if (permission === 'denied') {
-      // Show warning toast if user denied permission
-      warning(
-        'You have blocked browser notifications. You can enable them in your browser settings to get alerts when you\'re away.',
-        'Notifications Blocked',
-        10000
-      );
-    }
-  }
-
-  // expose test function globally (remove after testing)
-  ;(window as any).testBrowserNotification = () => {
-    showPvPNotification({
-      id: Date.now(),
-      killers: '[56 &+cWarrior&n] &+RTestKiller&n (&+LOrc&n)',
-      victims: '[45 &+gCleric&n] &+GTestVictim&n (&+LHuman&n)',
-      room_name: '&+YThe Test Arena&n'
-    })
-  }
 });
 
 // Clean up WebSocket on unmount

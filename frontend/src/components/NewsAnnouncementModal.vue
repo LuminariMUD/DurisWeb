@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuth } from '@/composables/useAuth'
 import {
   Dialog,
   DialogContent,
@@ -13,18 +14,24 @@ import { Button } from '@/components/ui/button'
 import { Newspaper } from 'lucide-vue-next'
 
 const router = useRouter()
+const { accountName } = useAuth()
 
 const isOpen = ref(false)
 const newsDate = ref('')
 const newsItems = ref<string[]>([])
 
-const STORAGE_KEY = 'lastSeenNewsDate'
+const STORAGE_KEY_PREFIX = 'lastSeenNewsDate_'
+
+const storageKey = () => {
+  const account = accountName.value?.trim().toLowerCase() || 'anonymous'
+  return `${STORAGE_KEY_PREFIX}${account}`
+}
 
 function handleNewsUpdate(event: CustomEvent<{ date: string; items: string[] }>) {
   const { date, items } = event.detail
 
   // check if user has already seen this news
-  const lastSeen = localStorage.getItem(STORAGE_KEY)
+  const lastSeen = localStorage.getItem(storageKey())
   if (lastSeen === date) {
     return
   }
@@ -37,7 +44,7 @@ function handleNewsUpdate(event: CustomEvent<{ date: string; items: string[] }>)
 function handleClose() {
   // mark as read
   if (newsDate.value) {
-    localStorage.setItem(STORAGE_KEY, newsDate.value)
+    localStorage.setItem(storageKey(), newsDate.value)
   }
   isOpen.value = false
 }

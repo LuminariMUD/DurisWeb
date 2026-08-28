@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { changelogApi } from '@/services/api'
 import { useAuth } from '@/composables/useAuth'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronDown, Circle, CheckCircle2 } from 'lucide-vue-next'
 
-const { isAuthenticated } = useAuth()
+const { isAuthenticated, accountName } = useAuth()
+const queryClient = useQueryClient()
 const contentRefs = ref<Map<number, HTMLElement>>(new Map())
 
 // Pagination
@@ -18,10 +19,15 @@ const limit = 10
 const expandedEntries = ref<Set<number>>(new Set())
 
 // Fetch changelog entries
-const { data: changelogData, isLoading, isError, error } = useQuery({
-  queryKey: ['changelog', currentPage] as const,
+const changelogQueryKey = computed(() => [
+  'changelog',
+  accountName.value?.trim().toLowerCase() || 'anonymous',
+  currentPage.value,
+] as const)
+const { data: changelogData, isLoading, isError, error, refetch } = useQuery({
+  queryKey: changelogQueryKey,
   queryFn: async ({ queryKey }) => {
-    const [, page] = queryKey
+    const [, , page] = queryKey
     return await changelogApi.getEntries(page, limit)
   },
   staleTime: 1000 * 60 * 5,
@@ -51,7 +57,13 @@ async function toggleEntry(id: number) {
     expandedEntries.value.add(id)
     // mark as read when expanded (for logged-in users)
     if (isAuthenticated.value) {
-      changelogApi.markAsRead(id).catch(() => {})
+      try {
+        await changelogApi.markAsRead(id)
+        await queryClient.invalidateQueries({ queryKey: ['changelog-unread-count'] })
+        await queryClient.invalidateQueries({ queryKey: ['changelog'] })
+      } catch {
+        // Keep the entry expanded even if the read receipt is temporarily unavailable.
+      }
     }
     // apply column styles after DOM updates
     await nextTick()
@@ -97,6 +109,9 @@ function goToPage(page: number) {
     <div v-else-if="isError" class="rounded-lg border border-destructive bg-destructive/10 p-4">
       <h3 class="font-semibold text-destructive">error loading changelog</h3>
       <p class="text-sm text-destructive/80">{{ error?.message || 'unknown error occurred' }}</p>
+      <Button variant="outline" size="sm" class="mt-3" @click="refetch()">
+        Try again
+      </Button>
     </div>
 
     <!-- Empty State -->
@@ -114,7 +129,10 @@ function goToPage(page: number) {
       >
         <!-- Header (clickable) -->
         <button
+          type="button"
           @click="toggleEntry(entry.id)"
+          :aria-expanded="isExpanded(entry.id)"
+          :aria-controls="`changelog-entry-${entry.id}`"
           class="w-full flex items-center gap-4 p-4 text-left hover:bg-gray-900/50 transition-colors"
         >
           <!-- Read indicator -->
@@ -148,6 +166,7 @@ function goToPage(page: number) {
 
         <!-- Content (collapsible) -->
         <div
+          :id="`changelog-entry-${entry.id}`"
           v-show="isExpanded(entry.id)"
           :ref="(el) => { if (el) contentRefs.set(entry.id, el as HTMLElement) }"
           class="border-t border-gray-800 px-4 py-4 prose prose-invert prose-sm max-w-none tiptap-content"

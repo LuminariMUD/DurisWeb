@@ -3,7 +3,7 @@ import { computed, ref, watch, nextTick, onBeforeUnmount, createApp } from 'vue'
 import DOMPurify from 'dompurify'
 import { useSiteConfig } from '@/composables/useSiteConfig'
 import { Button } from '@/components/ui/button'
-import { Play } from 'lucide-vue-next'
+import { Newspaper, Play } from 'lucide-vue-next'
 import { RouterLink } from 'vue-router'
 import CarouselDisplay from '@/components/forum/CarouselDisplay.vue'
 import TopFraggerDisplay from '@/components/forum/widgets/TopFraggerDisplay.vue'
@@ -159,16 +159,29 @@ onBeforeUnmount(() => {
         <p class="text-lg md:text-xl lg:text-2xl text-gray-200 mb-8 drop-shadow-md">
           {{ frontPageHeroSubtitle }}
         </p>
-        <Button
-          size="lg"
-          class="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-3 text-lg"
-          as-child
-        >
-          <RouterLink to="/play">
-            <Play class="w-5 h-5 mr-2" />
-            Play Now
-          </RouterLink>
-        </Button>
+        <div class="flex flex-wrap items-center justify-center gap-3">
+          <Button
+            size="lg"
+            class="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-3 text-lg"
+            as-child
+          >
+            <RouterLink to="/play">
+              <Play class="w-5 h-5 mr-2" />
+              Play Now
+            </RouterLink>
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            class="border-cyan-400/60 text-cyan-200 hover:bg-cyan-400/15 hover:text-white font-semibold px-8 py-3 text-lg"
+            as-child
+          >
+            <RouterLink to="/news">
+              <Newspaper class="w-5 h-5 mr-2" />
+              News &amp; Updates
+            </RouterLink>
+          </Button>
+        </div>
       </div>
     </section>
 

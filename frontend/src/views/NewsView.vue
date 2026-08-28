@@ -9,6 +9,7 @@ import { parseAnsiForVue } from '@/utils/ansiParser'
 import { changelogApi } from '@/services/api'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import ChangelogList from '@/components/changelog/ChangelogList.vue'
 
 useHead({
@@ -17,14 +18,18 @@ useHead({
 
 const route = useRoute()
 const router = useRouter()
-const { isAuthenticated } = useAuth()
+const { isAuthenticated, accountName } = useAuth()
 
 // Tab state from URL query param
 const activeTab = ref((route.query.tab as string) || 'mud')
 
 // Fetch unread count for badge
+const unreadQueryKey = computed(() => [
+  'changelog-unread-count',
+  accountName.value?.trim().toLowerCase() || 'anonymous',
+] as const)
 const { data: unreadData } = useQuery({
-  queryKey: ['changelog-unread-count'],
+  queryKey: unreadQueryKey,
   queryFn: () => changelogApi.getUnreadCount(),
   enabled: () => isAuthenticated.value,
   staleTime: 1000 * 60 * 5,
@@ -45,7 +50,7 @@ function onTabChange(value: string | number) {
 }
 
 // Fetch MUD news content
-const { data, isLoading, isError, error } = useNews()
+const { data, isLoading, isError, error, refetch } = useNews()
 
 // Parse ANSI codes to HTML
 const parsedContent = computed(() => {
@@ -91,6 +96,9 @@ const parsedContent = computed(() => {
         <div v-else-if="isError" class="rounded-lg border border-destructive bg-destructive/10 p-4">
           <h3 class="font-semibold text-destructive">Error loading news</h3>
           <p class="text-sm text-destructive/80">{{ error?.message || 'Unknown error occurred' }}</p>
+          <Button variant="outline" size="sm" class="mt-3" @click="refetch()">
+            Try again
+          </Button>
         </div>
 
         <!-- News Content -->

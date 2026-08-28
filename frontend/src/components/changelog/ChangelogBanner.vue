@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { changelogApi } from '@/services/api'
@@ -9,17 +9,24 @@ import { X, History } from 'lucide-vue-next'
 
 const router = useRouter()
 const queryClient = useQueryClient()
-const { isAuthenticated } = useAuth()
+const { isAuthenticated, accountName } = useAuth()
 
 // local storage key for dismissed state
-const DISMISSED_KEY = 'changelog_banner_dismissed'
+const DISMISSED_KEY_PREFIX = 'changelog_banner_dismissed_'
 
 // state
 const isDismissed = ref(false)
 
-// load dismissed state from localStorage
-onMounted(() => {
-  const dismissed = localStorage.getItem(DISMISSED_KEY)
+const dismissedStorageKey = computed(() => {
+  const account = accountName.value?.trim().toLowerCase() || 'anonymous'
+  return `${DISMISSED_KEY_PREFIX}${account}`
+})
+
+// Load dismissed state for the current website account. Auth restoration can
+// finish after this component mounts, so reload whenever account identity changes.
+function loadDismissedState() {
+  isDismissed.value = false
+  const dismissed = localStorage.getItem(dismissedStorageKey.value)
   if (dismissed) {
     // check if dismissed timestamp is less than 24 hours old
     const dismissedTime = parseInt(dismissed)
@@ -28,14 +35,20 @@ onMounted(() => {
     if (now - dismissedTime < hours24) {
       isDismissed.value = true
     } else {
-      localStorage.removeItem(DISMISSED_KEY)
+      localStorage.removeItem(dismissedStorageKey.value)
     }
   }
-})
+}
+
+watch(accountName, loadDismissedState, { immediate: true })
 
 // fetch unread count (only for authenticated users)
+const unreadQueryKey = computed(() => [
+  'changelog-unread-count',
+  accountName.value?.trim().toLowerCase() || 'anonymous',
+] as const)
 const { data: unreadData } = useQuery({
-  queryKey: ['changelog-unread-count'],
+  queryKey: unreadQueryKey,
   queryFn: () => changelogApi.getUnreadCount(),
   enabled: () => isAuthenticated.value,
   staleTime: 1000 * 60 * 5, // 5 minutes
@@ -46,7 +59,7 @@ const { data: unreadData } = useQuery({
 watch(() => unreadData.value?.count, (newCount, oldCount) => {
   if (newCount && oldCount !== undefined && newCount > oldCount) {
     isDismissed.value = false
-    localStorage.removeItem(DISMISSED_KEY)
+    localStorage.removeItem(dismissedStorageKey.value)
   }
 })
 
@@ -59,7 +72,7 @@ const showBanner = computed(() => {
 // actions
 function dismiss() {
   isDismissed.value = true
-  localStorage.setItem(DISMISSED_KEY, Date.now().toString())
+  localStorage.setItem(dismissedStorageKey.value, Date.now().toString())
 }
 
 function goToChangelog() {
