@@ -79,6 +79,21 @@ describe('useAliases local persistence', () => {
     expect(aliasesApi.storageError.value).toContain('No active MUD account')
   })
 
+  it('isolates persisted aliases when switching accounts', async () => {
+    await selectAccount('Cwial')
+    expect(aliasesApi.addAlias(aliasForm)).not.toBeNull()
+
+    await selectAccount('OtherAccount')
+    expect(aliasesApi.aliases.value).toHaveLength(0)
+    expect(aliasesApi.addAlias({ ...aliasForm, trigger: 'heal' })).not.toBeNull()
+
+    await selectAccount('Cwial')
+    expect(aliasesApi.aliases.value.map((alias) => alias.trigger)).toEqual(['kk'])
+
+    await selectAccount('OtherAccount')
+    expect(aliasesApi.aliases.value.map((alias) => alias.trigger)).toEqual(['heal'])
+  })
+
   it('rolls back an alias when browser storage rejects the write', async () => {
     await selectAccount('Cwial')
     vi.spyOn(localStorageMock, 'setItem').mockImplementation(() => {

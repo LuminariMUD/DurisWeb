@@ -86,6 +86,21 @@ describe('useGroups local persistence', () => {
     expect(groupsApi.storageError.value).toContain('No active MUD account')
   })
 
+  it('isolates persisted groups when switching accounts', async () => {
+    await selectAccount('Cwial')
+    expect(groupsApi.addGroup(groupForm)).not.toBeNull()
+
+    await selectAccount('OtherAccount')
+    expect(groupsApi.groups.value).toHaveLength(0)
+    expect(groupsApi.addGroup({ ...groupForm, name: 'Exploration' })).not.toBeNull()
+
+    await selectAccount('Cwial')
+    expect(groupsApi.groups.value.map((group) => group.name)).toEqual(['Combat'])
+
+    await selectAccount('OtherAccount')
+    expect(groupsApi.groups.value.map((group) => group.name)).toEqual(['Exploration'])
+  })
+
   it('rolls back a group when browser storage rejects the write', async () => {
     await selectAccount('Cwial')
     vi.spyOn(localStorageMock, 'setItem').mockImplementation(() => {

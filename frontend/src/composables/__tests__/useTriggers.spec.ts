@@ -85,6 +85,21 @@ describe('useTriggers local persistence', () => {
     expect(triggersApi.storageError.value).toContain('No active MUD account')
   })
 
+  it('isolates persisted triggers when switching accounts', async () => {
+    await selectAccount('Cwial')
+    expect(triggersApi.addTrigger(triggerForm)).not.toBeNull()
+
+    await selectAccount('OtherAccount')
+    expect(triggersApi.triggers.value).toHaveLength(0)
+    expect(triggersApi.addTrigger({ ...triggerForm, name: 'Low mana' })).not.toBeNull()
+
+    await selectAccount('Cwial')
+    expect(triggersApi.triggers.value.map((trigger) => trigger.name)).toEqual(['Low health'])
+
+    await selectAccount('OtherAccount')
+    expect(triggersApi.triggers.value.map((trigger) => trigger.name)).toEqual(['Low mana'])
+  })
+
   it('rolls back a trigger when browser storage rejects the write', async () => {
     await selectAccount('Cwial')
     vi.spyOn(localStorageMock, 'setItem').mockImplementation(() => {

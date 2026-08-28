@@ -78,6 +78,21 @@ describe('useTimers local persistence', () => {
     expect(timersApi.storageError.value).toContain('No active MUD account')
   })
 
+  it('isolates persisted timers when switching accounts', async () => {
+    await selectAccount('Cwial')
+    expect(timersApi.addTimer(timerForm)).not.toBeNull()
+
+    await selectAccount('OtherAccount')
+    expect(timersApi.timers.value).toHaveLength(0)
+    expect(timersApi.addTimer({ ...timerForm, name: 'Heartbeat 2' })).not.toBeNull()
+
+    await selectAccount('Cwial')
+    expect(timersApi.timers.value.map((timer) => timer.name)).toEqual(['Heartbeat'])
+
+    await selectAccount('OtherAccount')
+    expect(timersApi.timers.value.map((timer) => timer.name)).toEqual(['Heartbeat 2'])
+  })
+
   it('rolls back a timer when browser storage rejects the write', async () => {
     await selectAccount('Cwial')
     vi.spyOn(localStorageMock, 'setItem').mockImplementation(() => {
