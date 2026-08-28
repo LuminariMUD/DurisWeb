@@ -17,7 +17,7 @@ const emit = defineEmits<{
 
 const { login, register } = useMudConnection()
 const store = useMudStore()
-const { accountName: webAccountName, isAuthenticated: isWebAuthenticated, storeMudCredentials } = useAuth()
+const { accountName: webAccountName, isAuthenticated: isWebAuthenticated } = useAuth()
 
 // Login form
 const loginAccount = ref('')
@@ -99,15 +99,11 @@ const validateRegister = () => {
 
 const handleLogin = () => {
   if (!validateLogin()) return
-  // store credentials for copyover auto-reconnect
-  storeMudCredentials(loginAccount.value, loginPassword.value)
   login(loginAccount.value, loginPassword.value)
 }
 
 const handleRegister = () => {
   if (!validateRegister()) return
-  // store credentials for copyover auto-reconnect
-  storeMudCredentials(registerAccount.value, registerPassword.value)
   register(registerAccount.value, registerPassword.value, registerEmail.value)
 }
 

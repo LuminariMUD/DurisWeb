@@ -94,8 +94,10 @@ let copyoverReconnectTimeoutId: ReturnType<typeof setTimeout> | null = null
 
 export function useMudConnection() {
   const store = useMudStore()
+  const { storeMudCredentials, getMudCredentials, clearMudCredentials } = useAuth()
   const { mudWsUrl, loadConfig, isLoaded } = useSiteConfig()
   const { startAllTimers, stopAllTimers, setSendCommand, setAddLogEntry } = useTimers()
+  let pendingAuthCredentials: { account: string; password: string } | null = null
 
   // Get WebSocket URL from site config
   const getMudWsUrl = () => {
@@ -193,12 +195,14 @@ export function useMudConnection() {
 
       newWs.onerror = (error) => {
         console.error('MUD WebSocket error:', error)
+        pendingAuthCredentials = null
         setConnecting(false)
         store.setConnectionState('error', 'Connection error')
       }
 
       newWs.onclose = (event) => {
         console.log('[MUD] WebSocket closed', event.code, event.reason)
+        pendingAuthCredentials = null
         setConnecting(false)
         setLoggingIn(false) // Clear login in progress flag
         setWsRef(null)
@@ -230,6 +234,7 @@ export function useMudConnection() {
       }
     } catch (error) {
       console.error('Failed to create MUD WebSocket:', error)
+      pendingAuthCredentials = null
       setConnecting(false)
       store.setConnectionState('error', 'Failed to connect')
     }
@@ -361,9 +366,9 @@ export function useMudConnection() {
 
       // if this is a copyover reconnect, auto-login with stored credentials
       if (store.copyoverInProgress) {
-        const { getMudCredentials } = useAuth()
         const creds = getMudCredentials()
         if (creds) {
+          pendingAuthCredentials = creds
           console.log('[MUD] Copyover: auto-login with stored credentials')
           store.setConnectionState('authenticating')
           // small delay to ensure mud is ready
@@ -405,6 +410,11 @@ export function useMudConnection() {
 
   const handleAuthMessage = (message: MudAuthMessage) => {
     if (message.status === 'success' || message.status === 'registered') {
+      if (pendingAuthCredentials) {
+        storeMudCredentials(message.data.account || pendingAuthCredentials.account, pendingAuthCredentials.password)
+        pendingAuthCredentials = null
+      }
+
       store.setAccount(message.data.account, message.data.characters)
 
       // if this was a copyover, auto-enter the previous character
@@ -424,6 +434,7 @@ export function useMudConnection() {
         store.clearCopyoverState()
       }
     } else if (message.status === 'reconnected') {
+      pendingAuthCredentials = null
       // Reconnected to existing character - go directly to in_game state
       const reconnectMsg = message as MudAuthReconnectedMessage
       store.setAccount(reconnectMsg.data.account, [])
@@ -441,6 +452,8 @@ export function useMudConnection() {
       initializeTimers()
       store.addLogEntry('system', `Reconnected as ${reconnectMsg.data.character.name}`)
     } else if (message.status === 'failed') {
+      pendingAuthCredentials = null
+      clearMudCredentials()
       store.setConnectionState('error', message.error)
       store.clearCopyoverState() // clear copyover on auth failure
     }
@@ -843,6 +856,7 @@ export function useMudConnection() {
       return false
     }
     setLoggingIn(true)
+    pendingAuthCredentials = { account, password }
 
     try {
       const ws = getWsRef()
@@ -876,6 +890,7 @@ export function useMudConnection() {
   }
 
   const register = async (account: string, password: string, email: string) => {
+    pendingAuthCredentials = { account, password }
     const ws = getWsRef()
     // connect first if not already connected
     if (!ws || ws.readyState !== WebSocket.OPEN) {
