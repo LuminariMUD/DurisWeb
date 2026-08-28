@@ -42,6 +42,7 @@ import {
 } from 'lucide-vue-next'
 import type { ProcRequest, ProcRequestStatus, ProcRequestEntityType } from '@/types'
 import { highlightMentions } from '@/utils/mentionHighlight'
+import { sanitizeChangelogContent } from '@/utils/sanitizeChangelogContent'
 
 const props = defineProps<{
   zoneId: string
@@ -164,10 +165,10 @@ function updateStatus(requestId: number, status: ProcRequestStatus) {
 // Get highlighted description with mentions styled
 function getHighlightedDescription(request: ProcRequest): string | null {
   if (request.descriptionHtml) {
-    return highlightMentions(request.descriptionHtml)
+    return highlightMentions(sanitizeChangelogContent(request.descriptionHtml))
   }
   if (request.description) {
-    return highlightMentions(request.description)
+    return highlightMentions(sanitizeChangelogContent(request.description))
   }
   return null
 }

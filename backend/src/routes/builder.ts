@@ -2204,13 +2204,19 @@ router.post('/zones/:id/proc-requests', async (req: Request, res: Response) => {
       return;
     }
 
+    const processedDescriptionHtml = validateOptionalHtml(descriptionHtml);
+    if ('error' in processedDescriptionHtml) {
+      res.status(400).json({ error: processedDescriptionHtml.error });
+      return;
+    }
+
     const data: CreateProcRequest = {
       zoneId,
       entityType,
       vnum: parseInt(vnum, 10) || 0,
       title,
       description,
-      descriptionHtml,
+      descriptionHtml: processedDescriptionHtml.contentHtml ?? undefined,
     };
 
     // Get zone name for notification message
@@ -2254,12 +2260,22 @@ router.put('/zones/:id/proc-requests/:prId', async (req: Request, res: Response)
       return;
     }
 
+    let processedDescriptionHtml: string | undefined;
+    if (req.body.descriptionHtml !== undefined) {
+      const result = validateOptionalHtml(req.body.descriptionHtml);
+      if ('error' in result) {
+        res.status(400).json({ error: result.error });
+        return;
+      }
+      processedDescriptionHtml = result.contentHtml ?? undefined;
+    }
+
     const data: UpdateProcRequest = {};
     if (req.body.entityType) data.entityType = req.body.entityType;
     if (req.body.vnum !== undefined) data.vnum = parseInt(req.body.vnum, 10);
     if (req.body.title) data.title = req.body.title;
     if (req.body.description !== undefined) data.description = req.body.description;
-    if (req.body.descriptionHtml !== undefined) data.descriptionHtml = req.body.descriptionHtml;
+    if (req.body.descriptionHtml !== undefined) data.descriptionHtml = processedDescriptionHtml;
     if (req.body.status) data.status = req.body.status;
     if (req.body.assignedTo !== undefined) data.assignedTo = req.body.assignedTo;
 

@@ -13,10 +13,28 @@ import {
   deleteMentions,
   createNotification,
 } from './builderNotificationService.js';
+import { processContentForWrite } from '../utils/contentParser.js';
 
 // ============================================================================
 // Proc Request Functions
 // ============================================================================
+
+function sanitizeOptionalDescriptionHtml(value: unknown): string | null {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    throw new Error('Description HTML must be a string');
+  }
+
+  const processed = processContentForWrite(value);
+  if (processed.error) {
+    throw new Error(processed.error);
+  }
+
+  return processed.content;
+}
 
 /**
  * Get all proc requests for a zone
@@ -113,6 +131,7 @@ export async function createProcRequest(
   requestedBy: string,
   zoneName?: string | null
 ): Promise<ProcRequest> {
+  const sanitizedDescriptionHtml = sanitizeOptionalDescriptionHtml(data.descriptionHtml);
   const [result] = await db.query<ResultSetHeader>(
     `INSERT INTO builder_proc_requests
      (zone_id, entity_type, vnum, title, description, description_html, requested_by)
@@ -123,7 +142,7 @@ export async function createProcRequest(
       data.vnum,
       data.title,
       data.description ?? null,
-      data.descriptionHtml ?? null,
+      sanitizedDescriptionHtml,
       requestedBy,
     ]
   );
@@ -162,6 +181,7 @@ export async function updateProcRequest(
   updatedBy?: string,
   zoneName?: string | null
 ): Promise<ProcRequest | null> {
+  const sanitizedDescriptionHtml = sanitizeOptionalDescriptionHtml(data.descriptionHtml);
   const existing = await getProcRequest(id);
   if (!existing) {
     return null;
@@ -192,7 +212,7 @@ export async function updateProcRequest(
 
   if (data.descriptionHtml !== undefined) {
     updates.push('description_html = ?');
-    params.push(data.descriptionHtml);
+    params.push(sanitizedDescriptionHtml);
   }
 
   if (data.status !== undefined) {
