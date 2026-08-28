@@ -1,0 +1,34 @@
+import { describe, expect, it, vi } from 'vitest'
+import { ref } from 'vue'
+import { mount } from '@vue/test-utils'
+
+const install = vi.fn()
+const dismiss = vi.fn()
+
+vi.mock('@/composables/useInstallPrompt', () => ({
+  useInstallPrompt: () => ({
+    canInstall: ref(true),
+    install,
+    dismiss,
+  }),
+}))
+
+import InstallBanner from '../InstallBanner.vue'
+
+describe('InstallBanner responsive safety', () => {
+  it('keeps the prompt above mobile navigation with touch-sized controls', () => {
+    const wrapper = mount(InstallBanner)
+    const banner = wrapper.find('[data-testid="install-banner"]')
+    const installButton = wrapper.find('button[type="button"]')
+    const dismissButton = wrapper.find('button[aria-label="Dismiss install prompt"]')
+
+    expect(banner.exists()).toBe(true)
+    expect(banner.classes()).toContain('install-banner')
+    expect(banner.attributes('role')).toBe('region')
+    expect(banner.attributes('aria-label')).toBe('Install NewDuris app')
+    expect(installButton.classes()).toContain('min-h-11')
+    expect(dismissButton.exists()).toBe(true)
+    expect(dismissButton.classes()).toContain('min-h-11')
+    expect(dismissButton.classes()).toContain('min-w-11')
+  })
+})
