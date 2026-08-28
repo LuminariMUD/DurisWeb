@@ -13,6 +13,7 @@ declare global {
       user?: {
         accountName: string;
         email: string;
+        sessionId: string;
         permissions: UserPermissions;
         adminPermissions: Set<string>;
       };
@@ -23,6 +24,7 @@ declare global {
 export interface JWTPayload {
   accountName: string;
   email: string;
+  sid: string;
   iat: number;
   exp: number;
 }
@@ -44,9 +46,9 @@ const JWT_REFRESH_EXPIRY = '30d'; // Refresh token expires in 30 days
 /**
  * Generate JWT access token
  */
-export function generateAccessToken(accountName: string, email: string): string {
+export function generateAccessToken(accountName: string, email: string, sessionId: string): string {
   return jwt.sign(
-    { accountName, email },
+    { accountName, email, sid: sessionId },
     JWT_SECRET,
     { expiresIn: JWT_ACCESS_EXPIRY }
   );
@@ -55,9 +57,9 @@ export function generateAccessToken(accountName: string, email: string): string 
 /**
  * Generate JWT refresh token
  */
-export function generateRefreshToken(accountName: string, email: string): string {
+export function generateRefreshToken(accountName: string, email: string, sessionId: string): string {
   return jwt.sign(
-    { accountName, email },
+    { accountName, email, sid: sessionId },
     JWT_SECRET,
     { expiresIn: JWT_REFRESH_EXPIRY }
   );
@@ -100,7 +102,7 @@ export async function requireAuth(
       return;
     }
 
-    if (!await hasActiveWebSession(payload.accountName, req.cookies?.refresh_token)) {
+    if (!payload.sid || !await hasActiveWebSession(payload.accountName, payload.sid)) {
       res.status(401).json({ error: 'Session is no longer active' });
       return;
     }
@@ -123,6 +125,7 @@ export async function requireAuth(
     req.user = {
       accountName: payload.accountName,
       email: payload.email,
+      sessionId: payload.sid,
       permissions,
       adminPermissions
     };
@@ -318,7 +321,7 @@ export async function optionalAuth(
       return;
     }
 
-    if (!await hasActiveWebSession(payload.accountName, req.cookies?.refresh_token)) {
+    if (!payload.sid || !await hasActiveWebSession(payload.accountName, payload.sid)) {
       // Revoked or expired session - continue as anonymous user
       next();
       return;
@@ -343,6 +346,7 @@ export async function optionalAuth(
     req.user = {
       accountName: payload.accountName,
       email: payload.email,
+      sessionId: payload.sid,
       permissions,
       adminPermissions
     };

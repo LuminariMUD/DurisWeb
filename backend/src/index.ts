@@ -56,6 +56,7 @@ import {
 } from './services/terminalService.js';
 import { verifyToken } from './middleware/auth.js';
 import { parseAccountFile } from './services/accountService.js';
+import { hasActiveWebSession } from './services/sessionService.js';
 import { getUserPermissions } from './services/permissionService.js';
 import {
   deployToCommit,
@@ -798,6 +799,10 @@ async function verifyWebSocketAuth(token: string | undefined, minLevel: number):
     logger.warn('[verifyWebSocketAuth] invalid token');
     return false;
   }
+  if (!payload.sid || !await hasActiveWebSession(payload.accountName, payload.sid)) {
+    logger.warn('[verifyWebSocketAuth] inactive or legacy session');
+    return false;
+  }
   const accountData = await parseAccountFile(payload.accountName);
   if (!accountData) {
     logger.warn(`[verifyWebSocketAuth] no account data for ${payload.accountName}`);
@@ -985,6 +990,14 @@ async function startServer() {
                 ws.send(JSON.stringify({
                   type: 'TERMINAL_ERROR',
                   message: 'Invalid or expired token'
+                }));
+                return;
+              }
+
+              if (!payload.sid || !await hasActiveWebSession(payload.accountName, payload.sid)) {
+                ws.send(JSON.stringify({
+                  type: 'TERMINAL_ERROR',
+                  message: 'Session is no longer active'
                 }));
                 return;
               }
@@ -1223,6 +1236,14 @@ async function startServer() {
                 ws.send(JSON.stringify({
                   type: 'DEPLOY_ERROR',
                   message: 'Invalid or expired token',
+                }));
+                return;
+              }
+
+              if (!payload.sid || !await hasActiveWebSession(payload.accountName, payload.sid)) {
+                ws.send(JSON.stringify({
+                  type: 'DEPLOY_ERROR',
+                  message: 'Session is no longer active',
                 }));
                 return;
               }

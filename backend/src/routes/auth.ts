@@ -21,7 +21,10 @@ import {
   requireAuth,
   optionalAuth
 } from '../middleware/auth.js';
-import { hasActiveWebSession } from '../services/sessionService.js';
+import {
+  hasActiveWebSession,
+  hasMatchingRefreshSession,
+} from '../services/sessionService.js';
 
 const router: IRouter = Router();
 
@@ -92,12 +95,12 @@ router.post(
         accountData.characters
       );
 
-      // Generate tokens
-      const accessToken = generateAccessToken(accountData.accountName, accountData.email);
-      const refreshToken = generateRefreshToken(accountData.accountName, accountData.email);
+      // Generate a unique session before issuing either token
+      const sessionId = uuidv4();
+      const accessToken = generateAccessToken(accountData.accountName, accountData.email, sessionId);
+      const refreshToken = generateRefreshToken(accountData.accountName, accountData.email, sessionId);
 
       // Store refresh token in database
-      const sessionId = uuidv4();
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
       await db.query(
@@ -146,15 +149,11 @@ router.post(
  */
 router.post('/logout', requireAuth, async (req: Request, res: Response) => {
   try {
-    const refreshToken = req.cookies?.refresh_token;
-
-    if (refreshToken) {
-      // Delete only this account's refresh-token session
-      await db.query(
-        'DELETE FROM web_sessions WHERE account_name = ? AND refresh_token = ?',
-        [req.user!.accountName, refreshToken]
-      );
-    }
+    // Revoke the session represented by the authenticated access token
+    await db.query(
+      'DELETE FROM web_sessions WHERE id = ? AND account_name = ?',
+      [req.user!.sessionId, req.user!.accountName]
+    );
 
     // Clear cookies
     res.clearCookie('access_token');
@@ -186,13 +185,13 @@ router.post('/refresh', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid or expired refresh token' });
     }
 
-    // Check that this refresh token is still an active session for the JWT subject
-    if (!await hasActiveWebSession(payload.accountName, refreshToken)) {
+    // Check that this refresh token belongs to the same active session and account
+    if (!await hasMatchingRefreshSession(payload.accountName, payload.sid, refreshToken)) {
       return res.status(401).json({ error: 'Refresh token not found or expired' });
     }
 
-    // Generate new access token
-    const newAccessToken = generateAccessToken(payload.accountName, payload.email);
+    // Generate new access token for the same session
+    const newAccessToken = generateAccessToken(payload.accountName, payload.email, payload.sid);
 
     // Set new access token cookie
     res.cookie('access_token', newAccessToken, {
@@ -268,7 +267,7 @@ router.get('/check', async (req: Request, res: Response) => {
 
     const payload = verifyToken(accessToken);
 
-    if (!payload || !await hasActiveWebSession(payload.accountName, req.cookies?.refresh_token)) {
+    if (!payload || !payload.sid || !await hasActiveWebSession(payload.accountName, payload.sid)) {
       return res.json({ authenticated: false });
     }
 
