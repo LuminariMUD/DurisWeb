@@ -133,4 +133,25 @@ describe('useAliases local persistence', () => {
     expect(aliasesApi.importAliases(JSON.stringify(imported), 'merge')).toBe(1)
     expect(aliasesApi.aliases.value.map((alias) => alias.trigger)).toEqual(['kk', 'heal'])
   })
+
+  it('rejects an oversized import document before parsing items', async () => {
+    await selectAccount('Cwial')
+    expect(() => aliasesApi.importAliases('x'.repeat(1_000_001), 'merge'))
+      .toThrow(/maximum|large|size/i)
+  })
+
+  it('rejects an import with too many items before mutation', async () => {
+    await selectAccount('Cwial')
+    const items = Array.from({ length: 1_001 }, (_, index) => ({
+      ...aliasForm,
+      id: `alias-${index}`,
+      trigger: `trigger-${index}`,
+      createdAt: 1,
+      updatedAt: 1,
+    }))
+
+    expect(() => aliasesApi.importAliases(JSON.stringify({ aliases: items }), 'merge'))
+      .toThrow(/more than 1000/i)
+    expect(aliasesApi.aliases.value).toHaveLength(0)
+  })
 })

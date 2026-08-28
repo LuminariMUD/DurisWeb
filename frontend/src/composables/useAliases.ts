@@ -5,6 +5,7 @@ import { expandScript } from '@/utils/scriptExpander'
 import { useGroups } from './useGroups'
 import { createClientId } from '@/utils/clientId'
 import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
+import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
 import type {
   Alias,
   AliasFormData,
@@ -527,12 +528,7 @@ export function useAliases() {
           storageError.value ?? 'Alias settings are not ready to import.',
         )
       }
-      const data = JSON.parse(json)
-      if (!data.aliases || !Array.isArray(data.aliases)) {
-        throw new Error('Invalid alias data format')
-      }
-
-      const imported = data.aliases as Alias[]
+      const imported = parseClientSettingsCollection(json, 'aliases') as Alias[]
       const now = Date.now()
       const reservedIds = new Set(aliases.value.map((alias) => alias.id))
       const nextId = () => {

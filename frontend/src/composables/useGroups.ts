@@ -3,6 +3,7 @@ import { useMudStore } from '@/stores/mudStore'
 import type { Group, GroupFormData, GroupStorage } from '@/types/group'
 import { createClientId } from '@/utils/clientId'
 import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
+import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
 import { useTriggers } from './useTriggers'
 import { useAliases } from './useAliases'
 import { useTimers } from './useTimers'
@@ -366,12 +367,7 @@ export function useGroups() {
           storageError.value ?? 'Group settings are not ready to import.',
         )
       }
-      const data = JSON.parse(json)
-      if (!data.groups || !Array.isArray(data.groups)) {
-        throw new Error('Invalid group data format')
-      }
-
-      const imported = data.groups as Group[]
+      const imported = parseClientSettingsCollection(json, 'groups') as Group[]
       const now = Date.now()
       const reservedIds = new Set(
         mode === 'replace' ? [] : groups.value.map((group) => group.id),

@@ -77,4 +77,10 @@ describe('useSettings grouped export/import', () => {
     expect(aliasPayload.aliases[0].groupId).toBe('group-2')
     expect(triggerPayload.triggers[0].groupId).toBe('group-2')
   })
+
+  it('rejects an oversized combined import document before parsing', () => {
+    const settings = useSettings()
+    expect(() => settings.importAllSettings('x'.repeat(1_000_001), 'merge'))
+      .toThrow(/maximum|large|size/i)
+  })
 })

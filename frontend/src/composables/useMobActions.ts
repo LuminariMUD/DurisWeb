@@ -1,5 +1,6 @@
 import { ref, watch, computed } from 'vue'
 import { createClientId } from '@/utils/clientId'
+import { parseClientSettingsCollection, parseClientSettingsDocument } from '@/utils/clientSettingsImport'
 
 export interface MobAction {
   id: string
@@ -135,13 +136,8 @@ export function useMobActions() {
   }
 
   function importActions(json: string, mode: 'replace' | 'merge' = 'merge'): number {
-    const data = JSON.parse(json) as MobActionsExport
-
-    if (!data.mobActions || !Array.isArray(data.mobActions)) {
-      throw new Error('Invalid mob actions data format')
-    }
-
-    const imported = data.mobActions
+    const data = parseClientSettingsDocument(json) as unknown as MobActionsExport
+    const imported = parseClientSettingsCollection(json, 'mobActions') as MobAction[]
 
     if (mode === 'replace') {
       // Create ID mapping for button assignments

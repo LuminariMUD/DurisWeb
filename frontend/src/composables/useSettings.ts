@@ -2,6 +2,7 @@ import { useAliases } from './useAliases'
 import { useTriggers } from './useTriggers'
 import { useGroups } from './useGroups'
 import { useGroupActions } from './useGroupActions'
+import { parseClientSettingsDocument } from '@/utils/clientSettingsImport'
 
 export interface SettingsExport {
   version: number
@@ -73,7 +74,7 @@ export function useSettings() {
     json: string,
     mode: 'replace' | 'merge' = 'merge'
   ): { aliases: number; triggers: number; groups: number; groupActions: number } {
-    const data = JSON.parse(json) as SettingsExport
+    const data = parseClientSettingsDocument(json) as unknown as SettingsExport
 
     if (!data.version) {
       throw new Error('Invalid settings file format')

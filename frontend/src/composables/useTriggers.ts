@@ -17,6 +17,7 @@ import type {
 import { HIGHLIGHT_COLORS, PREDEFINED_SOUNDS } from '@/types/trigger'
 import { createClientId } from '@/utils/clientId'
 import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
+import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
 
 const STORAGE_VERSION = 5
 const STORAGE_KEY_PREFIX = 'duris_triggers_'
@@ -936,12 +937,7 @@ export function useTriggers() {
           storageError.value ?? 'Trigger settings are not ready to import.',
         )
       }
-      const data = JSON.parse(json)
-      if (!data.triggers || !Array.isArray(data.triggers)) {
-        throw new Error('Invalid trigger data format')
-      }
-
-      const imported = data.triggers as Trigger[]
+      const imported = parseClientSettingsCollection(json, 'triggers') as Trigger[]
       const now = Date.now()
       const reservedIds = new Set(triggers.value.map((trigger) => trigger.id))
       const nextId = () => {

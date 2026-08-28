@@ -12,6 +12,7 @@ import type {
 import { TIMER_CONSTRAINTS, formatInterval } from '@/types/timer'
 import { createClientId } from '@/utils/clientId'
 import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
+import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
 import type { TriggerActionSound } from '@/types/trigger'
 import { PREDEFINED_SOUNDS } from '@/types/trigger'
 
@@ -742,12 +743,7 @@ export function useTimers() {
           storageError.value ?? 'Timer settings are not ready to import.',
         )
       }
-      const data = JSON.parse(json)
-      if (!data.timers || !Array.isArray(data.timers)) {
-        throw new Error('Invalid timer data format')
-      }
-
-      const imported = data.timers as Timer[]
+      const imported = parseClientSettingsCollection(json, 'timers') as Timer[]
       const now = Date.now()
       const reservedIds = new Set(timers.value.map((timer) => timer.id))
       const nextId = () => {

@@ -1,5 +1,6 @@
 import { ref, watch } from 'vue'
 import { createClientId } from '@/utils/clientId'
+import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
 
 export interface GroupAction {
   id: string
@@ -89,13 +90,7 @@ export function useGroupActions() {
   }
 
   function importActions(json: string, mode: 'replace' | 'merge' = 'merge'): number {
-    const data = JSON.parse(json) as GroupActionsExport
-
-    if (!data.groupActions || !Array.isArray(data.groupActions)) {
-      throw new Error('Invalid group actions data format')
-    }
-
-    const imported = data.groupActions
+    const imported = parseClientSettingsCollection(json, 'groupActions') as GroupAction[]
 
     if (mode === 'replace') {
       actions.value = imported.map(a => ({
