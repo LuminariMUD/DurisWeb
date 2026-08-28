@@ -101,6 +101,18 @@ describe('useGroups local persistence', () => {
     expect(groupsApi.groups.value.map((group) => group.name)).toEqual(['Exploration'])
   })
 
+  it('rejects malformed group records before mutation', async () => {
+    await selectAccount('Cwial')
+    const malformed = {
+      version: 1,
+      groups: [{ ...groupForm, id: 'bad', enabled: 'yes', createdAt: 1, updatedAt: 1 }],
+    }
+
+    expect(() => groupsApi.importGroups(JSON.stringify(malformed), 'merge'))
+      .toThrow(/Invalid group.*enabled/i)
+    expect(groupsApi.groups.value).toHaveLength(0)
+  })
+
   it('rolls back a group when browser storage rejects the write', async () => {
     await selectAccount('Cwial')
     vi.spyOn(localStorageMock, 'setItem').mockImplementation(() => {

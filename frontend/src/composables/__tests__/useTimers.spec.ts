@@ -93,6 +93,25 @@ describe('useTimers local persistence', () => {
     expect(timersApi.timers.value.map((timer) => timer.name)).toEqual(['Heartbeat 2'])
   })
 
+  it('rejects malformed timer records before mutation', async () => {
+    await selectAccount('Cwial')
+    const malformed = {
+      version: 2,
+      timers: [{
+        ...timerForm,
+        id: 'bad',
+        intervalMs: 0,
+        actions: [{ type: 'command', commands: 123 }],
+        createdAt: 1,
+        updatedAt: 1,
+      }],
+    }
+
+    expect(() => timersApi.importTimers(JSON.stringify(malformed), 'merge'))
+      .toThrow(/Invalid timer.*intervalMs|Invalid timer.*commands/i)
+    expect(timersApi.timers.value).toHaveLength(0)
+  })
+
   it('rolls back a timer when browser storage rejects the write', async () => {
     await selectAccount('Cwial')
     vi.spyOn(localStorageMock, 'setItem').mockImplementation(() => {

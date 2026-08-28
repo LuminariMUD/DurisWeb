@@ -1,6 +1,7 @@
 import { ref, watch, computed } from 'vue'
 import { createClientId } from '@/utils/clientId'
 import { parseClientSettingsCollection, parseClientSettingsDocument } from '@/utils/clientSettingsImport'
+import { normalizeMobActionImport } from '@/utils/clientSettingsValidation'
 
 export interface MobAction {
   id: string
@@ -137,37 +138,40 @@ export function useMobActions() {
 
   function importActions(json: string, mode: 'replace' | 'merge' = 'merge'): number {
     const data = parseClientSettingsDocument(json) as unknown as MobActionsExport
-    const imported = parseClientSettingsCollection(json, 'mobActions') as MobAction[]
+    const imported = parseClientSettingsCollection(json, 'mobActions')
+    const reservedIds = new Set(actions.value.map((action) => action.id))
+    const sourceIdMap = new Map<string, string>()
+    const nextId = () => {
+      const id = createClientId(reservedIds)
+      reservedIds.add(id)
+      return id
+    }
+    const normalizedImported = imported.map((item, index) => {
+      const sourceId = item && typeof item === 'object' && !Array.isArray(item) && typeof (item as Record<string, unknown>).id === 'string'
+        ? (item as Record<string, unknown>).id as string
+        : ''
+      const id = nextId()
+      if (sourceId) sourceIdMap.set(sourceId, id)
+      return normalizeMobActionImport(item, index, id)
+    })
 
     if (mode === 'replace') {
-      // Create ID mapping for button assignments
-      const idMap = new Map<string, string>()
-      actions.value = imported.map(a => {
-        const newId = createClientId([
-          ...actions.value.map((action) => action.id),
-          ...idMap.values(),
-        ])
-        idMap.set(a.id, newId)
-        return { ...a, id: newId }
-      })
+      actions.value = normalizedImported
       // Remap button assignments
-      if (data.button1ActionId && idMap.has(data.button1ActionId)) {
-        button1ActionId.value = idMap.get(data.button1ActionId)!
+      if (data.button1ActionId && sourceIdMap.has(data.button1ActionId)) {
+        button1ActionId.value = sourceIdMap.get(data.button1ActionId)!
       }
-      if (data.button2ActionId && idMap.has(data.button2ActionId)) {
-        button2ActionId.value = idMap.get(data.button2ActionId)!
+      if (data.button2ActionId && sourceIdMap.has(data.button2ActionId)) {
+        button2ActionId.value = sourceIdMap.get(data.button2ActionId)!
       }
-      return imported.length
+      return normalizedImported.length
     } else {
       // Merge: skip duplicates by label
       let count = 0
-      for (const action of imported) {
+      for (const action of normalizedImported) {
         const exists = actions.value.some(a => a.label.toLowerCase() === action.label.toLowerCase())
         if (!exists) {
-          actions.value.push({
-            ...action,
-            id: createClientId(actions.value.map((action) => action.id)),
-          })
+          actions.value.push(action)
           count++
         }
       }

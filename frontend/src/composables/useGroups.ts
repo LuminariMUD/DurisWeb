@@ -4,6 +4,7 @@ import type { Group, GroupFormData, GroupStorage } from '@/types/group'
 import { createClientId } from '@/utils/clientId'
 import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
 import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
+import { normalizeGroupImport } from '@/utils/clientSettingsValidation'
 import { useTriggers } from './useTriggers'
 import { useAliases } from './useAliases'
 import { useTimers } from './useTimers'
@@ -367,8 +368,14 @@ export function useGroups() {
           storageError.value ?? 'Group settings are not ready to import.',
         )
       }
-      const imported = parseClientSettingsCollection(json, 'groups') as Group[]
+      const imported = parseClientSettingsCollection(json, 'groups')
       const now = Date.now()
+      const normalizedImported = imported.map((item, index) => {
+        const sourceId = item && typeof item === 'object' && !Array.isArray(item) && typeof (item as Record<string, unknown>).id === 'string'
+          ? (item as Record<string, unknown>).id as string
+          : ''
+        return normalizeGroupImport(item, index, sourceId, now, mode === 'replace')
+      })
       const reservedIds = new Set(
         mode === 'replace' ? [] : groups.value.map((group) => group.id),
       )
@@ -387,8 +394,8 @@ export function useGroups() {
       }
 
       if (mode === 'replace') {
-        imported.forEach((group) => nextId(group.id))
-        const nextGroups = imported.map(g => ({
+        normalizedImported.forEach((group) => nextId(group.id))
+        const nextGroups = normalizedImported.map(g => ({
           ...g,
           id: idMap.get(g.id) ?? nextId(g.id),
           parentId: g.parentId ? idMap.get(g.parentId) ?? null : null,
@@ -397,11 +404,11 @@ export function useGroups() {
         if (!commitGroups(nextGroups)) {
           throw new ClientSettingsStorageError(storageError.value ?? 'Groups could not be saved.')
         }
-        return { count: imported.length, idMap: Object.fromEntries(idMap) }
+        return { count: normalizedImported.length, idMap: Object.fromEntries(idMap) }
       } else {
         const nextGroups = [...groups.value]
         let accepted = 0
-        for (const group of imported) {
+        for (const group of normalizedImported) {
           const parentId = group.parentId ? idMap.get(group.parentId) ?? group.parentId : null
           const existing = nextGroups.find((candidate) =>
             candidate.name.trim().toLowerCase() === group.name.trim().toLowerCase() &&

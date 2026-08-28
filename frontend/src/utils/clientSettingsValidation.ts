@@ -1,4 +1,6 @@
 import type { Alias, AliasScope } from '@/types/alias'
+import type { Group } from '@/types/group'
+import type { Timer, TimerAction } from '@/types/timer'
 import type {
   Trigger,
   TriggerAction,
@@ -313,6 +315,99 @@ export function normalizeTriggerImport(
     priority: integerField(trigger.priority, 'trigger', index, 'priority', -1_000, 1_000, 0),
     stopProcessing: booleanField(trigger.stopProcessing, 'trigger', index, 'stopProcessing', false),
     createdAt: preserveCreatedAt ? timestampField(trigger.createdAt, now) : now,
+    updatedAt: now,
+  }
+}
+
+export function normalizeGroupImport(
+  value: unknown,
+  index: number,
+  generatedId: string,
+  now: number,
+  preserveCreatedAt: boolean,
+): Group {
+  const group = record(value, 'group', index)
+  const parentId = optionalString(group.parentId, 'group', index, 'parentId', 100) ?? null
+
+  return {
+    id: generatedId,
+    name: requiredString(group.name, 'group', index, 'name', 255),
+    parentId,
+    enabled: booleanField(group.enabled, 'group', index, 'enabled', true),
+    order: integerField(group.order, 'group', index, 'order', -100_000, 100_000, 0),
+    createdAt: preserveCreatedAt ? timestampField(group.createdAt, now) : now,
+    updatedAt: now,
+  }
+}
+
+function normalizeSimpleAction(
+  value: unknown,
+  kind: 'group action' | 'mob action',
+  index: number,
+  generatedId: string,
+): { id: string; label: string; command: string } {
+  const action = record(value, kind, index)
+  return {
+    id: generatedId,
+    label: requiredString(action.label, kind, index, 'label', 255),
+    command: requiredString(action.command, kind, index, 'command', MAX_TRIGGER_COMMAND_LENGTH),
+  }
+}
+
+export function normalizeGroupActionImport(
+  value: unknown,
+  index: number,
+  generatedId: string,
+): { id: string; label: string; command: string } {
+  return normalizeSimpleAction(value, 'group action', index, generatedId)
+}
+
+export function normalizeMobActionImport(
+  value: unknown,
+  index: number,
+  generatedId: string,
+): { id: string; label: string; command: string } {
+  return normalizeSimpleAction(value, 'mob action', index, generatedId)
+}
+
+function normalizeTimerActions(value: unknown, index: number): TimerAction[] {
+  const actions = normalizeActions(value, 'timer', index)
+  return actions.map((action, actionIndex) => {
+    if (action.type === 'highlight' || action.type === 'gag') {
+      throw new Error(`Invalid timer at index ${index}: action ${actionIndex} type is not permitted`)
+    }
+    return action as TimerAction
+  })
+}
+
+export function normalizeTimerImport(
+  value: unknown,
+  index: number,
+  generatedId: string,
+  now: number,
+  preserveCreatedAt: boolean,
+): Timer {
+  const timer = record(value, 'timer', index)
+  if (timer.intervalMs === undefined) {
+    throw new Error(`Invalid timer at index ${index}: intervalMs is required`)
+  }
+  const scope = enumField(timer.scope, 'timer', index, 'scope', TRIGGER_SCOPES, 'global')
+  const characterName = optionalString(timer.characterName, 'timer', index, 'characterName', 100) ?? null
+  const groupId = optionalString(timer.groupId, 'timer', index, 'groupId', 100) ?? null
+  const description = optionalString(timer.description, 'timer', index, 'description', MAX_TRIGGER_DESCRIPTION_LENGTH)
+
+  return {
+    id: generatedId,
+    name: requiredString(timer.name, 'timer', index, 'name', MAX_TRIGGER_NAME_LENGTH),
+    intervalMs: integerField(timer.intervalMs, 'timer', index, 'intervalMs', 1_000, 24 * 60 * 60 * 1_000, 1_000),
+    isOneShot: booleanField(timer.isOneShot, 'timer', index, 'isOneShot', false),
+    actions: normalizeTimerActions(timer.actions, index),
+    enabled: booleanField(timer.enabled, 'timer', index, 'enabled', true),
+    scope,
+    characterName: scope === 'character' ? characterName : null,
+    groupId,
+    ...(description ? { description } : {}),
+    createdAt: preserveCreatedAt ? timestampField(timer.createdAt, now) : now,
     updatedAt: now,
   }
 }

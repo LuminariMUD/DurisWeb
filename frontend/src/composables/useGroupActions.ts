@@ -1,6 +1,7 @@
 import { ref, watch } from 'vue'
 import { createClientId } from '@/utils/clientId'
 import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
+import { normalizeGroupActionImport } from '@/utils/clientSettingsValidation'
 
 export interface GroupAction {
   id: string
@@ -90,24 +91,25 @@ export function useGroupActions() {
   }
 
   function importActions(json: string, mode: 'replace' | 'merge' = 'merge'): number {
-    const imported = parseClientSettingsCollection(json, 'groupActions') as GroupAction[]
+    const imported = parseClientSettingsCollection(json, 'groupActions')
+    const reservedIds = new Set(actions.value.map((action) => action.id))
+    const nextId = () => {
+      const id = createClientId(reservedIds)
+      reservedIds.add(id)
+      return id
+    }
+    const normalizedImported = imported.map((item, index) => normalizeGroupActionImport(item, index, nextId()))
 
     if (mode === 'replace') {
-      actions.value = imported.map(a => ({
-        ...a,
-        id: createClientId(actions.value.map((action) => action.id)),
-      }))
-      return imported.length
+      actions.value = normalizedImported
+      return normalizedImported.length
     } else {
       // Merge: skip duplicates by label
       let count = 0
-      for (const action of imported) {
+      for (const action of normalizedImported) {
         const exists = actions.value.some(a => a.label.toLowerCase() === action.label.toLowerCase())
         if (!exists) {
-          actions.value.push({
-            ...action,
-            id: createClientId(actions.value.map((action) => action.id)),
-          })
+          actions.value.push(action)
           count++
         }
       }

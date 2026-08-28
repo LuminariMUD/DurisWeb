@@ -13,6 +13,7 @@ import { TIMER_CONSTRAINTS, formatInterval } from '@/types/timer'
 import { createClientId } from '@/utils/clientId'
 import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
 import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
+import { normalizeTimerImport } from '@/utils/clientSettingsValidation'
 import type { TriggerActionSound } from '@/types/trigger'
 import { PREDEFINED_SOUNDS } from '@/types/trigger'
 
@@ -743,7 +744,7 @@ export function useTimers() {
           storageError.value ?? 'Timer settings are not ready to import.',
         )
       }
-      const imported = parseClientSettingsCollection(json, 'timers') as Timer[]
+      const imported = parseClientSettingsCollection(json, 'timers')
       const now = Date.now()
       const reservedIds = new Set(timers.value.map((timer) => timer.id))
       const nextId = () => {
@@ -751,23 +752,20 @@ export function useTimers() {
         reservedIds.add(id)
         return id
       }
+      const normalizedImported = imported.map((item, index) => normalizeTimerImport(
+        item,
+        index,
+        nextId(),
+        now,
+        mode === 'replace',
+      ))
 
       // Stop all running timers before import
       const wasInGame = store.connectionState === 'in_game'
       stopAllTimers()
 
       if (mode === 'replace') {
-        const nextTimers = imported.map((t) => ({
-          ...t,
-          id: nextId(), // Generate new IDs to avoid conflicts
-          name: t.name.trim(),
-          scope: t.scope === 'character' ? 'character' as const : 'global' as const,
-          characterName: t.scope === 'character' ? t.characterName ?? null : null,
-          groupId: t.groupId ?? null,
-          enabled: t.enabled !== false,
-          updatedAt: now,
-        }))
-        if (!commitTimers(nextTimers)) {
+        if (!commitTimers(normalizedImported)) {
           if (wasInGame) startAllTimers()
           throw new ClientSettingsStorageError(storageError.value ?? 'Timers could not be saved.')
         }
@@ -775,26 +773,13 @@ export function useTimers() {
         // Merge: add non-conflicting names
         const nextTimers = [...timers.value]
         let accepted = 0
-        for (const timer of imported) {
-          const normalizedName = timer.name.trim()
-          const normalizedScope = timer.scope === 'character' ? 'character' as const : 'global' as const
-          const normalizedCharacterName = normalizedScope === 'character' ? timer.characterName ?? null : null
+        for (const timer of normalizedImported) {
           if (!nextTimers.some((existing) =>
-            existing.name.trim().toLowerCase() === normalizedName.toLowerCase() &&
-            existing.scope === normalizedScope &&
-            existing.characterName === normalizedCharacterName
+            existing.name.trim().toLowerCase() === timer.name.toLowerCase() &&
+            existing.scope === timer.scope &&
+            existing.characterName === timer.characterName
           )) {
-            nextTimers.push({
-              ...timer,
-              id: nextId(),
-              name: normalizedName,
-              scope: normalizedScope,
-              characterName: normalizedCharacterName,
-              groupId: timer.groupId ?? null,
-              enabled: timer.enabled !== false,
-              createdAt: now,
-              updatedAt: now,
-            })
+            nextTimers.push(timer)
             accepted += 1
           }
         }
@@ -813,7 +798,7 @@ export function useTimers() {
         startAllTimers()
       }
 
-      return imported.length
+      return normalizedImported.length
     } catch (error) {
       console.error('[Timers] Import failed:', error)
       throw error
