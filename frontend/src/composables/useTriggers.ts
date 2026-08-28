@@ -18,6 +18,7 @@ import { HIGHLIGHT_COLORS, PREDEFINED_SOUNDS } from '@/types/trigger'
 import { createClientId } from '@/utils/clientId'
 import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
 import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
+import { normalizeTriggerImport } from '@/utils/clientSettingsValidation'
 
 const STORAGE_VERSION = 5
 const STORAGE_KEY_PREFIX = 'duris_triggers_'
@@ -937,7 +938,7 @@ export function useTriggers() {
           storageError.value ?? 'Trigger settings are not ready to import.',
         )
       }
-      const imported = parseClientSettingsCollection(json, 'triggers') as Trigger[]
+      const imported = parseClientSettingsCollection(json, 'triggers')
       const now = Date.now()
       const reservedIds = new Set(triggers.value.map((trigger) => trigger.id))
       const nextId = () => {
@@ -945,45 +946,29 @@ export function useTriggers() {
         reservedIds.add(id)
         return id
       }
+      const normalizedImported = imported.map((item, index) => normalizeTriggerImport(
+        item,
+        index,
+        nextId(),
+        now,
+        mode === 'replace',
+      ))
 
       if (mode === 'replace') {
-        const nextTriggers = imported.map((t) => ({
-          ...t,
-          id: nextId(), // Generate new IDs to avoid conflicts
-          name: t.name.trim(),
-          scope: t.scope === 'character' ? 'character' as const : 'global' as const,
-          characterName: t.scope === 'character' ? t.characterName ?? null : null,
-          groupId: t.groupId ?? null,
-          enabled: t.enabled !== false,
-          updatedAt: now,
-        }))
-        if (!commitTriggers(nextTriggers)) {
+        if (!commitTriggers(normalizedImported)) {
           throw new ClientSettingsStorageError(storageError.value ?? 'Triggers could not be saved.')
         }
       } else {
         // Merge: add non-conflicting names
         const nextTriggers = [...triggers.value]
         let accepted = 0
-        for (const trigger of imported) {
-          const normalizedName = trigger.name.trim()
-          const normalizedScope = trigger.scope === 'character' ? 'character' as const : 'global' as const
-          const normalizedCharacterName = normalizedScope === 'character' ? trigger.characterName ?? null : null
+        for (const trigger of normalizedImported) {
           if (!nextTriggers.some((existing) =>
-            existing.name.trim().toLowerCase() === normalizedName.toLowerCase() &&
-            existing.scope === normalizedScope &&
-            existing.characterName === normalizedCharacterName
+            existing.name.trim().toLowerCase() === trigger.name.toLowerCase() &&
+            existing.scope === trigger.scope &&
+            existing.characterName === trigger.characterName
           )) {
-            nextTriggers.push({
-              ...trigger,
-              id: nextId(),
-              name: normalizedName,
-              scope: normalizedScope,
-              characterName: normalizedCharacterName,
-              groupId: trigger.groupId ?? null,
-              enabled: trigger.enabled !== false,
-              createdAt: now,
-              updatedAt: now,
-            })
+            nextTriggers.push(trigger)
             accepted += 1
           }
         }
@@ -993,7 +978,7 @@ export function useTriggers() {
         return accepted
       }
 
-      return imported.length
+      return normalizedImported.length
     } catch (error) {
       console.error('[Triggers] Import failed:', error)
       throw error

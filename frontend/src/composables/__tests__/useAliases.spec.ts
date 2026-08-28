@@ -154,4 +154,16 @@ describe('useAliases local persistence', () => {
       .toThrow(/more than 1000/i)
     expect(aliasesApi.aliases.value).toHaveLength(0)
   })
+
+  it('rejects malformed alias records before mutation', async () => {
+    await selectAccount('Cwial')
+    const malformed = {
+      version: 2,
+      aliases: [{ ...aliasForm, id: 'bad', expansion: 123, createdAt: 1, updatedAt: 1 }],
+    }
+
+    expect(() => aliasesApi.importAliases(JSON.stringify(malformed), 'merge'))
+      .toThrow(/Invalid alias.*expansion/i)
+    expect(aliasesApi.aliases.value).toHaveLength(0)
+  })
 })

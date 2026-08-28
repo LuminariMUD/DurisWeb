@@ -6,6 +6,7 @@ import { useGroups } from './useGroups'
 import { createClientId } from '@/utils/clientId'
 import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
 import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
+import { normalizeAliasImport } from '@/utils/clientSettingsValidation'
 import type {
   Alias,
   AliasFormData,
@@ -528,7 +529,7 @@ export function useAliases() {
           storageError.value ?? 'Alias settings are not ready to import.',
         )
       }
-      const imported = parseClientSettingsCollection(json, 'aliases') as Alias[]
+      const imported = parseClientSettingsCollection(json, 'aliases')
       const now = Date.now()
       const reservedIds = new Set(aliases.value.map((alias) => alias.id))
       const nextId = () => {
@@ -536,47 +537,29 @@ export function useAliases() {
         reservedIds.add(id)
         return id
       }
+      const normalizedImported = imported.map((item, index) => normalizeAliasImport(
+        item,
+        index,
+        nextId(),
+        now,
+        mode === 'replace',
+      ))
 
       if (mode === 'replace') {
-        const nextAliases = imported.map((a) => ({
-          ...a,
-          id: nextId(), // Generate new IDs to avoid conflicts
-          trigger: a.trigger.trim().toLowerCase(),
-          expansion: a.expansion.trim(),
-          scope: a.scope === 'character' ? 'character' as const : 'global' as const,
-          characterName: a.scope === 'character' ? a.characterName ?? null : null,
-          groupId: a.groupId ?? null,
-          enabled: a.enabled !== false,
-          updatedAt: now,
-        }))
-        if (!commitAliases(nextAliases)) {
+        if (!commitAliases(normalizedImported)) {
           throw new ClientSettingsStorageError(storageError.value ?? 'Aliases could not be saved.')
         }
       } else {
         // Merge: add non-conflicting triggers
         const nextAliases = [...aliases.value]
         let accepted = 0
-        for (const alias of imported) {
-          const normalizedTrigger = alias.trigger.trim().toLowerCase()
-          const normalizedScope = alias.scope === 'character' ? 'character' as const : 'global' as const
-          const normalizedCharacterName = normalizedScope === 'character' ? alias.characterName ?? null : null
+        for (const alias of normalizedImported) {
           if (!nextAliases.some((existing) =>
-            existing.trigger === normalizedTrigger &&
-            existing.scope === normalizedScope &&
-            existing.characterName === normalizedCharacterName
+            existing.trigger === alias.trigger &&
+            existing.scope === alias.scope &&
+            existing.characterName === alias.characterName
           )) {
-            nextAliases.push({
-              ...alias,
-              id: nextId(),
-              trigger: normalizedTrigger,
-              expansion: alias.expansion.trim(),
-              scope: normalizedScope,
-              characterName: normalizedCharacterName,
-              groupId: alias.groupId ?? null,
-              enabled: alias.enabled !== false,
-              createdAt: now,
-              updatedAt: now,
-            })
+            nextAliases.push(alias)
             accepted += 1
           }
         }
@@ -586,7 +569,7 @@ export function useAliases() {
         return accepted
       }
 
-      return imported.length
+      return normalizedImported.length
     } catch (error) {
       console.error('[Aliases] Import failed:', error)
       throw error
