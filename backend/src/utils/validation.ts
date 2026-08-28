@@ -58,6 +58,44 @@ export function validateBooleanField(value: unknown, fieldName: string): string 
 }
 
 /**
+ * Validate a strict JSON integer with optional bounds and nullability.
+ */
+export function validateIntegerField(
+  value: unknown,
+  fieldName: string,
+  options: {
+    min?: number;
+    max?: number;
+    required?: boolean;
+    allowNull?: boolean;
+  } = {}
+): string | null {
+  const { min, max, required = false, allowNull = false } = options;
+
+  if (value === undefined) {
+    return required ? `${fieldName} is required` : null;
+  }
+
+  if (value === null && allowNull) {
+    return null;
+  }
+
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    return `${fieldName} must be an integer`;
+  }
+
+  if (min !== undefined && value < min) {
+    return `${fieldName} must be at least ${min}`;
+  }
+
+  if (max !== undefined && value > max) {
+    return `${fieldName} must be at most ${max}`;
+  }
+
+  return null;
+}
+
+/**
  * Parse an integer from a string with bounds checking
  * Returns the default value if the input is invalid, NaN, or out of bounds
  */

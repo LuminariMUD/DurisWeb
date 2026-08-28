@@ -8,6 +8,12 @@ import { extractClientIP } from '../utils/ipExtractor.js';
 import { pool } from '../db/connection.js';
 import { parseLatestNewsEntry } from '../utils/newsParser.js';
 import { notifyNewsUpdate } from '../services/unifiedNotificationService.js';
+import {
+  validateBooleanField,
+  validateIntegerField,
+  validateObjectFields,
+  validateStringField,
+} from '../utils/validation.js';
 
 const router: ExpressRouter = Router();
 
@@ -16,6 +22,86 @@ type ContentWriteResult = { content: string } | { error: string };
 function validateContentForWrite(value: unknown): ContentWriteResult {
   const result = processContentForWrite(value);
   return result.error ? { error: result.error } : { content: result.content };
+}
+
+function validateSingleContentBody(value: unknown): ContentWriteResult {
+  const structureError = validateObjectFields(value, ['content']);
+  if (structureError) {
+    return { error: structureError };
+  }
+
+  const content = (value as Record<string, unknown>).content;
+  return validateContentForWrite(content);
+}
+
+function validateHelpPageBody(value: unknown, requireCoreFields: boolean): string | null {
+  const structureError = validateObjectFields(value, ['title', 'text', 'category_id']);
+  if (structureError) {
+    return structureError;
+  }
+
+  const fields = value as Record<string, unknown>;
+  const titleError = validateStringField(
+    fields.title,
+    'title',
+    255,
+    requireCoreFields || fields.title !== undefined
+  );
+  if (titleError) {
+    return titleError;
+  }
+
+  const textError = validateStringField(
+    fields.text,
+    'text',
+    50_000,
+    requireCoreFields || fields.text !== undefined
+  );
+  if (textError) {
+    return textError;
+  }
+
+  return validateIntegerField(fields.category_id, 'category_id', {
+    min: 0,
+    max: 2_147_483_647,
+    allowNull: true,
+  });
+}
+
+function validateHelpCategoryBody(value: unknown, requireName: boolean): string | null {
+  const structureError = validateObjectFields(value, ['name', 'desc', 'isArchived']);
+  if (structureError) {
+    return structureError;
+  }
+
+  const fields = value as Record<string, unknown>;
+  const nameError = validateStringField(
+    fields.name,
+    'name',
+    255,
+    requireName || fields.name !== undefined
+  );
+  if (nameError) {
+    return nameError;
+  }
+
+  if (fields.desc !== undefined && fields.desc !== null) {
+    const descError = validateStringField(fields.desc, 'desc', 255);
+    if (descError) {
+      return descError;
+    }
+  }
+
+  const archiveError = validateBooleanField(fields.isArchived, 'isArchived');
+  if (archiveError) {
+    return archiveError;
+  }
+
+  if (!requireName && Object.keys(fields).length === 0) {
+    return 'At least one category field is required';
+  }
+
+  return null;
 }
 
 // Helper function to log admin actions
@@ -97,11 +183,12 @@ router.get('/help/:id', requireAuth, requirePermission('manage_help_files'), asy
 // POST /api/content/help - Create help page (requires manage_help_files permission)
 router.post('/help', requireAuth, requirePermission('manage_help_files'), async (req, res) => {
   try {
-    const { title, text, category_id } = req.body;
-
-    if (!title || !text) {
-      return res.status(400).json({ error: 'Title and text are required' });
+    const validationError = validateHelpPageBody(req.body, true);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
     }
+
+    const { title, text, category_id } = req.body;
 
     // Sanitize HTML content
     const processed = validateContentForWrite(text);
@@ -138,6 +225,11 @@ router.post('/help', requireAuth, requirePermission('manage_help_files'), async 
 // PATCH /api/content/help/:id - Update help page (requires manage_help_files permission)
 router.patch('/help/:id', requireAuth, requirePermission('manage_help_files'), async (req, res) => {
   try {
+    const validationError = validateHelpPageBody(req.body, false);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
+    }
+
     const id = parseInt(req.params.id);
     const { title, text, category_id } = req.body;
 
@@ -231,11 +323,12 @@ router.get('/categories', requireAuth, requirePermission('manage_forum_categorie
 // POST /api/content/categories - Create category (requires manage_forum_categories permission)
 router.post('/categories', requireAuth, requirePermission('manage_forum_categories'), async (req, res) => {
   try {
-    const { name, desc } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ error: 'Name is required' });
+    const validationError = validateHelpCategoryBody(req.body, true);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
     }
+
+    const { name, desc } = req.body;
 
     const category = await contentService.createCategory({ name, desc });
     return res.status(201).json(category);
@@ -247,11 +340,19 @@ router.post('/categories', requireAuth, requirePermission('manage_forum_categori
 // PATCH /api/content/categories/:id - Update category (requires manage_forum_categories permission)
 router.patch('/categories/:id', requireAuth, requirePermission('manage_forum_categories'), async (req, res) => {
   try {
+    const validationError = validateHelpCategoryBody(req.body, false);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
+    }
+
     const id = parseInt(req.params.id);
-    const { isArchived } = req.body;
+    const { isArchived, name, desc } = req.body;
 
     // Handle archive/restore
     if (isArchived !== undefined) {
+      if (name !== undefined || desc !== undefined) {
+        return res.status(400).json({ error: 'Archive changes cannot include name or desc' });
+      }
       if (isArchived) {
         await categoryService.archiveCategory(id, req.user!.accountName);
       } else {
@@ -261,7 +362,6 @@ router.patch('/categories/:id', requireAuth, requirePermission('manage_forum_cat
     }
 
     // Handle other updates (name, desc, etc.)
-    const { name, desc } = req.body;
     const category = await contentService.updateCategory(id, { name, desc });
 
     if (!category) {
@@ -300,18 +400,11 @@ router.get('/motd', requireAuth, requirePermission('manage_motd'), async (_req, 
 // PUT /api/content/motd - Update MOTD (requires manage_motd permission)
 router.put('/motd', requireAuth, requirePermission('manage_motd'), async (req, res) => {
   try {
-    const { content } = req.body;
-
-    if (!content) {
-      return res.status(400).json({ error: 'Content is required' });
+    const validated = validateSingleContentBody(req.body);
+    if ('error' in validated) {
+      return res.status(400).json({ error: validated.error });
     }
-
-    // Sanitize HTML content
-    const processed = validateContentForWrite(content);
-    if ('error' in processed) {
-      return res.status(400).json({ error: processed.error });
-    }
-    const sanitizedContent = processed.content;
+    const sanitizedContent = validated.content;
     const motd = await contentService.setMotd(sanitizedContent);
 
     // Audit log
@@ -344,18 +437,11 @@ router.get('/news', async (_req, res) => {
 // PUT /api/content/news - Update MUD News (requires manage_news permission)
 router.put('/news', requireAuth, requirePermission('manage_news'), async (req, res) => {
   try {
-    const { content } = req.body;
-
-    if (!content) {
-      return res.status(400).json({ error: 'Content is required' });
+    const validated = validateSingleContentBody(req.body);
+    if ('error' in validated) {
+      return res.status(400).json({ error: validated.error });
     }
-
-    // Sanitize HTML content
-    const processed = validateContentForWrite(content);
-    if ('error' in processed) {
-      return res.status(400).json({ error: processed.error });
-    }
-    const sanitizedContent = processed.content;
+    const sanitizedContent = validated.content;
     const news = await contentService.setNews(sanitizedContent);
 
     // Audit log
@@ -430,18 +516,11 @@ router.get('/wizmotd', requireAuth, requirePermission('manage_motd'), async (_re
 // PUT /api/content/wizmotd - Update Wizard MOTD (requires manage_motd permission)
 router.put('/wizmotd', requireAuth, requirePermission('manage_motd'), async (req, res) => {
   try {
-    const { content } = req.body;
-
-    if (!content) {
-      return res.status(400).json({ error: 'Content is required' });
+    const validated = validateSingleContentBody(req.body);
+    if ('error' in validated) {
+      return res.status(400).json({ error: validated.error });
     }
-
-    // Sanitize HTML content
-    const processed = validateContentForWrite(content);
-    if ('error' in processed) {
-      return res.status(400).json({ error: processed.error });
-    }
-    const sanitizedContent = processed.content;
+    const sanitizedContent = validated.content;
     const wizmotd = await contentService.setWizMotd(sanitizedContent);
 
     // Audit log
@@ -484,18 +563,11 @@ router.get('/rules', requireAuth, requirePermission('manage_motd'), async (_req,
 // PUT /api/content/rules - Update MUD Rules (requires manage_motd permission)
 router.put('/rules', requireAuth, requirePermission('manage_motd'), async (req, res) => {
   try {
-    const { content } = req.body;
-
-    if (!content) {
-      return res.status(400).json({ error: 'Content is required' });
+    const validated = validateSingleContentBody(req.body);
+    if ('error' in validated) {
+      return res.status(400).json({ error: validated.error });
     }
-
-    // Sanitize HTML content
-    const processed = validateContentForWrite(content);
-    if ('error' in processed) {
-      return res.status(400).json({ error: processed.error });
-    }
-    const sanitizedContent = processed.content;
+    const sanitizedContent = validated.content;
     const rules = await contentService.setRules(sanitizedContent);
 
     // Audit log
@@ -528,18 +600,11 @@ router.get('/credits', requireAuth, requirePermission('manage_motd'), async (_re
 // PUT /api/content/credits - Update MUD Credits (requires manage_motd permission)
 router.put('/credits', requireAuth, requirePermission('manage_motd'), async (req, res) => {
   try {
-    const { content } = req.body;
-
-    if (!content) {
-      return res.status(400).json({ error: 'Content is required' });
+    const validated = validateSingleContentBody(req.body);
+    if ('error' in validated) {
+      return res.status(400).json({ error: validated.error });
     }
-
-    // Sanitize HTML content
-    const processed = validateContentForWrite(content);
-    if ('error' in processed) {
-      return res.status(400).json({ error: processed.error });
-    }
-    const sanitizedContent = processed.content;
+    const sanitizedContent = validated.content;
     const credits = await contentService.setCredits(sanitizedContent);
 
     // Audit log
@@ -572,18 +637,11 @@ router.get('/wizlist', requireAuth, requirePermission('manage_motd'), async (_re
 // PUT /api/content/wizlist - Update MUD Wizlist (requires manage_motd permission)
 router.put('/wizlist', requireAuth, requirePermission('manage_motd'), async (req, res) => {
   try {
-    const { content } = req.body;
-
-    if (!content) {
-      return res.status(400).json({ error: 'Content is required' });
+    const validated = validateSingleContentBody(req.body);
+    if ('error' in validated) {
+      return res.status(400).json({ error: validated.error });
     }
-
-    // Sanitize HTML content
-    const processed = validateContentForWrite(content);
-    if ('error' in processed) {
-      return res.status(400).json({ error: processed.error });
-    }
-    const sanitizedContent = processed.content;
+    const sanitizedContent = validated.content;
     const wizlist = await contentService.setWizlist(sanitizedContent);
 
     // Audit log
@@ -616,18 +674,11 @@ router.get('/faq', requireAuth, requirePermission('manage_motd'), async (_req, r
 // PUT /api/content/faq - Update MUD FAQ (requires manage_motd permission)
 router.put('/faq', requireAuth, requirePermission('manage_motd'), async (req, res) => {
   try {
-    const { content } = req.body;
-
-    if (!content) {
-      return res.status(400).json({ error: 'Content is required' });
+    const validated = validateSingleContentBody(req.body);
+    if ('error' in validated) {
+      return res.status(400).json({ error: validated.error });
     }
-
-    // Sanitize HTML content
-    const processed = validateContentForWrite(content);
-    if ('error' in processed) {
-      return res.status(400).json({ error: processed.error });
-    }
-    const sanitizedContent = processed.content;
+    const sanitizedContent = validated.content;
     const faq = await contentService.setFaq(sanitizedContent);
 
     // Audit log
