@@ -340,6 +340,22 @@ export function normalizeGroupImport(
   }
 }
 
+export function normalizeAliasForm(
+  value: unknown,
+  generatedId: string,
+  now: number,
+): Alias {
+  return normalizeAliasImport(value, 0, generatedId, now, true)
+}
+
+export function normalizeTriggerForm(
+  value: unknown,
+  generatedId: string,
+  now: number,
+): Trigger {
+  return normalizeTriggerImport(value, 0, generatedId, now, true)
+}
+
 function normalizeSimpleAction(
   value: unknown,
   kind: 'group action' | 'mob action',

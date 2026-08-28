@@ -166,4 +166,23 @@ describe('useAliases local persistence', () => {
       .toThrow(/Invalid alias.*expansion/i)
     expect(aliasesApi.aliases.value).toHaveLength(0)
   })
+
+  it('rejects malformed direct alias creation and update without mutation', async () => {
+    await selectAccount('Cwial')
+
+    expect(aliasesApi.addAlias({
+      ...aliasForm,
+      expansion: 123 as unknown as string,
+    })).toBeNull()
+    expect(aliasesApi.aliases.value).toHaveLength(0)
+    expect(aliasesApi.storageError.value).toMatch(/expansion must be a string/i)
+
+    const created = aliasesApi.addAlias(aliasForm)
+    expect(created).not.toBeNull()
+    const before = aliasesApi.aliases.value[0]
+    expect(aliasesApi.updateAlias(before!.id, {
+      trigger: 123 as unknown as string,
+    })).toBeNull()
+    expect(aliasesApi.aliases.value[0]).toEqual(before)
+  })
 })

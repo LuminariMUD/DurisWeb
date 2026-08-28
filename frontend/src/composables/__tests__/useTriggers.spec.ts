@@ -157,4 +157,25 @@ describe('useTriggers local persistence', () => {
       .toThrow(/Invalid trigger.*customUrl/i)
     expect(triggersApi.triggers.value).toHaveLength(0)
   })
+
+  it('rejects invalid direct trigger creation and update without mutation', async () => {
+    await selectAccount('Cwial')
+    const unsafeForm = {
+      ...triggerForm,
+      actions: [{ type: 'sound', sound: 'custom', customUrl: 'javascript:alert(1)' }],
+    } as unknown as TriggerFormData
+
+    expect(triggersApi.addTrigger(unsafeForm)).toBeNull()
+    expect(triggersApi.triggers.value).toHaveLength(0)
+    expect(triggersApi.storageError.value).toMatch(/customUrl/i)
+
+    const created = triggersApi.addTrigger(triggerForm)
+    expect(created).not.toBeNull()
+    const before = triggersApi.triggers.value[0]
+    expect(triggersApi.updateTrigger(before!.id, {
+      patternType: 'regex',
+      patterns: [{ value: '[', isGmcp: false }],
+    })).toBeNull()
+    expect(triggersApi.triggers.value[0]).toEqual(before)
+  })
 })

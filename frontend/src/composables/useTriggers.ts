@@ -18,7 +18,7 @@ import { HIGHLIGHT_COLORS, PREDEFINED_SOUNDS } from '@/types/trigger'
 import { createClientId } from '@/utils/clientId'
 import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
 import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
-import { normalizeTriggerImport } from '@/utils/clientSettingsValidation'
+import { normalizeTriggerForm, normalizeTriggerImport } from '@/utils/clientSettingsValidation'
 
 const STORAGE_VERSION = 5
 const STORAGE_KEY_PREFIX = 'duris_triggers_'
@@ -269,28 +269,15 @@ export function useTriggers() {
   function addTrigger(formData: TriggerFormData): Trigger | null {
     if (!canMutate()) return null
     const now = Date.now()
-    const trigger: Trigger = {
-      id: generateId(),
-      name: formData.name.trim(),
-      patterns: formData.patterns
-        .filter((p) => p.value.trim().length > 0)
-        .map((p) => ({ value: p.value.trim(), isGmcp: p.isGmcp })),
-      patternLogic: formData.patternLogic || 'or',
-      patternType: formData.patternType,
-      caseSensitive: formData.caseSensitive,
-      actions: JSON.parse(JSON.stringify(formData.actions)), // Deep copy
-      enabled: formData.enabled,
-      scope: formData.scope,
-      characterName: formData.scope === 'character' ? formData.characterName : null,
-      description: formData.description?.trim() || undefined,
-      priority: formData.priority,
-      stopProcessing: formData.stopProcessing,
-      groupId: formData.groupId ?? null,
-      createdAt: now,
-      updatedAt: now,
-    }
 
-    return commitTriggers([...triggers.value, trigger]) ? trigger : null
+    try {
+      const trigger = normalizeTriggerForm(formData, generateId(), now)
+      return commitTriggers([...triggers.value, trigger]) ? trigger : null
+    } catch (error) {
+      console.error('[Triggers] Invalid trigger:', error)
+      storageError.value = error instanceof Error ? error.message : 'Trigger settings are invalid.'
+      return null
+    }
   }
 
   /**
@@ -304,46 +291,20 @@ export function useTriggers() {
     const trigger = triggers.value[index]
     if (!trigger) return null
 
-    const updated: Trigger = {
-      id: trigger.id,
-      name: formData.name !== undefined ? formData.name.trim() : trigger.name,
-      patterns:
-        formData.patterns !== undefined
-          ? formData.patterns
-              .filter((p) => p.value.trim().length > 0)
-              .map((p) => ({ value: p.value.trim(), isGmcp: p.isGmcp }))
-          : trigger.patterns,
-      patternLogic: formData.patternLogic !== undefined ? formData.patternLogic : trigger.patternLogic,
-      patternType: formData.patternType !== undefined ? formData.patternType : trigger.patternType,
-      caseSensitive:
-        formData.caseSensitive !== undefined ? formData.caseSensitive : trigger.caseSensitive,
-      actions:
-        formData.actions !== undefined
-          ? JSON.parse(JSON.stringify(formData.actions))
-          : trigger.actions,
-      enabled: formData.enabled !== undefined ? formData.enabled : trigger.enabled,
-      scope: formData.scope !== undefined ? formData.scope : trigger.scope,
-      characterName:
-        formData.scope === 'global'
-          ? null
-          : formData.scope === 'character' && formData.characterName !== undefined
-            ? formData.characterName
-            : trigger.characterName,
-      description:
-        formData.description !== undefined
-          ? formData.description.trim() || undefined
-          : trigger.description,
-      priority: formData.priority !== undefined ? formData.priority : trigger.priority,
-      stopProcessing:
-        formData.stopProcessing !== undefined ? formData.stopProcessing : trigger.stopProcessing,
-      groupId: formData.groupId !== undefined ? formData.groupId : trigger.groupId,
-      createdAt: trigger.createdAt,
-      updatedAt: Date.now(),
+    try {
+      const updated = normalizeTriggerForm(
+        { ...trigger, ...formData, createdAt: trigger.createdAt },
+        trigger.id,
+        Date.now(),
+      )
+      const nextTriggers = [...triggers.value]
+      nextTriggers[index] = updated
+      return commitTriggers(nextTriggers) ? updated : null
+    } catch (error) {
+      console.error('[Triggers] Invalid trigger update:', error)
+      storageError.value = error instanceof Error ? error.message : 'Trigger settings are invalid.'
+      return null
     }
-
-    const nextTriggers = [...triggers.value]
-    nextTriggers[index] = updated
-    return commitTriggers(nextTriggers) ? updated : null
   }
 
   /**

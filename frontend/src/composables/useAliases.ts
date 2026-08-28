@@ -6,7 +6,7 @@ import { useGroups } from './useGroups'
 import { createClientId } from '@/utils/clientId'
 import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
 import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
-import { normalizeAliasImport } from '@/utils/clientSettingsValidation'
+import { normalizeAliasForm, normalizeAliasImport } from '@/utils/clientSettingsValidation'
 import type {
   Alias,
   AliasFormData,
@@ -191,20 +191,15 @@ export function useAliases() {
   function addAlias(formData: AliasFormData): Alias | null {
     if (!canMutate()) return null
     const now = Date.now()
-    const alias: Alias = {
-      id: generateId(),
-      trigger: formData.trigger.trim().toLowerCase(),
-      expansion: formData.expansion.trim(),
-      enabled: formData.enabled,
-      scope: formData.scope,
-      characterName: formData.scope === 'character' ? formData.characterName : null,
-      groupId: formData.groupId ?? null,
-      description: formData.description?.trim() || undefined,
-      createdAt: now,
-      updatedAt: now,
-    }
 
-    return commitAliases([...aliases.value, alias]) ? alias : null
+    try {
+      const alias = normalizeAliasForm(formData, generateId(), now)
+      return commitAliases([...aliases.value, alias]) ? alias : null
+    } catch (error) {
+      console.error('[Aliases] Invalid alias:', error)
+      storageError.value = error instanceof Error ? error.message : 'Alias settings are invalid.'
+      return null
+    }
   }
 
   /**
@@ -218,32 +213,20 @@ export function useAliases() {
     const alias = aliases.value[index]
     if (!alias) return null
 
-    const updated: Alias = {
-      id: alias.id,
-      trigger:
-        formData.trigger !== undefined ? formData.trigger.trim().toLowerCase() : alias.trigger,
-      expansion:
-        formData.expansion !== undefined ? formData.expansion.trim() : alias.expansion,
-      enabled: formData.enabled !== undefined ? formData.enabled : alias.enabled,
-      scope: formData.scope !== undefined ? formData.scope : alias.scope,
-      characterName:
-        formData.scope === 'global'
-          ? null
-          : formData.scope === 'character' && formData.characterName !== undefined
-            ? formData.characterName
-            : alias.characterName,
-      groupId: formData.groupId !== undefined ? formData.groupId : alias.groupId,
-      description:
-        formData.description !== undefined
-          ? formData.description.trim() || undefined
-          : alias.description,
-      createdAt: alias.createdAt,
-      updatedAt: Date.now(),
+    try {
+      const updated = normalizeAliasForm(
+        { ...alias, ...formData, createdAt: alias.createdAt },
+        alias.id,
+        Date.now(),
+      )
+      const nextAliases = [...aliases.value]
+      nextAliases[index] = updated
+      return commitAliases(nextAliases) ? updated : null
+    } catch (error) {
+      console.error('[Aliases] Invalid alias update:', error)
+      storageError.value = error instanceof Error ? error.message : 'Alias settings are invalid.'
+      return null
     }
-
-    const nextAliases = [...aliases.value]
-    nextAliases[index] = updated
-    return commitAliases(nextAliases) ? updated : null
   }
 
   /**
