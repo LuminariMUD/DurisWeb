@@ -18,6 +18,7 @@ import {
   DOOR_STATES,
 } from '../types/builder.js';
 import { parseZonFile } from './zoneBuilderParser.js';
+import { resolveSafeZoneDirectoryPath, resolveSafeZoneFilePath } from '../utils/safeZonePath.js';
 import { getCache, setCache, deleteCache, mapToObject, objectToMapNumeric } from '../db/redis.js';
 
 const MUD_DIR = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
@@ -54,9 +55,9 @@ async function buildGlobalLookups(): Promise<{
   const objMap = new Map<number, string>();
   const roomMap = new Map<number, string>();
 
-  const mobDir = path.join(AREAS_DIR, 'mob');
-  const objDir = path.join(AREAS_DIR, 'obj');
-  const wldDir = path.join(AREAS_DIR, 'wld');
+  const mobDir = resolveSafeZoneDirectoryPath(AREAS_DIR, 'mob');
+  const objDir = resolveSafeZoneDirectoryPath(AREAS_DIR, 'obj');
+  const wldDir = resolveSafeZoneDirectoryPath(AREAS_DIR, 'wld');
 
   // Helper to extract vnum and short desc from a file using streaming
   const extractShortDescs = async (
@@ -168,19 +169,19 @@ async function buildGlobalLookups(): Promise<{
     const batchSize = 20;
 
     // Process mob files
-    const mobPaths = mobFiles.filter(f => f.endsWith('.mob')).map(f => path.join(mobDir, f));
+    const mobPaths = mobFiles.filter(f => f.endsWith('.mob')).map(f => resolveSafeZoneFilePath(AREAS_DIR, f.slice(0, -4), 'mob'));
     for (let i = 0; i < mobPaths.length; i += batchSize) {
       await Promise.all(mobPaths.slice(i, i + batchSize).map(p => extractShortDescs(p, mobMap)));
     }
 
     // Process obj files
-    const objPaths = objFiles.filter(f => f.endsWith('.obj')).map(f => path.join(objDir, f));
+    const objPaths = objFiles.filter(f => f.endsWith('.obj')).map(f => resolveSafeZoneFilePath(AREAS_DIR, f.slice(0, -4), 'obj'));
     for (let i = 0; i < objPaths.length; i += batchSize) {
       await Promise.all(objPaths.slice(i, i + batchSize).map(p => extractShortDescs(p, objMap)));
     }
 
     // Process wld files
-    const wldPaths = wldFiles.filter(f => f.endsWith('.wld')).map(f => path.join(wldDir, f));
+    const wldPaths = wldFiles.filter(f => f.endsWith('.wld')).map(f => resolveSafeZoneFilePath(AREAS_DIR, f.slice(0, -4), 'wld'));
     for (let i = 0; i < wldPaths.length; i += batchSize) {
       await Promise.all(wldPaths.slice(i, i + batchSize).map(p => extractRoomNames(p, roomMap)));
     }
@@ -221,9 +222,9 @@ async function fileExists(filePath: string): Promise<boolean> {
 
 // Fast count of items by scanning for #vnum patterns
 export async function countZoneItems(zoneId: string): Promise<{ rooms: number; mobs: number; objects: number }> {
-  const wldPath = path.join(AREAS_DIR, 'wld', `${zoneId}.wld`);
-  const mobPath = path.join(AREAS_DIR, 'mob', `${zoneId}.mob`);
-  const objPath = path.join(AREAS_DIR, 'obj', `${zoneId}.obj`);
+  const wldPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'wld');
+  const mobPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'mob');
+  const objPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'obj');
 
   const countVnums = async (filePath: string): Promise<number> => {
     if (!(await fileExists(filePath))) return 0;
@@ -259,7 +260,7 @@ export async function countZoneItems(zoneId: string): Promise<{ rooms: number; m
 
 // Stream rooms from .wld file
 export async function* streamRooms(zoneId: string, chunkSize = 50): AsyncGenerator<RoomIndex[]> {
-  const wldPath = path.join(AREAS_DIR, 'wld', `${zoneId}.wld`);
+  const wldPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'wld');
 
   if (!(await fileExists(wldPath))) {
     throw new Error(`Zone "${zoneId}" .wld file not found`);
@@ -443,7 +444,7 @@ export async function* streamRooms(zoneId: string, chunkSize = 50): AsyncGenerat
 
 // Stream mobs from .mob file
 export async function* streamMobs(zoneId: string, chunkSize = 50): AsyncGenerator<MobIndex[]> {
-  const mobPath = path.join(AREAS_DIR, 'mob', `${zoneId}.mob`);
+  const mobPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'mob');
 
   if (!(await fileExists(mobPath))) {
     return; // No mobs file, just return empty
@@ -574,7 +575,7 @@ export async function* streamMobs(zoneId: string, chunkSize = 50): AsyncGenerato
 
 // Stream objects from .obj file
 export async function* streamObjects(zoneId: string, chunkSize = 50): AsyncGenerator<ObjIndex[]> {
-  const objPath = path.join(AREAS_DIR, 'obj', `${zoneId}.obj`);
+  const objPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'obj');
 
   if (!(await fileExists(objPath))) {
     return; // No objects file, just return empty

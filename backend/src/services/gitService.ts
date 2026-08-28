@@ -3,6 +3,7 @@ import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 import logger, { getErrorMessage } from '../utils/logger.js';
+import { resolveSafeZoneFilePath } from '../utils/safeZonePath.js';
 
 const execAsync = promisify(exec);
 
@@ -325,18 +326,20 @@ export interface ZoneGitStatus {
   }[];
 }
 
+function getZoneGitFiles(areasDir: string, zoneBasename: string): string[] {
+  return (['wld', 'mob', 'obj', 'zon'] as const).map((fileType) => {
+    resolveSafeZoneFilePath(areasDir, zoneBasename, fileType)
+    return `${fileType}/${zoneBasename}.${fileType}`
+  })
+}
+
 /**
  * Get git status for a specific zone's files
  * @param zoneBasename - The zone filename without extension (e.g., "alatorin")
  */
 export async function getZoneGitStatus(zoneBasename: string): Promise<ZoneGitStatus> {
   const areasDir = path.join(MUD_DIR, 'areas');
-  const zoneFiles = [
-    `wld/${zoneBasename}.wld`,
-    `mob/${zoneBasename}.mob`,
-    `obj/${zoneBasename}.obj`,
-    `zon/${zoneBasename}.zon`,
-  ];
+  const zoneFiles = getZoneGitFiles(areasDir, zoneBasename);
 
   const files: ZoneGitStatus['files'] = [];
 
@@ -383,12 +386,7 @@ export interface ZoneCommitResult {
  */
 export async function commitZoneFiles(zoneBasename: string, message: string): Promise<ZoneCommitResult> {
   const areasDir = path.join(MUD_DIR, 'areas');
-  const zoneFiles = [
-    `wld/${zoneBasename}.wld`,
-    `mob/${zoneBasename}.mob`,
-    `obj/${zoneBasename}.obj`,
-    `zon/${zoneBasename}.zon`,
-  ];
+  const zoneFiles = getZoneGitFiles(areasDir, zoneBasename);
 
   try {
     // Check if git is initialized in the areas directory

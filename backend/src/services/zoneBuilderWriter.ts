@@ -3,6 +3,7 @@
 // Uses zone ID (filename) as unique identifier
 
 import * as fs from 'fs/promises';
+import { constants as fsConstants } from 'fs';
 import * as path from 'path';
 import {
   Room,
@@ -15,6 +16,7 @@ import { invalidateZoneFileMap, invalidateZoneIndexCache } from './zoneBuilderPa
 import logger, { isErrorWithCode } from '../utils/logger.js';
 import { pool } from '../db/connection.js';
 import type { RowDataPacket } from 'mysql2';
+import { resolveSafeZoneDirectoryPath, resolveSafeZoneFilePath, UnsafeZonePathError } from '../utils/safeZonePath.js';
 
 const MUD_DIR = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
 const AREAS_DIR = path.join(MUD_DIR, 'areas');
@@ -106,10 +108,34 @@ async function ensureDir(dirPath: string): Promise<void> {
 async function createBackup(filePath: string): Promise<string | null> {
   try {
     await fs.access(filePath);
-    const backupPath = `${filePath}.bak`;
-    await fs.copyFile(filePath, backupPath);
-    return backupPath;
   } catch {
+    return null;
+  }
+
+  const backupPath = `${filePath}.bak`;
+  const temporaryPath = `${backupPath}.tmp-${process.pid}-${Date.now()}`;
+
+  try {
+    try {
+      const backupStat = await fs.lstat(backupPath);
+      if (backupStat.isSymbolicLink()) {
+        throw new UnsafeZonePathError('Zone backup is a symbolic link');
+      }
+    } catch (error) {
+      if (error instanceof UnsafeZonePathError) throw error;
+      if (!(isErrorWithCode(error) && error.code === 'ENOENT')) throw error;
+    }
+
+    await fs.copyFile(filePath, temporaryPath, fsConstants.COPYFILE_EXCL);
+    await fs.rename(temporaryPath, backupPath);
+    return backupPath;
+  } catch (error) {
+    try {
+      await fs.unlink(temporaryPath);
+    } catch {
+      // Temporary backup cleanup is best-effort.
+    }
+    if (error instanceof UnsafeZonePathError) throw error;
     return null;
   }
 }
@@ -181,7 +207,7 @@ function formatRoom(room: Room): string {
 
 // Write complete .wld file by zone ID
 export async function writeWldFile(zoneId: string, rooms: Room[]): Promise<void> {
-  const filePath = path.join(AREAS_DIR, 'wld', `${zoneId}.wld`);
+  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'wld');
   await ensureDir(path.dirname(filePath));
   await createBackup(filePath);
 
@@ -194,7 +220,7 @@ export async function writeWldFile(zoneId: string, rooms: Room[]): Promise<void>
 
 // Parse .wld file by zone ID (local helper - reimplemented to avoid circular dep)
 async function parseWldFileLocal(zoneId: string): Promise<Room[]> {
-  const filePath = path.join(AREAS_DIR, 'wld', `${zoneId}.wld`);
+  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'wld');
   if (!(await fileExists(filePath))) {
     return [];
   }
@@ -416,7 +442,7 @@ async function formatMobile(mob: Mobile): Promise<string> {
 
 // Write complete .mob file by zone ID
 export async function writeMobFile(zoneId: string, mobiles: Mobile[]): Promise<void> {
-  const filePath = path.join(AREAS_DIR, 'mob', `${zoneId}.mob`);
+  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'mob');
   await ensureDir(path.dirname(filePath));
   await createBackup(filePath);
 
@@ -431,7 +457,7 @@ export async function writeMobFile(zoneId: string, mobiles: Mobile[]): Promise<v
 
 // Parse .mob file by zone ID (local helper)
 async function parseMobFileLocal(zoneId: string): Promise<Mobile[]> {
-  const filePath = path.join(AREAS_DIR, 'mob', `${zoneId}.mob`);
+  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'mob');
   if (!(await fileExists(filePath))) {
     return [];
   }
@@ -634,7 +660,7 @@ function formatObject(obj: ZoneObject): string {
 
 // Write complete .obj file by zone ID
 export async function writeObjFile(zoneId: string, objects: ZoneObject[]): Promise<void> {
-  const filePath = path.join(AREAS_DIR, 'obj', `${zoneId}.obj`);
+  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'obj');
   await ensureDir(path.dirname(filePath));
   await createBackup(filePath);
 
@@ -647,7 +673,7 @@ export async function writeObjFile(zoneId: string, objects: ZoneObject[]): Promi
 
 // Parse .obj file by zone ID (local helper - simplified)
 async function parseObjFileLocal(zoneId: string): Promise<ZoneObject[]> {
-  const filePath = path.join(AREAS_DIR, 'obj', `${zoneId}.obj`);
+  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'obj');
   if (!(await fileExists(filePath))) {
     return [];
   }
@@ -863,16 +889,16 @@ export async function createZone(
   const zoneId = sanitizeZoneName(zoneName);
 
   // Check if any files with this zone ID already exist
-  const zonPath = path.join(AREAS_DIR, 'zon', `${zoneId}.zon`);
+  const zonPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'zon');
   if (await fileExists(zonPath)) {
     throw new Error(`Zone file ${zoneId}.zon already exists`);
   }
 
   // Ensure directories exist
-  await ensureDir(path.join(AREAS_DIR, 'wld'));
-  await ensureDir(path.join(AREAS_DIR, 'mob'));
-  await ensureDir(path.join(AREAS_DIR, 'obj'));
-  await ensureDir(path.join(AREAS_DIR, 'zon'));
+  await ensureDir(resolveSafeZoneDirectoryPath(AREAS_DIR, 'wld'));
+  await ensureDir(resolveSafeZoneDirectoryPath(AREAS_DIR, 'mob'));
+  await ensureDir(resolveSafeZoneDirectoryPath(AREAS_DIR, 'obj'));
+  await ensureDir(resolveSafeZoneDirectoryPath(AREAS_DIR, 'zon'));
 
   // Write basic .zon file
   // top_vnum is zoneNumber * 100 + 99 (e.g., zone 500 has top vnum 50099)
@@ -902,16 +928,16 @@ $
   };
 
   // Write .wld file with initial room
-  const wldPath = path.join(AREAS_DIR, 'wld', `${zoneId}.wld`);
+  const wldPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'wld');
   const wldContent = formatRoom(initialRoom);
   await fs.writeFile(wldPath, wldContent, 'utf-8');
 
   // Write empty .mob file
-  const mobPath = path.join(AREAS_DIR, 'mob', `${zoneId}.mob`);
+  const mobPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'mob');
   await fs.writeFile(mobPath, '$\n', 'utf-8');
 
   // Write empty .obj file
-  const objPath = path.join(AREAS_DIR, 'obj', `${zoneId}.obj`);
+  const objPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'obj');
   await fs.writeFile(objPath, '$\n', 'utf-8');
 
   return zoneId;
@@ -920,10 +946,10 @@ $
 // Delete a zone (removes all zone files)
 export async function deleteZone(zoneId: string): Promise<boolean> {
   const files = [
-    path.join(AREAS_DIR, 'wld', `${zoneId}.wld`),
-    path.join(AREAS_DIR, 'mob', `${zoneId}.mob`),
-    path.join(AREAS_DIR, 'obj', `${zoneId}.obj`),
-    path.join(AREAS_DIR, 'zon', `${zoneId}.zon`),
+    resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'wld'),
+    resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'mob'),
+    resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'obj'),
+    resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'zon'),
   ];
 
   let deletedAny = false;
@@ -1000,16 +1026,16 @@ export async function cloneZone(
   const newZoneId = sanitizeZoneName(zoneName);
 
   // Check if files with this base name already exist
-  const zonPath = path.join(AREAS_DIR, 'zon', `${newZoneId}.zon`);
+  const zonPath = resolveSafeZoneFilePath(AREAS_DIR, newZoneId, 'zon');
   if (await fileExists(zonPath)) {
     throw new Error(`Zone file ${newZoneId}.zon already exists`);
   }
 
   // Ensure directories exist
-  await ensureDir(path.join(AREAS_DIR, 'wld'));
-  await ensureDir(path.join(AREAS_DIR, 'mob'));
-  await ensureDir(path.join(AREAS_DIR, 'obj'));
-  await ensureDir(path.join(AREAS_DIR, 'zon'));
+  await ensureDir(resolveSafeZoneDirectoryPath(AREAS_DIR, 'wld'));
+  await ensureDir(resolveSafeZoneDirectoryPath(AREAS_DIR, 'mob'));
+  await ensureDir(resolveSafeZoneDirectoryPath(AREAS_DIR, 'obj'));
+  await ensureDir(resolveSafeZoneDirectoryPath(AREAS_DIR, 'zon'));
 
   // Write .zon file FIRST so the mapping is available
   const zonContent = `#1
@@ -1026,16 +1052,16 @@ $
 
   // Write .wld file
   const wldContent = remappedRooms.map(formatRoom).join('\n');
-  await fs.writeFile(path.join(AREAS_DIR, 'wld', `${newZoneId}.wld`), wldContent, 'utf-8');
+  await fs.writeFile(resolveSafeZoneFilePath(AREAS_DIR, newZoneId, 'wld'), wldContent, 'utf-8');
 
   // Write .mob file
   const formattedMobs = await Promise.all(remappedMobs.map(mob => formatMobile(mob)));
   const mobContent = formattedMobs.join('\n') + '\n#99999\n$\n';
-  await fs.writeFile(path.join(AREAS_DIR, 'mob', `${newZoneId}.mob`), mobContent, 'utf-8');
+  await fs.writeFile(resolveSafeZoneFilePath(AREAS_DIR, newZoneId, 'mob'), mobContent, 'utf-8');
 
   // Write .obj file
   const objContent = remappedObjs.map(formatObject).join('\n') + '\n#99999\n$\n';
-  await fs.writeFile(path.join(AREAS_DIR, 'obj', `${newZoneId}.obj`), objContent, 'utf-8');
+  await fs.writeFile(resolveSafeZoneFilePath(AREAS_DIR, newZoneId, 'obj'), objContent, 'utf-8');
 
   return newZoneId;
 }
@@ -1125,7 +1151,7 @@ function formatResetCommand(reset: ResetCommand): string {
 // Write zone resets to .zon file
 // This preserves the zone header and replaces the reset section
 export async function writeZoneResets(zoneId: string, resets: ResetCommand[]): Promise<void> {
-  const filePath = path.join(AREAS_DIR, 'zon', `${zoneId}.zon`);
+  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'zon');
 
   if (!(await fileExists(filePath))) {
     throw new Error(`Zone file ${zoneId}.zon not found`);

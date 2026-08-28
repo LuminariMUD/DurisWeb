@@ -11,6 +11,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { pool } from '../db/connection.js';
 import logger from '../utils/logger.js';
+import { resolveSafeZoneDirectoryPath, resolveSafeZoneFilePath } from '../utils/safeZonePath.js';
 
 const MUD_DIR = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
 const AREAS_DIR = path.join(MUD_DIR, 'areas');
@@ -312,14 +313,14 @@ function calculateCoords(vnum: number): { x: number; y: number } {
 // Build a map of zone number -> zone name from all .zon files
 async function buildZoneNameMap(): Promise<Map<number, string>> {
   const zoneNameMap = new Map<number, string>();
-  const zonDir = path.join(AREAS_DIR, 'zon');
+  const zonDir = resolveSafeZoneDirectoryPath(AREAS_DIR, 'zon');
 
   try {
     const files = await fs.readdir(zonDir);
     const zonFiles = files.filter((f) => f.endsWith('.zon'));
 
     for (const zonFile of zonFiles) {
-      const zonPath = path.join(zonDir, zonFile);
+      const zonPath = resolveSafeZoneFilePath(AREAS_DIR, zonFile.slice(0, -4), 'zon');
       const zoneInfo = await parseZoneHeader(zonPath);
       if (zoneInfo) {
         zoneNameMap.set(zoneInfo.number, zoneInfo.name);
@@ -385,7 +386,7 @@ async function buildRoomToFileMap(): Promise<Map<number, string>> {
 // Build a map of zone file base name -> zone name from all .zon files
 async function buildFileToZoneNameMap(): Promise<Map<string, string>> {
   const fileToNameMap = new Map<string, string>();
-  const zonDir = path.join(AREAS_DIR, 'zon');
+  const zonDir = resolveSafeZoneDirectoryPath(AREAS_DIR, 'zon');
 
   try {
     const files = await fs.readdir(zonDir);
@@ -393,7 +394,7 @@ async function buildFileToZoneNameMap(): Promise<Map<string, string>> {
 
     for (const zonFile of zonFiles) {
       const baseName = zonFile.replace('.zon', '');
-      const zonPath = path.join(zonDir, zonFile);
+      const zonPath = resolveSafeZoneFilePath(AREAS_DIR, zonFile.slice(0, -4), 'zon');
       const zoneInfo = await parseZoneHeader(zonPath);
       if (zoneInfo) {
         fileToNameMap.set(baseName, zoneInfo.name);
@@ -437,7 +438,7 @@ async function extractMapData(): Promise<void> {
   logger.info(`Mapped ${roomToFileMap.size} rooms to their zone files.\n`);
 
   // Find all zone files
-  const zonDir = path.join(AREAS_DIR, 'zon');
+  const zonDir = resolveSafeZoneDirectoryPath(AREAS_DIR, 'zon');
   const files = await fs.readdir(zonDir);
   const zonFiles = files.filter((f) => f.endsWith('.zon'));
 
@@ -457,8 +458,8 @@ async function extractMapData(): Promise<void> {
   // Process each zone file
   for (const zonFile of zonFiles) {
     const baseName = zonFile.replace('.zon', '');
-    const zonPath = path.join(zonDir, zonFile);
-    const wldPath = path.join(AREAS_DIR, 'wld', `${baseName}.wld`);
+    const zonPath = resolveSafeZoneFilePath(AREAS_DIR, zonFile.slice(0, -4), 'zon');
+    const wldPath = resolveSafeZoneFilePath(AREAS_DIR, baseName, 'wld');
 
     // Skip if no .wld file
     if (!(await fileExists(wldPath))) continue;

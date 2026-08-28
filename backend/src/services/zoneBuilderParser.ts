@@ -8,6 +8,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { pool } from '../db/connection.js';
 import type { RowDataPacket } from 'mysql2';
+import { resolveSafeZoneDirectoryPath, resolveSafeZoneFilePath, resolveSafeZoneMapPath } from '../utils/safeZonePath.js';
 import {
   Room,
   RoomExit,
@@ -89,7 +90,7 @@ async function buildZoneFileMap(): Promise<Map<number, string>> {
   if (zoneFileMap) return zoneFileMap;
 
   const map = new Map<number, string>();
-  const zonDir = path.join(AREAS_DIR, 'zon');
+  const zonDir = resolveSafeZoneDirectoryPath(AREAS_DIR, 'zon');
 
   try {
     const files = await fs.readdir(zonDir);
@@ -169,7 +170,7 @@ async function buildZoneIndex(): Promise<ZoneIndex[]> {
     return zoneIndexCache;
   }
 
-  const zonDir = path.join(AREAS_DIR, 'zon');
+  const zonDir = resolveSafeZoneDirectoryPath(AREAS_DIR, 'zon');
   const zones: ZoneIndex[] = [];
 
   try {
@@ -178,10 +179,10 @@ async function buildZoneIndex(): Promise<ZoneIndex[]> {
 
     for (const file of zonFiles) {
       const baseName = file.replace('.zon', '');
-      const zonPath = path.join(zonDir, file);
-      const wldPath = path.join(AREAS_DIR, 'wld', `${baseName}.wld`);
-      const mobPath = path.join(AREAS_DIR, 'mob', `${baseName}.mob`);
-      const objPath = path.join(AREAS_DIR, 'obj', `${baseName}.obj`);
+      const zonPath = resolveSafeZoneFilePath(AREAS_DIR, baseName, 'zon');
+      const wldPath = resolveSafeZoneFilePath(AREAS_DIR, baseName, 'wld');
+      const mobPath = resolveSafeZoneFilePath(AREAS_DIR, baseName, 'mob');
+      const objPath = resolveSafeZoneFilePath(AREAS_DIR, baseName, 'obj');
 
       // Skip if no .wld file exists
       if (!(await fileExists(wldPath))) continue;
@@ -516,7 +517,7 @@ export async function parseWldFile(zoneNumber: number): Promise<Room[]> {
     throw new Error(`Zone ${zoneNumber} not found`);
   }
 
-  const filePath = path.join(AREAS_DIR, 'wld', `${baseName}.wld`);
+  const filePath = resolveSafeZoneFilePath(AREAS_DIR, baseName, 'wld');
   const content = await readFile(filePath);
   const rooms: Room[] = [];
 
@@ -533,7 +534,7 @@ export async function parseWldFile(zoneNumber: number): Promise<Room[]> {
 
 // Parse .wld file by zone ID (filename without extension)
 async function parseWldFileById(zoneId: string): Promise<Room[]> {
-  const filePath = path.join(AREAS_DIR, 'wld', `${zoneId}.wld`);
+  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'wld');
 
   if (!(await fileExists(filePath))) {
     throw new Error(`Zone "${zoneId}" .wld file not found`);
@@ -556,8 +557,8 @@ async function parseWldFileById(zoneId: string): Promise<Room[]> {
 // Get zone map data (Tier 1 - minimal data for map rendering and sidebar listing)
 // Get zone map data by zone ID (filename without extension)
 export async function getZoneMapData(zoneId: string): Promise<ZoneMapData> {
-  const zonPath = path.join(AREAS_DIR, 'zon', `${zoneId}.zon`);
-  const wldPath = path.join(AREAS_DIR, 'wld', `${zoneId}.wld`);
+  const zonPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'zon');
+  const wldPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'wld');
 
   if (!(await fileExists(wldPath))) {
     throw new Error(`Zone "${zoneId}" not found`);
@@ -627,7 +628,7 @@ export async function getZoneMapData(zoneId: string): Promise<ZoneMapData> {
 
 // Get zone name from .zon file (quick lookup)
 export async function getZoneName(zoneId: string): Promise<string> {
-  const zonPath = path.join(AREAS_DIR, 'zon', `${zoneId}.zon`);
+  const zonPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'zon');
 
   if (await fileExists(zonPath)) {
     const zonContent = await readFile(zonPath);
@@ -649,7 +650,7 @@ export async function getRoomData(zoneId: string, vnum: number): Promise<Room | 
 // Parse .mob file
 // Parse .mob file by zone ID
 export async function parseMobFile(zoneId: string): Promise<Mobile[]> {
-  const filePath = path.join(AREAS_DIR, 'mob', `${zoneId}.mob`);
+  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'mob');
 
   if (!(await fileExists(filePath))) {
     return [];
@@ -818,7 +819,7 @@ export async function parseMobFile(zoneId: string): Promise<Mobile[]> {
 // Parse .obj file
 // Parse .obj file by zone ID
 export async function parseObjFile(zoneId: string): Promise<ZoneObject[]> {
-  const filePath = path.join(AREAS_DIR, 'obj', `${zoneId}.obj`);
+  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'obj');
 
   if (!(await fileExists(filePath))) {
     return [];
@@ -1078,7 +1079,7 @@ export async function parseObjFile(zoneId: string): Promise<ZoneObject[]> {
 // <reset commands...>
 // S or $ (end marker)
 export async function parseZonFile(zoneId: string): Promise<{ header: ZoneHeader; resets: ResetCommand[] }> {
-  const filePath = path.join(AREAS_DIR, 'zon', `${zoneId}.zon`);
+  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'zon');
 
   if (!(await fileExists(filePath))) {
     return {
@@ -1218,7 +1219,7 @@ export async function getMobileData(zoneId: string, vnum: number): Promise<Mobil
 
 // Get object by vnum using zone ID
 export async function getObjectData(zoneId: string, vnum: number): Promise<ZoneObject | null> {
-  const filePath = path.join(AREAS_DIR, 'obj', `${zoneId}.obj`);
+  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'obj');
 
   if (!(await fileExists(filePath))) {
     return null;
@@ -1501,21 +1502,20 @@ export interface ZonePositions {
   lastModified: string;
 }
 
-const MAP_DIR = path.join(AREAS_DIR, 'map');
-
 // Ensure map directory exists
 async function ensureMapDir(): Promise<void> {
+  const safeMapDir = resolveSafeZoneDirectoryPath(AREAS_DIR, 'map');
   try {
-    await fs.access(MAP_DIR);
+    await fs.access(safeMapDir);
   } catch {
-    await fs.mkdir(MAP_DIR, { recursive: true });
+    await fs.mkdir(safeMapDir, { recursive: true });
   }
 }
 
 // Get room positions for a zone by ID
 export async function getZonePositions(zoneId: string): Promise<ZonePositions | null> {
   try {
-    const filePath = path.join(MAP_DIR, `${zoneId}.json`);
+    const filePath = resolveSafeZoneMapPath(AREAS_DIR, zoneId);
     if (!(await fileExists(filePath))) {
       return null;
     }
@@ -1540,7 +1540,7 @@ export async function saveZonePositions(
     lastModified: new Date().toISOString(),
   };
 
-  const filePath = path.join(MAP_DIR, `${zoneId}.json`);
+  const filePath = resolveSafeZoneMapPath(AREAS_DIR, zoneId);
   await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
 }
 
@@ -1609,9 +1609,9 @@ export async function globalSearch(
 
   // Use grep to find files containing the search term (much faster than parsing all files)
   const searchDirs = {
-    room: path.join(AREAS_DIR, 'wld'),
-    mob: path.join(AREAS_DIR, 'mob'),
-    object: path.join(AREAS_DIR, 'obj'),
+    room: resolveSafeZoneDirectoryPath(AREAS_DIR, 'wld'),
+    mob: resolveSafeZoneDirectoryPath(AREAS_DIR, 'mob'),
+    object: resolveSafeZoneDirectoryPath(AREAS_DIR, 'obj'),
   };
 
   // Helper to check if we have enough results

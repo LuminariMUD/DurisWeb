@@ -6,6 +6,7 @@ import archiver from 'archiver';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { pool } from '../db/connection.js';
 import { processContentForWrite } from '../utils/contentParser.js';
+import { UnsafeZonePathError, resolveSafeZoneFilePath } from '../utils/safeZonePath.js';
 
 const MUD_DIR = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
 const AREAS_DIR = path.join(MUD_DIR, 'areas');
@@ -1517,15 +1518,13 @@ router.get('/zones/:id/download/:type', async (req: Request, res: Response) => {
       zon: 'zon',
     };
 
-    // File type to directory mapping
-    const fileDirs: Record<string, string> = {
-      wld: 'wld',
-      mob: 'mob',
-      obj: 'obj',
-      zon: 'zon',
-    };
-
     if (downloadType === 'all') {
+      // Resolve all paths before opening the response stream.
+      const zoneFiles = Object.values(fileExtensions).map((ext) => ({
+        ext,
+        filePath: resolveSafeZoneFilePath(AREAS_DIR, zoneId, ext),
+      }));
+
       // Create zip archive with all zone files
       const archive = archiver('zip', { zlib: { level: 9 } });
 
@@ -1535,8 +1534,7 @@ router.get('/zones/:id/download/:type', async (req: Request, res: Response) => {
       archive.pipe(res);
 
       // Add each file type to the archive
-      for (const [type, ext] of Object.entries(fileExtensions)) {
-        const filePath = path.join(AREAS_DIR, fileDirs[type], `${zoneId}.${ext}`);
+      for (const { ext, filePath } of zoneFiles) {
         if (fs.existsSync(filePath)) {
           archive.file(filePath, { name: `${zoneId}.${ext}` });
         }
@@ -1557,8 +1555,7 @@ router.get('/zones/:id/download/:type', async (req: Request, res: Response) => {
     } else {
       // Download single file
       const ext = fileExtensions[downloadType];
-      const dir = fileDirs[downloadType];
-      const filePath = path.join(AREAS_DIR, dir, `${zoneId}.${ext}`);
+      const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, ext);
 
       if (!fs.existsSync(filePath)) {
         res.status(404).json({ error: `File ${zoneId}.${ext} not found` });
@@ -1583,6 +1580,10 @@ router.get('/zones/:id/download/:type', async (req: Request, res: Response) => {
       );
     }
   } catch (error) {
+    if (error instanceof UnsafeZonePathError) {
+      res.status(400).json({ error: 'Invalid or unsafe zone path' });
+      return;
+    }
     logger.error('Error downloading zone file:', error);
     res.status(500).json({ error: 'Failed to download zone file', message: getErrorMessage(error) });
   }
