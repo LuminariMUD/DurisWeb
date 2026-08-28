@@ -10,6 +10,7 @@ import type {
   TimerScope,
 } from '@/types/timer'
 import { TIMER_CONSTRAINTS, formatInterval } from '@/types/timer'
+import { createClientId } from '@/utils/clientId'
 import type { TriggerActionSound } from '@/types/trigger'
 import { PREDEFINED_SOUNDS } from '@/types/trigger'
 
@@ -131,7 +132,7 @@ export function useTimers() {
    * Generate a unique ID for a new timer.
    */
   function generateId(): string {
-    return crypto.randomUUID()
+    return createClientId(timers.value.map((timer) => timer.id))
   }
 
   /**

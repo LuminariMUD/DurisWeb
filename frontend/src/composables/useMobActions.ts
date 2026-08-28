@@ -1,4 +1,5 @@
 import { ref, watch, computed } from 'vue'
+import { createClientId } from '@/utils/clientId'
 
 export interface MobAction {
   id: string
@@ -70,7 +71,7 @@ export function useMobActions() {
   loadActions()
 
   function addAction(label: string, command: string) {
-    const id = crypto.randomUUID()
+    const id = createClientId(actions.value.map((action) => action.id))
     actions.value.push({ id, label, command })
   }
 
@@ -146,7 +147,10 @@ export function useMobActions() {
       // Create ID mapping for button assignments
       const idMap = new Map<string, string>()
       actions.value = imported.map(a => {
-        const newId = crypto.randomUUID()
+        const newId = createClientId([
+          ...actions.value.map((action) => action.id),
+          ...idMap.values(),
+        ])
         idMap.set(a.id, newId)
         return { ...a, id: newId }
       })
@@ -166,7 +170,7 @@ export function useMobActions() {
         if (!exists) {
           actions.value.push({
             ...action,
-            id: crypto.randomUUID(),
+            id: createClientId(actions.value.map((action) => action.id)),
           })
           count++
         }

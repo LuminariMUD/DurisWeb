@@ -3,6 +3,8 @@ import { useMudStore } from '@/stores/mudStore'
 import { expandGmcpVariables } from '@/utils/gmcpVariables'
 import { expandScript } from '@/utils/scriptExpander'
 import { useGroups } from './useGroups'
+import { createClientId } from '@/utils/clientId'
+import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
 import type {
   Alias,
   AliasFormData,
@@ -19,6 +21,8 @@ const aliases = ref<Alias[]>([])
 const isLoaded = ref(false)
 const echoExpansion = ref(false)
 const echoCommands = ref(true)
+const storageError = ref<string | null>(null)
+let accountWatcherInitialized = false
 
 export function useAliases() {
   const store = useMudStore()
@@ -44,6 +48,7 @@ export function useAliases() {
    * Load aliases from localStorage for current account.
    */
   function loadAliases(): void {
+    storageError.value = null
     if (!storageKey.value) {
       aliases.value = []
       echoExpansion.value = false
@@ -78,20 +83,28 @@ export function useAliases() {
       echoExpansion.value = data.echoExpansion ?? false
       echoCommands.value = data.echoCommands ?? true
       isLoaded.value = true
+      storageError.value = null
+      if (data.version < STORAGE_VERSION) {
+        saveAliases()
+      }
     } catch (error) {
       console.error('[Aliases] Failed to load:', error)
       aliases.value = []
       echoExpansion.value = false
       echoCommands.value = true
       isLoaded.value = true
+      storageError.value = 'Saved aliases could not be loaded. The stored data may be invalid.'
     }
   }
 
   /**
    * Save aliases to localStorage.
    */
-  function saveAliases(): void {
-    if (!storageKey.value) return
+  function saveAliases(): boolean {
+    if (!storageKey.value) {
+      storageError.value = 'No active MUD account is available for alias settings.'
+      return false
+    }
 
     try {
       const data: AliasStorage = {
@@ -100,26 +113,63 @@ export function useAliases() {
         echoExpansion: echoExpansion.value,
         echoCommands: echoCommands.value,
       }
-      localStorage.setItem(storageKey.value, JSON.stringify(data))
+      writeClientSettings(storageKey.value, data)
+      storageError.value = null
+      return true
     } catch (error) {
       console.error('[Aliases] Failed to save:', error)
+      storageError.value = error instanceof ClientSettingsStorageError
+        ? error.message
+        : 'Client settings could not be saved.'
+      return false
     }
+  }
+
+  function canMutate(): boolean {
+    if (!storageKey.value) {
+      storageError.value = 'No active MUD account is available for alias settings.'
+      return false
+    }
+    if (!isLoaded.value) {
+      storageError.value = 'Alias settings are still loading. Try again in a moment.'
+      return false
+    }
+    return true
+  }
+
+  function commitAliases(nextAliases: Alias[]): boolean {
+    if (!canMutate()) return false
+
+    const previousAliases = aliases.value
+    aliases.value = nextAliases
+    if (saveAliases()) return true
+
+    aliases.value = previousAliases
+    return false
   }
 
   /**
    * Set echo expansion setting.
    */
-  function setEchoExpansion(value: boolean): void {
+  function setEchoExpansion(value: boolean): boolean {
+    if (!canMutate()) return false
+    const previous = echoExpansion.value
     echoExpansion.value = value
-    saveAliases()
+    if (saveAliases()) return true
+    echoExpansion.value = previous
+    return false
   }
 
   /**
    * Set echo commands setting.
    */
-  function setEchoCommands(value: boolean): void {
+  function setEchoCommands(value: boolean): boolean {
+    if (!canMutate()) return false
+    const previous = echoCommands.value
     echoCommands.value = value
-    saveAliases()
+    if (saveAliases()) return true
+    echoCommands.value = previous
+    return false
   }
 
   // =========================================================================
@@ -130,13 +180,14 @@ export function useAliases() {
    * Generate a unique ID for a new alias.
    */
   function generateId(): string {
-    return crypto.randomUUID()
+    return createClientId(aliases.value.map((alias) => alias.id))
   }
 
   /**
    * Add a new alias.
    */
-  function addAlias(formData: AliasFormData): Alias {
+  function addAlias(formData: AliasFormData): Alias | null {
+    if (!canMutate()) return null
     const now = Date.now()
     const alias: Alias = {
       id: generateId(),
@@ -151,15 +202,14 @@ export function useAliases() {
       updatedAt: now,
     }
 
-    aliases.value.push(alias)
-    saveAliases()
-    return alias
+    return commitAliases([...aliases.value, alias]) ? alias : null
   }
 
   /**
    * Update an existing alias.
    */
   function updateAlias(id: string, formData: Partial<AliasFormData>): Alias | null {
+    if (!canMutate()) return null
     const index = aliases.value.findIndex((a) => a.id === id)
     if (index === -1) return null
 
@@ -189,27 +239,27 @@ export function useAliases() {
       updatedAt: Date.now(),
     }
 
-    aliases.value[index] = updated
-    saveAliases()
-    return updated
+    const nextAliases = [...aliases.value]
+    nextAliases[index] = updated
+    return commitAliases(nextAliases) ? updated : null
   }
 
   /**
    * Delete an alias.
    */
   function deleteAlias(id: string): boolean {
+    if (!canMutate()) return false
     const index = aliases.value.findIndex((a) => a.id === id)
     if (index === -1) return false
 
-    aliases.value.splice(index, 1)
-    saveAliases()
-    return true
+    return commitAliases(aliases.value.filter((_, aliasIndex) => aliasIndex !== index))
   }
 
   /**
    * Toggle alias enabled state.
    */
   function toggleAlias(id: string): boolean {
+    if (!canMutate()) return false
     const index = aliases.value.findIndex((a) => a.id === id)
     if (index === -1) return false
 
@@ -217,19 +267,20 @@ export function useAliases() {
     if (!alias) return false
 
     // Replace the alias object to ensure reactivity triggers
-    aliases.value[index] = {
+    const nextAliases = [...aliases.value]
+    nextAliases[index] = {
       ...alias,
       enabled: !alias.enabled,
       updatedAt: Date.now(),
     }
-    saveAliases()
-    return true
+    return commitAliases(nextAliases)
   }
 
   /**
    * Set alias enabled state to a specific value.
    */
   function setAliasEnabled(id: string, enabled: boolean): boolean {
+    if (!canMutate()) return false
     const index = aliases.value.findIndex((a) => a.id === id)
     if (index === -1) return false
 
@@ -237,29 +288,30 @@ export function useAliases() {
     if (!alias) return false
 
     // Replace the alias object to ensure reactivity triggers
-    aliases.value[index] = {
+    const nextAliases = [...aliases.value]
+    nextAliases[index] = {
       ...alias,
       enabled,
       updatedAt: Date.now(),
     }
-    saveAliases()
-    return true
+    return commitAliases(nextAliases)
   }
 
   function setAliasGroup(id: string, groupId: string | null): boolean {
+    if (!canMutate()) return false
     const index = aliases.value.findIndex(a => a.id === id)
     if (index === -1) return false
 
     const alias = aliases.value[index]
     if (!alias) return false
 
-    aliases.value[index] = {
+    const nextAliases = [...aliases.value]
+    nextAliases[index] = {
       ...alias,
       groupId,
       updatedAt: Date.now(),
     }
-    saveAliases()
-    return true
+    return commitAliases(nextAliases)
   }
 
   /**
@@ -470,6 +522,11 @@ export function useAliases() {
    */
   function importAliases(json: string, mode: 'replace' | 'merge' = 'merge'): number {
     try {
+      if (!canMutate()) {
+        throw new ClientSettingsStorageError(
+          storageError.value ?? 'Alias settings are not ready to import.',
+        )
+      }
       const data = JSON.parse(json)
       if (!data.aliases || !Array.isArray(data.aliases)) {
         throw new Error('Invalid alias data format')
@@ -477,28 +534,62 @@ export function useAliases() {
 
       const imported = data.aliases as Alias[]
       const now = Date.now()
+      const reservedIds = new Set(aliases.value.map((alias) => alias.id))
+      const nextId = () => {
+        const id = createClientId(reservedIds)
+        reservedIds.add(id)
+        return id
+      }
 
       if (mode === 'replace') {
-        aliases.value = imported.map((a) => ({
+        const nextAliases = imported.map((a) => ({
           ...a,
-          id: generateId(), // Generate new IDs to avoid conflicts
+          id: nextId(), // Generate new IDs to avoid conflicts
+          trigger: a.trigger.trim().toLowerCase(),
+          expansion: a.expansion.trim(),
+          scope: a.scope === 'character' ? 'character' as const : 'global' as const,
+          characterName: a.scope === 'character' ? a.characterName ?? null : null,
+          groupId: a.groupId ?? null,
+          enabled: a.enabled !== false,
           updatedAt: now,
         }))
+        if (!commitAliases(nextAliases)) {
+          throw new ClientSettingsStorageError(storageError.value ?? 'Aliases could not be saved.')
+        }
       } else {
         // Merge: add non-conflicting triggers
+        const nextAliases = [...aliases.value]
+        let accepted = 0
         for (const alias of imported) {
-          if (!isTriggerInUse(alias.trigger, undefined, alias.scope, alias.characterName)) {
-            aliases.value.push({
+          const normalizedTrigger = alias.trigger.trim().toLowerCase()
+          const normalizedScope = alias.scope === 'character' ? 'character' as const : 'global' as const
+          const normalizedCharacterName = normalizedScope === 'character' ? alias.characterName ?? null : null
+          if (!nextAliases.some((existing) =>
+            existing.trigger === normalizedTrigger &&
+            existing.scope === normalizedScope &&
+            existing.characterName === normalizedCharacterName
+          )) {
+            nextAliases.push({
               ...alias,
-              id: generateId(),
+              id: nextId(),
+              trigger: normalizedTrigger,
+              expansion: alias.expansion.trim(),
+              scope: normalizedScope,
+              characterName: normalizedCharacterName,
+              groupId: alias.groupId ?? null,
+              enabled: alias.enabled !== false,
               createdAt: now,
               updatedAt: now,
             })
+            accepted += 1
           }
         }
+        if (!commitAliases(nextAliases)) {
+          throw new ClientSettingsStorageError(storageError.value ?? 'Aliases could not be saved.')
+        }
+        return accepted
       }
 
-      saveAliases()
       return imported.length
     } catch (error) {
       console.error('[Aliases] Import failed:', error)
@@ -510,21 +601,26 @@ export function useAliases() {
   // Initialization
   // =========================================================================
 
-  // Watch for account changes and reload aliases
-  watch(
-    accountName,
-    (newAccount, oldAccount) => {
-      if (newAccount !== oldAccount) {
-        loadAliases()
-      }
-    },
-    { immediate: true }
-  )
+  // Watch for account changes and reload aliases. The composable is used by
+  // several components and message handlers, so only one watcher is allowed.
+  if (!accountWatcherInitialized) {
+    accountWatcherInitialized = true
+    watch(
+      accountName,
+      (newAccount, oldAccount) => {
+        if (newAccount !== oldAccount) {
+          loadAliases()
+        }
+      },
+      { immediate: true }
+    )
+  }
 
   return {
     // State
     aliases,
     isLoaded,
+    storageError,
     echoExpansion,
     echoCommands,
 

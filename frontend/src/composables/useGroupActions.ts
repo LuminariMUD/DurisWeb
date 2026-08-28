@@ -1,4 +1,5 @@
 import { ref, watch } from 'vue'
+import { createClientId } from '@/utils/clientId'
 
 export interface GroupAction {
   id: string
@@ -45,7 +46,7 @@ export function useGroupActions() {
   loadActions()
 
   function addAction(label: string, command: string) {
-    const id = crypto.randomUUID()
+    const id = createClientId(actions.value.map((action) => action.id))
     actions.value.push({ id, label, command })
   }
 
@@ -99,7 +100,7 @@ export function useGroupActions() {
     if (mode === 'replace') {
       actions.value = imported.map(a => ({
         ...a,
-        id: crypto.randomUUID(),
+        id: createClientId(actions.value.map((action) => action.id)),
       }))
       return imported.length
     } else {
@@ -110,7 +111,7 @@ export function useGroupActions() {
         if (!exists) {
           actions.value.push({
             ...action,
-            id: crypto.randomUUID(),
+            id: createClientId(actions.value.map((action) => action.id)),
           })
           count++
         }

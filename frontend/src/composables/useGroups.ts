@@ -1,6 +1,7 @@
 import { ref, computed, watch } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
 import type { Group, GroupFormData, GroupStorage } from '@/types/group'
+import { createClientId } from '@/utils/clientId'
 import { useTriggers } from './useTriggers'
 import { useAliases } from './useAliases'
 import { useTimers } from './useTimers'
@@ -70,7 +71,7 @@ export function useGroups() {
   // =========================================================================
 
   function generateId(): string {
-    return crypto.randomUUID()
+    return createClientId(groups.value.map((group) => group.id))
   }
 
   function addGroup(formData: GroupFormData): Group {

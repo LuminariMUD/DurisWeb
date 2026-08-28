@@ -55,6 +55,7 @@ const {
   setEchoTriggers,
   muteSounds,
   setMuteSounds,
+  storageError,
 } = useTriggers()
 
 // Filter state
@@ -110,17 +111,27 @@ function confirmDelete(trigger: Trigger) {
 
 function handleDelete() {
   if (triggerToDelete.value) {
-    deleteTrigger(triggerToDelete.value.id)
-    toast.success('Trigger deleted', {
-      description: `Trigger "${triggerToDelete.value.name}" has been removed.`,
-    })
+    const deleted = deleteTrigger(triggerToDelete.value.id)
+    if (deleted) {
+      toast.success('Trigger deleted', {
+        description: `Trigger "${triggerToDelete.value.name}" has been removed.`,
+      })
+    } else {
+      toast.error('Trigger was not saved', {
+        description: storageError.value ?? 'The trigger could not be deleted.',
+      })
+    }
   }
   deleteDialogOpen.value = false
   triggerToDelete.value = null
 }
 
 function handleToggle(id: string, enabled: boolean) {
-  setTriggerEnabled(id, enabled)
+  if (!setTriggerEnabled(id, enabled)) {
+    toast.error('Trigger was not saved', {
+      description: storageError.value ?? 'The trigger state could not be saved.',
+    })
+  }
 }
 
 function handleDuplicate(trigger: Trigger) {
@@ -129,19 +140,35 @@ function handleDuplicate(trigger: Trigger) {
     toast.success('Trigger duplicated', {
       description: `Created "${newTrigger.name}" as a copy.`,
     })
+  } else if (storageError.value) {
+    toast.error('Trigger was not saved', {
+      description: storageError.value,
+    })
   }
 }
 
 function handleSave(data: TriggerFormData, id?: string) {
   if (id) {
     // Edit mode
-    updateTrigger(id, data)
+    const updated = updateTrigger(id, data)
+    if (!updated) {
+      toast.error('Trigger was not saved', {
+        description: storageError.value ?? 'The trigger could not be updated.',
+      })
+      return
+    }
     toast.success('Trigger updated', {
       description: `Trigger "${data.name}" has been updated.`,
     })
   } else {
     // Add mode
-    addTrigger(data)
+    const created = addTrigger(data)
+    if (!created) {
+      toast.error('Trigger was not saved', {
+        description: storageError.value ?? 'The trigger could not be created.',
+      })
+      return
+    }
     toast.success('Trigger created', {
       description: `Trigger "${data.name}" has been added.`,
     })

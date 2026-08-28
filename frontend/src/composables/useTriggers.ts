@@ -15,6 +15,8 @@ import type {
   TriggerActionSound,
 } from '@/types/trigger'
 import { HIGHLIGHT_COLORS, PREDEFINED_SOUNDS } from '@/types/trigger'
+import { createClientId } from '@/utils/clientId'
+import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
 
 const STORAGE_VERSION = 5
 const STORAGE_KEY_PREFIX = 'duris_triggers_'
@@ -24,6 +26,8 @@ const triggers = ref<Trigger[]>([])
 const isLoaded = ref(false)
 const echoTriggers = ref(false)
 const muteSounds = ref(false)
+const storageError = ref<string | null>(null)
+let accountWatcherInitialized = false
 
 // Audio context for sounds (lazy-initialized)
 let audioContext: AudioContext | null = null
@@ -56,6 +60,7 @@ export function useTriggers() {
    * Load triggers from localStorage for current account.
    */
   function loadTriggers(): void {
+    storageError.value = null
     if (!storageKey.value) {
       triggers.value = []
       echoTriggers.value = false
@@ -154,6 +159,7 @@ export function useTriggers() {
       echoTriggers.value = data.echoTriggers ?? false
       muteSounds.value = data.muteSounds ?? false
       isLoaded.value = true
+      storageError.value = null
 
       // Save if migrated to persist changes
       if (data.version < STORAGE_VERSION) {
@@ -165,14 +171,18 @@ export function useTriggers() {
       echoTriggers.value = false
       muteSounds.value = false
       isLoaded.value = true
+      storageError.value = 'Saved triggers could not be loaded. The stored data may be invalid.'
     }
   }
 
   /**
    * Save triggers to localStorage.
    */
-  function saveTriggers(): void {
-    if (!storageKey.value) return
+  function saveTriggers(): boolean {
+    if (!storageKey.value) {
+      storageError.value = 'No active MUD account is available for trigger settings.'
+      return false
+    }
 
     try {
       const data: TriggerStorage = {
@@ -181,26 +191,63 @@ export function useTriggers() {
         echoTriggers: echoTriggers.value,
         muteSounds: muteSounds.value,
       }
-      localStorage.setItem(storageKey.value, JSON.stringify(data))
+      writeClientSettings(storageKey.value, data)
+      storageError.value = null
+      return true
     } catch (error) {
       console.error('[Triggers] Failed to save:', error)
+      storageError.value = error instanceof ClientSettingsStorageError
+        ? error.message
+        : 'Client settings could not be saved.'
+      return false
     }
+  }
+
+  function canMutate(): boolean {
+    if (!storageKey.value) {
+      storageError.value = 'No active MUD account is available for trigger settings.'
+      return false
+    }
+    if (!isLoaded.value) {
+      storageError.value = 'Trigger settings are still loading. Try again in a moment.'
+      return false
+    }
+    return true
+  }
+
+  function commitTriggers(nextTriggers: Trigger[]): boolean {
+    if (!canMutate()) return false
+
+    const previousTriggers = triggers.value
+    triggers.value = nextTriggers
+    if (saveTriggers()) return true
+
+    triggers.value = previousTriggers
+    return false
   }
 
   /**
    * Set echo triggers setting.
    */
-  function setEchoTriggers(value: boolean): void {
+  function setEchoTriggers(value: boolean): boolean {
+    if (!canMutate()) return false
+    const previous = echoTriggers.value
     echoTriggers.value = value
-    saveTriggers()
+    if (saveTriggers()) return true
+    echoTriggers.value = previous
+    return false
   }
 
   /**
    * Set mute sounds setting.
    */
-  function setMuteSounds(value: boolean): void {
+  function setMuteSounds(value: boolean): boolean {
+    if (!canMutate()) return false
+    const previous = muteSounds.value
     muteSounds.value = value
-    saveTriggers()
+    if (saveTriggers()) return true
+    muteSounds.value = previous
+    return false
   }
 
   // =========================================================================
@@ -211,13 +258,14 @@ export function useTriggers() {
    * Generate a unique ID for a new trigger.
    */
   function generateId(): string {
-    return crypto.randomUUID()
+    return createClientId(triggers.value.map((trigger) => trigger.id))
   }
 
   /**
    * Add a new trigger.
    */
-  function addTrigger(formData: TriggerFormData): Trigger {
+  function addTrigger(formData: TriggerFormData): Trigger | null {
+    if (!canMutate()) return null
     const now = Date.now()
     const trigger: Trigger = {
       id: generateId(),
@@ -240,15 +288,14 @@ export function useTriggers() {
       updatedAt: now,
     }
 
-    triggers.value.push(trigger)
-    saveTriggers()
-    return trigger
+    return commitTriggers([...triggers.value, trigger]) ? trigger : null
   }
 
   /**
    * Update an existing trigger.
    */
   function updateTrigger(id: string, formData: Partial<TriggerFormData>): Trigger | null {
+    if (!canMutate()) return null
     const index = triggers.value.findIndex((t) => t.id === id)
     if (index === -1) return null
 
@@ -292,75 +339,77 @@ export function useTriggers() {
       updatedAt: Date.now(),
     }
 
-    triggers.value[index] = updated
-    saveTriggers()
-    return updated
+    const nextTriggers = [...triggers.value]
+    nextTriggers[index] = updated
+    return commitTriggers(nextTriggers) ? updated : null
   }
 
   /**
    * Delete a trigger.
    */
   function deleteTrigger(id: string): boolean {
+    if (!canMutate()) return false
     const index = triggers.value.findIndex((t) => t.id === id)
     if (index === -1) return false
 
-    triggers.value.splice(index, 1)
-    saveTriggers()
-    return true
+    return commitTriggers(triggers.value.filter((_, triggerIndex) => triggerIndex !== index))
   }
 
   /**
    * Toggle trigger enabled state.
    */
   function toggleTrigger(id: string): boolean {
+    if (!canMutate()) return false
     const index = triggers.value.findIndex((t) => t.id === id)
     if (index === -1) return false
 
     const trigger = triggers.value[index]
     if (!trigger) return false
 
-    triggers.value[index] = {
+    const nextTriggers = [...triggers.value]
+    nextTriggers[index] = {
       ...trigger,
       enabled: !trigger.enabled,
       updatedAt: Date.now(),
     }
-    saveTriggers()
-    return true
+    return commitTriggers(nextTriggers)
   }
 
   /**
    * Set trigger enabled state to a specific value.
    */
   function setTriggerEnabled(id: string, enabled: boolean): boolean {
+    if (!canMutate()) return false
     const index = triggers.value.findIndex((t) => t.id === id)
     if (index === -1) return false
 
     const trigger = triggers.value[index]
     if (!trigger) return false
 
-    triggers.value[index] = {
+    const nextTriggers = [...triggers.value]
+    nextTriggers[index] = {
       ...trigger,
       enabled,
       updatedAt: Date.now(),
     }
-    saveTriggers()
-    return true
+    return commitTriggers(nextTriggers)
   }
 
   function setTriggerGroup(id: string, groupId: string | null): boolean {
+    if (!canMutate()) return false
     const index = triggers.value.findIndex(t => t.id === id)
     if (index === -1) return false
 
     const trigger = triggers.value[index]
     if (!trigger) return false
 
-    triggers.value[index] = {
+    const nextTriggers = [...triggers.value]
+    nextTriggers[index] = {
       ...trigger,
       groupId,
       updatedAt: Date.now(),
     }
-    saveTriggers()
-    return true
+    return commitTriggers(nextTriggers)
   }
 
   /**
@@ -882,6 +931,11 @@ export function useTriggers() {
    */
   function importTriggers(json: string, mode: 'replace' | 'merge' = 'merge'): number {
     try {
+      if (!canMutate()) {
+        throw new ClientSettingsStorageError(
+          storageError.value ?? 'Trigger settings are not ready to import.',
+        )
+      }
       const data = JSON.parse(json)
       if (!data.triggers || !Array.isArray(data.triggers)) {
         throw new Error('Invalid trigger data format')
@@ -889,28 +943,60 @@ export function useTriggers() {
 
       const imported = data.triggers as Trigger[]
       const now = Date.now()
+      const reservedIds = new Set(triggers.value.map((trigger) => trigger.id))
+      const nextId = () => {
+        const id = createClientId(reservedIds)
+        reservedIds.add(id)
+        return id
+      }
 
       if (mode === 'replace') {
-        triggers.value = imported.map((t) => ({
+        const nextTriggers = imported.map((t) => ({
           ...t,
-          id: generateId(), // Generate new IDs to avoid conflicts
+          id: nextId(), // Generate new IDs to avoid conflicts
+          name: t.name.trim(),
+          scope: t.scope === 'character' ? 'character' as const : 'global' as const,
+          characterName: t.scope === 'character' ? t.characterName ?? null : null,
+          groupId: t.groupId ?? null,
+          enabled: t.enabled !== false,
           updatedAt: now,
         }))
+        if (!commitTriggers(nextTriggers)) {
+          throw new ClientSettingsStorageError(storageError.value ?? 'Triggers could not be saved.')
+        }
       } else {
         // Merge: add non-conflicting names
+        const nextTriggers = [...triggers.value]
+        let accepted = 0
         for (const trigger of imported) {
-          if (!isNameInUse(trigger.name, undefined, trigger.scope, trigger.characterName)) {
-            triggers.value.push({
+          const normalizedName = trigger.name.trim()
+          const normalizedScope = trigger.scope === 'character' ? 'character' as const : 'global' as const
+          const normalizedCharacterName = normalizedScope === 'character' ? trigger.characterName ?? null : null
+          if (!nextTriggers.some((existing) =>
+            existing.name.trim().toLowerCase() === normalizedName.toLowerCase() &&
+            existing.scope === normalizedScope &&
+            existing.characterName === normalizedCharacterName
+          )) {
+            nextTriggers.push({
               ...trigger,
-              id: generateId(),
+              id: nextId(),
+              name: normalizedName,
+              scope: normalizedScope,
+              characterName: normalizedCharacterName,
+              groupId: trigger.groupId ?? null,
+              enabled: trigger.enabled !== false,
               createdAt: now,
               updatedAt: now,
             })
+            accepted += 1
           }
         }
+        if (!commitTriggers(nextTriggers)) {
+          throw new ClientSettingsStorageError(storageError.value ?? 'Triggers could not be saved.')
+        }
+        return accepted
       }
 
-      saveTriggers()
       return imported.length
     } catch (error) {
       console.error('[Triggers] Import failed:', error)
@@ -922,21 +1008,26 @@ export function useTriggers() {
   // Initialization
   // =========================================================================
 
-  // Watch for account changes and reload triggers
-  watch(
-    accountName,
-    (newAccount, oldAccount) => {
-      if (newAccount !== oldAccount) {
-        loadTriggers()
-      }
-    },
-    { immediate: true }
-  )
+  // Watch for account changes and reload triggers. The composable is used by
+  // several components and message handlers, so only one watcher is allowed.
+  if (!accountWatcherInitialized) {
+    accountWatcherInitialized = true
+    watch(
+      accountName,
+      (newAccount, oldAccount) => {
+        if (newAccount !== oldAccount) {
+          loadTriggers()
+        }
+      },
+      { immediate: true }
+    )
+  }
 
   return {
     // State
     triggers,
     isLoaded,
+    storageError,
     echoTriggers,
     muteSounds,
 

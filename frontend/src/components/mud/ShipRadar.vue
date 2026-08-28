@@ -31,6 +31,12 @@ import type { WikiMapBounds } from '@/types'
 import { wikiApi } from '@/services/api'
 import { getCachedWorldMap, setCachedWorldMap } from '@/utils/worldMapCache'
 import { parseAnsiToHtml, stripAnsiCodes } from '@/utils/ansiParser'
+import {
+  getContactWorldPosition as getShipContactWorldPosition,
+  hasVerifiedWorldCoordinates,
+  worldPointToMapPercent,
+  type WorldPoint,
+} from '@/utils/shipCoordinates'
 
 const emit = defineEmits<{
   detach: []
@@ -386,20 +392,27 @@ const otherContacts = computed(() =>
 )
 
 // Check if we have world coordinates (verified web client)
-const hasWorldCoords = computed(() =>
-  shipContacts.value?.worldX !== undefined && shipContacts.value?.worldY !== undefined
-)
+const hasWorldCoords = computed(() => hasVerifiedWorldCoordinates(shipContacts.value))
 
 // Get world position for a contact
 // tactical coords are 0-99 with player at (50, 50)
-function getContactWorldPosition(contact: MudShipContact): { x: number; y: number } {
-  if (!hasWorldCoords.value || !shipContacts.value) {
-    return { x: contact.x, y: contact.y }
+function getContactWorldPosition(contact: MudShipContact): WorldPoint | null {
+  if (!hasWorldCoords.value || !shipContacts.value) return null
+  return getShipContactWorldPosition(shipContacts.value, contact)
+}
+
+function getContactMapPosition(contact: MudShipContact): WorldPoint | null {
+  const worldPosition = getContactWorldPosition(contact)
+  if (!worldPosition || !worldMapBounds.value) return null
+  return worldPointToMapPercent(worldPosition, worldMapBounds.value)
+}
+
+function getContactTitle(contact: MudShipContact): string {
+  const worldPosition = getContactWorldPosition(contact)
+  if (!worldPosition) {
+    return `${stripAnsiCodes(contact.name)} [${contact.id}] (world coordinates unavailable)`
   }
-  return {
-    x: shipContacts.value.worldX! + (contact.x - 50),
-    y: shipContacts.value.worldY! + (contact.y - 50),
-  }
+  return `${stripAnsiCodes(contact.name)} [${contact.id}] (${worldPosition.x}, ${worldPosition.y})`
 }
 
 // Get player ship world position
@@ -411,7 +424,7 @@ const playerWorldPosition = computed(() => {
 })
 
 // Check if we can show the map (have world coords even without contacts)
-const canShowMapPosition = computed(() => hasWorldCoords.value && shipContacts.value)
+const canShowMapPosition = computed(() => hasWorldCoords.value && shipContacts.value !== null)
 
 // Contact detection radius from Ship.Info GMCP (35 + crew modifier)
 const contactRadius = computed(() => shipInfo.value?.contactRange ?? 35)
@@ -423,7 +436,7 @@ const mapContainerRef = ref<HTMLElement | null>(null)
 const contactRadiusPercent = computed(() => {
   if (!worldMapBounds.value) return 5 // fallback 5%
   const { minX, maxX } = worldMapBounds.value
-  const mapWidth = maxX - minX + 1
+  const mapWidth = Math.max(maxX - minX, 1)
   return (contactRadius.value / mapWidth) * 100
 })
 
@@ -461,13 +474,7 @@ function getMapPosition(x: number, y: number): { x: number; y: number } {
   if (!worldMapBounds.value) return { x: 50, y: 50 }
 
   const { minX, maxX, minY, maxY } = worldMapBounds.value
-  const mapWidth = maxX - minX + 1
-  const mapHeight = maxY - minY + 1
-
-  return {
-    x: ((x - minX) / mapWidth) * 100,
-    y: ((y - minY) / mapHeight) * 100,
-  }
+  return worldPointToMapPercent({ x, y }, { minX, maxX, minY, maxY })
 }
 
 // Get race color class for map markers
@@ -498,8 +505,8 @@ const radarMapTransform = computed(() => {
   }
 
   const { minX, maxX, minY, maxY } = worldMapBounds.value
-  const mapWidth = maxX - minX + 1
-  const mapHeight = maxY - minY + 1
+  const mapWidth = Math.max(maxX - minX, 1)
+  const mapHeight = Math.max(maxY - minY, 1)
 
   // Player position as percentage of map
   const playerX = shipContacts.value.worldX!
@@ -828,9 +835,17 @@ onMounted(() => {
               draggable="false"
             />
 
+            <!-- World-map coordinates are required for global marker placement. -->
+            <div
+              v-if="!canShowMapPosition"
+              class="absolute inset-x-2 top-2 rounded bg-background/90 px-3 py-2 text-center text-xs text-muted-foreground z-20"
+            >
+              World coordinates are unavailable. Switch to Radar view for relative contacts.
+            </div>
+
             <!-- Contact radius circle (percentage-based, scales with map) -->
             <div
-              v-if="(canShowMapPosition || playerShip) && worldMapBounds"
+              v-if="canShowMapPosition && worldMapBounds"
               class="absolute rounded-full border border-gray-400/50 bg-gray-400/20 pointer-events-none"
               :style="{
                 left: `${getMapPosition(playerWorldPosition.x, playerWorldPosition.y).x}%`,
@@ -843,7 +858,7 @@ onMounted(() => {
 
             <!-- Player ship marker (blue triangle) -->
             <div
-              v-if="canShowMapPosition || playerShip"
+              v-if="canShowMapPosition"
               class="absolute -translate-x-1/2 -translate-y-1/2 z-10"
               :style="{
                 left: `${getMapPosition(playerWorldPosition.x, playerWorldPosition.y).x}%`,
@@ -859,39 +874,43 @@ onMounted(() => {
             </div>
 
             <!-- Other ship markers -->
-            <div
+            <template
               v-for="contact in otherContacts"
               :key="contact.id"
-              class="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 flex items-center gap-0.5"
-              :style="{
-                left: `${getMapPosition(getContactWorldPosition(contact).x, getContactWorldPosition(contact).y).x}%`,
-                top: `${getMapPosition(getContactWorldPosition(contact).x, getContactWorldPosition(contact).y).y}%`,
-              }"
-              :title="`${stripAnsiCodes(contact.name)} [${contact.id}] (${getContactWorldPosition(contact).x}, ${getContactWorldPosition(contact).y})`"
-              @click.stop="selectContact(contact.id)"
             >
               <div
-                class="rounded-full border-2 shrink-0"
-                :class="[
-                  contact.targeting_you ? 'animate-pulse' : '',
-                  getRaceColorClass(contact.race),
-                ]"
+                v-if="getContactMapPosition(contact)"
+                class="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 flex items-center gap-0.5"
                 :style="{
-                  width: `${12 / mapZoom}px`,
-                  height: `${12 / mapZoom}px`,
+                  left: `${getContactMapPosition(contact)?.x ?? 0}%`,
+                  top: `${getContactMapPosition(contact)?.y ?? 0}%`,
                 }"
-              />
-              <span
-                class="font-bold drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]"
-                :style="{ fontSize: `${10 / mapZoom}px` }"
-                :class="contact.targeting_you ? 'text-red-500' : {
-                  'text-yellow-400': contact.race === 'good',
-                  'text-red-800': contact.race === 'evil',
-                  'text-gray-900': contact.race === 'undead',
-                  'text-white': contact.race !== 'good' && contact.race !== 'evil' && contact.race !== 'undead',
-                }"
-              >{{ contact.id }}</span>
-            </div>
+                :title="getContactTitle(contact)"
+                @click.stop="selectContact(contact.id)"
+              >
+                <div
+                  class="rounded-full border-2 shrink-0"
+                  :class="[
+                    contact.targeting_you ? 'animate-pulse' : '',
+                    getRaceColorClass(contact.race),
+                  ]"
+                  :style="{
+                    width: `${12 / mapZoom}px`,
+                    height: `${12 / mapZoom}px`,
+                  }"
+                />
+                <span
+                  class="font-bold drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]"
+                  :style="{ fontSize: `${10 / mapZoom}px` }"
+                  :class="contact.targeting_you ? 'text-red-500' : {
+                    'text-yellow-400': contact.race === 'good',
+                    'text-red-800': contact.race === 'evil',
+                    'text-gray-900': contact.race === 'undead',
+                    'text-white': contact.race !== 'good' && contact.race !== 'evil' && contact.race !== 'undead',
+                  }"
+                >{{ contact.id }}</span>
+              </div>
+            </template>
 
             <!-- Waypoint marker (navigation target) -->
             <div
@@ -937,8 +956,12 @@ onMounted(() => {
           <!-- Overlays (fixed position, not affected by zoom) -->
           <template v-if="worldMapImageUrl && !worldMapLoading">
             <!-- Ship label overlay (top-left) -->
-            <div v-if="canShowMapPosition || shipInfo" class="absolute top-2 left-2 bg-background/80 backdrop-blur px-2 py-1 rounded text-xs font-mono z-20">
+            <div v-if="canShowMapPosition" class="absolute top-2 left-2 bg-background/80 backdrop-blur px-2 py-1 rounded text-xs font-mono z-20">
               <span v-html="parseAnsiToHtml(shipInfo?.name ?? 'Your Ship')" /> ({{ playerWorldPosition.x }}, {{ playerWorldPosition.y }})
+            </div>
+
+            <div v-else class="absolute top-2 left-2 bg-background/80 backdrop-blur px-2 py-1 rounded text-xs z-20">
+              World position unavailable
             </div>
 
             <!-- Zoom level and contacts count (top-right) -->

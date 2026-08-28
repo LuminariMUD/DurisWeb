@@ -53,6 +53,7 @@ const {
   importAliases,
   echoExpansion,
   setEchoExpansion,
+  storageError,
 } = useAliases()
 
 // Filter state
@@ -108,17 +109,27 @@ function confirmDelete(alias: Alias) {
 
 function handleDelete() {
   if (aliasToDelete.value) {
-    deleteAlias(aliasToDelete.value.id)
-    toast.success('Alias deleted', {
-      description: `Alias "${aliasToDelete.value.trigger}" has been removed.`,
-    })
+    const deleted = deleteAlias(aliasToDelete.value.id)
+    if (deleted) {
+      toast.success('Alias deleted', {
+        description: `Alias "${aliasToDelete.value.trigger}" has been removed.`,
+      })
+    } else {
+      toast.error('Alias was not saved', {
+        description: storageError.value ?? 'The alias could not be deleted.',
+      })
+    }
   }
   deleteDialogOpen.value = false
   aliasToDelete.value = null
 }
 
 function handleToggle(id: string, enabled: boolean) {
-  setAliasEnabled(id, enabled)
+  if (!setAliasEnabled(id, enabled)) {
+    toast.error('Alias was not saved', {
+      description: storageError.value ?? 'The alias state could not be saved.',
+    })
+  }
 }
 
 function handleDuplicate(alias: Alias) {
@@ -127,19 +138,35 @@ function handleDuplicate(alias: Alias) {
     toast.success('Alias duplicated', {
       description: `Created "${newAlias.trigger}" as a copy.`,
     })
+  } else if (storageError.value) {
+    toast.error('Alias was not saved', {
+      description: storageError.value,
+    })
   }
 }
 
 function handleSave(data: AliasFormData, id?: string) {
   if (id) {
     // Edit mode
-    updateAlias(id, data)
+    const updated = updateAlias(id, data)
+    if (!updated) {
+      toast.error('Alias was not saved', {
+        description: storageError.value ?? 'The alias could not be updated.',
+      })
+      return
+    }
     toast.success('Alias updated', {
       description: `Alias "${data.trigger}" has been updated.`,
     })
   } else {
     // Add mode
-    addAlias(data)
+    const created = addAlias(data)
+    if (!created) {
+      toast.error('Alias was not saved', {
+        description: storageError.value ?? 'The alias could not be created.',
+      })
+      return
+    }
     toast.success('Alias created', {
       description: `Alias "${data.trigger}" has been added.`,
     })
