@@ -1865,9 +1865,15 @@ router.put('/zones/:id/info', async (req: Request, res: Response) => {
 
     const { description, descriptionHtml } = req.body;
 
+    const processedDescriptionHtml = validateOptionalHtml(descriptionHtml);
+    if ('error' in processedDescriptionHtml) {
+      res.status(400).json({ error: processedDescriptionHtml.error });
+      return;
+    }
+
     const info = await zoneInfoService.upsertZoneInfo(
       zoneId,
-      { description, descriptionHtml },
+      { description, descriptionHtml: processedDescriptionHtml.contentHtml ?? undefined },
       accountName
     );
 

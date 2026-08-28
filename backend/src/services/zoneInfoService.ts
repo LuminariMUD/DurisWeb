@@ -7,10 +7,28 @@ import type {
   ZonePermissionLevel,
   ZoneInfoHistory,
 } from '../types/builder.js';
+import { processContentForWrite } from '../utils/contentParser.js';
 
 // ============================================================================
 // Zone Info Functions
 // ============================================================================
+
+function sanitizeOptionalZoneDescriptionHtml(value: unknown): string | null {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    throw new Error('Zone description HTML must be a string');
+  }
+
+  const processed = processContentForWrite(value);
+  if (processed.error) {
+    throw new Error(processed.error);
+  }
+
+  return processed.content;
+}
 
 /**
  * Get zone info by zone ID
@@ -47,6 +65,8 @@ export async function upsertZoneInfo(
   data: ZoneInfoUpdate,
   ownerAccount: string
 ): Promise<ZoneInfo> {
+  const sanitizedDescriptionHtml = sanitizeOptionalZoneDescriptionHtml(data.descriptionHtml);
+
   // Check if zone info exists
   const existing = await getZoneInfo(zoneId);
 
@@ -56,14 +76,14 @@ export async function upsertZoneInfo(
       `UPDATE builder_zone_info
        SET description = ?, description_html = ?, updated_at = NOW()
        WHERE zone_id = ?`,
-      [data.description ?? null, data.descriptionHtml ?? null, zoneId]
+      [data.description ?? null, sanitizedDescriptionHtml, zoneId]
     );
   } else {
     // Create new
     await db.query(
       `INSERT INTO builder_zone_info (zone_id, description, description_html, owner_account)
        VALUES (?, ?, ?, ?)`,
-      [zoneId, data.description ?? null, data.descriptionHtml ?? null, ownerAccount]
+      [zoneId, data.description ?? null, sanitizedDescriptionHtml, ownerAccount]
     );
   }
 

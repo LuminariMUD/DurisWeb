@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import TipTapEditor from '@/components/forum/editor/TipTapEditor.vue'
 import { Edit, Save, X, AlertCircle } from 'lucide-vue-next'
 import type { ZoneInfoUpdate } from '@/types'
+import { sanitizeChangelogContent } from '@/utils/sanitizeChangelogContent'
 
 const props = defineProps<{
   zoneId: string
@@ -119,7 +120,7 @@ function saveChanges() {
         <div
           v-if="zoneInfo?.descriptionHtml"
           class="prose prose-invert max-w-none p-4 bg-muted/30 rounded-lg"
-          v-html="zoneInfo.descriptionHtml"
+          v-html="sanitizeChangelogContent(zoneInfo.descriptionHtml)"
         />
         <div v-else class="text-muted-foreground text-center py-12 bg-muted/30 rounded-lg">
           <p class="mb-2">No description has been added for this zone yet.</p>
