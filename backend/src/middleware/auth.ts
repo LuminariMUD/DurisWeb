@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { UserPermissions, getUserPermissions } from '../services/permissionService.js';
 import { parseAccountFile } from '../services/accountService.js';
 import { getUserPermissions as getAdminPermissions } from '../services/adminPermissionService.js';
+import { hasActiveWebSession } from '../services/sessionService.js';
 import logger from '../utils/logger.js';
 
 // Extend Express Request type to include user
@@ -96,6 +97,11 @@ export async function requireAuth(
 
     if (!payload) {
       res.status(401).json({ error: 'Invalid or expired token' });
+      return;
+    }
+
+    if (!await hasActiveWebSession(payload.accountName, req.cookies?.refresh_token)) {
+      res.status(401).json({ error: 'Session is no longer active' });
       return;
     }
 
@@ -308,6 +314,12 @@ export async function optionalAuth(
 
     if (!payload) {
       // Invalid token - continue as anonymous user
+      next();
+      return;
+    }
+
+    if (!await hasActiveWebSession(payload.accountName, req.cookies?.refresh_token)) {
+      // Revoked or expired session - continue as anonymous user
       next();
       return;
     }

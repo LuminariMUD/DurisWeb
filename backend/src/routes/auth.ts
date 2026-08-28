@@ -21,6 +21,7 @@ import {
   requireAuth,
   optionalAuth
 } from '../middleware/auth.js';
+import { hasActiveWebSession } from '../services/sessionService.js';
 
 const router: IRouter = Router();
 
@@ -148,10 +149,10 @@ router.post('/logout', requireAuth, async (req: Request, res: Response) => {
     const refreshToken = req.cookies?.refresh_token;
 
     if (refreshToken) {
-      // Delete refresh token from database
+      // Delete only this account's refresh-token session
       await db.query(
-        'DELETE FROM web_sessions WHERE refresh_token = ?',
-        [refreshToken]
+        'DELETE FROM web_sessions WHERE account_name = ? AND refresh_token = ?',
+        [req.user!.accountName, refreshToken]
       );
     }
 
@@ -185,13 +186,8 @@ router.post('/refresh', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid or expired refresh token' });
     }
 
-    // Check if refresh token exists in database
-    const [rows] = await db.query<any[]>(
-      'SELECT * FROM web_sessions WHERE refresh_token = ? AND expires_at > NOW()',
-      [refreshToken]
-    );
-
-    if (rows.length === 0) {
+    // Check that this refresh token is still an active session for the JWT subject
+    if (!await hasActiveWebSession(payload.accountName, refreshToken)) {
       return res.status(401).json({ error: 'Refresh token not found or expired' });
     }
 
@@ -260,25 +256,30 @@ router.get('/me', optionalAuth, async (req: Request, res: Response) => {
 
 /**
  * GET /api/auth/check
- * Quick authentication check (no database queries)
+ * Quick authentication check
  */
-router.get('/check', (req: Request, res: Response) => {
-  const accessToken = req.cookies?.access_token;
+router.get('/check', async (req: Request, res: Response) => {
+  try {
+    const accessToken = req.cookies?.access_token;
 
-  if (!accessToken) {
+    if (!accessToken) {
+      return res.json({ authenticated: false });
+    }
+
+    const payload = verifyToken(accessToken);
+
+    if (!payload || !await hasActiveWebSession(payload.accountName, req.cookies?.refresh_token)) {
+      return res.json({ authenticated: false });
+    }
+
+    return res.json({
+      authenticated: true,
+      accountName: payload.accountName
+    });
+  } catch (error) {
+    logger.error('Auth check error:', error);
     return res.json({ authenticated: false });
   }
-
-  const payload = verifyToken(accessToken);
-
-  if (!payload) {
-    return res.json({ authenticated: false });
-  }
-
-  return res.json({
-    authenticated: true,
-    accountName: payload.accountName
-  });
 });
 
 /**

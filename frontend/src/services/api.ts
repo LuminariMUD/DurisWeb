@@ -385,8 +385,8 @@ export const authApi = {
   /**
    * Get current user context (full profile)
    */
-  async getMe(): Promise<UserContext> {
-    const { data } = await api.get<{ user: UserContext }>('/api/auth/me')
+  async getMe(): Promise<UserContext | null> {
+    const { data } = await api.get<{ user: UserContext | null }>('/api/auth/me')
     return data.user
   },
 

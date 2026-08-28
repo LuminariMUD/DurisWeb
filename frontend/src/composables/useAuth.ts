@@ -147,6 +147,13 @@ export function useAuth() {
 
     try {
       const userData = await authApi.getMe()
+
+      if (!userData) {
+        user.value = null
+        selectedCharacter.value = null
+        return false
+      }
+
       user.value = userData
 
       // Auto-select first active character
