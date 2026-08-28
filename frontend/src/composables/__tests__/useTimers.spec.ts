@@ -112,6 +112,25 @@ describe('useTimers local persistence', () => {
     expect(timersApi.timers.value).toHaveLength(0)
   })
 
+  it('rejects malformed direct timer creation and update without mutation', async () => {
+    await selectAccount('Cwial')
+
+    expect(timersApi.addTimer({
+      ...timerForm,
+      intervalMs: 0,
+    })).toBeNull()
+    expect(timersApi.timers.value).toHaveLength(0)
+    expect(timersApi.storageError.value).toMatch(/intervalMs must be between/i)
+
+    const created = timersApi.addTimer(timerForm)
+    expect(created).not.toBeNull()
+    const before = timersApi.timers.value[0]
+    expect(timersApi.updateTimer(before!.id, {
+      actions: [{ type: 'command', commands: 123 } as never],
+    })).toBeNull()
+    expect(timersApi.timers.value[0]).toEqual(before)
+  })
+
   it('rolls back a timer when browser storage rejects the write', async () => {
     await selectAccount('Cwial')
     vi.spyOn(localStorageMock, 'setItem').mockImplementation(() => {

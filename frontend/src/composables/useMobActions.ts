@@ -1,7 +1,7 @@
 import { ref, watch, computed } from 'vue'
 import { createClientId } from '@/utils/clientId'
 import { parseClientSettingsCollection, parseClientSettingsDocument } from '@/utils/clientSettingsImport'
-import { normalizeMobActionImport } from '@/utils/clientSettingsValidation'
+import { normalizeMobActionForm, normalizeMobActionImport } from '@/utils/clientSettingsValidation'
 
 export interface MobAction {
   id: string
@@ -28,6 +28,7 @@ const EXPORT_VERSION = 2
 
 // Shared state across all components
 const actions = ref<MobAction[]>([])
+const actionError = ref<string | null>(null)
 const button1ActionId = ref<string | null>(null)
 const button2ActionId = ref<string | null>(null)
 let initialized = false
@@ -72,15 +73,32 @@ export function useMobActions() {
   // Load on first use
   loadActions()
 
-  function addAction(label: string, command: string) {
-    const id = createClientId(actions.value.map((action) => action.id))
-    actions.value.push({ id, label, command })
+  function addAction(label: string, command: string): MobAction | null {
+    try {
+      const action = normalizeMobActionForm(label, command, createClientId(actions.value.map((item) => item.id)))
+      actions.value.push(action)
+      actionError.value = null
+      return action
+    } catch (error) {
+      console.error('[Mob actions] Invalid action:', error)
+      actionError.value = error instanceof Error ? error.message : 'Mob action is invalid.'
+      return null
+    }
   }
 
-  function updateAction(id: string, label: string, command: string) {
+  function updateAction(id: string, label: string, command: string): boolean {
     const index = actions.value.findIndex(a => a.id === id)
-    if (index !== -1) {
-      actions.value[index] = { id, label, command }
+    if (index === -1) return false
+
+    try {
+      const action = normalizeMobActionForm(label, command, id)
+      actions.value[index] = action
+      actionError.value = null
+      return true
+    } catch (error) {
+      console.error('[Mob actions] Invalid action update:', error)
+      actionError.value = error instanceof Error ? error.message : 'Mob action is invalid.'
+      return false
     }
   }
 
@@ -181,6 +199,7 @@ export function useMobActions() {
 
   return {
     actions,
+    actionError,
     button1ActionId,
     button2ActionId,
     button1Action,

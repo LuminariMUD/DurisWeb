@@ -1,7 +1,7 @@
 import { ref, watch } from 'vue'
 import { createClientId } from '@/utils/clientId'
 import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
-import { normalizeGroupActionImport } from '@/utils/clientSettingsValidation'
+import { normalizeGroupActionForm, normalizeGroupActionImport } from '@/utils/clientSettingsValidation'
 
 export interface GroupAction {
   id: string
@@ -20,6 +20,7 @@ const EXPORT_VERSION = 1
 
 // Shared state across all components
 const actions = ref<GroupAction[]>([])
+const actionError = ref<string | null>(null)
 let initialized = false
 
 function loadActions() {
@@ -47,15 +48,32 @@ export function useGroupActions() {
   // Load on first use
   loadActions()
 
-  function addAction(label: string, command: string) {
-    const id = createClientId(actions.value.map((action) => action.id))
-    actions.value.push({ id, label, command })
+  function addAction(label: string, command: string): GroupAction | null {
+    try {
+      const action = normalizeGroupActionForm(label, command, createClientId(actions.value.map((item) => item.id)))
+      actions.value.push(action)
+      actionError.value = null
+      return action
+    } catch (error) {
+      console.error('[Group actions] Invalid action:', error)
+      actionError.value = error instanceof Error ? error.message : 'Group action is invalid.'
+      return null
+    }
   }
 
-  function updateAction(id: string, label: string, command: string) {
+  function updateAction(id: string, label: string, command: string): boolean {
     const index = actions.value.findIndex(a => a.id === id)
-    if (index !== -1) {
-      actions.value[index] = { id, label, command }
+    if (index === -1) return false
+
+    try {
+      const action = normalizeGroupActionForm(label, command, id)
+      actions.value[index] = action
+      actionError.value = null
+      return true
+    } catch (error) {
+      console.error('[Group actions] Invalid action update:', error)
+      actionError.value = error instanceof Error ? error.message : 'Group action is invalid.'
+      return false
     }
   }
 
@@ -119,6 +137,7 @@ export function useGroupActions() {
 
   return {
     actions,
+    actionError,
     addAction,
     updateAction,
     deleteAction,

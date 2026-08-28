@@ -30,7 +30,7 @@ import { toast } from 'vue-sonner'
 
 const isOpen = defineModel<boolean>('open', { default: false })
 
-const { actions, button1ActionId, button2ActionId, addAction, updateAction, deleteAction, setButtonAction, reorderActions, exportActions, importActions } = useMobActions()
+const { actions, actionError, button1ActionId, button2ActionId, addAction, updateAction, deleteAction, setButtonAction, reorderActions, exportActions, importActions } = useMobActions()
 
 // File input ref for import
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -89,8 +89,14 @@ function cancelEdit() {
 
 function saveEdit() {
   if (editingId.value && editLabel.value.trim() && editCommand.value.trim()) {
-    updateAction(editingId.value, editLabel.value.trim(), editCommand.value.trim())
-    cancelEdit()
+    const updated = updateAction(editingId.value, editLabel.value, editCommand.value)
+    if (updated) {
+      cancelEdit()
+    } else {
+      toast.error('Action was not saved', {
+        description: actionError.value ?? 'The mob action could not be updated.',
+      })
+    }
   }
 }
 
@@ -108,8 +114,14 @@ function cancelAdd() {
 
 function saveAdd() {
   if (newLabel.value.trim() && newCommand.value.trim()) {
-    addAction(newLabel.value.trim(), newCommand.value.trim())
-    cancelAdd()
+    const created = addAction(newLabel.value, newCommand.value)
+    if (created) {
+      cancelAdd()
+    } else {
+      toast.error('Action was not saved', {
+        description: actionError.value ?? 'The mob action could not be created.',
+      })
+    }
   }
 }
 

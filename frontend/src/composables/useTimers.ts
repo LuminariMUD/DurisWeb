@@ -13,7 +13,7 @@ import { TIMER_CONSTRAINTS, formatInterval } from '@/types/timer'
 import { createClientId } from '@/utils/clientId'
 import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
 import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
-import { normalizeTimerImport } from '@/utils/clientSettingsValidation'
+import { normalizeTimerForm, normalizeTimerImport } from '@/utils/clientSettingsValidation'
 import type { TriggerActionSound } from '@/types/trigger'
 import { PREDEFINED_SOUNDS } from '@/types/trigger'
 
@@ -188,29 +188,22 @@ export function useTimers() {
   function addTimer(formData: TimerFormData): Timer | null {
     if (!canMutate()) return null
     const now = Date.now()
-    const timer: Timer = {
-      id: generateId(),
-      name: formData.name.trim(),
-      intervalMs: formData.intervalMs,
-      isOneShot: formData.isOneShot,
-      actions: JSON.parse(JSON.stringify(formData.actions)), // Deep copy
-      enabled: formData.enabled,
-      scope: formData.scope,
-      characterName: formData.scope === 'character' ? formData.characterName : null,
-      groupId: formData.groupId ?? null,
-      description: formData.description?.trim() || undefined,
-      createdAt: now,
-      updatedAt: now,
+
+    try {
+      const timer = normalizeTimerForm(formData, generateId(), now)
+      if (!commitTimers([...timers.value, timer])) return null
+
+      // If timer is enabled and we're in-game, start it
+      if (timer.enabled && store.connectionState === 'in_game') {
+        startTimer(timer.id)
+      }
+
+      return timer
+    } catch (error) {
+      console.error('[Timers] Invalid timer:', error)
+      storageError.value = error instanceof Error ? error.message : 'Timer settings are invalid.'
+      return null
     }
-
-    if (!commitTimers([...timers.value, timer])) return null
-
-    // If timer is enabled and we're in-game, start it
-    if (timer.enabled && store.connectionState === 'in_game') {
-      startTimer(timer.id)
-    }
-
-    return timer
   }
 
   /**
@@ -224,36 +217,23 @@ export function useTimers() {
     const timer = timers.value[index]
     if (!timer) return null
 
+    let updated: Timer
+    try {
+      updated = normalizeTimerForm(
+        { ...timer, ...formData, id: timer.id, createdAt: timer.createdAt },
+        timer.id,
+        Date.now(),
+      )
+    } catch (error) {
+      console.error('[Timers] Invalid timer update:', error)
+      storageError.value = error instanceof Error ? error.message : 'Timer settings are invalid.'
+      return null
+    }
+
     // Stop timer if running before update
     const wasRunning = timerStates.get(id)?.isRunning ?? false
     if (wasRunning) {
       stopTimer(id)
-    }
-
-    const updated: Timer = {
-      id: timer.id,
-      name: formData.name !== undefined ? formData.name.trim() : timer.name,
-      intervalMs: formData.intervalMs !== undefined ? formData.intervalMs : timer.intervalMs,
-      isOneShot: formData.isOneShot !== undefined ? formData.isOneShot : timer.isOneShot,
-      actions:
-        formData.actions !== undefined
-          ? JSON.parse(JSON.stringify(formData.actions))
-          : timer.actions,
-      enabled: formData.enabled !== undefined ? formData.enabled : timer.enabled,
-      scope: formData.scope !== undefined ? formData.scope : timer.scope,
-      characterName:
-        formData.scope === 'global'
-          ? null
-          : formData.scope === 'character' && formData.characterName !== undefined
-            ? formData.characterName
-            : timer.characterName,
-      groupId: formData.groupId !== undefined ? formData.groupId : timer.groupId,
-      description:
-        formData.description !== undefined
-          ? formData.description.trim() || undefined
-          : timer.description,
-      createdAt: timer.createdAt,
-      updatedAt: Date.now(),
     }
 
     const nextTimers = [...timers.value]

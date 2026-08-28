@@ -356,6 +356,38 @@ export function normalizeTriggerForm(
   return normalizeTriggerImport(value, 0, generatedId, now, true)
 }
 
+export function normalizeGroupForm(
+  value: unknown,
+  generatedId: string,
+  now: number,
+): Group {
+  return normalizeGroupImport(value, 0, generatedId, now, true)
+}
+
+export function normalizeTimerForm(
+  value: unknown,
+  generatedId: string,
+  now: number,
+): Timer {
+  return normalizeTimerImport(value, 0, generatedId, now, true)
+}
+
+export function normalizeGroupActionForm(
+  label: unknown,
+  command: unknown,
+  generatedId: string,
+): { id: string; label: string; command: string } {
+  return normalizeGroupActionImport({ label, command }, 0, generatedId)
+}
+
+export function normalizeMobActionForm(
+  label: unknown,
+  command: unknown,
+  generatedId: string,
+): { id: string; label: string; command: string } {
+  return normalizeMobActionImport({ label, command }, 0, generatedId)
+}
+
 function normalizeSimpleAction(
   value: unknown,
   kind: 'group action' | 'mob action',

@@ -23,7 +23,7 @@ import { toast } from 'vue-sonner'
 
 const isOpen = defineModel<boolean>('open', { default: false })
 
-const { actions, addAction, updateAction, deleteAction, reorderActions, exportActions, importActions } = useGroupActions()
+const { actions, actionError, addAction, updateAction, deleteAction, reorderActions, exportActions, importActions } = useGroupActions()
 
 // File input ref for import
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -82,8 +82,14 @@ function cancelEdit() {
 
 function saveEdit() {
   if (editingId.value && editLabel.value.trim() && editCommand.value.trim()) {
-    updateAction(editingId.value, editLabel.value.trim(), editCommand.value.trim())
-    cancelEdit()
+    const updated = updateAction(editingId.value, editLabel.value, editCommand.value)
+    if (updated) {
+      cancelEdit()
+    } else {
+      toast.error('Action was not saved', {
+        description: actionError.value ?? 'The group action could not be updated.',
+      })
+    }
   }
 }
 
@@ -101,8 +107,14 @@ function cancelAdd() {
 
 function saveAdd() {
   if (newLabel.value.trim() && newCommand.value.trim()) {
-    addAction(newLabel.value.trim(), newCommand.value.trim())
-    cancelAdd()
+    const created = addAction(newLabel.value, newCommand.value)
+    if (created) {
+      cancelAdd()
+    } else {
+      toast.error('Action was not saved', {
+        description: actionError.value ?? 'The group action could not be created.',
+      })
+    }
   }
 }
 

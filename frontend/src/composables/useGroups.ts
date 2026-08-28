@@ -4,7 +4,7 @@ import type { Group, GroupFormData, GroupStorage } from '@/types/group'
 import { createClientId } from '@/utils/clientId'
 import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
 import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
-import { normalizeGroupImport } from '@/utils/clientSettingsValidation'
+import { normalizeGroupForm, normalizeGroupImport } from '@/utils/clientSettingsValidation'
 import { useTriggers } from './useTriggers'
 import { useAliases } from './useAliases'
 import { useTimers } from './useTimers'
@@ -125,29 +125,28 @@ export function useGroups() {
 
   function addGroup(formData: GroupFormData): Group | null {
     if (!canMutate()) return null
-    // enforce 2 level max - if parent has a parent, reject
-    if (formData.parentId) {
-      const parent = groups.value.find(g => g.id === formData.parentId)
-      if (parent?.parentId) {
-        throw new Error('Cannot create subgroup of a subgroup (2 levels max)')
-      }
-    }
-
     const now = Date.now()
-    const siblings = groups.value.filter(g => g.parentId === formData.parentId)
-    const maxOrder = siblings.length > 0 ? Math.max(...siblings.map(g => g.order)) : -1
 
-    const group: Group = {
-      id: generateId(),
-      name: formData.name.trim(),
-      parentId: formData.parentId,
-      enabled: formData.enabled,
-      order: maxOrder + 1,
-      createdAt: now,
-      updatedAt: now,
+    try {
+      const id = generateId()
+      const validated = normalizeGroupForm({ ...formData, order: 0 }, id, now)
+      // enforce 2 level max - if parent has a parent, reject
+      if (validated.parentId) {
+        const parent = groups.value.find(g => g.id === validated.parentId)
+        if (parent?.parentId) {
+          throw new Error('Cannot create subgroup of a subgroup (2 levels max)')
+        }
+      }
+
+      const siblings = groups.value.filter(g => g.parentId === validated.parentId)
+      const maxOrder = siblings.length > 0 ? Math.max(...siblings.map(g => g.order)) : -1
+      const group = normalizeGroupForm({ ...validated, order: maxOrder + 1 }, id, now)
+      return commitGroups([...groups.value, group]) ? group : null
+    } catch (error) {
+      console.error('[Groups] Invalid group:', error)
+      storageError.value = error instanceof Error ? error.message : 'Group settings are invalid.'
+      return null
     }
-
-    return commitGroups([...groups.value, group]) ? group : null
   }
 
   function updateGroup(id: string, formData: Partial<GroupFormData>): Group | null {
@@ -158,17 +157,30 @@ export function useGroups() {
     const group = groups.value[index]
     if (!group) return null
 
-    const updated: Group = {
-      ...group,
-      name: formData.name !== undefined ? formData.name.trim() : group.name,
-      parentId: formData.parentId !== undefined ? formData.parentId : group.parentId,
-      enabled: formData.enabled !== undefined ? formData.enabled : group.enabled,
-      updatedAt: Date.now(),
-    }
+    try {
+      const updated = normalizeGroupForm(
+        { ...group, ...formData, id: group.id, order: group.order, createdAt: group.createdAt },
+        group.id,
+        Date.now(),
+      )
+      if (updated.parentId === id) {
+        throw new Error('A group cannot be its own parent')
+      }
+      if (updated.parentId) {
+        const parent = groups.value.find(g => g.id === updated.parentId)
+        if (parent?.parentId) {
+          throw new Error('Cannot create subgroup of a subgroup (2 levels max)')
+        }
+      }
 
-    const nextGroups = [...groups.value]
-    nextGroups[index] = updated
-    return commitGroups(nextGroups) ? updated : null
+      const nextGroups = [...groups.value]
+      nextGroups[index] = updated
+      return commitGroups(nextGroups) ? updated : null
+    } catch (error) {
+      console.error('[Groups] Invalid group update:', error)
+      storageError.value = error instanceof Error ? error.message : 'Group settings are invalid.'
+      return null
+    }
   }
 
   function deleteGroup(id: string): boolean {
