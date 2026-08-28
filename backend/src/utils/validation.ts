@@ -4,6 +4,60 @@
  */
 
 /**
+ * Reject non-object request bodies and fields outside an explicit allowlist.
+ */
+export function validateObjectFields(
+  value: unknown,
+  allowedFields: readonly string[]
+): string | null {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return 'Request body must be an object';
+  }
+
+  const unknownField = Object.keys(value).find((field) => !allowedFields.includes(field));
+  return unknownField ? `Unknown field: ${unknownField}` : null;
+}
+
+/**
+ * Validate a required or optional string and enforce a maximum length.
+ */
+export function validateStringField(
+  value: unknown,
+  fieldName: string,
+  maxLength: number,
+  required = false
+): string | null {
+  if (value === undefined) {
+    return required ? `${fieldName} is required` : null;
+  }
+
+  if (typeof value !== 'string') {
+    return `${fieldName} must be a string`;
+  }
+
+  if (required && value.trim().length === 0) {
+    return `${fieldName} is required`;
+  }
+
+  if (value.length > maxLength) {
+    return `${fieldName} must be at most ${maxLength} characters`;
+  }
+
+  return null;
+}
+
+/**
+ * Validate a strict JSON boolean when present.
+ */
+export function validateBooleanField(value: unknown, fieldName: string): string | null {
+  if (value !== undefined && typeof value !== 'boolean') {
+    return `${fieldName} must be a boolean`;
+  }
+
+  return null;
+}
+
+/**
  * Parse an integer from a string with bounds checking
  * Returns the default value if the input is invalid, NaN, or out of bounds
  */

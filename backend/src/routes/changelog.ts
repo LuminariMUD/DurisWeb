@@ -3,8 +3,54 @@ import { requireAuth, requirePermission, optionalAuth } from '../middleware/auth
 import { getErrorMessage } from '../utils/logger.js';
 import * as changelogService from '../services/changelogService.js';
 import { processContentForWrite } from '../utils/contentParser.js';
+import {
+  validateBooleanField,
+  validateObjectFields,
+  validateStringField,
+} from '../utils/validation.js';
 
 const router: ExpressRouter = Router();
+
+const CHANGELOG_WRITE_FIELDS = ['version', 'title', 'content', 'category', 'isPublished'] as const;
+
+function validateChangelogWriteBody(body: unknown, requireCoreFields: boolean): string | null {
+  const structureError = validateObjectFields(body, CHANGELOG_WRITE_FIELDS);
+  if (structureError) {
+    return structureError;
+  }
+
+  const values = body as Record<string, unknown>;
+  const versionError = validateStringField(values.version, 'version', 50, requireCoreFields);
+  if (versionError) {
+    return versionError;
+  }
+
+  const titleError = validateStringField(values.title, 'title', 255, requireCoreFields);
+  if (titleError) {
+    return titleError;
+  }
+
+  const contentError = validateStringField(values.content, 'content', 50_000, requireCoreFields);
+  if (contentError) {
+    return contentError;
+  }
+
+  if (values.category !== undefined &&
+      (typeof values.category !== 'string' || !['public', 'admin'].includes(values.category))) {
+    return 'category must be "public" or "admin"';
+  }
+
+  const publishedError = validateBooleanField(values.isPublished, 'isPublished');
+  if (publishedError) {
+    return publishedError;
+  }
+
+  if (!requireCoreFields && Object.keys(values).length === 0) {
+    return 'At least one changelog field is required';
+  }
+
+  return null;
+}
 
 /**
  * GET /api/changelog - list published changelog entries
@@ -94,15 +140,12 @@ router.get('/:id', optionalAuth, async (req, res) => {
  */
 router.post('/', requireAuth, requirePermission('manage_news'), async (req, res) => {
   try {
+    const validationError = validateChangelogWriteBody(req.body, true);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
+    }
+
     const { version, title, content, category, isPublished } = req.body;
-
-    if (!version || !title || !content) {
-      return res.status(400).json({ error: 'Version, title, and content are required' });
-    }
-
-    if (category && !['public', 'admin'].includes(category)) {
-      return res.status(400).json({ error: 'Category must be "public" or "admin"' });
-    }
 
     const processedContent = processContentForWrite(content);
     if (processedContent.error) {
@@ -135,12 +178,13 @@ router.post('/', requireAuth, requirePermission('manage_news'), async (req, res)
  */
 router.put('/:id', requireAuth, requirePermission('manage_news'), async (req, res) => {
   try {
+    const validationError = validateChangelogWriteBody(req.body, false);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
+    }
+
     const id = parseInt(req.params.id);
     const { version, title, content, category, isPublished } = req.body;
-
-    if (category && !['public', 'admin'].includes(category)) {
-      return res.status(400).json({ error: 'Category must be "public" or "admin"' });
-    }
 
     let processedContent: string | undefined;
     if (content !== undefined) {
