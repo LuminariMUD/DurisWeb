@@ -69,19 +69,18 @@ router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const accountName = req.user?.accountName;
+    const canViewAdmin = req.user?.permissions?.immortalLevel != null && req.user.permissions.immortalLevel >= 57;
 
-    const entry = await changelogService.getChangelogEntry(id, accountName);
+    const entry = await changelogService.getChangelogEntry(id, accountName, canViewAdmin);
 
     if (!entry) {
       return res.status(404).json({ error: 'Changelog entry not found' });
     }
 
-    // check if user can view admin entries
-    if (entry.category === 'admin') {
-      const canViewAdmin = req.user?.permissions?.immortalLevel != null && req.user.permissions.immortalLevel >= 57;
-      if (!canViewAdmin) {
-        return res.status(404).json({ error: 'Changelog entry not found' });
-      }
+    // Defense in depth: the service applies the same visibility filter, but
+    // never return an unpublished/public or admin row to a non-admin caller.
+    if (!canViewAdmin && (!entry.isPublished || entry.category !== 'public')) {
+      return res.status(404).json({ error: 'Changelog entry not found' });
     }
 
     return res.json(entry);
@@ -153,7 +152,7 @@ router.put('/:id', requireAuth, requirePermission('manage_news'), async (req, re
     }
 
     // check if entry was previously unpublished (for notification)
-    const existingEntry = await changelogService.getChangelogEntry(id);
+    const existingEntry = await changelogService.getChangelogEntry(id, undefined, true);
     const wasUnpublished = existingEntry && !existingEntry.isPublished;
 
     const updated = await changelogService.updateChangelogEntry(id, {

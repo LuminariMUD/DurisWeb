@@ -137,8 +137,15 @@ export async function getAllChangelogEntriesForAdmin(page = 1, limit = 20): Prom
 /**
  * get single changelog entry by id
  */
-export async function getChangelogEntry(id: number, accountName?: string): Promise<ChangelogEntry | null> {
+export async function getChangelogEntry(
+  id: number,
+  accountName?: string,
+  includeAdmin = false
+): Promise<ChangelogEntry | null> {
   let query: string;
+  const visibilityClause = includeAdmin
+    ? 'c.id = ?'
+    : "c.id = ? AND c.is_published = TRUE AND c.category = 'public'";
   const params: (string | number)[] = [id];
 
   if (accountName) {
@@ -148,11 +155,11 @@ export async function getChangelogEntry(id: number, accountName?: string): Promi
         CASE WHEN r.id IS NOT NULL THEN TRUE ELSE FALSE END as is_read
       FROM website_changelog c
       LEFT JOIN website_changelog_reads r ON c.id = r.changelog_id AND r.account_name = ?
-      WHERE c.id = ?
+      WHERE ${visibilityClause}
     `;
     params.unshift(accountName);
   } else {
-    query = 'SELECT * FROM website_changelog WHERE id = ?';
+    query = `SELECT * FROM website_changelog c WHERE ${visibilityClause}`;
   }
 
   const [rows] = await db.query<RowDataPacket[]>(query, params);
