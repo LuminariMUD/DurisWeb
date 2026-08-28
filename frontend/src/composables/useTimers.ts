@@ -11,6 +11,7 @@ import type {
 } from '@/types/timer'
 import { TIMER_CONSTRAINTS, formatInterval } from '@/types/timer'
 import { createClientId } from '@/utils/clientId'
+import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
 import type { TriggerActionSound } from '@/types/trigger'
 import { PREDEFINED_SOUNDS } from '@/types/trigger'
 
@@ -21,6 +22,8 @@ const STORAGE_KEY_PREFIX = 'duris_timers_'
 const timers = ref<Timer[]>([])
 const isLoaded = ref(false)
 const echoTimers = ref(false)
+const storageError = ref<string | null>(null)
+let accountWatcherInitialized = false
 
 // Runtime state for running timers (timerId -> state)
 const timerStates = shallowReactive(new Map<string, TimerState>())
@@ -59,6 +62,7 @@ export function useTimers() {
    * Load timers from localStorage for current account.
    */
   function loadTimers(): void {
+    storageError.value = null
     if (!storageKey.value) {
       timers.value = []
       echoTimers.value = false
@@ -90,19 +94,27 @@ export function useTimers() {
       }
       echoTimers.value = data.echoTimers ?? false
       isLoaded.value = true
+      storageError.value = null
+      if (data.version < STORAGE_VERSION) {
+        saveTimers()
+      }
     } catch (error) {
       console.error('[Timers] Failed to load:', error)
       timers.value = []
       echoTimers.value = false
       isLoaded.value = true
+      storageError.value = 'Saved timers could not be loaded. The stored data may be invalid.'
     }
   }
 
   /**
    * Save timers to localStorage.
    */
-  function saveTimers(): void {
-    if (!storageKey.value) return
+  function saveTimers(): boolean {
+    if (!storageKey.value) {
+      storageError.value = 'No active MUD account is available for timer settings.'
+      return false
+    }
 
     try {
       const data: TimerStorage = {
@@ -110,18 +122,51 @@ export function useTimers() {
         timers: timers.value,
         echoTimers: echoTimers.value,
       }
-      localStorage.setItem(storageKey.value, JSON.stringify(data))
+      writeClientSettings(storageKey.value, data)
+      storageError.value = null
+      return true
     } catch (error) {
       console.error('[Timers] Failed to save:', error)
+      storageError.value = error instanceof ClientSettingsStorageError
+        ? error.message
+        : 'Client settings could not be saved.'
+      return false
     }
+  }
+
+  function canMutate(): boolean {
+    if (!storageKey.value) {
+      storageError.value = 'No active MUD account is available for timer settings.'
+      return false
+    }
+    if (!isLoaded.value) {
+      storageError.value = 'Timer settings are still loading. Try again in a moment.'
+      return false
+    }
+    return true
+  }
+
+  function commitTimers(nextTimers: Timer[]): boolean {
+    if (!canMutate()) return false
+
+    const previousTimers = timers.value
+    timers.value = nextTimers
+    if (saveTimers()) return true
+
+    timers.value = previousTimers
+    return false
   }
 
   /**
    * Set echo timers setting.
    */
-  function setEchoTimers(value: boolean): void {
+  function setEchoTimers(value: boolean): boolean {
+    if (!canMutate()) return false
+    const previous = echoTimers.value
     echoTimers.value = value
-    saveTimers()
+    if (saveTimers()) return true
+    echoTimers.value = previous
+    return false
   }
 
   // =========================================================================
@@ -138,7 +183,8 @@ export function useTimers() {
   /**
    * Add a new timer.
    */
-  function addTimer(formData: TimerFormData): Timer {
+  function addTimer(formData: TimerFormData): Timer | null {
+    if (!canMutate()) return null
     const now = Date.now()
     const timer: Timer = {
       id: generateId(),
@@ -155,8 +201,7 @@ export function useTimers() {
       updatedAt: now,
     }
 
-    timers.value.push(timer)
-    saveTimers()
+    if (!commitTimers([...timers.value, timer])) return null
 
     // If timer is enabled and we're in-game, start it
     if (timer.enabled && store.connectionState === 'in_game') {
@@ -170,6 +215,7 @@ export function useTimers() {
    * Update an existing timer.
    */
   function updateTimer(id: string, formData: Partial<TimerFormData>): Timer | null {
+    if (!canMutate()) return null
     const index = timers.value.findIndex((t) => t.id === id)
     if (index === -1) return null
 
@@ -208,8 +254,14 @@ export function useTimers() {
       updatedAt: Date.now(),
     }
 
-    timers.value[index] = updated
-    saveTimers()
+    const nextTimers = [...timers.value]
+    nextTimers[index] = updated
+    if (!commitTimers(nextTimers)) {
+      if (wasRunning && timer.enabled && store.connectionState === 'in_game') {
+        startTimer(id)
+      }
+      return null
+    }
 
     // Restart if was running and still enabled
     if (wasRunning && updated.enabled && store.connectionState === 'in_game') {
@@ -223,21 +275,28 @@ export function useTimers() {
    * Delete a timer.
    */
   function deleteTimer(id: string): boolean {
+    if (!canMutate()) return false
+    const timer = timers.value.find((candidate) => candidate.id === id)
+    if (!timer) return false
+    const wasRunning = timerStates.get(id)?.isRunning ?? false
     // Stop timer if running
     stopTimer(id)
 
     const index = timers.value.findIndex((t) => t.id === id)
     if (index === -1) return false
 
-    timers.value.splice(index, 1)
-    saveTimers()
-    return true
+    const committed = commitTimers(timers.value.filter((_, timerIndex) => timerIndex !== index))
+    if (!committed && wasRunning && timer.enabled && store.connectionState === 'in_game') {
+      startTimer(id)
+    }
+    return committed
   }
 
   /**
    * Toggle timer enabled state.
    */
   function toggleTimer(id: string): boolean {
+    if (!canMutate()) return false
     const index = timers.value.findIndex((t) => t.id === id)
     if (index === -1) return false
 
@@ -246,12 +305,13 @@ export function useTimers() {
 
     const newEnabled = !timer.enabled
 
-    timers.value[index] = {
+    const nextTimers = [...timers.value]
+    nextTimers[index] = {
       ...timer,
       enabled: newEnabled,
       updatedAt: Date.now(),
     }
-    saveTimers()
+    if (!commitTimers(nextTimers)) return false
 
     // Start or stop based on new state
     if (newEnabled && store.connectionState === 'in_game') {
@@ -267,18 +327,20 @@ export function useTimers() {
    * Set timer enabled state to a specific value.
    */
   function setTimerEnabled(id: string, enabled: boolean): boolean {
+    if (!canMutate()) return false
     const index = timers.value.findIndex((t) => t.id === id)
     if (index === -1) return false
 
     const timer = timers.value[index]
     if (!timer) return false
 
-    timers.value[index] = {
+    const nextTimers = [...timers.value]
+    nextTimers[index] = {
       ...timer,
       enabled,
       updatedAt: Date.now(),
     }
-    saveTimers()
+    if (!commitTimers(nextTimers)) return false
 
     // Start or stop based on new state
     if (enabled && store.connectionState === 'in_game') {
@@ -291,19 +353,20 @@ export function useTimers() {
   }
 
   function setTimerGroup(id: string, groupId: string | null): boolean {
+    if (!canMutate()) return false
     const index = timers.value.findIndex(t => t.id === id)
     if (index === -1) return false
 
     const timer = timers.value[index]
     if (!timer) return false
 
-    timers.value[index] = {
+    const nextTimers = [...timers.value]
+    nextTimers[index] = {
       ...timer,
       groupId,
       updatedAt: Date.now(),
     }
-    saveTimers()
-    return true
+    return commitTimers(nextTimers)
   }
 
   /**
@@ -674,6 +737,11 @@ export function useTimers() {
    */
   function importTimers(json: string, mode: 'replace' | 'merge' = 'merge'): number {
     try {
+      if (!canMutate()) {
+        throw new ClientSettingsStorageError(
+          storageError.value ?? 'Timer settings are not ready to import.',
+        )
+      }
       const data = JSON.parse(json)
       if (!data.timers || !Array.isArray(data.timers)) {
         throw new Error('Invalid timer data format')
@@ -681,34 +749,71 @@ export function useTimers() {
 
       const imported = data.timers as Timer[]
       const now = Date.now()
+      const reservedIds = new Set(timers.value.map((timer) => timer.id))
+      const nextId = () => {
+        const id = createClientId(reservedIds)
+        reservedIds.add(id)
+        return id
+      }
 
       // Stop all running timers before import
+      const wasInGame = store.connectionState === 'in_game'
       stopAllTimers()
 
       if (mode === 'replace') {
-        timers.value = imported.map((t) => ({
+        const nextTimers = imported.map((t) => ({
           ...t,
-          id: generateId(), // Generate new IDs to avoid conflicts
+          id: nextId(), // Generate new IDs to avoid conflicts
+          name: t.name.trim(),
+          scope: t.scope === 'character' ? 'character' as const : 'global' as const,
+          characterName: t.scope === 'character' ? t.characterName ?? null : null,
+          groupId: t.groupId ?? null,
+          enabled: t.enabled !== false,
           updatedAt: now,
         }))
+        if (!commitTimers(nextTimers)) {
+          if (wasInGame) startAllTimers()
+          throw new ClientSettingsStorageError(storageError.value ?? 'Timers could not be saved.')
+        }
       } else {
         // Merge: add non-conflicting names
+        const nextTimers = [...timers.value]
+        let accepted = 0
         for (const timer of imported) {
-          if (!isNameInUse(timer.name, undefined, timer.scope, timer.characterName)) {
-            timers.value.push({
+          const normalizedName = timer.name.trim()
+          const normalizedScope = timer.scope === 'character' ? 'character' as const : 'global' as const
+          const normalizedCharacterName = normalizedScope === 'character' ? timer.characterName ?? null : null
+          if (!nextTimers.some((existing) =>
+            existing.name.trim().toLowerCase() === normalizedName.toLowerCase() &&
+            existing.scope === normalizedScope &&
+            existing.characterName === normalizedCharacterName
+          )) {
+            nextTimers.push({
               ...timer,
-              id: generateId(),
+              id: nextId(),
+              name: normalizedName,
+              scope: normalizedScope,
+              characterName: normalizedCharacterName,
+              groupId: timer.groupId ?? null,
+              enabled: timer.enabled !== false,
               createdAt: now,
               updatedAt: now,
             })
+            accepted += 1
           }
         }
+        if (!commitTimers(nextTimers)) {
+          if (wasInGame) startAllTimers()
+          throw new ClientSettingsStorageError(storageError.value ?? 'Timers could not be saved.')
+        }
+        if (wasInGame) {
+          startAllTimers()
+        }
+        return accepted
       }
 
-      saveTimers()
-
       // Restart timers if in-game
-      if (store.connectionState === 'in_game') {
+      if (wasInGame) {
         startAllTimers()
       }
 
@@ -723,17 +828,21 @@ export function useTimers() {
   // Initialization
   // =========================================================================
 
-  // Watch for account changes and reload timers
-  watch(
-    accountName,
-    (newAccount, oldAccount) => {
-      if (newAccount !== oldAccount) {
-        stopAllTimers()
-        loadTimers()
-      }
-    },
-    { immediate: true }
-  )
+  // Watch for account changes and reload timers. The composable is used by
+  // several components and message handlers, so only one watcher is allowed.
+  if (!accountWatcherInitialized) {
+    accountWatcherInitialized = true
+    watch(
+      accountName,
+      (newAccount, oldAccount) => {
+        if (newAccount !== oldAccount) {
+          stopAllTimers()
+          loadTimers()
+        }
+      },
+      { immediate: true }
+    )
+  }
 
   // Watch for character changes - restart timers to pick up character-specific ones
   watch(characterName, () => {
@@ -758,6 +867,7 @@ export function useTimers() {
     // State
     timers,
     isLoaded,
+    storageError,
     echoTimers,
     timerStates,
 
