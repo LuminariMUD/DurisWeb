@@ -2,9 +2,23 @@ import express, { Router } from 'express';
 import logger from '../utils/logger.js';
 import * as zoneService from '../services/zoneService.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
+import rateLimit from 'express-rate-limit';
+import {
+  parseZoneNumber,
+  validateBulkZoneUpdatePayload,
+  validateZoneUpdatePayload,
+} from '../utils/zoneMutationValidation.js';
 import { pool } from '../db/connection.js';
 
 const router: Router = express.Router();
+
+const zoneMutationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many zone mutation requests; please try again later' },
+});
 
 // Helper function to log admin actions
 async function logAdminAction(
@@ -137,91 +151,30 @@ router.get('/:number', async (req, res, next) => {
 });
 
 // PUT /api/zones/:number - Update zone
-router.put('/:number', async (req, res, next) => {
+router.put('/:number', zoneMutationLimiter, async (req, res, next) => {
   try {
+    const zoneNumber = parseZoneNumber(req.params.number);
 
-    const zoneNumber = Number(req.params.number);
-
-    if (isNaN(zoneNumber)) {
-      res.status(400).json({ error: 'Invalid zone number' });
-      return;
+    if (zoneNumber === null) {
+      return res.status(400).json({ error: 'Invalid zone number' });
     }
 
-    const updateData: zoneService.ZoneUpdateData = {};
-
-    // Validate and extract update fields
-    if (req.body.epicType !== undefined) {
-      const epicType = Number(req.body.epicType);
-      if (isNaN(epicType) || epicType < 0 || epicType > 3) {
-        res.status(400).json({ error: 'Epic type must be between 0 and 3' });
-        return;
-      }
-      updateData.epicType = epicType;
+    const validationError = validateZoneUpdatePayload(req.body);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
     }
 
-    if (req.body.alignment !== undefined) {
-      const alignment = Number(req.body.alignment);
-      if (isNaN(alignment) || alignment < -5 || alignment > 5) {
-        res.status(400).json({ error: 'Alignment must be between -5 and 5' });
-        return;
-      }
-      updateData.alignment = alignment;
-    }
-
-    if (req.body.suggestedGroupSize !== undefined) {
-      const groupSize = Number(req.body.suggestedGroupSize);
-      if (isNaN(groupSize) || groupSize < 1 || groupSize > 20) {
-        res.status(400).json({ error: 'Suggested group size must be between 1 and 20' });
-        return;
-      }
-      updateData.suggestedGroupSize = groupSize;
-    }
-
-    if (req.body.difficulty !== undefined) {
-      const difficulty = Number(req.body.difficulty);
-      if (isNaN(difficulty) || difficulty < 0 || difficulty > 10) {
-        res.status(400).json({ error: 'Difficulty must be between 0 and 10' });
-        return;
-      }
-      updateData.difficulty = difficulty;
-    }
-
-    if (req.body.epicPayout !== undefined) {
-      const payout = Number(req.body.epicPayout);
-      if (isNaN(payout) || payout < 0 || payout > 500) {
-        res.status(400).json({ error: 'Epic payout must be between 0 and 500' });
-        return;
-      }
-      updateData.epicPayout = payout;
-    }
-
-    if (req.body.taskZone !== undefined) {
-      updateData.taskZone = Boolean(req.body.taskZone);
-    }
-
-    if (req.body.questZone !== undefined) {
-      updateData.questZone = Boolean(req.body.questZone);
-    }
-
-    if (req.body.trophyZone !== undefined) {
-      updateData.trophyZone = Boolean(req.body.trophyZone);
-    }
-
-    if (req.body.randomsZone !== undefined) {
-      updateData.randomsZone = Boolean(req.body.randomsZone);
-    }
-
-    const updatedZone = await zoneService.updateZone(zoneNumber, updateData, req.user?.accountName || 'system');
+    const updateData = { ...(req.body as zoneService.ZoneUpdateData) };
+    const updatedZone = await zoneService.updateZone(zoneNumber, updateData, req.user!.accountName);
 
     if (!updatedZone) {
-      res.status(404).json({ error: 'Zone not found' });
-      return;
+      return res.status(404).json({ error: 'Zone not found' });
     }
 
     // Audit log
     const changes = Object.keys(updateData).join(', ');
     await logAdminAction(
-      req.user?.accountName || 'system',
+      req.user!.accountName,
       'zone_edit',
       `Zone ${zoneNumber}: ${updatedZone.name || 'Unknown'}`,
       undefined,
@@ -230,120 +183,46 @@ router.put('/:number', async (req, res, next) => {
       req.ip || req.socket.remoteAddress
     );
 
-    res.json(updatedZone);
+    return res.json(updatedZone);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
 // PATCH /api/zones/bulk - Bulk update zones
-router.patch('/bulk', async (req, res, next) => {
+router.patch('/bulk', zoneMutationLimiter, async (req, res, next) => {
   try {
-
-    const { zoneNumbers, data } = req.body;
-
-    if (!Array.isArray(zoneNumbers) || zoneNumbers.length === 0) {
-      res.status(400).json({ error: 'zoneNumbers must be a non-empty array' });
-      return;
+    const validationError = validateBulkZoneUpdatePayload(req.body);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
     }
 
-    if (!data || typeof data !== 'object') {
-      res.status(400).json({ error: 'data object is required' });
-      return;
-    }
-
-    // Validate zone numbers
-    const validZoneNumbers = zoneNumbers.filter((n: any) => !isNaN(Number(n))).map(Number);
-    if (validZoneNumbers.length === 0) {
-      res.status(400).json({ error: 'No valid zone numbers provided' });
-      return;
-    }
-
-    const updateData: zoneService.ZoneUpdateData = {};
-
-    // Validate and extract update fields (same validation as single update)
-    if (data.epicType !== undefined) {
-      const epicType = Number(data.epicType);
-      if (isNaN(epicType) || epicType < 0 || epicType > 3) {
-        res.status(400).json({ error: 'Epic type must be between 0 and 3' });
-        return;
-      }
-      updateData.epicType = epicType;
-    }
-
-    if (data.alignment !== undefined) {
-      const alignment = Number(data.alignment);
-      if (isNaN(alignment) || alignment < -5 || alignment > 5) {
-        res.status(400).json({ error: 'Alignment must be between -5 and 5' });
-        return;
-      }
-      updateData.alignment = alignment;
-    }
-
-    if (data.suggestedGroupSize !== undefined) {
-      const groupSize = Number(data.suggestedGroupSize);
-      if (isNaN(groupSize) || groupSize < 1 || groupSize > 20) {
-        res.status(400).json({ error: 'Suggested group size must be between 1 and 20' });
-        return;
-      }
-      updateData.suggestedGroupSize = groupSize;
-    }
-
-    if (data.difficulty !== undefined) {
-      const difficulty = Number(data.difficulty);
-      if (isNaN(difficulty) || difficulty < 0 || difficulty > 10) {
-        res.status(400).json({ error: 'Difficulty must be between 0 and 10' });
-        return;
-      }
-      updateData.difficulty = difficulty;
-    }
-
-    if (data.epicPayout !== undefined) {
-      const payout = Number(data.epicPayout);
-      if (isNaN(payout) || payout < 0 || payout > 500) {
-        res.status(400).json({ error: 'Epic payout must be between 0 and 500' });
-        return;
-      }
-      updateData.epicPayout = payout;
-    }
-
-    if (data.taskZone !== undefined) {
-      updateData.taskZone = Boolean(data.taskZone);
-    }
-
-    if (data.questZone !== undefined) {
-      updateData.questZone = Boolean(data.questZone);
-    }
-
-    if (data.trophyZone !== undefined) {
-      updateData.trophyZone = Boolean(data.trophyZone);
-    }
-
-    if (data.randomsZone !== undefined) {
-      updateData.randomsZone = Boolean(data.randomsZone);
-    }
-
-    const affectedRows = await zoneService.bulkUpdateZones(validZoneNumbers, updateData, req.user?.accountName || 'system');
+    const { zoneNumbers, data } = req.body as {
+      zoneNumbers: number[];
+      data: zoneService.ZoneUpdateData;
+    };
+    const updateData = { ...data };
+    const affectedRows = await zoneService.bulkUpdateZones(zoneNumbers, updateData, req.user!.accountName);
 
     // Audit log
     const changes = Object.keys(updateData).join(', ');
     await logAdminAction(
-      req.user?.accountName || 'system',
+      req.user!.accountName,
       'zone_edit',
-      `Bulk update: ${validZoneNumbers.length} zones`,
+      `Bulk update: ${zoneNumbers.length} zones`,
       undefined,
-      `Updated ${validZoneNumbers.length} zones: ${changes}`,
-      `Zones: ${validZoneNumbers.join(', ')}`,
+      `Updated ${zoneNumbers.length} zones: ${changes}`,
+      `Zones: ${zoneNumbers.join(', ')}`,
       req.ip || req.socket.remoteAddress
     );
 
-    res.json({
+    return res.json({
       success: true,
       affectedRows,
-      zoneCount: validZoneNumbers.length,
+      zoneCount: zoneNumbers.length,
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
