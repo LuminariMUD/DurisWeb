@@ -201,6 +201,19 @@ export function parseStrictPositiveId(value: unknown): number | null {
 }
 
 /**
+ * Parse a bounded array of positive IDs from a JSON body.
+ * Each element may be a safe numeric JSON ID or a canonical numeric string.
+ */
+export function parseStrictPositiveIdArray(value: unknown, maxLength: number = 100): number[] | null {
+  if (!Array.isArray(value) || value.length > maxLength) {
+    return null;
+  }
+
+  const parsed = value.map(parseStrictPositiveId);
+  return parsed.every((id): id is number => id !== null) ? parsed : null;
+}
+
+/**
  * Sanitize a string for use in searches
  * Removes potentially dangerous characters while preserving search functionality
  */

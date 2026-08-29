@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { parseStrictPositiveId, validateIdParam } from '../validation.js';
+import { parseStrictPositiveId, parseStrictPositiveIdArray, validateIdParam } from '../validation.js';
 
 describe('strict ID parameter validation', () => {
   it('accepts only positive safe integer strings', () => {
@@ -29,5 +29,14 @@ describe('strict ID parameter validation', () => {
     undefined,
   ])('rejects unsafe or coercive body ID %p', (value) => {
     expect(parseStrictPositiveId(value)).toBeNull();
+  });
+
+  it('accepts a bounded array of canonical positive IDs', () => {
+    expect(parseStrictPositiveIdArray([1, '2'])).toEqual([1, 2]);
+  });
+
+  it('rejects malformed or oversized positive-ID arrays', () => {
+    expect(parseStrictPositiveIdArray([1, '2abc'])).toBeNull();
+    expect(parseStrictPositiveIdArray(Array.from({ length: 101 }, (_, index) => index + 1))).toBeNull();
   });
 });

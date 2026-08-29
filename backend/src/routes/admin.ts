@@ -104,7 +104,7 @@ import {
   validateCreateIncidentBody,
   validateUpdateIncidentBody,
 } from '../utils/incidentValidation.js';
-import { parseStrictPositiveId, validateIdParam } from '../utils/validation.js';
+import { parseStrictPositiveId, parseStrictPositiveIdArray, validateIdParam } from '../utils/validation.js';
 import {
   getDupedItems,
   getDupeDetails,
@@ -3096,13 +3096,17 @@ router.post('/roles', requireAuth, requireOverlord, async (req: Request, res: Re
     if (!Array.isArray(permissionIds)) {
       return res.status(400).json({ error: 'Permission IDs must be an array' });
     }
+    const parsedPermissionIds = parseStrictPositiveIdArray(permissionIds);
+    if (parsedPermissionIds === null) {
+      return res.status(400).json({ error: 'Permission IDs must contain only positive safe integer IDs and at most 100 entries' });
+    }
 
     const accountName = req.user?.accountName;
     if (!accountName) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const roleId = await createRole(name, description || null, permissionIds, accountName);
+    const roleId = await createRole(name, description || null, parsedPermissionIds, accountName);
 
     return res.status(201).json({
       success: true,
@@ -3135,8 +3139,12 @@ router.put('/roles/:id', requireAuth, requireOverlord, async (req: Request, res:
     if (!Array.isArray(permissionIds)) {
       return res.status(400).json({ error: 'Permission IDs must be an array' });
     }
+    const parsedPermissionIds = parseStrictPositiveIdArray(permissionIds);
+    if (parsedPermissionIds === null) {
+      return res.status(400).json({ error: 'Permission IDs must contain only positive safe integer IDs and at most 100 entries' });
+    }
 
-    await updateRole(roleId, name, description || null, permissionIds);
+    await updateRole(roleId, name, description || null, parsedPermissionIds);
 
     return res.json({
       success: true,

@@ -6,6 +6,8 @@ const assignRole = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const revokeRole = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const grantPermission = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const revokePermission = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const createRole = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const updateRole = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const poolQuery = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 
 const asyncMock = () => jest.fn<(...args: unknown[]) => Promise<unknown>>();
@@ -82,9 +84,11 @@ jest.unstable_mockModule('../../services/mudTimeService.js', () => namedService(
 ]));
 jest.unstable_mockModule('../../services/adminPermissionService.js', () => ({
   ...namedService([
-    'getAllPermissions', 'getAllRoles', 'getRoleById', 'createRole', 'updateRole',
+    'getAllPermissions', 'getAllRoles', 'getRoleById',
     'deleteRole', 'getAccountPermissions', 'getUserPermissions',
   ]),
+  createRole,
+  updateRole,
   assignRole,
   revokeRole,
   grantPermission,
@@ -131,6 +135,8 @@ describe('admin account permission ID validation', () => {
     revokeRole.mockResolvedValue(undefined);
     grantPermission.mockResolvedValue(undefined);
     revokePermission.mockResolvedValue(undefined);
+    createRole.mockResolvedValue(7);
+    updateRole.mockResolvedValue(undefined);
     poolQuery.mockResolvedValue([[]]);
   });
 
@@ -163,5 +169,28 @@ describe('admin account permission ID validation', () => {
 
     expect(response.status).toBe(200);
     expect(assignRole).toHaveBeenCalledWith('Target', 12, 'Operator', expect.anything());
+  });
+
+  it('rejects malformed role permission arrays before role persistence', async () => {
+    const create = await request(app)
+      .post('/api/admin/roles')
+      .send({ name: 'Editor', permissionIds: ['12abc'] });
+    const update = await request(app)
+      .put('/api/admin/roles/1')
+      .send({ name: 'Editor', permissionIds: [12, '12abc'] });
+
+    expect(create.status).toBe(400);
+    expect(update.status).toBe(400);
+    expect(createRole).not.toHaveBeenCalled();
+    expect(updateRole).not.toHaveBeenCalled();
+  });
+
+  it('preserves bounded numeric role permission arrays', async () => {
+    const response = await request(app)
+      .post('/api/admin/roles')
+      .send({ name: 'Editor', permissionIds: [1, 2] });
+
+    expect(response.status).toBe(201);
+    expect(createRole).toHaveBeenCalledWith('Editor', null, [1, 2], 'Operator');
   });
 });
