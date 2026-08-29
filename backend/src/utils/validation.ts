@@ -176,17 +176,12 @@ export function parsePagination(
  * Returns null if invalid
  */
 export function validateIdParam(value: string | undefined): number | null {
-  if (value === undefined || value === '') {
+  if (value === undefined || !/^[1-9]\d*$/.test(value)) {
     return null;
   }
 
-  const parsed = parseInt(value, 10);
-
-  if (isNaN(parsed) || parsed <= 0) {
-    return null;
-  }
-
-  return parsed;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
 /**
