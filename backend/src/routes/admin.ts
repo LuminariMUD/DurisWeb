@@ -104,7 +104,7 @@ import {
   validateCreateIncidentBody,
   validateUpdateIncidentBody,
 } from '../utils/incidentValidation.js';
-import { validateIdParam } from '../utils/validation.js';
+import { parseStrictPositiveId, validateIdParam } from '../utils/validation.js';
 import {
   getDupedItems,
   getDupeDetails,
@@ -3302,8 +3302,9 @@ router.post('/accounts/:accountName/roles', requireAuth, requireOverlord, async 
   try {
     const { accountName } = req.params;
     const { roleId } = req.body;
+    const parsedRoleId = parseStrictPositiveId(roleId);
 
-    if (!roleId || isNaN(parseInt(roleId))) {
+    if (parsedRoleId === null) {
       return res.status(400).json({ error: 'Valid role ID is required' });
     }
 
@@ -3313,7 +3314,7 @@ router.post('/accounts/:accountName/roles', requireAuth, requireOverlord, async 
     }
 
     const ipAddress = req.ip || req.socket.remoteAddress;
-    await assignRole(accountName, parseInt(roleId), grantedBy, ipAddress);
+    await assignRole(accountName, parsedRoleId, grantedBy, ipAddress);
 
     return res.json({
       success: true,
@@ -3333,14 +3334,15 @@ router.post('/accounts/:accountName/roles', requireAuth, requireOverlord, async 
 router.delete('/accounts/:accountName/roles/:roleId', requireAuth, requireOverlord, async (req: Request, res: Response) => {
   try {
     const { accountName, roleId } = req.params;
+    const parsedRoleId = parseStrictPositiveId(roleId);
 
-    if (isNaN(parseInt(roleId))) {
+    if (parsedRoleId === null) {
       return res.status(400).json({ error: 'Invalid role ID' });
     }
 
     const revokedBy = req.user?.accountName || 'system';
     const ipAddress = req.ip || req.socket.remoteAddress;
-    await revokeRole(accountName, parseInt(roleId), revokedBy, ipAddress);
+    await revokeRole(accountName, parsedRoleId, revokedBy, ipAddress);
 
     return res.json({
       success: true,
@@ -3361,8 +3363,9 @@ router.post('/accounts/:accountName/permissions', requireAuth, requireOverlord, 
   try {
     const { accountName } = req.params;
     const { permissionId } = req.body;
+    const parsedPermissionId = parseStrictPositiveId(permissionId);
 
-    if (!permissionId || isNaN(parseInt(permissionId))) {
+    if (parsedPermissionId === null) {
       return res.status(400).json({ error: 'Valid permission ID is required' });
     }
 
@@ -3372,7 +3375,7 @@ router.post('/accounts/:accountName/permissions', requireAuth, requireOverlord, 
     }
 
     const ipAddress = req.ip || req.socket.remoteAddress;
-    await grantPermission(accountName, parseInt(permissionId), grantedBy, ipAddress);
+    await grantPermission(accountName, parsedPermissionId, grantedBy, ipAddress);
 
     return res.json({
       success: true,
@@ -3392,14 +3395,15 @@ router.post('/accounts/:accountName/permissions', requireAuth, requireOverlord, 
 router.delete('/accounts/:accountName/permissions/:permissionId', requireAuth, requireOverlord, async (req: Request, res: Response) => {
   try {
     const { accountName, permissionId } = req.params;
+    const parsedPermissionId = parseStrictPositiveId(permissionId);
 
-    if (isNaN(parseInt(permissionId))) {
+    if (parsedPermissionId === null) {
       return res.status(400).json({ error: 'Invalid permission ID' });
     }
 
     const revokedBy = req.user?.accountName || 'system';
     const ipAddress = req.ip || req.socket.remoteAddress;
-    await revokePermission(accountName, parseInt(permissionId), revokedBy, ipAddress);
+    await revokePermission(accountName, parsedPermissionId, revokedBy, ipAddress);
 
     return res.json({
       success: true,

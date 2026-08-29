@@ -185,6 +185,22 @@ export function validateIdParam(value: string | undefined): number | null {
 }
 
 /**
+ * Parse a positive ID from a JSON body or path-like string.
+ * Numeric inputs must already be safe integers; strings must be canonical.
+ */
+export function parseStrictPositiveId(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isSafeInteger(value) && value > 0 ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    return validateIdParam(value);
+  }
+
+  return null;
+}
+
+/**
  * Sanitize a string for use in searches
  * Removes potentially dangerous characters while preserving search functionality
  */
