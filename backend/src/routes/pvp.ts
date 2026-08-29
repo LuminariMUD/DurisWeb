@@ -39,6 +39,33 @@ import { requireAuth, optionalAuth } from '../middleware/auth.js';
 
 const router: IRouter = Router();
 
+function requirePvpId(value: string | undefined, label: string): number {
+  const id = validateIdParam(value);
+  if (id === null) {
+    throw new AppError(`Invalid ${label}`, 400);
+  }
+  return id;
+}
+
+function parseOptionalPvpId(value: unknown, label: string): number | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const id = validateIdParam(value);
+    if (id !== null) {
+      return id;
+    }
+  }
+
+  throw new AppError(`Invalid ${label}`, 400);
+}
+
 /**
  * GET /api/pvp/events
  * Get paginated list of PvP events
@@ -339,10 +366,7 @@ router.get(
   '/events/:event_id/stats',
   optionalAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const eventId = parseInt(req.params.event_id);
-    if (isNaN(eventId)) {
-      throw new AppError('Invalid event ID', 400);
-    }
+    const eventId = requirePvpId(req.params.event_id, 'event ID');
 
     const accountName = req.user?.accountName;
     const stats = await getBattleInteractionStats(eventId, accountName);
@@ -358,10 +382,7 @@ router.post(
   '/events/:event_id/like',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const eventId = parseInt(req.params.event_id);
-    if (isNaN(eventId)) {
-      throw new AppError('Invalid event ID', 400);
-    }
+    const eventId = requirePvpId(req.params.event_id, 'event ID');
 
     const accountName = req.user!.accountName;
     const success = await addBattleLike(eventId, accountName);
@@ -382,10 +403,7 @@ router.delete(
   '/events/:event_id/like',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const eventId = parseInt(req.params.event_id);
-    if (isNaN(eventId)) {
-      throw new AppError('Invalid event ID', 400);
-    }
+    const eventId = requirePvpId(req.params.event_id, 'event ID');
 
     const accountName = req.user!.accountName;
     const success = await removeBattleLike(eventId, accountName);
@@ -406,10 +424,7 @@ router.post(
   '/events/:event_id/favorite',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const eventId = parseInt(req.params.event_id);
-    if (isNaN(eventId)) {
-      throw new AppError('Invalid event ID', 400);
-    }
+    const eventId = requirePvpId(req.params.event_id, 'event ID');
 
     const accountName = req.user!.accountName;
     const success = await addBattleFavorite(eventId, accountName);
@@ -430,10 +445,7 @@ router.delete(
   '/events/:event_id/favorite',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const eventId = parseInt(req.params.event_id);
-    if (isNaN(eventId)) {
-      throw new AppError('Invalid event ID', 400);
-    }
+    const eventId = requirePvpId(req.params.event_id, 'event ID');
 
     const accountName = req.user!.accountName;
     const success = await removeBattleFavorite(eventId, accountName);
@@ -455,10 +467,7 @@ router.delete(
 router.get(
   '/events/:event_id/comments',
   asyncHandler(async (req: Request, res: Response) => {
-    const eventId = parseInt(req.params.event_id);
-    if (isNaN(eventId)) {
-      throw new AppError('Invalid event ID', 400);
-    }
+    const eventId = requirePvpId(req.params.event_id, 'event ID');
 
     const comments = await getBattleComments(eventId);
     res.json(comments);
@@ -473,10 +482,7 @@ router.post(
   '/events/:event_id/comments',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const eventId = parseInt(req.params.event_id);
-    if (isNaN(eventId)) {
-      throw new AppError('Invalid event ID', 400);
-    }
+    const eventId = requirePvpId(req.params.event_id, 'event ID');
 
     const { content, characterPid, parentId, quotedText, lineNumber, participantId } = req.body;
 
@@ -493,11 +499,11 @@ router.post(
       eventId,
       accountName,
       content.trim(),
-      characterPid ? parseInt(characterPid) : undefined,
-      parentId ? parseInt(parentId) : undefined,
+      parseOptionalPvpId(characterPid, 'character ID'),
+      parseOptionalPvpId(parentId, 'parent comment ID'),
       quotedText ? String(quotedText).slice(0, 500) : undefined,
-      lineNumber != null ? parseInt(lineNumber) : undefined,
-      participantId != null ? parseInt(participantId) : undefined
+      parseOptionalPvpId(lineNumber, 'line number'),
+      parseOptionalPvpId(participantId, 'participant ID')
     );
 
     res.status(201).json(comment);
@@ -512,10 +518,7 @@ router.patch(
   '/comments/:comment_id',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const commentId = parseInt(req.params.comment_id);
-    if (isNaN(commentId)) {
-      throw new AppError('Invalid comment ID', 400);
-    }
+    const commentId = requirePvpId(req.params.comment_id, 'comment ID');
 
     const { content } = req.body;
 
@@ -546,10 +549,7 @@ router.delete(
   '/comments/:comment_id',
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    const commentId = parseInt(req.params.comment_id);
-    if (isNaN(commentId)) {
-      throw new AppError('Invalid comment ID', 400);
-    }
+    const commentId = requirePvpId(req.params.comment_id, 'comment ID');
 
     const accountName = req.user!.accountName;
     const isModerator = req.user!.permissions?.canModerate || false;
