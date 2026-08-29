@@ -1,6 +1,7 @@
 import * as pty from 'node-pty';
 import { WebSocket } from 'ws';
 import { pool } from '../db/connection.js';
+import { hasActiveWebSession } from './sessionService.js';
 import logger from '../utils/logger.js';
 
 // MUD folder path - set via MUD_DIR environment variable
@@ -42,7 +43,11 @@ export async function createSession(
       if (existingSessionIdValue !== undefined) {
         const existingSession = activeSessions.get(existingSessionIdValue);
         if (existingSession) {
-          // Update the websocket reference
+          // A reconnect creates a new socket generation. The old socket must
+          // lose its reverse mapping before the session is rebound.
+          if (existingSession.ws !== ws) {
+            sessionsByWebSocket.delete(existingSession.ws);
+          }
           existingSession.ws = ws;
           sessionsByWebSocket.set(ws, existingSessionIdValue);
           return { sessionId: existingSessionIdValue };
@@ -265,6 +270,25 @@ export function resizeTerminal(sessionId: number, cols: number, rows: number): b
  */
 export function getSessionByWebSocket(ws: WebSocket): number | undefined {
   return sessionsByWebSocket.get(ws);
+}
+
+/**
+ * Verify that a terminal operation still belongs to the current socket
+ * generation and an active web session. This is intentionally checked for
+ * every input/resize/disconnect operation, not only at initial connect.
+ */
+export async function isTerminalOperationAuthorized(
+  sessionId: number,
+  ws: WebSocket,
+  accountName: string,
+  webSessionId: string,
+): Promise<boolean> {
+  const session = activeSessions.get(sessionId);
+  if (!session || session.ws !== ws || session.accountName !== accountName || !webSessionId) {
+    return false;
+  }
+
+  return hasActiveWebSession(accountName, webSessionId);
 }
 
 /**

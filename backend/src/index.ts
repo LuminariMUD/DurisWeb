@@ -53,7 +53,8 @@ import {
   writeInput as writeTerminalInput,
   resizeTerminal,
   destroySession as destroyTerminalSession,
-  getSessionByWebSocket
+  getSessionByWebSocket,
+  isTerminalOperationAuthorized
 } from './services/terminalService.js';
 import { verifyToken } from './middleware/auth.js';
 import { parseAccountFile } from './services/accountService.js';
@@ -851,9 +852,40 @@ async function startServer() {
       (ws as any).playerEventsSubscribed = false;
       (ws as any).wholistSubscribed = false;
 
-      ws.on('close', () => {
-        // cleanup handled below
+      ws.on('close', async () => {
+        const sessionId = getSessionByWebSocket(ws);
+        if (sessionId !== undefined) {
+          await destroyTerminalSession(sessionId);
+        }
+        delete (ws as any).terminalAuth;
       });
+
+      const ensureTerminalOperation = async (sessionId: number): Promise<boolean> => {
+        const terminalAuth = (ws as any).terminalAuth as {
+          accountName?: string;
+          webSessionId?: string;
+        } | undefined;
+        const authorized = terminalAuth?.accountName && terminalAuth.webSessionId
+          ? await isTerminalOperationAuthorized(
+            sessionId,
+            ws,
+            terminalAuth.accountName,
+            terminalAuth.webSessionId,
+          )
+          : false;
+
+        if (authorized) return true;
+
+        await destroyTerminalSession(sessionId);
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'TERMINAL_ERROR',
+            message: 'Terminal session is no longer active',
+          }));
+        }
+        delete (ws as any).terminalAuth;
+        return false;
+      };
 
       // Handle incoming messages
       ws.on('message', async (message: string | Buffer) => {
@@ -1042,6 +1074,11 @@ async function startServer() {
                 return;
               }
 
+              (ws as any).terminalAuth = {
+                accountName: payload.accountName,
+                webSessionId: payload.sid,
+              };
+
               ws.send(JSON.stringify({
                 type: 'TERMINAL_CONNECTED',
                 sessionId: result.sessionId
@@ -1059,7 +1096,7 @@ async function startServer() {
           // Handle terminal input
           if (data.type === 'TERMINAL_INPUT') {
             const sessionId = getSessionByWebSocket(ws);
-            if (sessionId !== undefined) {
+            if (sessionId !== undefined && await ensureTerminalOperation(sessionId)) {
               await writeTerminalInput(sessionId, data.data);
             }
           }
@@ -1067,7 +1104,7 @@ async function startServer() {
           // Handle terminal resize
           if (data.type === 'TERMINAL_RESIZE') {
             const sessionId = getSessionByWebSocket(ws);
-            if (sessionId !== undefined) {
+            if (sessionId !== undefined && await ensureTerminalOperation(sessionId)) {
               resizeTerminal(sessionId, data.cols, data.rows);
             }
           }
@@ -1075,7 +1112,7 @@ async function startServer() {
           // Handle terminal disconnect
           if (data.type === 'TERMINAL_DISCONNECT') {
             const sessionId = getSessionByWebSocket(ws);
-            if (sessionId !== undefined) {
+            if (sessionId !== undefined && await ensureTerminalOperation(sessionId)) {
               await destroyTerminalSession(sessionId);
             }
           }
