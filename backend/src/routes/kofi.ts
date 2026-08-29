@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import type { IRouter } from 'express';
+import crypto from 'node:crypto';
+import rateLimit from 'express-rate-limit';
 import logger from '../utils/logger.js';
 import {
   isDuplicateDonation,
@@ -7,11 +9,17 @@ import {
   publishDonationToMud,
   type KofiDonation,
 } from '../services/donationService.js';
+import { validateKofiDonationPayload } from '../utils/kofiValidation.js';
 
 const router: IRouter = Router();
 
-// verification token from ko-fi webhook settings
-const KOFI_VERIFICATION_TOKEN = process.env.KOFI_VERIFICATION_TOKEN || '';
+const kofiWebhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many webhook requests, please try again later',
+});
 
 /**
  * POST /kofihook
@@ -19,30 +27,58 @@ const KOFI_VERIFICATION_TOKEN = process.env.KOFI_VERIFICATION_TOKEN || '';
  * content-type: application/x-www-form-urlencoded
  * body: data={json string}
  */
-router.post('/', async (req: Request, res: Response): Promise<void> => {
+router.post('/', kofiWebhookLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     // ko-fi sends data as form field containing json string
     const dataString = req.body.data;
 
-    if (!dataString) {
+    if (typeof dataString !== 'string' || dataString.length === 0) {
       logger.warn('kofi webhook: missing data field');
-      res.status(400).send('missing data');
+      res.status(400).send('invalid data');
       return;
     }
 
-    let donation: KofiDonation & { verification_token?: string };
+    let parsedDonation: unknown;
     try {
-      donation = JSON.parse(dataString);
+      parsedDonation = JSON.parse(dataString);
     } catch {
       logger.warn('kofi webhook: invalid json in data field');
       res.status(400).send('invalid json');
       return;
     }
 
+    if (parsedDonation === null || typeof parsedDonation !== 'object' || Array.isArray(parsedDonation)) {
+      logger.warn('kofi webhook: payload is not an object');
+      res.status(400).send('invalid payload');
+      return;
+    }
+
+    const donation = parsedDonation as KofiDonation & { verification_token?: string };
+
+    const configuredToken = process.env.KOFI_VERIFICATION_TOKEN;
+    if (!configuredToken) {
+      logger.error('kofi webhook: verification token is not configured');
+      res.status(503).send('webhook not configured');
+      return;
+    }
+
     // verify token if configured
-    if (KOFI_VERIFICATION_TOKEN && donation.verification_token !== KOFI_VERIFICATION_TOKEN) {
+    const suppliedToken = donation.verification_token;
+    const configuredBytes = Buffer.from(configuredToken, 'utf8');
+    const suppliedBytes = typeof suppliedToken === 'string' ? Buffer.from(suppliedToken, 'utf8') : null;
+    const tokenMatches = suppliedBytes !== null &&
+      suppliedBytes.length === configuredBytes.length &&
+      crypto.timingSafeEqual(suppliedBytes, configuredBytes);
+    if (!tokenMatches) {
       logger.warn('kofi webhook: invalid verification token');
       res.status(403).send('invalid token');
+      return;
+    }
+
+    const validationError = validateKofiDonationPayload(donation);
+    if (validationError) {
+      logger.warn(`kofi webhook: invalid payload: ${validationError}`);
+      res.status(400).send('invalid payload');
       return;
     }
 

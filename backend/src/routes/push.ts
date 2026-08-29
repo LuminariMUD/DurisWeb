@@ -2,10 +2,7 @@ import { Router } from 'express'
 import type { Request, Response, Router as RouterType } from 'express'
 import { body, validationResult } from 'express-validator'
 import pushService from '../services/pushNotificationService.js'
-
-interface AuthenticatedRequest extends Request {
-  accountName?: string
-}
+import { requireAuth } from '../middleware/auth.js'
 
 const router: RouterType = Router()
 
@@ -30,24 +27,21 @@ router.get('/vapid-public-key', (_req: Request, res: Response) => {
 // subscribe to push notifications
 router.post(
   '/subscribe',
+  requireAuth,
   [
     body('subscription').isObject().withMessage('subscription object required'),
     body('subscription.endpoint').isURL().withMessage('valid endpoint url required'),
     body('subscription.keys.p256dh').isString().notEmpty().withMessage('p256dh key required'),
     body('subscription.keys.auth').isString().notEmpty().withMessage('auth key required'),
   ],
-  async (req: AuthenticatedRequest, res: Response) => {
+  async (req: Request, res: Response) => {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() })
       return
     }
 
-    const accountName = req.accountName
-    if (!accountName) {
-      res.status(401).json({ error: 'authentication required' })
-      return
-    }
+    const accountName = req.user!.accountName
 
     try {
       const { subscription } = req.body
@@ -70,19 +64,16 @@ router.post(
 // unsubscribe from push notifications
 router.post(
   '/unsubscribe',
+  requireAuth,
   [body('endpoint').isURL().withMessage('valid endpoint url required')],
-  async (req: AuthenticatedRequest, res: Response) => {
+  async (req: Request, res: Response) => {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() })
       return
     }
 
-    const accountName = req.accountName
-    if (!accountName) {
-      res.status(401).json({ error: 'authentication required' })
-      return
-    }
+    const accountName = req.user!.accountName
 
     try {
       const { endpoint } = req.body
@@ -100,12 +91,8 @@ router.post(
 )
 
 // get subscription status
-router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
-  const accountName = req.accountName
-  if (!accountName) {
-    res.status(401).json({ error: 'authentication required' })
-    return
-  }
+router.get('/status', requireAuth, async (req: Request, res: Response) => {
+  const accountName = req.user!.accountName
 
   try {
     const subscriptions = await pushService.getSubscriptions(accountName)
@@ -127,12 +114,8 @@ router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
 })
 
 // remove all subscriptions for current user
-router.delete('/subscriptions', async (req: AuthenticatedRequest, res: Response) => {
-  const accountName = req.accountName
-  if (!accountName) {
-    res.status(401).json({ error: 'authentication required' })
-    return
-  }
+router.delete('/subscriptions', requireAuth, async (req: Request, res: Response) => {
+  const accountName = req.user!.accountName
 
   try {
     const removed = await pushService.removeAllSubscriptions(accountName)
