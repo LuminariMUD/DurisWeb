@@ -9,6 +9,10 @@ import os from 'os';
 import cron from 'node-cron';
 import { getWebSettings } from './webSettingsService.js';
 import logger from '../utils/logger.js';
+import {
+  resolveSafeBackupFilePath,
+  resolveSafeUploadedBackupPath,
+} from '../utils/safeBackupPath.js';
 
 const execAsync = promisify(exec);
 
@@ -511,7 +515,13 @@ export async function getBackupList(): Promise<BackupInfo[]> {
 
   // Remove records where backup file no longer exists
   for (const row of completedRows) {
-    const filePath = path.join(BACKUP_DIR, row.filename);
+    let filePath: string;
+    try {
+      filePath = resolveSafeBackupFilePath(BACKUP_DIR, row.filename);
+    } catch {
+      logger.warn(`[Backup] Skipping unsafe backup filename: ${row.filename}`);
+      continue;
+    }
     if (!fs.existsSync(filePath)) {
       await pool.execute(`DELETE FROM mud_backups WHERE id = ?`, [row.id]);
       logger.info(`[Backup] Removed orphaned record: ${row.filename} (file not found)`);
@@ -545,7 +555,12 @@ export async function getBackupFilePath(id: number): Promise<string | null> {
     return null;
   }
 
-  const filePath = path.join(BACKUP_DIR, backup.filename);
+  let filePath: string;
+  try {
+    filePath = resolveSafeBackupFilePath(BACKUP_DIR, backup.filename);
+  } catch {
+    return null;
+  }
   if (!fs.existsSync(filePath)) {
     return null;
   }
@@ -563,7 +578,13 @@ export async function deleteBackup(id: number): Promise<boolean> {
   }
 
   // Delete the file if it exists
-  const filePath = path.join(BACKUP_DIR, backup.filename);
+  let filePath: string;
+  try {
+    filePath = resolveSafeBackupFilePath(BACKUP_DIR, backup.filename);
+  } catch {
+    logger.warn(`[Backup] Refusing to delete unsafe backup filename: ${backup.filename}`);
+    return false;
+  }
   await fs.promises.unlink(filePath).catch(() => {});
 
   // Delete the database record
@@ -583,8 +604,12 @@ export async function deleteFailedBackups(): Promise<number> {
   let deletedCount = 0;
   for (const backup of rows) {
     // Delete the file if it exists
-    const filePath = path.join(BACKUP_DIR, backup.filename);
-    await fs.promises.unlink(filePath).catch(() => {});
+    try {
+      const filePath = resolveSafeBackupFilePath(BACKUP_DIR, backup.filename);
+      await fs.promises.unlink(filePath).catch(() => {});
+    } catch {
+      logger.warn(`[Backup] Skipping unsafe failed-backup filename: ${backup.filename}`);
+    }
 
     // Delete the database record
     await pool.execute(`DELETE FROM mud_backups WHERE id = ?`, [backup.id]);
@@ -713,7 +738,12 @@ export async function listBackupContents(backupId: number): Promise<BackupConten
   const backup = await getBackupById(backupId);
   if (!backup || backup.status !== 'completed') return null;
 
-  const filePath = path.join(BACKUP_DIR, backup.filename);
+  let filePath: string;
+  try {
+    filePath = resolveSafeBackupFilePath(BACKUP_DIR, backup.filename);
+  } catch {
+    return null;
+  }
   if (!fs.existsSync(filePath)) return null;
 
   const directory = await unzipper.Open.file(filePath);
@@ -913,7 +943,7 @@ export async function createRestore(
   if (!backup || backup.status !== 'completed') {
     throw new Error('Backup not found or not completed');
   }
-  const filePath = path.join(BACKUP_DIR, backup.filename);
+  const filePath = resolveSafeBackupFilePath(BACKUP_DIR, backup.filename);
   return runRestoreInternal(req, filePath, req.backupId, accountName, ipAddress);
 }
 
@@ -1422,22 +1452,24 @@ export interface UploadedBackupInfo {
  * Returns the contents if valid, or error message if not
  */
 export async function validateUploadedBackup(filePath: string): Promise<UploadedBackupInfo> {
+  let safeFilePath = '';
   try {
-    if (!fs.existsSync(filePath)) {
+    safeFilePath = resolveSafeUploadedBackupPath(filePath);
+    if (!fs.existsSync(safeFilePath)) {
       return {
-        tempPath: filePath,
+        tempPath: safeFilePath,
         contents: { accounts: [], characters: [] },
         isValid: false,
         errorMessage: 'File not found',
       };
     }
-    const directory = await unzipper.Open.file(filePath);
+    const directory = await unzipper.Open.file(safeFilePath);
     const sqlFile = directory.files.find(f =>
       f.path.endsWith('.sql') && (f.path.startsWith('database/') || f.path === 'database.sql')
     );
     if (!sqlFile) {
       return {
-        tempPath: filePath,
+        tempPath: safeFilePath,
         contents: { accounts: [], characters: [] },
         isValid: false,
         errorMessage: 'Invalid backup: no database/*.sql file found',
@@ -1449,7 +1481,7 @@ export async function validateUploadedBackup(filePath: string): Promise<Uploaded
     if (!content.includes('CREATE TABLE `account_characters`') ||
         !content.includes('CREATE TABLE `player_data`')) {
       return {
-        tempPath: filePath,
+        tempPath: safeFilePath,
         contents: { accounts: [], characters: [] },
         isValid: false,
         errorMessage: 'Invalid backup: missing account_characters or player_data table definition',
@@ -1457,13 +1489,15 @@ export async function validateUploadedBackup(filePath: string): Promise<Uploaded
     }
 
     const contents = parseBackupContentsFromSql(content);
-    return { tempPath: filePath, contents, isValid: true };
+    return { tempPath: safeFilePath, contents, isValid: true };
   } catch (error) {
     return {
-      tempPath: filePath,
+      tempPath: safeFilePath,
       contents: { accounts: [], characters: [] },
       isValid: false,
-      errorMessage: error instanceof Error ? error.message : 'Failed to read backup file',
+      errorMessage: safeFilePath
+        ? error instanceof Error ? error.message : 'Failed to read backup file'
+        : 'Invalid backup upload path',
     };
   }
 }
@@ -1477,15 +1511,23 @@ export async function createRestoreFromUpload(
   accountName: string,
   ipAddress: string,
 ): Promise<{ id: number }> {
-  return runRestoreInternal(req, filePath, 0, accountName, ipAddress);
+  const safeFilePath = resolveSafeUploadedBackupPath(filePath);
+  return runRestoreInternal(req, safeFilePath, 0, accountName, ipAddress);
 }
 
 /**
  * Delete an uploaded backup file (for cleanup on cancel)
  */
 export async function deleteUploadedBackup(filePath: string): Promise<void> {
-  if (filePath && fs.existsSync(filePath)) {
-    await fs.promises.unlink(filePath);
+  let safeFilePath: string;
+  try {
+    safeFilePath = resolveSafeUploadedBackupPath(filePath);
+  } catch {
+    return;
+  }
+
+  if (fs.existsSync(safeFilePath)) {
+    await fs.promises.unlink(safeFilePath);
   }
 }
 

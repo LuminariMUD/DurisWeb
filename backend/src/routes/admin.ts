@@ -3902,11 +3902,11 @@ const logoUpload = multer({
     fileSize: 2 * 1024 * 1024, // 2MB
   },
   fileFilter: (_req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only JPG, PNG, WebP, and SVG images are allowed'));
+      cb(new Error('Only JPG, PNG, and WebP images are allowed'));
     }
   },
 });

@@ -68,7 +68,6 @@ const ALLOWED_LOGO_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',
-  'image/svg+xml',
 ];
 
 /**
@@ -350,18 +349,8 @@ export function validateLogoFile(
  * Process logo image (resize, preserve aspect ratio)
  */
 async function processLogo(
-  buffer: Buffer,
-  mimeType: string
+  buffer: Buffer
 ): Promise<{ buffer: Buffer; extension: string; contentType: string }> {
-  // Keep SVG as-is
-  if (mimeType === 'image/svg+xml') {
-    return {
-      buffer,
-      extension: 'svg',
-      contentType: 'image/svg+xml',
-    };
-  }
-
   // Resize other formats, preserving aspect ratio
   const processed = await sharp(buffer)
     .resize({
@@ -420,9 +409,15 @@ export async function uploadSiteLogo(
   if (!isR2Configured()) {
     throw new Error('R2 storage is not configured');
   }
+  if (!ALLOWED_LOGO_TYPES.includes(mimeType)) {
+    throw new Error('Only JPG, PNG, and WebP images are allowed for logo');
+  }
+  if (fileBuffer.length > MAX_LOGO_SIZE) {
+    throw new Error('Logo must be under 2MB');
+  }
 
   // Process the logo
-  const { buffer, extension, contentType } = await processLogo(fileBuffer, mimeType);
+  const { buffer, extension, contentType } = await processLogo(fileBuffer);
 
   // Generate unique filename with timestamp
   const timestamp = Date.now();
