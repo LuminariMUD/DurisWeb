@@ -2117,8 +2117,8 @@ router.put('/notifications/:id/read', async (req: Request, res: Response) => {
       return;
     }
 
-    const notificationId = parseInt(req.params.id, 10);
-    if (isNaN(notificationId)) {
+    const notificationId = validateIdParam(req.params.id);
+    if (notificationId === null) {
       res.status(400).json({ error: 'Invalid notification ID' });
       return;
     }

@@ -18,6 +18,12 @@ const zoneCommentService = {
   updateComment: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
   deleteComment: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
 };
+const builderNotificationService = {
+  getNotifications: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+  getUnreadCount: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+  markAsRead: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+  markAllAsRead: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+};
 
 const asyncMock = () => jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const canAccessZone = jest.fn<(...args: unknown[]) => Promise<boolean>>();
@@ -115,12 +121,7 @@ jest.unstable_mockModule('../../services/zoneCommentService.js', () => ({
   default: zoneCommentService,
 }));
 jest.unstable_mockModule('../../services/builderNotificationService.js', () => ({
-  default: {
-    getNotifications: asyncMock(),
-    getUnreadCount: asyncMock(),
-    markAsRead: asyncMock(),
-    markAllAsRead: asyncMock(),
-  },
+  default: builderNotificationService,
 }));
 jest.unstable_mockModule('../../services/accountService.js', () => ({
   searchAccounts: asyncMock(),
@@ -145,6 +146,7 @@ describe('builder child-resource ID validation', () => {
     procRequestService.deleteProcRequest.mockResolvedValue(false);
     zoneCommentService.updateComment.mockResolvedValue(undefined);
     zoneCommentService.deleteComment.mockResolvedValue(false);
+    builderNotificationService.markAsRead.mockResolvedValue(false);
   });
 
   it('rejects malformed proc-request IDs before update, status, or delete services', async () => {
@@ -176,6 +178,14 @@ describe('builder child-resource ID validation', () => {
     expect(deleted.status).toBe(400);
     expect(zoneCommentService.updateComment).not.toHaveBeenCalled();
     expect(zoneCommentService.deleteComment).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed notification IDs before the builder notification service', async () => {
+    const response = await request(app)
+      .put('/api/builder/notifications/12abc/read');
+
+    expect(response.status).toBe(400);
+    expect(builderNotificationService.markAsRead).not.toHaveBeenCalled();
   });
 
   it('preserves valid proc-request ID behavior', async () => {
