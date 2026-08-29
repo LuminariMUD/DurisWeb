@@ -2,6 +2,7 @@ import { Router, type Router as ExpressRouter } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import * as notificationService from '../services/unifiedNotificationService.js';
 import { getErrorMessage } from '../utils/logger.js';
+import { validateIdParam } from '../utils/validation.js';
 
 const router: ExpressRouter = Router();
 
@@ -61,9 +62,9 @@ router.get('/unread-count', requireAuth, async (req, res) => {
 router.post('/:id/read', requireAuth, async (req, res) => {
   try {
     const accountName = req.user!.accountName;
-    const id = parseInt(req.params.id);
+    const id = validateIdParam(req.params.id);
 
-    if (isNaN(id)) {
+    if (id === null) {
       return res.status(400).json({ error: 'Invalid notification ID' });
     }
 
@@ -95,9 +96,9 @@ router.post('/read-all', requireAuth, async (req, res) => {
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const accountName = req.user!.accountName;
-    const id = parseInt(req.params.id);
+    const id = validateIdParam(req.params.id);
 
-    if (isNaN(id)) {
+    if (id === null) {
       return res.status(400).json({ error: 'Invalid notification ID' });
     }
 
@@ -115,9 +116,9 @@ router.delete('/:id', requireAuth, async (req, res) => {
 router.post('/:source/:id/read', requireAuth, async (req, res) => {
   try {
     const accountName = req.user!.accountName;
-    const id = parseInt(req.params.id);
+    const id = validateIdParam(req.params.id);
 
-    if (isNaN(id)) {
+    if (id === null) {
       return res.status(400).json({ error: 'Invalid notification ID' });
     }
 
@@ -131,9 +132,9 @@ router.post('/:source/:id/read', requireAuth, async (req, res) => {
 router.delete('/:source/:id', requireAuth, async (req, res) => {
   try {
     const accountName = req.user!.accountName;
-    const id = parseInt(req.params.id);
+    const id = validateIdParam(req.params.id);
 
-    if (isNaN(id)) {
+    if (id === null) {
       return res.status(400).json({ error: 'Invalid notification ID' });
     }
 
