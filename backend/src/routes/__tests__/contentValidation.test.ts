@@ -84,6 +84,20 @@ describe('content route write validation', () => {
     expect(createHelpPage).not.toHaveBeenCalled();
   });
 
+  it('rejects malformed help resource IDs before lookup', async () => {
+    const response = await request(app).get('/api/content/help/12abc');
+
+    expect(response.status).toBe(400);
+  });
+
+  it('rejects malformed category resource IDs before mutation', async () => {
+    const response = await request(app)
+      .patch('/api/content/categories/12abc')
+      .send({ name: 'Valid category name' });
+
+    expect(response.status).toBe(400);
+  });
+
   it('rejects an overlong help title before calling persistence', async () => {
     const response = await request(app)
       .post('/api/content/help')

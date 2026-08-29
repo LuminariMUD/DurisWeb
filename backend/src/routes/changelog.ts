@@ -5,6 +5,7 @@ import * as changelogService from '../services/changelogService.js';
 import { processContentForWrite } from '../utils/contentParser.js';
 import {
   validateBooleanField,
+  validateIdParam,
   validateObjectFields,
   validateStringField,
 } from '../utils/validation.js';
@@ -113,7 +114,10 @@ router.get('/unread-count', requireAuth, async (req, res) => {
  */
 router.get('/:id', optionalAuth, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
+      return res.status(400).json({ error: 'Invalid changelog entry ID' });
+    }
     const accountName = req.user?.accountName;
     const canViewAdmin = req.user?.permissions?.immortalLevel != null && req.user.permissions.immortalLevel >= 57;
 
@@ -183,7 +187,10 @@ router.put('/:id', requireAuth, requirePermission('manage_news'), async (req, re
       return res.status(400).json({ error: validationError });
     }
 
-    const id = parseInt(req.params.id);
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
+      return res.status(400).json({ error: 'Invalid changelog entry ID' });
+    }
     const { version, title, content, category, isPublished } = req.body;
 
     let processedContent: string | undefined;
@@ -232,7 +239,10 @@ router.put('/:id', requireAuth, requirePermission('manage_news'), async (req, re
  */
 router.delete('/:id', requireAuth, requirePermission('manage_news'), async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
+      return res.status(400).json({ error: 'Invalid changelog entry ID' });
+    }
 
     const deleted = await changelogService.deleteChangelogEntry(id);
 
@@ -251,13 +261,16 @@ router.delete('/:id', requireAuth, requirePermission('manage_news'), async (req,
  */
 router.post('/:id/read', requireAuth, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
+      return res.status(400).json({ error: 'Invalid changelog entry ID' });
+    }
     const accountName = req.user!.accountName;
 
     await changelogService.markAsRead(id, accountName);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    return res.status(500).json({ error: getErrorMessage(error) });
   }
 });
 

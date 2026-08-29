@@ -68,6 +68,13 @@ describe('changelog detail visibility route', () => {
     expect(getChangelogEntry).toHaveBeenCalledWith(42, 'Cwial', false);
   });
 
+  it('rejects malformed detail IDs before service lookup', async () => {
+    const response = await request(app).get('/api/changelog/12abc');
+
+    expect(response.status).toBe(400);
+    expect(getChangelogEntry).not.toHaveBeenCalled();
+  });
+
   it('hides an unpublished public entry from anonymous readers', async () => {
     userMode = 'anonymous';
     getChangelogEntry.mockResolvedValueOnce({

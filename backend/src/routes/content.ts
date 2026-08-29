@@ -10,6 +10,7 @@ import { parseLatestNewsEntry } from '../utils/newsParser.js';
 import { notifyNewsUpdate } from '../services/unifiedNotificationService.js';
 import {
   validateBooleanField,
+  validateIdParam,
   validateIntegerField,
   validateObjectFields,
   validateStringField,
@@ -169,7 +170,10 @@ router.get('/help/search', requireAuth, requirePermission('manage_help_files'), 
 // GET /api/content/help/:id - Get single help page by ID (requires manage_help_files permission)
 router.get('/help/:id', requireAuth, requirePermission('manage_help_files'), async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
+      return res.status(400).json({ error: 'Invalid help page ID' });
+    }
     const page = await contentService.getHelpPageById(id);
     if (!page) {
       return res.status(404).json({ error: 'Help page not found' });
@@ -230,7 +234,10 @@ router.patch('/help/:id', requireAuth, requirePermission('manage_help_files'), a
       return res.status(400).json({ error: validationError });
     }
 
-    const id = parseInt(req.params.id);
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
+      return res.status(400).json({ error: 'Invalid help page ID' });
+    }
     const { title, text, category_id } = req.body;
 
     const updates: any = {
@@ -277,7 +284,10 @@ router.patch('/help/:id', requireAuth, requirePermission('manage_help_files'), a
 // DELETE /api/content/help/:id - Delete help page (requires manage_help_files permission)
 router.delete('/help/:id', requireAuth, requirePermission('manage_help_files'), async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
+      return res.status(400).json({ error: 'Invalid help page ID' });
+    }
 
     // Get title before deletion for audit log
     const [rows]: any = await pool.query('SELECT title FROM pages WHERE id = ?', [id]);
@@ -296,9 +306,9 @@ router.delete('/help/:id', requireAuth, requirePermission('manage_help_files'), 
       extractClientIP(req)
     );
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    return res.status(500).json({ error: getErrorMessage(error) });
   }
 });
 
@@ -345,7 +355,10 @@ router.patch('/categories/:id', requireAuth, requirePermission('manage_forum_cat
       return res.status(400).json({ error: validationError });
     }
 
-    const id = parseInt(req.params.id);
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
+      return res.status(400).json({ error: 'Invalid category ID' });
+    }
     const { isArchived, name, desc } = req.body;
 
     // Handle archive/restore
@@ -377,11 +390,14 @@ router.patch('/categories/:id', requireAuth, requirePermission('manage_forum_cat
 // DELETE /api/content/categories/:id - Delete category (requires manage_forum_categories permission)
 router.delete('/categories/:id', requireAuth, requirePermission('manage_forum_categories'), async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
+      return res.status(400).json({ error: 'Invalid category ID' });
+    }
     await categoryService.deleteCategoryPermanent(id);
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    return res.status(500).json({ error: getErrorMessage(error) });
   }
 });
 
