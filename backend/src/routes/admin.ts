@@ -61,7 +61,7 @@ import { pool as db } from '../db/connection.js';
 import { requestWhoList, isMudConnected, getMudBootTime } from '../services/mudAuctionClient.js';
 import { getOnlinePlayers as getOnlinePlayersFromRedis } from '../services/onlinePlayersService.js';
 import { getCategorizedProperties, searchProperties, updateProperty, validatePropertyValue, getPropertyHistory } from '../services/propertiesParser.js';
-import { RowDataPacket } from 'mysql2';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import {
   createBackup,
   getBackupList,
@@ -100,6 +100,11 @@ import { searchAccounts, accountExists, updateAccountPassword } from '../service
 import bcrypt from 'bcrypt';
 import { getGodLevelFromCharacterLevel } from '../services/permissionService.js';
 import {
+  INCIDENT_UPDATE_FIELDS,
+  validateCreateIncidentBody,
+  validateUpdateIncidentBody,
+} from '../utils/incidentValidation.js';
+import {
   getDupedItems,
   getDupeDetails,
   getDupeSummary,
@@ -111,6 +116,39 @@ import {
 import { testWebhook, manualPostBattle } from '../services/discordService.js';
 
 const router: IRouter = Router();
+
+const INCIDENT_UPDATE_COLUMNS: Record<(typeof INCIDENT_UPDATE_FIELDS)[number], string> = {
+  incident_type: 'incident_type',
+  severity: 'severity',
+  title: 'title',
+  description: 'description',
+  started_at: 'started_at',
+  ended_at: 'ended_at',
+  resolved: 'resolved',
+  resolution_notes: 'resolution_notes',
+  public_visible: 'public_visible',
+  detected_by: 'detected_by',
+  exit_code: 'exit_code',
+  crash_signal: 'crash_signal',
+  shutdown_reason: 'shutdown_reason',
+  pid: 'pid',
+  uptime_seconds: 'uptime_seconds',
+  memory_mb: 'memory_mb',
+  cpu_percent: 'cpu_percent',
+  core_dump_path: 'core_dump_path',
+  core_dump_size_bytes: 'core_dump_size_bytes',
+  has_backtrace: 'has_backtrace',
+  backtrace: 'backtrace',
+  crash_function: 'crash_function',
+  crash_file: 'crash_file',
+  crash_line: 'crash_line',
+  exit_log_excerpt: 'exit_log_excerpt',
+  debug_log_excerpt: 'debug_log_excerpt',
+  online_players: 'online_players',
+  last_command: 'last_command',
+  analyzed: 'analyzed',
+  notes: 'notes',
+};
 
 // All admin routes require Overlord status (Level 62)
 
@@ -2829,13 +2867,14 @@ router.get('/incidents', requireAuth, requirePermission('view_server_health'), a
  * POST /api/admin/incidents
  * Create new incident
  */
-router.post('/incidents', requireAuth, requirePermission('view_server_health'), async (req: Request, res: Response) => {
+router.post('/incidents', requireAuth, requirePermission('manage_server_incidents'), async (req: Request, res: Response) => {
   try {
-    const { incident_type, severity, title, description, started_at, ended_at, resolved, public_visible } = req.body;
-
-    if (!incident_type || !severity || !title || !started_at) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    const validationError = validateCreateIncidentBody(req.body);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
     }
+
+    const { incident_type, severity, title, description, started_at, ended_at, resolved, public_visible } = req.body;
 
     const duration_seconds = ended_at
       ? Math.floor((new Date(ended_at).getTime() - new Date(started_at).getTime()) / 1000)
@@ -2849,12 +2888,12 @@ router.post('/incidents', requireAuth, requirePermission('view_server_health'), 
         incident_type,
         severity,
         title,
-        description || null,
+        description ?? null,
         started_at,
-        ended_at || null,
+        ended_at ?? null,
         duration_seconds,
-        resolved ? 1 : 0,
-        public_visible ? 1 : 0,
+        resolved === true ? 1 : 0,
+        public_visible === true ? 1 : 0,
       ]
     );
 
@@ -2872,81 +2911,75 @@ router.post('/incidents', requireAuth, requirePermission('view_server_health'), 
  * PATCH /api/admin/incidents/:id
  * Update incident
  */
-router.patch('/incidents/:id', requireAuth, requirePermission('view_server_health'), async (req: Request, res: Response) => {
+router.patch(
+  '/incidents/:id',
+  requireAuth,
+  requirePermission('manage_server_incidents'),
+  [param('id').isInt({ min: 1 }).withMessage('Incident ID must be a positive integer')],
+  async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-    const { incident_type, severity, title, description, started_at, ended_at, resolved, resolution_notes, public_visible, analyzed, notes } = req.body;
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
 
+    const validationError = validateUpdateIncidentBody(req.body);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
+    }
+
+    const id = parseInt(req.params.id, 10);
+    const body = req.body as Record<string, unknown>;
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
+    const booleanFields = new Set(['resolved', 'public_visible', 'has_backtrace', 'analyzed']);
+    const hasOwn = (field: string): boolean => Object.prototype.hasOwnProperty.call(body, field);
 
-    if (incident_type !== undefined) {
-      updates.push('incident_type = ?');
-      values.push(incident_type);
+    for (const field of INCIDENT_UPDATE_FIELDS) {
+      if (!hasOwn(field)) continue;
+      const column = INCIDENT_UPDATE_COLUMNS[field];
+      const value = booleanFields.has(field) ? (body[field] === true ? 1 : 0) : body[field];
+      updates.push(`${column} = ?`);
+      values.push(value ?? null);
     }
-    if (severity !== undefined) {
-      updates.push('severity = ?');
-      values.push(severity);
-    }
-    if (title !== undefined) {
-      updates.push('title = ?');
-      values.push(title);
-    }
-    if (description !== undefined) {
-      updates.push('description = ?');
-      values.push(description);
-    }
-    if (started_at !== undefined) {
-      updates.push('started_at = ?');
-      values.push(started_at);
-    }
-    if (ended_at !== undefined) {
-      updates.push('ended_at = ?');
-      values.push(ended_at || null);
 
-      // Recalculate duration if ended_at is provided
-      if (ended_at) {
-        const [incident] = await db.query('SELECT started_at FROM server_incidents WHERE id = ?', [id]);
-        if ((incident as any[]).length > 0) {
-          const startedAt = new Date((incident as any[])[0].started_at);
-          const endedAtDate = new Date(ended_at);
-          const duration = Math.floor((endedAtDate.getTime() - startedAt.getTime()) / 1000);
-          updates.push('duration_seconds = ?');
-          values.push(duration);
+    if (hasOwn('started_at') || hasOwn('ended_at')) {
+      const [incidentRows] = await db.query<RowDataPacket[]>(
+        'SELECT started_at, ended_at FROM server_incidents WHERE id = ?',
+        [id],
+      );
+      if (incidentRows.length === 0) {
+        return res.status(404).json({ error: 'Incident not found' });
+      }
+
+      const effectiveStartedAt = hasOwn('started_at') ? body.started_at : incidentRows[0].started_at;
+      const effectiveEndedAt = hasOwn('ended_at') ? body.ended_at : incidentRows[0].ended_at;
+      let durationSeconds: number | null = null;
+      if (effectiveEndedAt !== null && effectiveEndedAt !== undefined) {
+        durationSeconds = Math.floor(
+          (new Date(String(effectiveEndedAt)).getTime() - new Date(String(effectiveStartedAt)).getTime()) / 1000,
+        );
+        if (durationSeconds < 0) {
+          return res.status(400).json({ error: 'ended_at must be at or after started_at' });
         }
       }
-    }
-    if (resolved !== undefined) {
-      updates.push('resolved = ?');
-      values.push(resolved ? 1 : 0);
-    }
-    if (resolution_notes !== undefined) {
-      updates.push('resolution_notes = ?');
-      values.push(resolution_notes);
-    }
-    if (public_visible !== undefined) {
-      updates.push('public_visible = ?');
-      values.push(public_visible ? 1 : 0);
-    }
-    if (analyzed !== undefined) {
-      updates.push('analyzed = ?');
-      values.push(analyzed ? 1 : 0);
-    }
-    if (notes !== undefined) {
-      updates.push('notes = ?');
-      values.push(notes);
+      updates.push('duration_seconds = ?');
+      values.push(durationSeconds);
     }
 
     if (updates.length === 0) {
-      return res.status(400).json({ error: 'No fields to update' });
+      return res.status(400).json({ error: 'At least one incident field is required' });
     }
 
     values.push(id);
 
-    await db.query(
+    const [result] = await db.query<ResultSetHeader>(
       `UPDATE server_incidents SET ${updates.join(', ')} WHERE id = ?`,
-      values
+      values,
     );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Incident not found' });
+    }
 
     return res.json({ success: true });
   } catch (error) {
@@ -2959,11 +2992,24 @@ router.patch('/incidents/:id', requireAuth, requirePermission('view_server_healt
  * DELETE /api/admin/incidents/:id
  * Delete incident
  */
-router.delete('/incidents/:id', requireAuth, requirePermission('view_server_health'), async (req: Request, res: Response) => {
+router.delete(
+  '/incidents/:id',
+  requireAuth,
+  requirePermission('manage_server_incidents'),
+  [param('id').isInt({ min: 1 }).withMessage('Incident ID must be a positive integer')],
+  async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
 
-    await db.query('DELETE FROM server_incidents WHERE id = ?', [id]);
+    const id = parseInt(req.params.id, 10);
+
+    const [result] = await db.query<ResultSetHeader>('DELETE FROM server_incidents WHERE id = ?', [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Incident not found' });
+    }
 
     return res.json({ success: true });
   } catch (error) {
