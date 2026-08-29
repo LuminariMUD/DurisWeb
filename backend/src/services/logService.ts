@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { createReadStream } from 'fs';
+import { createReadStream, existsSync, lstatSync, realpathSync } from 'fs';
 import readline from 'readline';
 import logger from '../utils/logger.js';
 
@@ -9,6 +9,52 @@ const LOG_CATEGORIES = {
   runtime: path.join(MUD_DIR, 'logs/log'),
   player: path.join(MUD_DIR, 'logs/player-log'),
 };
+
+const LOG_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._ -]{0,254}$/;
+
+export class UnsafeLogPathError extends Error {
+  constructor(message = 'Invalid or unsafe log path') {
+    super(message);
+    this.name = 'UnsafeLogPathError';
+  }
+}
+
+function isWithin(root: string, candidate: string): boolean {
+  const relative = path.relative(root, candidate);
+  return relative === '' || (
+    relative !== '..' &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+  );
+}
+
+function resolveSafeLogPath(category: string, logName: unknown): string {
+  if (!(category in LOG_CATEGORIES) || typeof logName !== 'string' || !LOG_NAME_PATTERN.test(logName)) {
+    throw new UnsafeLogPathError();
+  }
+
+  const root = path.resolve(LOG_CATEGORIES[category as keyof typeof LOG_CATEGORIES]);
+  const candidate = path.resolve(root, logName);
+  if (!isWithin(root, candidate) || path.dirname(candidate) !== root) {
+    throw new UnsafeLogPathError();
+  }
+  if (!existsSync(root)) {
+    throw new UnsafeLogPathError('Log directory does not exist');
+  }
+
+  const canonicalRoot = realpathSync.native(root);
+  if (existsSync(candidate)) {
+    const stat = lstatSync(candidate);
+    if (stat.isSymbolicLink() || !stat.isFile()) {
+      throw new UnsafeLogPathError('Log path must be a regular file');
+    }
+    if (!isWithin(canonicalRoot, realpathSync.native(candidate))) {
+      throw new UnsafeLogPathError('Log path resolves outside its category');
+    }
+  }
+
+  return candidate;
+}
 
 export interface LogFile {
   name: string;
@@ -46,7 +92,13 @@ export async function listLogs(): Promise<LogFile[]> {
       const files = await fs.readdir(dirPath);
 
       for (const file of files) {
-        const filePath = path.join(dirPath, file);
+        let filePath: string;
+        try {
+          filePath = resolveSafeLogPath(category, file);
+        } catch {
+          logger.warn(`[LogService] Skipping unsafe log filename in ${category}: ${file}`);
+          continue;
+        }
         const stats = await fs.stat(filePath);
 
         // Only include regular files (not directories)
@@ -138,7 +190,7 @@ export async function readLogPaginated(
   startDate?: Date,
   endDate?: Date
 ): Promise<PaginatedLogResult> {
-  const logPath = path.join(LOG_CATEGORIES[category], logName);
+  const logPath = resolveSafeLogPath(category, logName);
 
   // Verify file exists
   try {
@@ -216,7 +268,7 @@ export async function tailLog(
   logName: string,
   lines: number = 100
 ): Promise<LogLine[]> {
-  const logPath = path.join(LOG_CATEGORIES[category], logName);
+  const logPath = resolveSafeLogPath(category, logName);
 
   // Verify file exists
   try {
@@ -256,5 +308,5 @@ export async function tailLog(
  * Get the full path to a log file
  */
 export function getLogFilePath(category: 'runtime' | 'player', logName: string): string {
-  return path.join(LOG_CATEGORIES[category], logName);
+  return resolveSafeLogPath(category, logName);
 }
