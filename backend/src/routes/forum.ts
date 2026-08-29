@@ -121,8 +121,9 @@ async function getAuthorizedThread(
   threadId: number,
   permissions: UserPermissions,
   mode: ForumThreadAccessMode = 'view',
+  includeDeleted = false,
 ): Promise<{ thread: NonNullable<Awaited<ReturnType<typeof getThreadById>>>; canPost: boolean; canModerate: boolean } | null> {
-  const thread = await getThreadById(threadId);
+  const thread = await getThreadById(threadId, undefined, { includeDeleted });
   if (!thread) return null;
 
   const access = await getCategoryAccessForAccount(thread.category_id, permissions);
@@ -782,8 +783,8 @@ router.post(
       const threadId = parseInt(req.params.id);
       const { isPinned } = req.body;
       const authorizedThread = await getAuthorizedThread(threadId, req.user!.permissions, 'view');
-      if (!authorizedThread?.canModerate) {
-        return res.status(403).json({ error: 'Category moderator access required' });
+      if (!authorizedThread?.canModerate || !req.user!.permissions.canPinThreads) {
+        return res.status(403).json({ error: 'Category pin permission required' });
       }
 
       const success = await togglePinThread(threadId, isPinned);
@@ -825,8 +826,8 @@ router.post(
       const threadId = parseInt(req.params.id);
       const { isLocked } = req.body;
       const authorizedThread = await getAuthorizedThread(threadId, req.user!.permissions, 'view');
-      if (!authorizedThread?.canModerate) {
-        return res.status(403).json({ error: 'Category moderator access required' });
+      if (!authorizedThread?.canModerate || !req.user!.permissions.canLockThreads) {
+        return res.status(403).json({ error: 'Category lock permission required' });
       }
 
       const success = await toggleLockThread(threadId, isLocked);
@@ -1858,11 +1859,11 @@ router.post(
       }
 
       const postId = parseInt(req.params.id);
-      const post = await getPostById(postId, req.user.accountName);
+      const post = await getPostById(postId, req.user.accountName, undefined, { includeDeleted: true });
       if (!post) {
         return res.status(404).json({ error: 'Post not found' });
       }
-      const authorizedThread = await getAuthorizedThread(post.thread_id, req.user.permissions, 'view');
+      const authorizedThread = await getAuthorizedThread(post.thread_id, req.user.permissions, 'view', true);
       if (!authorizedThread?.canModerate) {
         return res.status(403).json({ error: 'Category moderator access required' });
       }
@@ -1934,7 +1935,7 @@ router.post(
       }
 
       const threadId = parseInt(req.params.id);
-      const authorizedThread = await getAuthorizedThread(threadId, req.user.permissions, 'view');
+      const authorizedThread = await getAuthorizedThread(threadId, req.user.permissions, 'view', true);
       if (!authorizedThread?.canModerate) {
         return res.status(403).json({ error: 'Category moderator access required' });
       }
@@ -2098,7 +2099,8 @@ router.get('/users/:accountName/posts', async (req: Request, res: Response) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
 
-    const { posts: rawPosts, total } = await getUserPosts(accountName, page, limit);
+    const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
+    const { posts: rawPosts, total } = await getUserPosts(accountName, page, limit, permissions);
 
     // Map snake_case from database to camelCase for frontend
     const posts = rawPosts.map((post: any) => ({
@@ -2135,7 +2137,8 @@ router.get('/users/:accountName/threads', async (req: Request, res: Response) =>
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
 
-    const { threads: rawThreads, total } = await getUserThreads(accountName, page, limit);
+    const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
+    const { threads: rawThreads, total } = await getUserThreads(accountName, page, limit, permissions);
 
     // Map snake_case from database to camelCase for frontend
     const threads = rawThreads.map((thread: any) => ({
@@ -2573,7 +2576,8 @@ router.get('/characters/:characterName/posts', async (req: Request, res: Respons
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
 
-    const result = await getCharacterPosts(characterName, page, limit);
+    const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
+    const result = await getCharacterPosts(characterName, page, limit, permissions);
 
     return res.json({
       posts: result.posts,
@@ -2642,7 +2646,8 @@ router.get('/guilds/:guildName/activity', async (req: Request, res: Response) =>
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
 
-    const result = await getGuildForumActivity(decodeURIComponent(guildName), page, limit);
+    const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
+    const result = await getGuildForumActivity(decodeURIComponent(guildName), page, limit, permissions);
 
     return res.json({
       posts: result.posts,
@@ -2739,7 +2744,7 @@ router.post(
       }
 
       // Create poll
-      const pollId = await createPoll(parseInt(threadId), req.body, accountName);
+      const pollId = await createPoll(parseInt(threadId), req.body, accountName, req.user!.permissions);
 
       return res.status(201).json({
         message: 'Poll created successfully',
@@ -2767,7 +2772,7 @@ router.get('/threads/:threadId/poll', async (req: Request, res: Response) => {
 
     const voterAccount = req.user?.accountName;
 
-    const pollData = await getPollByThreadId(parseInt(threadId), voterAccount);
+    const pollData = await getPollByThreadId(parseInt(threadId), voterAccount, permissions);
 
     if (!pollData) {
       return res.status(404).json({ error: 'No poll found for this thread' });
@@ -2790,7 +2795,7 @@ router.get('/threads/:threadId/has-poll', async (req: Request, res: Response) =>
       return res.status(404).json({ error: 'Thread not found or access denied' });
     }
 
-    const pollData = await getPollByThreadId(parseInt(threadId));
+    const pollData = await getPollByThreadId(parseInt(threadId), undefined, permissions);
 
     return res.json({ hasPoll: pollData !== null });
   } catch (error) {
@@ -2819,7 +2824,7 @@ router.post(
       const { pollId } = req.params;
       const { optionIds } = req.body;
       const voterAccount = req.user!.accountName;
-      const poll = await getPollById(parseInt(pollId));
+      const poll = await getPollById(parseInt(pollId), req.user!.permissions);
       if (!poll) {
         return res.status(404).json({ error: 'Poll not found' });
       }
@@ -2828,7 +2833,7 @@ router.post(
         return res.status(404).json({ error: 'Poll not found or access denied' });
       }
 
-      await castVote(parseInt(pollId), optionIds, voterAccount);
+      await castVote(parseInt(pollId), optionIds, voterAccount, req.user!.permissions);
 
       return res.json({ message: 'Vote recorded successfully' });
     } catch (error) {
@@ -2852,7 +2857,7 @@ router.delete(
     try {
       const { pollId } = req.params;
       const voterAccount = req.user!.accountName;
-      const poll = await getPollById(parseInt(pollId));
+      const poll = await getPollById(parseInt(pollId), req.user!.permissions);
       if (!poll) {
         return res.status(404).json({ error: 'Poll not found' });
       }
@@ -2861,7 +2866,7 @@ router.delete(
         return res.status(404).json({ error: 'Poll not found or access denied' });
       }
 
-      await removeVote(parseInt(pollId), voterAccount);
+      await removeVote(parseInt(pollId), voterAccount, req.user!.permissions);
 
       return res.json({ message: 'Vote removed successfully' });
     } catch (error) {
@@ -2886,7 +2891,7 @@ router.patch(
       const { pollId } = req.params;
       const accountName = req.user!.accountName;
       const permissions = req.user!.permissions;
-      const poll = await getPollById(parseInt(pollId));
+      const poll = await getPollById(parseInt(pollId), req.user!.permissions);
       if (!poll) {
         return res.status(404).json({ error: 'Poll not found' });
       }
@@ -2903,7 +2908,7 @@ router.patch(
         return res.status(403).json({ error: 'Only an authorized poll creator or category moderator can close polls' });
       }
 
-      await closePoll(parseInt(pollId));
+      await closePoll(parseInt(pollId), accountName, permissions);
 
       return res.json({ message: 'Poll closed successfully' });
     } catch (error) {
@@ -2928,7 +2933,7 @@ router.delete(
       const { pollId } = req.params;
       const accountName = req.user!.accountName;
       const permissions = req.user!.permissions;
-      const poll = await getPollById(parseInt(pollId));
+      const poll = await getPollById(parseInt(pollId), req.user!.permissions);
       if (!poll) {
         return res.status(404).json({ error: 'Poll not found' });
       }
@@ -2945,7 +2950,7 @@ router.delete(
         return res.status(403).json({ error: 'Only an authorized poll creator or category moderator can delete polls' });
       }
 
-      await deletePoll(parseInt(pollId));
+      await deletePoll(parseInt(pollId), accountName, permissions);
 
       return res.json({ message: 'Poll deleted successfully' });
     } catch (error) {

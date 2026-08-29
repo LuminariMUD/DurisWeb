@@ -84,6 +84,45 @@ describe('canonical forum category access', () => {
     });
   });
 
+  it('denies role-based categories with a missing threshold to non-overlords', async () => {
+    query.mockResolvedValueOnce([[{
+      access_type: 'role_based',
+      min_level: null,
+      guild_name: null,
+      is_archived: 0,
+    }]]);
+
+    await expect(checkCategoryAccess(16, 'Cwial', player as never, [])).resolves.toEqual({
+      canView: false,
+      canPost: false,
+      canModerate: false,
+    });
+  });
+
+  it('preserves legacy immortal and god access types during migration', async () => {
+    query.mockResolvedValueOnce([[{
+      access_type: 'immortal',
+      min_level: null,
+      guild_name: null,
+      is_archived: 0,
+    }]]);
+    await expect(checkCategoryAccess(17, 'Cwial', {
+      ...player,
+      canAccessImmortalForum: true,
+    } as never, [])).resolves.toMatchObject({ canView: true, canPost: true });
+
+    query.mockResolvedValueOnce([[{
+      access_type: 'god',
+      min_level: null,
+      guild_name: null,
+      is_archived: 0,
+    }]]);
+    await expect(checkCategoryAccess(18, 'Cwial', {
+      ...player,
+      canAccessGodForum: true,
+    } as never, [])).resolves.toMatchObject({ canView: true, canPost: true });
+  });
+
   it('does not expose a custom-ACL category to anonymous callers when no rule matches', async () => {
     query
       .mockResolvedValueOnce([[{
@@ -126,7 +165,7 @@ describe('canonical forum category access', () => {
         guild_name: null,
         is_archived: 0,
       }]])
-      .mockResolvedValueOnce([[{ character_pid: 12345, permission_type: 'allow', can_view: 1, can_post: 0, can_moderate: 0 }]]);
+      .mockResolvedValueOnce([[{ character_pid: 12345, permission_type: 'allow', can_view: true, can_post: false, can_moderate: false }]]);
 
     await expect(getCategoryAccessForAccount(12, player as never)).resolves.toEqual({
       canView: true,

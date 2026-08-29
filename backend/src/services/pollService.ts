@@ -1,5 +1,7 @@
 import { pool } from '../db/connection.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
+import type { UserPermissions } from './permissionService.js';
+import { getCategoryAccessForAccount } from './categoryService.js';
 
 // ============================================
 // TYPE DEFINITIONS
@@ -91,6 +93,57 @@ export function canViewResults(
 }
 
 // ============================================
+// AUTHORIZATION HELPERS
+// ============================================
+
+interface PollAccess {
+  poll: ForumPoll | null;
+  threadId: number;
+  categoryId: number;
+  canView: boolean;
+  canPost: boolean;
+  canModerate: boolean;
+}
+
+async function getThreadAccess(threadId: number, permissions: UserPermissions): Promise<Omit<PollAccess, 'poll'> | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT category_id, is_deleted FROM forum_threads WHERE id = ?',
+    [threadId],
+  );
+  if (rows.length === 0 || rows[0].is_deleted) return null;
+
+  const access = await getCategoryAccessForAccount(Number(rows[0].category_id), permissions);
+  return {
+    threadId,
+    categoryId: Number(rows[0].category_id),
+    canView: access.canView,
+    canPost: access.canPost,
+    canModerate: access.canModerate,
+  };
+}
+
+async function getPollAccess(pollId: number, permissions: UserPermissions): Promise<PollAccess | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT p.*, t.category_id, t.is_deleted AS thread_deleted
+     FROM forum_polls p
+     JOIN forum_threads t ON t.id = p.thread_id
+     WHERE p.id = ?`,
+    [pollId],
+  );
+  if (rows.length === 0 || rows[0].thread_deleted) return null;
+
+  const access = await getCategoryAccessForAccount(Number(rows[0].category_id), permissions);
+  return {
+    poll: rows[0] as ForumPoll,
+    threadId: Number(rows[0].thread_id),
+    categoryId: Number(rows[0].category_id),
+    canView: access.canView,
+    canPost: access.canPost,
+    canModerate: access.canModerate,
+  };
+}
+
+// ============================================
 // POLL CRUD OPERATIONS
 // ============================================
 
@@ -100,8 +153,14 @@ export function canViewResults(
 export async function createPoll(
   threadId: number,
   pollData: PollCreationData,
-  creatorAccount: string
+  creatorAccount: string,
+  permissions: UserPermissions,
 ): Promise<number> {
+  const threadAccess = await getThreadAccess(threadId, permissions);
+  if (!threadAccess?.canPost) {
+    throw new Error('You do not have permission to create a poll in this category');
+  }
+
   if (pollData.options.length < 2 || pollData.options.length > 10) {
     throw new Error('Poll must have between 2 and 10 options');
   }
@@ -170,8 +229,12 @@ export async function createPoll(
  */
 export async function getPollByThreadId(
   threadId: number,
-  voterAccount?: string
+  voterAccount: string | undefined,
+  permissions: UserPermissions,
 ): Promise<PollResultData | null> {
+  const threadAccess = await getThreadAccess(threadId, permissions);
+  if (!threadAccess?.canView) return null;
+
   const connection = await pool.getConnection();
   try {
     // Get poll
@@ -253,18 +316,14 @@ export async function getPollByThreadId(
 /**
  * Get poll by ID
  */
-export async function getPollById(pollId: number): Promise<ForumPoll | null> {
-  const connection = await pool.getConnection();
-  try {
-    const [polls] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM forum_polls WHERE id = ?',
-      [pollId]
-    );
+export async function getPollById(
+  pollId: number,
+  permissions: UserPermissions,
+): Promise<ForumPoll | null> {
+  const pollAccess = await getPollAccess(pollId, permissions);
+  if (!pollAccess?.canView) return null;
 
-    return polls.length > 0 ? (polls[0] as ForumPoll) : null;
-  } finally {
-    connection.release();
-  }
+  return pollAccess.poll;
 }
 
 // ============================================
@@ -277,8 +336,14 @@ export async function getPollById(pollId: number): Promise<ForumPoll | null> {
 export async function castVote(
   pollId: number,
   optionIds: number[],
-  voterAccount: string
+  voterAccount: string,
+  permissions: UserPermissions,
 ): Promise<void> {
+  const pollAccess = await getPollAccess(pollId, permissions);
+  if (!pollAccess?.canView) {
+    throw new Error('Poll not found or access denied');
+  }
+
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -389,14 +454,20 @@ export async function castVote(
  */
 export async function removeVote(
   pollId: number,
-  voterAccount: string
+  voterAccount: string,
+  permissions: UserPermissions,
 ): Promise<void> {
+  const pollAccess = await getPollAccess(pollId, permissions);
+  if (!pollAccess?.canView) {
+    throw new Error('Poll not found or access denied');
+  }
+
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
     // Get poll
-    const poll = await getPollById(pollId);
+    const poll = pollAccess.poll;
     if (!poll) {
       throw new Error('Poll not found');
     }
@@ -452,7 +523,18 @@ export async function removeVote(
 /**
  * Close a poll manually (creator or moderator)
  */
-export async function closePoll(pollId: number): Promise<void> {
+export async function closePoll(
+  pollId: number,
+  actorAccount: string,
+  permissions: UserPermissions,
+): Promise<void> {
+  const pollAccess = await getPollAccess(pollId, permissions);
+  if (!pollAccess?.poll) throw new Error('Poll not found or access denied');
+  const isCreator = pollAccess.poll.created_by_account === actorAccount;
+  if ((!isCreator || !pollAccess.canPost) && !pollAccess.canModerate) {
+    throw new Error('Not authorized to close this poll');
+  }
+
   const connection = await pool.getConnection();
   try {
     await connection.query('UPDATE forum_polls SET is_closed = TRUE WHERE id = ?', [
@@ -466,7 +548,18 @@ export async function closePoll(pollId: number): Promise<void> {
 /**
  * Delete a poll (creator or moderator)
  */
-export async function deletePoll(pollId: number): Promise<void> {
+export async function deletePoll(
+  pollId: number,
+  actorAccount: string,
+  permissions: UserPermissions,
+): Promise<void> {
+  const pollAccess = await getPollAccess(pollId, permissions);
+  if (!pollAccess?.poll) throw new Error('Poll not found or access denied');
+  const isCreator = pollAccess.poll.created_by_account === actorAccount;
+  if ((!isCreator || !pollAccess.canPost) && !pollAccess.canModerate) {
+    throw new Error('Not authorized to delete this poll');
+  }
+
   const connection = await pool.getConnection();
   try {
     // CASCADE will delete options, votes, and history

@@ -604,6 +604,17 @@ export async function checkCategoryAccess(
     return { canView: false, canPost: false, canModerate: false };
   }
 
+  // Legacy access types remain readable while the migration is rolled out.
+  if (category.access_type === 'immortal') {
+    const canView = Boolean(accountName) && userPermissions.canAccessImmortalForum;
+    return { canView, canPost: canView, canModerate: canView && userPermissions.canModerate };
+  }
+
+  if (category.access_type === 'god') {
+    const canView = Boolean(accountName) && userPermissions.canAccessGodForum;
+    return { canView, canPost: canView, canModerate: canView && userPermissions.canModerate };
+  }
+
   // Custom ACL evaluation
   if (category.access_type === 'custom_acl') {
     const aclResult = await evaluateACLPermissions(
@@ -624,8 +635,10 @@ export async function checkCategoryAccess(
 
   // Role-based access
   if (category.access_type === 'role_based') {
-    const hasAccess = userPermissions.immortalLevel !== null &&
-                      userPermissions.immortalLevel >= category.min_level;
+    const requiredLevel = Number(category.min_level);
+    const hasAccess = Number.isInteger(requiredLevel) &&
+                      userPermissions.immortalLevel !== null &&
+                      userPermissions.immortalLevel >= requiredLevel;
 
     if (!hasAccess) {
       return { canView: false, canPost: false, canModerate: false };
@@ -700,7 +713,9 @@ async function evaluateACLPermissions(
          WHEN guild_name IS NOT NULL THEN 3
          WHEN min_immortal_level IS NOT NULL THEN 4
          ELSE 5
-       END`,
+       END,
+       CASE WHEN permission_type = 'deny' THEN 0 ELSE 1 END,
+       id ASC`,
     [categoryId]
   );
 
@@ -736,9 +751,9 @@ async function evaluateACLPermissions(
       } else {
         // ALLOW rule - grant permissions
         return {
-          canView: rule.can_view === 1,
-          canPost: rule.can_post === 1,
-          canModerate: rule.can_moderate === 1
+          canView: rule.can_view === 1 || rule.can_view === true,
+          canPost: rule.can_post === 1 || rule.can_post === true,
+          canModerate: rule.can_moderate === 1 || rule.can_moderate === true
         };
       }
     }

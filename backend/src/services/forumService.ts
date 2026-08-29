@@ -99,6 +99,10 @@ export interface ForumNotification {
   post_content_preview?: string;
 }
 
+interface ForumReadOptions {
+  includeDeleted?: boolean;
+}
+
 // ============================================================================
 // Category Management
 // ============================================================================
@@ -459,8 +463,10 @@ export async function getThreadsByCategory(
  */
 export async function getThreadById(
   threadId: number,
-  userPermissions?: UserPermissions
+  userPermissions?: UserPermissions,
+  options: ForumReadOptions = {},
 ): Promise<ForumThread | null> {
+  const lifecycleClause = options.includeDeleted ? '' : ' AND t.is_deleted = 0';
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT
       t.*,
@@ -470,7 +476,7 @@ export async function getThreadById(
     FROM forum_threads t
     LEFT JOIN frag_leaderboard pc ON t.author_character_pid = pc.pid
     LEFT JOIN user_profiles up ON t.author_account_name = up.account_name
-    WHERE t.id = ?`,
+    WHERE t.id = ?${lifecycleClause}`,
     [threadId]
   );
 
@@ -655,29 +661,33 @@ export async function getPostsByThread(
   accountName: string,
   page: number = 1,
   limit: number = 50,
-  userPermissions?: UserPermissions
+  userPermissions?: UserPermissions,
+  options: ForumReadOptions = {},
 ): Promise<{ posts: ForumPost[]; total: number }> {
   if (userPermissions) {
     const [threadRows] = await db.query<RowDataPacket[]>(
-      'SELECT category_id FROM forum_threads WHERE id = ?',
+      'SELECT category_id, is_deleted FROM forum_threads WHERE id = ?',
       [threadId],
     );
-    if (threadRows.length === 0) return { posts: [], total: 0 };
+    if (threadRows.length === 0 || (!options.includeDeleted && threadRows[0].is_deleted)) {
+      return { posts: [], total: 0 };
+    }
     const access = await getCategoryAccessForAccount(Number(threadRows[0].category_id), userPermissions);
     if (!access.canView) return { posts: [], total: 0 };
   }
 
   const offset = (page - 1) * limit;
+  const postLifecycleClause = options.includeDeleted ? '' : ' AND is_deleted = 0';
 
-  // Get total count (include deleted posts)
+  // Get total count (active posts by default)
   const [countRows] = await db.query<RowDataPacket[]>(
-    'SELECT COUNT(*) as total FROM forum_posts WHERE thread_id = ?',
+    `SELECT COUNT(*) as total FROM forum_posts WHERE thread_id = ?${postLifecycleClause}`,
     [threadId]
   );
 
   const total = countRows[0].total;
 
-  // Get posts with character names, avatar URLs, and reactions (include deleted posts)
+  // Get posts with character names, avatar URLs, and reactions (active by default)
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT
       p.*,
@@ -686,7 +696,7 @@ export async function getPostsByThread(
     FROM forum_posts p
     LEFT JOIN frag_leaderboard pc ON p.author_character_pid = pc.pid
     LEFT JOIN user_profiles up ON p.author_account_name = up.account_name
-    WHERE p.thread_id = ?
+    WHERE p.thread_id = ?${postLifecycleClause}
     ORDER BY p.created_at ASC
     LIMIT ? OFFSET ?`,
     [threadId, limit, offset]
@@ -745,8 +755,10 @@ export async function getPostsByThread(
 export async function getPostById(
   postId: number,
   accountName: string,
-  userPermissions?: UserPermissions
+  userPermissions?: UserPermissions,
+  options: ForumReadOptions = {},
 ): Promise<ForumPost | null> {
+  const lifecycleClause = options.includeDeleted ? '' : ' AND p.is_deleted = 0';
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT
       p.*,
@@ -755,7 +767,7 @@ export async function getPostById(
     FROM forum_posts p
     LEFT JOIN frag_leaderboard pc ON p.author_character_pid = pc.pid
     LEFT JOIN user_profiles up ON p.author_account_name = up.account_name
-    WHERE p.id = ?`,
+    WHERE p.id = ?${lifecycleClause}`,
     [postId]
   );
 
@@ -2097,8 +2109,13 @@ export async function updateUserProfile(
 export async function getUserPosts(
   accountName: string,
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
+  permissions: UserPermissions,
 ): Promise<{ posts: any[]; total: number }> {
+  const accessibleCategoryIds = await getAccessibleCategoryIds(permissions);
+  if (accessibleCategoryIds.length === 0) return { posts: [], total: 0 };
+  const categoryClause = ` AND t.category_id IN (${accessibleCategoryIds.join(',')})`;
+
   const connection = await db.getConnection();
   try {
     const offset = (page - 1) * limit;
@@ -2107,7 +2124,8 @@ export async function getUserPosts(
     const [countRows] = await connection.query<RowDataPacket[]>(
       `SELECT COUNT(*) as total
        FROM forum_posts p
-       WHERE p.author_account_name = ? AND p.is_deleted = 0`,
+       JOIN forum_threads t ON p.thread_id = t.id
+       WHERE p.author_account_name = ? AND p.is_deleted = 0 AND t.is_deleted = 0${categoryClause}`,
       [accountName]
     );
 
@@ -2126,7 +2144,7 @@ export async function getUserPosts(
        JOIN forum_threads t ON p.thread_id = t.id
        JOIN forum_categories c ON t.category_id = c.id
        LEFT JOIN frag_leaderboard pc ON p.author_character_pid = pc.pid
-       WHERE p.author_account_name = ? AND p.is_deleted = 0 AND t.is_deleted = 0
+       WHERE p.author_account_name = ? AND p.is_deleted = 0 AND t.is_deleted = 0${categoryClause}
        ORDER BY p.created_at DESC
        LIMIT ? OFFSET ?`,
       [accountName, limit, offset]
@@ -2144,8 +2162,13 @@ export async function getUserPosts(
 export async function getUserThreads(
   accountName: string,
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
+  permissions: UserPermissions,
 ): Promise<{ threads: any[]; total: number }> {
+  const accessibleCategoryIds = await getAccessibleCategoryIds(permissions);
+  if (accessibleCategoryIds.length === 0) return { threads: [], total: 0 };
+  const categoryClause = ` AND t.category_id IN (${accessibleCategoryIds.join(',')})`;
+
   const connection = await db.getConnection();
   try {
     const offset = (page - 1) * limit;
@@ -2154,7 +2177,7 @@ export async function getUserThreads(
     const [countRows] = await connection.query<RowDataPacket[]>(
       `SELECT COUNT(*) as total
        FROM forum_threads t
-       WHERE t.author_account_name = ? AND t.is_deleted = 0`,
+       WHERE t.author_account_name = ? AND t.is_deleted = 0${categoryClause}`,
       [accountName]
     );
 
@@ -2169,7 +2192,7 @@ export async function getUserThreads(
        FROM forum_threads t
        JOIN forum_categories c ON t.category_id = c.id
        LEFT JOIN frag_leaderboard pc ON t.author_character_pid = pc.pid
-       WHERE t.author_account_name = ? AND t.is_deleted = 0
+       WHERE t.author_account_name = ? AND t.is_deleted = 0${categoryClause}
        ORDER BY t.created_at DESC
        LIMIT ? OFFSET ?`,
       [accountName, limit, offset]
@@ -2450,7 +2473,16 @@ export async function getCharacterProfile(characterName: string): Promise<any | 
 /**
  * Get character's recent forum posts
  */
-export async function getCharacterPosts(characterName: string, page: number = 1, limit: number = 20): Promise<any> {
+export async function getCharacterPosts(
+  characterName: string,
+  page: number = 1,
+  limit: number = 20,
+  permissions: UserPermissions,
+): Promise<any> {
+  const accessibleCategoryIds = await getAccessibleCategoryIds(permissions);
+  if (accessibleCategoryIds.length === 0) return { posts: [], total: 0, page, limit };
+  const categoryClause = ` AND t.category_id IN (${accessibleCategoryIds.join(',')})`;
+
   const connection = await db.getConnection();
   try {
     // First get the character's PID
@@ -2469,8 +2501,9 @@ export async function getCharacterPosts(characterName: string, page: number = 1,
     // Get total count
     const [countRows] = await connection.query<RowDataPacket[]>(
       `SELECT COUNT(*) as total
-       FROM forum_posts
-       WHERE author_character_pid = ? AND is_deleted = 0`,
+       FROM forum_posts p
+       JOIN forum_threads t ON p.thread_id = t.id
+       WHERE p.author_character_pid = ? AND p.is_deleted = 0 AND t.is_deleted = 0${categoryClause}`,
       [pid]
     );
 
@@ -2483,7 +2516,7 @@ export async function getCharacterPosts(characterName: string, page: number = 1,
        FROM forum_posts p
        JOIN forum_threads t ON p.thread_id = t.id
        JOIN forum_categories c ON t.category_id = c.id
-       WHERE p.author_character_pid = ? AND p.is_deleted = 0
+       WHERE p.author_character_pid = ? AND p.is_deleted = 0 AND t.is_deleted = 0${categoryClause}
        ORDER BY p.created_at DESC
        LIMIT ? OFFSET ?`,
       [pid, limit, offset]
@@ -2733,7 +2766,16 @@ export async function getGuildProfile(guildNameOrSlug: string): Promise<any | nu
 /**
  * Get guild's recent forum activity
  */
-export async function getGuildForumActivity(guildName: string, page: number = 1, limit: number = 20): Promise<any> {
+export async function getGuildForumActivity(
+  guildName: string,
+  page: number = 1,
+  limit: number = 20,
+  permissions: UserPermissions,
+): Promise<any> {
+  const accessibleCategoryIds = await getAccessibleCategoryIds(permissions);
+  if (accessibleCategoryIds.length === 0) return { posts: [], total: 0, page, limit };
+  const categoryClause = ` AND t.category_id IN (${accessibleCategoryIds.join(',')})`;
+
   const connection = await db.getConnection();
   try {
     const offset = (page - 1) * limit;
@@ -2744,7 +2786,8 @@ export async function getGuildForumActivity(guildName: string, page: number = 1,
        FROM forum_posts p
        JOIN player_data pd ON p.author_character_pid = pd.pid
        JOIN associations a ON pd.assoc_id = a.id
-       WHERE a.name = ? AND p.is_deleted = 0`,
+       JOIN forum_threads t ON p.thread_id = t.id
+       WHERE a.name = ? AND p.is_deleted = 0 AND t.is_deleted = 0${categoryClause}`,
       [guildName]
     );
 
@@ -2760,7 +2803,7 @@ export async function getGuildForumActivity(guildName: string, page: number = 1,
        JOIN associations a ON pd.assoc_id = a.id
        JOIN forum_threads t ON p.thread_id = t.id
        JOIN forum_categories c ON t.category_id = c.id
-       WHERE a.name = ? AND p.is_deleted = 0
+       WHERE a.name = ? AND p.is_deleted = 0 AND t.is_deleted = 0${categoryClause}
        ORDER BY p.created_at DESC
        LIMIT ? OFFSET ?`,
       [guildName, limit, offset]
