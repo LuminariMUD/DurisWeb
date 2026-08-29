@@ -7,6 +7,7 @@ import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { pool } from '../db/connection.js';
 import { processContentForWrite } from '../utils/contentParser.js';
 import { UnsafeZonePathError, resolveSafeZoneFilePath } from '../utils/safeZonePath.js';
+import { validateIdParam } from '../utils/validation.js';
 
 const MUD_DIR = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
 const AREAS_DIR = path.join(MUD_DIR, 'areas');
@@ -2253,7 +2254,11 @@ router.post('/zones/:id/proc-requests', async (req: Request, res: Response) => {
 router.put('/zones/:id/proc-requests/:prId', async (req: Request, res: Response) => {
   try {
     const zoneId = req.params.id;
-    const prId = parseInt(req.params.prId, 10);
+    const prId = validateIdParam(req.params.prId);
+    if (prId === null) {
+      res.status(400).json({ error: 'Invalid proc request ID' });
+      return;
+    }
     const accountName = req.user?.accountName;
 
     if (!accountName) {
@@ -2318,7 +2323,11 @@ router.put('/zones/:id/proc-requests/:prId', async (req: Request, res: Response)
 router.put('/zones/:id/proc-requests/:prId/status', async (req: Request, res: Response) => {
   try {
     const zoneId = req.params.id;
-    const prId = parseInt(req.params.prId, 10);
+    const prId = validateIdParam(req.params.prId);
+    if (prId === null) {
+      res.status(400).json({ error: 'Invalid proc request ID' });
+      return;
+    }
     const accountName = req.user?.accountName;
 
     if (!accountName) {
@@ -2361,7 +2370,11 @@ router.put('/zones/:id/proc-requests/:prId/status', async (req: Request, res: Re
 router.delete('/zones/:id/proc-requests/:prId', async (req: Request, res: Response) => {
   try {
     const zoneId = req.params.id;
-    const prId = parseInt(req.params.prId, 10);
+    const prId = validateIdParam(req.params.prId);
+    if (prId === null) {
+      res.status(400).json({ error: 'Invalid proc request ID' });
+      return;
+    }
     const accountName = req.user?.accountName;
 
     if (!accountName) {
@@ -2495,7 +2508,11 @@ router.post('/zones/:id/comments', async (req: Request, res: Response) => {
 router.put('/zones/:id/comments/:commentId', async (req: Request, res: Response) => {
   try {
     const zoneId = req.params.id;
-    const commentId = parseInt(req.params.commentId, 10);
+    const commentId = validateIdParam(req.params.commentId);
+    if (commentId === null) {
+      res.status(400).json({ error: 'Invalid comment ID' });
+      return;
+    }
     const accountName = req.user?.accountName;
 
     if (!accountName) {
@@ -2553,7 +2570,11 @@ router.put('/zones/:id/comments/:commentId', async (req: Request, res: Response)
 router.delete('/zones/:id/comments/:commentId', async (req: Request, res: Response) => {
   try {
     const zoneId = req.params.id;
-    const commentId = parseInt(req.params.commentId, 10);
+    const commentId = validateIdParam(req.params.commentId);
+    if (commentId === null) {
+      res.status(400).json({ error: 'Invalid comment ID' });
+      return;
+    }
     const accountName = req.user?.accountName;
 
     if (!accountName) {
