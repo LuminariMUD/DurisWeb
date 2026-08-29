@@ -104,6 +104,7 @@ import {
   validateCreateIncidentBody,
   validateUpdateIncidentBody,
 } from '../utils/incidentValidation.js';
+import { validateIdParam } from '../utils/validation.js';
 import {
   getDupedItems,
   getDupeDetails,
@@ -766,7 +767,10 @@ router.delete(
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const permissionId = parseInt(req.params.permissionId);
+      const permissionId = validateIdParam(req.params.permissionId);
+      if (permissionId === null) {
+        return res.status(400).json({ error: 'Invalid permission ID' });
+      }
       const success = await removePermission(permissionId);
 
       if (!success) {
@@ -3058,9 +3062,9 @@ router.get('/roles', requireAuth, requireOverlord, async (_req: Request, res: Re
  */
 router.get('/roles/:id', requireAuth, requireOverlord, async (req: Request, res: Response) => {
   try {
-    const roleId = parseInt(req.params.id);
+    const roleId = validateIdParam(req.params.id);
 
-    if (isNaN(roleId)) {
+    if (roleId === null) {
       return res.status(400).json({ error: 'Invalid role ID' });
     }
 
@@ -3117,10 +3121,10 @@ router.post('/roles', requireAuth, requireOverlord, async (req: Request, res: Re
  */
 router.put('/roles/:id', requireAuth, requireOverlord, async (req: Request, res: Response) => {
   try {
-    const roleId = parseInt(req.params.id);
+    const roleId = validateIdParam(req.params.id);
     const { name, description, permissionIds } = req.body;
 
-    if (isNaN(roleId)) {
+    if (roleId === null) {
       return res.status(400).json({ error: 'Invalid role ID' });
     }
 
@@ -3151,9 +3155,9 @@ router.put('/roles/:id', requireAuth, requireOverlord, async (req: Request, res:
  */
 router.delete('/roles/:id', requireAuth, requireOverlord, async (req: Request, res: Response) => {
   try {
-    const roleId = parseInt(req.params.id);
+    const roleId = validateIdParam(req.params.id);
 
-    if (isNaN(roleId)) {
+    if (roleId === null) {
       return res.status(400).json({ error: 'Invalid role ID' });
     }
 
@@ -3455,8 +3459,8 @@ router.post('/backup/create', requireAuth, requirePermission('manage_mud_backup'
  */
 router.get('/backup/status/:id', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
       return res.status(400).json({ error: 'Invalid backup ID' });
     }
 
@@ -3479,8 +3483,8 @@ router.get('/backup/status/:id', requireAuth, requirePermission('manage_mud_back
  */
 router.get('/backup/download/:id', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
       res.status(400).json({ error: 'Invalid backup ID' });
       return;
     }
@@ -3553,8 +3557,8 @@ router.delete('/backup/failed', requireAuth, requireOverlord, async (_req: Reque
  */
 router.delete('/backup/:id', requireAuth, requireOverlord, async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
       return res.status(400).json({ error: 'Invalid backup ID' });
     }
 
@@ -3580,8 +3584,8 @@ router.delete('/backup/:id', requireAuth, requireOverlord, async (req: Request, 
  */
 router.get('/backup/:id/contents', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
       return res.status(400).json({ error: 'Invalid backup ID' });
     }
 
@@ -3715,8 +3719,8 @@ router.get('/restore/list', requireAuth, requirePermission('manage_mud_backup'),
  */
 router.get('/restore/status/:id', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
       return res.status(400).json({ error: 'Invalid restore ID' });
     }
 
@@ -4143,9 +4147,9 @@ router.post('/discord/test', requireAuth, requirePermission('manage_front_page')
  */
 router.post('/pvp/events/:id/discord', requireAuth, requirePermission('manage_front_page'), async (req: Request, res: Response) => {
   try {
-    const eventId = parseInt(req.params.id, 10);
+    const eventId = validateIdParam(req.params.id);
 
-    if (isNaN(eventId)) {
+    if (eventId === null) {
       return res.status(400).json({ error: 'invalid event id' });
     }
 
@@ -4273,8 +4277,8 @@ router.get('/dupes', requireAuth, requireOverlord, async (_req: Request, res: Re
  */
 router.get('/dupes/:objUid', requireAuth, requireOverlord, async (req: Request, res: Response) => {
   try {
-    const objUid = parseInt(req.params.objUid, 10);
-    if (isNaN(objUid)) {
+    const objUid = validateIdParam(req.params.objUid);
+    if (objUid === null) {
       return res.status(400).json({ error: 'Invalid obj_uid' });
     }
     const details = await getDupeDetails(objUid);
@@ -4291,8 +4295,8 @@ router.get('/dupes/:objUid', requireAuth, requireOverlord, async (req: Request, 
  */
 router.delete('/dupes/item/:id', requireAuth, requireOverlord, async (req: Request, res: Response) => {
   try {
-    const itemId = parseInt(req.params.id, 10);
-    if (isNaN(itemId)) {
+    const itemId = validateIdParam(req.params.id);
+    if (itemId === null) {
       return res.status(400).json({ error: 'Invalid item id' });
     }
     const deleted = await deletePlayerItem(itemId);
@@ -4312,8 +4316,8 @@ router.delete('/dupes/item/:id', requireAuth, requireOverlord, async (req: Reque
  */
 router.delete('/dupes/locker-item/:id', requireAuth, requireOverlord, async (req: Request, res: Response) => {
   try {
-    const itemId = parseInt(req.params.id, 10);
-    if (isNaN(itemId)) {
+    const itemId = validateIdParam(req.params.id);
+    if (itemId === null) {
       return res.status(400).json({ error: 'Invalid item id' });
     }
     const deleted = await deleteLockerItem(itemId);
@@ -4333,9 +4337,9 @@ router.delete('/dupes/locker-item/:id', requireAuth, requireOverlord, async (req
  */
 router.delete('/dupes/uid/:objUid/:vnum', requireAuth, requireOverlord, async (req: Request, res: Response) => {
   try {
-    const objUid = parseInt(req.params.objUid, 10);
-    const vnum = parseInt(req.params.vnum, 10);
-    if (isNaN(objUid) || isNaN(vnum)) {
+    const objUid = validateIdParam(req.params.objUid);
+    const vnum = validateIdParam(req.params.vnum);
+    if (objUid === null || vnum === null) {
       return res.status(400).json({ error: 'Invalid parameters' });
     }
     const deletedCount = await deleteAllDupesForUid(objUid, vnum);
