@@ -334,7 +334,7 @@ export function validateLogoFile(
   if (!ALLOWED_LOGO_TYPES.includes(file.mimetype)) {
     return {
       valid: false,
-      error: 'Only JPG, PNG, WebP, and SVG images are allowed for logo',
+      error: 'Only JPG, PNG, and WebP images are allowed for logo',
     };
   }
 
