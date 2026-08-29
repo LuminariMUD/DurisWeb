@@ -1,6 +1,7 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import { pool } from '../db/connection.js';
 import { getErrorMessage } from '../utils/logger.js';
+import { validateIdParam } from '../utils/validation.js';
 import type { RowDataPacket } from 'mysql2';
 
 const router: ExpressRouter = Router();
@@ -98,9 +99,9 @@ router.get('/help/search', async (req, res) => {
 // GET /api/guide/help/:id - Get single help file by ID
 router.get('/help/:id', async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = validateIdParam(req.params.id);
 
-    if (isNaN(id)) {
+    if (id === null) {
       return res.status(400).json({ error: 'Invalid help file ID' });
     }
 
