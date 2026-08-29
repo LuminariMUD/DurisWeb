@@ -950,7 +950,7 @@ router.post(
 
       // Broadcast new post to all WebSocket clients for real-time notifications
       if (post) {
-        broadcastForumPost(threadId, post, req.user.accountName);
+        broadcastForumPost(threadId, post, req.user.accountName, thread.category_id);
       }
 
       return res.status(201).json({

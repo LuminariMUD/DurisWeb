@@ -59,7 +59,7 @@ import {
 import { verifyToken } from './middleware/auth.js';
 import { parseAccountFile } from './services/accountService.js';
 import { hasActiveWebSession } from './services/sessionService.js';
-import { getUserPermissions } from './services/permissionService.js';
+import { getUserPermissions, type UserPermissions } from './services/permissionService.js';
 import {
   deployToCommit,
   determineDeployAction,
@@ -80,6 +80,14 @@ import { startMudAuctionClient, stopMudAuctionClient, setAuctionBroadcaster } fr
 import { startPlayerEventSubscriber, stopPlayerEventSubscriber, setPlayerEventBroadcaster } from './services/playerEventSubscriber.js';
 import { setNotificationBroadcaster, setNewsBroadcaster, notifyPvpBattle } from './services/unifiedNotificationService.js';
 import { updateWebSocketCount } from './services/serverHealthService.js';
+import { getCategoryAccessForAccount } from './services/categoryService.js';
+import { canAccessZone } from './services/zoneInfoService.js';
+import {
+  WebSocketStreamLimiter,
+  canReceiveAccountEvent,
+  hasWebSocketPermission,
+  type WebSocketPrincipal,
+} from './utils/websocketAccess.js';
 import { isDiscordEnabled, postBattleToDiscord } from './services/discordService.js';
 import { pool } from './db/connection.js';
 
@@ -313,6 +321,44 @@ app.use(errorHandler);
 let server: http.Server | null = null;
 let wss: WebSocketServer;
 
+const wsStreamLimiter = new WebSocketStreamLimiter<WebSocket>(2);
+const ANONYMOUS_WS_PERMISSIONS: UserPermissions = {
+  accountName: '',
+  role: 'player',
+  immortalLevel: null,
+  maxLevel: 0,
+  canAccessImmortalForum: false,
+  canAccessGodForum: false,
+  guilds: [],
+  canModerate: false,
+  canBan: false,
+  canEditPosts: false,
+  canDeletePosts: false,
+  canPinThreads: false,
+  canLockThreads: false,
+  adminPermissions: [],
+};
+
+function getWebSocketPrincipal(client: WebSocket): WebSocketPrincipal | undefined {
+  return (client as any).wsPrincipal as WebSocketPrincipal | undefined;
+}
+
+function broadcastToPermission(
+  message: string,
+  permissionKey: string,
+  minimumLevel?: number,
+): void {
+  if (!wss) return;
+  wss.clients.forEach((client) => {
+    if (
+      client.readyState === WebSocket.OPEN &&
+      hasWebSocketPermission(getWebSocketPrincipal(client), permissionKey, minimumLevel)
+    ) {
+      client.send(message);
+    }
+  });
+}
+
 // Interval timers that need to be cleared on shutdown
 let eventCheckInterval: NodeJS.Timeout | null = null;
 let fragCheckInterval: NodeJS.Timeout | null = null;
@@ -379,13 +425,7 @@ export function broadcastCrashAlert(crash: any) {
     data: crash,
   });
 
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
-
-  logger.info('[Broadcast] Crash alert sent to all clients');
+  broadcastToPermission(message, 'view_server_health');
 }
 
 // Broadcast backup progress to all connected WebSocket clients
@@ -403,11 +443,7 @@ export function broadcastBackupProgress(data: {
     data,
   });
 
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
+  broadcastToPermission(message, 'manage_mud_backup');
 }
 
 // Broadcast restore progress to all connected WebSocket clients
@@ -424,11 +460,7 @@ export function broadcastRestoreProgress(data: {
     data,
   });
 
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
+  broadcastToPermission(message, 'manage_mud_backup');
 }
 
 // Broadcast MUD state change to all connected WebSocket clients
@@ -448,11 +480,7 @@ export function broadcastMudStateChange(data: {
     },
   });
 
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
+  broadcastToPermission(message, 'manage_mud_properties');
 
   logger.info(`Broadcast MUD state change: ${data.state} (${data.action || 'status'})`);
 }
@@ -481,7 +509,11 @@ export function broadcastPlayerEvent(type: string, data: any) {
   let sent = 0;
 
   wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN && (client as any).playerEventsSubscribed) {
+    if (
+      client.readyState === WebSocket.OPEN &&
+      (client as any).playerEventsSubscribed &&
+      hasWebSocketPermission(getWebSocketPrincipal(client), 'view_server_health', 57)
+    ) {
       client.send(message);
       sent++;
     }
@@ -497,7 +529,11 @@ export function broadcastWholist(type: string, data: any) {
   const message = JSON.stringify({ type, data });
 
   wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN && (client as any).wholistSubscribed) {
+    if (
+      client.readyState === WebSocket.OPEN &&
+      (client as any).wholistSubscribed &&
+      hasWebSocketPermission(getWebSocketPrincipal(client), 'view_server_health', 57)
+    ) {
       client.send(message);
     }
   });
@@ -516,15 +552,16 @@ export function broadcastMudControlOutput(data: {
     data,
   });
 
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
+  broadcastToPermission(message, 'manage_mud_properties');
 }
 
 // Broadcast new forum post to all connected WebSocket clients
-export function broadcastForumPost(threadId: number, post: object, authorAccount: string) {
+export async function broadcastForumPost(
+  threadId: number,
+  post: object,
+  authorAccount: string,
+  categoryId: number,
+): Promise<void> {
   if (!wss) return;
 
   const message = JSON.stringify({
@@ -534,11 +571,20 @@ export function broadcastForumPost(threadId: number, post: object, authorAccount
     authorAccount,
   });
 
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
+  await Promise.all(Array.from(wss.clients).map(async (client) => {
+    if (client.readyState !== WebSocket.OPEN) return;
+
+    const principal = getWebSocketPrincipal(client);
+    try {
+      const access = await getCategoryAccessForAccount(
+        categoryId,
+        principal?.permissions || ANONYMOUS_WS_PERMISSIONS,
+      );
+      if (access.canView) client.send(message);
+    } catch (error) {
+      logger.error('Error checking forum broadcast access:', error);
     }
-  });
+  }));
 }
 
 // Broadcast connection log event to all connected WebSocket clients
@@ -560,11 +606,7 @@ export function broadcastConnectionEvent(event: {
     },
   });
 
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
+  broadcastToPermission(message, 'view_connection_logs');
 }
 
 // Broadcast new notification to all connected WebSocket clients
@@ -578,7 +620,10 @@ export function broadcastNotification(accountName: string, notification: any) {
   });
 
   wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
+    if (
+      client.readyState === WebSocket.OPEN &&
+      canReceiveAccountEvent(getWebSocketPrincipal(client), accountName)
+    ) {
       client.send(message);
     }
   });
@@ -790,31 +835,84 @@ async function validateMudDirectory(): Promise<void> {
 }
 
 // helper to verify websocket auth with minimum level requirement
-async function verifyWebSocketAuth(token: string | undefined, minLevel: number): Promise<boolean> {
+async function verifyWebSocketAuth(
+  token: string | undefined,
+  minLevel: number,
+): Promise<WebSocketPrincipal | null> {
   if (!token) {
     logger.warn('[verifyWebSocketAuth] no token provided');
-    return false;
+    return null;
   }
   const payload = verifyToken(token);
   if (!payload) {
     logger.warn('[verifyWebSocketAuth] invalid token');
-    return false;
+    return null;
   }
   if (!payload.sid || !await hasActiveWebSession(payload.accountName, payload.sid)) {
     logger.warn('[verifyWebSocketAuth] inactive or legacy session');
-    return false;
+    return null;
   }
   const accountData = await parseAccountFile(payload.accountName);
   if (!accountData) {
     logger.warn(`[verifyWebSocketAuth] no account data for ${payload.accountName}`);
-    return false;
+    return null;
   }
   const permissions = await getUserPermissions(payload.accountName, accountData.characters);
   logger.info(`[verifyWebSocketAuth] ${payload.accountName} maxLevel=${permissions.maxLevel} minLevel=${minLevel}`);
-  return permissions.maxLevel >= minLevel;
+  if (permissions.maxLevel < minLevel) return null;
+
+  return {
+    accountName: payload.accountName,
+    sessionId: payload.sid,
+    permissions,
+  };
 }
 
-// Start server
+async function hydrateWebSocketPrincipal(
+  ws: WebSocket,
+  cookieHeader: string | undefined,
+): Promise<void> {
+  const token = cookieHeader
+    ?.split(';')
+    .map((cookie) => cookie.trim())
+    .find((cookie) => cookie.startsWith('access_token='))
+    ?.slice('access_token='.length);
+  if (!token) return;
+
+  try {
+    const principal = await verifyWebSocketAuth(decodeURIComponent(token), 0);
+    if (principal) (ws as any).wsPrincipal = principal;
+  } catch (error) {
+    logger.warn('[WebSocket] cookie principal hydration failed:', getErrorMessage(error));
+  }
+}
+
+async function authorizeZoneStream(
+  ws: WebSocket,
+  token: string | undefined,
+  zoneId: unknown,
+): Promise<WebSocketPrincipal | null> {
+  if (typeof zoneId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(zoneId)) {
+    return null;
+  }
+
+  const principal = await verifyWebSocketAuth(token, 0);
+  if (!principal) return null;
+
+  try {
+    const hasGlobalZoneAccess = hasWebSocketPermission(principal, 'manage_zones');
+    if (!hasGlobalZoneAccess && !(await canAccessZone(principal.accountName, zoneId, 'view'))) {
+      return null;
+    }
+  } catch (error) {
+    logger.warn('[WebSocket] zone access lookup failed:', getErrorMessage(error));
+    return null;
+  }
+
+  (ws as any).wsPrincipal = principal;
+  return principal;
+}
+
 async function startServer() {
   try {
     // Validate MUD directory first
@@ -845,12 +943,13 @@ async function startServer() {
     // Create WebSocket server
     wss = new WebSocketServer({ server, path: '/ws' });
 
-    wss.on('connection', (ws: WebSocket) => {
+    wss.on('connection', (ws: WebSocket, request) => {
       (ws as any).messageCount = 0;
       (ws as any).lastReset = Date.now();
       (ws as any).logSubscriptions = new Map<string, (newLines: string[]) => void>();
       (ws as any).playerEventsSubscribed = false;
       (ws as any).wholistSubscribed = false;
+      void hydrateWebSocketPrincipal(ws, request.headers.cookie);
 
       ws.on('close', async () => {
         const sessionId = getSessionByWebSocket(ws);
@@ -858,6 +957,7 @@ async function startServer() {
           await destroyTerminalSession(sessionId);
         }
         delete (ws as any).terminalAuth;
+        wsStreamLimiter.clear(ws);
       });
 
       const ensureTerminalOperation = async (sessionId: number): Promise<boolean> => {
@@ -927,6 +1027,13 @@ async function startServer() {
 
           // Handle log subscription
           if (data.type === 'SUBSCRIBE_LOG') {
+            const principal = await verifyWebSocketAuth(data.token, 0);
+            if (!principal || !hasWebSocketPermission(principal, 'view_server_logs')) {
+              ws.send(JSON.stringify({ type: 'ERROR', message: 'Server log permission required' }));
+              return;
+            }
+            (ws as any).wsPrincipal = principal;
+
             const { category, logName } = data;
             const subscriptionKey = `${category}:${logName}`;
 
@@ -989,10 +1096,12 @@ async function startServer() {
           // Handle player events subscription (level 57+ only)
           if (data.type === 'SUBSCRIBE_PLAYER_EVENTS') {
             logger.info('[WebSocket] SUBSCRIBE_PLAYER_EVENTS received');
-            if (!await verifyWebSocketAuth(data.token, 57)) {
+            const principal = await verifyWebSocketAuth(data.token, 57);
+            if (!principal) {
               logger.warn('[WebSocket] player events subscription auth failed');
               return;
             }
+            (ws as any).wsPrincipal = principal;
             (ws as any).playerEventsSubscribed = true;
             logger.info('[WebSocket] client subscribed to player events');
           }
@@ -1003,7 +1112,9 @@ async function startServer() {
 
           // Handle wholist subscription (level 57+ only)
           if (data.type === 'SUBSCRIBE_WHOLIST') {
-            if (!await verifyWebSocketAuth(data.token, 57)) return;
+            const principal = await verifyWebSocketAuth(data.token, 57);
+            if (!principal) return;
+            (ws as any).wsPrincipal = principal;
             (ws as any).wholistSubscribed = true;
           }
 
@@ -1131,6 +1242,28 @@ async function startServer() {
               return;
             }
 
+            const principal = await authorizeZoneStream(ws, data.token, zoneId);
+            if (!principal) {
+              ws.send(JSON.stringify({
+                type: 'ZONE_STREAM_ERROR',
+                zoneId,
+                streamType,
+                message: 'Authentication or zone view permission required',
+              }));
+              return;
+            }
+
+            const streamKey = `zone:${zoneId}:${streamType}`;
+            if (!wsStreamLimiter.acquire(ws, streamKey)) {
+              ws.send(JSON.stringify({
+                type: 'ZONE_STREAM_ERROR',
+                zoneId,
+                streamType,
+                message: 'Too many active zone streams',
+              }));
+              return;
+            }
+
             try {
               // Get total count first
               const counts = await countZoneItems(zoneId);
@@ -1187,6 +1320,8 @@ async function startServer() {
                   message: getErrorMessage(error),
                 }));
               }
+            } finally {
+              wsStreamLimiter.release(ws, streamKey);
             }
           }
 
@@ -1199,6 +1334,26 @@ async function startServer() {
                 type: 'ZONE_RESETS_STREAM_ERROR',
                 zoneId,
                 message: 'Invalid zone ID',
+              }));
+              return;
+            }
+
+            const principal = await authorizeZoneStream(ws, data.token, zoneId);
+            if (!principal) {
+              ws.send(JSON.stringify({
+                type: 'ZONE_RESETS_STREAM_ERROR',
+                zoneId,
+                message: 'Authentication or zone view permission required',
+              }));
+              return;
+            }
+
+            const streamKey = `resets:${zoneId}`;
+            if (!wsStreamLimiter.acquire(ws, streamKey)) {
+              ws.send(JSON.stringify({
+                type: 'ZONE_RESETS_STREAM_ERROR',
+                zoneId,
+                message: 'Too many active zone streams',
               }));
               return;
             }
@@ -1250,6 +1405,8 @@ async function startServer() {
                   message: getErrorMessage(error),
                 }));
               }
+            } finally {
+              wsStreamLimiter.release(ws, streamKey);
             }
           }
 
