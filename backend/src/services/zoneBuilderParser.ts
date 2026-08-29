@@ -4,7 +4,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import logger from '../utils/logger.js';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { pool } from '../db/connection.js';
 import type { RowDataPacket } from 'mysql2';
@@ -1548,7 +1548,7 @@ export async function saveZonePositions(
 // Global Search across all zones
 // ========================================
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export interface GlobalSearchResult {
   type: 'room' | 'mob' | 'object';
@@ -1573,12 +1573,13 @@ function stripAnsiForSearch(text: string): string {
   return text.replace(/&[+=-][A-Za-z]|&[nN]/g, '').toLowerCase();
 }
 
-// Use grep to quickly find files containing the search term
+// Use grep to quickly find files containing the search term without a shell.
 async function grepFiles(dir: string, pattern: string, extension: string): Promise<string[]> {
   try {
-    // Use grep -l to list files containing the pattern (case insensitive)
-    const { stdout } = await execAsync(
-      `grep -ril "${pattern.replace(/"/g, '\\"')}" "${dir}" --include="*.${extension}" 2>/dev/null || true`,
+    // Use fixed-string matching so the prefilter matches the later includes() checks.
+    const { stdout } = await execFileAsync(
+      'grep',
+      ['-r', '-i', '-l', '-F', `--include=*.${extension}`, '--', pattern, dir],
       { maxBuffer: 10 * 1024 * 1024 }
     );
     return stdout.trim().split('\n').filter(f => f.length > 0);
