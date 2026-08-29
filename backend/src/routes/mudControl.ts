@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
 import type { IRouter } from 'express';
 import logger from '../utils/logger.js';
-import { body, validationResult } from 'express-validator';
+import rateLimit from 'express-rate-limit';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
+import { validateMudControlReasonPayload } from '../utils/mudControlValidation.js';
 import {
   getMudState,
   startMud,
@@ -11,6 +12,14 @@ import {
 } from '../services/mudControlService.js';
 
 const router: IRouter = Router();
+
+const mudControlLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many MUD control requests; please try again later' },
+});
 
 /**
  * GET /api/mud/status
@@ -44,6 +53,7 @@ router.post(
   '/start',
   requireAuth,
   requirePermission('mud_control'),
+  mudControlLimiter,
   async (req: Request, res: Response) => {
     try {
       const accountName = req.user!.accountName;
@@ -52,19 +62,19 @@ router.post(
       const result = await startMud(accountName, ipAddress);
 
       if (result.success) {
-        res.json({
+        return res.json({
           success: true,
           message: result.message,
         });
       } else {
-        res.status(400).json({
+        return res.status(400).json({
           success: false,
           message: result.message,
         });
       }
     } catch (error) {
       logger.error('Error starting MUD:', error);
-      res.status(500).json({ error: 'Failed to start MUD' });
+      return res.status(500).json({ error: 'Failed to start MUD' });
     }
   }
 );
@@ -77,16 +87,14 @@ router.post(
   '/stop',
   requireAuth,
   requirePermission('mud_control'),
-  body('reason').notEmpty().withMessage('Reason is required'),
+  mudControlLimiter,
   async (req: Request, res: Response) => {
-    // Validate request
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ error: errors.array()[0].msg });
-      return;
-    }
-
     try {
+      const validationError = validateMudControlReasonPayload(req.body);
+      if (validationError) {
+        return res.status(400).json({ error: validationError });
+      }
+
       const accountName = req.user!.accountName;
       const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
       const { reason } = req.body;
@@ -94,19 +102,19 @@ router.post(
       const result = await stopMud(accountName, ipAddress, reason);
 
       if (result.success) {
-        res.json({
+        return res.json({
           success: true,
           message: result.message,
         });
       } else {
-        res.status(400).json({
+        return res.status(400).json({
           success: false,
           message: result.message,
         });
       }
     } catch (error) {
       logger.error('Error stopping MUD:', error);
-      res.status(500).json({ error: 'Failed to stop MUD' });
+      return res.status(500).json({ error: 'Failed to stop MUD' });
     }
   }
 );
@@ -119,16 +127,14 @@ router.post(
   '/restart',
   requireAuth,
   requirePermission('mud_control'),
-  body('reason').notEmpty().withMessage('Reason is required'),
+  mudControlLimiter,
   async (req: Request, res: Response) => {
-    // Validate request
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ error: errors.array()[0].msg });
-      return;
-    }
-
     try {
+      const validationError = validateMudControlReasonPayload(req.body);
+      if (validationError) {
+        return res.status(400).json({ error: validationError });
+      }
+
       const accountName = req.user!.accountName;
       const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
       const { reason } = req.body;
@@ -136,19 +142,19 @@ router.post(
       const result = await restartMud(accountName, ipAddress, reason);
 
       if (result.success) {
-        res.json({
+        return res.json({
           success: true,
           message: result.message,
         });
       } else {
-        res.status(400).json({
+        return res.status(400).json({
           success: false,
           message: result.message,
         });
       }
     } catch (error) {
       logger.error('Error restarting MUD:', error);
-      res.status(500).json({ error: 'Failed to restart MUD' });
+      return res.status(500).json({ error: 'Failed to restart MUD' });
     }
   }
 );

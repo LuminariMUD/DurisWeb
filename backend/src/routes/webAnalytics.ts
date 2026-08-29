@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { requireAuth, requireOverlord } from '../middleware/auth.js';
 import logger from '../utils/logger.js';
+import { validateAnalyticsTrackingPayload } from '../utils/analyticsValidation.js';
 import {
   trackPageView,
   getWebOverviewStats,
@@ -18,12 +20,25 @@ import {
 
 const router: Router = Router();
 
+const analyticsTrackLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many analytics events; please try again later' },
+});
+
 /**
  * POST /api/analytics/track
  * Track a page view (public endpoint, rate-limited)
  */
-router.post('/track', async (req: Request, res: Response) => {
+router.post('/track', analyticsTrackLimiter, async (req: Request, res: Response) => {
   try {
+    const validationError = validateAnalyticsTrackingPayload(req.body);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
+    }
+
     const {
       sessionId,
       path,

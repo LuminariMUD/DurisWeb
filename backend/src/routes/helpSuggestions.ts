@@ -1,12 +1,34 @@
 import { Router, type Router as ExpressRouter } from 'express';
+import rateLimit from 'express-rate-limit';
 import { getErrorMessage } from '../utils/logger.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { extractClientIP } from '../utils/ipExtractor.js';
 import { pool } from '../db/connection.js';
+import {
+  parseHelpSuggestionId,
+  validateCreateHelpSuggestionPayload,
+  validateReviewHelpSuggestionPayload,
+  validateUpdateHelpSuggestionPayload,
+} from '../utils/helpSuggestionValidation.js';
 import * as helpSuggestionService from '../services/helpSuggestionService.js';
 import type { SuggestionStatus, ReviewAction } from '../services/helpSuggestionService.js';
 
 const router: ExpressRouter = Router();
+
+const suggestionMutationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many suggestion mutations; please try again later' },
+});
+const suggestionCreateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many new suggestions; please try again later' },
+});
 
 // Helper function to log admin actions
 async function logAdminAction(
@@ -47,8 +69,13 @@ router.get('/guide/suggestions', requireAuth, async (req, res) => {
 });
 
 // POST /api/guide/suggestions - Submit a new suggestion
-router.post('/guide/suggestions', requireAuth, async (req, res) => {
+router.post('/guide/suggestions', requireAuth, suggestionCreateLimiter, async (req, res) => {
   try {
+    const validationError = validateCreateHelpSuggestionPayload(req.body);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
+    }
+
     const accountName = req.user!.accountName;
     const ipAddress = extractClientIP(req);
     const { suggestionType, pageId, title, text, categoryId, seeAlso, submitterNotes } = req.body;
@@ -90,10 +117,10 @@ router.post('/guide/suggestions', requireAuth, async (req, res) => {
 // GET /api/guide/suggestions/:id - Get a specific suggestion (own only)
 router.get('/guide/suggestions/:id', requireAuth, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseHelpSuggestionId(req.params.id);
     const accountName = req.user!.accountName;
 
-    if (isNaN(id)) {
+    if (id === null) {
       return res.status(400).json({ error: 'Invalid suggestion ID' });
     }
 
@@ -114,13 +141,18 @@ router.get('/guide/suggestions/:id', requireAuth, async (req, res) => {
 });
 
 // PATCH /api/guide/suggestions/:id - Update own pending suggestion
-router.patch('/guide/suggestions/:id', requireAuth, async (req, res) => {
+router.patch('/guide/suggestions/:id', requireAuth, suggestionMutationLimiter, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseHelpSuggestionId(req.params.id);
     const accountName = req.user!.accountName;
 
-    if (isNaN(id)) {
+    if (id === null) {
       return res.status(400).json({ error: 'Invalid suggestion ID' });
+    }
+
+    const validationError = validateUpdateHelpSuggestionPayload(req.body);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
     }
 
     const { title, text, categoryId, seeAlso, submitterNotes } = req.body;
@@ -148,12 +180,12 @@ router.patch('/guide/suggestions/:id', requireAuth, async (req, res) => {
 });
 
 // DELETE /api/guide/suggestions/:id - Cancel own pending suggestion
-router.delete('/guide/suggestions/:id', requireAuth, async (req, res) => {
+router.delete('/guide/suggestions/:id', requireAuth, suggestionMutationLimiter, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseHelpSuggestionId(req.params.id);
     const accountName = req.user!.accountName;
 
-    if (isNaN(id)) {
+    if (id === null) {
       return res.status(400).json({ error: 'Invalid suggestion ID' });
     }
 
@@ -199,9 +231,9 @@ router.get('/admin/help-suggestions/pending-count', requireAuth, requirePermissi
 // GET /api/admin/help-suggestions/:id - Get suggestion details for review
 router.get('/admin/help-suggestions/:id', requireAuth, requirePermission('manage_help_suggestions'), async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseHelpSuggestionId(req.params.id);
 
-    if (isNaN(id)) {
+    if (id === null) {
       return res.status(400).json({ error: 'Invalid suggestion ID' });
     }
 
@@ -217,21 +249,22 @@ router.get('/admin/help-suggestions/:id', requireAuth, requirePermission('manage
 });
 
 // PATCH /api/admin/help-suggestions/:id/review - Approve/Reject/Request revision
-router.patch('/admin/help-suggestions/:id/review', requireAuth, requirePermission('manage_help_suggestions'), async (req, res) => {
+router.patch('/admin/help-suggestions/:id/review', requireAuth, requirePermission('manage_help_suggestions'), suggestionMutationLimiter, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseHelpSuggestionId(req.params.id);
     const accountName = req.user!.accountName;
     const ipAddress = extractClientIP(req);
 
-    if (isNaN(id)) {
+    if (id === null) {
       return res.status(400).json({ error: 'Invalid suggestion ID' });
     }
 
-    const { action, reviewerNotes } = req.body as { action: ReviewAction; reviewerNotes?: string };
-
-    if (!action || !['approve', 'reject', 'needs_revision'].includes(action)) {
-      return res.status(400).json({ error: 'Invalid action. Must be approve, reject, or needs_revision' });
+    const validationError = validateReviewHelpSuggestionPayload(req.body);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
     }
+
+    const { action, reviewerNotes } = req.body as { action: ReviewAction; reviewerNotes?: string };
 
     // Get suggestion before review for logging
     const beforeSuggestion = await helpSuggestionService.getSuggestionById(id);
