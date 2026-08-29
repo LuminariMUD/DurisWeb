@@ -130,9 +130,9 @@ router.get('/stats', async (_req, res, next) => {
 // GET /api/zones/:number - Get single zone by number
 router.get('/:number', async (req, res, next) => {
   try {
-    const zoneNumber = Number(req.params.number);
+    const zoneNumber = parseZoneNumber(req.params.number);
 
-    if (isNaN(zoneNumber)) {
+    if (zoneNumber === null) {
       res.status(400).json({ error: 'Invalid zone number' });
       return;
     }
