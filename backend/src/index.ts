@@ -56,7 +56,7 @@ import {
   getSessionByWebSocket,
   isTerminalOperationAuthorized
 } from './services/terminalService.js';
-import { verifyToken } from './middleware/auth.js';
+import { verifyToken, verifyTerminalToken, isAccessToken } from './middleware/auth.js';
 import { parseAccountFile } from './services/accountService.js';
 import { hasActiveWebSession } from './services/sessionService.js';
 import { getUserPermissions, type UserPermissions } from './services/permissionService.js';
@@ -844,8 +844,8 @@ async function verifyWebSocketAuth(
     return null;
   }
   const payload = verifyToken(token);
-  if (!payload) {
-    logger.warn('[verifyWebSocketAuth] invalid token');
+  if (!isAccessToken(payload)) {
+    logger.warn('[verifyWebSocketAuth] invalid or non-access token');
     return null;
   }
   if (!payload.sid || !await hasActiveWebSession(payload.accountName, payload.sid)) {
@@ -1127,8 +1127,8 @@ async function startServer() {
             try {
               const { token, cols, rows } = data;
 
-              // Verify JWT token
-              const payload = verifyToken(token);
+              // Verify the short-lived terminal capability
+              const payload = verifyTerminalToken(token);
               if (!payload) {
                 ws.send(JSON.stringify({
                   type: 'TERMINAL_ERROR',
@@ -1426,7 +1426,7 @@ async function startServer() {
 
               // Verify JWT token
               const payload = verifyToken(token);
-              if (!payload) {
+              if (!isAccessToken(payload)) {
                 ws.send(JSON.stringify({
                   type: 'DEPLOY_ERROR',
                   message: 'Invalid or expired token',

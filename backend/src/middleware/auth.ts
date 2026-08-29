@@ -25,6 +25,7 @@ export interface JWTPayload {
   accountName: string;
   email: string;
   sid: string;
+  tokenType?: 'access' | 'refresh' | 'terminal';
   iat: number;
   exp: number;
 }
@@ -48,7 +49,7 @@ const JWT_REFRESH_EXPIRY = '30d'; // Refresh token expires in 30 days
  */
 export function generateAccessToken(accountName: string, email: string, sessionId: string): string {
   return jwt.sign(
-    { accountName, email, sid: sessionId },
+    { accountName, email, sid: sessionId, tokenType: 'access' },
     JWT_SECRET,
     { expiresIn: JWT_ACCESS_EXPIRY }
   );
@@ -59,10 +60,34 @@ export function generateAccessToken(accountName: string, email: string, sessionI
  */
 export function generateRefreshToken(accountName: string, email: string, sessionId: string): string {
   return jwt.sign(
-    { accountName, email, sid: sessionId },
+    { accountName, email, sid: sessionId, tokenType: 'refresh' },
     JWT_SECRET,
     { expiresIn: JWT_REFRESH_EXPIRY }
   );
+}
+
+export function generateTerminalToken(accountName: string, email: string, sessionId: string): string {
+  return jwt.sign(
+    { accountName, email, sid: sessionId, tokenType: 'terminal' },
+    JWT_SECRET,
+    { expiresIn: '5m' }
+  );
+}
+
+/**
+ * Verify a short-lived terminal-only capability.
+ */
+export function verifyTerminalToken(token: string): JWTPayload | null {
+  const payload = verifyToken(token);
+  return payload?.tokenType === 'terminal' ? payload : null;
+}
+
+export function isAccessToken(payload: JWTPayload | null): payload is JWTPayload {
+  return payload !== null && (payload.tokenType === undefined || payload.tokenType === 'access');
+}
+
+export function isRefreshToken(payload: JWTPayload | null): payload is JWTPayload {
+  return payload !== null && (payload.tokenType === undefined || payload.tokenType === 'refresh');
 }
 
 /**
@@ -97,7 +122,7 @@ export async function requireAuth(
     // Verify token
     const payload = verifyToken(token);
 
-    if (!payload) {
+    if (!isAccessToken(payload)) {
       res.status(401).json({ error: 'Invalid or expired token' });
       return;
     }
@@ -315,7 +340,7 @@ export async function optionalAuth(
     // Verify token
     const payload = verifyToken(token);
 
-    if (!payload) {
+    if (!isAccessToken(payload)) {
       // Invalid token - continue as anonymous user
       next();
       return;

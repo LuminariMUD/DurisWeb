@@ -107,6 +107,16 @@ export function useAuth() {
   }
 
   /**
+   * Clear local authentication state after the server revokes the session.
+   */
+  function clearAuthenticatedState(): void {
+    user.value = null
+    selectedCharacter.value = null
+    error.value = null
+    clearMudCredentials()
+  }
+
+  /**
    * Logout
    */
   async function logout(): Promise<void> {
@@ -290,6 +300,7 @@ export function useAuth() {
     // Actions
     login,
     logout,
+    clearAuthenticatedState,
     refresh,
     loadUser,
     checkAuth,

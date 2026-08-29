@@ -33,4 +33,36 @@ describe('useAuth anonymous session restore', () => {
     expect(auth.error.value).toBeNull()
     expect(auth.isLoading.value).toBe(false)
   })
+
+  it('clears local auth and MUD credential state after server-side revocation', () => {
+    const auth = useAuth()
+    auth.user.value = {
+      accountName: 'Cwial',
+      email: 'cwial@example.invalid',
+      avatarUrl: null,
+      characters: [],
+      permissions: {
+        role: 'player',
+        immortalLevel: null,
+        maxLevel: 1,
+        canAccessImmortalForum: false,
+        canAccessGodForum: false,
+        guilds: [],
+        canModerate: false,
+        canBan: false,
+        canEditPosts: false,
+        canDeletePosts: false,
+        canPinThreads: false,
+        canLockThreads: false,
+        adminPermissions: [],
+      },
+    }
+    auth.storeMudCredentials('Cwial', 'temporary-password')
+
+    auth.clearAuthenticatedState()
+
+    expect(auth.user.value).toBeNull()
+    expect(auth.selectedCharacter.value).toBeNull()
+    expect(sessionStorage.getItem('mud_session_creds')).toBeNull()
+  })
 })

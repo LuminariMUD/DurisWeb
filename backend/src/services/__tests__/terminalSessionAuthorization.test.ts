@@ -12,8 +12,10 @@ const pty = {
   resize: jest.fn(),
 };
 
+const spawn = jest.fn(() => pty);
+
 jest.unstable_mockModule('node-pty', () => ({
-  spawn: jest.fn(() => pty),
+  spawn,
 }));
 jest.unstable_mockModule('../../db/connection.js', () => ({
   pool: { execute },
@@ -42,6 +44,8 @@ describe('terminal WebSocket session authorization', () => {
     pty.kill.mockReset();
     pty.write.mockReset();
     pty.resize.mockReset();
+    spawn.mockReset();
+    spawn.mockImplementation(() => pty);
   });
 
   afterEach(async () => {
@@ -85,5 +89,39 @@ describe('terminal WebSocket session authorization', () => {
     expect(rebound.sessionId).toBe(first.sessionId);
     expect(terminalService.getSessionByWebSocket(firstSocket as never)).toBeUndefined();
     expect(terminalService.getSessionByWebSocket(secondSocket as never)).toBe(first.sessionId);
+  });
+
+  it('passes an isolated tmux namespace and bashrc path to the PTY', async () => {
+    execute
+      .mockResolvedValueOnce([{ insertId: 12 }])
+      .mockResolvedValue([]);
+
+    const ws = fakeWebSocket();
+    await terminalService.createSession('Cwial', ws as never);
+
+    const [, commandArgs, options] = spawn.mock.calls[0] as unknown as [string, string[], { env: Record<string, string> }];
+    expect(options.env.DURIS_TMUX_SESSION).toBe('duris-Cwial-12');
+    expect(options.env.DURIS_BASHRC_PATH).toBe('/tmp/.duris_bashrc-12');
+    expect(commandArgs.join(' ')).toContain('$DURIS_TMUX_SESSION');
+    expect(commandArgs.join(' ')).toContain('$DURIS_BASHRC_PATH');
+  });
+
+  it('destroys all active terminal sessions for an account', async () => {
+    execute
+      .mockResolvedValueOnce([{ insertId: 13 }])
+      .mockResolvedValue([]);
+
+    const ws = fakeWebSocket();
+    await terminalService.createSession('Cwial', ws as never);
+    await terminalService.cleanupAccountSessions('Cwial');
+
+    expect(terminalService.getAccountSessions('Cwial')).toEqual([]);
+    expect(terminalService.getActiveSessionCount()).toBe(0);
+    expect(pty.kill).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses an account- and session-specific tmux namespace', () => {
+    expect(terminalService.getTerminalSessionName('Cwial', 8)).toBe('duris-Cwial-8');
+    expect(terminalService.getTerminalSessionName('name with spaces', 9)).toMatch(/^duris-name_with_spaces-9$/);
   });
 });

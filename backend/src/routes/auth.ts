@@ -18,13 +18,19 @@ import {
   generateAccessToken,
   generateRefreshToken,
   verifyToken,
+  isAccessToken,
+  isRefreshToken,
   requireAuth,
-  optionalAuth
+  optionalAuth,
+  generateTerminalToken
 } from '../middleware/auth.js';
 import {
   hasActiveWebSession,
   hasMatchingRefreshSession,
+  revokeAllWebSessions,
 } from '../services/sessionService.js';
+
+import { cleanupAccountSessions } from '../services/terminalService.js';
 
 const router: IRouter = Router();
 
@@ -181,7 +187,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
 
     // Verify refresh token
     const payload = verifyToken(refreshToken);
-    if (!payload) {
+    if (!isRefreshToken(payload)) {
       return res.status(401).json({ error: 'Invalid or expired refresh token' });
     }
 
@@ -267,7 +273,7 @@ router.get('/check', async (req: Request, res: Response) => {
 
     const payload = verifyToken(accessToken);
 
-    if (!payload || !payload.sid || !await hasActiveWebSession(payload.accountName, payload.sid)) {
+    if (!isAccessToken(payload) || !payload.sid || !await hasActiveWebSession(payload.accountName, payload.sid)) {
       return res.json({ authenticated: false });
     }
 
@@ -295,7 +301,12 @@ router.get('/terminal-token', requireAuth, async (req: Request, res: Response) =
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
-  return res.json({ token: accessToken });
+  const terminalToken = generateTerminalToken(
+    req.user!.accountName,
+    req.user!.email,
+    req.user!.sessionId,
+  );
+  return res.json({ token: terminalToken });
 });
 
 /**
@@ -342,6 +353,10 @@ router.post(
 
       // Update the account file
       await updateAccountPassword(accountName, newPasswordHash);
+      await revokeAllWebSessions(accountName);
+      await cleanupAccountSessions(accountName);
+      res.clearCookie('access_token');
+      res.clearCookie('refresh_token');
 
       return res.json({ success: true, message: 'Password changed successfully' });
 

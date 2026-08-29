@@ -1,5 +1,6 @@
 import * as pty from 'node-pty';
 import { WebSocket } from 'ws';
+import { unlink } from 'node:fs/promises';
 import { pool } from '../db/connection.js';
 import { hasActiveWebSession } from './sessionService.js';
 import logger from '../utils/logger.js';
@@ -12,6 +13,7 @@ interface TerminalSession {
   sessionId: number;
   accountName: string;
   ws: WebSocket;
+  bashrcPath: string;
   outputBuffer: string;
   outputTimer: NodeJS.Timeout | null;
 }
@@ -24,6 +26,11 @@ const sessionsByWebSocket = new Map<WebSocket, number>();
 // Output buffer settings (batch writes to reduce DB load)
 const OUTPUT_BUFFER_INTERVAL = 500; // ms
 const OUTPUT_BUFFER_MAX_SIZE = 4096; // bytes
+
+export function getTerminalSessionName(accountName: string, sessionId: number): string {
+  const safeAccountName = accountName.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40) || 'account';
+  return `duris-${safeAccountName}-${sessionId}`;
+}
 
 /**
  * Create a new terminal session with bwrap sandboxing
@@ -61,6 +68,8 @@ export async function createSession(
       [accountName, 'active']
     );
     const sessionId = (result as any).insertId;
+    const tmuxSessionName = getTerminalSessionName(accountName, sessionId);
+    const bashrcPath = `/tmp/.duris_bashrc-${sessionId}`;
 
     // Spawn PTY with bubblewrap sandboxing
     const shell = pty.spawn('bwrap', [
@@ -88,22 +97,21 @@ export async function createSession(
       '--share-net',
       // Set working directory
       '--chdir', '/',
-      // Run tmux with colored prompt - attach to existing session or create new one
-      // All overlords share the same tmux session (can see each other's keystrokes)
+      // Run tmux with colored prompt - attach to this account/session only
       '/bin/bash', '-c', `
-        # Create a bashrc for the tmux session
-        cat > /tmp/.duris_bashrc << 'BASHRC'
+        # Create a session-specific bashrc for the tmux session
+        cat > "$DURIS_BASHRC_PATH" << 'BASHRC'
 export PS1='\\[\\033[1;32m\\]duris\\[\\033[0m\\]:\\[\\033[1;34m\\]\\w\\[\\033[0m\\]\\$ '
 export LS_COLORS='di=1;34:ln=1;36:so=1;35:pi=33:ex=1;32:bd=1;33:cd=1;33:su=1;31:sg=1;31:tw=1;34:ow=1;34'
 alias ls='ls --color=auto'
 alias ll='ls -la --color=auto'
 alias grep='grep --color=auto'
 BASHRC
-        # Check if tmux session exists
-        if tmux has-session -t duris 2>/dev/null; then
-          tmux attach -t duris
+        # Check if this account/session tmux session exists
+        if tmux has-session -t "$DURIS_TMUX_SESSION" 2>/dev/null; then
+          tmux attach -t "$DURIS_TMUX_SESSION"
         else
-          tmux new-session -s duris "bash --rcfile /tmp/.duris_bashrc"
+          tmux new-session -s "$DURIS_TMUX_SESSION" "bash --rcfile $DURIS_BASHRC_PATH"
         fi
       `
     ], {
@@ -116,7 +124,9 @@ BASHRC
         PATH: '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',
         SHELL: '/bin/bash',
         USER: process.env.USER || 'duris',
-        LANG: 'en_US.UTF-8'
+        LANG: 'en_US.UTF-8',
+        DURIS_TMUX_SESSION: tmuxSessionName,
+        DURIS_BASHRC_PATH: bashrcPath,
       }
     });
 
@@ -132,6 +142,7 @@ BASHRC
       sessionId,
       accountName,
       ws,
+      bashrcPath,
       outputBuffer: '',
       outputTimer: null
     };
@@ -315,6 +326,13 @@ async function cleanupSession(sessionId: number, status: 'ended' | 'error'): Pro
     // Process may already be dead
   }
 
+  // Remove the session-specific shell configuration after the PTY exits.
+  try {
+    await unlink(session.bashrcPath);
+  } catch {
+    // The file may already have been removed by the sandbox/process.
+  }
+
   // Update database
   try {
     await pool.execute(
@@ -352,6 +370,15 @@ async function cleanupSession(sessionId: number, status: 'ended' | 'error'): Pro
  */
 export async function cleanupAllSessions(): Promise<void> {
   for (const sessionId of activeSessions.keys()) {
+    await cleanupSession(sessionId, 'ended');
+  }
+}
+
+/**
+ * Destroy every active terminal session owned by an account.
+ */
+export async function cleanupAccountSessions(accountName: string): Promise<void> {
+  for (const sessionId of getAccountSessions(accountName)) {
     await cleanupSession(sessionId, 'ended');
   }
 }

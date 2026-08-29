@@ -7,11 +7,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useToast } from '@/composables/useToast'
+import { useAuth } from '@/composables/useAuth'
 import { authApi } from '@/services/api'
 import { Loader2, KeyRound, AlertCircle } from 'lucide-vue-next'
 
 const router = useRouter()
 const { success } = useToast()
+const { clearAuthenticatedState } = useAuth()
 
 const currentPassword = ref('')
 const newPassword = ref('')
@@ -47,8 +49,9 @@ async function handleSubmit() {
 
   try {
     await authApi.changePassword(currentPassword.value, newPassword.value)
+    clearAuthenticatedState()
     success('Password changed successfully', 'Success')
-    router.push('/')
+    router.push('/login')
   } catch (err: any) {
     error.value = err.response?.data?.error || 'Failed to change password'
   } finally {

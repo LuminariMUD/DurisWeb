@@ -1,4 +1,4 @@
-import type { RowDataPacket } from 'mysql2';
+import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../db/connection.js';
 
 interface ActiveSessionRow extends RowDataPacket {
@@ -51,4 +51,14 @@ export async function hasMatchingRefreshSession(
   refreshToken: string | undefined
 ): Promise<boolean> {
   return hasSession(accountName, sessionId, refreshToken);
+}
+
+export async function revokeAllWebSessions(accountName: string): Promise<number> {
+  if (!accountName) return 0;
+
+  const [result] = await pool.query<ResultSetHeader>(
+    'DELETE FROM web_sessions WHERE LOWER(account_name) = LOWER(?)',
+    [accountName],
+  );
+  return result.affectedRows;
 }
