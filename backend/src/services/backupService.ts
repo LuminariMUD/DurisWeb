@@ -1244,12 +1244,75 @@ export function resolveCascadeKeys(
  * assemble the final restore sql from per-table filtered row arrays.
  * wraps in FOREIGN_KEY_CHECKS toggle and a transaction so partial failure rolls back.
  */
+function splitRestoreRowValues(row: string): string[] {
+  if (!row.startsWith('(') || !row.endsWith(')')) return [];
+
+  const inner = row.slice(1, -1);
+  const values: string[] = [];
+  let start = 0;
+  let depth = 0;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let index = 0; index < inner.length; index += 1) {
+    const character = inner[index];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+    if (inString && character === '\\') {
+      escapeNext = true;
+      continue;
+    }
+    if (character === "'") {
+      if (inString && inner[index + 1] === "'") {
+        index += 1;
+        continue;
+      }
+      inString = !inString;
+      continue;
+    }
+    if (!inString) {
+      if (character === '(') depth += 1;
+      if (character === ')') depth -= 1;
+      if (character === ',' && depth === 0) {
+        values.push(inner.slice(start, index).trim());
+        start = index + 1;
+      }
+    }
+  }
+
+  if (inString || depth !== 0) return [];
+  values.push(inner.slice(start).trim());
+  return values;
+}
+
+function isSafeRestoreLiteral(value: string): boolean {
+  if (value === 'NULL' || value === 'TRUE' || value === 'FALSE') return true;
+  if (/^-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(value)) return true;
+  if (/^0x[0-9A-Fa-f]+$/.test(value)) return true;
+  if (/^[bB]'[01]*'$/.test(value) || /^[xX]'[0-9A-Fa-f]*'$/.test(value)) return true;
+  return /^(?:_[A-Za-z0-9]+|N)?'(?:[^'\\]|\\[\s\S]|'')*'$/.test(value);
+}
+
+function isSafeRestoreRow(row: string): boolean {
+  const values = splitRestoreRowValues(row);
+  return values.length > 0 && values.every(isSafeRestoreLiteral);
+}
+
 export function buildRestoreSql(filtered: Record<string, string[]>): string {
   const parts: string[] = [];
   parts.push('SET FOREIGN_KEY_CHECKS=0;');
   parts.push('START TRANSACTION;');
   for (const [tbl, rows] of Object.entries(filtered)) {
     if (rows.length === 0) continue;
+    if (!(ALL_RESTORE_TABLES as readonly string[]).includes(tbl)) {
+      throw new Error(`Unsafe restore table: ${tbl}`);
+    }
+    if (rows.some((row) => !isSafeRestoreRow(row))) {
+      throw new Error(`Unsafe SQL literal in restore table: ${tbl}`);
+    }
     parts.push('REPLACE INTO `' + tbl + '` VALUES ' + rows.join(',') + ';');
   }
   parts.push('COMMIT;');
