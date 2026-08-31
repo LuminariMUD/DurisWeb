@@ -73,7 +73,7 @@ export interface ServerHealth {
 }
 
 /**
- * get current online players from redis (mud:online)
+ * get current online players from the MUD's namespaced presence snapshot
  */
 export async function getCurrentOnlinePlayers(): Promise<number> {
   return getOnlinePlayerCount();

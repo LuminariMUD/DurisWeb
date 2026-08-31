@@ -933,7 +933,7 @@ router.get('/analytics/server', requireAuth, requireOverlord, async (_req: Reque
 
 /**
  * GET /api/admin/who
- * Get WHO list (currently online players) from mud:online redis key
+ * Get WHO list (currently online players) from the MUD's namespaced presence snapshot
  */
 router.get('/who', requireAuth, requireOverlord, async (_req: Request, res: Response) => {
   try {

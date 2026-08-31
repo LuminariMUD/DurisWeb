@@ -3,15 +3,18 @@ import express from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-const isDuplicateDonation = jest.fn<(...args: unknown[]) => Promise<boolean>>();
-const processDonation = jest.fn<(...args: unknown[]) => Promise<unknown>>();
-const publishDonationToMud = jest.fn<(...args: unknown[]) => Promise<void>>();
+const recordDonation = jest.fn<(...args: unknown[]) => Promise<{
+  duplicate: boolean;
+  eventId: string | null;
+  accountName: string | null;
+  characterName: string | null;
+  amount: number;
+  amountCents: number;
+}>>();
 const logger = { error: jest.fn(), info: jest.fn(), warn: jest.fn() };
 
-jest.unstable_mockModule('../../services/donationService.js', () => ({
-  isDuplicateDonation,
-  processDonation,
-  publishDonationToMud,
+jest.unstable_mockModule('../../services/donationService', () => ({
+  recordDonation,
 }));
 jest.unstable_mockModule('../../utils/logger.js', () => ({
   default: logger,
@@ -38,6 +41,8 @@ const validDonation = () => ({
 
 beforeAll(async () => {
   process.env.KOFI_VERIFICATION_TOKEN = verificationToken;
+  process.env.REDIS_NAMESPACE = 'duris:local:test';
+  process.env.REDIS_DONATION_SECRET = crypto.randomBytes(32).toString('hex');
   const { default: kofiRoutes } = await import('../kofi.js');
   app = express();
   app.set('trust proxy', 1);
@@ -48,14 +53,23 @@ beforeAll(async () => {
 
 beforeEach(() => {
   process.env.KOFI_VERIFICATION_TOKEN = verificationToken;
+  process.env.REDIS_NAMESPACE = 'duris:local:test';
+  process.env.REDIS_DONATION_SECRET = crypto.randomBytes(32).toString('hex');
   jest.clearAllMocks();
-  isDuplicateDonation.mockResolvedValue(false);
-  processDonation.mockResolvedValue({ characterName: null, amount: 25 });
-  publishDonationToMud.mockResolvedValue(undefined);
+  recordDonation.mockResolvedValue({
+    duplicate: false,
+    eventId: 'event-123456789012',
+    accountName: null,
+    characterName: null,
+    amount: 25,
+    amountCents: 2500,
+  });
 });
 
 afterAll(() => {
   delete process.env.KOFI_VERIFICATION_TOKEN;
+  delete process.env.REDIS_NAMESPACE;
+  delete process.env.REDIS_DONATION_SECRET;
 });
 
 describe('Ko-fi webhook validation and authentication', () => {
@@ -68,7 +82,7 @@ describe('Ko-fi webhook validation and authentication', () => {
       .send({ data: JSON.stringify(validDonation()) });
 
     expect(response.status).toBe(503);
-    expect(processDonation).not.toHaveBeenCalled();
+    expect(recordDonation).not.toHaveBeenCalled();
   });
 
   it('rejects a wrong verification token before persistence', async () => {
@@ -81,7 +95,7 @@ describe('Ko-fi webhook validation and authentication', () => {
       .send({ data: JSON.stringify(donation) });
 
     expect(response.status).toBe(403);
-    expect(processDonation).not.toHaveBeenCalled();
+    expect(recordDonation).not.toHaveBeenCalled();
   });
 
   it('rejects invalid monetary values before persistence', async () => {
@@ -94,7 +108,7 @@ describe('Ko-fi webhook validation and authentication', () => {
       .send({ data: JSON.stringify(donation) });
 
     expect(response.status).toBe(400);
-    expect(processDonation).not.toHaveBeenCalled();
+    expect(recordDonation).not.toHaveBeenCalled();
   });
 
   it('rejects missing required provider fields before persistence', async () => {
@@ -107,7 +121,7 @@ describe('Ko-fi webhook validation and authentication', () => {
       .send({ data: JSON.stringify(donation) });
 
     expect(response.status).toBe(400);
-    expect(processDonation).not.toHaveBeenCalled();
+    expect(recordDonation).not.toHaveBeenCalled();
   });
 
   it('accepts a valid signed webhook payload', async () => {
@@ -120,8 +134,32 @@ describe('Ko-fi webhook validation and authentication', () => {
       .send({ data: JSON.stringify(donation) });
 
     expect(response.status).toBe(200);
-    expect(processDonation).toHaveBeenCalledTimes(1);
-    expect(publishDonationToMud).toHaveBeenCalledTimes(1);
+    expect(recordDonation).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an oversized nested provider payload before persistence', async () => {
+    const donation = validDonation();
+    donation.message = 'x'.repeat(20_000);
+
+    const response = await request(app)
+      .post('/')
+      .set('X-Forwarded-For', '10.0.7.8')
+      .send({ data: JSON.stringify(donation) });
+
+    expect(response.status).toBe(413);
+    expect(recordDonation).not.toHaveBeenCalled();
+  });
+
+  it('returns a retryable response when durable recording fails', async () => {
+    recordDonation.mockRejectedValueOnce(new Error('database unavailable'));
+
+    const response = await request(app)
+      .post('/')
+      .set('X-Forwarded-For', '10.0.7.9')
+      .send({ data: JSON.stringify(validDonation()) });
+
+    expect(response.status).toBe(503);
+    expect(recordDonation).toHaveBeenCalledTimes(1);
   });
 
   it('rate-limits repeated webhook requests from one client', async () => {
@@ -135,6 +173,6 @@ describe('Ko-fi webhook validation and authentication', () => {
     }
 
     expect(lastResponse!.status).toBe(429);
-    expect(processDonation).toHaveBeenCalledTimes(30);
+    expect(recordDonation).toHaveBeenCalledTimes(30);
   });
 });

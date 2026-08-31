@@ -82,7 +82,7 @@ function getSystemLoad(): { load1m: number; load5m: number; load15m: number } {
 }
 
 /**
- * get online player count from mud:online redis key
+ * get online player count from the MUD's namespaced presence snapshot
  */
 export async function getOnlinePlayerCount(): Promise<number> {
   return await getOnlineCountFromRedis();

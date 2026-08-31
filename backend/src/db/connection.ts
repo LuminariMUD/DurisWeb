@@ -32,8 +32,34 @@ const dbConfig = {
   dateStrings: true,
 };
 
-// Create connection pool
+const separateMudDatabaseVariables = ['MUD_DB_HOST', 'MUD_DB_USER', 'MUD_DB_PASSWORD', 'MUD_DB_NAME'];
+const anyMudDatabaseVariable = [...separateMudDatabaseVariables, 'MUD_DB_PORT'];
+const hasSeparateMudDatabase = anyMudDatabaseVariable.some(varName => process.env[varName]);
+const missingMudDatabaseVariables = hasSeparateMudDatabase
+  ? separateMudDatabaseVariables.filter(varName => !process.env[varName])
+  : [];
+if (missingMudDatabaseVariables.length > 0) {
+  throw new Error(
+    `Incomplete authoritative MUD database configuration: ${missingMudDatabaseVariables.join(', ')}`
+  );
+}
+
+// Create connection pools. The existing pool remains the WebService pool; the
+// optional MUD pool is used only for authoritative MUD reads introduced by the
+// secure donation and presence paths. If no MUD_* variables are supplied, it
+// preserves the original same-database deployment model.
 export const pool = mysql.createPool(dbConfig);
+
+const mudDbConfig = {
+  ...dbConfig,
+  host: process.env.MUD_DB_HOST || dbConfig.host,
+  user: process.env.MUD_DB_USER || dbConfig.user,
+  password: process.env.MUD_DB_PASSWORD || dbConfig.password,
+  database: process.env.MUD_DB_NAME || dbConfig.database,
+  port: parseInt(process.env.MUD_DB_PORT || String(dbConfig.port), 10),
+};
+
+export const mudPool = hasSeparateMudDatabase ? mysql.createPool(mudDbConfig) : pool;
 
 // Health check function
 export async function checkDatabaseConnection(): Promise<boolean> {
@@ -45,6 +71,22 @@ export async function checkDatabaseConnection(): Promise<boolean> {
     return true;
   } catch (error) {
     logger.error('Database connection failed:', error);
+    return false;
+  }
+}
+
+// Health check for the authoritative MUD read pool. In the original same-database
+// deployment this is a second pool to the same target, so it remains a cheap
+// compatibility check rather than a new required deployment mode.
+export async function checkMudDatabaseConnection(): Promise<boolean> {
+  try {
+    const connection = await mudPool.getConnection();
+    await connection.ping();
+    connection.release();
+    logger.info('MUD database connection successful');
+    return true;
+  } catch (error) {
+    logger.error('MUD database connection failed:', error);
     return false;
   }
 }
@@ -95,9 +137,10 @@ export async function verifyDatabaseSchema(): Promise<void> {
 // Graceful shutdown
 export async function closeDatabaseConnection(): Promise<void> {
   try {
-    await pool.end();
-    logger.info('Database connection pool closed');
+    const pools = mudPool === pool ? [pool] : [pool, mudPool];
+    await Promise.all(pools.map((currentPool) => currentPool.end()));
+    logger.info('Database connection pools closed');
   } catch (error) {
-    logger.error('Error closing database connection:', error);
+    logger.error('Error closing database connection pools:', error);
   }
 }

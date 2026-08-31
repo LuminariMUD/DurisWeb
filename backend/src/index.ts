@@ -38,10 +38,12 @@ import { generateCsrfToken, verifyCsrfToken } from './middleware/csrf.js';
 import { configureRequestBodyParsers } from './middleware/requestLimits.js';
 import {
   checkDatabaseConnection,
+  checkMudDatabaseConnection,
   verifyDatabaseSchema,
   closeDatabaseConnection,
 } from './db/connection.js';
 import { closeRedisConnection } from './db/redis.js';
+import { startDonationOutboxPublisher, stopDonationOutboxPublisher } from './services/donationOutboxService.js';
 import { getLatestEvents, getPvPEventDetail } from './services/pvpService.js';
 import fs from 'fs';
 import { startGuildSync, stopGuildSync } from './services/guildSyncService.js';
@@ -78,6 +80,7 @@ import { cleanupOrphanImages } from './services/postImageService.js';
 import { getWebSettings } from './services/webSettingsService.js';
 import { startMudAuctionClient, stopMudAuctionClient, setAuctionBroadcaster } from './services/mudAuctionClient.js';
 import { startPlayerEventSubscriber, stopPlayerEventSubscriber, setPlayerEventBroadcaster } from './services/playerEventSubscriber.js';
+import { closeOnlinePlayersRedisConnections } from './services/onlinePlayersService.js';
 import { setNotificationBroadcaster, setNewsBroadcaster, notifyPvpBattle } from './services/unifiedNotificationService.js';
 import { updateWebSocketCount } from './services/serverHealthService.js';
 import { getCategoryAccessForAccount } from './services/categoryService.js';
@@ -789,6 +792,8 @@ const gracefulShutdown = async () => {
     });
   }
 
+  await stopDonationOutboxPublisher();
+  await closeOnlinePlayersRedisConnections();
   await closeDatabaseConnection();
   await closeRedisConnection();
 
@@ -923,7 +928,13 @@ async function startServer() {
     const isConnected = await checkDatabaseConnection();
 
     if (!isConnected) {
-      logger.error('Failed to connect to database. Exiting...');
+      logger.error('Failed to connect to WebService database. Exiting...');
+      process.exit(1);
+    }
+
+    const isMudDatabaseConnected = await checkMudDatabaseConnection();
+    if (!isMudDatabaseConnected) {
+      logger.error('Failed to connect to authoritative MUD database. Exiting...');
       process.exit(1);
     }
 
@@ -1592,8 +1603,12 @@ async function startServer() {
 
     // Initialize player event subscriber (redis pub/sub for login/logout)
     setPlayerEventBroadcaster(broadcastPlayerEvent);
-    startPlayerEventSubscriber();
-    logger.info('Player event subscriber started');
+    await startPlayerEventSubscriber();
+    logger.info('Player event subscriber initialized');
+
+    // Initialize the durable donation outbox. It remains disabled until its
+    // production delivery settings and independent HMAC secret are present.
+    startDonationOutboxPublisher();
 
     // Initialize notification broadcaster
     setNotificationBroadcaster(broadcastNotification);

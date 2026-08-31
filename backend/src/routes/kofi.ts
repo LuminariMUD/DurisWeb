@@ -4,11 +4,10 @@ import crypto from 'node:crypto';
 import rateLimit from 'express-rate-limit';
 import logger from '../utils/logger.js';
 import {
-  isDuplicateDonation,
-  processDonation,
-  publishDonationToMud,
+  recordDonation,
   type KofiDonation,
 } from '../services/donationService.js';
+import { DonationDeliveryConfigurationError } from '../utils/donationEvent.js';
 import { validateKofiDonationPayload } from '../utils/kofiValidation.js';
 
 const router: IRouter = Router();
@@ -20,6 +19,8 @@ const kofiWebhookLimiter = rateLimit({
   legacyHeaders: false,
   message: 'Too many webhook requests, please try again later',
 });
+
+const MAX_KOFI_DATA_BYTES = 16 * 1024;
 
 /**
  * POST /kofihook
@@ -35,6 +36,11 @@ router.post('/', kofiWebhookLimiter, async (req: Request, res: Response): Promis
     if (typeof dataString !== 'string' || dataString.length === 0) {
       logger.warn('kofi webhook: missing data field');
       res.status(400).send('invalid data');
+      return;
+    }
+    if (Buffer.byteLength(dataString, 'utf8') > MAX_KOFI_DATA_BYTES) {
+      logger.warn('kofi webhook: data field exceeds size limit');
+      res.status(413).send('data too large');
       return;
     }
 
@@ -82,31 +88,26 @@ router.post('/', kofiWebhookLimiter, async (req: Request, res: Response): Promis
       return;
     }
 
-    // check for duplicate (ko-fi retries on non-200)
-    if (await isDuplicateDonation(donation.message_id)) {
-      logger.info(`kofi webhook: duplicate donation ${donation.message_id}, ignoring`);
+    const result = await recordDonation(donation);
+    if (result.duplicate) {
       res.status(200).send('ok');
       return;
     }
 
-    // process the donation
-    const { characterName, amount } = await processDonation(donation);
-
-    // publish to mud nchat
-    await publishDonationToMud(
-      characterName,
-      amount,
-      donation.currency || 'USD',
-      donation.message,
-      donation.is_public
-    );
-
-    logger.info(`kofi webhook: processed ${donation.type} of $${donation.amount} from ${donation.from_name}`);
+    // A 200 response means the donation is durably recorded in the WebService
+    // outbox. The worker owns MUD publication and its retry/reconciliation path.
+    logger.info(`kofi webhook: accepted donation event ${result.eventId}`);
     res.status(200).send('ok');
   } catch (error) {
-    logger.error('kofi webhook error:', error);
-    // still return 200 to prevent ko-fi from retrying on our errors
-    res.status(200).send('ok');
+    if (error instanceof DonationDeliveryConfigurationError) {
+      logger.error('kofi webhook: donation delivery is not configured');
+      res.status(503).send('donation delivery unavailable');
+      return;
+    }
+    const message = error instanceof Error ? error.message : 'unknown internal error';
+    logger.error(`kofi webhook unavailable: ${message}`);
+    // Do not acknowledge an event that was not durably recorded. Ko-fi can retry.
+    res.status(503).send('temporarily unavailable');
   }
 });
 
