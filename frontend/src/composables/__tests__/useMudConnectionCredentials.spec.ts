@@ -25,6 +25,7 @@ const { store, storeMudCredentials, clearMudCredentials, getMudCredentials, sock
 class FakeSocket {
   static OPEN = 1
   readyState = FakeSocket.OPEN
+  onopen: (() => void) | null = null
   onmessage: ((event: { data: string }) => void) | null = null
   onclose: (() => void) | null = null
   onerror: ((error: unknown) => void) | null = null
@@ -97,7 +98,7 @@ vi.mock('@/composables/useTriggers', () => ({
 }))
 
 vi.mock('@/utils/duriswebAuth', () => ({
-  generateDurisWebSignature: vi.fn(async () => 'test-signature'),
+  buildDurisWebClientInfo: vi.fn(() => ({ client: 'DurisWeb', version: '1.0.0' })),
 }))
 
 import { useMudConnection } from '../useMudConnection'
@@ -142,6 +143,19 @@ describe('useMudConnection credential lifecycle', () => {
     window.__mudWebSocket = null
     vi.unstubAllGlobals()
     vi.useRealTimers()
+  })
+
+  it('sends non-privileged client metadata on connection open', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    sockets[0]!.onopen?.()
+
+    expect(JSON.parse(sockets[0]!.sent[0]!)).toEqual({
+      type: 'gmcp',
+      package: 'Client.Info',
+      data: { client: 'DurisWeb', version: '1.0.0' },
+    })
+    expect(JSON.parse(sockets[0]!.sent[0]!).data).not.toHaveProperty('sig')
   })
 
   it('stores pending credentials only after a successful auth response', async () => {

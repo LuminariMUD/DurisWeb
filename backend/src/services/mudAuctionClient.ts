@@ -14,6 +14,7 @@ import { pool as db } from '../db/connection.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { getDmsProcessStats } from './processMonitor.js';
 import redis from '../db/redis.js';
+import { getOnlinePlayers as getOnlinePlayersFromPresence } from './onlinePlayersService.js';
 
 const MUD_BOOT_TIME_KEY = 'mud:boot_timestamp';
 
@@ -70,6 +71,7 @@ export interface AuctionCloseEvent {
 type AuctionBroadcaster = (type: string, data: any) => void;
 
 let ws: WebSocket | null = null;
+let isAuthenticated = false;
 let reconnectTimeout: NodeJS.Timeout | null = null;
 let broadcaster: AuctionBroadcaster | null = null;
 let playerEventBroadcaster: AuctionBroadcaster | null = null;
@@ -91,16 +93,70 @@ const pendingRequests = new Map<string, PendingRequest>();
 let requestIdCounter = 0;
 
 /**
- * generate hmac signature for durisweb authentication
+ * Generate the challenge-bound HMAC signature required by DurisMUD.
+ *
+ * The service secret is intentionally fail-closed: it must be supplied by the
+ * deployment environment and is never embedded in source or replaced with a
+ * known default.
  */
-function generateDuriswebSig(): string {
-  const secret = process.env.DURISWEB_SECRET || 'Dur1sM4pK3y2025xYz!';
-  const minute = Math.floor(Date.now() / 60000);
-  const ts = minute.toString();
+function generateDuriswebSig(challenge: string): string {
+  if (!/^[0-9a-f]{64}$/i.test(challenge)) {
+    throw new Error('Invalid DurisWeb authentication challenge');
+  }
 
-  const hmac = crypto.createHmac('sha256', secret);
-  hmac.update(ts);
-  return hmac.digest('hex');
+  const secret = process.env.DURISWEB_SECRET;
+  if (!secret || Buffer.byteLength(secret, 'utf8') < 32) {
+    throw new Error('DURISWEB_SECRET must contain at least 32 bytes');
+  }
+
+  const minute = Math.floor(Date.now() / 60000);
+  return crypto
+    .createHmac('sha256', secret)
+    .update(`${minute}:${challenge}`)
+    .digest('hex');
+}
+
+function handleDuriswebChallenge(socket: WebSocket, message: any): void {
+  const challenge = message?.nonce;
+  if (typeof challenge !== 'string' || !/^[0-9a-f]{64}$/i.test(challenge)) {
+    logger.error('[MUD Auction] Invalid authentication challenge received');
+    socket.close();
+    return;
+  }
+
+  try {
+    socket.send(JSON.stringify({
+      type: 'cmd',
+      cmd: 'durisweb_auth',
+      data: {
+        sig: generateDuriswebSig(challenge),
+      },
+    }));
+    logger.info('[MUD Auction] Sent durisweb_auth response');
+  } catch (error) {
+    logger.error('[MUD Auction] Could not answer authentication challenge:', error);
+    socket.close();
+  }
+}
+
+function resolveMudWebSocketUrl(wsPort: string): string {
+  const configuredUrl = process.env.MUD_WS_URL?.trim();
+  const configuredHost = process.env.MUD_WS_HOST?.trim() || '127.0.0.1';
+  const candidate = configuredUrl || `ws://${configuredHost}:${wsPort}`;
+  let parsed: URL;
+
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    throw new Error('MUD_WS_URL is not a valid WebSocket URL');
+  }
+  if (parsed.protocol !== 'ws:' && parsed.protocol !== 'wss:') {
+    throw new Error('MUD WebSocket URL must use ws:// or wss://');
+  }
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error('MUD WebSocket URL must not contain credentials, queries, or a fragment');
+  }
+  return parsed.toString();
 }
 
 /**
@@ -112,27 +168,24 @@ async function connect(): Promise<void> {
   try {
     const settings = await getWebSettings();
     const wsPort = settings.mudWsPort || '4050';
-    // backend always runs on same server as mud, use localhost
-    const wsUrl = `ws://localhost:${wsPort}`;
+    const wsUrl = resolveMudWebSocketUrl(wsPort);
 
     logger.info(`[MUD Auction] Connecting to ${wsUrl}...`);
 
-    ws = new WebSocket(wsUrl);
+    const socket = new WebSocket(wsUrl);
+    ws = socket;
 
-    ws.on('open', () => {
+    socket.on('open', () => {
+      isAuthenticated = false;
       logger.info('[MUD Auction] Connected to MUD websocket');
 
-      // send durisweb_auth command
-      const authMsg = {
+      // Request a one-time, connection-bound challenge before authenticating.
+      socket.send(JSON.stringify({
         type: 'cmd',
-        cmd: 'durisweb_auth',
-        data: {
-          sig: generateDuriswebSig(),
-        },
-      };
-
-      ws?.send(JSON.stringify(authMsg));
-      logger.info('[MUD Auction] Sent durisweb_auth');
+        cmd: 'durisweb_challenge',
+        data: {},
+      }));
+      logger.info('[MUD Auction] Sent durisweb_challenge');
 
       // start ping interval
       if (pingInterval) clearInterval(pingInterval);
@@ -143,27 +196,31 @@ async function connect(): Promise<void> {
       }, PING_INTERVAL);
     });
 
-    ws.on('message', (data: WebSocket.Data) => {
+    socket.on('message', (data: WebSocket.Data) => {
       try {
         const msg = JSON.parse(data.toString());
-        handleMessage(msg);
+        if (msg?.type === 'durisweb_challenge') {
+          handleDuriswebChallenge(socket, msg);
+          return;
+        }
+        handleMessage(socket, msg);
       } catch (err) {
         logger.error('[MUD Auction] Error parsing message:', err);
       }
     });
 
-    ws.on('close', (code, reason) => {
+    socket.on('close', (code, reason) => {
       logger.info(`[MUD Auction] Connection closed: ${code} ${reason}`);
       handleWebSocketClose();
       cleanup();
       scheduleReconnect();
     });
 
-    ws.on('error', (err) => {
+    socket.on('error', (err) => {
       logger.error('[MUD Auction] WebSocket error:', err);
     });
 
-    ws.on('pong', () => {
+    socket.on('pong', () => {
       // connection is alive
     });
 
@@ -176,13 +233,21 @@ async function connect(): Promise<void> {
 /**
  * handle websocket messages from MUD
  */
-function handleMessage(msg: any): void {
+function handleMessage(socket: WebSocket, msg: any): void {
+  if (msg?.type !== 'durisweb_auth' && !isAuthenticated) {
+    logger.warn(`[MUD Auction] Ignoring pre-authentication message: ${String(msg?.type || 'unknown')}`);
+    return;
+  }
+
   switch (msg.type) {
     case 'durisweb_auth':
       if (msg.success) {
+        isAuthenticated = true;
         logger.info('[MUD Auction] Authentication successful');
       } else {
+        isAuthenticated = false;
         logger.error(`[MUD Auction] Authentication failed: ${msg.error}`);
+        socket.close();
       }
       break;
 
@@ -381,7 +446,6 @@ async function handleWhoList(players: any[]): Promise<void> {
 
   // build player data in memory
   const now = Date.now();
-  const redisData: Record<string, string> = {};
   for (const p of players) {
     const player: PlayerInfo = {
       ...p,
@@ -390,19 +454,6 @@ async function handleWhoList(players: any[]): Promise<void> {
     const key = player.character.toLowerCase();
     onlinePlayers.set(key, player);
     factionCounts[getFactionKey(player.faction)]++;
-    redisData[key] = JSON.stringify(player);
-  }
-
-  // atomic redis update: clear + rebuild in single pipeline
-  try {
-    const pipe = redis.pipeline();
-    pipe.del('online_players');
-    if (Object.keys(redisData).length > 0) {
-      pipe.hmset('online_players', redisData);
-    }
-    await pipe.exec();
-  } catch (err) {
-    logger.error('[MUD] failed to sync online_players to redis:', err);
   }
 
   logger.info(`[MUD] wholist received: ${players.length} players online`);
@@ -440,13 +491,6 @@ async function handlePlayerLogin(player: PlayerInfo): Promise<void> {
     factionCounts[getFactionKey(player.faction)]++;
   }
 
-  // store in redis
-  try {
-    await redis.hset('online_players', key, JSON.stringify(player));
-  } catch (err) {
-    logger.error('[MUD] failed to store player in redis:', err);
-  }
-
   try {
     await db.query(
       'INSERT IGNORE INTO account_login_history (account_name, character_name, ip_address, status, timestamp, hostname, client, client_version) VALUES (?, ?, ?, ?, NOW(), ?, ?, ?)',
@@ -477,14 +521,7 @@ async function handlePlayerLogout(data: { character: string; faction: number }):
     if (factionCounts[fk] < 0) factionCounts[fk] = 0;
   }
 
-  // remove from redis
-  try {
-    await redis.hdel('online_players', key);
-  } catch (err) {
-    logger.error('[MUD] failed to remove player from redis:', err);
-  }
-
-  // store in db for history
+  // store in database for history
   try {
     // get account from player if we had it, otherwise lookup
     const account = player?.account;
@@ -559,6 +596,7 @@ function cleanup(): void {
     clearInterval(pingInterval);
     pingInterval = null;
   }
+  isAuthenticated = false;
   ws = null;
 }
 
@@ -616,28 +654,32 @@ export async function getMudBootTime(): Promise<number | null> {
 }
 
 /**
- * load online players from redis on startup
+ * load online players from the active MUD presence generation on startup
  */
-async function loadOnlinePlayersFromRedis(): Promise<void> {
+async function loadOnlinePlayersFromPresence(): Promise<void> {
   try {
-    const data = await redis.hgetall('online_players');
-    if (data && Object.keys(data).length > 0) {
-      onlinePlayers.clear();
-      factionCounts = { none: 0, goods: 0, evils: 0, undeads: 0, neutrals: 0 };
+    const players = await getOnlinePlayersFromPresence();
+    onlinePlayers.clear();
+    factionCounts = { none: 0, goods: 0, evils: 0, undeads: 0, neutrals: 0 };
 
-      for (const [key, value] of Object.entries(data)) {
-        try {
-          const player = JSON.parse(value) as PlayerInfo;
-          onlinePlayers.set(key, player);
-          factionCounts[getFactionKey(player.faction)]++;
-        } catch (parseErr) {
-          logger.error(`[MUD] failed to parse redis player data for ${key}:`, parseErr);
-        }
-      }
-      logger.info(`[MUD] loaded ${onlinePlayers.size} players from redis cache`);
+    for (const player of players) {
+      onlinePlayers.set(String(player.pid), {
+        character: player.name,
+        account: player.account,
+        ip: player.ip,
+        level: player.level,
+        race: player.race,
+        class: player.class,
+        faction: player.racewar,
+        client: player.client,
+        clientVersion: player.clientVersion,
+        loginTime: player.loginTime * 1000,
+      });
+      factionCounts[getFactionKey(player.racewar)]++;
     }
-  } catch (err) {
-    logger.error('[MUD] failed to load online players from redis:', err);
+    logger.info(`[MUD] loaded ${onlinePlayers.size} players from namespaced presence`);
+  } catch (error) {
+    logger.error('[MUD] failed to load namespaced presence:', error);
   }
 }
 
@@ -647,8 +689,8 @@ async function loadOnlinePlayersFromRedis(): Promise<void> {
 export async function startMudAuctionClient(): Promise<void> {
   isShuttingDown = false;
 
-  // load cached online players from redis
-  await loadOnlinePlayersFromRedis();
+  // load the current namespaced presence snapshot
+  await loadOnlinePlayersFromPresence();
 
   // check ps for mud uptime on backend start
   const processStats = await getDmsProcessStats();
@@ -715,8 +757,8 @@ async function softDeleteCharacter(accountName: string, characterName: string): 
  * Send a command to the MUD via websocket (fire and forget)
  */
 export function sendMudCommand(cmd: string, data: any): boolean {
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    logger.error('[MUD Command] WebSocket not connected');
+  if (!ws || ws.readyState !== WebSocket.OPEN || !isAuthenticated) {
+    logger.error('[MUD Command] WebSocket is not authenticated');
     return false;
   }
 
@@ -740,9 +782,9 @@ export function sendMudCommandAsync(
   data: any
 ): Promise<{ success: boolean; error?: string }> {
   return new Promise((resolve, reject) => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      logger.error('[MUD Command] WebSocket not connected');
-      resolve({ success: false, error: 'MUD server is not connected' });
+    if (!ws || ws.readyState !== WebSocket.OPEN || !isAuthenticated) {
+      logger.error('[MUD Command] WebSocket is not authenticated');
+      resolve({ success: false, error: 'MUD service is not authenticated' });
       return;
     }
 
@@ -820,8 +862,8 @@ export function getOnlinePlayers(): (PlayerInfo & { uptime_seconds: number })[] 
  * request fresh wholist from mud
  */
 export function requestWhoList(): boolean {
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    logger.warn('[MUD] cannot request wholist - not connected');
+  if (!ws || ws.readyState !== WebSocket.OPEN || !isAuthenticated) {
+    logger.warn('[MUD] cannot request wholist - service is not authenticated');
     return false;
   }
 

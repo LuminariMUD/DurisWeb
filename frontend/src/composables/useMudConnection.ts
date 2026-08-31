@@ -4,7 +4,7 @@ import { useTriggers } from '@/composables/useTriggers'
 import { useTimers } from '@/composables/useTimers'
 import { useSiteConfig } from '@/composables/useSiteConfig'
 import { useAuth } from '@/composables/useAuth'
-import { generateDurisWebSignature } from '@/utils/duriswebAuth'
+import { buildDurisWebClientInfo } from '@/utils/duriswebAuth'
 import type {
   MudClientCommand,
   MudServerMessage,
@@ -156,18 +156,18 @@ export function useMudConnection() {
         // Don't set 'connected' yet - wait for welcome message from MUD
         reconnectAttempts.value = 0
 
-        // send client identification with signature
+        // Send non-privileged client metadata. Service authentication belongs
+        // only to the backend bridge and must never be bundled into the UI.
         try {
-          const sig = await generateDurisWebSignature()
           newWs.send(
             JSON.stringify({
               type: 'gmcp',
-              package: 'Core.Hello',
-              data: { client: 'DurisWeb', version: '1.0.0', sig },
+              package: 'Client.Info',
+              data: buildDurisWebClientInfo(),
             })
           )
         } catch (e) {
-          console.error('failed to generate signature:', e)
+          console.error('failed to send client info:', e)
         }
 
         // Start ping interval to keep MUD connection alive (through proxies)
