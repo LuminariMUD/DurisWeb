@@ -6,6 +6,7 @@
  */
 
 import WebSocket from 'ws';
+import { TLSSocket } from 'node:tls';
 import logger from '../utils/logger.js';
 import { getWebSettings } from './webSettingsService.js';
 import * as notificationService from './unifiedNotificationService.js';
@@ -13,8 +14,8 @@ import { pool as db } from '../db/connection.js';
 import {
   buildMudSocketOptions,
   generateDuriswebSig,
-  isLoopbackHost,
   readDuriswebSecret,
+  resolveMudWebSocketUrl,
   type DuriswebSecretSlot,
 } from './mudTransportPolicy.js';
 import {
@@ -26,6 +27,9 @@ import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { getDmsProcessStats } from './processMonitor.js';
 import redis from '../db/redis.js';
 import { getOnlinePlayers as getOnlinePlayersFromPresence } from './onlinePlayersService.js';
+import { isHookEnabledSync } from '../hooks/hookGate.js';
+import { recordHookActivity } from '../hooks/hookActivity.js';
+import type { HookId } from '../hooks/types.js';
 
 const MUD_BOOT_TIME_KEY = 'mud:boot_timestamp';
 
@@ -83,6 +87,7 @@ type AuctionBroadcaster = (type: string, data: any) => void;
 
 let ws: WebSocket | null = null;
 let isAuthenticated = false;
+let peerCertificateExpiresAt: string | null = null;
 /**
  * Which secret the outstanding auth attempt used. Rotation gets exactly one
  * retry with the previous key; anything more would loop against a MUD that is
@@ -144,33 +149,14 @@ function handleDuriswebChallenge(socket: WebSocket, message: any): void {
   }
 }
 
-function resolveMudWebSocketUrl(wsPort: string): string {
-  const configuredUrl = process.env.MUD_WS_URL?.trim();
-  const configuredHost = process.env.MUD_WS_HOST?.trim() || '127.0.0.1';
-  const candidate = configuredUrl || `ws://${configuredHost}:${wsPort}`;
-  let parsed: URL;
-
-  try {
-    parsed = new URL(candidate);
-  } catch {
-    throw new Error('MUD_WS_URL is not a valid WebSocket URL');
-  }
-  if (parsed.protocol !== 'ws:' && parsed.protocol !== 'wss:') {
-    throw new Error('MUD WebSocket URL must use ws:// or wss://');
-  }
-  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
-    throw new Error('MUD WebSocket URL must not contain credentials, queries, or a fragment');
-  }
-  // The bridge carries an HMAC handshake and privileged commands. Plaintext is
-  // acceptable only while both ends share a host; crossing a network boundary
-  // requires TLS. The MUD's own listener is loopback-only by design, so a
-  // remote deployment terminates wss:// at a reverse proxy on the MUD host.
-  if (parsed.protocol === 'ws:' && !isLoopbackHost(parsed.hostname)) {
-    throw new Error(
-      `MUD WebSocket host ${parsed.hostname} is not loopback; use wss:// for a non-local MUD`,
-    );
-  }
-  return parsed.toString();
+function readPeerCertificateExpiry(socket: WebSocket, wsUrl: string): string | null {
+  if (!wsUrl.startsWith('wss:')) return null;
+  const networkSocket = (socket as WebSocket & { _socket?: unknown })._socket;
+  if (!(networkSocket instanceof TLSSocket)) return null;
+  const validTo = networkSocket.getPeerCertificate()?.valid_to;
+  if (!validTo) return null;
+  const expiry = new Date(validTo);
+  return Number.isNaN(expiry.getTime()) ? null : expiry.toISOString();
 }
 
 /**
@@ -191,6 +177,7 @@ async function connect(): Promise<void> {
 
     socket.on('open', () => {
       isAuthenticated = false;
+      peerCertificateExpiresAt = readPeerCertificateExpiry(socket, wsUrl);
       logger.info('[MUD Auction] Connected to MUD websocket');
 
       // Request a one-time, connection-bound challenge before authenticating.
@@ -228,6 +215,7 @@ async function connect(): Promise<void> {
       // Forget what the MUD told us: it may change while we are away, and a
       // stale "enabled" would read as a live hook that is actually off.
       clearMudHookState();
+      peerCertificateExpiresAt = null;
       lastChallenge = null;
       authSecretSlot = 'current';
       retriedWithPreviousSecret = false;
@@ -314,6 +302,18 @@ function handleMessage(socket: WebSocket, msg: any): void {
       }
       break;
 
+    case 'durisweb_hook_set':
+      if (msg.requestId && pendingRequests.has(msg.requestId)) {
+        const pending = pendingRequests.get(msg.requestId)!;
+        clearTimeout(pending.timeout);
+        pendingRequests.delete(msg.requestId);
+        pending.resolve({
+          success: msg.success === true,
+          error: msg.success === true ? undefined : msg.error || 'MUD rejected hook state',
+        });
+      }
+      break;
+
     case 'admin_delete_progress':
       // Broadcast progress update to frontend
       logger.info(`[MUD Command] Delete progress: ${msg.message} (${msg.status})`);
@@ -332,6 +332,7 @@ function handleMessage(socket: WebSocket, msg: any): void {
         pendingRequests.delete(msg.requestId);
 
         if (msg.success) {
+          recordHookActivity('admin_delete_character');
           logger.info(`[MUD Command] Character deleted: ${msg.name} from account ${msg.account}`);
           // Soft delete in database
           softDeleteCharacter(msg.account, msg.name);
@@ -352,11 +353,13 @@ function handleMessage(socket: WebSocket, msg: any): void {
       break;
 
     case 'auction_new':
+      if (!acceptInboundHook('auction_new')) break;
       logger.info(`[MUD Auction] New auction: #${msg.data.id} ${msg.data.item} by ${msg.data.seller}`);
       broadcast('AUCTION_NEW', msg.data as AuctionNewEvent);
       break;
 
     case 'auction_bid':
+      if (!acceptInboundHook('auction_bid')) break;
       logger.info(`[MUD Auction] Bid on #${msg.data.id}: ${msg.data.amount}c by ${msg.data.bidder}`);
       broadcast('AUCTION_BID', msg.data as AuctionBidEvent);
       // Notify previous bidder they were outbid
@@ -364,6 +367,7 @@ function handleMessage(socket: WebSocket, msg: any): void {
       break;
 
     case 'auction_close':
+      if (!acceptInboundHook('auction_close')) break;
       logger.info(`[MUD Auction] Auction #${msg.data.id} closed: ${msg.data.reason}`);
       broadcast('AUCTION_CLOSE', msg.data as AuctionCloseEvent);
       // Create notifications for sold auctions
@@ -371,24 +375,34 @@ function handleMessage(socket: WebSocket, msg: any): void {
       break;
 
     case 'wholist':
+      if (!acceptInboundHook('wholist')) break;
       handleWhoList(msg.data.players || []).catch(err => logger.error('[MUD] wholist error:', err));
       break;
 
     case 'player_login':
+      if (!acceptInboundHook('player_presence')) break;
       handlePlayerLogin(msg.data).catch(err => logger.error('[MUD] player_login error:', err));
       break;
 
     case 'player_logout':
+      if (!acceptInboundHook('player_presence')) break;
       handlePlayerLogout(msg.data).catch(err => logger.error('[MUD] player_logout error:', err));
       break;
 
     case 'mud_shutdown':
+      if (!acceptInboundHook('mud_shutdown')) break;
       handleMudShutdown(msg.data);
       break;
 
     default:
       break;
   }
+}
+
+function acceptInboundHook(id: HookId): boolean {
+  if (!isHookEnabledSync(id)) return false;
+  recordHookActivity(id);
+  return true;
 }
 
 /**
@@ -660,6 +674,7 @@ function cleanup(): void {
     pingInterval = null;
   }
   isAuthenticated = false;
+  peerCertificateExpiresAt = null;
   ws = null;
 }
 
@@ -886,6 +901,20 @@ export function sendMudCommandAsync(
  */
 export function isMudConnected(): boolean {
   return ws !== null && ws.readyState === WebSocket.OPEN;
+}
+
+export interface MudBridgeRuntimeStatus {
+  readonly connected: boolean;
+  readonly authenticated: boolean;
+  readonly certificateExpiresAt: string | null;
+}
+
+export function getMudBridgeRuntimeStatus(): MudBridgeRuntimeStatus {
+  return {
+    connected: isMudConnected(),
+    authenticated: isMudConnected() && isAuthenticated,
+    certificateExpiresAt: peerCertificateExpiresAt,
+  };
 }
 
 /**

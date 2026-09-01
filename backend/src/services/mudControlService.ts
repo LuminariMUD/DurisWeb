@@ -7,6 +7,8 @@ import path from 'path';
 import { getDmsProcessStats } from './processMonitor.js';
 import { recordMudShutdown } from './serverRebootService.js';
 import { createWebShutdownIncident } from './crashDetectionService.js';
+import { isHookEnabledSync } from '../hooks/hookGate.js';
+import { recordHookActivity } from '../hooks/hookActivity.js';
 
 const execAsync = promisify(exec);
 
@@ -281,6 +283,9 @@ async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boole
  * Start the MUD
  */
 export async function startMud(accountName: string, _ipAddress: string): Promise<ControlResult> {
+  if (!isHookEnabledSync('process_control')) {
+    return { success: false, message: 'MUD process control is disabled by the website hook gate' };
+  }
   // Check if already running
   const state = await getMudState();
   if (state.state === 'running' || state.state === 'starting') {
@@ -358,6 +363,7 @@ export async function startMud(accountName: string, _ipAddress: string): Promise
       broadcastState({ state: 'starting', action: 'start', by: accountName });
     }
 
+    recordHookActivity('process_control');
     return { success: true, message: 'MUD started successfully' };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -371,6 +377,9 @@ export async function startMud(accountName: string, _ipAddress: string): Promise
  * Stop the MUD
  */
 export async function stopMud(accountName: string, _ipAddress: string, reason: string): Promise<ControlResult> {
+  if (!isHookEnabledSync('process_control')) {
+    return { success: false, message: 'MUD process control is disabled by the website hook gate' };
+  }
   // Check if running
   const state = await getMudState();
   if (state.state !== 'running' && state.state !== 'starting') {
@@ -443,6 +452,7 @@ export async function stopMud(accountName: string, _ipAddress: string, reason: s
     output(`MUD stopped successfully\n`, true);
     broadcastState({ state: 'stopped', action: 'stop', by: accountName, reason });
 
+    recordHookActivity('process_control');
     return { success: true, message: 'MUD stopped successfully' };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -456,6 +466,9 @@ export async function stopMud(accountName: string, _ipAddress: string, reason: s
  * Restart the MUD
  */
 export async function restartMud(accountName: string, _ipAddress: string, reason: string): Promise<ControlResult> {
+  if (!isHookEnabledSync('process_control')) {
+    return { success: false, message: 'MUD process control is disabled by the website hook gate' };
+  }
   const operationId = generateOperationId();
 
   // Helper to broadcast output
@@ -572,6 +585,7 @@ export async function restartMud(accountName: string, _ipAddress: string, reason
       broadcastState({ state: 'starting', action: 'restart', by: accountName, reason });
     }
 
+    recordHookActivity('process_control');
     return { success: true, message: 'MUD restarted successfully' };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -580,4 +594,3 @@ export async function restartMud(accountName: string, _ipAddress: string, reason
     return { success: false, message: `Failed to restart MUD: ${errorMessage}` };
   }
 }
-

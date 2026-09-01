@@ -4,7 +4,7 @@
 **Sessions**: 7 (initial estimate)
 **Estimated Duration**: 5-8 days
 
-**Progress**: 5/7 sessions (71%)
+**Progress**: 6/7 sessions (86%)
 
 ---
 
@@ -32,7 +32,7 @@ Full requirements in [PRD.md](../PRD.md). Operator console design in
 | 03 | Website toggle store and resolution | Complete (2026-09-01) | 18 | PASS |
 | 04 | Bridge state sync and transport security | Complete (2026-09-01) | 20 | PASS |
 | 05 | Flatfile ingestion hardening | Complete (2026-09-01) | 22 | PASS |
-| 06 | Hook Control console | Not Started | ~22 | - |
+| 06 | Hook Control console | Complete (2026-09-01) | 26 | PASS |
 | 07 | Contract tests and doc reconciliation | Not Started | ~18 | - |
 
 ---
@@ -59,12 +59,17 @@ Full requirements in [PRD.md](../PRD.md). Operator console design in
   bounded, malformed aggregates fail closed without hiding valid neighbors,
   flatfile hooks degrade independently to UNAVAILABLE with bounded recovery,
   and connection-sync logs no longer expose IP addresses.
+- **Session 06: Hook Control console** (2026-09-01) - 26/26 tasks,
+  validation PASS. The 14-row operator console now shows truthful WEB, MUD,
+  effective, provenance, activity, resource, and transport state; reconcile
+  is server-authoritative and directionally fail-closed. The authenticated MUD
+  setter is pushed unmerged at `246d4510`.
 
 ---
 
 ## Upcoming Sessions
 
-- Session 06: Hook Control console
+- Session 07: Contract tests and documentation reconciliation
 
 ---
 
@@ -152,12 +157,12 @@ coordinated release.
 Phase complete when:
 - [ ] All 7 sessions completed and validated
 - [ ] All 13 hooks have independent, working toggles on both ends
-- [ ] Terminal is registered always-on with no toggle
-- [ ] Toggle changes propagate within 10 seconds without restart
-- [ ] A disabled hook emits nothing at the source
-- [ ] Mismatch renders distinctly from off, unknown, and unavailable
+- [x] Terminal is registered always-on with no toggle
+- [x] Toggle changes propagate within 10 seconds without restart
+- [x] A disabled hook emits nothing at the source
+- [x] Mismatch renders distinctly from off, unknown, and unavailable
 - [ ] Bridge connects over `wss://` through a reverse proxy with cert validation
-- [ ] Website supports `DURISWEB_SECRET_PREVIOUS`
+- [x] Website supports `DURISWEB_SECRET_PREVIOUS`
 - [x] Flatfile parsers validate input and degrade to UNAVAILABLE cleanly
 - [ ] MUD_HANDOFF.md shows every change DONE or explicitly deferred
 - [ ] MUD `docs/reference/api/durisweb.md` and `CONFIGURATION.md` updated

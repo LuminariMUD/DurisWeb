@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Settings, ScrollText, Users, ShieldCheck, BookOpen,
   Newspaper, Megaphone, Wand2, Scale, Palette, Crown, HelpCircle,
   FileText, ClipboardList, Gamepad2, Cog, AlertTriangle, TrendingUp, Timer, MapPin,
-  BarChart3, Home, History, Copy
+  BarChart3, Home, History, Copy, Cable
 } from 'lucide-vue-next'
 import { useAuth } from '@/composables/useAuth'
 import { useToast } from '@/composables/useToast'
@@ -525,6 +525,17 @@ onUnmounted(() => {
                 >
                   <Cog class="h-4 w-4" />
                   <span>Properties</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem v-if="hasPermission('manage_mud_properties')">
+                <SidebarMenuButton
+                  tooltip="Hook Control"
+                  @click="router.push('/admin/mud/hooks')"
+                  :isActive="router.currentRoute.value.path === '/admin/mud/hooks'"
+                >
+                  <Cable class="h-4 w-4" />
+                  <span>Hook Control</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 

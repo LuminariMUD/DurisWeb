@@ -284,22 +284,22 @@ Beyond code, Phase 00 delivers:
 
 ## Success Criteria
 
-- [ ] A hook registry exists and every integration point is listed in it.
+- [x] A hook registry exists and every integration point is listed in it.
 - [ ] Each of the 13 enumerated hooks has an independent toggle on both ends.
-- [ ] The terminal is registered as always-on and has no toggle.
-- [ ] Disabling a hook on either end stops it within 10 seconds, no restart.
-- [ ] A disabled hook produces no events at the source, not just discarded ones.
-- [ ] Admin UI shows website state, MUD state, and effective state per hook.
-- [ ] Mismatched states are shown as mismatches, not as plain "off".
+- [x] The terminal is registered as always-on and has no toggle.
+- [x] Disabling a hook on either end stops it within 10 seconds, no restart.
+- [x] A disabled hook produces no events at the source, not just discarded ones.
+- [x] Admin UI shows website state, MUD state, and effective state per hook.
+- [x] Mismatched states are shown as mismatches, not as plain "off".
 - [ ] The bridge connects over `wss://` through the MUD host's reverse proxy
       with certificate validation; the MUD listener stays loopback-only.
-- [ ] The website refuses a non-loopback host without `wss:`.
-- [ ] `DURISWEB_SECRET` rotates end to end with zero dropped events.
+- [x] The website refuses a non-loopback host without `wss:`.
+- [x] `DURISWEB_SECRET` rotates end to end with zero dropped events.
 - [x] Flatfile ingestion validates input before parsing.
 - [ ] Every toggle and security decision has a regression test.
 - [x] Flatfile hooks report UNAVAILABLE and stop retrying when the MUD
       filesystem is unreachable, without affecting other hooks.
-- [ ] MUD reports its hook states over the existing bridge; no new transport.
+- [x] MUD reports its hook states over the existing bridge; no new transport.
 - [ ] `MUD_HANDOFF.md` covers every MUD-side change with file, hook point,
       property key, wire format, and acceptance check.
 - [ ] The MUD's `docs/reference/api/durisweb.md` and

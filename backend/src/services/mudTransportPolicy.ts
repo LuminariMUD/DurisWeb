@@ -7,6 +7,16 @@
 
 import crypto from 'crypto';
 
+export interface MudTransportEndpoint {
+  readonly url: string | null;
+  readonly scheme: 'ws' | 'wss' | null;
+  readonly host: string | null;
+  readonly port: string | null;
+  readonly loopback: boolean | null;
+  readonly blockedReason: string | null;
+  readonly configurationError: string | null;
+}
+
 /**
  * Hosts for which plaintext ws:// is acceptable, because the traffic never
  * leaves the machine. Anything else must use wss://.
@@ -30,6 +40,75 @@ export function isLoopbackHost(hostname: string): boolean {
   }
 
   return false;
+}
+
+export function inspectMudWebSocketEndpoint(wsPort: string): MudTransportEndpoint {
+  const configuredUrl = process.env.MUD_WS_URL?.trim();
+  const configuredHost = process.env.MUD_WS_HOST?.trim() || '127.0.0.1';
+  const candidate = configuredUrl || `ws://${configuredHost}:${wsPort}`;
+  let parsed: URL;
+
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    return {
+      url: null,
+      scheme: null,
+      host: null,
+      port: null,
+      loopback: null,
+      blockedReason: null,
+      configurationError: 'MUD WebSocket URL is invalid.',
+    };
+  }
+
+  if (parsed.protocol !== 'ws:' && parsed.protocol !== 'wss:') {
+    return {
+      url: null,
+      scheme: null,
+      host: parsed.hostname || null,
+      port: parsed.port || null,
+      loopback: parsed.hostname ? isLoopbackHost(parsed.hostname) : null,
+      blockedReason: null,
+      configurationError: 'MUD WebSocket URL must use ws:// or wss://.',
+    };
+  }
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+    return {
+      url: null,
+      scheme: parsed.protocol === 'wss:' ? 'wss' : 'ws',
+      host: parsed.hostname,
+      port: parsed.port || null,
+      loopback: isLoopbackHost(parsed.hostname),
+      blockedReason: null,
+      configurationError: 'MUD WebSocket URL contains forbidden components.',
+    };
+  }
+
+  const scheme = parsed.protocol === 'wss:' ? 'wss' : 'ws';
+  const loopback = isLoopbackHost(parsed.hostname);
+  const blockedReason = scheme === 'ws' && !loopback
+    ? 'Plaintext ws:// is refused for a non-loopback MUD host. Configure wss://.'
+    : null;
+
+  return {
+    url: parsed.toString(),
+    scheme,
+    host: parsed.hostname,
+    port: parsed.port || null,
+    loopback,
+    blockedReason,
+    configurationError: null,
+  };
+}
+
+export function resolveMudWebSocketUrl(wsPort: string): string {
+  const endpoint = inspectMudWebSocketEndpoint(wsPort);
+  const error = endpoint.configurationError || endpoint.blockedReason;
+  if (error || !endpoint.url) {
+    throw new Error(error || 'MUD WebSocket URL is invalid.');
+  }
+  return endpoint.url;
 }
 
 /**

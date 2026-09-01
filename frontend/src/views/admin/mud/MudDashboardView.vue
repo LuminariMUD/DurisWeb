@@ -54,6 +54,8 @@
         </CardContent>
       </Card>
 
+      <HookHealthCard />
+
       <!-- Key Settings Cards -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <!-- Max XP Level -->
@@ -198,6 +200,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { TrendingUp, Zap, Activity, Users, Sparkles, Target, AlertTriangle, Clock } from 'lucide-vue-next';
 import { apiClient as api } from '@/services/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import HookHealthCard from '@/components/admin/hooks/HookHealthCard.vue';
 
 interface LevelCap {
   level: number;

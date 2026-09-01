@@ -5,6 +5,8 @@ import { pool as webPool, mudPool } from '../db/connection.js';
 import logger from '../utils/logger.js';
 import { buildDonationEvent, DonationDeliveryConfigurationError } from '../utils/donationEvent.js';
 import { getScopedRedisConfiguration } from '../utils/scopedRedis.js';
+import { isHookEnabledSync } from '../hooks/hookGate.js';
+import { recordHookActivity } from '../hooks/hookActivity.js';
 
 const OUTBOX_POLL_INTERVAL_MS = 1000;
 const OUTBOX_LOCK_TIMEOUT_SECONDS = 120;
@@ -158,6 +160,7 @@ async function markFailed(id: number, attempts: number, error: unknown): Promise
 
 async function processNextOutboxRow(): Promise<void> {
   if (!publisher || publisher.status !== 'ready') return;
+  if (!isHookEnabledSync('donation_delivery')) return;
   try {
     const row = await claimNextOutboxRow();
     if (!row) return;
@@ -177,6 +180,7 @@ async function processNextOutboxRow(): Promise<void> {
 
       await publisher.publish(event.channel, JSON.stringify(event.envelope));
       await markPublished(row.id);
+      recordHookActivity('donation_delivery');
       logger.info(`donation outbox published: event_id=${row.event_id}`);
     } catch (error) {
       const attempts = Number(row.attempts) + 1;

@@ -45,6 +45,11 @@ export {
 } from './hookSettingsService.js';
 
 export { isHookEnabledSync, withHookGate } from './hookGate.js';
+export {
+  getHookLastActivity,
+  recordHookActivity,
+  resetHookActivity,
+} from './hookActivity.js';
 
 export type {
   FilesystemHookId,

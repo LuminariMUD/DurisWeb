@@ -22,6 +22,7 @@ import {
   getFlatfileHookHealth,
   type FlatfileHookHealth,
 } from './flatfileHookState.js';
+import { getHookLastActivity } from './hookActivity.js';
 
 /** Supplies what the MUD currently reports. Session 04 replaces the default. */
 export interface MudHookStateProvider {
@@ -51,6 +52,23 @@ export function resetMudHookStateProvider(): void {
 
 /** In-memory view of the website toggles, refreshed on read and on write. */
 let webStateCache: Map<string, boolean> | null = null;
+let webProvenanceCache: Map<string, HookProvenance> | null = null;
+
+export interface HookProvenance {
+  readonly actor: string | null;
+  readonly changedAt: string | null;
+}
+
+interface WebStateSnapshot {
+  readonly state: Map<string, boolean>;
+  readonly provenance: Map<string, HookProvenance>;
+}
+
+function isoTimestamp(raw: unknown): string | null {
+  if (!(raw instanceof Date) && typeof raw !== 'string') return null;
+  const date = raw instanceof Date ? raw : new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
 
 function parseSettingValue(raw: unknown): boolean | null {
   if (typeof raw !== 'string') {
@@ -70,18 +88,26 @@ function parseSettingValue(raw: unknown): boolean | null {
  * not knowledge, and defaulting it to disabled would take the entire
  * integration surface down on a transient database error.
  */
-async function loadWebState(): Promise<Map<string, boolean>> {
+async function loadWebState(): Promise<WebStateSnapshot> {
   const state = new Map<string, boolean>();
+  const provenance = new Map<string, HookProvenance>();
 
   for (const hook of getToggleableHooks()) {
     state.set(hook.id, true);
+    provenance.set(hook.id, { actor: null, changedAt: null });
   }
 
   try {
     const [rows] = (await pool.query(
-      'SELECT setting_key, setting_value FROM web_settings WHERE setting_key LIKE ?',
+      `SELECT setting_key, setting_value, updated_by, updated_at
+       FROM web_settings WHERE setting_key LIKE ?`,
       ['hook_enabled_%'],
-    )) as [Array<{ setting_key: string; setting_value: string }>, unknown];
+    )) as [Array<{
+      setting_key: string;
+      setting_value: string;
+      updated_by?: unknown;
+      updated_at?: unknown;
+    }>, unknown];
 
     for (const hook of getToggleableHooks()) {
       const row = rows.find((r) => r.setting_key === hook.webSettingKey);
@@ -98,6 +124,12 @@ async function loadWebState(): Promise<Map<string, boolean>> {
         continue;
       }
       state.set(hook.id, parsed);
+      provenance.set(hook.id, {
+        actor: typeof row.updated_by === 'string' && row.updated_by.trim()
+          ? row.updated_by
+          : null,
+        changedAt: isoTimestamp(row.updated_at),
+      });
     }
   } catch (error) {
     logger.error(
@@ -106,16 +138,20 @@ async function loadWebState(): Promise<Map<string, boolean>> {
     );
   }
 
-  return state;
+  return { state, provenance };
 }
 
 export async function refreshHookState(): Promise<void> {
-  webStateCache = await loadWebState();
+  const snapshot = await loadWebState();
+  webStateCache = snapshot.state;
+  webProvenanceCache = snapshot.provenance;
 }
 
 async function ensureLoaded(): Promise<Map<string, boolean>> {
-  if (!webStateCache) {
-    webStateCache = await loadWebState();
+  if (!webStateCache || !webProvenanceCache) {
+    const snapshot = await loadWebState();
+    webStateCache = snapshot.state;
+    webProvenanceCache = snapshot.provenance;
   }
   return webStateCache;
 }
@@ -129,6 +165,8 @@ export interface HookStatusRow {
   readonly hook: HookDefinition;
   readonly webEnabled: boolean;
   readonly mudState: MudHookState;
+  readonly webProvenance: HookProvenance;
+  readonly lastActivityAt: string | null;
   readonly resource: FlatfileHookHealth | null;
   readonly effective: EffectiveHookState;
   readonly active: boolean;
@@ -154,6 +192,11 @@ function statusFor(
     hook,
     webEnabled,
     mudState,
+    webProvenance: webProvenanceCache?.get(hook.id) ?? {
+      actor: null,
+      changedAt: null,
+    },
+    lastActivityAt: getHookLastActivity(hook.id),
     resource,
     effective: resolved.effective,
     active: resolved.active,
@@ -220,6 +263,7 @@ export async function setHookEnabled(
 
   // Invalidate before returning so the next read cannot serve a stale value.
   webStateCache = null;
+  webProvenanceCache = null;
   clearWebSettingsCache();
 
   // Audit. `action_type` is a fixed ENUM on a table shared with the MUD

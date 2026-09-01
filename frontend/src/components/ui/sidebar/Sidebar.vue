@@ -54,7 +54,7 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
   <div
     v-else
     :class="cn(
-      'group peer text-sidebar-foreground hidden md:flex',
+      'group peer relative text-sidebar-foreground hidden md:flex',
       'transition-[width] duration-200 ease-linear',
       'h-full',
       state === 'collapsed' && collapsible === 'icon' ? 'w-(--sidebar-width-icon)' : 'w-(--sidebar-width)',

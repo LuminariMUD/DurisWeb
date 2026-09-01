@@ -6,6 +6,7 @@ import type {
   UserBan
 } from '../types/index.js';
 import { sendMudCommandAsync, isMudConnected } from './mudAuctionClient.js';
+import { isHookEnabledSync } from '../hooks/hookGate.js';
 
 /**
  * Get paginated list of users with filters
@@ -262,6 +263,12 @@ export async function deleteCharacter(
   characterName: string,
   deletedBy: string
 ): Promise<{ success: boolean; message: string }> {
+  if (!isHookEnabledSync('admin_delete_character')) {
+    return {
+      success: false,
+      message: 'Character deletion is disabled by the website hook gate',
+    };
+  }
   // Check if MUD is connected
   if (!isMudConnected()) {
     return {

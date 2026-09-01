@@ -2,6 +2,7 @@ import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool as db } from '../db/connection.js';
 import logger from '../utils/logger.js';
 import { isHookEnabledSync } from '../hooks/hookGate.js';
+import { recordHookActivity } from '../hooks/hookActivity.js';
 
 /**
  * Guild Auto-Access Background Service
@@ -145,6 +146,7 @@ export async function syncGuilds(): Promise<void> {
 
     // Get all guilds from database
     const allGuilds = await getAllGuilds();
+    recordHookActivity('guild_parsing');
 
     // Get existing guild categories
     const existingCategories = await getExistingGuildCategories();

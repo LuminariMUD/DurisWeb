@@ -7,6 +7,7 @@
  */
 
 import { isHookEnabledSync } from '../hooks/hookGate.js';
+import { recordHookActivity } from '../hooks/hookActivity.js';
 import * as guildService from './guildService.js';
 
 export type {
@@ -18,21 +19,27 @@ export async function getGuild(
   guildId: number,
 ): ReturnType<typeof guildService.getGuild> {
   if (!isHookEnabledSync('guild_parsing')) return null;
-  return guildService.getGuild(guildId);
+  const result = await guildService.getGuild(guildId);
+  recordHookActivity('guild_parsing');
+  return result;
 }
 
 export async function parseGuildFile(
   guildId: number,
 ): ReturnType<typeof guildService.parseGuildFile> {
   if (!isHookEnabledSync('guild_parsing')) return null;
-  return guildService.parseGuildFile(guildId);
+  const result = await guildService.parseGuildFile(guildId);
+  recordHookActivity('guild_parsing');
+  return result;
 }
 
 export async function findCharacterGuild(
   characterName: string,
 ): ReturnType<typeof guildService.findCharacterGuild> {
   if (!isHookEnabledSync('guild_parsing')) return null;
-  return guildService.findCharacterGuild(characterName);
+  const result = await guildService.findCharacterGuild(characterName);
+  recordHookActivity('guild_parsing');
+  return result;
 }
 
 export async function getCharacterGuildInfoFromGuild(
@@ -40,12 +47,16 @@ export async function getCharacterGuildInfoFromGuild(
   guildId: number,
 ): ReturnType<typeof guildService.getCharacterGuildInfoFromGuild> {
   if (!isHookEnabledSync('guild_parsing')) return null;
-  return guildService.getCharacterGuildInfoFromGuild(characterName, guildId);
+  const result = await guildService.getCharacterGuildInfoFromGuild(characterName, guildId);
+  recordHookActivity('guild_parsing');
+  return result;
 }
 
 export async function getAllGuilds(): ReturnType<typeof guildService.getAllGuilds> {
   if (!isHookEnabledSync('guild_parsing')) return [];
-  return guildService.getAllGuilds();
+  const result = await guildService.getAllGuilds();
+  recordHookActivity('guild_parsing');
+  return result;
 }
 
 export async function searchGuilds(
@@ -53,5 +64,7 @@ export async function searchGuilds(
   limit?: number,
 ): ReturnType<typeof guildService.searchGuilds> {
   if (!isHookEnabledSync('guild_parsing')) return [];
-  return guildService.searchGuilds(query, limit);
+  const result = await guildService.searchGuilds(query, limit);
+  recordHookActivity('guild_parsing');
+  return result;
 }

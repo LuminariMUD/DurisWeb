@@ -53,10 +53,13 @@ describe('DurisWeb integration security contracts', () => {
 
   it('keeps the privileged bridge bound to its authenticated socket', () => {
     const bridge = read('src/services/mudAuctionClient.ts');
+    const transportPolicy = read('src/services/mudTransportPolicy.ts');
     expect(bridge).toContain('function handleDuriswebChallenge(socket: WebSocket, message: any)');
     expect(bridge).toContain('handleDuriswebChallenge(socket, msg)');
     expect(bridge).toContain('!isAuthenticated');
-    expect(bridge).toContain("MUD WebSocket URL must not contain credentials, queries, or a fragment");
+    expect(bridge).toContain('resolveMudWebSocketUrl');
+    expect(transportPolicy).toContain('parsed.username || parsed.password || parsed.search || parsed.hash');
+    expect(transportPolicy).toContain('MUD WebSocket URL contains forbidden components.');
   });
 
   it('defines a TLS-only exact webhook boundary', () => {

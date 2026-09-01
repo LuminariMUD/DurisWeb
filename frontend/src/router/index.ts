@@ -305,6 +305,12 @@ const router = createRouter({
           meta: { requiresAuth: true, requiredPermission: 'manage_mud_properties' },
         },
         {
+          path: 'mud/hooks',
+          name: 'admin-mud-hooks',
+          component: () => import('../views/admin/mud/HookControlView.vue'),
+          meta: { requiresAuth: true, requiredPermission: 'manage_mud_properties' },
+        },
+        {
           path: 'mud/level-cap',
           name: 'admin-mud-level-cap',
           component: () => import('../views/admin/mud/LevelCapView.vue'),

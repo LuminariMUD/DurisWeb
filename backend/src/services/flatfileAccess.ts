@@ -12,6 +12,7 @@ import {
   recordDroppedFlatfileInput,
   type FilesystemHookId,
 } from '../hooks/flatfileHookState.js';
+import { recordHookActivity } from '../hooks/hookActivity.js';
 
 export type FlatfileAccessErrorCode =
   | 'backoff'
@@ -281,6 +282,7 @@ export async function readMudTextFile(
       );
     }
 
+    recordHookActivity(hookId);
     return content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   } catch (error) {
     if (error instanceof FlatfileAccessError) {

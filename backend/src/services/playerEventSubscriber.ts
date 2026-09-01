@@ -3,6 +3,8 @@ import type { RowDataPacket } from 'mysql2';
 import { mudPool } from '../db/connection.js';
 import logger from '../utils/logger.js';
 import { getScopedRedisConfiguration } from '../utils/scopedRedis.js';
+import { isHookEnabledSync } from '../hooks/hookGate.js';
+import { recordHookActivity } from '../hooks/hookActivity.js';
 
 const SUBSCRIBE_TIMEOUT_MS = 10_000;
 const CHANNEL_REFRESH_INTERVAL_MS = 60_000;
@@ -148,12 +150,14 @@ export async function startPlayerEventSubscriber(): Promise<void> {
           logger.warn('[PlayerEventSubscriber] no broadcaster set');
           return;
         }
+        if (!isHookEnabledSync('player_presence')) return;
 
         if (event.event === 'login') {
           broadcaster('PLAYER_LOGIN', { pid: event.pid });
         } else {
           broadcaster('PLAYER_LOGOUT', { pid: event.pid });
         }
+        recordHookActivity('player_presence');
 
         logger.info(`[PlayerEventSubscriber] ${event.event} pid=${event.pid}`);
       } catch {

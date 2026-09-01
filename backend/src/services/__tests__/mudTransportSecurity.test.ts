@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import {
   buildMudSocketOptions,
   generateDuriswebSig,
+  inspectMudWebSocketEndpoint,
   isLoopbackHost,
   readDuriswebSecret,
 } from '../mudTransportPolicy.js';
@@ -56,6 +57,33 @@ describe('certificate validation', () => {
 
   it('passes no options for plaintext loopback', () => {
     expect(buildMudSocketOptions('ws://127.0.0.1:4050/')).toBeUndefined();
+  });
+});
+
+describe('sanitized endpoint inspection', () => {
+  it('refuses plaintext for a non-loopback host without exposing URL credentials', () => {
+    process.env.MUD_WS_URL = 'ws://mud.example.com:4050/';
+    expect(inspectMudWebSocketEndpoint('4050')).toMatchObject({
+      url: 'ws://mud.example.com:4050/',
+      scheme: 'ws',
+      host: 'mud.example.com',
+      loopback: false,
+      blockedReason: expect.stringMatching(/refused/i),
+    });
+  });
+
+  it('rejects user info, query strings, and fragments with a generic error', () => {
+    for (const url of [
+      'wss://user:secret@mud.example.com:4050/',
+      'wss://mud.example.com:4050/?token=secret',
+      'wss://mud.example.com:4050/#secret',
+    ]) {
+      process.env.MUD_WS_URL = url;
+      const endpoint = inspectMudWebSocketEndpoint('4050');
+      expect(endpoint.url).toBeNull();
+      expect(endpoint.configurationError).toBe('MUD WebSocket URL contains forbidden components.');
+      expect(JSON.stringify(endpoint)).not.toContain('secret');
+    }
   });
 });
 

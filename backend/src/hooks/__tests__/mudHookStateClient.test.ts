@@ -6,6 +6,7 @@ import {
   clearMudHookState,
   expectedMudGatedHookIds,
   hasMudReport,
+  getMudReportReceivedAt,
   mudHookStateProvider,
   peekMudHookState,
 } from '../mudHookStateClient.js';
@@ -36,6 +37,7 @@ describe('frame validation', () => {
     expect(applyHookStateFrame(fullFrame(true))).toBe(true);
     expect(hasMudReport()).toBe(true);
     expect(mudHookStateProvider.getState(GATED)).toBe('enabled');
+    expect(getMudReportReceivedAt()).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   it('records disabled hooks as disabled, not merely absent', () => {
@@ -46,6 +48,7 @@ describe('frame validation', () => {
   it('rejects an unsupported schema version wholesale', () => {
     expect(applyHookStateFrame(frame({ auction_new: { enabled: false } }, 2))).toBe(false);
     expect(hasMudReport()).toBe(false);
+    expect(getMudReportReceivedAt()).toBeNull();
     expect(mudHookStateProvider.getState(GATED)).toBe('unknown');
   });
 

@@ -23,6 +23,7 @@ let reportedState = new Map<string, boolean>();
 
 /** True once a frame has been applied on the current connection. */
 let hasReport = false;
+let reportReceivedAt: string | null = null;
 
 interface HookStateEntry {
   enabled?: unknown;
@@ -94,6 +95,7 @@ export function applyHookStateFrame(frame: unknown): boolean {
   // information, not a reason to keep trusting a stale reading.
   reportedState = parsed;
   hasReport = true;
+  reportReceivedAt = new Date().toISOString();
   return true;
 }
 
@@ -107,11 +109,16 @@ export function applyHookStateFrame(frame: unknown): boolean {
 export function clearMudHookState(): void {
   reportedState = new Map();
   hasReport = false;
+  reportReceivedAt = null;
 }
 
 /** Whether a report has been received on the current connection. */
 export function hasMudReport(): boolean {
   return hasReport;
+}
+
+export function getMudReportReceivedAt(): string | null {
+  return reportReceivedAt;
 }
 
 /** Read-only view, for diagnostics and tests. */

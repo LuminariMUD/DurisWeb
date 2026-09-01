@@ -4,6 +4,7 @@ import { unlink } from 'node:fs/promises';
 import { pool } from '../db/connection.js';
 import { hasActiveWebSession } from './sessionService.js';
 import logger from '../utils/logger.js';
+import { recordHookActivity } from '../hooks/hookActivity.js';
 
 // MUD folder path - set via MUD_DIR environment variable
 const MUD_FOLDER = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
@@ -57,6 +58,7 @@ export async function createSession(
           }
           existingSession.ws = ws;
           sessionsByWebSocket.set(ws, existingSessionIdValue);
+          recordHookActivity('terminal');
           return { sessionId: existingSessionIdValue };
         }
       }
@@ -168,6 +170,7 @@ BASHRC
     });
 
     logger.info(`Terminal session ${sessionId} created for ${accountName} (PID: ${shell.pid})`);
+    recordHookActivity('terminal');
     return { sessionId };
 
   } catch (error) {

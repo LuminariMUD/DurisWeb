@@ -111,6 +111,8 @@ describe('toggling', () => {
     )) as [Array<{ setting_value: string; updated_by: string }>, unknown];
     expect(rows[0].setting_value).toBe('false');
     expect(rows[0].updated_by).toBe(ACTOR);
+    expect(status.webProvenance.actor).toBe(ACTOR);
+    expect(status.webProvenance.changedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   it('records the change in the admin action log with the actor and both values', async () => {
