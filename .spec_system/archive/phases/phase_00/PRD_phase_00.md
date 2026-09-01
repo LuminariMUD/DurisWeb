@@ -1,10 +1,10 @@
 # PRD Phase 00: hooks between website & mud server + security of those hooks
 
-**Status**: In Progress
+**Status**: Complete
 **Sessions**: 7 (initial estimate)
 **Estimated Duration**: 5-8 days
 
-**Progress**: 6/7 sessions (86%)
+**Progress**: 7/7 sessions (100%)
 
 ---
 
@@ -17,9 +17,10 @@ deliberate: one hook contract, an independent toggle per hook honored on both
 ends, observable effective state including disagreement, and a transport that
 can cross a host boundary.
 
-Full requirements in [PRD.md](../PRD.md). Operator console design in
-[PRD_UX.md](../PRD_UX.md). Every MUD-repository change is specified in
-[MUD_HANDOFF.md](../MUD_HANDOFF.md), which is itself a phase deliverable.
+Full requirements remain in [PRD.md](../../../PRD/PRD.md). Operator console
+design remains in [PRD_UX.md](../../../PRD/PRD_UX.md). Every MUD-repository
+change is specified in [MUD_HANDOFF.md](../../../PRD/MUD_HANDOFF.md), which is
+itself a phase deliverable.
 
 ---
 
@@ -33,7 +34,7 @@ Full requirements in [PRD.md](../PRD.md). Operator console design in
 | 04 | Bridge state sync and transport security | Complete (2026-09-01) | 20 | PASS |
 | 05 | Flatfile ingestion hardening | Complete (2026-09-01) | 22 | PASS |
 | 06 | Hook Control console | Complete (2026-09-01) | 26 | PASS |
-| 07 | Contract tests and doc reconciliation | Not Started | ~18 | - |
+| 07 | Contract tests and doc reconciliation | Complete (2026-09-01) | 21 | PASS |
 
 ---
 
@@ -64,12 +65,18 @@ Full requirements in [PRD.md](../PRD.md). Operator console design in
   effective, provenance, activity, resource, and transport state; reconcile
   is server-authoritative and directionally fail-closed. The authenticated MUD
   setter is pushed unmerged at `246d4510`.
+- **Session 07: Contract tests and documentation reconciliation** (2026-09-01)
+  - 21/21 tasks, validation PASS. Registry-generated coverage now locks all 13
+  website gates, all eight applicable MUD gates, five explicit MUD N/A hooks,
+  terminal recovery, reconnect, transport, and persistence behavior. Backend
+  568/568, frontend 93/93, and MUD documentation 12/12 tests pass. MUD contract
+  and docs commit `df121bb3` is pushed and remains unmerged.
 
 ---
 
 ## Upcoming Sessions
 
-- Session 07: Contract tests and documentation reconciliation
+None. Phase 00 is complete; the workflow proceeds to phase audit.
 
 ---
 
@@ -108,9 +115,10 @@ MUD. Effective state is resolved fail-closed in memory on the event path. The
 MUD reports its states over the existing authenticated bridge via
 `durisweb_hook_state` - no second transport.
 
-Land MUD-side changes first with all toggles defaulting to enabled, so current
-behavior is preserved exactly and the website side can follow without a
-coordinated release.
+When merge is later authorized, land MUD-side changes first with all toggles
+defaulting to enabled, so current behavior is preserved exactly and the website
+side can follow without a coordinated release. Both branches remain pushed and
+unmerged during this phase closeout.
 
 ### Technologies
 
@@ -143,8 +151,9 @@ coordinated release.
 - [P00] **Terminal sandbox is deliberately porous**: Out of scope to change, but
   Session 01 registers the terminal as always-on and Session 06 renders it
   without a switch.
-- [P00] **`web_sessions.refresh_token` may be unhashed**: Session 04 touches
-  auth adjacent code - confirm then, and record the finding either way.
+- [P00] **`web_sessions.refresh_token` is unhashed**: Session 04 confirmed
+  High finding SEC-RT-1. Digest-at-rest remediation invalidates current
+  sessions and requires a separate rollout decision.
 - [P00] **Contract tests assert on source text**: Sessions 02-06 must update
   them deliberately rather than deleting assertions that break.
 - [P00] **MUD source is locally readable**: Every session verifies contracts
@@ -155,18 +164,36 @@ coordinated release.
 ## Success Criteria
 
 Phase complete when:
-- [ ] All 7 sessions completed and validated
-- [ ] All 13 hooks have independent, working toggles on both ends
+- [x] All 7 sessions completed and validated
+- [x] All 13 hooks have independent website toggles; all eight applicable MUD
+      ends have independent runtime toggles; five website-only hooks report N/A
 - [x] Terminal is registered always-on with no toggle
 - [x] Toggle changes propagate within 10 seconds without restart
 - [x] A disabled hook emits nothing at the source
 - [x] Mismatch renders distinctly from off, unknown, and unavailable
 - [ ] Bridge connects over `wss://` through a reverse proxy with cert validation
+      - **DEFERRED (deployment operator):** code policy and certificate
+        validation are tested; live endpoint/proxy acceptance requires external
+        deployment authority and must occur before networked production
 - [x] Website supports `DURISWEB_SECRET_PREVIOUS`
 - [x] Flatfile parsers validate input and degrade to UNAVAILABLE cleanly
-- [ ] MUD_HANDOFF.md shows every change DONE or explicitly deferred
-- [ ] MUD `docs/reference/api/durisweb.md` and `CONFIGURATION.md` updated
-- [ ] All pre-existing contract tests still pass
+- [x] MUD_HANDOFF.md shows every change pushed-unmerged, answered, or explicitly deferred
+- [x] MUD `docs/reference/api/durisweb.md` and `CONFIGURATION.md` updated
+- [x] All pre-existing contract tests still pass
+
+### Acceptance Evidence
+
+| Criterion | Evidence |
+|-----------|----------|
+| Registry and 13/8/5/1 ownership | `registry.test.ts`, `hookDeliveryContract.test.ts` |
+| Source suppression and effective state | Website owner matrix, `hookResolution.test.ts`, MUD Python emitter/worker slices |
+| Runtime propagation and reconnect | Reconcile suite plus exhaustive `mudHookStateClient.test.ts` |
+| Truthful console and authoritative controls | Hook component/view suites plus integration security source contract |
+| Transport and rotation | `mudTransportSecurity.test.ts`, integration security contract, MUD auth contract |
+| Flatfile validation and recovery | `flatfileAccess.test.ts`, `flatfileParsers.test.ts`, `flatfileHookState.test.ts` |
+| MUD state/set/persistence/docs | MUD Python integration contract and reconciled `MUD_HANDOFF.md` |
+| Live WSS reverse proxy | Explicit deployment-operator acceptance before networked production |
+| Full pre-existing suites | T019: backend 67/67 suites and 568/568 tests; frontend 27/27 files and 93/93 tests |
 
 ---
 

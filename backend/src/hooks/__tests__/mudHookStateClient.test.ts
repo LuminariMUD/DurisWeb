@@ -15,6 +15,16 @@ import { requireHook } from '../registry.js';
 const GATED = requireHook('auction_new');
 const UNGATED = requireHook('flag_parsing');
 const ALWAYS_ON = requireHook('terminal');
+const EXPECTED_GATED_IDS = [
+  'auction_new',
+  'auction_bid',
+  'auction_close',
+  'player_presence',
+  'mud_shutdown',
+  'wholist',
+  'admin_delete_character',
+  'donation_delivery',
+] as const;
 
 function frame(hooks: Record<string, unknown>, schemaVersion: unknown = 1): unknown {
   return { type: 'hook_state', schema_version: schemaVersion, hooks };
@@ -36,13 +46,17 @@ describe('frame validation', () => {
   it('applies a well-formed frame', () => {
     expect(applyHookStateFrame(fullFrame(true))).toBe(true);
     expect(hasMudReport()).toBe(true);
-    expect(mudHookStateProvider.getState(GATED)).toBe('enabled');
+    for (const id of EXPECTED_GATED_IDS) {
+      expect(mudHookStateProvider.getState(requireHook(id))).toBe('enabled');
+    }
     expect(getMudReportReceivedAt()).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   it('records disabled hooks as disabled, not merely absent', () => {
     applyHookStateFrame(fullFrame(false));
-    expect(mudHookStateProvider.getState(GATED)).toBe('disabled');
+    for (const id of EXPECTED_GATED_IDS) {
+      expect(mudHookStateProvider.getState(requireHook(id))).toBe('disabled');
+    }
   });
 
   it('rejects an unsupported schema version wholesale', () => {
@@ -104,16 +118,26 @@ describe('staleness', () => {
     clearMudHookState();
 
     expect(hasMudReport()).toBe(false);
-    expect(mudHookStateProvider.getState(GATED)).toBe('unknown');
+    for (const id of EXPECTED_GATED_IDS) {
+      expect(mudHookStateProvider.getState(requireHook(id))).toBe('unknown');
+    }
   });
 
-  it('restores state after a reconnect', () => {
+  it('restores every reported state after a reconnect without retaining stale values', () => {
     applyHookStateFrame(fullFrame(true));
     clearMudHookState();
-    expect(mudHookStateProvider.getState(GATED)).toBe('unknown');
 
-    applyHookStateFrame(fullFrame(false));
-    expect(mudHookStateProvider.getState(GATED)).toBe('disabled');
+    const recovered: Record<string, unknown> = {};
+    EXPECTED_GATED_IDS.forEach((id, index) => {
+      recovered[id] = { enabled: index % 2 === 0 };
+    });
+    applyHookStateFrame(frame(recovered));
+
+    EXPECTED_GATED_IDS.forEach((id, index) => {
+      expect(mudHookStateProvider.getState(requireHook(id))).toBe(
+        index % 2 === 0 ? 'enabled' : 'disabled',
+      );
+    });
   });
 });
 
@@ -141,7 +165,6 @@ describe('request frame', () => {
   });
 
   it('expects exactly the eight MUD-gated hooks', () => {
-    expect(expectedMudGatedHookIds()).toHaveLength(8);
-    expect(expectedMudGatedHookIds()).not.toContain('connection_log');
+    expect(expectedMudGatedHookIds()).toEqual(EXPECTED_GATED_IDS);
   });
 });

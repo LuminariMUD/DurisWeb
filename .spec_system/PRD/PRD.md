@@ -225,7 +225,7 @@ multiple 2-4 hour sessions (12-25 tasks each).
 
 | Phase | Name | Sessions | Status |
 |-------|------|----------|--------|
-| 00 | hooks between website & mud server + security of those hooks | 7 | Not Started |
+| 00 | hooks between website & mud server + security of those hooks | 7 | Complete |
 
 ## Phase 00: hooks between website & mud server + security of those hooks
 
@@ -246,13 +246,13 @@ multiple 2-4 hour sessions (12-25 tasks each).
 10. Produce and maintain `.spec_system/PRD/MUD_HANDOFF.md` covering every change
     required in the DurisMUD repository.
 
-### Sessions (To Be Defined)
+### Sessions (Archived)
 
-Sessions are defined via `/phasebuild` as `session_NN_name.md` stubs under
-`.spec_system/PRD/phase_00/`.
+All seven completed session stubs and the Phase 00 tracker are archived under
+`.spec_system/archive/phases/phase_00/`.
 
-**Note**: This command does NOT create phase directories or session stubs. Run
-`/phasebuild` after creating the PRD.
+**Operational follow-up**: live certificate-valid WSS proxy acceptance remains
+deployment-operator owned before networked production, as recorded below.
 
 ## Technical Stack
 
@@ -285,7 +285,9 @@ Beyond code, Phase 00 delivers:
 ## Success Criteria
 
 - [x] A hook registry exists and every integration point is listed in it.
-- [ ] Each of the 13 enumerated hooks has an independent toggle on both ends.
+- [x] Each of the 13 enumerated hooks has an independent website toggle; all
+      eight hooks with a MUD-owned end also have an independent MUD toggle, and
+      the five website-only hooks are explicitly MUD N/A.
 - [x] The terminal is registered as always-on and has no toggle.
 - [x] Disabling a hook on either end stops it within 10 seconds, no restart.
 - [x] A disabled hook produces no events at the source, not just discarded ones.
@@ -293,19 +295,23 @@ Beyond code, Phase 00 delivers:
 - [x] Mismatched states are shown as mismatches, not as plain "off".
 - [ ] The bridge connects over `wss://` through the MUD host's reverse proxy
       with certificate validation; the MUD listener stays loopback-only.
+      **DEFERRED (deployment operator):** repository contracts prove WSS
+      support, explicit certificate validation, loopback-only plaintext, and
+      remote-plaintext refusal. Neither repository declares the live endpoint,
+      certificate, or deployment authority needed to prove production routing.
 - [x] The website refuses a non-loopback host without `wss:`.
 - [x] `DURISWEB_SECRET` rotates end to end with zero dropped events.
 - [x] Flatfile ingestion validates input before parsing.
-- [ ] Every toggle and security decision has a regression test.
+- [x] Every toggle and security decision has a regression test.
 - [x] Flatfile hooks report UNAVAILABLE and stop retrying when the MUD
       filesystem is unreachable, without affecting other hooks.
 - [x] MUD reports its hook states over the existing bridge; no new transport.
-- [ ] `MUD_HANDOFF.md` covers every MUD-side change with file, hook point,
+- [x] `MUD_HANDOFF.md` covers every MUD-side change with file, hook point,
       property key, wire format, and acceptance check.
-- [ ] The MUD's `docs/reference/api/durisweb.md` and
+- [x] The MUD's `docs/reference/api/durisweb.md` and
       `docs/operations/CONFIGURATION.md` are updated for every new command,
       event, and property this phase introduces.
-- [ ] All pre-existing contract tests still pass.
+- [x] All pre-existing contract tests still pass.
 
 ## Risks
 

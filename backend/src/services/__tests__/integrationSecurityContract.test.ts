@@ -73,4 +73,69 @@ describe('DurisWeb integration security contracts', () => {
     expect(bootstrapNginx).toContain('return 404;');
     expect(bootstrapNginx).not.toContain('proxy_pass http://127.0.0.1:3001/kofihook;');
   });
+
+  it('keeps hook configuration consumers derived from the registry', () => {
+    const registry = read('src/hooks/registry.ts');
+    const settings = read('src/hooks/hookSettingsService.ts');
+    const mudState = read('src/hooks/mudHookStateClient.ts');
+    const routes = read('src/routes/hooks.ts');
+    const reconcile = read('src/services/hookReconcileService.ts');
+
+    expect(registry).toContain('const DEFINITIONS: readonly HookDefinition[]');
+    expect(settings).toContain('getToggleableHooks');
+    expect(mudState).toContain('getMudGatedHooks');
+    expect(routes).toContain('isHookId');
+    expect(reconcile).toContain("import { getHook } from '../hooks/registry.js'");
+    expect(reconcile).toContain('const hook = getHook(id);');
+  });
+
+  it('keeps unknown or absent foreign state fail-closed', () => {
+    const resolution = read('src/hooks/hookResolution.ts');
+    const settings = read('src/hooks/hookSettingsService.ts');
+    const mudState = read('src/hooks/mudHookStateClient.ts');
+    const gate = read('src/hooks/hookGate.ts');
+
+    expect(resolution).toContain("case 'unknown':");
+    expect(resolution).toContain("return resolved(\n        'unknown',\n        false,");
+    expect(settings).toContain("hook.mudPropertyKey === null ? 'not_gated' : 'unknown'");
+    expect(mudState).toContain('reportedState = parsed;');
+    expect(gate).toContain('if (!hook)');
+    expect(gate).toContain('return false;');
+  });
+
+  it('keeps the hook console server-authoritative rather than optimistic', () => {
+    const control = readProject('frontend/src/composables/useHookControl.ts');
+    const toggle = readProject('frontend/src/components/admin/hooks/HookToggle.vue');
+
+    expect(control).toContain('pending.value = new Set(pending.value).add(id)');
+    expect(control).toContain('const result = await hooksApi.reconcile(id, enabled)');
+    expect(control).toContain('replaceHook(result.hook)');
+    expect(control).toContain('await refresh(false)');
+    expect(control).not.toContain('hook.webEnabled = enabled');
+    expect(toggle).toContain(':model-value="hook.webEnabled"');
+    expect(toggle).toContain(':disabled="pending"');
+  });
+
+  it('refuses remote plaintext and states certificate verification explicitly', () => {
+    const policy = read('src/services/mudTransportPolicy.ts');
+    const bridge = read('src/services/mudAuctionClient.ts');
+
+    expect(policy).toContain("scheme === 'ws' && !loopback");
+    expect(policy).toContain('Plaintext ws:// is refused for a non-loopback MUD host.');
+    expect(policy).toContain('{ rejectUnauthorized: true }');
+    expect(bridge).toContain('buildMudSocketOptions(wsUrl)');
+  });
+
+  it('supports exactly one previous-secret authentication retry', () => {
+    const bridge = read('src/services/mudAuctionClient.ts');
+    const policy = read('src/services/mudTransportPolicy.ts');
+
+    expect(policy).toContain('process.env.DURISWEB_SECRET_PREVIOUS');
+    expect(bridge).toContain('!retriedWithPreviousSecret');
+    expect(bridge).toContain("authSecretSlot === 'current'");
+    expect(bridge).toContain('retriedWithPreviousSecret = true;');
+    expect(
+      bridge.match(/generateDuriswebSig\(lastChallenge, 'previous'\)/g),
+    ).toHaveLength(1);
+  });
 });

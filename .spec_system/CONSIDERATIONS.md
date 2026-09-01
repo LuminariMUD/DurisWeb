@@ -47,14 +47,6 @@ Items requiring attention in upcoming phases. Review before each session.
    new database.
    **How to apply:** apply them in filename order before `migrate:latest`.
    `017_fix_emoji_icons.sql` fails under the `mysql` client and needs review.
-4. **Three test suites depend on ambient game data.** `guildService`,
-   `auctionService`, and `userManagementService` throw (e.g. "no guilds found in
-   database for testing") rather than creating fixtures, so they only pass on a
-   database that happens to contain live game rows.
-   **Why:** violates the CONVENTIONS testing rule about fixtures, and makes a
-   clean-room test run impossible.
-   **How to apply:** give them their own fixtures before relying on them as
-   regression coverage. 33 tests affected.
 
 ### External Dependencies
 <!-- Max 5 items -->
@@ -73,8 +65,11 @@ Items requiring attention in upcoming phases. Review before each session.
 2. **Terminal sandbox is deliberately porous.** `terminalService.ts` runs
    bubblewrap with `--share-net` and a shared PID namespace so tmux persists;
    `/tmp` is bind-mounted read-write with a predictable bashrc path.
-3. **`web_sessions.refresh_token` appears to be stored unhashed** (VARCHAR 512).
-   Confirm before Phase 00 sessions touch auth.
+3. **`web_sessions.refresh_token` is stored unhashed and is directly replayable.**
+   This is confirmed High finding `SEC-RT-1`, amplified by the database shared
+   with the MUD. Digest-at-rest remediation invalidates existing sessions and
+   requires an explicit deployment decision; do not treat it as incidental
+   cleanup.
 4. **Account name, character name, and IP leave the system to Google Gemini**
    via `geminiSuspicionAnalyzer.ts` for automated profiling.
 5. **No retention or erasure anywhere.** No purge job for `page_views`,
@@ -89,9 +84,11 @@ Items requiring attention in upcoming phases. Review before each session.
    generalize to the others -- check SECURITY-COMPLIANCE.md before assuming.
 2. **The privileged bridge secret is fail-closed.** `DURISWEB_SECRET` must be
    >= 32 bytes and is contract-tested to never appear in frontend code.
-3. **Channel 1 defaults to plaintext `ws://127.0.0.1:4050`**, which is only
-   sound while the MUD and the API share a host. Crossing a host boundary
-   requires `wss://` and certificate validation.
+3. **Channel 1 permits plaintext only on loopback.** Non-loopback `ws://` is
+   refused, WSS sets `rejectUnauthorized: true`, and URL credentials/query/
+   fragments are rejected. A production networked deployment still requires
+   operator acceptance of a live certificate-valid reverse proxy; repository
+   tests cannot prove that external endpoint exists.
 4. **Redis is scoped by namespace and season epoch**, not shared flat channels.
    Legacy channels (`mud:nchat`, `mud:player`, `mud:online`) are contract-tested
    as removed -- do not reintroduce them.
@@ -99,10 +96,9 @@ Items requiring attention in upcoming phases. Review before each session.
    `/home/aiwithapex/projects/duris/`** (a separate repo, referenced via
    `MUD_DIR`). Both sides of every hook can be inspected -- verify integration
    contracts against the MUD C source in `src/net/` instead of inferring them.
-   Do not edit that repo from a durisweb session unless scope says so.
-6. **Backend and frontend are separate packages with separate lockfiles.** No
-   root workspace config links them; the CONVENTIONS.md cross-package rules
-   describe a target state, not what exists today.
+   Do not edit that repo from a durisweb session unless scope says so. Backend
+   and frontend are also separate packages with separate lockfiles; there is no
+   root workspace manager despite `monorepo: true` in Apex state.
 
 ---
 
@@ -113,21 +109,46 @@ Proven patterns and anti-patterns. Reference during implementation.
 ### What Worked
 <!-- Max 15 items -->
 
-*None yet - add patterns that prove effective.*
+1. **One registry plus generated matrices prevents silent hook drift.** Derive
+   website and MUD coverage from `getToggleableHooks()` and
+   `getMudGatedHooks()`, then separately pin the exact cross-repository tuple.
+2. **Fail-closed is directional, not universal.** An unreadable own website
+   store defaults enabled to avoid severing all integrations; an absent foreign
+   MUD report stays unknown/inactive because claiming enabled would fabricate
+   state. Disable website first and enable website last.
+3. **Separate pure policy/state modules from transport clients.** Importing the
+   bridge opens Redis/socket resources; `mudTransportPolicy.ts`, resolution,
+   and state-frame modules stay side-effect-free and make security contracts
+   deterministic.
+4. **Mock service boundaries, not live game rows.** Deterministic pool/bridge
+   fixtures preserved 33 auction/guild/user-management tests and removed the
+   full-suite dependence on a developer's database contents.
+5. **Cross-repository delivery status must distinguish pushed from merged.**
+   The MUD feature branch is pushed and verified but intentionally unmerged;
+   docs must not label that topology DONE.
 
 ### What to Avoid
 <!-- Max 10 items -->
 
-*None yet - add anti-patterns discovered during implementation.*
+1. Do not add a MUD property for a website-only hook merely to satisfy wording
+   about "both ends". Five hooks correctly report MUD N/A; terminal is always-on.
+2. Do not retain a MUD state across disconnect or interpret an omitted id as
+   enabled. Replace frames wholesale and recover only from a fresh report.
+3. Do not make component tests use partial composable/WebSocket mocks. A stale
+   mock can collapse the entire suite before any product assertion runs.
 
 ### Tool/Library Notes
 <!-- Max 5 items -->
 
-1. Four contract test files encode the hardening from commits `d20be8d`,
+1. Four pre-phase contract test files encode hardening from commits `d20be8d`,
    `f56f135`, `05e83a3`, `25dedec`: `integrationSecurityContract.test.ts`,
    `terminalSessionAuthorization.test.ts`, `websocketAccess.test.ts`,
    `scopedRedis.test.ts`. They assert on source text, so refactors can break
    them without changing behavior -- update deliberately, never by deletion.
+2. Phase 00 adds `hookDeliveryContract.test.ts`, exhaustive hook-state tests,
+   and the MUD Python integration contract. Source-shape assertions are paired
+   with behavioral tests so refactors remain deliberate without relying on
+   source snapshots alone.
 
 ---
 
@@ -137,7 +158,8 @@ Recently closed items (buffer - rotates out after 2 phases).
 
 | Phase | Item | Resolution |
 |-------|------|------------|
-| - | *No resolved items yet* | - |
+| 00 | Three ambient-data suites (33 tests) | Replaced live row/Redis assumptions with deterministic pool, transaction, bridge, and gate fixtures in Session 07. |
+| 00 | Admin overview stale mock (7 tests) | Added current analytics/WHO/activity/WebSocket/fetch lifecycle mocks; replaced two assertions for UI sections that no longer exist with current behavior. |
 
 ---
 

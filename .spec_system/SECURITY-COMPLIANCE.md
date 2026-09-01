@@ -14,7 +14,7 @@
 | Open Findings | 8 GDPR baseline + 2 High (SEC-TZ-1 session expiry, SEC-RT-1 refresh tokens) |
 | Critical/High | 2 |
 | Medium/Low | 0 |
-| Phases Audited | 0 (baseline survey only) |
+| Phases Audited | 1 implementation audit (Phase 00 validation PASS) |
 | Last Clean Phase | -- |
 
 ---
@@ -102,14 +102,21 @@ ingests.
 
 - **Channel 1** is the privileged bridge. `resolveMudWebSocketUrl` rejects URLs
   carrying credentials, queries, or fragments and requires `ws:`/`wss:`. The
-  default is `ws://127.0.0.1:4050` -- unencrypted, acceptable only while both
-  ends share a host. `DURISWEB_SECRET` is fail-closed and must be at least 32
-  bytes. Frontend code is contract-tested to never reference the secret.
+  default is `ws://127.0.0.1:4050`; plaintext is accepted only for loopback,
+  and a non-loopback host is refused. WSS explicitly uses
+  `rejectUnauthorized: true`. `DURISWEB_SECRET` is fail-closed and must be at
+  least 32 bytes; the backend retries `DURISWEB_SECRET_PREVIOUS` exactly once
+  after current-key rejection. Frontend code is contract-tested to never
+  reference either secret. A deployed certificate-valid reverse proxy remains
+  an operator-owned production acceptance, not a repository claim.
 - **Channel 3 is unauthenticated by construction.** Anything that can write to
   `${MUD_DIR}/logs/log/comm` (locally `/home/aiwithapex/projects/duris/logs/log/comm`)
   or the flatfiles under `Accounts/` and `Players/` controls what the website ingests,
-  including the account and IP records that feed `suspicious_accounts`. Parser
-  robustness is the only control.
+  including the account and IP records that feed `suspicious_accounts`.
+  Session 05 now contains paths under a canonical MUD root, rejects traversal,
+  escaping symlinks, oversized/NUL/invalid-UTF-8 input and truncated records,
+  bounds search work, isolates per-hook unavailability, and backs off retries.
+  Host filesystem trust remains the authentication boundary.
 - **Channel 4 executes shell processes.** `mudControlService.ts:116` runs `pgrep`
   through `execAsync`, and `:310` spawns `setsid ./cycle_mud.sh`.
   `deploymentService.ts` spawns `git`. Argument construction and permission
@@ -125,6 +132,35 @@ ingests.
   `utils/__tests__/websocketAccess.test.ts`, and
   `utils/__tests__/scopedRedis.test.ts`. These encode the contracts established
   by the recent hardening commits and must not regress.
+
+### Phase 00 Hook-Control Security Controls
+
+- One immutable registry defines 14 rows: 13 website-toggleable hooks and an
+  always-on terminal. Exactly eight have a MUD property; five correctly report
+  MUD N/A.
+- Website delivery is synchronously suppressed at every registered owner
+  boundary. MUD emitters return before payload construction; admin deletion
+  refuses before payload parsing; donation events are drained/dropped before
+  application.
+- MUD state is accepted only from the authenticated bridge, validated as a
+  schema-v1 boolean map, replaced wholesale, and cleared on disconnect. Missing
+  or omitted foreign state is unknown/inactive.
+- The authenticated `durisweb_hook_set` command validates auth before data,
+  accepts only the exact eight ids, a real boolean, and a non-empty bounded
+  request id, then persists through `.new` plus rename before push/ack.
+- Reconciliation disables the website first and enables it last. Ack alone is
+  insufficient; the website waits for observed MUD state, and partial failure
+  leaves the website gate closed.
+- Hook status and transport surfaces expose sanitized state/provenance only;
+  they do not return secrets, URL credentials, query/fragment content, source
+  payloads, IPs, or player data.
+- Regression coverage is registry-generated for all 13 website gates, exhaustive
+  for all eight MUD gates and reconnect states, and cross-checked against MUD C
+  sources, properties, and operator docs.
+
+**Delivery status**: DurisMUD commits `28aa1100` and `246d4510` are pushed on
+`feat/durisweb-hook-toggles` and intentionally unmerged. The no-merge topology
+is a maintainer instruction, not an incomplete security control in the branch.
 
 ### Open Questions for Phase 00 - RESOLVED
 
@@ -227,20 +263,26 @@ code survey on 2026-09-01; not a legal assessment.
 
 | Phase | Sessions | Security | GDPR | Findings Opened | Findings Closed |
 |-------|----------|----------|------|-----------------|-----------------|
-| -- | -- | -- | -- | -- | -- |
+| 00 | 7 | Validation PASS; repository controls complete | Baseline gaps remain | 2 High | 0 |
 
 ---
 
 ## Recommendations
 
-Baseline code survey, 2026-09-01. Before Phase 00 sessions are planned:
+Phase 00 closeout priorities, 2026-09-01:
 
 1. Decide whether GDPR applies to this deployment (player residency, hosting region). If it does not, mark the GDPR section N/A with that rationale rather than leaving gaps open.
-2. Answer the five MUD Integration Surface open questions before scoping Phase 00 sessions -- channel 3 (unauthenticated flatfile ingestion) and channel 5 (sandboxed shell) carry the most residual risk.
-3. Treat the Gemini transfer as a high-priority item -- account names and IP addresses leave the system to an external LLM for automated profiling.
-4. Confirm whether `web_sessions.refresh_token` is hashed before storage; the column type suggests it is not.
-5. Define retention for `page_views`, connection logs, and audit tables -- nothing currently expires.
-6. Establish an erasure path; `ON DELETE CASCADE` exists on profile tables but no code deletes an account.
+2. Make an explicit rollout decision for `SEC-RT-1`: digest refresh tokens and
+   accept that deployment invalidates every existing session.
+3. Remediate `SEC-TZ-1` with explicit UTC storage/comparison or a fail-fast
+   startup timezone assertion.
+4. Treat the Gemini transfer as a high-priority item -- account names and IP
+   addresses leave the system to an external LLM for automated profiling.
+5. Define retention for `page_views`, connection logs, and audit tables --
+   nothing currently expires -- and establish an account erasure path.
+6. Before networked production, have the deployment operator prove the live
+   MUD reverse proxy is reached over certificate-valid WSS. Do not weaken the
+   non-loopback plaintext block or certificate verification to pass rollout.
 
 ---
 
