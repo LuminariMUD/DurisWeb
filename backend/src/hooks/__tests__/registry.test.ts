@@ -61,6 +61,12 @@ describe('hook registry composition', () => {
     expect(hook.webSettingKey).toBe('hook_enabled_connection_log');
   });
 
+  it('records the game-thread donation gate as the authoritative MUD site', () => {
+    expect(requireHook('donation_delivery').mudSite).toBe(
+      'src/redis/redis_donation_runtime.c:check_donation_messages',
+    );
+  });
+
   it('populates every declared channel', () => {
     for (const channel of ALL_CHANNELS) {
       expect(getHooksByChannel(channel).length).toBeGreaterThan(0);

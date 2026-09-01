@@ -216,6 +216,7 @@ async function connect(): Promise<void> {
 
     socket.on('close', (code, reason) => {
       logger.info(`[MUD Auction] Connection closed: ${code} ${reason}`);
+      const shouldClassifyCrash = isHookEnabledSync('mud_shutdown');
       // Forget what the MUD told us: it may change while we are away, and a
       // stale "enabled" would read as a live hook that is actually off.
       clearMudHookState();
@@ -223,7 +224,7 @@ async function connect(): Promise<void> {
       lastChallenge = null;
       authSecretSlot = 'current';
       retriedWithPreviousSecret = false;
-      handleWebSocketClose();
+      handleWebSocketClose(shouldClassifyCrash);
       cleanup();
       scheduleReconnect();
     });
@@ -666,7 +667,7 @@ function handleMudShutdown(data: { type: string; timestamp?: number }): void {
 /**
  * called when websocket closes - detect crash if no graceful shutdown
  */
-async function handleWebSocketClose(): Promise<void> {
+async function handleWebSocketClose(shouldClassifyCrash: boolean): Promise<void> {
   // check if MUD process is still running via ps
   const processStats = await getDmsProcessStats();
 
@@ -676,6 +677,13 @@ async function handleWebSocketClose(): Promise<void> {
     alreadyBroadcastCrash = false;
     await clearMudBootTime();
     logger.info('[MUD] websocket closed after graceful shutdown');
+  } else if (!processStats.isRunning && !shouldClassifyCrash) {
+    // A disabled shutdown hook intentionally withholds the graceful marker.
+    // Do not reinterpret that missing marker as a crash notification.
+    mudWasDown = true;
+    alreadyBroadcastCrash = false;
+    await clearMudBootTime();
+    logger.info('[MUD] process stopped while mud_shutdown classification is disabled');
   } else if (!processStats.isRunning && !alreadyBroadcastCrash) {
     // process not running = real crash
     mudWasDown = true;

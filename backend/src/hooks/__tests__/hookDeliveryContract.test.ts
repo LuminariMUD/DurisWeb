@@ -208,6 +208,26 @@ describe('registered owner enforcement sites', () => {
     expect(bridge.match(/acceptInboundHook\('player_presence'\)/g)).toHaveLength(2);
   });
 
+  it('does not reinterpret a deliberately suppressed shutdown marker as a crash', () => {
+    const bridge = readProject('backend/src/services/mudAuctionClient.ts');
+    const closeCallback = bridge.slice(
+      bridge.indexOf("socket.on('close'"),
+      bridge.indexOf("socket.on('error'"),
+    );
+    const closeHandler = bridge.slice(
+      bridge.indexOf('async function handleWebSocketClose'),
+      bridge.indexOf('function cleanup'),
+    );
+
+    expect(closeCallback.indexOf("isHookEnabledSync('mud_shutdown')")).toBeLessThan(
+      closeCallback.indexOf('clearMudHookState()'),
+    );
+    expect(closeCallback).toContain('handleWebSocketClose(shouldClassifyCrash)');
+    expect(closeHandler.indexOf('!shouldClassifyCrash')).toBeLessThan(
+      closeHandler.indexOf("broadcast('MUD_CRASH'"),
+    );
+  });
+
   it('keeps the always-on terminal behind permission and live-session checks', () => {
     const terminal = requireHook('terminal');
     const entrypoint = readProject('backend/src/index.ts');
