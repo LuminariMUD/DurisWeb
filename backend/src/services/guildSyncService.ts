@@ -1,6 +1,7 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool as db } from '../db/connection.js';
 import logger from '../utils/logger.js';
+import { isHookEnabledSync } from '../hooks/hookGate.js';
 
 /**
  * Guild Auto-Access Background Service
@@ -66,7 +67,7 @@ async function getGuildHallsParentId(): Promise<number> {
       'Guild Halls',
       'Private guild forums - auto-created for each guild',
       'authenticated',
-      '🏰',
+      '\u{1F3F0}',
       3,
       null
     ]
@@ -109,34 +110,37 @@ function getGuildIcon(guildName: string): string {
 
   // Evil guilds
   if (lowerName.includes('lloth') || lowerName.includes('drow')) {
-    return '🕷️';
+    return '\u{1F577}\u{FE0F}';
   }
   if (lowerName.includes('defilers') || lowerName.includes('tiamat')) {
-    return '🐉';
+    return '\u{1F409}';
   }
   if (lowerName.includes('shokara')) {
-    return '💀';
+    return '\u{1F480}';
   }
 
   // Good guilds
   if (lowerName.includes('har') || lowerName.includes('temple')) {
-    return '⛪';
+    return '\u{26EA}';
   }
   if (lowerName.includes('silverite') || lowerName.includes('mielikki')) {
-    return '🌲';
+    return '\u{1F332}';
   }
   if (lowerName.includes('netheril')) {
-    return '🔮';
+    return '\u{1F52E}';
   }
 
   // Neutral/default
-  return '⚔️';
+  return '\u{2694}\u{FE0F}';
 }
 
 /**
  * Sync guilds - create categories for new guilds
  */
 export async function syncGuilds(): Promise<void> {
+  if (!isHookEnabledSync('guild_parsing')) {
+    return;
+  }
   try {
 
     // Get all guilds from database
@@ -192,6 +196,7 @@ export function startGuildSync(): void {
       logger.error('[GuildSync] Periodic sync failed:', err);
     });
   }, SYNC_INTERVAL);
+  syncIntervalId.unref();
 }
 
 /**

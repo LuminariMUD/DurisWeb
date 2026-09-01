@@ -46,6 +46,10 @@
     {
       "id": "phase00-session04-bridge-state-and-transport-security",
       "package": "backend"
+    },
+    {
+      "id": "phase00-session05-flatfile-ingestion-hardening",
+      "package": "backend"
     }
   ],
   "next_session_history": [
@@ -70,6 +74,24 @@
     {
       "date": "2026-09-01",
       "session": "phase00-session04-bridge-state-and-transport-security",
+      "package": "backend",
+      "status": "completed"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session05-flatfile-ingestion-hardening",
+      "package": "backend",
+      "status": "planned"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session05-flatfile-ingestion-hardening",
+      "package": "backend",
+      "status": "validated"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session05-flatfile-ingestion-hardening",
       "package": "backend",
       "status": "completed"
     }

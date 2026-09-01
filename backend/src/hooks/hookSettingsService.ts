@@ -18,6 +18,10 @@ import {
   type ResolvedHookState,
 } from './hookResolution.js';
 import type { HookDefinition, HookId } from './types.js';
+import {
+  getFlatfileHookHealth,
+  type FlatfileHookHealth,
+} from './flatfileHookState.js';
 
 /** Supplies what the MUD currently reports. Session 04 replaces the default. */
 export interface MudHookStateProvider {
@@ -125,6 +129,7 @@ export interface HookStatusRow {
   readonly hook: HookDefinition;
   readonly webEnabled: boolean;
   readonly mudState: MudHookState;
+  readonly resource: FlatfileHookHealth | null;
   readonly effective: EffectiveHookState;
   readonly active: boolean;
   readonly reason: string;
@@ -135,7 +140,10 @@ function statusFor(
   webState: ReadonlyMap<string, boolean>,
 ): HookStatusRow {
   const webEnabled = hook.alwaysOn ? true : webState.get(hook.id) ?? true;
-  const mudState = mudStateProvider.getState(hook);
+  const resource = getFlatfileHookHealth(hook.id);
+  const mudState = resource?.availability === 'unavailable'
+    ? 'unavailable'
+    : mudStateProvider.getState(hook);
   const resolved: ResolvedHookState = resolveHookState({
     hook,
     webEnabled,
@@ -146,6 +154,7 @@ function statusFor(
     hook,
     webEnabled,
     mudState,
+    resource,
     effective: resolved.effective,
     active: resolved.active,
     reason: resolved.reason,

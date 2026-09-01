@@ -6,6 +6,10 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from '@jest/glob
 import { pool } from '../../db/connection.js';
 import { getToggleableHooks, requireHook } from '../registry.js';
 import {
+  markFlatfileUnavailable,
+  resetFlatfileHookStateForTests,
+} from '../flatfileHookState.js';
+import {
   getHookStatus,
   getHookStatuses,
   peekWebState,
@@ -37,6 +41,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
+  resetFlatfileHookStateForTests();
   resetMudHookStateProvider();
   await seedRows();
 });
@@ -164,6 +169,31 @@ describe('effective state against MUD reports', () => {
     const status = await getHookStatus('flag_parsing');
     expect(status.mudState).toBe('not_gated');
     expect(status.effective).toBe('on');
+  });
+
+  it('overlays an unavailable resource on only its filesystem-backed hook', async () => {
+    markFlatfileUnavailable(
+      'connection_log',
+      'Required comm log is unavailable.',
+    );
+
+    const statuses = await getHookStatuses();
+    expect(statuses.find((status) => status.hook.id === 'connection_log')).toMatchObject({
+      mudState: 'unavailable',
+      effective: 'unavailable',
+      active: false,
+      resource: {
+        availability: 'unavailable',
+        droppedInputs: 0,
+      },
+    });
+    expect(statuses.find((status) => status.hook.id === 'flag_parsing')).toMatchObject({
+      mudState: 'not_gated',
+      effective: 'on',
+      resource: { availability: 'available' },
+    });
+    expect(statuses.find((status) => status.hook.id === 'guild_parsing')?.resource)
+      .toBeNull();
   });
 });
 

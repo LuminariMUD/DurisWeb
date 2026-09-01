@@ -1,10 +1,10 @@
 # PRD Phase 00: hooks between website & mud server + security of those hooks
 
-**Status**: Not Started
+**Status**: In Progress
 **Sessions**: 7 (initial estimate)
 **Estimated Duration**: 5-8 days
 
-**Progress**: 4/7 sessions (57%)
+**Progress**: 5/7 sessions (71%)
 
 ---
 
@@ -31,7 +31,7 @@ Full requirements in [PRD.md](../PRD.md). Operator console design in
 | 02 | MUD-side toggles and state reporting | Complete (2026-09-01) | 20 | PASS |
 | 03 | Website toggle store and resolution | Complete (2026-09-01) | 18 | PASS |
 | 04 | Bridge state sync and transport security | Complete (2026-09-01) | 20 | PASS |
-| 05 | Flatfile ingestion hardening | Not Started | ~15 | - |
+| 05 | Flatfile ingestion hardening | Complete (2026-09-01) | 22 | PASS |
 | 06 | Hook Control console | Not Started | ~22 | - |
 | 07 | Contract tests and doc reconciliation | Not Started | ~18 | - |
 
@@ -44,8 +44,8 @@ Full requirements in [PRD.md](../PRD.md). Operator console design in
   the single source of hook ids for Sessions 02-07.
 - **Session 02: MUD-side toggles and state reporting** (2026-09-01) - 20/20
   tasks, clean build under -Werror, validation PASS. Eight MUD gates plus
-  `durisweb_hook_state`, all defaulting to enabled. Committed to
-  `feat/durisweb-hook-toggles` in the MUD repo, not pushed.
+  `durisweb_hook_state`, all defaulting to enabled. Commit `28aa1100` is pushed
+  to `feat/durisweb-hook-toggles` in the MUD repo and remains unmerged.
 - **Session 03: Website toggle store and resolution** (2026-09-01) - 18/18
   tasks, 56/56 tests, validation PASS. Toggle store, fail-closed resolution,
   event-path gate, and admin API. Also cleared most of the inherited migration
@@ -54,12 +54,17 @@ Full requirements in [PRD.md](../PRD.md). Operator console design in
   tasks, 52/52 tests, validation PASS. Real MUD state now feeds resolution;
   plaintext refused across a network; certificates validated; secret rotation
   closed. Confirmed SEC-RT-1 (High).
+- **Session 05: Flatfile ingestion hardening** (2026-09-01) - 22/22 tasks,
+  161/161 affected tests, validation PASS. Filesystem reads are contained and
+  bounded, malformed aggregates fail closed without hiding valid neighbors,
+  flatfile hooks degrade independently to UNAVAILABLE with bounded recovery,
+  and connection-sync logs no longer expose IP addresses.
 
 ---
 
 ## Upcoming Sessions
 
-- Session 05: Flatfile ingestion hardening
+- Session 06: Hook Control console
 
 ---
 
@@ -153,7 +158,7 @@ Phase complete when:
 - [ ] Mismatch renders distinctly from off, unknown, and unavailable
 - [ ] Bridge connects over `wss://` through a reverse proxy with cert validation
 - [ ] Website supports `DURISWEB_SECRET_PREVIOUS`
-- [ ] Flatfile parsers validate input and degrade to UNAVAILABLE cleanly
+- [x] Flatfile parsers validate input and degrade to UNAVAILABLE cleanly
 - [ ] MUD_HANDOFF.md shows every change DONE or explicitly deferred
 - [ ] MUD `docs/reference/api/durisweb.md` and `CONFIGURATION.md` updated
 - [ ] All pre-existing contract tests still pass

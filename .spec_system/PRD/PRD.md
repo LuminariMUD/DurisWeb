@@ -295,9 +295,9 @@ Beyond code, Phase 00 delivers:
       with certificate validation; the MUD listener stays loopback-only.
 - [ ] The website refuses a non-loopback host without `wss:`.
 - [ ] `DURISWEB_SECRET` rotates end to end with zero dropped events.
-- [ ] Flatfile ingestion validates input before parsing.
+- [x] Flatfile ingestion validates input before parsing.
 - [ ] Every toggle and security decision has a regression test.
-- [ ] Flatfile hooks report UNAVAILABLE and stop retrying when the MUD
+- [x] Flatfile hooks report UNAVAILABLE and stop retrying when the MUD
       filesystem is unreachable, without affecting other hooks.
 - [ ] MUD reports its hook states over the existing bridge; no new transport.
 - [ ] `MUD_HANDOFF.md` covers every MUD-side change with file, hook point,

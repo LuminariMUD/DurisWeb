@@ -134,11 +134,9 @@ const DEFINITIONS: readonly HookDefinition[] = Object.freeze([
     owner: 'backend/src/services/mudConnectionLogSync.ts',
     mudSite: null,
     description:
-      'Connection login and logout records tailed from the MUD comm log. ' +
-      'Website-side only: the lines durisweb parses are ordinary LOG_COMM ' +
-      'operational logs the MUD writes for its own purposes, so gating them ' +
-      'on the MUD would delete admin-facing records to control a web hook. ' +
-      'The toggle stops durisweb ingesting, not the MUD logging.',
+      'Dormant legacy parser for connection records in the MUD comm log. ' +
+      'Authenticated bridge events are the active ingestion path; retaining ' +
+      'this website-side toggle does not restart the tail or stop MUD logging.',
   },
   {
     id: 'flag_parsing',
@@ -163,8 +161,9 @@ const DEFINITIONS: readonly HookDefinition[] = Object.freeze([
     owner: 'backend/src/services/mudGuildParser.ts',
     mudSite: null,
     description:
-      'Guild definitions read from MUD data files. Website-side read; the MUD ' +
-      'has no emitter to gate.',
+      'Database-backed guild compatibility facade and background forum sync. ' +
+      'The stable flatfile-era id is retained, but availability is independent ' +
+      'of MUD_DIR and the MUD has no emitter to gate.',
   },
   {
     id: 'zone_builder_parsing',

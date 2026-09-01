@@ -35,6 +35,15 @@ import publicStatisticsRoutes from './routes/publicStatistics.js';
 import hookRoutes from './routes/hooks.js';
 import { mudHookStateProvider } from './hooks/mudHookStateClient.js';
 import { refreshHookState, setMudHookStateProvider } from './hooks/hookSettingsService.js';
+import {
+  getFlatfileHookHealthSnapshot,
+  startFlatfileRecoveryMonitor,
+  stopFlatfileRecoveryMonitor,
+} from './hooks/flatfileHookState.js';
+import {
+  probeAllFlatfileHooks,
+  recoverFlatfileHook,
+} from './services/flatfileAccess.js';
 import kofiRoutes from './routes/kofi.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { generateCsrfToken, verifyCsrfToken } from './middleware/csrf.js';
@@ -804,6 +813,7 @@ const gracefulShutdown = async () => {
   }
 
   await stopDonationOutboxPublisher();
+  stopFlatfileRecoveryMonitor();
   await closeOnlinePlayersRedisConnections();
   await closeDatabaseConnection();
   await closeRedisConnection();
@@ -821,33 +831,17 @@ process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
 process.on('SIGUSR2', gracefulShutdown); // Nodemon sends SIGUSR2
 
-// Validate MUD directory at startup
-async function validateMudDirectory(): Promise<void> {
-  const { access, constants } = await import('fs/promises');
+async function initializeFlatfileHealth(): Promise<void> {
+  startFlatfileRecoveryMonitor(recoverFlatfileHook);
+  await probeAllFlatfileHooks();
 
-  const MUD_DIR = process.env.MUD_DIR;
-
-  if (!MUD_DIR) {
-    logger.error('FATAL: MUD_DIR environment variable is not set');
-    logger.error('Set it to the absolute path of your DurisMUD directory');
-    process.exit(1);
+  for (const health of getFlatfileHookHealthSnapshot()) {
+    if (health.availability === 'unavailable') {
+      logger.warn(
+        `[hooks] ${health.hookId} unavailable: ${health.reason ?? 'required MUD filesystem resource is unavailable'}`,
+      );
+    }
   }
-
-  if (!path.isAbsolute(MUD_DIR)) {
-    logger.error('FATAL: MUD_DIR must be an absolute path');
-    logger.error(`Got: ${MUD_DIR}`);
-    process.exit(1);
-  }
-
-  try {
-    await access(MUD_DIR, constants.R_OK | constants.X_OK);
-  } catch {
-    logger.error(`FATAL: Cannot access MUD_DIR: ${MUD_DIR}`);
-    logger.error('Verify the path exists and has correct permissions');
-    process.exit(1);
-  }
-
-  logger.info(`mud directory validated: ${MUD_DIR}`);
 }
 
 // helper to verify websocket auth with minimum level requirement
@@ -931,8 +925,10 @@ async function authorizeZoneStream(
 
 async function startServer() {
   try {
-    // Validate MUD directory first
-    await validateMudDirectory();
+    // Filesystem-backed hooks are optional in split-host deployments. Probe
+    // them independently and keep the bridge, Redis, and database paths alive
+    // when MUD_DIR is absent or unreachable.
+    await initializeFlatfileHealth();
 
     // Check database connection
     logger.info('Checking database connection...');

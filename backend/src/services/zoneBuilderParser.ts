@@ -4,11 +4,24 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import logger from '../utils/logger.js';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 import { pool } from '../db/connection.js';
 import type { RowDataPacket } from 'mysql2';
-import { resolveSafeZoneDirectoryPath, resolveSafeZoneFilePath, resolveSafeZoneMapPath } from '../utils/safeZonePath.js';
+import { isHookEnabledSync } from '../hooks/hookGate.js';
+import { recordDroppedFlatfileInput } from '../hooks/flatfileHookState.js';
+import {
+  FlatfileAccessError,
+  getMudAreasRoot,
+  listMudDirectory,
+  mudPathExists,
+  readMudTextFile,
+  statMudPath,
+} from './flatfileAccess.js';
+import {
+  resolveSafeZoneDirectoryPath,
+  resolveSafeZoneFilePath,
+  resolveSafeZoneMapPath,
+  UnsafeZonePathError,
+} from '../utils/safeZonePath.js';
 import {
   Room,
   RoomExit,
@@ -28,8 +41,360 @@ import {
   ResetCommandType,
 } from '../types/builder.js';
 
-const MUD_DIR = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
-const AREAS_DIR = path.join(MUD_DIR, 'areas');
+function assertZoneBuilderParsingEnabled(): void {
+  if (!isHookEnabledSync('zone_builder_parsing')) {
+    throw new Error('zone_builder_parsing is disabled on the website.');
+  }
+}
+
+function getAreasDir(): string {
+  assertZoneBuilderParsingEnabled();
+  return getMudAreasRoot();
+}
+
+export class ZoneSourceParseError extends Error {
+  constructor(
+    readonly sourceType: string,
+    readonly sourceName?: string,
+  ) {
+    super(
+      sourceName
+        ? `Malformed or truncated ${sourceType} source record in ${sourceName}.`
+        : `Malformed or truncated ${sourceType} source record.`,
+    );
+    this.name = 'ZoneSourceParseError';
+  }
+}
+
+function rejectZoneSource(sourceType: string): never {
+  recordDroppedFlatfileInput('zone_builder_parsing');
+  throw new ZoneSourceParseError(sourceType);
+}
+
+function safeSourceName(filePath: string): string {
+  const basename = path.basename(filePath);
+  return /^[A-Za-z0-9._-]{1,128}$/.test(basename)
+    ? basename
+    : `unknown${path.extname(basename).toLowerCase()}`;
+}
+
+function consumeTildeTerminated(
+  lines: readonly string[],
+  start: number,
+  standalone: boolean,
+  sourceType: string,
+): number {
+  for (let index = start; index < lines.length; index += 1) {
+    const terminated = standalone
+      ? lines[index].trim() === '~'
+      : hasTildeTerminator(lines[index]);
+    if (terminated) {
+      return index + 1;
+    }
+  }
+  return rejectZoneSource(sourceType);
+}
+
+function hasTildeTerminator(line: string | undefined): boolean {
+  return line?.trimEnd().endsWith('~') === true;
+}
+
+function removeTildeTerminator(line: string | undefined): string {
+  return line?.replace(/~\s*$/, '') ?? '';
+}
+
+function isInteger(value: string): boolean {
+  return /^-?\d+$/.test(value);
+}
+
+function assertIntegerLine(
+  line: string | undefined,
+  minimum: number,
+  sourceType: string,
+): void {
+  const values = line?.trim().split(/\s+/).filter(Boolean) ?? [];
+  if (values.length < minimum || !values.every(isInteger)) {
+    rejectZoneSource(sourceType);
+  }
+}
+
+function getSourceRecords(
+  content: string,
+  sourceType: string,
+  allowEmpty = false,
+): string[][] {
+  const lines = content.split('\n');
+  const starts: number[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    if (/^#\d+$/.test(lines[index])) {
+      starts.push(index);
+    }
+  }
+  if (allowEmpty && starts.length === 0 && !content.trim()) {
+    return [];
+  }
+  if (starts.length === 0 || lines.slice(0, starts[0]).some(line => line.trim())) {
+    rejectZoneSource(sourceType);
+  }
+
+  const records = starts.map((start, index) =>
+    lines.slice(start, starts[index + 1] ?? lines.length),
+  );
+  const vnums = records.map(record => record[0]);
+  if (new Set(vnums).size !== vnums.length) {
+    rejectZoneSource(sourceType);
+  }
+  return records;
+}
+
+function isEndSentinel(record: readonly string[]): boolean {
+  return record[0] === '#9999999' && record[1]?.trim() === '$~';
+}
+
+function validateWorldSource(content: string): void {
+  const sourceType = '.wld';
+  for (const record of getSourceRecords(content, sourceType)) {
+    if (isEndSentinel(record)) {
+      continue;
+    }
+    let index = consumeTildeTerminated(record, 1, false, sourceType);
+    index = consumeTildeTerminated(record, index, true, sourceType);
+    assertIntegerLine(record[index], 3, sourceType);
+    index += 1;
+
+    let ended = false;
+    while (index < record.length) {
+      const line = record[index].trim();
+      if (!line) {
+        index += 1;
+        continue;
+      }
+      if (line === 'S') {
+        ended = true;
+        index += 1;
+        break;
+      }
+      if (/^D\d+$/.test(line)) {
+        const direction = Number(line.slice(1));
+        if (direction < 0 || direction > 9) {
+          rejectZoneSource(sourceType);
+        }
+        index = consumeTildeTerminated(record, index + 1, true, sourceType);
+        index = consumeTildeTerminated(record, index, false, sourceType);
+        assertIntegerLine(record[index], 3, sourceType);
+        index += 1;
+        continue;
+      }
+      if (line === 'E') {
+        index = consumeTildeTerminated(record, index + 1, false, sourceType);
+        index = consumeTildeTerminated(record, index, true, sourceType);
+        continue;
+      }
+      if (line === 'F') {
+        assertIntegerLine(record[index + 1], 1, sourceType);
+        index += 2;
+        continue;
+      }
+      if (line === 'C' || line === 'M') {
+        assertIntegerLine(record[index + 1], 2, sourceType);
+        index += 2;
+        continue;
+      }
+      rejectZoneSource(sourceType);
+    }
+    if (!ended || record.slice(index).some(line => line.trim())) {
+      rejectZoneSource(sourceType);
+    }
+  }
+}
+
+function validateMobileSource(content: string): void {
+  const sourceType = '.mob';
+  for (const record of getSourceRecords(content, sourceType, true)) {
+    if (isEndSentinel(record)) {
+      continue;
+    }
+    let index = consumeTildeTerminated(record, 1, false, sourceType);
+    index = consumeTildeTerminated(record, index, false, sourceType);
+    index = consumeTildeTerminated(record, index, true, sourceType);
+    index = consumeTildeTerminated(record, index, true, sourceType);
+
+    const flagValues = record[index]?.trim().split(/\s+/).filter(Boolean) ?? [];
+    if (
+      flagValues.length < 5 ||
+      flagValues.at(-1) !== 'S' ||
+      !flagValues.slice(0, -1).every(isInteger)
+    ) {
+      rejectZoneSource(sourceType);
+    }
+    index += 1;
+
+    const speciesValues = record[index]?.trim().split(/\s+/).filter(Boolean) ?? [];
+    if (
+      speciesValues.length < 3 ||
+      !speciesValues[0] ||
+      !speciesValues.slice(1).every(isInteger)
+    ) {
+      rejectZoneSource(sourceType);
+    }
+    index += 1;
+
+    const statsValues = record[index]?.trim().split(/\s+/).filter(Boolean) ?? [];
+    if (
+      statsValues.length < 5 ||
+      !statsValues.slice(0, 3).every(isInteger) ||
+      !statsValues[3] ||
+      !statsValues[4]
+    ) {
+      rejectZoneSource(sourceType);
+    }
+    index += 1;
+
+    const goldValues = record[index]?.trim().split(/\s+/).filter(Boolean) ?? [];
+    if (
+      goldValues.length < 2 ||
+      !/^-?\d+(?:\.\d+)*$/.test(goldValues[0]) ||
+      !isInteger(goldValues[1])
+    ) {
+      rejectZoneSource(sourceType);
+    }
+    index += 1;
+    assertIntegerLine(record[index], 3, sourceType);
+    index += 1;
+
+    if (record.slice(index).some(line => line.trim())) {
+      rejectZoneSource(sourceType);
+    }
+  }
+}
+
+function validateObjectSource(content: string): void {
+  const sourceType = '.obj';
+  for (const record of getSourceRecords(content, sourceType, true)) {
+    if (isEndSentinel(record)) {
+      continue;
+    }
+    let index = 1;
+    for (let field = 0; field < 4; field += 1) {
+      index = consumeTildeTerminated(record, index, false, sourceType);
+    }
+    assertIntegerLine(record[index], 11, sourceType);
+    index += 1;
+    assertIntegerLine(record[index], 8, sourceType);
+    index += 1;
+    assertIntegerLine(record[index], 3, sourceType);
+    index += 1;
+
+    while (index < record.length) {
+      const line = record[index].trim();
+      if (!line) {
+        index += 1;
+        continue;
+      }
+      if (line === 'A') {
+        assertIntegerLine(record[index + 1], 2, sourceType);
+        index += 2;
+        continue;
+      }
+      if (line === 'E') {
+        index = consumeTildeTerminated(record, index + 1, false, sourceType);
+        index = consumeTildeTerminated(record, index, true, sourceType);
+        continue;
+      }
+      if (line === 'X' || line === 'T' || line === 'U') {
+        assertIntegerLine(record[index + 1], 1, sourceType);
+        index += 2;
+        continue;
+      }
+      rejectZoneSource(sourceType);
+    }
+  }
+}
+
+function validateResetSource(content: string): void {
+  const sourceType = '.zon';
+  const lines = content.split('\n');
+  let index = 0;
+  while (index < lines.length && !lines[index].trim()) {
+    index += 1;
+  }
+  if (!/^#\d+$/.test(lines[index] ?? '')) {
+    rejectZoneSource(sourceType);
+  }
+  index = consumeTildeTerminated(lines, index + 1, false, sourceType);
+  assertIntegerLine(lines[index], 5, sourceType);
+  index += 1;
+
+  let ended = false;
+  let legacyMetadataSeen = false;
+  let resetSeen = false;
+  while (index < lines.length) {
+    const line = lines[index].trim();
+    if (!line || line.startsWith('*')) {
+      index += 1;
+      continue;
+    }
+    if (line === 'S' || line === '$') {
+      ended = true;
+      index += 1;
+      break;
+    }
+    const commandPart = line.split('*', 1)[0].trim();
+    const values = commandPart.split(/\s+/);
+    if (
+      !resetSeen &&
+      !legacyMetadataSeen &&
+      values.length === 2 &&
+      values.every(isInteger)
+    ) {
+      legacyMetadataSeen = true;
+      index += 1;
+      continue;
+    }
+    if (
+      !/^[MOGEPDRF]$/.test(values[0] ?? '') ||
+      values.length < 5 ||
+      !values.slice(1).every(isInteger)
+    ) {
+      rejectZoneSource(sourceType);
+    }
+    resetSeen = true;
+    index += 1;
+  }
+  if (
+    !ended ||
+    lines.slice(index).some(line => line.trim() && !line.trim().startsWith('*'))
+  ) {
+    rejectZoneSource(sourceType);
+  }
+}
+
+function validateAreaSource(filePath: string, content: string): void {
+  const sourceType = path.extname(filePath).toLowerCase();
+  try {
+    switch (sourceType) {
+      case '.wld':
+        validateWorldSource(content);
+        return;
+      case '.mob':
+        validateMobileSource(content);
+        return;
+      case '.obj':
+        validateObjectSource(content);
+        return;
+      case '.zon':
+        validateResetSource(content);
+        return;
+      default:
+        return;
+    }
+  } catch (error) {
+    if (error instanceof ZoneSourceParseError) {
+      throw new ZoneSourceParseError(sourceType, safeSourceName(filePath));
+    }
+    throw error;
+  }
+}
 
 // Cache for zone number to filename mapping
 let zoneFileMap: Map<number, string> | null = null;
@@ -87,33 +452,50 @@ async function speciesCodeToIndex(code: string): Promise<number> {
 // Build mapping of zone number -> base filename (without extension)
 // Zone number comes from line 1 of .zon file (#<number>)
 async function buildZoneFileMap(): Promise<Map<number, string>> {
+  assertZoneBuilderParsingEnabled();
   if (zoneFileMap) return zoneFileMap;
 
   const map = new Map<number, string>();
-  const zonDir = resolveSafeZoneDirectoryPath(AREAS_DIR, 'zon');
+  const zonDir = resolveSafeZoneDirectoryPath(getAreasDir(), 'zon');
 
   try {
-    const files = await fs.readdir(zonDir);
+    const files = await listMudDirectory('zone_builder_parsing', zonDir);
     const zonFiles = files.filter(f => f.endsWith('.zon'));
 
     for (const file of zonFiles) {
-      const zonPath = path.join(zonDir, file);
-      const content = await fs.readFile(zonPath, 'utf-8');
-
-      // Zone format: Line 1 = #<zone_number>, Line 2 = name~, Line 3 = <top_vnum> <flags...>
-      // Zone number comes from line 1 (e.g., #831 means zone 831)
-      const lines = content.split('\n');
-      if (lines.length < 1) continue;
-
-      const zoneNumberMatch = lines[0].match(/^#(\d+)/);
-      if (zoneNumberMatch) {
-        const zoneNumber = parseInt(zoneNumberMatch[1], 10);
+      try {
         const baseName = file.replace('.zon', '');
-        map.set(zoneNumber, baseName);
+        const zonPath = resolveSafeZoneFilePath(getAreasDir(), baseName, 'zon');
+        const content = await readFile(zonPath);
+
+        // Zone format: Line 1 = #<zone_number>, Line 2 = name~, Line 3 = <top_vnum> <flags...>
+        // Zone number comes from line 1 (e.g., #831 means zone 831)
+        const lines = content.split('\n');
+        if (lines.length < 1) continue;
+
+        const zoneNumberMatch = lines[0].match(/^#(\d+)/);
+        if (zoneNumberMatch) {
+          const zoneNumber = parseInt(zoneNumberMatch[1], 10);
+          map.set(zoneNumber, baseName);
+        }
+      } catch (error) {
+        const rejectedInput =
+          error instanceof UnsafeZonePathError ||
+          error instanceof ZoneSourceParseError ||
+          (error instanceof FlatfileAccessError &&
+            ['invalid_content', 'invalid_path', 'too_large'].includes(error.code));
+        if (!rejectedInput) {
+          throw error;
+        }
+        if (error instanceof UnsafeZonePathError) {
+          recordDroppedFlatfileInput('zone_builder_parsing');
+        }
+        logger.warn(`Skipped malformed zone source for ${safeSourceName(file)}.`);
       }
     }
   } catch (error) {
     logger.error('Error building zone file map:', error);
+    throw error;
   }
 
   zoneFileMap = map;
@@ -133,23 +515,18 @@ export function invalidateZoneFileMap(): void {
 
 // Helper to read file content (normalizes Windows line endings)
 async function readFile(filePath: string): Promise<string> {
-  try {
-    const content = await fs.readFile(filePath, 'utf-8');
-    // Normalize Windows line endings (CRLF -> LF)
-    return content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  } catch (_error) {
-    throw new Error(`Failed to read file: ${filePath}`);
-  }
+  assertZoneBuilderParsingEnabled();
+  const content = await readMudTextFile('zone_builder_parsing', filePath, {
+    maxBytes: 64 * 1024 * 1024,
+  });
+  validateAreaSource(filePath, content);
+  return content;
 }
 
 // Helper to check if file exists
 async function fileExists(filePath: string): Promise<boolean> {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
+  assertZoneBuilderParsingEnabled();
+  return mudPathExists('zone_builder_parsing', filePath);
 }
 
 // Zone index cache
@@ -165,82 +542,102 @@ export function invalidateZoneIndexCache(): void {
 
 // Build full zone index (internal, cached)
 async function buildZoneIndex(): Promise<ZoneIndex[]> {
+  assertZoneBuilderParsingEnabled();
   // Return cached if valid
   if (zoneIndexCache && Date.now() - zoneIndexCacheTime < ZONE_INDEX_CACHE_TTL) {
     return zoneIndexCache;
   }
 
-  const zonDir = resolveSafeZoneDirectoryPath(AREAS_DIR, 'zon');
+  const zonDir = resolveSafeZoneDirectoryPath(getAreasDir(), 'zon');
   const zones: ZoneIndex[] = [];
 
   try {
-    const files = await fs.readdir(zonDir);
+    const files = await listMudDirectory('zone_builder_parsing', zonDir);
     const zonFiles = files.filter(f => f.endsWith('.zon'));
 
     for (const file of zonFiles) {
       const baseName = file.replace('.zon', '');
-      const zonPath = resolveSafeZoneFilePath(AREAS_DIR, baseName, 'zon');
-      const wldPath = resolveSafeZoneFilePath(AREAS_DIR, baseName, 'wld');
-      const mobPath = resolveSafeZoneFilePath(AREAS_DIR, baseName, 'mob');
-      const objPath = resolveSafeZoneFilePath(AREAS_DIR, baseName, 'obj');
+      try {
+        const areasDir = getAreasDir();
+        const zonPath = resolveSafeZoneFilePath(areasDir, baseName, 'zon');
+        const wldPath = resolveSafeZoneFilePath(areasDir, baseName, 'wld');
+        const mobPath = resolveSafeZoneFilePath(areasDir, baseName, 'mob');
+        const objPath = resolveSafeZoneFilePath(areasDir, baseName, 'obj');
 
-      // Skip if no .wld file exists
-      if (!(await fileExists(wldPath))) continue;
+        // Skip if no .wld file exists
+        if (!(await fileExists(wldPath))) continue;
 
-      // Get zone number and name from .zon file
-      // Format: Line 1 = #<zone_number>, Line 2 = name~, Line 3 = <top_vnum> <flags...>
-      // Zone number comes from line 1 (e.g., #831 means zone 831)
-      const zonContent = await readFile(zonPath);
+        // Get zone number and name from .zon file.
+        // Format: Line 1 = #<number>, line 2 = name~, line 3 = header values.
+        const zonContent = await readFile(zonPath);
 
-      // Parse zone number from line 1 (#<number>)
-      const lines = zonContent.split('\n');
-      if (lines.length < 3) continue;
+        // Parse zone number from line 1 (#<number>).
+        const lines = zonContent.split('\n');
+        if (lines.length < 3) continue;
 
-      const zoneNumberMatch = lines[0].match(/^#(\d+)/);
-      if (!zoneNumberMatch) continue;
-      const zoneNumber = parseInt(zoneNumberMatch[1], 10);
+        const zoneNumberMatch = lines[0].match(/^#(\d+)/);
+        if (!zoneNumberMatch) continue;
+        const zoneNumber = parseInt(zoneNumberMatch[1], 10);
 
-      // Parse zone name (line 2, ends with ~)
-      const nameMatch = zonContent.match(/^#\d+\s*\n([^~]+)~/m);
-      let zoneName = baseName; // Default to filename
-      if (nameMatch) {
-        zoneName = nameMatch[1].trim();
+        // Parse zone name (line 2, ends with ~).
+        const nameMatch = zonContent.match(/^#\d+\s*\n([^~]+)~/m);
+        let zoneName = baseName; // Default to filename
+        if (nameMatch) {
+          zoneName = nameMatch[1].trim();
+        }
+
+        // Count rooms.
+        const wldContent = await readFile(wldPath);
+        const roomCount = (wldContent.match(/^#(?!9999999$)\d+$/gm) || []).length;
+
+        // Count mobs.
+        let mobCount = 0;
+        if (await fileExists(mobPath)) {
+          const mobContent = await readFile(mobPath);
+          mobCount = (mobContent.match(/^#(?!9999999$)\d+$/gm) || []).length;
+        }
+
+        // Count objects.
+        let objCount = 0;
+        if (await fileExists(objPath)) {
+          const objContent = await readFile(objPath);
+          objCount = (objContent.match(/^#(?!9999999$)\d+$/gm) || []).length;
+        }
+
+        // Count resets.
+        const resetCount = (zonContent.match(/^[MOGEPDRF]\s/gm) || []).length;
+
+        // Get last modified date.
+        const stats = await statMudPath('zone_builder_parsing', wldPath);
+
+        zones.push({
+          id: baseName,  // Unique identifier = filename without extension
+          number: zoneNumber,
+          name: zoneName,
+          roomCount,
+          mobCount,
+          objCount,
+          resetCount,
+          lastModified: stats.mtime,
+        });
+      } catch (error) {
+        const rejectedContent =
+          error instanceof UnsafeZonePathError ||
+          error instanceof ZoneSourceParseError ||
+          (error instanceof FlatfileAccessError &&
+            ['invalid_content', 'invalid_path', 'too_large'].includes(error.code));
+        if (!rejectedContent) {
+          throw error;
+        }
+        if (error instanceof UnsafeZonePathError) {
+          recordDroppedFlatfileInput('zone_builder_parsing');
+        }
+        const sourceName =
+          error instanceof ZoneSourceParseError && error.sourceName
+            ? error.sourceName
+            : safeSourceName(file);
+        logger.warn(`Skipped malformed zone source for ${sourceName}.`);
       }
-
-      // Count rooms
-      const wldContent = await readFile(wldPath);
-      const roomCount = (wldContent.match(/^#\d+$/gm) || []).length;
-
-      // Count mobs
-      let mobCount = 0;
-      if (await fileExists(mobPath)) {
-        const mobContent = await readFile(mobPath);
-        mobCount = (mobContent.match(/^#\d+$/gm) || []).length;
-      }
-
-      // Count objects
-      let objCount = 0;
-      if (await fileExists(objPath)) {
-        const objContent = await readFile(objPath);
-        objCount = (objContent.match(/^#\d+$/gm) || []).length;
-      }
-
-      // Count resets
-      const resetCount = (zonContent.match(/^[MOGEPDRF]\s/gm) || []).length;
-
-      // Get last modified date
-      const stats = await fs.stat(wldPath);
-
-      zones.push({
-        id: baseName,  // Unique identifier = filename without extension
-        number: zoneNumber,
-        name: zoneName,
-        roomCount,
-        mobCount,
-        objCount,
-        resetCount,
-        lastModified: stats.mtime,
-      });
     }
 
     // Sort by zone number, then by id for zones with same number
@@ -343,16 +740,17 @@ function parseRoom(content: string, startIndex: number): { room: Room; nextIndex
   const vnumMatch = lines[i].match(/^#(\d+)$/);
   if (!vnumMatch) return null;
   const vnum = parseInt(vnumMatch[1], 10);
+  if (vnum === 9999999) return null;
   i++;
 
   // Room name (until ~)
   let name = '';
-  while (i < lines.length && !lines[i].includes('~')) {
+  while (i < lines.length && !hasTildeTerminator(lines[i])) {
     name += lines[i];
     i++;
   }
   if (i < lines.length) {
-    name += lines[i].replace('~', '');
+    name += removeTildeTerminator(lines[i]);
   }
   name = name.trim();
   i++;
@@ -407,12 +805,12 @@ function parseRoom(content: string, startIndex: number): { room: Room; nextIndex
 
       // Keywords (until ~)
       let keywords = '';
-      while (i < lines.length && !lines[i].includes('~')) {
+      while (i < lines.length && !hasTildeTerminator(lines[i])) {
         keywords += lines[i];
         i++;
       }
       if (i < lines.length) {
-        keywords = lines[i].replace('~', '').trim();
+        keywords = removeTildeTerminator(lines[i]).trim();
       }
       i++;
 
@@ -443,12 +841,12 @@ function parseRoom(content: string, startIndex: number): { room: Room; nextIndex
 
       // Keywords (until ~)
       let extraKeywords = '';
-      while (i < lines.length && !lines[i].includes('~')) {
+      while (i < lines.length && !hasTildeTerminator(lines[i])) {
         extraKeywords += lines[i] + ' ';
         i++;
       }
       if (i < lines.length) {
-        extraKeywords = lines[i].replace('~', '').trim();
+        extraKeywords = removeTildeTerminator(lines[i]).trim();
       }
       i++;
 
@@ -517,7 +915,7 @@ export async function parseWldFile(zoneNumber: number): Promise<Room[]> {
     throw new Error(`Zone ${zoneNumber} not found`);
   }
 
-  const filePath = resolveSafeZoneFilePath(AREAS_DIR, baseName, 'wld');
+  const filePath = resolveSafeZoneFilePath(getAreasDir(), baseName, 'wld');
   const content = await readFile(filePath);
   const rooms: Room[] = [];
 
@@ -534,7 +932,7 @@ export async function parseWldFile(zoneNumber: number): Promise<Room[]> {
 
 // Parse .wld file by zone ID (filename without extension)
 async function parseWldFileById(zoneId: string): Promise<Room[]> {
-  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'wld');
+  const filePath = resolveSafeZoneFilePath(getAreasDir(), zoneId, 'wld');
 
   if (!(await fileExists(filePath))) {
     throw new Error(`Zone "${zoneId}" .wld file not found`);
@@ -557,8 +955,9 @@ async function parseWldFileById(zoneId: string): Promise<Room[]> {
 // Get zone map data (Tier 1 - minimal data for map rendering and sidebar listing)
 // Get zone map data by zone ID (filename without extension)
 export async function getZoneMapData(zoneId: string): Promise<ZoneMapData> {
-  const zonPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'zon');
-  const wldPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'wld');
+  const areasDir = getAreasDir();
+  const zonPath = resolveSafeZoneFilePath(areasDir, zoneId, 'zon');
+  const wldPath = resolveSafeZoneFilePath(areasDir, zoneId, 'wld');
 
   if (!(await fileExists(wldPath))) {
     throw new Error(`Zone "${zoneId}" not found`);
@@ -628,7 +1027,7 @@ export async function getZoneMapData(zoneId: string): Promise<ZoneMapData> {
 
 // Get zone name from .zon file (quick lookup)
 export async function getZoneName(zoneId: string): Promise<string> {
-  const zonPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'zon');
+  const zonPath = resolveSafeZoneFilePath(getAreasDir(), zoneId, 'zon');
 
   if (await fileExists(zonPath)) {
     const zonContent = await readFile(zonPath);
@@ -650,7 +1049,7 @@ export async function getRoomData(zoneId: string, vnum: number): Promise<Room | 
 // Parse .mob file
 // Parse .mob file by zone ID
 export async function parseMobFile(zoneId: string): Promise<Mobile[]> {
-  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'mob');
+  const filePath = resolveSafeZoneFilePath(getAreasDir(), zoneId, 'mob');
 
   if (!(await fileExists(filePath))) {
     return [];
@@ -670,25 +1069,25 @@ export async function parseMobFile(zoneId: string): Promise<Mobile[]> {
     }
 
     const vnum = parseInt(vnumMatch[1], 10);
-    if (vnum === 99999) break; // End marker
+    if (vnum === 99999 || vnum === 9999999) break; // End marker
     i++;
 
     // Keywords (until ~)
     let keywords = '';
-    while (i < lines.length && !lines[i].includes('~')) {
+    while (i < lines.length && !hasTildeTerminator(lines[i])) {
       keywords += lines[i] + ' ';
       i++;
     }
-    keywords = lines[i]?.replace('~', '').trim() || '';
+    keywords = removeTildeTerminator(lines[i]).trim();
     i++;
 
     // Short desc (until ~)
     let shortDesc = '';
-    while (i < lines.length && !lines[i].includes('~')) {
+    while (i < lines.length && !hasTildeTerminator(lines[i])) {
       shortDesc += lines[i];
       i++;
     }
-    shortDesc = lines[i]?.replace('~', '').trim() || '';
+    shortDesc = removeTildeTerminator(lines[i]).trim();
     i++;
 
     // Long desc (until ~)
@@ -819,7 +1218,7 @@ export async function parseMobFile(zoneId: string): Promise<Mobile[]> {
 // Parse .obj file
 // Parse .obj file by zone ID
 export async function parseObjFile(zoneId: string): Promise<ZoneObject[]> {
-  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'obj');
+  const filePath = resolveSafeZoneFilePath(getAreasDir(), zoneId, 'obj');
 
   if (!(await fileExists(filePath))) {
     return [];
@@ -839,25 +1238,25 @@ export async function parseObjFile(zoneId: string): Promise<ZoneObject[]> {
     }
 
     const vnum = parseInt(vnumMatch[1], 10);
-    if (vnum === 99999) break; // End marker
+    if (vnum === 99999 || vnum === 9999999) break; // End marker
     i++;
 
     // Keywords (until ~)
     let keywords = '';
-    while (i < lines.length && !lines[i].includes('~')) {
+    while (i < lines.length && !hasTildeTerminator(lines[i])) {
       keywords += lines[i] + ' ';
       i++;
     }
-    keywords = lines[i]?.replace('~', '').trim() || '';
+    keywords = removeTildeTerminator(lines[i]).trim();
     i++;
 
     // Short desc (until ~)
     let shortDesc = '';
-    while (i < lines.length && !lines[i].includes('~')) {
+    while (i < lines.length && !hasTildeTerminator(lines[i])) {
       shortDesc += lines[i];
       i++;
     }
-    shortDesc = lines[i]?.replace('~', '').trim() || '';
+    shortDesc = removeTildeTerminator(lines[i]).trim();
     i++;
 
     // Long desc (until ~ - can be on same line or separate line)
@@ -868,8 +1267,8 @@ export async function parseObjFile(zoneId: string): Promise<ZoneObject[]> {
         i++;
         break;
       }
-      if (line.includes('~')) {
-        longDesc += line.replace('~', '');
+      if (hasTildeTerminator(line)) {
+        longDesc += removeTildeTerminator(line);
         i++;
         break;
       }
@@ -886,8 +1285,8 @@ export async function parseObjFile(zoneId: string): Promise<ZoneObject[]> {
         i++;
         break;
       }
-      if (line.includes('~')) {
-        actionDesc += line.replace('~', '');
+      if (hasTildeTerminator(line)) {
+        actionDesc += removeTildeTerminator(line);
         i++;
         break;
       }
@@ -989,11 +1388,11 @@ export async function parseObjFile(zoneId: string): Promise<ZoneObject[]> {
       if (line === 'E') {
         i++;
         let extraKeywords = '';
-        while (i < lines.length && !lines[i].includes('~')) {
+        while (i < lines.length && !hasTildeTerminator(lines[i])) {
           extraKeywords += lines[i] + ' ';
           i++;
         }
-        extraKeywords = lines[i]?.replace('~', '').trim() || '';
+        extraKeywords = removeTildeTerminator(lines[i]).trim();
         i++;
 
         let extraDesc = '';
@@ -1079,7 +1478,7 @@ export async function parseObjFile(zoneId: string): Promise<ZoneObject[]> {
 // <reset commands...>
 // S or $ (end marker)
 export async function parseZonFile(zoneId: string): Promise<{ header: ZoneHeader; resets: ResetCommand[] }> {
-  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'zon');
+  const filePath = resolveSafeZoneFilePath(getAreasDir(), zoneId, 'zon');
 
   if (!(await fileExists(filePath))) {
     return {
@@ -1111,13 +1510,13 @@ export async function parseZonFile(zoneId: string): Promise<{ header: ZoneHeader
 
   // Zone name (until ~) - can be on same line or multi-line
   let name = '';
-  while (i < lines.length && !lines[i].includes('~')) {
+  while (i < lines.length && !hasTildeTerminator(lines[i])) {
     name += lines[i] + ' ';
     i++;
   }
   // The line with ~ contains the end of the name
   if (i < lines.length) {
-    name += lines[i].replace('~', '');
+    name += removeTildeTerminator(lines[i]);
   }
   name = name.trim() || zoneId;
   i++;
@@ -1219,14 +1618,14 @@ export async function getMobileData(zoneId: string, vnum: number): Promise<Mobil
 
 // Get object by vnum using zone ID
 export async function getObjectData(zoneId: string, vnum: number): Promise<ZoneObject | null> {
-  const filePath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'obj');
+  const filePath = resolveSafeZoneFilePath(getAreasDir(), zoneId, 'obj');
 
   if (!(await fileExists(filePath))) {
     return null;
   }
 
   // Read file and normalize line endings
-  const rawContent = await fs.readFile(filePath, 'utf-8');
+  const rawContent = await readFile(filePath);
   const content = rawContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const lines = content.split('\n');
 
@@ -1240,7 +1639,7 @@ export async function getObjectData(zoneId: string, vnum: number): Promise<ZoneO
     }
 
     const objVnum = parseInt(vnumMatch[1], 10);
-    if (objVnum === 99999) break;
+    if (objVnum === 99999 || objVnum === 9999999) break;
 
     if (objVnum !== vnum) {
       i++;
@@ -1254,8 +1653,8 @@ export async function getObjectData(zoneId: string, vnum: number): Promise<ZoneO
     let keywords = '';
     while (i < lines.length) {
       const line = lines[i];
-      if (line.includes('~')) {
-        keywords += line.replace('~', '');
+      if (hasTildeTerminator(line)) {
+        keywords += removeTildeTerminator(line);
         i++;
         break;
       }
@@ -1268,8 +1667,8 @@ export async function getObjectData(zoneId: string, vnum: number): Promise<ZoneO
     let shortDesc = '';
     while (i < lines.length) {
       const line = lines[i];
-      if (line.includes('~')) {
-        shortDesc += line.replace('~', '');
+      if (hasTildeTerminator(line)) {
+        shortDesc += removeTildeTerminator(line);
         i++;
         break;
       }
@@ -1282,8 +1681,8 @@ export async function getObjectData(zoneId: string, vnum: number): Promise<ZoneO
     let longDesc = '';
     while (i < lines.length) {
       const line = lines[i];
-      if (line.includes('~')) {
-        longDesc += line.replace('~', '');
+      if (hasTildeTerminator(line)) {
+        longDesc += removeTildeTerminator(line);
         i++;
         break;
       }
@@ -1300,8 +1699,8 @@ export async function getObjectData(zoneId: string, vnum: number): Promise<ZoneO
         i++;
         break;
       }
-      if (line.includes('~')) {
-        actionDesc += line.replace('~', '');
+      if (hasTildeTerminator(line)) {
+        actionDesc += removeTildeTerminator(line);
         i++;
         break;
       }
@@ -1400,8 +1799,8 @@ export async function getObjectData(zoneId: string, vnum: number): Promise<ZoneO
         let extraKeywords = '';
         while (i < lines.length) {
           const eline = lines[i];
-          if (eline.includes('~')) {
-            extraKeywords += eline.replace('~', '');
+          if (hasTildeTerminator(eline)) {
+            extraKeywords += removeTildeTerminator(eline);
             i++;
             break;
           }
@@ -1418,8 +1817,8 @@ export async function getObjectData(zoneId: string, vnum: number): Promise<ZoneO
             i++;
             break;
           }
-          if (eline.includes('~')) {
-            extraDesc += eline.replace('~', '');
+          if (eline.trim() === '~') {
+            extraDesc += removeTildeTerminator(eline);
             i++;
             break;
           }
@@ -1504,7 +1903,7 @@ export interface ZonePositions {
 
 // Ensure map directory exists
 async function ensureMapDir(): Promise<void> {
-  const safeMapDir = resolveSafeZoneDirectoryPath(AREAS_DIR, 'map');
+  const safeMapDir = resolveSafeZoneDirectoryPath(getAreasDir(), 'map');
   try {
     await fs.access(safeMapDir);
   } catch {
@@ -1515,11 +1914,11 @@ async function ensureMapDir(): Promise<void> {
 // Get room positions for a zone by ID
 export async function getZonePositions(zoneId: string): Promise<ZonePositions | null> {
   try {
-    const filePath = resolveSafeZoneMapPath(AREAS_DIR, zoneId);
+    const filePath = resolveSafeZoneMapPath(getAreasDir(), zoneId);
     if (!(await fileExists(filePath))) {
       return null;
     }
-    const content = await fs.readFile(filePath, 'utf-8');
+    const content = await readFile(filePath);
     return JSON.parse(content) as ZonePositions;
   } catch (error) {
     logger.error(`Error reading positions for zone ${zoneId}:`, error);
@@ -1540,15 +1939,13 @@ export async function saveZonePositions(
     lastModified: new Date().toISOString(),
   };
 
-  const filePath = resolveSafeZoneMapPath(AREAS_DIR, zoneId);
+  const filePath = resolveSafeZoneMapPath(getAreasDir(), zoneId);
   await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
 }
 
 // ========================================
 // Global Search across all zones
 // ========================================
-
-const execFileAsync = promisify(execFile);
 
 export interface GlobalSearchResult {
   type: 'room' | 'mob' | 'object';
@@ -1573,22 +1970,32 @@ function stripAnsiForSearch(text: string): string {
   return text.replace(/&[+=-][A-Za-z]|&[nN]/g, '').toLowerCase();
 }
 
-// Use grep to quickly find files containing the search term without a shell.
-async function grepFiles(dir: string, pattern: string, extension: string): Promise<string[]> {
-  try {
-    // Use fixed-string matching so the prefilter matches the later includes() checks.
-    const { stdout } = await execFileAsync(
-      'grep',
-      ['-r', '-i', '-l', '-F', `--include=*.${extension}`, '--', pattern, dir],
-      { maxBuffer: 10 * 1024 * 1024 }
-    );
-    return stdout.trim().split('\n').filter(f => f.length > 0);
-  } catch {
-    return [];
+async function findMatchingSourceFiles(
+  directory: string,
+  extension: 'mob' | 'obj' | 'wld',
+  query: string,
+): Promise<string[]> {
+  const files = await listMudDirectory('zone_builder_parsing', directory);
+  const compactQuery = query.replace(/\s+/g, '');
+  const matches: string[] = [];
+
+  for (const file of files.filter((entry) => entry.endsWith(`.${extension}`))) {
+    const filePath = path.join(directory, file);
+    try {
+      const content = await readFile(filePath);
+      const compactContent = stripAnsiForSearch(content).replace(/\s+/g, '');
+      if (compactContent.includes(compactQuery)) {
+        matches.push(filePath);
+      }
+    } catch {
+      // A rejected source cannot produce a search result.
+    }
   }
+
+  return matches;
 }
 
-// Global search across all zones - optimized with grep pre-filtering
+// Global search across all zones through the validated parser boundary.
 // MAX_RESULTS limits total results to avoid long processing times
 const MAX_SEARCH_RESULTS = 500;
 
@@ -1608,32 +2015,24 @@ export async function globalSearch(
   const allZones = await buildZoneIndex();
   const zoneMap = new Map(allZones.map(z => [z.id, z]));
 
-  // Use grep to find files containing the search term (much faster than parsing all files)
+  // Resolve contained source directories once, then prefilter through the same
+  // bounded read boundary before constructing parser objects.
+  const areasDir = getAreasDir();
   const searchDirs = {
-    room: resolveSafeZoneDirectoryPath(AREAS_DIR, 'wld'),
-    mob: resolveSafeZoneDirectoryPath(AREAS_DIR, 'mob'),
-    object: resolveSafeZoneDirectoryPath(AREAS_DIR, 'obj'),
+    room: resolveSafeZoneDirectoryPath(areasDir, 'wld'),
+    mob: resolveSafeZoneDirectoryPath(areasDir, 'mob'),
+    object: resolveSafeZoneDirectoryPath(areasDir, 'obj'),
   };
 
   // Helper to check if we have enough results
   const hasEnoughResults = () => results.length >= MAX_SEARCH_RESULTS;
 
-  // For VNUM searches, we need to search more broadly or check all files
-  // For text searches, use grep to pre-filter
-
   if ((type === 'all' || type === 'room') && !hasEnoughResults()) {
-    let matchingFiles: string[];
-    if (queryIsNumber) {
-      // For VNUM search, check all wld files
-      try {
-        const files = await fs.readdir(searchDirs.room);
-        matchingFiles = files.filter(f => f.endsWith('.wld')).map(f => path.join(searchDirs.room, f));
-      } catch {
-        matchingFiles = [];
-      }
-    } else {
-      matchingFiles = await grepFiles(searchDirs.room, query, 'wld');
-    }
+    const matchingFiles = await findMatchingSourceFiles(
+      searchDirs.room,
+      'wld',
+      queryLower,
+    );
 
     for (const filePath of matchingFiles) {
       if (hasEnoughResults()) break;
@@ -1667,17 +2066,11 @@ export async function globalSearch(
   }
 
   if ((type === 'all' || type === 'mob') && !hasEnoughResults()) {
-    let matchingFiles: string[];
-    if (queryIsNumber) {
-      try {
-        const files = await fs.readdir(searchDirs.mob);
-        matchingFiles = files.filter(f => f.endsWith('.mob')).map(f => path.join(searchDirs.mob, f));
-      } catch {
-        matchingFiles = [];
-      }
-    } else {
-      matchingFiles = await grepFiles(searchDirs.mob, query, 'mob');
-    }
+    const matchingFiles = await findMatchingSourceFiles(
+      searchDirs.mob,
+      'mob',
+      queryLower,
+    );
 
     for (const filePath of matchingFiles) {
       if (hasEnoughResults()) break;
@@ -1714,17 +2107,11 @@ export async function globalSearch(
   }
 
   if ((type === 'all' || type === 'object') && !hasEnoughResults()) {
-    let matchingFiles: string[];
-    if (queryIsNumber) {
-      try {
-        const files = await fs.readdir(searchDirs.object);
-        matchingFiles = files.filter(f => f.endsWith('.obj')).map(f => path.join(searchDirs.object, f));
-      } catch {
-        matchingFiles = [];
-      }
-    } else {
-      matchingFiles = await grepFiles(searchDirs.object, query, 'obj');
-    }
+    const matchingFiles = await findMatchingSourceFiles(
+      searchDirs.object,
+      'obj',
+      queryLower,
+    );
 
     for (const filePath of matchingFiles) {
       if (hasEnoughResults()) break;
@@ -1795,13 +2182,18 @@ let shopDataCache: Map<number, ShopData> | null = null;
 
 // Parse all shop files and build a global shopkeeper map
 export async function parseAllShopFiles(): Promise<Map<number, ShopData>> {
+  assertZoneBuilderParsingEnabled();
   if (shopDataCache) return shopDataCache;
 
   const shopMap = new Map<number, ShopData>();
-  const shpDir = path.join(AREAS_DIR, 'shp');
+  const shpDir = path.join(getAreasDir(), 'shp');
 
   try {
-    const files = await fs.readdir(shpDir);
+    if (!(await fileExists(shpDir))) {
+      shopDataCache = shopMap;
+      return shopMap;
+    }
+    const files = await listMudDirectory('zone_builder_parsing', shpDir);
     const shpFiles = files.filter(f => f.endsWith('.shp'));
 
     for (const file of shpFiles) {
@@ -1812,9 +2204,9 @@ export async function parseAllShopFiles(): Promise<Map<number, ShopData>> {
         for (const shop of shops) {
           shopMap.set(shop.keeperVnum, shop);
         }
-      } catch (e) {
+      } catch {
         // Skip files that fail to parse
-        logger.error(`Failed to parse shop file ${file}:`, e);
+        logger.error(`Failed to parse shop file ${safeSourceName(file)}.`);
       }
     }
   } catch (e) {
@@ -1894,7 +2286,7 @@ function parseShopFileContent(content: string): ShopData[] {
     // Skip 7 message strings (each ends with ~)
     let messagesSkipped = 0;
     while (i < lines.length && messagesSkipped < 7) {
-      if (lines[i]?.includes('~')) {
+      if (hasTildeTerminator(lines[i])) {
         messagesSkipped++;
       }
       i++;

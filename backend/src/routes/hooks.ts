@@ -24,6 +24,14 @@ function serialize(row: Awaited<ReturnType<typeof getHookStatuses>>[number]) {
     description: row.hook.description,
     webEnabled: row.webEnabled,
     mudState: row.mudState,
+    resource: row.resource
+      ? {
+          availability: row.resource.availability,
+          reason: row.resource.reason,
+          droppedInputs: row.resource.droppedInputs,
+          retryAt: row.resource.retryAt,
+        }
+      : null,
     effective: row.effective,
     active: row.active,
     reason: row.reason,

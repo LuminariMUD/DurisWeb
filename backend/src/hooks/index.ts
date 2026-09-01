@@ -46,6 +46,26 @@ export {
 
 export { isHookEnabledSync, withHookGate } from './hookGate.js';
 
+export type {
+  FilesystemHookId,
+  FlatfileAvailability,
+  FlatfileHookHealth,
+} from './flatfileHookState.js';
+
+export {
+  canAttemptFlatfileHook,
+  getFilesystemHookIds,
+  getFlatfileHookHealth,
+  getFlatfileHookHealthSnapshot,
+  isFilesystemHookId,
+  isFlatfileRecoveryMonitorActive,
+  markFlatfileAvailable,
+  markFlatfileUnavailable,
+  recordDroppedFlatfileInput,
+  startFlatfileRecoveryMonitor,
+  stopFlatfileRecoveryMonitor,
+} from './flatfileHookState.js';
+
 export {
   applyHookStateFrame,
   buildHookStateRequest,
