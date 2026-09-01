@@ -117,10 +117,10 @@ const DEFINITIONS: readonly HookDefinition[] = Object.freeze([
     webSettingKey: webKey('donation_delivery'),
     mudPropertyKey: mudKey('donation_delivery'),
     owner: 'backend/src/services/donationOutboxService.ts',
-    mudSite: 'src/redis/redis_donation_worker.c',
+    mudSite: 'src/redis/redis_donation_runtime.c:check_donation_messages',
     description:
       'Signed donation events delivered to the MUD over scoped Redis. The MUD ' +
-      'side is a Redis worker, not a WebSocket emitter.',
+      'side gates application on the game-thread runtime pump, not the Redis worker.',
   },
 
   // --- channel: flatfile (filesystem, unauthenticated by construction) ---
