@@ -34,6 +34,10 @@
     {
       "id": "phase00-session01-hook-registry-and-contract",
       "package": "backend"
+    },
+    {
+      "id": "phase00-session02-mud-side-toggles-and-state",
+      "package": "external (`/home/aiwithapex/projects/duris/`)"
     }
   ],
   "next_session_history": [
@@ -41,6 +45,12 @@
       "date": "2026-09-01",
       "session": "phase00-session01-hook-registry-and-contract",
       "package": "backend",
+      "status": "completed"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session02-mud-side-toggles-and-state",
+      "package": "external (`/home/aiwithapex/projects/duris/`)",
       "status": "completed"
     }
   ]

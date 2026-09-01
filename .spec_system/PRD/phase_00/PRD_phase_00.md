@@ -4,7 +4,7 @@
 **Sessions**: 7 (initial estimate)
 **Estimated Duration**: 5-8 days
 
-**Progress**: 1/7 sessions (14%)
+**Progress**: 2/7 sessions (29%)
 
 ---
 
@@ -28,7 +28,7 @@ Full requirements in [PRD.md](../PRD.md). Operator console design in
 | Session | Name | Status | Est. Tasks | Validated |
 |---------|------|--------|------------|-----------|
 | 01 | Hook registry and contract | Complete (2026-09-01) | 16 | PASS |
-| 02 | MUD-side toggles and state reporting | Not Started | ~20 | - |
+| 02 | MUD-side toggles and state reporting | Complete (2026-09-01) | 20 | PASS |
 | 03 | Website toggle store and resolution | Not Started | ~18 | - |
 | 04 | Bridge state sync and transport security | Not Started | ~22 | - |
 | 05 | Flatfile ingestion hardening | Not Started | ~15 | - |
@@ -40,14 +40,18 @@ Full requirements in [PRD.md](../PRD.md). Operator console design in
 ## Completed Sessions
 
 - **Session 01: Hook registry and contract** (2026-09-01) - 16/16 tasks,
-  24/24 tests, validation PASS. Registry of 14 hooks across 5 channels is now
+  25/25 tests, validation PASS. Registry of 14 hooks across 5 channels is now
   the single source of hook ids for Sessions 02-07.
+- **Session 02: MUD-side toggles and state reporting** (2026-09-01) - 20/20
+  tasks, clean build under -Werror, validation PASS. Eight MUD gates plus
+  `durisweb_hook_state`, all defaulting to enabled. Committed to
+  `feat/durisweb-hook-toggles` in the MUD repo, not pushed.
 
 ---
 
 ## Upcoming Sessions
 
-- Session 02: MUD-side toggles and state reporting
+- Session 03: Website toggle store and resolution
 
 ---
 

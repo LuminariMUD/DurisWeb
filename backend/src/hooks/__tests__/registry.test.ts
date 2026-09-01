@@ -48,8 +48,17 @@ describe('hook registry composition', () => {
     expect(terminal.mudPropertyKey).toBeNull();
   });
 
-  it('gates exactly 9 hooks on the MUD side', () => {
-    expect(getMudGatedHooks()).toHaveLength(9);
+  it('gates exactly 8 hooks on the MUD side', () => {
+    expect(getMudGatedHooks()).toHaveLength(8);
+  });
+
+  it('leaves connection_log ungated on the MUD side', () => {
+    // The lines durisweb parses are ordinary LOG_COMM operational logs the MUD
+    // writes for its own purposes. Gating them would delete admin-facing
+    // records to control a website hook, so the toggle lives on the web side.
+    const hook = requireHook('connection_log');
+    expect(hook.mudPropertyKey).toBeNull();
+    expect(hook.webSettingKey).toBe('hook_enabled_connection_log');
   });
 
   it('populates every declared channel', () => {

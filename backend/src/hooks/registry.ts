@@ -130,12 +130,15 @@ const DEFINITIONS: readonly HookDefinition[] = Object.freeze([
     direction: 'mud_to_web',
     alwaysOn: false,
     webSettingKey: webKey('connection_log'),
-    mudPropertyKey: mudKey('connection_log'),
+    mudPropertyKey: null,
     owner: 'backend/src/services/mudConnectionLogSync.ts',
-    mudSite: 'logs/log/comm',
+    mudSite: null,
     description:
-      'Connection login and logout records tailed from the MUD comm log. The ' +
-      'MUD property gates whether durisweb-consumed lines are written.',
+      'Connection login and logout records tailed from the MUD comm log. ' +
+      'Website-side only: the lines durisweb parses are ordinary LOG_COMM ' +
+      'operational logs the MUD writes for its own purposes, so gating them ' +
+      'on the MUD would delete admin-facing records to control a web hook. ' +
+      'The toggle stops durisweb ingesting, not the MUD logging.',
   },
   {
     id: 'flag_parsing',

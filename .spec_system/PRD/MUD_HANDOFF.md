@@ -11,20 +11,24 @@ side without reading durisweb's TypeScript.
 Keep the Status column current. A change is `DONE` only when it is merged
 upstream and its acceptance check passes.
 
+**Implemented in Phase 00 Session 02** on branch `feat/durisweb-hook-toggles`
+in `/home/aiwithapex/projects/duris/`. Not pushed. Three corrections were made
+during implementation and are recorded inline below.
+
 ---
 
 ## Summary
 
 | # | Change | Files | Status |
 |---|--------|-------|--------|
-| 1 | Add hook toggle properties | `lib/duris.properties` | TODO |
-| 2 | Add a toggle helper | `src/world/properties.c/.h` | TODO |
-| 3 | Gate each emitter on its toggle | `src/net/ws_handlers.c`, `src/redis/redis_donation_worker.c` | TODO |
-| 4 | Add `durisweb_hook_state` command | `src/net/ws_handlers.c/.h` | TODO |
-| 5 | Push state on toggle change | `src/world/properties.c` | TODO |
+| 1 | Add hook toggle properties (8, not 9) | `lib/duris.properties` | DONE |
+| 2 | Add a toggle helper | `src/world/properties.c`, `src/core/prototypes.h` | DONE |
+| 3 | Gate each emitter on its toggle | `src/net/ws_handlers.c`, `src/redis/redis_donation_runtime.c` | DONE |
+| 4 | Add `durisweb_hook_state` command | `src/net/ws_handlers.c/.h` | DONE |
+| 5 | Push state on toggle change | `src/world/properties.c` | DONE |
 | 6 | ~~TLS on the bridge listener~~ | -- | NOT NEEDED |
 | 7 | ~~Confirm previous-secret behaviour~~ | -- | ANSWERED |
-| 8 | Update the integration reference docs | `docs/reference/api/durisweb.md`, `docs/operations/CONFIGURATION.md` | TODO |
+| 8 | Update the integration reference docs | `docs/reference/api/durisweb.md`, `docs/operations/CONFIGURATION.md`, `docs/operations/RUNBOOK.md` | DONE |
 
 Nothing here requires a new config system, a new auth scheme, or a new
 transport. Every change extends a mechanism the MUD already has.
@@ -60,15 +64,20 @@ durisweb.hook.mud_shutdown=1.000
 durisweb.hook.donation_delivery=1.000
 durisweb.hook.wholist=1.000
 durisweb.hook.admin_delete_character=1.000
-durisweb.hook.connection_log=1.000
 ```
 
-`connection_log` gates whether the MUD writes durisweb-consumed connection lines
-to `logs/log/comm`. The other four website-side hooks (flag parsing, guild
-parsing, zone/builder parsing, process control) are consumers or callers, not
-MUD emitters, and need no property.
+**Correction (Session 02): `connection_log` is not gated on the MUD.** The lines
+durisweb parses out of `logs/log/comm` are ordinary `LOG_COMM` operational logs
+the MUD writes for its own purposes -- `LOG_COMM` is used 16 times in `comm.c`
+alone, alongside a parallel `loginlog()`. Gating them would delete admin-facing
+connection records in order to control a website integration. The toggle stays
+on the durisweb side and stops ingestion, not logging. Eight keys, not nine.
 
-**Acceptance**: `properties durisweb` in-game lists all nine at `1.000`.
+The five website-side hooks (connection_log, flag parsing, guild parsing,
+zone/builder parsing, process control) are consumers or callers, not MUD
+emitters, and need no property.
+
+**Acceptance**: `properties durisweb` in-game lists all eight at `1.000`.
 
 ---
 
