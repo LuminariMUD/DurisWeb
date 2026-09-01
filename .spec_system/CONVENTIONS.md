@@ -161,7 +161,7 @@ Every website<->MUD integration point follows one contract. See
 | Linter | ESLint 9 | `backend/eslint.config.js`, `frontend/eslint.config.ts` |
 | Type Safety | TypeScript 5.9 | `backend/tsconfig.json`, `frontend/tsconfig*.json` |
 | Testing | Jest (backend), Vitest (frontend) | `backend/jest.config.ts`, `frontend/vitest.config.ts` |
-| Observability | not configured | - |
+| Observability | Winston logs + backend/static health | `backend/src/utils/logger.ts`, `GET /health`, `frontend/public/health`; no external telemetry platform |
 | Git Hooks | not configured | - |
 | Database | MySQL 8 + Redis 7, Knex 3 | `podman-compose.yml`, `backend/knexfile.ts`, `backend/seeds/` |
 | Dev Server | `backend: pnpm dev`; `frontend: pnpm dev` | `backend/.env`, `frontend/.env*`, `frontend/vite.config.ts` |
@@ -175,9 +175,12 @@ Every website<->MUD integration point follows one contract. See
 
 ### Cross-Package Rules
 
-- Import from sibling packages via workspace aliases, not relative paths
-- Shared types live in a dedicated shared/common package
-- Each package owns its own tests; integration tests live at repo root
+- Backend and frontend do not import each other; they communicate through HTTP
+  and browser WebSocket contracts
+- No shared/common workspace package exists; duplicate wire types must be
+  reconciled against the server contract and tested at both boundaries
+- Each package owns its tests; MUD integration contracts also run in the
+  separate DurisMUD repository
 - Changes spanning multiple packages require explicit cross-package session scope
 
 ## CI/CD
@@ -194,15 +197,41 @@ Every website<->MUD integration point follows one contract. See
 | Integration | not configured | - | future phase |
 | Operations | not configured | - | future phase |
 
+## Infrastructure
+
+### Deployment Topology
+
+| Package | Path | Role | Deploys Independently | Platform |
+|---------|------|------|-----------------------|----------|
+| backend | `backend` | Express API and WebSocket server | Yes | Not selected |
+| frontend | `frontend` | Vite static application | Yes | Not selected |
+
+Shared infrastructure: MySQL is used directly by the backend and external MUD;
+Redis is operated by the backend. The frontend reaches both only through the
+backend API.
+
+| Component | Package | Provider | Details |
+|-----------|---------|----------|---------|
+| Hosting | backend | not verified | PM2/systemd reference files exist with hardcoded legacy paths; local start validated |
+| Hosting | frontend | not verified | nginx/systemd reference files exist with inconsistent host paths; production preview validated |
+| Health | backend | Express | `GET /health`; returns 200 only when MySQL and Redis checks pass |
+| Health | frontend | static artifact | `frontend/public/health`; copied to build output as `/health` |
+| Rate limiting | backend | `express-rate-limit` | Route-specific limits; WAF portion of Security bundle remains unconfigured |
+| Database | backend + external DurisMUD | MySQL 8 | Shared schema; MUD core tables exist outside the DurisWeb Knex chain |
+| Cache | backend | Redis 7 | Backend-owned; local Compose service |
+| Backup | (shared) | local ZIP archive | Hourly scheduler, manual retention 5, configurable hourly retention; restore verified against ephemeral MySQL |
+| Deploy | backend, frontend | not configured | Admin MUD deployment UI is not a website CD trigger |
+
 ### Database Ownership
 
 | Database | Owner Package | Type | Shared By |
 |----------|---------------|------|-----------|
-| duris_dev | backend | MySQL 8 | frontend (via HTTP API only) |
+| duris_dev | backend + external DurisMUD | MySQL 8 | MUD C server directly; frontend via backend HTTP API only |
 | redis | backend | Redis 7 | backend only |
 
-- Migrations live in the owner package
-- Consuming packages use the owner's API, not direct DB access
+- DurisWeb migrations live in `backend/`, but they are not the complete shared
+  schema source and cannot currently bootstrap from zero
+- The frontend uses backend APIs and never connects directly to MySQL or Redis
 
 ## MUD Server Source (Local Dev)
 

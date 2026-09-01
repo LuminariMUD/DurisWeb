@@ -90,6 +90,7 @@ import {
 import { getCurrentCommitHash } from './services/gitService.js';
 import { cleanupOrphanImages } from './services/postImageService.js';
 import { getWebSettings } from './services/webSettingsService.js';
+import { getHealthSnapshot } from './services/healthService.js';
 import {
   startMudAuctionClient,
   stopMudAuctionClient,
@@ -172,12 +173,9 @@ app.use((_req: Request, _res: Response, next) => {
 });
 
 // Health check endpoint
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  });
+app.get('/health', async (_req: Request, res: Response) => {
+  const snapshot = await getHealthSnapshot();
+  res.status(snapshot.status === 'ok' ? 200 : 503).json(snapshot);
 });
 
 // Fast ping endpoint for latency measurement

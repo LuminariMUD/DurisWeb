@@ -75,9 +75,6 @@ yarn.lock
 .claude/
 CLAUDE.md
 
-# Documentation
-docs/
-
 # Generated content
 backend/public/maps/
 *.kate-swp

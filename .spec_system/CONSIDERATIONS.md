@@ -1,166 +1,174 @@
 # Considerations
 
-> Institutional memory for AI assistants. Updated between phases via /carryforward.
+> Institutional memory for AI assistants. Updated between phases via
+> `/carryforward`.
 > **Line budget**: 600 max | **Last updated**: Phase 00 (2026-09-01)
 
 ---
 
 ## Active Concerns
 
-Items requiring attention in upcoming phases. Review before each session.
+Review these before planning another phase.
 
 ### Technical Debt
-<!-- Max 5 items -->
 
-1. **durisweb shares the MUD's database.** There is no separate durisweb
-   schema: `duris_dev` holds the MUD's 173 tables (created by the MUD's C code,
-   `src/sql/sql.c`) plus durisweb's ~44. durisweb migrations such as
-   `035_pvp_battle_interactions.ts` ALTER MUD-owned tables like `pkill_event`.
-   **Why:** this is undocumented anywhere, and it means "run durisweb's
-   migrations on a fresh database" is not a meaningful operation - the MUD must
-   create its schema first. Corrected from an earlier, wrong entry that called
-   this a pure migration-ordering defect.
-   **How to apply:** to build a dev/test database, clone the MUD schema
-   (`mariadb-dump --no-data`) and load it; do NOT copy row data, which is real
-   player PII. See Session 03 notes for the exact procedure.
-2. **The migration chain is not replayable, systemically.** The project
-   switched naming from `NNN_name.ts` (36 files) to `YYYYMMDDHHMMSS_name.ts`
-   (42 files). Knex sorts lexicographically, and `'0' < '2'`, so **every**
-   numeric-prefixed migration sorts before **every** timestamped one regardless
-   of when it was written. Any numeric migration authored after the switch
-   depends on tables its predecessors have not created yet. Two confirmed
-   instances: `017`-`041` insert into `admin_permissions` (created by
-   `20251115000000_...`), and `045_add_client_to_login_history.ts` alters
-   `account_login_history` (created by `20251113202151_...`).
-   **Why:** `migrate:latest` cannot rebuild the schema from zero, so there is no
-   clean-room environment and no way to validate a migration in isolation.
-   **How to apply:** treat as its own piece of work, not a side fix - a squash
-   to a baseline migration is the usual remedy. Session 03 fixed only the
-   `admin_permissions` instance
-   (`016a_bootstrap_admin_permission_tables.ts` plus `hasTable` guards, inert on
-   databases where the late migration already ran) and worked around the rest by
-   cloning the MUD schema. Do not assume a migration you write has actually been
-   exercised end to end.
-3. **14 `.sql` migrations are never applied by knex.** `knexfile.ts` sets
-   `extension: 'ts'`, so only the 77 `.ts` files load.
-   **Why:** the `.sql` files are a required, undocumented manual step for any
-   new database.
-   **How to apply:** apply them in filename order before `migrate:latest`.
-   `017_fix_emoji_icons.sql` fails under the `mysql` client and needs review.
+1. **[P00-backend] The schema cannot be rebuilt from the Knex chain.** DurisWeb
+   shares the MUD database, whose core tables are created by the MUD C server.
+   Numeric and timestamped TypeScript migrations sort in an invalid historical
+   order, and `backend/migrations/*.sql` is intentionally excluded by the
+   `extension: "ts"` Knex setting. The current development database also reports
+   47 migrations pending even though portions of their schema exist. Treat a
+   baseline/squash and ledger reconciliation as dedicated, backup-first work;
+   never rewrite a shared ledger or claim fresh-database support incidentally.
+2. **[P00-backend] Shared-schema access expands every database blast radius.**
+   DurisWeb reads and alters MUD-owned tables as well as web-owned tables. Build
+   disposable test databases from a schema-only MUD clone, never from player
+   rows, and assess SQL injection, backups, credentials, and retention across
+   both codebases.
+3. **[P00-infra] Production readiness targets do not exist yet.** Dependency-
+   aware backend health and a static frontend health artifact pass locally, but
+   no hosting platform, public URL, or production probe is configured. A health
+   response proves MySQL/Redis reachability, not that the historical migration
+   ledger is correct.
 
 ### External Dependencies
-<!-- Max 5 items -->
 
-*None yet - add items when external API/service risks are identified.*
+1. **[P00-external/DurisMUD] The MUD delivery is pushed and intentionally
+   unmerged.** Branch `feat/durisweb-hook-toggles` at `df121bb3` contains the
+   authenticated hook protocol and reconciled operator docs. Preserve the
+   pushed-unmerged distinction; landing it is maintainer-owned and was not part
+   of Phase 00.
+2. **[P00-infra] Networked bridge deployment needs live WSS acceptance.** Repo
+   tests prove that remote plaintext is refused and certificate validation is
+   enabled. An operator still must prove the real reverse proxy and certificate
+   before a non-loopback deployment.
+3. **[P00-backend] Personal data crosses third-party boundaries.** Google Gemini
+   receives account/character names and IP data for suspicion analysis;
+   ip-api.com receives visitor IPs; Ko-fi, Discord, Cloudflare R2, and browser
+   push providers receive their feature payloads. No in-repo privacy notice or
+   processing record documents these transfers.
 
 ### Performance / Security
-<!-- Max 5 items -->
 
-1. **MUD flatfile ingestion is unauthenticated.** Anything able to write
-   `${MUD_DIR}/logs/log/comm` (locally
-   `/home/aiwithapex/projects/duris/logs/log/comm`) or the MUD flatfiles
-   under `Accounts/` and `Players/` controls what the site
-   ingests, including records feeding `suspicious_accounts`. Parser robustness
-   is the only control. See SECURITY-COMPLIANCE.md channel 3.
-2. **Terminal sandbox is deliberately porous.** `terminalService.ts` runs
-   bubblewrap with `--share-net` and a shared PID namespace so tmux persists;
-   `/tmp` is bind-mounted read-write with a predictable bashrc path.
-3. **`web_sessions.refresh_token` is stored unhashed and is directly replayable.**
-   This is confirmed High finding `SEC-RT-1`, amplified by the database shared
-   with the MUD. Digest-at-rest remediation invalidates existing sessions and
-   requires an explicit deployment decision; do not treat it as incidental
-   cleanup.
-4. **Account name, character name, and IP leave the system to Google Gemini**
-   via `geminiSuspicionAnalyzer.ts` for automated profiling.
-5. **No retention or erasure anywhere.** No purge job for `page_views`,
-   connection logs, or audit tables; no account deletion code path exists.
+1. **[P00-backend] SEC-DEP-1: production dependency advisories are untriaged.**
+   The current `pnpm audit --prod` reports 65 backend advisories (1 critical,
+   27 high) and 64 frontend advisories (20 high). The critical backend path
+   includes `fast-xml-parser`; reachability and upgrades need dedicated work.
+2. **[P00-backend] SEC-RT-1: refresh JWTs are stored replayably.**
+   `web_sessions.refresh_token` contains the raw token in the shared MUD
+   database. Digesting tokens is a small code change but invalidates all active
+   sessions on deployment, so it needs an explicit rollout decision.
+3. **[P00-backend] SEC-TZ-1: session expiry can fail open across timezones.** A
+   JS-local timestamp is compared with database `NOW()`. Store/compare UTC or
+   fail startup on timezone mismatch.
+4. **[P00-backend] Filesystem trust is the flatfile authentication boundary.**
+   Phase 00 added containment, symlink, size, encoding, record, retry, and
+   per-hook availability controls, but any actor able to write beneath trusted
+   MUD paths can still influence ingested data.
+5. **[P00-backend] Privacy lifecycle controls are absent.** There is no consent
+   gate for pre-login analytics, no account erasure/anonymization entry point,
+   and no retention job for page views, connection history, or audit data. The
+   admin terminal also deliberately retains network and shared-PID access for
+   operational compatibility; do not describe it as a complete sandbox.
 
 ### Architecture
-<!-- Max 5 items -->
 
-1. **Five distinct MUD<->web channels**, each with its own trust boundary:
-   WebSocket bridge (4050), scoped Redis pub/sub, flatfile/log ingestion,
-   process control, and the interactive terminal. Changes to one do not
-   generalize to the others -- check SECURITY-COMPLIANCE.md before assuming.
-2. **The privileged bridge secret is fail-closed.** `DURISWEB_SECRET` must be
-   >= 32 bytes and is contract-tested to never appear in frontend code.
-3. **Channel 1 permits plaintext only on loopback.** Non-loopback `ws://` is
-   refused, WSS sets `rejectUnauthorized: true`, and URL credentials/query/
-   fragments are rejected. A production networked deployment still requires
-   operator acceptance of a live certificate-valid reverse proxy; repository
-   tests cannot prove that external endpoint exists.
-4. **Redis is scoped by namespace and season epoch**, not shared flat channels.
-   Legacy channels (`mud:nchat`, `mud:player`, `mud:online`) are contract-tested
-   as removed -- do not reintroduce them.
-5. **The MUD server source is locally readable at
-   `/home/aiwithapex/projects/duris/`** (a separate repo, referenced via
-   `MUD_DIR`). Both sides of every hook can be inspected -- verify integration
-   contracts against the MUD C source in `src/net/` instead of inferring them.
-   Do not edit that repo from a durisweb session unless scope says so. Backend
-   and frontend are also separate packages with separate lockfiles; there is no
-   root workspace manager despite `monorepo: true` in Apex state.
+1. **[P00-cross-cutting] Five MUD/web channels have separate trust models:**
+   authenticated WebSocket bridge, scoped Redis pub/sub, filesystem ingestion,
+   process control, and interactive terminal. A control on one channel does not
+   secure another.
+2. **[P00-cross-cutting] Hook ownership is exactly 13/8/5/1.** The registry has
+   13 website-toggleable hooks; eight also have MUD properties; five are
+   website-only; terminal recovery is the always-on fourteenth row. Generate
+   tests from the registry, then pin the exact cross-repo tuple separately.
+3. **[P00-backend] Fail-closed behavior is directional.** An unreadable local
+   settings store defaults enabled so one database blip does not sever every
+   integration. Missing foreign MUD state remains unknown/inactive so the site
+   never fabricates an enabled state. Disable the website first and enable it
+   last during reconciliation.
+4. **[P00-backend] Bridge state is connection-scoped.** Accept state only after
+   HMAC authentication, validate and replace frames wholesale, clear on
+   disconnect, and require a fresh report after reconnect. An acknowledgement
+   alone is not observed state.
+5. **[P00-repository] This is a logical monorepo without a root workspace.**
+   `backend/` and `frontend/` have independent manifests and lockfiles. The MUD
+   is a separate checkout at `/home/aiwithapex/projects/duris`; inspect both
+   sides for integration work, but edit the MUD only when scope authorizes it.
 
 ---
 
 ## Lessons Learned
 
-Proven patterns and anti-patterns. Reference during implementation.
-
 ### What Worked
-<!-- Max 15 items -->
 
-1. **One registry plus generated matrices prevents silent hook drift.** Derive
-   website and MUD coverage from `getToggleableHooks()` and
-   `getMudGatedHooks()`, then separately pin the exact cross-repository tuple.
-2. **Fail-closed is directional, not universal.** An unreadable own website
-   store defaults enabled to avoid severing all integrations; an absent foreign
-   MUD report stays unknown/inactive because claiming enabled would fabricate
-   state. Disable website first and enable website last.
-3. **Separate pure policy/state modules from transport clients.** Importing the
-   bridge opens Redis/socket resources; `mudTransportPolicy.ts`, resolution,
-   and state-frame modules stay side-effect-free and make security contracts
-   deterministic.
-4. **Mock service boundaries, not live game rows.** Deterministic pool/bridge
-   fixtures preserved 33 auction/guild/user-management tests and removed the
-   full-suite dependence on a developer's database contents.
-5. **Cross-repository delivery status must distinguish pushed from merged.**
-   The MUD feature branch is pushed and verified but intentionally unmerged;
-   docs must not label that topology DONE.
+1. **[P00] One immutable registry plus generated behavior matrices** prevented
+   hook ids, ownership, configuration, and enforcement sites from drifting.
+2. **[P00] Exact cross-repository source and documentation contracts** caught
+   mismatched whitelists, property rows, state frames, and handoff claims.
+3. **[P00] Pure policy/state modules separated from transport clients** kept
+   Jest from opening database, Redis, and socket resources during imports.
+4. **[P00] Deterministic service-boundary fixtures** replaced ambient player
+   data while preserving transaction, SQL-binding, bridge, and gate behavior.
+5. **[P00] Validation at the filesystem boundary** made all flatfile consumers
+   share containment, file-type, size, encoding, and complete-record rules.
+6. **[P00] Source suppression before payload construction** made disabled MUD
+   hooks emit nothing and reduced both data exposure and wasted work.
+7. **[P00] Real disposable-database backup/restore testing** found the missing
+   mysqldump port argument that unit-only checks had missed.
+8. **[P00] Per-package Biome and a GitHub Actions matrix** supplied one
+   reproducible non-mutating format/lint/type quality gate for both packages.
 
 ### What to Avoid
-<!-- Max 10 items -->
 
-1. Do not add a MUD property for a website-only hook merely to satisfy wording
-   about "both ends". Five hooks correctly report MUD N/A; terminal is always-on.
-2. Do not retain a MUD state across disconnect or interpret an omitted id as
-   enabled. Replace frames wholesale and recover only from a fresh report.
-3. Do not make component tests use partial composable/WebSocket mocks. A stale
-   mock can collapse the entire suite before any product assertion runs.
+1. **[P00] Do not run or certify `migrate:latest` on a fresh/shared schema**
+   until the historical chain and ledger have a designed baseline.
+2. **[P00] Do not retain MUD state after disconnect, treat omission as enabled,
+   or use an ack as state confirmation.**
+3. **[P00] Do not add fake MUD properties to website-only hooks** merely to make
+   "both ends" wording look uniform.
+4. **[P00] Do not import side-effectful bridge/database clients into pure policy
+   tests.** Extract the policy module first.
+5. **[P00] Do not optimistically update the hook console.** Render server-
+   observed website and MUD state, including mismatch and unknown states.
+6. **[P00] Do not infer cross-repository delivery from local code.** Record
+   exact commit, branch, pushed state, and merged state independently.
+7. **[P00] Do not pipe build/test output through truncating commands** when the
+   exit code is evidence; preserve the actual process status.
 
-### Tool/Library Notes
-<!-- Max 5 items -->
+### Tool / Library Notes
 
-1. Four pre-phase contract test files encode hardening from commits `d20be8d`,
-   `f56f135`, `05e83a3`, `25dedec`: `integrationSecurityContract.test.ts`,
-   `terminalSessionAuthorization.test.ts`, `websocketAccess.test.ts`,
-   `scopedRedis.test.ts`. They assert on source text, so refactors can break
-   them without changing behavior -- update deliberately, never by deletion.
-2. Phase 00 adds `hookDeliveryContract.test.ts`, exhaustive hook-state tests,
-   and the MUD Python integration contract. Source-shape assertions are paired
-   with behavioral tests so refactors remain deliberate without relying on
-   source snapshots alone.
+1. **[P00] Biome 2.5.11 is pinned separately** in both packages. Use
+   `format:check` in automation and `format` only for intentional rewrites.
+2. **[P00] ESLint `lint` is non-mutating; `lint:fix` performs edits.** CI must
+   never rely on a command that repairs the checkout while reporting success.
+3. **[P00] Jest ESM mocks must be installed before dynamic imports.** Close
+   Redis/socket resources explicitly in suites that intentionally instantiate
+   clients.
+4. **[P00] Source-text security contracts are guardrails, not behavior tests.**
+   Pair them with executable tests and update deliberate refactors rather than
+   deleting the contract.
+5. **[P00] The root has no workspace manager.** Run dependency, test, build,
+   lint, type, seed, and migration commands from the applicable package.
 
 ---
 
 ## Resolved
 
-Recently closed items (buffer - rotates out after 2 phases).
+Items remain here for two phase transitions.
 
 | Phase | Item | Resolution |
 |-------|------|------------|
-| 00 | Three ambient-data suites (33 tests) | Replaced live row/Redis assumptions with deterministic pool, transaction, bridge, and gate fixtures in Session 07. |
-| 00 | Admin overview stale mock (7 tests) | Added current analytics/WHO/activity/WebSocket/fetch lifecycle mocks; replaced two assertions for UI sections that no longer exist with current behavior. |
+| P00-S02 | Admin-delete authorization ordering | MUD authenticates before parsing or acting; exact order is regression-tested. |
+| P00-S02 | Donation-state concurrency | Disabled events are dropped before application and the path avoids partial application. |
+| P00-S04 | Remote plaintext bridge transport | `ws:` is loopback-only; remote use requires `wss:` with certificate verification. |
+| P00-S04 | Secret rotation asymmetry | Backend retries exactly once with `DURISWEB_SECRET_PREVIOUS`, matching MUD current/previous acceptance. |
+| P00-S05 | Flatfile traversal and malformed input | Canonical-root, symlink, type, size, UTF-8, NUL, record, and bounded-work checks are centralized. |
+| P00-S05 | Connection-sync IP logging | The ingestion path stores validated IP data where required but no longer emits it in application logs. |
+| P00-S07 | Three ambient-data suites (33 tests) | Replaced live database/Redis assumptions with deterministic service-boundary fixtures. |
+| P00-S07 | Admin overview stale mocks (7 tests) | Added complete current composable, transport, fetch, timer, and unmount fixtures. |
+| P00-S07 | Review findings (1 Medium, 2 Low) | Corrected gate-order assertion and MUD handoff/commit evidence before validation. |
+| P00-audit | Backup command ignored non-default DB port | `mysqldump` now receives validated `DB_PORT`; disposable backup, ZIP test, and restore passed. |
 
 ---
 
-*Auto-generated by /initspec. Updated by /carryforward between phases.*
+*Auto-generated by `/initspec`. Updated by `/carryforward` between phases.*

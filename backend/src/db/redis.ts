@@ -20,6 +20,15 @@ redis.on('error', (err) => {
   logger.error('Redis error:', err.message);
 });
 
+export async function checkRedisConnection(): Promise<boolean> {
+  try {
+    return (await redis.ping()) === 'PONG';
+  } catch (error) {
+    logger.error('Redis health check failed:', error);
+    return false;
+  }
+}
+
 /**
  * Close Redis connection gracefully
  */

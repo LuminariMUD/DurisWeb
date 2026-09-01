@@ -463,6 +463,10 @@ async function runBackup(
     const dbUser = process.env.DB_USER || 'duris';
     const dbPassword = process.env.DB_PASSWORD || 'duris';
     const dbHost = process.env.DB_HOST || '127.0.0.1';
+    const dbPort = Number.parseInt(process.env.DB_PORT || '3306', 10);
+    if (!Number.isInteger(dbPort) || dbPort < 1 || dbPort > 65535) {
+      throw new Error('DB_PORT must be an integer between 1 and 65535');
+    }
 
     // skip views entirely: they can reference tables dropped by past migrations,
     // which makes mysqldump fail with "references invalid table(s)". our restore
@@ -483,7 +487,7 @@ async function runBackup(
     // --no-tablespaces: skip tablespace metadata dump
     // (avoids needing the PROCESS privilege, required by default in mysql 8.0+).
     await execAsync(
-      `mysqldump --single-transaction --no-tablespaces ${ignoreFlags} -h ${dbHost} -u ${dbUser} -p'${dbPassword}' ${dbName} > "${tempSqlPath}"`,
+      `mysqldump --single-transaction --no-tablespaces ${ignoreFlags} -h ${dbHost} -P ${dbPort} -u ${dbUser} -p'${dbPassword}' ${dbName} > "${tempSqlPath}"`,
       { maxBuffer: 100 * 1024 * 1024 },
     );
 
