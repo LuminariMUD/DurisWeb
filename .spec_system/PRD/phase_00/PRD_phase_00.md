@@ -4,7 +4,7 @@
 **Sessions**: 7 (initial estimate)
 **Estimated Duration**: 5-8 days
 
-**Progress**: 2/7 sessions (29%)
+**Progress**: 3/7 sessions (43%)
 
 ---
 
@@ -29,7 +29,7 @@ Full requirements in [PRD.md](../PRD.md). Operator console design in
 |---------|------|--------|------------|-----------|
 | 01 | Hook registry and contract | Complete (2026-09-01) | 16 | PASS |
 | 02 | MUD-side toggles and state reporting | Complete (2026-09-01) | 20 | PASS |
-| 03 | Website toggle store and resolution | Not Started | ~18 | - |
+| 03 | Website toggle store and resolution | Complete (2026-09-01) | 18 | PASS |
 | 04 | Bridge state sync and transport security | Not Started | ~22 | - |
 | 05 | Flatfile ingestion hardening | Not Started | ~15 | - |
 | 06 | Hook Control console | Not Started | ~22 | - |
@@ -46,12 +46,16 @@ Full requirements in [PRD.md](../PRD.md). Operator console design in
   tasks, clean build under -Werror, validation PASS. Eight MUD gates plus
   `durisweb_hook_state`, all defaulting to enabled. Committed to
   `feat/durisweb-hook-toggles` in the MUD repo, not pushed.
+- **Session 03: Website toggle store and resolution** (2026-09-01) - 18/18
+  tasks, 56/56 tests, validation PASS. Toggle store, fail-closed resolution,
+  event-path gate, and admin API. Also cleared most of the inherited migration
+  blocker: backend suite went from 8 failing suites to 3.
 
 ---
 
 ## Upcoming Sessions
 
-- Session 03: Website toggle store and resolution
+- Session 04: Bridge state sync and transport security
 
 ---
 

@@ -38,6 +38,10 @@
     {
       "id": "phase00-session02-mud-side-toggles-and-state",
       "package": "external (`/home/aiwithapex/projects/duris/`)"
+    },
+    {
+      "id": "phase00-session03-website-toggle-store",
+      "package": "backend"
     }
   ],
   "next_session_history": [
@@ -51,6 +55,12 @@
       "date": "2026-09-01",
       "session": "phase00-session02-mud-side-toggles-and-state",
       "package": "external (`/home/aiwithapex/projects/duris/`)",
+      "status": "completed"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session03-website-toggle-store",
+      "package": "backend",
       "status": "completed"
     }
   ]

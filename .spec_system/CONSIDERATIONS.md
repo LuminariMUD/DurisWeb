@@ -12,21 +12,49 @@ Items requiring attention in upcoming phases. Review before each session.
 ### Technical Debt
 <!-- Max 5 items -->
 
-1. **A fresh database cannot be migrated.** `pnpm migrate:latest` fails on a
-   clean DB at `017_add_terminal_access_permission.ts`, which inserts into
-   `admin_permissions` - a table created by
-   `20251115000000_admin_permissions_system.ts`, 33 positions later in knex's
-   lexicographic order. Migration stops after 016.
-   **Why:** blocks 8 test suites (88 tests) and any from-scratch environment.
-   **How to apply:** Session 03 adds a migration and cannot verify it against a
-   fresh database - resolve this first, without reordering already-released
-   migrations (CONVENTIONS.md forbids it). A bootstrap/squash path is the
-   likely fix. Found in Phase 00 Session 01.
-2. **14 `.sql` migrations are never applied.** `knexfile.ts` sets
-   `extension: 'ts'`, so knex only loads the 77 `.ts` files.
-   **Why:** the `.sql` files are either dead or a manual step nothing documents.
-   **How to apply:** determine which, and either delete them or document the
-   manual step, before relying on migration state.
+1. **durisweb shares the MUD's database.** There is no separate durisweb
+   schema: `duris_dev` holds the MUD's 173 tables (created by the MUD's C code,
+   `src/sql/sql.c`) plus durisweb's ~44. durisweb migrations such as
+   `035_pvp_battle_interactions.ts` ALTER MUD-owned tables like `pkill_event`.
+   **Why:** this is undocumented anywhere, and it means "run durisweb's
+   migrations on a fresh database" is not a meaningful operation - the MUD must
+   create its schema first. Corrected from an earlier, wrong entry that called
+   this a pure migration-ordering defect.
+   **How to apply:** to build a dev/test database, clone the MUD schema
+   (`mariadb-dump --no-data`) and load it; do NOT copy row data, which is real
+   player PII. See Session 03 notes for the exact procedure.
+2. **The migration chain is not replayable, systemically.** The project
+   switched naming from `NNN_name.ts` (36 files) to `YYYYMMDDHHMMSS_name.ts`
+   (42 files). Knex sorts lexicographically, and `'0' < '2'`, so **every**
+   numeric-prefixed migration sorts before **every** timestamped one regardless
+   of when it was written. Any numeric migration authored after the switch
+   depends on tables its predecessors have not created yet. Two confirmed
+   instances: `017`-`041` insert into `admin_permissions` (created by
+   `20251115000000_...`), and `045_add_client_to_login_history.ts` alters
+   `account_login_history` (created by `20251113202151_...`).
+   **Why:** `migrate:latest` cannot rebuild the schema from zero, so there is no
+   clean-room environment and no way to validate a migration in isolation.
+   **How to apply:** treat as its own piece of work, not a side fix - a squash
+   to a baseline migration is the usual remedy. Session 03 fixed only the
+   `admin_permissions` instance
+   (`016a_bootstrap_admin_permission_tables.ts` plus `hasTable` guards, inert on
+   databases where the late migration already ran) and worked around the rest by
+   cloning the MUD schema. Do not assume a migration you write has actually been
+   exercised end to end.
+3. **14 `.sql` migrations are never applied by knex.** `knexfile.ts` sets
+   `extension: 'ts'`, so only the 77 `.ts` files load.
+   **Why:** the `.sql` files are a required, undocumented manual step for any
+   new database.
+   **How to apply:** apply them in filename order before `migrate:latest`.
+   `017_fix_emoji_icons.sql` fails under the `mysql` client and needs review.
+4. **Three test suites depend on ambient game data.** `guildService`,
+   `auctionService`, and `userManagementService` throw (e.g. "no guilds found in
+   database for testing") rather than creating fixtures, so they only pass on a
+   database that happens to contain live game rows.
+   **Why:** violates the CONVENTIONS testing rule about fixtures, and makes a
+   clean-room test run impossible.
+   **How to apply:** give them their own fixtures before relying on them as
+   regression coverage. 33 tests affected.
 
 ### External Dependencies
 <!-- Max 5 items -->

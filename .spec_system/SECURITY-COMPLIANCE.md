@@ -11,8 +11,8 @@
 
 | Metric | Value |
 |--------|-------|
-| Open Findings | 8 GDPR baseline (1 downgraded to PARTIAL); MUD-hook questions all resolved |
-| Critical/High | 0 |
+| Open Findings | 8 GDPR baseline + 1 High (SEC-TZ-1, session expiry) |
+| Critical/High | 1 |
 | Medium/Low | 0 |
 | Phases Audited | 0 (baseline survey only) |
 | Last Clean Phase | -- |
@@ -25,7 +25,26 @@ Active security or GDPR issues requiring attention. Ordered by severity.
 
 ### Critical / High
 
-*No open findings.*
+**SEC-TZ-1: Session expiry depends on app and database sharing a timezone.**
+
+`sessionService.ts:27` tests `expires_at > NOW()`. `expires_at` is written by
+mysql2 from a JS `Date`, serialized as a local-time string in the **application
+host's** timezone, and compared against `NOW()` in the **database server's**
+timezone. If the two diverge, session expiry is silently wrong by the offset.
+
+Observed directly in Phase 00 Session 03 while building a test database: with
+the app host at UTC+3 and MySQL at UTC, a session expired 60 seconds earlier
+still authenticated successfully, and would have kept authenticating for
+another three hours. Aligning the database timezone made the existing
+regression test pass.
+
+- **Severity**: High. Silently extends authenticated session lifetime, and
+  fails open rather than closed.
+- **Detection**: none. Nothing compares the two timezones or alarms on drift.
+- **Remediation**: store and compare in UTC explicitly (`UTC_TIMESTAMP()`, or a
+  `timezone: 'Z'` mysql2 connection option), or assert at startup that the
+  application and database timezones agree and refuse to boot otherwise.
+- **Status**: Open. Not introduced by Phase 00; found by it.
 
 ### Medium / Low
 

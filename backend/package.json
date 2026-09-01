@@ -1,6 +1,6 @@
 {
   "name": "durismud-api",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "DurisMUD PvP Logs API - Express backend for serving PvP battle data",
   "main": "dist/index.js",
   "type": "module",
