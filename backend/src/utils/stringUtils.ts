@@ -5,9 +5,9 @@
 
 // All valid ANSI color code patterns
 const ANSI_PATTERNS = [
-  /&=[a-zA-Z]{2}/g,  // &=XY (background + foreground)
+  /&=[a-zA-Z]{2}/g, // &=XY (background + foreground)
   /&[+\-][a-zA-Z*]/g, // &+X or &-X
-  /&[nN]/g,           // &n or &N (reset)
+  /&[nN]/g, // &n or &N (reset)
 ];
 
 /**
@@ -83,7 +83,7 @@ export function slugify(text: string): string {
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, '') // Remove non-word chars except spaces and hyphens
-    .replace(/[\s_]+/g, '-')   // Replace spaces and underscores with hyphens
-    .replace(/-+/g, '-')       // Replace multiple hyphens with single hyphen
-    .replace(/^-+|-+$/g, '');  // Remove leading/trailing hyphens
+    .replace(/[\s_]+/g, '-') // Replace spaces and underscores with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
 }

@@ -87,28 +87,28 @@ export const MudColor = Mark.create<MudColorOptions>({
 function getMudColorClass(mudCode: string): string {
   const colorMap: Record<string, string> = {
     // Bold colors
-    '&+R': 'text-red-500',      // Bold Red
-    '&+G': 'text-green-500',    // Bold Green
-    '&+B': 'text-blue-500',     // Bold Blue
-    '&+Y': 'text-yellow-500',   // Bold Yellow
-    '&+M': 'text-purple-500',   // Bold Magenta
-    '&+C': 'text-cyan-500',     // Bold Cyan
-    '&+W': 'text-white',        // Bold White
-    '&+L': 'text-gray-400',     // Bold Black (Gray)
+    '&+R': 'text-red-500', // Bold Red
+    '&+G': 'text-green-500', // Bold Green
+    '&+B': 'text-blue-500', // Bold Blue
+    '&+Y': 'text-yellow-500', // Bold Yellow
+    '&+M': 'text-purple-500', // Bold Magenta
+    '&+C': 'text-cyan-500', // Bold Cyan
+    '&+W': 'text-white', // Bold White
+    '&+L': 'text-gray-400', // Bold Black (Gray)
 
     // Normal colors
-    '&+r': 'text-red-400',      // Red
-    '&+g': 'text-green-400',    // Green
-    '&+b': 'text-blue-400',     // Blue
-    '&+y': 'text-yellow-400',   // Yellow
-    '&+m': 'text-purple-400',   // Magenta
-    '&+c': 'text-cyan-400',     // Cyan
-    '&+w': 'text-gray-200',     // White
-    '&+l': 'text-gray-500',     // Black (Gray)
+    '&+r': 'text-red-400', // Red
+    '&+g': 'text-green-400', // Green
+    '&+b': 'text-blue-400', // Blue
+    '&+y': 'text-yellow-400', // Yellow
+    '&+m': 'text-purple-400', // Magenta
+    '&+c': 'text-cyan-400', // Cyan
+    '&+w': 'text-gray-200', // White
+    '&+l': 'text-gray-500', // Black (Gray)
 
     // Special
-    '&n': 'text-gray-300',      // Normal (reset)
-    '&N': 'text-gray-300',      // Normal (reset) - uppercase
+    '&n': 'text-gray-300', // Normal (reset)
+    '&N': 'text-gray-300', // Normal (reset) - uppercase
   }
 
   return colorMap[mudCode] || 'text-gray-300'

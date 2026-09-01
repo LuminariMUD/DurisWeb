@@ -65,7 +65,10 @@ export async function getAllHelpPages(page: number = 1, limit: number = 50, cate
   if (categoryId !== undefined) {
     countQuery += ' WHERE category_id = ?';
   }
-  const [countRows] = await pool.query<RowDataPacket[]>(countQuery, categoryId !== undefined ? [categoryId] : []);
+  const [countRows] = await pool.query<RowDataPacket[]>(
+    countQuery,
+    categoryId !== undefined ? [categoryId] : [],
+  );
   const total = countRows[0].total;
 
   return {
@@ -82,7 +85,7 @@ export async function getAllHelpPages(page: number = 1, limit: number = 50, cate
 export async function getHelpPageById(id: number) {
   const [rows] = await pool.query<HelpPage[]>(
     `SELECT p.*, ${CATEGORY_NAME_SQL} FROM pages p WHERE p.id = ?`,
-    [id]
+    [id],
   );
   return rows[0] || null;
 }
@@ -90,7 +93,7 @@ export async function getHelpPageById(id: number) {
 export async function getHelpPageByTitle(title: string) {
   const [rows] = await pool.query<HelpPage[]>(
     `SELECT p.*, ${CATEGORY_NAME_SQL} FROM pages p WHERE p.title = ?`,
-    [title]
+    [title],
   );
   return rows[0] || null;
 }
@@ -104,18 +107,21 @@ export async function createHelpPage(data: {
 }) {
   const [result] = await pool.query<ResultSetHeader>(
     'INSERT INTO pages (title, text, category_id, last_update, last_update_by, ip_number) VALUES (?, ?, ?, NOW(), ?, ?)',
-    [data.title, data.text, data.category_id ?? 0, data.last_update_by, data.ip_number || null]
+    [data.title, data.text, data.category_id ?? 0, data.last_update_by, data.ip_number || null],
   );
   return getHelpPageById(result.insertId);
 }
 
-export async function updateHelpPage(id: number, data: {
-  title?: string;
-  text?: string;
-  category_id?: number;
-  last_update_by: string;
-  ip_number?: string;
-}) {
+export async function updateHelpPage(
+  id: number,
+  data: {
+    title?: string;
+    text?: string;
+    category_id?: number;
+    last_update_by: string;
+    ip_number?: string;
+  },
+) {
   const updates: string[] = ['last_update = NOW()', 'last_update_by = ?'];
   const params: any[] = [data.last_update_by];
 
@@ -138,10 +144,7 @@ export async function updateHelpPage(id: number, data: {
 
   params.push(id);
 
-  await pool.query(
-    `UPDATE pages SET ${updates.join(', ')} WHERE id = ?`,
-    params
-  );
+  await pool.query(`UPDATE pages SET ${updates.join(', ')} WHERE id = ?`, params);
 
   return getHelpPageById(id);
 }
@@ -161,30 +164,25 @@ export async function searchHelpPages(query: string) {
      WHERE p.title LIKE ?
      ORDER BY p.title ASC
      LIMIT 100`,
-    [searchTerm]
+    [searchTerm],
   );
   return rows;
 }
 
 export async function getAllCategories() {
-  const [rows] = await pool.query<HelpCategory[]>(
-    'SELECT * FROM categories ORDER BY name ASC'
-  );
+  const [rows] = await pool.query<HelpCategory[]>('SELECT * FROM categories ORDER BY name ASC');
   return rows;
 }
 
 export async function getCategoryById(id: number) {
-  const [rows] = await pool.query<HelpCategory[]>(
-    'SELECT * FROM categories WHERE id = ?',
-    [id]
-  );
+  const [rows] = await pool.query<HelpCategory[]>('SELECT * FROM categories WHERE id = ?', [id]);
   return rows[0] || null;
 }
 
 export async function createCategory(data: { name: string; desc?: string }) {
   const [result] = await pool.query<ResultSetHeader>(
     'INSERT INTO categories (name, desc) VALUES (?, ?)',
-    [data.name, data.desc || null]
+    [data.name, data.desc || null],
   );
   return getCategoryById(result.insertId);
 }
@@ -208,10 +206,7 @@ export async function updateCategory(id: number, data: { name?: string; desc?: s
 
   params.push(id);
 
-  await pool.query(
-    `UPDATE categories SET ${updates.join(', ')} WHERE id = ?`,
-    params
-  );
+  await pool.query(`UPDATE categories SET ${updates.join(', ')} WHERE id = ?`, params);
 
   return getCategoryById(id);
 }
@@ -227,10 +222,7 @@ export async function deleteCategory(id: number) {
 
 export async function getMudInfo(name: string) {
   try {
-    const [rows] = await pool.query<MudInfo[]>(
-      'SELECT * FROM mud_info WHERE name = ?',
-      [name]
-    );
+    const [rows] = await pool.query<MudInfo[]>('SELECT * FROM mud_info WHERE name = ?', [name]);
     return rows[0] || null;
   } catch (error: any) {
     // table might not exist in dev
@@ -243,9 +235,7 @@ export async function getMudInfo(name: string) {
 
 export async function getAllMudInfo() {
   try {
-    const [rows] = await pool.query<MudInfo[]>(
-      'SELECT * FROM mud_info ORDER BY name ASC'
-    );
+    const [rows] = await pool.query<MudInfo[]>('SELECT * FROM mud_info ORDER BY name ASC');
     return rows;
   } catch (error: any) {
     if (error.code === 'ER_NO_SUCH_TABLE') {
@@ -260,7 +250,7 @@ export async function setMudInfo(name: string, content: string) {
     // upsert to avoid race condition between UPDATE check and INSERT
     await pool.query(
       'INSERT INTO mud_info (name, content) VALUES (?, ?) ON DUPLICATE KEY UPDATE content = VALUES(content)',
-      [name, content]
+      [name, content],
     );
     return { name, content } as MudInfo;
   } catch (error: any) {

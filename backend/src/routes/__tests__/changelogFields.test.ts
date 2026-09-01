@@ -45,14 +45,12 @@ describe('changelog write field validation', () => {
   });
 
   it('rejects unknown fields before persistence', async () => {
-    const response = await request(app)
-      .post('/api/changelog')
-      .send({
-        version: '1.0.0',
-        title: 'Release',
-        content: '<p>safe</p>',
-        unexpected: 'do-not-store',
-      });
+    const response = await request(app).post('/api/changelog').send({
+      version: '1.0.0',
+      title: 'Release',
+      content: '<p>safe</p>',
+      unexpected: 'do-not-store',
+    });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toContain('Unknown field');
@@ -74,14 +72,12 @@ describe('changelog write field validation', () => {
   });
 
   it('rejects a non-boolean publication flag before persistence', async () => {
-    const response = await request(app)
-      .post('/api/changelog')
-      .send({
-        version: '1.0.0',
-        title: 'Release',
-        content: '<p>safe</p>',
-        isPublished: 'true',
-      });
+    const response = await request(app).post('/api/changelog').send({
+      version: '1.0.0',
+      title: 'Release',
+      content: '<p>safe</p>',
+      isPublished: 'true',
+    });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toContain('isPublished');

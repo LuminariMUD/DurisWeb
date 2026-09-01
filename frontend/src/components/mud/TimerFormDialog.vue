@@ -99,7 +99,7 @@ watch(
       nameError.value = ''
       intervalError.value = ''
     }
-  }
+  },
 )
 
 // Validate name on change
@@ -174,7 +174,10 @@ function addAction(type: TimerAction['type']) {
   actions.value.push(newAction)
 }
 
-function updateAction(index: number, action: TimerAction | import('@/types/trigger').TriggerAction) {
+function updateAction(
+  index: number,
+  action: TimerAction | import('@/types/trigger').TriggerAction,
+) {
   // TriggerActionCard emits TriggerAction, but we only add command/sound/echo which are valid TimerActions
   actions.value[index] = action as TimerAction
 }

@@ -71,7 +71,7 @@ router.get('/incidents', async (_req: Request, res: Response) => {
        FROM server_incidents
        WHERE started_at >= NOW() - INTERVAL 90 DAY
        AND public_visible = 1
-       ORDER BY started_at DESC`
+       ORDER BY started_at DESC`,
     );
 
     return res.json({ incidents });
@@ -96,7 +96,7 @@ router.get('/history', async (_req: Request, res: Response) => {
        FROM server_health_metrics
        WHERE recorded_at >= NOW() - INTERVAL 90 DAY
        GROUP BY DATE(recorded_at)
-       ORDER BY date ASC`
+       ORDER BY date ASC`,
     );
 
     return res.json({ history });

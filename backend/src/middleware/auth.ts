@@ -48,30 +48,32 @@ const JWT_REFRESH_EXPIRY = '30d'; // Refresh token expires in 30 days
  * Generate JWT access token
  */
 export function generateAccessToken(accountName: string, email: string, sessionId: string): string {
-  return jwt.sign(
-    { accountName, email, sid: sessionId, tokenType: 'access' },
-    JWT_SECRET,
-    { expiresIn: JWT_ACCESS_EXPIRY }
-  );
+  return jwt.sign({ accountName, email, sid: sessionId, tokenType: 'access' }, JWT_SECRET, {
+    expiresIn: JWT_ACCESS_EXPIRY,
+  });
 }
 
 /**
  * Generate JWT refresh token
  */
-export function generateRefreshToken(accountName: string, email: string, sessionId: string): string {
-  return jwt.sign(
-    { accountName, email, sid: sessionId, tokenType: 'refresh' },
-    JWT_SECRET,
-    { expiresIn: JWT_REFRESH_EXPIRY }
-  );
+export function generateRefreshToken(
+  accountName: string,
+  email: string,
+  sessionId: string,
+): string {
+  return jwt.sign({ accountName, email, sid: sessionId, tokenType: 'refresh' }, JWT_SECRET, {
+    expiresIn: JWT_REFRESH_EXPIRY,
+  });
 }
 
-export function generateTerminalToken(accountName: string, email: string, sessionId: string): string {
-  return jwt.sign(
-    { accountName, email, sid: sessionId, tokenType: 'terminal' },
-    JWT_SECRET,
-    { expiresIn: '5m' }
-  );
+export function generateTerminalToken(
+  accountName: string,
+  email: string,
+  sessionId: string,
+): string {
+  return jwt.sign({ accountName, email, sid: sessionId, tokenType: 'terminal' }, JWT_SECRET, {
+    expiresIn: '5m',
+  });
 }
 
 /**
@@ -105,11 +107,7 @@ export function verifyToken(token: string): JWTPayload | null {
  * Middleware: Require authentication
  * Verifies JWT token from cookie and attaches user to request
  */
-export async function requireAuth(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     // Get token from cookie
     const token = req.cookies?.access_token;
@@ -127,7 +125,7 @@ export async function requireAuth(
       return;
     }
 
-    if (!payload.sid || !await hasActiveWebSession(payload.accountName, payload.sid)) {
+    if (!payload.sid || !(await hasActiveWebSession(payload.accountName, payload.sid))) {
       res.status(401).json({ error: 'Session is no longer active' });
       return;
     }
@@ -152,7 +150,7 @@ export async function requireAuth(
       email: payload.email,
       sessionId: payload.sid,
       permissions,
-      adminPermissions
+      adminPermissions,
     };
 
     next();
@@ -165,11 +163,7 @@ export async function requireAuth(
 /**
  * Middleware: Require immortal status (Level 57+)
  */
-export function requireImmortal(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+export function requireImmortal(req: Request, res: Response, next: NextFunction): void {
   if (!req.user) {
     res.status(401).json({ error: 'Not authenticated' });
     return;
@@ -186,11 +180,7 @@ export function requireImmortal(
 /**
  * Middleware: Require god status (Level 59+, Lesser God or higher)
  */
-export function requireGod(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+export function requireGod(req: Request, res: Response, next: NextFunction): void {
   if (!req.user) {
     res.status(401).json({ error: 'Not authenticated' });
     return;
@@ -207,11 +197,7 @@ export function requireGod(
 /**
  * Middleware: Require Overlord status (Level 62)
  */
-export function requireOverlord(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+export function requireOverlord(req: Request, res: Response, next: NextFunction): void {
   if (!req.user) {
     res.status(401).json({ error: 'Not authenticated' });
     return;
@@ -247,11 +233,7 @@ export function requireGuild(guildName: string) {
 /**
  * Middleware: Require moderation permissions
  */
-export function requireModerator(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+export function requireModerator(req: Request, res: Response, next: NextFunction): void {
   if (!req.user) {
     res.status(401).json({ error: 'Not authenticated' });
     return;
@@ -268,11 +250,7 @@ export function requireModerator(
 /**
  * Middleware: Require Greater God status (Level 60+)
  */
-export function requireGreaterGod(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+export function requireGreaterGod(req: Request, res: Response, next: NextFunction): void {
   if (!req.user) {
     res.status(401).json({ error: 'Not authenticated' });
     return;
@@ -313,7 +291,7 @@ export function requirePermission(permissionKey: string) {
     // If neither immortal level nor permission grants access, deny
     res.status(403).json({
       error: `Permission denied: ${permissionKey} required`,
-      required_permission: permissionKey
+      required_permission: permissionKey,
     });
   };
 }
@@ -325,7 +303,7 @@ export function requirePermission(permissionKey: string) {
 export async function optionalAuth(
   req: Request,
   _res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     // Get token from cookie
@@ -346,7 +324,7 @@ export async function optionalAuth(
       return;
     }
 
-    if (!payload.sid || !await hasActiveWebSession(payload.accountName, payload.sid)) {
+    if (!payload.sid || !(await hasActiveWebSession(payload.accountName, payload.sid))) {
       // Revoked or expired session - continue as anonymous user
       next();
       return;
@@ -373,7 +351,7 @@ export async function optionalAuth(
       email: payload.email,
       sessionId: payload.sid,
       permissions,
-      adminPermissions
+      adminPermissions,
     };
 
     next();

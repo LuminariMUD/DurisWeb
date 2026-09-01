@@ -51,7 +51,7 @@ export async function getChangelogEntries(options: ChangelogListOptions = {}): P
   // get total count
   const [countRows] = await db.query<RowDataPacket[]>(
     `SELECT COUNT(*) as total FROM website_changelog ${whereClause}`,
-    params
+    params,
   );
   const total = countRows[0]?.total || 0;
 
@@ -103,20 +103,23 @@ export async function getChangelogEntries(options: ChangelogListOptions = {}): P
 /**
  * get all changelog entries for admin (including unpublished)
  */
-export async function getAllChangelogEntriesForAdmin(page = 1, limit = 20): Promise<{
+export async function getAllChangelogEntriesForAdmin(
+  page = 1,
+  limit = 20,
+): Promise<{
   entries: ChangelogEntry[];
   total: number;
 }> {
   const offset = (page - 1) * limit;
 
   const [countRows] = await db.query<RowDataPacket[]>(
-    'SELECT COUNT(*) as total FROM website_changelog'
+    'SELECT COUNT(*) as total FROM website_changelog',
   );
   const total = countRows[0]?.total || 0;
 
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT * FROM website_changelog ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-    [limit, offset]
+    [limit, offset],
   );
 
   const entries: ChangelogEntry[] = rows.map((row) => ({
@@ -140,7 +143,7 @@ export async function getAllChangelogEntriesForAdmin(page = 1, limit = 20): Prom
 export async function getChangelogEntry(
   id: number,
   accountName?: string,
-  includeAdmin = false
+  includeAdmin = false,
 ): Promise<ChangelogEntry | null> {
   let query: string;
   const visibilityClause = includeAdmin
@@ -198,7 +201,7 @@ export async function createChangelogEntry(data: {
   const [result] = await db.query<ResultSetHeader>(
     `INSERT INTO website_changelog (version, title, content, category, created_by, is_published)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [data.version, data.title, content, data.category, data.createdBy, data.isPublished ?? false]
+    [data.version, data.title, content, data.category, data.createdBy, data.isPublished ?? false],
   );
 
   return result.insertId;
@@ -215,7 +218,7 @@ export async function updateChangelogEntry(
     content: string;
     category: 'public' | 'admin';
     isPublished: boolean;
-  }>
+  }>,
 ): Promise<boolean> {
   const updates: string[] = [];
   const params: (string | number | boolean)[] = [];
@@ -250,7 +253,7 @@ export async function updateChangelogEntry(
 
   const [result] = await db.query<ResultSetHeader>(
     `UPDATE website_changelog SET ${updates.join(', ')} WHERE id = ?`,
-    params
+    params,
   );
 
   return result.affectedRows > 0;
@@ -260,10 +263,9 @@ export async function updateChangelogEntry(
  * delete changelog entry
  */
 export async function deleteChangelogEntry(id: number): Promise<boolean> {
-  const [result] = await db.query<ResultSetHeader>(
-    'DELETE FROM website_changelog WHERE id = ?',
-    [id]
-  );
+  const [result] = await db.query<ResultSetHeader>('DELETE FROM website_changelog WHERE id = ?', [
+    id,
+  ]);
 
   return result.affectedRows > 0;
 }
@@ -274,7 +276,7 @@ export async function deleteChangelogEntry(id: number): Promise<boolean> {
 export async function markAsRead(changelogId: number, accountName: string): Promise<void> {
   await db.query(
     `INSERT IGNORE INTO website_changelog_reads (changelog_id, account_name) VALUES (?, ?)`,
-    [changelogId, accountName]
+    [changelogId, accountName],
   );
 }
 
@@ -285,7 +287,7 @@ export async function markAllAsRead(accountName: string): Promise<number> {
   const [result] = await db.query<ResultSetHeader>(
     `INSERT IGNORE INTO website_changelog_reads (changelog_id, account_name)
      SELECT id, ? FROM website_changelog WHERE is_published = TRUE`,
-    [accountName]
+    [accountName],
   );
 
   return result.affectedRows;
@@ -308,7 +310,7 @@ export async function getUnreadCount(accountName: string, includeAdmin = false):
        SELECT 1 FROM website_changelog_reads r
        WHERE r.changelog_id = c.id AND r.account_name = ?
      )`,
-    [accountName]
+    [accountName],
   );
 
   return rows[0]?.count || 0;
@@ -321,11 +323,11 @@ export async function notifyChangelogPublished(
   entryId: number,
   version: string,
   title: string,
-  category: 'public' | 'admin'
+  category: 'public' | 'admin',
 ): Promise<void> {
   // get all unique account names from login history
   const [rows] = await db.query<RowDataPacket[]>(
-    'SELECT DISTINCT account_name FROM account_login_history WHERE account_name IS NOT NULL'
+    'SELECT DISTINCT account_name FROM account_login_history WHERE account_name IS NOT NULL',
   );
 
   // create notification for each account

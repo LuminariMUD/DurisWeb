@@ -1,8 +1,4 @@
-import {
-  validateBooleanField,
-  validateObjectFields,
-  validateStringField,
-} from './validation.js';
+import { validateBooleanField, validateObjectFields, validateStringField } from './validation.js';
 
 export const INCIDENT_CREATE_FIELDS = [
   'incident_type',
@@ -150,7 +146,8 @@ function validateIncidentCommon(values: IncidentRecord, requireCoreFields: boole
     const error = validateDateTime(
       values[fieldName],
       fieldName,
-      fieldName === 'started_at' && (requireCoreFields || Object.prototype.hasOwnProperty.call(values, fieldName)),
+      fieldName === 'started_at' &&
+        (requireCoreFields || Object.prototype.hasOwnProperty.call(values, fieldName)),
     );
     if (error) return error;
   }

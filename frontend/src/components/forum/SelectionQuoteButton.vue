@@ -21,9 +21,8 @@ function handleSelection() {
     // Find the post ID from the selected element's parent
     const range = selection!.getRangeAt(0)
     const container = range.commonAncestorContainer
-    const element = container.nodeType === Node.TEXT_NODE
-      ? container.parentElement
-      : container as HTMLElement
+    const element =
+      container.nodeType === Node.TEXT_NODE ? container.parentElement : (container as HTMLElement)
 
     // Find the closest post container (has data-post-id attribute)
     const postContainer = element?.closest('[data-post-id]') as HTMLElement
@@ -36,7 +35,7 @@ function handleSelection() {
 
     buttonPosition.value = {
       top: rect.bottom + window.scrollY + 8,
-      left: rect.left + window.scrollX + (rect.width / 2) - 40 // Center the button
+      left: rect.left + window.scrollX + rect.width / 2 - 40, // Center the button
     }
 
     showButton.value = true
@@ -51,7 +50,7 @@ function handleQuoteClick() {
   if (selectedPostId.value) {
     emit('quote', {
       selectedText: selectedText.value,
-      postId: selectedPostId.value
+      postId: selectedPostId.value,
     })
   }
   showButton.value = false

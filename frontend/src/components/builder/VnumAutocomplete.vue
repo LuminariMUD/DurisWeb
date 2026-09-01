@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { Button } from '@/components/ui/button'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Command,
   CommandEmpty,
@@ -41,18 +37,14 @@ const open = ref(false)
 const searchQuery = ref('')
 
 // Find the selected option
-const selectedOption = computed(() =>
-  props.options.find(opt => opt.vnum === props.modelValue)
-)
+const selectedOption = computed(() => props.options.find((opt) => opt.vnum === props.modelValue))
 
 // Filter options based on search
 const filteredOptions = computed(() => {
   if (!searchQuery.value) return props.options
   const query = searchQuery.value.toLowerCase()
   return props.options.filter(
-    opt =>
-      opt.vnum.toString().includes(query) ||
-      opt.name.toLowerCase().includes(query)
+    (opt) => opt.vnum.toString().includes(query) || opt.name.toLowerCase().includes(query),
   )
 })
 

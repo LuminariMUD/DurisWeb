@@ -32,7 +32,7 @@ router.get('/:type/:name', async (req: Request, res: Response) => {
        FROM pages
        WHERE LOWER(title) = LOWER(?)
        LIMIT 1`,
-      [name]
+      [name],
     );
 
     if (rows.length === 0) {
@@ -43,7 +43,7 @@ router.get('/:type/:name', async (req: Request, res: Response) => {
          FROM pages
          WHERE LOWER(title) = LOWER(?)
          LIMIT 1`,
-        [searchName]
+        [searchName],
       );
 
       if (fuzzyRows.length === 0) {

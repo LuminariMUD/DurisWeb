@@ -39,7 +39,7 @@ describe('scoped Redis configuration', () => {
     delete process.env.REDIS_PRESENCE_PASSWORD;
 
     expect(() => getScopedRedisConfiguration('presence')).toThrow(
-      'Production presence Redis access requires REDIS_PRESENCE_USERNAME and REDIS_PRESENCE_PASSWORD'
+      'Production presence Redis access requires REDIS_PRESENCE_USERNAME and REDIS_PRESENCE_PASSWORD',
     );
   });
 
@@ -57,7 +57,7 @@ describe('scoped Redis configuration', () => {
     delete process.env.REDIS_CA_CERT;
 
     expect(() => getScopedRedisConfiguration('cache')).toThrow(
-      'REDIS_CA_CERT is required when REDIS_TLS is TRUE'
+      'REDIS_CA_CERT is required when REDIS_TLS is TRUE',
     );
   });
 });

@@ -82,7 +82,7 @@ const parsedMap = computed((): { cells: MapCell[]; shipX: number; shipY: number 
     '&n': '#6b7280', // normal/reset
   }
 
-  const lines = wildernessMap.value.split('\n').filter(l => l.trim())
+  const lines = wildernessMap.value.split('\n').filter((l) => l.trim())
   let currentColor = '#6b7280'
   let maxCol = 0
 
@@ -122,7 +122,10 @@ const parsedMap = computed((): { cells: MapCell[]; shipX: number; shipY: number 
       const char = line[i]
       if (char && char !== ' ') {
         // Check if this is the ship marker (white color, direction chars)
-        if ((char === '^' || char === '>' || char === '<' || char === 'v') && currentColor === '#ffffff') {
+        if (
+          (char === '^' || char === '>' || char === '<' || char === 'v') &&
+          currentColor === '#ffffff'
+        ) {
           shipX = col
           shipY = row
         }
@@ -164,7 +167,12 @@ function getMapCellPosition(cell: MapCell): { x: number; y: number } | null {
   const y = radarCenter + offsetY * mapCellSize
 
   // Only return if within radar bounds (with some margin)
-  if (x < -mapCellSize || x > radarSize + mapCellSize || y < -mapCellSize || y > radarSize + mapCellSize) {
+  if (
+    x < -mapCellSize ||
+    x > radarSize + mapCellSize ||
+    y < -mapCellSize ||
+    y > radarSize + mapCellSize
+  ) {
     return null
   }
 
@@ -205,13 +213,19 @@ const maxSpeed = computed(() => shipInfo.value?.maxSpeed ?? 100) // From Ship.In
 const sliderSpeed = ref(0) // Local state for immediate UI response
 
 // Parsed ship status (parse ANSI for HTML display)
-const shipStatusHtml = computed(() => shipInfo.value?.status ? parseAnsiToHtml(shipInfo.value.status) : '')
+const shipStatusHtml = computed(() =>
+  shipInfo.value?.status ? parseAnsiToHtml(shipInfo.value.status) : '',
+)
 
 // debug: log when shipInfo changes
-watch(shipInfo, (info) => {
-  console.log('[ShipRadar] shipInfo updated:', info)
-  console.log('[ShipRadar] maxSpeed is now:', info?.maxSpeed ?? 100)
-}, { immediate: true })
+watch(
+  shipInfo,
+  (info) => {
+    console.log('[ShipRadar] shipInfo updated:', info)
+    console.log('[ShipRadar] maxSpeed is now:', info?.maxSpeed ?? 100)
+  },
+  { immediate: true },
+)
 
 // Sync slider with GMCP speed when it changes externally
 const currentSpeed = computed(() => shipContacts.value?.speed ?? 0)
@@ -220,11 +234,15 @@ const currentSpeed = computed(() => shipContacts.value?.speed ?? 0)
 let isDragging = false
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
-watch(currentSpeed, (newSpeed) => {
-  if (!isDragging) {
-    sliderSpeed.value = newSpeed
-  }
-}, { immediate: true })
+watch(
+  currentSpeed,
+  (newSpeed) => {
+    if (!isDragging) {
+      sliderSpeed.value = newSpeed
+    }
+  },
+  { immediate: true },
+)
 
 function handleSpeedChange(value: number[] | undefined) {
   if (!value) return
@@ -297,11 +315,16 @@ function getCompassPosition(direction: number): { x: number; y: number } {
 function getContactColor(contact: MudShipContact): string {
   if (contact.targeting_you) return '#ef4444' // red-500
   switch (contact.race) {
-    case 'good': return '#22c55e' // green-500
-    case 'evil': return '#ef4444' // red-500
-    case 'undead': return '#a855f7' // purple-500
-    case 'squid': return '#f97316' // orange-500
-    default: return '#6b7280' // gray-500
+    case 'good':
+      return '#22c55e' // green-500
+    case 'evil':
+      return '#ef4444' // red-500
+    case 'undead':
+      return '#a855f7' // purple-500
+    case 'squid':
+      return '#f97316' // orange-500
+    default:
+      return '#6b7280' // gray-500
   }
 }
 
@@ -326,21 +349,31 @@ const rangeRings = computed(() => {
 // Helper functions for display
 const getRaceColor = (race: MudShipContact['race']): string => {
   switch (race) {
-    case 'good': return 'text-green-400 border-green-400/50'
-    case 'evil': return 'text-red-400 border-red-400/50'
-    case 'undead': return 'text-purple-400 border-purple-400/50'
-    case 'squid': return 'text-orange-400 border-orange-400/50'
-    default: return 'text-gray-400 border-gray-400/50'
+    case 'good':
+      return 'text-green-400 border-green-400/50'
+    case 'evil':
+      return 'text-red-400 border-red-400/50'
+    case 'undead':
+      return 'text-purple-400 border-purple-400/50'
+    case 'squid':
+      return 'text-orange-400 border-orange-400/50'
+    default:
+      return 'text-gray-400 border-gray-400/50'
   }
 }
 
 const getStatusColor = (status: MudShipContact['status']): string => {
   switch (status) {
-    case 'flying': return 'text-blue-400 border-blue-400/50'
-    case 'sinking': return 'text-red-400 border-red-400/50 animate-pulse'
-    case 'docked': return 'text-gray-400 border-gray-400/50'
-    case 'anchored': return 'text-amber-400 border-amber-400/50'
-    default: return 'text-gray-400 border-gray-400/50'
+    case 'flying':
+      return 'text-blue-400 border-blue-400/50'
+    case 'sinking':
+      return 'text-red-400 border-red-400/50 animate-pulse'
+    case 'docked':
+      return 'text-gray-400 border-gray-400/50'
+    case 'anchored':
+      return 'text-amber-400 border-amber-400/50'
+    default:
+      return 'text-gray-400 border-gray-400/50'
   }
 }
 
@@ -382,13 +415,11 @@ const isDraggingMap = ref(false)
 const dragStart = ref({ x: 0, y: 0 })
 
 // Player ship (identified by id="**")
-const playerShip = computed(() =>
-  shipContacts.value?.contacts.find(c => c.id === '**')
-)
+const playerShip = computed(() => shipContacts.value?.contacts.find((c) => c.id === '**'))
 
 // Other contacts (excluding player ship)
-const otherContacts = computed(() =>
-  shipContacts.value?.contacts.filter(c => c.id !== '**') ?? []
+const otherContacts = computed(
+  () => shipContacts.value?.contacts.filter((c) => c.id !== '**') ?? [],
 )
 
 // Check if we have world coordinates (verified web client)
@@ -480,11 +511,16 @@ function getMapPosition(x: number, y: number): { x: number; y: number } {
 // Get race color class for map markers
 function getRaceColorClass(race: MudShipContact['race']): string {
   switch (race) {
-    case 'good': return 'bg-green-500 border-green-300'
-    case 'evil': return 'bg-red-500 border-red-300'
-    case 'undead': return 'bg-purple-500 border-purple-300'
-    case 'squid': return 'bg-orange-500 border-orange-300'
-    default: return 'bg-gray-500 border-gray-300'
+    case 'good':
+      return 'bg-green-500 border-green-300'
+    case 'evil':
+      return 'bg-red-500 border-red-300'
+    case 'undead':
+      return 'bg-purple-500 border-purple-300'
+    case 'squid':
+      return 'bg-orange-500 border-orange-300'
+    default:
+      return 'bg-gray-500 border-gray-300'
   }
 }
 
@@ -528,8 +564,8 @@ const radarMapTransform = computed(() => {
   const imgHeight = radarSize * scale
 
   // Position to center on player
-  const imgX = radarCenter - (playerPctX * imgWidth)
-  const imgY = radarCenter - (playerPctY * imgHeight)
+  const imgX = radarCenter - playerPctX * imgWidth
+  const imgY = radarCenter - playerPctY * imgHeight
 
   return { x: imgX, y: imgY, width: imgWidth, height: imgHeight }
 })

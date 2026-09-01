@@ -34,7 +34,10 @@ export function formatWealth(copper: number): string {
  * @param balance - Copper in bank
  * @returns Object with formatted strings for display
  */
-export function formatWealthBreakdown(money: number, balance: number): {
+export function formatWealthBreakdown(
+  money: number,
+  balance: number,
+): {
   total: string
   onHand: string
   inBank: string
@@ -42,7 +45,7 @@ export function formatWealthBreakdown(money: number, balance: number): {
   return {
     total: formatWealth(money + balance),
     onHand: formatWealth(money),
-    inBank: formatWealth(balance)
+    inBank: formatWealth(balance),
   }
 }
 

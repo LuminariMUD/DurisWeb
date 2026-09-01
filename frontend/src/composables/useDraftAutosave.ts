@@ -19,7 +19,7 @@ export function useDraftAutosave(
   draftKey: string,
   content: Ref<string>,
   title?: Ref<string>,
-  parentPostId?: Ref<number | null>
+  parentPostId?: Ref<number | null>,
 ) {
   const hasDraft = ref(false)
   const draftSavedAt = ref<Date | null>(null)
@@ -33,15 +33,14 @@ export function useDraftAutosave(
       content: content.value,
       timestamp: Date.now(),
       ...(title?.value && { title: title.value }),
-      ...(parentPostId?.value !== undefined && { parentPostId: parentPostId.value })
+      ...(parentPostId?.value !== undefined && { parentPostId: parentPostId.value }),
     }
 
     try {
       localStorage.setItem(draftKey, JSON.stringify(draft))
       draftSavedAt.value = new Date()
       hasDraft.value = true
-    } catch {
-    }
+    } catch {}
   }
 
   /**
@@ -95,8 +94,7 @@ export function useDraftAutosave(
       localStorage.removeItem(draftKey)
       hasDraft.value = false
       draftSavedAt.value = null
-    } catch {
-    }
+    } catch {}
   }
 
   /**
@@ -108,7 +106,8 @@ export function useDraftAutosave(
     }
 
     // Only save if there's actual content
-    const hasContent = content.value.trim().length > 0 || (title?.value && title.value.trim().length > 0)
+    const hasContent =
+      content.value.trim().length > 0 || (title?.value && title.value.trim().length > 0)
     if (!hasContent) {
       clearDraft()
       return
@@ -168,6 +167,6 @@ export function useDraftAutosave(
     loadDraft,
     restoreDraft,
     clearDraft,
-    formatDraftTime
+    formatDraftTime,
   }
 }

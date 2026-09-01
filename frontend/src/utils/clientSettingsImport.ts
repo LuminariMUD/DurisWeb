@@ -7,7 +7,9 @@ export function parseClientSettingsDocument(json: unknown): Record<string, unkno
   }
 
   if (json.length > MAX_CLIENT_SETTINGS_IMPORT_CHARS) {
-    throw new Error(`Client settings import exceeds the maximum size of ${MAX_CLIENT_SETTINGS_IMPORT_CHARS} characters`)
+    throw new Error(
+      `Client settings import exceeds the maximum size of ${MAX_CLIENT_SETTINGS_IMPORT_CHARS} characters`,
+    )
   }
 
   let parsed: unknown
@@ -24,10 +26,7 @@ export function parseClientSettingsDocument(json: unknown): Record<string, unkno
   return parsed as Record<string, unknown>
 }
 
-export function parseClientSettingsCollection(
-  json: unknown,
-  collectionKey: string,
-): unknown[] {
+export function parseClientSettingsCollection(json: unknown, collectionKey: string): unknown[] {
   const document = parseClientSettingsDocument(json)
   const collection = document[collectionKey]
 
@@ -36,7 +35,9 @@ export function parseClientSettingsCollection(
   }
 
   if (collection.length > MAX_CLIENT_SETTINGS_ITEMS) {
-    throw new Error(`Client settings import contains more than ${MAX_CLIENT_SETTINGS_ITEMS} ${collectionKey}`)
+    throw new Error(
+      `Client settings import contains more than ${MAX_CLIENT_SETTINGS_ITEMS} ${collectionKey}`,
+    )
   }
 
   return collection

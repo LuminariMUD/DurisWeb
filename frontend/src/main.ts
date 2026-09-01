@@ -1,6 +1,6 @@
 // Disable pinia devtools logging
 if (typeof window !== 'undefined') {
-  (window as any).__VUE_DEVTOOLS_TOAST__ = () => {}
+  ;(window as any).__VUE_DEVTOOLS_TOAST__ = () => {}
 }
 
 import './assets/main.css'

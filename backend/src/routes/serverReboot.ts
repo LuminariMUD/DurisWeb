@@ -5,9 +5,7 @@ import {
   getUptimeStats,
   getMudRebootHistory,
 } from '../services/serverRebootService.js';
-import {
-  getMudUptimeStats,
-} from '../services/mudUptimeService.js';
+import { getMudUptimeStats } from '../services/mudUptimeService.js';
 
 const router: Router = express.Router();
 

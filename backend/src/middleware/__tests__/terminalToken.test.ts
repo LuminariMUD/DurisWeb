@@ -26,7 +26,11 @@ beforeAll(async () => {
 
 describe('scoped terminal tokens', () => {
   it('creates a short-lived terminal token that ordinary access verification rejects', () => {
-    const terminalToken = auth.generateTerminalToken('Cwial', 'cwial@example.invalid', 'web-session-1');
+    const terminalToken = auth.generateTerminalToken(
+      'Cwial',
+      'cwial@example.invalid',
+      'web-session-1',
+    );
     const payload = auth.verifyTerminalToken(terminalToken);
 
     expect(payload?.accountName).toBe('Cwial');
@@ -34,6 +38,10 @@ describe('scoped terminal tokens', () => {
     expect(payload?.tokenType).toBe('terminal');
     expect(auth.isAccessToken(auth.verifyToken(terminalToken))).toBe(false);
     expect(auth.isRefreshToken(auth.verifyToken(terminalToken))).toBe(false);
-    expect(auth.verifyTerminalToken(auth.generateAccessToken('Cwial', 'cwial@example.invalid', 'web-session-1'))).toBeNull();
+    expect(
+      auth.verifyTerminalToken(
+        auth.generateAccessToken('Cwial', 'cwial@example.invalid', 'web-session-1'),
+      ),
+    ).toBeNull();
   });
 });

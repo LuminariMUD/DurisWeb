@@ -3,13 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import { formatDistanceToNow } from 'date-fns'
 import type { ChartData, ChartOptions } from 'chart.js'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -202,7 +196,12 @@ const trafficChartData = computed<ChartData<'line'>>(() => {
     labels: data.map((item) => {
       const date = new Date(item.timestamp)
       if (parseInt(selectedDays.value) <= 7) {
-        return date.toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+        return date.toLocaleString([], {
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
       }
       return date.toLocaleDateString([], { month: '2-digit', day: '2-digit' })
     }),

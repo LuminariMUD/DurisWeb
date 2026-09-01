@@ -26,7 +26,24 @@ const shipContacts = computed(() => store.shipContacts)
 
 // convert bearing to compass direction
 const bearingToCompass = (bearing: number): string => {
-  const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
+  const directions = [
+    'N',
+    'NNE',
+    'NE',
+    'ENE',
+    'E',
+    'ESE',
+    'SE',
+    'SSE',
+    'S',
+    'SSW',
+    'SW',
+    'WSW',
+    'W',
+    'WNW',
+    'NW',
+    'NNW',
+  ]
   const index = Math.round(bearing / 22.5) % 16
   return directions[index] || 'N'
 }
@@ -34,21 +51,30 @@ const bearingToCompass = (bearing: number): string => {
 // race color
 const getRaceColor = (race: string): string => {
   switch (race) {
-    case 'good': return 'text-green-400 border-green-400/50'
-    case 'evil': return 'text-red-400 border-red-400/50'
-    case 'undead': return 'text-purple-400 border-purple-400/50'
-    default: return 'text-muted-foreground'
+    case 'good':
+      return 'text-green-400 border-green-400/50'
+    case 'evil':
+      return 'text-red-400 border-red-400/50'
+    case 'undead':
+      return 'text-purple-400 border-purple-400/50'
+    default:
+      return 'text-muted-foreground'
   }
 }
 
 // status color
 const getStatusColor = (status: string): string => {
   switch (status) {
-    case 'sinking': return 'text-red-400 border-red-400/50'
-    case 'flying': return 'text-cyan-400 border-cyan-400/50'
-    case 'docked': return 'text-yellow-400 border-yellow-400/50'
-    case 'anchored': return 'text-amber-400 border-amber-400/50'
-    default: return 'text-muted-foreground'
+    case 'sinking':
+      return 'text-red-400 border-red-400/50'
+    case 'flying':
+      return 'text-cyan-400 border-cyan-400/50'
+    case 'docked':
+      return 'text-yellow-400 border-yellow-400/50'
+    case 'anchored':
+      return 'text-amber-400 border-amber-400/50'
+    default:
+      return 'text-muted-foreground'
   }
 }
 

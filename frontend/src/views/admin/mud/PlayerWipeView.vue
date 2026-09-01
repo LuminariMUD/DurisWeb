@@ -400,300 +400,332 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
-import { RefreshCw, AlertTriangle, Clock, History, Users, Shield, Search, Info, CheckCircle, XCircle, Loader2 } from 'lucide-vue-next';
-import { apiClient as api } from '@/services/api';
-import { toast } from 'vue-sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import WipeConfirmationDialog from '@/components/admin/WipeConfirmationDialog.vue';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { formatWealth } from '@/utils/formatWealth';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import {
+  RefreshCw,
+  AlertTriangle,
+  Clock,
+  History,
+  Users,
+  Shield,
+  Search,
+  Info,
+  CheckCircle,
+  XCircle,
+  Loader2,
+} from 'lucide-vue-next'
+import { apiClient as api } from '@/services/api'
+import { toast } from 'vue-sonner'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import WipeConfirmationDialog from '@/components/admin/WipeConfirmationDialog.vue'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { formatWealth } from '@/utils/formatWealth'
 
 interface Player {
-  pid: number;
-  name: string;
-  level: number;
-  class: string;
-  classHtml: string;
-  spec: string;
-  specHtml: string;
-  race: string;
-  raceHtml: string;
-  guild: string;
-  guildHtml: string;
-  wealth: number;
+  pid: number
+  name: string
+  level: number
+  class: string
+  classHtml: string
+  spec: string
+  specHtml: string
+  race: string
+  raceHtml: string
+  guild: string
+  guildHtml: string
+  wealth: number
 }
 
 interface WipeStatus {
-  isOnCooldown: boolean;
-  cooldownEndsAt: string | null;
-  mudRunning: boolean;
-  mudState: string;
+  isOnCooldown: boolean
+  cooldownEndsAt: string | null
+  mudRunning: boolean
+  mudState: string
   lastWipe: {
-    executedAt: string;
-    executedBy: string;
-    reason: string;
-    success: boolean;
-    tablesAffected: number;
-    rowsAffected: number;
-  } | null;
+    executedAt: string
+    executedBy: string
+    reason: string
+    success: boolean
+    tablesAffected: number
+    rowsAffected: number
+  } | null
 }
 
 interface WipeHistoryEntry {
-  id: number;
-  executedBy: string;
-  executedAt: string;
-  reason: string;
-  excludedPlayers: { pid: number; name: string }[];
-  tablesAffected: number;
-  rowsAffected: number;
-  durationSeconds: number;
-  success: boolean;
-  errorMessage: string | null;
-  backupPath: string | null;
-  ipAddress: string;
+  id: number
+  executedBy: string
+  executedAt: string
+  reason: string
+  excludedPlayers: { pid: number; name: string }[]
+  tablesAffected: number
+  rowsAffected: number
+  durationSeconds: number
+  success: boolean
+  errorMessage: string | null
+  backupPath: string | null
+  ipAddress: string
 }
 
-const isLoading = ref(true);
-const error = ref<string | null>(null);
-const wipeStatus = ref<WipeStatus | null>(null);
-const players = ref<Player[]>([]);
-const excludedPlayerPids = ref<number[]>([]);
-const searchQuery = ref('');
-const showWipeDialog = ref(false);
-const isSaving = ref(false);
-const wipeHistory = ref<WipeHistoryEntry[]>([]);
-const isLoadingHistory = ref(false);
-const guildWipeReason = ref('');
-const guildWipeConfirm = ref('');
-const isGuildWiping = ref(false);
-const showShutdownPrompt = ref(false);
-const isShuttingDown = ref(false);
-const shutdownAborted = ref(false);
+const isLoading = ref(true)
+const error = ref<string | null>(null)
+const wipeStatus = ref<WipeStatus | null>(null)
+const players = ref<Player[]>([])
+const excludedPlayerPids = ref<number[]>([])
+const searchQuery = ref('')
+const showWipeDialog = ref(false)
+const isSaving = ref(false)
+const wipeHistory = ref<WipeHistoryEntry[]>([])
+const isLoadingHistory = ref(false)
+const guildWipeReason = ref('')
+const guildWipeConfirm = ref('')
+const isGuildWiping = ref(false)
+const showShutdownPrompt = ref(false)
+const isShuttingDown = ref(false)
+const shutdownAborted = ref(false)
 
 onBeforeUnmount(() => {
-  shutdownAborted.value = true;
-});
+  shutdownAborted.value = true
+})
 
 const handleGuildWipe = async () => {
-  isGuildWiping.value = true;
+  isGuildWiping.value = true
   try {
     const response = await api.post('/api/admin/mud/wipe/guilds', {
       reason: guildWipeReason.value,
-      confirmation: guildWipeConfirm.value
-    });
-    toast.success('Guild wipe complete', { description: response.data.message });
-    guildWipeReason.value = '';
-    guildWipeConfirm.value = '';
+      confirmation: guildWipeConfirm.value,
+    })
+    toast.success('Guild wipe complete', { description: response.data.message })
+    guildWipeReason.value = ''
+    guildWipeConfirm.value = ''
   } catch (err: any) {
-    toast.error('Guild wipe failed', { description: err.response?.data?.error || 'An error occurred' });
+    toast.error('Guild wipe failed', {
+      description: err.response?.data?.error || 'An error occurred',
+    })
   } finally {
-    isGuildWiping.value = false;
+    isGuildWiping.value = false
   }
-};
+}
 
 const cooldownDaysRemaining = computed(() => {
-  if (!wipeStatus.value?.cooldownEndsAt) return 0;
-  const now = new Date();
-  const end = new Date(wipeStatus.value.cooldownEndsAt);
-  const diffMs = end.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  return Math.max(0, diffDays);
-});
+  if (!wipeStatus.value?.cooldownEndsAt) return 0
+  const now = new Date()
+  const end = new Date(wipeStatus.value.cooldownEndsAt)
+  const diffMs = end.getTime() - now.getTime()
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+  return Math.max(0, diffDays)
+})
 
 const filteredPlayers = computed(() => {
   if (!searchQuery.value.trim()) {
-    return players.value;
+    return players.value
   }
 
-  const query = searchQuery.value.toLowerCase();
-  return players.value.filter(player =>
-    player.name.toLowerCase().includes(query) ||
-    player.class.toLowerCase().includes(query) ||
-    player.race.toLowerCase().includes(query) ||
-    player.guild.toLowerCase().includes(query)
-  );
-});
+  const query = searchQuery.value.toLowerCase()
+  return players.value.filter(
+    (player) =>
+      player.name.toLowerCase().includes(query) ||
+      player.class.toLowerCase().includes(query) ||
+      player.race.toLowerCase().includes(query) ||
+      player.guild.toLowerCase().includes(query),
+  )
+})
 
 const excludedPlayers = computed(() => {
-  return players.value.filter(p => excludedPlayerPids.value.includes(p.pid));
-});
+  return players.value.filter((p) => excludedPlayerPids.value.includes(p.pid))
+})
 
 const excludedPlayerObjects = computed(() => {
-  return excludedPlayers.value;
-});
+  return excludedPlayers.value
+})
 
 const isExcluded = (pid: number): boolean => {
-  return excludedPlayerPids.value.includes(pid);
-};
+  return excludedPlayerPids.value.includes(pid)
+}
 
 const togglePlayer = (pid: number) => {
-  const index = excludedPlayerPids.value.indexOf(pid);
+  const index = excludedPlayerPids.value.indexOf(pid)
   if (index > -1) {
-    excludedPlayerPids.value.splice(index, 1);
+    excludedPlayerPids.value.splice(index, 1)
   } else {
-    excludedPlayerPids.value.push(pid);
+    excludedPlayerPids.value.push(pid)
   }
-};
+}
 
 const selectAllVisible = () => {
-  const visiblePids = filteredPlayers.value.map(p => p.pid);
+  const visiblePids = filteredPlayers.value.map((p) => p.pid)
   // Add all visible PIDs that aren't already excluded
-  visiblePids.forEach(pid => {
+  visiblePids.forEach((pid) => {
     if (!excludedPlayerPids.value.includes(pid)) {
-      excludedPlayerPids.value.push(pid);
+      excludedPlayerPids.value.push(pid)
     }
-  });
-};
+  })
+}
 
 const deselectAll = () => {
-  excludedPlayerPids.value = [];
-};
+  excludedPlayerPids.value = []
+}
 
 const formatDate = (dateStr: string | null): string => {
-  if (!dateStr) return 'Never';
-  const date = new Date(dateStr);
+  if (!dateStr) return 'Never'
+  const date = new Date(dateStr)
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  }).format(date);
-};
+  }).format(date)
+}
 
 const loadData = async () => {
-  isLoading.value = true;
-  error.value = null;
+  isLoading.value = true
+  error.value = null
 
   try {
     // Load wipe status and player list in parallel
     const [statusResponse, playersResponse] = await Promise.all([
-      api.get<{ success: boolean; isOnCooldown: boolean; cooldownEndsAt: string | null; lastWipe: any }>('/api/admin/mud/wipe/status'),
-      api.get<{ success: boolean; players: Player[] }>('/api/admin/mud/wipe/players')
-    ]);
+      api.get<{
+        success: boolean
+        isOnCooldown: boolean
+        cooldownEndsAt: string | null
+        lastWipe: any
+      }>('/api/admin/mud/wipe/status'),
+      api.get<{ success: boolean; players: Player[] }>('/api/admin/mud/wipe/players'),
+    ])
 
     wipeStatus.value = {
       isOnCooldown: statusResponse.data.isOnCooldown,
       cooldownEndsAt: statusResponse.data.cooldownEndsAt,
       mudRunning: Boolean((statusResponse.data as any).mudRunning),
       mudState: (statusResponse.data as any).mudState ?? 'unknown',
-      lastWipe: statusResponse.data.lastWipe
-    };
+      lastWipe: statusResponse.data.lastWipe,
+    }
 
-    players.value = playersResponse.data.players;
+    players.value = playersResponse.data.players
   } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to load wipe data';
-    console.error('Wipe data load error:', err);
+    error.value = err.response?.data?.error || 'Failed to load wipe data'
+    console.error('Wipe data load error:', err)
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
-};
+}
 
 const loadWipeHistory = async () => {
-  isLoadingHistory.value = true;
+  isLoadingHistory.value = true
 
   try {
-    const response = await api.get<{ success: boolean; history: WipeHistoryEntry[] }>('/api/admin/mud/wipe/history', {
-      params: { limit: 10 }
-    });
+    const response = await api.get<{ success: boolean; history: WipeHistoryEntry[] }>(
+      '/api/admin/mud/wipe/history',
+      {
+        params: { limit: 10 },
+      },
+    )
 
-    wipeHistory.value = response.data.history;
+    wipeHistory.value = response.data.history
   } catch (err: any) {
     toast.error('Failed to load wipe history', {
-      description: err.response?.data?.error || 'An error occurred'
-    });
-    console.error('Wipe history load error:', err);
+      description: err.response?.data?.error || 'An error occurred',
+    })
+    console.error('Wipe history load error:', err)
   } finally {
-    isLoadingHistory.value = false;
+    isLoadingHistory.value = false
   }
-};
+}
 
 const handleExecuteClick = () => {
   if (wipeStatus.value?.mudRunning) {
-    showShutdownPrompt.value = true;
-    return;
+    showShutdownPrompt.value = true
+    return
   }
-  showWipeDialog.value = true;
-};
+  showWipeDialog.value = true
+}
 
 const handleShutdownMud = async () => {
-  isShuttingDown.value = true;
-  shutdownAborted.value = false;
+  isShuttingDown.value = true
+  shutdownAborted.value = false
 
   try {
-    await api.post('/api/mud/stop', { reason: 'pre-wipe shutdown' });
-    toast.success('Shutdown requested', { description: 'Waiting for MUD to stop...' });
+    await api.post('/api/mud/stop', { reason: 'pre-wipe shutdown' })
+    toast.success('Shutdown requested', { description: 'Waiting for MUD to stop...' })
 
     const refreshMudState = async () => {
-      const r = await api.get<{ mudRunning: boolean; mudState: string }>('/api/admin/mud/wipe/status');
+      const r = await api.get<{ mudRunning: boolean; mudState: string }>(
+        '/api/admin/mud/wipe/status',
+      )
       if (wipeStatus.value) {
-        wipeStatus.value.mudRunning = Boolean(r.data.mudRunning);
-        wipeStatus.value.mudState = r.data.mudState ?? 'unknown';
+        wipeStatus.value.mudRunning = Boolean(r.data.mudRunning)
+        wipeStatus.value.mudState = r.data.mudState ?? 'unknown'
       }
-    };
+    }
 
     for (let i = 0; i < 15; i++) {
-      if (shutdownAborted.value) return;
-      await new Promise((r) => setTimeout(r, 2000));
-      if (shutdownAborted.value) return;
-      await refreshMudState();
-      if (!wipeStatus.value?.mudRunning) break;
+      if (shutdownAborted.value) return
+      await new Promise((r) => setTimeout(r, 2000))
+      if (shutdownAborted.value) return
+      await refreshMudState()
+      if (!wipeStatus.value?.mudRunning) break
     }
 
     if (wipeStatus.value?.mudRunning) {
-      toast.error('MUD did not stop in time', { description: 'Check MUD control, then retry' });
-      return;
+      toast.error('MUD did not stop in time', { description: 'Check MUD control, then retry' })
+      return
     }
 
-    showShutdownPrompt.value = false;
-    showWipeDialog.value = true;
+    showShutdownPrompt.value = false
+    showWipeDialog.value = true
   } catch (err: any) {
-    toast.error('Shutdown failed', { description: err.response?.data?.error ?? String(err) });
+    toast.error('Shutdown failed', { description: err.response?.data?.error ?? String(err) })
   } finally {
-    isShuttingDown.value = false;
+    isShuttingDown.value = false
   }
-};
+}
 
 const handleConfirmWipe = async (reason: string) => {
-  isSaving.value = true;
+  isSaving.value = true
 
   try {
     const response = await api.post('/api/admin/mud/wipe/execute', {
       reason,
       excludedPids: excludedPlayerPids.value,
-      confirmation: 'WIPE PLAYERS'
-    });
+      confirmation: 'WIPE PLAYERS',
+    })
 
     toast.success('Player wipe completed successfully!', {
-      description: response.data.message
-    });
+      description: response.data.message,
+    })
 
     // Reload data
-    await loadData();
-    showWipeDialog.value = false;
+    await loadData()
+    showWipeDialog.value = false
 
     // Clear exclusions after successful wipe
-    excludedPlayerPids.value = [];
+    excludedPlayerPids.value = []
   } catch (err: any) {
-    const errorMsg = err.response?.data?.error || 'Failed to execute wipe';
+    const errorMsg = err.response?.data?.error || 'Failed to execute wipe'
     toast.error('Wipe failed', {
-      description: errorMsg
-    });
-    console.error('Wipe execution error:', err);
+      description: errorMsg,
+    })
+    console.error('Wipe execution error:', err)
   } finally {
-    isSaving.value = false;
+    isSaving.value = false
   }
-};
+}
 
 const handleCancelWipe = () => {
-  showWipeDialog.value = false;
-};
+  showWipeDialog.value = false
+}
 
 onMounted(() => {
-  loadData();
-  loadWipeHistory();
-});
+  loadData()
+  loadWipeHistory()
+})
 </script>

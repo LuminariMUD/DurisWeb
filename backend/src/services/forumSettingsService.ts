@@ -34,7 +34,7 @@ export async function getForumSettings(): Promise<ForumSettings> {
   }
 
   const [rows] = await db.query<RowDataPacket[]>(
-    'SELECT setting_key, setting_value FROM forum_settings'
+    'SELECT setting_key, setting_value FROM forum_settings',
   );
 
   // Convert rows to settings object
@@ -72,12 +72,12 @@ export async function getForumSettings(): Promise<ForumSettings> {
 export async function updateForumSetting(
   key: string,
   value: string,
-  updatedBy: string
+  updatedBy: string,
 ): Promise<void> {
   // Get old value for audit log
   const [oldRows] = await db.query<RowDataPacket[]>(
     'SELECT setting_value FROM forum_settings WHERE setting_key = ?',
-    [key]
+    [key],
   );
 
   const oldValue = oldRows.length > 0 ? oldRows[0].setting_value : null;
@@ -87,14 +87,14 @@ export async function updateForumSetting(
     `INSERT INTO forum_settings (setting_key, setting_value, updated_by)
      VALUES (?, ?, ?)
      ON DUPLICATE KEY UPDATE setting_value = ?, updated_by = ?, updated_at = NOW()`,
-    [key, value, updatedBy, value, updatedBy]
+    [key, value, updatedBy, value, updatedBy],
   );
 
   // Log to audit table
   await db.query(
     `INSERT INTO forum_permission_audit (changed_by, change_type, target_key, old_value, new_value)
      VALUES (?, 'setting', ?, ?, ?)`,
-    [updatedBy, key, oldValue, value]
+    [updatedBy, key, oldValue, value],
   );
 
   // Invalidate cache
@@ -109,7 +109,7 @@ export async function getCategoryPermissions(categoryId: number): Promise<Catego
     `SELECT min_level_to_view, min_level_to_post, min_level_to_moderate
      FROM forum_categories
      WHERE id = ?`,
-    [categoryId]
+    [categoryId],
   );
 
   if (rows.length === 0) {
@@ -133,7 +133,7 @@ export async function getCategoryPermissions(categoryId: number): Promise<Catego
 export async function updateCategoryPermissions(
   categoryId: number,
   permissions: Partial<CategoryPermissions>,
-  updatedBy: string
+  updatedBy: string,
 ): Promise<void> {
   const updates: string[] = [];
   const values: any[] = [];
@@ -159,16 +159,13 @@ export async function updateCategoryPermissions(
 
   values.push(categoryId);
 
-  await db.query(
-    `UPDATE forum_categories SET ${updates.join(', ')} WHERE id = ?`,
-    values
-  );
+  await db.query(`UPDATE forum_categories SET ${updates.join(', ')} WHERE id = ?`, values);
 
   // Log to audit table
   await db.query(
     `INSERT INTO forum_permission_audit (changed_by, change_type, target_key, old_value, new_value)
      VALUES (?, 'category_permission', ?, NULL, ?)`,
-    [updatedBy, `category_${categoryId}`, JSON.stringify(permissions)]
+    [updatedBy, `category_${categoryId}`, JSON.stringify(permissions)],
   );
 }
 
@@ -186,7 +183,14 @@ export interface AuditLogFilters {
   page?: number;
   limit?: number;
   changedBy?: string;
-  changeType?: 'property_change' | 'level_cap_change' | 'wipe' | 'timer_reset' | 'setting' | 'category_permission' | 'all';
+  changeType?:
+    | 'property_change'
+    | 'level_cap_change'
+    | 'wipe'
+    | 'timer_reset'
+    | 'setting'
+    | 'category_permission'
+    | 'all';
   targetKey?: string;
   startDate?: string;
   endDate?: string;
@@ -204,7 +208,7 @@ export interface AuditLogResponse {
 }
 
 export async function getPermissionAuditLog(
-  filters: AuditLogFilters = {}
+  filters: AuditLogFilters = {},
 ): Promise<AuditLogResponse> {
   const page = filters.page || 1;
   const limit = Math.min(filters.limit || 50, 100);
@@ -219,8 +223,11 @@ export async function getPermissionAuditLog(
     adminParams.push(`%${filters.changedBy}%`);
   }
 
-  if (filters.changeType && filters.changeType !== 'all' &&
-      ['property_change', 'level_cap_change', 'wipe', 'timer_reset'].includes(filters.changeType)) {
+  if (
+    filters.changeType &&
+    filters.changeType !== 'all' &&
+    ['property_change', 'level_cap_change', 'wipe', 'timer_reset'].includes(filters.changeType)
+  ) {
     adminWhereClauses.push('action_type = ?');
     adminParams.push(filters.changeType);
   }
@@ -241,12 +248,15 @@ export async function getPermissionAuditLog(
   }
 
   if (filters.search) {
-    adminWhereClauses.push('(account_name LIKE ? OR target LIKE ? OR old_value LIKE ? OR new_value LIKE ? OR notes LIKE ?)');
+    adminWhereClauses.push(
+      '(account_name LIKE ? OR target LIKE ? OR old_value LIKE ? OR new_value LIKE ? OR notes LIKE ?)',
+    );
     const searchTerm = `%${filters.search}%`;
     adminParams.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
   }
 
-  const adminWhereSQL = adminWhereClauses.length > 0 ? `WHERE ${adminWhereClauses.join(' AND ')}` : '';
+  const adminWhereSQL =
+    adminWhereClauses.length > 0 ? `WHERE ${adminWhereClauses.join(' AND ')}` : '';
 
   // Build WHERE clauses for forum_permission_audit
   const forumWhereClauses: string[] = [];
@@ -257,8 +267,11 @@ export async function getPermissionAuditLog(
     forumParams.push(`%${filters.changedBy}%`);
   }
 
-  if (filters.changeType && filters.changeType !== 'all' &&
-      ['setting', 'category_permission'].includes(filters.changeType)) {
+  if (
+    filters.changeType &&
+    filters.changeType !== 'all' &&
+    ['setting', 'category_permission'].includes(filters.changeType)
+  ) {
     forumWhereClauses.push('change_type = ?');
     forumParams.push(filters.changeType);
   }
@@ -279,12 +292,15 @@ export async function getPermissionAuditLog(
   }
 
   if (filters.search) {
-    forumWhereClauses.push('(changed_by LIKE ? OR target_key LIKE ? OR old_value LIKE ? OR new_value LIKE ?)');
+    forumWhereClauses.push(
+      '(changed_by LIKE ? OR target_key LIKE ? OR old_value LIKE ? OR new_value LIKE ?)',
+    );
     const searchTerm = `%${filters.search}%`;
     forumParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
   }
 
-  const forumWhereSQL = forumWhereClauses.length > 0 ? `WHERE ${forumWhereClauses.join(' AND ')}` : '';
+  const forumWhereSQL =
+    forumWhereClauses.length > 0 ? `WHERE ${forumWhereClauses.join(' AND ')}` : '';
 
   // Build WHERE clauses for admin_permission_audit
   const permAuditWhereClauses: string[] = [];
@@ -295,8 +311,13 @@ export async function getPermissionAuditLog(
     permAuditParams.push(`%${filters.changedBy}%`);
   }
 
-  if (filters.changeType && filters.changeType !== 'all' &&
-      ['assign_role', 'revoke_role', 'grant_permission', 'revoke_permission'].includes(filters.changeType)) {
+  if (
+    filters.changeType &&
+    filters.changeType !== 'all' &&
+    ['assign_role', 'revoke_role', 'grant_permission', 'revoke_permission'].includes(
+      filters.changeType,
+    )
+  ) {
     permAuditWhereClauses.push('action_type = ?');
     permAuditParams.push(filters.changeType);
   }
@@ -317,17 +338,39 @@ export async function getPermissionAuditLog(
   }
 
   if (filters.search) {
-    permAuditWhereClauses.push('(account_name LIKE ? OR target_account LIKE ? OR target_item LIKE ? OR notes LIKE ?)');
+    permAuditWhereClauses.push(
+      '(account_name LIKE ? OR target_account LIKE ? OR target_item LIKE ? OR notes LIKE ?)',
+    );
     const searchTerm = `%${filters.search}%`;
     permAuditParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
   }
 
-  const permAuditWhereSQL = permAuditWhereClauses.length > 0 ? `WHERE ${permAuditWhereClauses.join(' AND ')}` : '';
+  const permAuditWhereSQL =
+    permAuditWhereClauses.length > 0 ? `WHERE ${permAuditWhereClauses.join(' AND ')}` : '';
 
   // Decide which tables to query based on changeType filter
   const queryAllTables = !filters.changeType || filters.changeType === 'all';
-  const queryAdminOnly = filters.changeType && ['property_change', 'level_cap_change', 'wipe', 'timer_reset', 'help_file_create', 'help_file_edit', 'help_file_delete', 'news_edit', 'motd_edit', 'zone_create', 'zone_edit', 'zone_delete'].includes(filters.changeType);
-  const queryPermAuditOnly = filters.changeType && ['assign_role', 'revoke_role', 'grant_permission', 'revoke_permission'].includes(filters.changeType);
+  const queryAdminOnly =
+    filters.changeType &&
+    [
+      'property_change',
+      'level_cap_change',
+      'wipe',
+      'timer_reset',
+      'help_file_create',
+      'help_file_edit',
+      'help_file_delete',
+      'news_edit',
+      'motd_edit',
+      'zone_create',
+      'zone_edit',
+      'zone_delete',
+    ].includes(filters.changeType);
+  const queryPermAuditOnly =
+    filters.changeType &&
+    ['assign_role', 'revoke_role', 'grant_permission', 'revoke_permission'].includes(
+      filters.changeType,
+    );
 
   // Build unified query with UNION
   let countQuery = '';
@@ -468,7 +511,7 @@ export async function getPermissionAuditLog(
       page,
       limit,
       total,
-      pages: Math.ceil(total / limit)
-    }
+      pages: Math.ceil(total / limit),
+    },
   };
 }

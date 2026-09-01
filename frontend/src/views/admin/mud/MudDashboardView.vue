@@ -54,6 +54,8 @@
         </CardContent>
       </Card>
 
+      <HookHealthCard />
+
       <!-- Key Settings Cards -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <!-- Max XP Level -->
@@ -194,170 +196,192 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { TrendingUp, Zap, Activity, Users, Sparkles, Target, AlertTriangle, Clock } from 'lucide-vue-next';
-import { apiClient as api } from '@/services/api';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import {
+  TrendingUp,
+  Zap,
+  Activity,
+  Users,
+  Sparkles,
+  Target,
+  AlertTriangle,
+  Clock,
+} from 'lucide-vue-next'
+import { apiClient as api } from '@/services/api'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import HookHealthCard from '@/components/admin/hooks/HookHealthCard.vue'
 
 interface LevelCap {
-  level: number;
-  mostFrags: number;
-  racewarLeader: number; // 1 = Good, 2 = Evil
-  nextUpdate: string;
+  level: number
+  mostFrags: number
+  racewarLeader: number // 1 = Good, 2 = Evil
+  nextUpdate: string
 }
 
 interface Timer {
-  name: string;
-  date: string;
+  name: string
+  date: string
 }
 
 interface KeySettings {
-  maxExpLevel: number | null;
-  globalXpRate: number | null;
-  goodXpRate: number | null;
-  evilXpRate: number | null;
-  maxEpicLevel: number | null;
-  epicErrandStep: number | null;
+  maxExpLevel: number | null
+  globalXpRate: number | null
+  goodXpRate: number | null
+  evilXpRate: number | null
+  maxEpicLevel: number | null
+  epicErrandStep: number | null
 }
 
 interface Dashboard {
-  levelCap: LevelCap | null;
-  timers: Timer[];
-  lastWipeDate: string | null;
-  keySettings: KeySettings;
+  levelCap: LevelCap | null
+  timers: Timer[]
+  lastWipeDate: string | null
+  keySettings: KeySettings
 }
 
 interface MudTimeData {
-  second: number;
-  minute: number;
-  hour: number;
-  day: number;
-  month: number;
-  year: number;
-  dayName: string;
-  monthName: string;
-  timeOfDay: string;
-  season: string;
+  second: number
+  minute: number
+  hour: number
+  day: number
+  month: number
+  year: number
+  dayName: string
+  monthName: string
+  timeOfDay: string
+  season: string
 }
 
 interface MudTimeResponse {
-  time: MudTimeData;
-  formatted: string;
-  description: string;
+  time: MudTimeData
+  formatted: string
+  description: string
 }
 
-const isLoading = ref(true);
-const error = ref<string | null>(null);
-const dashboard = ref<Dashboard | null>(null);
-const mudTime = ref<MudTimeResponse | null>(null);
+const isLoading = ref(true)
+const error = ref<string | null>(null)
+const dashboard = ref<Dashboard | null>(null)
+const mudTime = ref<MudTimeResponse | null>(null)
 
-let mudTimeInterval: number | null = null;
+let mudTimeInterval: number | null = null
 
 const racewarLeader = computed(() => {
-  if (!dashboard.value?.levelCap) return 'Unknown';
-  return dashboard.value.levelCap.racewarLeader === 1 ? 'GOOD' : 'EVIL';
-});
+  if (!dashboard.value?.levelCap) return 'Unknown'
+  return dashboard.value.levelCap.racewarLeader === 1 ? 'GOOD' : 'EVIL'
+})
 
 const racewarColor = computed(() => {
-  if (!dashboard.value?.levelCap) return 'text-gray-400';
-  return dashboard.value.levelCap.racewarLeader === 1 ? 'text-blue-400' : 'text-red-400';
-});
+  if (!dashboard.value?.levelCap) return 'text-gray-400'
+  return dashboard.value.levelCap.racewarLeader === 1 ? 'text-blue-400' : 'text-red-400'
+})
 
 const formatMultiplier = (value: number | null): string => {
-  if (value === null) return 'N/A';
-  return `${value}x`;
-};
+  if (value === null) return 'N/A'
+  return `${value}x`
+}
 
 const formatNextUpdate = (timestamp: string): string => {
-  const date = new Date(timestamp);
+  const date = new Date(timestamp)
   return new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
-  }).format(date);
-};
+  }).format(date)
+}
 
 const formatWipeDate = (timestamp: string | null): string => {
-  if (!timestamp) return 'Never';
-  const date = new Date(timestamp);
+  if (!timestamp) return 'Never'
+  const date = new Date(timestamp)
   return new Intl.DateTimeFormat('en-US', {
     dateStyle: 'long',
     timeStyle: 'short',
-  }).format(date);
-};
+  }).format(date)
+}
 
 const formatTimestamp = (timestamp: string): string => {
-  const date = new Date(timestamp);
+  const date = new Date(timestamp)
   return new Intl.DateTimeFormat('en-US', {
     dateStyle: 'short',
     timeStyle: 'medium',
-  }).format(date);
-};
+  }).format(date)
+}
 
 const formatTimerName = (name: string): string => {
   // Convert snake_case to Title Case
   return name
     .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-};
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
 
 const getSeasonColor = (season: string): string => {
   switch (season) {
-    case 'Spring': return 'text-green-400';
-    case 'Summer': return 'text-yellow-400';
-    case 'Fall': return 'text-orange-400';
-    case 'Winter': return 'text-blue-300';
-    default: return 'text-gray-400';
+    case 'Spring':
+      return 'text-green-400'
+    case 'Summer':
+      return 'text-yellow-400'
+    case 'Fall':
+      return 'text-orange-400'
+    case 'Winter':
+      return 'text-blue-300'
+    default:
+      return 'text-gray-400'
   }
-};
+}
 
 const getTimeOfDayColor = (timeOfDay: string): string => {
   switch (timeOfDay) {
-    case 'Dawn': return 'text-orange-300';
-    case 'Morning': return 'text-yellow-300';
-    case 'Afternoon': return 'text-amber-300';
-    case 'Dusk': return 'text-purple-300';
-    case 'Night': return 'text-indigo-300';
-    case 'Midnight': return 'text-blue-300';
-    default: return 'text-gray-400';
+    case 'Dawn':
+      return 'text-orange-300'
+    case 'Morning':
+      return 'text-yellow-300'
+    case 'Afternoon':
+      return 'text-amber-300'
+    case 'Dusk':
+      return 'text-purple-300'
+    case 'Night':
+      return 'text-indigo-300'
+    case 'Midnight':
+      return 'text-blue-300'
+    default:
+      return 'text-gray-400'
   }
-};
+}
 
 const loadMudTime = async () => {
   try {
-    const response = await api.get<MudTimeResponse>('/api/admin/mud/time');
-    mudTime.value = response.data;
+    const response = await api.get<MudTimeResponse>('/api/admin/mud/time')
+    mudTime.value = response.data
   } catch (err: any) {
-    console.error('MUD time load error:', err);
+    console.error('MUD time load error:', err)
   }
-};
+}
 
 const loadDashboard = async () => {
-  isLoading.value = true;
-  error.value = null;
+  isLoading.value = true
+  error.value = null
 
   try {
-    const response = await api.get<Dashboard>('/api/admin/mud/dashboard');
-    dashboard.value = response.data;
+    const response = await api.get<Dashboard>('/api/admin/mud/dashboard')
+    dashboard.value = response.data
   } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to load dashboard';
-    console.error('Dashboard load error:', err);
+    error.value = err.response?.data?.error || 'Failed to load dashboard'
+    console.error('Dashboard load error:', err)
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
-};
+}
 
 onMounted(() => {
-  loadDashboard();
-  loadMudTime();
+  loadDashboard()
+  loadMudTime()
 
   // Update MUD time every second for live display (hour changes every 75 seconds)
-  mudTimeInterval = window.setInterval(loadMudTime, 1000);
-});
+  mudTimeInterval = window.setInterval(loadMudTime, 1000)
+})
 
 onUnmounted(() => {
   if (mudTimeInterval) {
-    clearInterval(mudTimeInterval);
+    clearInterval(mudTimeInterval)
   }
-});
+})
 </script>

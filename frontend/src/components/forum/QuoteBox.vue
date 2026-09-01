@@ -5,7 +5,7 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), {
-  authorName: 'Unknown'
+  authorName: 'Unknown',
 })
 </script>
 

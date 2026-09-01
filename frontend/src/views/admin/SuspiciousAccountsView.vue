@@ -584,12 +584,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const router = useRouter()
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
@@ -613,13 +608,11 @@ const reviewNotes = ref('')
 const isResolving = ref(false)
 
 // Computed
-const unreviewedCount = computed(() =>
-  suspiciousAccounts.value.filter((a) => !a.is_resolved).length
+const unreviewedCount = computed(
+  () => suspiciousAccounts.value.filter((a) => !a.is_resolved).length,
 )
 
-const reviewedCount = computed(() =>
-  suspiciousAccounts.value.filter((a) => a.is_resolved).length
-)
+const reviewedCount = computed(() => suspiciousAccounts.value.filter((a) => a.is_resolved).length)
 
 // Fetch suspicious accounts
 const fetchSuspiciousAccounts = async () => {
@@ -629,7 +622,7 @@ const fetchSuspiciousAccounts = async () => {
   try {
     const response = await axios.get(
       `${API_URL}/api/admin/connections/suspicious?includeResolved=${showResolved.value}`,
-      { withCredentials: true }
+      { withCredentials: true },
     )
     suspiciousAccounts.value = response.data.data
   } catch (err: any) {
@@ -643,9 +636,7 @@ const fetchSuspiciousAccounts = async () => {
 // View account details
 const viewAccountDetails = async (accountName: string) => {
   selectedAccount.value = accountName
-  selectedAccountData.value = suspiciousAccounts.value.find(
-    (a) => a.account_name === accountName
-  )
+  selectedAccountData.value = suspiciousAccounts.value.find((a) => a.account_name === accountName)
   detailsDialogOpen.value = true
 
   // Load timeline
@@ -660,7 +651,7 @@ const loadTimeline = async () => {
   try {
     const response = await axios.get(
       `${API_URL}/api/admin/connections/account/${selectedAccount.value}`,
-      { withCredentials: true }
+      { withCredentials: true },
     )
     timeline.value = response.data.data
   } catch (err) {
@@ -686,7 +677,7 @@ const resolveAccount = async () => {
     await axios.post(
       `${API_URL}/api/admin/connections/resolve/${selectedAccount.value}`,
       { notes: reviewNotes.value || undefined },
-      { withCredentials: true }
+      { withCredentials: true },
     )
 
     // Refresh list
@@ -728,10 +719,19 @@ const getScoreBarColor = (score: number) => {
 const getClassificationLabel = (evidence: any) => {
   // Check for Gemini AI classification
   if (evidence.gemini_confidence) {
-    if (evidence.gemini_reasons?.some((r: string) => r.toLowerCase().includes('overlapping') || r.toLowerCase().includes('simultaneous'))) {
+    if (
+      evidence.gemini_reasons?.some(
+        (r: string) =>
+          r.toLowerCase().includes('overlapping') || r.toLowerCase().includes('simultaneous'),
+      )
+    ) {
       return 'Multiplay'
     }
-    if (evidence.gemini_reasons?.some((r: string) => r.toLowerCase().includes('cluster') || r.toLowerCase().includes('shared ip'))) {
+    if (
+      evidence.gemini_reasons?.some(
+        (r: string) => r.toLowerCase().includes('cluster') || r.toLowerCase().includes('shared ip'),
+      )
+    ) {
       return 'IP Sharing'
     }
     return 'AI Flagged'

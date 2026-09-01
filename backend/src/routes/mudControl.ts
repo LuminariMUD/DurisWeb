@@ -4,12 +4,7 @@ import logger from '../utils/logger.js';
 import rateLimit from 'express-rate-limit';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { validateMudControlReasonPayload } from '../utils/mudControlValidation.js';
-import {
-  getMudState,
-  startMud,
-  stopMud,
-  restartMud,
-} from '../services/mudControlService.js';
+import { getMudState, startMud, stopMud, restartMud } from '../services/mudControlService.js';
 
 const router: IRouter = Router();
 
@@ -76,7 +71,7 @@ router.post(
       logger.error('Error starting MUD:', error);
       return res.status(500).json({ error: 'Failed to start MUD' });
     }
-  }
+  },
 );
 
 /**
@@ -116,7 +111,7 @@ router.post(
       logger.error('Error stopping MUD:', error);
       return res.status(500).json({ error: 'Failed to stop MUD' });
     }
-  }
+  },
 );
 
 /**
@@ -156,7 +151,7 @@ router.post(
       logger.error('Error restarting MUD:', error);
       return res.status(500).json({ error: 'Failed to restart MUD' });
     }
-  }
+  },
 );
 
 export default router;

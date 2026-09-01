@@ -16,9 +16,12 @@ export function usePwaUpdate() {
 
       // check for updates every hour
       if (registration) {
-        setInterval(() => {
-          registration.update()
-        }, 60 * 60 * 1000)
+        setInterval(
+          () => {
+            registration.update()
+          },
+          60 * 60 * 1000,
+        )
       }
     },
     onRegisterError(error) {

@@ -21,7 +21,7 @@ export function useMapBroadcastSender(
   getRoom: () => MudRoom | null,
   getVisitedRooms: () => Map<number, MudRoom>,
   getWildernessMap: () => string | null,
-  getZoneNumber: () => number | null
+  getZoneNumber: () => number | null,
 ) {
   const channel = new BroadcastChannel(CHANNEL_NAME)
 
@@ -33,9 +33,12 @@ export function useMapBroadcastSender(
     // Deep clone to remove Vue reactivity
     const data: MapSyncData = {
       room: room ? JSON.parse(JSON.stringify(toRaw(room))) : null,
-      visitedRooms: Array.from(visitedRooms.entries()).map(([k, v]) => [k, JSON.parse(JSON.stringify(toRaw(v)))]),
+      visitedRooms: Array.from(visitedRooms.entries()).map(([k, v]) => [
+        k,
+        JSON.parse(JSON.stringify(toRaw(v))),
+      ]),
       wildernessMap: getWildernessMap(),
-      zoneNumber: getZoneNumber()
+      zoneNumber: getZoneNumber(),
     }
     channel.postMessage({ type: 'sync', data })
   }
@@ -65,7 +68,7 @@ export function useMapBroadcastSender(
     window.open(
       '/play/map',
       'duris-map-popout',
-      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=no`
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=no`,
     )
   }
 
@@ -76,7 +79,7 @@ export function useMapBroadcastSender(
   return {
     sendSync,
     openPopOutWindow,
-    setSpeedwalkHandler
+    setSpeedwalkHandler,
   }
 }
 
@@ -134,6 +137,6 @@ export function useMapBroadcastReceiver() {
     isConnected,
     hasData,
     requestSync,
-    requestSpeedwalk
+    requestSpeedwalk,
   }
 }

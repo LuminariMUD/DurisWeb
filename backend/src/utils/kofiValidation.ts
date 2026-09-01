@@ -49,7 +49,11 @@ export function validateKofiDonationPayload(value: unknown): string | null {
     return 'timestamp must be a valid date';
   }
 
-  for (const fieldName of ['is_public', 'is_subscription_payment', 'is_first_subscription_payment']) {
+  for (const fieldName of [
+    'is_public',
+    'is_subscription_payment',
+    'is_first_subscription_payment',
+  ]) {
     if (!(fieldName in payload)) {
       return `${fieldName} is required`;
     }
@@ -60,7 +64,11 @@ export function validateKofiDonationPayload(value: unknown): string | null {
   for (const fieldName of ['message', 'tier_name']) {
     const fieldValue = payload[fieldName];
     if (fieldValue !== null && fieldValue !== undefined) {
-      const error = validateStringField(fieldValue, fieldName, fieldName === 'message' ? 4000 : 200);
+      const error = validateStringField(
+        fieldValue,
+        fieldName,
+        fieldName === 'message' ? 4000 : 200,
+      );
       if (error) return error;
     }
   }

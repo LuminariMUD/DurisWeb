@@ -91,17 +91,17 @@ function buildBattleEmbed(
   eventId: number,
   stamp: Date | string,
   roomName: string,
-  participants: BattleParticipant[]
+  participants: BattleParticipant[],
 ): DiscordEmbed {
-  const killers = participants.filter(p => p.pk_type.includes('KILLER'));
-  const victims = participants.filter(p => p.pk_type.includes('VICTIM'));
+  const killers = participants.filter((p) => p.pk_type.includes('KILLER'));
+  const victims = participants.filter((p) => p.pk_type.includes('VICTIM'));
 
   const cleanRoom = stripAnsiCodes(roomName);
   const battleUrl = `${SITE_URL}/pvp/${eventId}`;
   const timestamp = stamp instanceof Date ? stamp.toISOString() : new Date(stamp).toISOString();
 
-  const killerLines = killers.map(k => formatParticipant(k, eventId)).join('\n');
-  const victimLines = victims.map(v => formatParticipant(v, eventId)).join('\n');
+  const killerLines = killers.map((k) => formatParticipant(k, eventId)).join('\n');
+  const victimLines = victims.map((v) => formatParticipant(v, eventId)).join('\n');
 
   const fields: Array<{ name: string; value: string; inline?: boolean }> = [];
 
@@ -137,13 +137,16 @@ function buildBattleEmbed(
  * sleep helper for rate limiting
  */
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
  * send payload to discord webhook with rate limiting
  */
-async function sendWebhookPayload(webhookUrl: string, payload: DiscordWebhookPayload): Promise<boolean> {
+async function sendWebhookPayload(
+  webhookUrl: string,
+  payload: DiscordWebhookPayload,
+): Promise<boolean> {
   // rate limiting
   const now = Date.now();
   const elapsed = now - lastPostTime;
@@ -175,7 +178,7 @@ export async function postBattleToDiscord(
   eventId: number,
   stamp: Date | string,
   roomName: string,
-  participants: BattleParticipant[]
+  participants: BattleParticipant[],
 ): Promise<boolean> {
   try {
     const webhookUrl = await getWebhookUrl();
@@ -203,7 +206,9 @@ export async function postBattleToDiscord(
 /**
  * manually post a specific battle to discord (for admin button)
  */
-export async function manualPostBattle(eventId: number): Promise<{ success: boolean; error?: string }> {
+export async function manualPostBattle(
+  eventId: number,
+): Promise<{ success: boolean; error?: string }> {
   try {
     const webhookUrl = await getWebhookUrl();
     if (!webhookUrl) {
@@ -218,7 +223,7 @@ export async function manualPostBattle(eventId: number): Promise<{ success: bool
       FROM pkill_event e
       LEFT JOIN pkill_info p ON e.id = p.event_id AND p.inroom = 1
       WHERE e.id = ?`,
-      [eventId]
+      [eventId],
     );
 
     if (rows.length === 0) {
@@ -227,8 +232,8 @@ export async function manualPostBattle(eventId: number): Promise<{ success: bool
 
     const event = rows[0];
     const participants: BattleParticipant[] = rows
-      .filter(r => r.player_description)
-      .map(r => ({
+      .filter((r) => r.player_description)
+      .map((r) => ({
         description: r.player_description,
         pk_type: r.pk_type,
         leader: !!r.leader,
@@ -254,7 +259,9 @@ export async function manualPostBattle(eventId: number): Promise<{ success: bool
 /**
  * test webhook by sending a test message
  */
-export async function testWebhook(webhookUrl: string): Promise<{ success: boolean; error?: string }> {
+export async function testWebhook(
+  webhookUrl: string,
+): Promise<{ success: boolean; error?: string }> {
   try {
     // validate url format
     if (!webhookUrl.startsWith('https://discord.com/api/webhooks/')) {

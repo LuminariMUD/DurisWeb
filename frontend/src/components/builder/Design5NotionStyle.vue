@@ -41,26 +41,53 @@ hollowed out ancient chamber.  Strong circular pillars support the large
 amount of earth and rock above, while dust covers the floor and walls.  A
 large tome sits on a pedestal in the center of the room.`,
   flags: ['DARK', 'INDOORS'],
-  exits: [
-    { direction: 'North', vnum: 34501, name: 'The Grand Hall', door: 'passage', key: null },
-  ],
+  exits: [{ direction: 'North', vnum: 34501, name: 'The Grand Hall', door: 'passage', key: null }],
   extras: [
-    { keywords: 'tome book pedestal', description: 'This ancient tome is covered with dust, but you can make out the title: "The History of the Ancients". It appears to be very old and valuable.' },
+    {
+      keywords: 'tome book pedestal',
+      description:
+        'This ancient tome is covered with dust, but you can make out the title: "The History of the Ancients". It appears to be very old and valuable.',
+    },
   ],
 })
 
 const sectors = [
-  'inside', 'city', 'field', 'forest', 'hills', 'mountain', 'water_swim',
-  'water_noswim', 'underwater', 'flying', 'desert', 'arctic',
+  'inside',
+  'city',
+  'field',
+  'forest',
+  'hills',
+  'mountain',
+  'water_swim',
+  'water_noswim',
+  'underwater',
+  'flying',
+  'desert',
+  'arctic',
 ]
 
 const availableFlags = [
-  'DARK', 'DEATH', 'NO_MOB', 'INDOORS', 'NO_MAGIC', 'TUNNEL', 'PRIVATE',
-  'GODROOM', 'UNDERWATER', 'NO_TELEPORT', 'PEACEFUL', 'ARENA',
+  'DARK',
+  'DEATH',
+  'NO_MOB',
+  'INDOORS',
+  'NO_MAGIC',
+  'TUNNEL',
+  'PRIVATE',
+  'GODROOM',
+  'UNDERWATER',
+  'NO_TELEPORT',
+  'PEACEFUL',
+  'ARENA',
 ]
 
 const connectedRooms = ref([
-  { direction: 'North', vnum: 34501, name: 'The Grand Hall', description: 'A vast hall with marble pillars stretching to the ceiling...' },
+  {
+    direction: 'North',
+    vnum: 34501,
+    name: 'The Grand Hall',
+    description: 'A vast hall with marble pillars stretching to the ceiling...',
+  },
 ])
 
 function removeFlag(flag: string) {
@@ -72,13 +99,20 @@ function removeFlag(flag: string) {
 
 function getDirectionIcon(dir: string) {
   switch (dir.toLowerCase()) {
-    case 'north': return ArrowUp
-    case 'south': return ArrowDown
-    case 'east': return ArrowRight
-    case 'west': return ArrowLeft
-    case 'up': return ChevronUpIcon
-    case 'down': return ChevronDownIcon
-    default: return ArrowUp
+    case 'north':
+      return ArrowUp
+    case 'south':
+      return ArrowDown
+    case 'east':
+      return ArrowRight
+    case 'west':
+      return ArrowLeft
+    case 'up':
+      return ChevronUpIcon
+    case 'down':
+      return ChevronDownIcon
+    default:
+      return ArrowUp
   }
 }
 </script>

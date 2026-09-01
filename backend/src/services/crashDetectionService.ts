@@ -75,7 +75,7 @@ async function findCoreDump(): Promise<{ path: string; size: number } | null> {
     try {
       const apportCoreDir = '/var/lib/apport/coredump';
       const coreFiles = await fs.readdir(apportCoreDir);
-      const dmsCores = coreFiles.filter(f => f.includes('_dms.'));
+      const dmsCores = coreFiles.filter((f) => f.includes('_dms.'));
 
       if (dmsCores.length > 0) {
         // Get the most recent core dump by sorting (includes timestamp in filename)
@@ -90,7 +90,7 @@ async function findCoreDump(): Promise<{ path: string; size: number } | null> {
 
     // Check for core dumps in MUD directory
     const files = await fs.readdir(MUD_DIR);
-    const coreFiles = files.filter(f => f.startsWith('core.'));
+    const coreFiles = files.filter((f) => f.startsWith('core.'));
 
     if (coreFiles.length > 0) {
       // Get the most recent core dump
@@ -103,7 +103,7 @@ async function findCoreDump(): Promise<{ path: string; size: number } | null> {
     // Check /var/crash for Apport crash files
     try {
       const crashFiles = await fs.readdir('/var/crash');
-      const dmsCrashes = crashFiles.filter(f => f.includes('dms') && f.endsWith('.crash'));
+      const dmsCrashes = crashFiles.filter((f) => f.includes('dms') && f.endsWith('.crash'));
 
       if (dmsCrashes.length > 0) {
         const latestCrash = dmsCrashes.sort().reverse()[0];
@@ -142,7 +142,10 @@ async function extractGdbBacktrace(coreDumpPath: string): Promise<{
       await execAsync(`apport-unpack ${coreDumpPath} ${tmpDir}`);
 
       const coreDumpFile = path.join(tmpDir, 'CoreDump');
-      const coreExists = await fs.access(coreDumpFile).then(() => true).catch(() => false);
+      const coreExists = await fs
+        .access(coreDumpFile)
+        .then(() => true)
+        .catch(() => false);
 
       if (!coreExists) {
         logger.error('CoreDump not found in Apport crash file');
@@ -155,13 +158,15 @@ async function extractGdbBacktrace(coreDumpPath: string): Promise<{
     // Run GDB to get backtrace (raw core dumps can be read directly)
     const { stdout, stderr } = await execAsync(
       `gdb -batch -ex "thread apply all bt full" -ex "quit" "${binaryPath}" "${coreDumpPath}" 2>&1`,
-      { maxBuffer: 10 * 1024 * 1024 } // 10MB buffer for large backtraces
+      { maxBuffer: 10 * 1024 * 1024 }, // 10MB buffer for large backtraces
     );
 
     const backtrace = stdout + '\n' + stderr;
 
     // Parse crash location from backtrace
-    const frameMatch = backtrace.match(/#0\s+(?:0x[0-9a-f]+\s+in\s+)?([^\s(]+)\s*\(.*?\)\s+at\s+([^:]+):(\d+)/);
+    const frameMatch = backtrace.match(
+      /#0\s+(?:0x[0-9a-f]+\s+in\s+)?([^\s(]+)\s*\(.*?\)\s+at\s+([^:]+):(\d+)/,
+    );
 
     let crashFunction: string | undefined;
     let crashFile: string | undefined;
@@ -207,21 +212,21 @@ async function readLastLines(filePath: string, lines: number = 100): Promise<str
  */
 async function storeIncident(
   event: CrashEvent,
-  classification: ShutdownClassification
+  classification: ShutdownClassification,
 ): Promise<number> {
   const titlePrefix =
     classification.type === 'crash'
       ? 'MUD Server Crashed'
       : classification.type === 'degraded'
-      ? 'MUD Server Degraded'
-      : 'MUD Server Maintenance';
+        ? 'MUD Server Degraded'
+        : 'MUD Server Maintenance';
 
   const description =
     classification.type === 'crash' && event.crashFunction
       ? `Crash in ${event.crashFunction} (${event.crashFile}:${event.crashLine})`
       : classification.type === 'degraded'
-      ? 'Server automatically recovered from hung state'
-      : event.shutdownReason || 'Server restart';
+        ? 'Server automatically recovered from hung state'
+        : event.shutdownReason || 'Server restart';
 
   const [result] = await db.query(
     `INSERT INTO server_incidents (
@@ -259,8 +264,8 @@ async function storeIncident(
       event.debugLogExcerpt,
       event.onlinePlayers,
       event.lastCommand,
-      0 // analyzed = false
-    ]
+      0, // analyzed = false
+    ],
   );
 
   return (result as any).insertId;
@@ -274,19 +279,20 @@ export async function createWebShutdownIncident(
   shutdownType: 'web_stop' | 'web_restart',
   initiatedBy: string,
   reason: string,
-  uptimeSeconds: number
+  uptimeSeconds: number,
 ): Promise<number> {
   const incidentType = shutdownType === 'web_stop' ? 'shutdown' : 'reboot';
-  const title = shutdownType === 'web_stop'
-    ? `Web stop by ${initiatedBy}: ${reason}`
-    : `Web restart by ${initiatedBy}: ${reason}`;
+  const title =
+    shutdownType === 'web_stop'
+      ? `Web stop by ${initiatedBy}: ${reason}`
+      : `Web restart by ${initiatedBy}: ${reason}`;
 
   const [result] = await db.query(
     `INSERT INTO server_incidents
       (incident_type, severity, title, description, started_at, ended_at,
        duration_seconds, resolved, public_visible, detected_by, uptime_seconds)
      VALUES (?, 'info', ?, ?, NOW(), NOW(), 0, 1, 0, 'web_admin', ?)`,
-    [incidentType, title, reason, uptimeSeconds]
+    [incidentType, title, reason, uptimeSeconds],
   );
 
   logger.info(`Created web shutdown incident: ${title}`);
@@ -381,10 +387,9 @@ export async function detectCrash(shutdownType: string | null): Promise<void> {
     logger.info(`Created ${classification.severity} incident: ${classification.reason}`);
 
     // Fetch the incident from database to get accurate data for notification
-    const [incidents] = await db.query<any[]>(
-      `SELECT * FROM server_incidents WHERE id = ?`,
-      [incidentId]
-    );
+    const [incidents] = await db.query<any[]>(`SELECT * FROM server_incidents WHERE id = ?`, [
+      incidentId,
+    ]);
 
     if (incidents.length > 0 && typeof broadcastCrashAlert === 'function') {
       const incident = incidents[0];
@@ -405,7 +410,7 @@ export async function detectCrash(shutdownType: string | null): Promise<void> {
       sendCrashNotification({
         incidentType: incident.incident_type,
         reason: incident.shutdown_reason,
-      }).catch(err => logger.error('failed to send crash push notification:', err));
+      }).catch((err) => logger.error('failed to send crash push notification:', err));
     }
 
     logger.info(`Incident logged with ID: ${incidentId}`);
@@ -424,7 +429,7 @@ async function resolveLastIncident(): Promise<void> {
       `SELECT id, started_at FROM server_incidents
        WHERE resolved = 0
        ORDER BY started_at DESC
-       LIMIT 1`
+       LIMIT 1`,
     );
 
     if (incidents.length === 0) {
@@ -434,7 +439,7 @@ async function resolveLastIncident(): Promise<void> {
     const incident = incidents[0];
     const endedAt = new Date();
     const durationSeconds = Math.floor(
-      (endedAt.getTime() - new Date(incident.started_at).getTime()) / 1000
+      (endedAt.getTime() - new Date(incident.started_at).getTime()) / 1000,
     );
 
     // Update incident end time (but keep resolved = 0 for manual review)
@@ -442,10 +447,12 @@ async function resolveLastIncident(): Promise<void> {
       `UPDATE server_incidents
        SET ended_at = ?, duration_seconds = ?
        WHERE id = ?`,
-      [endedAt, durationSeconds, incident.id]
+      [endedAt, durationSeconds, incident.id],
     );
 
-    logger.info(`Auto-closed incident ${incident.id} with duration ${durationSeconds}s (${Math.floor(durationSeconds / 60)} minutes) - awaiting manual resolution`);
+    logger.info(
+      `Auto-closed incident ${incident.id} with duration ${durationSeconds}s (${Math.floor(durationSeconds / 60)} minutes) - awaiting manual resolution`,
+    );
 
     // Broadcast "MUD is Back UP!" notification
     if (typeof broadcastCrashAlert === 'function') {
@@ -465,7 +472,7 @@ async function resolveLastIncident(): Promise<void> {
       // send push notification for recovery
       sendCrashNotification({
         incidentType: 'recovery',
-      }).catch(err => logger.error('failed to send recovery push notification:', err));
+      }).catch((err) => logger.error('failed to send recovery push notification:', err));
     }
   } catch (error) {
     logger.error('Error resolving incident:', error);
@@ -476,13 +483,17 @@ async function resolveLastIncident(): Promise<void> {
  * Check for new boot in server_reboots table
  * Returns shutdown info if a new boot was detected
  */
-async function checkForNewBoot(): Promise<{ bootTime: number; shutdownType: string; shutdownTime: number } | null> {
+async function checkForNewBoot(): Promise<{
+  bootTime: number;
+  shutdownType: string;
+  shutdownTime: number;
+} | null> {
   try {
     // Get the most recent boot
     const [rows] = await db.query<any[]>(
       `SELECT boot_time, shutdown_type, shutdown_time FROM server_reboots
        ORDER BY boot_time DESC
-       LIMIT 1`
+       LIMIT 1`,
     );
 
     if (rows.length === 0) {
@@ -502,7 +513,9 @@ async function checkForNewBoot(): Promise<{ bootTime: number; shutdownType: stri
 
     // Check if boot_time changed (new reboot happened)
     if (currentBootTime !== lastKnownBootTime) {
-      logger.info(`NEW BOOT DETECTED! Previous: ${lastKnownBootTime}, Current: ${currentBootTime}, Type: ${shutdownType}`);
+      logger.info(
+        `NEW BOOT DETECTED! Previous: ${lastKnownBootTime}, Current: ${currentBootTime}, Type: ${shutdownType}`,
+      );
 
       // Update tracked boot time
       lastKnownBootTime = currentBootTime;
@@ -511,7 +524,7 @@ async function checkForNewBoot(): Promise<{ bootTime: number; shutdownType: stri
       return {
         bootTime: currentBootTime,
         shutdownType: shutdownType || 'unknown',
-        shutdownTime: shutdownTime
+        shutdownTime: shutdownTime,
       };
     }
 
@@ -544,25 +557,29 @@ export async function monitorProcessState(): Promise<void> {
   if (newBoot) {
     // Skip web-initiated shutdowns - they already create their own incidents via createWebShutdownIncident()
     if (newBoot.shutdownType === 'web_stop' || newBoot.shutdownType === 'web_restart') {
-      logger.info(`Web-initiated ${newBoot.shutdownType} detected - skipping duplicate incident creation`);
+      logger.info(
+        `Web-initiated ${newBoot.shutdownType} detected - skipping duplicate incident creation`,
+      );
     } else {
       // Check if we already created an incident for this crash (via process death detection)
       const [existingIncidents] = await db.query<any[]>(
         `SELECT id, shutdown_reason FROM server_incidents
          WHERE resolved = 0
          AND started_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
-         LIMIT 1`
+         LIMIT 1`,
       );
 
       if (existingIncidents.length > 0) {
         // Update the existing incident with the correct shutdown_type from server_reboots
         const incident = existingIncidents[0];
         if (incident.shutdown_reason === 'crash' || incident.shutdown_reason === null) {
-          await db.query(
-            `UPDATE server_incidents SET shutdown_reason = ? WHERE id = ?`,
-            [newBoot.shutdownType, incident.id]
+          await db.query(`UPDATE server_incidents SET shutdown_reason = ? WHERE id = ?`, [
+            newBoot.shutdownType,
+            incident.id,
+          ]);
+          logger.info(
+            `Updated existing incident ${incident.id} with shutdown_type: ${newBoot.shutdownType}`,
           );
-          logger.info(`Updated existing incident ${incident.id} with shutdown_type: ${newBoot.shutdownType}`);
         }
       } else {
         logger.info(`Reboot detected from server_reboots table!`);
@@ -581,7 +598,7 @@ export async function monitorProcessState(): Promise<void> {
       `SELECT id FROM server_incidents
        WHERE resolved = 0
        AND started_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
-       LIMIT 1`
+       LIMIT 1`,
     );
 
     if (existingIncidents.length === 0) {
@@ -621,7 +638,9 @@ export async function startCrashMonitoring(): Promise<void> {
     isRunning: initialStats.isRunning,
     pid: initialStats.pid,
   };
-  logger.info(`Initial process state: ${initialStats.isRunning ? 'RUNNING' : 'NOT RUNNING'} (PID: ${initialStats.pid || 'N/A'})`);
+  logger.info(
+    `Initial process state: ${initialStats.isRunning ? 'RUNNING' : 'NOT RUNNING'} (PID: ${initialStats.pid || 'N/A'})`,
+  );
 
   // Poll every 30 seconds - store interval ID for cleanup
   crashMonitorIntervalId = setInterval(async () => {

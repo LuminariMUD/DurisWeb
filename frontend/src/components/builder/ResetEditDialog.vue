@@ -53,17 +53,13 @@ const commandOptions = Object.entries(RESET_COMMANDS).map(([key, label]) => ({
 }))
 
 // Convert data to autocomplete options
-const mobOptions = computed(() =>
-  props.mobs.map(m => ({ vnum: m.vnum, name: m.shortDesc }))
-)
+const mobOptions = computed(() => props.mobs.map((m) => ({ vnum: m.vnum, name: m.shortDesc })))
 
 const objectOptions = computed(() =>
-  props.objects.map(o => ({ vnum: o.vnum, name: o.shortDesc }))
+  props.objects.map((o) => ({ vnum: o.vnum, name: o.shortDesc })),
 )
 
-const roomOptions = computed(() =>
-  props.rooms.map(r => ({ vnum: r.vnum, name: r.name }))
-)
+const roomOptions = computed(() => props.rooms.map((r) => ({ vnum: r.vnum, name: r.name })))
 
 // Labels and visibility based on command type
 const fieldConfig = computed(() => {
@@ -192,7 +188,7 @@ watch(
       arg4.value = undefined
       comment.value = ''
     }
-  }
+  },
 )
 
 // Handle save

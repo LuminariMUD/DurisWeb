@@ -1,0 +1,63 @@
+name: Code Quality
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/quality.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/quality.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - backend
+          - frontend
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.15.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ${{ matrix.package }}/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.package }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        working-directory: ${{ matrix.package }}
+        run: pnpm format:check
+
+      - name: Lint
+        working-directory: ${{ matrix.package }}
+        run: pnpm lint
+
+      - name: Type-check
+        working-directory: ${{ matrix.package }}
+        run: pnpm type-check

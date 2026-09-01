@@ -102,15 +102,19 @@ describe('help suggestion write validation', () => {
       });
 
     expect(response.status).toBe(201);
-    expect(createSuggestion).toHaveBeenCalledWith({
-      suggestionType: 'edit',
-      pageId: 42,
-      title: 'A valid title',
-      text: 'A valid suggestion',
-      categoryId: 10,
-      seeAlso: 'related-page',
-      submitterNotes: 'context',
-    }, 'Cwial', expect.any(String));
+    expect(createSuggestion).toHaveBeenCalledWith(
+      {
+        suggestionType: 'edit',
+        pageId: 42,
+        title: 'A valid title',
+        text: 'A valid suggestion',
+        categoryId: 10,
+        seeAlso: 'related-page',
+        submitterNotes: 'context',
+      },
+      'Cwial',
+      expect.any(String),
+    );
   });
 
   it('rejects update unknown fields and wrong types before lookup/persistence', async () => {

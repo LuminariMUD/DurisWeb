@@ -42,7 +42,7 @@ function createDescription(
   action: HistoryAction,
   vnum: number,
   before: HistoryEntityData | null,
-  after: HistoryEntityData | null
+  after: HistoryEntityData | null,
 ): string {
   const entityName = action === 'deleted' ? getEntityName(before, type) : getEntityName(after, type)
   const typeLabel = type.charAt(0).toUpperCase() + type.slice(1)
@@ -64,7 +64,7 @@ export function useZoneHistory() {
   const canUndo = computed(() => historyIndex.value >= 0)
   const canRedo = computed(() => historyIndex.value < history.value.length - 1)
   const currentEntry = computed(() =>
-    historyIndex.value >= 0 ? history.value[historyIndex.value] : null
+    historyIndex.value >= 0 ? history.value[historyIndex.value] : null,
   )
   const historyCount = computed(() => history.value.length)
   const undoCount = computed(() => historyIndex.value + 1)
@@ -80,7 +80,7 @@ export function useZoneHistory() {
     vnum: number,
     action: HistoryAction,
     before: HistoryEntityData | null,
-    after: HistoryEntityData | null
+    after: HistoryEntityData | null,
   ): void {
     // Truncate any "future" history if we're not at the end
     if (historyIndex.value < history.value.length - 1) {

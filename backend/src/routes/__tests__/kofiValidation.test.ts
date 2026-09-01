@@ -3,14 +3,17 @@ import express from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-const recordDonation = jest.fn<(...args: unknown[]) => Promise<{
-  duplicate: boolean;
-  eventId: string | null;
-  accountName: string | null;
-  characterName: string | null;
-  amount: number;
-  amountCents: number;
-}>>();
+const recordDonation =
+  jest.fn<
+    (...args: unknown[]) => Promise<{
+      duplicate: boolean;
+      eventId: string | null;
+      accountName: string | null;
+      characterName: string | null;
+      amount: number;
+      amountCents: number;
+    }>
+  >();
 const logger = { error: jest.fn(), info: jest.fn(), warn: jest.fn() };
 
 jest.unstable_mockModule('../../services/donationService', () => ({

@@ -23,9 +23,8 @@ describe('zone comment HTML persistence boundary', () => {
   });
 
   it('sanitizes comment HTML before create reaches SQL', async () => {
-    query
-      .mockResolvedValueOnce([{ insertId: 42 }])
-      .mockResolvedValueOnce([[
+    query.mockResolvedValueOnce([{ insertId: 42 }]).mockResolvedValueOnce([
+      [
         {
           id: 42,
           zone_id: 'zone-a',
@@ -38,13 +37,17 @@ describe('zone comment HTML persistence boundary', () => {
           created_at: '2026-08-28T00:00:00.000Z',
           updated_at: '2026-08-28T00:00:00.000Z',
         },
-      ]]);
+      ],
+    ]);
 
-    await zoneCommentService.createComment({
-      zoneId: 'zone-a',
-      content: 'hello',
-      contentHtml: '<p>hello</p><script>alert(1)</script>',
-    }, 'Cwial');
+    await zoneCommentService.createComment(
+      {
+        zoneId: 'zone-a',
+        content: 'hello',
+        contentHtml: '<p>hello</p><script>alert(1)</script>',
+      },
+      'Cwial',
+    );
 
     const params = query.mock.calls[0][1] as unknown[];
     expect(params[6]).toBe('<p>hello</p>');
@@ -53,11 +56,14 @@ describe('zone comment HTML persistence boundary', () => {
 
   it('rejects script-only comment HTML before any query', async () => {
     await expect(
-      zoneCommentService.createComment({
-        zoneId: 'zone-a',
-        content: 'hello',
-        contentHtml: '<script>alert(1)</script>',
-      }, 'Cwial')
+      zoneCommentService.createComment(
+        {
+          zoneId: 'zone-a',
+          content: 'hello',
+          contentHtml: '<script>alert(1)</script>',
+        },
+        'Cwial',
+      ),
     ).rejects.toThrow('Content cannot be empty after sanitization');
 
     expect(query).not.toHaveBeenCalled();

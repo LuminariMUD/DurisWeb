@@ -6,11 +6,15 @@ import logger from '../utils/logger.js';
  */
 
 export async function syncAccountCharacters(): Promise<void> {
-  logger.warn('[AccountSync] syncAccountCharacters is deprecated - MUD writes directly to database');
+  logger.warn(
+    '[AccountSync] syncAccountCharacters is deprecated - MUD writes directly to database',
+  );
 }
 
 export function startAccountSyncService(_intervalSeconds: number = 300): void {
-  logger.warn('[AccountSync] startAccountSyncService is deprecated - MUD writes directly to database');
+  logger.warn(
+    '[AccountSync] startAccountSyncService is deprecated - MUD writes directly to database',
+  );
 }
 
 export function stopAccountSyncService(): void {

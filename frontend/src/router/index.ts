@@ -305,6 +305,12 @@ const router = createRouter({
           meta: { requiresAuth: true, requiredPermission: 'manage_mud_properties' },
         },
         {
+          path: 'mud/hooks',
+          name: 'admin-mud-hooks',
+          component: () => import('../views/admin/mud/HookControlView.vue'),
+          meta: { requiresAuth: true, requiredPermission: 'manage_mud_properties' },
+        },
+        {
           path: 'mud/level-cap',
           name: 'admin-mud-level-cap',
           component: () => import('../views/admin/mud/LevelCapView.vue'),
@@ -504,7 +510,9 @@ router.beforeEach(async (to, from, next) => {
   // Redirect character routes to user profile
   if (to.meta.redirectToUserProfile && to.params.characterName) {
     try {
-      const { accountName } = await profileApi.getCharacterAccount(to.params.characterName as string)
+      const { accountName } = await profileApi.getCharacterAccount(
+        to.params.characterName as string,
+      )
       next({ name: 'user-profile', params: { accountName } })
       return
     } catch {
@@ -530,7 +538,10 @@ router.beforeEach(async (to, from, next) => {
   }
 
   // Check if route requires Immortal status (level 57+)
-  if (to.meta.requiresImmortal && (!permissions.value?.immortalLevel || permissions.value.immortalLevel < 57)) {
+  if (
+    to.meta.requiresImmortal &&
+    (!permissions.value?.immortalLevel || permissions.value.immortalLevel < 57)
+  ) {
     // Redirect to 403 Forbidden page
     next({
       name: 'forbidden',
@@ -550,7 +561,10 @@ router.beforeEach(async (to, from, next) => {
   }
 
   // Check if route requires Greater God status (level 60+)
-  if (to.meta.requiresGreaterGod && (!permissions.value?.immortalLevel || permissions.value.immortalLevel < 60)) {
+  if (
+    to.meta.requiresGreaterGod &&
+    (!permissions.value?.immortalLevel || permissions.value.immortalLevel < 60)
+  ) {
     // Redirect to 403 Forbidden page
     next({
       name: 'forbidden',

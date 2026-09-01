@@ -1,259 +1,222 @@
 /**
  * @jest-environment node
  */
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
-import { pool } from '../../db/connection.js';
-import redis from '../../db/redis.js';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-import {
-  getGuild,
+const GUILD = { id: 7, name: 'Keepers of the Gate', racewar: 2, frags: 41 };
+const OTHER_GUILD = { id: 8, name: 'Wardens' };
+const MEMBER = { player_name: 'Cwial', bits: 24, debt: 125 };
+const RANKS = ['Enemy', 'On Parole', 'Member', 'Senior', 'Officer', 'Deputy', 'Leader', 'King'].map(
+  (title, rank_index) => ({ rank_index, title }),
+);
+
+type DatabaseResult = Promise<[unknown[], unknown]>;
+
+const query = jest.fn<(sql: string, params?: unknown[]) => DatabaseResult>(
+  async (sql, params = []) => {
+    if (sql.includes('FROM guilds WHERE id = ?')) {
+      return [params[0] === GUILD.id ? [GUILD] : [], []];
+    }
+    if (sql.includes('FROM guild_ranks')) {
+      return [params[0] === GUILD.id ? RANKS : [], []];
+    }
+    if (sql.includes('FROM guild_members WHERE guild_id = ?')) {
+      return [params[0] === GUILD.id ? [MEMBER] : [], []];
+    }
+    if (sql.includes('JOIN guilds g ON gm.guild_id = g.id')) {
+      return [
+        params[0] === MEMBER.player_name.toLowerCase()
+          ? [{ id: GUILD.id, name: GUILD.name, bits: MEMBER.bits }]
+          : [],
+        [],
+      ];
+    }
+    if (sql.includes('SELECT id, name FROM guilds ORDER BY name ASC')) {
+      return [[GUILD, OTHER_GUILD], []];
+    }
+    throw new Error(`Unexpected guild query: ${sql}`);
+  },
+);
+
+const execute = jest.fn<(sql: string, params?: unknown[]) => DatabaseResult>(
+  async (sql, params = []) => {
+    if (!sql.includes('SELECT DISTINCT a.name as guild')) {
+      throw new Error(`Unexpected guild execute: ${sql}`);
+    }
+    const pattern = String(params[0] ?? '%%')
+      .slice(1, -1)
+      .toLowerCase();
+    const limit = Number(params[1] ?? 20);
+    const rows = [GUILD.name, OTHER_GUILD.name]
+      .filter((name) => name.toLowerCase().includes(pattern))
+      .slice(0, limit)
+      .map((guild) => ({ guild }));
+    return [rows, []];
+  },
+);
+
+jest.unstable_mockModule('../../db/connection.js', () => ({
+  pool: { query, execute },
+}));
+jest.unstable_mockModule('../../utils/logger.js', () => ({
+  default: { error: jest.fn() },
+}));
+
+const {
   findCharacterGuild,
   getAllGuilds,
-  parseGuildFile,
   getCharacterGuildInfoFromGuild,
+  getGuild,
+  parseGuildFile,
   searchGuilds,
-} from '../guildService.js';
+} = await import('../guildService.js');
 
 describe('guildService', () => {
-  let testGuildId: number;
-  let testGuildName: string;
-  let testMemberName: string;
-
-  beforeAll(async () => {
-    // find a real guild in the database for testing
-    const [rows] = await pool.query(
-      'SELECT id, name FROM guilds LIMIT 1'
-    ) as any;
-
-    if (rows.length === 0) {
-      throw new Error('no guilds found in database for testing');
-    }
-
-    testGuildId = rows[0].id;
-    testGuildName = rows[0].name;
-
-    // find a member for this guild
-    const [memberRows] = await pool.query(
-      `SELECT gm.player_name FROM guild_members gm
-       WHERE gm.guild_id = ? LIMIT 1`,
-      [testGuildId]
-    ) as any;
-
-    if (memberRows.length > 0) {
-      testMemberName = memberRows[0].player_name;
-    }
-  });
-
-  afterAll(async () => {
-    // close connections after tests
-    await pool.end();
-    await redis.quit();
+  beforeEach(() => {
+    query.mockClear();
+    execute.mockClear();
   });
 
   describe('getGuild', () => {
-    it('should return guild data for existing guild', async () => {
-      const guild = await getGuild(testGuildId);
-
-      expect(guild).not.toBeNull();
-      expect(guild!.guildId).toBe(testGuildId);
-      expect(guild!.name).toBe(testGuildName);
-      expect(guild).toHaveProperty('racewar');
-      expect(guild).toHaveProperty('frags');
-      expect(guild).toHaveProperty('rankTitles');
-      expect(guild).toHaveProperty('members');
-      expect(Array.isArray(guild!.members)).toBe(true);
+    it('returns mapped guild data for an existing guild', async () => {
+      await expect(getGuild(GUILD.id)).resolves.toMatchObject({
+        guildId: GUILD.id,
+        name: GUILD.name,
+        racewar: GUILD.racewar,
+        frags: GUILD.frags,
+      });
     });
 
-    it('should return null for non-existent guild', async () => {
-      const guild = await getGuild(999999);
-      expect(guild).toBeNull();
+    it('returns null for a non-existent guild', async () => {
+      await expect(getGuild(999_999)).resolves.toBeNull();
     });
 
-    it('should have correct rank titles structure', async () => {
-      const guild = await getGuild(testGuildId);
-
-      expect(guild).not.toBeNull();
-      expect(guild!.rankTitles).toHaveProperty('enemy');
-      expect(guild!.rankTitles).toHaveProperty('onParole');
-      expect(guild!.rankTitles).toHaveProperty('member');
-      expect(guild!.rankTitles).toHaveProperty('senior');
-      expect(guild!.rankTitles).toHaveProperty('officer');
-      expect(guild!.rankTitles).toHaveProperty('deputy');
-      expect(guild!.rankTitles).toHaveProperty('leader');
-      expect(guild!.rankTitles).toHaveProperty('king');
+    it('maps all eight rank titles by rank index', async () => {
+      const guild = await getGuild(GUILD.id);
+      expect(guild?.rankTitles).toEqual({
+        enemy: 'Enemy',
+        onParole: 'On Parole',
+        member: 'Member',
+        senior: 'Senior',
+        officer: 'Officer',
+        deputy: 'Deputy',
+        leader: 'Leader',
+        king: 'King',
+      });
     });
 
-    it('should have correct member structure', async () => {
-      const guild = await getGuild(testGuildId);
-
-      expect(guild).not.toBeNull();
-      if (guild!.members.length > 0) {
-        const member = guild!.members[0];
-        expect(typeof member.name).toBe('string');
-        expect(typeof member.rank).toBe('number');
-        expect(typeof member.bits).toBe('number');
-        expect(typeof member.debt).toBe('number');
-      }
+    it('extracts member rank from the stored bit mask', async () => {
+      const guild = await getGuild(GUILD.id);
+      expect(guild?.members).toEqual([{ name: 'Cwial', rank: 6, bits: 24, debt: 125 }]);
     });
   });
 
   describe('findCharacterGuild', () => {
-    it('should find guild for member character', async () => {
-      if (!testMemberName) {
-        console.warn('no guild members found, skipping test');
-        return;
-      }
-
-      const guildInfo = await findCharacterGuild(testMemberName);
-
-      expect(guildInfo).not.toBeNull();
-      expect(guildInfo!.guildId).toBe(testGuildId);
-      expect(guildInfo!.guildName).toBe(testGuildName);
-      expect(typeof guildInfo!.rankTitle).toBe('string');
-      expect(typeof guildInfo!.rankNumber).toBe('number');
-      expect(guildInfo!.rankNumber).toBeGreaterThanOrEqual(0);
-      expect(guildInfo!.rankNumber).toBeLessThanOrEqual(7);
+    it('finds guild and rank information for a member', async () => {
+      await expect(findCharacterGuild('Cwial')).resolves.toEqual({
+        guildId: GUILD.id,
+        guildName: GUILD.name,
+        rankTitle: 'Leader',
+        rankNumber: 6,
+      });
     });
 
-    it('should return null for non-member character', async () => {
-      const guildInfo = await findCharacterGuild('nonexistent_character_xyz_123');
-      expect(guildInfo).toBeNull();
+    it('returns null for a non-member character', async () => {
+      await expect(findCharacterGuild('Nobody')).resolves.toBeNull();
     });
 
-    it('should be case-insensitive', async () => {
-      if (!testMemberName) {
-        console.warn('no guild members found, skipping test');
-        return;
-      }
-
-      const infoLower = await findCharacterGuild(testMemberName.toLowerCase());
-      const infoUpper = await findCharacterGuild(testMemberName.toUpperCase());
-
-      expect(infoLower).not.toBeNull();
-      expect(infoUpper).not.toBeNull();
-      expect(infoLower!.guildId).toBe(infoUpper!.guildId);
+    it('normalizes character lookup to lowercase', async () => {
+      await findCharacterGuild('CWIAL');
+      expect(query).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining('WHERE LOWER(gm.player_name) = ?'),
+        ['cwial'],
+      );
     });
   });
 
   describe('getAllGuilds', () => {
-    it('should return array of guilds', async () => {
-      const guilds = await getAllGuilds();
-
-      expect(Array.isArray(guilds)).toBe(true);
-      expect(guilds.length).toBeGreaterThan(0);
+    it('returns an array of guilds', async () => {
+      await expect(getAllGuilds()).resolves.toHaveLength(2);
     });
 
-    it('should have correct structure', async () => {
-      const guilds = await getAllGuilds();
-
-      if (guilds.length > 0) {
-        const guild = guilds[0];
-        expect(typeof guild.id).toBe('number');
-        expect(typeof guild.name).toBe('string');
-      }
+    it('returns only id and name fields', async () => {
+      await expect(getAllGuilds()).resolves.toEqual([
+        { id: GUILD.id, name: GUILD.name },
+        OTHER_GUILD,
+      ]);
     });
 
-    it('should include test guild', async () => {
-      const guilds = await getAllGuilds();
-
-      const found = guilds.find(g => g.id === testGuildId);
-      expect(found).toBeDefined();
-      expect(found!.name).toBe(testGuildName);
+    it('includes the representative guild', async () => {
+      expect(await getAllGuilds()).toContainEqual({ id: GUILD.id, name: GUILD.name });
     });
   });
 
-  describe('parseGuildFile (backwards compat alias)', () => {
-    it('should work like getGuild for existing guild', async () => {
-      const guild = await parseGuildFile(testGuildId);
-
-      expect(guild).not.toBeNull();
-      expect(guild!.guildId).toBe(testGuildId);
+  describe('parseGuildFile compatibility alias', () => {
+    it('delegates existing guild lookup to the database service', async () => {
+      expect((await parseGuildFile(GUILD.id))?.guildId).toBe(GUILD.id);
     });
 
-    it('should return null for non-existent guild', async () => {
-      const guild = await parseGuildFile(999999);
-      expect(guild).toBeNull();
+    it('returns null for a non-existent guild', async () => {
+      await expect(parseGuildFile(999_999)).resolves.toBeNull();
     });
   });
 
   describe('getCharacterGuildInfoFromGuild', () => {
-    it('should return guild info for member in specific guild', async () => {
-      if (!testMemberName) {
-        console.warn('no guild members found, skipping test');
-        return;
-      }
-
-      const guildInfo = await getCharacterGuildInfoFromGuild(testMemberName, testGuildId);
-
-      expect(guildInfo).not.toBeNull();
-      expect(guildInfo!.guildId).toBe(testGuildId);
-      expect(guildInfo!.guildName).toBe(testGuildName);
+    it('returns guild information for a member of the requested guild', async () => {
+      await expect(getCharacterGuildInfoFromGuild('cwial', GUILD.id)).resolves.toMatchObject({
+        guildId: GUILD.id,
+        rankTitle: 'Leader',
+      });
     });
 
-    it('should return null for non-member in guild', async () => {
-      const guildInfo = await getCharacterGuildInfoFromGuild('nonexistent_xyz', testGuildId);
-      expect(guildInfo).toBeNull();
+    it('returns null for a non-member in the guild', async () => {
+      await expect(getCharacterGuildInfoFromGuild('Nobody', GUILD.id)).resolves.toBeNull();
     });
 
-    it('should return null for non-existent guild', async () => {
-      const guildInfo = await getCharacterGuildInfoFromGuild('anyname', 999999);
-      expect(guildInfo).toBeNull();
+    it('returns null for a non-existent guild', async () => {
+      await expect(getCharacterGuildInfoFromGuild('Cwial', 999_999)).resolves.toBeNull();
     });
   });
 
   describe('searchGuilds', () => {
-    it('should return guilds matching query', async () => {
-      // use first char of test guild name (stripped of ansi codes)
-      const plainName = testGuildName.replace(/\x1b\[[0-9;]*m/g, '');
-      const prefix = plainName.charAt(0);
-
-      const results = await searchGuilds(prefix, 10);
-
-      expect(Array.isArray(results)).toBe(true);
+    it('returns guild names matching the requested substring', async () => {
+      await expect(searchGuilds('gate', 10)).resolves.toEqual([GUILD.name]);
     });
 
-    it('should respect limit parameter', async () => {
-      const results = await searchGuilds('', 5);
-
-      expect(results.length).toBeLessThanOrEqual(5);
+    it('clamps and passes the limit parameter', async () => {
+      await searchGuilds('', 500);
+      expect(execute).toHaveBeenCalledWith(expect.any(String), ['%%', 100]);
     });
 
-    it('should return empty array for no matches', async () => {
-      const results = await searchGuilds('zzzznonexistent', 10);
-
-      expect(Array.isArray(results)).toBe(true);
-      expect(results.length).toBe(0);
+    it('returns an empty array when no names match', async () => {
+      await expect(searchGuilds('zzzznonexistent', 10)).resolves.toEqual([]);
     });
   });
 
-  describe('GuildData interface compliance', () => {
-    it('should return data matching GuildData interface', async () => {
-      const guild = await getGuild(testGuildId);
-
-      expect(guild).not.toBeNull();
-      expect(typeof guild!.guildId).toBe('number');
-      expect(typeof guild!.name).toBe('string');
-      expect(typeof guild!.racewar).toBe('number');
-      expect(typeof guild!.frags).toBe('number');
-      expect(typeof guild!.rankTitles).toBe('object');
-      expect(Array.isArray(guild!.members)).toBe(true);
+  describe('interface compliance', () => {
+    it('returns the complete GuildData shape', async () => {
+      const guild = await getGuild(GUILD.id);
+      expect(guild).toEqual(
+        expect.objectContaining({
+          guildId: expect.any(Number),
+          name: expect.any(String),
+          racewar: expect.any(Number),
+          frags: expect.any(Number),
+          rankTitles: expect.any(Object),
+          members: expect.any(Array),
+        }),
+      );
     });
-  });
 
-  describe('CharacterGuildInfo interface compliance', () => {
-    it('should return data matching CharacterGuildInfo interface', async () => {
-      if (!testMemberName) {
-        console.warn('no guild members found, skipping test');
-        return;
-      }
-
-      const guildInfo = await findCharacterGuild(testMemberName);
-
-      expect(guildInfo).not.toBeNull();
-      expect(typeof guildInfo!.guildId).toBe('number');
-      expect(typeof guildInfo!.guildName).toBe('string');
-      expect(typeof guildInfo!.rankTitle).toBe('string');
-      expect(typeof guildInfo!.rankNumber).toBe('number');
+    it('returns the complete CharacterGuildInfo shape', async () => {
+      const info = await findCharacterGuild('Cwial');
+      expect(info).toEqual({
+        guildId: expect.any(Number),
+        guildName: expect.any(String),
+        rankTitle: expect.any(String),
+        rankNumber: expect.any(Number),
+      });
     });
   });
 });

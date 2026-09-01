@@ -18,9 +18,7 @@ const route = useRoute()
 const router = useRouter()
 
 const breadcrumbs = computed<BreadcrumbItem[]>(() => {
-  const items: BreadcrumbItem[] = [
-    { label: 'Home', path: '/', isActive: false }
-  ]
+  const items: BreadcrumbItem[] = [{ label: 'Home', path: '/', isActive: false }]
 
   // Check if we're in a forum-related route
   if (route.path.startsWith('/forum')) {
@@ -31,18 +29,19 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
       items.push({
         label: props.category.name,
         path: `/forum/category/${props.category.id}`,
-        isActive: !props.thread
+        isActive: !props.thread,
       })
     }
 
     // If we have a thread
     if (props.thread) {
       items.push({
-        label: props.thread.title.length > 50
-          ? props.thread.title.substring(0, 50) + '...'
-          : props.thread.title,
+        label:
+          props.thread.title.length > 50
+            ? props.thread.title.substring(0, 50) + '...'
+            : props.thread.title,
         path: `/forum/thread/${props.thread.id}`,
-        isActive: true
+        isActive: true,
       })
     }
 
@@ -50,7 +49,7 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
     if (route.name === 'new-thread') {
       items.push({
         label: 'New Thread',
-        isActive: true
+        isActive: true,
       })
     }
   } else if (route.path.startsWith('/pvp')) {

@@ -35,19 +35,19 @@ export interface UserPermissions {
 
   // Forum permissions
   canAccessImmortalForum: boolean; // Level 57+
-  canAccessGodForum: boolean;      // Level 59+ (Lesser God+)
-  guilds: string[];                // Auto-granted guild forum access
+  canAccessGodForum: boolean; // Level 59+ (Lesser God+)
+  guilds: string[]; // Auto-granted guild forum access
 
   // Moderation permissions
-  canModerate: boolean;    // Level 59+ (Lesser God+)
-  canBan: boolean;         // Level 61+ (Forger+)
-  canEditPosts: boolean;   // Level 59+
+  canModerate: boolean; // Level 59+ (Lesser God+)
+  canBan: boolean; // Level 61+ (Forger+)
+  canEditPosts: boolean; // Level 59+
   canDeletePosts: boolean; // Level 59+
-  canPinThreads: boolean;  // Level 59+
+  canPinThreads: boolean; // Level 59+
   canLockThreads: boolean; // Level 59+
 
   // Admin permissions (granular permission system)
-  adminPermissions: string[];  // Array of permission keys (e.g., 'manage_help_files', 'manage_news')
+  adminPermissions: string[]; // Array of permission keys (e.g., 'manage_help_files', 'manage_news')
 }
 
 export interface FullUserContext {
@@ -104,7 +104,7 @@ export async function getCharacterInfo(characterNames: string[]): Promise<Charac
        LEFT JOIN frag_leaderboard fl ON pd.pid = fl.pid
        LEFT JOIN associations a ON pd.assoc_id = a.id
        WHERE pd.name IN (?)`,
-      [characterNames]
+      [characterNames],
     );
 
     const result = rows.map((row: RowDataPacket) => ({
@@ -116,7 +116,7 @@ export async function getCharacterInfo(characterNames: string[]): Promise<Charac
       classname: row.classname,
       racewar: row.racewar,
       active: true,
-      money: row.money || 0
+      money: row.money || 0,
     }));
 
     return result;
@@ -140,12 +140,15 @@ export async function getCharacterInfo(characterNames: string[]): Promise<Charac
  * - Level 61: FORGER
  * - Level 62: OVERLORD (highest)
  */
-export async function calculatePermissions(accountName: string, characters: CharacterInfo[]): Promise<UserPermissions> {
+export async function calculatePermissions(
+  accountName: string,
+  characters: CharacterInfo[],
+): Promise<UserPermissions> {
   // Find highest level character
-  const maxLevel = characters.length > 0 ? Math.max(...characters.map(c => c.level)) : 0;
+  const maxLevel = characters.length > 0 ? Math.max(...characters.map((c) => c.level)) : 0;
 
   // Extract unique guilds (filter out empty strings)
-  const guilds = [...new Set(characters.map(c => c.guild).filter(Boolean))];
+  const guilds = [...new Set(characters.map((c) => c.guild).filter(Boolean))];
 
   // Determine role based on highest character level
   const { role, immortalLevel } = getGodLevelFromCharacterLevel(maxLevel);
@@ -178,7 +181,7 @@ export async function calculatePermissions(accountName: string, characters: Char
     canLockThreads: maxLevel >= settings.min_level_to_lock,
 
     // Admin permissions (granular permission system)
-    adminPermissions
+    adminPermissions,
   };
 }
 
@@ -187,7 +190,7 @@ export async function calculatePermissions(accountName: string, characters: Char
  */
 export async function getUserPermissions(
   accountName: string,
-  mudCharacters: MudAccountCharacter[]
+  mudCharacters: MudAccountCharacter[],
 ): Promise<UserPermissions> {
   const cacheKey = `perms:${accountName}`;
 
@@ -198,7 +201,7 @@ export async function getUserPermissions(
   }
 
   // Get character names from MUD account
-  const characterNames = mudCharacters.map(c => c.name);
+  const characterNames = mudCharacters.map((c) => c.name);
 
   // Query database for character details
   const characters = await getCharacterInfo(characterNames);
@@ -225,10 +228,10 @@ export async function invalidatePermissionsCache(accountName: string): Promise<v
 export async function getFullUserContext(
   accountName: string,
   email: string,
-  mudCharacters: MudAccountCharacter[]
+  mudCharacters: MudAccountCharacter[],
 ): Promise<FullUserContext> {
   // Get character names
-  const characterNames = mudCharacters.map(c => c.name);
+  const characterNames = mudCharacters.map((c) => c.name);
 
   // Query database for character details
   const characters = await getCharacterInfo(characterNames);
@@ -241,7 +244,7 @@ export async function getFullUserContext(
   try {
     const [rows] = await db.query<RowDataPacket[]>(
       'SELECT avatar_url FROM user_profiles WHERE account_name = ?',
-      [accountName]
+      [accountName],
     );
     if (rows.length > 0 && rows[0].avatar_url) {
       avatarUrl = rows[0].avatar_url;
@@ -255,7 +258,7 @@ export async function getFullUserContext(
     email,
     avatarUrl,
     characters,
-    permissions
+    permissions,
   };
 }
 
@@ -283,7 +286,7 @@ export function hasGuildAccess(permissions: UserPermissions, guildName: string):
 export function canAccessCategory(
   permissions: UserPermissions,
   accessType: 'public' | 'authenticated' | 'guild' | 'immortal' | 'god',
-  guildName?: string
+  guildName?: string,
 ): boolean {
   switch (accessType) {
     case 'public':

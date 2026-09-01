@@ -19,7 +19,14 @@ import { useToast } from '@/composables/useToast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -40,7 +47,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Gavel, Clock, ArrowLeft, User, History, Tag, Loader2, ShoppingCart, Trash2, Info } from 'lucide-vue-next'
+import {
+  Gavel,
+  Clock,
+  ArrowLeft,
+  User,
+  History,
+  Tag,
+  Loader2,
+  ShoppingCart,
+  Trash2,
+  Info,
+} from 'lucide-vue-next'
 import AnsiText from '@/components/ui/AnsiText.vue'
 
 const route = useRoute()
@@ -71,17 +89,21 @@ const timeRemaining = ref(0)
 let countdownInterval: ReturnType<typeof setInterval> | null = null
 
 // Update countdown every second and set default bid
-watch(auction, (newAuction) => {
-  if (newAuction) {
-    timeRemaining.value = newAuction.secsRemaining
+watch(
+  auction,
+  (newAuction) => {
+    if (newAuction) {
+      timeRemaining.value = newAuction.secsRemaining
 
-    // Set default bid to current price in plat (+ 1p if there's already a bidder)
-    const curPricePlat = Math.floor(newAuction.curPrice / 1000)
-    bidPlat.value = newAuction.winningBidderPid
-      ? curPricePlat + 1  // current + 1 plat
-      : curPricePlat      // starting price
-  }
-}, { immediate: true })
+      // Set default bid to current price in plat (+ 1p if there's already a bidder)
+      const curPricePlat = Math.floor(newAuction.curPrice / 1000)
+      bidPlat.value = newAuction.winningBidderPid
+        ? curPricePlat + 1 // current + 1 plat
+        : curPricePlat // starting price
+    }
+  },
+  { immediate: true },
+)
 
 onMounted(() => {
   countdownInterval = setInterval(() => {
@@ -99,7 +121,11 @@ onUnmounted(() => {
 
 // Set page title
 useHead({
-  title: computed(() => auction.value ? `Auction: ${auction.value.objShort.replace(/&[+nNL]?[a-zA-Z]/g, '')}` : 'Auction Details')
+  title: computed(() =>
+    auction.value
+      ? `Auction: ${auction.value.objShort.replace(/&[+nNL]?[a-zA-Z]/g, '')}`
+      : 'Auction Details',
+  ),
 })
 
 // Get user's characters for bidding
@@ -110,9 +136,9 @@ const minBidPlat = computed(() => {
   if (!auction.value) return 1
   const curPricePlat = Math.floor(auction.value.curPrice / 1000)
   if (auction.value.winningBidderPid) {
-    return curPricePlat + 1  // must beat current by at least 1 plat
+    return curPricePlat + 1 // must beat current by at least 1 plat
   }
-  return curPricePlat || 1  // at least 1 plat
+  return curPricePlat || 1 // at least 1 plat
 })
 
 // Check if current bid meets minimum
@@ -154,7 +180,9 @@ async function handlePlaceBid() {
       refetch()
     }
   } catch (err: any) {
-    showError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to place bid')
+    showError(
+      err.response?.data?.error?.message || err.response?.data?.message || 'Failed to place bid',
+    )
   }
 }
 
@@ -171,7 +199,11 @@ async function handleBuyNow() {
 
     router.push({ name: 'auction-list' })
   } catch (err: any) {
-    showError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to complete purchase')
+    showError(
+      err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        'Failed to complete purchase',
+    )
   }
 }
 
@@ -188,7 +220,11 @@ async function handleRemoveAuction() {
 
     router.push({ name: 'auction-list' })
   } catch (err: any) {
-    showError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to remove auction')
+    showError(
+      err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        'Failed to remove auction',
+    )
   }
 }
 </script>

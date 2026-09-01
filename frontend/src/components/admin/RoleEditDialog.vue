@@ -76,68 +76,76 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
-import { useToast } from '@/composables/useToast';
+import { ref, watch, computed } from 'vue'
+import { useToast } from '@/composables/useToast'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Loader2 } from 'lucide-vue-next';
-import { useCreateRole, useUpdateRole, useRole, type Role, type Permission } from '@/composables/useAdminPermissions';
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { Loader2 } from 'lucide-vue-next'
+import {
+  useCreateRole,
+  useUpdateRole,
+  useRole,
+  type Role,
+  type Permission,
+} from '@/composables/useAdminPermissions'
 
 interface Props {
-  open: boolean;
-  role: Role | null;
-  permissions: Permission[];
+  open: boolean
+  role: Role | null
+  permissions: Permission[]
 }
 
-const props = defineProps<Props>();
+const props = defineProps<Props>()
 const emit = defineEmits<{
-  'update:open': [value: boolean];
-  saved: [];
-}>();
+  'update:open': [value: boolean]
+  saved: []
+}>()
 
-const { success, error } = useToast();
-const createRoleMutation = useCreateRole();
-const updateRoleMutation = useUpdateRole();
+const { success, error } = useToast()
+const createRoleMutation = useCreateRole()
+const updateRoleMutation = useUpdateRole()
 
 // Fetch full role details when editing
-const roleId = computed(() => props.role?.id || 0);
-const { data: fullRole } = useRole(roleId);
+const roleId = computed(() => props.role?.id || 0)
+const { data: fullRole } = useRole(roleId)
 
 const formData = ref({
   name: '',
   description: '',
-  permissionIds: [] as number[]
-});
+  permissionIds: [] as number[],
+})
 
-const isSaving = computed(() => createRoleMutation.isPending.value || updateRoleMutation.isPending.value);
+const isSaving = computed(
+  () => createRoleMutation.isPending.value || updateRoleMutation.isPending.value,
+)
 
 // Group permissions by category
 const groupedPermissions = computed(() => {
-  const groups = new Map<string, Permission[]>();
+  const groups = new Map<string, Permission[]>()
 
   props.permissions.forEach((perm) => {
-    const category = perm.category || 'Other';
+    const category = perm.category || 'Other'
     if (!groups.has(category)) {
-      groups.set(category, []);
+      groups.set(category, [])
     }
-    groups.get(category)!.push(perm);
-  });
+    groups.get(category)!.push(perm)
+  })
 
   return Array.from(groups.entries()).map(([category, permissions]) => ({
     category,
-    permissions
-  }));
-});
+    permissions,
+  }))
+})
 
 // Watch for role changes to populate form
 // Use fullRole (with permissions array) when available
@@ -149,27 +157,27 @@ watch(
       formData.value = {
         name: fullRoleData.name,
         description: fullRoleData.description || '',
-        permissionIds: fullRoleData.permissions?.map((p) => p.id) || []
-      };
+        permissionIds: fullRoleData.permissions?.map((p) => p.id) || [],
+      }
     } else if (newRole && !newRole.id) {
       // Creating new role (no ID means create mode)
       formData.value = {
         name: '',
         description: '',
-        permissionIds: []
-      };
+        permissionIds: [],
+      }
     } else if (!newRole) {
       // Dialog closed
       formData.value = {
         name: '',
         description: '',
-        permissionIds: []
-      };
+        permissionIds: [],
+      }
     }
     // If newRole exists but fullRoleData is still loading, wait for fullRoleData
   },
-  { immediate: true }
-);
+  { immediate: true },
+)
 
 async function handleSubmit() {
   try {
@@ -180,44 +188,41 @@ async function handleSubmit() {
         data: {
           name: formData.value.name,
           description: formData.value.description || undefined,
-          permissionIds: formData.value.permissionIds
-        }
-      });
-      success('Role updated successfully', 'Success');
+          permissionIds: formData.value.permissionIds,
+        },
+      })
+      success('Role updated successfully', 'Success')
     } else {
       // Create new role
       await createRoleMutation.mutateAsync({
         name: formData.value.name,
         description: formData.value.description || undefined,
-        permissionIds: formData.value.permissionIds
-      });
-      success('Role created successfully', 'Success');
+        permissionIds: formData.value.permissionIds,
+      })
+      success('Role created successfully', 'Success')
     }
 
-    emit('saved');
+    emit('saved')
   } catch (err: any) {
-    error(
-      err.response?.data?.error || 'Failed to save role',
-      'Error'
-    );
+    error(err.response?.data?.error || 'Failed to save role', 'Error')
   }
 }
 
 function handleCancel() {
-  emit('update:open', false);
+  emit('update:open', false)
 }
 
 function hasPermission(permId: number): boolean {
-  return formData.value.permissionIds.includes(permId);
+  return formData.value.permissionIds.includes(permId)
 }
 
 function togglePermission(permId: number, checked: boolean) {
   if (checked) {
     if (!formData.value.permissionIds.includes(permId)) {
-      formData.value.permissionIds.push(permId);
+      formData.value.permissionIds.push(permId)
     }
   } else {
-    formData.value.permissionIds = formData.value.permissionIds.filter(id => id !== permId);
+    formData.value.permissionIds = formData.value.permissionIds.filter((id) => id !== permId)
   }
 }
 </script>

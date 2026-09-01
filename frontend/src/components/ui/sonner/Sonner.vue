@@ -2,7 +2,7 @@
 import { Toaster as SonnerToaster } from 'vue-sonner'
 
 defineOptions({
-  name: 'SonnerToast'
+  name: 'SonnerToast',
 })
 </script>
 

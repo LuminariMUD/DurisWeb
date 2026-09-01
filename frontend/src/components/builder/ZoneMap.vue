@@ -2,11 +2,7 @@
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import cytoscape, { type Core, type NodeSingular, type ElementDefinition } from 'cytoscape'
 import { Button } from '@/components/ui/button'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   ZoomIn,
   ZoomOut,
@@ -25,8 +21,8 @@ const props = defineProps<{
   rooms: RoomIndex[]
   selectedRoomVnum: number | null
   savedPositions?: Record<number, RoomPosition>
-  zoneName?: string      // Plain text (no ANSI) for PNG export
-  zoneNameAnsi?: string  // With ANSI codes for display
+  zoneName?: string // Plain text (no ANSI) for PNG export
+  zoneNameAnsi?: string // With ANSI codes for display
 }>()
 
 const emit = defineEmits<{
@@ -145,7 +141,7 @@ function buildElements(): ElementDefinition[] {
       if (toVnum === undefined || toVnum === -1) continue
 
       // Check if destination exists in our zone
-      const destRoom = props.rooms.find(r => r.vnum === toVnum)
+      const destRoom = props.rooms.find((r) => r.vnum === toVnum)
       if (!destRoom) continue
 
       // Avoid duplicate edges (sort to ensure consistent key)
@@ -173,13 +169,13 @@ const stylesheet: cytoscape.StylesheetStyle[] = [
   {
     selector: 'node',
     style: {
-      'width': NODE_SIZE,
-      'height': NODE_SIZE,
+      width: NODE_SIZE,
+      height: NODE_SIZE,
       'background-color': 'data(bgColor)',
       'border-width': 2,
       'border-color': 'data(borderColor)',
-      'shape': 'round-rectangle',
-      'label': '',
+      shape: 'round-rectangle',
+      label: '',
     },
   },
   {
@@ -201,7 +197,7 @@ const stylesheet: cytoscape.StylesheetStyle[] = [
   {
     selector: 'edge',
     style: {
-      'width': 2,
+      width: 2,
       'line-color': '#52525b', // zinc-600
       'target-arrow-color': '#52525b',
       'target-arrow-shape': 'triangle',
@@ -314,7 +310,7 @@ function runAutoLayout() {
   const queue: Array<{ vnum: number; x: number; y: number }> = []
 
   // Find starting room (first with exits, or just first)
-  let startRoom = props.rooms.find(r => r.exits && Object.keys(r.exits).length > 0)
+  let startRoom = props.rooms.find((r) => r.exits && Object.keys(r.exits).length > 0)
   if (!startRoom) startRoom = props.rooms[0]
   if (!startRoom) return
 
@@ -324,9 +320,18 @@ function runAutoLayout() {
   // Spiral offsets for collision resolution
   const spiralOffsets = [
     { x: 0, y: 0 },
-    { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 },
-    { x: 1, y: 1 }, { x: -1, y: 1 }, { x: -1, y: -1 }, { x: 1, y: -1 },
-    { x: 2, y: 0 }, { x: 0, y: 2 }, { x: -2, y: 0 }, { x: 0, y: -2 },
+    { x: 1, y: 0 },
+    { x: 0, y: 1 },
+    { x: -1, y: 0 },
+    { x: 0, y: -1 },
+    { x: 1, y: 1 },
+    { x: -1, y: 1 },
+    { x: -1, y: -1 },
+    { x: 1, y: -1 },
+    { x: 2, y: 0 },
+    { x: 0, y: 2 },
+    { x: -2, y: 0 },
+    { x: 0, y: -2 },
   ]
 
   // Check if position is occupied
@@ -358,14 +363,14 @@ function runAutoLayout() {
     const pos = findAvailable(current.x, current.y)
     positions.set(current.vnum, pos)
 
-    const room = props.rooms.find(r => r.vnum === current.vnum)
+    const room = props.rooms.find((r) => r.vnum === current.vnum)
     if (!room?.exits) continue
 
     for (const [dir, toVnum] of Object.entries(room.exits)) {
       if (toVnum === undefined || toVnum === -1) continue
       if (visited.has(toVnum)) continue
 
-      const destRoom = props.rooms.find(r => r.vnum === toVnum)
+      const destRoom = props.rooms.find((r) => r.vnum === toVnum)
       if (!destRoom) continue
 
       visited.add(toVnum)
@@ -444,14 +449,16 @@ function updateSelectedRoom(vnum: number | null) {
   }
 }
 
-
 // Control handlers
 function handleZoomIn() {
   const cy = cyRef.value
   if (!cy) return
   cy.zoom({
     level: cy.zoom() * 1.25,
-    renderedPosition: { x: containerRef.value!.clientWidth / 2, y: containerRef.value!.clientHeight / 2 },
+    renderedPosition: {
+      x: containerRef.value!.clientWidth / 2,
+      y: containerRef.value!.clientHeight / 2,
+    },
   })
 }
 
@@ -460,7 +467,10 @@ function handleZoomOut() {
   if (!cy) return
   cy.zoom({
     level: cy.zoom() * 0.8,
-    renderedPosition: { x: containerRef.value!.clientWidth / 2, y: containerRef.value!.clientHeight / 2 },
+    renderedPosition: {
+      x: containerRef.value!.clientWidth / 2,
+      y: containerRef.value!.clientHeight / 2,
+    },
   })
 }
 
@@ -538,10 +548,14 @@ async function saveAsPng() {
     const legendWidth = 180
     const legendItemHeight = 28
     const legendPadding = 16
-    const legendHeight = legendPadding * 2 + Object.keys(SECTOR_NAMES).length * legendItemHeight + 30
+    const legendHeight =
+      legendPadding * 2 + Object.keys(SECTOR_NAMES).length * legendItemHeight + 30
 
     const totalWidth = mapImage.width + legendWidth + padding * 3
-    const totalHeight = Math.max(mapImage.height + headerHeight + padding * 2, legendHeight + headerHeight + padding * 2)
+    const totalHeight = Math.max(
+      mapImage.height + headerHeight + padding * 2,
+      legendHeight + headerHeight + padding * 2,
+    )
 
     canvas.width = totalWidth
     canvas.height = totalHeight
@@ -553,7 +567,13 @@ async function saveAsPng() {
     // Draw header (zone name with ANSI colors)
     ctx.textBaseline = 'top'
     const zoneNameText = props.zoneNameAnsi || props.zoneName || 'Zone Map'
-    drawAnsiText(ctx, zoneNameText, padding, padding + 18, 'bold 24px system-ui, -apple-system, sans-serif')
+    drawAnsiText(
+      ctx,
+      zoneNameText,
+      padding,
+      padding + 18,
+      'bold 24px system-ui, -apple-system, sans-serif',
+    )
 
     // Draw room count
     ctx.fillStyle = '#a1a1aa' // zinc-400
@@ -609,10 +629,10 @@ async function saveAsPng() {
       // Sanitize filename - replace spaces with underscores, then non-alphanumeric with dashes
       const safeFilename = (props.zoneName || 'zone-map')
         .toLowerCase()
-        .replace(/\s+/g, '_')           // spaces to underscores
-        .replace(/[^a-z0-9_]+/g, '-')   // non-alphanumeric (except underscore) to dashes
-        .replace(/^-|-$/g, '')          // trim leading/trailing dashes
-        .replace(/-+/g, '-')            // collapse multiple dashes
+        .replace(/\s+/g, '_') // spaces to underscores
+        .replace(/[^a-z0-9_]+/g, '-') // non-alphanumeric (except underscore) to dashes
+        .replace(/^-|-$/g, '') // trim leading/trailing dashes
+        .replace(/-+/g, '-') // collapse multiple dashes
       a.download = `${safeFilename}.png`
       document.body.appendChild(a)
       a.click()
@@ -620,7 +640,6 @@ async function saveAsPng() {
       URL.revokeObjectURL(url)
       URL.revokeObjectURL(mapUrl)
     }, 'image/png')
-
   } catch (error) {
     console.error('Failed to save map as PNG:', error)
   } finally {
@@ -629,23 +648,30 @@ async function saveAsPng() {
 }
 
 // Watch for selected room changes
-watch(() => props.selectedRoomVnum, (newVnum) => {
-  updateSelectedRoom(newVnum)
-})
+watch(
+  () => props.selectedRoomVnum,
+  (newVnum) => {
+    updateSelectedRoom(newVnum)
+  },
+)
 
 // Watch for room changes (e.g., when zone changes)
-watch(() => props.rooms, () => {
-  const cy = cyRef.value
-  if (cy) {
-    cy.destroy()
-  }
-  nextTick(() => {
-    initCytoscape()
-    if (props.selectedRoomVnum !== null) {
-      updateSelectedRoom(props.selectedRoomVnum)
+watch(
+  () => props.rooms,
+  () => {
+    const cy = cyRef.value
+    if (cy) {
+      cy.destroy()
     }
-  })
-}, { deep: true })
+    nextTick(() => {
+      initCytoscape()
+      if (props.selectedRoomVnum !== null) {
+        updateSelectedRoom(props.selectedRoomVnum)
+      }
+    })
+  },
+  { deep: true },
+)
 
 // Lifecycle
 onMounted(() => {

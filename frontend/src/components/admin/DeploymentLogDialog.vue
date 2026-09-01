@@ -53,11 +53,14 @@ async function getToken(): Promise<string | null> {
   }
 }
 
-watch(() => props.open, async (newVal) => {
-  if (newVal && props.targetHash) {
-    await startDeployment()
-  }
-})
+watch(
+  () => props.open,
+  async (newVal) => {
+    if (newVal && props.targetHash) {
+      await startDeployment()
+    }
+  },
+)
 
 onUnmounted(() => {
   if (wsRef.value) {
@@ -90,11 +93,13 @@ async function startDeployment() {
 
     ws.onopen = () => {
       // Send deployment request
-      ws.send(JSON.stringify({
-        type: 'DEPLOY_START',
-        token,
-        targetHash: props.targetHash,
-      }))
+      ws.send(
+        JSON.stringify({
+          type: 'DEPLOY_START',
+          token,
+          targetHash: props.targetHash,
+        }),
+      )
     }
 
     ws.onmessage = (event) => {
@@ -105,14 +110,14 @@ async function startDeployment() {
           case 'DEPLOY_STARTED':
             logs.value.push({
               type: 'info',
-              message: `Starting ${data.action}: ${data.fromHash} -> ${data.toHash}`
+              message: `Starting ${data.action}: ${data.fromHash} -> ${data.toHash}`,
             })
             break
 
           case 'DEPLOY_PROGRESS':
             logs.value.push({
               type: data.progressType,
-              message: data.message
+              message: data.message,
             })
             scrollToBottom()
             break
@@ -153,7 +158,6 @@ async function startDeployment() {
         success.value = false
       }
     }
-
   } catch {
     logs.value.push({ type: 'error', message: 'Failed to connect to server' })
     isRunning.value = false
@@ -171,13 +175,20 @@ async function scrollToBottom() {
 
 function getLogClass(type: string): string {
   switch (type) {
-    case 'error': return 'text-red-500'
-    case 'success': return 'text-green-500'
-    case 'step': return 'text-blue-400 font-semibold'
-    case 'info': return 'text-yellow-400'
-    case 'compile': return 'text-gray-300'
-    case 'output': return 'text-gray-400'
-    default: return 'text-gray-400'
+    case 'error':
+      return 'text-red-500'
+    case 'success':
+      return 'text-green-500'
+    case 'step':
+      return 'text-blue-400 font-semibold'
+    case 'info':
+      return 'text-yellow-400'
+    case 'compile':
+      return 'text-gray-300'
+    case 'output':
+      return 'text-gray-400'
+    default:
+      return 'text-gray-400'
   }
 }
 

@@ -5,6 +5,8 @@ import { pool as webPool, mudPool } from '../db/connection.js';
 import logger from '../utils/logger.js';
 import { buildDonationEvent, DonationDeliveryConfigurationError } from '../utils/donationEvent.js';
 import { getScopedRedisConfiguration } from '../utils/scopedRedis.js';
+import { isHookEnabledSync } from '../hooks/hookGate.js';
+import { recordHookActivity } from '../hooks/hookActivity.js';
 
 const OUTBOX_POLL_INTERVAL_MS = 1000;
 const OUTBOX_LOCK_TIMEOUT_SECONDS = 120;
@@ -37,7 +39,9 @@ export function getDonationDeliveryConfiguration(): DonationDeliveryConfiguratio
   const scoped = getScopedRedisConfiguration('donation');
 
   if (!secret || Buffer.byteLength(secret, 'utf8') < 32) {
-    throw new DonationDeliveryConfigurationError('REDIS_DONATION_SECRET must contain at least 32 bytes');
+    throw new DonationDeliveryConfigurationError(
+      'REDIS_DONATION_SECRET must contain at least 32 bytes',
+    );
   }
 
   return {
@@ -57,8 +61,12 @@ let activePoll: Promise<void> | null = null;
 
 function errorMessage(error: unknown): string {
   let message = error instanceof Error ? error.message : String(error);
-  for (const secret of [process.env.DURISWEB_SECRET, process.env.REDIS_DONATION_SECRET,
-    process.env.REDIS_DONATION_PASSWORD, process.env.REDIS_PASSWORD].filter(Boolean)) {
+  for (const secret of [
+    process.env.DURISWEB_SECRET,
+    process.env.REDIS_DONATION_SECRET,
+    process.env.REDIS_DONATION_PASSWORD,
+    process.env.REDIS_PASSWORD,
+  ].filter(Boolean)) {
     message = message.split(secret!).join('[REDACTED]');
   }
   return message.slice(0, 500);
@@ -76,7 +84,7 @@ async function claimNextOutboxRow(): Promise<DonationOutboxRow | null> {
               AND locked_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ${OUTBOX_LOCK_TIMEOUT_SECONDS} SECOND))
        ORDER BY id ASC
        LIMIT 1
-       FOR UPDATE`
+       FOR UPDATE`,
     );
 
     if (rows.length === 0) {
@@ -90,7 +98,7 @@ async function claimNextOutboxRow(): Promise<DonationOutboxRow | null> {
        SET status = 'publishing', attempts = attempts + 1,
            locked_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP()
        WHERE id = ?`,
-      [row.id]
+      [row.id],
     );
     await connection.commit();
     return row;
@@ -111,7 +119,7 @@ async function activeSeasonEpoch(): Promise<number> {
     `SELECT season_epoch
      FROM season_reset_state
      WHERE state_id = 1 AND reset_status = 'active'
-     LIMIT 1`
+     LIMIT 1`,
   );
   if (rows.length !== 1) {
     throw new Error('No active MUD season epoch is available');
@@ -129,7 +137,7 @@ async function markPublished(id: number): Promise<void> {
      SET status = 'published', published_at = UTC_TIMESTAMP(), locked_at = NULL,
          last_error = NULL, updated_at = UTC_TIMESTAMP()
      WHERE id = ? AND status = 'publishing'`,
-    [id]
+    [id],
   );
 }
 
@@ -140,7 +148,7 @@ async function markFailed(id: number, attempts: number, error: unknown): Promise
       `UPDATE donation_outbox
        SET status = 'failed', locked_at = NULL, last_error = ?, updated_at = UTC_TIMESTAMP()
        WHERE id = ? AND status = 'publishing'`,
-      [message, id]
+      [message, id],
     );
     return;
   }
@@ -152,36 +160,45 @@ async function markFailed(id: number, attempts: number, error: unknown): Promise
          available_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ${delaySeconds} SECOND),
          last_error = ?, updated_at = UTC_TIMESTAMP()
      WHERE id = ? AND status = 'publishing'`,
-    [message, id]
+    [message, id],
   );
 }
 
 async function processNextOutboxRow(): Promise<void> {
   if (!publisher || publisher.status !== 'ready') return;
+  if (!isHookEnabledSync('donation_delivery')) return;
   try {
     const row = await claimNextOutboxRow();
     if (!row) return;
 
     try {
       const config = getDonationDeliveryConfiguration();
-      const event = buildDonationEvent({
-        eventId: row.event_id,
-        issuedAt: Math.floor(Date.now() / 1000),
-        amountCents: Number(row.amount_cents),
-        currency: row.currency,
-        isPublic: Boolean(row.is_public),
-        characterName: row.character_name,
-        message: row.message,
-        seasonEpoch: await activeSeasonEpoch(),
-      }, config.namespace, config.secret);
+      const event = buildDonationEvent(
+        {
+          eventId: row.event_id,
+          issuedAt: Math.floor(Date.now() / 1000),
+          amountCents: Number(row.amount_cents),
+          currency: row.currency,
+          isPublic: Boolean(row.is_public),
+          characterName: row.character_name,
+          message: row.message,
+          seasonEpoch: await activeSeasonEpoch(),
+        },
+        config.namespace,
+        config.secret,
+      );
 
       await publisher.publish(event.channel, JSON.stringify(event.envelope));
       await markPublished(row.id);
+      recordHookActivity('donation_delivery');
       logger.info(`donation outbox published: event_id=${row.event_id}`);
     } catch (error) {
       const attempts = Number(row.attempts) + 1;
       await markFailed(row.id, attempts, error);
-      logger.error(`donation outbox publish failed: event_id=${row.event_id} attempts=${attempts}:`, errorMessage(error));
+      logger.error(
+        `donation outbox publish failed: event_id=${row.event_id} attempts=${attempts}:`,
+        errorMessage(error),
+      );
     }
   } catch (error) {
     logger.error('donation outbox worker failed:', errorMessage(error));

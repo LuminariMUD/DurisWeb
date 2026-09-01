@@ -22,7 +22,7 @@ export async function getMudUptimeStats(): Promise<MudUptimeStats> {
        FROM server_health_metrics
        WHERE mud_is_running = 1
        ORDER BY recorded_at DESC
-       LIMIT 1`
+       LIMIT 1`,
     );
 
     const currentUptime = currentRows.length > 0 ? currentRows[0].mud_uptime_seconds : null;
@@ -40,7 +40,7 @@ export async function getMudUptimeStats(): Promise<MudUptimeStats> {
         COUNT(*) as totalReboots,
         SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as rebootsLast30Days
        FROM server_reboots
-       WHERE shutdown_type IS NOT NULL`
+       WHERE shutdown_type IS NOT NULL`,
     );
 
     const stats = statsRows[0];
@@ -75,4 +75,3 @@ export async function getMudUptimeStats(): Promise<MudUptimeStats> {
     };
   }
 }
-

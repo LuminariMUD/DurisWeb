@@ -3,9 +3,10 @@ import type {
   UserListItem,
   UserManagementFilters,
   UserManagementResponse,
-  UserBan
+  UserBan,
 } from '../types/index.js';
 import { sendMudCommandAsync, isMudConnected } from './mudAuctionClient.js';
+import { isHookEnabledSync } from '../hooks/hookGate.js';
 
 /**
  * Get paginated list of users with filters
@@ -17,9 +18,7 @@ import { sendMudCommandAsync, isMudConnected } from './mudAuctionClient.js';
  * - user_bans: for ban status
  * - web_sessions: for web login time
  */
-export async function getUserList(
-  filters: UserManagementFilters
-): Promise<UserManagementResponse> {
+export async function getUserList(filters: UserManagementFilters): Promise<UserManagementResponse> {
   const {
     search = '',
     race,
@@ -29,7 +28,7 @@ export async function getUserList(
     page = 1,
     limit = 50,
     sort_by = 'last_login',
-    sort_order = 'desc'
+    sort_order = 'desc',
   } = filters;
 
   const offset = (page - 1) * limit;
@@ -89,7 +88,7 @@ export async function getUserList(
     race: 'pc.race',
     class: 'pc.classname',
     email: 'a.email',
-    last_login: 'ii.last_connect'
+    last_login: 'ii.last_connect',
   };
 
   const sortColumn = sortColumnMap[sort_by] || 'ii.last_connect';
@@ -166,7 +165,7 @@ export async function getUserList(
     banned_at: row.banned_at,
     banned_by: row.banned_by,
     is_deleted: Boolean(row.is_deleted),
-    deleted_at: row.deleted_at
+    deleted_at: row.deleted_at,
   }));
 
   return {
@@ -175,8 +174,8 @@ export async function getUserList(
       page,
       limit,
       total,
-      totalPages
-    }
+      totalPages,
+    },
   };
 }
 
@@ -186,7 +185,7 @@ export async function getUserList(
 export async function banUser(
   accountName: string,
   reason: string,
-  bannedBy: string
+  bannedBy: string,
 ): Promise<void> {
   const query = `
     INSERT INTO user_bans (account_name, banned_by, reason, is_active)
@@ -199,10 +198,7 @@ export async function banUser(
 /**
  * Unban a user
  */
-export async function unbanUser(
-  accountName: string,
-  unbannedBy: string
-): Promise<void> {
+export async function unbanUser(accountName: string, unbannedBy: string): Promise<void> {
   const query = `
     UPDATE user_bans
     SET is_active = FALSE,
@@ -236,7 +232,7 @@ export async function getUserBanHistory(accountName: string): Promise<UserBan[]>
     unbanned_at: row.unbanned_at,
     unbanned_by: row.unbanned_by,
     reason: row.reason,
-    is_active: Boolean(row.is_active)
+    is_active: Boolean(row.is_active),
   }));
 }
 
@@ -260,13 +256,19 @@ export async function isUserBanned(accountName: string): Promise<boolean> {
 export async function deleteCharacter(
   accountName: string,
   characterName: string,
-  deletedBy: string
+  deletedBy: string,
 ): Promise<{ success: boolean; message: string }> {
+  if (!isHookEnabledSync('admin_delete_character')) {
+    return {
+      success: false,
+      message: 'Character deletion is disabled by the website hook gate',
+    };
+  }
   // Check if MUD is connected
   if (!isMudConnected()) {
     return {
       success: false,
-      message: 'MUD server is not connected'
+      message: 'MUD server is not connected',
     };
   }
 
@@ -284,7 +286,7 @@ export async function deleteCharacter(
   if (checkResult.length === 0) {
     return {
       success: false,
-      message: 'Character not found or already deleted'
+      message: 'Character not found or already deleted',
     };
   }
 
@@ -295,19 +297,19 @@ export async function deleteCharacter(
     account: accountName,
     name: characterName,
     pid: pid,
-    deletedBy: deletedBy
+    deletedBy: deletedBy,
   });
 
   if (!result.success) {
     return {
       success: false,
-      message: result.error || 'Failed to delete character'
+      message: result.error || 'Failed to delete character',
     };
   }
 
   return {
     success: true,
-    message: `Character ${characterName} has been deleted`
+    message: `Character ${characterName} has been deleted`,
   };
 }
 

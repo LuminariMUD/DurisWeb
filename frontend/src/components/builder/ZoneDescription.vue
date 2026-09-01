@@ -25,7 +25,11 @@ const isEditing = ref(false)
 const editContent = ref('')
 
 // Fetch zone info
-const { data: zoneInfo, isLoading, error } = useQuery({
+const {
+  data: zoneInfo,
+  isLoading,
+  error,
+} = useQuery({
   queryKey: ['zone-info', props.zoneId],
   queryFn: () => builderApi.getZoneInfo(props.zoneId),
 })

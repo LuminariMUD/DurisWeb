@@ -66,9 +66,16 @@ describe('PvP route ID validation', () => {
     app = express();
     app.use(express.json());
     app.use('/api/pvp', pvpRoutes);
-    app.use((error: TestAppError, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-      res.status(error.statusCode || 500).json({ error: error.message });
-    });
+    app.use(
+      (
+        error: TestAppError,
+        _req: express.Request,
+        res: express.Response,
+        _next: express.NextFunction,
+      ) => {
+        res.status(error.statusCode || 500).json({ error: error.message });
+      },
+    );
   });
 
   beforeEach(() => {
@@ -86,9 +93,7 @@ describe('PvP route ID validation', () => {
   });
 
   it('rejects malformed event IDs before authenticated mutations', async () => {
-    const response = await request(app)
-      .post('/api/pvp/events/12abc/like')
-      .send({});
+    const response = await request(app).post('/api/pvp/events/12abc/like').send({});
 
     expect(response.status).toBe(400);
     expect(serviceMocks.addBattleLike).not.toHaveBeenCalled();

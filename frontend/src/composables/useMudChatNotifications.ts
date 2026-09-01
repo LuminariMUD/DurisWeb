@@ -63,7 +63,7 @@ export function useMudChatNotifications() {
       () => {
         saveSettings()
       },
-      { deep: true }
+      { deep: true },
     )
   }
 
@@ -97,7 +97,7 @@ export function useMudChatNotifications() {
           }
         }
       },
-      { deep: true }
+      { deep: true },
     )
   }
 

@@ -68,7 +68,9 @@ function formatHelpText(text: string): string {
     // Check for wiki headers (==Header==)
     const headerMatch = line.match(/^==([^=]+)==$/)
     if (headerMatch) {
-      processedLines.push(`<div class="text-lg font-bold text-primary mt-4 mb-2 border-b border-border pb-1">${headerMatch[1]}</div>`)
+      processedLines.push(
+        `<div class="text-lg font-bold text-primary mt-4 mb-2 border-b border-border pb-1">${headerMatch[1]}</div>`,
+      )
       continue
     }
 
@@ -82,7 +84,9 @@ function formatHelpText(text: string): string {
     const bulletMatch = line.match(/^\* (.+)$/)
     if (bulletMatch && bulletMatch[1]) {
       const content = parseAnsiToHtml(bulletMatch[1])
-      processedLines.push(`<div class="flex gap-2 ml-2"><span class="text-muted-foreground">•</span><span>${content}</span></div>`)
+      processedLines.push(
+        `<div class="flex gap-2 ml-2"><span class="text-muted-foreground">•</span><span>${content}</span></div>`,
+      )
       continue
     }
 

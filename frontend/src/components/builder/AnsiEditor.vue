@@ -83,7 +83,7 @@ const props = withDefaults(
     placeholder: 'Enter text...',
     minHeight: '100px',
     singleLine: false,
-  }
+  },
 )
 
 const emit = defineEmits<{
@@ -145,7 +145,7 @@ watch(
         editor.value.commands.setContent(ansiToHtmlWithStyles(newValue))
       }
     }
-  }
+  },
 )
 
 // Apply MUD color to selection
@@ -166,10 +166,7 @@ function removeMudColor() {
 
 // Close dropdown when clicking outside
 function handleClickOutside(event: MouseEvent) {
-  if (
-    colorDropdownRef.value &&
-    !colorDropdownRef.value.contains(event.target as Node)
-  ) {
+  if (colorDropdownRef.value && !colorDropdownRef.value.contains(event.target as Node)) {
     showColorDropdown.value = false
   }
 }

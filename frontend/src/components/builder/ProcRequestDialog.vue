@@ -21,17 +21,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import TipTapEditor from '@/components/forum/editor/TipTapEditor.vue'
 import AccountAutocomplete from './AccountAutocomplete.vue'
 import AnsiText from '@/components/ui/AnsiText.vue'
-import { Home, User, Package, Save, RefreshCw, ChevronsUpDown, Check, Loader2 } from 'lucide-vue-next'
-import type { ProcRequest, ProcRequestEntityType, ProcRequestStatus, CreateProcRequest, UpdateProcRequest, MobIndex, ObjIndex, RoomIndex } from '@/types'
+import {
+  Home,
+  User,
+  Package,
+  Save,
+  RefreshCw,
+  ChevronsUpDown,
+  Check,
+  Loader2,
+} from 'lucide-vue-next'
+import type {
+  ProcRequest,
+  ProcRequestEntityType,
+  ProcRequestStatus,
+  CreateProcRequest,
+  UpdateProcRequest,
+  MobIndex,
+  ObjIndex,
+  RoomIndex,
+} from '@/types'
 
 const props = defineProps<{
   open: boolean
@@ -97,9 +111,8 @@ const filteredEntityList = computed(() => {
   const search = vnumSearch.value.toLowerCase().trim()
   if (!search) return entityList.value
 
-  return entityList.value.filter(e =>
-    e.vnum.toString().includes(search) ||
-    e.label.toLowerCase().includes(search)
+  return entityList.value.filter(
+    (e) => e.vnum.toString().includes(search) || e.label.toLowerCase().includes(search),
   )
 })
 
@@ -107,7 +120,7 @@ const filteredEntityList = computed(() => {
 const selectedEntityDisplay = computed(() => {
   if (!vnum.value) return null
   const numVnum = parseInt(vnum.value)
-  return entityList.value.find(e => e.vnum === numVnum)
+  return entityList.value.find((e) => e.vnum === numVnum)
 })
 
 // Select vnum from dropdown
@@ -124,25 +137,29 @@ watch(entityType, () => {
 })
 
 // Initialize form when request changes or dialog opens
-watch([() => props.open, () => props.request], ([open, req]) => {
-  if (open) {
-    if (req) {
-      title.value = req.title
-      entityType.value = req.entityType
-      vnum.value = req.vnum.toString()
-      description.value = req.descriptionHtml || req.description || ''
-      status.value = req.status
-      assignedTo.value = req.assignedTo || ''
-    } else {
-      title.value = ''
-      entityType.value = 'mob'
-      vnum.value = ''
-      description.value = ''
-      status.value = 'requested'
-      assignedTo.value = ''
+watch(
+  [() => props.open, () => props.request],
+  ([open, req]) => {
+    if (open) {
+      if (req) {
+        title.value = req.title
+        entityType.value = req.entityType
+        vnum.value = req.vnum.toString()
+        description.value = req.descriptionHtml || req.description || ''
+        status.value = req.status
+        assignedTo.value = req.assignedTo || ''
+      } else {
+        title.value = ''
+        entityType.value = 'mob'
+        vnum.value = ''
+        description.value = ''
+        status.value = 'requested'
+        assignedTo.value = ''
+      }
     }
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+)
 
 // Create mutation
 const createMutation = useMutation({

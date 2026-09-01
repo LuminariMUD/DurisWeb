@@ -33,7 +33,7 @@ const heroInputRef = ref<HTMLInputElement | null>(null)
 
 // Get setting value by key
 function getSettingValue(key: string): string {
-  const setting = settings.value.find(s => s.setting_key === key)
+  const setting = settings.value.find((s) => s.setting_key === key)
   return setting?.setting_value || ''
 }
 
@@ -43,7 +43,9 @@ const currentHeroUrl = computed(() => getSettingValue('front_page_hero_image_url
 // Hero enabled as boolean
 const heroEnabled = computed({
   get: () => editedSettings.value.front_page_hero_enabled === 'true',
-  set: (val: boolean) => { editedSettings.value.front_page_hero_enabled = val ? 'true' : 'false' }
+  set: (val: boolean) => {
+    editedSettings.value.front_page_hero_enabled = val ? 'true' : 'false'
+  },
 })
 
 async function loadSettings() {
@@ -52,7 +54,7 @@ async function loadSettings() {
   try {
     settings.value = await adminApi.getWebSettings()
     // Initialize edited settings
-    settings.value.forEach(setting => {
+    settings.value.forEach((setting) => {
       editedSettings.value[setting.setting_key] = setting.setting_value
     })
   } catch (err: any) {
@@ -70,7 +72,7 @@ async function saveSetting(key: string) {
     await adminApi.updateWebSetting(key, value)
 
     // Update local state
-    const setting = settings.value.find(s => s.setting_key === key)
+    const setting = settings.value.find((s) => s.setting_key === key)
     if (setting) {
       setting.setting_value = value
     }
@@ -129,7 +131,7 @@ async function uploadHero() {
     const { heroUrl } = await adminApi.uploadHeroImage(heroFile.value)
 
     // Update local state
-    const setting = settings.value.find(s => s.setting_key === 'front_page_hero_image_url')
+    const setting = settings.value.find((s) => s.setting_key === 'front_page_hero_image_url')
     if (setting) {
       setting.setting_value = heroUrl
       editedSettings.value.front_page_hero_image_url = heroUrl
@@ -160,7 +162,7 @@ async function deleteHero() {
     await adminApi.deleteHeroImage()
 
     // Update local state
-    const setting = settings.value.find(s => s.setting_key === 'front_page_hero_image_url')
+    const setting = settings.value.find((s) => s.setting_key === 'front_page_hero_image_url')
     if (setting) {
       setting.setting_value = ''
       editedSettings.value.front_page_hero_image_url = ''

@@ -11,7 +11,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   size: 'default',
-  noPadding: false
+  noPadding: false,
 })
 const emit = defineEmits<{
   'update:open': [value: boolean]
@@ -30,13 +30,16 @@ const dialogClasses = computed(() => {
 })
 
 // Prevent body scroll when dialog is open
-watch(() => props.open, (isOpen) => {
-  if (isOpen) {
-    document.body.style.overflow = 'hidden'
-  } else {
-    document.body.style.overflow = ''
-  }
-})
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+  },
+)
 </script>
 
 <template>

@@ -27,19 +27,36 @@ describe('backupService', () => {
 
   describe('table existence verification', () => {
     const EXPECTED_TABLES = [
-      'player_data', 'account_characters', 'player_items', 'player_item_affects',
-      'player_skills', 'player_spellbooks', 'player_affects', 'player_timers',
-      'progress', 'epic_gain', 'epic_bonus', 'boons', 'boons_progress',
-      'auction_money_pickups', 'auction_item_pickups', 'guild_members',
-      'pkill_info', 'pkill_event', 'frag_leaderboard', 'player_pets',
-      'player_pet_items', 'player_pet_item_affects', 'offline_messages',
+      'player_data',
+      'account_characters',
+      'player_items',
+      'player_item_affects',
+      'player_skills',
+      'player_spellbooks',
+      'player_affects',
+      'player_timers',
+      'progress',
+      'epic_gain',
+      'epic_bonus',
+      'boons',
+      'boons_progress',
+      'auction_money_pickups',
+      'auction_item_pickups',
+      'guild_members',
+      'pkill_info',
+      'pkill_event',
+      'frag_leaderboard',
+      'player_pets',
+      'player_pet_items',
+      'player_pet_item_affects',
+      'offline_messages',
     ];
 
     it.each(EXPECTED_TABLES)('table %s should exist', async (tableName) => {
-      const [rows] = await pool.query(
+      const [rows] = (await pool.query(
         'SELECT 1 FROM information_schema.tables WHERE table_schema = ? AND table_name = ?',
-        [process.env.DB_NAME || 'duris_dev', tableName]
-      ) as any;
+        [process.env.DB_NAME || 'duris_dev', tableName],
+      )) as any;
       expect(rows.length).toBe(1);
     });
   });
@@ -47,12 +64,29 @@ describe('backupService', () => {
   describe('restore-tables constants', () => {
     it('ALL_RESTORE_TABLES contains every EXPECTED_TABLES entry', () => {
       const expected = [
-        'player_data', 'account_characters', 'player_items', 'player_item_affects',
-        'player_skills', 'player_spellbooks', 'player_affects', 'player_timers',
-        'progress', 'epic_gain', 'epic_bonus', 'boons', 'boons_progress',
-        'auction_money_pickups', 'auction_item_pickups', 'guild_members',
-        'pkill_info', 'pkill_event', 'frag_leaderboard', 'player_pets',
-        'player_pet_items', 'player_pet_item_affects', 'offline_messages',
+        'player_data',
+        'account_characters',
+        'player_items',
+        'player_item_affects',
+        'player_skills',
+        'player_spellbooks',
+        'player_affects',
+        'player_timers',
+        'progress',
+        'epic_gain',
+        'epic_bonus',
+        'boons',
+        'boons_progress',
+        'auction_money_pickups',
+        'auction_item_pickups',
+        'guild_members',
+        'pkill_info',
+        'pkill_event',
+        'frag_leaderboard',
+        'player_pets',
+        'player_pet_items',
+        'player_pet_item_affects',
+        'offline_messages',
       ];
       for (const tbl of expected) {
         expect(ALL_RESTORE_TABLES).toContain(tbl);
@@ -61,9 +95,17 @@ describe('backupService', () => {
 
     it('has no hallucinated tables', () => {
       const hallucinated = [
-        'player_inventory', 'player_equipment', 'player_banks', 'player_spells',
-        'player_cooldowns', 'player_achievements', 'player_quests', 'player_titles',
-        'player_aliases', 'player_mail', 'player_notes',
+        'player_inventory',
+        'player_equipment',
+        'player_banks',
+        'player_spells',
+        'player_cooldowns',
+        'player_achievements',
+        'player_quests',
+        'player_titles',
+        'player_aliases',
+        'player_mail',
+        'player_notes',
       ];
       for (const tbl of hallucinated) {
         expect(ALL_RESTORE_TABLES).not.toContain(tbl);
@@ -382,7 +424,7 @@ describe('backupService', () => {
       ');',
       "INSERT INTO `player_data` VALUES (7,'alice',50),(9,'stranger',30);",
       "INSERT INTO `player_items` VALUES (100,7,'sword'),(101,7,'shield'),(200,9,'dagger');",
-      "INSERT INTO `player_item_affects` VALUES (100,1,5),(101,1,3),(200,1,7);",
+      'INSERT INTO `player_item_affects` VALUES (100,1,5),(101,1,3),(200,1,7);',
     ].join('\n');
 
     it('keeps only selected pid rows and cascades', async () => {
@@ -407,16 +449,16 @@ describe('backupService', () => {
         'CREATE TABLE `lockers` (`id` int,`owner_pid` int,`owner_assoc_id` int);',
         'CREATE TABLE `locker_items` (`id` int,`locker_id` int,`vnum` int);',
         'CREATE TABLE `locker_item_affects` (`item_id` int,`location` int,`modifier` int);',
-        "INSERT INTO `lockers` VALUES (700,7,0),(900,9,0);",
+        'INSERT INTO `lockers` VALUES (700,7,0),(900,9,0);',
         "INSERT INTO `locker_items` VALUES (7000,700,'sword'),(9000,900,'dagger');",
-        "INSERT INTO `locker_item_affects` VALUES (7000,1,5),(9000,1,3);",
+        'INSERT INTO `locker_item_affects` VALUES (7000,1,5),(9000,1,3);',
       ].join('\n');
 
       const filtered = filterDumpForCharacterRestore(dump, new Set(['7']), { lockers: true });
 
-      expect(filtered.lockers).toEqual(["(700,7,0)"]);
+      expect(filtered.lockers).toEqual(['(700,7,0)']);
       expect(filtered.locker_items).toEqual(["(7000,700,'sword')"]);
-      expect(filtered.locker_item_affects).toEqual(["(7000,1,5)"]);
+      expect(filtered.locker_item_affects).toEqual(['(7000,1,5)']);
     });
 
     it('cascades level-3 through player_pets → player_pet_items → player_pet_item_affects', async () => {
@@ -425,16 +467,16 @@ describe('backupService', () => {
         'CREATE TABLE `player_pets` (`id` int,`pid` int);',
         'CREATE TABLE `player_pet_items` (`id` int,`pet_id` int,`vnum` int);',
         'CREATE TABLE `player_pet_item_affects` (`item_id` int,`loc` int,`mod` int);',
-        "INSERT INTO `player_pets` VALUES (50,7),(60,9);",
+        'INSERT INTO `player_pets` VALUES (50,7),(60,9);',
         "INSERT INTO `player_pet_items` VALUES (500,50,'saddle'),(600,60,'reins');",
-        "INSERT INTO `player_pet_item_affects` VALUES (500,1,5),(600,2,7);",
+        'INSERT INTO `player_pet_item_affects` VALUES (500,1,5),(600,2,7);',
       ].join('\n');
 
       const filtered = filterDumpForCharacterRestore(dump, new Set(['7']), { pets: true });
 
-      expect(filtered.player_pets).toEqual(["(50,7)"]);
+      expect(filtered.player_pets).toEqual(['(50,7)']);
       expect(filtered.player_pet_items).toEqual(["(500,50,'saddle')"]);
-      expect(filtered.player_pet_item_affects).toEqual(["(500,1,5)"]);
+      expect(filtered.player_pet_item_affects).toEqual(['(500,1,5)']);
     });
   });
 
@@ -508,10 +550,9 @@ describe('backupService', () => {
 
   describe('integration: end-to-end character restore SQL output', () => {
     it('produces the correct REPLACE INTO set for a single-pid character restore with all categories checked', async () => {
-      const {
-        filterDumpForCharacterRestore,
-        buildRestoreSql,
-      } = await import('../backupService.js');
+      const { filterDumpForCharacterRestore, buildRestoreSql } = await import(
+        '../backupService.js'
+      );
       const dump = [
         'CREATE TABLE `player_data` (`id` int, `name` varchar(30));',
         'CREATE TABLE `account_characters` (`account_name` varchar(30),`char_name` varchar(30),`pid` int,`login_count` int);',
@@ -564,19 +605,28 @@ describe('backupService', () => {
         "INSERT INTO `player_data` VALUES (7,'alice'),(9,'stranger');",
         "INSERT INTO `account_characters` VALUES ('acc1','alice',7,0),('acc2','stranger',9,0);",
         "INSERT INTO `player_items` VALUES (70,7,'sword'),(71,7,'shield'),(90,9,'dagger');",
-        "INSERT INTO `player_item_affects` VALUES (70,1,5),(71,1,3),(90,1,7);",
-        "INSERT INTO `lockers` VALUES (700,7,0,0,0),(900,9,0,0,0);",
+        'INSERT INTO `player_item_affects` VALUES (70,1,5),(71,1,3),(90,1,7);',
+        'INSERT INTO `lockers` VALUES (700,7,0,0,0),(900,9,0,0,0);',
         "INSERT INTO `locker_items` VALUES (7000,700,'rope'),(9000,900,'boots');",
-        "INSERT INTO `pkill_info` VALUES (1,100,7,50),(2,101,7,50),(3,200,9,30);",
+        'INSERT INTO `pkill_info` VALUES (1,100,7,50),(2,101,7,50),(3,200,9,30);',
         "INSERT INTO `pkill_event` VALUES (100,'2026-01-01 00:00:00'),(101,'2026-01-02 00:00:00'),(200,'2026-01-03 00:00:00');",
         "INSERT INTO `corpses` VALUES (5000,'alice',1),(5001,'stranger',1);",
         "INSERT INTO `ships` VALUES (999,'alice','albatross'),(998,'stranger','wreck');",
       ].join('\n');
 
       const allChecked = {
-        coreData: true, inventory: true, lockers: true, skills: true,
-        progression: true, auction: true, guild: true, pvpHistory: true,
-        pets: true, ships: true, corpses: true, mail: true,
+        coreData: true,
+        inventory: true,
+        lockers: true,
+        skills: true,
+        progression: true,
+        auction: true,
+        guild: true,
+        pvpHistory: true,
+        pets: true,
+        ships: true,
+        corpses: true,
+        mail: true,
       };
 
       const filtered = filterDumpForCharacterRestore(
@@ -589,7 +639,7 @@ describe('backupService', () => {
       expect(filtered.player_data).toEqual(["(7,'alice')"]);
       expect(filtered.player_items).toEqual(["(70,7,'sword')", "(71,7,'shield')"]);
       expect(filtered.player_item_affects).toHaveLength(2);
-      expect(filtered.lockers).toEqual(["(700,7,0,0,0)"]);
+      expect(filtered.lockers).toEqual(['(700,7,0,0,0)']);
       expect(filtered.locker_items).toEqual(["(7000,700,'rope')"]);
       expect(filtered.pkill_info).toHaveLength(2);
       expect(filtered.pkill_event).toHaveLength(2);

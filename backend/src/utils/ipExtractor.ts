@@ -17,9 +17,7 @@ export function extractClientIP(req: Request): string | null {
   // Format: "client, proxy1, proxy2"
   const forwardedFor = req.headers['x-forwarded-for'];
   if (forwardedFor) {
-    const ips = Array.isArray(forwardedFor)
-      ? forwardedFor[0]
-      : forwardedFor;
+    const ips = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
 
     // Get first IP in chain (original client)
     const firstIP = ips.split(',')[0].trim();

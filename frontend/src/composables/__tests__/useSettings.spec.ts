@@ -5,10 +5,18 @@ const mocks = vi.hoisted(() => ({
   triggers: { value: [{ id: 'trigger-1', groupId: 'group-1' }] },
   groups: { value: [{ id: 'group-1', name: 'Combat' }] },
   groupActions: { value: [{ id: 'action-1' }] },
-  exportAliases: vi.fn(() => JSON.stringify({ version: 2, aliases: [{ id: 'alias-1', groupId: 'group-1' }] })),
-  exportTriggers: vi.fn(() => JSON.stringify({ version: 5, triggers: [{ id: 'trigger-1', groupId: 'group-1' }] })),
-  exportGroups: vi.fn(() => JSON.stringify({ version: 1, groups: [{ id: 'group-1', name: 'Combat' }] })),
-  exportGroupActions: vi.fn(() => JSON.stringify({ version: 1, groupActions: [{ id: 'action-1' }] })),
+  exportAliases: vi.fn(() =>
+    JSON.stringify({ version: 2, aliases: [{ id: 'alias-1', groupId: 'group-1' }] }),
+  ),
+  exportTriggers: vi.fn(() =>
+    JSON.stringify({ version: 5, triggers: [{ id: 'trigger-1', groupId: 'group-1' }] }),
+  ),
+  exportGroups: vi.fn(() =>
+    JSON.stringify({ version: 1, groups: [{ id: 'group-1', name: 'Combat' }] }),
+  ),
+  exportGroupActions: vi.fn(() =>
+    JSON.stringify({ version: 1, groupActions: [{ id: 'action-1' }] }),
+  ),
   importAliases: vi.fn(() => 1),
   importTriggers: vi.fn(() => 1),
   importGroupsWithMap: vi.fn(() => ({ count: 1, idMap: { 'group-1': 'group-2' } })),
@@ -61,12 +69,15 @@ describe('useSettings grouped export/import', () => {
 
   it('remaps alias and trigger group references during import', () => {
     const settings = useSettings()
-    const result = settings.importAllSettings(JSON.stringify({
-      version: 1,
-      groups: { version: 1, groups: [{ id: 'group-1', name: 'Combat' }] },
-      aliases: { version: 2, aliases: [{ id: 'alias-1', groupId: 'group-1' }] },
-      triggers: { version: 5, triggers: [{ id: 'trigger-1', groupId: 'group-1' }] },
-    }), 'merge')
+    const result = settings.importAllSettings(
+      JSON.stringify({
+        version: 1,
+        groups: { version: 1, groups: [{ id: 'group-1', name: 'Combat' }] },
+        aliases: { version: 2, aliases: [{ id: 'alias-1', groupId: 'group-1' }] },
+        triggers: { version: 5, triggers: [{ id: 'trigger-1', groupId: 'group-1' }] },
+      }),
+      'merge',
+    )
 
     expect(result).toEqual({ aliases: 1, triggers: 1, groups: 1, groupActions: 0 })
 
@@ -80,7 +91,8 @@ describe('useSettings grouped export/import', () => {
 
   it('rejects an oversized combined import document before parsing', () => {
     const settings = useSettings()
-    expect(() => settings.importAllSettings('x'.repeat(1_000_001), 'merge'))
-      .toThrow(/maximum|large|size/i)
+    expect(() => settings.importAllSettings('x'.repeat(1_000_001), 'merge')).toThrow(
+      /maximum|large|size/i,
+    )
   })
 })

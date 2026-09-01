@@ -24,7 +24,7 @@ export function useUserList(filters: Ref<UserManagementFilters>) {
       // Transform alignment from null to undefined for API
       const params = {
         ...filters.value,
-        alignment: filters.value.alignment ?? undefined
+        alignment: filters.value.alignment ?? undefined,
       }
       return userManagementApi.getUserList(params)
     },

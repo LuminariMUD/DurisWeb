@@ -10,7 +10,14 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -99,20 +106,20 @@ const restoreCategories = ref<RestoreCategories>({ ...DEFAULT_RESTORE_CATEGORIES
 const accountOptions = computed(() => {
   const contents = backupContents.value || uploadedContents.value
   if (!contents) return []
-  return contents.accounts.map(name => ({ value: name, label: name }))
+  return contents.accounts.map((name) => ({ value: name, label: name }))
 })
 
 const characterOptions = computed(() => {
   const contents = backupContents.value || uploadedContents.value
   if (!contents) return []
-  return contents.characters.map(c => ({ value: c.pid, label: c.name }))
+  return contents.characters.map((c) => ({ value: c.pid, label: c.name }))
 })
 
 // Convert selected pids back to character objects for API
 const selectedCharacters = computed(() => {
   const contents = backupContents.value || uploadedContents.value
   if (!contents) return []
-  return contents.characters.filter(c => selectedCharacterPids.value.includes(c.pid))
+  return contents.characters.filter((c) => selectedCharacterPids.value.includes(c.pid))
 })
 
 // Upload state
@@ -190,9 +197,7 @@ async function handleDeleteBackup(id: number) {
 }
 
 // Count of failed backups
-const failedBackupsCount = computed(() =>
-  backups.value.filter((b) => b.status === 'failed').length
-)
+const failedBackupsCount = computed(() => backups.value.filter((b) => b.status === 'failed').length)
 
 // Delete all failed backups handler
 async function handleDeleteFailedBackups() {

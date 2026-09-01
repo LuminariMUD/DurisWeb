@@ -97,37 +97,44 @@ describe('useTimers local persistence', () => {
     await selectAccount('Cwial')
     const malformed = {
       version: 2,
-      timers: [{
-        ...timerForm,
-        id: 'bad',
-        intervalMs: 0,
-        actions: [{ type: 'command', commands: 123 }],
-        createdAt: 1,
-        updatedAt: 1,
-      }],
+      timers: [
+        {
+          ...timerForm,
+          id: 'bad',
+          intervalMs: 0,
+          actions: [{ type: 'command', commands: 123 }],
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
     }
 
-    expect(() => timersApi.importTimers(JSON.stringify(malformed), 'merge'))
-      .toThrow(/Invalid timer.*intervalMs|Invalid timer.*commands/i)
+    expect(() => timersApi.importTimers(JSON.stringify(malformed), 'merge')).toThrow(
+      /Invalid timer.*intervalMs|Invalid timer.*commands/i,
+    )
     expect(timersApi.timers.value).toHaveLength(0)
   })
 
   it('rejects malformed direct timer creation and update without mutation', async () => {
     await selectAccount('Cwial')
 
-    expect(timersApi.addTimer({
-      ...timerForm,
-      intervalMs: 0,
-    })).toBeNull()
+    expect(
+      timersApi.addTimer({
+        ...timerForm,
+        intervalMs: 0,
+      }),
+    ).toBeNull()
     expect(timersApi.timers.value).toHaveLength(0)
     expect(timersApi.storageError.value).toMatch(/intervalMs must be between/i)
 
     const created = timersApi.addTimer(timerForm)
     expect(created).not.toBeNull()
     const before = timersApi.timers.value[0]
-    expect(timersApi.updateTimer(before!.id, {
-      actions: [{ type: 'command', commands: 123 } as never],
-    })).toBeNull()
+    expect(
+      timersApi.updateTimer(before!.id, {
+        actions: [{ type: 'command', commands: 123 } as never],
+      }),
+    ).toBeNull()
     expect(timersApi.timers.value[0]).toEqual(before)
   })
 

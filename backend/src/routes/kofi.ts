@@ -3,10 +3,7 @@ import type { IRouter } from 'express';
 import crypto from 'node:crypto';
 import rateLimit from 'express-rate-limit';
 import logger from '../utils/logger.js';
-import {
-  recordDonation,
-  type KofiDonation,
-} from '../services/donationService.js';
+import { recordDonation, type KofiDonation } from '../services/donationService.js';
 import { DonationDeliveryConfigurationError } from '../utils/donationEvent.js';
 import { validateKofiDonationPayload } from '../utils/kofiValidation.js';
 
@@ -53,7 +50,11 @@ router.post('/', kofiWebhookLimiter, async (req: Request, res: Response): Promis
       return;
     }
 
-    if (parsedDonation === null || typeof parsedDonation !== 'object' || Array.isArray(parsedDonation)) {
+    if (
+      parsedDonation === null ||
+      typeof parsedDonation !== 'object' ||
+      Array.isArray(parsedDonation)
+    ) {
       logger.warn('kofi webhook: payload is not an object');
       res.status(400).send('invalid payload');
       return;
@@ -71,8 +72,10 @@ router.post('/', kofiWebhookLimiter, async (req: Request, res: Response): Promis
     // verify token if configured
     const suppliedToken = donation.verification_token;
     const configuredBytes = Buffer.from(configuredToken, 'utf8');
-    const suppliedBytes = typeof suppliedToken === 'string' ? Buffer.from(suppliedToken, 'utf8') : null;
-    const tokenMatches = suppliedBytes !== null &&
+    const suppliedBytes =
+      typeof suppliedToken === 'string' ? Buffer.from(suppliedToken, 'utf8') : null;
+    const tokenMatches =
+      suppliedBytes !== null &&
       suppliedBytes.length === configuredBytes.length &&
       crypto.timingSafeEqual(suppliedBytes, configuredBytes);
     if (!tokenMatches) {

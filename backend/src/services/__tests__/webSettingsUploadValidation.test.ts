@@ -24,13 +24,17 @@ describe('web settings image upload validation', () => {
   });
 
   it('continues accepting bounded raster logos and heroes', () => {
-    expect(validateLogoFile({
-      mimetype: 'image/png',
-      size: 1024,
-    } as Express.Multer.File).valid).toBe(true);
-    expect(validateHeroFile({
-      mimetype: 'image/webp',
-      size: 1024,
-    } as Express.Multer.File).valid).toBe(true);
+    expect(
+      validateLogoFile({
+        mimetype: 'image/png',
+        size: 1024,
+      } as Express.Multer.File).valid,
+    ).toBe(true);
+    expect(
+      validateHeroFile({
+        mimetype: 'image/webp',
+        size: 1024,
+      } as Express.Multer.File).valid,
+    ).toBe(true);
   });
 });

@@ -132,7 +132,7 @@ export interface BuilderFlagsResponse {
 // Convert BuilderFlag[] to GodCommandOption[]
 function toOptions(flags: BuilderFlag[] | undefined): GodCommandOption[] {
   if (!flags) return []
-  return flags.map(f => ({
+  return flags.map((f) => ({
     value: f.name,
     label: f.description || f.name,
   }))
@@ -236,10 +236,18 @@ export function useBuilderFlags() {
   // Check if property needs on/off toggle
   function propertyNeedsOnOff(propertyName: string): boolean {
     const bitfieldProperties = [
-      'pcact', 'pcact2',
-      'aff', 'aff2', 'aff3', 'aff4', 'aff5',
-      'npcact', 'npcact2',
-      'aggro', 'aggro2', 'aggro3',
+      'pcact',
+      'pcact2',
+      'aff',
+      'aff2',
+      'aff3',
+      'aff4',
+      'aff5',
+      'npcact',
+      'npcact2',
+      'aggro',
+      'aggro2',
+      'aggro3',
     ]
     return bitfieldProperties.includes(propertyName)
   }

@@ -16,7 +16,8 @@ const CACHE_DURATION = 30000 // 30 seconds
 // Examples:
 //   [46 Huntsman        ] Inib (Acct: Poum) (Human)
 //   [51 Dragon Hunter   ]%Darmi (Acct: Boomstick) Pup | Black Wolf Co.| (inv) (Tiefling)
-const WHO_MORTAL_REGEX = /\[(\d+)\s+([^\]]+)\]\s*(?:\[\d+\s+[^\]]+\]\s*)*[%]?(\w+)\s+\(Acct:[^)]+\).*\(([^)]+)\)\s*$/
+const WHO_MORTAL_REGEX =
+  /\[(\d+)\s+([^\]]+)\]\s*(?:\[\d+\s+[^\]]+\]\s*)*[%]?(\w+)\s+\(Acct:[^)]+\).*\(([^)]+)\)\s*$/
 
 // Regex for god entries (different format - no Acct, has wiz invis level)
 // Format: [  Overlord   ] Arih </Webmaster> (56)
@@ -66,7 +67,7 @@ export function useWhoParser() {
     const godMatch = cleanLine.match(WHO_GOD_REGEX)
     if (godMatch && godMatch[1] && godMatch[2]) {
       const rank = godMatch[1]
-      if (GOD_RANKS.some(r => rank.includes(r))) {
+      if (GOD_RANKS.some((r) => rank.includes(r))) {
         return {
           name: godMatch[2],
           level: 62,
@@ -122,7 +123,7 @@ export function useWhoParser() {
     }
 
     // Wait for WHO output to arrive (give it time to populate activity log)
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    await new Promise((resolve) => setTimeout(resolve, 1500))
 
     // Scan activity log for WHO output
     const parsed = scanActivityLog()
@@ -139,14 +140,10 @@ export function useWhoParser() {
   }
 
   // Get just player names for autocomplete
-  const playerNames = computed(() =>
-    players.value.map(p => p.name)
-  )
+  const playerNames = computed(() => players.value.map((p) => p.name))
 
   // Check if cache is stale
-  const isStale = computed(() =>
-    Date.now() - lastFetched.value > CACHE_DURATION
-  )
+  const isStale = computed(() => Date.now() - lastFetched.value > CACHE_DURATION)
 
   // Force refresh (bypass cache)
   async function forceRefresh(): Promise<void> {

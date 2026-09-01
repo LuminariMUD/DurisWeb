@@ -34,8 +34,12 @@ interface DonationRow extends RowDataPacket {
 }
 
 function isDuplicateKeyError(error: unknown): boolean {
-  return typeof error === 'object' && error !== null &&
-    'code' in error && (error as { code?: unknown }).code === 'ER_DUP_ENTRY';
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'ER_DUP_ENTRY'
+  );
 }
 
 /**
@@ -44,7 +48,7 @@ function isDuplicateKeyError(error: unknown): boolean {
 export async function findAccountByEmail(email: string): Promise<string | null> {
   const [rows] = await mudPool.query<AccountRow[]>(
     'SELECT account_name FROM accounts WHERE email = ? LIMIT 1',
-    [email.toLowerCase()]
+    [email.toLowerCase()],
   );
   return rows.length > 0 ? rows[0].account_name : null;
 }
@@ -57,7 +61,7 @@ export async function getPrimaryCharacter(accountName: string): Promise<string |
     `SELECT char_name FROM account_characters
      WHERE account_name = ? AND blocked = 0
      ORDER BY last_login DESC LIMIT 1`,
-    [accountName]
+    [accountName],
   );
   return rows.length > 0 ? rows[0].char_name : null;
 }
@@ -108,7 +112,7 @@ export async function recordDonation(donation: KofiDonation): Promise<DonationRe
         donation.is_subscription_payment,
         donation.is_first_subscription_payment,
         donation.tier_name ?? null,
-      ]
+      ],
     );
 
     if (accountName) {
@@ -118,7 +122,7 @@ export async function recordDonation(donation: KofiDonation): Promise<DonationRe
          ON DUPLICATE KEY UPDATE
            total_cents = total_cents + VALUES(total_cents),
            updated_at = UTC_TIMESTAMP()`,
-        [accountName, amountCents]
+        [accountName, amountCents],
       );
     }
 
@@ -134,13 +138,15 @@ export async function recordDonation(donation: KofiDonation): Promise<DonationRe
         mudIsPublic,
         safeCharacterName,
         safeMessage,
-      ]
+      ],
     );
 
     await connection.commit();
 
     if (donation.is_public && !mudIsPublic) {
-      logger.warn(`donation ${eventId} recorded privately because no safe MUD character identity was available`);
+      logger.warn(
+        `donation ${eventId} recorded privately because no safe MUD character identity was available`,
+      );
     }
     logger.info(`donation recorded and queued: event_id=${eventId} amount_cents=${amountCents}`);
 
@@ -163,7 +169,7 @@ export async function recordDonation(donation: KofiDonation): Promise<DonationRe
       try {
         const [duplicateRows] = await webPool.query<DonationRow[]>(
           'SELECT id FROM donations WHERE kofi_message_id = ? LIMIT 1',
-          [donation.message_id]
+          [donation.message_id],
         );
         if (duplicateRows.length > 0) {
           logger.info(`kofi webhook duplicate ignored: message_id=${donation.message_id}`);
@@ -192,7 +198,7 @@ export async function recordDonation(donation: KofiDonation): Promise<DonationRe
 export async function getAccountDonationTotal(accountName: string): Promise<number> {
   const [rows] = await webPool.query<RowDataPacket[]>(
     'SELECT total_cents FROM web_donation_totals WHERE account_name = ?',
-    [accountName]
+    [accountName],
   );
   return rows.length > 0 ? Number(rows[0].total_cents) / 100 : 0;
 }

@@ -5,11 +5,7 @@ import { notificationApi } from '@/services/api'
 import { Bell } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import AnsiText from '@/components/ui/AnsiText.vue'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { useAuth } from '@/composables/useAuth'
 import { toast } from 'vue-sonner'
@@ -36,8 +32,7 @@ async function loadUnreadCount() {
 
   try {
     unreadCount.value = await notificationApi.getUnreadCount()
-  } catch {
-  }
+  } catch {}
 }
 
 async function loadNotifications() {
@@ -68,8 +63,7 @@ async function handleNotificationClick(notification: UnifiedNotification) {
 
     // Close popover
     isOpen.value = false
-  } catch {
-  }
+  } catch {}
 }
 
 async function markAllAsRead() {
@@ -78,8 +72,7 @@ async function markAllAsRead() {
     unreadCount.value = 0
     notifications.value = []
     isOpen.value = false
-  } catch {
-  }
+  } catch {}
 }
 
 function viewAllNotifications() {
@@ -87,22 +80,28 @@ function viewAllNotifications() {
   isOpen.value = false
 }
 
-watch(() => isOpen.value, (newValue) => {
-  if (newValue && props.isAuthenticated) {
-    loadNotifications()
-    loadUnreadCount()
-  }
-})
+watch(
+  () => isOpen.value,
+  (newValue) => {
+    if (newValue && props.isAuthenticated) {
+      loadNotifications()
+      loadUnreadCount()
+    }
+  },
+)
 
 // Watch for auth changes
-watch(() => props.isAuthenticated, (isAuth) => {
-  if (isAuth) {
-    loadUnreadCount()
-  } else {
-    unreadCount.value = 0
-    notifications.value = []
-  }
-})
+watch(
+  () => props.isAuthenticated,
+  (isAuth) => {
+    if (isAuth) {
+      loadUnreadCount()
+    } else {
+      unreadCount.value = 0
+      notifications.value = []
+    }
+  },
+)
 
 // Handle WebSocket notification
 function handleNotification(accountName: string, data: any) {
@@ -113,12 +112,16 @@ function handleNotification(accountName: string, data: any) {
       loadNotifications()
     }
     // Show toast notification with ANSI parsing
-    toast.custom((toastId) => h(NotificationToast, {
-      message: data.message,
-      onDismiss: () => toast.dismiss(toastId),
-    }), {
-      duration: 5000,
-    })
+    toast.custom(
+      (toastId) =>
+        h(NotificationToast, {
+          message: data.message,
+          onDismiss: () => toast.dismiss(toastId),
+        }),
+      {
+        duration: 5000,
+      },
+    )
   }
 }
 

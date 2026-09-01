@@ -75,21 +75,54 @@ export interface RestoreCategories {
 }
 
 export const CATEGORY_TABLES: Readonly<Record<keyof RestoreCategories, readonly string[]>> = {
-  coreData: ['player_data', 'account_characters', 'player_affects', 'player_timers',
-             'player_languages', 'player_intros', 'player_undead_slots', 'player_granted_cmds'],
-  inventory: ['player_items', 'player_item_affects', 'player_item_extra_descr',
-              'player_forged_items', 'artifact_bind'],
-  lockers: ['lockers', 'locker_items', 'locker_item_affects',
-            'private_chests', 'private_chest_log'],
-  skills: ['player_skills', 'player_spellbooks', 'player_recipes',
-           'player_shapechanges', 'player_witnesses'],
-  progression: ['progress', 'epic_gain', 'epic_bonus', 'boons', 'boons_progress',
-                'world_quest_accomplished'],
+  coreData: [
+    'player_data',
+    'account_characters',
+    'player_affects',
+    'player_timers',
+    'player_languages',
+    'player_intros',
+    'player_undead_slots',
+    'player_granted_cmds',
+  ],
+  inventory: [
+    'player_items',
+    'player_item_affects',
+    'player_item_extra_descr',
+    'player_forged_items',
+    'artifact_bind',
+  ],
+  lockers: [
+    'lockers',
+    'locker_items',
+    'locker_item_affects',
+    'private_chests',
+    'private_chest_log',
+  ],
+  skills: [
+    'player_skills',
+    'player_spellbooks',
+    'player_recipes',
+    'player_shapechanges',
+    'player_witnesses',
+  ],
+  progression: [
+    'progress',
+    'epic_gain',
+    'epic_bonus',
+    'boons',
+    'boons_progress',
+    'world_quest_accomplished',
+  ],
   auction: ['auction_money_pickups', 'auction_item_pickups', 'auction_bid_history'],
   guild: ['guild_members'],
   pvpHistory: ['pkill_info', 'pkill_event', 'frag_leaderboard'],
-  pets: ['player_pets', 'player_pet_items', 'player_pet_item_affects',
-         'player_pet_item_extra_descr'],
+  pets: [
+    'player_pets',
+    'player_pet_items',
+    'player_pet_item_affects',
+    'player_pet_item_extra_descr',
+  ],
   ships: ['ships', 'ship_armor', 'ship_crew', 'ship_slots'],
   corpses: ['corpses', 'corpse_items', 'corpse_item_affects'],
   mail: ['offline_messages'],
@@ -166,44 +199,89 @@ export const FILTER_COLUMN_MAP: Readonly<Record<string, string>> = {
 
 export interface CascadeEdge {
   parentTable: string;
-  parentKeyCol: string;   // column in parent whose values form the key set for children
+  parentKeyCol: string; // column in parent whose values form the key set for children
   childTable: string;
   childFilterCol: string; // column in child to match against the key set
 }
 
 // topological order: parents before children
 export const CASCADE_EDGES: readonly CascadeEdge[] = [
-  { parentTable: 'player_items', parentKeyCol: 'id',
-    childTable: 'player_item_affects', childFilterCol: 'item_id' },
-  { parentTable: 'player_items', parentKeyCol: 'id',
-    childTable: 'player_item_extra_descr', childFilterCol: 'item_id' },
-  { parentTable: 'player_pets', parentKeyCol: 'id',
-    childTable: 'player_pet_items', childFilterCol: 'pet_id' },
-  { parentTable: 'player_pet_items', parentKeyCol: 'id',
-    childTable: 'player_pet_item_affects', childFilterCol: 'item_id' },
-  { parentTable: 'player_pet_items', parentKeyCol: 'id',
-    childTable: 'player_pet_item_extra_descr', childFilterCol: 'item_id' },
-  { parentTable: 'lockers', parentKeyCol: 'id',
-    childTable: 'locker_items', childFilterCol: 'locker_id' },
-  { parentTable: 'locker_items', parentKeyCol: 'id',
-    childTable: 'locker_item_affects', childFilterCol: 'item_id' },
-  { parentTable: 'lockers', parentKeyCol: 'id',
-    childTable: 'private_chests', childFilterCol: 'locker_id' },
-  { parentTable: 'private_chests', parentKeyCol: 'id',
-    childTable: 'private_chest_log', childFilterCol: 'chest_id' },
-  { parentTable: 'corpses', parentKeyCol: 'id',
-    childTable: 'corpse_items', childFilterCol: 'corpse_id' },
-  { parentTable: 'corpse_items', parentKeyCol: 'id',
-    childTable: 'corpse_item_affects', childFilterCol: 'item_id' },
-  { parentTable: 'ships', parentKeyCol: 'id',
-    childTable: 'ship_armor', childFilterCol: 'ship_id' },
-  { parentTable: 'ships', parentKeyCol: 'id',
-    childTable: 'ship_crew', childFilterCol: 'ship_id' },
-  { parentTable: 'ships', parentKeyCol: 'id',
-    childTable: 'ship_slots', childFilterCol: 'ship_id' },
+  {
+    parentTable: 'player_items',
+    parentKeyCol: 'id',
+    childTable: 'player_item_affects',
+    childFilterCol: 'item_id',
+  },
+  {
+    parentTable: 'player_items',
+    parentKeyCol: 'id',
+    childTable: 'player_item_extra_descr',
+    childFilterCol: 'item_id',
+  },
+  {
+    parentTable: 'player_pets',
+    parentKeyCol: 'id',
+    childTable: 'player_pet_items',
+    childFilterCol: 'pet_id',
+  },
+  {
+    parentTable: 'player_pet_items',
+    parentKeyCol: 'id',
+    childTable: 'player_pet_item_affects',
+    childFilterCol: 'item_id',
+  },
+  {
+    parentTable: 'player_pet_items',
+    parentKeyCol: 'id',
+    childTable: 'player_pet_item_extra_descr',
+    childFilterCol: 'item_id',
+  },
+  {
+    parentTable: 'lockers',
+    parentKeyCol: 'id',
+    childTable: 'locker_items',
+    childFilterCol: 'locker_id',
+  },
+  {
+    parentTable: 'locker_items',
+    parentKeyCol: 'id',
+    childTable: 'locker_item_affects',
+    childFilterCol: 'item_id',
+  },
+  {
+    parentTable: 'lockers',
+    parentKeyCol: 'id',
+    childTable: 'private_chests',
+    childFilterCol: 'locker_id',
+  },
+  {
+    parentTable: 'private_chests',
+    parentKeyCol: 'id',
+    childTable: 'private_chest_log',
+    childFilterCol: 'chest_id',
+  },
+  {
+    parentTable: 'corpses',
+    parentKeyCol: 'id',
+    childTable: 'corpse_items',
+    childFilterCol: 'corpse_id',
+  },
+  {
+    parentTable: 'corpse_items',
+    parentKeyCol: 'id',
+    childTable: 'corpse_item_affects',
+    childFilterCol: 'item_id',
+  },
+  { parentTable: 'ships', parentKeyCol: 'id', childTable: 'ship_armor', childFilterCol: 'ship_id' },
+  { parentTable: 'ships', parentKeyCol: 'id', childTable: 'ship_crew', childFilterCol: 'ship_id' },
+  { parentTable: 'ships', parentKeyCol: 'id', childTable: 'ship_slots', childFilterCol: 'ship_id' },
   // special: pkill_info.event_id (not id) -> pkill_event.id
-  { parentTable: 'pkill_info', parentKeyCol: 'event_id',
-    childTable: 'pkill_event', childFilterCol: 'id' },
+  {
+    parentTable: 'pkill_info',
+    parentKeyCol: 'event_id',
+    childTable: 'pkill_event',
+    childFilterCol: 'id',
+  },
 ];
 
 interface BackupRow extends RowDataPacket {
@@ -239,13 +317,15 @@ interface RestoreRow extends RowDataPacket {
 }
 
 // Progress broadcast function (will be set by index.ts)
-let progressBroadcaster: ((data: {
-  id: number;
-  progress: number;
-  currentStep: string;
-  status: string;
-  filename: string;
-}) => void) | null = null;
+let progressBroadcaster:
+  | ((data: {
+      id: number;
+      progress: number;
+      currentStep: string;
+      status: string;
+      filename: string;
+    }) => void)
+  | null = null;
 
 export function setProgressBroadcaster(fn: typeof progressBroadcaster) {
   progressBroadcaster = fn;
@@ -314,11 +394,12 @@ function mapRowToRestoreInfo(row: RestoreRow): RestoreInfo {
 export async function createBackup(
   accountName: string,
   ipAddress: string,
-  backupType: 'manual' | 'hourly' = 'manual'
+  backupType: 'manual' | 'hourly' = 'manual',
 ): Promise<{ id: number; filename: string }> {
   // Generate filename with timestamp
   const now = new Date();
-  const timestamp = now.toISOString()
+  const timestamp = now
+    .toISOString()
     .replace(/T/, '-')
     .replace(/:/g, '')
     .replace(/\..+/, '')
@@ -333,7 +414,7 @@ export async function createBackup(
   const [result] = await pool.execute<ResultSetHeader>(
     `INSERT INTO mud_backups (filename, backup_type, status, progress, current_step, created_by, ip_address, started_at)
      VALUES (?, ?, 'pending', 0, 'Initializing...', ?, ?, NOW())`,
-    [filename, backupType, accountName, ipAddress]
+    [filename, backupType, accountName, ipAddress],
   );
 
   const backupId = result.insertId;
@@ -352,7 +433,7 @@ export async function createBackup(
 async function runBackup(
   backupId: number,
   filename: string,
-  backupType: 'manual' | 'hourly' = 'manual'
+  backupType: 'manual' | 'hourly' = 'manual',
 ): Promise<void> {
   const zipPath = path.join(BACKUP_DIR, filename);
   const tempSqlPath = path.join(BACKUP_DIR, `temp_${backupId}.sql`);
@@ -360,16 +441,32 @@ async function runBackup(
   try {
     // Update status to in_progress
     await updateBackupStatus(backupId, 'in_progress', 5, 'Starting backup...');
-    broadcastProgress({ id: backupId, progress: 5, currentStep: 'Starting backup...', status: 'in_progress', filename });
+    broadcastProgress({
+      id: backupId,
+      progress: 5,
+      currentStep: 'Starting backup...',
+      status: 'in_progress',
+      filename,
+    });
 
     // Step 1: Dump database (0-40%)
     await updateBackupStatus(backupId, 'in_progress', 10, 'Dumping database...');
-    broadcastProgress({ id: backupId, progress: 10, currentStep: 'Dumping database...', status: 'in_progress', filename });
+    broadcastProgress({
+      id: backupId,
+      progress: 10,
+      currentStep: 'Dumping database...',
+      status: 'in_progress',
+      filename,
+    });
 
     const dbName = process.env.DB_NAME || 'duris_dev';
     const dbUser = process.env.DB_USER || 'duris';
     const dbPassword = process.env.DB_PASSWORD || 'duris';
     const dbHost = process.env.DB_HOST || '127.0.0.1';
+    const dbPort = Number.parseInt(process.env.DB_PORT || '3306', 10);
+    if (!Number.isInteger(dbPort) || dbPort < 1 || dbPort > 65535) {
+      throw new Error('DB_PORT must be an integer between 1 and 65535');
+    }
 
     // skip views entirely: they can reference tables dropped by past migrations,
     // which makes mysqldump fail with "references invalid table(s)". our restore
@@ -379,10 +476,10 @@ async function runBackup(
     const [viewRows] = await pool.execute<RowDataPacket[]>(
       `SELECT TABLE_NAME FROM information_schema.tables
        WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'VIEW'`,
-      [dbName]
+      [dbName],
     );
     const ignoreFlags = (viewRows as { TABLE_NAME: string }[])
-      .map(r => `--ignore-table=${dbName}.${r.TABLE_NAME}`)
+      .map((r) => `--ignore-table=${dbName}.${r.TABLE_NAME}`)
       .join(' ');
 
     // --single-transaction: innodb-consistent snapshot without LOCK TABLES
@@ -390,16 +487,28 @@ async function runBackup(
     // --no-tablespaces: skip tablespace metadata dump
     // (avoids needing the PROCESS privilege, required by default in mysql 8.0+).
     await execAsync(
-      `mysqldump --single-transaction --no-tablespaces ${ignoreFlags} -h ${dbHost} -u ${dbUser} -p'${dbPassword}' ${dbName} > "${tempSqlPath}"`,
-      { maxBuffer: 100 * 1024 * 1024 }
+      `mysqldump --single-transaction --no-tablespaces ${ignoreFlags} -h ${dbHost} -P ${dbPort} -u ${dbUser} -p'${dbPassword}' ${dbName} > "${tempSqlPath}"`,
+      { maxBuffer: 100 * 1024 * 1024 },
     );
 
     await updateBackupStatus(backupId, 'in_progress', 40, 'Database dump complete');
-    broadcastProgress({ id: backupId, progress: 40, currentStep: 'Database dump complete', status: 'in_progress', filename });
+    broadcastProgress({
+      id: backupId,
+      progress: 40,
+      currentStep: 'Database dump complete',
+      status: 'in_progress',
+      filename,
+    });
 
     // Step 2: Create zip archive (40-100%)
     await updateBackupStatus(backupId, 'in_progress', 45, 'Creating zip archive...');
-    broadcastProgress({ id: backupId, progress: 45, currentStep: 'Creating zip archive...', status: 'in_progress', filename });
+    broadcastProgress({
+      id: backupId,
+      progress: 45,
+      currentStep: 'Creating zip archive...',
+      status: 'in_progress',
+      filename,
+    });
 
     await createZipArchive(backupId, filename, zipPath, tempSqlPath);
 
@@ -411,9 +520,15 @@ async function runBackup(
     await pool.execute(
       `UPDATE mud_backups SET status = 'completed', progress = 100, current_step = 'Backup complete',
        file_size = ?, completed_at = NOW() WHERE id = ?`,
-      [fileSize, backupId]
+      [fileSize, backupId],
     );
-    broadcastProgress({ id: backupId, progress: 100, currentStep: 'Backup complete', status: 'completed', filename });
+    broadcastProgress({
+      id: backupId,
+      progress: 100,
+      currentStep: 'Backup complete',
+      status: 'completed',
+      filename,
+    });
 
     // Cleanup temp SQL file
     await fs.promises.unlink(tempSqlPath).catch(() => {});
@@ -421,16 +536,24 @@ async function runBackup(
     // Cleanup old backups
     await cleanupOldBackups(backupType);
 
-    logger.info(`Backup ${backupId} completed successfully: ${filename} (${formatBytes(fileSize)})`);
+    logger.info(
+      `Backup ${backupId} completed successfully: ${filename} (${formatBytes(fileSize)})`,
+    );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error(`Backup ${backupId} failed:`, errorMessage);
 
     await pool.execute(
       `UPDATE mud_backups SET status = 'failed', error_message = ?, completed_at = NOW() WHERE id = ?`,
-      [errorMessage, backupId]
+      [errorMessage, backupId],
     );
-    broadcastProgress({ id: backupId, progress: 0, currentStep: `Failed: ${errorMessage}`, status: 'failed', filename });
+    broadcastProgress({
+      id: backupId,
+      progress: 0,
+      currentStep: `Failed: ${errorMessage}`,
+      status: 'failed',
+      filename,
+    });
 
     // Cleanup partial files
     await fs.promises.unlink(zipPath).catch(() => {});
@@ -446,7 +569,7 @@ async function createZipArchive(
   backupId: number,
   filename: string,
   zipPath: string,
-  sqlPath: string
+  sqlPath: string,
 ): Promise<void> {
   const tempDir = path.join(BACKUP_DIR, `temp_staging_${backupId}`);
 
@@ -460,7 +583,13 @@ async function createZipArchive(
     await fs.promises.copyFile(sqlPath, path.join(dbDir, `${dbName}.sql`));
 
     await updateBackupStatus(backupId, 'in_progress', 50, 'Zipping database...');
-    broadcastProgress({ id: backupId, progress: 50, currentStep: 'Zipping database...', status: 'in_progress', filename });
+    broadcastProgress({
+      id: backupId,
+      progress: 50,
+      currentStep: 'Zipping database...',
+      status: 'in_progress',
+      filename,
+    });
 
     // build zip command - database folder only (player data lives in db now)
     const zipParts: string[] = [];
@@ -471,8 +600,13 @@ async function createZipArchive(
     }
 
     await updateBackupStatus(backupId, 'in_progress', 95, 'Finalizing...');
-    broadcastProgress({ id: backupId, progress: 95, currentStep: 'Finalizing...', status: 'in_progress', filename });
-
+    broadcastProgress({
+      id: backupId,
+      progress: 95,
+      currentStep: 'Finalizing...',
+      status: 'in_progress',
+      filename,
+    });
   } finally {
     // cleanup temp staging directory
     await fs.promises.rm(tempDir, { recursive: true, force: true }).catch(() => {});
@@ -486,11 +620,11 @@ async function updateBackupStatus(
   backupId: number,
   status: string,
   progress: number,
-  currentStep: string
+  currentStep: string,
 ): Promise<void> {
   await pool.execute(
     `UPDATE mud_backups SET status = ?, progress = ?, current_step = ? WHERE id = ?`,
-    [status, progress, currentStep, backupId]
+    [status, progress, currentStep, backupId],
   );
 }
 
@@ -505,12 +639,12 @@ export async function getBackupList(): Promise<BackupInfo[]> {
          error_message = 'Backup timed out (stuck for over 30 minutes)',
          completed_at = NOW()
      WHERE status IN ('in_progress', 'pending')
-       AND started_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)`
+       AND started_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)`,
   );
 
   // 2. Get all completed backups and check if files exist
   const [completedRows] = await pool.execute<BackupRow[]>(
-    `SELECT id, filename FROM mud_backups WHERE status = 'completed'`
+    `SELECT id, filename FROM mud_backups WHERE status = 'completed'`,
   );
 
   // Remove records where backup file no longer exists
@@ -530,7 +664,7 @@ export async function getBackupList(): Promise<BackupInfo[]> {
 
   // 3. Return the cleaned list
   const [rows] = await pool.execute<BackupRow[]>(
-    `SELECT * FROM mud_backups ORDER BY started_at DESC`
+    `SELECT * FROM mud_backups ORDER BY started_at DESC`,
   );
   return rows.map(mapRowToBackupInfo);
 }
@@ -539,10 +673,7 @@ export async function getBackupList(): Promise<BackupInfo[]> {
  * Get a single backup by ID
  */
 export async function getBackupById(id: number): Promise<BackupInfo | null> {
-  const [rows] = await pool.execute<BackupRow[]>(
-    `SELECT * FROM mud_backups WHERE id = ?`,
-    [id]
-  );
+  const [rows] = await pool.execute<BackupRow[]>(`SELECT * FROM mud_backups WHERE id = ?`, [id]);
   return rows.length > 0 ? mapRowToBackupInfo(rows[0]) : null;
 }
 
@@ -598,7 +729,7 @@ export async function deleteBackup(id: number): Promise<boolean> {
  */
 export async function deleteFailedBackups(): Promise<number> {
   const [rows] = await pool.execute<BackupRow[]>(
-    `SELECT * FROM mud_backups WHERE status = 'failed'`
+    `SELECT * FROM mud_backups WHERE status = 'failed'`,
   );
 
   let deletedCount = 0;
@@ -633,7 +764,7 @@ async function cleanupOldBackups(backupType: 'manual' | 'hourly'): Promise<void>
 
   const [rows] = await pool.execute<BackupRow[]>(
     `SELECT * FROM mud_backups WHERE status = 'completed' AND backup_type = ? ORDER BY started_at DESC`,
-    [backupType]
+    [backupType],
   );
 
   if (rows.length <= maxBackups) {
@@ -747,8 +878,8 @@ export async function listBackupContents(backupId: number): Promise<BackupConten
   if (!fs.existsSync(filePath)) return null;
 
   const directory = await unzipper.Open.file(filePath);
-  const sqlFile = directory.files.find(f =>
-    f.path.endsWith('.sql') && (f.path.startsWith('database/') || f.path === 'database.sql')
+  const sqlFile = directory.files.find(
+    (f) => f.path.endsWith('.sql') && (f.path.startsWith('database/') || f.path === 'database.sql'),
   );
   if (!sqlFile) return { accounts: [], characters: [] };
 
@@ -761,12 +892,9 @@ export async function listBackupContents(backupId: number): Promise<BackupConten
 // ============================================================================
 
 // Restore progress broadcaster (separate from backup progress)
-let restoreProgressBroadcaster: ((data: {
-  id: number;
-  progress: number;
-  currentStep: string;
-  status: string;
-}) => void) | null = null;
+let restoreProgressBroadcaster:
+  | ((data: { id: number; progress: number; currentStep: string; status: string }) => void)
+  | null = null;
 
 export function setRestoreProgressBroadcaster(fn: typeof restoreProgressBroadcaster) {
   restoreProgressBroadcaster = fn;
@@ -847,7 +975,7 @@ async function runRestoreInternal(
   }
   const restoreId = result.insertId;
 
-  executeRestorePipeline(restoreId, filePath, req).catch(err => {
+  executeRestorePipeline(restoreId, filePath, req).catch((err) => {
     logger.error(`restore ${restoreId} failed:`, err);
   });
 
@@ -873,8 +1001,9 @@ async function executeRestorePipeline(
     await bump(5, 'Loading backup...');
     if (!fs.existsSync(filePath)) throw new Error('Backup file not found');
     const directory = await unzipper.Open.file(filePath);
-    const sqlFile = directory.files.find(f =>
-      f.path.endsWith('.sql') && (f.path.startsWith('database/') || f.path === 'database.sql')
+    const sqlFile = directory.files.find(
+      (f) =>
+        f.path.endsWith('.sql') && (f.path.startsWith('database/') || f.path === 'database.sql'),
     );
     if (!sqlFile) throw new Error('No database/*.sql inside backup');
 
@@ -888,8 +1017,8 @@ async function executeRestorePipeline(
     } else if (req.restoreType === 'account') {
       filtered = filterDumpForAccountRestore(sqlContent, new Set(req.accounts || []));
     } else {
-      const pidSet = new Set((req.characters || []).map(c => String(c.pid)));
-      const nameSet = new Set((req.characters || []).map(c => c.name));
+      const pidSet = new Set((req.characters || []).map((c) => String(c.pid)));
+      const nameSet = new Set((req.characters || []).map((c) => c.name));
       filtered = filterDumpForCharacterRestore(sqlContent, pidSet, req.categories || {}, nameSet);
     }
 
@@ -919,7 +1048,12 @@ async function executeRestorePipeline(
        current_step = 'Restore complete', completed_at = NOW() WHERE id = ?`,
       [restoreId],
     );
-    broadcastRestoreProgress({ id: restoreId, progress: 100, currentStep: 'Restore complete', status: 'completed' });
+    broadcastRestoreProgress({
+      id: restoreId,
+      progress: 100,
+      currentStep: 'Restore complete',
+      status: 'completed',
+    });
     logger.info(`restore ${restoreId} completed`);
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
@@ -928,7 +1062,12 @@ async function executeRestorePipeline(
       `UPDATE mud_restores SET status = 'failed', error_message = ?, completed_at = NOW() WHERE id = ?`,
       [msg, restoreId],
     );
-    broadcastRestoreProgress({ id: restoreId, progress: 0, currentStep: `Failed: ${msg}`, status: 'failed' });
+    broadcastRestoreProgress({
+      id: restoreId,
+      progress: 0,
+      currentStep: `Failed: ${msg}`,
+      status: 'failed',
+    });
   } finally {
     await fs.promises.unlink(tempSqlPath).catch(() => {});
   }
@@ -954,14 +1093,13 @@ async function updateRestoreStatus(
   restoreId: number,
   status: string,
   progress: number,
-  currentStep: string
+  currentStep: string,
 ): Promise<void> {
   await pool.execute(
     `UPDATE mud_restores SET status = ?, progress = ?, current_step = ? WHERE id = ?`,
-    [status, progress, currentStep, restoreId]
+    [status, progress, currentStep, restoreId],
   );
 }
-
 
 /**
  * extract every INSERT INTO `tableName` ... VALUES (...); statement for a specific table
@@ -973,7 +1111,7 @@ async function updateRestoreStatus(
  */
 export function extractInsertBlocks(sqlContent: string, tableName: string): string[] {
   const blocks: string[] = [];
-  const prefix = "INSERT INTO `" + tableName + "`";
+  const prefix = 'INSERT INTO `' + tableName + '`';
   let i = 0;
 
   while (i < sqlContent.length) {
@@ -1001,9 +1139,21 @@ export function extractInsertBlocks(sqlContent: string, tableName: string): stri
 
     while (j < sqlContent.length) {
       const c = sqlContent[j];
-      if (escapeNext) { escapeNext = false; j++; continue; }
-      if (c === '\\') { escapeNext = true; j++; continue; }
-      if (c === "'") { inString = !inString; j++; continue; }
+      if (escapeNext) {
+        escapeNext = false;
+        j++;
+        continue;
+      }
+      if (c === '\\') {
+        escapeNext = true;
+        j++;
+        continue;
+      }
+      if (c === "'") {
+        inString = !inString;
+        j++;
+        continue;
+      }
       if (!inString) {
         if (c === '(') depth++;
         else if (c === ')') depth--;
@@ -1028,7 +1178,7 @@ export function extractInsertBlocks(sqlContent: string, tableName: string): stri
  * ignores constraint-only lines (PRIMARY KEY, UNIQUE KEY, KEY, FOREIGN KEY, CONSTRAINT).
  */
 export function parseCreateTableColumns(sqlContent: string, tableName: string): string[] {
-  const marker = "CREATE TABLE `" + tableName + "`";
+  const marker = 'CREATE TABLE `' + tableName + '`';
   const start = sqlContent.indexOf(marker);
   if (start === -1) return [];
 
@@ -1042,14 +1192,26 @@ export function parseCreateTableColumns(sqlContent: string, tableName: string): 
 
   for (let i = openParen; i < sqlContent.length; i++) {
     const c = sqlContent[i];
-    if (escapeNext) { escapeNext = false; continue; }
-    if (c === '\\') { escapeNext = true; continue; }
-    if (c === "'") { inString = !inString; continue; }
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+    if (c === '\\') {
+      escapeNext = true;
+      continue;
+    }
+    if (c === "'") {
+      inString = !inString;
+      continue;
+    }
     if (!inString) {
       if (c === '(') depth++;
       else if (c === ')') {
         depth--;
-        if (depth === 0) { closeParen = i; break; }
+        if (depth === 0) {
+          closeParen = i;
+          break;
+        }
       }
     }
   }
@@ -1067,9 +1229,21 @@ export function parseCreateTableColumns(sqlContent: string, tableName: string): 
   inString = false;
   escapeNext = false;
   for (const c of body) {
-    if (escapeNext) { current += c; escapeNext = false; continue; }
-    if (c === '\\') { escapeNext = true; current += c; continue; }
-    if (c === "'") { inString = !inString; current += c; continue; }
+    if (escapeNext) {
+      current += c;
+      escapeNext = false;
+      continue;
+    }
+    if (c === '\\') {
+      escapeNext = true;
+      current += c;
+      continue;
+    }
+    if (c === "'") {
+      inString = !inString;
+      current += c;
+      continue;
+    }
     if (!inString) {
       if (c === '(') parenDepth++;
       else if (c === ')') parenDepth--;
@@ -1084,12 +1258,21 @@ export function parseCreateTableColumns(sqlContent: string, tableName: string): 
   if (current.trim()) pieces.push(current.trim());
 
   const columns: string[] = [];
-  const constraintPrefixes = ['PRIMARY KEY', 'UNIQUE KEY', 'UNIQUE INDEX', 'KEY ', 'INDEX ',
-                               'FOREIGN KEY', 'CONSTRAINT', 'FULLTEXT', 'SPATIAL'];
+  const constraintPrefixes = [
+    'PRIMARY KEY',
+    'UNIQUE KEY',
+    'UNIQUE INDEX',
+    'KEY ',
+    'INDEX ',
+    'FOREIGN KEY',
+    'CONSTRAINT',
+    'FULLTEXT',
+    'SPATIAL',
+  ];
 
   for (const piece of pieces) {
     const upper = piece.toUpperCase();
-    if (constraintPrefixes.some(p => upper.startsWith(p))) continue;
+    if (constraintPrefixes.some((p) => upper.startsWith(p))) continue;
     const m = piece.match(/^`([^`]+)`/);
     if (m) columns.push(m[1]);
   }
@@ -1151,14 +1334,30 @@ function unescapeMysqlString(s: string): string {
   for (let i = 0; i < s.length; i++) {
     if (s[i] === '\\' && i + 1 < s.length) {
       const next = s[i + 1];
-      if (next === "'") { out += "'"; i++; }
-      else if (next === '"') { out += '"'; i++; }
-      else if (next === '\\') { out += '\\'; i++; }
-      else if (next === 'n') { out += '\n'; i++; }
-      else if (next === 'r') { out += '\r'; i++; }
-      else if (next === '0') { out += '\0'; i++; }
-      else if (next === 'Z') { out += '\x1A'; i++; }
-      else { out += s[i]; }
+      if (next === "'") {
+        out += "'";
+        i++;
+      } else if (next === '"') {
+        out += '"';
+        i++;
+      } else if (next === '\\') {
+        out += '\\';
+        i++;
+      } else if (next === 'n') {
+        out += '\n';
+        i++;
+      } else if (next === 'r') {
+        out += '\r';
+        i++;
+      } else if (next === '0') {
+        out += '\0';
+        i++;
+      } else if (next === 'Z') {
+        out += '\x1A';
+        i++;
+      } else {
+        out += s[i];
+      }
     } else {
       out += s[i];
     }
@@ -1183,9 +1382,18 @@ function extractColValue(rowStr: string, colIndex: number): string | null {
 
   for (let i = 0; i <= inner.length; i++) {
     const c = i < inner.length ? inner[i] : ',';
-    if (escapeNext) { escapeNext = false; continue; }
-    if (c === '\\') { escapeNext = true; continue; }
-    if (c === "'") { inString = !inString; continue; }
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+    if (c === '\\') {
+      escapeNext = true;
+      continue;
+    }
+    if (c === "'") {
+      inString = !inString;
+      continue;
+    }
     if (!inString) {
       if (c === '(') depth++;
       else if (c === ')') depth--;
@@ -1346,7 +1554,7 @@ export function filterDumpForCharacterRestore(
   const selected = new Set(tablesForCategories(categories));
   const filtered: Record<string, string[]> = {};
 
-  const cascadeChildren = new Set(CASCADE_EDGES.map(e => e.childTable));
+  const cascadeChildren = new Set(CASCADE_EDGES.map((e) => e.childTable));
 
   for (const tbl of selected) {
     if (cascadeChildren.has(tbl)) continue;
@@ -1354,7 +1562,7 @@ export function filterDumpForCharacterRestore(
     const rows = rowMap[tbl];
     if (!info || !rows) continue;
     const filterCol = FILTER_COLUMN_MAP[tbl];
-    const keySet = (filterCol === 'player_name' || filterCol === 'owner_name') ? nameSet : pidSet;
+    const keySet = filterCol === 'player_name' || filterCol === 'owner_name' ? nameSet : pidSet;
     filtered[tbl] = filterTableRows(rows, info, keySet);
   }
 
@@ -1434,9 +1642,18 @@ export function filterDumpForAccountRestore(
   }
 
   const allCategoriesChecked: RestoreCategories = {
-    coreData: true, inventory: true, lockers: true, skills: true,
-    progression: true, auction: true, guild: true, pvpHistory: true,
-    pets: true, ships: true, corpses: true, mail: true,
+    coreData: true,
+    inventory: true,
+    lockers: true,
+    skills: true,
+    progression: true,
+    auction: true,
+    guild: true,
+    pvpHistory: true,
+    pets: true,
+    ships: true,
+    corpses: true,
+    mail: true,
   };
   const perChar = filterDumpForCharacterRestore(sqlContent, pidSet, allCategoriesChecked, nameSet);
   return { ...filtered, ...perChar };
@@ -1502,7 +1719,6 @@ export function parseMultiValueInsert(valuesStr: string): string[] {
   return rows;
 }
 
-
 export interface UploadedBackupInfo {
   tempPath: string;
   contents: BackupContents;
@@ -1527,8 +1743,9 @@ export async function validateUploadedBackup(filePath: string): Promise<Uploaded
       };
     }
     const directory = await unzipper.Open.file(safeFilePath);
-    const sqlFile = directory.files.find(f =>
-      f.path.endsWith('.sql') && (f.path.startsWith('database/') || f.path === 'database.sql')
+    const sqlFile = directory.files.find(
+      (f) =>
+        f.path.endsWith('.sql') && (f.path.startsWith('database/') || f.path === 'database.sql'),
     );
     if (!sqlFile) {
       return {
@@ -1541,8 +1758,10 @@ export async function validateUploadedBackup(filePath: string): Promise<Uploaded
 
     const content = (await sqlFile.buffer()).toString('utf-8');
 
-    if (!content.includes('CREATE TABLE `account_characters`') ||
-        !content.includes('CREATE TABLE `player_data`')) {
+    if (
+      !content.includes('CREATE TABLE `account_characters`') ||
+      !content.includes('CREATE TABLE `player_data`')
+    ) {
       return {
         tempPath: safeFilePath,
         contents: { accounts: [], characters: [] },
@@ -1559,7 +1778,9 @@ export async function validateUploadedBackup(filePath: string): Promise<Uploaded
       contents: { accounts: [], characters: [] },
       isValid: false,
       errorMessage: safeFilePath
-        ? error instanceof Error ? error.message : 'Failed to read backup file'
+        ? error instanceof Error
+          ? error.message
+          : 'Failed to read backup file'
         : 'Invalid backup upload path',
     };
   }
@@ -1598,10 +1819,7 @@ export async function deleteUploadedBackup(filePath: string): Promise<void> {
  * Get a restore by ID
  */
 export async function getRestoreById(id: number): Promise<RestoreInfo | null> {
-  const [rows] = await pool.execute<RestoreRow[]>(
-    `SELECT * FROM mud_restores WHERE id = ?`,
-    [id]
-  );
+  const [rows] = await pool.execute<RestoreRow[]>(`SELECT * FROM mud_restores WHERE id = ?`, [id]);
   return rows.length > 0 ? mapRowToRestoreInfo(rows[0]) : null;
 }
 
@@ -1618,11 +1836,11 @@ export async function getRestoreList(): Promise<RestoreInfo[]> {
          error_message = 'Restore timed out (stuck for over 30 minutes)',
          completed_at = NOW()
      WHERE status IN ('in_progress', 'pending')
-       AND started_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)`
+       AND started_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)`,
   );
 
   const [rows] = await pool.execute<RestoreRow[]>(
-    `SELECT * FROM mud_restores ORDER BY started_at DESC`
+    `SELECT * FROM mud_restores ORDER BY started_at DESC`,
   );
   return rows.map(mapRowToRestoreInfo);
 }

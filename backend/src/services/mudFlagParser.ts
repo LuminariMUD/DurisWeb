@@ -7,9 +7,10 @@
  * Uses MUD_DIR from environment variables - NEVER hardcodes paths!
  */
 
-import fs from 'fs/promises';
-import path from 'path';
+import { isHookEnabledSync } from '../hooks/hookGate.js';
+import { recordDroppedFlatfileInput } from '../hooks/flatfileHookState.js';
 import logger from '../utils/logger.js';
+import { readMudTextFile } from './flatfileAccess.js';
 
 export interface ParsedFlag {
   name: string;
@@ -26,20 +27,28 @@ export interface ParseResult {
   sourceFile: string;
 }
 
-export class MudFlagParser {
-  private mudDir: string;
+const CURRENT_SOURCE_PATHS: Readonly<Record<string, string>> = Object.freeze({
+  'src/common.c': 'src/core/common.c',
+  'src/fight.c': 'src/combat/fight.c',
+  'src/constant.c': 'src/core/constant.c',
+  'src/defines.h': 'src/core/defines.h',
+});
 
-  constructor() {
-    this.mudDir = process.env.MUD_DIR || '';
-    if (!this.mudDir) {
-      throw new Error('MUD_DIR not configured in .env');
-    }
+export class MudFlagParseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MudFlagParseError';
   }
+}
 
+export class MudFlagParser {
   /**
    * Parse all flag categories from MUD source
    */
   async parseAllFlags(): Promise<ParseResult[]> {
+    if (!isHookEnabledSync('flag_parsing')) {
+      throw new MudFlagParseError('flag_parsing is disabled on the website.');
+    }
     const results: ParseResult[] = [];
 
     // Object flags
@@ -86,32 +95,65 @@ export class MudFlagParser {
     results.push(await this.parsePlayerBits());
     results.push(await this.parsePlayer2Bits());
 
-    return results;
+    return this.validateResults(results);
   }
 
   /**
    * Read a source file
    */
   private async readSourceFile(relativePath: string): Promise<string> {
-    const fullPath = path.join(this.mudDir, relativePath);
-    return fs.readFile(fullPath, 'utf-8');
+    return readMudTextFile('flag_parsing', CURRENT_SOURCE_PATHS[relativePath] ?? relativePath);
+  }
+
+  private validateResults(results: ParseResult[]): ParseResult[] {
+    const seenCategories = new Set<string>();
+    let rejected = 0;
+    const rejectedCategories = new Set<string>();
+    const normalized = results.map((result) => {
+      const sourceFile = CURRENT_SOURCE_PATHS[result.sourceFile] ?? result.sourceFile;
+      if (!result.category || seenCategories.has(result.category) || result.flags.length === 0) {
+        rejected += 1;
+        rejectedCategories.add(result.category || 'unknown');
+      }
+      seenCategories.add(result.category);
+
+      const seenNames = new Set<string>();
+      const flags = result.flags.map((flag) => {
+        const flagSource =
+          CURRENT_SOURCE_PATHS[flag.sourceFile ?? sourceFile] ?? flag.sourceFile ?? sourceFile;
+        if (!flag.name || seenNames.has(flag.name) || !Number.isSafeInteger(flag.value)) {
+          rejected += 1;
+          rejectedCategories.add(result.category || 'unknown');
+        }
+        seenNames.add(flag.name);
+        return { ...flag, sourceFile: flagSource };
+      });
+
+      return { ...result, sourceFile, flags };
+    });
+
+    if (rejected > 0) {
+      recordDroppedFlatfileInput('flag_parsing', rejected);
+      throw new MudFlagParseError(
+        `Flag source validation rejected ${rejected} record(s) in: ` +
+          [...rejectedCategories].sort().join(', '),
+      );
+    }
+    return normalized;
   }
 
   /**
    * Parse flagDef arrays from common.c
    * Format: {"SHORT", "Long description", editable, default}
    */
-  private async parseFlagDefArray(
-    arrayName: string,
-    category: string
-  ): Promise<ParseResult> {
+  private async parseFlagDefArray(arrayName: string, category: string): Promise<ParseResult> {
     const content = await this.readSourceFile('src/common.c');
     const flags: ParsedFlag[] = [];
 
     // Find the array - handle multiline with proper regex
     const arrayRegex = new RegExp(
-      `flagDef\\s+${arrayName}\\s*\\[[^\\]]*\\]\\s*=\\s*\\{([\\s\\S]*?)\\{0\\}`,
-      'm'
+      `flagDef\\s+${arrayName}\\s*\\[[^\\]]*\\]\\s*=\\s*\\{([\\s\\S]*?)\\{\\s*\\}`,
+      'm',
     );
     const arrayMatch = content.match(arrayRegex);
 
@@ -142,17 +184,14 @@ export class MudFlagParser {
    * Parse simple string arrays from common.c
    * Format: "STRING", "STRING2", ...
    */
-  private async parseStringArray(
-    arrayName: string,
-    category: string
-  ): Promise<ParseResult> {
+  private async parseStringArray(arrayName: string, category: string): Promise<ParseResult> {
     const content = await this.readSourceFile('src/common.c');
     const flags: ParsedFlag[] = [];
 
     // Find the array - handle with size specifier like [NUM_SECT_TYPES + 1]
     const arrayRegex = new RegExp(
       `const\\s+char\\s*\\*\\s*${arrayName}\\s*\\[[^\\]]*\\]\\s*=\\s*\\{([\\s\\S]*?)\\n\\};`,
-      'm'
+      'm',
     );
     const arrayMatch = content.match(arrayRegex);
 
@@ -205,13 +244,11 @@ export class MudFlagParser {
     const flags: ParsedFlag[] = [];
 
     // Parse apply_types array for short names
-    const typesRegex =
-      /const\s+char\s*\*\s*apply_types\s*\[\]\s*=\s*\{([\s\S]*?)\n\};/m;
+    const typesRegex = /const\s+char\s*\*\s*apply_types\s*\[\]\s*=\s*\{([\s\S]*?)\n\};/m;
     const typesMatch = content.match(typesRegex);
 
     // Parse apply_names array for descriptions
-    const namesRegex =
-      /const\s+char\s*\*\s*apply_names\s*\[\]\s*=\s*\{([\s\S]*?)\n\};/m;
+    const namesRegex = /const\s+char\s*\*\s*apply_names\s*\[\]\s*=\s*\{([\s\S]*?)\n\};/m;
     const namesMatch = content.match(namesRegex);
 
     if (!typesMatch) {
@@ -256,8 +293,7 @@ export class MudFlagParser {
     const flags: ParsedFlag[] = [];
 
     // Find weapon_types array - uses different format with 4 fields
-    const arrayRegex =
-      /flagDef\s+weapon_types\s*\[[^\]]*\]\s*=\s*\{([\s\S]*?)\n\};/m;
+    const arrayRegex = /flagDef\s+weapon_types\s*\[[^\]]*\]\s*=\s*\{([\s\S]*?)\n\};/m;
     const arrayMatch = content.match(arrayRegex);
 
     if (!arrayMatch) {
@@ -265,8 +301,7 @@ export class MudFlagParser {
     }
 
     // Parse: {"WEAPON_NAME", "description", editable, value}
-    const entryRegex =
-      /\{\s*"([^"]+)",\s*"([^"]+)",\s*\d+,\s*(?:WEAPON_[A-Z0-9_]+|(\d+))\s*\}/g;
+    const entryRegex = /\{\s*"([^"]+)",\s*"([^"]+)",\s*\d+,\s*(?:WEAPON_[A-Z0-9_]+|(\d+))\s*\}/g;
     let match;
     let index = 0;
 
@@ -288,8 +323,7 @@ export class MudFlagParser {
     const flags: ParsedFlag[] = [];
 
     // Find attack_hit_text array
-    const arrayRegex =
-      /struct\s+attack_hit_type\s+attack_hit_text\s*\[\]\s*=\s*\{([\s\S]*?)\n\};/m;
+    const arrayRegex = /struct\s+attack_hit_type\s+attack_hit_text\s*\[\]\s*=\s*\{([\s\S]*?)\n\};/m;
     const arrayMatch = content.match(arrayRegex);
 
     if (!arrayMatch) {
@@ -358,8 +392,7 @@ export class MudFlagParser {
     const flags: ParsedFlag[] = [];
 
     // Find materials struct array
-    const arrayRegex =
-      /struct\s+material_data\s+materials\s*\[[^\]]*\]\s*=\s*\{([\s\S]*?)\n\};/m;
+    const arrayRegex = /struct\s+material_data\s+materials\s*\[[^\]]*\]\s*=\s*\{([\s\S]*?)\n\};/m;
     const arrayMatch = content.match(arrayRegex);
 
     if (!arrayMatch) {
@@ -372,7 +405,7 @@ export class MudFlagParser {
 
     // Parse: {"&+Lname&n", {values...}}
     // Each entry spans multiple lines, so we need to match the name string
-    const entryRegex = /\{"([^"]+)"/g;
+    const entryRegex = /\{\s*"([^"]+)"/g;
     let match;
     let index = 0;
 
@@ -417,8 +450,7 @@ export class MudFlagParser {
     }
 
     // Parse: {"Name", "&+Color&n", "Short", 'c'}
-    const entryRegex =
-      /\{\s*"([^"]+)",\s*"([^"]+)",\s*"([^"]+)",\s*'([^']+)'\s*\}/g;
+    const entryRegex = /\{\s*"([^"]+)",\s*"([^"]+)",\s*"([^"]+)",\s*'([^']+)'\s*\}/g;
     let match;
     let index = 0;
 
@@ -481,9 +513,20 @@ export class MudFlagParser {
 
     // ITEM_ANTI2_* races: Thri-Kreen, Centaur, Githyanki, Minotaur, AquaElf, Sahuagin, Goblin, Lich, etc.
     const raceNames = [
-      'THRIKREEN', 'CENTAUR', 'GITHYANKI', 'MINOTAUR',
-      'AQUAELF', 'SAHUAGIN', 'GOBLIN', 'LICH', 'PVAMPIRE', 'PSBEAST',
-      'PDKNIGHT', 'SGIANT', 'WIGHT', 'PHANTOM'
+      'THRIKREEN',
+      'CENTAUR',
+      'GITHYANKI',
+      'MINOTAUR',
+      'AQUAELF',
+      'SAHUAGIN',
+      'GOBLIN',
+      'LICH',
+      'PVAMPIRE',
+      'PSBEAST',
+      'PDKNIGHT',
+      'SGIANT',
+      'WIGHT',
+      'PHANTOM',
     ];
 
     const anti2Regex = /#define\s+ITEM_ANTI2_([A-Z0-9_]+)\s+BIT_(\d+)/g;
@@ -568,7 +611,7 @@ export class MudFlagParser {
     // Race restriction flags are derived from race_names_table
     // Uses bitvector for allowed/anti races (1 << race_index)
     const arrayRegex =
-      /const\s+struct\s+race_names\s+race_names_table\s*\[[^\]]*\]\s*=\s*\{([\s\S]*?)\{0\}/m;
+      /const\s+struct\s+race_names\s+race_names_table\s*\[[^\]]*\]\s*=\s*\{([\s\S]*?)\{\s*\}/m;
     const arrayMatch = content.match(arrayRegex);
 
     if (!arrayMatch) {
@@ -580,8 +623,7 @@ export class MudFlagParser {
     }
 
     // Parse: {"Name", "NoSpaceName", "&+Ansi&n", "XX"}
-    const entryRegex =
-      /\{\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\}/g;
+    const entryRegex = /\{\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\}/g;
     let match;
     let index = 0;
 
@@ -622,8 +664,7 @@ export class MudFlagParser {
     const flags: ParsedFlag[] = [];
 
     // Exit bits are a simple string array
-    const arrayRegex =
-      /const\s+char\s*\*\s*exit_bits\s*\[\]\s*=\s*\{([\s\S]*?)\n\};/m;
+    const arrayRegex = /const\s+char\s*\*\s*exit_bits\s*\[\]\s*=\s*\{([\s\S]*?)\n\};/m;
     const arrayMatch = content.match(arrayRegex);
 
     if (!arrayMatch) {
@@ -707,7 +748,7 @@ export class MudFlagParser {
 
     // Find race_names_table array
     const arrayRegex =
-      /const\s+struct\s+race_names\s+race_names_table\s*\[[^\]]*\]\s*=\s*\{([\s\S]*?)\{0\}/m;
+      /const\s+struct\s+race_names\s+race_names_table\s*\[[^\]]*\]\s*=\s*\{([\s\S]*?)\{\s*\}/m;
     const arrayMatch = content.match(arrayRegex);
 
     if (!arrayMatch) {
@@ -715,14 +756,17 @@ export class MudFlagParser {
     }
 
     // Parse: {"Name", "NoSpaceName", "&+Ansi&n", "XX"}
-    const entryRegex =
-      /\{\s*"([^"]*)",\s*"([^"]*)",\s*"([^"]*)",\s*"([^"]*)"\s*\}/g;
+    const entryRegex = /\{\s*"([^"]*)",\s*"([^"]*)",\s*"([^"]*)",\s*"([^"]*)"\s*\}/g;
     let match;
     let index = 0;
+    const seenNames = new Set<string>();
 
     while ((match = entryRegex.exec(arrayMatch[1])) !== null) {
+      const baseName = match[2] || match[1].toUpperCase().replace(/[^A-Z0-9]/g, '_');
+      const name = seenNames.has(baseName) ? `${baseName}_${match[4] || index}` : baseName;
+      seenNames.add(name);
       flags.push({
-        name: match[2] || match[1].toUpperCase().replace(/[^A-Z0-9]/g, '_'),
+        name,
         value: index, // Sequential: RACE_NONE=0, RACE_HUMAN=1, etc.
         description: match[1],
         ansiName: match[3],

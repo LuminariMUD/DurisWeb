@@ -13,7 +13,17 @@ import {
   SidebarMenuButton,
   SidebarMenuBadge,
 } from '@/components/ui/sidebar'
-import { Home, Search, Bookmark, Bell, TrendingUp, Flame, Settings, Shield, Archive } from 'lucide-vue-next'
+import {
+  Home,
+  Search,
+  Bookmark,
+  Bell,
+  TrendingUp,
+  Flame,
+  Settings,
+  Shield,
+  Archive,
+} from 'lucide-vue-next'
 import AnsiText from '@/components/ui/AnsiText.vue'
 
 const router = useRouter()
@@ -36,7 +46,7 @@ async function loadActivity() {
   try {
     const [latest, popular] = await Promise.all([
       forumApi.getLatestThreads(5),
-      forumApi.getPopularThreads(5)
+      forumApi.getPopularThreads(5),
     ])
     latestThreads.value = latest
     popularThreads.value = popular

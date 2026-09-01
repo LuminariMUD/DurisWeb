@@ -7,11 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Command,
   CommandEmpty,
@@ -20,11 +16,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
 import FlagPicker from '@/components/builder/FlagPicker.vue'
 import AnsiEditor from '@/components/builder/AnsiEditor.vue'
@@ -100,14 +92,21 @@ const positionOptions = [
 ]
 
 // Reset when mob prop changes
-watch(() => props.mob, (newMob) => {
-  editedMob.value = { ...newMob }
-}, { deep: true })
+watch(
+  () => props.mob,
+  (newMob) => {
+    editedMob.value = { ...newMob }
+  },
+  { deep: true },
+)
 
 // Emit shortDesc changes for live preview in navbar
-watch(() => editedMob.value.shortDesc, (newValue) => {
-  emit('update:shortDesc', newValue)
-})
+watch(
+  () => editedMob.value.shortDesc,
+  (newValue) => {
+    emit('update:shortDesc', newValue)
+  },
+)
 
 // Computed: has unsaved changes
 const hasChanges = computed(() => {
@@ -117,13 +116,13 @@ const hasChanges = computed(() => {
 // Computed: active action flags
 const activeActFlags = computed(() => {
   if (!flagsData.value?.mobActFlags) return []
-  return flagsData.value.mobActFlags.filter(f => (editedMob.value.actFlags & f.value) !== 0)
+  return flagsData.value.mobActFlags.filter((f) => (editedMob.value.actFlags & f.value) !== 0)
 })
 
 // Computed: active affect flags
 const activeAffFlags = computed(() => {
   if (!flagsData.value?.mobAffFlags) return []
-  return flagsData.value.mobAffFlags.filter(f => (editedMob.value.affFlags1 & f.value) !== 0)
+  return flagsData.value.mobAffFlags.filter((f) => (editedMob.value.affFlags1 & f.value) !== 0)
 })
 
 // Handle flag changes
@@ -170,7 +169,9 @@ const speciesOpen = ref(false)
 // Get display text for selected species
 const selectedSpeciesName = computed(() => {
   const species = flagsData.value?.mobRaces || []
-  const selected = species.find((s: { name: string; value: number }) => s.value === editedMob.value.species)
+  const selected = species.find(
+    (s: { name: string; value: number }) => s.value === editedMob.value.species,
+  )
   return selected ? `${selected.name} (${selected.value})` : 'Select species...'
 })
 
@@ -208,30 +209,42 @@ function formatDice(count: number, sides: number, bonus: number): string {
 const hitDiceParsed = computed(() => parseDice(editedMob.value.hitDice))
 const hitDiceCount = computed({
   get: () => hitDiceParsed.value.count,
-  set: (v) => { editedMob.value.hitDice = formatDice(v, hitDiceParsed.value.sides, hitDiceParsed.value.bonus) },
+  set: (v) => {
+    editedMob.value.hitDice = formatDice(v, hitDiceParsed.value.sides, hitDiceParsed.value.bonus)
+  },
 })
 const hitDiceSides = computed({
   get: () => hitDiceParsed.value.sides,
-  set: (v) => { editedMob.value.hitDice = formatDice(hitDiceParsed.value.count, v, hitDiceParsed.value.bonus) },
+  set: (v) => {
+    editedMob.value.hitDice = formatDice(hitDiceParsed.value.count, v, hitDiceParsed.value.bonus)
+  },
 })
 const hitDiceBonus = computed({
   get: () => hitDiceParsed.value.bonus,
-  set: (v) => { editedMob.value.hitDice = formatDice(hitDiceParsed.value.count, hitDiceParsed.value.sides, v) },
+  set: (v) => {
+    editedMob.value.hitDice = formatDice(hitDiceParsed.value.count, hitDiceParsed.value.sides, v)
+  },
 })
 
 // Damage dice computed
 const damDiceParsed = computed(() => parseDice(editedMob.value.damDice))
 const damDiceCount = computed({
   get: () => damDiceParsed.value.count,
-  set: (v) => { editedMob.value.damDice = formatDice(v, damDiceParsed.value.sides, damDiceParsed.value.bonus) },
+  set: (v) => {
+    editedMob.value.damDice = formatDice(v, damDiceParsed.value.sides, damDiceParsed.value.bonus)
+  },
 })
 const damDiceSides = computed({
   get: () => damDiceParsed.value.sides,
-  set: (v) => { editedMob.value.damDice = formatDice(damDiceParsed.value.count, v, damDiceParsed.value.bonus) },
+  set: (v) => {
+    editedMob.value.damDice = formatDice(damDiceParsed.value.count, v, damDiceParsed.value.bonus)
+  },
 })
 const damDiceBonus = computed({
   get: () => damDiceParsed.value.bonus,
-  set: (v) => { editedMob.value.damDice = formatDice(damDiceParsed.value.count, damDiceParsed.value.sides, v) },
+  set: (v) => {
+    editedMob.value.damDice = formatDice(damDiceParsed.value.count, damDiceParsed.value.sides, v)
+  },
 })
 
 // Save

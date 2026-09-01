@@ -33,7 +33,18 @@ import ZoneCard from '@/components/builder/ZoneCard.vue'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
 import GlobalSearchDialog from '@/components/builder/GlobalSearchDialog.vue'
 import ActivityFeed from '@/components/builder/ActivityFeed.vue'
-import { Search, Map, Home, Users, Package, RefreshCw, Plus, Settings, SearchCode, Lock } from 'lucide-vue-next'
+import {
+  Search,
+  Map,
+  Home,
+  Users,
+  Package,
+  RefreshCw,
+  Plus,
+  Settings,
+  SearchCode,
+  Lock,
+} from 'lucide-vue-next'
 import type { ZoneIndex } from '@/types'
 
 const router = useRouter()
@@ -82,14 +93,20 @@ const cloneZoneName = ref('')
 const deleteZone = ref<ZoneIndex | null>(null)
 
 // Fetch zones with server-side pagination and filtering
-const { data: zonesData, isLoading, error, refetch } = useQuery({
+const {
+  data: zonesData,
+  isLoading,
+  error,
+  refetch,
+} = useQuery({
   queryKey: ['builder-zones', currentPage, debouncedSearch, showMyZonesOnly],
-  queryFn: () => builderApi.getZones({
-    page: currentPage.value,
-    limit: itemsPerPage,
-    search: debouncedSearch.value,
-    filterByAccess: showMyZonesOnly.value,
-  }),
+  queryFn: () =>
+    builderApi.getZones({
+      page: currentPage.value,
+      limit: itemsPerPage,
+      search: debouncedSearch.value,
+      filterByAccess: showMyZonesOnly.value,
+    }),
   staleTime: 1000 * 60 * 5, // 5 minutes
 })
 

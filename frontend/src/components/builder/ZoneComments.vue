@@ -27,7 +27,12 @@ const replyingTo = ref<number | null>(null)
 const replyContent = ref('')
 
 // Fetch comments
-const { data: comments, isLoading, error, refetch } = useQuery({
+const {
+  data: comments,
+  isLoading,
+  error,
+  refetch,
+} = useQuery({
   queryKey: computed(() => ['zone-comments', props.zoneId, props.procRequestId ?? null]),
   queryFn: () => builderApi.getZoneComments(props.zoneId, props.procRequestId),
 })
@@ -111,8 +116,9 @@ function deleteComment(commentId: number) {
 
 // Check if user can edit/delete a comment
 function canModifyComment(comment: ZoneCommentType) {
-  return user.value?.accountName === comment.accountName ||
-         user.value?.permissions?.role === 'overlord'
+  return (
+    user.value?.accountName === comment.accountName || user.value?.permissions?.role === 'overlord'
+  )
 }
 </script>
 

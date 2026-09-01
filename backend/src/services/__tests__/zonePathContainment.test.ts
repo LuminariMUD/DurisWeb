@@ -43,8 +43,9 @@ describe('builder path containment', () => {
   });
 
   it('rejects a traversal zone ID before constructing Git file arguments', async () => {
-    await expect(gitService.getZoneGitStatus('../../../duris-zone-escape'))
-      .rejects.toThrow(/invalid|outside|path/i);
+    await expect(gitService.getZoneGitStatus('../../../duris-zone-escape')).rejects.toThrow(
+      /invalid|outside|path/i,
+    );
   });
 
   it('rejects a symlinked backup before copying zone data outside the root', async () => {

@@ -82,12 +82,14 @@ describe('web analytics tracking validation', () => {
       });
 
     expect(response.status).toBe(200);
-    expect(trackPageView).toHaveBeenCalledWith(expect.objectContaining({
-      sessionId: 'a'.repeat(64),
-      path: '/news',
-      userAgent: 'T024-test-agent',
-      ipAddress: '10.0.0.12',
-    }));
+    expect(trackPageView).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: 'a'.repeat(64),
+        path: '/news',
+        userAgent: 'T024-test-agent',
+        ipAddress: '10.0.0.12',
+      }),
+    );
   });
 
   it('rate-limits repeated tracking events from one client', async () => {

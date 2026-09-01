@@ -10,7 +10,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Cog, Globe, Image, Clock, Server, Trash2, Upload, Shield, Info, MessageSquare } from 'lucide-vue-next'
+import {
+  Cog,
+  Globe,
+  Image,
+  Clock,
+  Server,
+  Trash2,
+  Upload,
+  Shield,
+  Info,
+  MessageSquare,
+} from 'lucide-vue-next'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
@@ -31,7 +42,7 @@ const logoInputRef = ref<HTMLInputElement | null>(null)
 
 // Get setting value by key
 function getSettingValue(key: string): string {
-  const setting = settings.value.find(s => s.setting_key === key)
+  const setting = settings.value.find((s) => s.setting_key === key)
   return setting?.setting_value || ''
 }
 
@@ -44,7 +55,7 @@ async function loadSettings() {
   try {
     settings.value = await adminApi.getWebSettings()
     // Initialize edited settings
-    settings.value.forEach(setting => {
+    settings.value.forEach((setting) => {
       editedSettings.value[setting.setting_key] = setting.setting_value
     })
   } catch (err: any) {
@@ -62,7 +73,7 @@ async function saveSetting(key: string) {
     await adminApi.updateWebSetting(key, value)
 
     // Update local state
-    const setting = settings.value.find(s => s.setting_key === key)
+    const setting = settings.value.find((s) => s.setting_key === key)
     if (setting) {
       setting.setting_value = value
     }
@@ -91,14 +102,16 @@ function getSettingLabel(key: string): string {
 
 function getSettingDescription(key: string): string {
   const descriptions: Record<string, string> = {
-    pvp_delay_minutes: 'How long to wait before showing new PvP battles on the website. Set to 0 for instant display.',
+    pvp_delay_minutes:
+      'How long to wait before showing new PvP battles on the website. Set to 0 for instant display.',
     mud_host: 'The hostname displayed on the website for players to connect.',
     mud_port: 'The port number displayed on the website for players to connect.',
     mud_port_tls: 'The TLS/SSL port number displayed on the website for secure connections.',
     mud_ws_port: 'The WebSocket port used by the web-based MUD client.',
     site_title: 'The name of your website displayed in the navbar and browser tab.',
     site_logo_url: 'The logo image displayed before the site title in the navbar.',
-    respect_webinfo_toggle: 'When enabled, hides extended character info (equipment, money, playtime, etc.) for players who have "tog web info" set to OFF. When disabled, all info is shown regardless of player preference. Note: existing pages need to be refreshed to see changes.',
+    respect_webinfo_toggle:
+      'When enabled, hides extended character info (equipment, money, playtime, etc.) for players who have "tog web info" set to OFF. When disabled, all info is shown regardless of player preference. Note: existing pages need to be refreshed to see changes.',
   }
   return descriptions[key] || ''
 }
@@ -146,7 +159,7 @@ async function uploadLogo() {
     const { logoUrl } = await adminApi.uploadSiteLogo(logoFile.value)
 
     // Update local state
-    const setting = settings.value.find(s => s.setting_key === 'site_logo_url')
+    const setting = settings.value.find((s) => s.setting_key === 'site_logo_url')
     if (setting) {
       setting.setting_value = logoUrl
       editedSettings.value.site_logo_url = logoUrl
@@ -174,7 +187,7 @@ async function deleteLogo() {
     await adminApi.deleteSiteLogo()
 
     // Update local state
-    const setting = settings.value.find(s => s.setting_key === 'site_logo_url')
+    const setting = settings.value.find((s) => s.setting_key === 'site_logo_url')
     if (setting) {
       setting.setting_value = ''
       editedSettings.value.site_logo_url = ''

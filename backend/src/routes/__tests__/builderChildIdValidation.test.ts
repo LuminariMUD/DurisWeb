@@ -156,8 +156,7 @@ describe('builder child-resource ID validation', () => {
     const status = await request(app)
       .put('/api/builder/zones/zone-a/proc-requests/12abc/status')
       .send({ status: 'requested' });
-    const deleted = await request(app)
-      .delete('/api/builder/zones/zone-a/proc-requests/12abc');
+    const deleted = await request(app).delete('/api/builder/zones/zone-a/proc-requests/12abc');
 
     expect(update.status).toBe(400);
     expect(status.status).toBe(400);
@@ -171,8 +170,7 @@ describe('builder child-resource ID validation', () => {
     const update = await request(app)
       .put('/api/builder/zones/zone-a/comments/12abc')
       .send({ content: 'Updated comment' });
-    const deleted = await request(app)
-      .delete('/api/builder/zones/zone-a/comments/12abc');
+    const deleted = await request(app).delete('/api/builder/zones/zone-a/comments/12abc');
 
     expect(update.status).toBe(400);
     expect(deleted.status).toBe(400);
@@ -181,8 +179,7 @@ describe('builder child-resource ID validation', () => {
   });
 
   it('rejects malformed notification IDs before the builder notification service', async () => {
-    const response = await request(app)
-      .put('/api/builder/notifications/12abc/read');
+    const response = await request(app).put('/api/builder/notifications/12abc/read');
 
     expect(response.status).toBe(400);
     expect(builderNotificationService.markAsRead).not.toHaveBeenCalled();

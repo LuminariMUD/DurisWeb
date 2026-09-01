@@ -183,7 +183,7 @@ export async function trackPageView(data: PageViewData): Promise<void> {
       countryCode,
       city,
       data.loadTimeMs || null,
-    ]
+    ],
   );
 
   // Update or create session
@@ -211,7 +211,7 @@ export async function trackPageView(data: PageViewData): Promise<void> {
       country,
       countryCode,
       city,
-    ]
+    ],
   );
 }
 
@@ -236,13 +236,12 @@ export async function getWebOverviewStats(days: number = 30): Promise<WebOvervie
     todayViewsResult,
     todayVisitorsResult,
   ] = await Promise.all([
-    pool.query<RowDataPacket[]>(
-      'SELECT COUNT(*) as count FROM page_views WHERE created_at >= ?',
-      [startDate]
-    ),
+    pool.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM page_views WHERE created_at >= ?', [
+      startDate,
+    ]),
     pool.query<RowDataPacket[]>(
       'SELECT COUNT(DISTINCT session_id) as count FROM page_views WHERE created_at >= ?',
-      [startDate]
+      [startDate],
     ),
     pool.query<RowDataPacket[]>(
       `SELECT
@@ -251,15 +250,14 @@ export async function getWebOverviewStats(days: number = 30): Promise<WebOvervie
         SUM(CASE WHEN is_bounce = TRUE THEN 1 ELSE 0 END) / COUNT(*) * 100 as bounceRate
        FROM visitor_sessions
        WHERE first_seen >= ?`,
-      [startDate]
+      [startDate],
     ),
-    pool.query<RowDataPacket[]>(
-      'SELECT COUNT(*) as count FROM page_views WHERE created_at >= ?',
-      [today]
-    ),
+    pool.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM page_views WHERE created_at >= ?', [
+      today,
+    ]),
     pool.query<RowDataPacket[]>(
       'SELECT COUNT(DISTINCT session_id) as count FROM page_views WHERE created_at >= ?',
-      [today]
+      [today],
     ),
   ]);
 
@@ -303,7 +301,7 @@ export async function getTopPages(days: number = 30, limit: number = 20): Promis
      GROUP BY path
      ORDER BY views DESC
      LIMIT ?`,
-    [startDate, limit]
+    [startDate, limit],
   );
 
   const pages: TopPage[] = rows.map((row) => ({
@@ -339,7 +337,7 @@ export async function getReferrerStats(days: number = 30): Promise<ReferrerStats
      GROUP BY COALESCE(referrer_domain, 'Direct')
      ORDER BY visits DESC
      LIMIT 20`,
-    [startDate]
+    [startDate],
   );
 
   const total = rows.reduce((sum, row) => sum + row.visits, 0);
@@ -373,7 +371,7 @@ export async function getDeviceStats(days: number = 30): Promise<DeviceStats[]> 
      WHERE first_seen >= ?
      GROUP BY COALESCE(device_type, 'unknown')
      ORDER BY count DESC`,
-    [startDate]
+    [startDate],
   );
 
   const total = rows.reduce((sum, row) => sum + row.count, 0);
@@ -408,7 +406,7 @@ export async function getBrowserStats(days: number = 30): Promise<BrowserStats[]
      GROUP BY COALESCE(browser, 'unknown')
      ORDER BY count DESC
      LIMIT 10`,
-    [startDate]
+    [startDate],
   );
 
   const total = rows.reduce((sum, row) => sum + row.count, 0);
@@ -426,7 +424,9 @@ export async function getBrowserStats(days: number = 30): Promise<BrowserStats[]
 /**
  * Get OS statistics
  */
-export async function getOSStats(days: number = 30): Promise<{ os: string; count: number; percentage: number }[]> {
+export async function getOSStats(
+  days: number = 30,
+): Promise<{ os: string; count: number; percentage: number }[]> {
   const cacheKey = `${REDIS_KEY_PREFIX}os:${days}d`;
   const cached = await getCache<{ os: string; count: number; percentage: number }[]>(cacheKey);
   if (cached) return cached;
@@ -443,7 +443,7 @@ export async function getOSStats(days: number = 30): Promise<{ os: string; count
      GROUP BY COALESCE(os, 'unknown')
      ORDER BY count DESC
      LIMIT 10`,
-    [startDate]
+    [startDate],
   );
 
   const total = rows.reduce((sum, row) => sum + row.count, 0);
@@ -479,7 +479,7 @@ export async function getGeoStats(days: number = 30): Promise<GeoStats[]> {
      GROUP BY COALESCE(country, 'Unknown'), COALESCE(country_code, 'XX')
      ORDER BY count DESC
      LIMIT 50`,
-    [startDate]
+    [startDate],
   );
 
   const total = rows.reduce((sum, row) => sum + row.count, 0);
@@ -500,7 +500,7 @@ export async function getGeoStats(days: number = 30): Promise<GeoStats[]> {
  */
 export async function getTrafficOverTime(
   days: number = 30,
-  interval: 'hour' | 'day' = 'day'
+  interval: 'hour' | 'day' = 'day',
 ): Promise<TrafficDataPoint[]> {
   const cacheKey = `${REDIS_KEY_PREFIX}traffic:${days}d:${interval}`;
   const cached = await getCache<TrafficDataPoint[]>(cacheKey);
@@ -509,9 +509,8 @@ export async function getTrafficOverTime(
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
-  const groupBy = interval === 'hour'
-    ? 'DATE_FORMAT(created_at, "%Y-%m-%d %H:00:00")'
-    : 'DATE(created_at)';
+  const groupBy =
+    interval === 'hour' ? 'DATE_FORMAT(created_at, "%Y-%m-%d %H:00:00")' : 'DATE(created_at)';
 
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT
@@ -522,7 +521,7 @@ export async function getTrafficOverTime(
      WHERE created_at >= ?
      GROUP BY ${groupBy}
      ORDER BY timestamp ASC`,
-    [startDate]
+    [startDate],
   );
 
   const data: TrafficDataPoint[] = rows.map((row) => ({
@@ -559,7 +558,7 @@ export async function getRealtimeVisitors(): Promise<RealtimeVisitor[]> {
      ) latest ON pv.session_id = latest.session_id AND pv.created_at = latest.max_created
      ORDER BY pv.created_at DESC
      LIMIT 50`,
-    [fiveMinutesAgo]
+    [fiveMinutesAgo],
   );
 
   return rows.map((row) => ({
@@ -568,7 +567,10 @@ export async function getRealtimeVisitors(): Promise<RealtimeVisitor[]> {
     path: row.path,
     country: row.country,
     city: row.city,
-    lastSeen: row.lastSeen instanceof Date ? row.lastSeen.toISOString() : `${String(row.lastSeen).replace(' ', 'T')}Z`,
+    lastSeen:
+      row.lastSeen instanceof Date
+        ? row.lastSeen.toISOString()
+        : `${String(row.lastSeen).replace(' ', 'T')}Z`,
   }));
 }
 
@@ -581,7 +583,7 @@ export async function getActiveVisitorCount(): Promise<number> {
 
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT COUNT(DISTINCT session_id) as count FROM page_views WHERE created_at >= ?',
-    [fiveMinutesAgo]
+    [fiveMinutesAgo],
   );
 
   return rows[0]?.count || 0;
@@ -605,17 +607,16 @@ export interface RecentVisitor {
 export async function getRecentVisitors(
   days: number = 30,
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
 ): Promise<{ data: RecentVisitor[]; total: number }> {
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
   const offset = (page - 1) * limit;
 
   const [[countResult], [rows]] = await Promise.all([
-    pool.query<RowDataPacket[]>(
-      'SELECT COUNT(*) as total FROM page_views WHERE created_at >= ?',
-      [startDate]
-    ),
+    pool.query<RowDataPacket[]>('SELECT COUNT(*) as total FROM page_views WHERE created_at >= ?', [
+      startDate,
+    ]),
     pool.query<RowDataPacket[]>(
       `SELECT
         id,
@@ -631,7 +632,7 @@ export async function getRecentVisitors(
        WHERE created_at >= ?
        ORDER BY created_at DESC
        LIMIT ? OFFSET ?`,
-      [startDate, limit, offset]
+      [startDate, limit, offset],
     ),
   ]);
 
@@ -639,9 +640,10 @@ export async function getRecentVisitors(
 
   const data: RecentVisitor[] = rows.map((row) => ({
     id: row.id,
-    createdAt: row.createdAt instanceof Date
-      ? row.createdAt.toISOString()
-      : `${String(row.createdAt).replace(' ', 'T')}Z`,
+    createdAt:
+      row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : `${String(row.createdAt).replace(' ', 'T')}Z`,
     path: row.path,
     browser: row.browser || 'unknown',
     os: row.os || 'unknown',

@@ -218,7 +218,12 @@ export function useZoneCache(zoneId: string) {
 
   // ========== DIRTY TRACKING ==========
 
-  function markDirty(type: EntityType, vnum: number, action: DirtyAction, data: Room | Mobile | ZoneObject | ResetCommand[] | null): void {
+  function markDirty(
+    type: EntityType,
+    vnum: number,
+    action: DirtyAction,
+    data: Room | Mobile | ZoneObject | ResetCommand[] | null,
+  ): void {
     const key = getDirtyKey(type, vnum)
     dirtyItems.value.set(key, {
       type,
@@ -266,9 +271,8 @@ export function useZoneCache(zoneId: string) {
     // Clear only items for this zone
     for (const [key, entry] of dirtyItems.value.entries()) {
       // Check if this dirty item belongs to this zone by checking localStorage
-      const storageKey = entry.type === 'resets'
-        ? cacheKey('resets')
-        : cacheKey(`${entry.type}_${entry.vnum}`)
+      const storageKey =
+        entry.type === 'resets' ? cacheKey('resets') : cacheKey(`${entry.type}_${entry.vnum}`)
       if (localStorage.getItem(storageKey) !== null) {
         dirtyItems.value.delete(key)
       }
@@ -301,9 +305,12 @@ export function useZoneCache(zoneId: string) {
     const result: DirtyEntry[] = []
     for (const entry of dirtyItems.value.values()) {
       // Check if we have the corresponding cached data for this zone
-      const storageKey = entry.type === 'resets'
-        ? cacheKey('resets')
-        : cacheKey(`${entry.type === 'room' ? 'room' : entry.type === 'mob' ? 'mob' : 'obj'}_${entry.vnum}`)
+      const storageKey =
+        entry.type === 'resets'
+          ? cacheKey('resets')
+          : cacheKey(
+              `${entry.type === 'room' ? 'room' : entry.type === 'mob' ? 'mob' : 'obj'}_${entry.vnum}`,
+            )
       if (localStorage.getItem(storageKey) !== null || entry.action === 'deleted') {
         result.push(entry)
       }
@@ -312,21 +319,21 @@ export function useZoneCache(zoneId: string) {
   }
 
   function getDirtyRooms(): DirtyEntry[] {
-    return getDirtyList().filter(e => e.type === 'room')
+    return getDirtyList().filter((e) => e.type === 'room')
   }
 
   function getDirtyMobs(): DirtyEntry[] {
-    return getDirtyList().filter(e => e.type === 'mob')
+    return getDirtyList().filter((e) => e.type === 'mob')
   }
 
   function getDirtyObjects(): DirtyEntry[] {
-    return getDirtyList().filter(e => e.type === 'object')
+    return getDirtyList().filter((e) => e.type === 'object')
   }
 
   // Save dirty list to localStorage
   function saveDirtyList(): void {
     try {
-      const entries = getDirtyList().map(e => ({
+      const entries = getDirtyList().map((e) => ({
         type: e.type,
         vnum: e.vnum,
         action: e.action,
@@ -342,7 +349,8 @@ export function useZoneCache(zoneId: string) {
     try {
       const stored = localStorage.getItem(cacheKey('dirty'))
       if (stored) {
-        const entries: Array<{ type: EntityType; vnum: number; action: DirtyAction }> = JSON.parse(stored)
+        const entries: Array<{ type: EntityType; vnum: number; action: DirtyAction }> =
+          JSON.parse(stored)
         for (const entry of entries) {
           let data: Room | Mobile | ZoneObject | ResetCommand[] | null = null
 
@@ -397,7 +405,7 @@ export function useZoneCache(zoneId: string) {
         keysToRemove.push(key)
       }
     }
-    keysToRemove.forEach(key => localStorage.removeItem(key))
+    keysToRemove.forEach((key) => localStorage.removeItem(key))
 
     // Clear dirty items for this zone
     clearAllDirty()

@@ -1,142 +1,186 @@
-import { describe, it, expect } from '@jest/globals';
-import { pool } from '../../db/connection.js';
-import { getUserList, getUniqueRaces, getUniqueClasses } from '../userManagementService.js';
+/**
+ * @jest-environment node
+ */
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+
+const query = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const sendMudCommandAsync =
+  jest.fn<
+    (...args: unknown[]) => Promise<{
+      success: boolean;
+      error?: string;
+    }>
+  >();
+const isMudConnected = jest.fn<() => boolean>();
+const isHookEnabledSync = jest.fn<(id: string) => boolean>();
+
+jest.unstable_mockModule('../../db/connection.js', () => ({
+  pool: { query },
+}));
+jest.unstable_mockModule('../mudAuctionClient.js', () => ({
+  sendMudCommandAsync,
+  isMudConnected,
+}));
+jest.unstable_mockModule('../../hooks/hookGate.js', () => ({
+  isHookEnabledSync,
+}));
+
+const { deleteCharacter, getUniqueClasses, getUniqueRaces, getUserList } = await import(
+  '../userManagementService.js'
+);
 
 describe('userManagementService', () => {
+  beforeEach(() => {
+    query.mockReset();
+    sendMudCommandAsync.mockReset();
+    isMudConnected.mockReset().mockReturnValue(true);
+    isHookEnabledSync.mockReset().mockReturnValue(true);
+  });
+
   describe('getUserList', () => {
-    it('should return users with all required fields populated', async () => {
-      const result = await getUserList({ page: 1, limit: 10 });
+    it('maps joined rows and pagination without ambient player data', async () => {
+      const lastLogin = new Date('2026-08-31T10:00:00.000Z');
+      query.mockResolvedValueOnce([[{ total: 3 }], []]).mockResolvedValueOnce([
+        [
+          {
+            pid: 42,
+            account_name: 'account',
+            character_name: 'Cwial',
+            race: '&+BHuman&n',
+            class: '&+WWarrior&n',
+            level: 56,
+            racewar: 1,
+            email: 'player@example.test',
+            last_ip: '203.0.113.10',
+            last_login: lastLogin,
+            web_last_login: null,
+            is_banned: 1,
+            ban_reason: 'test fixture',
+            banned_at: lastLogin,
+            banned_by: 'Overlord',
+            is_deleted: 0,
+            deleted_at: null,
+          },
+        ],
+        [],
+      ]);
 
-      expect(result.data.length).toBeGreaterThan(0);
+      const result = await getUserList({ page: 1, limit: 2 });
 
-      // check at least some users have populated fields
-      const usersWithRace = result.data.filter(u => u.race && u.race !== '');
-      const usersWithClass = result.data.filter(u => u.class && u.class !== '');
-      const usersWithLastIp = result.data.filter(u => u.last_ip && u.last_ip !== '');
-
-      console.log(`Total users: ${result.data.length}`);
-      console.log(`Users with race: ${usersWithRace.length}`);
-      console.log(`Users with class: ${usersWithClass.length}`);
-      console.log(`Users with last_ip: ${usersWithLastIp.length}`);
-
-      // sample data for inspection
-      console.log('Sample user:', JSON.stringify(result.data[0], null, 2));
-
-      expect(usersWithRace.length).toBeGreaterThan(0);
-      expect(usersWithClass.length).toBeGreaterThan(0);
+      expect(result.pagination).toEqual({ page: 1, limit: 2, total: 3, totalPages: 2 });
+      expect(result.data[0]).toMatchObject({
+        pid: 42,
+        race: '&+BHuman&n',
+        class: '&+WWarrior&n',
+        last_ip: '203.0.113.10',
+        is_banned: true,
+        is_deleted: false,
+      });
     });
 
-    it('race should come from races table with ansi_name', async () => {
-      // get a user and verify race matches races table
-      const result = await getUserList({ page: 1, limit: 10 });
-      const userWithRace = result.data.find(u => u.race && u.race !== '');
+    it('binds filters, safe sorting, limit, and offset to both queries', async () => {
+      query.mockResolvedValueOnce([[{ total: 0 }], []]).mockResolvedValueOnce([[], []]);
 
-      if (userWithRace) {
-        // race should contain ansi codes like &+B or be a plain name
-        console.log('User race:', userWithRace.race);
-        expect(userWithRace.race).toBeTruthy();
-      }
-    });
+      await getUserList({
+        search: '42',
+        race: 'Human',
+        class: 'Warrior',
+        alignment: 2,
+        ban_status: 'banned',
+        page: 2,
+        limit: 5,
+        sort_by: 'class',
+        sort_order: 'asc',
+      });
 
-    it('class should come from classes table using LOG2 conversion', async () => {
-      const result = await getUserList({ page: 1, limit: 10 });
-      const userWithClass = result.data.find(u => u.class && u.class !== '');
-
-      if (userWithClass) {
-        console.log('User class:', userWithClass.class);
-        expect(userWithClass.class).toBeTruthy();
-      }
-    });
-
-    it('last_ip should come from ip_info table', async () => {
-      const result = await getUserList({ page: 1, limit: 50 });
-      const userWithIp = result.data.find(u => u.last_ip && u.last_ip !== '' && u.last_ip !== 'none');
-
-      console.log('Users with IP:', result.data.filter(u => u.last_ip && u.last_ip !== 'none').length);
-
-      if (userWithIp) {
-        console.log('User last_ip:', userWithIp.last_ip);
-        // ip should look like an ip address
-        expect(userWithIp.last_ip).toMatch(/^\d+\.\d+\.\d+\.\d+$/);
-      }
-    });
-  });
-
-  describe('getUniqueRaces', () => {
-    it('should return races from races table', async () => {
-      const races = await getUniqueRaces();
-
-      console.log('Races count:', races.length);
-      console.log('Sample races:', races.slice(0, 5));
-
-      expect(races.length).toBeGreaterThan(0);
-      // should have common races
-      const raceNames = races.map(r => r.replace(/&[+\-][A-Za-z]/g, '').replace(/&n/g, ''));
-      expect(raceNames.some(r => r.includes('Human') || r.includes('Elf') || r.includes('Orc'))).toBe(true);
+      const filterParams = ['%42%', '%42%', '%42%', 42, 'Human', 'Warrior', 2];
+      expect(query).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining('ub.is_active = TRUE'),
+        filterParams,
+      );
+      expect(query).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('ORDER BY pc.classname ASC, ac.char_name'),
+        [...filterParams, 5, 5],
+      );
     });
   });
 
-  describe('getUniqueClasses', () => {
-    it('should return classes from classes table', async () => {
-      const classes = await getUniqueClasses();
+  it('returns unique races from the service query result', async () => {
+    query.mockResolvedValueOnce([[{ race: '&+BHuman&n' }, { race: '&+GElf&n' }], []]);
 
-      console.log('Classes count:', classes.length);
-      console.log('Sample classes:', classes.slice(0, 5));
-
-      expect(classes.length).toBeGreaterThan(0);
-      // should have common classes
-      const classNames = classes.map(c => c.replace(/&[+\-][A-Za-z]/g, '').replace(/&n/g, ''));
-      expect(classNames.some(c => c.includes('Warrior') || c.includes('Cleric') || c.includes('Monk'))).toBe(true);
-    });
+    await expect(getUniqueRaces()).resolves.toEqual(['&+BHuman&n', '&+GElf&n']);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('SELECT DISTINCT race'));
   });
 
-  describe('data integrity', () => {
-    it('should verify players_core has race and classname', async () => {
-      const [rows]: any = await pool.query(`
-        SELECT pid, name, race, classname
-        FROM players_core
-        WHERE race IS NOT NULL AND race != ''
-        LIMIT 5
-      `);
+  it('returns unique specialized classes from the service query result', async () => {
+    query.mockResolvedValueOnce([[{ class: '&+WWarrior&n' }, { class: '&+CZealot&n' }], []]);
 
-      console.log('players_core test:', rows);
+    await expect(getUniqueClasses()).resolves.toEqual(['&+WWarrior&n', '&+CZealot&n']);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('SELECT DISTINCT classname as class'),
+    );
+  });
 
-      for (const row of rows) {
-        expect(row.race).toBeTruthy();
-        expect(row.classname).toBeTruthy();
-      }
+  describe('deleteCharacter', () => {
+    it('stops at the website gate before connection, query, or command work', async () => {
+      isHookEnabledSync.mockReturnValue(false);
+
+      await expect(deleteCharacter('account', 'Cwial', 'Overlord')).resolves.toEqual({
+        success: false,
+        message: 'Character deletion is disabled by the website hook gate',
+      });
+      expect(isHookEnabledSync).toHaveBeenCalledWith('admin_delete_character');
+      expect(isMudConnected).not.toHaveBeenCalled();
+      expect(query).not.toHaveBeenCalled();
+      expect(sendMudCommandAsync).not.toHaveBeenCalled();
     });
 
-    it('should verify classname includes specializations', async () => {
-      const [rows]: any = await pool.query(`
-        SELECT DISTINCT classname
-        FROM players_core
-        WHERE classname IS NOT NULL AND classname != ''
-        LIMIT 20
-      `);
+    it('refuses while the authenticated MUD bridge is disconnected', async () => {
+      isMudConnected.mockReturnValue(false);
 
-      console.log('Class names:', rows.map((r: any) => r.classname));
-
-      // should have specialized classes like Zealot, Healer, etc.
-      const classNames = rows.map((r: any) => r.classname);
-      expect(classNames.length).toBeGreaterThan(0);
+      await expect(deleteCharacter('account', 'Cwial', 'Overlord')).resolves.toEqual({
+        success: false,
+        message: 'MUD server is not connected',
+      });
+      expect(query).not.toHaveBeenCalled();
     });
 
-    it('should verify ip_info join works', async () => {
-      const [rows]: any = await pool.query(`
-        SELECT ac.pid, ac.char_name, ii.last_ip, ii.last_connect
-        FROM account_characters ac
-        LEFT JOIN ip_info ii ON ac.pid = ii.pid
-        WHERE ii.last_ip IS NOT NULL AND ii.last_ip != 'none'
-        LIMIT 5
-      `);
+    it('does not send a command for a missing or deleted character', async () => {
+      query.mockResolvedValueOnce([[], []]);
 
-      console.log('IP join test:', rows);
+      await expect(deleteCharacter('account', 'Cwial', 'Overlord')).resolves.toEqual({
+        success: false,
+        message: 'Character not found or already deleted',
+      });
+      expect(sendMudCommandAsync).not.toHaveBeenCalled();
+    });
 
-      expect(rows.length).toBeGreaterThan(0);
-      for (const row of rows) {
-        expect(row.last_ip).toMatch(/^\d+\.\d+\.\d+\.\d+$/);
-      }
+    it('returns the authenticated bridge error without claiming deletion', async () => {
+      query.mockResolvedValueOnce([[{ pid: 42 }], []]);
+      sendMudCommandAsync.mockResolvedValueOnce({ success: false, error: 'MUD refused' });
+
+      await expect(deleteCharacter('account', 'Cwial', 'Overlord')).resolves.toEqual({
+        success: false,
+        message: 'MUD refused',
+      });
+    });
+
+    it('sends the exact registered command and reports acknowledged success', async () => {
+      query.mockResolvedValueOnce([[{ pid: 42 }], []]);
+      sendMudCommandAsync.mockResolvedValueOnce({ success: true });
+
+      await expect(deleteCharacter('account', 'Cwial', 'Overlord')).resolves.toEqual({
+        success: true,
+        message: 'Character Cwial has been deleted',
+      });
+      expect(sendMudCommandAsync).toHaveBeenCalledWith('admin_delete_character', {
+        account: 'account',
+        name: 'Cwial',
+        pid: 42,
+        deletedBy: 'Overlord',
+      });
     });
   });
 });

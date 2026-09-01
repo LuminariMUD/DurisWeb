@@ -1,8 +1,4 @@
-import {
-  validateIntegerField,
-  validateObjectFields,
-  validateStringField,
-} from './validation.js';
+import { validateIntegerField, validateObjectFields, validateStringField } from './validation.js';
 
 const ANALYTICS_FIELDS = [
   'sessionId',

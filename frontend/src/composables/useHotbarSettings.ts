@@ -117,7 +117,9 @@ function saveSettings() {
 }
 
 export function useHotbarSettings() {
-  const enabledButtons = computed(() => settings.value.buttons.filter((b) => b.enabled && b.command))
+  const enabledButtons = computed(() =>
+    settings.value.buttons.filter((b) => b.enabled && b.command),
+  )
 
   const isVertical = computed(() => {
     if (settings.value.orientation === 'vertical') return true

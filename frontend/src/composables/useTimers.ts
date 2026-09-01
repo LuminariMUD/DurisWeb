@@ -2,13 +2,7 @@ import { ref, computed, watch, shallowReactive } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
 import { expandGmcpVariables } from '@/utils/gmcpVariables'
 import { useGroups } from './useGroups'
-import type {
-  Timer,
-  TimerFormData,
-  TimerStorage,
-  TimerState,
-  TimerScope,
-} from '@/types/timer'
+import type { Timer, TimerFormData, TimerStorage, TimerState, TimerScope } from '@/types/timer'
 import { TIMER_CONSTRAINTS, formatInterval } from '@/types/timer'
 import { createClientId } from '@/utils/clientId'
 import { ClientSettingsStorageError, writeClientSettings } from '@/utils/clientSettingsStorage'
@@ -129,9 +123,10 @@ export function useTimers() {
       return true
     } catch (error) {
       console.error('[Timers] Failed to save:', error)
-      storageError.value = error instanceof ClientSettingsStorageError
-        ? error.message
-        : 'Client settings could not be saved.'
+      storageError.value =
+        error instanceof ClientSettingsStorageError
+          ? error.message
+          : 'Client settings could not be saved.'
       return false
     }
   }
@@ -336,7 +331,7 @@ export function useTimers() {
 
   function setTimerGroup(id: string, groupId: string | null): boolean {
     if (!canMutate()) return false
-    const index = timers.value.findIndex(t => t.id === id)
+    const index = timers.value.findIndex((t) => t.id === id)
     if (index === -1) return false
 
     const timer = timers.value[index]
@@ -609,7 +604,10 @@ export function useTimers() {
 
   async function initAudioContext(): Promise<AudioContext> {
     if (!audioContext) {
-      audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+      audioContext = new (
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      )()
     }
     if (audioContext.state === 'suspended') {
       await audioContext.resume()
@@ -666,7 +664,7 @@ export function useTimers() {
     name: string,
     excludeId?: string,
     scope?: TimerScope,
-    charName?: string | null
+    charName?: string | null,
   ): boolean {
     const normalizedName = name.trim().toLowerCase()
 
@@ -691,10 +689,16 @@ export function useTimers() {
    */
   function validateInterval(ms: number): { valid: boolean; error?: string } {
     if (ms < TIMER_CONSTRAINTS.MIN_INTERVAL_MS) {
-      return { valid: false, error: `Minimum interval is ${formatInterval(TIMER_CONSTRAINTS.MIN_INTERVAL_MS)}` }
+      return {
+        valid: false,
+        error: `Minimum interval is ${formatInterval(TIMER_CONSTRAINTS.MIN_INTERVAL_MS)}`,
+      }
     }
     if (ms > TIMER_CONSTRAINTS.MAX_INTERVAL_MS) {
-      return { valid: false, error: `Maximum interval is ${formatInterval(TIMER_CONSTRAINTS.MAX_INTERVAL_MS)}` }
+      return {
+        valid: false,
+        error: `Maximum interval is ${formatInterval(TIMER_CONSTRAINTS.MAX_INTERVAL_MS)}`,
+      }
     }
     return { valid: true }
   }
@@ -710,7 +714,7 @@ export function useTimers() {
         exportedAt: new Date().toISOString(),
       },
       null,
-      2
+      2,
     )
   }
 
@@ -732,13 +736,9 @@ export function useTimers() {
         reservedIds.add(id)
         return id
       }
-      const normalizedImported = imported.map((item, index) => normalizeTimerImport(
-        item,
-        index,
-        nextId(),
-        now,
-        mode === 'replace',
-      ))
+      const normalizedImported = imported.map((item, index) =>
+        normalizeTimerImport(item, index, nextId(), now, mode === 'replace'),
+      )
 
       // Stop all running timers before import
       const wasInGame = store.connectionState === 'in_game'
@@ -754,11 +754,14 @@ export function useTimers() {
         const nextTimers = [...timers.value]
         let accepted = 0
         for (const timer of normalizedImported) {
-          if (!nextTimers.some((existing) =>
-            existing.name.trim().toLowerCase() === timer.name.toLowerCase() &&
-            existing.scope === timer.scope &&
-            existing.characterName === timer.characterName
-          )) {
+          if (
+            !nextTimers.some(
+              (existing) =>
+                existing.name.trim().toLowerCase() === timer.name.toLowerCase() &&
+                existing.scope === timer.scope &&
+                existing.characterName === timer.characterName,
+            )
+          ) {
             nextTimers.push(timer)
             accepted += 1
           }
@@ -801,7 +804,7 @@ export function useTimers() {
           loadTimers()
         }
       },
-      { immediate: true }
+      { immediate: true },
     )
   }
 
@@ -821,7 +824,7 @@ export function useTimers() {
         // small delay to ensure character/account state is ready
         setTimeout(() => startAllTimers(), 100)
       }
-    }
+    },
   )
 
   return {

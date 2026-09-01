@@ -63,7 +63,11 @@ const dialogOpen = ref(false)
 const editingRequest = ref<ProcRequest | null>(null)
 
 // Fetch proc requests
-const { data: requests, isLoading, error } = useQuery({
+const {
+  data: requests,
+  isLoading,
+  error,
+} = useQuery({
   queryKey: ['proc-requests', props.zoneId],
   queryFn: () => builderApi.getProcRequests(props.zoneId),
 })
@@ -96,13 +100,12 @@ const updateStatusMutation = useMutation({
 // Filtered requests
 const filteredRequests = computed(() => {
   if (!requests.value) return []
-  return requests.value.filter(req => {
+  return requests.value.filter((req) => {
     if (statusFilter.value !== 'all' && req.status !== statusFilter.value) return false
     if (entityTypeFilter.value !== 'all' && req.entityType !== entityTypeFilter.value) return false
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase()
-      if (!req.title.toLowerCase().includes(q) &&
-          !req.vnum.toString().includes(q)) return false
+      if (!req.title.toLowerCase().includes(q) && !req.vnum.toString().includes(q)) return false
     }
     return true
   })
@@ -114,20 +117,33 @@ function getStatusBadge(status: ProcRequestStatus) {
     case 'requested':
       return { variant: 'secondary' as const, icon: Clock, label: 'Requested', class: '' }
     case 'assigned':
-      return { variant: 'outline' as const, icon: UserCheck, label: 'Assigned', class: 'border-blue-500 text-blue-500' }
+      return {
+        variant: 'outline' as const,
+        icon: UserCheck,
+        label: 'Assigned',
+        class: 'border-blue-500 text-blue-500',
+      }
     case 'in_progress':
       return { variant: 'default' as const, icon: PlayCircle, label: 'In Progress', class: '' }
     case 'completed':
-      return { variant: 'secondary' as const, icon: CheckCircle2, label: 'Completed', class: 'bg-green-500/20 text-green-500' }
+      return {
+        variant: 'secondary' as const,
+        icon: CheckCircle2,
+        label: 'Completed',
+        class: 'bg-green-500/20 text-green-500',
+      }
   }
 }
 
 // Entity type icon
 function getEntityIcon(type: ProcRequestEntityType) {
   switch (type) {
-    case 'room': return Home
-    case 'mob': return User
-    case 'object': return Package
+    case 'room':
+      return Home
+    case 'mob':
+      return User
+    case 'object':
+      return Package
   }
 }
 

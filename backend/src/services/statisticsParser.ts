@@ -41,7 +41,20 @@ function parseStatLine(line: string): HourlyStats | null {
   const parts = line.trim().split(/\s+/);
   if (parts.length < 12) return null;
 
-  const [hour, goods, evils, illithids, undeads, gods, guildhall, goodsLevels, evilsLevels, illithidsLevels, undeadsLevels, uniqueIPs] = parts.map(Number);
+  const [
+    hour,
+    goods,
+    evils,
+    illithids,
+    undeads,
+    gods,
+    guildhall,
+    goodsLevels,
+    evilsLevels,
+    illithidsLevels,
+    undeadsLevels,
+    uniqueIPs,
+  ] = parts.map(Number);
 
   // Skip if all zeros (unpopulated)
   if (goods === 0 && evils === 0 && illithids === 0 && undeads === 0 && gods === 0) {
@@ -104,7 +117,7 @@ async function parseStatisticsFile(date: Date): Promise<HourlyStats[]> {
  */
 export async function getPeakPlayerCount(): Promise<{ count: number; timestamp: Date | null }> {
   // check cache first
-  if (peakPlayerCache && (Date.now() - peakPlayerCache.cachedAt) < PEAK_CACHE_TTL) {
+  if (peakPlayerCache && Date.now() - peakPlayerCache.cachedAt < PEAK_CACHE_TTL) {
     return { count: peakPlayerCache.count, timestamp: peakPlayerCache.timestamp };
   }
 
@@ -121,7 +134,8 @@ export async function getPeakPlayerCount(): Promise<{ count: number; timestamp: 
       const stats = await parseStatisticsFile(date);
 
       for (const hourStat of stats) {
-        const total = hourStat.goods + hourStat.evils + hourStat.illithids + hourStat.undeads + hourStat.gods;
+        const total =
+          hourStat.goods + hourStat.evils + hourStat.illithids + hourStat.undeads + hourStat.gods;
         if (total > maxPlayers) {
           maxPlayers = total;
           // Create timestamp for this hour
@@ -164,7 +178,8 @@ export async function getDailySummaries(days: number = 30): Promise<DailyStatsSu
       const uniqueIPsSet = new Set<number>();
 
       for (const hourStat of stats) {
-        const total = hourStat.goods + hourStat.evils + hourStat.illithids + hourStat.undeads + hourStat.gods;
+        const total =
+          hourStat.goods + hourStat.evils + hourStat.illithids + hourStat.undeads + hourStat.gods;
         totalPlayers += total;
 
         if (total > peakPlayers) {
@@ -239,7 +254,7 @@ export async function syncStatisticsToDatabase(date: Date): Promise<number> {
           hourStat.illithidsLevels,
           hourStat.undeadsLevels,
           hourStat.uniqueIPs,
-        ]
+        ],
       );
       inserted++;
     } catch (error) {
@@ -255,7 +270,7 @@ export async function syncStatisticsToDatabase(date: Date): Promise<number> {
  */
 export async function getPlayerCountTrend(): Promise<Array<{ date: string; count: number }>> {
   const summaries = await getDailySummaries(7);
-  return summaries.map(s => ({
+  return summaries.map((s) => ({
     date: s.date,
     count: s.peakPlayers,
   }));

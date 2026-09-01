@@ -59,7 +59,7 @@ export type ReviewAction = 'approve' | 'reject' | 'needs_revision';
 export async function createSuggestion(
   data: CreateSuggestionData,
   accountName: string,
-  ipAddress: string | null
+  ipAddress: string | null,
 ): Promise<HelpSuggestion> {
   const [result] = await pool.query<ResultSetHeader>(
     `INSERT INTO help_file_suggestions
@@ -75,7 +75,7 @@ export async function createSuggestion(
       data.submitterNotes || null,
       accountName,
       ipAddress,
-    ]
+    ],
   );
 
   return getSuggestionById(result.insertId) as Promise<HelpSuggestion>;
@@ -102,14 +102,14 @@ export async function getSuggestionById(id: number): Promise<HelpSuggestion | nu
      FROM help_file_suggestions s
      LEFT JOIN pages p ON s.page_id = p.id
      WHERE s.id = ?`,
-    [id]
+    [id],
   );
   return rows[0] || null;
 }
 
 export async function getUserSuggestions(
   accountName: string,
-  status?: SuggestionStatus
+  status?: SuggestionStatus,
 ): Promise<HelpSuggestion[]> {
   let query = `
     SELECT s.*,
@@ -141,7 +141,7 @@ export async function getUserSuggestions(
 export async function getAllSuggestions(
   page: number = 1,
   limit: number = 50,
-  status?: SuggestionStatus
+  status?: SuggestionStatus,
 ): Promise<{
   suggestions: HelpSuggestion[];
   pagination: { page: number; limit: number; total: number; totalPages: number };
@@ -201,7 +201,7 @@ export async function getAllSuggestions(
 export async function updateSuggestion(
   id: number,
   data: UpdateSuggestionData,
-  accountName: string
+  accountName: string,
 ): Promise<HelpSuggestion | null> {
   // First verify ownership and pending status
   const suggestion = await getSuggestionById(id);
@@ -272,7 +272,7 @@ export async function reviewSuggestion(
   id: number,
   action: ReviewAction,
   reviewerAccount: string,
-  reviewerNotes?: string
+  reviewerNotes?: string,
 ): Promise<HelpSuggestion | null> {
   const suggestion = await getSuggestionById(id);
   if (!suggestion) return null;
@@ -290,7 +290,7 @@ export async function reviewSuggestion(
     `UPDATE help_file_suggestions
      SET status = ?, reviewer_account = ?, reviewer_notes = ?, reviewed_at = NOW(), updated_at = NOW()
      WHERE id = ?`,
-    [newStatus, reviewerAccount, reviewerNotes || null, id]
+    [newStatus, reviewerAccount, reviewerNotes || null, id],
   );
 
   // If approved, apply the changes to the pages table
@@ -325,7 +325,6 @@ export async function reviewSuggestion(
 
 // Strip ANSI codes from text
 function stripAnsi(text: string): string {
-   
   return text.replace(/\x1b\[[0-9;]*m/g, '').replace(/&[a-zA-Z]/g, '');
 }
 
@@ -347,7 +346,7 @@ async function applySuggestion(suggestion: HelpSuggestion): Promise<void> {
     await pool.query(
       `INSERT INTO pages (title, text, category_id, last_update, last_update_by)
        VALUES (?, ?, ?, NOW(), ?)`,
-      [cleanTitle, finalText, suggestion.category_id, suggestion.submitted_by]
+      [cleanTitle, finalText, suggestion.category_id, suggestion.submitted_by],
     );
   } else if (suggestion.suggestion_type === 'edit' && suggestion.page_id) {
     // Update existing help file
@@ -355,7 +354,7 @@ async function applySuggestion(suggestion: HelpSuggestion): Promise<void> {
       `UPDATE pages
        SET title = ?, text = ?, category_id = ?, last_update = NOW(), last_update_by = ?
        WHERE id = ?`,
-      [cleanTitle, finalText, suggestion.category_id, suggestion.submitted_by, suggestion.page_id]
+      [cleanTitle, finalText, suggestion.category_id, suggestion.submitted_by, suggestion.page_id],
     );
   }
 }
@@ -366,7 +365,7 @@ async function applySuggestion(suggestion: HelpSuggestion): Promise<void> {
 
 export async function getPendingSuggestionCount(): Promise<number> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT COUNT(*) as count FROM help_file_suggestions WHERE status = 'pending'"
+    "SELECT COUNT(*) as count FROM help_file_suggestions WHERE status = 'pending'",
   );
   return rows[0].count;
 }

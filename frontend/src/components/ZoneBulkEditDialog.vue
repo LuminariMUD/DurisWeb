@@ -1,31 +1,57 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { useBulkUpdateZonesMutation, EPIC_TYPE_LABELS, type ZoneUpdateData } from '@/composables/useZones';
-import { useToast } from '@/composables/useToast';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, Save } from 'lucide-vue-next';
+import { ref, computed } from 'vue'
+import {
+  useBulkUpdateZonesMutation,
+  EPIC_TYPE_LABELS,
+  type ZoneUpdateData,
+} from '@/composables/useZones'
+import { useToast } from '@/composables/useToast'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
+import { Switch } from '@/components/ui/switch'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Loader2, Save } from 'lucide-vue-next'
 
 const props = defineProps<{
-  zoneNumbers: number[];
-}>();
+  zoneNumbers: number[]
+}>()
 
 const emit = defineEmits<{
-  close: [];
-}>();
+  close: []
+}>()
 
-const toast = useToast();
-const { mutate: bulkUpdate, isPending } = useBulkUpdateZonesMutation();
+const toast = useToast()
+const { mutate: bulkUpdate, isPending } = useBulkUpdateZonesMutation()
 
 // Form state with enabled flags
-const formData = ref<ZoneUpdateData>({});
+const formData = ref<ZoneUpdateData>({})
 const enabledFields = ref({
   epicType: false,
   alignment: false,
@@ -36,9 +62,9 @@ const enabledFields = ref({
   questZone: false,
   trophyZone: false,
   randomsZone: false,
-});
+})
 
-const showConfirmDialog = ref(false);
+const showConfirmDialog = ref(false)
 
 // Default values for UI
 const defaultValues = ref({
@@ -51,103 +77,104 @@ const defaultValues = ref({
   questZone: false,
   trophyZone: true,
   randomsZone: true,
-});
+})
 
 // Validation
-const errors = ref<Record<string, string>>({});
+const errors = ref<Record<string, string>>({})
 
 function validateForm(): boolean {
-  errors.value = {};
+  errors.value = {}
 
   if (enabledFields.value.epicType && formData.value.epicType !== undefined) {
     if (formData.value.epicType < 0 || formData.value.epicType > 3) {
-      errors.value.epicType = 'Epic type must be between 0 and 3';
+      errors.value.epicType = 'Epic type must be between 0 and 3'
     }
   }
 
   if (enabledFields.value.alignment && formData.value.alignment !== undefined) {
     if (formData.value.alignment < -5 || formData.value.alignment > 5) {
-      errors.value.alignment = 'Alignment must be between -5 and 5';
+      errors.value.alignment = 'Alignment must be between -5 and 5'
     }
   }
 
   if (enabledFields.value.suggestedGroupSize && formData.value.suggestedGroupSize !== undefined) {
     if (formData.value.suggestedGroupSize < 1 || formData.value.suggestedGroupSize > 20) {
-      errors.value.suggestedGroupSize = 'Group size must be between 1 and 20';
+      errors.value.suggestedGroupSize = 'Group size must be between 1 and 20'
     }
   }
 
   if (enabledFields.value.difficulty && formData.value.difficulty !== undefined) {
     if (formData.value.difficulty < 0 || formData.value.difficulty > 10) {
-      errors.value.difficulty = 'Difficulty must be between 0 and 10';
+      errors.value.difficulty = 'Difficulty must be between 0 and 10'
     }
   }
 
   if (enabledFields.value.epicPayout && formData.value.epicPayout !== undefined) {
     if (formData.value.epicPayout < 0) {
-      errors.value.epicPayout = 'Epic payout must be 0 or greater';
+      errors.value.epicPayout = 'Epic payout must be 0 or greater'
     }
   }
 
-  return Object.keys(errors.value).length === 0;
+  return Object.keys(errors.value).length === 0
 }
 
 // Build update data from enabled fields
 function buildUpdateData(): ZoneUpdateData {
-  const data: ZoneUpdateData = {};
+  const data: ZoneUpdateData = {}
 
   if (enabledFields.value.epicType) {
-    data.epicType = formData.value.epicType ?? defaultValues.value.epicType;
+    data.epicType = formData.value.epicType ?? defaultValues.value.epicType
   }
   if (enabledFields.value.alignment) {
-    data.alignment = formData.value.alignment ?? defaultValues.value.alignment;
+    data.alignment = formData.value.alignment ?? defaultValues.value.alignment
   }
   if (enabledFields.value.suggestedGroupSize) {
-    data.suggestedGroupSize = formData.value.suggestedGroupSize ?? defaultValues.value.suggestedGroupSize;
+    data.suggestedGroupSize =
+      formData.value.suggestedGroupSize ?? defaultValues.value.suggestedGroupSize
   }
   if (enabledFields.value.difficulty) {
-    data.difficulty = formData.value.difficulty ?? defaultValues.value.difficulty;
+    data.difficulty = formData.value.difficulty ?? defaultValues.value.difficulty
   }
   if (enabledFields.value.epicPayout) {
-    data.epicPayout = formData.value.epicPayout ?? defaultValues.value.epicPayout;
+    data.epicPayout = formData.value.epicPayout ?? defaultValues.value.epicPayout
   }
   if (enabledFields.value.taskZone) {
-    data.taskZone = formData.value.taskZone ?? defaultValues.value.taskZone;
+    data.taskZone = formData.value.taskZone ?? defaultValues.value.taskZone
   }
   if (enabledFields.value.questZone) {
-    data.questZone = formData.value.questZone ?? defaultValues.value.questZone;
+    data.questZone = formData.value.questZone ?? defaultValues.value.questZone
   }
   if (enabledFields.value.trophyZone) {
-    data.trophyZone = formData.value.trophyZone ?? defaultValues.value.trophyZone;
+    data.trophyZone = formData.value.trophyZone ?? defaultValues.value.trophyZone
   }
   if (enabledFields.value.randomsZone) {
-    data.randomsZone = formData.value.randomsZone ?? defaultValues.value.randomsZone;
+    data.randomsZone = formData.value.randomsZone ?? defaultValues.value.randomsZone
   }
 
-  return data;
+  return data
 }
 
 // Handle save
 function handleSave() {
-  const hasEnabledFields = Object.values(enabledFields.value).some(v => v);
+  const hasEnabledFields = Object.values(enabledFields.value).some((v) => v)
 
   if (!hasEnabledFields) {
-    toast.error('Please select at least one field to update', 'No Fields Selected');
-    return;
+    toast.error('Please select at least one field to update', 'No Fields Selected')
+    return
   }
 
   if (!validateForm()) {
-    toast.error('Please fix the errors before saving', 'Validation Error');
-    return;
+    toast.error('Please fix the errors before saving', 'Validation Error')
+    return
   }
 
-  showConfirmDialog.value = true;
+  showConfirmDialog.value = true
 }
 
 function confirmSave() {
-  showConfirmDialog.value = false;
+  showConfirmDialog.value = false
 
-  const updateData = buildUpdateData();
+  const updateData = buildUpdateData()
 
   bulkUpdate(
     {
@@ -156,35 +183,35 @@ function confirmSave() {
     },
     {
       onSuccess: (result) => {
-        toast.success(`Successfully updated ${result.affectedRows} zone(s)`, 'Zones Updated');
-        emit('close');
+        toast.success(`Successfully updated ${result.affectedRows} zone(s)`, 'Zones Updated')
+        emit('close')
       },
       onError: (error: any) => {
-        toast.error(error.response?.data?.error || 'Failed to update zones', 'Update Failed');
+        toast.error(error.response?.data?.error || 'Failed to update zones', 'Update Failed')
       },
-    }
-  );
+    },
+  )
 }
 
 // Alignment label
 const alignmentLabel = computed(() => {
-  const value = formData.value.alignment ?? defaultValues.value.alignment;
-  if (value < -3) return 'Very Evil';
-  if (value < -1) return 'Evil';
-  if (value < 0) return 'Slightly Evil';
-  if (value === 0) return 'Neutral';
-  if (value <= 1) return 'Slightly Good';
-  if (value <= 3) return 'Good';
-  return 'Very Good';
-});
+  const value = formData.value.alignment ?? defaultValues.value.alignment
+  if (value < -3) return 'Very Evil'
+  if (value < -1) return 'Evil'
+  if (value < 0) return 'Slightly Evil'
+  if (value === 0) return 'Neutral'
+  if (value <= 1) return 'Slightly Good'
+  if (value <= 3) return 'Good'
+  return 'Very Good'
+})
 
 // Summary of changes
 const changeSummary = computed(() => {
   const enabled = Object.entries(enabledFields.value)
     .filter(([_, v]) => v)
-    .map(([k]) => k);
-  return enabled.length > 0 ? enabled.join(', ') : 'No fields selected';
-});
+    .map(([k]) => k)
+  return enabled.length > 0 ? enabled.join(', ') : 'No fields selected'
+})
 </script>
 
 <template>

@@ -60,7 +60,7 @@ export async function getCategorizedProperties(): Promise<PropertyCategory[]> {
     economy: [],
     combat: [],
     timers: [],
-    other: []
+    other: [],
   };
 
   for (const [key, value] of properties.entries()) {
@@ -68,7 +68,7 @@ export async function getCategorizedProperties(): Promise<PropertyCategory[]> {
       key,
       value,
       category: categorizeProperty(key),
-      subcategory: extractSubcategory(key)
+      subcategory: extractSubcategory(key),
     };
 
     const categoryKey = property.category.toLowerCase().replace(/ /g, '_');
@@ -83,34 +83,34 @@ export async function getCategorizedProperties(): Promise<PropertyCategory[]> {
     {
       name: 'Leveling',
       description: 'Experience, level caps, and progression settings',
-      properties: categories.leveling.sort((a, b) => a.key.localeCompare(b.key))
+      properties: categories.leveling.sort((a, b) => a.key.localeCompare(b.key)),
     },
     {
       name: 'Epic',
       description: 'Epic system, errands, and bonus multipliers',
-      properties: categories.epic.sort((a, b) => a.key.localeCompare(b.key))
+      properties: categories.epic.sort((a, b) => a.key.localeCompare(b.key)),
     },
     {
       name: 'Economy',
       description: 'Guild halls, ships, cargo, and trading',
-      properties: categories.economy.sort((a, b) => a.key.localeCompare(b.key))
+      properties: categories.economy.sort((a, b) => a.key.localeCompare(b.key)),
     },
     {
       name: 'Combat',
       description: 'Damage caps, skill timers, and combat modifiers',
-      properties: categories.combat.sort((a, b) => a.key.localeCompare(b.key))
+      properties: categories.combat.sort((a, b) => a.key.localeCompare(b.key)),
     },
     {
       name: 'Timers',
       description: 'Cooldown timers for skills and abilities',
-      properties: categories.timers.sort((a, b) => a.key.localeCompare(b.key))
+      properties: categories.timers.sort((a, b) => a.key.localeCompare(b.key)),
     },
     {
       name: 'Other',
       description: 'Miscellaneous settings',
-      properties: categories.other.sort((a, b) => a.key.localeCompare(b.key))
-    }
-  ].filter(cat => cat.properties.length > 0); // Only include non-empty categories
+      properties: categories.other.sort((a, b) => a.key.localeCompare(b.key)),
+    },
+  ].filter((cat) => cat.properties.length > 0); // Only include non-empty categories
 }
 
 /**
@@ -120,42 +120,49 @@ function categorizeProperty(key: string): string {
   const lowerKey = key.toLowerCase();
 
   // Leveling category
-  if (lowerKey.startsWith('exp.') ||
-      lowerKey.includes('level') ||
-      lowerKey.includes('xp') ||
-      lowerKey.includes('death.level')) {
+  if (
+    lowerKey.startsWith('exp.') ||
+    lowerKey.includes('level') ||
+    lowerKey.includes('xp') ||
+    lowerKey.includes('death.level')
+  ) {
     return 'Leveling';
   }
 
   // Epic category
-  if (lowerKey.startsWith('epic.') ||
-      lowerKey.includes('errand')) {
+  if (lowerKey.startsWith('epic.') || lowerKey.includes('errand')) {
     return 'Epic';
   }
 
   // Economy category
-  if (lowerKey.startsWith('guildhalls.') ||
-      lowerKey.startsWith('ship.') ||
-      lowerKey.includes('cargo') ||
-      lowerKey.includes('platinum') ||
-      lowerKey.includes('contraband')) {
+  if (
+    lowerKey.startsWith('guildhalls.') ||
+    lowerKey.startsWith('ship.') ||
+    lowerKey.includes('cargo') ||
+    lowerKey.includes('platinum') ||
+    lowerKey.includes('contraband')
+  ) {
     return 'Economy';
   }
 
   // Combat category
-  if (lowerKey.startsWith('damage.') ||
-      lowerKey.startsWith('skill.') ||
-      lowerKey.includes('hitroll') ||
-      lowerKey.includes('damroll') ||
-      lowerKey.includes('notch') ||
-      lowerKey.startsWith('innate.')) {
+  if (
+    lowerKey.startsWith('damage.') ||
+    lowerKey.startsWith('skill.') ||
+    lowerKey.includes('hitroll') ||
+    lowerKey.includes('damroll') ||
+    lowerKey.includes('notch') ||
+    lowerKey.startsWith('innate.')
+  ) {
     return 'Combat';
   }
 
   // Timers category
-  if (lowerKey.startsWith('timer.') ||
-      lowerKey.includes('.delay') ||
-      lowerKey.includes('.cooldown')) {
+  if (
+    lowerKey.startsWith('timer.') ||
+    lowerKey.includes('.delay') ||
+    lowerKey.includes('.cooldown')
+  ) {
     return 'Timers';
   }
 
@@ -195,7 +202,7 @@ export async function searchProperties(query: string): Promise<Property[]> {
         key,
         value,
         category: categorizeProperty(key),
-        subcategory: extractSubcategory(key)
+        subcategory: extractSubcategory(key),
       });
     }
   }
@@ -250,14 +257,19 @@ export async function updateProperty(key: string, newValue: number): Promise<{ o
 /**
  * Get property change history from audit log
  */
-export async function getPropertyHistory(key: string, limit: number = 10): Promise<Array<{
-  id: number;
-  accountName: string;
-  oldValue: string;
-  newValue: string;
-  timestamp: Date;
-  notes?: string;
-}>> {
+export async function getPropertyHistory(
+  key: string,
+  limit: number = 10,
+): Promise<
+  Array<{
+    id: number;
+    accountName: string;
+    oldValue: string;
+    newValue: string;
+    timestamp: Date;
+    notes?: string;
+  }>
+> {
   const { pool } = await import('../db/connection.js');
 
   const [rows] = await pool.query<any[]>(
@@ -266,42 +278,89 @@ export async function getPropertyHistory(key: string, limit: number = 10): Promi
      WHERE action_type = 'property_change' AND target = ?
      ORDER BY timestamp DESC
      LIMIT ?`,
-    [key, limit]
+    [key, limit],
   );
 
-  return rows.map(row => ({
+  return rows.map((row) => ({
     id: row.id,
     accountName: row.account_name,
     oldValue: row.old_value,
     newValue: row.new_value,
     timestamp: new Date(row.timestamp),
-    notes: row.notes
+    notes: row.notes,
   }));
 }
 
 /**
  * Validate property value is within acceptable range
  */
-export function validatePropertyValue(key: string, value: number): { valid: boolean; error?: string } {
+export function validatePropertyValue(
+  key: string,
+  value: number,
+): { valid: boolean; error?: string } {
   // Define validation rules for known properties
   const validationRules: Record<string, { min?: number; max?: number; description?: string }> = {
     // Experience settings
     'exp.maxExpLevel': { min: 1, max: 100, description: 'Max XP level must be between 1 and 100' },
-    'exp.factor.global': { min: 0.1, max: 10, description: 'Global XP rate must be between 0.1x and 10x' },
-    'exp.factor.racewar.good': { min: 0.1, max: 10, description: 'Good XP rate must be between 0.1x and 10x' },
-    'exp.factor.racewar.evil': { min: 0.1, max: 10, description: 'Evil XP rate must be between 0.1x and 10x' },
-    'exp.factor.overCap': { min: 0, max: 1, description: 'Over-cap XP factor must be between 0 and 1' },
-    'exp.death.level.loss': { min: 0, max: 1, description: 'Death XP loss must be between 0 and 1' },
+    'exp.factor.global': {
+      min: 0.1,
+      max: 10,
+      description: 'Global XP rate must be between 0.1x and 10x',
+    },
+    'exp.factor.racewar.good': {
+      min: 0.1,
+      max: 10,
+      description: 'Good XP rate must be between 0.1x and 10x',
+    },
+    'exp.factor.racewar.evil': {
+      min: 0.1,
+      max: 10,
+      description: 'Evil XP rate must be between 0.1x and 10x',
+    },
+    'exp.factor.overCap': {
+      min: 0,
+      max: 1,
+      description: 'Over-cap XP factor must be between 0 and 1',
+    },
+    'exp.death.level.loss': {
+      min: 0,
+      max: 1,
+      description: 'Death XP loss must be between 0 and 1',
+    },
 
     // Epic settings
-    'epic.maxFreeLevel': { min: 1, max: 100, description: 'Max epic level must be between 1 and 100' },
-    'epic.errandStep': { min: 1, max: 10000, description: 'Epic errand step must be between 1 and 10000' },
-    'epic.errand.penaltyMod': { min: 0, max: 1, description: 'Errand penalty must be between 0 and 1' },
-    'epic.errand.completeBonusMod': { min: 0, max: 10, description: 'Errand bonus must be between 0 and 10x' },
+    'epic.maxFreeLevel': {
+      min: 1,
+      max: 100,
+      description: 'Max epic level must be between 1 and 100',
+    },
+    'epic.errandStep': {
+      min: 1,
+      max: 10000,
+      description: 'Epic errand step must be between 1 and 10000',
+    },
+    'epic.errand.penaltyMod': {
+      min: 0,
+      max: 1,
+      description: 'Errand penalty must be between 0 and 1',
+    },
+    'epic.errand.completeBonusMod': {
+      min: 0,
+      max: 10,
+      description: 'Errand bonus must be between 0 and 10x',
+    },
 
     // Damage caps
-    'damage.damrollCap': { min: 1, max: 1000, description: 'Damage roll cap must be between 1 and 1000' },
-    'damage.hitrollCap': { min: 1, max: 1000, description: 'Hit roll cap must be between 1 and 1000' },
+    'damage.damrollCap': {
+      min: 1,
+      max: 1000,
+      description: 'Damage roll cap must be between 1 and 1000',
+    },
+    'damage.hitrollCap': {
+      min: 1,
+      max: 1000,
+      description: 'Hit roll cap must be between 1 and 1000',
+    },
   };
 
   const rule = validationRules[key];

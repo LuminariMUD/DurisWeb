@@ -54,7 +54,7 @@ async function fetchLoginData(daysBack: number = 30): Promise<LoginEvent[]> {
     WHERE timestamp >= ?
     ORDER BY timestamp ASC
     `,
-    [cutoffDate]
+    [cutoffDate],
   );
 
   return rows as LoginEvent[];
@@ -67,14 +67,14 @@ function summarizeEvents(events: LoginEvent[]): string {
   // Group by account and create summary
   const accountSummaries = new Map<string, any>();
 
-  events.forEach(event => {
+  events.forEach((event) => {
     if (!accountSummaries.has(event.account_name)) {
       accountSummaries.set(event.account_name, {
         account: event.account_name,
         characters: new Set<string>(),
         ips: new Set<string>(),
         logins: [],
-        logouts: []
+        logouts: [],
       });
     }
 
@@ -90,12 +90,12 @@ function summarizeEvents(events: LoginEvent[]): string {
   });
 
   // Convert to compact string format
-  const summaries = Array.from(accountSummaries.values()).map(s => ({
+  const summaries = Array.from(accountSummaries.values()).map((s) => ({
     account: s.account,
     chars: Array.from(s.characters),
     ips: Array.from(s.ips),
     logins: s.logins, // All logins
-    logouts: s.logouts // All logouts
+    logouts: s.logouts, // All logouts
   }));
 
   return JSON.stringify(summaries, null, 1);
@@ -201,7 +201,7 @@ export async function analyzeWithGemini(daysBack: number = 30): Promise<GeminiAn
       suspicious_accounts: [],
       patterns_detected: [],
       summary: 'No login data available.',
-      analysis_timestamp: new Date().toISOString()
+      analysis_timestamp: new Date().toISOString(),
     };
   }
 
@@ -220,10 +220,7 @@ export async function analyzeWithGemini(daysBack: number = 30): Promise<GeminiAn
       setTimeout(() => reject(new Error('Gemini API request timeout after 10 minutes')), 600000);
     });
 
-    const result = await Promise.race([
-      model.generateContent(prompt),
-      timeoutPromise
-    ]);
+    const result = await Promise.race([model.generateContent(prompt), timeoutPromise]);
 
     logger.info('Response received from Gemini');
 
@@ -267,8 +264,8 @@ export async function storeAnalysis(analysis: GeminiAnalysisResult): Promise<voi
       analysis.suspicious_accounts.length,
       analysis.patterns_detected.length,
       analysis.summary,
-      JSON.stringify(analysis)
-    ]
+      JSON.stringify(analysis),
+    ],
   );
 
   // Update suspicious_accounts table
@@ -276,7 +273,7 @@ export async function storeAnalysis(analysis: GeminiAnalysisResult): Promise<voi
     if (account.confidence_score >= 70) {
       const [existing]: any = await db.query(
         'SELECT id FROM suspicious_accounts WHERE account_name = ? AND is_resolved = FALSE',
-        [account.account_name]
+        [account.account_name],
       );
 
       const evidence = {
@@ -284,7 +281,7 @@ export async function storeAnalysis(analysis: GeminiAnalysisResult): Promise<voi
         gemini_reasons: account.reasons,
         gemini_evidence: account.evidence,
         gemini_action: account.recommended_action,
-        gemini_analyzed_at: analysis.analysis_timestamp
+        gemini_analyzed_at: analysis.analysis_timestamp,
       };
 
       if (existing.length > 0) {
@@ -294,7 +291,7 @@ export async function storeAnalysis(analysis: GeminiAnalysisResult): Promise<voi
            SET suspicion_score = GREATEST(suspicion_score, ?),
                evidence = JSON_MERGE_PATCH(evidence, ?)
            WHERE account_name = ? AND is_resolved = FALSE`,
-          [account.confidence_score, JSON.stringify(evidence), account.account_name]
+          [account.confidence_score, JSON.stringify(evidence), account.account_name],
         );
       } else {
         // Create new flag
@@ -302,7 +299,7 @@ export async function storeAnalysis(analysis: GeminiAnalysisResult): Promise<voi
           `INSERT INTO suspicious_accounts
            (account_name, suspicion_score, evidence, flagged_at, is_resolved)
            VALUES (?, ?, ?, NOW(), FALSE)`,
-          [account.account_name, account.confidence_score, JSON.stringify(evidence)]
+          [account.account_name, account.confidence_score, JSON.stringify(evidence)],
         );
       }
     }

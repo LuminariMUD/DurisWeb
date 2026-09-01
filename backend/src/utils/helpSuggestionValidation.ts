@@ -1,8 +1,4 @@
-import {
-  validateIntegerField,
-  validateObjectFields,
-  validateStringField,
-} from './validation.js';
+import { validateIntegerField, validateObjectFields, validateStringField } from './validation.js';
 
 const CREATE_FIELDS = [
   'suggestionType',
@@ -85,7 +81,10 @@ export function validateReviewHelpSuggestionPayload(body: unknown): string | nul
   if (objectError) return objectError;
 
   const value = body as Record<string, unknown>;
-  if (typeof value.action !== 'string' || !['approve', 'reject', 'needs_revision'].includes(value.action)) {
+  if (
+    typeof value.action !== 'string' ||
+    !['approve', 'reject', 'needs_revision'].includes(value.action)
+  ) {
     return 'Invalid review action';
   }
 

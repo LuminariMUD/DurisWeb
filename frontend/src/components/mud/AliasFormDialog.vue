@@ -86,7 +86,7 @@ watch(
       }
       triggerError.value = ''
     }
-  }
+  },
 )
 
 // Validate trigger on change

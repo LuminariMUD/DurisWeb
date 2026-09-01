@@ -43,13 +43,16 @@ function mapRowToAuctionListItem(row: RowDataPacket): AuctionListItem {
  * Get paginated list of open auctions
  */
 export async function getAuctions(
-  filters: AuctionFilters
+  filters: AuctionFilters,
 ): Promise<{ auctions: AuctionListItem[]; total: number }> {
   const page = Math.max(1, filters.page || 1);
   const limit = Math.min(100, Math.max(1, filters.limit || 50));
   const offset = (page - 1) * limit;
 
-  const whereConditions: string[] = ["status = 'OPEN'", "UNIX_TIMESTAMP(end_time) > UNIX_TIMESTAMP()"];
+  const whereConditions: string[] = [
+    "status = 'OPEN'",
+    'UNIX_TIMESTAMP(end_time) > UNIX_TIMESTAMP()',
+  ];
   const queryParams: any[] = [];
 
   // Search filter (obj_short and id_keywords)
@@ -192,7 +195,7 @@ export async function getAuctionBidHistory(auctionId: number): Promise<AuctionBi
 
   const [rows] = await pool.query<RowDataPacket[]>(query, [auctionId]);
 
-  return rows.map(row => ({
+  return rows.map((row) => ({
     id: row.id,
     date: row.date,
     auctionId: row.auction_id,
@@ -208,23 +211,82 @@ export async function getAuctionBidHistory(auctionId: number): Promise<AuctionBi
 export async function getAuctionKeywords(): Promise<string[]> {
   return [
     // Equipment slots
-    'head', 'neck', 'body', 'arms', 'hands', 'waist', 'legs', 'feet',
-    'finger', 'wrist', 'hold', 'shield', 'light', 'float', 'back',
+    'head',
+    'neck',
+    'body',
+    'arms',
+    'hands',
+    'waist',
+    'legs',
+    'feet',
+    'finger',
+    'wrist',
+    'hold',
+    'shield',
+    'light',
+    'float',
+    'back',
     // Classes
-    'warrior', 'cleric', 'mage', 'thief', 'shaman', 'ranger', 'paladin',
-    'antipaladin', 'sorcerer', 'monk', 'druid', 'bard', 'necromancer',
-    'crusader', 'blighter', 'hunter', 'psionicist',
+    'warrior',
+    'cleric',
+    'mage',
+    'thief',
+    'shaman',
+    'ranger',
+    'paladin',
+    'antipaladin',
+    'sorcerer',
+    'monk',
+    'druid',
+    'bard',
+    'necromancer',
+    'crusader',
+    'blighter',
+    'hunter',
+    'psionicist',
     // Item types
-    'weapon', 'armor', 'container', 'scroll', 'wand', 'staff', 'potion',
-    'worn', 'food', 'drink', 'boat', 'treasure',
+    'weapon',
+    'armor',
+    'container',
+    'scroll',
+    'wand',
+    'staff',
+    'potion',
+    'worn',
+    'food',
+    'drink',
+    'boat',
+    'treasure',
     // Spell effects
-    'haste', 'fly', 'invis', 'infravision', 'waterwalk',
-    'regen', 'sanctuary', 'stoneskin', 'barkskin',
+    'haste',
+    'fly',
+    'invis',
+    'infravision',
+    'waterwalk',
+    'regen',
+    'sanctuary',
+    'stoneskin',
+    'barkskin',
     // Stats
-    'hitroll', 'damroll', 'hp', 'mana', 'moves', 'saves',
-    'str', 'int', 'wis', 'dex', 'con', 'cha', 'luck', 'focus', 'power',
+    'hitroll',
+    'damroll',
+    'hp',
+    'mana',
+    'moves',
+    'saves',
+    'str',
+    'int',
+    'wis',
+    'dex',
+    'con',
+    'cha',
+    'luck',
+    'focus',
+    'power',
     // Alignment
-    'good', 'evil', 'neutral',
+    'good',
+    'evil',
+    'neutral',
   ];
 }
 
@@ -235,26 +297,22 @@ export async function getAuctionKeywords(): Promise<string[]> {
 export async function getCharacterMoney(pid: number): Promise<number> {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT copper, silver, gold, platinum FROM player_data WHERE pid = ?`,
-    [pid]
+    [pid],
   );
 
   if (!rows[0]) return 0;
 
   // convert to copper (same formula as game)
-  return rows[0].copper +
-    (rows[0].silver * 10) +
-    (rows[0].gold * 100) +
-    (rows[0].platinum * 1000);
+  return rows[0].copper + rows[0].silver * 10 + rows[0].gold * 100 + rows[0].platinum * 1000;
 }
 
 /**
  * Get character name by PID
  */
 export async function getCharacterName(pid: number): Promise<string | null> {
-  const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT name FROM player_data WHERE pid = ?`,
-    [pid]
-  );
+  const [rows] = await pool.query<RowDataPacket[]>(`SELECT name FROM player_data WHERE pid = ?`, [
+    pid,
+  ]);
 
   return rows[0]?.name || null;
 }
@@ -262,13 +320,10 @@ export async function getCharacterName(pid: number): Promise<string | null> {
 /**
  * Verify character ownership - check if account owns the character
  */
-export async function verifyCharacterOwnership(
-  accountName: string,
-  pid: number
-): Promise<boolean> {
+export async function verifyCharacterOwnership(accountName: string, pid: number): Promise<boolean> {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT 1 FROM account_characters WHERE account_name = ? AND pid = ?`,
-    [accountName, pid]
+    [accountName, pid],
   );
 
   return rows.length > 0;
@@ -281,7 +336,7 @@ async function insertMoneyPickup(connection: any, pid: number, amount: number): 
   await connection.query(
     `INSERT INTO auction_money_pickups (pid, money) VALUES (?, ?)
      ON DUPLICATE KEY UPDATE money = money + ?`,
-    [pid, amount, amount]
+    [pid, amount, amount],
   );
 }
 
@@ -292,7 +347,7 @@ export async function placeBid(
   auctionId: number,
   bidderPid: number,
   bidderName: string,
-  bidAmountCopper: number
+  bidAmountCopper: number,
 ): Promise<{ success: boolean; error?: string; auctionClosed?: boolean }> {
   const connection = await pool.getConnection();
 
@@ -304,7 +359,7 @@ export async function placeBid(
       `SELECT id, cur_price, buy_price, winning_bidder_pid, winning_bidder_name,
               (UNIX_TIMESTAMP(end_time) - UNIX_TIMESTAMP()) as secs_remaining, quantity, status, seller_pid
        FROM auctions WHERE id = ? FOR UPDATE`,
-      [auctionId]
+      [auctionId],
     );
 
     if (auctionRows.length === 0) {
@@ -359,7 +414,7 @@ export async function placeBid(
       // Get obj_blob_str for item pickup
       const [blobRows] = await connection.query<RowDataPacket[]>(
         `SELECT obj_blob_str FROM auctions WHERE id = ?`,
-        [auctionId]
+        [auctionId],
       );
       const objBlobStr = blobRows[0]?.obj_blob_str;
 
@@ -367,7 +422,7 @@ export async function placeBid(
       await connection.query(
         `UPDATE auctions SET winning_bidder_pid = ?, winning_bidder_name = ?,
          cur_price = ?, status = 'CLOSED' WHERE id = ?`,
-        [bidderPid, bidderName, buyPrice, auctionId]
+        [bidderPid, bidderName, buyPrice, auctionId],
       );
 
       // Insert item pickup for winner
@@ -375,7 +430,7 @@ export async function placeBid(
         await connection.query(
           `INSERT INTO auction_item_pickups (pid, obj_blob_str, quantity, retrieved)
            VALUES (?, ?, ?, 0)`,
-          [bidderPid, objBlobStr, auction.quantity || 1]
+          [bidderPid, objBlobStr, auction.quantity || 1],
         );
       }
 
@@ -385,16 +440,16 @@ export async function placeBid(
       // Normal bid
       if (bidderPid === winningBidderPid) {
         // Same bidder raising their bid - no time extension
-        await connection.query(
-          `UPDATE auctions SET cur_price = ? WHERE id = ?`,
-          [bidAmountCopper, auctionId]
-        );
+        await connection.query(`UPDATE auctions SET cur_price = ? WHERE id = ?`, [
+          bidAmountCopper,
+          auctionId,
+        ]);
       } else {
         // New bidder - extend time by 5 minutes
         await connection.query(
           `UPDATE auctions SET cur_price = ?, winning_bidder_pid = ?,
            winning_bidder_name = ?, end_time = DATE_ADD(end_time, INTERVAL ? SECOND) WHERE id = ?`,
-          [bidAmountCopper, bidderPid, bidderName, BID_TIME_EXTENSION, auctionId]
+          [bidAmountCopper, bidderPid, bidderName, BID_TIME_EXTENSION, auctionId],
         );
       }
     }
@@ -403,7 +458,7 @@ export async function placeBid(
     await connection.query(
       `INSERT INTO auction_bid_history (date, auction_id, bidder_pid, bidder_name, bid_amount)
        VALUES (NOW(), ?, ?, ?, ?)`,
-      [auctionId, bidderPid, bidderName, bidAmountCopper]
+      [auctionId, bidderPid, bidderName, bidAmountCopper],
     );
 
     // Refund previous bidder if different person
@@ -413,19 +468,15 @@ export async function placeBid(
       // get item name for notification
       const [itemRows] = await connection.query<RowDataPacket[]>(
         `SELECT obj_short FROM auctions WHERE id = ?`,
-        [auctionId]
+        [auctionId],
       );
       const itemName = itemRows[0]?.obj_short || 'item';
 
       // notify outbid user (after commit to not block transaction)
       setImmediate(() => {
-        notificationService.notifyOutbid(
-          winningBidderPid,
-          auctionId,
-          itemName,
-          bidderName,
-          bidAmountCopper
-        ).catch(() => {}); // ignore errors
+        notificationService
+          .notifyOutbid(winningBidderPid, auctionId, itemName, bidderName, bidAmountCopper)
+          .catch(() => {}); // ignore errors
       });
     }
 
@@ -433,34 +484,26 @@ export async function placeBid(
     if (auctionClosed) {
       const [auctionData] = await connection.query<RowDataPacket[]>(
         `SELECT obj_short, seller_pid, seller_name FROM auctions WHERE id = ?`,
-        [auctionId]
+        [auctionId],
       );
       const itemName = auctionData[0]?.obj_short || 'item';
       const sellerPid = auctionData[0]?.seller_pid;
 
       setImmediate(() => {
-        notificationService.notifyAuctionWon(
-          bidderPid,
-          auctionId,
-          itemName,
-          bidAmountCopper
-        ).catch(() => {});
+        notificationService
+          .notifyAuctionWon(bidderPid, auctionId, itemName, bidAmountCopper)
+          .catch(() => {});
 
         if (sellerPid) {
-          notificationService.notifyItemSold(
-            sellerPid,
-            auctionId,
-            itemName,
-            bidderName,
-            bidAmountCopper
-          ).catch(() => {});
+          notificationService
+            .notifyItemSold(sellerPid, auctionId, itemName, bidderName, bidAmountCopper)
+            .catch(() => {});
         }
       });
     }
 
     await connection.commit();
     return { success: true, auctionClosed };
-
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -482,7 +525,7 @@ export async function deductCharacterMoney(pid: number, amountCopper: number): P
     // get current coins with lock
     const [rows] = await connection.query<RowDataPacket[]>(
       `SELECT copper, silver, gold, platinum FROM player_data WHERE pid = ? FOR UPDATE`,
-      [pid]
+      [pid],
     );
 
     if (!rows[0]) {
@@ -491,7 +534,7 @@ export async function deductCharacterMoney(pid: number, amountCopper: number): P
     }
 
     let { copper, silver, gold, platinum } = rows[0];
-    const totalCopper = copper + (silver * 10) + (gold * 100) + (platinum * 1000);
+    const totalCopper = copper + silver * 10 + gold * 100 + platinum * 1000;
 
     if (totalCopper < amountCopper) {
       await connection.rollback();
@@ -532,7 +575,7 @@ export async function deductCharacterMoney(pid: number, amountCopper: number): P
 
     await connection.query(
       `UPDATE player_data SET copper = ?, silver = ?, gold = ?, platinum = ? WHERE pid = ?`,
-      [copper, silver, gold, platinum, pid]
+      [copper, silver, gold, platinum, pid],
     );
 
     await connection.commit();
@@ -551,7 +594,7 @@ export async function deductCharacterMoney(pid: number, amountCopper: number): P
 export async function adminRemoveAuction(
   auctionId: number,
   adminName: string,
-  reason?: string
+  reason?: string,
 ): Promise<{ success: boolean; error?: string }> {
   const connection = await pool.getConnection();
 
@@ -562,7 +605,7 @@ export async function adminRemoveAuction(
     const [rows] = await connection.query<RowDataPacket[]>(
       `SELECT seller_pid, winning_bidder_pid, cur_price, obj_blob_str, quantity, status
        FROM auctions WHERE id = ? FOR UPDATE`,
-      [auctionId]
+      [auctionId],
     );
 
     if (rows.length === 0) {
@@ -578,16 +621,13 @@ export async function adminRemoveAuction(
     }
 
     // Mark as removed
-    await connection.query(
-      `UPDATE auctions SET status = 'REMOVED' WHERE id = ?`,
-      [auctionId]
-    );
+    await connection.query(`UPDATE auctions SET status = 'REMOVED' WHERE id = ?`, [auctionId]);
 
     // Return item to seller via pickup queue
     await connection.query(
       `INSERT INTO auction_item_pickups (pid, obj_blob_str, quantity, retrieved)
        VALUES (?, ?, ?, 0)`,
-      [auction.seller_pid, auction.obj_blob_str, auction.quantity]
+      [auction.seller_pid, auction.obj_blob_str, auction.quantity],
     );
 
     // Refund bidder if any
@@ -598,10 +638,11 @@ export async function adminRemoveAuction(
     await connection.commit();
 
     // Log the action
-    console.log(`[Auction] Admin ${adminName} removed auction ${auctionId}. Reason: ${reason || 'none'}`);
+    console.log(
+      `[Auction] Admin ${adminName} removed auction ${auctionId}. Reason: ${reason || 'none'}`,
+    );
 
     return { success: true };
-
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -614,19 +655,19 @@ export async function adminRemoveAuction(
  * Get auction history (completed sales from last 30 days)
  */
 export async function getAuctionHistory(
-  filters: AuctionHistoryFilters
+  filters: AuctionHistoryFilters,
 ): Promise<{ history: AuctionHistoryItem[]; total: number }> {
   const page = Math.max(1, filters.page || 1);
   const limit = Math.min(100, Math.max(1, filters.limit || 10));
   const offset = (page - 1) * limit;
 
   // Only show closed auctions from last 30 days
-  const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
   const whereConditions: string[] = [
     "status = 'CLOSED'",
-    "end_time > ?",
-    "winning_bidder_name IS NOT NULL"
+    'end_time > ?',
+    'winning_bidder_name IS NOT NULL',
   ];
   const queryParams: any[] = [thirtyDaysAgo];
 
@@ -681,7 +722,7 @@ export async function getAuctionHistory(
   queryParams.push(limit, offset);
   const [rows] = await pool.query<RowDataPacket[]>(query, queryParams);
 
-  const history: AuctionHistoryItem[] = rows.map(row => ({
+  const history: AuctionHistoryItem[] = rows.map((row) => ({
     id: row.id,
     sellerName: row.seller_name,
     buyerName: row.buyer_name,

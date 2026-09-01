@@ -106,10 +106,13 @@ describe('useAliases local persistence', () => {
   })
 
   it('writes the version-1 group migration back as version 2', async () => {
-    localStorage.setItem('duris_aliases_cwial', JSON.stringify({
-      version: 1,
-      aliases: [{ ...aliasForm, id: 'legacy', createdAt: 1, updatedAt: 1 }],
-    }))
+    localStorage.setItem(
+      'duris_aliases_cwial',
+      JSON.stringify({
+        version: 1,
+        aliases: [{ ...aliasForm, id: 'legacy', createdAt: 1, updatedAt: 1 }],
+      }),
+    )
 
     await selectAccount('Cwial')
 
@@ -136,8 +139,9 @@ describe('useAliases local persistence', () => {
 
   it('rejects an oversized import document before parsing items', async () => {
     await selectAccount('Cwial')
-    expect(() => aliasesApi.importAliases('x'.repeat(1_000_001), 'merge'))
-      .toThrow(/maximum|large|size/i)
+    expect(() => aliasesApi.importAliases('x'.repeat(1_000_001), 'merge')).toThrow(
+      /maximum|large|size/i,
+    )
   })
 
   it('rejects an import with too many items before mutation', async () => {
@@ -150,8 +154,9 @@ describe('useAliases local persistence', () => {
       updatedAt: 1,
     }))
 
-    expect(() => aliasesApi.importAliases(JSON.stringify({ aliases: items }), 'merge'))
-      .toThrow(/more than 1000/i)
+    expect(() => aliasesApi.importAliases(JSON.stringify({ aliases: items }), 'merge')).toThrow(
+      /more than 1000/i,
+    )
     expect(aliasesApi.aliases.value).toHaveLength(0)
   })
 
@@ -162,27 +167,32 @@ describe('useAliases local persistence', () => {
       aliases: [{ ...aliasForm, id: 'bad', expansion: 123, createdAt: 1, updatedAt: 1 }],
     }
 
-    expect(() => aliasesApi.importAliases(JSON.stringify(malformed), 'merge'))
-      .toThrow(/Invalid alias.*expansion/i)
+    expect(() => aliasesApi.importAliases(JSON.stringify(malformed), 'merge')).toThrow(
+      /Invalid alias.*expansion/i,
+    )
     expect(aliasesApi.aliases.value).toHaveLength(0)
   })
 
   it('rejects malformed direct alias creation and update without mutation', async () => {
     await selectAccount('Cwial')
 
-    expect(aliasesApi.addAlias({
-      ...aliasForm,
-      expansion: 123 as unknown as string,
-    })).toBeNull()
+    expect(
+      aliasesApi.addAlias({
+        ...aliasForm,
+        expansion: 123 as unknown as string,
+      }),
+    ).toBeNull()
     expect(aliasesApi.aliases.value).toHaveLength(0)
     expect(aliasesApi.storageError.value).toMatch(/expansion must be a string/i)
 
     const created = aliasesApi.addAlias(aliasForm)
     expect(created).not.toBeNull()
     const before = aliasesApi.aliases.value[0]
-    expect(aliasesApi.updateAlias(before!.id, {
-      trigger: 123 as unknown as string,
-    })).toBeNull()
+    expect(
+      aliasesApi.updateAlias(before!.id, {
+        trigger: 123 as unknown as string,
+      }),
+    ).toBeNull()
     expect(aliasesApi.aliases.value[0]).toEqual(before)
   })
 })

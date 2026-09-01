@@ -3,6 +3,8 @@ import type { RowDataPacket } from 'mysql2';
 import { mudPool } from '../db/connection.js';
 import logger from '../utils/logger.js';
 import { getScopedRedisConfiguration } from '../utils/scopedRedis.js';
+import { isHookEnabledSync } from '../hooks/hookGate.js';
+import { recordHookActivity } from '../hooks/hookActivity.js';
 
 const SUBSCRIBE_TIMEOUT_MS = 10_000;
 const CHANNEL_REFRESH_INTERVAL_MS = 60_000;
@@ -34,7 +36,7 @@ async function getActivePlayerEventChannel(): Promise<string> {
     `SELECT season_epoch
      FROM season_reset_state
      WHERE state_id = 1 AND reset_status = 'active'
-     LIMIT 1`
+     LIMIT 1`,
   );
   if (rows.length !== 1) {
     throw new Error('No active MUD season epoch is available for player events');
@@ -82,7 +84,10 @@ async function withSubscribeTimeout<T>(promise: Promise<T>): Promise<T> {
     return await Promise.race([
       promise,
       new Promise<T>((_, reject) => {
-        timeout = setTimeout(() => reject(new Error('Redis subscription timed out')), SUBSCRIBE_TIMEOUT_MS);
+        timeout = setTimeout(
+          () => reject(new Error('Redis subscription timed out')),
+          SUBSCRIBE_TIMEOUT_MS,
+        );
       }),
     ]);
   } finally {
@@ -139,8 +144,11 @@ export async function startPlayerEventSubscriber(): Promise<void> {
         const parsed: unknown = JSON.parse(message);
         if (parsed === null || typeof parsed !== 'object') return;
         const event = parsed as Partial<PlayerEvent>;
-        if ((event.event !== 'login' && event.event !== 'logout') ||
-            !Number.isInteger(event.pid) || (event.pid as number) <= 0) {
+        if (
+          (event.event !== 'login' && event.event !== 'logout') ||
+          !Number.isInteger(event.pid) ||
+          (event.pid as number) <= 0
+        ) {
           logger.warn('[PlayerEventSubscriber] rejected malformed player event');
           return;
         }
@@ -148,12 +156,14 @@ export async function startPlayerEventSubscriber(): Promise<void> {
           logger.warn('[PlayerEventSubscriber] no broadcaster set');
           return;
         }
+        if (!isHookEnabledSync('player_presence')) return;
 
         if (event.event === 'login') {
           broadcaster('PLAYER_LOGIN', { pid: event.pid });
         } else {
           broadcaster('PLAYER_LOGOUT', { pid: event.pid });
         }
+        recordHookActivity('player_presence');
 
         logger.info(`[PlayerEventSubscriber] ${event.event} pid=${event.pid}`);
       } catch {
@@ -165,7 +175,10 @@ export async function startPlayerEventSubscriber(): Promise<void> {
     await withSubscribeTimeout(client.subscribe(channel));
     channelRefreshTimer = setInterval(() => {
       void refreshPlayerEventChannel().catch((error) => {
-        logger.warn('[PlayerEventSubscriber] season channel refresh failed:', error instanceof Error ? error.message : String(error));
+        logger.warn(
+          '[PlayerEventSubscriber] season channel refresh failed:',
+          error instanceof Error ? error.message : String(error),
+        );
       });
     }, CHANNEL_REFRESH_INTERVAL_MS);
     logger.info(`[PlayerEventSubscriber] subscribed to ${channel}`);
@@ -201,7 +214,10 @@ export async function stopPlayerEventSubscriber(): Promise<void> {
       if (channel) await current.unsubscribe(channel);
       await current.quit();
     } catch (error) {
-      logger.error('[PlayerEventSubscriber] close failed:', error instanceof Error ? error.message : String(error));
+      logger.error(
+        '[PlayerEventSubscriber] close failed:',
+        error instanceof Error ? error.message : String(error),
+      );
       current.disconnect();
     }
     logger.info('[PlayerEventSubscriber] stopped');

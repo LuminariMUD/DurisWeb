@@ -1,6 +1,9 @@
 import { ref, watch, computed } from 'vue'
 import { createClientId } from '@/utils/clientId'
-import { parseClientSettingsCollection, parseClientSettingsDocument } from '@/utils/clientSettingsImport'
+import {
+  parseClientSettingsCollection,
+  parseClientSettingsDocument,
+} from '@/utils/clientSettingsImport'
 import { normalizeMobActionForm, normalizeMobActionImport } from '@/utils/clientSettingsValidation'
 
 export interface MobAction {
@@ -75,7 +78,11 @@ export function useMobActions() {
 
   function addAction(label: string, command: string): MobAction | null {
     try {
-      const action = normalizeMobActionForm(label, command, createClientId(actions.value.map((item) => item.id)))
+      const action = normalizeMobActionForm(
+        label,
+        command,
+        createClientId(actions.value.map((item) => item.id)),
+      )
       actions.value.push(action)
       actionError.value = null
       return action
@@ -87,7 +94,7 @@ export function useMobActions() {
   }
 
   function updateAction(id: string, label: string, command: string): boolean {
-    const index = actions.value.findIndex(a => a.id === id)
+    const index = actions.value.findIndex((a) => a.id === id)
     if (index === -1) return false
 
     try {
@@ -103,7 +110,7 @@ export function useMobActions() {
   }
 
   function deleteAction(id: string) {
-    const index = actions.value.findIndex(a => a.id === id)
+    const index = actions.value.findIndex((a) => a.id === id)
     if (index !== -1) {
       actions.value.splice(index, 1)
       // Clear button assignments if this action was assigned
@@ -119,12 +126,12 @@ export function useMobActions() {
   // Get action assigned to a button
   const button1Action = computed(() => {
     if (!button1ActionId.value) return null
-    return actions.value.find(a => a.id === button1ActionId.value) || null
+    return actions.value.find((a) => a.id === button1ActionId.value) || null
   })
 
   const button2Action = computed(() => {
     if (!button2ActionId.value) return null
-    return actions.value.find(a => a.id === button2ActionId.value) || null
+    return actions.value.find((a) => a.id === button2ActionId.value) || null
   })
 
   function setButtonAction(button: 1 | 2, actionId: string | null) {
@@ -165,9 +172,13 @@ export function useMobActions() {
       return id
     }
     const normalizedImported = imported.map((item, index) => {
-      const sourceId = item && typeof item === 'object' && !Array.isArray(item) && typeof (item as Record<string, unknown>).id === 'string'
-        ? (item as Record<string, unknown>).id as string
-        : ''
+      const sourceId =
+        item &&
+        typeof item === 'object' &&
+        !Array.isArray(item) &&
+        typeof (item as Record<string, unknown>).id === 'string'
+          ? ((item as Record<string, unknown>).id as string)
+          : ''
       const id = nextId()
       if (sourceId) sourceIdMap.set(sourceId, id)
       return normalizeMobActionImport(item, index, id)
@@ -187,7 +198,9 @@ export function useMobActions() {
       // Merge: skip duplicates by label
       let count = 0
       for (const action of normalizedImported) {
-        const exists = actions.value.some(a => a.label.toLowerCase() === action.label.toLowerCase())
+        const exists = actions.value.some(
+          (a) => a.label.toLowerCase() === action.label.toLowerCase(),
+        )
         if (!exists) {
           actions.value.push(action)
           count++

@@ -1,92 +1,119 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { useLogFiles, useLogContent, getLogDownloadUrl, type LogFilters } from '@/composables/useServerLogs';
-import { useLogWebSocket } from '@/composables/useLogWebSocket';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import AnsiText from '@/components/ui/AnsiText.vue';
-import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue';
-import { Download, Search, RefreshCw, X } from 'lucide-vue-next';
-import flatpickr from 'flatpickr';
-import 'flatpickr/dist/flatpickr.min.css';
-import 'flatpickr/dist/themes/dark.css';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import {
+  useLogFiles,
+  useLogContent,
+  getLogDownloadUrl,
+  type LogFilters,
+} from '@/composables/useServerLogs'
+import { useLogWebSocket } from '@/composables/useLogWebSocket'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import AnsiText from '@/components/ui/AnsiText.vue'
+import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
+import { Download, Search, RefreshCw, X } from 'lucide-vue-next'
+import flatpickr from 'flatpickr'
+import 'flatpickr/dist/flatpickr.min.css'
+import 'flatpickr/dist/themes/dark.css'
 
 // State
-const selectedCategory = ref<'runtime' | 'player'>('runtime');
-const selectedLogName = ref<string | null>(null);
-const currentPage = ref(1);
-const pageSize = ref(100);
-const searchText = ref('');
-const startDateStr = ref('');
-const endDateStr = ref('');
-const autoRefreshEnabled = ref(false);
-const searchDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+const selectedCategory = ref<'runtime' | 'player'>('runtime')
+const selectedLogName = ref<string | null>(null)
+const currentPage = ref(1)
+const pageSize = ref(100)
+const searchText = ref('')
+const startDateStr = ref('')
+const endDateStr = ref('')
+const autoRefreshEnabled = ref(false)
+const searchDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
 // Flatpickr instances
-const startDateInput = ref<HTMLInputElement | null>(null);
-const endDateInput = ref<HTMLInputElement | null>(null);
-let startDatePicker: flatpickr.Instance | null = null;
-let endDatePicker: flatpickr.Instance | null = null;
+const startDateInput = ref<HTMLInputElement | null>(null)
+const endDateInput = ref<HTMLInputElement | null>(null)
+let startDatePicker: flatpickr.Instance | null = null
+let endDatePicker: flatpickr.Instance | null = null
 
 // Initialize flatpickr on mount
 onMounted(() => {
   if (startDateInput.value) {
-    startDatePicker = flatpickr(startDateInput.value as HTMLElement, {
-      dateFormat: 'Y-m-d',
-      onChange: (_selectedDates: any, dateStr: string) => {
-        startDateStr.value = dateStr;
-      },
-    } as any);
+    startDatePicker = flatpickr(
+      startDateInput.value as HTMLElement,
+      {
+        dateFormat: 'Y-m-d',
+        onChange: (_selectedDates: any, dateStr: string) => {
+          startDateStr.value = dateStr
+        },
+      } as any,
+    )
   }
   if (endDateInput.value) {
-    endDatePicker = flatpickr(endDateInput.value as HTMLElement, {
-      dateFormat: 'Y-m-d',
-      onChange: (_selectedDates: any, dateStr: string) => {
-        endDateStr.value = dateStr;
-      },
-    } as any);
+    endDatePicker = flatpickr(
+      endDateInput.value as HTMLElement,
+      {
+        dateFormat: 'Y-m-d',
+        onChange: (_selectedDates: any, dateStr: string) => {
+          endDateStr.value = dateStr
+        },
+      } as any,
+    )
   }
-});
+})
 
 // Cleanup flatpickr on unmount
 onUnmounted(() => {
-  startDatePicker?.destroy();
-  endDatePicker?.destroy();
-});
+  startDatePicker?.destroy()
+  endDatePicker?.destroy()
+})
 
 // Computed filters
 const filters = computed<LogFilters>(() => ({
   search: searchText.value || undefined,
   startDate: startDateStr.value ? new Date(startDateStr.value).toISOString() : undefined,
   endDate: endDateStr.value ? new Date(endDateStr.value).toISOString() : undefined,
-}));
+}))
 
 // Fetch log files
-const { data: logFiles } = useLogFiles();
+const { data: logFiles } = useLogFiles()
 
 // Debug logging
-watch(logFiles, (files) => {
-  console.log('logFiles loaded:', files);
-}, { immediate: true });
+watch(
+  logFiles,
+  (files) => {
+    console.log('logFiles loaded:', files)
+  },
+  { immediate: true },
+)
 
 // Categorize log files
-const runtimeLogs = computed(() =>
-  logFiles.value?.filter(log => log.category === 'runtime').sort((a, b) => a.name.localeCompare(b.name)) || []
-);
+const runtimeLogs = computed(
+  () =>
+    logFiles.value
+      ?.filter((log) => log.category === 'runtime')
+      .sort((a, b) => a.name.localeCompare(b.name)) || [],
+)
 
-const playerLogs = computed(() =>
-  logFiles.value?.filter(log => log.category === 'player').sort((a, b) => a.name.localeCompare(b.name)) || []
-);
+const playerLogs = computed(
+  () =>
+    logFiles.value
+      ?.filter((log) => log.category === 'player')
+      .sort((a, b) => a.name.localeCompare(b.name)) || [],
+)
 
 const availableLogs = computed(() => {
-  const logs = selectedCategory.value === 'runtime' ? runtimeLogs.value : playerLogs.value;
-  console.log('availableLogs computed:', logs);
-  return logs;
-});
+  const logs = selectedCategory.value === 'runtime' ? runtimeLogs.value : playerLogs.value
+  console.log('availableLogs computed:', logs)
+  return logs
+})
 
 // Fetch log content
 const {
@@ -98,79 +125,83 @@ const {
   computed(() => selectedLogName.value || ''),
   currentPage,
   pageSize,
-  filters
-);
+  filters,
+)
 
 // WebSocket for real-time updates
 const { newLines, isSubscribed } = useLogWebSocket(
   computed(() => selectedCategory.value),
   computed(() => selectedLogName.value),
-  autoRefreshEnabled
-);
+  autoRefreshEnabled,
+)
 
 // Auto-select first log when category changes
-watch(selectedCategory, () => {
-  if (availableLogs.value.length > 0 && availableLogs.value[0]) {
-    selectedLogName.value = availableLogs.value[0].name;
-    currentPage.value = 1;
-  }
-}, { immediate: true });
+watch(
+  selectedCategory,
+  () => {
+    if (availableLogs.value.length > 0 && availableLogs.value[0]) {
+      selectedLogName.value = availableLogs.value[0].name
+      currentPage.value = 1
+    }
+  },
+  { immediate: true },
+)
 
 // Reset page when filters change
 watch([searchText, startDateStr, endDateStr], () => {
-  currentPage.value = 1;
-});
+  currentPage.value = 1
+})
 
 // Handle search with debounce
 function handleSearchInput(event: Event) {
-  const value = (event.target as HTMLInputElement).value;
+  const value = (event.target as HTMLInputElement).value
 
   if (searchDebounceTimer.value) {
-    clearTimeout(searchDebounceTimer.value);
+    clearTimeout(searchDebounceTimer.value)
   }
 
   searchDebounceTimer.value = setTimeout(() => {
-    searchText.value = value;
-  }, 500);
+    searchText.value = value
+  }, 500)
 }
 
 // Clear filters
 function clearFilters() {
-  searchText.value = '';
-  startDateStr.value = '';
-  endDateStr.value = '';
-  startDatePicker?.clear();
-  endDatePicker?.clear();
-  currentPage.value = 1;
+  searchText.value = ''
+  startDateStr.value = ''
+  endDateStr.value = ''
+  startDatePicker?.clear()
+  endDatePicker?.clear()
+  currentPage.value = 1
 }
 
 // Download log file
 function downloadLog() {
-  if (!selectedLogName.value) return;
+  if (!selectedLogName.value) return
 
-  const url = getLogDownloadUrl(selectedCategory.value, selectedLogName.value);
-  window.open(url, '_blank');
+  const url = getLogDownloadUrl(selectedCategory.value, selectedLogName.value)
+  window.open(url, '_blank')
 }
 
 // Get log level class
 function getLogLevelClass(level: string): string {
   switch (level) {
     case 'ERROR':
-      return 'bg-red-900/20 text-red-400 border-l-4 border-red-500';
+      return 'bg-red-900/20 text-red-400 border-l-4 border-red-500'
     case 'WARNING':
-      return 'bg-yellow-900/20 text-yellow-400 border-l-4 border-yellow-500';
+      return 'bg-yellow-900/20 text-yellow-400 border-l-4 border-yellow-500'
     case 'DEBUG':
-      return 'text-gray-500';
+      return 'text-gray-500'
     default:
-      return '';
+      return ''
   }
 }
 
 // Format file size
 function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 </script>
 

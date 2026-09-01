@@ -34,11 +34,13 @@ export interface DeploymentContext {
  */
 function sendProgress(ws: WebSocket, progressType: string, message: string): void {
   if (ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({
-      type: 'DEPLOY_PROGRESS',
-      progressType,
-      message,
-    }));
+    ws.send(
+      JSON.stringify({
+        type: 'DEPLOY_PROGRESS',
+        progressType,
+        message,
+      }),
+    );
   }
 }
 
@@ -50,7 +52,7 @@ async function runCommandWithStream(
   command: string,
   args: string[],
   cwd: string,
-  progressType: string = 'output'
+  progressType: string = 'output',
 ): Promise<{ output: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
     let output = '';
@@ -81,10 +83,7 @@ async function runCommandWithStream(
 /**
  * Log deployment to database
  */
-async function logDeployment(
-  ctx: DeploymentContext,
-  compileSuccess: boolean
-): Promise<void> {
+async function logDeployment(ctx: DeploymentContext, compileSuccess: boolean): Promise<void> {
   try {
     await pool.query(
       `INSERT INTO deployment_log
@@ -99,7 +98,7 @@ async function logDeployment(
         ctx.logs.git,
         compileSuccess ? 1 : 0,
         ctx.logs.compile,
-      ]
+      ],
     );
   } catch (error) {
     logger.error('Failed to log deployment:', error);
@@ -115,11 +114,13 @@ export async function deployToCommit(ctx: DeploymentContext): Promise<void> {
   // Defense-in-depth: validate hash format even though entry point already did
   if (!validateCommitHash(targetHash)) {
     sendProgress(ws, 'error', 'Invalid commit hash format');
-    ws.send(JSON.stringify({
-      type: 'DEPLOY_COMPLETE',
-      success: false,
-      error: 'Invalid commit hash format',
-    }));
+    ws.send(
+      JSON.stringify({
+        type: 'DEPLOY_COMPLETE',
+        success: false,
+        error: 'Invalid commit hash format',
+      }),
+    );
     return;
   }
 
@@ -138,17 +139,19 @@ export async function deployToCommit(ctx: DeploymentContext): Promise<void> {
       'git',
       ['fetch', 'origin', '--verbose'],
       MUD_DIR,
-      'output'
+      'output',
     );
     ctx.logs.git = fetchResult.output;
 
     if (fetchResult.exitCode !== 0) {
       sendProgress(ws, 'error', `Git fetch failed with exit code ${fetchResult.exitCode}`);
-      ws.send(JSON.stringify({
-        type: 'DEPLOY_COMPLETE',
-        success: false,
-        error: 'Git fetch failed',
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'DEPLOY_COMPLETE',
+          success: false,
+          error: 'Git fetch failed',
+        }),
+      );
       await logDeployment(ctx, false);
       return;
     }
@@ -162,17 +165,19 @@ export async function deployToCommit(ctx: DeploymentContext): Promise<void> {
       'git',
       ['checkout', targetHash],
       MUD_DIR,
-      'output'
+      'output',
     );
     ctx.logs.git += '\n' + checkoutResult.output;
 
     if (checkoutResult.exitCode !== 0) {
       sendProgress(ws, 'error', `Git checkout failed with exit code ${checkoutResult.exitCode}`);
-      ws.send(JSON.stringify({
-        type: 'DEPLOY_COMPLETE',
-        success: false,
-        error: 'Git checkout failed',
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'DEPLOY_COMPLETE',
+          success: false,
+          error: 'Git checkout failed',
+        }),
+      );
       await logDeployment(ctx, false);
       return;
     }
@@ -181,13 +186,7 @@ export async function deployToCommit(ctx: DeploymentContext): Promise<void> {
 
     // Step 4: Clean build artifacts
     sendProgress(ws, 'step', '>>> Running make clean...');
-    const cleanResult = await runCommandWithStream(
-      ws,
-      'make',
-      ['clean'],
-      SRC_DIR,
-      'compile'
-    );
+    const cleanResult = await runCommandWithStream(ws, 'make', ['clean'], SRC_DIR, 'compile');
     ctx.logs.compile = cleanResult.output;
 
     // Don't fail on make clean errors - some commits might not have clean target
@@ -199,13 +198,7 @@ export async function deployToCommit(ctx: DeploymentContext): Promise<void> {
 
     // Step 5: Compile with make
     sendProgress(ws, 'step', '>>> Running make...');
-    const makeResult = await runCommandWithStream(
-      ws,
-      'make',
-      [],
-      SRC_DIR,
-      'compile'
-    );
+    const makeResult = await runCommandWithStream(ws, 'make', [], SRC_DIR, 'compile');
     ctx.logs.compile += '\n' + makeResult.output;
 
     sendProgress(ws, 'info', '');
@@ -223,27 +216,38 @@ export async function deployToCommit(ctx: DeploymentContext): Promise<void> {
     // Step 7: Send final result
     if (makeResult.exitCode === 0) {
       sendProgress(ws, 'success', '>>> Deployment complete!');
-      sendProgress(ws, 'success', '>>> Remember to shutdown/copyover the MUD to load the new binary.');
+      sendProgress(
+        ws,
+        'success',
+        '>>> Remember to shutdown/copyover the MUD to load the new binary.',
+      );
     } else {
       sendProgress(ws, 'error', `>>> Compilation failed with exit code ${makeResult.exitCode}`);
-      sendProgress(ws, 'error', '>>> The code has been checked out but the binary was not updated.');
+      sendProgress(
+        ws,
+        'error',
+        '>>> The code has been checked out but the binary was not updated.',
+      );
     }
 
-    ws.send(JSON.stringify({
-      type: 'DEPLOY_COMPLETE',
-      success: makeResult.exitCode === 0,
-      fromHash: ctx.fromHash,
-      toHash: targetHash,
-    }));
-
+    ws.send(
+      JSON.stringify({
+        type: 'DEPLOY_COMPLETE',
+        success: makeResult.exitCode === 0,
+        fromHash: ctx.fromHash,
+        toHash: targetHash,
+      }),
+    );
   } catch (error) {
     logger.error('Deployment error:', error);
     sendProgress(ws, 'error', `>>> Deployment failed: ${getErrorMessage(error)}`);
-    ws.send(JSON.stringify({
-      type: 'DEPLOY_COMPLETE',
-      success: false,
-      error: getErrorMessage(error),
-    }));
+    ws.send(
+      JSON.stringify({
+        type: 'DEPLOY_COMPLETE',
+        success: false,
+        error: getErrorMessage(error),
+      }),
+    );
 
     // Try to log the failure
     try {
@@ -260,7 +264,7 @@ export async function deployToCommit(ctx: DeploymentContext): Promise<void> {
  */
 export async function determineDeployAction(
   currentHash: string,
-  targetHash: string
+  targetHash: string,
 ): Promise<'deploy' | 'rollback'> {
   // Defense-in-depth: validate hash formats
   if (!validateCommitHash(currentHash) || !validateCommitHash(targetHash)) {
@@ -270,8 +274,12 @@ export async function determineDeployAction(
   try {
     // Check if target is ancestor of current (rollback) or descendant (deploy)
     const proc = spawn('git', [
-      '-C', MUD_DIR,
-      'merge-base', '--is-ancestor', targetHash, currentHash
+      '-C',
+      MUD_DIR,
+      'merge-base',
+      '--is-ancestor',
+      targetHash,
+      currentHash,
     ]);
 
     return new Promise((resolve) => {
@@ -293,24 +301,24 @@ export async function determineDeployAction(
 /**
  * Get recent deployment history
  */
-export async function getDeploymentHistory(
-  limit: number = 20
-): Promise<Array<{
-  id: number;
-  accountName: string;
-  action: string;
-  fromHash: string;
-  toHash: string;
-  compileSuccess: boolean;
-  createdAt: Date;
-}>> {
+export async function getDeploymentHistory(limit: number = 20): Promise<
+  Array<{
+    id: number;
+    accountName: string;
+    action: string;
+    fromHash: string;
+    toHash: string;
+    compileSuccess: boolean;
+    createdAt: Date;
+  }>
+> {
   const [rows] = await pool.query<any[]>(
     `SELECT id, account_name as accountName, action, from_hash as fromHash,
             to_hash as toHash, compile_success as compileSuccess, created_at as createdAt
      FROM deployment_log
      ORDER BY created_at DESC
      LIMIT ?`,
-    [limit]
+    [limit],
   );
   return rows;
 }

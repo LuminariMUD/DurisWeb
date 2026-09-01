@@ -82,13 +82,33 @@ large tome sits on a pedestal in the center of the room.`,
 })
 
 const allFlags = [
-  'DARK', 'DEATH', 'NO_MOB', 'INDOORS', 'NO_MAGIC', 'TUNNEL', 'PRIVATE',
-  'GODROOM', 'UNDERWATER', 'NO_TELEPORT', 'PEACEFUL', 'ARENA',
+  'DARK',
+  'DEATH',
+  'NO_MOB',
+  'INDOORS',
+  'NO_MAGIC',
+  'TUNNEL',
+  'PRIVATE',
+  'GODROOM',
+  'UNDERWATER',
+  'NO_TELEPORT',
+  'PEACEFUL',
+  'ARENA',
 ]
 
 const sectors = [
-  'inside', 'city', 'field', 'forest', 'hills', 'mountain', 'water_swim',
-  'water_noswim', 'underwater', 'flying', 'desert', 'arctic',
+  'inside',
+  'city',
+  'field',
+  'forest',
+  'hills',
+  'mountain',
+  'water_swim',
+  'water_noswim',
+  'underwater',
+  'flying',
+  'desert',
+  'arctic',
 ]
 
 const expandedSections = ref({
@@ -98,7 +118,7 @@ const expandedSections = ref({
   resets: false,
 })
 
-function toggleZone(zone: typeof zones.value[0]) {
+function toggleZone(zone: (typeof zones.value)[0]) {
   zone.expanded = !zone.expanded
 }
 

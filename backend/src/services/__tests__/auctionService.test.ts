@@ -1,114 +1,84 @@
 /**
  * @jest-environment node
  */
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
-import { pool } from '../../db/connection.js';
-import redis from '../../db/redis.js';
-import { getCharacterMoney } from '../auctionService.js';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-describe('auctionService', () => {
-  let testPid: number;
+const query = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const connectionQuery = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const beginTransaction = jest.fn<() => Promise<void>>();
+const commit = jest.fn<() => Promise<void>>();
+const rollback = jest.fn<() => Promise<void>>();
+const release = jest.fn<() => void>();
+const connection = {
+  query: connectionQuery,
+  beginTransaction,
+  commit,
+  rollback,
+  release,
+};
+const getConnection = jest.fn<() => Promise<typeof connection>>();
 
-  beforeAll(async () => {
-    // find a real character in player_data for testing
-    const [rows] = await pool.query(
-      'SELECT pid FROM player_data LIMIT 1'
-    ) as any;
+jest.unstable_mockModule('../../db/connection.js', () => ({
+  pool: { query, getConnection },
+}));
+jest.unstable_mockModule('../unifiedNotificationService.js', () => ({}));
 
-    if (rows.length === 0) {
-      throw new Error('no characters found in player_data for testing');
-    }
+const { deductCharacterMoney, getCharacterMoney } = await import('../auctionService.js');
 
-    testPid = rows[0].pid;
+describe('auctionService character money', () => {
+  beforeEach(() => {
+    query.mockReset();
+    connectionQuery.mockReset();
+    beginTransaction.mockReset().mockResolvedValue();
+    commit.mockReset().mockResolvedValue();
+    rollback.mockReset().mockResolvedValue();
+    release.mockReset();
+    getConnection.mockReset().mockResolvedValue(connection);
   });
 
-  afterAll(async () => {
-    await pool.end();
-    await redis.quit();
+  it('converts all coin denominations to copper', async () => {
+    query.mockResolvedValueOnce([[{ copper: 7, silver: 3, gold: 2, platinum: 1 }], []]);
+
+    await expect(getCharacterMoney(42)).resolves.toBe(1_237);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('FROM player_data WHERE pid = ?'),
+      [42],
+    );
   });
 
-  describe('getCharacterMoney', () => {
-    it('should return total copper from player_data', async () => {
-      // get expected values directly from player_data
-      const [rows] = await pool.query(
-        'SELECT copper, silver, gold, platinum FROM player_data WHERE pid = ?',
-        [testPid]
-      ) as any;
+  it('returns zero when the character row does not exist', async () => {
+    query.mockResolvedValueOnce([[], []]);
 
-      const expected = rows[0].copper +
-        (rows[0].silver * 10) +
-        (rows[0].gold * 100) +
-        (rows[0].platinum * 1000);
-
-      const result = await getCharacterMoney(testPid);
-
-      expect(result).toBe(expected);
-    });
-
-    it('should return 0 for non-existent character', async () => {
-      const result = await getCharacterMoney(999999999);
-      expect(result).toBe(0);
-    });
+    await expect(getCharacterMoney(999_999_999)).resolves.toBe(0);
   });
 
-  describe('deductCharacterMoney', () => {
-    let richPid: number;
-    let originalCoins: { copper: number; silver: number; gold: number; platinum: number };
+  it('deducts transactionally and returns denomination change as copper', async () => {
+    connectionQuery
+      .mockResolvedValueOnce([[{ copper: 0, silver: 0, gold: 0, platinum: 1 }], []])
+      .mockResolvedValueOnce([{ affectedRows: 1 }, []]);
 
-    beforeAll(async () => {
-      // find a character with some platinum for testing
-      const [rows] = await pool.query(
-        'SELECT pid, copper, silver, gold, platinum FROM player_data WHERE platinum > 0 LIMIT 1'
-      ) as any;
+    await expect(deductCharacterMoney(84, 100)).resolves.toBe(true);
 
-      if (rows.length === 0) {
-        throw new Error('no character with platinum found for testing');
-      }
+    expect(beginTransaction).toHaveBeenCalledTimes(1);
+    expect(connectionQuery).toHaveBeenNthCalledWith(1, expect.stringContaining('FOR UPDATE'), [84]);
+    expect(connectionQuery).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('UPDATE player_data'),
+      [900, 0, 0, 0, 84],
+    );
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(rollback).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledTimes(1);
+  });
 
-      richPid = rows[0].pid;
-      originalCoins = {
-        copper: rows[0].copper,
-        silver: rows[0].silver,
-        gold: rows[0].gold,
-        platinum: rows[0].platinum,
-      };
-    });
+  it('rolls back without mutation when funds are insufficient', async () => {
+    connectionQuery.mockResolvedValueOnce([[{ copper: 9, silver: 0, gold: 0, platinum: 0 }], []]);
 
-    afterAll(async () => {
-      // restore original coins
-      await pool.query(
-        'UPDATE player_data SET copper = ?, silver = ?, gold = ?, platinum = ? WHERE pid = ?',
-        [originalCoins.copper, originalCoins.silver, originalCoins.gold, originalCoins.platinum, richPid]
-      );
-    });
+    await expect(deductCharacterMoney(84, 10)).resolves.toBe(false);
 
-    it('should deduct money from player_data', async () => {
-      const { deductCharacterMoney } = await import('../auctionService.js');
-
-      const beforeMoney = await getCharacterMoney(richPid);
-      const deductAmount = 100; // 100 copper
-
-      const result = await deductCharacterMoney(richPid, deductAmount);
-
-      expect(result).toBe(true);
-
-      const afterMoney = await getCharacterMoney(richPid);
-      expect(afterMoney).toBe(beforeMoney - deductAmount);
-    });
-
-    it('should return false if insufficient funds', async () => {
-      const { deductCharacterMoney } = await import('../auctionService.js');
-
-      const beforeMoney = await getCharacterMoney(richPid);
-      const deductAmount = beforeMoney + 1000000; // more than they have
-
-      const result = await deductCharacterMoney(richPid, deductAmount);
-
-      expect(result).toBe(false);
-
-      // verify money unchanged
-      const afterMoney = await getCharacterMoney(richPid);
-      expect(afterMoney).toBe(beforeMoney);
-    });
+    expect(connectionQuery).toHaveBeenCalledTimes(1);
+    expect(rollback).toHaveBeenCalledTimes(1);
+    expect(commit).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledTimes(1);
   });
 });

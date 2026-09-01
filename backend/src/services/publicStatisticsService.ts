@@ -50,10 +50,10 @@ export async function getFactionActivity(date: string): Promise<FactionActivityP
        FROM statistics
        WHERE date >= ? AND date <= ?
        ORDER BY date ASC`,
-      [Math.floor(startOfDay.getTime() / 1000), Math.floor(endOfDay.getTime() / 1000)]
+      [Math.floor(startOfDay.getTime() / 1000), Math.floor(endOfDay.getTime() / 1000)],
     );
 
-    const data: FactionActivityPoint[] = rows.map(row => ({
+    const data: FactionActivityPoint[] = rows.map((row) => ({
       timestamp: row.timestamp,
       goods: row.goods ?? 0,
       evils: row.evils ?? 0,
@@ -88,10 +88,10 @@ export async function getAvailableDates(): Promise<string[]> {
        WHERE date <= ?
        ORDER BY stat_date DESC
        LIMIT 30`,
-      [Math.floor(oneDayAgo.getTime() / 1000)]
+      [Math.floor(oneDayAgo.getTime() / 1000)],
     );
 
-    const dates = rows.map(row => {
+    const dates = rows.map((row) => {
       // convert Date object to YYYY-MM-DD string
       if (row.stat_date instanceof Date) {
         return row.stat_date.toISOString().split('T')[0];

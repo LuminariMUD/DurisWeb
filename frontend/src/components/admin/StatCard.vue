@@ -21,7 +21,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   isLoading: false,
   live: false,
-  error: false
+  error: false,
 })
 
 const trendIcon = computed(() => {

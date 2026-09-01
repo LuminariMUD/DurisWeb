@@ -43,13 +43,7 @@ const emit = defineEmits<{
   duplicate: [trigger: Trigger]
 }>()
 
-const {
-  groups,
-  rootGroups,
-  getChildGroups,
-  toggleGroup,
-  isGroupEffectivelyEnabled,
-} = useGroups()
+const { groups, rootGroups, getChildGroups, toggleGroup, isGroupEffectivelyEnabled } = useGroups()
 
 const { setTriggerGroup } = useTriggers()
 
@@ -90,7 +84,7 @@ function collapseAll() {
 // get triggers for a specific group
 function getTriggersForGroup(groupId: string | null): Trigger[] {
   return props.triggers
-    .filter(t => t.groupId === groupId)
+    .filter((t) => t.groupId === groupId)
     .sort((a, b) => {
       if (a.enabled !== b.enabled) return a.enabled ? -1 : 1
       if (a.priority !== b.priority) return b.priority - a.priority

@@ -66,7 +66,8 @@ const PURIFY_CONFIG = {
     'colspan',
     'rowspan',
   ],
-  ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+  ALLOWED_URI_REGEXP:
+    /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
   ALLOW_DATA_ATTR: false,
   KEEP_CONTENT: true,
 };
@@ -86,22 +87,19 @@ export function sanitizeContent(html: string): string {
   const clean = purify.sanitize(html, PURIFY_CONFIG);
 
   // Ensure links have safe attributes (no javascript: or data: URIs)
-  return clean.replace(
-    /<a\s+href="([^"]*)"/g,
-    (match, href) => {
-      // Remove javascript: and data: URIs
-      if (href.match(/^(javascript|data|vbscript):/i)) {
-        return '<a href="#"';
-      }
-
-      // Add rel="noopener noreferrer" to external links
-      if (href.match(/^https?:\/\//i)) {
-        return `<a href="${href}" target="_blank" rel="noopener noreferrer"`;
-      }
-
-      return match;
+  return clean.replace(/<a\s+href="([^"]*)"/g, (match, href) => {
+    // Remove javascript: and data: URIs
+    if (href.match(/^(javascript|data|vbscript):/i)) {
+      return '<a href="#"';
     }
-  );
+
+    // Add rel="noopener noreferrer" to external links
+    if (href.match(/^https?:\/\//i)) {
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer"`;
+    }
+
+    return match;
+  });
 }
 
 /**
@@ -153,10 +151,7 @@ export function extractMudColors(html: string): string[] {
  * Validate content length
  * Returns error message if content exceeds limits
  */
-export function validateContentLength(
-  html: string,
-  maxLength: number = 50000
-): string | null {
+export function validateContentLength(html: string, maxLength: number = 50000): string | null {
   if (!html) {
     return 'Content cannot be empty';
   }

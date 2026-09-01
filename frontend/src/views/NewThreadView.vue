@@ -41,16 +41,20 @@ const {
   hasDraft,
   formatDraftTime,
   restoreDraft,
-  clearDraft: clearThreadDraft
+  clearDraft: clearThreadDraft,
 } = useDraftAutosave(draftKey.value, content, title)
 const showDraftPrompt = ref(false)
 
 // Check for draft on mount
-watch(category, (newCategory) => {
-  if (newCategory && hasDraft.value && !title.value && !content.value) {
-    showDraftPrompt.value = true
-  }
-}, { immediate: true })
+watch(
+  category,
+  (newCategory) => {
+    if (newCategory && hasDraft.value && !title.value && !content.value) {
+      showDraftPrompt.value = true
+    }
+  },
+  { immediate: true },
+)
 
 // Mention autocomplete
 const contentTextareaRef = ref<HTMLTextAreaElement | null>(null)
@@ -59,7 +63,7 @@ const {
   selectedIndex: mentionSelectedIndex,
   isOpen: isMentionDropdownOpen,
   selectMention,
-  getDropdownPosition
+  getDropdownPosition,
 } = useMentionAutocomplete(contentTextareaRef)
 
 const mentionDropdownPosition = computed(() => getDropdownPosition())
@@ -92,7 +96,7 @@ async function submitThread() {
       categoryIdNum.value,
       title.value,
       content.value,
-      selectedCharacter.value?.pid
+      selectedCharacter.value?.pid,
     )
 
     // Create poll if included

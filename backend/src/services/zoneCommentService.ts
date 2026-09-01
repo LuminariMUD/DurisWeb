@@ -49,7 +49,7 @@ function sanitizeOptionalCommentHtml(value: unknown): string | null {
  */
 export async function getComments(
   zoneId: string,
-  procRequestId?: number | null
+  procRequestId?: number | null,
 ): Promise<ZoneComment[]> {
   let query = `
     SELECT id, zone_id, parent_id, proc_request_id, account_name, character_name,
@@ -113,7 +113,7 @@ export async function getComment(id: number): Promise<ZoneComment | null> {
             content, content_html, created_at, updated_at
      FROM builder_zone_comments
      WHERE id = ?`,
-    [id]
+    [id],
   );
 
   if (rows.length === 0) {
@@ -129,7 +129,7 @@ export async function getComment(id: number): Promise<ZoneComment | null> {
 export async function createComment(
   data: CreateZoneComment,
   accountName: string,
-  zoneName?: string | null
+  zoneName?: string | null,
 ): Promise<ZoneComment> {
   const sanitizedContentHtml = sanitizeOptionalCommentHtml(data.contentHtml);
 
@@ -157,7 +157,7 @@ export async function createComment(
       data.characterName ?? null,
       data.content,
       sanitizedContentHtml,
-    ]
+    ],
   );
 
   const created = await getComment(result.insertId);
@@ -177,7 +177,7 @@ export async function createComment(
       accountName,
       data.zoneId,
       zoneName ?? null,
-      message
+      message,
     );
   }
 
@@ -191,7 +191,7 @@ export async function updateComment(
   id: number,
   data: UpdateZoneComment,
   accountName: string,
-  isAdmin: boolean = false
+  isAdmin: boolean = false,
 ): Promise<ZoneComment | null> {
   const sanitizedContentHtml = sanitizeOptionalCommentHtml(data.contentHtml);
   const existing = await getComment(id);
@@ -208,7 +208,7 @@ export async function updateComment(
     `UPDATE builder_zone_comments
      SET content = ?, content_html = ?, updated_at = NOW()
      WHERE id = ?`,
-    [data.content, sanitizedContentHtml, id]
+    [data.content, sanitizedContentHtml, id],
   );
 
   return getComment(id);
@@ -221,7 +221,7 @@ export async function updateComment(
 export async function deleteComment(
   id: number,
   accountName: string,
-  isAdmin: boolean = false
+  isAdmin: boolean = false,
 ): Promise<boolean> {
   const existing = await getComment(id);
   if (!existing) {
@@ -238,7 +238,7 @@ export async function deleteComment(
     // Get reply IDs to delete their mentions too
     const [replies] = await db.query<RowDataPacket[]>(
       `SELECT id FROM builder_zone_comments WHERE parent_id = ?`,
-      [id]
+      [id],
     );
     for (const reply of replies) {
       await deleteMentions('comment', reply.id);
@@ -251,7 +251,7 @@ export async function deleteComment(
 
   const [result] = await db.query<ResultSetHeader>(
     `DELETE FROM builder_zone_comments WHERE id = ?`,
-    [id]
+    [id],
   );
 
   return result.affectedRows > 0;
@@ -262,7 +262,7 @@ export async function deleteComment(
  */
 export async function getCommentCount(
   zoneId: string,
-  procRequestId?: number | null
+  procRequestId?: number | null,
 ): Promise<number> {
   let query = `SELECT COUNT(*) as count FROM builder_zone_comments WHERE zone_id = ?`;
   const params: (string | number | null)[] = [zoneId];
@@ -285,7 +285,7 @@ export async function getCommentCount(
  */
 export async function getRecentCommentsByUser(
   accountName: string,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<ZoneComment[]> {
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT id, zone_id, parent_id, proc_request_id, account_name, character_name,
@@ -294,7 +294,7 @@ export async function getRecentCommentsByUser(
      WHERE account_name = ?
      ORDER BY created_at DESC
      LIMIT ?`,
-    [accountName, limit]
+    [accountName, limit],
   );
 
   return rows.map(mapRowToComment);

@@ -85,9 +85,10 @@ export function useGroups() {
       return true
     } catch (error) {
       console.error('[Groups] Failed to save:', error)
-      storageError.value = error instanceof ClientSettingsStorageError
-        ? error.message
-        : 'Client settings could not be saved.'
+      storageError.value =
+        error instanceof ClientSettingsStorageError
+          ? error.message
+          : 'Client settings could not be saved.'
       return false
     }
   }
@@ -132,14 +133,14 @@ export function useGroups() {
       const validated = normalizeGroupForm({ ...formData, order: 0 }, id, now)
       // enforce 2 level max - if parent has a parent, reject
       if (validated.parentId) {
-        const parent = groups.value.find(g => g.id === validated.parentId)
+        const parent = groups.value.find((g) => g.id === validated.parentId)
         if (parent?.parentId) {
           throw new Error('Cannot create subgroup of a subgroup (2 levels max)')
         }
       }
 
-      const siblings = groups.value.filter(g => g.parentId === validated.parentId)
-      const maxOrder = siblings.length > 0 ? Math.max(...siblings.map(g => g.order)) : -1
+      const siblings = groups.value.filter((g) => g.parentId === validated.parentId)
+      const maxOrder = siblings.length > 0 ? Math.max(...siblings.map((g) => g.order)) : -1
       const group = normalizeGroupForm({ ...validated, order: maxOrder + 1 }, id, now)
       return commitGroups([...groups.value, group]) ? group : null
     } catch (error) {
@@ -151,7 +152,7 @@ export function useGroups() {
 
   function updateGroup(id: string, formData: Partial<GroupFormData>): Group | null {
     if (!canMutate()) return null
-    const index = groups.value.findIndex(g => g.id === id)
+    const index = groups.value.findIndex((g) => g.id === id)
     if (index === -1) return null
 
     const group = groups.value[index]
@@ -167,7 +168,7 @@ export function useGroups() {
         throw new Error('A group cannot be its own parent')
       }
       if (updated.parentId) {
-        const parent = groups.value.find(g => g.id === updated.parentId)
+        const parent = groups.value.find((g) => g.id === updated.parentId)
         if (parent?.parentId) {
           throw new Error('Cannot create subgroup of a subgroup (2 levels max)')
         }
@@ -186,7 +187,7 @@ export function useGroups() {
   function deleteGroup(id: string): boolean {
     if (!canMutate()) return false
     // get all group ids to delete (this group + subgroups)
-    const idsToDelete = [id, ...groups.value.filter(g => g.parentId === id).map(g => g.id)]
+    const idsToDelete = [id, ...groups.value.filter((g) => g.parentId === id).map((g) => g.id)]
 
     // clear groupId from items - import inside function to avoid circular deps
     const { triggers, setTriggerGroup } = useTriggers()
@@ -194,14 +195,14 @@ export function useGroups() {
     const { timers, setTimerGroup } = useTimers()
 
     for (const gid of idsToDelete) {
-      triggers.value.filter(t => t.groupId === gid).forEach(t => setTriggerGroup(t.id, null))
-      aliases.value.filter(a => a.groupId === gid).forEach(a => setAliasGroup(a.id, null))
-      timers.value.filter(t => t.groupId === gid).forEach(t => setTimerGroup(t.id, null))
+      triggers.value.filter((t) => t.groupId === gid).forEach((t) => setTriggerGroup(t.id, null))
+      aliases.value.filter((a) => a.groupId === gid).forEach((a) => setAliasGroup(a.id, null))
+      timers.value.filter((t) => t.groupId === gid).forEach((t) => setTimerGroup(t.id, null))
     }
 
     // delete subgroups
-    const nextGroups = groups.value.filter(g => g.parentId !== id && g.id !== id)
-    const index = groups.value.findIndex(g => g.id === id)
+    const nextGroups = groups.value.filter((g) => g.parentId !== id && g.id !== id)
+    const index = groups.value.findIndex((g) => g.id === id)
     if (index === -1) return false
 
     return commitGroups(nextGroups)
@@ -209,7 +210,7 @@ export function useGroups() {
 
   function toggleGroup(id: string): boolean {
     if (!canMutate()) return false
-    const index = groups.value.findIndex(g => g.id === id)
+    const index = groups.value.findIndex((g) => g.id === id)
     if (index === -1) return false
 
     const group = groups.value[index]
@@ -226,7 +227,7 @@ export function useGroups() {
 
   function setGroupEnabled(id: string, enabled: boolean): boolean {
     if (!canMutate()) return false
-    const index = groups.value.findIndex(g => g.id === id)
+    const index = groups.value.findIndex((g) => g.id === id)
     if (index === -1) return false
 
     const group = groups.value[index]
@@ -246,13 +247,11 @@ export function useGroups() {
   // =========================================================================
 
   function getGroup(id: string): Group | undefined {
-    return groups.value.find(g => g.id === id)
+    return groups.value.find((g) => g.id === id)
   }
 
   function getChildGroups(parentId: string | null): Group[] {
-    return groups.value
-      .filter(g => g.parentId === parentId)
-      .sort((a, b) => a.order - b.order)
+    return groups.value.filter((g) => g.parentId === parentId).sort((a, b) => a.order - b.order)
   }
 
   const rootGroups = computed((): Group[] => {
@@ -268,14 +267,14 @@ export function useGroups() {
   function isGroupEffectivelyEnabled(id: string | null): boolean {
     if (!id) return true // ungrouped items are always enabled
 
-    const group = groups.value.find(g => g.id === id)
+    const group = groups.value.find((g) => g.id === id)
     if (!group) return true // unknown group = treat as ungrouped
 
     if (!group.enabled) return false
 
     // check parent
     if (group.parentId) {
-      const parent = groups.value.find(g => g.id === group.parentId)
+      const parent = groups.value.find((g) => g.id === group.parentId)
       if (parent && !parent.enabled) return false
     }
 
@@ -283,11 +282,11 @@ export function useGroups() {
   }
 
   function getGroupPath(id: string): string {
-    const group = groups.value.find(g => g.id === id)
+    const group = groups.value.find((g) => g.id === id)
     if (!group) return ''
 
     if (group.parentId) {
-      const parent = groups.value.find(g => g.id === group.parentId)
+      const parent = groups.value.find((g) => g.id === group.parentId)
       if (parent) {
         return `${parent.name} > ${group.name}`
       }
@@ -300,13 +299,13 @@ export function useGroups() {
     if (!canMutate()) return false
     // enforce 2 level max
     if (newParentId) {
-      const newParent = groups.value.find(g => g.id === newParentId)
+      const newParent = groups.value.find((g) => g.id === newParentId)
       if (newParent?.parentId) {
         return false // can't make subgroup of subgroup
       }
     }
 
-    const index = groups.value.findIndex(g => g.id === id)
+    const index = groups.value.findIndex((g) => g.id === id)
     if (index === -1) return false
 
     const group = groups.value[index]
@@ -314,12 +313,12 @@ export function useGroups() {
 
     // if moving a parent group to become a subgroup, check if it has children
     if (newParentId && !group.parentId) {
-      const hasChildren = groups.value.some(g => g.parentId === id)
+      const hasChildren = groups.value.some((g) => g.parentId === id)
       if (hasChildren) return false // can't move parent that has children
     }
 
-    const siblings = groups.value.filter(g => g.parentId === newParentId && g.id !== id)
-    const maxOrder = siblings.length > 0 ? Math.max(...siblings.map(g => g.order)) : -1
+    const siblings = groups.value.filter((g) => g.parentId === newParentId && g.id !== id)
+    const maxOrder = siblings.length > 0 ? Math.max(...siblings.map((g) => g.order)) : -1
 
     const nextGroups = [...groups.value]
     nextGroups[index] = {
@@ -333,7 +332,7 @@ export function useGroups() {
 
   function reorderGroup(id: string, newOrder: number): boolean {
     if (!canMutate()) return false
-    const index = groups.value.findIndex(g => g.id === id)
+    const index = groups.value.findIndex((g) => g.id === id)
     if (index === -1) return false
 
     const group = groups.value[index]
@@ -350,7 +349,7 @@ export function useGroups() {
 
   function isNameInUse(name: string, parentId: string | null, excludeId?: string): boolean {
     const normalizedName = name.trim().toLowerCase()
-    return groups.value.some(g => {
+    return groups.value.some((g) => {
       if (g.id === excludeId) return false
       if (g.parentId !== parentId) return false
       return g.name.toLowerCase() === normalizedName
@@ -362,11 +361,15 @@ export function useGroups() {
   // =========================================================================
 
   function exportGroups(): string {
-    return JSON.stringify({
-      version: STORAGE_VERSION,
-      groups: groups.value,
-      exportedAt: new Date().toISOString(),
-    }, null, 2)
+    return JSON.stringify(
+      {
+        version: STORAGE_VERSION,
+        groups: groups.value,
+        exportedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    )
   }
 
   function importGroupsWithMap(
@@ -383,14 +386,16 @@ export function useGroups() {
       const imported = parseClientSettingsCollection(json, 'groups')
       const now = Date.now()
       const normalizedImported = imported.map((item, index) => {
-        const sourceId = item && typeof item === 'object' && !Array.isArray(item) && typeof (item as Record<string, unknown>).id === 'string'
-          ? (item as Record<string, unknown>).id as string
-          : ''
+        const sourceId =
+          item &&
+          typeof item === 'object' &&
+          !Array.isArray(item) &&
+          typeof (item as Record<string, unknown>).id === 'string'
+            ? ((item as Record<string, unknown>).id as string)
+            : ''
         return normalizeGroupImport(item, index, sourceId, now, mode === 'replace')
       })
-      const reservedIds = new Set(
-        mode === 'replace' ? [] : groups.value.map((group) => group.id),
-      )
+      const reservedIds = new Set(mode === 'replace' ? [] : groups.value.map((group) => group.id))
       const idMap = new Map<string, string>()
       const nextId = (sourceId: string) => {
         if (options.preserveIds && sourceId && !reservedIds.has(sourceId)) {
@@ -407,10 +412,10 @@ export function useGroups() {
 
       if (mode === 'replace') {
         normalizedImported.forEach((group) => nextId(group.id))
-        const nextGroups = normalizedImported.map(g => ({
+        const nextGroups = normalizedImported.map((g) => ({
           ...g,
           id: idMap.get(g.id) ?? nextId(g.id),
-          parentId: g.parentId ? idMap.get(g.parentId) ?? null : null,
+          parentId: g.parentId ? (idMap.get(g.parentId) ?? null) : null,
           updatedAt: now,
         }))
         if (!commitGroups(nextGroups)) {
@@ -421,10 +426,11 @@ export function useGroups() {
         const nextGroups = [...groups.value]
         let accepted = 0
         for (const group of normalizedImported) {
-          const parentId = group.parentId ? idMap.get(group.parentId) ?? group.parentId : null
-          const existing = nextGroups.find((candidate) =>
-            candidate.name.trim().toLowerCase() === group.name.trim().toLowerCase() &&
-            candidate.parentId === parentId
+          const parentId = group.parentId ? (idMap.get(group.parentId) ?? group.parentId) : null
+          const existing = nextGroups.find(
+            (candidate) =>
+              candidate.name.trim().toLowerCase() === group.name.trim().toLowerCase() &&
+              candidate.parentId === parentId,
           )
           if (existing) {
             idMap.set(group.id, existing.id)
@@ -432,10 +438,13 @@ export function useGroups() {
           }
 
           const id = nextId(group.id)
-          if (!nextGroups.some((existing) =>
-            existing.name.trim().toLowerCase() === group.name.trim().toLowerCase() &&
-            existing.parentId === parentId
-          )) {
+          if (
+            !nextGroups.some(
+              (existing) =>
+                existing.name.trim().toLowerCase() === group.name.trim().toLowerCase() &&
+                existing.parentId === parentId,
+            )
+          ) {
             nextGroups.push({
               ...group,
               id,
@@ -478,7 +487,7 @@ export function useGroups() {
           loadGroups()
         }
       },
-      { immediate: true }
+      { immediate: true },
     )
   }
 

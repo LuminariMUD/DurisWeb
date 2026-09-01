@@ -145,7 +145,7 @@ export interface SearchFilters extends EventFilters {
 
 // News types
 export interface NewsContent {
-  content: string;  // HTML with MUD colors parsed
+  content: string; // HTML with MUD colors parsed
 }
 
 // Analytics types
@@ -177,26 +177,26 @@ export interface FragLeaderboardEntry {
   rank: number;
   char_name: string;
   account_name: string;
-  total_frags: number;  // Already divided by 100
-  racewar: number;      // 1=Good, 2=Evil
-  race: string;         // With ANSI codes
-  class: string;        // With ANSI codes
+  total_frags: number; // Already divided by 100
+  racewar: number; // 1=Good, 2=Evil
+  race: string; // With ANSI codes
+  class: string; // With ANSI codes
   level: number;
   last_updated: string; // ISO datetime
 }
 
 export interface FragLeaderboardFilters {
-  racewar?: number;           // 1=Good, 2=Evil, etc.
-  race?: string;              // Stripped ANSI
-  class?: string;             // Stripped ANSI
+  racewar?: number; // 1=Good, 2=Evil, etc.
+  race?: string; // Stripped ANSI
+  class?: string; // Stripped ANSI
   level_min?: number;
   level_max?: number;
   account_name?: string;
-  char_name?: string;         // Search query
+  char_name?: string; // Search query
   min_frags?: number;
-  include_deleted?: boolean;  // Default: false
-  page?: number;              // Default: 1
-  limit?: number;             // Default: 50
+  include_deleted?: boolean; // Default: false
+  page?: number; // Default: 1
+  limit?: number; // Default: 50
 }
 
 export interface FragLeaderboardResponse {
@@ -213,7 +213,7 @@ export interface TopGainer {
   rank: number;
   char_name: string;
   account_name: string;
-  frags_gained: number;  // Over time period
+  frags_gained: number; // Over time period
   race: string;
   class: string;
   level: number;
@@ -240,27 +240,27 @@ export interface UserListItem {
   pid: number;
   account_name: string;
   character_name: string | null;
-  race: string | null;          // With ANSI codes
-  class: string | null;          // With ANSI codes
+  race: string | null; // With ANSI codes
+  class: string | null; // With ANSI codes
   level: number | null;
-  racewar: number | null;        // 1=Good, 2=Evil, 3=Neutral, 4=Undead
+  racewar: number | null; // 1=Good, 2=Evil, 3=Neutral, 4=Undead
   email: string | null;
-  last_ip: string | null;        // Last IP address from MUD flatfile
-  last_login: Date | null;       // Last MUD login timestamp from ip_info.last_connect
-  web_last_login: Date | null;   // Last web login timestamp from web_sessions
+  last_ip: string | null; // Last IP address from MUD flatfile
+  last_login: Date | null; // Last MUD login timestamp from ip_info.last_connect
+  web_last_login: Date | null; // Last web login timestamp from web_sessions
   is_banned: boolean;
   ban_reason: string | null;
   banned_at: Date | null;
   banned_by: string | null;
-  is_deleted: boolean;           // Soft deleted character
-  deleted_at: Date | null;       // When character was deleted
+  is_deleted: boolean; // Soft deleted character
+  deleted_at: Date | null; // When character was deleted
 }
 
 export interface UserManagementFilters {
-  search?: string;               // Search account/character/email
-  race?: string;                 // Filtered (stripped ANSI)
-  class?: string;                // Filtered (stripped ANSI)
-  alignment?: number;            // 1=Good, 2=Evil, 3=Neutral, 4=Undead
+  search?: string; // Search account/character/email
+  race?: string; // Filtered (stripped ANSI)
+  class?: string; // Filtered (stripped ANSI)
+  alignment?: number; // 1=Good, 2=Evil, 3=Neutral, 4=Undead
   ban_status?: 'all' | 'active' | 'banned';
   page?: number;
   limit?: number;
@@ -286,16 +286,16 @@ export interface UserManagementResponse {
 export interface CharacterWithStats {
   pid: number;
   name: string;
-  race: string;           // With ANSI codes
-  class: string;          // With ANSI codes
+  race: string; // With ANSI codes
+  class: string; // With ANSI codes
   spec: string | null;
   level: number;
-  guild: string | null;   // With ANSI codes
+  guild: string | null; // With ANSI codes
   guildRank: string | null;
   active: boolean;
-  money: number;          // Copper on hand
-  balance: number;        // Copper in bank
-  playtime: number;       // Seconds
+  money: number; // Copper on hand
+  balance: number; // Copper in bank
+  playtime: number; // Seconds
   epics: number;
   stats: {
     frags: number;
@@ -313,7 +313,7 @@ export interface AccountCharactersResponse {
     characterCount: number;
     totalFrags: number;
     totalDeaths: number;
-    totalWealth: number;  // Sum of all money + balance
+    totalWealth: number; // Sum of all money + balance
   };
 }
 
@@ -372,20 +372,20 @@ export interface AuctionListItem {
   id: number;
   sellerPid: number;
   sellerName: string;
-  startTime: number;        // Unix timestamp
-  endTime: number;          // Unix timestamp
-  secsRemaining: number;    // Computed: end_time - NOW()
+  startTime: number; // Unix timestamp
+  endTime: number; // Unix timestamp
+  secsRemaining: number; // Computed: end_time - NOW()
   status: 'OPEN' | 'CLOSED' | 'REMOVED';
-  curPrice: number;         // In copper
-  buyPrice: number;         // In copper (0 = no buy-it-now)
-  objShort: string;         // Item name with ANSI codes
+  curPrice: number; // In copper
+  buyPrice: number; // In copper (0 = no buy-it-now)
+  objShort: string; // Item name with ANSI codes
   objVnum: number;
-  idKeywords: string;       // Searchable item flags
+  idKeywords: string; // Searchable item flags
   objInfoText: string | null; // Item stats text for web display
   quantity: number;
   winningBidderPid: number | null;
   winningBidderName: string | null;
-  bidCount: number;         // Computed from bid history
+  bidCount: number; // Computed from bid history
 }
 
 export interface AuctionDetail extends AuctionListItem {
@@ -394,20 +394,20 @@ export interface AuctionDetail extends AuctionListItem {
 
 export interface AuctionBidHistory {
   id: number;
-  date: number;             // Unix timestamp
+  date: number; // Unix timestamp
   auctionId: number;
   bidderPid: number;
   bidderName: string;
-  bidAmount: number;        // In copper
+  bidAmount: number; // In copper
 }
 
 export interface AuctionFilters {
-  search?: string;          // Search obj_short and id_keywords
-  sellerName?: string;      // Filter by seller
-  minPrice?: number;        // Minimum current price (in plat)
-  maxPrice?: number;        // Maximum current price (in plat)
-  hasBuyNow?: boolean;      // Only show items with buy-it-now
-  keywords?: string[];      // Filter by id_keywords (AND logic)
+  search?: string; // Search obj_short and id_keywords
+  sellerName?: string; // Filter by seller
+  minPrice?: number; // Minimum current price (in plat)
+  maxPrice?: number; // Maximum current price (in plat)
+  hasBuyNow?: boolean; // Only show items with buy-it-now
+  keywords?: string[]; // Filter by id_keywords (AND logic)
   page?: number;
   limit?: number;
   sortBy?: 'id' | 'startTime' | 'endTime' | 'price' | 'bidCount';
@@ -415,12 +415,12 @@ export interface AuctionFilters {
 }
 
 export interface PlaceBidRequest {
-  bidAmountPlat: number;    // Bid amount in platinum
-  characterPid: number;     // Which character is bidding
+  bidAmountPlat: number; // Bid amount in platinum
+  characterPid: number; // Which character is bidding
 }
 
 export interface BuyNowRequest {
-  characterPid: number;     // Which character is buying
+  characterPid: number; // Which character is buying
 }
 
 export interface AuctionHistoryItem {
@@ -428,8 +428,8 @@ export interface AuctionHistoryItem {
   sellerName: string;
   buyerName: string;
   objShort: string;
-  salePrice: number;        // Final sale price in copper
-  soldAt: number;           // Unix timestamp when auction closed
+  salePrice: number; // Final sale price in copper
+  soldAt: number; // Unix timestamp when auction closed
   bidCount: number;
 }
 

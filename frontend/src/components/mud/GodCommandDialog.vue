@@ -1,11 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, provide } from 'vue'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,16 +36,19 @@ const view = ref<'palette' | 'form'>('palette')
 const showConfirmation = ref(false)
 
 // Reset state when dialog closes
-watch(() => props.open, (open) => {
-  if (open) {
-    // Refresh WHO list when dialog opens
-    godCommands.refreshWhoList()
-  } else {
-    view.value = 'palette'
-    godCommands.searchQuery.value = ''
-    godCommands.cancelExecution()
-  }
-})
+watch(
+  () => props.open,
+  (open) => {
+    if (open) {
+      // Refresh WHO list when dialog opens
+      godCommands.refreshWhoList()
+    } else {
+      view.value = 'palette'
+      godCommands.searchQuery.value = ''
+      godCommands.cancelExecution()
+    }
+  },
+)
 
 function handleCommandSelect(command: GodCommand) {
   godCommands.selectCommand(command)

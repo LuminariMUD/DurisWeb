@@ -55,47 +55,63 @@ describe('poll service authorization', () => {
   it('does not read poll details from a hidden category', async () => {
     query.mockResolvedValueOnce([[{ category_id: 7, is_deleted: 0 }]]);
 
-    await expect(pollService.getPollByThreadId(44, 'Cwial', permissions as never)).resolves.toBeNull();
+    await expect(
+      pollService.getPollByThreadId(44, 'Cwial', permissions as never),
+    ).resolves.toBeNull();
     expect(getConnection).not.toHaveBeenCalled();
   });
 
   it('does not resolve a poll ID whose parent thread is deleted', async () => {
-    query.mockResolvedValueOnce([[{
-      id: 9,
-      thread_id: 44,
-      category_id: 7,
-      thread_deleted: 1,
-    }]]);
+    query.mockResolvedValueOnce([
+      [
+        {
+          id: 9,
+          thread_id: 44,
+          category_id: 7,
+          thread_deleted: 1,
+        },
+      ],
+    ]);
 
     await expect(pollService.getPollById(9, permissions as never)).resolves.toBeNull();
     expect(categoryAccess).not.toHaveBeenCalled();
   });
 
   it('rejects a vote before opening a mutation connection when the category is hidden', async () => {
-    query.mockResolvedValueOnce([[{
-      id: 9,
-      thread_id: 44,
-      category_id: 7,
-      thread_deleted: 0,
-    }]]);
+    query.mockResolvedValueOnce([
+      [
+        {
+          id: 9,
+          thread_id: 44,
+          category_id: 7,
+          thread_deleted: 0,
+        },
+      ],
+    ]);
 
-    await expect(pollService.castVote(9, [1], 'Cwial', permissions as never))
-      .rejects.toThrow(/not found or access denied/i);
+    await expect(pollService.castVote(9, [1], 'Cwial', permissions as never)).rejects.toThrow(
+      /not found or access denied/i,
+    );
     expect(getConnection).not.toHaveBeenCalled();
   });
 
   it('does not let a poll creator manage a category where posting is denied', async () => {
-    query.mockResolvedValueOnce([[{
-      id: 9,
-      thread_id: 44,
-      category_id: 7,
-      thread_deleted: 0,
-      created_by_account: 'Cwial',
-    }]]);
+    query.mockResolvedValueOnce([
+      [
+        {
+          id: 9,
+          thread_id: 44,
+          category_id: 7,
+          thread_deleted: 0,
+          created_by_account: 'Cwial',
+        },
+      ],
+    ]);
     categoryAccess.mockResolvedValueOnce({ canView: true, canPost: false, canModerate: false });
 
-    await expect(pollService.closePoll(9, 'Cwial', permissions as never))
-      .rejects.toThrow(/not authorized/i);
+    await expect(pollService.closePoll(9, 'Cwial', permissions as never)).rejects.toThrow(
+      /not authorized/i,
+    );
     expect(getConnection).not.toHaveBeenCalled();
   });
 });

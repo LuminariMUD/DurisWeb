@@ -5,7 +5,13 @@ import { useDebounceFn } from '@vueuse/core'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -70,7 +76,9 @@ const alignmentLabels: Record<string, string> = {
 }
 
 // Difficulty badge variant
-function getDifficultyVariant(difficulty: number): 'default' | 'secondary' | 'destructive' | 'outline' {
+function getDifficultyVariant(
+  difficulty: number,
+): 'default' | 'secondary' | 'destructive' | 'outline' {
   if (difficulty <= 2) return 'outline'
   if (difficulty <= 4) return 'secondary'
   if (difficulty <= 6) return 'default'
@@ -105,7 +113,13 @@ async function loadZones(isInitial = false) {
     } else {
       tableLoading.value = true
     }
-    const result = await wikiApi.getZones(filters.value, currentPage.value, limit, sortBy.value, sortOrder.value)
+    const result = await wikiApi.getZones(
+      filters.value,
+      currentPage.value,
+      limit,
+      sortBy.value,
+      sortOrder.value,
+    )
     zones.value = result.zones
     total.value = result.total
     totalPages.value = result.totalPages
@@ -168,10 +182,12 @@ function clearFilters() {
 
 // Check if any filters are active
 const hasActiveFilters = computed(() => {
-  return search.value ||
+  return (
+    search.value ||
     (selectedEpicType.value && selectedEpicType.value !== 'all') ||
     (selectedAlignment.value && selectedAlignment.value !== 'all') ||
     (selectedDifficulty.value && selectedDifficulty.value !== 'all')
+  )
 })
 
 // Load on mount

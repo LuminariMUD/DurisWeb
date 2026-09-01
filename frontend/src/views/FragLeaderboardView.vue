@@ -8,19 +8,23 @@ import { useFragLeaderboard } from '@/composables/useFragLeaderboard'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { useQueryClient } from '@tanstack/vue-query'
 import { Button } from '@/components/ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import { Trophy, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, ChevronDown } from 'lucide-vue-next'
+  Trophy,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Filter,
+  ChevronDown,
+} from 'lucide-vue-next'
 import type { FragLeaderboardFilters } from '@/types'
 
 const showFilters = ref(false)
 
 // Set page title using useHead (this will automatically clean up on unmount)
 useHead({
-  title: 'DurisMUD | Frag Leaderboard'
+  title: 'DurisMUD | Frag Leaderboard',
 })
 
 const filters = ref<FragLeaderboardFilters>({

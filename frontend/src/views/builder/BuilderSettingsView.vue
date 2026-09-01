@@ -29,7 +29,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { RefreshCw, ArrowLeft, Database, Package, Users, Home, Settings2, GitCommit } from 'lucide-vue-next'
+import {
+  RefreshCw,
+  ArrowLeft,
+  Database,
+  Package,
+  Users,
+  Home,
+  Settings2,
+  GitCommit,
+} from 'lucide-vue-next'
 
 const router = useRouter()
 const queryClient = useQueryClient()
@@ -74,7 +83,9 @@ const { data: categories, isLoading: categoriesLoading } = useQuery({
 const syncFlagsMutation = useMutation({
   mutationFn: () => builderApi.syncFlags(),
   onSuccess: (data) => {
-    toast.success(`Flags synced: ${data.stats.inserted} inserted, ${data.stats.updated} updated, ${data.stats.deleted} deleted`)
+    toast.success(
+      `Flags synced: ${data.stats.inserted} inserted, ${data.stats.updated} updated, ${data.stats.deleted} deleted`,
+    )
     queryClient.invalidateQueries({ queryKey: ['builder-flags'] })
     queryClient.invalidateQueries({ queryKey: ['builder-flag-categories'] })
     syncDialogOpen.value = false
@@ -118,14 +129,34 @@ function getFlagsForCategory(categoryKey: string) {
 
 // Object flag categories
 const objectCategories = [
-  { key: 'objectTypes', label: 'Item Types', description: 'Type of object (weapon, armor, container, etc.)' },
+  {
+    key: 'objectTypes',
+    label: 'Item Types',
+    description: 'Type of object (weapon, armor, container, etc.)',
+  },
   { key: 'objWearFlags', label: 'Wear Flags', description: 'Where the item can be worn' },
-  { key: 'objExtraFlags', label: 'Extra Flags', description: 'Special properties (glow, hum, no-drop, etc.)' },
+  {
+    key: 'objExtraFlags',
+    label: 'Extra Flags',
+    description: 'Special properties (glow, hum, no-drop, etc.)',
+  },
   { key: 'objExtra2Flags', label: 'Extra Flags 2', description: 'Additional special properties' },
-  { key: 'objApplyTypes', label: 'Apply Types', description: 'Stat modifications (STR, DEX, HP, etc.)' },
+  {
+    key: 'objApplyTypes',
+    label: 'Apply Types',
+    description: 'Stat modifications (STR, DEX, HP, etc.)',
+  },
   { key: 'objMaterials', label: 'Materials', description: 'Material types (iron, leather, etc.)' },
-  { key: 'objWeaponTypes', label: 'Weapon Types', description: 'Type of weapon (sword, axe, etc.)' },
-  { key: 'objWeaponDamageTypes', label: 'Damage Types', description: 'Type of damage (slash, pierce, etc.)' },
+  {
+    key: 'objWeaponTypes',
+    label: 'Weapon Types',
+    description: 'Type of weapon (sword, axe, etc.)',
+  },
+  {
+    key: 'objWeaponDamageTypes',
+    label: 'Damage Types',
+    description: 'Type of damage (slash, pierce, etc.)',
+  },
   { key: 'objCraftsmanship', label: 'Craftsmanship', description: 'Quality level of the item' },
   // Note: ITEM_ANTI_*, ITEM_ANTI2_*, ITEM_ALLOW2_* defines are commented out in defines.h - not in use
 ]
@@ -134,10 +165,26 @@ const objectCategories = [
 const mobCategories = [
   { key: 'mobActFlags', label: 'Action Flags', description: 'NPC behavior flags' },
   { key: 'mobActFlags2', label: 'Action Flags 2', description: 'Additional behavior flags' },
-  { key: 'mobAffFlags', label: 'Affected Flags 1', description: 'Permanent effects on mob (also used for object bitvector1)' },
-  { key: 'mobAffFlags2', label: 'Affected Flags 2', description: 'Additional permanent effects (also used for object bitvector2)' },
-  { key: 'mobAffFlags3', label: 'Affected Flags 3', description: 'More permanent effects (also used for object bitvector3)' },
-  { key: 'mobAffFlags4', label: 'Affected Flags 4', description: 'Even more permanent effects (also used for object bitvector4)' },
+  {
+    key: 'mobAffFlags',
+    label: 'Affected Flags 1',
+    description: 'Permanent effects on mob (also used for object bitvector1)',
+  },
+  {
+    key: 'mobAffFlags2',
+    label: 'Affected Flags 2',
+    description: 'Additional permanent effects (also used for object bitvector2)',
+  },
+  {
+    key: 'mobAffFlags3',
+    label: 'Affected Flags 3',
+    description: 'More permanent effects (also used for object bitvector3)',
+  },
+  {
+    key: 'mobAffFlags4',
+    label: 'Affected Flags 4',
+    description: 'Even more permanent effects (also used for object bitvector4)',
+  },
   { key: 'mobAffFlags5', label: 'Affected Flags 5', description: 'Additional effects' },
   { key: 'mobAggroFlags', label: 'Aggro Flags', description: 'What triggers aggression' },
   { key: 'mobAggroFlags2', label: 'Aggro Flags 2', description: 'Additional aggro triggers' },
@@ -148,7 +195,11 @@ const mobCategories = [
 // Room flag categories
 const roomCategories = [
   { key: 'roomFlags', label: 'Room Flags', description: 'Room properties (dark, no-mob, etc.)' },
-  { key: 'sectorTypes', label: 'Sector Types', description: 'Terrain type (city, forest, water, etc.)' },
+  {
+    key: 'sectorTypes',
+    label: 'Sector Types',
+    description: 'Terrain type (city, forest, water, etc.)',
+  },
   { key: 'doorFlags', label: 'Exit Flags', description: 'Door/exit properties' },
 ]
 

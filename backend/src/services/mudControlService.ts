@@ -7,6 +7,8 @@ import path from 'path';
 import { getDmsProcessStats } from './processMonitor.js';
 import { recordMudShutdown } from './serverRebootService.js';
 import { createWebShutdownIncident } from './crashDetectionService.js';
+import { isHookEnabledSync } from '../hooks/hookGate.js';
+import { recordHookActivity } from '../hooks/hookActivity.js';
 
 const execAsync = promisify(exec);
 
@@ -53,7 +55,7 @@ export interface MudControlBroadcast {
 
 // Output broadcast interface
 export interface MudControlOutput {
-  operationId: string;  // Timestamp-based ID for tracking output streams
+  operationId: string; // Timestamp-based ID for tracking output streams
   chunk: string;
   isComplete: boolean;
 }
@@ -86,7 +88,7 @@ function broadcastOutput(operationId: string, chunk: string, isComplete: boolean
  * Sleep helper
  */
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -113,15 +115,24 @@ export async function detectCycleMudPid(): Promise<number | null> {
   // Fall back to pgrep - use pgrep -x for exact match on process name
   // or check the actual command to avoid matching grep/editor processes
   try {
-    const { stdout } = await execAsync("pgrep -f './cycle_mud.sh' 2>/dev/null || pgrep -x cycle_mud.sh 2>/dev/null | head -1");
-    const pids = stdout.trim().split('\n').filter(p => p);
+    const { stdout } = await execAsync(
+      "pgrep -f './cycle_mud.sh' 2>/dev/null || pgrep -x cycle_mud.sh 2>/dev/null | head -1",
+    );
+    const pids = stdout
+      .trim()
+      .split('\n')
+      .filter((p) => p);
     for (const pidStr of pids) {
       const pid = parseInt(pidStr.trim(), 10);
       if (!isNaN(pid) && pid > 0) {
         // Verify this is actually cycle_mud.sh by checking the command
         try {
           const { stdout: cmdOut } = await execAsync(`ps -p ${pid} -o args= 2>/dev/null`);
-          if (cmdOut.includes('cycle_mud.sh') && !cmdOut.includes('pgrep') && !cmdOut.includes('grep')) {
+          if (
+            cmdOut.includes('cycle_mud.sh') &&
+            !cmdOut.includes('pgrep') &&
+            !cmdOut.includes('grep')
+          ) {
             return pid;
           }
         } catch {
@@ -152,9 +163,7 @@ export async function getMudState(): Promise<MudState> {
   const dmsStats = await getDmsProcessStats();
 
   // Get stored state info from database
-  const [rows] = await pool.execute<StateRow[]>(
-    'SELECT * FROM mud_process_state WHERE id = 1'
-  );
+  const [rows] = await pool.execute<StateRow[]>('SELECT * FROM mud_process_state WHERE id = 1');
   const dbState = rows[0];
 
   // Determine actual state based on processes
@@ -172,7 +181,7 @@ export async function getMudState(): Promise<MudState> {
   if (dbState && dbState.state !== state) {
     await pool.execute(
       'UPDATE mud_process_state SET state = ?, cycle_mud_pid = ?, dms_pid = ?, updated_at = NOW() WHERE id = 1',
-      [state, cycleMudPid, dmsStats.pid]
+      [state, cycleMudPid, dmsStats.pid],
     );
   }
 
@@ -211,7 +220,7 @@ async function getMudBootTime(): Promise<number> {
   try {
     // First try to get from mud_process_state
     const [rows] = await pool.execute<RowDataPacket[]>(
-      'SELECT UNIX_TIMESTAMP(last_start_time) as boot_time FROM mud_process_state WHERE id = 1'
+      'SELECT UNIX_TIMESTAMP(last_start_time) as boot_time FROM mud_process_state WHERE id = 1',
     );
     if (rows[0]?.boot_time) {
       return rows[0].boot_time;
@@ -238,21 +247,21 @@ async function updateMudStateDb(
   dmsPid: number | null,
   state: MudState['state'],
   startedBy: string | null,
-  isStart: boolean
+  isStart: boolean,
 ): Promise<void> {
   if (isStart) {
     await pool.execute(
       `UPDATE mud_process_state
        SET cycle_mud_pid = ?, dms_pid = ?, state = ?, started_by = ?, last_start_time = NOW(), updated_at = NOW()
        WHERE id = 1`,
-      [cycleMudPid, dmsPid, state, startedBy]
+      [cycleMudPid, dmsPid, state, startedBy],
     );
   } else {
     await pool.execute(
       `UPDATE mud_process_state
        SET cycle_mud_pid = ?, dms_pid = ?, state = ?, last_stop_time = NOW(), updated_at = NOW()
        WHERE id = 1`,
-      [cycleMudPid, dmsPid, state]
+      [cycleMudPid, dmsPid, state],
     );
   }
 }
@@ -281,6 +290,9 @@ async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boole
  * Start the MUD
  */
 export async function startMud(accountName: string, _ipAddress: string): Promise<ControlResult> {
+  if (!isHookEnabledSync('process_control')) {
+    return { success: false, message: 'MUD process control is disabled by the website hook gate' };
+  }
   // Check if already running
   const state = await getMudState();
   if (state.state === 'running' || state.state === 'starting') {
@@ -311,7 +323,7 @@ export async function startMud(accountName: string, _ipAddress: string): Promise
       cwd: MUD_BASE,
       detached: true,
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env }
+      env: { ...process.env },
     });
 
     // Capture stdout/stderr and broadcast live
@@ -358,6 +370,7 @@ export async function startMud(accountName: string, _ipAddress: string): Promise
       broadcastState({ state: 'starting', action: 'start', by: accountName });
     }
 
+    recordHookActivity('process_control');
     return { success: true, message: 'MUD started successfully' };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -370,7 +383,14 @@ export async function startMud(accountName: string, _ipAddress: string): Promise
 /**
  * Stop the MUD
  */
-export async function stopMud(accountName: string, _ipAddress: string, reason: string): Promise<ControlResult> {
+export async function stopMud(
+  accountName: string,
+  _ipAddress: string,
+  reason: string,
+): Promise<ControlResult> {
+  if (!isHookEnabledSync('process_control')) {
+    return { success: false, message: 'MUD process control is disabled by the website hook gate' };
+  }
   // Check if running
   const state = await getMudState();
   if (state.state !== 'running' && state.state !== 'starting') {
@@ -401,7 +421,7 @@ export async function stopMud(accountName: string, _ipAddress: string, reason: s
     output(`Incident created\n`);
 
     // Get cycle_mud.sh PID
-    const cyclePid = state.cycleMudPid || await detectCycleMudPid();
+    const cyclePid = state.cycleMudPid || (await detectCycleMudPid());
 
     if (cyclePid) {
       // Send SIGTERM to cycle_mud.sh
@@ -426,7 +446,7 @@ export async function stopMud(accountName: string, _ipAddress: string, reason: s
     }
 
     // Also kill dms if it's still running
-    const dmsPid = state.dmsPid || await detectDmsPid();
+    const dmsPid = state.dmsPid || (await detectDmsPid());
     if (dmsPid) {
       output(`Sending SIGTERM to dms (PID: ${dmsPid})\n`);
       try {
@@ -443,6 +463,7 @@ export async function stopMud(accountName: string, _ipAddress: string, reason: s
     output(`MUD stopped successfully\n`, true);
     broadcastState({ state: 'stopped', action: 'stop', by: accountName, reason });
 
+    recordHookActivity('process_control');
     return { success: true, message: 'MUD stopped successfully' };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -455,7 +476,14 @@ export async function stopMud(accountName: string, _ipAddress: string, reason: s
 /**
  * Restart the MUD
  */
-export async function restartMud(accountName: string, _ipAddress: string, reason: string): Promise<ControlResult> {
+export async function restartMud(
+  accountName: string,
+  _ipAddress: string,
+  reason: string,
+): Promise<ControlResult> {
+  if (!isHookEnabledSync('process_control')) {
+    return { success: false, message: 'MUD process control is disabled by the website hook gate' };
+  }
   const operationId = generateOperationId();
 
   // Helper to broadcast output
@@ -482,7 +510,7 @@ export async function restartMud(accountName: string, _ipAddress: string, reason
       output(`Incident created\n`);
 
       // Get cycle_mud.sh PID
-      const cyclePid = state.cycleMudPid || await detectCycleMudPid();
+      const cyclePid = state.cycleMudPid || (await detectCycleMudPid());
 
       if (cyclePid) {
         output(`Sending SIGTERM to cycle_mud.sh (PID: ${cyclePid})\n`);
@@ -503,7 +531,7 @@ export async function restartMud(accountName: string, _ipAddress: string, reason
       }
 
       // Also kill dms if still running
-      const dmsPid = state.dmsPid || await detectDmsPid();
+      const dmsPid = state.dmsPid || (await detectDmsPid());
       if (dmsPid) {
         output(`Sending SIGTERM to dms (PID: ${dmsPid})\n`);
         try {
@@ -531,7 +559,7 @@ export async function restartMud(accountName: string, _ipAddress: string, reason
       cwd: MUD_BASE,
       detached: true,
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env }
+      env: { ...process.env },
     });
 
     // Capture output from new process and broadcast live
@@ -572,6 +600,7 @@ export async function restartMud(accountName: string, _ipAddress: string, reason
       broadcastState({ state: 'starting', action: 'restart', by: accountName, reason });
     }
 
+    recordHookActivity('process_control');
     return { success: true, message: 'MUD restarted successfully' };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -580,4 +609,3 @@ export async function restartMud(accountName: string, _ipAddress: string, reason
     return { success: false, message: `Failed to restart MUD: ${errorMessage}` };
   }
 }
-

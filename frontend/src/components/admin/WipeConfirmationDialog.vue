@@ -119,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import {
   Dialog,
   DialogContent,
@@ -127,103 +127,106 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { AlertTriangle, Shield, Clock, Loader2 } from 'lucide-vue-next';
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { AlertTriangle, Shield, Clock, Loader2 } from 'lucide-vue-next'
 
 interface Player {
-  pid: number;
-  name: string;
-  level: number;
-  class: string;
-  classHtml: string;
-  spec: string;
-  specHtml: string;
-  race: string;
-  raceHtml: string;
-  guild: string;
-  guildHtml: string;
-  wealth: number;
+  pid: number
+  name: string
+  level: number
+  class: string
+  classHtml: string
+  spec: string
+  specHtml: string
+  race: string
+  raceHtml: string
+  guild: string
+  guildHtml: string
+  wealth: number
 }
 
 interface Props {
-  open: boolean;
-  excludedPlayers: Player[];
-  saving: boolean;
+  open: boolean
+  excludedPlayers: Player[]
+  saving: boolean
 }
 
-const props = defineProps<Props>();
+const props = defineProps<Props>()
 const emit = defineEmits<{
-  'update:open': [value: boolean];
-  'confirm': [reason: string];
-  'cancel': [];
-}>();
+  'update:open': [value: boolean]
+  confirm: [reason: string]
+  cancel: []
+}>()
 
-const reason = ref('');
-const confirmText = ref('');
-const countdown = ref(10);
-const reasonError = ref('');
+const reason = ref('')
+const confirmText = ref('')
+const countdown = ref(10)
+const reasonError = ref('')
 
-const excludedCount = computed(() => props.excludedPlayers.length);
+const excludedCount = computed(() => props.excludedPlayers.length)
 
 const isFormValid = computed(() => {
-  return reason.value.trim().length >= 10 && confirmText.value === 'WIPE PLAYERS';
-});
+  return reason.value.trim().length >= 10 && confirmText.value === 'WIPE PLAYERS'
+})
 
 const canExecute = computed(() => {
-  return isFormValid.value && countdown.value === 0 && !props.saving;
-});
+  return isFormValid.value && countdown.value === 0 && !props.saving
+})
 
-let countdownInterval: ReturnType<typeof setInterval> | null = null;
+let countdownInterval: ReturnType<typeof setInterval> | null = null
 
 const stopCountdown = () => {
   if (countdownInterval) {
-    clearInterval(countdownInterval);
-    countdownInterval = null;
+    clearInterval(countdownInterval)
+    countdownInterval = null
   }
-};
+}
 
 watch(isFormValid, (valid) => {
   if (valid && countdown.value === 10 && !countdownInterval) {
     countdownInterval = setInterval(() => {
-      countdown.value--;
+      countdown.value--
       if (countdown.value <= 0) {
-        stopCountdown();
+        stopCountdown()
       }
-    }, 1000);
+    }, 1000)
   }
-});
+})
 
-watch(() => props.open, (open) => {
-  if (!open) {
-    stopCountdown();
-    reason.value = '';
-    confirmText.value = '';
-    countdown.value = 10;
-    reasonError.value = '';
-  }
-});
+watch(
+  () => props.open,
+  (open) => {
+    if (!open) {
+      stopCountdown()
+      reason.value = ''
+      confirmText.value = ''
+      countdown.value = 10
+      reasonError.value = ''
+    }
+  },
+)
 
 onBeforeUnmount(() => {
-  stopCountdown();
-});
+  stopCountdown()
+})
 
 const handleConfirm = () => {
   if (reason.value.trim().length < 10) {
-    reasonError.value = 'Reason must be at least 10 characters';
-    return;
+    reasonError.value = 'Reason must be at least 10 characters'
+    return
   }
-  if (confirmText.value !== 'WIPE PLAYERS') return;
-  if (countdown.value > 0) return;
+  if (confirmText.value !== 'WIPE PLAYERS') return
+  if (countdown.value > 0) return
 
-  reasonError.value = '';
-  emit('confirm', reason.value.trim());
-};
+  reasonError.value = ''
+  emit('confirm', reason.value.trim())
+}
 
 const handleCancel = () => {
-  emit('cancel');
-  emit('update:open', false);
-};
+  emit('cancel')
+  emit('update:open', false)
+}
 </script>

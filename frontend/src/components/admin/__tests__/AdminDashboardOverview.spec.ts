@@ -1,11 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
+import { ref } from 'vue'
 import AdminDashboardOverview from '../AdminDashboardOverview.vue'
 import type { OverviewStats } from '@/composables/useAdminAnalytics'
 
-// Mock the composables
-const mockStats: OverviewStats = {
+const FIXTURE_STATS: OverviewStats = {
   currentOnlinePlayers: 5,
   peakPlayerCount: 12,
   peakPlayerTimestamp: '2025-01-01T12:00:00Z',
@@ -13,120 +13,148 @@ const mockStats: OverviewStats = {
   totalPvPBattles: 45,
   totalPlayerAccounts: 200,
   activeGuilds: 8,
-  serverUptime: 86400000 // 1 day in ms
+  serverUptime: 86_400_000,
 }
+
+const statsData = ref<OverviewStats | null>(FIXTURE_STATS)
+const statsLoading = ref(false)
+const statsError = ref<Error | null>(null)
+const activityData = ref([])
+const activityLoading = ref(false)
+const WHO_FIXTURE = {
+  char_name: 'Cwial',
+  level: 56,
+  account: 'account',
+  race: '&+BHuman&n',
+  class: '&+WWarrior&n',
+  client: 'web',
+  uptime_seconds: 60,
+  last_ip: '203.0.113.10',
+  last_connect: '2026-09-01T10:00:00.000Z',
+}
+const whoListData = ref([WHO_FIXTURE])
+const whoListLoading = ref(false)
+const refetchStats = vi.fn()
+const refetchWhoList = vi.fn()
 
 vi.mock('@/composables/useAdminAnalytics', () => ({
   useOverviewStats: () => ({
-    data: { value: mockStats },
-    isLoading: { value: false },
-    error: { value: null }
+    data: statsData,
+    isLoading: statsLoading,
+    error: statsError,
+    refetch: refetchStats,
   }),
-  formatUptime: (ms: number) => {
-    const days = Math.floor(ms / 86400000)
-    return `${days}d`
-  },
-  formatRelativeTime: () => {
-    return '2 hours ago'
-  }
+  usePlayerActivity: () => ({
+    data: activityData,
+    isLoading: activityLoading,
+  }),
+  useWhoList: () => ({
+    data: whoListData,
+    isLoading: whoListLoading,
+    refetch: refetchWhoList,
+  }),
+  formatUptime: (milliseconds: number) => `${Math.floor(milliseconds / 86_400_000)}d`,
+  formatRelativeTime: () => '2 hours ago',
 }))
 
-import { ref } from 'vue'
-
-const mockOnStatsUpdate = vi.fn()
-const mockIsConnected = ref(true)
+const isConnected = ref(true)
+const socketMethods = {
+  onPlayerLogin: vi.fn(),
+  offPlayerLogin: vi.fn(),
+  onPlayerLogout: vi.fn(),
+  offPlayerLogout: vi.fn(),
+  onWholist: vi.fn(),
+  offWholist: vi.fn(),
+  onMudOnline: vi.fn(),
+  offMudOnline: vi.fn(),
+  onMudCrash: vi.fn(),
+  offMudCrash: vi.fn(),
+  subscribePlayerEvents: vi.fn(async () => undefined),
+  unsubscribePlayerEvents: vi.fn(),
+}
 
 vi.mock('@/composables/useWebSocket', () => ({
-  useWebSocket: () => ({
-    isConnected: mockIsConnected,
-    onStatsUpdate: mockOnStatsUpdate
-  })
+  useWebSocket: () => ({ isConnected, ...socketMethods }),
 }))
 
 describe('AdminDashboardOverview', () => {
   let queryClient: QueryClient
+  const wrappers: Array<ReturnType<typeof mount>> = []
 
   beforeEach(() => {
     queryClient = new QueryClient({
-      defaultOptions: {
-        queries: {
-          retry: false
-        }
-      }
+      defaultOptions: { queries: { retry: false } },
     })
-    // Reset WebSocket to connected state before each test
-    mockIsConnected.value = true
+    statsData.value = FIXTURE_STATS
+    statsLoading.value = false
+    statsError.value = null
+    activityData.value = []
+    activityLoading.value = false
+    whoListData.value = [WHO_FIXTURE]
+    whoListLoading.value = false
+    isConnected.value = true
+    vi.clearAllMocks()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        json: async () => ({ bootTime: null }),
+      })),
+    )
   })
 
-  const createWrapper = (stubs?: any) => {
-    return mount(AdminDashboardOverview, {
+  afterEach(() => {
+    while (wrappers.length > 0) wrappers.pop()?.unmount()
+    vi.unstubAllGlobals()
+  })
+
+  function createWrapper() {
+    const wrapper = mount(AdminDashboardOverview, {
       global: {
         plugins: [[VueQueryPlugin, { queryClient }]],
-        stubs: stubs || {
+        stubs: {
           StatCard: {
             template: '<div class="stat-card">{{ title }}: {{ value }}</div>',
-            props: ['title', 'value', 'icon', 'isLoading', 'live', 'subtitle']
-          }
-        }
-      }
+            props: ['title', 'value', 'icon', 'isLoading', 'live', 'subtitle'],
+          },
+          LineChart: true,
+          RouterLink: { template: '<a><slot /></a>' },
+        },
+      },
     })
+    wrappers.push(wrapper)
+    return wrapper
   }
 
-  it('renders without crashing', () => {
+  it('renders without crashing', async () => {
     const wrapper = createWrapper()
+    await flushPromises()
     expect(wrapper.exists()).toBe(true)
   })
 
-  it('displays loading state correctly', async () => {
-    vi.resetModules()
-    vi.doMock('@/composables/useAdminAnalytics', () => ({
-      useOverviewStats: () => ({
-        data: { value: null },
-        isLoading: { value: true },
-        error: { value: null }
-      }),
-      formatUptime: () => '0s',
-      formatRelativeTime: () => 'Never'
-    }))
+  it('displays loading state correctly', () => {
+    statsData.value = null
+    statsLoading.value = true
 
     const wrapper = createWrapper()
-    await flushPromises()
-
-    const statCards = wrapper.findAll('.stat-card')
-    expect(statCards.length).toBeGreaterThan(0)
+    expect(wrapper.findAll('.stat-card')).toHaveLength(8)
   })
 
-  it('displays error alert when there is an error', async () => {
-    vi.resetModules()
-    vi.doMock('@/composables/useAdminAnalytics', () => ({
-      useOverviewStats: () => ({
-        data: { value: null },
-        isLoading: { value: false },
-        error: { value: new Error('Failed to load') }
-      }),
-      formatUptime: () => '0s',
-      formatRelativeTime: () => 'Never'
-    }))
+  it('displays error alert when there is an error', () => {
+    statsData.value = null
+    statsError.value = new Error('Failed to load')
 
     const wrapper = createWrapper()
-    await flushPromises()
-
     expect(wrapper.text()).toContain('Failed to load analytics data')
   })
 
   it('renders all stat cards', () => {
     const wrapper = createWrapper()
-    const statCards = wrapper.findAll('.stat-card')
-
-    // Should have 8 stat cards
-    expect(statCards.length).toBe(8)
+    expect(wrapper.findAll('.stat-card')).toHaveLength(8)
   })
 
-  it('displays correct stat values', () => {
-    const wrapper = createWrapper()
-    const text = wrapper.text()
+  it('displays correct stat labels', () => {
+    const text = createWrapper().text()
 
-    // Check if stats are displayed
     expect(text).toContain('Online Players')
     expect(text).toContain('Peak Player Count')
     expect(text).toContain('Total Forum Posts')
@@ -137,24 +165,19 @@ describe('AdminDashboardOverview', () => {
     expect(text).toContain('Database')
   })
 
-  it('shows WebSocket connection alert when disconnected', async () => {
-    // Set mock to disconnected BEFORE creating wrapper
-    mockIsConnected.value = false
+  it('does not subscribe for player events while disconnected', async () => {
+    isConnected.value = false
 
-    const wrapper = createWrapper()
+    createWrapper()
     await flushPromises()
-
-    // Should show the WebSocket connection warning
-    const text = wrapper.text()
-    expect(text).toContain('Connecting to WebSocket for real-time updates')
+    expect(socketMethods.subscribePlayerEvents).not.toHaveBeenCalled()
   })
 
-  it('renders summary cards', () => {
-    const wrapper = createWrapper()
-    const text = wrapper.text()
+  it('renders the current online roster', () => {
+    const text = createWrapper().text()
 
-    expect(text).toContain('Forum Activity')
-    expect(text).toContain('PvP Activity')
-    expect(text).toContain('Player Base')
+    expect(text).toContain('Currently Online')
+    expect(text).toContain('Cwial')
+    expect(text).toContain('Human')
   })
 })

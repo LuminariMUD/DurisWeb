@@ -7,7 +7,7 @@ import { RowDataPacket } from 'mysql2';
  */
 export async function getNewsContent(): Promise<string> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT content FROM mud_info WHERE name = 'news'`
+    `SELECT content FROM mud_info WHERE name = 'news'`,
   );
 
   if (rows.length === 0) {

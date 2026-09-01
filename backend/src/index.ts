@@ -32,6 +32,15 @@ import auctionRoutes from './routes/auction.js';
 import pushRoutes from './routes/push.js';
 import changelogRoutes from './routes/changelog.js';
 import publicStatisticsRoutes from './routes/publicStatistics.js';
+import hookRoutes from './routes/hooks.js';
+import { mudHookStateProvider } from './hooks/mudHookStateClient.js';
+import { refreshHookState, setMudHookStateProvider } from './hooks/hookSettingsService.js';
+import {
+  getFlatfileHookHealthSnapshot,
+  startFlatfileRecoveryMonitor,
+  stopFlatfileRecoveryMonitor,
+} from './hooks/flatfileHookState.js';
+import { probeAllFlatfileHooks, recoverFlatfileHook } from './services/flatfileAccess.js';
 import kofiRoutes from './routes/kofi.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { generateCsrfToken, verifyCsrfToken } from './middleware/csrf.js';
@@ -43,7 +52,10 @@ import {
   closeDatabaseConnection,
 } from './db/connection.js';
 import { closeRedisConnection } from './db/redis.js';
-import { startDonationOutboxPublisher, stopDonationOutboxPublisher } from './services/donationOutboxService.js';
+import {
+  startDonationOutboxPublisher,
+  stopDonationOutboxPublisher,
+} from './services/donationOutboxService.js';
 import { getLatestEvents, getPvPEventDetail } from './services/pvpService.js';
 import fs from 'fs';
 import { startGuildSync, stopGuildSync } from './services/guildSyncService.js';
@@ -56,7 +68,7 @@ import {
   resizeTerminal,
   destroySession as destroyTerminalSession,
   getSessionByWebSocket,
-  isTerminalOperationAuthorized
+  isTerminalOperationAuthorized,
 } from './services/terminalService.js';
 import { verifyToken, verifyTerminalToken, isAccessToken } from './middleware/auth.js';
 import { parseAccountFile } from './services/accountService.js';
@@ -65,7 +77,7 @@ import { getUserPermissions, type UserPermissions } from './services/permissionS
 import {
   deployToCommit,
   determineDeployAction,
-  type DeploymentContext
+  type DeploymentContext,
 } from './services/deploymentService.js';
 import {
   countZoneItems,
@@ -78,10 +90,23 @@ import {
 import { getCurrentCommitHash } from './services/gitService.js';
 import { cleanupOrphanImages } from './services/postImageService.js';
 import { getWebSettings } from './services/webSettingsService.js';
-import { startMudAuctionClient, stopMudAuctionClient, setAuctionBroadcaster } from './services/mudAuctionClient.js';
-import { startPlayerEventSubscriber, stopPlayerEventSubscriber, setPlayerEventBroadcaster } from './services/playerEventSubscriber.js';
+import { getHealthSnapshot } from './services/healthService.js';
+import {
+  startMudAuctionClient,
+  stopMudAuctionClient,
+  setAuctionBroadcaster,
+} from './services/mudAuctionClient.js';
+import {
+  startPlayerEventSubscriber,
+  stopPlayerEventSubscriber,
+  setPlayerEventBroadcaster,
+} from './services/playerEventSubscriber.js';
 import { closeOnlinePlayersRedisConnections } from './services/onlinePlayersService.js';
-import { setNotificationBroadcaster, setNewsBroadcaster, notifyPvpBattle } from './services/unifiedNotificationService.js';
+import {
+  setNotificationBroadcaster,
+  setNewsBroadcaster,
+  notifyPvpBattle,
+} from './services/unifiedNotificationService.js';
 import { updateWebSocketCount } from './services/serverHealthService.js';
 import { getCategoryAccessForAccount } from './services/categoryService.js';
 import { canAccessZone } from './services/zoneInfoService.js';
@@ -115,10 +140,9 @@ configureRequestBodyParsers(app);
 app.use(cookieParser());
 
 // CORS configuration
-const allowedOrigins = (process.env.ALLOWED_ORIGINS?.split(',') || [
-  'http://localhost:5173',
-  'http://localhost:3000',
-]).map(origin => origin.trim());
+const allowedOrigins = (
+  process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173', 'http://localhost:3000']
+).map((origin) => origin.trim());
 
 logger.info('CORS allowed origins:', allowedOrigins);
 
@@ -136,7 +160,7 @@ app.use(
       }
     },
     credentials: true,
-  })
+  }),
 );
 
 // CSRF protection middleware
@@ -149,12 +173,9 @@ app.use((_req: Request, _res: Response, next) => {
 });
 
 // Health check endpoint
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  });
+app.get('/health', async (_req: Request, res: Response) => {
+  const snapshot = await getHealthSnapshot();
+  res.status(snapshot.status === 'ok' ? 200 : 503).json(snapshot);
 });
 
 // Fast ping endpoint for latency measurement
@@ -215,6 +236,14 @@ app.use('/api/auction', auctionRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/changelog', changelogRoutes);
 app.use('/api/public/statistics', publicStatisticsRoutes);
+app.use('/api/hooks', hookRoutes);
+
+// Hook state: MUD-reported state comes from the bridge; website toggles are
+// loaded once here so the event-path gate never awaits a database read.
+setMudHookStateProvider(mudHookStateProvider);
+void refreshHookState().catch((error) => {
+  logger.error('[hooks] Initial hook state load failed', error);
+});
 
 // Serve static maps (works in both dev and prod)
 const publicPath = path.join(process.cwd(), 'public');
@@ -243,22 +272,35 @@ if (process.env.NODE_ENV === 'production') {
   // Check if request is from a bot/crawler
   const isBotRequest = (userAgent: string | undefined): boolean => {
     if (!userAgent) return false;
-    return /bot|crawler|spider|scraper|discord|telegram|whatsapp|facebook|twitter|slack|linkedin|pinterest|embedly|quora|outbrain|vkshare|facebookexternalhit|twitterbot|telegrambot/i.test(userAgent);
+    return /bot|crawler|spider|scraper|discord|telegram|whatsapp|facebook|twitter|slack|linkedin|pinterest|embedly|quora|outbrain|vkshare|facebookexternalhit|twitterbot|telegrambot/i.test(
+      userAgent,
+    );
   };
 
   // Generate OG meta tags for PvP battle
-  const generateBattleOgTags = (eventId: number, event: { room_name: string; stamp: Date }, participants: Array<{ player_description: string; pk_type: string }>, logoUrl?: string): string => {
-    const killers = participants.filter(p => p.pk_type.includes('KILLER')).map(p => extractPlayerName(p.player_description));
-    const victims = participants.filter(p => p.pk_type.includes('VICTIM')).map(p => extractPlayerName(p.player_description));
+  const generateBattleOgTags = (
+    eventId: number,
+    event: { room_name: string; stamp: Date },
+    participants: Array<{ player_description: string; pk_type: string }>,
+    logoUrl?: string,
+  ): string => {
+    const killers = participants
+      .filter((p) => p.pk_type.includes('KILLER'))
+      .map((p) => extractPlayerName(p.player_description));
+    const victims = participants
+      .filter((p) => p.pk_type.includes('VICTIM'))
+      .map((p) => extractPlayerName(p.player_description));
     const location = stripAnsi(event.room_name);
 
     const title = `Battle #${eventId} - ${killers.join(', ')} vs ${victims.join(', ')} | NewDuris`;
     const description = `PvP battle at ${location} - ${killers.join(', ')} defeated ${victims.join(', ')}`;
     const url = `https://www.newduris.com/pvp/${eventId}`;
 
-    const imageTags = logoUrl ? `
+    const imageTags = logoUrl
+      ? `
     <meta property="og:image" content="${logoUrl}">
-    <meta name="twitter:image" content="${logoUrl}">` : '';
+    <meta name="twitter:image" content="${logoUrl}">`
+      : '';
 
     return `
     <title>${title}</title>
@@ -285,7 +327,7 @@ if (process.env.NODE_ENV === 'production') {
       try {
         const [battleData, webSettings] = await Promise.all([
           getPvPEventDetail(eventId),
-          getWebSettings()
+          getWebSettings(),
         ]);
 
         if (battleData) {
@@ -293,7 +335,12 @@ if (process.env.NODE_ENV === 'production') {
           let html = fs.readFileSync(indexHtmlPath, 'utf-8');
 
           // Generate and inject OG tags (with logo if available)
-          const ogTags = generateBattleOgTags(eventId, battleData.event, battleData.participants, webSettings.siteLogoUrl || undefined);
+          const ogTags = generateBattleOgTags(
+            eventId,
+            battleData.event,
+            battleData.participants,
+            webSettings.siteLogoUrl || undefined,
+          );
 
           // Replace the existing <title> and inject OG tags before </head>
           html = html.replace(/<title>.*?<\/title>/, '');
@@ -574,20 +621,22 @@ export async function broadcastForumPost(
     authorAccount,
   });
 
-  await Promise.all(Array.from(wss.clients).map(async (client) => {
-    if (client.readyState !== WebSocket.OPEN) return;
+  await Promise.all(
+    Array.from(wss.clients).map(async (client) => {
+      if (client.readyState !== WebSocket.OPEN) return;
 
-    const principal = getWebSocketPrincipal(client);
-    try {
-      const access = await getCategoryAccessForAccount(
-        categoryId,
-        principal?.permissions || ANONYMOUS_WS_PERMISSIONS,
-      );
-      if (access.canView) client.send(message);
-    } catch (error) {
-      logger.error('Error checking forum broadcast access:', error);
-    }
-  }));
+      const principal = getWebSocketPrincipal(client);
+      try {
+        const access = await getCategoryAccessForAccount(
+          categoryId,
+          principal?.permissions || ANONYMOUS_WS_PERMISSIONS,
+        );
+        if (access.canView) client.send(message);
+      } catch (error) {
+        logger.error('Error checking forum broadcast access:', error);
+      }
+    }),
+  );
 }
 
 // Broadcast connection log event to all connected WebSocket clients
@@ -664,7 +713,7 @@ async function checkForFragUpdates() {
     // Query for any frag records updated since last check
     const [rows] = await pool.query<any[]>(
       'SELECT COUNT(*) as count FROM frag_leaderboard WHERE last_updated > ?',
-      [lastFragUpdateCheck]
+      [lastFragUpdateCheck],
     );
 
     if (rows[0].count > 0) {
@@ -696,8 +745,8 @@ async function checkForNewEvents() {
             latestEvent.id,
             latestEvent.victims,
             latestEvent.killers,
-            latestEvent.room_name || 'Unknown'
-          ).catch(err => logger.error('failed to send pvp push notification:', err));
+            latestEvent.room_name || 'Unknown',
+          ).catch((err) => logger.error('failed to send pvp push notification:', err));
 
           // post to discord if enabled
           (async () => {
@@ -710,17 +759,19 @@ async function checkForNewEvents() {
                     pk_type: k.isLeader ? 'KILLER' : 'KILLER-GROUP',
                     leader: k.isLeader,
                   })),
-                  ...latestEvent.victims.map((v: { description: string; isLeader: boolean; died: boolean }) => ({
-                    description: v.description,
-                    pk_type: v.died ? 'VICTIM' : 'VICTIM-GROUP',
-                    leader: v.isLeader,
-                  })),
+                  ...latestEvent.victims.map(
+                    (v: { description: string; isLeader: boolean; died: boolean }) => ({
+                      description: v.description,
+                      pk_type: v.died ? 'VICTIM' : 'VICTIM-GROUP',
+                      leader: v.isLeader,
+                    }),
+                  ),
                 ];
                 await postBattleToDiscord(
                   latestEvent.id,
                   latestEvent.stamp,
                   latestEvent.room_name || 'Unknown',
-                  participants
+                  participants,
                 );
               }
             } catch (err) {
@@ -793,6 +844,7 @@ const gracefulShutdown = async () => {
   }
 
   await stopDonationOutboxPublisher();
+  stopFlatfileRecoveryMonitor();
   await closeOnlinePlayersRedisConnections();
   await closeDatabaseConnection();
   await closeRedisConnection();
@@ -810,33 +862,17 @@ process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
 process.on('SIGUSR2', gracefulShutdown); // Nodemon sends SIGUSR2
 
-// Validate MUD directory at startup
-async function validateMudDirectory(): Promise<void> {
-  const { access, constants } = await import('fs/promises');
+async function initializeFlatfileHealth(): Promise<void> {
+  startFlatfileRecoveryMonitor(recoverFlatfileHook);
+  await probeAllFlatfileHooks();
 
-  const MUD_DIR = process.env.MUD_DIR;
-
-  if (!MUD_DIR) {
-    logger.error('FATAL: MUD_DIR environment variable is not set');
-    logger.error('Set it to the absolute path of your DurisMUD directory');
-    process.exit(1);
+  for (const health of getFlatfileHookHealthSnapshot()) {
+    if (health.availability === 'unavailable') {
+      logger.warn(
+        `[hooks] ${health.hookId} unavailable: ${health.reason ?? 'required MUD filesystem resource is unavailable'}`,
+      );
+    }
   }
-
-  if (!path.isAbsolute(MUD_DIR)) {
-    logger.error('FATAL: MUD_DIR must be an absolute path');
-    logger.error(`Got: ${MUD_DIR}`);
-    process.exit(1);
-  }
-
-  try {
-    await access(MUD_DIR, constants.R_OK | constants.X_OK);
-  } catch {
-    logger.error(`FATAL: Cannot access MUD_DIR: ${MUD_DIR}`);
-    logger.error('Verify the path exists and has correct permissions');
-    process.exit(1);
-  }
-
-  logger.info(`mud directory validated: ${MUD_DIR}`);
 }
 
 // helper to verify websocket auth with minimum level requirement
@@ -853,7 +889,7 @@ async function verifyWebSocketAuth(
     logger.warn('[verifyWebSocketAuth] invalid or non-access token');
     return null;
   }
-  if (!payload.sid || !await hasActiveWebSession(payload.accountName, payload.sid)) {
+  if (!payload.sid || !(await hasActiveWebSession(payload.accountName, payload.sid))) {
     logger.warn('[verifyWebSocketAuth] inactive or legacy session');
     return null;
   }
@@ -863,7 +899,9 @@ async function verifyWebSocketAuth(
     return null;
   }
   const permissions = await getUserPermissions(payload.accountName, accountData.characters);
-  logger.info(`[verifyWebSocketAuth] ${payload.accountName} maxLevel=${permissions.maxLevel} minLevel=${minLevel}`);
+  logger.info(
+    `[verifyWebSocketAuth] ${payload.accountName} maxLevel=${permissions.maxLevel} minLevel=${minLevel}`,
+  );
   if (permissions.maxLevel < minLevel) return null;
 
   return {
@@ -920,8 +958,10 @@ async function authorizeZoneStream(
 
 async function startServer() {
   try {
-    // Validate MUD directory first
-    await validateMudDirectory();
+    // Filesystem-backed hooks are optional in split-host deployments. Probe
+    // them independently and keep the bridge, Redis, and database paths alive
+    // when MUD_DIR is absent or unreachable.
+    await initializeFlatfileHealth();
 
     // Check database connection
     logger.info('Checking database connection...');
@@ -972,27 +1012,32 @@ async function startServer() {
       });
 
       const ensureTerminalOperation = async (sessionId: number): Promise<boolean> => {
-        const terminalAuth = (ws as any).terminalAuth as {
-          accountName?: string;
-          webSessionId?: string;
-        } | undefined;
-        const authorized = terminalAuth?.accountName && terminalAuth.webSessionId
-          ? await isTerminalOperationAuthorized(
-            sessionId,
-            ws,
-            terminalAuth.accountName,
-            terminalAuth.webSessionId,
-          )
-          : false;
+        const terminalAuth = (ws as any).terminalAuth as
+          | {
+              accountName?: string;
+              webSessionId?: string;
+            }
+          | undefined;
+        const authorized =
+          terminalAuth?.accountName && terminalAuth.webSessionId
+            ? await isTerminalOperationAuthorized(
+                sessionId,
+                ws,
+                terminalAuth.accountName,
+                terminalAuth.webSessionId,
+              )
+            : false;
 
         if (authorized) return true;
 
         await destroyTerminalSession(sessionId);
         if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            type: 'TERMINAL_ERROR',
-            message: 'Terminal session is no longer active',
-          }));
+          ws.send(
+            JSON.stringify({
+              type: 'TERMINAL_ERROR',
+              message: 'Terminal session is no longer active',
+            }),
+          );
         }
         delete (ws as any).terminalAuth;
         return false;
@@ -1057,12 +1102,14 @@ async function startServer() {
             const callback = (newLines: string[]) => {
               // Only send if still subscribed and connection open
               if ((ws as any).logSubscriptions.has(subscriptionKey) && ws.readyState === ws.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'LOG_UPDATE',
-                  category,
-                  logName,
-                  newLines,
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'LOG_UPDATE',
+                    category,
+                    logName,
+                    newLines,
+                  }),
+                );
               }
             };
 
@@ -1073,11 +1120,13 @@ async function startServer() {
             watchLog(category, logName, callback);
 
             // Confirm subscription
-            ws.send(JSON.stringify({
-              type: 'LOG_SUBSCRIBED',
-              category,
-              logName,
-            }));
+            ws.send(
+              JSON.stringify({
+                type: 'LOG_SUBSCRIBED',
+                category,
+                logName,
+              }),
+            );
           }
 
           // Handle log unsubscription
@@ -1097,11 +1146,13 @@ async function startServer() {
             }
 
             // Confirm unsubscription
-            ws.send(JSON.stringify({
-              type: 'LOG_UNSUBSCRIBED',
-              category,
-              logName,
-            }));
+            ws.send(
+              JSON.stringify({
+                type: 'LOG_UNSUBSCRIBED',
+                category,
+                logName,
+              }),
+            );
           }
 
           // Handle player events subscription (level 57+ only)
@@ -1141,42 +1192,54 @@ async function startServer() {
               // Verify the short-lived terminal capability
               const payload = verifyTerminalToken(token);
               if (!payload) {
-                ws.send(JSON.stringify({
-                  type: 'TERMINAL_ERROR',
-                  message: 'Invalid or expired token'
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'TERMINAL_ERROR',
+                    message: 'Invalid or expired token',
+                  }),
+                );
                 return;
               }
 
-              if (!payload.sid || !await hasActiveWebSession(payload.accountName, payload.sid)) {
-                ws.send(JSON.stringify({
-                  type: 'TERMINAL_ERROR',
-                  message: 'Session is no longer active'
-                }));
+              if (!payload.sid || !(await hasActiveWebSession(payload.accountName, payload.sid))) {
+                ws.send(
+                  JSON.stringify({
+                    type: 'TERMINAL_ERROR',
+                    message: 'Session is no longer active',
+                  }),
+                );
                 return;
               }
 
               // Parse account and check permissions
               const accountData = await parseAccountFile(payload.accountName);
               if (!accountData) {
-                ws.send(JSON.stringify({
-                  type: 'TERMINAL_ERROR',
-                  message: 'Account not found'
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'TERMINAL_ERROR',
+                    message: 'Account not found',
+                  }),
+                );
                 return;
               }
 
-              const permissions = await getUserPermissions(payload.accountName, accountData.characters);
+              const permissions = await getUserPermissions(
+                payload.accountName,
+                accountData.characters,
+              );
 
               // Require terminal_access permission OR Overlord role
-              const hasTerminalAccess = permissions.role === 'overlord' ||
+              const hasTerminalAccess =
+                permissions.role === 'overlord' ||
                 permissions.adminPermissions?.includes('terminal_access');
 
               if (!hasTerminalAccess) {
-                ws.send(JSON.stringify({
-                  type: 'TERMINAL_ERROR',
-                  message: 'Terminal access permission required'
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'TERMINAL_ERROR',
+                    message: 'Terminal access permission required',
+                  }),
+                );
                 return;
               }
 
@@ -1185,14 +1248,16 @@ async function startServer() {
                 payload.accountName,
                 ws,
                 cols || 80,
-                rows || 24
+                rows || 24,
               );
 
               if (result.error) {
-                ws.send(JSON.stringify({
-                  type: 'TERMINAL_ERROR',
-                  message: result.error
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'TERMINAL_ERROR',
+                    message: result.error,
+                  }),
+                );
                 return;
               }
 
@@ -1201,24 +1266,27 @@ async function startServer() {
                 webSessionId: payload.sid,
               };
 
-              ws.send(JSON.stringify({
-                type: 'TERMINAL_CONNECTED',
-                sessionId: result.sessionId
-              }));
-
+              ws.send(
+                JSON.stringify({
+                  type: 'TERMINAL_CONNECTED',
+                  sessionId: result.sessionId,
+                }),
+              );
             } catch (error) {
               logger.error('Terminal connect error:', error);
-              ws.send(JSON.stringify({
-                type: 'TERMINAL_ERROR',
-                message: 'Failed to create terminal session'
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'TERMINAL_ERROR',
+                  message: 'Failed to create terminal session',
+                }),
+              );
             }
           }
 
           // Handle terminal input
           if (data.type === 'TERMINAL_INPUT') {
             const sessionId = getSessionByWebSocket(ws);
-            if (sessionId !== undefined && await ensureTerminalOperation(sessionId)) {
+            if (sessionId !== undefined && (await ensureTerminalOperation(sessionId))) {
               await writeTerminalInput(sessionId, data.data);
             }
           }
@@ -1226,7 +1294,7 @@ async function startServer() {
           // Handle terminal resize
           if (data.type === 'TERMINAL_RESIZE') {
             const sessionId = getSessionByWebSocket(ws);
-            if (sessionId !== undefined && await ensureTerminalOperation(sessionId)) {
+            if (sessionId !== undefined && (await ensureTerminalOperation(sessionId))) {
               resizeTerminal(sessionId, data.cols, data.rows);
             }
           }
@@ -1234,7 +1302,7 @@ async function startServer() {
           // Handle terminal disconnect
           if (data.type === 'TERMINAL_DISCONNECT') {
             const sessionId = getSessionByWebSocket(ws);
-            if (sessionId !== undefined && await ensureTerminalOperation(sessionId)) {
+            if (sessionId !== undefined && (await ensureTerminalOperation(sessionId))) {
               await destroyTerminalSession(sessionId);
             }
           }
@@ -1244,34 +1312,40 @@ async function startServer() {
             const { zoneId, streamType } = data;
 
             if (!zoneId || !['rooms', 'mobs', 'objects'].includes(streamType)) {
-              ws.send(JSON.stringify({
-                type: 'ZONE_STREAM_ERROR',
-                zoneId,
-                streamType,
-                message: 'Invalid zone ID or stream type',
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'ZONE_STREAM_ERROR',
+                  zoneId,
+                  streamType,
+                  message: 'Invalid zone ID or stream type',
+                }),
+              );
               return;
             }
 
             const principal = await authorizeZoneStream(ws, data.token, zoneId);
             if (!principal) {
-              ws.send(JSON.stringify({
-                type: 'ZONE_STREAM_ERROR',
-                zoneId,
-                streamType,
-                message: 'Authentication or zone view permission required',
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'ZONE_STREAM_ERROR',
+                  zoneId,
+                  streamType,
+                  message: 'Authentication or zone view permission required',
+                }),
+              );
               return;
             }
 
             const streamKey = `zone:${zoneId}:${streamType}`;
             if (!wsStreamLimiter.acquire(ws, streamKey)) {
-              ws.send(JSON.stringify({
-                type: 'ZONE_STREAM_ERROR',
-                zoneId,
-                streamType,
-                message: 'Too many active zone streams',
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'ZONE_STREAM_ERROR',
+                  zoneId,
+                  streamType,
+                  message: 'Too many active zone streams',
+                }),
+              );
               return;
             }
 
@@ -1281,16 +1355,22 @@ async function startServer() {
               const total = counts[streamType as 'rooms' | 'mobs' | 'objects'];
 
               // Send start event
-              ws.send(JSON.stringify({
-                type: 'ZONE_STREAM_START',
-                zoneId,
-                streamType,
-                total,
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'ZONE_STREAM_START',
+                  zoneId,
+                  streamType,
+                  total,
+                }),
+              );
 
               // Select streamer
-              const streamer = streamType === 'rooms' ? streamRooms :
-                               streamType === 'mobs' ? streamMobs : streamObjects;
+              const streamer =
+                streamType === 'rooms'
+                  ? streamRooms
+                  : streamType === 'mobs'
+                    ? streamMobs
+                    : streamObjects;
 
               let loaded = 0;
 
@@ -1302,34 +1382,40 @@ async function startServer() {
                 }
 
                 loaded += chunk.length;
-                ws.send(JSON.stringify({
-                  type: 'ZONE_STREAM_PROGRESS',
-                  zoneId,
-                  streamType,
-                  loaded,
-                  total,
-                  items: chunk,
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'ZONE_STREAM_PROGRESS',
+                    zoneId,
+                    streamType,
+                    loaded,
+                    total,
+                    items: chunk,
+                  }),
+                );
               }
 
               // Send complete event
               if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'ZONE_STREAM_COMPLETE',
-                  zoneId,
-                  streamType,
-                  total: loaded,
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'ZONE_STREAM_COMPLETE',
+                    zoneId,
+                    streamType,
+                    total: loaded,
+                  }),
+                );
               }
             } catch (error) {
               logger.error(`Error streaming ${streamType} for zone ${zoneId}:`, error);
               if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'ZONE_STREAM_ERROR',
-                  zoneId,
-                  streamType,
-                  message: getErrorMessage(error),
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'ZONE_STREAM_ERROR',
+                    zoneId,
+                    streamType,
+                    message: getErrorMessage(error),
+                  }),
+                );
               }
             } finally {
               wsStreamLimiter.release(ws, streamKey);
@@ -1341,31 +1427,37 @@ async function startServer() {
             const { zoneId } = data;
 
             if (!zoneId) {
-              ws.send(JSON.stringify({
-                type: 'ZONE_RESETS_STREAM_ERROR',
-                zoneId,
-                message: 'Invalid zone ID',
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'ZONE_RESETS_STREAM_ERROR',
+                  zoneId,
+                  message: 'Invalid zone ID',
+                }),
+              );
               return;
             }
 
             const principal = await authorizeZoneStream(ws, data.token, zoneId);
             if (!principal) {
-              ws.send(JSON.stringify({
-                type: 'ZONE_RESETS_STREAM_ERROR',
-                zoneId,
-                message: 'Authentication or zone view permission required',
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'ZONE_RESETS_STREAM_ERROR',
+                  zoneId,
+                  message: 'Authentication or zone view permission required',
+                }),
+              );
               return;
             }
 
             const streamKey = `resets:${zoneId}`;
             if (!wsStreamLimiter.acquire(ws, streamKey)) {
-              ws.send(JSON.stringify({
-                type: 'ZONE_RESETS_STREAM_ERROR',
-                zoneId,
-                message: 'Too many active zone streams',
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'ZONE_RESETS_STREAM_ERROR',
+                  zoneId,
+                  message: 'Too many active zone streams',
+                }),
+              );
               return;
             }
 
@@ -1374,11 +1466,13 @@ async function startServer() {
               const total = await countResets(zoneId);
 
               // Send start event
-              ws.send(JSON.stringify({
-                type: 'ZONE_RESETS_STREAM_START',
-                zoneId,
-                total,
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'ZONE_RESETS_STREAM_START',
+                  zoneId,
+                  total,
+                }),
+              );
 
               let loaded = 0;
 
@@ -1390,31 +1484,37 @@ async function startServer() {
                 }
 
                 loaded += chunk.length;
-                ws.send(JSON.stringify({
-                  type: 'ZONE_RESETS_STREAM_PROGRESS',
-                  zoneId,
-                  loaded,
-                  total,
-                  items: chunk,
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'ZONE_RESETS_STREAM_PROGRESS',
+                    zoneId,
+                    loaded,
+                    total,
+                    items: chunk,
+                  }),
+                );
               }
 
               // Send complete event
               if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'ZONE_RESETS_STREAM_COMPLETE',
-                  zoneId,
-                  total: loaded,
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'ZONE_RESETS_STREAM_COMPLETE',
+                    zoneId,
+                    total: loaded,
+                  }),
+                );
               }
             } catch (error) {
               logger.error(`Error streaming resets for zone ${zoneId}:`, error);
               if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                  type: 'ZONE_RESETS_STREAM_ERROR',
-                  zoneId,
-                  message: getErrorMessage(error),
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'ZONE_RESETS_STREAM_ERROR',
+                    zoneId,
+                    message: getErrorMessage(error),
+                  }),
+                );
               }
             } finally {
               wsStreamLimiter.release(ws, streamKey);
@@ -1428,49 +1528,62 @@ async function startServer() {
 
               // Validate hash format
               if (!targetHash || !/^[a-f0-9]{40}$/.test(targetHash)) {
-                ws.send(JSON.stringify({
-                  type: 'DEPLOY_ERROR',
-                  message: 'Invalid commit hash format',
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'DEPLOY_ERROR',
+                    message: 'Invalid commit hash format',
+                  }),
+                );
                 return;
               }
 
               // Verify JWT token
               const payload = verifyToken(token);
               if (!isAccessToken(payload)) {
-                ws.send(JSON.stringify({
-                  type: 'DEPLOY_ERROR',
-                  message: 'Invalid or expired token',
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'DEPLOY_ERROR',
+                    message: 'Invalid or expired token',
+                  }),
+                );
                 return;
               }
 
-              if (!payload.sid || !await hasActiveWebSession(payload.accountName, payload.sid)) {
-                ws.send(JSON.stringify({
-                  type: 'DEPLOY_ERROR',
-                  message: 'Session is no longer active',
-                }));
+              if (!payload.sid || !(await hasActiveWebSession(payload.accountName, payload.sid))) {
+                ws.send(
+                  JSON.stringify({
+                    type: 'DEPLOY_ERROR',
+                    message: 'Session is no longer active',
+                  }),
+                );
                 return;
               }
 
               // Parse account and check permissions
               const accountData = await parseAccountFile(payload.accountName);
               if (!accountData) {
-                ws.send(JSON.stringify({
-                  type: 'DEPLOY_ERROR',
-                  message: 'Account not found',
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'DEPLOY_ERROR',
+                    message: 'Account not found',
+                  }),
+                );
                 return;
               }
 
-              const permissions = await getUserPermissions(payload.accountName, accountData.characters);
+              const permissions = await getUserPermissions(
+                payload.accountName,
+                accountData.characters,
+              );
 
               // Require Overlord role for deployment
               if (permissions.role !== 'overlord') {
-                ws.send(JSON.stringify({
-                  type: 'DEPLOY_ERROR',
-                  message: 'Overlord access required for deployment',
-                }));
+                ws.send(
+                  JSON.stringify({
+                    type: 'DEPLOY_ERROR',
+                    message: 'Overlord access required for deployment',
+                  }),
+                );
                 return;
               }
 
@@ -1490,22 +1603,25 @@ async function startServer() {
               };
 
               // Confirm deployment started
-              ws.send(JSON.stringify({
-                type: 'DEPLOY_STARTED',
-                action,
-                fromHash: currentCommit.short,
-                toHash: targetHash.substring(0, 7),
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'DEPLOY_STARTED',
+                  action,
+                  fromHash: currentCommit.short,
+                  toHash: targetHash.substring(0, 7),
+                }),
+              );
 
               // Start deployment (async, streams progress via WebSocket)
               await deployToCommit(ctx);
-
             } catch (error) {
               logger.error('Deployment WebSocket error:', error);
-              ws.send(JSON.stringify({
-                type: 'DEPLOY_ERROR',
-                message: getErrorMessage(error) || 'Deployment failed',
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'DEPLOY_ERROR',
+                  message: getErrorMessage(error) || 'Deployment failed',
+                }),
+              );
             }
           }
         } catch (error) {
@@ -1515,10 +1631,12 @@ async function startServer() {
 
       ws.on('close', async () => {
         // Unsubscribe from all logs on disconnect with proper callback cleanup
-        (ws as any).logSubscriptions.forEach((callback: (newLines: string[]) => void, subscriptionKey: string) => {
-          const [category, logName] = subscriptionKey.split(':');
-          unwatchLog(category as 'runtime' | 'player', logName, callback);
-        });
+        (ws as any).logSubscriptions.forEach(
+          (callback: (newLines: string[]) => void, subscriptionKey: string) => {
+            const [category, logName] = subscriptionKey.split(':');
+            unwatchLog(category as 'runtime' | 'player', logName, callback);
+          },
+        );
         (ws as any).logSubscriptions.clear();
 
         // Cleanup terminal session if exists
@@ -1537,7 +1655,7 @@ async function startServer() {
         JSON.stringify({
           type: 'CONNECTED',
           message: 'Connected to DurisMUD PvP WebSocket',
-        })
+        }),
       );
     });
 
@@ -1570,7 +1688,6 @@ async function startServer() {
     startHealthMonitoring();
     logger.info('Server health monitoring started');
 
-
     // Update WebSocket connection count every 10 seconds
     wsConnectionCountInterval = setInterval(updateWebSocketConnectionCount, 10000);
 
@@ -1584,14 +1701,17 @@ async function startServer() {
     // mud connection log sync removed - now using websocket events from mudAuctionClient
 
     // Initialize backup service broadcaster and scheduler
-    const { setProgressBroadcaster, setRestoreProgressBroadcaster, startHourlyBackupScheduler } = await import('./services/backupService.js');
+    const { setProgressBroadcaster, setRestoreProgressBroadcaster, startHourlyBackupScheduler } =
+      await import('./services/backupService.js');
     setProgressBroadcaster(broadcastBackupProgress);
     setRestoreProgressBroadcaster(broadcastRestoreProgress);
     startHourlyBackupScheduler();
     logger.info('Backup service initialized with hourly scheduler');
 
     // Initialize MUD control service broadcasters
-    const { setStateBroadcaster, setOutputBroadcaster } = await import('./services/mudControlService.js');
+    const { setStateBroadcaster, setOutputBroadcaster } = await import(
+      './services/mudControlService.js'
+    );
     setStateBroadcaster(broadcastMudStateChange);
     setOutputBroadcaster(broadcastMudControlOutput);
     logger.info('MUD control service initialized');
@@ -1619,16 +1739,19 @@ async function startServer() {
     logger.info('News broadcaster initialized');
 
     // Start orphan image cleanup job (every hour)
-    orphanImageCleanupInterval = setInterval(async () => {
-      try {
-        const deleted = await cleanupOrphanImages();
-        if (deleted > 0) {
-          logger.info(`Cleaned up ${deleted} orphan forum images`);
+    orphanImageCleanupInterval = setInterval(
+      async () => {
+        try {
+          const deleted = await cleanupOrphanImages();
+          if (deleted > 0) {
+            logger.info(`Cleaned up ${deleted} orphan forum images`);
+          }
+        } catch (error) {
+          logger.error('Error cleaning up orphan images:', error);
         }
-      } catch (error) {
-        logger.error('Error cleaning up orphan images:', error);
-      }
-    }, 60 * 60 * 1000); // Run every hour
+      },
+      60 * 60 * 1000,
+    ); // Run every hour
     logger.info('Orphan image cleanup service started');
 
     // Start listening
@@ -1665,7 +1788,6 @@ async function startServer() {
       logger.info(`  GET  /api/frag/classes`);
       logger.info(`  WS   /ws (Real-time updates)`);
       logger.info(`${'='.repeat(50)}\n`);
-
     });
   } catch (error) {
     logger.error('Failed to start server:', error);

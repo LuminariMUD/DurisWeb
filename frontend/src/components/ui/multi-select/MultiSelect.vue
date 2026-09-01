@@ -10,24 +10,23 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
-const props = withDefaults(defineProps<{
-  options: T[]
-  placeholder?: string
-  searchPlaceholder?: string
-  emptyMessage?: string
-  maxDisplayed?: number
-}>(), {
-  placeholder: 'Select items...',
-  searchPlaceholder: 'Search...',
-  emptyMessage: 'No items found.',
-  maxDisplayed: 5,
-})
+const props = withDefaults(
+  defineProps<{
+    options: T[]
+    placeholder?: string
+    searchPlaceholder?: string
+    emptyMessage?: string
+    maxDisplayed?: number
+  }>(),
+  {
+    placeholder: 'Select items...',
+    searchPlaceholder: 'Search...',
+    emptyMessage: 'No items found.',
+    maxDisplayed: 5,
+  },
+)
 
 const model = defineModel<(string | number)[]>({ default: () => [] })
 
@@ -37,28 +36,28 @@ const searchQuery = ref('')
 const filteredOptions = computed(() => {
   if (!searchQuery.value) return props.options
   const query = searchQuery.value.toLowerCase()
-  return props.options.filter(opt => opt.label.toLowerCase().includes(query))
+  return props.options.filter((opt) => opt.label.toLowerCase().includes(query))
 })
 
 const selectedItems = computed(() => {
-  return props.options.filter(opt => model.value.includes(opt.value))
+  return props.options.filter((opt) => model.value.includes(opt.value))
 })
 
 function toggleItem(value: string | number) {
   const index = model.value.indexOf(value)
   if (index > -1) {
-    model.value = model.value.filter(v => v !== value)
+    model.value = model.value.filter((v) => v !== value)
   } else {
     model.value = [...model.value, value]
   }
 }
 
 function removeItem(value: string | number) {
-  model.value = model.value.filter(v => v !== value)
+  model.value = model.value.filter((v) => v !== value)
 }
 
 function selectAll() {
-  model.value = props.options.map(opt => opt.value)
+  model.value = props.options.map((opt) => opt.value)
 }
 
 function clearAll() {

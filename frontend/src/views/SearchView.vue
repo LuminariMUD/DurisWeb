@@ -43,16 +43,41 @@ const { data: _players } = usePlayers(playerSearch)
 
 // DurisMUD classes (common ones)
 const classList = [
-  'Warrior', 'Cleric', 'Thief', 'Wizard', 'Druid', 'Shaman',
-  'Sorcerer', 'Bard', 'Ranger', 'Paladin', 'Anti-Paladin',
-  'Crusader', 'Blighter', 'Necromancer', 'Bounty Hunter', 'Monk'
+  'Warrior',
+  'Cleric',
+  'Thief',
+  'Wizard',
+  'Druid',
+  'Shaman',
+  'Sorcerer',
+  'Bard',
+  'Ranger',
+  'Paladin',
+  'Anti-Paladin',
+  'Crusader',
+  'Blighter',
+  'Necromancer',
+  'Bounty Hunter',
+  'Monk',
 ]
 
 // DurisMUD races (common ones)
 const raceList = [
-  'Human', 'Elf', 'Dwarf', 'Halfling', 'Gnome', 'Drow',
-  'Orc', 'Ogre', 'Troll', 'Githzerai', 'Githyanki',
-  'Goblin', 'Kobold', 'Duergar', 'Minotaur'
+  'Human',
+  'Elf',
+  'Dwarf',
+  'Halfling',
+  'Gnome',
+  'Drow',
+  'Orc',
+  'Ogre',
+  'Troll',
+  'Githzerai',
+  'Githyanki',
+  'Goblin',
+  'Kobold',
+  'Duergar',
+  'Minotaur',
 ]
 
 // Group sizes
@@ -67,7 +92,7 @@ const searchQuery = computed<SearchQuery>(() => {
     const today = new Date().toISOString().split('T')[0] as string
     query.dateRange = {
       start: dateRangeStart.value || '2000-01-01',
-      end: dateRangeEnd.value || today
+      end: dateRangeEnd.value || today,
     }
   }
   if (selectedLocation.value) query.location = selectedLocation.value
@@ -84,7 +109,12 @@ const searchQuery = computed<SearchQuery>(() => {
 
 // Execute search
 const hasSearched = ref(false)
-const { data: searchResults, isLoading, isError, error } = useQuery<PaginatedResponse<PvPEvent>>({
+const {
+  data: searchResults,
+  isLoading,
+  isError,
+  error,
+} = useQuery<PaginatedResponse<PvPEvent>>({
   queryKey: ['search', searchQuery, currentPage],
   queryFn: () => pvpApi.search({ ...searchQuery.value, page: currentPage.value, limit: 50 } as any),
   enabled: hasSearched,
@@ -138,26 +168,32 @@ const updateUrlParams = () => {
 // Initialize flatpickr
 const initializeDatePickers = () => {
   if (startDateInput.value && !startDatePicker) {
-    startDatePicker = flatpickr(startDateInput.value as HTMLElement, {
-      dateFormat: 'Y-m-d',
-      onChange: (_selectedDates: any, dateStr: string) => {
-        dateRangeStart.value = dateStr
-      },
-      maxDate: endDateInput.value?.value || 'today'
-    } as any)
+    startDatePicker = flatpickr(
+      startDateInput.value as HTMLElement,
+      {
+        dateFormat: 'Y-m-d',
+        onChange: (_selectedDates: any, dateStr: string) => {
+          dateRangeStart.value = dateStr
+        },
+        maxDate: endDateInput.value?.value || 'today',
+      } as any,
+    )
   }
 
   if (endDateInput.value && !endDatePicker) {
-    endDatePicker = flatpickr(endDateInput.value as HTMLElement, {
-      dateFormat: 'Y-m-d',
-      onChange: (_selectedDates: any, dateStr: string) => {
-        dateRangeEnd.value = dateStr
-        if (startDatePicker) {
-          startDatePicker.set('maxDate', dateStr || 'today')
-        }
-      },
-      maxDate: 'today'
-    } as any)
+    endDatePicker = flatpickr(
+      endDateInput.value as HTMLElement,
+      {
+        dateFormat: 'Y-m-d',
+        onChange: (_selectedDates: any, dateStr: string) => {
+          dateRangeEnd.value = dateStr
+          if (startDatePicker) {
+            startDatePicker.set('maxDate', dateStr || 'today')
+          }
+        },
+        maxDate: 'today',
+      } as any,
+    )
   }
 }
 

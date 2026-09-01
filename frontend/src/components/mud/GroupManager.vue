@@ -29,7 +29,18 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Trash2, FolderPlus, Terminal, Zap, Clock, ChevronRight, ChevronDown, Folder, FolderOpen } from 'lucide-vue-next'
+import {
+  Plus,
+  Trash2,
+  FolderPlus,
+  Terminal,
+  Zap,
+  Clock,
+  ChevronRight,
+  ChevronDown,
+  Folder,
+  FolderOpen,
+} from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
 const props = defineProps<{
@@ -87,41 +98,45 @@ const dragItem = ref<DragItem | null>(null)
 // selected group object
 const selectedGroup = computed(() => {
   if (selectedGroupId.value === null) return null
-  return groups.value.find(g => g.id === selectedGroupId.value) || null
+  return groups.value.find((g) => g.id === selectedGroupId.value) || null
 })
 
 // items for selected group
 const selectedTriggers = computed((): Trigger[] => {
   if (selectedGroupId.value === null) {
-    return triggers.value.filter(t => !t.groupId)
+    return triggers.value.filter((t) => !t.groupId)
   }
-  return triggers.value.filter(t => t.groupId === selectedGroupId.value)
+  return triggers.value.filter((t) => t.groupId === selectedGroupId.value)
 })
 
 const selectedAliases = computed((): Alias[] => {
   if (selectedGroupId.value === null) {
-    return aliases.value.filter(a => !a.groupId)
+    return aliases.value.filter((a) => !a.groupId)
   }
-  return aliases.value.filter(a => a.groupId === selectedGroupId.value)
+  return aliases.value.filter((a) => a.groupId === selectedGroupId.value)
 })
 
 const selectedTimers = computed((): Timer[] => {
   if (selectedGroupId.value === null) {
-    return timers.value.filter(t => !t.groupId)
+    return timers.value.filter((t) => !t.groupId)
   }
-  return timers.value.filter(t => t.groupId === selectedGroupId.value)
+  return timers.value.filter((t) => t.groupId === selectedGroupId.value)
 })
 
 // count helpers
 function getItemCount(groupId: string | null): number {
   if (groupId === null) {
-    return triggers.value.filter(t => !t.groupId).length +
-           aliases.value.filter(a => !a.groupId).length +
-           timers.value.filter(t => !t.groupId).length
+    return (
+      triggers.value.filter((t) => !t.groupId).length +
+      aliases.value.filter((a) => !a.groupId).length +
+      timers.value.filter((t) => !t.groupId).length
+    )
   }
-  return triggers.value.filter(t => t.groupId === groupId).length +
-         aliases.value.filter(a => a.groupId === groupId).length +
-         timers.value.filter(t => t.groupId === groupId).length
+  return (
+    triggers.value.filter((t) => t.groupId === groupId).length +
+    aliases.value.filter((a) => a.groupId === groupId).length +
+    timers.value.filter((t) => t.groupId === groupId).length
+  )
 }
 
 function getTotalItemCount(groupId: string): number {
@@ -154,7 +169,7 @@ function startEdit(group: Group) {
 function saveEdit() {
   if (!editingId.value || !editingName.value.trim()) return
 
-  const group = groups.value.find(g => g.id === editingId.value)
+  const group = groups.value.find((g) => g.id === editingId.value)
   if (!group) return
 
   if (isNameInUse(editingName.value, group.parentId, editingId.value)) {
@@ -271,17 +286,17 @@ function handleDrop(groupId: string | null) {
   const { type, id } = dragItem.value
 
   if (type === 'trigger') {
-    const trigger = triggers.value.find(t => t.id === id)
+    const trigger = triggers.value.find((t) => t.id === id)
     if (trigger && trigger.groupId !== groupId) {
       setTriggerGroup(id, groupId)
     }
   } else if (type === 'alias') {
-    const alias = aliases.value.find(a => a.id === id)
+    const alias = aliases.value.find((a) => a.id === id)
     if (alias && alias.groupId !== groupId) {
       setAliasGroup(id, groupId)
     }
   } else if (type === 'timer') {
-    const timer = timers.value.find(t => t.id === id)
+    const timer = timers.value.find((t) => t.id === id)
     if (timer && timer.groupId !== groupId) {
       setTimerGroup(id, groupId)
     }

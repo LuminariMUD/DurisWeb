@@ -34,7 +34,7 @@ const bgColors: Record<string, string> = {
   c: 'bg-cyan-900',
   C: 'bg-cyan-800',
   w: 'bg-gray-400',
-  W: 'bg-white'
+  W: 'bg-white',
 }
 
 // Foreground colors (second letter in &=XY, or single letter in &+X)
@@ -54,7 +54,7 @@ const fgColors: Record<string, string> = {
   c: 'text-cyan-600',
   C: 'text-cyan-300 font-bold',
   w: 'text-gray-400',
-  W: 'text-white font-bold'
+  W: 'text-white font-bold',
 }
 
 // Build color map dynamically
@@ -68,7 +68,7 @@ function buildAnsiColors(): AnsiColor[] {
       colors.push({
         code: `&=${bg}${fg}`,
         class: `${bgColors[bg]} ${fgColors[fg]}`,
-        description: `${bg} bg + ${fg} fg`
+        description: `${bg} bg + ${fg} fg`,
       })
     }
   }
@@ -78,7 +78,7 @@ function buildAnsiColors(): AnsiColor[] {
     colors.push({
       code: `&+${letter}`,
       class: fgColors[letter] ?? 'text-gray-300',
-      description: `Foreground ${letter}`
+      description: `Foreground ${letter}`,
     })
   }
 
@@ -87,7 +87,7 @@ function buildAnsiColors(): AnsiColor[] {
     colors.push({
       code: `&-${letter}`,
       class: bgColors[letter] ?? 'bg-gray-800',
-      description: `Background ${letter}`
+      description: `Background ${letter}`,
     })
   }
 
@@ -116,12 +116,15 @@ function _escapeHtml(text: string): string {
     '<': '&lt;',
     '>': '&gt;',
     '"': '&quot;',
-    "'": '&#039;'
+    "'": '&#039;',
   }
   // Only escape HTML chars, not our ANSI codes
   return text.replace(/[&<>"']/g, (char) => {
     // Don't escape & if it's part of an ANSI code
-    if (char === '&' && /&\+?[a-zA-Z*]/.test(text.substring(text.indexOf(char), text.indexOf(char) + 3))) {
+    if (
+      char === '&' &&
+      /&\+?[a-zA-Z*]/.test(text.substring(text.indexOf(char), text.indexOf(char) + 3))
+    ) {
       return char
     }
     return map[char] || char
@@ -130,24 +133,24 @@ function _escapeHtml(text: string): string {
 
 // Standard ANSI SGR (Select Graphic Rendition) code mappings
 const ANSI_SGR_CLASSES: Record<string, string> = {
-  '0': 'text-gray-300',        // Reset
-  '1': 'font-bold',            // Bold
-  '30': 'text-gray-500',       // Black (brightened for visibility on black bg)
-  '31': 'text-red-600',        // Red
-  '32': 'text-green-500',      // Green
-  '33': 'text-yellow-500',     // Yellow
-  '34': 'text-blue-500',       // Blue
-  '35': 'text-purple-500',     // Magenta
-  '36': 'text-cyan-400',       // Cyan
-  '37': 'text-gray-300',       // White
-  '90': 'text-gray-500',       // Bright Black (Gray)
-  '91': 'text-red-400',        // Bright Red
-  '92': 'text-green-400',      // Bright Green
-  '93': 'text-yellow-300',     // Bright Yellow
-  '94': 'text-blue-400',       // Bright Blue
-  '95': 'text-purple-400',     // Bright Magenta
-  '96': 'text-cyan-300',       // Bright Cyan
-  '97': 'text-white',          // Bright White
+  '0': 'text-gray-300', // Reset
+  '1': 'font-bold', // Bold
+  '30': 'text-gray-500', // Black (brightened for visibility on black bg)
+  '31': 'text-red-600', // Red
+  '32': 'text-green-500', // Green
+  '33': 'text-yellow-500', // Yellow
+  '34': 'text-blue-500', // Blue
+  '35': 'text-purple-500', // Magenta
+  '36': 'text-cyan-400', // Cyan
+  '37': 'text-gray-300', // White
+  '90': 'text-gray-500', // Bright Black (Gray)
+  '91': 'text-red-400', // Bright Red
+  '92': 'text-green-400', // Bright Green
+  '93': 'text-yellow-300', // Bright Yellow
+  '94': 'text-blue-400', // Bright Blue
+  '95': 'text-purple-400', // Bright Magenta
+  '96': 'text-cyan-300', // Bright Cyan
+  '97': 'text-white', // Bright White
 }
 
 /**
@@ -261,9 +264,9 @@ export function slugify(text: string): string {
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, '') // Remove non-word chars except spaces and hyphens
-    .replace(/[\s_]+/g, '-')   // Replace spaces and underscores with hyphens
-    .replace(/-+/g, '-')       // Replace multiple hyphens with single hyphen
-    .replace(/^-+|-+$/g, '')   // Remove leading/trailing hyphens
+    .replace(/[\s_]+/g, '-') // Replace spaces and underscores with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
 }
 
 /**
@@ -290,7 +293,7 @@ const fgHexColors: Record<string, string> = {
   c: '#0891b2',
   C: '#67e8f9',
   w: '#9ca3af',
-  W: '#ffffff'
+  W: '#ffffff',
 }
 
 // Build ANSI_TO_HEX dynamically
@@ -383,7 +386,7 @@ export function drawAnsiText(
   text: string,
   x: number,
   y: number,
-  baseFont: string = '24px system-ui, -apple-system, sans-serif'
+  baseFont: string = '24px system-ui, -apple-system, sans-serif',
 ): number {
   const segments = parseAnsiToSegments(text)
   let currentX = x
@@ -429,7 +432,7 @@ export function parseAnsiForVue(text: string, collapseBlankLines = false): strin
   // Split by newlines and parse each line independently
   // This ensures colors reset at each line
   const lines = safe.split('\n')
-  const parsedLines = lines.map(line => {
+  const parsedLines = lines.map((line) => {
     if (!line) return '' // Empty line
 
     let html = line
@@ -464,16 +467,31 @@ export function ansiToHtmlWithStyles(text: string): string {
 
   // Map of ANSI codes (only the ones in MudColorExtension)
   const mudCodes = [
-    '&+R', '&+G', '&+B', '&+Y', '&+M', '&+C', '&+W', '&+L',
-    '&+r', '&+g', '&+b', '&+y', '&+m', '&+c', '&+w', '&+l',
-    '&n', '&N'
+    '&+R',
+    '&+G',
+    '&+B',
+    '&+Y',
+    '&+M',
+    '&+C',
+    '&+W',
+    '&+L',
+    '&+r',
+    '&+g',
+    '&+b',
+    '&+y',
+    '&+m',
+    '&+c',
+    '&+w',
+    '&+l',
+    '&n',
+    '&N',
   ]
 
   let html = text
 
   // Split by lines to process each line separately
   const lines = html.split('\n')
-  const processedLines = lines.map(line => {
+  const processedLines = lines.map((line) => {
     let processedLine = line
 
     // Find all ANSI codes in the line and convert to spans
@@ -508,17 +526,20 @@ export function htmlToAnsi(html: string): string {
 
   // Extract text content while preserving ANSI codes from data-mud-color attributes
   // Replace spans with data-mud-color with the ANSI code + text content
-  result = result.replace(/<span data-mud-color="([^"]+)"[^>]*>(.*?)<\/span>/gi, (match, code, content) => {
-    // Don't add ANSI code if it's the default &n and content is empty
-    if (code === '&n' && !content.trim()) {
-      return content
-    }
-    // Don't add code if content is empty
-    if (!content.trim()) {
-      return ''
-    }
-    return code + content
-  })
+  result = result.replace(
+    /<span data-mud-color="([^"]+)"[^>]*>(.*?)<\/span>/gi,
+    (match, code, content) => {
+      // Don't add ANSI code if it's the default &n and content is empty
+      if (code === '&n' && !content.trim()) {
+        return content
+      }
+      // Don't add code if content is empty
+      if (!content.trim()) {
+        return ''
+      }
+      return code + content
+    },
+  )
 
   // Convert horizontal rules to dashes
   result = result.replace(/<hr\s*\/?>/gi, '\n----------------------------------------\n')

@@ -85,7 +85,7 @@ async function main() {
             zone.number,
             JSON.stringify(obj.values.slice(0, 4)),
             obj.longDesc || null,
-          ]
+          ],
         );
         totalObjects++;
 
@@ -93,7 +93,7 @@ async function main() {
           if (apply.location > 0 && apply.modifier !== 0) {
             await connection.query(
               `INSERT INTO wiki_object_affects (object_vnum, location, modifier) VALUES (?, ?, ?)`,
-              [obj.vnum, apply.location, apply.modifier]
+              [obj.vnum, apply.location, apply.modifier],
             );
             totalAffects++;
           }
@@ -103,7 +103,7 @@ async function main() {
         for (const slotId of slotIds) {
           await connection.query(
             `INSERT INTO wiki_object_slots (object_vnum, slot_id) VALUES (?, ?)`,
-            [obj.vnum, slotId]
+            [obj.vnum, slotId],
           );
           totalSlots++;
         }
@@ -112,12 +112,12 @@ async function main() {
           obj.bitvector || 0,
           obj.bitvector2 || 0,
           obj.bitvector3 || 0,
-          obj.bitvector4 || 0
+          obj.bitvector4 || 0,
         );
         for (const effect of effects) {
           await connection.query(
             `INSERT INTO wiki_object_spell_effects (object_vnum, effect_name) VALUES (?, ?)`,
-            [obj.vnum, effect]
+            [obj.vnum, effect],
           );
           totalSpellEffects++;
         }
@@ -128,7 +128,7 @@ async function main() {
           if (antiFlags & classBit) {
             await connection.query(
               `INSERT INTO wiki_object_classes (object_vnum, class_id, is_allowed) VALUES (?, ?, ?)`,
-              [obj.vnum, classBit, isAllowedClasses]
+              [obj.vnum, classBit, isAllowedClasses],
             );
             totalClasses++;
           }
@@ -141,7 +141,7 @@ async function main() {
           if (antiFlags2 & raceBit) {
             await connection.query(
               `INSERT INTO wiki_object_races (object_vnum, race_id, is_allowed) VALUES (?, ?, ?)`,
-              [obj.vnum, raceId, isAllowedRaces]
+              [obj.vnum, raceId, isAllowedRaces],
             );
             totalRaces++;
           }
@@ -150,7 +150,9 @@ async function main() {
 
       process.stdout.write(`\r  processed ${totalObjects} objects from ${zone.id}...`);
     }
-    console.log(`\n  done: ${totalObjects} objects, ${totalAffects} affects, ${totalSlots} slots, ${totalSpellEffects} spell effects, ${totalClasses} class restrictions, ${totalRaces} race restrictions\n`);
+    console.log(
+      `\n  done: ${totalObjects} objects, ${totalAffects} affects, ${totalSlots} slots, ${totalSpellEffects} spell effects, ${totalClasses} class restrictions, ${totalRaces} race restrictions\n`,
+    );
 
     // import mobs
     console.log('importing mobs...');
@@ -190,7 +192,7 @@ async function main() {
             mob.thac0,
             mob.longDesc || null,
             mob.detailedDesc || null,
-          ]
+          ],
         );
         totalMobs++;
 
@@ -198,7 +200,7 @@ async function main() {
         for (const flagId of flagIds) {
           await connection.query(
             `INSERT INTO wiki_mob_flags (zone_number, mob_vnum, flag_id) VALUES (?, ?, ?)`,
-            [zone.number, mob.vnum, flagId]
+            [zone.number, mob.vnum, flagId],
           );
           totalFlags++;
         }
@@ -216,7 +218,6 @@ async function main() {
     console.log(`import complete in ${elapsed}s`);
     console.log(`  objects: ${totalObjects}`);
     console.log(`  mobs: ${totalMobs}`);
-
   } catch (error) {
     // rollback on any error
     console.error('\nimport failed, rolling back...');

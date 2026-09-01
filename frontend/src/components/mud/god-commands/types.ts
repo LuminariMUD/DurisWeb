@@ -5,22 +5,22 @@
 
 // Parameter types that map to different input components
 export type GodCommandParamType =
-  | 'player'          // Autocomplete from WHO list
-  | 'account'         // Account autocomplete (searches MUD account files)
-  | 'password'        // Password input with show/hide toggle
-  | 'vnum-object'     // Object search via wiki API
-  | 'vnum-mob'        // Mob search via wiki API
-  | 'room-vnum'       // Manual room vnum input
-  | 'text'            // Free text input
-  | 'textarea'        // Multi-line text input
-  | 'flag-select'     // Dropdown with predefined options
-  | 'on-off'          // Toggle switch (on/off)
-  | 'level'           // Level number input (1-62)
-  | 'zone'            // Zone autocomplete
-  | 'direction'       // Direction select (n/e/s/w/u/d)
-  | 'number'          // Generic number input
+  | 'player' // Autocomplete from WHO list
+  | 'account' // Account autocomplete (searches MUD account files)
+  | 'password' // Password input with show/hide toggle
+  | 'vnum-object' // Object search via wiki API
+  | 'vnum-mob' // Mob search via wiki API
+  | 'room-vnum' // Manual room vnum input
+  | 'text' // Free text input
+  | 'textarea' // Multi-line text input
+  | 'flag-select' // Dropdown with predefined options
+  | 'on-off' // Toggle switch (on/off)
+  | 'level' // Level number input (1-62)
+  | 'zone' // Zone autocomplete
+  | 'direction' // Direction select (n/e/s/w/u/d)
+  | 'number' // Generic number input
   | 'setbit-property' // Setbit property dropdown (with subtable metadata)
-  | 'setbit-value'    // Dynamic value input (dropdown or number based on selected property)
+  | 'setbit-value' // Dynamic value input (dropdown or number based on selected property)
 
 // Option for flag-select and other dropdown types
 export interface GodCommandOption {
@@ -31,48 +31,68 @@ export interface GodCommandOption {
 
 // Parameter definition
 export interface GodCommandParam {
-  name: string                      // Parameter identifier (used in template)
-  label: string                     // Display label
-  type: GodCommandParamType         // Input type
-  required: boolean                 // Is required?
-  placeholder?: string              // Input placeholder text
-  options?: GodCommandOption[]      // For flag-select type
+  name: string // Parameter identifier (used in template)
+  label: string // Display label
+  type: GodCommandParamType // Input type
+  required: boolean // Is required?
+  placeholder?: string // Input placeholder text
+  options?: GodCommandOption[] // For flag-select type
   defaultValue?: string | number | boolean
   validation?: {
-    min?: number                    // For number types
-    max?: number                    // For number types
-    pattern?: string                // Regex pattern as string
-    message?: string                // Validation error message
+    min?: number // For number types
+    max?: number // For number types
+    pattern?: string // Regex pattern as string
+    message?: string // Validation error message
   }
 }
 
 // Command categories for grouping in palette
 export type GodCommandCategory =
-  | 'player'        // Player management (setbit, transfer, freeze, etc.)
+  | 'player' // Player management (setbit, transfer, freeze, etc.)
   | 'teleportation' // goto, at, teleport
-  | 'loading'       // load obj/mob, clone, purge
+  | 'loading' // load obj/mob, clone, purge
   | 'communication' // echo variants, gshout
-  | 'information'   // where, users, inroom, stat, finger
-  | 'zone'          // zreset, zonefile
-  | 'dangerous'     // shutdown, terminate, reboot
+  | 'information' // where, users, inroom, stat, finger
+  | 'zone' // zreset, zonefile
+  | 'dangerous' // shutdown, terminate, reboot
 
 // Category metadata for display
 export interface GodCommandCategoryInfo {
   id: GodCommandCategory
   label: string
   description: string
-  icon: string  // Lucide icon name
+  icon: string // Lucide icon name
 }
 
 // Category display configuration
 export const COMMAND_CATEGORIES: GodCommandCategoryInfo[] = [
-  { id: 'player', label: 'Player Management', description: 'Manage player flags, status, and actions', icon: 'Users' },
-  { id: 'teleportation', label: 'Teleportation', description: 'Move yourself or others', icon: 'Navigation' },
+  {
+    id: 'player',
+    label: 'Player Management',
+    description: 'Manage player flags, status, and actions',
+    icon: 'Users',
+  },
+  {
+    id: 'teleportation',
+    label: 'Teleportation',
+    description: 'Move yourself or others',
+    icon: 'Navigation',
+  },
   { id: 'loading', label: 'Loading', description: 'Load objects and mobs', icon: 'Package' },
-  { id: 'communication', label: 'Communication', description: 'Broadcast messages', icon: 'MessageSquare' },
+  {
+    id: 'communication',
+    label: 'Communication',
+    description: 'Broadcast messages',
+    icon: 'MessageSquare',
+  },
   { id: 'information', label: 'Information', description: 'View game information', icon: 'Info' },
   { id: 'zone', label: 'Zone Control', description: 'Zone management commands', icon: 'Map' },
-  { id: 'dangerous', label: 'Dangerous', description: 'Server control commands', icon: 'AlertTriangle' },
+  {
+    id: 'dangerous',
+    label: 'Dangerous',
+    description: 'Server control commands',
+    icon: 'AlertTriangle',
+  },
 ]
 
 // Command execution type
@@ -80,32 +100,32 @@ export type GodCommandType = 'mud' | 'api'
 
 // Full command definition
 export interface GodCommand {
-  name: string                      // Command name (e.g., "setbit")
-  description: string               // Short description
-  level: number                     // Minimum level (57-62)
-  category: GodCommandCategory      // Category for grouping
-  params: GodCommandParam[]         // Parameter definitions
-  template: string                  // Command template with {param} placeholders
-  aliases?: string[]                // Alternative names for fuzzy search
-  dangerous?: boolean               // Show confirmation before execution
-  help?: string                     // Extended help text
-  type?: GodCommandType             // Execution type: 'mud' (default) or 'api'
-  apiEndpoint?: string              // For type='api': backend endpoint to call
+  name: string // Command name (e.g., "setbit")
+  description: string // Short description
+  level: number // Minimum level (57-62)
+  category: GodCommandCategory // Category for grouping
+  params: GodCommandParam[] // Parameter definitions
+  template: string // Command template with {param} placeholders
+  aliases?: string[] // Alternative names for fuzzy search
+  dangerous?: boolean // Show confirmation before execution
+  help?: string // Extended help text
+  type?: GodCommandType // Execution type: 'mud' (default) or 'api'
+  apiEndpoint?: string // For type='api': backend endpoint to call
 }
 
 // Recent command entry for localStorage
 export interface RecentGodCommand {
-  command: string                   // Full executed command string
-  timestamp: number                 // Unix timestamp (ms)
-  commandName: string               // Base command name for display
+  command: string // Full executed command string
+  timestamp: number // Unix timestamp (ms)
+  commandName: string // Base command name for display
 }
 
 // Current execution state
 export interface GodCommandExecution {
-  command: GodCommand               // Selected command
-  params: Record<string, string | number | boolean>  // Parameter values
-  preview: string                   // Built command string
-  isValid: boolean                  // All required params filled
+  command: GodCommand // Selected command
+  params: Record<string, string | number | boolean> // Parameter values
+  preview: string // Built command string
+  isValid: boolean // All required params filled
 }
 
 // Online player info from WHO parsing
@@ -252,7 +272,11 @@ export const SETBIT_ROOM_FLAGS: GodCommandOption[] = [
   { value: 'light', label: 'Light', description: 'Light level' },
   { value: 'fall', label: 'Fall Chance', description: 'Fall chance percentage' },
   { value: 'speed_current', label: 'Current Speed', description: 'Water current speed' },
-  { value: 'direction_current', label: 'Current Direction', description: 'Water current direction' },
+  {
+    value: 'direction_current',
+    label: 'Current Direction',
+    description: 'Water current direction',
+  },
 ]
 
 // Setbit obj flags - object properties

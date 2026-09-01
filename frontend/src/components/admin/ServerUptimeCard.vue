@@ -115,74 +115,76 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { Server, Activity, Loader2, AlertCircle } from 'lucide-vue-next';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useCurrentUptime, formatUptime } from '@/composables/useServerReboot';
-import { useServerHealth } from '@/composables/useServerHealth';
-import { format } from 'date-fns';
+import { computed } from 'vue'
+import { Server, Activity, Loader2, AlertCircle } from 'lucide-vue-next'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { useCurrentUptime, formatUptime } from '@/composables/useServerReboot'
+import { useServerHealth } from '@/composables/useServerHealth'
+import { format } from 'date-fns'
 
 // Server uptime (Linux system)
-const { bootDate, uptime, isLoading, error } = useCurrentUptime();
+const { bootDate, uptime, isLoading, error } = useCurrentUptime()
 
 // MUD uptime (process)
-const { health: mudHealth, isLoading: isMudLoading, error: mudError } = useServerHealth(true);
+const { health: mudHealth, isLoading: isMudLoading, error: mudError } = useServerHealth(true)
 
-const formattedUptime = computed(() => formatUptime(uptime.value));
-const formattedMudUptime = computed(() => formatUptime(mudHealth.value?.mudUptimeSeconds || 0));
+const formattedUptime = computed(() => formatUptime(uptime.value))
+const formattedMudUptime = computed(() => formatUptime(mudHealth.value?.mudUptimeSeconds || 0))
 
-const uptimeDays = computed(() => uptime.value / 86400);
-const mudUptimeHours = computed(() => (mudHealth.value?.mudUptimeSeconds || 0) / 3600);
+const uptimeDays = computed(() => uptime.value / 86400)
+const mudUptimeHours = computed(() => (mudHealth.value?.mudUptimeSeconds || 0) / 3600)
 
 // Server uptime styling
 const serverHealthColorClass = computed(() => {
-  const days = uptimeDays.value;
-  if (days >= 30) return 'bg-green-500 text-white'; // Great uptime!
-  if (days >= 7) return 'bg-blue-500 text-white';   // Good
-  return 'bg-yellow-500 text-black';                 // Recently rebooted
-});
+  const days = uptimeDays.value
+  if (days >= 30) return 'bg-green-500 text-white' // Great uptime!
+  if (days >= 7) return 'bg-blue-500 text-white' // Good
+  return 'bg-yellow-500 text-black' // Recently rebooted
+})
 
 const serverUptimeStatus = computed(() => {
-  const days = uptimeDays.value;
-  if (days >= 30) return 'Excellent';
-  if (days >= 7) return 'Stable';
-  return 'Recent Reboot';
-});
+  const days = uptimeDays.value
+  if (days >= 30) return 'Excellent'
+  if (days >= 7) return 'Stable'
+  return 'Recent Reboot'
+})
 
 // MUD uptime styling (with 65h warning)
 const mudUptimeColorClass = computed(() => {
-  const hours = mudUptimeHours.value;
-  if (hours >= 65) return 'text-red-500';
-  if (hours >= 60) return 'text-yellow-500';
-  return 'text-green-500';
-});
+  const hours = mudUptimeHours.value
+  if (hours >= 65) return 'text-red-500'
+  if (hours >= 60) return 'text-yellow-500'
+  return 'text-green-500'
+})
 
 const mudHealthColorClass = computed(() => {
-  const hours = mudUptimeHours.value;
-  if (hours >= 65) return 'bg-red-500 text-white';
-  if (hours >= 60) return 'bg-yellow-500 text-black';
-  return 'bg-green-500 text-white';
-});
+  const hours = mudUptimeHours.value
+  if (hours >= 65) return 'bg-red-500 text-white'
+  if (hours >= 60) return 'bg-yellow-500 text-black'
+  return 'bg-green-500 text-white'
+})
 
 const mudUptimeStatus = computed(() => {
-  const hours = mudUptimeHours.value;
-  if (hours >= 65) return 'Critical';
-  if (hours >= 60) return 'Warning';
-  return 'Healthy';
-});
+  const hours = mudUptimeHours.value
+  if (hours >= 65) return 'Critical'
+  if (hours >= 60) return 'Warning'
+  return 'Healthy'
+})
 
-const showAutoRebootWarning = computed(() => mudUptimeHours.value >= 65);
-const showApproachingWarning = computed(() => mudUptimeHours.value >= 60 && mudUptimeHours.value < 65);
+const showAutoRebootWarning = computed(() => mudUptimeHours.value >= 65)
+const showApproachingWarning = computed(
+  () => mudUptimeHours.value >= 60 && mudUptimeHours.value < 65,
+)
 
 const formatDate = (dateStr: string | null) => {
-  if (!dateStr) return 'N/A';
-  return format(new Date(dateStr), 'MMM dd, yyyy');
-};
+  if (!dateStr) return 'N/A'
+  return format(new Date(dateStr), 'MMM dd, yyyy')
+}
 
 const formatTime = (dateStr: string | null) => {
-  if (!dateStr) return 'N/A';
-  return format(new Date(dateStr), 'HH:mm:ss');
-};
+  if (!dateStr) return 'N/A'
+  return format(new Date(dateStr), 'HH:mm:ss')
+}
 </script>

@@ -69,20 +69,13 @@ export function getContactWorldPosition(
  * Convert a discrete world coordinate to a percentage on the map image.
  * The minimum and maximum coordinates map to the image edges (0 and 100).
  */
-export function mapCoordinateToPercent(
-  value: number,
-  min: number,
-  max: number,
-): number {
+export function mapCoordinateToPercent(value: number, min: number, max: number): number {
   const span = max - min
   if (span <= 0) return 50
   return ((value - min) / span) * 100
 }
 
-export function worldPointToMapPercent(
-  point: WorldPoint,
-  bounds: WorldMapBounds,
-): WorldPoint {
+export function worldPointToMapPercent(point: WorldPoint, bounds: WorldMapBounds): WorldPoint {
   return {
     x: mapCoordinateToPercent(point.x, bounds.minX, bounds.maxX),
     y: mapCoordinateToPercent(point.y, bounds.minY, bounds.maxY),

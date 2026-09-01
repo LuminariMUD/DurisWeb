@@ -40,10 +40,10 @@ router.get('/categories', async (_req, res) => {
   try {
     // Get counts per category
     const [rows] = await pool.query<CategoryCount[]>(
-      `SELECT category_id, COUNT(*) as count FROM pages GROUP BY category_id ORDER BY category_id ASC`
+      `SELECT category_id, COUNT(*) as count FROM pages GROUP BY category_id ORDER BY category_id ASC`,
     );
 
-    const categories = rows.map(row => ({
+    const categories = rows.map((row) => ({
       id: row.category_id ?? -1,
       name: getCategoryName(row.category_id),
       count: row.count,
@@ -79,10 +79,10 @@ router.get('/help/search', async (req, res) => {
        WHERE title LIKE ?
        ORDER BY title ASC
        LIMIT ?`,
-      [searchTerm, limit]
+      [searchTerm, limit],
     );
 
-    const results = rows.map(row => ({
+    const results = rows.map((row) => ({
       id: row.id,
       title: row.title,
       category_id: row.category_id,
@@ -109,7 +109,7 @@ router.get('/help/:id', async (req, res) => {
       `SELECT id, title, text, category_id, last_update, last_update_by
        FROM pages
        WHERE id = ?`,
-      [id]
+      [id],
     );
 
     if (rows.length === 0) {
@@ -136,12 +136,11 @@ router.get('/help', async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 50), 100);
-    const categoryId = req.query.category_id !== undefined
-      ? parseInt(req.query.category_id as string)
-      : undefined;
+    const categoryId =
+      req.query.category_id !== undefined ? parseInt(req.query.category_id as string) : undefined;
     const search = req.query.search as string | undefined;
-    const sort = req.query.sort as string || 'title';
-    const sortDir = req.query.sort_dir as string || 'asc';
+    const sort = (req.query.sort as string) || 'title';
+    const sortDir = (req.query.sort_dir as string) || 'asc';
 
     const offset = (page - 1) * limit;
     const params: any[] = [];
@@ -158,9 +157,7 @@ router.get('/help', async (req, res) => {
       params.push(`%${search}%`);
     }
 
-    const whereClause = whereConditions.length > 0
-      ? `WHERE ${whereConditions.join(' AND ')}`
-      : '';
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     // Build ORDER BY clause
     const validSortColumns: Record<string, string> = {
@@ -179,17 +176,17 @@ router.get('/help', async (req, res) => {
        ${whereClause}
        ORDER BY ${sortColumn} ${sortDirection}
        LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+      [...params, limit, offset],
     );
 
     // Get total count
     const [countRows] = await pool.query<RowDataPacket[]>(
       `SELECT COUNT(*) as total FROM pages ${whereClause}`,
-      params
+      params,
     );
     const total = countRows[0].total;
 
-    const pages = rows.map(row => ({
+    const pages = rows.map((row) => ({
       id: row.id,
       title: row.title,
       category_id: row.category_id,

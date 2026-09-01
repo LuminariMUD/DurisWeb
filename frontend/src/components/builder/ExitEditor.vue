@@ -110,17 +110,19 @@ watch(() => editForm.value.keyVnum, triggerValidation)
 
 // Get exit for a direction
 function getExit(direction: Direction): RoomExit | undefined {
-  return props.exits.find(e => e.direction === direction)
+  return props.exits.find((e) => e.direction === direction)
 }
 
 // Check if direction has an exit
 function hasExit(direction: Direction): boolean {
-  return props.exits.some(e => e.direction === direction)
+  return props.exits.some((e) => e.direction === direction)
 }
 
 // Check if exit has a door
 function hasDoor(exit: RoomExit): boolean {
-  return exit.doorFlag > 0 || exit.keyVnum > 0 || Boolean(exit.keywords && exit.keywords.trim() !== '')
+  return (
+    exit.doorFlag > 0 || exit.keyVnum > 0 || Boolean(exit.keywords && exit.keywords.trim() !== '')
+  )
 }
 
 // Open edit dialog for a direction
@@ -151,7 +153,7 @@ function openEditDialog(direction: Direction) {
 
 // Save exit from dialog
 function saveExit() {
-  const newExits = props.exits.filter(e => e.direction !== editForm.value.direction)
+  const newExits = props.exits.filter((e) => e.direction !== editForm.value.direction)
 
   // Only add if toRoom is valid
   if (editForm.value.toRoom >= 0) {
@@ -164,7 +166,7 @@ function saveExit() {
 
 // Delete an exit
 function deleteExit(direction: Direction) {
-  const newExits = props.exits.filter(e => e.direction !== direction)
+  const newExits = props.exits.filter((e) => e.direction !== direction)
   emit('update', newExits)
 }
 

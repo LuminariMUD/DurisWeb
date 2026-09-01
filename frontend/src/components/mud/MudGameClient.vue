@@ -23,7 +23,24 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useRouter } from 'vue-router'
-import { Map, MapPin, Sparkles, DoorOpen, Info, Star, Coins, Home, Swords, MessageSquare, Menu, Gavel, User, Bell, BookOpen, BarChart3 } from 'lucide-vue-next'
+import {
+  Map,
+  MapPin,
+  Sparkles,
+  DoorOpen,
+  Info,
+  Star,
+  Coins,
+  Home,
+  Swords,
+  MessageSquare,
+  Menu,
+  Gavel,
+  User,
+  Bell,
+  BookOpen,
+  BarChart3,
+} from 'lucide-vue-next'
 import { Progress } from '@/components/ui/progress'
 import QuestPopover from './QuestPopover.vue'
 
@@ -205,7 +222,8 @@ const handleFabDrag = (e: MouseEvent | TouchEvent) => {
   const clientY = 'touches' in e ? (e.touches[0]?.clientY ?? 0) : e.clientY
 
   // Cancel long-press if moved before timer fires
-  const moved = Math.abs(clientX - dragStart.value.x) > 10 || Math.abs(clientY - dragStart.value.y) > 10
+  const moved =
+    Math.abs(clientX - dragStart.value.x) > 10 || Math.abs(clientY - dragStart.value.y) > 10
   if (moved && longPressTimer.value && !isDraggingFab.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
@@ -361,10 +379,13 @@ onMounted(() => {
 })
 
 const saveHeights = () => {
-  localStorage.setItem(STORAGE_KEY_HEIGHTS, JSON.stringify({
-    mapPercent: mapPercent.value,
-    roomPercent: roomPercent.value,
-  }))
+  localStorage.setItem(
+    STORAGE_KEY_HEIGHTS,
+    JSON.stringify({
+      mapPercent: mapPercent.value,
+      roomPercent: roomPercent.value,
+    }),
+  )
 }
 
 // Computed affects percent (remaining space)

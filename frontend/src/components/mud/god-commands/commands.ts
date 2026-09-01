@@ -36,8 +36,20 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 60,
     category: 'player',
     params: [
-      { name: 'target', label: 'Character', type: 'player', required: true, placeholder: 'Player or mob name' },
-      { name: 'flag', label: 'Property', type: 'setbit-property', required: true, options: SETBIT_CHAR_FLAGS },
+      {
+        name: 'target',
+        label: 'Character',
+        type: 'player',
+        required: true,
+        placeholder: 'Player or mob name',
+      },
+      {
+        name: 'flag',
+        label: 'Property',
+        type: 'setbit-property',
+        required: true,
+        options: SETBIT_CHAR_FLAGS,
+      },
       { name: 'value', label: 'Value', type: 'setbit-value', required: true },
       { name: 'onoff', label: 'On/Off', type: 'on-off', required: false },
     ],
@@ -53,8 +65,20 @@ export const GOD_COMMANDS: GodCommand[] = [
     type: 'api',
     apiEndpoint: '/api/admin/god/reset-password',
     params: [
-      { name: 'accountName', label: 'Account', type: 'account', required: true, placeholder: 'Account name' },
-      { name: 'newPassword', label: 'New Password', type: 'password', required: true, placeholder: 'Minimum 6 characters' },
+      {
+        name: 'accountName',
+        label: 'Account',
+        type: 'account',
+        required: true,
+        placeholder: 'Account name',
+      },
+      {
+        name: 'newPassword',
+        label: 'New Password',
+        type: 'password',
+        required: true,
+        placeholder: 'Minimum 6 characters',
+      },
     ],
     template: 'setpass {accountName}',
     dangerous: true,
@@ -68,9 +92,27 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 60,
     category: 'zone',
     params: [
-      { name: 'room', label: 'Room', type: 'text', required: true, placeholder: 'Room vnum or "here"' },
-      { name: 'flag', label: 'Property', type: 'flag-select', required: true, options: SETBIT_ROOM_FLAGS },
-      { name: 'value', label: 'Value', type: 'text', required: true, placeholder: 'Value (e.g. "DARK on" or sector name)' },
+      {
+        name: 'room',
+        label: 'Room',
+        type: 'text',
+        required: true,
+        placeholder: 'Room vnum or "here"',
+      },
+      {
+        name: 'flag',
+        label: 'Property',
+        type: 'flag-select',
+        required: true,
+        options: SETBIT_ROOM_FLAGS,
+      },
+      {
+        name: 'value',
+        label: 'Value',
+        type: 'text',
+        required: true,
+        placeholder: 'Value (e.g. "DARK on" or sector name)',
+      },
     ],
     template: 'setbit room {room} {flag} {value}',
     aliases: ['setbit r'],
@@ -83,8 +125,20 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 60,
     category: 'loading',
     params: [
-      { name: 'object', label: 'Object', type: 'text', required: true, placeholder: 'Object keyword' },
-      { name: 'flag', label: 'Property', type: 'flag-select', required: true, options: SETBIT_OBJ_FLAGS },
+      {
+        name: 'object',
+        label: 'Object',
+        type: 'text',
+        required: true,
+        placeholder: 'Object keyword',
+      },
+      {
+        name: 'flag',
+        label: 'Property',
+        type: 'flag-select',
+        required: true,
+        options: SETBIT_OBJ_FLAGS,
+      },
       { name: 'value', label: 'Value', type: 'text', required: true, placeholder: 'Value' },
     ],
     template: 'setbit obj {object} {flag} {value}',
@@ -99,7 +153,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     category: 'zone',
     params: [
       { name: 'zone', label: 'Zone', type: 'number', required: true, placeholder: 'Zone number' },
-      { name: 'flag', label: 'Property', type: 'flag-select', required: true, options: SETBIT_ZONE_FLAGS },
+      {
+        name: 'flag',
+        label: 'Property',
+        type: 'flag-select',
+        required: true,
+        options: SETBIT_ZONE_FLAGS,
+      },
       { name: 'value', label: 'Value', type: 'number', required: true, placeholder: 'Value' },
     ],
     template: 'setbit zone {zone} {flag} {value}',
@@ -114,7 +174,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     category: 'zone',
     params: [
       { name: 'room', label: 'Room', type: 'text', required: true, placeholder: 'Room vnum' },
-      { name: 'flag', label: 'Direction Property', type: 'flag-select', required: true, options: SETBIT_DIR_FLAGS },
+      {
+        name: 'flag',
+        label: 'Direction Property',
+        type: 'flag-select',
+        required: true,
+        options: SETBIT_DIR_FLAGS,
+      },
       { name: 'value', label: 'Value', type: 'text', required: true, placeholder: 'Value' },
     ],
     template: 'setbit dir {room} {flag} {value}',
@@ -128,7 +194,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 58,
     category: 'player',
     params: [
-      { name: 'player', label: 'Player', type: 'player', required: true, placeholder: 'Player name or "all"' },
+      {
+        name: 'player',
+        label: 'Player',
+        type: 'player',
+        required: true,
+        placeholder: 'Player name or "all"',
+      },
     ],
     template: 'transfer {player}',
     aliases: ['trans'],
@@ -140,7 +212,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 59,
     category: 'player',
     params: [
-      { name: 'player', label: 'Player', type: 'player', required: true, placeholder: 'Player name' },
+      {
+        name: 'player',
+        label: 'Player',
+        type: 'player',
+        required: true,
+        placeholder: 'Player name',
+      },
     ],
     template: 'freeze {player}',
   },
@@ -151,7 +229,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 60,
     category: 'player',
     params: [
-      { name: 'player', label: 'Player', type: 'player', required: false, placeholder: 'Player name or "all" (default: self)' },
+      {
+        name: 'player',
+        label: 'Player',
+        type: 'player',
+        required: false,
+        placeholder: 'Player name or "all" (default: self)',
+      },
     ],
     template: 'restore {player}',
   },
@@ -162,7 +246,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 59,
     category: 'player',
     params: [
-      { name: 'player', label: 'Player', type: 'player', required: true, placeholder: 'Player name' },
+      {
+        name: 'player',
+        label: 'Player',
+        type: 'player',
+        required: true,
+        placeholder: 'Player name',
+      },
     ],
     template: 'whois {player}',
     aliases: ['stat'],
@@ -174,7 +264,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 57,
     category: 'player',
     params: [
-      { name: 'player', label: 'Player', type: 'player', required: true, placeholder: 'Player name' },
+      {
+        name: 'player',
+        label: 'Player',
+        type: 'player',
+        required: true,
+        placeholder: 'Player name',
+      },
     ],
     template: 'silence {player}',
     aliases: ['mute'],
@@ -186,8 +282,21 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 60,
     category: 'player',
     params: [
-      { name: 'player', label: 'Player', type: 'player', required: true, placeholder: 'Player name' },
-      { name: 'level', label: 'Level', type: 'level', required: true, placeholder: '1-56', validation: { min: 1, max: 56 } },
+      {
+        name: 'player',
+        label: 'Player',
+        type: 'player',
+        required: true,
+        placeholder: 'Player name',
+      },
+      {
+        name: 'level',
+        label: 'Level',
+        type: 'level',
+        required: true,
+        placeholder: '1-56',
+        validation: { min: 1, max: 56 },
+      },
     ],
     template: 'advance {player} {level}',
     dangerous: true,
@@ -199,8 +308,20 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 60,
     category: 'player',
     params: [
-      { name: 'player', label: 'Player', type: 'player', required: true, placeholder: 'Player name or "all"' },
-      { name: 'command', label: 'Command', type: 'text', required: true, placeholder: 'Command to execute' },
+      {
+        name: 'player',
+        label: 'Player',
+        type: 'player',
+        required: true,
+        placeholder: 'Player name or "all"',
+      },
+      {
+        name: 'command',
+        label: 'Command',
+        type: 'text',
+        required: true,
+        placeholder: 'Command to execute',
+      },
     ],
     template: 'force {player} {command}',
     dangerous: true,
@@ -213,15 +334,27 @@ export const GOD_COMMANDS: GodCommand[] = [
     category: 'player',
     params: [
       { name: 'player', label: 'Player', type: 'player', required: true },
-      { name: 'attribute', label: 'Attribute', type: 'flag-select', required: true, options: [
-        { value: 'str', label: 'Strength' },
-        { value: 'int', label: 'Intelligence' },
-        { value: 'wis', label: 'Wisdom' },
-        { value: 'dex', label: 'Dexterity' },
-        { value: 'con', label: 'Constitution' },
-        { value: 'cha', label: 'Charisma' },
-      ]},
-      { name: 'value', label: 'Value', type: 'number', required: true, validation: { min: 1, max: 25 } },
+      {
+        name: 'attribute',
+        label: 'Attribute',
+        type: 'flag-select',
+        required: true,
+        options: [
+          { value: 'str', label: 'Strength' },
+          { value: 'int', label: 'Intelligence' },
+          { value: 'wis', label: 'Wisdom' },
+          { value: 'dex', label: 'Dexterity' },
+          { value: 'con', label: 'Constitution' },
+          { value: 'cha', label: 'Charisma' },
+        ],
+      },
+      {
+        name: 'value',
+        label: 'Value',
+        type: 'number',
+        required: true,
+        validation: { min: 1, max: 25 },
+      },
     ],
     template: 'setattr {player} {attribute} {value}',
   },
@@ -233,7 +366,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     category: 'player',
     params: [
       { name: 'oldname', label: 'Current Name', type: 'player', required: true },
-      { name: 'newname', label: 'New Name', type: 'text', required: true, placeholder: 'New character name' },
+      {
+        name: 'newname',
+        label: 'New Name',
+        type: 'text',
+        required: true,
+        placeholder: 'New character name',
+      },
     ],
     template: 'rename {oldname} {newname}',
     dangerous: true,
@@ -244,9 +383,7 @@ export const GOD_COMMANDS: GodCommand[] = [
     description: 'Apply newbie spell-ups to a player',
     level: 59,
     category: 'player',
-    params: [
-      { name: 'player', label: 'Player', type: 'player', required: true },
-    ],
+    params: [{ name: 'player', label: 'Player', type: 'player', required: true }],
     template: 'newbsu {player}',
     aliases: ['spellup'],
   },
@@ -271,7 +408,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 57,
     category: 'teleportation',
     params: [
-      { name: 'target', label: 'Target', type: 'text', required: true, placeholder: 'Room vnum, player name, or mob keyword' },
+      {
+        name: 'target',
+        label: 'Target',
+        type: 'text',
+        required: true,
+        placeholder: 'Room vnum, player name, or mob keyword',
+      },
     ],
     template: 'goto {target}',
   },
@@ -282,8 +425,20 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 57,
     category: 'teleportation',
     params: [
-      { name: 'location', label: 'Location', type: 'text', required: true, placeholder: 'Room vnum or player name' },
-      { name: 'command', label: 'Command', type: 'text', required: true, placeholder: 'Command to execute' },
+      {
+        name: 'location',
+        label: 'Location',
+        type: 'text',
+        required: true,
+        placeholder: 'Room vnum or player name',
+      },
+      {
+        name: 'command',
+        label: 'Command',
+        type: 'text',
+        required: true,
+        placeholder: 'Command to execute',
+      },
     ],
     template: 'at {location} {command}',
   },
@@ -295,14 +450,20 @@ export const GOD_COMMANDS: GodCommand[] = [
     category: 'teleportation',
     params: [
       { name: 'player', label: 'Player', type: 'player', required: true },
-      { name: 'location', label: 'Location', type: 'text', required: true, placeholder: 'Room vnum or "recall"' },
+      {
+        name: 'location',
+        label: 'Location',
+        type: 'text',
+        required: true,
+        placeholder: 'Room vnum or "recall"',
+      },
     ],
     template: 'teleport {player} {location}',
   },
 
   {
     name: 'sethome',
-    description: 'Set a player\'s home location',
+    description: "Set a player's home location",
     level: 59,
     category: 'teleportation',
     params: [
@@ -322,7 +483,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 59,
     category: 'loading',
     params: [
-      { name: 'vnum', label: 'Object', type: 'vnum-object', required: true, placeholder: 'Object vnum or search' },
+      {
+        name: 'vnum',
+        label: 'Object',
+        type: 'vnum-object',
+        required: true,
+        placeholder: 'Object vnum or search',
+      },
     ],
     template: 'load obj {vnum}',
     aliases: ['oload'],
@@ -334,7 +501,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 59,
     category: 'loading',
     params: [
-      { name: 'vnum', label: 'Mob', type: 'vnum-mob', required: true, placeholder: 'Mob vnum or search' },
+      {
+        name: 'vnum',
+        label: 'Mob',
+        type: 'vnum-mob',
+        required: true,
+        placeholder: 'Mob vnum or search',
+      },
     ],
     template: 'load mob {vnum}',
     aliases: ['mload'],
@@ -346,7 +519,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 59,
     category: 'loading',
     params: [
-      { name: 'target', label: 'Object', type: 'text', required: true, placeholder: 'Object keyword' },
+      {
+        name: 'target',
+        label: 'Object',
+        type: 'text',
+        required: true,
+        placeholder: 'Object keyword',
+      },
     ],
     template: 'clone {target}',
   },
@@ -357,7 +536,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 59,
     category: 'loading',
     params: [
-      { name: 'target', label: 'Target', type: 'text', required: false, placeholder: 'Target keyword (empty = purge all)' },
+      {
+        name: 'target',
+        label: 'Target',
+        type: 'text',
+        required: false,
+        placeholder: 'Target keyword (empty = purge all)',
+      },
     ],
     template: 'purge {target}',
   },
@@ -372,7 +557,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 57,
     category: 'communication',
     params: [
-      { name: 'message', label: 'Message', type: 'text', required: true, placeholder: 'Message to echo' },
+      {
+        name: 'message',
+        label: 'Message',
+        type: 'text',
+        required: true,
+        placeholder: 'Message to echo',
+      },
     ],
     template: 'echo {message}',
   },
@@ -383,7 +574,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 59,
     category: 'communication',
     params: [
-      { name: 'message', label: 'Message', type: 'text', required: true, placeholder: 'Message to echo' },
+      {
+        name: 'message',
+        label: 'Message',
+        type: 'text',
+        required: true,
+        placeholder: 'Message to echo',
+      },
     ],
     template: 'echoa {message}',
   },
@@ -394,7 +591,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 59,
     category: 'communication',
     params: [
-      { name: 'message', label: 'Message', type: 'text', required: true, placeholder: 'Message to gods' },
+      {
+        name: 'message',
+        label: 'Message',
+        type: 'text',
+        required: true,
+        placeholder: 'Message to gods',
+      },
     ],
     template: 'echog {message}',
     aliases: ['godecho'],
@@ -406,7 +609,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 59,
     category: 'communication',
     params: [
-      { name: 'message', label: 'Message', type: 'text', required: true, placeholder: 'Message to zone' },
+      {
+        name: 'message',
+        label: 'Message',
+        type: 'text',
+        required: true,
+        placeholder: 'Message to zone',
+      },
     ],
     template: 'echoz {message}',
   },
@@ -418,7 +627,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     category: 'communication',
     params: [
       { name: 'player', label: 'Player', type: 'player', required: true },
-      { name: 'message', label: 'Message', type: 'text', required: true, placeholder: 'Message to player' },
+      {
+        name: 'message',
+        label: 'Message',
+        type: 'text',
+        required: true,
+        placeholder: 'Message to player',
+      },
     ],
     template: 'echot {player} {message}',
   },
@@ -429,7 +644,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 57,
     category: 'communication',
     params: [
-      { name: 'message', label: 'Message', type: 'text', required: true, placeholder: 'Message to shout' },
+      {
+        name: 'message',
+        label: 'Message',
+        type: 'text',
+        required: true,
+        placeholder: 'Message to shout',
+      },
     ],
     template: 'gshout {message}',
     aliases: ['gossip'],
@@ -441,7 +662,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 57,
     category: 'communication',
     params: [
-      { name: 'message', label: 'Message', type: 'text', required: true, placeholder: 'Message to immortals' },
+      {
+        name: 'message',
+        label: 'Message',
+        type: 'text',
+        required: true,
+        placeholder: 'Message to immortals',
+      },
     ],
     template: 'ptell {message}',
   },
@@ -456,7 +683,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 58,
     category: 'information',
     params: [
-      { name: 'target', label: 'Target', type: 'text', required: false, placeholder: 'Player/mob name (empty = all players)' },
+      {
+        name: 'target',
+        label: 'Target',
+        type: 'text',
+        required: false,
+        placeholder: 'Player/mob name (empty = all players)',
+      },
     ],
     template: 'where {target}',
   },
@@ -484,9 +717,7 @@ export const GOD_COMMANDS: GodCommand[] = [
     description: 'Get finger information about a player',
     level: 57,
     category: 'information',
-    params: [
-      { name: 'player', label: 'Player', type: 'player', required: true },
-    ],
+    params: [{ name: 'player', label: 'Player', type: 'player', required: true }],
     template: 'finger {player}',
   },
 
@@ -531,7 +762,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 60,
     category: 'zone',
     params: [
-      { name: 'zone', label: 'Zone Number', type: 'number', required: true, placeholder: 'Zone number' },
+      {
+        name: 'zone',
+        label: 'Zone Number',
+        type: 'number',
+        required: true,
+        placeholder: 'Zone number',
+      },
     ],
     template: 'zreset {zone}',
   },
@@ -542,7 +779,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 60,
     category: 'zone',
     params: [
-      { name: 'direction', label: 'Direction', type: 'direction', required: true, options: DIRECTION_OPTIONS },
+      {
+        name: 'direction',
+        label: 'Direction',
+        type: 'direction',
+        required: true,
+        options: DIRECTION_OPTIONS,
+      },
       { name: 'room', label: 'Target Room', type: 'room-vnum', required: true },
     ],
     template: 'makeexit {direction} {room}',
@@ -554,7 +797,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 59,
     category: 'zone',
     params: [
-      { name: 'direction', label: 'Direction', type: 'direction', required: true, options: DIRECTION_OPTIONS },
+      {
+        name: 'direction',
+        label: 'Direction',
+        type: 'direction',
+        required: true,
+        options: DIRECTION_OPTIONS,
+      },
     ],
     template: 'secret {direction}',
   },
@@ -591,9 +840,7 @@ export const GOD_COMMANDS: GodCommand[] = [
     description: 'Permanently terminate a player',
     level: 61,
     category: 'dangerous',
-    params: [
-      { name: 'player', label: 'Player', type: 'player', required: true },
-    ],
+    params: [{ name: 'player', label: 'Player', type: 'player', required: true }],
     template: 'terminate {player}',
     dangerous: true,
     help: 'Permanently deletes the player character. This cannot be undone!',
@@ -605,7 +852,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 60,
     category: 'dangerous',
     params: [
-      { name: 'target', label: 'Player/Site', type: 'text', required: true, placeholder: 'Player name or IP address' },
+      {
+        name: 'target',
+        label: 'Player/Site',
+        type: 'text',
+        required: true,
+        placeholder: 'Player name or IP address',
+      },
     ],
     template: 'ban {target}',
     dangerous: true,
@@ -616,9 +869,7 @@ export const GOD_COMMANDS: GodCommand[] = [
     description: 'Lock MUD to prevent mortal connections',
     level: 61,
     category: 'dangerous',
-    params: [
-      { name: 'state', label: 'State', type: 'on-off', required: true },
-    ],
+    params: [{ name: 'state', label: 'State', type: 'on-off', required: true }],
     template: 'wizlock {state}',
     dangerous: true,
   },
@@ -629,7 +880,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 60,
     category: 'dangerous',
     params: [
-      { name: 'player', label: 'Player', type: 'player', required: false, placeholder: 'Player name (empty = stop snooping)' },
+      {
+        name: 'player',
+        label: 'Player',
+        type: 'player',
+        required: false,
+        placeholder: 'Player name (empty = stop snooping)',
+      },
     ],
     template: 'snoop {player}',
   },
@@ -640,7 +897,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 61,
     category: 'dangerous',
     params: [
-      { name: 'mobile', label: 'Mobile', type: 'text', required: true, placeholder: 'Mobile keyword' },
+      {
+        name: 'mobile',
+        label: 'Mobile',
+        type: 'text',
+        required: true,
+        placeholder: 'Mobile keyword',
+      },
     ],
     template: 'switch {mobile}',
   },
@@ -650,9 +913,7 @@ export const GOD_COMMANDS: GodCommand[] = [
     description: 'Punish a player',
     level: 60,
     category: 'dangerous',
-    params: [
-      { name: 'player', label: 'Player', type: 'player', required: true },
-    ],
+    params: [{ name: 'player', label: 'Player', type: 'player', required: true }],
     template: 'punish {player}',
     dangerous: true,
   },
@@ -664,7 +925,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     category: 'dangerous',
     params: [
       { name: 'player', label: 'Immortal', type: 'player', required: true },
-      { name: 'level', label: 'New Level', type: 'level', required: true, validation: { min: 1, max: 61 } },
+      {
+        name: 'level',
+        label: 'New Level',
+        type: 'level',
+        required: true,
+        validation: { min: 1, max: 61 },
+      },
     ],
     template: 'demote {player} {level}',
     dangerous: true,
@@ -672,12 +939,10 @@ export const GOD_COMMANDS: GodCommand[] = [
 
   {
     name: 'reroll',
-    description: 'Reroll a player\'s statistics',
+    description: "Reroll a player's statistics",
     level: 60,
     category: 'dangerous',
-    params: [
-      { name: 'player', label: 'Player', type: 'player', required: true },
-    ],
+    params: [{ name: 'player', label: 'Player', type: 'player', required: true }],
     template: 'reroll {player}',
     dangerous: true,
   },
@@ -691,9 +956,7 @@ export const GOD_COMMANDS: GodCommand[] = [
     description: 'Approve a player request',
     level: 57,
     category: 'player',
-    params: [
-      { name: 'player', label: 'Player', type: 'player', required: true },
-    ],
+    params: [{ name: 'player', label: 'Player', type: 'player', required: true }],
     template: 'approve {player}',
   },
 
@@ -702,9 +965,7 @@ export const GOD_COMMANDS: GodCommand[] = [
     description: 'Decline a player request',
     level: 57,
     category: 'player',
-    params: [
-      { name: 'player', label: 'Player', type: 'player', required: true },
-    ],
+    params: [{ name: 'player', label: 'Player', type: 'player', required: true }],
     template: 'decline {player}',
   },
 
@@ -713,9 +974,7 @@ export const GOD_COMMANDS: GodCommand[] = [
     description: 'Release a player from jail/freeze',
     level: 57,
     category: 'player',
-    params: [
-      { name: 'player', label: 'Player', type: 'player', required: true },
-    ],
+    params: [{ name: 'player', label: 'Player', type: 'player', required: true }],
     template: 'release {player}',
   },
 
@@ -737,7 +996,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 57,
     category: 'teleportation',
     params: [
-      { name: 'direction', label: 'Direction', type: 'direction', required: true, options: DIRECTION_OPTIONS },
+      {
+        name: 'direction',
+        label: 'Direction',
+        type: 'direction',
+        required: true,
+        options: DIRECTION_OPTIONS,
+      },
     ],
     template: 'knock {direction}',
   },
@@ -748,7 +1013,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 57,
     category: 'communication',
     params: [
-      { name: 'message', label: 'Message', type: 'text', required: true, placeholder: 'Arrival message' },
+      {
+        name: 'message',
+        label: 'Message',
+        type: 'text',
+        required: true,
+        placeholder: 'Arrival message',
+      },
     ],
     template: 'poofin {message}',
   },
@@ -759,7 +1030,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     level: 57,
     category: 'communication',
     params: [
-      { name: 'message', label: 'Message', type: 'text', required: true, placeholder: 'Departure message' },
+      {
+        name: 'message',
+        label: 'Message',
+        type: 'text',
+        required: true,
+        placeholder: 'Departure message',
+      },
     ],
     template: 'poofout {message}',
   },
@@ -769,9 +1046,7 @@ export const GOD_COMMANDS: GodCommand[] = [
     description: 'View account information',
     level: 59,
     category: 'information',
-    params: [
-      { name: 'player', label: 'Player', type: 'player', required: true },
-    ],
+    params: [{ name: 'player', label: 'Player', type: 'player', required: true }],
     template: 'account {player}',
   },
 
@@ -782,10 +1057,16 @@ export const GOD_COMMANDS: GodCommand[] = [
     category: 'player',
     params: [
       { name: 'player', label: 'Player', type: 'player', required: true },
-      { name: 'action', label: 'Action', type: 'flag-select', required: true, options: [
-        { value: 'add', label: 'Add' },
-        { value: 'remove', label: 'Remove' },
-      ]},
+      {
+        name: 'action',
+        label: 'Action',
+        type: 'flag-select',
+        required: true,
+        options: [
+          { value: 'add', label: 'Add' },
+          { value: 'remove', label: 'Remove' },
+        ],
+      },
     ],
     template: 'whitelist {player} {action}',
   },
@@ -797,7 +1078,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     category: 'communication',
     params: [
       { name: 'player', label: 'Player', type: 'text', required: true, placeholder: 'Player name' },
-      { name: 'message', label: 'Message', type: 'textarea', required: true, placeholder: 'Message to send' },
+      {
+        name: 'message',
+        label: 'Message',
+        type: 'textarea',
+        required: true,
+        placeholder: 'Message to send',
+      },
     ],
     template: 'offlinemsg {player} {message}',
   },
@@ -809,7 +1096,13 @@ export const GOD_COMMANDS: GodCommand[] = [
     category: 'player',
     params: [
       { name: 'spell', label: 'Spell', type: 'text', required: true, placeholder: 'Spell name' },
-      { name: 'target', label: 'Target', type: 'text', required: false, placeholder: 'Target (optional)' },
+      {
+        name: 'target',
+        label: 'Target',
+        type: 'text',
+        required: false,
+        placeholder: 'Target (optional)',
+      },
     ],
     template: 'instacast {spell} {target}',
   },
@@ -838,22 +1131,21 @@ export const GOD_COMMANDS: GodCommand[] = [
 
 // Get commands filtered by player level
 export function getCommandsForLevel(level: number): GodCommand[] {
-  return GOD_COMMANDS.filter(cmd => cmd.level <= level)
+  return GOD_COMMANDS.filter((cmd) => cmd.level <= level)
 }
 
 // Get commands by category
 export function getCommandsByCategory(category: string): GodCommand[] {
-  return GOD_COMMANDS.filter(cmd => cmd.category === category)
+  return GOD_COMMANDS.filter((cmd) => cmd.category === category)
 }
 
 // Search commands by name, description, or aliases
 export function searchCommands(query: string, level: number): GodCommand[] {
   const lowerQuery = query.toLowerCase()
-  return GOD_COMMANDS
-    .filter(cmd => cmd.level <= level)
-    .filter(cmd =>
+  return GOD_COMMANDS.filter((cmd) => cmd.level <= level).filter(
+    (cmd) =>
       cmd.name.toLowerCase().includes(lowerQuery) ||
       cmd.description.toLowerCase().includes(lowerQuery) ||
-      cmd.aliases?.some(alias => alias.toLowerCase().includes(lowerQuery))
-    )
+      cmd.aliases?.some((alias) => alias.toLowerCase().includes(lowerQuery)),
+  )
 }

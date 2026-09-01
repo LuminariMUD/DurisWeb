@@ -31,7 +31,7 @@ import {
   Timer,
   User,
   Terminal,
-  ExternalLink
+  ExternalLink,
 } from 'lucide-vue-next'
 import { useToast } from '@/composables/useToast'
 import { RouterLink } from 'vue-router'
@@ -221,7 +221,9 @@ async function handleRestart() {
 }
 
 // Whether any action is in progress
-const anyActionInProgress = computed(() => isStarting.value || isStopping.value || isRestarting.value)
+const anyActionInProgress = computed(
+  () => isStarting.value || isStopping.value || isRestarting.value,
+)
 </script>
 
 <template>

@@ -30,10 +30,14 @@ export function useChatWindows() {
   /**
    * open or focus a chat window for a player or channel
    */
-  function openWindow(playerName: string, windowType: ChatWindowType = 'player', minimized = false): void {
+  function openWindow(
+    playerName: string,
+    windowType: ChatWindowType = 'player',
+    minimized = false,
+  ): void {
     const windowKey = getWindowKey(playerName, windowType)
     const existingIndex = openWindows.value.findIndex(
-      (w) => getWindowKey(w.playerName, w.windowType) === windowKey
+      (w) => getWindowKey(w.playerName, w.windowType) === windowKey,
     )
 
     // if opening expanded, minimize all other windows first
@@ -78,7 +82,7 @@ export function useChatWindows() {
   function openWindowMinimized(playerName: string, windowType: ChatWindowType = 'player'): void {
     const windowKey = getWindowKey(playerName, windowType)
     const exists = openWindows.value.some(
-      (w) => getWindowKey(w.playerName, w.windowType) === windowKey
+      (w) => getWindowKey(w.playerName, w.windowType) === windowKey,
     )
 
     if (exists) {
@@ -106,7 +110,7 @@ export function useChatWindows() {
   function closeWindow(playerName: string, windowType: ChatWindowType = 'player'): void {
     const windowKey = getWindowKey(playerName, windowType)
     const index = openWindows.value.findIndex(
-      (w) => getWindowKey(w.playerName, w.windowType) === windowKey
+      (w) => getWindowKey(w.playerName, w.windowType) === windowKey,
     )
     if (index !== -1) {
       openWindows.value.splice(index, 1)
@@ -119,7 +123,7 @@ export function useChatWindows() {
   function minimizeWindow(playerName: string, windowType: ChatWindowType = 'player'): void {
     const windowKey = getWindowKey(playerName, windowType)
     const window = openWindows.value.find(
-      (w) => getWindowKey(w.playerName, w.windowType) === windowKey
+      (w) => getWindowKey(w.playerName, w.windowType) === windowKey,
     )
     if (window) {
       window.isMinimized = !window.isMinimized
@@ -135,7 +139,7 @@ export function useChatWindows() {
   function focusWindow(playerName: string, windowType: ChatWindowType = 'player'): void {
     const windowKey = getWindowKey(playerName, windowType)
     const index = openWindows.value.findIndex(
-      (w) => getWindowKey(w.playerName, w.windowType) === windowKey
+      (w) => getWindowKey(w.playerName, w.windowType) === windowKey,
     )
     if (index >= 0) {
       // minimize all other windows first
@@ -162,7 +166,7 @@ export function useChatWindows() {
   function markAsRead(playerName: string, windowType: ChatWindowType = 'player'): void {
     const windowKey = getWindowKey(playerName, windowType)
     const window = openWindows.value.find(
-      (w) => getWindowKey(w.playerName, w.windowType) === windowKey
+      (w) => getWindowKey(w.playerName, w.windowType) === windowKey,
     )
     if (window) {
       window.unreadCount = 0
@@ -175,7 +179,7 @@ export function useChatWindows() {
   function incrementUnread(playerName: string, windowType: ChatWindowType = 'player'): void {
     const windowKey = getWindowKey(playerName, windowType)
     const window = openWindows.value.find(
-      (w) => getWindowKey(w.playerName, w.windowType) === windowKey
+      (w) => getWindowKey(w.playerName, w.windowType) === windowKey,
     )
     if (window) {
       window.unreadCount++
@@ -187,19 +191,18 @@ export function useChatWindows() {
    */
   function isWindowOpen(playerName: string, windowType: ChatWindowType = 'player'): boolean {
     const windowKey = getWindowKey(playerName, windowType)
-    return openWindows.value.some(
-      (w) => getWindowKey(w.playerName, w.windowType) === windowKey
-    )
+    return openWindows.value.some((w) => getWindowKey(w.playerName, w.windowType) === windowKey)
   }
 
   /**
    * get window state for player/channel
    */
-  function getWindow(playerName: string, windowType: ChatWindowType = 'player'): ChatWindowState | undefined {
+  function getWindow(
+    playerName: string,
+    windowType: ChatWindowType = 'player',
+  ): ChatWindowState | undefined {
     const windowKey = getWindowKey(playerName, windowType)
-    return openWindows.value.find(
-      (w) => getWindowKey(w.playerName, w.windowType) === windowKey
-    )
+    return openWindows.value.find((w) => getWindowKey(w.playerName, w.windowType) === windowKey)
   }
 
   // =========================================================================

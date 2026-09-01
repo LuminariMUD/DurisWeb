@@ -3,9 +3,16 @@ import type { RoomIndex } from '@/types'
 
 // Extended direction type for all 10 MUD directions
 export type MapDirection =
-  | 'north' | 'east' | 'south' | 'west'
-  | 'up' | 'down'
-  | 'northeast' | 'northwest' | 'southeast' | 'southwest'
+  | 'north'
+  | 'east'
+  | 'south'
+  | 'west'
+  | 'up'
+  | 'down'
+  | 'northeast'
+  | 'northwest'
+  | 'southeast'
+  | 'southwest'
 
 export interface RoomPosition {
   x: number
@@ -49,16 +56,31 @@ function snapToGrid(x: number, y: number): { x: number; y: number } {
 // Spiral offsets for collision resolution
 const SPIRAL_OFFSETS = [
   { x: 0, y: 0 },
-  { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 },
-  { x: 1, y: 1 }, { x: -1, y: 1 }, { x: -1, y: -1 }, { x: 1, y: -1 },
-  { x: 2, y: 0 }, { x: 0, y: 2 }, { x: -2, y: 0 }, { x: 0, y: -2 },
-  { x: 2, y: 1 }, { x: 1, y: 2 }, { x: -1, y: 2 }, { x: -2, y: 1 },
-  { x: -2, y: -1 }, { x: -1, y: -2 }, { x: 1, y: -2 }, { x: 2, y: -1 },
+  { x: 1, y: 0 },
+  { x: 0, y: 1 },
+  { x: -1, y: 0 },
+  { x: 0, y: -1 },
+  { x: 1, y: 1 },
+  { x: -1, y: 1 },
+  { x: -1, y: -1 },
+  { x: 1, y: -1 },
+  { x: 2, y: 0 },
+  { x: 0, y: 2 },
+  { x: -2, y: 0 },
+  { x: 0, y: -2 },
+  { x: 2, y: 1 },
+  { x: 1, y: 2 },
+  { x: -1, y: 2 },
+  { x: -2, y: 1 },
+  { x: -2, y: -1 },
+  { x: -1, y: -2 },
+  { x: 1, y: -2 },
+  { x: 2, y: -1 },
 ]
 
 export function useZoneMap(
   rooms: Ref<RoomIndex[]>,
-  initialPositions?: Ref<Record<number, RoomPosition> | undefined>
+  initialPositions?: Ref<Record<number, RoomPosition> | undefined>,
 ) {
   // Map state
   const positions = ref<Map<number, RoomPosition>>(new Map())
@@ -114,7 +136,11 @@ export function useZoneMap(
   }
 
   // Find available position near target using spiral (snapped to grid)
-  function findAvailablePosition(targetX: number, targetY: number, excludeVnum?: number): RoomPosition {
+  function findAvailablePosition(
+    targetX: number,
+    targetY: number,
+    excludeVnum?: number,
+  ): RoomPosition {
     for (const offset of SPIRAL_OFFSETS) {
       const snapped = snapToGrid(targetX + offset.x * GRID_SIZE, targetY + offset.y * GRID_SIZE)
       if (!isOccupied(snapped.x, snapped.y, excludeVnum)) {
@@ -135,7 +161,7 @@ export function useZoneMap(
     const queue: Array<{ vnum: number; x: number; y: number }> = []
 
     // Find the first room with exits as starting point, or just the first room
-    let startRoom = rooms.value.find(r => r.exits && Object.keys(r.exits).length > 0)
+    let startRoom = rooms.value.find((r) => r.exits && Object.keys(r.exits).length > 0)
     if (!startRoom) startRoom = rooms.value[0]
 
     // No rooms to process
@@ -161,7 +187,7 @@ export function useZoneMap(
         if (visited.has(toVnum)) continue
 
         // Check if destination room exists in our zone
-        const destRoom = rooms.value.find(r => r.vnum === toVnum)
+        const destRoom = rooms.value.find((r) => r.vnum === toVnum)
         if (!destRoom) continue
 
         visited.add(toVnum)
@@ -204,7 +230,7 @@ export function useZoneMap(
       }
 
       // Check if all rooms have positions
-      const missingRooms = rooms.value.filter(r => !savedMap.has(r.vnum))
+      const missingRooms = rooms.value.filter((r) => !savedMap.has(r.vnum))
       if (missingRooms.length === 0) {
         positions.value = savedMap
         isDirty.value = false
@@ -270,8 +296,10 @@ export function useZoneMap(
     if (positions.value.size === 0) return
 
     // Calculate bounds (positions are CENTER coordinates)
-    let minX = Infinity, maxX = -Infinity
-    let minY = Infinity, maxY = -Infinity
+    let minX = Infinity,
+      maxX = -Infinity
+    let minY = Infinity,
+      maxY = -Infinity
 
     for (const pos of positions.value.values()) {
       minX = Math.min(minX, pos.x - NODE_HALF)
@@ -317,11 +345,15 @@ export function useZoneMap(
   }
 
   // Watch for room changes
-  watch(rooms, (newRooms) => {
-    if (newRooms.length > 0 && positions.value.size === 0) {
-      initializePositions()
-    }
-  }, { immediate: true })
+  watch(
+    rooms,
+    (newRooms) => {
+      if (newRooms.length > 0 && positions.value.size === 0) {
+        initializePositions()
+      }
+    },
+    { immediate: true },
+  )
 
   return {
     // State

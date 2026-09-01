@@ -1,7 +1,10 @@
 import { ref, watch } from 'vue'
 import { createClientId } from '@/utils/clientId'
 import { parseClientSettingsCollection } from '@/utils/clientSettingsImport'
-import { normalizeGroupActionForm, normalizeGroupActionImport } from '@/utils/clientSettingsValidation'
+import {
+  normalizeGroupActionForm,
+  normalizeGroupActionImport,
+} from '@/utils/clientSettingsValidation'
 
 export interface GroupAction {
   id: string
@@ -50,7 +53,11 @@ export function useGroupActions() {
 
   function addAction(label: string, command: string): GroupAction | null {
     try {
-      const action = normalizeGroupActionForm(label, command, createClientId(actions.value.map((item) => item.id)))
+      const action = normalizeGroupActionForm(
+        label,
+        command,
+        createClientId(actions.value.map((item) => item.id)),
+      )
       actions.value.push(action)
       actionError.value = null
       return action
@@ -62,7 +69,7 @@ export function useGroupActions() {
   }
 
   function updateAction(id: string, label: string, command: string): boolean {
-    const index = actions.value.findIndex(a => a.id === id)
+    const index = actions.value.findIndex((a) => a.id === id)
     if (index === -1) return false
 
     try {
@@ -78,7 +85,7 @@ export function useGroupActions() {
   }
 
   function deleteAction(id: string) {
-    const index = actions.value.findIndex(a => a.id === id)
+    const index = actions.value.findIndex((a) => a.id === id)
     if (index !== -1) {
       actions.value.splice(index, 1)
     }
@@ -92,7 +99,12 @@ export function useGroupActions() {
     }
   }
 
-  function getTarget(member: { name: string; isNpc: boolean; targetNum: number | null; targetKeyword: string | null }): string {
+  function getTarget(member: {
+    name: string
+    isNpc: boolean
+    targetNum: number | null
+    targetKeyword: string | null
+  }): string {
     if (member.isNpc && member.targetNum && member.targetKeyword) {
       return `${member.targetNum}.${member.targetKeyword}`
     }
@@ -116,7 +128,9 @@ export function useGroupActions() {
       reservedIds.add(id)
       return id
     }
-    const normalizedImported = imported.map((item, index) => normalizeGroupActionImport(item, index, nextId()))
+    const normalizedImported = imported.map((item, index) =>
+      normalizeGroupActionImport(item, index, nextId()),
+    )
 
     if (mode === 'replace') {
       actions.value = normalizedImported
@@ -125,7 +139,9 @@ export function useGroupActions() {
       // Merge: skip duplicates by label
       let count = 0
       for (const action of normalizedImported) {
-        const exists = actions.value.some(a => a.label.toLowerCase() === action.label.toLowerCase())
+        const exists = actions.value.some(
+          (a) => a.label.toLowerCase() === action.label.toLowerCase(),
+        )
         if (!exists) {
           actions.value.push(action)
           count++

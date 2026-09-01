@@ -1,0 +1,141 @@
+{
+  "version": "2.0",
+  "project_name": "durisweb",
+  "description": "Web platform for DurisMUD: an Express/TypeScript API and a Vue 3 single-page frontend that surface PvP logs, forums, wiki, builder tools, and administration, integrating with the live MUD server over control and event hooks.",
+  "current_phase": 0,
+  "current_session": null,
+  "monorepo": true,
+  "packages": [
+    {
+      "name": "backend",
+      "path": "backend",
+      "stack_hint": "TypeScript"
+    },
+    {
+      "name": "frontend",
+      "path": "frontend",
+      "stack_hint": "TypeScript"
+    }
+  ],
+  "local_dev": {
+    "mud_server_path": "/home/aiwithapex/projects/duris/",
+    "mud_server_note": "MUD server source (C) is checked out locally and directly readable. Both sides of every website<->MUD hook can be inspected; verify contracts against the MUD source rather than inferring them.",
+    "mud_env_var": "MUD_DIR"
+  },
+  "phases": {
+    "0": {
+      "name": "hooks between website & mud server + security of those hooks",
+      "description": "One hook contract, an independent toggle per hook on both ends, observable effective state including mismatch, and a transport that can cross a host boundary.",
+      "status": "complete",
+      "session_count": 7
+    }
+  },
+  "completed_sessions": [
+    {
+      "id": "phase00-session01-hook-registry-and-contract",
+      "package": "backend"
+    },
+    {
+      "id": "phase00-session02-mud-side-toggles-and-state",
+      "package": "external (`/home/aiwithapex/projects/duris/`)"
+    },
+    {
+      "id": "phase00-session03-website-toggle-store",
+      "package": "backend"
+    },
+    {
+      "id": "phase00-session04-bridge-state-and-transport-security",
+      "package": "backend"
+    },
+    {
+      "id": "phase00-session05-flatfile-ingestion-hardening",
+      "package": "backend"
+    },
+    {
+      "id": "phase00-session06-hook-control-console",
+      "package": null
+    },
+    {
+      "id": "phase00-session07-contract-tests-and-docs",
+      "package": null
+    }
+  ],
+  "next_session_history": [
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session01-hook-registry-and-contract",
+      "package": "backend",
+      "status": "completed"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session02-mud-side-toggles-and-state",
+      "package": "external (`/home/aiwithapex/projects/duris/`)",
+      "status": "completed"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session03-website-toggle-store",
+      "package": "backend",
+      "status": "completed"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session04-bridge-state-and-transport-security",
+      "package": "backend",
+      "status": "completed"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session05-flatfile-ingestion-hardening",
+      "package": "backend",
+      "status": "planned"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session05-flatfile-ingestion-hardening",
+      "package": "backend",
+      "status": "validated"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session05-flatfile-ingestion-hardening",
+      "package": "backend",
+      "status": "completed"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session06-hook-control-console",
+      "status": "planned"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session06-hook-control-console",
+      "package": null,
+      "status": "validated"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session06-hook-control-console",
+      "package": null,
+      "status": "completed"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session07-contract-tests-and-docs",
+      "package": null,
+      "status": "planned"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session07-contract-tests-and-docs",
+      "status": "validated"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session07-contract-tests-and-docs",
+      "package": null,
+      "status": "completed"
+    }
+  ]
+}

@@ -20,12 +20,21 @@ const limit = 10
 const expandedEntries = ref<Set<number>>(new Set())
 
 // Fetch changelog entries
-const changelogQueryKey = computed(() => [
-  'changelog',
-  accountName.value?.trim().toLowerCase() || 'anonymous',
-  currentPage.value,
-] as const)
-const { data: changelogData, isLoading, isError, error, refetch } = useQuery({
+const changelogQueryKey = computed(
+  () =>
+    [
+      'changelog',
+      accountName.value?.trim().toLowerCase() || 'anonymous',
+      currentPage.value,
+    ] as const,
+)
+const {
+  data: changelogData,
+  isLoading,
+  isError,
+  error,
+  refetch,
+} = useQuery({
   queryKey: changelogQueryKey,
   queryFn: async ({ queryKey }) => {
     const [, , page] = queryKey
@@ -42,7 +51,7 @@ const totalPages = computed(() => Math.ceil(totalEntries.value / limit))
 // Apply column background colors from data attributes
 function applyColumnStyles(container: HTMLElement) {
   const columnsWithBg = container.querySelectorAll('[data-bg-color]')
-  columnsWithBg.forEach(el => {
+  columnsWithBg.forEach((el) => {
     const color = el.getAttribute('data-bg-color')
     if (color) {
       ;(el as HTMLElement).style.backgroundColor = color

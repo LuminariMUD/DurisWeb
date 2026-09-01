@@ -8,11 +8,19 @@ import pvpApi from '@/services/api'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { format } from 'date-fns'
 import { parseAnsiForVue } from '@/utils/ansiParser'
-import { ThumbsUp, MessageSquare, Droplet, Crown, Filter, ChevronDown, ChevronRight } from 'lucide-vue-next'
+import {
+  ThumbsUp,
+  MessageSquare,
+  Droplet,
+  Crown,
+  Filter,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-vue-next'
 import type { PvPEvent, PaginatedResponse } from '@/types'
 
 useHead({
-  title: 'DurisMUD | PvP Logs'
+  title: 'DurisMUD | PvP Logs',
 })
 
 const router = useRouter()
@@ -39,23 +47,84 @@ const showFilters = ref(false)
 
 // DurisMUD classes (from database)
 const classList = [
-  'Anti-Paladin', 'Assassin', 'Bard', 'Blackguard', 'Blademaster', 'Brigand',
-  'Cavalier', 'Cleric', 'Controller', 'Crusader', 'Diabolis', 'Dragon',
-  'Dragoon', 'Dreamer', 'Druid', 'Elaphidist', 'Elementalist', 'Enslaver',
-  'Gladiator', 'Guardian', 'Healer', 'Holyman', 'Hunter', 'Huntsman',
-  'Illusionist', 'Knight', 'Magus', 'Mercenary', 'MindFlayer', 'Minstrel',
-  'Necrolyte', 'Necromancer', 'Paladin', 'Psionicist', 'Psycheporter',
-  'Pyrokinetic', 'Ranger', 'Reaver', 'Rider', 'Rogue', 'Scourge',
-  'Shadowmage', 'Shaman', 'Sorcerer', 'Spiritualist', 'Summoner',
-  'Swordsman', 'Thief', 'Thug', 'Wildmage', 'Wizard', 'Zealot'
+  'Anti-Paladin',
+  'Assassin',
+  'Bard',
+  'Blackguard',
+  'Blademaster',
+  'Brigand',
+  'Cavalier',
+  'Cleric',
+  'Controller',
+  'Crusader',
+  'Diabolis',
+  'Dragon',
+  'Dragoon',
+  'Dreamer',
+  'Druid',
+  'Elaphidist',
+  'Elementalist',
+  'Enslaver',
+  'Gladiator',
+  'Guardian',
+  'Healer',
+  'Holyman',
+  'Hunter',
+  'Huntsman',
+  'Illusionist',
+  'Knight',
+  'Magus',
+  'Mercenary',
+  'MindFlayer',
+  'Minstrel',
+  'Necrolyte',
+  'Necromancer',
+  'Paladin',
+  'Psionicist',
+  'Psycheporter',
+  'Pyrokinetic',
+  'Ranger',
+  'Reaver',
+  'Rider',
+  'Rogue',
+  'Scourge',
+  'Shadowmage',
+  'Shaman',
+  'Sorcerer',
+  'Spiritualist',
+  'Summoner',
+  'Swordsman',
+  'Thief',
+  'Thug',
+  'Wildmage',
+  'Wizard',
+  'Zealot',
 ]
 
 // DurisMUD races (from database)
 const raceList = [
-  'Barbarian', 'Centaur', 'Drow Elf', 'Duergar', 'Dwarf', 'Firbolg',
-  'Githyanki', 'Githzerai', 'Gnome', 'Goblin', 'Grey Elf', 'Halfling',
-  'Human', 'Illithid', 'Kobold', 'Minotaur', 'Ogre', 'Orc',
-  'Revenant', 'Thri-Kreen', 'Tiefling', 'Troll'
+  'Barbarian',
+  'Centaur',
+  'Drow Elf',
+  'Duergar',
+  'Dwarf',
+  'Firbolg',
+  'Githyanki',
+  'Githzerai',
+  'Gnome',
+  'Goblin',
+  'Grey Elf',
+  'Halfling',
+  'Human',
+  'Illithid',
+  'Kobold',
+  'Minotaur',
+  'Ogre',
+  'Orc',
+  'Revenant',
+  'Thri-Kreen',
+  'Tiefling',
+  'Troll',
 ]
 
 // Autocomplete state
@@ -128,13 +197,14 @@ onUnmounted(() => {
 })
 
 // Build API filters (using search endpoint for advanced filters)
-const hasAdvancedFilters = computed(() =>
-  selectedClasses.value.length > 0 ||
-  selectedRaces.value.length > 0 ||
-  levelMin.value > 1 ||
-  levelMax.value < 56 ||
-  selectedAlignment.value !== '' ||
-  selectedHour.value !== null
+const hasAdvancedFilters = computed(
+  () =>
+    selectedClasses.value.length > 0 ||
+    selectedRaces.value.length > 0 ||
+    levelMin.value > 1 ||
+    levelMax.value < 56 ||
+    selectedAlignment.value !== '' ||
+    selectedHour.value !== null,
 )
 
 const apiFilters = computed(() => {
@@ -190,9 +260,26 @@ onNewEvent(() => {
 })
 
 // Watch filters and reset to page 1
-watch([playerName, locationName, dateFrom, dateTo, selectedHour, selectedClasses, selectedRaces, levelMin, levelMax, selectedAlignment, sortBy, pageSize], () => {
-  currentPage.value = 1
-}, { deep: true })
+watch(
+  [
+    playerName,
+    locationName,
+    dateFrom,
+    dateTo,
+    selectedHour,
+    selectedClasses,
+    selectedRaces,
+    levelMin,
+    levelMax,
+    selectedAlignment,
+    sortBy,
+    pageSize,
+  ],
+  () => {
+    currentPage.value = 1
+  },
+  { deep: true },
+)
 
 // Sync URL params
 watchEffect(() => {
@@ -505,16 +592,36 @@ const formatDateMobile = (dateString: string) => {
 
 const getAlignmentIndicator = (event: PvPEvent) => {
   // check if killers are predominantly good or evil based on race
-  const goodRaces = ['Grey Elf', 'Human', 'Dwarf', 'Gnome', 'Halfling', 'Centaur', 'Firbolg', 'Githzerai']
-  const evilRaces = ['Drow Elf', 'Orc', 'Troll', 'Ogre', 'Goblin', 'Duergar', 'Githyanki', 'Illithid', 'Kobold', 'Tiefling']
+  const goodRaces = [
+    'Grey Elf',
+    'Human',
+    'Dwarf',
+    'Gnome',
+    'Halfling',
+    'Centaur',
+    'Firbolg',
+    'Githzerai',
+  ]
+  const evilRaces = [
+    'Drow Elf',
+    'Orc',
+    'Troll',
+    'Ogre',
+    'Goblin',
+    'Duergar',
+    'Githyanki',
+    'Illithid',
+    'Kobold',
+    'Tiefling',
+  ]
 
   let goodCount = 0
   let evilCount = 0
 
   for (const killer of event.killers || []) {
     const desc = killer.description || ''
-    if (goodRaces.some(r => desc.includes(r))) goodCount++
-    if (evilRaces.some(r => desc.includes(r))) evilCount++
+    if (goodRaces.some((r) => desc.includes(r))) goodCount++
+    if (evilRaces.some((r) => desc.includes(r))) evilCount++
   }
 
   if (goodCount > evilCount) return 'good'
@@ -523,18 +630,24 @@ const getAlignmentIndicator = (event: PvPEvent) => {
 }
 
 const getPlayerSummary = (event: PvPEvent) => {
-  const killerNames = (event.killers || []).map(k => {
-    const name = extractCharacterName(k.description)
-    return name || 'Unknown'
-  }).slice(0, 2)
+  const killerNames = (event.killers || [])
+    .map((k) => {
+      const name = extractCharacterName(k.description)
+      return name || 'Unknown'
+    })
+    .slice(0, 2)
 
-  const victimNames = (event.victims || []).map(v => {
-    const name = extractCharacterName(v.description)
-    return name || 'Unknown'
-  }).slice(0, 2)
+  const victimNames = (event.victims || [])
+    .map((v) => {
+      const name = extractCharacterName(v.description)
+      return name || 'Unknown'
+    })
+    .slice(0, 2)
 
-  const killerStr = killerNames.join(', ') + (event.killers && event.killers.length > 2 ? '...' : '')
-  const victimStr = victimNames.join(', ') + (event.victims && event.victims.length > 2 ? '...' : '')
+  const killerStr =
+    killerNames.join(', ') + (event.killers && event.killers.length > 2 ? '...' : '')
+  const victimStr =
+    victimNames.join(', ') + (event.victims && event.victims.length > 2 ? '...' : '')
 
   const killerCount = event.killers?.length || 0
   const victimCount = event.victims?.length || 0

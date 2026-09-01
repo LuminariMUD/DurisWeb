@@ -1,8 +1,4 @@
-import {
-  validateBooleanField,
-  validateIntegerField,
-  validateObjectFields,
-} from './validation.js';
+import { validateBooleanField, validateIntegerField, validateObjectFields } from './validation.js';
 
 const ZONE_UPDATE_FIELDS = [
   'epicType',

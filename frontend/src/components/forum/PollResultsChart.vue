@@ -31,13 +31,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Pie } from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-  type ChartOptions
-} from 'chart.js'
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, type ChartOptions } from 'chart.js'
 import ChartDataLabels from 'chartjs-plugin-datalabels'
 import type { PollOption } from '@/types'
 
@@ -52,7 +46,7 @@ const props = defineProps<{
 
 // Generate colors for each option
 function getColor(optionId: number): string {
-  const index = props.options.findIndex(o => o.id === optionId)
+  const index = props.options.findIndex((o) => o.id === optionId)
   const hue = (index * 360) / props.options.length
   const isUserVote = props.userVotes.includes(optionId)
   const saturation = isUserVote ? 70 : 50
@@ -61,15 +55,15 @@ function getColor(optionId: number): string {
 }
 
 const chartData = computed(() => ({
-  labels: props.options.map(o => o.optionText),
+  labels: props.options.map((o) => o.optionText),
   datasets: [
     {
-      data: props.options.map(o => o.voteCount),
-      backgroundColor: props.options.map(o => getColor(o.id)),
+      data: props.options.map((o) => o.voteCount),
+      backgroundColor: props.options.map((o) => getColor(o.id)),
       borderColor: '#18181b',
       borderWidth: 2,
-    }
-  ]
+    },
+  ],
 }))
 
 const chartOptions = computed<ChartOptions<'pie'>>(() => ({
@@ -77,7 +71,7 @@ const chartOptions = computed<ChartOptions<'pie'>>(() => ({
   maintainAspectRatio: true,
   plugins: {
     legend: {
-      display: false
+      display: false,
     },
     tooltip: {
       callbacks: {
@@ -86,14 +80,14 @@ const chartOptions = computed<ChartOptions<'pie'>>(() => ({
           const value = context.parsed || 0
           const percentage = props.totalVotes > 0 ? Math.round((value / props.totalVotes) * 100) : 0
           return `${label}: ${value} vote${value !== 1 ? 's' : ''} (${percentage}%)`
-        }
-      }
+        },
+      },
     },
     datalabels: {
       color: '#ffffff',
       font: {
         weight: 'bold',
-        size: 14
+        size: 14,
       },
       formatter: (value: number) => {
         const percentage = props.totalVotes > 0 ? Math.round((value / props.totalVotes) * 100) : 0
@@ -104,8 +98,8 @@ const chartOptions = computed<ChartOptions<'pie'>>(() => ({
         const value = context.dataset.data[context.dataIndex] as number
         const percentage = props.totalVotes > 0 ? (value / props.totalVotes) * 100 : 0
         return percentage > 5
-      }
-    }
-  }
+      },
+    },
+  },
 }))
 </script>

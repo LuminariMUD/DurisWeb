@@ -68,7 +68,7 @@ const pageTitle = computed(() => {
 })
 
 useHead({
-  title: pageTitle
+  title: pageTitle,
 })
 
 // Reply state
@@ -137,7 +137,7 @@ const {
   hasDraft,
   formatDraftTime,
   restoreDraft,
-  clearDraft: clearReplyDraft
+  clearDraft: clearReplyDraft,
 } = useDraftAutosave(draftKey.value, replyContent, undefined, replyingToPostId)
 const showDraftPrompt = ref(false)
 
@@ -148,17 +148,21 @@ const {
   selectedIndex: mentionSelectedIndex,
   isOpen: isMentionDropdownOpen,
   selectMention,
-  getDropdownPosition
+  getDropdownPosition,
 } = useMentionAutocomplete(replyTextareaRef)
 
 const mentionDropdownPosition = computed(() => getDropdownPosition())
 
 // Check for draft on mount
-watch(thread, (newThread) => {
-  if (newThread && hasDraft.value && !replyContent.value) {
-    showDraftPrompt.value = true
-  }
-}, { immediate: true })
+watch(
+  thread,
+  (newThread) => {
+    if (newThread && hasDraft.value && !replyContent.value) {
+      showDraftPrompt.value = true
+    }
+  },
+  { immediate: true },
+)
 
 async function loadThread(page: number = 1) {
   isLoading.value = true
@@ -191,7 +195,7 @@ async function submitReply() {
       threadIdNum.value,
       replyContent.value,
       selectedCharacter.value?.pid,
-      replyingToPostId.value || undefined
+      replyingToPostId.value || undefined,
     )
 
     // Append new post to local state instead of reloading
@@ -203,7 +207,9 @@ async function submitReply() {
       }
       // Trigger fade-in animation
       newPostId.value = result.post.id
-      setTimeout(() => { newPostId.value = null }, 1000)
+      setTimeout(() => {
+        newPostId.value = null
+      }, 1000)
     }
 
     replyContent.value = ''
@@ -274,7 +280,7 @@ function startQuote(post: ForumPost, selectedText?: string) {
 
 function handleSelectionQuote(data: { selectedText: string; postId: number }) {
   // Find the post by ID
-  const post = posts.value.find(p => p.id === data.postId)
+  const post = posts.value.find((p) => p.id === data.postId)
   if (post) {
     startQuote(post, data.selectedText)
   }
@@ -283,7 +289,11 @@ function handleSelectionQuote(data: { selectedText: string; postId: number }) {
 function startQuoteThread() {
   if (!thread.value || !thread.value.content) return
 
-  const quotedAuthor = thread.value.character_name || thread.value.author_account_name || thread.value.author || 'Unknown'
+  const quotedAuthor =
+    thread.value.character_name ||
+    thread.value.author_account_name ||
+    thread.value.author ||
+    'Unknown'
   const textToQuote = thread.value.content.split('\n').slice(0, 5).join('\n')
   const formattedQuote = `[quote=${quotedAuthor}]${textToQuote}[/quote]\n\n`
 
@@ -338,7 +348,7 @@ async function confirmDelete() {
 
   try {
     // Find the post to check if user is the author
-    const post = posts.value.find(p => p.id === deletingPostId.value)
+    const post = posts.value.find((p) => p.id === deletingPostId.value)
     const isAuthor = post && post.author === accountName.value
 
     if (isModerator.value) {
@@ -395,13 +405,13 @@ async function handleAddReaction(postId: number, emoji: string) {
     await forumApi.addReaction(postId, emoji)
 
     // Update local state instead of reloading entire page
-    const post = posts.value.find(p => p.id === postId)
+    const post = posts.value.find((p) => p.id === postId)
     if (post) {
       if (!post.reactions) {
         post.reactions = []
       }
 
-      const existingReaction = post.reactions.find(r => r.emoji === emoji)
+      const existingReaction = post.reactions.find((r) => r.emoji === emoji)
       if (existingReaction) {
         existingReaction.count++
         existingReaction.userReacted = true
@@ -409,7 +419,7 @@ async function handleAddReaction(postId: number, emoji: string) {
         post.reactions.push({
           emoji,
           count: 1,
-          userReacted: true
+          userReacted: true,
         })
       }
     }
@@ -423,16 +433,16 @@ async function handleRemoveReaction(postId: number, emoji: string) {
     await forumApi.removeReaction(postId, emoji)
 
     // Update local state instead of reloading entire page
-    const post = posts.value.find(p => p.id === postId)
+    const post = posts.value.find((p) => p.id === postId)
     if (post && post.reactions) {
-      const reaction = post.reactions.find(r => r.emoji === emoji)
+      const reaction = post.reactions.find((r) => r.emoji === emoji)
       if (reaction) {
         reaction.count--
         reaction.userReacted = false
 
         // Remove reaction from array if count is 0
         if (reaction.count === 0) {
-          post.reactions = post.reactions.filter(r => r.emoji !== emoji)
+          post.reactions = post.reactions.filter((r) => r.emoji !== emoji)
         }
       }
     }
@@ -460,7 +470,7 @@ async function handleAddReactionToThread(emoji: string) {
         thread.value.reactions.push({
           emoji,
           count: 1,
-          userReacted: true
+          userReacted: true,
         })
       }
     }
@@ -482,7 +492,9 @@ async function handleRemoveReactionFromThread(emoji: string) {
 
         // Remove reaction from array if count is 0
         if (reaction.count === 0) {
-          thread.value.reactions = thread.value.reactions.filter((r: PostReaction) => r.emoji !== emoji)
+          thread.value.reactions = thread.value.reactions.filter(
+            (r: PostReaction) => r.emoji !== emoji,
+          )
         }
       }
     }
@@ -608,7 +620,7 @@ function formatDate(dateString: string): string {
 function getIndentStyle(depth: number) {
   return {
     marginLeft: `${depth * 2}rem`,
-    borderLeft: depth > 0 ? '2px solid rgb(55, 65, 81)' : 'none'
+    borderLeft: depth > 0 ? '2px solid rgb(55, 65, 81)' : 'none',
   }
 }
 
@@ -659,7 +671,7 @@ function handleNewForumPost(data: { threadId: number; post: any; authorAccount: 
         label: 'View',
         onClick: () => {
           // Append the post and scroll to it
-          if (!posts.value.find(p => p.id === data.post.id)) {
+          if (!posts.value.find((p) => p.id === data.post.id)) {
             posts.value.push(data.post)
             // Update thread reply count
             if (thread.value) {
@@ -667,7 +679,9 @@ function handleNewForumPost(data: { threadId: number; post: any; authorAccount: 
             }
             // Trigger fade-in animation
             newPostId.value = data.post.id
-            setTimeout(() => { newPostId.value = null }, 1000)
+            setTimeout(() => {
+              newPostId.value = null
+            }, 1000)
           }
           // Scroll to the new post
           setTimeout(() => {
@@ -675,9 +689,9 @@ function handleNewForumPost(data: { threadId: number; post: any; authorAccount: 
             const lastPost = postElements[postElements.length - 1]
             lastPost?.scrollIntoView({ behavior: 'smooth' })
           }, 100)
-        }
+        },
       },
-      duration: 10000
+      duration: 10000,
     })
   }
 }

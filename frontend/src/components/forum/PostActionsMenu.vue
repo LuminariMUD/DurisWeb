@@ -34,8 +34,8 @@ const canReply = computed(() => props.isAuthenticated && !props.hideReply)
 const canQuote = computed(() => props.isAuthenticated)
 
 // Check if any actions are available
-const hasActions = computed(() =>
-  canEdit.value || canDelete.value || canReply.value || canQuote.value
+const hasActions = computed(
+  () => canEdit.value || canDelete.value || canReply.value || canQuote.value,
 )
 </script>
 

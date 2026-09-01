@@ -110,7 +110,7 @@ export async function getAccount(accountName: string): Promise<MudAccountData | 
     // fetch account row
     const [accountRows] = await pool.query<AccountRow[]>(
       'SELECT * FROM accounts WHERE LOWER(account_name) = ?',
-      [lowerName]
+      [lowerName],
     );
 
     if (accountRows.length === 0) {
@@ -122,13 +122,13 @@ export async function getAccount(accountName: string): Promise<MudAccountData | 
     // fetch characters for this account
     const [charRows] = await pool.query<CharacterRow[]>(
       'SELECT char_name, pid, login_count, last_login, blocked, racewar FROM account_characters WHERE LOWER(account_name) = ?',
-      [lowerName]
+      [lowerName],
     );
 
     // fetch ips for this account
     const [ipRows] = await pool.query<IpRow[]>(
       'SELECT ip_address FROM account_ips WHERE LOWER(account_name) = ? ORDER BY id ASC',
-      [lowerName]
+      [lowerName],
     );
 
     // map characters to interface
@@ -159,12 +159,7 @@ export async function getAccount(accountName: string): Promise<MudAccountData | 
       lastLogin: toUnixTimestamp(account.last_login),
       lastGoodAlign: toUnixTimestamp(account.last_good_char),
       lastEvilAlign: toUnixTimestamp(account.last_evil_char),
-      flags: [
-        account.flags1 || 0,
-        account.flags2 || 0,
-        account.flags3 || 0,
-        account.flags4 || 0,
-      ],
+      flags: [account.flags1 || 0, account.flags2 || 0, account.flags3 || 0, account.flags4 || 0],
     };
 
     // cache the result
@@ -186,7 +181,7 @@ export async function accountExists(accountName: string): Promise<boolean> {
   try {
     const [rows] = await pool.query<CountRow[]>(
       'SELECT COUNT(*) as count FROM accounts WHERE LOWER(account_name) = ?',
-      [lowerName]
+      [lowerName],
     );
 
     return rows[0].count > 0;
@@ -233,7 +228,7 @@ export async function findAccountByCharacter(characterName: string): Promise<str
   try {
     const [rows] = await pool.query<AccountNameRow[]>(
       'SELECT account_name FROM account_characters WHERE LOWER(char_name) = ?',
-      [lowerCharName]
+      [lowerCharName],
     );
 
     if (rows.length === 0) {
@@ -264,7 +259,8 @@ export async function searchAccounts(query: string, limit: number = 10): Promise
     let params: (string | number)[];
 
     if (lowerQuery) {
-      sql = 'SELECT account_name FROM accounts WHERE LOWER(account_name) LIKE ? ORDER BY account_name ASC LIMIT ?';
+      sql =
+        'SELECT account_name FROM accounts WHERE LOWER(account_name) LIKE ? ORDER BY account_name ASC LIMIT ?';
       params = [`${lowerQuery}%`, limit];
     } else {
       sql = 'SELECT account_name FROM accounts ORDER BY account_name ASC LIMIT ?';
@@ -297,13 +293,16 @@ export async function parseAccountFile(accountName: string): Promise<MudAccountD
 /**
  * update account password hash in database
  */
-export async function updateAccountPassword(accountName: string, newPasswordHash: string): Promise<void> {
+export async function updateAccountPassword(
+  accountName: string,
+  newPasswordHash: string,
+): Promise<void> {
   const lowerName = accountName.toLowerCase();
 
   try {
     const [result] = await pool.query(
       'UPDATE accounts SET password = ? WHERE LOWER(account_name) = ?',
-      [newPasswordHash, lowerName]
+      [newPasswordHash, lowerName],
     );
 
     // check if any row was affected

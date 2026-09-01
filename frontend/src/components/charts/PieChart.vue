@@ -7,18 +7,12 @@ import {
   Tooltip,
   Legend,
   type ChartData,
-  type ChartOptions
+  type ChartOptions,
 } from 'chart.js'
 import ChartDataLabels from 'chartjs-plugin-datalabels'
 import { Pie } from 'vue-chartjs'
 
-ChartJS.register(
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-  ChartDataLabels
-)
+ChartJS.register(ArcElement, Title, Tooltip, Legend, ChartDataLabels)
 
 interface Props {
   data: ChartData<'pie'>
@@ -27,7 +21,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  height: 300
+  height: 300,
 })
 
 const defaultOptions: ChartOptions<'pie'> = {

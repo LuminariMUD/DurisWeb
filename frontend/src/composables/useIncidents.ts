@@ -92,7 +92,7 @@ export interface UpdateIncidentData {
 export function useAdminIncidents(
   page: Ref<number> | number = 1,
   limit: Ref<number> | number = 50,
-  dateFilter?: Ref<{ from?: string; to?: string }>
+  dateFilter?: Ref<{ from?: string; to?: string }>,
 ) {
   const queryClient = useQueryClient()
 

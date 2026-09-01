@@ -45,7 +45,7 @@ async function loadCategories() {
   try {
     categories.value = await forumApi.getCategories()
     // Filter out current category
-    categories.value = categories.value.filter(c => c.id !== props.currentCategoryId)
+    categories.value = categories.value.filter((c) => c.id !== props.currentCategoryId)
   } catch {
     error.value = 'Failed to load categories'
   }
@@ -64,7 +64,7 @@ async function handleMove() {
     await forumApi.moveThread(
       props.threadId,
       parseInt(selectedCategoryId.value),
-      reason.value || undefined
+      reason.value || undefined,
     )
 
     emit('success')
@@ -88,11 +88,14 @@ function handleCancel() {
 }
 
 // Load categories when dialog opens
-watch(() => props.open, (isOpen) => {
-  if (isOpen) {
-    loadCategories()
-  }
-})
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (isOpen) {
+      loadCategories()
+    }
+  },
+)
 </script>
 
 <template>

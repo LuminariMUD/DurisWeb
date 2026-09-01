@@ -198,10 +198,19 @@ function removeOption(index: number) {
 
 // Watch for changes and emit poll data
 watch(
-  [question, options, isMultipleChoice, minChoices, maxChoices, isAnonymous, resultsVisibility, expiresAt],
+  [
+    question,
+    options,
+    isMultipleChoice,
+    minChoices,
+    maxChoices,
+    isAnonymous,
+    resultsVisibility,
+    expiresAt,
+  ],
   () => {
     // Validate poll data
-    const validOptions = options.value.filter(opt => opt.trim().length > 0)
+    const validOptions = options.value.filter((opt) => opt.trim().length > 0)
 
     if (question.value.trim().length < 5 || validOptions.length < 2) {
       emit('update:pollData', null)
@@ -227,16 +236,20 @@ watch(
 
     emit('update:pollData', pollData)
   },
-  { deep: true }
+  { deep: true },
 )
 
 // Sync max choices with number of options
-watch(options, (newOptions) => {
-  const validCount = newOptions.filter(opt => opt.trim().length > 0).length
-  if (maxChoices.value > validCount) {
-    maxChoices.value = validCount
-  }
-}, { deep: true })
+watch(
+  options,
+  (newOptions) => {
+    const validCount = newOptions.filter((opt) => opt.trim().length > 0).length
+    if (maxChoices.value > validCount) {
+      maxChoices.value = validCount
+    }
+  },
+  { deep: true },
+)
 
 // Sync min/max choices when toggling multiple choice
 watch(isMultipleChoice, (isMultiple) => {
@@ -244,7 +257,7 @@ watch(isMultipleChoice, (isMultiple) => {
     minChoices.value = 1
     maxChoices.value = 1
   } else {
-    const validCount = options.value.filter(opt => opt.trim().length > 0).length
+    const validCount = options.value.filter((opt) => opt.trim().length > 0).length
     maxChoices.value = Math.min(maxChoices.value, validCount)
   }
 })
@@ -256,17 +269,19 @@ function initializeDatePicker() {
   }
 
   try {
-    expiresAtPicker = flatpickr(expiresAtInput.value as HTMLElement, {
-      enableTime: true,
-      dateFormat: 'Y-m-d H:i',
-      time_24hr: true,
-      minDate: 'today',
-      onChange: (_selectedDates: any, dateStr: string) => {
-        expiresAt.value = dateStr
-      },
-    } as any)
-  } catch {
-  }
+    expiresAtPicker = flatpickr(
+      expiresAtInput.value as HTMLElement,
+      {
+        enableTime: true,
+        dateFormat: 'Y-m-d H:i',
+        time_24hr: true,
+        minDate: 'today',
+        onChange: (_selectedDates: any, dateStr: string) => {
+          expiresAt.value = dateStr
+        },
+      } as any,
+    )
+  } catch {}
 }
 
 // Initialize on mount

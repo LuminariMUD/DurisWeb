@@ -44,15 +44,15 @@ const connections = ref([
 ])
 
 const selectedRoomData = computed(() => {
-  return rooms.value.find(r => r.vnum === selectedRoom.value) || null
+  return rooms.value.find((r) => r.vnum === selectedRoom.value) || null
 })
 
 function getRoomPosition(vnum: number) {
-  const room = rooms.value.find(r => r.vnum === vnum)
+  const room = rooms.value.find((r) => r.vnum === vnum)
   return room ? { x: room.x, y: room.y } : { x: 0, y: 0 }
 }
 
-function getConnectionPath(conn: typeof connections.value[0]) {
+function getConnectionPath(conn: (typeof connections.value)[0]) {
   const from = getRoomPosition(conn.from)
   const to = getRoomPosition(conn.to)
   // Simple line for now
@@ -61,12 +61,18 @@ function getConnectionPath(conn: typeof connections.value[0]) {
 
 function getSectorColor(sector: string) {
   switch (sector) {
-    case 'inside': return 'bg-zinc-700 border-zinc-600'
-    case 'arena': return 'bg-red-900/50 border-red-700'
-    case 'city': return 'bg-amber-900/50 border-amber-700'
-    case 'forest': return 'bg-green-900/50 border-green-700'
-    case 'water': return 'bg-blue-900/50 border-blue-700'
-    default: return 'bg-zinc-700 border-zinc-600'
+    case 'inside':
+      return 'bg-zinc-700 border-zinc-600'
+    case 'arena':
+      return 'bg-red-900/50 border-red-700'
+    case 'city':
+      return 'bg-amber-900/50 border-amber-700'
+    case 'forest':
+      return 'bg-green-900/50 border-green-700'
+    case 'water':
+      return 'bg-blue-900/50 border-blue-700'
+    default:
+      return 'bg-zinc-700 border-zinc-600'
   }
 }
 

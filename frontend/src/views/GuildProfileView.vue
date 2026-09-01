@@ -112,9 +112,13 @@ const checkMemberAccounts = async () => {
 }
 
 // Watch for profile changes and check characters
-watch(profile, (newData) => {
-  if (newData) checkMemberAccounts()
-}, { immediate: true })
+watch(
+  profile,
+  (newData) => {
+    if (newData) checkMemberAccounts()
+  },
+  { immediate: true },
+)
 
 async function navigateToUserProfile(characterName: string) {
   // Don't navigate if character is deleted

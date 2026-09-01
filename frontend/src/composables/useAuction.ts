@@ -123,13 +123,8 @@ export function useBuyNow() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({
-      auctionId,
-      characterPid,
-    }: {
-      auctionId: number
-      characterPid: number
-    }) => auctionApi.buyNow(auctionId, characterPid),
+    mutationFn: ({ auctionId, characterPid }: { auctionId: number; characterPid: number }) =>
+      auctionApi.buyNow(auctionId, characterPid),
     onSuccess: () => {
       // Invalidate all auction queries
       queryClient.invalidateQueries({ queryKey: ['auction-listings'] })
@@ -145,13 +140,8 @@ export function useRemoveAuction() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({
-      auctionId,
-      reason,
-    }: {
-      auctionId: number
-      reason?: string
-    }) => auctionApi.removeAuction(auctionId, reason),
+    mutationFn: ({ auctionId, reason }: { auctionId: number; reason?: string }) =>
+      auctionApi.removeAuction(auctionId, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['auction-listings'] })
       queryClient.invalidateQueries({ queryKey: ['auction-stats'] })

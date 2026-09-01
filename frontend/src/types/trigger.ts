@@ -226,10 +226,7 @@ export interface TriggerProcessResult {
 /**
  * Highlight color to CSS class mapping
  */
-export const HIGHLIGHT_COLORS: Record<
-  TriggerHighlightColor,
-  { bg: string; text: string }
-> = {
+export const HIGHLIGHT_COLORS: Record<TriggerHighlightColor, { bg: string; text: string }> = {
   red: { bg: 'bg-red-900/60', text: 'text-red-100' },
   orange: { bg: 'bg-orange-900/60', text: 'text-orange-100' },
   yellow: { bg: 'bg-yellow-900/60', text: 'text-yellow-100' },

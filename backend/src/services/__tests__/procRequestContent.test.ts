@@ -25,9 +25,8 @@ describe('proc request HTML persistence boundary', () => {
   });
 
   it('sanitizes description HTML before create reaches SQL', async () => {
-    query
-      .mockResolvedValueOnce([{ insertId: 42 }])
-      .mockResolvedValueOnce([[
+    query.mockResolvedValueOnce([{ insertId: 42 }]).mockResolvedValueOnce([
+      [
         {
           id: 42,
           zone_id: 'zone-a',
@@ -42,16 +41,20 @@ describe('proc request HTML persistence boundary', () => {
           requested_at: '2026-08-28T00:00:00.000Z',
           updated_at: '2026-08-28T00:00:00.000Z',
         },
-      ]]);
+      ],
+    ]);
 
-    await procRequestService.createProcRequest({
-      zoneId: 'zone-a',
-      entityType: 'room',
-      vnum: 100,
-      title: 'Add room behavior',
-      description: 'hello',
-      descriptionHtml: '<p>hello</p><script>alert(1)</script>',
-    }, 'Cwial');
+    await procRequestService.createProcRequest(
+      {
+        zoneId: 'zone-a',
+        entityType: 'room',
+        vnum: 100,
+        title: 'Add room behavior',
+        description: 'hello',
+        descriptionHtml: '<p>hello</p><script>alert(1)</script>',
+      },
+      'Cwial',
+    );
 
     const params = query.mock.calls[0][1] as unknown[];
     expect(params[5]).toBe('<p>hello</p>');
@@ -60,14 +63,17 @@ describe('proc request HTML persistence boundary', () => {
 
   it('rejects script-only description HTML before any query', async () => {
     await expect(
-      procRequestService.createProcRequest({
-        zoneId: 'zone-a',
-        entityType: 'room',
-        vnum: 100,
-        title: 'Rejected',
-        description: 'hello',
-        descriptionHtml: '<script>alert(1)</script>',
-      }, 'Cwial')
+      procRequestService.createProcRequest(
+        {
+          zoneId: 'zone-a',
+          entityType: 'room',
+          vnum: 100,
+          title: 'Rejected',
+          description: 'hello',
+          descriptionHtml: '<script>alert(1)</script>',
+        },
+        'Cwial',
+      ),
     ).rejects.toThrow('Content cannot be empty after sanitization');
 
     expect(query).not.toHaveBeenCalled();

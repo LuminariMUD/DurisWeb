@@ -3,7 +3,13 @@ import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import LeafletMap from '@/components/wiki/LeafletMap.vue'
 import { wikiApi } from '@/services/api'
 import type { WikiContinent, WikiMapBounds } from '@/types'
@@ -73,7 +79,12 @@ watch(selectedLayer, async (newLayer) => {
 function jumpToContinent(continentId: string | number | bigint | Record<string, unknown> | null) {
   if (continentId === null || typeof continentId === 'object') return
   const continent = continents.value.find((c) => c.id.toString() === String(continentId))
-  if (continent && continent.centerX !== null && continent.centerY !== null && leafletMapRef.value) {
+  if (
+    continent &&
+    continent.centerX !== null &&
+    continent.centerY !== null &&
+    leafletMapRef.value
+  ) {
     leafletMapRef.value.panTo(continent.centerX, continent.centerY)
     leafletMapRef.value.setZoom(2)
   }

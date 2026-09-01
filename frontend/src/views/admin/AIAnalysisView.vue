@@ -293,7 +293,13 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
@@ -364,9 +370,7 @@ const viewAnalysis = async (id: number) => {
     const response = await api.get(`/api/admin/ai-analysis/${id}`)
     // MySQL JSON column returns parsed object, not string
     const fullResults = response.data.data.full_results
-    latestAnalysis.value = typeof fullResults === 'string'
-      ? JSON.parse(fullResults)
-      : fullResults
+    latestAnalysis.value = typeof fullResults === 'string' ? JSON.parse(fullResults) : fullResults
   } catch (error) {
     console.error('View analysis error:', error)
   }

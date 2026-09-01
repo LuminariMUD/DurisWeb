@@ -13,12 +13,7 @@ import { GOD_COMMANDS, searchCommands } from './commands'
 import { useWhoParser } from './useWhoParser'
 import { useBuilderFlags } from './useBuilderFlags'
 import { COMMAND_CATEGORIES } from './types'
-import type {
-  GodCommand,
-  GodCommandExecution,
-  RecentGodCommand,
-  GodCommandCategory,
-} from './types'
+import type { GodCommand, GodCommandExecution, RecentGodCommand, GodCommandCategory } from './types'
 
 // LocalStorage key for recent commands
 const STORAGE_KEY = 'duris-god-command-history'
@@ -37,7 +32,7 @@ export function useGodCommands() {
 
   // Filter commands by player level
   const availableCommands = computed(() =>
-    GOD_COMMANDS.filter(cmd => cmd.level <= playerLevel.value)
+    GOD_COMMANDS.filter((cmd) => cmd.level <= playerLevel.value),
   )
 
   // Group commands by category
@@ -61,11 +56,11 @@ export function useGodCommands() {
 
   // Get category info with command counts
   const categoriesWithCounts = computed(() =>
-    COMMAND_CATEGORIES.map(cat => ({
+    COMMAND_CATEGORIES.map((cat) => ({
       ...cat,
       count: commandsByCategory.value[cat.id].length,
       commands: commandsByCategory.value[cat.id],
-    })).filter(cat => cat.count > 0)
+    })).filter((cat) => cat.count > 0),
   )
 
   // =========== Search ===========
@@ -106,7 +101,7 @@ export function useGodCommands() {
     // Add to front, remove duplicates, limit to MAX_RECENT
     recentCommands.value = [
       entry,
-      ...recentCommands.value.filter(r => r.command !== command),
+      ...recentCommands.value.filter((r) => r.command !== command),
     ].slice(0, MAX_RECENT)
 
     saveRecentCommands()
@@ -156,9 +151,9 @@ export function useGodCommands() {
     const { command, params } = execution.value
 
     // Check if this is a setbit command and get selected property
-    const isSetbitCommand = command.params.some(p => p.type === 'setbit-property')
+    const isSetbitCommand = command.params.some((p) => p.type === 'setbit-property')
     const selectedProperty = isSetbitCommand
-      ? String(params[command.params.find(p => p.type === 'setbit-property')?.name ?? ''] ?? '')
+      ? String(params[command.params.find((p) => p.type === 'setbit-property')?.name ?? ''] ?? '')
       : ''
 
     // Build command string from template
@@ -182,14 +177,17 @@ export function useGodCommands() {
     }
 
     // Clean up empty placeholders and extra spaces
-    preview = preview.replace(/\{[^}]+\}/g, '').replace(/\s+/g, ' ').trim()
+    preview = preview
+      .replace(/\{[^}]+\}/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
 
     execution.value.preview = preview
 
     // Check validity - all required params must have values
     execution.value.isValid = command.params
-      .filter(p => p.required)
-      .every(p => {
+      .filter((p) => p.required)
+      .every((p) => {
         const val = params[p.name]
         return val !== undefined && val !== ''
       })
@@ -230,7 +228,7 @@ export function useGodCommands() {
   async function executeApiCommand(
     command: GodCommand,
     params: Record<string, string | number | boolean>,
-    preview: string
+    preview: string,
   ) {
     // Clear previous error
     executionError.value = null
@@ -256,11 +254,13 @@ export function useGodCommands() {
       // Extract error message from axios error response
       let message = 'API request failed'
       if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { response?: { data?: { error?: string; errors?: Array<{ msg: string }> } } }
+        const axiosError = error as {
+          response?: { data?: { error?: string; errors?: Array<{ msg: string }> } }
+        }
         if (axiosError.response?.data?.error) {
           message = axiosError.response.data.error
         } else if (axiosError.response?.data?.errors) {
-          message = axiosError.response.data.errors.map(e => e.msg).join(', ')
+          message = axiosError.response.data.errors.map((e) => e.msg).join(', ')
         }
       } else if (error instanceof Error) {
         message = error.message
@@ -350,10 +350,7 @@ export function useGodCommands() {
   }
 
   // Object search query
-  const {
-    data: objectResults,
-    isLoading: isLoadingObjectsQuery,
-  } = useQuery({
+  const { data: objectResults, isLoading: isLoadingObjectsQuery } = useQuery({
     queryKey: computed(() => ['god-objects', debouncedObjectSearch.value]),
     queryFn: () => wikiApi.getObjects({ search: debouncedObjectSearch.value }, 1, 15),
     enabled: computed(() => debouncedObjectSearch.value.length >= 2),
@@ -361,10 +358,7 @@ export function useGodCommands() {
   })
 
   // Mob search query
-  const {
-    data: mobResults,
-    isLoading: isLoadingMobsQuery,
-  } = useQuery({
+  const { data: mobResults, isLoading: isLoadingMobsQuery } = useQuery({
     queryKey: computed(() => ['god-mobs', debouncedMobSearch.value]),
     queryFn: () => wikiApi.getMobs({ search: debouncedMobSearch.value }, 1, 15),
     enabled: computed(() => debouncedMobSearch.value.length >= 2),
@@ -372,13 +366,11 @@ export function useGodCommands() {
   })
 
   // Track if we're waiting for debounce OR the query is loading
-  const isLoadingObjects = computed(() =>
-    isLoadingObjectsQuery.value || isWaitingObjectDebounce.value
+  const isLoadingObjects = computed(
+    () => isLoadingObjectsQuery.value || isWaitingObjectDebounce.value,
   )
 
-  const isLoadingMobs = computed(() =>
-    isLoadingMobsQuery.value || isWaitingMobDebounce.value
-  )
+  const isLoadingMobs = computed(() => isLoadingMobsQuery.value || isWaitingMobDebounce.value)
 
   // =========== WHO List Integration ===========
 

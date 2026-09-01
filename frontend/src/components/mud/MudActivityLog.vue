@@ -4,13 +4,19 @@ import { useMudStore } from '@/stores/mudStore'
 import { useMudChatNotifications } from '@/composables/useMudChatNotifications'
 import { useFontSettings } from '@/composables/useFontSettings'
 import { Button } from '@/components/ui/button'
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from '@/components/ui/resizable'
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
-import { Trash2, ArrowDown, Terminal, Zap, Clock, Settings, Activity, Merge, FolderTree } from 'lucide-vue-next'
+import {
+  Trash2,
+  ArrowDown,
+  Terminal,
+  Zap,
+  Clock,
+  Settings,
+  Activity,
+  Merge,
+  FolderTree,
+} from 'lucide-vue-next'
 import type { MudLogEntry } from '@/types/mud'
 import AliasManager from './AliasManager.vue'
 import TriggerManager from './TriggerManager.vue'
@@ -35,7 +41,7 @@ const props = withDefaults(
     filter: 'all',
     maxHeight: '400px',
     showControls: true,
-  }
+  },
 )
 
 const store = useMudStore()
@@ -63,7 +69,7 @@ const filteredLog = computed(() => {
 
 // Split view computed properties
 const historyLog = computed(() =>
-  isSplitView.value ? filteredLog.value.slice(0, splitIndex.value) : []
+  isSplitView.value ? filteredLog.value.slice(0, splitIndex.value) : [],
 )
 // Live pane shows ALL current messages (tail view - overflow hidden, aligned to bottom)
 const liveLog = computed(() => filteredLog.value)
@@ -192,7 +198,7 @@ watch(
         scrollContainerRef.value.scrollTop = scrollContainerRef.value.scrollHeight
       }
     }
-  }
+  },
 )
 
 // Expose scroll methods for keyboard bindings

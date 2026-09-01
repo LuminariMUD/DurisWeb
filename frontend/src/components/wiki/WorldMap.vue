@@ -3,18 +3,21 @@ import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { wikiApi } from '@/services/api'
 import type { WikiMapTile, WikiZoneEntrance, WikiMapBounds } from '@/types'
 
-const props = withDefaults(defineProps<{
-  initialCenterX?: number
-  initialCenterY?: number
-  initialZoom?: number
-  bounds: WikiMapBounds | null
-  layer?: number
-}>(), {
-  initialCenterX: 0,
-  initialCenterY: 0,
-  initialZoom: 1,
-  layer: 0,
-})
+const props = withDefaults(
+  defineProps<{
+    initialCenterX?: number
+    initialCenterY?: number
+    initialZoom?: number
+    bounds: WikiMapBounds | null
+    layer?: number
+  }>(),
+  {
+    initialCenterX: 0,
+    initialCenterY: 0,
+    initialZoom: 1,
+    layer: 0,
+  },
+)
 
 const emit = defineEmits<{
   (e: 'zone-click', zoneNumber: number, zoneName: string): void
@@ -62,46 +65,46 @@ function stripAnsi(text: string): string {
 
 // Sector type colors (from MUD defines.h)
 const sectorColors: Record<number, string> = {
-  0: '#78716c',   // SECT_INSIDE - stone gray
-  1: '#ffffff',   // SECT_CITY - white
-  2: '#4ade80',   // SECT_FIELD - green
-  3: '#16a34a',   // SECT_FOREST - darker green
-  4: '#eab308',   // SECT_HILLS - yellow
-  5: '#a16207',   // SECT_MOUNTAIN - brown
-  6: '#22d3ee',   // SECT_WATER_SWIM - cyan
-  7: '#3b82f6',   // SECT_WATER_NOSWIM - blue
-  8: '#7dd3fc',   // SECT_NO_GROUND - sky blue (air)
-  9: '#1d4ed8',   // SECT_UNDERWATER - dark blue
-  10: '#1e40af',  // SECT_UNDERWATER_GR - darker blue
-  11: '#ef4444',  // SECT_FIREPLANE - red/orange
-  12: '#1e3a8a',  // SECT_OCEAN - deep blue
-  13: '#7e22ce',  // SECT_UNDRWLD_WILD - dark purple
-  14: '#d8b4fe',  // SECT_UNDRWLD_CITY - light purple
-  15: '#44403c',  // SECT_UNDRWLD_INSIDE - dark stone
-  16: '#6366f1',  // SECT_UNDRWLD_WATER - indigo
-  17: '#4f46e5',  // SECT_UNDRWLD_NOSWIM - indigo darker
-  18: '#1c1917',  // SECT_UNDRWLD_NOGROUND - near black
-  19: '#7dd3fc',  // SECT_AIR_PLANE - sky blue
-  20: '#06b6d4',  // SECT_WATER_PLANE - cyan
-  21: '#78716c',  // SECT_EARTH_PLANE - stone
-  22: '#c4b5fd',  // SECT_ETHEREAL - light violet
-  23: '#a78bfa',  // SECT_ASTRAL - violet
-  24: '#fef08a',  // SECT_DESERT - light yellow
-  25: '#f1f5f9',  // SECT_ARCTIC - white/light gray
-  26: '#a855f7',  // SECT_SWAMP - purple
-  27: '#581c87',  // SECT_UNDRWLD_MOUNTAIN - dark purple
-  28: '#84cc16',  // SECT_UNDRWLD_SLIME - lime
-  29: '#581c87',  // SECT_UNDRWLD_LOWCEIL - dark purple
-  30: '#14b8a6',  // SECT_UNDRWLD_LIQMITH - teal
-  31: '#f97316',  // SECT_UNDRWLD_MUSHROOM - orange
-  32: '#6b7280',  // SECT_CASTLE_WALL - gray
-  33: '#9ca3af',  // SECT_CASTLE_GATE - lighter gray
-  34: '#d1d5db',  // SECT_CASTLE - light gray
-  35: '#1f2937',  // SECT_NEG_PLANE - dark gray
-  36: '#dc2626',  // SECT_PLANE_OF_AVERNUS - red
-  37: '#6b7280',  // SECT_ROAD - gray
-  38: '#bbf7d0',  // SECT_SNOWY_FOREST - light green/white
-  39: '#f97316',  // SECT_LAVA - orange
+  0: '#78716c', // SECT_INSIDE - stone gray
+  1: '#ffffff', // SECT_CITY - white
+  2: '#4ade80', // SECT_FIELD - green
+  3: '#16a34a', // SECT_FOREST - darker green
+  4: '#eab308', // SECT_HILLS - yellow
+  5: '#a16207', // SECT_MOUNTAIN - brown
+  6: '#22d3ee', // SECT_WATER_SWIM - cyan
+  7: '#3b82f6', // SECT_WATER_NOSWIM - blue
+  8: '#7dd3fc', // SECT_NO_GROUND - sky blue (air)
+  9: '#1d4ed8', // SECT_UNDERWATER - dark blue
+  10: '#1e40af', // SECT_UNDERWATER_GR - darker blue
+  11: '#ef4444', // SECT_FIREPLANE - red/orange
+  12: '#1e3a8a', // SECT_OCEAN - deep blue
+  13: '#7e22ce', // SECT_UNDRWLD_WILD - dark purple
+  14: '#d8b4fe', // SECT_UNDRWLD_CITY - light purple
+  15: '#44403c', // SECT_UNDRWLD_INSIDE - dark stone
+  16: '#6366f1', // SECT_UNDRWLD_WATER - indigo
+  17: '#4f46e5', // SECT_UNDRWLD_NOSWIM - indigo darker
+  18: '#1c1917', // SECT_UNDRWLD_NOGROUND - near black
+  19: '#7dd3fc', // SECT_AIR_PLANE - sky blue
+  20: '#06b6d4', // SECT_WATER_PLANE - cyan
+  21: '#78716c', // SECT_EARTH_PLANE - stone
+  22: '#c4b5fd', // SECT_ETHEREAL - light violet
+  23: '#a78bfa', // SECT_ASTRAL - violet
+  24: '#fef08a', // SECT_DESERT - light yellow
+  25: '#f1f5f9', // SECT_ARCTIC - white/light gray
+  26: '#a855f7', // SECT_SWAMP - purple
+  27: '#581c87', // SECT_UNDRWLD_MOUNTAIN - dark purple
+  28: '#84cc16', // SECT_UNDRWLD_SLIME - lime
+  29: '#581c87', // SECT_UNDRWLD_LOWCEIL - dark purple
+  30: '#14b8a6', // SECT_UNDRWLD_LIQMITH - teal
+  31: '#f97316', // SECT_UNDRWLD_MUSHROOM - orange
+  32: '#6b7280', // SECT_CASTLE_WALL - gray
+  33: '#9ca3af', // SECT_CASTLE_GATE - lighter gray
+  34: '#d1d5db', // SECT_CASTLE - light gray
+  35: '#1f2937', // SECT_NEG_PLANE - dark gray
+  36: '#dc2626', // SECT_PLANE_OF_AVERNUS - red
+  37: '#6b7280', // SECT_ROAD - gray
+  38: '#bbf7d0', // SECT_SNOWY_FOREST - light green/white
+  39: '#f97316', // SECT_LAVA - orange
 }
 
 // Computed viewport
@@ -279,8 +282,12 @@ function render() {
       if (entrance.x === null || entrance.y === null) continue
 
       // Check if entrance is in viewport
-      if (entrance.x < vp.minX || entrance.x > vp.maxX ||
-          entrance.y < vp.minY || entrance.y > vp.maxY) {
+      if (
+        entrance.x < vp.minX ||
+        entrance.x > vp.maxX ||
+        entrance.y < vp.minY ||
+        entrance.y > vp.maxY
+      ) {
         continue
       }
 
@@ -288,9 +295,10 @@ function render() {
 
       // Draw entrance marker
       if (showMarkers.value) {
-        ctx.fillStyle = hoveredEntrance.value?.fromRoomVnum === entrance.fromRoomVnum
-          ? '#f59e0b' // amber when hovered
-          : '#ef4444' // red
+        ctx.fillStyle =
+          hoveredEntrance.value?.fromRoomVnum === entrance.fromRoomVnum
+            ? '#f59e0b' // amber when hovered
+            : '#ef4444' // red
 
         const markerSize = Math.max(tileWidth * 0.8, 4)
         ctx.beginPath()
@@ -299,7 +307,7 @@ function render() {
           screenPos.y + tileWidth / 2,
           markerSize / 2,
           0,
-          Math.PI * 2
+          Math.PI * 2,
         )
         ctx.fill()
       }
@@ -310,11 +318,7 @@ function render() {
         ctx.fillStyle = '#ffffff'
         ctx.textAlign = 'center'
         const zoneName = stripAnsi(entrance.toZoneName).substring(0, 20)
-        ctx.fillText(
-          zoneName,
-          screenPos.x + tileWidth / 2,
-          screenPos.y - 4
-        )
+        ctx.fillText(zoneName, screenPos.x + tileWidth / 2, screenPos.y - 4)
       }
     }
   }
@@ -369,7 +373,11 @@ function render() {
   ctx.fillStyle = '#94a3b8'
   ctx.font = '11px monospace'
   ctx.textAlign = 'left'
-  ctx.fillText(`Center: (${Math.round(centerX.value)}, ${Math.round(centerY.value)}) Zoom: ${zoom.value.toFixed(2)}x`, 10, 20)
+  ctx.fillText(
+    `Center: (${Math.round(centerX.value)}, ${Math.round(centerY.value)}) Zoom: ${zoom.value.toFixed(2)}x`,
+    10,
+    20,
+  )
 }
 
 // Handle resize
@@ -546,17 +554,23 @@ onUnmounted(() => {
 })
 
 // Watch for initial values
-watch(() => [props.initialCenterX, props.initialCenterY], ([x, y]) => {
-  if (x !== undefined && y !== undefined) {
-    panTo(x, y)
-  }
-})
+watch(
+  () => [props.initialCenterX, props.initialCenterY],
+  ([x, y]) => {
+    if (x !== undefined && y !== undefined) {
+      panTo(x, y)
+    }
+  },
+)
 
 // Watch for layer changes - reload tiles
-watch(() => props.layer, () => {
-  loadVisibleChunks()
-  render()
-})
+watch(
+  () => props.layer,
+  () => {
+    loadVisibleChunks()
+    render()
+  },
+)
 
 // Watch for toggle changes - re-render
 watch([showMarkers, showZoneNames], () => {

@@ -1,5 +1,5 @@
-import Redis from 'ioredis'
-import logger from '../utils/logger.js'
+import Redis from 'ioredis';
+import logger from '../utils/logger.js';
 
 // Redis connection
 const redis = new Redis({
@@ -7,63 +7,72 @@ const redis = new Redis({
   port: parseInt(process.env.REDIS_PORT || '6379'),
   maxRetriesPerRequest: 3,
   retryStrategy(times) {
-    const delay = Math.min(times * 50, 2000)
-    return delay
+    const delay = Math.min(times * 50, 2000);
+    return delay;
   },
-})
+});
 
 redis.on('connect', () => {
-  logger.info('Redis connected')
-})
+  logger.info('Redis connected');
+});
 
 redis.on('error', (err) => {
-  logger.error('Redis error:', err.message)
-})
+  logger.error('Redis error:', err.message);
+});
+
+export async function checkRedisConnection(): Promise<boolean> {
+  try {
+    return (await redis.ping()) === 'PONG';
+  } catch (error) {
+    logger.error('Redis health check failed:', error);
+    return false;
+  }
+}
 
 /**
  * Close Redis connection gracefully
  */
 export async function closeRedisConnection(): Promise<void> {
   try {
-    await redis.quit()
-    logger.info('Redis connection closed')
+    await redis.quit();
+    logger.info('Redis connection closed');
   } catch (error) {
-    logger.error('Error closing Redis connection:', error)
+    logger.error('Error closing Redis connection:', error);
   }
 }
 
-export default redis
+export default redis;
 
 // Cache helper functions
 export async function getCache<T>(key: string): Promise<T | null> {
   try {
-    const data = await redis.get(key)
+    const data = await redis.get(key);
     if (data) {
-      return JSON.parse(data) as T
+      return JSON.parse(data) as T;
     }
-    return null
+    return null;
   } catch (err) {
-    logger.error('Redis get error:', err)
-    return null
+    logger.error('Redis get error:', err);
+    return null;
   }
 }
 
 export async function setCache(key: string, value: unknown, ttlSeconds: number): Promise<void> {
   try {
-    await redis.setex(key, ttlSeconds, JSON.stringify(value))
+    await redis.setex(key, ttlSeconds, JSON.stringify(value));
   } catch (err) {
-    logger.error('Redis set error:', err)
+    logger.error('Redis set error:', err);
   }
 }
 
 export async function deleteCache(pattern: string): Promise<void> {
   try {
-    const keys = await redis.keys(pattern)
+    const keys = await redis.keys(pattern);
     if (keys.length > 0) {
-      await redis.del(...keys)
+      await redis.del(...keys);
     }
   } catch (err) {
-    logger.error('Redis delete error:', err)
+    logger.error('Redis delete error:', err);
   }
 }
 
@@ -74,29 +83,29 @@ export async function deleteCache(pattern: string): Promise<void> {
  * Convert a Map to a plain object for Redis storage
  */
 export function mapToObject<V>(map: Map<string | number, V>): Record<string, V> {
-  const obj: Record<string, V> = {}
+  const obj: Record<string, V> = {};
   for (const [key, value] of map) {
-    obj[String(key)] = value
+    obj[String(key)] = value;
   }
-  return obj
+  return obj;
 }
 
 /**
  * Convert a plain object back to a Map after Redis retrieval
  */
 export function objectToMap<V>(obj: Record<string, V>): Map<string, V> {
-  return new Map(Object.entries(obj))
+  return new Map(Object.entries(obj));
 }
 
 /**
  * Convert a plain object back to a Map with numeric keys
  */
 export function objectToMapNumeric<V>(obj: Record<string, V>): Map<number, V> {
-  const map = new Map<number, V>()
+  const map = new Map<number, V>();
   for (const [key, value] of Object.entries(obj)) {
-    map.set(Number(key), value)
+    map.set(Number(key), value);
   }
-  return map
+  return map;
 }
 
 /**
@@ -106,14 +115,14 @@ export function objectToMapNumeric<V>(obj: Record<string, V>): Map<number, V> {
 export async function getCachedOrFetch<T>(
   key: string,
   ttlSeconds: number,
-  fetchFn: () => Promise<T>
+  fetchFn: () => Promise<T>,
 ): Promise<T> {
-  const cached = await getCache<T>(key)
+  const cached = await getCache<T>(key);
   if (cached !== null) {
-    return cached
+    return cached;
   }
 
-  const data = await fetchFn()
-  await setCache(key, data, ttlSeconds)
-  return data
+  const data = await fetchFn();
+  await setCache(key, data, ttlSeconds);
+  return data;
 }

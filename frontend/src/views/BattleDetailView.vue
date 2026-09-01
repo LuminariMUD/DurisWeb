@@ -12,7 +12,16 @@ import Dialog from '@/components/ui/Dialog.vue'
 import BattleLikeButton from '@/components/pvp/BattleLikeButton.vue'
 import BattleFavoriteButton from '@/components/pvp/BattleFavoriteButton.vue'
 import BattleCommentSection from '@/components/pvp/BattleCommentSection.vue'
-import { Link, ChevronUp, ChevronDown, Maximize2, Share2, Crown, Droplet, MessageSquare } from 'lucide-vue-next'
+import {
+  Link,
+  ChevronUp,
+  ChevronDown,
+  Maximize2,
+  Share2,
+  Crown,
+  Droplet,
+  MessageSquare,
+} from 'lucide-vue-next'
 import type { PvPBattleStats, PvPBattleComment } from '@/types'
 
 // Mobile tab state
@@ -171,7 +180,7 @@ const MAX_PREVIEW_LINES = 1000
 // Get selected participant
 const selectedParticipant = computed(() => {
   if (!data.value || !data.value.participants || !selectedPovId.value) return null
-  return data.value.participants.find(p => p.id === selectedPovId.value)
+  return data.value.participants.find((p) => p.id === selectedPovId.value)
 })
 
 // Get limited combat log for preview
@@ -200,7 +209,7 @@ const isLogTruncated = computed(() => {
 // Auto-select first participant with log when data loads
 const participantsWithLogs = computed(() => {
   if (!data.value || !data.value.participants) return []
-  return data.value.participants.filter(p => p.log)
+  return data.value.participants.filter((p) => p.log)
 })
 
 // Auto-select POV based on query param or first killer with a log
@@ -209,7 +218,7 @@ const autoSelectPov = () => {
     // Check for POV query parameter first
     const povParam = route.query.pov as string | undefined
     if (povParam) {
-      const matchingParticipant = participantsWithLogs.value.find(p => {
+      const matchingParticipant = participantsWithLogs.value.find((p) => {
         const name = extractPlayerName(p.player_description)
         return name?.toLowerCase() === povParam.toLowerCase()
       })
@@ -221,20 +230,24 @@ const autoSelectPov = () => {
 
     // Fallback to first killer with a log if no POV selected yet
     if (!selectedPovId.value) {
-      const firstKiller = participantsWithLogs.value.find(p => p.pk_type.includes('KILLER'))
+      const firstKiller = participantsWithLogs.value.find((p) => p.pk_type.includes('KILLER'))
       selectedPovId.value = firstKiller?.id || participantsWithLogs.value[0]?.id || null
     }
   }
 }
 
 // Watch for data changes
-watch(data, (newData) => {
-  if (newData) {
-    autoSelectPov()
-    checkCharacterAccounts()
-    loadBattleStats()
-  }
-}, { immediate: true })
+watch(
+  data,
+  (newData) => {
+    if (newData) {
+      autoSelectPov()
+      checkCharacterAccounts()
+      loadBattleStats()
+    }
+  },
+  { immediate: true },
+)
 
 // Reset showFullLog and update URL when POV changes
 watch(selectedPovId, (newId) => {
@@ -242,7 +255,7 @@ watch(selectedPovId, (newId) => {
 
   // update url with pov param
   if (newId && data.value?.participants) {
-    const participant = data.value.participants.find(p => p.id === newId)
+    const participant = data.value.participants.find((p) => p.id === newId)
     if (participant) {
       const playerName = extractPlayerName(participant.player_description)
       if (playerName) {
@@ -255,12 +268,12 @@ watch(selectedPovId, (newId) => {
 // Group participants by team
 const killers = computed(() => {
   if (!data.value || !data.value.participants) return []
-  return data.value.participants.filter(p => p.pk_type.includes('KILLER'))
+  return data.value.participants.filter((p) => p.pk_type.includes('KILLER'))
 })
 
 const victims = computed(() => {
   if (!data.value || !data.value.participants) return []
-  return data.value.participants.filter(p => p.pk_type.includes('VICTIM'))
+  return data.value.participants.filter((p) => p.pk_type.includes('VICTIM'))
 })
 
 // SVG icons for POV selector
@@ -269,28 +282,32 @@ const dropletIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="
 
 // Create select options with MUD colors
 const povOptions = computed(() => {
-  const options: Array<{ value: number, label: string, html: string }> = []
+  const options: Array<{ value: number; label: string; html: string }> = []
 
   // Add killers
-  killers.value.filter(k => k.log).forEach(killer => {
-    const leaderBadge = killer.leader ? crownIcon : ''
-    options.push({
-      value: killer.id,
-      label: stripAnsiCodes(killer.player_description),
-      html: `<span class="text-green-400">KILLER:</span> ${parseAnsiForVue(killer.player_description)}${leaderBadge}`
+  killers.value
+    .filter((k) => k.log)
+    .forEach((killer) => {
+      const leaderBadge = killer.leader ? crownIcon : ''
+      options.push({
+        value: killer.id,
+        label: stripAnsiCodes(killer.player_description),
+        html: `<span class="text-green-400">KILLER:</span> ${parseAnsiForVue(killer.player_description)}${leaderBadge}`,
+      })
     })
-  })
 
   // Add victims
-  victims.value.filter(v => v.log).forEach(victim => {
-    const leaderBadge = victim.leader ? crownIcon : ''
-    const diedBadge = victim.pk_type === 'VICTIM' ? dropletIcon : ''
-    options.push({
-      value: victim.id,
-      label: stripAnsiCodes(victim.player_description),
-      html: `<span class="text-red-400">VICTIM:</span> ${parseAnsiForVue(victim.player_description)}${diedBadge}${leaderBadge}`
+  victims.value
+    .filter((v) => v.log)
+    .forEach((victim) => {
+      const leaderBadge = victim.leader ? crownIcon : ''
+      const diedBadge = victim.pk_type === 'VICTIM' ? dropletIcon : ''
+      options.push({
+        value: victim.id,
+        label: stripAnsiCodes(victim.player_description),
+        html: `<span class="text-red-400">VICTIM:</span> ${parseAnsiForVue(victim.player_description)}${diedBadge}${leaderBadge}`,
+      })
     })
-  })
 
   return options
 })
@@ -383,7 +400,7 @@ const handleLineClick = (lineNumber: number, lineContent: string) => {
     commentSectionRef.value?.setQuotedLine(
       lineNumber,
       strippedContent,
-      selectedParticipant.value!.id
+      selectedParticipant.value!.id,
     )
   })
 }

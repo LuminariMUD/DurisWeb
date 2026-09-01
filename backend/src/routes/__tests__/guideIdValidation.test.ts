@@ -32,16 +32,18 @@ describe('guide resource ID validation', () => {
   });
 
   it('preserves valid help detail lookups', async () => {
-    query.mockResolvedValueOnce([[
-      {
-        id: 12,
-        title: 'Help page',
-        text: 'Safe text',
-        category_id: 0,
-        last_update: null,
-        last_update_by: 'Cwial',
-      },
-    ]]);
+    query.mockResolvedValueOnce([
+      [
+        {
+          id: 12,
+          title: 'Help page',
+          text: 'Safe text',
+          category_id: 0,
+          last_update: null,
+          last_update_by: 'Cwial',
+        },
+      ],
+    ]);
 
     const response = await request(app).get('/api/guide/help/12');
 

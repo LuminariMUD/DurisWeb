@@ -41,8 +41,7 @@ async function loadSubscriptionStatus() {
     } else if (props.categoryId) {
       isSubscribed.value = await forumApi.isSubscribedToCategory(props.categoryId)
     }
-  } catch {
-  }
+  } catch {}
 }
 
 async function handleSubscribe(preference: 'all' | 'mentions' | 'none' = 'all') {

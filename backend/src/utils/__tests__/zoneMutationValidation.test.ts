@@ -15,7 +15,9 @@ describe('zone mutation payload validation', () => {
 
   it('rejects string coercion and unknown fields', () => {
     expect(validateZoneUpdatePayload({ taskZone: 'false' })).toContain('taskZone');
-    expect(validateZoneUpdatePayload({ alignment: 1, unexpected: true })).toContain('Unknown field');
+    expect(validateZoneUpdatePayload({ alignment: 1, unexpected: true })).toContain(
+      'Unknown field',
+    );
   });
 
   it('requires a bounded strict update object', () => {
@@ -26,17 +28,23 @@ describe('zone mutation payload validation', () => {
   });
 
   it('rejects partial/oversized bulk input and accepts valid bulk input', () => {
-    expect(validateBulkZoneUpdatePayload({
-      zoneNumbers: [1, '2'],
-      data: { alignment: 1 },
-    })).toContain('zoneNumbers[]');
-    expect(validateBulkZoneUpdatePayload({
-      zoneNumbers: Array.from({ length: 1001 }, (_, index) => index),
-      data: { alignment: 1 },
-    })).toContain('at most 1000');
-    expect(validateBulkZoneUpdatePayload({
-      zoneNumbers: [1, 2],
-      data: { questZone: false, difficulty: 4 },
-    })).toBeNull();
+    expect(
+      validateBulkZoneUpdatePayload({
+        zoneNumbers: [1, '2'],
+        data: { alignment: 1 },
+      }),
+    ).toContain('zoneNumbers[]');
+    expect(
+      validateBulkZoneUpdatePayload({
+        zoneNumbers: Array.from({ length: 1001 }, (_, index) => index),
+        data: { alignment: 1 },
+      }),
+    ).toContain('at most 1000');
+    expect(
+      validateBulkZoneUpdatePayload({
+        zoneNumbers: [1, 2],
+        data: { questZone: false, difficulty: 4 },
+      }),
+    ).toBeNull();
   });
 });

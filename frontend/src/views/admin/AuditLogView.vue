@@ -304,26 +304,34 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { apiClient as api } from '@/services/api';
-import { Eye } from 'lucide-vue-next';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import flatpickr from 'flatpickr';
-import 'flatpickr/dist/flatpickr.min.css';
-import 'flatpickr/dist/themes/dark.css';
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { apiClient as api } from '@/services/api'
+import { Eye } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import flatpickr from 'flatpickr'
+import 'flatpickr/dist/flatpickr.min.css'
+import 'flatpickr/dist/themes/dark.css'
 
-const auditLog = ref<any[]>([]);
-const pagination = ref<any>(null);
-const isLoading = ref(false);
-const isExporting = ref(false);
-const error = ref<string | null>(null);
+const auditLog = ref<any[]>([])
+const pagination = ref<any>(null)
+const isLoading = ref(false)
+const isExporting = ref(false)
+const error = ref<string | null>(null)
 
 const filters = ref({
   changedBy: '',
@@ -332,57 +340,57 @@ const filters = ref({
   startDate: '',
   endDate: '',
   search: '',
-  limit: 50
-});
+  limit: 50,
+})
 
-const detailsDialogOpen = ref(false);
-const selectedEntry = ref<any>(null);
+const detailsDialogOpen = ref(false)
+const selectedEntry = ref<any>(null)
 
 // Flatpickr refs
-const startDateInput = ref<HTMLInputElement | null>(null);
-const endDateInput = ref<HTMLInputElement | null>(null);
-let startDatePicker: any = null;
-let endDatePicker: any = null;
+const startDateInput = ref<HTMLInputElement | null>(null)
+const endDateInput = ref<HTMLInputElement | null>(null)
+let startDatePicker: any = null
+let endDatePicker: any = null
 
 // Fetch logs
 const fetchLogs = async (page = 1) => {
-  isLoading.value = true;
-  error.value = null;
+  isLoading.value = true
+  error.value = null
 
   try {
-    const params = new URLSearchParams();
-    params.append('page', page.toString());
-    params.append('limit', filters.value.limit.toString());
+    const params = new URLSearchParams()
+    params.append('page', page.toString())
+    params.append('limit', filters.value.limit.toString())
 
-    if (filters.value.changedBy) params.append('changedBy', filters.value.changedBy);
+    if (filters.value.changedBy) params.append('changedBy', filters.value.changedBy)
     if (filters.value.changeType && filters.value.changeType !== 'all') {
-      params.append('changeType', filters.value.changeType);
+      params.append('changeType', filters.value.changeType)
     }
-    if (filters.value.targetKey) params.append('targetKey', filters.value.targetKey);
-    if (filters.value.startDate) params.append('startDate', filters.value.startDate);
-    if (filters.value.endDate) params.append('endDate', filters.value.endDate);
-    if (filters.value.search) params.append('search', filters.value.search);
+    if (filters.value.targetKey) params.append('targetKey', filters.value.targetKey)
+    if (filters.value.startDate) params.append('startDate', filters.value.startDate)
+    if (filters.value.endDate) params.append('endDate', filters.value.endDate)
+    if (filters.value.search) params.append('search', filters.value.search)
 
-    const response = await api.get(`/api/admin/forum/audit-log?${params}`);
+    const response = await api.get(`/api/admin/forum/audit-log?${params}`)
 
-    auditLog.value = response.data.data;
-    pagination.value = response.data.pagination;
+    auditLog.value = response.data.data
+    pagination.value = response.data.pagination
   } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to fetch audit log';
-    console.error('Fetch audit log error:', err);
+    error.value = err.response?.data?.error || 'Failed to fetch audit log'
+    console.error('Fetch audit log error:', err)
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
-};
+}
 
 // Debounced fetch
-let debounceTimer: any = null;
+let debounceTimer: any = null
 const debouncedFetch = () => {
-  clearTimeout(debounceTimer);
+  clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
-    fetchLogs(1); // Reset to page 1 on filter change
-  }, 500);
-};
+    fetchLogs(1) // Reset to page 1 on filter change
+  }, 500)
+}
 
 // Reset filters
 const resetFilters = () => {
@@ -393,139 +401,160 @@ const resetFilters = () => {
     startDate: '',
     endDate: '',
     search: '',
-    limit: 50
-  };
-  fetchLogs(1);
-};
+    limit: 50,
+  }
+  fetchLogs(1)
+}
 
 // Ellipsis pagination (from PvPListView)
 const getPageNumbers = computed(() => {
-  if (!pagination.value) return [];
+  if (!pagination.value) return []
 
-  const current = pagination.value.page;
-  const total = pagination.value.pages;
-  const delta = 1; // Number of pages to show on each side of current page
+  const current = pagination.value.page
+  const total = pagination.value.pages
+  const delta = 1 // Number of pages to show on each side of current page
 
-  const range: (number | string)[] = [];
+  const range: (number | string)[] = []
 
   // Always show first page
-  range.push(1);
+  range.push(1)
 
   // Calculate start and end of middle range
-  const start = Math.max(2, current - delta);
-  const end = Math.min(total - 1, current + delta);
+  const start = Math.max(2, current - delta)
+  const end = Math.min(total - 1, current + delta)
 
   // Add ellipsis after first page if needed
   if (start > 2) {
-    range.push('...');
+    range.push('...')
   }
 
   // Add middle pages
   for (let i = start; i <= end; i++) {
-    range.push(i);
+    range.push(i)
   }
 
   // Add ellipsis before last page if needed
   if (end < total - 1) {
-    range.push('...');
+    range.push('...')
   }
 
   // Always show last page if more than 1 page
   if (total > 1) {
-    range.push(total);
+    range.push(total)
   }
 
-  return range;
-});
+  return range
+})
 
 // Go to page
 const goToPage = (page: number | string) => {
   if (typeof page === 'number') {
-    fetchLogs(page);
+    fetchLogs(page)
   }
-};
+}
 
 // View details
 const viewDetails = (entry: any) => {
-  selectedEntry.value = entry;
-  detailsDialogOpen.value = true;
-};
+  selectedEntry.value = entry
+  detailsDialogOpen.value = true
+}
 
 // Formatters
 const formatTimestamp = (timestamp: string) => {
-  return new Date(timestamp).toLocaleString();
-};
+  return new Date(timestamp).toLocaleString()
+}
 
 const formatChangeType = (type: string) => {
   const typeMap: Record<string, string> = {
-    'property_change': 'MUD Property Change',
-    'level_cap_change': 'Level Cap Change',
-    'wipe': 'Player Wipe',
-    'timer_reset': 'Timer Reset',
-    'help_file_create': 'Help File Create',
-    'help_file_edit': 'Help File Edit',
-    'help_file_delete': 'Help File Delete',
-    'news_edit': 'News Edit',
-    'motd_edit': 'MOTD Edit',
-    'zone_create': 'Zone Create',
-    'zone_edit': 'Zone Edit',
-    'zone_delete': 'Zone Delete',
-    'assign_role': 'Assign Role',
-    'revoke_role': 'Revoke Role',
-    'grant_permission': 'Grant Permission',
-    'revoke_permission': 'Revoke Permission',
-    'setting': 'Forum Setting Change',
-    'category_permission': 'Category Permission Change'
-  };
-  return typeMap[type] || type;
-};
+    property_change: 'MUD Property Change',
+    level_cap_change: 'Level Cap Change',
+    wipe: 'Player Wipe',
+    timer_reset: 'Timer Reset',
+    help_file_create: 'Help File Create',
+    help_file_edit: 'Help File Edit',
+    help_file_delete: 'Help File Delete',
+    news_edit: 'News Edit',
+    motd_edit: 'MOTD Edit',
+    zone_create: 'Zone Create',
+    zone_edit: 'Zone Edit',
+    zone_delete: 'Zone Delete',
+    assign_role: 'Assign Role',
+    revoke_role: 'Revoke Role',
+    grant_permission: 'Grant Permission',
+    revoke_permission: 'Revoke Permission',
+    setting: 'Forum Setting Change',
+    category_permission: 'Category Permission Change',
+  }
+  return typeMap[type] || type
+}
 
 const getBadgeVariant = (type: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
   // Destructive actions
-  if (['wipe', 'help_file_delete', 'zone_delete', 'revoke_role', 'revoke_permission'].includes(type)) {
-    return 'destructive';
+  if (
+    ['wipe', 'help_file_delete', 'zone_delete', 'revoke_role', 'revoke_permission'].includes(type)
+  ) {
+    return 'destructive'
   }
   // Create/Grant actions
   if (['help_file_create', 'zone_create', 'assign_role', 'grant_permission'].includes(type)) {
-    return 'default';
+    return 'default'
   }
   // Edit/Change actions
-  if (['property_change', 'level_cap_change', 'help_file_edit', 'news_edit', 'motd_edit', 'zone_edit', 'setting', 'category_permission'].includes(type)) {
-    return 'secondary';
+  if (
+    [
+      'property_change',
+      'level_cap_change',
+      'help_file_edit',
+      'news_edit',
+      'motd_edit',
+      'zone_edit',
+      'setting',
+      'category_permission',
+    ].includes(type)
+  ) {
+    return 'secondary'
   }
   // Reset/misc
-  return 'outline';
-};
+  return 'outline'
+}
 
 const truncateValue = (value: string | null, maxLength = 50) => {
-  if (!value) return '—';
-  if (value.length <= maxLength) return value;
-  return value.substring(0, maxLength) + '...';
-};
+  if (!value) return '—'
+  if (value.length <= maxLength) return value
+  return value.substring(0, maxLength) + '...'
+}
 
 // Export to CSV
 const exportToCSV = async () => {
-  isExporting.value = true;
+  isExporting.value = true
   try {
     // Fetch ALL results (no pagination) for export
-    const params = new URLSearchParams();
-    params.append('page', '1');
-    params.append('limit', '999999'); // Get all results
+    const params = new URLSearchParams()
+    params.append('page', '1')
+    params.append('limit', '999999') // Get all results
 
-    if (filters.value.changedBy) params.append('changedBy', filters.value.changedBy);
+    if (filters.value.changedBy) params.append('changedBy', filters.value.changedBy)
     if (filters.value.changeType && filters.value.changeType !== 'all') {
-      params.append('changeType', filters.value.changeType);
+      params.append('changeType', filters.value.changeType)
     }
-    if (filters.value.targetKey) params.append('targetKey', filters.value.targetKey);
-    if (filters.value.startDate) params.append('startDate', filters.value.startDate);
-    if (filters.value.endDate) params.append('endDate', filters.value.endDate);
-    if (filters.value.search) params.append('search', filters.value.search);
+    if (filters.value.targetKey) params.append('targetKey', filters.value.targetKey)
+    if (filters.value.startDate) params.append('startDate', filters.value.startDate)
+    if (filters.value.endDate) params.append('endDate', filters.value.endDate)
+    if (filters.value.search) params.append('search', filters.value.search)
 
-    const response = await api.get(`/api/admin/forum/audit-log?${params}`);
-    const allEntries = response.data.data;
+    const response = await api.get(`/api/admin/forum/audit-log?${params}`)
+    const allEntries = response.data.data
 
     // Build CSV content
-    const headers = ['Timestamp', 'Changed By', 'Action Type', 'Target', 'Old Value', 'New Value', 'Notes'];
+    const headers = [
+      'Timestamp',
+      'Changed By',
+      'Action Type',
+      'Target',
+      'Old Value',
+      'New Value',
+      'Notes',
+    ]
     const csvRows = [
       headers.join(','), // Header row
       ...allEntries.map((entry: any) => {
@@ -536,38 +565,40 @@ const exportToCSV = async () => {
           entry.target_key || '',
           entry.old_value || '',
           entry.new_value || '',
-          entry.notes || ''
-        ];
+          entry.notes || '',
+        ]
         // Escape quotes and wrap fields containing commas in quotes
-        return row.map(field => {
-          const fieldStr = String(field).replace(/"/g, '""'); // Escape quotes
-          return fieldStr.includes(',') || fieldStr.includes('\n') ? `"${fieldStr}"` : fieldStr;
-        }).join(',');
-      })
-    ];
+        return row
+          .map((field) => {
+            const fieldStr = String(field).replace(/"/g, '""') // Escape quotes
+            return fieldStr.includes(',') || fieldStr.includes('\n') ? `"${fieldStr}"` : fieldStr
+          })
+          .join(',')
+      }),
+    ]
 
     // Create blob and download
-    const csvContent = csvRows.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `audit-log-${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const csvContent = csvRows.join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.setAttribute('href', url)
+    link.setAttribute('download', `audit-log-${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   } catch (err: any) {
-    console.error('Export error:', err);
-    error.value = err.response?.data?.error || 'Failed to export audit log';
+    console.error('Export error:', err)
+    error.value = err.response?.data?.error || 'Failed to export audit log'
   } finally {
-    isExporting.value = false;
+    isExporting.value = false
   }
-};
+}
 
 // Lifecycle
 onMounted(() => {
-  fetchLogs();
+  fetchLogs()
 
   // Initialize Flatpickr
   if (startDateInput.value) {
@@ -576,10 +607,10 @@ onMounted(() => {
       dateFormat: 'Y-m-d H:i',
       time_24hr: true,
       onChange: (_selectedDates: any, dateStr: string) => {
-        filters.value.startDate = dateStr;
-        fetchLogs(1);
-      }
-    });
+        filters.value.startDate = dateStr
+        fetchLogs(1)
+      },
+    })
   }
 
   if (endDateInput.value) {
@@ -588,19 +619,19 @@ onMounted(() => {
       dateFormat: 'Y-m-d H:i',
       time_24hr: true,
       onChange: (_selectedDates: any, dateStr: string) => {
-        filters.value.endDate = dateStr;
-        fetchLogs(1);
-      }
-    });
+        filters.value.endDate = dateStr
+        fetchLogs(1)
+      },
+    })
   }
-});
+})
 
 onUnmounted(() => {
   if (startDatePicker && typeof startDatePicker.destroy === 'function') {
-    startDatePicker.destroy();
+    startDatePicker.destroy()
   }
   if (endDatePicker && typeof endDatePicker.destroy === 'function') {
-    endDatePicker.destroy();
+    endDatePicker.destroy()
   }
-});
+})
 </script>

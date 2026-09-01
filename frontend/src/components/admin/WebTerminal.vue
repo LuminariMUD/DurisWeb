@@ -1,51 +1,42 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
-import { useTerminal } from '@/composables/useTerminal';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { PlugZap, Unplug, Trash2, Maximize2 } from 'lucide-vue-next';
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useTerminal } from '@/composables/useTerminal'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { PlugZap, Unplug, Trash2, Maximize2 } from 'lucide-vue-next'
 
-const terminalContainer = ref<HTMLElement | null>(null);
-const isFullscreen = ref(false);
+const terminalContainer = ref<HTMLElement | null>(null)
+const isFullscreen = ref(false)
 
-const {
-  isConnected,
-  sessionId,
-  error,
-  initTerminal,
-  connect,
-  disconnect,
-  fit,
-  clear,
-  cleanup
-} = useTerminal();
+const { isConnected, sessionId, error, initTerminal, connect, disconnect, fit, clear, cleanup } =
+  useTerminal()
 
 onMounted(() => {
   if (terminalContainer.value) {
-    initTerminal(terminalContainer.value);
+    initTerminal(terminalContainer.value)
   }
-});
+})
 
 onUnmounted(() => {
-  cleanup();
-});
+  cleanup()
+})
 
 function handleConnect() {
-  connect();
+  connect()
 }
 
 function handleDisconnect() {
-  disconnect();
+  disconnect()
 }
 
 function handleClear() {
-  clear();
+  clear()
 }
 
 function toggleFullscreen() {
-  isFullscreen.value = !isFullscreen.value;
+  isFullscreen.value = !isFullscreen.value
   // Wait for DOM update then fit
-  setTimeout(() => fit(), 100);
+  setTimeout(() => fit(), 100)
 }
 </script>
 

@@ -156,19 +156,31 @@ export function useFloatingPanels() {
     watchersRegistered = true
 
     // load state on account change
-    watch(accountName, () => {
-      loadState()
-    }, { immediate: true })
+    watch(
+      accountName,
+      () => {
+        loadState()
+      },
+      { immediate: true },
+    )
 
     // auto-save when floatingPanels changes (handles v-model updates from FloatingMapWindow)
-    watch(floatingPanels, () => {
-      if (!isLoading) saveState()
-    }, { deep: true })
+    watch(
+      floatingPanels,
+      () => {
+        if (!isLoading) saveState()
+      },
+      { deep: true },
+    )
 
     // auto-save when minimizedPanels changes
-    watch(minimizedPanels, () => {
-      if (!isLoading) saveMinimizedState()
-    }, { deep: true })
+    watch(
+      minimizedPanels,
+      () => {
+        if (!isLoading) saveMinimizedState()
+      },
+      { deep: true },
+    )
   }
 
   return {

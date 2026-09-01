@@ -65,7 +65,7 @@ export async function getUserPermissions(accountName: string): Promise<Set<strin
      JOIN admin_role_permissions arp ON aar.role_id = arp.role_id
      JOIN admin_permissions p ON arp.permission_id = p.id
      WHERE aar.account_name = ?`,
-    [accountName]
+    [accountName],
   );
 
   rolePermissions[0].forEach((row: any) => {
@@ -78,7 +78,7 @@ export async function getUserPermissions(accountName: string): Promise<Set<strin
      FROM admin_account_permissions aap
      JOIN admin_permissions p ON aap.permission_id = p.id
      WHERE aap.account_name = ?`,
-    [accountName]
+    [accountName],
   );
 
   individualPermissions[0].forEach((row: any) => {
@@ -120,7 +120,7 @@ export async function getAllPermissions(): Promise<Permission[]> {
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT id, permission_key, permission_name, description, category, sort_order
      FROM admin_permissions
-     ORDER BY sort_order`
+     ORDER BY sort_order`,
   );
   return rows as Permission[];
 }
@@ -139,7 +139,7 @@ export async function getAllRoles(): Promise<Array<Role & { permission_count: nu
      FROM admin_roles r
      LEFT JOIN admin_role_permissions arp ON r.id = arp.role_id
      GROUP BY r.id, r.role_name, r.description, r.is_system_role
-     ORDER BY r.role_name`
+     ORDER BY r.role_name`,
   );
   return rows as Array<Role & { permission_count: number }>;
 }
@@ -152,7 +152,7 @@ export async function getRoleById(roleId: number): Promise<RoleWithPermissions |
     `SELECT id, role_name, description, is_system_role
      FROM admin_roles
      WHERE id = ?`,
-    [roleId]
+    [roleId],
   );
 
   if (roleRows.length === 0) {
@@ -167,7 +167,7 @@ export async function getRoleById(roleId: number): Promise<RoleWithPermissions |
      JOIN admin_permissions p ON arp.permission_id = p.id
      WHERE arp.role_id = ?
      ORDER BY p.sort_order`,
-    [roleId]
+    [roleId],
   );
 
   return {
@@ -187,7 +187,7 @@ export async function getAccountPermissions(accountName: string): Promise<Accoun
      JOIN admin_roles r ON aar.role_id = r.id
      WHERE aar.account_name = ?
      ORDER BY r.role_name`,
-    [accountName]
+    [accountName],
   );
 
   // Get individual permissions
@@ -197,7 +197,7 @@ export async function getAccountPermissions(accountName: string): Promise<Accoun
      JOIN admin_permissions p ON aap.permission_id = p.id
      WHERE aap.account_name = ?
      ORDER BY p.permission_name`,
-    [accountName]
+    [accountName],
   );
 
   // Get effective permissions
@@ -217,12 +217,12 @@ export async function assignRole(
   accountName: string,
   roleId: number,
   grantedBy: string,
-  ipAddress?: string
+  ipAddress?: string,
 ): Promise<void> {
   // Get role name for audit log
   const [roleRows] = await db.query<RowDataPacket[]>(
     'SELECT role_name FROM admin_roles WHERE id = ?',
-    [roleId]
+    [roleId],
   );
   const roleName = roleRows[0]?.role_name || 'Unknown Role';
 
@@ -230,14 +230,14 @@ export async function assignRole(
     `INSERT INTO admin_account_roles (account_name, role_id, granted_by)
      VALUES (?, ?, ?)
      ON DUPLICATE KEY UPDATE granted_by = VALUES(granted_by), granted_at = NOW()`,
-    [accountName, roleId, grantedBy]
+    [accountName, roleId, grantedBy],
   );
 
   // Audit log
   await db.query(
     `INSERT INTO admin_permission_audit (account_name, action_type, target_account, target_item, target_id, ip_address)
      VALUES (?, 'assign_role', ?, ?, ?, ?)`,
-    [grantedBy, accountName, roleName, roleId, ipAddress]
+    [grantedBy, accountName, roleName, roleId, ipAddress],
   );
 
   await invalidatePermissionCache(accountName);
@@ -250,26 +250,26 @@ export async function revokeRole(
   accountName: string,
   roleId: number,
   revokedBy: string,
-  ipAddress?: string
+  ipAddress?: string,
 ): Promise<void> {
   // Get role name for audit log
   const [roleRows] = await db.query<RowDataPacket[]>(
     'SELECT role_name FROM admin_roles WHERE id = ?',
-    [roleId]
+    [roleId],
   );
   const roleName = roleRows[0]?.role_name || 'Unknown Role';
 
   await db.query(
     `DELETE FROM admin_account_roles
      WHERE account_name = ? AND role_id = ?`,
-    [accountName, roleId]
+    [accountName, roleId],
   );
 
   // Audit log
   await db.query(
     `INSERT INTO admin_permission_audit (account_name, action_type, target_account, target_item, target_id, ip_address)
      VALUES (?, 'revoke_role', ?, ?, ?, ?)`,
-    [revokedBy, accountName, roleName, roleId, ipAddress]
+    [revokedBy, accountName, roleName, roleId, ipAddress],
   );
 
   await invalidatePermissionCache(accountName);
@@ -282,12 +282,12 @@ export async function grantPermission(
   accountName: string,
   permissionId: number,
   grantedBy: string,
-  ipAddress?: string
+  ipAddress?: string,
 ): Promise<void> {
   // Get permission key for audit log
   const [permRows] = await db.query<RowDataPacket[]>(
     'SELECT permission_key FROM admin_permissions WHERE id = ?',
-    [permissionId]
+    [permissionId],
   );
   const permissionKey = permRows[0]?.permission_key || 'Unknown Permission';
 
@@ -295,14 +295,14 @@ export async function grantPermission(
     `INSERT INTO admin_account_permissions (account_name, permission_id, granted_by)
      VALUES (?, ?, ?)
      ON DUPLICATE KEY UPDATE granted_by = VALUES(granted_by), granted_at = NOW()`,
-    [accountName, permissionId, grantedBy]
+    [accountName, permissionId, grantedBy],
   );
 
   // Audit log
   await db.query(
     `INSERT INTO admin_permission_audit (account_name, action_type, target_account, target_item, target_id, ip_address)
      VALUES (?, 'grant_permission', ?, ?, ?, ?)`,
-    [grantedBy, accountName, permissionKey, permissionId, ipAddress]
+    [grantedBy, accountName, permissionKey, permissionId, ipAddress],
   );
 
   await invalidatePermissionCache(accountName);
@@ -315,26 +315,26 @@ export async function revokePermission(
   accountName: string,
   permissionId: number,
   revokedBy: string,
-  ipAddress?: string
+  ipAddress?: string,
 ): Promise<void> {
   // Get permission key for audit log
   const [permRows] = await db.query<RowDataPacket[]>(
     'SELECT permission_key FROM admin_permissions WHERE id = ?',
-    [permissionId]
+    [permissionId],
   );
   const permissionKey = permRows[0]?.permission_key || 'Unknown Permission';
 
   await db.query(
     `DELETE FROM admin_account_permissions
      WHERE account_name = ? AND permission_id = ?`,
-    [accountName, permissionId]
+    [accountName, permissionId],
   );
 
   // Audit log
   await db.query(
     `INSERT INTO admin_permission_audit (account_name, action_type, target_account, target_item, target_id, ip_address)
      VALUES (?, 'revoke_permission', ?, ?, ?, ?)`,
-    [revokedBy, accountName, permissionKey, permissionId, ipAddress]
+    [revokedBy, accountName, permissionKey, permissionId, ipAddress],
   );
 
   await invalidatePermissionCache(accountName);
@@ -347,23 +347,22 @@ export async function createRole(
   roleName: string,
   description: string,
   permissionIds: number[],
-  createdBy: string
+  createdBy: string,
 ): Promise<number> {
   const [result] = await db.query<any>(
     `INSERT INTO admin_roles (role_name, description, is_system_role, created_by)
      VALUES (?, ?, false, ?)`,
-    [roleName, description, createdBy]
+    [roleName, description, createdBy],
   );
 
   const roleId = result.insertId;
 
   // Assign permissions to the new role
   if (permissionIds.length > 0) {
-    const values = permissionIds.map(permId => [roleId, permId]);
-    await db.query(
-      `INSERT INTO admin_role_permissions (role_id, permission_id) VALUES ?`,
-      [values]
-    );
+    const values = permissionIds.map((permId) => [roleId, permId]);
+    await db.query(`INSERT INTO admin_role_permissions (role_id, permission_id) VALUES ?`, [
+      values,
+    ]);
   }
 
   return roleId;
@@ -376,13 +375,12 @@ export async function updateRole(
   roleId: number,
   roleName: string,
   description: string,
-  permissionIds: number[]
+  permissionIds: number[],
 ): Promise<void> {
   // Check if role exists
-  const [roleRows] = await db.query<RowDataPacket[]>(
-    `SELECT id FROM admin_roles WHERE id = ?`,
-    [roleId]
-  );
+  const [roleRows] = await db.query<RowDataPacket[]>(`SELECT id FROM admin_roles WHERE id = ?`, [
+    roleId,
+  ]);
 
   if (roleRows.length === 0) {
     throw new Error('Role not found');
@@ -393,24 +391,23 @@ export async function updateRole(
     `UPDATE admin_roles
      SET role_name = ?, description = ?, updated_at = NOW()
      WHERE id = ?`,
-    [roleName, description, roleId]
+    [roleName, description, roleId],
   );
 
   // Replace all permissions
   await db.query(`DELETE FROM admin_role_permissions WHERE role_id = ?`, [roleId]);
 
   if (permissionIds.length > 0) {
-    const values = permissionIds.map(permId => [roleId, permId]);
-    await db.query(
-      `INSERT INTO admin_role_permissions (role_id, permission_id) VALUES ?`,
-      [values]
-    );
+    const values = permissionIds.map((permId) => [roleId, permId]);
+    await db.query(`INSERT INTO admin_role_permissions (role_id, permission_id) VALUES ?`, [
+      values,
+    ]);
   }
 
   // Invalidate cache for all users with this role
   const [accountRows] = await db.query<RowDataPacket[]>(
     `SELECT DISTINCT account_name FROM admin_account_roles WHERE role_id = ?`,
-    [roleId]
+    [roleId],
   );
 
   for (const row of accountRows) {
@@ -423,10 +420,9 @@ export async function updateRole(
  */
 export async function deleteRole(roleId: number): Promise<void> {
   // Check if role exists
-  const [roleRows] = await db.query<RowDataPacket[]>(
-    `SELECT id FROM admin_roles WHERE id = ?`,
-    [roleId]
-  );
+  const [roleRows] = await db.query<RowDataPacket[]>(`SELECT id FROM admin_roles WHERE id = ?`, [
+    roleId,
+  ]);
 
   if (roleRows.length === 0) {
     throw new Error('Role not found');
@@ -435,7 +431,7 @@ export async function deleteRole(roleId: number): Promise<void> {
   // Get accounts with this role (to invalidate cache)
   const [accountRows] = await db.query<RowDataPacket[]>(
     `SELECT DISTINCT account_name FROM admin_account_roles WHERE role_id = ?`,
-    [roleId]
+    [roleId],
   );
 
   // Delete the role (cascade will handle junction tables)

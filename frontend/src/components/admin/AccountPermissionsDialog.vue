@@ -59,84 +59,90 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { useToast } from '@/composables/useToast';
+import { ref, watch } from 'vue'
+import { useToast } from '@/composables/useToast'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-vue-next';
-import { useAssignRole, useGrantPermission, type Role, type Permission } from '@/composables/useAdminPermissions';
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Loader2 } from 'lucide-vue-next'
+import {
+  useAssignRole,
+  useGrantPermission,
+  type Role,
+  type Permission,
+} from '@/composables/useAdminPermissions'
 
 interface Props {
-  open: boolean;
-  accountName: string;
-  type: 'role' | 'permission';
-  availableItems: (Role | Permission)[];
+  open: boolean
+  accountName: string
+  type: 'role' | 'permission'
+  availableItems: (Role | Permission)[]
 }
 
-const props = defineProps<Props>();
+const props = defineProps<Props>()
 const emit = defineEmits<{
-  'update:open': [value: boolean];
-  assigned: [];
-}>();
+  'update:open': [value: boolean]
+  assigned: []
+}>()
 
-const { success, error } = useToast();
-const assignRoleMutation = useAssignRole();
-const grantPermissionMutation = useGrantPermission();
+const { success, error } = useToast()
+const assignRoleMutation = useAssignRole()
+const grantPermissionMutation = useGrantPermission()
 
-const selectedId = ref<number | null>(null);
-const isAssigning = ref(false);
+const selectedId = ref<number | null>(null)
+const isAssigning = ref(false)
 
 // Reset selection when dialog opens/closes
 watch(
   () => props.open,
   (newOpen) => {
     if (!newOpen) {
-      selectedId.value = null;
+      selectedId.value = null
     }
-  }
-);
+  },
+)
 
 async function handleAssign() {
-  if (!selectedId.value || !props.accountName) return;
+  if (!selectedId.value || !props.accountName) return
 
-  isAssigning.value = true;
+  isAssigning.value = true
 
   try {
     if (props.type === 'role') {
       await assignRoleMutation.mutateAsync({
         accountName: props.accountName,
-        roleId: selectedId.value
-      });
-      success('Role assigned successfully', 'Success');
+        roleId: selectedId.value,
+      })
+      success('Role assigned successfully', 'Success')
     } else {
       await grantPermissionMutation.mutateAsync({
         accountName: props.accountName,
-        permissionId: selectedId.value
-      });
-      success('Permission granted successfully', 'Success');
+        permissionId: selectedId.value,
+      })
+      success('Permission granted successfully', 'Success')
     }
 
-    emit('assigned');
-    selectedId.value = null;
+    emit('assigned')
+    selectedId.value = null
   } catch (err: any) {
     error(
-      err.response?.data?.error || `Failed to ${props.type === 'role' ? 'assign role' : 'grant permission'}`,
-      'Error'
-    );
+      err.response?.data?.error ||
+        `Failed to ${props.type === 'role' ? 'assign role' : 'grant permission'}`,
+      'Error',
+    )
   } finally {
-    isAssigning.value = false;
+    isAssigning.value = false
   }
 }
 
 function handleCancel() {
-  emit('update:open', false);
+  emit('update:open', false)
 }
 </script>

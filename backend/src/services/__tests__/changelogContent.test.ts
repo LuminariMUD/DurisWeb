@@ -41,7 +41,7 @@ describe('changelog content persistence boundary', () => {
         content: '<script>alert(1)</script>',
         category: 'public',
         createdBy: 'Cwial',
-      })
+      }),
     ).rejects.toThrow('Content cannot be empty after sanitization');
 
     expect(query).not.toHaveBeenCalled();

@@ -10,7 +10,8 @@ const requests = ref([
     vnum: 100,
     title: 'Add room behavior',
     description: 'hello',
-    descriptionHtml: '<p>hello <strong>Duris</strong></p><script>alert(1)</script><img src="x" onerror="alert(2)">',
+    descriptionHtml:
+      '<p>hello <strong>Duris</strong></p><script>alert(1)</script><img src="x" onerror="alert(2)">',
     status: 'requested',
     assignedTo: null,
     requestedBy: 'Cwial',

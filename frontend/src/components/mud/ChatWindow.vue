@@ -54,7 +54,7 @@ const messages = computed(() => {
   const allMessages = getMessages(historyKey.value)
   // for player windows with god level, filter by active tab (tell/ptell)
   if (props.windowType === 'player' && isGod.value) {
-    return allMessages.filter(msg => msg.type === activeTab.value)
+    return allMessages.filter((msg) => msg.type === activeTab.value)
   }
   return allMessages
 })
@@ -155,26 +155,37 @@ onMounted(() => {
 })
 
 // focus input when window expands
-watch(() => props.isMinimized, (minimized) => {
-  if (!minimized) {
-    nextTick(() => {
-      inputRef.value?.focus()
-      scrollToBottom()
-    })
-  }
-})
+watch(
+  () => props.isMinimized,
+  (minimized) => {
+    if (!minimized) {
+      nextTick(() => {
+        inputRef.value?.focus()
+        scrollToBottom()
+      })
+    }
+  },
+)
 
 // scroll to bottom when new messages arrive
-watch(() => messages.value.length, () => {
-  if (!props.isMinimized) {
-    scrollToBottom()
-  }
-})
+watch(
+  () => messages.value.length,
+  () => {
+    if (!props.isMinimized) {
+      scrollToBottom()
+    }
+  },
+)
 
 // format timestamp
 const formatTime = (timestamp: number): string => {
   const date = new Date(timestamp)
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+  return date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
 }
 </script>
 

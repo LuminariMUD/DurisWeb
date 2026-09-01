@@ -158,7 +158,9 @@ async function fetchAllCommits(): Promise<GitCommit[]> {
   const format = 'COMMIT_START|%H|%h|%an|%ae|%aI|%s';
 
   // Limit commits to keep cache generation fast (~5 seconds for 500 commits)
-  const logOutput = await gitExec(`log origin/${branch} -n ${MAX_COMMITS_TO_CACHE} --pretty=format:'${format}' --shortstat`);
+  const logOutput = await gitExec(
+    `log origin/${branch} -n ${MAX_COMMITS_TO_CACHE} --pretty=format:'${format}' --shortstat`,
+  );
   return parseGitLogWithStats(logOutput);
 }
 
@@ -276,7 +278,11 @@ function parseGitLogWithStats(output: string): GitCommit[] {
 /**
  * Get paginated list of commits (uses cache)
  */
-export async function getCommits(page: number = 1, limit: number = 50, forceRefresh: boolean = false): Promise<{
+export async function getCommits(
+  page: number = 1,
+  limit: number = 50,
+  forceRefresh: boolean = false,
+): Promise<{
   commits: GitCommit[];
   pagination: {
     page: number;
@@ -328,9 +334,9 @@ export interface ZoneGitStatus {
 
 function getZoneGitFiles(areasDir: string, zoneBasename: string): string[] {
   return (['wld', 'mob', 'obj', 'zon'] as const).map((fileType) => {
-    resolveSafeZoneFilePath(areasDir, zoneBasename, fileType)
-    return `${fileType}/${zoneBasename}.${fileType}`
-  })
+    resolveSafeZoneFilePath(areasDir, zoneBasename, fileType);
+    return `${fileType}/${zoneBasename}.${fileType}`;
+  });
 }
 
 /**
@@ -346,14 +352,17 @@ export async function getZoneGitStatus(zoneBasename: string): Promise<ZoneGitSta
   // Get git status for the areas directory
   try {
     const statusOutput = await execAsync(`git -C "${areasDir}" status --porcelain`);
-    const lines = statusOutput.stdout.trim().split('\n').filter(l => l);
+    const lines = statusOutput.stdout
+      .trim()
+      .split('\n')
+      .filter((l) => l);
 
     for (const line of lines) {
       const statusCode = line.substring(0, 2);
       const filePath = line.substring(3).trim();
 
       // Check if this file belongs to the zone
-      if (zoneFiles.some(zf => filePath === zf || filePath.endsWith(zf))) {
+      if (zoneFiles.some((zf) => filePath === zf || filePath.endsWith(zf))) {
         let status: 'modified' | 'new' | 'deleted' = 'modified';
         if (statusCode.includes('A') || statusCode.includes('?')) {
           status = 'new';
@@ -384,7 +393,10 @@ export interface ZoneCommitResult {
  * @param zoneBasename - The zone filename without extension (e.g., "alatorin")
  * @param message - Commit message
  */
-export async function commitZoneFiles(zoneBasename: string, message: string): Promise<ZoneCommitResult> {
+export async function commitZoneFiles(
+  zoneBasename: string,
+  message: string,
+): Promise<ZoneCommitResult> {
   const areasDir = path.join(MUD_DIR, 'areas');
   const zoneFiles = getZoneGitFiles(areasDir, zoneBasename);
 
@@ -397,7 +409,7 @@ export async function commitZoneFiles(zoneBasename: string, message: string): Pr
       try {
         await execAsync(`git -C "${MUD_DIR}" rev-parse --git-dir`);
         // Use MUD_DIR as git root, adjust paths
-        const adjustedFiles = zoneFiles.map(f => `areas/${f}`);
+        const adjustedFiles = zoneFiles.map((f) => `areas/${f}`);
         return await commitFilesInDir(MUD_DIR, adjustedFiles, message);
       } catch {
         return { success: false, error: 'Git is not initialized in the MUD directory' };
@@ -414,7 +426,11 @@ export async function commitZoneFiles(zoneBasename: string, message: string): Pr
 /**
  * Helper to commit files in a directory
  */
-async function commitFilesInDir(dir: string, files: string[], message: string): Promise<ZoneCommitResult> {
+async function commitFilesInDir(
+  dir: string,
+  files: string[],
+  message: string,
+): Promise<ZoneCommitResult> {
   // Add the files
   for (const file of files) {
     const fullPath = path.join(dir, file);

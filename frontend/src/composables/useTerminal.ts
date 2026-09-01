@@ -1,38 +1,38 @@
-import { ref, onUnmounted } from 'vue';
-import { Terminal } from 'xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import { WebLinksAddon } from '@xterm/addon-web-links';
-import 'xterm/css/xterm.css';
+import { ref, onUnmounted } from 'vue'
+import { Terminal } from 'xterm'
+import { FitAddon } from '@xterm/addon-fit'
+import { WebLinksAddon } from '@xterm/addon-web-links'
+import 'xterm/css/xterm.css'
 
 // Terminal state
-const terminal = ref<Terminal | null>(null);
-const fitAddon = ref<FitAddon | null>(null);
-const isConnected = ref(false);
-const sessionId = ref<number | null>(null);
-const error = ref<string | null>(null);
-const ws = ref<WebSocket | null>(null);
+const terminal = ref<Terminal | null>(null)
+const fitAddon = ref<FitAddon | null>(null)
+const isConnected = ref(false)
+const sessionId = ref<number | null>(null)
+const error = ref<string | null>(null)
+const ws = ref<WebSocket | null>(null)
 
 // Get terminal token from backend API
 async function getTerminalToken(): Promise<string | null> {
   try {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
     const response = await fetch(`${apiUrl}/api/auth/terminal-token`, {
       credentials: 'include', // Include cookies for auth
-    });
+    })
 
     if (!response.ok) {
-      return null;
+      return null
     }
 
-    const data = await response.json();
-    return data.token || null;
+    const data = await response.json()
+    return data.token || null
   } catch {
-    return null;
+    return null
   }
 }
 
 export function useTerminal() {
-  let resizeObserver: ResizeObserver | null = null;
+  let resizeObserver: ResizeObserver | null = null
 
   /**
    * Initialize xterm.js terminal in a container element
@@ -40,12 +40,12 @@ export function useTerminal() {
   function initTerminal(container: HTMLElement): void {
     // Clean up existing ResizeObserver before creating new one
     if (resizeObserver) {
-      resizeObserver.disconnect();
-      resizeObserver = null;
+      resizeObserver.disconnect()
+      resizeObserver = null
     }
 
     if (terminal.value) {
-      terminal.value.dispose();
+      terminal.value.dispose()
     }
 
     // Create terminal with MUD-appropriate settings
@@ -80,44 +80,48 @@ export function useTerminal() {
       scrollback: 10000,
       convertEol: true,
       allowProposedApi: true,
-    });
+    })
 
     // Add addons
-    fitAddon.value = new FitAddon();
-    terminal.value.loadAddon(fitAddon.value);
+    fitAddon.value = new FitAddon()
+    terminal.value.loadAddon(fitAddon.value)
 
-    const webLinksAddon = new WebLinksAddon();
-    terminal.value.loadAddon(webLinksAddon);
+    const webLinksAddon = new WebLinksAddon()
+    terminal.value.loadAddon(webLinksAddon)
 
     // Open terminal in container
-    terminal.value.open(container);
-    fitAddon.value.fit();
+    terminal.value.open(container)
+    fitAddon.value.fit()
 
     // Handle terminal input
     terminal.value.onData((data: string) => {
       if (ws.value && ws.value.readyState === WebSocket.OPEN) {
-        ws.value.send(JSON.stringify({
-          type: 'TERMINAL_INPUT',
-          data
-        }));
+        ws.value.send(
+          JSON.stringify({
+            type: 'TERMINAL_INPUT',
+            data,
+          }),
+        )
       }
-    });
+    })
 
     // Handle resize
     resizeObserver = new ResizeObserver(() => {
       if (fitAddon.value && terminal.value) {
-        fitAddon.value.fit();
+        fitAddon.value.fit()
         // Send resize to server
         if (ws.value && ws.value.readyState === WebSocket.OPEN) {
-          ws.value.send(JSON.stringify({
-            type: 'TERMINAL_RESIZE',
-            cols: terminal.value.cols,
-            rows: terminal.value.rows
-          }));
+          ws.value.send(
+            JSON.stringify({
+              type: 'TERMINAL_RESIZE',
+              cols: terminal.value.cols,
+              rows: terminal.value.rows,
+            }),
+          )
         }
       }
-    });
-    resizeObserver.observe(container);
+    })
+    resizeObserver.observe(container)
   }
 
   /**
@@ -125,76 +129,78 @@ export function useTerminal() {
    */
   async function connect(): Promise<void> {
     if (ws.value && ws.value.readyState === WebSocket.OPEN) {
-      return;
+      return
     }
 
-    error.value = null;
+    error.value = null
 
-    const token = await getTerminalToken();
+    const token = await getTerminalToken()
     if (!token) {
-      error.value = 'Not authenticated. Please log in.';
-      return;
+      error.value = 'Not authenticated. Please log in.'
+      return
     }
 
-    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3001/ws';
+    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3001/ws'
 
     try {
-      ws.value = new WebSocket(wsUrl);
+      ws.value = new WebSocket(wsUrl)
 
       ws.value.onopen = () => {
         // Send connect request with token and terminal size
-        ws.value?.send(JSON.stringify({
-          type: 'TERMINAL_CONNECT',
-          token,
-          cols: terminal.value?.cols || 80,
-          rows: terminal.value?.rows || 24
-        }));
-      };
+        ws.value?.send(
+          JSON.stringify({
+            type: 'TERMINAL_CONNECT',
+            token,
+            cols: terminal.value?.cols || 80,
+            rows: terminal.value?.rows || 24,
+          }),
+        )
+      }
 
       ws.value.onmessage = (event) => {
         try {
-          const message = JSON.parse(event.data);
+          const message = JSON.parse(event.data)
 
           switch (message.type) {
             case 'TERMINAL_CONNECTED':
-              isConnected.value = true;
-              sessionId.value = message.sessionId;
-              error.value = null;
-              terminal.value?.focus();
-              break;
+              isConnected.value = true
+              sessionId.value = message.sessionId
+              error.value = null
+              terminal.value?.focus()
+              break
 
             case 'TERMINAL_OUTPUT':
-              terminal.value?.write(message.data);
-              break;
+              terminal.value?.write(message.data)
+              break
 
             case 'TERMINAL_ERROR':
-              error.value = message.message;
-              isConnected.value = false;
-              break;
+              error.value = message.message
+              isConnected.value = false
+              break
 
             case 'TERMINAL_CLOSED':
-              isConnected.value = false;
-              sessionId.value = null;
-              terminal.value?.write('\r\n\x1b[33m[Session ended]\x1b[0m\r\n');
-              break;
+              isConnected.value = false
+              sessionId.value = null
+              terminal.value?.write('\r\n\x1b[33m[Session ended]\x1b[0m\r\n')
+              break
           }
         } catch (err) {
-          console.error('Error parsing WebSocket message:', err);
+          console.error('Error parsing WebSocket message:', err)
         }
-      };
+      }
 
       ws.value.onerror = () => {
-        error.value = 'WebSocket connection error';
-        isConnected.value = false;
-      };
+        error.value = 'WebSocket connection error'
+        isConnected.value = false
+      }
 
       ws.value.onclose = () => {
-        isConnected.value = false;
+        isConnected.value = false
         // Don't auto-reconnect for terminal - let user explicitly reconnect
-      };
+      }
     } catch (err) {
-      error.value = 'Failed to connect to terminal';
-      console.error('Terminal connection error:', err);
+      error.value = 'Failed to connect to terminal'
+      console.error('Terminal connection error:', err)
     }
   }
 
@@ -204,15 +210,17 @@ export function useTerminal() {
   function disconnect(): void {
     if (ws.value) {
       if (ws.value.readyState === WebSocket.OPEN) {
-        ws.value.send(JSON.stringify({
-          type: 'TERMINAL_DISCONNECT'
-        }));
+        ws.value.send(
+          JSON.stringify({
+            type: 'TERMINAL_DISCONNECT',
+          }),
+        )
       }
-      ws.value.close();
-      ws.value = null;
+      ws.value.close()
+      ws.value = null
     }
-    isConnected.value = false;
-    sessionId.value = null;
+    isConnected.value = false
+    sessionId.value = null
   }
 
   /**
@@ -220,7 +228,7 @@ export function useTerminal() {
    */
   function fit(): void {
     if (fitAddon.value) {
-      fitAddon.value.fit();
+      fitAddon.value.fit()
     }
   }
 
@@ -228,14 +236,14 @@ export function useTerminal() {
    * Focus terminal
    */
   function focus(): void {
-    terminal.value?.focus();
+    terminal.value?.focus()
   }
 
   /**
    * Clear terminal
    */
   function clear(): void {
-    terminal.value?.clear();
+    terminal.value?.clear()
   }
 
   /**
@@ -243,25 +251,25 @@ export function useTerminal() {
    */
   function cleanup(): void {
     if (resizeObserver) {
-      resizeObserver.disconnect();
-      resizeObserver = null;
+      resizeObserver.disconnect()
+      resizeObserver = null
     }
-    disconnect();
+    disconnect()
     if (terminal.value) {
       try {
-        terminal.value.dispose();
+        terminal.value.dispose()
       } catch {
         // Ignore errors when disposing (addon may not be loaded)
       }
-      terminal.value = null;
+      terminal.value = null
     }
-    fitAddon.value = null;
+    fitAddon.value = null
   }
 
   // Auto-cleanup on unmount
   onUnmounted(() => {
-    cleanup();
-  });
+    cleanup()
+  })
 
   return {
     terminal,
@@ -274,6 +282,6 @@ export function useTerminal() {
     fit,
     focus,
     clear,
-    cleanup
-  };
+    cleanup,
+  }
 }

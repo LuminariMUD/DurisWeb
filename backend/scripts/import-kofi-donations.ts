@@ -38,7 +38,7 @@ interface DonationRow extends RowDataPacket {
 async function findAccountByEmail(email: string): Promise<string | null> {
   const [rows] = await pool.query<AccountRow[]>(
     'SELECT account_name FROM accounts WHERE email = ? LIMIT 1',
-    [email.toLowerCase()]
+    [email.toLowerCase()],
   );
   return rows.length > 0 ? rows[0].account_name : null;
 }
@@ -46,7 +46,7 @@ async function findAccountByEmail(email: string): Promise<string | null> {
 async function isDuplicate(transactionId: string): Promise<boolean> {
   const [rows] = await pool.query<DonationRow[]>(
     'SELECT id FROM donations WHERE kofi_message_id = ?',
-    [transactionId]
+    [transactionId],
   );
   return rows.length > 0;
 }
@@ -96,23 +96,14 @@ async function importDonations(csvPath: string) {
       `INSERT INTO donations
        (kofi_message_id, account_name, kofi_email, kofi_name, amount, currency, type, message, is_public, is_subscription, is_first_subscription, tier_name, created_at)
        VALUES (?, ?, ?, ?, ?, ?, 'Donation', ?, true, false, false, null, ?)`,
-      [
-        transactionId,
-        accountName,
-        email,
-        fromName,
-        amount,
-        currency,
-        message,
-        new Date(timestamp),
-      ]
+      [transactionId, accountName, email, fromName, amount, currency, message, new Date(timestamp)],
     );
 
     // update account total if matched
     if (accountName) {
       await pool.query(
         'UPDATE accounts SET total_donated = total_donated + ? WHERE account_name = ?',
-        [amount, accountName]
+        [amount, accountName],
       );
       matched.push({ from: fromName, amount: row.Received, account: accountName, email });
     } else {

@@ -36,21 +36,28 @@ const currentFile = ref<PublicHelpFile | null>(null)
 const isNavigating = ref(false)
 
 // Sync currentFile with prop
-watch(() => props.helpFile, (newFile) => {
-  if (newFile && !isNavigating.value) {
-    currentFile.value = newFile
-    history.value = [] // Reset history when opening a new file from outside
-  }
-}, { immediate: true })
+watch(
+  () => props.helpFile,
+  (newFile) => {
+    if (newFile && !isNavigating.value) {
+      currentFile.value = newFile
+      history.value = [] // Reset history when opening a new file from outside
+    }
+  },
+  { immediate: true },
+)
 
 // Reset when dialog closes
-watch(() => props.open, (open) => {
-  if (!open) {
-    history.value = []
-    currentFile.value = null
-    isNavigating.value = false
-  }
-})
+watch(
+  () => props.open,
+  (open) => {
+    if (!open) {
+      history.value = []
+      currentFile.value = null
+      isNavigating.value = false
+    }
+  },
+)
 
 // Helper to convert a single item into a placeholder marker
 function markItem(item: string): string {
@@ -74,15 +81,18 @@ function markCommaItems(items: string): string {
 // Helper to convert line-separated items into placeholder markers
 // Also handles comma-separated items within each line
 function markLineItems(items: string): string {
-  return items.split('\n').map(line => {
-    const trimmed = line.trim()
-    if (!trimmed) return line
-    // If line has commas, split by comma; otherwise treat whole line as one item
-    if (trimmed.includes(',')) {
-      return markCommaItems(trimmed)
-    }
-    return markItem(trimmed)
-  }).join('\n')
+  return items
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trim()
+      if (!trimmed) return line
+      // If line has commas, split by comma; otherwise treat whole line as one item
+      if (trimmed.includes(',')) {
+        return markCommaItems(trimmed)
+      }
+      return markItem(trimmed)
+    })
+    .join('\n')
 }
 
 // Convert placeholder markers to actual HTML links
@@ -103,20 +113,20 @@ const parsedContent = computed(() => {
   // Format 1: "See also: items" (colon format, comma-separated on same line)
   text = text.replace(
     /(See\s+also:\s*)([^\n]+)/gi,
-    (_match, prefix, items) => `${prefix}${markCommaItems(items)}`
+    (_match, prefix, items) => `${prefix}${markCommaItems(items)}`,
   )
 
   // Format 2: "==See also==" followed by items on subsequent lines
   // Match until we hit an empty line or "The following help topics"
   text = text.replace(
     /(==\s*See\s+also\s*==\s*\n)([\s\S]*?)(?=\n\s*\n|\nThe following|$)/gi,
-    (_match, prefix, items) => `${prefix}${markLineItems(items)}`
+    (_match, prefix, items) => `${prefix}${markLineItems(items)}`,
   )
 
   // Format 3: "The following help topics also matched your search:" followed by items
   text = text.replace(
     /(The following help topics also matched your search:\s*\n)([\s\S]*?)(?=\n\s*\n|$)/gi,
-    (_match, prefix, items) => `${prefix}${markLineItems(items)}`
+    (_match, prefix, items) => `${prefix}${markLineItems(items)}`,
   )
 
   // Step 2: Parse ANSI codes to HTML
@@ -149,9 +159,7 @@ async function navigateToHelpFile(title: string) {
     const result = await guideApi.searchHelpFiles(title, 10)
 
     // Find exact match (case-insensitive)
-    const match = result.results.find(
-      (r) => r.title?.toLowerCase() === title.toLowerCase()
-    )
+    const match = result.results.find((r) => r.title?.toLowerCase() === title.toLowerCase())
 
     if (match) {
       // Save current file to history before navigating
@@ -196,12 +204,12 @@ function formatDate(dateStr: string | null): string {
 // Get category color
 function getCategoryColor(categoryName: string): string {
   const colors: Record<string, string> = {
-    'General': 'bg-blue-500/20 text-blue-400',
-    'Class': 'bg-purple-500/20 text-purple-400',
+    General: 'bg-blue-500/20 text-blue-400',
+    Class: 'bg-purple-500/20 text-purple-400',
     'Class Skillsets': 'bg-violet-500/20 text-violet-400',
-    'Spec': 'bg-amber-500/20 text-amber-400',
-    'Race': 'bg-green-500/20 text-green-400',
-    'Redirect': 'bg-gray-500/20 text-gray-400',
+    Spec: 'bg-amber-500/20 text-amber-400',
+    Race: 'bg-green-500/20 text-green-400',
+    Redirect: 'bg-gray-500/20 text-gray-400',
   }
   return colors[categoryName] || 'bg-cyan-500/20 text-cyan-400'
 }

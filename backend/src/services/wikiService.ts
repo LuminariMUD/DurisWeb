@@ -2,7 +2,15 @@ import { pool } from '../db/connection.js';
 import { RowDataPacket } from 'mysql2';
 import { getCache, setCache, mapToObject, objectToMapNumeric, objectToMap } from '../db/redis.js';
 import sharp from 'sharp';
-import { parseWldFile, parseObjFile, getZonePositions, getZoneBaseName, listZones, parseZonFile, parseMobFile } from './zoneBuilderParser.js';
+import {
+  parseWldFile,
+  parseObjFile,
+  getZonePositions,
+  getZoneBaseName,
+  listZones,
+  parseZonFile,
+  parseMobFile,
+} from './zoneBuilderParser.js';
 import type { Room } from '../types/builder.js';
 import logger from '../utils/logger.js';
 import { EQUIP_SLOTS } from '../types/builder.js';
@@ -12,12 +20,12 @@ const EX_SECRET = 64; // BIT_7
 
 // Cache TTLs in seconds
 const CACHE_TTL = {
-  mapTiles: 60 * 60,        // 1 hour - map data rarely changes
-  zoneEntrances: 60 * 60,   // 1 hour
-  mapBounds: 60 * 60 * 24,  // 24 hours - very static
+  mapTiles: 60 * 60, // 1 hour - map data rarely changes
+  zoneEntrances: 60 * 60, // 1 hour
+  mapBounds: 60 * 60 * 24, // 24 hours - very static
   continents: 60 * 60 * 24, // 24 hours - very static
-  zones: 5 * 60,            // 5 minutes
-  objects: 5 * 60,          // 5 minutes
+  zones: 5 * 60, // 5 minutes
+  objects: 5 * 60, // 5 minutes
 };
 
 // =============================================================================
@@ -103,7 +111,7 @@ export interface WikiObject {
   slots: string[];
   affects: WikiObjectAffect[];
   spellEffects: string[];
-  zoneNumber: number;  // Zone where this object is defined
+  zoneNumber: number; // Zone where this object is defined
 }
 
 export interface WikiObjectAffect {
@@ -147,17 +155,17 @@ export interface WikiZoneFilters {
 export interface WikiObjectFilters {
   search?: string;
   type?: number;
-  excludeTypes?: number[];  // Exclude these object types (e.g., Trash)
+  excludeTypes?: number[]; // Exclude these object types (e.g., Trash)
   slot?: number;
   minLevel?: number;
   maxLevel?: number;
   affectType?: number;
-  zone?: number;  // Filter by zone number
+  zone?: number; // Filter by zone number
   // Advanced filters - multiple conditions (AND logic)
-  affects?: { location: number; minModifier?: number }[];  // e.g., [{location: 19, minModifier: 5}] for +5 damroll
-  spellEffects?: string[];  // e.g., ['Detect Invisible', 'Sense Life']
-  allowedClass?: number;  // class bit value - filter items usable by this class
-  allowedRace?: number;   // race id - filter items usable by this race
+  affects?: { location: number; minModifier?: number }[]; // e.g., [{location: 19, minModifier: 5}] for +5 damroll
+  spellEffects?: string[]; // e.g., ['Detect Invisible', 'Sense Life']
+  allowedClass?: number; // class bit value - filter items usable by this class
+  allowedRace?: number; // race id - filter items usable by this race
 }
 
 export interface PaginationParams {
@@ -228,8 +236,8 @@ interface WikiObjectRow extends RowDataPacket {
   zone_number: number;
   obj_values: string | null;
   description: string | null;
-  slot_ids: string | null;      // GROUP_CONCAT result
-  affect_data: string | null;   // JSON_ARRAYAGG result
+  slot_ids: string | null; // GROUP_CONCAT result
+  affect_data: string | null; // JSON_ARRAYAGG result
   spell_effects: string | null; // GROUP_CONCAT result
 }
 
@@ -261,7 +269,7 @@ interface WikiMobRow extends RowDataPacket {
 
 export async function getWikiAccessLevel(): Promise<'public' | 'registered'> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT value FROM wiki_settings WHERE `key` = 'access_level'"
+    "SELECT value FROM wiki_settings WHERE `key` = 'access_level'",
   );
 
   if (rows.length > 0 && rows[0].value === 'registered') {
@@ -274,13 +282,13 @@ export async function getWikiAccessLevel(): Promise<'public' | 'registered'> {
 export async function setWikiAccessLevel(level: 'public' | 'registered'): Promise<void> {
   await pool.query(
     "UPDATE wiki_settings SET value = ?, updated_at = NOW() WHERE `key` = 'access_level'",
-    [level]
+    [level],
   );
 }
 
 export async function getRealtimeEnabled(): Promise<boolean> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT value FROM wiki_settings WHERE `key` = 'realtime_enabled'"
+    "SELECT value FROM wiki_settings WHERE `key` = 'realtime_enabled'",
   );
 
   return rows.length > 0 && rows[0].value === 'true';
@@ -302,7 +310,7 @@ export async function getContinents(): Promise<WikiContinent[]> {
   const [rows] = await pool.query<ContinentRow[]>(
     `SELECT id, name, name_ansi, seed_room_vnum, center_x, center_y
      FROM wiki_continents
-     ORDER BY id`
+     ORDER BY id`,
   );
 
   const result = rows.map((row) => ({
@@ -333,7 +341,9 @@ export async function getMapTiles(bounds: MapBounds, zLevel: number = 0): Promis
   const area = width * height;
 
   if (area > MAX_TILES_PER_REQUEST) {
-    throw new Error(`Requested area too large (${area} tiles). Maximum is ${MAX_TILES_PER_REQUEST}. Zoom in or reduce viewport.`);
+    throw new Error(
+      `Requested area too large (${area} tiles). Maximum is ${MAX_TILES_PER_REQUEST}. Zoom in or reduce viewport.`,
+    );
   }
 
   if (width <= 0 || height <= 0) {
@@ -354,7 +364,7 @@ export async function getMapTiles(bounds: MapBounds, zLevel: number = 0): Promis
      FROM wiki_map_positions
      WHERE x_coord >= ? AND x_coord <= ? AND y_coord >= ? AND y_coord <= ? AND z_coord = ?
      ORDER BY y_coord, x_coord`,
-    [bounds.minX, bounds.maxX, bounds.minY, bounds.maxY, zLevel]
+    [bounds.minX, bounds.maxX, bounds.minY, bounds.maxY, zLevel],
   );
 
   const result = rows.map((row) => ({
@@ -376,7 +386,10 @@ export async function getMapTiles(bounds: MapBounds, zLevel: number = 0): Promis
   return result;
 }
 
-export async function getZoneEntrances(bounds: MapBounds, zLevel: number = 0): Promise<WikiZoneEntrance[]> {
+export async function getZoneEntrances(
+  bounds: MapBounds,
+  zLevel: number = 0,
+): Promise<WikiZoneEntrance[]> {
   // Cache key based on bounds and layer
   const cacheKey = `wiki:entrances:${bounds.minX}:${bounds.maxX}:${bounds.minY}:${bounds.maxY}:${zLevel}`;
 
@@ -401,7 +414,7 @@ export async function getZoneEntrances(bounds: MapBounds, zLevel: number = 0): P
        AND wze.to_zone_number NOT IN (5000, 7000)
        AND wze.to_zone_number NOT BETWEEN 6600 AND 6899
      ORDER BY wze.y_coord, wze.x_coord`,
-    [bounds.minX, bounds.maxX, bounds.minY, bounds.maxY, zLevel]
+    [bounds.minX, bounds.maxX, bounds.minY, bounds.maxY, zLevel],
   );
 
   const result = rows.map((row) => ({
@@ -421,11 +434,15 @@ export async function getZoneEntrances(bounds: MapBounds, zLevel: number = 0): P
   return result;
 }
 
-export async function getMapBounds(layer?: number): Promise<{ minX: number; maxX: number; minY: number; maxY: number }> {
+export async function getMapBounds(
+  layer?: number,
+): Promise<{ minX: number; maxX: number; minY: number; maxY: number }> {
   const cacheKey = layer !== undefined ? `wiki:mapBounds:${layer}` : 'wiki:mapBounds';
 
   // Try cache first
-  const cached = await getCache<{ minX: number; maxX: number; minY: number; maxY: number }>(cacheKey);
+  const cached = await getCache<{ minX: number; maxX: number; minY: number; maxY: number }>(
+    cacheKey,
+  );
   if (cached) {
     return cached;
   }
@@ -464,7 +481,7 @@ export async function getMapBounds(layer?: number): Promise<{ minX: number; maxX
 
 export async function getZones(
   filters: WikiZoneFilters = {},
-  pagination: PaginationParams = { page: 1, limit: 20, sortBy: 'number', sortOrder: 'asc' }
+  pagination: PaginationParams = { page: 1, limit: 20, sortBy: 'number', sortOrder: 'asc' },
 ): Promise<{ zones: WikiZone[]; total: number; page: number; limit: number; totalPages: number }> {
   const { page, limit, sortBy = 'number', sortOrder = 'asc' } = pagination;
   const offset = (page - 1) * limit;
@@ -556,12 +573,16 @@ export async function getZones(
 /**
  * Get simple zone list for dropdowns (no pagination, minimal data)
  */
-export async function searchZones(query: string, limit: number = 20, offset: number = 0): Promise<{ zones: { number: number; name: string }[]; hasMore: boolean }> {
+export async function searchZones(
+  query: string,
+  limit: number = 20,
+  offset: number = 0,
+): Promise<{ zones: { number: number; name: string }[]; hasMore: boolean }> {
   // If no query, return zones ordered by number with pagination
   if (!query) {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT number, name FROM zones ORDER BY number LIMIT ? OFFSET ?`,
-      [limit + 1, offset]  // Fetch one extra to check if there's more
+      [limit + 1, offset], // Fetch one extra to check if there's more
     );
     const hasMore = rows.length > limit;
     const zones = rows.slice(0, limit).map((row) => ({
@@ -581,7 +602,7 @@ export async function searchZones(query: string, limit: number = 20, offset: num
         OR REPLACE(REPLACE(REPLACE(name, '&+', ''), '&-', ''), '&n', '') LIKE ?
      ORDER BY number
      LIMIT ? OFFSET ?`,
-    [`${cleanQuery}%`, `%${cleanQuery}%`, limit + 1, offset]
+    [`${cleanQuery}%`, `%${cleanQuery}%`, limit + 1, offset],
   );
 
   const hasMore = rows.length > limit;
@@ -598,7 +619,7 @@ export async function getZoneByNumber(zoneNumber: number): Promise<WikiZoneDetai
     `SELECT z.number, z.name, z.epic_type, z.alignment, z.difficulty
      FROM zones z
      WHERE z.number = ?`,
-    [zoneNumber]
+    [zoneNumber],
   );
 
   if (zoneRows.length === 0) {
@@ -728,7 +749,7 @@ async function getObjectTypeNameMap(): Promise<Record<number, string>> {
   if (objectTypeNamesCache) return objectTypeNamesCache;
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT value, name FROM builder_flags WHERE category = 'obj_type'`
+      `SELECT value, name FROM builder_flags WHERE category = 'obj_type'`,
     );
     objectTypeNamesCache = {};
     for (const row of rows) {
@@ -804,7 +825,18 @@ function parseExtraFlags(extraFlags: number, extraFlags2: number = 0): string[] 
   for (const [bit, name] of Object.entries(EXTRA_FLAG_NAMES)) {
     if (extraFlags & parseInt(bit)) {
       // skip internal flags that users don't care about
-      if (!['No Show', 'Buried', 'Generic Proc', 'No Reset', 'Ignore Item', 'Was Encrusted', 'Allowed Races', 'Allowed Classes'].includes(name)) {
+      if (
+        ![
+          'No Show',
+          'Buried',
+          'Generic Proc',
+          'No Reset',
+          'Ignore Item',
+          'Was Encrusted',
+          'Allowed Races',
+          'Allowed Classes',
+        ].includes(name)
+      ) {
         names.push(name);
       }
     }
@@ -824,35 +856,58 @@ function parseExtraFlags(extraFlags: number, extraFlags2: number = 0): string[] 
 // Note: BIT_1 = 1 (ITEM_TAKE), not a wear slot
 const WEAR_SLOT_NAMES: Record<number, string> = {
   // 1: ITEM_TAKE - not a wear slot
-  2: 'finger',      // BIT_2 = ITEM_WEAR_FINGER
-  4: 'neck',        // BIT_3 = ITEM_WEAR_NECK
-  8: 'body',        // BIT_4 = ITEM_WEAR_BODY
-  16: 'head',       // BIT_5 = ITEM_WEAR_HEAD
-  32: 'legs',       // BIT_6 = ITEM_WEAR_LEGS
-  64: 'feet',       // BIT_7 = ITEM_WEAR_FEET
-  128: 'hands',     // BIT_8 = ITEM_WEAR_HANDS
-  256: 'arms',      // BIT_9 = ITEM_WEAR_ARMS
-  512: 'shield',    // BIT_10 = ITEM_WEAR_SHIELD
-  1024: 'about',    // BIT_11 = ITEM_WEAR_ABOUT
-  2048: 'waist',    // BIT_12 = ITEM_WEAR_WAIST
-  4096: 'wrist',    // BIT_13 = ITEM_WEAR_WRIST
-  8192: 'wield',    // BIT_14 = ITEM_WIELD
-  16384: 'hold',    // BIT_15 = ITEM_HOLD
-  32768: 'throw',   // BIT_16 = ITEM_THROW
-  65536: 'light',   // BIT_17 = ITEM_LIGHT_SOURCE
-  131072: 'eyes',   // BIT_18 = ITEM_WEAR_EYES
-  262144: 'face',   // BIT_19 = ITEM_WEAR_FACE
-  524288: 'ear',    // BIT_20 = ITEM_WEAR_EARRING
+  2: 'finger', // BIT_2 = ITEM_WEAR_FINGER
+  4: 'neck', // BIT_3 = ITEM_WEAR_NECK
+  8: 'body', // BIT_4 = ITEM_WEAR_BODY
+  16: 'head', // BIT_5 = ITEM_WEAR_HEAD
+  32: 'legs', // BIT_6 = ITEM_WEAR_LEGS
+  64: 'feet', // BIT_7 = ITEM_WEAR_FEET
+  128: 'hands', // BIT_8 = ITEM_WEAR_HANDS
+  256: 'arms', // BIT_9 = ITEM_WEAR_ARMS
+  512: 'shield', // BIT_10 = ITEM_WEAR_SHIELD
+  1024: 'about', // BIT_11 = ITEM_WEAR_ABOUT
+  2048: 'waist', // BIT_12 = ITEM_WEAR_WAIST
+  4096: 'wrist', // BIT_13 = ITEM_WEAR_WRIST
+  8192: 'wield', // BIT_14 = ITEM_WIELD
+  16384: 'hold', // BIT_15 = ITEM_HOLD
+  32768: 'throw', // BIT_16 = ITEM_THROW
+  65536: 'light', // BIT_17 = ITEM_LIGHT_SOURCE
+  131072: 'eyes', // BIT_18 = ITEM_WEAR_EYES
+  262144: 'face', // BIT_19 = ITEM_WEAR_FACE
+  524288: 'ear', // BIT_20 = ITEM_WEAR_EARRING
 };
 
 // slot_id (sequential) to name - matches import script mapping
 const SLOT_ID_NAMES: Record<number, string> = {
-  1: 'finger', 2: 'neck', 3: 'body', 4: 'head', 5: 'legs',
-  6: 'feet', 7: 'hands', 8: 'arms', 9: 'shield', 10: 'about',
-  11: 'waist', 12: 'wrist', 13: 'wield', 14: 'hold', 15: 'throw',
-  16: 'light', 17: 'eyes', 18: 'face', 19: 'ear', 20: 'quiver',
-  21: 'insignia', 22: 'back', 23: 'belt', 24: 'horse body',
-  25: 'tail', 26: 'nose', 27: 'horn', 28: 'ioun', 29: 'spider body',
+  1: 'finger',
+  2: 'neck',
+  3: 'body',
+  4: 'head',
+  5: 'legs',
+  6: 'feet',
+  7: 'hands',
+  8: 'arms',
+  9: 'shield',
+  10: 'about',
+  11: 'waist',
+  12: 'wrist',
+  13: 'wield',
+  14: 'hold',
+  15: 'throw',
+  16: 'light',
+  17: 'eyes',
+  18: 'face',
+  19: 'ear',
+  20: 'quiver',
+  21: 'insignia',
+  22: 'back',
+  23: 'belt',
+  24: 'horse body',
+  25: 'tail',
+  26: 'nose',
+  27: 'horn',
+  28: 'ioun',
+  29: 'spider body',
 };
 
 // Affect location names (APPLY_* from MUD)
@@ -1013,7 +1068,7 @@ function getSpellEffects(
   bitvector: number,
   bitvector2: number,
   bitvector3: number,
-  bitvector4: number
+  bitvector4: number,
 ): string[] {
   const effects: string[] = [];
 
@@ -1093,7 +1148,7 @@ async function buildObjectDetailsCacheFromSource(): Promise<Map<number, CachedOb
           obj.bitvector || 0,
           obj.bitvector2 || 0,
           obj.bitvector3 || 0,
-          obj.bitvector4 || 0
+          obj.bitvector4 || 0,
         );
 
         const wikiObject: WikiObject = {
@@ -1150,8 +1205,14 @@ async function getObjectDetailsCached(): Promise<Map<number, CachedObjectDetail>
 
 export async function getObjects(
   filters: WikiObjectFilters = {},
-  pagination: PaginationParams = { page: 1, limit: 20, sortBy: 'vnum', sortOrder: 'asc' }
-): Promise<{ objects: WikiObject[]; total: number; page: number; limit: number; totalPages: number }> {
+  pagination: PaginationParams = { page: 1, limit: 20, sortBy: 'vnum', sortOrder: 'asc' },
+): Promise<{
+  objects: WikiObject[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}> {
   const { page, limit, sortBy = 'vnum', sortOrder = 'asc' } = pagination;
 
   // build WHERE conditions
@@ -1191,13 +1252,17 @@ export async function getObjects(
 
   // slot filter - check wiki_object_slots
   if (filters.slot !== undefined) {
-    conditions.push('EXISTS (SELECT 1 FROM wiki_object_slots WHERE object_vnum = o.vnum AND slot_id = ?)');
+    conditions.push(
+      'EXISTS (SELECT 1 FROM wiki_object_slots WHERE object_vnum = o.vnum AND slot_id = ?)',
+    );
     params.push(filters.slot);
   }
 
   // single affect type filter
   if (filters.affectType !== undefined) {
-    conditions.push('EXISTS (SELECT 1 FROM wiki_object_affects WHERE object_vnum = o.vnum AND location = ?)');
+    conditions.push(
+      'EXISTS (SELECT 1 FROM wiki_object_affects WHERE object_vnum = o.vnum AND location = ?)',
+    );
     params.push(filters.affectType);
   }
 
@@ -1205,10 +1270,14 @@ export async function getObjects(
   if (filters.affects && filters.affects.length > 0) {
     for (const reqAffect of filters.affects) {
       if (reqAffect.minModifier !== undefined) {
-        conditions.push('EXISTS (SELECT 1 FROM wiki_object_affects WHERE object_vnum = o.vnum AND location = ? AND modifier >= ?)');
+        conditions.push(
+          'EXISTS (SELECT 1 FROM wiki_object_affects WHERE object_vnum = o.vnum AND location = ? AND modifier >= ?)',
+        );
         params.push(reqAffect.location, reqAffect.minModifier);
       } else {
-        conditions.push('EXISTS (SELECT 1 FROM wiki_object_affects WHERE object_vnum = o.vnum AND location = ?)');
+        conditions.push(
+          'EXISTS (SELECT 1 FROM wiki_object_affects WHERE object_vnum = o.vnum AND location = ?)',
+        );
         params.push(reqAffect.location);
       }
     }
@@ -1217,7 +1286,9 @@ export async function getObjects(
   // spell effects filter (AND logic)
   if (filters.spellEffects && filters.spellEffects.length > 0) {
     for (const effectName of filters.spellEffects) {
-      conditions.push('EXISTS (SELECT 1 FROM wiki_object_spell_effects WHERE object_vnum = o.vnum AND LOWER(effect_name) = LOWER(?))');
+      conditions.push(
+        'EXISTS (SELECT 1 FROM wiki_object_spell_effects WHERE object_vnum = o.vnum AND LOWER(effect_name) = LOWER(?))',
+      );
       params.push(effectName);
     }
   }
@@ -1273,7 +1344,7 @@ export async function getObjects(
   // get total count first
   const [countRows] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) as total FROM wiki_objects o WHERE ${whereClause}`,
-    params
+    params,
   );
   const total = countRows[0].total as number;
 
@@ -1289,7 +1360,7 @@ export async function getObjects(
      WHERE ${whereClause}
      ORDER BY ${orderBy} ${orderDir}
      LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+    [...params, limit, offset],
   );
 
   // get type names for mapping
@@ -1305,7 +1376,8 @@ export async function getObjects(
     let affects: WikiObjectAffect[] = [];
     if (row.affect_data) {
       try {
-        const parsed = typeof row.affect_data === 'string' ? JSON.parse(row.affect_data) : row.affect_data;
+        const parsed =
+          typeof row.affect_data === 'string' ? JSON.parse(row.affect_data) : row.affect_data;
         if (Array.isArray(parsed)) {
           affects = parsed
             .filter((a: { location: number; modifier: number }) => a && a.location > 0)
@@ -1396,7 +1468,11 @@ export async function getObjectByVnum(vnum: number): Promise<WikiObjectDetail | 
               });
             }
           }
-        } else if ((reset.command === 'G' || reset.command === 'E') && currentMobVnum !== null && reset.arg1 === vnum) {
+        } else if (
+          (reset.command === 'G' || reset.command === 'E') &&
+          currentMobVnum !== null &&
+          reset.arg1 === vnum
+        ) {
           // Give/Equip object to current mob: arg1=objVnum
           const mob = mobMap.get(currentMobVnum);
           if (mob) {
@@ -1440,7 +1516,7 @@ export async function getObjectByVnum(vnum: number): Promise<WikiObjectDetail | 
   try {
     const [classRows] = await pool.query<RowDataPacket[]>(
       'SELECT class_id, is_allowed FROM wiki_object_classes WHERE object_vnum = ?',
-      [vnum]
+      [vnum],
     );
     for (const row of classRows) {
       classRestrictions.push({
@@ -1451,7 +1527,7 @@ export async function getObjectByVnum(vnum: number): Promise<WikiObjectDetail | 
 
     const [raceRows] = await pool.query<RowDataPacket[]>(
       'SELECT race_id, is_allowed FROM wiki_object_races WHERE object_vnum = ?',
-      [vnum]
+      [vnum],
     );
     for (const row of raceRows) {
       raceRestrictions.push({
@@ -1496,7 +1572,7 @@ export async function getObjectTypes(): Promise<{ id: number; name: string }[]> 
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT value, name FROM builder_flags
      WHERE category = 'obj_type'
-     ORDER BY value`
+     ORDER BY value`,
   );
   return rows.map((row) => ({
     id: Number(row.value),
@@ -1506,7 +1582,7 @@ export async function getObjectTypes(): Promise<{ id: number; name: string }[]> 
 
 export async function getWearSlotTypes(): Promise<{ id: number; name: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT DISTINCT slot_id FROM wiki_object_slots ORDER BY slot_id'
+    'SELECT DISTINCT slot_id FROM wiki_object_slots ORDER BY slot_id',
   );
   return rows.map((row) => ({
     id: row.slot_id,
@@ -1516,7 +1592,7 @@ export async function getWearSlotTypes(): Promise<{ id: number; name: string }[]
 
 export async function getAffectTypes(): Promise<{ id: number; name: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT DISTINCT location FROM wiki_object_affects WHERE location > 0 ORDER BY location'
+    'SELECT DISTINCT location FROM wiki_object_affects WHERE location > 0 ORDER BY location',
   );
   return rows.map((row) => ({
     id: row.location,
@@ -1526,7 +1602,7 @@ export async function getAffectTypes(): Promise<{ id: number; name: string }[]> 
 
 export async function getSpellEffectTypes(): Promise<string[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT DISTINCT effect_name FROM wiki_object_spell_effects ORDER BY effect_name'
+    'SELECT DISTINCT effect_name FROM wiki_object_spell_effects ORDER BY effect_name',
   );
   return rows.map((row) => row.effect_name);
 }
@@ -1567,7 +1643,7 @@ const OBJECT_CLASS_NAMES: Record<number, string> = {
 // classes that have items with restrictions in the database
 export async function getObjectClasses(): Promise<{ id: number; name: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT DISTINCT class_id FROM wiki_object_classes ORDER BY class_id'
+    'SELECT DISTINCT class_id FROM wiki_object_classes ORDER BY class_id',
   );
   return rows.map((row) => ({
     id: row.class_id,
@@ -1578,7 +1654,7 @@ export async function getObjectClasses(): Promise<{ id: number; name: string }[]
 // races that have items with restrictions in the database
 export async function getObjectRaces(): Promise<{ id: number; name: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT DISTINCT race_id FROM wiki_object_races ORDER BY race_id'
+    'SELECT DISTINCT race_id FROM wiki_object_races ORDER BY race_id',
   );
   return rows.map((row) => ({
     id: row.race_id,
@@ -1784,7 +1860,7 @@ function getRaceName(species: number): string {
 
 export interface WikiMob {
   vnum: number;
-  name: string;           // shortDesc
+  name: string; // shortDesc
   keywords: string;
   level: number;
   alignment: number;
@@ -1795,30 +1871,30 @@ export interface WikiMob {
   zoneNumber: number;
   zoneName: string;
   // New fields
-  species: number;        // Race ID
-  raceName: string;       // Race name
-  actFlags: number;       // Raw ACT flags bitvector
-  flags: string[];        // Parsed flag names (without ACT_ prefix)
+  species: number; // Race ID
+  raceName: string; // Race name
+  actFlags: number; // Raw ACT flags bitvector
+  flags: string[]; // Parsed flag names (without ACT_ prefix)
 }
 
 export interface WikiMobEquipment {
   vnum: number;
   name: string;
-  slot: string;        // 'inventory', 'wielded', 'held', 'worn on body', etc.
+  slot: string; // 'inventory', 'wielded', 'held', 'worn on body', etc.
   itemType: number;
   itemTypeName: string;
 }
 
 export interface WikiMobDetail extends WikiMob {
-  longDesc: string;       // Room description (what you see when in room)
-  detailedDesc: string;   // Look description (when you look at mob)
+  longDesc: string; // Room description (what you see when in room)
+  detailedDesc: string; // Look description (when you look at mob)
   hitDice: string;
   damDice: string;
   ac: number;
   thac0: number;
   zoneLocations: { zoneNumber: number; zoneName: string }[];
   spawnRooms: { roomVnum: number; roomName: string }[];
-  equipment: WikiMobEquipment[];  // Objects that load on this mob
+  equipment: WikiMobEquipment[]; // Objects that load on this mob
 }
 
 export interface WikiMobFilters {
@@ -1829,9 +1905,9 @@ export interface WikiMobFilters {
   alignmentMax?: number;
   mobClass?: number;
   // New filters
-  race?: number;          // Filter by species/race
-  flag?: number;          // Filter by ACT flag (bitvector value, e.g., 1 for SPEC, 32768 for TEACHER)
-  zone?: number;          // Filter by zone number
+  race?: number; // Filter by species/race
+  flag?: number; // Filter by ACT flag (bitvector value, e.g., 1 for SPEC, 32768 for TEACHER)
+  zone?: number; // Filter by zone number
 }
 
 // Extended cache for full mob details (includes zone info)
@@ -1855,7 +1931,7 @@ const MOBS_CACHE_TTL_SECONDS = 30 * 60; // 30 minutes
 // get connected zone numbers (zones with entrances from the world map)
 async function getConnectedZoneNumbers(): Promise<Set<number>> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT DISTINCT to_zone_number FROM wiki_zone_entrances WHERE to_zone_number > 0`
+    `SELECT DISTINCT to_zone_number FROM wiki_zone_entrances WHERE to_zone_number > 0`,
   );
   return new Set(rows.map((r) => r.to_zone_number as number));
 }
@@ -1931,7 +2007,7 @@ async function getMobDetailsCached(): Promise<Map<string, CachedMobDetail>> {
 
 export async function getMobs(
   filters: WikiMobFilters = {},
-  pagination: PaginationParams = { page: 1, limit: 20, sortBy: 'vnum', sortOrder: 'asc' }
+  pagination: PaginationParams = { page: 1, limit: 20, sortBy: 'vnum', sortOrder: 'asc' },
 ): Promise<{ mobs: WikiMob[]; total: number; page: number; limit: number; totalPages: number }> {
   const { page, limit, sortBy = 'vnum', sortOrder = 'asc' } = pagination;
 
@@ -2015,7 +2091,7 @@ export async function getMobs(
   // get total count first
   const [countRows] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) as total FROM wiki_mobs m WHERE ${whereClause}`,
-    params
+    params,
   );
   const total = countRows[0].total as number;
 
@@ -2028,7 +2104,7 @@ export async function getMobs(
      WHERE ${whereClause}
      ORDER BY ${orderBy} ${orderDir}
      LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+    [...params, limit, offset],
   );
 
   // transform rows to WikiMob
@@ -2065,7 +2141,10 @@ export async function getMobs(
   };
 }
 
-export async function getMobByZoneAndVnum(zoneNumber: number, vnum: number): Promise<WikiMobDetail | null> {
+export async function getMobByZoneAndVnum(
+  zoneNumber: number,
+  vnum: number,
+): Promise<WikiMobDetail | null> {
   // Use the shared detailed cache with composite key
   const cache = await getMobDetailsCached();
   const compositeKey = `${zoneNumber}:${vnum}`;
@@ -2196,7 +2275,7 @@ export async function getMobByZoneAndVnum(zoneNumber: number, vnum: number): Pro
 
 export async function getMobClasses(): Promise<{ id: number; name: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT DISTINCT mob_class FROM wiki_mobs ORDER BY mob_class'
+    'SELECT DISTINCT mob_class FROM wiki_mobs ORDER BY mob_class',
   );
   return rows.map((row) => ({
     id: Number(row.mob_class), // bigint comes as string
@@ -2207,7 +2286,7 @@ export async function getMobClasses(): Promise<{ id: number; name: string }[]> {
 // export races list for filter dropdown - dynamic from database
 export async function getMobRaces(): Promise<{ id: number; name: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT DISTINCT species FROM wiki_mobs ORDER BY species'
+    'SELECT DISTINCT species FROM wiki_mobs ORDER BY species',
   );
   return rows.map((row) => ({
     id: row.species,
@@ -2218,26 +2297,54 @@ export async function getMobRaces(): Promise<{ id: number; name: string }[]> {
 // export act flags for legend - dynamic from database
 export async function getActFlags(): Promise<{ id: number; name: string; description: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT DISTINCT flag_id FROM wiki_mob_flags ORDER BY flag_id'
+    'SELECT DISTINCT flag_id FROM wiki_mob_flags ORDER BY flag_id',
   );
   // convert flag_id back to bitvector value for lookup
   const flagBitValues: Record<number, number> = {
-    1: 1, 2: 2, 3: 4, 4: 8, 5: 16, 6: 32, 7: 64, 8: 128,
-    9: 256, 10: 512, 11: 1024, 12: 2048, 13: 4096, 14: 8192,
-    15: 16384, 16: 32768, 17: 65536, 18: 131072, 19: 262144,
-    20: 524288, 21: 1048576, 22: 2097152, 23: 4194304, 24: 8388608,
-    25: 16777216, 26: 33554432, 27: 67108864, 28: 134217728,
-    29: 268435456, 30: 536870912, 31: 1073741824, 32: 2147483648,
+    1: 1,
+    2: 2,
+    3: 4,
+    4: 8,
+    5: 16,
+    6: 32,
+    7: 64,
+    8: 128,
+    9: 256,
+    10: 512,
+    11: 1024,
+    12: 2048,
+    13: 4096,
+    14: 8192,
+    15: 16384,
+    16: 32768,
+    17: 65536,
+    18: 131072,
+    19: 262144,
+    20: 524288,
+    21: 1048576,
+    22: 2097152,
+    23: 4194304,
+    24: 8388608,
+    25: 16777216,
+    26: 33554432,
+    27: 67108864,
+    28: 134217728,
+    29: 268435456,
+    30: 536870912,
+    31: 1073741824,
+    32: 2147483648,
   };
-  return rows.map((row) => {
-    const bitValue = flagBitValues[row.flag_id] || 0;
-    const info = ACT_FLAG_NAMES[bitValue] || { name: `Flag ${row.flag_id}`, description: '' };
-    return {
-      id: bitValue,
-      name: info.name,
-      description: info.description,
-    };
-  }).filter((f) => f.id > 0);
+  return rows
+    .map((row) => {
+      const bitValue = flagBitValues[row.flag_id] || 0;
+      const info = ACT_FLAG_NAMES[bitValue] || { name: `Flag ${row.flag_id}`, description: '' };
+      return {
+        id: bitValue,
+        name: info.name,
+        description: info.description,
+      };
+    })
+    .filter((f) => f.id > 0);
 }
 
 // =============================================================================
@@ -2246,30 +2353,31 @@ export async function getActFlags(): Promise<{ id: number; name: string; descrip
 
 export interface WikiShopItem {
   vnum: number;
-  name: string;           // shortDesc of the item
+  name: string; // shortDesc of the item
   itemType?: number;
   itemTypeName?: string;
-  price?: number;         // Calculated price (cost * sellMultiplier)
+  price?: number; // Calculated price (cost * sellMultiplier)
 }
 
 export interface WikiRoomSpawn {
   type: 'mob' | 'object';
   vnum: number;
-  name: string;           // longDesc (what you see in room)
-  shortDesc: string;      // For tooltips/links
-  level?: number;         // For mobs
-  itemType?: number;      // For objects
+  name: string; // longDesc (what you see in room)
+  shortDesc: string; // For tooltips/links
+  level?: number; // For mobs
+  itemType?: number; // For objects
   itemTypeName?: string;
   isShopkeeper?: boolean; // True if this mob is a shopkeeper
   shopItems?: WikiShopItem[]; // Items the shopkeeper sells
 }
 
 export interface WikiZoneSpawns {
-  roomSpawns: Record<number, WikiRoomSpawn[]>;  // roomVnum -> spawns
+  roomSpawns: Record<number, WikiRoomSpawn[]>; // roomVnum -> spawns
 }
 
 export async function getZoneSpawns(zoneNumber: number): Promise<WikiZoneSpawns> {
-  const { getZoneBaseName, parseZonFile, parseMobFile, parseObjFile, parseAllShopFiles } = await import('./zoneBuilderParser.js');
+  const { getZoneBaseName, parseZonFile, parseMobFile, parseObjFile, parseAllShopFiles } =
+    await import('./zoneBuilderParser.js');
 
   // Get zone base name
   const zoneBaseName = await getZoneBaseName(zoneNumber);
@@ -2378,7 +2486,9 @@ export async function getZoneSpawns(zoneNumber: number): Promise<WikiZoneSpawns>
         }
 
         // Check if object already in room (avoid duplicates)
-        const existing = roomSpawns[roomVnum].find((s) => s.type === 'object' && s.vnum === objVnum);
+        const existing = roomSpawns[roomVnum].find(
+          (s) => s.type === 'object' && s.vnum === objVnum,
+        );
         if (!existing) {
           roomSpawns[roomVnum].push({
             type: 'object',
@@ -2404,41 +2514,41 @@ export async function getZoneSpawns(zoneNumber: number): Promise<WikiZoneSpawns>
 
 // Sector type colors as RGB values (from MUD defines.h)
 const SECTOR_COLORS_RGB: Record<number, [number, number, number]> = {
-  0: [120, 113, 108],   // SECT_INSIDE - stone gray
-  1: [255, 255, 255],   // SECT_CITY - white
-  2: [74, 222, 128],    // SECT_FIELD - green
-  3: [22, 163, 74],     // SECT_FOREST - darker green
-  4: [234, 179, 8],     // SECT_HILLS - yellow
-  5: [161, 98, 7],      // SECT_MOUNTAIN - brown
-  6: [34, 211, 238],    // SECT_WATER_SWIM - cyan
-  7: [59, 130, 246],    // SECT_WATER_NOSWIM - blue
-  8: [125, 211, 252],   // SECT_NO_GROUND - sky blue (air)
-  9: [29, 78, 216],     // SECT_UNDERWATER - dark blue
-  10: [30, 64, 175],    // SECT_UNDERWATER_GR - darker blue
-  11: [239, 68, 68],    // SECT_FIREPLANE - red/orange
-  12: [30, 58, 138],    // SECT_OCEAN - deep blue
-  13: [126, 34, 206],   // SECT_UNDRWLD_WILD - dark purple
-  14: [216, 180, 254],  // SECT_UNDRWLD_CITY - light purple
-  15: [68, 64, 60],     // SECT_UNDRWLD_INSIDE - dark stone
-  16: [99, 102, 241],   // SECT_UNDRWLD_WATER - indigo
-  17: [79, 70, 229],    // SECT_UNDRWLD_NOSWIM - indigo darker
-  18: [28, 25, 23],     // SECT_UNDRWLD_NOGROUND - near black
-  19: [125, 211, 252],  // SECT_AIR_PLANE - sky blue
-  20: [6, 182, 212],    // SECT_WATER_PLANE - cyan
-  21: [120, 113, 108],  // SECT_EARTH_PLANE - stone
-  22: [196, 181, 253],  // SECT_ETHEREAL - light violet
-  23: [167, 139, 250],  // SECT_ASTRAL - violet
-  24: [254, 240, 138],  // SECT_DESERT - light yellow
-  25: [241, 245, 249],  // SECT_ARCTIC - white/light gray
-  26: [168, 85, 247],   // SECT_SWAMP - purple
-  27: [88, 28, 135],    // SECT_UNDRWLD_MOUNTAIN - dark purple
-  28: [132, 204, 22],   // SECT_UNDRWLD_SLIME - lime
-  29: [88, 28, 135],    // SECT_UNDRWLD_LOWCEIL - dark purple
+  0: [120, 113, 108], // SECT_INSIDE - stone gray
+  1: [255, 255, 255], // SECT_CITY - white
+  2: [74, 222, 128], // SECT_FIELD - green
+  3: [22, 163, 74], // SECT_FOREST - darker green
+  4: [234, 179, 8], // SECT_HILLS - yellow
+  5: [161, 98, 7], // SECT_MOUNTAIN - brown
+  6: [34, 211, 238], // SECT_WATER_SWIM - cyan
+  7: [59, 130, 246], // SECT_WATER_NOSWIM - blue
+  8: [125, 211, 252], // SECT_NO_GROUND - sky blue (air)
+  9: [29, 78, 216], // SECT_UNDERWATER - dark blue
+  10: [30, 64, 175], // SECT_UNDERWATER_GR - darker blue
+  11: [239, 68, 68], // SECT_FIREPLANE - red/orange
+  12: [30, 58, 138], // SECT_OCEAN - deep blue
+  13: [126, 34, 206], // SECT_UNDRWLD_WILD - dark purple
+  14: [216, 180, 254], // SECT_UNDRWLD_CITY - light purple
+  15: [68, 64, 60], // SECT_UNDRWLD_INSIDE - dark stone
+  16: [99, 102, 241], // SECT_UNDRWLD_WATER - indigo
+  17: [79, 70, 229], // SECT_UNDRWLD_NOSWIM - indigo darker
+  18: [28, 25, 23], // SECT_UNDRWLD_NOGROUND - near black
+  19: [125, 211, 252], // SECT_AIR_PLANE - sky blue
+  20: [6, 182, 212], // SECT_WATER_PLANE - cyan
+  21: [120, 113, 108], // SECT_EARTH_PLANE - stone
+  22: [196, 181, 253], // SECT_ETHEREAL - light violet
+  23: [167, 139, 250], // SECT_ASTRAL - violet
+  24: [254, 240, 138], // SECT_DESERT - light yellow
+  25: [241, 245, 249], // SECT_ARCTIC - white/light gray
+  26: [168, 85, 247], // SECT_SWAMP - purple
+  27: [88, 28, 135], // SECT_UNDRWLD_MOUNTAIN - dark purple
+  28: [132, 204, 22], // SECT_UNDRWLD_SLIME - lime
+  29: [88, 28, 135], // SECT_UNDRWLD_LOWCEIL - dark purple
 };
 
 // Background colors
 const SURFACE_BG_RGB: [number, number, number] = [30, 58, 138]; // ocean blue
-const UNDERDARK_BG_RGB: [number, number, number] = [0, 0, 0];   // black
+const UNDERDARK_BG_RGB: [number, number, number] = [0, 0, 0]; // black
 
 /**
  * Generate a PNG image of the world map from tile data
@@ -2465,14 +2575,16 @@ export async function generateMapImage(layer: number = 0, scale: number = 4): Pr
     throw new Error('Invalid map bounds');
   }
 
-  logger.info(`Generating map image for layer ${layer}: ${width}x${height} pixels (scale ${scale}x)`);
+  logger.info(
+    `Generating map image for layer ${layer}: ${width}x${height} pixels (scale ${scale}x)`,
+  );
 
   // Query all tiles for this layer
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT x_coord, y_coord, sector_type
      FROM wiki_map_positions
      WHERE z_coord = ?`,
-    [layer]
+    [layer],
   );
 
   // Create RGBA buffer (4 bytes per pixel)
@@ -2484,10 +2596,10 @@ export async function generateMapImage(layer: number = 0, scale: number = 4): Pr
   // Fill with background color
   for (let i = 0; i < width * height; i++) {
     const offset = i * 4;
-    buffer[offset] = bgColor[0];     // R
+    buffer[offset] = bgColor[0]; // R
     buffer[offset + 1] = bgColor[1]; // G
     buffer[offset + 2] = bgColor[2]; // B
-    buffer[offset + 3] = 255;        // A (fully opaque)
+    buffer[offset + 3] = 255; // A (fully opaque)
   }
 
   // Draw each tile as a scaled block
@@ -2505,10 +2617,10 @@ export async function generateMapImage(layer: number = 0, scale: number = 4): Pr
 
         if (x >= 0 && x < width && y >= 0 && y < height) {
           const offset = (y * width + x) * 4;
-          buffer[offset] = color[0];     // R
+          buffer[offset] = color[0]; // R
           buffer[offset + 1] = color[1]; // G
           buffer[offset + 2] = color[2]; // B
-          buffer[offset + 3] = 255;      // A
+          buffer[offset + 3] = 255; // A
         }
       }
     }
@@ -2536,7 +2648,9 @@ export async function generateMapImage(layer: number = 0, scale: number = 4): Pr
 /**
  * Generate and save static map images to disk for all layers
  */
-export async function generateStaticMapImages(): Promise<{ layer: number; path: string; size: number }[]> {
+export async function generateStaticMapImages(): Promise<
+  { layer: number; path: string; size: number }[]
+> {
   const fs = await import('fs/promises');
   const path = await import('path');
 
@@ -2560,7 +2674,7 @@ export async function generateStaticMapImages(): Promise<{ layer: number; path: 
       results.push({
         layer,
         path: `/maps/${filename}`,
-        size: pngBuffer.length
+        size: pngBuffer.length,
       });
 
       logger.info(`Saved static map: ${filePath} (${pngBuffer.length} bytes)`);
@@ -2575,7 +2689,9 @@ export async function generateStaticMapImages(): Promise<{ layer: number; path: 
 /**
  * Get static map info (check if files exist)
  */
-export async function getStaticMapInfo(): Promise<{ layer: number; path: string; exists: boolean; size: number }[]> {
+export async function getStaticMapInfo(): Promise<
+  { layer: number; path: string; exists: boolean; size: number }[]
+> {
   const fs = await import('fs/promises');
   const path = await import('path');
 
@@ -2593,14 +2709,14 @@ export async function getStaticMapInfo(): Promise<{ layer: number; path: string;
         layer,
         path: `/maps/${filename}`,
         exists: true,
-        size: stats.size
+        size: stats.size,
       });
     } catch {
       results.push({
         layer,
         path: `/maps/${filename}`,
         exists: false,
-        size: 0
+        size: 0,
       });
     }
   }

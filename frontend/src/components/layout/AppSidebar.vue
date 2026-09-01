@@ -30,11 +30,14 @@ import NotificationBell from '@/components/forum/NotificationBell.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { accountName, avatarUrl, isAuthenticated, getRoleDisplayName, getRoleBadgeColor, logout } = useAuth()
+const { accountName, avatarUrl, isAuthenticated, getRoleDisplayName, getRoleBadgeColor, logout } =
+  useAuth()
 const { state } = useSidebar()
 
 const isForumSection = computed(() => route.path.startsWith('/forum'))
-const isAdminSection = computed(() => route.path.startsWith('/admin') || route.path.startsWith('/dashboard'))
+const isAdminSection = computed(
+  () => route.path.startsWith('/admin') || route.path.startsWith('/dashboard'),
+)
 
 async function handleLogout() {
   await logout()

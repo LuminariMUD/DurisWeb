@@ -72,25 +72,23 @@ export function useZoneStreaming(): UseZoneStreamingReturn {
   const roomProgress = computed(() =>
     roomState.value.total > 0
       ? Math.round((roomState.value.loaded / roomState.value.total) * 100)
-      : 0
+      : 0,
   )
 
   const mobProgress = computed(() =>
-    mobState.value.total > 0
-      ? Math.round((mobState.value.loaded / mobState.value.total) * 100)
-      : 0
+    mobState.value.total > 0 ? Math.round((mobState.value.loaded / mobState.value.total) * 100) : 0,
   )
 
   const objectProgress = computed(() =>
     objectState.value.total > 0
       ? Math.round((objectState.value.loaded / objectState.value.total) * 100)
-      : 0
+      : 0,
   )
 
   const resetProgress = computed(() =>
     resetState.value.total > 0
       ? Math.round((resetState.value.loaded / resetState.value.total) * 100)
-      : 0
+      : 0,
   )
 
   const isAnyStreaming = computed(
@@ -98,7 +96,7 @@ export function useZoneStreaming(): UseZoneStreamingReturn {
       roomState.value.isStreaming ||
       mobState.value.isStreaming ||
       objectState.value.isStreaming ||
-      resetState.value.isStreaming
+      resetState.value.isStreaming,
   )
 
   // Get state ref by type
@@ -241,25 +239,26 @@ export function useZoneStreaming(): UseZoneStreamingReturn {
     if (ws && wsConnected) {
       // Resets use a different message type
       if (type === 'resets') {
-        ws.send(JSON.stringify({
-          type: 'ZONE_RESETS_STREAM_START',
-          zoneId,
-        }))
+        ws.send(
+          JSON.stringify({
+            type: 'ZONE_RESETS_STREAM_START',
+            zoneId,
+          }),
+        )
       } else {
-        ws.send(JSON.stringify({
-          type: 'ZONE_STREAM_START',
-          zoneId,
-          streamType: type,
-        }))
+        ws.send(
+          JSON.stringify({
+            type: 'ZONE_STREAM_START',
+            zoneId,
+            streamType: type,
+          }),
+        )
       }
     }
   }
 
   // Generic stream function
-  async function streamData(
-    zoneId: string,
-    type: StreamType
-  ): Promise<void> {
+  async function streamData(zoneId: string, type: StreamType): Promise<void> {
     const state = getStateByType(type)
     const streamKey = `${zoneId}-${type}`
 

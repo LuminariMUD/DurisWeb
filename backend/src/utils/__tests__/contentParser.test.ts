@@ -1,9 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import {
-  processContentForWrite,
-  processForumContent,
-  sanitizeContent,
-} from '../contentParser.js';
+import { processContentForWrite, processForumContent, sanitizeContent } from '../contentParser.js';
 
 describe('content write validation', () => {
   it('reports oversized content before a write can occur', () => {

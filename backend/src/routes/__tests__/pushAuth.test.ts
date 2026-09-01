@@ -58,9 +58,7 @@ describe('push notification authentication boundary', () => {
   };
 
   it('requires the canonical auth middleware', async () => {
-    const response = await request(app)
-      .post('/api/push/subscribe')
-      .send({ subscription });
+    const response = await request(app).post('/api/push/subscribe').send({ subscription });
 
     expect(response.status).toBe(401);
     expect(saveSubscription).not.toHaveBeenCalled();

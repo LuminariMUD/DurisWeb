@@ -180,7 +180,7 @@ export function validateCondition(condition: string | undefined): string {
   }
 
   // Check for an operator
-  const hasOperator = OPERATORS.some(op => trimmed.includes(op))
+  const hasOperator = OPERATORS.some((op) => trimmed.includes(op))
   if (!hasOperator) {
     return 'Condition must contain a comparison operator (<, >, <=, >=, ==, !=)'
   }

@@ -36,7 +36,7 @@ const filters = computed({
 
 function updateFilter<K extends keyof FragLeaderboardFilters>(
   key: K,
-  value: FragLeaderboardFilters[K]
+  value: FragLeaderboardFilters[K],
 ) {
   filters.value = {
     ...filters.value,

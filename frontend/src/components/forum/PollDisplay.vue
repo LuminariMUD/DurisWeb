@@ -167,8 +167,7 @@ const actionError = ref<string | null>(null)
 const canManagePoll = computed(() => {
   if (!pollData.value || !accountName.value) return false
   return (
-    pollData.value.poll.createdByAccount === accountName.value ||
-    permissions.value?.canModerate
+    pollData.value.poll.createdByAccount === accountName.value || permissions.value?.canModerate
   )
 })
 

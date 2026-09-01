@@ -15,9 +15,12 @@ describe('ship coordinate frames', () => {
     ['south', { x: 50, y: 45 }, { x: 100, y: 105 }],
     ['east', { x: 55, y: 50 }, { x: 105, y: 100 }],
     ['west', { x: 45, y: 50 }, { x: 95, y: 100 }],
-  ])('%s converts tactical contact coordinates back to raw world coordinates', (_name, contact, expected) => {
-    expect(contactToWorldPosition(anchor, contact)).toEqual(expected)
-  })
+  ])(
+    '%s converts tactical contact coordinates back to raw world coordinates',
+    (_name, contact, expected) => {
+      expect(contactToWorldPosition(anchor, contact)).toEqual(expected)
+    },
+  )
 
   it('returns no world position without both verified world coordinates', () => {
     expect(getContactWorldPosition({}, { x: 55, y: 50 })).toBeNull()
@@ -26,7 +29,10 @@ describe('ship coordinate frames', () => {
   })
 
   it('returns a world position only when both coordinates are present', () => {
-    expect(getContactWorldPosition({ worldX: 100, worldY: 100 }, { x: 50, y: 50 })).toEqual({ x: 100, y: 100 })
+    expect(getContactWorldPosition({ worldX: 100, worldY: 100 }, { x: 50, y: 50 })).toEqual({
+      x: 100,
+      y: 100,
+    })
   })
 
   it('maps discrete map edges to the edge percentages', () => {

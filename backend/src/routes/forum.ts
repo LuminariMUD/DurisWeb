@@ -65,7 +65,7 @@ import {
   getGuildForumActivity,
   // Activity functions
   getLatestThreads,
-  getPopularThreads
+  getPopularThreads,
 } from '../services/forumService.js';
 import {
   createPoll,
@@ -75,14 +75,24 @@ import {
   removeVote,
   closePoll,
   deletePoll,
-  isPollCreator
+  isPollCreator,
 } from '../services/pollService.js';
-import { requireAuth, requireModerator, optionalAuth, requirePermission } from '../middleware/auth.js';
+import {
+  requireAuth,
+  requireModerator,
+  optionalAuth,
+  requirePermission,
+} from '../middleware/auth.js';
 import { getCharacterInfo, type UserPermissions } from '../services/permissionService.js';
 import { getCategoryAccessForAccount } from '../services/categoryService.js';
 import { parseAccountFile, findAccountByCharacter } from '../services/accountService.js';
 import { extractClientIP } from '../utils/ipExtractor.js';
-import { uploadAvatar, deleteAllAvatars, validateAvatarFile, isR2Configured } from '../services/r2Service.js';
+import {
+  uploadAvatar,
+  deleteAllAvatars,
+  validateAvatarFile,
+  isR2Configured,
+} from '../services/r2Service.js';
 import { broadcastForumPost } from '../index.js';
 import {
   uploadPostImage,
@@ -92,7 +102,7 @@ import {
   getOrphanImageCount,
   MAX_IMAGES_PER_POST,
   MAX_IMAGE_SIZE,
-  isR2Configured as isPostImageR2Configured
+  isR2Configured as isPostImageR2Configured,
 } from '../services/postImageService.js';
 
 const router: IRouter = Router();
@@ -112,7 +122,7 @@ const ANONYMOUS_PERMISSIONS: UserPermissions = {
   canDeletePosts: false,
   canPinThreads: false,
   canLockThreads: false,
-  adminPermissions: []
+  adminPermissions: [],
 };
 
 type ForumThreadAccessMode = 'view' | 'post';
@@ -122,7 +132,11 @@ async function getAuthorizedThread(
   permissions: UserPermissions,
   mode: ForumThreadAccessMode = 'view',
   includeDeleted = false,
-): Promise<{ thread: NonNullable<Awaited<ReturnType<typeof getThreadById>>>; canPost: boolean; canModerate: boolean } | null> {
+): Promise<{
+  thread: NonNullable<Awaited<ReturnType<typeof getThreadById>>>;
+  canPost: boolean;
+  canModerate: boolean;
+} | null> {
   const thread = await getThreadById(threadId, undefined, { includeDeleted });
   if (!thread) return null;
 
@@ -224,7 +238,7 @@ router.get('/categories', async (req: Request, res: Response) => {
  */
 router.get(
   '/categories/:id',
-  
+
   [param('id').isInt().withMessage('Category ID must be an integer')],
   async (req: Request, res: Response) => {
     try {
@@ -248,7 +262,7 @@ router.get(
       logger.error('Get category error:', error);
       return res.status(500).json({ error: 'Failed to get category' });
     }
-  }
+  },
 );
 
 /**
@@ -285,7 +299,7 @@ router.get(
       logger.error('Get child categories error:', error);
       return res.status(500).json({ error: 'Failed to get child categories' });
     }
-  }
+  },
 );
 
 /**
@@ -296,12 +310,28 @@ router.post(
   '/categories',
   requireAuth,
   [
-    body('name').isString().trim().isLength({ min: 1, max: 100 }).withMessage('Name must be 1-100 characters'),
-    body('description').optional({ nullable: true }).isString().withMessage('Description must be a string'),
+    body('name')
+      .isString()
+      .trim()
+      .isLength({ min: 1, max: 100 })
+      .withMessage('Name must be 1-100 characters'),
+    body('description')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('Description must be a string'),
     body('icon').optional({ nullable: true }).isString().withMessage('Icon must be a string'),
-    body('accessType').optional().isIn(['public', 'authenticated', 'guild', 'immortal', 'god', 'role_based', 'custom_acl']).withMessage('Invalid access type'),
-    body('guildName').optional({ nullable: true }).isString().withMessage('Guild name must be a string'),
-    body('minLevel').optional({ nullable: true }).isInt({ min: 57, max: 62 }).withMessage('Min level must be 57-62'),
+    body('accessType')
+      .optional()
+      .isIn(['public', 'authenticated', 'guild', 'immortal', 'god', 'role_based', 'custom_acl'])
+      .withMessage('Invalid access type'),
+    body('guildName')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('Guild name must be a string'),
+    body('minLevel')
+      .optional({ nullable: true })
+      .isInt({ min: 57, max: 62 })
+      .withMessage('Min level must be 57-62'),
     body('sortOrder').optional().isInt().withMessage('Sort order must be an integer'),
   ],
   async (req: Request, res: Response) => {
@@ -324,7 +354,7 @@ router.post(
         accessType || 'public',
         guildName || null,
         minLevel || null,
-        sortOrder || 100
+        sortOrder || 100,
       );
 
       return res.status(201).json({ id: categoryId, message: 'Category created' });
@@ -332,7 +362,7 @@ router.post(
       logger.error('Create category error:', error);
       return res.status(500).json({ error: 'Failed to create category' });
     }
-  }
+  },
 );
 
 /**
@@ -344,12 +374,29 @@ router.patch(
   requireAuth,
   [
     param('id').isInt().withMessage('Category ID must be an integer'),
-    body('name').optional().isString().trim().isLength({ min: 1, max: 100 }).withMessage('Name must be 1-100 characters'),
-    body('description').optional({ nullable: true }).isString().withMessage('Description must be a string'),
+    body('name')
+      .optional()
+      .isString()
+      .trim()
+      .isLength({ min: 1, max: 100 })
+      .withMessage('Name must be 1-100 characters'),
+    body('description')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('Description must be a string'),
     body('icon').optional({ nullable: true }).isString().withMessage('Icon must be a string'),
-    body('accessType').optional().isIn(['public', 'authenticated', 'guild', 'immortal', 'god', 'role_based', 'custom_acl']).withMessage('Invalid access type'),
-    body('guildName').optional({ nullable: true }).isString().withMessage('Guild name must be a string'),
-    body('minLevel').optional({ nullable: true }).isInt({ min: 57, max: 62 }).withMessage('Min level must be 57-62'),
+    body('accessType')
+      .optional()
+      .isIn(['public', 'authenticated', 'guild', 'immortal', 'god', 'role_based', 'custom_acl'])
+      .withMessage('Invalid access type'),
+    body('guildName')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('Guild name must be a string'),
+    body('minLevel')
+      .optional({ nullable: true })
+      .isInt({ min: 57, max: 62 })
+      .withMessage('Min level must be 57-62'),
     body('sortOrder').optional().isInt().withMessage('Sort order must be an integer'),
   ],
   async (req: Request, res: Response) => {
@@ -385,7 +432,7 @@ router.patch(
       logger.error('Update category error:', error);
       return res.status(500).json({ error: 'Failed to update category' });
     }
-  }
+  },
 );
 
 /**
@@ -420,7 +467,7 @@ router.delete(
       logger.error('Archive category error:', error);
       return res.status(500).json({ error: 'Failed to archive category' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -433,7 +480,7 @@ router.delete(
  */
 router.get(
   '/categories/:categoryId/threads',
-  
+
   [
     param('categoryId').isInt().withMessage('Category ID must be an integer'),
     query('page').optional().isInt({ min: 1 }).withMessage('Page must be >= 1'),
@@ -474,7 +521,7 @@ router.get(
       logger.error('Get threads error:', error);
       return res.status(500).json({ error: 'Failed to get threads' });
     }
-  }
+  },
 );
 
 /**
@@ -519,7 +566,9 @@ router.get(
       const postsResult = await getPostsByThread(threadId, accountName, page, limit, permissions);
 
       // Check subscription status (anonymous users are never subscribed)
-      const isSubscribed = req.user ? await isSubscribedToThread(req.user.accountName, threadId) : false;
+      const isSubscribed = req.user
+        ? await isSubscribedToThread(req.user.accountName, threadId)
+        : false;
 
       // Increment view count
       await incrementThreadViews(threadId);
@@ -543,7 +592,7 @@ router.get(
       logger.error('Get thread error:', error);
       return res.status(500).json({ error: 'Failed to get thread' });
     }
-  }
+  },
 );
 
 /**
@@ -587,7 +636,9 @@ router.post(
 
       const categoryAccess = await getCategoryAccessForAccount(categoryId, req.user.permissions);
       if (!categoryAccess.canPost) {
-        return res.status(403).json({ error: 'You do not have permission to post in this category' });
+        return res
+          .status(403)
+          .json({ error: 'You do not have permission to post in this category' });
       }
 
       // Validate character ownership if characterPid is provided
@@ -600,13 +651,13 @@ router.post(
         }
 
         // Extract character names from account data
-        const characterNames = accountData.characters.map(c => c.name);
+        const characterNames = accountData.characters.map((c) => c.name);
 
         // Get character info from database using character names
         const characterInfo = await getCharacterInfo(characterNames);
         // IMPORTANT: Use String() comparison because req.body sends numbers as strings
         // Using Number() can cause precision loss or type mismatch failures
-        const userCharacters = characterInfo.filter(c => String(c.pid) === String(characterPid));
+        const userCharacters = characterInfo.filter((c) => String(c.pid) === String(characterPid));
 
         if (userCharacters.length === 0) {
           return res.status(403).json({ error: 'Character does not belong to your account' });
@@ -626,7 +677,7 @@ router.post(
         title,
         content,
         ipAddress,
-        req.user.permissions
+        req.user.permissions,
       );
 
       // Auto-subscribe to own thread
@@ -641,7 +692,7 @@ router.post(
       logger.error('Create thread error:', error);
       return res.status(500).json({ error: 'Failed to create thread' });
     }
-  }
+  },
 );
 
 /**
@@ -684,7 +735,10 @@ router.patch(
         return res.status(404).json({ error: 'Thread not found' });
       }
 
-      const categoryAccess = await getCategoryAccessForAccount(thread.category_id, req.user.permissions);
+      const categoryAccess = await getCategoryAccessForAccount(
+        thread.category_id,
+        req.user.permissions,
+      );
       if (!categoryAccess.canPost) {
         return res.status(403).json({ error: 'You do not have permission to edit this category' });
       }
@@ -698,7 +752,7 @@ router.patch(
       const success = await updateThread(
         threadId,
         title || thread.title,
-        content || thread.content
+        content || thread.content,
       );
 
       if (!success) {
@@ -710,7 +764,7 @@ router.patch(
       logger.error('Update thread error:', error);
       return res.status(500).json({ error: 'Failed to update thread' });
     }
-  }
+  },
 );
 
 /**
@@ -739,10 +793,14 @@ router.delete(
         return res.status(404).json({ error: 'Thread not found' });
       }
 
-      const categoryAccess = await getCategoryAccessForAccount(thread.category_id, req.user.permissions);
+      const categoryAccess = await getCategoryAccessForAccount(
+        thread.category_id,
+        req.user.permissions,
+      );
       const isModerator = req.user.permissions.canModerate;
       const isAuthor = thread.author_account_name === req.user.accountName;
-      const canDelete = (isAuthor && categoryAccess.canPost) || (isModerator && categoryAccess.canModerate);
+      const canDelete =
+        (isAuthor && categoryAccess.canPost) || (isModerator && categoryAccess.canModerate);
       if (!canDelete) {
         return res.status(403).json({ error: 'Not authorized to delete this thread' });
       }
@@ -758,7 +816,7 @@ router.delete(
       logger.error('Delete thread error:', error);
       return res.status(500).json({ error: 'Failed to delete thread' });
     }
-  }
+  },
 );
 
 /**
@@ -801,7 +859,7 @@ router.post(
       logger.error('Pin thread error:', error);
       return res.status(500).json({ error: 'Failed to pin thread' });
     }
-  }
+  },
 );
 
 /**
@@ -844,7 +902,7 @@ router.post(
       logger.error('Lock thread error:', error);
       return res.status(500).json({ error: 'Failed to lock thread' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -898,9 +956,14 @@ router.post(
         return res.status(403).json({ error: 'Access denied to this category' });
       }
 
-      const categoryAccess = await getCategoryAccessForAccount(thread.category_id, req.user.permissions);
+      const categoryAccess = await getCategoryAccessForAccount(
+        thread.category_id,
+        req.user.permissions,
+      );
       if (!categoryAccess.canPost) {
-        return res.status(403).json({ error: 'You do not have permission to post in this category' });
+        return res
+          .status(403)
+          .json({ error: 'You do not have permission to post in this category' });
       }
 
       // Validate character ownership if characterPid is provided
@@ -913,14 +976,14 @@ router.post(
         }
 
         // Extract character names from account data
-        const characterNames = accountData.characters.map(c => c.name);
+        const characterNames = accountData.characters.map((c) => c.name);
 
         // Get character info from database using character names
         const characterInfo = await getCharacterInfo(characterNames);
 
         // IMPORTANT: Use String() comparison because req.body sends numbers as strings
         // Using Number() can cause precision loss or type mismatch failures
-        const userCharacters = characterInfo.filter(c => String(c.pid) === String(characterPid));
+        const userCharacters = characterInfo.filter((c) => String(c.pid) === String(characterPid));
 
         if (userCharacters.length === 0) {
           return res.status(403).json({ error: 'Character does not belong to your account' });
@@ -940,7 +1003,7 @@ router.post(
         content,
         parentPostId || null,
         ipAddress,
-        req.user.permissions
+        req.user.permissions,
       );
 
       // Notifications are now handled automatically within createPost
@@ -963,7 +1026,7 @@ router.post(
       logger.error('Create post error:', error);
       return res.status(500).json({ error: 'Failed to create post' });
     }
-  }
+  },
 );
 
 /**
@@ -998,7 +1061,11 @@ router.patch(
       if (!post) {
         return res.status(404).json({ error: 'Post not found' });
       }
-      const categoryAccess = await getAuthorizedThread(post.thread_id, req.user.permissions, 'post');
+      const categoryAccess = await getAuthorizedThread(
+        post.thread_id,
+        req.user.permissions,
+        'post',
+      );
       if (!categoryAccess) {
         return res.status(403).json({ error: 'You do not have permission to edit this category' });
       }
@@ -1022,7 +1089,7 @@ router.patch(
       logger.error('Update post error:', error);
       return res.status(500).json({ error: 'Failed to update post' });
     }
-  }
+  },
 );
 
 /**
@@ -1049,10 +1116,15 @@ router.delete(
       if (!post) {
         return res.status(404).json({ error: 'Post not found' });
       }
-      const authorizedThread = await getAuthorizedThread(post.thread_id, req.user.permissions, 'view');
+      const authorizedThread = await getAuthorizedThread(
+        post.thread_id,
+        req.user.permissions,
+        'view',
+      );
       const isModerator = req.user.permissions.canModerate;
       const isAuthor = post.author_account_name === req.user.accountName;
-      const canDelete = authorizedThread !== null &&
+      const canDelete =
+        authorizedThread !== null &&
         ((isAuthor && authorizedThread.canPost) || (isModerator && authorizedThread.canModerate));
 
       if (!canDelete) {
@@ -1070,7 +1142,7 @@ router.delete(
       logger.error('Delete post error:', error);
       return res.status(500).json({ error: 'Failed to delete post' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -1086,10 +1158,7 @@ router.post(
   requireAuth,
   [
     param('id').isInt().withMessage('Post ID must be an integer'),
-    body('emoji')
-      .trim()
-      .isLength({ min: 1, max: 10 })
-      .withMessage('Emoji must be 1-10 characters'),
+    body('emoji').trim().isLength({ min: 1, max: 10 }).withMessage('Emoji must be 1-10 characters'),
   ],
   async (req: Request, res: Response) => {
     try {
@@ -1108,7 +1177,11 @@ router.post(
       if (!post) {
         return res.status(404).json({ error: 'Post not found' });
       }
-      const authorizedThread = await getAuthorizedThread(post.thread_id, req.user.permissions, 'post');
+      const authorizedThread = await getAuthorizedThread(
+        post.thread_id,
+        req.user.permissions,
+        'post',
+      );
       if (!authorizedThread) {
         return res.status(403).json({ error: 'Access denied to this category' });
       }
@@ -1124,7 +1197,7 @@ router.post(
       logger.error('Add reaction error:', error);
       return res.status(500).json({ error: 'Failed to add reaction' });
     }
-  }
+  },
 );
 
 /**
@@ -1155,7 +1228,11 @@ router.delete(
       if (!post) {
         return res.status(404).json({ error: 'Post not found' });
       }
-      const authorizedThread = await getAuthorizedThread(post.thread_id, req.user.permissions, 'post');
+      const authorizedThread = await getAuthorizedThread(
+        post.thread_id,
+        req.user.permissions,
+        'post',
+      );
       if (!authorizedThread) {
         return res.status(403).json({ error: 'Access denied to this category' });
       }
@@ -1171,7 +1248,7 @@ router.delete(
       logger.error('Remove reaction error:', error);
       return res.status(500).json({ error: 'Failed to remove reaction' });
     }
-  }
+  },
 );
 
 /**
@@ -1183,10 +1260,7 @@ router.post(
   requireAuth,
   [
     param('id').isInt().withMessage('Thread ID must be an integer'),
-    body('emoji')
-      .trim()
-      .isLength({ min: 1, max: 10 })
-      .withMessage('Emoji must be 1-10 characters'),
+    body('emoji').trim().isLength({ min: 1, max: 10 }).withMessage('Emoji must be 1-10 characters'),
   ],
   async (req: Request, res: Response) => {
     try {
@@ -1217,7 +1291,7 @@ router.post(
       logger.error('Add thread reaction error:', error);
       return res.status(500).json({ error: 'Failed to add reaction' });
     }
-  }
+  },
 );
 
 /**
@@ -1260,7 +1334,7 @@ router.delete(
       logger.error('Remove thread reaction error:', error);
       return res.status(500).json({ error: 'Failed to remove reaction' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -1276,10 +1350,7 @@ router.post(
   requireAuth,
   [
     param('id').isInt().withMessage('Thread ID must be an integer'),
-    body('notifyOnReply')
-      .optional()
-      .isBoolean()
-      .withMessage('notifyOnReply must be boolean'),
+    body('notifyOnReply').optional().isBoolean().withMessage('notifyOnReply must be boolean'),
   ],
   async (req: Request, res: Response) => {
     try {
@@ -1306,7 +1377,7 @@ router.post(
       logger.error('Subscribe error:', error);
       return res.status(500).json({ error: 'Failed to subscribe' });
     }
-  }
+  },
 );
 
 /**
@@ -1341,7 +1412,7 @@ router.delete(
       logger.error('Unsubscribe error:', error);
       return res.status(500).json({ error: 'Failed to unsubscribe' });
     }
-  }
+  },
 );
 
 /**
@@ -1372,7 +1443,7 @@ router.post(
   requireAuth,
   [
     param('id').isInt().withMessage('Thread ID must be an integer'),
-    body('notificationPreference').optional().isIn(['all', 'mentions', 'none'])
+    body('notificationPreference').optional().isIn(['all', 'mentions', 'none']),
   ],
   async (req: Request, res: Response) => {
     try {
@@ -1402,7 +1473,7 @@ router.post(
       }
       return res.status(500).json({ error: 'Failed to subscribe to thread' });
     }
-  }
+  },
 );
 
 /**
@@ -1437,7 +1508,7 @@ router.delete(
       logger.error('Unsubscribe from thread error:', error);
       return res.status(500).json({ error: 'Failed to unsubscribe from thread' });
     }
-  }
+  },
 );
 
 /**
@@ -1446,7 +1517,7 @@ router.delete(
  */
 router.get(
   '/threads/:id/is-subscribed',
-  
+
   [param('id').isInt().withMessage('Thread ID must be an integer')],
   async (req: Request, res: Response) => {
     try {
@@ -1472,7 +1543,7 @@ router.get(
       logger.error('Check subscription error:', error);
       return res.status(500).json({ error: 'Failed to check subscription status' });
     }
-  }
+  },
 );
 
 /**
@@ -1484,7 +1555,7 @@ router.post(
   requireAuth,
   [
     param('id').isInt().withMessage('Category ID must be an integer'),
-    body('notificationPreference').optional().isIn(['all', 'mentions', 'none'])
+    body('notificationPreference').optional().isIn(['all', 'mentions', 'none']),
   ],
   async (req: Request, res: Response) => {
     try {
@@ -1514,7 +1585,7 @@ router.post(
       }
       return res.status(500).json({ error: 'Failed to subscribe to category' });
     }
-  }
+  },
 );
 
 /**
@@ -1549,7 +1620,7 @@ router.delete(
       logger.error('Unsubscribe from category error:', error);
       return res.status(500).json({ error: 'Failed to unsubscribe from category' });
     }
-  }
+  },
 );
 
 /**
@@ -1558,7 +1629,7 @@ router.delete(
  */
 router.get(
   '/categories/:id/is-subscribed',
-  
+
   [param('id').isInt().withMessage('Category ID must be an integer')],
   async (req: Request, res: Response) => {
     try {
@@ -1584,7 +1655,7 @@ router.get(
       logger.error('Check subscription error:', error);
       return res.status(500).json({ error: 'Failed to check subscription status' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -1614,9 +1685,9 @@ router.get('/notifications', async (req: Request, res: Response) => {
         page,
         limit,
         total: result.total,
-        totalPages: Math.ceil(result.total / limit)
+        totalPages: Math.ceil(result.total / limit),
       },
-      unreadCount
+      unreadCount,
     });
   } catch (error) {
     logger.error('Get notifications error:', error);
@@ -1671,7 +1742,7 @@ router.post(
       logger.error('Mark notification read error:', error);
       return res.status(500).json({ error: 'Failed to mark notification as read' });
     }
-  }
+  },
 );
 
 /**
@@ -1688,7 +1759,7 @@ router.post('/notifications/read-all', requireAuth, async (req: Request, res: Re
 
     return res.json({
       success: true,
-      message: 'All notifications marked as read'
+      message: 'All notifications marked as read',
     });
   } catch (error) {
     logger.error('Mark all notifications read error:', error);
@@ -1724,7 +1795,7 @@ router.delete(
       logger.error('Delete notification error:', error);
       return res.status(500).json({ error: 'Failed to delete notification' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -1737,9 +1808,12 @@ router.delete(
  */
 router.get(
   '/search',
-  
+
   [
-    query('query').trim().isLength({ min: 2 }).withMessage('Search query must be at least 2 characters'),
+    query('query')
+      .trim()
+      .isLength({ min: 2 })
+      .withMessage('Search query must be at least 2 characters'),
     query('scope').optional().isIn(['titles', 'content', 'both']).withMessage('Invalid scope'),
     query('author').optional().trim(),
     query('categoryId').optional().isInt().withMessage('Category ID must be an integer'),
@@ -1771,12 +1845,7 @@ router.get(
         dateTo: req.query.dateTo as string | undefined,
       };
 
-      const { results, total } = await searchForum(
-        filters,
-        req.user.permissions,
-        page,
-        limit
-      );
+      const { results, total } = await searchForum(filters, req.user.permissions, page, limit);
 
       return res.json({
         results,
@@ -1791,7 +1860,7 @@ router.get(
       logger.error('Search error:', error);
       return res.status(500).json({ error: 'Failed to perform search' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -1822,7 +1891,11 @@ router.delete(
       if (!post) {
         return res.status(404).json({ error: 'Post not found' });
       }
-      const authorizedThread = await getAuthorizedThread(post.thread_id, req.user.permissions, 'view');
+      const authorizedThread = await getAuthorizedThread(
+        post.thread_id,
+        req.user.permissions,
+        'view',
+      );
       if (!authorizedThread?.canModerate) {
         return res.status(403).json({ error: 'Category moderator access required' });
       }
@@ -1835,7 +1908,7 @@ router.delete(
       logger.error('Moderator delete post error:', error);
       return res.status(500).json({ error: getErrorMessage(error) || 'Failed to delete post' });
     }
-  }
+  },
 );
 
 /**
@@ -1859,11 +1932,18 @@ router.post(
       }
 
       const postId = parseInt(req.params.id);
-      const post = await getPostById(postId, req.user.accountName, undefined, { includeDeleted: true });
+      const post = await getPostById(postId, req.user.accountName, undefined, {
+        includeDeleted: true,
+      });
       if (!post) {
         return res.status(404).json({ error: 'Post not found' });
       }
-      const authorizedThread = await getAuthorizedThread(post.thread_id, req.user.permissions, 'view', true);
+      const authorizedThread = await getAuthorizedThread(
+        post.thread_id,
+        req.user.permissions,
+        'view',
+        true,
+      );
       if (!authorizedThread?.canModerate) {
         return res.status(403).json({ error: 'Category moderator access required' });
       }
@@ -1875,7 +1955,7 @@ router.post(
       logger.error('Restore post error:', error);
       return res.status(500).json({ error: getErrorMessage(error) || 'Failed to restore post' });
     }
-  }
+  },
 );
 
 /**
@@ -1911,7 +1991,7 @@ router.delete(
       logger.error('Moderator delete thread error:', error);
       return res.status(500).json({ error: getErrorMessage(error) || 'Failed to delete thread' });
     }
-  }
+  },
 );
 
 /**
@@ -1935,7 +2015,12 @@ router.post(
       }
 
       const threadId = parseInt(req.params.id);
-      const authorizedThread = await getAuthorizedThread(threadId, req.user.permissions, 'view', true);
+      const authorizedThread = await getAuthorizedThread(
+        threadId,
+        req.user.permissions,
+        'view',
+        true,
+      );
       if (!authorizedThread?.canModerate) {
         return res.status(403).json({ error: 'Category moderator access required' });
       }
@@ -1947,7 +2032,7 @@ router.post(
       logger.error('Restore thread error:', error);
       return res.status(500).json({ error: getErrorMessage(error) || 'Failed to restore thread' });
     }
-  }
+  },
 );
 
 /**
@@ -1960,7 +2045,7 @@ router.post(
   [
     param('id').isInt().withMessage('Thread ID must be a number'),
     body('categoryId').isInt().withMessage('Category ID must be a number'),
-    body('reason').optional().isString().withMessage('Reason must be a string')
+    body('reason').optional().isString().withMessage('Reason must be a string'),
   ],
   async (req: Request, res: Response): Promise<any> => {
     const errors = validationResult(req);
@@ -1976,9 +2061,14 @@ router.post(
       const threadId = parseInt(req.params.id);
       const newCategoryId = parseInt(req.body.categoryId);
       const sourceAccess = await getAuthorizedThread(threadId, req.user.permissions, 'view');
-      const destinationAccess = await getCategoryAccessForAccount(newCategoryId, req.user.permissions);
+      const destinationAccess = await getCategoryAccessForAccount(
+        newCategoryId,
+        req.user.permissions,
+      );
       if (!sourceAccess?.canModerate || !destinationAccess.canModerate) {
-        return res.status(403).json({ error: 'Category moderator access required for source and destination' });
+        return res
+          .status(403)
+          .json({ error: 'Category moderator access required for source and destination' });
       }
       const reason = req.body.reason || null;
 
@@ -1989,7 +2079,7 @@ router.post(
       logger.error('Move thread error:', error);
       return res.status(500).json({ error: getErrorMessage(error) || 'Failed to move thread' });
     }
-  }
+  },
 );
 
 /**
@@ -1998,14 +2088,14 @@ router.post(
  */
 router.get(
   '/moderation/logs',
-  
+
   requireModerator,
   [
     query('page').optional().isInt({ min: 1 }).withMessage('Page must be >= 1'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be 1-100'),
     query('moderator').optional().isString().withMessage('Moderator must be a string'),
     query('actionType').optional().isString().withMessage('Action type must be a string'),
-    query('categoryId').optional().isInt().withMessage('Category ID must be a number')
+    query('categoryId').optional().isInt().withMessage('Category ID must be a number'),
   ],
   async (req: Request, res: Response): Promise<any> => {
     const errors = validationResult(req);
@@ -2021,7 +2111,7 @@ router.get(
       const filters = {
         moderator: req.query.moderator as string | undefined,
         actionType: req.query.actionType as string | undefined,
-        categoryId: req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined
+        categoryId: req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined,
       };
 
       const { logs, total } = await getModerationLog(limit, offset, filters);
@@ -2032,14 +2122,14 @@ router.get(
           page,
           limit,
           total,
-          pages: Math.ceil(total / limit)
-        }
+          pages: Math.ceil(total / limit),
+        },
       });
     } catch (error) {
       logger.error('Get moderation log error:', error);
       return res.status(500).json({ error: 'Failed to get moderation log' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -2089,7 +2179,7 @@ router.patch(
       logger.error('Update user profile error:', error);
       return res.status(500).json({ error: 'Failed to update profile' });
     }
-  }
+  },
 );
 
 // Get user's posts
@@ -2112,7 +2202,7 @@ router.get('/users/:accountName/posts', async (req: Request, res: Response) => {
       characterName: post.character_name,
       content: post.content,
       createdAt: post.created_at,
-      editedAt: post.edited_at
+      editedAt: post.edited_at,
     }));
 
     return res.json({
@@ -2121,8 +2211,8 @@ router.get('/users/:accountName/posts', async (req: Request, res: Response) => {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     logger.error('Get user posts error:', error);
@@ -2138,7 +2228,12 @@ router.get('/users/:accountName/threads', async (req: Request, res: Response) =>
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
 
     const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
-    const { threads: rawThreads, total } = await getUserThreads(accountName, page, limit, permissions);
+    const { threads: rawThreads, total } = await getUserThreads(
+      accountName,
+      page,
+      limit,
+      permissions,
+    );
 
     // Map snake_case from database to camelCase for frontend
     const threads = rawThreads.map((thread: any) => ({
@@ -2152,7 +2247,7 @@ router.get('/users/:accountName/threads', async (req: Request, res: Response) =>
       viewCount: thread.view_count || 0,
       replyCount: thread.reply_count || 0,
       isPinned: !!thread.is_pinned,
-      isLocked: !!thread.is_locked
+      isLocked: !!thread.is_locked,
     }));
 
     return res.json({
@@ -2161,8 +2256,8 @@ router.get('/users/:accountName/threads', async (req: Request, res: Response) =>
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     logger.error('Get user threads error:', error);
@@ -2219,7 +2314,7 @@ router.post('/characters/batch/accounts', async (req: Request, res: Response) =>
         if (accountName) {
           results[name] = accountName;
         }
-      })
+      }),
     );
 
     return res.json(results);
@@ -2276,7 +2371,7 @@ router.post(
       }
       return res.status(500).json({ error: 'Failed to upload avatar' });
     }
-  }
+  },
 );
 
 /**
@@ -2323,38 +2418,34 @@ router.post(
       }
       return res.status(500).json({ error: 'Failed to upload avatar' });
     }
-  }
+  },
 );
 
 /**
  * DELETE /api/forum/users/me/avatar
  * Delete own avatar
  */
-router.delete(
-  '/users/me/avatar',
-  requireAuth,
-  async (req: Request, res: Response) => {
-    try {
-      // Check if R2 is configured
-      if (!isR2Configured()) {
-        return res.status(503).json({ error: 'Avatar deletion is not available' });
-      }
-
-      const accountName = req.user!.accountName;
-
-      // Delete from R2
-      await deleteAllAvatars(accountName);
-
-      // Update profile to remove avatar URL
-      await updateUserProfile(accountName, { avatarUrl: null });
-
-      return res.json({ success: true });
-    } catch (error) {
-      logger.error('Delete avatar error:', error);
-      return res.status(500).json({ error: 'Failed to delete avatar' });
+router.delete('/users/me/avatar', requireAuth, async (req: Request, res: Response) => {
+  try {
+    // Check if R2 is configured
+    if (!isR2Configured()) {
+      return res.status(503).json({ error: 'Avatar deletion is not available' });
     }
+
+    const accountName = req.user!.accountName;
+
+    // Delete from R2
+    await deleteAllAvatars(accountName);
+
+    // Update profile to remove avatar URL
+    await updateUserProfile(accountName, { avatarUrl: null });
+
+    return res.json({ success: true });
+  } catch (error) {
+    logger.error('Delete avatar error:', error);
+    return res.status(500).json({ error: 'Failed to delete avatar' });
   }
-);
+});
 
 /**
  * DELETE /api/forum/users/:accountName/avatar
@@ -2384,7 +2475,7 @@ router.delete(
       logger.error('Delete avatar error:', error);
       return res.status(500).json({ error: 'Failed to delete avatar' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -2433,7 +2524,7 @@ router.post(
       logger.error('Upload banner error:', error);
       return res.status(500).json({ error: 'Failed to upload banner' });
     }
-  }
+  },
 );
 
 /**
@@ -2478,34 +2569,30 @@ router.post(
       logger.error('Upload user banner error:', error);
       return res.status(500).json({ error: 'Failed to upload banner' });
     }
-  }
+  },
 );
 
 /**
  * DELETE /api/forum/users/me/banner
  * Delete own banner
  */
-router.delete(
-  '/users/me/banner',
-  requireAuth,
-  async (req: Request, res: Response) => {
-    try {
-      const user = (req as any).user;
-      const accountName = user.accountName;
+router.delete('/users/me/banner', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const accountName = user.accountName;
 
-      // Delete all banners for this user
-      await deleteAllAvatars(accountName, 'banner');
+    // Delete all banners for this user
+    await deleteAllAvatars(accountName, 'banner');
 
-      // Update profile to clear banner URL
-      await updateUserProfile(accountName, { bannerUrl: null });
+    // Update profile to clear banner URL
+    await updateUserProfile(accountName, { bannerUrl: null });
 
-      return res.json({ success: true });
-    } catch (error) {
-      logger.error('Delete banner error:', error);
-      return res.status(500).json({ error: 'Failed to delete banner' });
-    }
+    return res.json({ success: true });
+  } catch (error) {
+    logger.error('Delete banner error:', error);
+    return res.status(500).json({ error: 'Failed to delete banner' });
   }
-);
+});
 
 /**
  * DELETE /api/forum/users/:accountName/banner
@@ -2530,7 +2617,7 @@ router.delete(
       logger.error('Delete user banner error:', error);
       return res.status(500).json({ error: 'Failed to delete banner' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -2538,36 +2625,42 @@ router.delete(
 // ============================================================================
 
 // Get character profile with stats
-router.get('/characters/:characterName/profile', optionalAuth, async (req: Request, res: Response) => {
-  try {
-    const { characterName } = req.params;
-    const profile = await getCharacterProfile(characterName);
+router.get(
+  '/characters/:characterName/profile',
+  optionalAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const { characterName } = req.params;
+      const profile = await getCharacterProfile(characterName);
 
-    if (!profile) {
-      return res.status(404).json({ error: 'Character not found' });
+      if (!profile) {
+        return res.status(404).json({ error: 'Character not found' });
+      }
+
+      // Check if the viewer owns this character
+      const ownerAccount = await findAccountByCharacter(characterName);
+      const isOwner =
+        req.user?.accountName &&
+        ownerAccount &&
+        req.user.accountName.toLowerCase() === ownerAccount.toLowerCase();
+
+      // Hide money/balance/playtime from non-owners
+      if (!isOwner) {
+        profile.money = null;
+        profile.balance = null;
+        profile.playtime = null;
+      }
+
+      return res.json({
+        ...profile,
+        isOwner,
+      });
+    } catch (error) {
+      logger.error('Get character profile error:', error);
+      return res.status(500).json({ error: 'Failed to get character profile' });
     }
-
-    // Check if the viewer owns this character
-    const ownerAccount = await findAccountByCharacter(characterName);
-    const isOwner = req.user?.accountName && ownerAccount &&
-      req.user.accountName.toLowerCase() === ownerAccount.toLowerCase();
-
-    // Hide money/balance/playtime from non-owners
-    if (!isOwner) {
-      profile.money = null;
-      profile.balance = null;
-      profile.playtime = null;
-    }
-
-    return res.json({
-      ...profile,
-      isOwner
-    });
-  } catch (error) {
-    logger.error('Get character profile error:', error);
-    return res.status(500).json({ error: 'Failed to get character profile' });
-  }
-});
+  },
+);
 
 // Get character's forum posts
 router.get('/characters/:characterName/posts', async (req: Request, res: Response) => {
@@ -2585,8 +2678,8 @@ router.get('/characters/:characterName/posts', async (req: Request, res: Respons
         page,
         limit,
         total: result.total,
-        totalPages: Math.ceil(result.total / limit)
-      }
+        totalPages: Math.ceil(result.total / limit),
+      },
     });
   } catch (error) {
     logger.error('Get character posts error:', error);
@@ -2609,8 +2702,8 @@ router.get('/characters/:characterName/pvp', async (req: Request, res: Response)
         page,
         limit,
         total: result.total,
-        totalPages: Math.ceil(result.total / limit)
-      }
+        totalPages: Math.ceil(result.total / limit),
+      },
     });
   } catch (error) {
     logger.error('Get character PvP events error:', error);
@@ -2647,7 +2740,12 @@ router.get('/guilds/:guildName/activity', async (req: Request, res: Response) =>
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
 
     const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
-    const result = await getGuildForumActivity(decodeURIComponent(guildName), page, limit, permissions);
+    const result = await getGuildForumActivity(
+      decodeURIComponent(guildName),
+      page,
+      limit,
+      permissions,
+    );
 
     return res.json({
       posts: result.posts,
@@ -2655,8 +2753,8 @@ router.get('/guilds/:guildName/activity', async (req: Request, res: Response) =>
         page,
         limit,
         total: result.total,
-        totalPages: Math.ceil(result.total / limit)
-      }
+        totalPages: Math.ceil(result.total / limit),
+      },
     });
   } catch (error) {
     logger.error('Get guild forum activity error:', error);
@@ -2734,9 +2832,14 @@ router.post(
         return res.status(404).json({ error: 'Thread not found or access denied' });
       }
 
-      const categoryAccess = await getCategoryAccessForAccount(thread.category_id, req.user!.permissions);
+      const categoryAccess = await getCategoryAccessForAccount(
+        thread.category_id,
+        req.user!.permissions,
+      );
       if (!categoryAccess.canPost) {
-        return res.status(403).json({ error: 'You do not have permission to post in this category' });
+        return res
+          .status(403)
+          .json({ error: 'You do not have permission to post in this category' });
       }
 
       if (thread.author_account_name !== accountName) {
@@ -2744,7 +2847,12 @@ router.post(
       }
 
       // Create poll
-      const pollId = await createPoll(parseInt(threadId), req.body, accountName, req.user!.permissions);
+      const pollId = await createPoll(
+        parseInt(threadId),
+        req.body,
+        accountName,
+        req.user!.permissions,
+      );
 
       return res.status(201).json({
         message: 'Poll created successfully',
@@ -2757,7 +2865,7 @@ router.post(
       }
       return res.status(500).json({ error: getErrorMessage(error) || 'Failed to create poll' });
     }
-  }
+  },
 );
 
 // Get poll for a thread
@@ -2840,7 +2948,7 @@ router.post(
       logger.error('Vote error:', error);
       return res.status(400).json({ error: getErrorMessage(error) || 'Failed to vote' });
     }
-  }
+  },
 );
 
 // Remove vote from a poll
@@ -2873,7 +2981,7 @@ router.delete(
       logger.error('Remove vote error:', error);
       return res.status(400).json({ error: getErrorMessage(error) || 'Failed to remove vote' });
     }
-  }
+  },
 );
 
 // Close a poll (creator or moderator)
@@ -2905,7 +3013,9 @@ router.patch(
       const isCreator = await isPollCreator(parseInt(pollId), accountName);
       const canManage = (isCreator && categoryAccess.canPost) || categoryAccess.canModerate;
       if (!canManage) {
-        return res.status(403).json({ error: 'Only an authorized poll creator or category moderator can close polls' });
+        return res
+          .status(403)
+          .json({ error: 'Only an authorized poll creator or category moderator can close polls' });
       }
 
       await closePoll(parseInt(pollId), accountName, permissions);
@@ -2915,7 +3025,7 @@ router.patch(
       logger.error('Close poll error:', error);
       return res.status(500).json({ error: 'Failed to close poll' });
     }
-  }
+  },
 );
 
 // Delete a poll (creator or moderator)
@@ -2947,7 +3057,9 @@ router.delete(
       const isCreator = await isPollCreator(parseInt(pollId), accountName);
       const canManage = (isCreator && categoryAccess.canPost) || categoryAccess.canModerate;
       if (!canManage) {
-        return res.status(403).json({ error: 'Only an authorized poll creator or category moderator can delete polls' });
+        return res.status(403).json({
+          error: 'Only an authorized poll creator or category moderator can delete polls',
+        });
       }
 
       await deletePoll(parseInt(pollId), accountName, permissions);
@@ -2957,7 +3069,7 @@ router.delete(
       logger.error('Delete poll error:', error);
       return res.status(500).json({ error: 'Failed to delete poll' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -3041,7 +3153,7 @@ router.post(
       if (!canUpload) {
         const orphanCount = await getOrphanImageCount(accountName);
         return res.status(400).json({
-          error: `You have ${orphanCount} pending images. Please use them in a post or wait for cleanup before uploading more. Maximum ${MAX_IMAGES_PER_POST} pending images allowed.`
+          error: `You have ${orphanCount} pending images. Please use them in a post or wait for cleanup before uploading more. Maximum ${MAX_IMAGES_PER_POST} pending images allowed.`,
         });
       }
 
@@ -3050,13 +3162,13 @@ router.post(
         accountName,
         file.buffer,
         file.mimetype,
-        file.originalname
+        file.originalname,
       );
 
       return res.json({
         success: true,
         imageId: result.id,
-        imageUrl: result.imageUrl
+        imageUrl: result.imageUrl,
       });
     } catch (error) {
       logger.error('Post image upload error:', error);
@@ -3068,7 +3180,7 @@ router.post(
 
       return res.status(500).json({ error: 'Failed to upload image' });
     }
-  }
+  },
 );
 
 /**
@@ -3083,7 +3195,7 @@ router.get('/images/status', requireAuth, async (req: Request, res: Response) =>
     return res.json({
       pendingImages: orphanCount,
       maxImages: MAX_IMAGES_PER_POST,
-      canUpload: orphanCount < MAX_IMAGES_PER_POST
+      canUpload: orphanCount < MAX_IMAGES_PER_POST,
     });
   } catch (error) {
     logger.error('Get image status error:', error);
@@ -3102,7 +3214,7 @@ router.get('/images/orphans', requireAuth, async (req: Request, res: Response) =
       `SELECT id, image_url, created_at FROM forum_post_images
        WHERE account_name = ? AND is_orphan = TRUE
        ORDER BY created_at DESC`,
-      [accountName]
+      [accountName],
     );
     return res.json({ orphans: rows });
   } catch (error) {
@@ -3123,7 +3235,7 @@ router.delete('/images/orphans', requireAuth, async (req: Request, res: Response
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT id, image_url FROM forum_post_images
        WHERE account_name = ? AND is_orphan = TRUE`,
-      [accountName]
+      [accountName],
     );
 
     // Delete each one (handles R2 + database)
@@ -3166,7 +3278,7 @@ router.delete(
 
       if (!deleted) {
         return res.status(404).json({
-          error: 'Image not found, already linked to a post, or not owned by you'
+          error: 'Image not found, already linked to a post, or not owned by you',
         });
       }
 
@@ -3175,7 +3287,7 @@ router.delete(
       logger.error('Delete post image error:', error);
       return res.status(500).json({ error: 'Failed to delete image' });
     }
-  }
+  },
 );
 
 export default router;

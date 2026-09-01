@@ -395,12 +395,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Table,
   TableBody,
@@ -468,7 +463,7 @@ const deleteProgressItemAnsi = ref<string | null>(null)
 const filteredItems = computed(() => {
   if (!searchQuery.value.trim()) return items.value
   const q = searchQuery.value.toLowerCase()
-  return items.value.filter(item => {
+  return items.value.filter((item) => {
     const itemName = item.item_name_ansi
       ? stripAnsiCodes(item.item_name_ansi).toLowerCase()
       : (item.item_name || '').toLowerCase()
@@ -489,15 +484,17 @@ const paginatedItems = computed(() => {
   return filteredItems.value.slice(start, start + pageSize)
 })
 
-const selectedCount = computed(() => Object.keys(selectedIds.value).filter(k => selectedIds.value[k]).length)
+const selectedCount = computed(
+  () => Object.keys(selectedIds.value).filter((k) => selectedIds.value[k]).length,
+)
 
 const isAllSelected = computed(() => {
   if (paginatedItems.value.length === 0) return false
-  return paginatedItems.value.every(item => selectedIds.value[`${item.obj_uid}-${item.vnum}`])
+  return paginatedItems.value.every((item) => selectedIds.value[`${item.obj_uid}-${item.vnum}`])
 })
 
 function toggleSelectAll(checked: boolean) {
-  paginatedItems.value.forEach(item => {
+  paginatedItems.value.forEach((item) => {
     selectedIds.value[`${item.obj_uid}-${item.vnum}`] = checked
   })
 }
@@ -513,7 +510,9 @@ function handlePageChange(page: number) {
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
-  return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return (
+    d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  )
 }
 
 async function fetchData() {
@@ -555,7 +554,7 @@ async function deleteSingleItem(d: DupeDetail) {
     } else {
       await dupeApi.deleteItem(d.id)
     }
-    details.value = details.value.filter(x => !(x.source === d.source && x.id === d.id))
+    details.value = details.value.filter((x) => !(x.source === d.source && x.id === d.id))
     success(`Removed item from ${d.player_name} (${d.location})`)
     await fetchData()
   } catch (e) {
@@ -592,7 +591,7 @@ function confirmBulkDelete() {
 async function executeBulkDelete() {
   bulkDeleteLoading.value = true
   try {
-    const selected = Object.keys(selectedIds.value).filter(k => selectedIds.value[k])
+    const selected = Object.keys(selectedIds.value).filter((k) => selectedIds.value[k])
     let totalDeleted = 0
     for (const key of selected) {
       const [objUid, vnum] = key.split('-').map(Number) as [number, number]

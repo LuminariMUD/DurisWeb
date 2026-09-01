@@ -39,7 +39,7 @@ export const Carousel = Node.create({
           }
           // fallback: parse child img elements
           const imgs = element.querySelectorAll('img')
-          return Array.from(imgs).map(img => ({
+          return Array.from(imgs).map((img) => ({
             src: img.getAttribute('src') || '',
             alt: img.getAttribute('alt') || '',
           }))
@@ -74,9 +74,7 @@ export const Carousel = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    const images = HTMLAttributes['data-images']
-      ? JSON.parse(HTMLAttributes['data-images'])
-      : []
+    const images = HTMLAttributes['data-images'] ? JSON.parse(HTMLAttributes['data-images']) : []
 
     // render as div with child images for display
     const imgElements = images.map((img: { src: string; alt?: string }) => [

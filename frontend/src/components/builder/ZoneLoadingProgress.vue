@@ -13,13 +13,11 @@ const props = defineProps<{
 }>()
 
 const percentage = computed(() =>
-  props.total > 0 ? Math.round((props.loaded / props.total) * 100) : 0
+  props.total > 0 ? Math.round((props.loaded / props.total) * 100) : 0,
 )
 
 // Show indeterminate state when streaming but total not yet known
-const isIndeterminate = computed(() =>
-  props.isStreaming && props.total === 0
-)
+const isIndeterminate = computed(() => props.isStreaming && props.total === 0)
 
 const typeLabel = computed(() => {
   switch (props.type) {

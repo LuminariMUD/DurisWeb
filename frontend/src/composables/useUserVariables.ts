@@ -20,7 +20,7 @@ const isLoaded = ref(false)
 
 // reserved variable names (gmcp variables)
 const RESERVED_NAMES = new Set(
-  Object.keys(GMCP_VARIABLES).map((v) => v.replace(/%/g, '').toLowerCase())
+  Object.keys(GMCP_VARIABLES).map((v) => v.replace(/%/g, '').toLowerCase()),
 )
 
 export function useUserVariables() {
@@ -91,7 +91,7 @@ export function useUserVariables() {
     () => {
       loadVariables()
     },
-    { immediate: true }
+    { immediate: true },
   )
 
   // =========================================================================

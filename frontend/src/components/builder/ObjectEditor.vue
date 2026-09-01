@@ -7,11 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Badge } from '@/components/ui/badge'
 import FlagPicker from '@/components/builder/FlagPicker.vue'
 import AnsiEditor from '@/components/builder/AnsiEditor.vue'
@@ -79,14 +75,25 @@ const { data: flagsData } = useQuery({
 })
 
 // Reset when obj prop changes
-watch(() => props.obj, (newObj) => {
-  editedObj.value = { ...newObj, applies: [...(newObj.applies || [])], extras: [...(newObj.extras || [])] }
-}, { deep: true })
+watch(
+  () => props.obj,
+  (newObj) => {
+    editedObj.value = {
+      ...newObj,
+      applies: [...(newObj.applies || [])],
+      extras: [...(newObj.extras || [])],
+    }
+  },
+  { deep: true },
+)
 
 // Emit shortDesc changes for live preview in navbar
-watch(() => editedObj.value.shortDesc, (newValue) => {
-  emit('update:shortDesc', newValue)
-})
+watch(
+  () => editedObj.value.shortDesc,
+  (newValue) => {
+    emit('update:shortDesc', newValue)
+  },
+)
 
 // Computed: has unsaved changes
 const hasChanges = computed(() => {
@@ -96,17 +103,22 @@ const hasChanges = computed(() => {
 // Computed: active wear flags count
 const activeWearFlagsCount = computed(() => {
   if (!flagsData.value?.objWearFlags) return 0
-  return flagsData.value.objWearFlags.filter(f => (editedObj.value.wearFlags & f.value) !== 0).length
+  return flagsData.value.objWearFlags.filter((f) => (editedObj.value.wearFlags & f.value) !== 0)
+    .length
 })
 
 // Computed: active extra flags count (includes both extra and extra2)
 const activeExtraFlagsCount = computed(() => {
   let count = 0
   if (flagsData.value?.objExtraFlags) {
-    count += flagsData.value.objExtraFlags.filter(f => (editedObj.value.extraFlags & f.value) !== 0).length
+    count += flagsData.value.objExtraFlags.filter(
+      (f) => (editedObj.value.extraFlags & f.value) !== 0,
+    ).length
   }
   if (flagsData.value?.objExtra2Flags) {
-    count += flagsData.value.objExtra2Flags.filter(f => (editedObj.value.extraFlags2 & f.value) !== 0).length
+    count += flagsData.value.objExtra2Flags.filter(
+      (f) => (editedObj.value.extraFlags2 & f.value) !== 0,
+    ).length
   }
   return count
 })
@@ -131,10 +143,18 @@ const raceRestrictionsFlags = computed(() => {
   if (!flagsData.value?.mobRaces) return []
   return flagsData.value.mobRaces
     .filter((r: { value: number }) => r.value > 0) // Skip RACE_NONE (value 0)
-    .map((r: { name: string; value: number; description?: string; ansiName?: string; shortCode?: string }) => ({
-      ...r,
-      value: 1 << (r.value - 1) // Convert sequential to bitfield: HUMAN(1)->1, BARBARIAN(2)->2, DWARF(3)->4, etc.
-    }))
+    .map(
+      (r: {
+        name: string
+        value: number
+        description?: string
+        ansiName?: string
+        shortCode?: string
+      }) => ({
+        ...r,
+        value: 1 << (r.value - 1), // Convert sequential to bitfield: HUMAN(1)->1, BARBARIAN(2)->2, DWARF(3)->4, etc.
+      }),
+    )
 })
 
 // Computed: Class restrictions flags (already bitfield in database, use directly)
@@ -150,8 +170,8 @@ const activeRestrictionsCount = computed(() => {
   let count = 0
   // Count active class restrictions
   if (flagsData.value?.mobClasses) {
-    count += flagsData.value.mobClasses.filter((f: { value: number }) =>
-      f.value > 0 && (editedObj.value.antiFlags & f.value) !== 0
+    count += flagsData.value.mobClasses.filter(
+      (f: { value: number }) => f.value > 0 && (editedObj.value.antiFlags & f.value) !== 0,
     ).length
   }
   // Count active race restrictions (convert sequential to bitfield)
@@ -168,35 +188,35 @@ const activeRestrictionsCount = computed(() => {
 
 // Dynamic value labels based on item type
 const VALUE_LABELS: Record<number, string[]> = {
-  1:  ['Unused', 'Unused', 'Hours Remaining', 'Unused'],           // LIGHT
-  2:  ['Spell Level', 'Spell 1', 'Spell 2', 'Spell 3'],            // SCROLL
-  3:  ['Spell Level', 'Max Charges', 'Current Charges', 'Spell'],  // WAND
-  4:  ['Spell Level', 'Max Charges', 'Current Charges', 'Spell'],  // STAFF
-  5:  ['Weapon Type', 'Dice Count', 'Dice Size', 'Damage Type'],   // WEAPON
-  6:  ['Unused', 'Unused', 'Unused', 'Unused'],                    // FIREWEAPON
-  7:  ['Unused', 'Unused', 'Unused', 'Unused'],                    // MISSILE
-  8:  ['Unused', 'Unused', 'Unused', 'Unused'],                    // TREASURE
-  9:  ['AC Apply', 'Unused', 'Unused', 'Unused'],                  // ARMOR
-  10: ['Spell Level', 'Spell 1', 'Spell 2', 'Spell 3'],            // POTION
-  11: ['Unused', 'Unused', 'Unused', 'Unused'],                    // WORN
-  12: ['Unused', 'Unused', 'Unused', 'Unused'],                    // OTHER
-  13: ['Unused', 'Unused', 'Unused', 'Unused'],                    // TRASH
-  14: ['Trap Type', 'Damage Dice', 'Damage Sides', 'Trap Level'],  // TRAP
-  15: ['Capacity', 'Container Flags', 'Key VNUM', 'Unused'],       // CONTAINER
-  16: ['Unused', 'Unused', 'Unused', 'Unused'],                    // NOTE
-  17: ['Capacity', 'Current Amount', 'Liquid Type', 'Poisoned'],   // DRINKCON
-  18: ['Key Zone', 'Unused', 'Unused', 'Unused'],                  // KEY
-  19: ['Hours Full', 'Unused', 'Unused', 'Poisoned'],              // FOOD
-  20: ['Amount', 'Unused', 'Unused', 'Unused'],                    // MONEY
-  21: ['Unused', 'Unused', 'Unused', 'Unused'],                    // PEN
-  22: ['Unused', 'Unused', 'Unused', 'Unused'],                    // BOAT
-  23: ['Capacity', 'Current Amount', 'Liquid Type', 'Poisoned'],   // FOUNTAIN
-  24: ['Instrument Type', 'Unused', 'Unused', 'Unused'],           // INSTRUMENT
-  25: ['Target Zone', 'Target Room', 'Unused', 'Unused'],          // WARP_STONE
-  26: ['Portal Target Room', 'Unused', 'Unused', 'Unused'],        // PORTAL
-  27: ['Max Pages', 'Current Page', 'Unused', 'Unused'],           // SPELLBOOK
-  28: ['Totem Type', 'Unused', 'Unused', 'Unused'],                // TOTEM
-  29: ['Furniture Type', 'Capacity', 'Unused', 'Unused'],          // FURNITURE
+  1: ['Unused', 'Unused', 'Hours Remaining', 'Unused'], // LIGHT
+  2: ['Spell Level', 'Spell 1', 'Spell 2', 'Spell 3'], // SCROLL
+  3: ['Spell Level', 'Max Charges', 'Current Charges', 'Spell'], // WAND
+  4: ['Spell Level', 'Max Charges', 'Current Charges', 'Spell'], // STAFF
+  5: ['Weapon Type', 'Dice Count', 'Dice Size', 'Damage Type'], // WEAPON
+  6: ['Unused', 'Unused', 'Unused', 'Unused'], // FIREWEAPON
+  7: ['Unused', 'Unused', 'Unused', 'Unused'], // MISSILE
+  8: ['Unused', 'Unused', 'Unused', 'Unused'], // TREASURE
+  9: ['AC Apply', 'Unused', 'Unused', 'Unused'], // ARMOR
+  10: ['Spell Level', 'Spell 1', 'Spell 2', 'Spell 3'], // POTION
+  11: ['Unused', 'Unused', 'Unused', 'Unused'], // WORN
+  12: ['Unused', 'Unused', 'Unused', 'Unused'], // OTHER
+  13: ['Unused', 'Unused', 'Unused', 'Unused'], // TRASH
+  14: ['Trap Type', 'Damage Dice', 'Damage Sides', 'Trap Level'], // TRAP
+  15: ['Capacity', 'Container Flags', 'Key VNUM', 'Unused'], // CONTAINER
+  16: ['Unused', 'Unused', 'Unused', 'Unused'], // NOTE
+  17: ['Capacity', 'Current Amount', 'Liquid Type', 'Poisoned'], // DRINKCON
+  18: ['Key Zone', 'Unused', 'Unused', 'Unused'], // KEY
+  19: ['Hours Full', 'Unused', 'Unused', 'Poisoned'], // FOOD
+  20: ['Amount', 'Unused', 'Unused', 'Unused'], // MONEY
+  21: ['Unused', 'Unused', 'Unused', 'Unused'], // PEN
+  22: ['Unused', 'Unused', 'Unused', 'Unused'], // BOAT
+  23: ['Capacity', 'Current Amount', 'Liquid Type', 'Poisoned'], // FOUNTAIN
+  24: ['Instrument Type', 'Unused', 'Unused', 'Unused'], // INSTRUMENT
+  25: ['Target Zone', 'Target Room', 'Unused', 'Unused'], // WARP_STONE
+  26: ['Portal Target Room', 'Unused', 'Unused', 'Unused'], // PORTAL
+  27: ['Max Pages', 'Current Page', 'Unused', 'Unused'], // SPELLBOOK
+  28: ['Totem Type', 'Unused', 'Unused', 'Unused'], // TOTEM
+  29: ['Furniture Type', 'Capacity', 'Unused', 'Unused'], // FURNITURE
 }
 
 const valueLabels = computed(() => {
@@ -206,7 +226,9 @@ const valueLabels = computed(() => {
 // Get item type name
 const itemTypeName = computed(() => {
   const types = flagsData.value?.objectTypes || []
-  const found = types.find((t: { name: string; value: number }) => t.value === editedObj.value.itemType)
+  const found = types.find(
+    (t: { name: string; value: number }) => t.value === editedObj.value.itemType,
+  )
   return found?.name || 'Unknown'
 })
 
@@ -252,16 +274,24 @@ function handleBitvector4Change(newFlags: number) {
 const activeCharAffectsCount = computed(() => {
   let count = 0
   if (flagsData.value?.mobAffected1 && editedObj.value.bitvector) {
-    count += flagsData.value.mobAffected1.filter((f: { value: number }) => (editedObj.value.bitvector! & f.value) !== 0).length
+    count += flagsData.value.mobAffected1.filter(
+      (f: { value: number }) => (editedObj.value.bitvector! & f.value) !== 0,
+    ).length
   }
   if (flagsData.value?.mobAffected2 && editedObj.value.bitvector2) {
-    count += flagsData.value.mobAffected2.filter((f: { value: number }) => (editedObj.value.bitvector2! & f.value) !== 0).length
+    count += flagsData.value.mobAffected2.filter(
+      (f: { value: number }) => (editedObj.value.bitvector2! & f.value) !== 0,
+    ).length
   }
   if (flagsData.value?.mobAffected3 && editedObj.value.bitvector3) {
-    count += flagsData.value.mobAffected3.filter((f: { value: number }) => (editedObj.value.bitvector3! & f.value) !== 0).length
+    count += flagsData.value.mobAffected3.filter(
+      (f: { value: number }) => (editedObj.value.bitvector3! & f.value) !== 0,
+    ).length
   }
   if (flagsData.value?.mobAffected4 && editedObj.value.bitvector4) {
-    count += flagsData.value.mobAffected4.filter((f: { value: number }) => (editedObj.value.bitvector4! & f.value) !== 0).length
+    count += flagsData.value.mobAffected4.filter(
+      (f: { value: number }) => (editedObj.value.bitvector4! & f.value) !== 0,
+    ).length
   }
   return count
 })

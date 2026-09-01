@@ -14,7 +14,8 @@ async function seedIncidents() {
       incident_type: 'crash',
       severity: 'major',
       title: 'Unexpected server crash',
-      description: 'MUD server crashed due to segmentation fault. Automatically restarted and recovered.',
+      description:
+        'MUD server crashed due to segmentation fault. Automatically restarted and recovered.',
       resolved: true,
     },
     {
@@ -24,7 +25,8 @@ async function seedIncidents() {
       incident_type: 'outage',
       severity: 'critical',
       title: 'Database connectivity issue',
-      description: 'Lost connection to MySQL database. Connection pool exhausted. Recovered after connection reset.',
+      description:
+        'Lost connection to MySQL database. Connection pool exhausted. Recovered after connection reset.',
       resolved: true,
     },
     {
@@ -34,7 +36,8 @@ async function seedIncidents() {
       incident_type: 'crash',
       severity: 'major',
       title: 'Memory corruption crash',
-      description: 'Server crashed during zone reset. GDB backtrace captured. Issue under investigation.',
+      description:
+        'Server crashed during zone reset. GDB backtrace captured. Issue under investigation.',
       resolved: true,
     },
     {
@@ -44,7 +47,8 @@ async function seedIncidents() {
       incident_type: 'maintenance',
       severity: 'info',
       title: 'Scheduled server maintenance',
-      description: 'Planned maintenance window for server upgrades and bug fixes. Server was offline for 45 minutes.',
+      description:
+        'Planned maintenance window for server upgrades and bug fixes. Server was offline for 45 minutes.',
       resolved: true,
     },
     {
@@ -54,7 +58,8 @@ async function seedIncidents() {
       incident_type: 'degraded',
       severity: 'minor',
       title: 'Performance degradation',
-      description: 'CPU usage spiked to 95% during player surge. Performance returned to normal after player count decreased.',
+      description:
+        'CPU usage spiked to 95% during player surge. Performance returned to normal after player count decreased.',
       resolved: true,
     },
     {
@@ -64,7 +69,8 @@ async function seedIncidents() {
       incident_type: 'crash',
       severity: 'major',
       title: 'Combat system crash',
-      description: 'Server crashed during large-scale PvP battle. Automatically restarted. All player data preserved.',
+      description:
+        'Server crashed during large-scale PvP battle. Automatically restarted. All player data preserved.',
       resolved: true,
     },
   ];
@@ -85,7 +91,7 @@ async function seedIncidents() {
         incident.title,
         incident.description,
         incident.resolved ? 1 : 0,
-      ]
+      ],
     );
   }
 

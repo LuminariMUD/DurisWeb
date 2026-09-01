@@ -20,9 +20,7 @@ describe('accountService', () => {
 
   beforeAll(async () => {
     // find a real account in the database for testing
-    const [rows] = await pool.query(
-      'SELECT account_name FROM accounts LIMIT 1'
-    ) as any;
+    const [rows] = (await pool.query('SELECT account_name FROM accounts LIMIT 1')) as any;
 
     if (rows.length === 0) {
       throw new Error('no accounts found in database for testing');
@@ -126,9 +124,9 @@ describe('accountService', () => {
 
     beforeAll(async () => {
       // find a real character-account pair for testing
-      const [rows] = await pool.query(
-        'SELECT char_name, account_name FROM account_characters LIMIT 1'
-      ) as any;
+      const [rows] = (await pool.query(
+        'SELECT char_name, account_name FROM account_characters LIMIT 1',
+      )) as any;
 
       if (rows.length > 0) {
         testCharName = rows[0].char_name;
@@ -206,9 +204,7 @@ describe('accountService', () => {
     it('should return sorted results', async () => {
       const results = await searchAccounts('', 20);
 
-      const sorted = [...results].sort((a, b) =>
-        a.toLowerCase().localeCompare(b.toLowerCase())
-      );
+      const sorted = [...results].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
 
       expect(results).toEqual(sorted);
     });

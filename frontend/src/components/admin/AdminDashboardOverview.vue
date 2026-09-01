@@ -1,9 +1,24 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
-import { useOverviewStats, usePlayerActivity, useWhoList, formatRelativeTime } from '@/composables/useAdminAnalytics'
+import {
+  useOverviewStats,
+  usePlayerActivity,
+  useWhoList,
+  formatRelativeTime,
+} from '@/composables/useAdminAnalytics'
 import StatCard from './StatCard.vue'
 import LineChart from '@/components/charts/LineChart.vue'
-import { Users, TrendingUp, MessageSquare, Swords, UsersRound, Shield, Clock, Database, RefreshCw } from 'lucide-vue-next'
+import {
+  Users,
+  TrendingUp,
+  MessageSquare,
+  Swords,
+  UsersRound,
+  Shield,
+  Clock,
+  Database,
+  RefreshCw,
+} from 'lucide-vue-next'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { AlertCircle } from 'lucide-vue-next'
@@ -14,7 +29,21 @@ import { useWebSocket } from '@/composables/useWebSocket'
 import type { ChartData } from 'chart.js'
 
 const { data: stats, isLoading, error, refetch: refetchStats } = useOverviewStats()
-const { isConnected, onPlayerLogin, offPlayerLogin, onPlayerLogout, offPlayerLogout, onWholist, offWholist, onMudOnline, offMudOnline, onMudCrash, offMudCrash, subscribePlayerEvents, unsubscribePlayerEvents } = useWebSocket()
+const {
+  isConnected,
+  onPlayerLogin,
+  offPlayerLogin,
+  onPlayerLogout,
+  offPlayerLogout,
+  onWholist,
+  offWholist,
+  onMudOnline,
+  offMudOnline,
+  onMudCrash,
+  offMudCrash,
+  subscribePlayerEvents,
+  unsubscribePlayerEvents,
+} = useWebSocket()
 
 // WHO list data - initial fetch, then updated via websocket events
 const { data: whoListData, isLoading: whoListLoading, refetch: refetchWhoList } = useWhoList()
@@ -74,12 +103,16 @@ const handleMudCrash = () => {
 let bootTimeInterval: ReturnType<typeof setInterval> | null = null
 
 // subscribe to player events and refetch wholist when websocket connects/reconnects
-watch(isConnected, async (connected) => {
-  if (connected) {
-    await subscribePlayerEvents()
-    refetchWhoList()
-  }
-}, { immediate: true })
+watch(
+  isConnected,
+  async (connected) => {
+    if (connected) {
+      await subscribePlayerEvents()
+      refetchWhoList()
+    }
+  },
+  { immediate: true },
+)
 
 onMounted(() => {
   fetchBootTime()
@@ -136,17 +169,17 @@ const chartData = computed<ChartData<'line'>>(() => {
   if (!activityData.value || activityData.value.length === 0) {
     return {
       labels: [],
-      datasets: []
+      datasets: [],
     }
   }
 
   // Format timestamps to readable labels
-  const labels = activityData.value.map(item => {
+  const labels = activityData.value.map((item) => {
     const date = new Date(item.timestamp * 1000)
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
   })
 
-  const data = activityData.value.map(item => item.playerCount)
+  const data = activityData.value.map((item) => item.playerCount)
 
   return {
     labels,
@@ -158,8 +191,8 @@ const chartData = computed<ChartData<'line'>>(() => {
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
         fill: true,
         tension: 0.4,
-      }
-    ]
+      },
+    ],
   }
 })
 

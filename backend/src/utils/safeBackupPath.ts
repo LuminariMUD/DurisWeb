@@ -14,10 +14,9 @@ export class UnsafeBackupPathError extends Error {
 
 function isWithin(root: string, candidate: string): boolean {
   const relative = path.relative(root, candidate);
-  return relative === '' || (
-    relative !== '..' &&
-    !relative.startsWith(`..${path.sep}`) &&
-    !path.isAbsolute(relative)
+  return (
+    relative === '' ||
+    (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
   );
 }
 
@@ -33,7 +32,11 @@ function resolveSafeFile(
   const root = path.resolve(rootDirectory);
   const candidate = path.resolve(filePath);
   const filename = path.basename(candidate);
-  if (!isWithin(root, candidate) || path.dirname(candidate) !== root || !filenamePattern.test(filename)) {
+  if (
+    !isWithin(root, candidate) ||
+    path.dirname(candidate) !== root ||
+    !filenamePattern.test(filename)
+  ) {
     throw new UnsafeBackupPathError();
   }
 
@@ -66,10 +69,7 @@ export function resolveSafeUploadedBackupPath(
   return resolveSafeFile(uploadDirectory, filePath, UPLOAD_FILENAME_PATTERN);
 }
 
-export function resolveSafeBackupFilePath(
-  backupDirectory: string,
-  filename: unknown,
-): string {
+export function resolveSafeBackupFilePath(backupDirectory: string, filename: unknown): string {
   if (typeof filename !== 'string') throw new UnsafeBackupPathError();
   return resolveSafeFile(
     backupDirectory,

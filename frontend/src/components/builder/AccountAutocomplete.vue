@@ -5,14 +5,17 @@ import { builderApi } from '@/services/api'
 import { Input } from '@/components/ui/input'
 import { User, Loader2 } from 'lucide-vue-next'
 
-const props = withDefaults(defineProps<{
-  modelValue: string
-  placeholder?: string
-  disabled?: boolean
-}>(), {
-  placeholder: 'Search accounts...',
-  disabled: false,
-})
+const props = withDefaults(
+  defineProps<{
+    modelValue: string
+    placeholder?: string
+    disabled?: boolean
+  }>(),
+  {
+    placeholder: 'Search accounts...',
+    disabled: false,
+  },
+)
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
@@ -110,9 +113,12 @@ function handleBlur() {
 }
 
 // Sync with external model changes
-watch(() => props.modelValue, (val) => {
-  inputValue.value = val
-})
+watch(
+  () => props.modelValue,
+  (val) => {
+    inputValue.value = val
+  },
+)
 </script>
 
 <template>

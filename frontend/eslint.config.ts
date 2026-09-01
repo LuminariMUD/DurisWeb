@@ -28,38 +28,44 @@ export default defineConfigWithVueTs(
     name: 'app/custom-rules',
     rules: {
       // Allow single-word component names for UI library components (shadcn-vue)
-      'vue/multi-word-component-names': ['error', {
-        ignores: [
-          'Dialog',
-          'Select',
-          'Toast',
-          'Alert',
-          'Badge',
-          'Button',
-          'Card',
-          'Input',
-          'Label',
-          'Separator',
-          'Sheet',
-          'Sidebar',
-          'Skeleton',
-          'Textarea',
-          'Tooltip',
-          'Pagination',
-          'Popover',
-          'Tabs',
-          'Checkbox',
-          'Table',
-          'Combobox',
-        ]
-      }],
+      'vue/multi-word-component-names': [
+        'error',
+        {
+          ignores: [
+            'Dialog',
+            'Select',
+            'Toast',
+            'Alert',
+            'Badge',
+            'Button',
+            'Card',
+            'Input',
+            'Label',
+            'Separator',
+            'Sheet',
+            'Sidebar',
+            'Skeleton',
+            'Textarea',
+            'Tooltip',
+            'Pagination',
+            'Popover',
+            'Tabs',
+            'Checkbox',
+            'Table',
+            'Combobox',
+          ],
+        },
+      ],
       // Allow any types in catch blocks and specific cases
       '@typescript-eslint/no-explicit-any': 'off',
       // Allow unused vars that start with underscore
-      '@typescript-eslint/no-unused-vars': ['error', {
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
-      }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
     },
   },
 )

@@ -20,7 +20,7 @@ const emit = defineEmits<{
 
 const selectedOption = computed(() => {
   if (!props.modelValue) return null
-  return props.options.find(opt => opt.value === props.modelValue)
+  return props.options.find((opt) => opt.value === props.modelValue)
 })
 
 const isOpen = ref(false)

@@ -64,7 +64,14 @@ async function loadHelpFiles(isInitial = false) {
       tableLoading.value = true
     }
 
-    const params: { page: number; limit: number; category_id?: number; search?: string; sort?: string; sort_dir?: string } = {
+    const params: {
+      page: number
+      limit: number
+      category_id?: number
+      search?: string
+      sort?: string
+      sort_dir?: string
+    } = {
       page: currentPage.value,
       limit,
       sort: sortColumn.value,
@@ -175,12 +182,12 @@ function formatDate(dateStr: string | null): string {
 // Get category badge color
 function getCategoryColor(categoryName: string): string {
   const colors: Record<string, string> = {
-    'General': 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30',
-    'Class': 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30',
+    General: 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30',
+    Class: 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30',
     'Class Skillsets': 'bg-violet-500/20 text-violet-400 hover:bg-violet-500/30',
-    'Spec': 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30',
-    'Race': 'bg-green-500/20 text-green-400 hover:bg-green-500/30',
-    'Redirect': 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/30',
+    Spec: 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30',
+    Race: 'bg-green-500/20 text-green-400 hover:bg-green-500/30',
+    Redirect: 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/30',
   }
   return colors[categoryName] || 'bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30'
 }
