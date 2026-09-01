@@ -45,3 +45,13 @@ export {
 } from './hookSettingsService.js';
 
 export { isHookEnabledSync, withHookGate } from './hookGate.js';
+
+export {
+  applyHookStateFrame,
+  buildHookStateRequest,
+  clearMudHookState,
+  expectedMudGatedHookIds,
+  hasMudReport,
+  mudHookStateProvider,
+  peekMudHookState,
+} from './mudHookStateClient.js';

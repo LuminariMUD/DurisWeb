@@ -33,6 +33,8 @@ import pushRoutes from './routes/push.js';
 import changelogRoutes from './routes/changelog.js';
 import publicStatisticsRoutes from './routes/publicStatistics.js';
 import hookRoutes from './routes/hooks.js';
+import { mudHookStateProvider } from './hooks/mudHookStateClient.js';
+import { refreshHookState, setMudHookStateProvider } from './hooks/hookSettingsService.js';
 import kofiRoutes from './routes/kofi.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { generateCsrfToken, verifyCsrfToken } from './middleware/csrf.js';
@@ -217,6 +219,13 @@ app.use('/api/push', pushRoutes);
 app.use('/api/changelog', changelogRoutes);
 app.use('/api/public/statistics', publicStatisticsRoutes);
 app.use('/api/hooks', hookRoutes);
+
+// Hook state: MUD-reported state comes from the bridge; website toggles are
+// loaded once here so the event-path gate never awaits a database read.
+setMudHookStateProvider(mudHookStateProvider);
+void refreshHookState().catch((error) => {
+  logger.error('[hooks] Initial hook state load failed', error);
+});
 
 // Serve static maps (works in both dev and prod)
 const publicPath = path.join(process.cwd(), 'public');

@@ -6,11 +6,22 @@
  */
 
 import WebSocket from 'ws';
-import crypto from 'crypto';
 import logger from '../utils/logger.js';
 import { getWebSettings } from './webSettingsService.js';
 import * as notificationService from './unifiedNotificationService.js';
 import { pool as db } from '../db/connection.js';
+import {
+  buildMudSocketOptions,
+  generateDuriswebSig,
+  isLoopbackHost,
+  readDuriswebSecret,
+  type DuriswebSecretSlot,
+} from './mudTransportPolicy.js';
+import {
+  applyHookStateFrame,
+  buildHookStateRequest,
+  clearMudHookState,
+} from '../hooks/mudHookStateClient.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { getDmsProcessStats } from './processMonitor.js';
 import redis from '../db/redis.js';
@@ -72,6 +83,13 @@ type AuctionBroadcaster = (type: string, data: any) => void;
 
 let ws: WebSocket | null = null;
 let isAuthenticated = false;
+/**
+ * Which secret the outstanding auth attempt used. Rotation gets exactly one
+ * retry with the previous key; anything more would loop against a MUD that is
+ * rejecting us for an unrelated reason.
+ */
+let authSecretSlot: DuriswebSecretSlot = 'current';
+let retriedWithPreviousSecret = false;
 let reconnectTimeout: NodeJS.Timeout | null = null;
 let broadcaster: AuctionBroadcaster | null = null;
 let playerEventBroadcaster: AuctionBroadcaster | null = null;
@@ -99,22 +117,7 @@ let requestIdCounter = 0;
  * deployment environment and is never embedded in source or replaced with a
  * known default.
  */
-function generateDuriswebSig(challenge: string): string {
-  if (!/^[0-9a-f]{64}$/i.test(challenge)) {
-    throw new Error('Invalid DurisWeb authentication challenge');
-  }
-
-  const secret = process.env.DURISWEB_SECRET;
-  if (!secret || Buffer.byteLength(secret, 'utf8') < 32) {
-    throw new Error('DURISWEB_SECRET must contain at least 32 bytes');
-  }
-
-  const minute = Math.floor(Date.now() / 60000);
-  return crypto
-    .createHmac('sha256', secret)
-    .update(`${minute}:${challenge}`)
-    .digest('hex');
-}
+let lastChallenge: string | null = null;
 
 function handleDuriswebChallenge(socket: WebSocket, message: any): void {
   const challenge = message?.nonce;
@@ -124,12 +127,14 @@ function handleDuriswebChallenge(socket: WebSocket, message: any): void {
     return;
   }
 
+  lastChallenge = challenge;
+
   try {
     socket.send(JSON.stringify({
       type: 'cmd',
       cmd: 'durisweb_auth',
       data: {
-        sig: generateDuriswebSig(challenge),
+        sig: generateDuriswebSig(challenge, authSecretSlot),
       },
     }));
     logger.info('[MUD Auction] Sent durisweb_auth response');
@@ -156,6 +161,15 @@ function resolveMudWebSocketUrl(wsPort: string): string {
   if (parsed.username || parsed.password || parsed.search || parsed.hash) {
     throw new Error('MUD WebSocket URL must not contain credentials, queries, or a fragment');
   }
+  // The bridge carries an HMAC handshake and privileged commands. Plaintext is
+  // acceptable only while both ends share a host; crossing a network boundary
+  // requires TLS. The MUD's own listener is loopback-only by design, so a
+  // remote deployment terminates wss:// at a reverse proxy on the MUD host.
+  if (parsed.protocol === 'ws:' && !isLoopbackHost(parsed.hostname)) {
+    throw new Error(
+      `MUD WebSocket host ${parsed.hostname} is not loopback; use wss:// for a non-local MUD`,
+    );
+  }
   return parsed.toString();
 }
 
@@ -172,7 +186,7 @@ async function connect(): Promise<void> {
 
     logger.info(`[MUD Auction] Connecting to ${wsUrl}...`);
 
-    const socket = new WebSocket(wsUrl);
+    const socket = new WebSocket(wsUrl, buildMudSocketOptions(wsUrl));
     ws = socket;
 
     socket.on('open', () => {
@@ -211,6 +225,12 @@ async function connect(): Promise<void> {
 
     socket.on('close', (code, reason) => {
       logger.info(`[MUD Auction] Connection closed: ${code} ${reason}`);
+      // Forget what the MUD told us: it may change while we are away, and a
+      // stale "enabled" would read as a live hook that is actually off.
+      clearMudHookState();
+      lastChallenge = null;
+      authSecretSlot = 'current';
+      retriedWithPreviousSecret = false;
       handleWebSocketClose();
       cleanup();
       scheduleReconnect();
@@ -243,11 +263,54 @@ function handleMessage(socket: WebSocket, msg: any): void {
     case 'durisweb_auth':
       if (msg.success) {
         isAuthenticated = true;
-        logger.info('[MUD Auction] Authentication successful');
+        retriedWithPreviousSecret = false;
+        logger.info(
+          `[MUD Auction] Authentication successful (${authSecretSlot} secret)`,
+        );
+        // Ask for hook state immediately: until the MUD answers, every
+        // MUD-gated hook resolves as unknown rather than assumed enabled.
+        try {
+          socket.send(buildHookStateRequest());
+          logger.info('[MUD Auction] Requested hook state');
+        } catch (error) {
+          logger.error('[MUD Auction] Could not request hook state:', error);
+        }
       } else {
         isAuthenticated = false;
         logger.error(`[MUD Auction] Authentication failed: ${msg.error}`);
+
+        // A rotation in progress means the MUD may still be on the previous
+        // key. Retry once, then give up rather than loop.
+        if (
+          !retriedWithPreviousSecret &&
+          authSecretSlot === 'current' &&
+          lastChallenge &&
+          readDuriswebSecret('previous')
+        ) {
+          retriedWithPreviousSecret = true;
+          authSecretSlot = 'previous';
+          logger.warn(
+            '[MUD Auction] Retrying authentication with DURISWEB_SECRET_PREVIOUS',
+          );
+          try {
+            socket.send(JSON.stringify({
+              type: 'cmd',
+              cmd: 'durisweb_auth',
+              data: { sig: generateDuriswebSig(lastChallenge, 'previous') },
+            }));
+            return;
+          } catch (error) {
+            logger.error('[MUD Auction] Rotation retry failed:', error);
+          }
+        }
+
         socket.close();
+      }
+      break;
+
+    case 'hook_state':
+      if (applyHookStateFrame(msg)) {
+        logger.info('[MUD Auction] Applied MUD hook state');
       }
       break;
 

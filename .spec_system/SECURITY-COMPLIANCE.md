@@ -11,8 +11,8 @@
 
 | Metric | Value |
 |--------|-------|
-| Open Findings | 8 GDPR baseline + 1 High (SEC-TZ-1, session expiry) |
-| Critical/High | 1 |
+| Open Findings | 8 GDPR baseline + 2 High (SEC-TZ-1 session expiry, SEC-RT-1 refresh tokens) |
+| Critical/High | 2 |
 | Medium/Low | 0 |
 | Phases Audited | 0 (baseline survey only) |
 | Last Clean Phase | -- |
@@ -45,6 +45,28 @@ regression test pass.
   `timezone: 'Z'` mysql2 connection option), or assert at startup that the
   application and database timezones agree and refuse to boot otherwise.
 - **Status**: Open. Not introduced by Phase 00; found by it.
+
+**SEC-RT-1: Refresh tokens are stored verbatim, in a database shared with the MUD.**
+
+`routes/auth.ts:107-116` generates a refresh JWT and inserts it unchanged into
+`web_sessions.refresh_token`. Nothing hashes it; `sessionService.ts:17` compares
+the raw value with `AND refresh_token = ?`. The column is `VARCHAR(512)`,
+consistent with storing a full JWT rather than a digest.
+
+The severity is raised by an architectural fact confirmed in Session 03:
+durisweb has no database of its own - it shares the MUD's `duris_dev` schema. So
+the blast radius is not just durisweb operators. Anyone with read access to the
+MUD's database, any MUD database backup, and any SQL-injection reachable from
+either codebase yields a set of live, directly replayable session tokens.
+
+- **Severity**: High. Read access to one table is sufficient to impersonate
+  every currently logged-in user until their tokens expire (7 days).
+- **Detection**: none. A replayed token is indistinguishable from the real one.
+- **Remediation**: store a SHA-256 digest and compare digests; the token stays
+  only in the client cookie. This is a contained change - one insert site and
+  one comparison - but it invalidates existing sessions on deploy.
+- **Status**: Open. Confirmed in Phase 00 Session 04, answering the question
+  raised in the Session 01 survey.
 
 ### Medium / Low
 
@@ -183,7 +205,7 @@ code survey on 2026-09-01; not a legal assessment.
 | No PII in application logs | GAP | IP addresses logged in `utils/geoip.ts:81,103` and `mudConnectionLogSync.ts:131` |
 | Third-party transfers documented | GAP | See table above; none documented outside this file |
 | Automated profiling disclosed | GAP | Gemini-based suspicion scoring runs without a documented subject-information path |
-| Credentials stored securely | REVIEW | `web_sessions.refresh_token` appears to be stored unhashed |
+| Credentials stored securely | GAP | Confirmed: `web_sessions.refresh_token` stores the raw JWT. See SEC-RT-1 |
 
 ---
 

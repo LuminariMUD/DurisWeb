@@ -4,7 +4,7 @@
 **Sessions**: 7 (initial estimate)
 **Estimated Duration**: 5-8 days
 
-**Progress**: 3/7 sessions (43%)
+**Progress**: 4/7 sessions (57%)
 
 ---
 
@@ -30,7 +30,7 @@ Full requirements in [PRD.md](../PRD.md). Operator console design in
 | 01 | Hook registry and contract | Complete (2026-09-01) | 16 | PASS |
 | 02 | MUD-side toggles and state reporting | Complete (2026-09-01) | 20 | PASS |
 | 03 | Website toggle store and resolution | Complete (2026-09-01) | 18 | PASS |
-| 04 | Bridge state sync and transport security | Not Started | ~22 | - |
+| 04 | Bridge state sync and transport security | Complete (2026-09-01) | 20 | PASS |
 | 05 | Flatfile ingestion hardening | Not Started | ~15 | - |
 | 06 | Hook Control console | Not Started | ~22 | - |
 | 07 | Contract tests and doc reconciliation | Not Started | ~18 | - |
@@ -50,12 +50,16 @@ Full requirements in [PRD.md](../PRD.md). Operator console design in
   tasks, 56/56 tests, validation PASS. Toggle store, fail-closed resolution,
   event-path gate, and admin API. Also cleared most of the inherited migration
   blocker: backend suite went from 8 failing suites to 3.
+- **Session 04: Bridge state sync and transport security** (2026-09-01) - 20/20
+  tasks, 52/52 tests, validation PASS. Real MUD state now feeds resolution;
+  plaintext refused across a network; certificates validated; secret rotation
+  closed. Confirmed SEC-RT-1 (High).
 
 ---
 
 ## Upcoming Sessions
 
-- Session 04: Bridge state sync and transport security
+- Session 05: Flatfile ingestion hardening
 
 ---
 

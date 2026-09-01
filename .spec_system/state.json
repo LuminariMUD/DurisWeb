@@ -42,6 +42,10 @@
     {
       "id": "phase00-session03-website-toggle-store",
       "package": "backend"
+    },
+    {
+      "id": "phase00-session04-bridge-state-and-transport-security",
+      "package": "backend"
     }
   ],
   "next_session_history": [
@@ -60,6 +64,12 @@
     {
       "date": "2026-09-01",
       "session": "phase00-session03-website-toggle-store",
+      "package": "backend",
+      "status": "completed"
+    },
+    {
+      "date": "2026-09-01",
+      "session": "phase00-session04-bridge-state-and-transport-security",
       "package": "backend",
       "status": "completed"
     }
