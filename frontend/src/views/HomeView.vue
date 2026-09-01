@@ -3,7 +3,7 @@ import { useHead } from '@unhead/vue'
 import TheWelcome from '../components/TheWelcome.vue'
 
 useHead({
-  title: 'DurisMUD | Home'
+  title: 'DurisMUD | Home',
 })
 </script>
 

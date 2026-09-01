@@ -11,7 +11,14 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import {
   Select,
   SelectContent,
@@ -30,7 +37,15 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Pagination from '@/components/forum/PaginationWithEllipsis.vue'
-import { Shield, Filter, Archive, RotateCcw, Trash2, MessageSquare, FileText } from 'lucide-vue-next'
+import {
+  Shield,
+  Filter,
+  Archive,
+  RotateCcw,
+  Trash2,
+  MessageSquare,
+  FileText,
+} from 'lucide-vue-next'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 
 const router = useRouter()
@@ -102,8 +117,7 @@ const { data: deletedPostsData, isLoading: loadingPosts } = useQuery({
 async function loadCategories() {
   try {
     categories.value = await forumApi.getCategories()
-  } catch {
-  }
+  } catch {}
 }
 
 async function loadLogs(page: number = 1) {
@@ -113,8 +127,10 @@ async function loadLogs(page: number = 1) {
   try {
     const filters: any = {}
     if (filterModerator.value) filters.moderator = filterModerator.value
-    if (filterActionType.value && filterActionType.value !== 'all') filters.actionType = filterActionType.value
-    if (filterCategoryId.value && filterCategoryId.value !== 'all') filters.categoryId = parseInt(filterCategoryId.value)
+    if (filterActionType.value && filterActionType.value !== 'all')
+      filters.actionType = filterActionType.value
+    if (filterCategoryId.value && filterCategoryId.value !== 'all')
+      filters.categoryId = parseInt(filterCategoryId.value)
 
     const result = await forumApi.getModerationLog(page, 50, filters)
     logs.value = result.logs
@@ -162,7 +178,7 @@ function getActionColor(action: string): 'default' | 'secondary' | 'destructive'
 }
 
 function formatActionType(action: string): string {
-  return action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  return action.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 function formatDate(dateString: string | null): string {

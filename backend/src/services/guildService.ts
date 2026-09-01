@@ -38,7 +38,16 @@ export interface CharacterGuildInfo {
 }
 
 // rank index to field name mapping (guild_ranks uses rank_index 0-7)
-const RANK_INDEX_MAP = ['enemy', 'onParole', 'member', 'senior', 'officer', 'deputy', 'leader', 'king'] as const;
+const RANK_INDEX_MAP = [
+  'enemy',
+  'onParole',
+  'member',
+  'senior',
+  'officer',
+  'deputy',
+  'leader',
+  'king',
+] as const;
 
 // db row interfaces
 interface GuildRow extends RowDataPacket {
@@ -75,7 +84,7 @@ interface MemberGuildRow extends RowDataPacket {
 }
 
 // bit mask for extracting rank from member bits
-const A_RK_MASK = 0x1C;
+const A_RK_MASK = 0x1c;
 
 /**
  * get guild data from database
@@ -87,7 +96,7 @@ export async function getGuild(guildId: number): Promise<GuildData | null> {
     // fetch guild row by id
     const [guildRows] = await pool.query<GuildRow[]>(
       'SELECT id, name, racewar, frags FROM guilds WHERE id = ?',
-      [guildId]
+      [guildId],
     );
 
     if (guildRows.length === 0) {
@@ -99,7 +108,7 @@ export async function getGuild(guildId: number): Promise<GuildData | null> {
     // fetch rank titles for this guild
     const [rankRows] = await pool.query<GuildRankRow[]>(
       'SELECT rank_index, title FROM guild_ranks WHERE guild_id = ? ORDER BY rank_index ASC',
-      [guildId]
+      [guildId],
     );
 
     // build rank titles object with defaults
@@ -124,7 +133,7 @@ export async function getGuild(guildId: number): Promise<GuildData | null> {
     // fetch members for this guild
     const [memberRows] = await pool.query<GuildMemberRow[]>(
       'SELECT player_name, bits, debt FROM guild_members WHERE guild_id = ?',
-      [guildId]
+      [guildId],
     );
 
     // map members to interface, extracting rank from bits
@@ -156,7 +165,9 @@ export async function getGuild(guildId: number): Promise<GuildData | null> {
  * find guild info for a character by searching all guilds
  * returns null if character is not in any guild
  */
-export async function findCharacterGuild(characterName: string): Promise<CharacterGuildInfo | null> {
+export async function findCharacterGuild(
+  characterName: string,
+): Promise<CharacterGuildInfo | null> {
   const lowerName = characterName.toLowerCase();
 
   try {
@@ -167,7 +178,7 @@ export async function findCharacterGuild(characterName: string): Promise<Charact
        JOIN guilds g ON gm.guild_id = g.id
        WHERE LOWER(gm.player_name) = ?
        LIMIT 1`,
-      [lowerName]
+      [lowerName],
     );
 
     if (rows.length === 0) {
@@ -214,7 +225,7 @@ export async function findCharacterGuild(characterName: string): Promise<Charact
  */
 export async function getCharacterGuildInfoFromGuild(
   characterName: string,
-  guildId: number
+  guildId: number,
 ): Promise<CharacterGuildInfo | null> {
   const guildData = await getGuild(guildId);
   if (!guildData) {
@@ -223,7 +234,7 @@ export async function getCharacterGuildInfoFromGuild(
 
   // find the character in the member list
   const member = guildData.members.find(
-    (m) => m.name.toLowerCase() === characterName.toLowerCase()
+    (m) => m.name.toLowerCase() === characterName.toLowerCase(),
   );
 
   if (!member) {
@@ -258,7 +269,7 @@ export async function getCharacterGuildInfoFromGuild(
 export async function getAllGuilds(): Promise<Array<{ id: number; name: string }>> {
   try {
     const [rows] = await pool.query<GuildListRow[]>(
-      'SELECT id, name FROM guilds ORDER BY name ASC'
+      'SELECT id, name FROM guilds ORDER BY name ASC',
     );
 
     return rows.map((row) => ({
@@ -295,7 +306,7 @@ export async function searchGuilds(query: string, limit: number = 20): Promise<s
          AND a.name LIKE ?
        ORDER BY a.name
        LIMIT ?`,
-      [`%${query || ''}%`, safeLimit]
+      [`%${query || ''}%`, safeLimit],
     );
 
     return rows.map((row) => row.guild);

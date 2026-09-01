@@ -74,7 +74,11 @@ describe('MUD control write validation', () => {
       .send({ reason: 'Apply local test restart' });
 
     expect(response.status).toBe(200);
-    expect(restartMud).toHaveBeenCalledWith('Cwial', expect.any(String), 'Apply local test restart');
+    expect(restartMud).toHaveBeenCalledWith(
+      'Cwial',
+      expect.any(String),
+      'Apply local test restart',
+    );
   });
 
   it('rate-limits repeated stop requests from one client', async () => {

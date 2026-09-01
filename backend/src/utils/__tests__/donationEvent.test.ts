@@ -67,16 +67,21 @@ describe('donation event contract', () => {
   });
 
   it('downgrades an event to private when no safe character identity exists', () => {
-    const result = buildDonationEvent({
-      eventId: 'event-123456789013',
-      issuedAt: 1_800_000_000,
-      amountCents: 1,
-      currency: 'USD',
-      isPublic: true,
-      characterName: 'Bad & Name',
-      message: null,
-      seasonEpoch: 1,
-    }, 'duris:local:test', 's'.repeat(32), 1_800_000_000);
+    const result = buildDonationEvent(
+      {
+        eventId: 'event-123456789013',
+        issuedAt: 1_800_000_000,
+        amountCents: 1,
+        currency: 'USD',
+        isPublic: true,
+        characterName: 'Bad & Name',
+        message: null,
+        seasonEpoch: 1,
+      },
+      'duris:local:test',
+      's'.repeat(32),
+      1_800_000_000,
+    );
 
     expect(result.envelope.is_public).toBe(false);
     expect(result.envelope.character_name).toBe('');

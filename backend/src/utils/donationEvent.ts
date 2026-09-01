@@ -45,7 +45,9 @@ export interface BuiltDonationEvent {
 
 export function parseDonationAmountCents(value: string): number {
   if (!AMOUNT_PATTERN.test(value)) {
-    throw new Error('Donation amount must be a positive decimal with at most two fractional digits');
+    throw new Error(
+      'Donation amount must be a positive decimal with at most two fractional digits',
+    );
   }
 
   const [wholePart, fractionPart = ''] = value.split('.');
@@ -66,13 +68,19 @@ export function validateRedisNamespace(value: string): void {
 
   const deployment = value.slice(value.indexOf(':', 'duris:'.length) + 1);
   if (!DEPLOYMENT_PATTERN.test(deployment)) {
-    throw new Error('REDIS_NAMESPACE deployment must use lowercase letters, digits, hyphens, or underscores');
+    throw new Error(
+      'REDIS_NAMESPACE deployment must use lowercase letters, digits, hyphens, or underscores',
+    );
   }
 }
 
 export function sanitizeMudText(value: string | null | undefined, maxBytes: number): string {
   if (!value) return '';
-  if (Buffer.byteLength(value, 'utf8') > maxBytes || !/^[\x20-\x7e]*$/.test(value) || value.includes('&')) {
+  if (
+    Buffer.byteLength(value, 'utf8') > maxBytes ||
+    !/^[\x20-\x7e]*$/.test(value) ||
+    value.includes('&')
+  ) {
     return '';
   }
   return value;
@@ -87,10 +95,17 @@ export function buildDonationEvent(
   if (!EVENT_ID_PATTERN.test(input.eventId)) {
     throw new Error('Donation event ID has an invalid format');
   }
-  if (!Number.isInteger(input.issuedAt) || Math.abs(input.issuedAt - now) > MAX_CLOCK_SKEW_SECONDS) {
+  if (
+    !Number.isInteger(input.issuedAt) ||
+    Math.abs(input.issuedAt - now) > MAX_CLOCK_SKEW_SECONDS
+  ) {
     throw new Error('Donation event timestamp is outside the accepted clock window');
   }
-  if (!Number.isSafeInteger(input.amountCents) || input.amountCents < 1 || input.amountCents > MAX_AMOUNT_CENTS) {
+  if (
+    !Number.isSafeInteger(input.amountCents) ||
+    input.amountCents < 1 ||
+    input.amountCents > MAX_AMOUNT_CENTS
+  ) {
     throw new Error('Donation event amount is outside the supported range');
   }
   if (!CURRENCY_PATTERN.test(input.currency)) {

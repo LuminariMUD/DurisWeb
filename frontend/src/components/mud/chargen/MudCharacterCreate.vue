@@ -8,7 +8,17 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { ArrowLeft, ArrowRight, Dices, Check, Loader2, Skull, Shield, RefreshCw, AlertCircle } from 'lucide-vue-next'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Dices,
+  Check,
+  Loader2,
+  Skull,
+  Shield,
+  RefreshCw,
+  AlertCircle,
+} from 'lucide-vue-next'
 import type { MudRace, MudChargenClass, MudStatLabels, MudHometown } from '@/types/mud'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import HelpModal from './HelpModal.vue'
@@ -20,16 +30,19 @@ const emit = defineEmits<{
   (e: 'swap-stats', stat1: string, stat2: string): void
   (e: 'get-hometowns', race: number): void
   (e: 'validate-name', name: string): void
-  (e: 'create-character', data: {
-    name: string
-    race: number
-    class: number
-    sex: number
-    alignment?: string
-    hometown?: number
-    hardcore?: boolean
-    newbie?: boolean
-  }): void
+  (
+    e: 'create-character',
+    data: {
+      name: string
+      race: number
+      class: number
+      sex: number
+      alignment?: string
+      hometown?: number
+      hardcore?: boolean
+      newbie?: boolean
+    },
+  ): void
   (e: 'cancel'): void
 }>()
 
@@ -45,7 +58,19 @@ const props = defineProps<{
 }>()
 
 // Wizard steps - full flow
-type Step = 'newbie' | 'race' | 'sex' | 'hardcore' | 'class' | 'alignment' | 'hometown' | 'stats' | 'bonus' | 'swap' | 'name' | 'review'
+type Step =
+  | 'newbie'
+  | 'race'
+  | 'sex'
+  | 'hardcore'
+  | 'class'
+  | 'alignment'
+  | 'hometown'
+  | 'stats'
+  | 'bonus'
+  | 'swap'
+  | 'name'
+  | 'review'
 const currentStep = ref<Step>('newbie')
 
 // Character data
@@ -69,14 +94,14 @@ const swapSecond = ref<string | null>(null)
 // Stat quality label to color mapping
 const STAT_COLORS: Record<string, string> = {
   'quite excellent': 'text-purple-400',
-  'excellent': 'text-white font-bold',
+  excellent: 'text-white font-bold',
   'very good': 'text-green-400',
-  'good': 'text-blue-400',
+  good: 'text-blue-400',
   'above average': 'text-blue-500',
-  'average': 'text-gray-400',
+  average: 'text-gray-400',
   'below average': 'text-yellow-500',
-  'poor': 'text-orange-500',
-  'lame': 'text-red-500',
+  poor: 'text-orange-500',
+  lame: 'text-red-500',
 }
 
 function getStatColor(label: string | undefined): string {
@@ -91,9 +116,16 @@ const BONUS_STATS = ['str', 'dex', 'agi', 'con', 'pow', 'int', 'wis', 'cha', 'lu
 const SWAP_STATS = ['str', 'dex', 'agi', 'con', 'pow', 'int', 'wis', 'cha', 'luk']
 // Display names for stats
 const STAT_NAMES: Record<string, string> = {
-  str: 'Str', dex: 'Dex', agi: 'Agi', con: 'Con',
-  pow: 'Pow', int: 'Int', wis: 'Wis', cha: 'Cha',
-  luk: 'Luck', kar: 'Unused'
+  str: 'Str',
+  dex: 'Dex',
+  agi: 'Agi',
+  con: 'Con',
+  pow: 'Pow',
+  int: 'Int',
+  wis: 'Wis',
+  cha: 'Cha',
+  luk: 'Luck',
+  kar: 'Unused',
 }
 
 // Add bonus to a stat (server handles the logic)
@@ -104,9 +136,9 @@ function handleAddBonus(stat: string) {
 }
 
 // Computed
-const goodRaces = computed(() => props.races.filter(r => r.faction === 'good'))
-const evilRaces = computed(() => props.races.filter(r => r.faction === 'evil'))
-const neutralRaces = computed(() => props.races.filter(r => r.faction === 'neutral'))
+const goodRaces = computed(() => props.races.filter((r) => r.faction === 'good'))
+const evilRaces = computed(() => props.races.filter((r) => r.faction === 'evil'))
+const neutralRaces = computed(() => props.races.filter((r) => r.faction === 'neutral'))
 
 const availableClasses = computed(() => {
   if (!selectedRace.value) return []
@@ -148,21 +180,28 @@ const totalSteps = computed(() => {
 })
 
 // Request chargen options on mount
-watch(() => props.races, (newRaces) => {
-  if (newRaces.length === 0) {
-    emit('request-options')
-  }
-}, { immediate: true })
+watch(
+  () => props.races,
+  (newRaces) => {
+    if (newRaces.length === 0) {
+      emit('request-options')
+    }
+  },
+  { immediate: true },
+)
 
 // Watch for name validation response
-watch(() => props.nameValid, (valid) => {
-  nameValidating.value = false
-  if (valid === false && props.nameMessage) {
-    nameError.value = props.nameMessage
-  } else if (valid === true) {
-    nameError.value = ''
-  }
-})
+watch(
+  () => props.nameValid,
+  (valid) => {
+    nameValidating.value = false
+    if (valid === false && props.nameMessage) {
+      nameError.value = props.nameMessage
+    } else if (valid === true) {
+      nameError.value = ''
+    }
+  },
+)
 
 // Auto-roll stats when entering the stats step
 watch(currentStep, (newStep) => {
@@ -341,7 +380,7 @@ function createCharacter() {
     race: selectedRace.value,
     class: selectedClass.value,
     sex: selectedSex.value,
-    name: characterName.value
+    name: characterName.value,
   })
   if (!selectedRace.value || !selectedClass.value || !selectedSex.value) {
     console.log('[Chargen] Missing required fields')
@@ -353,33 +392,46 @@ function createCharacter() {
     race: selectedRace.value.id,
     class: selectedClass.value.id,
     sex: selectedSex.value,
-    alignment: needsAlignmentChoice.value ? selectedAlignment.value ?? undefined : undefined,
+    alignment: needsAlignmentChoice.value ? (selectedAlignment.value ?? undefined) : undefined,
     hometown: selectedHometown.value ?? undefined,
     hardcore: isHardcore.value,
-    newbie: isNewbie.value ?? true
+    newbie: isNewbie.value ?? true,
   }
   console.log('[Chargen] Emitting create-character:', data)
   emit('create-character', data)
 }
 
-function getAlignmentBadgeVariant(alignment: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+function getAlignmentBadgeVariant(
+  alignment: string,
+): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (alignment) {
-    case 'good': return 'default'
-    case 'evil': return 'destructive'
-    case 'any': return 'secondary'
-    default: return 'outline'
+    case 'good':
+      return 'default'
+    case 'evil':
+      return 'destructive'
+    case 'any':
+      return 'secondary'
+    default:
+      return 'outline'
   }
 }
 
 function formatAlignment(alignment: string): string {
   switch (alignment) {
-    case 'good': return 'Good'
-    case 'evil': return 'Evil'
-    case 'neutral': return 'Neutral'
-    case 'any': return 'Any'
-    case 'good_neutral': return 'Good/Neutral'
-    case 'neutral_evil': return 'Neutral/Evil'
-    default: return alignment
+    case 'good':
+      return 'Good'
+    case 'evil':
+      return 'Evil'
+    case 'neutral':
+      return 'Neutral'
+    case 'any':
+      return 'Any'
+    case 'good_neutral':
+      return 'Good/Neutral'
+    case 'neutral_evil':
+      return 'Neutral/Evil'
+    default:
+      return alignment
   }
 }
 </script>

@@ -80,17 +80,20 @@ api.interceptors.request.use(
     // Extract CSRF token from cookie
     const csrfToken = document.cookie
       .split('; ')
-      .find(row => row.startsWith('csrf_token='))
+      .find((row) => row.startsWith('csrf_token='))
       ?.split('=')[1]
 
     // Add CSRF token header for state-changing requests
-    if (csrfToken && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(config.method?.toUpperCase() || '')) {
+    if (
+      csrfToken &&
+      ['POST', 'PUT', 'DELETE', 'PATCH'].includes(config.method?.toUpperCase() || '')
+    ) {
       config.headers['X-CSRF-Token'] = csrfToken
     }
 
     return config
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 )
 
 // Response interceptor for error handling
@@ -98,7 +101,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     return Promise.reject(error)
-  }
+  },
 )
 
 // Public API (no auth required)
@@ -117,12 +120,16 @@ export const pvpApi = {
 
     if (filters.page) params.append('page', filters.page.toString())
     if (filters.limit) params.append('limit', filters.limit.toString())
-    if (filters.date_from || filters.startDate) params.append('date_from', filters.date_from || filters.startDate)
-    if (filters.date_to || filters.endDate) params.append('date_to', filters.date_to || filters.endDate)
-    if (filters.player || filters.playerName) params.append('player', filters.player || filters.playerName)
+    if (filters.date_from || filters.startDate)
+      params.append('date_from', filters.date_from || filters.startDate)
+    if (filters.date_to || filters.endDate)
+      params.append('date_to', filters.date_to || filters.endDate)
+    if (filters.player || filters.playerName)
+      params.append('player', filters.player || filters.playerName)
     if (filters.location) params.append('location', filters.location)
     if (filters.sort_by) params.append('sort_by', filters.sort_by)
-    if (filters.hour !== undefined && filters.hour !== null) params.append('hour', filters.hour.toString())
+    if (filters.hour !== undefined && filters.hour !== null)
+      params.append('hour', filters.hour.toString())
 
     const { data } = await api.get<PaginatedResponse<PvPEvent>>(`/api/pvp/events?${params}`)
     return data
@@ -140,15 +147,22 @@ export const pvpApi = {
    * Get player statistics
    */
   async getPlayerStats(playerName: string): Promise<PlayerStats> {
-    const { data } = await api.get<PlayerStats>(`/api/pvp/stats/player/${encodeURIComponent(playerName)}`)
+    const { data } = await api.get<PlayerStats>(
+      `/api/pvp/stats/player/${encodeURIComponent(playerName)}`,
+    )
     return data
   },
 
   /**
    * Get leaderboard
    */
-  async getLeaderboard(type: 'kills' | 'deaths' | 'kd_ratio' = 'kills', period: '7d' | '30d' | 'all' = '30d'): Promise<Leaderboard> {
-    const { data } = await api.get<Leaderboard>(`/api/pvp/stats/leaderboard?type=${type}&period=${period}`)
+  async getLeaderboard(
+    type: 'kills' | 'deaths' | 'kd_ratio' = 'kills',
+    period: '7d' | '30d' | 'all' = '30d',
+  ): Promise<Leaderboard> {
+    const { data } = await api.get<Leaderboard>(
+      `/api/pvp/stats/leaderboard?type=${type}&period=${period}`,
+    )
     return data
   },
 
@@ -160,15 +174,20 @@ export const pvpApi = {
 
     // Support both naming conventions
     if (query.player || query.playerName) params.append('player', query.player || query.playerName)
-    if (query.date_from || query.dateRange?.start) params.append('date_from', query.date_from || query.dateRange?.start)
-    if (query.date_to || query.dateRange?.end) params.append('date_to', query.date_to || query.dateRange?.end)
+    if (query.date_from || query.dateRange?.start)
+      params.append('date_from', query.date_from || query.dateRange?.start)
+    if (query.date_to || query.dateRange?.end)
+      params.append('date_to', query.date_to || query.dateRange?.end)
     if (query.location) params.append('location', query.location)
     if (query.class && query.class.length > 0) params.append('class', query.class.join(','))
     if (query.race && query.race.length > 0) params.append('race', query.race.join(','))
-    if (query.level_min || query.levelRange?.min) params.append('level_min', (query.level_min || query.levelRange?.min).toString())
-    if (query.level_max || query.levelRange?.max) params.append('level_max', (query.level_max || query.levelRange?.max).toString())
+    if (query.level_min || query.levelRange?.min)
+      params.append('level_min', (query.level_min || query.levelRange?.min).toString())
+    if (query.level_max || query.levelRange?.max)
+      params.append('level_max', (query.level_max || query.levelRange?.max).toString())
     if (query.alignment) params.append('alignment', query.alignment)
-    if (query.hour !== undefined && query.hour !== null) params.append('hour', query.hour.toString())
+    if (query.hour !== undefined && query.hour !== null)
+      params.append('hour', query.hour.toString())
     if (query.sort_by) params.append('sort_by', query.sort_by)
     if (query.page) params.append('page', query.page.toString())
     if (query.limit) params.append('limit', query.limit.toString())
@@ -180,7 +199,11 @@ export const pvpApi = {
   /**
    * Get location autocomplete options
    */
-  async getLocations(search?: string, page: number = 1, limit: number = 20): Promise<LocationOption[]> {
+  async getLocations(
+    search?: string,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<LocationOption[]> {
     const params = new URLSearchParams()
     if (search) params.append('q', search)
     params.append('page', page.toString())
@@ -220,20 +243,36 @@ export const pvpApi = {
   /**
    * Analytics: Get popular locations
    */
-  async getPopularLocations(limit: number = 10, period: string = 'all'): Promise<Array<{ location: string; kills: number }>> {
-    const { data } = await api.get(`/api/pvp/analytics/popular-locations?limit=${limit}&period=${period}`)
+  async getPopularLocations(
+    limit: number = 10,
+    period: string = 'all',
+  ): Promise<Array<{ location: string; kills: number }>> {
+    const { data } = await api.get(
+      `/api/pvp/analytics/popular-locations?limit=${limit}&period=${period}`,
+    )
     return data
   },
 
   /**
    * Analytics: Get class matchup matrix
    */
-  async getClassMatchups(period: string = 'all'): Promise<Array<{ killer_class: string; victim_class: string; wins: number }>> {
+  async getClassMatchups(
+    period: string = 'all',
+  ): Promise<Array<{ killer_class: string; victim_class: string; wins: number }>> {
     const { data } = await api.get(`/api/pvp/analytics/class-matchups?period=${period}`)
     return data
   },
 
-  async getClientStats(period: string = '30d'): Promise<{ clients: Array<{ name: string; count: number; percentage: number; versions: Array<{ version: string; count: number }> }>; total: number; period: string }> {
+  async getClientStats(period: string = '30d'): Promise<{
+    clients: Array<{
+      name: string
+      count: number
+      percentage: number
+      versions: Array<{ version: string; count: number }>
+    }>
+    total: number
+    period: string
+  }> {
     const { data } = await api.get(`/api/pvp/analytics/client-stats?period=${period}`)
     return data
   },
@@ -302,7 +341,7 @@ export const pvpApi = {
     parentId?: number,
     quotedText?: string,
     lineNumber?: number,
-    participantId?: number
+    participantId?: number,
   ): Promise<PvPBattleComment> {
     const { data } = await api.post<PvPBattleComment>(`/api/pvp/events/${eventId}/comments`, {
       content,
@@ -332,9 +371,13 @@ export const pvpApi = {
   /**
    * Get user's favorited battles
    */
-  async getUserFavorites(accountName: string, page: number = 1, limit: number = 20): Promise<PvPFavoritesResponse> {
+  async getUserFavorites(
+    accountName: string,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<PvPFavoritesResponse> {
     const { data } = await api.get<PvPFavoritesResponse>(
-      `/api/pvp/users/${encodeURIComponent(accountName)}/favorites?page=${page}&limit=${limit}`
+      `/api/pvp/users/${encodeURIComponent(accountName)}/favorites?page=${page}&limit=${limit}`,
     )
     return data
   },
@@ -412,7 +455,9 @@ export const authApi = {
    * Check if account exists (for registration validation)
    */
   async accountExists(accountName: string): Promise<boolean> {
-    const { data } = await api.get<{ exists: boolean }>(`/api/auth/account-exists/${encodeURIComponent(accountName)}`)
+    const { data } = await api.get<{ exists: boolean }>(
+      `/api/auth/account-exists/${encodeURIComponent(accountName)}`,
+    )
     return data.exists
   },
 }
@@ -441,16 +486,22 @@ export const forumApi = {
    * Get child categories of a parent category
    */
   async getChildCategories(parentId: number): Promise<ForumCategory[]> {
-    const { data } = await api.get<{ children: ForumCategory[] }>(`/api/forum/categories/${parentId}/children`)
+    const { data } = await api.get<{ children: ForumCategory[] }>(
+      `/api/forum/categories/${parentId}/children`,
+    )
     return data.children
   },
 
   /**
    * Get threads in a category (paginated)
    */
-  async getThreads(categoryId: number, page: number = 1, limit: number = 50): Promise<PaginatedResponse<ForumThread>> {
+  async getThreads(
+    categoryId: number,
+    page: number = 1,
+    limit: number = 50,
+  ): Promise<PaginatedResponse<ForumThread>> {
     const { data } = await api.get<PaginatedResponse<ForumThread>>(
-      `/api/forum/categories/${categoryId}/threads?page=${page}&limit=${limit}`
+      `/api/forum/categories/${categoryId}/threads?page=${page}&limit=${limit}`,
     )
     return data
   },
@@ -458,7 +509,16 @@ export const forumApi = {
   /**
    * Get single thread with posts
    */
-  async getThread(threadId: number, page: number = 1, limit: number = 50): Promise<{ thread: ForumThread; category: { id: number; name: string }; posts: ForumPost[]; pagination: any }> {
+  async getThread(
+    threadId: number,
+    page: number = 1,
+    limit: number = 50,
+  ): Promise<{
+    thread: ForumThread
+    category: { id: number; name: string }
+    posts: ForumPost[]
+    pagination: any
+  }> {
     const { data } = await api.get(`/api/forum/threads/${threadId}?page=${page}&limit=${limit}`)
     return data
   },
@@ -466,7 +526,12 @@ export const forumApi = {
   /**
    * Create new thread
    */
-  async createThread(categoryId: number, title: string, content: string, characterPid?: number): Promise<{ threadId: number }> {
+  async createThread(
+    categoryId: number,
+    title: string,
+    content: string,
+    characterPid?: number,
+  ): Promise<{ threadId: number }> {
     const { data } = await api.post('/api/forum/threads', {
       categoryId,
       title,
@@ -507,7 +572,12 @@ export const forumApi = {
   /**
    * Create post/reply
    */
-  async createPost(threadId: number, content: string, characterPid?: number, parentPostId?: number): Promise<{ postId: number; post: ForumPost }> {
+  async createPost(
+    threadId: number,
+    content: string,
+    characterPid?: number,
+    parentPostId?: number,
+  ): Promise<{ postId: number; post: ForumPost }> {
     const { data } = await api.post(`/api/forum/threads/${threadId}/posts`, {
       content,
       characterPid,
@@ -533,7 +603,11 @@ export const forumApi = {
   /**
    * Add emoji reaction to post or thread
    */
-  async addReaction(postOrThreadId: number, emoji: string, isThread: boolean = false): Promise<void> {
+  async addReaction(
+    postOrThreadId: number,
+    emoji: string,
+    isThread: boolean = false,
+  ): Promise<void> {
     const endpoint = isThread
       ? `/api/forum/threads/${postOrThreadId}/reactions`
       : `/api/forum/posts/${postOrThreadId}/reactions`
@@ -543,7 +617,11 @@ export const forumApi = {
   /**
    * Remove emoji reaction from post or thread
    */
-  async removeReaction(postOrThreadId: number, emoji: string, isThread: boolean = false): Promise<void> {
+  async removeReaction(
+    postOrThreadId: number,
+    emoji: string,
+    isThread: boolean = false,
+  ): Promise<void> {
     const endpoint = isThread
       ? `/api/forum/threads/${postOrThreadId}/reactions/${encodeURIComponent(emoji)}`
       : `/api/forum/posts/${postOrThreadId}/reactions/${encodeURIComponent(emoji)}`
@@ -568,7 +646,9 @@ export const forumApi = {
    * Get user's subscriptions
    */
   async getSubscriptions(): Promise<ThreadSubscription[]> {
-    const { data } = await api.get<{ subscriptions: ThreadSubscription[] }>('/api/forum/subscriptions')
+    const { data } = await api.get<{ subscriptions: ThreadSubscription[] }>(
+      '/api/forum/subscriptions',
+    )
     return data.subscriptions
   },
 
@@ -599,7 +679,7 @@ export const forumApi = {
       categoryId?: number
       dateFrom?: string
       dateTo?: string
-    }
+    },
   ): Promise<{ results: ForumSearchResult[]; pagination: any }> {
     const params = new URLSearchParams({
       query,
@@ -621,7 +701,7 @@ export const forumApi = {
    */
   async moderatorDeletePost(postId: number, reason?: string): Promise<void> {
     await api.delete(`/api/forum/moderation/posts/${postId}`, {
-      data: { reason }
+      data: { reason },
     })
   },
 
@@ -637,7 +717,7 @@ export const forumApi = {
    */
   async moderatorDeleteThread(threadId: number, reason?: string): Promise<void> {
     await api.delete(`/api/forum/moderation/threads/${threadId}`, {
-      data: { reason }
+      data: { reason },
     })
   },
 
@@ -654,7 +734,7 @@ export const forumApi = {
   async moveThread(threadId: number, categoryId: number, reason?: string): Promise<void> {
     await api.post(`/api/forum/moderation/threads/${threadId}/move`, {
       categoryId,
-      reason
+      reason,
     })
   },
 
@@ -668,7 +748,7 @@ export const forumApi = {
       moderator?: string
       actionType?: string
       categoryId?: number
-    }
+    },
   ): Promise<{ logs: ModerationLogEntry[]; pagination: any }> {
     const params = new URLSearchParams({
       page: page.toString(),
@@ -688,7 +768,10 @@ export const forumApi = {
     return data.subscriptions
   },
 
-  async subscribeToThread(threadId: number, notificationPreference: 'all' | 'mentions' | 'none' = 'all'): Promise<void> {
+  async subscribeToThread(
+    threadId: number,
+    notificationPreference: 'all' | 'mentions' | 'none' = 'all',
+  ): Promise<void> {
     await api.post(`/api/forum/threads/${threadId}/subscribe`, { notificationPreference })
   },
 
@@ -701,7 +784,10 @@ export const forumApi = {
     return data.isSubscribed
   },
 
-  async subscribeToCategory(categoryId: number, notificationPreference: 'all' | 'mentions' | 'none' = 'all'): Promise<void> {
+  async subscribeToCategory(
+    categoryId: number,
+    notificationPreference: 'all' | 'mentions' | 'none' = 'all',
+  ): Promise<void> {
     await api.post(`/api/forum/categories/${categoryId}/subscribe`, { notificationPreference })
   },
 
@@ -718,12 +804,12 @@ export const forumApi = {
   async getNotifications(
     page: number = 1,
     limit: number = 50,
-    unreadOnly: boolean = false
+    unreadOnly: boolean = false,
   ): Promise<{ notifications: any[]; pagination: any; unreadCount: number }> {
     const params = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
-      unreadOnly: unreadOnly.toString()
+      unreadOnly: unreadOnly.toString(),
     })
     const { data } = await api.get(`/api/forum/notifications?${params}`)
     return data
@@ -753,7 +839,10 @@ export const forumApi = {
   /**
    * Create a poll for a thread
    */
-  async createPoll(threadId: number, pollData: import('@/types').PollCreationData): Promise<{ pollId: number }> {
+  async createPoll(
+    threadId: number,
+    pollData: import('@/types').PollCreationData,
+  ): Promise<{ pollId: number }> {
     const { data } = await api.post(`/api/forum/threads/${threadId}/poll`, pollData)
     return data
   },
@@ -807,7 +896,7 @@ export const forumApi = {
    */
   async searchAccounts(query: string): Promise<string[]> {
     const { data } = await api.get('/api/forum/accounts/search', {
-      params: { q: query }
+      params: { q: query },
     })
     return data.accounts
   },
@@ -817,7 +906,7 @@ export const forumApi = {
    */
   async searchGuilds(query: string): Promise<string[]> {
     const { data } = await api.get('/api/forum/guilds/search', {
-      params: { q: query }
+      params: { q: query },
     })
     return data.guilds
   },
@@ -827,7 +916,7 @@ export const forumApi = {
    */
   async getLatestThreads(limit: number = 5): Promise<any[]> {
     const { data } = await api.get('/api/forum/activity/latest', {
-      params: { limit }
+      params: { limit },
     })
     return data
   },
@@ -837,7 +926,7 @@ export const forumApi = {
    */
   async getPopularThreads(limit: number = 5): Promise<any[]> {
     const { data } = await api.get('/api/forum/activity/popular', {
-      params: { limit }
+      params: { limit },
     })
     return data
   },
@@ -850,13 +939,15 @@ export const forumApi = {
    * Upload an image for use in forum posts
    * Returns { success, imageId, imageUrl }
    */
-  async uploadPostImage(file: File): Promise<{ success: boolean; imageId: number; imageUrl: string }> {
+  async uploadPostImage(
+    file: File,
+  ): Promise<{ success: boolean; imageId: number; imageUrl: string }> {
     const formData = new FormData()
     formData.append('image', file)
     const { data } = await api.post('/api/forum/images/upload', formData, {
       headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+        'Content-Type': 'multipart/form-data',
+      },
     })
     return data
   },
@@ -872,7 +963,11 @@ export const forumApi = {
   /**
    * Get current image upload status (pending orphan count)
    */
-  async getImageUploadStatus(): Promise<{ pendingImages: number; maxImages: number; canUpload: boolean }> {
+  async getImageUploadStatus(): Promise<{
+    pendingImages: number
+    maxImages: number
+    canUpload: boolean
+  }> {
     const { data } = await api.get('/api/forum/images/status')
     return data
   },
@@ -909,14 +1004,19 @@ export const adminApi = {
    * Get category permissions
    */
   async getCategoryPermissions(categoryId: number): Promise<CategoryPermissions> {
-    const { data } = await api.get<{ permissions: CategoryPermissions }>(`/api/admin/forum/categories/${categoryId}/permissions`)
+    const { data } = await api.get<{ permissions: CategoryPermissions }>(
+      `/api/admin/forum/categories/${categoryId}/permissions`,
+    )
     return data.permissions
   },
 
   /**
    * Update category permissions
    */
-  async updateCategoryPermissions(categoryId: number, permissions: Partial<CategoryPermissions>): Promise<void> {
+  async updateCategoryPermissions(
+    categoryId: number,
+    permissions: Partial<CategoryPermissions>,
+  ): Promise<void> {
     await api.patch(`/api/admin/forum/categories/${categoryId}/permissions`, permissions)
   },
 
@@ -924,7 +1024,9 @@ export const adminApi = {
    * Get permission audit log
    */
   async getAuditLog(limit: number = 50): Promise<AuditLogEntry[]> {
-    const { data } = await api.get<{ auditLog: AuditLogEntry[] }>(`/api/admin/forum/audit-log?limit=${limit}`)
+    const { data } = await api.get<{ auditLog: AuditLogEntry[] }>(
+      `/api/admin/forum/audit-log?limit=${limit}`,
+    )
     return data.auditLog
   },
 
@@ -936,9 +1038,7 @@ export const adminApi = {
    * Get all non-archived categories (admin view)
    */
   async getAllCategories(): Promise<ForumCategory[]> {
-    const { data } = await api.get<{ categories: ForumCategory[] }>(
-      `/api/forum/categories`
-    )
+    const { data } = await api.get<{ categories: ForumCategory[] }>(`/api/forum/categories`)
     return data.categories
   },
 
@@ -947,7 +1047,7 @@ export const adminApi = {
    */
   async getCategoryDetails(categoryId: number): Promise<ForumCategory> {
     const { data } = await api.get<{ category: ForumCategory }>(
-      `/api/admin/forum/categories/${categoryId}/details`
+      `/api/admin/forum/categories/${categoryId}/details`,
     )
     return data.category
   },
@@ -956,10 +1056,7 @@ export const adminApi = {
    * Create new category
    */
   async createCategory(request: CreateCategoryRequest): Promise<number> {
-    const { data } = await api.post<{ id: number }>(
-      '/api/forum/categories',
-      request
-    )
+    const { data } = await api.post<{ id: number }>('/api/forum/categories', request)
     return data.id
   },
 
@@ -1002,12 +1099,15 @@ export const adminApi = {
   /**
    * Get deleted threads (paginated)
    */
-  async getDeletedThreads(page: number = 1, limit: number = 50): Promise<{
+  async getDeletedThreads(
+    page: number = 1,
+    limit: number = 50,
+  ): Promise<{
     threads: any[]
     pagination: { page: number; limit: number; total: number; totalPages: number }
   }> {
     const { data } = await api.get('/api/admin/archives/threads', {
-      params: { page, limit }
+      params: { page, limit },
     })
     return data
   },
@@ -1015,12 +1115,15 @@ export const adminApi = {
   /**
    * Get deleted posts (paginated)
    */
-  async getDeletedPosts(page: number = 1, limit: number = 50): Promise<{
+  async getDeletedPosts(
+    page: number = 1,
+    limit: number = 50,
+  ): Promise<{
     posts: any[]
     pagination: { page: number; limit: number; total: number; totalPages: number }
   }> {
     const { data } = await api.get('/api/admin/archives/posts', {
-      params: { page, limit }
+      params: { page, limit },
     })
     return data
   },
@@ -1072,7 +1175,7 @@ export const adminApi = {
    */
   async getCategoryACL(categoryId: number): Promise<CategoryPermissionRule[]> {
     const { data } = await api.get<{ permissions: CategoryPermissionRule[] }>(
-      `/api/admin/forum/categories/${categoryId}/acl`
+      `/api/admin/forum/categories/${categoryId}/acl`,
     )
     return data.permissions
   },
@@ -1083,7 +1186,7 @@ export const adminApi = {
   async addCategoryPermission(categoryId: number, request: AddPermissionRequest): Promise<number> {
     const { data } = await api.post<{ permissionId: number }>(
       `/api/admin/forum/categories/${categoryId}/acl`,
-      request
+      request,
     )
     return data.permissionId
   },
@@ -1162,7 +1265,7 @@ export const adminApi = {
    * Create a restore operation
    */
   async createRestore(
-    request: import('@/types').RestoreRequest
+    request: import('@/types').RestoreRequest,
   ): Promise<{ success: boolean; id: number; message: string }> {
     const { data } = await api.post('/api/admin/backup/restore', request)
     return data
@@ -1207,7 +1310,7 @@ export const adminApi = {
    */
   async createRestoreFromUpload(
     tempPath: string,
-    request: Omit<import('@/types').RestoreRequest, 'backupId'>
+    request: Omit<import('@/types').RestoreRequest, 'backupId'>,
   ): Promise<{ success: boolean; id: number; message: string }> {
     const { data } = await api.post('/api/admin/backup/upload/restore', {
       tempPath,
@@ -1297,7 +1400,7 @@ export const adminApi = {
     const { data } = await api.post<{ success: boolean; logoUrl: string }>(
       '/api/admin/web/logo',
       formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } }
+      { headers: { 'Content-Type': 'multipart/form-data' } },
     )
     return { logoUrl: data.logoUrl }
   },
@@ -1318,7 +1421,7 @@ export const adminApi = {
     const { data } = await api.post<{ success: boolean; heroUrl: string }>(
       '/api/admin/web/hero-image',
       formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } }
+      { headers: { 'Content-Type': 'multipart/form-data' } },
     )
     return { heroUrl: data.heroUrl }
   },
@@ -1336,7 +1439,7 @@ export const adminApi = {
   async testDiscordWebhook(webhookUrl: string): Promise<{ success: boolean; error?: string }> {
     const { data } = await api.post<{ success: boolean; error?: string }>(
       '/api/admin/discord/test',
-      { webhookUrl }
+      { webhookUrl },
     )
     return data
   },
@@ -1347,7 +1450,6 @@ export const adminApi = {
   async postBattleToDiscord(eventId: number): Promise<void> {
     await api.post(`/api/admin/pvp/events/${eventId}/discord`)
   },
-
 }
 
 // ============================================================================
@@ -1481,7 +1583,9 @@ export const userManagementApi = {
    * Delete a character from an account
    */
   async deleteCharacter(accountName: string, characterName: string): Promise<void> {
-    await api.delete(`/api/admin/users/${encodeURIComponent(accountName)}/characters/${encodeURIComponent(characterName)}`)
+    await api.delete(
+      `/api/admin/users/${encodeURIComponent(accountName)}/characters/${encodeURIComponent(characterName)}`,
+    )
   },
 }
 
@@ -1548,7 +1652,9 @@ export const analyticsApi = {
   /**
    * Get player activity over time for charts
    */
-  async getPlayerActivity(hours: number = 24): Promise<{ activity: Array<{ timestamp: number; playerCount: number }> }> {
+  async getPlayerActivity(
+    hours: number = 24,
+  ): Promise<{ activity: Array<{ timestamp: number; playerCount: number }> }> {
     const { data } = await api.get(`/api/admin/analytics/activity?hours=${hours}`)
     return data
   },
@@ -1569,19 +1675,27 @@ export const profileApi = {
   /**
    * Update own profile
    */
-  async updateProfile(updates: { bio?: string; website?: string; location?: string }): Promise<void> {
+  async updateProfile(updates: {
+    bio?: string
+    website?: string
+    location?: string
+  }): Promise<void> {
     await api.patch('/api/forum/users/me/profile', updates)
   },
 
   /**
    * Get user's posts with pagination
    */
-  async getUserPosts(accountName: string, page: number = 1, limit: number = 50): Promise<{
+  async getUserPosts(
+    accountName: string,
+    page: number = 1,
+    limit: number = 50,
+  ): Promise<{
     posts: UserPost[]
     pagination: { page: number; limit: number; total: number; totalPages: number }
   }> {
     const { data } = await api.get(`/api/forum/users/${accountName}/posts`, {
-      params: { page, limit }
+      params: { page, limit },
     })
     return data
   },
@@ -1589,12 +1703,16 @@ export const profileApi = {
   /**
    * Get user's threads with pagination
    */
-  async getUserThreads(accountName: string, page: number = 1, limit: number = 50): Promise<{
+  async getUserThreads(
+    accountName: string,
+    page: number = 1,
+    limit: number = 50,
+  ): Promise<{
     threads: UserThread[]
     pagination: { page: number; limit: number; total: number; totalPages: number }
   }> {
     const { data } = await api.get(`/api/forum/users/${accountName}/threads`, {
-      params: { page, limit }
+      params: { page, limit },
     })
     return data
   },
@@ -1606,7 +1724,7 @@ export const profileApi = {
     const formData = new FormData()
     formData.append('avatar', file)
     const { data } = await api.post('/api/forum/users/me/avatar', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
     })
     return data
   },
@@ -1618,7 +1736,7 @@ export const profileApi = {
     const formData = new FormData()
     formData.append('avatar', file)
     const { data } = await api.post(`/api/forum/users/${accountName}/avatar`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
     })
     return data
   },
@@ -1641,7 +1759,9 @@ export const profileApi = {
    * Get account characters with stats
    */
   async getAccountCharacters(accountName: string): Promise<AccountCharactersResponse> {
-    const { data } = await api.get<AccountCharactersResponse>(`/api/forum/users/${accountName}/characters`)
+    const { data } = await api.get<AccountCharactersResponse>(
+      `/api/forum/users/${accountName}/characters`,
+    )
     return data
   },
 
@@ -1649,7 +1769,9 @@ export const profileApi = {
    * Get account name for a character
    */
   async getCharacterAccount(characterName: string): Promise<{ accountName: string }> {
-    const { data } = await api.get<{ accountName: string }>(`/api/forum/characters/${encodeURIComponent(characterName)}/account`)
+    const { data } = await api.get<{ accountName: string }>(
+      `/api/forum/characters/${encodeURIComponent(characterName)}/account`,
+    )
     return data
   },
 
@@ -1657,7 +1779,10 @@ export const profileApi = {
    * Batch lookup account names for multiple characters
    */
   async getCharacterAccountsBatch(characterNames: string[]): Promise<Record<string, string>> {
-    const { data } = await api.post<Record<string, string>>('/api/forum/characters/batch/accounts', { characterNames })
+    const { data } = await api.post<Record<string, string>>(
+      '/api/forum/characters/batch/accounts',
+      { characterNames },
+    )
     return data
   },
 
@@ -1668,7 +1793,7 @@ export const profileApi = {
     const formData = new FormData()
     formData.append('banner', file)
     const { data } = await api.post('/api/forum/users/me/banner', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
     })
     return data
   },
@@ -1680,7 +1805,7 @@ export const profileApi = {
     const formData = new FormData()
     formData.append('banner', file)
     const { data } = await api.post(`/api/forum/users/${accountName}/banner`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
     })
     return data
   },
@@ -1713,12 +1838,16 @@ export const characterApi = {
   /**
    * Get character's forum posts with pagination
    */
-  async getCharacterPosts(characterName: string, page: number = 1, limit: number = 20): Promise<{
+  async getCharacterPosts(
+    characterName: string,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<{
     posts: any[]
     pagination: { page: number; limit: number; total: number; totalPages: number }
   }> {
     const { data } = await api.get(`/api/forum/characters/${characterName}/posts`, {
-      params: { page, limit }
+      params: { page, limit },
     })
     return data
   },
@@ -1726,12 +1855,16 @@ export const characterApi = {
   /**
    * Get character's PvP events with pagination
    */
-  async getCharacterPvPEvents(characterName: string, page: number = 1, limit: number = 20): Promise<{
+  async getCharacterPvPEvents(
+    characterName: string,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<{
     events: any[]
     pagination: { page: number; limit: number; total: number; totalPages: number }
   }> {
     const { data } = await api.get(`/api/forum/characters/${characterName}/pvp`, {
-      params: { page, limit }
+      params: { page, limit },
     })
     return data
   },
@@ -1750,12 +1883,16 @@ export const guildApi = {
   /**
    * Get guild's forum activity with pagination
    */
-  async getGuildForumActivity(guildName: string, page: number = 1, limit: number = 20): Promise<{
+  async getGuildForumActivity(
+    guildName: string,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<{
     posts: any[]
     pagination: { page: number; limit: number; total: number; totalPages: number }
   }> {
     const { data } = await api.get(`/api/forum/guilds/${encodeURIComponent(guildName)}/activity`, {
-      params: { page, limit }
+      params: { page, limit },
     })
     return data
   },
@@ -1839,9 +1976,13 @@ export const gitApi = {
   /**
    * Get paginated list of git commits
    */
-  async getCommits(page: number = 1, limit: number = 50, refresh: boolean = false): Promise<import('@/types').GitCommitsResponse> {
+  async getCommits(
+    page: number = 1,
+    limit: number = 50,
+    refresh: boolean = false,
+  ): Promise<import('@/types').GitCommitsResponse> {
     const { data } = await api.get('/api/admin/git/commits', {
-      params: { page, limit, refresh: refresh ? 'true' : undefined }
+      params: { page, limit, refresh: refresh ? 'true' : undefined },
     })
     return data
   },
@@ -1895,7 +2036,9 @@ export const builderApi = {
   /**
    * Get zone header info
    */
-  async getZoneHeader(zoneId: string): Promise<{ header: import('@/types').ZoneHeader; resetCount: number }> {
+  async getZoneHeader(
+    zoneId: string,
+  ): Promise<{ header: import('@/types').ZoneHeader; resetCount: number }> {
     const { data } = await api.get(`/api/builder/zones/${zoneId}/header`)
     return data
   },
@@ -1911,7 +2054,11 @@ export const builderApi = {
   /**
    * Update room
    */
-  async updateRoom(zoneId: string, vnum: number, room: import('@/types').Room): Promise<{ success: boolean; room: import('@/types').Room }> {
+  async updateRoom(
+    zoneId: string,
+    vnum: number,
+    room: import('@/types').Room,
+  ): Promise<{ success: boolean; room: import('@/types').Room }> {
     const { data } = await api.put(`/api/builder/zones/${zoneId}/rooms/${vnum}`, room)
     return data
   },
@@ -1919,7 +2066,10 @@ export const builderApi = {
   /**
    * Create new room
    */
-  async createRoom(zoneId: string, room: Partial<import('@/types').Room>): Promise<{ success: boolean; room: import('@/types').Room }> {
+  async createRoom(
+    zoneId: string,
+    room: Partial<import('@/types').Room>,
+  ): Promise<{ success: boolean; room: import('@/types').Room }> {
     const { data } = await api.post(`/api/builder/zones/${zoneId}/rooms`, room)
     return data
   },
@@ -1935,8 +2085,16 @@ export const builderApi = {
   /**
    * Clone a room within the same zone
    */
-  async cloneRoom(zoneId: string, sourceVnum: number, targetVnum?: number, count: number = 1): Promise<{ success: boolean; room: import('@/types').Room; vnum: number; vnums?: number[] }> {
-    const { data } = await api.post(`/api/builder/zones/${zoneId}/rooms/${sourceVnum}/clone`, { targetVnum, count })
+  async cloneRoom(
+    zoneId: string,
+    sourceVnum: number,
+    targetVnum?: number,
+    count: number = 1,
+  ): Promise<{ success: boolean; room: import('@/types').Room; vnum: number; vnums?: number[] }> {
+    const { data } = await api.post(`/api/builder/zones/${zoneId}/rooms/${sourceVnum}/clone`, {
+      targetVnum,
+      count,
+    })
     return data
   },
 
@@ -1947,7 +2105,7 @@ export const builderApi = {
     query: string,
     type: 'all' | 'room' | 'mob' | 'object' = 'all',
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
   ): Promise<{
     results: Array<{
       type: 'room' | 'mob' | 'object'
@@ -1972,13 +2130,15 @@ export const builderApi = {
   /**
    * Get builder activity log
    */
-  async getBuilderActivity(params: {
-    account?: string
-    zone?: string
-    entityType?: string
-    limit?: number
-    offset?: number
-  } = {}): Promise<import('@/types').BuilderActivityResponse> {
+  async getBuilderActivity(
+    params: {
+      account?: string
+      zone?: string
+      entityType?: string
+      limit?: number
+      offset?: number
+    } = {},
+  ): Promise<import('@/types').BuilderActivityResponse> {
     const { data } = await api.get('/api/builder/activity', {
       params: {
         account: params.account,
@@ -2002,7 +2162,11 @@ export const builderApi = {
   /**
    * Update mobile
    */
-  async updateMobile(zoneId: string, vnum: number, mobile: import('@/types').Mobile): Promise<{ success: boolean; mobile: import('@/types').Mobile }> {
+  async updateMobile(
+    zoneId: string,
+    vnum: number,
+    mobile: import('@/types').Mobile,
+  ): Promise<{ success: boolean; mobile: import('@/types').Mobile }> {
     const { data } = await api.put(`/api/builder/zones/${zoneId}/mobs/${vnum}`, mobile)
     return data
   },
@@ -2010,7 +2174,10 @@ export const builderApi = {
   /**
    * Create new mobile
    */
-  async createMobile(zoneId: string, mobile: Partial<import('@/types').Mobile>): Promise<{ success: boolean; mobile: import('@/types').Mobile }> {
+  async createMobile(
+    zoneId: string,
+    mobile: Partial<import('@/types').Mobile>,
+  ): Promise<{ success: boolean; mobile: import('@/types').Mobile }> {
     const { data } = await api.post(`/api/builder/zones/${zoneId}/mobs`, mobile)
     return data
   },
@@ -2034,7 +2201,11 @@ export const builderApi = {
   /**
    * Update object
    */
-  async updateObject(zoneId: string, vnum: number, obj: import('@/types').ZoneObject): Promise<{ success: boolean; object: import('@/types').ZoneObject }> {
+  async updateObject(
+    zoneId: string,
+    vnum: number,
+    obj: import('@/types').ZoneObject,
+  ): Promise<{ success: boolean; object: import('@/types').ZoneObject }> {
     const { data } = await api.put(`/api/builder/zones/${zoneId}/objects/${vnum}`, obj)
     return data
   },
@@ -2042,7 +2213,10 @@ export const builderApi = {
   /**
    * Create new object
    */
-  async createObject(zoneId: string, obj: Partial<import('@/types').ZoneObject>): Promise<{ success: boolean; object: import('@/types').ZoneObject }> {
+  async createObject(
+    zoneId: string,
+    obj: Partial<import('@/types').ZoneObject>,
+  ): Promise<{ success: boolean; object: import('@/types').ZoneObject }> {
     const { data } = await api.post(`/api/builder/zones/${zoneId}/objects`, obj)
     return data
   },
@@ -2082,11 +2256,13 @@ export const builderApi = {
   /**
    * Get all flag categories with counts
    */
-  async getFlagCategories(): Promise<Array<{
-    category: string
-    count: number
-    lastUpdated: string
-  }>> {
+  async getFlagCategories(): Promise<
+    Array<{
+      category: string
+      count: number
+      lastUpdated: string
+    }>
+  > {
     const { data } = await api.get('/api/builder/flags/categories')
     return data
   },
@@ -2102,7 +2278,10 @@ export const builderApi = {
   /**
    * Create a new zone
    */
-  async createZone(zoneNumber: number, zoneName: string): Promise<{ success: boolean; zoneId: string; zoneNumber: number; zoneName: string }> {
+  async createZone(
+    zoneNumber: number,
+    zoneName: string,
+  ): Promise<{ success: boolean; zoneId: string; zoneNumber: number; zoneName: string }> {
     const { data } = await api.post('/api/builder/zones', { zoneNumber, zoneName })
     return data
   },
@@ -2118,8 +2297,20 @@ export const builderApi = {
   /**
    * Clone a zone
    */
-  async cloneZone(sourceZoneId: string, targetZoneNumber: number, zoneName?: string): Promise<{ success: boolean; sourceZoneId: string; newZoneId: string; targetZoneNumber: number }> {
-    const { data } = await api.post(`/api/builder/zones/${sourceZoneId}/clone`, { targetZoneNumber, zoneName })
+  async cloneZone(
+    sourceZoneId: string,
+    targetZoneNumber: number,
+    zoneName?: string,
+  ): Promise<{
+    success: boolean
+    sourceZoneId: string
+    newZoneId: string
+    targetZoneNumber: number
+  }> {
+    const { data } = await api.post(`/api/builder/zones/${sourceZoneId}/clone`, {
+      targetZoneNumber,
+      zoneName,
+    })
     return data
   },
 
@@ -2134,7 +2325,10 @@ export const builderApi = {
   /**
    * Save room positions for zone map
    */
-  async saveZonePositions(zoneId: string, positions: Record<number, import('@/types').RoomPosition>): Promise<{ success: boolean }> {
+  async saveZonePositions(
+    zoneId: string,
+    positions: Record<number, import('@/types').RoomPosition>,
+  ): Promise<{ success: boolean }> {
     const { data } = await api.put(`/api/builder/zones/${zoneId}/positions`, { positions })
     return data
   },
@@ -2142,31 +2336,48 @@ export const builderApi = {
   /**
    * Validate an exit (quick validation for real-time feedback)
    */
-  async validateExit(zoneId: string, toRoom?: number, keyVnum?: number): Promise<{
+  async validateExit(
+    zoneId: string,
+    toRoom?: number,
+    keyVnum?: number,
+  ): Promise<{
     valid: boolean
     errors: string[]
     warnings: string[]
   }> {
-    const { data } = await api.post(`/api/builder/zones/${zoneId}/validate/exit`, { toRoom, keyVnum })
+    const { data } = await api.post(`/api/builder/zones/${zoneId}/validate/exit`, {
+      toRoom,
+      keyVnum,
+    })
     return data
   },
 
   /**
    * Validate object values (quick validation for real-time feedback)
    */
-  async validateObjectValues(zoneId: string, itemType: number, values: number[]): Promise<{
+  async validateObjectValues(
+    zoneId: string,
+    itemType: number,
+    values: number[],
+  ): Promise<{
     valid: boolean
     errors: string[]
     warnings: string[]
   }> {
-    const { data } = await api.post(`/api/builder/zones/${zoneId}/validate/object-values`, { itemType, values })
+    const { data } = await api.post(`/api/builder/zones/${zoneId}/validate/object-values`, {
+      itemType,
+      values,
+    })
     return data
   },
 
   /**
    * Save zone resets
    */
-  async saveZoneResets(zoneId: string, resets: import('@/types').ResetCommand[]): Promise<{ success: boolean; resetCount: number }> {
+  async saveZoneResets(
+    zoneId: string,
+    resets: import('@/types').ResetCommand[],
+  ): Promise<{ success: boolean; resetCount: number }> {
     const { data } = await api.put(`/api/builder/zones/${zoneId}/resets`, { resets })
     return data
   },
@@ -2185,7 +2396,10 @@ export const builderApi = {
   /**
    * Commit zone files to git
    */
-  async commitZone(zoneId: string, message: string): Promise<{
+  async commitZone(
+    zoneId: string,
+    message: string,
+  ): Promise<{
     success: boolean
     commitHash?: string
     error?: string
@@ -2225,7 +2439,10 @@ export const builderApi = {
   /**
    * Update zone info (create or update)
    */
-  async updateZoneInfo(zoneId: string, info: import('@/types').ZoneInfoUpdate): Promise<import('@/types').ZoneInfo> {
+  async updateZoneInfo(
+    zoneId: string,
+    info: import('@/types').ZoneInfoUpdate,
+  ): Promise<import('@/types').ZoneInfo> {
     const { data } = await api.put(`/api/builder/zones/${zoneId}/info`, info)
     return data.info
   },
@@ -2233,7 +2450,11 @@ export const builderApi = {
   /**
    * Get zone info edit history
    */
-  async getZoneInfoHistory(zoneId: string, limit: number = 50, offset: number = 0): Promise<import('@/types').ZoneInfoHistoryResponse> {
+  async getZoneInfoHistory(
+    zoneId: string,
+    limit: number = 50,
+    offset: number = 0,
+  ): Promise<import('@/types').ZoneInfoHistoryResponse> {
     const { data } = await api.get(`/api/builder/zones/${zoneId}/info/history`, {
       params: { limit, offset },
     })
@@ -2247,9 +2468,11 @@ export const builderApi = {
   /**
    * Get notifications for current user
    */
-  async getBuilderNotifications(
-    params?: { isRead?: boolean; limit?: number; offset?: number }
-  ): Promise<import('@/types').BuilderNotificationsResponse> {
+  async getBuilderNotifications(params?: {
+    isRead?: boolean
+    limit?: number
+    offset?: number
+  }): Promise<import('@/types').BuilderNotificationsResponse> {
     const { data } = await api.get('/api/builder/notifications', { params })
     return data
   },
@@ -2288,7 +2511,11 @@ export const builderApi = {
   /**
    * Grant zone permission to account
    */
-  async grantZonePermission(zoneId: string, accountName: string, permissionLevel: import('@/types').ZonePermissionLevel): Promise<void> {
+  async grantZonePermission(
+    zoneId: string,
+    accountName: string,
+    permissionLevel: import('@/types').ZonePermissionLevel,
+  ): Promise<void> {
     await api.post(`/api/builder/zones/${zoneId}/permissions`, { accountName, permissionLevel })
   },
 
@@ -2330,12 +2557,17 @@ export const builderApi = {
   /**
    * Get proc requests for a zone
    */
-  async getProcRequests(zoneId: string, filters?: {
-    status?: import('@/types').ProcRequestStatus
-    entityType?: import('@/types').ProcRequestEntityType
-    assignedTo?: string
-  }): Promise<import('@/types').ProcRequest[]> {
-    const { data } = await api.get(`/api/builder/zones/${zoneId}/proc-requests`, { params: filters })
+  async getProcRequests(
+    zoneId: string,
+    filters?: {
+      status?: import('@/types').ProcRequestStatus
+      entityType?: import('@/types').ProcRequestEntityType
+      assignedTo?: string
+    },
+  ): Promise<import('@/types').ProcRequest[]> {
+    const { data } = await api.get(`/api/builder/zones/${zoneId}/proc-requests`, {
+      params: filters,
+    })
     return data.procRequests
   },
 
@@ -2350,7 +2582,10 @@ export const builderApi = {
   /**
    * Create proc request
    */
-  async createProcRequest(zoneId: string, request: import('@/types').CreateProcRequest): Promise<import('@/types').ProcRequest> {
+  async createProcRequest(
+    zoneId: string,
+    request: import('@/types').CreateProcRequest,
+  ): Promise<import('@/types').ProcRequest> {
     const { data } = await api.post(`/api/builder/zones/${zoneId}/proc-requests`, request)
     return data.request
   },
@@ -2358,16 +2593,31 @@ export const builderApi = {
   /**
    * Update proc request
    */
-  async updateProcRequest(zoneId: string, requestId: number, updates: import('@/types').UpdateProcRequest): Promise<import('@/types').ProcRequest> {
-    const { data } = await api.patch(`/api/builder/zones/${zoneId}/proc-requests/${requestId}`, updates)
+  async updateProcRequest(
+    zoneId: string,
+    requestId: number,
+    updates: import('@/types').UpdateProcRequest,
+  ): Promise<import('@/types').ProcRequest> {
+    const { data } = await api.patch(
+      `/api/builder/zones/${zoneId}/proc-requests/${requestId}`,
+      updates,
+    )
     return data.request
   },
 
   /**
    * Update proc request status only
    */
-  async updateProcRequestStatus(zoneId: string, requestId: number, status: import('@/types').ProcRequestStatus, assignedTo?: string | null): Promise<import('@/types').ProcRequest> {
-    const { data } = await api.patch(`/api/builder/zones/${zoneId}/proc-requests/${requestId}/status`, { status, assignedTo })
+  async updateProcRequestStatus(
+    zoneId: string,
+    requestId: number,
+    status: import('@/types').ProcRequestStatus,
+    assignedTo?: string | null,
+  ): Promise<import('@/types').ProcRequest> {
+    const { data } = await api.patch(
+      `/api/builder/zones/${zoneId}/proc-requests/${requestId}/status`,
+      { status, assignedTo },
+    )
     return data.request
   },
 
@@ -2391,7 +2641,10 @@ export const builderApi = {
   /**
    * Get comments for a zone (optionally filtered by proc request)
    */
-  async getZoneComments(zoneId: string, procRequestId?: number | null): Promise<import('@/types').ZoneComment[]> {
+  async getZoneComments(
+    zoneId: string,
+    procRequestId?: number | null,
+  ): Promise<import('@/types').ZoneComment[]> {
     const params: Record<string, string> = {}
     if (procRequestId !== undefined) {
       params.procRequestId = procRequestId === null ? 'null' : procRequestId.toString()
@@ -2403,7 +2656,10 @@ export const builderApi = {
   /**
    * Create zone comment
    */
-  async createZoneComment(zoneId: string, comment: import('@/types').CreateZoneComment): Promise<import('@/types').ZoneComment> {
+  async createZoneComment(
+    zoneId: string,
+    comment: import('@/types').CreateZoneComment,
+  ): Promise<import('@/types').ZoneComment> {
     const { data } = await api.post(`/api/builder/zones/${zoneId}/comments`, comment)
     return data.comment
   },
@@ -2411,7 +2667,11 @@ export const builderApi = {
   /**
    * Update zone comment
    */
-  async updateZoneComment(zoneId: string, commentId: number, updates: import('@/types').UpdateZoneComment): Promise<import('@/types').ZoneComment> {
+  async updateZoneComment(
+    zoneId: string,
+    commentId: number,
+    updates: import('@/types').UpdateZoneComment,
+  ): Promise<import('@/types').ZoneComment> {
     const { data } = await api.patch(`/api/builder/zones/${zoneId}/comments/${commentId}`, updates)
     return data.comment
   },
@@ -2468,7 +2728,8 @@ export const wikiApi = {
    * Get available map layers
    */
   async getMapLayers(): Promise<{ id: number; name: string; description: string }[]> {
-    const { data } = await api.get<{ id: number; name: string; description: string }[]>('/api/wiki/map/layers')
+    const { data } =
+      await api.get<{ id: number; name: string; description: string }[]>('/api/wiki/map/layers')
     return data
   },
 
@@ -2505,10 +2766,17 @@ export const wikiApi = {
   /**
    * Search zones for autocomplete with infinite scroll support
    */
-  async searchZones(query: string = '', limit: number = 20, offset: number = 0): Promise<{ zones: { number: number; name: string }[]; hasMore: boolean }> {
-    const { data } = await api.get<{ zones: { number: number; name: string }[]; hasMore: boolean }>('/api/wiki/zones/search', {
-      params: { q: query, limit, offset }
-    })
+  async searchZones(
+    query: string = '',
+    limit: number = 20,
+    offset: number = 0,
+  ): Promise<{ zones: { number: number; name: string }[]; hasMore: boolean }> {
+    const { data } = await api.get<{ zones: { number: number; name: string }[]; hasMore: boolean }>(
+      '/api/wiki/zones/search',
+      {
+        params: { q: query, limit, offset },
+      },
+    )
     return data
   },
 
@@ -2520,8 +2788,14 @@ export const wikiApi = {
     page: number = 1,
     limit: number = 20,
     sortBy: string = 'number',
-    sortOrder: 'asc' | 'desc' = 'asc'
-  ): Promise<{ zones: WikiZone[]; total: number; page: number; limit: number; totalPages: number }> {
+    sortOrder: 'asc' | 'desc' = 'asc',
+  ): Promise<{
+    zones: WikiZone[]
+    total: number
+    page: number
+    limit: number
+    totalPages: number
+  }> {
     const params = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
@@ -2530,11 +2804,16 @@ export const wikiApi = {
     })
 
     if (filters.search) params.append('search', filters.search)
-    if (filters.alignmentMin !== undefined) params.append('alignmentMin', filters.alignmentMin.toString())
-    if (filters.alignmentMax !== undefined) params.append('alignmentMax', filters.alignmentMax.toString())
-    if (filters.difficultyMin !== undefined) params.append('difficultyMin', filters.difficultyMin.toString())
-    if (filters.difficultyMax !== undefined) params.append('difficultyMax', filters.difficultyMax.toString())
-    if (filters.epicTypes && filters.epicTypes.length > 0) params.append('epicTypes', filters.epicTypes.join(','))
+    if (filters.alignmentMin !== undefined)
+      params.append('alignmentMin', filters.alignmentMin.toString())
+    if (filters.alignmentMax !== undefined)
+      params.append('alignmentMax', filters.alignmentMax.toString())
+    if (filters.difficultyMin !== undefined)
+      params.append('difficultyMin', filters.difficultyMin.toString())
+    if (filters.difficultyMax !== undefined)
+      params.append('difficultyMax', filters.difficultyMax.toString())
+    if (filters.epicTypes && filters.epicTypes.length > 0)
+      params.append('epicTypes', filters.epicTypes.join(','))
     if (filters.minLevel !== undefined) params.append('minLevel', filters.minLevel.toString())
     if (filters.maxLevel !== undefined) params.append('maxLevel', filters.maxLevel.toString())
 
@@ -2590,8 +2869,14 @@ export const wikiApi = {
     page: number = 1,
     limit: number = 20,
     sortBy: string = 'vnum',
-    sortOrder: 'asc' | 'desc' = 'asc'
-  ): Promise<{ objects: WikiObject[]; total: number; page: number; limit: number; totalPages: number }> {
+    sortOrder: 'asc' | 'desc' = 'asc',
+  ): Promise<{
+    objects: WikiObject[]
+    total: number
+    page: number
+    limit: number
+    totalPages: number
+  }> {
     const params = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
@@ -2615,8 +2900,10 @@ export const wikiApi = {
       params.append('spellEffects', filters.spellEffects.join(','))
     }
     if (filters.zone !== undefined) params.append('zone', filters.zone.toString())
-    if (filters.allowedClass !== undefined) params.append('allowedClass', filters.allowedClass.toString())
-    if (filters.allowedRace !== undefined) params.append('allowedRace', filters.allowedRace.toString())
+    if (filters.allowedClass !== undefined)
+      params.append('allowedClass', filters.allowedClass.toString())
+    if (filters.allowedRace !== undefined)
+      params.append('allowedRace', filters.allowedRace.toString())
 
     const { data } = await api.get(`/api/wiki/objects?${params}`)
     return data
@@ -2693,7 +2980,7 @@ export const wikiApi = {
     page: number = 1,
     limit: number = 20,
     sortBy: string = 'vnum',
-    sortOrder: 'asc' | 'desc' = 'asc'
+    sortOrder: 'asc' | 'desc' = 'asc',
   ): Promise<{ mobs: WikiMob[]; total: number; page: number; limit: number; totalPages: number }> {
     const params = new URLSearchParams({
       page: page.toString(),
@@ -2705,8 +2992,10 @@ export const wikiApi = {
     if (filters.search) params.append('search', filters.search)
     if (filters.minLevel !== undefined) params.append('minLevel', filters.minLevel.toString())
     if (filters.maxLevel !== undefined) params.append('maxLevel', filters.maxLevel.toString())
-    if (filters.alignmentMin !== undefined) params.append('alignmentMin', filters.alignmentMin.toString())
-    if (filters.alignmentMax !== undefined) params.append('alignmentMax', filters.alignmentMax.toString())
+    if (filters.alignmentMin !== undefined)
+      params.append('alignmentMin', filters.alignmentMin.toString())
+    if (filters.alignmentMax !== undefined)
+      params.append('alignmentMax', filters.alignmentMax.toString())
     if (filters.mobClass !== undefined) params.append('mobClass', filters.mobClass.toString())
     // New filters
     if (filters.race !== undefined) params.append('race', filters.race.toString())
@@ -2755,19 +3044,18 @@ export const guideApi = {
    * Get all categories with article counts
    */
   async getCategories(): Promise<{ categories: GuideCategoryWithCount[] }> {
-    const { data } = await api.get<{ categories: GuideCategoryWithCount[] }>('/api/guide/categories')
+    const { data } = await api.get<{ categories: GuideCategoryWithCount[] }>(
+      '/api/guide/categories',
+    )
     return data
   },
 
   /**
    * Get paginated help files with optional filtering
    */
-  async getHelpFiles(params: {
-    page?: number
-    limit?: number
-    category_id?: number
-    search?: string
-  } = {}): Promise<PublicHelpFilesResponse> {
+  async getHelpFiles(
+    params: { page?: number; limit?: number; category_id?: number; search?: string } = {},
+  ): Promise<PublicHelpFilesResponse> {
     const { data } = await api.get<PublicHelpFilesResponse>('/api/guide/help', { params })
     return data
   },
@@ -2777,7 +3065,7 @@ export const guideApi = {
    */
   async searchHelpFiles(query: string, limit: number = 20): Promise<{ results: PublicHelpFile[] }> {
     const { data } = await api.get<{ results: PublicHelpFile[] }>('/api/guide/help/search', {
-      params: { q: query, limit }
+      params: { q: query, limit },
     })
     return data
   },
@@ -2844,11 +3132,13 @@ export const helpSuggestionApi = {
   /**
    * Get all suggestions for review (admin)
    */
-  async getAdminQueue(params: {
-    page?: number
-    limit?: number
-    status?: SuggestionStatus
-  } = {}): Promise<HelpSuggestionsResponse & { pagination: { page: number; limit: number; total: number; totalPages: number } }> {
+  async getAdminQueue(
+    params: { page?: number; limit?: number; status?: SuggestionStatus } = {},
+  ): Promise<
+    HelpSuggestionsResponse & {
+      pagination: { page: number; limit: number; total: number; totalPages: number }
+    }
+  > {
     const { data } = await api.get('/api/admin/help-suggestions', { params })
     return data
   },
@@ -2873,7 +3163,10 @@ export const helpSuggestionApi = {
    * Review a suggestion (admin)
    */
   async reviewSuggestion(id: number, review: ReviewHelpSuggestion): Promise<HelpSuggestion> {
-    const { data } = await api.patch<HelpSuggestion>(`/api/admin/help-suggestions/${id}/review`, review)
+    const { data } = await api.patch<HelpSuggestion>(
+      `/api/admin/help-suggestions/${id}/review`,
+      review,
+    )
     return data
   },
 }
@@ -2900,7 +3193,7 @@ export const notificationApi = {
   async getNotifications(
     page: number = 1,
     limit: number = 50,
-    unreadOnly: boolean = false
+    unreadOnly: boolean = false,
   ): Promise<UnifiedNotificationsResponse> {
     const { data } = await api.get<UnifiedNotificationsResponse>('/api/notifications', {
       params: { page, limit, unread_only: unreadOnly },
@@ -2958,7 +3251,7 @@ export const auctionApi = {
     if (filters.sortOrder) params.append('sortOrder', filters.sortOrder)
 
     const { data } = await api.get<PaginatedResponse<AuctionListItem>>(
-      `/api/auction/listings?${params}`
+      `/api/auction/listings?${params}`,
     )
     return data
   },
@@ -2976,7 +3269,7 @@ export const auctionApi = {
    */
   async getBidHistory(auctionId: number): Promise<AuctionBidHistory[]> {
     const { data } = await api.get<AuctionBidHistory[]>(
-      `/api/auction/listings/${auctionId}/history`
+      `/api/auction/listings/${auctionId}/history`,
     )
     return data
   },
@@ -3011,7 +3304,7 @@ export const auctionApi = {
     if (filters.sortOrder) params.append('sortOrder', filters.sortOrder)
 
     const { data } = await api.get<PaginatedResponse<AuctionHistoryItem>>(
-      `/api/auction/history?${params.toString()}`
+      `/api/auction/history?${params.toString()}`,
     )
     return data
   },
@@ -3019,7 +3312,11 @@ export const auctionApi = {
   /**
    * Place a bid on an auction
    */
-  async placeBid(auctionId: number, bidAmountCopper: number, characterPid: number): Promise<{ success: boolean; message: string; auctionClosed?: boolean }> {
+  async placeBid(
+    auctionId: number,
+    bidAmountCopper: number,
+    characterPid: number,
+  ): Promise<{ success: boolean; message: string; auctionClosed?: boolean }> {
     const { data } = await api.post(`/api/auction/listings/${auctionId}/bid`, {
       bidAmountCopper,
       characterPid,
@@ -3030,7 +3327,10 @@ export const auctionApi = {
   /**
    * Buy-it-now on an auction
    */
-  async buyNow(auctionId: number, characterPid: number): Promise<{ success: boolean; message: string }> {
+  async buyNow(
+    auctionId: number,
+    characterPid: number,
+  ): Promise<{ success: boolean; message: string }> {
     const { data } = await api.post(`/api/auction/listings/${auctionId}/buy`, {
       characterPid,
     })
@@ -3040,7 +3340,10 @@ export const auctionApi = {
   /**
    * Admin: Remove an auction (returns item to seller, refunds bidder)
    */
-  async removeAuction(auctionId: number, reason?: string): Promise<{ success: boolean; message: string }> {
+  async removeAuction(
+    auctionId: number,
+    reason?: string,
+  ): Promise<{ success: boolean; message: string }> {
     const { data } = await api.delete(`/api/auction/listings/${auctionId}`, {
       data: { reason },
     })
@@ -3054,7 +3357,9 @@ export const changelogApi = {
    * Get published changelog entries (public)
    */
   async getEntries(page = 1, limit = 20): Promise<ChangelogListResponse> {
-    const { data } = await api.get<ChangelogListResponse>(`/api/changelog?page=${page}&limit=${limit}`)
+    const { data } = await api.get<ChangelogListResponse>(
+      `/api/changelog?page=${page}&limit=${limit}`,
+    )
     return data
   },
 
@@ -3095,7 +3400,9 @@ export const changelogApi = {
    * Get all entries for admin (including unpublished)
    */
   async getAdminEntries(page = 1, limit = 20): Promise<ChangelogListResponse> {
-    const { data } = await api.get<ChangelogListResponse>(`/api/changelog/admin?page=${page}&limit=${limit}`)
+    const { data } = await api.get<ChangelogListResponse>(
+      `/api/changelog/admin?page=${page}&limit=${limit}`,
+    )
     return data
   },
 
@@ -3124,7 +3431,7 @@ export const changelogApi = {
       content: string
       category: 'public' | 'admin'
       isPublished: boolean
-    }>
+    }>,
   ): Promise<{ success: boolean }> {
     const { data } = await api.put<{ success: boolean }>(`/api/changelog/${id}`, entry)
     return data

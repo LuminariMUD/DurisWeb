@@ -133,17 +133,22 @@ router.get('/admin/pages', requireAuth, requireOverlord, async (req: Request, re
  * GET /api/admin/analytics/web/referrers
  * Get traffic sources (Overlord only)
  */
-router.get('/admin/referrers', requireAuth, requireOverlord, async (req: Request, res: Response) => {
-  try {
-    const days = parseInt(req.query.days as string) || 30;
-    const referrers = await getReferrerStats(days);
+router.get(
+  '/admin/referrers',
+  requireAuth,
+  requireOverlord,
+  async (req: Request, res: Response) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const referrers = await getReferrerStats(days);
 
-    return res.json({ data: referrers });
-  } catch (error) {
-    logger.error('Error fetching referrer stats:', error);
-    return res.status(500).json({ error: 'Failed to fetch referrer stats' });
-  }
-});
+      return res.json({ data: referrers });
+    } catch (error) {
+      logger.error('Error fetching referrer stats:', error);
+      return res.status(500).json({ error: 'Failed to fetch referrer stats' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/analytics/web/devices
@@ -207,20 +212,25 @@ router.get('/admin/traffic', requireAuth, requireOverlord, async (req: Request, 
  * GET /api/admin/analytics/web/realtime
  * Get real-time visitors (Overlord only)
  */
-router.get('/admin/realtime', requireAuth, requireOverlord, async (_req: Request, res: Response) => {
-  try {
-    const visitors = await getRealtimeVisitors();
-    const count = await getActiveVisitorCount();
+router.get(
+  '/admin/realtime',
+  requireAuth,
+  requireOverlord,
+  async (_req: Request, res: Response) => {
+    try {
+      const visitors = await getRealtimeVisitors();
+      const count = await getActiveVisitorCount();
 
-    return res.json({
-      count,
-      visitors,
-    });
-  } catch (error) {
-    logger.error('Error fetching realtime visitors:', error);
-    return res.status(500).json({ error: 'Failed to fetch realtime visitors' });
-  }
-});
+      return res.json({
+        count,
+        visitors,
+      });
+    } catch (error) {
+      logger.error('Error fetching realtime visitors:', error);
+      return res.status(500).json({ error: 'Failed to fetch realtime visitors' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/analytics/web/visitors

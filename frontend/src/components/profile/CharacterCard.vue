@@ -4,7 +4,16 @@ import type { CharacterWithStats } from '@/types'
 import { Card, CardContent } from '@/components/ui/card'
 import AnsiText from '@/components/ui/AnsiText.vue'
 import { formatWealthBreakdown } from '@/utils/formatWealth'
-import { ChevronDown, ChevronUp, Sword, Skull, Trophy, MessageSquare, Clock, Coins } from 'lucide-vue-next'
+import {
+  ChevronDown,
+  ChevronUp,
+  Sword,
+  Skull,
+  Trophy,
+  MessageSquare,
+  Clock,
+  Coins,
+} from 'lucide-vue-next'
 
 const props = defineProps<{
   character: CharacterWithStats

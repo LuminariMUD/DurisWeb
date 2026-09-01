@@ -11,17 +11,14 @@ import type { HookId } from './types.js';
 
 const lastActivityByHook = new Map<HookId, string>();
 
-export function recordHookActivity(
-  id: HookId,
-  at: Date = new Date(),
-): void {
+export function recordHookActivity(id: HookId, at: Date = new Date()): void {
   if (!getHook(id) || Number.isNaN(at.getTime())) return;
   lastActivityByHook.set(id, at.toISOString());
 }
 
 export function getHookLastActivity(id: string): string | null {
   const hook = getHook(id);
-  return hook ? lastActivityByHook.get(hook.id) ?? null : null;
+  return hook ? (lastActivityByHook.get(hook.id) ?? null) : null;
 }
 
 export function resetHookActivity(): void {

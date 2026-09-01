@@ -33,16 +33,20 @@ const player = {
 
 describe('canonical forum category access', () => {
   beforeEach(() => {
-    query.mockReset()
+    query.mockReset();
   });
 
   it('does not treat anonymous users as authenticated-category members', async () => {
-    query.mockResolvedValueOnce([[{
-      access_type: 'authenticated',
-      min_level: null,
-      guild_name: null,
-      is_archived: 0,
-    }]]);
+    query.mockResolvedValueOnce([
+      [
+        {
+          access_type: 'authenticated',
+          min_level: null,
+          guild_name: null,
+          is_archived: 0,
+        },
+      ],
+    ]);
 
     await expect(checkCategoryAccess(10, '', anonymous as never, [])).resolves.toEqual({
       canView: false,
@@ -52,12 +56,16 @@ describe('canonical forum category access', () => {
   });
 
   it('requires the role threshold for role-based categories', async () => {
-    query.mockResolvedValueOnce([[{
-      access_type: 'role_based',
-      min_level: 59,
-      guild_name: null,
-      is_archived: 0,
-    }]]);
+    query.mockResolvedValueOnce([
+      [
+        {
+          access_type: 'role_based',
+          min_level: 59,
+          guild_name: null,
+          is_archived: 0,
+        },
+      ],
+    ]);
 
     await expect(checkCategoryAccess(11, 'Cwial', player as never, [])).resolves.toEqual({
       canView: false,
@@ -67,17 +75,28 @@ describe('canonical forum category access', () => {
   });
 
   it('does not treat membership in one guild as access to every guild category', async () => {
-    query.mockResolvedValueOnce([[{
-      access_type: 'guild',
-      min_level: null,
-      guild_name: 'OtherGuild',
-      is_archived: 0,
-    }]]);
+    query.mockResolvedValueOnce([
+      [
+        {
+          access_type: 'guild',
+          min_level: null,
+          guild_name: 'OtherGuild',
+          is_archived: 0,
+        },
+      ],
+    ]);
 
-    await expect(checkCategoryAccess(14, 'Cwial', {
-      ...player,
-      guilds: ['CwialGuild'],
-    } as never, [])).resolves.toEqual({
+    await expect(
+      checkCategoryAccess(
+        14,
+        'Cwial',
+        {
+          ...player,
+          guilds: ['CwialGuild'],
+        } as never,
+        [],
+      ),
+    ).resolves.toEqual({
       canView: false,
       canPost: false,
       canModerate: false,
@@ -85,12 +104,16 @@ describe('canonical forum category access', () => {
   });
 
   it('denies role-based categories with a missing threshold to non-overlords', async () => {
-    query.mockResolvedValueOnce([[{
-      access_type: 'role_based',
-      min_level: null,
-      guild_name: null,
-      is_archived: 0,
-    }]]);
+    query.mockResolvedValueOnce([
+      [
+        {
+          access_type: 'role_based',
+          min_level: null,
+          guild_name: null,
+          is_archived: 0,
+        },
+      ],
+    ]);
 
     await expect(checkCategoryAccess(16, 'Cwial', player as never, [])).resolves.toEqual({
       canView: false,
@@ -100,37 +123,63 @@ describe('canonical forum category access', () => {
   });
 
   it('preserves legacy immortal and god access types during migration', async () => {
-    query.mockResolvedValueOnce([[{
-      access_type: 'immortal',
-      min_level: null,
-      guild_name: null,
-      is_archived: 0,
-    }]]);
-    await expect(checkCategoryAccess(17, 'Cwial', {
-      ...player,
-      canAccessImmortalForum: true,
-    } as never, [])).resolves.toMatchObject({ canView: true, canPost: true });
+    query.mockResolvedValueOnce([
+      [
+        {
+          access_type: 'immortal',
+          min_level: null,
+          guild_name: null,
+          is_archived: 0,
+        },
+      ],
+    ]);
+    await expect(
+      checkCategoryAccess(
+        17,
+        'Cwial',
+        {
+          ...player,
+          canAccessImmortalForum: true,
+        } as never,
+        [],
+      ),
+    ).resolves.toMatchObject({ canView: true, canPost: true });
 
-    query.mockResolvedValueOnce([[{
-      access_type: 'god',
-      min_level: null,
-      guild_name: null,
-      is_archived: 0,
-    }]]);
-    await expect(checkCategoryAccess(18, 'Cwial', {
-      ...player,
-      canAccessGodForum: true,
-    } as never, [])).resolves.toMatchObject({ canView: true, canPost: true });
+    query.mockResolvedValueOnce([
+      [
+        {
+          access_type: 'god',
+          min_level: null,
+          guild_name: null,
+          is_archived: 0,
+        },
+      ],
+    ]);
+    await expect(
+      checkCategoryAccess(
+        18,
+        'Cwial',
+        {
+          ...player,
+          canAccessGodForum: true,
+        } as never,
+        [],
+      ),
+    ).resolves.toMatchObject({ canView: true, canPost: true });
   });
 
   it('does not expose a custom-ACL category to anonymous callers when no rule matches', async () => {
     query
-      .mockResolvedValueOnce([[{
-        access_type: 'custom_acl',
-        min_level: null,
-        guild_name: null,
-        is_archived: 0,
-      }]])
+      .mockResolvedValueOnce([
+        [
+          {
+            access_type: 'custom_acl',
+            min_level: null,
+            guild_name: null,
+            is_archived: 0,
+          },
+        ],
+      ])
       .mockResolvedValueOnce([[]]);
 
     await expect(checkCategoryAccess(12, '', anonymous as never, [])).resolves.toEqual({
@@ -142,12 +191,16 @@ describe('canonical forum category access', () => {
 
   it('defaults authenticated custom-ACL callers to deny when no rule matches', async () => {
     query
-      .mockResolvedValueOnce([[{
-        access_type: 'custom_acl',
-        min_level: null,
-        guild_name: null,
-        is_archived: 0,
-      }]])
+      .mockResolvedValueOnce([
+        [
+          {
+            access_type: 'custom_acl',
+            min_level: null,
+            guild_name: null,
+            is_archived: 0,
+          },
+        ],
+      ])
       .mockResolvedValueOnce([[]]);
 
     await expect(checkCategoryAccess(13, 'Cwial', player as never, [])).resolves.toEqual({
@@ -159,13 +212,27 @@ describe('canonical forum category access', () => {
   it('loads account character IDs before evaluating character-specific ACL rules', async () => {
     query
       .mockResolvedValueOnce([[{ pid: 12345 }]])
-      .mockResolvedValueOnce([[{
-        access_type: 'custom_acl',
-        min_level: null,
-        guild_name: null,
-        is_archived: 0,
-      }]])
-      .mockResolvedValueOnce([[{ character_pid: 12345, permission_type: 'allow', can_view: true, can_post: false, can_moderate: false }]]);
+      .mockResolvedValueOnce([
+        [
+          {
+            access_type: 'custom_acl',
+            min_level: null,
+            guild_name: null,
+            is_archived: 0,
+          },
+        ],
+      ])
+      .mockResolvedValueOnce([
+        [
+          {
+            character_pid: 12345,
+            permission_type: 'allow',
+            can_view: true,
+            can_post: false,
+            can_moderate: false,
+          },
+        ],
+      ]);
 
     await expect(getCategoryAccessForAccount(12, player as never)).resolves.toEqual({
       canView: true,
@@ -173,7 +240,8 @@ describe('canonical forum category access', () => {
       canModerate: false,
     });
 
-    expect(query).toHaveBeenNthCalledWith(1,
+    expect(query).toHaveBeenNthCalledWith(
+      1,
       'SELECT pid FROM account_characters WHERE account_name = ? AND deleted_at IS NULL',
       ['Cwial'],
     );
@@ -181,16 +249,34 @@ describe('canonical forum category access', () => {
 
   it('honors a matching deny rule before lower-priority allow rules', async () => {
     query
-      .mockResolvedValueOnce([[{
-        access_type: 'custom_acl',
-        min_level: null,
-        guild_name: null,
-        is_archived: 0,
-      }]])
-      .mockResolvedValueOnce([[
-        { account_name: 'Cwial', permission_type: 'deny', can_view: 0, can_post: 0, can_moderate: 0 },
-        { min_immortal_level: 1, permission_type: 'allow', can_view: 1, can_post: 1, can_moderate: 1 },
-      ]]);
+      .mockResolvedValueOnce([
+        [
+          {
+            access_type: 'custom_acl',
+            min_level: null,
+            guild_name: null,
+            is_archived: 0,
+          },
+        ],
+      ])
+      .mockResolvedValueOnce([
+        [
+          {
+            account_name: 'Cwial',
+            permission_type: 'deny',
+            can_view: 0,
+            can_post: 0,
+            can_moderate: 0,
+          },
+          {
+            min_immortal_level: 1,
+            permission_type: 'allow',
+            can_view: 1,
+            can_post: 1,
+            can_moderate: 1,
+          },
+        ],
+      ]);
 
     await expect(checkCategoryAccess(15, 'Cwial', player as never, [])).resolves.toEqual({
       canView: false,

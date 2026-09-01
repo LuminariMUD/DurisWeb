@@ -46,7 +46,7 @@ const pageTitle = computed(() => {
 })
 
 useHead({
-  title: pageTitle
+  title: pageTitle,
 })
 
 async function loadCategory() {
@@ -135,7 +135,7 @@ function getCategoryBadgeVariant(accessType: string) {
 function toPascalCase(str: string): string {
   return str
     .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join('')
 }
 
@@ -146,11 +146,14 @@ function getIconComponent(iconName: string | null) {
 }
 
 // Watch for category ID changes (when clicking different categories in sidebar)
-watch(() => props.categoryId, async (newId, oldId) => {
-  if (newId !== oldId) {
-    await loadContent()
-  }
-})
+watch(
+  () => props.categoryId,
+  async (newId, oldId) => {
+    if (newId !== oldId) {
+      await loadContent()
+    }
+  },
+)
 
 onMounted(async () => {
   await loadContent()

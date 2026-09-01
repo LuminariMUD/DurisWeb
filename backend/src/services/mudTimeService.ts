@@ -12,7 +12,6 @@
  * The actual running MUD uses 75 sec/hour as per config.h.
  */
 
-
 // Constants from DurisMUD src/config.h and src/db.c
 // NOTE: Source code shows 650336715, but empirical testing shows the running
 // MUD uses 650462839 (adjusted to match live MUD time).
@@ -42,38 +41,38 @@ const DAY_NAMES = [
 // Month names (17 months in a year) - from src/constant.c line 739
 // Including ANSI color codes from the source
 const MONTH_NAMES = [
-  '&+bMonth of the Cooling&N',      // 0
-  '&+cMonth of FirstFrost&N',        // 1
-  '&+WMonth of DeathIce&N',          // 2
-  '&+CMonth of EverFreeze&N',        // 3
-  '&+BMonth of FirstMelting&N',      // 4
-  '&+WMonth of GreatWind&N',         // 5
-  '&=LBMonth of Storms&N',            // 6
-  '&+GMonth of Renewal&N',           // 7
-  '&+gMonth of FullBloom&N',         // 8
-  '&+MMonth of EternalDay&N',        // 9
-  '&+YMonth of The Burning Sun&N',   // 10
-  '&+yMonth of The Fevor&N',         // 11
-  '&+RMonth of HeatsEnd&N',          // 12
-  '&+yMonth of The Harvest Moon&N',  // 13
-  '&+LMonth of The Rotting&N',       // 14
-  '&+bMonth of Decay&N',             // 15
-  '&+rMonth of BloodLust&N',         // 16
+  '&+bMonth of the Cooling&N', // 0
+  '&+cMonth of FirstFrost&N', // 1
+  '&+WMonth of DeathIce&N', // 2
+  '&+CMonth of EverFreeze&N', // 3
+  '&+BMonth of FirstMelting&N', // 4
+  '&+WMonth of GreatWind&N', // 5
+  '&=LBMonth of Storms&N', // 6
+  '&+GMonth of Renewal&N', // 7
+  '&+gMonth of FullBloom&N', // 8
+  '&+MMonth of EternalDay&N', // 9
+  '&+YMonth of The Burning Sun&N', // 10
+  '&+yMonth of The Fevor&N', // 11
+  '&+RMonth of HeatsEnd&N', // 12
+  '&+yMonth of The Harvest Moon&N', // 13
+  '&+LMonth of The Rotting&N', // 14
+  '&+bMonth of Decay&N', // 15
+  '&+rMonth of BloodLust&N', // 16
 ];
 
 // Time period durations in seconds (defined for reference but not currently used)
 
 export interface MudTime {
-  second: number;  // 0-59 (not used in MUD display, but calculated)
-  minute: number;  // 0-59
-  hour: number;    // 0-23
-  day: number;     // 1-35
-  month: number;   // 1-17
-  year: number;    // Years since MUD began
-  dayName: string;   // Day of the Moon, Day of the Bull, etc.
+  second: number; // 0-59 (not used in MUD display, but calculated)
+  minute: number; // 0-59
+  hour: number; // 0-23
+  day: number; // 1-35
+  month: number; // 1-17
+  year: number; // Years since MUD began
+  dayName: string; // Day of the Moon, Day of the Bull, etc.
   monthName: string; // Month of Hammer, Month of Alturiak, etc.
   timeOfDay: string; // Dawn, Morning, Afternoon, Dusk, Night, Midnight
-  season: string;    // Spring, Summer, Fall, Winter
+  season: string; // Spring, Summer, Fall, Winter
 }
 
 /**
@@ -153,8 +152,8 @@ export function getCurrentMudTime(): MudTime {
     second,
     minute,
     hour,
-    day: day + 1,      // Display as 1-35
-    month: month + 1,  // Display as 1-17
+    day: day + 1, // Display as 1-35
+    month: month + 1, // Display as 1-17
     year: year + 1000, // MUD adds 1000 to year when displaying (see actinf.c line 5844)
     dayName,
     monthName,

@@ -19,7 +19,7 @@ const activeWatchers = new Map<string, LogWatcher>();
 export function watchLog(
   category: 'runtime' | 'player',
   logName: string,
-  callback: (newLines: string[]) => void
+  callback: (newLines: string[]) => void,
 ): void {
   const key = `${category}:${logName}`;
 
@@ -40,7 +40,9 @@ export function watchLog(
     // Create file watcher
     const watcher = fs.watch(logPath, { persistent: false }, (eventType) => {
       if (eventType === 'change') {
-        handleLogChange(key).catch(err => logger.error(`Log change handler error for ${key}:`, err));
+        handleLogChange(key).catch((err) =>
+          logger.error(`Log change handler error for ${key}:`, err),
+        );
       }
     });
 
@@ -65,7 +67,7 @@ export function watchLog(
 export function unwatchLog(
   category: 'runtime' | 'player',
   logName: string,
-  callback: (newLines: string[]) => void
+  callback: (newLines: string[]) => void,
 ): void {
   const key = `${category}:${logName}`;
   const logWatcher = activeWatchers.get(key);
@@ -124,7 +126,7 @@ async function handleLogChange(key: string): Promise<void> {
       const stream = fs.createReadStream(logPath, {
         start: startPos,
         end: currentSize - 1,
-        highWaterMark: 64 * 1024
+        highWaterMark: 64 * 1024,
       });
       for await (const chunk of stream) {
         chunks.push(chunk as Buffer);
@@ -138,13 +140,11 @@ async function handleLogChange(key: string): Promise<void> {
       fs.closeSync(fd);
       newContent = buffer.toString('utf-8');
     }
-    const newLines = newContent
-      .split('\n')
-      .filter(line => line.trim().length > 0);
+    const newLines = newContent.split('\n').filter((line) => line.trim().length > 0);
 
     if (newLines.length > 0) {
       // Notify all callbacks
-      logWatcher.callbacks.forEach(callback => {
+      logWatcher.callbacks.forEach((callback) => {
         try {
           callback(newLines);
         } catch (error) {

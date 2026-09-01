@@ -2,7 +2,14 @@
 import { ref, computed } from 'vue'
 import { useHead } from '@unhead/vue'
 import { useRouter } from 'vue-router'
-import { useAuctionListings, useAuctionStats, useAuctionWebSocket, formatPrice, formatTimeRemaining, getTimeUrgency } from '@/composables/useAuction'
+import {
+  useAuctionListings,
+  useAuctionStats,
+  useAuctionWebSocket,
+  formatPrice,
+  formatTimeRemaining,
+  getTimeUrgency,
+} from '@/composables/useAuction'
 import { useAuth } from '@/composables/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,17 +26,26 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import { Gavel, Clock, Search, Loader2, Filter, X, User, ChevronDown, ArrowUp, ArrowDown, ArrowUpDown, History } from 'lucide-vue-next'
+  Gavel,
+  Clock,
+  Search,
+  Loader2,
+  Filter,
+  X,
+  User,
+  ChevronDown,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  History,
+} from 'lucide-vue-next'
 import type { AuctionFilters, AuctionListItem } from '@/types'
 import AnsiText from '@/components/ui/AnsiText.vue'
 
 useHead({
-  title: 'DurisMUD | Auction House'
+  title: 'DurisMUD | Auction House',
 })
 
 const router = useRouter()
@@ -37,12 +53,100 @@ const { user } = useAuth()
 
 // Keyword categories for filtering
 const keywordCategories = {
-  'Equipment Slot': ['wield', 'head', 'neck', 'body', 'arms', 'hands', 'waist', 'legs', 'feet', 'finger', 'wrist', 'shield', 'about', 'back', 'ear', 'face', 'eyes', 'badge', 'quiver', 'horns', 'nose', 'tail'],
-  'Class': ['warrior', 'ranger', 'paladin', 'antipaladin', 'cleric', 'monk', 'druid', 'shaman', 'thief', 'assassin', 'mercenary', 'bard', 'sorcerer', 'necromancer', 'conjurer', 'illusionist', 'psionicist', 'ethermancer', 'alchemist', 'berserker', 'reaver', 'dreadlord'],
+  'Equipment Slot': [
+    'wield',
+    'head',
+    'neck',
+    'body',
+    'arms',
+    'hands',
+    'waist',
+    'legs',
+    'feet',
+    'finger',
+    'wrist',
+    'shield',
+    'about',
+    'back',
+    'ear',
+    'face',
+    'eyes',
+    'badge',
+    'quiver',
+    'horns',
+    'nose',
+    'tail',
+  ],
+  Class: [
+    'warrior',
+    'ranger',
+    'paladin',
+    'antipaladin',
+    'cleric',
+    'monk',
+    'druid',
+    'shaman',
+    'thief',
+    'assassin',
+    'mercenary',
+    'bard',
+    'sorcerer',
+    'necromancer',
+    'conjurer',
+    'illusionist',
+    'psionicist',
+    'ethermancer',
+    'alchemist',
+    'berserker',
+    'reaver',
+    'dreadlord',
+  ],
   'Item Type': ['potions', 'scrolls', 'spellbooks', 'containers', 'instruments', 'totems'],
-  'Stats': ['hitroll', 'damroll', 'hitpoints', 'mana', 'moves', 'str', 'dex', 'int', 'wis', 'con', 'agi', 'pow', 'cha', 'luck', 'karma'],
-  'Affects': ['haste', 'fly', 'invisibility', 'infravision', 'sanctuary', 'regen', 'det_invis', 'sense_life', 'sneak', 'hide', 'waterwalk', 'levitate', 'stone_skin', 'barkskin', 'fireshield', 'soulshield'],
-  'Item Flags': ['magic', 'glow', 'humming', 'invisible', 'twohands', 'artifact', 'nolocate', 'float'],
+  Stats: [
+    'hitroll',
+    'damroll',
+    'hitpoints',
+    'mana',
+    'moves',
+    'str',
+    'dex',
+    'int',
+    'wis',
+    'con',
+    'agi',
+    'pow',
+    'cha',
+    'luck',
+    'karma',
+  ],
+  Affects: [
+    'haste',
+    'fly',
+    'invisibility',
+    'infravision',
+    'sanctuary',
+    'regen',
+    'det_invis',
+    'sense_life',
+    'sneak',
+    'hide',
+    'waterwalk',
+    'levitate',
+    'stone_skin',
+    'barkskin',
+    'fireshield',
+    'soulshield',
+  ],
+  'Item Flags': [
+    'magic',
+    'glow',
+    'humming',
+    'invisible',
+    'twohands',
+    'artifact',
+    'nolocate',
+    'float',
+  ],
 }
 
 const filters = ref<AuctionFilters>({

@@ -3,8 +3,14 @@ import { ref } from 'vue'
 import type { HookStatus } from '@/types/hooks'
 import { Switch } from '@/components/ui/switch'
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
 const props = defineProps<{ hook: HookStatus; pending?: boolean }>()

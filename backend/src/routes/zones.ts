@@ -28,13 +28,21 @@ async function logAdminAction(
   oldValue: string | null | undefined,
   newValue: string | null | undefined,
   notes: string | null | undefined,
-  ipAddress: string | null | undefined
+  ipAddress: string | null | undefined,
 ): Promise<void> {
   try {
     await pool.query(
       `INSERT INTO admin_action_log (account_name, action_type, target, old_value, new_value, notes, ip_address)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [accountName, actionType, target, oldValue || null, newValue || null, notes || null, ipAddress]
+      [
+        accountName,
+        actionType,
+        target,
+        oldValue || null,
+        newValue || null,
+        notes || null,
+        ipAddress,
+      ],
     );
   } catch (error) {
     logger.error('Failed to log admin action:', error);
@@ -65,7 +73,10 @@ router.get('/', async (req, res, next) => {
     const filters: zoneService.ZoneFilters = {};
 
     if (epicTypes) {
-      const types = String(epicTypes).split(',').map(Number).filter(n => !isNaN(n));
+      const types = String(epicTypes)
+        .split(',')
+        .map(Number)
+        .filter((n) => !isNaN(n));
       if (types.length > 0) {
         filters.epicTypes = types;
       }
@@ -180,7 +191,7 @@ router.put('/:number', zoneMutationLimiter, async (req, res, next) => {
       undefined,
       `Updated: ${changes}`,
       undefined,
-      req.ip || req.socket.remoteAddress
+      req.ip || req.socket.remoteAddress,
     );
 
     return res.json(updatedZone);
@@ -202,7 +213,11 @@ router.patch('/bulk', zoneMutationLimiter, async (req, res, next) => {
       data: zoneService.ZoneUpdateData;
     };
     const updateData = { ...data };
-    const affectedRows = await zoneService.bulkUpdateZones(zoneNumbers, updateData, req.user!.accountName);
+    const affectedRows = await zoneService.bulkUpdateZones(
+      zoneNumbers,
+      updateData,
+      req.user!.accountName,
+    );
 
     // Audit log
     const changes = Object.keys(updateData).join(', ');
@@ -213,7 +228,7 @@ router.patch('/bulk', zoneMutationLimiter, async (req, res, next) => {
       undefined,
       `Updated ${zoneNumbers.length} zones: ${changes}`,
       `Zones: ${zoneNumbers.join(', ')}`,
-      req.ip || req.socket.remoteAddress
+      req.ip || req.socket.remoteAddress,
     );
 
     return res.json({

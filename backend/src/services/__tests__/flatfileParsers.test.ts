@@ -1,11 +1,4 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  jest,
-} from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
@@ -17,10 +10,8 @@ const parseGuildFile = jest.fn<(guildId: number) => Promise<unknown>>();
 const findCharacterGuild = jest.fn<(name: string) => Promise<unknown>>();
 const getCharacterGuildInfoFromGuild =
   jest.fn<(name: string, guildId: number) => Promise<unknown>>();
-const getAllGuilds =
-  jest.fn<() => Promise<Array<{ id: number; name: string }>>>();
-const searchGuilds =
-  jest.fn<(query: string, limit?: number) => Promise<string[]>>();
+const getAllGuilds = jest.fn<() => Promise<Array<{ id: number; name: string }>>>();
+const searchGuilds = jest.fn<(query: string, limit?: number) => Promise<string[]>>();
 
 jest.unstable_mockModule('../../db/connection.js', () => ({
   pool: { query },
@@ -37,8 +28,7 @@ jest.unstable_mockModule('../guildService.js', () => ({
   searchGuilds,
 }));
 
-const { MudFlagParser, MudFlagParseError } =
-  await import('../mudFlagParser.js');
+const { MudFlagParser, MudFlagParseError } = await import('../mudFlagParser.js');
 const guildParser = await import('../mudGuildParser.js');
 const {
   getZoneMapData,
@@ -53,17 +43,10 @@ const {
   parseZonFile,
   ZoneSourceParseError,
 } = await import('../zoneBuilderParser.js');
-const {
-  FlatfileAccessError,
-  probeFlatfileHook,
-  resetFlatfileAccessForTests,
-  setMudRootForTests,
-} = await import('../flatfileAccess.js');
-const {
-  getFlatfileHookHealth,
-  resetFlatfileHookStateForTests,
-  setFlatfileHookClockForTests,
-} = await import('../../hooks/flatfileHookState.js');
+const { FlatfileAccessError, probeFlatfileHook, resetFlatfileAccessForTests, setMudRootForTests } =
+  await import('../flatfileAccess.js');
+const { getFlatfileHookHealth, resetFlatfileHookStateForTests, setFlatfileHookClockForTests } =
+  await import('../../hooks/flatfileHookState.js');
 
 let testBase = '';
 let mudRoot = '';
@@ -86,10 +69,17 @@ const FLAG_ARRAYS = [
 ];
 
 function commonFlagSource(): string {
-  const flagArrays = FLAG_ARRAYS.map((name, index) =>
-    'flagDef ' + name + '[] = {\n' +
-    '  {"FLAG_' + index + '", "Flag ' + index + '", 1, 0},\n' +
-    '  {}\n};'
+  const flagArrays = FLAG_ARRAYS.map(
+    (name, index) =>
+      'flagDef ' +
+      name +
+      '[] = {\n' +
+      '  {"FLAG_' +
+      index +
+      '", "Flag ' +
+      index +
+      '", 1, 0},\n' +
+      '  {}\n};',
   ).join('\n');
 
   return [
@@ -127,8 +117,7 @@ async function writeFlagFixture(): Promise<void> {
     write('src/core/common.c', commonFlagSource()),
     write(
       'src/combat/fight.c',
-      'struct attack_hit_type attack_hit_text[] = {\n' +
-        '  {"hit", "hits", "hit"}\n};\n',
+      'struct attack_hit_type attack_hit_text[] = {\n' + '  {"hit", "hits", "hit"}\n};\n',
     ),
     write(
       'src/core/constant.c',
@@ -143,13 +132,9 @@ async function writeZoneFixture(): Promise<void> {
   await Promise.all([
     write(
       'areas/zon/fixture.zon',
-      '#1\nFixture Zone~\n199 0 50 30 2 0\n' +
-        'M 0 101 1 100 0 0 0 0\nS\n',
+      '#1\nFixture Zone~\n199 0 50 30 2 0\n' + 'M 0 101 1 100 0 0 0 0\nS\n',
     ),
-    write(
-      'areas/wld/fixture.wld',
-      '#100\nFixture Room~\nA fixture room.\n~\n1 0 0\nS\n',
-    ),
+    write('areas/wld/fixture.wld', '#100\nFixture Room~\nA fixture room.\n~\n1 0 0\nS\n'),
     write(
       'areas/mob/fixture.mob',
       '#101\nfixture mob~\na fixture mob~\nA fixture mob waits here.\n~\n' +
@@ -212,8 +197,8 @@ describe('successful parser integration', () => {
     const results = await new MudFlagParser().parseAllFlags();
 
     expect(results).toHaveLength(25);
-    expect(results.every(result => result.flags.length > 0)).toBe(true);
-    expect(results.map(result => result.category)).toEqual(
+    expect(results.every((result) => result.flags.length > 0)).toBe(true);
+    expect(results.map((result) => result.category)).toEqual(
       expect.arrayContaining(['obj_wear', 'mob_race', 'player2_flags']),
     );
   });
@@ -226,9 +211,9 @@ describe('successful parser integration', () => {
       parseZonFile('fixture'),
     ]);
 
-    expect(rooms.map(room => room.vnum)).toEqual([100]);
-    expect(mobiles.map(mobile => mobile.vnum)).toEqual([101]);
-    expect(objects.map(object => object.vnum)).toEqual([102]);
+    expect(rooms.map((room) => room.vnum)).toEqual([100]);
+    expect(mobiles.map((mobile) => mobile.vnum)).toEqual([101]);
+    expect(objects.map((object) => object.vnum)).toEqual([102]);
     expect(zone.header.number).toBe(1);
     expect(zone.resets).toHaveLength(1);
   });
@@ -248,16 +233,12 @@ describe('cached website gates', () => {
     enabled.set('guild_parsing', false);
     setMudRootForTests(path.join(testBase, 'missing'));
 
-    await expect(new MudFlagParser().parseAllFlags()).rejects.toBeInstanceOf(
-      MudFlagParseError,
-    );
+    await expect(new MudFlagParser().parseAllFlags()).rejects.toBeInstanceOf(MudFlagParseError);
     await expect(parseWldFile(1)).rejects.toThrow(/disabled/i);
     await expect(guildParser.parseGuildFile(7)).resolves.toBeNull();
     expect(parseGuildFile).not.toHaveBeenCalled();
     expect(getFlatfileHookHealth('flag_parsing')?.availability).toBe('available');
-    expect(getFlatfileHookHealth('zone_builder_parsing')?.availability).toBe(
-      'available',
-    );
+    expect(getFlatfileHookHealth('zone_builder_parsing')?.availability).toBe('available');
   });
 
   it('keeps database-backed guild parsing usable during MUD_DIR loss', async () => {
@@ -274,15 +255,9 @@ describe('unavailable root and recovery', () => {
   it('fails only the addressed filesystem hook and recovers without restart', async () => {
     setMudRootForTests(path.join(testBase, 'missing'));
 
-    await expect(new MudFlagParser().parseAllFlags()).rejects.toBeInstanceOf(
-      FlatfileAccessError,
-    );
-    expect(getFlatfileHookHealth('flag_parsing')?.availability).toBe(
-      'unavailable',
-    );
-    expect(getFlatfileHookHealth('zone_builder_parsing')?.availability).toBe(
-      'available',
-    );
+    await expect(new MudFlagParser().parseAllFlags()).rejects.toBeInstanceOf(FlatfileAccessError);
+    expect(getFlatfileHookHealth('flag_parsing')?.availability).toBe('unavailable');
+    expect(getFlatfileHookHealth('zone_builder_parsing')?.availability).toBe('available');
 
     setMudRootForTests(mudRoot);
     now = 1_000;
@@ -295,19 +270,12 @@ describe('all-or-nothing malformed source rejection', () => {
   it('rejects the complete flag aggregate when one category is missing', async () => {
     await write('src/combat/fight.c', 'struct unrelated { int value; };\n');
 
-    await expect(new MudFlagParser().parseAllFlags()).rejects.toBeInstanceOf(
-      MudFlagParseError,
-    );
-    expect(getFlatfileHookHealth('flag_parsing')?.droppedInputs).toBeGreaterThan(
-      0,
-    );
+    await expect(new MudFlagParser().parseAllFlags()).rejects.toBeInstanceOf(MudFlagParseError);
+    expect(getFlatfileHookHealth('flag_parsing')?.droppedInputs).toBeGreaterThan(0);
   });
 
   it('rejects a truncated world record instead of returning its prefix', async () => {
-    await write(
-      'areas/wld/fixture.wld',
-      '#100\nFixture Room~\nA fixture room.\n~\n1 0 0\n',
-    );
+    await write('areas/wld/fixture.wld', '#100\nFixture Room~\nA fixture room.\n~\n1 0 0\n');
     invalidateZoneFileMap();
 
     await expect(parseWldFile(1)).rejects.toBeInstanceOf(ZoneSourceParseError);
@@ -320,51 +288,35 @@ describe('all-or-nothing malformed source rejection', () => {
       '#101\nfixture mob~\na fixture mob~\nlong\n~\ndetail\n~\n' +
         '1 0 0 0 S\nPH 0 0\n1 0 0 1d1+0 1d1+0\n0 0\n',
     );
-    await expect(parseMobFile('fixture')).rejects.toBeInstanceOf(
-      ZoneSourceParseError,
-    );
+    await expect(parseMobFile('fixture')).rejects.toBeInstanceOf(ZoneSourceParseError);
 
     resetFlatfileHookStateForTests();
     setFlatfileHookClockForTests(() => now);
     await write(
       'areas/obj/fixture.obj',
-      '#102\nfixture object~\nshort~\nlong~\n~\n' +
-        '1 1 0 0 1 0 0 1 0 0 0\n0 0 0 0 0 0 0 0\n',
+      '#102\nfixture object~\nshort~\nlong~\n~\n' + '1 1 0 0 1 0 0 1 0 0 0\n0 0 0 0 0 0 0 0\n',
     );
-    await expect(parseObjFile('fixture')).rejects.toBeInstanceOf(
-      ZoneSourceParseError,
-    );
+    await expect(parseObjFile('fixture')).rejects.toBeInstanceOf(ZoneSourceParseError);
   });
 
   it('rejects a reset source without an end marker', async () => {
     await write(
       'areas/zon/fixture.zon',
-      '#1\nFixture Zone~\n199 0 50 30 2 0\n' +
-        'M 0 101 1 100 0 0 0 0\n',
+      '#1\nFixture Zone~\n199 0 50 30 2 0\n' + 'M 0 101 1 100 0 0 0 0\n',
     );
 
-    await expect(parseZonFile('fixture')).rejects.toBeInstanceOf(
-      ZoneSourceParseError,
-    );
+    await expect(parseZonFile('fixture')).rejects.toBeInstanceOf(ZoneSourceParseError);
   });
 
   it('keeps valid zone-number lookups usable when another reset file is malformed', async () => {
-    await write(
-      'areas/zon/broken.zon',
-      '#2\nBroken Zone~\n299 0 50 30 2 0\n',
-    );
+    await write('areas/zon/broken.zon', '#2\nBroken Zone~\n299 0 50 30 2 0\n');
     invalidateZoneFileMap();
 
-    await expect(parseWldFile(1)).resolves.toEqual([
-      expect.objectContaining({ vnum: 100 }),
-    ]);
+    await expect(parseWldFile(1)).resolves.toEqual([expect.objectContaining({ vnum: 100 })]);
   });
 
   it('skips an unsafe zone filename without collapsing the aggregate index', async () => {
-    await write(
-      'areas/zon/bad name.zon',
-      '#2\nUnsafe Filename~\n299 0 50 30 2 0\nS\n',
-    );
+    await write('areas/zon/bad name.zon', '#2\nUnsafe Filename~\n299 0 50 30 2 0\nS\n');
     invalidateZoneIndexCache();
 
     await expect(listZones({ limit: 10 })).resolves.toMatchObject({
@@ -383,8 +335,6 @@ describe('all-or-nothing malformed source rejection', () => {
       mobs: [],
       objects: [],
     });
-    expect(getFlatfileHookHealth('zone_builder_parsing')?.availability).toBe(
-      'available',
-    );
+    expect(getFlatfileHookHealth('zone_builder_parsing')?.availability).toBe('available');
   });
 });

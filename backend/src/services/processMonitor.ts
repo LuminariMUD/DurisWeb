@@ -7,10 +7,10 @@ import logger from '../utils/logger.js';
 const execAsync = promisify(exec);
 
 export interface ProcessStats {
-  cpu: number;        // CPU usage percentage
-  memory: number;     // Memory usage in MB
-  memoryPercent: number;  // Memory usage percentage
-  uptime: number;     // Process uptime in seconds
+  cpu: number; // CPU usage percentage
+  memory: number; // Memory usage in MB
+  memoryPercent: number; // Memory usage percentage
+  uptime: number; // Process uptime in seconds
   pid: number | null; // Process ID
   isRunning: boolean;
 }
@@ -26,7 +26,7 @@ export async function getDmsProcessStats(): Promise<ProcessStats> {
   try {
     // Find the DMS process
     const { stdout } = await execAsync(
-      "ps aux | grep './dms' | grep -v grep | awk '{print $2, $4, $6}'"
+      "ps aux | grep './dms' | grep -v grep | awk '{print $2, $4, $6}'",
     );
 
     if (!stdout.trim()) {
@@ -70,7 +70,7 @@ export async function getDmsProcessStats(): Promise<ProcessStats> {
         // cpu_seconds = ticks / ticks_per_second
         // cpu_percent_per_core = (cpu_seconds / elapsed_seconds) * 100
         // cpu_percent_total = cpu_percent_per_core / num_cpus
-        cpu = ((cpuTimeDiff / clockTicks) / timeDiffSec) * 100 / numCpus;
+        cpu = ((cpuTimeDiff / clockTicks / timeDiffSec) * 100) / numCpus;
         cpu = Math.max(0, Math.min(100, cpu)); // Clamp between 0 and 100
       }
 

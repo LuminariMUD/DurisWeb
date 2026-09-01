@@ -22,7 +22,7 @@ import { getWebSettings } from './webSettingsService.js';
  * Get paginated list of PvP events
  */
 export async function getPvPEvents(
-  filters: EventFilters
+  filters: EventFilters,
 ): Promise<{ events: PvPEventListItem[]; total: number }> {
   const page = Math.max(1, filters.page || 1);
   const limit = Math.min(100, Math.max(1, filters.limit || 50));
@@ -77,11 +77,14 @@ export async function getPvPEvents(
   // Cast to SearchFilters to access advanced filter properties
   const searchFilters = filters as SearchFilters;
   if (searchFilters.class) {
-    const classes = searchFilters.class.split(',').map(c => c.trim()).filter(Boolean);
+    const classes = searchFilters.class
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean);
     if (classes.length > 0) {
       const classConditions = classes.map(() => `${strippedDesc} LIKE ?`);
       whereConditions.push(`(${classConditions.join(' OR ')})`);
-      classes.forEach(cls => {
+      classes.forEach((cls) => {
         // Match class name after level number in brackets, e.g., "[56 Warrior]"
         queryParams.push(`%[% ${cls}]%`);
       });
@@ -90,11 +93,14 @@ export async function getPvPEvents(
 
   // Race filter - searches within player_description like "(Githzerai)"
   if (searchFilters.race) {
-    const races = searchFilters.race.split(',').map(r => r.trim()).filter(Boolean);
+    const races = searchFilters.race
+      .split(',')
+      .map((r) => r.trim())
+      .filter(Boolean);
     if (races.length > 0) {
       const raceConditions = races.map(() => `${strippedDesc} LIKE ?`);
       whereConditions.push(`(${raceConditions.join(' OR ')})`);
-      races.forEach(race => {
+      races.forEach((race) => {
         // Match race name in parentheses, e.g., "(Githzerai)"
         queryParams.push(`%(${race})%`);
       });
@@ -103,34 +109,64 @@ export async function getPvPEvents(
 
   // Level range filter - extract level from player_description (level is before ANSI, no need to strip)
   if (searchFilters.level_min !== undefined && searchFilters.level_min > 1) {
-    whereConditions.push('CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(p.player_description, " ", 1), "[", -1) AS UNSIGNED) >= ?');
+    whereConditions.push(
+      'CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(p.player_description, " ", 1), "[", -1) AS UNSIGNED) >= ?',
+    );
     queryParams.push(searchFilters.level_min);
   }
   if (searchFilters.level_max !== undefined && searchFilters.level_max < 56) {
-    whereConditions.push('CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(p.player_description, " ", 1), "[", -1) AS UNSIGNED) <= ?');
+    whereConditions.push(
+      'CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(p.player_description, " ", 1), "[", -1) AS UNSIGNED) <= ?',
+    );
     queryParams.push(searchFilters.level_max);
   }
 
   // Alignment filter - based on race (use stripped desc)
   if (searchFilters.alignment) {
-    const goodRaces = ['Human', 'Grey Elf', 'Dwarf', 'Halfling', 'Gnome', 'Githzerai', 'Centaur', 'Firbolg', 'Barbarian'];
-    const evilRaces = ['Drow Elf', 'Orc', 'Ogre', 'Troll', 'Githyanki', 'Goblin', 'Kobold', 'Duergar', 'Minotaur', 'Illithid', 'Thri-Kreen', 'Tiefling', 'Revenant'];
+    const goodRaces = [
+      'Human',
+      'Grey Elf',
+      'Dwarf',
+      'Halfling',
+      'Gnome',
+      'Githzerai',
+      'Centaur',
+      'Firbolg',
+      'Barbarian',
+    ];
+    const evilRaces = [
+      'Drow Elf',
+      'Orc',
+      'Ogre',
+      'Troll',
+      'Githyanki',
+      'Goblin',
+      'Kobold',
+      'Duergar',
+      'Minotaur',
+      'Illithid',
+      'Thri-Kreen',
+      'Tiefling',
+      'Revenant',
+    ];
 
-    const racesToMatch = searchFilters.alignment === 'good' ? goodRaces :
-                         searchFilters.alignment === 'evil' ? evilRaces : [];
+    const racesToMatch =
+      searchFilters.alignment === 'good'
+        ? goodRaces
+        : searchFilters.alignment === 'evil'
+          ? evilRaces
+          : [];
 
     if (racesToMatch.length > 0) {
       const alignConditions = racesToMatch.map(() => `${strippedDesc} LIKE ?`);
       whereConditions.push(`(${alignConditions.join(' OR ')})`);
-      racesToMatch.forEach(race => {
+      racesToMatch.forEach((race) => {
         queryParams.push(`%(${race})%`);
       });
     }
   }
 
-  const whereClause = whereConditions.length > 0
-    ? 'WHERE ' + whereConditions.join(' AND ')
-    : '';
+  const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
 
   // Get total count
   const countQuery = `
@@ -144,9 +180,7 @@ export async function getPvPEvents(
   const total = countRows[0].total;
 
   // Determine sort order
-  const orderBy = filters.sort_by === 'likes'
-    ? 'e.like_count DESC, e.stamp DESC'
-    : 'e.stamp DESC';
+  const orderBy = filters.sort_by === 'likes' ? 'e.like_count DESC, e.stamp DESC' : 'e.stamp DESC';
 
   // Get paginated events
   const query = `
@@ -180,18 +214,24 @@ export async function getPvPEvents(
 
   const parseKillers = (data: string | null) => {
     if (!data) return [];
-    return data.split('|||').filter(Boolean).map(entry => {
-      const [description, leaderFlag] = entry.split('<<>>');
-      return { description, isLeader: leaderFlag === '1' };
-    });
+    return data
+      .split('|||')
+      .filter(Boolean)
+      .map((entry) => {
+        const [description, leaderFlag] = entry.split('<<>>');
+        return { description, isLeader: leaderFlag === '1' };
+      });
   };
 
   const parseVictims = (data: string | null) => {
     if (!data) return [];
-    return data.split('|||').filter(Boolean).map(entry => {
-      const [description, leaderFlag, diedFlag] = entry.split('<<>>');
-      return { description, isLeader: leaderFlag === '1', died: diedFlag === '1' };
-    });
+    return data
+      .split('|||')
+      .filter(Boolean)
+      .map((entry) => {
+        const [description, leaderFlag, diedFlag] = entry.split('<<>>');
+        return { description, isLeader: leaderFlag === '1', died: diedFlag === '1' };
+      });
   };
 
   const events: PvPEventListItem[] = rows.map((row) => ({
@@ -303,7 +343,7 @@ export async function getPvPEventDetail(eventId: number): Promise<PvPEventDetail
  */
 export async function getLeaderboard(
   type: 'kills' | 'deaths' | 'kd',
-  period: '7d' | '30d' | 'all'
+  period: '7d' | '30d' | 'all',
 ): Promise<LeaderboardEntry[]> {
   let dateFilter = '';
 
@@ -418,7 +458,7 @@ export async function getPlayerStats(playerName: string): Promise<PlayerStats | 
 
   const [statsRows] = await pool.query<RowDataPacket[]>(statsQuery, [
     `%] ${playerName}%`,
-    `%] ${playerName}%`
+    `%] ${playerName}%`,
   ]);
 
   if (statsRows.length === 0 || (statsRows[0].kills === 0 && statsRows[0].deaths === 0)) {
@@ -472,7 +512,9 @@ export async function getPlayerStats(playerName: string): Promise<PlayerStats | 
     stamp: row.stamp,
     room_name: row.room_name,
     result: row.pk_type.includes('KILLER') ? 'KILLER' : 'VICTIM',
-    opponents: row.opponents ? row.opponents.split('|||').filter(Boolean).map(extractPlayerName) : [],
+    opponents: row.opponents
+      ? row.opponents.split('|||').filter(Boolean).map(extractPlayerName)
+      : [],
   }));
 
   // Get most killed by
@@ -510,7 +552,9 @@ export async function getPlayerStats(playerName: string): Promise<PlayerStats | 
     LIMIT 5
   `;
 
-  const [mostKilledRows] = await pool.query<RowDataPacket[]>(mostKilledQuery, [`%] ${playerName}%`]);
+  const [mostKilledRows] = await pool.query<RowDataPacket[]>(mostKilledQuery, [
+    `%] ${playerName}%`,
+  ]);
 
   const mostKilled: OpponentStat[] = mostKilledRows.map((row) => ({
     opponent_name: extractPlayerName(row.player_description),
@@ -538,7 +582,7 @@ export async function getPlayerStats(playerName: string): Promise<PlayerStats | 
  * Search PvP events with advanced filters
  */
 export async function searchPvPEvents(
-  filters: SearchFilters
+  filters: SearchFilters,
 ): Promise<{ events: PvPEventListItem[]; total: number }> {
   // For now, use the same implementation as getPvPEvents
   // Can be extended to support additional filters (class, race, level, etc.)
@@ -548,7 +592,11 @@ export async function searchPvPEvents(
 /**
  * Get location autocomplete suggestions
  */
-export async function getLocationAutocomplete(query: string, page: number = 1, limit: number = 20): Promise<any[]> {
+export async function getLocationAutocomplete(
+  query: string,
+  page: number = 1,
+  limit: number = 20,
+): Promise<any[]> {
   const offset = (page - 1) * limit;
 
   const sql = `
@@ -575,7 +623,11 @@ export async function getLocationAutocomplete(query: string, page: number = 1, l
 /**
  * Get player autocomplete suggestions
  */
-export async function getPlayerAutocomplete(query: string, page: number = 1, limit: number = 20): Promise<any[]> {
+export async function getPlayerAutocomplete(
+  query: string,
+  page: number = 1,
+  limit: number = 20,
+): Promise<any[]> {
   const offset = (page - 1) * limit;
 
   const sql = `
@@ -612,15 +664,17 @@ export async function getPlayerAutocomplete(query: string, page: number = 1, lim
       const race = raceMatch ? raceMatch[1].trim() : '';
 
       // Extract name WITH ANSI codes
-      const nameWithAnsi = row.player_description.match(/\]\s+([^&\s]+(?:\s+[^&(]+)?)\s*(?:&|$|\()/);
+      const nameWithAnsi = row.player_description.match(
+        /\]\s+([^&\s]+(?:\s+[^&(]+)?)\s*(?:&|$|\()/,
+      );
       const displayName = nameWithAnsi ? nameWithAnsi[1].trim() : name;
 
       uniquePlayers.set(name, {
-        name: name,  // Clean name for filtering
-        displayName: displayName,  // Name with potential ANSI
+        name: name, // Clean name for filtering
+        displayName: displayName, // Name with potential ANSI
         level: level,
-        class: charClass,  // Class with ANSI
-        race: race,  // Race with ANSI
+        class: charClass, // Class with ANSI
+        race: race, // Race with ANSI
       });
     }
   });
@@ -633,7 +687,7 @@ export async function getPlayerAutocomplete(query: string, page: number = 1, lim
  */
 export async function getLatestEvents(
   limit: number,
-  _offset: number
+  _offset: number,
 ): Promise<{ events: PvPEventListItem[]; total: number }> {
   return getPvPEvents({ page: 1, limit, date_from: undefined, date_to: undefined });
 }
@@ -641,13 +695,15 @@ export async function getLatestEvents(
 /**
  * Get kill timeline data (daily kill counts)
  */
-export async function getKillTimeline(period: '7d' | '30d' | '90d' | 'all' = '30d'): Promise<Array<{ date: string; kills: number }>> {
+export async function getKillTimeline(
+  period: '7d' | '30d' | '90d' | 'all' = '30d',
+): Promise<Array<{ date: string; kills: number }>> {
   // Convert period to days
   const periodDays: Record<string, number | null> = {
     '7d': 7,
     '30d': 30,
     '90d': 90,
-    'all': null,
+    all: null,
   };
 
   const days = periodDays[period];
@@ -684,13 +740,15 @@ export async function getKillTimeline(period: '7d' | '30d' | '90d' | 'all' = '30
 /**
  * Get active hours heatmap (hour of day kill distribution)
  */
-export async function getActiveHours(period: '7d' | '30d' | '90d' | 'all' = 'all'): Promise<Array<{ hour: number; kills: number }>> {
+export async function getActiveHours(
+  period: '7d' | '30d' | '90d' | 'all' = 'all',
+): Promise<Array<{ hour: number; kills: number }>> {
   // Convert period to days
   const periodDays: Record<string, number | null> = {
     '7d': 7,
     '30d': 30,
     '90d': 90,
-    'all': null,
+    all: null,
   };
 
   const days = periodDays[period];
@@ -738,13 +796,16 @@ export async function getActiveHours(period: '7d' | '30d' | '90d' | 'all' = 'all
 /**
  * Get popular locations
  */
-export async function getPopularLocations(limit: number = 10, period: '7d' | '30d' | '90d' | 'all' = 'all'): Promise<Array<{ location: string; kills: number }>> {
+export async function getPopularLocations(
+  limit: number = 10,
+  period: '7d' | '30d' | '90d' | 'all' = 'all',
+): Promise<Array<{ location: string; kills: number }>> {
   // Convert period to days
   const periodDays: Record<string, number | null> = {
     '7d': 7,
     '30d': 30,
     '90d': 90,
-    'all': null,
+    all: null,
   };
 
   const days = periodDays[period];
@@ -783,17 +844,19 @@ export async function getPopularLocations(limit: number = 10, period: '7d' | '30
 /**
  * Get class matchup matrix (simplified version - can be enhanced)
  */
-export async function getClassMatchups(period: '7d' | '30d' | '90d' | 'all' = 'all'): Promise<Array<{
-  killer_class: string;
-  victim_class: string;
-  wins: number
-}>> {
+export async function getClassMatchups(period: '7d' | '30d' | '90d' | 'all' = 'all'): Promise<
+  Array<{
+    killer_class: string;
+    victim_class: string;
+    wins: number;
+  }>
+> {
   // Convert period to days
   const periodDays: Record<string, number | null> = {
     '7d': 7,
     '30d': 30,
     '90d': 90,
-    'all': null,
+    all: null,
   };
 
   const days = periodDays[period];
@@ -857,7 +920,7 @@ export async function getClassMatchups(period: '7d' | '30d' | '90d' | 'all' = 'a
     result.push({
       killer_class: killerClass,
       victim_class: victimClass,
-      wins: wins
+      wins: wins,
     });
   }
 
@@ -881,7 +944,7 @@ export async function getClientStats(period: '7d' | '30d' | '90d' | 'all' = '30d
     '7d': 7,
     '30d': 30,
     '90d': 90,
-    'all': null,
+    all: null,
   };
 
   const days = periodDays[period];
@@ -912,7 +975,10 @@ export async function getClientStats(period: '7d' | '30d' | '90d' | 'all' = '30d
     : await pool.query<RowDataPacket[]>(sql);
 
   // group by client, with versions nested
-  const clientMap = new Map<string, { count: number; versions: Array<{ version: string; count: number }> }>();
+  const clientMap = new Map<
+    string,
+    { count: number; versions: Array<{ version: string; count: number }> }
+  >();
 
   for (const row of rows) {
     const client = row.client as string;
@@ -953,17 +1019,16 @@ export async function addBattleLike(eventId: number, accountName: string): Promi
     await connection.beginTransaction();
 
     // Try to insert the like
-    await connection.query(
-      'INSERT INTO pvp_battle_likes (event_id, account_name) VALUES (?, ?)',
-      [eventId, accountName]
-    );
+    await connection.query('INSERT INTO pvp_battle_likes (event_id, account_name) VALUES (?, ?)', [
+      eventId,
+      accountName,
+    ]);
 
     // Increment like_count - use SET sql_mode to handle pkill_event datetime issue
     await connection.query(`SET sql_mode = ''`);
-    await connection.query(
-      'UPDATE pkill_event SET like_count = like_count + 1 WHERE id = ?',
-      [eventId]
-    );
+    await connection.query('UPDATE pkill_event SET like_count = like_count + 1 WHERE id = ?', [
+      eventId,
+    ]);
 
     await connection.commit();
     return true;
@@ -989,7 +1054,7 @@ export async function removeBattleLike(eventId: number, accountName: string): Pr
     // Delete the like
     const [result] = await connection.query<any>(
       'DELETE FROM pvp_battle_likes WHERE event_id = ? AND account_name = ?',
-      [eventId, accountName]
+      [eventId, accountName],
     );
 
     if (result.affectedRows === 0) {
@@ -1001,7 +1066,7 @@ export async function removeBattleLike(eventId: number, accountName: string): Pr
     await connection.query(`SET sql_mode = ''`);
     await connection.query(
       'UPDATE pkill_event SET like_count = GREATEST(like_count - 1, 0) WHERE id = ?',
-      [eventId]
+      [eventId],
     );
 
     await connection.commit();
@@ -1020,7 +1085,7 @@ export async function removeBattleLike(eventId: number, accountName: string): Pr
 export async function hasUserLiked(eventId: number, accountName: string): Promise<boolean> {
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT 1 FROM pvp_battle_likes WHERE event_id = ? AND account_name = ?',
-    [eventId, accountName]
+    [eventId, accountName],
   );
   return rows.length > 0;
 }
@@ -1030,10 +1095,10 @@ export async function hasUserLiked(eventId: number, accountName: string): Promis
  */
 export async function addBattleFavorite(eventId: number, accountName: string): Promise<boolean> {
   try {
-    await pool.query(
-      'INSERT INTO pvp_battle_favorites (event_id, account_name) VALUES (?, ?)',
-      [eventId, accountName]
-    );
+    await pool.query('INSERT INTO pvp_battle_favorites (event_id, account_name) VALUES (?, ?)', [
+      eventId,
+      accountName,
+    ]);
     return true;
   } catch (error) {
     if (isErrorWithCode(error) && error.code === 'ER_DUP_ENTRY') {
@@ -1049,7 +1114,7 @@ export async function addBattleFavorite(eventId: number, accountName: string): P
 export async function removeBattleFavorite(eventId: number, accountName: string): Promise<boolean> {
   const [result] = await pool.query<any>(
     'DELETE FROM pvp_battle_favorites WHERE event_id = ? AND account_name = ?',
-    [eventId, accountName]
+    [eventId, accountName],
   );
   return result.affectedRows > 0;
 }
@@ -1060,7 +1125,7 @@ export async function removeBattleFavorite(eventId: number, accountName: string)
 export async function hasUserFavorited(eventId: number, accountName: string): Promise<boolean> {
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT 1 FROM pvp_battle_favorites WHERE event_id = ? AND account_name = ?',
-    [eventId, accountName]
+    [eventId, accountName],
   );
   return rows.length > 0;
 }
@@ -1070,12 +1135,12 @@ export async function hasUserFavorited(eventId: number, accountName: string): Pr
  */
 export async function getBattleInteractionStats(
   eventId: number,
-  accountName?: string
+  accountName?: string,
 ): Promise<PvPBattleStats> {
   // Get like and comment counts from the event table
   const [eventRows] = await pool.query<RowDataPacket[]>(
     'SELECT like_count, comment_count FROM pkill_event WHERE id = ?',
-    [eventId]
+    [eventId],
   );
 
   const likeCount = eventRows[0]?.like_count || 0;
@@ -1103,14 +1168,14 @@ export async function getBattleInteractionStats(
 export async function getUserFavorites(
   accountName: string,
   page: number = 1,
-  limit: number = 20
+  limit: number = 20,
 ): Promise<{ data: PvPFavorite[]; total: number }> {
   const offset = (page - 1) * limit;
 
   // Get total count
   const [countRows] = await pool.query<RowDataPacket[]>(
     'SELECT COUNT(*) as total FROM pvp_battle_favorites WHERE account_name = ?',
-    [accountName]
+    [accountName],
   );
   const total = countRows[0].total;
 
@@ -1209,8 +1274,14 @@ export async function getBattleComments(eventId: number): Promise<PvPBattleComme
       content: row.is_deleted ? '[deleted]' : row.content,
       parentId: row.parent_id,
       isDeleted: row.is_deleted,
-      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : `${String(row.created_at).replace(' ', 'T')}Z`,
-      updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : `${String(row.updated_at).replace(' ', 'T')}Z`,
+      createdAt:
+        row.created_at instanceof Date
+          ? row.created_at.toISOString()
+          : `${String(row.created_at).replace(' ', 'T')}Z`,
+      updatedAt:
+        row.updated_at instanceof Date
+          ? row.updated_at.toISOString()
+          : `${String(row.updated_at).replace(' ', 'T')}Z`,
       quotedText: row.quoted_text,
       lineNumber: row.line_number,
       participantId: row.participant_id,
@@ -1249,7 +1320,7 @@ export async function createBattleComment(
   parentId?: number,
   quotedText?: string,
   lineNumber?: number,
-  participantId?: number
+  participantId?: number,
 ): Promise<PvPBattleComment> {
   const connection = await pool.getConnection();
   try {
@@ -1259,7 +1330,16 @@ export async function createBattleComment(
     const [result] = await connection.query<any>(
       `INSERT INTO pvp_battle_comments (event_id, account_name, character_pid, content, parent_id, quoted_text, line_number, participant_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [eventId, accountName, characterPid || null, content, parentId || null, quotedText || null, lineNumber || null, participantId || null]
+      [
+        eventId,
+        accountName,
+        characterPid || null,
+        content,
+        parentId || null,
+        quotedText || null,
+        lineNumber || null,
+        participantId || null,
+      ],
     );
 
     const commentId = result.insertId;
@@ -1268,7 +1348,7 @@ export async function createBattleComment(
     await connection.query(`SET sql_mode = ''`);
     await connection.query(
       'UPDATE pkill_event SET comment_count = comment_count + 1 WHERE id = ?',
-      [eventId]
+      [eventId],
     );
 
     await connection.commit();
@@ -1283,7 +1363,7 @@ export async function createBattleComment(
       FROM pvp_battle_comments c
       LEFT JOIN frag_leaderboard fl ON c.character_pid = fl.pid
       WHERE c.id = ?`,
-      [commentId]
+      [commentId],
     );
 
     const row = rows[0];
@@ -1299,8 +1379,14 @@ export async function createBattleComment(
       content: row.content,
       parentId: row.parent_id,
       isDeleted: row.is_deleted,
-      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : `${String(row.created_at).replace(' ', 'T')}Z`,
-      updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : `${String(row.updated_at).replace(' ', 'T')}Z`,
+      createdAt:
+        row.created_at instanceof Date
+          ? row.created_at.toISOString()
+          : `${String(row.created_at).replace(' ', 'T')}Z`,
+      updatedAt:
+        row.updated_at instanceof Date
+          ? row.updated_at.toISOString()
+          : `${String(row.updated_at).replace(' ', 'T')}Z`,
       quotedText: row.quoted_text,
       lineNumber: row.line_number,
       participantId: row.participant_id,
@@ -1320,13 +1406,13 @@ export async function createBattleComment(
 export async function updateBattleComment(
   commentId: number,
   accountName: string,
-  content: string
+  content: string,
 ): Promise<boolean> {
   const [result] = await pool.query<any>(
     `UPDATE pvp_battle_comments
      SET content = ?, updated_at = NOW()
      WHERE id = ? AND account_name = ? AND is_deleted = FALSE`,
-    [content, commentId, accountName]
+    [content, commentId, accountName],
   );
   return result.affectedRows > 0;
 }
@@ -1337,7 +1423,7 @@ export async function updateBattleComment(
 export async function deleteBattleComment(
   commentId: number,
   accountName: string,
-  isModerator: boolean
+  isModerator: boolean,
 ): Promise<boolean> {
   let query: string;
   let params: any[];
@@ -1360,10 +1446,12 @@ export async function deleteBattleComment(
 /**
  * Get comment by ID (for authorization checks)
  */
-export async function getBattleCommentById(commentId: number): Promise<{ eventId: number; accountName: string } | null> {
+export async function getBattleCommentById(
+  commentId: number,
+): Promise<{ eventId: number; accountName: string } | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT event_id, account_name FROM pvp_battle_comments WHERE id = ?',
-    [commentId]
+    [commentId],
   );
   if (rows.length === 0) return null;
   return {

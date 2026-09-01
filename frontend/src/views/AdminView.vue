@@ -62,8 +62,7 @@ async function loadSettings() {
 async function loadAuditLog() {
   try {
     auditLog.value = await adminApi.getAuditLog(50)
-  } catch {
-  }
+  } catch {}
 }
 
 async function saveSetting(key: string) {
@@ -82,9 +81,9 @@ async function saveSetting(key: string) {
     if (settings.value) {
       const numValue = Number(value)
       if (!isNaN(numValue)) {
-        (settings.value as any)[key] = numValue
+        ;(settings.value as any)[key] = numValue
       } else {
-        (settings.value as any)[key] = value === '1' ? true : value === '0' ? false : value
+        ;(settings.value as any)[key] = value === '1' ? true : value === '0' ? false : value
       }
     }
 
@@ -133,10 +132,7 @@ const moderationSettings = computed(() => [
   'min_level_to_delete_any_post',
 ])
 
-const forumAccessSettings = computed(() => [
-  'min_level_immortal_forum',
-  'min_level_god_forum',
-])
+const forumAccessSettings = computed(() => ['min_level_immortal_forum', 'min_level_god_forum'])
 
 const generalSettings = computed(() => [
   'allow_mortal_posts',

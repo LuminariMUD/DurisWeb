@@ -11,7 +11,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Home, Users, Package, RefreshCw, Calendar, Edit, MoreVertical, Copy, Trash2 } from 'lucide-vue-next'
+import {
+  Home,
+  Users,
+  Package,
+  RefreshCw,
+  Calendar,
+  Edit,
+  MoreVertical,
+  Copy,
+  Trash2,
+} from 'lucide-vue-next'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import type { ZoneIndex } from '@/types'
 
@@ -32,7 +42,11 @@ const zoneNameHtml = computed(() => {
 const lastModified = computed(() => {
   if (!props.zone.lastModified) return 'Unknown'
   const date = new Date(props.zone.lastModified)
-  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return (
+    date.toLocaleDateString() +
+    ' ' +
+    date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  )
 })
 </script>
 

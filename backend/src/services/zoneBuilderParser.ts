@@ -85,9 +85,7 @@ function consumeTildeTerminated(
   sourceType: string,
 ): number {
   for (let index = start; index < lines.length; index += 1) {
-    const terminated = standalone
-      ? lines[index].trim() === '~'
-      : hasTildeTerminator(lines[index]);
+    const terminated = standalone ? lines[index].trim() === '~' : hasTildeTerminator(lines[index]);
     if (terminated) {
       return index + 1;
     }
@@ -107,22 +105,14 @@ function isInteger(value: string): boolean {
   return /^-?\d+$/.test(value);
 }
 
-function assertIntegerLine(
-  line: string | undefined,
-  minimum: number,
-  sourceType: string,
-): void {
+function assertIntegerLine(line: string | undefined, minimum: number, sourceType: string): void {
   const values = line?.trim().split(/\s+/).filter(Boolean) ?? [];
   if (values.length < minimum || !values.every(isInteger)) {
     rejectZoneSource(sourceType);
   }
 }
 
-function getSourceRecords(
-  content: string,
-  sourceType: string,
-  allowEmpty = false,
-): string[][] {
+function getSourceRecords(content: string, sourceType: string, allowEmpty = false): string[][] {
   const lines = content.split('\n');
   const starts: number[] = [];
   for (let index = 0; index < lines.length; index += 1) {
@@ -133,14 +123,14 @@ function getSourceRecords(
   if (allowEmpty && starts.length === 0 && !content.trim()) {
     return [];
   }
-  if (starts.length === 0 || lines.slice(0, starts[0]).some(line => line.trim())) {
+  if (starts.length === 0 || lines.slice(0, starts[0]).some((line) => line.trim())) {
     rejectZoneSource(sourceType);
   }
 
   const records = starts.map((start, index) =>
     lines.slice(start, starts[index + 1] ?? lines.length),
   );
-  const vnums = records.map(record => record[0]);
+  const vnums = records.map((record) => record[0]);
   if (new Set(vnums).size !== vnums.length) {
     rejectZoneSource(sourceType);
   }
@@ -202,7 +192,7 @@ function validateWorldSource(content: string): void {
       }
       rejectZoneSource(sourceType);
     }
-    if (!ended || record.slice(index).some(line => line.trim())) {
+    if (!ended || record.slice(index).some((line) => line.trim())) {
       rejectZoneSource(sourceType);
     }
   }
@@ -230,11 +220,7 @@ function validateMobileSource(content: string): void {
     index += 1;
 
     const speciesValues = record[index]?.trim().split(/\s+/).filter(Boolean) ?? [];
-    if (
-      speciesValues.length < 3 ||
-      !speciesValues[0] ||
-      !speciesValues.slice(1).every(isInteger)
-    ) {
+    if (speciesValues.length < 3 || !speciesValues[0] || !speciesValues.slice(1).every(isInteger)) {
       rejectZoneSource(sourceType);
     }
     index += 1;
@@ -262,7 +248,7 @@ function validateMobileSource(content: string): void {
     assertIntegerLine(record[index], 3, sourceType);
     index += 1;
 
-    if (record.slice(index).some(line => line.trim())) {
+    if (record.slice(index).some((line) => line.trim())) {
       rejectZoneSource(sourceType);
     }
   }
@@ -341,12 +327,7 @@ function validateResetSource(content: string): void {
     }
     const commandPart = line.split('*', 1)[0].trim();
     const values = commandPart.split(/\s+/);
-    if (
-      !resetSeen &&
-      !legacyMetadataSeen &&
-      values.length === 2 &&
-      values.every(isInteger)
-    ) {
+    if (!resetSeen && !legacyMetadataSeen && values.length === 2 && values.every(isInteger)) {
       legacyMetadataSeen = true;
       index += 1;
       continue;
@@ -361,10 +342,7 @@ function validateResetSource(content: string): void {
     resetSeen = true;
     index += 1;
   }
-  if (
-    !ended ||
-    lines.slice(index).some(line => line.trim() && !line.trim().startsWith('*'))
-  ) {
+  if (!ended || lines.slice(index).some((line) => line.trim() && !line.trim().startsWith('*'))) {
     rejectZoneSource(sourceType);
   }
 }
@@ -411,7 +389,7 @@ async function buildSpeciesCodeMap(): Promise<Map<string, number>> {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
       'SELECT value, short_code FROM builder_flags WHERE category = ? AND short_code IS NOT NULL',
-      ['mob_race']
+      ['mob_race'],
     );
 
     for (const row of rows) {
@@ -460,7 +438,7 @@ async function buildZoneFileMap(): Promise<Map<number, string>> {
 
   try {
     const files = await listMudDirectory('zone_builder_parsing', zonDir);
-    const zonFiles = files.filter(f => f.endsWith('.zon'));
+    const zonFiles = files.filter((f) => f.endsWith('.zon'));
 
     for (const file of zonFiles) {
       try {
@@ -553,7 +531,7 @@ async function buildZoneIndex(): Promise<ZoneIndex[]> {
 
   try {
     const files = await listMudDirectory('zone_builder_parsing', zonDir);
-    const zonFiles = files.filter(f => f.endsWith('.zon'));
+    const zonFiles = files.filter((f) => f.endsWith('.zon'));
 
     for (const file of zonFiles) {
       const baseName = file.replace('.zon', '');
@@ -611,7 +589,7 @@ async function buildZoneIndex(): Promise<ZoneIndex[]> {
         const stats = await statMudPath('zone_builder_parsing', wldPath);
 
         zones.push({
-          id: baseName,  // Unique identifier = filename without extension
+          id: baseName, // Unique identifier = filename without extension
           number: zoneNumber,
           name: zoneName,
           roomCount,
@@ -696,15 +674,18 @@ export async function listZones(params: ListZonesParams = {}): Promise<ListZones
   let filteredZones = allZones;
   if (filterByZoneIds !== null) {
     const accessSet = new Set(filterByZoneIds);
-    filteredZones = filteredZones.filter(zone => accessSet.has(zone.id));
+    filteredZones = filteredZones.filter((zone) => accessSet.has(zone.id));
   }
 
   // Apply search filter
   if (search.trim()) {
     const query = search.toLowerCase().trim();
-    filteredZones = filteredZones.filter(zone => {
+    filteredZones = filteredZones.filter((zone) => {
       const idMatch = zone.id.toLowerCase().includes(query);
-      const nameMatch = zone.name.toLowerCase().replace(/&\+[a-zA-Z]|&n/g, '').includes(query);
+      const nameMatch = zone.name
+        .toLowerCase()
+        .replace(/&\+[a-zA-Z]|&n/g, '')
+        .includes(query);
       const numberMatch = zone.number.toString().includes(query);
       return idMatch || nameMatch || numberMatch;
     });
@@ -990,25 +971,23 @@ export async function getZoneMapData(zoneId: string): Promise<ZoneMapData> {
     parseObjFile(zoneId),
   ]);
 
-  const roomIndexes: RoomIndex[] = rooms.map(room => ({
+  const roomIndexes: RoomIndex[] = rooms.map((room) => ({
     vnum: room.vnum,
     name: room.name,
     sectorType: room.sectorType,
     exits: Object.fromEntries(
-      room.exits
-        .filter(e => e.toRoom > 0)
-        .map(e => [e.direction, e.toRoom])
+      room.exits.filter((e) => e.toRoom > 0).map((e) => [e.direction, e.toRoom]),
     ) as { [key in Direction]?: number },
   }));
 
-  const mobIndexes: MobIndex[] = mobiles.map(mob => ({
+  const mobIndexes: MobIndex[] = mobiles.map((mob) => ({
     vnum: mob.vnum,
     keywords: mob.keywords,
     shortDesc: mob.shortDesc,
     level: mob.level,
   }));
 
-  const objIndexes: ObjIndex[] = objects.map(obj => ({
+  const objIndexes: ObjIndex[] = objects.map((obj) => ({
     vnum: obj.vnum,
     keywords: obj.keywords,
     shortDesc: obj.shortDesc,
@@ -1043,7 +1022,7 @@ export async function getZoneName(zoneId: string): Promise<string> {
 // Get single room data by zone ID (Tier 3 - full data for editing)
 export async function getRoomData(zoneId: string, vnum: number): Promise<Room | null> {
   const rooms = await parseWldFileById(zoneId);
-  return rooms.find(r => r.vnum === vnum) || null;
+  return rooms.find((r) => r.vnum === vnum) || null;
 }
 
 // Parse .mob file
@@ -1115,7 +1094,12 @@ export async function parseMobFile(zoneId: string): Promise<Mobile[]> {
     // 10 args: actFlags aggro aggro2 aggro3 aff1 aff2 aff3 aff4 alignment S
     const flagLine = lines[i]?.trim().split(/\s+/) || [];
     const numArgs = flagLine.length;
-    let actFlags = 0, affFlags1 = 0, affFlags2 = 0, affFlags3 = 0, affFlags4 = 0, alignment = 0;
+    let actFlags = 0,
+      affFlags1 = 0,
+      affFlags2 = 0,
+      affFlags3 = 0,
+      affFlags4 = 0,
+      alignment = 0;
 
     if (numArgs === 5) {
       // actFlags aff1 aff2 alignment S
@@ -1135,7 +1119,7 @@ export async function parseMobFile(zoneId: string): Promise<Mobile[]> {
       // actFlags aggro aggro2 [aggro3] aff1 aff2 aff3 aff4 alignment S
       // For now, skip aggro flags and get alignment from second-to-last
       actFlags = parseInt(flagLine[0], 10) || 0;
-      const sIndex = flagLine.findIndex(v => v === 'S');
+      const sIndex = flagLine.findIndex((v) => v === 'S');
       alignment = sIndex > 0 ? parseInt(flagLine[sIndex - 1], 10) || 0 : 0;
       // Affect flags are before alignment: aff1 aff2 aff3 aff4 alignment S
       if (sIndex >= 5) {
@@ -1149,8 +1133,9 @@ export async function parseMobFile(zoneId: string): Promise<Mobile[]> {
       actFlags = parseInt(flagLine[0], 10) || 0;
       affFlags1 = parseInt(flagLine[1], 10) || 0;
       affFlags2 = parseInt(flagLine[2], 10) || 0;
-      const sIndex = flagLine.findIndex(v => v === 'S');
-      alignment = sIndex > 0 ? parseInt(flagLine[sIndex - 1], 10) || 0 : parseInt(flagLine[3], 10) || 0;
+      const sIndex = flagLine.findIndex((v) => v === 'S');
+      alignment =
+        sIndex > 0 ? parseInt(flagLine[sIndex - 1], 10) || 0 : parseInt(flagLine[3], 10) || 0;
     }
     i++;
 
@@ -1314,7 +1299,7 @@ export async function parseObjFile(zoneId: string): Promise<ZoneObject[]> {
 
     // Values (8 values)
     const valuesLine = lines[i]?.trim().split(/\s+/) || [];
-    const values = valuesLine.slice(0, 8).map(v => parseInt(v, 10) || 0);
+    const values = valuesLine.slice(0, 8).map((v) => parseInt(v, 10) || 0);
     while (values.length < 8) values.push(0);
     i++;
 
@@ -1335,7 +1320,7 @@ export async function parseObjFile(zoneId: string): Promise<ZoneObject[]> {
       bitvector = parseInt(weightLine[3], 10) || undefined;
     } else if (weightLine.length > 3) {
       // Check if any later bitvectors are non-zero (need to preserve zeros in between)
-      const hasLaterBitvectors = weightLine.slice(4).some(v => v !== '0');
+      const hasLaterBitvectors = weightLine.slice(4).some((v) => v !== '0');
       if (hasLaterBitvectors) {
         bitvector = parseInt(weightLine[3], 10);
       }
@@ -1477,7 +1462,9 @@ export async function parseObjFile(zoneId: string): Promise<ZoneObject[]> {
 // * comments
 // <reset commands...>
 // S or $ (end marker)
-export async function parseZonFile(zoneId: string): Promise<{ header: ZoneHeader; resets: ResetCommand[] }> {
+export async function parseZonFile(
+  zoneId: string,
+): Promise<{ header: ZoneHeader; resets: ResetCommand[] }> {
   const filePath = resolveSafeZoneFilePath(getAreasDir(), zoneId, 'zon');
 
   if (!(await fileExists(filePath))) {
@@ -1613,7 +1600,7 @@ export async function getZoneData(zoneId: string): Promise<ZoneData> {
 // Get mobile by vnum using zone ID
 export async function getMobileData(zoneId: string, vnum: number): Promise<Mobile | null> {
   const mobiles = await parseMobFile(zoneId);
-  return mobiles.find(m => m.vnum === vnum) || null;
+  return mobiles.find((m) => m.vnum === vnum) || null;
 }
 
 // Get object by vnum using zone ID
@@ -1727,7 +1714,7 @@ export async function getObjectData(zoneId: string, vnum: number): Promise<ZoneO
 
     // Values line (8 values)
     const valuesLine = lines[i]?.trim().split(/\s+/) || [];
-    const values = valuesLine.slice(0, 8).map(v => parseInt(v, 10) || 0);
+    const values = valuesLine.slice(0, 8).map((v) => parseInt(v, 10) || 0);
     while (values.length < 8) values.push(0);
     i++;
 
@@ -1748,7 +1735,7 @@ export async function getObjectData(zoneId: string, vnum: number): Promise<ZoneO
       bitvector = parseInt(weightLine[3], 10) || undefined;
     } else if (weightLine.length > 3) {
       // Check if any later bitvectors are non-zero (need to preserve zeros in between)
-      const hasLaterBitvectors = weightLine.slice(4).some(v => v !== '0');
+      const hasLaterBitvectors = weightLine.slice(4).some((v) => v !== '0');
       if (hasLaterBitvectors) {
         bitvector = parseInt(weightLine[3], 10);
       }
@@ -1895,8 +1882,8 @@ export interface RoomPosition {
 }
 
 export interface ZonePositions {
-  zoneId: string;       // Unique identifier = filename
-  zoneNumber?: number;  // Legacy field for compatibility
+  zoneId: string; // Unique identifier = filename
+  zoneNumber?: number; // Legacy field for compatibility
   positions: Record<number, RoomPosition>;
   lastModified: string;
 }
@@ -1929,7 +1916,7 @@ export async function getZonePositions(zoneId: string): Promise<ZonePositions | 
 // Save room positions for a zone by ID
 export async function saveZonePositions(
   zoneId: string,
-  positions: Record<number, RoomPosition>
+  positions: Record<number, RoomPosition>,
 ): Promise<void> {
   await ensureMapDir();
 
@@ -1952,10 +1939,10 @@ export interface GlobalSearchResult {
   zoneId: string;
   zoneName: string;
   vnum: number;
-  name: string;  // room name, mob shortDesc, or object shortDesc
-  keywords?: string;  // For mobs and objects
-  level?: number;  // For mobs
-  itemType?: number;  // For objects
+  name: string; // room name, mob shortDesc, or object shortDesc
+  keywords?: string; // For mobs and objects
+  level?: number; // For mobs
+  itemType?: number; // For objects
 }
 
 export interface GlobalSearchResponse {
@@ -2003,7 +1990,7 @@ export async function globalSearch(
   query: string,
   type: 'all' | 'room' | 'mob' | 'object' = 'all',
   page: number = 1,
-  limit: number = 20
+  limit: number = 20,
 ): Promise<GlobalSearchResponse> {
   const results: GlobalSearchResult[] = [];
   const queryLower = query.toLowerCase().trim();
@@ -2013,7 +2000,7 @@ export async function globalSearch(
 
   // Get zone index for name lookups
   const allZones = await buildZoneIndex();
-  const zoneMap = new Map(allZones.map(z => [z.id, z]));
+  const zoneMap = new Map(allZones.map((z) => [z.id, z]));
 
   // Resolve contained source directories once, then prefilter through the same
   // bounded read boundary before constructing parser objects.
@@ -2028,11 +2015,7 @@ export async function globalSearch(
   const hasEnoughResults = () => results.length >= MAX_SEARCH_RESULTS;
 
   if ((type === 'all' || type === 'room') && !hasEnoughResults()) {
-    const matchingFiles = await findMatchingSourceFiles(
-      searchDirs.room,
-      'wld',
-      queryLower,
-    );
+    const matchingFiles = await findMatchingSourceFiles(searchDirs.room, 'wld', queryLower);
 
     for (const filePath of matchingFiles) {
       if (hasEnoughResults()) break;
@@ -2066,11 +2049,7 @@ export async function globalSearch(
   }
 
   if ((type === 'all' || type === 'mob') && !hasEnoughResults()) {
-    const matchingFiles = await findMatchingSourceFiles(
-      searchDirs.mob,
-      'mob',
-      queryLower,
-    );
+    const matchingFiles = await findMatchingSourceFiles(searchDirs.mob, 'mob', queryLower);
 
     for (const filePath of matchingFiles) {
       if (hasEnoughResults()) break;
@@ -2085,8 +2064,10 @@ export async function globalSearch(
           if (hasEnoughResults()) break;
 
           const vnumMatch = queryIsNumber && mob.vnum.toString().includes(queryLower);
-          const shortDescMatch = !queryIsNumber && stripAnsiForSearch(mob.shortDesc).includes(queryLower);
-          const keywordsMatch = !queryIsNumber && stripAnsiForSearch(mob.keywords).includes(queryLower);
+          const shortDescMatch =
+            !queryIsNumber && stripAnsiForSearch(mob.shortDesc).includes(queryLower);
+          const keywordsMatch =
+            !queryIsNumber && stripAnsiForSearch(mob.keywords).includes(queryLower);
 
           if (vnumMatch || shortDescMatch || keywordsMatch) {
             results.push({
@@ -2107,11 +2088,7 @@ export async function globalSearch(
   }
 
   if ((type === 'all' || type === 'object') && !hasEnoughResults()) {
-    const matchingFiles = await findMatchingSourceFiles(
-      searchDirs.object,
-      'obj',
-      queryLower,
-    );
+    const matchingFiles = await findMatchingSourceFiles(searchDirs.object, 'obj', queryLower);
 
     for (const filePath of matchingFiles) {
       if (hasEnoughResults()) break;
@@ -2126,8 +2103,10 @@ export async function globalSearch(
           if (hasEnoughResults()) break;
 
           const vnumMatch = queryIsNumber && obj.vnum.toString().includes(queryLower);
-          const shortDescMatch = !queryIsNumber && stripAnsiForSearch(obj.shortDesc).includes(queryLower);
-          const keywordsMatch = !queryIsNumber && stripAnsiForSearch(obj.keywords).includes(queryLower);
+          const shortDescMatch =
+            !queryIsNumber && stripAnsiForSearch(obj.shortDesc).includes(queryLower);
+          const keywordsMatch =
+            !queryIsNumber && stripAnsiForSearch(obj.keywords).includes(queryLower);
 
           if (vnumMatch || shortDescMatch || keywordsMatch) {
             results.push({
@@ -2169,12 +2148,12 @@ export async function globalSearch(
 // =============================================================================
 
 export interface ShopData {
-  keeperVnum: number;       // Mob vnum of the shopkeeper
-  producedItems: number[];  // Item vnums the shop sells
-  buyMultiplier: number;    // Price multiplier when buying from shop
-  sellMultiplier: number;   // Price multiplier when selling to shop
+  keeperVnum: number; // Mob vnum of the shopkeeper
+  producedItems: number[]; // Item vnums the shop sells
+  buyMultiplier: number; // Price multiplier when buying from shop
+  sellMultiplier: number; // Price multiplier when selling to shop
   tradedItemTypes: number[]; // Item types the shop will buy
-  roomVnum: number;         // Room where the shop is located
+  roomVnum: number; // Room where the shop is located
 }
 
 // Cache for all shops across all zones
@@ -2194,7 +2173,7 @@ export async function parseAllShopFiles(): Promise<Map<number, ShopData>> {
       return shopMap;
     }
     const files = await listMudDirectory('zone_builder_parsing', shpDir);
-    const shpFiles = files.filter(f => f.endsWith('.shp'));
+    const shpFiles = files.filter((f) => f.endsWith('.shp'));
 
     for (const file of shpFiles) {
       const filePath = path.join(shpDir, file);

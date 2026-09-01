@@ -8,7 +8,14 @@ import { useToast } from '@/composables/useToast'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import HookDetailSheet from '@/components/admin/hooks/HookDetailSheet.vue'
 import HookGroup from '@/components/admin/hooks/HookGroup.vue'
@@ -20,14 +27,28 @@ const liveMessage = ref('')
 let detailTrigger: HTMLElement | null = null
 const { success, warning, error: toastError } = useToast()
 const {
-  data, filteredHooks, selectedHook, loading, loadError, filter, pending,
-  rowErrors, summary, refresh, reconcile, selectHook,
+  data,
+  filteredHooks,
+  selectedHook,
+  loading,
+  loadError,
+  filter,
+  pending,
+  rowErrors,
+  summary,
+  refresh,
+  reconcile,
+  selectHook,
 } = useHookControl()
 
-const grouped = computed(() => channels.map((channel) => ({
-  channel,
-  hooks: filteredHooks.value.filter((hook) => hook.channel === channel),
-})).filter((group) => group.hooks.length > 0))
+const grouped = computed(() =>
+  channels
+    .map((channel) => ({
+      channel,
+      hooks: filteredHooks.value.filter((hook) => hook.channel === channel),
+    }))
+    .filter((group) => group.hooks.length > 0),
+)
 
 function formatRefresh(value: string | undefined) {
   if (!value) return 'Not yet refreshed'
@@ -40,7 +61,11 @@ async function changeHook(id: string, enabled: boolean) {
     const result = await reconcile(id, enabled)
     liveMessage.value = `${id} ${result.complete ? 'confirmed' : 'partially updated'} ${enabled ? 'on' : 'off'}`
     if (result.warning) warning(result.warning, `${id}: action incomplete`)
-    else success(`${id} is confirmed ${enabled ? 'ON' : 'OFF'} on all applicable ends.`, 'Hook updated')
+    else
+      success(
+        `${id} is confirmed ${enabled ? 'ON' : 'OFF'} on all applicable ends.`,
+        'Hook updated',
+      )
   } catch (requestError) {
     const message = hookApiError(requestError)
     liveMessage.value = `${id} update failed: ${message}`

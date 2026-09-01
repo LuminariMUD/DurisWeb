@@ -1,8 +1,19 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { useServerHealth, useHealthHistory, useUptime, formatUptime, formatBytes, type ServerHealthMetrics } from '@/composables/useServerHealth'
-import { useAdminIncidents, type CreateIncidentData, type UpdateIncidentData } from '@/composables/useIncidents'
+import {
+  useServerHealth,
+  useHealthHistory,
+  useUptime,
+  formatUptime,
+  formatBytes,
+  type ServerHealthMetrics,
+} from '@/composables/useServerHealth'
+import {
+  useAdminIncidents,
+  type CreateIncidentData,
+  type UpdateIncidentData,
+} from '@/composables/useIncidents'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { useToast } from '@/composables/useToast'
 import { useCurrentUptime } from '@/composables/useServerReboot'
@@ -12,13 +23,7 @@ import type { ChartData, ChartOptions } from 'chart.js'
 import flatpickr from 'flatpickr'
 import 'flatpickr/dist/flatpickr.min.css'
 import 'flatpickr/dist/themes/dark.css'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -59,12 +64,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
 import LineChart from '@/components/charts/LineChart.vue'
 import ServerUptimeCard from '@/components/admin/ServerUptimeCard.vue'
@@ -72,7 +72,25 @@ import RebootHistoryTable from '@/components/admin/RebootHistoryTable.vue'
 import UptimeStatsCards from '@/components/admin/UptimeStatsCards.vue'
 import WebTerminal from '@/components/admin/WebTerminal.vue'
 import { useAuth } from '@/composables/useAuth'
-import { Activity, Database, Users, Wifi, AlertTriangle, CheckCircle2, XCircle, Plus, Pencil, Trash2, Check, X, Info, Copy, Calendar, Clock, Terminal } from 'lucide-vue-next'
+import {
+  Activity,
+  Database,
+  Users,
+  Wifi,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  Plus,
+  Pencil,
+  Trash2,
+  Check,
+  X,
+  Info,
+  Copy,
+  Calendar,
+  Clock,
+  Terminal,
+} from 'lucide-vue-next'
 
 // Toast notifications
 const { success } = useToast()
@@ -145,8 +163,11 @@ function formatChartLabel(dateString: string, periodHours: number): string {
 
   // For periods > 24 hours and <= 7 days, show date and time (MM/DD HH:MM)
   if (periodHours <= 168) {
-    return date.toLocaleDateString([], { month: '2-digit', day: '2-digit' }) + ' ' +
-           date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    return (
+      date.toLocaleDateString([], { month: '2-digit', day: '2-digit' }) +
+      ' ' +
+      date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    )
   }
 
   // For periods > 7 days, show date only (MM/DD)
@@ -157,60 +178,68 @@ function formatChartLabel(dateString: string, periodHours: number): string {
 const cpuChartData = computed<ChartData<'line'>>(() => {
   const data = history.value || []
   return {
-    labels: data.map(item => formatChartLabel(item.recorded_at, selectedPeriod.value)),
-    datasets: [{
-      label: 'CPU Usage (%)',
-      data: data.map(item => item.mud_cpu_percent),
-      borderColor: 'rgb(59, 130, 246)',
-      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-      fill: true,
-      tension: 0.4,
-    }]
+    labels: data.map((item) => formatChartLabel(item.recorded_at, selectedPeriod.value)),
+    datasets: [
+      {
+        label: 'CPU Usage (%)',
+        data: data.map((item) => item.mud_cpu_percent),
+        borderColor: 'rgb(59, 130, 246)',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        fill: true,
+        tension: 0.4,
+      },
+    ],
   }
 })
 
 const memoryChartData = computed<ChartData<'line'>>(() => {
   const data = history.value || []
   return {
-    labels: data.map(item => formatChartLabel(item.recorded_at, selectedPeriod.value)),
-    datasets: [{
-      label: 'Memory Usage (MB)',
-      data: data.map(item => item.mud_memory_mb),
-      borderColor: 'rgb(168, 85, 247)',
-      backgroundColor: 'rgba(168, 85, 247, 0.1)',
-      fill: true,
-      tension: 0.4,
-    }]
+    labels: data.map((item) => formatChartLabel(item.recorded_at, selectedPeriod.value)),
+    datasets: [
+      {
+        label: 'Memory Usage (MB)',
+        data: data.map((item) => item.mud_memory_mb),
+        borderColor: 'rgb(168, 85, 247)',
+        backgroundColor: 'rgba(168, 85, 247, 0.1)',
+        fill: true,
+        tension: 0.4,
+      },
+    ],
   }
 })
 
 const playersChartData = computed<ChartData<'line'>>(() => {
   const data = history.value || []
   return {
-    labels: data.map(item => formatChartLabel(item.recorded_at, selectedPeriod.value)),
-    datasets: [{
-      label: 'Online Players',
-      data: data.map(item => item.online_players),
-      borderColor: 'rgb(34, 197, 94)',
-      backgroundColor: 'rgba(34, 197, 94, 0.1)',
-      fill: true,
-      tension: 0.4,
-    }]
+    labels: data.map((item) => formatChartLabel(item.recorded_at, selectedPeriod.value)),
+    datasets: [
+      {
+        label: 'Online Players',
+        data: data.map((item) => item.online_players),
+        borderColor: 'rgb(34, 197, 94)',
+        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+        fill: true,
+        tension: 0.4,
+      },
+    ],
   }
 })
 
 const dbChartData = computed<ChartData<'line'>>(() => {
   const data = history.value || []
   return {
-    labels: data.map(item => formatChartLabel(item.recorded_at, selectedPeriod.value)),
-    datasets: [{
-      label: 'DB Query Time (ms)',
-      data: data.map(item => item.db_query_time_ms),
-      borderColor: 'rgb(249, 115, 22)',
-      backgroundColor: 'rgba(249, 115, 22, 0.1)',
-      fill: true,
-      tension: 0.4,
-    }]
+    labels: data.map((item) => formatChartLabel(item.recorded_at, selectedPeriod.value)),
+    datasets: [
+      {
+        label: 'DB Query Time (ms)',
+        data: data.map((item) => item.db_query_time_ms),
+        borderColor: 'rgb(249, 115, 22)',
+        backgroundColor: 'rgba(249, 115, 22, 0.1)',
+        fill: true,
+        tension: 0.4,
+      },
+    ],
   }
 })
 
@@ -266,19 +295,22 @@ function initializeEditDatePicker() {
     // Use ended_at if exists, otherwise default to now
     const defaultDate = editForm.value?.ended_at || new Date()
 
-    editEndedAtPicker = flatpickr(editEndedAtInput.value as HTMLElement, {
-      enableTime: true,
-      dateFormat: 'Y-m-d H:i',
-      time_24hr: true,
-      appendTo: document.body,
-      static: true,
-      defaultDate: defaultDate,
-      onChange: (_selectedDates: any, dateStr: string) => {
-        if (editForm.value) {
-          editForm.value.ended_at = dateStr
-        }
-      },
-    } as any)
+    editEndedAtPicker = flatpickr(
+      editEndedAtInput.value as HTMLElement,
+      {
+        enableTime: true,
+        dateFormat: 'Y-m-d H:i',
+        time_24hr: true,
+        appendTo: document.body,
+        static: true,
+        defaultDate: defaultDate,
+        onChange: (_selectedDates: any, dateStr: string) => {
+          if (editForm.value) {
+            editForm.value.ended_at = dateStr
+          }
+        },
+      } as any,
+    )
   } catch {
     // Silent error handling
   }
@@ -296,21 +328,24 @@ function initializeDateRangePicker() {
   }
 
   try {
-    dateRangePicker = flatpickr(dateRangeInput.value as HTMLElement, {
-      mode: 'range',
-      dateFormat: 'Y-m-d',
-      appendTo: document.body,
-      static: true,
-      onChange: (_selectedDates: Date[], _dateStr: string, _instance: any) => {
-        if (_selectedDates.length === 2 && _selectedDates[0] && _selectedDates[1]) {
-          // Format dates as YYYY-MM-DD
-          const from = _selectedDates[0].toISOString().split('T')[0]
-          const to = _selectedDates[1].toISOString().split('T')[0]
-          incidentDateFilter.value = { from, to }
-          currentIncidentPage.value = 1 // Reset to page 1 when filtering
-        }
-      },
-    } as any)
+    dateRangePicker = flatpickr(
+      dateRangeInput.value as HTMLElement,
+      {
+        mode: 'range',
+        dateFormat: 'Y-m-d',
+        appendTo: document.body,
+        static: true,
+        onChange: (_selectedDates: Date[], _dateStr: string, _instance: any) => {
+          if (_selectedDates.length === 2 && _selectedDates[0] && _selectedDates[1]) {
+            // Format dates as YYYY-MM-DD
+            const from = _selectedDates[0].toISOString().split('T')[0]
+            const to = _selectedDates[1].toISOString().split('T')[0]
+            incidentDateFilter.value = { from, to }
+            currentIncidentPage.value = 1 // Reset to page 1 when filtering
+          }
+        },
+      } as any,
+    )
   } catch (err) {
     console.error('Error initializing flatpickr:', err)
   }
@@ -341,7 +376,18 @@ function clearDateFilter() {
 const currentIncidentPage = ref(1)
 const incidentPageSize = ref(10) // Default 10 items per page
 const incidentDateFilter = ref<{ from?: string; to?: string }>({})
-const { incidents, pagination: incidentPagination, isLoading: isLoadingIncidentsList, createIncident, updateIncident, deleteIncident, isCreating, isUpdating, isDeleting, refetch: refetchAdminIncidents } = useAdminIncidents(currentIncidentPage, incidentPageSize, incidentDateFilter)
+const {
+  incidents,
+  pagination: incidentPagination,
+  isLoading: isLoadingIncidentsList,
+  createIncident,
+  updateIncident,
+  deleteIncident,
+  isCreating,
+  isUpdating,
+  isDeleting,
+  refetch: refetchAdminIncidents,
+} = useAdminIncidents(currentIncidentPage, incidentPageSize, incidentDateFilter)
 
 function changeIncidentPageSize(newSize: number) {
   incidentPageSize.value = newSize
@@ -444,7 +490,9 @@ function openEditDialog(incident: any) {
     title: incident.title,
     description: incident.description || '',
     started_at: incident.started_at ? new Date(incident.started_at).toISOString().slice(0, 16) : '',
-    ended_at: incident.ended_at ? new Date(incident.ended_at).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
+    ended_at: incident.ended_at
+      ? new Date(incident.ended_at).toISOString().slice(0, 16)
+      : new Date().toISOString().slice(0, 16),
     resolved: !!incident.resolved,
     resolution_notes: incident.resolution_notes || '',
     public_visible: !!incident.public_visible,

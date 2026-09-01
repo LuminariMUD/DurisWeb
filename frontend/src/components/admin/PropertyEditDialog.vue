@@ -67,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowRight, AlertTriangle } from 'lucide-vue-next';
+import { ArrowRight, AlertTriangle } from 'lucide-vue-next'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -77,34 +77,34 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
   AlertDialogAction,
-} from '@/components/ui/alert-dialog';
+} from '@/components/ui/alert-dialog'
 
 interface Props {
-  open: boolean;
-  propertyKey: string;
-  oldValue: number;
-  newValue: number;
-  saving?: boolean;
+  open: boolean
+  propertyKey: string
+  oldValue: number
+  newValue: number
+  saving?: boolean
 }
 
 interface Emits {
-  (e: 'update:open', value: boolean): void;
-  (e: 'confirm'): void;
-  (e: 'cancel'): void;
+  (e: 'update:open', value: boolean): void
+  (e: 'confirm'): void
+  (e: 'cancel'): void
 }
 
-defineProps<Props>();
-const emit = defineEmits<Emits>();
+defineProps<Props>()
+const emit = defineEmits<Emits>()
 
 const handleOpenChange = (value: boolean) => {
-  emit('update:open', value);
-};
+  emit('update:open', value)
+}
 
 const handleConfirm = () => {
-  emit('confirm');
-};
+  emit('confirm')
+}
 
 const handleCancel = () => {
-  emit('cancel');
-};
+  emit('cancel')
+}
 </script>

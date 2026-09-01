@@ -9,7 +9,7 @@ import Design4TabbedWorkspace from '@/components/builder/Design4TabbedWorkspace.
 import Design5NotionStyle from '@/components/builder/Design5NotionStyle.vue'
 
 useHead({
-  title: 'DurisMUD | Zone Builder Mockups'
+  title: 'DurisMUD | Zone Builder Mockups',
 })
 
 const activeDesign = ref('design1')

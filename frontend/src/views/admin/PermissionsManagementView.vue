@@ -456,17 +456,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue';
-import { useQuery } from '@tanstack/vue-query';
-import { useToast } from '@/composables/useToast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ref, computed, watch, nextTick } from 'vue'
+import { useQuery } from '@tanstack/vue-query'
+import { useToast } from '@/composables/useToast'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -475,11 +482,11 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle
-} from '@/components/ui/alert-dialog';
-import { Plus, Edit, Trash2, Loader2, X } from 'lucide-vue-next';
-import RoleEditDialog from '@/components/admin/RoleEditDialog.vue';
-import AccountPermissionsDialog from '@/components/admin/AccountPermissionsDialog.vue';
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Plus, Edit, Trash2, Loader2, X } from 'lucide-vue-next'
+import RoleEditDialog from '@/components/admin/RoleEditDialog.vue'
+import AccountPermissionsDialog from '@/components/admin/AccountPermissionsDialog.vue'
 import {
   usePermissions,
   useRoles,
@@ -487,95 +494,92 @@ import {
   useDeleteRole,
   useRevokeRole,
   useRevokePermission,
-  type Role
-} from '@/composables/useAdminPermissions';
-import axios from 'axios';
+  type Role,
+} from '@/composables/useAdminPermissions'
+import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-const { success, error } = useToast();
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const { success, error } = useToast()
 
 // Tab state
-const activeTab = ref('roles');
+const activeTab = ref('roles')
 
 // Roles tab
-const { data: roles, isLoading: rolesLoading, isError: rolesError } = useRoles();
-const { data: permissions } = usePermissions();
-const roleDialogOpen = ref(false);
-const editingRole = ref<Role | null>(null);
-const deleteRoleDialogOpen = ref(false);
-const roleToDelete = ref<Role | null>(null);
-const deleteRoleMutation = useDeleteRole();
+const { data: roles, isLoading: rolesLoading, isError: rolesError } = useRoles()
+const { data: permissions } = usePermissions()
+const roleDialogOpen = ref(false)
+const editingRole = ref<Role | null>(null)
+const deleteRoleDialogOpen = ref(false)
+const roleToDelete = ref<Role | null>(null)
+const deleteRoleMutation = useDeleteRole()
 
 function openCreateRoleDialog() {
-  editingRole.value = null;
-  roleDialogOpen.value = true;
+  editingRole.value = null
+  roleDialogOpen.value = true
 }
 
 function openEditRoleDialog(role: Role) {
-  editingRole.value = role;
-  roleDialogOpen.value = true;
+  editingRole.value = role
+  roleDialogOpen.value = true
 }
 
 function handleRoleSaved() {
-  roleDialogOpen.value = false;
-  editingRole.value = null;
+  roleDialogOpen.value = false
+  editingRole.value = null
 }
 
 function confirmDeleteRole(role: Role) {
-  roleToDelete.value = role;
-  deleteRoleDialogOpen.value = true;
+  roleToDelete.value = role
+  deleteRoleDialogOpen.value = true
 }
 
 async function handleDeleteRole() {
-  if (!roleToDelete.value) return;
+  if (!roleToDelete.value) return
 
   try {
-    await deleteRoleMutation.mutateAsync(roleToDelete.value.id);
-    success('Role deleted successfully', 'Success');
-    deleteRoleDialogOpen.value = false;
-    roleToDelete.value = null;
+    await deleteRoleMutation.mutateAsync(roleToDelete.value.id)
+    success('Role deleted successfully', 'Success')
+    deleteRoleDialogOpen.value = false
+    roleToDelete.value = null
   } catch (err: any) {
-    error(
-      err.response?.data?.error || 'Failed to delete role',
-      'Error'
-    );
+    error(err.response?.data?.error || 'Failed to delete role', 'Error')
   }
 }
 
 // Accounts tab
-const accountSearchFilter = ref('');
-const roleFilter = ref('');
-const currentPage = ref(1);
-const pageSize = 20;
-const selectedAccount = ref('');
-const showAllAccounts = ref(false);
-const assignDialogOpen = ref(false);
-const grantDialogOpen = ref(false);
-const revokeRoleDialogOpen = ref(false);
-const revokePermissionDialogOpen = ref(false);
-const roleToRevoke = ref<any>(null);
-const permissionToRevoke = ref<any>(null);
+const accountSearchFilter = ref('')
+const roleFilter = ref('')
+const currentPage = ref(1)
+const pageSize = 20
+const selectedAccount = ref('')
+const showAllAccounts = ref(false)
+const assignDialogOpen = ref(false)
+const grantDialogOpen = ref(false)
+const revokeRoleDialogOpen = ref(false)
+const revokePermissionDialogOpen = ref(false)
+const roleToRevoke = ref<any>(null)
+const permissionToRevoke = ref<any>(null)
 
 // Account permissions cache - populated from batch query
-const accountPermissionsCache = ref<Record<string, any>>({});
+const accountPermissionsCache = ref<Record<string, any>>({})
 
 // Fetch accounts with permissions (returns full data, not just names)
 const { data: accountsWithPermissions, isLoading: accountsWithPermissionsLoading } = useQuery({
   queryKey: ['admin', 'accounts', 'with-permissions'],
   queryFn: async () => {
     const response = await axios.get(`${API_URL}/api/admin/accounts`, {
-      withCredentials: true
-    });
+      withCredentials: true,
+    })
     // Populate cache from batch response
-    const accounts: any[] = response.data;
-    accounts.forEach(acc => {
-      accountPermissionsCache.value[acc.accountName] = acc;
-    });
+    const accounts: any[] = response.data
+    accounts.forEach((acc) => {
+      accountPermissionsCache.value[acc.accountName] = acc
+    })
     // Return just account names for compatibility with existing code
-    return accounts.map(acc => acc.accountName) as string[];
+    return accounts.map((acc) => acc.accountName) as string[]
   },
-  staleTime: 1000 * 60 * 5 // 5 minutes
-});
+  staleTime: 1000 * 60 * 5, // 5 minutes
+})
 
 // Fetch ALL accounts when showAllAccounts is enabled
 const { data: allAccounts, isLoading: allAccountsLoading } = useQuery({
@@ -583,116 +587,118 @@ const { data: allAccounts, isLoading: allAccountsLoading } = useQuery({
   queryFn: async () => {
     const response = await axios.get(`${API_URL}/api/admin/accounts/search`, {
       params: { query: '', limit: 9999 },
-      withCredentials: true
-    });
-    return response.data as string[];
+      withCredentials: true,
+    })
+    return response.data as string[]
   },
   enabled: showAllAccounts,
-  staleTime: 1000 * 60 * 5
-});
+  staleTime: 1000 * 60 * 5,
+})
 
-const accountsLoading = computed(() => showAllAccounts.value ? allAccountsLoading.value : accountsWithPermissionsLoading.value);
-const displayAccounts = computed(() => showAllAccounts.value ? allAccounts.value : accountsWithPermissions.value);
+const accountsLoading = computed(() =>
+  showAllAccounts.value ? allAccountsLoading.value : accountsWithPermissionsLoading.value,
+)
+const displayAccounts = computed(() =>
+  showAllAccounts.value ? allAccounts.value : accountsWithPermissions.value,
+)
 
-const {
-  data: accountPermissions,
-  refetch: refetchAccountPermissions
-} = useAccountPermissions(selectedAccount);
+const { data: accountPermissions, refetch: refetchAccountPermissions } =
+  useAccountPermissions(selectedAccount)
 
-const revokeRoleMutation = useRevokeRole();
-const revokePermissionMutation = useRevokePermission();
+const revokeRoleMutation = useRevokeRole()
+const revokePermissionMutation = useRevokePermission()
 
 // Audit tab
 const auditFilters = ref({
   account: '',
-  actionType: 'all'
-});
-const auditEntries = ref<any[]>([]);
-const auditPagination = ref<any>(null);
-const auditLoading = ref(false);
-const auditError = ref(false);
+  actionType: 'all',
+})
+const auditEntries = ref<any[]>([])
+const auditPagination = ref<any>(null)
+const auditLoading = ref(false)
+const auditError = ref(false)
 
 // Filter and pagination
 const filteredAccounts = computed(() => {
-  if (!displayAccounts.value) return [];
+  if (!displayAccounts.value) return []
 
-  let filtered = displayAccounts.value;
+  let filtered = displayAccounts.value
 
   // Backend already returns accounts with god level (57+), roles, or permissions
   // No need to filter again when "Show All Accounts" is OFF
 
   // Search filter
   if (accountSearchFilter.value) {
-    const search = accountSearchFilter.value.toLowerCase();
-    filtered = filtered.filter(acc => acc.toLowerCase().includes(search));
+    const search = accountSearchFilter.value.toLowerCase()
+    filtered = filtered.filter((acc) => acc.toLowerCase().includes(search))
   }
 
   // Role filter - filter accounts that have the selected role
   if (roleFilter.value) {
-    const selectedRoleId = Number(roleFilter.value);
-    filtered = filtered.filter(acc => {
-      const perms = getAccountPermissionsForDisplay(acc);
-      return perms.roles.some((r: { id: number }) => r.id === selectedRoleId);
-    });
+    const selectedRoleId = Number(roleFilter.value)
+    filtered = filtered.filter((acc) => {
+      const perms = getAccountPermissionsForDisplay(acc)
+      return perms.roles.some((r: { id: number }) => r.id === selectedRoleId)
+    })
   }
 
   // Sort by immortal level (desc) then account name (asc)
   return [...filtered].sort((a, b) => {
-    const aPerms = getAccountPermissionsForDisplay(a);
-    const bPerms = getAccountPermissionsForDisplay(b);
+    const aPerms = getAccountPermissionsForDisplay(a)
+    const bPerms = getAccountPermissionsForDisplay(b)
 
-    const aLevel = aPerms.immortalLevel || 0;
-    const bLevel = bPerms.immortalLevel || 0;
+    const aLevel = aPerms.immortalLevel || 0
+    const bLevel = bPerms.immortalLevel || 0
 
     // Sort by level descending
     if (aLevel !== bLevel) {
-      return bLevel - aLevel;
+      return bLevel - aLevel
     }
 
     // Sort by account name ascending
-    return a.toLowerCase().localeCompare(b.toLowerCase());
-  });
-});
+    return a.toLowerCase().localeCompare(b.toLowerCase())
+  })
+})
 
-const totalPages = computed(() => Math.ceil(filteredAccounts.value.length / pageSize));
+const totalPages = computed(() => Math.ceil(filteredAccounts.value.length / pageSize))
 
 const paginatedAccounts = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  const end = start + pageSize;
-  return filteredAccounts.value.slice(start, end);
-});
+  const start = (currentPage.value - 1) * pageSize
+  const end = start + pageSize
+  return filteredAccounts.value.slice(start, end)
+})
 
 const visiblePages = computed(() => {
-  const pages: (number | string)[] = [];
-  const total = totalPages.value;
-  const current = currentPage.value;
+  const pages: (number | string)[] = []
+  const total = totalPages.value
+  const current = currentPage.value
 
   if (total <= 7) {
-    for (let i = 1; i <= total; i++) pages.push(i);
-    return pages;
+    for (let i = 1; i <= total; i++) pages.push(i)
+    return pages
   }
 
-  pages.push(1);
-  if (current > 3) pages.push('...');
+  pages.push(1)
+  if (current > 3) pages.push('...')
 
-  const start = Math.max(2, current - 1);
-  const end = Math.min(total - 1, current + 1);
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
 
-  for (let i = start; i <= end; i++) pages.push(i);
+  for (let i = start; i <= end; i++) pages.push(i)
 
-  if (current < total - 2) pages.push('...');
-  pages.push(total);
+  if (current < total - 2) pages.push('...')
+  pages.push(total)
 
-  return pages;
-});
+  return pages
+})
 
 // Fetch individual account permissions (used for refresh after changes)
 async function fetchAccountPermissions(accountName: string) {
   try {
     const response = await axios.get(`${API_URL}/api/admin/accounts/${accountName}/permissions`, {
-      withCredentials: true
-    });
-    const data = response.data;
+      withCredentials: true,
+    })
+    const data = response.data
 
     // Transform snake_case to camelCase for consistency
     const transformed = {
@@ -705,68 +711,76 @@ async function fetchAccountPermissions(accountName: string) {
         name: role.role_name || role.name,
         description: role.description,
         grantedAt: role.granted_at,
-        grantedBy: role.granted_by
+        grantedBy: role.granted_by,
       })),
       individualPermissions: (data.individualPermissions || []).map((perm: any) => ({
         id: perm.id,
         name: perm.permission_name || perm.name,
         key: perm.permission_key || perm.key,
         grantedAt: perm.granted_at,
-        grantedBy: perm.granted_by
-      }))
-    };
+        grantedBy: perm.granted_by,
+      })),
+    }
 
-    accountPermissionsCache.value[accountName] = transformed;
-    return transformed;
+    accountPermissionsCache.value[accountName] = transformed
+    return transformed
   } catch (error) {
-    console.error(`Failed to fetch permissions for ${accountName}:`, error);
+    console.error(`Failed to fetch permissions for ${accountName}:`, error)
     return {
       roles: [],
       individualPermissions: [],
       effectivePermissions: [],
       godLevel: null,
-      immortalLevel: null
-    };
+      immortalLevel: null,
+    }
   }
 }
 
 // Helper to get cached permissions for display
 function getAccountPermissionsForDisplay(accountName: string) {
-  return accountPermissionsCache.value[accountName] || { roles: [], individualPermissions: [], effectivePermissions: [], godLevel: null, immortalLevel: null };
+  return (
+    accountPermissionsCache.value[accountName] || {
+      roles: [],
+      individualPermissions: [],
+      effectivePermissions: [],
+      godLevel: null,
+      immortalLevel: null,
+    }
+  )
 }
 
 // Format god level for display
 function formatGodLevel(godLevel: string, immortalLevel: number | null): string {
   const levelMap: Record<string, string> = {
-    'overlord': 'Overlord',
-    'forger': 'Forger',
-    'greater_god': 'Greater God',
-    'lesser_god': 'Lesser God',
-    'immortal': 'Immortal',
-    'avatar': 'Avatar',
-    'player': 'Player'
-  };
-
-  const baseName = levelMap[godLevel] || godLevel;
-  if (immortalLevel && immortalLevel > 0) {
-    return `${baseName} (${immortalLevel})`;
+    overlord: 'Overlord',
+    forger: 'Forger',
+    greater_god: 'Greater God',
+    lesser_god: 'Lesser God',
+    immortal: 'Immortal',
+    avatar: 'Avatar',
+    player: 'Player',
   }
-  return baseName;
+
+  const baseName = levelMap[godLevel] || godLevel
+  if (immortalLevel && immortalLevel > 0) {
+    return `${baseName} (${immortalLevel})`
+  }
+  return baseName
 }
 
 // Get badge variant based on god level
 function getGodLevelVariant(godLevel: string): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (godLevel) {
     case 'overlord':
-      return 'destructive';
+      return 'destructive'
     case 'forger':
     case 'greater_god':
-      return 'default';
+      return 'default'
     case 'lesser_god':
     case 'immortal':
-      return 'secondary';
+      return 'secondary'
     default:
-      return 'outline';
+      return 'outline'
   }
 }
 
@@ -774,148 +788,149 @@ function getGodLevelVariant(godLevel: string): 'default' | 'secondary' | 'destru
 // Most accounts have no permissions - just show names and allow assigning roles
 
 function openAssignRoleForAccount(account: string) {
-  selectedAccount.value = account;
-  loadAccountPermissions();
-  assignDialogOpen.value = true;
+  selectedAccount.value = account
+  loadAccountPermissions()
+  assignDialogOpen.value = true
 }
 
 function openGrantPermissionForAccount(account: string) {
-  selectedAccount.value = account;
-  loadAccountPermissions();
-  grantDialogOpen.value = true;
+  selectedAccount.value = account
+  loadAccountPermissions()
+  grantDialogOpen.value = true
 }
 
 function loadAccountPermissions() {
   if (selectedAccount.value) {
-    refetchAccountPermissions();
+    refetchAccountPermissions()
   }
 }
 
 const availableRoles = computed(() => {
-  if (!roles.value || !accountPermissions.value) return [];
-  const assignedRoleIds = new Set(accountPermissions.value.roles.map((r) => r.id));
-  return roles.value.filter((r) => !assignedRoleIds.has(r.id));
-});
+  if (!roles.value || !accountPermissions.value) return []
+  const assignedRoleIds = new Set(accountPermissions.value.roles.map((r) => r.id))
+  return roles.value.filter((r) => !assignedRoleIds.has(r.id))
+})
 
 const availablePermissions = computed(() => {
-  if (!permissions.value || !accountPermissions.value) return [];
-  const grantedPermissionIds = new Set(accountPermissions.value.individualPermissions.map((p) => p.id));
-  return permissions.value.filter((p) => !grantedPermissionIds.has(p.id));
-});
+  if (!permissions.value || !accountPermissions.value) return []
+  const grantedPermissionIds = new Set(
+    accountPermissions.value.individualPermissions.map((p) => p.id),
+  )
+  return permissions.value.filter((p) => !grantedPermissionIds.has(p.id))
+})
 
 // Unused but keep for template reference
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const openAssignRoleDialog = () => {
-  assignDialogOpen.value = true;
-};
+  assignDialogOpen.value = true
+}
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const openGrantPermissionDialog = () => {
-  grantDialogOpen.value = true;
-};
+  grantDialogOpen.value = true
+}
 
 async function handleRoleAssigned() {
-  assignDialogOpen.value = false;
+  assignDialogOpen.value = false
   // Invalidate cache and force immediate refresh
   if (selectedAccount.value) {
-    const account = selectedAccount.value;
-    delete accountPermissionsCache.value[account];
+    const account = selectedAccount.value
+    delete accountPermissionsCache.value[account]
     // Force immediate refetch to update the UI
-    await fetchAccountPermissions(account);
+    await fetchAccountPermissions(account)
     // Force Vue to re-render by triggering reactivity
-    await nextTick();
+    await nextTick()
   }
 }
 
 async function handlePermissionGranted() {
-  grantDialogOpen.value = false;
+  grantDialogOpen.value = false
   // Invalidate cache and force immediate refresh
   if (selectedAccount.value) {
-    const account = selectedAccount.value;
-    delete accountPermissionsCache.value[account];
+    const account = selectedAccount.value
+    delete accountPermissionsCache.value[account]
     // Force immediate refetch to update the UI
-    await fetchAccountPermissions(account);
+    await fetchAccountPermissions(account)
     // Force Vue to re-render by triggering reactivity
-    await nextTick();
+    await nextTick()
   }
 }
 
 function confirmRevokeRoleForAccount(accountName: string, role: any) {
-  selectedAccount.value = accountName;
-  roleToRevoke.value = role;
-  revokeRoleDialogOpen.value = true;
+  selectedAccount.value = accountName
+  roleToRevoke.value = role
+  revokeRoleDialogOpen.value = true
 }
 
 async function handleRevokeRole() {
-  if (!roleToRevoke.value || !selectedAccount.value) return;
+  if (!roleToRevoke.value || !selectedAccount.value) return
 
-  const accountToUpdate = selectedAccount.value;
+  const accountToUpdate = selectedAccount.value
 
   try {
     await revokeRoleMutation.mutateAsync({
       accountName: accountToUpdate,
-      roleId: roleToRevoke.value.id
-    });
-    success('Role revoked successfully', 'Success');
-    revokeRoleDialogOpen.value = false;
-    roleToRevoke.value = null;
+      roleId: roleToRevoke.value.id,
+    })
+    success('Role revoked successfully', 'Success')
+    revokeRoleDialogOpen.value = false
+    roleToRevoke.value = null
 
     // Invalidate cache and force immediate refresh
-    delete accountPermissionsCache.value[accountToUpdate];
-    await fetchAccountPermissions(accountToUpdate);
-    await nextTick();
+    delete accountPermissionsCache.value[accountToUpdate]
+    await fetchAccountPermissions(accountToUpdate)
+    await nextTick()
   } catch (err: any) {
-    error(
-      err.response?.data?.error || 'Failed to revoke role',
-      'Error'
-    );
+    error(err.response?.data?.error || 'Failed to revoke role', 'Error')
   }
 }
 
 function confirmRevokePermissionForAccount(accountName: string, permission: any) {
-  selectedAccount.value = accountName;
-  permissionToRevoke.value = permission;
-  revokePermissionDialogOpen.value = true;
+  selectedAccount.value = accountName
+  permissionToRevoke.value = permission
+  revokePermissionDialogOpen.value = true
 }
 
 async function handleRevokePermission() {
-  if (!permissionToRevoke.value || !selectedAccount.value) return;
+  if (!permissionToRevoke.value || !selectedAccount.value) return
 
-  const accountToUpdate = selectedAccount.value;
+  const accountToUpdate = selectedAccount.value
 
   try {
     await revokePermissionMutation.mutateAsync({
       accountName: accountToUpdate,
-      permissionId: permissionToRevoke.value.id
-    });
-    success('Permission revoked successfully', 'Success');
-    revokePermissionDialogOpen.value = false;
-    permissionToRevoke.value = null;
+      permissionId: permissionToRevoke.value.id,
+    })
+    success('Permission revoked successfully', 'Success')
+    revokePermissionDialogOpen.value = false
+    permissionToRevoke.value = null
 
     // Invalidate cache and force immediate refresh
-    delete accountPermissionsCache.value[accountToUpdate];
-    await fetchAccountPermissions(accountToUpdate);
-    await nextTick();
+    delete accountPermissionsCache.value[accountToUpdate]
+    await fetchAccountPermissions(accountToUpdate)
+    await nextTick()
   } catch (err: any) {
-    error(
-      err.response?.data?.error || 'Failed to revoke permission',
-      'Error'
-    );
+    error(err.response?.data?.error || 'Failed to revoke permission', 'Error')
   }
 }
 
 // Audit tab functions
 async function fetchAuditLog(page = 1) {
-  auditLoading.value = true;
-  auditError.value = false;
+  auditLoading.value = true
+  auditError.value = false
 
   try {
-    const params = new URLSearchParams();
-    params.append('page', page.toString());
-    params.append('limit', '20');
+    const params = new URLSearchParams()
+    params.append('page', page.toString())
+    params.append('limit', '20')
 
     // Filter for permission-related actions only
-    const permissionActions = ['assign_role', 'revoke_role', 'grant_permission', 'revoke_permission'];
+    const permissionActions = [
+      'assign_role',
+      'revoke_role',
+      'grant_permission',
+      'revoke_permission',
+    ]
 
     if (auditFilters.value.actionType === 'all') {
       // When "all" is selected, we need to fetch logs for all permission action types
@@ -926,72 +941,74 @@ async function fetchAuditLog(page = 1) {
       // Actually, let's just fetch all and filter client-side for now
       // Or better - use the backend's changeType filter with just one type when specific
     } else {
-      params.append('changeType', auditFilters.value.actionType);
+      params.append('changeType', auditFilters.value.actionType)
     }
 
     if (auditFilters.value.account) {
-      params.append('changedBy', auditFilters.value.account);
+      params.append('changedBy', auditFilters.value.account)
     }
 
     const response = await axios.get(`${API_URL}/api/admin/forum/audit-log?${params}`, {
-      withCredentials: true
-    });
+      withCredentials: true,
+    })
 
     // Filter for permission-related entries if showing "all"
-    let entries = response.data.data;
+    let entries = response.data.data
     if (auditFilters.value.actionType === 'all') {
-      entries = entries.filter((entry: any) => permissionActions.includes(entry.change_type));
+      entries = entries.filter((entry: any) => permissionActions.includes(entry.change_type))
     }
 
-    auditEntries.value = entries;
-    auditPagination.value = response.data.pagination;
+    auditEntries.value = entries
+    auditPagination.value = response.data.pagination
   } catch (err: any) {
-    console.error('Failed to fetch audit log:', err);
-    auditError.value = true;
+    console.error('Failed to fetch audit log:', err)
+    auditError.value = true
   } finally {
-    auditLoading.value = false;
+    auditLoading.value = false
   }
 }
 
-let auditDebounceTimer: any = null;
+let auditDebounceTimer: any = null
 function debouncedFetchAudit() {
-  clearTimeout(auditDebounceTimer);
+  clearTimeout(auditDebounceTimer)
   auditDebounceTimer = setTimeout(() => {
-    fetchAuditLog(1);
-  }, 500);
+    fetchAuditLog(1)
+  }, 500)
 }
 
 function formatAuditTimestamp(timestamp: string) {
-  return new Date(timestamp).toLocaleString();
+  return new Date(timestamp).toLocaleString()
 }
 
 function formatAuditAction(actionType: string) {
   const actionMap: Record<string, string> = {
-    'assign_role': 'Assign Role',
-    'revoke_role': 'Revoke Role',
-    'grant_permission': 'Grant Permission',
-    'revoke_permission': 'Revoke Permission'
-  };
-  return actionMap[actionType] || actionType;
+    assign_role: 'Assign Role',
+    revoke_role: 'Revoke Role',
+    grant_permission: 'Grant Permission',
+    revoke_permission: 'Revoke Permission',
+  }
+  return actionMap[actionType] || actionType
 }
 
-function getAuditActionVariant(actionType: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+function getAuditActionVariant(
+  actionType: string,
+): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (actionType) {
     case 'assign_role':
     case 'grant_permission':
-      return 'default';
+      return 'default'
     case 'revoke_role':
     case 'revoke_permission':
-      return 'destructive';
+      return 'destructive'
     default:
-      return 'secondary';
+      return 'secondary'
   }
 }
 
 // Watch activeTab to fetch audit log when tab is opened
 watch(activeTab, (newTab) => {
   if (newTab === 'audit' && auditEntries.value.length === 0) {
-    fetchAuditLog();
+    fetchAuditLog()
   }
-});
+})
 </script>

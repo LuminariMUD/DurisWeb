@@ -23,9 +23,12 @@ const isFavorited = ref(props.initialFavorited)
 const isLoading = ref(false)
 
 // Sync with props when they change
-watch(() => props.initialFavorited, (newVal) => {
-  isFavorited.value = newVal
-})
+watch(
+  () => props.initialFavorited,
+  (newVal) => {
+    isFavorited.value = newVal
+  },
+)
 
 async function toggleFavorite() {
   if (!isAuthenticated.value || isLoading.value) return

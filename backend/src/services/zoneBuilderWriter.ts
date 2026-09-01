@@ -5,18 +5,16 @@
 import * as fs from 'fs/promises';
 import { constants as fsConstants } from 'fs';
 import * as path from 'path';
-import {
-  Room,
-  Mobile,
-  ZoneObject,
-  DIRECTION_INDEX,
-  ResetCommand,
-} from '../types/builder.js';
+import { Room, Mobile, ZoneObject, DIRECTION_INDEX, ResetCommand } from '../types/builder.js';
 import { invalidateZoneFileMap, invalidateZoneIndexCache } from './zoneBuilderParser.js';
 import logger, { isErrorWithCode } from '../utils/logger.js';
 import { pool } from '../db/connection.js';
 import type { RowDataPacket } from 'mysql2';
-import { resolveSafeZoneDirectoryPath, resolveSafeZoneFilePath, UnsafeZonePathError } from '../utils/safeZonePath.js';
+import {
+  resolveSafeZoneDirectoryPath,
+  resolveSafeZoneFilePath,
+  UnsafeZonePathError,
+} from '../utils/safeZonePath.js';
 
 const MUD_DIR = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
 const AREAS_DIR = path.join(MUD_DIR, 'areas');
@@ -36,7 +34,7 @@ async function buildSpeciesMaps(): Promise<void> {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
       'SELECT value, short_code FROM builder_flags WHERE category = ? AND short_code IS NOT NULL',
-      ['mob_race']
+      ['mob_race'],
     );
 
     for (const row of rows) {
@@ -159,7 +157,7 @@ function formatRoom(room: Room): string {
 
   // Exits (sorted by direction index)
   const sortedExits = [...room.exits].sort(
-    (a, b) => DIRECTION_INDEX[a.direction] - DIRECTION_INDEX[b.direction]
+    (a, b) => DIRECTION_INDEX[a.direction] - DIRECTION_INDEX[b.direction],
   );
 
   for (const exit of sortedExits) {
@@ -361,7 +359,7 @@ async function parseWldFileLocal(zoneId: string): Promise<Room[]> {
 // Update single room in .wld file by zone ID
 export async function updateRoom(zoneId: string, room: Room): Promise<void> {
   const rooms = await parseWldFileLocal(zoneId);
-  const index = rooms.findIndex(r => r.vnum === room.vnum);
+  const index = rooms.findIndex((r) => r.vnum === room.vnum);
 
   if (index >= 0) {
     rooms[index] = room;
@@ -377,7 +375,7 @@ export async function createRoom(zoneId: string, room: Room): Promise<Room> {
   const rooms = await parseWldFileLocal(zoneId);
 
   // Check if vnum already exists
-  if (rooms.some(r => r.vnum === room.vnum)) {
+  if (rooms.some((r) => r.vnum === room.vnum)) {
     throw new Error(`Room with vnum ${room.vnum} already exists`);
   }
 
@@ -389,7 +387,7 @@ export async function createRoom(zoneId: string, room: Room): Promise<Room> {
 // Delete room by zone ID
 export async function deleteRoom(zoneId: string, vnum: number): Promise<boolean> {
   const rooms = await parseWldFileLocal(zoneId);
-  const index = rooms.findIndex(r => r.vnum === vnum);
+  const index = rooms.findIndex((r) => r.vnum === vnum);
 
   if (index < 0) {
     return false;
@@ -422,7 +420,9 @@ async function formatMobile(mob: Mobile): Promise<string> {
   lines.push('~');
 
   // Action flags, affect1-4, alignment, S
-  lines.push(`${mob.actFlags} ${mob.affFlags1} ${mob.affFlags2} ${mob.affFlags3} ${mob.affFlags4} ${mob.alignment} S`);
+  lines.push(
+    `${mob.actFlags} ${mob.affFlags1} ${mob.affFlags2} ${mob.affFlags3} ${mob.affFlags4} ${mob.alignment} S`,
+  );
 
   // Species, hometown, class - convert species index to short code
   const speciesCode = await speciesIndexToCode(mob.species);
@@ -450,7 +450,7 @@ export async function writeMobFile(zoneId: string, mobiles: Mobile[]): Promise<v
   const sortedMobs = [...mobiles].sort((a, b) => a.vnum - b.vnum);
 
   // Format each mobile (async due to species code lookup)
-  const formattedMobs = await Promise.all(sortedMobs.map(mob => formatMobile(mob)));
+  const formattedMobs = await Promise.all(sortedMobs.map((mob) => formatMobile(mob)));
   const content = formattedMobs.join('\n') + '\n#99999\n$\n';
   await fs.writeFile(filePath, content, 'utf-8');
 }
@@ -468,28 +468,43 @@ async function parseMobFileLocal(zoneId: string): Promise<Mobile[]> {
 
   while (i < lines.length) {
     const vnumMatch = lines[i]?.match(/^#(\d+)$/);
-    if (!vnumMatch) { i++; continue; }
+    if (!vnumMatch) {
+      i++;
+      continue;
+    }
     const vnum = parseInt(vnumMatch[1], 10);
     if (vnum === 99999) break;
     i++;
 
     let keywords = '';
-    while (i < lines.length && !lines[i].includes('~')) { keywords += lines[i]; i++; }
+    while (i < lines.length && !lines[i].includes('~')) {
+      keywords += lines[i];
+      i++;
+    }
     keywords = (keywords + (lines[i]?.replace('~', '') || '')).trim();
     i++;
 
     let shortDesc = '';
-    while (i < lines.length && !lines[i].includes('~')) { shortDesc += lines[i]; i++; }
+    while (i < lines.length && !lines[i].includes('~')) {
+      shortDesc += lines[i];
+      i++;
+    }
     shortDesc = (shortDesc + (lines[i]?.replace('~', '') || '')).trim();
     i++;
 
     let longDesc = '';
-    while (i < lines.length && !lines[i].includes('~')) { longDesc += lines[i] + '\n'; i++; }
+    while (i < lines.length && !lines[i].includes('~')) {
+      longDesc += lines[i] + '\n';
+      i++;
+    }
     longDesc = longDesc.trim();
     i++;
 
     let detailedDesc = '';
-    while (i < lines.length && !lines[i].includes('~')) { detailedDesc += lines[i] + '\n'; i++; }
+    while (i < lines.length && !lines[i].includes('~')) {
+      detailedDesc += lines[i] + '\n';
+      i++;
+    }
     detailedDesc = detailedDesc.trim();
     i++;
 
@@ -498,7 +513,12 @@ async function parseMobFileLocal(zoneId: string): Promise<Mobile[]> {
     // 7 args: actFlags aff1 aff2 aff3 aff4 alignment S
     const flagLine = lines[i]?.trim().split(/\s+/) || [];
     const numArgs = flagLine.length;
-    let actFlags = 0, affFlags1 = 0, affFlags2 = 0, affFlags3 = 0, affFlags4 = 0, alignment = 0;
+    let actFlags = 0,
+      affFlags1 = 0,
+      affFlags2 = 0,
+      affFlags3 = 0,
+      affFlags4 = 0,
+      alignment = 0;
 
     if (numArgs === 5) {
       actFlags = parseInt(flagLine[0], 10) || 0;
@@ -547,10 +567,30 @@ async function parseMobFileLocal(zoneId: string): Promise<Mobile[]> {
     i++;
 
     mobiles.push({
-      vnum, keywords, shortDesc, longDesc, detailedDesc,
-      actFlags, affFlags1, affFlags2, affFlags3, affFlags4, alignment,
-      species, hometown, mobClass, level, thac0, ac, hitDice, damDice,
-      gold, exp, position, defaultPosition, sex,
+      vnum,
+      keywords,
+      shortDesc,
+      longDesc,
+      detailedDesc,
+      actFlags,
+      affFlags1,
+      affFlags2,
+      affFlags3,
+      affFlags4,
+      alignment,
+      species,
+      hometown,
+      mobClass,
+      level,
+      thac0,
+      ac,
+      hitDice,
+      damDice,
+      gold,
+      exp,
+      position,
+      defaultPosition,
+      sex,
     });
   }
   return mobiles;
@@ -623,7 +663,9 @@ function formatObject(obj: ZoneObject): string {
   // extra_flags, wear_flags, extra2_flags, anti_flags, anti2_flags
   const material = obj.material || 0;
   const craftsmanship = obj.craftsmanship || 0;
-  lines.push(`${obj.itemType} ${material} 0 0 ${craftsmanship} 0 ${obj.extraFlags} ${obj.wearFlags} ${obj.extraFlags2 || 0} ${obj.antiFlags || 0} ${obj.antiFlags2 || 0}`);
+  lines.push(
+    `${obj.itemType} ${material} 0 0 ${craftsmanship} 0 ${obj.extraFlags} ${obj.wearFlags} ${obj.extraFlags2 || 0} ${obj.antiFlags || 0} ${obj.antiFlags2 || 0}`,
+  );
 
   // Values (8 values)
   const values = obj.values.slice(0, 8);
@@ -684,28 +726,43 @@ async function parseObjFileLocal(zoneId: string): Promise<ZoneObject[]> {
 
   while (i < lines.length) {
     const vnumMatch = lines[i]?.match(/^#(\d+)$/);
-    if (!vnumMatch) { i++; continue; }
+    if (!vnumMatch) {
+      i++;
+      continue;
+    }
     const vnum = parseInt(vnumMatch[1], 10);
     if (vnum === 99999) break;
     i++;
 
     let keywords = '';
-    while (i < lines.length && !lines[i].includes('~')) { keywords += lines[i]; i++; }
+    while (i < lines.length && !lines[i].includes('~')) {
+      keywords += lines[i];
+      i++;
+    }
     keywords = (keywords + (lines[i]?.replace('~', '') || '')).trim();
     i++;
 
     let shortDesc = '';
-    while (i < lines.length && !lines[i].includes('~')) { shortDesc += lines[i]; i++; }
+    while (i < lines.length && !lines[i].includes('~')) {
+      shortDesc += lines[i];
+      i++;
+    }
     shortDesc = (shortDesc + (lines[i]?.replace('~', '') || '')).trim();
     i++;
 
     let longDesc = '';
-    while (i < lines.length && !lines[i].includes('~')) { longDesc += lines[i] + '\n'; i++; }
+    while (i < lines.length && !lines[i].includes('~')) {
+      longDesc += lines[i] + '\n';
+      i++;
+    }
     longDesc = longDesc.trim();
     i++;
 
     let actionDesc = '';
-    while (i < lines.length && !lines[i].includes('~')) { actionDesc += lines[i] + '\n'; i++; }
+    while (i < lines.length && !lines[i].includes('~')) {
+      actionDesc += lines[i] + '\n';
+      i++;
+    }
     actionDesc = actionDesc.trim();
     i++;
 
@@ -727,7 +784,7 @@ async function parseObjFileLocal(zoneId: string): Promise<ZoneObject[]> {
 
     // Values (8 values)
     const valuesLine = lines[i]?.trim().split(/\s+/) || [];
-    const values = valuesLine.slice(0, 8).map(v => parseInt(v, 10) || 0);
+    const values = valuesLine.slice(0, 8).map((v) => parseInt(v, 10) || 0);
     while (values.length < 8) values.push(0);
     i++;
 
@@ -747,7 +804,7 @@ async function parseObjFileLocal(zoneId: string): Promise<ZoneObject[]> {
     if (wcrLine.length > 3 && wcrLine[3] !== '0') {
       bitvector = parseInt(wcrLine[3], 10) || undefined;
     } else if (wcrLine.length > 3) {
-      const hasLaterBitvectors = wcrLine.slice(4).some(v => v !== '0');
+      const hasLaterBitvectors = wcrLine.slice(4).some((v) => v !== '0');
       if (hasLaterBitvectors) {
         bitvector = parseInt(wcrLine[3], 10);
       }
@@ -768,10 +825,29 @@ async function parseObjFileLocal(zoneId: string): Promise<ZoneObject[]> {
     i++;
 
     const obj: ZoneObject = {
-      vnum, keywords, shortDesc, longDesc, actionDesc,
-      itemType, material, craftsmanship, extraFlags, extraFlags2, wearFlags, values,
-      weight, cost, condition, applies: [], extras: [], antiFlags, antiFlags2,
-      bitvector, bitvector2, bitvector3, bitvector4,
+      vnum,
+      keywords,
+      shortDesc,
+      longDesc,
+      actionDesc,
+      itemType,
+      material,
+      craftsmanship,
+      extraFlags,
+      extraFlags2,
+      wearFlags,
+      values,
+      weight,
+      cost,
+      condition,
+      applies: [],
+      extras: [],
+      antiFlags,
+      antiFlags2,
+      bitvector,
+      bitvector2,
+      bitvector3,
+      bitvector4,
     };
 
     while (i < lines.length) {
@@ -780,15 +856,24 @@ async function parseObjFileLocal(zoneId: string): Promise<ZoneObject[]> {
       if (line === 'A') {
         i++;
         const applyLine = lines[i]?.trim().split(/\s+/) || [];
-        obj.applies.push({ location: parseInt(applyLine[0], 10) || 0, modifier: parseInt(applyLine[1], 10) || 0 });
+        obj.applies.push({
+          location: parseInt(applyLine[0], 10) || 0,
+          modifier: parseInt(applyLine[1], 10) || 0,
+        });
       } else if (line === 'E') {
         i++;
         let extraKw = '';
-        while (i < lines.length && !lines[i].includes('~')) { extraKw += lines[i]; i++; }
+        while (i < lines.length && !lines[i].includes('~')) {
+          extraKw += lines[i];
+          i++;
+        }
         extraKw = (extraKw + (lines[i]?.replace('~', '') || '')).trim();
         i++;
         let extraDesc = '';
-        while (i < lines.length && !lines[i].includes('~')) { extraDesc += lines[i] + '\n'; i++; }
+        while (i < lines.length && !lines[i].includes('~')) {
+          extraDesc += lines[i] + '\n';
+          i++;
+        }
         extraDesc = extraDesc.trim();
         obj.extras.push({ keywords: extraKw, description: extraDesc });
       }
@@ -842,10 +927,7 @@ export async function deleteObject(zoneId: string, vnum: number): Promise<boolea
 }
 
 // Get next available vnum for a zone by ID
-export async function getNextVnum(
-  zoneId: string,
-  type: 'room' | 'mob' | 'obj'
-): Promise<number> {
+export async function getNextVnum(zoneId: string, type: 'room' | 'mob' | 'obj'): Promise<number> {
   let items: { vnum: number }[] = [];
 
   switch (type) {
@@ -865,26 +947,26 @@ export async function getNextVnum(
     return 0;
   }
 
-  const maxVnum = Math.max(...items.map(i => i.vnum));
+  const maxVnum = Math.max(...items.map((i) => i.vnum));
   return maxVnum + 1;
 }
 
 // Generate filesystem-safe base name from zone name
 function sanitizeZoneName(zoneName: string): string {
-  return zoneName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 32) || 'unnamed';
+  return (
+    zoneName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 32) || 'unnamed'
+  );
 }
 
 // Create a new zone with initial files
 // zoneNumber is the starting vnum range (e.g., 500 means vnums 50000-50099)
 // zoneName is displayed name, zoneId is derived from sanitized zoneName
-export async function createZone(
-  zoneNumber: number,
-  zoneName: string
-): Promise<string> {  // Returns the zone ID
+export async function createZone(zoneNumber: number, zoneName: string): Promise<string> {
+  // Returns the zone ID
   // Generate base filename (zone ID) from zone name
   const zoneId = sanitizeZoneName(zoneName);
 
@@ -980,7 +1062,7 @@ export async function deleteZone(zoneId: string): Promise<boolean> {
 export async function cloneZone(
   sourceZoneId: string,
   targetZoneNumber: number,
-  newZoneName?: string
+  newZoneName?: string,
 ): Promise<string> {
   // Parse source zone files using local parsers
   const rooms = await parseWldFileLocal(sourceZoneId);
@@ -1055,7 +1137,7 @@ $
   await fs.writeFile(resolveSafeZoneFilePath(AREAS_DIR, newZoneId, 'wld'), wldContent, 'utf-8');
 
   // Write .mob file
-  const formattedMobs = await Promise.all(remappedMobs.map(mob => formatMobile(mob)));
+  const formattedMobs = await Promise.all(remappedMobs.map((mob) => formatMobile(mob)));
   const mobContent = formattedMobs.join('\n') + '\n#99999\n$\n';
   await fs.writeFile(resolveSafeZoneFilePath(AREAS_DIR, newZoneId, 'mob'), mobContent, 'utf-8');
 
@@ -1070,12 +1152,12 @@ $
 export async function cloneRoom(
   zoneId: string,
   sourceVnum: number,
-  targetVnum?: number
+  targetVnum?: number,
 ): Promise<Room> {
   const rooms = await parseWldFileLocal(zoneId);
 
   // Find source room
-  const sourceRoom = rooms.find(r => r.vnum === sourceVnum);
+  const sourceRoom = rooms.find((r) => r.vnum === sourceVnum);
   if (!sourceRoom) {
     throw new Error(`Source room ${sourceVnum} not found in zone ${zoneId}`);
   }
@@ -1084,13 +1166,13 @@ export async function cloneRoom(
   let newVnum: number;
   if (targetVnum !== undefined) {
     // Check if target vnum already exists
-    if (rooms.some(r => r.vnum === targetVnum)) {
+    if (rooms.some((r) => r.vnum === targetVnum)) {
       throw new Error(`Room with vnum ${targetVnum} already exists`);
     }
     newVnum = targetVnum;
   } else {
     // Find next available vnum
-    const maxVnum = Math.max(...rooms.map(r => r.vnum));
+    const maxVnum = Math.max(...rooms.map((r) => r.vnum));
     newVnum = maxVnum + 1;
   }
 
@@ -1103,7 +1185,7 @@ export async function cloneRoom(
     roomFlags: sourceRoom.roomFlags,
     sectorType: sourceRoom.sectorType,
     exits: [], // Do NOT copy exits - user should connect new room manually
-    extras: sourceRoom.extras.map(e => ({ ...e })), // Deep copy extras
+    extras: sourceRoom.extras.map((e) => ({ ...e })), // Deep copy extras
     fallChance: sourceRoom.fallChance,
     currentSpeed: sourceRoom.currentSpeed,
     currentDirection: sourceRoom.currentDirection,
@@ -1120,13 +1202,7 @@ export async function cloneRoom(
 function formatResetCommand(reset: ResetCommand): string {
   // Format: CMD IF_FLAG ARG1 ARG2 ARG3 [ARG4] 100 0 0 0 [* comment]
   // The extra values (100, 0, 0, 0) are: load_chance, and reserved values
-  const parts = [
-    reset.command,
-    reset.ifFlag,
-    reset.arg1,
-    reset.arg2,
-    reset.arg3,
-  ];
+  const parts = [reset.command, reset.ifFlag, reset.arg1, reset.arg2, reset.arg3];
 
   // arg4 is only used for some commands (load_chance override)
   if (reset.arg4 !== undefined) {

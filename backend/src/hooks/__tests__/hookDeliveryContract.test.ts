@@ -18,8 +18,9 @@ jest.unstable_mockModule('../../utils/logger.js', () => ({
 }));
 
 const { isHookEnabledSync, withHookGate } = await import('../hookGate.js');
-const { getAllHooks, getMudGatedHooks, getToggleableHooks, requireHook } =
-  await import('../registry.js');
+const { getAllHooks, getMudGatedHooks, getToggleableHooks, requireHook } = await import(
+  '../registry.js'
+);
 const { resolveHookState } = await import('../hookResolution.js');
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
@@ -77,14 +78,22 @@ describe('owned-end resolution contract', () => {
     (id) => {
       const hook = requireHook(id);
 
-      expect(resolveHookState({ hook, webEnabled: true, mudState: 'enabled' }))
-        .toMatchObject({ effective: 'on', active: true });
-      expect(resolveHookState({ hook, webEnabled: false, mudState: 'enabled' }))
-        .toMatchObject({ effective: 'off', active: false });
-      expect(resolveHookState({ hook, webEnabled: true, mudState: 'disabled' }))
-        .toMatchObject({ effective: 'mismatch', active: false });
-      expect(resolveHookState({ hook, webEnabled: true, mudState: 'unknown' }))
-        .toMatchObject({ effective: 'unknown', active: false });
+      expect(resolveHookState({ hook, webEnabled: true, mudState: 'enabled' })).toMatchObject({
+        effective: 'on',
+        active: true,
+      });
+      expect(resolveHookState({ hook, webEnabled: false, mudState: 'enabled' })).toMatchObject({
+        effective: 'off',
+        active: false,
+      });
+      expect(resolveHookState({ hook, webEnabled: true, mudState: 'disabled' })).toMatchObject({
+        effective: 'mismatch',
+        active: false,
+      });
+      expect(resolveHookState({ hook, webEnabled: true, mudState: 'unknown' })).toMatchObject({
+        effective: 'unknown',
+        active: false,
+      });
     },
   );
 
@@ -96,10 +105,14 @@ describe('owned-end resolution contract', () => {
     const hook = requireHook(id);
 
     expect(hook.mudPropertyKey).toBeNull();
-    expect(resolveHookState({ hook, webEnabled: true, mudState: 'not_gated' }))
-      .toMatchObject({ effective: 'on', active: true });
-    expect(resolveHookState({ hook, webEnabled: false, mudState: 'not_gated' }))
-      .toMatchObject({ effective: 'off', active: false });
+    expect(resolveHookState({ hook, webEnabled: true, mudState: 'not_gated' })).toMatchObject({
+      effective: 'on',
+      active: true,
+    });
+    expect(resolveHookState({ hook, webEnabled: false, mudState: 'not_gated' })).toMatchObject({
+      effective: 'off',
+      active: false,
+    });
   });
 
   it('covers every toggleable hook at exactly one ownership shape', () => {
@@ -111,7 +124,9 @@ describe('owned-end resolution contract', () => {
     expect(mudGated).toHaveLength(8);
     expect(websiteOnly).toHaveLength(5);
     expect([...mudGated, ...websiteOnly].sort()).toEqual(
-      getToggleableHooks().map((hook) => hook.id).sort(),
+      getToggleableHooks()
+        .map((hook) => hook.id)
+        .sort(),
     );
   });
 });
@@ -174,9 +189,7 @@ describe('registered owner enforcement sites', () => {
     },
   };
 
-  it.each(
-    getToggleableHooks().map((hook) => [toggleableId(hook.id), hook.owner] as const),
-  )(
+  it.each(getToggleableHooks().map((hook) => [toggleableId(hook.id), hook.owner] as const))(
     '%s is gated in its registered owner before delivery or application',
     (id, owner) => {
       const source = readProject(owner);

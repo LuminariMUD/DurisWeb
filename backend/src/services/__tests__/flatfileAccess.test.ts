@@ -1,10 +1,4 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
@@ -58,15 +52,13 @@ describe('contained flatfile reads', () => {
   it('reads a regular UTF-8 file and normalizes line endings', async () => {
     await write('logs/log/comm', 'first\r\nsecond\rlast');
 
-    await expect(
-      readMudTextFile('connection_log', 'logs/log/comm'),
-    ).resolves.toBe('first\nsecond\nlast');
+    await expect(readMudTextFile('connection_log', 'logs/log/comm')).resolves.toBe(
+      'first\nsecond\nlast',
+    );
   });
 
   it('rejects lexical traversal and counts the dropped input', async () => {
-    await expect(
-      readMudTextFile('connection_log', '../outside.txt'),
-    ).rejects.toMatchObject({
+    await expect(readMudTextFile('connection_log', '../outside.txt')).rejects.toMatchObject({
       code: 'invalid_path',
     });
     expect(getFlatfileHookHealth('connection_log')?.droppedInputs).toBe(1);
@@ -77,9 +69,7 @@ describe('contained flatfile reads', () => {
     await fs.writeFile(outside, 'outside');
     await fs.symlink(outside, path.join(mudRoot, 'escape'));
 
-    await expect(
-      readMudTextFile('connection_log', 'escape'),
-    ).rejects.toMatchObject({
+    await expect(readMudTextFile('connection_log', 'escape')).rejects.toMatchObject({
       code: 'invalid_path',
     });
     expect(getFlatfileHookHealth('connection_log')?.droppedInputs).toBe(1);
@@ -91,9 +81,7 @@ describe('contained flatfile reads', () => {
         optional: true,
       }),
     ).resolves.toBeNull();
-    expect(getFlatfileHookHealth('zone_builder_parsing')?.availability).toBe(
-      'available',
-    );
+    expect(getFlatfileHookHealth('zone_builder_parsing')?.availability).toBe('available');
   });
 
   it('does not mistake an absent root for an optional absent leaf', async () => {
@@ -106,9 +94,7 @@ describe('contained flatfile reads', () => {
     ).rejects.toMatchObject({
       code: 'unavailable',
     });
-    expect(getFlatfileHookHealth('zone_builder_parsing')?.availability).toBe(
-      'unavailable',
-    );
+    expect(getFlatfileHookHealth('zone_builder_parsing')?.availability).toBe('unavailable');
   });
 });
 
@@ -142,29 +128,20 @@ describe('flatfile content limits', () => {
   it('rejects NUL-bearing input', async () => {
     await write('src/core/common.c', Buffer.from([65, 0, 66]));
 
-    await expect(
-      readMudTextFile('flag_parsing', 'src/core/common.c'),
-    ).rejects.toMatchObject({
+    await expect(readMudTextFile('flag_parsing', 'src/core/common.c')).rejects.toMatchObject({
       code: 'invalid_content',
     });
     expect(getFlatfileHookHealth('flag_parsing')?.droppedInputs).toBe(1);
   });
 
   it('rejects invalid UTF-8 without poisoning a later valid decode', async () => {
-    const sourcePath = await write(
-      'src/core/common.c',
-      Buffer.from([0xc3, 0x28]),
-    );
+    const sourcePath = await write('src/core/common.c', Buffer.from([0xc3, 0x28]));
 
-    await expect(
-      readMudTextFile('flag_parsing', 'src/core/common.c'),
-    ).rejects.toMatchObject({
+    await expect(readMudTextFile('flag_parsing', 'src/core/common.c')).rejects.toMatchObject({
       code: 'invalid_content',
     });
     await fs.writeFile(sourcePath, 'valid');
-    await expect(
-      readMudTextFile('flag_parsing', 'src/core/common.c'),
-    ).resolves.toBe('valid');
+    await expect(readMudTextFile('flag_parsing', 'src/core/common.c')).resolves.toBe('valid');
   });
 });
 
@@ -187,32 +164,22 @@ describe('unavailable backoff and recovery', () => {
 
   it('suppresses access during backoff', async () => {
     await write('logs/log/comm', 'ready');
-    markFlatfileUnavailable(
-      'connection_log',
-      'Required MUD filesystem resource is unavailable.',
-    );
+    markFlatfileUnavailable('connection_log', 'Required MUD filesystem resource is unavailable.');
 
-    await expect(
-      readMudTextFile('connection_log', 'logs/log/comm'),
-    ).rejects.toBeInstanceOf(FlatfileAccessError);
-    await expect(
-      readMudTextFile('connection_log', 'logs/log/comm'),
-    ).rejects.toMatchObject({
+    await expect(readMudTextFile('connection_log', 'logs/log/comm')).rejects.toBeInstanceOf(
+      FlatfileAccessError,
+    );
+    await expect(readMudTextFile('connection_log', 'logs/log/comm')).rejects.toMatchObject({
       code: 'backoff',
     });
   });
 
   it('does not clear hook-wide failure after only one required file succeeds', async () => {
     await write('src/core/common.c', 'ready');
-    markFlatfileUnavailable(
-      'flag_parsing',
-      'Required MUD filesystem resource is unavailable.',
-    );
+    markFlatfileUnavailable('flag_parsing', 'Required MUD filesystem resource is unavailable.');
     now = 1_000;
 
-    await expect(
-      readMudTextFile('flag_parsing', 'src/core/common.c'),
-    ).resolves.toBe('ready');
+    await expect(readMudTextFile('flag_parsing', 'src/core/common.c')).resolves.toBe('ready');
     expect(getFlatfileHookHealth('flag_parsing')).toMatchObject({
       availability: 'unavailable',
       consecutiveFailures: 1,

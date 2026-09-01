@@ -6,16 +6,9 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 const GUILD = { id: 7, name: 'Keepers of the Gate', racewar: 2, frags: 41 };
 const OTHER_GUILD = { id: 8, name: 'Wardens' };
 const MEMBER = { player_name: 'Cwial', bits: 24, debt: 125 };
-const RANKS = [
-  'Enemy',
-  'On Parole',
-  'Member',
-  'Senior',
-  'Officer',
-  'Deputy',
-  'Leader',
-  'King',
-].map((title, rank_index) => ({ rank_index, title }));
+const RANKS = ['Enemy', 'On Parole', 'Member', 'Senior', 'Officer', 'Deputy', 'Leader', 'King'].map(
+  (title, rank_index) => ({ rank_index, title }),
+);
 
 type DatabaseResult = Promise<[unknown[], unknown]>;
 
@@ -50,7 +43,9 @@ const execute = jest.fn<(sql: string, params?: unknown[]) => DatabaseResult>(
     if (!sql.includes('SELECT DISTINCT a.name as guild')) {
       throw new Error(`Unexpected guild execute: ${sql}`);
     }
-    const pattern = String(params[0] ?? '%%').slice(1, -1).toLowerCase();
+    const pattern = String(params[0] ?? '%%')
+      .slice(1, -1)
+      .toLowerCase();
     const limit = Number(params[1] ?? 20);
     const rows = [GUILD.name, OTHER_GUILD.name]
       .filter((name) => name.toLowerCase().includes(pattern))
@@ -112,9 +107,7 @@ describe('guildService', () => {
 
     it('extracts member rank from the stored bit mask', async () => {
       const guild = await getGuild(GUILD.id);
-      expect(guild?.members).toEqual([
-        { name: 'Cwial', rank: 6, bits: 24, debt: 125 },
-      ]);
+      expect(guild?.members).toEqual([{ name: 'Cwial', rank: 6, bits: 24, debt: 125 }]);
     });
   });
 
@@ -171,21 +164,18 @@ describe('guildService', () => {
 
   describe('getCharacterGuildInfoFromGuild', () => {
     it('returns guild information for a member of the requested guild', async () => {
-      await expect(
-        getCharacterGuildInfoFromGuild('cwial', GUILD.id),
-      ).resolves.toMatchObject({ guildId: GUILD.id, rankTitle: 'Leader' });
+      await expect(getCharacterGuildInfoFromGuild('cwial', GUILD.id)).resolves.toMatchObject({
+        guildId: GUILD.id,
+        rankTitle: 'Leader',
+      });
     });
 
     it('returns null for a non-member in the guild', async () => {
-      await expect(
-        getCharacterGuildInfoFromGuild('Nobody', GUILD.id),
-      ).resolves.toBeNull();
+      await expect(getCharacterGuildInfoFromGuild('Nobody', GUILD.id)).resolves.toBeNull();
     });
 
     it('returns null for a non-existent guild', async () => {
-      await expect(
-        getCharacterGuildInfoFromGuild('Cwial', 999_999),
-      ).resolves.toBeNull();
+      await expect(getCharacterGuildInfoFromGuild('Cwial', 999_999)).resolves.toBeNull();
     });
   });
 
@@ -207,14 +197,16 @@ describe('guildService', () => {
   describe('interface compliance', () => {
     it('returns the complete GuildData shape', async () => {
       const guild = await getGuild(GUILD.id);
-      expect(guild).toEqual(expect.objectContaining({
-        guildId: expect.any(Number),
-        name: expect.any(String),
-        racewar: expect.any(Number),
-        frags: expect.any(Number),
-        rankTitles: expect.any(Object),
-        members: expect.any(Array),
-      }));
+      expect(guild).toEqual(
+        expect.objectContaining({
+          guildId: expect.any(Number),
+          name: expect.any(String),
+          racewar: expect.any(Number),
+          frags: expect.any(Number),
+          rankTitles: expect.any(Object),
+          members: expect.any(Array),
+        }),
+      );
     });
 
     it('returns the complete CharacterGuildInfo shape', async () => {

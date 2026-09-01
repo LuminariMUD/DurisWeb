@@ -4,7 +4,14 @@ import { useRouter } from 'vue-router'
 import { profileApi, pvpApi } from '@/services/api'
 import { useAuth } from '@/composables/useAuth'
 import { ThumbsUp, MessageSquare, Star, Clock } from 'lucide-vue-next'
-import type { UserProfileWithStats, UserPost, UserThread, CharacterWithStats, AccountCharactersResponse, PvPFavorite } from '@/types'
+import type {
+  UserProfileWithStats,
+  UserPost,
+  UserThread,
+  CharacterWithStats,
+  AccountCharactersResponse,
+  PvPFavorite,
+} from '@/types'
 import { parseAnsiForVue } from '@/utils/ansiParser'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -159,7 +166,7 @@ async function saveProfile() {
     await profileApi.updateProfile({
       bio: editBio.value,
       website: editWebsite.value,
-      location: editLocation.value
+      location: editLocation.value,
     })
     isEditDialogOpen.value = false
     await loadProfile()

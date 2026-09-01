@@ -24,19 +24,30 @@ afterEach(() => {
 });
 
 describe('loopback host policy', () => {
-  it.each(['127.0.0.1', '127.1.2.3', '127.255.255.255', 'localhost', 'LOCALHOST', '::1', '[::1]', '0:0:0:0:0:0:0:1'])(
-    'treats %s as loopback',
-    (host) => {
-      expect(isLoopbackHost(host)).toBe(true);
-    },
-  );
+  it.each([
+    '127.0.0.1',
+    '127.1.2.3',
+    '127.255.255.255',
+    'localhost',
+    'LOCALHOST',
+    '::1',
+    '[::1]',
+    '0:0:0:0:0:0:0:1',
+  ])('treats %s as loopback', (host) => {
+    expect(isLoopbackHost(host)).toBe(true);
+  });
 
-  it.each(['10.0.0.5', '192.168.1.10', '8.8.8.8', 'mud.example.com', '128.0.0.1', '126.255.255.255', '2001:db8::1'])(
-    'treats %s as non-loopback',
-    (host) => {
-      expect(isLoopbackHost(host)).toBe(false);
-    },
-  );
+  it.each([
+    '10.0.0.5',
+    '192.168.1.10',
+    '8.8.8.8',
+    'mud.example.com',
+    '128.0.0.1',
+    '126.255.255.255',
+    '2001:db8::1',
+  ])('treats %s as non-loopback', (host) => {
+    expect(isLoopbackHost(host)).toBe(false);
+  });
 
   it('does not accept a host that merely starts with 127', () => {
     expect(isLoopbackHost('127.example.com')).toBe(false);
@@ -133,9 +144,7 @@ describe('signature generation', () => {
   });
 
   it('fails closed when the requested secret is missing', () => {
-    expect(() => generateDuriswebSig(CHALLENGE, 'previous')).toThrow(
-      /DURISWEB_SECRET_PREVIOUS/,
-    );
+    expect(() => generateDuriswebSig(CHALLENGE, 'previous')).toThrow(/DURISWEB_SECRET_PREVIOUS/);
   });
 
   it('names the variable but never the secret value in its error', () => {

@@ -25,12 +25,18 @@ const userLiked = ref(props.initialUserLiked)
 const isLoading = ref(false)
 
 // Sync with props when they change
-watch(() => props.initialLikeCount, (newVal) => {
-  likeCount.value = newVal
-})
-watch(() => props.initialUserLiked, (newVal) => {
-  userLiked.value = newVal
-})
+watch(
+  () => props.initialLikeCount,
+  (newVal) => {
+    likeCount.value = newVal
+  },
+)
+watch(
+  () => props.initialUserLiked,
+  (newVal) => {
+    userLiked.value = newVal
+  },
+)
 
 async function toggleLike() {
   if (!isAuthenticated.value || isLoading.value) return

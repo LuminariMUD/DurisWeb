@@ -85,7 +85,10 @@ Every website<->MUD integration point follows one contract. See
 ### Migrations
 - Tool: Knex (`backend/knexfile.ts`)
 - Location: `backend/migrations/`
-- Naming convention: `NNN_verb_subject.sql` (zero-padded sequence, snake_case)
+- Naming convention: `NNN_verb_subject.ts` or `YYYYMMDDHHMMSS_verb_subject.ts`
+  (zero-padded sequence/timestamp, snake_case). Raw `.sql` files in this
+  directory are immutable pre-Knex bootstrap artifacts and are not loaded by
+  the configured Knex migration source.
 - CRITICAL: Never modify a migration already applied to shared environments
 - Every migration must have a reverse/down
 
@@ -100,11 +103,12 @@ Every website<->MUD integration point follows one contract. See
 - Transaction boundary rules: wrap multi-table writes in a single knex transaction at the service layer
 
 ### Seeding
-- Script: `pnpm seed:run` in `backend/`
+- Script: `pnpm seed:run` in `backend/`; seeds live in `backend/seeds/`
 - Must be idempotent (safe to re-run)
 
 ### Testing
-- Strategy: separate database (Jest, `backend/jest.config.ts`)
+- Strategy: separate database (`NODE_ENV=test`, `backend/.env.test`,
+  `backend/knexfile.ts`); copy `backend/.env.test.example` for local setup
 - Fixture location: `backend/src/**/__tests__/`
 
 ### Vector / Embeddings (if applicable)
@@ -153,20 +157,21 @@ Every website<->MUD integration point follows one contract. See
 
 | Category | Tool | Config |
 |----------|------|--------|
-| Formatter | not configured | - |
+| Formatter | Biome 2.5.11 | `backend/biome.json`, `frontend/biome.json` |
 | Linter | ESLint 9 | `backend/eslint.config.js`, `frontend/eslint.config.ts` |
 | Type Safety | TypeScript 5.9 | `backend/tsconfig.json`, `frontend/tsconfig*.json` |
 | Testing | Jest (backend), Vitest (frontend) | `backend/jest.config.ts`, `frontend/vitest.config.ts` |
 | Observability | not configured | - |
 | Git Hooks | not configured | - |
-| Database | MySQL 8 + Redis 7 | `podman-compose.yml`, `backend/knexfile.ts` |
+| Database | MySQL 8 + Redis 7, Knex 3 | `podman-compose.yml`, `backend/knexfile.ts`, `backend/seeds/` |
+| Dev Server | `backend: pnpm dev`; `frontend: pnpm dev` | `backend/.env`, `frontend/.env*`, `frontend/vite.config.ts` |
 
 ## Workspace Structure
 
-| Package | Path | Stack |
-|---------|------|-------|
-| backend | backend | TypeScript |
-| frontend | frontend | TypeScript |
+| Package | Path | Stack | Formatter | Linter | Type Check | Tests |
+|---------|------|-------|-----------|--------|------------|-------|
+| backend | backend | TypeScript | Biome | ESLint | `pnpm type-check` | Jest |
+| frontend | frontend | TypeScript | Biome | ESLint | `pnpm type-check` | Vitest |
 
 ### Cross-Package Rules
 
@@ -174,6 +179,20 @@ Every website<->MUD integration point follows one contract. See
 - Shared types live in a dedicated shared/common package
 - Each package owns its own tests; integration tests live at repo root
 - Changes spanning multiple packages require explicit cross-package session scope
+
+## CI/CD
+
+- Platform: GitHub Actions
+- Strategy: one matrix job per independent package; package source or workflow
+  changes trigger both TypeScript quality checks
+
+| Bundle | Status | Workflow | Strategy |
+|--------|--------|----------|----------|
+| Code Quality | configured | `.github/workflows/quality.yml` | matrix: backend, frontend |
+| Build & Test | not configured | - | future phase |
+| Security | not configured | - | future phase |
+| Integration | not configured | - | future phase |
+| Operations | not configured | - | future phase |
 
 ### Database Ownership
 

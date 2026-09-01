@@ -9,7 +9,10 @@ const props = defineProps<{
   pending: Set<string>
   errors: Record<string, string>
 }>()
-const emit = defineEmits<{ open: [id: string, trigger: HTMLElement | null]; reconcile: [id: string, enabled: boolean] }>()
+const emit = defineEmits<{
+  open: [id: string, trigger: HTMLElement | null]
+  reconcile: [id: string, enabled: boolean]
+}>()
 
 const labels: Record<HookChannel, { title: string; detail: string }> = {
   bridge: { title: 'Authenticated bridge', detail: 'WebSocket / bidirectional control plane' },

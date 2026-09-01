@@ -192,150 +192,152 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { TrendingUp, Settings, Info, RefreshCw } from 'lucide-vue-next';
-import { apiClient as api } from '@/services/api';
-import { toast } from 'vue-sonner';
-import LevelCapConfirmDialog from '@/components/admin/LevelCapConfirmDialog.vue';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { TrendingUp, Settings, Info, RefreshCw } from 'lucide-vue-next'
+import { apiClient as api } from '@/services/api'
+import { toast } from 'vue-sonner'
+import LevelCapConfirmDialog from '@/components/admin/LevelCapConfirmDialog.vue'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 
 interface LevelCap {
-  level: number;
-  mostFrags: number;
-  racewarLeader: number; // 0 = Neutral, 1 = Good, 2 = Evil
-  nextUpdate: string;
+  level: number
+  mostFrags: number
+  racewarLeader: number // 0 = Neutral, 1 = Good, 2 = Evil
+  nextUpdate: string
 }
 
-const isLoading = ref(true);
-const error = ref<string | null>(null);
-const levelCap = ref<LevelCap | null>(null);
+const isLoading = ref(true)
+const error = ref<string | null>(null)
+const levelCap = ref<LevelCap | null>(null)
 
-const newLevel = ref<number>(25);
-const newRacewar = ref<number | undefined>(undefined);
+const newLevel = ref<number>(25)
+const newRacewar = ref<number | undefined>(undefined)
 
-const showConfirmDialog = ref(false);
-const pendingLevel = ref(25);
-const pendingRacewar = ref<number | undefined>(undefined);
-const isResetOperation = ref(false);
-const isSaving = ref(false);
+const showConfirmDialog = ref(false)
+const pendingLevel = ref(25)
+const pendingRacewar = ref<number | undefined>(undefined)
+const isResetOperation = ref(false)
+const isSaving = ref(false)
 
-let refreshInterval: number | null = null;
+let refreshInterval: number | null = null
 
 const racewarLeader = computed(() => {
-  if (!levelCap.value) return 'Unknown';
-  if (levelCap.value.racewarLeader === 1) return 'GOOD';
-  if (levelCap.value.racewarLeader === 2) return 'EVIL';
-  return 'NEUTRAL';
-});
+  if (!levelCap.value) return 'Unknown'
+  if (levelCap.value.racewarLeader === 1) return 'GOOD'
+  if (levelCap.value.racewarLeader === 2) return 'EVIL'
+  return 'NEUTRAL'
+})
 
 const racewarColor = computed(() => {
-  if (!levelCap.value) return 'text-gray-400';
-  if (levelCap.value.racewarLeader === 1) return 'text-blue-400';
-  if (levelCap.value.racewarLeader === 2) return 'text-red-400';
-  return 'text-gray-400';
-});
+  if (!levelCap.value) return 'text-gray-400'
+  if (levelCap.value.racewarLeader === 1) return 'text-blue-400'
+  if (levelCap.value.racewarLeader === 2) return 'text-red-400'
+  return 'text-gray-400'
+})
 
 const canUpdate = computed(() => {
-  if (!levelCap.value) return false;
-  if (newLevel.value < 25 || newLevel.value > 60) return false;
+  if (!levelCap.value) return false
+  if (newLevel.value < 25 || newLevel.value > 60) return false
   // Must be different from current
-  if (newLevel.value === levelCap.value.level &&
-      (newRacewar.value === undefined || newRacewar.value === levelCap.value.racewarLeader)) {
-    return false;
+  if (
+    newLevel.value === levelCap.value.level &&
+    (newRacewar.value === undefined || newRacewar.value === levelCap.value.racewarLeader)
+  ) {
+    return false
   }
-  return true;
-});
+  return true
+})
 
 const formatNextUpdate = (timestamp: string): string => {
-  const date = new Date(timestamp);
+  const date = new Date(timestamp)
   return new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
-  }).format(date);
-};
+  }).format(date)
+}
 
 const loadLevelCap = async () => {
-  isLoading.value = true;
-  error.value = null;
+  isLoading.value = true
+  error.value = null
 
   try {
-    const response = await api.get<{ levelCap: LevelCap }>('/api/admin/mud/dashboard');
+    const response = await api.get<{ levelCap: LevelCap }>('/api/admin/mud/dashboard')
     if (response.data.levelCap) {
-      levelCap.value = response.data.levelCap;
-      newLevel.value = response.data.levelCap.level;
-      newRacewar.value = undefined; // Reset to not change racewar by default
+      levelCap.value = response.data.levelCap
+      newLevel.value = response.data.levelCap.level
+      newRacewar.value = undefined // Reset to not change racewar by default
     }
   } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to load level cap';
-    console.error('Level cap load error:', err);
+    error.value = err.response?.data?.error || 'Failed to load level cap'
+    console.error('Level cap load error:', err)
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
-};
+}
 
 const openUpdateDialog = () => {
-  pendingLevel.value = newLevel.value;
-  pendingRacewar.value = newRacewar.value;
-  isResetOperation.value = false;
-  showConfirmDialog.value = true;
-};
+  pendingLevel.value = newLevel.value
+  pendingRacewar.value = newRacewar.value
+  isResetOperation.value = false
+  showConfirmDialog.value = true
+}
 
 const openResetDialog = () => {
-  pendingLevel.value = 25;
-  pendingRacewar.value = 0;
-  isResetOperation.value = true;
-  showConfirmDialog.value = true;
-};
+  pendingLevel.value = 25
+  pendingRacewar.value = 0
+  isResetOperation.value = true
+  showConfirmDialog.value = true
+}
 
 const handleConfirmUpdate = async (notes: string) => {
-  isSaving.value = true;
+  isSaving.value = true
 
   try {
     if (isResetOperation.value) {
       // Reset operation
-      const response = await api.post('/api/admin/mud/level-cap/reset', { notes });
+      const response = await api.post('/api/admin/mud/level-cap/reset', { notes })
       toast.success('Level cap reset successfully!', {
-        description: response.data.message
-      });
+        description: response.data.message,
+      })
     } else {
       // Update operation
       const response = await api.put('/api/admin/mud/level-cap', {
         level: pendingLevel.value,
         racewarLeader: pendingRacewar.value,
-        notes
-      });
+        notes,
+      })
       toast.success('Level cap updated successfully!', {
-        description: response.data.message
-      });
+        description: response.data.message,
+      })
     }
 
     // Reload data
-    await loadLevelCap();
-    showConfirmDialog.value = false;
+    await loadLevelCap()
+    showConfirmDialog.value = false
   } catch (err: any) {
-    const errorMsg = err.response?.data?.error || 'Failed to update level cap';
+    const errorMsg = err.response?.data?.error || 'Failed to update level cap'
     toast.error('Update failed', {
-      description: errorMsg
-    });
-    console.error('Level cap update error:', err);
+      description: errorMsg,
+    })
+    console.error('Level cap update error:', err)
   } finally {
-    isSaving.value = false;
+    isSaving.value = false
   }
-};
+}
 
 const handleCancelUpdate = () => {
-  showConfirmDialog.value = false;
-};
+  showConfirmDialog.value = false
+}
 
 onMounted(() => {
-  loadLevelCap();
+  loadLevelCap()
   // Auto-refresh every 30 seconds
-  refreshInterval = window.setInterval(loadLevelCap, 30000);
-});
+  refreshInterval = window.setInterval(loadLevelCap, 30000)
+})
 
 onUnmounted(() => {
   if (refreshInterval) {
-    clearInterval(refreshInterval);
+    clearInterval(refreshInterval)
   }
-});
+})
 </script>

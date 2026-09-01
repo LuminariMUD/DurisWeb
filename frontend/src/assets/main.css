@@ -148,7 +148,8 @@
   * {
     @apply border-border outline-ring/50;
   }
-  html, body {
+  html,
+  body {
     @apply bg-background text-foreground;
     margin: 0;
     padding: 0;
@@ -187,7 +188,6 @@
   background: #4b5563;
 }
 
-
 /* NProgress Custom Styling - Cyan Theme */
 #nprogress {
   pointer-events: none;
@@ -209,7 +209,9 @@
   right: 0;
   width: 100px;
   height: 100%;
-  box-shadow: 0 0 10px #22d3ee, 0 0 5px #22d3ee;
+  box-shadow:
+    0 0 10px #22d3ee,
+    0 0 5px #22d3ee;
   opacity: 1;
   transform: rotate(3deg) translate(0px, -4px);
 }
@@ -233,7 +235,7 @@
 
 /* Preserve empty paragraphs */
 .tiptap-content p:empty::before {
-  content: '\00a0';
+  content: "\00a0";
 }
 
 .tiptap-content p {
@@ -242,7 +244,7 @@
 
 /* Clear floats after content */
 .tiptap-content::after {
-  content: '';
+  content: "";
   display: table;
   clear: both;
 }

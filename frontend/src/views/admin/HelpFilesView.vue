@@ -101,10 +101,14 @@ const categoryFormDesc = ref('')
 const editingCategory = ref<Category | null>(null)
 
 // Debounce search query (300ms)
-watchDebounced(searchQuery, (newValue) => {
-  debouncedSearchQuery.value = newValue
-  currentPage.value = 1 // Reset to first page on search
-}, { debounce: 300 })
+watchDebounced(
+  searchQuery,
+  (newValue) => {
+    debouncedSearchQuery.value = newValue
+    currentPage.value = 1 // Reset to first page on search
+  },
+  { debounce: 300 },
+)
 
 // Separate loading state for form submissions
 const submitting = ref(false)
@@ -229,7 +233,8 @@ async function createPage() {
   } catch (error: any) {
     toast.show({
       title: 'Error',
-      message: error.response?.data?.error?.message || error.message || 'Failed to create help page',
+      message:
+        error.response?.data?.error?.message || error.message || 'Failed to create help page',
       type: 'error',
     })
   } finally {
@@ -269,7 +274,8 @@ async function updatePage() {
   } catch (error: any) {
     toast.show({
       title: 'Error',
-      message: error.response?.data?.error?.message || error.message || 'Failed to update help page',
+      message:
+        error.response?.data?.error?.message || error.message || 'Failed to update help page',
       type: 'error',
     })
   } finally {
@@ -295,7 +301,8 @@ async function deletePage() {
   } catch (error: any) {
     toast.show({
       title: 'Error',
-      message: error.response?.data?.error?.message || error.message || 'Failed to delete help page',
+      message:
+        error.response?.data?.error?.message || error.message || 'Failed to delete help page',
       type: 'error',
     })
   } finally {
@@ -378,7 +385,7 @@ async function updateCategory() {
 async function deleteCategory(categoryId: number) {
   if (
     !confirm(
-      'Are you sure? This will remove the category from all help pages (but not delete the pages).'
+      'Are you sure? This will remove the category from all help pages (but not delete the pages).',
     )
   ) {
     return

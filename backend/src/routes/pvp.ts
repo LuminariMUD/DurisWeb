@@ -77,7 +77,7 @@ router.get(
       req.query.page as string,
       req.query.limit as string,
       50,
-      100
+      100,
     );
 
     const filters: EventFilters = {
@@ -93,7 +93,7 @@ router.get(
 
     const { events, total } = await getPvPEvents(filters);
 
-    const response: PaginatedResponse<typeof events[0]> = {
+    const response: PaginatedResponse<(typeof events)[0]> = {
       data: events,
       pagination: {
         page,
@@ -104,7 +104,7 @@ router.get(
     };
 
     res.json(response);
-  })
+  }),
 );
 
 /**
@@ -127,7 +127,7 @@ router.get(
     }
 
     res.json(event);
-  })
+  }),
 );
 
 /**
@@ -155,7 +155,7 @@ router.get(
 
     const leaderboard = await getLeaderboard(
       type as 'kills' | 'deaths' | 'kd',
-      period as '7d' | '30d' | 'all'
+      period as '7d' | '30d' | 'all',
     );
 
     // Use 'entries' key to match frontend expectation
@@ -164,7 +164,7 @@ router.get(
       period,
       entries: leaderboard,
     });
-  })
+  }),
 );
 
 /**
@@ -187,7 +187,7 @@ router.get(
     }
 
     res.json(stats);
-  })
+  }),
 );
 
 /**
@@ -218,7 +218,7 @@ router.get(
     const page = filters.page || 1;
     const limit = filters.limit || 50;
 
-    const response: PaginatedResponse<typeof events[0]> = {
+    const response: PaginatedResponse<(typeof events)[0]> = {
       data: events,
       pagination: {
         page,
@@ -229,7 +229,7 @@ router.get(
     };
 
     res.json(response);
-  })
+  }),
 );
 
 /**
@@ -246,7 +246,7 @@ router.get(
     // Allow empty query to return all locations (with pagination)
     const locations = await getLocationAutocomplete(query, page, limit);
     return res.json(locations);
-  })
+  }),
 );
 
 /**
@@ -263,7 +263,7 @@ router.get(
     // Allow empty query to return all players (with pagination)
     const players = await getPlayerAutocomplete(query, page, limit);
     return res.json(players);
-  })
+  }),
 );
 
 /**
@@ -281,7 +281,7 @@ router.get(
     }
     const data = await getKillTimeline(period);
     res.json(data);
-  })
+  }),
 );
 
 /**
@@ -299,7 +299,7 @@ router.get(
     }
     const data = await getActiveHours(period);
     res.json(data);
-  })
+  }),
 );
 
 /**
@@ -318,7 +318,7 @@ router.get(
     }
     const data = await getPopularLocations(limit, period);
     res.json(data);
-  })
+  }),
 );
 
 /**
@@ -336,7 +336,7 @@ router.get(
     }
     const data = await getClassMatchups(period);
     res.json(data);
-  })
+  }),
 );
 
 /**
@@ -353,7 +353,7 @@ router.get(
     }
     const data = await getClientStats(period);
     res.json(data);
-  })
+  }),
 );
 
 // ==================== BATTLE INTERACTIONS ====================
@@ -371,7 +371,7 @@ router.get(
     const accountName = req.user?.accountName;
     const stats = await getBattleInteractionStats(eventId, accountName);
     res.json(stats);
-  })
+  }),
 );
 
 /**
@@ -392,7 +392,7 @@ router.post(
     }
 
     res.json({ success: true, message: 'Battle liked' });
-  })
+  }),
 );
 
 /**
@@ -413,7 +413,7 @@ router.delete(
     }
 
     res.json({ success: true, message: 'Like removed' });
-  })
+  }),
 );
 
 /**
@@ -434,7 +434,7 @@ router.post(
     }
 
     res.json({ success: true, message: 'Battle favorited' });
-  })
+  }),
 );
 
 /**
@@ -455,7 +455,7 @@ router.delete(
     }
 
     res.json({ success: true, message: 'Favorite removed' });
-  })
+  }),
 );
 
 // ==================== BATTLE COMMENTS ====================
@@ -471,7 +471,7 @@ router.get(
 
     const comments = await getBattleComments(eventId);
     res.json(comments);
-  })
+  }),
 );
 
 /**
@@ -503,11 +503,11 @@ router.post(
       parseOptionalPvpId(parentId, 'parent comment ID'),
       quotedText ? String(quotedText).slice(0, 500) : undefined,
       parseOptionalPvpId(lineNumber, 'line number'),
-      parseOptionalPvpId(participantId, 'participant ID')
+      parseOptionalPvpId(participantId, 'participant ID'),
     );
 
     res.status(201).json(comment);
-  })
+  }),
 );
 
 /**
@@ -538,7 +538,7 @@ router.patch(
     }
 
     res.json({ success: true, message: 'Comment updated' });
-  })
+  }),
 );
 
 /**
@@ -572,7 +572,7 @@ router.delete(
     }
 
     res.json({ success: true, message: 'Comment deleted' });
-  })
+  }),
 );
 
 // ==================== USER FAVORITES ====================
@@ -599,7 +599,7 @@ router.get(
         totalPages: Math.ceil(total / limit),
       },
     });
-  })
+  }),
 );
 
 export default router;

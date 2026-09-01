@@ -56,7 +56,8 @@ export interface SuspiciousAccount {
  */
 export async function findAccountsBySharedIP(minAccounts: number = 2): Promise<SharedIPAccount[]> {
   try {
-    const [results] = await db.query(`
+    const [results] = await db.query(
+      `
       SELECT
         ip_address,
         COUNT(DISTINCT account_name) as account_count,
@@ -68,23 +69,25 @@ export async function findAccountsBySharedIP(minAccounts: number = 2): Promise<S
       GROUP BY ip_address
       HAVING COUNT(DISTINCT account_name) >= ?
       ORDER BY account_count DESC
-    `, [minAccounts]);
+    `,
+      [minAccounts],
+    );
 
     // For each IP, get the list of accounts
     const sharedIPAccounts: SharedIPAccount[] = [];
     for (const row of results as any[]) {
       const [accounts] = await db.query(
-        'SELECT DISTINCT account_name FROM account_login_history WHERE ip_address = ? AND status = \'login\'',
-        [row.ip_address]
+        "SELECT DISTINCT account_name FROM account_login_history WHERE ip_address = ? AND status = 'login'",
+        [row.ip_address],
       );
 
       sharedIPAccounts.push({
         ip_address: row.ip_address,
         account_count: parseInt(row.account_count),
-        accounts: (accounts as any[]).map(a => a.account_name),
+        accounts: (accounts as any[]).map((a) => a.account_name),
         first_seen: new Date(row.first_seen),
         last_seen: new Date(row.last_seen),
-        total_connections: parseInt(row.total_connections)
+        total_connections: parseInt(row.total_connections),
       });
     }
 
@@ -98,7 +101,9 @@ export async function findAccountsBySharedIP(minAccounts: number = 2): Promise<S
 /**
  * Find overlapping login sessions from the same IP
  */
-export async function findOverlappingSessions(hoursBack: number = 24): Promise<OverlappingSession[]> {
+export async function findOverlappingSessions(
+  hoursBack: number = 24,
+): Promise<OverlappingSession[]> {
   try {
     const cutoffDate = new Date();
     cutoffDate.setHours(cutoffDate.getHours() - hoursBack);
@@ -165,7 +170,7 @@ export async function findOverlappingSessions(hoursBack: number = 24): Promise<O
         character2: row.character2 || 'Unknown',
         overlap_start: overlapStart,
         overlap_end: overlapEnd,
-        overlap_duration_minutes: durationMinutes
+        overlap_duration_minutes: durationMinutes,
       };
     });
   } catch (error) {
@@ -211,22 +216,23 @@ export async function gatherAccountEvidence(accountName: string): Promise<Suspic
     // Get all IPs used by this account
     const [ipsUsed] = await db.query(
       'SELECT DISTINCT ip_address FROM account_login_history WHERE account_name = ? AND ip_address IS NOT NULL',
-      [accountName]
+      [accountName],
     );
-    const ipList = (ipsUsed as any[]).map(r => r.ip_address);
+    const ipList = (ipsUsed as any[]).map((r) => r.ip_address);
 
     // For each IP, check if other accounts use it
     const sharedIPAccounts = new Set<string>();
     for (const ip of ipList) {
       const [accounts] = await db.query(
         'SELECT DISTINCT account_name FROM account_login_history WHERE ip_address = ? AND account_name != ?',
-        [ip, accountName]
+        [ip, accountName],
       );
-      (accounts as any[]).forEach(acc => sharedIPAccounts.add(acc.account_name));
+      (accounts as any[]).forEach((acc) => sharedIPAccounts.add(acc.account_name));
     }
 
     // Check for overlapping sessions
-    const [overlappingSessions] = await db.query(`
+    const [overlappingSessions] = await db.query(
+      `
       SELECT COUNT(*) as count
       FROM account_login_history l1
       JOIN account_login_history l2
@@ -249,12 +255,15 @@ export async function gatherAccountEvidence(accountName: string): Promise<Suspic
             AND status = 'logout'
             AND timestamp > l1.timestamp
         )
-    `, [accountName, accountName]);
+    `,
+      [accountName, accountName],
+    );
 
     const overlapCount = (overlappingSessions as any)[0].count;
 
     // Check for rapid account switching
-    const [rapidSwitches] = await db.query(`
+    const [rapidSwitches] = await db.query(
+      `
       SELECT COUNT(*) as count
       FROM account_login_history l1
       JOIN account_login_history l2
@@ -264,14 +273,16 @@ export async function gatherAccountEvidence(accountName: string): Promise<Suspic
         AND l1.status = 'login'
         AND l2.status = 'logout'
         AND l1.timestamp BETWEEN l2.timestamp AND DATE_ADD(l2.timestamp, INTERVAL 5 MINUTE)
-    `, [accountName, accountName]);
+    `,
+      [accountName, accountName],
+    );
 
     const rapidCount = (rapidSwitches as any)[0].count;
 
     // Check for same IP within 1 hour
     const [recentLogins] = await db.query(
-      'SELECT ip_address, timestamp FROM account_login_history WHERE account_name = ? AND status = \'login\' AND timestamp >= DATE_SUB(NOW(), INTERVAL 1 HOUR) ORDER BY timestamp DESC LIMIT 10',
-      [accountName]
+      "SELECT ip_address, timestamp FROM account_login_history WHERE account_name = ? AND status = 'login' AND timestamp >= DATE_SUB(NOW(), INTERVAL 1 HOUR) ORDER BY timestamp DESC LIMIT 10",
+      [accountName],
     );
 
     let sameIPWithinHour = false;
@@ -289,7 +300,7 @@ export async function gatherAccountEvidence(accountName: string): Promise<Suspic
       rapid_switches: parseInt(rapidCount),
       same_ip_within_hour: sameIPWithinHour,
       total_ips_used: ipList.length,
-      suspicious_ips: ipList.filter(() => sharedIPAccounts.size > 0)
+      suspicious_ips: ipList.filter(() => sharedIPAccounts.size > 0),
     };
   } catch (error) {
     logger.error(`Error gathering evidence for account ${accountName}:`, error);
@@ -299,7 +310,7 @@ export async function gatherAccountEvidence(accountName: string): Promise<Suspic
       rapid_switches: 0,
       same_ip_within_hour: false,
       total_ips_used: 0,
-      suspicious_ips: []
+      suspicious_ips: [],
     };
   }
 }
@@ -307,7 +318,9 @@ export async function gatherAccountEvidence(accountName: string): Promise<Suspic
 /**
  * Analyze an account and flag if suspicious
  */
-export async function analyzeAndFlagAccount(accountName: string): Promise<SuspiciousAccount | null> {
+export async function analyzeAndFlagAccount(
+  accountName: string,
+): Promise<SuspiciousAccount | null> {
   try {
     const evidence = await gatherAccountEvidence(accountName);
     const score = calculateSuspicionScore(evidence);
@@ -316,14 +329,14 @@ export async function analyzeAndFlagAccount(accountName: string): Promise<Suspic
       // Check if already flagged
       const [existing] = await db.query(
         'SELECT * FROM suspicious_accounts WHERE account_name = ? AND is_resolved = FALSE',
-        [accountName]
+        [accountName],
       );
 
       if ((existing as any[]).length === 0) {
         // Insert new flag
         await db.query(
           'INSERT INTO suspicious_accounts (account_name, suspicion_score, evidence, flagged_at, is_resolved) VALUES (?, ?, ?, NOW(), FALSE)',
-          [accountName, score, JSON.stringify(evidence)]
+          [accountName, score, JSON.stringify(evidence)],
         );
 
         logger.info(`flagged suspicious account: ${accountName} (score: ${score})`);
@@ -331,7 +344,7 @@ export async function analyzeAndFlagAccount(accountName: string): Promise<Suspic
         // Update existing flag
         await db.query(
           'UPDATE suspicious_accounts SET suspicion_score = ?, evidence = ? WHERE account_name = ? AND is_resolved = FALSE',
-          [score, JSON.stringify(evidence), accountName]
+          [score, JSON.stringify(evidence), accountName],
         );
 
         logger.info(`updated suspicious account flag: ${accountName} (score: ${score})`);
@@ -341,7 +354,7 @@ export async function analyzeAndFlagAccount(accountName: string): Promise<Suspic
         account_name: accountName,
         suspicion_score: score,
         evidence: evidence,
-        flagged_at: new Date()
+        flagged_at: new Date(),
       };
     }
 
@@ -355,7 +368,9 @@ export async function analyzeAndFlagAccount(accountName: string): Promise<Suspic
 /**
  * Get all flagged suspicious accounts
  */
-export async function getSuspiciousAccounts(includeResolved: boolean = false): Promise<SuspiciousAccount[]> {
+export async function getSuspiciousAccounts(
+  includeResolved: boolean = false,
+): Promise<SuspiciousAccount[]> {
   try {
     const query = includeResolved
       ? 'SELECT * FROM suspicious_accounts ORDER BY suspicion_score DESC, flagged_at DESC'
@@ -371,7 +386,7 @@ export async function getSuspiciousAccounts(includeResolved: boolean = false): P
       is_resolved: row.is_resolved,
       reviewed_at: row.reviewed_at ? new Date(row.reviewed_at) : null,
       reviewed_by: row.reviewed_by || null,
-      review_notes: row.review_notes || null
+      review_notes: row.review_notes || null,
     }));
   } catch (error) {
     logger.error('Error getting suspicious accounts:', error);
@@ -385,12 +400,12 @@ export async function getSuspiciousAccounts(includeResolved: boolean = false): P
 export async function resolveAccountFlag(
   accountName: string,
   reviewedBy: string,
-  notes?: string
+  notes?: string,
 ): Promise<boolean> {
   try {
     const [result] = await db.query(
       'UPDATE suspicious_accounts SET is_resolved = TRUE, reviewed_at = NOW(), reviewed_by = ?, review_notes = ? WHERE account_name = ? AND is_resolved = FALSE',
-      [reviewedBy, notes || null, accountName]
+      [reviewedBy, notes || null, accountName],
     );
 
     return (result as any).affectedRows > 0;
@@ -403,14 +418,17 @@ export async function resolveAccountFlag(
 /**
  * Get connection timeline for an account
  */
-export async function getConnectionTimeline(accountName: string, daysBack: number = 30): Promise<any[]> {
+export async function getConnectionTimeline(
+  accountName: string,
+  daysBack: number = 30,
+): Promise<any[]> {
   try {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysBack);
 
     const [timeline] = await db.query(
       'SELECT timestamp, character_name, ip_address, status FROM account_login_history WHERE account_name = ? AND timestamp >= ? ORDER BY timestamp ASC',
-      [accountName, cutoffDate]
+      [accountName, cutoffDate],
     );
 
     return timeline as any[];

@@ -11,7 +11,7 @@ const {
   zoneNumber,
   isConnected,
   requestSync,
-  requestSpeedwalk
+  requestSpeedwalk,
 } = useMapBroadcastReceiver()
 
 // Track if we've ever received data

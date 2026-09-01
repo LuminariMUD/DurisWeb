@@ -13,12 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
@@ -41,8 +36,15 @@ const {
   isSupported,
 } = useMudChatNotifications()
 const { settings: fontSettings, applyFontSettings } = useFontSettings()
-const { settings: hotbarSettings, updateButton, setButtonCount, setVisible, setOrientation, setButtonSize, resetPosition } =
-  useHotbarSettings()
+const {
+  settings: hotbarSettings,
+  updateButton,
+  setButtonCount,
+  setVisible,
+  setOrientation,
+  setButtonSize,
+  resetPosition,
+} = useHotbarSettings()
 const { echoCommands, setEchoCommands } = useAliases()
 // Proxy settings (per-user, stored in localStorage)
 const PROXY_STORAGE_KEY = 'duris-ws-proxy'
@@ -70,9 +72,13 @@ function saveProxySettings(settings: ProxySettings) {
 const proxySettings = ref<ProxySettings>(loadProxySettings())
 
 // Watch and save on changes
-watch(proxySettings, (newSettings) => {
-  saveProxySettings(newSettings)
-}, { deep: true })
+watch(
+  proxySettings,
+  (newSettings) => {
+    saveProxySettings(newSettings)
+  },
+  { deep: true },
+)
 
 // get icon component by name for preview
 function getIcon(name: string): Component {
@@ -93,7 +99,9 @@ const showGodChannels = computed(() => store.character && store.character.level 
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
 const counts = computed(() => getSettingsCounts())
-const totalCount = computed(() => counts.value.aliases + counts.value.triggers + counts.value.groupActions)
+const totalCount = computed(
+  () => counts.value.aliases + counts.value.triggers + counts.value.groupActions,
+)
 
 function handleExport() {
   const json = exportAllSettings()

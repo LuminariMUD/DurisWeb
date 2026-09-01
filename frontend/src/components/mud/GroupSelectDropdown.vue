@@ -42,7 +42,7 @@ const groupOptions = computed((): GroupOption[] => {
 
 const selectedLabel = computed(() => {
   if (!props.modelValue) return 'None (Ungrouped)'
-  const group = groups.value.find(g => g.id === props.modelValue)
+  const group = groups.value.find((g) => g.id === props.modelValue)
   return group?.name || 'Unknown'
 })
 

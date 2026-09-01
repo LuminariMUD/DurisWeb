@@ -87,22 +87,29 @@ export async function getOverviewStats(): Promise<OverviewStats> {
   const cached = await getCache<OverviewStats>(cacheKey);
   if (cached) return cached;
 
-  const [onlinePlayers, forumPosts, pvpBattles, accounts, guilds, peakStatsResult, uptime] = await Promise.all([
-    getCurrentOnlinePlayers(),
-    pool.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM forum_posts WHERE deleted_at IS NULL'),
-    pool.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM pkill_event'),
-    pool.query<RowDataPacket[]>('SELECT COUNT(DISTINCT pid) as count FROM frag_leaderboard WHERE deleted_at IS NULL'),
-    pool.query<RowDataPacket[]>('SELECT COUNT(DISTINCT a.id) as count FROM associations a JOIN player_data pd ON pd.assoc_id = a.id WHERE a.active = 1'),
-    pool.query<RowDataPacket[]>(
-      `SELECT
+  const [onlinePlayers, forumPosts, pvpBattles, accounts, guilds, peakStatsResult, uptime] =
+    await Promise.all([
+      getCurrentOnlinePlayers(),
+      pool.query<RowDataPacket[]>(
+        'SELECT COUNT(*) as count FROM forum_posts WHERE deleted_at IS NULL',
+      ),
+      pool.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM pkill_event'),
+      pool.query<RowDataPacket[]>(
+        'SELECT COUNT(DISTINCT pid) as count FROM frag_leaderboard WHERE deleted_at IS NULL',
+      ),
+      pool.query<RowDataPacket[]>(
+        'SELECT COUNT(DISTINCT a.id) as count FROM associations a JOIN player_data pd ON pd.assoc_id = a.id WHERE a.active = 1',
+      ),
+      pool.query<RowDataPacket[]>(
+        `SELECT
          (goods_count + evils_count + illithids_count + undeads_count + gods_count) as peak,
          date as timestamp
        FROM statistics
        ORDER BY (goods_count + evils_count + illithids_count + undeads_count + gods_count) DESC
-       LIMIT 1`
-    ),
-    getServerUptime(),
-  ]);
+       LIMIT 1`,
+      ),
+      getServerUptime(),
+    ]);
 
   const peakStats = peakStatsResult[0];
 
@@ -151,19 +158,23 @@ export async function getForumStats(): Promise<ForumStats> {
     postsByCategoryResult,
     postsPerDayResult,
   ] = await Promise.all([
-    pool.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM forum_threads WHERE deleted_at IS NULL'),
-    pool.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM forum_posts WHERE deleted_at IS NULL'),
+    pool.query<RowDataPacket[]>(
+      'SELECT COUNT(*) as count FROM forum_threads WHERE deleted_at IS NULL',
+    ),
+    pool.query<RowDataPacket[]>(
+      'SELECT COUNT(*) as count FROM forum_posts WHERE deleted_at IS NULL',
+    ),
     pool.query<RowDataPacket[]>(
       'SELECT COUNT(DISTINCT author_account_name) as count FROM forum_posts WHERE created_at >= ? AND deleted_at IS NULL',
-      [weekAgo]
+      [weekAgo],
     ),
     pool.query<RowDataPacket[]>(
       'SELECT COUNT(*) as count FROM forum_posts WHERE created_at >= ? AND deleted_at IS NULL',
-      [today]
+      [today],
     ),
     pool.query<RowDataPacket[]>(
       'SELECT COUNT(*) as count FROM forum_posts WHERE created_at >= ? AND deleted_at IS NULL',
-      [weekAgo]
+      [weekAgo],
     ),
     pool.query<RowDataPacket[]>(
       `SELECT author_account_name as account, COUNT(*) as postCount
@@ -171,7 +182,7 @@ export async function getForumStats(): Promise<ForumStats> {
        WHERE deleted_at IS NULL
        GROUP BY author_account_name
        ORDER BY postCount DESC
-       LIMIT 10`
+       LIMIT 10`,
     ),
     pool.query<RowDataPacket[]>(
       `SELECT c.name as categoryName, COUNT(p.id) as postCount
@@ -179,7 +190,7 @@ export async function getForumStats(): Promise<ForumStats> {
        LEFT JOIN forum_threads t ON c.id = t.category_id AND t.deleted_at IS NULL
        LEFT JOIN forum_posts p ON t.id = p.thread_id AND p.deleted_at IS NULL
        GROUP BY c.id
-       ORDER BY postCount DESC`
+       ORDER BY postCount DESC`,
     ),
     pool.query<RowDataPacket[]>(
       `SELECT DATE(created_at) as date, COUNT(*) as count
@@ -187,7 +198,7 @@ export async function getForumStats(): Promise<ForumStats> {
        WHERE created_at >= ? AND deleted_at IS NULL
        GROUP BY DATE(created_at)
        ORDER BY date ASC`,
-      [thirtyDaysAgo]
+      [thirtyDaysAgo],
     ),
   ]);
 
@@ -235,15 +246,19 @@ export async function getPvPStats(): Promise<PvPStats> {
     activityByHourResult,
   ] = await Promise.all([
     pool.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM pkill_event'),
-    pool.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM pkill_event WHERE stamp >= ?', [today]),
-    pool.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM pkill_event WHERE stamp >= ?', [weekAgo]),
+    pool.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM pkill_event WHERE stamp >= ?', [
+      today,
+    ]),
+    pool.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM pkill_event WHERE stamp >= ?', [
+      weekAgo,
+    ]),
     pool.query<RowDataPacket[]>(
       `SELECT player_description as name, COUNT(*) as kills
        FROM pkill_info
        WHERE pk_type LIKE 'KILLER%'
        GROUP BY player_description
        ORDER BY kills DESC
-       LIMIT 1`
+       LIMIT 1`,
     ),
     pool.query<RowDataPacket[]>(
       `SELECT player_description as name, COUNT(*) as deaths
@@ -251,14 +266,14 @@ export async function getPvPStats(): Promise<PvPStats> {
        WHERE pk_type = 'VICTIM'
        GROUP BY player_description
        ORDER BY deaths DESC
-       LIMIT 1`
+       LIMIT 1`,
     ),
     pool.query<RowDataPacket[]>(
       `SELECT room_name as location, COUNT(*) as battles
        FROM pkill_event
        GROUP BY room_name
        ORDER BY battles DESC
-       LIMIT 1`
+       LIMIT 1`,
     ),
     pool.query<RowDataPacket[]>(
       `SELECT DATE(stamp) as date, COUNT(*) as count
@@ -266,7 +281,7 @@ export async function getPvPStats(): Promise<PvPStats> {
        WHERE stamp >= ?
        GROUP BY DATE(stamp)
        ORDER BY date ASC`,
-      [thirtyDaysAgo]
+      [thirtyDaysAgo],
     ),
     pool.query<RowDataPacket[]>(
       `SELECT
@@ -276,13 +291,13 @@ export async function getPvPStats(): Promise<PvPStats> {
        WHERE pk_type LIKE 'KILLER%'
        GROUP BY className
        ORDER BY kills DESC
-       LIMIT 10`
+       LIMIT 10`,
     ),
     pool.query<RowDataPacket[]>(
       `SELECT HOUR(stamp) as hour, COUNT(*) as battles
        FROM pkill_event
        GROUP BY HOUR(stamp)
-       ORDER BY hour ASC`
+       ORDER BY hour ASC`,
     ),
   ]);
 
@@ -318,9 +333,15 @@ export async function getPlayerStats(): Promise<PlayerStats> {
     guildsResult,
     levelDistResult,
   ] = await Promise.all([
-    pool.query<RowDataPacket[]>('SELECT COUNT(DISTINCT pid) as count FROM frag_leaderboard WHERE deleted_at IS NULL'),
-    pool.query<RowDataPacket[]>('SELECT MAX(level) as maxLevel FROM frag_leaderboard WHERE deleted_at IS NULL'),
-    pool.query<RowDataPacket[]>('SELECT AVG(level) as avgLevel FROM frag_leaderboard WHERE deleted_at IS NULL'),
+    pool.query<RowDataPacket[]>(
+      'SELECT COUNT(DISTINCT pid) as count FROM frag_leaderboard WHERE deleted_at IS NULL',
+    ),
+    pool.query<RowDataPacket[]>(
+      'SELECT MAX(level) as maxLevel FROM frag_leaderboard WHERE deleted_at IS NULL',
+    ),
+    pool.query<RowDataPacket[]>(
+      'SELECT AVG(level) as avgLevel FROM frag_leaderboard WHERE deleted_at IS NULL',
+    ),
     pool.query<RowDataPacket[]>(
       `SELECT
          SUM(CASE WHEN racewar = 0 THEN 1 ELSE 0 END) as none,
@@ -328,7 +349,7 @@ export async function getPlayerStats(): Promise<PlayerStats> {
          SUM(CASE WHEN racewar = 2 THEN 1 ELSE 0 END) as evils,
          SUM(CASE WHEN racewar = 3 THEN 1 ELSE 0 END) as undeads,
          SUM(CASE WHEN racewar = 4 THEN 1 ELSE 0 END) as neutrals
-       FROM frag_leaderboard WHERE deleted_at IS NULL`
+       FROM frag_leaderboard WHERE deleted_at IS NULL`,
     ),
     pool.query<RowDataPacket[]>(
       `SELECT a.name as guild, COUNT(*) as memberCount
@@ -338,7 +359,7 @@ export async function getPlayerStats(): Promise<PlayerStats> {
        WHERE a.active = 1 AND fl.deleted_at IS NULL
        GROUP BY a.id, a.name
        ORDER BY memberCount DESC
-       LIMIT 10`
+       LIMIT 10`,
     ),
     pool.query<RowDataPacket[]>(
       `SELECT
@@ -354,7 +375,7 @@ export async function getPlayerStats(): Promise<PlayerStats> {
          COUNT(*) as count
        FROM frag_leaderboard WHERE deleted_at IS NULL
        GROUP BY \`range\`
-       ORDER BY MIN(level)`
+       ORDER BY MIN(level)`,
     ),
   ]);
 
@@ -386,7 +407,7 @@ export async function getPlayerActivity(hours: number = 24): Promise<any[]> {
   const cached = await getCache<any[]>(cacheKey);
   if (cached) return cached;
 
-  const startTime = Math.floor(Date.now() / 1000) - (hours * 3600);
+  const startTime = Math.floor(Date.now() / 1000) - hours * 3600;
 
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT
@@ -395,10 +416,10 @@ export async function getPlayerActivity(hours: number = 24): Promise<any[]> {
      FROM statistics
      WHERE date >= ?
      ORDER BY date ASC`,
-    [startTime]
+    [startTime],
   );
 
-  const data = rows.map(row => ({
+  const data = rows.map((row) => ({
     timestamp: row.timestamp,
     playerCount: row.playerCount,
   }));
@@ -432,7 +453,7 @@ export async function getWhoList(): Promise<any[]> {
       AND ii.last_connect >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
       AND ii.last_connect IS NOT NULL
       AND fl.deleted_at IS NULL
-    ORDER BY fl.level DESC, fl.char_name ASC`
+    ORDER BY fl.level DESC, fl.char_name ASC`,
   );
 
   return rows;

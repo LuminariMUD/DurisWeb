@@ -225,9 +225,7 @@ const BY_CHANNEL: ReadonlyMap<HookChannel, readonly HookDefinition[]> = (() => {
       grouped.set(hook.channel, [hook]);
     }
   }
-  return new Map(
-    [...grouped].map(([channel, hooks]) => [channel, Object.freeze(hooks)]),
-  );
+  return new Map([...grouped].map(([channel, hooks]) => [channel, Object.freeze(hooks)]));
 })();
 
 /** Every registered hook, including the always-on terminal. */
@@ -275,9 +273,7 @@ export function getToggleableHooks(): readonly HookDefinition[] {
 }
 
 /** Hooks on one channel, empty when the channel has none. */
-export function getHooksByChannel(
-  channel: HookChannel,
-): readonly HookDefinition[] {
+export function getHooksByChannel(channel: HookChannel): readonly HookDefinition[] {
   return BY_CHANNEL.get(channel) ?? [];
 }
 

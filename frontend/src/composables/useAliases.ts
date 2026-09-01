@@ -120,9 +120,10 @@ export function useAliases() {
       return true
     } catch (error) {
       console.error('[Aliases] Failed to save:', error)
-      storageError.value = error instanceof ClientSettingsStorageError
-        ? error.message
-        : 'Client settings could not be saved.'
+      storageError.value =
+        error instanceof ClientSettingsStorageError
+          ? error.message
+          : 'Client settings could not be saved.'
       return false
     }
   }
@@ -284,7 +285,7 @@ export function useAliases() {
 
   function setAliasGroup(id: string, groupId: string | null): boolean {
     if (!canMutate()) return false
-    const index = aliases.value.findIndex(a => a.id === id)
+    const index = aliases.value.findIndex((a) => a.id === id)
     if (index === -1) return false
 
     const alias = aliases.value[index]
@@ -467,7 +468,7 @@ export function useAliases() {
     trigger: string,
     excludeId?: string,
     scope?: AliasScope,
-    charName?: string | null
+    charName?: string | null,
   ): boolean {
     const normalizedTrigger = trigger.trim().toLowerCase()
 
@@ -498,7 +499,7 @@ export function useAliases() {
         exportedAt: new Date().toISOString(),
       },
       null,
-      2
+      2,
     )
   }
 
@@ -520,13 +521,9 @@ export function useAliases() {
         reservedIds.add(id)
         return id
       }
-      const normalizedImported = imported.map((item, index) => normalizeAliasImport(
-        item,
-        index,
-        nextId(),
-        now,
-        mode === 'replace',
-      ))
+      const normalizedImported = imported.map((item, index) =>
+        normalizeAliasImport(item, index, nextId(), now, mode === 'replace'),
+      )
 
       if (mode === 'replace') {
         if (!commitAliases(normalizedImported)) {
@@ -537,11 +534,14 @@ export function useAliases() {
         const nextAliases = [...aliases.value]
         let accepted = 0
         for (const alias of normalizedImported) {
-          if (!nextAliases.some((existing) =>
-            existing.trigger === alias.trigger &&
-            existing.scope === alias.scope &&
-            existing.characterName === alias.characterName
-          )) {
+          if (
+            !nextAliases.some(
+              (existing) =>
+                existing.trigger === alias.trigger &&
+                existing.scope === alias.scope &&
+                existing.characterName === alias.characterName,
+            )
+          ) {
             nextAliases.push(alias)
             accepted += 1
           }
@@ -574,7 +574,7 @@ export function useAliases() {
           loadAliases()
         }
       },
-      { immediate: true }
+      { immediate: true },
     )
   }
 

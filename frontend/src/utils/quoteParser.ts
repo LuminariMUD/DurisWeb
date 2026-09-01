@@ -22,7 +22,7 @@ export function parseQuotes(content: string): ParsedContent[] {
       if (textContent) {
         parts.push({
           type: 'text',
-          content: textContent
+          content: textContent,
         })
       }
     }
@@ -32,7 +32,7 @@ export function parseQuotes(content: string): ParsedContent[] {
       parts.push({
         type: 'quote',
         author: match[1],
-        content: match[2].trim()
+        content: match[2].trim(),
       })
     }
 
@@ -45,7 +45,7 @@ export function parseQuotes(content: string): ParsedContent[] {
     if (textContent) {
       parts.push({
         type: 'text',
-        content: textContent
+        content: textContent,
       })
     }
   }
@@ -54,7 +54,7 @@ export function parseQuotes(content: string): ParsedContent[] {
   if (parts.length === 0) {
     parts.push({
       type: 'text',
-      content: content
+      content: content,
     })
   }
 

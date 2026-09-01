@@ -1,8 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import {
-  validateCreateIncidentBody,
-  validateUpdateIncidentBody,
-} from '../incidentValidation.js';
+import { validateCreateIncidentBody, validateUpdateIncidentBody } from '../incidentValidation.js';
 
 const validCreate = {
   incident_type: 'maintenance',
@@ -22,13 +19,19 @@ describe('incident write validation', () => {
   });
 
   it('rejects invalid enums and dates', () => {
-    expect(validateCreateIncidentBody({ ...validCreate, incident_type: 'debug' })).toMatch(/incident_type/);
-    expect(validateCreateIncidentBody({ ...validCreate, started_at: 'not-a-date' })).toMatch(/started_at/);
+    expect(validateCreateIncidentBody({ ...validCreate, incident_type: 'debug' })).toMatch(
+      /incident_type/,
+    );
+    expect(validateCreateIncidentBody({ ...validCreate, started_at: 'not-a-date' })).toMatch(
+      /started_at/,
+    );
   });
 
   it('rejects truthy strings for boolean fields', () => {
     expect(validateCreateIncidentBody({ ...validCreate, resolved: 'true' })).toMatch(/resolved/);
-    expect(validateCreateIncidentBody({ ...validCreate, public_visible: 1 })).toMatch(/public_visible/);
+    expect(validateCreateIncidentBody({ ...validCreate, public_visible: 1 })).toMatch(
+      /public_visible/,
+    );
   });
 
   it('rejects oversized text before persistence', () => {

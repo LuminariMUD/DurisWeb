@@ -66,11 +66,11 @@ const SPEEDWALK_DELAY = 1000 // ms between movement commands
 // Zone numbers derived from VNUM ranges in backend/src/scripts/extractMapData.ts
 function isWildernessZone(zoneNumber: number): boolean {
   return (
-    zoneNumber === 600 ||                          // The Adventurers Shipyards
-    (zoneNumber >= 1200 && zoneNumber <= 1238) ||  // Alatorin
-    (zoneNumber >= 5000 && zoneNumber <= 6599) ||  // Surface
-    (zoneNumber >= 6600 && zoneNumber <= 6999) ||  // Newbie Maps
-    (zoneNumber >= 7000 && zoneNumber <= 8599)     // Underdark
+    zoneNumber === 600 || // The Adventurers Shipyards
+    (zoneNumber >= 1200 && zoneNumber <= 1238) || // Alatorin
+    (zoneNumber >= 5000 && zoneNumber <= 6599) || // Surface
+    (zoneNumber >= 6600 && zoneNumber <= 6999) || // Newbie Maps
+    (zoneNumber >= 7000 && zoneNumber <= 8599) // Underdark
   )
 }
 
@@ -78,9 +78,9 @@ function isWildernessZone(zoneNumber: number): boolean {
 interface PathStep {
   vnum: number
   direction: string
-  door?: string      // Door name if needs opening
-  closed?: boolean   // Door closed state
-  locked?: boolean   // Door locked state
+  door?: string // Door name if needs opening
+  closed?: boolean // Door closed state
+  locked?: boolean // Door locked state
 }
 
 // Store and connection (only used in non-standalone mode)
@@ -88,10 +88,16 @@ const store = useMudStore()
 const { sendGameCommand } = useMudConnection()
 
 // Computed data sources - use props in standalone mode, otherwise store
-const currentRoom = computed(() => props.standalone ? props.room ?? null : store.room)
-const currentVisitedRooms = computed(() => props.standalone ? props.visitedRooms ?? new Map() : store.visitedRooms)
-const currentWildernessMap = computed(() => props.standalone ? props.wildernessMap ?? null : store.wildernessMap)
-const currentZoneNum = computed(() => props.standalone ? props.zoneNumber ?? null : store.currentZoneNumber)
+const currentRoom = computed(() => (props.standalone ? (props.room ?? null) : store.room))
+const currentVisitedRooms = computed(() =>
+  props.standalone ? (props.visitedRooms ?? new Map()) : store.visitedRooms,
+)
+const currentWildernessMap = computed(() =>
+  props.standalone ? (props.wildernessMap ?? null) : store.wildernessMap,
+)
+const currentZoneNum = computed(() =>
+  props.standalone ? (props.zoneNumber ?? null) : store.currentZoneNumber,
+)
 
 // Pop-out map broadcast (only in non-standalone mode)
 const { sendSync, openPopOutWindow, setSpeedwalkHandler } = props.standalone
@@ -100,7 +106,7 @@ const { sendSync, openPopOutWindow, setSpeedwalkHandler } = props.standalone
       () => store.room,
       () => store.visitedRooms,
       () => store.wildernessMap,
-      () => store.currentZoneNumber
+      () => store.currentZoneNumber,
     )
 
 // Container refs
@@ -141,8 +147,10 @@ const isSkippedZone = computed(() => {
   // Show ASCII map if:
   // 1. We're in a wilderness zone (too large to render as graph)
   // 2. OR we have received Room.Map GMCP data (e.g., from ships sailing on ocean)
-  return (currentZoneNum.value !== null && isWildernessZone(currentZoneNum.value)) ||
-         !!currentWildernessMap.value
+  return (
+    (currentZoneNum.value !== null && isWildernessZone(currentZoneNum.value)) ||
+    !!currentWildernessMap.value
+  )
 })
 
 // Sector colors map (same as WikiZoneMap)
@@ -181,9 +189,16 @@ function compressPath(path: PathStep[]): string {
 
   // Direction abbreviations
   const abbrevMap: Record<string, string> = {
-    north: 'n', south: 's', east: 'e', west: 'w',
-    up: 'u', down: 'd',
-    northeast: 'ne', northwest: 'nw', southeast: 'se', southwest: 'sw',
+    north: 'n',
+    south: 's',
+    east: 'e',
+    west: 'w',
+    up: 'u',
+    down: 'd',
+    northeast: 'ne',
+    northwest: 'nw',
+    southeast: 'se',
+    southwest: 'sw',
   }
 
   for (const step of path) {
@@ -259,8 +274,8 @@ function findPath(fromVnum: number, toVnum: number): PathStep[] | null {
       if (adjacency.has(edge.from)) continue
 
       // Build exits from zone map edges
-      const roomEdges = data.edges.filter(e => e.from === edge.from)
-      const exits: PathStep[] = roomEdges.map(e => ({
+      const roomEdges = data.edges.filter((e) => e.from === edge.from)
+      const exits: PathStep[] = roomEdges.map((e) => ({
         vnum: e.to,
         direction: e.direction,
         // No door info for unvisited rooms - will check dynamically during walk
@@ -298,7 +313,7 @@ function findPath(fromVnum: number, toVnum: number): PathStep[] | null {
 
 // Get room name from zone map data
 function getRoomName(vnum: number): string {
-  const node = zoneMapData.value?.nodes.find(n => n.id === vnum)
+  const node = zoneMapData.value?.nodes.find((n) => n.id === vnum)
   return node?.name || `Room #${vnum}`
 }
 
@@ -326,13 +341,15 @@ async function executeSpeedwalk(targetVnum: number) {
   for (const [direction, exit] of Object.entries(room.exits)) {
     if (exit.vnum === targetVnum) {
       // Direct adjacent room - create single-step path
-      path = [{
-        vnum: exit.vnum,
-        direction,
-        door: exit.door,
-        closed: exit.closed,
-        locked: exit.locked,
-      }]
+      path = [
+        {
+          vnum: exit.vnum,
+          direction,
+          door: exit.door,
+          closed: exit.closed,
+          locked: exit.locked,
+        },
+      ]
       break
     }
   }
@@ -350,7 +367,7 @@ async function executeSpeedwalk(targetVnum: number) {
   // Stop any existing speedwalk
   if (store.isSpeedwalking) {
     stopSpeedwalk()
-    await new Promise(resolve => setTimeout(resolve, 50))
+    await new Promise((resolve) => setTimeout(resolve, 50))
   }
 
   // Setup
@@ -380,9 +397,16 @@ async function executeSpeedwalk(targetVnum: number) {
     if (!step) break
 
     const abbrevMap: Record<string, string> = {
-      north: 'n', south: 's', east: 'e', west: 'w',
-      up: 'u', down: 'd',
-      northeast: 'ne', northwest: 'nw', southeast: 'se', southwest: 'sw',
+      north: 'n',
+      south: 's',
+      east: 'e',
+      west: 'w',
+      up: 'u',
+      down: 'd',
+      northeast: 'ne',
+      northwest: 'nw',
+      southeast: 'se',
+      southwest: 'sw',
     }
     const abbrev = abbrevMap[step.direction] || step.direction
 
@@ -417,7 +441,7 @@ async function executeSpeedwalk(targetVnum: number) {
           // Replace remaining path with new path and continue
           path = newPath
           speedwalkPath.value = [...newPath]
-          i = -1  // Reset loop to start from beginning of new path
+          i = -1 // Reset loop to start from beginning of new path
           continue
         }
       }
@@ -431,7 +455,7 @@ async function executeSpeedwalk(targetVnum: number) {
       store.addLogEntry('system', `Door is closed, opening ${step.direction}...`)
       sendGameCommand(`open ${step.direction}`)
       // Wait for door to open
-      await new Promise(resolve => setTimeout(resolve, SPEEDWALK_DELAY * 2))
+      await new Promise((resolve) => setTimeout(resolve, SPEEDWALK_DELAY * 2))
       if (controller.signal.aborted) break
     }
 
@@ -446,7 +470,7 @@ async function executeSpeedwalk(targetVnum: number) {
 
     // Wait before next step
     if (i < path.length - 1 && !controller.signal.aborted) {
-      await new Promise(resolve => setTimeout(resolve, SPEEDWALK_DELAY))
+      await new Promise((resolve) => setTimeout(resolve, SPEEDWALK_DELAY))
     }
   }
 
@@ -520,7 +544,7 @@ function buildElements(): ElementDefinition[] {
 
   if (showAllFloors.value) {
     // Show all nodes
-    nodesToShow = new Set(data.nodes.map(n => n.id))
+    nodesToShow = new Set(data.nodes.map((n) => n.id))
   } else {
     // BFS from current room, only following non-up/down edges to find current floor
     nodesToShow = new Set<number>()
@@ -569,7 +593,7 @@ function buildElements(): ElementDefinition[] {
         sectorType: node.sectorType,
         bgColor: isVisited ? colors.bg : 'transparent',
         borderColor: isCurrent ? '#fbbf24' : colors.border,
-        borderWidth: isCurrent ? 3 : (isVisited ? 2 : 1),
+        borderWidth: isCurrent ? 3 : isVisited ? 2 : 1,
         isVisited,
         isCurrent,
       },
@@ -586,7 +610,7 @@ function buildElements(): ElementDefinition[] {
     if (!nodesToShow.has(edge.from) || !nodesToShow.has(edge.to)) continue
 
     // Check if destination exists in our zone
-    const destExists = data.nodes.some(n => n.id === edge.to)
+    const destExists = data.nodes.some((n) => n.id === edge.to)
     if (!destExists) continue
 
     // Avoid duplicate edges
@@ -600,7 +624,10 @@ function buildElements(): ElementDefinition[] {
     let doorLocked = false
 
     // Check source room's exit
-    const sourceRoom = currentRoom.value?.vnum === edge.from ? currentRoom.value : currentVisitedRooms.value.get(edge.from)
+    const sourceRoom =
+      currentRoom.value?.vnum === edge.from
+        ? currentRoom.value
+        : currentVisitedRooms.value.get(edge.from)
     if (sourceRoom) {
       const exit = sourceRoom.exits[edge.direction]
       if (exit?.door) {
@@ -633,13 +660,13 @@ function getStylesheet(): cytoscape.StylesheetStyle[] {
     {
       selector: 'node',
       style: {
-        'width': NODE_SIZE,
-        'height': NODE_SIZE,
+        width: NODE_SIZE,
+        height: NODE_SIZE,
         'background-color': 'data(bgColor)',
         'border-width': 'data(borderWidth)',
         'border-color': 'data(borderColor)',
-        'shape': 'ellipse',
-        'label': '',
+        shape: 'ellipse',
+        label: '',
       },
     },
     {
@@ -652,7 +679,7 @@ function getStylesheet(): cytoscape.StylesheetStyle[] {
     {
       selector: 'edge',
       style: {
-        'width': 2,
+        width: 2,
         'line-color': '#52525b',
         'curve-style': 'bezier',
       },
@@ -783,7 +810,7 @@ function runAutoLayout() {
   const positions: Record<number, { x: number; y: number }> = {}
 
   // Check how many nodes have pre-set coordinates
-  const nodesWithCoords = data.nodes.filter(n => n.x !== undefined && n.y !== undefined)
+  const nodesWithCoords = data.nodes.filter((n) => n.x !== undefined && n.y !== undefined)
 
   // If most nodes have coordinates, use them directly
   if (nodesWithCoords.length >= data.nodes.length * 0.5) {
@@ -836,14 +863,13 @@ function runAutoLayout() {
 
   // Use a grid-based occupancy map for O(1) collision detection
   const occupiedGrid = new Set<string>()
-  const gridKey = (x: number, y: number) => `${Math.round(x / GRID_SIZE)},${Math.round(y / GRID_SIZE)}`
+  const gridKey = (x: number, y: number) =>
+    `${Math.round(x / GRID_SIZE)},${Math.round(y / GRID_SIZE)}`
 
   // Start from current room if available, otherwise first room with exits
   let startVnum: number | null = currentRoomVnum.value
-  if (!startVnum || !data.nodes.some(n => n.id === startVnum)) {
-    const roomWithExits = data.nodes.find(n =>
-      data.edges.some(e => e.from === n.id)
-    )
+  if (!startVnum || !data.nodes.some((n) => n.id === startVnum)) {
+    const roomWithExits = data.nodes.find((n) => data.edges.some((e) => e.from === n.id))
     startVnum = roomWithExits?.id ?? data.nodes[0]?.id ?? null
   }
   if (!startVnum) return
@@ -863,7 +889,7 @@ function runAutoLayout() {
     }
   }
   // Sort by distance from origin for true spiral search
-  spiralOffsets.sort((a, b) => (a.x * a.x + a.y * a.y) - (b.x * b.x + b.y * b.y))
+  spiralOffsets.sort((a, b) => a.x * a.x + a.y * a.y - (b.x * b.x + b.y * b.y))
 
   // Check if grid position is occupied
   function isOccupied(x: number, y: number): boolean {
@@ -904,10 +930,10 @@ function runAutoLayout() {
     occupiedGrid.add(gridKey(pos.x, pos.y))
 
     // Find edges from this room
-    const edges = data.edges.filter(e => e.from === current.vnum)
+    const edges = data.edges.filter((e) => e.from === current.vnum)
     for (const edge of edges) {
       if (visited[edge.to]) continue
-      if (!data.nodes.some(n => n.id === edge.to)) continue
+      if (!data.nodes.some((n) => n.id === edge.to)) continue
 
       visited[edge.to] = true
 
@@ -971,7 +997,7 @@ function updateNodeStyles() {
 
       node.data('bgColor', isVisited ? colors.bg : 'transparent')
       node.data('borderColor', isCurrent ? '#fbbf24' : colors.border)
-      node.data('borderWidth', isCurrent ? 3 : (isVisited ? 2 : 1))
+      node.data('borderWidth', isCurrent ? 3 : isVisited ? 2 : 1)
       node.data('isVisited', isVisited)
       node.data('isCurrent', isCurrent)
     })
@@ -982,7 +1008,10 @@ function updateNodeStyles() {
       const direction = edge.data('direction') as string
 
       // Check source room's exit for door info
-      const sourceRoom = currentRoom.value?.vnum === sourceVnum ? currentRoom.value : currentVisitedRooms.value.get(sourceVnum)
+      const sourceRoom =
+        currentRoom.value?.vnum === sourceVnum
+          ? currentRoom.value
+          : currentVisitedRooms.value.get(sourceVnum)
       if (sourceRoom) {
         const exit = sourceRoom.exits[direction]
         if (exit?.door) {
@@ -1016,7 +1045,10 @@ function handleZoomIn() {
   if (!cy || !containerRef.value) return
   cy.zoom({
     level: cy.zoom() * 1.25,
-    renderedPosition: { x: containerRef.value.clientWidth / 2, y: containerRef.value.clientHeight / 2 },
+    renderedPosition: {
+      x: containerRef.value.clientWidth / 2,
+      y: containerRef.value.clientHeight / 2,
+    },
   })
 }
 
@@ -1025,7 +1057,10 @@ function handleZoomOut() {
   if (!cy || !containerRef.value) return
   cy.zoom({
     level: cy.zoom() * 0.8,
-    renderedPosition: { x: containerRef.value.clientWidth / 2, y: containerRef.value.clientHeight / 2 },
+    renderedPosition: {
+      x: containerRef.value.clientWidth / 2,
+      y: containerRef.value.clientHeight / 2,
+    },
   })
 }
 
@@ -1060,16 +1095,24 @@ function toggleShowAllFloors() {
 const asciiMapFontSize = computed(() => `${12 * asciiMapZoom.value}px`)
 
 // Watch for zone changes
-watch(currentZoneNum, (newZone) => {
-  if (newZone !== null) {
-    fetchZoneMap(newZone)
-  }
-}, { immediate: true })
+watch(
+  currentZoneNum,
+  (newZone) => {
+    if (newZone !== null) {
+      fetchZoneMap(newZone)
+    }
+  },
+  { immediate: true },
+)
 
 // Watch for visited rooms changes to update styles
-watch(visitedVnums, () => {
-  updateNodeStyles()
-}, { deep: true })
+watch(
+  visitedVnums,
+  () => {
+    updateNodeStyles()
+  },
+  { deep: true },
+)
 
 // Watch for current room changes to update highlight and center
 watch(currentRoomVnum, () => {
@@ -1079,18 +1122,34 @@ watch(currentRoomVnum, () => {
 })
 
 // Watch for combat - cancel speedwalk when fighting starts (only in non-standalone mode)
-watch(() => store.isFighting, (fighting) => {
-  if (!props.standalone && fighting && store.isSpeedwalking) {
-    stopSpeedwalk('Combat started, speedwalk cancelled.')
-  }
-})
+watch(
+  () => store.isFighting,
+  (fighting) => {
+    if (!props.standalone && fighting && store.isSpeedwalking) {
+      stopSpeedwalk('Combat started, speedwalk cancelled.')
+    }
+  },
+)
 
 // Broadcast sync to pop-out windows when map data changes (only in non-standalone mode)
 if (!props.standalone) {
-  watch(() => store.room, () => sendSync())
-  watch(() => store.visitedRooms, () => sendSync(), { deep: true })
-  watch(() => store.wildernessMap, () => sendSync())
-  watch(() => store.currentZoneNumber, () => sendSync())
+  watch(
+    () => store.room,
+    () => sendSync(),
+  )
+  watch(
+    () => store.visitedRooms,
+    () => sendSync(),
+    { deep: true },
+  )
+  watch(
+    () => store.wildernessMap,
+    () => sendSync(),
+  )
+  watch(
+    () => store.currentZoneNumber,
+    () => sendSync(),
+  )
 }
 
 // Lifecycle

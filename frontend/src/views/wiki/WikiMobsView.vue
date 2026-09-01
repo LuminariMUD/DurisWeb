@@ -5,7 +5,13 @@ import { useDebounceFn } from '@vueuse/core'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Command,
@@ -15,11 +21,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Table,
   TableBody,
@@ -33,7 +35,18 @@ import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vu
 import AnsiText from '@/components/ui/AnsiText.vue'
 import { wikiApi } from '@/services/api'
 import type { WikiMob, WikiMobFilters, WikiMobClass, WikiMobRace, WikiActFlag } from '@/types'
-import { Search, SortAsc, SortDesc, X, Info, Check, ChevronsUpDown, Filter, ChevronDown, ChevronUp } from 'lucide-vue-next'
+import {
+  Search,
+  SortAsc,
+  SortDesc,
+  X,
+  Info,
+  Check,
+  ChevronsUpDown,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-vue-next'
 
 const router = useRouter()
 
@@ -192,7 +205,11 @@ async function loadMoreZones() {
   if (zoneSearchLoading.value || !zoneHasMore.value) return
   zoneSearchLoading.value = true
   try {
-    const result = await wikiApi.searchZones(zoneSearchQuery.value, ZONE_PAGE_SIZE, zoneOffset.value)
+    const result = await wikiApi.searchZones(
+      zoneSearchQuery.value,
+      ZONE_PAGE_SIZE,
+      zoneOffset.value,
+    )
     zoneSearchResults.value = [...zoneSearchResults.value, ...result.zones]
     zoneHasMore.value = result.hasMore
     zoneOffset.value += result.zones.length
@@ -237,7 +254,13 @@ async function loadMobs(isInitial = false) {
     } else {
       tableLoading.value = true
     }
-    const result = await wikiApi.getMobs(filters.value, currentPage.value, limit, sortBy.value, sortOrder.value)
+    const result = await wikiApi.getMobs(
+      filters.value,
+      currentPage.value,
+      limit,
+      sortBy.value,
+      sortOrder.value,
+    )
     mobs.value = result.mobs
     total.value = result.total
     totalPages.value = result.totalPages
@@ -256,10 +279,13 @@ const debouncedSearch = useDebounceFn(() => {
 }, 300)
 
 // Watch for filter changes
-watch([selectedClass, selectedRace, selectedFlag, selectedZone, minLevel, maxLevel, alignmentFilter], () => {
-  currentPage.value = 1
-  loadMobs()
-})
+watch(
+  [selectedClass, selectedRace, selectedFlag, selectedZone, minLevel, maxLevel, alignmentFilter],
+  () => {
+    currentPage.value = 1
+    loadMobs()
+  },
+)
 
 // Handle search input
 watch(search, () => {
@@ -307,7 +333,8 @@ function clearFilters() {
 
 // Check if any filters are active
 const hasActiveFilters = computed(() => {
-  return search.value ||
+  return (
+    search.value ||
     selectedClass.value ||
     selectedRace.value ||
     selectedFlag.value ||
@@ -315,6 +342,7 @@ const hasActiveFilters = computed(() => {
     minLevel.value ||
     maxLevel.value ||
     (alignmentFilter.value && alignmentFilter.value !== 'all')
+  )
 })
 
 // Get alignment badge variant

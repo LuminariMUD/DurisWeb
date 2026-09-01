@@ -44,7 +44,7 @@ onUnmounted(() => {
 })
 
 const affectsWithTime = computed(() => {
-  return affects.value.map(affect => {
+  return affects.value.map((affect) => {
     let remaining = affect.duration
     if (affect.receivedAt) {
       const elapsed = Math.floor((now.value - affect.receivedAt) / 1000)
@@ -53,7 +53,8 @@ const affectsWithTime = computed(() => {
     return {
       ...affect,
       remaining,
-      percent: affect.duration > 0 ? Math.min(100, Math.max(0, (remaining / affect.duration) * 100)) : 0,
+      percent:
+        affect.duration > 0 ? Math.min(100, Math.max(0, (remaining / affect.duration) * 100)) : 0,
     }
   })
 })

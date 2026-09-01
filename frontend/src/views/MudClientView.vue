@@ -16,9 +16,27 @@ import MudReconnectDialog from '@/components/mud/MudReconnectDialog.vue'
 import CopyoverBanner from '@/components/mud/CopyoverBanner.vue'
 import { Loader2, WifiOff, RefreshCw, AlertCircle } from 'lucide-vue-next'
 
-type ClientState = 'connecting' | 'auto_login' | 'login' | 'character_select' | 'character_create' | 'in_game' | 'disconnected' | 'error'
+type ClientState =
+  | 'connecting'
+  | 'auto_login'
+  | 'login'
+  | 'character_select'
+  | 'character_create'
+  | 'in_game'
+  | 'disconnected'
+  | 'error'
 
-const { connect, disconnect, requestChargenOptions, rollStats, addBonus, swapStats, getHometowns, validateName, createCharacter } = useMudConnection()
+const {
+  connect,
+  disconnect,
+  requestChargenOptions,
+  rollStats,
+  addBonus,
+  swapStats,
+  getHometowns,
+  validateName,
+  createCharacter,
+} = useMudConnection()
 const store = useMudStore()
 const { accountName: webAccountName } = useAuth()
 const { isOffline, onOnline } = useOfflineStatus()
@@ -34,11 +52,14 @@ onOnline(() => {
 const isCreatingCharacter = ref(false)
 
 // Reset character creation mode when entering the game
-watch(() => store.connectionState, (newState) => {
-  if (newState === 'in_game') {
-    isCreatingCharacter.value = false
-  }
-})
+watch(
+  () => store.connectionState,
+  (newState) => {
+    if (newState === 'in_game') {
+      isCreatingCharacter.value = false
+    }
+  },
+)
 
 const clientState = computed<ClientState>(() => {
   // During copyover, maintain the current view (don't switch to login)
@@ -137,18 +158,18 @@ const handleChargenCreate = (data: {
   newbie?: boolean
 }) => {
   console.log('[MudClient] handleChargenCreate received:', data)
-  const race = store.chargenRaces.find(r => r.id === data.race)
+  const race = store.chargenRaces.find((r) => r.id === data.race)
   console.log('[MudClient] Found race:', race)
   if (race) {
     createCharacter(
       data.name,
-      data.race,  // Send ID, not name
+      data.race, // Send ID, not name
       data.class, // Send ID, not name
       data.sex,
       data.alignment || (race.faction === 'good' ? 'good' : 'evil'),
       data.hometown,
       data.hardcore,
-      data.newbie
+      data.newbie,
     )
   } else {
     console.error('[MudClient] Race not found in chargenRaces:', store.chargenRaces)

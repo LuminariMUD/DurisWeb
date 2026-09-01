@@ -8,12 +8,7 @@
  */
 
 /** Transport family a hook travels over. Each has its own trust boundary. */
-export type HookChannel =
-  | 'bridge'
-  | 'pubsub'
-  | 'flatfile'
-  | 'process'
-  | 'terminal';
+export type HookChannel = 'bridge' | 'pubsub' | 'flatfile' | 'process' | 'terminal';
 
 /** Which system initiates the flow. */
 export type HookDirection = 'mud_to_web' | 'web_to_mud';

@@ -125,14 +125,17 @@ describe('hook control route boundary', () => {
     expect(response.body).not.toHaveProperty('url');
   });
 
-  it.each([undefined, null, 1, 'true'])('rejects a non-boolean reconcile value: %p', async (enabled) => {
-    const response = await request(app)
-      .post('/api/hooks/auction_new/reconcile')
-      .send(enabled === undefined ? {} : { enabled });
+  it.each([undefined, null, 1, 'true'])(
+    'rejects a non-boolean reconcile value: %p',
+    async (enabled) => {
+      const response = await request(app)
+        .post('/api/hooks/auction_new/reconcile')
+        .send(enabled === undefined ? {} : { enabled });
 
-    expect(response.status).toBe(400);
-    expect(reconcileHook).not.toHaveBeenCalled();
-  });
+      expect(response.status).toBe(400);
+      expect(reconcileHook).not.toHaveBeenCalled();
+    },
+  );
 
   it('passes the authenticated actor to a valid reconcile request', async () => {
     const response = await request(app)

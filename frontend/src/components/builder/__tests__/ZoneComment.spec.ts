@@ -18,7 +18,8 @@ describe('ZoneComment content safety', () => {
           accountName: 'Cwial',
           characterName: null,
           content: 'hello',
-          contentHtml: '<p>hello <strong>Duris</strong></p><script>alert(1)</script><img src="x" onerror="alert(2)">',
+          contentHtml:
+            '<p>hello <strong>Duris</strong></p><script>alert(1)</script><img src="x" onerror="alert(2)">',
           createdAt: '2026-08-28T00:00:00.000Z',
           updatedAt: '2026-08-28T00:00:00.000Z',
         },

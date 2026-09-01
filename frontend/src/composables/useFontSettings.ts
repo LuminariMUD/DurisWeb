@@ -108,7 +108,7 @@ export function useFontSettings() {
       () => {
         saveSettings()
       },
-      { deep: true }
+      { deep: true },
     )
   }
 

@@ -83,9 +83,12 @@ onMounted(() => {
   loadObject()
 })
 
-watch(() => props.vnum, () => {
-  loadObject()
-})
+watch(
+  () => props.vnum,
+  () => {
+    loadObject()
+  },
+)
 </script>
 
 <template>

@@ -31,12 +31,7 @@ export type MudHookState =
  * Only `on` is active. The other four are all inactive - fail closed - but stay
  * distinguishable so the console can explain why a hook is not running.
  */
-export type EffectiveHookState =
-  | 'on'
-  | 'off'
-  | 'mismatch'
-  | 'unknown'
-  | 'unavailable';
+export type EffectiveHookState = 'on' | 'off' | 'mismatch' | 'unknown' | 'unavailable';
 
 export interface HookStateInputs {
   readonly hook: HookDefinition;
@@ -90,18 +85,10 @@ export function resolveHookState(inputs: HookStateInputs): ResolvedHookState {
     case 'disabled':
       // Both ends were reachable and they disagree. This is the state the
       // console must never render as a plain "off".
-      return resolved(
-        'mismatch',
-        false,
-        'Enabled on the website but disabled on the MUD.',
-      );
+      return resolved('mismatch', false, 'Enabled on the website but disabled on the MUD.');
 
     case 'not_gated':
-      return resolved(
-        'on',
-        true,
-        'Enabled on the website; this hook has no MUD-side gate.',
-      );
+      return resolved('on', true, 'Enabled on the website; this hook has no MUD-side gate.');
 
     case 'unknown':
       return resolved(
@@ -122,11 +109,7 @@ export function resolveHookState(inputs: HookStateInputs): ResolvedHookState {
       // not updated, this fails to compile rather than silently activating a
       // hook whose state nobody has reasoned about.
       const unreachable: never = mudState;
-      return resolved(
-        'unknown',
-        false,
-        `Unrecognised MUD state: ${String(unreachable)}`,
-      );
+      return resolved('unknown', false, `Unrecognised MUD state: ${String(unreachable)}`);
     }
   }
 }

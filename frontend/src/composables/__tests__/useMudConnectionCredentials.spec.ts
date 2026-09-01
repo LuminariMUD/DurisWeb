@@ -2,25 +2,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { mount, type VueWrapper } from '@vue/test-utils'
 
-const { store, storeMudCredentials, clearMudCredentials, getMudCredentials, sockets } = vi.hoisted(() => ({
-  store: {
-    copyoverInProgress: false,
-    copyoverCharacterName: null,
-    chargenLoading: false,
-    setConnectionState: vi.fn(),
-    setAccount: vi.fn(),
-    clearCopyoverState: vi.fn(),
-    setCharacter: vi.fn(),
-    setLatency: vi.fn(),
-    reset: vi.fn(),
-    openReconnectDialog: vi.fn(),
-    addLogEntry: vi.fn(),
-  },
-  storeMudCredentials: vi.fn(),
-  clearMudCredentials: vi.fn(),
-  getMudCredentials: vi.fn(() => null),
-  sockets: [] as FakeSocket[],
-}))
+const { store, storeMudCredentials, clearMudCredentials, getMudCredentials, sockets } = vi.hoisted(
+  () => ({
+    store: {
+      copyoverInProgress: false,
+      copyoverCharacterName: null,
+      chargenLoading: false,
+      setConnectionState: vi.fn(),
+      setAccount: vi.fn(),
+      clearCopyoverState: vi.fn(),
+      setCharacter: vi.fn(),
+      setLatency: vi.fn(),
+      reset: vi.fn(),
+      openReconnectDialog: vi.fn(),
+      addLogEntry: vi.fn(),
+    },
+    storeMudCredentials: vi.fn(),
+    clearMudCredentials: vi.fn(),
+    getMudCredentials: vi.fn(() => null),
+    sockets: [] as FakeSocket[],
+  }),
+)
 
 class FakeSocket {
   static OPEN = 1

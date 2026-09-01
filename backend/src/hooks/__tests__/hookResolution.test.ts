@@ -19,17 +19,17 @@ const alwaysOn: HookDefinition = requireHook('terminal');
 
 describe('hook resolution: the full state matrix', () => {
   it.each`
-    webEnabled | mudState          | effective         | active
-    ${true}    | ${'enabled'}      | ${'on'}           | ${true}
-    ${true}    | ${'disabled'}     | ${'mismatch'}     | ${false}
-    ${true}    | ${'not_gated'}    | ${'on'}           | ${true}
-    ${true}    | ${'unknown'}      | ${'unknown'}      | ${false}
-    ${true}    | ${'unavailable'}  | ${'unavailable'}  | ${false}
-    ${false}   | ${'enabled'}      | ${'off'}          | ${false}
-    ${false}   | ${'disabled'}     | ${'off'}          | ${false}
-    ${false}   | ${'not_gated'}    | ${'off'}          | ${false}
-    ${false}   | ${'unknown'}      | ${'off'}          | ${false}
-    ${false}   | ${'unavailable'}  | ${'off'}          | ${false}
+    webEnabled | mudState         | effective        | active
+    ${true}    | ${'enabled'}     | ${'on'}          | ${true}
+    ${true}    | ${'disabled'}    | ${'mismatch'}    | ${false}
+    ${true}    | ${'not_gated'}   | ${'on'}          | ${true}
+    ${true}    | ${'unknown'}     | ${'unknown'}     | ${false}
+    ${true}    | ${'unavailable'} | ${'unavailable'} | ${false}
+    ${false}   | ${'enabled'}     | ${'off'}         | ${false}
+    ${false}   | ${'disabled'}    | ${'off'}         | ${false}
+    ${false}   | ${'not_gated'}   | ${'off'}         | ${false}
+    ${false}   | ${'unknown'}     | ${'off'}         | ${false}
+    ${false}   | ${'unavailable'} | ${'off'}         | ${false}
   `(
     'web=$webEnabled mud=$mudState -> $effective (active=$active)',
     ({ webEnabled, mudState, effective, active }) => {
@@ -82,8 +82,7 @@ describe('fail-closed guarantees', () => {
 
   it('keeps unknown and unavailable distinguishable from each other and from off', () => {
     const states = MUD_STATES.map(
-      (mudState) =>
-        resolveHookState({ hook: gated, webEnabled: true, mudState }).effective,
+      (mudState) => resolveHookState({ hook: gated, webEnabled: true, mudState }).effective,
     );
     expect(new Set(states).size).toBe(4);
   });
@@ -101,9 +100,7 @@ describe('hooks with no MUD-side gate', () => {
   });
 
   it('still turns off when the website disables it', () => {
-    expect(
-      isHookActive({ hook: ungated, webEnabled: false, mudState: 'not_gated' }),
-    ).toBe(false);
+    expect(isHookActive({ hook: ungated, webEnabled: false, mudState: 'not_gated' })).toBe(false);
   });
 });
 
@@ -127,9 +124,7 @@ describe('every registered hook resolves', () => {
           const result = resolveHookState({ hook, webEnabled, mudState });
           expect(typeof result.active).toBe('boolean');
           expect(result.reason.length).toBeGreaterThan(0);
-          expect(['on', 'off', 'mismatch', 'unknown', 'unavailable']).toContain(
-            result.effective,
-          );
+          expect(['on', 'off', 'mismatch', 'unknown', 'unavailable']).toContain(result.effective);
         }
       }
     }

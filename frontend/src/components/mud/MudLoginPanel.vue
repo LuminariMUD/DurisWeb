@@ -108,11 +108,15 @@ const handleRegister = () => {
 }
 
 // Watch for successful authentication
-watch(() => store.isAuthenticated, (isAuth) => {
-  if (isAuth) {
-    emit('authenticated')
-  }
-}, { immediate: true })
+watch(
+  () => store.isAuthenticated,
+  (isAuth) => {
+    if (isAuth) {
+      emit('authenticated')
+    }
+  },
+  { immediate: true },
+)
 
 // Auto-login if we have stored credentials
 onMounted(async () => {
@@ -139,7 +143,7 @@ onMounted(async () => {
     // This ensures the WebSocket message queue is flushed
     await nextTick()
     // Small delay to ensure MUD's WebSocket handler is ready after sending welcome
-    await new Promise(resolve => setTimeout(resolve, 50))
+    await new Promise((resolve) => setTimeout(resolve, 50))
     login(creds.account, creds.password)
   } else if (isWebAuthenticated.value && webAccountName.value) {
     loginAccount.value = webAccountName.value

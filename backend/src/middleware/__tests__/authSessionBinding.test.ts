@@ -6,11 +6,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import { pool } from '../../db/connection.js';
 import redis from '../../db/redis.js';
-import {
-  generateAccessToken,
-  requireAuth,
-  verifyToken,
-} from '../auth.js';
+import { generateAccessToken, requireAuth, verifyToken } from '../auth.js';
 
 describe('session-bound access tokens', () => {
   const accountName = 'Cwial';
@@ -18,17 +14,17 @@ describe('session-bound access tokens', () => {
   const refreshToken = `binding-refresh-${crypto.randomBytes(24).toString('hex')}`;
 
   beforeAll(async () => {
-    const [accounts] = await pool.query(
+    const [accounts] = (await pool.query(
       'SELECT account_name FROM accounts WHERE LOWER(account_name) = LOWER(?) LIMIT 1',
-      [accountName]
-    ) as any;
+      [accountName],
+    )) as any;
     if (accounts.length === 0) {
       throw new Error('Cwial account is required for the local auth fixture');
     }
 
     await pool.query(
       'INSERT INTO web_sessions (id, account_name, refresh_token, expires_at) VALUES (?, ?, ?, ?)',
-      [sessionId, accountName, refreshToken, new Date(Date.now() + 5 * 60 * 1000)]
+      [sessionId, accountName, refreshToken, new Date(Date.now() + 5 * 60 * 1000)],
     );
   });
 
@@ -47,13 +43,18 @@ describe('session-bound access tokens', () => {
     const legacyToken = jwt.sign(
       { accountName, email: 'fixture@example.invalid' },
       process.env.JWT_SECRET!,
-      { expiresIn: '30d' }
+      { expiresIn: '30d' },
     );
     let statusCode = 0;
     let nextCalled = false;
     const response = {
-      status(code: number) { statusCode = code; return this; },
-      json(_body: unknown) { return this; },
+      status(code: number) {
+        statusCode = code;
+        return this;
+      },
+      json(_body: unknown) {
+        return this;
+      },
     };
     const request = {
       cookies: {
@@ -62,7 +63,9 @@ describe('session-bound access tokens', () => {
       },
     };
 
-    await requireAuth(request as any, response as any, () => { nextCalled = true; });
+    await requireAuth(request as any, response as any, () => {
+      nextCalled = true;
+    });
 
     expect(statusCode).toBe(401);
     expect(nextCalled).toBe(false);

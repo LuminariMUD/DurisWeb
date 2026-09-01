@@ -33,59 +33,118 @@ jest.unstable_mockModule('../../utils/logger.js', () => ({
 jest.unstable_mockModule('../../services/unifiedNotificationService.js', () => ({
   createNotification: asyncMock(),
 }));
-jest.unstable_mockModule('../../services/forumSettingsService.js', () => namedService([
-  'getForumSettings', 'updateForumSetting', 'getCategoryPermissions',
-  'updateCategoryPermissions', 'getPermissionAuditLog',
-]));
-jest.unstable_mockModule('../../services/webSettingsService.js', () => namedService([
-  'getWebSettingsRaw', 'updateWebSetting', 'uploadSiteLogo', 'deleteSiteLogo',
-  'validateLogoFile', 'uploadHeroImage', 'deleteHeroImage', 'validateHeroFile',
-]));
-jest.unstable_mockModule('../../services/categoryService.js', () => namedService([
-  'getAllCategoriesAdmin', 'getCategoryByIdAdmin', 'createCategory', 'updateCategory',
-  'archiveCategory', 'restoreCategory', 'deleteCategoryPermanent', 'reorderCategories',
-  'addPermission', 'removePermission', 'getCategoryPermissions', 'getArchivedCategories',
-]));
-jest.unstable_mockModule('../../services/forumService.js', () => namedService([
-  'getDeletedThreads', 'getDeletedPosts',
-]));
-jest.unstable_mockModule('../../services/analyticsService.js', () => namedService([
-  'getOverviewStats', 'getForumStats', 'getPvPStats', 'getPlayerStats',
-  'getPlayerActivity', 'getWhoList',
-]));
-jest.unstable_mockModule('../../services/serverMonitor.js', () => ({ getServerHealth: asyncMock() }));
-jest.unstable_mockModule('../../services/statisticsParser.js', () => ({ getPeakPlayerCount: asyncMock() }));
-jest.unstable_mockModule('../../services/processMonitor.js', () => ({ getDmsProcessStats: asyncMock() }));
-jest.unstable_mockModule('../../services/mudControlService.js', () => ({ getMudState: asyncMock() }));
-jest.unstable_mockModule('../../services/logService.js', () => namedService([
-  'listLogs', 'readLogPaginated', 'tailLog', 'getLogFilePath',
-]));
+jest.unstable_mockModule('../../services/forumSettingsService.js', () =>
+  namedService([
+    'getForumSettings',
+    'updateForumSetting',
+    'getCategoryPermissions',
+    'updateCategoryPermissions',
+    'getPermissionAuditLog',
+  ]),
+);
+jest.unstable_mockModule('../../services/webSettingsService.js', () =>
+  namedService([
+    'getWebSettingsRaw',
+    'updateWebSetting',
+    'uploadSiteLogo',
+    'deleteSiteLogo',
+    'validateLogoFile',
+    'uploadHeroImage',
+    'deleteHeroImage',
+    'validateHeroFile',
+  ]),
+);
+jest.unstable_mockModule('../../services/categoryService.js', () =>
+  namedService([
+    'getAllCategoriesAdmin',
+    'getCategoryByIdAdmin',
+    'createCategory',
+    'updateCategory',
+    'archiveCategory',
+    'restoreCategory',
+    'deleteCategoryPermanent',
+    'reorderCategories',
+    'addPermission',
+    'removePermission',
+    'getCategoryPermissions',
+    'getArchivedCategories',
+  ]),
+);
+jest.unstable_mockModule('../../services/forumService.js', () =>
+  namedService(['getDeletedThreads', 'getDeletedPosts']),
+);
+jest.unstable_mockModule('../../services/analyticsService.js', () =>
+  namedService([
+    'getOverviewStats',
+    'getForumStats',
+    'getPvPStats',
+    'getPlayerStats',
+    'getPlayerActivity',
+    'getWhoList',
+  ]),
+);
+jest.unstable_mockModule('../../services/serverMonitor.js', () => ({
+  getServerHealth: asyncMock(),
+}));
+jest.unstable_mockModule('../../services/statisticsParser.js', () => ({
+  getPeakPlayerCount: asyncMock(),
+}));
+jest.unstable_mockModule('../../services/processMonitor.js', () => ({
+  getDmsProcessStats: asyncMock(),
+}));
+jest.unstable_mockModule('../../services/mudControlService.js', () => ({
+  getMudState: asyncMock(),
+}));
+jest.unstable_mockModule('../../services/logService.js', () =>
+  namedService(['listLogs', 'readLogPaginated', 'tailLog', 'getLogFilePath']),
+);
 jest.unstable_mockModule('../../db/connection.js', () => ({
   pool: { query: poolQuery, execute: poolQuery },
 }));
-jest.unstable_mockModule('../../services/mudAuctionClient.js', () => namedService([
-  'requestWhoList', 'isMudConnected', 'getMudBootTime',
-]));
+jest.unstable_mockModule('../../services/mudAuctionClient.js', () =>
+  namedService(['requestWhoList', 'isMudConnected', 'getMudBootTime']),
+);
 jest.unstable_mockModule('../../services/onlinePlayersService.js', () => ({
   getOnlinePlayers: asyncMock(),
 }));
-jest.unstable_mockModule('../../services/propertiesParser.js', () => namedService([
-  'getCategorizedProperties', 'searchProperties', 'updateProperty',
-  'validatePropertyValue', 'getPropertyHistory',
-]));
-jest.unstable_mockModule('../../services/backupService.js', () => namedService([
-  'createBackup', 'getBackupList', 'getBackupById', 'getBackupFilePath', 'deleteBackup',
-  'deleteFailedBackups', 'listBackupContents', 'createRestore', 'getRestoreById',
-  'getRestoreList', 'isMudRunning', 'validateUploadedBackup', 'createRestoreFromUpload',
-  'deleteUploadedBackup',
-]));
-jest.unstable_mockModule('../../services/mudTimeService.js', () => namedService([
-  'getCurrentMudTime', 'formatMudTime', 'getMudTimeDescription',
-]));
+jest.unstable_mockModule('../../services/propertiesParser.js', () =>
+  namedService([
+    'getCategorizedProperties',
+    'searchProperties',
+    'updateProperty',
+    'validatePropertyValue',
+    'getPropertyHistory',
+  ]),
+);
+jest.unstable_mockModule('../../services/backupService.js', () =>
+  namedService([
+    'createBackup',
+    'getBackupList',
+    'getBackupById',
+    'getBackupFilePath',
+    'deleteBackup',
+    'deleteFailedBackups',
+    'listBackupContents',
+    'createRestore',
+    'getRestoreById',
+    'getRestoreList',
+    'isMudRunning',
+    'validateUploadedBackup',
+    'createRestoreFromUpload',
+    'deleteUploadedBackup',
+  ]),
+);
+jest.unstable_mockModule('../../services/mudTimeService.js', () =>
+  namedService(['getCurrentMudTime', 'formatMudTime', 'getMudTimeDescription']),
+);
 jest.unstable_mockModule('../../services/adminPermissionService.js', () => ({
   ...namedService([
-    'getAllPermissions', 'getAllRoles', 'getRoleById',
-    'deleteRole', 'getAccountPermissions', 'getUserPermissions',
+    'getAllPermissions',
+    'getAllRoles',
+    'getRoleById',
+    'deleteRole',
+    'getAccountPermissions',
+    'getUserPermissions',
   ]),
   createRole,
   updateRole,
@@ -110,10 +169,17 @@ jest.unstable_mockModule('../../utils/incidentValidation.js', () => ({
   validateCreateIncidentBody: jest.fn(),
   validateUpdateIncidentBody: jest.fn(),
 }));
-jest.unstable_mockModule('../../services/dupeDetectionService.js', () => namedService([
-  'getDupedItems', 'getDupeDetails', 'getDupeSummary', 'deletePlayerItem',
-  'deleteLockerItem', 'deletePlayerItems', 'deleteAllDupesForUid',
-]));
+jest.unstable_mockModule('../../services/dupeDetectionService.js', () =>
+  namedService([
+    'getDupedItems',
+    'getDupeDetails',
+    'getDupeSummary',
+    'deletePlayerItem',
+    'deleteLockerItem',
+    'deletePlayerItems',
+    'deleteAllDupesForUid',
+  ]),
+);
 jest.unstable_mockModule('../../services/discordService.js', () => ({
   testWebhook: asyncMock(),
   manualPostBattle: asyncMock(),
@@ -144,13 +210,13 @@ describe('admin account permission ID validation', () => {
     const roleGrant = await request(app)
       .post('/api/admin/accounts/Target/roles')
       .send({ roleId: '12abc' });
-    const roleRevoke = await request(app)
-      .delete('/api/admin/accounts/Target/roles/12abc');
+    const roleRevoke = await request(app).delete('/api/admin/accounts/Target/roles/12abc');
     const permissionGrant = await request(app)
       .post('/api/admin/accounts/Target/permissions')
       .send({ permissionId: '12abc' });
-    const permissionRevoke = await request(app)
-      .delete('/api/admin/accounts/Target/permissions/12abc');
+    const permissionRevoke = await request(app).delete(
+      '/api/admin/accounts/Target/permissions/12abc',
+    );
 
     expect(roleGrant.status).toBe(400);
     expect(roleRevoke.status).toBe(400);

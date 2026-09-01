@@ -30,7 +30,9 @@ function status(
 function dependencies(overrides: Partial<ReconcileDependencies> = {}): ReconcileDependencies {
   return {
     getStatus: jest.fn(async () => status('auction_new', true, 'enabled')),
-    setEnabled: jest.fn(async (id: string, enabled: boolean, _actor: string) => status(id, enabled, 'not_gated')),
+    setEnabled: jest.fn(async (id: string, enabled: boolean, _actor: string) =>
+      status(id, enabled, 'not_gated'),
+    ),
     sendMudCommand: jest.fn(async (_command: string, _data: any) => ({ success: true })),
     now: jest.fn(() => 0),
     sleep: jest.fn(async () => undefined),
@@ -44,9 +46,11 @@ describe('hook reconciliation ordering', () => {
     const events: string[] = [];
     let reads = 0;
     const deps = dependencies({
-      getStatus: jest.fn(async () => reads++ === 0
-        ? status('auction_new', true, 'enabled')
-        : status('auction_new', false, 'disabled')),
+      getStatus: jest.fn(async () =>
+        reads++ === 0
+          ? status('auction_new', true, 'enabled')
+          : status('auction_new', false, 'disabled'),
+      ),
       setEnabled: jest.fn(async (id: string, enabled: boolean, _actor: string) => {
         events.push(`web:${enabled}`);
         return status(id, enabled, 'enabled');
@@ -66,9 +70,11 @@ describe('hook reconciliation ordering', () => {
     const events: string[] = [];
     let reads = 0;
     const deps = dependencies({
-      getStatus: jest.fn(async () => reads++ === 0
-        ? status('auction_new', true, 'disabled')
-        : status('auction_new', false, 'enabled')),
+      getStatus: jest.fn(async () =>
+        reads++ === 0
+          ? status('auction_new', true, 'disabled')
+          : status('auction_new', false, 'enabled'),
+      ),
       setEnabled: jest.fn(async (id: string, enabled: boolean, _actor: string) => {
         events.push(`web:${enabled}`);
         return status(id, enabled, enabled ? 'enabled' : 'disabled');
@@ -100,7 +106,9 @@ describe('hook reconciliation ordering', () => {
     const deps = dependencies({
       getStatus: jest.fn(async () => status('auction_new', false, 'unknown')),
       now: jest.fn(() => clock),
-      sleep: jest.fn(async (milliseconds: number) => { clock += milliseconds; }),
+      sleep: jest.fn(async (milliseconds: number) => {
+        clock += milliseconds;
+      }),
       observationTimeoutMs: 1,
     });
 

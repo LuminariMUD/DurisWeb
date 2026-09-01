@@ -29,7 +29,7 @@ export function errorHandler(
   err: ApiError,
   req: Request,
   res: Response,
-  _next: NextFunction
+  _next: NextFunction,
 ): void {
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal Server Error';
@@ -57,11 +57,7 @@ export function errorHandler(
 /**
  * 404 Not Found handler
  */
-export function notFoundHandler(
-  req: Request,
-  _res: Response,
-  next: NextFunction
-): void {
+export function notFoundHandler(req: Request, _res: Response, next: NextFunction): void {
   const error = new AppError(`Route ${req.originalUrl} not found`, 404);
   next(error);
 }
@@ -70,7 +66,7 @@ export function notFoundHandler(
  * Async error wrapper - catches errors in async route handlers
  */
 export function asyncHandler(
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>,
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);

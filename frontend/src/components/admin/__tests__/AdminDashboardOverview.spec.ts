@@ -94,9 +94,12 @@ describe('AdminDashboardOverview', () => {
     whoListLoading.value = false
     isConnected.value = true
     vi.clearAllMocks()
-    vi.stubGlobal('fetch', vi.fn(async () => ({
-      json: async () => ({ bootTime: null }),
-    })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        json: async () => ({ bootTime: null }),
+      })),
+    )
   })
 
   afterEach(() => {

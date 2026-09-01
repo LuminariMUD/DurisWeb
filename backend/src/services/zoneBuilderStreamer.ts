@@ -60,10 +60,7 @@ async function buildGlobalLookups(): Promise<{
   const wldDir = resolveSafeZoneDirectoryPath(AREAS_DIR, 'wld');
 
   // Helper to extract vnum and short desc from a file using streaming
-  const extractShortDescs = async (
-    filePath: string,
-    map: Map<number, string>
-  ): Promise<void> => {
+  const extractShortDescs = async (filePath: string, map: Map<number, string>): Promise<void> => {
     if (!(await fileExists(filePath))) return;
 
     return new Promise((resolve, reject) => {
@@ -114,10 +111,7 @@ async function buildGlobalLookups(): Promise<{
   };
 
   // Helper to extract room names from .wld files
-  const extractRoomNames = async (
-    filePath: string,
-    map: Map<number, string>
-  ): Promise<void> => {
+  const extractRoomNames = async (filePath: string, map: Map<number, string>): Promise<void> => {
     if (!(await fileExists(filePath))) return;
 
     return new Promise((resolve, reject) => {
@@ -169,21 +163,27 @@ async function buildGlobalLookups(): Promise<{
     const batchSize = 20;
 
     // Process mob files
-    const mobPaths = mobFiles.filter(f => f.endsWith('.mob')).map(f => resolveSafeZoneFilePath(AREAS_DIR, f.slice(0, -4), 'mob'));
+    const mobPaths = mobFiles
+      .filter((f) => f.endsWith('.mob'))
+      .map((f) => resolveSafeZoneFilePath(AREAS_DIR, f.slice(0, -4), 'mob'));
     for (let i = 0; i < mobPaths.length; i += batchSize) {
-      await Promise.all(mobPaths.slice(i, i + batchSize).map(p => extractShortDescs(p, mobMap)));
+      await Promise.all(mobPaths.slice(i, i + batchSize).map((p) => extractShortDescs(p, mobMap)));
     }
 
     // Process obj files
-    const objPaths = objFiles.filter(f => f.endsWith('.obj')).map(f => resolveSafeZoneFilePath(AREAS_DIR, f.slice(0, -4), 'obj'));
+    const objPaths = objFiles
+      .filter((f) => f.endsWith('.obj'))
+      .map((f) => resolveSafeZoneFilePath(AREAS_DIR, f.slice(0, -4), 'obj'));
     for (let i = 0; i < objPaths.length; i += batchSize) {
-      await Promise.all(objPaths.slice(i, i + batchSize).map(p => extractShortDescs(p, objMap)));
+      await Promise.all(objPaths.slice(i, i + batchSize).map((p) => extractShortDescs(p, objMap)));
     }
 
     // Process wld files
-    const wldPaths = wldFiles.filter(f => f.endsWith('.wld')).map(f => resolveSafeZoneFilePath(AREAS_DIR, f.slice(0, -4), 'wld'));
+    const wldPaths = wldFiles
+      .filter((f) => f.endsWith('.wld'))
+      .map((f) => resolveSafeZoneFilePath(AREAS_DIR, f.slice(0, -4), 'wld'));
     for (let i = 0; i < wldPaths.length; i += batchSize) {
-      await Promise.all(wldPaths.slice(i, i + batchSize).map(p => extractRoomNames(p, roomMap)));
+      await Promise.all(wldPaths.slice(i, i + batchSize).map((p) => extractRoomNames(p, roomMap)));
     }
 
     // Cache the results in Redis
@@ -193,7 +193,9 @@ async function buildGlobalLookups(): Promise<{
       setCache(REDIS_KEY_GLOBAL_ROOMS, mapToObject(roomMap), GLOBAL_CACHE_TTL),
     ]);
 
-    logger.info(`Built global lookups: ${mobMap.size} mobs, ${objMap.size} objects, ${roomMap.size} rooms`);
+    logger.info(
+      `Built global lookups: ${mobMap.size} mobs, ${objMap.size} objects, ${roomMap.size} rooms`,
+    );
   } catch (error) {
     logger.error('Error building global lookups:', error);
   }
@@ -221,7 +223,9 @@ async function fileExists(filePath: string): Promise<boolean> {
 }
 
 // Fast count of items by scanning for #vnum patterns
-export async function countZoneItems(zoneId: string): Promise<{ rooms: number; mobs: number; objects: number }> {
+export async function countZoneItems(
+  zoneId: string,
+): Promise<{ rooms: number; mobs: number; objects: number }> {
   const wldPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'wld');
   const mobPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'mob');
   const objPath = resolveSafeZoneFilePath(AREAS_DIR, zoneId, 'obj');
@@ -457,7 +461,18 @@ export async function* streamMobs(zoneId: string, chunkSize = 50): AsyncGenerato
 
   let currentMob: Partial<MobIndex> | null = null;
   let chunk: MobIndex[] = [];
-  let parseState: 'vnum' | 'keywords' | 'shortdesc' | 'longdesc' | 'detaileddesc' | 'flags' | 'species' | 'stats' | 'gold' | 'position' | 'done' = 'vnum';
+  let parseState:
+    | 'vnum'
+    | 'keywords'
+    | 'shortdesc'
+    | 'longdesc'
+    | 'detaileddesc'
+    | 'flags'
+    | 'species'
+    | 'stats'
+    | 'gold'
+    | 'position'
+    | 'done' = 'vnum';
   let keywordsBuffer = '';
   let shortDescBuffer = '';
 
@@ -588,7 +603,16 @@ export async function* streamObjects(zoneId: string, chunkSize = 50): AsyncGener
 
   let currentObj: Partial<ObjIndex> | null = null;
   let chunk: ObjIndex[] = [];
-  let parseState: 'vnum' | 'keywords' | 'shortdesc' | 'longdesc' | 'actiondesc' | 'type' | 'values' | 'weight' | 'extras' = 'vnum';
+  let parseState:
+    | 'vnum'
+    | 'keywords'
+    | 'shortdesc'
+    | 'longdesc'
+    | 'actiondesc'
+    | 'type'
+    | 'values'
+    | 'weight'
+    | 'extras' = 'vnum';
   let keywordsBuffer = '';
   let shortDescBuffer = '';
 
@@ -715,7 +739,7 @@ function enrichReset(
   index: number,
   mobMap: Map<number, string>,
   objMap: Map<number, string>,
-  roomMap: Map<number, string>
+  roomMap: Map<number, string>,
 ): ResetWithMetadata {
   const enriched: ResetWithMetadata = { ...reset, index };
 
@@ -736,7 +760,8 @@ function enrichReset(
 
     case 'E': // Equip Object: arg1=obj_vnum, arg2=max, arg3=equip_slot
       enriched.objName = objMap.get(reset.arg1);
-      enriched.slotName = EQUIP_SLOTS.find(s => s.value === reset.arg3)?.name || `Slot ${reset.arg3}`;
+      enriched.slotName =
+        EQUIP_SLOTS.find((s) => s.value === reset.arg3)?.name || `Slot ${reset.arg3}`;
       break;
 
     case 'P': // Put in Container: arg1=obj_vnum, arg2=max, arg3=container_vnum
@@ -747,7 +772,8 @@ function enrichReset(
     case 'D': // Set Door: arg1=room_vnum, arg2=direction, arg3=state
       enriched.roomName = roomMap.get(reset.arg1);
       enriched.directionName = DIRECTIONS[reset.arg2] || `Dir ${reset.arg2}`;
-      enriched.stateName = DOOR_STATES.find(s => s.value === reset.arg3)?.name || `State ${reset.arg3}`;
+      enriched.stateName =
+        DOOR_STATES.find((s) => s.value === reset.arg3)?.name || `State ${reset.arg3}`;
       break;
 
     case 'F': // Follow: arg1=follower_vnum, arg2=max, arg3=leader_vnum
@@ -772,7 +798,10 @@ export async function countResets(zoneId: string): Promise<number> {
 
 // Stream resets from .zon file with enriched metadata
 // Uses global lookups to resolve cross-zone references (mobs/objects/rooms from other zones)
-export async function* streamResets(zoneId: string, chunkSize = 50): AsyncGenerator<ResetWithMetadata[]> {
+export async function* streamResets(
+  zoneId: string,
+  chunkSize = 50,
+): AsyncGenerator<ResetWithMetadata[]> {
   // Parse zone file and build global lookups in parallel
   const [{ resets }, { mobMap, objMap, roomMap }] = await Promise.all([
     parseZonFile(zoneId),
@@ -781,7 +810,7 @@ export async function* streamResets(zoneId: string, chunkSize = 50): AsyncGenera
 
   // Enrich all resets with metadata from global lookups
   const enrichedResets = resets.map((reset, index) =>
-    enrichReset(reset, index, mobMap, objMap, roomMap)
+    enrichReset(reset, index, mobMap, objMap, roomMap),
   );
 
   // Yield in chunks

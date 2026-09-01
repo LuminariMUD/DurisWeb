@@ -24,10 +24,12 @@ describe('safe backup path resolution', () => {
     fs.writeFileSync(filePath, 'zip-fixture');
 
     expect(resolveSafeUploadedBackupPath(filePath, root)).toBe(filePath);
-    expect(() => resolveSafeUploadedBackupPath(path.join(root, 'backup-upload-123-456.txt'), root))
-      .toThrow(UnsafeBackupPathError);
-    expect(() => resolveSafeUploadedBackupPath(path.join(root, '..', 'backup-upload-123-456.zip'), root))
-      .toThrow(UnsafeBackupPathError);
+    expect(() =>
+      resolveSafeUploadedBackupPath(path.join(root, 'backup-upload-123-456.txt'), root),
+    ).toThrow(UnsafeBackupPathError);
+    expect(() =>
+      resolveSafeUploadedBackupPath(path.join(root, '..', 'backup-upload-123-456.zip'), root),
+    ).toThrow(UnsafeBackupPathError);
   });
 
   it('rejects symlinked uploads even when the link is inside the root', () => {

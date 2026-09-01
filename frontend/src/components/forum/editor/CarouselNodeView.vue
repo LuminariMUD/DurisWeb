@@ -153,7 +153,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
-import { ChevronLeft, ChevronRight, Plus, Trash2, ImageIcon, X, Loader2, AlertCircle } from 'lucide-vue-next'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Trash2,
+  ImageIcon,
+  X,
+  Loader2,
+  AlertCircle,
+} from 'lucide-vue-next'
 import { forumApi } from '@/services/api'
 
 const props = defineProps(nodeViewProps)
@@ -192,13 +201,17 @@ async function clearOrphans() {
     await checkImageStatus()
   } catch {
     errorMessage.value = 'Failed to clear orphan images'
-    setTimeout(() => { errorMessage.value = null }, 3000)
+    setTimeout(() => {
+      errorMessage.value = null
+    }, 3000)
   } finally {
     isClearing.value = false
   }
 }
 
-const images = computed(() => (props.node.attrs.images as Array<{ src: string; alt?: string }>) || [])
+const images = computed(
+  () => (props.node.attrs.images as Array<{ src: string; alt?: string }>) || [],
+)
 const height = computed(() => (props.node.attrs.height as number) || 300)
 
 function updateHeight(event: Event) {
@@ -255,14 +268,18 @@ async function uploadImage(file: File) {
   // validate file type
   if (!ALLOWED_TYPES.includes(file.type)) {
     errorMessage.value = 'Only JPG, PNG, WebP, and GIF images are allowed'
-    setTimeout(() => { errorMessage.value = null }, 3000)
+    setTimeout(() => {
+      errorMessage.value = null
+    }, 3000)
     return
   }
 
   // validate file size
   if (file.size > MAX_IMAGE_SIZE) {
     errorMessage.value = `Image must be under ${MAX_IMAGE_SIZE / 1024}KB`
-    setTimeout(() => { errorMessage.value = null }, 3000)
+    setTimeout(() => {
+      errorMessage.value = null
+    }, 3000)
     return
   }
 
@@ -282,7 +299,9 @@ async function uploadImage(file: File) {
   } catch (error: unknown) {
     const err = error as { response?: { data?: { error?: string } } }
     errorMessage.value = err.response?.data?.error || 'Failed to upload image'
-    setTimeout(() => { errorMessage.value = null }, 5000)
+    setTimeout(() => {
+      errorMessage.value = null
+    }, 5000)
     // refresh status to show current count
     await checkImageStatus()
   } finally {

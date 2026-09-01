@@ -10,7 +10,7 @@ import { useCategories } from '@/composables/useCategories'
 import type { ForumCategory, CreateCategoryRequest, UpdateCategoryRequest } from '@/types'
 
 useHead({
-  title: 'DurisMUD | Forum'
+  title: 'DurisMUD | Forum',
 })
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,8 +21,29 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Switch } from '@/components/ui/switch'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search, Pencil, Save, X, Archive, RotateCcw, Trash2, Shield, GripVertical, Plus, MessageSquare, FileText, MessagesSquare, Clock } from 'lucide-vue-next'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Search,
+  Pencil,
+  Save,
+  X,
+  Archive,
+  RotateCcw,
+  Trash2,
+  Shield,
+  GripVertical,
+  Plus,
+  MessageSquare,
+  FileText,
+  MessagesSquare,
+  Clock,
+} from 'lucide-vue-next'
 import Sortable from 'sortablejs'
 import { ROLE_OPTIONS } from '@/utils/roleMapping'
 import CategoryPermissionDialog from '@/components/admin/CategoryPermissionDialog.vue'
@@ -39,7 +60,7 @@ const queryClient = useQueryClient()
 // Computed user level
 const userLevel = computed(() => {
   if (!user.value) return 0
-  const maxLevel = Math.max(...user.value.characters.map(c => c.level))
+  const maxLevel = Math.max(...user.value.characters.map((c) => c.level))
   return maxLevel
 })
 
@@ -53,8 +74,12 @@ const editMode = ref(false)
 const isLesserGodOrAbove = computed(() => (userLevel.value || 0) >= 57)
 
 // Use TanStack Query for categories (switches between admin and public API based on editMode)
-const { data: categories, isLoading, error: queryError } = useCategories(computed(() => editMode.value && isLesserGodOrAbove.value))
-const error = computed(() => queryError.value ? 'Failed to load categories' : null)
+const {
+  data: categories,
+  isLoading,
+  error: queryError,
+} = useCategories(computed(() => editMode.value && isLesserGodOrAbove.value))
+const error = computed(() => (queryError.value ? 'Failed to load categories' : null))
 
 // Editing states
 const editingCategoryId = ref<number | null>(null)
@@ -74,7 +99,7 @@ const formData = ref({
   guildName: '',
   parentId: 'none',
   sortOrder: '',
-  icon: ''
+  icon: '',
 })
 
 // Guild autocomplete
@@ -108,9 +133,12 @@ async function searchGuilds(query: string) {
   }, 300)
 }
 
-watch(() => guildSearchQuery.value, (query) => {
-  searchGuilds(query)
-})
+watch(
+  () => guildSearchQuery.value,
+  (query) => {
+    searchGuilds(query)
+  },
+)
 
 // Invalidate categories query to trigger refetch
 function invalidateCategories() {
@@ -176,7 +204,7 @@ function toggleEditMode() {
 function toPascalCase(str: string): string {
   return str
     .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join('')
 }
 
@@ -189,9 +217,8 @@ function getIconComponent(iconName: string | null) {
 
 // Available parents (top-level categories only)
 const availableParents = computed(() => {
-  return (categories.value || []).filter(c =>
-    c.parent_id === null &&
-    c.id !== editingCategoryId.value
+  return (categories.value || []).filter(
+    (c) => c.parent_id === null && c.id !== editingCategoryId.value,
   )
 })
 
@@ -207,7 +234,7 @@ function startCreating() {
     guildName: '',
     parentId: 'none',
     sortOrder: '',
-    icon: ''
+    icon: '',
   }
   guildSearchQuery.value = ''
   guildSearchResults.value = []
@@ -226,7 +253,7 @@ function startEditing(category: ForumCategory) {
     guildName: category.guild_name || '',
     parentId: category.parent_id?.toString() || 'none',
     sortOrder: category.sort_order.toString(),
-    icon: category.icon || ''
+    icon: category.icon || '',
   }
   guildSearchQuery.value = category.guild_name || ''
   guildSearchResults.value = []
@@ -243,9 +270,14 @@ function cancelEdit() {
 async function saveCategory() {
   try {
     // Filter out legacy access types
-    const accessType = (['immortal', 'god'].includes(formData.value.accessType))
+    const accessType = ['immortal', 'god'].includes(formData.value.accessType)
       ? 'role_based'
-      : formData.value.accessType as 'public' | 'authenticated' | 'role_based' | 'guild' | 'custom_acl'
+      : (formData.value.accessType as
+          | 'public'
+          | 'authenticated'
+          | 'role_based'
+          | 'guild'
+          | 'custom_acl')
 
     if (creatingCategory.value) {
       const request: CreateCategoryRequest = {
@@ -254,9 +286,12 @@ async function saveCategory() {
         accessType: accessType,
         minLevel: formData.value.minLevel ? parseInt(formData.value.minLevel) : undefined,
         guildName: formData.value.guildName.trim() || undefined,
-        parentId: formData.value.parentId && formData.value.parentId !== 'none' ? parseInt(formData.value.parentId) : undefined,
+        parentId:
+          formData.value.parentId && formData.value.parentId !== 'none'
+            ? parseInt(formData.value.parentId)
+            : undefined,
         sortOrder: formData.value.sortOrder ? parseInt(formData.value.sortOrder) : undefined,
-        icon: formData.value.icon.trim() || undefined
+        icon: formData.value.icon.trim() || undefined,
       }
       await adminApi.createCategory(request)
       toast.success('Category created successfully', 'Success')
@@ -267,9 +302,12 @@ async function saveCategory() {
         accessType: accessType,
         minLevel: formData.value.minLevel ? parseInt(formData.value.minLevel) : null,
         guildName: formData.value.guildName.trim() || null,
-        parentId: formData.value.parentId && formData.value.parentId !== 'none' ? parseInt(formData.value.parentId) : null,
+        parentId:
+          formData.value.parentId && formData.value.parentId !== 'none'
+            ? parseInt(formData.value.parentId)
+            : null,
         sortOrder: formData.value.sortOrder ? parseInt(formData.value.sortOrder) : undefined,
-        icon: formData.value.icon.trim() || null
+        icon: formData.value.icon.trim() || null,
       }
       await adminApi.updateCategory(editingCategoryId.value, updates)
       toast.success('Category updated successfully', 'Success')
@@ -339,7 +377,12 @@ function openDeleteDialog(category: ForumCategory, event: Event) {
 // Confirm delete category
 async function confirmDeleteCategory() {
   console.log('[DELETE] confirmDeleteCategory called')
-  console.log('[DELETE] categoryToDelete value:', categoryToDelete.value?.name, 'ID:', categoryToDelete.value?.id)
+  console.log(
+    '[DELETE] categoryToDelete value:',
+    categoryToDelete.value?.name,
+    'ID:',
+    categoryToDelete.value?.id,
+  )
 
   if (!categoryToDelete.value) {
     console.log('[DELETE] No category to delete, returning early')
@@ -398,7 +441,12 @@ watch([editMode, sortableContainer], ([isEditMode, container]: [boolean, HTMLEle
         const oldIndex = evt.oldIndex
         const newIndex = evt.newIndex
 
-        if (oldIndex !== undefined && newIndex !== undefined && oldIndex !== newIndex && categories.value) {
+        if (
+          oldIndex !== undefined &&
+          newIndex !== undefined &&
+          oldIndex !== newIndex &&
+          categories.value
+        ) {
           // Create a mutable copy of the array
           const reorderedCategories = [...categories.value]
 
@@ -410,12 +458,15 @@ watch([editMode, sortableContainer], ([isEditMode, container]: [boolean, HTMLEle
           reorderedCategories.splice(newIndex, 0, movedItem)
 
           // Optimistically update the cache
-          queryClient.setQueryData(['forum-categories', editMode.value && isLesserGodOrAbove.value], reorderedCategories)
+          queryClient.setQueryData(
+            ['forum-categories', editMode.value && isLesserGodOrAbove.value],
+            reorderedCategories,
+          )
 
           // Save new order
           const orders = reorderedCategories.map((cat, index) => ({
             id: cat.id,
-            sortOrder: index * 10
+            sortOrder: index * 10,
           }))
 
           try {
@@ -426,7 +477,7 @@ watch([editMode, sortableContainer], ([isEditMode, container]: [boolean, HTMLEle
             invalidateCategories() // Reload on error
           }
         }
-      }
+      },
     })
   }
 })

@@ -233,8 +233,9 @@ export const ITEM_ALLOWED_CLASSES = 1024; // BIT_11
 
 // class bit values (used in anti_flags field)
 export const CLASS_BITS: number[] = [
-  1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144,
-  524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432, 67108864, 134217728, 268435456,
+  1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072,
+  262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432, 67108864, 134217728,
+  268435456,
 ];
 
 // race ids (sequential, anti_flags2 stores race bitvector)
@@ -245,7 +246,7 @@ export function getSpellEffects(
   bitvector: number = 0,
   bitvector2: number = 0,
   bitvector3: number = 0,
-  bitvector4: number = 0
+  bitvector4: number = 0,
 ): string[] {
   const effects: string[] = [];
   for (const [flag, name] of Object.entries(AFF_NAMES)) {

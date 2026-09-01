@@ -1,10 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
-import type {
-  ChatHistoryMessage,
-  ChatHistoryEntry,
-  ChatHistoryStorage,
-} from '@/types/chat'
+import type { ChatHistoryMessage, ChatHistoryEntry, ChatHistoryStorage } from '@/types/chat'
 import { CHAT_STORAGE_VERSION } from '@/types/chat'
 
 const STORAGE_KEY_PREFIX = 'duris_chat_history_'
@@ -162,7 +158,7 @@ export function useChatHistory() {
         loadHistory()
       }
     },
-    { immediate: true }
+    { immediate: true },
   )
 
   return {

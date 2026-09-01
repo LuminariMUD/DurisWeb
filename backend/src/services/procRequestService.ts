@@ -45,7 +45,7 @@ export async function getProcRequests(
     status?: ProcRequestStatus;
     entityType?: ProcRequestEntityType;
     assignedTo?: string;
-  }
+  },
 ): Promise<ProcRequest[]> {
   let query = `
     SELECT id, zone_id, entity_type, vnum, title, description, description_html,
@@ -99,7 +99,7 @@ export async function getProcRequest(id: number): Promise<ProcRequest | null> {
             status, assigned_to, requested_by, requested_at, updated_at
      FROM builder_proc_requests
      WHERE id = ?`,
-    [id]
+    [id],
   );
 
   if (rows.length === 0) {
@@ -129,7 +129,7 @@ export async function getProcRequest(id: number): Promise<ProcRequest | null> {
 export async function createProcRequest(
   data: CreateProcRequest,
   requestedBy: string,
-  zoneName?: string | null
+  zoneName?: string | null,
 ): Promise<ProcRequest> {
   const sanitizedDescriptionHtml = sanitizeOptionalDescriptionHtml(data.descriptionHtml);
   const [result] = await db.query<ResultSetHeader>(
@@ -144,7 +144,7 @@ export async function createProcRequest(
       data.description ?? null,
       sanitizedDescriptionHtml,
       requestedBy,
-    ]
+    ],
   );
 
   const created = await getProcRequest(result.insertId);
@@ -164,7 +164,7 @@ export async function createProcRequest(
         requestedBy,
         data.zoneId,
         zoneName ?? null,
-        message
+        message,
       );
     }
   }
@@ -179,7 +179,7 @@ export async function updateProcRequest(
   id: number,
   data: UpdateProcRequest,
   updatedBy?: string,
-  zoneName?: string | null
+  zoneName?: string | null,
 ): Promise<ProcRequest | null> {
   const sanitizedDescriptionHtml = sanitizeOptionalDescriptionHtml(data.descriptionHtml);
   const existing = await getProcRequest(id);
@@ -232,17 +232,18 @@ export async function updateProcRequest(
   updates.push('updated_at = NOW()');
   params.push(id);
 
-  await db.query(
-    `UPDATE builder_proc_requests SET ${updates.join(', ')} WHERE id = ?`,
-    params
-  );
+  await db.query(`UPDATE builder_proc_requests SET ${updates.join(', ')} WHERE id = ?`, params);
 
   // Create notifications for assignment and status changes
   if (updatedBy) {
     const zoneDisplay = zoneName || existing.zoneId;
 
     // Notify on assignment change (when someone is assigned)
-    if (data.assignedTo !== undefined && data.assignedTo !== existing.assignedTo && data.assignedTo !== null) {
+    if (
+      data.assignedTo !== undefined &&
+      data.assignedTo !== existing.assignedTo &&
+      data.assignedTo !== null
+    ) {
       // Don't notify if assigning to self
       if (data.assignedTo.toLowerCase() !== updatedBy.toLowerCase()) {
         await createNotification(
@@ -253,7 +254,7 @@ export async function updateProcRequest(
           'proc_request',
           id,
           updatedBy,
-          `${updatedBy} assigned you to proc request: "${existing.title}" on zone ${zoneDisplay}`
+          `${updatedBy} assigned you to proc request: "${existing.title}" on zone ${zoneDisplay}`,
         );
       }
     }
@@ -269,7 +270,7 @@ export async function updateProcRequest(
           'proc_request',
           id,
           updatedBy,
-          `${updatedBy} changed status of your proc request "${existing.title}" to ${data.status} on zone ${zoneDisplay}`
+          `${updatedBy} changed status of your proc request "${existing.title}" to ${data.status} on zone ${zoneDisplay}`,
         );
       }
     }
@@ -286,7 +287,7 @@ export async function updateProcRequestStatus(
   status: ProcRequestStatus,
   assignedTo?: string | null,
   updatedBy?: string,
-  zoneName?: string | null
+  zoneName?: string | null,
 ): Promise<ProcRequest | null> {
   const updates: UpdateProcRequest = { status };
   if (assignedTo !== undefined) {
@@ -304,7 +305,7 @@ export async function deleteProcRequest(id: number): Promise<boolean> {
 
   const [result] = await db.query<ResultSetHeader>(
     `DELETE FROM builder_proc_requests WHERE id = ?`,
-    [id]
+    [id],
   );
   return result.affectedRows > 0;
 }
@@ -319,7 +320,7 @@ export async function getAssignedProcRequests(accountName: string): Promise<Proc
      FROM builder_proc_requests
      WHERE assigned_to = ? AND status != 'completed'
      ORDER BY updated_at DESC`,
-    [accountName]
+    [accountName],
   );
 
   return rows.map((row: RowDataPacket) => ({
@@ -342,14 +343,14 @@ export async function getAssignedProcRequests(accountName: string): Promise<Proc
  * Get proc request counts by status for a zone
  */
 export async function getProcRequestCounts(
-  zoneId: string
+  zoneId: string,
 ): Promise<Record<ProcRequestStatus, number>> {
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT status, COUNT(*) as count
      FROM builder_proc_requests
      WHERE zone_id = ?
      GROUP BY status`,
-    [zoneId]
+    [zoneId],
   );
 
   const counts: Record<ProcRequestStatus, number> = {

@@ -164,7 +164,7 @@ export function useMudConnection() {
               type: 'gmcp',
               package: 'Client.Info',
               data: buildDurisWebClientInfo(),
-            })
+            }),
           )
         } catch (e) {
           console.error('failed to send client info:', e)
@@ -288,13 +288,15 @@ export function useMudConnection() {
     const inFastPhase = copyoverFastPhaseEnd && now < copyoverFastPhaseEnd
     const interval = inFastPhase ? COPYOVER_FAST_INTERVAL : COPYOVER_SLOW_INTERVAL
 
-    console.log(`[MUD] Copyover reconnect attempt ${copyoverReconnectAttempts}/${COPYOVER_MAX_ATTEMPTS} (${inFastPhase ? 'fast' : 'slow'} phase)`)
+    console.log(
+      `[MUD] Copyover reconnect attempt ${copyoverReconnectAttempts}/${COPYOVER_MAX_ATTEMPTS} (${inFastPhase ? 'fast' : 'slow'} phase)`,
+    )
 
     try {
       await connect()
 
       // wait a bit for connection to establish
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
       const ws = getWsRef()
       if (ws && ws.readyState === WebSocket.OPEN) {
@@ -403,7 +405,9 @@ export function useMudConnection() {
   const initializeTimers = () => {
     // Wire up timer system with MUD connection functions
     setSendCommand((command: string) => sendGameCommand(command))
-    setAddLogEntry((category: string, text: string) => store.addLogEntry(category as 'system', text))
+    setAddLogEntry((category: string, text: string) =>
+      store.addLogEntry(category as 'system', text),
+    )
     // Start all enabled timers
     startAllTimers()
   }
@@ -411,7 +415,10 @@ export function useMudConnection() {
   const handleAuthMessage = (message: MudAuthMessage) => {
     if (message.status === 'success' || message.status === 'registered') {
       if (pendingAuthCredentials) {
-        storeMudCredentials(message.data.account || pendingAuthCredentials.account, pendingAuthCredentials.password)
+        storeMudCredentials(
+          message.data.account || pendingAuthCredentials.account,
+          pendingAuthCredentials.password,
+        )
         pendingAuthCredentials = null
       }
 
@@ -573,15 +580,27 @@ export function useMudConnection() {
   const transformRoomInfo = (data: Record<string, unknown>) => {
     // Direction abbreviation to full name mapping
     const dirMap: Record<string, string> = {
-      n: 'north', e: 'east', s: 'south', w: 'west',
-      u: 'up', d: 'down',
-      ne: 'northeast', nw: 'northwest', se: 'southeast', sw: 'southwest',
+      n: 'north',
+      e: 'east',
+      s: 'south',
+      w: 'west',
+      u: 'up',
+      d: 'down',
+      ne: 'northeast',
+      nw: 'northwest',
+      se: 'southeast',
+      sw: 'southwest',
     }
 
     // Transform exits from {n: 12345} to {north: {vnum: 12345}}
-    const exits: Record<string, { vnum: number; name?: string; door?: string; closed?: boolean; locked?: boolean }> = {}
+    const exits: Record<
+      string,
+      { vnum: number; name?: string; door?: string; closed?: boolean; locked?: boolean }
+    > = {}
     const serverExits = data.exits as Record<string, number> | undefined
-    const serverDoors = data.doors as Record<string, { name?: string; closed?: boolean; locked?: boolean }> | undefined
+    const serverDoors = data.doors as
+      | Record<string, { name?: string; closed?: boolean; locked?: boolean }>
+      | undefined
 
     if (serverExits) {
       for (const [abbrev, vnum] of Object.entries(serverExits)) {
@@ -622,10 +641,10 @@ export function useMudConnection() {
   // Check if zone is a wilderness zone (too large to render with Cytoscape)
   const isWildernessZone = (zoneNumber: number): boolean => {
     return (
-      (zoneNumber >= 5000 && zoneNumber <= 6599) ||  // Surface
-      (zoneNumber >= 6600 && zoneNumber <= 6999) ||  // Newbie Maps
-      (zoneNumber >= 7000 && zoneNumber <= 8599) ||  // Underdark
-      (zoneNumber >= 1200 && zoneNumber <= 1238)     // Alatorin
+      (zoneNumber >= 5000 && zoneNumber <= 6599) || // Surface
+      (zoneNumber >= 6600 && zoneNumber <= 6999) || // Newbie Maps
+      (zoneNumber >= 7000 && zoneNumber <= 8599) || // Underdark
+      (zoneNumber >= 1200 && zoneNumber <= 1238) // Alatorin
     )
   }
 
@@ -688,7 +707,7 @@ export function useMudConnection() {
             message.data.sender,
             message.data.text,
             result.highlightClass,
-            message.data.alignment
+            message.data.alignment,
           )
         }
 
@@ -977,7 +996,7 @@ export function useMudConnection() {
     alignment: string,
     hometown?: number,
     hardcore?: boolean,
-    newbie?: boolean
+    newbie?: boolean,
   ) => {
     const cmd = {
       type: 'cmd',

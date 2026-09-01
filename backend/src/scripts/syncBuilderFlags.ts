@@ -28,7 +28,7 @@ async function syncFlags() {
     // Track seen names to handle duplicates
     const seenNames = new Set<string>();
     const values = result.flags
-      .filter(flag => {
+      .filter((flag) => {
         if (seenNames.has(flag.name)) {
           return false; // Skip duplicates
         }
@@ -54,7 +54,7 @@ async function syncFlags() {
     await pool.query(
       `INSERT INTO builder_flags (category, name, value, description, ansi_name, short_code, editable, sort_order)
        VALUES ?`,
-      [values]
+      [values],
     );
 
     logger.info(`  ${result.category}: ${result.flags.length} flags`);

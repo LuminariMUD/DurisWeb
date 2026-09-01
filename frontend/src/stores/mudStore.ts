@@ -26,11 +26,11 @@ export const useMudStore = defineStore('mud', () => {
   // ==========================================================================
   const connectionState = ref<MudConnectionState>('disconnected')
   const connectionError = ref<string | null>(null)
-  const latency = ref<number | null>(null)  // WebSocket latency in ms
-  const autoLoginInProgress = ref(false)  // True when auto-login is in progress
-  const copyoverInProgress = ref(false)  // True during server copyover (hotboot)
-  const copyoverMessage = ref<string | null>(null)  // Message to show during copyover
-  const copyoverCharacterName = ref<string | null>(null)  // Character to auto-enter after copyover
+  const latency = ref<number | null>(null) // WebSocket latency in ms
+  const autoLoginInProgress = ref(false) // True when auto-login is in progress
+  const copyoverInProgress = ref(false) // True during server copyover (hotboot)
+  const copyoverMessage = ref<string | null>(null) // Message to show during copyover
+  const copyoverCharacterName = ref<string | null>(null) // Character to auto-enter after copyover
 
   // ==========================================================================
   // Account & Authentication
@@ -43,7 +43,7 @@ export const useMudStore = defineStore('mud', () => {
   // Account Menu State
   // ==========================================================================
   const showAccountMenu = ref(false)
-  const showReturnDialog = ref(false)  // Dialog shown on death/rent/quit
+  const showReturnDialog = ref(false) // Dialog shown on death/rent/quit
   const accountMenuReason = ref<'rent' | 'death' | 'quit' | 'suicide' | null>(null)
   const accountInfo = ref<MudAccountInfo | null>(null)
   const restedBonus = ref<MudRestedBonus | null>(null)
@@ -148,7 +148,7 @@ export const useMudStore = defineStore('mud', () => {
   const chargenRaces = ref<MudRace[]>([])
   const chargenClasses = ref<MudClass[]>([])
   const chargenStats = ref<{
-    stats: MudStatLabels  // Quality labels only (e.g., "excellent", "good")
+    stats: MudStatLabels // Quality labels only (e.g., "excellent", "good")
     bonusRemaining: number
   } | null>(null)
   const chargenLoading = ref(false)
@@ -162,15 +162,11 @@ export const useMudStore = defineStore('mud', () => {
   // Computed Properties
   // ==========================================================================
   const isConnected = computed(
-    () =>
-      connectionState.value !== 'disconnected' &&
-      connectionState.value !== 'error'
+    () => connectionState.value !== 'disconnected' && connectionState.value !== 'error',
   )
 
   const isAuthenticated = computed(
-    () =>
-      connectionState.value === 'authenticated' ||
-      connectionState.value === 'in_game'
+    () => connectionState.value === 'authenticated' || connectionState.value === 'in_game',
   )
 
   const isInGame = computed(() => connectionState.value === 'in_game')
@@ -238,7 +234,7 @@ export const useMudStore = defineStore('mud', () => {
     account.value = accountName
     characters.value = chars
     connectionState.value = 'authenticated'
-    autoLoginInProgress.value = false  // Clear auto-login flag
+    autoLoginInProgress.value = false // Clear auto-login flag
   }
 
   function clearAccount() {
@@ -283,15 +279,21 @@ export const useMudStore = defineStore('mud', () => {
     }
 
     // Only update if affects actually changed
-    const newNames = newAffects.map(a => a.name).sort().join(',')
-    const oldNames = affects.value.map(a => a.name).sort().join(',')
+    const newNames = newAffects
+      .map((a) => a.name)
+      .sort()
+      .join(',')
+    const oldNames = affects.value
+      .map((a) => a.name)
+      .sort()
+      .join(',')
     if (newNames === oldNames) {
       // Same affects, don't update (preserves receivedAt for timers)
       return
     }
 
     // Map new affects, preserving receivedAt for existing ones
-    affects.value = newAffects.map(a => {
+    affects.value = newAffects.map((a) => {
       const existing = existingMap.get(a.name)
       if (existing && existing.duration === a.duration) {
         // Same affect with same duration, preserve receivedAt
@@ -306,7 +308,7 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   function setCombatTarget(
-    target: { name: string; health: string; healthPercent: number; position: string } | null
+    target: { name: string; health: string; healthPercent: number; position: string } | null,
   ) {
     combatTarget.value = target
   }
@@ -323,11 +325,14 @@ export const useMudStore = defineStore('mud', () => {
     questMap.value = map
     // Cache to localStorage with zone identifier
     if (map && zoneNumber) {
-      localStorage.setItem(QUEST_MAP_CACHE_KEY, JSON.stringify({
-        map,
-        zoneNumber,
-        timestamp: Date.now()
-      }))
+      localStorage.setItem(
+        QUEST_MAP_CACHE_KEY,
+        JSON.stringify({
+          map,
+          zoneNumber,
+          timestamp: Date.now(),
+        }),
+      )
     }
   }
 
@@ -422,11 +427,7 @@ export const useMudStore = defineStore('mud', () => {
     speedwalkAbortFn = null
   }
 
-  function addLogEntry(
-    category: MudLogEntry['category'],
-    text: string,
-    highlightClass?: string
-  ) {
+  function addLogEntry(category: MudLogEntry['category'], text: string, highlightClass?: string) {
     const entry: MudLogEntry = {
       id: ++logIdCounter,
       timestamp: new Date(),
@@ -451,7 +452,7 @@ export const useMudStore = defineStore('mud', () => {
     sender: string,
     text: string,
     highlightClass?: string,
-    alignment?: 'good' | 'evil' | 'undead' | 'neutral'
+    alignment?: 'good' | 'evil' | 'undead' | 'neutral',
   ) {
     const message: MudChatMessage = {
       id: ++chatIdCounter,
@@ -482,7 +483,7 @@ export const useMudStore = defineStore('mud', () => {
       }
     } else {
       // Clear all channels
-      Object.keys(chatMessages.value).forEach(key => {
+      Object.keys(chatMessages.value).forEach((key) => {
         const messages = chatMessages.value[key]
         if (messages) {
           messages.splice(0, messages.length)
@@ -569,9 +570,21 @@ export const useMudStore = defineStore('mud', () => {
     // Clear in-game state
     character.value = null
     vitals.value = {
-      hp: 0, maxHp: 0, mana: 0, maxMana: 0, move: 0, maxMove: 0,
-      exp: 0, tnl: 0, platinum: 0, gold: 0, silver: 0, copper: 0,
-      position: 'standing', fighting: null, usesMana: false,
+      hp: 0,
+      maxHp: 0,
+      mana: 0,
+      maxMana: 0,
+      move: 0,
+      maxMove: 0,
+      exp: 0,
+      tnl: 0,
+      platinum: 0,
+      gold: 0,
+      silver: 0,
+      copper: 0,
+      position: 'standing',
+      fighting: null,
+      usesMana: false,
     }
     room.value = null
     combatTarget.value = null
@@ -597,7 +610,7 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   function removeCharacter(name: string) {
-    characters.value = characters.value.filter(c => c.name !== name)
+    characters.value = characters.value.filter((c) => c.name !== name)
   }
 
   function updateCharacters(chars: MudCharacterInfo[]) {

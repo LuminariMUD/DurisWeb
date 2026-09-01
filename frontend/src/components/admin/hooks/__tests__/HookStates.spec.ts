@@ -46,7 +46,9 @@ describe('dual hook state rendering', () => {
   it('asks for confirmation before enabling into a known MUD-off state', async () => {
     const wrapper = mount(HookToggle, {
       attachTo: document.body,
-      props: { hook: hook({ webEnabled: false, mudState: 'disabled', effective: 'off', active: false }) },
+      props: {
+        hook: hook({ webEnabled: false, mudState: 'disabled', effective: 'off', active: false }),
+      },
     })
     wrapper.findComponent(Switch).vm.$emit('update:modelValue', true)
     await wrapper.vm.$nextTick()
@@ -60,7 +62,9 @@ describe('dual hook state rendering', () => {
     expect(wrapper.text()).toContain('MUD did not confirm')
     expect(wrapper.find('[role="alert"]').exists()).toBe(true)
     expect(wrapper.classes()).toContain('md:border')
-    expect(wrapper.classes()).toContain('lg:grid-cols-[minmax(15rem,1.4fr)_minmax(17rem,1fr)_10rem_1.5rem]')
+    expect(wrapper.classes()).toContain(
+      'lg:grid-cols-[minmax(15rem,1.4fr)_minmax(17rem,1fr)_10rem_1.5rem]',
+    )
     expect(wrapper.get('button[aria-label="Open details for auction_new"]')).toBeTruthy()
   })
 })
@@ -76,7 +80,15 @@ describe('transport posture', () => {
 
   it('keeps a plaintext non-loopback refusal in a persistent alert', () => {
     const wrapper = mount(TransportPanel, {
-      props: { transport: { ...transport, scheme: 'ws', blocked: true, authenticated: false, reason: 'Plaintext ws:// is refused for a non-loopback MUD host.' } },
+      props: {
+        transport: {
+          ...transport,
+          scheme: 'ws',
+          blocked: true,
+          authenticated: false,
+          reason: 'Plaintext ws:// is refused for a non-loopback MUD host.',
+        },
+      },
     })
     expect(wrapper.find('[role="alert"]').exists()).toBe(true)
     expect(wrapper.text()).toMatch(/plaintext.*refused/i)

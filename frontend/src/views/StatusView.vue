@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { usePublicStatus, usePublicUptime, usePublicIncidents, useUptimeHistory, formatUptime } from '@/composables/usePublicStatus'
-import { formatDistanceToNow } from 'date-fns'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+  usePublicStatus,
+  usePublicUptime,
+  usePublicIncidents,
+  useUptimeHistory,
+  formatUptime,
+} from '@/composables/usePublicStatus'
+import { formatDistanceToNow } from 'date-fns'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-vue-next'
 import UptimeBar from '@/components/UptimeBar.vue'
@@ -57,7 +57,9 @@ function formatDuration(seconds: number | null): string {
   return `${hours}h ${mins}m`
 }
 
-function getSeverityVariant(severity: string | null): 'default' | 'destructive' | 'secondary' | 'outline' {
+function getSeverityVariant(
+  severity: string | null,
+): 'default' | 'destructive' | 'secondary' | 'outline' {
   if (severity === 'critical') return 'destructive'
   if (severity === 'major') return 'secondary'
   return 'outline'

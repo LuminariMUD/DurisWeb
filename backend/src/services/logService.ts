@@ -21,15 +21,18 @@ export class UnsafeLogPathError extends Error {
 
 function isWithin(root: string, candidate: string): boolean {
   const relative = path.relative(root, candidate);
-  return relative === '' || (
-    relative !== '..' &&
-    !relative.startsWith(`..${path.sep}`) &&
-    !path.isAbsolute(relative)
+  return (
+    relative === '' ||
+    (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
   );
 }
 
 function resolveSafeLogPath(category: string, logName: unknown): string {
-  if (!(category in LOG_CATEGORIES) || typeof logName !== 'string' || !LOG_NAME_PATTERN.test(logName)) {
+  if (
+    !(category in LOG_CATEGORIES) ||
+    typeof logName !== 'string' ||
+    !LOG_NAME_PATTERN.test(logName)
+  ) {
     throw new UnsafeLogPathError();
   }
 
@@ -140,8 +143,18 @@ function parseLogTimestamp(line: string): Date | null {
   const [, , monthStr, day, hour, minute, second, year] = match;
 
   const monthMap: Record<string, number> = {
-    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
-    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+    Jan: 0,
+    Feb: 1,
+    Mar: 2,
+    Apr: 3,
+    May: 4,
+    Jun: 5,
+    Jul: 6,
+    Aug: 7,
+    Sep: 8,
+    Oct: 9,
+    Nov: 10,
+    Dec: 11,
   };
 
   const month = monthMap[monthStr];
@@ -155,7 +168,7 @@ function parseLogTimestamp(line: string): Date | null {
     parseInt(day),
     parseInt(hour),
     parseInt(minute),
-    parseInt(second)
+    parseInt(second),
   );
 }
 
@@ -188,7 +201,7 @@ export async function readLogPaginated(
   pageSize: number = 100,
   searchText?: string,
   startDate?: Date,
-  endDate?: Date
+  endDate?: Date,
 ): Promise<PaginatedLogResult> {
   const logPath = resolveSafeLogPath(category, logName);
 
@@ -266,7 +279,7 @@ export async function readLogPaginated(
 export async function tailLog(
   category: 'runtime' | 'player',
   logName: string,
-  lines: number = 100
+  lines: number = 100,
 ): Promise<LogLine[]> {
   const logPath = resolveSafeLogPath(category, logName);
 

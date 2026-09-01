@@ -71,13 +71,33 @@ large tome sits on a pedestal in the center of the room.`,
 })
 
 const allFlags = [
-  'DARK', 'DEATH', 'NO_MOB', 'INDOORS', 'NO_MAGIC', 'TUNNEL', 'PRIVATE',
-  'GODROOM', 'UNDERWATER', 'NO_TELEPORT', 'PEACEFUL', 'ARENA',
+  'DARK',
+  'DEATH',
+  'NO_MOB',
+  'INDOORS',
+  'NO_MAGIC',
+  'TUNNEL',
+  'PRIVATE',
+  'GODROOM',
+  'UNDERWATER',
+  'NO_TELEPORT',
+  'PEACEFUL',
+  'ARENA',
 ]
 
 const sectors = [
-  'inside', 'city', 'field', 'forest', 'hills', 'mountain', 'water_swim',
-  'water_noswim', 'underwater', 'flying', 'desert', 'arctic',
+  'inside',
+  'city',
+  'field',
+  'forest',
+  'hills',
+  'mountain',
+  'water_swim',
+  'water_noswim',
+  'underwater',
+  'flying',
+  'desert',
+  'arctic',
 ]
 
 const expandedSections = ref({
@@ -90,7 +110,7 @@ const expandedSections = ref({
 })
 
 function closeTab(tabId: string) {
-  const idx = tabs.value.findIndex(t => t.id === tabId)
+  const idx = tabs.value.findIndex((t) => t.id === tabId)
   if (idx >= 0) {
     tabs.value.splice(idx, 1)
     if (activeTab.value === tabId && tabs.value.length > 0) {
@@ -109,20 +129,29 @@ function toggleSection(section: keyof typeof expandedSections.value) {
 
 function getTabIcon(type: string) {
   switch (type) {
-    case 'zone': return FolderOpen
-    case 'room': return FileText
-    case 'mob': return Users
-    default: return FileText
+    case 'zone':
+      return FolderOpen
+    case 'room':
+      return FileText
+    case 'mob':
+      return Users
+    default:
+      return FileText
   }
 }
 
 function getTabColor(type: string) {
   switch (type) {
-    case 'zone': return 'text-amber-400'
-    case 'room': return 'text-blue-400'
-    case 'mob': return 'text-green-400'
-    case 'object': return 'text-purple-400'
-    default: return 'text-zinc-400'
+    case 'zone':
+      return 'text-amber-400'
+    case 'room':
+      return 'text-blue-400'
+    case 'mob':
+      return 'text-green-400'
+    case 'object':
+      return 'text-purple-400'
+    default:
+      return 'text-zinc-400'
   }
 }
 

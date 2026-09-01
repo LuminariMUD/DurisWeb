@@ -14,7 +14,9 @@ describe('safe zone path resolution', () => {
   const roots: string[] = [];
 
   afterEach(async () => {
-    await Promise.all(roots.splice(0).map((root) => fsPromises.rm(root, { recursive: true, force: true })));
+    await Promise.all(
+      roots.splice(0).map((root) => fsPromises.rm(root, { recursive: true, force: true })),
+    );
   });
 
   async function createAreas(): Promise<string> {
@@ -27,15 +29,18 @@ describe('safe zone path resolution', () => {
 
   it('resolves valid legacy zone IDs inside the requested file directory', async () => {
     const areas = await createAreas();
-    expect(resolveSafeZoneFilePath(areas, 'surface2011-temp', 'wld'))
-      .toBe(path.join(areas, 'wld', 'surface2011-temp.wld'));
+    expect(resolveSafeZoneFilePath(areas, 'surface2011-temp', 'wld')).toBe(
+      path.join(areas, 'wld', 'surface2011-temp.wld'),
+    );
   });
 
-  it.each(['../escape', '../../escape', '/tmp/escape', 'safe/../escape', 'safe%2fescape'])
-    ('rejects unsafe zone ID %s', async (zoneId) => {
+  it.each(['../escape', '../../escape', '/tmp/escape', 'safe/../escape', 'safe%2fescape'])(
+    'rejects unsafe zone ID %s',
+    async (zoneId) => {
       const areas = await createAreas();
       expect(() => resolveSafeZoneFilePath(areas, zoneId, 'wld')).toThrow(UnsafeZonePathError);
-    });
+    },
+  );
 
   it('rejects a file symlink even when the target is outside the areas root', async () => {
     const areas = await createAreas();

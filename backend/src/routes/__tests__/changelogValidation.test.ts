@@ -50,13 +50,11 @@ describe('changelog route write validation', () => {
   });
 
   it('rejects script-only creates before persistence', async () => {
-    const response = await request(app)
-      .post('/api/changelog')
-      .send({
-        version: '1.0.0',
-        title: 'Rejected',
-        content: '<script>alert(1)</script>',
-      });
+    const response = await request(app).post('/api/changelog').send({
+      version: '1.0.0',
+      title: 'Rejected',
+      content: '<script>alert(1)</script>',
+    });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBe('Content cannot be empty after sanitization');

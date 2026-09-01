@@ -25,10 +25,10 @@ async function getAllGuilds(): Promise<string[]> {
      WHERE a.name IS NOT NULL
        AND a.name != ''
        AND a.name NOT LIKE '%backup%'
-     ORDER BY a.name`
+     ORDER BY a.name`,
   );
 
-  return rows.map(row => row.guild);
+  return rows.map((row) => row.guild);
 }
 
 /**
@@ -39,10 +39,10 @@ async function getExistingGuildCategories(): Promise<Set<string>> {
     `SELECT guild_name
      FROM forum_categories
      WHERE access_type = 'guild'
-       AND guild_name IS NOT NULL`
+       AND guild_name IS NOT NULL`,
   );
 
-  return new Set(rows.map(row => row.guild_name));
+  return new Set(rows.map((row) => row.guild_name));
 }
 
 /**
@@ -52,7 +52,7 @@ async function getExistingGuildCategories(): Promise<Set<string>> {
 async function getGuildHallsParentId(): Promise<number> {
   // Try to find existing "Guild Halls" category
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT id FROM forum_categories WHERE name = 'Guild Halls'`
+    `SELECT id FROM forum_categories WHERE name = 'Guild Halls'`,
   );
 
   if (rows.length > 0) {
@@ -70,8 +70,8 @@ async function getGuildHallsParentId(): Promise<number> {
       'authenticated',
       '\u{1F3F0}',
       3,
-      null
-    ]
+      null,
+    ],
   );
 
   return _result.insertId;
@@ -88,17 +88,8 @@ async function createGuildCategory(guildName: string, parentId: number): Promise
     `INSERT INTO forum_categories
      (name, description, access_type, guild_name, icon, parent_id, sort_order)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [
-      guildName,
-      `Private forum for ${guildName} members`,
-      'guild',
-      guildName,
-      icon,
-      parentId,
-      0
-    ]
+    [guildName, `Private forum for ${guildName} members`, 'guild', guildName, icon, parentId, 0],
   );
-
 }
 
 /**
@@ -143,7 +134,6 @@ export async function syncGuilds(): Promise<void> {
     return;
   }
   try {
-
     // Get all guilds from database
     const allGuilds = await getAllGuilds();
     recordHookActivity('guild_parsing');
@@ -152,12 +142,11 @@ export async function syncGuilds(): Promise<void> {
     const existingCategories = await getExistingGuildCategories();
 
     // Find guilds that don't have categories yet
-    const newGuilds = allGuilds.filter(guild => !existingCategories.has(guild));
+    const newGuilds = allGuilds.filter((guild) => !existingCategories.has(guild));
 
     if (newGuilds.length === 0) {
       return;
     }
-
 
     // Get or create parent category
     const parentId = await getGuildHallsParentId();
@@ -170,7 +159,6 @@ export async function syncGuilds(): Promise<void> {
         logger.error(`[GuildSync] Failed to create category for ${guildName}:`, err);
       }
     }
-
   } catch (err) {
     logger.error('[GuildSync] Error during guild sync:', err);
   }
@@ -188,13 +176,13 @@ export function startGuildSync(): void {
   logger.info(`[GuildSync] Starting background service (interval: ${SYNC_INTERVAL / 1000}s)`);
 
   // Run immediately on startup
-  syncGuilds().catch(err => {
+  syncGuilds().catch((err) => {
     logger.error('[GuildSync] Initial sync failed:', err);
   });
 
   // Then run periodically
   syncIntervalId = setInterval(() => {
-    syncGuilds().catch(err => {
+    syncGuilds().catch((err) => {
       logger.error('[GuildSync] Periodic sync failed:', err);
     });
   }, SYNC_INTERVAL);

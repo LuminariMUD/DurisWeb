@@ -43,13 +43,7 @@ const emit = defineEmits<{
   duplicate: [alias: Alias]
 }>()
 
-const {
-  groups,
-  rootGroups,
-  getChildGroups,
-  toggleGroup,
-  isGroupEffectivelyEnabled,
-} = useGroups()
+const { groups, rootGroups, getChildGroups, toggleGroup, isGroupEffectivelyEnabled } = useGroups()
 
 const { setAliasGroup } = useAliases()
 
@@ -90,7 +84,7 @@ function collapseAll() {
 // get aliases for a specific group
 function getAliasesForGroup(groupId: string | null): Alias[] {
   return props.aliases
-    .filter(a => a.groupId === groupId)
+    .filter((a) => a.groupId === groupId)
     .sort((a, b) => {
       if (a.enabled !== b.enabled) return a.enabled ? -1 : 1
       return a.trigger.localeCompare(b.trigger)

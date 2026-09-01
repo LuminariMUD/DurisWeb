@@ -8,10 +8,25 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import Pagination from '@/components/forum/PaginationWithEllipsis.vue'
 import DeploymentLogDialog from '@/components/admin/DeploymentLogDialog.vue'
-import { GitBranch, RefreshCw, Check, AlertCircle, FileCode, ArrowUp, ArrowDown } from 'lucide-vue-next'
+import {
+  GitBranch,
+  RefreshCw,
+  Check,
+  AlertCircle,
+  FileCode,
+  ArrowUp,
+  ArrowDown,
+} from 'lucide-vue-next'
 
 const { user } = useAuth()
 
@@ -76,10 +91,7 @@ function onPageChange(page: number) {
 async function handleRefresh() {
   forceRefresh.value = true
   currentPage.value = 1 // Go back to first page
-  await Promise.all([
-    refetch(),
-    refetchStatus(),
-  ])
+  await Promise.all([refetch(), refetchStatus()])
 }
 
 // Deployment state
@@ -97,8 +109,8 @@ function isNewerThanDeployed(commit: GitCommit): boolean {
   if (!status.value?.currentHash) return false
 
   // Find index of current deployed commit in the list
-  const deployedIndex = commits.value.findIndex(c => c.hash === status.value?.currentHash)
-  const commitIndex = commits.value.findIndex(c => c.hash === commit.hash)
+  const deployedIndex = commits.value.findIndex((c) => c.hash === status.value?.currentHash)
+  const commitIndex = commits.value.findIndex((c) => c.hash === commit.hash)
 
   // If deployed commit not found in current page, check by comparing with latest
   if (deployedIndex === -1) {

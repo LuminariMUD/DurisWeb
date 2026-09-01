@@ -48,7 +48,7 @@ async function activeSeasonEpoch(): Promise<number> {
     `SELECT season_epoch
      FROM season_reset_state
      WHERE state_id = 1 AND reset_status = 'active'
-     LIMIT 1`
+     LIMIT 1`,
   );
   if (rows.length !== 1) throw new Error('No active MUD season epoch is available');
   const epoch = Number(rows[0].season_epoch);
@@ -91,11 +91,17 @@ async function waitForRedisReady(client: Redis): Promise<void> {
 async function getRedisClient(scope: RedisScope): Promise<{ client: Redis; namespace: string }> {
   const configuration = getScopedRedisConfiguration(scope);
   if (scope === 'presence') {
-    if (!presenceRedis || presenceNamespace !== configuration.namespace || presenceRedis.status === 'end') {
+    if (
+      !presenceRedis ||
+      presenceNamespace !== configuration.namespace ||
+      presenceRedis.status === 'end'
+    ) {
       presenceRedis?.disconnect();
       presenceRedis = new Redis(configuration.options);
       presenceNamespace = configuration.namespace;
-      presenceRedis.on('error', (error) => logger.error('[OnlinePlayers] presence Redis error:', error.message));
+      presenceRedis.on('error', (error) =>
+        logger.error('[OnlinePlayers] presence Redis error:', error.message),
+      );
     }
     await waitForRedisReady(presenceRedis);
     return { client: presenceRedis, namespace: presenceNamespace };
@@ -105,7 +111,9 @@ async function getRedisClient(scope: RedisScope): Promise<{ client: Redis; names
     cacheRedis?.disconnect();
     cacheRedis = new Redis(configuration.options);
     cacheNamespace = configuration.namespace;
-    cacheRedis.on('error', (error) => logger.error('[OnlinePlayers] cache Redis error:', error.message));
+    cacheRedis.on('error', (error) =>
+      logger.error('[OnlinePlayers] cache Redis error:', error.message),
+    );
   }
   await waitForRedisReady(cacheRedis);
   return { client: cacheRedis, namespace: cacheNamespace };
@@ -207,10 +215,18 @@ export async function getFactionCounts(): Promise<FactionCounts> {
   const counts: FactionCounts = { goods: 0, evils: 0, neutrals: 0, undeads: 0 };
   for (const player of await getOnlinePlayers()) {
     switch (player.racewar) {
-      case 1: counts.goods += 1; break;
-      case 2: counts.evils += 1; break;
-      case 3: counts.neutrals += 1; break;
-      case 4: counts.undeads += 1; break;
+      case 1:
+        counts.goods += 1;
+        break;
+      case 2:
+        counts.evils += 1;
+        break;
+      case 3:
+        counts.neutrals += 1;
+        break;
+      case 4:
+        counts.undeads += 1;
+        break;
     }
   }
   return counts;
@@ -245,11 +261,13 @@ export async function closeOnlinePlayersRedisConnections(): Promise<void> {
   cacheRedis = null;
   presenceNamespace = null;
   cacheNamespace = null;
-  await Promise.all(clients.map(async (client) => {
-    try {
-      await client.quit();
-    } catch {
-      client.disconnect();
-    }
-  }));
+  await Promise.all(
+    clients.map(async (client) => {
+      try {
+        await client.quit();
+      } catch {
+        client.disconnect();
+      }
+    }),
+  );
 }

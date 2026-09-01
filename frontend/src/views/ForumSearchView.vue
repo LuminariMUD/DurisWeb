@@ -72,12 +72,15 @@ onMounted(() => {
 })
 
 // Watch for URL query changes
-watch(() => route.query.q, (newQuery) => {
-  if (newQuery && newQuery !== searchQuery.value) {
-    searchQuery.value = newQuery as string
-    performSearch(1)
-  }
-})
+watch(
+  () => route.query.q,
+  (newQuery) => {
+    if (newQuery && newQuery !== searchQuery.value) {
+      searchQuery.value = newQuery as string
+      performSearch(1)
+    }
+  },
+)
 </script>
 
 <template>

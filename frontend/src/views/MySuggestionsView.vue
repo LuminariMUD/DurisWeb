@@ -110,12 +110,19 @@ async function deleteSuggestion() {
 
 // Status helpers
 function getStatusBadge(status: SuggestionStatus) {
-  const badges: Record<SuggestionStatus, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; class: string; icon: any }> = {
+  const badges: Record<
+    SuggestionStatus,
+    { variant: 'default' | 'secondary' | 'destructive' | 'outline'; class: string; icon: any }
+  > = {
     pending: { variant: 'secondary', class: 'bg-yellow-500/20 text-yellow-400', icon: Clock },
     in_review: { variant: 'secondary', class: 'bg-blue-500/20 text-blue-400', icon: Eye },
     approved: { variant: 'default', class: 'bg-green-500/20 text-green-400', icon: CheckCircle },
     rejected: { variant: 'destructive', class: 'bg-red-500/20 text-red-400', icon: XCircle },
-    needs_revision: { variant: 'outline', class: 'bg-orange-500/20 text-orange-400', icon: AlertCircle },
+    needs_revision: {
+      variant: 'outline',
+      class: 'bg-orange-500/20 text-orange-400',
+      icon: AlertCircle,
+    },
   }
   return badges[status] || badges.pending
 }

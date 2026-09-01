@@ -1,11 +1,4 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  jest,
-} from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 import {
   getFlatfileHookHealth,
@@ -79,10 +72,7 @@ describe('flatfile hook health isolation', () => {
 describe('flatfile retry policy', () => {
   it('backs off exponentially and caps at five minutes', () => {
     for (let failure = 1; failure <= 12; failure += 1) {
-      const health = markFlatfileUnavailable(
-        'connection_log',
-        'Required comm log is unavailable.',
-      );
+      const health = markFlatfileUnavailable('connection_log', 'Required comm log is unavailable.');
       const expectedDelay = Math.min(1_000 * 2 ** (failure - 1), 300_000);
       expect(health.retryAt).toBe(new Date(now + expectedDelay).toISOString());
     }
@@ -127,8 +117,6 @@ describe('flatfile retry policy', () => {
       'token=live-value at /srv/mud/logs from 203.0.113.7\nnext',
     );
 
-    expect(health.reason).toBe(
-      'token=[redacted] at [path] from [address] next',
-    );
+    expect(health.reason).toBe('token=[redacted] at [path] from [address] next');
   });
 });

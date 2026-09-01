@@ -233,266 +233,284 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { Search, Info, ChevronDown, TrendingUp, Zap, DollarSign, Swords, Clock, Settings, Edit, Check, X, History } from 'lucide-vue-next';
-import { apiClient as api } from '@/services/api';
-import { useDebounceFn } from '@vueuse/core';
-import { toast } from 'vue-sonner';
-import PropertyEditDialog from '@/components/admin/PropertyEditDialog.vue';
-import PropertyHistoryDialog from '@/components/admin/PropertyHistoryDialog.vue';
+import { ref, computed, onMounted } from 'vue'
+import {
+  Search,
+  Info,
+  ChevronDown,
+  TrendingUp,
+  Zap,
+  DollarSign,
+  Swords,
+  Clock,
+  Settings,
+  Edit,
+  Check,
+  X,
+  History,
+} from 'lucide-vue-next'
+import { apiClient as api } from '@/services/api'
+import { useDebounceFn } from '@vueuse/core'
+import { toast } from 'vue-sonner'
+import PropertyEditDialog from '@/components/admin/PropertyEditDialog.vue'
+import PropertyHistoryDialog from '@/components/admin/PropertyHistoryDialog.vue'
 
 interface Property {
-  key: string;
-  value: number;
-  category: string;
-  subcategory?: string;
+  key: string
+  value: number
+  category: string
+  subcategory?: string
 }
 
 interface PropertyCategory {
-  name: string;
-  description: string;
-  properties: Property[];
+  name: string
+  description: string
+  properties: Property[]
 }
 
 interface HistoryEntry {
-  id: number;
-  accountName: string;
-  oldValue: string;
-  newValue: string;
-  timestamp: Date;
-  notes?: string;
+  id: number
+  accountName: string
+  oldValue: string
+  newValue: string
+  timestamp: Date
+  notes?: string
 }
 
-const isLoading = ref(true);
-const error = ref<string | null>(null);
-const categories = ref<PropertyCategory[]>([]);
-const searchResults = ref<Property[]>([]);
-const searchQuery = ref('');
-const lastSearch = ref('');
-const expandedCategories = ref<Set<string>>(new Set());
-const isSaving = ref(false);
+const isLoading = ref(true)
+const error = ref<string | null>(null)
+const categories = ref<PropertyCategory[]>([])
+const searchResults = ref<Property[]>([])
+const searchQuery = ref('')
+const lastSearch = ref('')
+const expandedCategories = ref<Set<string>>(new Set())
+const isSaving = ref(false)
 
 // Editing state
-const editingKey = ref<string | null>(null);
-const editingValue = ref<string>('');
-const originalValue = ref<number>(0);
+const editingKey = ref<string | null>(null)
+const editingValue = ref<string>('')
+const originalValue = ref<number>(0)
 
 // Dialog state
-const showConfirmDialog = ref(false);
-const pendingPropertyKey = ref<string>('');
-const pendingNewValue = ref<number>(0);
+const showConfirmDialog = ref(false)
+const pendingPropertyKey = ref<string>('')
+const pendingNewValue = ref<number>(0)
 
 // History dialog state
-const showHistoryDialog = ref(false);
-const historyPropertyKey = ref<string>('');
-const historyData = ref<HistoryEntry[]>([]);
-const loadingHistory = ref(false);
-const historyError = ref<string | null>(null);
+const showHistoryDialog = ref(false)
+const historyPropertyKey = ref<string>('')
+const historyData = ref<HistoryEntry[]>([])
+const loadingHistory = ref(false)
+const historyError = ref<string | null>(null)
 
 const totalProperties = computed(() => {
-  return categories.value.reduce((sum, cat) => sum + cat.properties.length, 0);
-});
+  return categories.value.reduce((sum, cat) => sum + cat.properties.length, 0)
+})
 
 const getCategoryIcon = (name: string) => {
   switch (name) {
     case 'Leveling':
-      return TrendingUp;
+      return TrendingUp
     case 'Epic':
-      return Zap;
+      return Zap
     case 'Economy':
-      return DollarSign;
+      return DollarSign
     case 'Combat':
-      return Swords;
+      return Swords
     case 'Timers':
-      return Clock;
+      return Clock
     default:
-      return Settings;
+      return Settings
   }
-};
+}
 
 const getCategoryColor = (name: string): string => {
   switch (name) {
     case 'Leveling':
-      return 'text-blue-400';
+      return 'text-blue-400'
     case 'Epic':
-      return 'text-amber-400';
+      return 'text-amber-400'
     case 'Economy':
-      return 'text-green-400';
+      return 'text-green-400'
     case 'Combat':
-      return 'text-red-400';
+      return 'text-red-400'
     case 'Timers':
-      return 'text-purple-400';
+      return 'text-purple-400'
     default:
-      return 'text-gray-400';
+      return 'text-gray-400'
   }
-};
+}
 
 const toggleCategory = (name: string) => {
   if (expandedCategories.value.has(name)) {
-    expandedCategories.value.delete(name);
+    expandedCategories.value.delete(name)
   } else {
-    expandedCategories.value.add(name);
+    expandedCategories.value.add(name)
   }
-};
+}
 
 const startEdit = (key: string, value: number) => {
-  editingKey.value = key;
-  editingValue.value = value.toString();
-  originalValue.value = value;
-};
+  editingKey.value = key
+  editingValue.value = value.toString()
+  originalValue.value = value
+}
 
 const cancelEdit = () => {
-  editingKey.value = null;
-  editingValue.value = '';
-  originalValue.value = 0;
-};
+  editingKey.value = null
+  editingValue.value = ''
+  originalValue.value = 0
+}
 
 const saveProperty = async (key: string) => {
-  const newValue = parseFloat(editingValue.value);
+  const newValue = parseFloat(editingValue.value)
 
   if (isNaN(newValue)) {
     toast.error('Invalid number', {
-      description: 'Please enter a valid numeric value'
-    });
-    return;
+      description: 'Please enter a valid numeric value',
+    })
+    return
   }
 
   if (newValue === originalValue.value) {
-    cancelEdit();
-    return;
+    cancelEdit()
+    return
   }
 
   // Show confirmation dialog
-  pendingPropertyKey.value = key;
-  pendingNewValue.value = newValue;
-  showConfirmDialog.value = true;
-};
+  pendingPropertyKey.value = key
+  pendingNewValue.value = newValue
+  showConfirmDialog.value = true
+}
 
 const handleConfirmSave = async () => {
-  isSaving.value = true;
-  error.value = null;
+  isSaving.value = true
+  error.value = null
 
   try {
-    const response = await api.put(`/api/admin/mud/properties/${encodeURIComponent(pendingPropertyKey.value)}`, {
-      value: pendingNewValue.value
-    });
+    const response = await api.put(
+      `/api/admin/mud/properties/${encodeURIComponent(pendingPropertyKey.value)}`,
+      {
+        value: pendingNewValue.value,
+      },
+    )
 
     // Update local value
     const updateLocalValue = (props: Property[]) => {
-      const prop = props.find(p => p.key === pendingPropertyKey.value);
+      const prop = props.find((p) => p.key === pendingPropertyKey.value)
       if (prop) {
-        prop.value = pendingNewValue.value;
+        prop.value = pendingNewValue.value
       }
-    };
+    }
 
     // Update in categories
-    categories.value.forEach(cat => {
-      updateLocalValue(cat.properties);
-    });
+    categories.value.forEach((cat) => {
+      updateLocalValue(cat.properties)
+    })
 
     // Update in search results
-    updateLocalValue(searchResults.value);
+    updateLocalValue(searchResults.value)
 
     // Show success toast
     toast.success('Property updated successfully!', {
-      description: response.data.message || 'Remember to restart the MUD for changes to take effect.'
-    });
+      description:
+        response.data.message || 'Remember to restart the MUD for changes to take effect.',
+    })
 
     // Close dialog and reset edit state
-    showConfirmDialog.value = false;
-    cancelEdit();
+    showConfirmDialog.value = false
+    cancelEdit()
   } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to update property';
-    console.error('Property update error:', err);
+    error.value = err.response?.data?.error || 'Failed to update property'
+    console.error('Property update error:', err)
     toast.error('Update failed', {
-      description: error.value || undefined
-    });
+      description: error.value || undefined,
+    })
   } finally {
-    isSaving.value = false;
+    isSaving.value = false
   }
-};
+}
 
 const handleCancelSave = () => {
-  showConfirmDialog.value = false;
-  cancelEdit();
-};
+  showConfirmDialog.value = false
+  cancelEdit()
+}
 
 const loadPropertyHistory = async (key: string) => {
-  historyPropertyKey.value = key;
-  showHistoryDialog.value = true;
-  loadingHistory.value = true;
-  historyError.value = null;
-  historyData.value = [];
+  historyPropertyKey.value = key
+  showHistoryDialog.value = true
+  loadingHistory.value = true
+  historyError.value = null
+  historyData.value = []
 
   try {
     const response = await api.get<{ history: HistoryEntry[] }>(
       `/api/admin/mud/properties/${encodeURIComponent(key)}/history`,
-      { params: { limit: 20 } }
-    );
-    historyData.value = response.data.history;
+      { params: { limit: 20 } },
+    )
+    historyData.value = response.data.history
   } catch (err: any) {
-    historyError.value = err.response?.data?.error || 'Failed to load property history';
-    console.error('Property history load error:', err);
+    historyError.value = err.response?.data?.error || 'Failed to load property history'
+    console.error('Property history load error:', err)
   } finally {
-    loadingHistory.value = false;
+    loadingHistory.value = false
   }
-};
+}
 
 const loadProperties = async () => {
-  isLoading.value = true;
-  error.value = null;
+  isLoading.value = true
+  error.value = null
 
   try {
-    const response = await api.get<{ categories: PropertyCategory[] }>('/api/admin/mud/properties');
-    categories.value = response.data.categories;
+    const response = await api.get<{ categories: PropertyCategory[] }>('/api/admin/mud/properties')
+    categories.value = response.data.categories
 
     // Auto-expand first category
     if (categories.value.length > 0 && categories.value[0]) {
-      expandedCategories.value.add(categories.value[0].name);
+      expandedCategories.value.add(categories.value[0].name)
     }
   } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to load properties';
-    console.error('Properties load error:', err);
+    error.value = err.response?.data?.error || 'Failed to load properties'
+    console.error('Properties load error:', err)
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
-};
+}
 
 const searchProperties = async (query: string) => {
   if (!query.trim()) {
-    searchResults.value = [];
-    lastSearch.value = '';
-    return;
+    searchResults.value = []
+    lastSearch.value = ''
+    return
   }
 
-  isLoading.value = true;
-  error.value = null;
+  isLoading.value = true
+  error.value = null
 
   try {
     const response = await api.get<{ search: string; results: Property[] }>(
       '/api/admin/mud/properties',
-      { params: { search: query } }
-    );
-    searchResults.value = response.data.results;
-    lastSearch.value = response.data.search;
+      { params: { search: query } },
+    )
+    searchResults.value = response.data.results
+    lastSearch.value = response.data.search
   } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to search properties';
-    console.error('Property search error:', err);
+    error.value = err.response?.data?.error || 'Failed to search properties'
+    console.error('Property search error:', err)
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
-};
+}
 
 const onSearchInput = useDebounceFn(() => {
   if (searchQuery.value.trim()) {
-    searchProperties(searchQuery.value);
+    searchProperties(searchQuery.value)
   } else {
-    searchResults.value = [];
-    lastSearch.value = '';
+    searchResults.value = []
+    lastSearch.value = ''
   }
-}, 300);
+}, 300)
 
 onMounted(() => {
-  loadProperties();
-});
+  loadProperties()
+})
 </script>

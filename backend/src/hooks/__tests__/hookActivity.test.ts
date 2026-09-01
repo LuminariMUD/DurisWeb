@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it } from '@jest/globals';
 
-import {
-  getHookLastActivity,
-  recordHookActivity,
-  resetHookActivity,
-} from '../hookActivity.js';
+import { getHookLastActivity, recordHookActivity, resetHookActivity } from '../hookActivity.js';
 
 afterEach(() => resetHookActivity());
 

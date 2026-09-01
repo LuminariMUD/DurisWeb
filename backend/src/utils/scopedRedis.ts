@@ -10,24 +10,39 @@ export interface ScopedRedisConfiguration {
   options: RedisOptions;
 }
 
-function parseBoundedInteger(value: string | undefined, fallback: number, minimum: number, maximum: number): number {
+function parseBoundedInteger(
+  value: string | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
   const parsed = Number(value ?? fallback);
   if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) {
-    throw new DonationDeliveryConfigurationError('Redis configuration contains an invalid numeric value');
+    throw new DonationDeliveryConfigurationError(
+      'Redis configuration contains an invalid numeric value',
+    );
   }
   return parsed;
 }
 
-function getScopeCredentials(scope: RedisScope, production: boolean): { username?: string; password?: string } {
-  const prefix = scope === 'donation'
-    ? 'REDIS_DONATION'
-    : scope === 'presence' ? 'REDIS_PRESENCE' : 'REDIS_CACHE';
-  const username = process.env[`${prefix}_USERNAME`] || (production ? undefined : process.env.REDIS_USERNAME);
-  const password = process.env[`${prefix}_PASSWORD`] || (production ? undefined : process.env.REDIS_PASSWORD);
+function getScopeCredentials(
+  scope: RedisScope,
+  production: boolean,
+): { username?: string; password?: string } {
+  const prefix =
+    scope === 'donation'
+      ? 'REDIS_DONATION'
+      : scope === 'presence'
+        ? 'REDIS_PRESENCE'
+        : 'REDIS_CACHE';
+  const username =
+    process.env[`${prefix}_USERNAME`] || (production ? undefined : process.env.REDIS_USERNAME);
+  const password =
+    process.env[`${prefix}_PASSWORD`] || (production ? undefined : process.env.REDIS_PASSWORD);
 
   if (production && (!username || !password)) {
     throw new DonationDeliveryConfigurationError(
-      `Production ${scope} Redis access requires ${prefix}_USERNAME and ${prefix}_PASSWORD`
+      `Production ${scope} Redis access requires ${prefix}_USERNAME and ${prefix}_PASSWORD`,
     );
   }
   return { username, password };
@@ -37,7 +52,9 @@ export function getScopedRedisConfiguration(scope: RedisScope): ScopedRedisConfi
   const namespace = process.env.REDIS_NAMESPACE?.trim();
   const production = process.env.NODE_ENV === 'production';
   if (!namespace) {
-    throw new DonationDeliveryConfigurationError('REDIS_NAMESPACE is required for scoped Redis access');
+    throw new DonationDeliveryConfigurationError(
+      'REDIS_NAMESPACE is required for scoped Redis access',
+    );
   }
   validateRedisNamespace(namespace);
 
@@ -49,7 +66,9 @@ export function getScopedRedisConfiguration(scope: RedisScope): ScopedRedisConfi
   const tls = tlsValue === 'TRUE';
   const caPath = process.env.REDIS_CA_CERT?.trim();
   if (tls && !caPath) {
-    throw new DonationDeliveryConfigurationError('REDIS_CA_CERT is required when REDIS_TLS is TRUE');
+    throw new DonationDeliveryConfigurationError(
+      'REDIS_CA_CERT is required when REDIS_TLS is TRUE',
+    );
   }
 
   const credentials = getScopeCredentials(scope, production);

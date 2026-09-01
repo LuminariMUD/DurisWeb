@@ -89,8 +89,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { ArrowRight, AlertTriangle } from 'lucide-vue-next';
+import { ref, watch } from 'vue'
+import { ArrowRight, AlertTriangle } from 'lucide-vue-next'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -100,57 +100,60 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
   AlertDialogAction,
-} from '@/components/ui/alert-dialog';
+} from '@/components/ui/alert-dialog'
 
 interface Props {
-  open: boolean;
-  currentLevel: number;
-  currentRacewar: number;
-  newLevel: number;
-  newRacewar?: number;
-  saving?: boolean;
-  isReset?: boolean;
+  open: boolean
+  currentLevel: number
+  currentRacewar: number
+  newLevel: number
+  newRacewar?: number
+  saving?: boolean
+  isReset?: boolean
 }
 
 interface Emits {
-  (e: 'update:open', value: boolean): void;
-  (e: 'confirm', notes: string): void;
-  (e: 'cancel'): void;
+  (e: 'update:open', value: boolean): void
+  (e: 'confirm', notes: string): void
+  (e: 'cancel'): void
 }
 
-const props = defineProps<Props>();
-const emit = defineEmits<Emits>();
+const props = defineProps<Props>()
+const emit = defineEmits<Emits>()
 
-const notes = ref('');
-const notesError = ref('');
+const notes = ref('')
+const notesError = ref('')
 
 // Reset notes when dialog opens
-watch(() => props.open, (isOpen) => {
-  if (isOpen) {
-    notes.value = '';
-    notesError.value = '';
-  }
-});
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (isOpen) {
+      notes.value = ''
+      notesError.value = ''
+    }
+  },
+)
 
 const racewarLabel = (racewar: number): string => {
-  if (racewar === 1) return 'Good Leading';
-  if (racewar === 2) return 'Evil Leading';
-  return 'Neutral';
-};
+  if (racewar === 1) return 'Good Leading'
+  if (racewar === 2) return 'Evil Leading'
+  return 'Neutral'
+}
 
 const handleOpenChange = (value: boolean) => {
-  emit('update:open', value);
-};
+  emit('update:open', value)
+}
 
 const handleConfirm = () => {
   if (!notes.value.trim()) {
-    notesError.value = 'Please provide a reason for this change';
-    return;
+    notesError.value = 'Please provide a reason for this change'
+    return
   }
-  emit('confirm', notes.value);
-};
+  emit('confirm', notes.value)
+}
 
 const handleCancel = () => {
-  emit('cancel');
-};
+  emit('cancel')
+}
 </script>

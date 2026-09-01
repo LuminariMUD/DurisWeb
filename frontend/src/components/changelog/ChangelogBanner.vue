@@ -43,10 +43,9 @@ function loadDismissedState() {
 watch(accountName, loadDismissedState, { immediate: true })
 
 // fetch unread count (only for authenticated users)
-const unreadQueryKey = computed(() => [
-  'changelog-unread-count',
-  accountName.value?.trim().toLowerCase() || 'anonymous',
-] as const)
+const unreadQueryKey = computed(
+  () => ['changelog-unread-count', accountName.value?.trim().toLowerCase() || 'anonymous'] as const,
+)
 const { data: unreadData } = useQuery({
   queryKey: unreadQueryKey,
   queryFn: () => changelogApi.getUnreadCount(),
@@ -56,12 +55,15 @@ const { data: unreadData } = useQuery({
 })
 
 // reset dismissed state when unread count changes (new entries)
-watch(() => unreadData.value?.count, (newCount, oldCount) => {
-  if (newCount && oldCount !== undefined && newCount > oldCount) {
-    isDismissed.value = false
-    localStorage.removeItem(dismissedStorageKey.value)
-  }
-})
+watch(
+  () => unreadData.value?.count,
+  (newCount, oldCount) => {
+    if (newCount && oldCount !== undefined && newCount > oldCount) {
+      isDismissed.value = false
+      localStorage.removeItem(dismissedStorageKey.value)
+    }
+  },
+)
 
 // computed
 const unreadCount = computed(() => unreadData.value?.count ?? 0)

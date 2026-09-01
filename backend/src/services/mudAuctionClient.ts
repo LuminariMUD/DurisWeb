@@ -135,13 +135,15 @@ function handleDuriswebChallenge(socket: WebSocket, message: any): void {
   lastChallenge = challenge;
 
   try {
-    socket.send(JSON.stringify({
-      type: 'cmd',
-      cmd: 'durisweb_auth',
-      data: {
-        sig: generateDuriswebSig(challenge, authSecretSlot),
-      },
-    }));
+    socket.send(
+      JSON.stringify({
+        type: 'cmd',
+        cmd: 'durisweb_auth',
+        data: {
+          sig: generateDuriswebSig(challenge, authSecretSlot),
+        },
+      }),
+    );
     logger.info('[MUD Auction] Sent durisweb_auth response');
   } catch (error) {
     logger.error('[MUD Auction] Could not answer authentication challenge:', error);
@@ -181,11 +183,13 @@ async function connect(): Promise<void> {
       logger.info('[MUD Auction] Connected to MUD websocket');
 
       // Request a one-time, connection-bound challenge before authenticating.
-      socket.send(JSON.stringify({
-        type: 'cmd',
-        cmd: 'durisweb_challenge',
-        data: {},
-      }));
+      socket.send(
+        JSON.stringify({
+          type: 'cmd',
+          cmd: 'durisweb_challenge',
+          data: {},
+        }),
+      );
       logger.info('[MUD Auction] Sent durisweb_challenge');
 
       // start ping interval
@@ -231,7 +235,6 @@ async function connect(): Promise<void> {
     socket.on('pong', () => {
       // connection is alive
     });
-
   } catch (err) {
     logger.error('[MUD Auction] Connection error:', err);
     scheduleReconnect();
@@ -243,7 +246,9 @@ async function connect(): Promise<void> {
  */
 function handleMessage(socket: WebSocket, msg: any): void {
   if (msg?.type !== 'durisweb_auth' && !isAuthenticated) {
-    logger.warn(`[MUD Auction] Ignoring pre-authentication message: ${String(msg?.type || 'unknown')}`);
+    logger.warn(
+      `[MUD Auction] Ignoring pre-authentication message: ${String(msg?.type || 'unknown')}`,
+    );
     return;
   }
 
@@ -252,9 +257,7 @@ function handleMessage(socket: WebSocket, msg: any): void {
       if (msg.success) {
         isAuthenticated = true;
         retriedWithPreviousSecret = false;
-        logger.info(
-          `[MUD Auction] Authentication successful (${authSecretSlot} secret)`,
-        );
+        logger.info(`[MUD Auction] Authentication successful (${authSecretSlot} secret)`);
         // Ask for hook state immediately: until the MUD answers, every
         // MUD-gated hook resolves as unknown rather than assumed enabled.
         try {
@@ -277,15 +280,15 @@ function handleMessage(socket: WebSocket, msg: any): void {
         ) {
           retriedWithPreviousSecret = true;
           authSecretSlot = 'previous';
-          logger.warn(
-            '[MUD Auction] Retrying authentication with DURISWEB_SECRET_PREVIOUS',
-          );
+          logger.warn('[MUD Auction] Retrying authentication with DURISWEB_SECRET_PREVIOUS');
           try {
-            socket.send(JSON.stringify({
-              type: 'cmd',
-              cmd: 'durisweb_auth',
-              data: { sig: generateDuriswebSig(lastChallenge, 'previous') },
-            }));
+            socket.send(
+              JSON.stringify({
+                type: 'cmd',
+                cmd: 'durisweb_auth',
+                data: { sig: generateDuriswebSig(lastChallenge, 'previous') },
+              }),
+            );
             return;
           } catch (error) {
             logger.error('[MUD Auction] Rotation retry failed:', error);
@@ -320,7 +323,7 @@ function handleMessage(socket: WebSocket, msg: any): void {
       broadcast('DELETE_PROGRESS', {
         requestId: msg.requestId,
         message: msg.message,
-        status: msg.status
+        status: msg.status,
       });
       break;
 
@@ -347,23 +350,31 @@ function handleMessage(socket: WebSocket, msg: any): void {
           logger.info(`[MUD Command] Character deleted (no pending request): ${msg.name}`);
           softDeleteCharacter(msg.account, msg.name);
         } else {
-          logger.error(`[MUD Command] Character deletion failed (no pending request): ${msg.error}`);
+          logger.error(
+            `[MUD Command] Character deletion failed (no pending request): ${msg.error}`,
+          );
         }
       }
       break;
 
     case 'auction_new':
       if (!acceptInboundHook('auction_new')) break;
-      logger.info(`[MUD Auction] New auction: #${msg.data.id} ${msg.data.item} by ${msg.data.seller}`);
+      logger.info(
+        `[MUD Auction] New auction: #${msg.data.id} ${msg.data.item} by ${msg.data.seller}`,
+      );
       broadcast('AUCTION_NEW', msg.data as AuctionNewEvent);
       break;
 
     case 'auction_bid':
       if (!acceptInboundHook('auction_bid')) break;
-      logger.info(`[MUD Auction] Bid on #${msg.data.id}: ${msg.data.amount}c by ${msg.data.bidder}`);
+      logger.info(
+        `[MUD Auction] Bid on #${msg.data.id}: ${msg.data.amount}c by ${msg.data.bidder}`,
+      );
       broadcast('AUCTION_BID', msg.data as AuctionBidEvent);
       // Notify previous bidder they were outbid
-      handleAuctionBid(msg.data as AuctionBidEvent).catch(err => logger.error('[MUD] auction_bid error:', err));
+      handleAuctionBid(msg.data as AuctionBidEvent).catch((err) =>
+        logger.error('[MUD] auction_bid error:', err),
+      );
       break;
 
     case 'auction_close':
@@ -371,22 +382,26 @@ function handleMessage(socket: WebSocket, msg: any): void {
       logger.info(`[MUD Auction] Auction #${msg.data.id} closed: ${msg.data.reason}`);
       broadcast('AUCTION_CLOSE', msg.data as AuctionCloseEvent);
       // Create notifications for sold auctions
-      handleAuctionClose(msg.data as AuctionCloseEvent).catch(err => logger.error('[MUD] auction_close error:', err));
+      handleAuctionClose(msg.data as AuctionCloseEvent).catch((err) =>
+        logger.error('[MUD] auction_close error:', err),
+      );
       break;
 
     case 'wholist':
       if (!acceptInboundHook('wholist')) break;
-      handleWhoList(msg.data.players || []).catch(err => logger.error('[MUD] wholist error:', err));
+      handleWhoList(msg.data.players || []).catch((err) =>
+        logger.error('[MUD] wholist error:', err),
+      );
       break;
 
     case 'player_login':
       if (!acceptInboundHook('player_presence')) break;
-      handlePlayerLogin(msg.data).catch(err => logger.error('[MUD] player_login error:', err));
+      handlePlayerLogin(msg.data).catch((err) => logger.error('[MUD] player_login error:', err));
       break;
 
     case 'player_logout':
       if (!acceptInboundHook('player_presence')) break;
-      handlePlayerLogout(msg.data).catch(err => logger.error('[MUD] player_logout error:', err));
+      handlePlayerLogout(msg.data).catch((err) => logger.error('[MUD] player_logout error:', err));
       break;
 
     case 'mud_shutdown':
@@ -425,21 +440,16 @@ async function handleAuctionBid(event: AuctionBidEvent): Promise<void> {
 
   try {
     // Get item name from database
-    const [rows] = await db.query<RowDataPacket[]>(
-      'SELECT obj_short FROM auctions WHERE id = ?',
-      [event.id]
-    );
+    const [rows] = await db.query<RowDataPacket[]>('SELECT obj_short FROM auctions WHERE id = ?', [
+      event.id,
+    ]);
     const itemName = rows[0]?.obj_short || 'item';
 
-    notificationService.notifyOutbid(
-      event.prevBidderPid,
-      event.id,
-      itemName,
-      event.bidder,
-      event.amount
-    ).catch((err) => {
-      logger.error('[MUD Auction] Error notifying outbid:', err);
-    });
+    notificationService
+      .notifyOutbid(event.prevBidderPid, event.id, itemName, event.bidder, event.amount)
+      .catch((err) => {
+        logger.error('[MUD Auction] Error notifying outbid:', err);
+      });
   } catch (err) {
     logger.error('[MUD Auction] Error handling auction bid notifications:', err);
   }
@@ -449,7 +459,9 @@ async function handleAuctionBid(event: AuctionBidEvent): Promise<void> {
  * Handle auction close event - create notifications for winner and seller
  */
 async function handleAuctionClose(event: AuctionCloseEvent): Promise<void> {
-  logger.info(`[MUD Auction] handleAuctionClose called: reason=${event.reason}, winnerPid=${event.winnerPid}, sellerPid=${event.sellerPid}`);
+  logger.info(
+    `[MUD Auction] handleAuctionClose called: reason=${event.reason}, winnerPid=${event.winnerPid}, sellerPid=${event.sellerPid}`,
+  );
 
   // Only notify for sold or buynow auctions
   if (event.reason !== 'sold' && event.reason !== 'buynow') {
@@ -459,42 +471,36 @@ async function handleAuctionClose(event: AuctionCloseEvent): Promise<void> {
 
   try {
     // Get item name from database
-    const [rows] = await db.query<RowDataPacket[]>(
-      'SELECT obj_short FROM auctions WHERE id = ?',
-      [event.id]
-    );
+    const [rows] = await db.query<RowDataPacket[]>('SELECT obj_short FROM auctions WHERE id = ?', [
+      event.id,
+    ]);
     const itemName = rows[0]?.obj_short || 'item';
     logger.info(`[MUD Auction] Item name: ${itemName}`);
 
     // Notify winner
     if (event.winnerPid) {
       logger.info(`[MUD Auction] Notifying winner pid=${event.winnerPid}`);
-      notificationService.notifyAuctionWon(
-        event.winnerPid,
-        event.id,
-        itemName,
-        event.price
-      ).then(() => {
-        logger.info('[MUD Auction] Winner notification created');
-      }).catch((err) => {
-        logger.error('[MUD Auction] Error notifying winner:', err);
-      });
+      notificationService
+        .notifyAuctionWon(event.winnerPid, event.id, itemName, event.price)
+        .then(() => {
+          logger.info('[MUD Auction] Winner notification created');
+        })
+        .catch((err) => {
+          logger.error('[MUD Auction] Error notifying winner:', err);
+        });
     }
 
     // Notify seller
     if (event.sellerPid) {
       logger.info(`[MUD Auction] Notifying seller pid=${event.sellerPid}`);
-      notificationService.notifyItemSold(
-        event.sellerPid,
-        event.id,
-        itemName,
-        event.winner,
-        event.price
-      ).then(() => {
-        logger.info('[MUD Auction] Seller notification created');
-      }).catch((err) => {
-        logger.error('[MUD Auction] Error notifying seller:', err);
-      });
+      notificationService
+        .notifyItemSold(event.sellerPid, event.id, itemName, event.winner, event.price)
+        .then(() => {
+          logger.info('[MUD Auction] Seller notification created');
+        })
+        .catch((err) => {
+          logger.error('[MUD Auction] Error notifying seller:', err);
+        });
     }
   } catch (err) {
     logger.error('[MUD Auction] Error handling auction close notifications:', err);
@@ -506,11 +512,16 @@ async function handleAuctionClose(event: AuctionCloseEvent): Promise<void> {
  */
 function getFactionKey(faction: number): keyof typeof factionCounts {
   switch (faction) {
-    case 1: return 'goods';
-    case 2: return 'evils';
-    case 3: return 'undeads';
-    case 4: return 'neutrals';
-    default: return 'none';
+    case 1:
+      return 'goods';
+    case 2:
+      return 'evils';
+    case 3:
+      return 'undeads';
+    case 4:
+      return 'neutrals';
+    default:
+      return 'none';
   }
 }
 
@@ -526,7 +537,7 @@ async function handleWhoList(players: any[]): Promise<void> {
   for (const p of players) {
     const player: PlayerInfo = {
       ...p,
-      loginTime: now - ((p.uptime || 0) * 1000),
+      loginTime: now - (p.uptime || 0) * 1000,
     };
     const key = player.character.toLowerCase();
     onlinePlayers.set(key, player);
@@ -535,7 +546,10 @@ async function handleWhoList(players: any[]): Promise<void> {
 
   logger.info(`[MUD] wholist received: ${players.length} players online`);
   if (wholistBroadcaster) {
-    wholistBroadcaster('WHOLIST', { players: Array.from(onlinePlayers.values()), counts: factionCounts });
+    wholistBroadcaster('WHOLIST', {
+      players: Array.from(onlinePlayers.values()),
+      counts: factionCounts,
+    });
   }
 
   // broadcast MUD_ONLINE only after crash/shutdown/reboot, not on regular backend restart
@@ -571,7 +585,15 @@ async function handlePlayerLogin(player: PlayerInfo): Promise<void> {
   try {
     await db.query(
       'INSERT IGNORE INTO account_login_history (account_name, character_name, ip_address, status, timestamp, hostname, client, client_version) VALUES (?, ?, ?, ?, NOW(), ?, ?, ?)',
-      [player.account, player.character, player.ip, 'login', null, player.client || null, player.clientVersion || null]
+      [
+        player.account,
+        player.character,
+        player.ip,
+        'login',
+        null,
+        player.client || null,
+        player.clientVersion || null,
+      ],
     );
   } catch (err) {
     logger.error('[MUD] failed to store login:', err);
@@ -579,7 +601,11 @@ async function handlePlayerLogin(player: PlayerInfo): Promise<void> {
 
   // broadcast to subscribed admin clients only
   if (playerEventBroadcaster) {
-    playerEventBroadcaster('PLAYER_LOGIN', { player, onlineCount: onlinePlayers.size, factionCounts });
+    playerEventBroadcaster('PLAYER_LOGIN', {
+      player,
+      onlineCount: onlinePlayers.size,
+      factionCounts,
+    });
   }
 }
 
@@ -605,7 +631,7 @@ async function handlePlayerLogout(data: { character: string; faction: number }):
     if (account) {
       await db.query(
         'INSERT IGNORE INTO account_login_history (account_name, character_name, ip_address, status, timestamp, hostname) VALUES (?, ?, ?, ?, NOW(), ?)',
-        [account, data.character, player?.ip || '', 'logout', null]
+        [account, data.character, player?.ip || '', 'logout', null],
       );
     }
   } catch (err) {
@@ -614,7 +640,11 @@ async function handlePlayerLogout(data: { character: string; faction: number }):
 
   // broadcast to subscribed admin clients only
   if (playerEventBroadcaster) {
-    playerEventBroadcaster('PLAYER_LOGOUT', { character: data.character, onlineCount: onlinePlayers.size, factionCounts });
+    playerEventBroadcaster('PLAYER_LOGOUT', {
+      character: data.character,
+      onlineCount: onlinePlayers.size,
+      factionCounts,
+    });
   }
 }
 
@@ -656,7 +686,9 @@ async function handleWebSocketClose(): Promise<void> {
   } else if (processStats.isRunning) {
     // process still running = just websocket disconnect, not a crash
     await saveMudBootTime(processStats.uptime);
-    logger.info('[MUD] websocket disconnected but MUD still running (uptime: ' + processStats.uptime + 's)');
+    logger.info(
+      '[MUD] websocket disconnected but MUD still running (uptime: ' + processStats.uptime + 's)',
+    );
   }
 
   // clear state
@@ -716,7 +748,7 @@ export function setWholistBroadcaster(fn: AuctionBroadcaster): void {
 }
 
 async function saveMudBootTime(uptimeSeconds: number): Promise<void> {
-  const bootTimestamp = Date.now() - (uptimeSeconds * 1000);
+  const bootTimestamp = Date.now() - uptimeSeconds * 1000;
   await redis.set(MUD_BOOT_TIME_KEY, bootTimestamp.toString());
   logger.info(`[MUD] boot timestamp saved: ${new Date(bootTimestamp).toISOString()}`);
 }
@@ -807,10 +839,9 @@ export function stopMudAuctionClient(): void {
 async function softDeleteCharacter(accountName: string, characterName: string): Promise<void> {
   try {
     // Find the character's pid from player_data
-    const [rows] = await db.query<RowDataPacket[]>(
-      'SELECT pid FROM player_data WHERE name = ?',
-      [characterName]
-    );
+    const [rows] = await db.query<RowDataPacket[]>('SELECT pid FROM player_data WHERE name = ?', [
+      characterName,
+    ]);
 
     if (rows.length === 0) {
       logger.warn(`[MUD Command] Character ${characterName} not found in player_data`);
@@ -822,10 +853,12 @@ async function softDeleteCharacter(accountName: string, characterName: string): 
     // Soft delete in account_characters
     await db.query<ResultSetHeader>(
       'UPDATE account_characters SET deleted_at = NOW() WHERE account_name = ? AND pid = ? AND deleted_at IS NULL',
-      [accountName, pid]
+      [accountName, pid],
     );
 
-    logger.info(`[MUD Command] Soft deleted character ${characterName} (pid=${pid}) from account ${accountName}`);
+    logger.info(
+      `[MUD Command] Soft deleted character ${characterName} (pid=${pid}) from account ${accountName}`,
+    );
   } catch (err) {
     logger.error('[MUD Command] Error soft deleting character:', err);
   }
@@ -857,7 +890,7 @@ export function sendMudCommand(cmd: string, data: any): boolean {
  */
 export function sendMudCommandAsync(
   cmd: string,
-  data: any
+  data: any,
 ): Promise<{ success: boolean; error?: string }> {
   return new Promise((resolve, reject) => {
     if (!ws || ws.readyState !== WebSocket.OPEN || !isAuthenticated) {
@@ -943,12 +976,11 @@ export function getFactionCounts(): typeof factionCounts {
  */
 export function getOnlinePlayers(): (PlayerInfo & { uptime_seconds: number })[] {
   const now = Date.now();
-  return Array.from(onlinePlayers.values()).map(p => ({
+  return Array.from(onlinePlayers.values()).map((p) => ({
     ...p,
     uptime_seconds: Math.floor((now - p.loginTime) / 1000),
   }));
 }
-
 
 /**
  * request fresh wholist from mud

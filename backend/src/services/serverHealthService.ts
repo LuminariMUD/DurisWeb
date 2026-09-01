@@ -134,7 +134,7 @@ function getDatabasePoolStats(): { used: number; total: number } {
 async function getCrashCount(hours: number): Promise<number> {
   try {
     const [rows] = await db.query(
-      `SELECT COUNT(*) as count FROM server_incidents WHERE incident_type = 'crash' AND started_at >= NOW() - INTERVAL ${hours} HOUR AND resolved = 0`
+      `SELECT COUNT(*) as count FROM server_incidents WHERE incident_type = 'crash' AND started_at >= NOW() - INTERVAL ${hours} HOUR AND resolved = 0`,
     );
     const result = (rows as any[])[0];
 
@@ -290,8 +290,8 @@ export async function recordHealthMetrics(health: ServerHealth): Promise<void> {
         health.diskPercent,
         health.websocketConnections,
         health.crashesLastHour,
-        health.crashesLast24h
-      ]
+        health.crashesLast24h,
+      ],
     );
   } catch (error) {
     logger.error('Error recording health metrics:', error);
@@ -385,7 +385,7 @@ export async function getUptimePercentage(days: number = 30): Promise<number> {
     const [rows] = await db.query(
       `SELECT COUNT(*) as total_checks, SUM(mud_is_running) as running_checks
        FROM server_health_metrics
-       WHERE recorded_at >= NOW() - INTERVAL ${days} DAY`
+       WHERE recorded_at >= NOW() - INTERVAL ${days} DAY`,
     );
     const result = (rows as any[])[0];
 
@@ -407,14 +407,17 @@ export function startHealthMonitoring(): void {
   logger.info('Starting server health monitoring...');
 
   // Record metrics every 5 minutes - store interval ID for cleanup
-  healthMonitorIntervalId = setInterval(async () => {
-    try {
-      const health = await getServerHealth();
-      await recordHealthMetrics(health);
-    } catch (error) {
-      logger.error('Error in health monitoring:', error);
-    }
-  }, 5 * 60 * 1000); // 5 minutes
+  healthMonitorIntervalId = setInterval(
+    async () => {
+      try {
+        const health = await getServerHealth();
+        await recordHealthMetrics(health);
+      } catch (error) {
+        logger.error('Error in health monitoring:', error);
+      }
+    },
+    5 * 60 * 1000,
+  ); // 5 minutes
 
   // Also record initial metrics
   (async () => {

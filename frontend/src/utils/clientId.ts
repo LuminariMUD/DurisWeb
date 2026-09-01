@@ -13,9 +13,7 @@ function browserRuntime(): ClientIdRuntime {
   const cryptoApi = globalThis.crypto
   return {
     randomUUID:
-      typeof cryptoApi.randomUUID === 'function'
-        ? () => cryptoApi.randomUUID()
-        : undefined,
+      typeof cryptoApi.randomUUID === 'function' ? () => cryptoApi.randomUUID() : undefined,
     getRandomValues:
       typeof cryptoApi.getRandomValues === 'function'
         ? (array) => cryptoApi.getRandomValues(array)

@@ -20,7 +20,16 @@ import 'flatpickr/dist/themes/dark.css'
 import { Calendar } from 'lucide-vue-next'
 import { useFactionActivity, useAvailableDates } from '@/composables/usePublicStatistics'
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+)
 
 const { data: availableDatesData, isLoading: loadingDates } = useAvailableDates()
 
@@ -69,14 +78,14 @@ const chartData = computed<ChartData<'line'>>(() => {
   const points = activityData.value?.data || []
 
   return {
-    labels: points.map(p => {
+    labels: points.map((p) => {
       const date = new Date(p.timestamp * 1000)
       return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
     }),
     datasets: [
       {
         label: 'Goods',
-        data: points.map(p => p.goods),
+        data: points.map((p) => p.goods),
         borderColor: 'rgb(34, 197, 94)',
         backgroundColor: 'rgba(34, 197, 94, 0.1)',
         fill: true,
@@ -84,7 +93,7 @@ const chartData = computed<ChartData<'line'>>(() => {
       },
       {
         label: 'Evils',
-        data: points.map(p => p.evils),
+        data: points.map((p) => p.evils),
         borderColor: 'rgb(239, 68, 68)',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         fill: true,
@@ -92,7 +101,7 @@ const chartData = computed<ChartData<'line'>>(() => {
       },
       {
         label: 'Neutrals',
-        data: points.map(p => p.neutrals),
+        data: points.map((p) => p.neutrals),
         borderColor: 'rgb(234, 179, 8)',
         backgroundColor: 'rgba(234, 179, 8, 0.1)',
         fill: true,
@@ -100,7 +109,7 @@ const chartData = computed<ChartData<'line'>>(() => {
       },
       {
         label: 'Undeads',
-        data: points.map(p => p.undeads),
+        data: points.map((p) => p.undeads),
         borderColor: 'rgb(168, 85, 247)',
         backgroundColor: 'rgba(168, 85, 247, 0.1)',
         fill: true,

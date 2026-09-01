@@ -11,7 +11,16 @@ import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
-  User, Plus, LogOut, Play, Trash2, Mail, Key, Battery, Info, AlertTriangle
+  User,
+  Plus,
+  LogOut,
+  Play,
+  Trash2,
+  Mail,
+  Key,
+  Battery,
+  Info,
+  AlertTriangle,
 } from 'lucide-vue-next'
 import type { MudCharacterInfo } from '@/types/mud'
 import AccountInfoPanel from './account/AccountInfoPanel.vue'
@@ -67,7 +76,6 @@ const handleDeleteConfirmed = () => {
   showDeleteDialog.value = false
   characterToDelete.value = null
 }
-
 </script>
 
 <template>

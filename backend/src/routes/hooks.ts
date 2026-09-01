@@ -6,11 +6,7 @@ import { Router, type Request, type Response, type IRouter } from 'express';
 
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import logger from '../utils/logger.js';
-import {
-  getHookStatuses,
-  setHookEnabled,
-  HookToggleError,
-} from '../hooks/hookSettingsService.js';
+import { getHookStatuses, setHookEnabled, HookToggleError } from '../hooks/hookSettingsService.js';
 import { isHookId } from '../hooks/registry.js';
 import { getMudReportReceivedAt } from '../hooks/mudHookStateClient.js';
 import { getMudTransportStatus } from '../services/mudTransportStatus.js';
@@ -30,9 +26,8 @@ function serialize(row: Awaited<ReturnType<typeof getHookStatuses>>[number]) {
     provenance: {
       web: row.webProvenance,
       mud: {
-        source: row.mudState === 'enabled' || row.mudState === 'disabled'
-          ? 'authenticated_bridge'
-          : null,
+        source:
+          row.mudState === 'enabled' || row.mudState === 'disabled' ? 'authenticated_bridge' : null,
         reportedAt: getMudReportReceivedAt(),
       },
     },
@@ -61,10 +56,7 @@ router.get(
   requirePermission('manage_mud_properties'),
   async (_req: Request, res: Response) => {
     try {
-      const [statuses, transport] = await Promise.all([
-        getHookStatuses(),
-        getMudTransportStatus(),
-      ]);
+      const [statuses, transport] = await Promise.all([getHookStatuses(), getMudTransportStatus()]);
       return res.json({
         hooks: statuses.map(serialize),
         transport,
@@ -96,9 +88,7 @@ router.patch(
 
     const enabled: unknown = (req.body as Record<string, unknown>)?.enabled;
     if (typeof enabled !== 'boolean') {
-      return res
-        .status(400)
-        .json({ error: 'Field "enabled" must be a boolean' });
+      return res.status(400).json({ error: 'Field "enabled" must be a boolean' });
     }
 
     const actor = req.user?.accountName;

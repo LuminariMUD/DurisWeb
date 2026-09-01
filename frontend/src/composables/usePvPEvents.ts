@@ -30,7 +30,7 @@ export function usePlayerStats(playerName: MaybeRef<string>) {
 
 export function useLeaderboard(
   type: MaybeRef<'kills' | 'deaths' | 'kd_ratio'> = 'kills',
-  period: MaybeRef<'7d' | '30d' | 'all'> = '30d'
+  period: MaybeRef<'7d' | '30d' | 'all'> = '30d',
 ) {
   return useQuery({
     queryKey: ['leaderboard', type, period] as const,

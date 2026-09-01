@@ -7,11 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Badge } from '@/components/ui/badge'
 import FlagPicker from '@/components/builder/FlagPicker.vue'
 import ExitEditor from '@/components/builder/ExitEditor.vue'
@@ -67,14 +63,21 @@ const { data: flagsData } = useQuery({
 })
 
 // Reset when room prop changes (immediate to handle initial load)
-watch(() => props.room, (newRoom) => {
-  editedRoom.value = { ...newRoom }
-}, { deep: true })
+watch(
+  () => props.room,
+  (newRoom) => {
+    editedRoom.value = { ...newRoom }
+  },
+  { deep: true },
+)
 
 // Emit name changes for live preview in navbar
-watch(() => editedRoom.value.name, (newValue) => {
-  emit('update:name', newValue)
-})
+watch(
+  () => editedRoom.value.name,
+  (newValue) => {
+    emit('update:name', newValue)
+  },
+)
 
 // Computed: has unsaved changes
 const hasChanges = computed(() => {
@@ -84,7 +87,7 @@ const hasChanges = computed(() => {
 // Computed: active room flags
 const activeFlags = computed(() => {
   if (!flagsData.value?.roomFlags) return []
-  return flagsData.value.roomFlags.filter(f => (editedRoom.value.roomFlags & f.value) !== 0)
+  return flagsData.value.roomFlags.filter((f) => (editedRoom.value.roomFlags & f.value) !== 0)
 })
 
 // Handle flag change

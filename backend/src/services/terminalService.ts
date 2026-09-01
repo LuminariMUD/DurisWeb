@@ -40,7 +40,7 @@ export async function createSession(
   accountName: string,
   ws: WebSocket,
   cols: number = 80,
-  rows: number = 24
+  rows: number = 24,
 ): Promise<{ sessionId: number; error?: string }> {
   try {
     // Check if user already has an active session
@@ -67,40 +67,69 @@ export async function createSession(
     // Create database record
     const [result] = await pool.execute(
       'INSERT INTO terminal_sessions (account_name, status) VALUES (?, ?)',
-      [accountName, 'active']
+      [accountName, 'active'],
     );
     const sessionId = (result as any).insertId;
     const tmuxSessionName = getTerminalSessionName(accountName, sessionId);
     const bashrcPath = `/tmp/.duris_bashrc-${sessionId}`;
 
     // Spawn PTY with bubblewrap sandboxing
-    const shell = pty.spawn('bwrap', [
-      // Mount MUD folder as root
-      '--bind', MUD_FOLDER, '/',
-      // Required system mounts for full shell
-      '--dev', '/dev',
-      '--proc', '/proc',
-      '--ro-bind', '/usr', '/usr',
-      '--ro-bind', '/lib', '/lib',
-      '--ro-bind', '/lib64', '/lib64',
-      '--ro-bind', '/bin', '/bin',
-      '--ro-bind', '/sbin', '/sbin',
-      '--ro-bind', '/etc/passwd', '/etc/passwd',
-      '--ro-bind', '/etc/group', '/etc/group',
-      '--ro-bind', '/etc/resolv.conf', '/etc/resolv.conf',
-      '--ro-bind', '/etc/terminfo', '/etc/terminfo',
-      // Bind tmp for tmux sockets and various utilities
-      '--bind', '/tmp', '/tmp',
-      // Security options - share PID namespace so tmux can persist between connections
-      '--unshare-user',
-      '--unshare-ipc',
-      '--unshare-uts',
-      '--unshare-cgroup',
-      '--share-net',
-      // Set working directory
-      '--chdir', '/',
-      // Run tmux with colored prompt - attach to this account/session only
-      '/bin/bash', '-c', `
+    const shell = pty.spawn(
+      'bwrap',
+      [
+        // Mount MUD folder as root
+        '--bind',
+        MUD_FOLDER,
+        '/',
+        // Required system mounts for full shell
+        '--dev',
+        '/dev',
+        '--proc',
+        '/proc',
+        '--ro-bind',
+        '/usr',
+        '/usr',
+        '--ro-bind',
+        '/lib',
+        '/lib',
+        '--ro-bind',
+        '/lib64',
+        '/lib64',
+        '--ro-bind',
+        '/bin',
+        '/bin',
+        '--ro-bind',
+        '/sbin',
+        '/sbin',
+        '--ro-bind',
+        '/etc/passwd',
+        '/etc/passwd',
+        '--ro-bind',
+        '/etc/group',
+        '/etc/group',
+        '--ro-bind',
+        '/etc/resolv.conf',
+        '/etc/resolv.conf',
+        '--ro-bind',
+        '/etc/terminfo',
+        '/etc/terminfo',
+        // Bind tmp for tmux sockets and various utilities
+        '--bind',
+        '/tmp',
+        '/tmp',
+        // Security options - share PID namespace so tmux can persist between connections
+        '--unshare-user',
+        '--unshare-ipc',
+        '--unshare-uts',
+        '--unshare-cgroup',
+        '--share-net',
+        // Set working directory
+        '--chdir',
+        '/',
+        // Run tmux with colored prompt - attach to this account/session only
+        '/bin/bash',
+        '-c',
+        `
         # Create a session-specific bashrc for the tmux session
         cat > "$DURIS_BASHRC_PATH" << 'BASHRC'
 export PS1='\\[\\033[1;32m\\]duris\\[\\033[0m\\]:\\[\\033[1;34m\\]\\w\\[\\033[0m\\]\\$ '
@@ -115,28 +144,27 @@ BASHRC
         else
           tmux new-session -s "$DURIS_TMUX_SESSION" "bash --rcfile $DURIS_BASHRC_PATH"
         fi
-      `
-    ], {
-      name: 'xterm-256color',
-      cols,
-      rows,
-      env: {
-        TERM: 'xterm-256color',
-        HOME: '/',
-        PATH: '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',
-        SHELL: '/bin/bash',
-        USER: process.env.USER || 'duris',
-        LANG: 'en_US.UTF-8',
-        DURIS_TMUX_SESSION: tmuxSessionName,
-        DURIS_BASHRC_PATH: bashrcPath,
-      }
-    });
+      `,
+      ],
+      {
+        name: 'xterm-256color',
+        cols,
+        rows,
+        env: {
+          TERM: 'xterm-256color',
+          HOME: '/',
+          PATH: '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+          SHELL: '/bin/bash',
+          USER: process.env.USER || 'duris',
+          LANG: 'en_US.UTF-8',
+          DURIS_TMUX_SESSION: tmuxSessionName,
+          DURIS_BASHRC_PATH: bashrcPath,
+        },
+      },
+    );
 
     // Update database with PID
-    await pool.execute(
-      'UPDATE terminal_sessions SET pid = ? WHERE id = ?',
-      [shell.pid, sessionId]
-    );
+    await pool.execute('UPDATE terminal_sessions SET pid = ? WHERE id = ?', [shell.pid, sessionId]);
 
     // Create session object
     const session: TerminalSession = {
@@ -146,7 +174,7 @@ BASHRC
       ws,
       bashrcPath,
       outputBuffer: '',
-      outputTimer: null
+      outputTimer: null,
     };
 
     // Store session
@@ -172,7 +200,6 @@ BASHRC
     logger.info(`Terminal session ${sessionId} created for ${accountName} (PID: ${shell.pid})`);
     recordHookActivity('terminal');
     return { sessionId };
-
   } catch (error) {
     logger.error('Error creating terminal session:', error);
     return { sessionId: -1, error: (error as Error).message };
@@ -188,10 +215,12 @@ function handleOutput(sessionId: number, data: string): void {
 
   // Send to WebSocket immediately
   if (session.ws.readyState === WebSocket.OPEN) {
-    session.ws.send(JSON.stringify({
-      type: 'TERMINAL_OUTPUT',
-      data
-    }));
+    session.ws.send(
+      JSON.stringify({
+        type: 'TERMINAL_OUTPUT',
+        data,
+      }),
+    );
   }
 
   // Buffer output for database logging
@@ -224,10 +253,11 @@ async function flushOutputBuffer(sessionId: number): Promise<void> {
   }
 
   try {
-    await pool.execute(
-      'INSERT INTO terminal_logs (session_id, direction, data) VALUES (?, ?, ?)',
-      [sessionId, 'output', data]
-    );
+    await pool.execute('INSERT INTO terminal_logs (session_id, direction, data) VALUES (?, ?, ?)', [
+      sessionId,
+      'output',
+      data,
+    ]);
   } catch (error) {
     logger.error('Error logging terminal output:', error);
   }
@@ -248,10 +278,11 @@ export async function writeInput(sessionId: number, data: string): Promise<boole
     session.pty.write(data);
 
     // Log input to database
-    await pool.execute(
-      'INSERT INTO terminal_logs (session_id, direction, data) VALUES (?, ?, ?)',
-      [sessionId, 'input', data]
-    );
+    await pool.execute('INSERT INTO terminal_logs (session_id, direction, data) VALUES (?, ?, ?)', [
+      sessionId,
+      'input',
+      data,
+    ]);
 
     return true;
   } catch (error) {
@@ -338,19 +369,21 @@ async function cleanupSession(sessionId: number, status: 'ended' | 'error'): Pro
 
   // Update database
   try {
-    await pool.execute(
-      'UPDATE terminal_sessions SET ended_at = NOW(), status = ? WHERE id = ?',
-      [status, sessionId]
-    );
+    await pool.execute('UPDATE terminal_sessions SET ended_at = NOW(), status = ? WHERE id = ?', [
+      status,
+      sessionId,
+    ]);
   } catch (error) {
     logger.error('Error updating terminal session status:', error);
   }
 
   // Notify client
   if (session.ws.readyState === WebSocket.OPEN) {
-    session.ws.send(JSON.stringify({
-      type: 'TERMINAL_CLOSED'
-    }));
+    session.ws.send(
+      JSON.stringify({
+        type: 'TERMINAL_CLOSED',
+      }),
+    );
   }
 
   // Remove from maps

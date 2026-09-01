@@ -18,7 +18,7 @@ function stripAnsiCodes(str: string): string {
  * Get frag leaderboard with comprehensive filtering
  */
 export async function getFragLeaderboard(
-  filters: FragLeaderboardFilters
+  filters: FragLeaderboardFilters,
 ): Promise<{ entries: FragLeaderboardEntry[]; total: number }> {
   const page = Math.max(1, filters.page || 1);
   const limit = Math.min(100, Math.max(1, filters.limit || 50));
@@ -82,9 +82,7 @@ export async function getFragLeaderboard(
     queryParams.push(filters.min_frags * 100); // Convert to stored format (frags * 100)
   }
 
-  const whereClause = whereConditions.length > 0
-    ? 'WHERE ' + whereConditions.join(' AND ')
-    : '';
+  const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
 
   // Count query for pagination
   const countQuery = `
@@ -109,7 +107,15 @@ export async function getFragLeaderboard(
       fl.last_updated
     FROM frag_leaderboard fl
     LEFT JOIN account_characters ac ON fl.char_name COLLATE utf8mb4_unicode_ci = ac.char_name AND ac.deleted_at IS NULL
-    ${whereClause.replace(/race =/g, 'fl.race =').replace(/class =/g, 'fl.class =').replace(/racewar/g, 'fl.racewar').replace(/level/g, 'fl.level').replace(/deleted_at/g, 'fl.deleted_at').replace(/total_frags/g, 'fl.total_frags').replace(/account_name/g, 'fl.account_name').replace(/char_name/g, 'fl.char_name')}
+    ${whereClause
+      .replace(/race =/g, 'fl.race =')
+      .replace(/class =/g, 'fl.class =')
+      .replace(/racewar/g, 'fl.racewar')
+      .replace(/level/g, 'fl.level')
+      .replace(/deleted_at/g, 'fl.deleted_at')
+      .replace(/total_frags/g, 'fl.total_frags')
+      .replace(/account_name/g, 'fl.account_name')
+      .replace(/char_name/g, 'fl.char_name')}
     ORDER BY fl.total_frags DESC
     LIMIT ? OFFSET ?
   `;
@@ -137,7 +143,7 @@ export async function getFragLeaderboard(
  */
 export async function getTopGainers(
   period: '7d' | '30d' | '90d' = '30d',
-  limit: number = 50
+  limit: number = 50,
 ): Promise<TopGainer[]> {
   // Calculate date threshold
   const daysMap = { '7d': 7, '30d': 30, '90d': 90 };
@@ -196,8 +202,8 @@ export async function getFragRaces(): Promise<AutocompleteItem[]> {
     const raceWithAnsi = row.race as string;
     const raceStripped = stripAnsiCodes(raceWithAnsi);
     return {
-      value: raceWithAnsi,  // Store original with ANSI codes
-      label: raceStripped,  // Display without ANSI codes
+      value: raceWithAnsi, // Store original with ANSI codes
+      label: raceStripped, // Display without ANSI codes
     };
   });
 
@@ -223,8 +229,8 @@ export async function getFragClasses(): Promise<AutocompleteItem[]> {
     const classWithAnsi = row.class as string;
     const classStripped = stripAnsiCodes(classWithAnsi);
     return {
-      value: classWithAnsi,  // Store original with ANSI codes
-      label: classStripped,  // Display without ANSI codes
+      value: classWithAnsi, // Store original with ANSI codes
+      label: classStripped, // Display without ANSI codes
     };
   });
 
@@ -235,7 +241,9 @@ export async function getFragClasses(): Promise<AutocompleteItem[]> {
  * Get frag statistics for a specific character
  * Uses RANK() window function to calculate rank in a single query
  */
-export async function getCharacterFragStats(charName: string): Promise<FragLeaderboardEntry | null> {
+export async function getCharacterFragStats(
+  charName: string,
+): Promise<FragLeaderboardEntry | null> {
   // Single query using RANK() window function to include rank
   const query = `
     SELECT

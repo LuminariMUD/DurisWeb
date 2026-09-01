@@ -1,4 +1,9 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  ListObjectsV2Command,
+} from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import logger from '../utils/logger.js';
 
@@ -20,12 +25,7 @@ const s3Client = new S3Client({
 });
 
 // Allowed MIME types for avatars
-const ALLOWED_MIME_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-];
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 // Max file size before processing (5MB)
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -50,9 +50,7 @@ export function isR2Configured(): boolean {
 /**
  * Validate uploaded file
  */
-export function validateAvatarFile(
-  file: Express.Multer.File
-): { valid: boolean; error?: string } {
+export function validateAvatarFile(file: Express.Multer.File): { valid: boolean; error?: string } {
   if (!file) {
     return { valid: false, error: 'No file provided' };
   }
@@ -78,7 +76,7 @@ export function validateAvatarFile(
 async function processImage(
   buffer: Buffer,
   mimeType: string,
-  type: ImageUploadType = 'avatar'
+  type: ImageUploadType = 'avatar',
 ): Promise<{ buffer: Buffer; extension: string; contentType: string }> {
   const width = type === 'banner' ? BANNER_WIDTH : AVATAR_SIZE;
   const height = type === 'banner' ? BANNER_HEIGHT : AVATAR_SIZE;
@@ -125,7 +123,7 @@ export async function uploadAvatar(
   fileBuffer: Buffer,
   accountName: string,
   mimeType: string,
-  type: ImageUploadType = 'avatar'
+  type: ImageUploadType = 'avatar',
 ): Promise<string> {
   if (!isR2Configured()) {
     throw new Error('R2 storage is not configured');
@@ -150,7 +148,7 @@ export async function uploadAvatar(
       Body: buffer,
       ContentType: contentType,
       CacheControl: 'public, max-age=31536000', // Cache for 1 year (URL changes on update)
-    })
+    }),
   );
 
   // Return public URL
@@ -160,7 +158,10 @@ export async function uploadAvatar(
 /**
  * Delete old images for a user (cleanup before uploading new one)
  */
-async function deleteOldImages(accountName: string, type: ImageUploadType = 'avatar'): Promise<void> {
+async function deleteOldImages(
+  accountName: string,
+  type: ImageUploadType = 'avatar',
+): Promise<void> {
   try {
     // List objects with the user's prefix
     const folder = type === 'banner' ? 'banners' : 'avatars';
@@ -169,7 +170,7 @@ async function deleteOldImages(accountName: string, type: ImageUploadType = 'ava
       new ListObjectsV2Command({
         Bucket: R2_BUCKET_NAME,
         Prefix: prefix,
-      })
+      }),
     );
 
     // Delete each old avatar
@@ -180,7 +181,7 @@ async function deleteOldImages(accountName: string, type: ImageUploadType = 'ava
             new DeleteObjectCommand({
               Bucket: R2_BUCKET_NAME,
               Key: obj.Key,
-            })
+            }),
           );
         }
       }
@@ -210,14 +211,17 @@ export async function deleteAvatarByUrl(imageUrl: string): Promise<void> {
     new DeleteObjectCommand({
       Bucket: R2_BUCKET_NAME,
       Key: key,
-    })
+    }),
   );
 }
 
 /**
  * Delete all avatars/banners for an account
  */
-export async function deleteAllAvatars(accountName: string, type: ImageUploadType = 'avatar'): Promise<void> {
+export async function deleteAllAvatars(
+  accountName: string,
+  type: ImageUploadType = 'avatar',
+): Promise<void> {
   if (!isR2Configured()) {
     throw new Error('R2 storage is not configured');
   }
@@ -243,7 +247,7 @@ export async function uploadMapImage(pngBuffer: Buffer, layer: number): Promise<
       Body: pngBuffer,
       ContentType: 'image/png',
       CacheControl: 'public, max-age=604800', // 7 days
-    })
+    }),
   );
 
   return `${R2_PUBLIC_URL}/${key}`;

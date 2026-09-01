@@ -27,14 +27,49 @@ const lastMountedContent = ref<string>('')
 const sanitizedContent = computed(() => {
   return DOMPurify.sanitize(frontPageContent.value, {
     ALLOWED_TAGS: [
-      'p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-      'ul', 'ol', 'li', 'a', 'img', 'blockquote', 'code', 'pre',
-      'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span',
+      'p',
+      'br',
+      'strong',
+      'em',
+      'u',
+      's',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'ul',
+      'ol',
+      'li',
+      'a',
+      'img',
+      'blockquote',
+      'code',
+      'pre',
+      'table',
+      'thead',
+      'tbody',
+      'tr',
+      'th',
+      'td',
+      'div',
+      'span',
     ],
     ALLOWED_ATTR: [
-      'href', 'src', 'alt', 'title', 'class', 'style',
-      'data-alignment', 'data-columns', 'data-bg-color', 'data-rounded',
-      'data-type', 'data-images', 'data-height',
+      'href',
+      'src',
+      'alt',
+      'title',
+      'class',
+      'style',
+      'data-alignment',
+      'data-columns',
+      'data-bg-color',
+      'data-rounded',
+      'data-type',
+      'data-images',
+      'data-height',
       // widget types
     ],
   })
@@ -45,7 +80,7 @@ const sanitizedContent = computed(() => {
 function applyColumnStyles() {
   if (!contentRef.value) return
   const columnsWithBg = contentRef.value.querySelectorAll('[data-bg-color]')
-  columnsWithBg.forEach(el => {
+  columnsWithBg.forEach((el) => {
     const color = el.getAttribute('data-bg-color')
     if (color) {
       ;(el as HTMLElement).style.backgroundColor = color
@@ -53,24 +88,28 @@ function applyColumnStyles() {
   })
 }
 
-watch(sanitizedContent, async (newContent) => {
-  if (newContent === lastMountedContent.value) return
-  lastMountedContent.value = newContent
-  await nextTick()
-  applyColumnStyles()
-  mountCarousels()
-  mountWidgets()
-}, { immediate: true })
+watch(
+  sanitizedContent,
+  async (newContent) => {
+    if (newContent === lastMountedContent.value) return
+    lastMountedContent.value = newContent
+    await nextTick()
+    applyColumnStyles()
+    mountCarousels()
+    mountWidgets()
+  },
+  { immediate: true },
+)
 
 function mountCarousels() {
   // unmount previous carousel apps
-  carouselApps.value.forEach(app => app.unmount())
+  carouselApps.value.forEach((app) => app.unmount())
   carouselApps.value = []
 
   if (!contentRef.value) return
 
   const carouselDivs = contentRef.value.querySelectorAll('[data-type="carousel"]')
-  carouselDivs.forEach(div => {
+  carouselDivs.forEach((div) => {
     const dataImages = div.getAttribute('data-images') || '[]'
     const dataHeight = div.getAttribute('data-height') || '300'
     // clear the div content (child img elements from html render)
@@ -86,14 +125,14 @@ function mountCarousels() {
 
 function mountWidgets() {
   // unmount previous widget apps
-  widgetApps.value.forEach(app => app.unmount())
+  widgetApps.value.forEach((app) => app.unmount())
   widgetApps.value = []
 
   if (!contentRef.value) return
 
   // mount Top Fragger widgets
   const topFraggerDivs = contentRef.value.querySelectorAll('[data-type="top-fragger"]')
-  topFraggerDivs.forEach(div => {
+  topFraggerDivs.forEach((div) => {
     while (div.firstChild) {
       div.removeChild(div.firstChild)
     }
@@ -104,7 +143,7 @@ function mountWidgets() {
 
   // mount Recent PvP widgets
   const recentPvPDivs = contentRef.value.querySelectorAll('[data-type="recent-pvp"]')
-  recentPvPDivs.forEach(div => {
+  recentPvPDivs.forEach((div) => {
     while (div.firstChild) {
       div.removeChild(div.firstChild)
     }
@@ -115,7 +154,7 @@ function mountWidgets() {
 
   // mount Map Preview widgets
   const mapPreviewDivs = contentRef.value.querySelectorAll('[data-type="map-preview"]')
-  mapPreviewDivs.forEach(div => {
+  mapPreviewDivs.forEach((div) => {
     while (div.firstChild) {
       div.removeChild(div.firstChild)
     }
@@ -123,12 +162,11 @@ function mountWidgets() {
     app.mount(div)
     widgetApps.value.push(app)
   })
-
 }
 
 onBeforeUnmount(() => {
-  carouselApps.value.forEach(app => app.unmount())
-  widgetApps.value.forEach(app => app.unmount())
+  carouselApps.value.forEach((app) => app.unmount())
+  widgetApps.value.forEach((app) => app.unmount())
 })
 </script>
 

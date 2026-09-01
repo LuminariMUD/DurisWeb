@@ -1,21 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 
-const { loginMock, registerMock, storeCredentialsMock, getCredentialsMock, mudStore } = vi.hoisted(() => ({
-  loginMock: vi.fn().mockResolvedValue(true),
-  registerMock: vi.fn().mockResolvedValue(true),
-  storeCredentialsMock: vi.fn(),
-  getCredentialsMock: vi.fn(() => null),
-  mudStore: {
-    connectionState: 'connected',
-    connectionError: null,
-    isAuthenticated: false,
-    autoLoginInProgress: false,
-    showReconnectDialog: false,
-    setAutoLoginInProgress: vi.fn(),
-    setConnectionState: vi.fn(),
-  },
-}))
+const { loginMock, registerMock, storeCredentialsMock, getCredentialsMock, mudStore } = vi.hoisted(
+  () => ({
+    loginMock: vi.fn().mockResolvedValue(true),
+    registerMock: vi.fn().mockResolvedValue(true),
+    storeCredentialsMock: vi.fn(),
+    getCredentialsMock: vi.fn(() => null),
+    mudStore: {
+      connectionState: 'connected',
+      connectionError: null,
+      isAuthenticated: false,
+      autoLoginInProgress: false,
+      showReconnectDialog: false,
+      setAutoLoginInProgress: vi.fn(),
+      setConnectionState: vi.fn(),
+    },
+  }),
+)
 
 vi.mock('@/composables/useMudConnection', () => ({
   useMudConnection: () => ({
@@ -58,7 +60,8 @@ const inputStub = {
     modelValue: { type: String, default: '' },
   },
   emits: ['update:modelValue'],
-  template: '<input v-bind="$attrs" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+  template:
+    '<input v-bind="$attrs" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
 }
 
 const globalStubs = {

@@ -22,11 +22,36 @@ export function useAuth() {
 
   // Role helpers
   const isPlayer = computed(() => permissions.value?.role === 'player')
-  const isAvatar = computed(() => permissions.value?.immortalLevel !== null && permissions.value?.immortalLevel !== undefined && permissions.value.immortalLevel >= 57)
-  const isImmortal = computed(() => permissions.value?.immortalLevel !== null && permissions.value?.immortalLevel !== undefined && permissions.value.immortalLevel >= 58)
-  const isLesserGod = computed(() => permissions.value?.immortalLevel !== null && permissions.value?.immortalLevel !== undefined && permissions.value.immortalLevel >= 59)
-  const isGreaterGod = computed(() => permissions.value?.immortalLevel !== null && permissions.value?.immortalLevel !== undefined && permissions.value.immortalLevel >= 60)
-  const isForger = computed(() => permissions.value?.immortalLevel !== null && permissions.value?.immortalLevel !== undefined && permissions.value.immortalLevel >= 61)
+  const isAvatar = computed(
+    () =>
+      permissions.value?.immortalLevel !== null &&
+      permissions.value?.immortalLevel !== undefined &&
+      permissions.value.immortalLevel >= 57,
+  )
+  const isImmortal = computed(
+    () =>
+      permissions.value?.immortalLevel !== null &&
+      permissions.value?.immortalLevel !== undefined &&
+      permissions.value.immortalLevel >= 58,
+  )
+  const isLesserGod = computed(
+    () =>
+      permissions.value?.immortalLevel !== null &&
+      permissions.value?.immortalLevel !== undefined &&
+      permissions.value.immortalLevel >= 59,
+  )
+  const isGreaterGod = computed(
+    () =>
+      permissions.value?.immortalLevel !== null &&
+      permissions.value?.immortalLevel !== undefined &&
+      permissions.value.immortalLevel >= 60,
+  )
+  const isForger = computed(
+    () =>
+      permissions.value?.immortalLevel !== null &&
+      permissions.value?.immortalLevel !== undefined &&
+      permissions.value.immortalLevel >= 61,
+  )
   const isOverlord = computed(() => permissions.value?.role === 'overlord')
 
   // Permission helpers

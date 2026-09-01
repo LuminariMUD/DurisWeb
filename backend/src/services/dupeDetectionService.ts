@@ -83,7 +83,8 @@ export async function getDupedItems(): Promise<DupedItem[]> {
 
 // gets detailed info for a specific duped uid (from both player_items and locker_items)
 export async function getDupeDetails(objUid: number): Promise<DupeDetail[]> {
-  const [rows] = await db.query<RowDataPacket[]>(`
+  const [rows] = await db.query<RowDataPacket[]>(
+    `
     SELECT * FROM (
       SELECT
         pi.id,
@@ -125,7 +126,9 @@ export async function getDupeDetails(objUid: number): Promise<DupeDetail[]> {
       WHERE li.obj_uid = ?
     ) combined
     ORDER BY player_name, source, location
-  `, [objUid, objUid]);
+  `,
+    [objUid, objUid],
+  );
 
   return rows as DupeDetail[];
 }
@@ -188,42 +191,40 @@ export async function getDupeSummary(): Promise<DupeSummary> {
   return {
     total_duped_uids: (statsRows[0] as any)?.total_duped_uids || 0,
     total_duped_records: (statsRows[0] as any)?.total_duped_records || 0,
-    player_pairs: pairRows as Array<{ players: string; duped_items: number }>
+    player_pairs: pairRows as Array<{ players: string; duped_items: number }>,
   };
 }
 
 // delete specific item by id from player_items
 export async function deletePlayerItem(itemId: number): Promise<boolean> {
-  const [result] = await db.query<ResultSetHeader>(
-    'DELETE FROM player_items WHERE id = ?',
-    [itemId]
-  );
+  const [result] = await db.query<ResultSetHeader>('DELETE FROM player_items WHERE id = ?', [
+    itemId,
+  ]);
   return result.affectedRows > 0;
 }
 
 // delete specific item by id from locker_items
 export async function deleteLockerItem(itemId: number): Promise<boolean> {
-  const [result] = await db.query<ResultSetHeader>(
-    'DELETE FROM locker_items WHERE id = ?',
-    [itemId]
-  );
+  const [result] = await db.query<ResultSetHeader>('DELETE FROM locker_items WHERE id = ?', [
+    itemId,
+  ]);
   return result.affectedRows > 0;
 }
 
 // bulk delete items by ids
 export async function deletePlayerItems(itemIds: number[]): Promise<number> {
   if (itemIds.length === 0) return 0;
-  const [result] = await db.query<ResultSetHeader>(
-    'DELETE FROM player_items WHERE id IN (?)',
-    [itemIds]
-  );
+  const [result] = await db.query<ResultSetHeader>('DELETE FROM player_items WHERE id IN (?)', [
+    itemIds,
+  ]);
   return result.affectedRows;
 }
 
 // deletes all dupes for a uid, keeps one copy (lowest id gets to keep it)
 export async function deleteAllDupesForUid(objUid: number, vnum: number): Promise<number> {
   // delete from player_items, keep lowest id
-  const [playerResult] = await db.query<ResultSetHeader>(`
+  const [playerResult] = await db.query<ResultSetHeader>(
+    `
     DELETE FROM player_items
     WHERE obj_uid = ? AND vnum = ?
     AND id NOT IN (
@@ -231,13 +232,18 @@ export async function deleteAllDupesForUid(objUid: number, vnum: number): Promis
         SELECT MIN(id) as id FROM player_items WHERE obj_uid = ? AND vnum = ?
       ) as keeper
     )
-  `, [objUid, vnum, objUid, vnum]);
+  `,
+    [objUid, vnum, objUid, vnum],
+  );
 
   // delete ALL from locker_items with same uid (since we kept one in player_items)
-  const [lockerResult] = await db.query<ResultSetHeader>(`
+  const [lockerResult] = await db.query<ResultSetHeader>(
+    `
     DELETE FROM locker_items
     WHERE obj_uid = ? AND vnum = ?
-  `, [objUid, vnum]);
+  `,
+    [objUid, vnum],
+  );
 
   return playerResult.affectedRows + lockerResult.affectedRows;
 }

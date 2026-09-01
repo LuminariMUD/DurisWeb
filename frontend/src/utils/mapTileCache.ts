@@ -128,7 +128,7 @@ export async function setCachedTiles(key: string, tiles: WikiMapTile[]): Promise
       const chunk: CachedChunk = {
         key,
         tiles,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       }
 
       const request = store.put(chunk)
@@ -203,7 +203,10 @@ export async function getCachedEntrances(key: string): Promise<WikiZoneEntrance[
 /**
  * Store entrances in IndexedDB
  */
-export async function setCachedEntrances(key: string, entrances: WikiZoneEntrance[]): Promise<void> {
+export async function setCachedEntrances(
+  key: string,
+  entrances: WikiZoneEntrance[],
+): Promise<void> {
   try {
     const database = await openDB()
     if (!database) return
@@ -215,7 +218,7 @@ export async function setCachedEntrances(key: string, entrances: WikiZoneEntranc
       const cached: CachedEntrances = {
         key,
         entrances,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       }
 
       const request = store.put(cached)

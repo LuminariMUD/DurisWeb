@@ -273,10 +273,7 @@ export function parse(tokens: ScriptToken[]): ASTNode[] {
 /**
  * parse an if block starting at index
  */
-function parseIfBlock(
-  tokens: ScriptToken[],
-  start: number
-): { node: ASTNode; nextIndex: number } {
+function parseIfBlock(tokens: ScriptToken[], start: number): { node: ASTNode; nextIndex: number } {
   const ifToken = tokens[start]
   const node: ASTNode = {
     type: 'if',
@@ -352,7 +349,7 @@ function parseIfBlock(
  */
 function parseRepeatBlock(
   tokens: ScriptToken[],
-  start: number
+  start: number,
 ): { node: ASTNode; nextIndex: number } {
   const repeatToken = tokens[start]
   const node: ASTNode = {

@@ -31,7 +31,11 @@ export function useSettings() {
   const { aliases, exportAliases, importAliases } = useAliases()
   const { triggers, exportTriggers, importTriggers } = useTriggers()
   const { groups, exportGroups, importGroupsWithMap } = useGroups()
-  const { actions: groupActions, exportActions: exportGroupActions, importActions: importGroupActions } = useGroupActions()
+  const {
+    actions: groupActions,
+    exportActions: exportGroupActions,
+    importActions: importGroupActions,
+  } = useGroupActions()
 
   /**
    * Export all settings (aliases, triggers, group actions) as a single JSON string.
@@ -72,7 +76,7 @@ export function useSettings() {
    */
   function importAllSettings(
     json: string,
-    mode: 'replace' | 'merge' = 'merge'
+    mode: 'replace' | 'merge' = 'merge',
   ): { aliases: number; triggers: number; groups: number; groupActions: number } {
     const data = parseClientSettingsDocument(json) as unknown as SettingsExport
 
@@ -87,13 +91,14 @@ export function useSettings() {
       groupActions: 0,
     }
 
-    const groupImport = data.groups?.groups && Array.isArray(data.groups.groups)
-      ? importGroupsWithMap(
-          JSON.stringify({ version: data.groups.version, groups: data.groups.groups }),
-          mode,
-          { preserveIds: mode === 'replace' || groups.value.length === 0 },
-        )
-      : { count: 0, idMap: {} }
+    const groupImport =
+      data.groups?.groups && Array.isArray(data.groups.groups)
+        ? importGroupsWithMap(
+            JSON.stringify({ version: data.groups.version, groups: data.groups.groups }),
+            mode,
+            { preserveIds: mode === 'replace' || groups.value.length === 0 },
+          )
+        : { count: 0, idMap: {} }
     result.groups = groupImport.count
 
     const knownGroupIds = new Set(groups.value.map((group) => group.id))
@@ -103,7 +108,8 @@ export function useSettings() {
       if (typeof item.groupId !== 'string') return { ...item, groupId: null }
       return {
         ...item,
-        groupId: groupImport.idMap[item.groupId] ??
+        groupId:
+          groupImport.idMap[item.groupId] ??
           (knownGroupIds.has(item.groupId) ? item.groupId : null),
       }
     }
@@ -141,7 +147,12 @@ export function useSettings() {
   /**
    * Get counts of all settings.
    */
-  function getSettingsCounts(): { aliases: number; triggers: number; groups: number; groupActions: number } {
+  function getSettingsCounts(): {
+    aliases: number
+    triggers: number
+    groups: number
+    groupActions: number
+  } {
     return {
       aliases: aliases.value.length,
       triggers: triggers.value.length,

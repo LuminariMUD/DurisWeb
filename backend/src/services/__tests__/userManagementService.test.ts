@@ -4,10 +4,13 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const query = jest.fn<(...args: unknown[]) => Promise<unknown>>();
-const sendMudCommandAsync = jest.fn<(...args: unknown[]) => Promise<{
-  success: boolean;
-  error?: string;
-}>>();
+const sendMudCommandAsync =
+  jest.fn<
+    (...args: unknown[]) => Promise<{
+      success: boolean;
+      error?: string;
+    }>
+  >();
 const isMudConnected = jest.fn<() => boolean>();
 const isHookEnabledSync = jest.fn<(id: string) => boolean>();
 
@@ -22,12 +25,9 @@ jest.unstable_mockModule('../../hooks/hookGate.js', () => ({
   isHookEnabledSync,
 }));
 
-const {
-  deleteCharacter,
-  getUniqueClasses,
-  getUniqueRaces,
-  getUserList,
-} = await import('../userManagementService.js');
+const { deleteCharacter, getUniqueClasses, getUniqueRaces, getUserList } = await import(
+  '../userManagementService.js'
+);
 
 describe('userManagementService', () => {
   beforeEach(() => {
@@ -40,9 +40,8 @@ describe('userManagementService', () => {
   describe('getUserList', () => {
     it('maps joined rows and pagination without ambient player data', async () => {
       const lastLogin = new Date('2026-08-31T10:00:00.000Z');
-      query
-        .mockResolvedValueOnce([[{ total: 3 }], []])
-        .mockResolvedValueOnce([[
+      query.mockResolvedValueOnce([[{ total: 3 }], []]).mockResolvedValueOnce([
+        [
           {
             pid: 42,
             account_name: 'account',
@@ -62,7 +61,9 @@ describe('userManagementService', () => {
             is_deleted: 0,
             deleted_at: null,
           },
-        ], []]);
+        ],
+        [],
+      ]);
 
       const result = await getUserList({ page: 1, limit: 2 });
 
@@ -78,9 +79,7 @@ describe('userManagementService', () => {
     });
 
     it('binds filters, safe sorting, limit, and offset to both queries', async () => {
-      query
-        .mockResolvedValueOnce([[{ total: 0 }], []])
-        .mockResolvedValueOnce([[], []]);
+      query.mockResolvedValueOnce([[{ total: 0 }], []]).mockResolvedValueOnce([[], []]);
 
       await getUserList({
         search: '42',
@@ -109,20 +108,14 @@ describe('userManagementService', () => {
   });
 
   it('returns unique races from the service query result', async () => {
-    query.mockResolvedValueOnce([[
-      { race: '&+BHuman&n' },
-      { race: '&+GElf&n' },
-    ], []]);
+    query.mockResolvedValueOnce([[{ race: '&+BHuman&n' }, { race: '&+GElf&n' }], []]);
 
     await expect(getUniqueRaces()).resolves.toEqual(['&+BHuman&n', '&+GElf&n']);
     expect(query).toHaveBeenCalledWith(expect.stringContaining('SELECT DISTINCT race'));
   });
 
   it('returns unique specialized classes from the service query result', async () => {
-    query.mockResolvedValueOnce([[
-      { class: '&+WWarrior&n' },
-      { class: '&+CZealot&n' },
-    ], []]);
+    query.mockResolvedValueOnce([[{ class: '&+WWarrior&n' }, { class: '&+CZealot&n' }], []]);
 
     await expect(getUniqueClasses()).resolves.toEqual(['&+WWarrior&n', '&+CZealot&n']);
     expect(query).toHaveBeenCalledWith(

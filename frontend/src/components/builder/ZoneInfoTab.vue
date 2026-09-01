@@ -21,10 +21,16 @@ const props = defineProps<{
 const { user } = useAuth()
 
 // Active tab within Info section
-const activeTab = ref<'description' | 'permissions' | 'proc-requests' | 'comments' | 'history'>('description')
+const activeTab = ref<'description' | 'permissions' | 'proc-requests' | 'comments' | 'history'>(
+  'description',
+)
 
 // Fetch zone access level for current user
-const { data: accessData, isLoading: accessLoading, error: accessError } = useQuery({
+const {
+  data: accessData,
+  isLoading: accessLoading,
+  error: accessError,
+} = useQuery({
   queryKey: ['zone-access', props.zoneId],
   queryFn: () => builderApi.checkZoneAccess(props.zoneId),
   enabled: computed(() => !!user.value),
@@ -32,8 +38,10 @@ const { data: accessData, isLoading: accessLoading, error: accessError } = useQu
 
 // Check admin permission for zone management
 const canManageZones = computed(() => {
-  return user.value?.permissions?.adminPermissions?.includes('manage_zone_permissions') ||
-         user.value?.permissions?.role === 'overlord'
+  return (
+    user.value?.permissions?.adminPermissions?.includes('manage_zone_permissions') ||
+    user.value?.permissions?.role === 'overlord'
+  )
 })
 
 // Computed access flags

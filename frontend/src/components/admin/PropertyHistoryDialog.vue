@@ -103,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { History, User, Clock, ArrowRight } from 'lucide-vue-next';
+import { History, User, Clock, ArrowRight } from 'lucide-vue-next'
 import {
   Dialog,
   DialogContent,
@@ -111,70 +111,70 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog';
+} from '@/components/ui/dialog'
 
 interface HistoryEntry {
-  id: number;
-  accountName: string;
-  oldValue: string;
-  newValue: string;
-  timestamp: Date;
-  notes?: string;
+  id: number
+  accountName: string
+  oldValue: string
+  newValue: string
+  timestamp: Date
+  notes?: string
 }
 
 interface Props {
-  open: boolean;
-  propertyKey: string;
-  history: HistoryEntry[];
-  loading?: boolean;
-  error?: string | null;
+  open: boolean
+  propertyKey: string
+  history: HistoryEntry[]
+  loading?: boolean
+  error?: string | null
 }
 
 interface Emits {
-  (e: 'update:open', value: boolean): void;
+  (e: 'update:open', value: boolean): void
 }
 
-defineProps<Props>();
-const emit = defineEmits<Emits>();
+defineProps<Props>()
+const emit = defineEmits<Emits>()
 
 const handleOpenChange = (value: boolean) => {
-  emit('update:open', value);
-};
+  emit('update:open', value)
+}
 
 const handleClose = () => {
-  emit('update:open', false);
-};
+  emit('update:open', false)
+}
 
 const isRecent = (timestamp: Date): boolean => {
-  const now = new Date();
-  const changeDate = new Date(timestamp);
-  const hoursDiff = (now.getTime() - changeDate.getTime()) / (1000 * 60 * 60);
-  return hoursDiff < 24;
-};
+  const now = new Date()
+  const changeDate = new Date(timestamp)
+  const hoursDiff = (now.getTime() - changeDate.getTime()) / (1000 * 60 * 60)
+  return hoursDiff < 24
+}
 
 const formatTimestamp = (timestamp: Date): string => {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffHours = diffMs / (1000 * 60 * 60);
-  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffHours = diffMs / (1000 * 60 * 60)
+  const diffDays = diffMs / (1000 * 60 * 60 * 24)
 
   // Less than 1 hour ago
   if (diffHours < 1) {
-    const minutes = Math.floor(diffMs / (1000 * 60));
-    return minutes <= 1 ? 'Just now' : `${minutes} minutes ago`;
+    const minutes = Math.floor(diffMs / (1000 * 60))
+    return minutes <= 1 ? 'Just now' : `${minutes} minutes ago`
   }
 
   // Less than 24 hours ago
   if (diffHours < 24) {
-    const hours = Math.floor(diffHours);
-    return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+    const hours = Math.floor(diffHours)
+    return hours === 1 ? '1 hour ago' : `${hours} hours ago`
   }
 
   // Less than 7 days ago
   if (diffDays < 7) {
-    const days = Math.floor(diffDays);
-    return days === 1 ? 'Yesterday' : `${days} days ago`;
+    const days = Math.floor(diffDays)
+    return days === 1 ? 'Yesterday' : `${days} days ago`
   }
 
   // Older - show full date
@@ -184,6 +184,6 @@ const formatTimestamp = (timestamp: Date): string => {
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  }).format(date);
-};
+  }).format(date)
+}
 </script>

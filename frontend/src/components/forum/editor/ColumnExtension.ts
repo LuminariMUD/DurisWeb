@@ -36,8 +36,8 @@ export const Columns = Node.create<ColumnsOptions>({
     return {
       columns: {
         default: 2,
-        parseHTML: element => parseInt(element.getAttribute('data-columns') || '2', 10),
-        renderHTML: attributes => ({
+        parseHTML: (element) => parseInt(element.getAttribute('data-columns') || '2', 10),
+        renderHTML: (attributes) => ({
           'data-columns': attributes.columns,
         }),
       },
@@ -53,45 +53,55 @@ export const Columns = Node.create<ColumnsOptions>({
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ['div', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, { class: 'columns' }), 0]
+    return [
+      'div',
+      mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, { class: 'columns' }),
+      0,
+    ]
   },
 
   addCommands() {
     return {
-      insertColumns: (count: number) => ({ chain }) => {
-        // Create column content - each column starts with an empty paragraph
-        const columnContent = Array(count).fill(null).map(() => ({
-          type: 'column',
-          content: [{ type: 'paragraph' }],
-        }))
+      insertColumns:
+        (count: number) =>
+        ({ chain }) => {
+          // Create column content - each column starts with an empty paragraph
+          const columnContent = Array(count)
+            .fill(null)
+            .map(() => ({
+              type: 'column',
+              content: [{ type: 'paragraph' }],
+            }))
 
-        return chain()
-          .insertContent({
-            type: this.name,
-            attrs: { columns: count },
-            content: columnContent,
-          })
-          .run()
-      },
-
-      deleteColumns: () => ({ commands, state }) => {
-        const { selection } = state
-        const { $from } = selection
-
-        // Find the columns node
-        for (let depth = $from.depth; depth >= 0; depth--) {
-          const node = $from.node(depth)
-          if (node.type.name === 'columns') {
-            const pos = $from.before(depth)
-            return commands.deleteRange({
-              from: pos,
-              to: pos + node.nodeSize,
+          return chain()
+            .insertContent({
+              type: this.name,
+              attrs: { columns: count },
+              content: columnContent,
             })
-          }
-        }
+            .run()
+        },
 
-        return false
-      },
+      deleteColumns:
+        () =>
+        ({ commands, state }) => {
+          const { selection } = state
+          const { $from } = selection
+
+          // Find the columns node
+          for (let depth = $from.depth; depth >= 0; depth--) {
+            const node = $from.node(depth)
+            if (node.type.name === 'columns') {
+              const pos = $from.before(depth)
+              return commands.deleteRange({
+                from: pos,
+                to: pos + node.nodeSize,
+              })
+            }
+          }
+
+          return false
+        },
     }
   },
 })
@@ -110,8 +120,8 @@ export const Column = Node.create({
     return {
       backgroundColor: {
         default: null,
-        parseHTML: element => element.getAttribute('data-bg-color'),
-        renderHTML: attributes => {
+        parseHTML: (element) => element.getAttribute('data-bg-color'),
+        renderHTML: (attributes) => {
           if (!attributes.backgroundColor) return {}
           return {
             'data-bg-color': attributes.backgroundColor,
@@ -136,24 +146,26 @@ export const Column = Node.create({
 
   addCommands() {
     return {
-      setColumnBackground: (color: string | null) => ({ state, chain }) => {
-        const { selection } = state
-        const { $from } = selection
+      setColumnBackground:
+        (color: string | null) =>
+        ({ state, chain }) => {
+          const { selection } = state
+          const { $from } = selection
 
-        // Find the column node
-        for (let depth = $from.depth; depth >= 0; depth--) {
-          const node = $from.node(depth)
-          if (node.type.name === 'column') {
-            const pos = $from.before(depth)
-            return chain()
-              .updateAttributes('column', { backgroundColor: color })
-              .setNodeSelection(pos)
-              .run()
+          // Find the column node
+          for (let depth = $from.depth; depth >= 0; depth--) {
+            const node = $from.node(depth)
+            if (node.type.name === 'column') {
+              const pos = $from.before(depth)
+              return chain()
+                .updateAttributes('column', { backgroundColor: color })
+                .setNodeSelection(pos)
+                .run()
+            }
           }
-        }
 
-        return false
-      },
+          return false
+        },
     }
   },
 })

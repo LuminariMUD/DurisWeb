@@ -25,7 +25,7 @@ export function useMudControl() {
     data: statusData,
     isLoading: statusLoading,
     error: statusError,
-    refetch: refetchStatus
+    refetch: refetchStatus,
   } = useQuery({
     queryKey: ['mud-status'],
     queryFn: async () => {
@@ -47,7 +47,7 @@ export function useMudControl() {
     },
     onSettled: () => {
       actionInProgress.value = null
-    }
+    },
   })
 
   // Stop mutation
@@ -61,7 +61,7 @@ export function useMudControl() {
     },
     onSettled: () => {
       actionInProgress.value = null
-    }
+    },
   })
 
   // Restart mutation
@@ -75,7 +75,7 @@ export function useMudControl() {
     },
     onSettled: () => {
       actionInProgress.value = null
-    }
+    },
   })
 
   // Handle WebSocket MUD state change updates
@@ -115,8 +115,8 @@ export function useMudControl() {
   const status = computed(() => statusData.value || null)
   const isRunning = computed(() => status.value?.state === 'running')
   const isStopped = computed(() => status.value?.state === 'stopped')
-  const isTransitioning = computed(() =>
-    status.value?.state === 'starting' || status.value?.state === 'stopping'
+  const isTransitioning = computed(
+    () => status.value?.state === 'starting' || status.value?.state === 'stopping',
   )
 
   return {

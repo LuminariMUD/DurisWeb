@@ -18,12 +18,12 @@ const emit = defineEmits<{
 
 // Get thumbs up reaction
 const thumbsUp = computed(() => {
-  return props.reactions.find(r => r.emoji === '👍')
+  return props.reactions.find((r) => r.emoji === '👍')
 })
 
 // Get thumbs down reaction
 const thumbsDown = computed(() => {
-  return props.reactions.find(r => r.emoji === '👎')
+  return props.reactions.find((r) => r.emoji === '👎')
 })
 
 function toggleReaction(emoji: string, userReacted: boolean) {

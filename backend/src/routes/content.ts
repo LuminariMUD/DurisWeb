@@ -46,7 +46,7 @@ function validateHelpPageBody(value: unknown, requireCoreFields: boolean): strin
     fields.title,
     'title',
     255,
-    requireCoreFields || fields.title !== undefined
+    requireCoreFields || fields.title !== undefined,
   );
   if (titleError) {
     return titleError;
@@ -56,7 +56,7 @@ function validateHelpPageBody(value: unknown, requireCoreFields: boolean): strin
     fields.text,
     'text',
     50_000,
-    requireCoreFields || fields.text !== undefined
+    requireCoreFields || fields.text !== undefined,
   );
   if (textError) {
     return textError;
@@ -80,7 +80,7 @@ function validateHelpCategoryBody(value: unknown, requireName: boolean): string 
     fields.name,
     'name',
     255,
-    requireName || fields.name !== undefined
+    requireName || fields.name !== undefined,
   );
   if (nameError) {
     return nameError;
@@ -113,13 +113,21 @@ async function logAdminAction(
   oldValue: string | null | undefined,
   newValue: string | null | undefined,
   notes: string | null | undefined,
-  ipAddress: string | null | undefined
+  ipAddress: string | null | undefined,
 ): Promise<void> {
   try {
     await pool.query(
       `INSERT INTO admin_action_log (account_name, action_type, target, old_value, new_value, notes, ip_address)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [accountName, actionType, target, oldValue || null, newValue || null, notes || null, ipAddress]
+      [
+        accountName,
+        actionType,
+        target,
+        oldValue || null,
+        newValue || null,
+        notes || null,
+        ipAddress,
+      ],
     );
   } catch (error) {
     logger.error('Failed to log admin action:', error);
@@ -133,7 +141,9 @@ router.get('/help', requireAuth, requirePermission('manage_help_files'), async (
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 50;
-    const categoryId = req.query.category_id ? parseInt(req.query.category_id as string) : undefined;
+    const categoryId = req.query.category_id
+      ? parseInt(req.query.category_id as string)
+      : undefined;
 
     const result = await contentService.getAllHelpPages(page, limit, categoryId);
     res.json(result);
@@ -143,29 +153,39 @@ router.get('/help', requireAuth, requirePermission('manage_help_files'), async (
 });
 
 // GET /api/content/help/categories - List all categories (requires manage_help_files permission)
-router.get('/help/categories', requireAuth, requirePermission('manage_help_files'), async (_req, res) => {
-  try {
-    const categories = await contentService.getAllCategories();
-    res.json({ categories });
-  } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
-  }
-});
+router.get(
+  '/help/categories',
+  requireAuth,
+  requirePermission('manage_help_files'),
+  async (_req, res) => {
+    try {
+      const categories = await contentService.getAllCategories();
+      res.json({ categories });
+    } catch (error) {
+      res.status(500).json({ error: getErrorMessage(error) });
+    }
+  },
+);
 
 // GET /api/content/help/search - Search help pages (requires manage_help_files permission)
-router.get('/help/search', requireAuth, requirePermission('manage_help_files'), async (req, res) => {
-  try {
-    const query = req.query.q as string;
-    if (!query || query.length < 2) {
-      return res.status(400).json({ error: 'Search query must be at least 2 characters' });
-    }
+router.get(
+  '/help/search',
+  requireAuth,
+  requirePermission('manage_help_files'),
+  async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.length < 2) {
+        return res.status(400).json({ error: 'Search query must be at least 2 characters' });
+      }
 
-    const results = await contentService.searchHelpPages(query);
-    return res.json({ results });
-  } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
-  }
-});
+      const results = await contentService.searchHelpPages(query);
+      return res.json({ results });
+    } catch (error) {
+      return res.status(500).json({ error: getErrorMessage(error) });
+    }
+  },
+);
 
 // GET /api/content/help/:id - Get single help page by ID (requires manage_help_files permission)
 router.get('/help/:id', requireAuth, requirePermission('manage_help_files'), async (req, res) => {
@@ -217,7 +237,7 @@ router.post('/help', requireAuth, requirePermission('manage_help_files'), async 
       undefined,
       `Created help file: ${title}`,
       undefined,
-      extractClientIP(req)
+      extractClientIP(req),
     );
 
     return res.status(201).json(page);
@@ -272,7 +292,7 @@ router.patch('/help/:id', requireAuth, requirePermission('manage_help_files'), a
       undefined,
       `Updated help file: ${page.title}`,
       title ? `Title changed` : undefined,
-      extractClientIP(req)
+      extractClientIP(req),
     );
 
     return res.json(page);
@@ -282,124 +302,150 @@ router.patch('/help/:id', requireAuth, requirePermission('manage_help_files'), a
 });
 
 // DELETE /api/content/help/:id - Delete help page (requires manage_help_files permission)
-router.delete('/help/:id', requireAuth, requirePermission('manage_help_files'), async (req, res) => {
-  try {
-    const id = validateIdParam(req.params.id);
-    if (id === null) {
-      return res.status(400).json({ error: 'Invalid help page ID' });
+router.delete(
+  '/help/:id',
+  requireAuth,
+  requirePermission('manage_help_files'),
+  async (req, res) => {
+    try {
+      const id = validateIdParam(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ error: 'Invalid help page ID' });
+      }
+
+      // Get title before deletion for audit log
+      const [rows]: any = await pool.query('SELECT title FROM pages WHERE id = ?', [id]);
+      const title = rows[0]?.title || `ID ${id}`;
+
+      await contentService.deleteHelpPage(id);
+
+      // Audit log
+      await logAdminAction(
+        req.user!.accountName,
+        'help_file_delete',
+        `Help: ${title}`,
+        `Deleted help file: ${title}`,
+        undefined,
+        undefined,
+        extractClientIP(req),
+      );
+
+      return res.json({ success: true });
+    } catch (error) {
+      return res.status(500).json({ error: getErrorMessage(error) });
     }
-
-    // Get title before deletion for audit log
-    const [rows]: any = await pool.query('SELECT title FROM pages WHERE id = ?', [id]);
-    const title = rows[0]?.title || `ID ${id}`;
-
-    await contentService.deleteHelpPage(id);
-
-    // Audit log
-    await logAdminAction(
-      req.user!.accountName,
-      'help_file_delete',
-      `Help: ${title}`,
-      `Deleted help file: ${title}`,
-      undefined,
-      undefined,
-      extractClientIP(req)
-    );
-
-    return res.json({ success: true });
-  } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
-  }
-});
+  },
+);
 
 // ===== CATEGORY ROUTES =====
 
 // GET /api/content/categories - Get all non-archived categories (requires manage_forum_categories permission)
-router.get('/categories', requireAuth, requirePermission('manage_forum_categories'), async (_req, res) => {
-  try {
-    const query = 'SELECT * FROM forum_categories WHERE is_archived = 0 ORDER BY sort_order ASC, id ASC';
+router.get(
+  '/categories',
+  requireAuth,
+  requirePermission('manage_forum_categories'),
+  async (_req, res) => {
+    try {
+      const query =
+        'SELECT * FROM forum_categories WHERE is_archived = 0 ORDER BY sort_order ASC, id ASC';
 
-    const [rows] = await pool.query(query);
-    const categories = (rows as any[]).map(cat => ({
-      ...cat,
-      is_archived: Boolean(cat.is_archived)
-    }));
-    return res.json(categories);
-  } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
-  }
-});
+      const [rows] = await pool.query(query);
+      const categories = (rows as any[]).map((cat) => ({
+        ...cat,
+        is_archived: Boolean(cat.is_archived),
+      }));
+      return res.json(categories);
+    } catch (error) {
+      return res.status(500).json({ error: getErrorMessage(error) });
+    }
+  },
+);
 
 // POST /api/content/categories - Create category (requires manage_forum_categories permission)
-router.post('/categories', requireAuth, requirePermission('manage_forum_categories'), async (req, res) => {
-  try {
-    const validationError = validateHelpCategoryBody(req.body, true);
-    if (validationError) {
-      return res.status(400).json({ error: validationError });
+router.post(
+  '/categories',
+  requireAuth,
+  requirePermission('manage_forum_categories'),
+  async (req, res) => {
+    try {
+      const validationError = validateHelpCategoryBody(req.body, true);
+      if (validationError) {
+        return res.status(400).json({ error: validationError });
+      }
+
+      const { name, desc } = req.body;
+
+      const category = await contentService.createCategory({ name, desc });
+      return res.status(201).json(category);
+    } catch (error) {
+      return res.status(500).json({ error: getErrorMessage(error) });
     }
-
-    const { name, desc } = req.body;
-
-    const category = await contentService.createCategory({ name, desc });
-    return res.status(201).json(category);
-  } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
-  }
-});
+  },
+);
 
 // PATCH /api/content/categories/:id - Update category (requires manage_forum_categories permission)
-router.patch('/categories/:id', requireAuth, requirePermission('manage_forum_categories'), async (req, res) => {
-  try {
-    const validationError = validateHelpCategoryBody(req.body, false);
-    if (validationError) {
-      return res.status(400).json({ error: validationError });
-    }
-
-    const id = validateIdParam(req.params.id);
-    if (id === null) {
-      return res.status(400).json({ error: 'Invalid category ID' });
-    }
-    const { isArchived, name, desc } = req.body;
-
-    // Handle archive/restore
-    if (isArchived !== undefined) {
-      if (name !== undefined || desc !== undefined) {
-        return res.status(400).json({ error: 'Archive changes cannot include name or desc' });
+router.patch(
+  '/categories/:id',
+  requireAuth,
+  requirePermission('manage_forum_categories'),
+  async (req, res) => {
+    try {
+      const validationError = validateHelpCategoryBody(req.body, false);
+      if (validationError) {
+        return res.status(400).json({ error: validationError });
       }
-      if (isArchived) {
-        await categoryService.archiveCategory(id, req.user!.accountName);
-      } else {
-        await categoryService.restoreCategory(id);
+
+      const id = validateIdParam(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ error: 'Invalid category ID' });
       }
-      return res.json({ success: true });
+      const { isArchived, name, desc } = req.body;
+
+      // Handle archive/restore
+      if (isArchived !== undefined) {
+        if (name !== undefined || desc !== undefined) {
+          return res.status(400).json({ error: 'Archive changes cannot include name or desc' });
+        }
+        if (isArchived) {
+          await categoryService.archiveCategory(id, req.user!.accountName);
+        } else {
+          await categoryService.restoreCategory(id);
+        }
+        return res.json({ success: true });
+      }
+
+      // Handle other updates (name, desc, etc.)
+      const category = await contentService.updateCategory(id, { name, desc });
+
+      if (!category) {
+        return res.status(404).json({ error: 'Category not found' });
+      }
+
+      return res.json(category);
+    } catch (error) {
+      return res.status(500).json({ error: getErrorMessage(error) });
     }
-
-    // Handle other updates (name, desc, etc.)
-    const category = await contentService.updateCategory(id, { name, desc });
-
-    if (!category) {
-      return res.status(404).json({ error: 'Category not found' });
-    }
-
-    return res.json(category);
-  } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
-  }
-});
+  },
+);
 
 // DELETE /api/content/categories/:id - Delete category (requires manage_forum_categories permission)
-router.delete('/categories/:id', requireAuth, requirePermission('manage_forum_categories'), async (req, res) => {
-  try {
-    const id = validateIdParam(req.params.id);
-    if (id === null) {
-      return res.status(400).json({ error: 'Invalid category ID' });
+router.delete(
+  '/categories/:id',
+  requireAuth,
+  requirePermission('manage_forum_categories'),
+  async (req, res) => {
+    try {
+      const id = validateIdParam(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ error: 'Invalid category ID' });
+      }
+      await categoryService.deleteCategoryPermanent(id);
+      return res.json({ success: true });
+    } catch (error) {
+      return res.status(500).json({ error: getErrorMessage(error) });
     }
-    await categoryService.deleteCategoryPermanent(id);
-    return res.json({ success: true });
-  } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
-  }
-});
+  },
+);
 
 // ===== MUD INFO ROUTES (motd, news, wizmotd) =====
 
@@ -431,7 +477,7 @@ router.put('/motd', requireAuth, requirePermission('manage_motd'), async (req, r
       undefined,
       'Updated MOTD',
       undefined,
-      extractClientIP(req)
+      extractClientIP(req),
     );
 
     return res.json({ motd: motd?.content || null });
@@ -468,7 +514,7 @@ router.put('/news', requireAuth, requirePermission('manage_news'), async (req, r
       undefined,
       'Updated MUD news',
       undefined,
-      extractClientIP(req)
+      extractClientIP(req),
     );
 
     return res.json({ news: news?.content || null });
@@ -489,7 +535,9 @@ router.post('/news/announce', requireAuth, requirePermission('manage_news'), asy
     // parse latest entry
     const latestEntry = parseLatestNewsEntry(news.content);
     if (!latestEntry) {
-      return res.status(400).json({ error: 'Could not parse news entry. Make sure news starts with a date (M/D/YY format)' });
+      return res.status(400).json({
+        error: 'Could not parse news entry. Make sure news starts with a date (M/D/YY format)',
+      });
     }
 
     // broadcast to all users
@@ -503,7 +551,7 @@ router.post('/news/announce', requireAuth, requirePermission('manage_news'), asy
       undefined,
       `Announced news update (${latestEntry.date})`,
       undefined,
-      extractClientIP(req)
+      extractClientIP(req),
     );
 
     logger.info(`[News] ${req.user!.accountName} announced news update for ${latestEntry.date}`);
@@ -547,7 +595,7 @@ router.put('/wizmotd', requireAuth, requirePermission('manage_motd'), async (req
       undefined,
       'Updated Wizard MOTD',
       undefined,
-      extractClientIP(req)
+      extractClientIP(req),
     );
 
     return res.json({ wizmotd: wizmotd?.content || null });
@@ -594,7 +642,7 @@ router.put('/rules', requireAuth, requirePermission('manage_motd'), async (req, 
       undefined,
       'Updated MUD Rules',
       undefined,
-      extractClientIP(req)
+      extractClientIP(req),
     );
 
     return res.json({ rules: rules?.content || null });
@@ -631,7 +679,7 @@ router.put('/credits', requireAuth, requirePermission('manage_motd'), async (req
       undefined,
       'Updated MUD Credits',
       undefined,
-      extractClientIP(req)
+      extractClientIP(req),
     );
 
     return res.json({ credits: credits?.content || null });
@@ -668,7 +716,7 @@ router.put('/wizlist', requireAuth, requirePermission('manage_motd'), async (req
       undefined,
       'Updated MUD Wizlist',
       undefined,
-      extractClientIP(req)
+      extractClientIP(req),
     );
 
     return res.json({ wizlist: wizlist?.content || null });
@@ -705,7 +753,7 @@ router.put('/faq', requireAuth, requirePermission('manage_motd'), async (req, re
       undefined,
       'Updated MUD FAQ',
       undefined,
-      extractClientIP(req)
+      extractClientIP(req),
     );
 
     return res.json({ faq: faq?.content || null });

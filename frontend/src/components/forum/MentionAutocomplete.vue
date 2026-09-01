@@ -48,7 +48,7 @@ const { suggestions, isOpen, position } = toRefs(props)
 
 const selectedIndex = computed({
   get: () => props.selectedIndex,
-  set: (value) => emit('update:selectedIndex', value)
+  set: (value) => emit('update:selectedIndex', value),
 })
 
 function selectMention(username: string) {

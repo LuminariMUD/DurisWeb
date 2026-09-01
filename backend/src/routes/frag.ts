@@ -35,7 +35,7 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
       req.query.page as string,
       req.query.limit as string,
       50,
-      100
+      100,
     );
 
     const filters: FragLeaderboardFilters = {
@@ -87,11 +87,7 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
  */
 router.get('/top-gainers', async (req: Request, res: Response): Promise<void> => {
   try {
-    const period = validateEnum(
-      req.query.period as string,
-      ['7d', '30d', '90d'] as const,
-      '30d'
-    );
+    const period = validateEnum(req.query.period as string, ['7d', '30d', '90d'] as const, '30d');
     const limit = parseIntSafe(req.query.limit as string, 50, 1, 100);
 
     const gainers = await getTopGainers(period, limit);

@@ -10,10 +10,7 @@ export class ClientSettingsStorageError extends Error {
   }
 }
 
-export function writeClientSettings(
-  key: string | null,
-  data: unknown,
-): void {
+export function writeClientSettings(key: string | null, data: unknown): void {
   if (!key) {
     throw new ClientSettingsStorageError('No active MUD account is available for client settings.')
   }

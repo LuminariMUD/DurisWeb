@@ -74,7 +74,16 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
-import type { Room, Mobile, ZoneObject, RoomPosition, ResetCommand, RoomIndex, RoomExit, Direction } from '@/types'
+import type {
+  Room,
+  Mobile,
+  ZoneObject,
+  RoomPosition,
+  ResetCommand,
+  RoomIndex,
+  RoomExit,
+  Direction,
+} from '@/types'
 
 const props = defineProps<{
   id: string
@@ -139,15 +148,8 @@ const objectEditorKey = ref(0)
 const selectedObjectVnum = ref<number | null>(null)
 
 // Zone streaming composable
-const {
-  roomState,
-  mobState,
-  objectState,
-  streamRooms,
-  streamMobs,
-  streamObjects,
-  clearState,
-} = useZoneStreaming()
+const { roomState, mobState, objectState, streamRooms, streamMobs, streamObjects, clearState } =
+  useZoneStreaming()
 
 // Zone history composable for undo/redo
 const {
@@ -188,7 +190,7 @@ onMounted(() => {
       const vnum = parseInt(vnumStr, 10)
       if (!isNaN(vnum)) {
         // Map 'object' to 'obj' for the tab
-        const entityType = selectType === 'object' ? 'obj' : selectType as 'room' | 'mob' | 'obj'
+        const entityType = selectType === 'object' ? 'obj' : (selectType as 'room' | 'mob' | 'obj')
 
         // Set the active tab
         activeEntityType.value = entityType
@@ -233,12 +235,12 @@ watch(
     if (pendingSelection.value?.type === 'room' && len > 0) {
       const vnum = pendingSelection.value.vnum
       // Check if the room exists in the loaded data
-      if (roomState.value.items.some(r => r.vnum === vnum)) {
+      if (roomState.value.items.some((r) => r.vnum === vnum)) {
         selectRoom(vnum)
         pendingSelection.value = null
       }
     }
-  }
+  },
 )
 
 watch(
@@ -247,12 +249,12 @@ watch(
     if (pendingSelection.value?.type === 'mob' && len > 0) {
       const vnum = pendingSelection.value.vnum
       // Check if the mob exists in the loaded data
-      if (mobState.value.items.some(m => m.vnum === vnum)) {
+      if (mobState.value.items.some((m) => m.vnum === vnum)) {
         selectMob(vnum)
         pendingSelection.value = null
       }
     }
-  }
+  },
 )
 
 watch(
@@ -261,16 +263,18 @@ watch(
     if (pendingSelection.value?.type === 'object' && len > 0) {
       const vnum = pendingSelection.value.vnum
       // Check if the object exists in the loaded data
-      if (objectState.value.items.some(o => o.vnum === vnum)) {
+      if (objectState.value.items.some((o) => o.vnum === vnum)) {
         selectObject(vnum)
         pendingSelection.value = null
       }
     }
-  }
+  },
 )
 
 // Computed loading states based on streaming
-const zoneLoading = computed(() => roomState.value.isStreaming && roomState.value.items.length === 0)
+const zoneLoading = computed(
+  () => roomState.value.isStreaming && roomState.value.items.length === 0,
+)
 
 // Fetch zone header
 const { data: headerData } = useQuery({
@@ -299,7 +303,9 @@ const saveRoomMutation = useMutation({
   onSuccess: () => {
     toast.success('Room saved successfully')
     queryClient.invalidateQueries({ queryKey: ['builder-zone', zoneId.value] })
-    queryClient.invalidateQueries({ queryKey: ['builder-room', zoneId.value, selectedRoomVnum.value] })
+    queryClient.invalidateQueries({
+      queryKey: ['builder-room', zoneId.value, selectedRoomVnum.value],
+    })
   },
   onError: (error: Error) => {
     toast.error(`Failed to save room: ${error.message}`)
@@ -319,7 +325,9 @@ const saveMobMutation = useMutation({
   onSuccess: () => {
     toast.success('Mobile saved successfully')
     queryClient.invalidateQueries({ queryKey: ['builder-zone', zoneId.value] })
-    queryClient.invalidateQueries({ queryKey: ['builder-mob', zoneId.value, selectedMobVnum.value] })
+    queryClient.invalidateQueries({
+      queryKey: ['builder-mob', zoneId.value, selectedMobVnum.value],
+    })
   },
   onError: (error: Error) => {
     toast.error(`Failed to save mobile: ${error.message}`)
@@ -339,7 +347,9 @@ const saveObjectMutation = useMutation({
   onSuccess: () => {
     toast.success('Object saved successfully')
     queryClient.invalidateQueries({ queryKey: ['builder-zone', zoneId.value] })
-    queryClient.invalidateQueries({ queryKey: ['builder-object', zoneId.value, selectedObjectVnum.value] })
+    queryClient.invalidateQueries({
+      queryKey: ['builder-object', zoneId.value, selectedObjectVnum.value],
+    })
   },
   onError: (error: Error) => {
     toast.error(`Failed to save object: ${error.message}`)
@@ -377,7 +387,7 @@ const isCloning = ref(false)
 
 function getNextAvailableVnums(startVnum: number | undefined, count: number): number[] {
   // Get all existing vnums from rooms array and localStorage dirty entries
-  const existingVnums = new Set(rooms.value.map(r => r.vnum))
+  const existingVnums = new Set(rooms.value.map((r) => r.vnum))
 
   // Also check dirty created items in localStorage
   const dirtyRooms = zoneCache.value.getDirtyRooms()
@@ -424,7 +434,7 @@ async function executeCloneRoom() {
   const count = Math.max(1, Math.min(100, cloneRoomCount.value))
 
   // Find the source room data
-  const sourceRoom = rooms.value.find(r => r.vnum === cloneRoomSourceVnum.value)
+  const sourceRoom = rooms.value.find((r) => r.vnum === cloneRoomSourceVnum.value)
   if (!sourceRoom) {
     // Check if we need to load full room data
     const cachedRoom = zoneCache.value.getRoom(cloneRoomSourceVnum.value)
@@ -565,7 +575,7 @@ function createNewRoom() {
 // Create a new mob with defaults
 function createNewMob() {
   // Get existing mob vnums
-  const existingVnums = new Set(mobs.value.map(m => m.vnum))
+  const existingVnums = new Set(mobs.value.map((m) => m.vnum))
   const dirtyMobs = zoneCache.value.getDirtyMobs()
   for (const entry of dirtyMobs) {
     existingVnums.add(entry.vnum)
@@ -628,7 +638,7 @@ function createNewMob() {
 // Create a new object with defaults
 function createNewObject() {
   // Get existing object vnums
-  const existingVnums = new Set(objects.value.map(o => o.vnum))
+  const existingVnums = new Set(objects.value.map((o) => o.vnum))
   const dirtyObjects = zoneCache.value.getDirtyObjects()
   for (const entry of dirtyObjects) {
     existingVnums.add(entry.vnum)
@@ -747,29 +757,30 @@ function stripAnsi(text: string): string {
 const filteredRooms = computed(() => {
   if (!searchQuery.value.trim()) return rooms.value
   const q = searchQuery.value.toLowerCase().trim()
-  return rooms.value.filter(r =>
-    r.vnum.toString().includes(q) ||
-    stripAnsi(r.name).toLowerCase().includes(q)
+  return rooms.value.filter(
+    (r) => r.vnum.toString().includes(q) || stripAnsi(r.name).toLowerCase().includes(q),
   )
 })
 
 const filteredMobs = computed(() => {
   if (!searchQuery.value.trim()) return mobs.value
   const q = searchQuery.value.toLowerCase().trim()
-  return mobs.value.filter(m =>
-    m.vnum.toString().includes(q) ||
-    stripAnsi(m.shortDesc).toLowerCase().includes(q) ||
-    stripAnsi(m.keywords).toLowerCase().includes(q)
+  return mobs.value.filter(
+    (m) =>
+      m.vnum.toString().includes(q) ||
+      stripAnsi(m.shortDesc).toLowerCase().includes(q) ||
+      stripAnsi(m.keywords).toLowerCase().includes(q),
   )
 })
 
 const filteredObjects = computed(() => {
   if (!searchQuery.value.trim()) return objects.value
   const q = searchQuery.value.toLowerCase().trim()
-  return objects.value.filter(o =>
-    o.vnum.toString().includes(q) ||
-    stripAnsi(o.shortDesc).toLowerCase().includes(q) ||
-    stripAnsi(o.keywords).toLowerCase().includes(q)
+  return objects.value.filter(
+    (o) =>
+      o.vnum.toString().includes(q) ||
+      stripAnsi(o.shortDesc).toLowerCase().includes(q) ||
+      stripAnsi(o.keywords).toLowerCase().includes(q),
   )
 })
 
@@ -839,7 +850,7 @@ function handleRoomSave(room: Room) {
   cache.markRoomDirty(room, 'modified')
 
   // Update the room in roomState.items so UI reflects changes immediately
-  const index = roomState.value.items.findIndex(r => r.vnum === room.vnum)
+  const index = roomState.value.items.findIndex((r) => r.vnum === room.vnum)
   if (index >= 0) {
     const existingItem = roomState.value.items[index]
     // Convert Room to RoomIndex for the list
@@ -887,7 +898,7 @@ function handleMobSave(mob: Mobile) {
   cache.markMobDirty(mob, 'modified')
 
   // Update the mob in local state so UI reflects changes immediately
-  const index = mobs.value.findIndex(m => m.vnum === mob.vnum)
+  const index = mobs.value.findIndex((m) => m.vnum === mob.vnum)
   if (index >= 0) {
     mobs.value[index] = { ...mob }
   }
@@ -928,7 +939,7 @@ function handleObjectSave(obj: ZoneObject) {
   cache.markObjectDirty(obj, 'modified')
 
   // Update the object in local state so UI reflects changes immediately
-  const index = objects.value.findIndex(o => o.vnum === obj.vnum)
+  const index = objects.value.findIndex((o) => o.vnum === obj.vnum)
   if (index >= 0) {
     objects.value[index] = { ...obj }
   }
@@ -1110,7 +1121,10 @@ function handleKeyDown(e: KeyboardEvent) {
     performUndo()
   }
   // Ctrl+Shift+Z or Ctrl+Y = Redo
-  else if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || (e.shiftKey && e.key === 'z') || e.key === 'y')) {
+  else if (
+    (e.ctrlKey || e.metaKey) &&
+    (e.key === 'Z' || (e.shiftKey && e.key === 'z') || e.key === 'y')
+  ) {
     e.preventDefault()
     performRedo()
   }
@@ -1136,7 +1150,7 @@ function performUndo() {
       // Update TanStack Query cache directly with the undone data
       queryClient.setQueryData(['builder-room', zoneId.value, entry.vnum], { room })
       // Also update roomState items for the sidebar
-      const idx = roomState.value.items.findIndex(r => r.vnum === entry.vnum)
+      const idx = roomState.value.items.findIndex((r) => r.vnum === entry.vnum)
       if (idx >= 0) {
         roomState.value.items[idx] = {
           vnum: room.vnum,
@@ -1155,7 +1169,7 @@ function performUndo() {
       cache.setMob(mob)
       cache.markMobDirty(mob, 'modified')
       queryClient.setQueryData(['builder-mob', zoneId.value, entry.vnum], { mobile: mob })
-      const idx = mobState.value.items.findIndex(m => m.vnum === entry.vnum)
+      const idx = mobState.value.items.findIndex((m) => m.vnum === entry.vnum)
       if (idx >= 0) {
         mobState.value.items[idx] = mob
       }
@@ -1167,7 +1181,7 @@ function performUndo() {
       cache.setObject(obj)
       cache.markObjectDirty(obj, 'modified')
       queryClient.setQueryData(['builder-object', zoneId.value, entry.vnum], { object: obj })
-      const idx = objectState.value.items.findIndex(o => o.vnum === entry.vnum)
+      const idx = objectState.value.items.findIndex((o) => o.vnum === entry.vnum)
       if (idx >= 0) {
         objectState.value.items[idx] = obj
       }
@@ -1181,7 +1195,7 @@ function performUndo() {
       cache.clearDirty('room', entry.vnum)
       cache.removeRoom(entry.vnum)
       // Remove from roomState items
-      const idx = roomState.value.items.findIndex(r => r.vnum === entry.vnum)
+      const idx = roomState.value.items.findIndex((r) => r.vnum === entry.vnum)
       if (idx >= 0) roomState.value.items.splice(idx, 1)
       // Close tab if open
       if (selectedRoomVnum.value === entry.vnum) {
@@ -1190,7 +1204,7 @@ function performUndo() {
     } else if (entry.type === 'mob') {
       cache.clearDirty('mob', entry.vnum)
       cache.removeMob(entry.vnum)
-      const idx = mobState.value.items.findIndex(m => m.vnum === entry.vnum)
+      const idx = mobState.value.items.findIndex((m) => m.vnum === entry.vnum)
       if (idx >= 0) mobState.value.items.splice(idx, 1)
       if (selectedMobVnum.value === entry.vnum) {
         closeMob(entry.vnum)
@@ -1198,7 +1212,7 @@ function performUndo() {
     } else if (entry.type === 'object') {
       cache.clearDirty('object', entry.vnum)
       cache.removeObject(entry.vnum)
-      const idx = objectState.value.items.findIndex(o => o.vnum === entry.vnum)
+      const idx = objectState.value.items.findIndex((o) => o.vnum === entry.vnum)
       if (idx >= 0) objectState.value.items.splice(idx, 1)
       if (selectedObjectVnum.value === entry.vnum) {
         closeObject(entry.vnum)
@@ -1228,7 +1242,7 @@ function performRedo() {
       // Update TanStack Query cache directly with the redone data
       queryClient.setQueryData(['builder-room', zoneId.value, entry.vnum], { room })
       // Also update roomState items for the sidebar
-      const idx = roomState.value.items.findIndex(r => r.vnum === entry.vnum)
+      const idx = roomState.value.items.findIndex((r) => r.vnum === entry.vnum)
       if (idx >= 0) {
         roomState.value.items[idx] = {
           vnum: room.vnum,
@@ -1247,7 +1261,7 @@ function performRedo() {
       cache.setMob(mob)
       cache.markMobDirty(mob, 'modified')
       queryClient.setQueryData(['builder-mob', zoneId.value, entry.vnum], { mobile: mob })
-      const idx = mobState.value.items.findIndex(m => m.vnum === entry.vnum)
+      const idx = mobState.value.items.findIndex((m) => m.vnum === entry.vnum)
       if (idx >= 0) {
         mobState.value.items[idx] = mob
       }
@@ -1259,7 +1273,7 @@ function performRedo() {
       cache.setObject(obj)
       cache.markObjectDirty(obj, 'modified')
       queryClient.setQueryData(['builder-object', zoneId.value, entry.vnum], { object: obj })
-      const idx = objectState.value.items.findIndex(o => o.vnum === entry.vnum)
+      const idx = objectState.value.items.findIndex((o) => o.vnum === entry.vnum)
       if (idx >= 0) {
         objectState.value.items[idx] = obj
       }

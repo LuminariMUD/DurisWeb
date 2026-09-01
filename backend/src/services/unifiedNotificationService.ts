@@ -18,7 +18,9 @@ function toISOString(mysqlDate: string): string {
 let notificationBroadcaster: ((accountName: string, notification: any) => void) | null = null;
 let newsBroadcaster: ((data: { date: string; items: string[] }) => void) | null = null;
 
-export function setNotificationBroadcaster(broadcaster: (accountName: string, notification: any) => void) {
+export function setNotificationBroadcaster(
+  broadcaster: (accountName: string, notification: any) => void,
+) {
   notificationBroadcaster = broadcaster;
 }
 
@@ -67,7 +69,7 @@ export async function createNotification(params: {
       params.triggeredByAccount || null,
       params.triggeredByCharacter || null,
       params.data ? JSON.stringify(params.data) : null,
-    ]
+    ],
   );
 
   // Broadcast to WebSocket clients
@@ -95,7 +97,7 @@ export async function createNotification(params: {
  */
 export async function getNotifications(
   accountName: string,
-  options: { unreadOnly?: boolean; limit?: number; offset?: number } = {}
+  options: { unreadOnly?: boolean; limit?: number; offset?: number } = {},
 ): Promise<{ notifications: Notification[]; total: number }> {
   const { unreadOnly = false, limit = 50, offset = 0 } = options;
 
@@ -108,12 +110,12 @@ export async function getNotifications(
 
   const [countRows] = await db.query<RowDataPacket[]>(
     `SELECT COUNT(*) as total FROM notifications ${whereClause}`,
-    params
+    params,
   );
 
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT * FROM notifications ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+    [...params, limit, offset],
   );
 
   const notifications: Notification[] = rows.map((row) => ({
@@ -140,7 +142,7 @@ export async function getNotifications(
 export async function getUnreadCount(accountName: string): Promise<number> {
   const [rows] = await db.query<RowDataPacket[]>(
     'SELECT COUNT(*) as count FROM notifications WHERE account_name = ? AND is_read = FALSE',
-    [accountName]
+    [accountName],
   );
   return rows[0]?.count || 0;
 }
@@ -151,7 +153,7 @@ export async function getUnreadCount(accountName: string): Promise<number> {
 export async function markAsRead(id: number, accountName: string): Promise<boolean> {
   const [result] = await db.query<ResultSetHeader>(
     'UPDATE notifications SET is_read = TRUE, read_at = NOW() WHERE id = ? AND account_name = ?',
-    [id, accountName]
+    [id, accountName],
   );
   return result.affectedRows > 0;
 }
@@ -162,7 +164,7 @@ export async function markAsRead(id: number, accountName: string): Promise<boole
 export async function markAllAsRead(accountName: string): Promise<number> {
   const [result] = await db.query<ResultSetHeader>(
     'UPDATE notifications SET is_read = TRUE, read_at = NOW() WHERE account_name = ? AND is_read = FALSE',
-    [accountName]
+    [accountName],
   );
   return result.affectedRows;
 }
@@ -173,7 +175,7 @@ export async function markAllAsRead(accountName: string): Promise<number> {
 export async function deleteNotification(id: number, accountName: string): Promise<boolean> {
   const [result] = await db.query<ResultSetHeader>(
     'DELETE FROM notifications WHERE id = ? AND account_name = ?',
-    [id, accountName]
+    [id, accountName],
   );
   return result.affectedRows > 0;
 }
@@ -184,7 +186,7 @@ export async function deleteNotification(id: number, accountName: string): Promi
 export async function getAccountFromPid(pid: number): Promise<string | null> {
   const [rows] = await db.query<RowDataPacket[]>(
     'SELECT account_name FROM account_characters WHERE pid = ? LIMIT 1',
-    [pid]
+    [pid],
   );
   return rows[0]?.account_name || null;
 }
@@ -195,7 +197,7 @@ export async function getAccountFromPid(pid: number): Promise<string | null> {
 export async function getAccountFromCharName(charName: string): Promise<string | null> {
   const [rows] = await db.query<RowDataPacket[]>(
     'SELECT account_name FROM account_characters WHERE char_name = ? AND deleted_at IS NULL LIMIT 1',
-    [charName]
+    [charName],
   );
   return rows[0]?.account_name || null;
 }
@@ -209,7 +211,7 @@ export async function notifyOutbid(
   auctionId: number,
   itemName: string,
   newBidderName: string,
-  newBidAmount: number
+  newBidAmount: number,
 ): Promise<void> {
   const accountName = await getAccountFromPid(outbidPid);
   if (!accountName) return;
@@ -236,7 +238,7 @@ export async function notifyAuctionWon(
   winnerPid: number,
   auctionId: number,
   itemName: string,
-  finalPrice: number
+  finalPrice: number,
 ): Promise<void> {
   const accountName = await getAccountFromPid(winnerPid);
   if (!accountName) {
@@ -267,7 +269,7 @@ export async function notifyItemSold(
   auctionId: number,
   itemName: string,
   buyerName: string,
-  salePrice: number
+  salePrice: number,
 ): Promise<void> {
   const accountName = await getAccountFromPid(sellerPid);
   if (!accountName) {
@@ -298,10 +300,7 @@ export async function notifyItemSold(
 /**
  * Broadcast news update to all users
  */
-export async function notifyNewsUpdate(
-  date: string,
-  items: string[]
-): Promise<void> {
+export async function notifyNewsUpdate(date: string, items: string[]): Promise<void> {
   // broadcast to all websocket clients
   if (newsBroadcaster) {
     newsBroadcaster({ date, items });
@@ -319,7 +318,7 @@ export async function notifyNewsUpdate(
   // create notification for all accounts (for offline users)
   // get all unique account names from login history
   const [rows] = await db.query<RowDataPacket[]>(
-    'SELECT DISTINCT account_name FROM account_login_history WHERE account_name IS NOT NULL'
+    'SELECT DISTINCT account_name FROM account_login_history WHERE account_name IS NOT NULL',
   );
 
   const message = `News Update (${date}): ${items[0] || 'New updates available'}`;
@@ -344,18 +343,20 @@ export async function notifyPvpBattle(
   battleId: number,
   victims: Array<{ description: string }>,
   killers: Array<{ description: string }>,
-  location: string
+  location: string,
 ): Promise<void> {
   // format names for the notification
-  const killerNames = killers
-    .map(k => extractPlayerName(k.description))
-    .filter(Boolean)
-    .join(', ') || 'Unknown';
+  const killerNames =
+    killers
+      .map((k) => extractPlayerName(k.description))
+      .filter(Boolean)
+      .join(', ') || 'Unknown';
 
-  const victimNames = victims
-    .map(v => extractPlayerName(v.description))
-    .filter(Boolean)
-    .join(', ') || 'Unknown';
+  const victimNames =
+    victims
+      .map((v) => extractPlayerName(v.description))
+      .filter(Boolean)
+      .join(', ') || 'Unknown';
 
   // broadcast to all subscribers
   await broadcastPush({

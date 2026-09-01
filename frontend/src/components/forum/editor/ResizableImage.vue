@@ -37,9 +37,7 @@ function startResize(event: MouseEvent, direction: 'left' | 'right') {
   const onMouseMove = (e: MouseEvent) => {
     if (!isResizing.value) return
 
-    const diff = direction === 'right'
-      ? e.clientX - startX.value
-      : startX.value - e.clientX
+    const diff = direction === 'right' ? e.clientX - startX.value : startX.value - e.clientX
 
     const newWidth = Math.max(50, Math.min(800, startWidth.value + diff))
     props.updateAttributes({ width: newWidth })
@@ -73,9 +71,7 @@ function startTouchResize(event: TouchEvent, direction: 'left' | 'right') {
     const t = e.touches[0]
     if (!t) return
 
-    const diff = direction === 'right'
-      ? t.clientX - startX.value
-      : startX.value - t.clientX
+    const diff = direction === 'right' ? t.clientX - startX.value : startX.value - t.clientX
 
     const newWidth = Math.max(50, Math.min(800, startWidth.value + diff))
     props.updateAttributes({ width: newWidth })

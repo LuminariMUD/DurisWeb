@@ -8,8 +8,8 @@ import DashboardView from '../DashboardView.vue'
 vi.mock('@/composables/useAuth', () => ({
   useAuth: () => ({
     isOverlord: { value: true },
-    permissions: { value: { immortalLevel: 62 } }
-  })
+    permissions: { value: { immortalLevel: 62 } },
+  }),
 }))
 
 describe('DashboardView', () => {
@@ -20,9 +20,9 @@ describe('DashboardView', () => {
     queryClient = new QueryClient({
       defaultOptions: {
         queries: {
-          retry: false
-        }
-      }
+          retry: false,
+        },
+      },
     })
 
     router = createRouter({
@@ -31,14 +31,14 @@ describe('DashboardView', () => {
         {
           path: '/dashboard',
           name: 'dashboard',
-          component: DashboardView
+          component: DashboardView,
         },
         {
           path: '/forum',
           name: 'forum',
-          component: { template: '<div>Forum</div>' }
-        }
-      ]
+          component: { template: '<div>Forum</div>' },
+        },
+      ],
     })
 
     await router.push('/dashboard')
@@ -48,8 +48,8 @@ describe('DashboardView', () => {
   it('renders the dashboard page', () => {
     const wrapper = mount(DashboardView, {
       global: {
-        plugins: [router, [VueQueryPlugin, { queryClient }]]
-      }
+        plugins: [router, [VueQueryPlugin, { queryClient }]],
+      },
     })
 
     expect(wrapper.text()).toContain('Server Dashboard')
@@ -58,8 +58,8 @@ describe('DashboardView', () => {
   it('displays the correct title', () => {
     const wrapper = mount(DashboardView, {
       global: {
-        plugins: [router, [VueQueryPlugin, { queryClient }]]
-      }
+        plugins: [router, [VueQueryPlugin, { queryClient }]],
+      },
     })
 
     expect(wrapper.find('h1').text()).toBe('Server Dashboard')
@@ -68,8 +68,8 @@ describe('DashboardView', () => {
   it('shows subtitle with overlord requirement', () => {
     const wrapper = mount(DashboardView, {
       global: {
-        plugins: [router, [VueQueryPlugin, { queryClient }]]
-      }
+        plugins: [router, [VueQueryPlugin, { queryClient }]],
+      },
     })
 
     expect(wrapper.text()).toContain('Overlord only')
@@ -81,10 +81,10 @@ describe('DashboardView', () => {
         plugins: [router],
         stubs: {
           AdminDashboardOverview: {
-            template: '<div data-testid="dashboard-overview">Dashboard Overview</div>'
-          }
-        }
-      }
+            template: '<div data-testid="dashboard-overview">Dashboard Overview</div>',
+          },
+        },
+      },
     })
 
     expect(wrapper.find('[data-testid="dashboard-overview"]').exists()).toBe(true)

@@ -47,8 +47,12 @@ describe('DurisWeb integration security contracts', () => {
 
   it('keeps the privileged MUD secret out of frontend code', () => {
     expect(readProject('frontend/src/utils/duriswebAuth.ts')).not.toContain('DURISWEB_SECRET');
-    expect(readProject('frontend/src/composables/useMudConnection.ts')).toContain("package: 'Client.Info'");
-    expect(readProject('frontend/src/composables/useMudConnection.ts')).not.toContain("package: 'Core.Hello'");
+    expect(readProject('frontend/src/composables/useMudConnection.ts')).toContain(
+      "package: 'Client.Info'",
+    );
+    expect(readProject('frontend/src/composables/useMudConnection.ts')).not.toContain(
+      "package: 'Core.Hello'",
+    );
   });
 
   it('keeps the privileged bridge bound to its authenticated socket', () => {
@@ -58,7 +62,9 @@ describe('DurisWeb integration security contracts', () => {
     expect(bridge).toContain('handleDuriswebChallenge(socket, msg)');
     expect(bridge).toContain('!isAuthenticated');
     expect(bridge).toContain('resolveMudWebSocketUrl');
-    expect(transportPolicy).toContain('parsed.username || parsed.password || parsed.search || parsed.hash');
+    expect(transportPolicy).toContain(
+      'parsed.username || parsed.password || parsed.search || parsed.hash',
+    );
     expect(transportPolicy).toContain('MUD WebSocket URL contains forbidden components.');
   });
 
@@ -134,8 +140,6 @@ describe('DurisWeb integration security contracts', () => {
     expect(bridge).toContain('!retriedWithPreviousSecret');
     expect(bridge).toContain("authSecretSlot === 'current'");
     expect(bridge).toContain('retriedWithPreviousSecret = true;');
-    expect(
-      bridge.match(/generateDuriswebSig\(lastChallenge, 'previous'\)/g),
-    ).toHaveLength(1);
+    expect(bridge.match(/generateDuriswebSig\(lastChallenge, 'previous'\)/g)).toHaveLength(1);
   });
 });

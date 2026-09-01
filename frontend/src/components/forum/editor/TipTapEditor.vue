@@ -874,7 +874,7 @@ const props = withDefaults(
     editable: true,
     enableMentions: false,
     enableWidgets: false,
-  }
+  },
 )
 
 const emit = defineEmits<{
@@ -945,7 +945,7 @@ const currentHeadingLabel = computed(() => {
 
 // Computed label for current font size
 const currentFontSizeLabel = computed(() => {
-  const size = FONT_SIZES.find(s => s.value === currentFontSize.value)
+  const size = FONT_SIZES.find((s) => s.value === currentFontSize.value)
   return size?.name || 'Size'
 })
 
@@ -1022,8 +1022,8 @@ const baseExtensions = [
         ...this.parent?.(),
         rounded: {
           default: false,
-          parseHTML: element => element.getAttribute('data-rounded') === 'true',
-          renderHTML: attributes => {
+          parseHTML: (element) => element.getAttribute('data-rounded') === 'true',
+          renderHTML: (attributes) => {
             if (!attributes.rounded) return {}
             return { 'data-rounded': 'true' }
           },
@@ -1118,13 +1118,16 @@ const editor = useEditor({
     }
 
     // Check if text (paragraph/heading) is selected (not image)
-    isTextSelected.value = !editor.isActive('image') &&
-      (editor.isActive('paragraph') || editor.isActive('heading'))
+    isTextSelected.value =
+      !editor.isActive('image') && (editor.isActive('paragraph') || editor.isActive('heading'))
     if (isTextSelected.value) {
-      currentTextAlignment.value =
-        editor.isActive({ textAlign: 'center' }) ? 'center' :
-        editor.isActive({ textAlign: 'right' }) ? 'right' :
-        editor.isActive({ textAlign: 'justify' }) ? 'justify' : 'left'
+      currentTextAlignment.value = editor.isActive({ textAlign: 'center' })
+        ? 'center'
+        : editor.isActive({ textAlign: 'right' })
+          ? 'right'
+          : editor.isActive({ textAlign: 'justify' })
+            ? 'justify'
+            : 'left'
     }
 
     // Check if cursor is inside a column
@@ -1151,7 +1154,7 @@ watch(
     if (editor.value && editor.value.getHTML() !== newValue) {
       editor.value.commands.setContent(newValue)
     }
-  }
+  },
 )
 
 // Watch editable prop
@@ -1161,7 +1164,7 @@ watch(
     if (editor.value) {
       editor.value.setEditable(newValue)
     }
-  }
+  },
 )
 
 // Apply MUD color to selection
@@ -1328,12 +1331,7 @@ function toggleLink() {
   }
 
   // update link
-  editor.value
-    .chain()
-    .focus()
-    .extendMarkRange('link')
-    .setLink({ href: url })
-    .run()
+  editor.value.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
 }
 
 // Trigger image file input
@@ -1365,14 +1363,18 @@ async function uploadAndInsertImage(file: File) {
   const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
   if (!allowedTypes.includes(file.type)) {
     imageUploadError.value = 'Only JPG, PNG, WebP, and GIF images are allowed'
-    setTimeout(() => { imageUploadError.value = null }, 3000)
+    setTimeout(() => {
+      imageUploadError.value = null
+    }, 3000)
     return
   }
 
   // Validate file size (350KB)
   if (file.size > MAX_IMAGE_SIZE) {
     imageUploadError.value = `Image must be under ${MAX_IMAGE_SIZE / 1024}KB`
-    setTimeout(() => { imageUploadError.value = null }, 3000)
+    setTimeout(() => {
+      imageUploadError.value = null
+    }, 3000)
     return
   }
 
@@ -1384,15 +1386,13 @@ async function uploadAndInsertImage(file: File) {
 
     // Insert the image into the editor
     if (editor.value && result.imageUrl) {
-      editor.value
-        .chain()
-        .focus()
-        .setImage({ src: result.imageUrl, alt: file.name })
-        .run()
+      editor.value.chain().focus().setImage({ src: result.imageUrl, alt: file.name }).run()
     }
   } catch (error: any) {
     imageUploadError.value = error.response?.data?.error || 'Failed to upload image'
-    setTimeout(() => { imageUploadError.value = null }, 5000)
+    setTimeout(() => {
+      imageUploadError.value = null
+    }, 5000)
   } finally {
     isUploadingImage.value = false
   }
@@ -1567,46 +1567,25 @@ function getRawAnsi(): string {
 
 // Close dropdown when clicking outside
 function handleClickOutside(event: MouseEvent) {
-  if (
-    colorDropdownRef.value &&
-    !colorDropdownRef.value.contains(event.target as Node)
-  ) {
+  if (colorDropdownRef.value && !colorDropdownRef.value.contains(event.target as Node)) {
     showColorDropdown.value = false
   }
-  if (
-    tableDropdownRef.value &&
-    !tableDropdownRef.value.contains(event.target as Node)
-  ) {
+  if (tableDropdownRef.value && !tableDropdownRef.value.contains(event.target as Node)) {
     showTableDropdown.value = false
   }
-  if (
-    columnsDropdownRef.value &&
-    !columnsDropdownRef.value.contains(event.target as Node)
-  ) {
+  if (columnsDropdownRef.value && !columnsDropdownRef.value.contains(event.target as Node)) {
     showColumnsDropdown.value = false
   }
-  if (
-    columnBgDropdownRef.value &&
-    !columnBgDropdownRef.value.contains(event.target as Node)
-  ) {
+  if (columnBgDropdownRef.value && !columnBgDropdownRef.value.contains(event.target as Node)) {
     showColumnBgDropdown.value = false
   }
-  if (
-    headingDropdownRef.value &&
-    !headingDropdownRef.value.contains(event.target as Node)
-  ) {
+  if (headingDropdownRef.value && !headingDropdownRef.value.contains(event.target as Node)) {
     showHeadingDropdown.value = false
   }
-  if (
-    fontSizeDropdownRef.value &&
-    !fontSizeDropdownRef.value.contains(event.target as Node)
-  ) {
+  if (fontSizeDropdownRef.value && !fontSizeDropdownRef.value.contains(event.target as Node)) {
     showFontSizeDropdown.value = false
   }
-  if (
-    widgetDropdownRef.value &&
-    !widgetDropdownRef.value.contains(event.target as Node)
-  ) {
+  if (widgetDropdownRef.value && !widgetDropdownRef.value.contains(event.target as Node)) {
     showWidgetDropdown.value = false
   }
 }

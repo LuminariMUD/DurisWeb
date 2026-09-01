@@ -6,7 +6,8 @@ const zoneInfo = ref({
   id: 1,
   zoneId: 'zone-a',
   description: 'hello',
-  descriptionHtml: '<p>hello <strong>Duris</strong></p><script>alert(1)</script><img src="x" onerror="alert(2)">',
+  descriptionHtml:
+    '<p>hello <strong>Duris</strong></p><script>alert(1)</script><img src="x" onerror="alert(2)">',
   ownerAccount: 'Cwial',
   createdAt: '2026-08-28T00:00:00.000Z',
   updatedAt: '2026-08-28T00:00:00.000Z',

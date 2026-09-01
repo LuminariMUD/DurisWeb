@@ -11,10 +11,30 @@ export interface FlagDefinition {
 }
 
 // Direction constants (structural, not flag data)
-export const DIRECTIONS = ['north', 'east', 'south', 'west', 'up', 'down', 'northwest', 'southwest', 'northeast', 'southeast'] as const;
-export type Direction = typeof DIRECTIONS[number];
+export const DIRECTIONS = [
+  'north',
+  'east',
+  'south',
+  'west',
+  'up',
+  'down',
+  'northwest',
+  'southwest',
+  'northeast',
+  'southeast',
+] as const;
+export type Direction = (typeof DIRECTIONS)[number];
 export const DIRECTION_INDEX: Record<Direction, number> = {
-  north: 0, east: 1, south: 2, west: 3, up: 4, down: 5, northwest: 6, southwest: 7, northeast: 8, southeast: 9
+  north: 0,
+  east: 1,
+  south: 2,
+  west: 3,
+  up: 4,
+  down: 5,
+  northwest: 6,
+  southwest: 7,
+  northeast: 8,
+  southeast: 9,
 };
 
 // Exit interface
@@ -78,8 +98,8 @@ export interface Mobile {
   level: number;
   thac0: number;
   ac: number;
-  hitDice: string;  // xdy+z format
-  damDice: string;  // xdy+z format
+  hitDice: string; // xdy+z format
+  damDice: string; // xdy+z format
   gold: number;
   exp: number;
   position: number;
@@ -110,10 +130,10 @@ export interface ZoneObject {
   antiFlags2: number;
   // Character affect bitvectors (optional, set when wearing item)
   // These use the same flags as mob affected_by (mob_affected1-4)
-  bitvector?: number;   // affected1_bits
-  bitvector2?: number;  // affected2_bits
-  bitvector3?: number;  // affected3_bits
-  bitvector4?: number;  // affected4_bits
+  bitvector?: number; // affected1_bits
+  bitvector2?: number; // affected2_bits
+  bitvector3?: number; // affected3_bits
+  bitvector4?: number; // affected4_bits
 }
 
 // Zone reset command types (structural, not flag data)
@@ -151,9 +171,9 @@ export interface ResetWithMetadata extends ResetCommand {
   containerName?: string;
   leaderName?: string;
   // Human-readable values
-  slotName?: string;       // For E commands - "Wielded", "Held", etc.
-  directionName?: string;  // For D commands - "North", "East", etc.
-  stateName?: string;      // For D commands - "Open", "Closed", "Locked"
+  slotName?: string; // For E commands - "Wielded", "Held", etc.
+  directionName?: string; // For D commands - "North", "East", etc.
+  stateName?: string; // For D commands - "Open", "Closed", "Locked"
 }
 
 // Equip slot constants (structural, not flag data)
@@ -220,8 +240,8 @@ export interface ZoneData {
 // Zone index (for dashboard)
 // Uses filename as unique identifier since multiple files can share same zone number
 export interface ZoneIndex {
-  id: string;           // Unique identifier = filename without extension (e.g., "afterlife_gh")
-  number: number;       // Zone number derived from top_vnum / 100 (e.g., 291)
+  id: string; // Unique identifier = filename without extension (e.g., "afterlife_gh")
+  number: number; // Zone number derived from top_vnum / 100 (e.g., 291)
   name: string;
   roomCount: number;
   mobCount: number;
@@ -248,7 +268,7 @@ export interface ObjIndex {
 
 // Zone map data (Tier 1)
 export interface ZoneMapData {
-  id: string;           // Unique identifier = filename without extension
+  id: string; // Unique identifier = filename without extension
   zoneNumber: number;
   zoneName: string;
   rooms: RoomIndex[];

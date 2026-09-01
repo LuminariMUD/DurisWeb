@@ -1,95 +1,133 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import { useZoneQuery, useUpdateZoneMutation, type ZoneUpdateData } from '@/composables/useZones';
-import { parseAnsiForVue } from '@/utils/ansiParser';
-import { useToast } from '@/composables/useToast';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
-import { Skeleton } from '@/components/ui/skeleton';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, Save } from 'lucide-vue-next';
+import { ref, computed, watch } from 'vue'
+import { useZoneQuery, useUpdateZoneMutation, type ZoneUpdateData } from '@/composables/useZones'
+import { parseAnsiForVue } from '@/utils/ansiParser'
+import { useToast } from '@/composables/useToast'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
+import { Switch } from '@/components/ui/switch'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Loader2, Save } from 'lucide-vue-next'
 
 const props = defineProps<{
-  zoneNumber: number;
-}>();
+  zoneNumber: number
+}>()
 
 const emit = defineEmits<{
-  close: [];
-}>();
+  close: []
+}>()
 
-const toast = useToast();
+const toast = useToast()
 
-const zoneNumber = computed(() => props.zoneNumber);
-const { data: zone, isLoading } = useZoneQuery(zoneNumber);
-const { mutate: updateZone, isPending } = useUpdateZoneMutation();
+const zoneNumber = computed(() => props.zoneNumber)
+const { data: zone, isLoading } = useZoneQuery(zoneNumber)
+const { mutate: updateZone, isPending } = useUpdateZoneMutation()
 
 // Form state
-const formData = ref<ZoneUpdateData>({});
-const showConfirmDialog = ref(false);
+const formData = ref<ZoneUpdateData>({})
+const showConfirmDialog = ref(false)
 
 // Initialize form when zone loads
-watch(zone, (newZone) => {
-  if (newZone) {
-    formData.value = {
-      epicType: newZone.epicType,
-      alignment: newZone.alignment,
-      suggestedGroupSize: newZone.suggestedGroupSize,
-      difficulty: newZone.difficulty,
-      epicPayout: newZone.epicPayout,
-      taskZone: newZone.taskZone,
-      questZone: newZone.questZone,
-      trophyZone: newZone.trophyZone,
-      randomsZone: newZone.randomsZone,
-    };
-  }
-}, { immediate: true });
+watch(
+  zone,
+  (newZone) => {
+    if (newZone) {
+      formData.value = {
+        epicType: newZone.epicType,
+        alignment: newZone.alignment,
+        suggestedGroupSize: newZone.suggestedGroupSize,
+        difficulty: newZone.difficulty,
+        epicPayout: newZone.epicPayout,
+        taskZone: newZone.taskZone,
+        questZone: newZone.questZone,
+        trophyZone: newZone.trophyZone,
+        randomsZone: newZone.randomsZone,
+      }
+    }
+  },
+  { immediate: true },
+)
 
 // Validation
-const errors = ref<Record<string, string>>({});
+const errors = ref<Record<string, string>>({})
 
 function validateForm(): boolean {
-  errors.value = {};
+  errors.value = {}
 
-  if (formData.value.epicType !== undefined && (formData.value.epicType < 0 || formData.value.epicType > 3)) {
-    errors.value.epicType = 'Epic type must be between 0 and 3';
+  if (
+    formData.value.epicType !== undefined &&
+    (formData.value.epicType < 0 || formData.value.epicType > 3)
+  ) {
+    errors.value.epicType = 'Epic type must be between 0 and 3'
   }
 
-  if (formData.value.alignment !== undefined && (formData.value.alignment < -5 || formData.value.alignment > 5)) {
-    errors.value.alignment = 'Alignment must be between -5 and 5';
+  if (
+    formData.value.alignment !== undefined &&
+    (formData.value.alignment < -5 || formData.value.alignment > 5)
+  ) {
+    errors.value.alignment = 'Alignment must be between -5 and 5'
   }
 
-  if (formData.value.suggestedGroupSize !== undefined && (formData.value.suggestedGroupSize < 1 || formData.value.suggestedGroupSize > 20)) {
-    errors.value.suggestedGroupSize = 'Group size must be between 1 and 20';
+  if (
+    formData.value.suggestedGroupSize !== undefined &&
+    (formData.value.suggestedGroupSize < 1 || formData.value.suggestedGroupSize > 20)
+  ) {
+    errors.value.suggestedGroupSize = 'Group size must be between 1 and 20'
   }
 
-  if (formData.value.difficulty !== undefined && (formData.value.difficulty < 0 || formData.value.difficulty > 10)) {
-    errors.value.difficulty = 'Difficulty must be between 0 and 10';
+  if (
+    formData.value.difficulty !== undefined &&
+    (formData.value.difficulty < 0 || formData.value.difficulty > 10)
+  ) {
+    errors.value.difficulty = 'Difficulty must be between 0 and 10'
   }
 
   if (formData.value.epicPayout !== undefined && formData.value.epicPayout < 0) {
-    errors.value.epicPayout = 'Epic payout must be 0 or greater';
+    errors.value.epicPayout = 'Epic payout must be 0 or greater'
   }
 
-  return Object.keys(errors.value).length === 0;
+  return Object.keys(errors.value).length === 0
 }
 
 // Handle save
 function handleSave() {
   if (!validateForm()) {
-    toast.error('Please fix the errors before saving', 'Validation Error');
-    return;
+    toast.error('Please fix the errors before saving', 'Validation Error')
+    return
   }
 
-  showConfirmDialog.value = true;
+  showConfirmDialog.value = true
 }
 
 function confirmSave() {
-  showConfirmDialog.value = false;
+  showConfirmDialog.value = false
 
   updateZone(
     {
@@ -98,27 +136,27 @@ function confirmSave() {
     },
     {
       onSuccess: () => {
-        toast.success(`Zone ${props.zoneNumber} settings saved successfully`, 'Zone Updated');
-        emit('close');
+        toast.success(`Zone ${props.zoneNumber} settings saved successfully`, 'Zone Updated')
+        emit('close')
       },
       onError: (error: any) => {
-        toast.error(error.response?.data?.error || 'Failed to update zone', 'Update Failed');
+        toast.error(error.response?.data?.error || 'Failed to update zone', 'Update Failed')
       },
-    }
-  );
+    },
+  )
 }
 
 // Alignment label
 const alignmentLabel = computed(() => {
-  const value = formData.value.alignment || 0;
-  if (value < -3) return 'Very Evil';
-  if (value < -1) return 'Evil';
-  if (value < 0) return 'Slightly Evil';
-  if (value === 0) return 'Neutral';
-  if (value <= 1) return 'Slightly Good';
-  if (value <= 3) return 'Good';
-  return 'Very Good';
-});
+  const value = formData.value.alignment || 0
+  if (value < -3) return 'Very Evil'
+  if (value < -1) return 'Evil'
+  if (value < 0) return 'Slightly Evil'
+  if (value === 0) return 'Neutral'
+  if (value <= 1) return 'Slightly Good'
+  if (value <= 3) return 'Good'
+  return 'Very Good'
+})
 </script>
 
 <template>

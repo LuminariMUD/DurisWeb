@@ -87,9 +87,10 @@ export function inspectMudWebSocketEndpoint(wsPort: string): MudTransportEndpoin
 
   const scheme = parsed.protocol === 'wss:' ? 'wss' : 'ws';
   const loopback = isLoopbackHost(parsed.hostname);
-  const blockedReason = scheme === 'ws' && !loopback
-    ? 'Plaintext ws:// is refused for a non-loopback MUD host. Configure wss://.'
-    : null;
+  const blockedReason =
+    scheme === 'ws' && !loopback
+      ? 'Plaintext ws:// is refused for a non-loopback MUD host. Configure wss://.'
+      : null;
 
   return {
     url: parsed.toString(),
@@ -115,9 +116,7 @@ export function resolveMudWebSocketUrl(wsPort: string): string {
  * Connection options. Certificate validation is stated explicitly rather than
  * left to the library default, so disabling it would be a visible edit.
  */
-export function buildMudSocketOptions(
-  wsUrl: string,
-): { rejectUnauthorized: boolean } | undefined {
+export function buildMudSocketOptions(wsUrl: string): { rejectUnauthorized: boolean } | undefined {
   return wsUrl.startsWith('wss:') ? { rejectUnauthorized: true } : undefined;
 }
 
@@ -130,9 +129,7 @@ export type DuriswebSecretSlot = 'current' | 'previous';
 
 export function readDuriswebSecret(slot: DuriswebSecretSlot): string | null {
   const raw =
-    slot === 'current'
-      ? process.env.DURISWEB_SECRET
-      : process.env.DURISWEB_SECRET_PREVIOUS;
+    slot === 'current' ? process.env.DURISWEB_SECRET : process.env.DURISWEB_SECRET_PREVIOUS;
 
   if (!raw || Buffer.byteLength(raw, 'utf8') < 32) {
     return null;
@@ -163,8 +160,5 @@ export function generateDuriswebSig(
   }
 
   const minute = Math.floor(Date.now() / 60000);
-  return crypto
-    .createHmac('sha256', secret)
-    .update(`${minute}:${challenge}`)
-    .digest('hex');
+  return crypto.createHmac('sha256', secret).update(`${minute}:${challenge}`).digest('hex');
 }

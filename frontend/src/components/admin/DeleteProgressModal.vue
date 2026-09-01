@@ -1,12 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useWebSocket } from '@/composables/useWebSocket'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2, XCircle, Loader2, Info } from 'lucide-vue-next'
 
@@ -38,7 +33,7 @@ function handleProgress(data: { requestId: string; message: string; status: stri
   progressLog.value.push({
     message: data.message,
     status: data.status as 'info' | 'success' | 'error',
-    timestamp: new Date()
+    timestamp: new Date(),
   })
 
   // Check if deletion completed

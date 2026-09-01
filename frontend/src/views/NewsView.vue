@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import ChangelogList from '@/components/changelog/ChangelogList.vue'
 
 useHead({
-  title: 'DurisMUD | News'
+  title: 'DurisMUD | News',
 })
 
 const route = useRoute()
@@ -24,10 +24,9 @@ const { isAuthenticated, accountName } = useAuth()
 const activeTab = ref((route.query.tab as string) || 'mud')
 
 // Fetch unread count for badge
-const unreadQueryKey = computed(() => [
-  'changelog-unread-count',
-  accountName.value?.trim().toLowerCase() || 'anonymous',
-] as const)
+const unreadQueryKey = computed(
+  () => ['changelog-unread-count', accountName.value?.trim().toLowerCase() || 'anonymous'] as const,
+)
 const { data: unreadData } = useQuery({
   queryKey: unreadQueryKey,
   queryFn: () => changelogApi.getUnreadCount(),
@@ -38,9 +37,12 @@ const { data: unreadData } = useQuery({
 const unreadCount = computed(() => unreadData.value?.count ?? 0)
 
 // Watch for URL changes
-watch(() => route.query.tab, (newTab) => {
-  activeTab.value = (newTab as string) || 'mud'
-})
+watch(
+  () => route.query.tab,
+  (newTab) => {
+    activeTab.value = (newTab as string) || 'mud'
+  },
+)
 
 // Update URL when tab changes
 function onTabChange(value: string | number) {

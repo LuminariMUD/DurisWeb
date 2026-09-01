@@ -33,11 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -109,7 +105,11 @@ const deleteDialogOpen = ref(false)
 const accountToDelete = ref<string | null>(null)
 
 // Fetch permissions list
-const { data: permissions, isLoading, error } = useQuery({
+const {
+  data: permissions,
+  isLoading,
+  error,
+} = useQuery({
   queryKey: ['zone-permissions', props.zoneId],
   queryFn: () => builderApi.getZonePermissions(props.zoneId),
 })

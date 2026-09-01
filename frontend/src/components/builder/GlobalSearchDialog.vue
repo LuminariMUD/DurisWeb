@@ -57,8 +57,17 @@ watch(searchType, () => {
 })
 
 // Query for search results
-const { data: searchResults, isLoading, isError } = useQuery({
-  queryKey: computed(() => ['builder-global-search', debouncedQuery.value, searchType.value, page.value]),
+const {
+  data: searchResults,
+  isLoading,
+  isError,
+} = useQuery({
+  queryKey: computed(() => [
+    'builder-global-search',
+    debouncedQuery.value,
+    searchType.value,
+    page.value,
+  ]),
   queryFn: () => builderApi.globalSearch(debouncedQuery.value, searchType.value, page.value, limit),
   enabled: computed(() => debouncedQuery.value.length >= 2),
   staleTime: 60000, // 1 minute

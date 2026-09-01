@@ -38,23 +38,40 @@ export function hook(overrides: Partial<HookStatus> = {}): HookStatus {
 }
 
 const hookInventory = [
-  ['auction_new', 'bridge'], ['auction_bid', 'bridge'], ['auction_close', 'bridge'],
-  ['player_presence', 'bridge'], ['mud_shutdown', 'bridge'], ['wholist', 'bridge'],
-  ['admin_delete_character', 'bridge'], ['donation_delivery', 'pubsub'],
-  ['connection_log', 'flatfile'], ['flag_parsing', 'flatfile'],
-  ['guild_parsing', 'flatfile'], ['zone_builder_parsing', 'flatfile'],
-  ['process_control', 'process'], ['terminal', 'terminal'],
+  ['auction_new', 'bridge'],
+  ['auction_bid', 'bridge'],
+  ['auction_close', 'bridge'],
+  ['player_presence', 'bridge'],
+  ['mud_shutdown', 'bridge'],
+  ['wholist', 'bridge'],
+  ['admin_delete_character', 'bridge'],
+  ['donation_delivery', 'pubsub'],
+  ['connection_log', 'flatfile'],
+  ['flag_parsing', 'flatfile'],
+  ['guild_parsing', 'flatfile'],
+  ['zone_builder_parsing', 'flatfile'],
+  ['process_control', 'process'],
+  ['terminal', 'terminal'],
 ] as const
 
-export const allHooks: HookStatus[] = hookInventory.map(([id, channel]) => hook({
-  id,
-  channel: channel as HookStatus['channel'],
-  alwaysOn: id === 'terminal',
-  mudState: ['connection_log', 'flag_parsing', 'guild_parsing', 'zone_builder_parsing', 'process_control', 'terminal'].includes(id)
-    ? 'not_gated'
-    : 'enabled',
-  reason: id === 'terminal' ? 'Always on; not toggleable.' : 'Enabled.',
-}))
+export const allHooks: HookStatus[] = hookInventory.map(([id, channel]) =>
+  hook({
+    id,
+    channel: channel as HookStatus['channel'],
+    alwaysOn: id === 'terminal',
+    mudState: [
+      'connection_log',
+      'flag_parsing',
+      'guild_parsing',
+      'zone_builder_parsing',
+      'process_control',
+      'terminal',
+    ].includes(id)
+      ? 'not_gated'
+      : 'enabled',
+    reason: id === 'terminal' ? 'Always on; not toggleable.' : 'Enabled.',
+  }),
+)
 
 export const response: HooksResponse = {
   hooks: allHooks,

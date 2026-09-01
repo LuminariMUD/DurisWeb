@@ -487,7 +487,8 @@ const fetchLogs = async (page = 1) => {
     if (filters.value.account) params.append('account', filters.value.account)
     if (filters.value.character) params.append('character', filters.value.character)
     if (filters.value.ip) params.append('ip', filters.value.ip)
-    if (filters.value.status && filters.value.status !== 'all') params.append('status', filters.value.status)
+    if (filters.value.status && filters.value.status !== 'all')
+      params.append('status', filters.value.status)
     if (filters.value.startDate) params.append('startDate', filters.value.startDate)
     if (filters.value.endDate) params.append('endDate', filters.value.endDate)
 
@@ -542,10 +543,9 @@ const viewAccountTimeline = async (accountName: string) => {
   timelineLoading.value = true
 
   try {
-    const response = await axios.get(
-      `${API_URL}/api/admin/connections/account/${accountName}`,
-      { withCredentials: true }
-    )
+    const response = await axios.get(`${API_URL}/api/admin/connections/account/${accountName}`, {
+      withCredentials: true,
+    })
     timeline.value = response.data.data
   } catch (err) {
     console.error('Fetch timeline error:', err)
@@ -609,27 +609,33 @@ onMounted(() => {
 
   // Initialize flatpickr for date inputs
   if (startDateInput.value) {
-    startDatePicker = flatpickr(startDateInput.value as HTMLElement, {
-      enableTime: true,
-      dateFormat: 'Y-m-d H:i',
-      time_24hr: true,
-      onChange: (_selectedDates: any, dateStr: string) => {
-        filters.value.startDate = dateStr
-        fetchLogs()
-      },
-    } as any)
+    startDatePicker = flatpickr(
+      startDateInput.value as HTMLElement,
+      {
+        enableTime: true,
+        dateFormat: 'Y-m-d H:i',
+        time_24hr: true,
+        onChange: (_selectedDates: any, dateStr: string) => {
+          filters.value.startDate = dateStr
+          fetchLogs()
+        },
+      } as any,
+    )
   }
 
   if (endDateInput.value) {
-    endDatePicker = flatpickr(endDateInput.value as HTMLElement, {
-      enableTime: true,
-      dateFormat: 'Y-m-d H:i',
-      time_24hr: true,
-      onChange: (_selectedDates: any, dateStr: string) => {
-        filters.value.endDate = dateStr
-        fetchLogs()
-      },
-    } as any)
+    endDatePicker = flatpickr(
+      endDateInput.value as HTMLElement,
+      {
+        enableTime: true,
+        dateFormat: 'Y-m-d H:i',
+        time_24hr: true,
+        onChange: (_selectedDates: any, dateStr: string) => {
+          filters.value.endDate = dateStr
+          fetchLogs()
+        },
+      } as any,
+    )
   }
 })
 

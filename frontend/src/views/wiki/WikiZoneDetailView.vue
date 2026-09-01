@@ -4,23 +4,34 @@ import { useRouter, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from '@/components/ui/resizable'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import AnsiText from '@/components/ui/AnsiText.vue'
 import WikiZoneMap from '@/components/wiki/WikiZoneMap.vue'
 import { wikiApi } from '@/services/api'
-import type { WikiZoneDetail, WikiRoom, WikiZoneMapData, WikiZoneSpawns, WikiRoomSpawn, WikiShopItem } from '@/types'
-import { Loader2, ArrowLeft, MapPin, Users, Package, ChevronUp, ChevronDown, List, Store, Info, Map as MapIcon, FileText } from 'lucide-vue-next'
+import type {
+  WikiZoneDetail,
+  WikiRoom,
+  WikiZoneMapData,
+  WikiZoneSpawns,
+  WikiRoomSpawn,
+  WikiShopItem,
+} from '@/types'
+import {
+  Loader2,
+  ArrowLeft,
+  MapPin,
+  Users,
+  Package,
+  ChevronUp,
+  ChevronDown,
+  List,
+  Store,
+  Info,
+  Map as MapIcon,
+  FileText,
+} from 'lucide-vue-next'
 import { getWealthParts } from '@/utils/formatWealth'
 
 const props = defineProps<{
@@ -82,7 +93,7 @@ const formattedExits = computed(() => {
   }
 
   return selectedRoom.value.exits
-    .map(exit => {
+    .map((exit) => {
       const dir = exit.direction.charAt(0).toUpperCase() + exit.direction.slice(1)
       return exit.hasDoor ? `[${dir}]` : `-${dir}`
     })
@@ -92,21 +103,24 @@ const formattedExits = computed(() => {
 // Convert rooms to format expected by WikiZoneMap
 const mapRooms = computed(() => {
   if (!zone.value) return []
-  return zone.value.rooms.map(room => ({
+  return zone.value.rooms.map((room) => ({
     vnum: room.vnum,
     name: room.name,
     sectorType: room.sectorType,
-    exits: room.exits.reduce((acc, exit) => {
-      acc[exit.direction] = exit.toRoom
-      return acc
-    }, {} as Record<string, number>),
+    exits: room.exits.reduce(
+      (acc, exit) => {
+        acc[exit.direction] = exit.toRoom
+        return acc
+      },
+      {} as Record<string, number>,
+    ),
   }))
 })
 
 // Room name lookup map for exit display
 const roomNameMap = computed(() => {
   if (!zone.value) return new Map<number, string>()
-  return new Map(zone.value.rooms.map(room => [room.vnum, room.name]))
+  return new Map(zone.value.rooms.map((room) => [room.vnum, room.name]))
 })
 
 // Get room name by vnum (for exit buttons)
@@ -141,7 +155,7 @@ async function loadZone() {
     const roomParam = route.query.room
     if (roomParam) {
       const roomVnum = parseInt(roomParam as string)
-      const requestedRoom = zoneData.rooms.find(r => r.vnum === roomVnum)
+      const requestedRoom = zoneData.rooms.find((r) => r.vnum === roomVnum)
       if (requestedRoom) {
         selectedRoom.value = requestedRoom
         return
@@ -168,7 +182,7 @@ function selectRoom(room: WikiRoom) {
 
 // Select room by vnum (from map click)
 function selectRoomByVnum(vnum: number) {
-  const room = zone.value?.rooms.find(r => r.vnum === vnum)
+  const room = zone.value?.rooms.find((r) => r.vnum === vnum)
   if (room) {
     selectedRoom.value = room
     showRoomList.value = false
@@ -178,7 +192,7 @@ function selectRoomByVnum(vnum: number) {
 // Navigate to adjacent room
 function navigateToRoom(toRoom: number) {
   // Check if room exists in current zone
-  const room = zone.value?.rooms.find(r => r.vnum === toRoom)
+  const room = zone.value?.rooms.find((r) => r.vnum === toRoom)
   if (room) {
     selectedRoom.value = room
   }
@@ -198,7 +212,8 @@ const currentRoomSpawns = computed(() => {
 // Get shopkeepers in current room (mobs with shopItems)
 const currentRoomShopkeepers = computed(() => {
   return currentRoomSpawns.value.filter(
-    spawn => spawn.type === 'mob' && spawn.isShopkeeper && spawn.shopItems && spawn.shopItems.length > 0
+    (spawn) =>
+      spawn.type === 'mob' && spawn.isShopkeeper && spawn.shopItems && spawn.shopItems.length > 0,
   )
 })
 
@@ -219,17 +234,17 @@ function goToShopItem(item: WikiShopItem) {
 // Keyboard navigation mapping
 const keyToDirection: Record<string, string> = {
   // Arrow keys
-  'ArrowUp': 'north',
-  'ArrowDown': 'south',
-  'ArrowLeft': 'west',
-  'ArrowRight': 'east',
+  ArrowUp: 'north',
+  ArrowDown: 'south',
+  ArrowLeft: 'west',
+  ArrowRight: 'east',
   // Letter keys
-  'n': 'north',
-  's': 'south',
-  'e': 'east',
-  'w': 'west',
-  'u': 'up',
-  'd': 'down',
+  n: 'north',
+  s: 'south',
+  e: 'east',
+  w: 'west',
+  u: 'up',
+  d: 'down',
   // Numpad keys (both with and without NumLock)
   '8': 'north',
   '2': 'south',
@@ -239,8 +254,8 @@ const keyToDirection: Record<string, string> = {
   '9': 'northeast',
   '1': 'southwest',
   '3': 'southeast',
-  '5': 'up',    // center key as up
-  '0': 'down',  // zero as down
+  '5': 'up', // center key as up
+  '0': 'down', // zero as down
 }
 
 // Handle keyboard navigation
@@ -258,7 +273,7 @@ function handleKeyDown(e: KeyboardEvent) {
   if (!direction) return
 
   // Find exit in that direction
-  const exit = selectedRoom.value.exits.find(ex => ex.direction === direction)
+  const exit = selectedRoom.value.exits.find((ex) => ex.direction === direction)
   if (exit) {
     e.preventDefault()
     navigateToRoom(exit.toRoom)
@@ -275,9 +290,12 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
 })
 
-watch(() => props.number, () => {
-  loadZone()
-})
+watch(
+  () => props.number,
+  () => {
+    loadZone()
+  },
+)
 </script>
 
 <template>

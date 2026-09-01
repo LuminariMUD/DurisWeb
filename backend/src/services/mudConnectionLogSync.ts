@@ -3,10 +3,7 @@ import { Tail } from 'tail';
 import type { RowDataPacket } from 'mysql2';
 import { pool as db } from '../db/connection.js';
 import { isHookEnabledSync } from '../hooks/hookGate.js';
-import {
-  markFlatfileUnavailable,
-  recordDroppedFlatfileInput,
-} from '../hooks/flatfileHookState.js';
+import { markFlatfileUnavailable, recordDroppedFlatfileInput } from '../hooks/flatfileHookState.js';
 import logger from '../utils/logger.js';
 import { analyzeAndFlagAccount } from './multiAccountDetectionService.js';
 import { broadcastConnectionEvent } from '../index.js';
@@ -51,8 +48,7 @@ export type ConnectionParseResult =
     };
 
 const TIMESTAMP_SOURCE =
-  '([A-Z][a-z]{2}) ([A-Z][a-z]{2}) ([ 0-9][0-9]) ' +
-  '([0-9]{2}):([0-9]{2}):([0-9]{2}) ([0-9]{4})';
+  '([A-Z][a-z]{2}) ([A-Z][a-z]{2}) ([ 0-9][0-9]) ' + '([0-9]{2}):([0-9]{2}):([0-9]{2}) ([0-9]{4})';
 const LOGIN_PATTERN = new RegExp(
   `^${TIMESTAMP_SOURCE}::(.+?) \\[(?: \\? @)?([^\\]]+?)\\] has (connected|reconnected)\\.$`,
 );
@@ -185,7 +181,7 @@ async function getAccountForCharacter(characterName: string): Promise<string | n
   try {
     const [result] = await db.query<AccountRow[]>(
       'SELECT account_name FROM account_characters WHERE char_name = ? AND deleted_at IS NULL LIMIT 1',
-      [characterName]
+      [characterName],
     );
 
     return result[0]?.account_name || null;
@@ -211,7 +207,7 @@ async function storeConnectionEvent(event: ConnectionEvent): Promise<string | nu
     // Insert into account_login_history (IGNORE duplicates due to UNIQUE constraint)
     await db.query(
       'INSERT IGNORE INTO account_login_history (account_name, character_name, ip_address, status, timestamp, hostname) VALUES (?, ?, ?, ?, ?, ?)',
-      [accountName, event.characterName, event.ipAddress, event.status, event.timestamp, null]
+      [accountName, event.characterName, event.ipAddress, event.status, event.timestamp, null],
     );
 
     logger.info(`[MudLogSync] Logged ${event.status}: ${event.characterName} (${accountName})`);
@@ -232,20 +228,16 @@ export interface HistoricalImportResult {
 /**
  * Parse historical log file and populate database
  */
-export async function importHistoricalLogs(
-  daysBack: number = 30,
-): Promise<HistoricalImportResult> {
+export async function importHistoricalLogs(daysBack: number = 30): Promise<HistoricalImportResult> {
   if (!isHookEnabledSync('connection_log')) {
     return { imported: 0, skippedOld: 0, droppedMalformed: 0, unavailable: false };
   }
   logger.info(`[MudLogSync] Importing historical connection logs (last ${daysBack} days)...`);
 
   try {
-    const logContent = await readMudTextFile(
-      'connection_log',
-      CONNECTION_LOG_RELATIVE_PATH,
-      { maxBytes: MAX_CONNECTION_LOG_BYTES },
-    );
+    const logContent = await readMudTextFile('connection_log', CONNECTION_LOG_RELATIVE_PATH, {
+      maxBytes: MAX_CONNECTION_LOG_BYTES,
+    });
     const lines = logContent.split('\n');
 
     const cutoffDate = new Date();
@@ -276,7 +268,7 @@ export async function importHistoricalLogs(
 
     logger.info(
       `[MudLogSync] Historical import complete: ${importedCount} imported, ` +
-      `${skippedCount} old, ${droppedCount} malformed candidates dropped`,
+        `${skippedCount} old, ${droppedCount} malformed candidates dropped`,
     );
     return {
       imported: importedCount,
@@ -304,9 +296,7 @@ async function processRealtimeLine(line: string): Promise<void> {
   }
   if (parsed.kind === 'malformed') {
     recordDroppedFlatfileInput('connection_log');
-    logger.warn(
-      `[MudLogSync] Dropped malformed connection candidate (${parsed.reason})`,
-    );
+    logger.warn(`[MudLogSync] Dropped malformed connection candidate (${parsed.reason})`);
     return;
   }
 
@@ -349,14 +339,8 @@ async function startTail(generation: number): Promise<boolean> {
   });
 
   try {
-    const logPath = await getReadableMudPath(
-      'connection_log',
-      CONNECTION_LOG_RELATIVE_PATH,
-    );
-    if (
-      generation !== tailLifecycleGeneration ||
-      !isHookEnabledSync('connection_log')
-    ) {
+    const logPath = await getReadableMudPath('connection_log', CONNECTION_LOG_RELATIVE_PATH);
+    if (generation !== tailLifecycleGeneration || !isHookEnabledSync('connection_log')) {
       return false;
     }
     const nextTail = new Tail(logPath, {
@@ -385,10 +369,7 @@ async function startTail(generation: number): Promise<boolean> {
     if (error instanceof FlatfileAccessError) {
       logger.warn(`[MudLogSync] Real-time monitoring unavailable: ${error.message}`);
     } else {
-      markFlatfileUnavailable(
-        'connection_log',
-        'Connection log monitoring could not be started.',
-      );
+      markFlatfileUnavailable('connection_log', 'Connection log monitoring could not be started.');
       logger.error('[MudLogSync] Real-time monitoring could not be started');
     }
     return false;

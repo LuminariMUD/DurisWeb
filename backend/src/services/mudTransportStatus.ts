@@ -38,13 +38,14 @@ export async function getMudTransportStatus(): Promise<MudTransportStatus> {
   const endpoint = inspectMudWebSocketEndpoint(settings.mudWsPort || '4050');
   const runtime = getMudBridgeRuntimeStatus();
   const rotation = secretRotation();
-  const certificateStatus = endpoint.scheme === 'ws'
-    ? 'not_applicable'
-    : runtime.certificateExpiresAt === null
-      ? 'unknown'
-      : new Date(runtime.certificateExpiresAt).getTime() <= Date.now()
-        ? 'expired'
-        : 'valid';
+  const certificateStatus =
+    endpoint.scheme === 'ws'
+      ? 'not_applicable'
+      : runtime.certificateExpiresAt === null
+        ? 'unknown'
+        : new Date(runtime.certificateExpiresAt).getTime() <= Date.now()
+          ? 'expired'
+          : 'valid';
   const reason = endpoint.blockedReason || endpoint.configurationError;
 
   return {

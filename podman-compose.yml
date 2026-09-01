@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mysql:
     image: mysql:8.0
@@ -10,7 +8,7 @@ services:
       MYSQL_PASSWORD: duris
       MYSQL_DATABASE: duris_dev
     ports:
-      - "3306:3306"
+      - "${MYSQL_HOST_PORT:-3306}:3306"
     volumes:
       - duris-mysql-data:/var/lib/mysql
     healthcheck:
@@ -24,7 +22,7 @@ services:
     image: redis:7-alpine
     container_name: duris-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_HOST_PORT:-6379}:6379"
     volumes:
       - duris-redis-data:/data
     healthcheck:

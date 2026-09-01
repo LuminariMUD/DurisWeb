@@ -228,7 +228,14 @@ export interface ForumCategory {
   id: number
   name: string
   description: string
-  access_type: 'public' | 'authenticated' | 'role_based' | 'guild' | 'custom_acl' | 'immortal' | 'god'
+  access_type:
+    | 'public'
+    | 'authenticated'
+    | 'role_based'
+    | 'guild'
+    | 'custom_acl'
+    | 'immortal'
+    | 'god'
   min_level: number | null
   guild_name: string | null
   parent_id: number | null
@@ -349,7 +356,7 @@ export interface ForumPost {
   is_deleted: boolean
   reactions?: PostReaction[]
   character_title?: string | null
-  guild_name?: string | null  // Contains ANSI codes
+  guild_name?: string | null // Contains ANSI codes
   guild_id?: number | null
   guild_rank_title?: string | null
 }
@@ -460,7 +467,16 @@ export interface AuditLogEntry {
 export interface ModerationLogEntry {
   id: number
   moderator_account: string
-  action_type: 'delete_post' | 'delete_thread' | 'restore_post' | 'restore_thread' | 'move_thread' | 'lock_thread' | 'unlock_thread' | 'pin_thread' | 'unpin_thread'
+  action_type:
+    | 'delete_post'
+    | 'delete_thread'
+    | 'restore_post'
+    | 'restore_thread'
+    | 'move_thread'
+    | 'lock_thread'
+    | 'unlock_thread'
+    | 'pin_thread'
+    | 'unpin_thread'
   target_type: 'post' | 'thread'
   target_id: number
   category_id: number | null
@@ -485,7 +501,13 @@ export interface ForumSubscription {
 export interface ForumNotification {
   id: number
   accountName: string
-  notificationType: 'new_post' | 'new_reply' | 'mention' | 'quote' | 'thread_moved' | 'thread_locked'
+  notificationType:
+    | 'new_post'
+    | 'new_reply'
+    | 'mention'
+    | 'quote'
+    | 'thread_moved'
+    | 'thread_locked'
   threadId: number
   postId: number | null
   triggeredByAccount: string
@@ -555,16 +577,16 @@ export interface UserProfileWithStats extends UserProfile {
 export interface CharacterWithStats {
   pid: number
   name: string
-  race: string           // With ANSI codes
-  class: string          // With ANSI codes
+  race: string // With ANSI codes
+  class: string // With ANSI codes
   spec: string | null
   level: number
-  guild: string | null   // With ANSI codes
+  guild: string | null // With ANSI codes
   guildRank: string | null
   active: boolean
-  money: number          // Copper on hand
-  balance: number        // Copper in bank
-  playtime: number       // Seconds
+  money: number // Copper on hand
+  balance: number // Copper in bank
+  playtime: number // Seconds
   epics: number
   stats: {
     frags: number
@@ -582,7 +604,7 @@ export interface AccountCharactersResponse {
     characterCount: number
     totalFrags: number
     totalDeaths: number
-    totalWealth: number  // Sum of all money + balance
+    totalWealth: number // Sum of all money + balance
   }
 }
 
@@ -674,26 +696,26 @@ export interface FragLeaderboardEntry {
   rank: number
   char_name: string
   account_name: string
-  total_frags: number  // Already divided by 100
-  racewar: number      // 1=Good, 2=Evil
-  race: string         // With ANSI codes
-  class: string        // With ANSI codes
+  total_frags: number // Already divided by 100
+  racewar: number // 1=Good, 2=Evil
+  race: string // With ANSI codes
+  class: string // With ANSI codes
   level: number
   last_updated: string // ISO datetime
 }
 
 export interface FragLeaderboardFilters {
-  racewar?: number           // 1=Good, 2=Evil, etc.
-  race?: string              // Stripped ANSI
-  class?: string             // Stripped ANSI
+  racewar?: number // 1=Good, 2=Evil, etc.
+  race?: string // Stripped ANSI
+  class?: string // Stripped ANSI
   level_min?: number
   level_max?: number
   account_name?: string
-  char_name?: string         // Search query
+  char_name?: string // Search query
   min_frags?: number
-  include_deleted?: boolean  // Default: false
-  page?: number              // Default: 1
-  limit?: number             // Default: 50
+  include_deleted?: boolean // Default: false
+  page?: number // Default: 1
+  limit?: number // Default: 50
 }
 
 export interface FragLeaderboardResponse {
@@ -710,7 +732,7 @@ export interface TopGainer {
   rank: number
   char_name: string
   account_name: string
-  frags_gained: number  // Over time period
+  frags_gained: number // Over time period
   race: string
   class: string
   level: number
@@ -841,7 +863,17 @@ export const DEFAULT_RESTORE_CATEGORIES: RestoreCategories = {
 // Zone Builder Types
 // ============================================================================
 
-export type Direction = 'north' | 'east' | 'south' | 'west' | 'up' | 'down' | 'northeast' | 'northwest' | 'southeast' | 'southwest'
+export type Direction =
+  | 'north'
+  | 'east'
+  | 'south'
+  | 'west'
+  | 'up'
+  | 'down'
+  | 'northeast'
+  | 'northwest'
+  | 'southeast'
+  | 'southwest'
 
 export interface RoomExit {
   direction: Direction
@@ -881,8 +913,8 @@ export interface RoomIndex {
 }
 
 export interface ZoneIndex {
-  id: string           // Unique identifier = filename without extension (e.g., "afterlife_gh")
-  number: number       // Zone number derived from top_vnum / 100 (e.g., 291)
+  id: string // Unique identifier = filename without extension (e.g., "afterlife_gh")
+  number: number // Zone number derived from top_vnum / 100 (e.g., 291)
   name: string
   roomCount: number
   mobCount: number
@@ -908,7 +940,7 @@ export interface ObjIndex {
 }
 
 export interface ZoneMapData {
-  id: string           // Unique identifier = filename without extension
+  id: string // Unique identifier = filename without extension
   zoneNumber: number
   zoneName: string
   rooms: RoomIndex[]
@@ -976,10 +1008,10 @@ export interface ZoneObject {
   antiFlags2: number
   // Character affect bitvectors (optional, set when wearing item)
   // These use the same flags as mob affected_by (mobAffected1-4)
-  bitvector?: number   // affected1_bits
-  bitvector2?: number  // affected2_bits
-  bitvector3?: number  // affected3_bits
-  bitvector4?: number  // affected4_bits
+  bitvector?: number // affected1_bits
+  bitvector2?: number // affected2_bits
+  bitvector3?: number // affected3_bits
+  bitvector4?: number // affected4_bits
 }
 
 export interface FlagDefinition {
@@ -1027,9 +1059,9 @@ export interface ResetWithMetadata extends ResetCommand {
   containerName?: string
   leaderName?: string
   // Human-readable values
-  slotName?: string       // For E commands - "Wielded", "Held", etc.
-  directionName?: string  // For D commands - "North", "East", etc.
-  stateName?: string      // For D commands - "Open", "Closed", "Locked"
+  slotName?: string // For E commands - "Wielded", "Held", etc.
+  directionName?: string // For D commands - "North", "East", etc.
+  stateName?: string // For D commands - "Open", "Closed", "Locked"
 }
 
 // Equip slot constants
@@ -1074,8 +1106,16 @@ export const DOOR_STATES = [
 
 // Direction names
 export const DIRECTION_NAMES = [
-  'North', 'East', 'South', 'West', 'Up', 'Down',
-  'Northeast', 'Northwest', 'Southeast', 'Southwest'
+  'North',
+  'East',
+  'South',
+  'West',
+  'Up',
+  'Down',
+  'Northeast',
+  'Northwest',
+  'Southeast',
+  'Southwest',
 ] as const
 
 export interface BuilderFlags {
@@ -1545,7 +1585,7 @@ export interface WikiMob {
 export interface WikiMobEquipment {
   vnum: number
   name: string
-  slot: string  // 'Inventory', 'Wielded', 'Held', 'Body', etc.
+  slot: string // 'Inventory', 'Wielded', 'Held', 'Body', etc.
   itemType: number
   itemTypeName: string
 }
@@ -1571,8 +1611,8 @@ export interface WikiMobFilters {
   mobClass?: number
   // New filters
   race?: number
-  flag?: number  // Filter by ACT flag (bitvector value)
-  zone?: number  // Filter by zone number
+  flag?: number // Filter by ACT flag (bitvector value)
+  zone?: number // Filter by zone number
 }
 
 export interface WikiMobClass {
@@ -1714,20 +1754,20 @@ export interface AuctionListItem {
   id: number
   sellerPid: number
   sellerName: string
-  startTime: number        // Unix timestamp
-  endTime: number          // Unix timestamp
-  secsRemaining: number    // Computed: end_time - NOW()
+  startTime: number // Unix timestamp
+  endTime: number // Unix timestamp
+  secsRemaining: number // Computed: end_time - NOW()
   status: 'OPEN' | 'CLOSED' | 'REMOVED'
-  curPrice: number         // In copper
-  buyPrice: number         // In copper (0 = no buy-it-now)
-  objShort: string         // Item name with ANSI codes
+  curPrice: number // In copper
+  buyPrice: number // In copper (0 = no buy-it-now)
+  objShort: string // Item name with ANSI codes
   objVnum: number
-  idKeywords: string       // Searchable item flags
+  idKeywords: string // Searchable item flags
   objInfoText: string | null // Item stats text for web display
   quantity: number
   winningBidderPid: number | null
   winningBidderName: string | null
-  bidCount: number         // Computed from bid history
+  bidCount: number // Computed from bid history
 }
 
 // AuctionDetail is currently identical to AuctionListItem
@@ -1736,18 +1776,18 @@ export type AuctionDetail = AuctionListItem
 
 export interface AuctionBidHistory {
   id: number
-  date: number             // Unix timestamp
+  date: number // Unix timestamp
   auctionId: number
   bidderPid: number
   bidderName: string
-  bidAmount: number        // In copper
+  bidAmount: number // In copper
 }
 
 export interface AuctionFilters {
   search?: string
   seller?: string
-  minPrice?: number        // In platinum
-  maxPrice?: number        // In platinum
+  minPrice?: number // In platinum
+  maxPrice?: number // In platinum
   hasBuyNow?: boolean
   keywords?: string[]
   page?: number
@@ -1758,7 +1798,7 @@ export interface AuctionFilters {
 
 export interface AuctionStats {
   totalOpen: number
-  totalValue: number       // In copper
+  totalValue: number // In copper
   endingSoon: number
 }
 
@@ -1767,8 +1807,8 @@ export interface AuctionHistoryItem {
   sellerName: string
   buyerName: string
   objShort: string
-  salePrice: number        // In copper
-  soldAt: number           // Unix timestamp
+  salePrice: number // In copper
+  soldAt: number // Unix timestamp
   bidCount: number
 }
 

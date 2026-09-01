@@ -1,11 +1,4 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  jest,
-} from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const query = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const logger = {
@@ -13,19 +6,14 @@ const logger = {
   info: jest.fn<(...args: unknown[]) => void>(),
   warn: jest.fn<(...args: unknown[]) => void>(),
 };
-const analyzeAndFlagAccount =
-  jest.fn<(accountName: string) => Promise<void>>();
+const analyzeAndFlagAccount = jest.fn<(accountName: string) => Promise<void>>();
 const broadcastConnectionEvent = jest.fn<(...args: unknown[]) => void>();
-const readMudTextFile =
-  jest.fn<(...args: unknown[]) => Promise<string>>();
-const getReadableMudPath =
-  jest.fn<(...args: unknown[]) => Promise<string>>();
-const probeFlatfileHook =
-  jest.fn<(...args: unknown[]) => Promise<void>>();
+const readMudTextFile = jest.fn<(...args: unknown[]) => Promise<string>>();
+const getReadableMudPath = jest.fn<(...args: unknown[]) => Promise<string>>();
+const probeFlatfileHook = jest.fn<(...args: unknown[]) => Promise<void>>();
 const registerFlatfileRecoveryHandler =
   jest.fn<(hookId: string, handler: () => Promise<void>) => void>();
-const unregisterFlatfileRecoveryHandler =
-  jest.fn<(hookId: string) => void>();
+const unregisterFlatfileRecoveryHandler = jest.fn<(hookId: string) => void>();
 let hookEnabled = true;
 
 class MockFlatfileAccessError extends Error {
@@ -90,15 +78,12 @@ const {
   startRealtimeMonitoring,
   stopRealtimeMonitoring,
 } = await import('../mudConnectionLogSync.js');
-const {
-  getFlatfileHookHealth,
-  resetFlatfileHookStateForTests,
-} = await import('../../hooks/flatfileHookState.js');
+const { getFlatfileHookHealth, resetFlatfileHookStateForTests } = await import(
+  '../../hooks/flatfileHookState.js'
+);
 
-const IPV4_LOGIN =
-  'Wed Nov  5 00:15:03 2025::Ubak [127.0.0.1] has connected.';
-const IPV6_LOGIN =
-  'Wed Nov  5 00:15:03 2025::Ubak [2001:db8::1] has reconnected.';
+const IPV4_LOGIN = 'Wed Nov  5 00:15:03 2025::Ubak [127.0.0.1] has connected.';
+const IPV6_LOGIN = 'Wed Nov  5 00:15:03 2025::Ubak [2001:db8::1] has reconnected.';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -137,34 +122,13 @@ describe('strict connection line parsing', () => {
   });
 
   it.each([
-    [
-      `${IPV4_LOGIN} hostile-suffix`,
-      'format',
-    ],
-    [
-      'Wed Nov  5 00:15:03 2025::Ubak [127.0.0.1] has connected',
-      'format',
-    ],
-    [
-      'Wed Nov  5 00:15:03 2025::Ubak2 [127.0.0.1] has connected.',
-      'character_name',
-    ],
-    [
-      'Wed Nov  5 00:15:03 2025::Ubak\u00e9 [127.0.0.1] has connected.',
-      'character_name',
-    ],
-    [
-      'Wed Nov  5 00:15:03 2025::Abcdefghijklm [127.0.0.1] has connected.',
-      'character_name',
-    ],
-    [
-      'Wed Nov  5 00:15:03 2025::Ubak [999.0.0.1] has connected.',
-      'ip_address',
-    ],
-    [
-      'Thu Nov  5 00:15:03 2025::Ubak [127.0.0.1] has connected.',
-      'timestamp',
-    ],
+    [`${IPV4_LOGIN} hostile-suffix`, 'format'],
+    ['Wed Nov  5 00:15:03 2025::Ubak [127.0.0.1] has connected', 'format'],
+    ['Wed Nov  5 00:15:03 2025::Ubak2 [127.0.0.1] has connected.', 'character_name'],
+    ['Wed Nov  5 00:15:03 2025::Ubak\u00e9 [127.0.0.1] has connected.', 'character_name'],
+    ['Wed Nov  5 00:15:03 2025::Abcdefghijklm [127.0.0.1] has connected.', 'character_name'],
+    ['Wed Nov  5 00:15:03 2025::Ubak [999.0.0.1] has connected.', 'ip_address'],
+    ['Thu Nov  5 00:15:03 2025::Ubak [127.0.0.1] has connected.', 'timestamp'],
   ])('rejects a malformed candidate with a stable reason', (line, reason) => {
     expect(parseConnectionLogLine(line)).toEqual({
       kind: 'malformed',
@@ -173,11 +137,9 @@ describe('strict connection line parsing', () => {
   });
 
   it('ignores an unrelated operational line', () => {
-    expect(
-      parseConnectionLogLine(
-        'Wed Nov  5 00:15:03 2025::The weather changes.',
-      ),
-    ).toEqual({ kind: 'ignored' });
+    expect(parseConnectionLogLine('Wed Nov  5 00:15:03 2025::The weather changes.')).toEqual({
+      kind: 'ignored',
+    });
   });
 });
 
@@ -254,8 +216,6 @@ describe('realtime watcher lifecycle', () => {
     stopRealtimeMonitoring();
 
     expect(tail.unwatch).toHaveBeenCalledTimes(1);
-    expect(unregisterFlatfileRecoveryHandler).toHaveBeenCalledWith(
-      'connection_log',
-    );
+    expect(unregisterFlatfileRecoveryHandler).toHaveBeenCalledWith('connection_log');
   });
 });

@@ -1,24 +1,48 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed } from 'vue';
-import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
-import { useWebSocket } from './composables/useWebSocket';
-import { useToast } from './composables/useToast';
-import { useNotifications } from './composables/useNotifications';
-import { useAuth } from './composables/useAuth';
-import { useMudConnection } from './composables/useMudConnection';
-import { useSiteConfig } from './composables/useSiteConfig';
-import { useOfflineStatus } from './composables/useOfflineStatus';
-import { usePwaUpdate } from './composables/usePwaUpdate';
-import { SidebarProvider } from './components/ui/sidebar';
-import AppSidebar from './components/layout/AppSidebar.vue';
-import InstallBanner from './components/pwa/InstallBanner.vue';
-import BottomNavbar from './components/layout/BottomNavbar.vue';
-import NewsAnnouncementModal from './components/NewsAnnouncementModal.vue';
-import ChangelogBanner from './components/changelog/ChangelogBanner.vue';
-import { Toaster } from 'vue-sonner';
-import { parseAnsiForVue } from './utils/ansiParser';
-import BuilderNotificationBell from './components/builder/BuilderNotificationBell.vue';
-import { Play, User, KeyRound, LogOut, Bell, BellOff, LogIn, Map, Layers, Package, Skull, BookOpen, FileText, ChevronDown, BarChart3, Trophy, Gavel, WifiOff, RefreshCw, X, Activity, Heart, Radio } from 'lucide-vue-next';
+import { onMounted, onUnmounted, computed } from 'vue'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import { useWebSocket } from './composables/useWebSocket'
+import { useToast } from './composables/useToast'
+import { useNotifications } from './composables/useNotifications'
+import { useAuth } from './composables/useAuth'
+import { useMudConnection } from './composables/useMudConnection'
+import { useSiteConfig } from './composables/useSiteConfig'
+import { useOfflineStatus } from './composables/useOfflineStatus'
+import { usePwaUpdate } from './composables/usePwaUpdate'
+import { SidebarProvider } from './components/ui/sidebar'
+import AppSidebar from './components/layout/AppSidebar.vue'
+import InstallBanner from './components/pwa/InstallBanner.vue'
+import BottomNavbar from './components/layout/BottomNavbar.vue'
+import NewsAnnouncementModal from './components/NewsAnnouncementModal.vue'
+import ChangelogBanner from './components/changelog/ChangelogBanner.vue'
+import { Toaster } from 'vue-sonner'
+import { parseAnsiForVue } from './utils/ansiParser'
+import BuilderNotificationBell from './components/builder/BuilderNotificationBell.vue'
+import {
+  Play,
+  User,
+  KeyRound,
+  LogOut,
+  Bell,
+  BellOff,
+  LogIn,
+  Map,
+  Layers,
+  Package,
+  Skull,
+  BookOpen,
+  FileText,
+  ChevronDown,
+  BarChart3,
+  Trophy,
+  Gavel,
+  WifiOff,
+  RefreshCw,
+  X,
+  Activity,
+  Heart,
+  Radio,
+} from 'lucide-vue-next'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,29 +50,50 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '@/components/ui/dropdown-menu'
 
 // NProgress is initialized automatically when useGlobalProgress is imported
 
-const route = useRoute();
-const router = useRouter();
+const route = useRoute()
+const router = useRouter()
 
-const { isConnected, onNewEvent, onCrashAlert, onMudOnline, onMudCrash, onMudShutdown, connect, disconnect } = useWebSocket();
-const { success, successHtml, warning } = useToast();
-const { loadUser, isOverlord, isLesserGod, permissions, isAuthenticated, accountName, avatarUrl, getRoleDisplayName, getRoleBadgeColor, logout, clearMudCredentials } = useAuth();
-const { disconnect: disconnectMud } = useMudConnection();
-const { siteTitle, siteLogoUrl, mudHost, mudPort, mudPortTls, loadConfig } = useSiteConfig();
+const {
+  isConnected,
+  onNewEvent,
+  onCrashAlert,
+  onMudOnline,
+  onMudCrash,
+  onMudShutdown,
+  connect,
+  disconnect,
+} = useWebSocket()
+const { success, successHtml, warning } = useToast()
+const {
+  loadUser,
+  isOverlord,
+  isLesserGod,
+  permissions,
+  isAuthenticated,
+  accountName,
+  avatarUrl,
+  getRoleDisplayName,
+  getRoleBadgeColor,
+  logout,
+  clearMudCredentials,
+} = useAuth()
+const { disconnect: disconnectMud } = useMudConnection()
+const { siteTitle, siteLogoUrl, mudHost, mudPort, mudPortTls, loadConfig } = useSiteConfig()
 
 // pwa and offline status
-const { isOffline } = useOfflineStatus();
-const { needRefresh, updateApp, dismissUpdate } = usePwaUpdate();
+const { isOffline } = useOfflineStatus()
+const { needRefresh, updateApp, dismissUpdate } = usePwaUpdate()
 
 // Check if user has any admin access (for showing Admin link in navbar)
 const hasAnyAdminAccess = computed(() => {
-  return isOverlord.value ||
-         isLesserGod.value ||
-         (permissions.value?.adminPermissions?.length ?? 0) > 0;
-});
+  return (
+    isOverlord.value || isLesserGod.value || (permissions.value?.adminPermissions?.length ?? 0) > 0
+  )
+})
 const {
   isSupported,
   hasPermission,
@@ -59,79 +104,92 @@ const {
   showNotification,
   showPvPNotification,
   showCrashNotification,
-} = useNotifications();
+} = useNotifications()
 
 // Restore session on mount
 onMounted(async () => {
   // Initialize WebSocket connection (singleton - only creates one connection)
-  connect();
+  connect()
 
   // Site config loads in background - not critical, uses defaults if fails
-  loadConfig().catch(() => {});
+  loadConfig().catch(() => {})
 
   // Restore user session from cookies
-  await loadUser();
-
-});
+  await loadUser()
+})
 
 // Clean up WebSocket on unmount
 onUnmounted(() => {
-  disconnect();
-});
+  disconnect()
+})
 
 // Handle notification bell click
 const handleNotificationClick = async () => {
   if (!hasPermission.value) {
     // No permission yet - request it
-    const permission = await requestPermission();
+    const permission = await requestPermission()
     if (permission === 'granted') {
-      success('Browser notifications enabled! You\'ll now receive alerts even when the tab is in the background.', '🔔 Notifications Enabled', 5000);
+      success(
+        "Browser notifications enabled! You'll now receive alerts even when the tab is in the background.",
+        '🔔 Notifications Enabled',
+        5000,
+      )
     }
   } else if (permissionState.value === 'denied') {
     // Permission denied - show instructions
     warning(
-      'Notifications are blocked. To enable them, click the lock icon in your browser\'s address bar and allow notifications for this site.',
+      "Notifications are blocked. To enable them, click the lock icon in your browser's address bar and allow notifications for this site.",
       '🔕 Notifications Blocked',
-      10000
-    );
+      10000,
+    )
   } else {
     // Permission granted - toggle on/off
-    const enabled = toggleNotifications();
+    const enabled = toggleNotifications()
     if (enabled) {
-      success('Browser notifications enabled!', '🔔 Notifications On', 3000);
+      success('Browser notifications enabled!', '🔔 Notifications On', 3000)
     } else {
-      success('Browser notifications disabled. You\'ll still see in-app notifications.', '🔕 Notifications Off', 3000);
+      success(
+        "Browser notifications disabled. You'll still see in-app notifications.",
+        '🔕 Notifications Off',
+        3000,
+      )
     }
   }
-};
+}
 
 // Handle logout
 async function handleLogout() {
-  await logout();
-  router.push('/login');
+  await logout()
+  router.push('/login')
 }
 
 async function handleMudLogout() {
-  clearMudCredentials();
-  try { disconnectMud(); } catch { /* ignore */ }
-  success('Logged out from MUD. Next /play will prompt for password.', 'MUD Logout', 3000);
+  clearMudCredentials()
+  try {
+    disconnectMud()
+  } catch {
+    /* ignore */
+  }
+  success('Logged out from MUD. Next /play will prompt for password.', 'MUD Logout', 3000)
 }
 
 // Handle new PvP events
 onNewEvent((event) => {
   // format killers/victims from array of objects to string
-  const formatParticipants = (participants: Array<{ description: string }> | string | undefined): string => {
-    if (!participants) return 'Unknown';
-    if (typeof participants === 'string') return participants;
+  const formatParticipants = (
+    participants: Array<{ description: string }> | string | undefined,
+  ): string => {
+    if (!participants) return 'Unknown'
+    if (typeof participants === 'string') return participants
     if (Array.isArray(participants)) {
-      return participants.map(p => p.description).join(', ') || 'Unknown';
+      return participants.map((p) => p.description).join(', ') || 'Unknown'
     }
-    return 'Unknown';
-  };
+    return 'Unknown'
+  }
 
-  const killers = formatParticipants(event.killers);
-  const victims = formatParticipants(event.victims);
-  const location = event.room_name || 'Unknown location';
+  const killers = formatParticipants(event.killers)
+  const victims = formatParticipants(event.victims)
+  const location = event.room_name || 'Unknown location'
 
   // Show browser notification (if permission granted)
   if (hasPermission.value) {
@@ -140,7 +198,7 @@ onNewEvent((event) => {
       killers,
       victims,
       room_name: location,
-    });
+    })
   }
 
   // Also show in-app toast notification
@@ -151,10 +209,10 @@ onNewEvent((event) => {
       <div><span class="text-gray-400">Location:</span> ${parseAnsiForVue(location)}</div>
       <div class="text-xs text-cyan-400 cursor-pointer hover:underline" onclick="window.location.href='/pvp/battle/${event.id}'">Click to view details →</div>
     </div>
-  `;
+  `
 
-  successHtml(message, '⚔️ New PvP Battle!', 8000);
-});
+  successHtml(message, '⚔️ New PvP Battle!', 8000)
+})
 
 // Handle incident alerts (crash, reboot, shutdown, recovery, etc.)
 onCrashAlert((incident) => {
@@ -166,104 +224,108 @@ onCrashAlert((incident) => {
       initiated_by: incident.initiated_by,
       shutdown_reason: incident.shutdown_reason,
       started_at: incident.started_at,
-    });
+    })
   }
 
   // Simple user-friendly message
-  let title = 'NewDuris MUD Status Update';
-  let message = '';
+  let title = 'NewDuris MUD Status Update'
+  let message = ''
 
   if (incident.incident_type === 'recovery') {
-    title = 'NewDuris MUD is Back UP!';
+    title = 'NewDuris MUD is Back UP!'
   } else if (incident.incident_type === 'copyover') {
-    title = 'NewDuris MUD is Updated!';
+    title = 'NewDuris MUD is Updated!'
     // Show initiated by and reason for planned shutdowns
-    const initiatedBy = incident.initiated_by || 'System';
-    const reason = incident.shutdown_reason || '';
-    message = reason ? `Initiated by ${initiatedBy}: ${reason}` : `Initiated by ${initiatedBy}`;
+    const initiatedBy = incident.initiated_by || 'System'
+    const reason = incident.shutdown_reason || ''
+    message = reason ? `Initiated by ${initiatedBy}: ${reason}` : `Initiated by ${initiatedBy}`
   } else if (incident.incident_type === 'reboot') {
-    title = 'NewDuris MUD is Rebooting!';
+    title = 'NewDuris MUD is Rebooting!'
     // Show initiated by and reason for planned shutdowns
-    const initiatedBy = incident.initiated_by || 'System';
-    const reason = incident.shutdown_reason || '';
-    message = reason ? `Initiated by ${initiatedBy}: ${reason}` : `Initiated by ${initiatedBy}`;
+    const initiatedBy = incident.initiated_by || 'System'
+    const reason = incident.shutdown_reason || ''
+    message = reason ? `Initiated by ${initiatedBy}: ${reason}` : `Initiated by ${initiatedBy}`
   } else if (incident.incident_type === 'shutdown') {
-    title = 'NewDuris MUD is DOWN';
+    title = 'NewDuris MUD is DOWN'
     // Show initiated by and reason for planned shutdowns
-    const initiatedBy = incident.initiated_by || 'System';
-    const reason = incident.shutdown_reason || '';
-    message = reason ? `Initiated by ${initiatedBy}: ${reason}` : `Initiated by ${initiatedBy}`;
+    const initiatedBy = incident.initiated_by || 'System'
+    const reason = incident.shutdown_reason || ''
+    message = reason ? `Initiated by ${initiatedBy}: ${reason}` : `Initiated by ${initiatedBy}`
   } else if (incident.incident_type === 'crash' || incident.incident_type === 'hung') {
-    title = 'NewDuris MUD is DOWN';
+    title = 'NewDuris MUD is DOWN'
     // No details for crashes/hangs
   }
 
-  warning(message, title, 10000);
-});
+  warning(message, title, 10000)
+})
 
 // Handle MUD online (after crash/reboot)
 onMudOnline(() => {
-  success('The game server is back online!', 'MUD is UP', 10000);
+  success('The game server is back online!', 'MUD is UP', 10000)
   if (hasPermission.value) {
     showNotification({
       title: 'NewDuris MUD is Back UP!',
       body: 'The game server is back online.',
       tag: 'mud-online',
       sound: true,
-    });
+    })
   }
-});
+})
 
 // Handle MUD crash
 onMudCrash(() => {
-  warning('The game server has crashed unexpectedly.', 'MUD Crashed', 10000);
+  warning('The game server has crashed unexpectedly.', 'MUD Crashed', 10000)
   if (hasPermission.value) {
     showNotification({
       title: 'NewDuris MUD is DOWN',
       body: 'The game server has crashed unexpectedly.',
       tag: 'mud-crash',
       sound: true,
-    });
+    })
   }
-});
+})
 
 // Handle MUD shutdown
 onMudShutdown((data) => {
-  const type = data?.type || 'unknown';
-  let title = 'MUD Shutdown';
-  let message = 'The game server is shutting down.';
+  const type = data?.type || 'unknown'
+  let title = 'MUD Shutdown'
+  let message = 'The game server is shutting down.'
 
   if (type === 'reboot') {
-    title = 'MUD Rebooting';
-    message = 'The game server is rebooting.';
+    title = 'MUD Rebooting'
+    message = 'The game server is rebooting.'
   } else if (type === 'copyover') {
-    title = 'MUD Copyover';
-    message = 'The game server is performing a copyover (hot restart).';
+    title = 'MUD Copyover'
+    message = 'The game server is performing a copyover (hot restart).'
   } else if (type === 'autoreboot') {
-    title = 'MUD Auto-Reboot';
-    message = 'The game server is performing scheduled auto-reboot.';
+    title = 'MUD Auto-Reboot'
+    message = 'The game server is performing scheduled auto-reboot.'
   }
 
-  warning(message, title, 10000);
-});
+  warning(message, title, 10000)
+})
 
 // Check if current route should show sidebar
 const showSidebar = computed(() => {
-  return route.path.startsWith('/forum') || route.path.startsWith('/admin') || route.path.startsWith('/dashboard');
-});
+  return (
+    route.path.startsWith('/forum') ||
+    route.path.startsWith('/admin') ||
+    route.path.startsWith('/dashboard')
+  )
+})
 
 // Check if current route is fullscreen (no padding)
 const isFullscreen = computed(() => {
-  return route.meta?.fullscreen === true;
-});
+  return route.meta?.fullscreen === true
+})
 
 // Check if current route should hide navigation (pop-out windows)
 const hideNav = computed(() => {
-  return route.meta?.hideNav === true;
-});
+  return route.meta?.hideNav === true
+})
 
 // Check if on /play page (hide navbars on mobile for full game experience)
-const isPlayPage = computed(() => route.path === '/play');
+const isPlayPage = computed(() => route.path === '/play')
 </script>
 
 <template>

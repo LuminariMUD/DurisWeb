@@ -77,7 +77,9 @@ async function seedHealthMetrics() {
   for (let i = 0; i < values.length; i += batchSize) {
     const batch = values.slice(i, i + batchSize);
 
-    const placeholders = batch.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(',');
+    const placeholders = batch
+      .map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .join(',');
     const flatValues = batch.flat();
 
     await db.query(
@@ -87,10 +89,12 @@ async function seedHealthMetrics() {
         system_load_1m, system_load_5m, system_load_15m, disk_used_gb, disk_total_gb, disk_percent,
         websocket_connections, crashes_last_hour, crashes_last_24h
       ) VALUES ${placeholders}`,
-      flatValues
+      flatValues,
     );
 
-    console.log(`Inserted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(values.length / batchSize)}`);
+    console.log(
+      `Inserted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(values.length / batchSize)}`,
+    );
   }
 
   console.log('✅ Successfully seeded 90 days of health metrics!');

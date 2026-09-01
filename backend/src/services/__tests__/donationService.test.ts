@@ -15,7 +15,11 @@ const webPool = {
   query: webQuery,
 };
 const mudPool = { query: mudQuery };
-const logger = { error: jest.fn<(...args: unknown[]) => void>(), info: jest.fn<(...args: unknown[]) => void>(), warn: jest.fn<(...args: unknown[]) => void>() };
+const logger = {
+  error: jest.fn<(...args: unknown[]) => void>(),
+  info: jest.fn<(...args: unknown[]) => void>(),
+  warn: jest.fn<(...args: unknown[]) => void>(),
+};
 
 jest.unstable_mockModule('../../db/connection.js', () => ({ webPool, pool: webPool, mudPool }));
 jest.unstable_mockModule('../../utils/logger.js', () => ({ default: logger }));

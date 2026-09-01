@@ -8,7 +8,7 @@
  */
 export function validateObjectFields(
   value: unknown,
-  allowedFields: readonly string[]
+  allowedFields: readonly string[],
 ): string | null {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return 'Request body must be an object';
@@ -25,7 +25,7 @@ export function validateStringField(
   value: unknown,
   fieldName: string,
   maxLength: number,
-  required = false
+  required = false,
 ): string | null {
   if (value === undefined) {
     return required ? `${fieldName} is required` : null;
@@ -68,7 +68,7 @@ export function validateIntegerField(
     max?: number;
     required?: boolean;
     allowNull?: boolean;
-  } = {}
+  } = {},
 ): string | null {
   const { min, max, required = false, allowNull = false } = options;
 
@@ -103,7 +103,7 @@ export function parseIntSafe(
   value: string | undefined,
   defaultValue: number,
   min?: number,
-  max?: number
+  max?: number,
 ): number {
   if (value === undefined || value === '') {
     return defaultValue;
@@ -133,7 +133,7 @@ export function parseFloatSafe(
   value: string | undefined,
   defaultValue: number,
   min?: number,
-  max?: number
+  max?: number,
 ): number {
   if (value === undefined || value === '') {
     return defaultValue;
@@ -163,7 +163,7 @@ export function parsePagination(
   pageParam: string | undefined,
   limitParam: string | undefined,
   defaultLimit: number = 50,
-  maxLimit: number = 100
+  maxLimit: number = 100,
 ): { page: number; limit: number } {
   return {
     page: parseIntSafe(pageParam, 1, 1, 10000),
@@ -204,7 +204,10 @@ export function parseStrictPositiveId(value: unknown): number | null {
  * Parse a bounded array of positive IDs from a JSON body.
  * Each element may be a safe numeric JSON ID or a canonical numeric string.
  */
-export function parseStrictPositiveIdArray(value: unknown, maxLength: number = 100): number[] | null {
+export function parseStrictPositiveIdArray(
+  value: unknown,
+  maxLength: number = 100,
+): number[] | null {
   if (!Array.isArray(value) || value.length > maxLength) {
     return null;
   }
@@ -237,7 +240,7 @@ export function sanitizeSearchString(value: string | undefined, maxLength: numbe
 export function validateEnum<T extends string>(
   value: string | undefined,
   allowedValues: readonly T[],
-  defaultValue: T
+  defaultValue: T,
 ): T {
   if (!value) {
     return defaultValue;
@@ -254,7 +257,10 @@ export function validateEnum<T extends string>(
  * Parse a boolean query parameter
  * Accepts 'true', '1', 'yes' as true; everything else is false
  */
-export function parseBooleanSafe(value: string | undefined, defaultValue: boolean = false): boolean {
+export function parseBooleanSafe(
+  value: string | undefined,
+  defaultValue: boolean = false,
+): boolean {
   if (value === undefined || value === '') {
     return defaultValue;
   }

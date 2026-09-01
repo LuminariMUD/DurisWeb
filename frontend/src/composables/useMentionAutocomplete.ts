@@ -93,7 +93,8 @@ export function useMentionAutocomplete(textareaRef: Ref<HTMLTextAreaElement | nu
       selectedIndex.value = (selectedIndex.value + 1) % suggestions.value.length
     } else if (event.key === 'ArrowUp') {
       event.preventDefault()
-      selectedIndex.value = selectedIndex.value === 0 ? suggestions.value.length - 1 : selectedIndex.value - 1
+      selectedIndex.value =
+        selectedIndex.value === 0 ? suggestions.value.length - 1 : selectedIndex.value - 1
     } else if (event.key === 'Enter' || event.key === 'Tab') {
       if (isOpen.value && suggestions.value.length > 0) {
         event.preventDefault()
@@ -170,7 +171,7 @@ export function useMentionAutocomplete(textareaRef: Ref<HTMLTextAreaElement | nu
 
     return {
       top: rect.top + window.scrollY + mirrorRect.height - textarea.scrollTop + 20,
-      left: rect.left + window.scrollX + 10
+      left: rect.left + window.scrollX + 10,
     }
   }
 
@@ -183,6 +184,6 @@ export function useMentionAutocomplete(textareaRef: Ref<HTMLTextAreaElement | nu
     handleKeyDown,
     selectMention,
     closeSuggestions,
-    getDropdownPosition
+    getDropdownPosition,
   }
 }

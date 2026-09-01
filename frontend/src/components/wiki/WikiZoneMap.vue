@@ -2,20 +2,8 @@
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import cytoscape, { type Core, type NodeSingular, type ElementDefinition } from 'cytoscape'
 import { Button } from '@/components/ui/button'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import {
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  LayoutGrid,
-  Info,
-  Fullscreen,
-  X,
-} from 'lucide-vue-next'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ZoomIn, ZoomOut, Maximize2, LayoutGrid, Info, Fullscreen, X } from 'lucide-vue-next'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 
 interface WikiMapRoom {
@@ -151,7 +139,7 @@ function buildElements(): ElementDefinition[] {
       if (toVnum === undefined || toVnum === -1) continue
 
       // Check if destination exists in our zone
-      const destRoom = props.rooms.find(r => r.vnum === toVnum)
+      const destRoom = props.rooms.find((r) => r.vnum === toVnum)
       if (!destRoom) continue
 
       // Avoid duplicate edges (sort to ensure consistent key)
@@ -179,13 +167,13 @@ const stylesheet: cytoscape.StylesheetStyle[] = [
   {
     selector: 'node',
     style: {
-      'width': NODE_SIZE,
-      'height': NODE_SIZE,
+      width: NODE_SIZE,
+      height: NODE_SIZE,
       'background-color': 'data(bgColor)',
       'border-width': 2,
       'border-color': 'data(borderColor)',
-      'shape': 'round-rectangle',
-      'label': '',
+      shape: 'round-rectangle',
+      label: '',
     },
   },
   {
@@ -207,7 +195,7 @@ const stylesheet: cytoscape.StylesheetStyle[] = [
   {
     selector: 'edge',
     style: {
-      'width': 2,
+      width: 2,
       'line-color': '#52525b', // zinc-600
       'target-arrow-color': '#52525b',
       'target-arrow-shape': 'triangle',
@@ -300,7 +288,7 @@ function runAutoLayout() {
   const queue: Array<{ vnum: number; x: number; y: number }> = []
 
   // Find starting room
-  let startRoom = props.rooms.find(r => r.exits && Object.keys(r.exits).length > 0)
+  let startRoom = props.rooms.find((r) => r.exits && Object.keys(r.exits).length > 0)
   if (!startRoom) startRoom = props.rooms[0]
   if (!startRoom) return
 
@@ -310,9 +298,18 @@ function runAutoLayout() {
   // Spiral offsets for collision resolution
   const spiralOffsets = [
     { x: 0, y: 0 },
-    { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 },
-    { x: 1, y: 1 }, { x: -1, y: 1 }, { x: -1, y: -1 }, { x: 1, y: -1 },
-    { x: 2, y: 0 }, { x: 0, y: 2 }, { x: -2, y: 0 }, { x: 0, y: -2 },
+    { x: 1, y: 0 },
+    { x: 0, y: 1 },
+    { x: -1, y: 0 },
+    { x: 0, y: -1 },
+    { x: 1, y: 1 },
+    { x: -1, y: 1 },
+    { x: -1, y: -1 },
+    { x: 1, y: -1 },
+    { x: 2, y: 0 },
+    { x: 0, y: 2 },
+    { x: -2, y: 0 },
+    { x: 0, y: -2 },
   ]
 
   // Check if position is occupied
@@ -344,14 +341,14 @@ function runAutoLayout() {
     const pos = findAvailable(current.x, current.y)
     positions.set(current.vnum, pos)
 
-    const room = props.rooms.find(r => r.vnum === current.vnum)
+    const room = props.rooms.find((r) => r.vnum === current.vnum)
     if (!room?.exits) continue
 
     for (const [dir, toVnum] of Object.entries(room.exits)) {
       if (toVnum === undefined || toVnum === -1) continue
       if (visited.has(toVnum)) continue
 
-      const destRoom = props.rooms.find(r => r.vnum === toVnum)
+      const destRoom = props.rooms.find((r) => r.vnum === toVnum)
       if (!destRoom) continue
 
       visited.add(toVnum)
@@ -418,7 +415,10 @@ function handleZoomIn() {
   if (!cy) return
   cy.zoom({
     level: cy.zoom() * 1.25,
-    renderedPosition: { x: containerRef.value!.clientWidth / 2, y: containerRef.value!.clientHeight / 2 },
+    renderedPosition: {
+      x: containerRef.value!.clientWidth / 2,
+      y: containerRef.value!.clientHeight / 2,
+    },
   })
 }
 
@@ -427,7 +427,10 @@ function handleZoomOut() {
   if (!cy) return
   cy.zoom({
     level: cy.zoom() * 0.8,
-    renderedPosition: { x: containerRef.value!.clientWidth / 2, y: containerRef.value!.clientHeight / 2 },
+    renderedPosition: {
+      x: containerRef.value!.clientWidth / 2,
+      y: containerRef.value!.clientHeight / 2,
+    },
   })
 }
 
@@ -456,23 +459,30 @@ function toggleFullscreen() {
 }
 
 // Watch for selected room changes
-watch(() => props.selectedRoomVnum, (newVnum) => {
-  updateSelectedRoom(newVnum)
-})
+watch(
+  () => props.selectedRoomVnum,
+  (newVnum) => {
+    updateSelectedRoom(newVnum)
+  },
+)
 
 // Watch for room changes
-watch(() => props.rooms, () => {
-  const cy = cyRef.value
-  if (cy) {
-    cy.destroy()
-  }
-  nextTick(() => {
-    initCytoscape()
-    if (props.selectedRoomVnum !== null) {
-      updateSelectedRoom(props.selectedRoomVnum)
+watch(
+  () => props.rooms,
+  () => {
+    const cy = cyRef.value
+    if (cy) {
+      cy.destroy()
     }
-  })
-}, { deep: true })
+    nextTick(() => {
+      initCytoscape()
+      if (props.selectedRoomVnum !== null) {
+        updateSelectedRoom(props.selectedRoomVnum)
+      }
+    })
+  },
+  { deep: true },
+)
 
 // Lifecycle
 onMounted(() => {

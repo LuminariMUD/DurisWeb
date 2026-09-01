@@ -15,15 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  Plus,
-  Save,
-  Search,
-  Loader2,
-  AlertTriangle,
-  RefreshCw,
-  Undo2,
-} from 'lucide-vue-next'
+import { Plus, Save, Search, Loader2, AlertTriangle, RefreshCw, Undo2 } from 'lucide-vue-next'
 import Sortable from 'sortablejs'
 import { useToast } from '@/composables/useToast'
 import { useZoneCache } from '@/composables/useZoneCache'
@@ -44,12 +36,7 @@ const toast = useToast()
 const zoneCache = computed(() => useZoneCache(props.zoneId))
 
 // Streaming state for resets
-const {
-  resetState,
-  resetProgress,
-  streamResets,
-  clearState,
-} = useZoneStreaming()
+const { resetState, resetProgress, streamResets, clearState } = useZoneStreaming()
 
 // Local editable copy of resets
 const localResets = ref<ResetWithMetadata[]>([])
@@ -80,7 +67,7 @@ const filteredResets = computed(() => {
   // Filter by search query
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
-    results = results.filter(r => {
+    results = results.filter((r) => {
       const mobName = r.mobName?.toLowerCase() || ''
       const objName = r.objName?.toLowerCase() || ''
       const roomName = r.roomName?.toLowerCase() || ''
@@ -97,7 +84,7 @@ const filteredResets = computed(() => {
 
   // Filter by command type
   if (filterCommand.value) {
-    results = results.filter(r => r.command === filterCommand.value)
+    results = results.filter((r) => r.command === filterCommand.value)
   }
 
   return results
@@ -111,7 +98,7 @@ watch(
       localResets.value = [...items]
     }
   },
-  { deep: true }
+  { deep: true },
 )
 
 // Watch for stream completion
@@ -122,13 +109,13 @@ watch(
       localResets.value = [...resetState.value.items]
       hasUnsavedChanges.value = false
     }
-  }
+  },
 )
 
 // Save function - now saves to localStorage only
 function saveResets() {
   // Convert ResetWithMetadata back to ResetCommand
-  const resets: ResetCommand[] = localResets.value.map(r => ({
+  const resets: ResetCommand[] = localResets.value.map((r) => ({
     command: r.command,
     ifFlag: r.ifFlag,
     arg1: r.arg1,
@@ -246,9 +233,9 @@ function handleSaveReset(reset: ResetCommand) {
       ...reset,
       index: localResets.value.length,
       // Resolve names from the available data
-      mobName: props.mobs.find(m => m.vnum === reset.arg1)?.shortDesc,
-      objName: props.objects.find(o => o.vnum === reset.arg1)?.shortDesc,
-      roomName: props.rooms.find(r => r.vnum === reset.arg3)?.name,
+      mobName: props.mobs.find((m) => m.vnum === reset.arg1)?.shortDesc,
+      objName: props.objects.find((o) => o.vnum === reset.arg1)?.shortDesc,
+      roomName: props.rooms.find((r) => r.vnum === reset.arg3)?.name,
     }
     localResets.value.push(newReset)
   } else if (editingReset.value) {
@@ -257,9 +244,9 @@ function handleSaveReset(reset: ResetCommand) {
     const updatedReset: ResetWithMetadata = {
       ...reset,
       index,
-      mobName: props.mobs.find(m => m.vnum === reset.arg1)?.shortDesc,
-      objName: props.objects.find(o => o.vnum === reset.arg1)?.shortDesc,
-      roomName: props.rooms.find(r => r.vnum === reset.arg3)?.name,
+      mobName: props.mobs.find((m) => m.vnum === reset.arg1)?.shortDesc,
+      objName: props.objects.find((o) => o.vnum === reset.arg1)?.shortDesc,
+      roomName: props.rooms.find((r) => r.vnum === reset.arg3)?.name,
     }
     localResets.value[index] = updatedReset
   }

@@ -61,14 +61,14 @@ async function getCachedZoneData(zoneId: string): Promise<ZoneMapData | null> {
 async function roomExists(zoneId: string, vnum: number): Promise<boolean> {
   const zoneData = await getCachedZoneData(zoneId);
   if (!zoneData) return false;
-  return zoneData.rooms.some(r => r.vnum === vnum);
+  return zoneData.rooms.some((r) => r.vnum === vnum);
 }
 
 // Check if an object VNUM exists in the zone
 async function objectExists(zoneId: string, vnum: number): Promise<boolean> {
   const zoneData = await getCachedZoneData(zoneId);
   if (!zoneData) return false;
-  return zoneData.objects.some(o => o.vnum === vnum);
+  return zoneData.objects.some((o) => o.vnum === vnum);
 }
 
 // Check if an object is of type KEY
@@ -89,7 +89,7 @@ async function getObjectType(zoneId: string, vnum: number): Promise<number | nul
 export async function validateRoomExit(
   zoneId: string,
   exit: RoomExit,
-  direction: string
+  direction: string,
 ): Promise<ValidationError[]> {
   const errors: ValidationError[] = [];
 
@@ -102,7 +102,7 @@ export async function validateRoomExit(
         field: `exits.${direction}.toRoom`,
         message: `Room #${exit.toRoom} not found in this zone. If this is a cross-zone exit, ensure the destination zone exists.`,
         value: exit.toRoom,
-        severity: 'warning'
+        severity: 'warning',
       });
     }
   }
@@ -115,7 +115,7 @@ export async function validateRoomExit(
         field: `exits.${direction}.keyVnum`,
         message: `Key object #${exit.keyVnum} not found in this zone`,
         value: exit.keyVnum,
-        severity: 'warning'
+        severity: 'warning',
       });
     } else {
       // Check if it's actually a key type
@@ -126,7 +126,7 @@ export async function validateRoomExit(
           field: `exits.${direction}.keyVnum`,
           message: `Object #${exit.keyVnum} is not a KEY type (type ${objType}). Expected item type ${ITEM_TYPE_KEY}.`,
           value: exit.keyVnum,
-          severity: 'error'
+          severity: 'error',
         });
       }
     }
@@ -147,16 +147,19 @@ export async function validateRoomExits(zoneId: string, room: Room): Promise<Val
   }
 
   return {
-    valid: !allErrors.some(e => e.severity === 'error'),
-    errors: allErrors.filter(e => e.severity === 'error'),
-    warnings: allErrors.filter(e => e.severity === 'warning')
+    valid: !allErrors.some((e) => e.severity === 'error'),
+    errors: allErrors.filter((e) => e.severity === 'error'),
+    warnings: allErrors.filter((e) => e.severity === 'warning'),
   };
 }
 
 /**
  * Validate object values based on item type
  */
-export async function validateObjectValues(zoneId: string, obj: ZoneObject): Promise<ValidationResult> {
+export async function validateObjectValues(
+  zoneId: string,
+  obj: ZoneObject,
+): Promise<ValidationResult> {
   const errors: ValidationError[] = [];
 
   switch (obj.itemType) {
@@ -170,7 +173,7 @@ export async function validateObjectValues(zoneId: string, obj: ZoneObject): Pro
             field: 'values[2]',
             message: `Container key object #${obj.values[2]} not found in this zone`,
             value: obj.values[2],
-            severity: 'warning'
+            severity: 'warning',
           });
         } else {
           const isKey = await isKeyObject(zoneId, obj.values[2]);
@@ -180,7 +183,7 @@ export async function validateObjectValues(zoneId: string, obj: ZoneObject): Pro
               field: 'values[2]',
               message: `Container key #${obj.values[2]} is not a KEY type (type ${objType}). Expected item type ${ITEM_TYPE_KEY}.`,
               value: obj.values[2],
-              severity: 'error'
+              severity: 'error',
             });
           }
         }
@@ -197,7 +200,7 @@ export async function validateObjectValues(zoneId: string, obj: ZoneObject): Pro
             field: 'values[1]',
             message: `Warp target room #${obj.values[1]} not found in this zone. Ensure the destination exists in zone ${obj.values[0]}.`,
             value: obj.values[1],
-            severity: 'warning'
+            severity: 'warning',
           });
         }
       }
@@ -212,7 +215,7 @@ export async function validateObjectValues(zoneId: string, obj: ZoneObject): Pro
             field: 'values[0]',
             message: `Portal target room #${obj.values[0]} not found in this zone. If this is a cross-zone portal, ensure the destination zone exists.`,
             value: obj.values[0],
-            severity: 'warning'
+            severity: 'warning',
           });
         }
       }
@@ -233,16 +236,16 @@ export async function validateObjectValues(zoneId: string, obj: ZoneObject): Pro
           field: `applies[${i}].location`,
           message: `Invalid apply location ${apply.location}`,
           value: apply.location,
-          severity: 'error'
+          severity: 'error',
         });
       }
     }
   }
 
   return {
-    valid: !errors.some(e => e.severity === 'error'),
-    errors: errors.filter(e => e.severity === 'error'),
-    warnings: errors.filter(e => e.severity === 'warning')
+    valid: !errors.some((e) => e.severity === 'error'),
+    errors: errors.filter((e) => e.severity === 'error'),
+    warnings: errors.filter((e) => e.severity === 'warning'),
   };
 }
 
@@ -260,7 +263,7 @@ export async function validateRoom(zoneId: string, room: Room): Promise<Validati
     errors.push({
       field: 'name',
       message: 'Room name is required',
-      severity: 'error'
+      severity: 'error',
     });
   }
 
@@ -268,14 +271,14 @@ export async function validateRoom(zoneId: string, room: Room): Promise<Validati
     warnings.push({
       field: 'description',
       message: 'Room has no description',
-      severity: 'warning'
+      severity: 'warning',
     });
   }
 
   return {
     valid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 }
 
@@ -293,7 +296,7 @@ export async function validateObject(zoneId: string, obj: ZoneObject): Promise<V
     errors.push({
       field: 'keywords',
       message: 'Object keywords are required',
-      severity: 'error'
+      severity: 'error',
     });
   }
 
@@ -301,7 +304,7 @@ export async function validateObject(zoneId: string, obj: ZoneObject): Promise<V
     errors.push({
       field: 'shortDesc',
       message: 'Object short description is required',
-      severity: 'error'
+      severity: 'error',
     });
   }
 
@@ -309,14 +312,14 @@ export async function validateObject(zoneId: string, obj: ZoneObject): Promise<V
     warnings.push({
       field: 'longDesc',
       message: 'Object has no long description (shown when on ground)',
-      severity: 'warning'
+      severity: 'warning',
     });
   }
 
   return {
     valid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 }
 
@@ -337,7 +340,7 @@ export interface BatchValidationResult {
 export async function validateZone(
   zoneId: string,
   rooms?: Room[],
-  objects?: ZoneObject[]
+  objects?: ZoneObject[],
 ): Promise<BatchValidationResult> {
   const result: BatchValidationResult = {
     rooms: {},
@@ -346,8 +349,8 @@ export async function validateZone(
       totalErrors: 0,
       totalWarnings: 0,
       roomsWithErrors: 0,
-      objectsWithErrors: 0
-    }
+      objectsWithErrors: 0,
+    },
   };
 
   // Validate rooms
@@ -431,8 +434,11 @@ export async function quickValidate(req: QuickValidationRequest): Promise<QuickV
     }
   } else if (req.type === 'object' && req.data.itemType !== undefined && req.data.values) {
     // Validate container key
-    if ((req.data.itemType === ITEM_TYPE_CONTAINER || req.data.itemType === ITEM_TYPE_STORAGE) &&
-        req.data.values[2] && req.data.values[2] > 0) {
+    if (
+      (req.data.itemType === ITEM_TYPE_CONTAINER || req.data.itemType === ITEM_TYPE_STORAGE) &&
+      req.data.values[2] &&
+      req.data.values[2] > 0
+    ) {
       const exists = await objectExists(req.zoneId, req.data.values[2]);
       if (!exists) {
         warnings.push(`Container key #${req.data.values[2]} not found`);
@@ -456,6 +462,6 @@ export async function quickValidate(req: QuickValidationRequest): Promise<QuickV
   return {
     valid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 }

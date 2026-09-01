@@ -192,7 +192,10 @@ export interface MudAuthFailedMessage {
   error: string
 }
 
-export type MudAuthMessage = MudAuthSuccessMessage | MudAuthReconnectedMessage | MudAuthFailedMessage
+export type MudAuthMessage =
+  | MudAuthSuccessMessage
+  | MudAuthReconnectedMessage
+  | MudAuthFailedMessage
 
 // =============================================================================
 // Account Menu Messages (Server -> Client)
@@ -209,7 +212,7 @@ export interface MudAccountInfo {
   email: string
   created: string
   lastLogin: string
-  totalPlaytime: number  // seconds
+  totalPlaytime: number // seconds
   immortalLevel: number
   characters: MudAccountCharacterInfo[]
 }
@@ -300,7 +303,7 @@ export interface MudChargenOptionsMessage {
 
 // Stats as quality labels (not numbers - to prevent cheating via GMCP inspection)
 export interface MudStatLabels {
-  [key: string]: string  // Allow string indexing
+  [key: string]: string // Allow string indexing
   str: string
   dex: string
   agi: string
@@ -309,8 +312,8 @@ export interface MudStatLabels {
   int: string
   wis: string
   cha: string
-  luk: string  // Luck - swappable
-  kar: string  // Karma/Unused - not swappable
+  luk: string // Luck - swappable
+  kar: string // Karma/Unused - not swappable
 }
 
 export interface MudChargenStatsMessage {
@@ -447,7 +450,7 @@ export interface MudGmcpCharStatus {
     name: string
     level: number
     class: string
-    class2?: string  // Secondary class for dual-class characters
+    class2?: string // Secondary class for dual-class characters
     race: string
     alignment: string
     guild: string
@@ -532,7 +535,7 @@ export interface MudGroupMember {
   rank: 'head' | 'front' | 'back'
   isNpc: boolean
   inRoom: boolean
-  targetNum: number | null    // For NPCs: LIFO number (1 = most recent in room)
+  targetNum: number | null // For NPCs: LIFO number (1 = most recent in room)
   targetKeyword: string | null // For NPCs: first keyword (e.g., "orc")
 }
 
@@ -551,28 +554,28 @@ export interface MudGmcpGroupStatus {
 
 // Ship contact in Ship.Contacts GMCP message
 export interface MudShipContact {
-  id: string                    // 2-letter identifier (e.g., "AB")
-  name: string                  // Ship name
-  x: number                     // X coordinate
-  y: number                     // Y coordinate
-  range: number                 // Distance in nautical miles
-  bearing: number               // Bearing in degrees (0-359)
-  heading: number               // Ship's heading in degrees
-  speed: number                 // Ship's speed
-  arc: string                   // Firing arc (e.g., "FB" for full broadside)
+  id: string // 2-letter identifier (e.g., "AB")
+  name: string // Ship name
+  x: number // X coordinate
+  y: number // Y coordinate
+  range: number // Distance in nautical miles
+  bearing: number // Bearing in degrees (0-359)
+  heading: number // Ship's heading in degrees
+  speed: number // Ship's speed
+  arc: string // Firing arc (e.g., "FB" for full broadside)
   race: 'good' | 'evil' | 'undead' | 'squid' | 'unknown'
   status: 'flying' | 'sinking' | 'docked' | 'anchored' | ''
-  targeting_you: boolean        // Is this ship targeting you?
-  you_targeting: boolean        // Are you targeting this ship?
+  targeting_you: boolean // Is this ship targeting you?
+  you_targeting: boolean // Are you targeting this ship?
 }
 
 // Ship contacts data from GMCP
 export interface MudShipContacts {
-  heading: number               // Your ship's heading
-  speed: number                 // Your ship's speed
-  contacts: MudShipContact[]    // List of nearby ships
-  worldX?: number               // World X coordinate (verified clients only)
-  worldY?: number               // World Y coordinate (verified clients only)
+  heading: number // Your ship's heading
+  speed: number // Your ship's speed
+  contacts: MudShipContact[] // List of nearby ships
+  worldX?: number // World X coordinate (verified clients only)
+  worldY?: number // World Y coordinate (verified clients only)
 }
 
 export interface MudGmcpShipContacts {
@@ -588,28 +591,28 @@ export interface MudShipInfo {
   captain: string
   class: number
   frags: number
-  status: string  // ANSI-encoded status like "&+yUNDOCKED&N"
+  status: string // ANSI-encoded status like "&+yUNDOCKED&N"
   maxSpeed: number
-  contactRange: number  // Detection range (35 + crew modifier)
+  contactRange: number // Detection range (35 + crew modifier)
   sail: number
   maxSail: number
   crewStamina: number
   maxCrewStamina: number
   repairStock: number
-  crewType: string  // ANSI-encoded crew type name
+  crewType: string // ANSI-encoded crew type name
   chiefs: {
-    sail: string   // ANSI-encoded sailing chief name (empty if none)
-    guns: string   // ANSI-encoded gunnery chief name (empty if none)
+    sail: string // ANSI-encoded sailing chief name (empty if none)
+    guns: string // ANSI-encoded gunnery chief name (empty if none)
     repair: string // ANSI-encoded repair chief name (empty if none)
   }
   skills: {
-    sail: number   // Deck/sailing skill level
-    guns: number   // Gunnery skill level
+    sail: number // Deck/sailing skill level
+    guns: number // Gunnery skill level
     repair: number // Repair skill level
   }
   skillMods: {
-    sail: number   // Sail skill modifier (from crew type + chief)
-    guns: number   // Guns skill modifier (from crew type + chief)
+    sail: number // Sail skill modifier (from crew type + chief)
+    guns: number // Guns skill modifier (from crew type + chief)
     repair: number // Repair skill modifier (from crew type + chief)
   }
   people: number
@@ -637,7 +640,7 @@ export interface MudShipInfo {
   }>
   equipment: Array<{
     slot: number
-    name: string  // ANSI-encoded equipment name
+    name: string // ANSI-encoded equipment name
     ready: boolean
   }>
   cargo: {
@@ -763,9 +766,9 @@ export interface MudExit {
 
 export interface MudAffect {
   name: string
-  duration: number  // Duration in seconds from server
+  duration: number // Duration in seconds from server
   icon: string
-  receivedAt: number  // Timestamp when this affect was received (for countdown)
+  receivedAt: number // Timestamp when this affect was received (for countdown)
 }
 
 // =============================================================================
@@ -813,7 +816,7 @@ export interface MudCharacter {
   name: string
   level: number
   class: string
-  class2?: string  // Secondary class for dual-class characters
+  class2?: string // Secondary class for dual-class characters
   race: string
   alignment: string
   guild: string

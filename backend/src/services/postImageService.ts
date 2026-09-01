@@ -24,12 +24,7 @@ const s3Client = new S3Client({
 // Constants
 export const MAX_IMAGES_PER_POST = 5;
 export const MAX_IMAGE_SIZE = 350 * 1024; // 350KB
-export const ALLOWED_MIME_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-];
+export const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 // Max dimensions for resizing (preserve aspect ratio)
 const MAX_IMAGE_DIMENSION = 1200;
@@ -44,9 +39,7 @@ export function isR2Configured(): boolean {
 /**
  * Validate uploaded image file
  */
-export function validatePostImage(
-  file: Express.Multer.File
-): { valid: boolean; error?: string } {
+export function validatePostImage(file: Express.Multer.File): { valid: boolean; error?: string } {
   if (!file) {
     return { valid: false, error: 'No file provided' };
   }
@@ -72,7 +65,7 @@ export async function canUploadMoreImages(accountName: string): Promise<boolean>
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT COUNT(*) as count FROM forum_post_images
      WHERE account_name = ? AND is_orphan = TRUE`,
-    [accountName]
+    [accountName],
   );
 
   return rows[0].count < MAX_IMAGES_PER_POST;
@@ -85,7 +78,7 @@ export async function getOrphanImageCount(accountName: string): Promise<number> 
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT COUNT(*) as count FROM forum_post_images
      WHERE account_name = ? AND is_orphan = TRUE`,
-    [accountName]
+    [accountName],
   );
 
   return rows[0].count;
@@ -96,8 +89,14 @@ export async function getOrphanImageCount(accountName: string): Promise<number> 
  */
 async function processPostImage(
   buffer: Buffer,
-  mimeType: string
-): Promise<{ buffer: Buffer; extension: string; contentType: string; width: number; height: number }> {
+  mimeType: string,
+): Promise<{
+  buffer: Buffer;
+  extension: string;
+  contentType: string;
+  width: number;
+  height: number;
+}> {
   // Get image metadata first
   const metadata = await sharp(buffer).metadata();
   const originalWidth = metadata.width || 0;
@@ -145,9 +144,7 @@ async function processPostImage(
     });
   }
 
-  const processed = await sharpInstance
-    .webp({ quality: 85 })
-    .toBuffer({ resolveWithObject: true });
+  const processed = await sharpInstance.webp({ quality: 85 }).toBuffer({ resolveWithObject: true });
 
   return {
     buffer: processed.data,
@@ -166,14 +163,17 @@ export async function uploadPostImage(
   accountName: string,
   fileBuffer: Buffer,
   mimeType: string,
-  originalFilename: string
+  originalFilename: string,
 ): Promise<{ id: number; imageUrl: string }> {
   if (!isR2Configured()) {
     throw new Error('R2 storage is not configured');
   }
 
   // Process the image
-  const { buffer, extension, contentType, width, height } = await processPostImage(fileBuffer, mimeType);
+  const { buffer, extension, contentType, width, height } = await processPostImage(
+    fileBuffer,
+    mimeType,
+  );
 
   // Generate unique filename
   const timestamp = Date.now();
@@ -188,7 +188,7 @@ export async function uploadPostImage(
       Body: buffer,
       ContentType: contentType,
       CacheControl: 'public, max-age=31536000', // Cache for 1 year
-    })
+    }),
   );
 
   const imageUrl = `${R2_PUBLIC_URL}/${key}`;
@@ -198,7 +198,7 @@ export async function uploadPostImage(
     `INSERT INTO forum_post_images
      (account_name, image_key, image_url, original_filename, mime_type, file_size, width, height, is_orphan)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE)`,
-    [accountName, key, imageUrl, originalFilename, contentType, buffer.length, width, height]
+    [accountName, key, imageUrl, originalFilename, contentType, buffer.length, width, height],
   );
 
   return {
@@ -231,7 +231,11 @@ export function extractImageUrls(content: string): string[] {
       const jsonStr = match[1].replace(/&quot;/g, '"').replace(/&#39;/g, "'");
       const images = JSON.parse(jsonStr) as Array<{ src: string; alt?: string }>;
       for (const img of images) {
-        if (img.src && img.src.startsWith(R2_PUBLIC_URL) && img.src.includes('/duris/forum-images/')) {
+        if (
+          img.src &&
+          img.src.startsWith(R2_PUBLIC_URL) &&
+          img.src.includes('/duris/forum-images/')
+        ) {
           urls.push(img.src);
         }
       }
@@ -250,7 +254,7 @@ export function extractImageUrls(content: string): string[] {
 export async function linkImagesToPost(
   postId: number,
   imageUrls: string[],
-  accountName: string
+  accountName: string,
 ): Promise<void> {
   if (imageUrls.length === 0) return;
 
@@ -259,7 +263,7 @@ export async function linkImagesToPost(
     `UPDATE forum_post_images
      SET post_id = ?, is_orphan = FALSE, linked_at = NOW()
      WHERE image_url IN (?) AND account_name = ? AND is_orphan = TRUE`,
-    [postId, imageUrls, accountName]
+    [postId, imageUrls, accountName],
   );
 }
 
@@ -270,7 +274,7 @@ export async function linkImagesToPost(
 export async function linkImagesToThread(
   threadId: number,
   imageUrls: string[],
-  accountName: string
+  accountName: string,
 ): Promise<void> {
   if (imageUrls.length === 0) return;
 
@@ -279,7 +283,7 @@ export async function linkImagesToThread(
     `UPDATE forum_post_images
      SET thread_id = ?, is_orphan = FALSE, linked_at = NOW()
      WHERE image_url IN (?) AND account_name = ? AND is_orphan = TRUE`,
-    [threadId, imageUrls, accountName]
+    [threadId, imageUrls, accountName],
   );
 }
 
@@ -287,16 +291,13 @@ export async function linkImagesToThread(
  * Delete a post image from R2 and database
  * Only allows deleting own orphan images
  */
-export async function deletePostImage(
-  imageId: number,
-  accountName: string
-): Promise<boolean> {
+export async function deletePostImage(imageId: number, accountName: string): Promise<boolean> {
   // Get the image record
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT id, image_key, is_orphan, account_name
      FROM forum_post_images
      WHERE id = ?`,
-    [imageId]
+    [imageId],
   );
 
   if (rows.length === 0) {
@@ -317,7 +318,7 @@ export async function deletePostImage(
         new DeleteObjectCommand({
           Bucket: R2_BUCKET_NAME,
           Key: image.image_key,
-        })
+        }),
       );
     } catch (error) {
       logger.warn('Failed to delete image from R2:', error);
@@ -338,7 +339,7 @@ export async function cleanupOrphanImages(): Promise<number> {
   // Get orphan images older than 1 hour
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT id, image_key FROM forum_post_images
-     WHERE is_orphan = TRUE AND created_at < DATE_SUB(NOW(), INTERVAL 1 HOUR)`
+     WHERE is_orphan = TRUE AND created_at < DATE_SUB(NOW(), INTERVAL 1 HOUR)`,
   );
 
   if (rows.length === 0) {
@@ -355,7 +356,7 @@ export async function cleanupOrphanImages(): Promise<number> {
           new DeleteObjectCommand({
             Bucket: R2_BUCKET_NAME,
             Key: image.image_key,
-          })
+          }),
         );
       } catch (error) {
         logger.warn('Failed to delete orphan image from R2:', error);
@@ -383,7 +384,7 @@ export async function getImagesForPost(postId: number): Promise<RowDataPacket[]>
      FROM forum_post_images
      WHERE post_id = ?
      ORDER BY created_at ASC`,
-    [postId]
+    [postId],
   );
 
   return rows;
@@ -398,7 +399,7 @@ export async function getImagesForThread(threadId: number): Promise<RowDataPacke
      FROM forum_post_images
      WHERE thread_id = ?
      ORDER BY created_at ASC`,
-    [threadId]
+    [threadId],
   );
 
   return rows;

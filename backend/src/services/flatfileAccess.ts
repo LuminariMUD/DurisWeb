@@ -46,32 +46,26 @@ type RequiredProbePath = Readonly<{
   kind: 'directory' | 'file';
 }>;
 
-const REQUIRED_PROBE_PATHS: Readonly<
-  Record<FilesystemHookId, readonly RequiredProbePath[]>
-> = Object.freeze({
-  connection_log: Object.freeze([
-    Object.freeze({ path: 'logs/log/comm', kind: 'file' }),
-  ]),
-  flag_parsing: Object.freeze([
-    Object.freeze({ path: 'src/core/common.c', kind: 'file' }),
-    Object.freeze({ path: 'src/combat/fight.c', kind: 'file' }),
-    Object.freeze({ path: 'src/core/constant.c', kind: 'file' }),
-    Object.freeze({ path: 'src/core/defines.h', kind: 'file' }),
-  ]),
-  zone_builder_parsing: Object.freeze([
-    Object.freeze({ path: 'areas/zon', kind: 'directory' }),
-    Object.freeze({ path: 'areas/wld', kind: 'directory' }),
-    Object.freeze({ path: 'areas/mob', kind: 'directory' }),
-    Object.freeze({ path: 'areas/obj', kind: 'directory' }),
-  ]),
-});
+const REQUIRED_PROBE_PATHS: Readonly<Record<FilesystemHookId, readonly RequiredProbePath[]>> =
+  Object.freeze({
+    connection_log: Object.freeze([Object.freeze({ path: 'logs/log/comm', kind: 'file' })]),
+    flag_parsing: Object.freeze([
+      Object.freeze({ path: 'src/core/common.c', kind: 'file' }),
+      Object.freeze({ path: 'src/combat/fight.c', kind: 'file' }),
+      Object.freeze({ path: 'src/core/constant.c', kind: 'file' }),
+      Object.freeze({ path: 'src/core/defines.h', kind: 'file' }),
+    ]),
+    zone_builder_parsing: Object.freeze([
+      Object.freeze({ path: 'areas/zon', kind: 'directory' }),
+      Object.freeze({ path: 'areas/wld', kind: 'directory' }),
+      Object.freeze({ path: 'areas/mob', kind: 'directory' }),
+      Object.freeze({ path: 'areas/obj', kind: 'directory' }),
+    ]),
+  });
 
 let testMudRoot: string | null = null;
 let testReadInterlock: (() => Promise<void> | void) | null = null;
-const recoveryHandlers = new Map<
-  FilesystemHookId,
-  () => Promise<void>
->();
+const recoveryHandlers = new Map<FilesystemHookId, () => Promise<void>>();
 
 function errorCode(error: unknown): string | null {
   if (typeof error !== 'object' || error === null || !('code' in error)) {
@@ -81,10 +75,7 @@ function errorCode(error: unknown): string | null {
   return typeof code === 'string' ? code : null;
 }
 
-function unavailable(
-  hookId: FilesystemHookId,
-  reason: string,
-): FlatfileAccessError {
+function unavailable(hookId: FilesystemHookId, reason: string): FlatfileAccessError {
   markFlatfileUnavailable(hookId, reason);
   return new FlatfileAccessError(hookId, 'unavailable', reason);
 }
@@ -102,7 +93,10 @@ function configuredMudRoot(hookId: FilesystemHookId): string {
 
 function isWithinRoot(root: string, candidate: string): boolean {
   const relative = path.relative(root, candidate);
-  return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+  return (
+    relative === '' ||
+    (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative))
+  );
 }
 
 function resolveContainedPath(
@@ -206,12 +200,7 @@ export async function readMudTextFile(
   }
 
   const { root, target } = resolveContainedPath(hookId, relativeOrAbsolutePath);
-  const realTarget = await assertRealPathContained(
-    hookId,
-    root,
-    target,
-    options.optional === true,
-  );
+  const realTarget = await assertRealPathContained(hookId, root, target, options.optional === true);
   if (realTarget === null) {
     return null;
   }
@@ -348,9 +337,7 @@ export async function mudPathExists(
   return (await assertRealPathContained(hookId, root, target, true)) !== null;
 }
 
-export async function probeFlatfileHook(
-  hookId: FilesystemHookId,
-): Promise<void> {
+export async function probeFlatfileHook(hookId: FilesystemHookId): Promise<void> {
   assertAttemptAllowed(hookId);
   const root = configuredMudRoot(hookId);
   try {
@@ -358,16 +345,9 @@ export async function probeFlatfileHook(
     await fs.access(realRoot, constants.R_OK | constants.X_OK);
     for (const required of REQUIRED_PROBE_PATHS[hookId]) {
       const { target } = resolveContainedPath(hookId, required.path);
-      const realTarget = await assertRealPathContained(
-        hookId,
-        root,
-        target,
-        false,
-      );
+      const realTarget = await assertRealPathContained(hookId, root, target, false);
       const stat = await fs.stat(realTarget!);
-      const hasExpectedKind = required.kind === 'file'
-        ? stat.isFile()
-        : stat.isDirectory();
+      const hasExpectedKind = required.kind === 'file' ? stat.isFile() : stat.isDirectory();
       if (!hasExpectedKind) {
         recordDroppedFlatfileInput(hookId);
         throw new FlatfileAccessError(
@@ -378,8 +358,7 @@ export async function probeFlatfileHook(
       }
       await fs.access(
         realTarget!,
-        constants.R_OK |
-          (required.kind === 'directory' ? constants.X_OK : 0),
+        constants.R_OK | (required.kind === 'directory' ? constants.X_OK : 0),
       );
     }
     markFlatfileAvailable(hookId);
@@ -395,9 +374,7 @@ export async function probeFlatfileHook(
 }
 
 export async function probeAllFlatfileHooks(): Promise<void> {
-  await Promise.allSettled(
-    getFilesystemHookIds().map((hookId) => probeFlatfileHook(hookId)),
-  );
+  await Promise.allSettled(getFilesystemHookIds().map((hookId) => probeFlatfileHook(hookId)));
 }
 
 export function registerFlatfileRecoveryHandler(
@@ -407,15 +384,11 @@ export function registerFlatfileRecoveryHandler(
   recoveryHandlers.set(hookId, handler);
 }
 
-export function unregisterFlatfileRecoveryHandler(
-  hookId: FilesystemHookId,
-): void {
+export function unregisterFlatfileRecoveryHandler(hookId: FilesystemHookId): void {
   recoveryHandlers.delete(hookId);
 }
 
-export async function recoverFlatfileHook(
-  hookId: FilesystemHookId,
-): Promise<void> {
+export async function recoverFlatfileHook(hookId: FilesystemHookId): Promise<void> {
   const handler = recoveryHandlers.get(hookId);
   if (handler) {
     await handler();

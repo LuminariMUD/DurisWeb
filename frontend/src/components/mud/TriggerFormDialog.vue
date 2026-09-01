@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { Trigger, TriggerPattern, TriggerFormData, TriggerScope, TriggerAction, TriggerPatternLogic } from '@/types/trigger'
+import type {
+  Trigger,
+  TriggerPattern,
+  TriggerFormData,
+  TriggerScope,
+  TriggerAction,
+  TriggerPatternLogic,
+} from '@/types/trigger'
 import { useMudStore } from '@/stores/mudStore'
 import { useTriggers } from '@/composables/useTriggers'
 import { validateCondition } from '@/utils/gmcpVariables'
@@ -26,7 +33,16 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Plus, Terminal, Highlighter, Volume2, EyeOff, MessageSquare, X, HelpCircle } from 'lucide-vue-next'
+import {
+  Plus,
+  Terminal,
+  Highlighter,
+  Volume2,
+  EyeOff,
+  MessageSquare,
+  X,
+  HelpCircle,
+} from 'lucide-vue-next'
 import TriggerActionCard from './TriggerActionCard.vue'
 import GroupSelectDropdown from './GroupSelectDropdown.vue'
 
@@ -79,7 +95,10 @@ watch(
       if (props.mode === 'edit' && props.trigger) {
         // Edit mode: populate from existing trigger
         name.value = props.trigger.name
-        patterns.value = props.trigger.patterns.map(p => ({ value: p.value, isGmcp: Boolean(p.isGmcp) }))
+        patterns.value = props.trigger.patterns.map((p) => ({
+          value: p.value,
+          isGmcp: Boolean(p.isGmcp),
+        }))
         patternLogic.value = props.trigger.patternLogic || 'or'
         patternType.value = props.trigger.patternType
         caseSensitive.value = props.trigger.caseSensitive
@@ -110,7 +129,7 @@ watch(
       nameError.value = ''
       patternErrors.value = []
     }
-  }
+  },
 )
 
 // Validate name on change
@@ -130,19 +149,23 @@ watch(name, (value) => {
 })
 
 // Validate patterns on change
-watch([patterns, patternType], () => {
-  patternErrors.value = patterns.value.map((pattern) => {
-    if (!pattern?.value?.trim()) return ''
-    if (pattern.isGmcp) {
-      // Validate GMCP condition
-      return validateCondition(pattern.value)
-    } else {
-      // Validate text pattern
-      const result = validatePattern(pattern.value, patternType.value)
-      return result.error || ''
-    }
-  })
-}, { deep: true })
+watch(
+  [patterns, patternType],
+  () => {
+    patternErrors.value = patterns.value.map((pattern) => {
+      if (!pattern?.value?.trim()) return ''
+      if (pattern.isGmcp) {
+        // Validate GMCP condition
+        return validateCondition(pattern.value)
+      } else {
+        // Validate text pattern
+        const result = validatePattern(pattern.value, patternType.value)
+        return result.error || ''
+      }
+    })
+  },
+  { deep: true },
+)
 
 // Re-validate name when scope or character changes
 watch([scope, characterName], () => {

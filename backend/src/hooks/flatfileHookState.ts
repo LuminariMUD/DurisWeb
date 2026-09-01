@@ -108,9 +108,7 @@ export function markFlatfileUnavailable(
   return getFlatfileHookHealth(hookId)!;
 }
 
-export function markFlatfileAvailable(
-  hookId: FilesystemHookId,
-): FlatfileHookHealth {
+export function markFlatfileAvailable(hookId: FilesystemHookId): FlatfileHookHealth {
   const health = requireHealth(hookId);
   health.availability = 'available';
   health.reason = null;
@@ -120,10 +118,7 @@ export function markFlatfileAvailable(
   return getFlatfileHookHealth(hookId)!;
 }
 
-export function recordDroppedFlatfileInput(
-  hookId: FilesystemHookId,
-  count: number = 1,
-): number {
+export function recordDroppedFlatfileInput(hookId: FilesystemHookId, count: number = 1): number {
   if (!Number.isSafeInteger(count) || count < 1) {
     throw new Error('Dropped flatfile input count must be a positive integer.');
   }
@@ -137,9 +132,7 @@ export function canAttemptFlatfileHook(hookId: FilesystemHookId): boolean {
   return retryAtMs === null || clock() >= retryAtMs;
 }
 
-export function getFlatfileHookHealth(
-  id: string,
-): FlatfileHookHealth | null {
+export function getFlatfileHookHealth(id: string): FlatfileHookHealth | null {
   if (!isFilesystemHookId(id)) {
     return null;
   }
@@ -150,15 +143,12 @@ export function getFlatfileHookHealth(
     reason: health.reason,
     droppedInputs: health.droppedInputs,
     consecutiveFailures: health.consecutiveFailures,
-    retryAt:
-      health.retryAtMs === null ? null : new Date(health.retryAtMs).toISOString(),
+    retryAt: health.retryAtMs === null ? null : new Date(health.retryAtMs).toISOString(),
   });
 }
 
 export function getFlatfileHookHealthSnapshot(): readonly FlatfileHookHealth[] {
-  return Object.freeze(
-    FILESYSTEM_HOOK_IDS.map((hookId) => getFlatfileHookHealth(hookId)!),
-  );
+  return Object.freeze(FILESYSTEM_HOOK_IDS.map((hookId) => getFlatfileHookHealth(hookId)!));
 }
 
 function clearRecoveryTimer(): void {

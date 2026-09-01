@@ -2,21 +2,45 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  Activity, Sparkles, GitBranch, HardDrive, Power, ChevronDown, Map,
-  LayoutDashboard, Settings, ScrollText, Users, ShieldCheck, BookOpen,
-  Newspaper, Megaphone, Wand2, Scale, Palette, Crown, HelpCircle,
-  FileText, ClipboardList, Gamepad2, Cog, AlertTriangle, TrendingUp, Timer, MapPin,
-  BarChart3, Home, History, Copy, Cable
+  Activity,
+  Sparkles,
+  GitBranch,
+  HardDrive,
+  Power,
+  ChevronDown,
+  Map,
+  LayoutDashboard,
+  Settings,
+  ScrollText,
+  Users,
+  ShieldCheck,
+  BookOpen,
+  Newspaper,
+  Megaphone,
+  Wand2,
+  Scale,
+  Palette,
+  Crown,
+  HelpCircle,
+  FileText,
+  ClipboardList,
+  Gamepad2,
+  Cog,
+  AlertTriangle,
+  TrendingUp,
+  Timer,
+  MapPin,
+  BarChart3,
+  Home,
+  History,
+  Copy,
+  Cable,
 } from 'lucide-vue-next'
 import { useAuth } from '@/composables/useAuth'
 import { useToast } from '@/composables/useToast'
 import { helpSuggestionApi, dupeApi, type DupedItem } from '@/services/api'
 import { Badge } from '@/components/ui/badge'
-import {
-  CollapsibleRoot,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from 'radix-vue'
+import { CollapsibleRoot, CollapsibleTrigger, CollapsibleContent } from 'radix-vue'
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -65,14 +89,14 @@ async function loadDupeCount() {
 
       // detect new dupes (skip first load to avoid spamming on page load)
       if (!isFirstDupeLoad.value && items.length > 0) {
-        const newDupes = items.filter(item => !knownDupeUids.value.has(item.obj_uid))
+        const newDupes = items.filter((item) => !knownDupeUids.value.has(item.obj_uid))
         if (newDupes.length > 0) {
           notifyNewDupes(newDupes)
         }
       }
 
       // update known uids
-      knownDupeUids.value = new Set(items.map(item => item.obj_uid))
+      knownDupeUids.value = new Set(items.map((item) => item.obj_uid))
       isFirstDupeLoad.value = false
     } catch {
       // Ignore errors

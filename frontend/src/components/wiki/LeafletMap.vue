@@ -6,24 +6,27 @@ import { wikiApi } from '@/services/api'
 import type { WikiZoneEntrance, WikiMapBounds } from '@/types'
 import { stripAnsiCodes } from '@/utils/ansiParser'
 
-const props = withDefaults(defineProps<{
-  bounds: WikiMapBounds | null
-  initialZoom?: number
-  layer?: number
-  initialShowMarkers?: boolean
-  initialShowZoneNames?: boolean
-  hideControls?: boolean
-  minZoom?: number
-  zoomSnap?: number
-}>(), {
-  initialZoom: 0,
-  layer: 0,
-  initialShowMarkers: true,
-  initialShowZoneNames: true,
-  hideControls: false,
-  minZoom: -2,
-  zoomSnap: 0.1,
-})
+const props = withDefaults(
+  defineProps<{
+    bounds: WikiMapBounds | null
+    initialZoom?: number
+    layer?: number
+    initialShowMarkers?: boolean
+    initialShowZoneNames?: boolean
+    hideControls?: boolean
+    minZoom?: number
+    zoomSnap?: number
+  }>(),
+  {
+    initialZoom: 0,
+    layer: 0,
+    initialShowMarkers: true,
+    initialShowZoneNames: true,
+    hideControls: false,
+    minZoom: -2,
+    zoomSnap: 0.1,
+  },
+)
 
 const emit = defineEmits<{
   (e: 'zoneClick', zoneNumber: number, zoneName: string): void
@@ -140,10 +143,13 @@ async function updateEntrances() {
     }
 
     if (showMarkers.value) {
-      marker.bindPopup(`<div class="zone-popup"><strong>${zoneName}</strong><br/>Zone #${entrance.toZoneNumber}</div>`, {
-        closeButton: false,
-        className: 'zone-popup-container',
-      })
+      marker.bindPopup(
+        `<div class="zone-popup"><strong>${zoneName}</strong><br/>Zone #${entrance.toZoneNumber}</div>`,
+        {
+          closeButton: false,
+          className: 'zone-popup-container',
+        },
+      )
 
       marker.on('mouseover', () => marker.openPopup())
       marker.on('mouseout', () => marker.closePopup())
@@ -163,12 +169,12 @@ function initMap() {
 
   const maxBounds = L.latLngBounds(
     [mudYToLat(props.bounds.maxY) - 100, props.bounds.minX - 100],
-    [mudYToLat(props.bounds.minY) + 100, props.bounds.maxX + 100]
+    [mudYToLat(props.bounds.minY) + 100, props.bounds.maxX + 100],
   )
 
   const imageBounds = L.latLngBounds(
     [mudYToLat(props.bounds.maxY), props.bounds.minX],
-    [mudYToLat(props.bounds.minY), props.bounds.maxX]
+    [mudYToLat(props.bounds.minY), props.bounds.maxX],
   )
 
   map = L.map(mapContainer.value, {
@@ -253,7 +259,7 @@ function fitBounds() {
   map.invalidateSize()
   const bounds = L.latLngBounds(
     [mudYToLat(props.bounds.maxY), props.bounds.minX],
-    [mudYToLat(props.bounds.minY), props.bounds.maxX]
+    [mudYToLat(props.bounds.minY), props.bounds.maxX],
   )
   map.fitBounds(bounds)
 }
@@ -261,34 +267,41 @@ function fitBounds() {
 defineExpose({ panTo, setZoom, zoomIn, zoomOut, fitBounds })
 
 // Watch for layer changes
-watch(() => props.layer, () => {
-  if (!map || !imageOverlay || !props.bounds) return
+watch(
+  () => props.layer,
+  () => {
+    if (!map || !imageOverlay || !props.bounds) return
 
-  // Update image URL
-  imageOverlay.setUrl(getMapImageUrl(props.layer))
+    // Update image URL
+    imageOverlay.setUrl(getMapImageUrl(props.layer))
 
-  // Clear entrance cache
-  entranceCache.clear()
-  updateEntrances()
-})
+    // Clear entrance cache
+    entranceCache.clear()
+    updateEntrances()
+  },
+)
 
 // Watch for bounds changes
-watch(() => props.bounds, (newBounds) => {
-  if (!map || !imageOverlay || !newBounds) return
+watch(
+  () => props.bounds,
+  (newBounds) => {
+    if (!map || !imageOverlay || !newBounds) return
 
-  const maxBounds = L.latLngBounds(
-    [mudYToLat(newBounds.maxY + 50), newBounds.minX - 50],
-    [mudYToLat(newBounds.minY - 50), newBounds.maxX + 50]
-  )
-  map.setMaxBounds(maxBounds)
+    const maxBounds = L.latLngBounds(
+      [mudYToLat(newBounds.maxY + 50), newBounds.minX - 50],
+      [mudYToLat(newBounds.minY - 50), newBounds.maxX + 50],
+    )
+    map.setMaxBounds(maxBounds)
 
-  const imageBounds = L.latLngBounds(
-    [mudYToLat(newBounds.maxY), newBounds.minX],
-    [mudYToLat(newBounds.minY), newBounds.maxX]
-  )
-  imageOverlay.setBounds(imageBounds)
-  map.fitBounds(imageBounds)
-}, { deep: true })
+    const imageBounds = L.latLngBounds(
+      [mudYToLat(newBounds.maxY), newBounds.minX],
+      [mudYToLat(newBounds.minY), newBounds.maxX],
+    )
+    imageOverlay.setBounds(imageBounds)
+    map.fitBounds(imageBounds)
+  },
+  { deep: true },
+)
 
 // Watch for toggle changes
 watch([showMarkers, showZoneNames], () => {

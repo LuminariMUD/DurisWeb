@@ -84,7 +84,7 @@ export function useTriggers() {
       const data: TriggerStorage = JSON.parse(stored)
 
       // Handle version migrations
-       
+
       let migratedTriggers: any[] = data.triggers || []
 
       // Version 1 -> 2: Convert pattern (string) to patterns (string[])
@@ -198,9 +198,10 @@ export function useTriggers() {
       return true
     } catch (error) {
       console.error('[Triggers] Failed to save:', error)
-      storageError.value = error instanceof ClientSettingsStorageError
-        ? error.message
-        : 'Client settings could not be saved.'
+      storageError.value =
+        error instanceof ClientSettingsStorageError
+          ? error.message
+          : 'Client settings could not be saved.'
       return false
     }
   }
@@ -360,7 +361,7 @@ export function useTriggers() {
 
   function setTriggerGroup(id: string, groupId: string | null): boolean {
     if (!canMutate()) return false
-    const index = triggers.value.findIndex(t => t.id === id)
+    const index = triggers.value.findIndex((t) => t.id === id)
     if (index === -1) return false
 
     const trigger = triggers.value[index]
@@ -445,7 +446,7 @@ export function useTriggers() {
     text: string,
     pattern: string,
     patternType: 'substring' | 'regex',
-    caseSensitive: boolean
+    caseSensitive: boolean,
   ): RegExpMatchArray | null {
     if (!pattern || !text) return null
 
@@ -512,8 +513,8 @@ export function useTriggers() {
 
     for (const trigger of effectiveTriggers.value) {
       // Separate text patterns from GMCP patterns
-      const textPatterns = trigger.patterns.filter(p => p && p.value && !p.isGmcp)
-      const gmcpPatterns = trigger.patterns.filter(p => p && p.value && p.isGmcp)
+      const textPatterns = trigger.patterns.filter((p) => p && p.value && !p.isGmcp)
+      const gmcpPatterns = trigger.patterns.filter((p) => p && p.value && p.isGmcp)
 
       let match: RegExpMatchArray | null = null
       let triggerMatched = false
@@ -524,7 +525,7 @@ export function useTriggers() {
       if (isGmcpOnly) {
         // GMCP-only trigger: ALL conditions must be true (AND logic)
         // Fire only when combined result transitions from false to true (edge detection)
-        const allConditionsTrue = gmcpPatterns.every(p => evaluateCondition(p.value))
+        const allConditionsTrue = gmcpPatterns.every((p) => evaluateCondition(p.value))
 
         // Get previous combined state
         if (!gmcpConditionStates.has(trigger.id)) {
@@ -548,7 +549,12 @@ export function useTriggers() {
           // AND logic: all text patterns must match
           let allTextMatched = true
           for (const pattern of textPatterns) {
-            const patternMatch = matchPattern(plainText, pattern.value, trigger.patternType, trigger.caseSensitive)
+            const patternMatch = matchPattern(
+              plainText,
+              pattern.value,
+              trigger.patternType,
+              trigger.caseSensitive,
+            )
             if (patternMatch) {
               // keep last match for capture groups
               match = patternMatch
@@ -560,7 +566,7 @@ export function useTriggers() {
           if (allTextMatched) {
             // All text patterns matched, check GMCP conditions
             if (gmcpPatterns.length > 0) {
-              const gmcpPasses = gmcpPatterns.every(gp => evaluateCondition(gp.value))
+              const gmcpPasses = gmcpPatterns.every((gp) => evaluateCondition(gp.value))
               if (gmcpPasses) {
                 triggerMatched = true
               }
@@ -571,12 +577,17 @@ export function useTriggers() {
         } else {
           // OR logic: any text pattern match triggers
           for (const pattern of textPatterns) {
-            match = matchPattern(plainText, pattern.value, trigger.patternType, trigger.caseSensitive)
+            match = matchPattern(
+              plainText,
+              pattern.value,
+              trigger.patternType,
+              trigger.caseSensitive,
+            )
             if (match) {
               // Text matched, now check if GMCP conditions pass (AND logic with text)
               if (gmcpPatterns.length > 0) {
                 // All GMCP conditions must pass
-                const gmcpPasses = gmcpPatterns.every(gp => evaluateCondition(gp.value))
+                const gmcpPasses = gmcpPatterns.every((gp) => evaluateCondition(gp.value))
                 if (gmcpPasses) {
                   triggerMatched = true
                   break
@@ -661,23 +672,31 @@ export function useTriggers() {
    * Called when Char.Vitals is received to check triggers that depend on GMCP state.
    * Returns commands and sounds to execute.
    */
-  function evaluateGmcpTriggers(): { commandsToSend: { command: string; delay: number }[]; soundsToPlay: TriggerActionSound[]; echoTexts: string[] } {
-    const result: { commandsToSend: { command: string; delay: number }[]; soundsToPlay: TriggerActionSound[]; echoTexts: string[] } = {
+  function evaluateGmcpTriggers(): {
+    commandsToSend: { command: string; delay: number }[]
+    soundsToPlay: TriggerActionSound[]
+    echoTexts: string[]
+  } {
+    const result: {
+      commandsToSend: { command: string; delay: number }[]
+      soundsToPlay: TriggerActionSound[]
+      echoTexts: string[]
+    } = {
       commandsToSend: [],
       soundsToPlay: [],
       echoTexts: [],
     }
 
     for (const trigger of effectiveTriggers.value) {
-      const textPatterns = trigger.patterns.filter(p => p && p.value && !p.isGmcp)
-      const gmcpPatterns = trigger.patterns.filter(p => p && p.value && p.isGmcp)
+      const textPatterns = trigger.patterns.filter((p) => p && p.value && !p.isGmcp)
+      const gmcpPatterns = trigger.patterns.filter((p) => p && p.value && p.isGmcp)
 
       // Only process GMCP-only triggers here
       const isGmcpOnly = textPatterns.length === 0 && gmcpPatterns.length > 0
       if (!isGmcpOnly) continue
 
       // Evaluate all GMCP conditions (AND logic)
-      const allConditionsTrue = gmcpPatterns.every(p => evaluateCondition(p.value))
+      const allConditionsTrue = gmcpPatterns.every((p) => evaluateCondition(p.value))
 
       // Get previous combined state
       if (!gmcpConditionStates.has(trigger.id)) {
@@ -744,7 +763,10 @@ export function useTriggers() {
 
   async function initAudioContext(): Promise<AudioContext> {
     if (!audioContext) {
-      audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+      audioContext = new (
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      )()
     }
     if (audioContext.state === 'suspended') {
       await audioContext.resume()
@@ -831,7 +853,7 @@ export function useTriggers() {
     name: string,
     excludeId?: string,
     scope?: TriggerScope,
-    charName?: string | null
+    charName?: string | null,
   ): boolean {
     const normalizedName = name.trim().toLowerCase()
 
@@ -841,7 +863,11 @@ export function useTriggers() {
 
       // If checking for a specific scope, only flag conflict in same scope
       if (scope === 'global' && trigger.scope === 'global') return true
-      if (scope === 'character' && trigger.scope === 'character' && trigger.characterName === charName)
+      if (
+        scope === 'character' &&
+        trigger.scope === 'character' &&
+        trigger.characterName === charName
+      )
         return true
 
       // If no scope specified, any match is a conflict
@@ -856,7 +882,7 @@ export function useTriggers() {
    */
   function validatePattern(
     pattern: string,
-    patternType: 'substring' | 'regex'
+    patternType: 'substring' | 'regex',
   ): { valid: boolean; error?: string } {
     if (!pattern.trim()) {
       return { valid: false, error: 'Pattern cannot be empty' }
@@ -885,7 +911,7 @@ export function useTriggers() {
         exportedAt: new Date().toISOString(),
       },
       null,
-      2
+      2,
     )
   }
 
@@ -907,13 +933,9 @@ export function useTriggers() {
         reservedIds.add(id)
         return id
       }
-      const normalizedImported = imported.map((item, index) => normalizeTriggerImport(
-        item,
-        index,
-        nextId(),
-        now,
-        mode === 'replace',
-      ))
+      const normalizedImported = imported.map((item, index) =>
+        normalizeTriggerImport(item, index, nextId(), now, mode === 'replace'),
+      )
 
       if (mode === 'replace') {
         if (!commitTriggers(normalizedImported)) {
@@ -924,11 +946,14 @@ export function useTriggers() {
         const nextTriggers = [...triggers.value]
         let accepted = 0
         for (const trigger of normalizedImported) {
-          if (!nextTriggers.some((existing) =>
-            existing.name.trim().toLowerCase() === trigger.name.toLowerCase() &&
-            existing.scope === trigger.scope &&
-            existing.characterName === trigger.characterName
-          )) {
+          if (
+            !nextTriggers.some(
+              (existing) =>
+                existing.name.trim().toLowerCase() === trigger.name.toLowerCase() &&
+                existing.scope === trigger.scope &&
+                existing.characterName === trigger.characterName,
+            )
+          ) {
             nextTriggers.push(trigger)
             accepted += 1
           }
@@ -961,7 +986,7 @@ export function useTriggers() {
           loadTriggers()
         }
       },
-      { immediate: true }
+      { immediate: true },
     )
   }
 

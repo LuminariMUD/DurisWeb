@@ -4,12 +4,7 @@ import { useMudStore } from '@/stores/mudStore'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Heart,
   Sparkles,
@@ -56,12 +51,18 @@ const getVitalColor = (percent: number): string => {
 // Get position icon component
 const getPositionIcon = (position: string) => {
   switch (position) {
-    case 'standing': return PersonStanding
-    case 'sitting': return Armchair
-    case 'resting': return Moon
-    case 'sleeping': return BedDouble
-    case 'fighting': return Swords
-    default: return PersonStanding
+    case 'standing':
+      return PersonStanding
+    case 'sitting':
+      return Armchair
+    case 'resting':
+      return Moon
+    case 'sleeping':
+      return BedDouble
+    case 'fighting':
+      return Swords
+    default:
+      return PersonStanding
   }
 }
 </script>

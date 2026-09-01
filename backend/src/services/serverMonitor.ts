@@ -124,10 +124,17 @@ export async function getServerUptime(): Promise<number> {
       totalSeconds = parseInt(timeParts[0], 10) * 60 + parseInt(timeParts[1], 10);
     } else if (timeParts.length === 3) {
       // hh:mm:ss
-      totalSeconds = parseInt(timeParts[0], 10) * 3600 + parseInt(timeParts[1], 10) * 60 + parseInt(timeParts[2], 10);
+      totalSeconds =
+        parseInt(timeParts[0], 10) * 3600 +
+        parseInt(timeParts[1], 10) * 60 +
+        parseInt(timeParts[2], 10);
     } else if (timeParts.length === 4) {
       // dd-hh:mm:ss
-      totalSeconds = parseInt(timeParts[0], 10) * 86400 + parseInt(timeParts[1], 10) * 3600 + parseInt(timeParts[2], 10) * 60 + parseInt(timeParts[3], 10);
+      totalSeconds =
+        parseInt(timeParts[0], 10) * 86400 +
+        parseInt(timeParts[1], 10) * 3600 +
+        parseInt(timeParts[2], 10) * 60 +
+        parseInt(timeParts[3], 10);
     }
 
     return totalSeconds * 1000;
@@ -151,7 +158,7 @@ export async function getDatabaseHealth(): Promise<DatabaseHealth> {
     return {
       connected: true,
       poolActive: 0, // mysql2 doesn't easily expose this
-      poolIdle: 0,   // mysql2 doesn't easily expose this
+      poolIdle: 0, // mysql2 doesn't easily expose this
       avgQueryTime: queryTime,
     };
   } catch (error) {
@@ -183,7 +190,7 @@ export async function getTableSizes(): Promise<TableSizeInfo[]> {
            'pkill_event', 'pkill_info', 'player_data', 'web_sessions', 'statistics',
            'ip_info', 'guildhalls', 'frag_leaderboard'
          )
-       ORDER BY sizeBytes DESC`
+       ORDER BY sizeBytes DESC`,
     );
 
     return rows as TableSizeInfo[];

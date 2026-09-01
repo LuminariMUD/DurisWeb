@@ -41,16 +41,13 @@ async function importContent() {
       }
 
       // Insert or update in database
-      const [result] = await pool.query<any>(
-        'UPDATE mud_info SET content = ? WHERE name = ?',
-        [content, key]
-      );
+      const [result] = await pool.query<any>('UPDATE mud_info SET content = ? WHERE name = ?', [
+        content,
+        key,
+      ]);
 
       if (result.affectedRows === 0) {
-        await pool.query(
-          'INSERT INTO mud_info (name, content) VALUES (?, ?)',
-          [key, content]
-        );
+        await pool.query('INSERT INTO mud_info (name, content) VALUES (?, ?)', [key, content]);
         logger.info(`Imported ${key} (${filename}) - ${description}`);
         logger.info(`   Size: ${content.length} bytes\n`);
       } else {

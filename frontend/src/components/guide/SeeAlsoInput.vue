@@ -18,7 +18,10 @@ const emit = defineEmits<{
 // Parse comma-separated string to array
 const selectedTitles = computed(() => {
   if (!props.modelValue) return []
-  return props.modelValue.split(',').map(s => s.trim()).filter(Boolean)
+  return props.modelValue
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
 })
 
 // Search state
@@ -40,8 +43,8 @@ const debouncedSearch = useDebounceFn(async () => {
     const result = await guideApi.searchHelpFiles(searchQuery.value, 10)
     // Filter out already selected and map to titles
     searchResults.value = result.results
-      .map(r => r.title || '')
-      .filter(title => title && !selectedTitles.value.includes(title))
+      .map((r) => r.title || '')
+      .filter((title) => title && !selectedTitles.value.includes(title))
   } catch {
     searchResults.value = []
   } finally {
@@ -66,7 +69,7 @@ function addTitle(title: string) {
 
 // Remove a title from selection
 function removeTitle(title: string) {
-  const newTitles = selectedTitles.value.filter(t => t !== title)
+  const newTitles = selectedTitles.value.filter((t) => t !== title)
   emit('update:modelValue', newTitles.join(', '))
 }
 

@@ -21,13 +21,16 @@ export function useHookControl(options: HookControlOptions = {}) {
   let pollTimer: ReturnType<typeof setInterval> | null = null
 
   const hooks = computed(() => data.value?.hooks ?? [])
-  const selectedHook = computed(() => hooks.value.find((hook) => hook.id === selectedId.value) ?? null)
+  const selectedHook = computed(
+    () => hooks.value.find((hook) => hook.id === selectedId.value) ?? null,
+  )
   const filteredHooks = computed(() => {
     const query = filter.value.trim().toLowerCase()
     if (!query) return hooks.value
     return hooks.value.filter((hook) =>
-      [hook.id, hook.channel, hook.direction, hook.description, hook.effective]
-        .some((value) => value.toLowerCase().includes(query)),
+      [hook.id, hook.channel, hook.direction, hook.description, hook.effective].some((value) =>
+        value.toLowerCase().includes(query),
+      ),
     )
   })
   const summary = computed<HookSummary>(() => ({
@@ -35,7 +38,8 @@ export function useHookControl(options: HookControlOptions = {}) {
     active: hooks.value.filter((hook) => hook.active).length,
     off: hooks.value.filter((hook) => hook.effective === 'off').length,
     mismatch: hooks.value.filter((hook) => hook.effective === 'mismatch').length,
-    unknown: hooks.value.filter((hook) => ['unknown', 'unavailable'].includes(hook.effective)).length,
+    unknown: hooks.value.filter((hook) => ['unknown', 'unavailable'].includes(hook.effective))
+      .length,
   }))
 
   function replaceHook(hook: HookStatus) {
@@ -68,7 +72,10 @@ export function useHookControl(options: HookControlOptions = {}) {
       const result = await hooksApi.reconcile(id, enabled)
       replaceHook(result.hook)
       if (!result.complete || result.warning) {
-        rowErrors.value = { ...rowErrors.value, [id]: result.warning ?? 'Both ends did not confirm.' }
+        rowErrors.value = {
+          ...rowErrors.value,
+          [id]: result.warning ?? 'Both ends did not confirm.',
+        }
       }
       await refresh(false)
       return result

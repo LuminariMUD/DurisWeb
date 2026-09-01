@@ -115,7 +115,7 @@ watch(
       }
     }
   },
-  { deep: true }
+  { deep: true },
 )
 
 // watch for new petition messages (for gods)
@@ -174,7 +174,7 @@ watch(
       }
     }
   },
-  { deep: true }
+  { deep: true },
 )
 
 // watch for new gsay (group) messages
@@ -228,7 +228,7 @@ watch(
       }
     }
   },
-  { deep: true }
+  { deep: true },
 )
 
 // watch for new gcc (guild) messages
@@ -282,7 +282,7 @@ watch(
       }
     }
   },
-  { deep: true }
+  { deep: true },
 )
 
 // get history key for a window

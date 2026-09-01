@@ -11,7 +11,7 @@ import {
   Legend,
   Filler,
   type ChartData,
-  type ChartOptions
+  type ChartOptions,
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
 
@@ -23,7 +23,7 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  Filler
+  Filler,
 )
 
 interface Props {
@@ -33,7 +33,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  height: 300
+  height: 300,
 })
 
 const defaultOptions: ChartOptions<'line'> = {

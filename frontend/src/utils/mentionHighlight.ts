@@ -24,7 +24,10 @@ export function highlightMentions(content: string): string {
  * Sanitize and highlight mentions in HTML content
  * Use this for displaying comment/proc request content
  */
-export function processContentWithMentions(contentHtml: string | null, contentText: string): string {
+export function processContentWithMentions(
+  contentHtml: string | null,
+  contentText: string,
+): string {
   if (contentHtml) {
     // Process HTML content - be careful with nested HTML
     return highlightMentions(contentHtml)

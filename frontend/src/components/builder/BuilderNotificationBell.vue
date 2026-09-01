@@ -4,14 +4,24 @@ import { useRouter } from 'vue-router'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/vue-query'
 import { notificationApi } from '@/services/api'
 import { formatDistanceToNow } from 'date-fns'
-import { Bell, CheckCheck, MessageSquare, UserPlus, RefreshCw, CheckCircle, XCircle, AlertCircle, Gavel, TrendingUp, Trophy, DollarSign, Swords } from 'lucide-vue-next'
+import {
+  Bell,
+  CheckCheck,
+  MessageSquare,
+  UserPlus,
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Gavel,
+  TrendingUp,
+  Trophy,
+  DollarSign,
+  Swords,
+} from 'lucide-vue-next'
 import AnsiText from '@/components/ui/AnsiText.vue'
 import { Button } from '@/components/ui/button'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { useWebSocket } from '@/composables/useWebSocket'
@@ -32,7 +42,7 @@ const isOpen = ref(false)
 const pvpNotifications = ref<UnifiedNotification[]>([])
 
 // Count of unread PVP notifications
-const unreadPvpCount = computed(() => pvpNotifications.value.filter(n => !n.isRead).length)
+const unreadPvpCount = computed(() => pvpNotifications.value.filter((n) => !n.isRead).length)
 
 // Fetch unread count
 const { data: unreadCount, refetch: refetchCount } = useQuery({
@@ -44,7 +54,11 @@ const { data: unreadCount, refetch: refetchCount } = useQuery({
 const totalUnreadCount = computed(() => (unreadCount.value || 0) + unreadPvpCount.value)
 
 // Fetch notifications when popover opens
-const { data: notificationsData, isLoading, refetch: refetchNotifications } = useQuery({
+const {
+  data: notificationsData,
+  isLoading,
+  refetch: refetchNotifications,
+} = useQuery({
   queryKey: ['notifications-popover'],
   queryFn: () => notificationApi.getNotifications(1, 20, false),
   enabled: computed(() => isOpen.value),
@@ -54,8 +68,8 @@ const { data: notificationsData, isLoading, refetch: refetchNotifications } = us
 const notifications = computed(() => {
   const apiNotifications = notificationsData.value?.notifications || []
   // Merge and sort by createdAt (newest first)
-  return [...pvpNotifications.value, ...apiNotifications].sort((a, b) =>
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  return [...pvpNotifications.value, ...apiNotifications].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   )
 })
 
@@ -119,7 +133,7 @@ function getNotificationIcon(notification: UnifiedNotification) {
 async function handleNotificationClick(notification: UnifiedNotification) {
   // For PVP notifications (session-only), just mark as read locally
   if (notification.source === 'pvp') {
-    const pvpNotif = pvpNotifications.value.find(n => n.id === notification.id)
+    const pvpNotif = pvpNotifications.value.find((n) => n.id === notification.id)
     if (pvpNotif) {
       pvpNotif.isRead = true
     }
@@ -164,23 +178,29 @@ function handleNotification(accountName: string, data: any) {
       queryClient.invalidateQueries({ queryKey: ['notifications-popover'] })
     }
     // Show toast notification with ANSI parsing
-    toast.custom((toastId) => h(NotificationToast, {
-      message: data.message,
-      onDismiss: () => toast.dismiss(toastId),
-    }), {
-      duration: 5000,
-    })
+    toast.custom(
+      (toastId) =>
+        h(NotificationToast, {
+          message: data.message,
+          onDismiss: () => toast.dismiss(toastId),
+        }),
+      {
+        duration: 5000,
+      },
+    )
   }
 }
 
 // Handle PVP event - add to session notifications
 function handlePvPEvent(event: any) {
   // Format killers/victims from array of objects to string (keep ANSI for display)
-  const formatParticipants = (participants: Array<{ description: string }> | string | undefined): string => {
+  const formatParticipants = (
+    participants: Array<{ description: string }> | string | undefined,
+  ): string => {
     if (!participants) return 'Unknown'
     if (typeof participants === 'string') return participants
     if (Array.isArray(participants)) {
-      return participants.map(p => p.description).join(', ') || 'Unknown'
+      return participants.map((p) => p.description).join(', ') || 'Unknown'
     }
     return 'Unknown'
   }
@@ -222,7 +242,7 @@ onMounted(() => {
       id: Date.now(),
       killers: [{ description: '[56 &+cWarrior&n] TestKiller (&+LOrc&n)' }],
       victims: [{ description: '[45 &+gCleric&n] TestVictim (&+LHuman&n)' }],
-      room_name: '&+YThe Test Arena&n'
+      room_name: '&+YThe Test Arena&n',
     })
   }
 })
@@ -231,7 +251,6 @@ onUnmounted(() => {
   offNotification(handleNotification)
   offNewEvent(handlePvPEvent)
 })
-
 </script>
 
 <template>

@@ -5,10 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from '@jest/glob
 
 import { pool } from '../../db/connection.js';
 import { getToggleableHooks, requireHook } from '../registry.js';
-import {
-  markFlatfileUnavailable,
-  resetFlatfileHookStateForTests,
-} from '../flatfileHookState.js';
+import { markFlatfileUnavailable, resetFlatfileHookStateForTests } from '../flatfileHookState.js';
 import {
   getHookStatus,
   getHookStatuses,
@@ -131,9 +128,7 @@ describe('toggling', () => {
   });
 
   it('refuses to toggle an always-on hook', async () => {
-    await expect(setHookEnabled('terminal', false, ACTOR)).rejects.toBeInstanceOf(
-      HookToggleError,
-    );
+    await expect(setHookEnabled('terminal', false, ACTOR)).rejects.toBeInstanceOf(HookToggleError);
     await expect(setHookEnabled('terminal', false, ACTOR)).rejects.toMatchObject({
       code: 'always_on',
     });
@@ -174,10 +169,7 @@ describe('effective state against MUD reports', () => {
   });
 
   it('overlays an unavailable resource on only its filesystem-backed hook', async () => {
-    markFlatfileUnavailable(
-      'connection_log',
-      'Required comm log is unavailable.',
-    );
+    markFlatfileUnavailable('connection_log', 'Required comm log is unavailable.');
 
     const statuses = await getHookStatuses();
     expect(statuses.find((status) => status.hook.id === 'connection_log')).toMatchObject({
@@ -194,8 +186,7 @@ describe('effective state against MUD reports', () => {
       effective: 'on',
       resource: { availability: 'available' },
     });
-    expect(statuses.find((status) => status.hook.id === 'guild_parsing')?.resource)
-      .toBeNull();
+    expect(statuses.find((status) => status.hook.id === 'guild_parsing')?.resource).toBeNull();
   });
 });
 

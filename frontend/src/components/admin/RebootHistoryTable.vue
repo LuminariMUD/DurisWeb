@@ -164,58 +164,66 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { Loader2, ChevronLeft, ChevronRight } from 'lucide-vue-next';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { useRebootHistory, useMudRebootHistory, formatUptime, getShutdownTypeBadge } from '@/composables/useServerReboot';
-import { format, formatDistanceToNow } from 'date-fns';
+import { ref, computed } from 'vue'
+import { Loader2, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  useRebootHistory,
+  useMudRebootHistory,
+  formatUptime,
+  getShutdownTypeBadge,
+} from '@/composables/useServerReboot'
+import { format, formatDistanceToNow } from 'date-fns'
 
-const activeTab = ref('mud'); // Default to MUD tab
+const activeTab = ref('mud') // Default to MUD tab
 
-const currentPage = ref(1);
-const pageSize = ref(20);
+const currentPage = ref(1)
+const pageSize = ref(20)
 
 // Server reboot history
-const { data, isLoading, error } = useRebootHistory(currentPage.value, pageSize.value);
+const { data, isLoading, error } = useRebootHistory(currentPage.value, pageSize.value)
 
 // MUD reboot history
-const { data: mudReboots, isLoading: isMudLoading, error: mudError } = useMudRebootHistory();
+const { data: mudReboots, isLoading: isMudLoading, error: mudError } = useMudRebootHistory()
 
 const totalPages = computed(() => {
-  if (!data.value) return 0;
-  return Math.ceil(data.value.total / data.value.limit);
-});
+  if (!data.value) return 0
+  return Math.ceil(data.value.total / data.value.limit)
+})
 
 const goToPage = (page: number) => {
-  currentPage.value = page;
-};
+  currentPage.value = page
+}
 
 const formatDateTime = (timestamp: number | string) => {
   // MUD reboots are Unix timestamps, server reboots are Unix timestamps
-  const date = typeof timestamp === 'number'
-    ? new Date(timestamp * 1000)
-    : new Date(timestamp);
+  const date = typeof timestamp === 'number' ? new Date(timestamp * 1000) : new Date(timestamp)
 
   if (isNaN(date.getTime())) {
-    return 'Invalid date';
+    return 'Invalid date'
   }
 
-  return format(date, 'MMM dd, yyyy HH:mm:ss');
-};
+  return format(date, 'MMM dd, yyyy HH:mm:ss')
+}
 
 const formatRelative = (timestamp: number | string) => {
   // MUD reboots are Unix timestamps, server reboots are Unix timestamps
-  const date = typeof timestamp === 'number'
-    ? new Date(timestamp * 1000)
-    : new Date(timestamp);
+  const date = typeof timestamp === 'number' ? new Date(timestamp * 1000) : new Date(timestamp)
 
   if (isNaN(date.getTime())) {
-    return 'Invalid date';
+    return 'Invalid date'
   }
 
-  return formatDistanceToNow(date, { addSuffix: true });
-};
+  return formatDistanceToNow(date, { addSuffix: true })
+}
 </script>

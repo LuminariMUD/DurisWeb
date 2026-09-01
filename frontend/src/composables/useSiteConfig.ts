@@ -73,11 +73,21 @@ export function useSiteConfig() {
   })
 
   // Front page computed properties
-  const frontPageHeroEnabled = computed(() => config.value?.frontPageHeroEnabled ?? defaultConfig.frontPageHeroEnabled)
-  const frontPageHeroTitle = computed(() => config.value?.frontPageHeroTitle || defaultConfig.frontPageHeroTitle)
-  const frontPageHeroSubtitle = computed(() => config.value?.frontPageHeroSubtitle || defaultConfig.frontPageHeroSubtitle)
-  const frontPageHeroImageUrl = computed(() => config.value?.frontPageHeroImageUrl || defaultConfig.frontPageHeroImageUrl)
-  const frontPageContent = computed(() => config.value?.frontPageContent || defaultConfig.frontPageContent)
+  const frontPageHeroEnabled = computed(
+    () => config.value?.frontPageHeroEnabled ?? defaultConfig.frontPageHeroEnabled,
+  )
+  const frontPageHeroTitle = computed(
+    () => config.value?.frontPageHeroTitle || defaultConfig.frontPageHeroTitle,
+  )
+  const frontPageHeroSubtitle = computed(
+    () => config.value?.frontPageHeroSubtitle || defaultConfig.frontPageHeroSubtitle,
+  )
+  const frontPageHeroImageUrl = computed(
+    () => config.value?.frontPageHeroImageUrl || defaultConfig.frontPageHeroImageUrl,
+  )
+  const frontPageContent = computed(
+    () => config.value?.frontPageContent || defaultConfig.frontPageContent,
+  )
 
   /**
    * Load site configuration from API

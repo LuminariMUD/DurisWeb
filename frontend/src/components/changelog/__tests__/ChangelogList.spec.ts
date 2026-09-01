@@ -8,7 +8,8 @@ const queryData = ref({
       id: 1,
       version: '1.0.0',
       title: 'Release',
-      content: '<p>hello <strong>Duris</strong></p><script>alert(1)</script><img src="x" onerror="alert(2)">',
+      content:
+        '<p>hello <strong>Duris</strong></p><script>alert(1)</script><img src="x" onerror="alert(2)">',
       category: 'public',
       createdBy: 'Cwial',
       createdAt: '2026-08-28T00:00:00.000Z',

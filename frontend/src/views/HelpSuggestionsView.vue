@@ -32,16 +32,7 @@ import { useAuth } from '@/composables/useAuth'
 import { useToast } from '@/composables/useToast'
 import { ansiToHtmlWithStyles, htmlToAnsi } from '@/utils/ansiParser'
 import type { PublicHelpFile, SuggestionType } from '@/types'
-import {
-  BookOpen,
-  Search,
-  Plus,
-  Edit,
-  Send,
-  FileText,
-  Info,
-  ArrowLeft,
-} from 'lucide-vue-next'
+import { BookOpen, Search, Plus, Edit, Send, FileText, Info, ArrowLeft } from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()

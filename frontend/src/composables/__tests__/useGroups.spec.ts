@@ -108,27 +108,32 @@ describe('useGroups local persistence', () => {
       groups: [{ ...groupForm, id: 'bad', enabled: 'yes', createdAt: 1, updatedAt: 1 }],
     }
 
-    expect(() => groupsApi.importGroups(JSON.stringify(malformed), 'merge'))
-      .toThrow(/Invalid group.*enabled/i)
+    expect(() => groupsApi.importGroups(JSON.stringify(malformed), 'merge')).toThrow(
+      /Invalid group.*enabled/i,
+    )
     expect(groupsApi.groups.value).toHaveLength(0)
   })
 
   it('rejects malformed direct group creation and update without mutation', async () => {
     await selectAccount('Cwial')
 
-    expect(groupsApi.addGroup({
-      ...groupForm,
-      enabled: 'yes' as unknown as boolean,
-    })).toBeNull()
+    expect(
+      groupsApi.addGroup({
+        ...groupForm,
+        enabled: 'yes' as unknown as boolean,
+      }),
+    ).toBeNull()
     expect(groupsApi.groups.value).toHaveLength(0)
     expect(groupsApi.storageError.value).toMatch(/enabled must be a boolean/i)
 
     const created = groupsApi.addGroup(groupForm)
     expect(created).not.toBeNull()
     const before = groupsApi.groups.value[0]
-    expect(groupsApi.updateGroup(before!.id, {
-      name: 123 as unknown as string,
-    })).toBeNull()
+    expect(
+      groupsApi.updateGroup(before!.id, {
+        name: 123 as unknown as string,
+      }),
+    ).toBeNull()
     expect(groupsApi.groups.value[0]).toEqual(before)
   })
 

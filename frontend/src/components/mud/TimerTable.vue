@@ -50,13 +50,7 @@ const emit = defineEmits<{
   stop: [id: string]
 }>()
 
-const {
-  groups,
-  rootGroups,
-  getChildGroups,
-  toggleGroup,
-  isGroupEffectivelyEnabled,
-} = useGroups()
+const { groups, rootGroups, getChildGroups, toggleGroup, isGroupEffectivelyEnabled } = useGroups()
 
 const { setTimerGroup } = useTimers()
 
@@ -111,7 +105,7 @@ function collapseAll() {
 // get timers for a specific group
 function getTimersForGroup(groupId: string | null): Timer[] {
   return props.timers
-    .filter(t => t.groupId === groupId)
+    .filter((t) => t.groupId === groupId)
     .sort((a, b) => {
       if (a.enabled !== b.enabled) return a.enabled ? -1 : 1
       return a.name.localeCompare(b.name)

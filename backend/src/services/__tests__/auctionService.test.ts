@@ -37,9 +37,7 @@ describe('auctionService character money', () => {
   });
 
   it('converts all coin denominations to copper', async () => {
-    query.mockResolvedValueOnce([[
-      { copper: 7, silver: 3, gold: 2, platinum: 1 },
-    ], []]);
+    query.mockResolvedValueOnce([[{ copper: 7, silver: 3, gold: 2, platinum: 1 }], []]);
 
     await expect(getCharacterMoney(42)).resolves.toBe(1_237);
     expect(query).toHaveBeenCalledWith(
@@ -56,19 +54,13 @@ describe('auctionService character money', () => {
 
   it('deducts transactionally and returns denomination change as copper', async () => {
     connectionQuery
-      .mockResolvedValueOnce([[
-        { copper: 0, silver: 0, gold: 0, platinum: 1 },
-      ], []])
+      .mockResolvedValueOnce([[{ copper: 0, silver: 0, gold: 0, platinum: 1 }], []])
       .mockResolvedValueOnce([{ affectedRows: 1 }, []]);
 
     await expect(deductCharacterMoney(84, 100)).resolves.toBe(true);
 
     expect(beginTransaction).toHaveBeenCalledTimes(1);
-    expect(connectionQuery).toHaveBeenNthCalledWith(
-      1,
-      expect.stringContaining('FOR UPDATE'),
-      [84],
-    );
+    expect(connectionQuery).toHaveBeenNthCalledWith(1, expect.stringContaining('FOR UPDATE'), [84]);
     expect(connectionQuery).toHaveBeenNthCalledWith(
       2,
       expect.stringContaining('UPDATE player_data'),
@@ -80,9 +72,7 @@ describe('auctionService character money', () => {
   });
 
   it('rolls back without mutation when funds are insufficient', async () => {
-    connectionQuery.mockResolvedValueOnce([[
-      { copper: 9, silver: 0, gold: 0, platinum: 0 },
-    ], []]);
+    connectionQuery.mockResolvedValueOnce([[{ copper: 9, silver: 0, gold: 0, platinum: 0 }], []]);
 
     await expect(deductCharacterMoney(84, 10)).resolves.toBe(false);
 

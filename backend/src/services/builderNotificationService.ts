@@ -44,7 +44,7 @@ export async function createNotification(
   entityType: string | null,
   entityId: number | null,
   triggeredByAccount: string,
-  message: string
+  message: string,
 ): Promise<number> {
   const subTab = entityType === 'comment' ? 'comments' : 'proc-requests';
   return notificationService.createNotification({
@@ -65,10 +65,14 @@ export async function getNotifications(
   accountName: string,
   isRead?: boolean,
   limit: number = 50,
-  offset: number = 0
+  offset: number = 0,
 ): Promise<{ notifications: BuilderNotification[]; total: number; hasMore: boolean }> {
   const unreadOnly = isRead === false;
-  const result = await notificationService.getNotifications(accountName, { unreadOnly, limit, offset });
+  const result = await notificationService.getNotifications(accountName, {
+    unreadOnly,
+    limit,
+    offset,
+  });
 
   // Map unified notifications to BuilderNotification format for backwards compatibility
   const notifications: BuilderNotification[] = result.notifications.map((n) => ({
@@ -124,7 +128,7 @@ export async function markAllAsRead(accountName: string): Promise<number> {
 export function extractMentions(content: string): string[] {
   const mentionRegex = /@([a-zA-Z0-9_-]+)/g;
   const matches = content.match(mentionRegex) || [];
-  const mentions = matches.map(m => m.slice(1).toLowerCase());
+  const mentions = matches.map((m) => m.slice(1).toLowerCase());
   // Remove duplicates
   return [...new Set(mentions)];
 }
@@ -139,17 +143,19 @@ export async function createMentions(
   mentionedByAccount: string,
   zoneId: string,
   zoneName: string | null,
-  notificationMessage: string
+  notificationMessage: string,
 ): Promise<void> {
   // Don't create self-mentions
-  const accounts = mentionedAccounts.filter(acc => acc.toLowerCase() !== mentionedByAccount.toLowerCase());
+  const accounts = mentionedAccounts.filter(
+    (acc) => acc.toLowerCase() !== mentionedByAccount.toLowerCase(),
+  );
 
   for (const account of accounts) {
     // Create mention record
     await db.query(
       `INSERT INTO builder_mentions (entity_type, entity_id, mentioned_account, mentioned_by_account)
        VALUES (?, ?, ?, ?)`,
-      [entityType, entityId, account, mentionedByAccount]
+      [entityType, entityId, account, mentionedByAccount],
     );
 
     // Create notification using unified service
@@ -161,7 +167,7 @@ export async function createMentions(
       entityType,
       entityId,
       mentionedByAccount,
-      notificationMessage
+      notificationMessage,
     );
   }
 }
@@ -170,10 +176,10 @@ export async function createMentions(
  * Delete mentions for an entity (when entity is deleted)
  */
 export async function deleteMentions(entityType: string, entityId: number): Promise<void> {
-  await db.query(
-    `DELETE FROM builder_mentions WHERE entity_type = ? AND entity_id = ?`,
-    [entityType, entityId]
-  );
+  await db.query(`DELETE FROM builder_mentions WHERE entity_type = ? AND entity_id = ?`, [
+    entityType,
+    entityId,
+  ]);
 }
 
 export default {

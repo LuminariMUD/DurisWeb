@@ -1,157 +1,181 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import { useZonesQuery, useZoneStatsQuery, type ZoneFilters, type PaginationParams, EPIC_TYPE_LABELS, getAlignmentLabel, getAlignmentColor, getDifficultyStars, getLastTouchLabel } from '@/composables/useZones';
-import { parseAnsiForVue } from '@/utils/ansiParser';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowUpDown, Edit } from 'lucide-vue-next';
-import ZoneEditDialog from '@/components/ZoneEditDialog.vue';
-import ZoneBulkEditDialog from '@/components/ZoneBulkEditDialog.vue';
-import ZoneStatsCard from '@/components/ZoneStatsCard.vue';
-import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue';
+import { ref, computed, watch } from 'vue'
+import {
+  useZonesQuery,
+  useZoneStatsQuery,
+  type ZoneFilters,
+  type PaginationParams,
+  EPIC_TYPE_LABELS,
+  getAlignmentLabel,
+  getAlignmentColor,
+  getDifficultyStars,
+  getLastTouchLabel,
+} from '@/composables/useZones'
+import { parseAnsiForVue } from '@/utils/ansiParser'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { ArrowUpDown, Edit } from 'lucide-vue-next'
+import ZoneEditDialog from '@/components/ZoneEditDialog.vue'
+import ZoneBulkEditDialog from '@/components/ZoneBulkEditDialog.vue'
+import ZoneStatsCard from '@/components/ZoneStatsCard.vue'
+import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
 
 const filters = ref<ZoneFilters>({
   search: '',
   epicTypes: [],
   onlyEpicZones: false,
-});
+})
 
 const pagination = ref<PaginationParams>({
   page: 1,
   limit: 20,
   sortBy: 'number',
   sortOrder: 'asc',
-});
+})
 
-const perPageValue = ref('20');
+const perPageValue = ref('20')
 
 // Watch perPageValue and update pagination
 watch(perPageValue, (newValue) => {
-  pagination.value.limit = Number(newValue);
-  pagination.value.page = 1;
-  selectedZones.value = new Set();
-});
+  pagination.value.limit = Number(newValue)
+  pagination.value.page = 1
+  selectedZones.value = new Set()
+})
 
-const { data: zonesData, isLoading, error } = useZonesQuery(filters, pagination);
-const { data: stats } = useZoneStatsQuery();
+const { data: zonesData, isLoading, error } = useZonesQuery(filters, pagination)
+const { data: stats } = useZoneStatsQuery()
 
-const selectedZones = ref<Set<number>>(new Set());
-const editingZone = ref<number | null>(null);
-const showBulkEdit = ref(false);
+const selectedZones = ref<Set<number>>(new Set())
+const editingZone = ref<number | null>(null)
+const showBulkEdit = ref(false)
 
 // Debounced search
-const searchQuery = ref('');
-let searchTimeout: ReturnType<typeof setTimeout>;
+const searchQuery = ref('')
+let searchTimeout: ReturnType<typeof setTimeout>
 
 watch(searchQuery, (newValue) => {
-  clearTimeout(searchTimeout);
+  clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
-    filters.value.search = newValue;
-    pagination.value.page = 1; // Reset to first page on search
-  }, 300);
-});
+    filters.value.search = newValue
+    pagination.value.page = 1 // Reset to first page on search
+  }, 300)
+})
 
 // Epic type filter
-const selectedEpicTypes = ref<number[]>([]);
+const selectedEpicTypes = ref<number[]>([])
 watch(selectedEpicTypes, (newValue) => {
-  filters.value.epicTypes = newValue;
-  pagination.value.page = 1;
-  selectedZones.value = new Set();
-});
+  filters.value.epicTypes = newValue
+  pagination.value.page = 1
+  selectedZones.value = new Set()
+})
 
 // Only epic zones toggle
-const onlyEpicZones = ref(false);
+const onlyEpicZones = ref(false)
 watch(onlyEpicZones, (newValue) => {
-  filters.value.onlyEpicZones = newValue;
-  pagination.value.page = 1;
-  selectedZones.value = new Set();
-});
+  filters.value.onlyEpicZones = newValue
+  pagination.value.page = 1
+  selectedZones.value = new Set()
+})
 
 // Sorting
 function toggleSort(column: string) {
   if (pagination.value.sortBy === column) {
-    pagination.value.sortOrder = pagination.value.sortOrder === 'asc' ? 'desc' : 'asc';
+    pagination.value.sortOrder = pagination.value.sortOrder === 'asc' ? 'desc' : 'asc'
   } else {
-    pagination.value.sortBy = column;
-    pagination.value.sortOrder = 'asc';
+    pagination.value.sortBy = column
+    pagination.value.sortOrder = 'asc'
   }
 }
 
 // Pagination
 function goToPage(page: number) {
-  pagination.value.page = page;
-  selectedZones.value = new Set();
+  pagination.value.page = page
+  selectedZones.value = new Set()
 }
-
 
 // Selection
 function toggleZoneSelection(zoneNumber: number) {
-  const newSet = new Set(selectedZones.value);
+  const newSet = new Set(selectedZones.value)
   if (newSet.has(zoneNumber)) {
-    newSet.delete(zoneNumber);
+    newSet.delete(zoneNumber)
   } else {
-    newSet.add(zoneNumber);
+    newSet.add(zoneNumber)
   }
-  selectedZones.value = newSet;
+  selectedZones.value = newSet
 }
 
 function toggleSelectAll() {
-  if (!zonesData.value?.zones) return;
+  if (!zonesData.value?.zones) return
 
   if (isAllSelected.value) {
-    selectedZones.value = new Set();
+    selectedZones.value = new Set()
   } else {
-    const newSet = new Set<number>();
+    const newSet = new Set<number>()
     zonesData.value.zones.forEach((zone: { number: number }) => {
-      newSet.add(zone.number);
-    });
-    selectedZones.value = newSet;
+      newSet.add(zone.number)
+    })
+    selectedZones.value = newSet
   }
 }
 
 const isAllSelected = computed(() => {
   if (!zonesData.value?.zones || zonesData.value.zones.length === 0) {
-    return false;
+    return false
   }
-  return zonesData.value.zones.every((zone: { number: number }) => selectedZones.value.has(zone.number));
-});
+  return zonesData.value.zones.every((zone: { number: number }) =>
+    selectedZones.value.has(zone.number),
+  )
+})
 
 const isSomeSelected = computed(() => {
-  return selectedZones.value.size > 0;
-});
+  return selectedZones.value.size > 0
+})
 
 // Edit zone
 function openEditDialog(zoneNumber: number) {
-  editingZone.value = zoneNumber;
+  editingZone.value = zoneNumber
 }
 
 function closeEditDialog() {
-  editingZone.value = null;
+  editingZone.value = null
 }
 
 // Bulk edit
 function openBulkEditDialog() {
-  showBulkEdit.value = true;
+  showBulkEdit.value = true
 }
 
 function closeBulkEditDialog() {
-  showBulkEdit.value = false;
-  selectedZones.value = new Set();
+  showBulkEdit.value = false
+  selectedZones.value = new Set()
 }
 
 // Clear filters
 function clearFilters() {
-  searchQuery.value = '';
-  selectedEpicTypes.value = [];
-  onlyEpicZones.value = false;
-  pagination.value.page = 1;
+  searchQuery.value = ''
+  selectedEpicTypes.value = []
+  onlyEpicZones.value = false
+  pagination.value.page = 1
 }
 </script>
 

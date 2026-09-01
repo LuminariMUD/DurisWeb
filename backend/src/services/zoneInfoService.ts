@@ -38,7 +38,7 @@ export async function getZoneInfo(zoneId: string): Promise<ZoneInfo | null> {
     `SELECT id, zone_id, description, description_html, owner_account, created_at, updated_at
      FROM builder_zone_info
      WHERE zone_id = ?`,
-    [zoneId]
+    [zoneId],
   );
 
   if (rows.length === 0) {
@@ -63,7 +63,7 @@ export async function getZoneInfo(zoneId: string): Promise<ZoneInfo | null> {
 export async function upsertZoneInfo(
   zoneId: string,
   data: ZoneInfoUpdate,
-  ownerAccount: string
+  ownerAccount: string,
 ): Promise<ZoneInfo> {
   const sanitizedDescriptionHtml = sanitizeOptionalZoneDescriptionHtml(data.descriptionHtml);
 
@@ -76,14 +76,14 @@ export async function upsertZoneInfo(
       `UPDATE builder_zone_info
        SET description = ?, description_html = ?, updated_at = NOW()
        WHERE zone_id = ?`,
-      [data.description ?? null, sanitizedDescriptionHtml, zoneId]
+      [data.description ?? null, sanitizedDescriptionHtml, zoneId],
     );
   } else {
     // Create new
     await db.query(
       `INSERT INTO builder_zone_info (zone_id, description, description_html, owner_account)
        VALUES (?, ?, ?, ?)`,
-      [zoneId, data.description ?? null, sanitizedDescriptionHtml, ownerAccount]
+      [zoneId, data.description ?? null, sanitizedDescriptionHtml, ownerAccount],
     );
   }
 
@@ -104,13 +104,13 @@ export async function setZoneOwner(zoneId: string, ownerAccount: string): Promis
   if (existing) {
     await db.query(
       `UPDATE builder_zone_info SET owner_account = ?, updated_at = NOW() WHERE zone_id = ?`,
-      [ownerAccount, zoneId]
+      [ownerAccount, zoneId],
     );
   } else {
-    await db.query(
-      `INSERT INTO builder_zone_info (zone_id, owner_account) VALUES (?, ?)`,
-      [zoneId, ownerAccount]
-    );
+    await db.query(`INSERT INTO builder_zone_info (zone_id, owner_account) VALUES (?, ?)`, [
+      zoneId,
+      ownerAccount,
+    ]);
   }
 }
 
@@ -127,7 +127,7 @@ export async function getZonePermissions(zoneId: string): Promise<ZonePermission
      FROM builder_zone_permissions
      WHERE zone_id = ?
      ORDER BY granted_at DESC`,
-    [zoneId]
+    [zoneId],
   );
 
   return rows.map((row: RowDataPacket) => ({
@@ -145,13 +145,13 @@ export async function getZonePermissions(zoneId: string): Promise<ZonePermission
  */
 export async function getZonePermission(
   zoneId: string,
-  accountName: string
+  accountName: string,
 ): Promise<ZonePermission | null> {
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT id, zone_id, account_name, permission_level, granted_by, granted_at
      FROM builder_zone_permissions
      WHERE zone_id = ? AND account_name = ?`,
-    [zoneId, accountName]
+    [zoneId, accountName],
   );
 
   if (rows.length === 0) {
@@ -176,14 +176,14 @@ export async function grantZonePermission(
   zoneId: string,
   accountName: string,
   permissionLevel: ZonePermissionLevel,
-  grantedBy: string
+  grantedBy: string,
 ): Promise<void> {
   // Use INSERT ... ON DUPLICATE KEY UPDATE to handle both create and update
   await db.query(
     `INSERT INTO builder_zone_permissions (zone_id, account_name, permission_level, granted_by, granted_at)
      VALUES (?, ?, ?, ?, NOW())
      ON DUPLICATE KEY UPDATE permission_level = VALUES(permission_level), granted_by = VALUES(granted_by), granted_at = NOW()`,
-    [zoneId, accountName, permissionLevel, grantedBy]
+    [zoneId, accountName, permissionLevel, grantedBy],
   );
 }
 
@@ -193,7 +193,7 @@ export async function grantZonePermission(
 export async function revokeZonePermission(zoneId: string, accountName: string): Promise<boolean> {
   const [result] = await db.query<ResultSetHeader>(
     `DELETE FROM builder_zone_permissions WHERE zone_id = ? AND account_name = ?`,
-    [zoneId, accountName]
+    [zoneId, accountName],
   );
   return result.affectedRows > 0;
 }
@@ -217,7 +217,7 @@ const PERMISSION_LEVELS: Record<ZonePermissionLevel, number> = {
 export async function canAccessZone(
   accountName: string,
   zoneId: string,
-  requiredLevel: ZonePermissionLevel
+  requiredLevel: ZonePermissionLevel,
 ): Promise<boolean> {
   // Check if user is the zone owner
   const zoneInfo = await getZoneInfo(zoneId);
@@ -244,7 +244,7 @@ export async function canAccessZone(
  */
 export async function canManageZonePermissions(
   accountName: string,
-  zoneId: string
+  zoneId: string,
 ): Promise<boolean> {
   return canAccessZone(accountName, zoneId, 'manage');
 }
@@ -257,13 +257,13 @@ export async function getAccessibleZoneIds(accountName: string): Promise<string[
   // Get zones where user is owner
   const [ownedRows] = await db.query<RowDataPacket[]>(
     `SELECT zone_id FROM builder_zone_info WHERE owner_account = ?`,
-    [accountName]
+    [accountName],
   );
 
   // Get zones where user has explicit permission
   const [permittedRows] = await db.query<RowDataPacket[]>(
     `SELECT zone_id FROM builder_zone_permissions WHERE account_name = ?`,
-    [accountName]
+    [accountName],
   );
 
   // Combine and deduplicate
@@ -298,12 +298,12 @@ export async function recordHistory(
   zoneId: string,
   accountName: string,
   fieldChanged: string,
-  details: string | null
+  details: string | null,
 ): Promise<void> {
   await db.query(
     `INSERT INTO builder_zone_info_history (zone_id, account_name, field_changed, details)
      VALUES (?, ?, ?, ?)`,
-    [zoneId, accountName, fieldChanged, details]
+    [zoneId, accountName, fieldChanged, details],
   );
 }
 
@@ -313,12 +313,12 @@ export async function recordHistory(
 export async function getZoneInfoHistory(
   zoneId: string,
   limit: number = 50,
-  offset: number = 0
+  offset: number = 0,
 ): Promise<{ history: ZoneInfoHistory[]; total: number; hasMore: boolean }> {
   // Get total count
   const [countRows] = await db.query<RowDataPacket[]>(
     `SELECT COUNT(*) as total FROM builder_zone_info_history WHERE zone_id = ?`,
-    [zoneId]
+    [zoneId],
   );
   const total = countRows[0]?.total || 0;
 
@@ -329,7 +329,7 @@ export async function getZoneInfoHistory(
      WHERE zone_id = ?
      ORDER BY changed_at DESC
      LIMIT ? OFFSET ?`,
-    [zoneId, limit, offset]
+    [zoneId, limit, offset],
   );
 
   const history: ZoneInfoHistory[] = rows.map((row: RowDataPacket) => ({

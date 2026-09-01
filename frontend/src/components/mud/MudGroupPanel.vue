@@ -56,7 +56,11 @@ const truncateName = (name: string, maxLen: number = 12): string => {
 }
 
 // build target ref from member
-const getTargetRef = (member: { targetNum: number | null; targetKeyword: string | null; name: string }): string => {
+const getTargetRef = (member: {
+  targetNum: number | null
+  targetKeyword: string | null
+  name: string
+}): string => {
   if (member.targetNum && member.targetKeyword) {
     return `${member.targetNum}.${member.targetKeyword}`
   }

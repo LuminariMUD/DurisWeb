@@ -64,7 +64,14 @@ export interface HistoricalMetric {
 
 export interface Incident {
   id: number
-  incident_type: 'crash' | 'shutdown' | 'reboot' | 'copyover' | 'maintenance' | 'degraded' | 'outage'
+  incident_type:
+    | 'crash'
+    | 'shutdown'
+    | 'reboot'
+    | 'copyover'
+    | 'maintenance'
+    | 'degraded'
+    | 'outage'
   started_at: string
   ended_at: string | null
   duration_seconds: number | null
@@ -74,7 +81,11 @@ export interface Incident {
 export function useServerHealth(autoRefresh = true) {
   const refetchInterval = autoRefresh ? 30000 : false // 30 seconds
 
-  const { data: healthData, isLoading: isLoadingHealth, error: healthError } = useQuery<ServerHealthResponse>({
+  const {
+    data: healthData,
+    isLoading: isLoadingHealth,
+    error: healthError,
+  } = useQuery<ServerHealthResponse>({
     queryKey: ['server-health'],
     queryFn: async () => {
       const response = await apiClient.get('/api/admin/server-health')

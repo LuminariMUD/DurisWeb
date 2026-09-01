@@ -36,7 +36,18 @@ const Z_ALATORIN = -2;
 const Z_NEWBIE = 1;
 
 // Direction names for exits
-const DIRECTIONS = ['north', 'east', 'south', 'west', 'up', 'down', 'northwest', 'southwest', 'northeast', 'southeast'];
+const DIRECTIONS = [
+  'north',
+  'east',
+  'south',
+  'west',
+  'up',
+  'down',
+  'northwest',
+  'southwest',
+  'northeast',
+  'southeast',
+];
 
 interface ParsedRoom {
   vnum: number;
@@ -346,10 +357,7 @@ async function getZoneName(zoneNumber: number): Promise<string | null> {
 
   // Fall back to database
   try {
-    const [rows] = await pool.query<any[]>(
-      'SELECT name FROM zones WHERE number = ?',
-      [zoneNumber]
-    );
+    const [rows] = await pool.query<any[]>('SELECT name FROM zones WHERE number = ?', [zoneNumber]);
     return rows.length > 0 ? rows[0].name : null;
   } catch {
     return null;
@@ -523,7 +531,7 @@ async function extractMapData(): Promise<void> {
          zone_name = VALUES(zone_name),
          room_name = VALUES(room_name),
          updated_at = NOW()`,
-        values
+        values,
       );
 
       totalRooms += positionRows.length;
@@ -583,7 +591,7 @@ async function extractMapData(): Promise<void> {
          to_room_vnum = VALUES(to_room_vnum),
          to_zone_number = VALUES(to_zone_number),
          to_zone_name = VALUES(to_zone_name)`,
-        values
+        values,
       );
 
       totalEntrances += entranceRows.length;
@@ -608,15 +616,18 @@ async function extractMapData(): Promise<void> {
   for (const continent of continents) {
     const [seedRoom] = await pool.query<any[]>(
       'SELECT x_coord, y_coord FROM wiki_map_positions WHERE room_vnum = ?',
-      [continent.seed_room_vnum]
+      [continent.seed_room_vnum],
     );
 
     if (seedRoom.length > 0) {
-      await pool.query(
-        'UPDATE wiki_continents SET center_x = ?, center_y = ? WHERE id = ?',
-        [seedRoom[0].x_coord, seedRoom[0].y_coord, continent.id]
+      await pool.query('UPDATE wiki_continents SET center_x = ?, center_y = ? WHERE id = ?', [
+        seedRoom[0].x_coord,
+        seedRoom[0].y_coord,
+        continent.id,
+      ]);
+      logger.info(
+        `  Continent ${continent.id}: center at (${seedRoom[0].x_coord}, ${seedRoom[0].y_coord})`,
       );
-      logger.info(`  Continent ${continent.id}: center at (${seedRoom[0].x_coord}, ${seedRoom[0].y_coord})`);
     }
   }
 

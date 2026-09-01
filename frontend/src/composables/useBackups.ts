@@ -6,10 +6,16 @@ import type { BackupInfo, RestoreRequest } from '@/types'
 
 export function useBackups() {
   const queryClient = useQueryClient()
-  const { onBackupProgress, offBackupProgress, onRestoreProgress, offRestoreProgress } = useWebSocket()
+  const { onBackupProgress, offBackupProgress, onRestoreProgress, offRestoreProgress } =
+    useWebSocket()
 
   // Restore progress state (for UI updates)
-  const currentRestore = ref<{ id: number; progress: number; currentStep: string; status: string } | null>(null)
+  const currentRestore = ref<{
+    id: number
+    progress: number
+    currentStep: string
+    status: string
+  } | null>(null)
 
   // Store timeout IDs for cleanup
   let backupCompleteTimeoutId: ReturnType<typeof setTimeout> | null = null
@@ -20,7 +26,7 @@ export function useBackups() {
     data: backupData,
     isLoading,
     error,
-    refetch
+    refetch,
   } = useQuery({
     queryKey: ['backups'],
     queryFn: async () => {
@@ -213,10 +219,10 @@ export function useBackups() {
   // Computed properties
   const backups = computed(() => backupData.value || [])
   const hasInProgressBackup = computed(() =>
-    backups.value.some((b) => b.status === 'in_progress' || b.status === 'pending')
+    backups.value.some((b) => b.status === 'in_progress' || b.status === 'pending'),
   )
   const inProgressBackup = computed(() =>
-    backups.value.find((b) => b.status === 'in_progress' || b.status === 'pending')
+    backups.value.find((b) => b.status === 'in_progress' || b.status === 'pending'),
   )
 
   return {

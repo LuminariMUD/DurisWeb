@@ -3,7 +3,13 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { useLeaderboard, usePlayerStats } from '@/composables/usePvPEvents'
-import { useKillTimeline, useActiveHours, usePopularLocations, useClassMatchups, useClientStats } from '@/composables/useAnalytics'
+import {
+  useKillTimeline,
+  useActiveHours,
+  usePopularLocations,
+  useClassMatchups,
+  useClientStats,
+} from '@/composables/useAnalytics'
 import { Bar, Doughnut, Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -15,16 +21,23 @@ import {
   LinearScale,
   ArcElement,
   PointElement,
-  LineElement
+  LineElement,
 } from 'chart.js'
 import { format } from 'date-fns'
 import { parseAnsiForVue, stripAnsiCodes } from '@/utils/ansiParser'
 import { profileApi } from '@/services/api'
-import { Trophy, Medal, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-vue-next'
+import {
+  Trophy,
+  Medal,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 
 useHead({
-  title: 'DurisMUD | Statistics'
+  title: 'DurisMUD | Statistics',
 })
 import PeriodSelector from '@/components/ui/PeriodSelector.vue'
 import type { AnalyticsPeriod } from '@/types'
@@ -39,7 +52,7 @@ ChartJS.register(
   LinearScale,
   ArcElement,
   PointElement,
-  LineElement
+  LineElement,
 )
 
 const route = useRoute()
@@ -50,7 +63,11 @@ const leaderboardPeriod = ref<'7d' | '30d' | 'all'>('30d')
 const leaderboardPage = ref(1)
 const leaderboardItemsPerPage = 10
 
-const { data: leaderboard, isLoading: isLoadingLeaderboard, isError: isErrorLeaderboard } = useLeaderboard(leaderboardType, leaderboardPeriod)
+const {
+  data: leaderboard,
+  isLoading: isLoadingLeaderboard,
+  isError: isErrorLeaderboard,
+} = useLeaderboard(leaderboardType, leaderboardPeriod)
 
 // Reset page when type or period changes
 watch([leaderboardType, leaderboardPeriod], () => {
@@ -59,7 +76,9 @@ watch([leaderboardType, leaderboardPeriod], () => {
 
 // Pagination computed properties
 const leaderboardTotalItems = computed(() => leaderboard.value?.entries?.length || 0)
-const leaderboardTotalPages = computed(() => Math.ceil(leaderboardTotalItems.value / leaderboardItemsPerPage))
+const leaderboardTotalPages = computed(() =>
+  Math.ceil(leaderboardTotalItems.value / leaderboardItemsPerPage),
+)
 
 const paginatedLeaderboard = computed(() => {
   if (!leaderboard.value?.entries) return []
@@ -105,7 +124,11 @@ function getVisiblePages(current: number, total: number): (number | string)[] {
 const playerSearchName = ref('')
 const searchedPlayer = ref('')
 
-const { data: playerStats, isLoading: isLoadingPlayer, isError: isErrorPlayer } = usePlayerStats(searchedPlayer)
+const {
+  data: playerStats,
+  isLoading: isLoadingPlayer,
+  isError: isErrorPlayer,
+} = usePlayerStats(searchedPlayer)
 
 const searchPlayer = () => {
   if (playerSearchName.value.trim()) {
@@ -124,7 +147,10 @@ watch(analyticsPeriod, (newPeriod) => {
 // Analytics data with period filtering
 const { data: killTimeline, isLoading: isLoadingTimeline } = useKillTimeline(analyticsPeriod)
 const { data: activeHours, isLoading: isLoadingHours } = useActiveHours(analyticsPeriod)
-const { data: popularLocations, isLoading: isLoadingLocations } = usePopularLocations(10, analyticsPeriod)
+const { data: popularLocations, isLoading: isLoadingLocations } = usePopularLocations(
+  10,
+  analyticsPeriod,
+)
 const { data: classMatchups, isLoading: isLoadingMatchups } = useClassMatchups(analyticsPeriod)
 const { data: clientStats, isLoading: isLoadingClients } = useClientStats(analyticsPeriod)
 
@@ -132,13 +158,13 @@ const { data: clientStats, isLoading: isLoadingClients } = useClientStats(analyt
 const typeLabels: Record<string, string> = {
   kills: 'Most Kills',
   deaths: 'Most Deaths',
-  kd_ratio: 'Best K/D Ratio'
+  kd_ratio: 'Best K/D Ratio',
 }
 
 const _periodLabels: Record<string, string> = {
   '7d': 'Last 7 Days',
   '30d': 'Last 30 Days',
-  'all': 'All Time'
+  all: 'All Time',
 }
 
 // Chart data - Top 10 Players Bar Chart
@@ -150,17 +176,17 @@ const barChartData = computed(() => {
   const top10 = leaderboard.value.entries.slice(0, 10)
 
   return {
-    labels: top10.map(entry => entry.playerName),
+    labels: top10.map((entry) => entry.playerName),
     datasets: [
       {
         label: typeLabels[leaderboardType.value],
-        data: top10.map(entry => entry.value),
+        data: top10.map((entry) => entry.value),
         backgroundColor: [
-          'rgba(34, 211, 238, 0.8)',   // cyan
-          'rgba(6, 182, 212, 0.8)',    // cyan-600
-          'rgba(8, 145, 178, 0.8)',    // cyan-700
-          'rgba(21, 94, 117, 0.8)',    // cyan-800
-          'rgba(22, 78, 99, 0.8)',     // cyan-900
+          'rgba(34, 211, 238, 0.8)', // cyan
+          'rgba(6, 182, 212, 0.8)', // cyan-600
+          'rgba(8, 145, 178, 0.8)', // cyan-700
+          'rgba(21, 94, 117, 0.8)', // cyan-800
+          'rgba(22, 78, 99, 0.8)', // cyan-900
           'rgba(34, 211, 238, 0.6)',
           'rgba(6, 182, 212, 0.6)',
           'rgba(8, 145, 178, 0.6)',
@@ -179,9 +205,9 @@ const barChartData = computed(() => {
           'rgb(21, 94, 117)',
           'rgb(22, 78, 99)',
         ],
-        borderWidth: 1
-      }
-    ]
+        borderWidth: 1,
+      },
+    ],
   }
 })
 
@@ -190,38 +216,38 @@ const barChartOptions = {
   maintainAspectRatio: false,
   plugins: {
     legend: {
-      display: false
+      display: false,
     },
     title: {
       display: true,
       text: 'Top 10 Players',
       color: '#e5e7eb',
       font: {
-        size: 16
-      }
-    }
+        size: 16,
+      },
+    },
   },
   scales: {
     y: {
       beginAtZero: true,
       ticks: {
-        color: '#9ca3af'
+        color: '#9ca3af',
       },
       grid: {
-        color: 'rgba(75, 85, 99, 0.3)'
-      }
+        color: 'rgba(75, 85, 99, 0.3)',
+      },
     },
     x: {
       ticks: {
         color: '#9ca3af',
         maxRotation: 45,
-        minRotation: 45
+        minRotation: 45,
       },
       grid: {
-        color: 'rgba(75, 85, 99, 0.3)'
-      }
-    }
-  }
+        color: 'rgba(75, 85, 99, 0.3)',
+      },
+    },
+  },
 }
 
 // K/D Ratio Comparison - Doughnut Chart (Top 5)
@@ -233,11 +259,11 @@ const doughnutChartData = computed(() => {
   const top5 = leaderboard.value.entries.slice(0, 5)
 
   return {
-    labels: top5.map(entry => entry.playerName),
+    labels: top5.map((entry) => entry.playerName),
     datasets: [
       {
         label: 'K/D Ratio',
-        data: top5.map(entry => entry.kdRatio || 0),
+        data: top5.map((entry) => entry.kdRatio || 0),
         backgroundColor: [
           'rgba(34, 211, 238, 0.8)',
           'rgba(6, 182, 212, 0.8)',
@@ -252,9 +278,9 @@ const doughnutChartData = computed(() => {
           'rgb(21, 94, 117)',
           'rgb(22, 78, 99)',
         ],
-        borderWidth: 1
-      }
-    ]
+        borderWidth: 1,
+      },
+    ],
   }
 })
 
@@ -267,19 +293,19 @@ const doughnutChartOptions = {
       labels: {
         color: '#e5e7eb',
         font: {
-          size: 12
-        }
-      }
+          size: 12,
+        },
+      },
     },
     title: {
       display: true,
       text: 'K/D Ratio Comparison (Top 5)',
       color: '#e5e7eb',
       font: {
-        size: 16
-      }
-    }
-  }
+        size: 16,
+      },
+    },
+  },
 }
 
 // Kill Timeline Chart Data
@@ -287,17 +313,17 @@ const timelineChartData = computed(() => {
   if (!killTimeline.value || !Array.isArray(killTimeline.value)) return null
 
   return {
-    labels: killTimeline.value.map(item => format(new Date(item.date), 'MMM dd')),
+    labels: killTimeline.value.map((item) => format(new Date(item.date), 'MMM dd')),
     datasets: [
       {
         label: 'PvP Kills',
-        data: killTimeline.value.map(item => item.kills),
+        data: killTimeline.value.map((item) => item.kills),
         borderColor: 'rgb(34, 211, 238)',
         backgroundColor: 'rgba(34, 211, 238, 0.1)',
         fill: true,
-        tension: 0.4
-      }
-    ]
+        tension: 0.4,
+      },
+    ],
   }
 })
 
@@ -306,43 +332,43 @@ const timelineChartOptions = computed(() => ({
   maintainAspectRatio: false,
   plugins: {
     legend: {
-      display: false
+      display: false,
     },
     title: {
       display: true,
       text: `Kill Timeline (${periodLabel.value})`,
       color: '#e5e7eb',
-      font: { size: 16 }
-    }
+      font: { size: 16 },
+    },
   },
   scales: {
     y: {
       ticks: { color: '#9ca3af' },
-      grid: { color: 'rgba(75, 85, 99, 0.3)' }
+      grid: { color: 'rgba(75, 85, 99, 0.3)' },
     },
     x: {
       ticks: { color: '#9ca3af' },
-      grid: { color: 'rgba(75, 85, 99, 0.3)' }
-    }
+      grid: { color: 'rgba(75, 85, 99, 0.3)' },
+    },
   },
-  onClick: handleTimelineClick
-}));
+  onClick: handleTimelineClick,
+}))
 
 // Active Hours Chart Data
 const activeHoursChartData = computed(() => {
   if (!activeHours.value || !Array.isArray(activeHours.value)) return null
 
   return {
-    labels: activeHours.value.map(item => `${item.hour}:00`),
+    labels: activeHours.value.map((item) => `${item.hour}:00`),
     datasets: [
       {
         label: 'PvP Activity',
-        data: activeHours.value.map(item => item.kills),
+        data: activeHours.value.map((item) => item.kills),
         backgroundColor: 'rgba(34, 211, 238, 0.8)',
         borderColor: 'rgb(34, 211, 238)',
-        borderWidth: 1
-      }
-    ]
+        borderWidth: 1,
+      },
+    ],
   }
 })
 
@@ -351,38 +377,39 @@ const activeHoursChartOptions = computed(() => ({
   maintainAspectRatio: false,
   plugins: {
     legend: {
-      display: false
+      display: false,
     },
     title: {
       display: true,
       text: `Active Hours (${periodLabel.value})`,
       color: '#e5e7eb',
-      font: { size: 16 }
-    }
+      font: { size: 16 },
+    },
   },
   scales: {
     y: {
       ticks: { color: '#9ca3af' },
-      grid: { color: 'rgba(75, 85, 99, 0.3)' }
+      grid: { color: 'rgba(75, 85, 99, 0.3)' },
     },
     x: {
       ticks: { color: '#9ca3af' },
-      grid: { color: 'rgba(75, 85, 99, 0.3)' }
-    }
+      grid: { color: 'rgba(75, 85, 99, 0.3)' },
+    },
   },
-  onClick: handleActiveHoursClick
-}));
+  onClick: handleActiveHoursClick,
+}))
 
 // Client Stats Chart Data
 const clientStatsChartData = computed(() => {
-  if (!clientStats.value || !clientStats.value.clients || clientStats.value.clients.length === 0) return null
+  if (!clientStats.value || !clientStats.value.clients || clientStats.value.clients.length === 0)
+    return null
 
   return {
-    labels: clientStats.value.clients.map(c => c.name),
+    labels: clientStats.value.clients.map((c) => c.name),
     datasets: [
       {
         label: 'Logins',
-        data: clientStats.value.clients.map(c => c.count),
+        data: clientStats.value.clients.map((c) => c.count),
         backgroundColor: [
           'rgba(34, 211, 238, 0.8)',
           'rgba(6, 182, 212, 0.8)',
@@ -407,9 +434,9 @@ const clientStatsChartData = computed(() => {
           'rgb(21, 94, 117)',
           'rgb(22, 78, 99)',
         ],
-        borderWidth: 1
-      }
-    ]
+        borderWidth: 1,
+      },
+    ],
   }
 })
 
@@ -421,14 +448,14 @@ const clientStatsChartOptions = computed(() => ({
       position: 'right' as const,
       labels: {
         color: '#e5e7eb',
-        font: { size: 12 }
-      }
+        font: { size: 12 },
+      },
     },
     title: {
       display: true,
       text: `MUD Clients (${periodLabel.value})`,
       color: '#e5e7eb',
-      font: { size: 16 }
+      font: { size: 16 },
     },
     tooltip: {
       callbacks: {
@@ -440,11 +467,13 @@ const clientStatsChartOptions = computed(() => ({
           const idx = context.dataIndex
           const client = clientStats.value?.clients?.[idx]
           if (!client || !client.versions) return [`  logins: ${context.raw}`]
-          return client.versions.map((v: { version: string; count: number }) => `  ${v.version}: ${v.count}`)
-        }
-      }
-    }
-  }
+          return client.versions.map(
+            (v: { version: string; count: number }) => `  ${v.version}: ${v.count}`,
+          )
+        },
+      },
+    },
+  },
 }))
 
 // Popular Locations Chart Data
@@ -452,14 +481,14 @@ const locationsChartData = computed(() => {
   if (!popularLocations.value || !Array.isArray(popularLocations.value)) return null
 
   return {
-    labels: popularLocations.value.map(item => {
+    labels: popularLocations.value.map((item) => {
       const stripped = stripAnsiCodes(item.location)
       return stripped.length > 18 ? stripped.substring(0, 18) + '...' : stripped
     }),
     datasets: [
       {
         label: 'Kills',
-        data: popularLocations.value.map(item => item.kills),
+        data: popularLocations.value.map((item) => item.kills),
         backgroundColor: [
           'rgba(34, 211, 238, 0.8)',
           'rgba(6, 182, 212, 0.8)',
@@ -473,38 +502,41 @@ const locationsChartData = computed(() => {
           'rgba(22, 78, 99, 0.6)',
         ],
         borderColor: 'rgb(34, 211, 238)',
-        borderWidth: 1
-      }
-    ]
+        borderWidth: 1,
+      },
+    ],
   }
 })
 
-const locationsChartOptions = computed(() => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  indexAxis: 'y' as const,
-  plugins: {
-    legend: {
-      display: false
-    },
-    title: {
-      display: true,
-      text: `Popular PvP Locations (${periodLabel.value})`,
-      color: '#e5e7eb',
-      font: { size: 16 }
-    }
-  },
-  scales: {
-    y: {
-      ticks: { color: '#9ca3af' },
-      grid: { color: 'rgba(75, 85, 99, 0.3)' }
-    },
-    x: {
-      ticks: { color: '#9ca3af' },
-      grid: { color: 'rgba(75, 85, 99, 0.3)' }
-    }
-  }
-} as any));
+const locationsChartOptions = computed(
+  () =>
+    ({
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y' as const,
+      plugins: {
+        legend: {
+          display: false,
+        },
+        title: {
+          display: true,
+          text: `Popular PvP Locations (${periodLabel.value})`,
+          color: '#e5e7eb',
+          font: { size: 16 },
+        },
+      },
+      scales: {
+        y: {
+          ticks: { color: '#9ca3af' },
+          grid: { color: 'rgba(75, 85, 99, 0.3)' },
+        },
+        x: {
+          ticks: { color: '#9ca3af' },
+          grid: { color: 'rgba(75, 85, 99, 0.3)' },
+        },
+      },
+    }) as any,
+)
 
 // Click handler for location chart
 const handleLocationClick = (event: any, elements: any[]) => {
@@ -519,10 +551,13 @@ const handleLocationClick = (event: any, elements: any[]) => {
 }
 
 // Add onClick handler
-const locationsChartOptionsWithClick = computed(() => ({
-  ...locationsChartOptions.value,
-  onClick: handleLocationClick
-} as any));
+const locationsChartOptionsWithClick = computed(
+  () =>
+    ({
+      ...locationsChartOptions.value,
+      onClick: handleLocationClick,
+    }) as any,
+)
 
 // Click handler for timeline chart
 const handleTimelineClick = (event: any, elements: any[]) => {
@@ -544,7 +579,7 @@ const handleActiveHoursClick = (event: any, elements: any[]) => {
       // Navigate to PvP page with hour filter
       router.push({
         path: '/pvp',
-        query: { hour: hour.toString() }
+        query: { hour: hour.toString() },
       })
     }
   }
@@ -556,7 +591,7 @@ const periodLabel = computed(() => {
     '7d': 'Last 7 Days',
     '30d': 'Last 30 Days',
     '90d': 'Last 90 Days',
-    'all': 'All Time'
+    all: 'All Time',
   }
   return labels[analyticsPeriod.value]
 })
@@ -567,8 +602,8 @@ const handleMatchupClick = (killerClass: string, victimClass: string) => {
     path: '/pvp',
     query: {
       killer_class: killerClass,
-      victim_class: victimClass
-    }
+      victim_class: victimClass,
+    },
   })
 }
 

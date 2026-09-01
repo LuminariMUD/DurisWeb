@@ -40,7 +40,7 @@ const { data, isLoading, error, refetch } = useQuery({
   queryKey: ['builder-activity', viewMode, offset],
   queryFn: () =>
     builderApi.getBuilderActivity({
-      account: viewMode.value === 'my' ? accountName.value ?? undefined : undefined,
+      account: viewMode.value === 'my' ? (accountName.value ?? undefined) : undefined,
       limit,
       offset: offset.value,
     }),
@@ -87,7 +87,9 @@ const getEntityIcon = (entityType: string) => {
 }
 
 // Entity type badge color
-const getEntityBadgeVariant = (entityType: string): 'default' | 'secondary' | 'outline' | 'destructive' => {
+const getEntityBadgeVariant = (
+  entityType: string,
+): 'default' | 'secondary' | 'outline' | 'destructive' => {
   switch (entityType) {
     case 'room':
       return 'default'

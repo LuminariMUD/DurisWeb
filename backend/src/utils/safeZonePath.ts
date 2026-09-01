@@ -16,7 +16,10 @@ export class UnsafeZonePathError extends Error {
 
 function isWithin(root: string, candidate: string): boolean {
   const relative = path.relative(root, candidate);
-  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+  return (
+    relative === '' ||
+    (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
+  );
 }
 
 function assertZoneId(zoneId: unknown): asserts zoneId is string {
@@ -31,7 +34,9 @@ function assertFileType(fileType: string): asserts fileType is ZoneFileType {
   }
 }
 
-function assertDirectoryName(directoryName: string): asserts directoryName is typeof ZONE_DIRECTORY_NAMES[number] {
+function assertDirectoryName(
+  directoryName: string,
+): asserts directoryName is (typeof ZONE_DIRECTORY_NAMES)[number] {
   if (!(ZONE_DIRECTORY_NAMES as readonly string[]).includes(directoryName)) {
     throw new UnsafeZonePathError('Invalid zone directory');
   }
@@ -125,10 +130,7 @@ export function resolveSafeZoneMapPath(areasDir: string, zoneId: unknown): strin
   return resolveSafeNamedFilePath(areasDir, 'map', zoneId, 'json');
 }
 
-export function resolveSafeZoneDirectoryPath(
-  areasDir: string,
-  fileType: string,
-): string {
+export function resolveSafeZoneDirectoryPath(areasDir: string, fileType: string): string {
   assertDirectoryName(fileType);
   const root = path.resolve(areasDir);
   const directory = path.resolve(root, fileType);

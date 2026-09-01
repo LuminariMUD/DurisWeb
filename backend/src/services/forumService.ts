@@ -18,7 +18,14 @@ export interface ForumCategory {
   id: number;
   name: string;
   description: string | null;
-  access_type: 'public' | 'authenticated' | 'guild' | 'immortal' | 'god' | 'role_based' | 'custom_acl';
+  access_type:
+    | 'public'
+    | 'authenticated'
+    | 'guild'
+    | 'immortal'
+    | 'god'
+    | 'role_based'
+    | 'custom_acl';
   guild_name: string | null;
   parent_id: number | null;
   sort_order: number;
@@ -68,7 +75,7 @@ export interface ForumPost {
   is_deleted: boolean;
   reactions?: PostReaction[];
   character_title?: string | null;
-  guild_name?: string | null;  // Contains ANSI codes
+  guild_name?: string | null; // Contains ANSI codes
   guild_id?: number | null;
   guild_rank_title?: string | null;
 }
@@ -110,9 +117,7 @@ interface ForumReadOptions {
 /**
  * Get all categories with access control filtering
  */
-export async function getCategories(
-  permissions: UserPermissions
-): Promise<ForumCategory[]> {
+export async function getCategories(permissions: UserPermissions): Promise<ForumCategory[]> {
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT
       c.id,
@@ -132,7 +137,7 @@ export async function getCategories(
     LEFT JOIN forum_posts p ON t.id = p.thread_id AND p.is_deleted = 0
     WHERE c.is_archived = 0
     GROUP BY c.id
-    ORDER BY c.sort_order ASC, c.id ASC`
+    ORDER BY c.sort_order ASC, c.id ASC`,
   );
 
   // Use the canonical ACL decision for every category, including direct
@@ -159,7 +164,7 @@ export async function getCategories(
       WHERE t.category_id = ? AND t.is_deleted = 0 AND p.is_deleted = 0
       ORDER BY p.created_at DESC
       LIMIT 1`,
-      [cat.id]
+      [cat.id],
     );
 
     categoriesWithLastPost.push({
@@ -174,12 +179,15 @@ export async function getCategories(
       created_at: cat.created_at,
       thread_count: cat.thread_count || 0,
       post_count: cat.post_count || 0,
-      last_post: lastPostRows.length > 0 ? {
-        created_at: lastPostRows[0].created_at,
-        author_name: lastPostRows[0].author_name || 'Unknown',
-        thread_id: lastPostRows[0].thread_id,
-        thread_title: lastPostRows[0].thread_title
-      } : null
+      last_post:
+        lastPostRows.length > 0
+          ? {
+              created_at: lastPostRows[0].created_at,
+              author_name: lastPostRows[0].author_name || 'Unknown',
+              thread_id: lastPostRows[0].thread_id,
+              thread_title: lastPostRows[0].thread_title,
+            }
+          : null,
     });
   }
 
@@ -191,12 +199,11 @@ export async function getCategories(
  */
 export async function getCategoryById(
   categoryId: number,
-  permissions: UserPermissions
+  permissions: UserPermissions,
 ): Promise<ForumCategory | null> {
-  const [rows] = await db.query<RowDataPacket[]>(
-    'SELECT * FROM forum_categories WHERE id = ?',
-    [categoryId]
-  );
+  const [rows] = await db.query<RowDataPacket[]>('SELECT * FROM forum_categories WHERE id = ?', [
+    categoryId,
+  ]);
 
   if (rows.length === 0) return null;
 
@@ -212,7 +219,7 @@ export async function getCategoryById(
  */
 export async function getChildCategories(
   parentId: number,
-  permissions: UserPermissions
+  permissions: UserPermissions,
 ): Promise<ForumCategory[]> {
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT c.*,
@@ -223,7 +230,7 @@ export async function getChildCategories(
      FROM forum_categories c
      WHERE c.parent_id = ? AND c.is_archived = 0
      ORDER BY c.sort_order, c.name`,
-    [parentId]
+    [parentId],
   );
 
   // Use the same canonical ACL decision as direct category reads.
@@ -234,7 +241,7 @@ export async function getChildCategories(
   }
 
   // Get last post info for ALL categories in one query using ROW_NUMBER()
-  const categoryIds = filtered.map(cat => cat.id);
+  const categoryIds = filtered.map((cat) => cat.id);
 
   if (categoryIds.length > 0) {
     const [lastPostRows] = await db.query<RowDataPacket[]>(
@@ -258,25 +265,29 @@ export async function getChildCategories(
         WHERE t.category_id IN (?) AND t.is_deleted = 0 AND p.is_deleted = 0
       ) ranked
       WHERE rn = 1`,
-      [categoryIds]
+      [categoryIds],
     );
 
     // Build map for O(1) lookup
-    const lastPostMap = new Map<number, {
-      thread_id: number;
-      thread_title: string;
-      author_name: string;
-      created_at: string;
-    }>();
+    const lastPostMap = new Map<
+      number,
+      {
+        thread_id: number;
+        thread_title: string;
+        author_name: string;
+        created_at: string;
+      }
+    >();
 
     for (const row of lastPostRows) {
       lastPostMap.set(row.category_id, {
         thread_id: row.thread_id,
         thread_title: row.thread_title,
         author_name: row.author_name,
-        created_at: row.created_at instanceof Date
-          ? row.created_at.toISOString()
-          : `${String(row.created_at).replace(' ', 'T')}Z`
+        created_at:
+          row.created_at instanceof Date
+            ? row.created_at.toISOString()
+            : `${String(row.created_at).replace(' ', 'T')}Z`,
       });
     }
 
@@ -298,7 +309,7 @@ export async function ensureGuildCategory(guildName: string): Promise<number> {
   // Check if guild category already exists
   const [existing] = await db.query<RowDataPacket[]>(
     'SELECT id FROM forum_categories WHERE access_type = ? AND guild_name = ?',
-    ['guild', guildName]
+    ['guild', guildName],
   );
 
   if (existing.length > 0) {
@@ -309,11 +320,7 @@ export async function ensureGuildCategory(guildName: string): Promise<number> {
   const [result] = await db.query<ResultSetHeader>(
     `INSERT INTO forum_categories (name, description, access_type, guild_name, sort_order, icon)
      VALUES (?, ?, 'guild', ?, 100, '🏰')`,
-    [
-      `${guildName} Guild Hall`,
-      `Private forum for members of ${guildName}`,
-      guildName
-    ]
+    [`${guildName} Guild Hall`, `Private forum for members of ${guildName}`, guildName],
   );
 
   return result.insertId;
@@ -326,15 +333,22 @@ export async function createCategory(
   name: string,
   description: string | null,
   icon: string | null,
-  accessType: 'public' | 'authenticated' | 'guild' | 'immortal' | 'god' | 'role_based' | 'custom_acl' = 'public',
+  accessType:
+    | 'public'
+    | 'authenticated'
+    | 'guild'
+    | 'immortal'
+    | 'god'
+    | 'role_based'
+    | 'custom_acl' = 'public',
   guildName: string | null = null,
   minLevel: number | null = null,
-  sortOrder: number = 100
+  sortOrder: number = 100,
 ): Promise<number> {
   const [result] = await db.query<ResultSetHeader>(
     `INSERT INTO forum_categories (name, description, icon, access_type, guild_name, min_level, sort_order)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [name, description, icon, accessType, guildName, minLevel, sortOrder]
+    [name, description, icon, accessType, guildName, minLevel, sortOrder],
   );
 
   return result.insertId;
@@ -349,11 +363,18 @@ export async function updateCategory(
     name?: string;
     description?: string;
     icon?: string;
-    accessType?: 'public' | 'authenticated' | 'guild' | 'immortal' | 'god' | 'role_based' | 'custom_acl';
+    accessType?:
+      | 'public'
+      | 'authenticated'
+      | 'guild'
+      | 'immortal'
+      | 'god'
+      | 'role_based'
+      | 'custom_acl';
     guildName?: string;
     minLevel?: number | null;
     sortOrder?: number;
-  }
+  },
 ): Promise<boolean> {
   const setClauses: string[] = [];
   const values: any[] = [];
@@ -393,7 +414,7 @@ export async function updateCategory(
 
   const [result] = await db.query<ResultSetHeader>(
     `UPDATE forum_categories SET ${setClauses.join(', ')} WHERE id = ?`,
-    values
+    values,
   );
 
   return result.affectedRows > 0;
@@ -405,7 +426,7 @@ export async function updateCategory(
 export async function archiveCategory(categoryId: number): Promise<boolean> {
   const [result] = await db.query<ResultSetHeader>(
     'UPDATE forum_categories SET is_archived = 1 WHERE id = ?',
-    [categoryId]
+    [categoryId],
   );
 
   return result.affectedRows > 0;
@@ -434,7 +455,7 @@ export async function getThreadsByCategory(
   // Get total count
   const [countRows] = await db.query<RowDataPacket[]>(
     'SELECT COUNT(*) as total FROM forum_threads WHERE category_id = ? AND is_deleted = 0',
-    [categoryId]
+    [categoryId],
   );
 
   const total = countRows[0].total;
@@ -449,12 +470,12 @@ export async function getThreadsByCategory(
     WHERE t.category_id = ? AND t.is_deleted = 0
     ORDER BY t.is_pinned DESC, t.last_post_at DESC
     LIMIT ? OFFSET ?`,
-    [categoryId, limit, offset]
+    [categoryId, limit, offset],
   );
 
   return {
     threads: rows as ForumThread[],
-    total
+    total,
   };
 }
 
@@ -477,7 +498,7 @@ export async function getThreadById(
     LEFT JOIN frag_leaderboard pc ON t.author_character_pid = pc.pid
     LEFT JOIN user_profiles up ON t.author_account_name = up.account_name
     WHERE t.id = ?${lifecycleClause}`,
-    [threadId]
+    [threadId],
   );
 
   if (rows.length === 0) return null;
@@ -504,7 +525,7 @@ export async function getThreadById(
     FROM forum_reactions
     WHERE thread_id = ?
     GROUP BY emoji`,
-    [userPermissions?.accountName || '', threadId]
+    [userPermissions?.accountName || '', threadId],
   );
 
   const result: any = {
@@ -519,8 +540,8 @@ export async function getThreadById(
     reactions: reactionRows.map((r: RowDataPacket) => ({
       emoji: r.emoji,
       count: r.count,
-      userReacted: r.user_reacted === 1 // Convert to camelCase for frontend
-    }))
+      userReacted: r.user_reacted === 1, // Convert to camelCase for frontend
+    })),
   };
 
   // Only include IP address for Overlords (immortal level 60+)
@@ -558,7 +579,7 @@ export async function createThread(
     `INSERT INTO forum_threads
      (category_id, author_account_name, author_character_pid, title, content, ip_address, last_post_at)
      VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-    [categoryId, authorAccountName, authorCharacterPid, title, processed.content, ipAddress]
+    [categoryId, authorAccountName, authorCharacterPid, title, processed.content, ipAddress],
   );
 
   const threadId = result.insertId;
@@ -566,14 +587,14 @@ export async function createThread(
   // Link any images in the thread content (non-blocking)
   const imageUrls = extractImageUrls(processed.content || '');
   if (imageUrls.length > 0) {
-    linkImagesToThread(threadId, imageUrls, authorAccountName).catch(err => {
+    linkImagesToThread(threadId, imageUrls, authorAccountName).catch((err) => {
       logger.error('Failed to link images to thread:', err);
     });
   }
 
   // Create mention notifications (non-blocking)
   if (processed.mentions.length > 0) {
-    createMentions(threadId, processed.mentions, authorAccountName).catch(err => {
+    createMentions(threadId, processed.mentions, authorAccountName).catch((err) => {
       logger.error('Failed to create mentions for thread:', err);
     });
   }
@@ -587,7 +608,7 @@ export async function createThread(
 export async function updateThread(
   threadId: number,
   title: string,
-  content: string
+  content: string,
 ): Promise<boolean> {
   // Sanitize and process content
   const processed = processForumContent(content);
@@ -597,7 +618,7 @@ export async function updateThread(
 
   const [result] = await db.query<ResultSetHeader>(
     'UPDATE forum_threads SET title = ?, content = ?, updated_at = NOW() WHERE id = ?',
-    [title, processed.content, threadId]
+    [title, processed.content, threadId],
   );
 
   return result.affectedRows > 0;
@@ -609,7 +630,7 @@ export async function updateThread(
 export async function deleteThread(threadId: number): Promise<boolean> {
   const [result] = await db.query<ResultSetHeader>(
     'UPDATE forum_threads SET is_deleted = 1 WHERE id = ?',
-    [threadId]
+    [threadId],
   );
 
   return result.affectedRows > 0;
@@ -621,7 +642,7 @@ export async function deleteThread(threadId: number): Promise<boolean> {
 export async function togglePinThread(threadId: number, isPinned: boolean): Promise<boolean> {
   const [result] = await db.query<ResultSetHeader>(
     'UPDATE forum_threads SET is_pinned = ? WHERE id = ?',
-    [isPinned ? 1 : 0, threadId]
+    [isPinned ? 1 : 0, threadId],
   );
 
   return result.affectedRows > 0;
@@ -633,7 +654,7 @@ export async function togglePinThread(threadId: number, isPinned: boolean): Prom
 export async function toggleLockThread(threadId: number, isLocked: boolean): Promise<boolean> {
   const [result] = await db.query<ResultSetHeader>(
     'UPDATE forum_threads SET is_locked = ? WHERE id = ?',
-    [isLocked ? 1 : 0, threadId]
+    [isLocked ? 1 : 0, threadId],
   );
 
   return result.affectedRows > 0;
@@ -643,10 +664,7 @@ export async function toggleLockThread(threadId: number, isLocked: boolean): Pro
  * Increment thread view count
  */
 export async function incrementThreadViews(threadId: number): Promise<void> {
-  await db.query(
-    'UPDATE forum_threads SET view_count = view_count + 1 WHERE id = ?',
-    [threadId]
-  );
+  await db.query('UPDATE forum_threads SET view_count = view_count + 1 WHERE id = ?', [threadId]);
 }
 
 // ============================================================================
@@ -672,7 +690,10 @@ export async function getPostsByThread(
     if (threadRows.length === 0 || (!options.includeDeleted && threadRows[0].is_deleted)) {
       return { posts: [], total: 0 };
     }
-    const access = await getCategoryAccessForAccount(Number(threadRows[0].category_id), userPermissions);
+    const access = await getCategoryAccessForAccount(
+      Number(threadRows[0].category_id),
+      userPermissions,
+    );
     if (!access.canView) return { posts: [], total: 0 };
   }
 
@@ -682,7 +703,7 @@ export async function getPostsByThread(
   // Get total count (active posts by default)
   const [countRows] = await db.query<RowDataPacket[]>(
     `SELECT COUNT(*) as total FROM forum_posts WHERE thread_id = ?${postLifecycleClause}`,
-    [threadId]
+    [threadId],
   );
 
   const total = countRows[0].total;
@@ -699,7 +720,7 @@ export async function getPostsByThread(
     WHERE p.thread_id = ?${postLifecycleClause}
     ORDER BY p.created_at ASC
     LIMIT ? OFFSET ?`,
-    [threadId, limit, offset]
+    [threadId, limit, offset],
   );
 
   // Get reactions for each post
@@ -714,7 +735,7 @@ export async function getPostsByThread(
       FROM forum_reactions
       WHERE post_id = ?
       GROUP BY emoji`,
-      [accountName, post.id]
+      [accountName, post.id],
     );
 
     // Fetch guild data if character exists
@@ -734,8 +755,8 @@ export async function getPostsByThread(
       reactions: reactionRows.map((r: RowDataPacket) => ({
         emoji: r.emoji,
         count: r.count,
-        userReacted: r.user_reacted === 1 // Convert to camelCase for frontend
-      }))
+        userReacted: r.user_reacted === 1, // Convert to camelCase for frontend
+      })),
     };
 
     // Only include IP address for Overlords (immortal level 60+)
@@ -768,7 +789,7 @@ export async function getPostById(
     LEFT JOIN frag_leaderboard pc ON p.author_character_pid = pc.pid
     LEFT JOIN user_profiles up ON p.author_account_name = up.account_name
     WHERE p.id = ?${lifecycleClause}`,
-    [postId]
+    [postId],
   );
 
   if (rows.length === 0) {
@@ -783,7 +804,10 @@ export async function getPostById(
       [post.thread_id],
     );
     if (threadRows.length === 0) return null;
-    const access = await getCategoryAccessForAccount(Number(threadRows[0].category_id), userPermissions);
+    const access = await getCategoryAccessForAccount(
+      Number(threadRows[0].category_id),
+      userPermissions,
+    );
     if (!access.canView) return null;
   }
 
@@ -796,7 +820,7 @@ export async function getPostById(
     FROM forum_reactions
     WHERE post_id = ?
     GROUP BY emoji`,
-    [accountName, postId]
+    [accountName, postId],
   );
 
   // Fetch guild data if character exists
@@ -816,8 +840,8 @@ export async function getPostById(
     reactions: reactionRows.map((r: RowDataPacket) => ({
       emoji: r.emoji,
       count: r.count,
-      userReacted: r.user_reacted === 1
-    }))
+      userReacted: r.user_reacted === 1,
+    })),
   };
 
   // Only include IP address for Overlords (immortal level 60+)
@@ -853,7 +877,7 @@ export async function createPost(
     // Get thread info for notifications
     const [threads] = await connection.query<RowDataPacket[]>(
       'SELECT category_id FROM forum_threads WHERE id = ?',
-      [threadId]
+      [threadId],
     );
 
     if (threads.length === 0) {
@@ -874,7 +898,7 @@ export async function createPost(
       `INSERT INTO forum_posts
        (thread_id, parent_post_id, author_account_name, author_character_pid, content, ip_address)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [threadId, parentPostId, authorAccountName, authorCharacterPid, processed.content, ipAddress]
+      [threadId, parentPostId, authorAccountName, authorCharacterPid, processed.content, ipAddress],
     );
 
     const postId = result.insertId;
@@ -882,7 +906,7 @@ export async function createPost(
     // Update thread's last_post_at and reply_count
     await connection.query(
       'UPDATE forum_threads SET last_post_at = NOW(), reply_count = reply_count + 1 WHERE id = ?',
-      [threadId]
+      [threadId],
     );
 
     // Get character name for notifications
@@ -890,7 +914,7 @@ export async function createPost(
     if (authorCharacterPid) {
       const [chars] = await connection.query<RowDataPacket[]>(
         'SELECT COALESCE(fl.char_name, pd.name) as name FROM player_data pd LEFT JOIN frag_leaderboard fl ON pd.pid = fl.pid WHERE pd.pid = ?',
-        [authorCharacterPid]
+        [authorCharacterPid],
       );
       if (chars.length > 0) {
         characterName = chars[0].name;
@@ -902,23 +926,25 @@ export async function createPost(
     // Link any images in the post content (after commit, non-blocking)
     const imageUrls = extractImageUrls(processed.content || '');
     if (imageUrls.length > 0) {
-      linkImagesToPost(postId, imageUrls, authorAccountName).catch(err => {
+      linkImagesToPost(postId, imageUrls, authorAccountName).catch((err) => {
         logger.error('Failed to link images to post:', err);
       });
     }
 
     // Create mention notifications (after commit, non-blocking)
     if (processed.mentions.length > 0) {
-      createMentions(postId, processed.mentions, authorAccountName).catch(err => {
+      createMentions(postId, processed.mentions, authorAccountName).catch((err) => {
         logger.error('Failed to create mentions:', err);
       });
     }
 
     // Create notifications (after commit, non-blocking)
     // We don't await this to avoid slowing down post creation
-    createPostNotifications(postId, threadId, categoryId, authorAccountName, characterName).catch(err => {
-      logger.error('Failed to create post notifications:', err);
-    });
+    createPostNotifications(postId, threadId, categoryId, authorAccountName, characterName).catch(
+      (err) => {
+        logger.error('Failed to create post notifications:', err);
+      },
+    );
 
     return postId;
   } catch (error) {
@@ -932,10 +958,7 @@ export async function createPost(
 /**
  * Update post (author only, within 15 minutes)
  */
-export async function updatePost(
-  postId: number,
-  content: string
-): Promise<boolean> {
+export async function updatePost(postId: number, content: string): Promise<boolean> {
   // Sanitize and process content
   const processed = processForumContent(content);
   if (processed.error) {
@@ -944,7 +967,7 @@ export async function updatePost(
 
   const [result] = await db.query<ResultSetHeader>(
     'UPDATE forum_posts SET content = ?, edited_at = NOW() WHERE id = ?',
-    [processed.content, postId]
+    [processed.content, postId],
   );
 
   return result.affectedRows > 0;
@@ -956,19 +979,19 @@ export async function updatePost(
 export async function deletePost(postId: number): Promise<boolean> {
   const [result] = await db.query<ResultSetHeader>(
     'UPDATE forum_posts SET is_deleted = 1 WHERE id = ?',
-    [postId]
+    [postId],
   );
 
   // Decrement thread reply count
   const [postRows] = await db.query<RowDataPacket[]>(
     'SELECT thread_id FROM forum_posts WHERE id = ?',
-    [postId]
+    [postId],
   );
 
   if (postRows.length > 0) {
     await db.query(
       'UPDATE forum_threads SET reply_count = GREATEST(0, reply_count - 1) WHERE id = ?',
-      [postRows[0].thread_id]
+      [postRows[0].thread_id],
     );
   }
 
@@ -983,7 +1006,7 @@ export async function canEditPost(postId: number, accountName: string): Promise<
     `SELECT author_account_name
     FROM forum_posts
     WHERE id = ?`,
-    [postId]
+    [postId],
   );
 
   if (rows.length === 0) return false;
@@ -1004,13 +1027,13 @@ export async function addReaction(
   postId: number | null,
   accountName: string,
   emoji: string,
-  threadId?: number
+  threadId?: number,
 ): Promise<boolean> {
   try {
     await db.query(
       `INSERT INTO forum_reactions (post_id, thread_id, user_account_name, emoji)
        VALUES (?, ?, ?, ?)`,
-      [postId, threadId || null, accountName, emoji]
+      [postId, threadId || null, accountName, emoji],
     );
     return true;
   } catch (error) {
@@ -1029,11 +1052,11 @@ export async function removeReaction(
   postId: number | null,
   accountName: string,
   emoji: string,
-  threadId?: number
+  threadId?: number,
 ): Promise<boolean> {
   const [result] = await db.query<ResultSetHeader>(
     'DELETE FROM forum_reactions WHERE post_id <=> ? AND thread_id <=> ? AND user_account_name = ? AND emoji = ?',
-    [postId, threadId || null, accountName, emoji]
+    [postId, threadId || null, accountName, emoji],
   );
 
   return result.affectedRows > 0;
@@ -1049,12 +1072,12 @@ export async function removeReaction(
 export async function notifyThreadSubscribers(
   threadId: number,
   postId: number,
-  triggeredByAccountName: string
+  triggeredByAccountName: string,
 ): Promise<void> {
   // Get thread title for the notification message
   const [threads] = await db.query<RowDataPacket[]>(
     'SELECT title FROM forum_threads WHERE id = ?',
-    [threadId]
+    [threadId],
   );
   const threadTitle = threads[0]?.title || 'a thread';
 
@@ -1063,7 +1086,7 @@ export async function notifyThreadSubscribers(
     `SELECT user_account_name
      FROM forum_subscriptions
      WHERE thread_id = ? AND notify_on_reply = 1 AND user_account_name != ?`,
-    [threadId, triggeredByAccountName]
+    [threadId, triggeredByAccountName],
   );
 
   // Create notifications using unified service
@@ -1121,7 +1144,7 @@ export async function searchForum(
   filters: SearchFilters,
   permissions: UserPermissions,
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
 ): Promise<{ results: SearchResult[]; total: number }> {
   const offset = (page - 1) * limit;
   const { query, scope = 'both', author, categoryId, dateFrom, dateTo } = filters;
@@ -1233,7 +1256,7 @@ export async function searchForum(
 
   return {
     results: rows as SearchResult[],
-    total
+    total,
   };
 }
 
@@ -1245,11 +1268,13 @@ async function getAccessibleCategoryIds(permissions: UserPermissions): Promise<n
     'SELECT id FROM forum_categories WHERE is_archived = 0',
   );
 
-  const decisions = await Promise.all(rows.map(async (row) => {
-    const categoryId = Number(row.id);
-    const access = await getCategoryAccessForAccount(categoryId, permissions);
-    return access.canView ? categoryId : null;
-  }));
+  const decisions = await Promise.all(
+    rows.map(async (row) => {
+      const categoryId = Number(row.id);
+      const access = await getCategoryAccessForAccount(categoryId, permissions);
+      return access.canView ? categoryId : null;
+    }),
+  );
 
   return decisions.filter((id): id is number => id !== null);
 }
@@ -1277,7 +1302,7 @@ export interface ModerationLogEntry {
 export async function moderatorDeletePost(
   postId: number,
   moderatorAccount: string,
-  reason: string | null = null
+  reason: string | null = null,
 ): Promise<void> {
   const connection = await db.getConnection();
 
@@ -1287,7 +1312,7 @@ export async function moderatorDeletePost(
     // Get post content before deletion
     const [posts] = await connection.query<RowDataPacket[]>(
       'SELECT content, thread_id FROM forum_posts WHERE id = ? AND is_deleted = 0',
-      [postId]
+      [postId],
     );
 
     if (posts.length === 0) {
@@ -1301,7 +1326,7 @@ export async function moderatorDeletePost(
       `UPDATE forum_posts
        SET is_deleted = 1, deleted_at = NOW(), deleted_by = ?
        WHERE id = ?`,
-      [moderatorAccount, postId]
+      [moderatorAccount, postId],
     );
 
     // Log the moderation action
@@ -1309,14 +1334,13 @@ export async function moderatorDeletePost(
       `INSERT INTO forum_moderation_log
        (moderator_account, action_type, target_type, target_id, reason, original_content)
        VALUES (?, 'delete_post', 'post', ?, ?, ?)`,
-      [moderatorAccount, postId, reason, post.content]
+      [moderatorAccount, postId, reason, post.content],
     );
 
     // Update thread reply count
-    await connection.query(
-      'UPDATE forum_threads SET reply_count = reply_count - 1 WHERE id = ?',
-      [post.thread_id]
-    );
+    await connection.query('UPDATE forum_threads SET reply_count = reply_count - 1 WHERE id = ?', [
+      post.thread_id,
+    ]);
 
     await connection.commit();
   } catch (error) {
@@ -1330,10 +1354,7 @@ export async function moderatorDeletePost(
 /**
  * Restore a soft-deleted post
  */
-export async function restorePost(
-  postId: number,
-  moderatorAccount: string
-): Promise<void> {
+export async function restorePost(postId: number, moderatorAccount: string): Promise<void> {
   const connection = await db.getConnection();
 
   try {
@@ -1342,7 +1363,7 @@ export async function restorePost(
     // Get the post
     const [posts] = await connection.query<RowDataPacket[]>(
       'SELECT thread_id FROM forum_posts WHERE id = ? AND is_deleted = 1',
-      [postId]
+      [postId],
     );
 
     if (posts.length === 0) {
@@ -1356,7 +1377,7 @@ export async function restorePost(
       `UPDATE forum_posts
        SET is_deleted = 0, deleted_at = NULL, deleted_by = NULL
        WHERE id = ?`,
-      [postId]
+      [postId],
     );
 
     // Log the moderation action
@@ -1364,14 +1385,13 @@ export async function restorePost(
       `INSERT INTO forum_moderation_log
        (moderator_account, action_type, target_type, target_id)
        VALUES (?, 'restore_post', 'post', ?)`,
-      [moderatorAccount, postId]
+      [moderatorAccount, postId],
     );
 
     // Update thread reply count
-    await connection.query(
-      'UPDATE forum_threads SET reply_count = reply_count + 1 WHERE id = ?',
-      [post.thread_id]
-    );
+    await connection.query('UPDATE forum_threads SET reply_count = reply_count + 1 WHERE id = ?', [
+      post.thread_id,
+    ]);
 
     await connection.commit();
   } catch (error) {
@@ -1388,7 +1408,7 @@ export async function restorePost(
 export async function moderatorDeleteThread(
   threadId: number,
   moderatorAccount: string,
-  reason: string | null = null
+  reason: string | null = null,
 ): Promise<void> {
   const connection = await db.getConnection();
 
@@ -1398,7 +1418,7 @@ export async function moderatorDeleteThread(
     // Get thread info before deletion
     const [threads] = await connection.query<RowDataPacket[]>(
       'SELECT title, content, category_id FROM forum_threads WHERE id = ? AND is_deleted = 0',
-      [threadId]
+      [threadId],
     );
 
     if (threads.length === 0) {
@@ -1412,7 +1432,7 @@ export async function moderatorDeleteThread(
       `UPDATE forum_threads
        SET is_deleted = 1, deleted_at = NOW(), deleted_by = ?
        WHERE id = ?`,
-      [moderatorAccount, threadId]
+      [moderatorAccount, threadId],
     );
 
     // Log the moderation action
@@ -1420,7 +1440,13 @@ export async function moderatorDeleteThread(
       `INSERT INTO forum_moderation_log
        (moderator_account, action_type, target_type, target_id, category_id, reason, original_content)
        VALUES (?, 'delete_thread', 'thread', ?, ?, ?, ?)`,
-      [moderatorAccount, threadId, thread.category_id, reason, `${thread.title}\n\n${thread.content}`]
+      [
+        moderatorAccount,
+        threadId,
+        thread.category_id,
+        reason,
+        `${thread.title}\n\n${thread.content}`,
+      ],
     );
 
     await connection.commit();
@@ -1435,10 +1461,7 @@ export async function moderatorDeleteThread(
 /**
  * Restore a soft-deleted thread
  */
-export async function restoreThread(
-  threadId: number,
-  moderatorAccount: string
-): Promise<void> {
+export async function restoreThread(threadId: number, moderatorAccount: string): Promise<void> {
   const connection = await db.getConnection();
 
   try {
@@ -1447,7 +1470,7 @@ export async function restoreThread(
     // Check thread exists and is deleted
     const [threads] = await connection.query<RowDataPacket[]>(
       'SELECT category_id FROM forum_threads WHERE id = ? AND is_deleted = 1',
-      [threadId]
+      [threadId],
     );
 
     if (threads.length === 0) {
@@ -1461,7 +1484,7 @@ export async function restoreThread(
       `UPDATE forum_threads
        SET is_deleted = 0, deleted_at = NULL, deleted_by = NULL
        WHERE id = ?`,
-      [threadId]
+      [threadId],
     );
 
     // Log the moderation action
@@ -1469,7 +1492,7 @@ export async function restoreThread(
       `INSERT INTO forum_moderation_log
        (moderator_account, action_type, target_type, target_id, category_id)
        VALUES (?, 'restore_thread', 'thread', ?, ?)`,
-      [moderatorAccount, threadId, thread.category_id]
+      [moderatorAccount, threadId, thread.category_id],
     );
 
     await connection.commit();
@@ -1488,7 +1511,7 @@ export async function moveThread(
   threadId: number,
   newCategoryId: number,
   moderatorAccount: string,
-  reason: string | null = null
+  reason: string | null = null,
 ): Promise<void> {
   const connection = await db.getConnection();
 
@@ -1498,7 +1521,7 @@ export async function moveThread(
     // Get current category
     const [threads] = await connection.query<RowDataPacket[]>(
       'SELECT category_id FROM forum_threads WHERE id = ? AND is_deleted = 0',
-      [threadId]
+      [threadId],
     );
 
     if (threads.length === 0) {
@@ -1514,7 +1537,7 @@ export async function moveThread(
     // Check new category exists
     const [categories] = await connection.query<RowDataPacket[]>(
       'SELECT id FROM forum_categories WHERE id = ?',
-      [newCategoryId]
+      [newCategoryId],
     );
 
     if (categories.length === 0) {
@@ -1522,17 +1545,17 @@ export async function moveThread(
     }
 
     // Move the thread
-    await connection.query(
-      'UPDATE forum_threads SET category_id = ? WHERE id = ?',
-      [newCategoryId, threadId]
-    );
+    await connection.query('UPDATE forum_threads SET category_id = ? WHERE id = ?', [
+      newCategoryId,
+      threadId,
+    ]);
 
     // Log the moderation action
     await connection.query(
       `INSERT INTO forum_moderation_log
        (moderator_account, action_type, target_type, target_id, category_id, new_category_id, reason)
        VALUES (?, 'move_thread', 'thread', ?, ?, ?, ?)`,
-      [moderatorAccount, threadId, oldCategoryId, newCategoryId, reason]
+      [moderatorAccount, threadId, oldCategoryId, newCategoryId, reason],
     );
 
     await connection.commit();
@@ -1554,7 +1577,7 @@ export async function getModerationLog(
     moderator?: string;
     actionType?: string;
     categoryId?: number;
-  }
+  },
 ): Promise<{ logs: ModerationLogEntry[]; total: number }> {
   let whereClause = '1=1';
   const queryParams: any[] = [];
@@ -1580,18 +1603,18 @@ export async function getModerationLog(
      WHERE ${whereClause}
      ORDER BY created_at DESC
      LIMIT ? OFFSET ?`,
-    [...queryParams, limit, offset]
+    [...queryParams, limit, offset],
   );
 
   // Get total count
   const [countResult] = await db.query<RowDataPacket[]>(
     `SELECT COUNT(*) as total FROM forum_moderation_log WHERE ${whereClause}`,
-    queryParams
+    queryParams,
   );
 
   return {
     logs: logs as ModerationLogEntry[],
-    total: countResult[0].total
+    total: countResult[0].total,
   };
 }
 
@@ -1605,14 +1628,14 @@ export async function getModerationLog(
 export async function subscribeToThread(
   accountName: string,
   threadId: number,
-  notificationPreference: 'all' | 'mentions' | 'none' = 'all'
+  notificationPreference: 'all' | 'mentions' | 'none' = 'all',
 ): Promise<void> {
   const connection = await db.getConnection();
   try {
     // Check if thread exists
     const [threads] = await connection.query<RowDataPacket[]>(
       'SELECT id FROM forum_threads WHERE id = ? AND is_deleted = 0',
-      [threadId]
+      [threadId],
     );
 
     if (threads.length === 0) {
@@ -1624,7 +1647,7 @@ export async function subscribeToThread(
       `INSERT INTO forum_subscriptions (user_account_name, subscription_type, thread_id, notification_preference)
        VALUES (?, 'thread', ?, ?)
        ON DUPLICATE KEY UPDATE notification_preference = VALUES(notification_preference)`,
-      [accountName, threadId, notificationPreference]
+      [accountName, threadId, notificationPreference],
     );
   } finally {
     connection.release();
@@ -1637,14 +1660,14 @@ export async function subscribeToThread(
 export async function subscribeToCategory(
   accountName: string,
   categoryId: number,
-  notificationPreference: 'all' | 'mentions' | 'none' = 'all'
+  notificationPreference: 'all' | 'mentions' | 'none' = 'all',
 ): Promise<void> {
   const connection = await db.getConnection();
   try {
     // Check if category exists
     const [categories] = await connection.query<RowDataPacket[]>(
       'SELECT id FROM forum_categories WHERE id = ?',
-      [categoryId]
+      [categoryId],
     );
 
     if (categories.length === 0) {
@@ -1656,7 +1679,7 @@ export async function subscribeToCategory(
       `INSERT INTO forum_subscriptions (user_account_name, subscription_type, category_id, notification_preference)
        VALUES (?, 'category', ?, ?)
        ON DUPLICATE KEY UPDATE notification_preference = VALUES(notification_preference)`,
-      [accountName, categoryId, notificationPreference]
+      [accountName, categoryId, notificationPreference],
     );
   } finally {
     connection.release();
@@ -1672,7 +1695,7 @@ export async function unsubscribeFromThread(accountName: string, threadId: numbe
     await connection.query(
       `DELETE FROM forum_subscriptions
        WHERE user_account_name = ? AND subscription_type = 'thread' AND thread_id = ?`,
-      [accountName, threadId]
+      [accountName, threadId],
     );
   } finally {
     connection.release();
@@ -1682,13 +1705,16 @@ export async function unsubscribeFromThread(accountName: string, threadId: numbe
 /**
  * Unsubscribe from a category
  */
-export async function unsubscribeFromCategory(accountName: string, categoryId: number): Promise<void> {
+export async function unsubscribeFromCategory(
+  accountName: string,
+  categoryId: number,
+): Promise<void> {
   const connection = await db.getConnection();
   try {
     await connection.query(
       `DELETE FROM forum_subscriptions
        WHERE user_account_name = ? AND subscription_type = 'category' AND category_id = ?`,
-      [accountName, categoryId]
+      [accountName, categoryId],
     );
   } finally {
     connection.release();
@@ -1721,7 +1747,7 @@ export async function getUserSubscriptions(accountName: string): Promise<{
        JOIN forum_categories c ON t.category_id = c.id
        WHERE s.user_account_name = ? AND s.subscription_type = 'thread'
        ORDER BY s.created_at DESC`,
-      [accountName]
+      [accountName],
     );
 
     // Get category subscriptions with category details
@@ -1738,12 +1764,12 @@ export async function getUserSubscriptions(accountName: string): Promise<{
        JOIN forum_categories c ON s.category_id = c.id
        WHERE s.user_account_name = ? AND s.subscription_type = 'category'
        ORDER BY s.created_at DESC`,
-      [accountName]
+      [accountName],
     );
 
     return {
       threads: threadSubs,
-      categories: categorySubs
+      categories: categorySubs,
     };
   } finally {
     connection.release();
@@ -1753,13 +1779,16 @@ export async function getUserSubscriptions(accountName: string): Promise<{
 /**
  * Check if user is subscribed to a thread
  */
-export async function isSubscribedToThread(accountName: string, threadId: number): Promise<boolean> {
+export async function isSubscribedToThread(
+  accountName: string,
+  threadId: number,
+): Promise<boolean> {
   const connection = await db.getConnection();
   try {
     const [rows] = await connection.query<RowDataPacket[]>(
       `SELECT id FROM forum_subscriptions
        WHERE user_account_name = ? AND subscription_type = 'thread' AND thread_id = ?`,
-      [accountName, threadId]
+      [accountName, threadId],
     );
     return rows.length > 0;
   } finally {
@@ -1770,13 +1799,16 @@ export async function isSubscribedToThread(accountName: string, threadId: number
 /**
  * Check if user is subscribed to a category
  */
-export async function isSubscribedToCategory(accountName: string, categoryId: number): Promise<boolean> {
+export async function isSubscribedToCategory(
+  accountName: string,
+  categoryId: number,
+): Promise<boolean> {
   const connection = await db.getConnection();
   try {
     const [rows] = await connection.query<RowDataPacket[]>(
       `SELECT id FROM forum_subscriptions
        WHERE user_account_name = ? AND subscription_type = 'category' AND category_id = ?`,
-      [accountName, categoryId]
+      [accountName, categoryId],
     );
     return rows.length > 0;
   } finally {
@@ -1797,7 +1829,7 @@ export async function createPostNotifications(
   threadId: number,
   categoryId: number,
   authorAccount: string,
-  authorCharacter: string | null
+  authorCharacter: string | null,
 ): Promise<void> {
   const connection = await db.getConnection();
   try {
@@ -1813,7 +1845,7 @@ export async function createPostNotifications(
          (s.subscription_type = 'thread' AND s.thread_id = ?)
          OR (s.subscription_type = 'category' AND s.category_id = ?)
        )`,
-      [authorAccount, threadId, categoryId]
+      [authorAccount, threadId, categoryId],
     );
 
     if (subscribers.length === 0) {
@@ -1823,7 +1855,7 @@ export async function createPostNotifications(
     // Get thread title for notification message
     const [threads] = await connection.query<RowDataPacket[]>(
       'SELECT title FROM forum_threads WHERE id = ?',
-      [threadId]
+      [threadId],
     );
 
     if (threads.length === 0) {
@@ -1835,24 +1867,24 @@ export async function createPostNotifications(
 
     // Create notifications for each subscriber
     const notifications = subscribers
-      .filter(sub => sub.notification_preference === 'all') // Only notify if preference is 'all'
-      .map(sub => [
+      .filter((sub) => sub.notification_preference === 'all') // Only notify if preference is 'all'
+      .map((sub) => [
         sub.account_name,
         'new_post',
         threadId,
         postId,
         authorAccount,
         authorCharacter,
-        `${characterDisplay} posted in "${threadTitle}"`
+        `${characterDisplay} posted in "${threadTitle}"`,
       ]);
 
     if (notifications.length > 0) {
-      const notifRows = notifications.map(n => ['forum', ...n]);
+      const notifRows = notifications.map((n) => ['forum', ...n]);
       await connection.query(
         `INSERT INTO notifications
          (source, account_name, notification_type, thread_id, post_id, triggered_by_account, triggered_by_character, message)
          VALUES ?`,
-        [notifRows]
+        [notifRows],
       );
     }
   } finally {
@@ -1868,7 +1900,7 @@ export async function getUserNotifications(
   accountName: string,
   page: number = 1,
   limit: number = 50,
-  unreadOnly: boolean = false
+  unreadOnly: boolean = false,
 ): Promise<{ notifications: any[]; total: number }> {
   const offset = (page - 1) * limit;
   return notificationService.getNotifications(accountName, { unreadOnly, limit, offset });
@@ -1878,7 +1910,10 @@ export async function getUserNotifications(
  * Mark notification as read (delegates to unified service)
  * @deprecated Use unifiedNotificationService directly
  */
-export async function markNotificationAsRead(notificationId: number, accountName: string): Promise<void> {
+export async function markNotificationAsRead(
+  notificationId: number,
+  accountName: string,
+): Promise<void> {
   await notificationService.markAsRead(notificationId, accountName);
 }
 
@@ -1902,7 +1937,10 @@ export async function getUnreadNotificationCount(accountName: string): Promise<n
  * Delete notification (delegates to unified service)
  * @deprecated Use unifiedNotificationService directly
  */
-export async function deleteNotification(notificationId: number, accountName: string): Promise<void> {
+export async function deleteNotification(
+  notificationId: number,
+  accountName: string,
+): Promise<void> {
   await notificationService.deleteNotification(notificationId, accountName);
 }
 
@@ -1947,7 +1985,7 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
     // Get profile (may not exist yet - that's OK, we'll return defaults)
     const [profileRows] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM user_profiles WHERE account_name = ?',
-      [accountName]
+      [accountName],
     );
 
     const profile = profileRows[0] || {
@@ -1958,7 +1996,7 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
       website: null,
       location: null,
       created_at: new Date(),
-      last_seen_at: null
+      last_seen_at: null,
     };
 
     // Calculate post stats
@@ -1969,7 +2007,7 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
         MAX(p.created_at) as last_post_at
        FROM forum_posts p
        WHERE p.author_account_name = ? AND p.is_deleted = 0`,
-      [accountName]
+      [accountName],
     );
 
     // Calculate thread count from forum_threads (threads user created)
@@ -1977,14 +2015,14 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
       `SELECT COUNT(*) as total_threads
        FROM forum_threads t
        WHERE t.author_account_name = ? AND t.is_deleted = 0`,
-      [accountName]
+      [accountName],
     );
 
     const stats = {
       total_posts: postStats[0]?.total_posts || 0,
       total_threads: threadStats[0]?.total_threads || 0,
       first_post_at: postStats[0]?.first_post_at || null,
-      last_post_at: postStats[0]?.last_post_at || null
+      last_post_at: postStats[0]?.last_post_at || null,
     };
 
     // Get character totals
@@ -1997,7 +2035,7 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
        LEFT JOIN frag_leaderboard pc ON ac.pid = pc.pid
        LEFT JOIN frag_leaderboard fl ON ac.pid = fl.pid AND fl.deleted_at IS NULL
        WHERE ac.account_name = ? AND ac.deleted_at IS NULL`,
-      [accountName]
+      [accountName],
     );
 
     // Get total deaths across all characters
@@ -2006,7 +2044,7 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
        FROM pkill_info pi
        JOIN account_characters ac ON pi.pid = ac.pid
        WHERE ac.account_name = ? AND ac.deleted_at IS NULL AND pi.pk_type = 'VICTIM'`,
-      [accountName]
+      [accountName],
     );
 
     const charStats = charTotals[0] || { character_count: 0, total_frags: 0, total_wealth: 0 };
@@ -2031,8 +2069,8 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
         characterCount: Number(charStats.character_count) || 0,
         totalFrags: Number(charStats.total_frags) || 0,
         totalDeaths: Number(deathStats.total_deaths) || 0,
-        totalWealth: Number(charStats.total_wealth) || 0
-      }
+        totalWealth: Number(charStats.total_wealth) || 0,
+      },
     };
   } finally {
     connection.release();
@@ -2050,7 +2088,7 @@ export async function updateUserProfile(
     location?: string;
     avatarUrl?: string | null;
     bannerUrl?: string | null;
-  }
+  },
 ): Promise<void> {
   const connection = await db.getConnection();
   try {
@@ -2096,7 +2134,7 @@ export async function updateUserProfile(
       `INSERT INTO user_profiles (${insertColumns.join(', ')})
        VALUES (${insertPlaceholders.join(', ')})
        ON DUPLICATE KEY UPDATE ${updateClauses.join(', ')}`,
-      insertValues
+      insertValues,
     );
   } finally {
     connection.release();
@@ -2126,7 +2164,7 @@ export async function getUserPosts(
        FROM forum_posts p
        JOIN forum_threads t ON p.thread_id = t.id
        WHERE p.author_account_name = ? AND p.is_deleted = 0 AND t.is_deleted = 0${categoryClause}`,
-      [accountName]
+      [accountName],
     );
 
     const total = countRows[0].total;
@@ -2147,7 +2185,7 @@ export async function getUserPosts(
        WHERE p.author_account_name = ? AND p.is_deleted = 0 AND t.is_deleted = 0${categoryClause}
        ORDER BY p.created_at DESC
        LIMIT ? OFFSET ?`,
-      [accountName, limit, offset]
+      [accountName, limit, offset],
     );
 
     return { posts, total };
@@ -2178,7 +2216,7 @@ export async function getUserThreads(
       `SELECT COUNT(*) as total
        FROM forum_threads t
        WHERE t.author_account_name = ? AND t.is_deleted = 0${categoryClause}`,
-      [accountName]
+      [accountName],
     );
 
     const total = countRows[0].total;
@@ -2195,7 +2233,7 @@ export async function getUserThreads(
        WHERE t.author_account_name = ? AND t.is_deleted = 0${categoryClause}
        ORDER BY t.created_at DESC
        LIMIT ? OFFSET ?`,
-      [accountName, limit, offset]
+      [accountName, limit, offset],
     );
 
     return { threads, total };
@@ -2231,7 +2269,7 @@ export async function updateUserStats(accountName: string): Promise<void> {
          total_threads = VALUES(total_threads),
          first_post_at = VALUES(first_post_at),
          last_post_at = VALUES(last_post_at)`,
-      [accountName, accountName, accountName, accountName, accountName, accountName, accountName]
+      [accountName, accountName, accountName, accountName, accountName, accountName, accountName],
     );
   } finally {
     connection.release();
@@ -2278,21 +2316,21 @@ export async function extractMentions(content: string): Promise<string[]> {
 export async function createMentions(
   postId: number,
   mentionedAccounts: string[],
-  mentionedBy: string
+  mentionedBy: string,
 ): Promise<void> {
   if (mentionedAccounts.length === 0) return;
 
   const connection = await db.getConnection();
   try {
     // Remove self-mentions
-    const filteredAccounts = mentionedAccounts.filter(acc => acc !== mentionedBy);
+    const filteredAccounts = mentionedAccounts.filter((acc) => acc !== mentionedBy);
     if (filteredAccounts.length === 0) return;
 
     // Insert mentions
-    const values = filteredAccounts.map(acc => [postId, acc, mentionedBy]);
+    const values = filteredAccounts.map((acc) => [postId, acc, mentionedBy]);
     await connection.query(
       'INSERT INTO forum_mentions (post_id, mentioned_account_name, mentioned_by_account_name) VALUES ?',
-      [values]
+      [values],
     );
 
     // Create notifications for mentioned users
@@ -2302,7 +2340,7 @@ export async function createMentions(
        FROM forum_posts p
        JOIN forum_threads t ON p.thread_id = t.id
        WHERE p.id = ?`,
-      [postId]
+      [postId],
     );
 
     if (posts.length === 0) return;
@@ -2316,7 +2354,7 @@ export async function createMentions(
     if (post.author_character_pid) {
       const [chars] = await connection.query<RowDataPacket[]>(
         'SELECT COALESCE(fl.char_name, pd.name) as name FROM player_data pd LEFT JOIN frag_leaderboard fl ON pd.pid = fl.pid WHERE pd.pid = ?',
-        [post.author_character_pid]
+        [post.author_character_pid],
       );
       if (chars.length > 0) {
         characterName = chars[0].name;
@@ -2371,7 +2409,7 @@ export async function getCharacterProfile(characterName: string): Promise<any | 
        LEFT JOIN frag_leaderboard fl ON pd.pid = fl.pid
        LEFT JOIN associations a ON pd.assoc_id = a.id
        WHERE pd.name = ?`,
-      [characterName]
+      [characterName],
     );
 
     if (characters.length === 0) {
@@ -2409,7 +2447,7 @@ export async function getCharacterProfile(characterName: string): Promise<any | 
       `SELECT COUNT(*) as post_count
        FROM forum_posts
        WHERE author_character_pid = ? AND is_deleted = 0`,
-      [character.pid]
+      [character.pid],
     );
 
     // Get character's thread count
@@ -2417,7 +2455,7 @@ export async function getCharacterProfile(characterName: string): Promise<any | 
       `SELECT COUNT(*) as thread_count
        FROM forum_threads
        WHERE author_character_pid = ? AND is_deleted = 0`,
-      [character.pid]
+      [character.pid],
     );
 
     // Get PvP stats (kills and deaths)
@@ -2425,14 +2463,14 @@ export async function getCharacterProfile(characterName: string): Promise<any | 
       `SELECT COUNT(*) as kills
        FROM pkill_info
        WHERE pid = ? AND pk_type IN ('KILLER', 'KILLER-GROUP')`,
-      [character.pid]
+      [character.pid],
     );
 
     const [deathsRows] = await connection.query<RowDataPacket[]>(
       `SELECT COUNT(*) as deaths
        FROM pkill_info
        WHERE pid = ? AND pk_type = 'VICTIM'`,
-      [character.pid]
+      [character.pid],
     );
 
     // Try to get guild info if character is in a guild
@@ -2463,7 +2501,7 @@ export async function getCharacterProfile(characterName: string): Promise<any | 
         forumThreads: threadCountRows[0].thread_count,
         pvpKills: killsRows[0].kills,
         pvpDeaths: deathsRows[0].deaths,
-      }
+      },
     };
   } finally {
     connection.release();
@@ -2488,7 +2526,7 @@ export async function getCharacterPosts(
     // First get the character's PID
     const [characters] = await connection.query<RowDataPacket[]>(
       'SELECT pid FROM player_data WHERE name = ?',
-      [characterName]
+      [characterName],
     );
 
     if (characters.length === 0) {
@@ -2504,7 +2542,7 @@ export async function getCharacterPosts(
        FROM forum_posts p
        JOIN forum_threads t ON p.thread_id = t.id
        WHERE p.author_character_pid = ? AND p.is_deleted = 0 AND t.is_deleted = 0${categoryClause}`,
-      [pid]
+      [pid],
     );
 
     // Get posts with thread info
@@ -2519,7 +2557,7 @@ export async function getCharacterPosts(
        WHERE p.author_character_pid = ? AND p.is_deleted = 0 AND t.is_deleted = 0${categoryClause}
        ORDER BY p.created_at DESC
        LIMIT ? OFFSET ?`,
-      [pid, limit, offset]
+      [pid, limit, offset],
     );
 
     return {
@@ -2535,7 +2573,7 @@ export async function getCharacterPosts(
       })),
       total: countRows[0].total,
       page,
-      limit
+      limit,
     };
   } finally {
     connection.release();
@@ -2545,13 +2583,17 @@ export async function getCharacterPosts(
 /**
  * Get character's recent PvP events
  */
-export async function getCharacterPvPEvents(characterName: string, page: number = 1, limit: number = 20): Promise<any> {
+export async function getCharacterPvPEvents(
+  characterName: string,
+  page: number = 1,
+  limit: number = 20,
+): Promise<any> {
   const connection = await db.getConnection();
   try {
     // First get the character's PID
     const [characters] = await connection.query<RowDataPacket[]>(
       'SELECT pid FROM player_data WHERE name = ?',
-      [characterName]
+      [characterName],
     );
 
     if (characters.length === 0) {
@@ -2566,7 +2608,7 @@ export async function getCharacterPvPEvents(characterName: string, page: number 
       `SELECT COUNT(DISTINCT event_id) as total
        FROM pkill_info
        WHERE pid = ?`,
-      [pid]
+      [pid],
     );
 
     // Get PvP events
@@ -2585,7 +2627,7 @@ export async function getCharacterPvPEvents(characterName: string, page: number 
        WHERE pi.pid = ?
        ORDER BY e.stamp DESC
        LIMIT ? OFFSET ?`,
-      [pid, limit, offset]
+      [pid, limit, offset],
     );
 
     return {
@@ -2601,7 +2643,7 @@ export async function getCharacterPvPEvents(characterName: string, page: number 
       })),
       total: countRows[0].total,
       page,
-      limit
+      limit,
     };
   } finally {
     connection.release();
@@ -2622,12 +2664,12 @@ export async function getGuildProfile(guildNameOrSlug: string): Promise<any | nu
       `SELECT DISTINCT a.name as guild
        FROM player_data pd
        JOIN associations a ON pd.assoc_id = a.id
-       WHERE a.name IS NOT NULL AND a.name != ''`
+       WHERE a.name IS NOT NULL AND a.name != ''`,
     );
 
     // Find the guild that matches the slug
-    const matchingDbGuild = allGuildRows.find((row: any) =>
-      slugify(row.guild) === slugify(guildNameOrSlug)
+    const matchingDbGuild = allGuildRows.find(
+      (row: any) => slugify(row.guild) === slugify(guildNameOrSlug),
     );
 
     if (!matchingDbGuild) {
@@ -2642,9 +2684,7 @@ export async function getGuildProfile(guildNameOrSlug: string): Promise<any | nu
     const allGuilds = await getAllGuilds();
 
     // Find guild by slug match
-    const matchingGuild = allGuilds.find(
-      g => slugify(g.name) === slugify(actualGuildName)
-    );
+    const matchingGuild = allGuilds.find((g) => slugify(g.name) === slugify(actualGuildName));
 
     if (!matchingGuild) {
       return null;
@@ -2662,7 +2702,7 @@ export async function getGuildProfile(guildNameOrSlug: string): Promise<any | nu
        FROM player_data pd
        JOIN associations a ON pd.assoc_id = a.id
        WHERE a.name = ?`,
-      [actualGuildName]
+      [actualGuildName],
     );
 
     // Get forum stats (posts/threads by guild members)
@@ -2675,7 +2715,7 @@ export async function getGuildProfile(guildNameOrSlug: string): Promise<any | nu
        LEFT JOIN forum_posts p ON pd.pid = p.author_character_pid AND p.is_deleted = 0
        LEFT JOIN forum_threads t ON pd.pid = t.author_character_pid AND t.is_deleted = 0
        WHERE a.name = ?`,
-      [actualGuildName]
+      [actualGuildName],
     );
 
     // Get PvP stats for guild
@@ -2687,7 +2727,7 @@ export async function getGuildProfile(guildNameOrSlug: string): Promise<any | nu
        JOIN associations a ON pd.assoc_id = a.id
        JOIN pkill_info pi ON pd.pid = pi.pid
        WHERE a.name = ?`,
-      [actualGuildName]
+      [actualGuildName],
     );
 
     // Get active member list with character data
@@ -2698,13 +2738,13 @@ export async function getGuildProfile(guildNameOrSlug: string): Promise<any | nu
        LEFT JOIN frag_leaderboard fl ON pd.pid = fl.pid
        WHERE a.name = ?
        ORDER BY pd.level DESC, pd.name ASC`,
-      [actualGuildName]
+      [actualGuildName],
     );
 
     // Enhance members with guild rank information
     const enhancedMembers = activeMembers.map((member: any) => {
       const guildMember = guildData.members.find(
-        m => m.name.toLowerCase() === member.name.toLowerCase()
+        (m) => m.name.toLowerCase() === member.name.toLowerCase(),
       );
 
       let rankTitle = 'Member';
@@ -2712,7 +2752,7 @@ export async function getGuildProfile(guildNameOrSlug: string): Promise<any | nu
 
       if (guildMember) {
         // Extract rank from member.rank using bit masking
-        const A_RK_MASK = 0x1C;
+        const A_RK_MASK = 0x1c;
         const rankBits = guildMember.rank & A_RK_MASK;
         rankNumber = rankBits >> 2;
 
@@ -2788,7 +2828,7 @@ export async function getGuildForumActivity(
        JOIN associations a ON pd.assoc_id = a.id
        JOIN forum_threads t ON p.thread_id = t.id
        WHERE a.name = ? AND p.is_deleted = 0 AND t.is_deleted = 0${categoryClause}`,
-      [guildName]
+      [guildName],
     );
 
     // Get posts with thread and author info
@@ -2806,7 +2846,7 @@ export async function getGuildForumActivity(
        WHERE a.name = ? AND p.is_deleted = 0 AND t.is_deleted = 0${categoryClause}
        ORDER BY p.created_at DESC
        LIMIT ? OFFSET ?`,
-      [guildName, limit, offset]
+      [guildName, limit, offset],
     );
 
     return {
@@ -2822,7 +2862,7 @@ export async function getGuildForumActivity(
       })),
       total: countRows[0].total,
       page,
-      limit
+      limit,
     };
   } finally {
     connection.release();
@@ -2856,7 +2896,7 @@ export async function getLatestThreads(permissions: any, limit: number = 10): Pr
        GROUP BY t.id, t.title, t.category_id, t.last_post_at, c.name
        ORDER BY t.last_post_at DESC
        LIMIT ?`,
-      [categoryIds, limit]
+      [categoryIds, limit],
     );
 
     return threads.map((t: any) => ({
@@ -2901,7 +2941,7 @@ export async function getPopularThreads(permissions: any, limit: number = 10): P
        HAVING recent_posts > 0
        ORDER BY recent_posts DESC, t.view_count DESC
        LIMIT ?`,
-      [categoryIds, limit]
+      [categoryIds, limit],
     );
 
     return threads.map((t: any) => ({
@@ -3094,7 +3134,7 @@ export async function getAccountCharacters(accountName: string): Promise<{
       LEFT JOIN associations a ON pd.assoc_id = a.id
       WHERE ac.account_name = ? AND ac.deleted_at IS NULL
       ORDER BY pd.level DESC, ac.char_name ASC`,
-      [accountName]
+      [accountName],
     );
 
     const characters: import('../types/index.js').CharacterWithStats[] = [];
@@ -3109,7 +3149,7 @@ export async function getAccountCharacters(accountName: string): Promise<{
           (SELECT COUNT(*) + 1 FROM frag_leaderboard WHERE total_frags > fl.total_frags AND deleted_at IS NULL) as frag_rank
          FROM frag_leaderboard fl
          WHERE pid = ? AND deleted_at IS NULL`,
-        [char.pid]
+        [char.pid],
       );
 
       // Get death count from pkill_info
@@ -3117,7 +3157,7 @@ export async function getAccountCharacters(accountName: string): Promise<{
         `SELECT COUNT(*) as deaths
          FROM pkill_info
          WHERE pid = ? AND pk_type = 'VICTIM'`,
-        [char.pid]
+        [char.pid],
       );
 
       // Get forum stats
@@ -3125,7 +3165,7 @@ export async function getAccountCharacters(accountName: string): Promise<{
         `SELECT
           (SELECT COUNT(*) FROM forum_posts WHERE author_character_pid = ? AND is_deleted = FALSE) as forum_posts,
           (SELECT COUNT(*) FROM forum_threads WHERE author_character_pid = ? AND is_deleted = FALSE) as forum_threads`,
-        [char.pid, char.pid]
+        [char.pid, char.pid],
       );
 
       // Get guild info
@@ -3175,8 +3215,8 @@ export async function getAccountCharacters(accountName: string): Promise<{
           fragRank: fragRows[0]?.frag_rank || null,
           kdRatio: deaths > 0 ? Math.round((frags / deaths) * 100) / 100 : frags,
           forumPosts: forumRows[0]?.forum_posts || 0,
-          forumThreads: forumRows[0]?.forum_threads || 0
-        }
+          forumThreads: forumRows[0]?.forum_threads || 0,
+        },
       });
     }
 
@@ -3186,8 +3226,8 @@ export async function getAccountCharacters(accountName: string): Promise<{
         characterCount: characters.length,
         totalFrags,
         totalDeaths,
-        totalWealth
-      }
+        totalWealth,
+      },
     };
   } finally {
     connection.release();

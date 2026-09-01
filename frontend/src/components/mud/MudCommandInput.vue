@@ -21,7 +21,10 @@ const sendCommand = () => {
   const cmd = command.value.trim()
 
   // Split by semicolons first (supports "drink fountain;look;scan")
-  const inputParts = cmd.split(';').map(s => s.trim()).filter(s => s.length > 0)
+  const inputParts = cmd
+    .split(';')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
 
   // Process each part through alias expansion
   for (const part of inputParts) {
@@ -54,7 +57,8 @@ const sendCommand = () => {
   // Select all text for easy re-send (Mudlet-style spam support)
   historyIndex.value = -1
   nextTick(() => {
-    const inputEl = (inputRef.value?.$el?.querySelector('input') || inputRef.value?.$el) as HTMLInputElement | null
+    const inputEl = (inputRef.value?.$el?.querySelector('input') ||
+      inputRef.value?.$el) as HTMLInputElement | null
     if (inputEl) {
       inputEl.focus()
       inputEl.select()
@@ -117,9 +121,21 @@ const handleGlobalKeyDown = (event: KeyboardEvent) => {
 
   // Ignore navigation and special keys
   const ignoreKeys = [
-    'Tab', 'Escape', 'CapsLock', 'Shift', 'Control', 'Alt', 'Meta',
-    'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',  // Movement keys handled by keypad bindings
-    'PageUp', 'PageDown', 'Home', 'End'  // Scroll keys handled by keypad bindings
+    'Tab',
+    'Escape',
+    'CapsLock',
+    'Shift',
+    'Control',
+    'Alt',
+    'Meta',
+    'ArrowUp',
+    'ArrowDown',
+    'ArrowLeft',
+    'ArrowRight', // Movement keys handled by keypad bindings
+    'PageUp',
+    'PageDown',
+    'Home',
+    'End', // Scroll keys handled by keypad bindings
   ]
   if (ignoreKeys.includes(event.key) || event.key.startsWith('F')) {
     return

@@ -2,12 +2,26 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
-import { useUserList, useRaces, useClasses, useBanUser, useUnbanUser, useDeleteCharacter, type UserManagementFilters } from '@/composables/useUserManagement'
+import {
+  useUserList,
+  useRaces,
+  useClasses,
+  useBanUser,
+  useUnbanUser,
+  useDeleteCharacter,
+  type UserManagementFilters,
+} from '@/composables/useUserManagement'
 import { useToast } from '@/composables/useToast'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -54,7 +68,7 @@ const filters = ref<UserManagementFilters>({
   page: 1,
   limit: 50,
   sort_by: 'last_login',
-  sort_order: 'desc'
+  sort_order: 'desc',
 })
 
 // Debounced search
@@ -109,7 +123,7 @@ function confirmBan() {
     toast({
       type: 'error',
       title: 'Error',
-      message: 'Ban reason is required'
+      message: 'Ban reason is required',
     })
     return
   }
@@ -121,7 +135,7 @@ function confirmBan() {
         toast({
           type: 'success',
           title: 'Success',
-          message: `User ${selectedUser.value} has been banned`
+          message: `User ${selectedUser.value} has been banned`,
         })
         showBanDialog.value = false
         selectedUser.value = null
@@ -131,10 +145,10 @@ function confirmBan() {
         toast({
           type: 'error',
           title: 'Error',
-          message: error.response?.data?.error || 'Failed to ban user'
+          message: error.response?.data?.error || 'Failed to ban user',
         })
-      }
-    }
+      },
+    },
   )
 }
 
@@ -146,7 +160,7 @@ function confirmUnban() {
       toast({
         type: 'success',
         title: 'Success',
-        message: `User ${selectedUser.value} has been unbanned`
+        message: `User ${selectedUser.value} has been unbanned`,
       })
       showUnbanDialog.value = false
       selectedUser.value = null
@@ -155,9 +169,9 @@ function confirmUnban() {
       toast({
         type: 'error',
         title: 'Error',
-        message: error.response?.data?.error || 'Failed to unban user'
+        message: error.response?.data?.error || 'Failed to unban user',
       })
-    }
+    },
   })
 }
 
@@ -178,7 +192,7 @@ function confirmDelete() {
     onError: (error: any) => {
       // Error will be shown in the progress modal
       console.error('Delete error:', error)
-    }
+    },
   })
 }
 
@@ -189,7 +203,7 @@ function handleDeleteComplete(success: boolean) {
     toast({
       type: 'success',
       title: 'Success',
-      message: `Character ${selectedCharacter.value?.characterName} has been deleted`
+      message: `Character ${selectedCharacter.value?.characterName} has been deleted`,
     })
     // Refresh the user list
     queryClient.invalidateQueries({ queryKey: ['users'] })
@@ -197,7 +211,7 @@ function handleDeleteComplete(success: boolean) {
     toast({
       type: 'error',
       title: 'Error',
-      message: 'Character deletion failed'
+      message: 'Character deletion failed',
     })
   }
 
@@ -290,7 +304,7 @@ const groupedUsers = computed(() => {
         ban_reason: user.ban_reason,
         banned_at: user.banned_at,
         banned_by: user.banned_by,
-        characters: []
+        characters: [],
       })
     }
 
@@ -302,7 +316,7 @@ const groupedUsers = computed(() => {
       class: user.class,
       level: user.level,
       racewar: user.racewar,
-      is_deleted: user.is_deleted
+      is_deleted: user.is_deleted,
     })
   }
 

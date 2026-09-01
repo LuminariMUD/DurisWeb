@@ -2,11 +2,17 @@ import express from 'express';
 import request from 'supertest';
 import { beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-const createHelpPage = jest.fn((..._args: unknown[]): Promise<{ id: number }> => Promise.resolve({ id: 0 }));
+const createHelpPage = jest.fn(
+  (..._args: unknown[]): Promise<{ id: number }> => Promise.resolve({ id: 0 }),
+);
 const updateHelpPage = jest.fn();
-const createCategory = jest.fn((..._args: unknown[]): Promise<{ id: number }> => Promise.resolve({ id: 0 }));
+const createCategory = jest.fn(
+  (..._args: unknown[]): Promise<{ id: number }> => Promise.resolve({ id: 0 }),
+);
 const updateCategory = jest.fn();
-const setMotd = jest.fn((..._args: unknown[]): Promise<{ content: string }> => Promise.resolve({ content: '' }));
+const setMotd = jest.fn(
+  (..._args: unknown[]): Promise<{ content: string }> => Promise.resolve({ content: '' }),
+);
 const setNews = jest.fn();
 const setWizMotd = jest.fn();
 const setRules = jest.fn();
@@ -116,11 +122,13 @@ describe('content route write validation', () => {
       .send({ title: 'Valid help', text: '<p>safe</p>', category_id: 0 });
 
     expect(response.status).toBe(201);
-    expect(createHelpPage).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Valid help',
-      text: '<p>safe</p>',
-      category_id: 0,
-    }));
+    expect(createHelpPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Valid help',
+        text: '<p>safe</p>',
+        category_id: 0,
+      }),
+    );
   });
 
   it('rejects a non-integer help category id before calling persistence', async () => {
@@ -206,9 +214,7 @@ describe('content route write validation', () => {
   });
 
   it('rejects a non-string MUD-info content value before persistence', async () => {
-    const response = await request(app)
-      .put('/api/content/motd')
-      .send({ content: 123 });
+    const response = await request(app).put('/api/content/motd').send({ content: 123 });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/content/i);
@@ -218,9 +224,7 @@ describe('content route write validation', () => {
   it('passes a valid MUD-info payload through after validation', async () => {
     setMotd.mockResolvedValueOnce({ content: '<p>safe</p>' });
 
-    const response = await request(app)
-      .put('/api/content/motd')
-      .send({ content: '<p>safe</p>' });
+    const response = await request(app).put('/api/content/motd').send({ content: '<p>safe</p>' });
 
     expect(response.status).toBe(200);
     expect(setMotd).toHaveBeenCalledWith('<p>safe</p>');

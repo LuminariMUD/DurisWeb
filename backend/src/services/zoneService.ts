@@ -95,7 +95,7 @@ function mapZoneRow(row: ZoneRow): Zone {
 
 export async function getZones(
   filters: ZoneFilters = {},
-  pagination: PaginationParams = { page: 1, limit: 50, sortBy: 'number', sortOrder: 'asc' }
+  pagination: PaginationParams = { page: 1, limit: 50, sortBy: 'number', sortOrder: 'asc' },
 ): Promise<{ zones: Zone[]; total: number; page: number; limit: number; totalPages: number }> {
   const { page, limit, sortBy = 'number', sortOrder = 'asc' } = pagination;
   const offset = (page - 1) * limit;
@@ -111,7 +111,7 @@ export async function getZones(
 
   if (filters.search) {
     // Strip ANSI codes from name for search: &+X (colors) and &n (reset)
-    conditions.push('(REGEXP_REPLACE(name, \'&\\\\+[a-zA-Z]|&n\', \'\') LIKE ? OR number LIKE ?)');
+    conditions.push("(REGEXP_REPLACE(name, '&\\\\+[a-zA-Z]|&n', '') LIKE ? OR number LIKE ?)");
     const searchPattern = `%${filters.search}%`;
     params.push(searchPattern, searchPattern);
   }
@@ -143,7 +143,15 @@ export async function getZones(
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   // Validate sortBy to prevent SQL injection
-  const allowedSortColumns = ['number', 'name', 'epic_type', 'alignment', 'difficulty', 'suggested_group_size', 'epic_payout'];
+  const allowedSortColumns = [
+    'number',
+    'name',
+    'epic_type',
+    'alignment',
+    'difficulty',
+    'suggested_group_size',
+    'epic_payout',
+  ];
   const validSortBy = allowedSortColumns.includes(sortBy) ? sortBy : 'number';
   const validSortOrder = sortOrder === 'desc' ? 'DESC' : 'ASC';
 
@@ -198,7 +206,7 @@ export async function getZoneByNumber(zoneNumber: number): Promise<Zone | null> 
 export async function updateZone(
   zoneNumber: number,
   data: ZoneUpdateData,
-  updatedBy: string
+  updatedBy: string,
 ): Promise<Zone | null> {
   // Validate data
   if (data.epicType !== undefined && (data.epicType < 0 || data.epicType > 3)) {
@@ -209,7 +217,10 @@ export async function updateZone(
     throw new Error('Alignment must be between -5 and 5');
   }
 
-  if (data.suggestedGroupSize !== undefined && (data.suggestedGroupSize < 1 || data.suggestedGroupSize > 20)) {
+  if (
+    data.suggestedGroupSize !== undefined &&
+    (data.suggestedGroupSize < 1 || data.suggestedGroupSize > 20)
+  ) {
     throw new Error('Suggested group size must be between 1 and 20');
   }
 
@@ -294,7 +305,7 @@ export async function updateZone(
 export async function bulkUpdateZones(
   zoneNumbers: number[],
   data: ZoneUpdateData,
-  updatedBy: string
+  updatedBy: string,
 ): Promise<number> {
   if (zoneNumbers.length === 0) {
     throw new Error('No zones specified for bulk update');
@@ -309,7 +320,10 @@ export async function bulkUpdateZones(
     throw new Error('Alignment must be between -5 and 5');
   }
 
-  if (data.suggestedGroupSize !== undefined && (data.suggestedGroupSize < 1 || data.suggestedGroupSize > 20)) {
+  if (
+    data.suggestedGroupSize !== undefined &&
+    (data.suggestedGroupSize < 1 || data.suggestedGroupSize > 20)
+  ) {
     throw new Error('Suggested group size must be between 1 and 20');
   }
 
@@ -393,7 +407,7 @@ export async function bulkUpdateZones(
 async function logZoneModification(
   zoneNumber: number,
   updatedBy: string,
-  changes: ZoneUpdateData
+  changes: ZoneUpdateData,
 ): Promise<void> {
   const notes = `Zone ${zoneNumber} updated: ${JSON.stringify(changes)}`;
 
@@ -432,13 +446,15 @@ export async function getZoneStats(): Promise<{
   const [avgRows] = await pool.query<RowDataPacket[]>('SELECT AVG(difficulty) as avg FROM zones');
   const avgDifficulty = avgRows[0].avg as number;
 
-  const [epicZonesRows] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM zones WHERE epic_type > 0');
+  const [epicZonesRows] = await pool.query<RowDataPacket[]>(
+    'SELECT COUNT(*) as count FROM zones WHERE epic_type > 0',
+  );
   const zonesWithEpics = epicZonesRows[0].count as number;
 
   return {
     total,
-    byEpicType: epicTypeRows.map(row => ({ type: row.type, count: row.count })),
-    byAlignment: alignmentRows.map(row => ({ alignment: row.alignment, count: row.count })),
+    byEpicType: epicTypeRows.map((row) => ({ type: row.type, count: row.count })),
+    byAlignment: alignmentRows.map((row) => ({ alignment: row.alignment, count: row.count })),
     avgDifficulty,
     zonesWithEpics,
   };

@@ -29,13 +29,11 @@ export function parseMentionsForVue(text: string): VNode[] {
           onClick: (e: MouseEvent) => {
             // Let Vue Router handle the navigation
             e.preventDefault()
-            window.dispatchEvent(
-              new CustomEvent('mention-click', { detail: { username } })
-            )
+            window.dispatchEvent(new CustomEvent('mention-click', { detail: { username } }))
           },
         },
-        `@${username}`
-      )
+        `@${username}`,
+      ),
     )
 
     lastIndex = match.index + match[0].length

@@ -35,7 +35,15 @@ const PATTERN_LOGIC: readonly TriggerPatternLogic[] = ['or', 'and']
 const PATTERN_TYPES: readonly TriggerPatternType[] = ['substring', 'regex']
 const SOUNDS: readonly TriggerSound[] = ['beep', 'chime', 'alert', 'ding', 'bell', 'custom']
 const HIGHLIGHT_COLORS: readonly TriggerHighlightColor[] = [
-  'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'cyan', 'white',
+  'red',
+  'orange',
+  'yellow',
+  'green',
+  'blue',
+  'purple',
+  'pink',
+  'cyan',
+  'white',
 ]
 
 function record(value: unknown, kind: string, index: number): Record<string, unknown> {
@@ -145,33 +153,67 @@ function timestampField(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback
 }
 
-function validateCustomSoundUrl(value: unknown, kind: string, index: number, actionIndex: number): string {
-  const url = requiredString(value, kind, index, `action ${actionIndex} customUrl`, MAX_CUSTOM_SOUND_URL_LENGTH)
+function validateCustomSoundUrl(
+  value: unknown,
+  kind: string,
+  index: number,
+  actionIndex: number,
+): string {
+  const url = requiredString(
+    value,
+    kind,
+    index,
+    `action ${actionIndex} customUrl`,
+    MAX_CUSTOM_SOUND_URL_LENGTH,
+  )
   if (url.startsWith('/') && !url.startsWith('//')) return url
 
   let parsed: URL
   try {
     parsed = new URL(url)
   } catch {
-    throw new Error(`Invalid ${kind} at index ${index}: action ${actionIndex} customUrl must be an HTTPS or same-origin URL`)
+    throw new Error(
+      `Invalid ${kind} at index ${index}: action ${actionIndex} customUrl must be an HTTPS or same-origin URL`,
+    )
   }
 
   if (parsed.protocol !== 'https:') {
-    throw new Error(`Invalid ${kind} at index ${index}: action ${actionIndex} customUrl must be an HTTPS or same-origin URL`)
+    throw new Error(
+      `Invalid ${kind} at index ${index}: action ${actionIndex} customUrl must be an HTTPS or same-origin URL`,
+    )
   }
 
   return parsed.toString()
 }
 
-function normalizeAction(value: unknown, kind: string, index: number, actionIndex: number): TriggerAction {
+function normalizeAction(
+  value: unknown,
+  kind: string,
+  index: number,
+  actionIndex: number,
+): TriggerAction {
   const action = record(value, `${kind} action`, index)
   const type = action.type
 
   if (type === 'command') {
     const command: TriggerActionCommand = {
       type,
-      commands: requiredString(action.commands, kind, index, `action ${actionIndex} commands`, MAX_TRIGGER_COMMAND_LENGTH),
-      delay: integerField(action.delay, kind, index, `action ${actionIndex} delay`, 0, MAX_TRIGGER_DELAY_MS, 0),
+      commands: requiredString(
+        action.commands,
+        kind,
+        index,
+        `action ${actionIndex} commands`,
+        MAX_TRIGGER_COMMAND_LENGTH,
+      ),
+      delay: integerField(
+        action.delay,
+        kind,
+        index,
+        `action ${actionIndex} delay`,
+        0,
+        MAX_TRIGGER_DELAY_MS,
+        0,
+      ),
     }
     return command.delay === 0 ? { type: command.type, commands: command.commands } : command
   }
@@ -179,20 +221,50 @@ function normalizeAction(value: unknown, kind: string, index: number, actionInde
   if (type === 'highlight') {
     const highlight: TriggerActionHighlight = {
       type,
-      backgroundColor: enumField(action.backgroundColor, kind, index, `action ${actionIndex} backgroundColor`, HIGHLIGHT_COLORS, 'white'),
+      backgroundColor: enumField(
+        action.backgroundColor,
+        kind,
+        index,
+        `action ${actionIndex} backgroundColor`,
+        HIGHLIGHT_COLORS,
+        'white',
+      ),
     }
-    const textColor = action.textColor === undefined
-      ? undefined
-      : enumField(action.textColor, kind, index, `action ${actionIndex} textColor`, HIGHLIGHT_COLORS, 'white')
+    const textColor =
+      action.textColor === undefined
+        ? undefined
+        : enumField(
+            action.textColor,
+            kind,
+            index,
+            `action ${actionIndex} textColor`,
+            HIGHLIGHT_COLORS,
+            'white',
+          )
     return textColor ? { ...highlight, textColor } : highlight
   }
 
   if (type === 'sound') {
-    const sound = enumField(action.sound, kind, index, `action ${actionIndex} sound`, SOUNDS, 'beep')
+    const sound = enumField(
+      action.sound,
+      kind,
+      index,
+      `action ${actionIndex} sound`,
+      SOUNDS,
+      'beep',
+    )
     const soundAction: TriggerActionSound = {
       type,
       sound,
-      volume: finiteNumberField(action.volume, kind, index, `action ${actionIndex} volume`, 0, 1, 0.5),
+      volume: finiteNumberField(
+        action.volume,
+        kind,
+        index,
+        `action ${actionIndex} volume`,
+        0,
+        1,
+        0.5,
+      ),
     }
     if (sound === 'custom') {
       soundAction.customUrl = validateCustomSoundUrl(action.customUrl, kind, index, actionIndex)
@@ -207,7 +279,13 @@ function normalizeAction(value: unknown, kind: string, index: number, actionInde
   if (type === 'echo') {
     const echo: TriggerActionEcho = {
       type,
-      text: requiredString(action.text, kind, index, `action ${actionIndex} text`, MAX_TRIGGER_ECHO_LENGTH),
+      text: requiredString(
+        action.text,
+        kind,
+        index,
+        `action ${actionIndex} text`,
+        MAX_TRIGGER_ECHO_LENGTH,
+      ),
     }
     return echo
   }
@@ -220,14 +298,24 @@ function normalizePatterns(value: unknown, kind: string, index: number): Trigger
     throw new Error(`Invalid ${kind} at index ${index}: patterns must be an array`)
   }
   if (value.length > MAX_TRIGGER_PATTERNS) {
-    throw new Error(`Invalid ${kind} at index ${index}: patterns exceed ${MAX_TRIGGER_PATTERNS} items`)
+    throw new Error(
+      `Invalid ${kind} at index ${index}: patterns exceed ${MAX_TRIGGER_PATTERNS} items`,
+    )
   }
 
   return value.map((entry, patternIndex) => {
     const pattern = record(entry, `${kind} pattern`, index)
-    const patternValue = requiredString(pattern.value, kind, index, `pattern ${patternIndex} value`, MAX_TRIGGER_PATTERN_LENGTH)
+    const patternValue = requiredString(
+      pattern.value,
+      kind,
+      index,
+      `pattern ${patternIndex} value`,
+      MAX_TRIGGER_PATTERN_LENGTH,
+    )
     if (pattern.isGmcp !== undefined && typeof pattern.isGmcp !== 'boolean') {
-      throw new Error(`Invalid ${kind} at index ${index}: pattern ${patternIndex} isGmcp must be a boolean`)
+      throw new Error(
+        `Invalid ${kind} at index ${index}: pattern ${patternIndex} isGmcp must be a boolean`,
+      )
     }
     return { value: patternValue, isGmcp: pattern.isGmcp === true }
   })
@@ -238,7 +326,9 @@ function normalizeActions(value: unknown, kind: string, index: number): TriggerA
     throw new Error(`Invalid ${kind} at index ${index}: actions must be an array`)
   }
   if (value.length > MAX_TRIGGER_ACTIONS) {
-    throw new Error(`Invalid ${kind} at index ${index}: actions exceed ${MAX_TRIGGER_ACTIONS} items`)
+    throw new Error(
+      `Invalid ${kind} at index ${index}: actions exceed ${MAX_TRIGGER_ACTIONS} items`,
+    )
   }
   return value.map((entry, actionIndex) => normalizeAction(entry, kind, index, actionIndex))
 }
@@ -252,14 +342,27 @@ export function normalizeAliasImport(
 ): Alias {
   const alias = record(value, 'alias', index)
   const scope = enumField(alias.scope, 'alias', index, 'scope', ALIAS_SCOPES, 'global')
-  const characterName = optionalString(alias.characterName, 'alias', index, 'characterName', 100) ?? null
+  const characterName =
+    optionalString(alias.characterName, 'alias', index, 'characterName', 100) ?? null
   const groupId = optionalString(alias.groupId, 'alias', index, 'groupId', 100) ?? null
   const description = optionalString(alias.description, 'alias', index, 'description', 2_000)
 
   return {
     id: generatedId,
-    trigger: requiredString(alias.trigger, 'alias', index, 'trigger', MAX_ALIAS_TRIGGER_LENGTH).toLowerCase(),
-    expansion: requiredString(alias.expansion, 'alias', index, 'expansion', MAX_ALIAS_EXPANSION_LENGTH),
+    trigger: requiredString(
+      alias.trigger,
+      'alias',
+      index,
+      'trigger',
+      MAX_ALIAS_TRIGGER_LENGTH,
+    ).toLowerCase(),
+    expansion: requiredString(
+      alias.expansion,
+      'alias',
+      index,
+      'expansion',
+      MAX_ALIAS_EXPANSION_LENGTH,
+    ),
     enabled: booleanField(alias.enabled, 'alias', index, 'enabled', true),
     scope,
     characterName: scope === 'character' ? characterName : null,
@@ -279,22 +382,40 @@ export function normalizeTriggerImport(
 ): Trigger {
   const trigger = record(value, 'trigger', index)
   const scope = enumField(trigger.scope, 'trigger', index, 'scope', TRIGGER_SCOPES, 'global')
-  const characterName = optionalString(trigger.characterName, 'trigger', index, 'characterName', 100) ?? null
+  const characterName =
+    optionalString(trigger.characterName, 'trigger', index, 'characterName', 100) ?? null
   const groupId = optionalString(trigger.groupId, 'trigger', index, 'groupId', 100) ?? null
-  const description = optionalString(trigger.description, 'trigger', index, 'description', MAX_TRIGGER_DESCRIPTION_LENGTH)
-  const patternType = enumField(trigger.patternType, 'trigger', index, 'patternType', PATTERN_TYPES, 'substring')
+  const description = optionalString(
+    trigger.description,
+    'trigger',
+    index,
+    'description',
+    MAX_TRIGGER_DESCRIPTION_LENGTH,
+  )
+  const patternType = enumField(
+    trigger.patternType,
+    'trigger',
+    index,
+    'patternType',
+    PATTERN_TYPES,
+    'substring',
+  )
   const patterns = normalizePatterns(trigger.patterns, 'trigger', index)
 
   if (patternType === 'regex') {
     for (const [patternIndex, pattern] of patterns.entries()) {
       if (pattern.isGmcp) continue
       if (pattern.value.length > MAX_REGEX_LENGTH) {
-        throw new Error(`Invalid trigger at index ${index}: pattern ${patternIndex} regex exceeds ${MAX_REGEX_LENGTH} characters`)
+        throw new Error(
+          `Invalid trigger at index ${index}: pattern ${patternIndex} regex exceeds ${MAX_REGEX_LENGTH} characters`,
+        )
       }
       try {
         new RegExp(pattern.value)
       } catch {
-        throw new Error(`Invalid trigger at index ${index}: pattern ${patternIndex} regex is invalid`)
+        throw new Error(
+          `Invalid trigger at index ${index}: pattern ${patternIndex} regex is invalid`,
+        )
       }
     }
   }
@@ -303,7 +424,14 @@ export function normalizeTriggerImport(
     id: generatedId,
     name: requiredString(trigger.name, 'trigger', index, 'name', MAX_TRIGGER_NAME_LENGTH),
     patterns,
-    patternLogic: enumField(trigger.patternLogic, 'trigger', index, 'patternLogic', PATTERN_LOGIC, 'or'),
+    patternLogic: enumField(
+      trigger.patternLogic,
+      'trigger',
+      index,
+      'patternLogic',
+      PATTERN_LOGIC,
+      'or',
+    ),
     patternType,
     caseSensitive: booleanField(trigger.caseSensitive, 'trigger', index, 'caseSensitive', false),
     actions: normalizeActions(trigger.actions, 'trigger', index),
@@ -340,35 +468,19 @@ export function normalizeGroupImport(
   }
 }
 
-export function normalizeAliasForm(
-  value: unknown,
-  generatedId: string,
-  now: number,
-): Alias {
+export function normalizeAliasForm(value: unknown, generatedId: string, now: number): Alias {
   return normalizeAliasImport(value, 0, generatedId, now, true)
 }
 
-export function normalizeTriggerForm(
-  value: unknown,
-  generatedId: string,
-  now: number,
-): Trigger {
+export function normalizeTriggerForm(value: unknown, generatedId: string, now: number): Trigger {
   return normalizeTriggerImport(value, 0, generatedId, now, true)
 }
 
-export function normalizeGroupForm(
-  value: unknown,
-  generatedId: string,
-  now: number,
-): Group {
+export function normalizeGroupForm(value: unknown, generatedId: string, now: number): Group {
   return normalizeGroupImport(value, 0, generatedId, now, true)
 }
 
-export function normalizeTimerForm(
-  value: unknown,
-  generatedId: string,
-  now: number,
-): Timer {
+export function normalizeTimerForm(value: unknown, generatedId: string, now: number): Timer {
   return normalizeTimerImport(value, 0, generatedId, now, true)
 }
 
@@ -422,7 +534,9 @@ function normalizeTimerActions(value: unknown, index: number): TimerAction[] {
   const actions = normalizeActions(value, 'timer', index)
   return actions.map((action, actionIndex) => {
     if (action.type === 'highlight' || action.type === 'gag') {
-      throw new Error(`Invalid timer at index ${index}: action ${actionIndex} type is not permitted`)
+      throw new Error(
+        `Invalid timer at index ${index}: action ${actionIndex} type is not permitted`,
+      )
     }
     return action as TimerAction
   })
@@ -440,14 +554,29 @@ export function normalizeTimerImport(
     throw new Error(`Invalid timer at index ${index}: intervalMs is required`)
   }
   const scope = enumField(timer.scope, 'timer', index, 'scope', TRIGGER_SCOPES, 'global')
-  const characterName = optionalString(timer.characterName, 'timer', index, 'characterName', 100) ?? null
+  const characterName =
+    optionalString(timer.characterName, 'timer', index, 'characterName', 100) ?? null
   const groupId = optionalString(timer.groupId, 'timer', index, 'groupId', 100) ?? null
-  const description = optionalString(timer.description, 'timer', index, 'description', MAX_TRIGGER_DESCRIPTION_LENGTH)
+  const description = optionalString(
+    timer.description,
+    'timer',
+    index,
+    'description',
+    MAX_TRIGGER_DESCRIPTION_LENGTH,
+  )
 
   return {
     id: generatedId,
     name: requiredString(timer.name, 'timer', index, 'name', MAX_TRIGGER_NAME_LENGTH),
-    intervalMs: integerField(timer.intervalMs, 'timer', index, 'intervalMs', 1_000, 24 * 60 * 60 * 1_000, 1_000),
+    intervalMs: integerField(
+      timer.intervalMs,
+      'timer',
+      index,
+      'intervalMs',
+      1_000,
+      24 * 60 * 60 * 1_000,
+      1_000,
+    ),
     isOneShot: booleanField(timer.isOneShot, 'timer', index, 'isOneShot', false),
     actions: normalizeTimerActions(timer.actions, index),
     enabled: booleanField(timer.enabled, 'timer', index, 'enabled', true),

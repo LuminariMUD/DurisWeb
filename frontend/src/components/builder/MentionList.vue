@@ -14,9 +14,12 @@ const props = defineProps<{
 
 const selectedIndex = ref(0)
 
-watch(() => props.items, () => {
-  selectedIndex.value = 0
-})
+watch(
+  () => props.items,
+  () => {
+    selectedIndex.value = 0
+  },
+)
 
 function onKeyDown({ event }: SuggestionKeyDownProps): boolean {
   if (event.key === 'ArrowUp') {
@@ -38,7 +41,7 @@ function onKeyDown({ event }: SuggestionKeyDownProps): boolean {
 }
 
 function upHandler() {
-  selectedIndex.value = ((selectedIndex.value + props.items.length) - 1) % props.items.length
+  selectedIndex.value = (selectedIndex.value + props.items.length - 1) % props.items.length
 }
 
 function downHandler() {

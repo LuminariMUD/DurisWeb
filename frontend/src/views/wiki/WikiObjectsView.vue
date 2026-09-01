@@ -15,11 +15,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Table,
   TableBody,
@@ -29,16 +25,31 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
 import AnsiText from '@/components/ui/AnsiText.vue'
 import { wikiApi } from '@/services/api'
-import type { WikiObject, WikiObjectFilters, WikiObjectType, WikiWearSlot, WikiAffectType } from '@/types'
-import { Loader2, Search, SortAsc, SortDesc, X, ChevronDown, ChevronUp, Plus, Trash2, Check, ChevronsUpDown, Filter } from 'lucide-vue-next'
+import type {
+  WikiObject,
+  WikiObjectFilters,
+  WikiObjectType,
+  WikiWearSlot,
+  WikiAffectType,
+} from '@/types'
+import {
+  Loader2,
+  Search,
+  SortAsc,
+  SortDesc,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  Trash2,
+  Check,
+  ChevronsUpDown,
+  Filter,
+} from 'lucide-vue-next'
 
 const router = useRouter()
 
@@ -141,8 +152,8 @@ const filters = computed((): WikiObjectFilters => {
 
   // Advanced affect filters
   const validAffects = affectFilters.value
-    .filter(af => af.location)
-    .map(af => ({
+    .filter((af) => af.location)
+    .map((af) => ({
       location: parseInt(af.location),
       minModifier: af.minModifier ? parseInt(af.minModifier) : undefined,
     }))
@@ -213,7 +224,11 @@ async function loadMoreZones() {
   if (zoneSearchLoading.value || !zoneHasMore.value) return
   zoneSearchLoading.value = true
   try {
-    const result = await wikiApi.searchZones(zoneSearchQuery.value, ZONE_PAGE_SIZE, zoneOffset.value)
+    const result = await wikiApi.searchZones(
+      zoneSearchQuery.value,
+      ZONE_PAGE_SIZE,
+      zoneOffset.value,
+    )
     zoneSearchResults.value = [...zoneSearchResults.value, ...result.zones]
     zoneHasMore.value = result.hasMore
     zoneOffset.value += result.zones.length
@@ -354,7 +369,13 @@ function toggleSpellEffect(effect: string) {
 async function loadObjects() {
   try {
     loading.value = true
-    const result = await wikiApi.getObjects(filters.value, currentPage.value, limit, sortBy.value, sortOrder.value)
+    const result = await wikiApi.getObjects(
+      filters.value,
+      currentPage.value,
+      limit,
+      sortBy.value,
+      sortOrder.value,
+    )
     objects.value = result.objects
     total.value = result.total
     totalPages.value = result.totalPages
@@ -372,10 +393,13 @@ const debouncedSearch = useDebounceFn(() => {
 }, 300)
 
 // Watch for filter changes
-watch([selectedType, selectedSlot, selectedAffect, selectedZone, minLevel, maxLevel, excludeTrash], () => {
-  currentPage.value = 1
-  loadObjects()
-})
+watch(
+  [selectedType, selectedSlot, selectedAffect, selectedZone, minLevel, maxLevel, excludeTrash],
+  () => {
+    currentPage.value = 1
+    loadObjects()
+  },
+)
 
 // Debounced handler for affect modifier changes
 const debouncedAffectModifierChange = useDebounceFn(() => {
@@ -433,7 +457,8 @@ function clearFilters() {
 
 // Check if any filters are active
 const hasActiveFilters = computed(() => {
-  return search.value ||
+  return (
+    search.value ||
     selectedType.value ||
     selectedSlot.value ||
     selectedAffect.value ||
@@ -445,6 +470,7 @@ const hasActiveFilters = computed(() => {
     selectedSpellEffects.value.length > 0 ||
     selectedClass.value ||
     selectedRace.value
+  )
 })
 
 // Format affects for display

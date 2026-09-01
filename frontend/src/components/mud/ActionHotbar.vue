@@ -5,7 +5,8 @@ import { useMudConnection } from '@/composables/useMudConnection'
 import * as icons from 'lucide-vue-next'
 import type { Component } from 'vue'
 
-const { settings, enabledButtons, isVertical, setPosition, setSnapEdge, saveSettings } = useHotbarSettings()
+const { settings, enabledButtons, isVertical, setPosition, setSnapEdge, saveSettings } =
+  useHotbarSettings()
 const { sendGameCommand } = useMudConnection()
 
 // clamp position to container on mount (fixes off-screen positioning)
@@ -36,9 +37,12 @@ onMounted(async () => {
 // button size classes
 const sizeClasses = computed(() => {
   switch (settings.value.buttonSize) {
-    case 'small': return { button: 'h-7 w-7', icon: 'h-3 w-3' }
-    case 'large': return { button: 'h-12 w-12', icon: 'h-6 w-6' }
-    default: return { button: 'h-9 w-9', icon: 'h-4 w-4' }
+    case 'small':
+      return { button: 'h-7 w-7', icon: 'h-3 w-3' }
+    case 'large':
+      return { button: 'h-12 w-12', icon: 'h-6 w-6' }
+    default:
+      return { button: 'h-9 w-9', icon: 'h-4 w-4' }
   }
 })
 

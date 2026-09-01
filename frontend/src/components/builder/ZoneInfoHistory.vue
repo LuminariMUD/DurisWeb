@@ -19,7 +19,12 @@ const limit = 50
 const offset = ref(0)
 
 // Fetch history
-const { data: historyData, isLoading, error, isFetching } = useQuery({
+const {
+  data: historyData,
+  isLoading,
+  error,
+  isFetching,
+} = useQuery({
   queryKey: ['zone-info-history', props.zoneId, offset],
   queryFn: () => builderApi.getZoneInfoHistory(props.zoneId, limit, offset.value),
 })

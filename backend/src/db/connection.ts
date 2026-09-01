@@ -6,12 +6,12 @@ dotenv.config();
 
 // Validate required environment variables
 const requiredEnvVars = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
-const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+const missingEnvVars = requiredEnvVars.filter((varName) => !process.env[varName]);
 
 if (missingEnvVars.length > 0) {
   throw new Error(
     `Missing required database environment variables: ${missingEnvVars.join(', ')}\n` +
-    `Please set these in your .env file. See .env.example for reference.`
+      `Please set these in your .env file. See .env.example for reference.`,
   );
 }
 
@@ -32,15 +32,20 @@ const dbConfig = {
   dateStrings: true,
 };
 
-const separateMudDatabaseVariables = ['MUD_DB_HOST', 'MUD_DB_USER', 'MUD_DB_PASSWORD', 'MUD_DB_NAME'];
+const separateMudDatabaseVariables = [
+  'MUD_DB_HOST',
+  'MUD_DB_USER',
+  'MUD_DB_PASSWORD',
+  'MUD_DB_NAME',
+];
 const anyMudDatabaseVariable = [...separateMudDatabaseVariables, 'MUD_DB_PORT'];
-const hasSeparateMudDatabase = anyMudDatabaseVariable.some(varName => process.env[varName]);
+const hasSeparateMudDatabase = anyMudDatabaseVariable.some((varName) => process.env[varName]);
 const missingMudDatabaseVariables = hasSeparateMudDatabase
-  ? separateMudDatabaseVariables.filter(varName => !process.env[varName])
+  ? separateMudDatabaseVariables.filter((varName) => !process.env[varName])
   : [];
 if (missingMudDatabaseVariables.length > 0) {
   throw new Error(
-    `Incomplete authoritative MUD database configuration: ${missingMudDatabaseVariables.join(', ')}`
+    `Incomplete authoritative MUD database configuration: ${missingMudDatabaseVariables.join(', ')}`,
   );
 }
 
@@ -97,35 +102,27 @@ export async function verifyDatabaseSchema(): Promise<void> {
     const connection = await pool.getConnection();
 
     // Check pkill_event table
-    const [eventRows] = await connection.query(
-      "SHOW TABLES LIKE 'pkill_event'"
-    );
+    const [eventRows] = await connection.query("SHOW TABLES LIKE 'pkill_event'");
     if (Array.isArray(eventRows) && eventRows.length === 0) {
       throw new Error('Table pkill_event does not exist');
     }
 
     // Check pkill_info table
-    const [infoRows] = await connection.query(
-      "SHOW TABLES LIKE 'pkill_info'"
-    );
+    const [infoRows] = await connection.query("SHOW TABLES LIKE 'pkill_info'");
     if (Array.isArray(infoRows) && infoRows.length === 0) {
       throw new Error('Table pkill_info does not exist');
     }
 
     // Check pkill_event schema
-    const [_eventColumns] = await connection.query(
-      "DESCRIBE pkill_event"
-    );
+    const [_eventColumns] = await connection.query('DESCRIBE pkill_event');
 
     // Check pkill_info schema
-    const [_infoColumns] = await connection.query(
-      "DESCRIBE pkill_info"
-    );
+    const [_infoColumns] = await connection.query('DESCRIBE pkill_info');
 
     // Get sample count
-    const [_eventCount] = await connection.query(
-      'SELECT COUNT(*) as count FROM pkill_event'
-    ) as any;
+    const [_eventCount] = (await connection.query(
+      'SELECT COUNT(*) as count FROM pkill_event',
+    )) as any;
 
     connection.release();
   } catch (error) {

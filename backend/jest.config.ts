@@ -19,11 +19,7 @@ const config: Config = {
     ],
   },
   testMatch: ['**/__tests__/**/*.test.ts', '**/test/**/*.test.ts'],
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/__tests__/**',
-    '!src/types/**',
-  ],
+  collectCoverageFrom: ['src/**/*.ts', '!src/__tests__/**', '!src/types/**'],
   coverageDirectory: 'coverage',
   verbose: true,
   testTimeout: 30000, // 30 seconds for database operations

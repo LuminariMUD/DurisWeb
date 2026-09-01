@@ -2,11 +2,7 @@ import { Router, Request, Response } from 'express';
 import type { IRouter } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler.js';
 import { requireAuth, requireImmortal } from '../middleware/auth.js';
-import {
-  parsePagination,
-  sanitizeSearchString,
-  validateIdParam,
-} from '../utils/validation.js';
+import { parsePagination, sanitizeSearchString, validateIdParam } from '../utils/validation.js';
 import {
   getAuctions,
   getAuctionDetail,
@@ -21,7 +17,13 @@ import {
   verifyCharacterOwnership,
   deductCharacterMoney,
 } from '../services/auctionService.js';
-import { AuctionFilters, AuctionHistoryFilters, PaginatedResponse, AuctionListItem, AuctionHistoryItem } from '../types/index.js';
+import {
+  AuctionFilters,
+  AuctionHistoryFilters,
+  PaginatedResponse,
+  AuctionListItem,
+  AuctionHistoryItem,
+} from '../types/index.js';
 import { broadcastAuctionEvent } from '../index.js';
 
 const router: IRouter = Router();
@@ -39,7 +41,7 @@ router.get(
       req.query.page as string,
       req.query.limit as string,
       50,
-      100
+      100,
     );
 
     const filters: AuctionFilters = {
@@ -48,7 +50,9 @@ router.get(
       minPrice: req.query.minPrice ? parseInt(req.query.minPrice as string) : undefined,
       maxPrice: req.query.maxPrice ? parseInt(req.query.maxPrice as string) : undefined,
       hasBuyNow: req.query.hasBuyNow === 'true',
-      keywords: req.query.keywords ? (req.query.keywords as string).split(',').filter(Boolean) : undefined,
+      keywords: req.query.keywords
+        ? (req.query.keywords as string).split(',').filter(Boolean)
+        : undefined,
       page,
       limit,
       sortBy: (req.query.sortBy as 'id' | 'startTime' | 'endTime' | 'price' | 'bidCount') || 'id',
@@ -68,7 +72,7 @@ router.get(
     };
 
     res.json(response);
-  })
+  }),
 );
 
 /**
@@ -91,7 +95,7 @@ router.get(
     }
 
     res.json(auction);
-  })
+  }),
 );
 
 /**
@@ -109,7 +113,7 @@ router.get(
 
     const history = await getAuctionBidHistory(auctionId);
     res.json(history);
-  })
+  }),
 );
 
 /**
@@ -121,7 +125,7 @@ router.get(
   asyncHandler(async (_req: Request, res: Response) => {
     const keywords = await getAuctionKeywords();
     res.json(keywords);
-  })
+  }),
 );
 
 /**
@@ -133,7 +137,7 @@ router.get(
   asyncHandler(async (_req: Request, res: Response) => {
     const stats = await getAuctionStats();
     res.json(stats);
-  })
+  }),
 );
 
 /**
@@ -147,7 +151,7 @@ router.get(
       req.query.page as string,
       req.query.limit as string,
       10,
-      100
+      100,
     );
 
     const filters: AuctionHistoryFilters = {
@@ -173,7 +177,7 @@ router.get(
     };
 
     res.json(response);
-  })
+  }),
 );
 
 /**
@@ -236,8 +240,8 @@ router.post(
     if (characterMoney < amountToPay) {
       throw new AppError(
         `Insufficient funds. Character has ${Math.floor(characterMoney / COPPER_PER_PLAT)}p, ` +
-        `need ${Math.floor(amountToPay / COPPER_PER_PLAT)}p`,
-        400
+          `need ${Math.floor(amountToPay / COPPER_PER_PLAT)}p`,
+        400,
       );
     }
 
@@ -295,7 +299,7 @@ router.post(
         : 'Bid placed successfully',
       auctionClosed: result.auctionClosed || false,
     });
-  })
+  }),
 );
 
 /**
@@ -359,7 +363,7 @@ router.post(
     if (characterMoney < amountToPay) {
       throw new AppError(
         `Insufficient funds. Need ${Math.floor(amountToPay / COPPER_PER_PLAT)}p`,
-        400
+        400,
       );
     }
 
@@ -410,7 +414,7 @@ router.post(
       success: true,
       message: 'Purchase complete! Pick up your item at an Auction House in-game.',
     });
-  })
+  }),
 );
 
 /**
@@ -441,7 +445,7 @@ router.delete(
       success: true,
       message: 'Auction removed. Item returned to seller, bidder refunded.',
     });
-  })
+  }),
 );
 
 export default router;

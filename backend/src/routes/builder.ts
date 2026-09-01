@@ -53,10 +53,7 @@ import {
   quickValidate,
   clearValidationCache,
 } from '../services/zoneBuilderValidator.js';
-import {
-  getZoneGitStatus,
-  commitZoneFiles,
-} from '../services/gitService.js';
+import { getZoneGitStatus, commitZoneFiles } from '../services/gitService.js';
 import zoneInfoService from '../services/zoneInfoService.js';
 import procRequestService from '../services/procRequestService.js';
 import zoneCommentService from '../services/zoneCommentService.js';
@@ -89,9 +86,7 @@ function validateOptionalHtml(value: unknown): OptionalHtmlResult {
   }
 
   const processed = processContentForWrite(value);
-  return processed.error
-    ? { error: processed.error }
-    : { contentHtml: processed.content };
+  return processed.error ? { error: processed.error } : { contentHtml: processed.content };
 }
 
 // Helper function to log builder activity to the dedicated activity log table
@@ -103,14 +98,14 @@ async function logBuilderActivity(
   entityType: string, // 'room', 'mob', 'object', 'reset', 'zone'
   entityVnum: number | null,
   entityName: string | null,
-  ipAddress: string | null
+  ipAddress: string | null,
 ): Promise<void> {
   try {
     await pool.query(
       `INSERT INTO builder_activity_log
        (account_name, action_type, zone_id, zone_name, entity_type, entity_vnum, entity_name, ip_address)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [accountName, actionType, zoneId, zoneName, entityType, entityVnum, entityName, ipAddress]
+      [accountName, actionType, zoneId, zoneName, entityType, entityVnum, entityName, ipAddress],
     );
   } catch (error) {
     logger.error('Failed to log builder activity:', error);
@@ -136,7 +131,10 @@ router.get('/zones', async (req: Request, res: Response) => {
     if (filterByAccess) {
       const accountName = req.user?.accountName;
       // Overlords and users with manage_zones see all zones
-      if (req.user?.permissions?.role !== 'overlord' && !req.user?.adminPermissions?.has('manage_zones')) {
+      if (
+        req.user?.permissions?.role !== 'overlord' &&
+        !req.user?.adminPermissions?.has('manage_zones')
+      ) {
         // Regular users only see zones they have access to
         if (accountName) {
           filterByZoneIds = await zoneInfoService.getAccessibleZoneIds(accountName);
@@ -354,7 +352,7 @@ router.put('/zones/:id/rooms/:vnum', async (req: Request, res: Response) => {
       'room',
       vnum,
       roomData.name,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     // Return success with any warnings
@@ -406,7 +404,7 @@ router.post('/zones/:id/rooms', async (req: Request, res: Response) => {
       'room',
       vnum,
       room.name,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.status(201).json({ success: true, room });
@@ -441,7 +439,7 @@ router.delete('/zones/:id/rooms/:vnum', async (req: Request, res: Response) => {
       'room',
       vnum,
       null, // Room already deleted, no name available
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.json({ success: true });
@@ -463,9 +461,8 @@ router.post('/zones/:id/rooms/:vnum/clone', async (req: Request, res: Response) 
     }
 
     // targetVnum is optional - if not provided, auto-assigns next available
-    const targetVnum = req.body.targetVnum !== undefined
-      ? parseInt(req.body.targetVnum, 10)
-      : undefined;
+    const targetVnum =
+      req.body.targetVnum !== undefined ? parseInt(req.body.targetVnum, 10) : undefined;
 
     if (targetVnum !== undefined && isNaN(targetVnum)) {
       res.status(400).json({ error: 'Invalid target vnum' });
@@ -486,7 +483,7 @@ router.post('/zones/:id/rooms/:vnum/clone', async (req: Request, res: Response) 
       nextTargetVnum = undefined;
     }
 
-    const vnums = clonedRooms.map(r => r.vnum);
+    const vnums = clonedRooms.map((r) => r.vnum);
 
     await logBuilderActivity(
       req.user?.accountName || 'unknown',
@@ -496,7 +493,7 @@ router.post('/zones/:id/rooms/:vnum/clone', async (req: Request, res: Response) 
       'room',
       vnums[0], // First cloned room's vnum
       clonedRooms[0].name,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.status(201).json({
@@ -561,7 +558,7 @@ router.put('/zones/:id/mobs/:vnum', async (req: Request, res: Response) => {
       'mob',
       vnum,
       mobileData.shortDesc,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.json({ success: true, mobile: mobileData });
@@ -623,7 +620,7 @@ router.post('/zones/:id/mobs', async (req: Request, res: Response) => {
       'mob',
       vnum,
       mobile.shortDesc,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.status(201).json({ success: true, mobile });
@@ -658,7 +655,7 @@ router.delete('/zones/:id/mobs/:vnum', async (req: Request, res: Response) => {
       'mob',
       vnum,
       null,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.json({ success: true });
@@ -734,7 +731,7 @@ router.put('/zones/:id/objects/:vnum', async (req: Request, res: Response) => {
       'object',
       vnum,
       objectData.shortDesc,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     // Return success with any warnings
@@ -796,7 +793,7 @@ router.post('/zones/:id/objects', async (req: Request, res: Response) => {
       'object',
       vnum,
       object.shortDesc,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.status(201).json({ success: true, object });
@@ -831,7 +828,7 @@ router.delete('/zones/:id/objects/:vnum', async (req: Request, res: Response) =>
       'object',
       vnum,
       null,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.json({ success: true });
@@ -869,8 +866,12 @@ router.put('/zones/:id/resets', async (req: Request, res: Response) => {
         res.status(400).json({ error: `Invalid command "${reset.command}" at index ${i}` });
         return;
       }
-      if (typeof reset.ifFlag !== 'number' || typeof reset.arg1 !== 'number' ||
-          typeof reset.arg2 !== 'number' || typeof reset.arg3 !== 'number') {
+      if (
+        typeof reset.ifFlag !== 'number' ||
+        typeof reset.arg1 !== 'number' ||
+        typeof reset.arg2 !== 'number' ||
+        typeof reset.arg3 !== 'number'
+      ) {
         res.status(400).json({ error: `Invalid arguments at index ${i}` });
         return;
       }
@@ -887,7 +888,7 @@ router.put('/zones/:id/resets', async (req: Request, res: Response) => {
       'reset',
       null, // No single VNUM for resets
       `${resets.length} commands`,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.json({
@@ -907,18 +908,21 @@ router.get('/flags', async (_req: Request, res: Response) => {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT category, name, value, description, ansi_name, short_code, editable, sort_order
        FROM builder_flags
-       ORDER BY category, sort_order, name`
+       ORDER BY category, sort_order, name`,
     );
 
     // Group flags by category
-    const flagsByCategory: Record<string, Array<{
-      name: string;
-      value: number;
-      description?: string;
-      ansiName?: string;
-      shortCode?: string;
-      editable?: number;
-    }>> = {};
+    const flagsByCategory: Record<
+      string,
+      Array<{
+        name: string;
+        value: number;
+        description?: string;
+        ansiName?: string;
+        shortCode?: string;
+        editable?: number;
+      }>
+    > = {};
 
     for (const row of rows) {
       if (!flagsByCategory[row.category]) {
@@ -1018,10 +1022,10 @@ router.post('/flags/sync', async (req: Request, res: Response) => {
         // Get existing flag names for this category
         const [existingFlags] = await connection.query<RowDataPacket[]>(
           `SELECT name FROM builder_flags WHERE category = ?`,
-          [result.category]
+          [result.category],
         );
-        const existingFlagNames = new Set(existingFlags.map(f => f.name));
-        const parsedFlagNames = new Set(result.flags.map(f => f.name));
+        const existingFlagNames = new Set(existingFlags.map((f) => f.name));
+        const parsedFlagNames = new Set(result.flags.map((f) => f.name));
 
         // Batch upsert using INSERT ... ON DUPLICATE KEY UPDATE
         // Process in batches of 50 to avoid query size limits
@@ -1043,7 +1047,7 @@ router.post('/flags/sync', async (req: Request, res: Response) => {
               flag.ansiName || null,
               flag.shortCode || null,
               sortOrder,
-              flag.sourceFile || result.sourceFile
+              flag.sourceFile || result.sourceFile,
             );
           });
 
@@ -1059,7 +1063,7 @@ router.post('/flags/sync', async (req: Request, res: Response) => {
                sort_order = VALUES(sort_order),
                source_file = VALUES(source_file),
                updated_at = NOW()`,
-            values
+            values,
           );
         }
 
@@ -1073,12 +1077,12 @@ router.post('/flags/sync', async (req: Request, res: Response) => {
         }
 
         // Delete flags that no longer exist in source
-        const toDelete = [...existingFlagNames].filter(name => !parsedFlagNames.has(name));
+        const toDelete = [...existingFlagNames].filter((name) => !parsedFlagNames.has(name));
         if (toDelete.length > 0) {
-          await connection.query(
-            `DELETE FROM builder_flags WHERE category = ? AND name IN (?)`,
-            [result.category, toDelete]
-          );
+          await connection.query(`DELETE FROM builder_flags WHERE category = ? AND name IN (?)`, [
+            result.category,
+            toDelete,
+          ]);
           totalDeleted += toDelete.length;
         }
       }
@@ -1100,7 +1104,7 @@ router.post('/flags/sync', async (req: Request, res: Response) => {
       'system',
       null,
       `${totalInserted} inserted, ${totalUpdated} updated, ${totalDeleted} deleted`,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.json({
@@ -1125,14 +1129,16 @@ router.get('/flags/categories', async (_req: Request, res: Response) => {
       `SELECT category, COUNT(*) as count, MAX(updated_at) as lastUpdated
        FROM builder_flags
        GROUP BY category
-       ORDER BY category`
+       ORDER BY category`,
     );
 
-    res.json(rows.map(r => ({
-      category: r.category,
-      count: r.count,
-      lastUpdated: r.lastUpdated,
-    })));
+    res.json(
+      rows.map((r) => ({
+        category: r.category,
+        count: r.count,
+        lastUpdated: r.lastUpdated,
+      })),
+    );
   } catch (error) {
     logger.error('Error fetching flag categories:', error);
     res.status(500).json({ error: 'Failed to fetch categories', message: getErrorMessage(error) });
@@ -1190,7 +1196,7 @@ router.post('/zones', async (req: Request, res: Response) => {
       'zone',
       null,
       zoneName.trim(),
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.status(201).json({ success: true, zoneId, zoneNumber: zoneNum, zoneName });
@@ -1225,7 +1231,7 @@ router.delete('/zones/:id', async (req: Request, res: Response) => {
       'zone',
       null,
       null,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.json({ success: true });
@@ -1263,10 +1269,12 @@ router.post('/zones/:id/clone', async (req: Request, res: Response) => {
       'zone',
       null,
       zoneName || `Clone of ${sourceZoneId}`,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
-    res.status(201).json({ success: true, sourceZoneId, newZoneId, targetZoneNumber: targetZoneNum });
+    res
+      .status(201)
+      .json({ success: true, sourceZoneId, newZoneId, targetZoneNumber: targetZoneNum });
   } catch (error) {
     logger.error('Error cloning zone:', error);
     res.status(500).json({ error: 'Failed to clone zone', message: getErrorMessage(error) });
@@ -1290,7 +1298,9 @@ router.get('/zones/:id/positions', async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error('Error getting zone positions:', error);
-    res.status(500).json({ error: 'Failed to get zone positions', message: getErrorMessage(error) });
+    res
+      .status(500)
+      .json({ error: 'Failed to get zone positions', message: getErrorMessage(error) });
   }
 });
 
@@ -1314,7 +1324,9 @@ router.put('/zones/:id/positions', async (req: Request, res: Response) => {
     res.json({ success: true, zoneId });
   } catch (error) {
     logger.error('Error saving zone positions:', error);
-    res.status(500).json({ error: 'Failed to save zone positions', message: getErrorMessage(error) });
+    res
+      .status(500)
+      .json({ error: 'Failed to save zone positions', message: getErrorMessage(error) });
   }
 });
 
@@ -1393,7 +1405,9 @@ router.get('/zones/:id/stream/:type', async (req: Request, res: Response) => {
     res.end();
   } catch (error) {
     logger.error(`Error streaming ${type} for zone ${zoneId}:`, error);
-    res.write(`event: error\ndata: ${JSON.stringify({ type, message: getErrorMessage(error) })}\n\n`);
+    res.write(
+      `event: error\ndata: ${JSON.stringify({ type, message: getErrorMessage(error) })}\n\n`,
+    );
     res.end();
   }
 });
@@ -1485,7 +1499,9 @@ router.post('/zones/:id/validate/object-values', async (req: Request, res: Respo
     res.json(result);
   } catch (error) {
     logger.error('Error validating object values:', error);
-    res.status(500).json({ error: 'Failed to validate object values', message: getErrorMessage(error) });
+    res
+      .status(500)
+      .json({ error: 'Failed to validate object values', message: getErrorMessage(error) });
   }
 });
 
@@ -1551,7 +1567,7 @@ router.get('/zones/:id/download/:type', async (req: Request, res: Response) => {
         'zone',
         null,
         'all (zip)',
-        req.ip || req.socket.remoteAddress || null
+        req.ip || req.socket.remoteAddress || null,
       );
     } else {
       // Download single file
@@ -1577,7 +1593,7 @@ router.get('/zones/:id/download/:type', async (req: Request, res: Response) => {
         'zone',
         null,
         ext,
-        req.ip || req.socket.remoteAddress || null
+        req.ip || req.socket.remoteAddress || null,
       );
     }
   } catch (error) {
@@ -1586,7 +1602,9 @@ router.get('/zones/:id/download/:type', async (req: Request, res: Response) => {
       return;
     }
     logger.error('Error downloading zone file:', error);
-    res.status(500).json({ error: 'Failed to download zone file', message: getErrorMessage(error) });
+    res
+      .status(500)
+      .json({ error: 'Failed to download zone file', message: getErrorMessage(error) });
   }
 });
 
@@ -1605,38 +1623,42 @@ router.get('/zones/:id/git/status', async (req: Request, res: Response) => {
 });
 
 // POST /api/builder/zones/:id/git/commit - Commit zone files to git
-router.post('/zones/:id/git/commit', requireAuth, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const zoneId = req.params.id;
-    const { message } = req.body;
+router.post(
+  '/zones/:id/git/commit',
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const zoneId = req.params.id;
+      const { message } = req.body;
 
-    if (!message || typeof message !== 'string' || message.trim().length === 0) {
-      res.status(400).json({ error: 'Commit message is required' });
-      return;
+      if (!message || typeof message !== 'string' || message.trim().length === 0) {
+        res.status(400).json({ error: 'Commit message is required' });
+        return;
+      }
+
+      const result = await commitZoneFiles(zoneId, message.trim());
+
+      if (result.success) {
+        // Log the action
+        await logBuilderActivity(
+          req.user?.accountName || 'unknown',
+          'git_commit',
+          zoneId,
+          null,
+          'zone',
+          null,
+          message.trim(),
+          req.ip || req.socket.remoteAddress || null,
+        );
+      }
+
+      res.json(result);
+    } catch (error) {
+      logger.error('Error committing zone files:', error);
+      res.status(500).json({ error: 'Failed to commit', message: getErrorMessage(error) });
     }
-
-    const result = await commitZoneFiles(zoneId, message.trim());
-
-    if (result.success) {
-      // Log the action
-      await logBuilderActivity(
-        req.user?.accountName || 'unknown',
-        'git_commit',
-        zoneId,
-        null,
-        'zone',
-        null,
-        message.trim(),
-        req.ip || req.socket.remoteAddress || null
-      );
-    }
-
-    res.json(result);
-  } catch (error) {
-    logger.error('Error committing zone files:', error);
-    res.status(500).json({ error: 'Failed to commit', message: getErrorMessage(error) });
-  }
-});
+  },
+);
 
 // ========== Builder Settings ==========
 
@@ -1660,7 +1682,7 @@ router.get('/settings', requireAuth, async (req: Request, res: Response): Promis
 
     const [rows] = await pool.query<BuilderSetting[]>(
       'SELECT setting_key, setting_value FROM builder_settings WHERE account_name = ?',
-      [accountName]
+      [accountName],
     );
 
     // Convert to object
@@ -1672,7 +1694,12 @@ router.get('/settings', requireAuth, async (req: Request, res: Response): Promis
     res.json({ settings });
   } catch (error) {
     // Table might not exist, return empty settings
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'ER_NO_SUCH_TABLE') {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'ER_NO_SUCH_TABLE'
+    ) {
       res.json({ settings: {} });
       return;
     }
@@ -1704,14 +1731,19 @@ router.put('/settings', requireAuth, async (req: Request, res: Response): Promis
         `INSERT INTO builder_settings (account_name, setting_key, setting_value, updated_at)
          VALUES (?, ?, ?, NOW())
          ON DUPLICATE KEY UPDATE setting_value = ?, updated_at = NOW()`,
-        [accountName, key, value, value]
+        [accountName, key, value, value],
       );
     }
 
     res.json({ success: true });
   } catch (error) {
     // Table might not exist
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'ER_NO_SUCH_TABLE') {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'ER_NO_SUCH_TABLE'
+    ) {
       res.status(500).json({ error: 'Builder settings table not found. Please run migrations.' });
       return;
     }
@@ -1728,7 +1760,7 @@ router.put('/settings', requireAuth, async (req: Request, res: Response): Promis
 async function canAccessZone(
   req: Request,
   zoneId: string,
-  level: 'view' | 'edit' | 'manage'
+  level: 'view' | 'edit' | 'manage',
 ): Promise<boolean> {
   const accountName = req.user?.accountName;
   if (!accountName) return false;
@@ -1813,7 +1845,10 @@ router.get('/accessible-zones', async (req: Request, res: Response) => {
     }
 
     // Overlords and users with manage_zones see all zones (return empty to indicate no filtering)
-    if (req.user?.permissions?.role === 'overlord' || req.user?.adminPermissions?.has('manage_zones')) {
+    if (
+      req.user?.permissions?.role === 'overlord' ||
+      req.user?.adminPermissions?.has('manage_zones')
+    ) {
       res.json({ zoneIds: null }); // null means no filtering - all zones accessible
       return;
     }
@@ -1823,7 +1858,9 @@ router.get('/accessible-zones', async (req: Request, res: Response) => {
     res.json({ zoneIds });
   } catch (error) {
     logger.error('Error getting accessible zones:', error);
-    res.status(500).json({ error: 'Failed to get accessible zones', message: getErrorMessage(error) });
+    res
+      .status(500)
+      .json({ error: 'Failed to get accessible zones', message: getErrorMessage(error) });
   }
 });
 
@@ -1876,7 +1913,7 @@ router.put('/zones/:id/info', async (req: Request, res: Response) => {
     const info = await zoneInfoService.upsertZoneInfo(
       zoneId,
       { description, descriptionHtml: processedDescriptionHtml.contentHtml ?? undefined },
-      accountName
+      accountName,
     );
 
     // Log to activity log
@@ -1888,7 +1925,7 @@ router.put('/zones/:id/info', async (req: Request, res: Response) => {
       'zone',
       null,
       'Updated zone description',
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     // Log to zone info history
@@ -1945,7 +1982,9 @@ router.get('/zones/:id/permissions', async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error('Error getting zone permissions:', error);
-    res.status(500).json({ error: 'Failed to get zone permissions', message: getErrorMessage(error) });
+    res
+      .status(500)
+      .json({ error: 'Failed to get zone permissions', message: getErrorMessage(error) });
   }
 });
 
@@ -1990,11 +2029,16 @@ router.post('/zones/:id/permissions', async (req: Request, res: Response) => {
       'zone',
       null,
       `Granted ${permissionLevel} access to ${accountName}`,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     // Log to zone info history
-    await zoneInfoService.recordHistory(zoneId, grantedBy, 'permission_grant', `Granted ${permissionLevel} access to ${accountName}`);
+    await zoneInfoService.recordHistory(
+      zoneId,
+      grantedBy,
+      'permission_grant',
+      `Granted ${permissionLevel} access to ${accountName}`,
+    );
 
     res.json({ success: true });
   } catch (error) {
@@ -2037,11 +2081,16 @@ router.delete('/zones/:id/permissions/:account', async (req: Request, res: Respo
       'zone',
       null,
       `Revoked access from ${targetAccount}`,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     // Log to zone info history
-    await zoneInfoService.recordHistory(zoneId, revokedBy, 'permission_revoke', `Revoked access from ${targetAccount}`);
+    await zoneInfoService.recordHistory(
+      zoneId,
+      revokedBy,
+      'permission_revoke',
+      `Revoked access from ${targetAccount}`,
+    );
 
     res.json({ success: true });
   } catch (error) {
@@ -2081,9 +2130,15 @@ router.get('/notifications', async (req: Request, res: Response) => {
 
     const limit = Math.min(parseInt(req.query.limit as string, 10) || 50, 100);
     const offset = parseInt(req.query.offset as string, 10) || 0;
-    const isRead = req.query.is_read === 'true' ? true : req.query.is_read === 'false' ? false : undefined;
+    const isRead =
+      req.query.is_read === 'true' ? true : req.query.is_read === 'false' ? false : undefined;
 
-    const result = await builderNotificationService.getNotifications(accountName, isRead, limit, offset);
+    const result = await builderNotificationService.getNotifications(
+      accountName,
+      isRead,
+      limit,
+      offset,
+    );
     res.json(result);
   } catch (error) {
     logger.error('Error getting notifications:', error);
@@ -2240,13 +2295,15 @@ router.post('/zones/:id/proc-requests', async (req: Request, res: Response) => {
       entityType,
       data.vnum,
       title,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.status(201).json({ procRequest });
   } catch (error) {
     logger.error('Error creating proc request:', error);
-    res.status(500).json({ error: 'Failed to create proc request', message: getErrorMessage(error) });
+    res
+      .status(500)
+      .json({ error: 'Failed to create proc request', message: getErrorMessage(error) });
   }
 });
 
@@ -2294,7 +2351,12 @@ router.put('/zones/:id/proc-requests/:prId', async (req: Request, res: Response)
     // Get zone name for notification message
     const zoneName = await getZoneName(zoneId);
 
-    const procRequest = await procRequestService.updateProcRequest(prId, data, accountName, zoneName);
+    const procRequest = await procRequestService.updateProcRequest(
+      prId,
+      data,
+      accountName,
+      zoneName,
+    );
 
     if (!procRequest) {
       res.status(404).json({ error: 'Proc request not found' });
@@ -2309,13 +2371,15 @@ router.put('/zones/:id/proc-requests/:prId', async (req: Request, res: Response)
       procRequest.entityType,
       procRequest.vnum,
       procRequest.title,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.json({ procRequest });
   } catch (error) {
     logger.error('Error updating proc request:', error);
-    res.status(500).json({ error: 'Failed to update proc request', message: getErrorMessage(error) });
+    res
+      .status(500)
+      .json({ error: 'Failed to update proc request', message: getErrorMessage(error) });
   }
 });
 
@@ -2343,7 +2407,12 @@ router.put('/zones/:id/proc-requests/:prId/status', async (req: Request, res: Re
 
     const { status, assignedTo } = req.body;
 
-    const validStatuses: ProcRequestStatus[] = ['requested', 'assigned', 'in_progress', 'completed'];
+    const validStatuses: ProcRequestStatus[] = [
+      'requested',
+      'assigned',
+      'in_progress',
+      'completed',
+    ];
     if (!validStatuses.includes(status)) {
       res.status(400).json({ error: 'Invalid status' });
       return;
@@ -2352,7 +2421,13 @@ router.put('/zones/:id/proc-requests/:prId/status', async (req: Request, res: Re
     // Get zone name for notification message
     const zoneName = await getZoneName(zoneId);
 
-    const procRequest = await procRequestService.updateProcRequestStatus(prId, status, assignedTo, accountName, zoneName);
+    const procRequest = await procRequestService.updateProcRequestStatus(
+      prId,
+      status,
+      assignedTo,
+      accountName,
+      zoneName,
+    );
 
     if (!procRequest) {
       res.status(404).json({ error: 'Proc request not found' });
@@ -2403,13 +2478,15 @@ router.delete('/zones/:id/proc-requests/:prId', async (req: Request, res: Respon
       'zone',
       null,
       `Deleted proc request #${prId}`,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.json({ success: true });
   } catch (error) {
     logger.error('Error deleting proc request:', error);
-    res.status(500).json({ error: 'Failed to delete proc request', message: getErrorMessage(error) });
+    res
+      .status(500)
+      .json({ error: 'Failed to delete proc request', message: getErrorMessage(error) });
   }
 });
 
@@ -2432,7 +2509,7 @@ router.get('/zones/:id/comments', async (req: Request, res: Response) => {
 
     const comments = await zoneCommentService.getComments(
       zoneId,
-      procRequestId === undefined ? null : procRequestId
+      procRequestId === undefined ? null : procRequestId,
     );
 
     res.json({ comments });
@@ -2494,7 +2571,7 @@ router.post('/zones/:id/comments', async (req: Request, res: Response) => {
       'zone',
       null,
       content.substring(0, 50) + (content.length > 50 ? '...' : ''),
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.status(201).json({ comment });
@@ -2540,14 +2617,14 @@ router.put('/zones/:id/comments/:commentId', async (req: Request, res: Response)
     }
 
     // Check if user is admin (can edit any comment)
-    const isAdmin = req.user?.permissions?.role === 'overlord' ||
-      req.user?.adminPermissions?.has('manage_zones');
+    const isAdmin =
+      req.user?.permissions?.role === 'overlord' || req.user?.adminPermissions?.has('manage_zones');
 
     const comment = await zoneCommentService.updateComment(
       commentId,
       { content, contentHtml: processedHtml.contentHtml ?? undefined },
       accountName,
-      isAdmin
+      isAdmin,
     );
 
     if (!comment) {
@@ -2589,8 +2666,8 @@ router.delete('/zones/:id/comments/:commentId', async (req: Request, res: Respon
     }
 
     // Check if user is admin
-    const isAdmin = req.user?.permissions?.role === 'overlord' ||
-      req.user?.adminPermissions?.has('manage_zones');
+    const isAdmin =
+      req.user?.permissions?.role === 'overlord' || req.user?.adminPermissions?.has('manage_zones');
 
     const deleted = await zoneCommentService.deleteComment(commentId, accountName, isAdmin);
 
@@ -2607,7 +2684,7 @@ router.delete('/zones/:id/comments/:commentId', async (req: Request, res: Respon
       'zone',
       null,
       `Deleted comment #${commentId}`,
-      req.ip || req.socket.remoteAddress || null
+      req.ip || req.socket.remoteAddress || null,
     );
 
     res.json({ success: true });

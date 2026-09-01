@@ -85,14 +85,14 @@ export async function getLastReboot(): Promise<CurrentReboot | null> {
  */
 export async function getRebootHistory(
   page: number = 1,
-  limit: number = 20
+  limit: number = 20,
 ): Promise<RebootHistory> {
   try {
     const offset = (page - 1) * limit;
 
     // Get total count (only server reboots)
     const [countRows] = await pool.query<RowDataPacket[]>(
-      'SELECT COUNT(*) as total FROM server_reboots WHERE shutdown_type IS NULL'
+      'SELECT COUNT(*) as total FROM server_reboots WHERE shutdown_type IS NULL',
     );
     const total = countRows[0].total;
 
@@ -108,7 +108,7 @@ export async function getRebootHistory(
        WHERE shutdown_type IS NULL
        ORDER BY boot_time DESC
        LIMIT ? OFFSET ?`,
-      [limit, offset]
+      [limit, offset],
     );
 
     return {
@@ -155,7 +155,7 @@ export async function getUptimeStats(): Promise<UptimeStats> {
         ) as maxUptime,
         COUNT(*) as totalReboots,
         SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as rebootsLast30Days
-       FROM server_reboots`
+       FROM server_reboots`,
     );
 
     const stats = statsRows[0];
@@ -185,7 +185,7 @@ export async function getUptimeStats(): Promise<UptimeStats> {
  */
 export async function recordReboot(
   bootTime: number,
-  shutdownTime: number | null = null
+  shutdownTime: number | null = null,
 ): Promise<number> {
   try {
     const uptimeSeconds = shutdownTime && bootTime ? shutdownTime - bootTime : null;
@@ -194,7 +194,7 @@ export async function recordReboot(
       `INSERT INTO server_reboots
         (boot_time, shutdown_time, uptime_seconds)
        VALUES (?, ?, ?)`,
-      [bootTime, shutdownTime, uptimeSeconds]
+      [bootTime, shutdownTime, uptimeSeconds],
     );
 
     return result.insertId;
@@ -208,10 +208,7 @@ export async function recordReboot(
  * Update the shutdown time for the most recent reboot
  * Called when server shutdown is detected
  */
-export async function updateShutdownTime(
-  bootTime: number,
-  shutdownTime: number
-): Promise<void> {
+export async function updateShutdownTime(bootTime: number, shutdownTime: number): Promise<void> {
   try {
     const uptimeSeconds = shutdownTime - bootTime;
 
@@ -221,7 +218,7 @@ export async function updateShutdownTime(
            uptime_seconds = ?
        WHERE boot_time = ?
          AND shutdown_time IS NULL`,
-      [shutdownTime, uptimeSeconds, bootTime]
+      [shutdownTime, uptimeSeconds, bootTime],
     );
   } catch (error) {
     logger.error('Error updating shutdown time:', error);
@@ -236,7 +233,7 @@ export async function rebootExists(bootTime: number): Promise<boolean> {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
       'SELECT COUNT(*) as count FROM server_reboots WHERE boot_time = ?',
-      [bootTime]
+      [bootTime],
     );
 
     return rows[0].count > 0;
@@ -256,7 +253,7 @@ export async function getMostRecentMudBootTime(): Promise<number | null> {
       `SELECT boot_time FROM server_reboots
        WHERE shutdown_type IS NOT NULL
        ORDER BY boot_time DESC
-       LIMIT 1`
+       LIMIT 1`,
     );
 
     if (rows.length > 0) {
@@ -277,7 +274,7 @@ export async function recordMudShutdown(
   bootTime: number,
   shutdownType: 'web_stop' | 'web_restart',
   initiatedBy: string,
-  reason: string
+  reason: string,
 ): Promise<number> {
   try {
     const shutdownTime = Math.floor(Date.now() / 1000);
@@ -287,10 +284,12 @@ export async function recordMudShutdown(
       `INSERT INTO server_reboots
         (boot_time, shutdown_time, uptime_seconds, shutdown_type, initiated_by, reason)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [bootTime, shutdownTime, uptimeSeconds, shutdownType, initiatedBy, reason]
+      [bootTime, shutdownTime, uptimeSeconds, shutdownType, initiatedBy, reason],
     );
 
-    logger.info(`Recorded MUD shutdown: type=${shutdownType}, by=${initiatedBy}, uptime=${uptimeSeconds}s`);
+    logger.info(
+      `Recorded MUD shutdown: type=${shutdownType}, by=${initiatedBy}, uptime=${uptimeSeconds}s`,
+    );
     return result.insertId;
   } catch (error) {
     logger.error('Error recording MUD shutdown:', error);
@@ -302,13 +301,15 @@ export async function recordMudShutdown(
  * Get MUD reboot history from server_reboots table
  * MUD reboots have shutdown_type set (manual, autoreboot, copyover, crash)
  */
-export async function getMudRebootHistory(limit: number = 20): Promise<Array<{
-  rebootTime: number;
-  uptimeBeforeReboot: number;
-  shutdownType: string;
-  initiatedBy: string | null;
-  reason: string | null;
-}>> {
+export async function getMudRebootHistory(limit: number = 20): Promise<
+  Array<{
+    rebootTime: number;
+    uptimeBeforeReboot: number;
+    shutdownType: string;
+    initiatedBy: string | null;
+    reason: string | null;
+  }>
+> {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT
@@ -321,10 +322,10 @@ export async function getMudRebootHistory(limit: number = 20): Promise<Array<{
        WHERE shutdown_type IS NOT NULL
        ORDER BY boot_time DESC
        LIMIT ?`,
-      [limit]
+      [limit],
     );
 
-    return rows.map(row => ({
+    return rows.map((row) => ({
       rebootTime: row.rebootTime || 0,
       uptimeBeforeReboot: row.uptimeBeforeReboot || 0,
       shutdownType: row.shutdownType || 'unknown',
@@ -374,7 +375,9 @@ export async function pollBootTime(): Promise<void> {
       // Record the new reboot
       await recordReboot(currentBootTime);
 
-      logger.info(`Server reboot detected! Old boot: ${lastKnownBootTime}, New boot: ${currentBootTime}`);
+      logger.info(
+        `Server reboot detected! Old boot: ${lastKnownBootTime}, New boot: ${currentBootTime}`,
+      );
       lastKnownBootTime = currentBootTime;
     }
   } catch (error) {

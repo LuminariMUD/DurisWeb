@@ -7,7 +7,7 @@ import {
   updateForumSetting,
   getCategoryPermissions,
   updateCategoryPermissions,
-  getPermissionAuditLog
+  getPermissionAuditLog,
 } from '../services/forumSettingsService.js';
 import {
   getWebSettingsRaw,
@@ -17,7 +17,7 @@ import {
   validateLogoFile,
   uploadHeroImage,
   deleteHeroImage,
-  validateHeroFile
+  validateHeroFile,
 } from '../services/webSettingsService.js';
 import {
   getAllCategoriesAdmin,
@@ -31,12 +31,9 @@ import {
   addPermission,
   removePermission,
   getCategoryPermissions as getCategoryACLPermissions,
-  getArchivedCategories
+  getArchivedCategories,
 } from '../services/categoryService.js';
-import {
-  getDeletedThreads,
-  getDeletedPosts
-} from '../services/forumService.js';
+import { getDeletedThreads, getDeletedPosts } from '../services/forumService.js';
 import { requireAuth, requireOverlord, requirePermission } from '../middleware/auth.js';
 import {
   getOverviewStats,
@@ -44,23 +41,24 @@ import {
   getPvPStats,
   getPlayerStats,
   getPlayerActivity,
-  getWhoList
+  getWhoList,
 } from '../services/analyticsService.js';
 import { getServerHealth } from '../services/serverMonitor.js';
 import { getPeakPlayerCount } from '../services/statisticsParser.js';
 import { getDmsProcessStats } from '../services/processMonitor.js';
 import { getMudState } from '../services/mudControlService.js';
-import {
-  listLogs,
-  readLogPaginated,
-  tailLog,
-  getLogFilePath
-} from '../services/logService.js';
+import { listLogs, readLogPaginated, tailLog, getLogFilePath } from '../services/logService.js';
 import { createReadStream } from 'fs';
 import { pool as db } from '../db/connection.js';
 import { requestWhoList, isMudConnected, getMudBootTime } from '../services/mudAuctionClient.js';
 import { getOnlinePlayers as getOnlinePlayersFromRedis } from '../services/onlinePlayersService.js';
-import { getCategorizedProperties, searchProperties, updateProperty, validatePropertyValue, getPropertyHistory } from '../services/propertiesParser.js';
+import {
+  getCategorizedProperties,
+  searchProperties,
+  updateProperty,
+  validatePropertyValue,
+  getPropertyHistory,
+} from '../services/propertiesParser.js';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import {
   createBackup,
@@ -76,12 +74,16 @@ import {
   isMudRunning,
   validateUploadedBackup,
   createRestoreFromUpload,
-  deleteUploadedBackup
+  deleteUploadedBackup,
 } from '../services/backupService.js';
 import multer from 'multer';
 import path from 'path';
 import os from 'os';
-import { getCurrentMudTime, formatMudTime, getMudTimeDescription } from '../services/mudTimeService.js';
+import {
+  getCurrentMudTime,
+  formatMudTime,
+  getMudTimeDescription,
+} from '../services/mudTimeService.js';
 import {
   getAllPermissions,
   getAllRoles,
@@ -94,9 +96,13 @@ import {
   assignRole,
   revokeRole,
   grantPermission,
-  revokePermission
+  revokePermission,
 } from '../services/adminPermissionService.js';
-import { searchAccounts, accountExists, updateAccountPassword } from '../services/accountService.js';
+import {
+  searchAccounts,
+  accountExists,
+  updateAccountPassword,
+} from '../services/accountService.js';
 import bcrypt from 'bcrypt';
 import { getGodLevelFromCharacterLevel } from '../services/permissionService.js';
 import {
@@ -104,7 +110,11 @@ import {
   validateCreateIncidentBody,
   validateUpdateIncidentBody,
 } from '../utils/incidentValidation.js';
-import { parseStrictPositiveId, parseStrictPositiveIdArray, validateIdParam } from '../utils/validation.js';
+import {
+  parseStrictPositiveId,
+  parseStrictPositiveIdArray,
+  validateIdParam,
+} from '../utils/validation.js';
 import {
   getDupedItems,
   getDupeDetails,
@@ -112,7 +122,7 @@ import {
   deletePlayerItem,
   deleteLockerItem,
   deletePlayerItems,
-  deleteAllDupesForUid
+  deleteAllDupesForUid,
 } from '../services/dupeDetectionService.js';
 import { testWebhook, manualPostBattle } from '../services/discordService.js';
 
@@ -157,15 +167,20 @@ const INCIDENT_UPDATE_COLUMNS: Record<(typeof INCIDENT_UPDATE_FIELDS)[number], s
  * GET /api/admin/forum/settings
  * Get all forum settings
  */
-router.get('/forum/settings', requireAuth, requireOverlord, async (_req: Request, res: Response) => {
-  try {
-    const settings = await getForumSettings();
-    return res.json({ settings });
-  } catch (error) {
-    logger.error('Get forum settings error:', error);
-    return res.status(500).json({ error: 'Failed to get forum settings' });
-  }
-});
+router.get(
+  '/forum/settings',
+  requireAuth,
+  requireOverlord,
+  async (_req: Request, res: Response) => {
+    try {
+      const settings = await getForumSettings();
+      return res.json({ settings });
+    } catch (error) {
+      logger.error('Get forum settings error:', error);
+      return res.status(500).json({ error: 'Failed to get forum settings' });
+    }
+  },
+);
 
 /**
  * PUT /api/admin/forum/settings/:key
@@ -177,7 +192,10 @@ router.put(
   requireOverlord,
   [
     param('key').trim().isLength({ min: 1, max: 100 }).withMessage('Invalid setting key'),
-    body('value').trim().isLength({ min: 1, max: 255 }).withMessage('Value must be 1-255 characters'),
+    body('value')
+      .trim()
+      .isLength({ min: 1, max: 255 })
+      .withMessage('Value must be 1-255 characters'),
   ],
   async (req: Request, res: Response) => {
     try {
@@ -238,7 +256,7 @@ router.put(
       logger.error('Update forum setting error:', error);
       return res.status(500).json({ error: 'Failed to update setting' });
     }
-  }
+  },
 );
 
 /**
@@ -265,7 +283,7 @@ router.get(
       logger.error('Get category permissions error:', error);
       return res.status(500).json({ error: 'Failed to get category permissions' });
     }
-  }
+  },
 );
 
 /**
@@ -308,7 +326,7 @@ router.patch(
       await updateCategoryPermissions(
         categoryId,
         { min_level_to_view, min_level_to_post, min_level_to_moderate },
-        req.user.accountName
+        req.user.accountName,
       );
 
       return res.json({
@@ -319,34 +337,46 @@ router.patch(
       logger.error('Update category permissions error:', error);
       return res.status(500).json({ error: 'Failed to update category permissions' });
     }
-  }
+  },
 );
 
 /**
  * GET /api/admin/forum/audit-log
  * Get permission change audit log with filters and pagination
  */
-router.get('/forum/audit-log', requireAuth, requirePermission('view_audit_log'), async (req: Request, res: Response) => {
-  try {
-    const filters = {
-      page: req.query.page ? parseInt(req.query.page as string) : 1,
-      limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
-      changedBy: req.query.changedBy as string,
-      changeType: req.query.changeType as 'property_change' | 'level_cap_change' | 'wipe' | 'timer_reset' | 'setting' | 'category_permission' | 'all',
-      targetKey: req.query.targetKey as string,
-      startDate: req.query.startDate as string,
-      endDate: req.query.endDate as string,
-      search: req.query.search as string
-    };
+router.get(
+  '/forum/audit-log',
+  requireAuth,
+  requirePermission('view_audit_log'),
+  async (req: Request, res: Response) => {
+    try {
+      const filters = {
+        page: req.query.page ? parseInt(req.query.page as string) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
+        changedBy: req.query.changedBy as string,
+        changeType: req.query.changeType as
+          | 'property_change'
+          | 'level_cap_change'
+          | 'wipe'
+          | 'timer_reset'
+          | 'setting'
+          | 'category_permission'
+          | 'all',
+        targetKey: req.query.targetKey as string,
+        startDate: req.query.startDate as string,
+        endDate: req.query.endDate as string,
+        search: req.query.search as string,
+      };
 
-    const result = await getPermissionAuditLog(filters);
+      const result = await getPermissionAuditLog(filters);
 
-    return res.json(result);
-  } catch (error) {
-    logger.error('Get audit log error:', error);
-    return res.status(500).json({ error: 'Failed to get audit log' });
-  }
-});
+      return res.json(result);
+    } catch (error) {
+      logger.error('Get audit log error:', error);
+      return res.status(500).json({ error: 'Failed to get audit log' });
+    }
+  },
+);
 
 // ============================================================================
 // Category Management Routes (New - Full CRUD + ACL)
@@ -356,16 +386,21 @@ router.get('/forum/audit-log', requireAuth, requirePermission('view_audit_log'),
  * GET /api/admin/forum/categories/all
  * Get all categories including archived (admin view)
  */
-router.get('/forum/categories/all', requireAuth, requireOverlord, async (req: Request, res: Response) => {
-  try {
-    const includeArchived = req.query.include_archived === 'true';
-    const categories = await getAllCategoriesAdmin(includeArchived);
-    return res.json({ categories });
-  } catch (error) {
-    logger.error('Get all categories error:', error);
-    return res.status(500).json({ error: 'Failed to get categories' });
-  }
-});
+router.get(
+  '/forum/categories/all',
+  requireAuth,
+  requireOverlord,
+  async (req: Request, res: Response) => {
+    try {
+      const includeArchived = req.query.include_archived === 'true';
+      const categories = await getAllCategoriesAdmin(includeArchived);
+      return res.json({ categories });
+    } catch (error) {
+      logger.error('Get all categories error:', error);
+      return res.status(500).json({ error: 'Failed to get categories' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/forum/categories/:id/details
@@ -395,7 +430,7 @@ router.get(
       logger.error('Get category details error:', error);
       return res.status(500).json({ error: 'Failed to get category details' });
     }
-  }
+  },
 );
 
 /**
@@ -412,10 +447,7 @@ router.post(
     body('accessType')
       .isIn(['public', 'authenticated', 'role_based', 'guild', 'custom_acl'])
       .withMessage('Invalid access type'),
-    body('minLevel')
-      .optional()
-      .isInt({ min: 57, max: 62 })
-      .withMessage('Min level must be 57-62'),
+    body('minLevel').optional().isInt({ min: 57, max: 62 }).withMessage('Min level must be 57-62'),
     body('guildName').optional().isString().withMessage('Guild name must be a string'),
     body('parentId').optional().isInt().withMessage('Parent ID must be an integer'),
     body('sortOrder').optional().isInt().withMessage('Sort order must be an integer'),
@@ -432,14 +464,15 @@ router.post(
         return res.status(401).json({ error: 'Not authenticated' });
       }
 
-      const { name, description, accessType, minLevel, guildName, parentId, sortOrder, icon } = req.body;
+      const { name, description, accessType, minLevel, guildName, parentId, sortOrder, icon } =
+        req.body;
 
       const categoryId = await createCategory(
         name,
         description || null,
         accessType,
         req.user.accountName,
-        { minLevel, guildName, parentId, sortOrder, icon }
+        { minLevel, guildName, parentId, sortOrder, icon },
       );
 
       return res.status(201).json({
@@ -451,7 +484,7 @@ router.post(
       logger.error('Create category error:', error);
       return res.status(400).json({ error: getErrorMessage(error) || 'Failed to create category' });
     }
-  }
+  },
 );
 
 /**
@@ -464,8 +497,15 @@ router.patch(
   requireOverlord,
   [
     param('id').isInt().withMessage('Category ID must be an integer'),
-    body('name').optional().trim().isLength({ min: 1, max: 100 }).withMessage('Name must be 1-100 characters'),
-    body('description').optional({ nullable: true }).isString().withMessage('Description must be a string'),
+    body('name')
+      .optional()
+      .trim()
+      .isLength({ min: 1, max: 100 })
+      .withMessage('Name must be 1-100 characters'),
+    body('description')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('Description must be a string'),
     body('accessType')
       .optional()
       .isIn(['public', 'authenticated', 'role_based', 'guild', 'custom_acl'])
@@ -474,7 +514,10 @@ router.patch(
       .optional({ nullable: true })
       .custom((value) => value === null || (Number.isInteger(value) && value >= 57 && value <= 62))
       .withMessage('Min level must be null or 57-62'),
-    body('guildName').optional({ nullable: true }).isString().withMessage('Guild name must be a string'),
+    body('guildName')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('Guild name must be a string'),
     body('parentId')
       .optional({ nullable: true })
       .custom((value) => value === null || Number.isInteger(value))
@@ -506,7 +549,7 @@ router.patch(
       logger.error('Update category error:', error);
       return res.status(400).json({ error: getErrorMessage(error) || 'Failed to update category' });
     }
-  }
+  },
 );
 
 /**
@@ -538,9 +581,11 @@ router.post(
       });
     } catch (error) {
       logger.error('Archive category error:', error);
-      return res.status(400).json({ error: getErrorMessage(error) || 'Failed to archive category' });
+      return res
+        .status(400)
+        .json({ error: getErrorMessage(error) || 'Failed to archive category' });
     }
-  }
+  },
 );
 
 /**
@@ -572,9 +617,11 @@ router.post(
       });
     } catch (error) {
       logger.error('Restore category error:', error);
-      return res.status(400).json({ error: getErrorMessage(error) || 'Failed to restore category' });
+      return res
+        .status(400)
+        .json({ error: getErrorMessage(error) || 'Failed to restore category' });
     }
-  }
+  },
 );
 
 /**
@@ -608,7 +655,7 @@ router.delete(
       logger.error('Delete category error:', error);
       return res.status(400).json({ error: getErrorMessage(error) || 'Failed to delete category' });
     }
-  }
+  },
 );
 
 /**
@@ -628,7 +675,7 @@ router.post(
           (order: any) =>
             typeof order === 'object' &&
             Number.isInteger(order.id) &&
-            Number.isInteger(order.sortOrder)
+            Number.isInteger(order.sortOrder),
         );
       })
       .withMessage('Each order must have id and sortOrder as integers'),
@@ -649,9 +696,11 @@ router.post(
       });
     } catch (error) {
       logger.error('Reorder categories error:', error);
-      return res.status(400).json({ error: getErrorMessage(error) || 'Failed to reorder categories' });
+      return res
+        .status(400)
+        .json({ error: getErrorMessage(error) || 'Failed to reorder categories' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -682,7 +731,7 @@ router.get(
       logger.error('Get ACL permissions error:', error);
       return res.status(500).json({ error: 'Failed to get ACL permissions' });
     }
-  }
+  },
 );
 
 /**
@@ -695,7 +744,9 @@ router.post(
   requireOverlord,
   [
     param('id').isInt().withMessage('Category ID must be an integer'),
-    body('permissionType').isIn(['allow', 'deny']).withMessage('Permission type must be allow or deny'),
+    body('permissionType')
+      .isIn(['allow', 'deny'])
+      .withMessage('Permission type must be allow or deny'),
     body('target').isObject().withMessage('Target must be an object'),
     body('target.minImmortalLevel')
       .optional()
@@ -707,7 +758,10 @@ router.post(
     body('permissions').isObject().withMessage('Permissions must be an object'),
     body('permissions.canView').optional().isBoolean().withMessage('canView must be boolean'),
     body('permissions.canPost').optional().isBoolean().withMessage('canPost must be boolean'),
-    body('permissions.canModerate').optional().isBoolean().withMessage('canModerate must be boolean'),
+    body('permissions.canModerate')
+      .optional()
+      .isBoolean()
+      .withMessage('canModerate must be boolean'),
   ],
   async (req: Request, res: Response) => {
     try {
@@ -733,7 +787,7 @@ router.post(
         req.user.accountName,
         permissionType,
         target,
-        permissions
+        permissions,
       );
 
       return res.status(201).json({
@@ -743,9 +797,11 @@ router.post(
       });
     } catch (error) {
       logger.error('Add ACL permission error:', error);
-      return res.status(400).json({ error: getErrorMessage(error) || 'Failed to add ACL permission' });
+      return res
+        .status(400)
+        .json({ error: getErrorMessage(error) || 'Failed to add ACL permission' });
     }
-  }
+  },
 );
 
 /**
@@ -785,7 +841,7 @@ router.delete(
       logger.error('Remove ACL permission error:', error);
       return res.status(500).json({ error: 'Failed to remove ACL permission' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -796,23 +852,28 @@ router.delete(
  * GET /api/admin/analytics/overview
  * Get overview statistics for dashboard
  */
-router.get('/analytics/overview', requireAuth, requireOverlord, async (_req: Request, res: Response) => {
-  try {
-    const stats = await getOverviewStats();
+router.get(
+  '/analytics/overview',
+  requireAuth,
+  requireOverlord,
+  async (_req: Request, res: Response) => {
+    try {
+      const stats = await getOverviewStats();
 
-    // Also get peak from flatfiles if database has no data
-    if (stats.peakPlayerCount === 0) {
-      const peakData = await getPeakPlayerCount();
-      stats.peakPlayerCount = peakData.count;
-      stats.peakPlayerTimestamp = peakData.timestamp?.toISOString() || null;
+      // Also get peak from flatfiles if database has no data
+      if (stats.peakPlayerCount === 0) {
+        const peakData = await getPeakPlayerCount();
+        stats.peakPlayerCount = peakData.count;
+        stats.peakPlayerTimestamp = peakData.timestamp?.toISOString() || null;
+      }
+
+      return res.json({ stats });
+    } catch (error) {
+      logger.error('Get overview stats error:', error);
+      return res.status(500).json({ error: 'Failed to get overview statistics' });
     }
-
-    return res.json({ stats });
-  } catch (error) {
-    logger.error('Get overview stats error:', error);
-    return res.status(500).json({ error: 'Failed to get overview statistics' });
-  }
-});
+  },
+);
 
 router.get('/mud-boot-time', requireAuth, async (_req: Request, res: Response) => {
   try {
@@ -828,15 +889,20 @@ router.get('/mud-boot-time', requireAuth, async (_req: Request, res: Response) =
  * GET /api/admin/analytics/forum
  * Get forum analytics
  */
-router.get('/analytics/forum', requireAuth, requireOverlord, async (_req: Request, res: Response) => {
-  try {
-    const stats = await getForumStats();
-    return res.json({ stats });
-  } catch (error) {
-    logger.error('Get forum stats error:', error);
-    return res.status(500).json({ error: 'Failed to get forum statistics' });
-  }
-});
+router.get(
+  '/analytics/forum',
+  requireAuth,
+  requireOverlord,
+  async (_req: Request, res: Response) => {
+    try {
+      const stats = await getForumStats();
+      return res.json({ stats });
+    } catch (error) {
+      logger.error('Get forum stats error:', error);
+      return res.status(500).json({ error: 'Failed to get forum statistics' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/analytics/pvp
@@ -856,80 +922,95 @@ router.get('/analytics/pvp', requireAuth, requireOverlord, async (_req: Request,
  * GET /api/admin/analytics/players
  * Get player demographics and statistics
  */
-router.get('/analytics/players', requireAuth, requireOverlord, async (_req: Request, res: Response) => {
-  try {
-    const stats = await getPlayerStats();
-    return res.json({ stats });
-  } catch (error) {
-    logger.error('Get player stats error:', error);
-    return res.status(500).json({ error: 'Failed to get player statistics' });
-  }
-});
+router.get(
+  '/analytics/players',
+  requireAuth,
+  requireOverlord,
+  async (_req: Request, res: Response) => {
+    try {
+      const stats = await getPlayerStats();
+      return res.json({ stats });
+    } catch (error) {
+      logger.error('Get player stats error:', error);
+      return res.status(500).json({ error: 'Failed to get player statistics' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/analytics/activity
  * Get player activity over time
  */
-router.get('/analytics/activity', requireAuth, requireOverlord, async (req: Request, res: Response) => {
-  try {
-    const hours = parseInt(req.query.hours as string) || 24;
-    const activity = await getPlayerActivity(hours);
-    return res.json({ activity });
-  } catch (error) {
-    logger.error('Get player activity error:', error);
-    return res.status(500).json({ error: 'Failed to get player activity' });
-  }
-});
+router.get(
+  '/analytics/activity',
+  requireAuth,
+  requireOverlord,
+  async (req: Request, res: Response) => {
+    try {
+      const hours = parseInt(req.query.hours as string) || 24;
+      const activity = await getPlayerActivity(hours);
+      return res.json({ activity });
+    } catch (error) {
+      logger.error('Get player activity error:', error);
+      return res.status(500).json({ error: 'Failed to get player activity' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/analytics/server
  * Get server health and resource usage
  */
-router.get('/analytics/server', requireAuth, requireOverlord, async (_req: Request, res: Response) => {
-  try {
-    const [serverHealth, dmsProcess] = await Promise.all([
-      getServerHealth(),
-      getDmsProcessStats()
-    ]);
+router.get(
+  '/analytics/server',
+  requireAuth,
+  requireOverlord,
+  async (_req: Request, res: Response) => {
+    try {
+      const [serverHealth, dmsProcess] = await Promise.all([
+        getServerHealth(),
+        getDmsProcessStats(),
+      ]);
 
-    // Transform to match frontend expectations
-    const health = {
-      diskSpace: {
-        used: serverHealth.diskSpace.used,
-        total: serverHealth.diskSpace.total,
-        available: serverHealth.diskSpace.total - serverHealth.diskSpace.used,
-      },
-      memory: {
-        used: serverHealth.memoryUsage.used,
-        total: serverHealth.memoryUsage.total,
-        free: serverHealth.memoryUsage.total - serverHealth.memoryUsage.used,
-      },
-      uptime: serverHealth.uptimeMs,
-      database: {
-        status: serverHealth.databaseStatus.connected ? 'healthy' : 'disconnected',
-        connected: serverHealth.databaseStatus.connected,
-        tables: serverHealth.tableSizes.map(t => ({
-          name: t.tableName,
-          size: t.sizeBytes,
-          rows: t.rowCount,
-        })),
-      },
-      dmsProcess: {
-        cpu: dmsProcess.cpu,
-        memory: dmsProcess.memory,
-        memoryPercent: dmsProcess.memoryPercent,
-        uptime: dmsProcess.uptime,
-        pid: dmsProcess.pid,
-        isRunning: dmsProcess.isRunning,
-      },
-    };
+      // Transform to match frontend expectations
+      const health = {
+        diskSpace: {
+          used: serverHealth.diskSpace.used,
+          total: serverHealth.diskSpace.total,
+          available: serverHealth.diskSpace.total - serverHealth.diskSpace.used,
+        },
+        memory: {
+          used: serverHealth.memoryUsage.used,
+          total: serverHealth.memoryUsage.total,
+          free: serverHealth.memoryUsage.total - serverHealth.memoryUsage.used,
+        },
+        uptime: serverHealth.uptimeMs,
+        database: {
+          status: serverHealth.databaseStatus.connected ? 'healthy' : 'disconnected',
+          connected: serverHealth.databaseStatus.connected,
+          tables: serverHealth.tableSizes.map((t) => ({
+            name: t.tableName,
+            size: t.sizeBytes,
+            rows: t.rowCount,
+          })),
+        },
+        dmsProcess: {
+          cpu: dmsProcess.cpu,
+          memory: dmsProcess.memory,
+          memoryPercent: dmsProcess.memoryPercent,
+          uptime: dmsProcess.uptime,
+          pid: dmsProcess.pid,
+          isRunning: dmsProcess.isRunning,
+        },
+      };
 
-    return res.json({ health });
-  } catch (error) {
-    logger.error('Get server health error:', error);
-    return res.status(500).json({ error: 'Failed to get server health' });
-  }
-});
+      return res.json({ health });
+    } catch (error) {
+      logger.error('Get server health error:', error);
+      return res.status(500).json({ error: 'Failed to get server health' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/who
@@ -941,7 +1022,7 @@ router.get('/who', requireAuth, requireOverlord, async (_req: Request, res: Resp
     const now = Date.now();
 
     if (redisPlayers.length > 0) {
-      const players = redisPlayers.map(p => ({
+      const players = redisPlayers.map((p) => ({
         char_name: p.name,
         account: p.account,
         last_ip: p.ip,
@@ -969,37 +1050,42 @@ router.get('/who', requireAuth, requireOverlord, async (_req: Request, res: Resp
  * POST /api/admin/analytics/cleanup-connections
  * Clean up stale ip_info records and return updated WHO list
  */
-router.post('/analytics/cleanup-connections', requireAuth, requireOverlord, async (_req: Request, res: Response) => {
-  try {
-    // Step 1: Clean up stale connections (connected >1 hour ago, no disconnect)
-    const [cleanupResult] = await db.query(
-      `UPDATE ip_info
+router.post(
+  '/analytics/cleanup-connections',
+  requireAuth,
+  requireOverlord,
+  async (_req: Request, res: Response) => {
+    try {
+      // Step 1: Clean up stale connections (connected >1 hour ago, no disconnect)
+      const [cleanupResult] = await db.query(
+        `UPDATE ip_info
        SET last_disconnect = NOW()
        WHERE last_disconnect IS NULL
-         AND last_connect < DATE_SUB(NOW(), INTERVAL 1 HOUR)`
-    );
+         AND last_connect < DATE_SUB(NOW(), INTERVAL 1 HOUR)`,
+      );
 
-    const rowsAffected = (cleanupResult as any).affectedRows;
+      const rowsAffected = (cleanupResult as any).affectedRows;
 
-    // Step 2: Request fresh wholist from MUD via websocket (optional, for login history tracking)
-    const mudConnected = isMudConnected();
-    if (mudConnected) {
-      requestWhoList();
+      // Step 2: Request fresh wholist from MUD via websocket (optional, for login history tracking)
+      const mudConnected = isMudConnected();
+      if (mudConnected) {
+        requestWhoList();
+      }
+
+      // Step 3: Return current state from redis
+      const whoList = await getOnlinePlayersFromRedis();
+
+      return res.json({
+        success: true,
+        message: `Cleaned up ${rowsAffected} stale connection(s)${mudConnected ? ', requested fresh wholist from MUD' : ' (MUD not connected)'}`,
+        whoList,
+      });
+    } catch (error) {
+      logger.error('Cleanup connections error:', error);
+      return res.status(500).json({ error: 'Failed to cleanup connections' });
     }
-
-    // Step 3: Return current state from redis
-    const whoList = await getOnlinePlayersFromRedis();
-
-    return res.json({
-      success: true,
-      message: `Cleaned up ${rowsAffected} stale connection(s)${mudConnected ? ', requested fresh wholist from MUD' : ' (MUD not connected)'}`,
-      whoList
-    });
-  } catch (error) {
-    logger.error('Cleanup connections error:', error);
-    return res.status(500).json({ error: 'Failed to cleanup connections' });
-  }
-});
+  },
+);
 
 // ============================================================================
 // Archive Management Routes
@@ -1009,34 +1095,46 @@ router.post('/analytics/cleanup-connections', requireAuth, requireOverlord, asyn
  * GET /api/admin/archives/categories
  * Get all archived categories
  */
-router.get('/archives/categories', requireAuth, requireOverlord, async (_req: Request, res: Response) => {
-  try {
-    const categories = await getArchivedCategories();
-    return res.json({ categories });
-  } catch (error) {
-    logger.error('Get archived categories error:', error);
-    return res.status(500).json({ error: 'Failed to get archived categories' });
-  }
-});
+router.get(
+  '/archives/categories',
+  requireAuth,
+  requireOverlord,
+  async (_req: Request, res: Response) => {
+    try {
+      const categories = await getArchivedCategories();
+      return res.json({ categories });
+    } catch (error) {
+      logger.error('Get archived categories error:', error);
+      return res.status(500).json({ error: 'Failed to get archived categories' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/archives/threads
  * Get deleted threads with pagination and filters
  * Query params: page, limit, categoryId
  */
-router.get('/archives/threads', requireAuth, requireOverlord, async (req: Request, res: Response) => {
-  try {
-    const page = req.query.page ? parseInt(req.query.page as string) : 1;
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-    const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
+router.get(
+  '/archives/threads',
+  requireAuth,
+  requireOverlord,
+  async (req: Request, res: Response) => {
+    try {
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const categoryId = req.query.categoryId
+        ? parseInt(req.query.categoryId as string)
+        : undefined;
 
-    const result = await getDeletedThreads({ page, limit, categoryId });
-    return res.json(result);
-  } catch (error) {
-    logger.error('Get deleted threads error:', error);
-    return res.status(500).json({ error: 'Failed to get deleted threads' });
-  }
-});
+      const result = await getDeletedThreads({ page, limit, categoryId });
+      return res.json(result);
+    } catch (error) {
+      logger.error('Get deleted threads error:', error);
+      return res.status(500).json({ error: 'Failed to get deleted threads' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/archives/posts
@@ -1065,15 +1163,20 @@ router.get('/archives/posts', requireAuth, requireOverlord, async (req: Request,
  * GET /api/admin/logs
  * List all available log files
  */
-router.get('/logs', requireAuth, requirePermission('view_server_logs'), async (_req: Request, res: Response) => {
-  try {
-    const logs = await listLogs();
-    return res.json({ logs });
-  } catch (error) {
-    logger.error('List logs error:', error);
-    return res.status(500).json({ error: 'Failed to list log files' });
-  }
-});
+router.get(
+  '/logs',
+  requireAuth,
+  requirePermission('view_server_logs'),
+  async (_req: Request, res: Response) => {
+    try {
+      const logs = await listLogs();
+      return res.json({ logs });
+    } catch (error) {
+      logger.error('List logs error:', error);
+      return res.status(500).json({ error: 'Failed to list log files' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/logs/:category/:logName
@@ -1110,7 +1213,7 @@ router.get(
         pageSize,
         searchText,
         startDate,
-        endDate
+        endDate,
       );
 
       return res.json(result);
@@ -1118,7 +1221,7 @@ router.get(
       logger.error('Read log error:', error);
       return res.status(500).json({ error: getErrorMessage(error) || 'Failed to read log file' });
     }
-  }
+  },
 );
 
 /**
@@ -1152,7 +1255,7 @@ router.get(
       logger.error('Tail log error:', error);
       return res.status(500).json({ error: getErrorMessage(error) || 'Failed to tail log file' });
     }
-  }
+  },
 );
 
 /**
@@ -1197,7 +1300,7 @@ router.get(
       logger.error('Download log error:', error);
       res.status(500).json({ error: getErrorMessage(error) || 'Failed to download log file' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -1222,7 +1325,7 @@ router.get(
         ip,
         status,
         startDate,
-        endDate
+        endDate,
       } = req.query;
 
       const pageNum = parseInt(page as string);
@@ -1281,7 +1384,7 @@ router.get(
 
       // Enrich with GeoIP data (batch lookup unique IPs)
       const logsArray = logs as any[];
-      const uniqueIPs = [...new Set(logsArray.map(log => log.ip_address).filter(Boolean))];
+      const uniqueIPs = [...new Set(logsArray.map((log) => log.ip_address).filter(Boolean))];
       const geoData = new Map<string, any>();
 
       // Geolocate IPs (will use cache for previously seen IPs)
@@ -1293,7 +1396,7 @@ router.get(
       }
 
       // Format response
-      const enrichedLogs = logsArray.map(log => ({
+      const enrichedLogs = logsArray.map((log) => ({
         id: log.id,
         timestamp: log.timestamp,
         accountName: log.account_name,
@@ -1301,7 +1404,7 @@ router.get(
         ipAddress: log.ip_address,
         hostname: log.hostname,
         status: log.status,
-        geoLocation: log.ip_address ? geoData.get(log.ip_address) || null : null
+        geoLocation: log.ip_address ? geoData.get(log.ip_address) || null : null,
       }));
 
       return res.json({
@@ -1310,14 +1413,16 @@ router.get(
           page: pageNum,
           limit: limitNum,
           total: totalCount,
-          totalPages: Math.ceil(totalCount / limitNum)
-        }
+          totalPages: Math.ceil(totalCount / limitNum),
+        },
       });
     } catch (error) {
       logger.error('Get connection logs error:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to get connection logs' });
+      return res
+        .status(500)
+        .json({ error: getErrorMessage(error) || 'Failed to get connection logs' });
     }
-  }
+  },
 );
 
 /**
@@ -1343,9 +1448,11 @@ router.get(
       return res.json({ data: timeline });
     } catch (error) {
       logger.error('Get account connections error:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to get account connections' });
+      return res
+        .status(500)
+        .json({ error: getErrorMessage(error) || 'Failed to get account connections' });
     }
-  }
+  },
 );
 
 /**
@@ -1362,7 +1469,7 @@ router.get(
 
       const [accounts] = await db.query(
         'SELECT DISTINCT account_name FROM account_login_history WHERE ip_address = ? ORDER BY account_name',
-        [ip]
+        [ip],
       );
 
       // Get connection counts per account
@@ -1370,28 +1477,30 @@ router.get(
         (accounts as any[]).map(async (acc) => {
           const [connections] = await db.query(
             'SELECT COUNT(*) as count FROM account_login_history WHERE account_name = ? AND ip_address = ?',
-            [acc.account_name, ip]
+            [acc.account_name, ip],
           );
 
           const [lastSeen] = await db.query(
             'SELECT timestamp FROM account_login_history WHERE account_name = ? AND ip_address = ? ORDER BY timestamp DESC LIMIT 1',
-            [acc.account_name, ip]
+            [acc.account_name, ip],
           );
 
           return {
             accountName: acc.account_name,
             connectionCount: parseInt((connections as any)[0].count),
-            lastSeen: (lastSeen as any)[0]?.timestamp || null
+            lastSeen: (lastSeen as any)[0]?.timestamp || null,
           };
-        })
+        }),
       );
 
       return res.json({ data: accountDetails });
     } catch (error) {
       logger.error('Get IP connections error:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to get IP connections' });
+      return res
+        .status(500)
+        .json({ error: getErrorMessage(error) || 'Failed to get IP connections' });
     }
-  }
+  },
 );
 
 /**
@@ -1412,9 +1521,11 @@ router.get(
       return res.json({ data: accounts });
     } catch (error) {
       logger.error('Get suspicious accounts error:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to get suspicious accounts' });
+      return res
+        .status(500)
+        .json({ error: getErrorMessage(error) || 'Failed to get suspicious accounts' });
     }
-  }
+  },
 );
 
 /**
@@ -1425,9 +1536,7 @@ router.post(
   '/connections/resolve/:accountName',
   requireAuth,
   requireOverlord,
-  [
-    body('notes').optional().isString()
-  ],
+  [body('notes').optional().isString()],
   async (req: Request, res: Response) => {
     try {
       const errors = validationResult(req);
@@ -1448,13 +1557,15 @@ router.post(
 
       return res.json({
         success: true,
-        message: 'Account flag resolved'
+        message: 'Account flag resolved',
       });
     } catch (error) {
       logger.error('Resolve account flag error:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to resolve account flag' });
+      return res
+        .status(500)
+        .json({ error: getErrorMessage(error) || 'Failed to resolve account flag' });
     }
-  }
+  },
 );
 
 /**
@@ -1467,7 +1578,9 @@ router.get(
   requireOverlord,
   async (_req: Request, res: Response) => {
     try {
-      const { findAccountsBySharedIP } = await import('../services/multiAccountDetectionService.js');
+      const { findAccountsBySharedIP } = await import(
+        '../services/multiAccountDetectionService.js'
+      );
 
       // Get shared IP accounts
       const sharedIPAccounts = await findAccountsBySharedIP(2);
@@ -1478,21 +1591,21 @@ router.get(
 
       const [loginCountRows] = await db.query(
         "SELECT COUNT(*) as count FROM account_login_history WHERE status = 'login' AND timestamp >= ?",
-        [thirtyDaysAgo]
+        [thirtyDaysAgo],
       );
 
       const [uniqueAccountsRows] = await db.query(
         'SELECT COUNT(DISTINCT account_name) as count FROM account_login_history WHERE timestamp >= ?',
-        [thirtyDaysAgo]
+        [thirtyDaysAgo],
       );
 
       const [uniqueIPsRows] = await db.query(
         'SELECT COUNT(DISTINCT ip_address) as count FROM account_login_history WHERE ip_address IS NOT NULL AND timestamp >= ?',
-        [thirtyDaysAgo]
+        [thirtyDaysAgo],
       );
 
       const [suspiciousCountRows] = await db.query(
-        'SELECT COUNT(*) as count FROM suspicious_accounts WHERE is_resolved = FALSE'
+        'SELECT COUNT(*) as count FROM suspicious_accounts WHERE is_resolved = FALSE',
       );
 
       return res.json({
@@ -1501,14 +1614,16 @@ router.get(
           uniqueAccounts: parseInt((uniqueAccountsRows as any)[0].count),
           uniqueIPs: parseInt((uniqueIPsRows as any)[0].count),
           sharedIPCount: sharedIPAccounts.length,
-          suspiciousAccountCount: parseInt((suspiciousCountRows as any)[0].count)
-        }
+          suspiciousAccountCount: parseInt((suspiciousCountRows as any)[0].count),
+        },
       });
     } catch (error) {
       logger.error('Get connection stats error:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to get connection stats' });
+      return res
+        .status(500)
+        .json({ error: getErrorMessage(error) || 'Failed to get connection stats' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -1522,21 +1637,19 @@ router.get(
 router.get('/mud/dashboard', requireAuth, requireOverlord, async (_req: Request, res: Response) => {
   try {
     // Get level cap data
-    const [levelCapRows] = await db.query<RowDataPacket[]>(
-      'SELECT * FROM level_cap LIMIT 1'
-    );
+    const [levelCapRows] = await db.query<RowDataPacket[]>('SELECT * FROM level_cap LIMIT 1');
     const levelCap = levelCapRows[0] || null;
 
     // Get global timers (convert Unix timestamp to ISO string)
     const [timerRows] = await db.query<RowDataPacket[]>(
-      'SELECT name, date FROM timers ORDER BY name'
+      'SELECT name, date FROM timers ORDER BY name',
     );
 
     // Get last wipe date (from wipe_history if exists, otherwise null)
     let lastWipeDate = null;
     try {
       const [wipeRows] = await db.query<RowDataPacket[]>(
-        'SELECT executed_at FROM wipe_history ORDER BY executed_at DESC LIMIT 1'
+        'SELECT executed_at FROM wipe_history ORDER BY executed_at DESC LIMIT 1',
       );
       lastWipeDate = wipeRows[0]?.executed_at || null;
     } catch (_error) {
@@ -1548,31 +1661,41 @@ router.get('/mud/dashboard', requireAuth, requireOverlord, async (_req: Request,
     const properties = await getCategorizedProperties();
 
     // Extract key properties for dashboard
-    const levelingCategory = properties.find(cat => cat.name === 'Leveling');
-    const epicCategory = properties.find(cat => cat.name === 'Epic');
+    const levelingCategory = properties.find((cat) => cat.name === 'Leveling');
+    const epicCategory = properties.find((cat) => cat.name === 'Epic');
 
     const keySettings = {
-      maxExpLevel: levelingCategory?.properties.find(p => p.key === 'exp.maxExpLevel')?.value ?? null,
-      globalXpRate: levelingCategory?.properties.find(p => p.key === 'exp.factor.global')?.value ?? null,
-      goodXpRate: levelingCategory?.properties.find(p => p.key === 'exp.factor.racewar.good')?.value ?? null,
-      evilXpRate: levelingCategory?.properties.find(p => p.key === 'exp.factor.racewar.evil')?.value ?? null,
-      maxEpicLevel: epicCategory?.properties.find(p => p.key === 'epic.maxFreeLevel')?.value ?? null,
-      epicErrandStep: epicCategory?.properties.find(p => p.key === 'epic.errandStep')?.value ?? null,
+      maxExpLevel:
+        levelingCategory?.properties.find((p) => p.key === 'exp.maxExpLevel')?.value ?? null,
+      globalXpRate:
+        levelingCategory?.properties.find((p) => p.key === 'exp.factor.global')?.value ?? null,
+      goodXpRate:
+        levelingCategory?.properties.find((p) => p.key === 'exp.factor.racewar.good')?.value ??
+        null,
+      evilXpRate:
+        levelingCategory?.properties.find((p) => p.key === 'exp.factor.racewar.evil')?.value ??
+        null,
+      maxEpicLevel:
+        epicCategory?.properties.find((p) => p.key === 'epic.maxFreeLevel')?.value ?? null,
+      epicErrandStep:
+        epicCategory?.properties.find((p) => p.key === 'epic.errandStep')?.value ?? null,
     };
 
     return res.json({
-      levelCap: levelCap ? {
-        level: levelCap.level,
-        mostFrags: levelCap.most_frags,
-        racewarLeader: levelCap.racewar_leader, // 1 = Good, 2 = Evil
-        nextUpdate: levelCap.next_update
-      } : null,
-      timers: timerRows.map(row => ({
+      levelCap: levelCap
+        ? {
+            level: levelCap.level,
+            mostFrags: levelCap.most_frags,
+            racewarLeader: levelCap.racewar_leader, // 1 = Good, 2 = Evil
+            nextUpdate: levelCap.next_update,
+          }
+        : null,
+      timers: timerRows.map((row) => ({
         name: row.name,
-        date: new Date(row.date * 1000).toISOString() // Convert Unix timestamp to ISO string
+        date: new Date(row.date * 1000).toISOString(), // Convert Unix timestamp to ISO string
       })),
       lastWipeDate,
-      keySettings
+      keySettings,
     });
   } catch (error) {
     logger.error('Error fetching MUD dashboard data:', error);
@@ -1606,75 +1729,86 @@ router.get('/mud/time', async (_req: Request, res: Response) => {
  * Query params:
  *   - search: Filter by property key (optional)
  */
-router.get('/mud/properties', requireAuth, requirePermission('manage_mud_properties'), async (req: Request, res: Response) => {
-  try {
-    const searchQuery = req.query.search as string | undefined;
+router.get(
+  '/mud/properties',
+  requireAuth,
+  requirePermission('manage_mud_properties'),
+  async (req: Request, res: Response) => {
+    try {
+      const searchQuery = req.query.search as string | undefined;
 
-    if (searchQuery) {
-      const results = await searchProperties(searchQuery);
-      return res.json({
-        search: searchQuery,
-        results
-      });
-    } else {
-      const categories = await getCategorizedProperties();
-      return res.json({ categories });
+      if (searchQuery) {
+        const results = await searchProperties(searchQuery);
+        return res.json({
+          search: searchQuery,
+          results,
+        });
+      } else {
+        const categories = await getCategorizedProperties();
+        return res.json({ categories });
+      }
+    } catch (error) {
+      logger.error('Error fetching properties:', error);
+      return res.status(500).json({ error: 'Failed to fetch properties' });
     }
-  } catch (error) {
-    logger.error('Error fetching properties:', error);
-    return res.status(500).json({ error: 'Failed to fetch properties' });
-  }
-});
+  },
+);
 
 /**
  * GET /api/admin/mud/level-cap
  * Get current level cap data from database
  */
-router.get('/mud/level-cap', requireAuth, requirePermission('manage_level_cap'), async (_req: Request, res: Response) => {
-  try {
-    const [rows] = await db.query<RowDataPacket[]>(
-      'SELECT * FROM level_cap LIMIT 1'
-    );
+router.get(
+  '/mud/level-cap',
+  requireAuth,
+  requirePermission('manage_level_cap'),
+  async (_req: Request, res: Response) => {
+    try {
+      const [rows] = await db.query<RowDataPacket[]>('SELECT * FROM level_cap LIMIT 1');
 
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'Level cap data not found' });
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'Level cap data not found' });
+      }
+
+      const row = rows[0];
+      return res.json({
+        level: row.level,
+        mostFrags: row.most_frags,
+        racewarLeader: row.racewar_leader, // 1 = Good, 2 = Evil
+        nextUpdate: row.next_update,
+      });
+    } catch (error) {
+      logger.error('Error fetching level cap:', error);
+      return res.status(500).json({ error: 'Failed to fetch level cap data' });
     }
-
-    const row = rows[0];
-    return res.json({
-      level: row.level,
-      mostFrags: row.most_frags,
-      racewarLeader: row.racewar_leader, // 1 = Good, 2 = Evil
-      nextUpdate: row.next_update
-    });
-  } catch (error) {
-    logger.error('Error fetching level cap:', error);
-    return res.status(500).json({ error: 'Failed to fetch level cap data' });
-  }
-});
+  },
+);
 
 /**
  * GET /api/admin/mud/timers
  * Get all global game timers
  */
-router.get('/mud/timers', requireAuth, requirePermission('manage_timers'), async (_req: Request, res: Response) => {
-  try {
-    const [rows] = await db.query<RowDataPacket[]>(
-      'SELECT name, date FROM timers ORDER BY name'
-    );
+router.get(
+  '/mud/timers',
+  requireAuth,
+  requirePermission('manage_timers'),
+  async (_req: Request, res: Response) => {
+    try {
+      const [rows] = await db.query<RowDataPacket[]>('SELECT name, date FROM timers ORDER BY name');
 
-    return res.json({
-      timers: rows.map(row => ({
-        name: row.name,
-        date: row.date,
-        timestamp: new Date(row.date).getTime()
-      }))
-    });
-  } catch (error) {
-    logger.error('Error fetching timers:', error);
-    return res.status(500).json({ error: 'Failed to fetch timers' });
-  }
-});
+      return res.json({
+        timers: rows.map((row) => ({
+          name: row.name,
+          date: row.date,
+          timestamp: new Date(row.date).getTime(),
+        })),
+      });
+    } catch (error) {
+      logger.error('Error fetching timers:', error);
+      return res.status(500).json({ error: 'Failed to fetch timers' });
+    }
+  },
+);
 
 /**
  * PUT /api/admin/mud/properties/:key
@@ -1723,21 +1857,21 @@ router.put(
           oldValue.toString(),
           numericValue.toString(),
           notes || null,
-          req.ip || null
-        ]
+          req.ip || null,
+        ],
       );
 
       return res.json({
         success: true,
         message: `Property '${key}' updated from ${oldValue} to ${numericValue}. Restart MUD to apply changes.`,
         oldValue,
-        newValue: numericValue
+        newValue: numericValue,
       });
     } catch (error) {
       logger.error('Error updating property:', error);
       return res.status(500).json({ error: getErrorMessage(error) || 'Failed to update property' });
     }
-  }
+  },
 );
 
 /**
@@ -1764,9 +1898,11 @@ router.get(
       return res.json({ history });
     } catch (error) {
       logger.error('Error fetching property history:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to fetch property history' });
+      return res
+        .status(500)
+        .json({ error: getErrorMessage(error) || 'Failed to fetch property history' });
     }
-  }
+  },
 );
 
 /**
@@ -1779,7 +1915,10 @@ router.put(
   requirePermission('manage_level_cap'),
   [
     body('level').isInt({ min: 25, max: 60 }).withMessage('Level must be between 25 and 60'),
-    body('racewarLeader').optional().isInt({ min: 0, max: 2 }).withMessage('Racewar leader must be 0 (neutral), 1 (Good), or 2 (Evil)'),
+    body('racewarLeader')
+      .optional()
+      .isInt({ min: 0, max: 2 })
+      .withMessage('Racewar leader must be 0 (neutral), 1 (Good), or 2 (Evil)'),
     body('notes').optional().isString().withMessage('Notes must be a string'),
   ],
   async (req: Request, res: Response) => {
@@ -1796,7 +1935,9 @@ router.put(
       const { level, racewarLeader, notes } = req.body;
 
       // Get current level cap
-      const [currentRows] = await db.query<any[]>('SELECT level, racewar_leader, most_frags FROM level_cap LIMIT 1');
+      const [currentRows] = await db.query<any[]>(
+        'SELECT level, racewar_leader, most_frags FROM level_cap LIMIT 1',
+      );
       if (!currentRows || currentRows.length === 0) {
         return res.status(500).json({ error: 'Level cap not found in database' });
       }
@@ -1816,14 +1957,11 @@ router.put(
         updateValues.push(racewarLeader);
       }
 
-      await db.query(
-        `UPDATE level_cap SET ${updateFields.join(', ')}`,
-        updateValues
-      );
+      await db.query(`UPDATE level_cap SET ${updateFields.join(', ')}`, updateValues);
 
       // Log to audit trail
       const oldValue = `Level: ${oldLevel}, Racewar: ${oldRacewar === 1 ? 'Good' : oldRacewar === 2 ? 'Evil' : 'Neutral'}`;
-      const newValue = `Level: ${level}, Racewar: ${racewarLeader !== undefined ? (racewarLeader === 1 ? 'Good' : racewarLeader === 2 ? 'Evil' : 'Neutral') : (oldRacewar === 1 ? 'Good' : oldRacewar === 2 ? 'Evil' : 'Neutral')}`;
+      const newValue = `Level: ${level}, Racewar: ${racewarLeader !== undefined ? (racewarLeader === 1 ? 'Good' : racewarLeader === 2 ? 'Evil' : 'Neutral') : oldRacewar === 1 ? 'Good' : oldRacewar === 2 ? 'Evil' : 'Neutral'}`;
 
       await db.query(
         `INSERT INTO admin_action_log (account_name, action_type, target, old_value, new_value, notes, ip_address)
@@ -1833,21 +1971,23 @@ router.put(
           oldValue,
           newValue,
           notes || 'Manual level cap override',
-          req.ip || null
-        ]
+          req.ip || null,
+        ],
       );
 
       return res.json({
         success: true,
         message: `Level cap updated to ${level}. Players can now level up to this new cap.`,
         level,
-        racewarLeader: racewarLeader !== undefined ? racewarLeader : oldRacewar
+        racewarLeader: racewarLeader !== undefined ? racewarLeader : oldRacewar,
       });
     } catch (error) {
       logger.error('Error updating level cap:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to update level cap' });
+      return res
+        .status(500)
+        .json({ error: getErrorMessage(error) || 'Failed to update level cap' });
     }
-  }
+  },
 );
 
 /**
@@ -1873,14 +2013,17 @@ router.post(
       const { notes } = req.body;
 
       // Get current level cap for logging
-      const [currentRows] = await db.query<any[]>('SELECT level, racewar_leader, most_frags FROM level_cap LIMIT 1');
-      const oldValue = currentRows && currentRows.length > 0
-        ? `Level: ${currentRows[0].level}, Racewar: ${currentRows[0].racewar_leader === 1 ? 'Good' : currentRows[0].racewar_leader === 2 ? 'Evil' : 'Neutral'}, Frags: ${currentRows[0].most_frags}`
-        : 'Unknown';
+      const [currentRows] = await db.query<any[]>(
+        'SELECT level, racewar_leader, most_frags FROM level_cap LIMIT 1',
+      );
+      const oldValue =
+        currentRows && currentRows.length > 0
+          ? `Level: ${currentRows[0].level}, Racewar: ${currentRows[0].racewar_leader === 1 ? 'Good' : currentRows[0].racewar_leader === 2 ? 'Evil' : 'Neutral'}, Frags: ${currentRows[0].most_frags}`
+          : 'Unknown';
 
       // Reset to defaults
       await db.query(
-        'UPDATE level_cap SET most_frags=0, racewar_leader=0, level=25, next_update=NOW()'
+        'UPDATE level_cap SET most_frags=0, racewar_leader=0, level=25, next_update=NOW()',
       );
 
       // Log to audit trail
@@ -1892,19 +2035,19 @@ router.post(
           oldValue,
           'Level: 25, Racewar: Neutral, Frags: 0',
           notes || 'Level cap reset to defaults',
-          req.ip || null
-        ]
+          req.ip || null,
+        ],
       );
 
       return res.json({
         success: true,
-        message: 'Level cap reset to defaults: Level 25, 0 frags, neutral racewar.'
+        message: 'Level cap reset to defaults: Level 25, 0 frags, neutral racewar.',
       });
     } catch (error) {
       logger.error('Error resetting level cap:', error);
       return res.status(500).json({ error: getErrorMessage(error) || 'Failed to reset level cap' });
     }
-  }
+  },
 );
 
 /**
@@ -1917,7 +2060,11 @@ router.post(
   requirePermission('manage_timers'),
   [
     body('timerNames').isArray({ min: 1 }).withMessage('Timer names must be a non-empty array'),
-    body('timerNames.*').isString().trim().isLength({ min: 1, max: 255 }).withMessage('Invalid timer name'),
+    body('timerNames.*')
+      .isString()
+      .trim()
+      .isLength({ min: 1, max: 255 })
+      .withMessage('Invalid timer name'),
     body('notes').optional().isString().withMessage('Notes must be a string'),
   ],
   async (req: Request, res: Response) => {
@@ -1936,16 +2083,13 @@ router.post(
       // Get current values for logging
       const [currentTimers] = await db.query<any[]>(
         'SELECT name, FROM_UNIXTIME(date) as date FROM timers WHERE name IN (?)',
-        [timerNames]
+        [timerNames],
       );
 
       const oldValues = currentTimers.map((t: any) => `${t.name}: ${t.date}`).join(', ');
 
       // Reset timers to current time
-      await db.query(
-        'UPDATE timers SET date = UNIX_TIMESTAMP() WHERE name IN (?)',
-        [timerNames]
-      );
+      await db.query('UPDATE timers SET date = UNIX_TIMESTAMP() WHERE name IN (?)', [timerNames]);
 
       // Log to audit trail
       await db.query(
@@ -1957,20 +2101,20 @@ router.post(
           oldValues,
           `Reset to NOW() at ${new Date().toISOString()}`,
           notes || `Manual timer reset: ${timerNames.join(', ')}`,
-          req.ip || null
-        ]
+          req.ip || null,
+        ],
       );
 
       return res.json({
         success: true,
         message: `Reset ${timerNames.length} timer(s) successfully.`,
-        count: timerNames.length
+        count: timerNames.length,
       });
     } catch (error) {
       logger.error('Error resetting timers:', error);
       return res.status(500).json({ error: getErrorMessage(error) || 'Failed to reset timers' });
     }
-  }
+  },
 );
 
 /**
@@ -1997,7 +2141,7 @@ router.post(
 
       // Get current values for logging
       const [currentTimers] = await db.query<any[]>(
-        'SELECT name, FROM_UNIXTIME(date) as date FROM timers'
+        'SELECT name, FROM_UNIXTIME(date) as date FROM timers',
       );
 
       const oldValues = currentTimers.map((t: any) => `${t.name}: ${t.date}`).join(', ');
@@ -2015,20 +2159,22 @@ router.post(
           oldValues,
           `All timers reset to NOW() at ${new Date().toISOString()}`,
           notes || 'Bulk timer reset - all timers',
-          req.ip || null
-        ]
+          req.ip || null,
+        ],
       );
 
       return res.json({
         success: true,
         message: `Reset all ${timerCount} timers successfully.`,
-        count: timerCount
+        count: timerCount,
       });
     } catch (error) {
       logger.error('Error resetting all timers:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to reset all timers' });
+      return res
+        .status(500)
+        .json({ error: getErrorMessage(error) || 'Failed to reset all timers' });
     }
-  }
+  },
 );
 
 // ============================================================================
@@ -2040,7 +2186,8 @@ router.post(
  * Check if wipe is on cooldown and return last wipe information
  * Requires: Overlord (Level 61+)
  */
-router.get('/mud/wipe/status',
+router.get(
+  '/mud/wipe/status',
   requireAuth,
   requireOverlord,
   async (_req: Request, res: Response) => {
@@ -2050,7 +2197,7 @@ router.get('/mud/wipe/status',
         `SELECT executed_at, executed_by, reason, success, tables_affected, rows_affected
          FROM wipe_history
          ORDER BY executed_at DESC
-         LIMIT 1`
+         LIMIT 1`,
       );
 
       const lastWipe = lastWipeRows.length > 0 ? lastWipeRows[0] : null;
@@ -2062,7 +2209,7 @@ router.get('/mud/wipe/status',
 
       if (lastWipe && lastWipe.success) {
         const lastWipeDate = new Date(lastWipe.executed_at);
-        const cooldownEnd = new Date(lastWipeDate.getTime() + (cooldownDays * 24 * 60 * 60 * 1000));
+        const cooldownEnd = new Date(lastWipeDate.getTime() + cooldownDays * 24 * 60 * 60 * 1000);
         const now = new Date();
 
         isOnCooldown = now < cooldownEnd;
@@ -2080,20 +2227,24 @@ router.get('/mud/wipe/status',
         cooldownEndsAt,
         mudRunning,
         mudState,
-        lastWipe: lastWipe ? {
-          executedAt: lastWipe.executed_at,
-          executedBy: lastWipe.executed_by,
-          reason: lastWipe.reason,
-          success: lastWipe.success,
-          tablesAffected: lastWipe.tables_affected,
-          rowsAffected: lastWipe.rows_affected
-        } : null
+        lastWipe: lastWipe
+          ? {
+              executedAt: lastWipe.executed_at,
+              executedBy: lastWipe.executed_by,
+              reason: lastWipe.reason,
+              success: lastWipe.success,
+              tablesAffected: lastWipe.tables_affected,
+              rowsAffected: lastWipe.rows_affected,
+            }
+          : null,
       });
     } catch (error) {
       logger.error('Error fetching wipe status:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to fetch wipe status' });
+      return res
+        .status(500)
+        .json({ error: getErrorMessage(error) || 'Failed to fetch wipe status' });
     }
-  }
+  },
 );
 
 /**
@@ -2101,7 +2252,8 @@ router.get('/mud/wipe/status',
  * Get list of all active players for exclusion selector
  * Requires: Overlord (Level 61+)
  */
-router.get('/mud/wipe/players',
+router.get(
+  '/mud/wipe/players',
   requireAuth,
   requireOverlord,
   async (_req: Request, res: Response) => {
@@ -2115,10 +2267,10 @@ router.get('/mud/wipe/players',
          JOIN player_data pd ON fl.pid = pd.pid
          LEFT JOIN associations a ON pd.assoc_id = a.id
          WHERE pd.active = 1 AND fl.deleted_at IS NULL
-         ORDER BY fl.level DESC, fl.char_name ASC`
+         ORDER BY fl.level DESC, fl.char_name ASC`,
       );
 
-      const players = playerRows.map(row => ({
+      const players = playerRows.map((row) => ({
         pid: row.pid,
         name: row.name,
         level: row.level,
@@ -2126,18 +2278,18 @@ router.get('/mud/wipe/players',
         spec: row.spec || '',
         race: row.race || 'Unknown',
         guild: row.guild || 'None',
-        wealth: (row.money || 0) + (row.balance || 0)
+        wealth: (row.money || 0) + (row.balance || 0),
       }));
 
       return res.json({
         success: true,
-        players
+        players,
       });
     } catch (error) {
       logger.error('Error fetching players for wipe:', error);
       return res.status(500).json({ error: getErrorMessage(error) || 'Failed to fetch players' });
     }
-  }
+  },
 );
 
 /**
@@ -2145,7 +2297,8 @@ router.get('/mud/wipe/players',
  * Get wipe history with pagination
  * Requires: Overlord (Level 61+)
  */
-router.get('/mud/wipe/history',
+router.get(
+  '/mud/wipe/history',
   requireAuth,
   requireOverlord,
   async (req: Request, res: Response) => {
@@ -2154,9 +2307,7 @@ router.get('/mud/wipe/history',
       const offset = parseInt(req.query.offset as string) || 0;
 
       // Get total count
-      const [countRows] = await db.query<any[]>(
-        'SELECT COUNT(*) as total FROM wipe_history'
-      );
+      const [countRows] = await db.query<any[]>('SELECT COUNT(*) as total FROM wipe_history');
       const total = countRows[0].total;
 
       // Get history records
@@ -2167,10 +2318,10 @@ router.get('/mud/wipe/history',
          FROM wipe_history
          ORDER BY executed_at DESC
          LIMIT ? OFFSET ?`,
-        [limit, offset]
+        [limit, offset],
       );
 
-      const history = historyRows.map(row => ({
+      const history = historyRows.map((row) => ({
         id: row.id,
         executedBy: row.executed_by,
         executedAt: row.executed_at,
@@ -2182,7 +2333,7 @@ router.get('/mud/wipe/history',
         success: Boolean(row.success),
         errorMessage: row.error_message,
         backupPath: row.backup_path,
-        ipAddress: row.ip_address
+        ipAddress: row.ip_address,
       }));
 
       return res.json({
@@ -2190,13 +2341,15 @@ router.get('/mud/wipe/history',
         history,
         total,
         limit,
-        offset
+        offset,
       });
     } catch (error) {
       logger.error('Error fetching wipe history:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to fetch wipe history' });
+      return res
+        .status(500)
+        .json({ error: getErrorMessage(error) || 'Failed to fetch wipe history' });
     }
-  }
+  },
 );
 
 /**
@@ -2205,14 +2358,23 @@ router.get('/mud/wipe/history',
  * requires: Overlord
  * body: { reason: string, excludedPids: number[], confirmation: string }
  */
-router.post('/mud/wipe/execute',
+router.post(
+  '/mud/wipe/execute',
   requireAuth,
   requireOverlord,
   [
-    body('reason').isString().isLength({ min: 10 }).withMessage('Reason must be at least 10 characters'),
+    body('reason')
+      .isString()
+      .isLength({ min: 10 })
+      .withMessage('Reason must be at least 10 characters'),
     body('excludedPids').optional().isArray(),
-    body('excludedPids.*').optional().isInt({ min: 1 }).withMessage('excludedPids must be positive integers'),
-    body('confirmation').equals('WIPE PLAYERS').withMessage('Confirmation text must be "WIPE PLAYERS"'),
+    body('excludedPids.*')
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage('excludedPids must be positive integers'),
+    body('confirmation')
+      .equals('WIPE PLAYERS')
+      .withMessage('Confirmation text must be "WIPE PLAYERS"'),
   ],
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
@@ -2231,7 +2393,7 @@ router.post('/mud/wipe/execute',
 
     // 7-day cooldown enforced server-side (not just in status UI)
     const [lastOkRows] = await db.query<any[]>(
-      `SELECT executed_at FROM wipe_history WHERE success = 1 ORDER BY executed_at DESC LIMIT 1`
+      `SELECT executed_at FROM wipe_history WHERE success = 1 ORDER BY executed_at DESC LIMIT 1`,
     );
     if (lastOkRows[0]) {
       const end = new Date(lastOkRows[0].executed_at).getTime() + 7 * 24 * 60 * 60 * 1000;
@@ -2254,12 +2416,11 @@ router.post('/mud/wipe/execute',
       const safeExcluded = (excludedPids as any[])
         .map(Number)
         .filter((n) => Number.isInteger(n) && n > 0);
-      const excludedClause = safeExcluded.length > 0
-        ? `WHERE pid NOT IN (${safeExcluded.join(',')})`
-        : '';
+      const excludedClause =
+        safeExcluded.length > 0 ? `WHERE pid NOT IN (${safeExcluded.join(',')})` : '';
 
       const [targetRows] = await connection.query<any[]>(
-        `SELECT pid, name FROM player_data ${excludedClause}`
+        `SELECT pid, name FROM player_data ${excludedClause}`,
       );
       const wipedPids: number[] = targetRows.map((r: any) => Number(r.pid));
       const wipedNames: string[] = targetRows.map((r: any) => r.name);
@@ -2278,7 +2439,7 @@ router.post('/mud/wipe/execute',
       let excludedPlayers: { pid: number; name: string }[] = [];
       if (safeExcluded.length > 0) {
         const [excludedRows] = await connection.query<any[]>(
-          `SELECT pid, name FROM player_data WHERE pid IN (${safeExcluded.join(',')})`
+          `SELECT pid, name FROM player_data WHERE pid IN (${safeExcluded.join(',')})`,
         );
         excludedPlayers = excludedRows.map((r: any) => ({ pid: Number(r.pid), name: r.name }));
       }
@@ -2287,7 +2448,7 @@ router.post('/mud/wipe/execute',
       const tablesAffected: string[] = [];
 
       const runDelete = async (table: string, sql: string, params?: any[]) => {
-        const [result] = await connection!.query(sql, params) as any;
+        const [result] = (await connection!.query(sql, params)) as any;
         const n = result.affectedRows ?? 0;
         totalRowsAffected += n;
         if (n > 0) tablesAffected.push(table);
@@ -2298,11 +2459,11 @@ router.post('/mud/wipe/execute',
         'locker_items',
         `DELETE FROM locker_items WHERE locker_id IN (
            SELECT id FROM lockers WHERE owner_pid IN (${pidList}) AND owner_assoc_id = 0
-         )`
+         )`,
       );
       await runDelete(
         'lockers',
-        `DELETE FROM lockers WHERE owner_pid IN (${pidList}) AND owner_assoc_id = 0`
+        `DELETE FROM lockers WHERE owner_pid IN (${pidList}) AND owner_assoc_id = 0`,
       );
 
       if (wipedNames.length > 0) {
@@ -2310,27 +2471,30 @@ router.post('/mud/wipe/execute',
       }
 
       const pidTables: Array<[string, string]> = [
-        ['pkill_info',               `DELETE FROM pkill_info               WHERE pid IN (${pidList})`],
-        ['player_recipes',           `DELETE FROM player_recipes           WHERE pid IN (${pidList})`],
-        ['player_shapechanges',      `DELETE FROM player_shapechanges      WHERE pid IN (${pidList})`],
-        ['account_characters',       `DELETE FROM account_characters       WHERE pid IN (${pidList})`],
-        ['frag_leaderboard',         `DELETE FROM frag_leaderboard         WHERE pid IN (${pidList})`],
-        ['artifact_bind',            `DELETE FROM artifact_bind            WHERE owner_pid IN (${pidList})`],
-        ['auction_item_pickups',     `DELETE FROM auction_item_pickups     WHERE pid IN (${pidList})`],
-        ['auction_money_pickups',    `DELETE FROM auction_money_pickups    WHERE pid IN (${pidList})`],
-        ['boons_progress',           `DELETE FROM boons_progress           WHERE pid IN (${pidList})`],
-        ['boons_shop',               `DELETE FROM boons_shop               WHERE pid IN (${pidList})`],
-        ['log_entries',              `DELETE FROM log_entries              WHERE pid IN (${pidList})`],
-        ['ctf_data',                 `DELETE FROM ctf_data                 WHERE pid IN (${pidList})`],
-        ['epic_bonus',               `DELETE FROM epic_bonus               WHERE pid IN (${pidList})`],
-        ['epic_gain',                `DELETE FROM epic_gain                WHERE pid IN (${pidList})`],
-        ['guild_members',            `DELETE FROM guild_members            WHERE player_pid IN (${pidList})`],
-        ['ip_info',                  `DELETE FROM ip_info                  WHERE pid IN (${pidList})`],
-        ['offline_messages',         `DELETE FROM offline_messages         WHERE pid IN (${pidList})`],
-        ['progress',                 `DELETE FROM progress                 WHERE pid IN (${pidList})`],
-        ['zone_trophy',              `DELETE FROM zone_trophy              WHERE pid IN (${pidList})`],
+        ['pkill_info', `DELETE FROM pkill_info               WHERE pid IN (${pidList})`],
+        ['player_recipes', `DELETE FROM player_recipes           WHERE pid IN (${pidList})`],
+        ['player_shapechanges', `DELETE FROM player_shapechanges      WHERE pid IN (${pidList})`],
+        ['account_characters', `DELETE FROM account_characters       WHERE pid IN (${pidList})`],
+        ['frag_leaderboard', `DELETE FROM frag_leaderboard         WHERE pid IN (${pidList})`],
+        ['artifact_bind', `DELETE FROM artifact_bind            WHERE owner_pid IN (${pidList})`],
+        ['auction_item_pickups', `DELETE FROM auction_item_pickups     WHERE pid IN (${pidList})`],
+        ['auction_money_pickups', `DELETE FROM auction_money_pickups    WHERE pid IN (${pidList})`],
+        ['boons_progress', `DELETE FROM boons_progress           WHERE pid IN (${pidList})`],
+        ['boons_shop', `DELETE FROM boons_shop               WHERE pid IN (${pidList})`],
+        ['log_entries', `DELETE FROM log_entries              WHERE pid IN (${pidList})`],
+        ['ctf_data', `DELETE FROM ctf_data                 WHERE pid IN (${pidList})`],
+        ['epic_bonus', `DELETE FROM epic_bonus               WHERE pid IN (${pidList})`],
+        ['epic_gain', `DELETE FROM epic_gain                WHERE pid IN (${pidList})`],
+        ['guild_members', `DELETE FROM guild_members            WHERE player_pid IN (${pidList})`],
+        ['ip_info', `DELETE FROM ip_info                  WHERE pid IN (${pidList})`],
+        ['offline_messages', `DELETE FROM offline_messages         WHERE pid IN (${pidList})`],
+        ['progress', `DELETE FROM progress                 WHERE pid IN (${pidList})`],
+        ['zone_trophy', `DELETE FROM zone_trophy              WHERE pid IN (${pidList})`],
         // world_quest_accomplished.pid is varchar(45) - quote the pid list
-        ['world_quest_accomplished', `DELETE FROM world_quest_accomplished WHERE pid IN (${wipedPidStrings})`],
+        [
+          'world_quest_accomplished',
+          `DELETE FROM world_quest_accomplished WHERE pid IN (${wipedPidStrings})`,
+        ],
       ];
 
       for (const [table, sql] of pidTables) {
@@ -2351,12 +2515,23 @@ router.post('/mud/wipe/execute',
       // pre-count cascaded children for accurate audit
       // (affectedRows on the parent DELETE does not include cascaded rows)
       const cascadedTables = [
-        'player_affects', 'player_forged_items', 'player_granted_cmds',
-        'player_intros', 'player_items', 'player_item_affects', 'player_item_extra_descr',
-        'player_languages', 'player_pets', 'player_pet_items',
-        'player_pet_item_affects', 'player_pet_item_extra_descr',
-        'player_skills', 'player_spellbooks', 'player_timers',
-        'player_undead_slots', 'player_witnesses',
+        'player_affects',
+        'player_forged_items',
+        'player_granted_cmds',
+        'player_intros',
+        'player_items',
+        'player_item_affects',
+        'player_item_extra_descr',
+        'player_languages',
+        'player_pets',
+        'player_pet_items',
+        'player_pet_item_affects',
+        'player_pet_item_extra_descr',
+        'player_skills',
+        'player_spellbooks',
+        'player_timers',
+        'player_undead_slots',
+        'player_witnesses',
       ];
       for (const t of cascadedTables) {
         let countSql: string;
@@ -2397,7 +2572,7 @@ router.post('/mud/wipe/execute',
           totalRowsAffected,
           durationSeconds,
           req.ip,
-        ]
+        ],
       );
 
       await connection.query(
@@ -2410,7 +2585,7 @@ router.post('/mud/wipe/execute',
           `${tablesAffected.length} tables`,
           reason,
           req.ip,
-        ]
+        ],
       );
 
       await connection.commit();
@@ -2430,18 +2605,20 @@ router.post('/mud/wipe/execute',
         await db.query(
           `INSERT INTO wipe_history (executed_by, reason, success, error_message, ip_address)
            VALUES (?, ?, 0, ?, ?)`,
-          [req.user!.accountName, reason, getErrorMessage(error), req.ip]
+          [req.user!.accountName, reason, getErrorMessage(error), req.ip],
         );
       } catch (logError) {
         logger.error('Failed to log wipe error:', logError);
       }
 
       logger.error('Error executing player wipe:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to execute player wipe' });
+      return res
+        .status(500)
+        .json({ error: getErrorMessage(error) || 'Failed to execute player wipe' });
     } finally {
       if (connection) connection.release();
     }
-  }
+  },
 );
 
 /**
@@ -2449,11 +2626,15 @@ router.post('/mud/wipe/execute',
  * Delete all guild forum categories. GuildSync will recreate them on next tick.
  * Requires: Overlord (Level 61+)
  */
-router.post('/mud/wipe/guilds',
+router.post(
+  '/mud/wipe/guilds',
   requireAuth,
   requireOverlord,
   [
-    body('reason').isString().isLength({ min: 10 }).withMessage('Reason must be at least 10 characters'),
+    body('reason')
+      .isString()
+      .isLength({ min: 10 })
+      .withMessage('Reason must be at least 10 characters'),
     body('confirmation').equals('WIPE').withMessage('Confirmation text must be "WIPE"'),
   ],
   async (req: Request, res: Response) => {
@@ -2466,7 +2647,7 @@ router.post('/mud/wipe/guilds',
 
     try {
       const [result] = await db.query<any>(
-        `DELETE FROM forum_categories WHERE access_type = 'guild'`
+        `DELETE FROM forum_categories WHERE access_type = 'guild'`,
       );
       const rowsDeleted = result.affectedRows || 0;
 
@@ -2474,25 +2655,21 @@ router.post('/mud/wipe/guilds',
         `INSERT INTO admin_action_log
          (account_name, action_type, target, old_value, new_value, notes, ip_address)
          VALUES (?, 'guild_wipe', 'forum_categories', ?, ?, ?, ?)`,
-        [
-          req.user!.accountName,
-          `${rowsDeleted} rows`,
-          'deleted',
-          reason,
-          req.ip
-        ]
+        [req.user!.accountName, `${rowsDeleted} rows`, 'deleted', reason, req.ip],
       );
 
       return res.json({
         success: true,
         message: `Deleted ${rowsDeleted} guild categories. Guild sync will recreate them shortly.`,
-        rowsDeleted
+        rowsDeleted,
       });
     } catch (error) {
       logger.error('Error executing guild wipe:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to execute guild wipe' });
+      return res
+        .status(500)
+        .json({ error: getErrorMessage(error) || 'Failed to execute guild wipe' });
     }
-  }
+  },
 );
 
 /**
@@ -2510,13 +2687,15 @@ router.post(
     // return immediately, run analysis in background
     res.json({
       success: true,
-      message: 'Analysis started. You will be notified when complete.'
+      message: 'Analysis started. You will be notified when complete.',
     });
 
     // run analysis async
     (async () => {
       try {
-        const { analyzeWithGemini, storeAnalysis } = await import('../services/geminiSuspicionAnalyzer.js');
+        const { analyzeWithGemini, storeAnalysis } = await import(
+          '../services/geminiSuspicionAnalyzer.js'
+        );
         const analysis = await analyzeWithGemini(Number(daysBack));
         await storeAnalysis(analysis);
 
@@ -2549,7 +2728,7 @@ router.post(
         }
       }
     })();
-  }
+  },
 );
 
 /**
@@ -2569,13 +2748,15 @@ router.get(
          FROM gemini_analysis_log
          ORDER BY created_at DESC
          LIMIT ?`,
-        [Number(limit)]
+        [Number(limit)],
       );
 
       // convert mysql datetime strings to iso format with utc timezone
       const data = analyses.map((row: any) => ({
         ...row,
-        analysis_timestamp: row.analysis_timestamp ? String(row.analysis_timestamp).replace(' ', 'T') + 'Z' : null,
+        analysis_timestamp: row.analysis_timestamp
+          ? String(row.analysis_timestamp).replace(' ', 'T') + 'Z'
+          : null,
         created_at: row.created_at ? String(row.created_at).replace(' ', 'T') + 'Z' : null,
       }));
 
@@ -2584,10 +2765,10 @@ router.get(
       logger.error('Get AI history error:', error);
       return res.status(500).json({
         success: false,
-        error: getErrorMessage(error) || 'Failed to get analysis history'
+        error: getErrorMessage(error) || 'Failed to get analysis history',
       });
     }
-  }
+  },
 );
 
 /**
@@ -2602,15 +2783,14 @@ router.get(
     try {
       const { id } = req.params;
 
-      const [analyses]: any = await db.query(
-        'SELECT * FROM gemini_analysis_log WHERE id = ?',
-        [id]
-      );
+      const [analyses]: any = await db.query('SELECT * FROM gemini_analysis_log WHERE id = ?', [
+        id,
+      ]);
 
       if (analyses.length === 0) {
         return res.status(404).json({
           success: false,
-          error: 'Analysis not found'
+          error: 'Analysis not found',
         });
       }
 
@@ -2618,7 +2798,9 @@ router.get(
       const row = analyses[0];
       const data = {
         ...row,
-        analysis_timestamp: row.analysis_timestamp ? String(row.analysis_timestamp).replace(' ', 'T') + 'Z' : null,
+        analysis_timestamp: row.analysis_timestamp
+          ? String(row.analysis_timestamp).replace(' ', 'T') + 'Z'
+          : null,
         created_at: row.created_at ? String(row.created_at).replace(' ', 'T') + 'Z' : null,
       };
 
@@ -2627,289 +2809,350 @@ router.get(
       logger.error('Get AI analysis error:', error);
       return res.status(500).json({
         success: false,
-        error: getErrorMessage(error) || 'Failed to get analysis'
+        error: getErrorMessage(error) || 'Failed to get analysis',
       });
     }
-  }
+  },
 );
 
 /**
  * GET /api/admin/crashes
  * Get crash logs with pagination and filtering
  */
-router.get('/crashes', requireAuth, requirePermission('view_server_health'), async (req: Request, res: Response) => {
-  try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 50;
-    const analyzed = req.query.analyzed === 'true' ? 1 : req.query.analyzed === 'false' ? 0 : undefined;
-    const offset = (page - 1) * limit;
+router.get(
+  '/crashes',
+  requireAuth,
+  requirePermission('view_server_health'),
+  async (req: Request, res: Response) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const analyzed =
+        req.query.analyzed === 'true' ? 1 : req.query.analyzed === 'false' ? 0 : undefined;
+      const offset = (page - 1) * limit;
 
-    const params: any[] = [];
-    let whereClause = '';
+      const params: any[] = [];
+      let whereClause = '';
 
-    if (analyzed !== undefined) {
-      whereClause = ' WHERE analyzed = ?';
-      params.push(analyzed);
-    }
-
-    const [countRows] = await db.query(`SELECT COUNT(*) as total FROM crash_log${whereClause}`, params);
-    const total = (countRows as any)[0].total;
-
-    const [crashes] = await db.query<any[]>(
-      `SELECT * FROM crash_log${whereClause} ORDER BY crash_timestamp DESC LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
-    );
-
-    // convert mysql datetime strings to iso format with utc timezone
-    const crashesWithTz = crashes.map((row: any) => ({
-      ...row,
-      crash_timestamp: row.crash_timestamp ? String(row.crash_timestamp).replace(' ', 'T') + 'Z' : null,
-      analyzed_at: row.analyzed_at ? String(row.analyzed_at).replace(' ', 'T') + 'Z' : null,
-    }));
-
-    return res.json({
-      crashes: crashesWithTz,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit)
+      if (analyzed !== undefined) {
+        whereClause = ' WHERE analyzed = ?';
+        params.push(analyzed);
       }
-    });
-  } catch (error) {
-    logger.error('Get crashes error:', error);
-    return res.status(500).json({ error: 'Failed to get crash logs' });
-  }
-});
+
+      const [countRows] = await db.query(
+        `SELECT COUNT(*) as total FROM crash_log${whereClause}`,
+        params,
+      );
+      const total = (countRows as any)[0].total;
+
+      const [crashes] = await db.query<any[]>(
+        `SELECT * FROM crash_log${whereClause} ORDER BY crash_timestamp DESC LIMIT ? OFFSET ?`,
+        [...params, limit, offset],
+      );
+
+      // convert mysql datetime strings to iso format with utc timezone
+      const crashesWithTz = crashes.map((row: any) => ({
+        ...row,
+        crash_timestamp: row.crash_timestamp
+          ? String(row.crash_timestamp).replace(' ', 'T') + 'Z'
+          : null,
+        analyzed_at: row.analyzed_at ? String(row.analyzed_at).replace(' ', 'T') + 'Z' : null,
+      }));
+
+      return res.json({
+        crashes: crashesWithTz,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      logger.error('Get crashes error:', error);
+      return res.status(500).json({ error: 'Failed to get crash logs' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/crashes/:id
  * Get crash details by ID
  */
-router.get('/crashes/:id', requireAuth, requirePermission('view_server_health'), async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+router.get(
+  '/crashes/:id',
+  requireAuth,
+  requirePermission('view_server_health'),
+  async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
 
-    const [crashes] = await db.query('SELECT * FROM crash_log WHERE id = ?', [id]);
-    const row = (crashes as any[])[0];
+      const [crashes] = await db.query('SELECT * FROM crash_log WHERE id = ?', [id]);
+      const row = (crashes as any[])[0];
 
-    if (!row) {
-      return res.status(404).json({ error: 'Crash not found' });
+      if (!row) {
+        return res.status(404).json({ error: 'Crash not found' });
+      }
+
+      // convert mysql datetime strings to iso format with utc timezone
+      const crash = {
+        ...row,
+        crash_timestamp: row.crash_timestamp
+          ? String(row.crash_timestamp).replace(' ', 'T') + 'Z'
+          : null,
+        analyzed_at: row.analyzed_at ? String(row.analyzed_at).replace(' ', 'T') + 'Z' : null,
+      };
+
+      return res.json({ crash });
+    } catch (error) {
+      logger.error('Get crash details error:', error);
+      return res.status(500).json({ error: 'Failed to get crash details' });
     }
-
-    // convert mysql datetime strings to iso format with utc timezone
-    const crash = {
-      ...row,
-      crash_timestamp: row.crash_timestamp ? String(row.crash_timestamp).replace(' ', 'T') + 'Z' : null,
-      analyzed_at: row.analyzed_at ? String(row.analyzed_at).replace(' ', 'T') + 'Z' : null,
-    };
-
-    return res.json({ crash });
-  } catch (error) {
-    logger.error('Get crash details error:', error);
-    return res.status(500).json({ error: 'Failed to get crash details' });
-  }
-});
+  },
+);
 
 /**
  * PATCH /api/admin/crashes/:id
  * Update crash (mark as analyzed, add notes)
  */
-router.patch('/crashes/:id', requireAuth, requirePermission('view_server_health'), async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { analyzed, notes } = req.body;
+router.patch(
+  '/crashes/:id',
+  requireAuth,
+  requirePermission('view_server_health'),
+  async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { analyzed, notes } = req.body;
 
-    const updates: string[] = [];
-    const params: any[] = [];
+      const updates: string[] = [];
+      const params: any[] = [];
 
-    if (typeof analyzed === 'boolean') {
-      updates.push('analyzed = ?');
-      params.push(analyzed ? 1 : 0);
+      if (typeof analyzed === 'boolean') {
+        updates.push('analyzed = ?');
+        params.push(analyzed ? 1 : 0);
+      }
+      if (notes !== undefined) {
+        updates.push('notes = ?');
+        params.push(notes);
+      }
+
+      if (updates.length > 0) {
+        params.push(id);
+        await db.query(`UPDATE crash_log SET ${updates.join(', ')} WHERE id = ?`, params);
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      logger.error('Update crash error:', error);
+      return res.status(500).json({ error: 'Failed to update crash' });
     }
-    if (notes !== undefined) {
-      updates.push('notes = ?');
-      params.push(notes);
-    }
-
-    if (updates.length > 0) {
-      params.push(id);
-      await db.query(
-        `UPDATE crash_log SET ${updates.join(', ')} WHERE id = ?`,
-        params
-      );
-    }
-
-    return res.json({ success: true });
-  } catch (error) {
-    logger.error('Update crash error:', error);
-    return res.status(500).json({ error: 'Failed to update crash' });
-  }
-});
+  },
+);
 
 /**
  * GET /api/admin/server-health
  * Get current server health metrics
  */
-router.get('/server-health', requireAuth, requirePermission('view_server_health'), async (_req: Request, res: Response) => {
-  try {
-    const { getServerHealth: getHealth, getHealthStatus } = await import('../services/serverHealthService.js');
+router.get(
+  '/server-health',
+  requireAuth,
+  requirePermission('view_server_health'),
+  async (_req: Request, res: Response) => {
+    try {
+      const { getServerHealth: getHealth, getHealthStatus } = await import(
+        '../services/serverHealthService.js'
+      );
 
-    const health = await getHealth();
-    const status = getHealthStatus(health);
+      const health = await getHealth();
+      const status = getHealthStatus(health);
 
-    return res.json({ health, status });
-  } catch (error) {
-    logger.error('Get server health error:', error);
-    return res.status(500).json({ error: 'Failed to get server health' });
-  }
-});
+      return res.json({ health, status });
+    } catch (error) {
+      logger.error('Get server health error:', error);
+      return res.status(500).json({ error: 'Failed to get server health' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/server-health/history
  * Get historical health metrics
  */
-router.get('/server-health/history', requireAuth, requirePermission('view_server_health'), async (req: Request, res: Response) => {
-  try {
-    const hours = parseInt(req.query.hours as string) || 24;
-    const { getHealthHistory } = await import('../services/serverHealthService.js');
+router.get(
+  '/server-health/history',
+  requireAuth,
+  requirePermission('view_server_health'),
+  async (req: Request, res: Response) => {
+    try {
+      const hours = parseInt(req.query.hours as string) || 24;
+      const { getHealthHistory } = await import('../services/serverHealthService.js');
 
-    const history = await getHealthHistory(hours);
+      const history = await getHealthHistory(hours);
 
-    return res.json({ history });
-  } catch (error) {
-    logger.error('Get health history error:', error);
-    return res.status(500).json({ error: 'Failed to get health history' });
-  }
-});
+      return res.json({ history });
+    } catch (error) {
+      logger.error('Get health history error:', error);
+      return res.status(500).json({ error: 'Failed to get health history' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/server-health/incidents
  * Get recent server incidents
  */
-router.get('/server-health/incidents', requireAuth, requirePermission('view_server_health'), async (req: Request, res: Response) => {
-  try {
-    const limit = parseInt(req.query.limit as string) || 20;
+router.get(
+  '/server-health/incidents',
+  requireAuth,
+  requirePermission('view_server_health'),
+  async (req: Request, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
 
-    const [incidents] = await db.query(
-      'SELECT * FROM server_incidents ORDER BY started_at DESC LIMIT ?',
-      [limit]
-    );
+      const [incidents] = await db.query(
+        'SELECT * FROM server_incidents ORDER BY started_at DESC LIMIT ?',
+        [limit],
+      );
 
-    return res.json({ incidents });
-  } catch (error) {
-    logger.error('Get incidents error:', error);
-    return res.status(500).json({ error: 'Failed to get incidents' });
-  }
-});
+      return res.json({ incidents });
+    } catch (error) {
+      logger.error('Get incidents error:', error);
+      return res.status(500).json({ error: 'Failed to get incidents' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/server-health/uptime
  * Get uptime percentage
  */
-router.get('/server-health/uptime', requireAuth, requirePermission('view_server_health'), async (req: Request, res: Response) => {
-  try {
-    const days = parseInt(req.query.days as string) || 30;
-    const { getUptimePercentage } = await import('../services/serverHealthService.js');
+router.get(
+  '/server-health/uptime',
+  requireAuth,
+  requirePermission('view_server_health'),
+  async (req: Request, res: Response) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const { getUptimePercentage } = await import('../services/serverHealthService.js');
 
-    const uptime = await getUptimePercentage(days);
+      const uptime = await getUptimePercentage(days);
 
-    return res.json({ uptime, days });
-  } catch (error) {
-    logger.error('Get uptime error:', error);
-    return res.status(500).json({ error: 'Failed to get uptime' });
-  }
-});
+      return res.json({ uptime, days });
+    } catch (error) {
+      logger.error('Get uptime error:', error);
+      return res.status(500).json({ error: 'Failed to get uptime' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/incidents
  * Get all incidents (admin view with full details)
  */
-router.get('/incidents', requireAuth, requirePermission('view_server_health'), async (req: Request, res: Response) => {
-  try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 50;
-    const offset = (page - 1) * limit;
-    const dateFrom = req.query.dateFrom as string;
-    const dateTo = req.query.dateTo as string;
+router.get(
+  '/incidents',
+  requireAuth,
+  requirePermission('view_server_health'),
+  async (req: Request, res: Response) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = (page - 1) * limit;
+      const dateFrom = req.query.dateFrom as string;
+      const dateTo = req.query.dateTo as string;
 
-    let whereClause = '';
-    const params: any[] = [];
+      let whereClause = '';
+      const params: any[] = [];
 
-    if (dateFrom && dateTo) {
-      whereClause = 'WHERE started_at >= ? AND started_at <= ?';
-      params.push(dateFrom, dateTo + ' 23:59:59');
+      if (dateFrom && dateTo) {
+        whereClause = 'WHERE started_at >= ? AND started_at <= ?';
+        params.push(dateFrom, dateTo + ' 23:59:59');
+      }
+
+      const [incidents] = await db.query(
+        `SELECT * FROM server_incidents ${whereClause} ORDER BY started_at DESC LIMIT ? OFFSET ?`,
+        [...params, limit, offset],
+      );
+
+      const [countResult] = await db.query(
+        `SELECT COUNT(*) as total FROM server_incidents ${whereClause}`,
+        params,
+      );
+      const total = (countResult as any[])[0].total;
+
+      return res.json({
+        incidents,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      logger.error('Get incidents error:', error);
+      return res.status(500).json({ error: 'Failed to get incidents' });
     }
-
-    const [incidents] = await db.query(
-      `SELECT * FROM server_incidents ${whereClause} ORDER BY started_at DESC LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
-    );
-
-    const [countResult] = await db.query(
-      `SELECT COUNT(*) as total FROM server_incidents ${whereClause}`,
-      params
-    );
-    const total = (countResult as any[])[0].total;
-
-    return res.json({
-      incidents,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    logger.error('Get incidents error:', error);
-    return res.status(500).json({ error: 'Failed to get incidents' });
-  }
-});
+  },
+);
 
 /**
  * POST /api/admin/incidents
  * Create new incident
  */
-router.post('/incidents', requireAuth, requirePermission('manage_server_incidents'), async (req: Request, res: Response) => {
-  try {
-    const validationError = validateCreateIncidentBody(req.body);
-    if (validationError) {
-      return res.status(400).json({ error: validationError });
-    }
+router.post(
+  '/incidents',
+  requireAuth,
+  requirePermission('manage_server_incidents'),
+  async (req: Request, res: Response) => {
+    try {
+      const validationError = validateCreateIncidentBody(req.body);
+      if (validationError) {
+        return res.status(400).json({ error: validationError });
+      }
 
-    const { incident_type, severity, title, description, started_at, ended_at, resolved, public_visible } = req.body;
-
-    const duration_seconds = ended_at
-      ? Math.floor((new Date(ended_at).getTime() - new Date(started_at).getTime()) / 1000)
-      : null;
-
-    const [result] = await db.query(
-      `INSERT INTO server_incidents (
-        incident_type, severity, title, description, started_at, ended_at, duration_seconds, resolved, public_visible
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
+      const {
         incident_type,
         severity,
         title,
-        description ?? null,
+        description,
         started_at,
-        ended_at ?? null,
-        duration_seconds,
-        resolved === true ? 1 : 0,
-        public_visible === true ? 1 : 0,
-      ]
-    );
+        ended_at,
+        resolved,
+        public_visible,
+      } = req.body;
 
-    return res.status(201).json({
-      success: true,
-      id: (result as any).insertId,
-    });
-  } catch (error) {
-    logger.error('Create incident error:', error);
-    return res.status(500).json({ error: 'Failed to create incident' });
-  }
-});
+      const duration_seconds = ended_at
+        ? Math.floor((new Date(ended_at).getTime() - new Date(started_at).getTime()) / 1000)
+        : null;
+
+      const [result] = await db.query(
+        `INSERT INTO server_incidents (
+        incident_type, severity, title, description, started_at, ended_at, duration_seconds, resolved, public_visible
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          incident_type,
+          severity,
+          title,
+          description ?? null,
+          started_at,
+          ended_at ?? null,
+          duration_seconds,
+          resolved === true ? 1 : 0,
+          public_visible === true ? 1 : 0,
+        ],
+      );
+
+      return res.status(201).json({
+        success: true,
+        id: (result as any).insertId,
+      });
+    } catch (error) {
+      logger.error('Create incident error:', error);
+      return res.status(500).json({ error: 'Failed to create incident' });
+    }
+  },
+);
 
 /**
  * PATCH /api/admin/incidents/:id
@@ -2921,76 +3164,81 @@ router.patch(
   requirePermission('manage_server_incidents'),
   [param('id').isInt({ min: 1 }).withMessage('Incident ID must be a positive integer')],
   async (req: Request, res: Response) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
 
-    const validationError = validateUpdateIncidentBody(req.body);
-    if (validationError) {
-      return res.status(400).json({ error: validationError });
-    }
+      const validationError = validateUpdateIncidentBody(req.body);
+      if (validationError) {
+        return res.status(400).json({ error: validationError });
+      }
 
-    const id = parseInt(req.params.id, 10);
-    const body = req.body as Record<string, unknown>;
-    const updates: string[] = [];
-    const values: unknown[] = [];
-    const booleanFields = new Set(['resolved', 'public_visible', 'has_backtrace', 'analyzed']);
-    const hasOwn = (field: string): boolean => Object.prototype.hasOwnProperty.call(body, field);
+      const id = parseInt(req.params.id, 10);
+      const body = req.body as Record<string, unknown>;
+      const updates: string[] = [];
+      const values: unknown[] = [];
+      const booleanFields = new Set(['resolved', 'public_visible', 'has_backtrace', 'analyzed']);
+      const hasOwn = (field: string): boolean => Object.prototype.hasOwnProperty.call(body, field);
 
-    for (const field of INCIDENT_UPDATE_FIELDS) {
-      if (!hasOwn(field)) continue;
-      const column = INCIDENT_UPDATE_COLUMNS[field];
-      const value = booleanFields.has(field) ? (body[field] === true ? 1 : 0) : body[field];
-      updates.push(`${column} = ?`);
-      values.push(value ?? null);
-    }
+      for (const field of INCIDENT_UPDATE_FIELDS) {
+        if (!hasOwn(field)) continue;
+        const column = INCIDENT_UPDATE_COLUMNS[field];
+        const value = booleanFields.has(field) ? (body[field] === true ? 1 : 0) : body[field];
+        updates.push(`${column} = ?`);
+        values.push(value ?? null);
+      }
 
-    if (hasOwn('started_at') || hasOwn('ended_at')) {
-      const [incidentRows] = await db.query<RowDataPacket[]>(
-        'SELECT started_at, ended_at FROM server_incidents WHERE id = ?',
-        [id],
+      if (hasOwn('started_at') || hasOwn('ended_at')) {
+        const [incidentRows] = await db.query<RowDataPacket[]>(
+          'SELECT started_at, ended_at FROM server_incidents WHERE id = ?',
+          [id],
+        );
+        if (incidentRows.length === 0) {
+          return res.status(404).json({ error: 'Incident not found' });
+        }
+
+        const effectiveStartedAt = hasOwn('started_at')
+          ? body.started_at
+          : incidentRows[0].started_at;
+        const effectiveEndedAt = hasOwn('ended_at') ? body.ended_at : incidentRows[0].ended_at;
+        let durationSeconds: number | null = null;
+        if (effectiveEndedAt !== null && effectiveEndedAt !== undefined) {
+          durationSeconds = Math.floor(
+            (new Date(String(effectiveEndedAt)).getTime() -
+              new Date(String(effectiveStartedAt)).getTime()) /
+              1000,
+          );
+          if (durationSeconds < 0) {
+            return res.status(400).json({ error: 'ended_at must be at or after started_at' });
+          }
+        }
+        updates.push('duration_seconds = ?');
+        values.push(durationSeconds);
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: 'At least one incident field is required' });
+      }
+
+      values.push(id);
+
+      const [result] = await db.query<ResultSetHeader>(
+        `UPDATE server_incidents SET ${updates.join(', ')} WHERE id = ?`,
+        values,
       );
-      if (incidentRows.length === 0) {
+      if (result.affectedRows === 0) {
         return res.status(404).json({ error: 'Incident not found' });
       }
 
-      const effectiveStartedAt = hasOwn('started_at') ? body.started_at : incidentRows[0].started_at;
-      const effectiveEndedAt = hasOwn('ended_at') ? body.ended_at : incidentRows[0].ended_at;
-      let durationSeconds: number | null = null;
-      if (effectiveEndedAt !== null && effectiveEndedAt !== undefined) {
-        durationSeconds = Math.floor(
-          (new Date(String(effectiveEndedAt)).getTime() - new Date(String(effectiveStartedAt)).getTime()) / 1000,
-        );
-        if (durationSeconds < 0) {
-          return res.status(400).json({ error: 'ended_at must be at or after started_at' });
-        }
-      }
-      updates.push('duration_seconds = ?');
-      values.push(durationSeconds);
+      return res.json({ success: true });
+    } catch (error) {
+      logger.error('Update incident error:', error);
+      return res.status(500).json({ error: 'Failed to update incident' });
     }
-
-    if (updates.length === 0) {
-      return res.status(400).json({ error: 'At least one incident field is required' });
-    }
-
-    values.push(id);
-
-    const [result] = await db.query<ResultSetHeader>(
-      `UPDATE server_incidents SET ${updates.join(', ')} WHERE id = ?`,
-      values,
-    );
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Incident not found' });
-    }
-
-    return res.json({ success: true });
-  } catch (error) {
-    logger.error('Update incident error:', error);
-    return res.status(500).json({ error: 'Failed to update incident' });
-  }
-});
+  },
+);
 
 /**
  * DELETE /api/admin/incidents/:id
@@ -3002,25 +3250,29 @@ router.delete(
   requirePermission('manage_server_incidents'),
   [param('id').isInt({ min: 1 }).withMessage('Incident ID must be a positive integer')],
   async (req: Request, res: Response) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const id = parseInt(req.params.id, 10);
+
+      const [result] = await db.query<ResultSetHeader>(
+        'DELETE FROM server_incidents WHERE id = ?',
+        [id],
+      );
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Incident not found' });
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      logger.error('Delete incident error:', error);
+      return res.status(500).json({ error: 'Failed to delete incident' });
     }
-
-    const id = parseInt(req.params.id, 10);
-
-    const [result] = await db.query<ResultSetHeader>('DELETE FROM server_incidents WHERE id = ?', [id]);
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Incident not found' });
-    }
-
-    return res.json({ success: true });
-  } catch (error) {
-    logger.error('Delete incident error:', error);
-    return res.status(500).json({ error: 'Failed to delete incident' });
-  }
-});
+  },
+);
 
 /**
  * ========================================
@@ -3098,7 +3350,9 @@ router.post('/roles', requireAuth, requireOverlord, async (req: Request, res: Re
     }
     const parsedPermissionIds = parseStrictPositiveIdArray(permissionIds);
     if (parsedPermissionIds === null) {
-      return res.status(400).json({ error: 'Permission IDs must contain only positive safe integer IDs and at most 100 entries' });
+      return res.status(400).json({
+        error: 'Permission IDs must contain only positive safe integer IDs and at most 100 entries',
+      });
     }
 
     const accountName = req.user?.accountName;
@@ -3111,7 +3365,7 @@ router.post('/roles', requireAuth, requireOverlord, async (req: Request, res: Re
     return res.status(201).json({
       success: true,
       roleId,
-      message: 'Role created successfully'
+      message: 'Role created successfully',
     });
   } catch (error) {
     logger.error('Create role error:', error);
@@ -3141,14 +3395,16 @@ router.put('/roles/:id', requireAuth, requireOverlord, async (req: Request, res:
     }
     const parsedPermissionIds = parseStrictPositiveIdArray(permissionIds);
     if (parsedPermissionIds === null) {
-      return res.status(400).json({ error: 'Permission IDs must contain only positive safe integer IDs and at most 100 entries' });
+      return res.status(400).json({
+        error: 'Permission IDs must contain only positive safe integer IDs and at most 100 entries',
+      });
     }
 
     await updateRole(roleId, name, description || null, parsedPermissionIds);
 
     return res.json({
       success: true,
-      message: 'Role updated successfully'
+      message: 'Role updated successfully',
     });
   } catch (error) {
     logger.error('Update role error:', error);
@@ -3173,7 +3429,7 @@ router.delete('/roles/:id', requireAuth, requireOverlord, async (req: Request, r
 
     return res.json({
       success: true,
-      message: 'Role deleted successfully'
+      message: 'Role deleted successfully',
     });
   } catch (error) {
     logger.error('Delete role error:', error);
@@ -3212,7 +3468,7 @@ router.get('/accounts', requireAuth, requireOverlord, async (_req: Request, res:
       LEFT JOIN admin_account_permissions ap ON a.account_name = ap.account_name
       LEFT JOIN admin_permissions p ON ap.permission_id = p.id
       GROUP BY a.account_name
-      ORDER BY max_level DESC, a.account_name`
+      ORDER BY max_level DESC, a.account_name`,
     );
 
     // Parse the concatenated strings into structured data
@@ -3241,7 +3497,7 @@ router.get('/accounts', requireAuth, requireOverlord, async (_req: Request, res:
         godLevel,
         immortalLevel,
         roles,
-        individualPermissions
+        individualPermissions,
       };
     });
 
@@ -3256,173 +3512,205 @@ router.get('/accounts', requireAuth, requireOverlord, async (_req: Request, res:
  * GET /api/admin/accounts/search
  * Search for accounts by name prefix
  */
-router.get('/accounts/search', requireAuth, requireOverlord, async (req: Request, res: Response) => {
-  try {
-    const query = (req.query.query as string) || '';
-    const limit = parseInt(req.query.limit as string) || 9999;
+router.get(
+  '/accounts/search',
+  requireAuth,
+  requireOverlord,
+  async (req: Request, res: Response) => {
+    try {
+      const query = (req.query.query as string) || '';
+      const limit = parseInt(req.query.limit as string) || 9999;
 
-    // Allow empty query to fetch all accounts
-    const accounts = await searchAccounts(query, limit);
-    return res.json(accounts);
-  } catch (error) {
-    logger.error('Search accounts error:', error);
-    return res.status(500).json({ error: 'Failed to search accounts' });
-  }
-});
+      // Allow empty query to fetch all accounts
+      const accounts = await searchAccounts(query, limit);
+      return res.json(accounts);
+    } catch (error) {
+      logger.error('Search accounts error:', error);
+      return res.status(500).json({ error: 'Failed to search accounts' });
+    }
+  },
+);
 
 /**
  * GET /api/admin/accounts/:accountName/permissions
  * Get account's effective permissions
  */
-router.get('/accounts/:accountName/permissions', requireAuth, requireOverlord, async (req: Request, res: Response) => {
-  try {
-    const { accountName } = req.params;
+router.get(
+  '/accounts/:accountName/permissions',
+  requireAuth,
+  requireOverlord,
+  async (req: Request, res: Response) => {
+    try {
+      const { accountName } = req.params;
 
-    const effectivePermissions = await getUserPermissions(accountName);
-    const accountDetails = await getAccountPermissions(accountName);
+      const effectivePermissions = await getUserPermissions(accountName);
+      const accountDetails = await getAccountPermissions(accountName);
 
-    // Get god level from permission service
-    const { parseAccountFile } = await import('../services/mudAccountParser.js');
-    const { getUserPermissions: getPermissions } = await import('../services/permissionService.js');
+      // Get god level from permission service
+      const { parseAccountFile } = await import('../services/mudAccountParser.js');
+      const { getUserPermissions: getPermissions } = await import(
+        '../services/permissionService.js'
+      );
 
-    const mudAccount = await parseAccountFile(accountName);
-    const userPermissions = await getPermissions(accountName, mudAccount.characters);
+      const mudAccount = await parseAccountFile(accountName);
+      const userPermissions = await getPermissions(accountName, mudAccount.characters);
 
-    return res.json({
-      accountName,
-      godLevel: userPermissions.role,
-      immortalLevel: userPermissions.immortalLevel || null,
-      effectivePermissions: Array.from(effectivePermissions),
-      roles: accountDetails.roles,
-      individualPermissions: accountDetails.individual_permissions
-    });
-  } catch (error) {
-    logger.error('Get account permissions error:', error);
-    return res.status(500).json({ error: 'Failed to fetch account permissions' });
-  }
-});
+      return res.json({
+        accountName,
+        godLevel: userPermissions.role,
+        immortalLevel: userPermissions.immortalLevel || null,
+        effectivePermissions: Array.from(effectivePermissions),
+        roles: accountDetails.roles,
+        individualPermissions: accountDetails.individual_permissions,
+      });
+    } catch (error) {
+      logger.error('Get account permissions error:', error);
+      return res.status(500).json({ error: 'Failed to fetch account permissions' });
+    }
+  },
+);
 
 /**
  * POST /api/admin/accounts/:accountName/roles
  * Assign role to account
  */
-router.post('/accounts/:accountName/roles', requireAuth, requireOverlord, async (req: Request, res: Response) => {
-  try {
-    const { accountName } = req.params;
-    const { roleId } = req.body;
-    const parsedRoleId = parseStrictPositiveId(roleId);
+router.post(
+  '/accounts/:accountName/roles',
+  requireAuth,
+  requireOverlord,
+  async (req: Request, res: Response) => {
+    try {
+      const { accountName } = req.params;
+      const { roleId } = req.body;
+      const parsedRoleId = parseStrictPositiveId(roleId);
 
-    if (parsedRoleId === null) {
-      return res.status(400).json({ error: 'Valid role ID is required' });
+      if (parsedRoleId === null) {
+        return res.status(400).json({ error: 'Valid role ID is required' });
+      }
+
+      const grantedBy = req.user?.accountName;
+      if (!grantedBy) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+
+      const ipAddress = req.ip || req.socket.remoteAddress;
+      await assignRole(accountName, parsedRoleId, grantedBy, ipAddress);
+
+      return res.json({
+        success: true,
+        message: 'Role assigned successfully',
+      });
+    } catch (error) {
+      logger.error('Assign role error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to assign role';
+      return res.status(500).json({ error: message });
     }
-
-    const grantedBy = req.user?.accountName;
-    if (!grantedBy) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-
-    const ipAddress = req.ip || req.socket.remoteAddress;
-    await assignRole(accountName, parsedRoleId, grantedBy, ipAddress);
-
-    return res.json({
-      success: true,
-      message: 'Role assigned successfully'
-    });
-  } catch (error) {
-    logger.error('Assign role error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to assign role';
-    return res.status(500).json({ error: message });
-  }
-});
+  },
+);
 
 /**
  * DELETE /api/admin/accounts/:accountName/roles/:roleId
  * Revoke role from account
  */
-router.delete('/accounts/:accountName/roles/:roleId', requireAuth, requireOverlord, async (req: Request, res: Response) => {
-  try {
-    const { accountName, roleId } = req.params;
-    const parsedRoleId = parseStrictPositiveId(roleId);
+router.delete(
+  '/accounts/:accountName/roles/:roleId',
+  requireAuth,
+  requireOverlord,
+  async (req: Request, res: Response) => {
+    try {
+      const { accountName, roleId } = req.params;
+      const parsedRoleId = parseStrictPositiveId(roleId);
 
-    if (parsedRoleId === null) {
-      return res.status(400).json({ error: 'Invalid role ID' });
+      if (parsedRoleId === null) {
+        return res.status(400).json({ error: 'Invalid role ID' });
+      }
+
+      const revokedBy = req.user?.accountName || 'system';
+      const ipAddress = req.ip || req.socket.remoteAddress;
+      await revokeRole(accountName, parsedRoleId, revokedBy, ipAddress);
+
+      return res.json({
+        success: true,
+        message: 'Role revoked successfully',
+      });
+    } catch (error) {
+      logger.error('Revoke role error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to revoke role';
+      return res.status(500).json({ error: message });
     }
-
-    const revokedBy = req.user?.accountName || 'system';
-    const ipAddress = req.ip || req.socket.remoteAddress;
-    await revokeRole(accountName, parsedRoleId, revokedBy, ipAddress);
-
-    return res.json({
-      success: true,
-      message: 'Role revoked successfully'
-    });
-  } catch (error) {
-    logger.error('Revoke role error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to revoke role';
-    return res.status(500).json({ error: message });
-  }
-});
+  },
+);
 
 /**
  * POST /api/admin/accounts/:accountName/permissions
  * Grant individual permission to account
  */
-router.post('/accounts/:accountName/permissions', requireAuth, requireOverlord, async (req: Request, res: Response) => {
-  try {
-    const { accountName } = req.params;
-    const { permissionId } = req.body;
-    const parsedPermissionId = parseStrictPositiveId(permissionId);
+router.post(
+  '/accounts/:accountName/permissions',
+  requireAuth,
+  requireOverlord,
+  async (req: Request, res: Response) => {
+    try {
+      const { accountName } = req.params;
+      const { permissionId } = req.body;
+      const parsedPermissionId = parseStrictPositiveId(permissionId);
 
-    if (parsedPermissionId === null) {
-      return res.status(400).json({ error: 'Valid permission ID is required' });
+      if (parsedPermissionId === null) {
+        return res.status(400).json({ error: 'Valid permission ID is required' });
+      }
+
+      const grantedBy = req.user?.accountName;
+      if (!grantedBy) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+
+      const ipAddress = req.ip || req.socket.remoteAddress;
+      await grantPermission(accountName, parsedPermissionId, grantedBy, ipAddress);
+
+      return res.json({
+        success: true,
+        message: 'Permission granted successfully',
+      });
+    } catch (error) {
+      logger.error('Grant permission error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to grant permission';
+      return res.status(500).json({ error: message });
     }
-
-    const grantedBy = req.user?.accountName;
-    if (!grantedBy) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-
-    const ipAddress = req.ip || req.socket.remoteAddress;
-    await grantPermission(accountName, parsedPermissionId, grantedBy, ipAddress);
-
-    return res.json({
-      success: true,
-      message: 'Permission granted successfully'
-    });
-  } catch (error) {
-    logger.error('Grant permission error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to grant permission';
-    return res.status(500).json({ error: message });
-  }
-});
+  },
+);
 
 /**
  * DELETE /api/admin/accounts/:accountName/permissions/:permissionId
  * Revoke individual permission from account
  */
-router.delete('/accounts/:accountName/permissions/:permissionId', requireAuth, requireOverlord, async (req: Request, res: Response) => {
-  try {
-    const { accountName, permissionId } = req.params;
-    const parsedPermissionId = parseStrictPositiveId(permissionId);
+router.delete(
+  '/accounts/:accountName/permissions/:permissionId',
+  requireAuth,
+  requireOverlord,
+  async (req: Request, res: Response) => {
+    try {
+      const { accountName, permissionId } = req.params;
+      const parsedPermissionId = parseStrictPositiveId(permissionId);
 
-    if (parsedPermissionId === null) {
-      return res.status(400).json({ error: 'Invalid permission ID' });
+      if (parsedPermissionId === null) {
+        return res.status(400).json({ error: 'Invalid permission ID' });
+      }
+
+      const revokedBy = req.user?.accountName || 'system';
+      const ipAddress = req.ip || req.socket.remoteAddress;
+      await revokePermission(accountName, parsedPermissionId, revokedBy, ipAddress);
+
+      return res.json({
+        success: true,
+        message: 'Permission revoked successfully',
+      });
+    } catch (error) {
+      logger.error('Revoke permission error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to revoke permission';
+      return res.status(500).json({ error: message });
     }
-
-    const revokedBy = req.user?.accountName || 'system';
-    const ipAddress = req.ip || req.socket.remoteAddress;
-    await revokePermission(accountName, parsedPermissionId, revokedBy, ipAddress);
-
-    return res.json({
-      success: true,
-      message: 'Permission revoked successfully'
-    });
-  } catch (error) {
-    logger.error('Revoke permission error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to revoke permission';
-    return res.status(500).json({ error: message });
-  }
-});
+  },
+);
 
 // ============================================================================
 // MUD Backup Routes
@@ -3432,136 +3720,161 @@ router.delete('/accounts/:accountName/permissions/:permissionId', requireAuth, r
  * GET /api/admin/backup/list
  * List all backups
  */
-router.get('/backup/list', requireAuth, requirePermission('manage_mud_backup'), async (_req: Request, res: Response) => {
-  try {
-    const backups = await getBackupList();
-    return res.json({ backups });
-  } catch (error) {
-    logger.error('List backups error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to list backups';
-    return res.status(500).json({ error: message });
-  }
-});
+router.get(
+  '/backup/list',
+  requireAuth,
+  requirePermission('manage_mud_backup'),
+  async (_req: Request, res: Response) => {
+    try {
+      const backups = await getBackupList();
+      return res.json({ backups });
+    } catch (error) {
+      logger.error('List backups error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to list backups';
+      return res.status(500).json({ error: message });
+    }
+  },
+);
 
 /**
  * POST /api/admin/backup/create
  * Start a new backup
  */
-router.post('/backup/create', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response) => {
-  try {
-    const accountName = req.user?.accountName || 'unknown';
-    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+router.post(
+  '/backup/create',
+  requireAuth,
+  requirePermission('manage_mud_backup'),
+  async (req: Request, res: Response) => {
+    try {
+      const accountName = req.user?.accountName || 'unknown';
+      const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
 
-    const result = await createBackup(accountName, ipAddress);
-    return res.json({
-      success: true,
-      message: 'Backup started',
-      ...result
-    });
-  } catch (error) {
-    logger.error('Create backup error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to start backup';
-    return res.status(500).json({ error: message });
-  }
-});
+      const result = await createBackup(accountName, ipAddress);
+      return res.json({
+        success: true,
+        message: 'Backup started',
+        ...result,
+      });
+    } catch (error) {
+      logger.error('Create backup error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to start backup';
+      return res.status(500).json({ error: message });
+    }
+  },
+);
 
 /**
  * GET /api/admin/backup/status/:id
  * Get backup status (fallback for polling)
  */
-router.get('/backup/status/:id', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response) => {
-  try {
-    const id = validateIdParam(req.params.id);
-    if (id === null) {
-      return res.status(400).json({ error: 'Invalid backup ID' });
-    }
+router.get(
+  '/backup/status/:id',
+  requireAuth,
+  requirePermission('manage_mud_backup'),
+  async (req: Request, res: Response) => {
+    try {
+      const id = validateIdParam(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ error: 'Invalid backup ID' });
+      }
 
-    const backup = await getBackupById(id);
-    if (!backup) {
-      return res.status(404).json({ error: 'Backup not found' });
-    }
+      const backup = await getBackupById(id);
+      if (!backup) {
+        return res.status(404).json({ error: 'Backup not found' });
+      }
 
-    return res.json({ backup });
-  } catch (error) {
-    logger.error('Get backup status error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to get backup status';
-    return res.status(500).json({ error: message });
-  }
-});
+      return res.json({ backup });
+    } catch (error) {
+      logger.error('Get backup status error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to get backup status';
+      return res.status(500).json({ error: message });
+    }
+  },
+);
 
 /**
  * GET /api/admin/backup/download/:id
  * Download a completed backup
  */
-router.get('/backup/download/:id', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response): Promise<void> => {
-  try {
-    const id = validateIdParam(req.params.id);
-    if (id === null) {
-      res.status(400).json({ error: 'Invalid backup ID' });
-      return;
-    }
+router.get(
+  '/backup/download/:id',
+  requireAuth,
+  requirePermission('manage_mud_backup'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = validateIdParam(req.params.id);
+      if (id === null) {
+        res.status(400).json({ error: 'Invalid backup ID' });
+        return;
+      }
 
-    const backup = await getBackupById(id);
-    if (!backup) {
-      res.status(404).json({ error: 'Backup not found' });
-      return;
-    }
+      const backup = await getBackupById(id);
+      if (!backup) {
+        res.status(404).json({ error: 'Backup not found' });
+        return;
+      }
 
-    if (backup.status !== 'completed') {
-      res.status(400).json({ error: 'Backup is not ready for download' });
-      return;
-    }
+      if (backup.status !== 'completed') {
+        res.status(400).json({ error: 'Backup is not ready for download' });
+        return;
+      }
 
-    const filePath = await getBackupFilePath(id);
-    if (!filePath) {
-      res.status(404).json({ error: 'Backup file not found' });
-      return;
-    }
+      const filePath = await getBackupFilePath(id);
+      if (!filePath) {
+        res.status(404).json({ error: 'Backup file not found' });
+        return;
+      }
 
-    // Set headers for file download
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${backup.filename}"`);
-    if (backup.fileSize) {
-      res.setHeader('Content-Length', backup.fileSize.toString());
-    }
+      // Set headers for file download
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${backup.filename}"`);
+      if (backup.fileSize) {
+        res.setHeader('Content-Length', backup.fileSize.toString());
+      }
 
-    // Stream the file
-    const fileStream = createReadStream(filePath);
-    fileStream.pipe(res);
+      // Stream the file
+      const fileStream = createReadStream(filePath);
+      fileStream.pipe(res);
 
-    fileStream.on('error', (error) => {
+      fileStream.on('error', (error) => {
+        logger.error('Download backup error:', error);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Failed to download backup file' });
+        }
+      });
+    } catch (error) {
       logger.error('Download backup error:', error);
       if (!res.headersSent) {
-        res.status(500).json({ error: 'Failed to download backup file' });
+        const message = error instanceof Error ? error.message : 'Failed to download backup';
+        res.status(500).json({ error: message });
       }
-    });
-  } catch (error) {
-    logger.error('Download backup error:', error);
-    if (!res.headersSent) {
-      const message = error instanceof Error ? error.message : 'Failed to download backup';
-      res.status(500).json({ error: message });
     }
-  }
-});
+  },
+);
 
 /**
  * DELETE /api/admin/backup/failed
  * Delete all failed backups (overlord only)
  */
-router.delete('/backup/failed', requireAuth, requireOverlord, async (_req: Request, res: Response) => {
-  try {
-    const deletedCount = await deleteFailedBackups();
-    return res.json({
-      success: true,
-      deletedCount,
-      message: `Deleted ${deletedCount} failed backup(s)`
-    });
-  } catch (error) {
-    logger.error('Delete failed backups error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to delete failed backups';
-    return res.status(500).json({ error: message });
-  }
-});
+router.delete(
+  '/backup/failed',
+  requireAuth,
+  requireOverlord,
+  async (_req: Request, res: Response) => {
+    try {
+      const deletedCount = await deleteFailedBackups();
+      return res.json({
+        success: true,
+        deletedCount,
+        message: `Deleted ${deletedCount} failed backup(s)`,
+      });
+    } catch (error) {
+      logger.error('Delete failed backups error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to delete failed backups';
+      return res.status(500).json({ error: message });
+    }
+  },
+);
 
 /**
  * DELETE /api/admin/backup/:id
@@ -3581,7 +3894,7 @@ router.delete('/backup/:id', requireAuth, requireOverlord, async (req: Request, 
 
     return res.json({
       success: true,
-      message: 'Backup deleted successfully'
+      message: 'Backup deleted successfully',
     });
   } catch (error) {
     logger.error('Delete backup error:', error);
@@ -3594,39 +3907,49 @@ router.delete('/backup/:id', requireAuth, requireOverlord, async (req: Request, 
  * GET /api/admin/backup/:id/contents
  * List accounts and characters in a backup
  */
-router.get('/backup/:id/contents', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response) => {
-  try {
-    const id = validateIdParam(req.params.id);
-    if (id === null) {
-      return res.status(400).json({ error: 'Invalid backup ID' });
-    }
+router.get(
+  '/backup/:id/contents',
+  requireAuth,
+  requirePermission('manage_mud_backup'),
+  async (req: Request, res: Response) => {
+    try {
+      const id = validateIdParam(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ error: 'Invalid backup ID' });
+      }
 
-    const contents = await listBackupContents(id);
-    if (!contents) {
-      return res.status(404).json({ error: 'Backup not found or not completed' });
-    }
+      const contents = await listBackupContents(id);
+      if (!contents) {
+        return res.status(404).json({ error: 'Backup not found or not completed' });
+      }
 
-    return res.json(contents);
-  } catch (error) {
-    logger.error('List backup contents error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to list backup contents';
-    return res.status(500).json({ error: message });
-  }
-});
+      return res.json(contents);
+    } catch (error) {
+      logger.error('List backup contents error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to list backup contents';
+      return res.status(500).json({ error: message });
+    }
+  },
+);
 
 /**
  * GET /api/admin/backup/mud-status
  * Check if MUD is currently running
  */
-router.get('/backup/mud-status', requireAuth, requirePermission('manage_mud_backup'), async (_req: Request, res: Response) => {
-  try {
-    const running = isMudRunning();
-    return res.json({ running });
-  } catch (error) {
-    logger.error('Check MUD status error:', error);
-    return res.status(500).json({ error: 'Failed to check MUD status' });
-  }
-});
+router.get(
+  '/backup/mud-status',
+  requireAuth,
+  requirePermission('manage_mud_backup'),
+  async (_req: Request, res: Response) => {
+    try {
+      const running = isMudRunning();
+      return res.json({ running });
+    } catch (error) {
+      logger.error('Check MUD status error:', error);
+      return res.status(500).json({ error: 'Failed to check MUD status' });
+    }
+  },
+);
 
 // fast-fail guard: mud must be offline and no other restore recently active.
 // best-effort only; runRestoreInternal's atomic insert is the actual race-safe check.
@@ -3657,97 +3980,124 @@ async function assertRestorePreconditions(): Promise<string | null> {
  * - characters: { pid: number; name: string }[] (required for character restore)
  * - categories: RestoreCategories (optional for character restore, defaults applied)
  */
-router.post('/backup/restore', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response) => {
-  try {
-    const { backupId, restoreType, accounts, characters, categories } = req.body;
+router.post(
+  '/backup/restore',
+  requireAuth,
+  requirePermission('manage_mud_backup'),
+  async (req: Request, res: Response) => {
+    try {
+      const { backupId, restoreType, accounts, characters, categories } = req.body;
 
-    if (!backupId || !restoreType) {
-      return res.status(400).json({ error: 'backupId and restoreType are required' });
-    }
+      if (!backupId || !restoreType) {
+        return res.status(400).json({ error: 'backupId and restoreType are required' });
+      }
 
-    if (!['full', 'account', 'character'].includes(restoreType)) {
-      return res.status(400).json({ error: 'restoreType must be "full", "account", or "character"' });
-    }
+      if (!['full', 'account', 'character'].includes(restoreType)) {
+        return res
+          .status(400)
+          .json({ error: 'restoreType must be "full", "account", or "character"' });
+      }
 
-    if (restoreType === 'account' && (!accounts || !Array.isArray(accounts) || accounts.length === 0)) {
-      return res.status(400).json({ error: 'accounts array is required for account restore' });
-    }
+      if (
+        restoreType === 'account' &&
+        (!accounts || !Array.isArray(accounts) || accounts.length === 0)
+      ) {
+        return res.status(400).json({ error: 'accounts array is required for account restore' });
+      }
 
-    if (restoreType === 'character' && (!characters || !Array.isArray(characters) || characters.length === 0)) {
-      return res.status(400).json({ error: 'characters array is required for character restore' });
-    }
+      if (
+        restoreType === 'character' &&
+        (!characters || !Array.isArray(characters) || characters.length === 0)
+      ) {
+        return res
+          .status(400)
+          .json({ error: 'characters array is required for character restore' });
+      }
 
-    // validate characters format
-    if (characters) {
-      for (const char of characters) {
-        if (typeof char.pid !== 'number' || typeof char.name !== 'string') {
-          return res.status(400).json({ error: 'Each character must have pid (number) and name (string)' });
+      // validate characters format
+      if (characters) {
+        for (const char of characters) {
+          if (typeof char.pid !== 'number' || typeof char.name !== 'string') {
+            return res
+              .status(400)
+              .json({ error: 'Each character must have pid (number) and name (string)' });
+          }
         }
       }
+
+      const pre = await assertRestorePreconditions();
+      if (pre) return res.status(409).json({ error: pre });
+
+      const accountName = req.user?.accountName || 'unknown';
+      const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+
+      const result = await createRestore(
+        { backupId, restoreType, accounts, characters, categories },
+        accountName,
+        ipAddress,
+      );
+
+      return res.json({
+        success: true,
+        id: result.id,
+        message: 'Restore operation started',
+      });
+    } catch (error) {
+      logger.error('Create restore error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to start restore';
+      return res.status(500).json({ error: message });
     }
-
-    const pre = await assertRestorePreconditions();
-    if (pre) return res.status(409).json({ error: pre });
-
-    const accountName = req.user?.accountName || 'unknown';
-    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
-
-    const result = await createRestore(
-      { backupId, restoreType, accounts, characters, categories },
-      accountName,
-      ipAddress
-    );
-
-    return res.json({
-      success: true,
-      id: result.id,
-      message: 'Restore operation started'
-    });
-  } catch (error) {
-    logger.error('Create restore error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to start restore';
-    return res.status(500).json({ error: message });
-  }
-});
+  },
+);
 
 /**
  * GET /api/admin/restore/list
  * Get list of all restore operations
  */
-router.get('/restore/list', requireAuth, requirePermission('manage_mud_backup'), async (_req: Request, res: Response) => {
-  try {
-    const restores = await getRestoreList();
-    return res.json(restores);
-  } catch (error) {
-    logger.error('Get restore list error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to get restore list';
-    return res.status(500).json({ error: message });
-  }
-});
+router.get(
+  '/restore/list',
+  requireAuth,
+  requirePermission('manage_mud_backup'),
+  async (_req: Request, res: Response) => {
+    try {
+      const restores = await getRestoreList();
+      return res.json(restores);
+    } catch (error) {
+      logger.error('Get restore list error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to get restore list';
+      return res.status(500).json({ error: message });
+    }
+  },
+);
 
 /**
  * GET /api/admin/restore/status/:id
  * Get status of a specific restore operation
  */
-router.get('/restore/status/:id', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response) => {
-  try {
-    const id = validateIdParam(req.params.id);
-    if (id === null) {
-      return res.status(400).json({ error: 'Invalid restore ID' });
-    }
+router.get(
+  '/restore/status/:id',
+  requireAuth,
+  requirePermission('manage_mud_backup'),
+  async (req: Request, res: Response) => {
+    try {
+      const id = validateIdParam(req.params.id);
+      if (id === null) {
+        return res.status(400).json({ error: 'Invalid restore ID' });
+      }
 
-    const restore = await getRestoreById(id);
-    if (!restore) {
-      return res.status(404).json({ error: 'Restore not found' });
-    }
+      const restore = await getRestoreById(id);
+      if (!restore) {
+        return res.status(404).json({ error: 'Restore not found' });
+      }
 
-    return res.json(restore);
-  } catch (error) {
-    logger.error('Get restore status error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to get restore status';
-    return res.status(500).json({ error: message });
-  }
-});
+      return res.json(restore);
+    } catch (error) {
+      logger.error('Get restore status error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to get restore status';
+      return res.status(500).json({ error: message });
+    }
+  },
+);
 
 // ============================================================================
 // BACKUP UPLOAD ENDPOINTS
@@ -3760,9 +4110,9 @@ const backupUpload = multer({
       cb(null, os.tmpdir());
     },
     filename: (_req, file, cb) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       cb(null, 'backup-upload-' + uniqueSuffix + path.extname(file.originalname));
-    }
+    },
   }),
   limits: {
     fileSize: 500 * 1024 * 1024, // 500MB max
@@ -3782,43 +4132,54 @@ const backupUpload = multer({
  * Upload a backup file and validate it
  * Returns the backup contents if valid
  */
-router.post('/backup/upload', requireAuth, requirePermission('manage_mud_backup'), backupUpload.single('backup'), async (req: Request, res: Response) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+router.post(
+  '/backup/upload',
+  requireAuth,
+  requirePermission('manage_mud_backup'),
+  backupUpload.single('backup'),
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      const filePath = req.file.path;
+      const result = await validateUploadedBackup(filePath);
+
+      if (!result.isValid) {
+        // Cleanup invalid file
+        await deleteUploadedBackup(filePath);
+        return res.status(400).json({ error: result.errorMessage || 'Invalid backup file' });
+      }
+
+      return res.json({
+        success: true,
+        tempPath: result.tempPath,
+        contents: result.contents,
+      });
+    } catch (error) {
+      logger.error('Backup upload error:', error);
+
+      // Cleanup file on error
+      if (req.file) {
+        await deleteUploadedBackup(req.file.path);
+      }
+
+      // Handle multer errors
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'LIMIT_FILE_SIZE'
+      ) {
+        return res.status(400).json({ error: 'File too large. Maximum size is 500MB.' });
+      }
+
+      const message = getErrorMessage(error) || 'Failed to upload backup';
+      return res.status(500).json({ error: message });
     }
-
-    const filePath = req.file.path;
-    const result = await validateUploadedBackup(filePath);
-
-    if (!result.isValid) {
-      // Cleanup invalid file
-      await deleteUploadedBackup(filePath);
-      return res.status(400).json({ error: result.errorMessage || 'Invalid backup file' });
-    }
-
-    return res.json({
-      success: true,
-      tempPath: result.tempPath,
-      contents: result.contents,
-    });
-  } catch (error) {
-    logger.error('Backup upload error:', error);
-
-    // Cleanup file on error
-    if (req.file) {
-      await deleteUploadedBackup(req.file.path);
-    }
-
-    // Handle multer errors
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: 'File too large. Maximum size is 500MB.' });
-    }
-
-    const message = getErrorMessage(error) || 'Failed to upload backup';
-    return res.status(500).json({ error: message });
-  }
-});
+  },
+);
 
 /**
  * POST /api/admin/backup/upload/restore
@@ -3831,81 +4192,104 @@ router.post('/backup/upload', requireAuth, requirePermission('manage_mud_backup'
  * - characters: { pid: number; name: string }[] (required for character restore)
  * - categories: RestoreCategories (optional for character restore)
  */
-router.post('/backup/upload/restore', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response) => {
-  try {
-    const { tempPath, restoreType, accounts, characters, categories } = req.body;
+router.post(
+  '/backup/upload/restore',
+  requireAuth,
+  requirePermission('manage_mud_backup'),
+  async (req: Request, res: Response) => {
+    try {
+      const { tempPath, restoreType, accounts, characters, categories } = req.body;
 
-    if (!tempPath || !restoreType) {
-      return res.status(400).json({ error: 'tempPath and restoreType are required' });
-    }
+      if (!tempPath || !restoreType) {
+        return res.status(400).json({ error: 'tempPath and restoreType are required' });
+      }
 
-    if (!['full', 'account', 'character'].includes(restoreType)) {
-      return res.status(400).json({ error: 'restoreType must be "full", "account", or "character"' });
-    }
+      if (!['full', 'account', 'character'].includes(restoreType)) {
+        return res
+          .status(400)
+          .json({ error: 'restoreType must be "full", "account", or "character"' });
+      }
 
-    if (restoreType === 'account' && (!accounts || !Array.isArray(accounts) || accounts.length === 0)) {
-      return res.status(400).json({ error: 'accounts array is required for account restore' });
-    }
+      if (
+        restoreType === 'account' &&
+        (!accounts || !Array.isArray(accounts) || accounts.length === 0)
+      ) {
+        return res.status(400).json({ error: 'accounts array is required for account restore' });
+      }
 
-    if (restoreType === 'character' && (!characters || !Array.isArray(characters) || characters.length === 0)) {
-      return res.status(400).json({ error: 'characters array is required for character restore' });
-    }
+      if (
+        restoreType === 'character' &&
+        (!characters || !Array.isArray(characters) || characters.length === 0)
+      ) {
+        return res
+          .status(400)
+          .json({ error: 'characters array is required for character restore' });
+      }
 
-    // validate characters format
-    if (characters) {
-      for (const char of characters) {
-        if (typeof char.pid !== 'number' || typeof char.name !== 'string') {
-          return res.status(400).json({ error: 'Each character must have pid (number) and name (string)' });
+      // validate characters format
+      if (characters) {
+        for (const char of characters) {
+          if (typeof char.pid !== 'number' || typeof char.name !== 'string') {
+            return res
+              .status(400)
+              .json({ error: 'Each character must have pid (number) and name (string)' });
+          }
         }
       }
+
+      const pre = await assertRestorePreconditions();
+      if (pre) return res.status(409).json({ error: pre });
+
+      const accountName = req.user?.accountName || 'unknown';
+      const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+
+      const result = await createRestoreFromUpload(
+        tempPath,
+        { restoreType, accounts, characters, categories },
+        accountName,
+        ipAddress,
+      );
+
+      return res.json({
+        success: true,
+        id: result.id,
+        message: 'Restore from upload started',
+      });
+    } catch (error) {
+      logger.error('Restore from upload error:', error);
+      const message =
+        error instanceof Error ? error.message : 'Failed to start restore from upload';
+      return res.status(500).json({ error: message });
     }
-
-    const pre = await assertRestorePreconditions();
-    if (pre) return res.status(409).json({ error: pre });
-
-    const accountName = req.user?.accountName || 'unknown';
-    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
-
-    const result = await createRestoreFromUpload(
-      tempPath,
-      { restoreType, accounts, characters, categories },
-      accountName,
-      ipAddress
-    );
-
-    return res.json({
-      success: true,
-      id: result.id,
-      message: 'Restore from upload started'
-    });
-  } catch (error) {
-    logger.error('Restore from upload error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to start restore from upload';
-    return res.status(500).json({ error: message });
-  }
-});
+  },
+);
 
 /**
  * DELETE /api/admin/backup/upload/cancel
  * Cancel an upload and cleanup the temp file
  */
-router.delete('/backup/upload/cancel', requireAuth, requirePermission('manage_mud_backup'), async (req: Request, res: Response) => {
-  try {
-    const { tempPath } = req.body;
+router.delete(
+  '/backup/upload/cancel',
+  requireAuth,
+  requirePermission('manage_mud_backup'),
+  async (req: Request, res: Response) => {
+    try {
+      const { tempPath } = req.body;
 
-    if (!tempPath) {
-      return res.status(400).json({ error: 'tempPath is required' });
+      if (!tempPath) {
+        return res.status(400).json({ error: 'tempPath is required' });
+      }
+
+      await deleteUploadedBackup(tempPath);
+
+      return res.json({ success: true, message: 'Upload cancelled and file cleaned up' });
+    } catch (error) {
+      logger.error('Cancel upload error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to cancel upload';
+      return res.status(500).json({ error: message });
     }
-
-    await deleteUploadedBackup(tempPath);
-
-    return res.json({ success: true, message: 'Upload cancelled and file cleaned up' });
-  } catch (error) {
-    logger.error('Cancel upload error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to cancel upload';
-    return res.status(500).json({ error: message });
-  }
-});
+  },
+);
 
 // ============================================================================
 // WEB SETTINGS ENDPOINTS
@@ -3947,15 +4331,20 @@ const heroUpload = multer({
  * GET /api/admin/web/settings
  * Get all web settings (for admin page)
  */
-router.get('/web/settings', requireAuth, requirePermission('manage_front_page'), async (_req: Request, res: Response) => {
-  try {
-    const settings = await getWebSettingsRaw();
-    return res.json({ settings });
-  } catch (error) {
-    logger.error('Get web settings error:', error);
-    return res.status(500).json({ error: 'Failed to get web settings' });
-  }
-});
+router.get(
+  '/web/settings',
+  requireAuth,
+  requirePermission('manage_front_page'),
+  async (_req: Request, res: Response) => {
+    try {
+      const settings = await getWebSettingsRaw();
+      return res.json({ settings });
+    } catch (error) {
+      logger.error('Get web settings error:', error);
+      return res.status(500).json({ error: 'Failed to get web settings' });
+    }
+  },
+);
 
 /**
  * PUT /api/admin/web/settings/:key
@@ -3994,7 +4383,7 @@ router.put(
       const message = error instanceof Error ? error.message : 'Failed to update setting';
       return res.status(400).json({ error: message });
     }
-  }
+  },
 );
 
 /**
@@ -4024,7 +4413,7 @@ router.post(
       const logoUrl = await uploadSiteLogo(
         req.file.buffer,
         req.file.mimetype,
-        req.user.accountName
+        req.user.accountName,
       );
 
       return res.json({
@@ -4037,31 +4426,36 @@ router.post(
       const message = error instanceof Error ? error.message : 'Failed to upload logo';
       return res.status(500).json({ error: message });
     }
-  }
+  },
 );
 
 /**
  * DELETE /api/admin/web/logo
  * Delete site logo
  */
-router.delete('/web/logo', requireAuth, requirePermission('manage_front_page'), async (req: Request, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Not authenticated' });
+router.delete(
+  '/web/logo',
+  requireAuth,
+  requirePermission('manage_front_page'),
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      await deleteSiteLogo(req.user.accountName);
+
+      return res.json({
+        success: true,
+        message: 'Site logo deleted',
+      });
+    } catch (error) {
+      logger.error('Delete logo error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to delete logo';
+      return res.status(500).json({ error: message });
     }
-
-    await deleteSiteLogo(req.user.accountName);
-
-    return res.json({
-      success: true,
-      message: 'Site logo deleted',
-    });
-  } catch (error) {
-    logger.error('Delete logo error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to delete logo';
-    return res.status(500).json({ error: message });
-  }
-});
+  },
+);
 
 /**
  * POST /api/admin/web/hero-image
@@ -4090,7 +4484,7 @@ router.post(
       const heroUrl = await uploadHeroImage(
         req.file.buffer,
         req.file.mimetype,
-        req.user.accountName
+        req.user.accountName,
       );
 
       return res.json({
@@ -4103,31 +4497,36 @@ router.post(
       const message = error instanceof Error ? error.message : 'Failed to upload hero image';
       return res.status(500).json({ error: message });
     }
-  }
+  },
 );
 
 /**
  * DELETE /api/admin/web/hero-image
  * Delete hero banner background image
  */
-router.delete('/web/hero-image', requireAuth, requirePermission('manage_front_page'), async (req: Request, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Not authenticated' });
+router.delete(
+  '/web/hero-image',
+  requireAuth,
+  requirePermission('manage_front_page'),
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      await deleteHeroImage(req.user.accountName);
+
+      return res.json({
+        success: true,
+        message: 'Hero image deleted',
+      });
+    } catch (error) {
+      logger.error('Delete hero image error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to delete hero image';
+      return res.status(500).json({ error: message });
     }
-
-    await deleteHeroImage(req.user.accountName);
-
-    return res.json({
-      success: true,
-      message: 'Hero image deleted',
-    });
-  } catch (error) {
-    logger.error('Delete hero image error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to delete hero image';
-    return res.status(500).json({ error: message });
-  }
-});
+  },
+);
 
 // ============================================
 // Discord Integration
@@ -4137,46 +4536,56 @@ router.delete('/web/hero-image', requireAuth, requirePermission('manage_front_pa
  * POST /api/admin/discord/test
  * test discord webhook by sending a test message
  */
-router.post('/discord/test', requireAuth, requirePermission('manage_front_page'), async (req: Request, res: Response) => {
-  try {
-    const { webhookUrl } = req.body;
+router.post(
+  '/discord/test',
+  requireAuth,
+  requirePermission('manage_front_page'),
+  async (req: Request, res: Response) => {
+    try {
+      const { webhookUrl } = req.body;
 
-    if (!webhookUrl) {
-      return res.status(400).json({ error: 'webhook url is required' });
+      if (!webhookUrl) {
+        return res.status(400).json({ error: 'webhook url is required' });
+      }
+
+      const result = await testWebhook(webhookUrl);
+      return res.json(result);
+    } catch (error) {
+      logger.error('Discord test webhook error:', error);
+      return res.status(500).json({ success: false, error: 'failed to test webhook' });
     }
-
-    const result = await testWebhook(webhookUrl);
-    return res.json(result);
-  } catch (error) {
-    logger.error('Discord test webhook error:', error);
-    return res.status(500).json({ success: false, error: 'failed to test webhook' });
-  }
-});
+  },
+);
 
 /**
  * POST /api/admin/pvp/events/:id/discord
  * manually post a battle to discord
  */
-router.post('/pvp/events/:id/discord', requireAuth, requirePermission('manage_front_page'), async (req: Request, res: Response) => {
-  try {
-    const eventId = validateIdParam(req.params.id);
+router.post(
+  '/pvp/events/:id/discord',
+  requireAuth,
+  requirePermission('manage_front_page'),
+  async (req: Request, res: Response) => {
+    try {
+      const eventId = validateIdParam(req.params.id);
 
-    if (eventId === null) {
-      return res.status(400).json({ error: 'invalid event id' });
+      if (eventId === null) {
+        return res.status(400).json({ error: 'invalid event id' });
+      }
+
+      const result = await manualPostBattle(eventId);
+
+      if (result.success) {
+        return res.json({ success: true, message: 'battle posted to discord' });
+      }
+
+      return res.status(400).json({ success: false, error: result.error });
+    } catch (error) {
+      logger.error('Discord manual post error:', error);
+      return res.status(500).json({ success: false, error: 'failed to post to discord' });
     }
-
-    const result = await manualPostBattle(eventId);
-
-    if (result.success) {
-      return res.json({ success: true, message: 'battle posted to discord' });
-    }
-
-    return res.status(400).json({ success: false, error: result.error });
-  } catch (error) {
-    logger.error('Discord manual post error:', error);
-    return res.status(500).json({ success: false, error: 'failed to post to discord' });
-  }
-});
+  },
+);
 
 // ============================================
 // God Command Support (Level 60+)
@@ -4234,7 +4643,9 @@ router.post(
       // Check user's level from permissions (already loaded by requireAuth)
       const userLevel = req.user.permissions.maxLevel;
       if (userLevel < 60) {
-        return res.status(403).json({ error: 'Insufficient level. Requires level 60 (Greater God) or higher.' });
+        return res
+          .status(403)
+          .json({ error: 'Insufficient level. Requires level 60 (Greater God) or higher.' });
       }
 
       const { accountName, newPassword } = req.body;
@@ -4254,7 +4665,9 @@ router.post(
       await updateAccountPassword(targetAccount, newPasswordHash);
 
       // Log the action (never log the password)
-      logger.info(`[ADMIN] Password reset: ${req.user.accountName} (L${userLevel}) changed password for account '${targetAccount}'`);
+      logger.info(
+        `[ADMIN] Password reset: ${req.user.accountName} (L${userLevel}) changed password for account '${targetAccount}'`,
+      );
 
       return res.json({
         success: true,
@@ -4265,7 +4678,7 @@ router.post(
       const message = error instanceof Error ? error.message : 'Failed to reset password';
       return res.status(500).json({ error: message });
     }
-  }
+  },
 );
 
 /**
@@ -4305,83 +4718,103 @@ router.get('/dupes/:objUid', requireAuth, requireOverlord, async (req: Request, 
  * DELETE /api/admin/dupes/item/:id
  * Delete a specific item by its id
  */
-router.delete('/dupes/item/:id', requireAuth, requireOverlord, async (req: Request, res: Response) => {
-  try {
-    const itemId = validateIdParam(req.params.id);
-    if (itemId === null) {
-      return res.status(400).json({ error: 'Invalid item id' });
+router.delete(
+  '/dupes/item/:id',
+  requireAuth,
+  requireOverlord,
+  async (req: Request, res: Response) => {
+    try {
+      const itemId = validateIdParam(req.params.id);
+      if (itemId === null) {
+        return res.status(400).json({ error: 'Invalid item id' });
+      }
+      const deleted = await deletePlayerItem(itemId);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Item not found' });
+      }
+      return res.json({ success: true });
+    } catch (error) {
+      logger.error('Delete item error:', error);
+      return res.status(500).json({ error: 'Failed to delete item' });
     }
-    const deleted = await deletePlayerItem(itemId);
-    if (!deleted) {
-      return res.status(404).json({ error: 'Item not found' });
-    }
-    return res.json({ success: true });
-  } catch (error) {
-    logger.error('Delete item error:', error);
-    return res.status(500).json({ error: 'Failed to delete item' });
-  }
-});
+  },
+);
 
 /**
  * DELETE /api/admin/dupes/locker-item/:id
  * Delete a specific locker item by its id
  */
-router.delete('/dupes/locker-item/:id', requireAuth, requireOverlord, async (req: Request, res: Response) => {
-  try {
-    const itemId = validateIdParam(req.params.id);
-    if (itemId === null) {
-      return res.status(400).json({ error: 'Invalid item id' });
+router.delete(
+  '/dupes/locker-item/:id',
+  requireAuth,
+  requireOverlord,
+  async (req: Request, res: Response) => {
+    try {
+      const itemId = validateIdParam(req.params.id);
+      if (itemId === null) {
+        return res.status(400).json({ error: 'Invalid item id' });
+      }
+      const deleted = await deleteLockerItem(itemId);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Locker item not found' });
+      }
+      return res.json({ success: true });
+    } catch (error) {
+      logger.error('Delete locker item error:', error);
+      return res.status(500).json({ error: 'Failed to delete locker item' });
     }
-    const deleted = await deleteLockerItem(itemId);
-    if (!deleted) {
-      return res.status(404).json({ error: 'Locker item not found' });
-    }
-    return res.json({ success: true });
-  } catch (error) {
-    logger.error('Delete locker item error:', error);
-    return res.status(500).json({ error: 'Failed to delete locker item' });
-  }
-});
+  },
+);
 
 /**
  * DELETE /api/admin/dupes/uid/:objUid/:vnum
  * Delete all duplicate copies of an item (keeps original)
  */
-router.delete('/dupes/uid/:objUid/:vnum', requireAuth, requireOverlord, async (req: Request, res: Response) => {
-  try {
-    const objUid = validateIdParam(req.params.objUid);
-    const vnum = validateIdParam(req.params.vnum);
-    if (objUid === null || vnum === null) {
-      return res.status(400).json({ error: 'Invalid parameters' });
+router.delete(
+  '/dupes/uid/:objUid/:vnum',
+  requireAuth,
+  requireOverlord,
+  async (req: Request, res: Response) => {
+    try {
+      const objUid = validateIdParam(req.params.objUid);
+      const vnum = validateIdParam(req.params.vnum);
+      if (objUid === null || vnum === null) {
+        return res.status(400).json({ error: 'Invalid parameters' });
+      }
+      const deletedCount = await deleteAllDupesForUid(objUid, vnum);
+      return res.json({ success: true, deletedCount });
+    } catch (error) {
+      logger.error('Delete dupes for uid error:', error);
+      return res.status(500).json({ error: 'Failed to delete duplicates' });
     }
-    const deletedCount = await deleteAllDupesForUid(objUid, vnum);
-    return res.json({ success: true, deletedCount });
-  } catch (error) {
-    logger.error('Delete dupes for uid error:', error);
-    return res.status(500).json({ error: 'Failed to delete duplicates' });
-  }
-});
+  },
+);
 
 /**
  * POST /api/admin/dupes/bulk-delete
  * Delete multiple items by their ids
  */
-router.post('/dupes/bulk-delete', requireAuth, requireOverlord, async (req: Request, res: Response) => {
-  try {
-    const { itemIds } = req.body;
-    if (!Array.isArray(itemIds) || itemIds.length === 0) {
-      return res.status(400).json({ error: 'itemIds must be a non-empty array' });
+router.post(
+  '/dupes/bulk-delete',
+  requireAuth,
+  requireOverlord,
+  async (req: Request, res: Response) => {
+    try {
+      const { itemIds } = req.body;
+      if (!Array.isArray(itemIds) || itemIds.length === 0) {
+        return res.status(400).json({ error: 'itemIds must be a non-empty array' });
+      }
+      const ids = itemIds.map((id: any) => parseInt(id, 10)).filter((id: number) => !isNaN(id));
+      if (ids.length === 0) {
+        return res.status(400).json({ error: 'No valid item ids provided' });
+      }
+      const deletedCount = await deletePlayerItems(ids);
+      return res.json({ success: true, deletedCount });
+    } catch (error) {
+      logger.error('Bulk delete items error:', error);
+      return res.status(500).json({ error: 'Failed to delete items' });
     }
-    const ids = itemIds.map((id: any) => parseInt(id, 10)).filter((id: number) => !isNaN(id));
-    if (ids.length === 0) {
-      return res.status(400).json({ error: 'No valid item ids provided' });
-    }
-    const deletedCount = await deletePlayerItems(ids);
-    return res.json({ success: true, deletedCount });
-  } catch (error) {
-    logger.error('Bulk delete items error:', error);
-    return res.status(500).json({ error: 'Failed to delete items' });
-  }
-});
+  },
+);
 
 export default router;

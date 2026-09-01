@@ -123,9 +123,7 @@ async function confirmDeleteNotification() {
 
   try {
     await notificationApi.deleteNotification(deletingNotification.value.id)
-    notifications.value = notifications.value.filter(
-      (n) => n.id !== deletingNotification.value!.id
-    )
+    notifications.value = notifications.value.filter((n) => n.id !== deletingNotification.value!.id)
     total.value--
     if (!deletingNotification.value.isRead) {
       unreadCount.value = Math.max(0, unreadCount.value - 1)

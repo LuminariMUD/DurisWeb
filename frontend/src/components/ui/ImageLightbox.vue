@@ -66,7 +66,7 @@ watch(
     } else {
       document.body.style.overflow = ''
     }
-  }
+  },
 )
 
 onMounted(() => {

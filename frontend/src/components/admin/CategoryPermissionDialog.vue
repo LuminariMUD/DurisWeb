@@ -166,7 +166,10 @@ async function handleAddPermission() {
 
   try {
     // For multiple selections (guild/account), add each one
-    if ((targetType.value === 'guild' || targetType.value === 'account') && selectedTargets.value.length > 0) {
+    if (
+      (targetType.value === 'guild' || targetType.value === 'account') &&
+      selectedTargets.value.length > 0
+    ) {
       for (const target of selectedTargets.value) {
         const request: AddPermissionRequest = {
           permissionType: permissionType.value,
@@ -284,13 +287,16 @@ function handleCancel() {
 }
 
 // Watch for dialog open/close
-watch(() => props.open, (isOpen) => {
-  if (isOpen && props.category) {
-    loadPermissions()
-  } else {
-    resetAddForm()
-  }
-})
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (isOpen && props.category) {
+      loadPermissions()
+    } else {
+      resetAddForm()
+    }
+  },
+)
 </script>
 
 <template>

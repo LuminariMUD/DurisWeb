@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type {
-  TriggerAction,
-  TriggerHighlightColor,
-  TriggerSound,
-} from '@/types/trigger'
+import type { TriggerAction, TriggerHighlightColor, TriggerSound } from '@/types/trigger'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'

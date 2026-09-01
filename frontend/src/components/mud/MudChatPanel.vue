@@ -102,7 +102,10 @@ const currentMessages = computed(() => {
     }
     return godMessages.sort((a, b) => a.id - b.id)
   }
-  return (store.chatMessages[activeTab.value] || []).map(m => ({ ...m, channel: activeTab.value }))
+  return (store.chatMessages[activeTab.value] || []).map((m) => ({
+    ...m,
+    channel: activeTab.value,
+  }))
 })
 
 // Watch for new messages to update unread counts and auto-scroll
@@ -113,7 +116,8 @@ watch(
       const messages = newMessages[channel]
       if (messages && messages.length > 0) {
         // Check if viewing this channel (or god tab viewing petition/wizmsg)
-        const isViewingChannel = channel === activeTab.value ||
+        const isViewingChannel =
+          channel === activeTab.value ||
           (activeTab.value === 'god' && (channel === 'petition' || channel === 'wizmsg'))
 
         // Update unread count if not on this tab
@@ -129,7 +133,7 @@ watch(
       }
     })
   },
-  { deep: true }
+  { deep: true },
 )
 
 // Clear unread when switching tabs
@@ -168,7 +172,12 @@ watch(activeTab, (newTab) => {
 
 // Format timestamp in browser's local timezone (HH:MM:SS)
 const formatTime = (date: Date): string => {
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+  return date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
 }
 
 // Channel colors
@@ -209,7 +218,7 @@ const getChannelPrefix = (channel: string, alignment?: string): string => {
   // God channels
   if (channel === 'petition') return 'Petition'
   if (channel === 'wizmsg') return 'Wiz'
-  const config = channelConfig.value.find(c => c.key === channel)
+  const config = channelConfig.value.find((c) => c.key === channel)
   return config?.label || channel
 }
 

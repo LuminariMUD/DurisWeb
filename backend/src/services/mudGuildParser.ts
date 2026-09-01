@@ -15,9 +15,7 @@ export type {
   GuildData,
 } from './guildService.js';
 
-export async function getGuild(
-  guildId: number,
-): ReturnType<typeof guildService.getGuild> {
+export async function getGuild(guildId: number): ReturnType<typeof guildService.getGuild> {
   if (!isHookEnabledSync('guild_parsing')) return null;
   const result = await guildService.getGuild(guildId);
   recordHookActivity('guild_parsing');

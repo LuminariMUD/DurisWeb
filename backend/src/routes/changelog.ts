@@ -36,8 +36,10 @@ function validateChangelogWriteBody(body: unknown, requireCoreFields: boolean): 
     return contentError;
   }
 
-  if (values.category !== undefined &&
-      (typeof values.category !== 'string' || !['public', 'admin'].includes(values.category))) {
+  if (
+    values.category !== undefined &&
+    (typeof values.category !== 'string' || !['public', 'admin'].includes(values.category))
+  ) {
     return 'category must be "public" or "admin"';
   }
 
@@ -63,7 +65,8 @@ router.get('/', optionalAuth, async (req, res) => {
     const limit = parseInt(req.query.limit as string) || 20;
 
     // check if user is admin (level 57+) to include admin entries
-    const includeAdmin = req.user?.permissions?.immortalLevel != null && req.user.permissions.immortalLevel >= 57;
+    const includeAdmin =
+      req.user?.permissions?.immortalLevel != null && req.user.permissions.immortalLevel >= 57;
     const accountName = req.user?.accountName;
 
     const result = await changelogService.getChangelogEntries({
@@ -100,7 +103,8 @@ router.get('/admin', requireAuth, requirePermission('manage_news'), async (req, 
 router.get('/unread-count', requireAuth, async (req, res) => {
   try {
     const accountName = req.user!.accountName;
-    const includeAdmin = req.user?.permissions?.immortalLevel != null && req.user.permissions.immortalLevel >= 57;
+    const includeAdmin =
+      req.user?.permissions?.immortalLevel != null && req.user.permissions.immortalLevel >= 57;
 
     const count = await changelogService.getUnreadCount(accountName, includeAdmin);
     res.json({ count });
@@ -119,7 +123,8 @@ router.get('/:id', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid changelog entry ID' });
     }
     const accountName = req.user?.accountName;
-    const canViewAdmin = req.user?.permissions?.immortalLevel != null && req.user.permissions.immortalLevel >= 57;
+    const canViewAdmin =
+      req.user?.permissions?.immortalLevel != null && req.user.permissions.immortalLevel >= 57;
 
     const entry = await changelogService.getChangelogEntry(id, accountName, canViewAdmin);
 
@@ -167,7 +172,8 @@ router.post('/', requireAuth, requirePermission('manage_news'), async (req, res)
 
     // send notifications if published
     if (isPublished) {
-      changelogService.notifyChangelogPublished(id, version, title, category || 'public')
+      changelogService
+        .notifyChangelogPublished(id, version, title, category || 'public')
         .catch(() => {}); // fire and forget
     }
 
@@ -220,12 +226,14 @@ router.put('/:id', requireAuth, requirePermission('manage_news'), async (req, re
 
     // send notifications if just published
     if (isPublished && wasUnpublished && existingEntry) {
-      changelogService.notifyChangelogPublished(
-        id,
-        version || existingEntry.version,
-        title || existingEntry.title,
-        category || existingEntry.category
-      ).catch(() => {}); // fire and forget
+      changelogService
+        .notifyChangelogPublished(
+          id,
+          version || existingEntry.version,
+          title || existingEntry.title,
+          category || existingEntry.category,
+        )
+        .catch(() => {}); // fire and forget
     }
 
     return res.json({ success: true });

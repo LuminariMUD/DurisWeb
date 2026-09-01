@@ -68,7 +68,9 @@ describe('useTriggers local persistence', () => {
     const created = triggersApi.addTrigger(triggerForm)
 
     expect(created).not.toBeNull()
-    expect(JSON.parse(localStorage.getItem('duris_triggers_cwial') || '{}').triggers).toHaveLength(1)
+    expect(JSON.parse(localStorage.getItem('duris_triggers_cwial') || '{}').triggers).toHaveLength(
+      1,
+    )
 
     await selectAccount(null)
     await selectAccount('Cwial')
@@ -112,10 +114,13 @@ describe('useTriggers local persistence', () => {
   })
 
   it('writes the version-4 group migration back as version 5', async () => {
-    localStorage.setItem('duris_triggers_cwial', JSON.stringify({
-      version: 4,
-      triggers: [{ ...triggerForm, id: 'legacy', createdAt: 1, updatedAt: 1 }],
-    }))
+    localStorage.setItem(
+      'duris_triggers_cwial',
+      JSON.stringify({
+        version: 4,
+        triggers: [{ ...triggerForm, id: 'legacy', createdAt: 1, updatedAt: 1 }],
+      }),
+    )
 
     await selectAccount('Cwial')
 
@@ -137,24 +142,30 @@ describe('useTriggers local persistence', () => {
     }
 
     expect(triggersApi.importTriggers(JSON.stringify(imported), 'merge')).toBe(1)
-    expect(triggersApi.triggers.value.map((trigger) => trigger.name)).toEqual(['Low health', 'Low mana'])
+    expect(triggersApi.triggers.value.map((trigger) => trigger.name)).toEqual([
+      'Low health',
+      'Low mana',
+    ])
   })
 
   it('rejects unsafe custom sound URLs before mutation', async () => {
     await selectAccount('Cwial')
     const malformed = {
       version: 5,
-      triggers: [{
-        ...triggerForm,
-        id: 'unsafe',
-        actions: [{ type: 'sound', sound: 'custom', customUrl: 'javascript:alert(1)' }],
-        createdAt: 1,
-        updatedAt: 1,
-      }],
+      triggers: [
+        {
+          ...triggerForm,
+          id: 'unsafe',
+          actions: [{ type: 'sound', sound: 'custom', customUrl: 'javascript:alert(1)' }],
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
     }
 
-    expect(() => triggersApi.importTriggers(JSON.stringify(malformed), 'merge'))
-      .toThrow(/Invalid trigger.*customUrl/i)
+    expect(() => triggersApi.importTriggers(JSON.stringify(malformed), 'merge')).toThrow(
+      /Invalid trigger.*customUrl/i,
+    )
     expect(triggersApi.triggers.value).toHaveLength(0)
   })
 
@@ -172,10 +183,12 @@ describe('useTriggers local persistence', () => {
     const created = triggersApi.addTrigger(triggerForm)
     expect(created).not.toBeNull()
     const before = triggersApi.triggers.value[0]
-    expect(triggersApi.updateTrigger(before!.id, {
-      patternType: 'regex',
-      patterns: [{ value: '[', isGmcp: false }],
-    })).toBeNull()
+    expect(
+      triggersApi.updateTrigger(before!.id, {
+        patternType: 'regex',
+        patterns: [{ value: '[', isGmcp: false }],
+      }),
+    ).toBeNull()
     expect(triggersApi.triggers.value[0]).toEqual(before)
   })
 })

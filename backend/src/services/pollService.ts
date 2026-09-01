@@ -76,10 +76,7 @@ export function isPollActive(poll: ForumPoll): boolean {
 /**
  * Check if user can view poll results based on visibility settings
  */
-export function canViewResults(
-  poll: ForumPoll,
-  hasVoted: boolean
-): boolean {
+export function canViewResults(poll: ForumPoll, hasVoted: boolean): boolean {
   switch (poll.results_visibility) {
     case 'always':
       return true;
@@ -105,7 +102,10 @@ interface PollAccess {
   canModerate: boolean;
 }
 
-async function getThreadAccess(threadId: number, permissions: UserPermissions): Promise<Omit<PollAccess, 'poll'> | null> {
+async function getThreadAccess(
+  threadId: number,
+  permissions: UserPermissions,
+): Promise<Omit<PollAccess, 'poll'> | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT category_id, is_deleted FROM forum_threads WHERE id = ?',
     [threadId],
@@ -122,7 +122,10 @@ async function getThreadAccess(threadId: number, permissions: UserPermissions): 
   };
 }
 
-async function getPollAccess(pollId: number, permissions: UserPermissions): Promise<PollAccess | null> {
+async function getPollAccess(
+  pollId: number,
+  permissions: UserPermissions,
+): Promise<PollAccess | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT p.*, t.category_id, t.is_deleted AS thread_deleted
      FROM forum_polls p
@@ -197,21 +200,17 @@ export async function createPoll(
         pollData.resultsVisibility,
         pollData.expiresAt || null,
         creatorAccount,
-      ]
+      ],
     );
 
     const pollId = pollResult.insertId;
 
     // Insert options
-    const optionValues = pollData.options.map((text, index) => [
-      pollId,
-      text,
-      index,
-    ]);
+    const optionValues = pollData.options.map((text, index) => [pollId, text, index]);
 
     await connection.query(
       'INSERT INTO forum_poll_options (poll_id, option_text, sort_order) VALUES ?',
-      [optionValues]
+      [optionValues],
     );
 
     await connection.commit();
@@ -240,7 +239,7 @@ export async function getPollByThreadId(
     // Get poll
     const [polls] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM forum_polls WHERE thread_id = ?',
-      [threadId]
+      [threadId],
     );
 
     if (polls.length === 0) return null;
@@ -250,14 +249,11 @@ export async function getPollByThreadId(
     // Get options with vote counts
     const [options] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM forum_poll_options WHERE poll_id = ? ORDER BY sort_order ASC',
-      [poll.id]
+      [poll.id],
     );
 
     // Calculate total votes
-    const totalVotes = options.reduce(
-      (sum: number, opt: any) => sum + opt.vote_count,
-      0
-    );
+    const totalVotes = options.reduce((sum: number, opt: any) => sum + opt.vote_count, 0);
 
     // Check if user has voted
     let userHasVoted = false;
@@ -266,7 +262,7 @@ export async function getPollByThreadId(
     if (voterAccount) {
       const [votes] = await connection.query<RowDataPacket[]>(
         'SELECT option_id FROM forum_poll_votes WHERE poll_id = ? AND voter_account = ?',
-        [poll.id, voterAccount]
+        [poll.id, voterAccount],
       );
 
       userHasVoted = votes.length > 0;
@@ -290,13 +286,13 @@ export async function getPollByThreadId(
         if (!poll.is_anonymous && viewResults) {
           const [voters] = await connection.query<RowDataPacket[]>(
             'SELECT voter_account FROM forum_poll_votes WHERE option_id = ? ORDER BY voted_at DESC',
-            [opt.id]
+            [opt.id],
           );
           option.voters = voters.map((v: RowDataPacket) => v.voter_account);
         }
 
         return option;
-      })
+      }),
     );
 
     return {
@@ -351,7 +347,7 @@ export async function castVote(
     // Get poll
     const [polls] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM forum_polls WHERE id = ?',
-      [pollId]
+      [pollId],
     );
 
     if (polls.length === 0) {
@@ -368,7 +364,7 @@ export async function castVote(
     // Validate option IDs belong to this poll
     const [options] = await connection.query<RowDataPacket[]>(
       'SELECT id FROM forum_poll_options WHERE poll_id = ? AND id IN (?)',
-      [pollId, optionIds]
+      [pollId, optionIds],
     );
 
     if (options.length !== optionIds.length) {
@@ -392,7 +388,7 @@ export async function castVote(
     // Get user's current votes
     const [oldVotes] = await connection.query<RowDataPacket[]>(
       'SELECT option_id FROM forum_poll_votes WHERE poll_id = ? AND voter_account = ?',
-      [pollId, voterAccount]
+      [pollId, voterAccount],
     );
 
     const oldOptionIds = oldVotes.map((v: RowDataPacket) => v.option_id);
@@ -401,43 +397,34 @@ export async function castVote(
     if (oldOptionIds.length > 0) {
       await connection.query(
         'UPDATE forum_poll_options SET vote_count = vote_count - 1 WHERE id IN (?)',
-        [oldOptionIds]
+        [oldOptionIds],
       );
 
       // Delete old votes
       await connection.query(
         'DELETE FROM forum_poll_votes WHERE poll_id = ? AND voter_account = ?',
-        [pollId, voterAccount]
+        [pollId, voterAccount],
       );
     }
 
     // Insert new votes
-    const voteValues = optionIds.map((optionId) => [
-      pollId,
-      optionId,
-      voterAccount,
-    ]);
+    const voteValues = optionIds.map((optionId) => [pollId, optionId, voterAccount]);
 
     await connection.query(
       'INSERT INTO forum_poll_votes (poll_id, option_id, voter_account) VALUES ?',
-      [voteValues]
+      [voteValues],
     );
 
     // Increment new vote counts
     await connection.query(
       'UPDATE forum_poll_options SET vote_count = vote_count + 1 WHERE id IN (?)',
-      [optionIds]
+      [optionIds],
     );
 
     // Log vote change to history
     await connection.query(
       'INSERT INTO forum_poll_vote_history (poll_id, voter_account, old_option_ids, new_option_ids) VALUES (?, ?, ?, ?)',
-      [
-        pollId,
-        voterAccount,
-        JSON.stringify(oldOptionIds),
-        JSON.stringify(optionIds),
-      ]
+      [pollId, voterAccount, JSON.stringify(oldOptionIds), JSON.stringify(optionIds)],
     );
 
     await connection.commit();
@@ -480,7 +467,7 @@ export async function removeVote(
     // Get user's current votes
     const [votes] = await connection.query<RowDataPacket[]>(
       'SELECT option_id FROM forum_poll_votes WHERE poll_id = ? AND voter_account = ?',
-      [pollId, voterAccount]
+      [pollId, voterAccount],
     );
 
     if (votes.length === 0) {
@@ -492,19 +479,19 @@ export async function removeVote(
     // Decrement vote counts
     await connection.query(
       'UPDATE forum_poll_options SET vote_count = vote_count - 1 WHERE id IN (?)',
-      [optionIds]
+      [optionIds],
     );
 
     // Delete votes
-    await connection.query(
-      'DELETE FROM forum_poll_votes WHERE poll_id = ? AND voter_account = ?',
-      [pollId, voterAccount]
-    );
+    await connection.query('DELETE FROM forum_poll_votes WHERE poll_id = ? AND voter_account = ?', [
+      pollId,
+      voterAccount,
+    ]);
 
     // Log vote removal to history
     await connection.query(
       'INSERT INTO forum_poll_vote_history (poll_id, voter_account, old_option_ids, new_option_ids) VALUES (?, ?, ?, ?)',
-      [pollId, voterAccount, JSON.stringify(optionIds), JSON.stringify([])]
+      [pollId, voterAccount, JSON.stringify(optionIds), JSON.stringify([])],
     );
 
     await connection.commit();
@@ -537,9 +524,7 @@ export async function closePoll(
 
   const connection = await pool.getConnection();
   try {
-    await connection.query('UPDATE forum_polls SET is_closed = TRUE WHERE id = ?', [
-      pollId,
-    ]);
+    await connection.query('UPDATE forum_polls SET is_closed = TRUE WHERE id = ?', [pollId]);
   } finally {
     connection.release();
   }
@@ -572,15 +557,12 @@ export async function deletePoll(
 /**
  * Check if account is poll creator
  */
-export async function isPollCreator(
-  pollId: number,
-  accountName: string
-): Promise<boolean> {
+export async function isPollCreator(pollId: number, accountName: string): Promise<boolean> {
   const connection = await pool.getConnection();
   try {
     const [polls] = await connection.query<RowDataPacket[]>(
       'SELECT created_by_account FROM forum_polls WHERE id = ?',
-      [pollId]
+      [pollId],
     );
 
     return polls.length > 0 && polls[0].created_by_account === accountName;

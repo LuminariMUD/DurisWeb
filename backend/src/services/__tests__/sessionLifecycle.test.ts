@@ -10,7 +10,7 @@ const { revokeAllWebSessions } = await import('../sessionService.js');
 
 describe('web session lifecycle', () => {
   beforeEach(() => {
-    query.mockReset()
+    query.mockReset();
   });
 
   it('revokes every web session for an account after a password change', async () => {

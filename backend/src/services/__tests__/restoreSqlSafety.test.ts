@@ -24,16 +24,20 @@ beforeAll(async () => {
 
 describe('restore SQL safety boundary', () => {
   it('rejects SQL expressions embedded in restore row values', () => {
-    expect(() => buildRestoreSql({
-      player_data: ['(1,(SELECT SLEEP(1)))'],
-    })).toThrow();
+    expect(() =>
+      buildRestoreSql({
+        player_data: ['(1,(SELECT SLEEP(1)))'],
+      }),
+    ).toThrow();
   });
 
   it('rejects tables outside the restore allow-list', () => {
-    expect(() => buildRestoreSql({
-      accounts: ["('Cwial','literal')"],
-      users: ["(1,'unexpected')"],
-    })).toThrow();
+    expect(() =>
+      buildRestoreSql({
+        accounts: ["('Cwial','literal')"],
+        users: ["(1,'unexpected')"],
+      }),
+    ).toThrow();
   });
 
   it('preserves ordinary literal rows', () => {
@@ -41,6 +45,8 @@ describe('restore SQL safety boundary', () => {
       player_data: ["(1,'safe, value','O\\'Reilly',NULL,0xABCD)"],
     });
 
-    expect(sql).toContain("REPLACE INTO `player_data` VALUES (1,'safe, value','O\\'Reilly',NULL,0xABCD);");
+    expect(sql).toContain(
+      "REPLACE INTO `player_data` VALUES (1,'safe, value','O\\'Reilly',NULL,0xABCD);",
+    );
   });
 });

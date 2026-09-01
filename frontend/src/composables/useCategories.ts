@@ -9,10 +9,13 @@ import { computed, unref } from 'vue'
  * @param isAdminMode - If true, fetch all categories including archived (for admins)
  * @param enabled - Whether the query should run (default: true)
  */
-export function useCategories(isAdminMode?: Ref<boolean> | boolean, enabled: Ref<boolean> | boolean = true) {
+export function useCategories(
+  isAdminMode?: Ref<boolean> | boolean,
+  enabled: Ref<boolean> | boolean = true,
+) {
   return useQuery<ForumCategory[]>({
     queryKey: computed(() => ['forum-categories', unref(isAdminMode) || false]),
-    queryFn: () => unref(isAdminMode) ? adminApi.getAllCategories() : forumApi.getCategories(),
+    queryFn: () => (unref(isAdminMode) ? adminApi.getAllCategories() : forumApi.getCategories()),
     staleTime: 1000 * 60 * 5, // 5 minutes
     enabled: () => unref(enabled),
   })

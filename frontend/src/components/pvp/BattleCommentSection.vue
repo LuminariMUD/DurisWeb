@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { MessageSquare, Reply, Pencil, Trash2, ChevronDown, ChevronUp, Send, X, Quote } from 'lucide-vue-next'
+import {
+  MessageSquare,
+  Reply,
+  Pencil,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  Send,
+  X,
+  Quote,
+} from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -105,13 +115,13 @@ async function submitComment() {
       replyToComment.value?.id || undefined,
       quotedLine.value?.text || undefined,
       quotedLine.value?.lineNumber || undefined,
-      quotedLine.value?.participantId || undefined
+      quotedLine.value?.participantId || undefined,
     )
 
     // Add to list
     if (replyToComment.value) {
       // Add as reply
-      const parentComment = comments.value.find(c => c.id === replyToComment.value?.id)
+      const parentComment = comments.value.find((c) => c.id === replyToComment.value?.id)
       if (parentComment) {
         if (!parentComment.replies) parentComment.replies = []
         parentComment.replies.push(newComment)
@@ -189,7 +199,7 @@ async function deleteComment() {
 
     // Remove from local state
     const removeComment = (list: PvPBattleComment[]): boolean => {
-      const index = list.findIndex(c => c.id === commentToDelete.value?.id)
+      const index = list.findIndex((c) => c.id === commentToDelete.value?.id)
       if (index !== -1) {
         list.splice(index, 1)
         return true
@@ -241,7 +251,7 @@ function onCharacterSelect(pidStr: unknown) {
     selectCharacter(null)
   } else {
     const pid = parseInt(String(pidStr), 10)
-    const char = characters.value.find(c => c.pid === pid)
+    const char = characters.value.find((c) => c.pid === pid)
     if (char) selectCharacter(char)
   }
 }

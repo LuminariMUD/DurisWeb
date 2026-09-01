@@ -8,7 +8,7 @@ import {
   getUserBanHistory,
   getUniqueRaces,
   getUniqueClasses,
-  deleteCharacter
+  deleteCharacter,
 } from '../services/userManagementService.js';
 import { requireAuth, requireOverlord } from '../middleware/auth.js';
 import type { UserManagementFilters } from '../types/index.js';
@@ -32,8 +32,10 @@ router.get(
     query('ban_status').optional().isIn(['all', 'active', 'banned']),
     query('page').optional().isInt({ min: 1 }).toInt(),
     query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
-    query('sort_by').optional().isIn(['account_name', 'character_name', 'race', 'class', 'email', 'last_login']),
-    query('sort_order').optional().isIn(['asc', 'desc'])
+    query('sort_by')
+      .optional()
+      .isIn(['account_name', 'character_name', 'race', 'class', 'email', 'last_login']),
+    query('sort_order').optional().isIn(['asc', 'desc']),
   ],
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
@@ -51,7 +53,7 @@ router.get(
         page: req.query.page ? parseInt(req.query.page as string) : 1,
         limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
         sort_by: (req.query.sort_by as any) || 'last_login',
-        sort_order: (req.query.sort_order as 'asc' | 'desc') || 'desc'
+        sort_order: (req.query.sort_order as 'asc' | 'desc') || 'desc',
       };
 
       const result = await getUserList(filters);
@@ -60,7 +62,7 @@ router.get(
       logger.error('Error fetching user list:', error);
       return res.status(500).json({ error: 'Failed to fetch user list' });
     }
-  }
+  },
 );
 
 /**
@@ -99,7 +101,7 @@ router.post(
   '/:accountName/ban',
   [
     param('accountName').isString().trim().notEmpty(),
-    body('reason').isString().trim().isLength({ min: 1, max: 1000 })
+    body('reason').isString().trim().isLength({ min: 1, max: 1000 }),
   ],
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
@@ -116,13 +118,13 @@ router.post(
 
       return res.json({
         success: true,
-        message: `User ${accountName} has been banned`
+        message: `User ${accountName} has been banned`,
       });
     } catch (error) {
       logger.error('Error banning user:', error);
       return res.status(500).json({ error: 'Failed to ban user' });
     }
-  }
+  },
 );
 
 /**
@@ -131,9 +133,7 @@ router.post(
  */
 router.post(
   '/:accountName/unban',
-  [
-    param('accountName').isString().trim().notEmpty()
-  ],
+  [param('accountName').isString().trim().notEmpty()],
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -148,13 +148,13 @@ router.post(
 
       return res.json({
         success: true,
-        message: `User ${accountName} has been unbanned`
+        message: `User ${accountName} has been unbanned`,
       });
     } catch (error) {
       logger.error('Error unbanning user:', error);
       return res.status(500).json({ error: 'Failed to unban user' });
     }
-  }
+  },
 );
 
 /**
@@ -163,9 +163,7 @@ router.post(
  */
 router.get(
   '/:accountName/ban-history',
-  [
-    param('accountName').isString().trim().notEmpty()
-  ],
+  [param('accountName').isString().trim().notEmpty()],
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -181,7 +179,7 @@ router.get(
       logger.error('Error fetching ban history:', error);
       return res.status(500).json({ error: 'Failed to fetch ban history' });
     }
-  }
+  },
 );
 
 /**
@@ -192,7 +190,7 @@ router.delete(
   '/:accountName/characters/:characterName',
   [
     param('accountName').isString().trim().notEmpty(),
-    param('characterName').isString().trim().notEmpty()
+    param('characterName').isString().trim().notEmpty(),
   ],
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
@@ -212,13 +210,13 @@ router.delete(
 
       return res.json({
         success: true,
-        message: result.message
+        message: result.message,
       });
     } catch (error) {
       logger.error('Error deleting character:', error);
       return res.status(500).json({ error: 'Failed to delete character' });
     }
-  }
+  },
 );
 
 export default router;

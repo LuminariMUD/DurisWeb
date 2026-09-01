@@ -17,7 +17,7 @@ describe('web session schema contract', () => {
        FROM information_schema.columns
        WHERE table_schema = DATABASE()
          AND table_name = 'web_sessions'
-         AND column_name = 'refresh_token'`
+         AND column_name = 'refresh_token'`,
     );
 
     expect(rows).toHaveLength(1);

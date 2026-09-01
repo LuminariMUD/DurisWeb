@@ -23,7 +23,7 @@ export const BuilderMention = Mention.configure({
 
       try {
         const accounts = await builderApi.searchAccounts(query, 10)
-        return accounts.map(name => ({
+        return accounts.map((name) => ({
           id: name,
           label: name,
         }))

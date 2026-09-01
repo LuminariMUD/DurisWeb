@@ -1,12 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Copy, Check } from 'lucide-vue-next'

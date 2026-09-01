@@ -35,30 +35,48 @@ const emit = defineEmits<{
 // Get icon for command type
 const commandIcon = computed(() => {
   switch (props.reset.command) {
-    case 'M': return User
-    case 'O': return Package
-    case 'G': return Gift
-    case 'E': return Shirt
-    case 'P': return Archive
-    case 'D': return DoorOpen
-    case 'F': return Users
-    case 'R': return Trash2
-    default: return Package
+    case 'M':
+      return User
+    case 'O':
+      return Package
+    case 'G':
+      return Gift
+    case 'E':
+      return Shirt
+    case 'P':
+      return Archive
+    case 'D':
+      return DoorOpen
+    case 'F':
+      return Users
+    case 'R':
+      return Trash2
+    default:
+      return Package
   }
 })
 
 // Get badge variant based on command type
 const badgeVariant = computed(() => {
   switch (props.reset.command) {
-    case 'M': return 'default' // Mob load - blue
-    case 'O': return 'secondary' // Object in room - gray
-    case 'G': return 'outline' // Give to mob
-    case 'E': return 'outline' // Equip on mob
-    case 'P': return 'outline' // Put in container
-    case 'D': return 'destructive' // Door state - red
-    case 'F': return 'secondary' // Follow
-    case 'R': return 'destructive' // Remove
-    default: return 'secondary'
+    case 'M':
+      return 'default' // Mob load - blue
+    case 'O':
+      return 'secondary' // Object in room - gray
+    case 'G':
+      return 'outline' // Give to mob
+    case 'E':
+      return 'outline' // Equip on mob
+    case 'P':
+      return 'outline' // Put in container
+    case 'D':
+      return 'destructive' // Door state - red
+    case 'F':
+      return 'secondary' // Follow
+    case 'R':
+      return 'destructive' // Remove
+    default:
+      return 'secondary'
   }
 })
 

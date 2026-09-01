@@ -18,10 +18,7 @@ import {
   type ResolvedHookState,
 } from './hookResolution.js';
 import type { HookDefinition, HookId } from './types.js';
-import {
-  getFlatfileHookHealth,
-  type FlatfileHookHealth,
-} from './flatfileHookState.js';
+import { getFlatfileHookHealth, type FlatfileHookHealth } from './flatfileHookState.js';
 import { getHookLastActivity } from './hookActivity.js';
 
 /** Supplies what the MUD currently reports. Session 04 replaces the default. */
@@ -102,12 +99,15 @@ async function loadWebState(): Promise<WebStateSnapshot> {
       `SELECT setting_key, setting_value, updated_by, updated_at
        FROM web_settings WHERE setting_key LIKE ?`,
       ['hook_enabled_%'],
-    )) as [Array<{
-      setting_key: string;
-      setting_value: string;
-      updated_by?: unknown;
-      updated_at?: unknown;
-    }>, unknown];
+    )) as [
+      Array<{
+        setting_key: string;
+        setting_value: string;
+        updated_by?: unknown;
+        updated_at?: unknown;
+      }>,
+      unknown,
+    ];
 
     for (const hook of getToggleableHooks()) {
       const row = rows.find((r) => r.setting_key === hook.webSettingKey);
@@ -118,24 +118,17 @@ async function loadWebState(): Promise<WebStateSnapshot> {
       }
       const parsed = parseSettingValue(row.setting_value);
       if (parsed === null) {
-        logger.warn(
-          `[hooks] Unparseable value for ${hook.webSettingKey}; treating as enabled`,
-        );
+        logger.warn(`[hooks] Unparseable value for ${hook.webSettingKey}; treating as enabled`);
         continue;
       }
       state.set(hook.id, parsed);
       provenance.set(hook.id, {
-        actor: typeof row.updated_by === 'string' && row.updated_by.trim()
-          ? row.updated_by
-          : null,
+        actor: typeof row.updated_by === 'string' && row.updated_by.trim() ? row.updated_by : null,
         changedAt: isoTimestamp(row.updated_at),
       });
     }
   } catch (error) {
-    logger.error(
-      '[hooks] Failed to read hook toggles; defaulting all to enabled',
-      error,
-    );
+    logger.error('[hooks] Failed to read hook toggles; defaulting all to enabled', error);
   }
 
   return { state, provenance };
@@ -173,15 +166,11 @@ export interface HookStatusRow {
   readonly reason: string;
 }
 
-function statusFor(
-  hook: HookDefinition,
-  webState: ReadonlyMap<string, boolean>,
-): HookStatusRow {
-  const webEnabled = hook.alwaysOn ? true : webState.get(hook.id) ?? true;
+function statusFor(hook: HookDefinition, webState: ReadonlyMap<string, boolean>): HookStatusRow {
+  const webEnabled = hook.alwaysOn ? true : (webState.get(hook.id) ?? true);
   const resource = getFlatfileHookHealth(hook.id);
-  const mudState = resource?.availability === 'unavailable'
-    ? 'unavailable'
-    : mudStateProvider.getState(hook);
+  const mudState =
+    resource?.availability === 'unavailable' ? 'unavailable' : mudStateProvider.getState(hook);
   const resolved: ResolvedHookState = resolveHookState({
     hook,
     webEnabled,
@@ -243,10 +232,7 @@ export async function setHookEnabled(
     throw new HookToggleError(`Unknown hook id: ${id}`, 'unknown_hook');
   }
   if (hook.alwaysOn || !hook.webSettingKey) {
-    throw new HookToggleError(
-      `Hook ${hook.id} is always on and cannot be toggled.`,
-      'always_on',
-    );
+    throw new HookToggleError(`Hook ${hook.id} is always on and cannot be toggled.`, 'always_on');
   }
 
   const previous = (await ensureLoaded()).get(hook.id) ?? true;
@@ -283,10 +269,7 @@ export async function setHookEnabled(
     );
   } catch (error) {
     // The toggle already applied; losing its audit row must not be silent.
-    logger.error(
-      `[hooks] Toggle for ${hook.id} applied but audit log write failed`,
-      error,
-    );
+    logger.error(`[hooks] Toggle for ${hook.id} applied but audit log write failed`, error);
   }
 
   return getHookStatus(hook.id);

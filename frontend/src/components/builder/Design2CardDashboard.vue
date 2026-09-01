@@ -2,7 +2,14 @@
 import { ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -56,7 +63,7 @@ const zones = ref([
   },
   {
     id: 348,
-    name: 'Dragon\'s Lair',
+    name: "Dragon's Lair",
     description: 'The legendary dragon Fyrax makes his home here',
     rooms: 15,
     mobs: 5,
@@ -99,20 +106,29 @@ const recentActivity = ref([
 
 function getStatusColor(status: string) {
   switch (status) {
-    case 'published': return 'bg-green-500/20 text-green-400 border-green-500/30'
-    case 'draft': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-    case 'review': return 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-    default: return 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30'
+    case 'published':
+      return 'bg-green-500/20 text-green-400 border-green-500/30'
+    case 'draft':
+      return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+    case 'review':
+      return 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+    default:
+      return 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30'
   }
 }
 
 function getActionIcon(action: string) {
   switch (action) {
-    case 'edited': return Edit
-    case 'created': return Plus
-    case 'added': return Plus
-    case 'reviewed': return Activity
-    default: return Activity
+    case 'edited':
+      return Edit
+    case 'created':
+      return Plus
+    case 'added':
+      return Plus
+    case 'reviewed':
+      return Activity
+    default:
+      return Activity
   }
 }
 </script>

@@ -58,7 +58,7 @@ export async function geolocateIP(ipAddress: string): Promise<GeoLocation | null
       timezone: null,
       isp: 'Local',
       isProxy: false,
-      isVPN: false
+      isVPN: false,
     };
     await setCache(cacheKey, localGeo, GEOIP_CACHE_TTL);
     return localGeo;
@@ -67,7 +67,7 @@ export async function geolocateIP(ipAddress: string): Promise<GeoLocation | null
   try {
     // Query ip-api.com
     const response = await fetch(
-      `http://ip-api.com/json/${ipAddress}?fields=status,message,continent,country,countryCode,city,lat,lon,timezone,isp,proxy,hosting`
+      `http://ip-api.com/json/${ipAddress}?fields=status,message,continent,country,countryCode,city,lat,lon,timezone,isp,proxy,hosting`,
     );
 
     if (!response.ok) {
@@ -75,7 +75,7 @@ export async function geolocateIP(ipAddress: string): Promise<GeoLocation | null
       return null;
     }
 
-    const data = await response.json() as any;
+    const data = (await response.json()) as any;
 
     if (data.status === 'fail') {
       logger.error(`GeoIP lookup failed for ${ipAddress}: ${data.message}`);
@@ -92,7 +92,7 @@ export async function geolocateIP(ipAddress: string): Promise<GeoLocation | null
       timezone: data.timezone || null,
       isp: data.isp || null,
       isProxy: data.proxy === true,
-      isVPN: data.hosting === true
+      isVPN: data.hosting === true,
     };
 
     // Cache the result in Redis
@@ -192,7 +192,9 @@ function isPrivateIP(ip: string): boolean {
 /**
  * Batch geolocate multiple IPs (with rate limiting)
  */
-export async function geolocateBatch(ipAddresses: string[]): Promise<Map<string, GeoLocation | null>> {
+export async function geolocateBatch(
+  ipAddresses: string[],
+): Promise<Map<string, GeoLocation | null>> {
   const results = new Map<string, GeoLocation | null>();
 
   // Rate limit: 45 requests per minute = ~750ms between requests
@@ -204,7 +206,7 @@ export async function geolocateBatch(ipAddresses: string[]): Promise<Map<string,
 
     // Add delay if not the last IP
     if (ip !== ipAddresses[ipAddresses.length - 1]) {
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 

@@ -3,14 +3,17 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { X, Minimize2, Maximize2, GripHorizontal } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 
-const props = withDefaults(defineProps<{
-  modelValue: boolean
-  storageKey?: string
-  title?: string
-}>(), {
-  storageKey: 'mud-floating-map',
-  title: 'Map',
-})
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean
+    storageKey?: string
+    title?: string
+  }>(),
+  {
+    storageKey: 'mud-floating-map',
+    title: 'Map',
+  },
+)
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
@@ -47,10 +50,13 @@ onMounted(() => {
 
 // Save state
 function saveState() {
-  localStorage.setItem(props.storageKey, JSON.stringify({
-    position: position.value,
-    size: size.value,
-  }))
+  localStorage.setItem(
+    props.storageKey,
+    JSON.stringify({
+      position: position.value,
+      size: size.value,
+    }),
+  )
 }
 
 // Drag handlers
@@ -105,8 +111,20 @@ function startResize(e: MouseEvent) {
 function onResize(e: MouseEvent) {
   if (!isResizing.value) return
   size.value = {
-    width: Math.max(150, Math.min(window.innerWidth - position.value.x - 20, resizeStart.value.width + (e.clientX - resizeStart.value.x))),
-    height: Math.max(100, Math.min(window.innerHeight - position.value.y - 20, resizeStart.value.height + (e.clientY - resizeStart.value.y))),
+    width: Math.max(
+      150,
+      Math.min(
+        window.innerWidth - position.value.x - 20,
+        resizeStart.value.width + (e.clientX - resizeStart.value.x),
+      ),
+    ),
+    height: Math.max(
+      100,
+      Math.min(
+        window.innerHeight - position.value.y - 20,
+        resizeStart.value.height + (e.clientY - resizeStart.value.y),
+      ),
+    ),
   }
 }
 

@@ -15,7 +15,19 @@ import {
 import MobActionsDialog from './MobActionsDialog.vue'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import { MUD_DIRECTION_SHORTCUTS, type MudDirection } from '@/types/mud'
-import { Users, Skull, Package, DoorOpen, Lock, Plus, Minus, MapPin, Settings, PictureInPicture2, Swords } from 'lucide-vue-next'
+import {
+  Users,
+  Skull,
+  Package,
+  DoorOpen,
+  Lock,
+  Plus,
+  Minus,
+  MapPin,
+  Settings,
+  PictureInPicture2,
+  Swords,
+} from 'lucide-vue-next'
 
 // Minimized state
 const isMinimized = defineModel<boolean>('minimized', { default: false })
@@ -63,7 +75,10 @@ const getTerrainStyle = (terrain: string | undefined): { bg: string; text: strin
 const currentTerrainStyle = computed(() => getTerrainStyle(room.value?.terrain))
 
 // Smart exit handler - handles locked/closed doors
-const handleExitClick = (direction: string, exit: { door?: string; closed?: boolean; locked?: boolean }) => {
+const handleExitClick = (
+  direction: string,
+  exit: { door?: string; closed?: boolean; locked?: boolean },
+) => {
   const shortcut = MUD_DIRECTION_SHORTCUTS[direction as MudDirection] || direction
 
   if (exit.locked) {
@@ -89,7 +104,10 @@ const executeMobAction = (command: string, targetRef: string) => {
 }
 
 // Get exit display info
-const getExitInfo = (direction: string, exit: { door?: string; closed?: boolean; locked?: boolean }) => {
+const getExitInfo = (
+  direction: string,
+  exit: { door?: string; closed?: boolean; locked?: boolean },
+) => {
   return {
     hasDoor: !!exit.door,
     isClosed: exit.closed,
@@ -103,12 +121,12 @@ const processedNpcs = computed(() => {
 
   const keywordCounts: Record<string, number> = {}
 
-  return room.value.npcs.map(npc => {
+  return room.value.npcs.map((npc) => {
     const keyword = npc.keyword || 'mob'
     keywordCounts[keyword] = (keywordCounts[keyword] || 0) + 1
     return {
       ...npc,
-      targetRef: `${keywordCounts[keyword]}.${keyword}`
+      targetRef: `${keywordCounts[keyword]}.${keyword}`,
     }
   })
 })

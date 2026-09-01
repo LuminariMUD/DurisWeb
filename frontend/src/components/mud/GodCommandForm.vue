@@ -12,11 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Command,
   CommandEmpty,
@@ -78,14 +74,11 @@ function setAccountSearchQuery(value: string) {
 }
 
 // Account search query
-const {
-  data: accountResults,
-  isLoading: isLoadingAccountsQuery,
-} = useQuery({
+const { data: accountResults, isLoading: isLoadingAccountsQuery } = useQuery({
   queryKey: computed(() => ['god-accounts', debouncedAccountSearch.value]),
   queryFn: async () => {
     const response = await apiClient.get<string[]>('/api/admin/god/accounts/search', {
-      params: { query: debouncedAccountSearch.value, limit: 15 }
+      params: { query: debouncedAccountSearch.value, limit: 15 },
     })
     return response.data
   },
@@ -93,8 +86,8 @@ const {
   staleTime: 60000,
 })
 
-const isLoadingAccounts = computed(() =>
-  isLoadingAccountsQuery.value || isWaitingAccountDebounce.value
+const isLoadingAccounts = computed(
+  () => isLoadingAccountsQuery.value || isWaitingAccountDebounce.value,
 )
 
 function updateParam(name: string, value: string | number | boolean) {
@@ -147,7 +140,7 @@ function getDisplayValue(param: GodCommandParam): string {
 
 // Get the selected setbit property name
 function getSelectedSetbitPropertyName(): string | null {
-  const flagParam = command.value?.params.find(p => p.type === 'setbit-property')
+  const flagParam = command.value?.params.find((p) => p.type === 'setbit-property')
   if (!flagParam) return null
   const selectedValue = params.value[flagParam.name]
   return selectedValue ? String(selectedValue) : null
@@ -178,7 +171,7 @@ const selectedPropertyNeedsOnOff = computed(() => {
 
 // Check if command is a setbit command (has setbit-property param)
 const isSetbitCommand = computed(() => {
-  return command.value?.params.some(p => p.type === 'setbit-property') || false
+  return command.value?.params.some((p) => p.type === 'setbit-property') || false
 })
 
 // Check if on-off param should be shown

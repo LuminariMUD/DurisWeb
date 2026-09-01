@@ -30,7 +30,19 @@ import { toast } from 'vue-sonner'
 
 const isOpen = defineModel<boolean>('open', { default: false })
 
-const { actions, actionError, button1ActionId, button2ActionId, addAction, updateAction, deleteAction, setButtonAction, reorderActions, exportActions, importActions } = useMobActions()
+const {
+  actions,
+  actionError,
+  button1ActionId,
+  button2ActionId,
+  addAction,
+  updateAction,
+  deleteAction,
+  setButtonAction,
+  reorderActions,
+  exportActions,
+  importActions,
+} = useMobActions()
 
 // File input ref for import
 const fileInputRef = ref<HTMLInputElement | null>(null)

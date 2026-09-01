@@ -4,22 +4,22 @@ import { useMudConnection } from './useMudConnection'
 // Keypad and arrow key to MUD command mappings
 const KEYPAD_BINDINGS: Record<string, string> = {
   // Numpad movement
-  'Numpad8': 'north',
-  'Numpad2': 'south',
-  'Numpad4': 'west',
-  'Numpad6': 'east',
-  'Numpad7': 'northwest',
-  'Numpad9': 'northeast',
-  'Numpad1': 'southwest',
-  'Numpad3': 'southeast',
-  'Numpad5': 'look',
-  'NumpadAdd': 'up',
-  'NumpadSubtract': 'down',
+  Numpad8: 'north',
+  Numpad2: 'south',
+  Numpad4: 'west',
+  Numpad6: 'east',
+  Numpad7: 'northwest',
+  Numpad9: 'northeast',
+  Numpad1: 'southwest',
+  Numpad3: 'southeast',
+  Numpad5: 'look',
+  NumpadAdd: 'up',
+  NumpadSubtract: 'down',
   // Arrow keys
-  'ArrowUp': 'north',
-  'ArrowDown': 'south',
-  'ArrowLeft': 'west',
-  'ArrowRight': 'east',
+  ArrowUp: 'north',
+  ArrowDown: 'south',
+  ArrowLeft: 'west',
+  ArrowRight: 'east',
 }
 
 export interface KeypadBindingsOptions {

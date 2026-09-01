@@ -3,7 +3,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick, onMounted, onUnmounted, onBeforeUnmount, createApp } from 'vue'
+import {
+  computed,
+  ref,
+  watch,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  onBeforeUnmount,
+  createApp,
+} from 'vue'
 import { useRouter } from 'vue-router'
 import { parseAnsiForVue } from '@/utils/ansiParser'
 import { hasMentions } from '@/utils/mentionParser'
@@ -39,20 +48,23 @@ onUnmounted(() => {
 })
 
 // mount carousel components after content changes
-watch(() => props.content, async () => {
-  await nextTick()
-  mountCarousels()
-})
+watch(
+  () => props.content,
+  async () => {
+    await nextTick()
+    mountCarousels()
+  },
+)
 
 function mountCarousels() {
   // unmount previous carousel apps
-  carouselApps.value.forEach(app => app.unmount())
+  carouselApps.value.forEach((app) => app.unmount())
   carouselApps.value = []
 
   if (!contentRef.value) return
 
   const carouselDivs = contentRef.value.querySelectorAll('[data-type="carousel"]')
-  carouselDivs.forEach(div => {
+  carouselDivs.forEach((div) => {
     const dataImages = div.getAttribute('data-images') || '[]'
     const dataHeight = div.getAttribute('data-height') || '300'
     // clear the div content
@@ -67,7 +79,7 @@ function mountCarousels() {
 }
 
 onBeforeUnmount(() => {
-  carouselApps.value.forEach(app => app.unmount())
+  carouselApps.value.forEach((app) => app.unmount())
 })
 
 const renderContent = computed(() => {

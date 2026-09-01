@@ -5,9 +5,16 @@ import type { HookStatus, MudHookState } from '@/types/hooks'
 
 const props = defineProps<{ hook: HookStatus }>()
 
-const mudLabel = computed(() => ({
-  enabled: 'ON', disabled: 'OFF', not_gated: 'N/A', unknown: 'UNKNOWN', unavailable: 'UNAVAILABLE',
-}[props.hook.mudState]))
+const mudLabel = computed(
+  () =>
+    ({
+      enabled: 'ON',
+      disabled: 'OFF',
+      not_gated: 'N/A',
+      unknown: 'UNKNOWN',
+      unavailable: 'UNAVAILABLE',
+    })[props.hook.mudState],
+)
 
 function stateIcon(state: boolean | MudHookState) {
   if (state === true || state === 'enabled') return Check

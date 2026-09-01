@@ -35,15 +35,22 @@ const commitMessage = ref('')
 const commitResult = ref<{ success: boolean; commitHash?: string; error?: string } | null>(null)
 
 // Reset state when dialog opens
-watch(() => props.open, (open) => {
-  if (open) {
-    commitMessage.value = `Zone builder: Updated ${props.zoneName}`
-    commitResult.value = null
-  }
-})
+watch(
+  () => props.open,
+  (open) => {
+    if (open) {
+      commitMessage.value = `Zone builder: Updated ${props.zoneName}`
+      commitResult.value = null
+    }
+  },
+)
 
 // Query for git status
-const { data: gitStatus, isLoading: statusLoading, isError: statusError } = useQuery({
+const {
+  data: gitStatus,
+  isLoading: statusLoading,
+  isError: statusError,
+} = useQuery({
   queryKey: ['zone-git-status', props.zoneId],
   queryFn: () => builderApi.getZoneGitStatus(props.zoneId),
   enabled: () => props.open,
@@ -94,7 +101,9 @@ function getStatusIcon(status: 'modified' | 'new' | 'deleted') {
 }
 
 // Get status badge variant
-function getStatusVariant(status: 'modified' | 'new' | 'deleted'): 'default' | 'secondary' | 'destructive' {
+function getStatusVariant(
+  status: 'modified' | 'new' | 'deleted',
+): 'default' | 'secondary' | 'destructive' {
   switch (status) {
     case 'modified':
       return 'default'

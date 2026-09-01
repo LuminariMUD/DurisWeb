@@ -82,7 +82,7 @@ onUnmounted(() => {
 
 // Computed affects with remaining time (reactive to now.value)
 const affectsWithTime = computed(() => {
-  return affects.value.map(affect => {
+  return affects.value.map((affect) => {
     let remaining = affect.duration
     if (affect.receivedAt) {
       const elapsed = Math.floor((now.value - affect.receivedAt) / 1000)
@@ -91,7 +91,8 @@ const affectsWithTime = computed(() => {
     return {
       ...affect,
       remaining,
-      percent: affect.duration > 0 ? Math.min(100, Math.max(0, (remaining / affect.duration) * 100)) : 0,
+      percent:
+        affect.duration > 0 ? Math.min(100, Math.max(0, (remaining / affect.duration) * 100)) : 0,
     }
   })
 })
@@ -149,19 +150,14 @@ const getDurationColor = (seconds: number): string => {
   return 'text-green-400'
 }
 
-
 // Categorize affects
 const categorizedAffects = computed(() => {
   const debuffKeywords = ['poison', 'blindness', 'curse', 'disease', 'weakness']
   const buffs = affectsWithTime.value.filter(
-    (a) => a.name && !debuffKeywords.some(
-      (debuff) => a.name.toLowerCase().includes(debuff)
-    )
+    (a) => a.name && !debuffKeywords.some((debuff) => a.name.toLowerCase().includes(debuff)),
   )
   const debuffs = affectsWithTime.value.filter(
-    (a) => a.name && debuffKeywords.some(
-      (debuff) => a.name.toLowerCase().includes(debuff)
-    )
+    (a) => a.name && debuffKeywords.some((debuff) => a.name.toLowerCase().includes(debuff)),
   )
   return { buffs, debuffs }
 })
@@ -203,7 +199,10 @@ const { actions: groupActions, getTarget } = useGroupActions()
 const showActionsDialog = ref(false)
 
 // Execute a group action on a member
-const executeAction = (command: string, member: { name: string; isNpc: boolean; targetNum: number | null; targetKeyword: string | null }) => {
+const executeAction = (
+  command: string,
+  member: { name: string; isNpc: boolean; targetNum: number | null; targetKeyword: string | null },
+) => {
   const target = getTarget(member)
   sendGameCommand(`${command} ${target}`)
 }
@@ -220,22 +219,32 @@ const isOnShip = computed(() => shipContacts.value !== null)
 // Get color class for ship race
 const getRaceColor = (race: MudShipContact['race']): string => {
   switch (race) {
-    case 'good': return 'text-green-400 border-green-400/50'
-    case 'evil': return 'text-red-400 border-red-400/50'
-    case 'undead': return 'text-purple-400 border-purple-400/50'
-    case 'squid': return 'text-orange-400 border-orange-400/50'
-    default: return 'text-gray-400 border-gray-400/50'
+    case 'good':
+      return 'text-green-400 border-green-400/50'
+    case 'evil':
+      return 'text-red-400 border-red-400/50'
+    case 'undead':
+      return 'text-purple-400 border-purple-400/50'
+    case 'squid':
+      return 'text-orange-400 border-orange-400/50'
+    default:
+      return 'text-gray-400 border-gray-400/50'
   }
 }
 
 // Get color class for ship status
 const getStatusColor = (status: MudShipContact['status']): string => {
   switch (status) {
-    case 'flying': return 'text-blue-400 border-blue-400/50'
-    case 'sinking': return 'text-red-400 border-red-400/50 animate-pulse'
-    case 'docked': return 'text-gray-400 border-gray-400/50'
-    case 'anchored': return 'text-amber-400 border-amber-400/50'
-    default: return 'text-gray-400 border-gray-400/50'
+    case 'flying':
+      return 'text-blue-400 border-blue-400/50'
+    case 'sinking':
+      return 'text-red-400 border-red-400/50 animate-pulse'
+    case 'docked':
+      return 'text-gray-400 border-gray-400/50'
+    case 'anchored':
+      return 'text-amber-400 border-amber-400/50'
+    default:
+      return 'text-gray-400 border-gray-400/50'
   }
 }
 

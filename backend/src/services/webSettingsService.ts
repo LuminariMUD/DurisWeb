@@ -1,6 +1,11 @@
 import { RowDataPacket } from 'mysql2';
 import { pool as db } from '../db/connection.js';
-import { S3Client, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  ListObjectsV2Command,
+} from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import logger from '../utils/logger.js';
 import { extractImageUrls } from './postImageService.js';
@@ -64,11 +69,7 @@ const MAX_LOGO_SIZE = 2 * 1024 * 1024;
 const LOGO_MAX_HEIGHT = 200;
 
 // Allowed MIME types for logo
-const ALLOWED_LOGO_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-];
+const ALLOWED_LOGO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 /**
  * Check if R2 is configured
@@ -87,7 +88,7 @@ export async function getWebSettings(): Promise<WebSettings> {
   }
 
   const [rows] = await db.query<RowDataPacket[]>(
-    'SELECT setting_key, setting_value FROM web_settings'
+    'SELECT setting_key, setting_value FROM web_settings',
   );
 
   // Default values
@@ -185,7 +186,7 @@ export async function getWebSettings(): Promise<WebSettings> {
 export async function getWebSetting(key: string): Promise<string | null> {
   const [rows] = await db.query<RowDataPacket[]>(
     'SELECT setting_value FROM web_settings WHERE setting_key = ?',
-    [key]
+    [key],
   );
 
   return rows.length > 0 ? rows[0].setting_value : null;
@@ -196,16 +197,17 @@ export async function getWebSetting(key: string): Promise<string | null> {
  */
 export async function getWebSettingsRaw(): Promise<WebSettingRow[]> {
   const [rows] = await db.query<RowDataPacket[]>(
-    'SELECT setting_key, setting_value, description, updated_at, updated_by FROM web_settings ORDER BY setting_key'
+    'SELECT setting_key, setting_value, description, updated_at, updated_by FROM web_settings ORDER BY setting_key',
   );
 
   return rows.map((row) => ({
     setting_key: row.setting_key,
     setting_value: row.setting_value,
     description: row.description,
-    updated_at: row.updated_at instanceof Date
-      ? row.updated_at.toISOString()
-      : `${String(row.updated_at).replace(' ', 'T')}Z`,
+    updated_at:
+      row.updated_at instanceof Date
+        ? row.updated_at.toISOString()
+        : `${String(row.updated_at).replace(' ', 'T')}Z`,
     updated_by: row.updated_by,
   }));
 }
@@ -216,14 +218,26 @@ export async function getWebSettingsRaw(): Promise<WebSettingRow[]> {
 export async function updateWebSetting(
   key: string,
   value: string,
-  updatedBy: string
+  updatedBy: string,
 ): Promise<void> {
   // Validate key exists
   const validKeys = [
-    'pvp_delay_minutes', 'mud_host', 'mud_port', 'mud_port_tls', 'mud_ws_port', 'site_title', 'site_logo_url',
-    'front_page_hero_enabled', 'front_page_hero_title', 'front_page_hero_subtitle',
-    'front_page_hero_image_url', 'front_page_content', 'max_hourly_backups', 'respect_webinfo_toggle',
-    'discord_webhook_url', 'discord_webhook_enabled'
+    'pvp_delay_minutes',
+    'mud_host',
+    'mud_port',
+    'mud_port_tls',
+    'mud_ws_port',
+    'site_title',
+    'site_logo_url',
+    'front_page_hero_enabled',
+    'front_page_hero_title',
+    'front_page_hero_subtitle',
+    'front_page_hero_image_url',
+    'front_page_content',
+    'max_hourly_backups',
+    'respect_webinfo_toggle',
+    'discord_webhook_url',
+    'discord_webhook_enabled',
   ];
   if (!validKeys.includes(key)) {
     throw new Error(`Invalid setting key: ${key}`);
@@ -296,7 +310,7 @@ export async function updateWebSetting(
     `INSERT INTO web_settings (setting_key, setting_value, updated_by, updated_at)
      VALUES (?, ?, ?, NOW())
      ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_by = VALUES(updated_by), updated_at = NOW()`,
-    [key, value, updatedBy]
+    [key, value, updatedBy],
   );
 
   // Link images used in front page content (mark as non-orphan)
@@ -308,7 +322,7 @@ export async function updateWebSetting(
           `UPDATE forum_post_images
            SET is_orphan = FALSE, linked_at = NOW()
            WHERE image_url IN (?) AND is_orphan = TRUE`,
-          [imageUrls]
+          [imageUrls],
         );
         logger.info(`Linked ${imageUrls.length} images to front page content`);
       } catch (err) {
@@ -324,9 +338,7 @@ export async function updateWebSetting(
 /**
  * Validate logo file
  */
-export function validateLogoFile(
-  file: Express.Multer.File
-): { valid: boolean; error?: string } {
+export function validateLogoFile(file: Express.Multer.File): { valid: boolean; error?: string } {
   if (!file) {
     return { valid: false, error: 'No file provided' };
   }
@@ -349,7 +361,7 @@ export function validateLogoFile(
  * Process logo image (resize, preserve aspect ratio)
  */
 async function processLogo(
-  buffer: Buffer
+  buffer: Buffer,
 ): Promise<{ buffer: Buffer; extension: string; contentType: string }> {
   // Resize other formats, preserving aspect ratio
   const processed = await sharp(buffer)
@@ -378,7 +390,7 @@ async function deleteOldLogos(): Promise<void> {
       new ListObjectsV2Command({
         Bucket: R2_BUCKET_NAME,
         Prefix: prefix,
-      })
+      }),
     );
 
     if (listResponse.Contents && listResponse.Contents.length > 0) {
@@ -388,7 +400,7 @@ async function deleteOldLogos(): Promise<void> {
             new DeleteObjectCommand({
               Bucket: R2_BUCKET_NAME,
               Key: obj.Key,
-            })
+            }),
           );
         }
       }
@@ -404,7 +416,7 @@ async function deleteOldLogos(): Promise<void> {
 export async function uploadSiteLogo(
   fileBuffer: Buffer,
   mimeType: string,
-  updatedBy: string
+  updatedBy: string,
 ): Promise<string> {
   if (!isR2Configured()) {
     throw new Error('R2 storage is not configured');
@@ -434,7 +446,7 @@ export async function uploadSiteLogo(
       Body: buffer,
       ContentType: contentType,
       CacheControl: 'public, max-age=31536000',
-    })
+    }),
   );
 
   // Build public URL
@@ -473,18 +485,12 @@ const MAX_HERO_SIZE = 5 * 1024 * 1024; // 5MB
 const HERO_MAX_WIDTH = 1920;
 
 // Allowed MIME types for hero image
-const ALLOWED_HERO_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-];
+const ALLOWED_HERO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 /**
  * Validate hero image file
  */
-export function validateHeroFile(
-  file: Express.Multer.File
-): { valid: boolean; error?: string } {
+export function validateHeroFile(file: Express.Multer.File): { valid: boolean; error?: string } {
   if (!file) {
     return { valid: false, error: 'No file provided' };
   }
@@ -507,7 +513,7 @@ export function validateHeroFile(
  * Process hero image (resize to max width, convert to webp)
  */
 async function processHeroImage(
-  buffer: Buffer
+  buffer: Buffer,
 ): Promise<{ buffer: Buffer; extension: string; contentType: string }> {
   const processed = await sharp(buffer)
     .resize({
@@ -535,7 +541,7 @@ async function deleteOldHeroImages(): Promise<void> {
       new ListObjectsV2Command({
         Bucket: R2_BUCKET_NAME,
         Prefix: prefix,
-      })
+      }),
     );
 
     if (listResponse.Contents && listResponse.Contents.length > 0) {
@@ -545,7 +551,7 @@ async function deleteOldHeroImages(): Promise<void> {
             new DeleteObjectCommand({
               Bucket: R2_BUCKET_NAME,
               Key: obj.Key,
-            })
+            }),
           );
         }
       }
@@ -561,7 +567,7 @@ async function deleteOldHeroImages(): Promise<void> {
 export async function uploadHeroImage(
   fileBuffer: Buffer,
   _mimeType: string,
-  updatedBy: string
+  updatedBy: string,
 ): Promise<string> {
   if (!isR2Configured()) {
     throw new Error('R2 storage is not configured');
@@ -585,7 +591,7 @@ export async function uploadHeroImage(
       Body: buffer,
       ContentType: contentType,
       CacheControl: 'public, max-age=31536000',
-    })
+    }),
   );
 
   // Build public URL
