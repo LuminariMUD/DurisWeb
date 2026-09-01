@@ -1,0 +1,116 @@
+# Considerations
+
+> Institutional memory for AI assistants. Updated between phases via /carryforward.
+> **Line budget**: 600 max | **Last updated**: Phase 00 (2026-09-01)
+
+---
+
+## Active Concerns
+
+Items requiring attention in upcoming phases. Review before each session.
+
+### Technical Debt
+<!-- Max 5 items -->
+
+1. **A fresh database cannot be migrated.** `pnpm migrate:latest` fails on a
+   clean DB at `017_add_terminal_access_permission.ts`, which inserts into
+   `admin_permissions` - a table created by
+   `20251115000000_admin_permissions_system.ts`, 33 positions later in knex's
+   lexicographic order. Migration stops after 016.
+   **Why:** blocks 8 test suites (88 tests) and any from-scratch environment.
+   **How to apply:** Session 03 adds a migration and cannot verify it against a
+   fresh database - resolve this first, without reordering already-released
+   migrations (CONVENTIONS.md forbids it). A bootstrap/squash path is the
+   likely fix. Found in Phase 00 Session 01.
+2. **14 `.sql` migrations are never applied.** `knexfile.ts` sets
+   `extension: 'ts'`, so knex only loads the 77 `.ts` files.
+   **Why:** the `.sql` files are either dead or a manual step nothing documents.
+   **How to apply:** determine which, and either delete them or document the
+   manual step, before relying on migration state.
+
+### External Dependencies
+<!-- Max 5 items -->
+
+*None yet - add items when external API/service risks are identified.*
+
+### Performance / Security
+<!-- Max 5 items -->
+
+1. **MUD flatfile ingestion is unauthenticated.** Anything able to write
+   `${MUD_DIR}/logs/log/comm` (locally
+   `/home/aiwithapex/projects/duris/logs/log/comm`) or the MUD flatfiles
+   under `Accounts/` and `Players/` controls what the site
+   ingests, including records feeding `suspicious_accounts`. Parser robustness
+   is the only control. See SECURITY-COMPLIANCE.md channel 3.
+2. **Terminal sandbox is deliberately porous.** `terminalService.ts` runs
+   bubblewrap with `--share-net` and a shared PID namespace so tmux persists;
+   `/tmp` is bind-mounted read-write with a predictable bashrc path.
+3. **`web_sessions.refresh_token` appears to be stored unhashed** (VARCHAR 512).
+   Confirm before Phase 00 sessions touch auth.
+4. **Account name, character name, and IP leave the system to Google Gemini**
+   via `geminiSuspicionAnalyzer.ts` for automated profiling.
+5. **No retention or erasure anywhere.** No purge job for `page_views`,
+   connection logs, or audit tables; no account deletion code path exists.
+
+### Architecture
+<!-- Max 5 items -->
+
+1. **Five distinct MUD<->web channels**, each with its own trust boundary:
+   WebSocket bridge (4050), scoped Redis pub/sub, flatfile/log ingestion,
+   process control, and the interactive terminal. Changes to one do not
+   generalize to the others -- check SECURITY-COMPLIANCE.md before assuming.
+2. **The privileged bridge secret is fail-closed.** `DURISWEB_SECRET` must be
+   >= 32 bytes and is contract-tested to never appear in frontend code.
+3. **Channel 1 defaults to plaintext `ws://127.0.0.1:4050`**, which is only
+   sound while the MUD and the API share a host. Crossing a host boundary
+   requires `wss://` and certificate validation.
+4. **Redis is scoped by namespace and season epoch**, not shared flat channels.
+   Legacy channels (`mud:nchat`, `mud:player`, `mud:online`) are contract-tested
+   as removed -- do not reintroduce them.
+5. **The MUD server source is locally readable at
+   `/home/aiwithapex/projects/duris/`** (a separate repo, referenced via
+   `MUD_DIR`). Both sides of every hook can be inspected -- verify integration
+   contracts against the MUD C source in `src/net/` instead of inferring them.
+   Do not edit that repo from a durisweb session unless scope says so.
+6. **Backend and frontend are separate packages with separate lockfiles.** No
+   root workspace config links them; the CONVENTIONS.md cross-package rules
+   describe a target state, not what exists today.
+
+---
+
+## Lessons Learned
+
+Proven patterns and anti-patterns. Reference during implementation.
+
+### What Worked
+<!-- Max 15 items -->
+
+*None yet - add patterns that prove effective.*
+
+### What to Avoid
+<!-- Max 10 items -->
+
+*None yet - add anti-patterns discovered during implementation.*
+
+### Tool/Library Notes
+<!-- Max 5 items -->
+
+1. Four contract test files encode the hardening from commits `d20be8d`,
+   `f56f135`, `05e83a3`, `25dedec`: `integrationSecurityContract.test.ts`,
+   `terminalSessionAuthorization.test.ts`, `websocketAccess.test.ts`,
+   `scopedRedis.test.ts`. They assert on source text, so refactors can break
+   them without changing behavior -- update deliberately, never by deletion.
+
+---
+
+## Resolved
+
+Recently closed items (buffer - rotates out after 2 phases).
+
+| Phase | Item | Resolution |
+|-------|------|------------|
+| - | *No resolved items yet* | - |
+
+---
+
+*Auto-generated by /initspec. Updated by /carryforward between phases.*
