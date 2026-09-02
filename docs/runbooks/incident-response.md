@@ -21,6 +21,10 @@ hook ids/states, health output, commit ids, and process/container status.
    docker compose -f podman-compose.yml ps
    ```
 
+   Require the `/health` JSON body to report both dependency checks as `ok`.
+   Do not substitute `/api/health`: it is not the registered readiness route,
+   and the production SPA fallback can make an unknown path return HTTP 200.
+
 3. Check the frontend static health artifact on the actual deployed origin.
 4. In the admin MUD dashboard, inspect hook summary, transport state, mismatch,
    unavailable reasons, and last observed activity. Do not infer enabled MUD
@@ -34,11 +38,40 @@ hook ids/states, health output, commit ids, and process/container status.
 
 1. Verify the selected environment and host/port without printing passwords.
 2. Check the MySQL and Redis container/service status and recent service logs.
+   If an account-local `redis-cli` fails with a shared-library loader error,
+   supply the deployment's `REDIS_LIBRARY_PATH`; that failure occurs before
+   authentication and is not evidence of a bad Redis password or ACL.
 3. Restore connectivity or configuration, then repeat `/health`.
 4. If MySQL connects but product endpoints fail with missing tables, stop. The
    health check does not certify schema or Knex-ledger correctness. Do not run
    bulk migrations or rewrite ledger rows during an incident without a tested,
    backup-first plan.
+
+## Redis Maintenance or AOF Replay Warnings
+
+1. Inspect reverse service dependencies before restarting either the private web
+   cache or shared MUD Redis. The rendered web app requires its private cache,
+   and a MUD unit may require the shared Redis service; a Redis restart can
+   therefore stop the website or become a player-visible MUD restart. Use a
+   declared maintenance window when a shared dependency is involved.
+2. Keep the MUD producer and DurisWeb presence reader on separate ACL identities.
+   The reader needs its exact `PING`, `SCAN`, `MGET`, `SUBSCRIBE`, and
+   `UNSUBSCRIBE` operations. Redis key patterns limit value access but cannot
+   prevent the whole-keyspace `SCAN` command from enumerating key names; record
+   and accept that residual visibility rather than granting read capability to
+   the producer identity.
+3. Treat `NOPERM` during AOF loading as possible skipped state, even when Redis
+   becomes ready. Validate the RDB, AOF segments, and manifest; identify the
+   exact rejected transaction and whether its data is ephemeral or durable.
+4. Redis 7.0.15 can re-evaluate the still-disabled default user's permissions at
+   `EXEC` while replaying an AOF transaction. Reproduce the issue with an exact
+   protected copy in a disposable Redis before changing ACLs. If replay requires
+   permissions on the disabled default identity, keep that identity disabled,
+   prove anonymous access remains denied, and verify every scoped role plus the
+   restored state after restart. Never enable the default user as a shortcut.
+5. Do not suppress loader/client stderr during readiness diagnosis. Confirm
+   authenticated readiness with the same Node/ioredis operations used by the
+   production preflight, not only a bare CLI ping.
 
 ## Privileged MUD Bridge Is Unknown or Blocked
 
@@ -110,11 +143,17 @@ read exposure can therefore be an active session compromise.
 
 ## Recovery Verification
 
-- Backend `/health` returns 200 and both checks are `ok`.
-- Frontend health artifact and a representative page load succeed.
+- Backend `/health` returns 200 and its JSON body reports both checks as `ok`.
+- Frontend health artifact, a representative page load, and the exact generated
+  asset for the intended release succeed locally and through public ingress.
 - Hook console reports a fresh bridge timestamp and expected effective states.
 - Focused tests/contracts for the repaired boundary pass.
-- The exact commits and any remaining deferred acceptance are recorded.
+- Service result/restart counters and the PIDs/timestamps of out-of-scope
+  dependencies show no unexplained restart.
+- Error-priority log checks use quiet journal output and are empty for the
+  recovery window.
+- The exact commits, migration status, rollback artifact checksums, and any
+  remaining deferred acceptance are recorded.
 
 For release constraints and unresolved operations ownership, see
 [Deployment](../deployment.md).

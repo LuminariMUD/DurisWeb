@@ -7,16 +7,44 @@ nginx and split frontend/backend service files have been removed.
 
 ## Build and validate
 
+A pull changes source only; it does not prove that the running process or static
+assets use that commit. Record `git status`, the exact commit, and the currently
+served generated asset before changing anything. Run the complete non-mutating
+quality matrix against isolated test dependencies:
+
 ```bash
 pnpm --dir backend install --frozen-lockfile
-pnpm --dir backend build
 pnpm --dir frontend install --frozen-lockfile
+pnpm --dir backend config:check
+pnpm --dir frontend config:check
+pnpm --dir backend format:check
+pnpm --dir backend lint
+pnpm --dir backend type-check
+NODE_ENV=test pnpm --dir backend test --runInBand
+pnpm --dir frontend format:check
+pnpm --dir frontend lint
+pnpm --dir frontend type-check
+pnpm --dir frontend test:unit --run
+pnpm --dir backend build
 pnpm --dir frontend build
 ./scripts/check-config-literals.sh
 ```
 
-From `backend/`, run the compiled static and live gates with the production
-environment installed:
+The backend test process must not inherit production database or Redis values.
+Before a database-backed test or migration rehearsal, print and inspect only the
+non-secret environment name, host, port, and database name; prove they identify
+disposable services. A passing `config:check` proves syntax and policy, not
+dependency identity or reachability. See [Configuration and
+Environments](environments.md) for dotenv precedence.
+
+`pnpm --dir frontend build` writes to `frontend/dist`. If that directory is
+currently served, build in an isolated release workspace and stage the complete
+output instead of changing the live tree underneath the old backend. Verify the
+staged `index.html` and every referenced generated asset before cutover; do not
+assume extra package-script arguments changed Vite's output directory.
+
+From `backend/`, run the freshly compiled static and live gates with the selected
+production environment installed:
 
 ```bash
 node dist/scripts/productionPreflight.js --configuration
@@ -24,8 +52,73 @@ node dist/scripts/productionPreflight.js --dependencies
 ```
 
 The first command aggregates invalid configuration and verifies the migration
-bundle. The second verifies the selected database schema/ledger, general cache,
-and the optional scoped presence connection.
+bundle. The second verifies required tables, the canonical MUD-owned
+`server_reboots` shape, absence of the prohibited incoming extension foreign
+key, refresh-token column capacity, the complete migration ledger, general
+cache, and the optional scoped presence read/subscription operations. Neither
+replaces the test suite or the release-specific acceptance checks below. The
+rendered unit runs configuration as an `ExecCondition`; configuration refusal
+status 78 leaves the unit skipped instead of entering a restart loop.
+
+## Release evidence and rollback set
+
+Before mutating production, create a mode-0700 release directory outside the
+checkout. Store each sensitive artifact as mode 0600 and maintain a checksum
+manifest. At minimum preserve or record:
+
+- the release commit, dirty-worktree state, and last-known-good commit;
+- pre-change backend/frontend environments and installed deployment config;
+- rendered unit link targets plus loaded unit properties;
+- the prior `backend/dist` and `frontend/dist` trees;
+- a fresh transaction-consistent database dump including routines, events, and
+  triggers, validated by the compression tool and a disposable restore;
+- the database software version, selected non-secret endpoint, migration status,
+  and declared expected data changes;
+- pre-cutover service PIDs, active timestamps, restart counters, and ingress/DNS
+  rollback identifiers when ingress will change.
+
+Keep raw credentials and player rows out of the journal. The journal should name
+protected artifact paths and checksums rather than reproduce their contents.
+Do not remove the last-known-good artifacts or database dump when cleaning the
+disposable rehearsal environment.
+
+## Rehearse database changes
+
+DurisWeb shares tables with the MUD, so every production schema release is a
+backup-first forward migration:
+
+1. Start disposable database and cache services on confirmed-unused loopback
+   endpoints. Match the production database product and major/minor version.
+2. Restore the exact fresh production dump. Use an authenticated `SELECT 1` as
+   the readiness gate; a bare administrative ping can succeed before the
+   intended identity/database is usable.
+3. Confirm table names, the Knex ledger, required records, and row counts for all
+   tables the release promises not to change. Account for known append-only
+   activity between the dump and comparison rather than accepting unexplained
+   drift.
+4. With an explicitly isolated environment, run `migrate:status`,
+   `migrate:latest`, and `migrate:status` against the clone. Confirm that only the
+   reviewed pending files ran and that the resulting ledger has no pending
+   entries.
+5. Run the backend suite and the compiled dependency preflight against the
+   migrated clone and isolated cache. Exercise the MUD runtime/schema verifier
+   too when a migration can touch MUD-owned tables.
+6. Restore-test the final backup and repeat the forward path if the production
+   backup changed after rehearsal.
+7. Immediately before the live migration, print and confirm the production
+   environment plus non-secret database endpoint, compare the exact pending set
+   with the rehearsal, and take a final backup. Apply only that reviewed forward
+   set, then rerun status and the compiled dependency preflight.
+
+The historical down chain is not a production recovery mechanism. Never repair
+the shared ledger, replay pre-Knex SQL, or run a down migration merely to make a
+status command green.
+
+MUD-owned tables are authoritative. A web migration must preserve their sealed
+column contract and must not add an incoming foreign key from a web extension
+table that changes the MUD's runtime fingerprint. A successful web migration is
+not releasable until both the compiled preflight and applicable MUD verifier
+accept the clone.
 
 ## Render host configuration
 
@@ -71,16 +164,106 @@ a short-lived tunnel token from the configured account/tunnel, and restricts
 the child environment. It selects token-file handling only for compatible
 cloudflared versions.
 
+### Install rendered artifacts
+
+Treat the render directory as installed state: linked units depend on it, so do
+not remove or rotate it out from underneath systemd. Use this order:
+
+1. Inspect the rendered files for unresolved placeholders and unexpected secret
+   material. The Redis base file must not contain `requirepass`.
+2. Install the rendered Redis/nginx files at their configured destinations.
+3. Verify every rendered unit before linking it:
+
+   ```bash
+   systemd-analyze --user verify /absolute/render/output/systemd/*.service
+   ```
+
+4. Link the exact enabled-group units from the render directory. `--force` is
+   appropriate only after resolving the current links and proving they are the
+   intended DurisWeb units:
+
+   ```bash
+   systemctl --user link --force /absolute/render/output/systemd/durisweb-redis.service
+   systemctl --user link --force /absolute/render/output/systemd/durisweb-production.service
+   systemctl --user link --force /absolute/render/output/systemd/durisweb-cloudflared.service
+   systemctl --user daemon-reload
+   ```
+
+   Omit the optional tunnel unit when Cloudflared is disabled. Reload only after
+   all link targets and installed configs exist. Resolve the links again after
+   reload and compare PIDs/active timestamps; a daemon reload should not be
+   assumed to restart or preserve a service without evidence.
+
+5. Enable units only after their dependencies, preflights, and local health have
+   passed. Keep old unit definitions in the protected release snapshot rather
+   than in the checkout.
+
+Manual invocations of an account-local Redis binary or `redis-cli` may require
+the same `REDIS_LIBRARY_PATH` rendered into the cache unit. A dynamic-loader
+error occurs before network authentication and must not be diagnosed as a bad
+Redis credential.
+
+## Cutover sequence
+
+Inspect reverse dependencies before restarting any database or Redis service.
+The maintained application unit `Requires=` its private cache. The maintained
+tunnel unit `BindsTo=` and is `PartOf=` the application, so a cache restart can
+stop the app/tunnel and a deliberate app restart should cycle its tunnel. A
+shared MUD Redis or database can have separate hard dependencies that make its
+restart player-visible.
+
+1. Declare any required maintenance window and record connected-player impact.
+   Capture the app, cache, tunnel, database, and MUD PIDs, active timestamps, and
+   restart counters.
+2. Pass the clone rehearsal, final live migration gate, compiled preflights, and
+   rendered-unit verification before stopping healthy processes.
+3. If the private cache configuration changed, restart the cache first and
+   expect the app/tunnel dependency chain to stop. Verify authenticated `PONG`.
+4. Switch the complete staged backend/frontend artifacts, then start or restart
+   the application through systemd. Do not expose a partial frontend build.
+5. Start the optional ingress unit if dependency propagation did not do so.
+6. Do not restart the MUD or shared database as part of a web-only release.
+   Compare their PIDs and active timestamps with the pre-cutover record.
+7. Enable the validated units and run the acceptance matrix. Unexpected
+   `NRestarts`, dependency restarts, or a mismatched served asset stop the
+   release and trigger rollback analysis.
+
 ## Acceptance and rollback
 
-After start or restart, verify:
+Listener startup can race the first probe. Use a bounded retry that includes
+connection-refused, then require structured content from the real route. The
+backend readiness path is `/health`, not `/api/health`; an unknown path can be
+served by the SPA fallback, so HTTP 200 alone is not health evidence.
+
+```bash
+curl --fail-with-body --retry 15 --retry-connrefused --retry-delay 1 \
+  http://127.0.0.1:3001/health \
+  | jq -e '.status == "ok" and .checks.database == "ok" and .checks.cache == "ok"'
+```
+
+Use the configured origin rather than the example port. After start or restart,
+verify:
 
 - the configured local and public health endpoints;
 - `/api/ping`, `/api/site-config`, the SPA shell, and a generated asset;
 - allowed-origin CORS and rejection of an untrusted origin;
 - browser application WebSocket ping/pong and the configured MUD WebSocket handshake;
 - raw/TLS MUD connections when those endpoints are enabled;
-- Redis connectivity, authenticated bridge state, and unexpected restart count.
+- HTTP-to-HTTPS redirects and intended HSTS/content-type hardening at public
+  ingress;
+- Redis connectivity, authenticated bridge state, and unexpected restart count;
+- service `ActiveState`, `Result`, `NRestarts`, PID/timestamp preservation for
+  out-of-scope dependencies, and the optional tunnel readiness endpoint;
+- `migrate:status` with no unexpected pending files and the freshly compiled
+  dependency preflight;
+- recent error-priority logs. Use `journalctl --quiet` in assertions so its
+  literal `-- No entries --` banner is not mistaken for an error.
+
+Prove release identity by extracting a generated asset name from the staged
+build and requiring that exact asset (and expected size or digest) locally and
+through every public hostname. A healthy old process or cached old SPA is not a
+successful deployment. Confirm the browser-safe site configuration contains the
+complete intended endpoint fields, not merely valid JSON.
 
 Schema releases remain backup-first. Restore a transaction-consistent backup to
 disposable matching database software, apply the forward chain, compare tables
@@ -91,3 +274,24 @@ Application rollback uses an explicitly selected last-known-good commit whose
 migrations are compatible with the live schema, followed by rebuild, preflight,
 restart, and the same acceptance checks. DNS and database rollback targets must
 come from a fresh operator journal, never tracked documentation.
+
+For the fastest code-only rollback, restore the checksum-verified prior compiled
+artifacts and rendered/unit configuration, restart through the same dependency
+graph, and repeat the full acceptance matrix. A database rollback is a separate
+operator-authorized restore from the verified pre-change dump; do not infer it
+from application rollback. Restore ingress/DNS only from the pre-cutover
+readback recorded for that release.
+
+After acceptance and a stability soak, gracefully stop disposable services,
+verify their listeners are closed, and remove only their resolved exact paths.
+Retain the release snapshot according to the operator's recovery policy. Fold
+new durable lessons into this guide; do not retain a tracked machine-specific
+deployment diary as permanent documentation.
+
+## Automation boundary
+
+`.github/workflows/quality.yml` installs each package independently and runs the
+configuration-ownership guard plus formatting, lint, and type checks. It does
+not run the full test suites, build or publish release artifacts, migrate a
+database, mutate ingress, or deploy production. Those gates and release
+authority remain explicit operator responsibilities.

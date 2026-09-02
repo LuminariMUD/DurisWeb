@@ -70,9 +70,10 @@ port, user home, or secret is compiled into the repository. See
 [Deployment](docs/deployment.md) for the release gates.
 
 Phase 00 is complete: all seven hook-control and integration-security sessions
-validated. Repository and MUD feature-branch integration status still needs the
-normal maintainer merge/release process; live deployment does not imply that
-every branch has been merged to its default branch.
+validated. The corresponding MUD hook integration was merged to the MUD default
+branch through PR #71 (`0e0649954`). DurisWeb and DurisMUD still have independent
+release histories, so every deployment must record and verify both exact commits;
+live deployment of one repository does not prove the other is current.
 
 The cumulative security posture is `AT RISK` because dependency, refresh-token,
 session-timezone, and privacy-lifecycle work remains. See the

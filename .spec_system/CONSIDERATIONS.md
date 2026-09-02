@@ -2,7 +2,7 @@
 
 > Institutional memory for AI assistants. Updated between phases via
 > `/carryforward`.
-> **Line budget**: 600 max | **Last updated**: Phase 00 (2026-09-01)
+> **Line budget**: 600 max | **Last updated**: Production consolidation (2026-09-02)
 
 ---
 
@@ -25,28 +25,40 @@ Review these before planning another phase.
    disposable test databases from a schema-only MUD clone, never from player
    rows, and assess SQL injection, backups, credentials, and retention across
    both codebases.
-3. **[P00-infra] Production readiness targets do not exist yet.** Dependency-
-   aware backend health and a static frontend health artifact pass locally, but
-   no hosting platform, public URL, or production probe is configured. A health
-   response proves MySQL/Redis reachability, not that the historical migration
-   ledger is correct.
+3. **[P00-infra] Readiness is not release certification.** Local and public
+   production health were exercised during the 2026-09-02 deployment, but a
+   `/health` response proves only current MySQL/Redis reachability. It does not
+   prove the expected migration ledger, served frontend release, bridge state,
+   or absence of dependency restarts; retain the preflight and acceptance matrix
+   in `docs/deployment.md`.
 
 ### External Dependencies
 
-1. **[P00-external/DurisMUD] The MUD delivery is pushed and intentionally
-   unmerged.** Branch `feat/durisweb-hook-toggles` at `df121bb3` contains the
-   authenticated hook protocol and reconciled operator docs. Preserve the
-   pushed-unmerged distinction; landing it is maintainer-owned and was not part
-   of Phase 00.
-2. **[P00-infra] Networked bridge deployment needs live WSS acceptance.** Repo
-   tests prove that remote plaintext is refused and certificate validation is
-   enabled. An operator still must prove the real reverse proxy and certificate
-   before a non-loopback deployment.
+1. **[P00-external/DurisMUD] Cross-repository release state remains
+   independent.** The authenticated hook delivery was merged to MUD `master`
+   through PR #71 at `0e0649954`, and that merge is an ancestor of the verified
+   MUD checkout. Future DurisWeb deployments must still record and validate both
+   exact commits; one repository's branch or live state never proves the other.
+2. **[P00-infra] Networked bridge acceptance is release-specific.** The current
+   production WSS, direct TLS, and raw game endpoints passed live acceptance on
+   2026-09-02. Repository tests still cannot certify a future proxy,
+   certificate, DNS state, or listener; each deployment must repeat those live
+   checks.
 3. **[P00-backend] Personal data crosses third-party boundaries.** Google Gemini
    receives account/character names and IP data for suspicion analysis;
    ip-api.com receives visitor IPs; Ko-fi, Discord, Cloudflare R2, and browser
    push providers receive their feature payloads. No in-repo privacy notice or
    processing record documents these transfers.
+4. **[production/host] Administrative terminal sandbox binary is absent.** The
+   current production host does not provide the configured bubblewrap
+   executable, so the web terminal remains unavailable even though public web,
+   API, cache, database, and MUD bridge checks pass. Install and validate
+   bubblewrap as a separate host change; never substitute an unsandboxed shell.
+5. **[production/DurisMUD] Season-temperature data contains an invalid climate
+   index.** Two controlled MUD starts on 2026-09-02 each emitted ten guarded
+   `ARRAY temps index 11 >= 11 at world/db.c:856` warnings. Current source uses
+   `season_temp[s]` as the `temps` index. Preserve the qualified runtime and
+   investigate/fix this in the MUD repository; do not suppress it in DurisWeb.
 
 ### Performance / Security
 

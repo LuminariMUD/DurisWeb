@@ -56,6 +56,14 @@ Optional groups are explicit:
 bounded rotation pair. The complete key inventory and safe placeholders live in
 `backend/.env.example`; secret values must never be logged or committed.
 
+`TERMINAL_SANDBOX_BIN` must resolve to the intended bubblewrap-compatible
+executable on the deployment host. Configuration validation can check the value
+but cannot prove that the host binary is installed. If it is absent, record the
+administrative terminal as unavailable and install/revalidate the sandbox in a
+separate operator-approved change; never point the setting at a shell or bypass
+the sandbox to make terminal startup succeed. This limitation does not by itself
+degrade the public HTTP, WebSocket, database, cache, or MUD bridge paths.
+
 ## Frontend environment
 
 Every frontend build requires `VITE_BASE_URL`, `VITE_API_URL`, `VITE_WS_URL`,
@@ -78,6 +86,8 @@ The forward migration backfills missing keys to preserve the existing
 deployment. Runtime code does not recreate those values. An incomplete or
 invalid row set makes `/api/site-config` unavailable, and the frontend renders a
 deliberate unavailable state instead of substituting branding or endpoints.
+The migration's down path deliberately retains these operator-owned values;
+application rollback must not erase them.
 
 ## Local and deployment configuration
 
@@ -94,3 +104,13 @@ loaded before `backend/.env`; tests fill isolated in-process values only when a
 test variable is absent. Existing process variables always win over dotenv
 files; otherwise the first defined test-file value wins. In non-test modes,
 `backend/.env` fills only variables absent from the process environment.
+
+A partial test file is therefore not proof of isolation: missing values can be
+filled by fallback test defaults or by the later backend file, and exported
+process variables override both files. Before any database-backed suite or
+migration rehearsal, start from a process environment without production
+connection variables, provide an explicit disposable database/cache selection,
+and inspect the resolved non-secret environment name, host, port, and database
+name. Treat a production namespace or endpoint in test mode as a hard refusal,
+not something to work around. `config:check` validates the configuration
+contract but does not prove that the selected services are disposable.
