@@ -2,7 +2,11 @@ import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 import logger from '../utils/logger.js';
 
-dotenv.config();
+// Keep test database access isolated. Values already supplied by the caller
+// still win, while .env remains a fallback for non-database test settings.
+dotenv.config({
+  path: process.env.NODE_ENV === 'test' ? ['.env.test', '.env'] : '.env',
+});
 
 // Validate required environment variables
 const requiredEnvVars = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];

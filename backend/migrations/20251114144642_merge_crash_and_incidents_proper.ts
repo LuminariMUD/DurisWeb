@@ -1,5 +1,6 @@
-import type { Knex } from "knex";
+import type { Knex } from 'knex';
 
+/** Merge legacy incident and crash records into the unified incident table. */
 export async function up(knex: Knex): Promise<void> {
   // Step 0: Drop temporary table if it exists from a previous failed migration
   await knex.schema.dropTableIfExists('server_incidents_new');
@@ -224,7 +225,60 @@ export async function up(knex: Knex): Promise<void> {
   await knex.schema.renameTable('server_incidents_new', 'server_incidents');
 }
 
+/**
+ * Complete a prior down-migration attempt that reached the final table rename.
+ * MySQL DDL auto-commits, so a failed foreign-key addition leaves the legacy
+ * tables and reconstructed crash data in place even though Knex retries down().
+ */
+async function finishInterruptedDownMigration(knex: Knex): Promise<boolean> {
+  const [hasIncidentsTable, hasCrashLogTable] = await Promise.all([
+    knex.schema.hasTable('server_incidents'),
+    knex.schema.hasTable('crash_log'),
+  ]);
+  if (!hasIncidentsTable || !hasCrashLogTable) {
+    return false;
+  }
+
+  const [hasCrashLogId, hasUnifiedDetectedBy] = await Promise.all([
+    knex.schema.hasColumn('server_incidents', 'crash_log_id'),
+    knex.schema.hasColumn('server_incidents', 'detected_by'),
+  ]);
+  if (!hasCrashLogId || hasUnifiedDetectedBy) {
+    return false;
+  }
+
+  const existingForeignKey = await knex('information_schema.KEY_COLUMN_USAGE')
+    .select('CONSTRAINT_NAME')
+    .whereRaw('CONSTRAINT_SCHEMA = DATABASE()')
+    .where({
+      TABLE_NAME: 'server_incidents',
+      COLUMN_NAME: 'crash_log_id',
+      REFERENCED_TABLE_NAME: 'crash_log',
+    })
+    .first();
+
+  if (!existingForeignKey) {
+    await knex.schema.alterTable('server_incidents', (table) => {
+      table.foreign('crash_log_id').references('crash_log.id').onDelete('SET NULL');
+    });
+  }
+
+  return true;
+}
+
+/** Restore the legacy incident and crash-log tables without losing recovered rows. */
 export async function down(knex: Knex): Promise<void> {
+  if (await finishInterruptedDownMigration(knex)) {
+    return;
+  }
+
+  // A failed MySQL DDL rollback can leave these reconstruction tables behind
+  // because ALTER/CREATE/DROP statements auto-commit. The unified source table
+  // is still authoritative until the final rename, so rebuilding the two
+  // temporary targets is safe and makes recovery deterministic.
+  await knex.schema.dropTableIfExists('server_incidents_old');
+  await knex.schema.dropTableIfExists('crash_log');
+
   // Recreate original tables structure
   await knex.schema.createTable('crash_log', (table) => {
     table.increments('id').primary();
@@ -300,16 +354,30 @@ export async function down(knex: Knex): Promise<void> {
     WHERE detected_by IS NOT NULL
   `);
 
-  await knex.raw(`
-    INSERT INTO server_incidents_old (
-      started_at, ended_at, duration_seconds, incident_type, severity,
-      title, description, resolved, resolution_notes, public_visible, created_at, updated_at
-    )
-    SELECT
-      started_at, ended_at, duration_seconds, incident_type, severity,
-      title, description, resolved, resolution_notes, public_visible, created_at, updated_at
-    FROM server_incidents
-  `);
+  const hasPublicVisible = await knex.schema.hasColumn('server_incidents', 'public_visible');
+  if (hasPublicVisible) {
+    await knex.raw(`
+      INSERT INTO server_incidents_old (
+        started_at, ended_at, duration_seconds, incident_type, severity,
+        title, description, resolved, resolution_notes, public_visible, created_at, updated_at
+      )
+      SELECT
+        started_at, ended_at, duration_seconds, incident_type, severity,
+        title, description, resolved, resolution_notes, public_visible, created_at, updated_at
+      FROM server_incidents
+    `);
+  } else {
+    await knex.raw(`
+      INSERT INTO server_incidents_old (
+        started_at, ended_at, duration_seconds, incident_type, severity,
+        title, description, resolved, resolution_notes, created_at, updated_at
+      )
+      SELECT
+        started_at, ended_at, duration_seconds, incident_type, severity,
+        title, description, resolved, resolution_notes, created_at, updated_at
+      FROM server_incidents
+    `);
+  }
 
   // Update crash_log_id references
   await knex.raw(`

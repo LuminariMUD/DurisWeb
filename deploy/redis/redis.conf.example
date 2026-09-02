@@ -1,0 +1,21 @@
+# DurisWeb production cache. Copy to the owner-only path documented in the
+# deployment guide and replace the password before starting the service.
+bind 127.0.0.1
+protected-mode yes
+port 7778
+daemonize no
+supervised no
+databases 1
+
+dir /home/duris/.local/share/durisweb-redis
+dbfilename dump.rdb
+save ""
+appendonly no
+
+requirepass CHANGE_ME_WITH_A_RANDOM_SECRET
+maxmemory 256mb
+maxmemory-policy allkeys-lru
+
+rename-command FLUSHALL ""
+rename-command FLUSHDB ""
+logfile ""

@@ -436,6 +436,7 @@ export interface SiteConfig {
   mudHost: string
   mudPort: string
   mudPortTls: string
+  mudWsHost: string
   mudWsPort: string
   // Front page settings
   frontPageHeroEnabled: boolean

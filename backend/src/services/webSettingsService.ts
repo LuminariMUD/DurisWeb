@@ -32,6 +32,7 @@ export interface WebSettings {
   mudHost: string;
   mudPort: string;
   mudPortTls: string;
+  mudWsHost: string;
   mudWsPort: string;
   siteTitle: string;
   siteLogoUrl: string;
@@ -94,9 +95,10 @@ export async function getWebSettings(): Promise<WebSettings> {
   // Default values
   const settings: WebSettings = {
     pvpDelayMinutes: 15,
-    mudHost: 'mud.newduris.com',
+    mudHost: 'mud.duris.sbs',
     mudPort: '7777',
-    mudPortTls: '7778',
+    mudPortTls: '4001',
+    mudWsHost: 'ws.duris.sbs',
     mudWsPort: '4050',
     siteTitle: 'NewDuris',
     siteLogoUrl: '',
@@ -124,13 +126,16 @@ export async function getWebSettings(): Promise<WebSettings> {
         settings.pvpDelayMinutes = parseInt(value, 10) || 15;
         break;
       case 'mud_host':
-        settings.mudHost = value || 'mud.newduris.com';
+        settings.mudHost = value || 'mud.duris.sbs';
         break;
       case 'mud_port':
         settings.mudPort = value || '7777';
         break;
       case 'mud_port_tls':
-        settings.mudPortTls = value || '7778';
+        settings.mudPortTls = value;
+        break;
+      case 'mud_ws_host':
+        settings.mudWsHost = value || 'ws.duris.sbs';
         break;
       case 'mud_ws_port':
         settings.mudWsPort = value || '4050';
@@ -226,6 +231,7 @@ export async function updateWebSetting(
     'mud_host',
     'mud_port',
     'mud_port_tls',
+    'mud_ws_host',
     'mud_ws_port',
     'site_title',
     'site_logo_url',
@@ -274,6 +280,18 @@ export async function updateWebSetting(
     }
   }
 
+  if (key === 'mud_host' || key === 'mud_ws_host') {
+    if (
+      !value ||
+      value.length > 253 ||
+      !/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(
+        value,
+      )
+    ) {
+      throw new Error('MUD host must be a hostname without a scheme, port, or path');
+    }
+  }
+
   // Validate title/subtitle length
   if (key === 'front_page_hero_title' || key === 'front_page_hero_subtitle') {
     if (value.length > 200) {
@@ -290,7 +308,10 @@ export async function updateWebSetting(
   }
 
   // Validate mud_port is a valid port number
-  if (key === 'mud_port' || key === 'mud_port_tls' || key === 'mud_ws_port') {
+  if (
+    (key === 'mud_port' || key === 'mud_port_tls' || key === 'mud_ws_port') &&
+    !(key === 'mud_port_tls' && value === '')
+  ) {
     const portValue = parseInt(value, 10);
     if (isNaN(portValue) || portValue < 1 || portValue > 65535) {
       throw new Error('MUD port must be between 1 and 65535');

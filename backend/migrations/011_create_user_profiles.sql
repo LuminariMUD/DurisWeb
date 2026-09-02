@@ -6,8 +6,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   website VARCHAR(255),
   location VARCHAR(100),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (account_name) REFERENCES accounts(account_name) ON DELETE CASCADE
+  last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create user profile stats table
@@ -18,8 +17,7 @@ CREATE TABLE IF NOT EXISTS user_profile_stats (
   total_reactions_received INT DEFAULT 0,
   reputation_score INT DEFAULT 0,
   first_post_at TIMESTAMP NULL,
-  last_post_at TIMESTAMP NULL,
-  FOREIGN KEY (account_name) REFERENCES accounts(account_name) ON DELETE CASCADE
+  last_post_at TIMESTAMP NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create indexes for performance (compatible with MySQL)

@@ -19,11 +19,81 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Download, Upload, Settings, Bell, Type, Gamepad2, RotateCcw, Wifi } from 'lucide-vue-next'
+import {
+  Bell,
+  CircleDot,
+  Compass,
+  Crown,
+  Download,
+  Droplet,
+  Eye,
+  Flame,
+  Footprints,
+  Gamepad2,
+  Hand,
+  Heart,
+  LogOut,
+  Map,
+  MessageSquare,
+  Moon,
+  Move,
+  Pause,
+  Play,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  Settings,
+  Shield,
+  SkipForward,
+  Skull,
+  Snowflake,
+  Star,
+  Sun,
+  Sword,
+  Target,
+  Type,
+  Upload,
+  Users,
+  Wifi,
+  Wind,
+  Zap,
+} from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
-import * as icons from 'lucide-vue-next'
 import type { Component } from 'vue'
 import { toast } from 'vue-sonner'
+
+const HOTBAR_ICON_COMPONENTS: Record<string, Component> = {
+  Sword,
+  Shield,
+  Heart,
+  Zap,
+  Flame,
+  Snowflake,
+  Eye,
+  Target,
+  Move,
+  LogOut,
+  RefreshCw,
+  Play,
+  Pause,
+  SkipForward,
+  Search,
+  Map,
+  Compass,
+  Users,
+  MessageSquare,
+  Bell,
+  Star,
+  Moon,
+  Sun,
+  Droplet,
+  Wind,
+  Skull,
+  Crown,
+  Footprints,
+  Hand,
+  CircleDot,
+}
 
 const isOpen = defineModel<boolean>('open', { default: false })
 
@@ -82,8 +152,7 @@ watch(
 
 // get icon component by name for preview
 function getIcon(name: string): Component {
-  const iconName = name as keyof typeof icons
-  return (icons[iconName] as Component) || icons.CircleDot
+  return HOTBAR_ICON_COMPONENTS[name] || CircleDot
 }
 
 function updateFontFamily(event: Event) {

@@ -78,3 +78,6 @@ CLAUDE.md
 # Generated content
 backend/public/maps/
 *.kate-swp
+
+# Local deployment journals (may contain host-specific operational details)
+/docs/ongoing-projects/deploy-production.md

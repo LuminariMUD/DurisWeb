@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 
+/** Remove web-owned foreign keys that alter the shared MUD accounts fingerprint. */
 export async function up(knex: Knex): Promise<void> {
   // Drop FK from user_profiles
   const hasUserProfiles = await knex.schema.hasTable('user_profiles');
@@ -14,6 +15,23 @@ export async function up(knex: Knex): Promise<void> {
 
     for (const fk of userProfilesFKs) {
       await knex.raw(`ALTER TABLE user_profiles DROP FOREIGN KEY ${fk.CONSTRAINT_NAME}`);
+    }
+  }
+
+  // Keep extension-table constraints out of the MUD runtime fingerprint. The
+  // shared production database treats accounts as MUD-owned, so web profile
+  // rows must not add incoming foreign keys to it.
+  const hasUserProfileStats = await knex.schema.hasTable('user_profile_stats');
+  if (hasUserProfileStats) {
+    const [userProfileStatsFKs] = await knex.raw(`
+      SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
+      WHERE CONSTRAINT_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'user_profile_stats'
+        AND REFERENCED_TABLE_NAME = 'accounts'
+    `);
+
+    for (const fk of userProfileStatsFKs) {
+      await knex.raw('ALTER TABLE user_profile_stats DROP FOREIGN KEY ??', [fk.CONSTRAINT_NAME]);
     }
   }
 
@@ -48,6 +66,7 @@ export async function up(knex: Knex): Promise<void> {
   }
 }
 
+/** Keep the shared MUD accounts table free of incoming web foreign keys. */
 export async function down(knex: Knex): Promise<void> {
   // Re-add FKs if needed (but we probably won't need to roll this back)
   // Intentionally left empty - the accounts table is unused

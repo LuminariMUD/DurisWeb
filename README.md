@@ -36,9 +36,10 @@ database warning before using a new database.
 `-- podman-compose.yml     # Local MySQL 8 and Redis 7 services
 ```
 
-The DurisMUD C server is a separate repository. Local development expects it at
-the path configured by `MUD_DIR`; Phase 00 used
-`/home/aiwithapex/projects/duris` as the inspected checkout.
+The DurisMUD C server is a separate repository. The backend reads its checkout
+from `MUD_DIR` and its account data from `MUD_ACCOUNTS_DIR`. The same-host
+production configuration uses `/home/duris/duris` and
+`/home/duris/duris/Accounts`, respectively.
 
 ## Packages
 
@@ -65,10 +66,17 @@ manifest and lockfile; run package commands from that package or use `pnpm
 
 ## Project Status
 
+Version 1.2.0 is deployed at `https://duris.sbs`. Production uses a same-host,
+HMAC-authenticated loopback bridge to DurisMUD, a dedicated website Cloudflare
+Tunnel, and a separate certificate-valid `wss://ws.duris.sbs` browser path. The
+primary player connection is `mud.duris.sbs:7777`; direct TLS is available on
+`mud.duris.sbs:4001`. See [Deployment](docs/deployment.md) for the verified
+topology and release gates.
+
 Phase 00 is complete: all seven hook-control and integration-security sessions
-validated. The DurisMUD implementation is pushed on its feature branch and is
-intentionally unmerged. Live certificate-valid WSS remains an operator-owned
-acceptance before cross-host production use.
+validated. Repository and MUD feature-branch integration status still needs the
+normal maintainer merge/release process; live deployment does not imply that
+every branch has been merged to its default branch.
 
 The cumulative security posture is `AT RISK` because dependency, refresh-token,
 session-timezone, and privacy-lifecycle work remains. See the

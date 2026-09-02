@@ -6,9 +6,18 @@ import logger from '../utils/logger.js';
 interface ServerReboot {
   id: number;
   bootTime: number;
-  shutdownTime: number | null;
-  uptimeSeconds: number | null;
-  shutdownType?: 'manual' | 'autoreboot' | 'copyover' | 'crash' | 'unknown' | null;
+  shutdownTime: number;
+  uptimeSeconds: number;
+  shutdownType?:
+    | 'shutdown'
+    | 'reboot'
+    | 'copyover'
+    | 'autoreboot'
+    | 'pwipe'
+    | 'hung'
+    | 'autoreboot_copyover'
+    | 'crash'
+    | 'unknown';
   initiatedBy?: string | null;
   reason?: string | null;
   createdAt: string;
@@ -34,6 +43,10 @@ interface RebootHistory {
   page: number;
   limit: number;
 }
+
+const HOST_MONITOR_ACTOR = 'durisweb-host-monitor';
+const HOST_BOOT_MARKER_KEY = 'durisweb_host_boot_time';
+const HOST_BOOT_TIME_TOLERANCE_SECONDS = 5;
 
 /**
  * Get the current server boot time by reading /proc/uptime
@@ -90,25 +103,29 @@ export async function getRebootHistory(
   try {
     const offset = (page - 1) * limit;
 
-    // Get total count (only server reboots)
+    // Host reboot observations share the canonical MUD lifecycle table but
+    // use a reserved actor and an allowed shutdown type.
     const [countRows] = await pool.query<RowDataPacket[]>(
-      'SELECT COUNT(*) as total FROM server_reboots WHERE shutdown_type IS NULL',
+      `SELECT COUNT(*) as total
+       FROM server_reboots
+       WHERE shutdown_type = 'unknown' AND initiated_by = ?`,
+      [HOST_MONITOR_ACTOR],
     );
     const total = countRows[0].total;
 
     // Get paginated reboots (only server reboots, not MUD reboots)
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT
-        id,
+        record_id as id,
         boot_time as bootTime,
         shutdown_time as shutdownTime,
         uptime_seconds as uptimeSeconds,
-        created_at as createdAt
+        FROM_UNIXTIME(shutdown_time) as createdAt
        FROM server_reboots
-       WHERE shutdown_type IS NULL
+       WHERE shutdown_type = 'unknown' AND initiated_by = ?
        ORDER BY boot_time DESC
        LIMIT ? OFFSET ?`,
-      [limit, offset],
+      [HOST_MONITOR_ACTOR, limit, offset],
     );
 
     return {
@@ -136,26 +153,15 @@ export async function getUptimeStats(): Promise<UptimeStats> {
     const currentReboot = await getLastReboot();
     const currentUptime = currentReboot?.uptime || null;
 
-    // Calculate stats including current running session
-    const currentTime = Math.floor(Date.now() / 1000);
-
     const [statsRows] = await pool.query<RowDataPacket[]>(
       `SELECT
-        AVG(
-          CASE
-            WHEN uptime_seconds IS NOT NULL THEN uptime_seconds
-            ELSE ${currentTime} - boot_time
-          END
-        ) as avgUptime,
-        MAX(
-          CASE
-            WHEN uptime_seconds IS NOT NULL THEN uptime_seconds
-            ELSE ${currentTime} - boot_time
-          END
-        ) as maxUptime,
+        AVG(uptime_seconds) as avgUptime,
+        MAX(uptime_seconds) as maxUptime,
         COUNT(*) as totalReboots,
-        SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as rebootsLast30Days
-       FROM server_reboots`,
+        SUM(CASE WHEN shutdown_time >= UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 30 DAY)) THEN 1 ELSE 0 END) as rebootsLast30Days
+       FROM server_reboots
+       WHERE shutdown_type = 'unknown' AND initiated_by = ?`,
+      [HOST_MONITOR_ACTOR],
     );
 
     const stats = statsRows[0];
@@ -183,18 +189,15 @@ export async function getUptimeStats(): Promise<UptimeStats> {
  * Record a new reboot to the database
  * This should be called when a boot_time change is detected
  */
-export async function recordReboot(
-  bootTime: number,
-  shutdownTime: number | null = null,
-): Promise<number> {
+export async function recordReboot(bootTime: number, shutdownTime: number): Promise<number> {
   try {
-    const uptimeSeconds = shutdownTime && bootTime ? shutdownTime - bootTime : null;
+    const uptimeSeconds = Math.max(shutdownTime - bootTime, 0);
 
     const [result] = await pool.query<ResultSetHeader>(
       `INSERT INTO server_reboots
-        (boot_time, shutdown_time, uptime_seconds)
-       VALUES (?, ?, ?)`,
-      [bootTime, shutdownTime, uptimeSeconds],
+        (boot_time, shutdown_time, uptime_seconds, shutdown_type, initiated_by)
+       VALUES (?, ?, ?, 'unknown', ?)`,
+      [bootTime, shutdownTime, uptimeSeconds, HOST_MONITOR_ACTOR],
     );
 
     return result.insertId;
@@ -205,35 +208,15 @@ export async function recordReboot(
 }
 
 /**
- * Update the shutdown time for the most recent reboot
- * Called when server shutdown is detected
- */
-export async function updateShutdownTime(bootTime: number, shutdownTime: number): Promise<void> {
-  try {
-    const uptimeSeconds = shutdownTime - bootTime;
-
-    await pool.query(
-      `UPDATE server_reboots
-       SET shutdown_time = ?,
-           uptime_seconds = ?
-       WHERE boot_time = ?
-         AND shutdown_time IS NULL`,
-      [shutdownTime, uptimeSeconds, bootTime],
-    );
-  } catch (error) {
-    logger.error('Error updating shutdown time:', error);
-    throw error;
-  }
-}
-
-/**
  * Check if a reboot with the given boot_time already exists
  */
 export async function rebootExists(bootTime: number): Promise<boolean> {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      'SELECT COUNT(*) as count FROM server_reboots WHERE boot_time = ?',
-      [bootTime],
+      `SELECT COUNT(*) as count
+       FROM server_reboots
+       WHERE boot_time = ? AND shutdown_type = 'unknown' AND initiated_by = ?`,
+      [bootTime, HOST_MONITOR_ACTOR],
     );
 
     return rows[0].count > 0;
@@ -241,6 +224,68 @@ export async function rebootExists(bootTime: number): Promise<boolean> {
     logger.error('Error checking reboot existence:', error);
     return false;
   }
+}
+
+/** Read the last observed host boot time from durable application state. */
+async function getPersistedHostBootTime(): Promise<number | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT setting_value FROM web_settings WHERE setting_key = ? LIMIT 1',
+    [HOST_BOOT_MARKER_KEY],
+  );
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const bootTime = Number(rows[0].setting_value);
+  if (!Number.isSafeInteger(bootTime) || bootTime <= 0) {
+    logger.warn('Ignoring invalid persisted host boot marker');
+    return null;
+  }
+  return bootTime;
+}
+
+/** Persist the observed host boot time without exposing it as public site configuration. */
+async function persistHostBootTime(bootTime: number): Promise<void> {
+  await pool.query(
+    `INSERT INTO web_settings (setting_key, setting_value, description, updated_by)
+     VALUES (?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       setting_value = VALUES(setting_value),
+       description = VALUES(description),
+       updated_by = VALUES(updated_by),
+       updated_at = CURRENT_TIMESTAMP`,
+    [
+      HOST_BOOT_MARKER_KEY,
+      String(bootTime),
+      'Internal durable marker for host reboot detection',
+      HOST_MONITOR_ACTOR,
+    ],
+  );
+}
+
+/**
+ * Reconcile the current kernel boot time with the durable marker and record a
+ * completed interval exactly once when the host has rebooted.
+ */
+export async function reconcileBootTime(currentBootTime: number): Promise<void> {
+  const previousBootTime = await getPersistedHostBootTime();
+  if (previousBootTime === null) {
+    await persistHostBootTime(currentBootTime);
+    logger.info(`Initialized host boot marker: ${currentBootTime}`);
+    return;
+  }
+
+  if (Math.abs(currentBootTime - previousBootTime) <= HOST_BOOT_TIME_TOLERANCE_SECONDS) {
+    return;
+  }
+
+  if (!(await rebootExists(previousBootTime))) {
+    await recordReboot(previousBootTime, currentBootTime);
+  }
+  await persistHostBootTime(currentBootTime);
+  logger.info(
+    `Server reboot detected! Old boot: ${previousBootTime}, New boot: ${currentBootTime}`,
+  );
 }
 
 /**
@@ -251,9 +296,10 @@ export async function getMostRecentMudBootTime(): Promise<number | null> {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT boot_time FROM server_reboots
-       WHERE shutdown_type IS NOT NULL
+       WHERE COALESCE(initiated_by, '') <> ?
        ORDER BY boot_time DESC
        LIMIT 1`,
+      [HOST_MONITOR_ACTOR],
     );
 
     if (rows.length > 0) {
@@ -278,13 +324,15 @@ export async function recordMudShutdown(
 ): Promise<number> {
   try {
     const shutdownTime = Math.floor(Date.now() / 1000);
-    const uptimeSeconds = shutdownTime - bootTime;
+    const uptimeSeconds = Math.max(shutdownTime - bootTime, 0);
+    const canonicalShutdownType = shutdownType === 'web_stop' ? 'shutdown' : 'reboot';
+    const auditedReason = `[${shutdownType}] ${reason}`;
 
     const [result] = await pool.query<ResultSetHeader>(
       `INSERT INTO server_reboots
-        (boot_time, shutdown_time, uptime_seconds, shutdown_type, initiated_by, reason)
+       (boot_time, shutdown_time, uptime_seconds, shutdown_type, initiated_by, reason)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [bootTime, shutdownTime, uptimeSeconds, shutdownType, initiatedBy, reason],
+      [bootTime, shutdownTime, uptimeSeconds, canonicalShutdownType, initiatedBy, auditedReason],
     );
 
     logger.info(
@@ -319,10 +367,10 @@ export async function getMudRebootHistory(limit: number = 20): Promise<
         initiated_by as initiatedBy,
         reason
        FROM server_reboots
-       WHERE shutdown_type IS NOT NULL
+       WHERE COALESCE(initiated_by, '') <> ?
        ORDER BY boot_time DESC
        LIMIT ?`,
-      [limit],
+      [HOST_MONITOR_ACTOR, limit],
     );
 
     return rows.map((row) => ({
@@ -339,11 +387,9 @@ export async function getMudRebootHistory(limit: number = 20): Promise<
 }
 
 /**
- * Poll for boot_time changes and record new reboots
+ * Poll for boot_time changes and reconcile them with the durable marker.
  * This function should be called periodically (e.g., every 60 seconds)
  */
-let lastKnownBootTime: number | null = null;
-
 export async function pollBootTime(): Promise<void> {
   try {
     const currentBootTime = await getCurrentBootTime();
@@ -352,34 +398,7 @@ export async function pollBootTime(): Promise<void> {
       return;
     }
 
-    // First run - initialize
-    if (lastKnownBootTime === null) {
-      lastKnownBootTime = currentBootTime;
-
-      // Check if this boot is already recorded
-      const exists = await rebootExists(currentBootTime);
-      if (!exists) {
-        await recordReboot(currentBootTime);
-        logger.info(`Recorded initial boot time: ${currentBootTime}`);
-      }
-      return;
-    }
-
-    // Boot time changed - server rebooted
-    if (currentBootTime !== lastKnownBootTime) {
-      const shutdownTime = Math.floor(Date.now() / 1000);
-
-      // Update the old reboot with shutdown info
-      await updateShutdownTime(lastKnownBootTime, shutdownTime);
-
-      // Record the new reboot
-      await recordReboot(currentBootTime);
-
-      logger.info(
-        `Server reboot detected! Old boot: ${lastKnownBootTime}, New boot: ${currentBootTime}`,
-      );
-      lastKnownBootTime = currentBootTime;
-    }
+    await reconcileBootTime(currentBootTime);
   } catch (error) {
     logger.error('Error polling boot time:', error);
   }

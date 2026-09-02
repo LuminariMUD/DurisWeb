@@ -38,7 +38,9 @@
 
    - Set `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME`.
    - Replace `JWT_SECRET` with output from `openssl rand -base64 64`.
-   - Set `MUD_DIR` and `MUD_ACCOUNTS_DIR` to the local MUD checkout.
+   - Set `MUD_DIR` and `MUD_ACCOUNTS_DIR` to the MUD checkout and account-data
+     directory. The same-host production values are `/home/duris/duris` and
+     `/home/duris/duris/Accounts`.
    - For the privileged bridge, replace `DURISWEB_SECRET` with at least 32
      random bytes and configure the same current key in the MUD service.
    - Leave `MUD_WS_URL` unset for the loopback default unless a real WSS endpoint

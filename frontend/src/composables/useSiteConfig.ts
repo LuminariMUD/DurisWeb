@@ -16,7 +16,8 @@ const defaultConfig: SiteConfig = {
   siteLogoUrl: '',
   mudHost: 'localhost',
   mudPort: '7777',
-  mudPortTls: '7778',
+  mudPortTls: '4001',
+  mudWsHost: 'localhost',
   mudWsPort: '4050',
   // Front page defaults
   frontPageHeroEnabled: true,
@@ -34,6 +35,7 @@ export function useSiteConfig() {
   const mudHost = computed(() => config.value?.mudHost ?? defaultConfig.mudHost)
   const mudPort = computed(() => config.value?.mudPort ?? defaultConfig.mudPort)
   const mudPortTls = computed(() => config.value?.mudPortTls ?? defaultConfig.mudPortTls)
+  const mudWsHost = computed(() => config.value?.mudWsHost ?? mudHost.value)
   const mudWsPort = computed(() => config.value?.mudWsPort ?? defaultConfig.mudWsPort)
 
   // Full MUD address for display
@@ -66,10 +68,10 @@ export function useSiteConfig() {
     // default behavior
     if (isSecure) {
       // WSS via NPM proxy on port 443
-      return `wss://${mudHost.value}`
+      return `wss://${mudWsHost.value}`
     }
     // Local dev: plain ws with explicit port
-    return `ws://${mudHost.value}:${mudWsPort.value}`
+    return `ws://${mudWsHost.value}:${mudWsPort.value}`
   })
 
   // Front page computed properties
@@ -142,6 +144,7 @@ export function useSiteConfig() {
     mudHost,
     mudPort,
     mudPortTls,
+    mudWsHost,
     mudWsPort,
     mudAddress,
     mudWsUrl,

@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 
+/** Create the web settings table and its production-safe connection defaults. */
 export async function up(knex: Knex): Promise<void> {
   // Web settings table for site configuration
   await knex.schema.createTable('web_settings', (table) => {
@@ -19,7 +20,7 @@ export async function up(knex: Knex): Promise<void> {
     },
     {
       setting_key: 'mud_host',
-      setting_value: 'mud.newduris.com',
+      setting_value: 'mud.duris.sbs',
       description: 'MUD server hostname displayed on the website',
     },
     {
@@ -29,8 +30,8 @@ export async function up(knex: Knex): Promise<void> {
     },
     {
       setting_key: 'mud_port_tls',
-      setting_value: '7778',
-      description: 'MUD server TLS port displayed on the website',
+      setting_value: '4001',
+      description: 'Optional direct TLS MUD port displayed on the website',
     },
     {
       setting_key: 'site_title',
@@ -45,6 +46,7 @@ export async function up(knex: Knex): Promise<void> {
   ]);
 }
 
+/** Remove the web settings table. */
 export async function down(knex: Knex): Promise<void> {
   await knex.schema.dropTableIfExists('web_settings');
 }

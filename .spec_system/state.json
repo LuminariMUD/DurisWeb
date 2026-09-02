@@ -18,7 +18,7 @@
     }
   ],
   "local_dev": {
-    "mud_server_path": "/home/aiwithapex/projects/duris/",
+    "mud_server_path": "/home/duris/duris/",
     "mud_server_note": "MUD server source (C) is checked out locally and directly readable. Both sides of every website<->MUD hook can be inspected; verify contracts against the MUD source rather than inferring them.",
     "mud_env_var": "MUD_DIR"
   },

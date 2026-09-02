@@ -92,6 +92,7 @@ function getSettingLabel(key: string): string {
     mud_host: 'MUD Server Host',
     mud_port: 'MUD Server Port',
     mud_port_tls: 'MUD Server TLS Port',
+    mud_ws_host: 'MUD WebSocket Host',
     mud_ws_port: 'MUD WebSocket Port',
     site_title: 'Website Title',
     site_logo_url: 'Website Logo URL',
@@ -106,7 +107,9 @@ function getSettingDescription(key: string): string {
       'How long to wait before showing new PvP battles on the website. Set to 0 for instant display.',
     mud_host: 'The hostname displayed on the website for players to connect.',
     mud_port: 'The port number displayed on the website for players to connect.',
-    mud_port_tls: 'The TLS/SSL port number displayed on the website for secure connections.',
+    mud_port_tls:
+      'Optional direct TLS/SSL MUD port displayed on the website. Leave blank when unavailable.',
+    mud_ws_host: 'The public hostname used by the browser-based MUD client.',
     mud_ws_port: 'The WebSocket port used by the web-based MUD client.',
     site_title: 'The name of your website displayed in the navbar and browser tab.',
     site_logo_url: 'The logo image displayed before the site title in the navbar.',
@@ -508,6 +511,29 @@ onMounted(async () => {
             </div>
             <p class="text-xs text-muted-foreground">
               {{ getSettingDescription('mud_port_tls') }}
+            </p>
+          </div>
+
+          <div class="space-y-2">
+            <Label for="mud_ws_host">{{ getSettingLabel('mud_ws_host') }}</Label>
+            <div class="flex gap-2">
+              <Input
+                id="mud_ws_host"
+                v-model="editedSettings.mud_ws_host"
+                type="text"
+                :disabled="isSaving.mud_ws_host || !isOverlord"
+                class="flex-1 max-w-[300px]"
+              />
+              <Button
+                @click="saveSetting('mud_ws_host')"
+                :disabled="isSaving.mud_ws_host || !isOverlord || !hasChanges('mud_ws_host')"
+                size="sm"
+              >
+                {{ isSaving.mud_ws_host ? 'Saving...' : 'Save' }}
+              </Button>
+            </div>
+            <p class="text-xs text-muted-foreground">
+              {{ getSettingDescription('mud_ws_host') }}
             </p>
           </div>
 
