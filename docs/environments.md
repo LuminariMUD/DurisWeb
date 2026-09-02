@@ -7,12 +7,26 @@
 | Development | Frontend `http://localhost:5173`; backend example `http://localhost:3001` | Supported through package scripts and Docker Compose dependencies; requires an external shared-schema baseline |
 | Test | Package-local Jest/Vitest; optional dedicated MySQL via `backend/.env.test` | Supported; database tests must use isolated credentials/data |
 | Staging | Not configured | No URL, platform, credentials, or probe target exists in the repository |
-| Production | Not verified | nginx, PM2, and systemd reference files exist, but no active platform/release authority is declared |
+| Production | `https://duris.sbs`; `https://www.duris.sbs` | Verified on 2026-09-02 using user-systemd services and a dedicated Cloudflare Tunnel |
 
-The nginx reference names `newduris.com`, while the checked-in service/process
-files contain differing users and absolute paths. Treat them as historical
-deployment inputs that require operator reconciliation, not a deployable source
-of truth.
+Production uses the checked-in units under `deploy/systemd/`, not the historical
+nginx, PM2, or split frontend/backend service files. The verified checkout is
+`/home/duris/durisweb`; the application listens only on `127.0.0.1:7770` and a
+dedicated Cloudflare Tunnel publishes apex and `www`. Staging remains undefined.
+
+## Verified Production Endpoints
+
+| Purpose | Endpoint | Notes |
+|---------|----------|-------|
+| Public website/API | `https://duris.sbs` | Cloudflare Tunnel to loopback port 7770 |
+| Website alias | `https://www.duris.sbs` | Same dedicated website tunnel |
+| DurisWeb browser WebSocket | `wss://duris.sbs/ws` | Served by the Express application |
+| Primary MUD connection | `mud.duris.sbs:7777` | DNS-only raw TCP; used by almost all players |
+| Direct TLS MUD connection | `mud.duris.sbs:4001` | Hostname-verified TLS game port |
+| Browser MUD connection | `wss://ws.duris.sbs` | Separate MUD tunnel to loopback port 4050 |
+
+Do not substitute `mud.newduris.com` for these production endpoints. The raw,
+direct-TLS, and browser-WebSocket transports deliberately use separate settings.
 
 ## Backend Required Configuration
 
@@ -28,7 +42,7 @@ of truth.
 
 | Variable | Purpose | Boundary |
 |----------|---------|----------|
-| `MUD_WS_URL` | Privileged MUD bridge endpoint | Defaults to loopback `ws://127.0.0.1:4050`; remote hosts require validated `wss:` |
+| `MUD_WS_URL` | Privileged MUD bridge endpoint | Production uses loopback `ws://127.0.0.1:4050`; remote hosts require validated `wss:` |
 | `DURISWEB_SECRET` | Current bridge HMAC key | Backend and MUD only; at least 32 bytes |
 | `DURISWEB_SECRET_PREVIOUS` | Bounded rotation fallback | Optional; remove after all clients use the new key |
 | `DURISWEB_SECRET_ROTATED_AT` | Admin-console age metadata | Timestamp only, not secret material |
@@ -57,8 +71,9 @@ third-party private keys, or webhook verification tokens.
 
 - Production cookies become secure and same-site strict when
   `NODE_ENV=production`.
-- Cross-host MUD bridging needs live certificate-valid WSS acceptance before
-  release. Repository tests cover policy, not the external endpoint.
+- The production privileged bridge is same-host loopback and HMAC-authenticated.
+  The separate public browser path `wss://ws.duris.sbs` was certificate- and
+  connection-tested during deployment.
 - `DURISWEB_PRIVATE_PRESENCE` on the MUD must be exactly `TRUE` to include
   account names, IP addresses, or client metadata in presence payloads; default
   feeds omit them.

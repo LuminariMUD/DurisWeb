@@ -1,8 +1,9 @@
 # DurisWeb HTTP API
 
 The Express application is assembled in `backend/src/index.ts`. In the example
-development environment the base URL is `http://localhost:3001`; nginx proxies
-`/api`, `/ws`, and `/kofihook` in the reference production configuration.
+development environment the base URL is `http://localhost:3001`. Production is
+served at `https://duris.sbs`; a dedicated Cloudflare Tunnel forwards the SPA,
+`/api`, `/ws`, and `/kofihook` to the loopback Express origin.
 
 There is no OpenAPI document or generated client. Route modules and their
 tests remain the executable source of truth; this page documents stable entry

@@ -66,10 +66,17 @@ manifest and lockfile; run package commands from that package or use `pnpm
 
 ## Project Status
 
+Version 1.2.0 is deployed at `https://duris.sbs`. Production uses a same-host,
+HMAC-authenticated loopback bridge to DurisMUD, a dedicated website Cloudflare
+Tunnel, and a separate certificate-valid `wss://ws.duris.sbs` browser path. The
+primary player connection is `mud.duris.sbs:7777`; direct TLS is available on
+`mud.duris.sbs:4001`. See [Deployment](docs/deployment.md) for the verified
+topology and release gates.
+
 Phase 00 is complete: all seven hook-control and integration-security sessions
-validated. The DurisMUD implementation is pushed on its feature branch and is
-intentionally unmerged. Live certificate-valid WSS remains an operator-owned
-acceptance before cross-host production use.
+validated. Repository and MUD feature-branch integration status still needs the
+normal maintainer merge/release process; live deployment does not imply that
+every branch has been merged to its default branch.
 
 The cumulative security posture is `AT RISK` because dependency, refresh-token,
 session-timezone, and privacy-lifecycle work remains. See the

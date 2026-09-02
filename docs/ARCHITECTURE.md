@@ -10,9 +10,9 @@ integration, and operator actions.
 ```text
 Browser
   |
-  | HTTPS / WSS
+  | HTTPS / WSS through Cloudflare Tunnel
   v
-Vue frontend ---- HTTP / browser WebSocket ---- Express backend
+Vue frontend ---- HTTP / browser WebSocket ---- Express backend (127.0.0.1:7770)
                                                   |       |
                                       MySQL <-----+       +---- Redis
                                         ^
@@ -25,9 +25,9 @@ Vue frontend ---- HTTP / browser WebSocket ---- Express backend
                                         +-------------------------- backend
 ```
 
-The checked-in nginx, PM2, and systemd files are deployment references, not a
-verified active platform. No production or staging target is configured in
-repository state.
+Production uses the checked-in user-systemd units under `deploy/systemd/` and a
+dedicated Cloudflare Tunnel for `duris.sbs`/`www`. The older nginx, PM2, and
+split service files are historical references. Staging is not configured.
 
 ## Components
 
@@ -49,9 +49,10 @@ repository state.
 - DurisWeb and DurisMUD currently share one MySQL schema. MUD core tables are
   created outside the DurisWeb Knex chain, and DurisWeb migrations alter some
   MUD-owned tables.
-- The historic migration chain is not clean-room replayable. The current
-  development ledger is also inconsistent with observed schema state. Treat
-  baseline/ledger repair as dedicated backup-first work.
+- The 1.2.0 forward migration chain was replayed successfully against a restored
+  production baseline on MariaDB 10.11. MUD-owned runtime schema is guarded by
+  the migration and startup preflights. Historical down migrations are not a
+  safe production inverse, so schema releases remain backup-first work.
 - Redis serves ordinary application caching and separately scoped integration
   pub/sub identities. Legacy unscoped MUD channels are prohibited by tests.
 - Browser build-time values use the `VITE_*` namespace and are public. Backend
@@ -61,7 +62,7 @@ repository state.
 
 | Channel | Direction | Trust Boundary | Key Controls |
 |---------|-----------|----------------|--------------|
-| Privileged bridge | MUD -> web, with web commands | HMAC-authenticated WebSocket | Connection-bound challenge, current/previous secret, loopback-only plaintext, validated WSS for remote hosts |
+| Privileged bridge | MUD -> web, with web commands | HMAC-authenticated WebSocket | Production is same-host loopback; connection-bound challenge and current/previous secret |
 | Scoped pub/sub | Both | Redis ACL credentials and deployment namespace | Namespace plus season epoch, dedicated roles, signed donation events |
 | Flatfile/log ingestion | MUD -> web | Host filesystem beneath `MUD_DIR` | Canonical containment, file type/size/encoding validation, strict records, per-hook backoff |
 | Process control | Web -> MUD host | Admin permission and command construction | `mud_control` permission, bounded request validation |
@@ -104,9 +105,11 @@ See [ADR 0001](adr/0001-hook-control-ownership-and-state.md) and the
 
 - Backend `GET /health` checks MySQL and Redis concurrently and returns 503 when
   either fails.
-- Frontend `public/health` is copied into the production build as `/health`.
-- These checks were validated locally. No production platform probe is
-  configured.
+- Frontend `public/health` is copied into the production build, while the
+  Express production route at `/health` reports persistent dependency status.
+- Local origin and public apex/`www` health are verified through the dedicated
+  tunnel. The tunnel also exposes a loopback-only readiness endpoint for
+  operator checks.
 - The backup service creates local ZIP archives; Phase transition validation
   exercised a real disposable backup, archive test, and restore. Restore is an
   operator action and is not automated by CI.

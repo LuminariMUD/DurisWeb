@@ -2,6 +2,7 @@
 Description=Cloudflare Tunnel for DurisWeb production website
 Wants=network-online.target
 BindsTo=durisweb-production.service
+PartOf=durisweb-production.service
 After=network-online.target durisweb-production.service
 StartLimitIntervalSec=300
 StartLimitBurst=5
