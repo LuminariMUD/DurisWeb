@@ -14,10 +14,9 @@ and the frontend:
 ./scripts/dev.sh
 ```
 
-The example configuration serves the frontend at `http://localhost:5173` and
-the backend health endpoint at `http://localhost:3001/health`. Press `Ctrl-C`
-to stop the application processes; stop the local dependencies separately with
-`docker compose -f podman-compose.yml down`.
+The script requires root, backend, and frontend environment files and prints
+the configured frontend and health URLs. Press `Ctrl-C` to stop the application
+processes; stop local dependencies separately with the same root `.env`.
 
 The Compose database is infrastructure only. It does not solve the known
 shared-MUD schema and historical migration-baseline problem. Read the onboarding
@@ -37,9 +36,8 @@ database warning before using a new database.
 ```
 
 The DurisMUD C server is a separate repository. The backend reads its checkout
-from `MUD_DIR` and its account data from `MUD_ACCOUNTS_DIR`. The same-host
-production configuration uses `/home/duris/duris` and
-`/home/duris/duris/Accounts`, respectively.
+from the required `MUD_DIR`; every other host path is supplied through backend
+or deployment configuration.
 
 ## Packages
 
@@ -66,12 +64,10 @@ manifest and lockfile; run package commands from that package or use `pnpm
 
 ## Project Status
 
-Version 1.2.0 is deployed at `https://duris.sbs`. Production uses a same-host,
-HMAC-authenticated loopback bridge to DurisMUD, a dedicated website Cloudflare
-Tunnel, and a separate certificate-valid `wss://ws.duris.sbs` browser path. The
-primary player connection is `mud.duris.sbs:7777`; direct TLS is available on
-`mud.duris.sbs:4001`. See [Deployment](docs/deployment.md) for the verified
-topology and release gates.
+Production topology is operator-supplied through a protected deployment input,
+then rendered into systemd, Redis, and ingress files. No production hostname,
+port, user home, or secret is compiled into the repository. See
+[Deployment](docs/deployment.md) for the release gates.
 
 Phase 00 is complete: all seven hook-control and integration-security sessions
 validated. Repository and MUD feature-branch integration status still needs the

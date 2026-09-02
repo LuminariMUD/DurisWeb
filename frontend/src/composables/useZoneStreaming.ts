@@ -4,6 +4,7 @@
 import { ref, computed, onUnmounted, type Ref, type ComputedRef } from 'vue'
 import type { RoomIndex, MobIndex, ObjIndex, ResetWithMetadata } from '@/types'
 import { useGlobalProgress } from './useGlobalProgress'
+import { frontendConfiguration } from '@/config/environment'
 
 export interface StreamState<T> {
   isStreaming: boolean
@@ -51,7 +52,7 @@ export interface UseZoneStreamingReturn {
 }
 
 export function useZoneStreaming(): UseZoneStreamingReturn {
-  const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3001/ws'
+  const WS_URL = frontendConfiguration.websocketUrl
   const { addTask, updateTask, completeTask, removeTask } = useGlobalProgress()
 
   // State for each type

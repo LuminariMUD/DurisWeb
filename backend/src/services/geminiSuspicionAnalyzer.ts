@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { getBackendConfiguration } from '../config/environment.js';
 import { pool as db } from '../db/connection.js';
 import logger from '../utils/logger.js';
 
@@ -182,13 +183,13 @@ function parseResponse(text: string): GeminiAnalysisResult {
 export async function analyzeWithGemini(daysBack: number = 30): Promise<GeminiAnalysisResult> {
   logger.info(`starting gemini ai analysis (${daysBack} days)...`);
 
-  // Check API key
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY not set in environment variables');
+  const configuration = getBackendConfiguration();
+  if (!configuration.features.gemini || !configuration.geminiApiKey) {
+    throw new Error('Gemini integration is disabled');
   }
 
   // Initialize Gemini
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const genAI = new GoogleGenerativeAI(configuration.geminiApiKey);
   // Use stable free tier model (gemini-2.5-flash is free and fast)
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 

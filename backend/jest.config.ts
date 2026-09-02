@@ -19,6 +19,7 @@ const config: Config = {
     ],
   },
   testMatch: ['**/__tests__/**/*.test.ts', '**/test/**/*.test.ts'],
+  setupFiles: ['<rootDir>/src/test/setupEnvironment.ts'],
   collectCoverageFrom: ['src/**/*.ts', '!src/__tests__/**', '!src/types/**'],
   coverageDirectory: 'coverage',
   verbose: true,

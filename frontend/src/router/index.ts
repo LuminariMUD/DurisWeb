@@ -1,9 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { frontendConfiguration } from '@/config/environment'
 import { useAuth } from '@/composables/useAuth'
 import { profileApi, wikiApi } from '@/services/api'
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHistory(frontendConfiguration.baseUrl),
   routes: [
     {
       path: '/',

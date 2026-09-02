@@ -2,7 +2,6 @@ import express, { Application, Request, Response } from 'express';
 import compression from 'compression';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv';
 import { WebSocketServer, WebSocket } from 'ws';
 import http from 'http';
 import path from 'path';
@@ -117,17 +116,16 @@ import {
 } from './utils/websocketAccess.js';
 import { isDiscordEnabled, postBattleToDiscord } from './services/discordService.js';
 import { pool } from './db/connection.js';
+import { getBackendConfiguration } from './config/environment.js';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables
-dotenv.config();
-
+const environment = getBackendConfiguration();
 const app: Application = express();
-const PORT = parseInt(process.env.PORT || '3000', 10);
-const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost');
+const PORT = environment.server.port;
+const HOST = environment.server.host;
 
 // Trust proxy - required when running behind nginx/reverse proxy
 // This allows express-rate-limit to correctly identify users via X-Forwarded-For
@@ -139,9 +137,7 @@ configureRequestBodyParsers(app);
 app.use(cookieParser());
 
 // CORS configuration
-const allowedOrigins = (
-  process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173', 'http://localhost:3000']
-).map((origin) => origin.trim());
+const allowedOrigins = environment.server.allowedOrigins;
 
 logger.info('CORS allowed origins:', allowedOrigins);
 
@@ -189,11 +185,11 @@ app.get('/api/site-config', async (_req: Request, res: Response) => {
     res.json({
       siteTitle: settings.siteTitle,
       siteLogoUrl: settings.siteLogoUrl,
+      supportUrl: settings.supportUrl,
       mudHost: settings.mudHost,
       mudPort: settings.mudPort,
       mudPortTls: settings.mudPortTls,
-      mudWsHost: settings.mudWsHost,
-      mudWsPort: settings.mudWsPort,
+      mudWsUrl: settings.mudWsUrl,
       // Front page settings
       frontPageHeroEnabled: settings.frontPageHeroEnabled,
       frontPageHeroTitle: settings.frontPageHeroTitle,
@@ -250,7 +246,7 @@ const publicPath = path.join(process.cwd(), 'public');
 app.use(express.static(publicPath, { maxAge: '7d' }));
 
 // Serve frontend static files in production
-if (process.env.NODE_ENV === 'production') {
+if (environment.environment === 'production') {
   const frontendDistPath = path.join(__dirname, '../../frontend/dist');
   const indexHtmlPath = path.join(frontendDistPath, 'index.html');
 
@@ -282,6 +278,7 @@ if (process.env.NODE_ENV === 'production') {
     eventId: number,
     event: { room_name: string; stamp: Date },
     participants: Array<{ player_description: string; pk_type: string }>,
+    siteTitle: string,
     logoUrl?: string,
   ): string => {
     const killers = participants
@@ -292,9 +289,9 @@ if (process.env.NODE_ENV === 'production') {
       .map((p) => extractPlayerName(p.player_description));
     const location = stripAnsi(event.room_name);
 
-    const title = `Battle #${eventId} - ${killers.join(', ')} vs ${victims.join(', ')} | NewDuris`;
+    const title = `Battle #${eventId} - ${killers.join(', ')} vs ${victims.join(', ')} | ${siteTitle}`;
     const description = `PvP battle at ${location} - ${killers.join(', ')} defeated ${victims.join(', ')}`;
-    const url = `https://www.newduris.com/pvp/${eventId}`;
+    const url = `${environment.siteUrl}/pvp/${eventId}`;
 
     const imageTags = logoUrl
       ? `
@@ -309,7 +306,7 @@ if (process.env.NODE_ENV === 'production') {
     <meta property="og:description" content="${description}">
     <meta property="og:type" content="website">
     <meta property="og:url" content="${url}">
-    <meta property="og:site_name" content="NewDuris">${imageTags}
+    <meta property="og:site_name" content="${siteTitle}">${imageTags}
     <meta name="twitter:card" content="${logoUrl ? 'summary_large_image' : 'summary'}">
     <meta name="twitter:title" content="${title}">
     <meta name="twitter:description" content="${description}">
@@ -339,6 +336,7 @@ if (process.env.NODE_ENV === 'production') {
             eventId,
             battleData.event,
             battleData.participants,
+            webSettings.siteTitle,
             webSettings.siteLogoUrl || undefined,
           );
 
@@ -360,7 +358,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // 404 handler (only for development or API routes in production)
-if (process.env.NODE_ENV !== 'production') {
+if (environment.environment !== 'production') {
   app.use(notFoundHandler);
 }
 
@@ -1675,12 +1673,11 @@ async function startServer() {
     // netstat watcher removed - player count now tracked via mud websocket events
 
     // Start guild auto-access sync service (polls every 5 minutes)
-    // DISABLED by default - set ENABLE_GUILD_SYNC=true in .env to enable
-    if (process.env.ENABLE_GUILD_SYNC === 'true') {
+    if (environment.features.guildSync) {
       startGuildSync();
       logger.info('Guild sync service enabled');
     } else {
-      logger.info('Guild sync service disabled (set ENABLE_GUILD_SYNC=true to enable)');
+      logger.info('Guild sync service disabled');
     }
 
     // crash detection now handled by mud websocket disconnect in mudAuctionClient
@@ -1722,12 +1719,14 @@ async function startServer() {
 
     // Initialize player event subscriber (redis pub/sub for login/logout)
     setPlayerEventBroadcaster(broadcastPlayerEvent);
-    await startPlayerEventSubscriber();
-    logger.info('Player event subscriber initialized');
+    if (environment.features.mudRedis) {
+      await startPlayerEventSubscriber();
+      logger.info('Player event subscriber initialized');
+    }
 
     // Initialize the durable donation outbox. It remains disabled until its
     // production delivery settings and independent HMAC secret are present.
-    startDonationOutboxPublisher();
+    if (environment.features.donations) startDonationOutboxPublisher();
 
     // Initialize notification broadcaster
     setNotificationBroadcaster(broadcastNotification);
@@ -1758,7 +1757,7 @@ async function startServer() {
       logger.info(`\n${'='.repeat(50)}`);
       logger.info(`DurisMUD PvP API Server`);
       logger.info(`${'='.repeat(50)}`);
-      logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      logger.info(`Environment: ${environment.environment}`);
       logger.info(`Server running on: http://${HOST}:${PORT}`);
       logger.info(`WebSocket: ws://${HOST}:${PORT}/ws`);
       logger.info(`Health check: http://${HOST}:${PORT}/health`);
@@ -1795,7 +1794,7 @@ async function startServer() {
 }
 
 // Only start server if not in test mode
-if (process.env.NODE_ENV !== 'test') {
+if (environment.environment !== 'test') {
   startServer();
 }
 

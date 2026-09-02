@@ -4,12 +4,15 @@ import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import { VitePWA } from 'vite-plugin-pwa'
+import { parseViteEnvironment } from './config/environment'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  const environment = parseViteEnvironment(env)
 
   return {
+    base: environment.baseUrl,
     plugins: [
       vue(),
       vueDevTools(),
@@ -84,31 +87,23 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      host: process.env.HOST,
-      port: 5173,
-      allowedHosts: [
-        'localhost',
-        'www.duris.sbs',
-        'duris.sbs',
-        '.duris.sbs',
-        'www.newduris.com',
-        'newduris.com',
-        '.newduris.com', // Allow all subdomains
-      ],
+      host: environment.developmentHost,
+      port: environment.developmentPort,
+      allowedHosts: environment.allowedHosts,
       proxy: {
         '/api': {
-          target: env.VITE_API_URL,
+          target: environment.apiUrl,
           changeOrigin: true,
         },
         '/maps': {
-          target: env.VITE_API_URL,
+          target: environment.apiUrl,
           changeOrigin: true,
         },
       },
     },
     preview: {
-      host: env.HOST,
-      port: 4173,
+      host: environment.previewHost,
+      port: environment.previewPort,
     },
     build: {
       // Reduce memory usage during build

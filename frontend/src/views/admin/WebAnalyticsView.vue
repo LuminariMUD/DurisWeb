@@ -38,8 +38,9 @@ import {
   TrendingUp,
   RefreshCw,
 } from 'lucide-vue-next'
+import { frontendConfiguration } from '@/config/environment'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_URL = frontendConfiguration.apiUrl
 
 // State
 const isLoading = ref(true)

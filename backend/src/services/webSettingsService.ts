@@ -1,41 +1,20 @@
 import { RowDataPacket } from 'mysql2';
 import { pool as db } from '../db/connection.js';
-import {
-  S3Client,
-  PutObjectCommand,
-  DeleteObjectCommand,
-  ListObjectsV2Command,
-} from '@aws-sdk/client-s3';
+import { PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import logger from '../utils/logger.js';
 import { extractImageUrls } from './postImageService.js';
-
-// R2 Configuration from environment
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || '';
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '';
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'durisweb';
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || 'https://static2.resakse.com';
-
-// Initialize S3 client for R2
-const s3Client = new S3Client({
-  region: 'auto',
-  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_ACCESS_KEY,
-  },
-});
+import { isR2Enabled, requireR2Storage } from './r2Client.js';
 
 export interface WebSettings {
   pvpDelayMinutes: number;
   mudHost: string;
   mudPort: string;
   mudPortTls: string;
-  mudWsHost: string;
-  mudWsPort: string;
+  mudWsUrl: string;
   siteTitle: string;
   siteLogoUrl: string;
+  supportUrl: string;
   // Front page settings
   frontPageHeroEnabled: boolean;
   frontPageHeroTitle: string;
@@ -76,7 +55,184 @@ const ALLOWED_LOGO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
  * Check if R2 is configured
  */
 function isR2Configured(): boolean {
-  return !!(R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY);
+  return isR2Enabled();
+}
+
+export class WebSettingsConfigurationError extends Error {
+  constructor(readonly issues: readonly string[]) {
+    super(`Invalid web_settings configuration:\n- ${issues.join('\n- ')}`);
+    this.name = 'WebSettingsConfigurationError';
+  }
+}
+
+const REQUIRED_SETTING_KEYS = [
+  'pvp_delay_minutes',
+  'mud_host',
+  'mud_port',
+  'mud_port_tls',
+  'mud_ws_url',
+  'site_title',
+  'site_logo_url',
+  'support_url',
+  'front_page_hero_enabled',
+  'front_page_hero_title',
+  'front_page_hero_subtitle',
+  'front_page_hero_image_url',
+  'front_page_content',
+  'max_hourly_backups',
+  'respect_webinfo_toggle',
+  'discord_webhook_url',
+  'discord_webhook_enabled',
+] as const;
+
+function parsePortSetting(
+  settings: ReadonlyMap<string, string>,
+  key: string,
+  issues: string[],
+  optional = false,
+): string {
+  const value = settings.get(key) ?? '';
+  if (optional && value === '') return value;
+  const parsed = Number(value);
+  if (!/^\d+$/.test(value) || !Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
+    issues.push(`${key} must be an integer between 1 and 65535`);
+  }
+  return value;
+}
+
+function parseIntegerSetting(
+  settings: ReadonlyMap<string, string>,
+  key: string,
+  minimum: number,
+  maximum: number,
+  issues: string[],
+): number {
+  const value = settings.get(key) ?? '';
+  const parsed = Number(value);
+  if (!/^\d+$/.test(value) || !Number.isInteger(parsed) || parsed < minimum || parsed > maximum) {
+    issues.push(`${key} must be an integer between ${minimum} and ${maximum}`);
+    return minimum;
+  }
+  return parsed;
+}
+
+function parseBooleanSetting(
+  settings: ReadonlyMap<string, string>,
+  key: string,
+  issues: string[],
+): boolean {
+  const value = settings.get(key);
+  if (value !== 'true' && value !== 'false') {
+    issues.push(`${key} must be true or false`);
+    return false;
+  }
+  return value === 'true';
+}
+
+function validateHostname(value: string, key: string, issues: string[]): void {
+  if (
+    !value ||
+    value.length > 253 ||
+    !/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(
+      value,
+    )
+  ) {
+    issues.push(`${key} must be a hostname without a scheme, port, or path`);
+  }
+}
+
+function validateOptionalHttpUrl(value: string, key: string, issues: string[]): void {
+  if (!value) return;
+  try {
+    const parsed = new URL(value);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      issues.push(`${key} must use http: or https:`);
+    }
+  } catch {
+    issues.push(`${key} must be a valid URL`);
+  }
+}
+
+function validateWebSocketUrl(value: string, key: string, issues: string[]): void {
+  if (!value) {
+    issues.push(`${key} must not be empty`);
+    return;
+  }
+  try {
+    const parsed = new URL(value);
+    if (!['ws:', 'wss:'].includes(parsed.protocol)) {
+      issues.push(`${key} must use ws: or wss:`);
+    }
+    if (parsed.username || parsed.password) {
+      issues.push(`${key} must not contain credentials`);
+    }
+  } catch {
+    issues.push(`${key} must be a valid URL`);
+  }
+}
+
+export function parseWebSettingsRows(
+  rows: readonly { setting_key: unknown; setting_value: unknown }[],
+): WebSettings {
+  const values = new Map<string, string>();
+  for (const row of rows) {
+    if (typeof row.setting_key === 'string' && typeof row.setting_value === 'string') {
+      values.set(row.setting_key, row.setting_value);
+    }
+  }
+
+  const issues = REQUIRED_SETTING_KEYS.filter((key) => !values.has(key)).map(
+    (key) => `${key} is missing`,
+  );
+  const mudHost = values.get('mud_host') ?? '';
+  const mudWsUrl = values.get('mud_ws_url') ?? '';
+  const siteTitle = values.get('site_title') ?? '';
+  const heroTitle = values.get('front_page_hero_title') ?? '';
+  const heroSubtitle = values.get('front_page_hero_subtitle') ?? '';
+  validateHostname(mudHost, 'mud_host', issues);
+  validateWebSocketUrl(mudWsUrl, 'mud_ws_url', issues);
+  if (!siteTitle.trim()) issues.push('site_title must not be empty');
+  if (!heroTitle.trim()) issues.push('front_page_hero_title must not be empty');
+  if (!heroSubtitle.trim()) issues.push('front_page_hero_subtitle must not be empty');
+  validateOptionalHttpUrl(values.get('site_logo_url') ?? '', 'site_logo_url', issues);
+  validateOptionalHttpUrl(values.get('support_url') ?? '', 'support_url', issues);
+  validateOptionalHttpUrl(
+    values.get('front_page_hero_image_url') ?? '',
+    'front_page_hero_image_url',
+    issues,
+  );
+
+  const discordWebhookEnabled = parseBooleanSetting(values, 'discord_webhook_enabled', issues);
+  const discordWebhookUrl = values.get('discord_webhook_url') ?? '';
+  if (discordWebhookEnabled && !discordWebhookUrl) {
+    issues.push('discord_webhook_url is required when discord_webhook_enabled is true');
+  }
+  if (discordWebhookUrl && !discordWebhookUrl.startsWith('https://discord.com/api/webhooks/')) {
+    issues.push('discord_webhook_url must be a Discord HTTPS webhook URL');
+  }
+
+  const settings: WebSettings = {
+    pvpDelayMinutes: parseIntegerSetting(values, 'pvp_delay_minutes', 0, 1440, issues),
+    mudHost,
+    mudPort: parsePortSetting(values, 'mud_port', issues),
+    mudPortTls: parsePortSetting(values, 'mud_port_tls', issues, true),
+    mudWsUrl,
+    siteTitle,
+    siteLogoUrl: values.get('site_logo_url') ?? '',
+    supportUrl: values.get('support_url') ?? '',
+    frontPageHeroEnabled: parseBooleanSetting(values, 'front_page_hero_enabled', issues),
+    frontPageHeroTitle: heroTitle,
+    frontPageHeroSubtitle: heroSubtitle,
+    frontPageHeroImageUrl: values.get('front_page_hero_image_url') ?? '',
+    frontPageContent: values.get('front_page_content') ?? '',
+    maxHourlyBackups: parseIntegerSetting(values, 'max_hourly_backups', 1, 168, issues),
+    respectWebinfoToggle: parseBooleanSetting(values, 'respect_webinfo_toggle', issues),
+    discordWebhookUrl,
+    discordWebhookEnabled,
+  };
+
+  if (issues.length > 0) throw new WebSettingsConfigurationError(issues);
+  return settings;
 }
 
 /**
@@ -88,93 +244,11 @@ export async function getWebSettings(): Promise<WebSettings> {
     return settingsCache.settings;
   }
 
-  const [rows] = await db.query<RowDataPacket[]>(
-    'SELECT setting_key, setting_value FROM web_settings',
-  );
+  const [rows] = await db.query<
+    Array<RowDataPacket & { setting_key: string; setting_value: string }>
+  >('SELECT setting_key, setting_value FROM web_settings');
 
-  // Default values
-  const settings: WebSettings = {
-    pvpDelayMinutes: 15,
-    mudHost: 'mud.duris.sbs',
-    mudPort: '7777',
-    mudPortTls: '4001',
-    mudWsHost: 'ws.duris.sbs',
-    mudWsPort: '4050',
-    siteTitle: 'NewDuris',
-    siteLogoUrl: '',
-    // Front page defaults
-    frontPageHeroEnabled: true,
-    frontPageHeroTitle: 'Welcome to DurisMUD',
-    frontPageHeroSubtitle: 'The Premier PvP MUD Since 1994',
-    frontPageHeroImageUrl: '',
-    frontPageContent: '<p>Welcome to the official DurisMUD website.</p>',
-    // Backup defaults
-    maxHourlyBackups: 24,
-    // Privacy defaults (respect player's webinfo toggle by default)
-    respectWebinfoToggle: true,
-    // Discord defaults
-    discordWebhookUrl: '',
-    discordWebhookEnabled: false,
-  };
-
-  rows.forEach((row: RowDataPacket) => {
-    const key = row.setting_key;
-    const value = row.setting_value;
-
-    switch (key) {
-      case 'pvp_delay_minutes':
-        settings.pvpDelayMinutes = parseInt(value, 10) || 15;
-        break;
-      case 'mud_host':
-        settings.mudHost = value || 'mud.duris.sbs';
-        break;
-      case 'mud_port':
-        settings.mudPort = value || '7777';
-        break;
-      case 'mud_port_tls':
-        settings.mudPortTls = value;
-        break;
-      case 'mud_ws_host':
-        settings.mudWsHost = value || 'ws.duris.sbs';
-        break;
-      case 'mud_ws_port':
-        settings.mudWsPort = value || '4050';
-        break;
-      case 'site_title':
-        settings.siteTitle = value || 'NewDuris';
-        break;
-      case 'site_logo_url':
-        settings.siteLogoUrl = value || '';
-        break;
-      case 'front_page_hero_enabled':
-        settings.frontPageHeroEnabled = value === 'true';
-        break;
-      case 'front_page_hero_title':
-        settings.frontPageHeroTitle = value || 'Welcome to DurisMUD';
-        break;
-      case 'front_page_hero_subtitle':
-        settings.frontPageHeroSubtitle = value || 'The Premier PvP MUD Since 1994';
-        break;
-      case 'front_page_hero_image_url':
-        settings.frontPageHeroImageUrl = value || '';
-        break;
-      case 'front_page_content':
-        settings.frontPageContent = value || '<p>Welcome to the official DurisMUD website.</p>';
-        break;
-      case 'max_hourly_backups':
-        settings.maxHourlyBackups = parseInt(value, 10) || 24;
-        break;
-      case 'respect_webinfo_toggle':
-        settings.respectWebinfoToggle = value !== 'false';
-        break;
-      case 'discord_webhook_url':
-        settings.discordWebhookUrl = value || '';
-        break;
-      case 'discord_webhook_enabled':
-        settings.discordWebhookEnabled = value === 'true';
-        break;
-    }
-  });
+  const settings = parseWebSettingsRows(rows);
 
   // Cache the settings
   settingsCache = {
@@ -231,10 +305,10 @@ export async function updateWebSetting(
     'mud_host',
     'mud_port',
     'mud_port_tls',
-    'mud_ws_host',
-    'mud_ws_port',
+    'mud_ws_url',
     'site_title',
     'site_logo_url',
+    'support_url',
     'front_page_hero_enabled',
     'front_page_hero_title',
     'front_page_hero_subtitle',
@@ -280,7 +354,24 @@ export async function updateWebSetting(
     }
   }
 
-  if (key === 'mud_host' || key === 'mud_ws_host') {
+  if (key === 'support_url') {
+    try {
+      if (value) {
+        const parsed = new URL(value);
+        if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('invalid protocol');
+      }
+    } catch {
+      throw new Error('Support URL must be a valid HTTP or HTTPS URL');
+    }
+  }
+
+  if (key === 'mud_ws_url') {
+    const validationIssues: string[] = [];
+    validateWebSocketUrl(value, key, validationIssues);
+    if (validationIssues.length > 0) throw new Error(validationIssues.join('; '));
+  }
+
+  if (key === 'mud_host') {
     if (
       !value ||
       value.length > 253 ||
@@ -308,10 +399,7 @@ export async function updateWebSetting(
   }
 
   // Validate mud_port is a valid port number
-  if (
-    (key === 'mud_port' || key === 'mud_port_tls' || key === 'mud_ws_port') &&
-    !(key === 'mud_port_tls' && value === '')
-  ) {
+  if ((key === 'mud_port' || key === 'mud_port_tls') && !(key === 'mud_port_tls' && value === '')) {
     const portValue = parseInt(value, 10);
     if (isNaN(portValue) || portValue < 1 || portValue > 65535) {
       throw new Error('MUD port must be between 1 and 65535');
@@ -407,9 +495,10 @@ async function processLogo(
 async function deleteOldLogos(): Promise<void> {
   try {
     const prefix = 'duris/site/logo_';
-    const listResponse = await s3Client.send(
+    const r2 = requireR2Storage();
+    const listResponse = await r2.client.send(
       new ListObjectsV2Command({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: r2.configuration.bucketName,
         Prefix: prefix,
       }),
     );
@@ -417,9 +506,9 @@ async function deleteOldLogos(): Promise<void> {
     if (listResponse.Contents && listResponse.Contents.length > 0) {
       for (const obj of listResponse.Contents) {
         if (obj.Key) {
-          await s3Client.send(
+          await r2.client.send(
             new DeleteObjectCommand({
-              Bucket: R2_BUCKET_NAME,
+              Bucket: r2.configuration.bucketName,
               Key: obj.Key,
             }),
           );
@@ -460,9 +549,10 @@ export async function uploadSiteLogo(
   await deleteOldLogos();
 
   // Upload to R2
-  await s3Client.send(
+  const r2 = requireR2Storage();
+  await r2.client.send(
     new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
+      Bucket: r2.configuration.bucketName,
       Key: key,
       Body: buffer,
       ContentType: contentType,
@@ -471,7 +561,7 @@ export async function uploadSiteLogo(
   );
 
   // Build public URL
-  const logoUrl = `${R2_PUBLIC_URL}/${key}`;
+  const logoUrl = `${r2.configuration.publicUrl}/${key}`;
 
   // Update the setting in database
   await updateWebSetting('site_logo_url', logoUrl, updatedBy);
@@ -558,9 +648,10 @@ async function processHeroImage(
 async function deleteOldHeroImages(): Promise<void> {
   try {
     const prefix = 'duris/site/hero_';
-    const listResponse = await s3Client.send(
+    const r2 = requireR2Storage();
+    const listResponse = await r2.client.send(
       new ListObjectsV2Command({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: r2.configuration.bucketName,
         Prefix: prefix,
       }),
     );
@@ -568,9 +659,9 @@ async function deleteOldHeroImages(): Promise<void> {
     if (listResponse.Contents && listResponse.Contents.length > 0) {
       for (const obj of listResponse.Contents) {
         if (obj.Key) {
-          await s3Client.send(
+          await r2.client.send(
             new DeleteObjectCommand({
-              Bucket: R2_BUCKET_NAME,
+              Bucket: r2.configuration.bucketName,
               Key: obj.Key,
             }),
           );
@@ -605,9 +696,10 @@ export async function uploadHeroImage(
   await deleteOldHeroImages();
 
   // Upload to R2
-  await s3Client.send(
+  const r2 = requireR2Storage();
+  await r2.client.send(
     new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
+      Bucket: r2.configuration.bucketName,
       Key: key,
       Body: buffer,
       ContentType: contentType,
@@ -616,7 +708,7 @@ export async function uploadHeroImage(
   );
 
   // Build public URL
-  const heroUrl = `${R2_PUBLIC_URL}/${key}`;
+  const heroUrl = `${r2.configuration.publicUrl}/${key}`;
 
   // Update the setting in database
   await updateWebSetting('front_page_hero_image_url', heroUrl, updatedBy);

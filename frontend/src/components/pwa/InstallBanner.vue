@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useInstallPrompt } from '@/composables/useInstallPrompt'
+import { useSiteConfig } from '@/composables/useSiteConfig'
 import { Download, X } from 'lucide-vue-next'
 
 const { canInstall, install, dismiss } = useInstallPrompt()
+const { siteTitle } = useSiteConfig()
 
 const handleInstall = async () => {
   await install()
@@ -15,7 +17,7 @@ const handleInstall = async () => {
       v-if="canInstall"
       data-testid="install-banner"
       role="region"
-      aria-label="Install NewDuris app"
+      :aria-label="`Install ${siteTitle} app`"
       class="install-banner fixed left-3 right-3 z-50 max-w-md mx-auto pointer-events-none"
     >
       <div class="pointer-events-auto bg-gray-900 border border-gray-700 rounded-xl shadow-2xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
@@ -27,7 +29,7 @@ const handleInstall = async () => {
         <!-- text -->
         <div class="flex-1 min-w-0">
           <p class="text-sm font-semibold text-gray-100">
-            install newduris
+            install {{ siteTitle }}
           </p>
           <p class="text-xs text-gray-400">
             quick access & offline support

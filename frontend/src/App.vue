@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed } from 'vue'
+import { onMounted, onUnmounted, computed, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useWebSocket } from './composables/useWebSocket'
 import { useToast } from './composables/useToast'
@@ -82,7 +82,21 @@ const {
   clearMudCredentials,
 } = useAuth()
 const { disconnect: disconnectMud } = useMudConnection()
-const { siteTitle, siteLogoUrl, mudHost, mudPort, mudPortTls, loadConfig } = useSiteConfig()
+const {
+  siteTitle,
+  siteLogoUrl,
+  supportUrl,
+  mudHost,
+  mudPort,
+  mudPortTls,
+  isAvailable: isSiteConfigAvailable,
+  error: siteConfigError,
+  loadConfig,
+} = useSiteConfig()
+
+watch(siteTitle, (title) => {
+  if (title) document.title = title
+})
 
 // pwa and offline status
 const { isOffline } = useOfflineStatus()
@@ -111,7 +125,7 @@ onMounted(async () => {
   // Initialize WebSocket connection (singleton - only creates one connection)
   connect()
 
-  // Site config loads in background - not critical, uses defaults if fails
+  // Site configuration failure is exposed by the shared unavailable state.
   loadConfig().catch(() => {})
 
   // Restore user session from cookies
@@ -228,31 +242,31 @@ onCrashAlert((incident) => {
   }
 
   // Simple user-friendly message
-  let title = 'NewDuris MUD Status Update'
+  let title = `${siteTitle.value} MUD Status Update`
   let message = ''
 
   if (incident.incident_type === 'recovery') {
-    title = 'NewDuris MUD is Back UP!'
+    title = `${siteTitle.value} MUD is Back UP!`
   } else if (incident.incident_type === 'copyover') {
-    title = 'NewDuris MUD is Updated!'
+    title = `${siteTitle.value} MUD is Updated!`
     // Show initiated by and reason for planned shutdowns
     const initiatedBy = incident.initiated_by || 'System'
     const reason = incident.shutdown_reason || ''
     message = reason ? `Initiated by ${initiatedBy}: ${reason}` : `Initiated by ${initiatedBy}`
   } else if (incident.incident_type === 'reboot') {
-    title = 'NewDuris MUD is Rebooting!'
+    title = `${siteTitle.value} MUD is Rebooting!`
     // Show initiated by and reason for planned shutdowns
     const initiatedBy = incident.initiated_by || 'System'
     const reason = incident.shutdown_reason || ''
     message = reason ? `Initiated by ${initiatedBy}: ${reason}` : `Initiated by ${initiatedBy}`
   } else if (incident.incident_type === 'shutdown') {
-    title = 'NewDuris MUD is DOWN'
+    title = `${siteTitle.value} MUD is DOWN`
     // Show initiated by and reason for planned shutdowns
     const initiatedBy = incident.initiated_by || 'System'
     const reason = incident.shutdown_reason || ''
     message = reason ? `Initiated by ${initiatedBy}: ${reason}` : `Initiated by ${initiatedBy}`
   } else if (incident.incident_type === 'crash' || incident.incident_type === 'hung') {
-    title = 'NewDuris MUD is DOWN'
+    title = `${siteTitle.value} MUD is DOWN`
     // No details for crashes/hangs
   }
 
@@ -264,7 +278,7 @@ onMudOnline(() => {
   success('The game server is back online!', 'MUD is UP', 10000)
   if (hasPermission.value) {
     showNotification({
-      title: 'NewDuris MUD is Back UP!',
+      title: `${siteTitle.value} MUD is Back UP!`,
       body: 'The game server is back online.',
       tag: 'mud-online',
       sound: true,
@@ -277,7 +291,7 @@ onMudCrash(() => {
   warning('The game server has crashed unexpectedly.', 'MUD Crashed', 10000)
   if (hasPermission.value) {
     showNotification({
-      title: 'NewDuris MUD is DOWN',
+      title: `${siteTitle.value} MUD is DOWN`,
       body: 'The game server has crashed unexpectedly.',
       tag: 'mud-crash',
       sound: true,
@@ -339,6 +353,14 @@ const isPlayPage = computed(() => route.path === '/play')
   <div v-else class="flex flex-col h-screen bg-black text-gray-300">
     <!-- Top Progress Bar is handled by NProgress (CSS-based, no component needed) -->
 
+    <div
+      v-if="siteConfigError"
+      role="alert"
+      class="bg-red-950 border-b border-red-800 px-4 py-2 text-center text-sm text-red-200"
+    >
+      {{ siteConfigError }}
+    </div>
+
     <!-- Header - hidden on mobile when on /play page -->
     <header :class="{ 'hidden lg:block': isPlayPage }" class="border-b border-gray-800 bg-gray-950">
       <div class="px-4 py-4">
@@ -350,13 +372,18 @@ const isPlayPage = computed(() => route.path === '/play')
               :alt="siteTitle"
               class="h-8 max-w-[120px] object-contain"
             />
-            <h1 class="text-2xl font-bold text-gray-100">
+            <h1 v-if="isSiteConfigAvailable" class="text-2xl font-bold text-gray-100">
               {{ siteTitle }}
             </h1>
+            <h1 v-else class="text-2xl font-bold text-gray-400">Site unavailable</h1>
           </RouterLink>
 
           <!-- MUD Address (Centered) - Click to play - hidden on mobile -->
-          <RouterLink to="/play" class="hidden lg:flex flex-1 justify-center hover:opacity-80 transition-opacity">
+          <RouterLink
+            v-if="isSiteConfigAvailable"
+            to="/play"
+            class="hidden lg:flex flex-1 justify-center hover:opacity-80 transition-opacity"
+          >
             <div class="flex items-center gap-2">
               <div class="flex items-center justify-center w-8 h-8 rounded-full bg-cyan-500/20 text-cyan-400">
                 <Play class="w-4 h-4 fill-current" />
@@ -467,7 +494,8 @@ const isPlayPage = computed(() => route.path === '/play')
                   Forum
                 </RouterLink>
                 <a
-                  href="https://ko-fi.com/newduris"
+                  v-if="supportUrl"
+                  :href="supportUrl"
                   target="_blank"
                   rel="noopener noreferrer"
                   class="flex items-center gap-1 text-sm font-medium text-pink-400 hover:text-pink-300 transition-colors"

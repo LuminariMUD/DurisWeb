@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { resetBackendConfigurationForTests } from '../../config/environment.js';
 
 const mudQuery = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const webQuery = jest.fn<(...args: unknown[]) => Promise<unknown>>();
@@ -42,9 +43,17 @@ const donation = {
 };
 
 beforeEach(() => {
-  process.env.NODE_ENV = 'development';
-  process.env.REDIS_NAMESPACE = 'duris:local:test';
-  process.env.REDIS_DONATION_SECRET = 's'.repeat(32);
+  process.env.DONATIONS_ENABLED = 'true';
+  process.env.KOFI_VERIFICATION_TOKEN = 'provider-token';
+  process.env.MUD_REDIS_ENABLED = 'true';
+  process.env.MUD_REDIS_AUTH_MODE = 'none';
+  process.env.MUD_REDIS_HOST = 'redis.test.invalid';
+  process.env.MUD_REDIS_PORT = '6379';
+  process.env.MUD_REDIS_DB = '0';
+  process.env.MUD_REDIS_NAMESPACE = 'duris:local:test';
+  process.env.MUD_REDIS_TLS = 'false';
+  process.env.MUD_REDIS_DONATION_SECRET = 's'.repeat(32);
+  resetBackendConfigurationForTests();
   jest.clearAllMocks();
   webPool.getConnection.mockResolvedValue(connection);
   mudQuery.mockResolvedValueOnce([[{ account_name: 'Tester' }]]);

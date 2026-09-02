@@ -7,6 +7,7 @@ import {
   isLoopbackHost,
   readDuriswebSecret,
 } from '../mudTransportPolicy.js';
+import { resetBackendConfigurationForTests } from '../../config/environment.js';
 
 const CURRENT = 'current-secret-at-least-thirty-two-bytes-long';
 const PREVIOUS = 'previous-secret-at-least-thirty-two-byte';
@@ -15,12 +16,15 @@ const CHALLENGE = 'a'.repeat(64);
 const savedEnv = { ...process.env };
 
 beforeEach(() => {
+  resetBackendConfigurationForTests();
   process.env.DURISWEB_SECRET = CURRENT;
   delete process.env.DURISWEB_SECRET_PREVIOUS;
+  delete process.env.DURISWEB_SECRET_ROTATED_AT;
 });
 
 afterEach(() => {
   process.env = { ...savedEnv };
+  resetBackendConfigurationForTests();
 });
 
 describe('loopback host policy', () => {
@@ -72,15 +76,9 @@ describe('certificate validation', () => {
 });
 
 describe('sanitized endpoint inspection', () => {
-  it('refuses plaintext for a non-loopback host without exposing URL credentials', () => {
+  it('refuses plaintext for a non-loopback host during configuration loading', () => {
     process.env.MUD_WS_URL = 'ws://mud.example.com:4050/';
-    expect(inspectMudWebSocketEndpoint('4050')).toMatchObject({
-      url: 'ws://mud.example.com:4050/',
-      scheme: 'ws',
-      host: 'mud.example.com',
-      loopback: false,
-      blockedReason: expect.stringMatching(/refused/i),
-    });
+    expect(() => inspectMudWebSocketEndpoint()).toThrow(/must use wss/);
   });
 
   it('rejects user info, query strings, and fragments with a generic error', () => {
@@ -90,10 +88,16 @@ describe('sanitized endpoint inspection', () => {
       'wss://mud.example.com:4050/#secret',
     ]) {
       process.env.MUD_WS_URL = url;
-      const endpoint = inspectMudWebSocketEndpoint('4050');
-      expect(endpoint.url).toBeNull();
-      expect(endpoint.configurationError).toBe('MUD WebSocket URL contains forbidden components.');
-      expect(JSON.stringify(endpoint)).not.toContain('secret');
+      resetBackendConfigurationForTests();
+      try {
+        inspectMudWebSocketEndpoint();
+        throw new Error('expected a throw');
+      } catch (error) {
+        const message = (error as Error).message;
+        expect(message).toContain('MUD_WS_URL');
+        expect(message).not.toContain('secret@');
+        expect(message).not.toContain('token=secret');
+      }
     }
   });
 });
@@ -107,9 +111,9 @@ describe('secret handling', () => {
     expect(readDuriswebSecret('previous')).toBeNull();
   });
 
-  it('rejects a secret shorter than 32 bytes rather than using it', () => {
+  it('rejects a previous secret shorter than 32 bytes during configuration loading', () => {
     process.env.DURISWEB_SECRET_PREVIOUS = 'too-short';
-    expect(readDuriswebSecret('previous')).toBeNull();
+    expect(() => readDuriswebSecret('previous')).toThrow(/DURISWEB_SECRET_PREVIOUS/);
   });
 
   it('rejects an empty secret', () => {
@@ -119,6 +123,7 @@ describe('secret handling', () => {
 
   it('accepts a valid previous secret during rotation', () => {
     process.env.DURISWEB_SECRET_PREVIOUS = PREVIOUS;
+    process.env.DURISWEB_SECRET_ROTATED_AT = '2026-09-02T00:00:00Z';
     expect(readDuriswebSecret('previous')).toBe(PREVIOUS);
   });
 });
@@ -130,6 +135,7 @@ describe('signature generation', () => {
 
   it('produces a different signature under each secret', () => {
     process.env.DURISWEB_SECRET_PREVIOUS = PREVIOUS;
+    process.env.DURISWEB_SECRET_ROTATED_AT = '2026-09-02T00:00:00Z';
     const current = generateDuriswebSig(CHALLENGE, 'current');
     const previous = generateDuriswebSig(CHALLENGE, 'previous');
 

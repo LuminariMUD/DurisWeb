@@ -1,8 +1,8 @@
 /** Sanitized operator view of the privileged MUD bridge transport. */
 
-import { getWebSettings } from './webSettingsService.js';
 import { getMudBridgeRuntimeStatus } from './mudAuctionClient.js';
 import { inspectMudWebSocketEndpoint } from './mudTransportPolicy.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
 export interface MudTransportStatus {
   readonly scheme: 'ws' | 'wss' | null;
@@ -20,7 +20,7 @@ export interface MudTransportStatus {
 }
 
 function secretRotation(): { rotatedAt: string | null; ageDays: number | null } {
-  const raw = process.env.DURISWEB_SECRET_ROTATED_AT?.trim();
+  const raw = getBackendConfiguration().mud.bridgeSecretRotatedAt;
   if (!raw) return { rotatedAt: null, ageDays: null };
   const date = new Date(raw);
   const ageMs = Date.now() - date.getTime();
@@ -34,8 +34,7 @@ function secretRotation(): { rotatedAt: string | null; ageDays: number | null } 
 }
 
 export async function getMudTransportStatus(): Promise<MudTransportStatus> {
-  const settings = await getWebSettings();
-  const endpoint = inspectMudWebSocketEndpoint(settings.mudWsPort || '4050');
+  const endpoint = inspectMudWebSocketEndpoint();
   const runtime = getMudBridgeRuntimeStatus();
   const rotation = secretRotation();
   const certificateStatus =

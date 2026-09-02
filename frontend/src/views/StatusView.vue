@@ -12,12 +12,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-vue-next'
 import UptimeBar from '@/components/UptimeBar.vue'
+import { useSiteConfig } from '@/composables/useSiteConfig'
 
 // Fetch public status data
 const { status, isLoading: isLoadingStatus } = usePublicStatus(true)
 const { uptime, isLoading: isLoadingUptime } = usePublicUptime()
 const { incidents, isLoading: isLoadingIncidents } = usePublicIncidents()
 const { history, isLoading: isLoadingHistory } = useUptimeHistory()
+const { siteTitle } = useSiteConfig()
 
 // Status badge styling
 const statusVariant = computed(() => {
@@ -71,7 +73,7 @@ function getSeverityVariant(
     <div class="container mx-auto py-12 space-y-8">
       <!-- Hero Section -->
       <div class="text-center space-y-4">
-        <h1 class="text-4xl font-bold">NewDuris MUD Status</h1>
+        <h1 class="text-4xl font-bold">{{ siteTitle }} MUD Status</h1>
         <p class="text-muted-foreground">Current system status and uptime</p>
 
         <div v-if="isLoadingStatus" class="py-8">

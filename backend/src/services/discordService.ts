@@ -3,11 +3,12 @@ import { RowDataPacket } from 'mysql2';
 import logger from '../utils/logger.js';
 import { stripAnsiCodes } from '../utils/stringUtils.js';
 import { getWebSetting } from './webSettingsService.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
 // discord embed color
 const EMBED_COLOR = 0x5865f2; // discord blurple
 
-const SITE_URL = process.env.SITE_URL;
+const SITE_URL = getBackendConfiguration().siteUrl;
 
 // rate limiting
 let lastPostTime = 0;
@@ -128,7 +129,7 @@ function buildBattleEmbed(
     url: battleUrl,
     fields,
     footer: {
-      text: `${SITE_URL?.replace(/^https?:\/\//, '')}/pvp/${eventId}`,
+      text: `${SITE_URL.replace(/^https?:\/\//, '')}/pvp/${eventId}`,
     },
   };
 }
@@ -280,7 +281,7 @@ export async function testWebhook(
         },
       ],
       footer: {
-        text: 'newduris.com',
+        text: new URL(SITE_URL).host,
       },
     };
 

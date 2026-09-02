@@ -434,9 +434,10 @@ import {
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
+import { frontendConfiguration } from '@/config/environment'
 
 const router = useRouter()
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_URL = frontendConfiguration.apiUrl
 
 // State
 const logs = ref<any[]>([])

@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it, jest } from '@jest/globals';
 
-process.env.JWT_SECRET = 'local-t023-jwt-secret';
+process.env.JWT_SECRET = 'local-terminal-jwt-secret-at-least-32-bytes';
 
 jest.unstable_mockModule('../../services/permissionService.js', () => ({
   getUserPermissions: jest.fn(),

@@ -1,28 +1,7 @@
-import {
-  S3Client,
-  PutObjectCommand,
-  DeleteObjectCommand,
-  ListObjectsV2Command,
-} from '@aws-sdk/client-s3';
+import { PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import logger from '../utils/logger.js';
-
-// R2 Configuration from environment
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || '';
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '';
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'durisweb';
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || 'https://static2.resakse.com';
-
-// Initialize S3 client for R2
-const s3Client = new S3Client({
-  region: 'auto',
-  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_ACCESS_KEY,
-  },
-});
+import { isR2Enabled, requireR2Storage } from './r2Client.js';
 
 // Allowed MIME types for avatars
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -44,7 +23,7 @@ export type ImageUploadType = 'avatar' | 'banner';
  * Check if R2 is configured
  */
 export function isR2Configured(): boolean {
-  return !!(R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY);
+  return isR2Enabled();
 }
 
 /**
@@ -141,9 +120,10 @@ export async function uploadAvatar(
   await deleteOldImages(accountName, type);
 
   // Upload to R2
-  await s3Client.send(
+  const r2 = requireR2Storage();
+  await r2.client.send(
     new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
+      Bucket: r2.configuration.bucketName,
       Key: key,
       Body: buffer,
       ContentType: contentType,
@@ -152,7 +132,7 @@ export async function uploadAvatar(
   );
 
   // Return public URL
-  return `${R2_PUBLIC_URL}/${key}`;
+  return `${r2.configuration.publicUrl}/${key}`;
 }
 
 /**
@@ -166,9 +146,10 @@ async function deleteOldImages(
     // List objects with the user's prefix
     const folder = type === 'banner' ? 'banners' : 'avatars';
     const prefix = `duris/${folder}/${accountName.toLowerCase()}_`;
-    const listResponse = await s3Client.send(
+    const r2 = requireR2Storage();
+    const listResponse = await r2.client.send(
       new ListObjectsV2Command({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: r2.configuration.bucketName,
         Prefix: prefix,
       }),
     );
@@ -177,9 +158,9 @@ async function deleteOldImages(
     if (listResponse.Contents && listResponse.Contents.length > 0) {
       for (const obj of listResponse.Contents) {
         if (obj.Key) {
-          await s3Client.send(
+          await r2.client.send(
             new DeleteObjectCommand({
-              Bucket: R2_BUCKET_NAME,
+              Bucket: r2.configuration.bucketName,
               Key: obj.Key,
             }),
           );
@@ -200,16 +181,17 @@ export async function deleteAvatarByUrl(imageUrl: string): Promise<void> {
     throw new Error('R2 storage is not configured');
   }
 
-  if (!imageUrl || !imageUrl.startsWith(R2_PUBLIC_URL)) {
+  const r2 = requireR2Storage();
+  if (!imageUrl || !imageUrl.startsWith(r2.configuration.publicUrl)) {
     return; // Not an R2 URL, nothing to delete
   }
 
   // Extract key from URL
-  const key = imageUrl.replace(`${R2_PUBLIC_URL}/`, '');
+  const key = imageUrl.replace(`${r2.configuration.publicUrl}/`, '');
 
-  await s3Client.send(
+  await r2.client.send(
     new DeleteObjectCommand({
-      Bucket: R2_BUCKET_NAME,
+      Bucket: r2.configuration.bucketName,
       Key: key,
     }),
   );
@@ -240,9 +222,10 @@ export async function uploadMapImage(pngBuffer: Buffer, layer: number): Promise<
 
   const key = `duris/maps/layer-${layer}.png`;
 
-  await s3Client.send(
+  const r2 = requireR2Storage();
+  await r2.client.send(
     new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
+      Bucket: r2.configuration.bucketName,
       Key: key,
       Body: pngBuffer,
       ContentType: 'image/png',
@@ -250,5 +233,5 @@ export async function uploadMapImage(pngBuffer: Buffer, layer: number): Promise<
     }),
   );
 
-  return `${R2_PUBLIC_URL}/${key}`;
+  return `${r2.configuration.publicUrl}/${key}`;
 }

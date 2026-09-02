@@ -1,6 +1,6 @@
 {
   "name": "durismud-api",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "DurisMUD PvP Logs API - Express backend for serving PvP battle data",
   "main": "dist/index.js",
   "type": "module",
@@ -11,6 +11,7 @@
     "format": "biome format --write src scripts seeds *.ts *.js package.json",
     "format:check": "biome format src scripts seeds *.ts *.js package.json",
     "type-check": "tsc --noEmit",
+    "config:check": "NODE_OPTIONS='--import tsx' tsx src/scripts/checkEnvironment.ts",
     "lint": "eslint . --cache",
     "lint:fix": "eslint . --fix --cache",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",

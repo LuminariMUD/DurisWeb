@@ -497,8 +497,9 @@ import {
   type Role,
 } from '@/composables/useAdminPermissions'
 import axios from 'axios'
+import { frontendConfiguration } from '@/config/environment'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_URL = frontendConfiguration.apiUrl
 const { success, error } = useToast()
 
 // Tab state

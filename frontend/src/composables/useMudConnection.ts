@@ -95,12 +95,13 @@ let copyoverReconnectTimeoutId: ReturnType<typeof setTimeout> | null = null
 export function useMudConnection() {
   const store = useMudStore()
   const { storeMudCredentials, getMudCredentials, clearMudCredentials } = useAuth()
-  const { mudWsUrl, loadConfig, isLoaded } = useSiteConfig()
+  const { mudWsUrl, loadConfig, isLoaded, isAvailable } = useSiteConfig()
   const { startAllTimers, stopAllTimers, setSendCommand, setAddLogEntry } = useTimers()
   let pendingAuthCredentials: { account: string; password: string } | null = null
 
   // Get WebSocket URL from site config
   const getMudWsUrl = () => {
+    if (!mudWsUrl.value) throw new Error('Site configuration is unavailable')
     return mudWsUrl.value
   }
 
@@ -109,6 +110,7 @@ export function useMudConnection() {
     if (!isLoaded.value) {
       await loadConfig()
     }
+    if (!isAvailable.value) throw new Error('Site configuration is unavailable')
   }
 
   // ==========================================================================

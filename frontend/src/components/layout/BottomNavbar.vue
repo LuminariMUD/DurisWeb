@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
+import { useSiteConfig } from '@/composables/useSiteConfig'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import {
   Home,
@@ -26,6 +27,7 @@ import {
 const route = useRoute()
 const router = useRouter()
 const { isAuthenticated, accountName } = useAuth()
+const { supportUrl } = useSiteConfig()
 
 // main nav items (shown in bottom bar)
 const mainNavItems = [
@@ -45,13 +47,17 @@ const moreNavItems = computed(() => [
   { name: 'Leaderboard', path: '/frag-leaderboard', icon: Trophy },
   { name: 'Guide', path: '/guide', icon: BookOpen },
   { name: 'Status', path: '/status', icon: Radio },
-  {
-    name: 'Donate',
-    path: 'https://ko-fi.com/newduris',
-    icon: Heart,
-    external: true,
-    highlight: true,
-  },
+  ...(supportUrl.value
+    ? [
+        {
+          name: 'Donate',
+          path: supportUrl.value,
+          icon: Heart,
+          external: true,
+          highlight: true,
+        },
+      ]
+    : []),
   ...(isAuthenticated.value
     ? [
         { name: 'Profile', path: `/user/${accountName.value}`, icon: User },

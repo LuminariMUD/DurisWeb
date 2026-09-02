@@ -29,7 +29,9 @@ import {
 } from '../services/sessionService.js';
 
 import { cleanupAccountSessions } from '../services/terminalService.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
+const environment = getBackendConfiguration();
 const router: IRouter = Router();
 
 // Rate limiting for auth routes - only counts failed attempts
@@ -129,15 +131,15 @@ router.post(
       // Set tokens as HTTP-only cookies
       res.cookie('access_token', accessToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        secure: environment.environment === 'production',
+        sameSite: environment.environment === 'production' ? 'strict' : 'lax',
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       });
 
       res.cookie('refresh_token', refreshToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        secure: environment.environment === 'production',
+        sameSite: environment.environment === 'production' ? 'strict' : 'lax',
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       });
 
@@ -211,7 +213,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
     // Set new access token cookie
     res.cookie('access_token', newAccessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: environment.environment === 'production',
       sameSite: 'strict',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });

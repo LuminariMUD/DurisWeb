@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { wikiApi } from '@/services/api'
 import type { WikiZoneEntrance, WikiMapBounds } from '@/types'
 import { stripAnsiCodes } from '@/utils/ansiParser'
+import { frontendConfiguration } from '@/config/environment'
 
 const props = withDefaults(
   defineProps<{
@@ -60,11 +61,7 @@ function latToMudY(lat: number): number {
 
 // Get static map image URL (local proxy in dev, R2 CDN in prod)
 function getMapImageUrl(layer: number): string {
-  const staticUrl = import.meta.env.VITE_STATIC_URL
-  if (staticUrl) {
-    return `${staticUrl}/duris/maps/layer-${layer}.png`
-  }
-  return `/maps/layer-${layer}.png`
+  return `${frontendConfiguration.staticUrl}/duris/maps/layer-${layer}.png`
 }
 
 // Load entrances for a region

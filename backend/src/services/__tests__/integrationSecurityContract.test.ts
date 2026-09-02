@@ -27,7 +27,7 @@ describe('DurisWeb integration security contracts', () => {
   it('keeps donation delivery scoped and signed', () => {
     const outbox = read('src/services/donationOutboxService.ts');
     const event = read('src/utils/donationEvent.ts');
-    expect(outbox).toContain("getScopedRedisConfiguration('donation')");
+    expect(outbox).toContain("getScopedRedisConfiguration('donation', environment)");
     expect(outbox).toContain('activeSeasonEpoch');
     expect(outbox).toContain('donation_outbox');
     expect(event).toContain("createHmac('sha256'");
@@ -69,15 +69,15 @@ describe('DurisWeb integration security contracts', () => {
   });
 
   it('defines a TLS-only exact webhook boundary', () => {
-    const productionNginx = readProject('nginx-durisweb.conf');
+    const productionNginx = readProject('deploy/templates/nginx/production.conf');
     expect(productionNginx).toContain('location = /kofihook');
-    expect(productionNginx).toContain('proxy_pass http://127.0.0.1:3001/kofihook;');
+    expect(productionNginx).toContain('proxy_pass @NGINX_BACKEND_UPSTREAM@/kofihook;');
     expect(productionNginx).toContain('client_max_body_size 64k;');
 
-    const bootstrapNginx = readProject('nginx-durisweb-initial.conf');
+    const bootstrapNginx = readProject('deploy/templates/nginx/bootstrap.conf');
     expect(bootstrapNginx).toContain('location = /kofihook');
     expect(bootstrapNginx).toContain('return 404;');
-    expect(bootstrapNginx).not.toContain('proxy_pass http://127.0.0.1:3001/kofihook;');
+    expect(bootstrapNginx).not.toContain('/kofihook;');
   });
 
   it('keeps hook configuration consumers derived from the registry', () => {
@@ -136,7 +136,7 @@ describe('DurisWeb integration security contracts', () => {
     const bridge = read('src/services/mudAuctionClient.ts');
     const policy = read('src/services/mudTransportPolicy.ts');
 
-    expect(policy).toContain('process.env.DURISWEB_SECRET_PREVIOUS');
+    expect(policy).toContain('configuration.mud.previousBridgeSecret');
     expect(bridge).toContain('!retriedWithPreviousSecret');
     expect(bridge).toContain("authSecretSlot === 'current'");
     expect(bridge).toContain('retriedWithPreviousSecret = true;');

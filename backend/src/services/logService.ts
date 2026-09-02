@@ -3,8 +3,9 @@ import path from 'path';
 import { createReadStream, existsSync, lstatSync, realpathSync } from 'fs';
 import readline from 'readline';
 import logger from '../utils/logger.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
-const MUD_DIR = process.env.MUD_DIR!;
+const MUD_DIR = getBackendConfiguration().mud.directory;
 const LOG_CATEGORIES = {
   runtime: path.join(MUD_DIR, 'logs/log'),
   player: path.join(MUD_DIR, 'logs/player-log'),

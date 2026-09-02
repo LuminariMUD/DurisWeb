@@ -5,9 +5,11 @@ import { pool } from '../db/connection.js';
 import { hasActiveWebSession } from './sessionService.js';
 import logger from '../utils/logger.js';
 import { recordHookActivity } from '../hooks/hookActivity.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
 // MUD folder path - set via MUD_DIR environment variable
-const MUD_FOLDER = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
+const environment = getBackendConfiguration();
+const MUD_FOLDER = environment.mud.directory;
 
 interface TerminalSession {
   pty: pty.IPty;
@@ -75,7 +77,7 @@ export async function createSession(
 
     // Spawn PTY with bubblewrap sandboxing
     const shell = pty.spawn(
-      'bwrap',
+      environment.mud.terminalSandboxBinary,
       [
         // Mount MUD folder as root
         '--bind',
@@ -127,7 +129,7 @@ export async function createSession(
         '--chdir',
         '/',
         // Run tmux with colored prompt - attach to this account/session only
-        '/bin/bash',
+        environment.mud.processShell,
         '-c',
         `
         # Create a session-specific bashrc for the tmux session
@@ -153,10 +155,10 @@ BASHRC
         env: {
           TERM: 'xterm-256color',
           HOME: '/',
-          PATH: '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',
-          SHELL: '/bin/bash',
-          USER: process.env.USER || 'duris',
-          LANG: 'en_US.UTF-8',
+          PATH: environment.mud.processPath,
+          SHELL: environment.mud.processShell,
+          USER: environment.mud.processUser,
+          LANG: environment.mud.processLocale,
           DURIS_TMUX_SESSION: tmuxSessionName,
           DURIS_BASHRC_PATH: bashrcPath,
         },

@@ -66,6 +66,7 @@ vi.mock('@/composables/useSiteConfig', async () => {
       mudWsUrl: ref('ws://mud.test'),
       loadConfig: vi.fn(),
       isLoaded: ref(true),
+      isAvailable: ref(true),
     }),
   }
 })

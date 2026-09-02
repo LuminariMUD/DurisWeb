@@ -8,8 +8,9 @@ import { pool } from '../db/connection.js';
 import { processContentForWrite } from '../utils/contentParser.js';
 import { UnsafeZonePathError, resolveSafeZoneFilePath } from '../utils/safeZonePath.js';
 import { validateIdParam } from '../utils/validation.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
-const MUD_DIR = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
+const MUD_DIR = getBackendConfiguration().mud.directory;
 const AREAS_DIR = path.join(MUD_DIR, 'areas');
 import {
   listZones,

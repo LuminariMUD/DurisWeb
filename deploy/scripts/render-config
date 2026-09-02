@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+render_script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+render_deploy_root=$(cd "${render_script_dir}/.." && pwd)
+
+if [ "$#" -ne 1 ]; then
+  printf 'Usage: %s /absolute/path/to/deployment.env\n' "$0" >&2
+  exit 64
+fi
+
+render_input=$1
+if [ ! -f "${render_input}" ] || [ -L "${render_input}" ]; then
+  printf 'Deployment input must be a regular, non-symlink file: %s\n' "${render_input}" >&2
+  exit 78
+fi
+
+render_input_mode=$(stat -c '%a' "${render_input}")
+render_input_owner=$(stat -c '%u' "${render_input}")
+if (( (8#${render_input_mode} & 0177) != 0 )) || [ "${render_input_owner}" != "$(id -u)" ]; then
+  printf 'Deployment input must be owner-controlled with mode 0600.\n' >&2
+  exit 78
+fi
+
+while IFS= read -r render_line || [ -n "${render_line}" ]; do
+  case "${render_line}" in
+    ''|'#'*) continue ;;
+  esac
+  if [[ ! "${render_line}" =~ ^([A-Z][A-Z0-9_]*)=(.*)$ ]]; then
+    printf 'Invalid deployment input line (expected KEY=value).\n' >&2
+    exit 78
+  fi
+  printf -v "${BASH_REMATCH[1]}" '%s' "${BASH_REMATCH[2]}"
+done <"${render_input}"
+
+render_variables=(
+  RENDER_OUTPUT_DIR BACKEND_ROOT FRONTEND_DIST BACKEND_ENV_FILE NODE_BIN TEST_BIN
+  SERVICE_PATH APPLICATION_SERVICE CACHE_SERVICE
+  DATABASE_SERVICE MUD_SERVICE REDIS_BIN REDIS_LIBRARY_PATH REDIS_CONFIG_PATH
+  REDIS_DATA_DIR REDIS_BIND_ADDRESS REDIS_PORT REDIS_DATABASE_COUNT REDIS_MAX_MEMORY
+  DEPLOY_CLOUDFLARED_ENABLED DEPLOY_NGINX_ENABLED
+)
+
+for render_flag in DEPLOY_CLOUDFLARED_ENABLED DEPLOY_NGINX_ENABLED; do
+  if [ "${!render_flag:-}" != 'true' ] && [ "${!render_flag:-}" != 'false' ]; then
+    printf 'Deployment flag must be true or false: %s\n' "${render_flag}" >&2
+    exit 78
+  fi
+done
+
+if [ "${DEPLOY_CLOUDFLARED_ENABLED}" = 'true' ]; then
+  render_variables+=(
+    DEPLOYMENT_ENV_FILE SERVICE_HOME CLOUDFLARED_BIN CLOUDFLARED_LAUNCHER
+    CLOUDFLARED_METRICS_ADDRESS CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
+    CLOUDFLARE_WEB_TUNNEL_ID
+  )
+fi
+
+if [ "${DEPLOY_NGINX_ENABLED}" = 'true' ]; then
+  render_variables+=(
+    NGINX_HTTP_LISTEN NGINX_HTTPS_LISTEN NGINX_SERVER_NAMES NGINX_BACKEND_UPSTREAM
+    NGINX_ACME_ROOT NGINX_TLS_CERTIFICATE NGINX_TLS_CERTIFICATE_KEY
+    NGINX_TLS_OPTIONS_INCLUDE NGINX_TLS_DHPARAM
+  )
+fi
+
+for render_name in "${render_variables[@]}"; do
+  if [ -z "${!render_name:-}" ]; then
+    printf 'Missing required deployment value: %s\n' "${render_name}" >&2
+    exit 78
+  fi
+  render_value=${!render_name,,}
+  if [[ "${render_value}" == *change_me* || "${render_value}" == *change-me* ||
+    "${render_value}" == *replace_with* || "${render_value}" == *example* ]]; then
+    printf 'Replace placeholder deployment value: %s\n' "${render_name}" >&2
+    exit 78
+  fi
+done
+
+case "${RENDER_OUTPUT_DIR}" in
+  /|/home|/root) printf 'Refusing unsafe render output: %s\n' "${RENDER_OUTPUT_DIR}" >&2; exit 78 ;;
+esac
+
+render_template() {
+  local render_source=$1
+  local render_target=$2
+  local render_content
+  local render_name
+  render_content=$(<"${render_source}")
+  for render_name in "${render_variables[@]}"; do
+    render_content=${render_content//@${render_name}@/${!render_name}}
+  done
+  if [[ "${render_content}" =~ @[A-Z][A-Z0-9_]*@ ]]; then
+    printf 'Unresolved placeholder in %s\n' "${render_source}" >&2
+    exit 78
+  fi
+  printf '%s\n' "${render_content}" >"${render_target}"
+}
+
+install -d -m 0700 \
+  "${RENDER_OUTPUT_DIR}/systemd" \
+  "${RENDER_OUTPUT_DIR}/redis"
+
+render_template "${render_deploy_root}/templates/systemd/durisweb-production.service" \
+  "${RENDER_OUTPUT_DIR}/systemd/durisweb-production.service"
+render_template "${render_deploy_root}/templates/systemd/durisweb-redis.service" \
+  "${RENDER_OUTPUT_DIR}/systemd/durisweb-redis.service"
+render_template "${render_deploy_root}/templates/redis/redis.conf" \
+  "${RENDER_OUTPUT_DIR}/redis/redis.conf"
+
+if [ "${DEPLOY_CLOUDFLARED_ENABLED}" = 'true' ]; then
+  render_template "${render_deploy_root}/templates/systemd/durisweb-cloudflared.service" \
+    "${RENDER_OUTPUT_DIR}/systemd/durisweb-cloudflared.service"
+fi
+
+if [ "${DEPLOY_NGINX_ENABLED}" = 'true' ]; then
+  install -d -m 0700 "${RENDER_OUTPUT_DIR}/nginx"
+  render_template "${render_deploy_root}/templates/nginx/bootstrap.conf" \
+    "${RENDER_OUTPUT_DIR}/nginx/bootstrap.conf"
+  render_template "${render_deploy_root}/templates/nginx/production.conf" \
+    "${RENDER_OUTPUT_DIR}/nginx/production.conf"
+  chmod 0644 "${RENDER_OUTPUT_DIR}"/nginx/*.conf
+fi
+
+chmod 0600 "${RENDER_OUTPUT_DIR}/redis/redis.conf"
+chmod 0644 "${RENDER_OUTPUT_DIR}"/systemd/*.service
+printf 'Rendered deployment files under %s\n' "${RENDER_OUTPUT_DIR}"

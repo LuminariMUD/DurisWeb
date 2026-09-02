@@ -92,10 +92,10 @@ function getSettingLabel(key: string): string {
     mud_host: 'MUD Server Host',
     mud_port: 'MUD Server Port',
     mud_port_tls: 'MUD Server TLS Port',
-    mud_ws_host: 'MUD WebSocket Host',
-    mud_ws_port: 'MUD WebSocket Port',
+    mud_ws_url: 'MUD WebSocket URL',
     site_title: 'Website Title',
     site_logo_url: 'Website Logo URL',
+    support_url: 'Support URL',
     respect_webinfo_toggle: 'Respect Player Webinfo Toggle',
   }
   return labels[key] || key
@@ -109,10 +109,10 @@ function getSettingDescription(key: string): string {
     mud_port: 'The port number displayed on the website for players to connect.',
     mud_port_tls:
       'Optional direct TLS/SSL MUD port displayed on the website. Leave blank when unavailable.',
-    mud_ws_host: 'The public hostname used by the browser-based MUD client.',
-    mud_ws_port: 'The WebSocket port used by the web-based MUD client.',
+    mud_ws_url: 'The complete ws: or wss: URL used by the browser-based MUD client.',
     site_title: 'The name of your website displayed in the navbar and browser tab.',
     site_logo_url: 'The logo image displayed before the site title in the navbar.',
+    support_url: 'Optional public HTTP or HTTPS support/donation page.',
     respect_webinfo_toggle:
       'When enabled, hides extended character info (equipment, money, playtime, etc.) for players who have "tog web info" set to OFF. When disabled, all info is shown regardless of player preference. Note: existing pages need to be refreshed to see changes.',
   }
@@ -515,50 +515,25 @@ onMounted(async () => {
           </div>
 
           <div class="space-y-2">
-            <Label for="mud_ws_host">{{ getSettingLabel('mud_ws_host') }}</Label>
+            <Label for="mud_ws_url">{{ getSettingLabel('mud_ws_url') }}</Label>
             <div class="flex gap-2">
               <Input
-                id="mud_ws_host"
-                v-model="editedSettings.mud_ws_host"
-                type="text"
-                :disabled="isSaving.mud_ws_host || !isOverlord"
+                id="mud_ws_url"
+                v-model="editedSettings.mud_ws_url"
+                type="url"
+                :disabled="isSaving.mud_ws_url || !isOverlord"
                 class="flex-1 max-w-[300px]"
               />
               <Button
-                @click="saveSetting('mud_ws_host')"
-                :disabled="isSaving.mud_ws_host || !isOverlord || !hasChanges('mud_ws_host')"
+                @click="saveSetting('mud_ws_url')"
+                :disabled="isSaving.mud_ws_url || !isOverlord || !hasChanges('mud_ws_url')"
                 size="sm"
               >
-                {{ isSaving.mud_ws_host ? 'Saving...' : 'Save' }}
+                {{ isSaving.mud_ws_url ? 'Saving...' : 'Save' }}
               </Button>
             </div>
             <p class="text-xs text-muted-foreground">
-              {{ getSettingDescription('mud_ws_host') }}
-            </p>
-          </div>
-
-          <div class="space-y-2">
-            <Label for="mud_ws_port">{{ getSettingLabel('mud_ws_port') }}</Label>
-            <div class="flex gap-2">
-              <Input
-                id="mud_ws_port"
-                v-model="editedSettings.mud_ws_port"
-                type="number"
-                min="1"
-                max="65535"
-                :disabled="isSaving.mud_ws_port"
-                class="flex-1 max-w-[150px]"
-              />
-              <Button
-                @click="saveSetting('mud_ws_port')"
-                :disabled="isSaving.mud_ws_port || !hasChanges('mud_ws_port')"
-                size="sm"
-              >
-                {{ isSaving.mud_ws_port ? 'Saving...' : 'Save' }}
-              </Button>
-            </div>
-            <p class="text-xs text-muted-foreground">
-              {{ getSettingDescription('mud_ws_port') }}
+              {{ getSettingDescription('mud_ws_url') }}
             </p>
           </div>
         </CardContent>
@@ -600,6 +575,29 @@ onMounted(async () => {
             </div>
             <p class="text-xs text-muted-foreground">
               {{ getSettingDescription('site_title') }}
+            </p>
+          </div>
+
+          <div class="space-y-2">
+            <Label for="support_url">{{ getSettingLabel('support_url') }}</Label>
+            <div class="flex gap-2">
+              <Input
+                id="support_url"
+                v-model="editedSettings.support_url"
+                type="url"
+                :disabled="isSaving.support_url"
+                class="flex-1 max-w-[400px]"
+              />
+              <Button
+                @click="saveSetting('support_url')"
+                :disabled="isSaving.support_url || !hasChanges('support_url')"
+                size="sm"
+              >
+                {{ isSaving.support_url ? 'Saving...' : 'Save' }}
+              </Button>
+            </div>
+            <p class="text-xs text-muted-foreground">
+              {{ getSettingDescription('support_url') }}
             </p>
           </div>
 

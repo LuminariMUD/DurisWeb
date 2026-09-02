@@ -5,10 +5,11 @@ import { pool as db } from '../db/connection.js';
 import { getDmsProcessStats } from './processMonitor.js';
 import { getOnlinePlayerCount as getOnlineCountFromRedis } from './onlinePlayersService.js';
 import logger from '../utils/logger.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
 const execAsync = promisify(exec);
 
-const MUD_DIR = process.env.MUD_DIR!;
+const MUD_DIR = getBackendConfiguration().mud.directory;
 
 // Module-level interval ID for cleanup
 let healthMonitorIntervalId: NodeJS.Timeout | null = null;

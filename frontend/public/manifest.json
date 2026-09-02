@@ -1,6 +1,6 @@
 {
-  "name": "NewDuris - MUD Game Portal",
-  "short_name": "NewDuris",
+  "name": "DurisWeb - MUD Game Portal",
+  "short_name": "DurisWeb",
   "description": "Play DurisMUD online - PvP, Auction House, Forum & More",
   "start_url": "/",
   "display": "standalone",

@@ -5,6 +5,9 @@ import { parseAccountFile } from '../services/accountService.js';
 import { getUserPermissions as getAdminPermissions } from '../services/adminPermissionService.js';
 import { hasActiveWebSession } from '../services/sessionService.js';
 import logger from '../utils/logger.js';
+import { getBackendConfiguration } from '../config/environment.js';
+
+const environment = getBackendConfiguration();
 
 // Extend Express Request type to include user
 declare global {
@@ -31,13 +34,7 @@ export interface JWTPayload {
 }
 
 function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    logger.error('FATAL: JWT_SECRET environment variable is not set');
-    logger.error('Generate a secure secret with: openssl rand -base64 64');
-    process.exit(1);
-  }
-  return secret;
+  return environment.jwtSecret;
 }
 
 const JWT_SECRET = getJwtSecret();

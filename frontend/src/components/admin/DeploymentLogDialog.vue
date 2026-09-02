@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-vue-next'
+import { frontendConfiguration } from '@/config/environment'
 
 const props = defineProps<{
   open: boolean
@@ -37,7 +38,7 @@ const wsRef = ref<WebSocket | null>(null)
 // Get terminal token from backend API (reuse existing endpoint)
 async function getToken(): Promise<string | null> {
   try {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+    const apiUrl = frontendConfiguration.apiUrl
     const response = await fetch(`${apiUrl}/api/auth/terminal-token`, {
       credentials: 'include',
     })
@@ -85,7 +86,7 @@ async function startDeployment() {
     return
   }
 
-  const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3001/ws'
+  const wsUrl = frontendConfiguration.websocketUrl
 
   try {
     const ws = new WebSocket(wsUrl)

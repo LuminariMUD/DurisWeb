@@ -1,82 +1,93 @@
-# Environments
+# Configuration and Environments
 
-## Environment Matrix
+DurisWeb has five configuration owners. A value must not be copied into source
+code or another configuration surface to compensate for a missing setting.
 
-| Environment | Endpoint | Current Repository Status |
-|-------------|----------|---------------------------|
-| Development | Frontend `http://localhost:5173`; backend example `http://localhost:3001` | Supported through package scripts and Docker Compose dependencies; requires an external shared-schema baseline |
-| Test | Package-local Jest/Vitest; optional dedicated MySQL via `backend/.env.test` | Supported; database tests must use isolated credentials/data |
-| Staging | Not configured | No URL, platform, credentials, or probe target exists in the repository |
-| Production | `https://duris.sbs`; `https://www.duris.sbs` | Verified on 2026-09-02 using user-systemd services and a dedicated Cloudflare Tunnel |
+| Owner | Concern | Checked-in contract |
+|---|---|---|
+| Backend environment | Secrets, server endpoints, filesystem paths, feature activation | `backend/.env.example`, parsed only by `backend/src/config/environment.ts` |
+| Frontend environment | Public build URLs and Vite server topology | `frontend/.env.example`, parsed only by `frontend/config/environment.ts` |
+| Database `web_settings` | Operator-editable public branding, MUD addresses, front-page content, and delivery settings | `backend/src/services/webSettingsService.ts` |
+| Local Compose environment | Developer MySQL/Redis containers and host bindings | `.env.example` and `podman-compose.yml` |
+| Deployment environment | Host paths, service dependencies, binaries, ingress, and tunnel topology | `deploy/deployment.env.example` and `deploy/templates/` |
 
-Production uses the checked-in units under `deploy/systemd/`, not the historical
-nginx, PM2, or split frontend/backend service files. The verified checkout is
-`/home/duris/durisweb`; the application listens only on `127.0.0.1:7770` and a
-dedicated Cloudflare Tunnel publishes apex and `www`. Staging remains undefined.
+There are no implicit development or production values. Missing and invalid
+backend/frontend values are reported together before the application starts.
+Disabled optional integrations require an explicit `false` flag; enabling one
+requires its complete configuration group.
 
-## Verified Production Endpoints
+## Backend environment
 
-| Purpose | Endpoint | Notes |
-|---------|----------|-------|
-| Public website/API | `https://duris.sbs` | Cloudflare Tunnel to loopback port 7770 |
-| Website alias | `https://www.duris.sbs` | Same dedicated website tunnel |
-| DurisWeb browser WebSocket | `wss://duris.sbs/ws` | Served by the Express application |
-| Primary MUD connection | `mud.duris.sbs:7777` | DNS-only raw TCP; used by almost all players |
-| Direct TLS MUD connection | `mud.duris.sbs:4001` | Hostname-verified TLS game port |
-| Browser MUD connection | `wss://ws.duris.sbs` | Separate MUD tunnel to loopback port 4050 |
+The backend always requires:
 
-Do not substitute `mud.newduris.com` for these production endpoints. The raw,
-direct-TLS, and browser-WebSocket transports deliberately use separate settings.
+- Runtime: `NODE_ENV`, `HOST`, `PORT`, `ALLOWED_ORIGINS`, `LOG_LEVEL`,
+  `SITE_URL`, and `JWT_SECRET`.
+- Web database: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME`.
+- MUD ownership/bridge: `MUD_DATABASE_MODE`, `MUD_DIR`, `MUD_WS_URL`,
+  `MUD_PROCESS_USER`, `MUD_PROCESS_HOME`, `MUD_PROCESS_PATH`,
+  `MUD_PROCESS_LOCALE`, `MUD_PROCESS_SHELL`, `MUD_SETSID_BIN`,
+  `TERMINAL_SANDBOX_BIN`, `DB_PASSWD`, and `DURISWEB_SECRET`.
+- Backup/cache: `BACKUP_DIR`, `CACHE_REDIS_HOST`, `CACHE_REDIS_PORT`,
+  `CACHE_REDIS_DB`, `CACHE_REDIS_AUTH_MODE`, and `CACHE_REDIS_TLS`.
 
-## Backend Required Configuration
+`MUD_DATABASE_MODE=shared` deliberately reuses the web database. With
+`MUD_DATABASE_MODE=separate`, all five `MUD_DB_HOST`, `MUD_DB_PORT`,
+`MUD_DB_USER`, `MUD_DB_PASSWORD`, and `MUD_DB_NAME` values are required.
 
-| Variable | Purpose | Security Note |
-|----------|---------|---------------|
-| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Shared MySQL connection | Required DB values have no safe production defaults; protect credentials |
-| `JWT_SECRET` | Signs access, refresh, and terminal JWTs | Required at startup; generate high entropy and never log/commit it |
-| `PORT`, `HOST` | HTTP listener | Example uses 3001; development defaults to loopback |
-| `ALLOWED_ORIGINS` | Credentialed CORS allowlist | Enumerate exact trusted browser origins |
-| `MUD_DIR`, `MUD_ACCOUNTS_DIR` | MUD source/data roots | Same-host production uses `/home/duris/duris` and `/home/duris/duris/Accounts`; paths may expose player data |
+`CACHE_REDIS_AUTH_MODE` is `none`, `password`, or `acl`. Password and ACL modes
+require `CACHE_REDIS_PASSWORD`; ACL also requires `CACHE_REDIS_USERNAME`.
+Production refuses unauthenticated cache Redis. `CACHE_REDIS_TLS=true` requires
+`CACHE_REDIS_CA_CERT` and `CACHE_REDIS_TLS_SERVER_NAME`.
 
-## Integration Configuration
+Optional groups are explicit:
 
-| Variable | Purpose | Boundary |
-|----------|---------|----------|
-| `MUD_WS_URL` | Privileged MUD bridge endpoint | Production uses loopback `ws://127.0.0.1:4050`; remote hosts require validated `wss:` |
-| `DURISWEB_SECRET` | Current bridge HMAC key | Backend and MUD only; at least 32 bytes |
-| `DURISWEB_SECRET_PREVIOUS` | Bounded rotation fallback | Optional; remove after all clients use the new key |
-| `DURISWEB_SECRET_ROTATED_AT` | Admin-console age metadata | Timestamp only, not secret material |
-| `REDIS_*` | Cache and scoped integration delivery | Production pub/sub uses dedicated ACL identities and namespace/season scoping |
-| `MUD_DB_*` | Optional authoritative MUD read database | All-or-none separate connection; otherwise shared DB values are reused |
+| Flag | Required when enabled |
+|---|---|
+| `MUD_REDIS_ENABLED` | `MUD_REDIS_HOST`, `MUD_REDIS_PORT`, `MUD_REDIS_DB`, `MUD_REDIS_NAMESPACE`, `MUD_REDIS_AUTH_MODE`, presence/cache credentials, and TLS values when selected |
+| `DONATIONS_ENABLED` | Enabled MUD Redis plus `KOFI_VERIFICATION_TOKEN` and `MUD_REDIS_DONATION_SECRET`; donation ACL credentials in ACL mode |
+| `R2_ENABLED` | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` |
+| `PUSH_ENABLED` | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` |
+| `GEMINI_ENABLED` | `GEMINI_API_KEY` |
+| `ENABLE_GUILD_SYNC` | No additional variables |
 
-Optional feature variables for Gemini, Cloudflare R2, Web Push, Ko-fi, backups,
-and MUD process control are documented with placeholders in
-`backend/.env.example`. Frontend endpoints live in `frontend/.env.example`.
-Keep the examples as the variable-name source of truth rather than duplicating
-every optional value here.
+`DURISWEB_SECRET_PREVIOUS` and `DURISWEB_SECRET_ROTATED_AT` are an optional,
+bounded rotation pair. The complete key inventory and safe placeholders live in
+`backend/.env.example`; secret values must never be logged or committed.
 
-## Frontend Configuration
+## Frontend environment
 
-| Variable | Purpose |
-|----------|---------|
-| `VITE_API_URL` | Browser-visible backend HTTP base URL |
-| `VITE_WS_URL` | Browser-visible DurisWeb WebSocket URL |
-| `VITE_STATIC_URL` | Browser-visible static asset origin |
+Every frontend build requires `VITE_BASE_URL`, `VITE_API_URL`, `VITE_WS_URL`,
+`VITE_STATIC_URL`, `FRONTEND_DEV_HOST`, `FRONTEND_DEV_PORT`,
+`FRONTEND_PREVIEW_HOST`, `FRONTEND_PREVIEW_PORT`, and
+`FRONTEND_ALLOWED_HOSTS`. All `VITE_*` values are public browser data.
 
-Every `VITE_*` value is compiled into browser code. Never use that namespace
-for `JWT_SECRET`, `DURISWEB_SECRET`, database credentials, Redis passwords,
-third-party private keys, or webhook verification tokens.
+## Database-backed site settings
 
-## Known Security and Privacy Decisions
+`web_settings` is the only runtime owner for public mutable settings:
+`pvp_delay_minutes`, `mud_host`, `mud_port`, `mud_port_tls`, `mud_ws_url`,
+`site_title`, `site_logo_url`, `support_url`,
+`front_page_hero_enabled`, `front_page_hero_title`,
+`front_page_hero_subtitle`, `front_page_hero_image_url`, `front_page_content`,
+`max_hourly_backups`, `respect_webinfo_toggle`, `discord_webhook_url`, and
+`discord_webhook_enabled`.
 
-- Production cookies become secure and same-site strict when
-  `NODE_ENV=production`.
-- The production privileged bridge is same-host loopback and HMAC-authenticated.
-  The separate public browser path `wss://ws.duris.sbs` was certificate- and
-  connection-tested during deployment.
-- `DURISWEB_PRIVATE_PRESENCE` on the MUD must be exactly `TRUE` to include
-  account names, IP addresses, or client metadata in presence payloads; default
-  feeds omit them.
-- Raw refresh-token storage, session-expiry timezone semantics, dependency
-  advisories, and GDPR lifecycle gaps remain open. See
-  [Security and Compliance](../.spec_system/SECURITY-COMPLIANCE.md).
+The forward migration backfills missing keys to preserve the existing
+deployment. Runtime code does not recreate those values. An incomplete or
+invalid row set makes `/api/site-config` unavailable, and the frontend renders a
+deliberate unavailable state instead of substituting branding or endpoints.
+
+## Local and deployment configuration
+
+The root `.env` supplies every `COMPOSE_*` interpolation used by
+`podman-compose.yml`; the backend `.env` must use matching database/cache
+credentials and host ports. Deployment operators keep a mode-0600 copy of
+`deploy/deployment.env.example` outside the repository and render portable
+systemd and Redis files. `DEPLOY_CLOUDFLARED_ENABLED` and
+`DEPLOY_NGINX_ENABLED` explicitly select complete optional ingress groups and
+their rendered artifacts. See [Deployment](deployment.md).
+
+`backend/.env.test` is the only test override. Under `NODE_ENV=test`, it is
+loaded before `backend/.env`; tests fill isolated in-process values only when a
+test variable is absent. Existing process variables always win over dotenv
+files; otherwise the first defined test-file value wins. In non-test modes,
+`backend/.env` fills only variables absent from the process environment.

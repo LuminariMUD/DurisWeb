@@ -3,9 +3,10 @@ import { WebSocket } from 'ws';
 import { pool } from '../db/connection.js';
 import { refreshGitCache, getCurrentCommitHash } from './gitService.js';
 import logger, { getErrorMessage } from '../utils/logger.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
 // Get MUD_DIR from environment - validated at startup in index.ts
-const MUD_DIR = process.env.MUD_DIR!;
+const MUD_DIR = getBackendConfiguration().mud.directory;
 const SRC_DIR = `${MUD_DIR}/src`;
 
 /**

@@ -1,28 +1,30 @@
 services:
   mysql:
-    image: mysql:8.0
-    container_name: duris-mysql
+    image: "${COMPOSE_MYSQL_IMAGE:?Set COMPOSE_MYSQL_IMAGE in the root .env}"
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_USER: duris
-      MYSQL_PASSWORD: duris
-      MYSQL_DATABASE: duris_dev
+      MYSQL_ROOT_PASSWORD: "${COMPOSE_MYSQL_ROOT_PASSWORD:?Set COMPOSE_MYSQL_ROOT_PASSWORD}"
+      MYSQL_USER: "${COMPOSE_MYSQL_USER:?Set COMPOSE_MYSQL_USER}"
+      MYSQL_PASSWORD: "${COMPOSE_MYSQL_PASSWORD:?Set COMPOSE_MYSQL_PASSWORD}"
+      MYSQL_DATABASE: "${COMPOSE_MYSQL_DATABASE:?Set COMPOSE_MYSQL_DATABASE}"
+      MYSQL_HEALTHCHECK_HOST: "${COMPOSE_MYSQL_HEALTHCHECK_HOST:?Set COMPOSE_MYSQL_HEALTHCHECK_HOST}"
     ports:
-      - "${MYSQL_HOST_PORT:-3306}:3306"
+      - "${COMPOSE_MYSQL_BIND_ADDRESS:?Set COMPOSE_MYSQL_BIND_ADDRESS}:${COMPOSE_MYSQL_HOST_PORT:?Set COMPOSE_MYSQL_HOST_PORT}:3306"
     volumes:
       - duris-mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uduris", "-pduris"]
+      test: ["CMD-SHELL", "mysqladmin ping --protocol=tcp -h $${MYSQL_HEALTHCHECK_HOST} -u$${MYSQL_USER} -p$${MYSQL_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
-    container_name: duris-redis
+    image: "${COMPOSE_REDIS_IMAGE:?Set COMPOSE_REDIS_IMAGE in the root .env}"
+    command: ["redis-server", "--requirepass", "${COMPOSE_REDIS_PASSWORD:?Set COMPOSE_REDIS_PASSWORD}"]
+    environment:
+      REDISCLI_AUTH: "${COMPOSE_REDIS_PASSWORD:?Set COMPOSE_REDIS_PASSWORD}"
     ports:
-      - "${REDIS_HOST_PORT:-6379}:6379"
+      - "${COMPOSE_REDIS_BIND_ADDRESS:?Set COMPOSE_REDIS_BIND_ADDRESS}:${COMPOSE_REDIS_HOST_PORT:?Set COMPOSE_REDIS_HOST_PORT}:6379"
     volumes:
       - duris-redis-data:/data
     healthcheck:

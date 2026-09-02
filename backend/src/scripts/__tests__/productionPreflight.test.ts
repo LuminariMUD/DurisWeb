@@ -6,21 +6,31 @@ import {
   parsePreflightMode,
   runProductionPreflight,
 } from '../productionPreflight.js';
+import { resetBackendConfigurationForTests } from '../../config/environment.js';
 
 const originalEnvironment = { ...process.env };
 
 function setValidEnvironment(): void {
+  resetBackendConfigurationForTests();
   process.env.NODE_ENV = 'production';
   process.env.DB_HOST = '127.0.0.1';
   process.env.DB_PORT = '3306';
   process.env.DB_USER = 'duris';
   process.env.DB_PASSWORD = 'secret';
   process.env.DB_NAME = 'duris';
+  process.env.CACHE_REDIS_AUTH_MODE = 'password';
   process.env.CACHE_REDIS_PASSWORD = 'cache-secret';
-  process.env.REDIS_NAMESPACE = 'duris:production:main';
-  process.env.REDIS_PRESENCE_USERNAME = 'presence-reader';
-  process.env.REDIS_PRESENCE_PASSWORD = 'presence-secret';
-  process.env.REDIS_TLS = 'FALSE';
+  process.env.MUD_REDIS_ENABLED = 'true';
+  process.env.MUD_REDIS_AUTH_MODE = 'acl';
+  process.env.MUD_REDIS_HOST = '127.0.0.1';
+  process.env.MUD_REDIS_PORT = '6379';
+  process.env.MUD_REDIS_DB = '0';
+  process.env.MUD_REDIS_NAMESPACE = 'duris:production:main';
+  process.env.MUD_REDIS_PRESENCE_USERNAME = 'presence-reader';
+  process.env.MUD_REDIS_PRESENCE_PASSWORD = 'presence-secret';
+  process.env.MUD_REDIS_CACHE_USERNAME = 'cache-reader';
+  process.env.MUD_REDIS_CACHE_PASSWORD = 'cache-secret';
+  process.env.MUD_REDIS_TLS = 'false';
 }
 
 afterEach(() => {
@@ -30,6 +40,7 @@ afterEach(() => {
   for (const [key, value] of Object.entries(originalEnvironment)) {
     process.env[key] = value;
   }
+  resetBackendConfigurationForTests();
 });
 
 describe('production preflight stages', () => {

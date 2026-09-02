@@ -2,8 +2,9 @@
  * Web Analytics Tracking Service
  * Tracks page views and sends them to the backend for analytics
  */
+import { frontendConfiguration } from '@/config/environment'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_URL = frontendConfiguration.apiUrl
 const SESSION_KEY = 'analytics_session_id'
 
 /**

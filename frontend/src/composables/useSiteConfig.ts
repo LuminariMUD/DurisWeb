@@ -9,37 +9,83 @@ const error = ref<string | null>(null)
 const isLoaded = ref(false)
 let loadPromise: Promise<void> | null = null
 
-// Default values for when config hasn't loaded yet
-// NOTE: These are fallbacks for local development - production values come from database
-const defaultConfig: SiteConfig = {
-  siteTitle: 'NewDuris',
-  siteLogoUrl: '',
-  mudHost: 'localhost',
-  mudPort: '7777',
-  mudPortTls: '4001',
-  mudWsHost: 'localhost',
-  mudWsPort: '4050',
-  // Front page defaults
-  frontPageHeroEnabled: true,
-  frontPageHeroTitle: 'Welcome to DurisMUD',
-  frontPageHeroSubtitle: 'The Premier PvP MUD Since 1994',
-  frontPageHeroImageUrl: '',
-  frontPageContent: '<p>Welcome to the official DurisMUD website.</p>',
+const REQUIRED_STRING_KEYS = [
+  'siteTitle',
+  'siteLogoUrl',
+  'supportUrl',
+  'mudHost',
+  'mudPort',
+  'mudPortTls',
+  'mudWsUrl',
+  'frontPageHeroTitle',
+  'frontPageHeroSubtitle',
+  'frontPageHeroImageUrl',
+  'frontPageContent',
+] as const satisfies readonly (keyof SiteConfig)[]
+
+export function parseSiteConfig(value: unknown): SiteConfig {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Site configuration response must be an object')
+  }
+  const record = value as Record<string, unknown>
+  const missing: string[] = REQUIRED_STRING_KEYS.filter((key) => typeof record[key] !== 'string')
+  if (typeof record.frontPageHeroEnabled !== 'boolean') missing.push('frontPageHeroEnabled')
+  if (missing.length > 0) {
+    throw new Error(`Site configuration response is incomplete: ${missing.join(', ')}`)
+  }
+  for (const key of ['mudPort'] as const) {
+    const port = String(record[key])
+    const parsed = Number(port)
+    if (!/^\d+$/.test(port) || !Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
+      throw new Error(`Site configuration response contains an invalid ${key}`)
+    }
+  }
+  const tlsPort = String(record.mudPortTls)
+  if (tlsPort) {
+    const parsed = Number(tlsPort)
+    if (!/^\d+$/.test(tlsPort) || !Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
+      throw new Error('Site configuration response contains an invalid mudPortTls')
+    }
+  }
+  const mudWsUrl = String(record.mudWsUrl)
+  try {
+    const parsed = new URL(mudWsUrl)
+    if (!['ws:', 'wss:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+      throw new Error('invalid')
+    }
+  } catch {
+    throw new Error('Site configuration response contains an invalid mudWsUrl')
+  }
+  return {
+    siteTitle: String(record.siteTitle),
+    siteLogoUrl: String(record.siteLogoUrl),
+    supportUrl: String(record.supportUrl),
+    mudHost: String(record.mudHost),
+    mudPort: String(record.mudPort),
+    mudPortTls: String(record.mudPortTls),
+    mudWsUrl,
+    frontPageHeroEnabled: record.frontPageHeroEnabled === true,
+    frontPageHeroTitle: String(record.frontPageHeroTitle),
+    frontPageHeroSubtitle: String(record.frontPageHeroSubtitle),
+    frontPageHeroImageUrl: String(record.frontPageHeroImageUrl),
+    frontPageContent: String(record.frontPageContent),
+  }
 }
 
 export function useSiteConfig() {
-  // Computed properties - use nullish coalescing to only fallback when truly undefined/null
-  // This ensures empty strings from the database are respected, and settings are used when loaded
-  const siteTitle = computed(() => config.value?.siteTitle ?? defaultConfig.siteTitle)
-  const siteLogoUrl = computed(() => config.value?.siteLogoUrl ?? defaultConfig.siteLogoUrl)
-  const mudHost = computed(() => config.value?.mudHost ?? defaultConfig.mudHost)
-  const mudPort = computed(() => config.value?.mudPort ?? defaultConfig.mudPort)
-  const mudPortTls = computed(() => config.value?.mudPortTls ?? defaultConfig.mudPortTls)
-  const mudWsHost = computed(() => config.value?.mudWsHost ?? mudHost.value)
-  const mudWsPort = computed(() => config.value?.mudWsPort ?? defaultConfig.mudWsPort)
+  const isAvailable = computed(() => config.value !== null && error.value === null)
+  const siteTitle = computed(() => config.value?.siteTitle ?? '')
+  const siteLogoUrl = computed(() => config.value?.siteLogoUrl ?? '')
+  const supportUrl = computed(() => config.value?.supportUrl ?? '')
+  const mudHost = computed(() => config.value?.mudHost ?? '')
+  const mudPort = computed(() => config.value?.mudPort ?? '')
+  const mudPortTls = computed(() => config.value?.mudPortTls ?? '')
+  const configuredMudWsUrl = computed(() => config.value?.mudWsUrl ?? '')
 
   // Full MUD address for display
-  const mudAddress = computed(() => `${mudHost.value}:${mudPort.value}`)
+  const mudAddress = computed(() =>
+    config.value ? `${config.value.mudHost}:${config.value.mudPort}` : '',
+  )
 
   // Get user's proxy settings from localStorage
   function getUserProxySettings(): { enabled: boolean; host: string; port: string } {
@@ -53,8 +99,9 @@ export function useSiteConfig() {
     return { enabled: false, host: '', port: '' }
   }
 
-  // WebSocket URL for MUD client (auto-switch ws/wss based on page protocol)
+  // The configured endpoint is exact; only an explicit user proxy can override it.
   const mudWsUrl = computed(() => {
+    if (!config.value) return null
     const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:'
 
     // check user's proxy settings from localStorage
@@ -65,35 +112,19 @@ export function useSiteConfig() {
       return `${protocol}://${proxy.host}${port}`
     }
 
-    // default behavior
-    if (isSecure) {
-      // WSS via NPM proxy on port 443
-      return `wss://${mudWsHost.value}`
-    }
-    // Local dev: plain ws with explicit port
-    return `ws://${mudWsHost.value}:${mudWsPort.value}`
+    return configuredMudWsUrl.value
   })
 
   // Front page computed properties
-  const frontPageHeroEnabled = computed(
-    () => config.value?.frontPageHeroEnabled ?? defaultConfig.frontPageHeroEnabled,
-  )
-  const frontPageHeroTitle = computed(
-    () => config.value?.frontPageHeroTitle || defaultConfig.frontPageHeroTitle,
-  )
-  const frontPageHeroSubtitle = computed(
-    () => config.value?.frontPageHeroSubtitle || defaultConfig.frontPageHeroSubtitle,
-  )
-  const frontPageHeroImageUrl = computed(
-    () => config.value?.frontPageHeroImageUrl || defaultConfig.frontPageHeroImageUrl,
-  )
-  const frontPageContent = computed(
-    () => config.value?.frontPageContent || defaultConfig.frontPageContent,
-  )
+  const frontPageHeroEnabled = computed(() => config.value?.frontPageHeroEnabled ?? false)
+  const frontPageHeroTitle = computed(() => config.value?.frontPageHeroTitle ?? '')
+  const frontPageHeroSubtitle = computed(() => config.value?.frontPageHeroSubtitle ?? '')
+  const frontPageHeroImageUrl = computed(() => config.value?.frontPageHeroImageUrl ?? '')
+  const frontPageContent = computed(() => config.value?.frontPageContent ?? '')
 
   /**
    * Load site configuration from API
-   * Fails fast and uses defaults - not critical
+   * A failed or incomplete response leaves the site in an explicit unavailable state.
    * Returns a promise that resolves when config is loaded (even if called while loading)
    */
   async function loadConfig(): Promise<void> {
@@ -110,9 +141,10 @@ export function useSiteConfig() {
 
     loadPromise = (async () => {
       try {
-        config.value = await getSiteConfig()
+        config.value = parseSiteConfig(await getSiteConfig())
       } catch {
-        // Use defaults on failure
+        config.value = null
+        error.value = 'Site configuration is unavailable. Retry after the server is configured.'
       } finally {
         isLoaded.value = true
         isLoading.value = false
@@ -138,14 +170,14 @@ export function useSiteConfig() {
     isLoading,
     error,
     isLoaded,
+    isAvailable,
     // Computed
     siteTitle,
     siteLogoUrl,
+    supportUrl,
     mudHost,
     mudPort,
     mudPortTls,
-    mudWsHost,
-    mudWsPort,
     mudAddress,
     mudWsUrl,
     // Front page
@@ -158,4 +190,12 @@ export function useSiteConfig() {
     loadConfig,
     reloadConfig,
   }
+}
+
+export function resetSiteConfigForTests(): void {
+  config.value = null
+  isLoading.value = false
+  error.value = null
+  isLoaded.value = false
+  loadPromise = null
 }

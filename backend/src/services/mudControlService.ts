@@ -9,13 +9,14 @@ import { recordMudShutdown } from './serverRebootService.js';
 import { createWebShutdownIncident } from './crashDetectionService.js';
 import { isHookEnabledSync } from '../hooks/hookGate.js';
 import { recordHookActivity } from '../hooks/hookActivity.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
 const execAsync = promisify(exec);
 
-// Configuration - MUD_DIR is validated at startup in index.ts
-const MUD_BASE = process.env.MUD_DIR!;
+const environment = getBackendConfiguration();
+const MUD_BASE = environment.mud.directory;
 const PID_FILE = path.join(MUD_BASE, 'cycle_mud.pid');
-const IS_DEV_MODE = process.env.NODE_ENV !== 'production';
+const IS_DEV_MODE = environment.environment !== 'production';
 
 export interface MudState {
   cycleMudPid: number | null;
@@ -319,11 +320,18 @@ export async function startMud(accountName: string, _ipAddress: string): Promise
     // Use setsid to create a new session, fully isolating the MUD process
     // from the backend's terminal. This prevents SIGINT (Ctrl+C) from killing
     // the MUD when the backend is restarted.
-    const child = spawn('setsid', args, {
+    const child = spawn(environment.mud.setsidBinary, args, {
       cwd: MUD_BASE,
       detached: true,
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env },
+      env: {
+        DB_PASSWD: environment.mud.processDatabasePassword,
+        HOME: environment.mud.processHome,
+        PATH: environment.mud.processPath,
+        LANG: environment.mud.processLocale,
+        USER: environment.mud.processUser,
+        LOGNAME: environment.mud.processUser,
+      },
     });
 
     // Capture stdout/stderr and broadcast live
@@ -555,11 +563,18 @@ export async function restartMud(
     // Use setsid to create a new session, fully isolating the MUD process
     // from the backend's terminal. This prevents SIGINT (Ctrl+C) from killing
     // the MUD when the backend is restarted.
-    const child = spawn('setsid', args, {
+    const child = spawn(environment.mud.setsidBinary, args, {
       cwd: MUD_BASE,
       detached: true,
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env },
+      env: {
+        DB_PASSWD: environment.mud.processDatabasePassword,
+        HOME: environment.mud.processHome,
+        PATH: environment.mud.processPath,
+        LANG: environment.mud.processLocale,
+        USER: environment.mud.processUser,
+        LOGNAME: environment.mud.processUser,
+      },
     });
 
     // Capture output from new process and broadcast live

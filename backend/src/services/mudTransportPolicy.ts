@@ -6,6 +6,7 @@
  */
 
 import crypto from 'crypto';
+import { getBackendConfiguration } from '../config/environment.js';
 
 export interface MudTransportEndpoint {
   readonly url: string | null;
@@ -42,10 +43,8 @@ export function isLoopbackHost(hostname: string): boolean {
   return false;
 }
 
-export function inspectMudWebSocketEndpoint(wsPort: string): MudTransportEndpoint {
-  const configuredUrl = process.env.MUD_WS_URL?.trim();
-  const configuredHost = process.env.MUD_WS_HOST?.trim() || '127.0.0.1';
-  const candidate = configuredUrl || `ws://${configuredHost}:${wsPort}`;
+export function inspectMudWebSocketEndpoint(): MudTransportEndpoint {
+  const candidate = getBackendConfiguration().mud.websocketUrl;
   let parsed: URL;
 
   try {
@@ -103,8 +102,8 @@ export function inspectMudWebSocketEndpoint(wsPort: string): MudTransportEndpoin
   };
 }
 
-export function resolveMudWebSocketUrl(wsPort: string): string {
-  const endpoint = inspectMudWebSocketEndpoint(wsPort);
+export function resolveMudWebSocketUrl(): string {
+  const endpoint = inspectMudWebSocketEndpoint();
   const error = endpoint.configurationError || endpoint.blockedReason;
   if (error || !endpoint.url) {
     throw new Error(error || 'MUD WebSocket URL is invalid.');
@@ -128,8 +127,9 @@ export function buildMudSocketOptions(wsUrl: string): { rejectUnauthorized: bool
 export type DuriswebSecretSlot = 'current' | 'previous';
 
 export function readDuriswebSecret(slot: DuriswebSecretSlot): string | null {
+  const configuration = getBackendConfiguration();
   const raw =
-    slot === 'current' ? process.env.DURISWEB_SECRET : process.env.DURISWEB_SECRET_PREVIOUS;
+    slot === 'current' ? configuration.mud.bridgeSecret : configuration.mud.previousBridgeSecret;
 
   if (!raw || Buffer.byteLength(raw, 'utf8') < 32) {
     return null;

@@ -433,11 +433,11 @@ export interface WebSettingRow {
 export interface SiteConfig {
   siteTitle: string
   siteLogoUrl: string
+  supportUrl: string
   mudHost: string
   mudPort: string
   mudPortTls: string
-  mudWsHost: string
-  mudWsPort: string
+  mudWsUrl: string
   // Front page settings
   frontPageHeroEnabled: boolean
   frontPageHeroTitle: string

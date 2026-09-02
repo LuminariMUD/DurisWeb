@@ -6,6 +6,7 @@ import logger from '../utils/logger.js';
 import { recordDonation, type KofiDonation } from '../services/donationService.js';
 import { DonationDeliveryConfigurationError } from '../utils/donationEvent.js';
 import { validateKofiDonationPayload } from '../utils/kofiValidation.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
 const router: IRouter = Router();
 
@@ -62,9 +63,10 @@ router.post('/', kofiWebhookLimiter, async (req: Request, res: Response): Promis
 
     const donation = parsedDonation as KofiDonation & { verification_token?: string };
 
-    const configuredToken = process.env.KOFI_VERIFICATION_TOKEN;
-    if (!configuredToken) {
-      logger.error('kofi webhook: verification token is not configured');
+    const environment = getBackendConfiguration();
+    const configuredToken = environment.donationVerificationToken;
+    if (!environment.features.donations || !configuredToken) {
+      logger.error('kofi webhook: donations are disabled');
       res.status(503).send('webhook not configured');
       return;
     }

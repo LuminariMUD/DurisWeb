@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import { getBackendConfiguration } from '../config/environment.js';
+
+const environment = getBackendConfiguration();
 
 /**
  * CSRF Protection using Double Submit Cookie pattern
@@ -25,7 +28,7 @@ export function generateCsrfToken(req: Request, res: Response, next: NextFunctio
 
     res.cookie('csrf_token', token, {
       httpOnly: false, // Must be readable by JavaScript
-      secure: process.env.NODE_ENV === 'production',
+      secure: environment.environment === 'production',
       sameSite: 'strict',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     });

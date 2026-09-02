@@ -1,4 +1,5 @@
 import fs from 'fs/promises';
+import { getBackendConfiguration } from '../config/environment.js';
 
 export interface Property {
   key: string;
@@ -13,7 +14,7 @@ export interface PropertyCategory {
   properties: Property[];
 }
 
-const MUD_DIR = process.env.MUD_DIR!;
+const MUD_DIR = getBackendConfiguration().mud.directory;
 const PROPERTIES_PATH = `${MUD_DIR}/lib/duris.properties`;
 
 /**

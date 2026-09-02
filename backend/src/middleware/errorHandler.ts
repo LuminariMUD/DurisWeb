@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
+import { getBackendConfiguration } from '../config/environment.js';
 import logger from '../utils/logger.js';
+
+const environment = getBackendConfiguration();
 
 export interface ApiError extends Error {
   statusCode?: number;
@@ -38,7 +41,7 @@ export function errorHandler(
   logger.error(`Error ${statusCode}: ${message}`, {
     url: req.url,
     method: req.method,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    stack: environment.environment === 'development' ? err.stack : undefined,
   });
 
   // Send error response
@@ -47,7 +50,7 @@ export function errorHandler(
     error: {
       message,
       statusCode,
-      ...(process.env.NODE_ENV === 'development' && {
+      ...(environment.environment === 'development' && {
         stack: err.stack,
       }),
     },

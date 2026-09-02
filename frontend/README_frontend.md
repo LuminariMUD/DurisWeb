@@ -6,8 +6,8 @@ operator administration.
 
 ## Setup
 
-Copy `frontend/.env.example` to `frontend/.env`. The default development API and
-browser WebSocket endpoints point to the backend on port `3001`. Never put
+Copy `frontend/.env.example` to `frontend/.env` and set every public URL, host,
+port, and allowed-host value explicitly. Never put
 `DURISWEB_SECRET`, `JWT_SECRET`, or another server credential in a `VITE_*`
 variable; Vite exposes those values to browsers.
 
@@ -16,9 +16,10 @@ variable; Vite exposes those values to browsers.
 | Command | Purpose |
 |---------|---------|
 | `pnpm install --frozen-lockfile` | Install the committed dependency graph |
-| `pnpm dev` | Run Vite on port `5173` |
+| `pnpm dev` | Run Vite on the configured host and port |
 | `pnpm build` | Type-check and produce `dist/` |
-| `pnpm preview` | Preview the production build on port `4173` |
+| `pnpm config:check` | Validate public and Vite settings without starting a server |
+| `pnpm preview` | Preview on the configured host and port |
 | `pnpm test:unit --run` | Run Vitest once |
 | `pnpm format:check` | Check Biome formatting without edits |
 | `pnpm lint` | Run non-mutating ESLint checks |
@@ -40,6 +41,11 @@ The Phase 00 hook console is at `/admin/mud/hooks` and requires the
 `manage_mud_properties` permission. It displays server-observed website, MUD,
 effective, mismatch, unavailable, and transport states; it does not apply
 optimistic toggle results.
+
+`config/environment.ts` owns build/server parsing and
+`src/config/environment.ts` is the only browser-side `import.meta.env` reader.
+Mutable public branding and MUD addresses come only from `/api/site-config`;
+the UI reports an unavailable state when that database contract is incomplete.
 
 See [Development](../docs/development.md) and
 [Architecture](../docs/ARCHITECTURE.md).

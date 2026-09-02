@@ -19,6 +19,7 @@ bootstrap a new shared schema safely.
 | `pnpm dev` | Run the TypeScript service with nodemon |
 | `pnpm build` | Compile to `dist/` |
 | `pnpm start` | Run the compiled service |
+| `pnpm config:check` | Validate the complete environment without dependency connections |
 | `pnpm test --runInBand` | Run Jest serially |
 | `pnpm format:check` | Check Biome formatting without edits |
 | `pnpm lint` | Run non-mutating ESLint checks |
@@ -26,7 +27,7 @@ bootstrap a new shared schema safely.
 | `pnpm migrate:status` | Inspect the selected database migration ledger |
 | `pnpm seed:run` | Run idempotent seeds against the selected environment |
 
-The example configuration uses port `3001`. `GET /health` returns 200 only when
+The listener has no default host or port. `GET /health` returns 200 only when
 both MySQL and Redis respond; it returns 503 with a degraded snapshot otherwise.
 
 ## Main Areas
@@ -44,6 +45,8 @@ both MySQL and Redis respond; it returns 503 with a degraded snapshot otherwise.
 ## Security Boundaries
 
 - `JWT_SECRET` is backend-only and required at process import/startup.
+- `src/config/environment.ts` is the only process-environment reader; Knex,
+  runtime services, scripts, and preflight consume its typed result.
 - `DURISWEB_SECRET` and its optional previous key are backend/MUD credentials;
   never expose them as `VITE_*` values or log them.
 - Remote MUD bridge connections require `wss:` with certificate verification;

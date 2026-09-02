@@ -3,8 +3,9 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { pool } from '../db/connection.js';
 import logger, { isErrorWithCode, getErrorMessage } from '../utils/logger.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
-const MUD_DIR = process.env.MUD_DIR!;
+const MUD_DIR = getBackendConfiguration().mud.directory;
 const MUD_INFO_DIR = `${MUD_DIR}/lib/information`;
 
 interface ContentFile {

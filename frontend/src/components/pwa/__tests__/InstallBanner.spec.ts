@@ -13,6 +13,10 @@ vi.mock('@/composables/useInstallPrompt', () => ({
   }),
 }))
 
+vi.mock('@/composables/useSiteConfig', () => ({
+  useSiteConfig: () => ({ siteTitle: ref('Example MUD') }),
+}))
+
 import InstallBanner from '../InstallBanner.vue'
 
 describe('InstallBanner responsive safety', () => {
@@ -25,7 +29,7 @@ describe('InstallBanner responsive safety', () => {
     expect(banner.exists()).toBe(true)
     expect(banner.classes()).toContain('install-banner')
     expect(banner.attributes('role')).toBe('region')
-    expect(banner.attributes('aria-label')).toBe('Install NewDuris app')
+    expect(banner.attributes('aria-label')).toBe('Install Example MUD app')
     expect(installButton.classes()).toContain('min-h-11')
     expect(dismissButton.exists()).toBe(true)
     expect(dismissButton.classes()).toContain('min-h-11')

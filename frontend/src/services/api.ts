@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { frontendConfiguration } from '@/config/environment'
 import type {
   PvPEvent,
   BattleDetail,
@@ -52,7 +53,6 @@ import type {
   WikiActFlag,
   WikiZoneSpawns,
   WebSettingRow,
-  SiteConfig,
   UnifiedNotification,
   AuctionListItem,
   AuctionDetail,
@@ -65,8 +65,8 @@ import type {
   ChangelogListResponse,
 } from '@/types'
 
-// Create axios instance - uses relative URLs so Vite proxy works
 const api = axios.create({
+  baseURL: frontendConfiguration.apiUrl,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -105,8 +105,8 @@ api.interceptors.response.use(
 )
 
 // Public API (no auth required)
-export async function getSiteConfig(): Promise<SiteConfig> {
-  const { data } = await api.get<SiteConfig>('/api/site-config')
+export async function getSiteConfig(): Promise<unknown> {
+  const { data } = await api.get<unknown>('/api/site-config')
   return data
 }
 

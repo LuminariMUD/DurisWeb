@@ -30,9 +30,9 @@ describe('production review regression contracts', () => {
   });
 
   it('separates systemd configuration refusal from retryable dependency checks', () => {
-    const service = read('deploy/systemd/durisweb-production.service');
+    const service = read('deploy/templates/systemd/durisweb-production.service');
 
-    expect(service).toContain('backend/migrations');
+    expect(service).toContain('@BACKEND_ROOT@/migrations');
     expect(service).toContain('ExecCondition=');
     expect(service).toContain('productionPreflight.js --configuration');
     expect(service).toContain('ExecStartPre=');
@@ -48,21 +48,21 @@ describe('production review regression contracts', () => {
     expect(launcher).toContain('TUNNEL_TOKEN="$tunnel_token"');
   });
 
-  it('documents user-manager persistence, reboot recovery, and a WebSocket handshake', () => {
+  it('documents portable rendering, preflight, and endpoint acceptance', () => {
     const deployment = read('docs/deployment.md');
 
-    expect(deployment).toContain('loginctl enable-linger duris');
+    expect(deployment).toContain('deploy/scripts/render-config');
     expect(deployment).toContain('Linger=yes');
-    expect(deployment).toContain('systemctl --user is-active durisweb-redis.service');
-    expect(deployment).toContain("new WebSocket('wss://ws.duris.sbs')");
-    expect(deployment).not.toContain('curl --fail https://ws.duris.sbs/health');
+    expect(deployment).toContain('configured local and public health endpoints');
+    expect(deployment).toContain('MUD WebSocket handshake');
+    expect(deployment).not.toContain('/home/');
   });
 
   it('distinguishes scoped read-only and writable cache credential families', () => {
     const environment = read('backend/.env.example');
 
-    expect(environment).toContain('REDIS_CACHE_* is used by scopedRedis');
-    expect(environment).toContain('uses the CACHE_REDIS_* family');
+    expect(environment).toContain('MUD_REDIS_CACHE_USERNAME');
+    expect(environment).toContain('CACHE_REDIS_AUTH_MODE');
   });
 
   it('wires the protected MUD endpoint middleware into the admin update route', () => {
