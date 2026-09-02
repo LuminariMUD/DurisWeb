@@ -42,7 +42,7 @@ import {
 } from './hooks/flatfileHookState.js';
 import { probeAllFlatfileHooks, recoverFlatfileHook } from './services/flatfileAccess.js';
 import kofiRoutes from './routes/kofi.js';
-import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { AppError, errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { generateCsrfToken, verifyCsrfToken } from './middleware/csrf.js';
 import { configureRequestBodyParsers } from './middleware/requestLimits.js';
 import {
@@ -156,7 +156,7 @@ app.use(
         callback(null, true);
       } else {
         logger.info(`[CORS] Blocked origin: "${origin}" (not in allowed list)`);
-        callback(new Error('Not allowed by CORS'));
+        callback(new AppError('Not allowed by CORS', 403));
       }
     },
     credentials: true,
@@ -787,7 +787,13 @@ async function checkForNewEvents() {
 }
 
 // Graceful shutdown
+let isShuttingDown = false;
 const gracefulShutdown = async () => {
+  if (isShuttingDown) {
+    return;
+  }
+  isShuttingDown = true;
+
   logger.info('\nReceived shutdown signal, closing server gracefully...');
 
   // Clear all interval timers

@@ -88,6 +88,9 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       allowedHosts: [
         'localhost',
+        'www.duris.sbs',
+        'duris.sbs',
+        '.duris.sbs',
         'www.newduris.com',
         'newduris.com',
         '.newduris.com', // Allow all subdomains
@@ -111,6 +114,10 @@ export default defineConfig(({ mode }) => {
       // Reduce memory usage during build
       minify: 'esbuild', // esbuild uses less RAM than terser
       sourcemap: false, // Skip sourcemaps to save memory
+      // The route-split main bundle remains below 200 KiB compressed. Keep the
+      // warning above its observed uncompressed size so genuine regressions
+      // still surface without flagging the intentionally shared application UI.
+      chunkSizeWarningLimit: 600,
       rollupOptions: {
         output: {
           manualChunks: {

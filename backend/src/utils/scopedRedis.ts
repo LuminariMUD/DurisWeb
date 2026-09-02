@@ -77,6 +77,9 @@ export function getScopedRedisConfiguration(scope: RedisScope): ScopedRedisConfi
     port: parseBoundedInteger(process.env.REDIS_PORT, 6379, 1, 65535),
     db: parseBoundedInteger(process.env.REDIS_DB, 0, 0, 255),
     enableOfflineQueue: false,
+    // The least-privilege MUD ACL identities intentionally cannot run INFO,
+    // which ioredis otherwise uses for its default readiness probe.
+    enableReadyCheck: false,
     maxRetriesPerRequest: 1,
     connectTimeout: 10_000,
     commandTimeout: 10_000,

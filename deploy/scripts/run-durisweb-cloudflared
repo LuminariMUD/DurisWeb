@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+env_file=/home/duris/durisweb/backend/.env
+if [[ -L "$env_file" || ! -f "$env_file" ]]; then
+  echo "Unsafe or missing DurisWeb environment file" >&2
+  exit 78
+fi
+
+env_mode="$(stat -c '%a' "$env_file")"
+env_owner="$(stat -c '%u' "$env_file")"
+if (( (8#$env_mode & 0177) != 0 )) || [[ "$env_owner" != "$(id -u)" ]]; then
+  echo "DurisWeb environment file must be owner-controlled with mode 0600" >&2
+  exit 78
+fi
+
+set -a
+# shellcheck disable=SC1090
+source "$env_file"
+set +a
+
+: "${CLOUDFLARE_API_TOKEN:?Cloudflare API token is required}"
+: "${CLOUDFLARE_ACCOUNT_ID:?Cloudflare account ID is required}"
+: "${CLOUDFLARE_WEB_TUNNEL_ID:?Cloudflare website tunnel ID is required}"
+: "${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR is required}"
+
+runtime_dir="${XDG_RUNTIME_DIR}/durisweb-cloudflared"
+token_file="${runtime_dir}/token"
+install -d -m 0700 "$runtime_dir"
+
+token_response="$({
+  curl -fsS --connect-timeout 10 --max-time 30 \
+    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+    -H 'Content-Type: application/json' \
+    "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/cfd_tunnel/${CLOUDFLARE_WEB_TUNNEL_ID}/token"
+})"
+tunnel_token="$(jq -er 'select(.success == true) | .result' <<<"$token_response")"
+
+umask 0077
+printf '%s' "$tunnel_token" >"$token_file"
+unset CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_WEB_TUNNEL_ID
+unset token_response tunnel_token
+
+exec env -i \
+  HOME=/home/duris \
+  PATH=/home/duris/.local/bin:/usr/local/bin:/usr/bin:/bin \
+  /home/duris/.local/bin/cloudflared tunnel \
+    --no-autoupdate \
+    --metrics 127.0.0.1:20243 \
+    --loglevel info \
+    run --token-file "$token_file"

@@ -1,4 +1,4 @@
-import type { Knex } from "knex";
+import type { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
   // Step 0: Drop temporary table if it exists from a previous failed migration
@@ -225,6 +225,13 @@ export async function up(knex: Knex): Promise<void> {
 }
 
 export async function down(knex: Knex): Promise<void> {
+  // A failed MySQL DDL rollback can leave these reconstruction tables behind
+  // because ALTER/CREATE/DROP statements auto-commit. The unified source table
+  // is still authoritative until the final rename, so rebuilding the two
+  // temporary targets is safe and makes recovery deterministic.
+  await knex.schema.dropTableIfExists('server_incidents_old');
+  await knex.schema.dropTableIfExists('crash_log');
+
   // Recreate original tables structure
   await knex.schema.createTable('crash_log', (table) => {
     table.increments('id').primary();
@@ -300,16 +307,30 @@ export async function down(knex: Knex): Promise<void> {
     WHERE detected_by IS NOT NULL
   `);
 
-  await knex.raw(`
-    INSERT INTO server_incidents_old (
-      started_at, ended_at, duration_seconds, incident_type, severity,
-      title, description, resolved, resolution_notes, public_visible, created_at, updated_at
-    )
-    SELECT
-      started_at, ended_at, duration_seconds, incident_type, severity,
-      title, description, resolved, resolution_notes, public_visible, created_at, updated_at
-    FROM server_incidents
-  `);
+  const hasPublicVisible = await knex.schema.hasColumn('server_incidents', 'public_visible');
+  if (hasPublicVisible) {
+    await knex.raw(`
+      INSERT INTO server_incidents_old (
+        started_at, ended_at, duration_seconds, incident_type, severity,
+        title, description, resolved, resolution_notes, public_visible, created_at, updated_at
+      )
+      SELECT
+        started_at, ended_at, duration_seconds, incident_type, severity,
+        title, description, resolved, resolution_notes, public_visible, created_at, updated_at
+      FROM server_incidents
+    `);
+  } else {
+    await knex.raw(`
+      INSERT INTO server_incidents_old (
+        started_at, ended_at, duration_seconds, incident_type, severity,
+        title, description, resolved, resolution_notes, created_at, updated_at
+      )
+      SELECT
+        started_at, ended_at, duration_seconds, incident_type, severity,
+        title, description, resolved, resolution_notes, created_at, updated_at
+      FROM server_incidents
+    `);
+  }
 
   // Update crash_log_id references
   await knex.raw(`

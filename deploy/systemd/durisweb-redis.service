@@ -1,0 +1,40 @@
+[Unit]
+Description=DurisWeb account-local Redis cache
+Wants=network-online.target
+After=network-online.target
+Before=durisweb-production.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Environment=LD_LIBRARY_PATH=/home/duris/.local/opt/duris-deps/usr/lib/x86_64-linux-gnu
+ExecStart=/home/duris/.local/opt/duris-deps/usr/bin/redis-server /home/duris/.config/durisweb/redis.conf
+Restart=always
+RestartSec=5s
+KillSignal=SIGTERM
+KillMode=control-group
+TimeoutStopSec=30s
+UMask=0077
+LimitNOFILE=65535
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/duris/.local/share/durisweb-redis
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ProtectProc=invisible
+ProcSubset=pid
+RemoveIPC=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=durisweb-redis
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,44 @@
+[Unit]
+Description=Cloudflare Tunnel for DurisWeb production website
+Wants=network-online.target
+BindsTo=durisweb-production.service
+After=network-online.target durisweb-production.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+EnvironmentFile=/home/duris/durisweb/backend/.env
+ExecStart=/home/duris/durisweb/deploy/scripts/run-durisweb-cloudflared
+Restart=on-failure
+RestartSec=5s
+RestartPreventExitStatus=78
+KillSignal=SIGTERM
+KillMode=mixed
+TimeoutStartSec=90s
+TimeoutStopSec=45s
+UMask=0077
+LimitNOFILE=65535
+RuntimeDirectory=durisweb-cloudflared
+RuntimeDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ProtectProc=invisible
+ProcSubset=pid
+RemoveIPC=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=durisweb-cloudflared
+
+[Install]
+WantedBy=default.target

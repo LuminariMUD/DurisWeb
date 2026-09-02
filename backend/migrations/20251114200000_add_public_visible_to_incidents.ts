@@ -25,6 +25,13 @@ export async function up(knex: Knex): Promise<void> {
 }
 
 export async function down(knex: Knex): Promise<void> {
+  if (!(await knex.schema.hasTable('server_incidents'))) {
+    return;
+  }
+  if (!(await knex.schema.hasColumn('server_incidents', 'public_visible'))) {
+    return;
+  }
+
   // Remove public_visible column
   await knex.schema.alterTable('server_incidents', (table) => {
     table.dropColumn('public_visible');
