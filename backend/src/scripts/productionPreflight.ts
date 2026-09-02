@@ -147,6 +147,7 @@ async function run(): Promise<void> {
       'COUNT',
       1,
     );
+    await presence.mget(`${presenceConfiguration.namespace}:season:0:presence:session:preflight:0`);
 
     console.log(
       `Production preflight passed (${presentTables.size} required tables, ${expectedMigrations.length} migrations, cache and presence healthy).`,
