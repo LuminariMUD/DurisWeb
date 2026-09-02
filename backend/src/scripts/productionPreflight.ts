@@ -20,6 +20,8 @@ const REQUIRED_TABLES = [
   'pkill_event',
   'pkill_info',
   'season_reset_state',
+  'server_reboots',
+  'user_profile_stats',
   'web_sessions',
   'web_settings',
 ] as const;
@@ -101,6 +103,36 @@ async function run(): Promise<void> {
       throw new ConfigurationError(`database schema is missing: ${missingTables.join(', ')}`);
     }
 
+    const [runtimeContractRows] = await database.query<RowDataPacket[]>(`
+      SELECT COUNT(*) AS matching_columns
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'server_reboots'
+        AND (
+          (COLUMN_NAME = 'record_id' AND DATA_TYPE = 'bigint' AND COLUMN_TYPE LIKE '%unsigned%' AND IS_NULLABLE = 'NO' AND EXTRA LIKE '%auto_increment%')
+          OR (COLUMN_NAME IN ('boot_time', 'shutdown_time', 'uptime_seconds') AND DATA_TYPE = 'bigint' AND COLUMN_TYPE LIKE '%unsigned%' AND IS_NULLABLE = 'NO')
+          OR (COLUMN_NAME = 'shutdown_type' AND COLUMN_TYPE = 'enum(''shutdown'',''reboot'',''copyover'',''autoreboot'',''pwipe'',''hung'',''autoreboot_copyover'',''crash'',''unknown'')' AND IS_NULLABLE = 'NO' AND REPLACE(COLUMN_DEFAULT, CHAR(39), '') = 'unknown')
+          OR (COLUMN_NAME = 'initiated_by' AND COLUMN_TYPE = 'varchar(255)' AND IS_NULLABLE = 'YES')
+          OR (COLUMN_NAME = 'reason' AND DATA_TYPE = 'text' AND IS_NULLABLE = 'YES')
+        )
+    `);
+    if (Number(runtimeContractRows[0]?.matching_columns) !== 7) {
+      throw new ConfigurationError('server_reboots must retain the canonical MUD runtime shape');
+    }
+
+    const [crossBoundaryRows] = await database.query<RowDataPacket[]>(`
+      SELECT COUNT(*) AS incoming_foreign_keys
+      FROM information_schema.KEY_COLUMN_USAGE
+      WHERE CONSTRAINT_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'user_profile_stats'
+        AND REFERENCED_TABLE_NAME = 'accounts'
+    `);
+    if (Number(crossBoundaryRows[0]?.incoming_foreign_keys) !== 0) {
+      throw new ConfigurationError(
+        'web extension tables must not alter the MUD runtime foreign-key fingerprint',
+      );
+    }
+
     const [sessionRows] = await database.query<RowDataPacket[]>(
       `SELECT CHARACTER_MAXIMUM_LENGTH
          FROM information_schema.COLUMNS
@@ -148,6 +180,9 @@ async function run(): Promise<void> {
       1,
     );
     await presence.mget(`${presenceConfiguration.namespace}:season:0:presence:session:preflight:0`);
+    const playerEventProbe = `${presenceConfiguration.namespace}:season:0:player`;
+    await presence.subscribe(playerEventProbe);
+    await presence.unsubscribe(playerEventProbe);
 
     console.log(
       `Production preflight passed (${presentTables.size} required tables, ${expectedMigrations.length} migrations, cache and presence healthy).`,

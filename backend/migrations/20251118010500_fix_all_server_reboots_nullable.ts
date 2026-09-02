@@ -9,6 +9,11 @@ export async function up(knex: Knex): Promise<void> {
   const hasTable = await knex.schema.hasTable('server_reboots');
 
   if (hasTable) {
+    if (await knex.schema.hasColumn('server_reboots', 'record_id')) {
+      console.log('Skipping server_reboots constraints: preserving canonical MUD schema');
+      return;
+    }
+
     // Fix all columns that should be nullable or have defaults
     await knex.raw(`
       ALTER TABLE server_reboots
@@ -28,6 +33,11 @@ export async function down(knex: Knex): Promise<void> {
   const hasTable = await knex.schema.hasTable('server_reboots');
 
   if (hasTable) {
+    if (await knex.schema.hasColumn('server_reboots', 'record_id')) {
+      console.log('Skipping server_reboots constraints: preserving canonical MUD schema');
+      return;
+    }
+
     await knex.raw(`
       ALTER TABLE server_reboots
       MODIFY COLUMN boot_time INT NOT NULL COMMENT 'Unix timestamp when server started',

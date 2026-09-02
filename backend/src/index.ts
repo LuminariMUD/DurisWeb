@@ -59,7 +59,6 @@ import {
 import { getLatestEvents, getPvPEventDetail } from './services/pvpService.js';
 import fs from 'fs';
 import { startGuildSync, stopGuildSync } from './services/guildSyncService.js';
-import { startAccountSyncService } from './services/accountCharacterSync.js';
 // netstatWatcher removed - player count now tracked via mud websocket events
 import { watchLog, unwatchLog, cleanupLogWatchers } from './services/logWatchService.js';
 import {
@@ -193,6 +192,7 @@ app.get('/api/site-config', async (_req: Request, res: Response) => {
       mudHost: settings.mudHost,
       mudPort: settings.mudPort,
       mudPortTls: settings.mudPortTls,
+      mudWsHost: settings.mudWsHost,
       mudWsPort: settings.mudWsPort,
       // Front page settings
       frontPageHeroEnabled: settings.frontPageHeroEnabled,
@@ -805,10 +805,6 @@ const gracefulShutdown = async () => {
 
   // Stop sync services
   stopGuildSync();
-
-  // Stop background services
-  const { stopAccountSyncService } = await import('./services/accountCharacterSync.js');
-  stopAccountSyncService();
 
   // crash detection now handled by mud websocket disconnect
 
@@ -1696,9 +1692,6 @@ async function startServer() {
 
     // Update WebSocket connection count every 10 seconds
     wsConnectionCountInterval = setInterval(updateWebSocketConnectionCount, 10000);
-
-    // Start account-character sync service (polls every 5 minutes)
-    startAccountSyncService();
 
     // Initialize GeoIP database
     const { initializeGeoIP } = await import('./utils/geoip.js');

@@ -363,7 +363,9 @@ const isPlayPage = computed(() => route.path === '/play')
               </div>
               <div class="text-center">
                 <div class="text-sm font-mono text-cyan-400">{{ mudHost }}</div>
-                <div class="text-xs text-gray-500">Port {{ mudPort }} | TLS {{ mudPortTls }}</div>
+                <div class="text-xs text-gray-500">
+                  Port {{ mudPort }}<span v-if="mudPortTls"> | TLS {{ mudPortTls }}</span>
+                </div>
               </div>
             </div>
           </RouterLink>

@@ -17,6 +17,23 @@ export async function up(knex: Knex): Promise<void> {
     }
   }
 
+  // Keep extension-table constraints out of the MUD runtime fingerprint. The
+  // shared production database treats accounts as MUD-owned, so web profile
+  // rows must not add incoming foreign keys to it.
+  const hasUserProfileStats = await knex.schema.hasTable('user_profile_stats');
+  if (hasUserProfileStats) {
+    const [userProfileStatsFKs] = await knex.raw(`
+      SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
+      WHERE CONSTRAINT_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'user_profile_stats'
+        AND REFERENCED_TABLE_NAME = 'accounts'
+    `);
+
+    for (const fk of userProfileStatsFKs) {
+      await knex.raw('ALTER TABLE user_profile_stats DROP FOREIGN KEY ??', [fk.CONSTRAINT_NAME]);
+    }
+  }
+
   // Drop FK from forum_mentions
   const hasMentions = await knex.schema.hasTable('forum_mentions');
   if (hasMentions) {

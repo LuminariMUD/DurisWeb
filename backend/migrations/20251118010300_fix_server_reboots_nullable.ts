@@ -10,6 +10,11 @@ export async function up(knex: Knex): Promise<void> {
   const hasTable = await knex.schema.hasTable('server_reboots');
 
   if (hasTable) {
+    if (await knex.schema.hasColumn('server_reboots', 'record_id')) {
+      console.log('Skipping server_reboots.shutdown_time: preserving canonical MUD schema');
+      return;
+    }
+
     // Modify shutdown_time to be nullable
     await knex.raw(`
       ALTER TABLE server_reboots
@@ -24,6 +29,11 @@ export async function down(knex: Knex): Promise<void> {
   const hasTable = await knex.schema.hasTable('server_reboots');
 
   if (hasTable) {
+    if (await knex.schema.hasColumn('server_reboots', 'record_id')) {
+      console.log('Skipping server_reboots.shutdown_time: preserving canonical MUD schema');
+      return;
+    }
+
     // Revert to NOT NULL (this might fail if there are NULL values)
     await knex.raw(`
       ALTER TABLE server_reboots

@@ -19,7 +19,7 @@ export async function up(knex: Knex): Promise<void> {
     },
     {
       setting_key: 'mud_host',
-      setting_value: 'mud.newduris.com',
+      setting_value: 'mud.duris.sbs',
       description: 'MUD server hostname displayed on the website',
     },
     {
@@ -29,8 +29,8 @@ export async function up(knex: Knex): Promise<void> {
     },
     {
       setting_key: 'mud_port_tls',
-      setting_value: '7778',
-      description: 'MUD server TLS port displayed on the website',
+      setting_value: '4001',
+      description: 'Optional direct TLS MUD port displayed on the website',
     },
     {
       setting_key: 'site_title',

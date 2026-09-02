@@ -38,9 +38,9 @@ export async function getMudUptimeStats(): Promise<MudUptimeStats> {
         ) as avgUptime,
         MAX(uptime_seconds) as maxUptime,
         COUNT(*) as totalReboots,
-        SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as rebootsLast30Days
+        SUM(CASE WHEN shutdown_time >= UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 30 DAY)) THEN 1 ELSE 0 END) as rebootsLast30Days
        FROM server_reboots
-       WHERE shutdown_type IS NOT NULL`,
+       WHERE COALESCE(initiated_by, '') <> 'durisweb-host-monitor'`,
     );
 
     const stats = statsRows[0];

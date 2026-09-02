@@ -219,7 +219,7 @@ export function startDonationOutboxPublisher(): void {
   try {
     config = getDonationDeliveryConfiguration();
   } catch (error) {
-    logger.warn('donation outbox disabled:', errorMessage(error));
+    logger.warn(`donation outbox disabled: ${errorMessage(error)}`);
     return;
   }
 
