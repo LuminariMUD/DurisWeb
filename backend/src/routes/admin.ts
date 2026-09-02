@@ -35,6 +35,7 @@ import {
 } from '../services/categoryService.js';
 import { getDeletedThreads, getDeletedPosts } from '../services/forumService.js';
 import { requireAuth, requireOverlord, requirePermission } from '../middleware/auth.js';
+import { requireWebSettingAuthorization } from '../middleware/webSettingsAuthorization.js';
 import {
   getOverviewStats,
   getForumStats,
@@ -4354,6 +4355,7 @@ router.put(
   '/web/settings/:key',
   requireAuth,
   requirePermission('manage_front_page'),
+  requireWebSettingAuthorization,
   [
     param('key').trim().isLength({ min: 1, max: 100 }).withMessage('Invalid setting key'),
     body('value').trim().isLength({ max: 100000 }).withMessage('Value too long'),

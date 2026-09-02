@@ -3,10 +3,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import dotenv from 'dotenv';
-import Redis from 'ioredis';
+import Redis, { type RedisOptions } from 'ioredis';
 import mysql, { type RowDataPacket } from 'mysql2/promise';
 
-import { getScopedRedisConfiguration } from '../utils/scopedRedis.js';
+import {
+  getScopedRedisConfiguration,
+  type ScopedRedisConfiguration,
+} from '../utils/scopedRedis.js';
 
 dotenv.config();
 
@@ -26,8 +29,24 @@ const REQUIRED_TABLES = [
   'web_settings',
 ] as const;
 
-class ConfigurationError extends Error {}
+export type PreflightMode = 'all' | 'configuration' | 'dependencies';
 
+interface PreflightConfiguration {
+  database: {
+    host: string;
+    port: number;
+    user: string;
+    password: string;
+    database: string;
+  };
+  cache: RedisOptions;
+  presence: ScopedRedisConfiguration;
+  expectedMigrations: string[];
+}
+
+export class ConfigurationError extends Error {}
+
+/** Read a required environment value after trimming surrounding whitespace. */
 function requiredEnvironment(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
@@ -36,6 +55,7 @@ function requiredEnvironment(name: string): string {
   return value;
 }
 
+/** Parse and validate a TCP port from the environment. */
 function parsePort(name: string, fallback: number): number {
   const value = Number(process.env[name] || fallback);
   if (!Number.isInteger(value) || value < 1 || value > 65535) {
@@ -44,6 +64,7 @@ function parsePort(name: string, fallback: number): number {
   return value;
 }
 
+/** Parse and validate a Redis database index from the environment. */
 function parseDatabase(name: string, fallback: number): number {
   const value = Number(process.env[name] || fallback);
   if (!Number.isInteger(value) || value < 0 || value > 255) {
@@ -52,37 +73,82 @@ function parseDatabase(name: string, fallback: number): number {
   return value;
 }
 
-function migrationDirectory(): string {
+/** Resolve the checked-in migration directory from source or compiled scripts. */
+export function migrationDirectory(): string {
   const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
   return path.resolve(scriptDirectory, '../../migrations');
 }
 
-async function run(): Promise<void> {
+/** Read the migration ledger inputs and fail with an actionable release error. */
+function expectedMigrationNames(): string[] {
+  const directory = migrationDirectory();
+  let names: string[];
+  try {
+    names = fs
+      .readdirSync(directory)
+      .filter((name) => name.endsWith('.ts'))
+      .sort();
+  } catch {
+    throw new ConfigurationError(`checked-in migrations are missing from ${directory}`);
+  }
+  if (names.length === 0) {
+    throw new ConfigurationError(`no TypeScript migrations were found in ${directory}`);
+  }
+  return names;
+}
+
+/** Parse the requested systemd preflight stage. */
+export function parsePreflightMode(args: string[]): PreflightMode {
+  if (args.length === 0) return 'all';
+  if (args.length === 1 && args[0] === '--configuration') return 'configuration';
+  if (args.length === 1 && args[0] === '--dependencies') return 'dependencies';
+  throw new ConfigurationError('expected --configuration, --dependencies, or no argument');
+}
+
+/** Validate static release inputs without opening database or Redis connections. */
+export function loadPreflightConfiguration(): PreflightConfiguration {
+  let presence: ScopedRedisConfiguration;
+  try {
+    presence = getScopedRedisConfiguration('presence');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'invalid presence Redis configuration';
+    throw new ConfigurationError(message);
+  }
+
+  return {
+    database: {
+      host: requiredEnvironment('DB_HOST'),
+      port: parsePort('DB_PORT', 3306),
+      user: requiredEnvironment('DB_USER'),
+      password: requiredEnvironment('DB_PASSWORD'),
+      database: requiredEnvironment('DB_NAME'),
+    },
+    cache: {
+      host: process.env.CACHE_REDIS_HOST || process.env.REDIS_HOST || '127.0.0.1',
+      port: parsePort('CACHE_REDIS_PORT', Number(process.env.REDIS_PORT || 6379)),
+      db: parseDatabase('CACHE_REDIS_DB', 0),
+      username: process.env.CACHE_REDIS_USERNAME || undefined,
+      password: requiredEnvironment('CACHE_REDIS_PASSWORD'),
+      lazyConnect: true,
+      connectTimeout: 5_000,
+      maxRetriesPerRequest: 1,
+      retryStrategy: () => null,
+    },
+    presence,
+    expectedMigrations: expectedMigrationNames(),
+  };
+}
+
+/** Verify live database, cache, and scoped-presence dependencies. */
+async function verifyDependencies(configuration: PreflightConfiguration): Promise<void> {
   const database = mysql.createPool({
-    host: requiredEnvironment('DB_HOST'),
-    port: parsePort('DB_PORT', 3306),
-    user: requiredEnvironment('DB_USER'),
-    password: requiredEnvironment('DB_PASSWORD'),
-    database: requiredEnvironment('DB_NAME'),
+    ...configuration.database,
     connectTimeout: 5_000,
     connectionLimit: 1,
   });
-
-  const cachePassword = requiredEnvironment('CACHE_REDIS_PASSWORD');
-  const cache = new Redis({
-    host: process.env.CACHE_REDIS_HOST || process.env.REDIS_HOST || '127.0.0.1',
-    port: parsePort('CACHE_REDIS_PORT', Number(process.env.REDIS_PORT || 6379)),
-    db: parseDatabase('CACHE_REDIS_DB', 0),
-    username: process.env.CACHE_REDIS_USERNAME || undefined,
-    password: cachePassword,
-    lazyConnect: true,
-    connectTimeout: 5_000,
-    maxRetriesPerRequest: 1,
-    retryStrategy: () => null,
-  });
-  const presenceConfiguration = getScopedRedisConfiguration('presence');
+  const cache = new Redis(configuration.cache);
   const presence = new Redis({
-    ...presenceConfiguration.options,
+    ...configuration.presence.options,
     lazyConnect: true,
     retryStrategy: () => null,
   });
@@ -144,15 +210,13 @@ async function run(): Promise<void> {
       throw new ConfigurationError('web_sessions.refresh_token must hold at least 512 characters');
     }
 
-    const expectedMigrations = fs
-      .readdirSync(migrationDirectory())
-      .filter((name) => name.endsWith('.ts'))
-      .sort();
     const [migrationRows] = await database.query<RowDataPacket[]>(
       'SELECT name FROM knex_migrations ORDER BY name',
     );
     const appliedMigrations = new Set(migrationRows.map((row) => String(row.name)));
-    const pendingMigrations = expectedMigrations.filter((name) => !appliedMigrations.has(name));
+    const pendingMigrations = configuration.expectedMigrations.filter(
+      (name) => !appliedMigrations.has(name),
+    );
     if (pendingMigrations.length > 0) {
       throw new ConfigurationError(
         `database migration ledger has ${pendingMigrations.length} pending migration(s)`,
@@ -175,17 +239,19 @@ async function run(): Promise<void> {
     await presence.scan(
       '0',
       'MATCH',
-      `${presenceConfiguration.namespace}:season:*:presence:session:*`,
+      `${configuration.presence.namespace}:season:*:presence:session:*`,
       'COUNT',
       1,
     );
-    await presence.mget(`${presenceConfiguration.namespace}:season:0:presence:session:preflight:0`);
-    const playerEventProbe = `${presenceConfiguration.namespace}:season:0:player`;
+    await presence.mget(
+      `${configuration.presence.namespace}:season:0:presence:session:preflight:0`,
+    );
+    const playerEventProbe = `${configuration.presence.namespace}:season:0:player`;
     await presence.subscribe(playerEventProbe);
     await presence.unsubscribe(playerEventProbe);
 
     console.log(
-      `Production preflight passed (${presentTables.size} required tables, ${expectedMigrations.length} migrations, cache and presence healthy).`,
+      `Production dependency preflight passed (${presentTables.size} required tables, ${configuration.expectedMigrations.length} migrations, cache and presence healthy).`,
     );
   } finally {
     await database.end();
@@ -202,15 +268,37 @@ async function run(): Promise<void> {
   }
 }
 
-run().catch((error: unknown) => {
-  if (error instanceof ConfigurationError) {
-    console.error(`Production preflight configuration error: ${error.message}`);
-    process.exitCode = CONFIGURATION_EXIT_STATUS;
-    return;
-  }
+/** Run one or both preflight stages and return the process exit status. */
+export async function runProductionPreflight(args: string[]): Promise<number> {
+  let mode: PreflightMode = 'all';
+  try {
+    mode = parsePreflightMode(args);
+    const configuration = loadPreflightConfiguration();
+    if (mode === 'configuration') {
+      console.log(
+        `Production configuration preflight passed (${configuration.expectedMigrations.length} migrations available).`,
+      );
+      return 0;
+    }
 
-  const code =
-    error && typeof error === 'object' && 'code' in error ? String(error.code) : 'UNKNOWN';
-  console.error(`Production preflight dependency error (${code}).`);
-  process.exitCode = 1;
-});
+    await verifyDependencies(configuration);
+    return 0;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown preflight error';
+    if (error instanceof ConfigurationError && mode !== 'dependencies') {
+      console.error(`Production preflight configuration error: ${message}`);
+      return CONFIGURATION_EXIT_STATUS;
+    }
+
+    const code =
+      error && typeof error === 'object' && 'code' in error ? String(error.code) : 'UNKNOWN';
+    console.error(`Production preflight dependency error (${code}): ${message}`);
+    return 1;
+  }
+}
+
+const isDirectExecution =
+  process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isDirectExecution) {
+  process.exitCode = await runProductionPreflight(process.argv.slice(2));
+}

@@ -521,12 +521,12 @@ onMounted(async () => {
                 id="mud_ws_host"
                 v-model="editedSettings.mud_ws_host"
                 type="text"
-                :disabled="isSaving.mud_ws_host"
+                :disabled="isSaving.mud_ws_host || !isOverlord"
                 class="flex-1 max-w-[300px]"
               />
               <Button
                 @click="saveSetting('mud_ws_host')"
-                :disabled="isSaving.mud_ws_host || !hasChanges('mud_ws_host')"
+                :disabled="isSaving.mud_ws_host || !isOverlord || !hasChanges('mud_ws_host')"
                 size="sm"
               >
                 {{ isSaving.mud_ws_host ? 'Saving...' : 'Save' }}

@@ -21,10 +21,11 @@ export async function up(knex: Knex): Promise<void> {
       MODIFY COLUMN shutdown_time INT NULL COMMENT 'Unix timestamp when server shutdown (NULL if currently running)'
     `);
 
-    console.log('✅ Made server_reboots.shutdown_time nullable');
+    console.log('Made server_reboots.shutdown_time nullable');
   }
 }
 
+/** Restore the legacy non-null shutdown-time constraint without touching the MUD schema. */
 export async function down(knex: Knex): Promise<void> {
   const hasTable = await knex.schema.hasTable('server_reboots');
 
@@ -40,6 +41,6 @@ export async function down(knex: Knex): Promise<void> {
       MODIFY COLUMN shutdown_time INT NOT NULL COMMENT 'Unix timestamp when server shutdown'
     `);
 
-    console.log('✅ Made server_reboots.shutdown_time NOT NULL');
+    console.log('Made server_reboots.shutdown_time NOT NULL');
   }
 }

@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 
+/** Check for a named index in the active database schema. */
 async function hasIndex(knex: Knex, tableName: string, indexName: string): Promise<boolean> {
   const row = await knex('information_schema.statistics')
     .select('INDEX_NAME')
@@ -10,6 +11,7 @@ async function hasIndex(knex: Knex, tableName: string, indexName: string): Promi
   return Boolean(row);
 }
 
+/** Create the PvP interaction tables, counters, and supporting indexes idempotently. */
 export async function up(knex: Knex): Promise<void> {
   // Battle likes table
   if (!(await knex.schema.hasTable('pvp_battle_likes'))) {
@@ -75,6 +77,7 @@ export async function up(knex: Knex): Promise<void> {
   }
 }
 
+/** Remove the PvP interaction tables, counters, and supporting indexes. */
 export async function down(knex: Knex): Promise<void> {
   // Remove columns and indexes from pkill_event using raw SQL
   await knex.raw(`SET sql_mode = ''`);

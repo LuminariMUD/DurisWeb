@@ -25,10 +25,11 @@ export async function up(knex: Knex): Promise<void> {
       MODIFY COLUMN reason TEXT NULL COMMENT 'Optional shutdown reason or message'
     `);
 
-    console.log('✅ Fixed all server_reboots column constraints');
+    console.log('Fixed all server_reboots column constraints');
   }
 }
 
+/** Restore legacy reboot constraints without weakening the canonical MUD table. */
 export async function down(knex: Knex): Promise<void> {
   const hasTable = await knex.schema.hasTable('server_reboots');
 
@@ -48,6 +49,6 @@ export async function down(knex: Knex): Promise<void> {
       MODIFY COLUMN reason TEXT NOT NULL COMMENT 'Optional shutdown reason or message'
     `);
 
-    console.log('✅ Reverted server_reboots column constraints');
+    console.log('Reverted server_reboots column constraints');
   }
 }

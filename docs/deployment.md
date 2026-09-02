@@ -31,7 +31,8 @@ pnpm --dir frontend install --frozen-lockfile
 pnpm --dir frontend build
 ```
 
-- Backend artifact: `backend/dist/`.
+- Backend release inputs: `backend/dist/` plus the checked-in
+  `backend/migrations/` directory used by the migration-ledger preflight.
 - Frontend artifact: `frontend/dist/`, served by the backend in production.
 - The generated frontend PWA version follows the root `VERSION` file.
 
@@ -42,14 +43,17 @@ the backend prefer `backend/.env.test` before using `.env` only as a fallback.
 Before starting production, run the compiled read-only gate from `backend/`:
 
 ```bash
-NODE_ENV=production node dist/scripts/productionPreflight.js
+test -d migrations
+NODE_ENV=production node dist/scripts/productionPreflight.js --configuration
+NODE_ENV=production node dist/scripts/productionPreflight.js --dependencies
 ```
 
 The preflight verifies required tables, all checked-in TypeScript migrations,
 the canonical MUD runtime table contract, session-token capacity, database and
 cache connectivity, scoped presence reads, and the player-event subscription.
-Exit status 78 is a configuration/schema refusal and prevents the systemd unit
-from starting.
+The configuration stage exits 78 for invalid static configuration and causes
+systemd to skip startup. The dependency stage exits 1 for unavailable or
+incompatible database/Redis dependencies so `Restart=on-failure` can retry.
 
 ## Verified Service Topology
 
@@ -65,6 +69,8 @@ The active production path is defined by the checked-in templates:
 The production units are user services:
 
 ```bash
+sudo loginctl enable-linger duris
+loginctl show-user duris -p Linger
 systemctl --user link /home/duris/durisweb/deploy/systemd/durisweb-redis.service
 systemctl --user link /home/duris/durisweb/deploy/systemd/durisweb-production.service
 systemctl --user link /home/duris/durisweb/deploy/systemd/durisweb-cloudflared.service
@@ -73,6 +79,11 @@ systemctl --user enable --now durisweb-redis.service
 systemctl --user enable --now durisweb-production.service
 systemctl --user enable --now durisweb-cloudflared.service
 ```
+
+`loginctl show-user` must report `Linger=yes`; otherwise the user manager and
+all three production services can stop after logout and will not start at boot.
+The launcher uses `--token-file` with cloudflared 2025.4.0 or newer and the
+restricted `TUNNEL_TOKEN` environment fallback for older releases.
 
 The tunnel unit is both bound to and part of the application unit: it stops
 when the origin disappears and follows deliberate application restarts.
@@ -95,11 +106,41 @@ Required checks after every deployment:
 curl --fail http://127.0.0.1:7770/health
 curl --fail https://duris.sbs/health
 curl --fail https://www.duris.sbs/health
-curl --fail https://ws.duris.sbs/health
+cd /home/duris/durisweb/backend
+node --input-type=module <<'NODE'
+import WebSocket from 'ws';
+
+const socket = new WebSocket('wss://ws.duris.sbs');
+const timer = setTimeout(() => {
+  console.error('WebSocket handshake timed out');
+  process.exit(1);
+}, 10_000);
+socket.once('open', () => {
+  clearTimeout(timer);
+  console.log('WebSocket handshake passed');
+  socket.close();
+});
+socket.once('error', (error) => {
+  clearTimeout(timer);
+  console.error(error.message);
+  process.exit(1);
+});
+NODE
 systemctl --user show durisweb-production.service \
   -p ActiveState -p UnitFileState -p NRestarts -p Result
 systemctl --user show durisweb-cloudflared.service \
   -p ActiveState -p UnitFileState -p NRestarts -p Result
+```
+
+After provisioning or changing the units, reboot the host once during the
+maintenance window, reconnect as `duris`, and verify boot recovery:
+
+```bash
+systemctl --user is-active durisweb-redis.service
+systemctl --user is-active durisweb-production.service
+systemctl --user is-active durisweb-cloudflared.service
+systemctl --user show durisweb-redis.service durisweb-production.service \
+  durisweb-cloudflared.service -p ActiveState -p UnitFileState -p NRestarts -p Result
 ```
 
 Acceptance also includes:

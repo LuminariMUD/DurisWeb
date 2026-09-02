@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 
+/** Add an optional creation timestamp to player items when needed. */
 export async function up(knex: Knex): Promise<void> {
   if (!(await knex.schema.hasTable('player_items'))) {
     return;
@@ -14,6 +15,7 @@ export async function up(knex: Knex): Promise<void> {
   `);
 }
 
+/** Remove the player-item creation timestamp when present. */
 export async function down(knex: Knex): Promise<void> {
   if (!(await knex.schema.hasTable('player_items'))) {
     return;

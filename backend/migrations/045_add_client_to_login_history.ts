@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 
+/** Add client identity columns when login history already exists. */
 export async function up(knex: Knex): Promise<void> {
   // Fresh shared-schema baselines reach this migration before the timestamped
   // migration that creates account_login_history. That creator includes these
@@ -21,6 +22,7 @@ export async function up(knex: Knex): Promise<void> {
   });
 }
 
+/** Remove client identity columns when login history exists. */
 export async function down(knex: Knex): Promise<void> {
   if (!(await knex.schema.hasTable('account_login_history'))) {
     return;

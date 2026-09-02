@@ -1,6 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+cloudflared_bin=/home/duris/.local/bin/cloudflared
+cloudflared_version_output="$($cloudflared_bin version)"
+if [[ ! "$cloudflared_version_output" =~ ([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+  echo "Unable to determine cloudflared version" >&2
+  exit 78
+fi
+
+cloudflared_major="${BASH_REMATCH[1]}"
+cloudflared_minor="${BASH_REMATCH[2]}"
+cloudflared_patch="${BASH_REMATCH[3]}"
+supports_token_file=false
+if (( cloudflared_major > 2025 )) ||
+  (( cloudflared_major == 2025 && cloudflared_minor > 4 )) ||
+  (( cloudflared_major == 2025 && cloudflared_minor == 4 && cloudflared_patch >= 0 )); then
+  supports_token_file=true
+fi
+
 env_file=/home/duris/durisweb/backend/.env
 if [[ -L "$env_file" || ! -f "$env_file" ]]; then
   echo "Unsafe or missing DurisWeb environment file" >&2
@@ -36,16 +53,34 @@ token_response="$({
 })"
 tunnel_token="$(jq -er 'select(.success == true) | .result' <<<"$token_response")"
 
-umask 0077
-printf '%s' "$tunnel_token" >"$token_file"
 unset CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_WEB_TUNNEL_ID
-unset token_response tunnel_token
+unset token_response
 
+cloudflared_args=(
+  tunnel
+  --no-autoupdate
+  --metrics
+  127.0.0.1:20243
+  --loglevel
+  info
+  run
+)
+
+if [[ "$supports_token_file" == true ]]; then
+  umask 0077
+  printf '%s' "$tunnel_token" >"$token_file"
+  unset tunnel_token
+  exec env -i \
+    HOME=/home/duris \
+    PATH=/home/duris/.local/bin:/usr/local/bin:/usr/bin:/bin \
+    "$cloudflared_bin" "${cloudflared_args[@]}" --token-file "$token_file"
+fi
+
+# cloudflared releases before 2025.4.0 accept the token only through the
+# inherited variable. Keep every other environment value out of the child.
+rm -f "$token_file"
 exec env -i \
   HOME=/home/duris \
   PATH=/home/duris/.local/bin:/usr/local/bin:/usr/bin:/bin \
-  /home/duris/.local/bin/cloudflared tunnel \
-    --no-autoupdate \
-    --metrics 127.0.0.1:20243 \
-    --loglevel info \
-    run --token-file "$token_file"
+  TUNNEL_TOKEN="$tunnel_token" \
+  "$cloudflared_bin" "${cloudflared_args[@]}"

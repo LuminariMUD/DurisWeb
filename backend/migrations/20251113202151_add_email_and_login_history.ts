@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 
+/** Add account email metadata and create login history when absent. */
 export async function up(knex: Knex): Promise<void> {
   // Check if account_characters table exists
   const hasTable = await knex.schema.hasTable('account_characters');
@@ -33,12 +34,13 @@ export async function up(knex: Knex): Promise<void> {
     table.index(['account_name', 'timestamp'], 'idx_account_timestamp');
     });
 
-    console.log('✅ Created account_login_history table');
+    console.log('Created account_login_history table');
   }
 
-  console.log('✅ Migration completed');
+  console.log('Migration completed');
 }
 
+/** Remove login history and the account email extension. */
 export async function down(knex: Knex): Promise<void> {
   // Drop login history table
   await knex.schema.dropTableIfExists('account_login_history');
@@ -48,6 +50,6 @@ export async function down(knex: Knex): Promise<void> {
     table.dropColumn('email');
   });
 
-  console.log('✅ Dropped account_login_history table');
-  console.log('✅ Removed email column from account_characters');
+  console.log('Dropped account_login_history table');
+  console.log('Removed email column from account_characters');
 }

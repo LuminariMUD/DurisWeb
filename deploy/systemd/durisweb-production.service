@@ -13,7 +13,9 @@ EnvironmentFile=/home/duris/durisweb/backend/.env
 Environment=PATH=/home/duris/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStartPre=/usr/bin/test -r /home/duris/durisweb/backend/dist/index.js
 ExecStartPre=/usr/bin/test -r /home/duris/durisweb/frontend/dist/index.html
-ExecCondition=/home/duris/.local/bin/node /home/duris/durisweb/backend/dist/scripts/productionPreflight.js
+ExecCondition=/usr/bin/test -d /home/duris/durisweb/backend/migrations
+ExecCondition=/home/duris/.local/bin/node /home/duris/durisweb/backend/dist/scripts/productionPreflight.js --configuration
+ExecStartPre=/home/duris/.local/bin/node /home/duris/durisweb/backend/dist/scripts/productionPreflight.js --dependencies
 ExecStart=/home/duris/.local/bin/node /home/duris/durisweb/backend/dist/index.js
 Restart=on-failure
 RestartPreventExitStatus=78

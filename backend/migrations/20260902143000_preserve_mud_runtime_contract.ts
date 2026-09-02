@@ -24,6 +24,7 @@ interface ValidationRow {
   invalid_rows: number | string;
 }
 
+/** Remove cross-boundary keys and restore the sealed MUD reboot table shape. */
 export async function up(knex: Knex): Promise<void> {
   if (await knex.schema.hasTable('user_profile_stats')) {
     const [constraints] = await knex.raw<ConstraintRow[]>(`
@@ -102,6 +103,7 @@ export async function up(knex: Knex): Promise<void> {
   `);
 }
 
+/** Preserve the authoritative MUD runtime contract during rollback. */
 export async function down(_knex: Knex): Promise<void> {
   // The MUD runtime contract is authoritative and must not be weakened on rollback.
 }

@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 
+/** Remove web-owned foreign keys that alter the shared MUD accounts fingerprint. */
 export async function up(knex: Knex): Promise<void> {
   // Drop FK from user_profiles
   const hasUserProfiles = await knex.schema.hasTable('user_profiles');
@@ -65,6 +66,7 @@ export async function up(knex: Knex): Promise<void> {
   }
 }
 
+/** Keep the shared MUD accounts table free of incoming web foreign keys. */
 export async function down(knex: Knex): Promise<void> {
   // Re-add FKs if needed (but we probably won't need to roll this back)
   // Intentionally left empty - the accounts table is unused

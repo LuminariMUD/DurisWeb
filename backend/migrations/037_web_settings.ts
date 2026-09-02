@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 
+/** Create the web settings table and its production-safe connection defaults. */
 export async function up(knex: Knex): Promise<void> {
   // Web settings table for site configuration
   await knex.schema.createTable('web_settings', (table) => {
@@ -45,6 +46,7 @@ export async function up(knex: Knex): Promise<void> {
   ]);
 }
 
+/** Remove the web settings table. */
 export async function down(knex: Knex): Promise<void> {
   await knex.schema.dropTableIfExists('web_settings');
 }

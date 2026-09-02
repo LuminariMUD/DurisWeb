@@ -45,6 +45,8 @@ interface RebootHistory {
 }
 
 const HOST_MONITOR_ACTOR = 'durisweb-host-monitor';
+const HOST_BOOT_MARKER_KEY = 'durisweb_host_boot_time';
+const HOST_BOOT_TIME_TOLERANCE_SECONDS = 5;
 
 /**
  * Get the current server boot time by reading /proc/uptime
@@ -211,8 +213,10 @@ export async function recordReboot(bootTime: number, shutdownTime: number): Prom
 export async function rebootExists(bootTime: number): Promise<boolean> {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      'SELECT COUNT(*) as count FROM server_reboots WHERE boot_time = ?',
-      [bootTime],
+      `SELECT COUNT(*) as count
+       FROM server_reboots
+       WHERE boot_time = ? AND shutdown_type = 'unknown' AND initiated_by = ?`,
+      [bootTime, HOST_MONITOR_ACTOR],
     );
 
     return rows[0].count > 0;
@@ -220,6 +224,68 @@ export async function rebootExists(bootTime: number): Promise<boolean> {
     logger.error('Error checking reboot existence:', error);
     return false;
   }
+}
+
+/** Read the last observed host boot time from durable application state. */
+async function getPersistedHostBootTime(): Promise<number | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT setting_value FROM web_settings WHERE setting_key = ? LIMIT 1',
+    [HOST_BOOT_MARKER_KEY],
+  );
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const bootTime = Number(rows[0].setting_value);
+  if (!Number.isSafeInteger(bootTime) || bootTime <= 0) {
+    logger.warn('Ignoring invalid persisted host boot marker');
+    return null;
+  }
+  return bootTime;
+}
+
+/** Persist the observed host boot time without exposing it as public site configuration. */
+async function persistHostBootTime(bootTime: number): Promise<void> {
+  await pool.query(
+    `INSERT INTO web_settings (setting_key, setting_value, description, updated_by)
+     VALUES (?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       setting_value = VALUES(setting_value),
+       description = VALUES(description),
+       updated_by = VALUES(updated_by),
+       updated_at = CURRENT_TIMESTAMP`,
+    [
+      HOST_BOOT_MARKER_KEY,
+      String(bootTime),
+      'Internal durable marker for host reboot detection',
+      HOST_MONITOR_ACTOR,
+    ],
+  );
+}
+
+/**
+ * Reconcile the current kernel boot time with the durable marker and record a
+ * completed interval exactly once when the host has rebooted.
+ */
+export async function reconcileBootTime(currentBootTime: number): Promise<void> {
+  const previousBootTime = await getPersistedHostBootTime();
+  if (previousBootTime === null) {
+    await persistHostBootTime(currentBootTime);
+    logger.info(`Initialized host boot marker: ${currentBootTime}`);
+    return;
+  }
+
+  if (Math.abs(currentBootTime - previousBootTime) <= HOST_BOOT_TIME_TOLERANCE_SECONDS) {
+    return;
+  }
+
+  if (!(await rebootExists(previousBootTime))) {
+    await recordReboot(previousBootTime, currentBootTime);
+  }
+  await persistHostBootTime(currentBootTime);
+  logger.info(
+    `Server reboot detected! Old boot: ${previousBootTime}, New boot: ${currentBootTime}`,
+  );
 }
 
 /**
@@ -321,11 +387,9 @@ export async function getMudRebootHistory(limit: number = 20): Promise<
 }
 
 /**
- * Poll for boot_time changes and record new reboots
+ * Poll for boot_time changes and reconcile them with the durable marker.
  * This function should be called periodically (e.g., every 60 seconds)
  */
-let lastKnownBootTime: number | null = null;
-
 export async function pollBootTime(): Promise<void> {
   try {
     const currentBootTime = await getCurrentBootTime();
@@ -334,24 +398,7 @@ export async function pollBootTime(): Promise<void> {
       return;
     }
 
-    // First run - initialize
-    if (lastKnownBootTime === null) {
-      lastKnownBootTime = currentBootTime;
-      return;
-    }
-
-    // Boot time changed - server rebooted
-    if (currentBootTime !== lastKnownBootTime) {
-      const shutdownTime = Math.floor(Date.now() / 1000);
-
-      // The canonical lifecycle table only accepts complete intervals.
-      await recordReboot(lastKnownBootTime, shutdownTime);
-
-      logger.info(
-        `Server reboot detected! Old boot: ${lastKnownBootTime}, New boot: ${currentBootTime}`,
-      );
-      lastKnownBootTime = currentBootTime;
-    }
+    await reconcileBootTime(currentBootTime);
   } catch (error) {
     logger.error('Error polling boot time:', error);
   }

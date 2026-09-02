@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 
+/** Add the browser MUD hostname only when an operator has not staged one. */
 export async function up(knex: Knex): Promise<void> {
   const existing = await knex('web_settings').where('setting_key', 'mud_ws_host').first();
   if (existing) return;
@@ -11,6 +12,10 @@ export async function up(knex: Knex): Promise<void> {
   });
 }
 
-export async function down(knex: Knex): Promise<void> {
-  await knex('web_settings').where('setting_key', 'mud_ws_host').delete();
+/**
+ * Preserve the hostname on rollback because the migration cannot distinguish
+ * its default row from configuration that existed before up() ran.
+ */
+export async function down(_knex: Knex): Promise<void> {
+  // Configuration data is intentionally retained.
 }
