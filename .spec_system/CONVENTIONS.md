@@ -238,7 +238,7 @@ backend API.
 The DurisMUD server source is checked out locally and directly readable at:
 
 ```
-/home/aiwithapex/projects/duris/
+/home/duris/duris/
 ```
 
 This is a separate repository from durisweb -- never edit it as part of a
@@ -248,7 +248,7 @@ durisweb session unless the session scope says so explicitly.
 Verify integration contracts against the MUD C source rather than inferring
 them from the durisweb side alone.
 
-| What | Path under `/home/aiwithapex/projects/duris/` |
+| What | Path under `/home/duris/duris/` |
 |------|-----------------------------------------------|
 | WebSocket server and auth (channel 1) | `src/net/websocket.h`, `src/net/ws_auth.h`, `src/net/ws_handlers.c`, `src/net/comm.c`, `src/net/gmcp.c` |
 | Account login / nanny (port 4050 refs) | `src/account/nanny.c` |
@@ -260,8 +260,9 @@ them from the durisweb side alone.
 | MUD-side schema and migrations | `db/`, `migrations/` |
 | MUD docs and agent instructions | `docs/`, `README.md`, `CLAUDE.md`, `AGENTS.md`, `SECURITY.md` |
 
-In `backend/.env`, `MUD_DIR` points at this checkout for local development
-(`backend/.env.example` ships the placeholder `/path/to/DurisMUD`).
+In `backend/.env`, `MUD_DIR` points at this checkout and `MUD_ACCOUNTS_DIR`
+points at `/home/duris/duris/Accounts`. The same values are documented in
+`backend/.env.example` for this same-host deployment.
 
 ## When In Doubt
 

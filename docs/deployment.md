@@ -50,6 +50,11 @@ or deployment workflow is configured.
 These inconsistencies are documentation evidence for an unresolved operational
 decision, not instructions to edit production in place.
 
+The reference PM2 production environment and `backend/.env.example` configure
+the same-host MUD checkout as `MUD_DIR=/home/duris/duris` and the account-data
+root as `MUD_ACCOUNTS_DIR=/home/duris/duris/Accounts`. These server-only paths
+must not be added to `frontend/.env` or exposed through a `VITE_*` variable.
+
 ## Health and Readiness
 
 - Backend: `GET /health`; 200 only when MySQL and Redis both answer, otherwise

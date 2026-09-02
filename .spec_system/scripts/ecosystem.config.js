@@ -18,9 +18,9 @@ module.exports = {
       DB_NAME: 'duris',
       DB_PORT: 3306,
 
-      // MUD paths (adjust for production server)
-      MUD_DIR: '/home/resakse/DurisMUD',
-      MUD_ACCOUNTS_DIR: '/home/resakse/DurisMUD/Accounts',
+      // MUD paths on the production server
+      MUD_DIR: '/home/duris/duris',
+      MUD_ACCOUNTS_DIR: '/home/duris/duris/Accounts',
       ENABLE_GUILD_SYNC: 'true',
     },
 

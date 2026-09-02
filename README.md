@@ -36,9 +36,10 @@ database warning before using a new database.
 `-- podman-compose.yml     # Local MySQL 8 and Redis 7 services
 ```
 
-The DurisMUD C server is a separate repository. Local development expects it at
-the path configured by `MUD_DIR`; Phase 00 used
-`/home/aiwithapex/projects/duris` as the inspected checkout.
+The DurisMUD C server is a separate repository. The backend reads its checkout
+from `MUD_DIR` and its account data from `MUD_ACCOUNTS_DIR`. The same-host
+production configuration uses `/home/duris/duris` and
+`/home/duris/duris/Accounts`, respectively.
 
 ## Packages
 

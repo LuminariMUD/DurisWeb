@@ -22,7 +22,7 @@ of truth.
 | `JWT_SECRET` | Signs access, refresh, and terminal JWTs | Required at startup; generate high entropy and never log/commit it |
 | `PORT`, `HOST` | HTTP listener | Example uses 3001; development defaults to loopback |
 | `ALLOWED_ORIGINS` | Credentialed CORS allowlist | Enumerate exact trusted browser origins |
-| `MUD_DIR`, `MUD_ACCOUNTS_DIR` | MUD source/data roots | Required for many MUD-backed features; paths may expose player data |
+| `MUD_DIR`, `MUD_ACCOUNTS_DIR` | MUD source/data roots | Same-host production uses `/home/duris/duris` and `/home/duris/duris/Accounts`; paths may expose player data |
 
 ## Integration Configuration
 

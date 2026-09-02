@@ -92,7 +92,7 @@ Review these before planning another phase.
    alone is not observed state.
 5. **[P00-repository] This is a logical monorepo without a root workspace.**
    `backend/` and `frontend/` have independent manifests and lockfiles. The MUD
-   is a separate checkout at `/home/aiwithapex/projects/duris`; inspect both
+   is a separate checkout at `/home/duris/duris`; inspect both
    sides for integration work, but edit the MUD only when scope authorizes it.
 
 ---
