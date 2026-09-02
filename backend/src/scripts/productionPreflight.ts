@@ -6,6 +6,8 @@ import dotenv from 'dotenv';
 import Redis from 'ioredis';
 import mysql, { type RowDataPacket } from 'mysql2/promise';
 
+import { getScopedRedisConfiguration } from '../utils/scopedRedis.js';
+
 dotenv.config();
 
 const CONFIGURATION_EXIT_STATUS = 78;
@@ -17,6 +19,7 @@ const REQUIRED_TABLES = [
   'knex_migrations',
   'pkill_event',
   'pkill_info',
+  'season_reset_state',
   'web_sessions',
   'web_settings',
 ] as const;
@@ -75,6 +78,12 @@ async function run(): Promise<void> {
     maxRetriesPerRequest: 1,
     retryStrategy: () => null,
   });
+  const presenceConfiguration = getScopedRedisConfiguration('presence');
+  const presence = new Redis({
+    ...presenceConfiguration.options,
+    lazyConnect: true,
+    retryStrategy: () => null,
+  });
 
   try {
     await database.query('SELECT 1');
@@ -123,8 +132,24 @@ async function run(): Promise<void> {
       throw new Error('cache ping returned an unexpected response');
     }
 
+    await presence.connect();
+    if ((await presence.ping()) !== 'PONG') {
+      throw new Error('presence ping returned an unexpected response');
+    }
+    // SCAN is a whole-keyspace Redis command and therefore cannot be bounded by
+    // ACL key patterns. Production must use a dedicated read-only presence
+    // identity; this narrowly matched probe verifies the reader capability
+    // without logging or fetching any key.
+    await presence.scan(
+      '0',
+      'MATCH',
+      `${presenceConfiguration.namespace}:season:*:presence:session:*`,
+      'COUNT',
+      1,
+    );
+
     console.log(
-      `Production preflight passed (${presentTables.size} required tables, ${expectedMigrations.length} migrations, cache healthy).`,
+      `Production preflight passed (${presentTables.size} required tables, ${expectedMigrations.length} migrations, cache and presence healthy).`,
     );
   } finally {
     await database.end();
@@ -132,6 +157,11 @@ async function run(): Promise<void> {
       await cache.quit();
     } else {
       cache.disconnect();
+    }
+    if (presence.status === 'ready') {
+      await presence.quit();
+    } else {
+      presence.disconnect();
     }
   }
 }
