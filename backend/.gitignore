@@ -30,5 +30,5 @@ Thumbs.db
 .debug/
 
 # Tests
-test/
+/test/
 coverage/
