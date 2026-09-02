@@ -13,6 +13,7 @@ export interface ViteEnvironmentConfiguration extends PublicFrontendConfiguratio
   allowedHosts: string[]
 }
 
+/** Aggregates frontend configuration issues without exposing rejected values. */
 export class FrontendConfigurationError extends Error {
   readonly issues: readonly string[]
 
@@ -25,6 +26,7 @@ export class FrontendConfigurationError extends Error {
 
 type EnvironmentSource = Readonly<Record<string, string | boolean | undefined>>
 
+/** Reads a required frontend value and rejects checked-in placeholders. */
 function requiredString(source: EnvironmentSource, name: string, issues: string[]): string {
   const raw = source[name]
   const value = typeof raw === 'string' ? raw.trim() : ''
@@ -35,6 +37,7 @@ function requiredString(source: EnvironmentSource, name: string, issues: string[
   return value
 }
 
+/** Parses a credential-free URL restricted to the protocols owned by a setting. */
 function requiredUrl(
   source: EnvironmentSource,
   name: string,
@@ -56,6 +59,7 @@ function requiredUrl(
   }
 }
 
+/** Parses a complete bounded port value without accepting numeric prefixes. */
 function requiredPort(source: EnvironmentSource, name: string, issues: string[]): number {
   const raw = requiredString(source, name, issues)
   const value = Number(raw)
@@ -66,12 +70,22 @@ function requiredPort(source: EnvironmentSource, name: string, issues: string[])
   return value
 }
 
+/** Recognizes an unbracketed IPv6 literal without treating a hostname as a URL. */
+function isIpv6Literal(value: string): boolean {
+  if (!value.includes(':') || value.startsWith('[') || value.endsWith(']')) return false
+  try {
+    return new URL(`http://[${value}]/`).hostname.length > 0
+  } catch {
+    return false
+  }
+}
+
+/** Accepts a bare hostname, IPv4 address, or IPv6 literal for Vite binding. */
 function requiredHost(source: EnvironmentSource, name: string, issues: string[]): string {
   const value = requiredString(source, name, issues)
   if (
     value &&
-    value !== '::' &&
-    value !== '::1' &&
+    !isIpv6Literal(value) &&
     !/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(
       value,
     )
@@ -81,6 +95,7 @@ function requiredHost(source: EnvironmentSource, name: string, issues: string[])
   return value
 }
 
+/** Parses Vite's explicit hostname allowlist. */
 function parseAllowedHosts(source: EnvironmentSource, issues: string[]): string[] {
   const raw = requiredString(source, 'FRONTEND_ALLOWED_HOSTS', issues)
   const hosts = raw
@@ -102,6 +117,7 @@ function parseAllowedHosts(source: EnvironmentSource, issues: string[]): string[
   return hosts
 }
 
+/** Parses only the browser-visible subset shared by runtime and Vite. */
 function parsePublicValues(
   source: EnvironmentSource,
   issues: string[],
@@ -118,6 +134,7 @@ function parsePublicValues(
   }
 }
 
+/** Validates public build/runtime endpoints before application code can consume them. */
 export function parsePublicFrontendEnvironment(
   source: EnvironmentSource,
 ): PublicFrontendConfiguration {
@@ -127,6 +144,7 @@ export function parsePublicFrontendEnvironment(
   return configuration
 }
 
+/** Validates the public endpoints and local Vite server topology as one contract. */
 export function parseViteEnvironment(source: EnvironmentSource): ViteEnvironmentConfiguration {
   const issues: string[] = []
   const publicConfiguration = parsePublicValues(source, issues)

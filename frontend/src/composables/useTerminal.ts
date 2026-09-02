@@ -14,6 +14,7 @@ const error = ref<string | null>(null)
 const ws = ref<WebSocket | null>(null)
 
 // Get terminal token from backend API
+/** Requests a short-lived capability for the protected terminal WebSocket. */
 async function getTerminalToken(): Promise<string | null> {
   try {
     const apiUrl = frontendConfiguration.apiUrl
@@ -32,6 +33,7 @@ async function getTerminalToken(): Promise<string | null> {
   }
 }
 
+/** Owns the xterm instance, protected WebSocket, resizing, and teardown lifecycle. */
 export function useTerminal() {
   let resizeObserver: ResizeObserver | null = null
 

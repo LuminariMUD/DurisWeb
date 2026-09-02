@@ -91,9 +91,10 @@ state rather than applying an optimistic result.
 
 The browser-facing WebSocket uses `/ws` on the DurisWeb server for terminal,
 streaming, and application events. It is distinct from the backend's outbound
-privileged MUD bridge, whose default is `ws://127.0.0.1:4050` and whose wire
-contract is documented in `.spec_system/PRD/MUD_HANDOFF.md` and the separate MUD
-repository.
+privileged MUD bridge, whose endpoint is required through `MUD_WS_URL`. A
+loopback `ws://127.0.0.1:4050` value is a local example, not an application
+default. The wire contract is documented in `.spec_system/PRD/MUD_HANDOFF.md`
+and the separate MUD repository.
 
 Remote MUD bridge endpoints require `wss:` and certificate validation. Never
 put the HMAC bridge secret in browser code or a `VITE_*` setting.

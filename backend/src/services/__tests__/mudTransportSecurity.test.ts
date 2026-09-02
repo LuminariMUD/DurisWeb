@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 import {
   buildMudSocketOptions,
@@ -8,6 +8,18 @@ import {
   readDuriswebSecret,
 } from '../mudTransportPolicy.js';
 import { resetBackendConfigurationForTests } from '../../config/environment.js';
+
+const getMudBridgeRuntimeStatus = jest.fn(() => ({
+  connected: false,
+  authenticated: false,
+  certificateExpiresAt: null,
+}));
+
+jest.unstable_mockModule('../mudAuctionClient.js', () => ({
+  getMudBridgeRuntimeStatus,
+}));
+
+const { getMudTransportStatus } = await import('../mudTransportStatus.js');
 
 const CURRENT = 'current-secret-at-least-thirty-two-bytes-long';
 const PREVIOUS = 'previous-secret-at-least-thirty-two-byte';
@@ -78,7 +90,11 @@ describe('certificate validation', () => {
 describe('sanitized endpoint inspection', () => {
   it('refuses plaintext for a non-loopback host during configuration loading', () => {
     process.env.MUD_WS_URL = 'ws://mud.example.com:4050/';
-    expect(() => inspectMudWebSocketEndpoint()).toThrow(/must use wss/);
+    expect(inspectMudWebSocketEndpoint()).toMatchObject({
+      url: null,
+      blockedReason: null,
+      configurationError: 'MUD transport configuration is invalid.',
+    });
   });
 
   it('rejects user info, query strings, and fragments with a generic error', () => {
@@ -89,16 +105,23 @@ describe('sanitized endpoint inspection', () => {
     ]) {
       process.env.MUD_WS_URL = url;
       resetBackendConfigurationForTests();
-      try {
-        inspectMudWebSocketEndpoint();
-        throw new Error('expected a throw');
-      } catch (error) {
-        const message = (error as Error).message;
-        expect(message).toContain('MUD_WS_URL');
-        expect(message).not.toContain('secret@');
-        expect(message).not.toContain('token=secret');
-      }
+      const endpoint = inspectMudWebSocketEndpoint();
+      expect(endpoint.configurationError).toBe('MUD transport configuration is invalid.');
+      expect(endpoint.configurationError).not.toContain('secret@');
+      expect(endpoint.configurationError).not.toContain('token=secret');
     }
+  });
+
+  it('preserves a blocked diagnostic when configuration loading fails', async () => {
+    delete process.env.PORT;
+    resetBackendConfigurationForTests();
+
+    await expect(getMudTransportStatus()).resolves.toMatchObject({
+      blocked: true,
+      reason: 'MUD transport configuration is invalid.',
+      secretRotatedAt: null,
+      secretAgeDays: null,
+    });
   });
 });
 

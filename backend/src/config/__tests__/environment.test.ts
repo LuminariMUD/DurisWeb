@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import { ConfigurationError, parseBackendEnvironment } from '../environment.js';
 
+/** Builds the complete non-production baseline used by focused parser cases. */
 function validEnvironment(): Record<string, string> {
   return {
     NODE_ENV: 'test',
@@ -40,6 +41,32 @@ function validEnvironment(): Record<string, string> {
     R2_ENABLED: 'false',
     PUSH_ENABLED: 'false',
     GEMINI_ENABLED: 'false',
+  };
+}
+
+/** Builds a valid production baseline before each rule is invalidated independently. */
+function validProductionEnvironment(): Record<string, string> {
+  return {
+    ...validEnvironment(),
+    NODE_ENV: 'production',
+    CACHE_REDIS_AUTH_MODE: 'password',
+    CACHE_REDIS_PASSWORD: 'cache-production-password',
+    CACHE_REDIS_TLS: 'true',
+    CACHE_REDIS_CA_CERT: '/etc/durisweb/cache-redis-ca.pem',
+    CACHE_REDIS_TLS_SERVER_NAME: 'cache.example.invalid',
+    MUD_REDIS_ENABLED: 'true',
+    MUD_REDIS_AUTH_MODE: 'acl',
+    MUD_REDIS_HOST: 'mud-redis.example.invalid',
+    MUD_REDIS_PORT: '6379',
+    MUD_REDIS_DB: '1',
+    MUD_REDIS_NAMESPACE: 'duris:production:main',
+    MUD_REDIS_TLS: 'true',
+    MUD_REDIS_CA_CERT: '/etc/durisweb/mud-redis-ca.pem',
+    MUD_REDIS_TLS_SERVER_NAME: 'mud-redis.example.invalid',
+    MUD_REDIS_PRESENCE_USERNAME: 'presence-reader',
+    MUD_REDIS_PRESENCE_PASSWORD: 'presence-password',
+    MUD_REDIS_CACHE_USERNAME: 'cache-reader',
+    MUD_REDIS_CACHE_PASSWORD: 'mud-cache-password',
   };
 }
 
@@ -171,5 +198,47 @@ describe('backend environment configuration', () => {
     const configuration = parseBackendEnvironment(environment);
     expect(configuration.features.donations).toBe(true);
     expect(configuration.scopedRedis?.namespace).toBe('duris:local:main');
+  });
+
+  it('requires TLS for credentialed cache Redis outside loopback', () => {
+    const environment = validEnvironment();
+    environment.CACHE_REDIS_AUTH_MODE = 'password';
+    environment.CACHE_REDIS_PASSWORD = 'cache-password';
+
+    expect(() => parseBackendEnvironment(environment)).toThrow(
+      /CACHE_REDIS_TLS must be true for credentialed non-loopback connections/,
+    );
+
+    environment.CACHE_REDIS_HOST = '127.0.0.1';
+    expect(() => parseBackendEnvironment(environment)).not.toThrow();
+  });
+
+  it.each([
+    [
+      'unauthenticated cache Redis',
+      (environment: Record<string, string>) => {
+        environment.CACHE_REDIS_AUTH_MODE = 'none';
+      },
+      /CACHE_REDIS_AUTH_MODE must not be none in production/,
+    ],
+    [
+      'unscoped MUD Redis authentication',
+      (environment: Record<string, string>) => {
+        environment.MUD_REDIS_AUTH_MODE = 'none';
+      },
+      /MUD_REDIS_AUTH_MODE must be acl in production/,
+    ],
+    [
+      'a non-production MUD Redis namespace',
+      (environment: Record<string, string>) => {
+        environment.MUD_REDIS_NAMESPACE = 'duris:local:main';
+      },
+      /MUD_REDIS_NAMESPACE must use duris:production:/,
+    ],
+  ])('rejects production configuration with %s', (_label, invalidate, expected) => {
+    const environment = validProductionEnvironment();
+    invalidate(environment);
+
+    expect(() => parseBackendEnvironment(environment)).toThrow(expected);
   });
 });

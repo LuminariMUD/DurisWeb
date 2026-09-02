@@ -34,11 +34,13 @@ all three environment files, before running `./scripts/dev.sh`.
 
 ```bash
 ./scripts/check-config-literals.sh
+pnpm --dir backend config:check
 pnpm --dir backend format:check
 pnpm --dir backend lint
 pnpm --dir backend type-check
 pnpm --dir backend test --runInBand
 pnpm --dir backend build
+pnpm --dir frontend config:check
 pnpm --dir frontend format:check
 pnpm --dir frontend lint
 pnpm --dir frontend type-check

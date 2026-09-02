@@ -35,6 +35,7 @@ interface DonationDeliveryConfiguration {
   redis: RedisOptions;
 }
 
+/** Returns the enabled donation delivery contract with its dedicated scoped identity. */
 export function getDonationDeliveryConfiguration(): DonationDeliveryConfiguration {
   const environment = getBackendConfiguration();
   const secret = environment.donationSigningSecret;
@@ -64,6 +65,7 @@ let publisher: Redis | null = null;
 let pollTimer: NodeJS.Timeout | null = null;
 let activePoll: Promise<void> | null = null;
 
+/** Redacts configured secrets before a bounded failure message reaches storage or logs. */
 function errorMessage(error: unknown): string {
   const environment = getBackendConfiguration();
   let message = error instanceof Error ? error.message : String(error);

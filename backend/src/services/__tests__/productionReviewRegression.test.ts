@@ -75,4 +75,62 @@ describe('production review regression contracts', () => {
     expect(updateRoute).toContain("requirePermission('manage_front_page')");
     expect(updateRoute).toContain('requireWebSettingAuthorization');
   });
+
+  it('encodes every dynamic battle metadata value before HTML interpolation', () => {
+    const entrypoint = read('backend/src/index.ts');
+    const metadata = entrypoint.slice(
+      entrypoint.indexOf('const generateBattleOgTags'),
+      entrypoint.indexOf('// Vue Router history mode support'),
+    );
+
+    expect(metadata).toContain('const title = escapeHtml(');
+    expect(metadata).toContain('const description = escapeHtml(');
+    expect(metadata).toContain('const url = escapeHtml(');
+    expect(metadata).toContain('const encodedSiteTitle = escapeHtml(siteTitle)');
+    expect(metadata).toContain('logoUrl ? escapeHtml(logoUrl) : undefined');
+  });
+
+  it('backs up and restores the same explicitly configured MUD database', () => {
+    const service = read('backend/src/services/backupService.ts');
+    const backup = service.slice(
+      service.indexOf('async function runBackup'),
+      service.indexOf('/**\n * Create the zip'),
+    );
+    const archive = service.slice(
+      service.indexOf('async function createZipArchive'),
+      service.indexOf('/**\n * Update backup status'),
+    );
+    const restore = service.slice(
+      service.indexOf('async function executeRestorePipeline'),
+      service.indexOf('export async function createRestore'),
+    );
+
+    expect(backup).toContain('environment.mudDatabase.connection');
+    expect(backup).toContain('mudPool.execute');
+    expect(archive).toContain('environment.mudDatabase.connection.database');
+    expect(restore).toContain('environment.mudDatabase.connection');
+    expect(restore).toContain('-P ${dbPort}');
+  });
+
+  it('keeps shell-sensitive MySQL healthcheck values in single arguments', () => {
+    const compose = read('podman-compose.yml');
+
+    expect(compose).toContain('-h \\"$${MYSQL_HEALTHCHECK_HOST}\\"');
+    expect(compose).toContain('-u\\"$${MYSQL_USER}\\"');
+    expect(compose).toContain('-p\\"$${MYSQL_PASSWORD}\\"');
+  });
+
+  it('keeps reviewed configuration guidance aligned with runtime behavior', () => {
+    const api = read('docs/api/README_api.md');
+    const architecture = read('docs/ARCHITECTURE.md');
+    const development = read('docs/development.md');
+    const environments = read('docs/environments.md');
+
+    expect(api).toContain('loopback `ws://127.0.0.1:4050` value is a local example');
+    expect(api).not.toContain('whose default is `ws://127.0.0.1:4050`');
+    expect(architecture).toContain('When Cloudflared is enabled');
+    expect(development).toContain('pnpm --dir backend config:check');
+    expect(development).toContain('pnpm --dir frontend config:check');
+    expect(environments).toContain('`discord_webhook_url` for server-side delivery only');
+  });
 });

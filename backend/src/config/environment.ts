@@ -96,6 +96,7 @@ export interface BackendConfiguration {
   geminiApiKey?: string;
 }
 
+/** Aggregates configuration issues without including the rejected secret values. */
 export class ConfigurationError extends Error {
   readonly issues: readonly string[];
 
@@ -108,10 +109,24 @@ export class ConfigurationError extends Error {
 
 type EnvironmentSource = Readonly<Record<string, string | undefined>>;
 
+/** Returns whether a host is confined to the local machine. */
+function isLoopbackHost(hostname: string): boolean {
+  const host = hostname.trim().toLowerCase();
+  if (host === 'localhost') return true;
+  const bare = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
+  if (bare === '::1' || bare === '0:0:0:0:0:0:0:1') return true;
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(bare);
+  if (!ipv4) return false;
+  const octets = ipv4.slice(1).map(Number);
+  return octets.every((octet) => octet >= 0 && octet <= 255) && octets[0] === 127;
+}
+
+/** Treats whitespace-only legacy aliases as absent. */
 function hasValue(source: EnvironmentSource, name: string): boolean {
   return Boolean(source[name]?.trim());
 }
 
+/** Reads a required string while rejecting documented placeholder values. */
 function requiredString(
   source: EnvironmentSource,
   name: string,
@@ -132,6 +147,7 @@ function requiredString(
   return value;
 }
 
+/** Reads an optional string while still rejecting placeholder values. */
 function optionalString(
   source: EnvironmentSource,
   name: string,
@@ -144,6 +160,7 @@ function optionalString(
   return value || undefined;
 }
 
+/** Parses an explicitly configured boolean without inventing a default. */
 function requiredBoolean(source: EnvironmentSource, name: string, issues: string[]): boolean {
   const value = requiredString(source, name, issues).toLowerCase();
   if (value !== 'true' && value !== 'false') {
@@ -153,6 +170,7 @@ function requiredBoolean(source: EnvironmentSource, name: string, issues: string
   return value === 'true';
 }
 
+/** Parses an enum value and records every unsupported selection. */
 function requiredEnum<T extends string>(
   source: EnvironmentSource,
   name: string,
@@ -167,6 +185,7 @@ function requiredEnum<T extends string>(
   return value as T;
 }
 
+/** Parses a bounded base-10 integer without accepting numeric prefixes. */
 function requiredInteger(
   source: EnvironmentSource,
   name: string,
@@ -183,6 +202,7 @@ function requiredInteger(
   return value;
 }
 
+/** Parses a credential-free URL restricted to the protocols owned by a setting. */
 function requiredUrl(
   source: EnvironmentSource,
   name: string,
@@ -206,6 +226,7 @@ function requiredUrl(
   }
 }
 
+/** Resolves a required absolute path so all consumers receive the same canonical form. */
 function requiredAbsolutePath(source: EnvironmentSource, name: string, issues: string[]): string {
   const value = requiredString(source, name, issues);
   if (value && !path.isAbsolute(value)) {
@@ -214,6 +235,7 @@ function requiredAbsolutePath(source: EnvironmentSource, name: string, issues: s
   return value ? path.resolve(value) : '';
 }
 
+/** Validates a PATH-like value without silently adding process defaults. */
 function requiredPathList(source: EnvironmentSource, name: string, issues: string[]): string {
   const value = requiredString(source, name, issues);
   if (value && value.split(path.delimiter).some((entry) => !entry || !path.isAbsolute(entry))) {
@@ -222,6 +244,7 @@ function requiredPathList(source: EnvironmentSource, name: string, issues: strin
   return value;
 }
 
+/** Accepts a bare hostname or supported loopback bind address. */
 function requiredHost(source: EnvironmentSource, name: string, issues: string[]): string {
   const value = requiredString(source, name, issues);
   if (
@@ -237,6 +260,7 @@ function requiredHost(source: EnvironmentSource, name: string, issues: string[])
   return value;
 }
 
+/** Enforces TLS for privileged MUD bridge traffic that leaves loopback. */
 function requiredMudWebSocketUrl(source: EnvironmentSource, issues: string[]): string {
   const value = requiredUrl(source, 'MUD_WS_URL', ['ws:', 'wss:'], issues);
   if (!value) return value;
@@ -260,6 +284,7 @@ function requiredMudWebSocketUrl(source: EnvironmentSource, issues: string[]): s
   return value;
 }
 
+/** Parses exact HTTP origins for credentialed CORS requests. */
 function parseAllowedOrigins(source: EnvironmentSource, name: string, issues: string[]): string[] {
   const raw = requiredString(source, name, issues);
   if (!raw) return [];
@@ -286,6 +311,7 @@ function parseAllowedOrigins(source: EnvironmentSource, name: string, issues: st
   return origins;
 }
 
+/** Parses one explicitly owned database connection family. */
 function parseDatabase(
   source: EnvironmentSource,
   prefix: 'DB' | 'MUD_DB',
@@ -300,6 +326,7 @@ function parseDatabase(
   };
 }
 
+/** Selects the credentials required by a Redis authentication mode. */
 function parseRedisCredentials(
   source: EnvironmentSource,
   prefix: string,
@@ -315,6 +342,7 @@ function parseRedisCredentials(
   };
 }
 
+/** Parses the general cache connection and prevents remote plaintext authentication. */
 function parseCacheRedis(
   source: EnvironmentSource,
   environment: RuntimeEnvironment,
@@ -329,8 +357,12 @@ function parseCacheRedis(
   if (environment === 'production' && authenticationMode === 'none') {
     issues.push('CACHE_REDIS_AUTH_MODE must not be none in production');
   }
+  const host = requiredString(source, 'CACHE_REDIS_HOST', issues);
   const tls = requiredBoolean(source, 'CACHE_REDIS_TLS', issues);
   const credentials = parseRedisCredentials(source, 'CACHE_REDIS', authenticationMode, issues);
+  if (authenticationMode !== 'none' && !tls && !isLoopbackHost(host)) {
+    issues.push('CACHE_REDIS_TLS must be true for credentialed non-loopback connections');
+  }
   const caCertificatePath = tls
     ? requiredAbsolutePath(source, 'CACHE_REDIS_CA_CERT', issues)
     : undefined;
@@ -339,7 +371,7 @@ function parseCacheRedis(
     : undefined;
 
   return {
-    host: requiredString(source, 'CACHE_REDIS_HOST', issues),
+    host,
     port: requiredInteger(source, 'CACHE_REDIS_PORT', 1, 65_535, issues),
     database: requiredInteger(source, 'CACHE_REDIS_DB', 0, 255, issues),
     ...credentials,
@@ -349,6 +381,7 @@ function parseCacheRedis(
   };
 }
 
+/** Parses the independently scoped MUD Redis identities and deployment namespace. */
 function parseScopedRedis(
   source: EnvironmentSource,
   environment: RuntimeEnvironment,
@@ -412,6 +445,7 @@ function parseScopedRedis(
   };
 }
 
+/** Rejects obsolete aliases so ownership cannot drift back to implicit fallbacks. */
 function rejectLegacyAliases(source: EnvironmentSource, issues: string[]): void {
   const aliases = [
     'DURIS_DB_HOST',
@@ -434,6 +468,7 @@ function rejectLegacyAliases(source: EnvironmentSource, issues: string[]): void 
   }
 }
 
+/** Parses the complete backend contract and reports all discovered issues together. */
 export function parseBackendEnvironment(source: EnvironmentSource): BackendConfiguration {
   const issues: string[] = [];
   rejectLegacyAliases(source, issues);
@@ -567,6 +602,7 @@ export function parseBackendEnvironment(source: EnvironmentSource): BackendConfi
 let environmentFilesLoaded = false;
 let cachedConfiguration: BackendConfiguration | null = null;
 
+/** Loads the documented dotenv precedence once per process. */
 function loadEnvironmentFiles(): void {
   if (environmentFilesLoaded) return;
   environmentFilesLoaded = true;
@@ -575,6 +611,7 @@ function loadEnvironmentFiles(): void {
   });
 }
 
+/** Returns the single cached backend configuration used by runtime consumers. */
 export function getBackendConfiguration(): BackendConfiguration {
   if (cachedConfiguration) return cachedConfiguration;
   loadEnvironmentFiles();
@@ -582,6 +619,7 @@ export function getBackendConfiguration(): BackendConfiguration {
   return cachedConfiguration;
 }
 
+/** Clears only the parsed test cache while preserving production immutability. */
 export function resetBackendConfigurationForTests(): void {
   if (process.env.NODE_ENV !== 'test') {
     throw new Error('Backend configuration can only be reset while NODE_ENV=test');

@@ -970,7 +970,7 @@ function goBack() {
   router.push('/builder')
 }
 
-// Download zone files
+/** Opens an authenticated download for one zone resource family or the complete bundle. */
 function downloadFile(type: 'wld' | 'mob' | 'obj' | 'zon' | 'all') {
   const baseUrl = frontendConfiguration.apiUrl
   const url = `${baseUrl}/api/builder/zones/${zoneId.value}/download/${type}`

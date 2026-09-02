@@ -16,6 +16,7 @@ const permissionState = ref<NotificationPermission>('default')
 const isSupported = ref(false)
 const isEnabled = ref(true) // User preference to show/hide notifications
 
+/** Manages browser notification permission, preferences, and site-branded messages. */
 export function useNotifications() {
   const { siteTitle } = useSiteConfig()
   // Check if browser supports notifications
@@ -173,7 +174,7 @@ export function useNotifications() {
     })
   }
 
-  // Show incident notification (crash, reboot, shutdown, etc.)
+  /** Converts an internal MUD lifecycle incident into a user-safe browser notification. */
   const showCrashNotification = (incident: {
     id: number
     incident_type: string

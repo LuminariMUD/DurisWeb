@@ -4,7 +4,7 @@ import { useSiteConfig } from '@/composables/useSiteConfig'
 import { Download, X } from 'lucide-vue-next'
 
 const { canInstall, install, dismiss } = useInstallPrompt()
-const { siteTitle } = useSiteConfig()
+const { siteTitle, isAvailable } = useSiteConfig()
 
 const handleInstall = async () => {
   await install()
@@ -14,7 +14,7 @@ const handleInstall = async () => {
 <template>
   <Transition name="float-up">
     <div
-      v-if="canInstall"
+      v-if="canInstall && isAvailable"
       data-testid="install-banner"
       role="region"
       :aria-label="`Install ${siteTitle} app`"

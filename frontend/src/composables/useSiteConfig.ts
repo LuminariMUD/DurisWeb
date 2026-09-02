@@ -23,6 +23,7 @@ const REQUIRED_STRING_KEYS = [
   'frontPageContent',
 ] as const satisfies readonly (keyof SiteConfig)[]
 
+/** Validates the complete browser-safe site configuration response. */
 export function parseSiteConfig(value: unknown): SiteConfig {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('Site configuration response must be an object')
@@ -50,16 +51,27 @@ export function parseSiteConfig(value: unknown): SiteConfig {
   const mudWsUrl = String(record.mudWsUrl)
   try {
     const parsed = new URL(mudWsUrl)
-    if (!['ws:', 'wss:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+    if (parsed.protocol !== 'wss:' || parsed.username || parsed.password || parsed.hash) {
       throw new Error('invalid')
     }
   } catch {
     throw new Error('Site configuration response contains an invalid mudWsUrl')
   }
+  const supportUrl = String(record.supportUrl)
+  if (supportUrl) {
+    try {
+      const parsed = new URL(supportUrl)
+      if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+        throw new Error('invalid')
+      }
+    } catch {
+      throw new Error('Site configuration response contains an invalid supportUrl')
+    }
+  }
   return {
     siteTitle: String(record.siteTitle),
     siteLogoUrl: String(record.siteLogoUrl),
-    supportUrl: String(record.supportUrl),
+    supportUrl,
     mudHost: String(record.mudHost),
     mudPort: String(record.mudPort),
     mudPortTls: String(record.mudPortTls),
@@ -72,6 +84,7 @@ export function parseSiteConfig(value: unknown): SiteConfig {
   }
 }
 
+/** Exposes shared configuration state without local or branded fallbacks. */
 export function useSiteConfig() {
   const isAvailable = computed(() => config.value !== null && error.value === null)
   const siteTitle = computed(() => config.value?.siteTitle ?? '')
@@ -87,7 +100,7 @@ export function useSiteConfig() {
     config.value ? `${config.value.mudHost}:${config.value.mudPort}` : '',
   )
 
-  // Get user's proxy settings from localStorage
+  /** Reads the optional user-owned MUD proxy override from browser storage. */
   function getUserProxySettings(): { enabled: boolean; host: string; port: string } {
     if (typeof window === 'undefined') return { enabled: false, host: '', port: '' }
     try {
@@ -192,6 +205,7 @@ export function useSiteConfig() {
   }
 }
 
+/** Restores the module-level site configuration state between tests. */
 export function resetSiteConfigForTests(): void {
   config.value = null
   isLoading.value = false

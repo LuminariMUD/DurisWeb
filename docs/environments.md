@@ -36,8 +36,10 @@ The backend always requires:
 
 `CACHE_REDIS_AUTH_MODE` is `none`, `password`, or `acl`. Password and ACL modes
 require `CACHE_REDIS_PASSWORD`; ACL also requires `CACHE_REDIS_USERNAME`.
-Production refuses unauthenticated cache Redis. `CACHE_REDIS_TLS=true` requires
-`CACHE_REDIS_CA_CERT` and `CACHE_REDIS_TLS_SERVER_NAME`.
+Production refuses unauthenticated cache Redis. Credentialed connections may
+use plaintext only on a loopback host; all other credentialed cache connections
+require `CACHE_REDIS_TLS=true`, `CACHE_REDIS_CA_CERT`, and
+`CACHE_REDIS_TLS_SERVER_NAME`.
 
 Optional groups are explicit:
 
@@ -68,8 +70,9 @@ Every frontend build requires `VITE_BASE_URL`, `VITE_API_URL`, `VITE_WS_URL`,
 `site_title`, `site_logo_url`, `support_url`,
 `front_page_hero_enabled`, `front_page_hero_title`,
 `front_page_hero_subtitle`, `front_page_hero_image_url`, `front_page_content`,
-`max_hourly_backups`, `respect_webinfo_toggle`, `discord_webhook_url`, and
-`discord_webhook_enabled`.
+`max_hourly_backups`, `respect_webinfo_toggle`, and `discord_webhook_enabled`.
+The same table stores `discord_webhook_url` for server-side delivery only; it is
+a bearer credential and is never part of the browser-safe public inventory.
 
 The forward migration backfills missing keys to preserve the existing
 deployment. Runtime code does not recreate those values. An incomplete or

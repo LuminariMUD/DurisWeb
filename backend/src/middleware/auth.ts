@@ -33,6 +33,7 @@ export interface JWTPayload {
   exp: number;
 }
 
+/** Reads the already validated JWT secret without introducing a fallback. */
 function getJwtSecret(): string {
   return environment.jwtSecret;
 }

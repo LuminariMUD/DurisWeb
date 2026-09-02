@@ -1,7 +1,12 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { parseWebSettingsRows, WebSettingsConfigurationError } from '../webSettingsService.js';
+import {
+  parseWebSettingsRows,
+  updateWebSetting,
+  WebSettingsConfigurationError,
+} from '../webSettingsService.js';
 
+/** Builds the complete authoritative row set used by focused validation cases. */
 function validRows(): Array<{ setting_key: string; setting_value: string }> {
   return [
     ['pvp_delay_minutes', '15'],
@@ -59,5 +64,36 @@ describe('database-backed site configuration', () => {
     if (enabled) enabled.setting_value = 'true';
 
     expect(() => parseWebSettingsRows(rows)).toThrow(/discord_webhook_url is required/);
+  });
+
+  it('rejects plaintext and fragmented browser WebSocket URLs', async () => {
+    for (const value of ['ws://127.0.0.1:4050', 'wss://ws.example.invalid/mud#fragment']) {
+      const rows = validRows();
+      const mudWebSocketUrl = rows.find((row) => row.setting_key === 'mud_ws_url');
+      if (mudWebSocketUrl) mudWebSocketUrl.setting_value = value;
+
+      expect(() => parseWebSettingsRows(rows)).toThrow(/mud_ws_url/);
+      await expect(updateWebSetting('mud_ws_url', value, 'tester')).rejects.toThrow(/mud_ws_url/);
+    }
+  });
+
+  it.each(['4001junk', '12.5', ' 4001'])(
+    'rejects a partial MUD port value before upsert: %s',
+    async (value) => {
+      await expect(updateWebSetting('mud_port', value, 'tester')).rejects.toThrow(
+        /MUD port must be between 1 and 65535/,
+      );
+    },
+  );
+
+  it('rejects credentials in public support URLs', async () => {
+    const rows = validRows();
+    const supportUrl = rows.find((row) => row.setting_key === 'support_url');
+    if (supportUrl) supportUrl.setting_value = 'https://user:secret@support.example.invalid';
+
+    expect(() => parseWebSettingsRows(rows)).toThrow(/support_url must not contain credentials/);
+    await expect(
+      updateWebSetting('support_url', 'https://user:secret@support.example.invalid', 'tester'),
+    ).rejects.toThrow(/Support URL/);
   });
 });

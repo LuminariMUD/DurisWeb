@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$#" -ne 2 ]; then
+  printf 'Usage: %s /absolute/path/to/redis-server /absolute/path/to/redis.conf\n' "$0" >&2
+  exit 64
+fi
+
+redis_binary=$1
+redis_source_config=$2
+redis_runtime_directory=${RUNTIME_DIRECTORY:-}
+redis_password=${CACHE_REDIS_PASSWORD:-}
+
+if [ ! -x "${redis_binary}" ]; then
+  printf 'Redis binary is not executable: %s\n' "${redis_binary}" >&2
+  exit 78
+fi
+if [ ! -f "${redis_source_config}" ] || [ -L "${redis_source_config}" ]; then
+  printf 'Redis config must be a regular, non-symlink file: %s\n' "${redis_source_config}" >&2
+  exit 78
+fi
+if [ -z "${redis_password}" ] || [[ "${redis_password}" == *$'\n'* || "${redis_password}" == *$'\r'* ]]; then
+  printf 'CACHE_REDIS_PASSWORD must be a non-empty single-line value.\n' >&2
+  exit 78
+fi
+if [ -z "${redis_runtime_directory}" ] || [ ! -d "${redis_runtime_directory}" ] ||
+  [ -L "${redis_runtime_directory}" ] ||
+  [ "$(stat -c '%u' "${redis_runtime_directory}")" != "$(id -u)" ]; then
+  printf 'RUNTIME_DIRECTORY must be an owner-controlled, non-symlink directory.\n' >&2
+  exit 78
+fi
+
+redis_password=${redis_password//\\/\\\\}
+redis_password=${redis_password//\"/\\\"}
+redis_runtime_config="${redis_runtime_directory}/redis.conf"
+redis_temporary_config=$(mktemp "${redis_runtime_directory}/redis.conf.XXXXXX")
+trap 'rm -f "${redis_temporary_config}"' EXIT
+
+{
+  cat "${redis_source_config}"
+  printf '\nrequirepass "%s"\n' "${redis_password}"
+} >"${redis_temporary_config}"
+chmod 0600 "${redis_temporary_config}"
+mv -f -- "${redis_temporary_config}" "${redis_runtime_config}"
+trap - EXIT
+
+unset CACHE_REDIS_PASSWORD
+exec "${redis_binary}" "${redis_runtime_config}"

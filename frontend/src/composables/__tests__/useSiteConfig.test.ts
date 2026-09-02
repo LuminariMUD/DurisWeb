@@ -8,7 +8,7 @@ vi.mock('@/services/api', () => ({
   getSiteConfig: mocks.getSiteConfig,
 }))
 
-import { resetSiteConfigForTests, useSiteConfig } from '../useSiteConfig'
+import { parseSiteConfig, resetSiteConfigForTests, useSiteConfig } from '../useSiteConfig'
 
 const validConfiguration = {
   siteTitle: 'Example MUD',
@@ -54,5 +54,18 @@ describe('site configuration availability', () => {
     expect(site.error.value).toMatch(/unavailable/i)
     expect(site.siteTitle.value).toBe('')
     expect(site.mudWsUrl.value).toBeNull()
+  })
+
+  it.each([
+    ['a plaintext MUD socket', { mudWsUrl: 'ws://127.0.0.1:4050' }, /mudWsUrl/],
+    ['a fragmented MUD socket', { mudWsUrl: 'wss://ws.example.invalid/mud#fragment' }, /mudWsUrl/],
+    ['an unsafe support scheme', { supportUrl: 'javascript:alert(1)' }, /supportUrl/],
+    [
+      'support URL credentials',
+      { supportUrl: 'https://user:secret@support.example.invalid' },
+      /supportUrl/,
+    ],
+  ])('rejects %s', (_label, override, expected) => {
+    expect(() => parseSiteConfig({ ...validConfiguration, ...override })).toThrow(expected)
   })
 })

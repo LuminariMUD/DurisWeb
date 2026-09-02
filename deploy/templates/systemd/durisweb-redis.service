@@ -9,7 +9,9 @@ StartLimitIntervalSec=0
 Type=simple
 EnvironmentFile=@BACKEND_ENV_FILE@
 Environment=LD_LIBRARY_PATH=@REDIS_LIBRARY_PATH@
-ExecStart=@REDIS_BIN@ @REDIS_CONFIG_PATH@ --requirepass ${CACHE_REDIS_PASSWORD}
+RuntimeDirectory=durisweb-redis
+RuntimeDirectoryMode=0700
+ExecStart="@BACKEND_ROOT@/../deploy/scripts/run-durisweb-redis" "@REDIS_BIN@" "@REDIS_CONFIG_PATH@"
 Restart=always
 RestartSec=5s
 KillSignal=SIGTERM

@@ -1,5 +1,10 @@
 import { describe, expect, it } from '@jest/globals';
-import { processContentForWrite, processForumContent, sanitizeContent } from '../contentParser.js';
+import {
+  escapeHtml,
+  processContentForWrite,
+  processForumContent,
+  sanitizeContent,
+} from '../contentParser.js';
 
 describe('content write validation', () => {
   it('reports oversized content before a write can occur', () => {
@@ -36,5 +41,11 @@ describe('content write validation', () => {
 
     expect(sanitized).not.toMatch(/javascript:/i);
     expect(sanitized).toContain('read this');
+  });
+
+  it('encodes dynamic text for HTML metadata contexts', () => {
+    expect(escapeHtml(`A&B <tag> "double" 'single'`)).toBe(
+      'A&amp;B &lt;tag&gt; &quot;double&quot; &#39;single&#39;',
+    );
   });
 });

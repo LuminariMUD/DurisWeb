@@ -19,6 +19,7 @@ export interface MudTransportStatus {
   readonly reason: string | null;
 }
 
+/** Calculates operator-safe rotation age from the already validated timestamp. */
 function secretRotation(): { rotatedAt: string | null; ageDays: number | null } {
   const raw = getBackendConfiguration().mud.bridgeSecretRotatedAt;
   if (!raw) return { rotatedAt: null, ageDays: null };
@@ -33,10 +34,13 @@ function secretRotation(): { rotatedAt: string | null; ageDays: number | null } 
   };
 }
 
+/** Returns a sanitized status even when backend configuration cannot be loaded. */
 export async function getMudTransportStatus(): Promise<MudTransportStatus> {
   const endpoint = inspectMudWebSocketEndpoint();
   const runtime = getMudBridgeRuntimeStatus();
-  const rotation = secretRotation();
+  const rotation = endpoint.configurationError
+    ? { rotatedAt: null, ageDays: null }
+    : secretRotation();
   const certificateStatus =
     endpoint.scheme === 'ws'
       ? 'not_applicable'

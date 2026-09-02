@@ -58,4 +58,21 @@ describe('frontend environment configuration', () => {
       }),
     ).toThrow(FrontendConfigurationError)
   })
+
+  it('accepts valid IPv6 addresses for development and preview binding', () => {
+    const configuration = parseViteEnvironment({
+      VITE_BASE_URL: '/',
+      VITE_API_URL: 'https://api.example.invalid',
+      VITE_WS_URL: 'wss://socket.example.invalid/ws',
+      VITE_STATIC_URL: 'https://static.example.invalid',
+      FRONTEND_DEV_HOST: '2001:db8::1',
+      FRONTEND_DEV_PORT: '5173',
+      FRONTEND_PREVIEW_HOST: 'fd00::1234',
+      FRONTEND_PREVIEW_PORT: '4173',
+      FRONTEND_ALLOWED_HOSTS: 'localhost,.example.invalid',
+    })
+
+    expect(configuration.developmentHost).toBe('2001:db8::1')
+    expect(configuration.previewHost).toBe('fd00::1234')
+  })
 })

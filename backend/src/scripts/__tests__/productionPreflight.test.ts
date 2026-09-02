@@ -10,6 +10,7 @@ import { resetBackendConfigurationForTests } from '../../config/environment.js';
 
 const originalEnvironment = { ...process.env };
 
+/** Installs a complete production baseline for isolated preflight cases. */
 function setValidEnvironment(): void {
   resetBackendConfigurationForTests();
   process.env.NODE_ENV = 'production';
@@ -18,8 +19,10 @@ function setValidEnvironment(): void {
   process.env.DB_USER = 'duris';
   process.env.DB_PASSWORD = 'secret';
   process.env.DB_NAME = 'duris';
+  process.env.CACHE_REDIS_HOST = '127.0.0.1';
   process.env.CACHE_REDIS_AUTH_MODE = 'password';
   process.env.CACHE_REDIS_PASSWORD = 'cache-secret';
+  process.env.CACHE_REDIS_TLS = 'false';
   process.env.MUD_REDIS_ENABLED = 'true';
   process.env.MUD_REDIS_AUTH_MODE = 'acl';
   process.env.MUD_REDIS_HOST = '127.0.0.1';

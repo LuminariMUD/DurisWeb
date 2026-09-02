@@ -245,6 +245,16 @@ export function processContentForWrite(html: unknown): {
   };
 }
 
+/** Encodes text for safe interpolation in HTML text and quoted attribute contexts. */
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /**
  * Convert plain text to safe HTML
  * Used for legacy content or text-only posts
@@ -254,16 +264,8 @@ export function textToHtml(text: string): string {
     return '';
   }
 
-  // Escape HTML entities
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-
   // Convert newlines to <br>
-  return escaped.replace(/\n/g, '<br>');
+  return escapeHtml(text).replace(/\n/g, '<br>');
 }
 
 /**

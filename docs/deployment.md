@@ -50,15 +50,21 @@ deploy/scripts/render-config /absolute/operator/path/deployment.env
 The required `RENDER_OUTPUT_DIR` receives:
 
 - systemd units for the application and private Redis cache;
-- a Redis configuration without an embedded password;
+- a Redis base configuration without an embedded password;
 - the Cloudflare unit when its group is enabled;
 - bootstrap and TLS nginx configurations when their group is enabled.
 
 The renderer rejects missing values, unsafe input permissions, symlinks,
-unresolved/example placeholders, and broad output targets. Inspect the output,
-install the Redis/nginx files at the configured paths, and link the rendered systemd
-units from their actual output directory. For user services, enable linger for
-the selected service account and verify `Linger=yes` before enabling units.
+unresolved/example placeholders, and missing or non-empty unmarked output
+targets. Create the dedicated output directory before rendering; the renderer
+marks it so later renders can update only that owned location. Inspect the
+output, install the Redis/nginx files at the configured paths, and link the
+rendered systemd units from their actual output directory. At service start,
+`run-durisweb-redis` copies the installed base
+configuration into systemd's mode-0700 runtime directory and appends the
+backend-owned password to a mode-0600 runtime config; the secret never appears
+in `ExecStart`. For user services, enable linger for the selected service
+account and verify `Linger=yes` before enabling units.
 
 The cloudflared launcher validates the deployment file ownership/mode, obtains
 a short-lived tunnel token from the configured account/tunnel, and restricts

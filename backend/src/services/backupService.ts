@@ -1,4 +1,4 @@
-import { pool } from '../db/connection.js';
+import { mudPool, pool } from '../db/connection.js';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -466,14 +466,14 @@ async function runBackup(
       password: dbPassword,
       host: dbHost,
       port: dbPort,
-    } = environment.database;
+    } = environment.mudDatabase.connection;
 
     // skip views entirely: they can reference tables dropped by past migrations,
     // which makes mysqldump fail with "references invalid table(s)". our restore
     // pipeline only processes INSERT rows on real tables (ALL_RESTORE_TABLES), so
     // dumping views adds fragility without value. migrations are the source of
     // truth for views.
-    const [viewRows] = await pool.execute<RowDataPacket[]>(
+    const [viewRows] = await mudPool.execute<RowDataPacket[]>(
       `SELECT TABLE_NAME FROM information_schema.tables
        WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'VIEW'`,
       [dbName],
@@ -579,7 +579,7 @@ async function createZipArchive(
     await fs.promises.mkdir(dbDir, { recursive: true });
 
     // copy sql file to staging
-    const dbName = environment.database.database;
+    const dbName = environment.mudDatabase.connection.database;
     await fs.promises.copyFile(sqlPath, path.join(dbDir, `${dbName}.sql`));
 
     await updateBackupStatus(backupId, 'in_progress', 50, 'Zipping database...');
@@ -1031,13 +1031,14 @@ async function executeRestorePipeline(
       user: dbUser,
       password: dbPassword,
       database: dbName,
+      port: dbPort,
     } = environment.mudDatabase.connection;
     // 30-minute hard timeout: matches the concurrency-guard window. if mysql cli
     // hangs (deadlock, lost connection, oom-killed), the timeout kills the child
     // process so the catch+finally below can mark the restore as failed and
     // unlink the temp file.
     await execAsync(
-      `mysql -h ${dbHost} -u ${dbUser} -p'${dbPassword}' ${dbName} < "${tempSqlPath}"`,
+      `mysql -h ${dbHost} -P ${dbPort} -u ${dbUser} -p'${dbPassword}' ${dbName} < "${tempSqlPath}"`,
       {
         maxBuffer: 100 * 1024 * 1024,
         timeout: 30 * 60 * 1000,

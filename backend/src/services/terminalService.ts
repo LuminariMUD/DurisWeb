@@ -30,6 +30,12 @@ const sessionsByWebSocket = new Map<WebSocket, number>();
 const OUTPUT_BUFFER_INTERVAL = 500; // ms
 const OUTPUT_BUFFER_MAX_SIZE = 4096; // bytes
 
+/** Quotes an operator-controlled path for the tmux shell-command parser. */
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+/** Builds a collision-resistant tmux namespace from an account and database id. */
 export function getTerminalSessionName(accountName: string, sessionId: number): string {
   const safeAccountName = accountName.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40) || 'account';
   return `duris-${safeAccountName}-${sessionId}`;
@@ -74,6 +80,7 @@ export async function createSession(
     const sessionId = (result as any).insertId;
     const tmuxSessionName = getTerminalSessionName(accountName, sessionId);
     const bashrcPath = `/tmp/.duris_bashrc-${sessionId}`;
+    const tmuxShellCommand = `${shellQuote(environment.mud.processShell)} --rcfile ${shellQuote(bashrcPath)}`;
 
     // Spawn PTY with bubblewrap sandboxing
     const shell = pty.spawn(
@@ -144,7 +151,7 @@ BASHRC
         if tmux has-session -t "$DURIS_TMUX_SESSION" 2>/dev/null; then
           tmux attach -t "$DURIS_TMUX_SESSION"
         else
-          tmux new-session -s "$DURIS_TMUX_SESSION" "bash --rcfile $DURIS_BASHRC_PATH"
+          tmux new-session -s "$DURIS_TMUX_SESSION" "$DURIS_TMUX_SHELL_COMMAND"
         fi
       `,
       ],
@@ -161,6 +168,7 @@ BASHRC
           LANG: environment.mud.processLocale,
           DURIS_TMUX_SESSION: tmuxSessionName,
           DURIS_BASHRC_PATH: bashrcPath,
+          DURIS_TMUX_SHELL_COMMAND: tmuxShellCommand,
         },
       },
     );

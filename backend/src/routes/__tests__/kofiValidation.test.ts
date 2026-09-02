@@ -25,6 +25,7 @@ jest.unstable_mockModule('../../utils/logger.js', () => ({
 }));
 
 const verificationToken = crypto.randomBytes(32).toString('hex');
+const savedEnv = { ...process.env };
 let app: express.Express;
 
 const validDonation = () => ({
@@ -80,9 +81,7 @@ beforeEach(() => {
 });
 
 afterAll(() => {
-  process.env.DONATIONS_ENABLED = 'false';
-  delete process.env.KOFI_VERIFICATION_TOKEN;
-  delete process.env.MUD_REDIS_DONATION_SECRET;
+  process.env = { ...savedEnv };
   resetBackendConfigurationForTests();
 });
 

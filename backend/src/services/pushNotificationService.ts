@@ -313,6 +313,7 @@ export async function sendForumReplyNotification(
   });
 }
 
+/** Broadcasts a site-branded status notification for a MUD lifecycle incident. */
 export async function sendCrashNotification(data: {
   incidentType: string;
   initiatedBy?: string;

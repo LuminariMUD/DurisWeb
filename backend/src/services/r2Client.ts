@@ -9,10 +9,12 @@ interface R2Storage {
 
 let storage: R2Storage | null = null;
 
+/** Reports whether object storage is explicitly enabled by configuration. */
 export function isR2Enabled(): boolean {
   return getBackendConfiguration().features.r2;
 }
 
+/** Lazily creates the configured R2 client or fails when the feature is disabled. */
 export function requireR2Storage(): R2Storage {
   if (storage) return storage;
   const configuration = getBackendConfiguration().r2;

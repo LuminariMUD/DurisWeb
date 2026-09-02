@@ -12,7 +12,7 @@ services:
     volumes:
       - duris-mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping --protocol=tcp -h $${MYSQL_HEALTHCHECK_HOST} -u$${MYSQL_USER} -p$${MYSQL_PASSWORD}"]
+      test: ["CMD-SHELL", "mysqladmin ping --protocol=tcp -h \"$${MYSQL_HEALTHCHECK_HOST}\" -u\"$${MYSQL_USER}\" -p\"$${MYSQL_PASSWORD}\""]
       interval: 10s
       timeout: 5s
       retries: 5

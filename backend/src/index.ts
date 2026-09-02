@@ -117,6 +117,7 @@ import {
 import { isDiscordEnabled, postBattleToDiscord } from './services/discordService.js';
 import { pool } from './db/connection.js';
 import { getBackendConfiguration } from './config/environment.js';
+import { escapeHtml } from './utils/contentParser.js';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -273,7 +274,7 @@ if (environment.environment === 'production') {
     );
   };
 
-  // Generate OG meta tags for PvP battle
+  /** Builds HTML-encoded Open Graph metadata for one PvP battle. */
   const generateBattleOgTags = (
     eventId: number,
     event: { room_name: string; stamp: Date },
@@ -289,14 +290,20 @@ if (environment.environment === 'production') {
       .map((p) => extractPlayerName(p.player_description));
     const location = stripAnsi(event.room_name);
 
-    const title = `Battle #${eventId} - ${killers.join(', ')} vs ${victims.join(', ')} | ${siteTitle}`;
-    const description = `PvP battle at ${location} - ${killers.join(', ')} defeated ${victims.join(', ')}`;
-    const url = `${environment.siteUrl}/pvp/${eventId}`;
+    const title = escapeHtml(
+      `Battle #${eventId} - ${killers.join(', ')} vs ${victims.join(', ')} | ${siteTitle}`,
+    );
+    const description = escapeHtml(
+      `PvP battle at ${location} - ${killers.join(', ')} defeated ${victims.join(', ')}`,
+    );
+    const url = escapeHtml(`${environment.siteUrl}/pvp/${eventId}`);
+    const encodedSiteTitle = escapeHtml(siteTitle);
+    const encodedLogoUrl = logoUrl ? escapeHtml(logoUrl) : undefined;
 
-    const imageTags = logoUrl
+    const imageTags = encodedLogoUrl
       ? `
-    <meta property="og:image" content="${logoUrl}">
-    <meta name="twitter:image" content="${logoUrl}">`
+    <meta property="og:image" content="${encodedLogoUrl}">
+    <meta name="twitter:image" content="${encodedLogoUrl}">`
       : '';
 
     return `
@@ -306,8 +313,8 @@ if (environment.environment === 'production') {
     <meta property="og:description" content="${description}">
     <meta property="og:type" content="website">
     <meta property="og:url" content="${url}">
-    <meta property="og:site_name" content="${siteTitle}">${imageTags}
-    <meta name="twitter:card" content="${logoUrl ? 'summary_large_image' : 'summary'}">
+    <meta property="og:site_name" content="${encodedSiteTitle}">${imageTags}
+    <meta name="twitter:card" content="${encodedLogoUrl ? 'summary_large_image' : 'summary'}">
     <meta name="twitter:title" content="${title}">
     <meta name="twitter:description" content="${description}">
     <meta name="theme-color" content="#16213e">`;
@@ -956,6 +963,7 @@ async function authorizeZoneStream(
   return principal;
 }
 
+/** Starts dependencies and listeners only after required runtime checks succeed. */
 async function startServer() {
   try {
     // Filesystem-backed hooks are optional in split-host deployments. Probe

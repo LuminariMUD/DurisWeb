@@ -51,6 +51,7 @@ export interface UseZoneStreamingReturn {
   clearState: (type?: StreamType) => void
 }
 
+/** Streams zone resources over one authenticated socket with cancellable progress state. */
 export function useZoneStreaming(): UseZoneStreamingReturn {
   const WS_URL = frontendConfiguration.websocketUrl
   const { addTask, updateTask, completeTask, removeTask } = useGlobalProgress()

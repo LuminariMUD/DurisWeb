@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { parseViteEnvironment } from '../../../config/environment'
 
+/** Parses assignment lines from the checked-in frontend example. */
 function parseExample(content: string): Record<string, string> {
   return Object.fromEntries(
     content

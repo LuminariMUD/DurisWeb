@@ -59,7 +59,7 @@ function latToMudY(lat: number): number {
   return -lat
 }
 
-// Get static map image URL (local proxy in dev, R2 CDN in prod)
+/** Builds a static map layer URL from the validated public asset origin. */
 function getMapImageUrl(layer: number): string {
   return `${frontendConfiguration.staticUrl}/duris/maps/layer-${layer}.png`
 }

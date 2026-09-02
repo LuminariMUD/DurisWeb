@@ -81,6 +81,7 @@ function unavailable(hookId: FilesystemHookId, reason: string): FlatfileAccessEr
   return new FlatfileAccessError(hookId, 'unavailable', reason);
 }
 
+/** Resolves the configured MUD root or the explicit test override. */
 function configuredMudRoot(): string {
   const configured = testMudRoot ?? getBackendConfiguration().mud.directory;
   return path.resolve(configured);
@@ -94,6 +95,7 @@ function isWithinRoot(root: string, candidate: string): boolean {
   );
 }
 
+/** Resolves a requested resource while enforcing lexical containment under MUD_DIR. */
 function resolveContainedPath(
   hookId: FilesystemHookId,
   relativeOrAbsolutePath: string,
@@ -165,10 +167,12 @@ async function assertRealPathContained(
   }
 }
 
+/** Returns the canonical configuration-owned MUD root. */
 export function getMudRoot(): string {
   return configuredMudRoot();
 }
 
+/** Derives the area-data root from the single configured MUD root. */
 export function getMudAreasRoot(): string {
   return path.join(configuredMudRoot(), 'areas');
 }
@@ -332,6 +336,7 @@ export async function mudPathExists(
   return (await assertRealPathContained(hookId, root, target, true)) !== null;
 }
 
+/** Verifies every required resource for one filesystem-backed hook. */
 export async function probeFlatfileHook(hookId: FilesystemHookId): Promise<void> {
   assertAttemptAllowed(hookId);
   const root = configuredMudRoot();

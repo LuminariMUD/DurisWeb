@@ -58,6 +58,7 @@ function isR2Configured(): boolean {
   return isR2Enabled();
 }
 
+/** Reports invalid database-backed settings without falling back to application literals. */
 export class WebSettingsConfigurationError extends Error {
   constructor(readonly issues: readonly string[]) {
     super(`Invalid web_settings configuration:\n- ${issues.join('\n- ')}`);
@@ -85,6 +86,7 @@ const REQUIRED_SETTING_KEYS = [
   'discord_webhook_enabled',
 ] as const;
 
+/** Parses a required or explicitly optional TCP port from stored settings. */
 function parsePortSetting(
   settings: ReadonlyMap<string, string>,
   key: string,
@@ -100,6 +102,7 @@ function parsePortSetting(
   return value;
 }
 
+/** Parses a bounded integer without accepting partial numeric strings. */
 function parseIntegerSetting(
   settings: ReadonlyMap<string, string>,
   key: string,
@@ -116,6 +119,7 @@ function parseIntegerSetting(
   return parsed;
 }
 
+/** Parses the exact boolean strings persisted by the settings UI. */
 function parseBooleanSetting(
   settings: ReadonlyMap<string, string>,
   key: string,
@@ -129,6 +133,7 @@ function parseBooleanSetting(
   return value === 'true';
 }
 
+/** Restricts public MUD hosts to bare hostnames rather than URLs or paths. */
 function validateHostname(value: string, key: string, issues: string[]): void {
   if (
     !value ||
@@ -141,27 +146,13 @@ function validateHostname(value: string, key: string, issues: string[]): void {
   }
 }
 
+/** Validates optional public HTTP URLs and rejects embedded credentials. */
 function validateOptionalHttpUrl(value: string, key: string, issues: string[]): void {
   if (!value) return;
   try {
     const parsed = new URL(value);
     if (!['http:', 'https:'].includes(parsed.protocol)) {
       issues.push(`${key} must use http: or https:`);
-    }
-  } catch {
-    issues.push(`${key} must be a valid URL`);
-  }
-}
-
-function validateWebSocketUrl(value: string, key: string, issues: string[]): void {
-  if (!value) {
-    issues.push(`${key} must not be empty`);
-    return;
-  }
-  try {
-    const parsed = new URL(value);
-    if (!['ws:', 'wss:'].includes(parsed.protocol)) {
-      issues.push(`${key} must use ws: or wss:`);
     }
     if (parsed.username || parsed.password) {
       issues.push(`${key} must not contain credentials`);
@@ -171,6 +162,29 @@ function validateWebSocketUrl(value: string, key: string, issues: string[]): voi
   }
 }
 
+/** Requires a credential-free TLS WebSocket URL suitable for browser login traffic. */
+function validateWebSocketUrl(value: string, key: string, issues: string[]): void {
+  if (!value) {
+    issues.push(`${key} must not be empty`);
+    return;
+  }
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'wss:') {
+      issues.push(`${key} must use wss:`);
+    }
+    if (parsed.username || parsed.password) {
+      issues.push(`${key} must not contain credentials`);
+    }
+    if (parsed.hash) {
+      issues.push(`${key} must not contain a fragment`);
+    }
+  } catch {
+    issues.push(`${key} must be a valid URL`);
+  }
+}
+
+/** Converts the complete authoritative row set into browser and server settings. */
 export function parseWebSettingsRows(
   rows: readonly { setting_key: unknown; setting_value: unknown }[],
 ): WebSettings {
@@ -358,7 +372,9 @@ export async function updateWebSetting(
     try {
       if (value) {
         const parsed = new URL(value);
-        if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('invalid protocol');
+        if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+          throw new Error('invalid URL');
+        }
       }
     } catch {
       throw new Error('Support URL must be a valid HTTP or HTTPS URL');
@@ -400,8 +416,13 @@ export async function updateWebSetting(
 
   // Validate mud_port is a valid port number
   if ((key === 'mud_port' || key === 'mud_port_tls') && !(key === 'mud_port_tls' && value === '')) {
-    const portValue = parseInt(value, 10);
-    if (isNaN(portValue) || portValue < 1 || portValue > 65535) {
+    const portValue = Number(value);
+    if (
+      !/^\d+$/.test(value) ||
+      !Number.isInteger(portValue) ||
+      portValue < 1 ||
+      portValue > 65535
+    ) {
       throw new Error('MUD port must be between 1 and 65535');
     }
   }

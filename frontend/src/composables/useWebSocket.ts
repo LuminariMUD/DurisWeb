@@ -46,6 +46,7 @@ const playerLoginCallbacks = ref<Array<(data: any) => void>>([])
 const playerLogoutCallbacks = ref<Array<(data: any) => void>>([])
 
 // fetch auth token from api (for websocket subscriptions that require auth)
+/** Requests a short-lived capability for authenticated WebSocket subscriptions. */
 async function getAuthToken(): Promise<string | null> {
   try {
     const apiUrl = frontendConfiguration.apiUrl
@@ -60,7 +61,9 @@ async function getAuthToken(): Promise<string | null> {
   }
 }
 
+/** Shares the application WebSocket and its typed subscription callbacks. */
 export function useWebSocket() {
+  /** Opens the shared application socket unless one is already active or pending. */
   const connect = () => {
     // Clear any pending reconnect
     if (reconnectTimeoutId) {

@@ -86,6 +86,7 @@ async function saveSetting(key: string) {
   }
 }
 
+/** Returns the operator-facing label for an editable public setting. */
 function getSettingLabel(key: string): string {
   const labels: Record<string, string> = {
     pvp_delay_minutes: 'PvP Log Delay (minutes)',
@@ -101,6 +102,7 @@ function getSettingLabel(key: string): string {
   return labels[key] || key
 }
 
+/** Explains the runtime effect and accepted shape of an editable public setting. */
 function getSettingDescription(key: string): string {
   const descriptions: Record<string, string> = {
     pvp_delay_minutes:
@@ -109,7 +111,7 @@ function getSettingDescription(key: string): string {
     mud_port: 'The port number displayed on the website for players to connect.',
     mud_port_tls:
       'Optional direct TLS/SSL MUD port displayed on the website. Leave blank when unavailable.',
-    mud_ws_url: 'The complete ws: or wss: URL used by the browser-based MUD client.',
+    mud_ws_url: 'The complete wss: URL used by the browser-based MUD client.',
     site_title: 'The name of your website displayed in the navbar and browser tab.',
     site_logo_url: 'The logo image displayed before the site title in the navbar.',
     support_url: 'Optional public HTTP or HTTPS support/donation page.',

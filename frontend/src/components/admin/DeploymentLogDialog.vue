@@ -35,7 +35,7 @@ const success = ref(false)
 const logContainer = ref<HTMLElement | null>(null)
 const wsRef = ref<WebSocket | null>(null)
 
-// Get terminal token from backend API (reuse existing endpoint)
+/** Requests the short-lived capability used to authorize deployment streaming. */
 async function getToken(): Promise<string | null> {
   try {
     const apiUrl = frontendConfiguration.apiUrl
@@ -70,6 +70,7 @@ onUnmounted(() => {
   }
 })
 
+/** Opens the authenticated deployment stream and records its progress messages. */
 async function startDeployment() {
   logs.value = []
   isRunning.value = true

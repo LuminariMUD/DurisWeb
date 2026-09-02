@@ -11,6 +11,7 @@ export interface ScopedRedisConfiguration {
   options: RedisOptions;
 }
 
+/** Builds one least-privilege MUD Redis connection from the validated shared contract. */
 export function getScopedRedisConfiguration(
   scope: RedisScope,
   environment: BackendConfiguration = getBackendConfiguration(),

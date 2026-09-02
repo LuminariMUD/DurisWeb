@@ -28,7 +28,7 @@ const mudDbConfig = {
 export const mudPool =
   environment.mudDatabase.mode === 'separate' ? mysql.createPool(mudDbConfig) : pool;
 
-// Health check function
+/** Pings the primary web database and reports availability without throwing. */
 export async function checkDatabaseConnection(): Promise<boolean> {
   try {
     const connection = await pool.getConnection();
@@ -42,7 +42,7 @@ export async function checkDatabaseConnection(): Promise<boolean> {
   }
 }
 
-// Health check for the explicitly shared or separate authoritative MUD pool.
+/** Pings the explicitly shared or separate authoritative MUD database pool. */
 export async function checkMudDatabaseConnection(): Promise<boolean> {
   try {
     const connection = await mudPool.getConnection();

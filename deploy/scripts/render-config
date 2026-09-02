@@ -77,9 +77,45 @@ for render_name in "${render_variables[@]}"; do
   fi
 done
 
-case "${RENDER_OUTPUT_DIR}" in
-  /|/home|/root) printf 'Refusing unsafe render output: %s\n' "${RENDER_OUTPUT_DIR}" >&2; exit 78 ;;
-esac
+render_output_marker="${RENDER_OUTPUT_DIR}/.durisweb-render-output"
+if [[ "${RENDER_OUTPUT_DIR}" != /* ]] ||
+  [ "$(realpath -m -- "${RENDER_OUTPUT_DIR}")" != "${RENDER_OUTPUT_DIR}" ]; then
+  printf 'Render output must be an absolute path without symlinked components: %s\n' \
+    "${RENDER_OUTPUT_DIR}" >&2
+  exit 78
+fi
+if [ ! -d "${RENDER_OUTPUT_DIR}" ] || [ -L "${RENDER_OUTPUT_DIR}" ]; then
+  printf 'Render output must be an existing non-symlink directory: %s\n' \
+    "${RENDER_OUTPUT_DIR}" >&2
+  exit 78
+fi
+if [ "$(stat -c '%u' "${RENDER_OUTPUT_DIR}")" != "$(id -u)" ]; then
+  printf 'Render output must be owned by the current user: %s\n' "${RENDER_OUTPUT_DIR}" >&2
+  exit 78
+fi
+if [ ! -e "${render_output_marker}" ] &&
+  [ -n "$(find "${RENDER_OUTPUT_DIR}" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
+  printf 'Refusing non-empty directory without a DurisWeb render marker: %s\n' \
+    "${RENDER_OUTPUT_DIR}" >&2
+  exit 78
+fi
+if [ -e "${render_output_marker}" ] || [ -L "${render_output_marker}" ]; then
+  if [ ! -f "${render_output_marker}" ] || [ -L "${render_output_marker}" ] ||
+    [ "$(stat -c '%u' "${render_output_marker}")" != "$(id -u)" ]; then
+    printf 'Invalid DurisWeb render marker: %s\n' "${render_output_marker}" >&2
+    exit 78
+  fi
+fi
+for render_subdirectory in systemd redis nginx; do
+  render_subdirectory_path="${RENDER_OUTPUT_DIR}/${render_subdirectory}"
+  if [ -e "${render_subdirectory_path}" ] || [ -L "${render_subdirectory_path}" ]; then
+    if [ ! -d "${render_subdirectory_path}" ] || [ -L "${render_subdirectory_path}" ] ||
+      [ "$(stat -c '%u' "${render_subdirectory_path}")" != "$(id -u)" ]; then
+      printf 'Invalid render output subdirectory: %s\n' "${render_subdirectory_path}" >&2
+      exit 78
+    fi
+  fi
+done
 
 render_template() {
   local render_source=$1
@@ -100,6 +136,9 @@ render_template() {
 install -d -m 0700 \
   "${RENDER_OUTPUT_DIR}/systemd" \
   "${RENDER_OUTPUT_DIR}/redis"
+if [ ! -e "${render_output_marker}" ]; then
+  install -m 0600 /dev/null "${render_output_marker}"
+fi
 
 render_template "${render_deploy_root}/templates/systemd/durisweb-production.service" \
   "${RENDER_OUTPUT_DIR}/systemd/durisweb-production.service"
