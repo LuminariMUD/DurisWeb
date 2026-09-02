@@ -99,7 +99,7 @@ manifest. As supplemental history only, the first Phase 00 commit is
   packages.
 - `podman-compose.yml` - current Docker Compose definition for local MySQL 8 and
   Redis 7 with configurable host ports.
-- `ecosystem.config.js`, both systemd units, and both nginx files - inspected as
+- `.spec_system/scripts/ecosystem.config.js`, both systemd units, and both nginx files - inspected as
   inconsistent reference deployment inputs, not claimed as active production.
 
 ## Remaining Documentation Gaps Requiring External Decisions

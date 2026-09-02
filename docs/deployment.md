@@ -41,7 +41,7 @@ or deployment workflow is configured.
 
 | File | Verified Content | Limitation |
 |------|------------------|------------|
-| `ecosystem.config.js` | PM2 starts `backend/dist/index.js` and restarts on failure/memory limit | Hardcoded user paths; no verified active host |
+| `.spec_system/scripts/ecosystem.config.js` | PM2 starts `backend/dist/index.js` and restarts on failure/memory limit | Hardcoded user paths; no verified active host |
 | `backend/durisweb-backend.service` | systemd delegates backend lifecycle to PM2 | Hardcoded `/home/resakse` paths and tool locations |
 | `frontend/durisweb-frontend.service` | systemd serves `frontend/dist` with `npx serve` | Hardcoded user/path; runtime `serve` dependency is not declared in frontend manifest |
 | `nginx-durisweb-initial.conf` | HTTP bootstrap and API/WebSocket proxy | Ko-fi intentionally refused before TLS; path/user must be reconciled |

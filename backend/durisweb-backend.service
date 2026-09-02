@@ -15,7 +15,7 @@ Environment="NODE_ENV=production"
 Environment="PM2_HOME=/home/resakse/.pm2"
 
 # Start PM2 process using ecosystem config
-ExecStart=/usr/bin/bash -c '/usr/local/bin/pm2 delete durismud-api 2>/dev/null || true; /usr/local/bin/pm2 start /home/resakse/DurisWeb/ecosystem.config.js --env production; /usr/local/bin/pm2 save'
+ExecStart=/usr/bin/bash -c '/usr/local/bin/pm2 delete durismud-api 2>/dev/null || true; /usr/local/bin/pm2 start /home/resakse/DurisWeb/.spec_system/scripts/ecosystem.config.js --env production; /usr/local/bin/pm2 save'
 
 # Reload gracefully
 ExecReload=/usr/local/bin/pm2 reload durismud-api
