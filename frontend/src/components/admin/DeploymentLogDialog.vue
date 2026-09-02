@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-vue-next'
+import { frontendConfiguration } from '@/config/environment'
 
 const props = defineProps<{
   open: boolean
@@ -34,10 +35,10 @@ const success = ref(false)
 const logContainer = ref<HTMLElement | null>(null)
 const wsRef = ref<WebSocket | null>(null)
 
-// Get terminal token from backend API (reuse existing endpoint)
+/** Requests the short-lived capability used to authorize deployment streaming. */
 async function getToken(): Promise<string | null> {
   try {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+    const apiUrl = frontendConfiguration.apiUrl
     const response = await fetch(`${apiUrl}/api/auth/terminal-token`, {
       credentials: 'include',
     })
@@ -69,6 +70,7 @@ onUnmounted(() => {
   }
 })
 
+/** Opens the authenticated deployment stream and records its progress messages. */
 async function startDeployment() {
   logs.value = []
   isRunning.value = true
@@ -85,7 +87,7 @@ async function startDeployment() {
     return
   }
 
-  const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3001/ws'
+  const wsUrl = frontendConfiguration.websocketUrl
 
   try {
     const ws = new WebSocket(wsUrl)

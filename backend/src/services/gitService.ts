@@ -4,11 +4,12 @@ import fs from 'fs/promises';
 import path from 'path';
 import logger, { getErrorMessage } from '../utils/logger.js';
 import { resolveSafeZoneFilePath } from '../utils/safeZonePath.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
 const execAsync = promisify(exec);
 
 // Get MUD_DIR from environment
-const MUD_DIR = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
+const MUD_DIR = getBackendConfiguration().mud.directory;
 
 // Cache configuration
 const CACHE_DIR = path.join(process.cwd(), '.cache');

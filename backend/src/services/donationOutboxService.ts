@@ -7,6 +7,7 @@ import { buildDonationEvent, DonationDeliveryConfigurationError } from '../utils
 import { getScopedRedisConfiguration } from '../utils/scopedRedis.js';
 import { isHookEnabledSync } from '../hooks/hookGate.js';
 import { recordHookActivity } from '../hooks/hookActivity.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
 const OUTBOX_POLL_INTERVAL_MS = 1000;
 const OUTBOX_LOCK_TIMEOUT_SECONDS = 120;
@@ -34,9 +35,14 @@ interface DonationDeliveryConfiguration {
   redis: RedisOptions;
 }
 
+/** Returns the enabled donation delivery contract with its dedicated scoped identity. */
 export function getDonationDeliveryConfiguration(): DonationDeliveryConfiguration {
-  const secret = process.env.REDIS_DONATION_SECRET;
-  const scoped = getScopedRedisConfiguration('donation');
+  const environment = getBackendConfiguration();
+  const secret = environment.donationSigningSecret;
+  if (!environment.features.donations) {
+    throw new DonationDeliveryConfigurationError('Donation delivery is disabled');
+  }
+  const scoped = getScopedRedisConfiguration('donation', environment);
 
   if (!secret || Buffer.byteLength(secret, 'utf8') < 32) {
     throw new DonationDeliveryConfigurationError(
@@ -59,13 +65,14 @@ let publisher: Redis | null = null;
 let pollTimer: NodeJS.Timeout | null = null;
 let activePoll: Promise<void> | null = null;
 
+/** Redacts configured secrets before a bounded failure message reaches storage or logs. */
 function errorMessage(error: unknown): string {
+  const environment = getBackendConfiguration();
   let message = error instanceof Error ? error.message : String(error);
   for (const secret of [
-    process.env.DURISWEB_SECRET,
-    process.env.REDIS_DONATION_SECRET,
-    process.env.REDIS_DONATION_PASSWORD,
-    process.env.REDIS_PASSWORD,
+    environment.mud.bridgeSecret,
+    environment.donationSigningSecret,
+    environment.scopedRedis?.credentials.donation?.password,
   ].filter(Boolean)) {
     message = message.split(secret!).join('[REDACTED]');
   }

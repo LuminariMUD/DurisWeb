@@ -2,93 +2,76 @@
 
 ## Prerequisites
 
-- [ ] Git access to `git@github.com:xander-l/DurisWeb.git`.
-- [ ] Node.js 22 (the CI version; the frontend accepts Node 20.18+ or 22.12+).
-- [ ] pnpm 10.15.1, matching both package metadata and GitHub Actions.
-- [ ] Docker with the `docker compose` subcommand.
-- [ ] A local DurisMUD checkout for MUD-backed features.
-- [ ] Access to a MUD-compatible MySQL schema baseline when exercising database
-      features.
+- Git access to this repository.
+- Node.js 22 and pnpm 10.15.1.
+- Docker with the `docker compose` subcommand.
+- A local DurisMUD checkout and an operator-approved MUD-compatible database
+  baseline for features that read game data.
 
 ## Setup
 
-1. Clone and enter the repository:
+Install both independent packages:
 
-   ```bash
-   git clone git@github.com:xander-l/DurisWeb.git durisweb
-   cd durisweb
-   ```
+```bash
+corepack prepare pnpm@10.15.1 --activate
+pnpm --dir backend install --frozen-lockfile
+pnpm --dir frontend install --frozen-lockfile
+```
 
-2. Activate the package-manager version and install both independent packages:
+Create all three required local inputs:
 
-   ```bash
-   corepack prepare pnpm@10.15.1 --activate
-   pnpm --dir backend install --frozen-lockfile
-   pnpm --dir frontend install --frozen-lockfile
-   ```
+```bash
+cp .env.example .env
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
 
-3. Create local environment files:
+Replace every `CHANGE_ME` and example hostname. Keep the Compose database and
+cache credentials/ports aligned with `backend/.env`. Generate independent,
+high-entropy values for `JWT_SECRET`, `DURISWEB_SECRET`, database passwords,
+and the Redis password. Select `MUD_DATABASE_MODE` and every feature flag
+deliberately; do not leave enabled groups partially configured.
 
-   ```bash
-   cp backend/.env.example backend/.env
-   cp frontend/.env.example frontend/.env
-   ```
+Frontend `VITE_*` values are embedded in browser assets and must not contain
+server secrets. `MUD_DIR` is the server-side MUD checkout root. Configure a
+complete `MUD_WS_URL`; remote bridges must use certificate-validated `wss:`.
 
-4. Edit `backend/.env`:
+Validate backend configuration without opening database or Redis connections:
 
-   - Set `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME`.
-   - Replace `JWT_SECRET` with output from `openssl rand -base64 64`.
-   - Set `MUD_DIR` and `MUD_ACCOUNTS_DIR` to the MUD checkout and account-data
-     directory. The same-host production values are `/home/duris/duris` and
-     `/home/duris/duris/Accounts`.
-   - For the privileged bridge, replace `DURISWEB_SECRET` with at least 32
-     random bytes and configure the same current key in the MUD service.
-   - Leave `MUD_WS_URL` unset for the loopback default unless a real WSS endpoint
-     has been configured. Never weaken certificate validation.
+```bash
+pnpm --dir backend config:check
+pnpm --dir frontend config:check
+```
 
-5. Review `frontend/.env`. The example points at the backend on port `3001`.
-   Values prefixed `VITE_` are browser-visible; do not place server credentials
-   there.
+## Database baseline warning
 
-## Database Baseline Warning
+The Compose MySQL service starts an empty database, not a complete DurisWeb
+schema. DurisWeb shares MUD-owned tables created outside Knex, and the historical
+migration chain is not a supported zero-to-current bootstrap. Obtain a
+sanitized, operator-approved schema baseline and use isolated development data.
 
-`podman-compose.yml` starts an empty MySQL 8 service, but an empty database is
-not a complete DurisWeb database. DurisWeb shares the MUD schema, and the MUD C
-server creates core tables outside Knex. The historical TypeScript migration
-ordering is also not replayable from zero, while legacy SQL artifacts are
-excluded from Knex.
-
-Do not run `pnpm migrate:latest` against a new or shared database expecting it
-to create a valid full schema. Obtain an operator-approved schema-only baseline
-and reconcile its migration ledger as dedicated backup-first work. Never copy
-production player rows into development.
-
-## Start
-
-Once both `.env` files and the database baseline are ready, start all local
-processes with:
+## Start and verify
 
 ```bash
 ./scripts/dev.sh
 ```
 
-The script installs missing package dependencies, starts MySQL and Redis through
-Docker Compose, and runs the two development servers. It leaves the containers
-running after `Ctrl-C` so application restarts are quick.
+The script refuses missing configuration, validates Compose and backend inputs,
+starts MySQL/Redis, then launches both application packages. It prints URLs
+derived from the configured hosts and ports.
 
-## Verify
-
-- [ ] Open `http://localhost:5173`.
-- [ ] Run `curl --fail http://localhost:3001/health`; healthy MySQL and Redis
-      produce an `ok` response.
-- [ ] Run backend tests: `pnpm --dir backend test --runInBand`.
-- [ ] Run frontend tests: `pnpm --dir frontend test:unit --run`.
-
-Stop local dependencies with:
+Run the health URL printed by the script, then:
 
 ```bash
-docker compose -f podman-compose.yml down
+pnpm --dir backend test --runInBand
+pnpm --dir frontend test:unit --run
 ```
 
-See [Development](development.md) for the full command matrix and
-[Environments](environments.md) for configuration/security boundaries.
+Stop local dependencies with the same required root environment:
+
+```bash
+docker compose --env-file .env -f podman-compose.yml down
+```
+
+See [Configuration and Environments](environments.md) for ownership and
+[Development](development.md) for the full quality matrix.

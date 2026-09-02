@@ -5,9 +5,11 @@ import { pool } from '../db/connection.js';
 import { hasActiveWebSession } from './sessionService.js';
 import logger from '../utils/logger.js';
 import { recordHookActivity } from '../hooks/hookActivity.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
 // MUD folder path - set via MUD_DIR environment variable
-const MUD_FOLDER = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
+const environment = getBackendConfiguration();
+const MUD_FOLDER = environment.mud.directory;
 
 interface TerminalSession {
   pty: pty.IPty;
@@ -28,6 +30,12 @@ const sessionsByWebSocket = new Map<WebSocket, number>();
 const OUTPUT_BUFFER_INTERVAL = 500; // ms
 const OUTPUT_BUFFER_MAX_SIZE = 4096; // bytes
 
+/** Quotes an operator-controlled path for the tmux shell-command parser. */
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+/** Builds a collision-resistant tmux namespace from an account and database id. */
 export function getTerminalSessionName(accountName: string, sessionId: number): string {
   const safeAccountName = accountName.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40) || 'account';
   return `duris-${safeAccountName}-${sessionId}`;
@@ -72,10 +80,11 @@ export async function createSession(
     const sessionId = (result as any).insertId;
     const tmuxSessionName = getTerminalSessionName(accountName, sessionId);
     const bashrcPath = `/tmp/.duris_bashrc-${sessionId}`;
+    const tmuxShellCommand = `${shellQuote(environment.mud.processShell)} --rcfile ${shellQuote(bashrcPath)}`;
 
     // Spawn PTY with bubblewrap sandboxing
     const shell = pty.spawn(
-      'bwrap',
+      environment.mud.terminalSandboxBinary,
       [
         // Mount MUD folder as root
         '--bind',
@@ -127,7 +136,7 @@ export async function createSession(
         '--chdir',
         '/',
         // Run tmux with colored prompt - attach to this account/session only
-        '/bin/bash',
+        environment.mud.processShell,
         '-c',
         `
         # Create a session-specific bashrc for the tmux session
@@ -142,7 +151,7 @@ BASHRC
         if tmux has-session -t "$DURIS_TMUX_SESSION" 2>/dev/null; then
           tmux attach -t "$DURIS_TMUX_SESSION"
         else
-          tmux new-session -s "$DURIS_TMUX_SESSION" "bash --rcfile $DURIS_BASHRC_PATH"
+          tmux new-session -s "$DURIS_TMUX_SESSION" "$DURIS_TMUX_SHELL_COMMAND"
         fi
       `,
       ],
@@ -153,12 +162,13 @@ BASHRC
         env: {
           TERM: 'xterm-256color',
           HOME: '/',
-          PATH: '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',
-          SHELL: '/bin/bash',
-          USER: process.env.USER || 'duris',
-          LANG: 'en_US.UTF-8',
+          PATH: environment.mud.processPath,
+          SHELL: environment.mud.processShell,
+          USER: environment.mud.processUser,
+          LANG: environment.mud.processLocale,
           DURIS_TMUX_SESSION: tmuxSessionName,
           DURIS_BASHRC_PATH: bashrcPath,
+          DURIS_TMUX_SHELL_COMMAND: tmuxShellCommand,
         },
       },
     );

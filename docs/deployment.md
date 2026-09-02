@@ -1,213 +1,93 @@
 # Deployment
 
-## Current Production
+Deployment is operator-controlled and has no repository-owned hostname, home
+directory, port, service dependency, credential, or secret. The maintained
+artifacts are templates under `deploy/templates/`; historical machine-specific
+nginx and split frontend/backend service files have been removed.
 
-DurisWeb production was deployed and externally verified on 2026-09-02.
-
-| Surface | Verified production value |
-|---------|---------------------------|
-| Public website/API | `https://duris.sbs` and `https://www.duris.sbs` |
-| Application origin | `127.0.0.1:7770` |
-| Website ingress | Dedicated Cloudflare Tunnel |
-| Primary MUD | `mud.duris.sbs:7777` raw TCP |
-| Direct secure MUD | `mud.duris.sbs:4001` TLS |
-| Browser MUD | `wss://ws.duris.sbs` through its separate tunnel |
-| Checkout | `/home/duris/durisweb` under the `duris` account |
-| Release version | `1.2.0` |
-
-The repository does not automate releases. Production changes remain an
-operator-controlled workflow with an explicit database backup/rehearsal gate.
-Never commit `.env` files, tunnel tokens, database passwords, Redis passwords,
-JWT keys, or the privileged MUD bridge secret.
-
-## Build and Validation
-
-Install and build both independent packages:
+## Build and validate
 
 ```bash
 pnpm --dir backend install --frozen-lockfile
 pnpm --dir backend build
 pnpm --dir frontend install --frozen-lockfile
 pnpm --dir frontend build
+./scripts/check-config-literals.sh
 ```
 
-- Backend release inputs: `backend/dist/` plus the checked-in
-  `backend/migrations/` directory used by the migration-ledger preflight.
-- Frontend artifact: `frontend/dist/`, served by the backend in production.
-- The generated frontend PWA version follows the root `VERSION` file.
-
-Run the complete matrix in [Development](development.md). Database-backed tests
-must use disposable data and explicit test credentials; `NODE_ENV=test` makes
-the backend prefer `backend/.env.test` before using `.env` only as a fallback.
-
-Before starting production, run the compiled read-only gate from `backend/`:
+From `backend/`, run the compiled static and live gates with the production
+environment installed:
 
 ```bash
-test -d migrations
-NODE_ENV=production node dist/scripts/productionPreflight.js --configuration
-NODE_ENV=production node dist/scripts/productionPreflight.js --dependencies
+node dist/scripts/productionPreflight.js --configuration
+node dist/scripts/productionPreflight.js --dependencies
 ```
 
-The preflight verifies required tables, all checked-in TypeScript migrations,
-the canonical MUD runtime table contract, session-token capacity, database and
-cache connectivity, scoped presence reads, and the player-event subscription.
-The configuration stage exits 78 for invalid static configuration and causes
-systemd to skip startup. The dependency stage exits 1 for unavailable or
-incompatible database/Redis dependencies so `Restart=on-failure` can retry.
+The first command aggregates invalid configuration and verifies the migration
+bundle. The second verifies the selected database schema/ledger, general cache,
+and the optional scoped presence connection.
 
-## Verified Service Topology
+## Render host configuration
 
-The active production path is defined by the checked-in templates:
-
-| File | Responsibility |
-|------|----------------|
-| `deploy/systemd/durisweb-redis.service` | Loopback-only web cache on port 7778 |
-| `deploy/systemd/durisweb-production.service` | Preflight plus Express API/static frontend on port 7770 |
-| `deploy/systemd/durisweb-cloudflared.service` | Dedicated website tunnel bound to the application lifecycle |
-| `deploy/scripts/run-durisweb-cloudflared` | Fetches a short-lived tunnel token without exposing it to the child environment |
-
-The production units are user services:
+Create the dedicated operator input outside the checkout:
 
 ```bash
-sudo loginctl enable-linger duris
-loginctl show-user duris -p Linger
-systemctl --user link /home/duris/durisweb/deploy/systemd/durisweb-redis.service
-systemctl --user link /home/duris/durisweb/deploy/systemd/durisweb-production.service
-systemctl --user link /home/duris/durisweb/deploy/systemd/durisweb-cloudflared.service
-systemctl --user daemon-reload
-systemctl --user enable --now durisweb-redis.service
-systemctl --user enable --now durisweb-production.service
-systemctl --user enable --now durisweb-cloudflared.service
+install -m 0600 deploy/deployment.env.example /absolute/operator/path/deployment.env
 ```
 
-`loginctl show-user` must report `Linger=yes`; otherwise the user manager and
-all three production services can stop after logout and will not start at boot.
-The launcher uses `--token-file` with cloudflared 2025.4.0 or newer and the
-restricted `TUNNEL_TOKEN` environment fallback for older releases.
-
-The tunnel unit is both bound to and part of the application unit: it stops
-when the origin disappears and follows deliberate application restarts.
-
-The historical nginx, PM2, `backend/durisweb-backend.service`, and
-`frontend/durisweb-frontend.service` files use obsolete hostnames, users, or
-paths. They are references only and are not part of the verified production
-runtime.
-
-The backend production environment uses `MUD_DIR=/home/duris/duris` and
-`MUD_ACCOUNTS_DIR=/home/duris/duris/Accounts`. These server-only paths must not
-be exposed through `VITE_*` variables. The privileged same-host MUD bridge uses
-`ws://127.0.0.1:4050`; public browsers use `wss://ws.duris.sbs` instead.
-
-## Health and Acceptance
-
-Required checks after every deployment:
+Edit every value. `DEPLOYMENT_ENV_FILE` must name that same installed file;
+`BACKEND_ENV_FILE` names the separately protected backend runtime environment.
+The cache service consumes `CACHE_REDIS_PASSWORD` from the backend environment,
+so that file is the credential owner for both the application and managed
+Redis. Set `DEPLOY_CLOUDFLARED_ENABLED` and `DEPLOY_NGINX_ENABLED` explicitly;
+values in a disabled group are ignored, while every value in an enabled group
+must be replaced. Then render:
 
 ```bash
-curl --fail http://127.0.0.1:7770/health
-curl --fail https://duris.sbs/health
-curl --fail https://www.duris.sbs/health
-cd /home/duris/durisweb/backend
-node --input-type=module <<'NODE'
-import WebSocket from 'ws';
-
-const socket = new WebSocket('wss://ws.duris.sbs');
-const timer = setTimeout(() => {
-  console.error('WebSocket handshake timed out');
-  process.exit(1);
-}, 10_000);
-socket.once('open', () => {
-  clearTimeout(timer);
-  console.log('WebSocket handshake passed');
-  socket.close();
-});
-socket.once('error', (error) => {
-  clearTimeout(timer);
-  console.error(error.message);
-  process.exit(1);
-});
-NODE
-systemctl --user show durisweb-production.service \
-  -p ActiveState -p UnitFileState -p NRestarts -p Result
-systemctl --user show durisweb-cloudflared.service \
-  -p ActiveState -p UnitFileState -p NRestarts -p Result
+deploy/scripts/render-config /absolute/operator/path/deployment.env
 ```
 
-After provisioning or changing the units, reboot the host once during the
-maintenance window, reconnect as `duris`, and verify boot recovery:
+The required `RENDER_OUTPUT_DIR` receives:
 
-```bash
-systemctl --user is-active durisweb-redis.service
-systemctl --user is-active durisweb-production.service
-systemctl --user is-active durisweb-cloudflared.service
-systemctl --user show durisweb-redis.service durisweb-production.service \
-  durisweb-cloudflared.service -p ActiveState -p UnitFileState -p NRestarts -p Result
-```
+- systemd units for the application and private Redis cache;
+- a Redis base configuration without an embedded password;
+- the Cloudflare unit when its group is enabled;
+- bootstrap and TLS nginx configurations when their group is enabled.
 
-Acceptance also includes:
+The renderer rejects missing values, unsafe input permissions, symlinks,
+unresolved/example placeholders, and missing or non-empty unmarked output
+targets. Create the dedicated output directory before rendering; the renderer
+marks it so later renders can update only that owned location. Inspect the
+output, install the Redis/nginx files at the configured paths, and link the
+rendered systemd units from their actual output directory. At service start,
+`run-durisweb-redis` copies the installed base
+configuration into systemd's mode-0700 runtime directory and appends the
+backend-owned password to a mode-0600 runtime config; the secret never appears
+in `ExecStart`. For user services, enable linger for the selected service
+account and verify `Linger=yes` before enabling units.
 
+The cloudflared launcher validates the deployment file ownership/mode, obtains
+a short-lived tunnel token from the configured account/tunnel, and restricts
+the child environment. It selects token-file handling only for compatible
+cloudflared versions.
+
+## Acceptance and rollback
+
+After start or restart, verify:
+
+- the configured local and public health endpoints;
 - `/api/ping`, `/api/site-config`, the SPA shell, and a generated asset;
-- allowed-origin CORS and HTTP 403 for an untrusted origin;
-- ping/pong over `wss://duris.sbs/ws`;
-- a successful connection to `wss://ws.duris.sbs`;
-- raw MUD banner access on 7777 and hostname-verified TLS on 4001;
-- an authenticated privileged bridge and applied MUD hook state in service logs;
-- the player-event Redis subscription and zero unexpected restart count.
+- allowed-origin CORS and rejection of an untrusted origin;
+- browser application WebSocket ping/pong and the configured MUD WebSocket handshake;
+- raw/TLS MUD connections when those endpoints are enabled;
+- Redis connectivity, authenticated bridge state, and unexpected restart count.
 
-Cloudflare production enforces HTTP-to-HTTPS redirects, minimum TLS 1.2, TLS
-1.3 support, and a bounded HSTS policy. The `mud.duris.sbs` A record remains
-DNS-only because ports 7777 and 4001 terminate at the game server, while `ws`
-and the website use different Cloudflare tunnels.
+Schema releases remain backup-first. Restore a transaction-consistent backup to
+disposable matching database software, apply the forward chain, compare tables
+and row counts, and run the production preflight before touching production.
+Historical down migrations are not the recovery plan.
 
-## Database and MUD Runtime Gate
-
-DurisWeb and DurisMUD share a MariaDB schema. MUD-owned tables are authoritative:
-web migrations must not change their sealed runtime shape or add incoming
-foreign keys that alter the MUD fingerprint.
-
-For any schema-changing release:
-
-1. Enter a declared maintenance window and confirm player impact.
-2. Create an owner-only, transaction-consistent full database backup.
-3. Restore that exact archive into disposable MariaDB matching production.
-4. Apply the complete forward migration chain to the clone.
-5. Compare all original tables and row counts, run `CHECK TABLE`, the DurisWeb
-   preflight, and the MUD runtime compatibility verifier.
-6. Apply only the rehearsed forward migrations to production, rerun both
-   verifiers, and start services through systemd.
-
-Do not use the historical Knex down chain as the production recovery plan. It
-is not a dependable inverse of the forward schema history. Restore the verified
-pre-change archive when database rollback is required.
-
-Restarting the production MUD Redis unit also restarts the MUD because of its
-hard systemd dependency. Treat Redis restarts as player-visible maintenance,
-not as a routine web-cache operation.
-
-## Release and Rollback
-
-Application rollback:
-
-1. Resolve the exact last-known-good commit and ensure its migrations remain
-   compatible with the live schema.
-2. Build backend and frontend from that commit.
-3. Run the compiled production preflight.
-4. Restart `durisweb-production.service`; the website tunnel remains bound to
-   the service and resumes with it.
-5. Repeat all local and public acceptance checks.
-
-DNS rollback must be a narrowly scoped Cloudflare DNS batch: remove only the
-current apex/`www` website-tunnel CNAMEs and restore the previously captured
-website records. Preserve apex MX/TXT, the `mud` DNS-only A record, and the
-separate `ws` tunnel CNAME. Capture current record IDs and values immediately
-before every mutation; never copy stale IDs from documentation.
-
-Database rollback uses the exact restore-tested pre-change archive. Keep its
-path, checksum, record-count evidence, and restore command in an owner-only
-operator journal rather than tracked documentation.
-
-## CI/CD
-
-`.github/workflows/quality.yml` runs Node 22 and pnpm 10.15.1 formatting, lint,
-and type checks for backend and frontend. It does not run the full tests,
-publish artifacts, mutate infrastructure, or deploy production. Release
-authority and execution therefore remain manual operator responsibilities.
+Application rollback uses an explicitly selected last-known-good commit whose
+migrations are compatible with the live schema, followed by rebuild, preflight,
+restart, and the same acceptance checks. DNS and database rollback targets must
+come from a fresh operator journal, never tracked documentation.

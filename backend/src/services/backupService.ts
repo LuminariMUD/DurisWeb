@@ -1,4 +1,4 @@
-import { pool } from '../db/connection.js';
+import { mudPool, pool } from '../db/connection.js';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -13,12 +13,13 @@ import {
   resolveSafeBackupFilePath,
   resolveSafeUploadedBackupPath,
 } from '../utils/safeBackupPath.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
 const execAsync = promisify(exec);
 
-// Configuration
-const MUD_BASE = process.env.MUD_DIR || '';
-const BACKUP_DIR = path.join(MUD_BASE, 'backup');
+const environment = getBackendConfiguration();
+const MUD_BASE = environment.mud.directory;
+const BACKUP_DIR = environment.backupDirectory;
 const MAX_MANUAL_BACKUPS = 5;
 // MAX_HOURLY_BACKUPS is now dynamic - fetched from web_settings
 
@@ -459,21 +460,20 @@ async function runBackup(
       filename,
     });
 
-    const dbName = process.env.DB_NAME || 'duris_dev';
-    const dbUser = process.env.DB_USER || 'duris';
-    const dbPassword = process.env.DB_PASSWORD || 'duris';
-    const dbHost = process.env.DB_HOST || '127.0.0.1';
-    const dbPort = Number.parseInt(process.env.DB_PORT || '3306', 10);
-    if (!Number.isInteger(dbPort) || dbPort < 1 || dbPort > 65535) {
-      throw new Error('DB_PORT must be an integer between 1 and 65535');
-    }
+    const {
+      database: dbName,
+      user: dbUser,
+      password: dbPassword,
+      host: dbHost,
+      port: dbPort,
+    } = environment.mudDatabase.connection;
 
     // skip views entirely: they can reference tables dropped by past migrations,
     // which makes mysqldump fail with "references invalid table(s)". our restore
     // pipeline only processes INSERT rows on real tables (ALL_RESTORE_TABLES), so
     // dumping views adds fragility without value. migrations are the source of
     // truth for views.
-    const [viewRows] = await pool.execute<RowDataPacket[]>(
+    const [viewRows] = await mudPool.execute<RowDataPacket[]>(
       `SELECT TABLE_NAME FROM information_schema.tables
        WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'VIEW'`,
       [dbName],
@@ -579,7 +579,7 @@ async function createZipArchive(
     await fs.promises.mkdir(dbDir, { recursive: true });
 
     // copy sql file to staging
-    const dbName = process.env.DB_NAME || 'duris_dev';
+    const dbName = environment.mudDatabase.connection.database;
     await fs.promises.copyFile(sqlPath, path.join(dbDir, `${dbName}.sql`));
 
     await updateBackupStatus(backupId, 'in_progress', 50, 'Zipping database...');
@@ -1026,16 +1026,19 @@ async function executeRestorePipeline(
     await fs.promises.writeFile(tempSqlPath, buildRestoreSql(filtered));
 
     await bump(80, 'Executing restore...');
-    const dbHost = process.env.DURIS_DB_HOST || '127.0.0.1';
-    const dbUser = process.env.DURIS_DB_USER || 'duris';
-    const dbPassword = process.env.DURIS_DB_PASSWORD || 'duris';
-    const dbName = process.env.DURIS_DB_NAME || 'duris_dev';
+    const {
+      host: dbHost,
+      user: dbUser,
+      password: dbPassword,
+      database: dbName,
+      port: dbPort,
+    } = environment.mudDatabase.connection;
     // 30-minute hard timeout: matches the concurrency-guard window. if mysql cli
     // hangs (deadlock, lost connection, oom-killed), the timeout kills the child
     // process so the catch+finally below can mark the restore as failed and
     // unlink the temp file.
     await execAsync(
-      `mysql -h ${dbHost} -u ${dbUser} -p'${dbPassword}' ${dbName} < "${tempSqlPath}"`,
+      `mysql -h ${dbHost} -P ${dbPort} -u ${dbUser} -p'${dbPassword}' ${dbName} < "${tempSqlPath}"`,
       {
         maxBuffer: 100 * 1024 * 1024,
         timeout: 30 * 60 * 1000,

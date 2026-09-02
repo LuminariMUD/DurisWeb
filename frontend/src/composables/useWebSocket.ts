@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { frontendConfiguration } from '@/config/environment'
 
 export interface WebSocketMessage {
   type: string
@@ -45,9 +46,10 @@ const playerLoginCallbacks = ref<Array<(data: any) => void>>([])
 const playerLogoutCallbacks = ref<Array<(data: any) => void>>([])
 
 // fetch auth token from api (for websocket subscriptions that require auth)
+/** Requests a short-lived capability for authenticated WebSocket subscriptions. */
 async function getAuthToken(): Promise<string | null> {
   try {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+    const apiUrl = frontendConfiguration.apiUrl
     const response = await fetch(`${apiUrl}/api/auth/terminal-token`, {
       credentials: 'include',
     })
@@ -59,7 +61,9 @@ async function getAuthToken(): Promise<string | null> {
   }
 }
 
+/** Shares the application WebSocket and its typed subscription callbacks. */
 export function useWebSocket() {
+  /** Opens the shared application socket unless one is already active or pending. */
   const connect = () => {
     // Clear any pending reconnect
     if (reconnectTimeoutId) {
@@ -87,7 +91,7 @@ export function useWebSocket() {
       isConnected.value = false
     }
 
-    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3001/ws'
+    const wsUrl = frontendConfiguration.websocketUrl
 
     try {
       ws.value = new WebSocket(wsUrl)

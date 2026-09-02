@@ -1,16 +1,16 @@
 [Unit]
 Description=Cloudflare Tunnel for DurisWeb production website
 Wants=network-online.target
-BindsTo=durisweb-production.service
-PartOf=durisweb-production.service
-After=network-online.target durisweb-production.service
+BindsTo=@APPLICATION_SERVICE@
+PartOf=@APPLICATION_SERVICE@
+After=network-online.target @APPLICATION_SERVICE@
 StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Service]
 Type=simple
-EnvironmentFile=/home/duris/durisweb/backend/.env
-ExecStart=/home/duris/durisweb/deploy/scripts/run-durisweb-cloudflared
+EnvironmentFile=@DEPLOYMENT_ENV_FILE@
+ExecStart=@CLOUDFLARED_LAUNCHER@
 Restart=on-failure
 RestartSec=5s
 RestartPreventExitStatus=78

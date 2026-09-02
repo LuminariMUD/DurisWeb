@@ -1,18 +1,21 @@
 import webpush from 'web-push';
 import { pool as db } from '../db/connection.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { getBackendConfiguration } from '../config/environment.js';
+import { getWebSettings } from './webSettingsService.js';
 
-// vapid keys from environment variables
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@newduris.com';
+const environment = getBackendConfiguration();
+const pushConfiguration = environment.push;
 
-// configure web-push if keys are available
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+if (pushConfiguration) {
+  webpush.setVapidDetails(
+    pushConfiguration.subject,
+    pushConfiguration.publicKey,
+    pushConfiguration.privateKey,
+  );
   console.log('[PushNotification] vapid keys configured');
 } else {
-  console.warn('[PushNotification] vapid keys not configured - push notifications disabled');
+  console.warn('[PushNotification] push notifications disabled by configuration');
 }
 
 export interface PushSubscription {
@@ -40,14 +43,14 @@ export interface PushPayload {
  * get vapid public key for frontend
  */
 export function getVapidPublicKey(): string {
-  return VAPID_PUBLIC_KEY;
+  return pushConfiguration?.publicKey ?? '';
 }
 
 /**
  * check if push notifications are configured
  */
 export function isPushEnabled(): boolean {
-  return Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+  return environment.features.push;
 }
 
 /**
@@ -310,34 +313,36 @@ export async function sendForumReplyNotification(
   });
 }
 
+/** Broadcasts a site-branded status notification for a MUD lifecycle incident. */
 export async function sendCrashNotification(data: {
   incidentType: string;
   initiatedBy?: string;
   reason?: string;
 }): Promise<void> {
+  const { siteTitle } = await getWebSettings();
   let title = 'mud status update';
   let body = '';
 
   switch (data.incidentType) {
     case 'crash':
     case 'hung':
-      title = 'newduris mud is down';
+      title = `${siteTitle} MUD is down`;
       body = 'the server has crashed. we are working on it.';
       break;
     case 'recovery':
-      title = 'newduris mud is back up!';
+      title = `${siteTitle} MUD is back up!`;
       body = 'the server is online again. come play!';
       break;
     case 'reboot':
-      title = 'newduris mud is rebooting';
+      title = `${siteTitle} MUD is rebooting`;
       body = data.reason || 'server maintenance in progress';
       break;
     case 'shutdown':
-      title = 'newduris mud is shutting down';
+      title = `${siteTitle} MUD is shutting down`;
       body = data.reason || 'planned maintenance';
       break;
     case 'copyover':
-      title = 'newduris mud updated';
+      title = `${siteTitle} MUD updated`;
       body = data.reason || 'new features deployed!';
       break;
   }

@@ -3,6 +3,7 @@ import { Terminal } from 'xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import 'xterm/css/xterm.css'
+import { frontendConfiguration } from '@/config/environment'
 
 // Terminal state
 const terminal = ref<Terminal | null>(null)
@@ -13,9 +14,10 @@ const error = ref<string | null>(null)
 const ws = ref<WebSocket | null>(null)
 
 // Get terminal token from backend API
+/** Requests a short-lived capability for the protected terminal WebSocket. */
 async function getTerminalToken(): Promise<string | null> {
   try {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+    const apiUrl = frontendConfiguration.apiUrl
     const response = await fetch(`${apiUrl}/api/auth/terminal-token`, {
       credentials: 'include', // Include cookies for auth
     })
@@ -31,6 +33,7 @@ async function getTerminalToken(): Promise<string | null> {
   }
 }
 
+/** Owns the xterm instance, protected WebSocket, resizing, and teardown lifecycle. */
 export function useTerminal() {
   let resizeObserver: ResizeObserver | null = null
 
@@ -140,7 +143,7 @@ export function useTerminal() {
       return
     }
 
-    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3001/ws'
+    const wsUrl = frontendConfiguration.websocketUrl
 
     try {
       ws.value = new WebSocket(wsUrl)

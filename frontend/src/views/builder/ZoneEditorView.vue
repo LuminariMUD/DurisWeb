@@ -73,6 +73,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { frontendConfiguration } from '@/config/environment'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import type {
   Room,
@@ -969,9 +970,9 @@ function goBack() {
   router.push('/builder')
 }
 
-// Download zone files
+/** Opens an authenticated download for one zone resource family or the complete bundle. */
 function downloadFile(type: 'wld' | 'mob' | 'obj' | 'zon' | 'all') {
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+  const baseUrl = frontendConfiguration.apiUrl
   const url = `${baseUrl}/api/builder/zones/${zoneId.value}/download/${type}`
   window.open(url, '_blank')
 }

@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import dotenv from 'dotenv';
 import Redis, { type RedisOptions } from 'ioredis';
 import mysql, { type RowDataPacket } from 'mysql2/promise';
 
@@ -10,8 +9,9 @@ import {
   getScopedRedisConfiguration,
   type ScopedRedisConfiguration,
 } from '../utils/scopedRedis.js';
+import { ConfigurationError, getBackendConfiguration } from '../config/environment.js';
 
-dotenv.config();
+export { ConfigurationError } from '../config/environment.js';
 
 const CONFIGURATION_EXIT_STATUS = 78;
 const REQUIRED_TABLES = [
@@ -40,37 +40,8 @@ interface PreflightConfiguration {
     database: string;
   };
   cache: RedisOptions;
-  presence: ScopedRedisConfiguration;
+  presence: ScopedRedisConfiguration | null;
   expectedMigrations: string[];
-}
-
-export class ConfigurationError extends Error {}
-
-/** Read a required environment value after trimming surrounding whitespace. */
-function requiredEnvironment(name: string): string {
-  const value = process.env[name]?.trim();
-  if (!value) {
-    throw new ConfigurationError(`${name} is required`);
-  }
-  return value;
-}
-
-/** Parse and validate a TCP port from the environment. */
-function parsePort(name: string, fallback: number): number {
-  const value = Number(process.env[name] || fallback);
-  if (!Number.isInteger(value) || value < 1 || value > 65535) {
-    throw new ConfigurationError(`${name} must be a valid TCP port`);
-  }
-  return value;
-}
-
-/** Parse and validate a Redis database index from the environment. */
-function parseDatabase(name: string, fallback: number): number {
-  const value = Number(process.env[name] || fallback);
-  if (!Number.isInteger(value) || value < 0 || value > 255) {
-    throw new ConfigurationError(`${name} must be a valid Redis database index`);
-  }
-  return value;
 }
 
 /** Resolve the checked-in migration directory from source or compiled scripts. */
@@ -89,10 +60,10 @@ function expectedMigrationNames(): string[] {
       .filter((name) => name.endsWith('.ts'))
       .sort();
   } catch {
-    throw new ConfigurationError(`checked-in migrations are missing from ${directory}`);
+    throw new ConfigurationError([`checked-in migrations are missing from ${directory}`]);
   }
   if (names.length === 0) {
-    throw new ConfigurationError(`no TypeScript migrations were found in ${directory}`);
+    throw new ConfigurationError([`no TypeScript migrations were found in ${directory}`]);
   }
   return names;
 }
@@ -102,33 +73,31 @@ export function parsePreflightMode(args: string[]): PreflightMode {
   if (args.length === 0) return 'all';
   if (args.length === 1 && args[0] === '--configuration') return 'configuration';
   if (args.length === 1 && args[0] === '--dependencies') return 'dependencies';
-  throw new ConfigurationError('expected --configuration, --dependencies, or no argument');
+  throw new ConfigurationError(['expected --configuration, --dependencies, or no argument']);
 }
 
 /** Validate static release inputs without opening database or Redis connections. */
 export function loadPreflightConfiguration(): PreflightConfiguration {
-  let presence: ScopedRedisConfiguration;
-  try {
-    presence = getScopedRedisConfiguration('presence');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'invalid presence Redis configuration';
-    throw new ConfigurationError(message);
-  }
+  const environment = getBackendConfiguration();
+  const cache = environment.cacheRedis;
+  const presence = environment.features.mudRedis
+    ? getScopedRedisConfiguration('presence', environment)
+    : null;
 
   return {
-    database: {
-      host: requiredEnvironment('DB_HOST'),
-      port: parsePort('DB_PORT', 3306),
-      user: requiredEnvironment('DB_USER'),
-      password: requiredEnvironment('DB_PASSWORD'),
-      database: requiredEnvironment('DB_NAME'),
-    },
+    database: environment.database,
     cache: {
-      host: process.env.CACHE_REDIS_HOST || process.env.REDIS_HOST || '127.0.0.1',
-      port: parsePort('CACHE_REDIS_PORT', Number(process.env.REDIS_PORT || 6379)),
-      db: parseDatabase('CACHE_REDIS_DB', 0),
-      username: process.env.CACHE_REDIS_USERNAME || undefined,
-      password: requiredEnvironment('CACHE_REDIS_PASSWORD'),
+      host: cache.host,
+      port: cache.port,
+      db: cache.database,
+      username: cache.username,
+      password: cache.password,
+      tls: cache.tls
+        ? {
+            ca: fs.readFileSync(cache.caCertificatePath!, 'utf8'),
+            servername: cache.tlsServerName,
+          }
+        : undefined,
       lazyConnect: true,
       connectTimeout: 5_000,
       maxRetriesPerRequest: 1,
@@ -147,11 +116,13 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
     connectionLimit: 1,
   });
   const cache = new Redis(configuration.cache);
-  const presence = new Redis({
-    ...configuration.presence.options,
-    lazyConnect: true,
-    retryStrategy: () => null,
-  });
+  const presence = configuration.presence
+    ? new Redis({
+        ...configuration.presence.options,
+        lazyConnect: true,
+        retryStrategy: () => null,
+      })
+    : null;
 
   try {
     await database.query('SELECT 1');
@@ -166,7 +137,7 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
     const presentTables = new Set(tableRows.map((row) => String(row.TABLE_NAME)));
     const missingTables = REQUIRED_TABLES.filter((table) => !presentTables.has(table));
     if (missingTables.length > 0) {
-      throw new ConfigurationError(`database schema is missing: ${missingTables.join(', ')}`);
+      throw new ConfigurationError([`database schema is missing: ${missingTables.join(', ')}`]);
     }
 
     const [runtimeContractRows] = await database.query<RowDataPacket[]>(`
@@ -183,7 +154,7 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
         )
     `);
     if (Number(runtimeContractRows[0]?.matching_columns) !== 7) {
-      throw new ConfigurationError('server_reboots must retain the canonical MUD runtime shape');
+      throw new ConfigurationError(['server_reboots must retain the canonical MUD runtime shape']);
     }
 
     const [crossBoundaryRows] = await database.query<RowDataPacket[]>(`
@@ -194,9 +165,9 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
         AND REFERENCED_TABLE_NAME = 'accounts'
     `);
     if (Number(crossBoundaryRows[0]?.incoming_foreign_keys) !== 0) {
-      throw new ConfigurationError(
+      throw new ConfigurationError([
         'web extension tables must not alter the MUD runtime foreign-key fingerprint',
-      );
+      ]);
     }
 
     const [sessionRows] = await database.query<RowDataPacket[]>(
@@ -207,7 +178,9 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
           AND COLUMN_NAME = 'refresh_token'`,
     );
     if (sessionRows.length !== 1 || Number(sessionRows[0].CHARACTER_MAXIMUM_LENGTH) < 512) {
-      throw new ConfigurationError('web_sessions.refresh_token must hold at least 512 characters');
+      throw new ConfigurationError([
+        'web_sessions.refresh_token must hold at least 512 characters',
+      ]);
     }
 
     const [migrationRows] = await database.query<RowDataPacket[]>(
@@ -218,9 +191,9 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
       (name) => !appliedMigrations.has(name),
     );
     if (pendingMigrations.length > 0) {
-      throw new ConfigurationError(
+      throw new ConfigurationError([
         `database migration ledger has ${pendingMigrations.length} pending migration(s)`,
-      );
+      ]);
     }
 
     await cache.connect();
@@ -228,30 +201,31 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
       throw new Error('cache ping returned an unexpected response');
     }
 
-    await presence.connect();
-    if ((await presence.ping()) !== 'PONG') {
-      throw new Error('presence ping returned an unexpected response');
+    if (presence && configuration.presence) {
+      await presence.connect();
+      if ((await presence.ping()) !== 'PONG') {
+        throw new Error('presence ping returned an unexpected response');
+      }
+      // SCAN is a whole-keyspace Redis command and therefore cannot be bounded by
+      // ACL key patterns. Production must use a dedicated read-only presence
+      // identity; this narrowly matched probe verifies the reader capability.
+      await presence.scan(
+        '0',
+        'MATCH',
+        `${configuration.presence.namespace}:season:*:presence:session:*`,
+        'COUNT',
+        1,
+      );
+      await presence.mget(
+        `${configuration.presence.namespace}:season:0:presence:session:preflight:0`,
+      );
+      const playerEventProbe = `${configuration.presence.namespace}:season:0:player`;
+      await presence.subscribe(playerEventProbe);
+      await presence.unsubscribe(playerEventProbe);
     }
-    // SCAN is a whole-keyspace Redis command and therefore cannot be bounded by
-    // ACL key patterns. Production must use a dedicated read-only presence
-    // identity; this narrowly matched probe verifies the reader capability
-    // without logging or fetching any key.
-    await presence.scan(
-      '0',
-      'MATCH',
-      `${configuration.presence.namespace}:season:*:presence:session:*`,
-      'COUNT',
-      1,
-    );
-    await presence.mget(
-      `${configuration.presence.namespace}:season:0:presence:session:preflight:0`,
-    );
-    const playerEventProbe = `${configuration.presence.namespace}:season:0:player`;
-    await presence.subscribe(playerEventProbe);
-    await presence.unsubscribe(playerEventProbe);
 
     console.log(
-      `Production dependency preflight passed (${presentTables.size} required tables, ${configuration.expectedMigrations.length} migrations, cache and presence healthy).`,
+      `Production dependency preflight passed (${presentTables.size} required tables, ${configuration.expectedMigrations.length} migrations and configured Redis dependencies healthy).`,
     );
   } finally {
     await database.end();
@@ -260,10 +234,12 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
     } else {
       cache.disconnect();
     }
-    if (presence.status === 'ready') {
-      await presence.quit();
-    } else {
-      presence.disconnect();
+    if (presence) {
+      if (presence.status === 'ready') {
+        await presence.quit();
+      } else {
+        presence.disconnect();
+      }
     }
   }
 }

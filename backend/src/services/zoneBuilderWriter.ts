@@ -15,8 +15,9 @@ import {
   resolveSafeZoneFilePath,
   UnsafeZonePathError,
 } from '../utils/safeZonePath.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
-const MUD_DIR = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
+const MUD_DIR = getBackendConfiguration().mud.directory;
 const AREAS_DIR = path.join(MUD_DIR, 'areas');
 
 // Cache for species short code to numeric index mapping

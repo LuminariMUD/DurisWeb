@@ -4,6 +4,7 @@ import { useMudConnection } from '@/composables/useMudConnection'
 import { useMudStore } from '@/stores/mudStore'
 import { useAuth } from '@/composables/useAuth'
 import { useOfflineStatus } from '@/composables/useOfflineStatus'
+import { useSiteConfig } from '@/composables/useSiteConfig'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -40,6 +41,7 @@ const {
 const store = useMudStore()
 const { accountName: webAccountName } = useAuth()
 const { isOffline, onOnline } = useOfflineStatus()
+const { siteTitle } = useSiteConfig()
 
 // show reconnect dialog when coming back online (if was disconnected)
 onOnline(() => {
@@ -238,7 +240,7 @@ onUnmounted(() => {
       <Card class="w-full max-w-80">
         <CardContent class="pt-6 text-center">
           <Loader2 class="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p class="text-lg font-medium">Connecting to NewDuris MUD...</p>
+          <p class="text-lg font-medium">Connecting to {{ siteTitle }} MUD...</p>
           <p class="text-sm text-muted-foreground mt-2">Please wait</p>
         </CardContent>
       </Card>

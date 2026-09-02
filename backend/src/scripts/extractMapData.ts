@@ -12,8 +12,9 @@ import * as path from 'path';
 import { pool } from '../db/connection.js';
 import logger from '../utils/logger.js';
 import { resolveSafeZoneDirectoryPath, resolveSafeZoneFilePath } from '../utils/safeZonePath.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
-const MUD_DIR = process.env.MUD_DIR || '/home/resakse/Coding/DurisMUD';
+const MUD_DIR = getBackendConfiguration().mud.directory;
 const AREAS_DIR = path.join(MUD_DIR, 'areas');
 
 // Map zone definitions from MUD src/map.h

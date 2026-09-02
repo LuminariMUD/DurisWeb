@@ -1,5 +1,6 @@
 import { ref, onMounted } from 'vue'
 import { stripAnsiCodes } from '@/utils/ansiParser'
+import { useSiteConfig } from '@/composables/useSiteConfig'
 
 export interface NotificationOptions {
   title: string
@@ -15,7 +16,9 @@ const permissionState = ref<NotificationPermission>('default')
 const isSupported = ref(false)
 const isEnabled = ref(true) // User preference to show/hide notifications
 
+/** Manages browser notification permission, preferences, and site-branded messages. */
 export function useNotifications() {
+  const { siteTitle } = useSiteConfig()
   // Check if browser supports notifications
   const checkSupport = () => {
     isSupported.value = 'Notification' in window
@@ -171,7 +174,7 @@ export function useNotifications() {
     })
   }
 
-  // Show incident notification (crash, reboot, shutdown, etc.)
+  /** Converts an internal MUD lifecycle incident into a user-safe browser notification. */
   const showCrashNotification = (incident: {
     id: number
     incident_type: string
@@ -185,31 +188,31 @@ export function useNotifications() {
     started_at: string
   }) => {
     // Simple user-friendly messages (don't expose internal details)
-    let title = 'NewDuris MUD Status Update'
+    let title = `${siteTitle.value} MUD Status Update`
     let body = ''
 
     if (incident.incident_type === 'recovery') {
-      title = 'NewDuris MUD is Back UP!'
+      title = `${siteTitle.value} MUD is Back UP!`
     } else if (incident.incident_type === 'copyover') {
-      title = 'NewDuris MUD is Updated!'
+      title = `${siteTitle.value} MUD is Updated!`
       // Show initiated by and reason for planned shutdowns
       const initiatedBy = incident.initiated_by || 'System'
       const reason = incident.shutdown_reason || ''
       body = reason ? `Initiated by ${initiatedBy}: ${reason}` : `Initiated by ${initiatedBy}`
     } else if (incident.incident_type === 'reboot') {
-      title = 'NewDuris MUD is Rebooting!'
+      title = `${siteTitle.value} MUD is Rebooting!`
       // Show initiated by and reason for planned shutdowns
       const initiatedBy = incident.initiated_by || 'System'
       const reason = incident.shutdown_reason || ''
       body = reason ? `Initiated by ${initiatedBy}: ${reason}` : `Initiated by ${initiatedBy}`
     } else if (incident.incident_type === 'shutdown') {
-      title = 'NewDuris MUD is DOWN'
+      title = `${siteTitle.value} MUD is DOWN`
       // Show initiated by and reason for planned shutdowns
       const initiatedBy = incident.initiated_by || 'System'
       const reason = incident.shutdown_reason || ''
       body = reason ? `Initiated by ${initiatedBy}: ${reason}` : `Initiated by ${initiatedBy}`
     } else if (incident.incident_type === 'crash' || incident.incident_type === 'hung') {
-      title = 'NewDuris MUD is DOWN'
+      title = `${siteTitle.value} MUD is DOWN`
       // No details for crashes/hangs
     }
 

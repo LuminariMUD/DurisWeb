@@ -6,15 +6,17 @@
   "engines": {
     "node": "^20.18.0 || >=22.12.0"
   },
+  "packageManager": "pnpm@10.15.1",
   "scripts": {
     "dev": "vite",
     "build": "run-s type-check \"build-only {@}\" --",
     "preview": "vite preview",
-    "format": "biome format --write src *.ts *.json *.html",
-    "format:check": "biome format src *.ts *.json *.html",
+    "format": "biome format --write src config *.ts *.json *.html",
+    "format:check": "biome format src config *.ts *.json *.html",
     "test:unit": "vitest",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
+    "config:check": "node --experimental-strip-types config/checkEnvironment.ts",
     "lint": "eslint . --cache",
     "lint:fix": "eslint . --fix --cache"
   },

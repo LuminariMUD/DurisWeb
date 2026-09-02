@@ -1,22 +1,25 @@
+import fs from 'node:fs';
 import Redis from 'ioredis';
+import { getBackendConfiguration } from '../config/environment.js';
 import logger from '../utils/logger.js';
 
-const production = process.env.NODE_ENV === 'production';
-const cacheRedisPassword =
-  process.env.CACHE_REDIS_PASSWORD || (production ? undefined : process.env.REDIS_PASSWORD);
-
-if (production && !cacheRedisPassword) {
-  throw new Error('CACHE_REDIS_PASSWORD is required in production');
-}
+const environment = getBackendConfiguration();
+const cache = environment.cacheRedis;
 
 // General DurisWeb cache. This is intentionally separate from the scoped MUD
 // Redis identities used for presence and donation integration.
 const redis = new Redis({
-  host: process.env.CACHE_REDIS_HOST || process.env.REDIS_HOST || '127.0.0.1',
-  port: parseInt(process.env.CACHE_REDIS_PORT || process.env.REDIS_PORT || '6379', 10),
-  db: parseInt(process.env.CACHE_REDIS_DB || '0', 10),
-  username: process.env.CACHE_REDIS_USERNAME || undefined,
-  password: cacheRedisPassword,
+  host: cache.host,
+  port: cache.port,
+  db: cache.database,
+  username: cache.username,
+  password: cache.password,
+  tls: cache.tls
+    ? {
+        ca: fs.readFileSync(cache.caCertificatePath!, 'utf8'),
+        servername: cache.tlsServerName,
+      }
+    : undefined,
   maxRetriesPerRequest: 3,
   retryStrategy(times) {
     const delay = Math.min(times * 50, 2000);

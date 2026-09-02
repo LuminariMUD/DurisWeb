@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { type Ref, type ComputedRef, unref, computed } from 'vue'
 import axios from 'axios'
+import { frontendConfiguration } from '@/config/environment'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_URL = frontendConfiguration.apiUrl
 
 // Types
 export interface Permission {

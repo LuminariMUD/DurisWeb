@@ -10,9 +10,9 @@ integration, and operator actions.
 ```text
 Browser
   |
-  | HTTPS / WSS through Cloudflare Tunnel
+  | configured HTTPS / WSS ingress
   v
-Vue frontend ---- HTTP / browser WebSocket ---- Express backend (127.0.0.1:7770)
+Vue frontend ---- HTTP / browser WebSocket ---- Express backend
                                                   |       |
                                       MySQL <-----+       +---- Redis
                                         ^
@@ -25,9 +25,9 @@ Vue frontend ---- HTTP / browser WebSocket ---- Express backend (127.0.0.1:7770)
                                         +-------------------------- backend
 ```
 
-Production uses the checked-in user-systemd units under `deploy/systemd/` and a
-dedicated Cloudflare Tunnel for `duris.sbs`/`www`. The older nginx, PM2, and
-split service files are historical references. Staging is not configured.
+Production paths, dependencies, binaries, ports, hostnames, and ingress are
+rendered from an operator-owned deployment input using `deploy/templates/`.
+No machine-specific service or nginx artifact is authoritative in the checkout.
 
 ## Components
 
@@ -107,9 +107,9 @@ See [ADR 0001](adr/0001-hook-control-ownership-and-state.md) and the
   either fails.
 - Frontend `public/health` is copied into the production build, while the
   Express production route at `/health` reports persistent dependency status.
-- Local origin and public apex/`www` health are verified through the dedicated
-  tunnel. The tunnel also exposes a loopback-only readiness endpoint for
-  operator checks.
+- Local origin and public apex/`www` health are verified through the configured
+  ingress. When Cloudflared is enabled, its dedicated tunnel also exposes a
+  loopback-only readiness endpoint for operator checks.
 - The backup service creates local ZIP archives; Phase transition validation
   exercised a real disposable backup, archive test, and restore. Restore is an
   operator action and is not automated by CI.

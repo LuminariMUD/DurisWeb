@@ -1,7 +1,10 @@
 import { beforeAll, describe, expect, it, jest } from '@jest/globals';
 
+const databasePool = { query: jest.fn(), execute: jest.fn(), getConnection: jest.fn() };
+
 jest.unstable_mockModule('../../db/connection.js', () => ({
-  pool: { query: jest.fn(), execute: jest.fn(), getConnection: jest.fn() },
+  pool: databasePool,
+  mudPool: databasePool,
 }));
 jest.unstable_mockModule('unzipper', () => ({
   default: { Open: { file: jest.fn() } },

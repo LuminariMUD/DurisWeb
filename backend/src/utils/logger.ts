@@ -1,4 +1,7 @@
 import winston from 'winston';
+import { getBackendConfiguration } from '../config/environment.js';
+
+const environment = getBackendConfiguration();
 
 /**
  * Type guard to safely extract error message from unknown error
@@ -34,11 +37,11 @@ export function isErrorWithCode(error: unknown): error is { code: string } {
 }
 
 const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
+  level: environment.logLevel,
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.errors({ stack: true }),
-    process.env.NODE_ENV === 'production'
+    environment.environment === 'production'
       ? winston.format.json()
       : winston.format.combine(
           winston.format.colorize(),

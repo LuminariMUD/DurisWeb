@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 
-const OVERLORD_ONLY_SETTINGS = new Set(['mud_ws_host']);
+const OVERLORD_ONLY_SETTINGS = new Set(['mud_ws_url']);
 
 /**
  * Enforce the additional privilege boundary for settings that control where

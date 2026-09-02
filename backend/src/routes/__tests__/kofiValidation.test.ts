@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import express from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { resetBackendConfigurationForTests } from '../../config/environment.js';
 
 const recordDonation =
   jest.fn<
@@ -24,6 +25,7 @@ jest.unstable_mockModule('../../utils/logger.js', () => ({
 }));
 
 const verificationToken = crypto.randomBytes(32).toString('hex');
+const savedEnv = { ...process.env };
 let app: express.Express;
 
 const validDonation = () => ({
@@ -43,9 +45,17 @@ const validDonation = () => ({
 });
 
 beforeAll(async () => {
+  process.env.DONATIONS_ENABLED = 'true';
+  process.env.MUD_REDIS_ENABLED = 'true';
+  process.env.MUD_REDIS_AUTH_MODE = 'none';
+  process.env.MUD_REDIS_HOST = 'redis.test.invalid';
+  process.env.MUD_REDIS_PORT = '6379';
+  process.env.MUD_REDIS_DB = '0';
+  process.env.MUD_REDIS_TLS = 'false';
+  process.env.MUD_REDIS_NAMESPACE = 'duris:local:test';
   process.env.KOFI_VERIFICATION_TOKEN = verificationToken;
-  process.env.REDIS_NAMESPACE = 'duris:local:test';
-  process.env.REDIS_DONATION_SECRET = crypto.randomBytes(32).toString('hex');
+  process.env.MUD_REDIS_DONATION_SECRET = crypto.randomBytes(32).toString('hex');
+  resetBackendConfigurationForTests();
   const { default: kofiRoutes } = await import('../kofi.js');
   app = express();
   app.set('trust proxy', 1);
@@ -55,9 +65,10 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  process.env.DONATIONS_ENABLED = 'true';
   process.env.KOFI_VERIFICATION_TOKEN = verificationToken;
-  process.env.REDIS_NAMESPACE = 'duris:local:test';
-  process.env.REDIS_DONATION_SECRET = crypto.randomBytes(32).toString('hex');
+  process.env.MUD_REDIS_DONATION_SECRET = crypto.randomBytes(32).toString('hex');
+  resetBackendConfigurationForTests();
   jest.clearAllMocks();
   recordDonation.mockResolvedValue({
     duplicate: false,
@@ -70,14 +81,14 @@ beforeEach(() => {
 });
 
 afterAll(() => {
-  delete process.env.KOFI_VERIFICATION_TOKEN;
-  delete process.env.REDIS_NAMESPACE;
-  delete process.env.REDIS_DONATION_SECRET;
+  process.env = { ...savedEnv };
+  resetBackendConfigurationForTests();
 });
 
 describe('Ko-fi webhook validation and authentication', () => {
-  it('fails closed when the verification token is not configured', async () => {
-    delete process.env.KOFI_VERIFICATION_TOKEN;
+  it('fails closed when donations are explicitly disabled', async () => {
+    process.env.DONATIONS_ENABLED = 'false';
+    resetBackendConfigurationForTests();
 
     const response = await request(app)
       .post('/')

@@ -2,27 +2,38 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { mount, type VueWrapper } from '@vue/test-utils'
 
-const { store, storeMudCredentials, clearMudCredentials, getMudCredentials, sockets } = vi.hoisted(
-  () => ({
-    store: {
-      copyoverInProgress: false,
-      copyoverCharacterName: null,
-      chargenLoading: false,
-      setConnectionState: vi.fn(),
-      setAccount: vi.fn(),
-      clearCopyoverState: vi.fn(),
-      setCharacter: vi.fn(),
-      setLatency: vi.fn(),
-      reset: vi.fn(),
-      openReconnectDialog: vi.fn(),
-      addLogEntry: vi.fn(),
-    },
-    storeMudCredentials: vi.fn(),
-    clearMudCredentials: vi.fn(),
-    getMudCredentials: vi.fn(() => null),
-    sockets: [] as FakeSocket[],
-  }),
-)
+const {
+  store,
+  storeMudCredentials,
+  clearMudCredentials,
+  getMudCredentials,
+  sockets,
+  siteConfiguration,
+} = vi.hoisted(() => ({
+  store: {
+    copyoverInProgress: false,
+    copyoverCharacterName: null,
+    chargenLoading: false,
+    setConnectionState: vi.fn(),
+    setAccount: vi.fn(),
+    clearCopyoverState: vi.fn(),
+    setCharacter: vi.fn(),
+    setLatency: vi.fn(),
+    reset: vi.fn(),
+    openReconnectDialog: vi.fn(),
+    addLogEntry: vi.fn(),
+  },
+  storeMudCredentials: vi.fn(),
+  clearMudCredentials: vi.fn(),
+  getMudCredentials: vi.fn(() => null),
+  sockets: [] as FakeSocket[],
+  siteConfiguration: {
+    mudWsUrl: { value: 'wss://mud.test' as string | null },
+    loadConfig: vi.fn<() => Promise<void>>(),
+    isLoaded: { value: true },
+    isAvailable: { value: true },
+  },
+}))
 
 class FakeSocket {
   static OPEN = 1
@@ -59,15 +70,8 @@ vi.mock('@/composables/useAuth', () => ({
   }),
 }))
 
-vi.mock('@/composables/useSiteConfig', async () => {
-  const { ref } = await import('vue')
-  return {
-    useSiteConfig: () => ({
-      mudWsUrl: ref('ws://mud.test'),
-      loadConfig: vi.fn(),
-      isLoaded: ref(true),
-    }),
-  }
+vi.mock('@/composables/useSiteConfig', () => {
+  return { useSiteConfig: () => siteConfiguration }
 })
 
 vi.mock('@/composables/useTimers', () => ({
@@ -126,6 +130,10 @@ describe('useMudConnection credential lifecycle', () => {
     vi.useFakeTimers()
     vi.clearAllMocks()
     sockets.length = 0
+    siteConfiguration.mudWsUrl.value = 'wss://mud.test'
+    siteConfiguration.isLoaded.value = true
+    siteConfiguration.isAvailable.value = true
+    siteConfiguration.loadConfig.mockResolvedValue()
     const storage = new Map<string, string>()
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => storage.get(key) ?? null,
@@ -158,6 +166,24 @@ describe('useMudConnection credential lifecycle', () => {
       data: { client: 'DurisWeb', version: '1.0.0' },
     })
     expect(JSON.parse(sockets[0]!.sent[0]!).data).not.toHaveProperty('sig')
+  })
+
+  it('clears the connecting state when site configuration is unavailable', async () => {
+    siteConfiguration.mudWsUrl.value = null
+    siteConfiguration.isLoaded.value = false
+    siteConfiguration.isAvailable.value = false
+    const connection = createConnection()
+
+    await connection.connect()
+
+    expect(window.__mudConnecting).toBe(false)
+    expect(store.setConnectionState).toHaveBeenLastCalledWith('error', 'Failed to connect')
+    expect(sockets).toHaveLength(0)
+
+    siteConfiguration.mudWsUrl.value = 'wss://mud.test'
+    siteConfiguration.isAvailable.value = true
+    await connection.connect()
+    expect(sockets).toHaveLength(1)
   })
 
   it('stores pending credentials only after a successful auth response', async () => {

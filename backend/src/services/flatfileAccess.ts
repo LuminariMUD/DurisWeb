@@ -13,6 +13,7 @@ import {
   type FilesystemHookId,
 } from '../hooks/flatfileHookState.js';
 import { recordHookActivity } from '../hooks/hookActivity.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
 export type FlatfileAccessErrorCode =
   | 'backoff'
@@ -80,14 +81,9 @@ function unavailable(hookId: FilesystemHookId, reason: string): FlatfileAccessEr
   return new FlatfileAccessError(hookId, 'unavailable', reason);
 }
 
-function configuredMudRoot(hookId: FilesystemHookId): string {
-  const configured = testMudRoot ?? process.env.MUD_DIR?.trim();
-  if (!configured) {
-    throw unavailable(hookId, 'MUD_DIR is not configured.');
-  }
-  if (!path.isAbsolute(configured)) {
-    throw unavailable(hookId, 'MUD_DIR must be an absolute path.');
-  }
+/** Resolves the configured MUD root or the explicit test override. */
+function configuredMudRoot(): string {
+  const configured = testMudRoot ?? getBackendConfiguration().mud.directory;
   return path.resolve(configured);
 }
 
@@ -99,11 +95,12 @@ function isWithinRoot(root: string, candidate: string): boolean {
   );
 }
 
+/** Resolves a requested resource while enforcing lexical containment under MUD_DIR. */
 function resolveContainedPath(
   hookId: FilesystemHookId,
   relativeOrAbsolutePath: string,
 ): { root: string; target: string } {
-  const root = configuredMudRoot(hookId);
+  const root = configuredMudRoot();
   const target = path.isAbsolute(relativeOrAbsolutePath)
     ? path.resolve(relativeOrAbsolutePath)
     : path.resolve(root, relativeOrAbsolutePath);
@@ -170,12 +167,14 @@ async function assertRealPathContained(
   }
 }
 
-export function getMudRoot(hookId: FilesystemHookId): string {
-  return configuredMudRoot(hookId);
+/** Returns the canonical configuration-owned MUD root. */
+export function getMudRoot(): string {
+  return configuredMudRoot();
 }
 
+/** Derives the area-data root from the single configured MUD root. */
 export function getMudAreasRoot(): string {
-  return path.join(configuredMudRoot('zone_builder_parsing'), 'areas');
+  return path.join(configuredMudRoot(), 'areas');
 }
 
 export function readMudTextFile(
@@ -337,9 +336,10 @@ export async function mudPathExists(
   return (await assertRealPathContained(hookId, root, target, true)) !== null;
 }
 
+/** Verifies every required resource for one filesystem-backed hook. */
 export async function probeFlatfileHook(hookId: FilesystemHookId): Promise<void> {
   assertAttemptAllowed(hookId);
-  const root = configuredMudRoot(hookId);
+  const root = configuredMudRoot();
   try {
     const realRoot = await fs.realpath(root);
     await fs.access(realRoot, constants.R_OK | constants.X_OK);

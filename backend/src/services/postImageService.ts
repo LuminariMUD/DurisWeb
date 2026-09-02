@@ -1,25 +1,9 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import { pool as db } from '../db/connection.js';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import logger from '../utils/logger.js';
-
-// R2 Configuration from environment
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || '';
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '';
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'durisweb';
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || 'https://static2.resakse.com';
-
-// Initialize S3 client for R2
-const s3Client = new S3Client({
-  region: 'auto',
-  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_ACCESS_KEY,
-  },
-});
+import { isR2Enabled, requireR2Storage } from './r2Client.js';
 
 // Constants
 export const MAX_IMAGES_PER_POST = 5;
@@ -33,7 +17,7 @@ const MAX_IMAGE_DIMENSION = 1200;
  * Check if R2 is configured
  */
 export function isR2Configured(): boolean {
-  return !!(R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY);
+  return isR2Enabled();
 }
 
 /**
@@ -181,9 +165,10 @@ export async function uploadPostImage(
   const key = `duris/forum-images/${accountName.toLowerCase()}/${timestamp}_${randomSuffix}.${extension}`;
 
   // Upload to R2
-  await s3Client.send(
+  const r2 = requireR2Storage();
+  await r2.client.send(
     new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
+      Bucket: r2.configuration.bucketName,
       Key: key,
       Body: buffer,
       ContentType: contentType,
@@ -191,7 +176,7 @@ export async function uploadPostImage(
     }),
   );
 
-  const imageUrl = `${R2_PUBLIC_URL}/${key}`;
+  const imageUrl = `${r2.configuration.publicUrl}/${key}`;
 
   // Insert database record as orphan
   const [result] = await db.query<ResultSetHeader>(
@@ -211,14 +196,16 @@ export async function uploadPostImage(
  * Extract image URLs from HTML content that match our R2 domain
  */
 export function extractImageUrls(content: string): string[] {
+  if (!isR2Configured()) return [];
   const urls: string[] = [];
+  const publicUrl = requireR2Storage().configuration.publicUrl;
 
   // Match img tags with src attribute containing our R2 URL
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
   for (const match of content.matchAll(imgRegex)) {
     const url = match[1];
     // Only include URLs from our R2 storage
-    if (url.startsWith(R2_PUBLIC_URL) && url.includes('/duris/forum-images/')) {
+    if (url.startsWith(publicUrl) && url.includes('/duris/forum-images/')) {
       urls.push(url);
     }
   }
@@ -231,11 +218,7 @@ export function extractImageUrls(content: string): string[] {
       const jsonStr = match[1].replace(/&quot;/g, '"').replace(/&#39;/g, "'");
       const images = JSON.parse(jsonStr) as Array<{ src: string; alt?: string }>;
       for (const img of images) {
-        if (
-          img.src &&
-          img.src.startsWith(R2_PUBLIC_URL) &&
-          img.src.includes('/duris/forum-images/')
-        ) {
+        if (img.src && img.src.startsWith(publicUrl) && img.src.includes('/duris/forum-images/')) {
           urls.push(img.src);
         }
       }
@@ -314,9 +297,10 @@ export async function deletePostImage(imageId: number, accountName: string): Pro
   // Delete from R2
   if (isR2Configured()) {
     try {
-      await s3Client.send(
+      const r2 = requireR2Storage();
+      await r2.client.send(
         new DeleteObjectCommand({
-          Bucket: R2_BUCKET_NAME,
+          Bucket: r2.configuration.bucketName,
           Key: image.image_key,
         }),
       );
@@ -352,9 +336,10 @@ export async function cleanupOrphanImages(): Promise<number> {
     // Delete from R2
     if (isR2Configured()) {
       try {
-        await s3Client.send(
+        const r2 = requireR2Storage();
+        await r2.client.send(
           new DeleteObjectCommand({
-            Bucket: R2_BUCKET_NAME,
+            Bucket: r2.configuration.bucketName,
             Key: image.image_key,
           }),
         );

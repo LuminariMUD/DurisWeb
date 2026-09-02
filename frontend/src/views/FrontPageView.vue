@@ -16,6 +16,9 @@ const {
   frontPageHeroSubtitle,
   frontPageHeroImageUrl,
   frontPageContent,
+  isLoading,
+  isAvailable,
+  error,
 } = useSiteConfig()
 
 const contentRef = ref<HTMLElement | null>(null)
@@ -172,6 +175,13 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="min-h-screen">
+    <div v-if="isLoading" class="px-6 py-16 text-center text-gray-400">
+      Loading site configuration...
+    </div>
+    <div v-else-if="!isAvailable" role="alert" class="px-6 py-16 text-center text-red-300">
+      {{ error }}
+    </div>
+    <template v-else>
     <!-- Hero Banner -->
     <section
       v-if="frontPageHeroEnabled"
@@ -237,6 +247,7 @@ onBeforeUnmount(() => {
         v-html="sanitizedContent"
       />
     </main>
+    </template>
   </div>
 </template>
 

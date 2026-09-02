@@ -47,7 +47,7 @@ describe('web settings authorization', () => {
     const { response, status, json } = responseRecorder();
     const next = jest.fn() as NextFunction;
 
-    requireWebSettingAuthorization(requestFor('mud_ws_host', 'player'), response, next);
+    requireWebSettingAuthorization(requestFor('mud_ws_url', 'player'), response, next);
 
     expect(status).toHaveBeenCalledWith(403);
     expect(json).toHaveBeenCalledWith({ error: 'Overlord access required for this setting' });
@@ -58,7 +58,7 @@ describe('web settings authorization', () => {
     const { response, status } = responseRecorder();
     const next = jest.fn() as NextFunction;
 
-    requireWebSettingAuthorization(requestFor('  mud_ws_host  ', 'player'), response, next);
+    requireWebSettingAuthorization(requestFor('  mud_ws_url  ', 'player'), response, next);
 
     expect(status).toHaveBeenCalledWith(403);
     expect(next).not.toHaveBeenCalled();
@@ -68,7 +68,7 @@ describe('web settings authorization', () => {
     const { response } = responseRecorder();
     const next = jest.fn() as NextFunction;
 
-    requireWebSettingAuthorization(requestFor('mud_ws_host', 'overlord'), response, next);
+    requireWebSettingAuthorization(requestFor('mud_ws_url', 'overlord'), response, next);
 
     expect(next).toHaveBeenCalledTimes(1);
   });

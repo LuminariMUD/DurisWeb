@@ -5,11 +5,21 @@ on:
     paths:
       - 'backend/**'
       - 'frontend/**'
+      - 'deploy/**'
+      - 'docs/**'
+      - 'scripts/**'
+      - '.env.example'
+      - 'podman-compose.yml'
       - '.github/workflows/quality.yml'
   pull_request:
     paths:
       - 'backend/**'
       - 'frontend/**'
+      - 'deploy/**'
+      - 'docs/**'
+      - 'scripts/**'
+      - '.env.example'
+      - 'podman-compose.yml'
       - '.github/workflows/quality.yml'
 
 permissions:
@@ -33,6 +43,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+
+      - name: Check configuration ownership
+        if: matrix.package == 'backend'
+        run: ./scripts/check-config-literals.sh
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6

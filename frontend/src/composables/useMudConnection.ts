@@ -92,29 +92,33 @@ let copyoverReconnectAttempts = 0
 let copyoverFastPhaseEnd: number | null = null
 let copyoverReconnectTimeoutId: ReturnType<typeof setTimeout> | null = null
 
+/** Manages one browser MUD connection and its authentication lifecycle. */
 export function useMudConnection() {
   const store = useMudStore()
   const { storeMudCredentials, getMudCredentials, clearMudCredentials } = useAuth()
-  const { mudWsUrl, loadConfig, isLoaded } = useSiteConfig()
+  const { mudWsUrl, loadConfig, isLoaded, isAvailable } = useSiteConfig()
   const { startAllTimers, stopAllTimers, setSendCommand, setAddLogEntry } = useTimers()
   let pendingAuthCredentials: { account: string; password: string } | null = null
 
-  // Get WebSocket URL from site config
+  /** Returns the validated browser MUD endpoint or fails while configuration is unavailable. */
   const getMudWsUrl = () => {
+    if (!mudWsUrl.value) throw new Error('Site configuration is unavailable')
     return mudWsUrl.value
   }
 
-  // Ensure config is loaded before connecting
+  /** Waits for the shared site configuration and rejects an unavailable response. */
   const ensureConfigLoaded = async () => {
     if (!isLoaded.value) {
       await loadConfig()
     }
+    if (!isAvailable.value) throw new Error('Site configuration is unavailable')
   }
 
   // ==========================================================================
   // Connection Management
   // ==========================================================================
 
+  /** Opens at most one MUD socket and resets connection state after any setup failure. */
   const connect = async () => {
     const existingWs = getWsRef()
 
@@ -143,11 +147,10 @@ export function useMudConnection() {
     setConnecting(true)
     store.setConnectionState('connecting')
 
-    // Wait for config to load before getting WebSocket URL
-    await ensureConfigLoaded()
-    const wsUrl = getMudWsUrl()
-
     try {
+      // Configuration failures use the same cleanup path as constructor failures.
+      await ensureConfigLoaded()
+      const wsUrl = getMudWsUrl()
       const newWs = new WebSocket(wsUrl)
       setWsRef(newWs)
 

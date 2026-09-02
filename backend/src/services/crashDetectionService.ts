@@ -8,6 +8,7 @@ import { broadcastCrashAlert } from '../index.js';
 import { getOnlinePlayerCount } from './serverHealthService.js';
 import logger from '../utils/logger.js';
 import { sendCrashNotification } from './pushNotificationService.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
 const execAsync = promisify(exec);
 
@@ -55,7 +56,7 @@ let lastKnownProcessStats: {
 // Track last known boot time from server_reboots
 let lastKnownBootTime: number | null = null;
 
-const MUD_DIR = process.env.MUD_DIR!;
+const MUD_DIR = getBackendConfiguration().mud.directory;
 const EXIT_LOG_PATH = path.join(MUD_DIR, 'logs/log/exit');
 const DEBUG_LOG_PATH = path.join(MUD_DIR, 'logs/log/debug');
 

@@ -2,8 +2,9 @@ import fs from 'fs/promises';
 import path from 'path';
 import { pool } from '../db/connection.js';
 import logger, { isErrorWithCode } from '../utils/logger.js';
+import { getBackendConfiguration } from '../config/environment.js';
 
-const MUD_DIR = process.env.MUD_DIR!;
+const MUD_DIR = getBackendConfiguration().mud.directory;
 const STATISTICS_DIR = path.join(MUD_DIR, 'lib/statistics');
 
 // cache for peak player count (avoid reading 30 files on every player connect)

@@ -1,14 +1,17 @@
 [Unit]
-Description=DurisWeb account-local Redis cache
+Description=DurisWeb private Redis cache
 Wants=network-online.target
 After=network-online.target
-Before=durisweb-production.service
+Before=@APPLICATION_SERVICE@
 StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-Environment=LD_LIBRARY_PATH=/home/duris/.local/opt/duris-deps/usr/lib/x86_64-linux-gnu
-ExecStart=/home/duris/.local/opt/duris-deps/usr/bin/redis-server /home/duris/.config/durisweb/redis.conf
+EnvironmentFile=@BACKEND_ENV_FILE@
+Environment=LD_LIBRARY_PATH=@REDIS_LIBRARY_PATH@
+RuntimeDirectory=durisweb-redis
+RuntimeDirectoryMode=0700
+ExecStart="@BACKEND_ROOT@/../deploy/scripts/run-durisweb-redis" "@REDIS_BIN@" "@REDIS_CONFIG_PATH@"
 Restart=always
 RestartSec=5s
 KillSignal=SIGTERM
@@ -20,7 +23,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=read-only
-ReadWritePaths=/home/duris/.local/share/durisweb-redis
+ReadWritePaths=@REDIS_DATA_DIR@
 ProtectKernelTunables=true
 ProtectControlGroups=true
 ProtectProc=invisible

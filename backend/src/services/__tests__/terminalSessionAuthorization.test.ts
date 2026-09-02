@@ -26,6 +26,18 @@ jest.unstable_mockModule('../sessionService.js', () => ({
 jest.unstable_mockModule('../../utils/logger.js', () => ({
   default: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }));
+jest.unstable_mockModule('../../config/environment.js', () => ({
+  getBackendConfiguration: () => ({
+    mud: {
+      directory: '/tmp/duris-test',
+      terminalSandboxBinary: '/usr/bin/custom-bwrap',
+      processShell: '/opt/custom-shell',
+      processPath: '/usr/local/bin:/usr/bin:/bin',
+      processUser: 'duris-test',
+      processLocale: 'C.UTF-8',
+    },
+  }),
+}));
 
 const terminalService = await import('../terminalService.js');
 
@@ -97,15 +109,22 @@ describe('terminal WebSocket session authorization', () => {
     const ws = fakeWebSocket();
     await terminalService.createSession('Cwial', ws as never);
 
-    const [, commandArgs, options] = spawn.mock.calls[0] as unknown as [
+    const [sandboxBinary, commandArgs, options] = spawn.mock.calls[0] as unknown as [
       string,
       string[],
       { env: Record<string, string> },
     ];
+    expect(sandboxBinary).toBe('/usr/bin/custom-bwrap');
     expect(options.env.DURIS_TMUX_SESSION).toBe('duris-Cwial-12');
     expect(options.env.DURIS_BASHRC_PATH).toBe('/tmp/.duris_bashrc-12');
+    expect(options.env.SHELL).toBe('/opt/custom-shell');
+    expect(options.env.DURIS_TMUX_SHELL_COMMAND).toBe(
+      "'/opt/custom-shell' --rcfile '/tmp/.duris_bashrc-12'",
+    );
     expect(commandArgs.join(' ')).toContain('$DURIS_TMUX_SESSION');
     expect(commandArgs.join(' ')).toContain('$DURIS_BASHRC_PATH');
+    expect(commandArgs.join(' ')).toContain('$DURIS_TMUX_SHELL_COMMAND');
+    expect(commandArgs.join(' ')).not.toContain('bash --rcfile');
   });
 
   it('destroys all active terminal sessions for an account', async () => {

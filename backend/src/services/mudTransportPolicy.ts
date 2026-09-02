@@ -6,6 +6,7 @@
  */
 
 import crypto from 'crypto';
+import { ConfigurationError, getBackendConfiguration } from '../config/environment.js';
 
 export interface MudTransportEndpoint {
   readonly url: string | null;
@@ -42,10 +43,28 @@ export function isLoopbackHost(hostname: string): boolean {
   return false;
 }
 
-export function inspectMudWebSocketEndpoint(wsPort: string): MudTransportEndpoint {
-  const configuredUrl = process.env.MUD_WS_URL?.trim();
-  const configuredHost = process.env.MUD_WS_HOST?.trim() || '127.0.0.1';
-  const candidate = configuredUrl || `ws://${configuredHost}:${wsPort}`;
+/** Returns a redacted endpoint when the wider backend configuration is invalid. */
+function invalidConfigurationEndpoint(): MudTransportEndpoint {
+  return {
+    url: null,
+    scheme: null,
+    host: null,
+    port: null,
+    loopback: null,
+    blockedReason: null,
+    configurationError: 'MUD transport configuration is invalid.',
+  };
+}
+
+/** Inspects the configured endpoint without exposing credentials or invalid input. */
+export function inspectMudWebSocketEndpoint(): MudTransportEndpoint {
+  let candidate: string;
+  try {
+    candidate = getBackendConfiguration().mud.websocketUrl;
+  } catch (error) {
+    if (error instanceof ConfigurationError) return invalidConfigurationEndpoint();
+    throw error;
+  }
   let parsed: URL;
 
   try {
@@ -103,8 +122,9 @@ export function inspectMudWebSocketEndpoint(wsPort: string): MudTransportEndpoin
   };
 }
 
-export function resolveMudWebSocketUrl(wsPort: string): string {
-  const endpoint = inspectMudWebSocketEndpoint(wsPort);
+/** Returns an allowed bridge URL or fails closed with a sanitized policy reason. */
+export function resolveMudWebSocketUrl(): string {
+  const endpoint = inspectMudWebSocketEndpoint();
   const error = endpoint.configurationError || endpoint.blockedReason;
   if (error || !endpoint.url) {
     throw new Error(error || 'MUD WebSocket URL is invalid.');
@@ -127,9 +147,11 @@ export function buildMudSocketOptions(wsUrl: string): { rejectUnauthorized: bool
  */
 export type DuriswebSecretSlot = 'current' | 'previous';
 
+/** Reads one configured rotation slot without weakening the minimum secret length. */
 export function readDuriswebSecret(slot: DuriswebSecretSlot): string | null {
+  const configuration = getBackendConfiguration();
   const raw =
-    slot === 'current' ? process.env.DURISWEB_SECRET : process.env.DURISWEB_SECRET_PREVIOUS;
+    slot === 'current' ? configuration.mud.bridgeSecret : configuration.mud.previousBridgeSecret;
 
   if (!raw || Buffer.byteLength(raw, 'utf8') < 32) {
     return null;

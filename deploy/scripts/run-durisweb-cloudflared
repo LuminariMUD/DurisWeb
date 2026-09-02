@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cloudflared_bin=/home/duris/.local/bin/cloudflared
-cloudflared_version_output="$($cloudflared_bin version)"
+: "${DEPLOYMENT_ENV_FILE:?Deployment environment file path is required}"
+: "${CLOUDFLARED_BIN:?cloudflared binary path is required}"
+: "${CLOUDFLARED_METRICS_ADDRESS:?cloudflared metrics address is required}"
+: "${SERVICE_HOME:?Service home is required}"
+: "${SERVICE_PATH:?Service PATH is required}"
+: "${CLOUDFLARE_API_TOKEN:?Cloudflare API token is required}"
+: "${CLOUDFLARE_ACCOUNT_ID:?Cloudflare account ID is required}"
+: "${CLOUDFLARE_WEB_TUNNEL_ID:?Cloudflare website tunnel ID is required}"
+: "${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR is required}"
+
+cloudflared_bin=${CLOUDFLARED_BIN}
+cloudflared_version_output="$("${cloudflared_bin}" version)"
 if [[ ! "$cloudflared_version_output" =~ ([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
   echo "Unable to determine cloudflared version" >&2
   exit 78
@@ -18,28 +28,17 @@ if (( cloudflared_major > 2025 )) ||
   supports_token_file=true
 fi
 
-env_file=/home/duris/durisweb/backend/.env
-if [[ -L "$env_file" || ! -f "$env_file" ]]; then
-  echo "Unsafe or missing DurisWeb environment file" >&2
+if [[ -L "${DEPLOYMENT_ENV_FILE}" || ! -f "${DEPLOYMENT_ENV_FILE}" ]]; then
+  echo "Unsafe or missing deployment environment file" >&2
   exit 78
 fi
 
-env_mode="$(stat -c '%a' "$env_file")"
-env_owner="$(stat -c '%u' "$env_file")"
+env_mode="$(stat -c '%a' "${DEPLOYMENT_ENV_FILE}")"
+env_owner="$(stat -c '%u' "${DEPLOYMENT_ENV_FILE}")"
 if (( (8#$env_mode & 0177) != 0 )) || [[ "$env_owner" != "$(id -u)" ]]; then
-  echo "DurisWeb environment file must be owner-controlled with mode 0600" >&2
+  echo "Deployment environment file must be owner-controlled with mode 0600" >&2
   exit 78
 fi
-
-set -a
-# shellcheck disable=SC1090
-source "$env_file"
-set +a
-
-: "${CLOUDFLARE_API_TOKEN:?Cloudflare API token is required}"
-: "${CLOUDFLARE_ACCOUNT_ID:?Cloudflare account ID is required}"
-: "${CLOUDFLARE_WEB_TUNNEL_ID:?Cloudflare website tunnel ID is required}"
-: "${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR is required}"
 
 runtime_dir="${XDG_RUNTIME_DIR}/durisweb-cloudflared"
 token_file="${runtime_dir}/token"
@@ -60,7 +59,7 @@ cloudflared_args=(
   tunnel
   --no-autoupdate
   --metrics
-  127.0.0.1:20243
+  "${CLOUDFLARED_METRICS_ADDRESS}"
   --loglevel
   info
   run
@@ -71,8 +70,8 @@ if [[ "$supports_token_file" == true ]]; then
   printf '%s' "$tunnel_token" >"$token_file"
   unset tunnel_token
   exec env -i \
-    HOME=/home/duris \
-    PATH=/home/duris/.local/bin:/usr/local/bin:/usr/bin:/bin \
+    HOME="${SERVICE_HOME}" \
+    PATH="${SERVICE_PATH}" \
     "$cloudflared_bin" "${cloudflared_args[@]}" --token-file "$token_file"
 fi
 
@@ -80,7 +79,7 @@ fi
 # inherited variable. Keep every other environment value out of the child.
 rm -f "$token_file"
 exec env -i \
-  HOME=/home/duris \
-  PATH=/home/duris/.local/bin:/usr/local/bin:/usr/bin:/bin \
+  HOME="${SERVICE_HOME}" \
+  PATH="${SERVICE_PATH}" \
   TUNNEL_TOKEN="$tunnel_token" \
   "$cloudflared_bin" "${cloudflared_args[@]}"

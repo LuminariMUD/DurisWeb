@@ -3,6 +3,7 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useMudConnection } from '@/composables/useMudConnection'
 import { useMudStore } from '@/stores/mudStore'
 import { useAuth } from '@/composables/useAuth'
+import { useSiteConfig } from '@/composables/useSiteConfig'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,6 +19,7 @@ const emit = defineEmits<{
 const { login, register } = useMudConnection()
 const store = useMudStore()
 const { accountName: webAccountName, isAuthenticated: isWebAuthenticated } = useAuth()
+const { siteTitle } = useSiteConfig()
 
 // Login form
 const loginAccount = ref('')
@@ -154,8 +156,8 @@ onMounted(async () => {
 <template>
   <Card class="w-full max-w-md mx-auto">
     <CardHeader class="text-center">
-      <CardTitle class="text-2xl font-bold text-primary">NewDuris MUD</CardTitle>
-      <CardDescription>Enter the realm of NewDuris</CardDescription>
+      <CardTitle class="text-2xl font-bold text-primary">{{ siteTitle }} MUD</CardTitle>
+      <CardDescription>Enter the realm of {{ siteTitle }}</CardDescription>
     </CardHeader>
     <CardContent>
       <Tabs default-value="login" class="w-full">

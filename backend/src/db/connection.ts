@@ -1,30 +1,11 @@
 import mysql from 'mysql2/promise';
-import dotenv from 'dotenv';
+import { getBackendConfiguration } from '../config/environment.js';
 import logger from '../utils/logger.js';
 
-// Keep test database access isolated. Values already supplied by the caller
-// still win, while .env remains a fallback for non-database test settings.
-dotenv.config({
-  path: process.env.NODE_ENV === 'test' ? ['.env.test', '.env'] : '.env',
-});
-
-// Validate required environment variables
-const requiredEnvVars = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
-const missingEnvVars = requiredEnvVars.filter((varName) => !process.env[varName]);
-
-if (missingEnvVars.length > 0) {
-  throw new Error(
-    `Missing required database environment variables: ${missingEnvVars.join(', ')}\n` +
-      `Please set these in your .env file. See .env.example for reference.`,
-  );
-}
+const environment = getBackendConfiguration();
 
 const dbConfig = {
-  host: process.env.DB_HOST!,
-  user: process.env.DB_USER!,
-  password: process.env.DB_PASSWORD!,
-  database: process.env.DB_NAME!,
-  port: parseInt(process.env.DB_PORT || '3306'),
+  ...environment.database,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -36,41 +17,18 @@ const dbConfig = {
   dateStrings: true,
 };
 
-const separateMudDatabaseVariables = [
-  'MUD_DB_HOST',
-  'MUD_DB_USER',
-  'MUD_DB_PASSWORD',
-  'MUD_DB_NAME',
-];
-const anyMudDatabaseVariable = [...separateMudDatabaseVariables, 'MUD_DB_PORT'];
-const hasSeparateMudDatabase = anyMudDatabaseVariable.some((varName) => process.env[varName]);
-const missingMudDatabaseVariables = hasSeparateMudDatabase
-  ? separateMudDatabaseVariables.filter((varName) => !process.env[varName])
-  : [];
-if (missingMudDatabaseVariables.length > 0) {
-  throw new Error(
-    `Incomplete authoritative MUD database configuration: ${missingMudDatabaseVariables.join(', ')}`,
-  );
-}
-
-// Create connection pools. The existing pool remains the WebService pool; the
-// optional MUD pool is used only for authoritative MUD reads introduced by the
-// secure donation and presence paths. If no MUD_* variables are supplied, it
-// preserves the original same-database deployment model.
+// The explicit MUD_DATABASE_MODE decides whether these pools share a target.
 export const pool = mysql.createPool(dbConfig);
 
 const mudDbConfig = {
   ...dbConfig,
-  host: process.env.MUD_DB_HOST || dbConfig.host,
-  user: process.env.MUD_DB_USER || dbConfig.user,
-  password: process.env.MUD_DB_PASSWORD || dbConfig.password,
-  database: process.env.MUD_DB_NAME || dbConfig.database,
-  port: parseInt(process.env.MUD_DB_PORT || String(dbConfig.port), 10),
+  ...environment.mudDatabase.connection,
 };
 
-export const mudPool = hasSeparateMudDatabase ? mysql.createPool(mudDbConfig) : pool;
+export const mudPool =
+  environment.mudDatabase.mode === 'separate' ? mysql.createPool(mudDbConfig) : pool;
 
-// Health check function
+/** Pings the primary web database and reports availability without throwing. */
 export async function checkDatabaseConnection(): Promise<boolean> {
   try {
     const connection = await pool.getConnection();
@@ -84,9 +42,7 @@ export async function checkDatabaseConnection(): Promise<boolean> {
   }
 }
 
-// Health check for the authoritative MUD read pool. In the original same-database
-// deployment this is a second pool to the same target, so it remains a cheap
-// compatibility check rather than a new required deployment mode.
+/** Pings the explicitly shared or separate authoritative MUD database pool. */
 export async function checkMudDatabaseConnection(): Promise<boolean> {
   try {
     const connection = await mudPool.getConnection();

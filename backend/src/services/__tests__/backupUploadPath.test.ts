@@ -4,12 +4,14 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
 
 const openFile = jest.fn();
+const databasePool = {
+  query: jest.fn(),
+  execute: jest.fn(),
+};
 
 jest.unstable_mockModule('../../db/connection.js', () => ({
-  pool: {
-    query: jest.fn(),
-    execute: jest.fn(),
-  },
+  pool: databasePool,
+  mudPool: databasePool,
 }));
 jest.unstable_mockModule('unzipper', () => ({
   default: { Open: { file: openFile } },

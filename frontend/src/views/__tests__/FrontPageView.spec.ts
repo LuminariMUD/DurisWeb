@@ -9,6 +9,9 @@ vi.mock('@/composables/useSiteConfig', () => ({
     frontPageHeroSubtitle: ref('A persistent world'),
     frontPageHeroImageUrl: ref(''),
     frontPageContent: ref(''),
+    isLoading: ref(false),
+    isAvailable: ref(true),
+    error: ref(null),
   }),
 }))
 

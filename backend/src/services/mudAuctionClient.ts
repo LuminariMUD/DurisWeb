@@ -8,7 +8,6 @@
 import WebSocket from 'ws';
 import { TLSSocket } from 'node:tls';
 import logger from '../utils/logger.js';
-import { getWebSettings } from './webSettingsService.js';
 import * as notificationService from './unifiedNotificationService.js';
 import { pool as db } from '../db/connection.js';
 import {
@@ -168,9 +167,7 @@ async function connect(): Promise<void> {
   if (isShuttingDown) return;
 
   try {
-    const settings = await getWebSettings();
-    const wsPort = settings.mudWsPort || '4050';
-    const wsUrl = resolveMudWebSocketUrl(wsPort);
+    const wsUrl = resolveMudWebSocketUrl();
 
     logger.info(`[MUD Auction] Connecting to ${wsUrl}...`);
 
