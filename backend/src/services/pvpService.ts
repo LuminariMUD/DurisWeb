@@ -1364,13 +1364,14 @@ export async function createBattleComment(
   participantId?: number,
 ): Promise<PvPBattleComment> {
   return withRelaxedSqlMode(async (connection) => {
+    let committed = false;
     try {
       await connection.beginTransaction();
 
       // Insert the comment
       const [result] = await connection.query<any>(
         `INSERT INTO pvp_battle_comments (event_id, account_name, character_pid, content, parent_id, quoted_text, line_number, participant_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           eventId,
           accountName,
@@ -1392,17 +1393,18 @@ export async function createBattleComment(
       );
 
       await connection.commit();
+      committed = true;
 
-      // Fetch the created comment with character info
-      const [rows] = await pool.query<RowDataPacket[]>(
+      // Fetch the created comment with character info using the same connection
+      const [rows] = await connection.query<RowDataPacket[]>(
         `SELECT
-          c.id, c.event_id, c.account_name, c.character_pid, c.content, c.parent_id,
-          c.is_deleted, c.created_at, c.updated_at, c.quoted_text, c.line_number, c.participant_id,
-          fl.char_name as character_name, fl.race as character_race,
-          fl.class as character_class, fl.level as character_level
-        FROM pvp_battle_comments c
-        LEFT JOIN frag_leaderboard fl ON c.character_pid = fl.pid
-        WHERE c.id = ?`,
+            c.id, c.event_id, c.account_name, c.character_pid, c.content, c.parent_id,
+            c.is_deleted, c.created_at, c.updated_at, c.quoted_text, c.line_number, c.participant_id,
+            fl.char_name as character_name, fl.race as character_race,
+            fl.class as character_class, fl.level as character_level
+          FROM pvp_battle_comments c
+          LEFT JOIN frag_leaderboard fl ON c.character_pid = fl.pid
+          WHERE c.id = ?`,
         [commentId],
       );
 
@@ -1433,7 +1435,9 @@ export async function createBattleComment(
         replies: [],
       };
     } catch (error) {
-      await connection.rollback();
+      if (!committed) {
+        await connection.rollback();
+      }
       throw error;
     }
   });

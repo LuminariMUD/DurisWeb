@@ -422,6 +422,13 @@
       "ticket": "DB-10",
       "note": "The MUD owner has not confirmed whether an in-flight timer event can observe the reset mid-tick."
     },
+    "scripts/import-kofi-donations.ts|UPDATE|accounts": {
+      "authoritativeWriter": "Shared. The MUD owns account rows; DurisWeb donation ingestion updates the cumulative `total_donated` column.",
+      "concurrency": "Atomic in-place increment keyed by account_name during Ko-fi donation import.",
+      "status": "allowed",
+      "ticket": "DB-10",
+      "note": "Donation attribution script linking external payment records to MUD accounts."
+    },
     "scripts/importMudContent.ts|INSERT INTO|mud_info": {
       "authoritativeWriter": "DurisWeb content tooling owns the MOTD/greeting text; the MUD reads it at boot and on reload.",
       "concurrency": "Operator-run import keyed by `name`; upsert makes a repeated run idempotent.",

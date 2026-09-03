@@ -39,6 +39,7 @@ pnpm --dir backend config:check
 pnpm --dir backend format:check
 pnpm --dir backend lint
 pnpm --dir backend type-check
+pnpm --dir backend verify:mud-writes
 pnpm --dir backend test --runInBand
 pnpm --dir backend build
 pnpm --dir frontend config:check

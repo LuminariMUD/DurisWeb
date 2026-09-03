@@ -34,12 +34,13 @@ interface DupeSummary {
   player_pairs: Array<{ players: string; duped_items: number }>;
 }
 
-// gets all items whose global uid appears more than once (same or different
-// players, including lockers). Grouping is by obj_uid alone: grouping by
-// (obj_uid, vnum) hid a UID attached to two different vnums when each pair
-// occurred once. Aggregation runs before the metadata joins so those joins
-// scale with duplicate candidates rather than every item row
-// (docs/ongoing-projects/ongoing.md, P0-B).
+/**
+ * Gets all items whose global UID appears more than once across player_items
+ * and locker_items. Grouping is by obj_uid alone: grouping by (obj_uid, vnum)
+ * hid a UID attached to two different vnums when each pair occurred once.
+ * Aggregation runs before the metadata joins so those joins scale with
+ * duplicate candidates rather than every item row (docs/ongoing-projects/ongoing.md, P0-B).
+ */
 export async function getDupedItems(): Promise<DupedItem[]> {
   const [rows] = await db.query<RowDataPacket[]>(`
     SELECT
@@ -85,7 +86,10 @@ export async function getDupedItems(): Promise<DupedItem[]> {
   return rows as DupedItem[];
 }
 
-// gets detailed info for a specific duped uid (from both player_items and locker_items)
+/**
+ * Gets detailed location and holder information for a specific duplicated obj_uid
+ * across both player_items and locker_items.
+ */
 export async function getDupeDetails(objUid: string): Promise<DupeDetail[]> {
   const [rows] = await db.query<RowDataPacket[]>(
     `
@@ -137,7 +141,10 @@ export async function getDupeDetails(objUid: string): Promise<DupeDetail[]> {
   return rows as DupeDetail[];
 }
 
-// summary stats for the page header
+/**
+ * Calculates summary statistics for duplicate item detection, including total
+ * duplicated UIDs, record counts, and top player pairs involved in duplication.
+ */
 export async function getDupeSummary(): Promise<DupeSummary> {
   const [statsRows] = await db.query<RowDataPacket[]>(`
     SELECT
@@ -198,7 +205,9 @@ export async function getDupeSummary(): Promise<DupeSummary> {
   };
 }
 
-// delete specific item by id from player_items
+/**
+ * Deletes a specific inventory item row by its primary key id from player_items.
+ */
 export async function deletePlayerItem(itemId: number): Promise<boolean> {
   const [result] = await db.query<ResultSetHeader>('DELETE FROM player_items WHERE id = ?', [
     itemId,
@@ -206,7 +215,9 @@ export async function deletePlayerItem(itemId: number): Promise<boolean> {
   return result.affectedRows > 0;
 }
 
-// delete specific item by id from locker_items
+/**
+ * Deletes a specific locker item row by its primary key id from locker_items.
+ */
 export async function deleteLockerItem(itemId: number): Promise<boolean> {
   const [result] = await db.query<ResultSetHeader>('DELETE FROM locker_items WHERE id = ?', [
     itemId,
@@ -214,7 +225,9 @@ export async function deleteLockerItem(itemId: number): Promise<boolean> {
   return result.affectedRows > 0;
 }
 
-// bulk delete items by ids
+/**
+ * Bulk deletes multiple inventory items by primary key ids from player_items.
+ */
 export async function deletePlayerItems(itemIds: number[]): Promise<number> {
   if (itemIds.length === 0) return 0;
   const [result] = await db.query<ResultSetHeader>('DELETE FROM player_items WHERE id IN (?)', [
@@ -223,30 +236,77 @@ export async function deletePlayerItems(itemIds: number[]): Promise<number> {
   return result.affectedRows;
 }
 
-// deletes all dupes for a uid, keeps one copy (lowest id gets to keep it)
-export async function deleteAllDupesForUid(objUid: string, vnum: number): Promise<number> {
-  // delete from player_items, keep lowest id
-  const [playerResult] = await db.query<ResultSetHeader>(
-    `
-    DELETE FROM player_items
-    WHERE obj_uid = ? AND vnum = ?
-    AND id NOT IN (
-      SELECT id FROM (
-        SELECT MIN(id) as id FROM player_items WHERE obj_uid = ? AND vnum = ?
-      ) as keeper
-    )
-  `,
-    [objUid, vnum, objUid, vnum],
-  );
+/**
+ * Deletes all duplicate copies for an obj_uid, keeping one copy.
+ * Preference is given to the lowest id in player_items; if none exist in player_items,
+ * the lowest id in locker_items is retained.
+ * Rejects bulk deletion if the UID spans multiple distinct VNUMs.
+ */
+export async function deleteAllDupesForUid(objUid: string, vnum?: number): Promise<number> {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
 
-  // delete ALL from locker_items with same uid (since we kept one in player_items)
-  const [lockerResult] = await db.query<ResultSetHeader>(
-    `
-    DELETE FROM locker_items
-    WHERE obj_uid = ? AND vnum = ?
-  `,
-    [objUid, vnum],
-  );
+    const [vnumRows] = await connection.query<RowDataPacket[]>(
+      `SELECT DISTINCT vnum FROM (
+         SELECT vnum FROM player_items WHERE obj_uid = ?
+         UNION
+         SELECT vnum FROM locker_items WHERE obj_uid = ?
+       ) combined`,
+      [objUid, objUid],
+    );
 
-  return playerResult.affectedRows + lockerResult.affectedRows;
+    if (vnumRows.length > 1) {
+      throw new Error(
+        `Cannot bulk delete UID ${objUid}: item spans ${vnumRows.length} distinct VNUMs. Explicit item selection required.`,
+      );
+    }
+
+    if (vnum !== undefined && vnumRows.length === 1 && Number(vnumRows[0].vnum) !== vnum) {
+      throw new Error(
+        `VNUM mismatch for UID ${objUid}: expected ${vnum}, found ${vnumRows[0].vnum}`,
+      );
+    }
+
+    const [playerKeepers] = await connection.query<RowDataPacket[]>(
+      'SELECT MIN(id) as id FROM player_items WHERE obj_uid = ?',
+      [objUid],
+    );
+    const playerKeeperId = playerKeepers[0]?.id;
+
+    let deletedCount = 0;
+
+    if (playerKeeperId != null) {
+      const [playerResult] = await connection.query<ResultSetHeader>(
+        'DELETE FROM player_items WHERE obj_uid = ? AND id != ?',
+        [objUid, playerKeeperId],
+      );
+      const [lockerResult] = await connection.query<ResultSetHeader>(
+        'DELETE FROM locker_items WHERE obj_uid = ?',
+        [objUid],
+      );
+      deletedCount = playerResult.affectedRows + lockerResult.affectedRows;
+    } else {
+      const [lockerKeepers] = await connection.query<RowDataPacket[]>(
+        'SELECT MIN(id) as id FROM locker_items WHERE obj_uid = ?',
+        [objUid],
+      );
+      const lockerKeeperId = lockerKeepers[0]?.id;
+      if (lockerKeeperId != null) {
+        const [lockerResult] = await connection.query<ResultSetHeader>(
+          'DELETE FROM locker_items WHERE obj_uid = ? AND id != ?',
+          [objUid, lockerKeeperId],
+        );
+        deletedCount = lockerResult.affectedRows;
+      }
+    }
+
+    await connection.commit();
+    return deletedCount;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }

@@ -189,6 +189,10 @@ export function validateBigIntIdParam(value: string | undefined): string | null 
   return BigInt(value) <= 18446744073709551615n ? value : null;
 }
 
+/**
+ * Validate and parse a numeric ID path parameter.
+ * Returns the positive safe integer or null if invalid or unsafe.
+ */
 export function validateIdParam(value: string | undefined): number | null {
   if (value === undefined || !/^[1-9]\d*$/.test(value)) {
     return null;

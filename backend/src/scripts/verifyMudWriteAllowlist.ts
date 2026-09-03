@@ -1,8 +1,17 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { MUTATION_GATES, type MutationGate } from '../middleware/mutationGate.js';
+
+/** Fingerprint of the MUD baseline table list, as published in the MUD manifest. */
+export function tableFingerprint(tables: readonly string[]): string {
+  return crypto
+    .createHash('sha256')
+    .update(`${[...tables].sort().join('\n')}\n`)
+    .digest('hex');
+}
 
 const ALLOWLIST_FILE = 'mud-write-allowlist.json';
 const SKIPPED_DIRECTORIES = new Set(['__tests__', 'test']);
@@ -107,13 +116,15 @@ export function writeKey(write: MudWrite): string {
 export function scanMudOwnedWrites(
   sourceRoot: string,
   mudOwnedTables: Iterable<string>,
+  pathPrefix = '',
 ): MudWrite[] {
   const owned = new Set(mudOwnedTables);
   const found = new Map<string, MudWrite>();
 
   for (const file of sourceFiles(sourceRoot)) {
     const source = fs.readFileSync(file, 'utf8');
-    const relativePath = path.relative(sourceRoot, file).split(path.sep).join('/');
+    const relative = path.relative(sourceRoot, file).split(path.sep).join('/');
+    const relativePath = pathPrefix ? `${pathPrefix}/${relative}` : relative;
     for (const { pattern, operation } of WRITE_PATTERNS) {
       pattern.lastIndex = 0;
       let match = pattern.exec(source);
@@ -140,6 +151,14 @@ export function verifyMudWriteAllowlist(root = backendRoot()): string[] {
   const allowlist = loadMudWriteAllowlist(root);
   const issues: string[] = [];
 
+  const fingerprint = tableFingerprint(allowlist.mudOwnedTables);
+  if (fingerprint !== allowlist.baseline.requiredTableFingerprint) {
+    issues.push(
+      `mudOwnedTables does not match baseline ${allowlist.baseline.id}: ` +
+        `expected ${allowlist.baseline.requiredTableFingerprint}, computed ${fingerprint}`,
+    );
+  }
+
   const gates = new Set<string>(MUTATION_GATES);
   for (const [key, entry] of Object.entries(allowlist.writes)) {
     if (!entry.authoritativeWriter || !entry.concurrency || !entry.ticket) {
@@ -156,7 +175,21 @@ export function verifyMudWriteAllowlist(root = backendRoot()): string[] {
     }
   }
 
-  const scanned = scanMudOwnedWrites(path.join(root, 'src'), allowlist.mudOwnedTables);
+  const rootsToScan: { dir: string; prefix: string }[] = [
+    { dir: path.join(root, 'src'), prefix: '' },
+  ];
+  const scriptsDir = path.join(root, 'scripts');
+  if (fs.existsSync(scriptsDir)) {
+    rootsToScan.push({ dir: scriptsDir, prefix: 'scripts' });
+  }
+
+  const scannedMap = new Map<string, MudWrite>();
+  for (const { dir, prefix } of rootsToScan) {
+    for (const write of scanMudOwnedWrites(dir, allowlist.mudOwnedTables, prefix)) {
+      scannedMap.set(writeKey(write), write);
+    }
+  }
+  const scanned = [...scannedMap.values()].sort((a, b) => writeKey(a).localeCompare(writeKey(b)));
   const scannedKeys = scanned.map(writeKey);
   const classified = new Set(Object.keys(allowlist.writes));
 

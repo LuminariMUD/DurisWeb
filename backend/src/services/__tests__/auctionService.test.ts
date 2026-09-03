@@ -20,8 +20,14 @@ const getConnection = jest.fn<() => Promise<typeof connection>>();
 
 jest.unstable_mockModule('../../db/connection.js', () => ({
   pool: { query, getConnection },
+  mudPool: { query, getConnection },
 }));
 jest.unstable_mockModule('../unifiedNotificationService.js', () => ({}));
+// Auction removal is delegated to the MUD bridge, which opens a socket on import.
+jest.unstable_mockModule('../mudAuctionClient.js', () => ({
+  isMudConnected: () => false,
+  sendMudCommandAsync: async () => ({ success: false, error: 'not connected' }),
+}));
 
 const { deductCharacterMoney, getCharacterMoney } = await import('../auctionService.js');
 

@@ -1494,29 +1494,47 @@ export interface DupeSummary {
  * Dupe Detection API (Overlord only)
  */
 export const dupeApi = {
+  /**
+   * Fetches all duplicate items and summary statistics.
+   */
   async getDupes(): Promise<{ items: DupedItem[]; summary: DupeSummary }> {
     const { data } = await api.get('/api/admin/dupes')
     return data
   },
 
+  /**
+   * Fetches detailed location and ownership records for a specific duplicated obj_uid.
+   */
   async getDupeDetails(objUid: string): Promise<{ details: DupeDetail[] }> {
     const { data } = await api.get(`/api/admin/dupes/${objUid}`)
     return data
   },
 
+  /**
+   * Deletes a specific inventory item copy by its id.
+   */
   async deleteItem(itemId: number): Promise<void> {
     await api.delete(`/api/admin/dupes/item/${itemId}`)
   },
 
+  /**
+   * Deletes a specific locker item copy by its id.
+   */
   async deleteLockerItem(itemId: number): Promise<void> {
     await api.delete(`/api/admin/dupes/locker-item/${itemId}`)
   },
 
+  /**
+   * Deletes all duplicate copies for a given obj_uid and vnum, keeping one copy.
+   */
   async deleteAllDupes(objUid: string, vnum: number): Promise<{ deletedCount: number }> {
     const { data } = await api.delete(`/api/admin/dupes/uid/${objUid}/${vnum}`)
     return data
   },
 
+  /**
+   * Deletes multiple items by their ids in a single request.
+   */
   async bulkDelete(itemIds: number[]): Promise<{ deletedCount: number }> {
     const { data } = await api.post('/api/admin/dupes/bulk-delete', { itemIds })
     return data

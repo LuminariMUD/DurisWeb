@@ -7,13 +7,18 @@ import { afterEach, describe, expect, it } from '@jest/globals';
 import {
   loadMudWriteAllowlist,
   scanMudOwnedWrites,
+  tableFingerprint,
   verifyMudWriteAllowlist,
 } from '../verifyMudWriteAllowlist.js';
 
 const temporaryRoots: string[] = [];
 
 /** Build a disposable backend root with one source file and one manifest. */
-function fixtureRoot(source: string, writes: Record<string, unknown>): string {
+function fixtureRoot(
+  source: string,
+  writes: Record<string, unknown>,
+  baselineTables: readonly string[] = ['player_data', 'accounts'],
+): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mud-write-allowlist-'));
   temporaryRoots.push(root);
   fs.mkdirSync(path.join(root, 'src', 'services'), { recursive: true });
@@ -21,8 +26,8 @@ function fixtureRoot(source: string, writes: Record<string, unknown>): string {
   fs.writeFileSync(
     path.join(root, 'mud-write-allowlist.json'),
     JSON.stringify({
-      baseline: { id: 'fixture', requiredTableFingerprint: 'fixture' },
-      mudOwnedTables: ['player_data', 'accounts'],
+      baseline: { id: 'fixture', requiredTableFingerprint: tableFingerprint(baselineTables) },
+      mudOwnedTables: [...baselineTables],
       writes,
     }),
   );
@@ -105,6 +110,28 @@ describe('MUD write allowlist', () => {
     });
     expect(() => verifyMudWriteAllowlist(root)).toThrow(
       /authoritativeWriter, concurrency, and ticket/,
+    );
+  });
+
+  it('fails when mudOwnedTables does not match the baseline fingerprint', () => {
+    const root = fixtureRoot("await pool.query('SELECT 1');", {});
+    const manifestPath = path.join(root, 'mud-write-allowlist.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    manifest.baseline.requiredTableFingerprint =
+      '0000000000000000000000000000000000000000000000000000000000000000';
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+    expect(() => verifyMudWriteAllowlist(root)).toThrow(/does not match baseline/);
+  });
+
+  it('scans backend scripts outside src and requires classification', () => {
+    const root = fixtureRoot("await pool.query('SELECT 1');", {});
+    fs.mkdirSync(path.join(root, 'scripts'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'scripts', 'custom.ts'),
+      "await pool.query('UPDATE accounts SET gold = 0');",
+    );
+    expect(() => verifyMudWriteAllowlist(root)).toThrow(
+      /unclassified writes to MUD-owned tables: scripts\/custom\.ts\|UPDATE\|accounts/,
     );
   });
 });

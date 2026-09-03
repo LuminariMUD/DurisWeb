@@ -99,6 +99,25 @@ export function sessionInvariantDrift(observed: SessionInvariants): string[] {
 }
 
 /**
+ * Detect whether the database server exposes transaction_isolation (MySQL 8+,
+ * MariaDB 11.1+) or tx_isolation (MariaDB 10.11 and earlier, MySQL 5.7).
+ */
+export async function detectIsolationVariableName(
+  connection: Pick<mysql.PoolConnection, 'query'>,
+): Promise<'transaction_isolation' | 'tx_isolation'> {
+  try {
+    await connection.query('SELECT @@SESSION.transaction_isolation');
+    return 'transaction_isolation';
+  } catch (err: unknown) {
+    const error = err as { code?: string; errno?: number };
+    if (error?.code === 'ER_UNKNOWN_SYSTEM_VARIABLE' || error?.errno === 1193) {
+      return 'tx_isolation';
+    }
+    throw err;
+  }
+}
+
+/**
  * Check out one connection from each configured pool and fail startup when its
  * session state has already drifted from the server defaults.
  */
@@ -114,11 +133,12 @@ export async function verifyPoolSessionInvariants(): Promise<void> {
   for (const [name, currentPool] of pools) {
     const connection = await currentPool.getConnection();
     try {
+      const isolationVar = await detectIsolationVariableName(connection);
       const [rows] = await connection.query<mysql.RowDataPacket[]>(
         `SELECT @@SESSION.sql_mode AS sqlMode,
                 @@GLOBAL.sql_mode AS globalSqlMode,
-                @@SESSION.transaction_isolation AS isolationLevel,
-                @@GLOBAL.transaction_isolation AS globalIsolationLevel,
+                @@SESSION.${isolationVar} AS isolationLevel,
+                @@GLOBAL.${isolationVar} AS globalIsolationLevel,
                 @@SESSION.time_zone AS timeZone,
                 @@GLOBAL.time_zone AS globalTimeZone,
                 @@SESSION.foreign_key_checks AS foreignKeyChecks`,

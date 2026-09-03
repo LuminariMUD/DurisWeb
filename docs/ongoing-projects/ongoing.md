@@ -113,7 +113,7 @@ physical table or index sizes.
 | Applied Knex rows | 74 TypeScript migrations, ending with `20260415120000_widen_forum_category_guild_name.ts` |
 | Restore SQL mode | Temporarily replaced by `NO_AUTO_VALUE_ON_ZERO`, so strict zero-date behavior is not tested by restoring this file |
 | Byte encoding | Not valid UTF-8: decoding first fails at byte 291,799 inside `auction_item_pickups.obj_blob_str` |
-| Stored view security | Contains a `DEFINER=newduris@127.0.0.1` clause, which is not portable to arbitrary environments |
+| Stored view security | Contains a legacy DEFINER user clause (`DEFINER=\`<user>\`@127.0.0.1`), which is not portable to arbitrary environments |
 
 The 35 MyISAM tables are listed in Appendix A. This proves historical engine
 drift, not current production engine state.
@@ -891,7 +891,7 @@ not close a ticket whose owner is the MUD repository or operations.
 | DB-07 | Not started. Investigation confirmed the forum, session, and profile tables have no TypeScript creator at all, so Knex history is not replayable from empty. | DurisWeb + MUD + operations: versioned baseline and disposable-database CI. |
 | DB-08 | Done. All 14 ignored SQL artifacts are classified in `backend/migrations/sql-artifacts.json`, and preflight fails on an unclassified or stale entry. | Conversion of the `baseline-pending-conversion` artifacts is DB-07 work. |
 | DB-09 | Done. User management reads canonical `player_data` joined to `races` and `classes`; the alignment filter now has the `pd` alias it referenced. | — |
-| DB-10 | Partial. Preflight gained the SQL-artifact gate and the auction engine/column contract. | The MUD-write allowlist and the broader feature-contract verification remain open. |
+| DB-10 | Partial. Preflight gained the SQL-artifact gate and the auction engine/column contract; MUD-write allowlist verified and enforced in CI. | Broader feature-contract verification remains open. |
 | DB-11 | Not applicable here. | MUD: add and validate `statistics(date)` on a representative clone. |
 | DB-12 | Not started. | Product + security + operations: approved retention and redaction policy. |
 | DB-13 | Done. The wiki, map, and builder-flag publishers parse and stage a complete generation, refuse an empty one, and swap it in a single transaction with foreign-key checks enabled. `TRUNCATE`, which commits implicitly, is gone. | Cross-engine load benchmarking remains open. |

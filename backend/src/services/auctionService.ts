@@ -9,6 +9,8 @@ import {
   AuctionHistoryFilters,
 } from '../types/index.js';
 import * as notificationService from './unifiedNotificationService.js';
+import { isMudConnected, sendMudCommandAsync } from './mudAuctionClient.js';
+import logger from '../utils/logger.js';
 
 // Constants (matching MUD auction_houses.c)
 const COPPER_PER_PLAT = 1000;
@@ -588,66 +590,33 @@ export async function deductCharacterMoney(pid: number, amountCopper: number): P
 }
 
 /**
- * Admin: Remove an auction (return item to seller, refund bidder)
+ * Admin: request authoritative removal of an auction listing.
+ *
+ * The MUD owns this operation. Its critical command locks the auction, advances
+ * the auction revision, and stages every item back to the seller in one
+ * transaction, so DurisWeb must not update `auctions` or insert pickup rows
+ * itself. The command is accepted asynchronously; the committed outcome arrives
+ * on the existing auction event stream, and repeating the request for an
+ * auction that is no longer open is rejected by the MUD, so a retry is safe.
  */
 export async function adminRemoveAuction(
   auctionId: number,
   adminName: string,
   reason?: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const connection = await pool.getConnection();
-
-  try {
-    await connection.beginTransaction();
-
-    // Get auction with lock
-    const [rows] = await connection.query<RowDataPacket[]>(
-      `SELECT seller_pid, winning_bidder_pid, cur_price, obj_blob_str, quantity, status
-       FROM auctions WHERE id = ? FOR UPDATE`,
-      [auctionId],
-    );
-
-    if (rows.length === 0) {
-      await connection.rollback();
-      return { success: false, error: 'Auction not found' };
-    }
-
-    const auction = rows[0];
-
-    if (auction.status !== 'OPEN') {
-      await connection.rollback();
-      return { success: false, error: 'Auction is already closed or removed' };
-    }
-
-    // Mark as removed
-    await connection.query(`UPDATE auctions SET status = 'REMOVED' WHERE id = ?`, [auctionId]);
-
-    // Return item to seller via pickup queue
-    await connection.query(
-      `INSERT INTO auction_item_pickups (pid, obj_blob_str, quantity, retrieved)
-       VALUES (?, ?, ?, 0)`,
-      [auction.seller_pid, auction.obj_blob_str, auction.quantity],
-    );
-
-    // Refund bidder if any
-    if (auction.winning_bidder_pid) {
-      await insertMoneyPickup(connection, auction.winning_bidder_pid, auction.cur_price);
-    }
-
-    await connection.commit();
-
-    // Log the action
-    console.log(
-      `[Auction] Admin ${adminName} removed auction ${auctionId}. Reason: ${reason || 'none'}`,
-    );
-
-    return { success: true };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
+  if (!isMudConnected()) {
+    return { success: false, error: 'MUD service is not connected' };
   }
+
+  const response = await sendMudCommandAsync('durisweb_auction_remove', { auctionId });
+  if (!response.success) {
+    return { success: false, error: response.error || 'MUD rejected the auction removal' };
+  }
+
+  logger.info(
+    `[Auction] Admin ${adminName} requested removal of auction ${auctionId}. Reason: ${reason || 'none'}`,
+  );
+  return { success: true };
 }
 
 /**

@@ -117,14 +117,22 @@ describe('userManagementService', () => {
     query.mockResolvedValueOnce([[{ race: '&+BHuman&n' }, { race: '&+GElf&n' }], []]);
 
     await expect(getUniqueRaces()).resolves.toEqual(['&+BHuman&n', '&+GElf&n']);
-    expect(query).toHaveBeenCalledWith(expect.stringContaining('FROM races'));
+    const racesQuery = String(query.mock.calls[0][0]);
+    expect(racesQuery).toContain('SELECT name as race');
+    expect(racesQuery).toContain('FROM races');
+    expect(racesQuery).toContain("WHERE name IS NOT NULL AND name != ''");
+    expect(racesQuery).toContain('ORDER BY name');
   });
 
   it('returns unique specialized classes from the service query result', async () => {
     query.mockResolvedValueOnce([[{ class: '&+WWarrior&n' }, { class: '&+CZealot&n' }], []]);
 
     await expect(getUniqueClasses()).resolves.toEqual(['&+WWarrior&n', '&+CZealot&n']);
-    expect(query).toHaveBeenCalledWith(expect.stringContaining('FROM classes'));
+    const classesQuery = String(query.mock.calls[0][0]);
+    expect(classesQuery).toContain('SELECT name as class');
+    expect(classesQuery).toContain('FROM classes');
+    expect(classesQuery).toContain("WHERE name IS NOT NULL AND name != ''");
+    expect(classesQuery).toContain('ORDER BY name');
   });
 
   describe('deleteCharacter', () => {

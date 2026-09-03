@@ -66,7 +66,7 @@ const pendingSuggestionsCount = ref(0)
 
 // Dupe items count and tracking
 const dupeCount = ref(0)
-const knownDupeUids = ref<Set<number>>(new Set())
+const knownDupeUids = ref<Set<string>>(new Set())
 let dupeCountInterval: ReturnType<typeof setInterval> | null = null
 const isFirstDupeLoad = ref(true)
 

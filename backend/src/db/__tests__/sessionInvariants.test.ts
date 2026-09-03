@@ -1,6 +1,10 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 
-import { type SessionInvariants, sessionInvariantDrift } from '../connection.js';
+import {
+  type SessionInvariants,
+  detectIsolationVariableName,
+  sessionInvariantDrift,
+} from '../connection.js';
 
 const strictSession: SessionInvariants = {
   sqlMode: 'STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO',
@@ -33,5 +37,47 @@ describe('pooled session invariants', () => {
         foreignKeyChecks: 0,
       }),
     ).toHaveLength(4);
+  });
+
+  describe('detectIsolationVariableName', () => {
+    it('returns transaction_isolation when supported by the database server (MySQL 8+)', async () => {
+      const mockConn = {
+        query: jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValueOnce([[]]),
+      };
+      await expect(detectIsolationVariableName(mockConn as any)).resolves.toBe(
+        'transaction_isolation',
+      );
+      expect(mockConn.query).toHaveBeenCalledWith('SELECT @@SESSION.transaction_isolation');
+    });
+
+    it('falls back to tx_isolation when transaction_isolation is unknown (MariaDB 10.11 code)', async () => {
+      const err = Object.assign(new Error('Unknown system variable'), {
+        code: 'ER_UNKNOWN_SYSTEM_VARIABLE',
+      });
+      const mockConn = {
+        query: jest.fn<(...args: unknown[]) => Promise<unknown>>().mockRejectedValueOnce(err),
+      };
+      await expect(detectIsolationVariableName(mockConn as any)).resolves.toBe('tx_isolation');
+    });
+
+    it('falls back to tx_isolation when transaction_isolation is unknown (MariaDB errno 1193)', async () => {
+      const err = Object.assign(new Error('Unknown system variable'), {
+        errno: 1193,
+      });
+      const mockConn = {
+        query: jest.fn<(...args: unknown[]) => Promise<unknown>>().mockRejectedValueOnce(err),
+      };
+      await expect(detectIsolationVariableName(mockConn as any)).resolves.toBe('tx_isolation');
+    });
+
+    it('rethrows unexpected database errors', async () => {
+      const err = Object.assign(new Error('Connection lost'), {
+        code: 'ECONNRESET',
+      });
+      const mockConn = {
+        query: jest.fn<(...args: unknown[]) => Promise<unknown>>().mockRejectedValueOnce(err),
+      };
+      await expect(detectIsolationVariableName(mockConn as any)).rejects.toThrow('Connection lost');
+    });
   });
 });

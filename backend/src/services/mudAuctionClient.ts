@@ -315,6 +315,18 @@ function handleMessage(socket: WebSocket, msg: any): void {
       }
       break;
 
+    case 'durisweb_auction_remove':
+      if (msg.requestId && pendingRequests.has(msg.requestId)) {
+        const pending = pendingRequests.get(msg.requestId)!;
+        clearTimeout(pending.timeout);
+        pendingRequests.delete(msg.requestId);
+        pending.resolve({
+          success: msg.success === true,
+          error: msg.success === true ? undefined : msg.error || 'MUD rejected the auction removal',
+        });
+      }
+      break;
+
     case 'admin_delete_progress':
       // Broadcast progress update to frontend
       logger.info(`[MUD Command] Delete progress: ${msg.message} (${msg.status})`);

@@ -586,11 +586,33 @@ async function extractMapData(): Promise<void> {
   try {
     await connection.beginTransaction();
 
+    // Preserve existing continent assignments across the refresh
+    const [existingAssignments] = await connection.query<any[]>(
+      'SELECT room_vnum, continent_id FROM wiki_map_positions WHERE continent_id IS NOT NULL',
+    );
+    const existingContinentByRoom = new Map<number, number>();
+    for (const row of existingAssignments) {
+      existingContinentByRoom.set(Number(row.room_vnum), Number(row.continent_id));
+    }
+    if (existingContinentByRoom.size > 0) {
+      logger.info(
+        `Preserving ${existingContinentByRoom.size} existing continent assignments across refresh...`,
+      );
+    }
+
     await connection.query('DELETE FROM wiki_zone_entrances');
     await connection.query('DELETE FROM wiki_map_positions');
 
-    for (let offset = 0; offset < allPositionRows.length; offset += PUBLISH_BATCH_SIZE) {
-      const batch = allPositionRows.slice(offset, offset + PUBLISH_BATCH_SIZE);
+    const stagedPositionRows = allPositionRows.map((row) => {
+      const roomVnum = Number(row[0]);
+      const continentId = existingContinentByRoom.get(roomVnum) ?? null;
+      const copy = [...row];
+      copy[8] = continentId;
+      return copy;
+    });
+
+    for (let offset = 0; offset < stagedPositionRows.length; offset += PUBLISH_BATCH_SIZE) {
+      const batch = stagedPositionRows.slice(offset, offset + PUBLISH_BATCH_SIZE);
       await connection.query(
         `INSERT INTO wiki_map_positions
          (room_vnum, x_coord, y_coord, z_coord, sector_type, zone_number, zone_name, room_name, continent_id, is_map_room)
@@ -603,6 +625,8 @@ async function extractMapData(): Promise<void> {
          zone_number = VALUES(zone_number),
          zone_name = VALUES(zone_name),
          room_name = VALUES(room_name),
+         continent_id = VALUES(continent_id),
+         is_map_room = VALUES(is_map_room),
          updated_at = NOW()`,
         [batch],
       );
