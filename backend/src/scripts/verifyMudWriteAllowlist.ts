@@ -179,7 +179,12 @@ const WRITE_PATTERNS: {
 
 /**
  * Dynamic write targets cannot be classified by a static scan, so any
- * template-literal interpolation in a table position fails verification.
+ * template-literal interpolation or string concatenation in a table position
+ * fails verification. Concatenation is flagged when a statement keyword is
+ * immediately followed by the closing quote of its literal and then a plus
+ * (or a concat call) — the forms that append a runtime-built table name.
+ * Splitting the statement across string fragments also hides the table from
+ * the static scan, so both static and dynamic fragments are rejected.
  */
 const FORBIDDEN_PATTERNS: { pattern: RegExp; description: string }[] = [
   {
@@ -187,16 +192,32 @@ const FORBIDDEN_PATTERNS: { pattern: RegExp; description: string }[] = [
     description: 'interpolated INSERT/REPLACE target',
   },
   {
+    pattern: /\b(?:INSERT|REPLACE)\s+INTO\s*['"`]\s*(?:\+|\.concat\s*\()/gi,
+    description: 'concatenated INSERT/REPLACE target',
+  },
+  {
     pattern: /\bDELETE\s+FROM\s+`?\$\{/gi,
     description: 'interpolated DELETE target',
+  },
+  {
+    pattern: /\bDELETE\s+FROM\s*['"`]\s*(?:\+|\.concat\s*\()/gi,
+    description: 'concatenated DELETE target',
   },
   {
     pattern: /(?<!KEY\s)\bUPDATE\s+`?\$\{(?=[^;'"]{0,200}?\bSET\b)/gi,
     description: 'interpolated UPDATE target',
   },
   {
+    pattern: /(?<!KEY\s)\bUPDATE\s*['"`]\s*(?:\+|\.concat\s*\()(?=[^;]{0,200}?\bSET\b)/gi,
+    description: 'concatenated UPDATE target',
+  },
+  {
     pattern: /\bTRUNCATE\s+(?:TABLE\s+)?`?\$\{/gi,
     description: 'interpolated TRUNCATE target',
+  },
+  {
+    pattern: /\bTRUNCATE\s+(?:TABLE\s+)?['"`]\s*(?:\+|\.concat\s*\()/gi,
+    description: 'concatenated TRUNCATE target',
   },
 ];
 

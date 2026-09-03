@@ -197,12 +197,23 @@ export async function samplePoolSessionInvariants(): Promise<void> {
   }
 }
 
-/** Sample pool session invariants periodically during normal operation. */
+/**
+ * Sample pool session invariants periodically during normal operation.
+ * A sample that outlives its interval is never overlapped: the tick is
+ * skipped while the previous sample is still waiting on checked-out
+ * connections, so the unbounded pool checkout queue cannot accumulate
+ * duplicated sampling work.
+ */
 export function startPoolSessionInvariantSampling(
   intervalMs = POOL_SESSION_SAMPLE_INTERVAL_MS,
 ): NodeJS.Timeout {
+  let sampling = false;
   const timer = setInterval(() => {
-    void samplePoolSessionInvariants();
+    if (sampling) return;
+    sampling = true;
+    void samplePoolSessionInvariants().finally(() => {
+      sampling = false;
+    });
   }, intervalMs);
   timer.unref();
   return timer;
@@ -243,7 +254,10 @@ export async function verifyDatabaseSchema(): Promise<void> {
   }
 }
 
-// Graceful shutdown
+/**
+ * Close every configured pool during graceful shutdown. Failures are logged
+ * rather than thrown so shutdown always reaches the remaining cleanup steps.
+ */
 export async function closeDatabaseConnection(): Promise<void> {
   try {
     const pools = configuredPools().map(([, currentPool]) => currentPool);

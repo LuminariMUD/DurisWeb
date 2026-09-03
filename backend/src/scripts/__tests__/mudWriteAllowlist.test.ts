@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from '@jest/globals';
 
 import {
+  findForbiddenWriteForms,
   loadMudWriteAllowlist,
   resolveMultiTableDeleteTargets,
   scanMudOwnedWrites,
@@ -223,11 +224,54 @@ describe('MUD write allowlist', () => {
         'await pool.query(`INSERT INTO ${table} (name) VALUES (?)`, [name]);',
         'await pool.query(`DELETE FROM ${table} WHERE id = ?`, [id]);',
         'await pool.query(`UPDATE ${table} SET gold = 0 WHERE pid = ?`, [pid]);',
+        'await pool.query(`TRUNCATE ${table}`);',
       ].join('\n'),
       {},
     );
     expect(() => verifyMudWriteAllowlist(root, mudManifestFor(root))).toThrow(
       /dynamic write target/,
+    );
+  });
+
+  it('rejects concatenated SQL table targets for every write statement form', () => {
+    const root = fixtureRoot(
+      [
+        "await pool.query('INSERT INTO ' + table + ' (name) VALUES (?)', [name]);",
+        "await pool.query('REPLACE INTO ' + table + ' (name) VALUES (?)', [name]);",
+        "await pool.query('DELETE FROM ' + table + ' WHERE id = ?', [id]);",
+        "await pool.query('UPDATE ' + table + ' SET gold = 0 WHERE pid = ?', [pid]);",
+        "await pool.query('TRUNCATE ' + table);",
+        "await pool.query('TRUNCATE TABLE ' + table);",
+      ].join('\n'),
+      {},
+    );
+
+    expect(findForbiddenWriteForms(path.join(root, 'src'), '')).toEqual(
+      expect.arrayContaining([
+        'services/sample.ts: concatenated INSERT/REPLACE target',
+        'services/sample.ts: concatenated DELETE target',
+        'services/sample.ts: concatenated UPDATE target',
+        'services/sample.ts: concatenated TRUNCATE target',
+      ]),
+    );
+    expect(() => verifyMudWriteAllowlist(root, mudManifestFor(root))).toThrow(
+      /dynamic write target/,
+    );
+  });
+
+  it('rejects runtime assembly helpers such as .concat and multiline fragments', () => {
+    const root = fixtureRoot(
+      [
+        "await pool.query('DELETE FROM '.concat(table, ' WHERE id = ?'), [id]);",
+        ['await pool.query(', "  'UPDATE '", '  + table', "  + ' SET gold = 0',", ');'].join('\n'),
+      ].join('\n'),
+      {},
+    );
+    expect(findForbiddenWriteForms(path.join(root, 'src'), '')).toEqual(
+      expect.arrayContaining([
+        'services/sample.ts: concatenated DELETE target',
+        'services/sample.ts: concatenated UPDATE target',
+      ]),
     );
   });
 

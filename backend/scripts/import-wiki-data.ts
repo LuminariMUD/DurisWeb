@@ -88,6 +88,11 @@ async function insertAll(connection: PoolConnection, sql: string, rows: Row[]): 
   }
 }
 
+/**
+ * Parse every zone's flatfiles, stage a complete generation in memory, then
+ * publish it atomically: all children are deleted before their parents inside
+ * one transaction, and any failure rolls back to the previous generation.
+ */
 async function main() {
   console.log('importing wiki data from mud flatfiles...\n');
 

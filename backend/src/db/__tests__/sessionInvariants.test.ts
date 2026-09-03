@@ -7,6 +7,7 @@ import {
   pool,
   samplePoolSessionInvariants,
   sessionInvariantDrift,
+  startPoolSessionInvariantSampling,
 } from '../connection.js';
 
 const strictSession: SessionInvariants = {
@@ -51,6 +52,7 @@ describe('pooled session invariants', () => {
       jest.restoreAllMocks();
     });
 
+    /** Replace pool.getConnection with one checkout that answers with `row`. */
     function mockCheckout(row: object): void {
       const query = jest.fn<(...args: unknown[]) => Promise<unknown>>();
       query.mockResolvedValueOnce([[]]);
@@ -89,6 +91,42 @@ describe('pooled session invariants', () => {
         'Pool session invariant sampling failed:',
         expect.anything(),
       );
+    });
+  });
+
+  describe('startPoolSessionInvariantSampling', () => {
+    it('skips ticks while the previous sample is still in flight', async () => {
+      jest.useFakeTimers();
+      const getConnection = pool.getConnection.bind(pool);
+      let checkoutCalls = 0;
+      let releaseCheckout: () => void = () => {};
+      (pool as unknown as { getConnection: () => Promise<unknown> }).getConnection = jest.fn(
+        () =>
+          new Promise((resolve) => {
+            checkoutCalls += 1;
+            releaseCheckout = () =>
+              resolve({
+                query: jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue([[]]),
+                release: jest.fn(),
+              });
+          }),
+      );
+      jest.spyOn(logger, 'error').mockImplementation(() => logger);
+
+      startPoolSessionInvariantSampling(1000);
+      try {
+        jest.advanceTimersByTime(1000);
+        jest.advanceTimersByTime(5000);
+        expect(checkoutCalls).toBe(1);
+
+        releaseCheckout();
+        await jest.advanceTimersByTimeAsync(1000);
+        expect(checkoutCalls).toBe(2);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+        pool.getConnection = getConnection;
+      }
     });
   });
 
