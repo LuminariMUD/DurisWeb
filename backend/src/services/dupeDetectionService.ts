@@ -2,8 +2,11 @@ import { pool as db } from '../db/connection.js';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 interface DupedItem {
-  obj_uid: number;
+  /** BIGINT UNSIGNED, carried as a canonical decimal string. */
+  obj_uid: string;
   vnum: number;
+  /** Distinct vnums sharing this UID; > 1 means inconsistent item metadata. */
+  vnum_count: number;
   item_name: string | null;
   item_name_ansi: string | null;
   players: string;
@@ -14,7 +17,7 @@ interface DupedItem {
 
 interface DupeDetail {
   id: number;
-  obj_uid: number;
+  obj_uid: string;
   vnum: number;
   item_name: string | null;
   item_name_ansi: string | null;
@@ -31,64 +34,65 @@ interface DupeSummary {
   player_pairs: Array<{ players: string; duped_items: number }>;
 }
 
-// gets all items with same uid appearing more than once (same or different players, including lockers)
+// gets all items whose global uid appears more than once (same or different
+// players, including lockers). Grouping is by obj_uid alone: grouping by
+// (obj_uid, vnum) hid a UID attached to two different vnums when each pair
+// occurred once. Aggregation runs before the metadata joins so those joins
+// scale with duplicate candidates rather than every item row
+// (docs/ongoing-projects/ongoing.md, P0-B).
 export async function getDupedItems(): Promise<DupedItem[]> {
   const [rows] = await db.query<RowDataPacket[]>(`
     SELECT
-      obj_uid,
-      vnum,
-      MAX(item_name) as item_name,
-      MAX(item_name_ansi) as item_name_ansi,
-      GROUP_CONCAT(DISTINCT player_name ORDER BY player_name) as players,
-      COUNT(*) as total_count,
-      COUNT(DISTINCT pid) as player_count,
-      MIN(created_at) as created_at
+      CAST(candidates.obj_uid AS CHAR) as obj_uid,
+      candidates.vnum,
+      candidates.vnum_count,
+      wo.name as item_name,
+      wo.name_ansi as item_name_ansi,
+      candidates.players,
+      candidates.total_count,
+      candidates.player_count,
+      candidates.created_at
     FROM (
       SELECT
-        pi.obj_uid,
-        pi.vnum,
-        wo.name as item_name,
-        wo.name_ansi as item_name_ansi,
-        pd.name as player_name,
-        pi.pid,
-        pi.created_at
-      FROM player_items pi
-      JOIN player_data pd ON pi.pid = pd.pid
-      LEFT JOIN wiki_objects wo ON pi.vnum = wo.vnum
-      WHERE pi.obj_uid IS NOT NULL AND pi.obj_uid > 0
+        obj_uid,
+        MIN(vnum) as vnum,
+        COUNT(DISTINCT vnum) as vnum_count,
+        GROUP_CONCAT(DISTINCT player_name ORDER BY player_name) as players,
+        COUNT(*) as total_count,
+        COUNT(DISTINCT pid) as player_count,
+        MIN(created_at) as created_at
+      FROM (
+        SELECT pi.obj_uid, pi.vnum, pd.name as player_name, pi.pid, pi.created_at
+        FROM player_items pi
+        JOIN player_data pd ON pi.pid = pd.pid
+        WHERE pi.obj_uid IS NOT NULL AND pi.obj_uid > 0
 
-      UNION ALL
+        UNION ALL
 
-      SELECT
-        li.obj_uid,
-        li.vnum,
-        wo.name as item_name,
-        wo.name_ansi as item_name_ansi,
-        pd.name as player_name,
-        l.owner_pid as pid,
-        NULL as created_at
-      FROM locker_items li
-      JOIN lockers l ON li.locker_id = l.id
-      JOIN player_data pd ON l.owner_pid = pd.pid
-      LEFT JOIN wiki_objects wo ON li.vnum = wo.vnum
-      WHERE li.obj_uid IS NOT NULL AND li.obj_uid > 0
-    ) combined
-    GROUP BY obj_uid, vnum
-    HAVING total_count > 1
-    ORDER BY total_count DESC, obj_uid
+        SELECT li.obj_uid, li.vnum, pd.name as player_name, l.owner_pid as pid, NULL as created_at
+        FROM locker_items li
+        JOIN lockers l ON li.locker_id = l.id
+        JOIN player_data pd ON l.owner_pid = pd.pid
+        WHERE li.obj_uid IS NOT NULL AND li.obj_uid > 0
+      ) combined
+      GROUP BY obj_uid
+      HAVING total_count > 1
+    ) candidates
+    LEFT JOIN wiki_objects wo ON candidates.vnum = wo.vnum
+    ORDER BY candidates.total_count DESC, candidates.obj_uid
   `);
 
   return rows as DupedItem[];
 }
 
 // gets detailed info for a specific duped uid (from both player_items and locker_items)
-export async function getDupeDetails(objUid: number): Promise<DupeDetail[]> {
+export async function getDupeDetails(objUid: string): Promise<DupeDetail[]> {
   const [rows] = await db.query<RowDataPacket[]>(
     `
     SELECT * FROM (
       SELECT
         pi.id,
-        pi.obj_uid,
+        CAST(pi.obj_uid AS CHAR) as obj_uid,
         pi.vnum,
         wo.name as item_name,
         wo.name_ansi as item_name_ansi,
@@ -110,7 +114,7 @@ export async function getDupeDetails(objUid: number): Promise<DupeDetail[]> {
 
       SELECT
         li.id,
-        li.obj_uid,
+        CAST(li.obj_uid AS CHAR) as obj_uid,
         li.vnum,
         wo.name as item_name,
         wo.name_ansi as item_name_ansi,
@@ -142,18 +146,18 @@ export async function getDupeSummary(): Promise<DupeSummary> {
     FROM (
       SELECT obj_uid, COUNT(*) as cnt
       FROM (
-        SELECT pi.obj_uid, pi.vnum
+        SELECT pi.obj_uid
         FROM player_items pi
         JOIN player_data pd ON pi.pid = pd.pid
         WHERE pi.obj_uid > 0
         UNION ALL
-        SELECT li.obj_uid, li.vnum
+        SELECT li.obj_uid
         FROM locker_items li
         JOIN lockers l ON li.locker_id = l.id
         JOIN player_data pd ON l.owner_pid = pd.pid
         WHERE li.obj_uid > 0
       ) all_items
-      GROUP BY obj_uid, vnum
+      GROUP BY obj_uid
       HAVING cnt > 1
     ) duped
   `);
@@ -166,21 +170,20 @@ export async function getDupeSummary(): Promise<DupeSummary> {
     FROM (
       SELECT
         obj_uid,
-        vnum,
         GROUP_CONCAT(DISTINCT player_name ORDER BY player_name) as players
       FROM (
-        SELECT pi.obj_uid, pi.vnum, pd.name as player_name
+        SELECT pi.obj_uid, pd.name as player_name
         FROM player_items pi
         JOIN player_data pd ON pi.pid = pd.pid
         WHERE pi.obj_uid > 0
         UNION ALL
-        SELECT li.obj_uid, li.vnum, pd.name as player_name
+        SELECT li.obj_uid, pd.name as player_name
         FROM locker_items li
         JOIN lockers l ON li.locker_id = l.id
         JOIN player_data pd ON l.owner_pid = pd.pid
         WHERE li.obj_uid > 0
       ) combined
-      GROUP BY obj_uid, vnum
+      GROUP BY obj_uid
       HAVING COUNT(*) > 1
     ) grouped
     GROUP BY players
@@ -221,7 +224,7 @@ export async function deletePlayerItems(itemIds: number[]): Promise<number> {
 }
 
 // deletes all dupes for a uid, keeps one copy (lowest id gets to keep it)
-export async function deleteAllDupesForUid(objUid: number, vnum: number): Promise<number> {
+export async function deleteAllDupesForUid(objUid: string, vnum: number): Promise<number> {
   // delete from player_items, keep lowest id
   const [playerResult] = await db.query<ResultSetHeader>(
     `

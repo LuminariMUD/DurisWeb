@@ -116,6 +116,7 @@ import {
   parseStrictPositiveId,
   parseStrictPositiveIdArray,
   validateIdParam,
+  validateBigIntIdParam,
 } from '../utils/validation.js';
 import {
   getDupedItems,
@@ -4701,7 +4702,7 @@ router.get('/dupes', requireAuth, requireOverlord, async (_req: Request, res: Re
  */
 router.get('/dupes/:objUid', requireAuth, requireOverlord, async (req: Request, res: Response) => {
   try {
-    const objUid = validateIdParam(req.params.objUid);
+    const objUid = validateBigIntIdParam(req.params.objUid);
     if (objUid === null) {
       return res.status(400).json({ error: 'Invalid obj_uid' });
     }
@@ -4778,7 +4779,7 @@ router.delete(
   requireMutationGate('itemDeletes'),
   async (req: Request, res: Response) => {
     try {
-      const objUid = validateIdParam(req.params.objUid);
+      const objUid = validateBigIntIdParam(req.params.objUid);
       const vnum = validateIdParam(req.params.vnum);
       if (objUid === null || vnum === null) {
         return res.status(400).json({ error: 'Invalid parameters' });

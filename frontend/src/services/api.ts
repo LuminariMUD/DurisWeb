@@ -1458,8 +1458,11 @@ export const adminApi = {
 // ============================================================================
 
 export interface DupedItem {
-  obj_uid: number
+  /** BIGINT UNSIGNED, carried as a canonical decimal string. */
+  obj_uid: string
   vnum: number
+  /** Distinct vnums sharing this UID; > 1 means inconsistent item metadata. */
+  vnum_count: number
   item_name: string | null
   item_name_ansi: string | null
   players: string
@@ -1470,7 +1473,7 @@ export interface DupedItem {
 
 export interface DupeDetail {
   id: number
-  obj_uid: number
+  obj_uid: string
   vnum: number
   item_name: string | null
   item_name_ansi: string | null
@@ -1496,7 +1499,7 @@ export const dupeApi = {
     return data
   },
 
-  async getDupeDetails(objUid: number): Promise<{ details: DupeDetail[] }> {
+  async getDupeDetails(objUid: string): Promise<{ details: DupeDetail[] }> {
     const { data } = await api.get(`/api/admin/dupes/${objUid}`)
     return data
   },
@@ -1509,7 +1512,7 @@ export const dupeApi = {
     await api.delete(`/api/admin/dupes/locker-item/${itemId}`)
   },
 
-  async deleteAllDupes(objUid: number, vnum: number): Promise<{ deletedCount: number }> {
+  async deleteAllDupes(objUid: string, vnum: number): Promise<{ deletedCount: number }> {
     const { data } = await api.delete(`/api/admin/dupes/uid/${objUid}/${vnum}`)
     return data
   },
