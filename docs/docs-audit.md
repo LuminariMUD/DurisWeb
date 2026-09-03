@@ -10,9 +10,10 @@
 
 ## Scope
 
-`analyze-project.sh --json` reports Phase 00 complete, 7/7 sessions complete,
-no active session, a two-package logical monorepo, and no later phase. All seven
-Phase 00 `implementation-notes.md` files were read for semantic change evidence.
+The project analyzer used for this audit reported Phase 00 complete, 7/7
+sessions complete, no active session, a two-package logical monorepo, and no
+later phase. All seven Phase 00 implementation notes, now retained only in Git
+history, were read for semantic change evidence.
 
 The first session specification does not contain the required `Base Commit`
 field, so the workflow correctly used implementation notes as the authoritative
@@ -73,7 +74,7 @@ manifest. As supplemental history only, the first Phase 00 commit is
 
 - `.gitignore` - removed the broad `docs/` exclusion so project documentation
   is versioned.
-- `.spec_system/CONVENTIONS.md` - removed fictional workspace/shared-package
+- `docs/CONVENTIONS.md` - removed fictional workspace/shared-package
   rules, recorded HTTP/WebSocket package boundaries, and corrected database
   ownership to the shared DurisWeb/DurisMUD schema.
 - `backend/src/hooks/README.md` -> `README_hooks.md` - applied unique README
@@ -84,13 +85,13 @@ manifest. As supplemental history only, the first Phase 00 commit is
 
 ## Files Verified as Current Sources
 
-- `.spec_system/PRD/PRD.md` - Phase 00 complete, one operator-owned WSS
+- The since-retired Phase 00 PRD - Phase 00 complete, one operator-owned WSS
   acceptance, and no Phase 01 definition.
-- `.spec_system/PRD/MUD_HANDOFF.md` - exact MUD wire/configuration handoff and
+- The since-retired DurisMUD handoff - exact MUD wire/configuration handoff and
   pushed-unmerged status, reconciled in Session 07.
-- `.spec_system/CONSIDERATIONS.md` and
-  `.spec_system/SECURITY-COMPLIANCE.md` - freshly rebuilt by carryforward before
-  documentation work.
+- `docs/CONSIDERATIONS.md` and `docs/SECURITY-COMPLIANCE.md` - freshly rebuilt
+  before documentation work and subsequently moved into `docs/` as durable
+  project records.
 - `backend/.env.example`, `backend/.env.test.example`, and
   `frontend/.env.example` - current variable-name/configuration sources.
 - `backend/package.json`, `frontend/package.json`, and both lockfiles - current
@@ -99,8 +100,10 @@ manifest. As supplemental history only, the first Phase 00 commit is
   packages.
 - `podman-compose.yml` - current Docker Compose definition for local MySQL 8 and
   Redis 7 with configurable host ports.
-- `.spec_system/scripts/ecosystem.config.js`, both systemd units, and both nginx files - inspected as
-  inconsistent reference deployment inputs, not claimed as active production.
+- The legacy project-workflow deployment examples, both systemd units, and both
+  nginx files - inspected as inconsistent reference deployment inputs, not
+  claimed as active production. The workflow examples were subsequently
+  removed and remain available in Git history.
 
 ## Remaining Documentation Gaps Requiring External Decisions
 
@@ -128,18 +131,18 @@ for this documentation pass.
 
 | Area | Document | Codebase or Spec Evidence | Result |
 |------|----------|---------------------------|--------|
-| Project state | This report, `README.md` | `bash .spec_system/scripts/analyze-project.sh --json`; `.spec_system/PRD/PRD.md` | Phase 00 and no-later-phase claims verified |
-| Phase changes | Architecture, ADR, package docs | All seven `implementation-notes.md`; package fields in all seven `spec.md` files; supplemental `git diff --name-only fed1f19..HEAD` | Phase-focused manifest verified |
+| Project state | This report, `README.md` | Retired project analyzer and Phase 00 PRD in Git history | Phase 00 and no-later-phase claims verified |
+| Phase changes | Architecture, ADR, package docs | Seven retired implementation notes and session specifications in Git history; supplemental `git diff --name-only fed1f19..HEAD` | Phase-focused manifest verified |
 | Quickstart | `README.md`, onboarding, development | `backend/package.json`, `frontend/package.json`, `podman-compose.yml`, env examples, `scripts/dev.sh` | Script syntax passed; frontend/backend started; frontend fetch and backend `/health` passed; audit containers removed |
 | Final quality | Development and package command tables | Exact documented pnpm commands run after corrections | Backend format/lint/type/test/build PASS (68 suites, 572 tests); frontend format/lint/type/test/build PASS (27 files, 93 tests) |
 | Package coverage | Package READMEs | Analyzer `packages`: `backend`, `frontend`; both package manifests and source trees inspected | 2/2 created |
 | Tool versions and commands | Onboarding, development | CI Node/pnpm setup plus both manifest script tables | Commands and versions verified |
-| Database warning | Onboarding, architecture, deployment | Audit migration up/down evidence, known-issues ledger, Knex config, shared-schema Session 03 evidence | Limitation documented without unsafe bootstrap claim |
+| Database warning | Onboarding, architecture, deployment | Audit migration up/down evidence, retired known-issues ledger in Git history, Knex config, shared-schema Session 03 evidence | Limitation documented without unsafe bootstrap claim |
 | Architecture | `docs/ARCHITECTURE.md`, ADR 0001 | `backend/src/index.ts`, hook registry/state/reconcile modules, frontend router/console, MUD handoff, security record | Current component/channel/state model documented |
 | API | `docs/api/README_api.md` | Every `app.use`/top-level route mount in `backend/src/index.ts`; auth, CSRF, Ko-fi, hook route modules | Mounts and security boundaries verified |
 | Environment | `docs/environments.md` | All three env examples; connection, auth, transport-policy, Redis, Vite source inspection | Required/optional/public boundaries verified |
 | CI/CD | `docs/deployment.md` | `.github/workflows/quality.yml`; successful run 33515161295; manifests | Current quality-only coverage documented |
-| Deployment gaps | Deployment, environments | PM2/systemd/nginx files, analyzer state, conventions, known-issues report | Conflicting paths and absent platform/probes recorded |
+| Deployment gaps | Deployment, environments | PM2/systemd/nginx files, retired project-state evidence in Git history, current conventions | Conflicting paths and absent platform/probes recorded |
 | Health | README, architecture, deployment, runbook | `healthService.ts`, `/health` route, tests, `frontend/public/health`, local curl evidence | Dependency-aware behavior verified |
 | Security/privacy | Architecture, environments, deployment, runbook, API | Security checklist applied; cumulative security record; auth/CSRF/transport/flatfile code and tests | No insecure default or false compliance claim added |
 | README naming | Package and subdirectory docs | Source tree scan excluding ignored/generated `dist`; Apex unique-name rule | Root is the only source `README.md` |
@@ -148,11 +151,12 @@ for this documentation pass.
 
 ## Completion Decision
 
-Both required sources agree:
+At audit time, both required sources agreed:
 
-- `.spec_system/PRD/PRD.md` defines only Phase 00 and marks it Complete.
-- `analyze-project.sh --json` reports only Phase 00, status `complete`, with no
-  candidate sessions or later phase.
+- The now-retired Phase 00 PRD defined only Phase 00 and marked it Complete.
+- The now-retired project analyzer reported only Phase 00, status `complete`,
+  with no candidate sessions or later phase.
 
-**Next command: none.** The project workflow represented by the current PRD is
-complete. `phasebuild` was not run.
+Those sources remain available in Git history but are no longer part of the
+current checkout. The project workflow they represented was complete, and no
+follow-up build phase was run.

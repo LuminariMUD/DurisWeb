@@ -31,7 +31,6 @@ database warning before using a new database.
 |-- docs/                 # Architecture, setup, operations, and API guides
 |-- scripts/              # Repository-level developer entry points
 |-- .github/workflows/    # GitHub Actions quality checks
-|-- .spec_system/         # Product requirements and implementation evidence
 `-- podman-compose.yml     # Local MySQL 8 and Redis 7 services
 ```
 
@@ -60,7 +59,10 @@ manifest and lockfile; run package commands from that package or use `pnpm
 - [HTTP API](docs/api/README_api.md)
 - [Incident Response](docs/runbooks/incident-response.md)
 - [Contributing](CONTRIBUTING.md)
-- [Security and Compliance](.spec_system/SECURITY-COMPLIANCE.md)
+- [Repository Conventions](docs/CONVENTIONS.md)
+- [Project Considerations](docs/CONSIDERATIONS.md)
+- [Security and Compliance](docs/SECURITY-COMPLIANCE.md)
+- [Documentation Audit](docs/docs-audit.md)
 
 ## Project Status
 
@@ -77,5 +79,7 @@ live deployment of one repository does not prove the other is current.
 
 The cumulative security posture is `AT RISK` because dependency, refresh-token,
 session-timezone, and privacy-lifecycle work remains. See the
-[PRD](.spec_system/PRD/PRD.md) and
-[security record](.spec_system/SECURITY-COMPLIANCE.md) for exact evidence.
+[architecture](docs/ARCHITECTURE.md),
+[project considerations](docs/CONSIDERATIONS.md), and
+[security record](docs/SECURITY-COMPLIANCE.md) for the current contracts and
+evidence.

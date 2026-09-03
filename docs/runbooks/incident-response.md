@@ -152,8 +152,8 @@ read exposure can therefore be an active session compromise.
 3. Rotate signing or integration credentials only when their exposure is
    confirmed; coordinate service restarts and user impact.
 4. Track the event against
-   `.spec_system/SECURITY-COMPLIANCE.md`; do not mark SEC-RT-1 resolved until
-   digest-at-rest deployment is complete.
+   [Security and Compliance](../SECURITY-COMPLIANCE.md); do not mark SEC-RT-1
+   resolved until digest-at-rest deployment is complete.
 
 ## Backup or Restore Incident
 

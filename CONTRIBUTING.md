@@ -3,9 +3,10 @@
 ## Before You Start
 
 Read [Onboarding](docs/onboarding.md), [Development](docs/development.md), and
-the repository conventions in `.spec_system/CONVENTIONS.md`. Integration work
-must also read `.spec_system/PRD/MUD_HANDOFF.md` and the cumulative security
-record.
+the [repository conventions](docs/CONVENTIONS.md). Integration work must also
+read the [architecture](docs/ARCHITECTURE.md),
+[hook registry guide](backend/src/hooks/README_hooks.md), and cumulative
+[security record](docs/SECURITY-COMPLIANCE.md).
 
 ## Branches
 
@@ -44,7 +45,9 @@ pnpm --dir frontend type-check
 
 Runtime changes should also run the applicable Jest/Vitest tests and production
 builds. Do not silence a failing test or dependency audit to make a pull request
-green; document confirmed exceptions in `.spec_system/audit/known-issues.md`.
+green; document confirmed security exceptions in
+[Security and Compliance](docs/SECURITY-COMPLIANCE.md) and other durable
+constraints in [Project Considerations](docs/CONSIDERATIONS.md).
 
 ## Pull Requests
 

@@ -166,7 +166,7 @@ merge a partial row list.
 
 Retention periods for web analytics, terminal/deployment output, login history,
 and health metrics remain an explicit product/security/operations decision; see
-the [security record](../.spec_system/SECURITY-COMPLIANCE.md). Any lifecycle job
+the [security record](SECURITY-COMPLIANCE.md). Any lifecycle job
 must be bounded, indexed for its cutoff, dry-runnable, idempotent, and audited.
 Game-owned items, PvP payloads, statistics, and logs remain under the MUD's data
 lifecycle contract and must not be added to an independent web purge job.
@@ -212,7 +212,7 @@ See [ADR 0001](adr/0001-hook-control-ownership-and-state.md) and the
 - Request bodies and selected sensitive routes are size/rate limited.
 - Known cumulative exceptions, including raw refresh-token storage and timezone
   expiry semantics, live in
-  [Security and Compliance](../.spec_system/SECURITY-COMPLIANCE.md).
+  [Security and Compliance](SECURITY-COMPLIANCE.md).
 
 ## Health and Operations
 
@@ -232,5 +232,3 @@ See [ADR 0001](adr/0001-hook-control-ownership-and-state.md) and the
 
 - [ADR 0001: Hook control ownership and state](adr/0001-hook-control-ownership-and-state.md)
 - [ADR template](adr/0000-template.md)
-- [Phase 00 PRD](../.spec_system/PRD/PRD.md)
-- [DurisMUD handoff](../.spec_system/PRD/MUD_HANDOFF.md)

@@ -56,4 +56,4 @@ both MySQL and Redis respond; it returns 503 with a degraded snapshot otherwise.
 
 See [Architecture](../docs/ARCHITECTURE.md),
 [API documentation](../docs/api/README_api.md), and the cumulative
-[security record](../.spec_system/SECURITY-COMPLIANCE.md).
+[security record](../docs/SECURITY-COMPLIANCE.md).

@@ -60,7 +60,9 @@
 ## MUD Integration Hooks
 
 Every website<->MUD integration point follows one contract. See
-`.spec_system/PRD/PRD.md` and `.spec_system/SECURITY-COMPLIANCE.md`.
+the [architecture guide](ARCHITECTURE.md#mud-integration-channels),
+[hook registry guide](../backend/src/hooks/README_hooks.md), and
+[security record](SECURITY-COMPLIANCE.md).
 
 - Every hook has a stable `snake_case` id, registered in the hook registry
 - Every hook is independently toggleable on both ends; a hook is active only

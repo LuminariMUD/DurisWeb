@@ -8,9 +8,9 @@ DurisMUD server. The registry has 14 rows: 13 website-toggleable hooks and the
 always-on terminal recovery path. Eight toggleable hooks have a MUD property;
 five are intentionally website-only.
 
-See the [Phase 00 PRD](../../../.spec_system/PRD/PRD.md),
-[MUD handoff](../../../.spec_system/PRD/MUD_HANDOFF.md), and
-[architecture guide](../../../docs/ARCHITECTURE.md).
+See the [architecture guide](../../../docs/ARCHITECTURE.md),
+[security record](../../../docs/SECURITY-COMPLIANCE.md), and
+[hook-control ADR](../../../docs/adr/0001-hook-control-ownership-and-state.md).
 
 ## Rules
 
@@ -32,7 +32,8 @@ See the [Phase 00 PRD](../../../.spec_system/PRD/PRD.md),
 5. Add the website setting and any applicable MUD property/handler changes.
 6. Extend registry-generated behavior tests and the exact cross-repository
    contract tuple.
-7. Update `MUD_HANDOFF.md` and operator documentation when the MUD changes.
+7. Update this guide, DurisWeb operator documentation, and the separate MUD
+   repository's integration documentation when the MUD changes.
 
 ## Registry Fields
 
