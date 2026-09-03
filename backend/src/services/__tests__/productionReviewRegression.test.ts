@@ -97,8 +97,11 @@ describe('production review regression contracts', () => {
       forumService.indexOf('export async function updateUserProfile'),
     );
 
-    expect(userProfile).toContain('LEFT JOIN player_data pd ON ac.pid = pd.pid');
+    expect(userProfile).toContain('JOIN account_characters ac ON ac.pid = pd.pid');
     expect(userProfile).toContain('COALESCE(pd.bank_platinum, 0) * 1000');
+    expect(userProfile).toContain('FROM frag_leaderboard fl');
+    expect(userProfile).toContain('FROM player_data pd');
+    expect(userProfile).not.toContain('LEFT JOIN frag_leaderboard fl');
     expect(userProfile).not.toContain('pc.money');
     expect(userProfile).not.toContain('pc.balance');
   });

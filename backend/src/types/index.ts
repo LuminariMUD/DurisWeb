@@ -313,7 +313,7 @@ export interface AccountCharactersResponse {
     characterCount: number;
     totalFrags: number;
     totalDeaths: number;
-    totalWealth: number; // Sum of all money + balance
+    totalWealth: number; // Wallet and bank denominations converted to copper
   };
 }
 
