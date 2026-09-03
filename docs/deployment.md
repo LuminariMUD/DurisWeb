@@ -199,6 +199,8 @@ The required `RENDER_OUTPUT_DIR` receives:
 - a Redis base configuration without an embedded password;
 - the Cloudflare unit when its group is enabled;
 - bootstrap and TLS nginx configurations when their group is enabled.
+- a non-secret deployment selection consumed by the complete-group recovery
+  and acceptance command.
 
 The renderer rejects missing values, unsafe input permissions, symlinks,
 unresolved/example placeholders, and missing or non-empty unmarked output
@@ -272,9 +274,19 @@ restart player-visible.
    rendered-unit verification before stopping healthy processes.
 3. If the private cache configuration changed, restart the cache first and
    expect the app/tunnel dependency chain to stop. Verify authenticated `PONG`.
-4. Switch the complete staged backend/frontend artifacts, then start or restart
-   the application through systemd. Do not expose a partial frontend build.
-5. Start the optional ingress unit if dependency propagation did not do so.
+4. Switch the complete staged backend/frontend artifacts. Do not expose a
+   partial frontend build.
+5. Recover the complete rendered group and require acceptance before ending
+   maintenance:
+
+   ```bash
+   deploy/scripts/recover-deployment /absolute/render/output
+   ```
+
+   This explicitly starts the cache, application, and rendered optional tunnel,
+   then requires `ActiveState=active`, `Result=success`, `NRestarts=0`, and
+   structurally healthy local and configured public `/health` responses. Use
+   `--accept-only` to prove the same gate without starting anything.
 6. Do not restart the MUD or shared database as part of a web-only release.
    Compare their PIDs and active timestamps with the pre-cutover record.
 7. Enable the validated units and run the acceptance matrix. Unexpected
@@ -352,8 +364,9 @@ Historical down migrations are not the recovery plan.
 
 Application rollback uses an explicitly selected last-known-good commit whose
 migrations are compatible with the live schema, followed by rebuild, preflight,
-restart, and the same acceptance checks. DNS and database rollback targets must
-come from a fresh operator journal, never tracked documentation.
+and the same complete-group recovery command and acceptance checks. DNS and
+database rollback targets must come from a fresh operator journal, never
+tracked documentation.
 
 For the fastest code-only rollback, restore the checksum-verified prior compiled
 artifacts and rendered/unit configuration, restart through the same dependency

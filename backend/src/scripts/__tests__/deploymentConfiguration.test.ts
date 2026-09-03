@@ -60,6 +60,7 @@ describe('deployment configuration renderer', () => {
       'systemd/durisweb-production.service',
       'systemd/durisweb-redis.service',
       'systemd/durisweb-cloudflared.service',
+      'deployment-selection.env',
       'redis/redis.conf',
       'nginx/bootstrap.conf',
       'nginx/production.conf',
@@ -95,6 +96,9 @@ describe('deployment configuration renderer', () => {
     expect(fs.existsSync(path.join(outputPath, 'systemd/durisweb-redis.service'))).toBe(true);
     expect(fs.existsSync(path.join(outputPath, 'systemd/durisweb-cloudflared.service'))).toBe(
       false,
+    );
+    expect(fs.readFileSync(path.join(outputPath, 'deployment-selection.env'), 'utf8')).toContain(
+      'INGRESS_SERVICE=\n',
     );
     expect(fs.existsSync(path.join(outputPath, 'nginx'))).toBe(false);
   });
