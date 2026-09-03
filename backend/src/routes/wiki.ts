@@ -499,6 +499,15 @@ router.get(
   listLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const referenceIssues = await wikiService.getWikiObjectReferenceIssues();
+      if (referenceIssues.length > 0) {
+        res.status(503).json({
+          code: 'WIKI_OBJECT_REFERENCE_UNAVAILABLE',
+          error: 'Wiki object reference data is unavailable. An operator must publish it.',
+        });
+        return;
+      }
+
       const {
         page = '1',
         limit = '20',

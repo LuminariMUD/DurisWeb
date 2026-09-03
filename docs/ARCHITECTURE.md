@@ -135,13 +135,15 @@ fix for `pkill_event.stamp` belongs to the MUD schema owner.
 
 ### Generated projections
 
-The wiki object/mob importer, map extractor, and builder-flag synchronizer parse
-and validate a non-empty generation before touching published rows. They replace
-their respective InnoDB rows inside one transaction, in bounded insert batches,
-so a failure rolls back to the prior generation. Empty source output is a hard
-failure, not a valid publication. Database/cache health and migration preflight
-do not prove that a generation is populated; release acceptance must verify the
-enabled feature's data and rendered surface.
+The supported wiki object/mob publisher records the selected MUD commit, tree
+identity, and aggregate object/mob counts in `wiki_reference_generations`. It,
+the map extractor, and the builder-flag synchronizer parse and validate a
+non-empty generation before touching published rows. They replace their
+respective InnoDB rows inside one transaction, in bounded insert batches, so a
+failure rolls back to the prior generation. Empty source output is a hard
+failure, not a valid publication. Production preflight checks the published
+object marker, count, and child consistency. Release acceptance must still
+verify the enabled feature's API data and rendered surface.
 
 ### Restore boundary
 

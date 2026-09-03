@@ -14,6 +14,7 @@ import {
 import type { Room } from '../types/builder.js';
 import logger from '../utils/logger.js';
 import { EQUIP_SLOTS } from '../types/builder.js';
+import { readWikiObjectGeneration, validateWikiObjectGeneration } from './wikiGeneration.js';
 
 // exit flag for secret doors (from mud defines.h)
 const EX_SECRET = 64; // BIT_7
@@ -77,6 +78,11 @@ export interface WikiZone {
   roomCount: number;
   mobCount: number;
   objectCount: number;
+}
+
+/** Return aggregate-only reasons the object reference projection is unavailable. */
+export async function getWikiObjectReferenceIssues(): Promise<string[]> {
+  return validateWikiObjectGeneration(await readWikiObjectGeneration(pool));
 }
 
 export interface WikiZoneDetail extends WikiZone {

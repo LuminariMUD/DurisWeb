@@ -29,6 +29,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
 import AnsiText from '@/components/ui/AnsiText.vue'
 import { wikiApi } from '@/services/api'
+import { hasApiErrorCode } from '@/utils/apiError'
 import type {
   WikiObject,
   WikiObjectFilters,
@@ -55,6 +56,7 @@ const router = useRouter()
 
 // State
 const loading = ref(true)
+const referenceUnavailable = ref(false)
 const objects = ref<WikiObject[]>([])
 const total = ref(0)
 const currentPage = ref(1)
@@ -377,10 +379,18 @@ async function loadObjects() {
       sortOrder.value,
     )
     objects.value = result.objects
+    referenceUnavailable.value = false
     total.value = result.total
     totalPages.value = result.totalPages
   } catch (e) {
-    console.error('Failed to load objects:', e)
+    if (hasApiErrorCode(e, 503, 'WIKI_OBJECT_REFERENCE_UNAVAILABLE')) {
+      referenceUnavailable.value = true
+      objects.value = []
+      total.value = 0
+      totalPages.value = 0
+    } else {
+      console.error('Failed to load objects:', e)
+    }
   } finally {
     loading.value = false
   }
@@ -1137,7 +1147,13 @@ onMounted(async () => {
               <Loader2 class="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
 
-            <!-- Empty State -->
+            <!-- Unpublished Reference State -->
+            <div v-else-if="referenceUnavailable" class="text-center py-12 px-4 text-muted-foreground">
+              <p class="font-medium text-foreground">Object reference data is temporarily unavailable.</p>
+              <p class="mt-1 text-sm">An operator must publish and verify the current reference generation.</p>
+            </div>
+
+            <!-- Empty Filter State -->
             <div v-else-if="objects.length === 0" class="text-center py-12 text-muted-foreground">
               No objects found matching your criteria.
             </div>

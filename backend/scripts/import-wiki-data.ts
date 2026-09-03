@@ -1,17 +1,18 @@
 /**
  * import objects and mobs from mud flatfiles into database
- * run with: npx tsx scripts/import-wiki-data.ts
+ * run with: pnpm wiki:publish
  *
  * The whole generation is parsed and validated before any published row is
  * touched, then swapped in one transaction. TRUNCATE is deliberately not used:
  * it commits implicitly, so a failure mid-load left the wiki empty. See
  * docs/ARCHITECTURE.md#generated-projections.
  */
-import dotenv from 'dotenv';
-dotenv.config();
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 
 import type { PoolConnection } from 'mysql2/promise';
 
+import { getBackendConfiguration } from '../src/config/environment.js';
 import { pool, closeDatabaseConnection } from '../src/db/connection.js';
 import { closeRedisConnection } from '../src/db/redis.js';
 import { listZones, parseMobFile, parseObjFile } from '../src/services/zoneBuilderParser.js';
@@ -40,6 +41,62 @@ const PUBLISHED_TABLES = [
 ] as const;
 
 const INSERT_BATCH_SIZE = 500;
+const executeFile = promisify(execFile);
+
+interface WikiSourceIdentity {
+  revision: string;
+  tree: string;
+}
+
+/** Require an operator-recorded immutable source identity for every publication. */
+function parseSourceIdentity(args: string[]): WikiSourceIdentity {
+  if (
+    args.length !== 4 ||
+    args[0] !== '--source-revision' ||
+    args[2] !== '--source-tree' ||
+    !/^[0-9a-f]{7,128}$/i.test(args[1] ?? '') ||
+    !/^[0-9a-f]{7,128}$/i.test(args[3] ?? '')
+  ) {
+    throw new Error(
+      'expected --source-revision <git-commit> --source-tree <git-tree>; obtain both from the selected clean MUD checkout',
+    );
+  }
+  return { revision: args[1], tree: args[3] };
+}
+
+/** Bind the recorded identity to the exact clean checkout that the parsers will read. */
+async function verifySourceIdentity(
+  sourceIdentity: WikiSourceIdentity,
+  directory: string,
+): Promise<void> {
+  let status: string;
+  let revision: string;
+  let tree: string;
+  try {
+    status = String(
+      (await executeFile('git', ['-C', directory, 'status', '--porcelain'], { encoding: 'utf8' }))
+        .stdout,
+    ).trim();
+    revision = String(
+      (await executeFile('git', ['-C', directory, 'rev-parse', 'HEAD'], { encoding: 'utf8' }))
+        .stdout,
+    ).trim();
+    tree = String(
+      (
+        await executeFile('git', ['-C', directory, 'rev-parse', 'HEAD^{tree}'], {
+          encoding: 'utf8',
+        })
+      ).stdout,
+    ).trim();
+  } catch {
+    throw new Error('could not verify the selected MUD checkout source identity');
+  }
+
+  if (status !== '') throw new Error('refusing to publish from a dirty MUD checkout');
+  if (revision !== sourceIdentity.revision || tree !== sourceIdentity.tree) {
+    throw new Error('recorded source identity does not match the selected MUD checkout');
+  }
+}
 
 const COLUMNS: Record<string, string> = {
   wiki_objects:
@@ -78,6 +135,18 @@ const DELETE_SQL: Record<string, string> = {
   wiki_objects: 'DELETE FROM wiki_objects',
 };
 
+const PUBLISH_GENERATION_SQL = `
+  INSERT INTO wiki_reference_generations
+    (id, source_revision, source_tree, object_count, mob_count, published_at)
+  VALUES (1, ?, ?, ?, ?, UTC_TIMESTAMP())
+  ON DUPLICATE KEY UPDATE
+    source_revision = VALUES(source_revision),
+    source_tree = VALUES(source_tree),
+    object_count = VALUES(object_count),
+    mob_count = VALUES(mob_count),
+    published_at = VALUES(published_at)
+`;
+
 const stripAnsi = (value: string): string => value.replace(/&[+=-][A-Za-z]|&[nN]/g, '');
 
 /** Insert one statement's rows in bounded batches to keep packet size predictable. */
@@ -93,13 +162,15 @@ async function insertAll(connection: PoolConnection, sql: string, rows: Row[]): 
  * publish it atomically: all children are deleted before their parents inside
  * one transaction, and any failure rolls back to the previous generation.
  */
-async function main() {
+async function main(args: string[]) {
   console.log('importing wiki data from mud flatfiles...\n');
 
   const startTime = Date.now();
   let failed = false;
 
   try {
+    const sourceIdentity = parseSourceIdentity(args);
+    await verifySourceIdentity(sourceIdentity, getBackendConfiguration().mud.directory);
     console.log('loading zones...');
     const { zones } = await listZones({ page: 1, limit: 10000 });
     console.log(`  found ${zones.length} zones\n`);
@@ -245,6 +316,12 @@ async function main() {
       for (const table of [...PUBLISHED_TABLES].reverse()) {
         await insertAll(connection, INSERT_SQL[table], staged[table]);
       }
+      await connection.query(PUBLISH_GENERATION_SQL, [
+        sourceIdentity.revision,
+        sourceIdentity.tree,
+        staged.wiki_objects.length,
+        staged.wiki_mobs.length,
+      ]);
 
       await connection.commit();
     } catch (error) {
@@ -269,4 +346,4 @@ async function main() {
   }
 }
 
-main();
+main(process.argv.slice(2));
