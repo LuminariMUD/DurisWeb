@@ -49,10 +49,9 @@ export async function getAuctions(
   const limit = Math.min(100, Math.max(1, filters.limit || 50));
   const offset = (page - 1) * limit;
 
-  const whereConditions: string[] = [
-    "status = 'OPEN'",
-    'UNIX_TIMESTAMP(end_time) > UNIX_TIMESTAMP()',
-  ];
+  // Sargable form of the open-auction window so an index on end_time can be
+  // used (docs/ongoing-projects/ongoing.md, P3).
+  const whereConditions: string[] = ["status = 'OPEN'", 'end_time > NOW()'];
   const queryParams: any[] = [];
 
   // Search filter (obj_short and id_keywords)

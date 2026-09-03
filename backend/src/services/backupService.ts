@@ -142,7 +142,7 @@ export const ALL_RESTORE_TABLES: readonly string[] = [
 // cascade-child tables use their FK column (e.g. 'item_id', 'locker_id').
 export const FILTER_COLUMN_MAP: Readonly<Record<string, string>> = {
   // direct per-character, keyed by pid
-  player_data: 'id',
+  player_data: 'pid',
   account_characters: 'pid',
   player_affects: 'pid',
   player_timers: 'pid',
@@ -168,7 +168,7 @@ export const FILTER_COLUMN_MAP: Readonly<Record<string, string>> = {
   auction_bid_history: 'bidder_pid',
   frag_leaderboard: 'pid',
   offline_messages: 'pid',
-  player_pets: 'pid',
+  player_pets: 'owner_pid',
   pkill_info: 'pid',
   artifact_bind: 'owner_pid',
   guild_members: 'player_pid',
@@ -193,7 +193,7 @@ export const FILTER_COLUMN_MAP: Readonly<Record<string, string>> = {
   ship_slots: 'ship_id',
   pkill_event: 'id',
   // per-account
-  accounts: 'name',
+  accounts: 'account_name',
   account_ips: 'account_name',
   account_banks: 'account_name',
 };
@@ -1294,16 +1294,31 @@ export type FilterColumnIndex = Record<string, TableColumnInfo>;
  * build the runtime table→column-index map by parsing CREATE TABLE blocks
  * from a sql dump. a missing CREATE TABLE leaves that entry undefined (restore
  * will log-and-skip for those tables).
+ *
+ * A table that IS present in the dump but whose configured filter column is
+ * not is a schema/configuration mismatch, not an absent table. Silently
+ * skipping it dropped whole domains from a selective restore while still
+ * reporting success, so it now fails loudly
+ * (docs/ongoing-projects/ongoing.md, P0-F).
  */
 export function buildFilterColumnIndex(sqlContent: string): FilterColumnIndex {
   const idx: FilterColumnIndex = {};
+  const mismatched: string[] = [];
   for (const tbl of ALL_RESTORE_TABLES) {
     const columns = parseCreateTableColumns(sqlContent, tbl);
     if (columns.length === 0) continue;
     const filterCol = FILTER_COLUMN_MAP[tbl];
     const filterColIndex = columns.indexOf(filterCol);
-    if (filterColIndex === -1) continue;
+    if (filterColIndex === -1) {
+      mismatched.push(`${tbl}.${filterCol}`);
+      continue;
+    }
     idx[tbl] = { columns, filterColIndex };
+  }
+  if (mismatched.length > 0) {
+    throw new Error(
+      `backup archive does not match the restore filter contract; missing columns: ${mismatched.join(', ')}`,
+    );
   }
   return idx;
 }

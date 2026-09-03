@@ -10,15 +10,11 @@ import logger from '../utils/logger.js';
 async function syncFlags() {
   logger.info('Starting builder flags sync...');
 
+  // Parse and validate the whole generation before touching published rows.
   const parser = new MudFlagParser();
   const results = await parser.parseAllFlags();
 
-  // Clear existing flags
-  logger.info('Clearing existing flags...');
-  await pool.query('DELETE FROM builder_flags');
-
-  // Insert new flags
-  let totalInserted = 0;
+  const rows: unknown[][] = [];
   for (const result of results) {
     if (result.flags.length === 0) {
       logger.info(`  ${result.category}: 0 flags (skipped)`);
@@ -51,17 +47,34 @@ async function syncFlags() {
       continue;
     }
 
-    await pool.query(
-      `INSERT INTO builder_flags (category, name, value, description, ansi_name, short_code, editable, sort_order)
-       VALUES ?`,
-      [values],
-    );
-
-    logger.info(`  ${result.category}: ${result.flags.length} flags`);
-    totalInserted += result.flags.length;
+    rows.push(...values);
+    logger.info(`  ${result.category}: ${values.length} flags`);
   }
 
-  logger.info(`\nSync complete! Inserted ${totalInserted} flags.`);
+  if (rows.length === 0) {
+    throw new Error('refusing to publish an empty builder_flags generation');
+  }
+
+  // Replace the published generation atomically so a failed load leaves the
+  // previous flags fully queryable (docs/ongoing-projects/ongoing.md, P1-F).
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query('DELETE FROM builder_flags');
+    await connection.query(
+      `INSERT INTO builder_flags (category, name, value, description, ansi_name, short_code, editable, sort_order)
+       VALUES ?`,
+      [rows],
+    );
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+
+  logger.info(`\nSync complete! Published ${rows.length} flags.`);
   process.exit(0);
 }
 
