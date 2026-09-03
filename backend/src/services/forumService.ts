@@ -2030,9 +2030,14 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
       `SELECT
         COUNT(DISTINCT ac.pid) as character_count,
         COALESCE(SUM(FLOOR(COALESCE(fl.total_frags, 0) / 100)), 0) as total_frags,
-        COALESCE(SUM(pc.money + pc.balance), 0) as total_wealth
+        COALESCE(SUM(
+          COALESCE(pd.copper, 0) + COALESCE(pd.silver, 0) * 10 +
+          COALESCE(pd.gold, 0) * 100 + COALESCE(pd.platinum, 0) * 1000 +
+          COALESCE(pd.bank_copper, 0) + COALESCE(pd.bank_silver, 0) * 10 +
+          COALESCE(pd.bank_gold, 0) * 100 + COALESCE(pd.bank_platinum, 0) * 1000
+        ), 0) as total_wealth
        FROM account_characters ac
-       LEFT JOIN frag_leaderboard pc ON ac.pid = pc.pid
+       LEFT JOIN player_data pd ON ac.pid = pd.pid
        LEFT JOIN frag_leaderboard fl ON ac.pid = fl.pid AND fl.deleted_at IS NULL
        WHERE ac.account_name = ? AND ac.deleted_at IS NULL`,
       [accountName],

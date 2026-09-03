@@ -90,6 +90,19 @@ describe('production review regression contracts', () => {
     expect(metadata).toContain('logoUrl ? escapeHtml(logoUrl) : undefined');
   });
 
+  it('reads user-profile wealth from the canonical player rows', () => {
+    const forumService = read('backend/src/services/forumService.ts');
+    const userProfile = forumService.slice(
+      forumService.indexOf('export async function getUserProfile'),
+      forumService.indexOf('export async function updateUserProfile'),
+    );
+
+    expect(userProfile).toContain('LEFT JOIN player_data pd ON ac.pid = pd.pid');
+    expect(userProfile).toContain('COALESCE(pd.bank_platinum, 0) * 1000');
+    expect(userProfile).not.toContain('pc.money');
+    expect(userProfile).not.toContain('pc.balance');
+  });
+
   it('backs up and restores the same explicitly configured MUD database', () => {
     const service = read('backend/src/services/backupService.ts');
     const backup = service.slice(
