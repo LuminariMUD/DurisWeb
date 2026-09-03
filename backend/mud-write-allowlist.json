@@ -1,10 +1,10 @@
 {
-  "$comment": "Operation-level allowlist for every DurisWeb write to a MUD-owned table. `pnpm verify:mud-writes` scans non-test backend sources and fails when a write is unclassified or when an entry no longer matches any statement, so no cross-boundary mutation reaches review unclassified. See docs/ongoing-projects/ongoing.md, DB-10.",
+  "$comment": "Operation-level allowlist for every DurisWeb write to a MUD-owned table. `pnpm verify:mud-writes` scans non-test backend sources and fails when a write is unclassified, when an entry no longer matches any statement, when a dynamic table target would bypass classification, or when the copied baseline no longer matches the MUD repository's migrations/migration_manifest.json (CI checks out LuminariMUD/DurisMUD to `duris/`; set MUD_MANIFEST_PATH for other layouts). See docs/ongoing-projects/ongoing.md, DB-10.",
   "baseline": {
-    "source": "../duris migrations/migration_manifest.json",
+    "source": "LuminariMUD/DurisMUD migrations/migration_manifest.json",
     "id": "duris-schema-2026-08-27-session11",
     "requiredTableFingerprint": "db13d7a42bf82bcbd32bac8d83224913c755fefd000ade6d4e798b1bd4f494dd",
-    "note": "`mudOwnedTables` is a verbatim copy of that manifest's `required_tables`. Refresh both fields together when the MUD publishes a new baseline."
+    "note": "`mudOwnedTables` is a verbatim copy of that manifest's `required_tables`. The verifier compares both fields and the table list against the MUD manifest on every run, so refresh all of them together when the MUD publishes a new baseline."
   },
   "mudOwnedTables": [
     "account_banks",

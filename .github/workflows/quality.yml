@@ -44,6 +44,13 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
+      - name: Check out MUD schema baseline
+        if: matrix.package == 'backend'
+        uses: actions/checkout@v7
+        with:
+          repository: LuminariMUD/DurisMUD
+          path: duris
+
       - name: Check configuration ownership
         if: matrix.package == 'backend'
         run: ./scripts/check-config-literals.sh

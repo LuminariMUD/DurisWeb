@@ -49,6 +49,7 @@ import {
   checkMudDatabaseConnection,
   verifyDatabaseSchema,
   verifyPoolSessionInvariants,
+  startPoolSessionInvariantSampling,
   closeDatabaseConnection,
 } from './db/connection.js';
 import { closeRedisConnection } from './db/redis.js';
@@ -993,6 +994,8 @@ async function startServer() {
 
     // A pooled connection must still carry the server's strict session state.
     await verifyPoolSessionInvariants();
+    // Keep sampling checkouts so post-boot session drift is alerted, not silent.
+    startPoolSessionInvariantSampling();
 
     // Get initial last event ID
     const initialEvents = await getLatestEvents(1, 0);
