@@ -241,6 +241,12 @@ function startCreating() {
   showGuildDropdown.value = false
 }
 
+// Let an administrator recover an empty forum without first finding edit mode.
+function startInitialSetup() {
+  editMode.value = true
+  startCreating()
+}
+
 // Start editing category
 function startEditing(category: ForumCategory) {
   editingCategoryId.value = category.id
@@ -1069,8 +1075,12 @@ watch([editMode, sortableContainer], ([isEditMode, container]: [boolean, HTMLEle
 
       <!-- Empty State -->
       <Card v-if="categories?.length === 0">
-        <CardContent class="pt-6 text-center text-muted-foreground">
-          <p>No categories available. Contact an administrator.</p>
+        <CardContent class="pt-6 text-center text-muted-foreground space-y-4">
+          <template v-if="isLesserGodOrAbove">
+            <p>No usable forum categories are configured.</p>
+            <Button @click="startInitialSetup">Set up the first category</Button>
+          </template>
+          <p v-else>The forum is temporarily unavailable while an administrator completes setup.</p>
         </CardContent>
       </Card>
     </div>
