@@ -240,6 +240,7 @@ export async function deletePlayerItems(itemIds: number[]): Promise<number> {
  * Deletes all duplicate copies for an obj_uid, keeping one copy.
  * Preference is given to the lowest id in player_items; if none exist in player_items,
  * the lowest id in locker_items is retained.
+ * Uses locking reads (FOR UPDATE) to serialize against concurrent writes on the same obj_uid.
  * Rejects bulk deletion if the UID spans multiple distinct VNUMs.
  */
 export async function deleteAllDupesForUid(objUid: string, vnum?: number): Promise<number> {
@@ -247,36 +248,40 @@ export async function deleteAllDupesForUid(objUid: string, vnum?: number): Promi
   try {
     await connection.beginTransaction();
 
-    const [vnumRows] = await connection.query<RowDataPacket[]>(
-      `SELECT DISTINCT vnum FROM (
-         SELECT vnum FROM player_items WHERE obj_uid = ?
-         UNION
-         SELECT vnum FROM locker_items WHERE obj_uid = ?
-       ) combined`,
-      [objUid, objUid],
-    );
-
-    if (vnumRows.length > 1) {
-      throw new Error(
-        `Cannot bulk delete UID ${objUid}: item spans ${vnumRows.length} distinct VNUMs. Explicit item selection required.`,
-      );
-    }
-
-    if (vnum !== undefined && vnumRows.length === 1 && Number(vnumRows[0].vnum) !== vnum) {
-      throw new Error(
-        `VNUM mismatch for UID ${objUid}: expected ${vnum}, found ${vnumRows[0].vnum}`,
-      );
-    }
-
-    const [playerKeepers] = await connection.query<RowDataPacket[]>(
-      'SELECT MIN(id) as id FROM player_items WHERE obj_uid = ?',
+    // Lock all current records for this obj_uid in both tables
+    const [playerRows] = await connection.query<RowDataPacket[]>(
+      'SELECT id, vnum FROM player_items WHERE obj_uid = ? FOR UPDATE',
       [objUid],
     );
-    const playerKeeperId = playerKeepers[0]?.id;
+    const [lockerRows] = await connection.query<RowDataPacket[]>(
+      'SELECT id, vnum FROM locker_items WHERE obj_uid = ? FOR UPDATE',
+      [objUid],
+    );
+
+    const distinctVnums = new Set<number>();
+    for (const row of playerRows) {
+      distinctVnums.add(Number(row.vnum));
+    }
+    for (const row of lockerRows) {
+      distinctVnums.add(Number(row.vnum));
+    }
+
+    if (distinctVnums.size > 1) {
+      throw new Error(
+        `Cannot bulk delete UID ${objUid}: item spans ${distinctVnums.size} distinct VNUMs. Explicit item selection required.`,
+      );
+    }
+
+    if (vnum !== undefined && distinctVnums.size === 1 && !distinctVnums.has(vnum)) {
+      throw new Error(
+        `VNUM mismatch for UID ${objUid}: expected ${vnum}, found ${[...distinctVnums][0]}`,
+      );
+    }
 
     let deletedCount = 0;
 
-    if (playerKeeperId != null) {
+    if (playerRows.length > 0) {
+      const playerKeeperId = Math.min(...playerRows.map((r) => Number(r.id)));
       const [playerResult] = await connection.query<ResultSetHeader>(
         'DELETE FROM player_items WHERE obj_uid = ? AND id != ?',
         [objUid, playerKeeperId],
@@ -286,19 +291,13 @@ export async function deleteAllDupesForUid(objUid: string, vnum?: number): Promi
         [objUid],
       );
       deletedCount = playerResult.affectedRows + lockerResult.affectedRows;
-    } else {
-      const [lockerKeepers] = await connection.query<RowDataPacket[]>(
-        'SELECT MIN(id) as id FROM locker_items WHERE obj_uid = ?',
-        [objUid],
+    } else if (lockerRows.length > 0) {
+      const lockerKeeperId = Math.min(...lockerRows.map((r) => Number(r.id)));
+      const [lockerResult] = await connection.query<ResultSetHeader>(
+        'DELETE FROM locker_items WHERE obj_uid = ? AND id != ?',
+        [objUid, lockerKeeperId],
       );
-      const lockerKeeperId = lockerKeepers[0]?.id;
-      if (lockerKeeperId != null) {
-        const [lockerResult] = await connection.query<ResultSetHeader>(
-          'DELETE FROM locker_items WHERE obj_uid = ? AND id != ?',
-          [objUid, lockerKeeperId],
-        );
-        deletedCount = lockerResult.affectedRows;
-      }
+      deletedCount = lockerResult.affectedRows;
     }
 
     await connection.commit();
