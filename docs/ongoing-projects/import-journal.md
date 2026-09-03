@@ -417,6 +417,9 @@ database row was changed.
   baseline. The frozen reference proves that all 12 predate the import, while
   wallet and epic baselines are complete. Targeted repair is tracked in
   [DurisWeb #13](https://github.com/LuminariMUD/DurisWeb/issues/13).
+  Aggregate detection, ledger-safe reconstruction, and the protected repair
+  boundary are specified in the
+  [combat frag baseline repair runbook](../runbooks/combat-frag-baseline-repair.md).
 - There are 96 `player_data` rows without an active account-character mapping,
   but the qualified candidate has the same 96 and none belongs to the 783
   accepted import mappings. This is retained pre-existing/candidate state, not
