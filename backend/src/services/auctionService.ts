@@ -187,7 +187,7 @@ export async function getAuctionDetail(auctionId: number): Promise<AuctionDetail
  */
 export async function getAuctionBidHistory(auctionId: number): Promise<AuctionBidHistory[]> {
   const query = `
-    SELECT id, UNIX_TIMESTAMP(date) as date, auction_id, bidder_pid, bidder_name, bid_amount
+    SELECT id, date, auction_id, bidder_pid, bidder_name, bid_amount
     FROM auction_bid_history
     WHERE auction_id = ?
     ORDER BY date DESC
@@ -457,7 +457,7 @@ export async function placeBid(
     // Record bid in history
     await connection.query(
       `INSERT INTO auction_bid_history (date, auction_id, bidder_pid, bidder_name, bid_amount)
-       VALUES (NOW(), ?, ?, ?, ?)`,
+       VALUES (UNIX_TIMESTAMP(), ?, ?, ?, ?)`,
       [auctionId, bidderPid, bidderName, bidAmountCopper],
     );
 

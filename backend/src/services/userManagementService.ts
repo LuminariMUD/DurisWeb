@@ -13,7 +13,7 @@ import { isHookEnabledSync } from '../hooks/hookGate.js';
  *
  * Uses account_characters as the base table (every character must have an account).
  * Joins to:
- * - players_core: for race, classname (with spec), level, racewar
+ * - player_data (+ races/classes lookups): for race, class, level, racewar
  * - ip_info: for last_connect timestamp and last_ip
  * - user_bans: for ban status
  * - web_sessions: for web login time
@@ -53,15 +53,15 @@ export async function getUserList(filters: UserManagementFilters): Promise<UserM
     params.push(searchPattern, searchPattern, searchPattern, pidSearch);
   }
 
-  // race filter (from players_core)
+  // race filter (canonical races lookup)
   if (race) {
-    whereClauses.push(`pc.race = ?`);
+    whereClauses.push(`r.name = ?`);
     params.push(race);
   }
 
-  // class filter (from players_core)
+  // class filter (canonical classes lookup)
   if (classFilter) {
-    whereClauses.push(`pc.classname = ?`);
+    whereClauses.push(`c.name = ?`);
     params.push(classFilter);
   }
 
@@ -85,8 +85,8 @@ export async function getUserList(filters: UserManagementFilters): Promise<UserM
     pid: 'ac.pid',
     account_name: 'ac.account_name',
     character_name: 'ac.char_name',
-    race: 'pc.race',
-    class: 'pc.classname',
+    race: 'r.name',
+    class: 'c.name',
     email: 'a.email',
     last_login: 'ii.last_connect',
   };
@@ -99,7 +99,9 @@ export async function getUserList(filters: UserManagementFilters): Promise<UserM
     SELECT COUNT(*) as total
     FROM account_characters ac
     LEFT JOIN accounts a ON ac.account_name = a.account_name
-    LEFT JOIN players_core pc ON LOWER(ac.char_name) = LOWER(pc.name)
+    LEFT JOIN player_data pd ON ac.pid = pd.pid
+    LEFT JOIN races r ON pd.race = r.id
+    LEFT JOIN classes c ON pd.m_class = c.id
     LEFT JOIN ip_info ii ON ac.pid = ii.pid
     LEFT JOIN user_bans ub ON ac.account_name = ub.account_name AND ub.is_active = TRUE
     ${whereSQL}
@@ -115,10 +117,10 @@ export async function getUserList(filters: UserManagementFilters): Promise<UserM
       ac.pid,
       ac.account_name,
       ac.char_name as character_name,
-      COALESCE(pc.race, '') as race,
-      COALESCE(pc.classname, '') as class,
-      pc.level,
-      pc.racewar,
+      COALESCE(r.name, '') as race,
+      COALESCE(c.name, '') as class,
+      pd.level,
+      pd.racewar,
       a.email,
       ii.last_ip,
       ii.last_connect as last_login,
@@ -131,7 +133,9 @@ export async function getUserList(filters: UserManagementFilters): Promise<UserM
       ac.deleted_at
     FROM account_characters ac
     LEFT JOIN accounts a ON ac.account_name = a.account_name
-    LEFT JOIN players_core pc ON LOWER(ac.char_name) = LOWER(pc.name)
+    LEFT JOIN player_data pd ON ac.pid = pd.pid
+    LEFT JOIN races r ON pd.race = r.id
+    LEFT JOIN classes c ON pd.m_class = c.id
     LEFT JOIN ip_info ii ON ac.pid = ii.pid
     LEFT JOIN user_bans ub ON ac.account_name = ub.account_name AND ub.is_active = TRUE
     LEFT JOIN LATERAL (
@@ -318,10 +322,10 @@ export async function deleteCharacter(
  */
 export async function getUniqueRaces(): Promise<string[]> {
   const query = `
-    SELECT DISTINCT race
-    FROM players_core
-    WHERE race IS NOT NULL AND race != ''
-    ORDER BY race
+    SELECT name as race
+    FROM races
+    WHERE name IS NOT NULL AND name != ''
+    ORDER BY name
   `;
 
   const [rows]: any = await pool.query(query);
@@ -333,10 +337,10 @@ export async function getUniqueRaces(): Promise<string[]> {
  */
 export async function getUniqueClasses(): Promise<string[]> {
   const query = `
-    SELECT DISTINCT classname as class
-    FROM players_core
-    WHERE classname IS NOT NULL AND classname != ''
-    ORDER BY classname
+    SELECT name as class
+    FROM classes
+    WHERE name IS NOT NULL AND name != ''
+    ORDER BY name
   `;
 
   const [rows]: any = await pool.query(query);

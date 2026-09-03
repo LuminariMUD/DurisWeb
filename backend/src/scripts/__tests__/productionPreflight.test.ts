@@ -5,6 +5,7 @@ import {
   loadPreflightConfiguration,
   parsePreflightMode,
   runProductionPreflight,
+  verifySqlArtifactClassification,
 } from '../productionPreflight.js';
 import { resetBackendConfigurationForTests } from '../../config/environment.js';
 
@@ -75,5 +76,11 @@ describe('production preflight stages', () => {
     delete process.env.DB_PASSWORD;
 
     await expect(runProductionPreflight(['--dependencies'])).resolves.toBe(1);
+  });
+
+  it('requires every ignored SQL migration artifact to stay classified', () => {
+    // knexfile.ts runs only .ts migrations, so an unclassified .sql file would
+    // otherwise ship as a silently ignored artifact.
+    expect(() => verifySqlArtifactClassification()).not.toThrow();
   });
 });

@@ -99,9 +99,15 @@ describe('userManagementService', () => {
         expect.stringContaining('ub.is_active = TRUE'),
         filterParams,
       );
+      // The alignment filter needs the player_data alias it references, and no
+      // query may depend on the legacy players_core table.
+      const countQuery = String(query.mock.calls[0][0]);
+      expect(countQuery).toContain('LEFT JOIN player_data pd ON ac.pid = pd.pid');
+      expect(countQuery).toContain('pd.racewar = ?');
+      expect(countQuery).not.toContain('players_core');
       expect(query).toHaveBeenNthCalledWith(
         2,
-        expect.stringContaining('ORDER BY pc.classname ASC, ac.char_name'),
+        expect.stringContaining('ORDER BY c.name ASC, ac.char_name'),
         [...filterParams, 5, 5],
       );
     });
@@ -111,16 +117,14 @@ describe('userManagementService', () => {
     query.mockResolvedValueOnce([[{ race: '&+BHuman&n' }, { race: '&+GElf&n' }], []]);
 
     await expect(getUniqueRaces()).resolves.toEqual(['&+BHuman&n', '&+GElf&n']);
-    expect(query).toHaveBeenCalledWith(expect.stringContaining('SELECT DISTINCT race'));
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('FROM races'));
   });
 
   it('returns unique specialized classes from the service query result', async () => {
     query.mockResolvedValueOnce([[{ class: '&+WWarrior&n' }, { class: '&+CZealot&n' }], []]);
 
     await expect(getUniqueClasses()).resolves.toEqual(['&+WWarrior&n', '&+CZealot&n']);
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('SELECT DISTINCT classname as class'),
-    );
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('FROM classes'));
   });
 
   describe('deleteCharacter', () => {

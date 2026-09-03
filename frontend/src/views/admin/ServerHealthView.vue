@@ -760,7 +760,7 @@ function getTypeColor(type: string): string {
               </CardHeader>
               <CardContent>
                 <div v-if="!isLoadingUptime" class="text-2xl font-bold text-green-500">
-                  {{ uptime?.toFixed(2) }}%
+                  {{ uptime == null ? 'No data' : `${uptime.toFixed(2)}%` }}
                 </div>
                 <div v-else class="text-2xl font-bold">Loading...</div>
                 <p class="text-xs text-muted-foreground">

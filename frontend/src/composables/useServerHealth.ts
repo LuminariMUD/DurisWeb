@@ -121,7 +121,8 @@ export function useHealthHistory(hours: Ref<number> | number = 24) {
 }
 
 export function useUptime(days: number = 90) {
-  const { data, isLoading, error } = useQuery<{ uptime: number; days: number }>({
+  // uptime is null when no health samples were recorded for the window.
+  const { data, isLoading, error } = useQuery<{ uptime: number | null; days: number }>({
     queryKey: ['server-uptime', days],
     queryFn: async () => {
       const response = await apiClient.get(`/api/admin/server-health/uptime?days=${days}`)

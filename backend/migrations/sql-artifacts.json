@@ -1,0 +1,61 @@
+{
+  "$comment": "Classification of SQL migration artifacts that knexfile.ts (extension: 'ts') does not execute. Production preflight fails when a .sql file in this directory is missing here, so no migration artifact is silently ignored. See docs/ongoing-projects/ongoing.md, DB-07 and DB-08.",
+  "artifacts": {
+    "005_create_accounts_table.sql": {
+      "classification": "must-not-run",
+      "note": "Creates the MUD-owned `accounts` table. Schema ownership belongs to the MUD bootstrap, so this must never be replayed from DurisWeb."
+    },
+    "006_create_forum_tables.sql": {
+      "classification": "baseline-pending-conversion",
+      "note": "Sole definition of forum_categories, forum_threads, forum_posts, forum_reactions, forum_subscriptions, forum_notifications, and web_sessions. No TypeScript migration creates them, so Knex history is not replayable from empty until the DB-07 baseline exists."
+    },
+    "007_add_dynamic_permissions.sql": {
+      "classification": "baseline-pending-conversion",
+      "note": "Sole definition of forum_settings and forum_permission_audit, plus forum_categories permission columns."
+    },
+    "008_create_moderation_log.sql": {
+      "classification": "baseline-pending-conversion",
+      "note": "Sole definition of forum_moderation_log."
+    },
+    "009_create_subscriptions.sql": {
+      "classification": "baseline-pending-conversion",
+      "note": "Sole definition of forum_subscriptions and forum_notifications; partially reshaped later by 20251229000000_unified_notifications.ts."
+    },
+    "010_update_notifications_schema.sql": {
+      "classification": "baseline-pending-conversion",
+      "note": "Reshapes forum_notifications ahead of 20251229000000_unified_notifications.ts."
+    },
+    "011_create_user_profiles.sql": {
+      "classification": "baseline-pending-conversion",
+      "note": "Sole definition of user_profiles and user_profile_stats, both required by production preflight."
+    },
+    "012_create_mentions.sql": {
+      "classification": "baseline-pending-conversion",
+      "note": "Sole definition of forum_mentions."
+    },
+    "013_create_forum_polls.sql": {
+      "classification": "baseline-pending-conversion",
+      "note": "Sole definition of forum_polls, forum_poll_options, forum_poll_votes, and forum_poll_vote_history."
+    },
+    "014_category_management.sql": {
+      "classification": "baseline-pending-conversion",
+      "note": "Sole definition of forum_category_permissions plus forum_categories management columns."
+    },
+    "015_add_ip_tracking.sql": {
+      "classification": "baseline-pending-conversion",
+      "note": "Adds IP tracking columns to forum_threads and forum_posts."
+    },
+    "017_fix_emoji_icons.sql": {
+      "classification": "data-repair",
+      "note": "One-off UPDATE of forum_categories icon values. Not schema; retained as documentation of the applied repair."
+    },
+    "018_add_admin_action_log.sql": {
+      "classification": "baseline-pending-conversion",
+      "note": "Sole definition of admin_action_log; later altered by 20251116130000_expand_admin_action_log_types.ts."
+    },
+    "019_create_wipe_history.sql": {
+      "classification": "baseline-pending-conversion",
+      "note": "Sole definition of wipe_history; later altered by 20251113175859_add_excluded_players_to_wipe_history.ts."
+    }
+  }
+}

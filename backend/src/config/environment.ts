@@ -89,6 +89,17 @@ export interface BackendConfiguration {
     push: boolean;
     gemini: boolean;
   };
+  /**
+   * Write paths that mutate MUD-owned state outside the MUD's transaction,
+   * ownership, and ledger contracts. Each stays closed unless explicitly
+   * enabled. See docs/ongoing-projects/ongoing.md (DB-01, DB-02, DB-03, DB-06).
+   */
+  unsafeMutations: {
+    auctionWrites: boolean;
+    itemDeletes: boolean;
+    playerWipe: boolean;
+    databaseRestore: boolean;
+  };
   donationVerificationToken?: string;
   donationSigningSecret?: string;
   r2?: R2Configuration;
@@ -165,6 +176,17 @@ function requiredBoolean(source: EnvironmentSource, name: string, issues: string
   const value = requiredString(source, name, issues).toLowerCase();
   if (value !== 'true' && value !== 'false') {
     if (value) issues.push(`${name} must be true or false`);
+    return false;
+  }
+  return value === 'true';
+}
+
+/** Parses an optional boolean that stays closed unless explicitly enabled. */
+function optionalBoolean(source: EnvironmentSource, name: string, issues: string[]): boolean {
+  const value = source[name]?.trim().toLowerCase();
+  if (!value) return false;
+  if (value !== 'true' && value !== 'false') {
+    issues.push(`${name} must be true or false`);
     return false;
   }
   return value === 'true';
@@ -583,6 +605,12 @@ export function parseBackendEnvironment(source: EnvironmentSource): BackendConfi
       r2: r2Enabled,
       push: pushEnabled,
       gemini: geminiEnabled,
+    },
+    unsafeMutations: {
+      auctionWrites: optionalBoolean(source, 'ALLOW_UNSAFE_AUCTION_WRITES', issues),
+      itemDeletes: optionalBoolean(source, 'ALLOW_UNSAFE_ITEM_DELETES', issues),
+      playerWipe: optionalBoolean(source, 'ALLOW_UNSAFE_PLAYER_WIPE', issues),
+      databaseRestore: optionalBoolean(source, 'ALLOW_UNSAFE_DATABASE_RESTORE', issues),
     },
     donationVerificationToken: donationsEnabled
       ? requiredString(source, 'KOFI_VERIFICATION_TOKEN', issues)

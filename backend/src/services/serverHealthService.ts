@@ -379,26 +379,27 @@ export async function getHealthHistory(hours: number = 24): Promise<any[]> {
 }
 
 /**
- * Get uptime percentage for a time period
+ * Get uptime percentage for a time period.
+ *
+ * Returns null when no health samples were recorded for the window. Query
+ * failures propagate rather than reporting a fabricated 100 percent, which
+ * previously hid a missing `server_health_metrics` table behind a healthy
+ * looking value (docs/ongoing-projects/ongoing.md, P1-C).
  */
-export async function getUptimePercentage(days: number = 30): Promise<number> {
-  try {
-    const [rows] = await db.query(
-      `SELECT COUNT(*) as total_checks, SUM(mud_is_running) as running_checks
-       FROM server_health_metrics
-       WHERE recorded_at >= NOW() - INTERVAL ${days} DAY`,
-    );
-    const result = (rows as any[])[0];
+export async function getUptimePercentage(days: number = 30): Promise<number | null> {
+  const [rows] = await db.query(
+    `SELECT COUNT(*) as total_checks, SUM(mud_is_running) as running_checks
+     FROM server_health_metrics
+     WHERE recorded_at >= NOW() - INTERVAL ${days} DAY`,
+  );
+  const result = (rows as any[])[0];
 
-    if (!result || result.total_checks === 0) {
-      return 100;
-    }
-
-    const uptime = (result.running_checks / result.total_checks) * 100;
-    return Math.round(uptime * 100) / 100;
-  } catch {
-    return 100;
+  if (!result || result.total_checks === 0) {
+    return null;
   }
+
+  const uptime = (result.running_checks / result.total_checks) * 100;
+  return Math.round(uptime * 100) / 100;
 }
 
 /**

@@ -18,8 +18,9 @@ export interface PublicStatus {
 }
 
 export interface UptimeStats {
-  last30Days: number
-  last90Days: number
+  /** Null when no health samples were recorded for the window. */
+  last30Days: number | null
+  last90Days: number | null
 }
 
 export interface PublicIncident {

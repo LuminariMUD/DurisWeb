@@ -36,6 +36,7 @@ import {
 import { getDeletedThreads, getDeletedPosts } from '../services/forumService.js';
 import { requireAuth, requireOverlord, requirePermission } from '../middleware/auth.js';
 import { requireWebSettingAuthorization } from '../middleware/webSettingsAuthorization.js';
+import { requireMutationGate } from '../middleware/mutationGate.js';
 import {
   getOverviewStats,
   getForumStats,
@@ -2363,6 +2364,7 @@ router.post(
   '/mud/wipe/execute',
   requireAuth,
   requireOverlord,
+  requireMutationGate('playerWipe'),
   [
     body('reason')
       .isString()
@@ -2505,13 +2507,6 @@ router.post(
       // boons is season-scoped global config (all rows pid=0, admin-authored).
       // with the season ending, these go with it - admins can reauthor.
       await runDelete('boons', `DELETE FROM boons`);
-
-      // players_core is myisam - not part of the txn, best-effort
-      try {
-        await runDelete('players_core', `DELETE FROM players_core WHERE pid IN (${pidList})`);
-      } catch (pcErr) {
-        logger.warn('players_core wipe failed (non-fatal):', pcErr);
-      }
 
       // pre-count cascaded children for accurate audit
       // (affectedRows on the parent DELETE does not include cascaded rows)
@@ -3985,6 +3980,7 @@ router.post(
   '/backup/restore',
   requireAuth,
   requirePermission('manage_mud_backup'),
+  requireMutationGate('databaseRestore'),
   async (req: Request, res: Response) => {
     try {
       const { backupId, restoreType, accounts, characters, categories } = req.body;
@@ -4197,6 +4193,7 @@ router.post(
   '/backup/upload/restore',
   requireAuth,
   requirePermission('manage_mud_backup'),
+  requireMutationGate('databaseRestore'),
   async (req: Request, res: Response) => {
     try {
       const { tempPath, restoreType, accounts, characters, categories } = req.body;
@@ -4724,6 +4721,7 @@ router.delete(
   '/dupes/item/:id',
   requireAuth,
   requireOverlord,
+  requireMutationGate('itemDeletes'),
   async (req: Request, res: Response) => {
     try {
       const itemId = validateIdParam(req.params.id);
@@ -4750,6 +4748,7 @@ router.delete(
   '/dupes/locker-item/:id',
   requireAuth,
   requireOverlord,
+  requireMutationGate('itemDeletes'),
   async (req: Request, res: Response) => {
     try {
       const itemId = validateIdParam(req.params.id);
@@ -4776,6 +4775,7 @@ router.delete(
   '/dupes/uid/:objUid/:vnum',
   requireAuth,
   requireOverlord,
+  requireMutationGate('itemDeletes'),
   async (req: Request, res: Response) => {
     try {
       const objUid = validateIdParam(req.params.objUid);
@@ -4800,6 +4800,7 @@ router.post(
   '/dupes/bulk-delete',
   requireAuth,
   requireOverlord,
+  requireMutationGate('itemDeletes'),
   async (req: Request, res: Response) => {
     try {
       const { itemIds } = req.body;

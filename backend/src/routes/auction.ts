@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import type { IRouter } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler.js';
 import { requireAuth, requireImmortal } from '../middleware/auth.js';
+import { requireMutationGate } from '../middleware/mutationGate.js';
 import { parsePagination, sanitizeSearchString, validateIdParam } from '../utils/validation.js';
 import {
   getAuctions,
@@ -187,6 +188,7 @@ router.get(
 router.post(
   '/listings/:auctionId/bid',
   requireAuth,
+  requireMutationGate('auctionWrites'),
   asyncHandler(async (req: Request, res: Response) => {
     const auctionId = validateIdParam(req.params.auctionId);
 
@@ -309,6 +311,7 @@ router.post(
 router.post(
   '/listings/:auctionId/buy',
   requireAuth,
+  requireMutationGate('auctionWrites'),
   asyncHandler(async (req: Request, res: Response) => {
     const auctionId = validateIdParam(req.params.auctionId);
 
@@ -425,6 +428,7 @@ router.delete(
   '/listings/:auctionId',
   requireAuth,
   requireImmortal,
+  requireMutationGate('auctionWrites'),
   asyncHandler(async (req: Request, res: Response) => {
     const auctionId = validateIdParam(req.params.auctionId);
 
