@@ -113,7 +113,7 @@ physical table or index sizes.
 | Applied Knex rows | 74 TypeScript migrations, ending with `20260415120000_widen_forum_category_guild_name.ts` |
 | Restore SQL mode | Temporarily replaced by `NO_AUTO_VALUE_ON_ZERO`, so strict zero-date behavior is not tested by restoring this file |
 | Byte encoding | Not valid UTF-8: decoding first fails at byte 291,799 inside `auction_item_pickups.obj_blob_str` |
-| Stored view security | Contains a `DEFINER=newduris@127.0.0.1` clause, which is not portable to arbitrary environments |
+| Stored view security | Contains a legacy DEFINER user clause (`DEFINER=\`<user>\`@127.0.0.1`), which is not portable to arbitrary environments |
 
 The 35 MyISAM tables are listed in Appendix A. This proves historical engine
 drift, not current production engine state.
@@ -873,6 +873,38 @@ and semantics are verified. Do not standardize on MySQL-only
 | DB-16 | P2 | Add deterministic synthetic development fixtures | DurisWeb + MUD content tooling | No production lineage/PII; representative feature and performance tests |
 | DB-17 | P2 | Remove `account_characters` auto-increment churn and set a capacity guard | MUD | Existing-row updates do not allocate IDs; concurrency/tombstone tests; live growth alert |
 | DB-18 | P3 | Reassess smaller-table indexes | Correct table owner | Current cardinality, query frequency, plan, and measured benefit |
+
+## 6.1 Implementation status
+
+Recorded 2026-09-03 on branch `webdb001`. `Done` means the DurisWeb-side
+deliverable is merged and verified by the checks named in the commit; it does
+not close a ticket whose owner is the MUD repository or operations.
+
+| ID | DurisWeb-side status | Remaining owner and work |
+| --- | --- | --- |
+| DB-01 | Gated. Bid, buy-now, and admin removal return 503 unless `ALLOW_UNSAFE_AUCTION_WRITES` is set. Bid history reads and writes the integer epoch correctly. Preflight verifies the four InnoDB engines and the `date` column type before the gate may open. | MUD: authenticated idempotent auction commands. Until they exist the gate stays closed. |
+| DB-02 | Gated deletes. Detection now groups by global `obj_uid`, reports `vnum_count`, aggregates before the metadata join, and carries UIDs as decimal strings end to end. | MUD: reconciliation/quarantine operation with before/after ownership evidence. |
+| DB-03 | Gated. `/api/admin/mud/wipe/execute` returns 503 unless `ALLOW_UNSAFE_PLAYER_WIPE` is set. The legacy `players_core` delete is removed. | MUD + operations: season-reset operation, epoch fencing, approval record. |
+| DB-04 | Done. Request handlers no longer leak a relaxed session SQL mode to the pool; the value is captured, restored, and the connection discarded if restoration fails. | Pool checkout invariant telemetry remains open. |
+| DB-05 | Local artifact restricted to `0600` in a `0700` directory. | Operations: owner, copy inventory, expiry, and deletion record. |
+| DB-06 | Gated. Both restore endpoints return 503 unless `ALLOW_UNSAFE_DATABASE_RESTORE` is set. The three filter columns that named nonexistent columns are corrected, and an archive missing its filter column is now a hard error rather than a silent omission. | Full redesign: archive manifest, byte-safe streaming, `spawn` with a defaults file, disposable-target drill, measured RPO/RTO. |
+| DB-07 | Not started. Investigation confirmed the forum, session, and profile tables have no TypeScript creator at all, so Knex history is not replayable from empty. | DurisWeb + MUD + operations: versioned baseline and disposable-database CI. |
+| DB-08 | Done. All 14 ignored SQL artifacts are classified in `backend/migrations/sql-artifacts.json`, and preflight fails on an unclassified or stale entry. | Conversion of the `baseline-pending-conversion` artifacts is DB-07 work. |
+| DB-09 | Done. User management reads canonical `player_data` joined to `races` and `classes`; the alignment filter now has the `pd` alias it referenced. | — |
+| DB-10 | Partial. Preflight gained the SQL-artifact gate and the auction engine/column contract; MUD-write allowlist verified and enforced in CI. | Broader feature-contract verification remains open. |
+| DB-11 | Not applicable here. | MUD: add and validate `statistics(date)` on a representative clone. |
+| DB-12 | Not started. | Product + security + operations: approved retention and redaction policy. |
+| DB-13 | Done. The wiki, map, and builder-flag publishers parse and stage a complete generation, refuse an empty one, and swap it in a single transaction with foreign-key checks enabled. `TRUNCATE`, which commits implicitly, is gone. | Cross-engine load benchmarking remains open. |
+| DB-14 | Web half done (see DB-04). | MUD: normalize the `pkill_event.stamp` default and audit zero values. |
+| DB-15 | Open-auction predicate rewritten as sargable `end_time > NOW()`. | Benchmarking the wiki layer index needs a representative clone. |
+| DB-16 | Not started. | DurisWeb + MUD content tooling. |
+| DB-17 | Not applicable here. | MUD: remove `account_characters` auto-increment churn. |
+| DB-18 | Not started; requires measurement. | Correct table owner per candidate. |
+
+Section 8.4's definition of done is not met. The unmet conditions are the
+recovery drill, the versioned baseline and deterministic fixtures, the live
+feature-contract preflight, the telemetry policy, the performance
+measurements, and the dump ownership and expiry record.
 
 ## 7. Safe sequencing
 

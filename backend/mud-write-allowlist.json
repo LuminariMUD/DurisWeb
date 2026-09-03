@@ -1,0 +1,539 @@
+{
+  "$comment": "Operation-level allowlist for every DurisWeb write to a MUD-owned table. `pnpm verify:mud-writes` scans non-test backend sources and fails when a write is unclassified or when an entry no longer matches any statement, so no cross-boundary mutation reaches review unclassified. See docs/ongoing-projects/ongoing.md, DB-10.",
+  "baseline": {
+    "source": "../duris migrations/migration_manifest.json",
+    "id": "duris-schema-2026-08-27-session11",
+    "requiredTableFingerprint": "db13d7a42bf82bcbd32bac8d83224913c755fefd000ade6d4e798b1bd4f494dd",
+    "note": "`mudOwnedTables` is a verbatim copy of that manifest's `required_tables`. Refresh both fields together when the MUD publishes a new baseline."
+  },
+  "mudOwnedTables": [
+    "account_banks",
+    "account_bound_reward_pwipe_state",
+    "account_bound_reward_summons",
+    "account_bound_rewards",
+    "account_characters",
+    "account_erasure_evidence",
+    "account_erasure_requests",
+    "account_erasure_stores",
+    "account_erasure_tombstones",
+    "account_ips",
+    "account_locker_access",
+    "account_locker_item_affects",
+    "account_locker_item_extra_descr",
+    "account_locker_items",
+    "account_lockers",
+    "accounts",
+    "alliances",
+    "artifact_bind",
+    "artifact_delta_ledger",
+    "artifact_domain_baseline",
+    "artifact_domain_state",
+    "artifact_guild_outcome",
+    "artifact_guild_outcome_delta",
+    "artifacts",
+    "artifacts_mortal",
+    "associations",
+    "auction_bid_history",
+    "auction_item_custody",
+    "auction_item_pickups",
+    "auction_ledger",
+    "auction_money_pickups",
+    "auction_reconciliation_quarantine",
+    "auctions",
+    "boon_reward_outcome",
+    "boon_reward_outcome_entry",
+    "boons",
+    "boons_progress",
+    "boons_shop",
+    "categories",
+    "changes",
+    "classes",
+    "combat_frag_baseline",
+    "combat_frag_ledger",
+    "combat_outcome",
+    "combat_outcome_participant",
+    "corpse_item_affects",
+    "corpse_item_extra_descr",
+    "corpse_items",
+    "corpses",
+    "critical_operation_inbox",
+    "critical_outbox",
+    "critical_outbox_delivery_dedupe",
+    "critical_test_state",
+    "ctf_data",
+    "currency_bank_baseline",
+    "currency_ledger",
+    "currency_wallet_baseline",
+    "epic_balance_baseline",
+    "epic_bonus",
+    "epic_gain",
+    "epic_ledger",
+    "eq_drop",
+    "frag_leaderboard",
+    "guild_members",
+    "guild_outcome_ledger",
+    "guild_ranks",
+    "guild_transactions",
+    "guildhall_rooms",
+    "guildhalls",
+    "guilds",
+    "ip_info",
+    "item_current_owner",
+    "item_owner_revision",
+    "item_ownership_baseline",
+    "item_ownership_ledger",
+    "item_ownership_quarantine",
+    "item_uid_allocator",
+    "items",
+    "kingdom_land",
+    "level_cap",
+    "lifecycle_archive_batches",
+    "lifecycle_archive_evidence",
+    "lifecycle_archive_jobs",
+    "lifecycle_archive_rows",
+    "locker_access",
+    "locker_activity_log",
+    "locker_chests",
+    "locker_item_affects",
+    "locker_item_extra_descr",
+    "locker_items",
+    "locker_kickouts",
+    "locker_session_state",
+    "lockers",
+    "log_entries",
+    "mud_info",
+    "mud_schema_baselines",
+    "mud_schema_history",
+    "mud_schema_migration_state",
+    "mud_schema_migrations",
+    "multiplay_whitelist",
+    "nexus_stones",
+    "offline_messages",
+    "outposts",
+    "pages",
+    "persistence_item_events",
+    "persistence_scalar_events",
+    "personal_data_export_audit",
+    "personal_data_export_requests",
+    "personal_data_export_sections",
+    "ping",
+    "pkill_event",
+    "pkill_info",
+    "player_affects",
+    "player_data",
+    "player_forged_items",
+    "player_granted_cmds",
+    "player_intros",
+    "player_item_affects",
+    "player_item_extra_descr",
+    "player_items",
+    "player_languages",
+    "player_pet_item_affects",
+    "player_pet_item_extra_descr",
+    "player_pet_items",
+    "player_pets",
+    "player_recipes",
+    "player_shapechanges",
+    "player_skills",
+    "player_spellbooks",
+    "player_timers",
+    "player_undead_slots",
+    "player_witnesses",
+    "poll_options",
+    "poll_votes",
+    "polls",
+    "prepstatement_duris_sql",
+    "private_chest_log",
+    "private_chests",
+    "progress",
+    "quest_trophy",
+    "races",
+    "racewar_stat_mods",
+    "saved_item_affects",
+    "saved_item_extra_descr",
+    "saved_items",
+    "session_audit_outcome",
+    "ship_armor",
+    "ship_cargo_market_mods",
+    "ship_cargo_prices",
+    "ship_crew",
+    "ship_slots",
+    "ships",
+    "shop_trophy",
+    "shopkeeper_affects",
+    "shopkeeper_item_affects",
+    "shopkeeper_item_extra_descr",
+    "shopkeeper_items",
+    "shopkeepers",
+    "siege_item_affects",
+    "siege_item_extra_descr",
+    "siege_items",
+    "statistics",
+    "timers",
+    "towns",
+    "world_quest_accomplished",
+    "zone_touch_outcome",
+    "zone_touch_outcome_participant",
+    "zone_touches",
+    "zone_trophy",
+    "zones"
+  ],
+  "writes": {
+    "routes/admin.ts|DELETE FROM|account_characters": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|artifact_bind": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|auction_item_pickups": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|auction_money_pickups": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|boons": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|boons_progress": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|boons_shop": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|corpses": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|ctf_data": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|epic_bonus": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|epic_gain": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|frag_leaderboard": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|guild_members": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|ip_info": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|locker_items": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|lockers": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|log_entries": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|offline_messages": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|pkill_info": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|player_data": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|player_recipes": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|player_shapechanges": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|progress": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|world_quest_accomplished": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "routes/admin.ts|DELETE FROM|zone_trophy": {
+      "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
+      "status": "gated",
+      "gate": "playerWipe",
+      "ticket": "DB-03"
+    },
+    "services/auctionService.ts|INSERT INTO|auction_bid_history": {
+      "authoritativeWriter": "MUD auction critical command (`src/economy/auction_repository.c`), which locks the wallet and auction and updates the refund, revision, custody, and auction ledger together.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the wallet debit commits in a separate transaction from the bid and no refund is performed on failure.",
+      "status": "gated",
+      "gate": "auctionWrites",
+      "ticket": "DB-01"
+    },
+    "services/auctionService.ts|INSERT INTO|auction_item_pickups": {
+      "authoritativeWriter": "MUD auction critical command (`src/economy/auction_repository.c`), which locks the wallet and auction and updates the refund, revision, custody, and auction ledger together.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the wallet debit commits in a separate transaction from the bid and no refund is performed on failure.",
+      "status": "gated",
+      "gate": "auctionWrites",
+      "ticket": "DB-01"
+    },
+    "services/auctionService.ts|INSERT INTO|auction_money_pickups": {
+      "authoritativeWriter": "MUD auction critical command (`src/economy/auction_repository.c`), which locks the wallet and auction and updates the refund, revision, custody, and auction ledger together.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the wallet debit commits in a separate transaction from the bid and no refund is performed on failure.",
+      "status": "gated",
+      "gate": "auctionWrites",
+      "ticket": "DB-01"
+    },
+    "services/auctionService.ts|UPDATE|auctions": {
+      "authoritativeWriter": "MUD auction critical command (`src/economy/auction_repository.c`), which locks the wallet and auction and updates the refund, revision, custody, and auction ledger together.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the wallet debit commits in a separate transaction from the bid and no refund is performed on failure.",
+      "status": "gated",
+      "gate": "auctionWrites",
+      "ticket": "DB-01"
+    },
+    "services/auctionService.ts|UPDATE|player_data": {
+      "authoritativeWriter": "MUD auction critical command (`src/economy/auction_repository.c`), which locks the wallet and auction and updates the refund, revision, custody, and auction ledger together.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the wallet debit commits in a separate transaction from the bid and no refund is performed on failure.",
+      "status": "gated",
+      "gate": "auctionWrites",
+      "ticket": "DB-01"
+    },
+    "services/dupeDetectionService.ts|DELETE FROM|locker_items": {
+      "authoritativeWriter": "MUD item reconciliation and quarantine over `item_current_owner`, `item_ownership_ledger`, and `item_ownership_quarantine`.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the delete records no ownership revision or ledger event and is unsafe against a concurrent MUD save.",
+      "status": "gated",
+      "gate": "itemDeletes",
+      "ticket": "DB-02"
+    },
+    "services/dupeDetectionService.ts|DELETE FROM|player_items": {
+      "authoritativeWriter": "MUD item reconciliation and quarantine over `item_current_owner`, `item_ownership_ledger`, and `item_ownership_quarantine`.",
+      "concurrency": "None. Unreachable unless an operator opens the gate; the delete records no ownership revision or ledger event and is unsafe against a concurrent MUD save.",
+      "status": "gated",
+      "gate": "itemDeletes",
+      "ticket": "DB-02"
+    },
+    "routes/admin.ts|UPDATE|ip_info": {
+      "authoritativeWriter": "MUD connection logging writes the rows; DurisWeb only closes rows the MUD abandoned.",
+      "concurrency": "Bounded to sessions connected over an hour ago with no recorded disconnect, so it cannot race a live session row.",
+      "status": "allowed",
+      "ticket": "DB-10"
+    },
+    "routes/admin.ts|UPDATE|level_cap": {
+      "authoritativeWriter": "DurisWeb administration owns this single-row global configuration; the MUD reads it.",
+      "concurrency": "Single row, Overlord-only, last write wins. No ledger or per-player state depends on the previous value.",
+      "status": "allowed",
+      "ticket": "DB-10"
+    },
+    "routes/admin.ts|UPDATE|timers": {
+      "authoritativeWriter": "DurisWeb administration resets named global event timers; the MUD reads and advances them.",
+      "concurrency": "Idempotent reset to `UNIX_TIMESTAMP()` on named rows, Overlord-only. A concurrent MUD advance is superseded, which is the intended operator action.",
+      "status": "allowed",
+      "ticket": "DB-10",
+      "note": "The MUD owner has not confirmed whether an in-flight timer event can observe the reset mid-tick."
+    },
+    "scripts/import-kofi-donations.ts|UPDATE|accounts": {
+      "authoritativeWriter": "Shared. The MUD owns account rows; DurisWeb donation ingestion updates the cumulative `total_donated` column.",
+      "concurrency": "Atomic in-place increment keyed by account_name during Ko-fi donation import.",
+      "status": "allowed",
+      "ticket": "DB-10",
+      "note": "Donation attribution script linking external payment records to MUD accounts."
+    },
+    "scripts/importMudContent.ts|INSERT INTO|mud_info": {
+      "authoritativeWriter": "DurisWeb content tooling owns the MOTD/greeting text; the MUD reads it at boot and on reload.",
+      "concurrency": "Operator-run import keyed by `name`; upsert makes a repeated run idempotent.",
+      "status": "allowed",
+      "ticket": "DB-10"
+    },
+    "scripts/importMudContent.ts|UPDATE|mud_info": {
+      "authoritativeWriter": "DurisWeb content tooling owns the MOTD/greeting text; the MUD reads it at boot and on reload.",
+      "concurrency": "Operator-run import keyed by `name`; upsert makes a repeated run idempotent.",
+      "status": "allowed",
+      "ticket": "DB-10"
+    },
+    "services/accountService.ts|UPDATE|accounts": {
+      "authoritativeWriter": "Shared. The MUD owns account rows; DurisWeb owns the credential change flow that writes `password`.",
+      "concurrency": "Single-column update keyed by the lowered account name after the current password is verified. No MUD runtime state derives from the hash.",
+      "status": "allowed",
+      "ticket": "DB-10",
+      "note": "This is the one credential column DurisWeb writes on a MUD-owned table. Any further column here needs a MUD contract change."
+    },
+    "services/contentService.ts|INSERT INTO|pages": {
+      "authoritativeWriter": "DurisWeb content administration owns help-file and informational text; the MUD reads it.",
+      "concurrency": "Authenticated single-row edits keyed by primary key or name; `mud_info` uses an upsert to avoid a check-then-write race.",
+      "status": "allowed",
+      "ticket": "DB-10"
+    },
+    "services/contentService.ts|UPDATE|pages": {
+      "authoritativeWriter": "DurisWeb content administration owns help-file and informational text; the MUD reads it.",
+      "concurrency": "Authenticated single-row edits keyed by primary key or name; `mud_info` uses an upsert to avoid a check-then-write race.",
+      "status": "allowed",
+      "ticket": "DB-10"
+    },
+    "services/contentService.ts|DELETE FROM|pages": {
+      "authoritativeWriter": "DurisWeb content administration owns help-file and informational text; the MUD reads it.",
+      "concurrency": "Authenticated single-row edits keyed by primary key or name; `mud_info` uses an upsert to avoid a check-then-write race.",
+      "status": "allowed",
+      "ticket": "DB-10"
+    },
+    "services/contentService.ts|INSERT INTO|categories": {
+      "authoritativeWriter": "DurisWeb content administration owns help-file and informational text; the MUD reads it.",
+      "concurrency": "Authenticated single-row edits keyed by primary key or name; `mud_info` uses an upsert to avoid a check-then-write race.",
+      "status": "allowed",
+      "ticket": "DB-10"
+    },
+    "services/contentService.ts|UPDATE|categories": {
+      "authoritativeWriter": "DurisWeb content administration owns help-file and informational text; the MUD reads it.",
+      "concurrency": "Authenticated single-row edits keyed by primary key or name; `mud_info` uses an upsert to avoid a check-then-write race.",
+      "status": "allowed",
+      "ticket": "DB-10"
+    },
+    "services/contentService.ts|DELETE FROM|categories": {
+      "authoritativeWriter": "DurisWeb content administration owns help-file and informational text; the MUD reads it.",
+      "concurrency": "Authenticated single-row edits keyed by primary key or name; `mud_info` uses an upsert to avoid a check-then-write race.",
+      "status": "allowed",
+      "ticket": "DB-10"
+    },
+    "services/contentService.ts|INSERT INTO|mud_info": {
+      "authoritativeWriter": "DurisWeb content administration owns help-file and informational text; the MUD reads it.",
+      "concurrency": "Authenticated single-row edits keyed by primary key or name; `mud_info` uses an upsert to avoid a check-then-write race.",
+      "status": "allowed",
+      "ticket": "DB-10"
+    },
+    "services/contentService.ts|DELETE FROM|mud_info": {
+      "authoritativeWriter": "DurisWeb content administration owns help-file and informational text; the MUD reads it.",
+      "concurrency": "Authenticated single-row edits keyed by primary key or name; `mud_info` uses an upsert to avoid a check-then-write race.",
+      "status": "allowed",
+      "ticket": "DB-10"
+    },
+    "services/helpSuggestionService.ts|INSERT INTO|pages": {
+      "authoritativeWriter": "Same content contract as `contentService`; an approved suggestion publishes into the help pages.",
+      "concurrency": "Publication happens once per approved suggestion under the reviewing administrator, keyed by page id.",
+      "status": "allowed",
+      "ticket": "DB-10"
+    },
+    "services/helpSuggestionService.ts|UPDATE|pages": {
+      "authoritativeWriter": "Same content contract as `contentService`; an approved suggestion publishes into the help pages.",
+      "concurrency": "Publication happens once per approved suggestion under the reviewing administrator, keyed by page id.",
+      "status": "allowed",
+      "ticket": "DB-10"
+    },
+    "services/mudAuctionClient.ts|UPDATE|account_characters": {
+      "authoritativeWriter": "MUD character deletion; DurisWeb only records the soft delete after the MUD command has been confirmed.",
+      "concurrency": "Guarded by `deleted_at IS NULL`, so a repeated or concurrent confirmation is a no-op and cannot resurrect a row.",
+      "status": "allowed",
+      "ticket": "DB-10"
+    },
+    "services/pvpService.ts|UPDATE|pkill_event": {
+      "authoritativeWriter": "MUD PvP recording owns the event row; DurisWeb maintains only the denormalized like and comment counters.",
+      "concurrency": "Counter change is applied in the same InnoDB transaction as the web-owned interaction row, so the pair cannot diverge on failure.",
+      "status": "allowed",
+      "ticket": "DB-14",
+      "note": "DB-04 removed the session `sql_mode` override. The counters should move to the web-owned tables or a reconciled projection once the MUD normalizes `pkill_event.stamp`."
+    },
+    "services/statisticsParser.ts|INSERT INTO|statistics": {
+      "authoritativeWriter": "DurisWeb ingestion owns this time series, parsed from the MUD statistics feed.",
+      "concurrency": "Append-only rows keyed by parsed hour; re-parsing the same source hour is the only overlap and is operator-initiated.",
+      "status": "allowed",
+      "ticket": "DB-11",
+      "note": "DB-11 adds `statistics(date)` through the MUD schema owner; this write path is unaffected by that index."
+    },
+    "services/zoneService.ts|UPDATE|zones": {
+      "authoritativeWriter": "DurisWeb builder tooling owns the zone metadata columns it edits; the MUD reads zone data.",
+      "concurrency": "Authenticated builder edits keyed by zone `number`, restricted to the columns the request supplies.",
+      "status": "allowed",
+      "ticket": "DB-10",
+      "note": "The MUD owner has not confirmed whether a running MUD rereads these columns without a reboot."
+    }
+  }
+}

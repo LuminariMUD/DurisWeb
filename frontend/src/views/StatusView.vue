@@ -101,13 +101,14 @@ function getSeverityVariant(
           <CardHeader class="flex flex-row items-center justify-between pb-2">
             <CardTitle class="text-sm font-medium">90-Day Uptime</CardTitle>
             <div v-if="!isLoadingUptime && uptime" class="text-3xl font-bold text-green-500">
-              {{ uptime.last90Days?.toFixed(2) }}%
+              {{ uptime.last90Days === null ? 'No data' : `${uptime.last90Days.toFixed(2)}%` }}
             </div>
             <div v-else class="text-3xl font-bold">Loading...</div>
           </CardHeader>
           <CardContent>
             <p class="text-xs text-muted-foreground">
-              Last 30 days: {{ uptime?.last30Days?.toFixed(2) }}%
+              Last 30 days:
+              {{ uptime?.last30Days == null ? 'No data' : `${uptime.last30Days.toFixed(2)}%` }}
             </p>
           </CardContent>
         </Card>

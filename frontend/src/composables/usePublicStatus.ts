@@ -18,8 +18,9 @@ export interface PublicStatus {
 }
 
 export interface UptimeStats {
-  last30Days: number
-  last90Days: number
+  /** Null when no health samples were recorded for the window. */
+  last30Days: number | null
+  last90Days: number | null
 }
 
 export interface PublicIncident {
@@ -43,6 +44,9 @@ export interface UptimeHistoryDay {
   worst_severity: 'critical' | 'major' | 'minor' | 'info' | null
 }
 
+/**
+ * Fetches the current public system status and active incidents, optionally auto-refreshing.
+ */
 export function usePublicStatus(autoRefresh = true) {
   const refetchInterval = autoRefresh ? 30000 : false // 30 seconds
 
@@ -62,6 +66,9 @@ export function usePublicStatus(autoRefresh = true) {
   }
 }
 
+/**
+ * Fetches 30-day and 90-day server uptime percentages.
+ */
 export function usePublicUptime() {
   const { data, isLoading, error } = useQuery<UptimeStats>({
     queryKey: ['public-uptime'],
@@ -78,6 +85,9 @@ export function usePublicUptime() {
   }
 }
 
+/**
+ * Fetches recent public incidents and status events.
+ */
 export function usePublicIncidents() {
   const { data, isLoading, error } = useQuery<{ incidents: PublicIncident[] }>({
     queryKey: ['public-incidents'],
@@ -94,6 +104,9 @@ export function usePublicIncidents() {
   }
 }
 
+/**
+ * Fetches daily uptime history for status visualizations.
+ */
 export function useUptimeHistory() {
   const { data, isLoading, error } = useQuery<{ history: UptimeHistoryDay[] }>({
     queryKey: ['uptime-history'],
@@ -110,6 +123,9 @@ export function useUptimeHistory() {
   }
 }
 
+/**
+ * Formats duration seconds into human-readable uptime strings (e.g. "3d 4h").
+ */
 export function formatUptime(seconds: number): string {
   if (!seconds) return '0m'
 

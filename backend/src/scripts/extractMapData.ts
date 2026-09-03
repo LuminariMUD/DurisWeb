@@ -427,6 +427,9 @@ function getZoneNameForRoom(roomVnum: number): string | null {
   return fileToZoneNameMap.get(baseName) || null;
 }
 
+/** Bounded insert batch so publishing keeps packet size predictable. */
+const PUBLISH_BATCH_SIZE = 500;
+
 // Main extraction function
 async function extractMapData(): Promise<void> {
   logger.info('Starting map data extraction...\n');
@@ -458,11 +461,11 @@ async function extractMapData(): Promise<void> {
   let totalEntrances = 0;
   const mapZones: string[] = [];
 
-  // Clear existing data
-  logger.info('Clearing existing wiki map data...');
-  await pool.query('DELETE FROM wiki_zone_entrances');
-  await pool.query('DELETE FROM wiki_map_positions');
-  logger.info('Done.\n');
+  // The complete generation is staged in memory first, then swapped in one
+  // transaction, so a parse or insert failure leaves the published map intact
+  // (docs/ongoing-projects/ongoing.md, P1-F).
+  const allPositionRows: any[][] = [];
+  const allEntranceRows: any[][] = [];
 
   // Process each zone file
   for (const zonFile of zonFiles) {
@@ -514,29 +517,8 @@ async function extractMapData(): Promise<void> {
       ]);
     }
 
-    // Batch insert positions
-    if (positionRows.length > 0) {
-      const placeholders = positionRows.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
-      const values = positionRows.flat();
-
-      await pool.query(
-        `INSERT INTO wiki_map_positions
-         (room_vnum, x_coord, y_coord, z_coord, sector_type, zone_number, zone_name, room_name, continent_id, is_map_room)
-         VALUES ${placeholders}
-         ON DUPLICATE KEY UPDATE
-         x_coord = VALUES(x_coord),
-         y_coord = VALUES(y_coord),
-         z_coord = VALUES(z_coord),
-         sector_type = VALUES(sector_type),
-         zone_number = VALUES(zone_number),
-         zone_name = VALUES(zone_name),
-         room_name = VALUES(room_name),
-         updated_at = NOW()`,
-        values,
-      );
-
-      totalRooms += positionRows.length;
-    }
+    allPositionRows.push(...positionRows);
+    totalRooms += positionRows.length;
 
     // Process zone entrances (exits that lead to non-map rooms)
     const entranceRows: any[] = [];
@@ -579,24 +561,8 @@ async function extractMapData(): Promise<void> {
       }
     }
 
-    // Batch insert entrances
-    if (entranceRows.length > 0) {
-      const placeholders = entranceRows.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
-      const values = entranceRows.flat();
-
-      await pool.query(
-        `INSERT INTO wiki_zone_entrances
-         (from_room_vnum, to_room_vnum, to_zone_number, to_zone_name, direction, x_coord, y_coord)
-         VALUES ${placeholders}
-         ON DUPLICATE KEY UPDATE
-         to_room_vnum = VALUES(to_room_vnum),
-         to_zone_number = VALUES(to_zone_number),
-         to_zone_name = VALUES(to_zone_name)`,
-        values,
-      );
-
-      totalEntrances += entranceRows.length;
-    }
+    allEntranceRows.push(...entranceRows);
+    totalEntrances += entranceRows.length;
 
     process.stdout.write('.');
   }
@@ -610,26 +576,105 @@ async function extractMapData(): Promise<void> {
   logger.info(`Total map rooms: ${totalRooms}`);
   logger.info(`Total zone entrances: ${totalEntrances}`);
 
-  // Update continent centers based on seed rooms
-  logger.info('\nUpdating continent centers...');
-  const [continents] = await pool.query<any[]>('SELECT id, seed_room_vnum FROM wiki_continents');
+  // Publishing an empty generation would silently take the map offline.
+  if (allPositionRows.length === 0) {
+    throw new Error('refusing to publish an empty map generation (0 map rooms parsed)');
+  }
 
-  for (const continent of continents) {
-    const [seedRoom] = await pool.query<any[]>(
-      'SELECT x_coord, y_coord FROM wiki_map_positions WHERE room_vnum = ?',
-      [continent.seed_room_vnum],
+  logger.info('\nPublishing map generation...');
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Preserve existing continent assignments across the refresh
+    const [existingAssignments] = await connection.query<any[]>(
+      'SELECT room_vnum, continent_id FROM wiki_map_positions WHERE continent_id IS NOT NULL',
     );
-
-    if (seedRoom.length > 0) {
-      await pool.query('UPDATE wiki_continents SET center_x = ?, center_y = ? WHERE id = ?', [
-        seedRoom[0].x_coord,
-        seedRoom[0].y_coord,
-        continent.id,
-      ]);
+    const existingContinentByRoom = new Map<number, number>();
+    for (const row of existingAssignments) {
+      existingContinentByRoom.set(Number(row.room_vnum), Number(row.continent_id));
+    }
+    if (existingContinentByRoom.size > 0) {
       logger.info(
-        `  Continent ${continent.id}: center at (${seedRoom[0].x_coord}, ${seedRoom[0].y_coord})`,
+        `Preserving ${existingContinentByRoom.size} existing continent assignments across refresh...`,
       );
     }
+
+    await connection.query('DELETE FROM wiki_zone_entrances');
+    await connection.query('DELETE FROM wiki_map_positions');
+
+    const stagedPositionRows = allPositionRows.map((row) => {
+      const roomVnum = Number(row[0]);
+      const continentId = existingContinentByRoom.get(roomVnum) ?? null;
+      const copy = [...row];
+      copy[8] = continentId;
+      return copy;
+    });
+
+    for (let offset = 0; offset < stagedPositionRows.length; offset += PUBLISH_BATCH_SIZE) {
+      const batch = stagedPositionRows.slice(offset, offset + PUBLISH_BATCH_SIZE);
+      await connection.query(
+        `INSERT INTO wiki_map_positions
+         (room_vnum, x_coord, y_coord, z_coord, sector_type, zone_number, zone_name, room_name, continent_id, is_map_room)
+         VALUES ?
+         ON DUPLICATE KEY UPDATE
+         x_coord = VALUES(x_coord),
+         y_coord = VALUES(y_coord),
+         z_coord = VALUES(z_coord),
+         sector_type = VALUES(sector_type),
+         zone_number = VALUES(zone_number),
+         zone_name = VALUES(zone_name),
+         room_name = VALUES(room_name),
+         continent_id = VALUES(continent_id),
+         is_map_room = VALUES(is_map_room),
+         updated_at = NOW()`,
+        [batch],
+      );
+    }
+
+    for (let offset = 0; offset < allEntranceRows.length; offset += PUBLISH_BATCH_SIZE) {
+      const batch = allEntranceRows.slice(offset, offset + PUBLISH_BATCH_SIZE);
+      await connection.query(
+        `INSERT INTO wiki_zone_entrances
+         (from_room_vnum, to_room_vnum, to_zone_number, to_zone_name, direction, x_coord, y_coord)
+         VALUES ?
+         ON DUPLICATE KEY UPDATE
+         to_room_vnum = VALUES(to_room_vnum),
+         to_zone_number = VALUES(to_zone_number),
+         to_zone_name = VALUES(to_zone_name)`,
+        [batch],
+      );
+    }
+
+    // Continent centers are derived from the generation being published, so
+    // they belong in the same transaction.
+    const [continents] = await connection.query<any[]>(
+      'SELECT id, seed_room_vnum FROM wiki_continents',
+    );
+
+    for (const continent of continents) {
+      const [seedRoom] = await connection.query<any[]>(
+        'SELECT x_coord, y_coord FROM wiki_map_positions WHERE room_vnum = ?',
+        [continent.seed_room_vnum],
+      );
+
+      if (seedRoom.length > 0) {
+        await connection.query(
+          'UPDATE wiki_continents SET center_x = ?, center_y = ? WHERE id = ?',
+          [seedRoom[0].x_coord, seedRoom[0].y_coord, continent.id],
+        );
+        logger.info(
+          `  Continent ${continent.id}: center at (${seedRoom[0].x_coord}, ${seedRoom[0].y_coord})`,
+        );
+      }
+    }
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
   }
 
   logger.info('\nMap data extraction complete!');

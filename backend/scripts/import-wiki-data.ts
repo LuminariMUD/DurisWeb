@@ -1,9 +1,16 @@
 /**
  * import objects and mobs from mud flatfiles into database
  * run with: npx tsx scripts/import-wiki-data.ts
+ *
+ * The whole generation is parsed and validated before any published row is
+ * touched, then swapped in one transaction. TRUNCATE is deliberately not used:
+ * it commits implicitly, so a failure mid-load left the wiki empty
+ * (docs/ongoing-projects/ongoing.md, P1-F).
  */
 import dotenv from 'dotenv';
 dotenv.config();
+
+import type { PoolConnection } from 'mysql2/promise';
 
 import { pool, closeDatabaseConnection } from '../src/db/connection.js';
 import { closeRedisConnection } from '../src/db/redis.js';
@@ -18,44 +25,62 @@ import {
   getFlagIds,
 } from '../src/constants/wikiConstants.js';
 
+type Row = unknown[];
+
+/** Child tables are cleared before their parents so foreign keys stay enforced. */
+const PUBLISHED_TABLES = [
+  'wiki_mob_flags',
+  'wiki_object_races',
+  'wiki_object_classes',
+  'wiki_object_spell_effects',
+  'wiki_object_slots',
+  'wiki_object_affects',
+  'wiki_mobs',
+  'wiki_objects',
+] as const;
+
+const INSERT_BATCH_SIZE = 500;
+
+const COLUMNS: Record<string, string> = {
+  wiki_objects:
+    'vnum, name, name_ansi, type, level, weight, extra_flags, wear_flags, anti_flags, anti_flags2, zone_number, obj_values, description',
+  wiki_object_affects: 'object_vnum, location, modifier',
+  wiki_object_slots: 'object_vnum, slot_id',
+  wiki_object_spell_effects: 'object_vnum, effect_name',
+  wiki_object_classes: 'object_vnum, class_id, is_allowed',
+  wiki_object_races: 'object_vnum, race_id, is_allowed',
+  wiki_mobs:
+    'zone_number, vnum, name, name_ansi, keywords, level, alignment, mob_class, species, gold, exp, act_flags, hit_dice, dam_dice, ac, thac0, long_desc, detailed_desc',
+  wiki_mob_flags: 'zone_number, mob_vnum, flag_id',
+};
+
+const stripAnsi = (value: string): string => value.replace(/&[+=-][A-Za-z]|&[nN]/g, '');
+
+/** Insert one table's rows in bounded batches to keep packet size predictable. */
+async function insertAll(connection: PoolConnection, table: string, rows: Row[]): Promise<void> {
+  for (let offset = 0; offset < rows.length; offset += INSERT_BATCH_SIZE) {
+    const batch = rows.slice(offset, offset + INSERT_BATCH_SIZE);
+    await connection.query(`INSERT INTO ${table} (${COLUMNS[table]}) VALUES ?`, [batch]);
+  }
+}
+
 async function main() {
   console.log('importing wiki data from mud flatfiles...\n');
 
   const startTime = Date.now();
-  const connection = await pool.getConnection();
+  let failed = false;
 
   try {
-    // get all zones first (before transaction, read-only)
     console.log('loading zones...');
     const { zones } = await listZones({ page: 1, limit: 10000 });
     console.log(`  found ${zones.length} zones\n`);
 
-    // start transaction for entire import
-    await connection.beginTransaction();
-    console.log('transaction started...\n');
+    const staged: Record<string, Row[]> = Object.fromEntries(
+      PUBLISHED_TABLES.map((table) => [table, [] as Row[]]),
+    );
 
-    // truncate existing data (within transaction)
-    console.log('clearing existing data...');
-    await connection.query('SET FOREIGN_KEY_CHECKS = 0');
-    await connection.query('TRUNCATE TABLE wiki_mob_flags');
-    await connection.query('TRUNCATE TABLE wiki_mobs');
-    await connection.query('TRUNCATE TABLE wiki_object_races');
-    await connection.query('TRUNCATE TABLE wiki_object_classes');
-    await connection.query('TRUNCATE TABLE wiki_object_spell_effects');
-    await connection.query('TRUNCATE TABLE wiki_object_slots');
-    await connection.query('TRUNCATE TABLE wiki_object_affects');
-    await connection.query('TRUNCATE TABLE wiki_objects');
-    await connection.query('SET FOREIGN_KEY_CHECKS = 1');
-    console.log('  done\n');
-
-    // import objects
-    console.log('importing objects...');
-    let totalObjects = 0;
-    let totalAffects = 0;
-    let totalSlots = 0;
-    let totalSpellEffects = 0;
-    let totalClasses = 0;
-    let totalRaces = 0;
+    // ---- parse and stage objects (no published row is touched yet) ----
+    console.log('parsing objects...');
     const seenVnums = new Set<number>();
 
     for (const zone of zones) {
@@ -66,46 +91,30 @@ async function main() {
         if (seenVnums.has(obj.vnum)) continue;
         seenVnums.add(obj.vnum);
 
-        const level = obj.values[0] || 0;
-        await connection.query(
-          `INSERT INTO wiki_objects
-           (vnum, name, name_ansi, type, level, weight, extra_flags, wear_flags, anti_flags, anti_flags2, zone_number, obj_values, description)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            obj.vnum,
-            obj.shortDesc.replace(/&[+=-][A-Za-z]|&[nN]/g, ''),
-            obj.shortDesc,
-            obj.itemType,
-            level,
-            obj.weight,
-            obj.extraFlags,
-            obj.wearFlags,
-            obj.antiFlags || 0,
-            obj.antiFlags2 || 0,
-            zone.number,
-            JSON.stringify(obj.values.slice(0, 4)),
-            obj.longDesc || null,
-          ],
-        );
-        totalObjects++;
+        staged.wiki_objects.push([
+          obj.vnum,
+          stripAnsi(obj.shortDesc),
+          obj.shortDesc,
+          obj.itemType,
+          obj.values[0] || 0,
+          obj.weight,
+          obj.extraFlags,
+          obj.wearFlags,
+          obj.antiFlags || 0,
+          obj.antiFlags2 || 0,
+          zone.number,
+          JSON.stringify(obj.values.slice(0, 4)),
+          obj.longDesc || null,
+        ]);
 
         for (const apply of obj.applies) {
           if (apply.location > 0 && apply.modifier !== 0) {
-            await connection.query(
-              `INSERT INTO wiki_object_affects (object_vnum, location, modifier) VALUES (?, ?, ?)`,
-              [obj.vnum, apply.location, apply.modifier],
-            );
-            totalAffects++;
+            staged.wiki_object_affects.push([obj.vnum, apply.location, apply.modifier]);
           }
         }
 
-        const slotIds = getSlotIds(obj.wearFlags);
-        for (const slotId of slotIds) {
-          await connection.query(
-            `INSERT INTO wiki_object_slots (object_vnum, slot_id) VALUES (?, ?)`,
-            [obj.vnum, slotId],
-          );
-          totalSlots++;
+        for (const slotId of getSlotIds(obj.wearFlags)) {
+          staged.wiki_object_slots.push([obj.vnum, slotId]);
         }
 
         const effects = getSpellEffects(
@@ -115,49 +124,36 @@ async function main() {
           obj.bitvector4 || 0,
         );
         for (const effect of effects) {
-          await connection.query(
-            `INSERT INTO wiki_object_spell_effects (object_vnum, effect_name) VALUES (?, ?)`,
-            [obj.vnum, effect],
-          );
-          totalSpellEffects++;
+          staged.wiki_object_spell_effects.push([obj.vnum, effect]);
         }
 
         const antiFlags = obj.antiFlags || 0;
         const isAllowedClasses = (obj.extraFlags & ITEM_ALLOWED_CLASSES) !== 0;
         for (const classBit of CLASS_BITS) {
           if (antiFlags & classBit) {
-            await connection.query(
-              `INSERT INTO wiki_object_classes (object_vnum, class_id, is_allowed) VALUES (?, ?, ?)`,
-              [obj.vnum, classBit, isAllowedClasses],
-            );
-            totalClasses++;
+            staged.wiki_object_classes.push([obj.vnum, classBit, isAllowedClasses]);
           }
         }
 
         const antiFlags2 = obj.antiFlags2 || 0;
         const isAllowedRaces = (obj.extraFlags & ITEM_ALLOWED_RACES) !== 0;
         for (const raceId of RACE_IDS) {
-          const raceBit = 1 << (raceId - 1);
-          if (antiFlags2 & raceBit) {
-            await connection.query(
-              `INSERT INTO wiki_object_races (object_vnum, race_id, is_allowed) VALUES (?, ?, ?)`,
-              [obj.vnum, raceId, isAllowedRaces],
-            );
-            totalRaces++;
+          if (antiFlags2 & (1 << (raceId - 1))) {
+            staged.wiki_object_races.push([obj.vnum, raceId, isAllowedRaces]);
           }
         }
       }
 
-      process.stdout.write(`\r  processed ${totalObjects} objects from ${zone.id}...`);
+      process.stdout.write(`\r  parsed ${staged.wiki_objects.length} objects from ${zone.id}...`);
     }
     console.log(
-      `\n  done: ${totalObjects} objects, ${totalAffects} affects, ${totalSlots} slots, ${totalSpellEffects} spell effects, ${totalClasses} class restrictions, ${totalRaces} race restrictions\n`,
+      `\n  done: ${staged.wiki_objects.length} objects, ${staged.wiki_object_affects.length} affects, ` +
+        `${staged.wiki_object_slots.length} slots, ${staged.wiki_object_spell_effects.length} spell effects, ` +
+        `${staged.wiki_object_classes.length} class restrictions, ${staged.wiki_object_races.length} race restrictions\n`,
     );
 
-    // import mobs
-    console.log('importing mobs...');
-    let totalMobs = 0;
-    let totalFlags = 0;
+    // ---- parse and stage mobs ----
+    console.log('parsing mobs...');
     const seenMobs = new Set<string>();
 
     for (const zone of zones) {
@@ -169,67 +165,78 @@ async function main() {
         if (seenMobs.has(key)) continue;
         seenMobs.add(key);
 
-        await connection.query(
-          `INSERT INTO wiki_mobs
-           (zone_number, vnum, name, name_ansi, keywords, level, alignment, mob_class, species, gold, exp, act_flags, hit_dice, dam_dice, ac, thac0, long_desc, detailed_desc)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            zone.number,
-            mob.vnum,
-            mob.shortDesc.replace(/&[+=-][A-Za-z]|&[nN]/g, ''),
-            mob.shortDesc,
-            mob.keywords,
-            mob.level,
-            mob.alignment,
-            mob.mobClass,
-            mob.species,
-            mob.gold,
-            mob.exp,
-            mob.actFlags,
-            mob.hitDice,
-            mob.damDice,
-            mob.ac,
-            mob.thac0,
-            mob.longDesc || null,
-            mob.detailedDesc || null,
-          ],
-        );
-        totalMobs++;
+        staged.wiki_mobs.push([
+          zone.number,
+          mob.vnum,
+          stripAnsi(mob.shortDesc),
+          mob.shortDesc,
+          mob.keywords,
+          mob.level,
+          mob.alignment,
+          mob.mobClass,
+          mob.species,
+          mob.gold,
+          mob.exp,
+          mob.actFlags,
+          mob.hitDice,
+          mob.damDice,
+          mob.ac,
+          mob.thac0,
+          mob.longDesc || null,
+          mob.detailedDesc || null,
+        ]);
 
-        const flagIds = getFlagIds(mob.actFlags);
-        for (const flagId of flagIds) {
-          await connection.query(
-            `INSERT INTO wiki_mob_flags (zone_number, mob_vnum, flag_id) VALUES (?, ?, ?)`,
-            [zone.number, mob.vnum, flagId],
-          );
-          totalFlags++;
+        for (const flagId of getFlagIds(mob.actFlags)) {
+          staged.wiki_mob_flags.push([zone.number, mob.vnum, flagId]);
         }
       }
 
-      process.stdout.write(`\r  processed ${totalMobs} mobs from ${zone.id}...`);
+      process.stdout.write(`\r  parsed ${staged.wiki_mobs.length} mobs from ${zone.id}...`);
     }
-    console.log(`\n  done: ${totalMobs} mobs, ${totalFlags} flags\n`);
+    console.log(
+      `\n  done: ${staged.wiki_mobs.length} mobs, ${staged.wiki_mob_flags.length} flags\n`,
+    );
 
-    // commit transaction
-    await connection.commit();
-    console.log('transaction committed successfully\n');
+    // Publishing an empty generation would silently take the wiki offline.
+    if (staged.wiki_objects.length === 0 || staged.wiki_mobs.length === 0) {
+      throw new Error(
+        `refusing to publish an empty generation (${staged.wiki_objects.length} objects, ${staged.wiki_mobs.length} mobs)`,
+      );
+    }
+
+    // ---- publish the complete generation in one transaction ----
+    console.log('publishing generation...');
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      for (const table of PUBLISHED_TABLES) {
+        await connection.query(`DELETE FROM ${table}`);
+      }
+      for (const table of [...PUBLISHED_TABLES].reverse()) {
+        await insertAll(connection, table, staged[table]);
+      }
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`import complete in ${elapsed}s`);
-    console.log(`  objects: ${totalObjects}`);
-    console.log(`  mobs: ${totalMobs}`);
+    console.log(`\nimport complete in ${elapsed}s`);
+    console.log(`  objects: ${staged.wiki_objects.length}`);
+    console.log(`  mobs: ${staged.wiki_mobs.length}`);
   } catch (error) {
-    // rollback on any error
-    console.error('\nimport failed, rolling back...');
-    await connection.rollback();
-    console.error('rollback complete');
+    failed = true;
+    console.error('\nimport failed; the previous generation is unchanged');
     console.error('error:', error);
-    process.exit(1);
   } finally {
-    connection.release();
     await closeDatabaseConnection();
     await closeRedisConnection();
-    process.exit(0);
+    process.exit(failed ? 1 : 0);
   }
 }
 

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import type { IRouter } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler.js';
 import { requireAuth, requireImmortal } from '../middleware/auth.js';
+import { requireMutationGate } from '../middleware/mutationGate.js';
 import { parsePagination, sanitizeSearchString, validateIdParam } from '../utils/validation.js';
 import {
   getAuctions,
@@ -187,6 +188,7 @@ router.get(
 router.post(
   '/listings/:auctionId/bid',
   requireAuth,
+  requireMutationGate('auctionWrites'),
   asyncHandler(async (req: Request, res: Response) => {
     const auctionId = validateIdParam(req.params.auctionId);
 
@@ -309,6 +311,7 @@ router.post(
 router.post(
   '/listings/:auctionId/buy',
   requireAuth,
+  requireMutationGate('auctionWrites'),
   asyncHandler(async (req: Request, res: Response) => {
     const auctionId = validateIdParam(req.params.auctionId);
 
@@ -421,6 +424,8 @@ router.post(
  * DELETE /api/auction/listings/:auctionId
  * Admin: Remove an auction listing (returns item to seller, refunds bidder)
  */
+// Removal is routed through the MUD's authoritative critical command, so it is
+// not gated with the direct-write bid and buy-now paths.
 router.delete(
   '/listings/:auctionId',
   requireAuth,
@@ -443,7 +448,8 @@ router.delete(
 
     res.json({
       success: true,
-      message: 'Auction removed. Item returned to seller, bidder refunded.',
+      message:
+        'Auction removal accepted by the MUD. The item returns to the seller once it commits.',
     });
   }),
 );

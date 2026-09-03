@@ -1,6 +1,7 @@
 import { pool } from '../db/connection.js';
 import { RowDataPacket } from 'mysql2';
-import { isErrorWithCode } from '../utils/logger.js';
+import type { PoolConnection } from 'mysql2/promise';
+import logger, { isErrorWithCode } from '../utils/logger.js';
 import {
   PvPEventListItem,
   PvPEventDetail,
@@ -1011,72 +1012,112 @@ export async function getClientStats(period: '7d' | '30d' | '90d' | 'all' = '30d
 // ==================== BATTLE INTERACTIONS ====================
 
 /**
+ * Runs a battle-interaction transaction that must tolerate the legacy
+ * `pkill_event.stamp` zero-date default.
+ *
+ * SQL mode is session scoped, so relaxing it and releasing the connection
+ * leaks the relaxed mode to unrelated later queries. This captures the exact
+ * session value, restores it before release, and discards the connection if
+ * restoration fails so a relaxed session is never returned to the pool.
+ *
+ * Remove once the MUD normalizes the column default
+ * (docs/ongoing-projects/ongoing.md, P1-G).
+ */
+async function withRelaxedSqlMode<T>(run: (connection: PoolConnection) => Promise<T>): Promise<T> {
+  const connection = await pool.getConnection();
+  let relaxed = false;
+
+  try {
+    const [modeRows] = await connection.query<RowDataPacket[]>(
+      'SELECT @@SESSION.sql_mode AS sqlMode',
+    );
+    const previousSqlMode = String(modeRows[0]?.sqlMode ?? '');
+
+    try {
+      await connection.query('SET SESSION sql_mode = ?', ['']);
+      relaxed = true;
+      return await run(connection);
+    } finally {
+      if (relaxed) {
+        try {
+          await connection.query('SET SESSION sql_mode = ?', [previousSqlMode]);
+          relaxed = false;
+        } catch (error) {
+          logger.error('Failed to restore session sql_mode; discarding connection:', error);
+        }
+      }
+    }
+  } finally {
+    if (relaxed) {
+      connection.destroy();
+    } else {
+      connection.release();
+    }
+  }
+}
+
+/**
  * Add a like to a battle
  */
 export async function addBattleLike(eventId: number, accountName: string): Promise<boolean> {
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
+  return withRelaxedSqlMode(async (connection) => {
+    try {
+      await connection.beginTransaction();
 
-    // Try to insert the like
-    await connection.query('INSERT INTO pvp_battle_likes (event_id, account_name) VALUES (?, ?)', [
-      eventId,
-      accountName,
-    ]);
+      // Try to insert the like
+      await connection.query(
+        'INSERT INTO pvp_battle_likes (event_id, account_name) VALUES (?, ?)',
+        [eventId, accountName],
+      );
 
-    // Increment like_count - use SET sql_mode to handle pkill_event datetime issue
-    await connection.query(`SET sql_mode = ''`);
-    await connection.query('UPDATE pkill_event SET like_count = like_count + 1 WHERE id = ?', [
-      eventId,
-    ]);
+      await connection.query('UPDATE pkill_event SET like_count = like_count + 1 WHERE id = ?', [
+        eventId,
+      ]);
 
-    await connection.commit();
-    return true;
-  } catch (error) {
-    await connection.rollback();
-    if (isErrorWithCode(error) && error.code === 'ER_DUP_ENTRY') {
-      return false; // Already liked
+      await connection.commit();
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      if (isErrorWithCode(error) && error.code === 'ER_DUP_ENTRY') {
+        return false; // Already liked
+      }
+      throw error;
     }
-    throw error;
-  } finally {
-    connection.release();
-  }
+  });
 }
 
 /**
  * Remove a like from a battle
  */
 export async function removeBattleLike(eventId: number, accountName: string): Promise<boolean> {
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
+  return withRelaxedSqlMode(async (connection) => {
+    try {
+      await connection.beginTransaction();
 
-    // Delete the like
-    const [result] = await connection.query<any>(
-      'DELETE FROM pvp_battle_likes WHERE event_id = ? AND account_name = ?',
-      [eventId, accountName],
-    );
+      // Delete the like
+      const [result] = await connection.query<any>(
+        'DELETE FROM pvp_battle_likes WHERE event_id = ? AND account_name = ?',
+        [eventId, accountName],
+      );
 
-    if (result.affectedRows === 0) {
+      if (result.affectedRows === 0) {
+        await connection.rollback();
+        return false; // Wasn't liked
+      }
+
+      // Decrement like_count
+      await connection.query(
+        'UPDATE pkill_event SET like_count = GREATEST(like_count - 1, 0) WHERE id = ?',
+        [eventId],
+      );
+
+      await connection.commit();
+      return true;
+    } catch (error) {
       await connection.rollback();
-      return false; // Wasn't liked
+      throw error;
     }
-
-    // Decrement like_count
-    await connection.query(`SET sql_mode = ''`);
-    await connection.query(
-      'UPDATE pkill_event SET like_count = GREATEST(like_count - 1, 0) WHERE id = ?',
-      [eventId],
-    );
-
-    await connection.commit();
-    return true;
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  });
 }
 
 /**
@@ -1322,82 +1363,84 @@ export async function createBattleComment(
   lineNumber?: number,
   participantId?: number,
 ): Promise<PvPBattleComment> {
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
+  return withRelaxedSqlMode(async (connection) => {
+    let committed = false;
+    try {
+      await connection.beginTransaction();
 
-    // Insert the comment
-    const [result] = await connection.query<any>(
-      `INSERT INTO pvp_battle_comments (event_id, account_name, character_pid, content, parent_id, quoted_text, line_number, participant_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        eventId,
-        accountName,
-        characterPid || null,
-        content,
-        parentId || null,
-        quotedText || null,
-        lineNumber || null,
-        participantId || null,
-      ],
-    );
+      // Insert the comment
+      const [result] = await connection.query<any>(
+        `INSERT INTO pvp_battle_comments (event_id, account_name, character_pid, content, parent_id, quoted_text, line_number, participant_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          eventId,
+          accountName,
+          characterPid || null,
+          content,
+          parentId || null,
+          quotedText || null,
+          lineNumber || null,
+          participantId || null,
+        ],
+      );
 
-    const commentId = result.insertId;
+      const commentId = result.insertId;
 
-    // Increment comment_count
-    await connection.query(`SET sql_mode = ''`);
-    await connection.query(
-      'UPDATE pkill_event SET comment_count = comment_count + 1 WHERE id = ?',
-      [eventId],
-    );
+      // Increment comment_count
+      await connection.query(
+        'UPDATE pkill_event SET comment_count = comment_count + 1 WHERE id = ?',
+        [eventId],
+      );
 
-    await connection.commit();
+      await connection.commit();
+      committed = true;
 
-    // Fetch the created comment with character info
-    const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT
-        c.id, c.event_id, c.account_name, c.character_pid, c.content, c.parent_id,
-        c.is_deleted, c.created_at, c.updated_at, c.quoted_text, c.line_number, c.participant_id,
-        fl.char_name as character_name, fl.race as character_race,
-        fl.class as character_class, fl.level as character_level
-      FROM pvp_battle_comments c
-      LEFT JOIN frag_leaderboard fl ON c.character_pid = fl.pid
-      WHERE c.id = ?`,
-      [commentId],
-    );
+      // Fetch the created comment with character info using the same connection
+      const [rows] = await connection.query<RowDataPacket[]>(
+        `SELECT
+            c.id, c.event_id, c.account_name, c.character_pid, c.content, c.parent_id,
+            c.is_deleted, c.created_at, c.updated_at, c.quoted_text, c.line_number, c.participant_id,
+            fl.char_name as character_name, fl.race as character_race,
+            fl.class as character_class, fl.level as character_level
+          FROM pvp_battle_comments c
+          LEFT JOIN frag_leaderboard fl ON c.character_pid = fl.pid
+          WHERE c.id = ?`,
+        [commentId],
+      );
 
-    const row = rows[0];
-    return {
-      id: row.id,
-      eventId: row.event_id,
-      accountName: row.account_name,
-      characterPid: row.character_pid,
-      characterName: row.character_name,
-      characterRace: row.character_race,
-      characterClass: row.character_class,
-      characterLevel: row.character_level,
-      content: row.content,
-      parentId: row.parent_id,
-      isDeleted: row.is_deleted,
-      createdAt:
-        row.created_at instanceof Date
-          ? row.created_at.toISOString()
-          : `${String(row.created_at).replace(' ', 'T')}Z`,
-      updatedAt:
-        row.updated_at instanceof Date
-          ? row.updated_at.toISOString()
-          : `${String(row.updated_at).replace(' ', 'T')}Z`,
-      quotedText: row.quoted_text,
-      lineNumber: row.line_number,
-      participantId: row.participant_id,
-      replies: [],
-    };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+      const row = rows[0];
+      return {
+        id: row.id,
+        eventId: row.event_id,
+        accountName: row.account_name,
+        characterPid: row.character_pid,
+        characterName: row.character_name,
+        characterRace: row.character_race,
+        characterClass: row.character_class,
+        characterLevel: row.character_level,
+        content: row.content,
+        parentId: row.parent_id,
+        isDeleted: row.is_deleted,
+        createdAt:
+          row.created_at instanceof Date
+            ? row.created_at.toISOString()
+            : `${String(row.created_at).replace(' ', 'T')}Z`,
+        updatedAt:
+          row.updated_at instanceof Date
+            ? row.updated_at.toISOString()
+            : `${String(row.updated_at).replace(' ', 'T')}Z`,
+        quotedText: row.quoted_text,
+        lineNumber: row.line_number,
+        participantId: row.participant_id,
+        replies: [],
+      };
+    } catch (error) {
+      if (!committed) {
+        await connection.rollback();
+      }
+      throw error;
+    }
+  });
 }
 
 /**

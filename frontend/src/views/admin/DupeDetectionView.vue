@@ -167,7 +167,12 @@
                     <AnsiText v-if="item.item_name_ansi" :text="item.item_name_ansi" />
                     <span v-else>{{ item.item_name || 'Unknown' }}</span>
                   </TableCell>
-                  <TableCell class="font-mono">{{ item.vnum }}</TableCell>
+                  <TableCell class="font-mono">
+                    {{ item.vnum }}
+                    <Badge v-if="item.vnum_count > 1" variant="destructive" class="ml-1">
+                      +{{ item.vnum_count - 1 }} vnum
+                    </Badge>
+                  </TableCell>
                   <TableCell>
                     <div class="flex flex-wrap gap-1">
                       <Badge
@@ -594,8 +599,9 @@ async function executeBulkDelete() {
     const selected = Object.keys(selectedIds.value).filter((k) => selectedIds.value[k])
     let totalDeleted = 0
     for (const key of selected) {
-      const [objUid, vnum] = key.split('-').map(Number) as [number, number]
-      const result = await dupeApi.deleteAllDupes(objUid, vnum)
+      // obj_uid stays a decimal string; only vnum is safe as a number.
+      const [objUid, vnum] = key.split('-') as [string, string]
+      const result = await dupeApi.deleteAllDupes(objUid, Number(vnum))
       totalDeleted += result.deletedCount
     }
     success(`Deleted ${totalDeleted} duplicate(s) from ${selected.length} item(s)`)

@@ -259,10 +259,10 @@ describe('backupService', () => {
   describe('buildFilterColumnIndex', () => {
     const sampleDump = [
       'CREATE TABLE `player_data` (',
-      '  `id` int NOT NULL,',
+      '  `pid` int NOT NULL,',
       '  `name` varchar(30),',
       '  `level` int,',
-      '  PRIMARY KEY (`id`)',
+      '  PRIMARY KEY (`pid`)',
       ');',
       'CREATE TABLE `player_items` (',
       '  `id` int NOT NULL,',
@@ -295,9 +295,17 @@ describe('backupService', () => {
     });
 
     it('skips tables whose CREATE TABLE block is missing from the dump', () => {
-      const idx = buildFilterColumnIndex('CREATE TABLE `player_data` (`id` int);');
+      const idx = buildFilterColumnIndex('CREATE TABLE `player_data` (`pid` int);');
       expect(idx.player_data).toBeDefined();
       expect(idx.player_items).toBeUndefined();
+    });
+
+    it('rejects an archive whose present table lacks its configured filter column', () => {
+      // player_data.id was never a real column; silently skipping the table
+      // dropped the character's core row from a "successful" restore.
+      expect(() => buildFilterColumnIndex('CREATE TABLE `player_data` (`id` int);')).toThrow(
+        /player_data\.pid/,
+      );
     });
   });
 
@@ -414,7 +422,7 @@ describe('backupService', () => {
   describe('filterDumpForCharacterRestore', () => {
     const miniDump = [
       'CREATE TABLE `player_data` (',
-      '  `id` int, `name` varchar(30), `level` int',
+      '  `pid` int, `name` varchar(30), `level` int',
       ');',
       'CREATE TABLE `player_items` (',
       '  `id` int, `pid` int, `vnum` int',
@@ -464,7 +472,7 @@ describe('backupService', () => {
     it('cascades level-3 through player_pets → player_pet_items → player_pet_item_affects', async () => {
       const { filterDumpForCharacterRestore } = await import('../backupService.js');
       const dump = [
-        'CREATE TABLE `player_pets` (`id` int,`pid` int);',
+        'CREATE TABLE `player_pets` (`id` int,`owner_pid` int);',
         'CREATE TABLE `player_pet_items` (`id` int,`pet_id` int,`vnum` int);',
         'CREATE TABLE `player_pet_item_affects` (`item_id` int,`loc` int,`mod` int);',
         'INSERT INTO `player_pets` VALUES (50,7),(60,9);',
@@ -500,10 +508,10 @@ describe('backupService', () => {
         '  `account_name` varchar(30), `char_name` varchar(30), `pid` int, `login_count` int',
         ');',
         'CREATE TABLE `accounts` (',
-        '  `name` varchar(30), `password` varchar(64)',
+        '  `account_name` varchar(30), `password` varchar(64)',
         ');',
         'CREATE TABLE `player_data` (',
-        '  `id` int, `name` varchar(30)',
+        '  `pid` int, `name` varchar(30)',
         ');',
         'CREATE TABLE `player_items` (',
         '  `id` int, `pid` int, `vnum` int',
@@ -554,7 +562,7 @@ describe('backupService', () => {
         '../backupService.js'
       );
       const dump = [
-        'CREATE TABLE `player_data` (`id` int, `name` varchar(30));',
+        'CREATE TABLE `player_data` (`pid` int, `name` varchar(30));',
         'CREATE TABLE `account_characters` (`account_name` varchar(30),`char_name` varchar(30),`pid` int,`login_count` int);',
         'CREATE TABLE `player_affects` (`pid` int,`type` int,`duration` int);',
         'CREATE TABLE `player_timers` (`pid` int,`timer_type` int,`value` int);',
@@ -590,7 +598,7 @@ describe('backupService', () => {
         'CREATE TABLE `pkill_info` (`id` int,`event_id` int,`pid` int,`level` int);',
         'CREATE TABLE `pkill_event` (`id` int,`stamp` datetime);',
         'CREATE TABLE `frag_leaderboard` (`pid` int,`frags` int);',
-        'CREATE TABLE `player_pets` (`id` int,`pid` int);',
+        'CREATE TABLE `player_pets` (`id` int,`owner_pid` int);',
         'CREATE TABLE `player_pet_items` (`id` int,`pet_id` int,`vnum` int);',
         'CREATE TABLE `player_pet_item_affects` (`item_id` int,`loc` int,`mod` int);',
         'CREATE TABLE `player_pet_item_extra_descr` (`item_id` int,`key` varchar(30));',

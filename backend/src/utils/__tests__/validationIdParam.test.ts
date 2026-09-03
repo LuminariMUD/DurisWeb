@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import {
   parseStrictPositiveId,
   parseStrictPositiveIdArray,
+  validateBigIntIdParam,
   validateIdParam,
 } from '../validation.js';
 
@@ -39,5 +40,24 @@ describe('strict ID parameter validation', () => {
     expect(
       parseStrictPositiveIdArray(Array.from({ length: 101 }, (_, index) => index + 1)),
     ).toBeNull();
+  });
+
+  describe('validateBigIntIdParam', () => {
+    it('preserves values above Number.MAX_SAFE_INTEGER exactly', () => {
+      // 2^53 + 1 loses its low bit as a JavaScript number.
+      expect(validateBigIntIdParam('9007199254740993')).toBe('9007199254740993');
+      expect(validateBigIntIdParam('18446744073709551615')).toBe('18446744073709551615');
+    });
+
+    it('accepts ordinary canonical decimal ids', () => {
+      expect(validateBigIntIdParam('12')).toBe('12');
+    });
+
+    it.each(['12abc', '1.5', '-1', '0', ' 12', '012', '1e2', '', '18446744073709551616'])(
+      'rejects non-canonical or out-of-range UID %s',
+      (value) => {
+        expect(validateBigIntIdParam(value)).toBeNull();
+      },
+    );
   });
 });

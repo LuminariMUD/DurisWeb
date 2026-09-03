@@ -1458,8 +1458,11 @@ export const adminApi = {
 // ============================================================================
 
 export interface DupedItem {
-  obj_uid: number
+  /** BIGINT UNSIGNED, carried as a canonical decimal string. */
+  obj_uid: string
   vnum: number
+  /** Distinct vnums sharing this UID; > 1 means inconsistent item metadata. */
+  vnum_count: number
   item_name: string | null
   item_name_ansi: string | null
   players: string
@@ -1470,7 +1473,7 @@ export interface DupedItem {
 
 export interface DupeDetail {
   id: number
-  obj_uid: number
+  obj_uid: string
   vnum: number
   item_name: string | null
   item_name_ansi: string | null
@@ -1491,29 +1494,47 @@ export interface DupeSummary {
  * Dupe Detection API (Overlord only)
  */
 export const dupeApi = {
+  /**
+   * Fetches all duplicate items and summary statistics.
+   */
   async getDupes(): Promise<{ items: DupedItem[]; summary: DupeSummary }> {
     const { data } = await api.get('/api/admin/dupes')
     return data
   },
 
-  async getDupeDetails(objUid: number): Promise<{ details: DupeDetail[] }> {
+  /**
+   * Fetches detailed location and ownership records for a specific duplicated obj_uid.
+   */
+  async getDupeDetails(objUid: string): Promise<{ details: DupeDetail[] }> {
     const { data } = await api.get(`/api/admin/dupes/${objUid}`)
     return data
   },
 
+  /**
+   * Deletes a specific inventory item copy by its id.
+   */
   async deleteItem(itemId: number): Promise<void> {
     await api.delete(`/api/admin/dupes/item/${itemId}`)
   },
 
+  /**
+   * Deletes a specific locker item copy by its id.
+   */
   async deleteLockerItem(itemId: number): Promise<void> {
     await api.delete(`/api/admin/dupes/locker-item/${itemId}`)
   },
 
-  async deleteAllDupes(objUid: number, vnum: number): Promise<{ deletedCount: number }> {
+  /**
+   * Deletes all duplicate copies for a given obj_uid and vnum, keeping one copy.
+   */
+  async deleteAllDupes(objUid: string, vnum: number): Promise<{ deletedCount: number }> {
     const { data } = await api.delete(`/api/admin/dupes/uid/${objUid}/${vnum}`)
     return data
   },
 
+  /**
+   * Deletes multiple items by their ids in a single request.
+   */
   async bulkDelete(itemIds: number[]): Promise<{ deletedCount: number }> {
     const { data } = await api.post('/api/admin/dupes/bulk-delete', { itemIds })
     return data

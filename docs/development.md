@@ -15,6 +15,7 @@ all three environment files, before running `./scripts/dev.sh`.
 | `pnpm --dir backend format:check` | Check Biome formatting |
 | `pnpm --dir backend lint` | Run ESLint |
 | `pnpm --dir backend type-check` | Check TypeScript without output |
+| `pnpm --dir backend verify:mud-writes` | Fail when a DurisWeb write to a MUD-owned table is missing from `backend/mud-write-allowlist.json` |
 | `pnpm --dir backend migrate:status` | Inspect the selected Knex ledger |
 
 ## Frontend commands
@@ -38,6 +39,7 @@ pnpm --dir backend config:check
 pnpm --dir backend format:check
 pnpm --dir backend lint
 pnpm --dir backend type-check
+pnpm --dir backend verify:mud-writes
 pnpm --dir backend test --runInBand
 pnpm --dir backend build
 pnpm --dir frontend config:check

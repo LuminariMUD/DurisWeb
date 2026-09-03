@@ -79,6 +79,9 @@ export interface Incident {
   description: string
 }
 
+/**
+ * Fetches server health status, database ping, memory, and services, optionally auto-refreshing.
+ */
 export function useServerHealth(autoRefresh = true) {
   const refetchInterval = autoRefresh ? 30000 : false // 30 seconds
 
@@ -103,6 +106,9 @@ export function useServerHealth(autoRefresh = true) {
   }
 }
 
+/**
+ * Fetches historical health metric samples over a specified hourly window.
+ */
 export function useHealthHistory(hours: Ref<number> | number = 24) {
   const { data, isLoading, error } = useQuery<{ history: HistoricalMetric[] }>({
     queryKey: ['server-health-history', hours],
@@ -120,8 +126,13 @@ export function useHealthHistory(hours: Ref<number> | number = 24) {
   }
 }
 
+/**
+ * Fetches server uptime percentage over a specified window of days.
+ * The uptime percentage is null when no health samples were recorded for the window.
+ */
 export function useUptime(days: number = 90) {
-  const { data, isLoading, error } = useQuery<{ uptime: number; days: number }>({
+  // uptime is null when no health samples were recorded for the window.
+  const { data, isLoading, error } = useQuery<{ uptime: number | null; days: number }>({
     queryKey: ['server-uptime', days],
     queryFn: async () => {
       const response = await apiClient.get(`/api/admin/server-health/uptime?days=${days}`)

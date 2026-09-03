@@ -14,6 +14,13 @@ import { ConfigurationError, getBackendConfiguration } from '../config/environme
 export { ConfigurationError } from '../config/environment.js';
 
 const CONFIGURATION_EXIT_STATUS = 78;
+const SQL_ARTIFACT_MANIFEST = 'sql-artifacts.json';
+const AUCTION_TABLES = [
+  'auctions',
+  'auction_bid_history',
+  'auction_item_pickups',
+  'auction_money_pickups',
+] as const;
 const REQUIRED_TABLES = [
   'admin_permissions',
   'forum_categories',
@@ -42,6 +49,7 @@ interface PreflightConfiguration {
   cache: RedisOptions;
   presence: ScopedRedisConfiguration | null;
   expectedMigrations: string[];
+  auctionWritesEnabled: boolean;
 }
 
 /** Resolve the checked-in migration directory from source or compiled scripts. */
@@ -68,6 +76,46 @@ function expectedMigrationNames(): string[] {
   return names;
 }
 
+/**
+ * Fail the release when a SQL artifact in the migration directory is neither
+ * executed by Knex (`extension: 'ts'`) nor classified in the checked-in
+ * manifest, so no migration artifact is silently ignored.
+ * See docs/ongoing-projects/ongoing.md, DB-08.
+ */
+export function verifySqlArtifactClassification(): void {
+  const directory = migrationDirectory();
+  const manifestPath = path.join(directory, SQL_ARTIFACT_MANIFEST);
+
+  let classified: Set<string>;
+  try {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
+      artifacts?: Record<string, unknown>;
+    };
+    classified = new Set(Object.keys(manifest.artifacts ?? {}));
+  } catch {
+    throw new ConfigurationError([`${SQL_ARTIFACT_MANIFEST} is missing or unreadable`]);
+  }
+
+  const present = fs
+    .readdirSync(directory)
+    .filter((name) => name.endsWith('.sql'))
+    .sort();
+
+  const unclassified = present.filter((name) => !classified.has(name));
+  if (unclassified.length > 0) {
+    throw new ConfigurationError([
+      `unclassified SQL migration artifacts: ${unclassified.join(', ')}`,
+    ]);
+  }
+
+  const stale = [...classified].filter((name) => !present.includes(name)).sort();
+  if (stale.length > 0) {
+    throw new ConfigurationError([
+      `${SQL_ARTIFACT_MANIFEST} lists removed artifacts: ${stale.join(', ')}`,
+    ]);
+  }
+}
+
 /** Parse the requested systemd preflight stage. */
 export function parsePreflightMode(args: string[]): PreflightMode {
   if (args.length === 0) return 'all';
@@ -79,6 +127,7 @@ export function parsePreflightMode(args: string[]): PreflightMode {
 /** Validate static release inputs without opening database or Redis connections. */
 export function loadPreflightConfiguration(): PreflightConfiguration {
   const environment = getBackendConfiguration();
+  verifySqlArtifactClassification();
   const cache = environment.cacheRedis;
   const presence = environment.features.mudRedis
     ? getScopedRedisConfiguration('presence', environment)
@@ -105,6 +154,7 @@ export function loadPreflightConfiguration(): PreflightConfiguration {
     },
     presence,
     expectedMigrations: expectedMigrationNames(),
+    auctionWritesEnabled: environment.unsafeMutations.auctionWrites,
   };
 }
 
@@ -181,6 +231,41 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
       throw new ConfigurationError([
         'web_sessions.refresh_token must hold at least 512 characters',
       ]);
+    }
+
+    // Direct auction writes are only safe against the current MUD contract:
+    // all four tables transactional, and `date` still an integer epoch column.
+    // See docs/ongoing-projects/ongoing.md, P0-A.
+    if (configuration.auctionWritesEnabled) {
+      const [auctionRows] = await database.query<RowDataPacket[]>(
+        `SELECT TABLE_NAME, ENGINE
+           FROM information_schema.TABLES
+          WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME IN (?)`,
+        [AUCTION_TABLES],
+      );
+      const engines = new Map(
+        auctionRows.map((row) => [String(row.TABLE_NAME), String(row.ENGINE)]),
+      );
+      const nonTransactional = AUCTION_TABLES.filter((table) => engines.get(table) !== 'InnoDB');
+      if (nonTransactional.length > 0) {
+        throw new ConfigurationError([
+          `auction writes require InnoDB; not transactional: ${nonTransactional.join(', ')}`,
+        ]);
+      }
+
+      const [bidDateRows] = await database.query<RowDataPacket[]>(
+        `SELECT DATA_TYPE
+           FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'auction_bid_history'
+            AND COLUMN_NAME = 'date'`,
+      );
+      if (bidDateRows.length !== 1 || String(bidDateRows[0].DATA_TYPE) !== 'int') {
+        throw new ConfigurationError([
+          'auction_bid_history.date must remain an integer epoch column',
+        ]);
+      }
     }
 
     const [migrationRows] = await database.query<RowDataPacket[]>(

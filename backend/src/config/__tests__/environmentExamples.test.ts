@@ -56,6 +56,10 @@ describe('backend environment examples', () => {
       'VAPID_PRIVATE_KEY',
       'VAPID_SUBJECT',
       'GEMINI_API_KEY',
+      'ALLOW_UNSAFE_AUCTION_WRITES',
+      'ALLOW_UNSAFE_ITEM_DELETES',
+      'ALLOW_UNSAFE_PLAYER_WIPE',
+      'ALLOW_UNSAFE_DATABASE_RESTORE',
     ];
     for (const key of optionalKeys) {
       expect(example).toMatch(new RegExp(`^#? ${key}=|^${key}=`, 'm'));
