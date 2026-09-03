@@ -194,8 +194,9 @@ existing data, so it has not been run against the game database.
 - Current world association/guild definitions do not match the old database.
   Rather than attach players to the wrong guild, 176 imported nonzero
   association IDs and all 190 nonzero guild-status bitsets were reset to zero.
-  Semantic reconciliation is tracked in
-  [DurisWeb #16](https://github.com/LuminariMUD/DurisWeb/issues/16).
+  Their final import disposition keeps those values normalized to zero in favor
+  of current authority; see
+  [legacy affiliation disposition](../post-import/legacy-affiliation-disposition.md).
   Seven forum-thread and nine forum-post character IDs that no longer identify
   an imported character were cleared, while their account-attributed content
   was preserved. Two imported PvP comments had unusable participant pointers;
