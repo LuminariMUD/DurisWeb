@@ -219,8 +219,9 @@ existing data, so it has not been run against the game database.
   accepted row.
 - Thirty-seven PvP comments reference PK events absent from the source dump and
   were left out rather than attached to a same-numbered unrelated event. Their
-  recovery/archive decision is tracked in
-  [DurisWeb #17](https://github.com/LuminariMUD/DurisWeb/issues/17).
+  final disposition is a permanent skip from this import with protected source
+  retention; see
+  [orphaned PvP comment disposition](../post-import/orphaned-pvp-comment-disposition.md).
 
 #### Whole-table policy skips from the non-empty source
 
