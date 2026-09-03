@@ -56,6 +56,96 @@ export async function checkMudDatabaseConnection(): Promise<boolean> {
   }
 }
 
+/**
+ * Session state a pooled connection must still have when it is handed to a
+ * request. A handler that changes any of these and releases the connection
+ * silently weakens later unrelated queries.
+ * See docs/ongoing-projects/ongoing.md, P0-D.
+ */
+export interface SessionInvariants {
+  sqlMode: string;
+  globalSqlMode: string;
+  isolationLevel: string;
+  globalIsolationLevel: string;
+  timeZone: string;
+  globalTimeZone: string;
+  foreignKeyChecks: number;
+}
+
+/** Describe every way a checked-out connection deviates from server defaults. */
+export function sessionInvariantDrift(observed: SessionInvariants): string[] {
+  const drift: string[] = [];
+  if (observed.sqlMode.trim() === '') {
+    drift.push('sql_mode is empty, so strict, zero-date, and division safeguards are disabled');
+  } else if (observed.sqlMode !== observed.globalSqlMode) {
+    drift.push(
+      `sql_mode is "${observed.sqlMode}" but the server default is "${observed.globalSqlMode}"`,
+    );
+  }
+  if (observed.isolationLevel !== observed.globalIsolationLevel) {
+    drift.push(
+      `transaction_isolation is "${observed.isolationLevel}" but the server default is "${observed.globalIsolationLevel}"`,
+    );
+  }
+  if (observed.timeZone !== observed.globalTimeZone) {
+    drift.push(
+      `time_zone is "${observed.timeZone}" but the server default is "${observed.globalTimeZone}"`,
+    );
+  }
+  if (observed.foreignKeyChecks !== 1) {
+    drift.push('foreign_key_checks is disabled');
+  }
+  return drift;
+}
+
+/**
+ * Check out one connection from each configured pool and fail startup when its
+ * session state has already drifted from the server defaults.
+ */
+export async function verifyPoolSessionInvariants(): Promise<void> {
+  const pools: [string, mysql.Pool][] =
+    mudPool === pool
+      ? [['web', pool]]
+      : [
+          ['web', pool],
+          ['mud', mudPool],
+        ];
+
+  for (const [name, currentPool] of pools) {
+    const connection = await currentPool.getConnection();
+    try {
+      const [rows] = await connection.query<mysql.RowDataPacket[]>(
+        `SELECT @@SESSION.sql_mode AS sqlMode,
+                @@GLOBAL.sql_mode AS globalSqlMode,
+                @@SESSION.transaction_isolation AS isolationLevel,
+                @@GLOBAL.transaction_isolation AS globalIsolationLevel,
+                @@SESSION.time_zone AS timeZone,
+                @@GLOBAL.time_zone AS globalTimeZone,
+                @@SESSION.foreign_key_checks AS foreignKeyChecks`,
+      );
+      const observed: SessionInvariants = {
+        sqlMode: String(rows[0].sqlMode),
+        globalSqlMode: String(rows[0].globalSqlMode),
+        isolationLevel: String(rows[0].isolationLevel),
+        globalIsolationLevel: String(rows[0].globalIsolationLevel),
+        timeZone: String(rows[0].timeZone),
+        globalTimeZone: String(rows[0].globalTimeZone),
+        foreignKeyChecks: Number(rows[0].foreignKeyChecks),
+      };
+
+      const drift = sessionInvariantDrift(observed);
+      if (drift.length > 0) {
+        throw new Error(`${name} pool session invariants drifted: ${drift.join('; ')}`);
+      }
+      logger.info(
+        `${name} pool session invariants verified (sql_mode "${observed.sqlMode}", isolation ${observed.isolationLevel}).`,
+      );
+    } finally {
+      connection.release();
+    }
+  }
+}
+
 // Verify table schemas
 export async function verifyDatabaseSchema(): Promise<void> {
   try {

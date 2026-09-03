@@ -48,6 +48,7 @@ import {
   checkDatabaseConnection,
   checkMudDatabaseConnection,
   verifyDatabaseSchema,
+  verifyPoolSessionInvariants,
   closeDatabaseConnection,
 } from './db/connection.js';
 import { closeRedisConnection } from './db/redis.js';
@@ -989,6 +990,9 @@ async function startServer() {
     // Verify database schema
     logger.info('\nVerifying database schema...');
     await verifyDatabaseSchema();
+
+    // A pooled connection must still carry the server's strict session state.
+    await verifyPoolSessionInvariants();
 
     // Get initial last event ID
     const initialEvents = await getLatestEvents(1, 0);

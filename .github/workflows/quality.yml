@@ -75,3 +75,8 @@ jobs:
       - name: Type-check
         working-directory: ${{ matrix.package }}
         run: pnpm type-check
+
+      - name: Verify MUD write allowlist
+        if: matrix.package == 'backend'
+        working-directory: ${{ matrix.package }}
+        run: pnpm verify:mud-writes

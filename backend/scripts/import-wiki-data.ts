@@ -57,11 +57,7 @@ const COLUMNS: Record<string, string> = {
 const stripAnsi = (value: string): string => value.replace(/&[+=-][A-Za-z]|&[nN]/g, '');
 
 /** Insert one table's rows in bounded batches to keep packet size predictable. */
-async function insertAll(
-  connection: PoolConnection,
-  table: string,
-  rows: Row[],
-): Promise<void> {
+async function insertAll(connection: PoolConnection, table: string, rows: Row[]): Promise<void> {
   for (let offset = 0; offset < rows.length; offset += INSERT_BATCH_SIZE) {
     const batch = rows.slice(offset, offset + INSERT_BATCH_SIZE);
     await connection.query(`INSERT INTO ${table} (${COLUMNS[table]}) VALUES ?`, [batch]);
@@ -197,7 +193,9 @@ async function main() {
 
       process.stdout.write(`\r  parsed ${staged.wiki_mobs.length} mobs from ${zone.id}...`);
     }
-    console.log(`\n  done: ${staged.wiki_mobs.length} mobs, ${staged.wiki_mob_flags.length} flags\n`);
+    console.log(
+      `\n  done: ${staged.wiki_mobs.length} mobs, ${staged.wiki_mob_flags.length} flags\n`,
+    );
 
     // Publishing an empty generation would silently take the wiki offline.
     if (staged.wiki_objects.length === 0 || staged.wiki_mobs.length === 0) {

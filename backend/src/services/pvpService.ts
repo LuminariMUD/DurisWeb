@@ -1065,10 +1065,10 @@ export async function addBattleLike(eventId: number, accountName: string): Promi
       await connection.beginTransaction();
 
       // Try to insert the like
-      await connection.query('INSERT INTO pvp_battle_likes (event_id, account_name) VALUES (?, ?)', [
-        eventId,
-        accountName,
-      ]);
+      await connection.query(
+        'INSERT INTO pvp_battle_likes (event_id, account_name) VALUES (?, ?)',
+        [eventId, accountName],
+      );
 
       await connection.query('UPDATE pkill_event SET like_count = like_count + 1 WHERE id = ?', [
         eventId,

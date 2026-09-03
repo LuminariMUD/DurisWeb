@@ -9,7 +9,14 @@ import { getBackendConfiguration } from '../config/environment.js';
  *
  * See docs/ongoing-projects/ongoing.md, findings P0-A, P0-B, P0-C, and P0-F.
  */
-export type MutationGate = 'auctionWrites' | 'itemDeletes' | 'playerWipe' | 'databaseRestore';
+export const MUTATION_GATES = [
+  'auctionWrites',
+  'itemDeletes',
+  'playerWipe',
+  'databaseRestore',
+] as const;
+
+export type MutationGate = (typeof MUTATION_GATES)[number];
 
 const GATE_ENVIRONMENT_VARIABLE: Record<MutationGate, string> = {
   auctionWrites: 'ALLOW_UNSAFE_AUCTION_WRITES',

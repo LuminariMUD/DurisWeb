@@ -244,7 +244,9 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
             AND TABLE_NAME IN (?)`,
         [AUCTION_TABLES],
       );
-      const engines = new Map(auctionRows.map((row) => [String(row.TABLE_NAME), String(row.ENGINE)]));
+      const engines = new Map(
+        auctionRows.map((row) => [String(row.TABLE_NAME), String(row.ENGINE)]),
+      );
       const nonTransactional = AUCTION_TABLES.filter((table) => engines.get(table) !== 'InnoDB');
       if (nonTransactional.length > 0) {
         throw new ConfigurationError([

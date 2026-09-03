@@ -4,8 +4,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-const getBackendConfiguration =
-  jest.fn<() => { unsafeMutations: Record<string, boolean> }>();
+const getBackendConfiguration = jest.fn<() => { unsafeMutations: Record<string, boolean> }>();
 
 jest.unstable_mockModule('../../config/environment.js', () => ({
   getBackendConfiguration,
