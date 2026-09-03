@@ -11,7 +11,9 @@ import {
 } from '../utils/scopedRedis.js';
 import { ConfigurationError, getBackendConfiguration } from '../config/environment.js';
 import {
+  readWikiMobGeneration,
   readWikiObjectGeneration,
+  validateWikiMobGeneration,
   validateWikiObjectGeneration,
 } from '../services/wikiGeneration.js';
 
@@ -38,6 +40,8 @@ const REQUIRED_TABLES = [
   'user_profile_stats',
   'web_sessions',
   'web_settings',
+  'wiki_mob_flags',
+  'wiki_mobs',
   'wiki_object_affects',
   'wiki_object_classes',
   'wiki_object_races',
@@ -206,6 +210,10 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
     );
     if (objectGenerationIssues.length > 0) {
       throw new ConfigurationError(objectGenerationIssues);
+    }
+    const mobGenerationIssues = validateWikiMobGeneration(await readWikiMobGeneration(database));
+    if (mobGenerationIssues.length > 0) {
+      throw new ConfigurationError(mobGenerationIssues);
     }
 
     const [runtimeContractRows] = await database.query<RowDataPacket[]>(`

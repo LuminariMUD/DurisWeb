@@ -15,7 +15,9 @@ import type { Room } from '../types/builder.js';
 import logger from '../utils/logger.js';
 import { EQUIP_SLOTS } from '../types/builder.js';
 import {
+  readWikiMobGeneration,
   readWikiObjectGeneration,
+  validateWikiMobGeneration,
   validateWikiObjectGeneration,
   type WikiSourceIdentity,
 } from './wikiGeneration.js';
@@ -107,6 +109,11 @@ export async function getWikiObjectReference(): Promise<WikiObjectReference> {
 /** Return aggregate-only reasons the object reference projection is unavailable. */
 export async function getWikiObjectReferenceIssues(): Promise<string[]> {
   return (await getWikiObjectReference()).issues;
+}
+
+/** Return aggregate-only reasons the mob reference projection is unavailable. */
+export async function getWikiMobReferenceIssues(): Promise<string[]> {
+  return validateWikiMobGeneration(await readWikiMobGeneration(pool));
 }
 
 export interface WikiZoneDetail extends WikiZone {

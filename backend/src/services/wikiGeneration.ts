@@ -36,6 +36,14 @@ export interface WikiObjectGenerationRow extends RowDataPacket {
   orphan_races: number | string;
 }
 
+export interface WikiMobGenerationRow extends RowDataPacket {
+  source_revision: string;
+  source_tree: string;
+  mob_count: number | string;
+  actual_mob_count: number | string;
+  orphan_flags: number | string;
+}
+
 /** Return aggregate-only object generation evidence without exposing source paths or content. */
 export async function readWikiObjectGeneration(
   database: Pick<Pool, 'query'>,
@@ -85,6 +93,44 @@ export function validateWikiObjectGeneration(row: WikiObjectGenerationRow | null
     Number(row.orphan_races);
   if (!Number.isSafeInteger(orphanCount) || orphanCount !== 0) {
     issues.push('wiki object reference generation has inconsistent child rows');
+  }
+  return issues;
+}
+
+/** Return aggregate-only mob generation evidence without exposing source paths or content. */
+export async function readWikiMobGeneration(
+  database: Pick<Pool, 'query'>,
+): Promise<WikiMobGenerationRow | null> {
+  const [rows] = await database.query<WikiMobGenerationRow[]>(`
+    SELECT
+      g.source_revision,
+      g.source_tree,
+      g.mob_count,
+      (SELECT COUNT(*) FROM wiki_mobs) AS actual_mob_count,
+      (SELECT COUNT(*) FROM wiki_mob_flags f LEFT JOIN wiki_mobs m ON m.zone_number = f.zone_number AND m.vnum = f.mob_vnum WHERE m.vnum IS NULL) AS orphan_flags
+    FROM wiki_reference_generations g
+    WHERE g.id = 1
+  `);
+  return rows[0] ?? null;
+}
+
+/** Explain every mob-generation readiness failure using aggregate evidence only. */
+export function validateWikiMobGeneration(row: WikiMobGenerationRow | null): string[] {
+  if (!row) return ['wiki mob reference generation has not been published'];
+
+  const issues: string[] = [];
+  if (row.source_revision.trim() === '' || row.source_tree.trim() === '') {
+    issues.push('wiki mob reference generation has no source identity');
+  }
+  const expected = Number(row.mob_count);
+  const actual = Number(row.actual_mob_count);
+  if (!Number.isSafeInteger(expected) || expected <= 0) {
+    issues.push('wiki mob reference generation is empty');
+  } else if (actual !== expected) {
+    issues.push(`wiki mob reference count drifted (published ${expected}, current ${actual})`);
+  }
+  if (!Number.isSafeInteger(Number(row.orphan_flags)) || Number(row.orphan_flags) !== 0) {
+    issues.push('wiki mob reference generation has inconsistent flag rows');
   }
   return issues;
 }

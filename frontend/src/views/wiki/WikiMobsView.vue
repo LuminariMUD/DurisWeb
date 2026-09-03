@@ -34,6 +34,7 @@ import { Badge } from '@/components/ui/badge'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
 import AnsiText from '@/components/ui/AnsiText.vue'
 import { wikiApi } from '@/services/api'
+import { hasApiErrorCode } from '@/utils/apiError'
 import type { WikiMob, WikiMobFilters, WikiMobClass, WikiMobRace, WikiActFlag } from '@/types'
 import {
   Search,
@@ -53,6 +54,7 @@ const router = useRouter()
 // State
 const initialLoading = ref(true)
 const tableLoading = ref(false)
+const referenceUnavailable = ref(false)
 const mobs = ref<WikiMob[]>([])
 const total = ref(0)
 const currentPage = ref(1)
@@ -262,10 +264,18 @@ async function loadMobs(isInitial = false) {
       sortOrder.value,
     )
     mobs.value = result.mobs
+    referenceUnavailable.value = false
     total.value = result.total
     totalPages.value = result.totalPages
   } catch (e) {
-    console.error('Failed to load mobs:', e)
+    if (hasApiErrorCode(e, 503, 'WIKI_MOB_REFERENCE_UNAVAILABLE')) {
+      referenceUnavailable.value = true
+      mobs.value = []
+      total.value = 0
+      totalPages.value = 0
+    } else {
+      console.error('Failed to load mobs:', e)
+    }
   } finally {
     initialLoading.value = false
     tableLoading.value = false
@@ -936,7 +946,13 @@ onMounted(async () => {
               </div>
             </div>
 
-            <!-- Empty State -->
+            <!-- Unpublished Reference State -->
+            <div v-else-if="referenceUnavailable" class="text-center py-12 px-4 text-muted-foreground">
+              <p class="font-medium text-foreground">Mob reference data is temporarily unavailable.</p>
+              <p class="mt-1 text-sm">An operator must publish and verify the current reference generation.</p>
+            </div>
+
+            <!-- Empty Filter State -->
             <div v-else-if="mobs.length === 0" class="text-center py-12 text-muted-foreground">
               No mobs found matching your criteria.
             </div>

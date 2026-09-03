@@ -54,8 +54,8 @@ node dist/scripts/productionPreflight.js --dependencies
 The first command aggregates invalid configuration and verifies the migration
 bundle. The second verifies required tables, the canonical MUD-owned
 `server_reboots` shape, absence of the prohibited incoming extension foreign
-key, refresh-token column capacity, a nonempty and internally consistent wiki
-object generation with persisted source identity, the complete migration ledger, general
+key, refresh-token column capacity, nonempty and internally consistent wiki
+object and mob generations with persisted source identity, the complete migration ledger, general
 cache, the optional scoped presence read/subscription operations, and the
 auction engine/timestamp contract when direct auction writes are explicitly
 enabled. Other feature projections still need explicit data-readiness checks,

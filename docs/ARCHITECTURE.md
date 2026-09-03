@@ -143,9 +143,9 @@ builder-flag synchronizer parse and validate a non-empty generation before
 touching published rows. They replace their respective InnoDB rows inside one
 transaction, in bounded insert batches, so a failure rolls back to the prior
 generation. Empty source output is a hard failure, not a valid publication.
-Production preflight checks the published object marker, count, and child
-consistency. Release acceptance must still verify the enabled feature's API
-data and rendered surface.
+Production preflight checks the published object and mob markers, counts, and
+child consistency. Release acceptance must still verify the enabled feature's
+API data and rendered surface.
 
 Object-detail caches include the published source revision and tree in their
 keys. Cache misses reconstruct flatfile-only detail and load-location data from

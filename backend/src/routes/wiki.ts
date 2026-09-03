@@ -719,6 +719,15 @@ router.get(
   listLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const referenceIssues = await wikiService.getWikiMobReferenceIssues();
+      if (referenceIssues.length > 0) {
+        res.status(503).json({
+          code: 'WIKI_MOB_REFERENCE_UNAVAILABLE',
+          error: 'Wiki mob reference data is unavailable. An operator must publish it.',
+        });
+        return;
+      }
+
       const {
         page = '1',
         limit = '20',
