@@ -54,16 +54,45 @@ const COLUMNS: Record<string, string> = {
   wiki_mob_flags: 'zone_number, mob_vnum, flag_id',
 };
 
+// Every published statement is a literal so the MUD write allowlist scan can
+// see and classify each one; no table name is interpolated at runtime.
+const INSERT_SQL: Record<string, string> = {
+  wiki_objects: `INSERT INTO wiki_objects (${COLUMNS.wiki_objects}) VALUES ?`,
+  wiki_object_affects: `INSERT INTO wiki_object_affects (${COLUMNS.wiki_object_affects}) VALUES ?`,
+  wiki_object_slots: `INSERT INTO wiki_object_slots (${COLUMNS.wiki_object_slots}) VALUES ?`,
+  wiki_object_spell_effects: `INSERT INTO wiki_object_spell_effects (${COLUMNS.wiki_object_spell_effects}) VALUES ?`,
+  wiki_object_classes: `INSERT INTO wiki_object_classes (${COLUMNS.wiki_object_classes}) VALUES ?`,
+  wiki_object_races: `INSERT INTO wiki_object_races (${COLUMNS.wiki_object_races}) VALUES ?`,
+  wiki_mobs: `INSERT INTO wiki_mobs (${COLUMNS.wiki_mobs}) VALUES ?`,
+  wiki_mob_flags: `INSERT INTO wiki_mob_flags (${COLUMNS.wiki_mob_flags}) VALUES ?`,
+};
+
+const DELETE_SQL: Record<string, string> = {
+  wiki_mob_flags: 'DELETE FROM wiki_mob_flags',
+  wiki_object_races: 'DELETE FROM wiki_object_races',
+  wiki_object_classes: 'DELETE FROM wiki_object_classes',
+  wiki_object_spell_effects: 'DELETE FROM wiki_object_spell_effects',
+  wiki_object_slots: 'DELETE FROM wiki_object_slots',
+  wiki_object_affects: 'DELETE FROM wiki_object_affects',
+  wiki_mobs: 'DELETE FROM wiki_mobs',
+  wiki_objects: 'DELETE FROM wiki_objects',
+};
+
 const stripAnsi = (value: string): string => value.replace(/&[+=-][A-Za-z]|&[nN]/g, '');
 
-/** Insert one table's rows in bounded batches to keep packet size predictable. */
-async function insertAll(connection: PoolConnection, table: string, rows: Row[]): Promise<void> {
+/** Insert one statement's rows in bounded batches to keep packet size predictable. */
+async function insertAll(connection: PoolConnection, sql: string, rows: Row[]): Promise<void> {
   for (let offset = 0; offset < rows.length; offset += INSERT_BATCH_SIZE) {
     const batch = rows.slice(offset, offset + INSERT_BATCH_SIZE);
-    await connection.query(`INSERT INTO ${table} (${COLUMNS[table]}) VALUES ?`, [batch]);
+    await connection.query(sql, [batch]);
   }
 }
 
+/**
+ * Parse every zone's flatfiles, stage a complete generation in memory, then
+ * publish it atomically: all children are deleted before their parents inside
+ * one transaction, and any failure rolls back to the previous generation.
+ */
 async function main() {
   console.log('importing wiki data from mud flatfiles...\n');
 
@@ -211,10 +240,10 @@ async function main() {
       await connection.beginTransaction();
 
       for (const table of PUBLISHED_TABLES) {
-        await connection.query(`DELETE FROM ${table}`);
+        await connection.query(DELETE_SQL[table]);
       }
       for (const table of [...PUBLISHED_TABLES].reverse()) {
-        await insertAll(connection, table, staged[table]);
+        await insertAll(connection, INSERT_SQL[table], staged[table]);
       }
 
       await connection.commit();

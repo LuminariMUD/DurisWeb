@@ -117,53 +117,106 @@ export async function detectIsolationVariableName(
   }
 }
 
+/** How often a pooled connection is re-checked during normal operation. */
+const POOL_SESSION_SAMPLE_INTERVAL_MS = 5 * 60 * 1000;
+
+/** The distinct pools a connection can be checked out from, with display names. */
+function configuredPools(): [string, mysql.Pool][] {
+  return mudPool === pool
+    ? [['web', pool]]
+    : [
+        ['web', pool],
+        ['mud', mudPool],
+      ];
+}
+
+/**
+ * Check out one connection from the pool and compare its session state
+ * against the server defaults. Returns the drift descriptions, if any.
+ */
+async function checkoutSessionInvariants(currentPool: mysql.Pool): Promise<string[]> {
+  const connection = await currentPool.getConnection();
+  try {
+    const isolationVar = await detectIsolationVariableName(connection);
+    const [rows] = await connection.query<mysql.RowDataPacket[]>(
+      `SELECT @@SESSION.sql_mode AS sqlMode,
+              @@GLOBAL.sql_mode AS globalSqlMode,
+              @@SESSION.${isolationVar} AS isolationLevel,
+              @@GLOBAL.${isolationVar} AS globalIsolationLevel,
+              @@SESSION.time_zone AS timeZone,
+              @@GLOBAL.time_zone AS globalTimeZone,
+              @@SESSION.foreign_key_checks AS foreignKeyChecks`,
+    );
+    const observed: SessionInvariants = {
+      sqlMode: String(rows[0].sqlMode),
+      globalSqlMode: String(rows[0].globalSqlMode),
+      isolationLevel: String(rows[0].isolationLevel),
+      globalIsolationLevel: String(rows[0].globalIsolationLevel),
+      timeZone: String(rows[0].timeZone),
+      globalTimeZone: String(rows[0].globalTimeZone),
+      foreignKeyChecks: Number(rows[0].foreignKeyChecks),
+    };
+    return sessionInvariantDrift(observed);
+  } finally {
+    connection.release();
+  }
+}
+
 /**
  * Check out one connection from each configured pool and fail startup when its
  * session state has already drifted from the server defaults.
  */
 export async function verifyPoolSessionInvariants(): Promise<void> {
-  const pools: [string, mysql.Pool][] =
-    mudPool === pool
-      ? [['web', pool]]
-      : [
-          ['web', pool],
-          ['mud', mudPool],
-        ];
+  for (const [name, currentPool] of configuredPools()) {
+    const drift = await checkoutSessionInvariants(currentPool);
+    if (drift.length > 0) {
+      throw new Error(`${name} pool session invariants drifted: ${drift.join('; ')}`);
+    }
+    logger.info(`${name} pool session invariants verified.`);
+  }
+}
 
-  for (const [name, currentPool] of pools) {
-    const connection = await currentPool.getConnection();
+/**
+ * Sample one checkout per configured pool and report drift as telemetry.
+ * Unlike the startup verifier this never throws: a handler that leaked
+ * mutated session state after boot surfaces as a logged alert without a
+ * restart. See docs/ongoing-projects/ongoing.md, P0-D.
+ */
+export async function samplePoolSessionInvariants(): Promise<void> {
+  for (const [name, currentPool] of configuredPools()) {
     try {
-      const isolationVar = await detectIsolationVariableName(connection);
-      const [rows] = await connection.query<mysql.RowDataPacket[]>(
-        `SELECT @@SESSION.sql_mode AS sqlMode,
-                @@GLOBAL.sql_mode AS globalSqlMode,
-                @@SESSION.${isolationVar} AS isolationLevel,
-                @@GLOBAL.${isolationVar} AS globalIsolationLevel,
-                @@SESSION.time_zone AS timeZone,
-                @@GLOBAL.time_zone AS globalTimeZone,
-                @@SESSION.foreign_key_checks AS foreignKeyChecks`,
-      );
-      const observed: SessionInvariants = {
-        sqlMode: String(rows[0].sqlMode),
-        globalSqlMode: String(rows[0].globalSqlMode),
-        isolationLevel: String(rows[0].isolationLevel),
-        globalIsolationLevel: String(rows[0].globalIsolationLevel),
-        timeZone: String(rows[0].timeZone),
-        globalTimeZone: String(rows[0].globalTimeZone),
-        foreignKeyChecks: Number(rows[0].foreignKeyChecks),
-      };
-
-      const drift = sessionInvariantDrift(observed);
+      const drift = await checkoutSessionInvariants(currentPool);
       if (drift.length > 0) {
-        throw new Error(`${name} pool session invariants drifted: ${drift.join('; ')}`);
+        logger.error(
+          `${name} pool session invariants drifted on sampled checkout: ${drift.join('; ')}`,
+        );
       }
-      logger.info(
-        `${name} pool session invariants verified (sql_mode "${observed.sqlMode}", isolation ${observed.isolationLevel}).`,
-      );
-    } finally {
-      connection.release();
+    } catch (error) {
+      logger.error('Pool session invariant sampling failed:', error);
     }
   }
+}
+
+/**
+ * Sample pool session invariants periodically during normal operation.
+ * A sample that outlives its interval is never overlapped: the tick is
+ * skipped while the previous sample is still waiting on checked-out
+ * connections, so the unbounded pool checkout queue cannot accumulate
+ * duplicated sampling work.
+ */
+export function startPoolSessionInvariantSampling(
+  intervalMs = POOL_SESSION_SAMPLE_INTERVAL_MS,
+): NodeJS.Timeout {
+  let sampling = false;
+  const timer = setInterval(() => {
+    if (sampling) return;
+    sampling = true;
+    void samplePoolSessionInvariants().finally(() => {
+      sampling = false;
+    });
+  }, intervalMs);
+  timer.unref();
+  return timer;
 }
 
 // Verify table schemas
@@ -201,10 +254,13 @@ export async function verifyDatabaseSchema(): Promise<void> {
   }
 }
 
-// Graceful shutdown
+/**
+ * Close every configured pool during graceful shutdown. Failures are logged
+ * rather than thrown so shutdown always reaches the remaining cleanup steps.
+ */
 export async function closeDatabaseConnection(): Promise<void> {
   try {
-    const pools = mudPool === pool ? [pool] : [pool, mudPool];
+    const pools = configuredPools().map(([, currentPool]) => currentPool);
     await Promise.all(pools.map((currentPool) => currentPool.end()));
     logger.info('Database connection pools closed');
   } catch (error) {

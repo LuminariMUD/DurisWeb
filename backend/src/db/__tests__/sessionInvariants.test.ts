@@ -1,9 +1,13 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { afterEach, describe, expect, it, jest } from '@jest/globals';
 
+import logger from '../../utils/logger.js';
 import {
   type SessionInvariants,
   detectIsolationVariableName,
+  pool,
+  samplePoolSessionInvariants,
   sessionInvariantDrift,
+  startPoolSessionInvariantSampling,
 } from '../connection.js';
 
 const strictSession: SessionInvariants = {
@@ -37,6 +41,93 @@ describe('pooled session invariants', () => {
         foreignKeyChecks: 0,
       }),
     ).toHaveLength(4);
+  });
+
+  describe('samplePoolSessionInvariants', () => {
+    const getConnection = pool.getConnection.bind(pool);
+    let loggerError: ReturnType<typeof jest.spyOn>;
+
+    afterEach(() => {
+      pool.getConnection = getConnection;
+      jest.restoreAllMocks();
+    });
+
+    /** Replace pool.getConnection with one checkout that answers with `row`. */
+    function mockCheckout(row: object): void {
+      const query = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+      query.mockResolvedValueOnce([[]]);
+      query.mockResolvedValueOnce([[row]]);
+      (pool as unknown as { getConnection: () => Promise<unknown> }).getConnection = jest
+        .fn<() => Promise<unknown>>()
+        .mockResolvedValue({ query, release: jest.fn() });
+    }
+
+    it('alerts on drift without throwing', async () => {
+      mockCheckout({ ...strictSession, sqlMode: '' });
+      loggerError = jest.spyOn(logger, 'error').mockImplementation(() => logger);
+
+      await expect(samplePoolSessionInvariants()).resolves.toBeUndefined();
+      expect(loggerError).toHaveBeenCalledWith(
+        expect.stringContaining('web pool session invariants drifted on sampled checkout'),
+      );
+    });
+
+    it('stays quiet on a clean checkout', async () => {
+      mockCheckout(strictSession);
+      loggerError = jest.spyOn(logger, 'error').mockImplementation(() => logger);
+
+      await expect(samplePoolSessionInvariants()).resolves.toBeUndefined();
+      expect(loggerError).not.toHaveBeenCalled();
+    });
+
+    it('alerts instead of throwing when the sampled checkout fails', async () => {
+      (pool as unknown as { getConnection: () => Promise<unknown> }).getConnection = jest
+        .fn<() => Promise<unknown>>()
+        .mockRejectedValue(new Error('pool closed'));
+      loggerError = jest.spyOn(logger, 'error').mockImplementation(() => logger);
+
+      await expect(samplePoolSessionInvariants()).resolves.toBeUndefined();
+      expect(loggerError).toHaveBeenCalledWith(
+        'Pool session invariant sampling failed:',
+        expect.anything(),
+      );
+    });
+  });
+
+  describe('startPoolSessionInvariantSampling', () => {
+    it('skips ticks while the previous sample is still in flight', async () => {
+      jest.useFakeTimers();
+      const getConnection = pool.getConnection.bind(pool);
+      let checkoutCalls = 0;
+      let releaseCheckout: () => void = () => {};
+      (pool as unknown as { getConnection: () => Promise<unknown> }).getConnection = jest.fn(
+        () =>
+          new Promise((resolve) => {
+            checkoutCalls += 1;
+            releaseCheckout = () =>
+              resolve({
+                query: jest.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue([[]]),
+                release: jest.fn(),
+              });
+          }),
+      );
+      jest.spyOn(logger, 'error').mockImplementation(() => logger);
+
+      startPoolSessionInvariantSampling(1000);
+      try {
+        jest.advanceTimersByTime(1000);
+        jest.advanceTimersByTime(5000);
+        expect(checkoutCalls).toBe(1);
+
+        releaseCheckout();
+        await jest.advanceTimersByTimeAsync(1000);
+        expect(checkoutCalls).toBe(2);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+        pool.getConnection = getConnection;
+      }
+    });
   });
 
   describe('detectIsolationVariableName', () => {
