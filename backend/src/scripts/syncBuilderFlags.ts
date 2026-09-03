@@ -75,7 +75,7 @@ async function syncFlags() {
   const categoriesToUpdate = [...publishedCategories];
 
   // Replace the published generation atomically so a failed load leaves the
-  // previous flags fully queryable (docs/ongoing-projects/ongoing.md, P1-F).
+  // previous flags fully queryable. See docs/ARCHITECTURE.md#generated-projections.
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();

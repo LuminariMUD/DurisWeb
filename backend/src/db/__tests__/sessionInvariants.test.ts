@@ -25,6 +25,22 @@ describe('pooled session invariants', () => {
     expect(sessionInvariantDrift(strictSession)).toEqual([]);
   });
 
+  it('accepts mysql2 client IGNORE_SPACE without masking the server safeguards', () => {
+    expect(
+      sessionInvariantDrift({
+        ...strictSession,
+        sqlMode: `IGNORE_SPACE,${strictSession.globalSqlMode}`,
+      }),
+    ).toEqual([]);
+    expect(
+      sessionInvariantDrift({
+        ...strictSession,
+        sqlMode: 'IGNORE_SPACE',
+        globalSqlMode: '',
+      }),
+    ).toEqual([expect.stringContaining('no effective server safeguards')]);
+  });
+
   it('reports a cleared sql_mode as the disabled-safeguard failure it is', () => {
     const drift = sessionInvariantDrift({ ...strictSession, sqlMode: '' });
     expect(drift).toHaveLength(1);

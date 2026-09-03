@@ -92,7 +92,7 @@ export interface BackendConfiguration {
   /**
    * Write paths that mutate MUD-owned state outside the MUD's transaction,
    * ownership, and ledger contracts. Each stays closed unless explicitly
-   * enabled. See docs/ongoing-projects/ongoing.md (DB-01, DB-02, DB-03, DB-06).
+   * enabled. See docs/environments.md#unsafe-mutation-gates.
    */
   unsafeMutations: {
     auctionWrites: boolean;

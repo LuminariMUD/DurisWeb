@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from '@jest/globals';
 import {
   findForbiddenWriteForms,
   loadMudWriteAllowlist,
+  parseMudManifestPath,
   resolveMultiTableDeleteTargets,
   scanMudOwnedWrites,
   splitTableList,
@@ -80,6 +81,14 @@ afterEach(() => {
 });
 
 describe('MUD write allowlist', () => {
+  it('parses an explicit tooling-only MUD manifest path', () => {
+    expect(parseMudManifestPath([])).toBeUndefined();
+    expect(parseMudManifestPath(['--mud-manifest', 'fixtures/migration_manifest.json'])).toBe(
+      path.resolve('fixtures/migration_manifest.json'),
+    );
+    expect(() => parseMudManifestPath(['--mud-manifest'])).toThrow(/--mud-manifest <path>/);
+  });
+
   it('classifies every checked-in write to a MUD-owned table', () => {
     const checked = verifyMudWriteAllowlist();
     expect(checked.length).toBeGreaterThan(0);

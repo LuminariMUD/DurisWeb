@@ -60,7 +60,7 @@ export async function checkMudDatabaseConnection(): Promise<boolean> {
  * Session state a pooled connection must still have when it is handed to a
  * request. A handler that changes any of these and releases the connection
  * silently weakens later unrelated queries.
- * See docs/ongoing-projects/ongoing.md, P0-D.
+ * See docs/ARCHITECTURE.md#pooled-session-invariants.
  */
 export interface SessionInvariants {
   sqlMode: string;
@@ -72,15 +72,35 @@ export interface SessionInvariants {
   foreignKeyChecks: number;
 }
 
+// mysql2 enables the client IGNORE_SPACE capability on every new connection.
+// MariaDB exposes that parser-only capability as a session SQL mode even when
+// it is absent from the server default; it does not weaken strict safeguards.
+const CLIENT_SESSION_SQL_MODES = new Set(['IGNORE_SPACE']);
+
+/** Canonicalize safeguard-bearing SQL modes for a session/default comparison. */
+function comparableSqlModes(value: string): string[] {
+  return value
+    .split(',')
+    .map((mode) => mode.trim().toUpperCase())
+    .filter((mode) => mode !== '' && !CLIENT_SESSION_SQL_MODES.has(mode))
+    .sort();
+}
+
 /** Describe every way a checked-out connection deviates from server defaults. */
 export function sessionInvariantDrift(observed: SessionInvariants): string[] {
   const drift: string[] = [];
   if (observed.sqlMode.trim() === '') {
     drift.push('sql_mode is empty, so strict, zero-date, and division safeguards are disabled');
-  } else if (observed.sqlMode !== observed.globalSqlMode) {
-    drift.push(
-      `sql_mode is "${observed.sqlMode}" but the server default is "${observed.globalSqlMode}"`,
-    );
+  } else {
+    const sessionSqlModes = comparableSqlModes(observed.sqlMode);
+    const globalSqlModes = comparableSqlModes(observed.globalSqlMode);
+    if (sessionSqlModes.length === 0) {
+      drift.push('sql_mode has no effective server safeguards enabled');
+    } else if (sessionSqlModes.join(',') !== globalSqlModes.join(',')) {
+      drift.push(
+        `sql_mode is "${observed.sqlMode}" but the server default is "${observed.globalSqlMode}"`,
+      );
+    }
   }
   if (observed.isolationLevel !== observed.globalIsolationLevel) {
     drift.push(
@@ -180,7 +200,7 @@ export async function verifyPoolSessionInvariants(): Promise<void> {
  * Sample one checkout per configured pool and report drift as telemetry.
  * Unlike the startup verifier this never throws: a handler that leaked
  * mutated session state after boot surfaces as a logged alert without a
- * restart. See docs/ongoing-projects/ongoing.md, P0-D.
+ * restart. See docs/ARCHITECTURE.md#pooled-session-invariants.
  */
 export async function samplePoolSessionInvariants(): Promise<void> {
   for (const [name, currentPool] of configuredPools()) {

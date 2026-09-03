@@ -4,8 +4,8 @@
  *
  * The whole generation is parsed and validated before any published row is
  * touched, then swapped in one transaction. TRUNCATE is deliberately not used:
- * it commits implicitly, so a failure mid-load left the wiki empty
- * (docs/ongoing-projects/ongoing.md, P1-F).
+ * it commits implicitly, so a failure mid-load left the wiki empty. See
+ * docs/ARCHITECTURE.md#generated-projections.
  */
 import dotenv from 'dotenv';
 dotenv.config();

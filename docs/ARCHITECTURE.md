@@ -46,9 +46,10 @@ No machine-specific service or nginx artifact is authoritative in the checkout.
 ## Data and Dependency Flow
 
 - The frontend accesses MySQL and Redis only through the backend.
-- DurisWeb and DurisMUD currently share one MySQL schema. MUD core tables are
-  created outside the DurisWeb Knex chain, and DurisWeb migrations alter some
-  MUD-owned tables.
+- DurisWeb and DurisMUD currently share one MySQL schema. The MUD owns its core
+  tables, ledgers, and runtime shape outside the DurisWeb Knex chain. Historical
+  DurisWeb migrations that altered MUD-owned structures are compatibility
+  history, not precedent for new migrations.
 - The 1.2.0 forward migration chain was replayed successfully against a restored
   production baseline on MariaDB 10.11. MUD-owned runtime schema is guarded by
   the migration and startup preflights. Historical down migrations are not a
@@ -57,6 +58,118 @@ No machine-specific service or nginx artifact is authoritative in the checkout.
   pub/sub identities. Legacy unscoped MUD channels are prohibited by tests.
 - Browser build-time values use the `VITE_*` namespace and are public. Backend
   secrets must never cross that boundary.
+
+## Shared Database Contract
+
+The MUD migration manifest, persistence contract, and runtime compatibility
+manifest are authoritative for game state: accounts, characters, inventories,
+auctions, PvP records, statistics, and the corresponding ownership, balance,
+revision, and audit ledgers. DurisWeb owns its web-extension tables and
+projections. This ownership boundary applies whether the deployment selects a
+shared database or a separate MUD database.
+
+`backend/mud-write-allowlist.json` copies the MUD manifest's required-table
+fingerprint and classifies every direct DurisWeb write to a MUD-owned table.
+`pnpm --dir backend verify:mud-writes` rejects unclassified or stale statements,
+dynamic table targets, and drift from the selected MUD manifest. An allowlist
+entry records an existing boundary; it is not permission to add another writer
+or evidence that the operation is safe.
+
+The allowlist retains these audit references as stable contract labels, not as
+project-status claims:
+
+| Reference | Durable contract |
+|---|---|
+| `DB-01` | Auction bid and buy-now must move to an authenticated, idempotent MUD command that owns wallet, auction, custody, revision, and ledger changes. |
+| `DB-02` | Item-duplicate repair belongs to a MUD reconciliation/quarantine operation; object UIDs cross the API as decimal strings. |
+| `DB-03` | Player/season reset belongs to the MUD reset manifest, durable epoch, Redis invalidation, and reward policy. |
+| `DB-10` | Every DurisWeb write to a MUD-owned table must remain explicitly classified and verified against the MUD manifest. |
+| `DB-11` | The MUD owns the `statistics` schema and any index change; DurisWeb remains only a classified consumer/writer. |
+| `DB-14` | The MUD owns the `pkill_event.stamp` contract; web compatibility code must not leak a relaxed SQL mode between pooled requests. |
+
+### Migration baseline and provenance
+
+Knex discovers only the TypeScript files in `backend/migrations/`. The legacy
+SQL artifacts in that directory are deliberately excluded and individually
+classified by `backend/migrations/sql-artifacts.json`; production configuration
+preflight fails if that inventory is missing, stale, or incomplete. Some
+artifacts classified as `baseline-pending-conversion` are still the sole
+definitions of web-extension tables. Consequently, the historical Knex chain
+cannot bootstrap an empty shared database.
+
+Use a versioned, operator-approved schema baseline and verify migration
+postconditions rather than editing the ledger or replaying every SQL artifact.
+Do not add automatic `migrate:latest` to application startup. Development
+fixtures should be deterministic and synthetic; a text-rewritten production
+dump is neither a safe fixture nor a schema authority.
+
+### Mutation authority and default-closed gates
+
+Four legacy mutation groups remain present for compatibility but are closed by
+default and return `503 operation_gated`:
+
+| Gate | Closed operation | Authoritative replacement |
+|---|---|---|
+| `auctionWrites` | Direct web bid and buy-now wallet/auction writes | One MUD transaction with idempotency, custody, revision, refund, and ledger semantics. Administrative removal already uses the MUD critical command and is not gated. |
+| `itemDeletes` | Direct deletion from player or locker item tables | MUD reconciliation or quarantine with before/after ownership evidence. Read-only duplicate diagnostics remain available. |
+| `playerWipe` | Web-maintained table-list deletion | MUD-owned season reset with a durable fence/epoch, approval record, and resumable status. |
+| `databaseRestore` | Legacy SQL filtering and row-merge restore | Manifest-bound, byte-preserving disaster recovery or a MUD-owned selective recovery operation. |
+
+The corresponding `ALLOW_UNSAFE_*` settings acknowledge risk only; opening a
+gate does not supply the missing transaction, ownership, or recovery contract.
+See [Configuration and Environments](environments.md#unsafe-mutation-gates).
+
+### Pooled session invariants
+
+At startup, each configured MySQL pool verifies that checked-out connections
+retain the server's effective SQL mode, isolation level, time zone, and foreign
+key setting. The comparison ignores only mysql2's parser-only `IGNORE_SPACE`
+session addition. Empty or otherwise weakened modes fail startup. A periodic,
+non-overlapping sample logs drift detected after startup.
+
+The PvP interaction compatibility path temporarily relaxes SQL mode for the
+legacy MUD timestamp default. It captures and restores the exact prior value in
+`finally`, and destroys rather than releases the connection if restoration
+fails. New request handlers must not mutate pooled session state; the durable
+fix for `pkill_event.stamp` belongs to the MUD schema owner.
+
+### Generated projections
+
+The wiki object/mob importer, map extractor, and builder-flag synchronizer parse
+and validate a non-empty generation before touching published rows. They replace
+their respective InnoDB rows inside one transaction, in bounded insert batches,
+so a failure rolls back to the prior generation. Empty source output is a hard
+failure, not a valid publication. Database/cache health and migration preflight
+do not prove that a generation is populated; release acceptance must verify the
+enabled feature's data and rendered surface.
+
+### Restore boundary
+
+The application's administrative backup creation and its restore feature have
+different assurance levels. The two legacy restore endpoints are default-gated:
+their filtered `REPLACE` merge is not a complete point-in-time restore, decodes
+SQL content as UTF-8 despite possible binary payloads, and has no archive
+manifest binding source, schema, table coverage, or target. An archive existing
+or passing a compression check is not proof of recoverability.
+
+Release recovery instead uses an operator-protected, transaction-consistent dump
+restored first into an empty disposable database running matching software, then
+checks schema/ledger identity, counts or digests, application smoke tests, and
+MUD compatibility. A supported application restore would additionally need
+byte-preserving streams, bounded archive expansion, credentials outside process
+arguments, complete manifest checks, failure atomicity, and a dated drill with
+measured RPO/RTO. Selective account or character recovery must reconcile the
+MUD's ownership, custody, balance, revision, ledger, and cache state rather than
+merge a partial row list.
+
+### Data lifecycle boundary
+
+Retention periods for web analytics, terminal/deployment output, login history,
+and health metrics remain an explicit product/security/operations decision; see
+the [security record](../.spec_system/SECURITY-COMPLIANCE.md). Any lifecycle job
+must be bounded, indexed for its cutoff, dry-runnable, idempotent, and audited.
+Game-owned items, PvP payloads, statistics, and logs remain under the MUD's data
+lifecycle contract and must not be added to an independent web purge job.
 
 ## MUD Integration Channels
 
@@ -110,9 +223,10 @@ See [ADR 0001](adr/0001-hook-control-ownership-and-state.md) and the
 - Local origin and public apex/`www` health are verified through the configured
   ingress. When Cloudflared is enabled, its dedicated tunnel also exposes a
   loopback-only readiness endpoint for operator checks.
-- The backup service creates local ZIP archives; Phase transition validation
-  exercised a real disposable backup, archive test, and restore. Restore is an
-  operator action and is not automated by CI.
+- The admin backup service creates local ZIP archives, but its legacy restore
+  path is default-closed and is not the production recovery mechanism. Release
+  backups and restore rehearsals are operator-managed, protected, and verified
+  against an empty disposable target. Neither path is automated by CI.
 
 ## Key Decisions
 

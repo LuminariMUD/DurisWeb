@@ -50,6 +50,27 @@ pnpm --dir frontend test:unit --run
 pnpm --dir frontend build
 ```
 
+## Database contract checks
+
+`backend/mud-write-allowlist.json` is the operation-level inventory for direct
+DurisWeb writes to MUD-owned tables. `verify:mud-writes` scans non-test backend
+sources and fails on an unclassified or stale statement, a dynamic table target,
+or divergence between its copied table fingerprint and the MUD migration
+manifest. Classification documents a legacy or coordinated boundary; it does
+not authorize new direct writes. The stable `DB-*` labels are defined in the
+[shared database contract](ARCHITECTURE.md#shared-database-contract).
+
+The verifier discovers standard CI and sibling-checkout layouts. For another
+layout, pass its manifest explicitly as `--mud-manifest <path>`; this is a
+tooling argument, not an application environment variable.
+
+Knex loads only TypeScript migrations. Every excluded `.sql` artifact is
+classified in `backend/migrations/sql-artifacts.json`, and production
+configuration preflight rejects missing or stale classifications. Do not enable
+all file extensions or replay the SQL set: it includes MUD-owned definitions,
+one-off data repair, and web tables still awaiting a canonical baseline. The
+historical chain is therefore not a zero-to-current bootstrap.
+
 For database tests, copy `backend/.env.test.example` to `backend/.env.test` and
 use isolated credentials/data. Source-text security tests pin sensitive
 boundaries; update them only when the new structure preserves the policy.

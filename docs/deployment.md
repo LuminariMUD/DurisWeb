@@ -55,10 +55,13 @@ The first command aggregates invalid configuration and verifies the migration
 bundle. The second verifies required tables, the canonical MUD-owned
 `server_reboots` shape, absence of the prohibited incoming extension foreign
 key, refresh-token column capacity, the complete migration ledger, general
-cache, and the optional scoped presence read/subscription operations. Neither
-replaces the test suite or the release-specific acceptance checks below. The
-rendered unit runs configuration as an `ExecCondition`; configuration refusal
-status 78 leaves the unit skipped instead of entering a restart loop.
+cache, the optional scoped presence read/subscription operations, and the
+auction engine/timestamp contract when direct auction writes are explicitly
+enabled. Neither preflight nor `/health` proves that feature projections contain
+usable data or that a feature query is semantically correct. They do not replace
+the test suite or the release-specific acceptance checks below. The rendered
+unit runs configuration as an `ExecCondition`; configuration refusal status 78
+leaves the unit skipped instead of entering a restart loop.
 
 ## Release evidence and rollback set
 
@@ -119,6 +122,25 @@ column contract and must not add an incoming foreign key from a web extension
 table that changes the MUD's runtime fingerprint. A successful web migration is
 not releasable until both the compiled preflight and applicable MUD verifier
 accept the clone.
+
+### Application restore boundary
+
+The rehearsal above uses an operator-created, transaction-consistent dump and
+restores it into an empty disposable target. It is distinct from the admin
+backup service's legacy restore path. Both application restore endpoints remain
+closed unless `ALLOW_UNSAFE_DATABASE_RESTORE=true`; do not open that gate as a
+release or incident-recovery shortcut. The current filtered `REPLACE` merge is
+not a complete point-in-time restore, is not byte-safe for arbitrary BLOB data,
+and has no source/schema/target manifest.
+
+A backup is recoverable only after a matching empty-target drill verifies the
+complete declared table scope, bytes, schema and migration identities, row
+counts or digests, application behavior, and MUD ledgers. Record the archive
+checksum, source and target, consistency method, software/schema versions,
+RPO/RTO, and the last successful drill. Selective account or character recovery
+requires a MUD-owned import/compensation operation that reconciles ownership,
+custody, balances, revisions, ledgers, caches, and audit evidence. See the
+[restore contract](ARCHITECTURE.md#restore-boundary).
 
 ## Render host configuration
 
@@ -247,7 +269,11 @@ verify:
 - the configured local and public health endpoints;
 - `/api/ping`, `/api/site-config`, the SPA shell, and a generated asset;
 - allowed-origin CORS and rejection of an untrusted origin;
-- browser application WebSocket ping/pong and the configured MUD WebSocket handshake;
+- browser application WebSocket ping/pong, plus fresh authenticated MUD bridge
+  state. If a direct MUD WebSocket handshake must be tested, do it before the
+  backend owns the deployment's single service connection or from an isolated
+  identity; a competing same-host connection can evict the live bridge (tracked
+  in [DurisMUD #116](https://github.com/LuminariMUD/DurisMUD/issues/116));
 - raw/TLS MUD connections when those endpoints are enabled;
 - HTTP-to-HTTPS redirects and intended HSTS/content-type hardening at public
   ingress;
@@ -259,11 +285,25 @@ verify:
 - recent error-priority logs. Use `journalctl --quiet` in assertions so its
   literal `-- No entries --` banner is not mistaken for an error.
 
+Exercise every enabled, data-backed public surface with its feature-specific
+readiness assertion and a real browser at representative desktop and mobile
+viewports. HTTP 200, table existence, or an empty-state component is not proof
+that profiles, forum categories, wiki objects/mobs, or map bounds are usable.
+Require meaningful content, the intended route/origin, no framework overlay or
+unexpected console/request errors, and no horizontal overflow.
+
+Hold the stability soak across the longest relevant idle and reconnect boundary.
+While DurisMUD #116 applies, exceed its 15-minute service-descriptor timeout and
+require no unexplained bridge drop/reconnect. Do not open another MUD WebSocket
+during that soak; use DurisWeb's structured bridge state and correlated logs.
+
 Prove release identity by extracting a generated asset name from the staged
 build and requiring that exact asset (and expected size or digest) locally and
 through every public hostname. A healthy old process or cached old SPA is not a
 successful deployment. Confirm the browser-safe site configuration contains the
-complete intended endpoint fields, not merely valid JSON.
+complete intended endpoint fields, not merely valid JSON. Prefer immutable asset
+identity over public HTML byte identity when the edge injects per-response
+content.
 
 Schema releases remain backup-first. Restore a transaction-consistent backup to
 disposable matching database software, apply the forward chain, compare tables

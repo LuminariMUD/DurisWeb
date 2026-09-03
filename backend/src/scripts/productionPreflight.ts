@@ -80,7 +80,7 @@ function expectedMigrationNames(): string[] {
  * Fail the release when a SQL artifact in the migration directory is neither
  * executed by Knex (`extension: 'ts'`) nor classified in the checked-in
  * manifest, so no migration artifact is silently ignored.
- * See docs/ongoing-projects/ongoing.md, DB-08.
+ * See docs/development.md#database-contract-checks.
  */
 export function verifySqlArtifactClassification(): void {
   const directory = migrationDirectory();
@@ -235,7 +235,7 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
 
     // Direct auction writes are only safe against the current MUD contract:
     // all four tables transactional, and `date` still an integer epoch column.
-    // See docs/ongoing-projects/ongoing.md, P0-A.
+    // See docs/ARCHITECTURE.md#mutation-authority-and-default-closed-gates.
     if (configuration.auctionWritesEnabled) {
       const [auctionRows] = await database.query<RowDataPacket[]>(
         `SELECT TABLE_NAME, ENGINE

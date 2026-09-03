@@ -1020,8 +1020,8 @@ export async function getClientStats(period: '7d' | '30d' | '90d' | 'all' = '30d
  * session value, restores it before release, and discards the connection if
  * restoration fails so a relaxed session is never returned to the pool.
  *
- * Remove once the MUD normalizes the column default
- * (docs/ongoing-projects/ongoing.md, P1-G).
+ * Remove once the MUD normalizes the column default. See
+ * docs/ARCHITECTURE.md#pooled-session-invariants.
  */
 async function withRelaxedSqlMode<T>(run: (connection: PoolConnection) => Promise<T>): Promise<T> {
   const connection = await pool.getConnection();

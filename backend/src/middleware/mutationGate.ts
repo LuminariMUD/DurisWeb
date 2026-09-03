@@ -7,7 +7,7 @@ import { getBackendConfiguration } from '../config/environment.js';
  * unless an operator explicitly enables them, and remain closed by default
  * until the equivalent MUD-authoritative command exists.
  *
- * See docs/ongoing-projects/ongoing.md, findings P0-A, P0-B, P0-C, and P0-F.
+ * See docs/ARCHITECTURE.md#mutation-authority-and-default-closed-gates.
  */
 export const MUTATION_GATES = [
   'auctionWrites',

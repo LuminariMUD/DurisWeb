@@ -27,7 +27,7 @@ export interface MudWriteEntry {
   /** `gated` writes are unreachable unless an operator opens `gate`. */
   status: WriteStatus;
   gate?: MutationGate;
-  /** Backlog identifier in docs/ongoing-projects/ongoing.md. */
+  /** Stable contract identifier in docs/ARCHITECTURE.md#shared-database-contract. */
   ticket: string;
   note?: string;
 }
@@ -51,15 +51,23 @@ export interface MudMigrationManifest {
  * Locate the MUD migration manifest that validates the copied baseline.
  * Defaults to a checkout of the public LuminariMUD/DurisMUD repository next to
  * the backend package (CI layout) or next to the repository root (sibling
- * checkouts), overridable with `MUD_MANIFEST_PATH`.
+ * checkouts).
  */
 export function defaultMudManifestPath(root = backendRoot()): string {
   const candidates = [
-    process.env.MUD_MANIFEST_PATH,
     path.join(root, '..', 'duris', 'migrations', 'migration_manifest.json'),
     path.join(root, '..', '..', 'duris', 'migrations', 'migration_manifest.json'),
-  ].filter((candidate): candidate is string => Boolean(candidate));
+  ];
   return candidates.find((candidate) => fs.existsSync(candidate)) ?? candidates[0];
+}
+
+/** Parse the optional tooling-only MUD manifest override. */
+export function parseMudManifestPath(args: string[]): string | undefined {
+  if (args.length === 0) return undefined;
+  if (args.length === 2 && args[0] === '--mud-manifest' && args[1].trim() !== '') {
+    return path.resolve(args[1]);
+  }
+  throw new Error('expected no arguments or --mud-manifest <path>');
 }
 
 /**
@@ -74,7 +82,7 @@ export function validateMudManifestBaseline(
   if (!fs.existsSync(mudManifestPath)) {
     return [
       `MUD manifest not found at ${mudManifestPath}: check out LuminariMUD/DurisMUD ` +
-        'as a sibling directory or point MUD_MANIFEST_PATH at its migrations/migration_manifest.json',
+        'as a sibling directory or pass --mud-manifest with its migrations/migration_manifest.json',
     ];
   }
 
@@ -287,7 +295,7 @@ export function writeKey(write: MudWrite): string {
 
 /**
  * Report every write statement in non-test backend sources whose target is a
- * MUD-owned table. See docs/ongoing-projects/ongoing.md, DB-10.
+ * MUD-owned table. See docs/development.md#database-contract-checks.
  */
 export function scanMudOwnedWrites(
   sourceRoot: string,
@@ -426,7 +434,10 @@ const isDirectExecution =
   process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isDirectExecution) {
   try {
-    const checked = verifyMudWriteAllowlist();
+    const root = backendRoot();
+    const manifestOverride = parseMudManifestPath(process.argv.slice(2));
+    const manifestPath = manifestOverride ?? defaultMudManifestPath(root);
+    const checked = verifyMudWriteAllowlist(root, manifestPath);
     console.log(`MUD write allowlist verified (${checked.length} classified writes).`);
   } catch (error) {
     console.error(

@@ -12,6 +12,7 @@ import * as path from 'path';
 import { pool } from '../db/connection.js';
 import logger from '../utils/logger.js';
 import { resolveSafeZoneDirectoryPath, resolveSafeZoneFilePath } from '../utils/safeZonePath.js';
+import { appendArrayValues } from '../utils/arrayUtils.js';
 import { getBackendConfiguration } from '../config/environment.js';
 
 const MUD_DIR = getBackendConfiguration().mud.directory;
@@ -462,8 +463,8 @@ async function extractMapData(): Promise<void> {
   const mapZones: string[] = [];
 
   // The complete generation is staged in memory first, then swapped in one
-  // transaction, so a parse or insert failure leaves the published map intact
-  // (docs/ongoing-projects/ongoing.md, P1-F).
+  // transaction, so a parse or insert failure leaves the published map intact.
+  // See docs/ARCHITECTURE.md#generated-projections.
   const allPositionRows: any[][] = [];
   const allEntranceRows: any[][] = [];
 
@@ -517,7 +518,7 @@ async function extractMapData(): Promise<void> {
       ]);
     }
 
-    allPositionRows.push(...positionRows);
+    appendArrayValues(allPositionRows, positionRows);
     totalRooms += positionRows.length;
 
     // Process zone entrances (exits that lead to non-map rooms)
@@ -561,7 +562,7 @@ async function extractMapData(): Promise<void> {
       }
     }
 
-    allEntranceRows.push(...entranceRows);
+    appendArrayValues(allEntranceRows, entranceRows);
     totalEntrances += entranceRows.length;
 
     process.stdout.write('.');

@@ -384,7 +384,7 @@ export async function getHealthHistory(hours: number = 24): Promise<any[]> {
  * Returns null when no health samples were recorded for the window. Query
  * failures propagate rather than reporting a fabricated 100 percent, which
  * previously hid a missing `server_health_metrics` table behind a healthy
- * looking value (docs/ongoing-projects/ongoing.md, P1-C).
+ * looking value. See docs/deployment.md#acceptance-and-rollback.
  */
 export async function getUptimePercentage(days: number = 30): Promise<number | null> {
   const [rows] = await db.query(

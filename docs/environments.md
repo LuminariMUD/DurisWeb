@@ -52,6 +52,27 @@ Optional groups are explicit:
 | `GEMINI_ENABLED` | `GEMINI_API_KEY` |
 | `ENABLE_GUILD_SYNC` | No additional variables |
 
+## Unsafe mutation gates
+
+The following settings are not normal feature flags. They expose legacy write
+paths that bypass part of the MUD's transaction, ownership, or recovery
+contract. An absent value and an explicit `false` both keep the path closed;
+the affected endpoint returns `503` with `error: "operation_gated"`.
+
+| Setting | Affected path |
+|---|---|
+| `ALLOW_UNSAFE_AUCTION_WRITES` | Direct web auction bids and buy-now purchases; read-only auction access and MUD-authoritative administrative removal remain available. |
+| `ALLOW_UNSAFE_ITEM_DELETES` | Individual and bulk deletion from authoritative player/locker item tables; read-only duplicate diagnostics remain available. |
+| `ALLOW_UNSAFE_PLAYER_WIPE` | The web-owned direct SQL player-wipe implementation. |
+| `ALLOW_UNSAFE_DATABASE_RESTORE` | Both stored-archive and uploaded-archive legacy restore endpoints; backup creation remains available. |
+
+Keep all four unset or `false` in ordinary deployments. Setting one to `true`
+only acknowledges the documented risk; it does not make the operation atomic,
+MUD-authoritative, or recoverable. Any exceptional use requires explicit
+operator authorization, a protected and restore-tested backup, a maintenance
+fence, and a recorded recovery decision. See the
+[shared database contract](ARCHITECTURE.md#mutation-authority-and-default-closed-gates).
+
 `DURISWEB_SECRET_PREVIOUS` and `DURISWEB_SECRET_ROTATED_AT` are an optional,
 bounded rotation pair. The complete key inventory and safe placeholders live in
 `backend/.env.example`; secret values must never be logged or committed.

@@ -44,7 +44,7 @@ points and security boundaries rather than duplicating every handler.
 | `/api/notifications` | `routes/notifications.ts` | Authenticated notifications |
 | `/api/analytics` | `routes/webAnalytics.ts` | Public page-view tracking and protected analytics |
 | `/api/admin/analytics/web` | `routes/webAnalytics.ts` | Protected web analytics alias |
-| `/api/auction` | `routes/auction.ts` | Auction reads and authenticated actions |
+| `/api/auction` | `routes/auction.ts` | Auction reads, default-gated bid/buy actions, and MUD-authoritative admin removal |
 | `/api/push` | `routes/push.ts` | VAPID key and authenticated subscriptions |
 | `/api/changelog` | `routes/changelog.ts` | Changelog reads and permissioned management |
 | `/api/public/statistics` | `routes/publicStatistics.ts` | Public faction/date statistics |
@@ -52,6 +52,25 @@ points and security boundaries rather than duplicating every handler.
 
 Some route modules contain both public and protected handlers. Do not infer
 authorization from the prefix alone; inspect the handler middleware and tests.
+
+## Default-closed MUD mutation routes
+
+Several legacy routes remain addressable for compatibility but return HTTP 503
+with `error: "operation_gated"` unless an operator explicitly opens their unsafe
+mutation gate:
+
+| Route family | Gate |
+|---|---|
+| `POST /api/auction/listings/:auctionId/bid` and `/buy` | `auctionWrites` |
+| Player/locker duplicate-item delete and bulk-delete routes under `/api/admin/dupes` | `itemDeletes` |
+| `POST /api/admin/mud/wipe/execute` | `playerWipe` |
+| Stored and uploaded backup restore routes under `/api/admin` | `databaseRestore` |
+
+Read-only auction and duplicate diagnostics are unaffected. Administrative
+auction removal is also unaffected because it already delegates to the MUD's
+authoritative critical command. The `ALLOW_UNSAFE_*` settings do not supply the
+missing safety contracts and should remain closed in ordinary deployments; see
+[Configuration and Environments](../environments.md#unsafe-mutation-gates).
 
 ## Authentication and CSRF
 

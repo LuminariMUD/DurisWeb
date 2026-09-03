@@ -1,5 +1,5 @@
 {
-  "$comment": "Operation-level allowlist for every DurisWeb write to a MUD-owned table. `pnpm verify:mud-writes` scans non-test backend sources and fails when a write is unclassified, when an entry no longer matches any statement, when a dynamic table target would bypass classification, or when the copied baseline no longer matches the MUD repository's migrations/migration_manifest.json (CI checks out LuminariMUD/DurisMUD to `duris/`; set MUD_MANIFEST_PATH for other layouts). See docs/ongoing-projects/ongoing.md, DB-10.",
+  "$comment": "Operation-level allowlist for every DurisWeb write to a MUD-owned table. `pnpm verify:mud-writes` scans non-test backend sources and fails when a write is unclassified, when an entry no longer matches any statement, when a dynamic table target would bypass classification, or when the copied baseline no longer matches the MUD repository's migrations/migration_manifest.json (CI checks out LuminariMUD/DurisMUD to `duris/`; pass `--mud-manifest <path>` for other layouts). See docs/development.md#database-contract-checks.",
   "baseline": {
     "source": "LuminariMUD/DurisMUD migrations/migration_manifest.json",
     "id": "duris-schema-2026-08-27-session11",
@@ -519,14 +519,14 @@
       "concurrency": "Counter change is applied in the same InnoDB transaction as the web-owned interaction row, so the pair cannot diverge on failure.",
       "status": "allowed",
       "ticket": "DB-14",
-      "note": "DB-04 removed the session `sql_mode` override. The counters should move to the web-owned tables or a reconciled projection once the MUD normalizes `pkill_event.stamp`."
+      "note": "The compatibility path restores the exact prior session `sql_mode` and discards the connection if restoration fails. The counters should move to web-owned rows or a reconciled projection once the MUD normalizes `pkill_event.stamp`."
     },
     "services/statisticsParser.ts|INSERT INTO|statistics": {
       "authoritativeWriter": "DurisWeb ingestion owns this time series, parsed from the MUD statistics feed.",
       "concurrency": "Append-only rows keyed by parsed hour; re-parsing the same source hour is the only overlap and is operator-initiated.",
       "status": "allowed",
       "ticket": "DB-11",
-      "note": "DB-11 adds `statistics(date)` through the MUD schema owner; this write path is unaffected by that index."
+      "note": "Any `statistics(date)` index belongs to the MUD schema owner; this classified write path is independent of that schema decision."
     },
     "services/zoneService.ts|UPDATE|zones": {
       "authoritativeWriter": "DurisWeb builder tooling owns the zone metadata columns it edits; the MUD reads zone data.",

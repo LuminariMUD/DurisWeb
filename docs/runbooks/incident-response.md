@@ -87,6 +87,29 @@ blocked URL, auth failure, disconnect, or stale report.
 5. After reconnect, wait for a fresh complete state frame. Never carry forward
    pre-disconnect state or reinterpret omitted ids as enabled.
 
+## MUD Bridge Repeatedly Disconnects
+
+If the authenticated bridge closes at a stable interval without a MUD process
+restart, correlate the DurisWeb disconnect/re-authentication timestamps with the
+MUD communication log. The current cross-repository failure mode is tracked in
+[DurisMUD #116](https://github.com/LuminariMUD/DurisMUD/issues/116): a service
+descriptor can reach the MUD's generic non-playing 15-minute idle limit even
+though RFC WebSocket ping/pong frames continue, because those control frames do
+not reset the MUD application-level wait counter.
+
+Do not open a second direct MUD WebSocket from the same resolved host while the
+DurisWeb bridge is live. The same issue records duplicate-connection cleanup
+evicting the authenticated service descriptor. Use DurisWeb's structured bridge
+state and logs for observation; if a protocol probe is necessary, isolate it or
+run it before the production bridge starts.
+
+Automatic reconnect restores availability but does not resolve a recurring
+lifecycle defect. Require a fresh authenticated state report and expected hook
+states after recovery, keep the affected integration classified as degraded,
+and coordinate the MUD-side repair under that repository's separate authority.
+After repair, soak beyond the former timeout and verify there is no disconnect,
+state loss, or duplicate-consumer eviction.
+
 ## Hook Mismatch
 
 **Symptoms:** website and MUD states disagree, or a reconcile action reports
@@ -146,6 +169,8 @@ read exposure can therefore be an active session compromise.
 - Backend `/health` returns 200 and its JSON body reports both checks as `ok`.
 - Frontend health artifact, a representative page load, and the exact generated
   asset for the intended release succeed locally and through public ingress.
+- Enabled data-backed surfaces return meaningful feature data; an HTTP 200 or
+  empty-state component does not establish profile, forum, wiki, or map health.
 - Hook console reports a fresh bridge timestamp and expected effective states.
 - Focused tests/contracts for the repaired boundary pass.
 - Service result/restart counters and the PIDs/timestamps of out-of-scope

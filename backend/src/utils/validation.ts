@@ -179,8 +179,8 @@ export function parsePagination(
  * Parse a BIGINT UNSIGNED path parameter as a canonical decimal string.
  *
  * Values above Number.MAX_SAFE_INTEGER cannot round-trip through a JavaScript
- * number, so identifiers such as `obj_uid` are carried as strings end to end
- * (docs/ongoing-projects/ongoing.md, P0-B).
+ * number, so identifiers such as `obj_uid` are carried as strings end to end.
+ * See docs/ARCHITECTURE.md#mutation-authority-and-default-closed-gates.
  */
 export function validateBigIntIdParam(value: string | undefined): string | null {
   if (value === undefined || !/^[1-9]\d{0,19}$/.test(value)) {

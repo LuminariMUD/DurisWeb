@@ -1298,8 +1298,8 @@ export type FilterColumnIndex = Record<string, TableColumnInfo>;
  * A table that IS present in the dump but whose configured filter column is
  * not is a schema/configuration mismatch, not an absent table. Silently
  * skipping it dropped whole domains from a selective restore while still
- * reporting success, so it now fails loudly
- * (docs/ongoing-projects/ongoing.md, P0-F).
+ * reporting success, so it now fails loudly. See
+ * docs/ARCHITECTURE.md#restore-boundary.
  */
 export function buildFilterColumnIndex(sqlContent: string): FilterColumnIndex {
   const idx: FilterColumnIndex = {};

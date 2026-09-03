@@ -71,10 +71,6 @@ yarn.lock
 # Debug
 .debug/
 
-# Claude
-.claude/
-CLAUDE.md
-
 # Generated content
 backend/public/maps/
 *.kate-swp

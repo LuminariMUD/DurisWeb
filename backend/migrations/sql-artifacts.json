@@ -1,5 +1,5 @@
 {
-  "$comment": "Classification of SQL migration artifacts that knexfile.ts (extension: 'ts') does not execute. Production preflight fails when a .sql file in this directory is missing here, so no migration artifact is silently ignored. See docs/ongoing-projects/ongoing.md, DB-07 and DB-08.",
+  "$comment": "Classification of SQL migration artifacts that knexfile.ts (extension: 'ts') does not execute. Production preflight fails when a .sql file in this directory is missing here, so no migration artifact is silently ignored. See docs/development.md#database-contract-checks.",
   "artifacts": {
     "005_create_accounts_table.sql": {
       "classification": "must-not-run",
@@ -7,7 +7,7 @@
     },
     "006_create_forum_tables.sql": {
       "classification": "baseline-pending-conversion",
-      "note": "Sole definition of forum_categories, forum_threads, forum_posts, forum_reactions, forum_subscriptions, forum_notifications, and web_sessions. No TypeScript migration creates them, so Knex history is not replayable from empty until the DB-07 baseline exists."
+      "note": "Sole definition of forum_categories, forum_threads, forum_posts, forum_reactions, forum_subscriptions, forum_notifications, and web_sessions. No TypeScript migration creates them, so Knex history is not replayable from empty until the versioned shared baseline exists."
     },
     "007_add_dynamic_permissions.sql": {
       "classification": "baseline-pending-conversion",

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
@@ -15,6 +15,7 @@ vi.mock('@/composables/useAuth', () => ({
 describe('DashboardView', () => {
   let router: any
   let queryClient: QueryClient
+  const wrappers: Array<ReturnType<typeof mount>> = []
 
   beforeEach(async () => {
     queryClient = new QueryClient({
@@ -43,6 +44,18 @@ describe('DashboardView', () => {
 
     await router.push('/dashboard')
     await router.isReady()
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        json: async () => ({ bootTime: null }),
+      })),
+    )
+  })
+
+  afterEach(() => {
+    while (wrappers.length > 0) wrappers.pop()?.unmount()
+    vi.unstubAllGlobals()
   })
 
   it('renders the dashboard page', () => {
@@ -51,6 +64,7 @@ describe('DashboardView', () => {
         plugins: [router, [VueQueryPlugin, { queryClient }]],
       },
     })
+    wrappers.push(wrapper)
 
     expect(wrapper.text()).toContain('Server Dashboard')
   })
@@ -61,6 +75,7 @@ describe('DashboardView', () => {
         plugins: [router, [VueQueryPlugin, { queryClient }]],
       },
     })
+    wrappers.push(wrapper)
 
     expect(wrapper.find('h1').text()).toBe('Server Dashboard')
   })
@@ -71,6 +86,7 @@ describe('DashboardView', () => {
         plugins: [router, [VueQueryPlugin, { queryClient }]],
       },
     })
+    wrappers.push(wrapper)
 
     expect(wrapper.text()).toContain('Overlord only')
   })
@@ -86,6 +102,7 @@ describe('DashboardView', () => {
         },
       },
     })
+    wrappers.push(wrapper)
 
     expect(wrapper.find('[data-testid="dashboard-overview"]').exists()).toBe(true)
   })

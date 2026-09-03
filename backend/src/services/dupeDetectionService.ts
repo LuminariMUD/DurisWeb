@@ -39,7 +39,8 @@ interface DupeSummary {
  * and locker_items. Grouping is by obj_uid alone: grouping by (obj_uid, vnum)
  * hid a UID attached to two different vnums when each pair occurred once.
  * Aggregation runs before the metadata joins so those joins scale with
- * duplicate candidates rather than every item row (docs/ongoing-projects/ongoing.md, P0-B).
+ * duplicate candidates rather than every item row. See
+ * docs/ARCHITECTURE.md#mutation-authority-and-default-closed-gates.
  */
 export async function getDupedItems(): Promise<DupedItem[]> {
   const [rows] = await db.query<RowDataPacket[]>(`
