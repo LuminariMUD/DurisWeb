@@ -327,6 +327,14 @@ an entry says otherwise.
 52. Stopped the exact disposable MariaDB and Redis rehearsal processes after validating their
     process identities. All seven production application/ingress/database/cache/MUD units remained
     active/running with `Result=success` and `NRestarts=0`.
+53. Read the separate MUD repository's agent guide, build documentation, production runbook,
+    supervisor, signal handler, and copyover implementation without mutation. The checkout is clean
+    at pushed `master`; no staged `dms_new` exists. The maintained deployment path is a stamped
+    `PERSISTENCE_BACKEND=mariadb BUILD_PROFILE=production` build followed by a `SIGUSR1` copyover
+    request to the verified game child. Copyover promotes the staged binary only after persistence
+    drains and a durable recovery file, retains eligible player sockets, and restores the prior
+    executable if promotion fails. This establishes the exact remaining action but does not grant
+    the separately required authority to perform it.
 
 ## Isolated qualification and repair evidence
 
@@ -694,3 +702,7 @@ an entry says otherwise.
   predates it. Finishing the burn-in therefore requires separately authorized MUD build/deployment
   and service cycling, followed by another uninterrupted soak beyond 15 minutes. DurisWeb source,
   deployment, and public browser/API acceptance require no further repair for this finding.
+- The verified existing rollout is narrowly scoped: build the production MariaDB server target to
+  `bin/server/dms_new`, validate its production stamp and source containment, then request the
+  game's fail-closed `SIGUSR1` copyover on the exact current child. No new service, protocol, or
+  deployment architecture is required.
