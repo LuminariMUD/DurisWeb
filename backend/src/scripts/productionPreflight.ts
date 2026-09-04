@@ -16,6 +16,7 @@ import {
   validateWikiMobGeneration,
   validateWikiObjectGeneration,
 } from '../services/wikiGeneration.js';
+import { readForumReadiness, validateForumReadiness } from '../services/forumReadiness.js';
 
 export { ConfigurationError } from '../config/environment.js';
 
@@ -215,6 +216,9 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
     if (mobGenerationIssues.length > 0) {
       throw new ConfigurationError(mobGenerationIssues);
     }
+
+    const forumIssues = validateForumReadiness(await readForumReadiness(database));
+    if (forumIssues.length > 0) throw new ConfigurationError(forumIssues);
 
     const [runtimeContractRows] = await database.query<RowDataPacket[]>(`
       SELECT COUNT(*) AS matching_columns

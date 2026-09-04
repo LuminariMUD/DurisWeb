@@ -26,6 +26,7 @@
     "seed:run": "NODE_OPTIONS='--import tsx' knex seed:run --knexfile knexfile.ts",
     "extract-map-data": "NODE_OPTIONS='--import tsx' tsx src/scripts/extractMapData.ts",
     "wiki:publish": "NODE_OPTIONS='--import tsx' tsx scripts/import-wiki-data.ts",
+    "forum:bootstrap": "NODE_OPTIONS='--import tsx' tsx src/scripts/bootstrapForum.ts",
     "sync-flags": "NODE_OPTIONS='--import tsx' tsx src/scripts/syncBuilderFlags.ts"
   },
   "keywords": [

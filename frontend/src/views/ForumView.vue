@@ -57,28 +57,23 @@ const { isAuthenticated, login, user } = useAuth()
 const toast = useToast()
 const queryClient = useQueryClient()
 
-// Computed user level
-const userLevel = computed(() => {
-  if (!user.value) return 0
-  const maxLevel = Math.max(...user.value.characters.map((c) => c.level))
-  return maxLevel
-})
-
 const username = ref('')
 const password = ref('')
 const loginError = ref<string | null>(null)
 const isLoggingIn = ref(false)
 
-// Edit mode state (only for level 57+)
+// Edit mode state (only for users authorized to moderate the forum)
 const editMode = ref(false)
-const isLesserGodOrAbove = computed(() => (userLevel.value || 0) >= 57)
+// Match the permission enforced by the category-management API. The moderation
+// threshold is configurable, so character level alone is not authorization.
+const canManageForumCategories = computed(() => Boolean(user.value?.permissions.canModerate))
 
 // Use TanStack Query for categories (switches between admin and public API based on editMode)
 const {
   data: categories,
   isLoading,
   error: queryError,
-} = useCategories(computed(() => editMode.value && isLesserGodOrAbove.value))
+} = useCategories(computed(() => editMode.value && canManageForumCategories.value))
 const error = computed(() => (queryError.value ? 'Failed to load categories' : null))
 
 // Editing states
@@ -239,6 +234,12 @@ function startCreating() {
   guildSearchQuery.value = ''
   guildSearchResults.value = []
   showGuildDropdown.value = false
+}
+
+// Let an administrator recover an empty forum without first finding edit mode.
+function startInitialSetup() {
+  editMode.value = true
+  startCreating()
 }
 
 // Start editing category
@@ -459,7 +460,7 @@ watch([editMode, sortableContainer], ([isEditMode, container]: [boolean, HTMLEle
 
           // Optimistically update the cache
           queryClient.setQueryData(
-            ['forum-categories', editMode.value && isLesserGodOrAbove.value],
+            ['forum-categories', editMode.value && canManageForumCategories.value],
             reorderedCategories,
           )
 
@@ -497,8 +498,8 @@ watch([editMode, sortableContainer], ([isEditMode, container]: [boolean, HTMLEle
           </p>
         </div>
         <div class="flex items-center gap-3">
-          <!-- Edit Mode Toggle (level 57+ only) -->
-          <div v-if="isAuthenticated && isLesserGodOrAbove" class="flex items-center gap-2">
+          <!-- Edit Mode Toggle (forum moderators only) -->
+          <div v-if="isAuthenticated && canManageForumCategories" class="flex items-center gap-2">
             <Label for="edit-mode" class="text-sm">Edit Mode</Label>
             <Switch id="edit-mode" :model-value="editMode" @update:model-value="toggleEditMode" />
           </div>
@@ -1068,9 +1069,13 @@ watch([editMode, sortableContainer], ([isEditMode, container]: [boolean, HTMLEle
       </Card>
 
       <!-- Empty State -->
-      <Card v-if="categories?.length === 0">
-        <CardContent class="pt-6 text-center text-muted-foreground">
-          <p>No categories available. Contact an administrator.</p>
+      <Card v-if="categories?.length === 0 && !creatingCategory">
+        <CardContent class="pt-6 text-center text-muted-foreground space-y-4">
+          <template v-if="canManageForumCategories">
+            <p>No usable forum categories are configured.</p>
+            <Button @click="startInitialSetup">Set up the first category</Button>
+          </template>
+          <p v-else>The forum is temporarily unavailable while an administrator completes setup.</p>
         </CardContent>
       </Card>
     </div>

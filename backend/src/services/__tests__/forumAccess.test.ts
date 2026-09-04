@@ -55,6 +55,25 @@ describe('canonical forum category access', () => {
     });
   });
 
+  it('lets a normal authenticated player enter and post in an authenticated category', async () => {
+    query.mockResolvedValueOnce([
+      [
+        {
+          access_type: 'authenticated',
+          min_level: null,
+          guild_name: null,
+          is_archived: 0,
+        },
+      ],
+    ]);
+
+    await expect(checkCategoryAccess(10, 'Cwial', player as never, [])).resolves.toEqual({
+      canView: true,
+      canPost: true,
+      canModerate: false,
+    });
+  });
+
   it('requires the role threshold for role-based categories', async () => {
     query.mockResolvedValueOnce([
       [
