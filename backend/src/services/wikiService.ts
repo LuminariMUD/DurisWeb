@@ -1657,7 +1657,10 @@ export async function getObjectByVnum(
   }
 
   await assertWikiObjectReferenceUnchanged(sourceIdentity);
-  if (detail) await setCache(cacheKey, detail, OBJECTS_CACHE_TTL_SECONDS);
+  if (detail) {
+    await setCache(cacheKey, detail, OBJECTS_CACHE_TTL_SECONDS);
+    await assertWikiObjectReferenceUnchanged(sourceIdentity);
+  }
   return detail;
 }
 

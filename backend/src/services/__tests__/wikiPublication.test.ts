@@ -70,11 +70,28 @@ describe('wiki generation publication transaction', () => {
       'wiki_object_slots',
       'wiki_object_affects',
     ]) {
-      expect(statements.indexOf(`DELETE FROM ${childTable}`)).toBeLessThan(objectDelete);
-      expect(
-        statements.findIndex((sql) => sql.startsWith(`INSERT INTO ${childTable} (`)),
-      ).toBeGreaterThan(objectInsert);
+      const childDelete = statements.indexOf(`DELETE FROM ${childTable}`);
+      const childInsert = statements.findIndex((sql) =>
+        sql.startsWith(`INSERT INTO ${childTable} (`),
+      );
+      expect(childDelete).toBeGreaterThan(-1);
+      expect(childDelete).toBeLessThan(objectDelete);
+      expect(childInsert).toBeGreaterThan(-1);
+      expect(childInsert).toBeGreaterThan(objectInsert);
     }
+
+    const mobDelete = statements.indexOf('DELETE FROM wiki_mobs');
+    const mobFlagDelete = statements.indexOf('DELETE FROM wiki_mob_flags');
+    const mobInsert = statements.findIndex((sql) => sql.startsWith('INSERT INTO wiki_mobs ('));
+    const mobFlagInsert = statements.findIndex((sql) =>
+      sql.startsWith('INSERT INTO wiki_mob_flags ('),
+    );
+    expect(mobDelete).toBeGreaterThan(-1);
+    expect(mobFlagDelete).toBeGreaterThan(-1);
+    expect(mobFlagDelete).toBeLessThan(mobDelete);
+    expect(mobInsert).toBeGreaterThan(-1);
+    expect(mobFlagInsert).toBeGreaterThan(-1);
+    expect(mobFlagInsert).toBeGreaterThan(mobInsert);
   });
 
   it('rolls back and releases the connection when the generation marker write fails', async () => {

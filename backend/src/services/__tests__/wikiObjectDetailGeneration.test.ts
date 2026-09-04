@@ -145,4 +145,24 @@ describe('wiki object detail generation binding', () => {
     );
     expect(setCache.mock.calls.some(([key]) => key.endsWith(':object:101'))).toBe(false);
   });
+
+  it('rejects a detail when publication advances during the full-detail cache write', async () => {
+    let currentIdentity = SOURCE_IDENTITY;
+    query.mockImplementation(async (sql) => {
+      const statement = String(sql);
+      if (statement.includes('wiki_reference_generations')) {
+        return [[generationRow(currentIdentity)], []];
+      }
+      if (statement.includes('builder_flags')) return [[{ value: 5, name: 'Weapon' }], []];
+      return [[], []];
+    });
+    setCache.mockImplementation(async (key) => {
+      if (key.endsWith(':object:101')) currentIdentity = ALTERNATE_IDENTITY;
+    });
+
+    await expect(getObjectByVnum(101, SOURCE_IDENTITY)).rejects.toBeInstanceOf(
+      WikiObjectReferenceUnavailableError,
+    );
+    expect(setCache.mock.calls.some(([key]) => key.endsWith(':object:101'))).toBe(true);
+  });
 });
