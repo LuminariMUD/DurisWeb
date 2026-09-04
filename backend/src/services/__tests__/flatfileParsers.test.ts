@@ -224,6 +224,25 @@ describe('successful parser integration', () => {
       results: [expect.objectContaining({ zoneId: 'fixture', vnum: 100 })],
     });
   });
+
+  it('does not reuse a cached zone index after the resolved MUD root changes', async () => {
+    await expect(listZones({ limit: 10 })).resolves.toMatchObject({
+      zones: [expect.objectContaining({ id: 'fixture', number: 1 })],
+    });
+
+    mudRoot = path.join(testBase, 'alternate-mud');
+    await fs.mkdir(mudRoot);
+    setMudRootForTests(mudRoot);
+    await Promise.all([
+      write('areas/zon/alternate.zon', '#2\nAlternate Zone~\n299 0 50 30 2 0\nS\n'),
+      write('areas/wld/alternate.wld', '#200\nAlternate Room~\nAn alternate room.\n~\n1 0 0\nS\n'),
+    ]);
+
+    await expect(listZones({ limit: 10 })).resolves.toMatchObject({
+      total: 1,
+      zones: [expect.objectContaining({ id: 'alternate', number: 2 })],
+    });
+  });
 });
 
 describe('cached website gates', () => {
