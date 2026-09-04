@@ -62,6 +62,7 @@ const total = ref(0)
 const currentPage = ref(1)
 const totalPages = ref(1)
 const limit = 20
+let objectRequestSequence = 0
 
 // Filter options
 const objectTypes = ref<WikiObjectType[]>([])
@@ -369,6 +370,7 @@ function toggleSpellEffect(effect: string) {
 
 // Load objects
 async function loadObjects() {
+  const requestSequence = ++objectRequestSequence
   try {
     loading.value = true
     const result = await wikiApi.getObjects(
@@ -378,11 +380,13 @@ async function loadObjects() {
       sortBy.value,
       sortOrder.value,
     )
+    if (requestSequence !== objectRequestSequence) return
     objects.value = result.objects
     referenceUnavailable.value = false
     total.value = result.total
     totalPages.value = result.totalPages
   } catch (e) {
+    if (requestSequence !== objectRequestSequence) return
     if (hasApiErrorCode(e, 503, 'WIKI_OBJECT_REFERENCE_UNAVAILABLE')) {
       referenceUnavailable.value = true
       objects.value = []
@@ -392,7 +396,7 @@ async function loadObjects() {
       console.error('Failed to load objects:', e)
     }
   } finally {
-    loading.value = false
+    if (requestSequence === objectRequestSequence) loading.value = false
   }
 }
 

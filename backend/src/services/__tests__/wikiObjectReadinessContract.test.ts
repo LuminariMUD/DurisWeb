@@ -17,10 +17,13 @@ describe('wiki object publication contract', () => {
       scripts: Record<string, string>;
     };
     const importer = read('backend/scripts/import-wiki-data.ts');
+    const generation = read('backend/src/services/wikiGeneration.ts');
 
     expect(packageJson.scripts['wiki:publish']).toContain('scripts/import-wiki-data.ts');
-    expect(importer).toContain('--source-revision');
-    expect(importer).toContain('--source-tree');
+    expect(importer).toContain('parseWikiSourceIdentity(args)');
+    expect(generation).toContain("'--source-revision'");
+    expect(generation).toContain("'--source-tree'");
+    expect(generation).toContain('FULL_GIT_OBJECT_ID');
   });
 
   it('publishes the source marker before committing the same transaction', () => {
@@ -34,15 +37,20 @@ describe('wiki object publication contract', () => {
     expect(importer).toContain('await connection.rollback()');
   });
 
-  it('returns a stable unavailable response instead of a successful empty search', () => {
+  it('shares one stable unavailable response across object list and detail routes', () => {
     const routes = read('backend/src/routes/wiki.ts');
     const objectList = routes.slice(
       routes.indexOf("'/objects'"),
       routes.indexOf("'/objects/:vnum'"),
     );
+    const objectDetail = routes.slice(
+      routes.indexOf("'/objects/:vnum'"),
+      routes.indexOf('// Mob Routes'),
+    );
 
-    expect(objectList).toContain('getWikiObjectReferenceIssues');
-    expect(objectList).toContain('res.status(503)');
-    expect(objectList).toContain("code: 'WIKI_OBJECT_REFERENCE_UNAVAILABLE'");
+    expect(objectList).toContain('rejectUnavailableWikiObjectReference');
+    expect(objectDetail).toContain('rejectUnavailableWikiObjectReference');
+    expect(routes).toContain('res.status(503)');
+    expect(routes).toContain("code: 'WIKI_OBJECT_REFERENCE_UNAVAILABLE'");
   });
 });

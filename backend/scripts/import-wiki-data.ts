@@ -15,6 +15,10 @@ import type { PoolConnection } from 'mysql2/promise';
 import { getBackendConfiguration } from '../src/config/environment.js';
 import { pool, closeDatabaseConnection } from '../src/db/connection.js';
 import { closeRedisConnection } from '../src/db/redis.js';
+import {
+  parseWikiSourceIdentity,
+  type WikiSourceIdentity,
+} from '../src/services/wikiGeneration.js';
 import { listZones, parseMobFile, parseObjFile } from '../src/services/zoneBuilderParser.js';
 import {
   ITEM_ALLOWED_RACES,
@@ -42,27 +46,6 @@ const PUBLISHED_TABLES = [
 
 const INSERT_BATCH_SIZE = 500;
 const executeFile = promisify(execFile);
-
-interface WikiSourceIdentity {
-  revision: string;
-  tree: string;
-}
-
-/** Require an operator-recorded immutable source identity for every publication. */
-function parseSourceIdentity(args: string[]): WikiSourceIdentity {
-  if (
-    args.length !== 4 ||
-    args[0] !== '--source-revision' ||
-    args[2] !== '--source-tree' ||
-    !/^[0-9a-f]{7,128}$/i.test(args[1] ?? '') ||
-    !/^[0-9a-f]{7,128}$/i.test(args[3] ?? '')
-  ) {
-    throw new Error(
-      'expected --source-revision <git-commit> --source-tree <git-tree>; obtain both from the selected clean MUD checkout',
-    );
-  }
-  return { revision: args[1], tree: args[3] };
-}
 
 /** Bind the recorded identity to the exact clean checkout that the parsers will read. */
 async function verifySourceIdentity(
@@ -169,7 +152,7 @@ async function main(args: string[]) {
   let failed = false;
 
   try {
-    const sourceIdentity = parseSourceIdentity(args);
+    const sourceIdentity = parseWikiSourceIdentity(args);
     await verifySourceIdentity(sourceIdentity, getBackendConfiguration().mud.directory);
     console.log('loading zones...');
     const { zones } = await listZones({ page: 1, limit: 10000 });

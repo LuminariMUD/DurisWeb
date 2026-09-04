@@ -57,6 +57,18 @@ async function checkWikiAccess(req: Request, res: Response, next: NextFunction):
   }
 }
 
+/** Send the stable object-reference failure response when no usable generation is published. */
+async function rejectUnavailableWikiObjectReference(res: Response): Promise<boolean> {
+  const referenceIssues = await wikiService.getWikiObjectReferenceIssues();
+  if (referenceIssues.length === 0) return false;
+
+  res.status(503).json({
+    code: 'WIKI_OBJECT_REFERENCE_UNAVAILABLE',
+    error: 'Wiki object reference data is unavailable. An operator must publish it.',
+  });
+  return true;
+}
+
 // =============================================================================
 // Public Routes (no auth needed, but respects access level setting)
 // =============================================================================
@@ -499,14 +511,7 @@ router.get(
   listLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const referenceIssues = await wikiService.getWikiObjectReferenceIssues();
-      if (referenceIssues.length > 0) {
-        res.status(503).json({
-          code: 'WIKI_OBJECT_REFERENCE_UNAVAILABLE',
-          error: 'Wiki object reference data is unavailable. An operator must publish it.',
-        });
-        return;
-      }
+      if (await rejectUnavailableWikiObjectReference(res)) return;
 
       const {
         page = '1',
@@ -623,6 +628,8 @@ router.get(
         res.status(400).json({ error: 'Invalid object vnum' });
         return;
       }
+
+      if (await rejectUnavailableWikiObjectReference(res)) return;
 
       const obj = await wikiService.getObjectByVnum(vnum);
 

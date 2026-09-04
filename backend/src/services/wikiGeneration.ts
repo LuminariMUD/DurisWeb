@@ -1,5 +1,28 @@
 import type { Pool, RowDataPacket } from 'mysql2/promise';
 
+const FULL_GIT_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i;
+
+export interface WikiSourceIdentity {
+  revision: string;
+  tree: string;
+}
+
+/** Parse only complete SHA-1 or SHA-256 identities so exact checkout comparison is meaningful. */
+export function parseWikiSourceIdentity(args: readonly string[]): WikiSourceIdentity {
+  if (
+    args.length !== 4 ||
+    args[0] !== '--source-revision' ||
+    args[2] !== '--source-tree' ||
+    !FULL_GIT_OBJECT_ID.test(args[1] ?? '') ||
+    !FULL_GIT_OBJECT_ID.test(args[3] ?? '')
+  ) {
+    throw new Error(
+      'expected --source-revision <full-git-commit> --source-tree <full-git-tree>; obtain both from the selected clean MUD checkout',
+    );
+  }
+  return { revision: args[1].toLowerCase(), tree: args[3].toLowerCase() };
+}
+
 export interface WikiObjectGenerationRow extends RowDataPacket {
   source_revision: string;
   source_tree: string;
@@ -38,7 +61,7 @@ export function validateWikiObjectGeneration(row: WikiObjectGenerationRow | null
   if (!row) return ['wiki object reference generation has not been published'];
 
   const issues: string[] = [];
-  if (row.source_revision.trim() === '' || row.source_tree.trim() === '') {
+  if (!FULL_GIT_OBJECT_ID.test(row.source_revision) || !FULL_GIT_OBJECT_ID.test(row.source_tree)) {
     issues.push('wiki object reference generation has no source identity');
   }
   const expected = Number(row.object_count);
