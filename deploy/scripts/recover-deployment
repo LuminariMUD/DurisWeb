@@ -57,9 +57,15 @@ while IFS= read -r recovery_line || [ -n "${recovery_line}" ]; do
   printf -v "${recovery_key}" '%s' "${recovery_value}"
 done <"${recovery_selection}"
 
+for recovery_key in NODE_BIN APPLICATION_SERVICE CACHE_SERVICE INGRESS_SERVICE LOCAL_HEALTH_URL PUBLIC_HEALTH_URL; do
+  if [ -z "${recovery_seen[${recovery_key}]:-}" ]; then
+    printf 'Missing rendered deployment selection key: %s\n' "${recovery_key}" >&2
+    exit 78
+  fi
+done
 for recovery_key in NODE_BIN APPLICATION_SERVICE CACHE_SERVICE LOCAL_HEALTH_URL; do
   if [ -z "${!recovery_key:-}" ]; then
-    printf 'Missing rendered deployment selection: %s\n' "${recovery_key}" >&2
+    printf 'Empty rendered deployment selection: %s\n' "${recovery_key}" >&2
     exit 78
   fi
 done
@@ -73,12 +79,13 @@ if [[ ! "${LOCAL_HEALTH_URL}" =~ ^http://(127\.0\.0\.1|localhost|\[::1\])(:[0-9]
   printf 'Invalid rendered local health URL.\n' >&2
   exit 78
 fi
-if [ -n "${PUBLIC_HEALTH_URL:-}" ] &&
-  [[ ! "${PUBLIC_HEALTH_URL}" =~ ^https://[^/?#[:space:]]+/health$ ]]; then
+if [ -n "${PUBLIC_HEALTH_URL}" ] &&
+  { [[ ! "${PUBLIC_HEALTH_URL}" =~ ^https://[^/?#[:space:]]+/health$ ]] ||
+    [[ "${PUBLIC_HEALTH_URL}" == *@* ]]; }; then
   printf 'Invalid rendered public health URL.\n' >&2
   exit 78
 fi
-if [ -n "${INGRESS_SERVICE:-}" ] && [ -z "${PUBLIC_HEALTH_URL:-}" ]; then
+if [ -n "${INGRESS_SERVICE}" ] && [ -z "${PUBLIC_HEALTH_URL}" ]; then
   printf 'Enabled ingress requires a rendered public health URL.\n' >&2
   exit 78
 fi
@@ -92,12 +99,15 @@ if ! command -v systemctl >/dev/null || ! command -v curl >/dev/null; then
 fi
 
 recovery_units=("${CACHE_SERVICE}" "${APPLICATION_SERVICE}")
-if [ -n "${INGRESS_SERVICE:-}" ]; then
+if [ -n "${INGRESS_SERVICE}" ]; then
   recovery_units+=("${INGRESS_SERVICE}")
 fi
 
 if [ "${recovery_mode}" = 'recover' ]; then
-  systemctl --user start "${recovery_units[@]}"
+  if ! systemctl --user start "${recovery_units[@]}"; then
+    printf 'Failed to start the complete rendered deployment group.\n' >&2
+    exit 1
+  fi
 fi
 
 for recovery_unit in "${recovery_units[@]}"; do
@@ -115,10 +125,12 @@ for recovery_unit in "${recovery_units[@]}"; do
   fi
 done
 
+# Request and structurally validate one DurisWeb backend health endpoint.
 check_health() {
   local recovery_url=$1
   local recovery_body
-  if ! recovery_body=$(curl --fail-with-body --silent --show-error --retry 15 \
+  if ! recovery_body=$(curl --fail-with-body --silent --show-error \
+    --connect-timeout 5 --max-time 15 --retry 15 --retry-max-time 60 \
     --retry-connrefused --retry-delay 1 "${recovery_url}"); then
     printf 'Health request failed: %s\n' "${recovery_url}" >&2
     return 1
@@ -130,7 +142,7 @@ check_health() {
     process.stdin.on("end", () => {
       try {
         const value = JSON.parse(body);
-        if (value.status !== "ok" || value.checks?.database !== "ok" || value.checks?.cache !== "ok") process.exit(1);
+        if (value.status !== "ok" || value.service !== "durisweb-backend" || value.checks?.database !== "ok" || value.checks?.cache !== "ok") process.exit(1);
       } catch {
         process.exit(1);
       }
@@ -142,7 +154,7 @@ check_health() {
 }
 
 check_health "${LOCAL_HEALTH_URL}"
-if [ -n "${PUBLIC_HEALTH_URL:-}" ]; then
+if [ -n "${PUBLIC_HEALTH_URL}" ]; then
   check_health "${PUBLIC_HEALTH_URL}"
 fi
 

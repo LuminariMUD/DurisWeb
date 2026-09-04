@@ -86,7 +86,8 @@ if [[ ! "${LOCAL_HEALTH_URL}" =~ ^http://(127\.0\.0\.1|localhost|\[::1\])(:[0-9]
   exit 78
 fi
 if { [ "${DEPLOY_CLOUDFLARED_ENABLED}" = 'true' ] || [ "${DEPLOY_NGINX_ENABLED}" = 'true' ]; } &&
-  [[ ! "${PUBLIC_HEALTH_URL}" =~ ^https://[^/?#[:space:]]+/health$ ]]; then
+  { [[ ! "${PUBLIC_HEALTH_URL}" =~ ^https://[^/?#[:space:]]+/health$ ]] ||
+    [[ "${PUBLIC_HEALTH_URL}" == *@* ]]; }; then
   printf 'PUBLIC_HEALTH_URL must be an exact HTTPS /health URL when public ingress is enabled.\n' >&2
   exit 78
 fi
@@ -137,6 +138,7 @@ for render_subdirectory in systemd redis nginx; do
   fi
 done
 
+# Render one owned deployment template and reject unresolved variables.
 render_template() {
   local render_source=$1
   local render_target=$2

@@ -103,6 +103,34 @@ describe('deployment configuration renderer', () => {
     expect(fs.existsSync(path.join(outputPath, 'nginx'))).toBe(false);
   });
 
+  it('rejects public health URI user-info before writing rendered files', () => {
+    const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-deploy-'));
+    temporaryDirectories.push(temporaryRoot);
+    const outputPath = path.join(temporaryRoot, 'rendered');
+    fs.mkdirSync(outputPath);
+    const inputPath = writeDeploymentInput(temporaryRoot, outputPath, true);
+    fs.writeFileSync(
+      inputPath,
+      fs
+        .readFileSync(inputPath, 'utf8')
+        .replace(
+          'PUBLIC_HEALTH_URL=https://portable.invalid/health',
+          'PUBLIC_HEALTH_URL=https://token@portable.invalid/health',
+        ),
+      { mode: 0o600 },
+    );
+
+    const result = spawnSync(
+      'bash',
+      [path.join(PROJECT_ROOT, 'deploy/scripts/render-config'), inputPath],
+      { encoding: 'utf8' },
+    );
+
+    expect(result.status).toBe(78);
+    expect(result.stderr).toMatch(/PUBLIC_HEALTH_URL must be an exact HTTPS \/health URL/i);
+    expect(fs.readdirSync(outputPath)).toEqual([]);
+  });
+
   it('requires the operator to create a dedicated render output directory', () => {
     const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-deploy-'));
     temporaryDirectories.push(temporaryRoot);

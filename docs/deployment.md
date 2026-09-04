@@ -187,7 +187,8 @@ The cache service consumes `CACHE_REDIS_PASSWORD` from the backend environment,
 so that file is the credential owner for both the application and managed
 Redis. Set `DEPLOY_CLOUDFLARED_ENABLED` and `DEPLOY_NGINX_ENABLED` explicitly;
 values in a disabled group are ignored, while every value in an enabled group
-must be replaced. Then render:
+must be replaced. Health URLs must not contain URI user-info or credentials.
+Then render:
 
 ```bash
 deploy/scripts/render-config /absolute/operator/path/deployment.env
@@ -198,7 +199,7 @@ The required `RENDER_OUTPUT_DIR` receives:
 - systemd units for the application and private Redis cache;
 - a Redis base configuration without an embedded password;
 - the Cloudflare unit when its group is enabled;
-- bootstrap and TLS nginx configurations when their group is enabled.
+- bootstrap and TLS nginx configurations when their group is enabled;
 - a non-secret deployment selection consumed by the complete-group recovery
   and acceptance command.
 
@@ -285,7 +286,8 @@ restart player-visible.
 
    This explicitly starts the cache, application, and rendered optional tunnel,
    then requires `ActiveState=active`, `Result=success`, `NRestarts=0`, and
-   structurally healthy local and configured public `/health` responses. Use
+   bounded local and configured public `/health` responses with the
+   `durisweb-backend` service identity and healthy database/cache checks. Use
    `--accept-only` to prove the same gate without starting anything.
 6. Do not restart the MUD or shared database as part of a web-only release.
    Compare their PIDs and active timestamps with the pre-cutover record.
@@ -301,9 +303,10 @@ backend readiness path is `/health`, not `/api/health`; an unknown path can be
 served by the SPA fallback, so HTTP 200 alone is not health evidence.
 
 ```bash
-curl --fail-with-body --retry 15 --retry-connrefused --retry-delay 1 \
+curl --fail-with-body --connect-timeout 5 --max-time 15 \
+  --retry 15 --retry-max-time 60 --retry-connrefused --retry-delay 1 \
   http://127.0.0.1:3001/health \
-  | jq -e '.status == "ok" and .checks.database == "ok" and .checks.cache == "ok"'
+  | jq -e '.status == "ok" and .service == "durisweb-backend" and .checks.database == "ok" and .checks.cache == "ok"'
 ```
 
 Use the configured origin rather than the example port. After start or restart,
