@@ -148,16 +148,29 @@ fi
 for recovery_index in "${!recovery_units[@]}"; do
   recovery_unit=${recovery_units[${recovery_index}]}
   recovery_unit_scope=${recovery_unit_scopes[${recovery_index}]}
-  mapfile -t recovery_state < <(
+  if ! recovery_state=$(
     systemctl "--${recovery_unit_scope}" show "${recovery_unit}" \
-      --property=ActiveState --property=Result --property=NRestarts --value
-  )
-  if [ "${recovery_state[0]:-}" != 'active' ] ||
-    [ "${recovery_state[1]:-}" != 'success' ] ||
-    [ "${recovery_state[2]:-}" != '0' ]; then
+      --property=ActiveState --property=Result --property=NRestarts
+  ); then
+    printf 'Failed to read service state: %s\n' "${recovery_unit}" >&2
+    exit 1
+  fi
+  recovery_active_state=''
+  recovery_result=''
+  recovery_restarts=''
+  while IFS='=' read -r recovery_property recovery_value; do
+    case "${recovery_property}" in
+      ActiveState) recovery_active_state=${recovery_value} ;;
+      Result) recovery_result=${recovery_value} ;;
+      NRestarts) recovery_restarts=${recovery_value} ;;
+    esac
+  done <<<"${recovery_state}"
+  if [ "${recovery_active_state}" != 'active' ] ||
+    [ "${recovery_result}" != 'success' ] ||
+    [ "${recovery_restarts}" != '0' ]; then
     printf '%s failed acceptance (ActiveState=%s Result=%s NRestarts=%s).\n' \
-      "${recovery_unit}" "${recovery_state[0]:-missing}" "${recovery_state[1]:-missing}" \
-      "${recovery_state[2]:-missing}" >&2
+      "${recovery_unit}" "${recovery_active_state:-missing}" "${recovery_result:-missing}" \
+      "${recovery_restarts:-missing}" >&2
     exit 1
   fi
 done

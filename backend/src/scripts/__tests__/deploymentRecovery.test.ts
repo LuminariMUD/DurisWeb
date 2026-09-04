@@ -81,12 +81,13 @@ fi
 if [ "\${2:-}" = 'show' ]; then
   if [ "\${3:-}" = 'nginx.service' ] && [ "\${RECOVERY_NGINX_REQUIRES_START:-false}" = 'true' ] &&
     [ ! -f "$RECOVERY_NGINX_STATE_FILE" ]; then
-    printf 'inactive\\nfailed\\n0\\n'
+    printf 'Result=failed\\nNRestarts=0\\nActiveState=inactive\\n'
   elif [ "\${3:-}" = "\${RECOVERY_STATUS_UNIT:-}" ]; then
-    printf '%s\\n%s\\n%s\\n' "\${RECOVERY_ACTIVE_STATE:-active}" \
-      "\${RECOVERY_SERVICE_RESULT:-success}" "\${RECOVERY_RESTART_COUNT:-0}"
+    printf 'Result=%s\\nNRestarts=%s\\nActiveState=%s\\n' \
+      "\${RECOVERY_SERVICE_RESULT:-success}" "\${RECOVERY_RESTART_COUNT:-0}" \
+      "\${RECOVERY_ACTIVE_STATE:-active}"
   else
-    printf 'active\\nsuccess\\n0\\n'
+    printf 'Result=success\\nNRestarts=0\\nActiveState=active\\n'
   fi
 fi
 `,
@@ -148,6 +149,15 @@ afterEach(() => {
 });
 
 describe('complete deployment recovery', () => {
+  it('accepts keyed systemd properties in manager output order', () => {
+    const fixture = createRecoveryFixture('none');
+
+    const result = runRecovery(fixture, ['--accept-only']);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/2 units, 1 health probes/);
+  });
+
   it('starts and accepts every rendered unit plus local and public health', () => {
     const fixture = createRecoveryFixture('cloudflared');
 
