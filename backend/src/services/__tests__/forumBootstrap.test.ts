@@ -81,6 +81,33 @@ describe('forum category bootstrap', () => {
     expect(commit).toHaveBeenCalledTimes(1);
   });
 
+  it('is idempotent across consecutive executions', async () => {
+    const categoryNames = new Set<string>();
+    connectionQuery.mockImplementation(async (sql, parameters) => {
+      const statement = String(sql);
+      if (statement.includes('GET_LOCK')) return [[{ acquired: 1 }], []];
+      if (statement.includes('SELECT name')) {
+        return [[...categoryNames].map((name) => ({ name })), []];
+      }
+      if (statement.includes('INSERT INTO')) {
+        const [name] = parameters as [string];
+        categoryNames.add(name);
+        return [{ affectedRows: 1 }, []];
+      }
+      if (statement.includes('RELEASE_LOCK')) return [[{ released: 1 }], []];
+      throw new Error(`unexpected query: ${statement}`);
+    });
+
+    await expect(bootstrapForumCategories()).resolves.toHaveLength(INITIAL_FORUM_CATEGORIES.length);
+    await expect(bootstrapForumCategories()).resolves.toEqual([]);
+
+    expect(
+      connectionQuery.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO')),
+    ).toHaveLength(INITIAL_FORUM_CATEGORIES.length);
+    expect(commit).toHaveBeenCalledTimes(2);
+    expect(release).toHaveBeenCalledTimes(2);
+  });
+
   it('rolls back and releases the advisory lock after an insert failure', async () => {
     connectionQuery.mockImplementation(async (sql) => {
       const statement = String(sql);
@@ -99,5 +126,18 @@ describe('forum category bootstrap', () => {
       'durisweb:forum-bootstrap',
     ]);
     expect(release).toHaveBeenCalledTimes(1);
+
+    connectionQuery.mockImplementation(async (sql) => {
+      const statement = String(sql);
+      if (statement.includes('GET_LOCK')) return [[{ acquired: 1 }], []];
+      if (statement.includes('SELECT name')) return [[], []];
+      if (statement.includes('INSERT INTO')) return [{ affectedRows: 1 }, []];
+      if (statement.includes('RELEASE_LOCK')) return [[{ released: 1 }], []];
+      throw new Error(`unexpected query: ${statement}`);
+    });
+
+    await expect(bootstrapForumCategories()).resolves.toHaveLength(INITIAL_FORUM_CATEGORIES.length);
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(release).toHaveBeenCalledTimes(2);
   });
 });

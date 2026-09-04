@@ -327,10 +327,10 @@ The dependency preflight rejects a forum that has no non-archived public or
 authenticated root category. For a fresh installation, run `pnpm forum:bootstrap`
 from `backend/` after migrations. The command is transactionally idempotent: it
 adds only missing categories from the approved minimal taxonomy and preserves
-all existing identifiers, custom categories, threads, and posts. A level 57+
-administrator can instead use **Set up the first category** on the empty forum
-screen. Do not treat private-only or archived categories as ordinary-user
-readiness.
+all existing identifiers, custom categories, threads, and posts. An administrator
+with the configured forum-moderation permission can instead use **Set up the
+first category** on the empty forum screen. Do not treat private-only or archived
+categories as ordinary-user readiness.
 
 Hold the stability soak across the longest relevant idle and reconnect boundary.
 While DurisMUD #116 applies, exceed its 15-minute service-descriptor timeout and
