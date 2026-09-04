@@ -13,6 +13,10 @@ import {
 
 const { privateKey, publicKey } = generateKeyPairSync('ed25519');
 const trustedPublicKey = publicKey.export({ format: 'pem', type: 'spki' }).toString();
+const expectedEvidence = {
+  snapshotId: `sha256:${'a'.repeat(64)}`,
+  quiescenceEvidenceId: `sha256:${'b'.repeat(64)}`,
+};
 
 /** Build unique, non-identifying evidence hashes for one signed test statement. */
 function rowClassifications(
@@ -36,8 +40,7 @@ function statement(
     boundary: 'quiesced',
     phase: 'classification',
     evidenceId: 'fixture-save-0001',
-    snapshotId: `sha256:${'a'.repeat(64)}`,
-    quiescenceEvidenceId: `sha256:${'b'.repeat(64)}`,
+    ...expectedEvidence,
     rowClassifications: rowClassifications(),
     invariantChecks: {
       unaffectedPayloadChanges: 0,
@@ -76,6 +79,7 @@ describe('item topology attestation', () => {
     const result = verifyItemTopologyAttestation(
       signedAttestation(statement({ rowClassifications: rowClassifications(category) })),
       trustedPublicKey,
+      expectedEvidence,
     );
 
     expect(result).toEqual({
@@ -91,6 +95,7 @@ describe('item topology attestation', () => {
     const result = verifyItemTopologyAttestation(
       signedAttestation(statement({ rowClassifications: rows })),
       trustedPublicKey,
+      expectedEvidence,
     );
 
     expect(result.status).toBe('failed');
@@ -105,6 +110,7 @@ describe('item topology attestation', () => {
     const result = verifyItemTopologyAttestation(
       signedAttestation(statement({ rowClassifications: rows })),
       trustedPublicKey,
+      expectedEvidence,
     );
 
     expect(result.status).toBe('failed');
@@ -117,6 +123,7 @@ describe('item topology attestation', () => {
     const result = verifyItemTopologyAttestation(
       signedAttestation(statement({ rowClassifications: rows })),
       trustedPublicKey,
+      expectedEvidence,
     );
 
     expect(result.status).toBe('failed');
@@ -129,6 +136,7 @@ describe('item topology attestation', () => {
     const result = verifyItemTopologyAttestation(
       signedAttestation(statement({ rowClassifications: rows })),
       trustedPublicKey,
+      expectedEvidence,
     );
 
     expect(result.status).toBe('failed');
@@ -141,6 +149,7 @@ describe('item topology attestation', () => {
     const result = verifyItemTopologyAttestation(
       signedAttestation(statement({ rowClassifications: rows })),
       trustedPublicKey,
+      expectedEvidence,
     );
 
     expect(result.status).toBe('failed');
@@ -153,6 +162,7 @@ describe('item topology attestation', () => {
     const result = verifyItemTopologyAttestation(
       signedAttestation(statement({ phase: 'post-repair', rowClassifications: [] })),
       trustedPublicKey,
+      expectedEvidence,
     );
 
     expect(result).toEqual({
@@ -176,6 +186,7 @@ describe('item topology attestation', () => {
         }),
       ),
       trustedPublicKey,
+      expectedEvidence,
     );
 
     expect(result.status).toBe('failed');
@@ -186,7 +197,11 @@ describe('item topology attestation', () => {
     const suppliedTotals = { ...statement(), payloadParentOrRoot: 14 };
 
     expect(() =>
-      verifyItemTopologyAttestation(signedAttestation(suppliedTotals), trustedPublicKey),
+      verifyItemTopologyAttestation(
+        signedAttestation(suppliedTotals),
+        trustedPublicKey,
+        expectedEvidence,
+      ),
     ).toThrow(/signed statement fields do not match/);
   });
 
@@ -198,16 +213,34 @@ describe('item topology attestation', () => {
       signedStatement: Buffer.from(JSON.stringify(changedStatement), 'utf8').toString('base64url'),
     };
 
-    expect(() => verifyItemTopologyAttestation(tampered, trustedPublicKey)).toThrow(
-      /signature is not trusted/,
+    expect(() =>
+      verifyItemTopologyAttestation(tampered, trustedPublicKey, expectedEvidence),
+    ).toThrow(/signature is not trusted/);
+  });
+
+  it('rejects a valid signed post-repair result from another snapshot', () => {
+    const replayed = signedAttestation(
+      statement({
+        phase: 'post-repair',
+        rowClassifications: [],
+        snapshotId: `sha256:${'c'.repeat(64)}`,
+      }),
     );
+
+    expect(() =>
+      verifyItemTopologyAttestation(replayed, trustedPublicKey, expectedEvidence),
+    ).toThrow(/does not match the expected snapshot/);
   });
 
   it('rejects a valid signature from an untrusted checker key', () => {
     const otherKey = generateKeyPairSync('ed25519').privateKey;
 
     expect(() =>
-      verifyItemTopologyAttestation(signedAttestation(statement(), otherKey), trustedPublicKey),
+      verifyItemTopologyAttestation(
+        signedAttestation(statement(), otherKey),
+        trustedPublicKey,
+        expectedEvidence,
+      ),
     ).toThrow(/signature is not trusted/);
   });
 

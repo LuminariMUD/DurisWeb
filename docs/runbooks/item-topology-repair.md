@@ -7,7 +7,9 @@ official checker:
 
 ```bash
 pnpm --dir backend verify:item-topology-attestation -- \
-  --input /protected/operator/path/item-topology-attestation.json
+  --input /protected/operator/path/item-topology-attestation.json \
+  --snapshot-id sha256:<approved-snapshot-digest> \
+  --quiescence-evidence-id sha256:<approved-writer-stop-evidence-digest>
 ```
 
 `ITEM_TOPOLOGY_CHECKER_PUBLIC_KEY` must contain the approved checker's Ed25519
@@ -17,11 +19,15 @@ must never be present on the web host.
 
 The version-2 verifier authenticates the exact checker-produced statement,
 binds it to SHA-256 identities for the quiesced snapshot and its writer-stop
-evidence, and derives every aggregate from signed per-row classifications. It
-rejects duplicate evidence hashes, overlapping classifications, imported rows,
-unclassified rows, caller-supplied aggregate fields, and preservation drift.
-Version 2 intentionally accepts no allowed transition at a quiesced boundary;
-proving one requires a reviewed contract version.
+evidence, and requires both to match the independently approved identifiers on
+the command line. Never copy those expected identifiers from the attestation
+being verified. This prevents a valid older statement from being replayed for
+the current repair. The verifier derives every aggregate from signed per-row
+classifications. It rejects duplicate evidence hashes, overlapping
+classifications, imported rows, unclassified rows, caller-supplied aggregate
+fields, and preservation drift. Version 2 intentionally accepts no allowed
+transition at a quiesced boundary; proving one requires a reviewed contract
+version.
 
 After a repair, a separately signed `post-repair` statement must contain zero
 row classifications and zero collateral payload/history, UID, allocator, or
@@ -84,7 +90,9 @@ row evidence hashes.
 ## Repair sequence
 
 1. Approve the maintenance boundary, perform a clean MUD save, and stop all item
-   writers. Local web health is not evidence of quiescence.
+   writers. Record the independently derived snapshot and writer-stop evidence
+   digests for the verifier arguments. Local web health is not evidence of
+   quiescence.
 2. Run the official checker. It must hash the frozen snapshot and writer-stop
    evidence, build one private canonical evidence record per mismatch, include
    each record's hash once in the statement, then sign those exact statement

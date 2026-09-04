@@ -6,12 +6,32 @@ import { verifyItemTopologyAttestation } from '../services/itemTopologyAttestati
 
 const MAX_ATTESTATION_BYTES = 65_536;
 
-/** Resolve the one supported signed-attestation CLI argument. */
-function inputPath(args: string[]): string {
-  if (args.length !== 2 || args[0] !== '--input' || args[1].trim() === '') {
-    throw new Error('usage: verifyItemTopologyAttestation --input <signed-attestation.json>');
+interface ItemTopologyVerificationInput {
+  inputPath: string;
+  snapshotId: string;
+  quiescenceEvidenceId: string;
+}
+
+/** Resolve the signed artifact and independent expected-evidence CLI arguments. */
+function verificationInput(args: string[]): ItemTopologyVerificationInput {
+  if (
+    args.length !== 6 ||
+    args[0] !== '--input' ||
+    args[1].trim() === '' ||
+    args[2] !== '--snapshot-id' ||
+    args[3].trim() === '' ||
+    args[4] !== '--quiescence-evidence-id' ||
+    args[5].trim() === ''
+  ) {
+    throw new Error(
+      'usage: verifyItemTopologyAttestation --input <signed-attestation.json> --snapshot-id <sha256:id> --quiescence-evidence-id <sha256:id>',
+    );
   }
-  return path.resolve(args[1]);
+  return {
+    inputPath: path.resolve(args[1]),
+    snapshotId: args[3],
+    quiescenceEvidenceId: args[5],
+  };
 }
 
 /** Read the approved checker public key from protected operator configuration. */
@@ -91,9 +111,14 @@ export function runItemTopologyAttestationVerification(
   environment: NodeJS.ProcessEnv = process.env,
 ): number {
   try {
+    const input = verificationInput(args);
     const result = verifyItemTopologyAttestation(
-      readProtectedAttestation(inputPath(args)),
+      readProtectedAttestation(input.inputPath),
       trustedCheckerPublicKey(environment),
+      {
+        snapshotId: input.snapshotId,
+        quiescenceEvidenceId: input.quiescenceEvidenceId,
+      },
     );
     if (result.status === 'failed') {
       console.error(`Item topology attestation failed: ${result.issues.join('; ')}`);

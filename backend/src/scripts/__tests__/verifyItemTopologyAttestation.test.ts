@@ -11,6 +11,8 @@ import { runItemTopologyAttestationVerification } from '../verifyItemTopologyAtt
 const temporaryDirectories: string[] = [];
 const { privateKey, publicKey } = generateKeyPairSync('ed25519');
 const trustedPublicKey = publicKey.export({ format: 'pem', type: 'spki' }).toString();
+const expectedSnapshotId = `sha256:${'a'.repeat(64)}`;
+const expectedQuiescenceEvidenceId = `sha256:${'b'.repeat(64)}`;
 const trustedEnvironment: NodeJS.ProcessEnv = {
   ITEM_TOPOLOGY_CHECKER_PUBLIC_KEY: trustedPublicKey,
 };
@@ -26,8 +28,8 @@ function statement(
     boundary: 'quiesced',
     phase: 'classification',
     evidenceId: 'fixture-save-0001',
-    snapshotId: `sha256:${'a'.repeat(64)}`,
-    quiescenceEvidenceId: `sha256:${'b'.repeat(64)}`,
+    snapshotId: expectedSnapshotId,
+    quiescenceEvidenceId: expectedQuiescenceEvidenceId,
     rowClassifications: Array.from({ length: 14 }, (_, index) => ({
       rowEvidenceHash: `sha256:${index.toString(16).padStart(64, '0')}`,
       origin: 'pre-existing',
@@ -66,6 +68,22 @@ function writeAttestation(
   return inputPath;
 }
 
+/** Bind a CLI verification run to independently expected evidence identities. */
+function verificationArgs(
+  inputPath: string,
+  snapshotId: string = expectedSnapshotId,
+  quiescenceEvidenceId: string = expectedQuiescenceEvidenceId,
+): string[] {
+  return [
+    '--input',
+    inputPath,
+    '--snapshot-id',
+    snapshotId,
+    '--quiescence-evidence-id',
+    quiescenceEvidenceId,
+  ];
+}
+
 afterEach(() => {
   jest.restoreAllMocks();
   for (const directory of temporaryDirectories.splice(0)) {
@@ -78,9 +96,9 @@ describe('item topology attestation CLI', () => {
     const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
     const inputPath = writeAttestation();
 
-    expect(runItemTopologyAttestationVerification(['--input', inputPath], trustedEnvironment)).toBe(
-      0,
-    );
+    expect(
+      runItemTopologyAttestationVerification(verificationArgs(inputPath), trustedEnvironment),
+    ).toBe(0);
     expect(log).toHaveBeenCalledWith(
       expect.stringContaining('classified, 14 verified row classifications'),
     );
@@ -90,16 +108,30 @@ describe('item topology attestation CLI', () => {
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const inputPath = writeAttestation({ phase: 'post-repair' });
 
-    expect(runItemTopologyAttestationVerification(['--input', inputPath], trustedEnvironment)).toBe(
-      1,
-    );
+    expect(
+      runItemTopologyAttestationVerification(verificationArgs(inputPath), trustedEnvironment),
+    ).toBe(1);
+  });
+
+  it('refuses a valid signed post-repair result from another snapshot', () => {
+    const error = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const inputPath = writeAttestation({
+      phase: 'post-repair',
+      rowClassifications: [],
+      snapshotId: `sha256:${'c'.repeat(64)}`,
+    });
+
+    expect(
+      runItemTopologyAttestationVerification(verificationArgs(inputPath), trustedEnvironment),
+    ).toBe(78);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('expected snapshot'));
   });
 
   it('refuses evidence when the trusted checker key is not configured', () => {
     const error = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const inputPath = writeAttestation();
 
-    expect(runItemTopologyAttestationVerification(['--input', inputPath], {})).toBe(78);
+    expect(runItemTopologyAttestationVerification(verificationArgs(inputPath), {})).toBe(78);
     expect(error).toHaveBeenCalledWith(
       expect.stringContaining('ITEM_TOPOLOGY_CHECKER_PUBLIC_KEY is required'),
     );
@@ -110,9 +142,9 @@ describe('item topology attestation CLI', () => {
     const inputPath = writeAttestation();
     fs.chmodSync(inputPath, 0o640);
 
-    expect(runItemTopologyAttestationVerification(['--input', inputPath], trustedEnvironment)).toBe(
-      78,
-    );
+    expect(
+      runItemTopologyAttestationVerification(verificationArgs(inputPath), trustedEnvironment),
+    ).toBe(78);
     expect(error).toHaveBeenCalledWith(expect.stringContaining('mode 0600'));
   });
 
@@ -121,9 +153,9 @@ describe('item topology attestation CLI', () => {
     const inputPath = writeAttestation();
     fs.chmodSync(inputPath, 0o400);
 
-    expect(runItemTopologyAttestationVerification(['--input', inputPath], trustedEnvironment)).toBe(
-      78,
-    );
+    expect(
+      runItemTopologyAttestationVerification(verificationArgs(inputPath), trustedEnvironment),
+    ).toBe(78);
     expect(error).toHaveBeenCalledWith(expect.stringContaining('mode 0600'));
   });
 
@@ -133,9 +165,9 @@ describe('item topology attestation CLI', () => {
     const inputPath = path.join(path.dirname(targetPath), 'attestation-link.json');
     fs.symlinkSync(targetPath, inputPath);
 
-    expect(runItemTopologyAttestationVerification(['--input', inputPath], trustedEnvironment)).toBe(
-      78,
-    );
+    expect(
+      runItemTopologyAttestationVerification(verificationArgs(inputPath), trustedEnvironment),
+    ).toBe(78);
     expect(error).toHaveBeenCalledWith(expect.stringContaining('regular, non-symlink file'));
   });
 
@@ -150,9 +182,9 @@ describe('item topology attestation CLI', () => {
       return stat;
     });
 
-    expect(runItemTopologyAttestationVerification(['--input', inputPath], trustedEnvironment)).toBe(
-      78,
-    );
+    expect(
+      runItemTopologyAttestationVerification(verificationArgs(inputPath), trustedEnvironment),
+    ).toBe(78);
     expect(error).toHaveBeenCalledWith(expect.stringContaining('path changed during verification'));
   });
 
@@ -162,9 +194,9 @@ describe('item topology attestation CLI', () => {
     fs.writeFileSync(inputPath, '{', { mode: 0o600 });
     const close = jest.spyOn(fs, 'closeSync');
 
-    expect(runItemTopologyAttestationVerification(['--input', inputPath], trustedEnvironment)).toBe(
-      78,
-    );
+    expect(
+      runItemTopologyAttestationVerification(verificationArgs(inputPath), trustedEnvironment),
+    ).toBe(78);
     expect(close).toHaveBeenCalledTimes(1);
   });
 });

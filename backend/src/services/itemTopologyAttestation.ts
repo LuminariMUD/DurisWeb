@@ -54,6 +54,11 @@ export interface ItemTopologyAttestationResult {
   issues: string[];
 }
 
+export interface ItemTopologyExpectedEvidence {
+  snapshotId: string;
+  quiescenceEvidenceId: string;
+}
+
 const ENVELOPE_KEYS = [
   'schemaVersion',
   'signatureAlgorithm',
@@ -132,6 +137,14 @@ function decodeBase64Url(value: unknown, label: string, maximumBytes: number): B
   return decoded;
 }
 
+/** Require one lowercase SHA-256 identifier without exposing its value in errors. */
+function requireSha256Id(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !SHA256_ID.test(value)) {
+    throw new Error(`${label} must be a lowercase SHA-256 identifier`);
+  }
+  return value;
+}
+
 /** Parse the public signed-envelope fields without trusting the embedded statement. */
 export function parseItemTopologyAttestation(value: unknown): ItemTopologyAttestation {
   const object = requireObject(value, 'item topology attestation');
@@ -182,15 +195,14 @@ function parseSignedStatement(statementBytes: Buffer): ItemTopologySignedStateme
   if (typeof object.evidenceId !== 'string' || !OPAQUE_ID.test(object.evidenceId)) {
     throw new Error('item topology signed statement requires an opaque evidence ID');
   }
-  if (typeof object.snapshotId !== 'string' || !SHA256_ID.test(object.snapshotId)) {
-    throw new Error('item topology signed statement requires a SHA-256 snapshot ID');
-  }
-  if (
-    typeof object.quiescenceEvidenceId !== 'string' ||
-    !SHA256_ID.test(object.quiescenceEvidenceId)
-  ) {
-    throw new Error('item topology signed statement requires SHA-256 quiescence evidence');
-  }
+  const snapshotId = requireSha256Id(
+    object.snapshotId,
+    'item topology signed statement snapshot ID',
+  );
+  const quiescenceEvidenceId = requireSha256Id(
+    object.quiescenceEvidenceId,
+    'item topology signed statement quiescence evidence ID',
+  );
   if (!Array.isArray(object.rowClassifications) || object.rowClassifications.length > 1_024) {
     throw new Error('item topology signed statement row classifications are invalid');
   }
@@ -235,8 +247,8 @@ function parseSignedStatement(statementBytes: Buffer): ItemTopologySignedStateme
     boundary: 'quiesced',
     phase: object.phase,
     evidenceId: object.evidenceId,
-    snapshotId: object.snapshotId,
-    quiescenceEvidenceId: object.quiescenceEvidenceId,
+    snapshotId,
+    quiescenceEvidenceId,
     rowClassifications,
     invariantChecks: {
       unaffectedPayloadChanges: Number(invariants.unaffectedPayloadChanges),
@@ -255,6 +267,7 @@ function parseSignedStatement(statementBytes: Buffer): ItemTopologySignedStateme
 export function verifyItemTopologyAttestation(
   value: unknown,
   trustedCheckerPublicKey: string | Buffer,
+  expectedEvidence: ItemTopologyExpectedEvidence,
 ): ItemTopologyAttestationResult {
   const attestation = parseItemTopologyAttestation(value);
   const statementBytes = decodeBase64Url(
@@ -281,6 +294,21 @@ export function verifyItemTopologyAttestation(
   }
 
   const statement = parseSignedStatement(statementBytes);
+  const expectedSnapshotId = requireSha256Id(
+    expectedEvidence?.snapshotId,
+    'expected item topology snapshot ID',
+  );
+  const expectedQuiescenceEvidenceId = requireSha256Id(
+    expectedEvidence?.quiescenceEvidenceId,
+    'expected item topology quiescence evidence ID',
+  );
+  if (statement.snapshotId !== expectedSnapshotId) {
+    throw new Error('item topology attestation does not match the expected snapshot');
+  }
+  if (statement.quiescenceEvidenceId !== expectedQuiescenceEvidenceId) {
+    throw new Error('item topology attestation does not match the expected quiescence evidence');
+  }
+
   const issues: string[] = [];
   const uniqueRows = new Set<string>();
   let duplicateClassifications = 0;
