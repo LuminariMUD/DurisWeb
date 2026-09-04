@@ -13,6 +13,7 @@
     "type-check": "tsc --noEmit",
     "config:check": "NODE_OPTIONS='--import tsx' tsx src/scripts/checkEnvironment.ts",
     "verify:mud-writes": "NODE_OPTIONS='--import tsx' tsx src/scripts/verifyMudWriteAllowlist.ts",
+    "verify:imported-item-baselines": "NODE_OPTIONS='--import tsx' tsx src/scripts/verifyImportedItemBaselines.ts",
     "lint": "eslint . --cache",
     "lint:fix": "eslint . --fix --cache",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",

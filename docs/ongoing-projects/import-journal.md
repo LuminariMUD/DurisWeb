@@ -440,6 +440,9 @@ database row was changed.
   was not proven by inspecting or changing the separate MUD repository. It is
   recorded here for comparison at the next quiesced save and tracked in
   [DurisWeb #12](https://github.com/LuminariMUD/DurisWeb/issues/12).
+  The aggregate attestation contract and quiesced acceptance steps are checked
+  in as the
+  [imported item baseline verifier](../runbooks/imported-item-baseline-verification.md).
 - The official topology checker separately retains 14 mismatches proven
   byte-for-byte pre-existing in the frozen target; imported items account for
   zero of them. Classification and repair are tracked in
