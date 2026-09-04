@@ -567,3 +567,45 @@ an entry says otherwise.
   verifier accepts the application, private Redis, and website tunnel units. The remaining gate is
   host installation/reload of the corrected AppArmor profile followed by the same full transient-unit
   probe, controlled application cutover, endpoint and browser acceptance, and the required soak.
+
+## Bubblewrap release-gate rollback
+
+- The host administrator installed the corrected AppArmor profile as `root:root 0644`, verified it
+  byte-for-byte against the deployment template, and reloaded it successfully. The installed and
+  tracked SHA-256 values both matched
+  `9b0fb0c7710aa6682b23d290b7c4daceb2a4f92390661a18ca42e6ebd8ea7841`.
+- The exact full production systemd sandbox probe still failed at
+  `/proc/self/ns/cgroup` with `Permission denied`. This disproved the `attach_disconnected` repair;
+  no candidate application was started and the healthy recovered production runtime was unaffected.
+- Making an optional administrative-terminal host capability a mandatory application startup gate
+  was a noncritical architectural expansion. It has been removed. The production preflight again
+  validates application configuration and migrations without executing bubblewrap, the application
+  unit again uses its prior `RestrictNamespaces=true` policy, the repository-owned AppArmor profile
+  has been deleted, and the related tests and deployment instructions have been removed. The wiki
+  publication, migration, recovery-parser, and burn-in-skill repairs remain intact.
+- Documentation now records the administrative terminal as a separately qualified optional feature
+  rather than a core release prerequisite. The host profile remains installed only until privileged
+  cleanup; the source and candidate no longer depend on it. Focused formatting, type checking, the
+  production-literal guard, and 3 suites/25 regression tests pass after the rollback.
+- The complete post-rollback isolated matrix passes consecutively: frozen backend/frontend installs;
+  backend configuration, formatting, lint, type checking, and 53-entry MUD-write verification;
+  frontend configuration, formatting, lint, and type checking; 101 backend suites/799 tests; and 34
+  frontend files/121 tests. Expected negative-case diagnostics were emitted only by tests asserting
+  those failures.
+- The isolated test database remained on the proven loopback MariaDB/Redis endpoints. Its migration
+  status showed 83 complete and none pending before and after `migrate:latest`; the intervening
+  command reported `Already up to date`. The freshly compiled candidate configuration preflight
+  passes with 83 migrations and its dependency preflight passes 21 required tables plus all
+  configured Redis dependencies.
+- The fresh backend build contains 1,044 files with manifest SHA-256
+  `5a15c928e3dc062dc9b511ff441773b684031dfbdc2d7e8862558075a8de51a9`; its entrypoint SHA-256 is
+  `8fa8945b0725c4467b64836248721dc1fca2934046d1b4da8b9cf7ca1fc01977`. The fresh frontend build
+  contains 240 files with manifest SHA-256
+  `e5617c214584844929601b16d169cea3d1e7f50964ffa3bd76a9f4465602ce28`; `index.html` SHA-256 is
+  `59b56462bd039c2b30c5fd6b3758c172d7905a0adee82521c631e6b95f37b62a` and references the expected
+  548,495-byte main JavaScript asset with SHA-256
+  `18f2374462bd868865fa06bfea931f43b271c7a6f8519ad3f50d9806a6d0ae37`.
+- Every intended tracked path, including the updated burn-in skill and the deleted AppArmor
+  template, matches the isolated candidate byte-for-byte. A fresh render restores
+  `RestrictNamespaces=true`; systemd verifies all three rendered units and the candidate contains no
+  repository-owned AppArmor profile.

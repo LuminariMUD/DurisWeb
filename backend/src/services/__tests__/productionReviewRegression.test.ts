@@ -31,17 +31,10 @@ describe('production review regression contracts', () => {
 
   it('separates systemd configuration refusal from retryable dependency checks', () => {
     const service = read('deploy/templates/systemd/durisweb-production.service');
-    const sandboxProfile = read('deploy/templates/apparmor/durisweb-bwrap');
 
     expect(service).toContain('@BACKEND_ROOT@/migrations');
     expect(service).toContain('ExecCondition=');
     expect(service).toContain('productionPreflight.js --configuration');
-    expect(read('backend/src/scripts/productionPreflight.ts')).toContain(
-      'verifyTerminalSandbox(environment.mud.terminalSandboxBinary)',
-    );
-    expect(sandboxProfile).toContain('profile durisweb-bwrap /usr/bin/bwrap');
-    expect(sandboxProfile).toContain('flags=(unconfined,attach_disconnected)');
-    expect(sandboxProfile).toContain('userns,');
     expect(service).toContain('ExecStartPre=');
     expect(service).toContain('productionPreflight.js --dependencies');
   });

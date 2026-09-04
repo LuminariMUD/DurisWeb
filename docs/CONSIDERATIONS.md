@@ -48,11 +48,10 @@ Review these before planning another phase.
    ip-api.com receives visitor IPs; Ko-fi, Discord, Cloudflare R2, and browser
    push providers receive their feature payloads. No in-repo privacy notice or
    processing record documents these transfers.
-4. **[production/host] Administrative terminal sandbox is not operational.**
-   Bubblewrap is installed, but the host's AppArmor policy denies its required
-   user namespace and the web terminal remains unavailable. Install and load the
-   reviewed executable-specific profile, then require the compiled operational
-   preflight to pass; never substitute an unsandboxed shell.
+4. **[production/host] Administrative terminal sandbox needs separate qualification.**
+   The optional web terminal depends on host bubblewrap and user-namespace behavior. It is not a
+   core application release gate. Qualify it as focused maintenance if terminal use is required;
+   never substitute an unsandboxed shell.
 5. **[production/DurisMUD] Season-temperature data contains an invalid climate
    index.** Two controlled MUD starts on 2026-09-02 each emitted ten guarded
    `ARRAY temps index 11 >= 11 at world/db.c:856` warnings. Current source uses

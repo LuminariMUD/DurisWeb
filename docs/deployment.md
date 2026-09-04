@@ -51,10 +51,8 @@ node dist/scripts/productionPreflight.js --configuration
 node dist/scripts/productionPreflight.js --dependencies
 ```
 
-The first command aggregates invalid configuration, verifies the migration
-bundle, requires the configured terminal sandbox path to identify bubblewrap,
-and launches a bounded connection-free namespace probe as the service account.
-The second verifies required tables, the canonical MUD-owned
+The first command aggregates invalid configuration and verifies the migration
+bundle. The second verifies required tables, the canonical MUD-owned
 `server_reboots` shape, absence of the prohibited incoming extension foreign
 key, refresh-token column capacity, nonempty and internally consistent wiki
 object and mob generations with persisted source identity, the complete
@@ -67,43 +65,6 @@ correct. They do not replace
 the test suite or the release-specific acceptance checks below. The rendered
 unit runs configuration as an `ExecCondition`; configuration refusal status 78
 leaves the unit skipped instead of entering a restart loop.
-
-### Terminal sandbox host readiness
-
-The administrative terminal requires bubblewrap to create user, IPC, UTS, and
-cgroup namespaces. Package installation and executable mode do not prove that
-the service account can create them. The configuration preflight performs the
-same namespace setup with a no-op command and fails closed before application
-startup if the kernel or mandatory-access-control policy refuses it.
-
-Ubuntu hosts with `kernel.apparmor_restrict_unprivileged_userns=1` need an
-AppArmor attachment for the configured executable. When the configured path is
-`/usr/bin/bwrap`, install the maintained profile and load it before rerunning the
-compiled preflight:
-
-```bash
-sudo install -o root -g root -m 0644 \
-  deploy/templates/apparmor/durisweb-bwrap \
-  /etc/apparmor.d/durisweb-bwrap
-sudo apparmor_parser -r /etc/apparmor.d/durisweb-bwrap
-node backend/dist/scripts/productionPreflight.js --configuration
-```
-
-The profile leaves bubblewrap otherwise unconfined and grants only the AppArmor
-`userns` permission needed for bubblewrap to establish its own mount sandbox.
-Its `attach_disconnected` flag lets AppArmor attach the executable profile when
-systemd's filesystem protections put the process in a mount namespace; without
-that flag the same bubblewrap probe can pass in an interactive shell but fail in
-the application unit. The carrier profile remains otherwise unconfined and keeps
-the host-wide user-namespace restriction enabled. If `TERMINAL_SANDBOX_BIN` uses
-a different path, update and review the profile attachment path rather than
-installing the example unchanged. Do not disable the global AppArmor restriction
-or make bubblewrap setuid merely to force the preflight to pass.
-
-The application unit must also allow the namespace types bubblewrap creates. The
-maintained unit allow-lists `user ipc uts cgroup mnt`; replacing that setting with
-`RestrictNamespaces=true` makes both the startup preflight and administrative
-terminal fail inside systemd even when the host-level AppArmor probe succeeds.
 
 ### Publish wiki reference data
 

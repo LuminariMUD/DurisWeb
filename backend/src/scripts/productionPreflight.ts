@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,7 +21,6 @@ import {
 export { ConfigurationError } from '../config/environment.js';
 
 const CONFIGURATION_EXIT_STATUS = 78;
-const SANDBOX_PROBE_TIMEOUT_MS = 5_000;
 const SQL_ARTIFACT_MANIFEST = 'sql-artifacts.json';
 const AUCTION_TABLES = [
   'auctions',
@@ -68,55 +66,6 @@ interface PreflightConfiguration {
   presence: ScopedRedisConfiguration | null;
   expectedMigrations: string[];
   auctionWritesEnabled: boolean;
-}
-
-/** Require the configured terminal sandbox to be bubblewrap and usable by the service account. */
-function verifyTerminalSandbox(filePath: string): void {
-  try {
-    if (!fs.statSync(filePath).isFile()) {
-      throw new Error('not a regular file');
-    }
-    fs.accessSync(filePath, fs.constants.X_OK);
-  } catch {
-    throw new ConfigurationError([
-      'TERMINAL_SANDBOX_BIN must resolve to a regular executable file',
-    ]);
-  }
-
-  const version = spawnSync(filePath, ['--version'], {
-    encoding: 'utf8',
-    timeout: SANDBOX_PROBE_TIMEOUT_MS,
-  });
-  if (version.status !== 0 || !/^bubblewrap\s+\d/.test(version.stdout.trim())) {
-    throw new ConfigurationError(['TERMINAL_SANDBOX_BIN must be a bubblewrap executable']);
-  }
-
-  const probe = spawnSync(
-    filePath,
-    [
-      '--ro-bind',
-      '/',
-      '/',
-      '--dev',
-      '/dev',
-      '--proc',
-      '/proc',
-      '--unshare-user',
-      '--unshare-ipc',
-      '--unshare-uts',
-      '--unshare-cgroup',
-      '--share-net',
-      '--chdir',
-      '/',
-      '/bin/true',
-    ],
-    { stdio: 'ignore', timeout: SANDBOX_PROBE_TIMEOUT_MS },
-  );
-  if (probe.status !== 0) {
-    throw new ConfigurationError([
-      'TERMINAL_SANDBOX_BIN cannot create the namespaces required by the administrative terminal',
-    ]);
-  }
 }
 
 /** Resolve the checked-in migration directory from source or compiled scripts. */
@@ -195,7 +144,6 @@ export function parsePreflightMode(args: string[]): PreflightMode {
 export function loadPreflightConfiguration(): PreflightConfiguration {
   const environment = getBackendConfiguration();
   verifySqlArtifactClassification();
-  verifyTerminalSandbox(environment.mud.terminalSandboxBinary);
   const cache = environment.cacheRedis;
   const presence = environment.features.mudRedis
     ? getScopedRedisConfiguration('presence', environment)

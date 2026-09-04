@@ -72,12 +72,6 @@ describe('deployment configuration renderer', () => {
     const selection = fs.readFileSync(path.join(outputPath, 'deployment-selection.env'), 'utf8');
     expect(selection).toContain('INGRESS_SERVICE=durisweb-cloudflared.service\n');
     expect(selection).toContain('INGRESS_SERVICE_SCOPE=user\n');
-    const applicationUnit = fs.readFileSync(
-      path.join(outputPath, 'systemd/durisweb-production.service'),
-      'utf8',
-    );
-    expect(applicationUnit).toContain('RestrictNamespaces=user ipc uts cgroup mnt\n');
-    expect(applicationUnit).not.toContain('RestrictNamespaces=true\n');
 
     const rerender = spawnSync(
       'bash',
