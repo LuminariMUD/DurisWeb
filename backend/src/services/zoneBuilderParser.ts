@@ -507,26 +507,32 @@ async function fileExists(filePath: string): Promise<boolean> {
   return mudPathExists('zone_builder_parsing', filePath);
 }
 
-// Zone index cache
-let zoneIndexCache: ZoneIndex[] | null = null;
-let zoneIndexCacheTime: number = 0;
-const ZONE_INDEX_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-// Invalidate zone index cache
-export function invalidateZoneIndexCache(): void {
-  zoneIndexCache = null;
-  zoneIndexCacheTime = 0;
+interface ZoneIndexCache {
+  readonly areasRoot: string;
+  readonly zones: ZoneIndex[];
+  readonly cachedAt: number;
 }
 
-// Build full zone index (internal, cached)
+// Zone index cache
+let zoneIndexCache: ZoneIndexCache | null = null;
+const ZONE_INDEX_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/** Invalidate every cached zone index regardless of its source root. */
+export function invalidateZoneIndexCache(): void {
+  zoneIndexCache = null;
+}
+
+/** Build the zone index for the currently resolved areas root, reusing only that root's cache. */
 async function buildZoneIndex(): Promise<ZoneIndex[]> {
-  assertZoneBuilderParsingEnabled();
-  // Return cached if valid
-  if (zoneIndexCache && Date.now() - zoneIndexCacheTime < ZONE_INDEX_CACHE_TTL) {
-    return zoneIndexCache;
+  const areasDir = getAreasDir();
+  if (
+    zoneIndexCache?.areasRoot === areasDir &&
+    Date.now() - zoneIndexCache.cachedAt < ZONE_INDEX_CACHE_TTL
+  ) {
+    return zoneIndexCache.zones;
   }
 
-  const zonDir = resolveSafeZoneDirectoryPath(getAreasDir(), 'zon');
+  const zonDir = resolveSafeZoneDirectoryPath(areasDir, 'zon');
   const zones: ZoneIndex[] = [];
 
   try {
@@ -536,7 +542,6 @@ async function buildZoneIndex(): Promise<ZoneIndex[]> {
     for (const file of zonFiles) {
       const baseName = file.replace('.zon', '');
       try {
-        const areasDir = getAreasDir();
         const zonPath = resolveSafeZoneFilePath(areasDir, baseName, 'zon');
         const wldPath = resolveSafeZoneFilePath(areasDir, baseName, 'wld');
         const mobPath = resolveSafeZoneFilePath(areasDir, baseName, 'mob');
@@ -624,9 +629,7 @@ async function buildZoneIndex(): Promise<ZoneIndex[]> {
       return a.id.localeCompare(b.id);
     });
 
-    // Cache the result
-    zoneIndexCache = zones;
-    zoneIndexCacheTime = Date.now();
+    zoneIndexCache = { areasRoot: areasDir, zones, cachedAt: Date.now() };
 
     return zones;
   } catch (error) {

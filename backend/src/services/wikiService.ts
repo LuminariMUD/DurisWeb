@@ -14,6 +14,13 @@ import {
 import type { Room } from '../types/builder.js';
 import logger from '../utils/logger.js';
 import { EQUIP_SLOTS } from '../types/builder.js';
+import {
+  readWikiObjectGeneration,
+  validateWikiObjectGeneration,
+  type WikiSourceIdentity,
+} from './wikiGeneration.js';
+import { getMudRoot, withMudRoot } from './flatfileAccess.js';
+import { withWikiRevisionSnapshot } from './wikiSourceSnapshot.js';
 
 // exit flag for secret doors (from mud defines.h)
 const EX_SECRET = 64; // BIT_7
@@ -77,6 +84,29 @@ export interface WikiZone {
   roomCount: number;
   mobCount: number;
   objectCount: number;
+}
+
+export interface WikiObjectReference {
+  readonly issues: string[];
+  readonly sourceIdentity: WikiSourceIdentity | null;
+}
+
+/** Return readiness evidence and the immutable source identity for the published projection. */
+export async function getWikiObjectReference(): Promise<WikiObjectReference> {
+  const generation = await readWikiObjectGeneration(pool);
+  const issues = validateWikiObjectGeneration(generation);
+  return {
+    issues,
+    sourceIdentity:
+      generation && issues.length === 0
+        ? { revision: generation.source_revision, tree: generation.source_tree }
+        : null,
+  };
+}
+
+/** Return aggregate-only reasons the object reference projection is unavailable. */
+export async function getWikiObjectReferenceIssues(): Promise<string[]> {
+  return (await getWikiObjectReference()).issues;
 }
 
 export interface WikiZoneDetail extends WikiZone {
@@ -1130,9 +1160,10 @@ interface CachedObjectDetail {
 // Redis cache key for object details (list now comes from database)
 const REDIS_KEY_OBJECTS_DETAILS = 'wiki:objects:details';
 
-// build object details cache from flatfiles (for getObjectByVnum which needs extra info)
-// note: list data now comes from wiki_objects table, only details need flatfile parsing
-async function buildObjectDetailsCacheFromSource(): Promise<Map<number, CachedObjectDetail>> {
+/** Build and cache flatfile-only object details under the caller's source-specific key. */
+async function buildObjectDetailsCacheFromSource(
+  cacheKey: string = REDIS_KEY_OBJECTS_DETAILS,
+): Promise<Map<number, CachedObjectDetail>> {
   const { zones } = await listZones({ page: 1, limit: 10000 });
   const detailsCache = new Map<number, CachedObjectDetail>();
   const typeNames = await getObjectTypeNameMap();
@@ -1190,17 +1221,19 @@ async function buildObjectDetailsCacheFromSource(): Promise<Map<number, CachedOb
     }
   }
 
-  await setCache(REDIS_KEY_OBJECTS_DETAILS, mapToObject(detailsCache), OBJECTS_CACHE_TTL_SECONDS);
+  await setCache(cacheKey, mapToObject(detailsCache), OBJECTS_CACHE_TTL_SECONDS);
   return detailsCache;
 }
 
-// get object details cache (from redis or rebuild from flatfiles)
-async function getObjectDetailsCached(): Promise<Map<number, CachedObjectDetail>> {
-  const cached = await getCache<Record<string, CachedObjectDetail>>(REDIS_KEY_OBJECTS_DETAILS);
+/** Read a caller-scoped object-details cache or rebuild it from the active flatfile root. */
+async function getObjectDetailsCached(
+  cacheKey: string = REDIS_KEY_OBJECTS_DETAILS,
+): Promise<Map<number, CachedObjectDetail>> {
+  const cached = await getCache<Record<string, CachedObjectDetail>>(cacheKey);
   if (cached) {
     return objectToMapNumeric(cached);
   }
-  return buildObjectDetailsCacheFromSource();
+  return buildObjectDetailsCacheFromSource(cacheKey);
 }
 
 export async function getObjects(
@@ -1419,9 +1452,22 @@ export async function getObjects(
   };
 }
 
-export async function getObjectByVnum(vnum: number): Promise<WikiObjectDetail | null> {
-  // Use the shared detailed cache
-  const cache = await getObjectDetailsCached();
+/** Build a Redis key that cannot reuse flatfile details across published generations. */
+function getPublishedObjectDetailsCacheKey(sourceIdentity: WikiSourceIdentity): string {
+  return `${REDIS_KEY_OBJECTS_DETAILS}:${sourceIdentity.revision}:${sourceIdentity.tree}`;
+}
+
+/** Build one full-detail cache key for a single published-generation object. */
+function getPublishedObjectCacheKey(sourceIdentity: WikiSourceIdentity, vnum: number): string {
+  return `${getPublishedObjectDetailsCacheKey(sourceIdentity)}:object:${vnum}`;
+}
+
+/** Assemble an object detail while every flatfile parser is scoped to its published snapshot. */
+async function buildPublishedObjectByVnum(
+  vnum: number,
+  sourceIdentity: WikiSourceIdentity,
+): Promise<WikiObjectDetail | null> {
+  const cache = await getObjectDetailsCached(getPublishedObjectDetailsCacheKey(sourceIdentity));
   const cached = cache.get(vnum);
 
   if (!cached) {
@@ -1564,15 +1610,71 @@ export async function getObjectByVnum(vnum: number): Promise<WikiObjectDetail | 
   };
 }
 
+/** Signals that a detail request cannot remain bound to one published object generation. */
+export class WikiObjectReferenceUnavailableError extends Error {
+  /** Create a stable public error while retaining an internal cause for diagnostics. */
+  constructor(cause?: unknown) {
+    super(
+      'Published wiki object reference data is unavailable.',
+      cause === undefined ? undefined : { cause },
+    );
+    this.name = 'WikiObjectReferenceUnavailableError';
+  }
+}
+
+/** Reject a detail assembled while publication advanced to a different generation. */
+async function assertWikiObjectReferenceUnchanged(
+  sourceIdentity: WikiSourceIdentity,
+): Promise<void> {
+  const current = await getWikiObjectReference();
+  if (
+    current.sourceIdentity?.revision !== sourceIdentity.revision ||
+    current.sourceIdentity.tree !== sourceIdentity.tree
+  ) {
+    throw new WikiObjectReferenceUnavailableError();
+  }
+}
+
+/** Return object details bound to one validated, generation-keyed immutable source snapshot. */
+export async function getObjectByVnum(
+  vnum: number,
+  sourceIdentity: WikiSourceIdentity,
+): Promise<WikiObjectDetail | null> {
+  const cacheKey = getPublishedObjectCacheKey(sourceIdentity, vnum);
+  const cached = await getCache<WikiObjectDetail>(cacheKey);
+  if (cached) {
+    await assertWikiObjectReferenceUnchanged(sourceIdentity);
+    return cached;
+  }
+
+  let detail: WikiObjectDetail | null;
+  try {
+    detail = await withWikiRevisionSnapshot(sourceIdentity, getMudRoot(), (snapshotRoot) =>
+      withMudRoot(snapshotRoot, () => buildPublishedObjectByVnum(vnum, sourceIdentity)),
+    );
+  } catch (error) {
+    throw new WikiObjectReferenceUnavailableError(error);
+  }
+
+  await assertWikiObjectReferenceUnchanged(sourceIdentity);
+  if (detail) {
+    await setCache(cacheKey, detail, OBJECTS_CACHE_TTL_SECONDS);
+    await assertWikiObjectReferenceUnchanged(sourceIdentity);
+  }
+  return detail;
+}
+
 // =============================================================================
 // Object Type and Affect Lists (for filters) - dynamic from database
 // =============================================================================
 
 export async function getObjectTypes(): Promise<{ id: number; name: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT value, name FROM builder_flags
-     WHERE category = 'obj_type'
-     ORDER BY value`,
+    `SELECT o.type AS value, COALESCE(MAX(f.name), CONCAT('Type ', o.type)) AS name
+     FROM wiki_objects o
+     LEFT JOIN builder_flags f ON f.category = 'obj_type' AND f.value = o.type
+     GROUP BY o.type
+     ORDER BY o.type`,
   );
   return rows.map((row) => ({
     id: Number(row.value),

@@ -29,6 +29,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
 import AnsiText from '@/components/ui/AnsiText.vue'
 import { wikiApi } from '@/services/api'
+import { hasApiErrorCode } from '@/utils/apiError'
 import type {
   WikiObject,
   WikiObjectFilters,
@@ -55,11 +56,13 @@ const router = useRouter()
 
 // State
 const loading = ref(true)
+const referenceUnavailable = ref(false)
 const objects = ref<WikiObject[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const totalPages = ref(1)
 const limit = 20
+let objectRequestSequence = 0
 
 // Filter options
 const objectTypes = ref<WikiObjectType[]>([])
@@ -179,7 +182,7 @@ const filters = computed((): WikiObjectFilters => {
   return f
 })
 
-// Load filter options
+/** Load filter metadata, treating unpublished reference data as a known readiness state. */
 async function loadFilterOptions() {
   try {
     const [types, slots, affects, spellEffects, classes, races] = await Promise.all([
@@ -197,7 +200,11 @@ async function loadFilterOptions() {
     objectClasses.value = classes
     objectRaces.value = races
   } catch (e) {
-    console.error('Failed to load filter options:', e)
+    if (hasApiErrorCode(e, 503, 'WIKI_OBJECT_REFERENCE_UNAVAILABLE')) {
+      referenceUnavailable.value = true
+    } else {
+      console.error('Failed to load filter options:', e)
+    }
   }
 }
 
@@ -365,8 +372,9 @@ function toggleSpellEffect(effect: string) {
   loadObjects()
 }
 
-// Load objects
+/** Load only the latest requested object page so stale completions cannot replace current state. */
 async function loadObjects() {
+  const requestSequence = ++objectRequestSequence
   try {
     loading.value = true
     const result = await wikiApi.getObjects(
@@ -376,13 +384,23 @@ async function loadObjects() {
       sortBy.value,
       sortOrder.value,
     )
+    if (requestSequence !== objectRequestSequence) return
     objects.value = result.objects
+    referenceUnavailable.value = false
     total.value = result.total
     totalPages.value = result.totalPages
   } catch (e) {
-    console.error('Failed to load objects:', e)
+    if (requestSequence !== objectRequestSequence) return
+    if (hasApiErrorCode(e, 503, 'WIKI_OBJECT_REFERENCE_UNAVAILABLE')) {
+      referenceUnavailable.value = true
+      objects.value = []
+      total.value = 0
+      totalPages.value = 0
+    } else {
+      console.error('Failed to load objects:', e)
+    }
   } finally {
-    loading.value = false
+    if (requestSequence === objectRequestSequence) loading.value = false
   }
 }
 
@@ -1137,7 +1155,13 @@ onMounted(async () => {
               <Loader2 class="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
 
-            <!-- Empty State -->
+            <!-- Unpublished Reference State -->
+            <div v-else-if="referenceUnavailable" class="text-center py-12 px-4 text-muted-foreground">
+              <p class="font-medium text-foreground">Object reference data is temporarily unavailable.</p>
+              <p class="mt-1 text-sm">An operator must publish and verify the current reference generation.</p>
+            </div>
+
+            <!-- Empty Filter State -->
             <div v-else-if="objects.length === 0" class="text-center py-12 text-muted-foreground">
               No objects found matching your criteria.
             </div>

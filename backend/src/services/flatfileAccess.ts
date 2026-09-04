@@ -1,5 +1,6 @@
 import { constants } from 'fs';
 import * as fs from 'fs/promises';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import * as path from 'path';
 import { TextDecoder } from 'util';
 
@@ -65,6 +66,7 @@ const REQUIRED_PROBE_PATHS: Readonly<Record<FilesystemHookId, readonly RequiredP
   });
 
 let testMudRoot: string | null = null;
+const scopedMudRoot = new AsyncLocalStorage<string>();
 let testReadInterlock: (() => Promise<void> | void) | null = null;
 const recoveryHandlers = new Map<FilesystemHookId, () => Promise<void>>();
 
@@ -83,8 +85,17 @@ function unavailable(hookId: FilesystemHookId, reason: string): FlatfileAccessEr
 
 /** Resolves the configured MUD root or the explicit test override. */
 function configuredMudRoot(): string {
-  const configured = testMudRoot ?? getBackendConfiguration().mud.directory;
+  const configured =
+    testMudRoot ?? scopedMudRoot.getStore() ?? getBackendConfiguration().mud.directory;
   return path.resolve(configured);
+}
+
+/** Run one bounded read operation against an explicit MUD snapshot without changing global config. */
+export function withMudRoot<T>(root: string, operation: () => Promise<T>): Promise<T> {
+  if (!path.isAbsolute(root)) {
+    throw new Error('Scoped MUD root must be an absolute path.');
+  }
+  return scopedMudRoot.run(path.resolve(root), operation);
 }
 
 function isWithinRoot(root: string, candidate: string): boolean {

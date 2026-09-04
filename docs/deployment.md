@@ -54,14 +54,43 @@ node dist/scripts/productionPreflight.js --dependencies
 The first command aggregates invalid configuration and verifies the migration
 bundle. The second verifies required tables, the canonical MUD-owned
 `server_reboots` shape, absence of the prohibited incoming extension foreign
-key, refresh-token column capacity, the complete migration ledger, general
+key, refresh-token column capacity, a nonempty and internally consistent wiki
+object generation with persisted source identity, the complete migration ledger, general
 cache, the optional scoped presence read/subscription operations, and the
 auction engine/timestamp contract when direct auction writes are explicitly
-enabled. Neither preflight nor `/health` proves that feature projections contain
-usable data or that a feature query is semantically correct. They do not replace
+enabled. Other feature projections still need explicit data-readiness checks,
+and neither preflight nor `/health` proves that a feature query is semantically
+correct. They do not replace
 the test suite or the release-specific acceptance checks below. The rendered
 unit runs configuration as an `ExecCondition`; configuration refusal status 78
 leaves the unit skipped instead of entering a restart loop.
+
+### Publish wiki reference data
+
+The wiki publisher verifies the configured `MUD_DIR`, materializes a temporary
+detached worktree at its recorded revision, parses the complete object and mob
+projection from that private snapshot, refuses an empty generation, and swaps
+the whole projection in one transaction. Run it only from the selected clean
+MUD checkout and record that checkout's immutable identities:
+
+```bash
+git -C /absolute/path/to/selected/mud-checkout status --short
+git -C /absolute/path/to/selected/mud-checkout rev-parse HEAD
+git -C /absolute/path/to/selected/mud-checkout rev-parse 'HEAD^{tree}'
+pnpm --dir backend wiki:publish -- \
+  --source-revision <recorded-commit> \
+  --source-tree <recorded-tree>
+node backend/dist/scripts/productionPreflight.js --dependencies
+```
+
+Keep the recorded commit reachable from the configured MUD Git repository.
+Wiki object-detail cache misses use that exact revision to reconstruct
+flatfile-only detail without reading whichever branch is currently checked out.
+
+The status output must be empty. The publisher stores the commit, tree identity,
+and published object/mob counts with the same transaction as the rows. A failed
+parse, insert, or marker write leaves the prior generation intact. Complete the
+clone rehearsal and backup gates before publishing on a shared environment.
 
 ## Release evidence and rollback set
 

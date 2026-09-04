@@ -26,6 +26,7 @@ bootstrap a new shared schema safely.
 | `pnpm type-check` | Run TypeScript without emission |
 | `pnpm migrate:status` | Inspect the selected database migration ledger |
 | `pnpm seed:run` | Run idempotent seeds against the selected environment |
+| `pnpm wiki:publish -- --source-revision <commit> --source-tree <tree>` | Atomically publish wiki objects/mobs from the selected clean MUD checkout |
 
 The listener has no default host or port. `GET /health` returns 200 only when
 both MySQL and Redis respond; it returns 503 with a degraded snapshot otherwise.

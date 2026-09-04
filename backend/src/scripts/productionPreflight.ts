@@ -10,6 +10,10 @@ import {
   type ScopedRedisConfiguration,
 } from '../utils/scopedRedis.js';
 import { ConfigurationError, getBackendConfiguration } from '../config/environment.js';
+import {
+  readWikiObjectGeneration,
+  validateWikiObjectGeneration,
+} from '../services/wikiGeneration.js';
 
 export { ConfigurationError } from '../config/environment.js';
 
@@ -34,6 +38,13 @@ const REQUIRED_TABLES = [
   'user_profile_stats',
   'web_sessions',
   'web_settings',
+  'wiki_object_affects',
+  'wiki_object_classes',
+  'wiki_object_races',
+  'wiki_object_slots',
+  'wiki_object_spell_effects',
+  'wiki_objects',
+  'wiki_reference_generations',
 ] as const;
 
 export type PreflightMode = 'all' | 'configuration' | 'dependencies';
@@ -188,6 +199,13 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
     const missingTables = REQUIRED_TABLES.filter((table) => !presentTables.has(table));
     if (missingTables.length > 0) {
       throw new ConfigurationError([`database schema is missing: ${missingTables.join(', ')}`]);
+    }
+
+    const objectGenerationIssues = validateWikiObjectGeneration(
+      await readWikiObjectGeneration(database),
+    );
+    if (objectGenerationIssues.length > 0) {
+      throw new ConfigurationError(objectGenerationIssues);
     }
 
     const [runtimeContractRows] = await database.query<RowDataPacket[]>(`
