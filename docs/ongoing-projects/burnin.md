@@ -58,15 +58,16 @@ an entry says otherwise.
 
 ## Pending gates
 
-- Recreate the exact-source candidate after the source repairs, repeat the full source matrix and
-  fresh builds, and repeat the test/production-clone migration sequences from clean restores.
-- Resolve the fail-closed wiki publication blocker: one committed MUD world source is not UTF-8.
-  The MUD repository remains read-only under current authority, so no complete wiki generation may
-  be published until that separate asset is corrected or the scope is explicitly changed.
-- Resolve the missing configured terminal sandbox executable. Host package/configuration changes
-  are outside the burn-in authority currently granted.
-- Only after every blocking gate passes, perform the controlled live build/migration/cutover,
-  complete public/browser/authenticated acceptance as available, and run the uninterrupted soak.
+- The exact-source matrix, database rehearsals, forward production migration, generated reference
+  publication, live DurisWeb cutover, public/API/protocol acceptance, and rendered browser checks
+  are complete.
+- The remaining mandatory stability gate is deployment of the already-pushed DurisMUD fixes for
+  issue #116. The live MUD executable predates those fixes and still closes the authenticated
+  service descriptor at exactly 15 minutes. Building or cycling DurisMUD remains outside this
+  journal's explicit operating authority. After an authorized MUD deployment, repeat the bridge
+  soak beyond 15 minutes and require zero disconnect/reconnect events.
+- Authenticated production account lifecycle checks remain unavailable because no dedicated
+  staff/test credential was supplied. No player account was repurposed.
 
 ## Discovery evidence and findings
 
@@ -281,6 +282,51 @@ an entry says otherwise.
     units were then stopped cleanly and both listeners closed. The untouched production service
     remains active on its resolved runtime port with PID `2293560`, `NRestarts=0`, and structured
     database/cache health passing.
+45. Revalidated the operator-installed AppArmor profile against its then-current deployment
+    template and ran the exact production-systemd bubblewrap probe. The profile was loaded with the
+    requested ownership and mode, but the probe still failed at the disconnected cgroup namespace.
+    The noncritical architecture was then removed: terminal sandbox execution is no longer a core
+    startup gate, `RestrictNamespaces=true` was restored, the repository profile and associated
+    deployment assertions were deleted, and the optional terminal was documented separately.
+46. Repeated the complete post-rollback source matrix, isolated migration status/latest/status,
+    compiled preflights, exact-source synchronization, and fresh builds. All checks passed; the
+    candidate artifact identities are recorded below. Commit `b5d41ae5a04f4e338a990e8dfe66cae65c315400`
+    was pushed to `origin/master` before live cutover.
+47. Stopped only the DurisWeb application and website tunnel, completed frozen live installs and
+    fresh builds, verified the live manifests against the qualified candidate, rendered and
+    verified the restored systemd policy, reran compiled configuration/dependency preflights and
+    production migration status, then used the maintained complete-group recovery command. The
+    application and tunnel started successfully with zero restarts; database, cache, MUD, and MUD
+    ingress processes retained their existing identities.
+48. Exercised the enabled public/API/protocol surface with content assertions: health, ping, site
+    configuration, forum, guide plus detail, news, PvP plus detail, frag data, status/uptime,
+    incidents, reboot data, auction data, changelog, public statistics with a valid date, wiki map,
+    zones plus detail, objects plus detail/metadata, mobs plus detail/metadata, and the expected
+    anonymous rejection of protected zones. CORS allow/deny behavior, HTTP redirect, www alias,
+    HSTS, public static map image, application WebSocket ping/pong, and raw/TLS MUD banners passed.
+    Public HTML contains a managed Cloudflare injection, so release identity was proved using the
+    matching generated asset reference and exact qualified asset digest.
+49. Because no browser connector or installed browser was available, created a disposable
+    Playwright workspace outside the repository. Chromium's two missing libraries were downloaded
+    as packages and unpacked only into that disposable workspace without host installation. Nine
+    routes rendered at desktop and mobile viewports with HTTP 200, meaningful content, no page or
+    console errors, no Vite overlay, and no horizontal overflow. Eighteen screenshots were captured
+    and representative desktop/mobile home and wiki views were visually inspected. Home-to-play
+    navigation passed in both layouts without opening a MUD gameplay connection.
+50. Ran 33 stability samples over 964 seconds after acceptance. Every sample retained exact service
+    and MUD-child process identities, `NRestarts=0`, structured local/public database and cache
+    health, monotonically increasing uptime, and the qualified public bundle digest. At exactly 15
+    minutes, however, the live MUD closed the authenticated service socket with code 1006. DurisWeb
+    reconnected after five seconds, authenticated with the current secret, and applied fresh hook
+    state, so availability recovered but the required no-disconnect soak failed.
+51. Correlated the failure with the known issue #116 lifecycle. The clean, pushed DurisMUD source
+    already contains `b8907921e5084c6255278087893b8140b6919ae6` and follow-up
+    `aa37cea9d67aba91c94b7e4851c402d81500b337`, which exempt authenticated service descriptors from
+    the generic idle counter. The running MUD executable was built before both commits. No MUD file,
+    build, process, or service was changed because that operation is outside the explicit boundary.
+52. Stopped the exact disposable MariaDB and Redis rehearsal processes after validating their
+    process identities. All seven production application/ingress/database/cache/MUD units remained
+    active/running with `Result=success` and `NRestarts=0`.
 
 ## Isolated qualification and repair evidence
 
@@ -609,3 +655,42 @@ an entry says otherwise.
   template, matches the isolated candidate byte-for-byte. A fresh render restores
   `RestrictNamespaces=true`; systemd verifies all three rendered units and the candidate contains no
   repository-owned AppArmor profile.
+
+## Live cutover and acceptance
+
+- The final live backend and frontend were built from the qualified source after frozen installs.
+  The live backend manifest matches the candidate at SHA-256
+  `5a15c928e3dc062dc9b511ff441773b684031dfbdc2d7e8862558075a8de51a9`; the frontend manifest
+  matches at `e5617c214584844929601b16d169cea3d1e7f50964ffa3bd76a9f4465602ce28`.
+  The generated main asset is `assets/index-D28ltFkj.js`, 548,495 bytes, with SHA-256
+  `18f2374462bd868865fa06bfea931f43b271c7a6f8519ad3f50d9806a6d0ae37` locally and publicly.
+- Freshly compiled production configuration and dependency preflights pass. Production remains at
+  83 complete migrations with none pending, 918 builder flags in 25 categories, 20,202 published
+  objects, and 19,717 published mobs bound to the recorded immutable MUD source identity.
+- The maintained complete-group recovery accepted all three DurisWeb units and both health probes.
+  The application, website tunnel, and private cache are active/running with `Result=success` and
+  `NRestarts=0`; the database, MUD supervisor, MUD Redis, and MUD tunnel remained active with their
+  original process identities. Local and public health report database/cache `ok`.
+- Twenty-six final targeted public API assertions passed after the broader route sweep, including a
+  valid-date statistics request and nonempty wiki zone/object/mob lists plus detail and metadata
+  routes. The expected protected `/api/zones` response is HTTP 401. Public ingress and protocol
+  checks pass for CORS policy, redirect/HSTS, alias, static map delivery, application WebSocket
+  ping/pong, and raw/TLS MUD reachability. Optional donations, R2, push, Gemini, and guild sync are
+  disabled; configured MUD Redis is healthy.
+- Disposable Playwright 1.62.1 browser QA passed all 18 route/viewport combinations for `/`,
+  `/status`, `/news`, `/pvp`, `/forum`, `/wiki`, `/guide`, `/auction`, and `/play`. Representative
+  screenshots were visually reviewed and desktop/mobile navigation interaction passed. The
+  disposable browser workspace is not part of the repository or deployment.
+
+## Final soak result and external boundary
+
+- The 964-second sample harness itself passed all 33 process, health, uptime, and release-identity
+  samples. It deliberately exceeded the 15-minute DurisMUD service-descriptor boundary.
+- The bridge lifecycle did not pass: the old live MUD executable closed the authenticated socket at
+  the exact timeout, and the same cycle recurred later. Each time DurisWeb reconnected and restored
+  authenticated hook state without an application restart or authentication failure. This is
+  degraded availability, not a clean burn-in result.
+- The repair already exists on the clean, pushed DurisMUD `master`, but the running executable
+  predates it. Finishing the burn-in therefore requires separately authorized MUD build/deployment
+  and service cycling, followed by another uninterrupted soak beyond 15 minutes. DurisWeb source,
+  deployment, and public browser/API acceptance require no further repair for this finding.
