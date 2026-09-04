@@ -207,9 +207,9 @@ existing data, so it has not been run against the game database.
   ambiguous evidence. Consequently 13,246 player-item payload rows and 25,011
   locker-item payload rows were not activated. Their associated canonical
   metadata was also left out. Raw descriptions remain in the preservation
-  archive and the original dump/stage remains intact. Recoverability and final
-  disposition are tracked in
-  [DurisWeb #15](https://github.com/LuminariMUD/DurisWeb/issues/15).
+  archive and the original dump/stage remains intact. The final disposition is
+  retained, inactive quarantine with no bulk recovery; see
+  [quarantined legacy item disposition](../post-import/quarantined-item-disposition.md).
 - Three lockers and three chests were excluded for target identity conflict or
   obsolete association ownership; two locker-access grants then lacked an
   accepted visitor. Two ships belonged to conflicted players. The source also
