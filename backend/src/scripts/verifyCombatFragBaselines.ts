@@ -7,6 +7,7 @@ import {
   validateCombatFragBaselineReadiness,
 } from '../services/combatFragBaselineReadiness.js';
 
+/** Run aggregate combat-frag baseline readiness and map it to a process status. */
 export async function runCombatFragBaselineVerification(): Promise<number> {
   try {
     const readiness = await readCombatFragBaselineReadiness(mudPool);

@@ -22,6 +22,7 @@ export interface CombatFragBaselineReadiness {
   ledgerResultMismatches: number;
 }
 
+/** Parse one non-negative aggregate returned by the readiness query. */
 function aggregate(value: number | string | undefined, label: string): number {
   const parsed = Number(value ?? 0);
   if (!Number.isSafeInteger(parsed) || parsed < 0) {
@@ -119,6 +120,14 @@ export async function readCombatFragBaselineReadiness(
         combat_baseline_pid IS NOT NULL AND (
           opening_frags + ledger_delta <> frags
           OR opening_revision + ledger_count <> frag_revision
+          OR (
+            ledger_count > 0 AND NOT (
+              distinct_revisions = ledger_count
+              AND minimum_revision = opening_revision + 1
+              AND maximum_revision = frag_revision
+              AND maximum_revision - minimum_revision + 1 = ledger_count
+            )
+          )
         )
       ), 0) AS existing_combat_mismatches,
       COALESCE(SUM(result_mismatches), 0) AS ledger_result_mismatches

@@ -6,6 +6,7 @@ import {
   type CombatFragBaselineReadiness,
 } from '../combatFragBaselineReadiness.js';
 
+/** Build one aggregate combat-baseline readiness fixture. */
 function readiness(
   overrides: Partial<CombatFragBaselineReadiness> = {},
 ): CombatFragBaselineReadiness {
@@ -87,6 +88,10 @@ describe('combat frag baseline readiness', () => {
       readiness({ missingCombatBaselines: 12, reconstructableCombatBaselines: 12 }),
     );
     expect(query).toHaveBeenCalledTimes(1);
-    expect(String(query.mock.calls[0]?.[0])).toContain('COUNT(*) AS active_mapped_characters');
+    const readinessQuery = String(query.mock.calls[0]?.[0]);
+    expect(readinessQuery).toContain('COUNT(*) AS active_mapped_characters');
+    expect(readinessQuery).toMatch(
+      /combat_baseline_pid IS NOT NULL[\s\S]*distinct_revisions = ledger_count[\s\S]*minimum_revision = opening_revision \+ 1[\s\S]*maximum_revision = frag_revision[\s\S]*maximum_revision - minimum_revision \+ 1 = ledger_count/,
+    );
   });
 });
