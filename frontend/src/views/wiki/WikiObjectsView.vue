@@ -182,7 +182,7 @@ const filters = computed((): WikiObjectFilters => {
   return f
 })
 
-// Load filter options
+/** Load filter metadata, treating unpublished reference data as a known readiness state. */
 async function loadFilterOptions() {
   try {
     const [types, slots, affects, spellEffects, classes, races] = await Promise.all([
@@ -200,7 +200,11 @@ async function loadFilterOptions() {
     objectClasses.value = classes
     objectRaces.value = races
   } catch (e) {
-    console.error('Failed to load filter options:', e)
+    if (hasApiErrorCode(e, 503, 'WIKI_OBJECT_REFERENCE_UNAVAILABLE')) {
+      referenceUnavailable.value = true
+    } else {
+      console.error('Failed to load filter options:', e)
+    }
   }
 }
 
@@ -368,7 +372,7 @@ function toggleSpellEffect(effect: string) {
   loadObjects()
 }
 
-// Load objects
+/** Load only the latest requested object page so stale completions cannot replace current state. */
 async function loadObjects() {
   const requestSequence = ++objectRequestSequence
   try {

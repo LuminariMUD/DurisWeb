@@ -28,6 +28,7 @@ export interface WikiObjectGenerationRow extends RowDataPacket {
   source_tree: string;
   object_count: number | string;
   actual_object_count: number | string;
+  object_type_count: number | string;
   orphan_affects: number | string;
   orphan_slots: number | string;
   orphan_spell_effects: number | string;
@@ -45,6 +46,7 @@ export async function readWikiObjectGeneration(
       g.source_tree,
       g.object_count,
       (SELECT COUNT(*) FROM wiki_objects) AS actual_object_count,
+      (SELECT COUNT(DISTINCT type) FROM wiki_objects) AS object_type_count,
       (SELECT COUNT(*) FROM wiki_object_affects a LEFT JOIN wiki_objects o ON o.vnum = a.object_vnum WHERE o.vnum IS NULL) AS orphan_affects,
       (SELECT COUNT(*) FROM wiki_object_slots s LEFT JOIN wiki_objects o ON o.vnum = s.object_vnum WHERE o.vnum IS NULL) AS orphan_slots,
       (SELECT COUNT(*) FROM wiki_object_spell_effects e LEFT JOIN wiki_objects o ON o.vnum = e.object_vnum WHERE o.vnum IS NULL) AS orphan_spell_effects,
@@ -70,6 +72,9 @@ export function validateWikiObjectGeneration(row: WikiObjectGenerationRow | null
     issues.push('wiki object reference generation is empty');
   } else if (actual !== expected) {
     issues.push(`wiki object reference count drifted (published ${expected}, current ${actual})`);
+  }
+  if (!Number.isSafeInteger(Number(row.object_type_count)) || Number(row.object_type_count) <= 0) {
+    issues.push('wiki object reference generation has no applicable type metadata');
   }
 
   const orphanCount =

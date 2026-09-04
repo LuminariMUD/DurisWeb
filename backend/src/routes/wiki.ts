@@ -426,6 +426,7 @@ router.get(
   checkWikiAccess,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
+      if (await rejectUnavailableWikiObjectReference(res)) return;
       const types = await wikiService.getObjectTypes();
       res.json(types);
     } catch (error) {
@@ -440,6 +441,7 @@ router.get(
   checkWikiAccess,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
+      if (await rejectUnavailableWikiObjectReference(res)) return;
       const slots = await wikiService.getWearSlotTypes();
       res.json(slots);
     } catch (error) {
@@ -454,6 +456,7 @@ router.get(
   checkWikiAccess,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
+      if (await rejectUnavailableWikiObjectReference(res)) return;
       const affects = await wikiService.getAffectTypes();
       res.json(affects);
     } catch (error) {
@@ -468,6 +471,7 @@ router.get(
   checkWikiAccess,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
+      if (await rejectUnavailableWikiObjectReference(res)) return;
       const effects = await wikiService.getSpellEffectTypes();
       res.json(effects);
     } catch (error) {
@@ -482,6 +486,7 @@ router.get(
   checkWikiAccess,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
+      if (await rejectUnavailableWikiObjectReference(res)) return;
       const classes = await wikiService.getObjectClasses();
       res.json(classes);
     } catch (error) {
@@ -496,6 +501,7 @@ router.get(
   checkWikiAccess,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
+      if (await rejectUnavailableWikiObjectReference(res)) return;
       const races = await wikiService.getObjectRaces();
       res.json(races);
     } catch (error) {

@@ -15,6 +15,7 @@ function validRow(): WikiObjectGenerationRow {
     source_tree: SOURCE_TREE,
     object_count: 25,
     actual_object_count: 25,
+    object_type_count: 4,
     orphan_affects: 0,
     orphan_slots: 0,
     orphan_spell_effects: 0,
@@ -61,12 +62,14 @@ describe('wiki object generation readiness', () => {
       ...validRow(),
       source_tree: 'invalid',
       actual_object_count: 24,
+      object_type_count: 0,
       orphan_slots: 1,
     });
 
     expect(issues).toEqual([
       'wiki object reference generation has no source identity',
       'wiki object reference count drifted (published 25, current 24)',
+      'wiki object reference generation has no applicable type metadata',
       'wiki object reference generation has inconsistent child rows',
     ]);
   });

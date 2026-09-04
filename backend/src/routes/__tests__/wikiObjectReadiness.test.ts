@@ -6,12 +6,34 @@ const getWikiAccessLevel = jest.fn<() => Promise<string>>();
 const getWikiObjectReferenceIssues = jest.fn<() => Promise<string[]>>();
 const getObjects = jest.fn<() => Promise<unknown>>();
 const getObjectByVnum = jest.fn<(vnum: number) => Promise<unknown>>();
+const getObjectTypes = jest.fn<() => Promise<unknown>>();
+const getWearSlotTypes = jest.fn<() => Promise<unknown>>();
+const getAffectTypes = jest.fn<() => Promise<unknown>>();
+const getSpellEffectTypes = jest.fn<() => Promise<unknown>>();
+const getObjectClasses = jest.fn<() => Promise<unknown>>();
+const getObjectRaces = jest.fn<() => Promise<unknown>>();
+const objectReaders = [
+  getObjects,
+  getObjectByVnum,
+  getObjectTypes,
+  getWearSlotTypes,
+  getAffectTypes,
+  getSpellEffectTypes,
+  getObjectClasses,
+  getObjectRaces,
+];
 
 jest.unstable_mockModule('../../services/wikiService.js', () => ({
   getWikiAccessLevel,
   getWikiObjectReferenceIssues,
   getObjects,
   getObjectByVnum,
+  getObjectTypes,
+  getWearSlotTypes,
+  getAffectTypes,
+  getSpellEffectTypes,
+  getObjectClasses,
+  getObjectRaces,
 }));
 jest.unstable_mockModule('../../middleware/auth.js', () => ({
   optionalAuth: (_req: Request, _res: Response, next: NextFunction) => next(),
@@ -33,22 +55,27 @@ describe('wiki object route readiness', () => {
     getWikiAccessLevel.mockResolvedValue('public');
   });
 
-  it.each(['/api/wiki/objects', '/api/wiki/objects/42'])(
-    'returns the stable unavailable response for %s before reading object data',
-    async (path) => {
-      getWikiObjectReferenceIssues.mockResolvedValueOnce(['not published']);
+  it.each([
+    '/api/wiki/objects',
+    '/api/wiki/objects/42',
+    '/api/wiki/objects/types',
+    '/api/wiki/objects/slots',
+    '/api/wiki/objects/affects',
+    '/api/wiki/objects/spell-effects',
+    '/api/wiki/objects/classes',
+    '/api/wiki/objects/races',
+  ])('returns the stable unavailable response for %s before reading object data', async (path) => {
+    getWikiObjectReferenceIssues.mockResolvedValueOnce(['not published']);
 
-      const response = await request(app).get(path);
+    const response = await request(app).get(path);
 
-      expect(response.status).toBe(503);
-      expect(response.body).toEqual({
-        code: 'WIKI_OBJECT_REFERENCE_UNAVAILABLE',
-        error: 'Wiki object reference data is unavailable. An operator must publish it.',
-      });
-      expect(getObjects).not.toHaveBeenCalled();
-      expect(getObjectByVnum).not.toHaveBeenCalled();
-    },
-  );
+    expect(response.status).toBe(503);
+    expect(response.body).toEqual({
+      code: 'WIKI_OBJECT_REFERENCE_UNAVAILABLE',
+      error: 'Wiki object reference data is unavailable. An operator must publish it.',
+    });
+    for (const reader of objectReaders) expect(reader).not.toHaveBeenCalled();
+  });
 
   it('preserves object detail lookup when the published generation is ready', async () => {
     getWikiObjectReferenceIssues.mockResolvedValueOnce([]);

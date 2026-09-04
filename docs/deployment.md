@@ -67,10 +67,11 @@ leaves the unit skipped instead of entering a restart loop.
 
 ### Publish wiki reference data
 
-The wiki publisher reads the configured `MUD_DIR`, parses the complete object and
-mob projection before writing, refuses an empty generation, and swaps the whole
-projection in one transaction. Run it only from the selected clean MUD checkout
-and record that checkout's immutable identities:
+The wiki publisher verifies the configured `MUD_DIR`, materializes a temporary
+detached worktree at its recorded revision, parses the complete object and mob
+projection from that private snapshot, refuses an empty generation, and swaps
+the whole projection in one transaction. Run it only from the selected clean
+MUD checkout and record that checkout's immutable identities:
 
 ```bash
 git -C /absolute/path/to/selected/mud-checkout status --short

@@ -1576,9 +1576,11 @@ export async function getObjectByVnum(vnum: number): Promise<WikiObjectDetail | 
 
 export async function getObjectTypes(): Promise<{ id: number; name: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT value, name FROM builder_flags
-     WHERE category = 'obj_type'
-     ORDER BY value`,
+    `SELECT o.type AS value, COALESCE(MAX(f.name), CONCAT('Type ', o.type)) AS name
+     FROM wiki_objects o
+     LEFT JOIN builder_flags f ON f.category = 'obj_type' AND f.value = o.type
+     GROUP BY o.type
+     ORDER BY o.type`,
   );
   return rows.map((row) => ({
     id: Number(row.value),
