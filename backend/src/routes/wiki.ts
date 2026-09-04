@@ -79,6 +79,25 @@ async function requireAvailableWikiObjectReference(
   return null;
 }
 
+/** Send the stable mob-reference failure response without exposing internal readiness details. */
+function sendUnavailableWikiMobReference(res: Response): void {
+  res.status(503).json({
+    code: 'WIKI_MOB_REFERENCE_UNAVAILABLE',
+    error: 'Wiki mob reference data is unavailable. An operator must publish it.',
+  });
+}
+
+/** Return the validated published mob source identity or end the response with the stable 503. */
+async function requireAvailableWikiMobReference(res: Response): Promise<WikiSourceIdentity | null> {
+  const reference = await wikiService.getWikiMobReference();
+  if (reference.issues.length === 0 && reference.sourceIdentity) {
+    return reference.sourceIdentity;
+  }
+
+  sendUnavailableWikiMobReference(res);
+  return null;
+}
+
 // =============================================================================
 // Public Routes (no auth needed, but respects access level setting)
 // =============================================================================
@@ -676,6 +695,7 @@ router.get(
   checkWikiAccess,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
+      if (!(await requireAvailableWikiMobReference(res))) return;
       const classes = await wikiService.getMobClasses();
       res.json(classes);
     } catch (error) {
@@ -690,6 +710,7 @@ router.get(
   checkWikiAccess,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
+      if (!(await requireAvailableWikiMobReference(res))) return;
       const races = await wikiService.getMobRaces();
       res.json(races);
     } catch (error) {
@@ -704,6 +725,7 @@ router.get(
   checkWikiAccess,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
+      if (!(await requireAvailableWikiMobReference(res))) return;
       const flags = await wikiService.getActFlags();
       res.json(flags);
     } catch (error) {
@@ -719,6 +741,8 @@ router.get(
   listLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      if (!(await requireAvailableWikiMobReference(res))) return;
+
       const {
         page = '1',
         limit = '20',
@@ -804,7 +828,10 @@ router.get(
         return;
       }
 
-      const mob = await wikiService.getMobByZoneAndVnum(zoneNumber, vnum);
+      const sourceIdentity = await requireAvailableWikiMobReference(res);
+      if (!sourceIdentity) return;
+
+      const mob = await wikiService.getMobByZoneAndVnum(zoneNumber, vnum, sourceIdentity);
 
       if (!mob) {
         res.status(404).json({ error: 'Mob not found' });
@@ -813,6 +840,10 @@ router.get(
 
       res.json(mob);
     } catch (error) {
+      if (error instanceof wikiService.WikiMobReferenceUnavailableError) {
+        sendUnavailableWikiMobReference(res);
+        return;
+      }
       next(error);
     }
   },

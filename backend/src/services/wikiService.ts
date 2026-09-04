@@ -15,7 +15,9 @@ import type { Room } from '../types/builder.js';
 import logger from '../utils/logger.js';
 import { EQUIP_SLOTS } from '../types/builder.js';
 import {
+  readWikiMobGeneration,
   readWikiObjectGeneration,
+  validateWikiMobGeneration,
   validateWikiObjectGeneration,
   type WikiSourceIdentity,
 } from './wikiGeneration.js';
@@ -107,6 +109,29 @@ export async function getWikiObjectReference(): Promise<WikiObjectReference> {
 /** Return aggregate-only reasons the object reference projection is unavailable. */
 export async function getWikiObjectReferenceIssues(): Promise<string[]> {
   return (await getWikiObjectReference()).issues;
+}
+
+/** Return aggregate-only reasons the mob reference projection is unavailable. */
+export async function getWikiMobReferenceIssues(): Promise<string[]> {
+  return (await getWikiMobReference()).issues;
+}
+
+export interface WikiMobReference {
+  readonly issues: string[];
+  readonly sourceIdentity: WikiSourceIdentity | null;
+}
+
+/** Return readiness evidence and the immutable source identity for the published mob projection. */
+export async function getWikiMobReference(): Promise<WikiMobReference> {
+  const generation = await readWikiMobGeneration(pool);
+  const issues = validateWikiMobGeneration(generation);
+  return {
+    issues,
+    sourceIdentity:
+      generation && issues.length === 0
+        ? { revision: generation.source_revision, tree: generation.source_tree }
+        : null,
+  };
 }
 
 export interface WikiZoneDetail extends WikiZone {
@@ -2030,26 +2055,15 @@ interface CachedMobDetail {
 const REDIS_KEY_MOBS_DETAILS = 'wiki:mobs:details';
 const MOBS_CACHE_TTL_SECONDS = 30 * 60; // 30 minutes
 
-// get connected zone numbers (zones with entrances from the world map)
-async function getConnectedZoneNumbers(): Promise<Set<number>> {
-  const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT DISTINCT to_zone_number FROM wiki_zone_entrances WHERE to_zone_number > 0`,
-  );
-  return new Set(rows.map((r) => r.to_zone_number as number));
-}
-
-// build mob details cache from flatfiles (for getMobByZoneAndVnum which needs extra info)
-// note: list data now comes from wiki_mobs table, only details need flatfile parsing
-async function buildMobDetailsCacheFromSource(): Promise<Map<string, CachedMobDetail>> {
-  const [{ zones }, connectedZones] = await Promise.all([
-    listZones({ page: 1, limit: 10000 }),
-    getConnectedZoneNumbers(),
-  ]);
+/** Build and cache flatfile-only mob details under the caller's source-specific key. */
+async function buildMobDetailsCacheFromSource(
+  cacheKey: string = REDIS_KEY_MOBS_DETAILS,
+): Promise<Map<string, CachedMobDetail>> {
+  const { zones } = await listZones({ page: 1, limit: 10000 });
 
   const detailsCache = new Map<string, CachedMobDetail>();
 
   for (const zone of zones) {
-    if (!connectedZones.has(zone.number)) continue;
     try {
       const zoneMobs = await parseMobFile(zone.id);
       for (const mob of zoneMobs) {
@@ -2094,17 +2108,19 @@ async function buildMobDetailsCacheFromSource(): Promise<Map<string, CachedMobDe
     }
   }
 
-  await setCache(REDIS_KEY_MOBS_DETAILS, mapToObject(detailsCache), MOBS_CACHE_TTL_SECONDS);
+  await setCache(cacheKey, mapToObject(detailsCache), MOBS_CACHE_TTL_SECONDS);
   return detailsCache;
 }
 
-// get mob details cache (from redis or rebuild from flatfiles)
-async function getMobDetailsCached(): Promise<Map<string, CachedMobDetail>> {
-  const cached = await getCache<Record<string, CachedMobDetail>>(REDIS_KEY_MOBS_DETAILS);
+/** Read a caller-scoped mob-details cache or rebuild it from the active flatfile root. */
+async function getMobDetailsCached(
+  cacheKey: string = REDIS_KEY_MOBS_DETAILS,
+): Promise<Map<string, CachedMobDetail>> {
+  const cached = await getCache<Record<string, CachedMobDetail>>(cacheKey);
   if (cached) {
     return objectToMap(cached);
   }
-  return buildMobDetailsCacheFromSource();
+  return buildMobDetailsCacheFromSource(cacheKey);
 }
 
 export async function getMobs(
@@ -2243,12 +2259,27 @@ export async function getMobs(
   };
 }
 
-export async function getMobByZoneAndVnum(
+/** Build a Redis key that cannot reuse flatfile mob details across published generations. */
+function getPublishedMobDetailsCacheKey(sourceIdentity: WikiSourceIdentity): string {
+  return `${REDIS_KEY_MOBS_DETAILS}:${sourceIdentity.revision}:${sourceIdentity.tree}`;
+}
+
+/** Build one full-detail cache key for a published-generation mob. */
+function getPublishedMobCacheKey(
+  sourceIdentity: WikiSourceIdentity,
   zoneNumber: number,
   vnum: number,
+): string {
+  return `${getPublishedMobDetailsCacheKey(sourceIdentity)}:mob:${zoneNumber}:${vnum}`;
+}
+
+/** Assemble a mob detail while every flatfile parser is scoped to its published snapshot. */
+async function buildPublishedMobByZoneAndVnum(
+  zoneNumber: number,
+  vnum: number,
+  sourceIdentity: WikiSourceIdentity,
 ): Promise<WikiMobDetail | null> {
-  // Use the shared detailed cache with composite key
-  const cache = await getMobDetailsCached();
+  const cache = await getMobDetailsCached(getPublishedMobDetailsCacheKey(sourceIdentity));
   const compositeKey = `${zoneNumber}:${vnum}`;
   const cached = cache.get(compositeKey);
 
@@ -2375,6 +2406,62 @@ export async function getMobByZoneAndVnum(
   };
 }
 
+/** Signals that a detail request cannot remain bound to one published mob generation. */
+export class WikiMobReferenceUnavailableError extends Error {
+  /** Create a stable public error while retaining an internal cause for diagnostics. */
+  constructor(cause?: unknown) {
+    super(
+      'Published wiki mob reference data is unavailable.',
+      cause === undefined ? undefined : { cause },
+    );
+    this.name = 'WikiMobReferenceUnavailableError';
+  }
+}
+
+/** Reject a detail assembled while publication advanced to a different mob generation. */
+async function assertWikiMobReferenceUnchanged(sourceIdentity: WikiSourceIdentity): Promise<void> {
+  const current = await getWikiMobReference();
+  if (
+    current.sourceIdentity?.revision !== sourceIdentity.revision ||
+    current.sourceIdentity.tree !== sourceIdentity.tree
+  ) {
+    throw new WikiMobReferenceUnavailableError();
+  }
+}
+
+/** Return mob details bound to one validated, generation-keyed immutable source snapshot. */
+export async function getMobByZoneAndVnum(
+  zoneNumber: number,
+  vnum: number,
+  sourceIdentity: WikiSourceIdentity,
+): Promise<WikiMobDetail | null> {
+  const cacheKey = getPublishedMobCacheKey(sourceIdentity, zoneNumber, vnum);
+  const cached = await getCache<WikiMobDetail>(cacheKey);
+  if (cached) {
+    await assertWikiMobReferenceUnchanged(sourceIdentity);
+    return cached;
+  }
+
+  let detail: WikiMobDetail | null;
+  try {
+    detail = await withWikiRevisionSnapshot(sourceIdentity, getMudRoot(), (snapshotRoot) =>
+      withMudRoot(snapshotRoot, () =>
+        buildPublishedMobByZoneAndVnum(zoneNumber, vnum, sourceIdentity),
+      ),
+    );
+  } catch (error) {
+    throw new WikiMobReferenceUnavailableError(error);
+  }
+
+  await assertWikiMobReferenceUnchanged(sourceIdentity);
+  if (detail) {
+    await setCache(cacheKey, detail, MOBS_CACHE_TTL_SECONDS);
+    await assertWikiMobReferenceUnchanged(sourceIdentity);
+  }
+  return detail;
+}
+
+/** Return only class identifiers represented by the published mob projection. */
 export async function getMobClasses(): Promise<{ id: number; name: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT DISTINCT mob_class FROM wiki_mobs ORDER BY mob_class',
@@ -2385,7 +2472,7 @@ export async function getMobClasses(): Promise<{ id: number; name: string }[]> {
   }));
 }
 
-// export races list for filter dropdown - dynamic from database
+/** Return only race identifiers represented by the published mob projection. */
 export async function getMobRaces(): Promise<{ id: number; name: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT DISTINCT species FROM wiki_mobs ORDER BY species',
@@ -2396,7 +2483,7 @@ export async function getMobRaces(): Promise<{ id: number; name: string }[]> {
   }));
 }
 
-// export act flags for legend - dynamic from database
+/** Return only ACT flags represented by the published mob projection. */
 export async function getActFlags(): Promise<{ id: number; name: string; description: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT DISTINCT flag_id FROM wiki_mob_flags ORDER BY flag_id',

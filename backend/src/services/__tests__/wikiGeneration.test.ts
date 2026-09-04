@@ -2,7 +2,9 @@ import { describe, expect, it } from '@jest/globals';
 
 import {
   parseWikiSourceIdentity,
+  type WikiMobGenerationRow,
   type WikiObjectGenerationRow,
+  validateWikiMobGeneration,
   validateWikiObjectGeneration,
 } from '../wikiGeneration.js';
 
@@ -71,6 +73,48 @@ describe('wiki object generation readiness', () => {
       'wiki object reference count drifted (published 25, current 24)',
       'wiki object reference generation has no applicable type metadata',
       'wiki object reference generation has inconsistent child rows',
+    ]);
+  });
+});
+
+function validMobRow(): WikiMobGenerationRow {
+  return {
+    source_revision: SOURCE_REVISION,
+    source_tree: SOURCE_TREE,
+    mob_count: 12,
+    actual_mob_count: 12,
+    mob_class_count: 4,
+    mob_race_count: 5,
+    mob_flag_count: 6,
+    orphan_flags: 0,
+  } as WikiMobGenerationRow;
+}
+
+describe('wiki mob generation readiness', () => {
+  it('accepts a nonempty, identified, internally consistent generation', () => {
+    expect(validateWikiMobGeneration(validMobRow())).toEqual([]);
+  });
+
+  it('rejects unpublished, empty, drifted, and inconsistent generations', () => {
+    expect(validateWikiMobGeneration(null)).toContain(
+      'wiki mob reference generation has not been published',
+    );
+    expect(validateWikiMobGeneration({ ...validMobRow(), mob_count: 0 })).toContain(
+      'wiki mob reference generation is empty',
+    );
+    expect(
+      validateWikiMobGeneration({
+        ...validMobRow(),
+        source_revision: '',
+        actual_mob_count: 11,
+        mob_flag_count: 0,
+        orphan_flags: 1,
+      }),
+    ).toEqual([
+      'wiki mob reference generation has no source identity',
+      'wiki mob reference count drifted (published 12, current 11)',
+      'wiki mob reference generation has no applicable filter metadata',
+      'wiki mob reference generation has inconsistent flag rows',
     ]);
   });
 });

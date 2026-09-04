@@ -54,11 +54,12 @@ node dist/scripts/productionPreflight.js --dependencies
 The first command aggregates invalid configuration and verifies the migration
 bundle. The second verifies required tables, the canonical MUD-owned
 `server_reboots` shape, absence of the prohibited incoming extension foreign
-key, refresh-token column capacity, a nonempty and internally consistent wiki
-object generation with persisted source identity, the complete migration ledger, general
-cache, the optional scoped presence read/subscription operations, and the
-auction engine/timestamp contract when direct auction writes are explicitly
-enabled. Other feature projections still need explicit data-readiness checks,
+key, refresh-token column capacity, nonempty and internally consistent wiki
+object and mob generations with persisted source identity, the complete
+migration ledger, general cache, the optional scoped presence read/subscription
+operations, and the auction engine/timestamp contract when direct auction writes
+are explicitly enabled. Other feature projections still need explicit
+data-readiness checks,
 and neither preflight nor `/health` proves that a feature query is semantically
 correct. They do not replace
 the test suite or the release-specific acceptance checks below. The rendered
@@ -84,8 +85,9 @@ node backend/dist/scripts/productionPreflight.js --dependencies
 ```
 
 Keep the recorded commit reachable from the configured MUD Git repository.
-Wiki object-detail cache misses use that exact revision to reconstruct
-flatfile-only detail without reading whichever branch is currently checked out.
+Wiki object- and mob-detail cache misses use that exact revision to reconstruct
+flatfile-only details, including load locations, spawns, and equipment, without
+reading whichever branch is currently checked out.
 
 The status output must be empty. The publisher stores the commit, tree identity,
 and published object/mob counts with the same transaction as the rows. A failed
