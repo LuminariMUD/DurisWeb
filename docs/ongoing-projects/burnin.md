@@ -335,6 +335,14 @@ an entry says otherwise.
     drains and a durable recovery file, retains eligible player sockets, and restores the prior
     executable if promotion fails. This establishes the exact remaining action but does not grant
     the separately required authority to perform it.
+54. Performed the third consecutive audit of the same external boundary. DurisWeb remains clean and
+    synchronized with pushed `master`; all seven production units are active/running with
+    `Result=success` and `NRestarts=0`; local/public health remain database/cache `ok`. DurisMUD is
+    clean and synchronized with its pushed `master`, but the running executable retains its
+    pre-fix timestamp and no staged production binary or build stamp exists. The bridge has now
+    completed two matching timeout/reconnect cycles, each restoring current-secret authentication
+    and fresh hook state without an authentication or transport error. No separately authorized MUD
+    deployment operation is available, so the full burn-in is blocked at the unchanged boundary.
 
 ## Isolated qualification and repair evidence
 
@@ -706,3 +714,7 @@ an entry says otherwise.
   `bin/server/dms_new`, validate its production stamp and source containment, then request the
   game's fail-closed `SIGUSR1` copyover on the exact current child. No new service, protocol, or
   deployment architecture is required.
+- After three consecutive goal turns, the required separate MUD authorization remained absent and
+  authoritative state remained unchanged. The production burn-in is therefore blocked rather than
+  complete; resume with explicit authority for that build/copyover and retain the existing evidence
+  for the post-copyover 16-minute acceptance soak.
