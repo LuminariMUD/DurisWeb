@@ -13,6 +13,17 @@ description: >-
 Drive the selected environment to one uninterrupted clean end-to-end pass after the last repair.
 Do not treat separate partial passes as a clean burn-in.
 
+## Preserve the architecture
+
+Do not introduce new architecture during a burn-in unless it is critical. Work within and repair
+the existing architecture. New architecture includes adding required packages or services, host
+security profiles, service or network topology, persistence systems, or new mandatory deployment
+gates. Hardening preferences, optional-feature failures, and making the burn-in pass more cleanly
+are not critical. Critical means necessary to prevent active or imminent data loss, security
+compromise, or production unavailability when the existing architecture cannot adequately address
+the risk. If new architecture is critical, make only the smallest necessary change and record why
+the existing architecture was insufficient.
+
 ## Select the target
 
 Require the user to select `development` or `production`. If the request is ambiguous, inspect only
