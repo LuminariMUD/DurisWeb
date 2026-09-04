@@ -69,6 +69,9 @@ describe('deployment configuration renderer', () => {
       const content = fs.readFileSync(path.join(outputPath, relativePath), 'utf8');
       expect(content).not.toMatch(/@[A-Z][A-Z0-9_]*@/);
     }
+    const selection = fs.readFileSync(path.join(outputPath, 'deployment-selection.env'), 'utf8');
+    expect(selection).toContain('INGRESS_SERVICE=durisweb-cloudflared.service\n');
+    expect(selection).toContain('INGRESS_SERVICE_SCOPE=user\n');
 
     const rerender = spawnSync(
       'bash',
@@ -99,6 +102,9 @@ describe('deployment configuration renderer', () => {
     );
     expect(fs.readFileSync(path.join(outputPath, 'deployment-selection.env'), 'utf8')).toContain(
       'INGRESS_SERVICE=\n',
+    );
+    expect(fs.readFileSync(path.join(outputPath, 'deployment-selection.env'), 'utf8')).toContain(
+      'INGRESS_SERVICE_SCOPE=\n',
     );
     expect(fs.existsSync(path.join(outputPath, 'nginx'))).toBe(false);
   });

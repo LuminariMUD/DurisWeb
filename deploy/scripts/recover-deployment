@@ -43,7 +43,7 @@ while IFS= read -r recovery_line || [ -n "${recovery_line}" ]; do
   recovery_key=${BASH_REMATCH[1]}
   recovery_value=${BASH_REMATCH[2]}
   case "${recovery_key}" in
-    NODE_BIN|APPLICATION_SERVICE|CACHE_SERVICE|INGRESS_SERVICE|LOCAL_HEALTH_URL|PUBLIC_HEALTH_URL) ;;
+    NODE_BIN|APPLICATION_SERVICE|CACHE_SERVICE|INGRESS_SERVICE|INGRESS_SERVICE_SCOPE|LOCAL_HEALTH_URL|PUBLIC_HEALTH_URL) ;;
     *)
       printf 'Unexpected rendered deployment selection key: %s\n' "${recovery_key}" >&2
       exit 78
@@ -57,7 +57,7 @@ while IFS= read -r recovery_line || [ -n "${recovery_line}" ]; do
   printf -v "${recovery_key}" '%s' "${recovery_value}"
 done <"${recovery_selection}"
 
-for recovery_key in NODE_BIN APPLICATION_SERVICE CACHE_SERVICE INGRESS_SERVICE LOCAL_HEALTH_URL PUBLIC_HEALTH_URL; do
+for recovery_key in NODE_BIN APPLICATION_SERVICE CACHE_SERVICE INGRESS_SERVICE INGRESS_SERVICE_SCOPE LOCAL_HEALTH_URL PUBLIC_HEALTH_URL; do
   if [ -z "${recovery_seen[${recovery_key}]:-}" ]; then
     printf 'Missing rendered deployment selection key: %s\n' "${recovery_key}" >&2
     exit 78
@@ -89,6 +89,24 @@ if [ -n "${INGRESS_SERVICE}" ] && [ -z "${PUBLIC_HEALTH_URL}" ]; then
   printf 'Enabled ingress requires a rendered public health URL.\n' >&2
   exit 78
 fi
+case "${INGRESS_SERVICE_SCOPE}" in
+  '')
+    if [ -n "${INGRESS_SERVICE}" ]; then
+      printf 'Rendered ingress service requires a service scope.\n' >&2
+      exit 78
+    fi
+    ;;
+  user|system)
+    if [ -z "${INGRESS_SERVICE}" ]; then
+      printf 'Rendered ingress service scope requires a service name.\n' >&2
+      exit 78
+    fi
+    ;;
+  *)
+    printf 'Invalid rendered ingress service scope.\n' >&2
+    exit 78
+    ;;
+esac
 if [ ! -x "${NODE_BIN}" ]; then
   printf 'Rendered Node binary is not executable: %s\n' "${NODE_BIN}" >&2
   exit 78
@@ -99,20 +117,39 @@ if ! command -v systemctl >/dev/null || ! command -v curl >/dev/null; then
 fi
 
 recovery_units=("${CACHE_SERVICE}" "${APPLICATION_SERVICE}")
-if [ -n "${INGRESS_SERVICE}" ]; then
-  recovery_units+=("${INGRESS_SERVICE}")
-fi
+recovery_unit_scopes=(user user)
+recovery_user_units=("${CACHE_SERVICE}" "${APPLICATION_SERVICE}")
+recovery_system_units=()
+case "${INGRESS_SERVICE_SCOPE}" in
+  user)
+    recovery_units+=("${INGRESS_SERVICE}")
+    recovery_unit_scopes+=(user)
+    recovery_user_units+=("${INGRESS_SERVICE}")
+    ;;
+  system)
+    recovery_units+=("${INGRESS_SERVICE}")
+    recovery_unit_scopes+=(system)
+    recovery_system_units+=("${INGRESS_SERVICE}")
+    ;;
+esac
 
 if [ "${recovery_mode}" = 'recover' ]; then
-  if ! systemctl --user start "${recovery_units[@]}"; then
-    printf 'Failed to start the complete rendered deployment group.\n' >&2
+  if ! systemctl --user start "${recovery_user_units[@]}"; then
+    printf 'Failed to start the rendered user-service group.\n' >&2
+    exit 1
+  fi
+  if [ "${#recovery_system_units[@]}" -gt 0 ] &&
+    ! systemctl --system start "${recovery_system_units[@]}"; then
+    printf 'Failed to start the rendered system-service ingress.\n' >&2
     exit 1
   fi
 fi
 
-for recovery_unit in "${recovery_units[@]}"; do
+for recovery_index in "${!recovery_units[@]}"; do
+  recovery_unit=${recovery_units[${recovery_index}]}
+  recovery_unit_scope=${recovery_unit_scopes[${recovery_index}]}
   mapfile -t recovery_state < <(
-    systemctl --user show "${recovery_unit}" \
+    systemctl "--${recovery_unit_scope}" show "${recovery_unit}" \
       --property=ActiveState --property=Result --property=NRestarts --value
   )
   if [ "${recovery_state[0]:-}" != 'active' ] ||

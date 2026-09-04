@@ -187,7 +187,9 @@ The cache service consumes `CACHE_REDIS_PASSWORD` from the backend environment,
 so that file is the credential owner for both the application and managed
 Redis. Set `DEPLOY_CLOUDFLARED_ENABLED` and `DEPLOY_NGINX_ENABLED` explicitly;
 values in a disabled group are ignored, while every value in an enabled group
-must be replaced. Health URLs must not contain URI user-info or credentials.
+must be replaced. `NGINX_SERVICE` names the system service recovered for an
+Nginx-only ingress; Cloudflared remains the selected user service when both
+groups are enabled. Health URLs must not contain URI user-info or credentials.
 Then render:
 
 ```bash
@@ -284,11 +286,14 @@ restart player-visible.
    deploy/scripts/recover-deployment /absolute/render/output
    ```
 
-   This explicitly starts the cache, application, and rendered optional tunnel,
+   This explicitly starts the cache, application, and selected optional ingress,
    then requires `ActiveState=active`, `Result=success`, `NRestarts=0`, and
    bounded local and configured public `/health` responses with the
    `durisweb-backend` service identity and healthy database/cache checks. Use
-   `--accept-only` to prove the same gate without starting anything.
+   `--accept-only` to prove the same gate without starting anything. An
+   Nginx-only selection uses `systemctl --system`; run recovery from an operator
+   identity already authorized to start that configured service. The command
+   does not elevate privileges or invoke `sudo`.
 6. Do not restart the MUD or shared database as part of a web-only release.
    Compare their PIDs and active timestamps with the pre-cutover record.
 7. Enable the validated units and run the acceptance matrix. Unexpected

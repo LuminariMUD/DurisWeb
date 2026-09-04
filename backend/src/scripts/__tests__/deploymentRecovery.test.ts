@@ -17,14 +17,20 @@ interface RecoveryFixture {
   log: string;
 }
 
+type IngressMode = 'cloudflared' | 'nginx' | 'none';
+
 interface RecoveryOptions {
-  failIngress?: boolean;
+  activeState?: string;
   failStart?: boolean;
   healthService?: string;
+  nginxRequiresStart?: boolean;
+  restartCount?: string;
+  serviceResult?: string;
+  statusUnit?: string;
 }
 
 /** Renders one isolated deployment and installs deterministic systemctl/curl doubles. */
-function createRecoveryFixture(enableIngress: boolean): RecoveryFixture {
+function createRecoveryFixture(ingressMode: IngressMode): RecoveryFixture {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-recovery-'));
   temporaryDirectories.push(root);
   const output = path.join(root, 'rendered');
@@ -43,10 +49,12 @@ function createRecoveryFixture(enableIngress: boolean): RecoveryFixture {
       'DEPLOYMENT_ENV_FILE=/etc/portable-durisweb/deployment.env',
       `DEPLOYMENT_ENV_FILE=${input}`,
     );
-  if (enableIngress) {
+  if (ingressMode === 'cloudflared') {
     environment = environment
       .replaceAll('replace_with', 'configured')
       .replace('DEPLOY_CLOUDFLARED_ENABLED=false', 'DEPLOY_CLOUDFLARED_ENABLED=true');
+  } else if (ingressMode === 'nginx') {
+    environment = environment.replace('DEPLOY_NGINX_ENABLED=false', 'DEPLOY_NGINX_ENABLED=true');
   }
   fs.writeFileSync(input, environment, { mode: 0o600 });
 
@@ -66,9 +74,17 @@ if [ "\${2:-}" = 'start' ] && [ "\${RECOVERY_FAIL_START:-false}" = 'true' ]; the
   printf 'partially-started %s\\n' "\${3:-missing}" >>"$RECOVERY_TEST_LOG"
   exit 1
 fi
+if [ "\${1:-}" = '--system' ] && [ "\${2:-}" = 'start' ] &&
+  [ "\${3:-}" = 'nginx.service' ] && [ "\${RECOVERY_NGINX_REQUIRES_START:-false}" = 'true' ]; then
+  : >"$RECOVERY_NGINX_STATE_FILE"
+fi
 if [ "\${2:-}" = 'show' ]; then
-  if [ "\${RECOVERY_FAIL_INGRESS:-false}" = 'true' ] && [ "\${3:-}" = 'durisweb-cloudflared.service' ]; then
+  if [ "\${3:-}" = 'nginx.service' ] && [ "\${RECOVERY_NGINX_REQUIRES_START:-false}" = 'true' ] &&
+    [ ! -f "$RECOVERY_NGINX_STATE_FILE" ]; then
     printf 'inactive\\nfailed\\n0\\n'
+  elif [ "\${3:-}" = "\${RECOVERY_STATUS_UNIT:-}" ]; then
+    printf '%s\\n%s\\n%s\\n' "\${RECOVERY_ACTIVE_STATE:-active}" \
+      "\${RECOVERY_SERVICE_RESULT:-success}" "\${RECOVERY_RESTART_COUNT:-0}"
   else
     printf 'active\\nsuccess\\n0\\n'
   fi
@@ -106,10 +122,15 @@ function runRecovery(
       env: {
         ...process.env,
         PATH: `${fixture.binaries}:${process.env.PATH ?? ''}`,
+        RECOVERY_ACTIVE_STATE: options.activeState ?? 'active',
         RECOVERY_TEST_LOG: fixture.log,
-        RECOVERY_FAIL_INGRESS: String(options.failIngress ?? false),
         RECOVERY_FAIL_START: String(options.failStart ?? false),
         RECOVERY_HEALTH_SERVICE: options.healthService ?? 'durisweb-backend',
+        RECOVERY_NGINX_REQUIRES_START: String(options.nginxRequiresStart ?? false),
+        RECOVERY_NGINX_STATE_FILE: path.join(fixture.root, 'nginx-started'),
+        RECOVERY_RESTART_COUNT: options.restartCount ?? '0',
+        RECOVERY_SERVICE_RESULT: options.serviceResult ?? 'success',
+        RECOVERY_STATUS_UNIT: options.statusUnit ?? '',
       },
     },
   );
@@ -128,7 +149,7 @@ afterEach(() => {
 
 describe('complete deployment recovery', () => {
   it('starts and accepts every rendered unit plus local and public health', () => {
-    const fixture = createRecoveryFixture(true);
+    const fixture = createRecoveryFixture('cloudflared');
 
     const result = runRecovery(fixture);
 
@@ -146,7 +167,7 @@ describe('complete deployment recovery', () => {
   });
 
   it('preserves normal application restart propagation in the rendered tunnel unit', () => {
-    const fixture = createRecoveryFixture(true);
+    const fixture = createRecoveryFixture('cloudflared');
 
     const tunnel = fs.readFileSync(
       path.join(fixture.output, 'systemd/durisweb-cloudflared.service'),
@@ -158,12 +179,12 @@ describe('complete deployment recovery', () => {
   });
 
   it('fails immediately when systemd only partially starts the rendered group', () => {
-    const fixture = createRecoveryFixture(true);
+    const fixture = createRecoveryFixture('cloudflared');
 
     const result = runRecovery(fixture, [], { failStart: true });
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toMatch(/failed to start the complete rendered deployment group/i);
+    expect(result.stderr).toMatch(/failed to start the rendered user-service group/i);
     expect(result.stdout).not.toMatch(/accepted/i);
     const calls = readRecoveryLog(fixture);
     expect(calls).toContain(
@@ -174,17 +195,69 @@ describe('complete deployment recovery', () => {
   });
 
   it('cannot accept independently stopped ingress without starting anything', () => {
-    const fixture = createRecoveryFixture(true);
+    const fixture = createRecoveryFixture('cloudflared');
 
-    const result = runRecovery(fixture, ['--accept-only'], { failIngress: true });
+    const result = runRecovery(fixture, ['--accept-only'], {
+      activeState: 'inactive',
+      serviceResult: 'failed',
+      statusUnit: 'durisweb-cloudflared.service',
+    });
 
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/durisweb-cloudflared\.service failed acceptance/);
     expect(readRecoveryLog(fixture)).not.toContain('systemctl --user start');
   });
 
+  it('rejects an active unit whose last service result failed', () => {
+    const fixture = createRecoveryFixture('none');
+
+    const result = runRecovery(fixture, ['--accept-only'], {
+      serviceResult: 'failed',
+      statusUnit: 'durisweb-production.service',
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(
+      /durisweb-production\.service failed acceptance \(ActiveState=active Result=failed NRestarts=0\)/,
+    );
+  });
+
+  it('rejects an active successful unit with a nonzero restart count', () => {
+    const fixture = createRecoveryFixture('none');
+
+    const result = runRecovery(fixture, ['--accept-only'], {
+      restartCount: '2',
+      statusUnit: 'durisweb-production.service',
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(
+      /durisweb-production\.service failed acceptance \(ActiveState=active Result=success NRestarts=2\)/,
+    );
+  });
+
+  it('recovers an initially inactive Nginx-only system ingress', () => {
+    const fixture = createRecoveryFixture('nginx');
+    const options: RecoveryOptions = { nginxRequiresStart: true };
+
+    const rejected = runRecovery(fixture, ['--accept-only'], options);
+    expect(rejected.status).toBe(1);
+    expect(rejected.stderr).toMatch(/nginx\.service failed acceptance/);
+
+    const recovered = runRecovery(fixture, [], options);
+    expect(recovered.status).toBe(0);
+    expect(recovered.stdout).toMatch(/3 units, 2 health probes/);
+    const calls = readRecoveryLog(fixture);
+    expect(calls).toContain(
+      'systemctl --user start durisweb-redis.service durisweb-production.service',
+    );
+    expect(calls).toContain('systemctl --system start nginx.service');
+    expect(calls).toContain('systemctl --system show nginx.service');
+    expect(calls).not.toContain('cloudflared');
+  });
+
   it('rejects an incomplete rendered selection before starting units', () => {
-    const fixture = createRecoveryFixture(true);
+    const fixture = createRecoveryFixture('cloudflared');
     const selection = path.join(fixture.output, 'deployment-selection.env');
     fs.writeFileSync(
       selection,
@@ -199,7 +272,7 @@ describe('complete deployment recovery', () => {
   });
 
   it('rejects public health URI user-info before starting units', () => {
-    const fixture = createRecoveryFixture(true);
+    const fixture = createRecoveryFixture('cloudflared');
     const selection = path.join(fixture.output, 'deployment-selection.env');
     fs.writeFileSync(
       selection,
@@ -219,7 +292,7 @@ describe('complete deployment recovery', () => {
   });
 
   it('rejects a healthy-shaped response from the wrong service', () => {
-    const fixture = createRecoveryFixture(true);
+    const fixture = createRecoveryFixture('cloudflared');
 
     const result = runRecovery(fixture, ['--accept-only'], { healthService: 'other-service' });
 
@@ -229,7 +302,7 @@ describe('complete deployment recovery', () => {
   });
 
   it('does not invent a tunnel dependency when public ingress is disabled', () => {
-    const fixture = createRecoveryFixture(false);
+    const fixture = createRecoveryFixture('none');
 
     const result = runRecovery(fixture);
 
