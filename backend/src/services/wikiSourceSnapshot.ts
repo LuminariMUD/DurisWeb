@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 
+import logger from '../utils/logger.js';
 import type { WikiSourceIdentity } from './wikiGeneration.js';
 
 const executeFile = promisify(execFile);
@@ -37,20 +38,42 @@ export async function verifyWikiSourceCheckout(
   }
 }
 
-/**
- * Materialize a private detached worktree at the verified revision and remove it after the
- * callback. Parsers therefore never read a branch checkout that another Git operation can switch.
- */
-export async function withWikiSourceSnapshot<T>(
+/** Verify that a repository still contains the exact recorded commit and tree. */
+async function verifyWikiSourceRevision(
+  sourceIdentity: WikiSourceIdentity,
+  directory: string,
+): Promise<void> {
+  try {
+    const [revision, tree] = await Promise.all([
+      readGitValue(directory, ['rev-parse', '--verify', `${sourceIdentity.revision}^{commit}`]),
+      readGitValue(directory, ['rev-parse', '--verify', `${sourceIdentity.revision}^{tree}`]),
+    ]);
+    if (revision !== sourceIdentity.revision || tree !== sourceIdentity.tree) {
+      throw new Error('recorded MUD source revision does not match its tree');
+    }
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === 'recorded MUD source revision does not match its tree'
+    ) {
+      throw error;
+    }
+    throw new Error('recorded MUD source revision is unavailable', { cause: error });
+  }
+}
+
+/** Run an operation in a temporary detached worktree for an exact recorded revision. */
+export async function withWikiRevisionSnapshot<T>(
   sourceIdentity: WikiSourceIdentity,
   directory: string,
   operation: (snapshotRoot: string) => Promise<T>,
 ): Promise<T> {
-  await verifyWikiSourceCheckout(sourceIdentity, directory);
+  await verifyWikiSourceRevision(sourceIdentity, directory);
 
   const temporaryRoot = await fs.mkdtemp(path.join(tmpdir(), 'durisweb-wiki-source-'));
   const snapshotRoot = path.join(temporaryRoot, 'checkout');
   let worktreeAdded = false;
+  let operationFailed = false;
 
   try {
     await executeFile(
@@ -75,15 +98,47 @@ export async function withWikiSourceSnapshot<T>(
     }
 
     return await operation(snapshotRoot);
+  } catch (error) {
+    operationFailed = true;
+    throw error;
   } finally {
-    try {
-      if (worktreeAdded) {
+    let cleanupError: unknown = null;
+    if (worktreeAdded) {
+      try {
         await executeFile('git', ['-C', directory, 'worktree', 'remove', '--force', snapshotRoot], {
           encoding: 'utf8',
         });
+      } catch (error) {
+        cleanupError = error;
       }
-    } finally {
+    }
+    try {
       await fs.rm(temporaryRoot, { recursive: true, force: true });
+    } catch (error) {
+      cleanupError ??= error;
+    }
+
+    if (cleanupError) {
+      if (operationFailed) {
+        logger.error('Failed to clean up a temporary MUD source snapshot.');
+      } else {
+        throw new Error('failed to clean up temporary MUD source snapshot', {
+          cause: cleanupError,
+        });
+      }
     }
   }
+}
+
+/**
+ * Materialize a private detached worktree at the verified revision and remove it after the
+ * callback. Parsers therefore never read a branch checkout that another Git operation can switch.
+ */
+export async function withWikiSourceSnapshot<T>(
+  sourceIdentity: WikiSourceIdentity,
+  directory: string,
+  operation: (snapshotRoot: string) => Promise<T>,
+): Promise<T> {
+  await verifyWikiSourceCheckout(sourceIdentity, directory);
+  return withWikiRevisionSnapshot(sourceIdentity, directory, operation);
 }

@@ -20,7 +20,13 @@ const database = { getConnection } as unknown as Pick<Pool, 'getConnection'>;
 function populatedRows() {
   const rows = createWikiPublicationRows();
   rows.wiki_objects.push([101]);
+  rows.wiki_object_affects.push([101, 1, 2]);
+  rows.wiki_object_slots.push([101, 16]);
+  rows.wiki_object_spell_effects.push([101, 'Glow']);
+  rows.wiki_object_classes.push([101, 1, true]);
+  rows.wiki_object_races.push([101, 1, true]);
   rows.wiki_mobs.push([7, 201]);
+  rows.wiki_mob_flags.push([7, 201, 1]);
   return rows;
 }
 
@@ -49,6 +55,26 @@ describe('wiki generation publication transaction', () => {
     const markerOrder = query.mock.invocationCallOrder.at(-1);
     expect(beginTransaction.mock.invocationCallOrder[0]).toBeLessThan(markerOrder ?? 0);
     expect(markerOrder).toBeLessThan(commit.mock.invocationCallOrder[0]);
+
+    const statements = query.mock.calls.map(([sql]) => String(sql).trim());
+    const objectDelete = statements.indexOf('DELETE FROM wiki_objects');
+    const objectInsert = statements.findIndex((sql) =>
+      sql.startsWith('INSERT INTO wiki_objects ('),
+    );
+    expect(objectDelete).toBeGreaterThan(-1);
+    expect(objectInsert).toBeGreaterThan(-1);
+    for (const childTable of [
+      'wiki_object_races',
+      'wiki_object_classes',
+      'wiki_object_spell_effects',
+      'wiki_object_slots',
+      'wiki_object_affects',
+    ]) {
+      expect(statements.indexOf(`DELETE FROM ${childTable}`)).toBeLessThan(objectDelete);
+      expect(
+        statements.findIndex((sql) => sql.startsWith(`INSERT INTO ${childTable} (`)),
+      ).toBeGreaterThan(objectInsert);
+    }
   });
 
   it('rolls back and releases the connection when the generation marker write fails', async () => {

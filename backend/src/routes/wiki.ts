@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { getErrorMessage } from '../utils/logger.js';
 import * as wikiService from '../services/wikiService.js';
 import { optionalAuth, requireAuth, requirePermission } from '../middleware/auth.js';
+import type { WikiSourceIdentity } from '../services/wikiGeneration.js';
 
 const router: Router = express.Router();
 
@@ -57,16 +58,25 @@ async function checkWikiAccess(req: Request, res: Response, next: NextFunction):
   }
 }
 
-/** Send the stable object-reference failure response when no usable generation is published. */
-async function rejectUnavailableWikiObjectReference(res: Response): Promise<boolean> {
-  const referenceIssues = await wikiService.getWikiObjectReferenceIssues();
-  if (referenceIssues.length === 0) return false;
-
+/** Send the stable object-reference failure response without exposing internal readiness details. */
+function sendUnavailableWikiObjectReference(res: Response): void {
   res.status(503).json({
     code: 'WIKI_OBJECT_REFERENCE_UNAVAILABLE',
     error: 'Wiki object reference data is unavailable. An operator must publish it.',
   });
-  return true;
+}
+
+/** Return the validated published source identity or end the response with the stable 503. */
+async function requireAvailableWikiObjectReference(
+  res: Response,
+): Promise<WikiSourceIdentity | null> {
+  const reference = await wikiService.getWikiObjectReference();
+  if (reference.issues.length === 0 && reference.sourceIdentity) {
+    return reference.sourceIdentity;
+  }
+
+  sendUnavailableWikiObjectReference(res);
+  return null;
 }
 
 // =============================================================================
@@ -426,7 +436,7 @@ router.get(
   checkWikiAccess,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      if (await rejectUnavailableWikiObjectReference(res)) return;
+      if (!(await requireAvailableWikiObjectReference(res))) return;
       const types = await wikiService.getObjectTypes();
       res.json(types);
     } catch (error) {
@@ -441,7 +451,7 @@ router.get(
   checkWikiAccess,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      if (await rejectUnavailableWikiObjectReference(res)) return;
+      if (!(await requireAvailableWikiObjectReference(res))) return;
       const slots = await wikiService.getWearSlotTypes();
       res.json(slots);
     } catch (error) {
@@ -456,7 +466,7 @@ router.get(
   checkWikiAccess,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      if (await rejectUnavailableWikiObjectReference(res)) return;
+      if (!(await requireAvailableWikiObjectReference(res))) return;
       const affects = await wikiService.getAffectTypes();
       res.json(affects);
     } catch (error) {
@@ -471,7 +481,7 @@ router.get(
   checkWikiAccess,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      if (await rejectUnavailableWikiObjectReference(res)) return;
+      if (!(await requireAvailableWikiObjectReference(res))) return;
       const effects = await wikiService.getSpellEffectTypes();
       res.json(effects);
     } catch (error) {
@@ -486,7 +496,7 @@ router.get(
   checkWikiAccess,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      if (await rejectUnavailableWikiObjectReference(res)) return;
+      if (!(await requireAvailableWikiObjectReference(res))) return;
       const classes = await wikiService.getObjectClasses();
       res.json(classes);
     } catch (error) {
@@ -501,7 +511,7 @@ router.get(
   checkWikiAccess,
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      if (await rejectUnavailableWikiObjectReference(res)) return;
+      if (!(await requireAvailableWikiObjectReference(res))) return;
       const races = await wikiService.getObjectRaces();
       res.json(races);
     } catch (error) {
@@ -517,7 +527,7 @@ router.get(
   listLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (await rejectUnavailableWikiObjectReference(res)) return;
+      if (!(await requireAvailableWikiObjectReference(res))) return;
 
       const {
         page = '1',
@@ -635,9 +645,10 @@ router.get(
         return;
       }
 
-      if (await rejectUnavailableWikiObjectReference(res)) return;
+      const sourceIdentity = await requireAvailableWikiObjectReference(res);
+      if (!sourceIdentity) return;
 
-      const obj = await wikiService.getObjectByVnum(vnum);
+      const obj = await wikiService.getObjectByVnum(vnum, sourceIdentity);
 
       if (!obj) {
         res.status(404).json({ error: 'Object not found' });
@@ -646,6 +657,10 @@ router.get(
 
       res.json(obj);
     } catch (error) {
+      if (error instanceof wikiService.WikiObjectReferenceUnavailableError) {
+        sendUnavailableWikiObjectReference(res);
+        return;
+      }
       next(error);
     }
   },

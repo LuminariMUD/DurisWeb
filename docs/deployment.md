@@ -83,6 +83,10 @@ pnpm --dir backend wiki:publish -- \
 node backend/dist/scripts/productionPreflight.js --dependencies
 ```
 
+Keep the recorded commit reachable from the configured MUD Git repository.
+Wiki object-detail cache misses use that exact revision to reconstruct
+flatfile-only detail without reading whichever branch is currently checked out.
+
 The status output must be empty. The publisher stores the commit, tree identity,
 and published object/mob counts with the same transaction as the rows. A failed
 parse, insert, or marker write leaves the prior generation intact. Complete the
