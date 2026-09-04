@@ -450,8 +450,9 @@ database row was changed.
   byte-for-byte pre-existing in the frozen target; imported items account for
   zero of them. Classification and repair are tracked in
   [DurisWeb #14](https://github.com/LuminariMUD/DurisWeb/issues/14).
-  The protected classification and zero-drift post-repair gates are specified
-  in the [item topology repair runbook](../runbooks/item-topology-repair.md).
+  The checker-signed classification and zero-drift post-repair gates are
+  specified in the
+  [item topology repair runbook](../runbooks/item-topology-repair.md).
 - Imported player, locker, and pet container ancestry has zero cross-owner
   mismatches. All 216 retained ships resolve to a current player and have the
   expected four armor rows, one crew row, and 16 slot rows. All 71 locker access
