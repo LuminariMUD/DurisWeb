@@ -58,7 +58,10 @@ of the following from protected semantic evidence:
    numeric equality alone.
 2. No conflicting current membership, rank, association, or target-world rule.
 3. Explicit current guild/association authority approval for the resulting
-   membership and rank.
+   membership and rank, plus explicit authorization from the operator
+   responsible for the MUD mutation. The protected review must record both
+   approving roles, the exact character-specific change, the approved values,
+   the approval time, and the MUD transaction or change reference.
 4. Clone rehearsal covering MUD runtime loading, `guild_members`, profile/guild
    display, forum ACLs, and administrative permissions.
 5. A validated backup, writer coordination, one targeted MUD-authoritative
