@@ -2,11 +2,13 @@ import { flushPromises, shallowMount, type VueWrapper } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import WikiMobDetailView from '../wiki/WikiMobDetailView.vue'
 import WikiMobsView from '../wiki/WikiMobsView.vue'
 
 const wikiApi = vi.hoisted(() => ({
   getActFlags: vi.fn(),
   getMobClasses: vi.fn(),
+  getMobDetail: vi.fn(),
   getMobRaces: vi.fn(),
   getMobs: vi.fn(),
   searchZones: vi.fn(),
@@ -51,6 +53,7 @@ interface Deferred<T> {
   reject: (reason: unknown) => void
 }
 
+/** Create an externally controlled request for overlap-order regression tests. */
 function deferred<T>(): Deferred<T> {
   let resolve!: (value: T) => void
   let reject!: (reason: unknown) => void
@@ -76,6 +79,10 @@ const ButtonStub = defineComponent({
   inheritAttrs: false,
   emits: ['click'],
   template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
+})
+const AnsiTextStub = defineComponent({
+  props: { text: { type: String, required: true } },
+  template: '<span>{{ text }}</span>',
 })
 
 const emptyResult: MobPage = { mobs: [], total: 0, page: 1, limit: 20, totalPages: 0 }
@@ -108,6 +115,7 @@ const unavailableError = {
   response: { status: 503, data: { code: 'WIKI_MOB_REFERENCE_UNAVAILABLE' } },
 }
 
+/** Mount the list with slot-preserving primitives so rendered states remain observable. */
 function mountMobs(): VueWrapper {
   return shallowMount(WikiMobsView, {
     global: {
@@ -121,6 +129,7 @@ function mountMobs(): VueWrapper {
   })
 }
 
+/** Start an initial list request and a newer search request without settling either. */
 async function mountWithOverlappingRequests(
   older: Deferred<MobPage>,
   latest: Deferred<MobPage>,
@@ -264,6 +273,70 @@ describe('Wiki Mobs readiness', () => {
 
     expect(wrapper.text()).toContain('Mob reference data is temporarily unavailable.')
     expect(wrapper.text()).not.toContain('No mobs found matching your criteria.')
+    wrapper.unmount()
+  })
+})
+
+describe('Wiki Mob detail readiness', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('ignores a stale unavailable failure after newer route details load', async () => {
+    const older = deferred<
+      TestMob & {
+        longDesc: string
+        detailedDesc: string
+        hitDice: string
+        damDice: string
+        ac: number
+        thac0: number
+        zoneLocations: Array<{ zoneNumber: number; zoneName: string }>
+        spawnRooms: Array<{ roomVnum: number; roomName: string }>
+        equipment: []
+      }
+    >()
+    const latest = deferred<typeof older extends Deferred<infer T> ? T : never>()
+    wikiApi.getMobDetail.mockReturnValueOnce(older.promise).mockReturnValueOnce(latest.promise)
+    const wrapper = shallowMount(WikiMobDetailView, {
+      props: { zoneNumber: '7', vnum: '201' },
+      global: {
+        stubs: {
+          Card: SlotStub,
+          CardContent: SlotStub,
+          CardHeader: SlotStub,
+          CardTitle: SlotStub,
+          Button: ButtonStub,
+          Badge: SlotStub,
+          AnsiText: AnsiTextStub,
+        },
+      },
+    })
+    await vi.waitFor(() => expect(wikiApi.getMobDetail).toHaveBeenCalledTimes(1))
+
+    await wrapper.setProps({ vnum: '202' })
+    await vi.waitFor(() => expect(wikiApi.getMobDetail).toHaveBeenCalledTimes(2))
+    latest.resolve({
+      ...populatedResult.mobs[0]!,
+      vnum: 202,
+      name: 'Current instructor',
+      longDesc: 'An instructor waits here.',
+      detailedDesc: 'The instructor is ready to teach.',
+      hitDice: '35d8',
+      damDice: '5d6',
+      ac: -30,
+      thac0: 0,
+      zoneLocations: [{ zoneNumber: 7, zoneName: 'Test Zone' }],
+      spawnRooms: [{ roomVnum: 700, roomName: 'Test Room' }],
+      equipment: [],
+    })
+    await flushPromises()
+
+    older.reject(unavailableError)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Current instructor')
+    expect(wrapper.text()).not.toContain('Mob reference data is temporarily unavailable.')
     wrapper.unmount()
   })
 })

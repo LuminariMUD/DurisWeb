@@ -48,6 +48,7 @@ jest.unstable_mockModule('../zoneBuilderParser.js', () => ({
 
 const { getMobByZoneAndVnum, WikiMobReferenceUnavailableError } = await import('../wikiService.js');
 
+/** Build complete readiness evidence for one synthetic published mob generation. */
 function generationRow(identity = SOURCE_IDENTITY) {
   return {
     source_revision: identity.revision,

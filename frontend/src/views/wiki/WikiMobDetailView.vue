@@ -21,9 +21,11 @@ const router = useRouter()
 const loading = ref(true)
 const error = ref<string | null>(null)
 const mob = ref<WikiMobDetail | null>(null)
+let mobRequestSequence = 0
 
 /** Load mob details while preserving the stable unavailable-generation contract. */
 async function loadMob() {
+  const requestSequence = ++mobRequestSequence
   try {
     loading.value = true
     error.value = null
@@ -35,8 +37,11 @@ async function loadMob() {
       return
     }
 
-    mob.value = await wikiApi.getMobDetail(zoneNum, mobVnum)
+    const detail = await wikiApi.getMobDetail(zoneNum, mobVnum)
+    if (requestSequence !== mobRequestSequence) return
+    mob.value = detail
   } catch (e: unknown) {
+    if (requestSequence !== mobRequestSequence) return
     if (hasApiErrorCode(e, 503, 'WIKI_MOB_REFERENCE_UNAVAILABLE')) {
       error.value = 'Mob reference data is temporarily unavailable. An operator must publish it.'
     } else if (
@@ -51,7 +56,7 @@ async function loadMob() {
       console.error('Failed to load wiki mob:', e)
     }
   } finally {
-    loading.value = false
+    if (requestSequence === mobRequestSequence) loading.value = false
   }
 }
 

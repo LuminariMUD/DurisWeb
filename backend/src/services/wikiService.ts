@@ -2461,6 +2461,7 @@ export async function getMobByZoneAndVnum(
   return detail;
 }
 
+/** Return only class identifiers represented by the published mob projection. */
 export async function getMobClasses(): Promise<{ id: number; name: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT DISTINCT mob_class FROM wiki_mobs ORDER BY mob_class',
@@ -2471,7 +2472,7 @@ export async function getMobClasses(): Promise<{ id: number; name: string }[]> {
   }));
 }
 
-// export races list for filter dropdown - dynamic from database
+/** Return only race identifiers represented by the published mob projection. */
 export async function getMobRaces(): Promise<{ id: number; name: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT DISTINCT species FROM wiki_mobs ORDER BY species',
@@ -2482,7 +2483,7 @@ export async function getMobRaces(): Promise<{ id: number; name: string }[]> {
   }));
 }
 
-// export act flags for legend - dynamic from database
+/** Return only ACT flags represented by the published mob projection. */
 export async function getActFlags(): Promise<{ id: number; name: string; description: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT DISTINCT flag_id FROM wiki_mob_flags ORDER BY flag_id',
