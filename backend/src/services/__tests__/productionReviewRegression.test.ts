@@ -40,7 +40,7 @@ describe('production review regression contracts', () => {
       'verifyTerminalSandbox(environment.mud.terminalSandboxBinary)',
     );
     expect(sandboxProfile).toContain('profile durisweb-bwrap /usr/bin/bwrap');
-    expect(sandboxProfile).toContain('flags=(unconfined)');
+    expect(sandboxProfile).toContain('flags=(unconfined,attach_disconnected)');
     expect(sandboxProfile).toContain('userns,');
     expect(service).toContain('ExecStartPre=');
     expect(service).toContain('productionPreflight.js --dependencies');

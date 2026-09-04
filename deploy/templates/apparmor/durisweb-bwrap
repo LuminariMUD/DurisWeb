@@ -4,7 +4,7 @@
 abi <abi/4.0>,
 include <tunables/global>
 
-profile durisweb-bwrap /usr/bin/bwrap flags=(unconfined) {
+profile durisweb-bwrap /usr/bin/bwrap flags=(unconfined,attach_disconnected) {
   userns,
 
   include if exists <local/durisweb-bwrap>

@@ -469,3 +469,101 @@ an entry says otherwise.
   create a fresh protected production dump, restore it independently, repeat the exact migration,
   flag-sync/wiki-publication/dependency rehearsal, then proceed through controlled cutover,
   acceptance, and the full soak only if every gate passes.
+
+## Fresh production rehearsal and migration
+
+- A fresh timestamped protected release boundary was created under the service account's state
+  directory with mode `0700` and private evidence files at mode `0600`. It contains exact
+  configuration, unit, AppArmor, source, dependency, and prechange artifact snapshots plus checksums
+  and recovery material. Secrets and the host-specific boundary path are not recorded in this
+  journal.
+- Production MariaDB was verified as 10.11.14 on the configured private endpoint. Before cutover it
+  had 82 completed migrations, only
+  `20260904010000_create_wiki_reference_generations.ts` pending, and exactly one unlocked Knex lock
+  row. A transaction-consistent dump including routines, events, triggers, and binary-safe values
+  was restored into an isolated MariaDB 10.11.14 instance. All 253 table counts matched exactly.
+  A separately isolated Redis 7 endpoint used scoped authentication and no production cache keys.
+- The final stable cutover dump is
+  `database/production.cutover.sql.gz` in that boundary with SHA-256
+  `7ecb671d0717dd63b5fa9c634cf6b12ed5ed4fa024cc296179fb8d2d78790b7f`. That exact dump was
+  independently restored and used for the final rehearsal. The rehearsal applied the one migration
+  in batch 4, reached 83 completed migrations with none pending, synchronized 918 builder flags in
+  25 categories, and published 20,202 objects plus 19,717 mobs from the selected MUD source. The
+  generated child counts and source identity were consistent, and compiled configuration and
+  dependency preflights passed with 21 required tables and 83 migrations.
+- The selected MUD checkout was clean and fast-forwarded after the encoding repair to commit
+  `70e13e8fd48cec87aea5481c3cab60e1e6280009`, tree
+  `1169f0f694f8fe6907178938c15415338a0c9c61`. Its intervening upstream changes were limited to
+  documentation, scripts, and tests; the repaired world source remained present. The live wiki
+  publication is bound to this immutable commit/tree.
+- The rehearsed migration was applied to production. Production now has all 83 migrations complete,
+  the new migration in batch 4, none pending, and one unlocked lock row. Production flag sync wrote
+  918 rows, production wiki publication wrote 20,202 objects and 19,717 mobs with the exact source
+  identity above, and the compiled dependency preflight passed all 21 required tables and configured
+  Redis dependencies. This forward database state is live and must be preserved.
+
+## Controlled cutover recovery and systemd sandbox repair
+
+- Operator deployment configuration now explicitly selects the configured loopback and public
+  health endpoints. Its prior private copy remains in the protected boundary. Re-rendering initially
+  proved the existing systemd and Redis output byte-identical.
+- A recovery acceptance run exposed that `systemctl show` returns properties in its own order rather
+  than the request order. `deploy/scripts/recover-deployment` was corrected to parse keyed values.
+  The full backend suite passed 101 suites/801 tests after that repair, and commit
+  `7fd072c50a4f3c049abd47b8100765bb83d79757` (`fix(deploy): parse keyed systemd state`) was pushed
+  to `origin/master`.
+- During the controlled cutover only the DurisWeb application and website tunnel were cycled; the
+  production database, private Redis, and MUD supervisor were retained. Fresh application builds
+  matched their qualified candidates. The migrated schema and generated wiki data were retained,
+  but startup correctly failed closed when the compiled terminal-sandbox probe ran inside the
+  production systemd protections.
+- Exact transient-unit probes isolated two independent controls. `RestrictNamespaces=true` denied
+  the namespace set bubblewrap needs, so the maintained application unit now allow-lists
+  `user ipc uts cgroup mnt`. With that correction, any systemd filesystem namespace protection such
+  as `PrivateTmp=true`, `ProtectSystem=full`, or `ProtectKernelTunables=true` still caused AppArmor
+  attachment to fail at a disconnected namespace path. The full production probe reported
+  `bwrap: stat on /proc/self/ns/cgroup failed: Permission denied`. Removing the filesystem
+  protections is not an acceptable remedy.
+- Availability was recovered using the exact protected prechange backend artifact and prior unit,
+  whose compatibility with the migrated schema had already passed on the disposable clone. The
+  forward migration and published reference data remain live. The user application is healthy as
+  PID 3537039 with `Result=success` and `NRestarts=0`; the website tunnel is healthy as PID 3537041
+  with the same result and restart count; private Redis remains PID 72100. Both configured local and
+  public health endpoints return HTTP 200 with database and cache checks `ok`. The running backend
+  entrypoint remains the recovered prechange artifact with SHA-256
+  `8fa8945b0725c4467b64836248721dc1fca2934046d1b4da8b9cf7ca1fc01977` until the sandbox gate is
+  fully satisfied.
+- The host administrator installed and reloaded the then-current tracked profile as `root:root 0644`.
+  Verification found exact installed/tracked SHA-256
+  `ffc3505684428b12603778bf19f3204ea473af700e1d9e257b109139eff7d152`. A direct interactive probe
+  passes, but the full systemd probe continues to fail at the disconnected cgroup namespace path.
+- The maintained AppArmor carrier profile now adds `attach_disconnected` to its existing
+  `unconfined` flag. This permits profile attachment through systemd's mount namespace while the
+  explicit `userns` grant remains the only AppArmor permission added and the host-wide restriction
+  remains enabled. The profile parses cleanly without a kernel load, and regression tests assert both
+  this flag and the systemd namespace allow-list. The corrected tracked profile SHA-256 is
+  `9b0fb0c7710aa6682b23d290b7c4daceb2a4f92390661a18ca42e6ebd8ea7841`; the installed profile still
+  has the prior hash and therefore requires one more privileged install/reload before live cutover
+  can resume.
+
+## Systemd sandbox repair qualification
+
+- `git diff --check`, the production-literal guard, shell syntax checks for all maintained deployment
+  scripts, and an AppArmor parser dry run pass. Backend formatting, lint, type checking,
+  configuration validation, and the 53-entry MUD-write allow-list all pass from the isolated
+  candidate.
+- The focused deployment/profile regression run passes 2 suites/20 tests. The full backend run
+  passes 101 suites/801 tests. A fresh TypeScript build contains 1,044 files with manifest SHA-256
+  `e4851fae7d71b3d84fd7253ec2986465200bce50b11bc553d0312938ad14b248`; its runtime entrypoint
+  remains byte-identical at SHA-256
+  `8fa8945b0725c4467b64836248721dc1fca2934046d1b4da8b9cf7ca1fc01977`.
+- The freshly compiled configuration preflight passes with 83 available migrations and the compiled
+  dependency preflight passes with 21 required tables, 83 completed migrations, and all configured
+  Redis dependencies healthy on the isolated rehearsal endpoints. One initial compiled-preflight
+  invocation was made from the monorepo root, where the process correctly refused the absent backend
+  environment; the rerun from the production service's backend working directory is the passing
+  result recorded here.
+- A fresh configuration render contains `RestrictNamespaces=user ipc uts cgroup mnt`; systemd's
+  verifier accepts the application, private Redis, and website tunnel units. The remaining gate is
+  host installation/reload of the corrected AppArmor profile followed by the same full transient-unit
+  probe, controlled application cutover, endpoint and browser acceptance, and the required soak.

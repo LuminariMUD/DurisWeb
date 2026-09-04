@@ -91,10 +91,19 @@ node backend/dist/scripts/productionPreflight.js --configuration
 
 The profile leaves bubblewrap otherwise unconfined and grants only the AppArmor
 `userns` permission needed for bubblewrap to establish its own mount sandbox.
-It keeps the host-wide restriction enabled. If `TERMINAL_SANDBOX_BIN` uses a
-different path, update and review the profile attachment path rather than
+Its `attach_disconnected` flag lets AppArmor attach the executable profile when
+systemd's filesystem protections put the process in a mount namespace; without
+that flag the same bubblewrap probe can pass in an interactive shell but fail in
+the application unit. The carrier profile remains otherwise unconfined and keeps
+the host-wide user-namespace restriction enabled. If `TERMINAL_SANDBOX_BIN` uses
+a different path, update and review the profile attachment path rather than
 installing the example unchanged. Do not disable the global AppArmor restriction
 or make bubblewrap setuid merely to force the preflight to pass.
+
+The application unit must also allow the namespace types bubblewrap creates. The
+maintained unit allow-lists `user ipc uts cgroup mnt`; replacing that setting with
+`RestrictNamespaces=true` makes both the startup preflight and administrative
+terminal fail inside systemd even when the host-level AppArmor probe succeeds.
 
 ### Publish wiki reference data
 
