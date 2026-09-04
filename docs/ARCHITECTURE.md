@@ -143,6 +143,9 @@ builder-flag synchronizer parse and validate a non-empty generation before
 touching published rows. They replace their respective InnoDB rows inside one
 transaction, in bounded insert batches, so a failure rolls back to the prior
 generation. Empty source output is a hard failure, not a valid publication.
+The wiki publisher also rejects an aggregate if any source input was dropped or
+if the prerequisite builder-flag projection leaves mobile filter metadata
+unresolved.
 Production preflight checks the published object and mob markers, counts,
 applicable filter metadata, and child consistency. Release acceptance must still
 verify the enabled feature's API data and rendered surface.

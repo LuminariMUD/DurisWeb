@@ -48,11 +48,11 @@ Review these before planning another phase.
    ip-api.com receives visitor IPs; Ko-fi, Discord, Cloudflare R2, and browser
    push providers receive their feature payloads. No in-repo privacy notice or
    processing record documents these transfers.
-4. **[production/host] Administrative terminal sandbox binary is absent.** The
-   current production host does not provide the configured bubblewrap
-   executable, so the web terminal remains unavailable even though public web,
-   API, cache, database, and MUD bridge checks pass. Install and validate
-   bubblewrap as a separate host change; never substitute an unsandboxed shell.
+4. **[production/host] Administrative terminal sandbox is not operational.**
+   Bubblewrap is installed, but the host's AppArmor policy denies its required
+   user namespace and the web terminal remains unavailable. Install and load the
+   reviewed executable-specific profile, then require the compiled operational
+   preflight to pass; never substitute an unsandboxed shell.
 5. **[production/DurisMUD] Season-temperature data contains an invalid climate
    index.** Two controlled MUD starts on 2026-09-02 each emitted ten guarded
    `ARRAY temps index 11 >= 11 at world/db.c:856` warnings. Current source uses
@@ -103,7 +103,7 @@ Review these before planning another phase.
    alone is not observed state.
 5. **[P00-repository] This is a logical monorepo without a root workspace.**
    `backend/` and `frontend/` have independent manifests and lockfiles. The MUD
-   is a separate checkout at `/home/duris/duris`; inspect both
+   is a separate checkout selected by `MUD_DIR`; inspect both
    sides for integration work, but edit the MUD only when scope authorizes it.
 
 ---

@@ -3,6 +3,8 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 
+import logger from '../../utils/logger.js';
+
 const query = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const enabled = new Map<string, boolean>();
 const getGuild = jest.fn<(guildId: number) => Promise<unknown>>();
@@ -332,6 +334,17 @@ describe('all-or-nothing malformed source rejection', () => {
     invalidateZoneFileMap();
 
     await expect(parseWldFile(1)).resolves.toEqual([expect.objectContaining({ vnum: 100 })]);
+  });
+
+  it('reports the actual invalid sidecar when a zone index entry is skipped', async () => {
+    const warning = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
+    await fs.writeFile(path.join(mudRoot, 'areas/wld/fixture.wld'), Buffer.from([0xff]));
+    invalidateZoneIndexCache();
+
+    await expect(listZones({ limit: 10 })).resolves.toMatchObject({ total: 0, zones: [] });
+    expect(warning.mock.calls.map(([message]) => String(message))).toContain(
+      'Skipped malformed zone source for fixture.wld.',
+    );
   });
 
   it('skips an unsafe zone filename without collapsing the aggregate index', async () => {

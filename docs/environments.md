@@ -78,12 +78,15 @@ bounded rotation pair. The complete key inventory and safe placeholders live in
 `backend/.env.example`; secret values must never be logged or committed.
 
 `TERMINAL_SANDBOX_BIN` must resolve to the intended bubblewrap-compatible
-executable on the deployment host. Configuration validation can check the value
-but cannot prove that the host binary is installed. If it is absent, record the
-administrative terminal as unavailable and install/revalidate the sandbox in a
-separate operator-approved change; never point the setting at a shell or bypass
-the sandbox to make terminal startup succeed. This limitation does not by itself
-degrade the public HTTP, WebSocket, database, cache, or MUD bridge paths.
+regular executable on the deployment host. The connection-free production
+preflight verifies its bubblewrap identity and runs a bounded no-op launch with
+the namespaces required by the administrative terminal. Installation alone is
+not sufficient: on hosts that restrict unprivileged user namespaces through
+AppArmor, install the dedicated executable profile described in
+[Deployment](deployment.md#terminal-sandbox-host-readiness). Never point the
+setting at a shell or bypass the sandbox to make terminal startup succeed. A
+failed sandbox gate does not by itself degrade an already-running public HTTP,
+WebSocket, database, cache, or MUD bridge path.
 
 ## Frontend environment
 

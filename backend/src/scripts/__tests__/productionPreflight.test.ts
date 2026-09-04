@@ -1,5 +1,9 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { afterEach, describe, expect, it } from '@jest/globals';
 
+import { resetBackendConfigurationForTests } from '../../config/environment.js';
 import {
   ConfigurationError,
   loadPreflightConfiguration,
@@ -7,12 +11,29 @@ import {
   runProductionPreflight,
   verifySqlArtifactClassification,
 } from '../productionPreflight.js';
-import { resetBackendConfigurationForTests } from '../../config/environment.js';
 
 const originalEnvironment = { ...process.env };
+let sandboxDirectory: string | null = null;
+
+function createSandboxFixture(probeExitStatus = 0): string {
+  sandboxDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-preflight-'));
+  const sandboxPath = path.join(sandboxDirectory, 'bwrap');
+  fs.writeFileSync(
+    sandboxPath,
+    `#!/bin/sh
+if test "\${1:-}" = "--version"; then
+  printf 'bubblewrap 1.0-test\\n'
+  exit 0
+fi
+exit ${probeExitStatus}
+`,
+    { mode: 0o700 },
+  );
+  return sandboxPath;
+}
 
 /** Installs a complete production baseline for isolated preflight cases. */
-function setValidEnvironment(): void {
+function setValidEnvironment(sandboxProbeExitStatus = 0): void {
   resetBackendConfigurationForTests();
   process.env.NODE_ENV = 'production';
   process.env.DB_HOST = '127.0.0.1';
@@ -35,6 +56,7 @@ function setValidEnvironment(): void {
   process.env.MUD_REDIS_CACHE_USERNAME = 'cache-reader';
   process.env.MUD_REDIS_CACHE_PASSWORD = 'cache-secret';
   process.env.MUD_REDIS_TLS = 'false';
+  process.env.TERMINAL_SANDBOX_BIN = createSandboxFixture(sandboxProbeExitStatus);
 }
 
 afterEach(() => {
@@ -44,6 +66,8 @@ afterEach(() => {
   for (const [key, value] of Object.entries(originalEnvironment)) {
     process.env[key] = value;
   }
+  if (sandboxDirectory) fs.rmSync(sandboxDirectory, { recursive: true, force: true });
+  sandboxDirectory = null;
   resetBackendConfigurationForTests();
 });
 
@@ -67,6 +91,19 @@ describe('production preflight stages', () => {
   it('uses exit 78 for static configuration failures', async () => {
     setValidEnvironment();
     delete process.env.DB_PASSWORD;
+
+    await expect(runProductionPreflight(['--configuration'])).resolves.toBe(78);
+  });
+
+  it('uses exit 78 when the configured terminal sandbox executable is absent', async () => {
+    setValidEnvironment();
+    process.env.TERMINAL_SANDBOX_BIN = '/definitely/missing/bwrap';
+
+    await expect(runProductionPreflight(['--configuration'])).resolves.toBe(78);
+  });
+
+  it('uses exit 78 when bubblewrap cannot create the required namespaces', async () => {
+    setValidEnvironment(1);
 
     await expect(runProductionPreflight(['--configuration'])).resolves.toBe(78);
   });

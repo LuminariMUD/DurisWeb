@@ -13,8 +13,10 @@ import { pathToFileURL } from 'node:url';
 import { getBackendConfiguration } from '../src/config/environment.js';
 import { pool, closeDatabaseConnection } from '../src/db/connection.js';
 import { closeRedisConnection } from '../src/db/redis.js';
+import { getFlatfileHookHealth } from '../src/hooks/flatfileHookState.js';
 import { withMudRoot } from '../src/services/flatfileAccess.js';
 import {
+  assertNoRejectedWikiSourceInputs,
   createWikiPublicationRows,
   publishWikiGeneration,
   type WikiPublicationRows,
@@ -40,6 +42,7 @@ const stripAnsi = (value: string): string => value.replace(/&[+=-][A-Za-z]|&[nN]
 
 /** Parse every zone from the currently scoped immutable MUD root into memory. */
 async function stageWikiGeneration(): Promise<WikiPublicationRows> {
+  const rejectedInputsBefore = getFlatfileHookHealth('zone_builder_parsing')?.droppedInputs ?? 0;
   console.log('loading zones...');
   const { zones } = await listZones({ page: 1, limit: 10000 });
   console.log(`  found ${zones.length} zones\n`);
@@ -161,6 +164,9 @@ async function stageWikiGeneration(): Promise<WikiPublicationRows> {
     process.stdout.write(`\r  parsed ${staged.wiki_mobs.length} mobs from ${zone.id}...`);
   }
   console.log(`\n  done: ${staged.wiki_mobs.length} mobs, ${staged.wiki_mob_flags.length} flags\n`);
+
+  const rejectedInputsAfter = getFlatfileHookHealth('zone_builder_parsing')?.droppedInputs ?? 0;
+  assertNoRejectedWikiSourceInputs(rejectedInputsBefore, rejectedInputsAfter);
 
   return staged;
 }

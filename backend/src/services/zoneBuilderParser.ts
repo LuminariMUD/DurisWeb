@@ -541,6 +541,7 @@ async function buildZoneIndex(): Promise<ZoneIndex[]> {
 
     for (const file of zonFiles) {
       const baseName = file.replace('.zon', '');
+      let attemptedSourceName = safeSourceName(file);
       try {
         const zonPath = resolveSafeZoneFilePath(areasDir, baseName, 'zon');
         const wldPath = resolveSafeZoneFilePath(areasDir, baseName, 'wld');
@@ -552,6 +553,7 @@ async function buildZoneIndex(): Promise<ZoneIndex[]> {
 
         // Get zone number and name from .zon file.
         // Format: Line 1 = #<number>, line 2 = name~, line 3 = header values.
+        attemptedSourceName = safeSourceName(zonPath);
         const zonContent = await readFile(zonPath);
 
         // Parse zone number from line 1 (#<number>).
@@ -570,12 +572,14 @@ async function buildZoneIndex(): Promise<ZoneIndex[]> {
         }
 
         // Count rooms.
+        attemptedSourceName = safeSourceName(wldPath);
         const wldContent = await readFile(wldPath);
         const roomCount = (wldContent.match(/^#(?!9999999$)\d+$/gm) || []).length;
 
         // Count mobs.
         let mobCount = 0;
         if (await fileExists(mobPath)) {
+          attemptedSourceName = safeSourceName(mobPath);
           const mobContent = await readFile(mobPath);
           mobCount = (mobContent.match(/^#(?!9999999$)\d+$/gm) || []).length;
         }
@@ -583,6 +587,7 @@ async function buildZoneIndex(): Promise<ZoneIndex[]> {
         // Count objects.
         let objCount = 0;
         if (await fileExists(objPath)) {
+          attemptedSourceName = safeSourceName(objPath);
           const objContent = await readFile(objPath);
           objCount = (objContent.match(/^#(?!9999999$)\d+$/gm) || []).length;
         }
@@ -618,7 +623,7 @@ async function buildZoneIndex(): Promise<ZoneIndex[]> {
         const sourceName =
           error instanceof ZoneSourceParseError && error.sourceName
             ? error.sourceName
-            : safeSourceName(file);
+            : attemptedSourceName;
         logger.warn(`Skipped malformed zone source for ${sourceName}.`);
       }
     }

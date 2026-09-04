@@ -237,11 +237,8 @@ backend API.
 
 ## MUD Server Source (Local Dev)
 
-The DurisMUD server source is checked out locally and directly readable at:
-
-```
-/home/duris/duris/
-```
+The required `MUD_DIR` selects the locally readable DurisMUD checkout. No host
+path is a repository-owned default.
 
 This is a separate repository from durisweb -- never edit it as part of a
 durisweb session unless the session scope says so explicitly.
@@ -250,7 +247,7 @@ durisweb session unless the session scope says so explicitly.
 Verify integration contracts against the MUD C source rather than inferring
 them from the durisweb side alone.
 
-| What | Path under `/home/duris/duris/` |
+| What | Path under `MUD_DIR` |
 |------|-----------------------------------------------|
 | WebSocket server and auth (channel 1) | `src/net/websocket.h`, `src/net/ws_auth.h`, `src/net/ws_handlers.c`, `src/net/comm.c`, `src/net/gmcp.c` |
 | Account login / nanny (port 4050 refs) | `src/account/nanny.c` |
@@ -262,9 +259,9 @@ them from the durisweb side alone.
 | MUD-side schema and migrations | `db/`, `migrations/` |
 | MUD docs and agent instructions | `docs/`, `README.md`, `CLAUDE.md`, `AGENTS.md`, `SECURITY.md` |
 
-In `backend/.env`, `MUD_DIR` points at this checkout and `MUD_ACCOUNTS_DIR`
-points at `/home/duris/duris/Accounts`. The same values are documented in
-`backend/.env.example` for this same-host deployment.
+In `backend/.env`, `MUD_DIR` points at this checkout. Account flatfiles are
+resolved below its `Accounts/` directory; no separate legacy account-path
+setting is supported.
 
 ## When In Doubt
 

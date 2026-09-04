@@ -81,6 +81,32 @@ export function createWikiPublicationRows(): WikiPublicationRows {
   };
 }
 
+/** Refuse an aggregate that silently omitted malformed source input. */
+export function assertNoRejectedWikiSourceInputs(before: number, after: number): void {
+  if (
+    !Number.isSafeInteger(before) ||
+    !Number.isSafeInteger(after) ||
+    before < 0 ||
+    after < before
+  ) {
+    throw new Error('invalid rejected wiki source input counters');
+  }
+  if (after > before) {
+    throw new Error(
+      `refusing to publish a wiki generation with ${after - before} rejected source input(s)`,
+    );
+  }
+}
+
+/** Match the runtime preflight's minimum mob filter-metadata contract before touching SQL. */
+function assertApplicableMobMetadata(staged: WikiPublicationRows): void {
+  const hasClass = staged.wiki_mobs.some((row) => Number(row[7]) > 0);
+  const hasRace = staged.wiki_mobs.some((row) => Number(row[8]) > 0);
+  if (!hasClass || !hasRace || staged.wiki_mob_flags.length === 0) {
+    throw new Error('refusing to publish a wiki generation without applicable mob filter metadata');
+  }
+}
+
 /** Insert one statement's rows in bounded batches to keep packet size predictable. */
 async function insertAll(
   connection: PoolConnection,
@@ -104,6 +130,7 @@ export async function publishWikiGeneration(
       `refusing to publish an empty generation (${staged.wiki_objects.length} objects, ${staged.wiki_mobs.length} mobs)`,
     );
   }
+  assertApplicableMobMetadata(staged);
 
   const connection = await database.getConnection();
   try {

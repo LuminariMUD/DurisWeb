@@ -2,7 +2,7 @@
 
 ## Scope and safety contract
 
-- Requested: import `/home/duris/prod.sql` into the game's database without
+- Requested: import the operator-supplied production dump into the game's database without
   destroying existing data; record anything that does not import cleanly.
 - Journal started: 2026-09-03 UTC.
 - This file contains no credentials or row-level private data.
@@ -372,7 +372,7 @@ database row was changed.
   `/health`, `/`, and `/api/site-config` continued to work.
 - Starting only `durisweb-cloudflared.service` at 19:24:02 UTC restored public
   HTTP 200 responses. The tunnel registered four connections and loaded the
-  expected `duris.sbs`/`www.duris.sbs` ingress routes. Neither the MUD nor the
+  expected configured apex/alias ingress routes. Neither the MUD nor the
   web application was restarted to resolve that outage.
 - The audit also exposed a separate schema-drift defect in the forum profile
   projection: every existing profile route, including both imported and
@@ -479,7 +479,7 @@ database row was changed.
 - An empty ordinary `/api/server/reboot/history` response is expected because
   that route represents host-monitor history. The 648 normalized imported MUD
   reboots are exposed by `/api/server/reboot/mud-history`, which returns data.
-- A canonical 37-route anonymous sweep through `https://duris.sbs` passed all
+- A canonical 37-route anonymous sweep through the configured public site origin passed all
   expected statuses after correcting two exploratory non-route paths to the
   documented forum activity paths. The protected `/api/zones` route returned
   its expected HTTP 401; the other 36 checks returned HTTP 200. No route
@@ -499,8 +499,8 @@ database row was changed.
   `backend/src/services/forumService.ts` and the existing regression-contract
   suite in
   `backend/src/services/__tests__/productionReviewRegression.test.ts`.
-- A mode-0700, secret-free release/rollback set is retained at
-  `/home/duris/.local/state/durisweb-profile-repair-20260903-T3rxTa`. Its
+- A mode-0700, secret-free release/rollback set is retained at the protected
+  repair root recorded in operator evidence. Its
   reconstructed HEAD rollback tree SHA-256 is
   `2104e6cf8b6793a171282c3dad98f7f6e67222a704c96c662deae23b9ea6cc6b`;
   the deployed candidate tree SHA-256 is

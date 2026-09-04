@@ -1,0 +1,11 @@
+# This unconfined profile preserves the host-wide user-namespace restriction while allowing the
+# configured bubblewrap executable to create the namespace that enforces the terminal sandbox.
+
+abi <abi/4.0>,
+include <tunables/global>
+
+profile durisweb-bwrap /usr/bin/bwrap flags=(unconfined) {
+  userns,
+
+  include if exists <local/durisweb-bwrap>
+}

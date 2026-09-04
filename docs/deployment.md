@@ -51,8 +51,10 @@ node dist/scripts/productionPreflight.js --configuration
 node dist/scripts/productionPreflight.js --dependencies
 ```
 
-The first command aggregates invalid configuration and verifies the migration
-bundle. The second verifies required tables, the canonical MUD-owned
+The first command aggregates invalid configuration, verifies the migration
+bundle, requires the configured terminal sandbox path to identify bubblewrap,
+and launches a bounded connection-free namespace probe as the service account.
+The second verifies required tables, the canonical MUD-owned
 `server_reboots` shape, absence of the prohibited incoming extension foreign
 key, refresh-token column capacity, nonempty and internally consistent wiki
 object and mob generations with persisted source identity, the complete
@@ -66,6 +68,34 @@ the test suite or the release-specific acceptance checks below. The rendered
 unit runs configuration as an `ExecCondition`; configuration refusal status 78
 leaves the unit skipped instead of entering a restart loop.
 
+### Terminal sandbox host readiness
+
+The administrative terminal requires bubblewrap to create user, IPC, UTS, and
+cgroup namespaces. Package installation and executable mode do not prove that
+the service account can create them. The configuration preflight performs the
+same namespace setup with a no-op command and fails closed before application
+startup if the kernel or mandatory-access-control policy refuses it.
+
+Ubuntu hosts with `kernel.apparmor_restrict_unprivileged_userns=1` need an
+AppArmor attachment for the configured executable. When the configured path is
+`/usr/bin/bwrap`, install the maintained profile and load it before rerunning the
+compiled preflight:
+
+```bash
+sudo install -o root -g root -m 0644 \
+  deploy/templates/apparmor/durisweb-bwrap \
+  /etc/apparmor.d/durisweb-bwrap
+sudo apparmor_parser -r /etc/apparmor.d/durisweb-bwrap
+node backend/dist/scripts/productionPreflight.js --configuration
+```
+
+The profile leaves bubblewrap otherwise unconfined and grants only the AppArmor
+`userns` permission needed for bubblewrap to establish its own mount sandbox.
+It keeps the host-wide restriction enabled. If `TERMINAL_SANDBOX_BIN` uses a
+different path, update and review the profile attachment path rather than
+installing the example unchanged. Do not disable the global AppArmor restriction
+or make bubblewrap setuid merely to force the preflight to pass.
+
 ### Publish wiki reference data
 
 The wiki publisher verifies the configured `MUD_DIR`, materializes a temporary
@@ -78,7 +108,8 @@ MUD checkout and record that checkout's immutable identities:
 git -C /absolute/path/to/selected/mud-checkout status --short
 git -C /absolute/path/to/selected/mud-checkout rev-parse HEAD
 git -C /absolute/path/to/selected/mud-checkout rev-parse 'HEAD^{tree}'
-pnpm --dir backend wiki:publish -- \
+pnpm --dir backend sync-flags
+pnpm --dir backend wiki:publish \
   --source-revision <recorded-commit> \
   --source-tree <recorded-tree>
 node backend/dist/scripts/productionPreflight.js --dependencies
@@ -89,8 +120,11 @@ Wiki object- and mob-detail cache misses use that exact revision to reconstruct
 flatfile-only details, including load locations, spawns, and equipment, without
 reading whichever branch is currently checked out.
 
-The status output must be empty. The publisher stores the commit, tree identity,
-and published object/mob counts with the same transaction as the rows. A failed
+The status output must be empty. The flag sync must complete before the wiki
+publisher because mobile race codes are resolved from that atomic projection.
+The publisher refuses an aggregate with rejected flatfile input or missing mob
+filter metadata. It stores the commit, tree identity, and published object/mob
+counts with the same transaction as the rows. A failed
 parse, insert, or marker write leaves the prior generation intact. Complete the
 clone rehearsal and backup gates before publishing on a shared environment.
 

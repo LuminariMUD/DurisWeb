@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Pool } from 'mysql2/promise';
 
-import { createWikiPublicationRows, publishWikiGeneration } from '../wikiPublication.js';
+import {
+  assertNoRejectedWikiSourceInputs,
+  createWikiPublicationRows,
+  publishWikiGeneration,
+} from '../wikiPublication.js';
 
 const SOURCE_IDENTITY = {
   revision: 'a'.repeat(40),
@@ -25,7 +29,7 @@ function populatedRows() {
   rows.wiki_object_spell_effects.push([101, 'Glow']);
   rows.wiki_object_classes.push([101, 1, true]);
   rows.wiki_object_races.push([101, 1, true]);
-  rows.wiki_mobs.push([7, 201]);
+  rows.wiki_mobs.push([7, 201, 'mob', 'mob', 'mob', 1, 0, 1, 1]);
   rows.wiki_mob_flags.push([7, 201, 1]);
   return rows;
 }
@@ -115,5 +119,20 @@ describe('wiki generation publication transaction', () => {
       publishWikiGeneration(database, SOURCE_IDENTITY, createWikiPublicationRows()),
     ).rejects.toThrow('refusing to publish an empty generation');
     expect(getConnection).not.toHaveBeenCalled();
+  });
+
+  it('refuses missing mob filter metadata before opening a transaction', async () => {
+    const rows = populatedRows();
+    rows.wiki_mobs[0][8] = 0;
+
+    await expect(publishWikiGeneration(database, SOURCE_IDENTITY, rows)).rejects.toThrow(
+      'without applicable mob filter metadata',
+    );
+    expect(getConnection).not.toHaveBeenCalled();
+  });
+
+  it('refuses a source aggregate when any input was rejected', () => {
+    expect(() => assertNoRejectedWikiSourceInputs(2, 3)).toThrow('with 1 rejected source input');
+    expect(() => assertNoRejectedWikiSourceInputs(3, 3)).not.toThrow();
   });
 });

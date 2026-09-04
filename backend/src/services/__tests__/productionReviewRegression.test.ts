@@ -31,10 +31,17 @@ describe('production review regression contracts', () => {
 
   it('separates systemd configuration refusal from retryable dependency checks', () => {
     const service = read('deploy/templates/systemd/durisweb-production.service');
+    const sandboxProfile = read('deploy/templates/apparmor/durisweb-bwrap');
 
     expect(service).toContain('@BACKEND_ROOT@/migrations');
     expect(service).toContain('ExecCondition=');
     expect(service).toContain('productionPreflight.js --configuration');
+    expect(read('backend/src/scripts/productionPreflight.ts')).toContain(
+      'verifyTerminalSandbox(environment.mud.terminalSandboxBinary)',
+    );
+    expect(sandboxProfile).toContain('profile durisweb-bwrap /usr/bin/bwrap');
+    expect(sandboxProfile).toContain('flags=(unconfined)');
+    expect(sandboxProfile).toContain('userns,');
     expect(service).toContain('ExecStartPre=');
     expect(service).toContain('productionPreflight.js --dependencies');
   });
@@ -50,11 +57,18 @@ describe('production review regression contracts', () => {
 
   it('documents portable rendering, preflight, and endpoint acceptance', () => {
     const deployment = read('docs/deployment.md');
+    const backendReadme = read('backend/README_backend.md');
 
     expect(deployment).toContain('deploy/scripts/render-config');
     expect(deployment).toContain('Linger=yes');
     expect(deployment).toContain('configured local and public health endpoints');
     expect(deployment).toContain('MUD WebSocket handshake');
+    expect(deployment).toContain('pnpm --dir backend wiki:publish \\');
+    expect(deployment).not.toContain('wiki:publish -- \\');
+    expect(deployment).toContain('pnpm --dir backend sync-flags');
+    expect(backendReadme).toContain('pnpm wiki:publish --source-revision');
+    expect(backendReadme).not.toContain('wiki:publish -- --source-revision');
+    expect(backendReadme).toContain('| `pnpm sync-flags` |');
     expect(deployment).not.toContain('/home/');
   });
 
