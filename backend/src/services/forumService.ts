@@ -2028,7 +2028,7 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
     // Keep the one-to-many aggregates independent so duplicate history rows in
     // one source cannot multiply values from another source.
     const [characterTotals] = await connection.query<RowDataPacket[]>(
-      `SELECT COUNT(*) as character_count
+      `SELECT COUNT(DISTINCT ac.pid) as character_count
        FROM account_characters ac
        WHERE ac.account_name = ? AND ac.deleted_at IS NULL`,
       [accountName],
@@ -2037,8 +2037,12 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
     const [fragTotals] = await connection.query<RowDataPacket[]>(
       `SELECT COALESCE(SUM(FLOOR(COALESCE(fl.total_frags, 0) / 100)), 0) as total_frags
        FROM frag_leaderboard fl
-       JOIN account_characters ac ON ac.pid = fl.pid AND ac.deleted_at IS NULL
-       WHERE ac.account_name = ? AND fl.deleted_at IS NULL`,
+       WHERE fl.deleted_at IS NULL
+         AND EXISTS (
+           SELECT 1
+           FROM account_characters ac
+           WHERE ac.pid = fl.pid AND ac.account_name = ? AND ac.deleted_at IS NULL
+         )`,
       [accountName],
     );
 
@@ -2051,8 +2055,11 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
           COALESCE(pd.bank_gold, 0) * 100 + COALESCE(pd.bank_platinum, 0) * 1000
         ), 0) as total_wealth
        FROM player_data pd
-       JOIN account_characters ac ON ac.pid = pd.pid AND ac.deleted_at IS NULL
-       WHERE ac.account_name = ?`,
+       WHERE EXISTS (
+         SELECT 1
+         FROM account_characters ac
+         WHERE ac.pid = pd.pid AND ac.account_name = ? AND ac.deleted_at IS NULL
+       )`,
       [accountName],
     );
 
@@ -2060,8 +2067,12 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
     const [deathTotals] = await connection.query<RowDataPacket[]>(
       `SELECT COUNT(*) as total_deaths
        FROM pkill_info pi
-       JOIN account_characters ac ON pi.pid = ac.pid
-       WHERE ac.account_name = ? AND ac.deleted_at IS NULL AND pi.pk_type = 'VICTIM'`,
+       WHERE pi.pk_type = 'VICTIM'
+         AND EXISTS (
+           SELECT 1
+           FROM account_characters ac
+           WHERE ac.pid = pi.pid AND ac.account_name = ? AND ac.deleted_at IS NULL
+         )`,
       [accountName],
     );
 

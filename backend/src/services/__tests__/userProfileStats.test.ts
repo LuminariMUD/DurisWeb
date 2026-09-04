@@ -76,10 +76,13 @@ describe('user profile statistics', () => {
       totalDeaths: 4,
       totalWealth: Number.MAX_SAFE_INTEGER,
     });
-    expect(String(query.mock.calls[3]?.[0])).toContain('FROM account_characters ac');
+    expect(String(query.mock.calls[3]?.[0])).toContain('COUNT(DISTINCT ac.pid)');
     expect(String(query.mock.calls[4]?.[0])).toContain('FROM frag_leaderboard fl');
+    expect(String(query.mock.calls[4]?.[0])).toContain('EXISTS');
     expect(String(query.mock.calls[5]?.[0])).toContain('FROM player_data pd');
+    expect(String(query.mock.calls[5]?.[0])).toContain('EXISTS');
     expect(String(query.mock.calls[5]?.[0])).not.toContain('frag_leaderboard');
+    expect(String(query.mock.calls[6]?.[0])).toContain('EXISTS');
     expect(release).toHaveBeenCalledTimes(1);
   });
 
