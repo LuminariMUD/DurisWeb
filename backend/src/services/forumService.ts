@@ -2025,21 +2025,41 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
       last_post_at: postStats[0]?.last_post_at || null,
     };
 
-    // Get character totals
-    const [charTotals] = await connection.query<RowDataPacket[]>(
-      `SELECT
-        COUNT(DISTINCT ac.pid) as character_count,
-        COALESCE(SUM(FLOOR(COALESCE(fl.total_frags, 0) / 100)), 0) as total_frags,
-        COALESCE(SUM(
+    // Keep the one-to-many aggregates independent so duplicate history rows in
+    // one source cannot multiply values from another source.
+    const [characterTotals] = await connection.query<RowDataPacket[]>(
+      `SELECT COUNT(DISTINCT ac.pid) as character_count
+       FROM account_characters ac
+       WHERE ac.account_name = ? AND ac.deleted_at IS NULL`,
+      [accountName],
+    );
+
+    const [fragTotals] = await connection.query<RowDataPacket[]>(
+      `SELECT COALESCE(SUM(FLOOR(COALESCE(fl.total_frags, 0) / 100)), 0) as total_frags
+       FROM frag_leaderboard fl
+       WHERE fl.deleted_at IS NULL
+         AND EXISTS (
+           SELECT 1
+           FROM account_characters ac
+           WHERE ac.pid = fl.pid AND ac.account_name = ? AND ac.deleted_at IS NULL
+         )`,
+      [accountName],
+    );
+
+    // Wallet and bank denominations use copper as the canonical display unit.
+    const [wealthTotals] = await connection.query<RowDataPacket[]>(
+      `SELECT COALESCE(SUM(
           COALESCE(pd.copper, 0) + COALESCE(pd.silver, 0) * 10 +
           COALESCE(pd.gold, 0) * 100 + COALESCE(pd.platinum, 0) * 1000 +
           COALESCE(pd.bank_copper, 0) + COALESCE(pd.bank_silver, 0) * 10 +
           COALESCE(pd.bank_gold, 0) * 100 + COALESCE(pd.bank_platinum, 0) * 1000
         ), 0) as total_wealth
-       FROM account_characters ac
-       LEFT JOIN player_data pd ON ac.pid = pd.pid
-       LEFT JOIN frag_leaderboard fl ON ac.pid = fl.pid AND fl.deleted_at IS NULL
-       WHERE ac.account_name = ? AND ac.deleted_at IS NULL`,
+       FROM player_data pd
+       WHERE EXISTS (
+         SELECT 1
+         FROM account_characters ac
+         WHERE ac.pid = pd.pid AND ac.account_name = ? AND ac.deleted_at IS NULL
+       )`,
       [accountName],
     );
 
@@ -2047,12 +2067,18 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
     const [deathTotals] = await connection.query<RowDataPacket[]>(
       `SELECT COUNT(*) as total_deaths
        FROM pkill_info pi
-       JOIN account_characters ac ON pi.pid = ac.pid
-       WHERE ac.account_name = ? AND ac.deleted_at IS NULL AND pi.pk_type = 'VICTIM'`,
+       WHERE pi.pk_type = 'VICTIM'
+         AND EXISTS (
+           SELECT 1
+           FROM account_characters ac
+           WHERE ac.pid = pi.pid AND ac.account_name = ? AND ac.deleted_at IS NULL
+         )`,
       [accountName],
     );
 
-    const charStats = charTotals[0] || { character_count: 0, total_frags: 0, total_wealth: 0 };
+    const characterStats = characterTotals[0] || { character_count: 0 };
+    const fragStats = fragTotals[0] || { total_frags: 0 };
+    const wealthStats = wealthTotals[0] || { total_wealth: 0 };
     const deathStats = deathTotals[0] || { total_deaths: 0 };
 
     return {
@@ -2071,10 +2097,10 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
         reputationScore: 0, // Will implement reputation system later
         firstPostAt: stats.first_post_at,
         lastPostAt: stats.last_post_at,
-        characterCount: Number(charStats.character_count) || 0,
-        totalFrags: Number(charStats.total_frags) || 0,
+        characterCount: Number(characterStats.character_count) || 0,
+        totalFrags: Number(fragStats.total_frags) || 0,
         totalDeaths: Number(deathStats.total_deaths) || 0,
-        totalWealth: Number(charStats.total_wealth) || 0,
+        totalWealth: Number(wealthStats.total_wealth) || 0,
       },
     };
   } finally {
