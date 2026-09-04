@@ -64,6 +64,7 @@ const COUNT_KEYS = [
   'unsafeAllocatorRows',
 ] as const;
 
+/** Require the top-level observation value to be a plain JSON object. */
 function requireObject(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error('item baseline observation must be a JSON object');

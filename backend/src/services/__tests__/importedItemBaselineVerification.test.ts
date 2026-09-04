@@ -6,6 +6,7 @@ import {
   type ImportedItemBaselineObservation,
 } from '../importedItemBaselineVerification.js';
 
+/** Build one complete imported-item baseline observation fixture. */
 function observation(
   overrides: Partial<ImportedItemBaselineObservation> = {},
 ): ImportedItemBaselineObservation {

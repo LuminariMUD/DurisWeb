@@ -7,6 +7,9 @@ import {
   verifyImportedItemBaselines,
 } from '../services/importedItemBaselineVerification.js';
 
+const MAX_OBSERVATION_BYTES = 65_536;
+
+/** Resolve the one supported aggregate-observation CLI argument. */
 function observationPath(args: string[]): string {
   if (args.length !== 2 || args[0] !== '--input' || args[1].trim() === '') {
     throw new Error('usage: verifyImportedItemBaselines --input <aggregate-observation.json>');
@@ -14,23 +17,59 @@ function observationPath(args: string[]): string {
   return path.resolve(args[1]);
 }
 
+/** Open, validate, and read one protected observation without following or reopening its path. */
 function readProtectedObservation(inputPath: string): unknown {
-  const stat = fs.lstatSync(inputPath);
-  if (!stat.isFile() || stat.isSymbolicLink()) {
-    throw new Error('aggregate observation must be a regular, non-symlink file');
+  let descriptor: number;
+  try {
+    descriptor = fs.openSync(
+      inputPath,
+      fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK,
+    );
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ELOOP') {
+      throw new Error('aggregate observation must be a regular, non-symlink file');
+    }
+    throw error;
   }
-  if (typeof process.getuid === 'function' && stat.uid !== process.getuid()) {
-    throw new Error('aggregate observation must be owned by the current user');
+
+  try {
+    const stat = fs.fstatSync(descriptor);
+    if (!stat.isFile()) {
+      throw new Error('aggregate observation must be a regular, non-symlink file');
+    }
+    if (typeof process.getuid === 'function' && stat.uid !== process.getuid()) {
+      throw new Error('aggregate observation must be owned by the current user');
+    }
+    if ((stat.mode & 0o777) !== 0o600) {
+      throw new Error('aggregate observation must be owner-controlled with mode 0600');
+    }
+    if (stat.size > MAX_OBSERVATION_BYTES) {
+      throw new Error('aggregate observation exceeds the 65536-byte limit');
+    }
+
+    const buffer = Buffer.alloc(MAX_OBSERVATION_BYTES + 1);
+    let bytesRead = 0;
+    while (bytesRead < buffer.length) {
+      const currentRead = fs.readSync(
+        descriptor,
+        buffer,
+        bytesRead,
+        buffer.length - bytesRead,
+        null,
+      );
+      if (currentRead === 0) break;
+      bytesRead += currentRead;
+    }
+    if (bytesRead > MAX_OBSERVATION_BYTES) {
+      throw new Error('aggregate observation exceeds the 65536-byte limit');
+    }
+    return JSON.parse(buffer.subarray(0, bytesRead).toString('utf8')) as unknown;
+  } finally {
+    fs.closeSync(descriptor);
   }
-  if ((stat.mode & 0o177) !== 0) {
-    throw new Error('aggregate observation must be owner-controlled with mode 0600');
-  }
-  if (stat.size > 65_536) {
-    throw new Error('aggregate observation exceeds the 65536-byte limit');
-  }
-  return JSON.parse(fs.readFileSync(inputPath, 'utf8')) as unknown;
 }
 
+/** Run aggregate imported-item baseline verification and map its outcome to a process status. */
 export function runImportedItemBaselineVerification(args: string[]): number {
   try {
     const inputPath = observationPath(args);

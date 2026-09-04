@@ -8,6 +8,7 @@ import { runImportedItemBaselineVerification } from '../verifyImportedItemBaseli
 
 const temporaryDirectories: string[] = [];
 
+/** Write one protected aggregate observation fixture. */
 function writeObservation(overrides: Record<string, unknown> = {}): string {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-item-baseline-'));
   temporaryDirectories.push(directory);
@@ -71,5 +72,34 @@ describe('imported item baseline verifier CLI', () => {
 
     expect(runImportedItemBaselineVerification(['--input', inputPath])).toBe(78);
     expect(error).toHaveBeenCalledWith(expect.stringContaining('mode 0600'));
+  });
+
+  it('refuses an owner-read-only observation instead of weakening the exact mode contract', () => {
+    const error = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const inputPath = writeObservation();
+    fs.chmodSync(inputPath, 0o400);
+
+    expect(runImportedItemBaselineVerification(['--input', inputPath])).toBe(78);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('mode 0600'));
+  });
+
+  it('refuses a symlink instead of following it to a protected observation', () => {
+    const error = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const targetPath = writeObservation();
+    const inputPath = path.join(path.dirname(targetPath), 'observation-link.json');
+    fs.symlinkSync(targetPath, inputPath);
+
+    expect(runImportedItemBaselineVerification(['--input', inputPath])).toBe(78);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('regular, non-symlink file'));
+  });
+
+  it('closes the validated descriptor when JSON parsing fails', () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const inputPath = writeObservation();
+    fs.writeFileSync(inputPath, '{', { mode: 0o600 });
+    const close = jest.spyOn(fs, 'closeSync');
+
+    expect(runImportedItemBaselineVerification(['--input', inputPath])).toBe(78);
+    expect(close).toHaveBeenCalledTimes(1);
   });
 });
