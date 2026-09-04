@@ -15,6 +15,7 @@
     "verify:mud-writes": "NODE_OPTIONS='--import tsx' tsx src/scripts/verifyMudWriteAllowlist.ts",
     "verify:imported-item-baselines": "NODE_OPTIONS='--import tsx' tsx src/scripts/verifyImportedItemBaselines.ts",
     "verify:combat-baselines": "NODE_OPTIONS='--import tsx' tsx src/scripts/verifyCombatFragBaselines.ts",
+    "verify:item-topology-attestation": "NODE_OPTIONS='--import tsx' tsx src/scripts/verifyItemTopologyAttestation.ts",
     "lint": "eslint . --cache",
     "lint:fix": "eslint . --fix --cache",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
