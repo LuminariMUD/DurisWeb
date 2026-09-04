@@ -10,6 +10,10 @@
   schema changes, database restores, unsafe MUD-owned-table operations, configuration/credential
   changes, or restarts of the database, Redis, MUD, or unrelated ingress services.
 - The separate DurisMUD repository is read-only evidence unless separately authorized.
+- Authority was later expanded explicitly to build and perform a production `SIGUSR1` copyover of
+  DurisMUD. The user also explicitly reduced the one-time post-copyover acceptance window from 16
+  minutes to 8 minutes. That later authority supersedes the initial MUD-operation boundary only for
+  the build, copyover, and reduced acceptance recorded below.
 - Sensitive values, credentials, player data, database rows, and IP addresses are intentionally
   excluded from this journal.
 
@@ -61,11 +65,15 @@ an entry says otherwise.
 - The exact-source matrix, database rehearsals, forward production migration, generated reference
   publication, live DurisWeb cutover, public/API/protocol acceptance, and rendered browser checks
   are complete.
-- The remaining mandatory stability gate is deployment of the already-pushed DurisMUD fixes for
-  issue #116. The live MUD executable predates those fixes and still closes the authenticated
-  service descriptor at exactly 15 minutes. Building or cycling DurisMUD remains outside this
-  journal's explicit operating authority. After an authorized MUD deployment, repeat the bridge
-  soak beyond 15 minutes and require zero disconnect/reconnect events.
+- The issue #116 DurisMUD repair has now been deployed by an explicitly authorized `SIGUSR1`
+  copyover. The user explicitly selected a single 8-minute post-copyover verification instead of
+  the originally planned 16-minute gate; all 17 samples passed. No further burn-in gate remains
+  within that accepted scope.
+- Current DurisMUD `master` was built but deliberately not deployed after its own read-only
+  compatibility gate proved that later unrelated changes require immutable migration 0009 and a
+  separate combat-baseline data repair. Neither database mutation was authorized. The deployed
+  executable is therefore the official pushed issue #116 merge revision, which is compatible with
+  the live immutable-migration-0008 database. Deploying later DurisMUD changes is separate work.
 - Authenticated production account lifecycle checks remain unavailable because no dedicated
   staff/test credential was supplied. No player account was repurposed.
 
@@ -343,6 +351,53 @@ an entry says otherwise.
     completed two matching timeout/reconnect cycles, each restoring current-secret authentication
     and fresh hook state without an authentication or transport error. No separately authorized MUD
     deployment operation is available, so the full burn-in is blocked at the unchanged boundary.
+55. Received explicit authority to build DurisMUD and request a production `SIGUSR1` copyover, then
+    verified the clean pushed MUD `master`, exact supervisor/child identity, zero service restarts,
+    aggregate-only listener state, local/public MUD and DurisWeb health, and an owner-protected exact
+    backup of the running executable. The focused issue #116 regression passed before building.
+56. Attempted a fresh stamped `mariadb/production` build of current MUD `master`. The first two
+    invocations stopped safely on account-local header selection (`cJSON`, then a conflicting
+    account-local `hiredis` header); neither produced or promoted a live artifact. Selective libxml2
+    inclusion plus an `-idirafter` dependency fallback produced a valid executable at SHA-256
+    `55b28b52fba3ea624ca9cf1063c2f9f7fc038e82f2da5063b30ad44d46ce37b1`, with no unresolved
+    libraries and the required production stamp. Its mandatory read-only compatibility gate then
+    rejected deployment because current `master` expects immutable migration 0009 while production
+    remains at 0008, and because 16 eligible characters lack combat-frag baselines. The live MUD
+    remained untouched and healthy.
+57. Selected the smallest deployable official revision rather than expand into unauthorized schema
+    and player-ledger work: pushed merge `878309b9b535096610feb5cbdc74f94a23c8d213`, containing only
+    issue #116 relative to its predecessor. A detached protected worktree build completed under the
+    production MariaDB profile. Its runtime compatibility verifier passed against production at
+    immutable head 0008; configuration preflight, six production-service tests, and the focused
+    DurisWeb-integration security contract also passed. The staged binary was executable, stamped
+    `mariadb/production`, had no unresolved libraries, and had SHA-256
+    `f43f6f3da6ba02bc7edabc4e7fbf5edbfed38df9a1147968dd76ac7a6ca03049`.
+58. Immediately before copyover, revalidated the exact MUD supervisor PID `2201135` and sole child
+    PID `2201675`, parentage, working directory, executable identity, all relevant service states,
+    and zero restart counters. The running binary and protected rollback copy both had SHA-256
+    `1abf739db7750a89210b785dc48b0d2a4ebc137478a2865e3ea2a6bfa5d37d74`; the staged binary retained
+    its qualified digest and stamp. Aggregate established connections were two raw, one TLS, and one
+    MUD WebSocket connection. Local/public MUD and DurisWeb health passed.
+59. At `2026-09-04T12:59:48.053Z`, sent `SIGUSR1` only after a Node process reasserted those exact
+    identities and hashes. Promotion completed in one second. The maintained copyover saved two
+    descriptors, published durable world recovery, promoted the staged executable, and completed
+    recovery without a fatal or copyover failure. The supervisor and game child PIDs were preserved;
+    both the runtime path and `/proc` executable matched the qualified new digest. The rollback
+    executable at `bin/server/history/dms.copyover` matched the protected pre-copyover digest.
+60. Detected that the pre-copyover DurisWeb service socket remained established but unread after the
+    in-process exec (30 queued receive bytes and no new authentication). Used the already-authorized
+    recovery-safe application handling to restart only the DurisWeb service group; the MUD,
+    database, and both Redis services were not restarted. DurisWeb returned healthy and the MUD
+    recorded successful service authentication at `2026-09-04T13:02:55Z`; the replacement bridge
+    then had zero queued receive bytes.
+61. Ran exactly the user-requested reduced acceptance window: 17 samples over 481 seconds from
+    `2026-09-04T13:04:23Z` through `2026-09-04T13:12:24Z`. Every sample retained the exact seven
+    service identities, `Result=success`, `NRestarts=0`, exact MUD supervisor/child identity, new
+    runtime digest, old rollback digest, local/public MUD readiness, local/public DurisWeb health,
+    and at least one MUD WebSocket connection. The MUD authentication count remained unchanged at
+    74, proving no bridge disconnect/reconnect during the window. Final raw and verified-TLS MUD
+    banners passed, the public website asset retained its qualified digest, and post-copyover logs
+    contained zero fatal or copyover-failure events.
 
 ## Isolated qualification and repair evidence
 
@@ -718,3 +773,26 @@ an entry says otherwise.
   authoritative state remained unchanged. The production burn-in is therefore blocked rather than
   complete; resume with explicit authority for that build/copyover and retain the existing evidence
   for the post-copyover 16-minute acceptance soak.
+
+## Authorized MUD copyover and final result
+
+- The user subsequently supplied the required DurisMUD authority and explicitly replaced the
+  planned 16-minute acceptance with one 8-minute verification. The earlier blocked state and
+  duration requirement are superseded by that instruction.
+- Current DurisMUD `master` could not pass its production compatibility gate without unrelated
+  immutable migration 0009 and combat-baseline data repair. No schema, ledger, player, or
+  configuration data was changed. The official pushed issue #116 merge revision was instead built
+  and passed the live migration-0008 compatibility gate, which kept the deployment limited to the
+  defect under test.
+- The authorized `SIGUSR1` copyover completed successfully. Production now runs executable SHA-256
+  `f43f6f3da6ba02bc7edabc4e7fbf5edbfed38df9a1147968dd76ac7a6ca03049`; the prior executable is
+  retained both as the copyover rollback and as the protected pre-copyover artifact at SHA-256
+  `1abf739db7750a89210b785dc48b0d2a4ebc137478a2865e3ea2a6bfa5d37d74`.
+- A controlled DurisWeb service-group restart cleared the connection that could not survive an
+  in-process MUD exec. Fresh bridge authentication succeeded, then remained uninterrupted for all
+  17 samples of the 481-second acceptance window.
+- Final result: **complete for the user-selected 8-minute burn-in scope**. All seven production
+  services are active/running with `Result=success` and `NRestarts=0`; local/public MUD and website
+  health, raw/TLS game reachability, qualified website asset identity, running MUD binary identity,
+  rollback identity, and bridge continuity pass. The reduced window does not independently cross
+  the former 15-minute failure boundary; that limitation is explicit rather than silently claimed.
