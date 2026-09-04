@@ -7,6 +7,7 @@ const PUSH_ENABLED_KEY = 'push_notifications_enabled'
 const vapidPublicKey = ref<string | null>(null)
 const isSupported = ref(false)
 const isSubscribed = ref(false)
+const isInitialized = ref(false)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 
@@ -134,12 +135,19 @@ export function usePushNotification() {
 
   // initialize
   const initialize = async () => {
-    checkSupport()
+    isInitialized.value = false
+    error.value = null
 
-    if (!isSupported.value) return
+    try {
+      checkSupport()
 
-    await fetchVapidKey()
-    await checkSubscription()
+      if (!isSupported.value) return
+
+      await fetchVapidKey()
+      await checkSubscription()
+    } finally {
+      isInitialized.value = true
+    }
   }
 
   // convert base64 to Uint8Array for VAPID key
@@ -162,6 +170,7 @@ export function usePushNotification() {
   return {
     isSupported: computed(() => isSupported.value),
     isSubscribed: computed(() => isSubscribed.value),
+    isInitialized: computed(() => isInitialized.value),
     isLoading: computed(() => isLoading.value),
     isEnabled: computed(() => vapidPublicKey.value !== null),
     error: computed(() => error.value),

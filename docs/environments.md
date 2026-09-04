@@ -52,6 +52,13 @@ Optional groups are explicit:
 | `GEMINI_ENABLED` | `GEMINI_API_KEY` |
 | `ENABLE_GUILD_SYNC` | No additional variables |
 
+When push is enabled, authenticated users manage their browser subscription
+from their own profile. The generated service worker imports `/push-sw.js` so
+background notifications are displayed and same-origin notification links can
+focus or open the site. Deploy the frontend worker and backend VAPID
+configuration together; rotating the VAPID key pair requires users to create
+new subscriptions.
+
 ## Unsafe mutation gates
 
 The following settings are not normal feature flags. They expose legacy write

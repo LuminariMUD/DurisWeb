@@ -21,6 +21,7 @@ export default defineConfig(({ mode }) => {
         includeAssets: ['favicon.ico', 'icons/*.svg'],
         manifest: false, // use manifest.json from public folder
         workbox: {
+          importScripts: ['/push-sw.js'],
           globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
           runtimeCaching: [
             {

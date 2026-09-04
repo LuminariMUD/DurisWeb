@@ -32,6 +32,7 @@ import {
 import BreadcrumbsNav from '@/components/layout/BreadcrumbsNav.vue'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
 import ProfileHeroBanner from '@/components/profile/ProfileHeroBanner.vue'
+import PushNotificationToggle from '@/components/profile/PushNotificationToggle.vue'
 import CharacterCard from '@/components/profile/CharacterCard.vue'
 import StatsSummaryBar from '@/components/profile/StatsSummaryBar.vue'
 
@@ -265,6 +266,8 @@ onMounted(async () => {
         @banner-updated="handleBannerUpdated"
         @edit-profile="openEditDialog"
       />
+
+      <PushNotificationToggle v-if="isOwnProfile" />
 
       <!-- Stats Summary Bar -->
       <StatsSummaryBar

@@ -796,3 +796,23 @@ an entry says otherwise.
   health, raw/TLS game reachability, qualified website asset identity, running MUD binary identity,
   rollback identity, and bridge continuity pass. The reduced window does not independently cross
   the former 15-minute failure boundary; that limitation is explicit rather than silently claimed.
+
+## Optional integration activation follow-up (2026-09-04)
+
+- Push notifications are enabled. The production VAPID configuration passes preflight, the public
+  key and service workers are available through public ingress, a signed and encrypted Web Push
+  delivery passed against a disposable local subscriber, and a persistent Chromium profile created
+  and revoked a real browser subscription successfully. Users can manage the feature from their own
+  profile.
+- Guild sync is enabled. Its background service started without error and reconciled the one missing
+  source-guild category; the effective guild hook remains enabled.
+- Donations remain disabled. The provider verification token, dedicated Redis ACL identity, shared
+  web-to-MUD signing secret, and authorized MUD subscriber configuration must be provisioned and
+  verified together. Track activation in [GitHub issue #29](https://github.com/LuminariMUD/DurisWeb/issues/29).
+- R2 remains disabled. The account currently returns Cloudflare `10042 NotEntitled`, and enabling the
+  paid service plus provisioning a bucket-scoped credential requires account-owner approval. Track
+  activation in [GitHub issue #30](https://github.com/LuminariMUD/DurisWeb/issues/30).
+- Gemini remains disabled. Activation requires a restricted provider authorization key and an
+  approved privacy basis, data-minimization policy, retention policy, and operator validation for
+  the account/character evidence sent to the provider. Track activation in
+  [GitHub issue #31](https://github.com/LuminariMUD/DurisWeb/issues/31).
