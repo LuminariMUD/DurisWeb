@@ -41,6 +41,9 @@ export interface WikiMobGenerationRow extends RowDataPacket {
   source_tree: string;
   mob_count: number | string;
   actual_mob_count: number | string;
+  mob_class_count: number | string;
+  mob_race_count: number | string;
+  mob_flag_count: number | string;
   orphan_flags: number | string;
 }
 
@@ -107,6 +110,9 @@ export async function readWikiMobGeneration(
       g.source_tree,
       g.mob_count,
       (SELECT COUNT(*) FROM wiki_mobs) AS actual_mob_count,
+      (SELECT COUNT(DISTINCT mob_class) FROM wiki_mobs WHERE mob_class > 0) AS mob_class_count,
+      (SELECT COUNT(DISTINCT species) FROM wiki_mobs WHERE species > 0) AS mob_race_count,
+      (SELECT COUNT(DISTINCT flag_id) FROM wiki_mob_flags) AS mob_flag_count,
       (SELECT COUNT(*) FROM wiki_mob_flags f LEFT JOIN wiki_mobs m ON m.zone_number = f.zone_number AND m.vnum = f.mob_vnum WHERE m.vnum IS NULL) AS orphan_flags
     FROM wiki_reference_generations g
     WHERE g.id = 1
@@ -119,7 +125,7 @@ export function validateWikiMobGeneration(row: WikiMobGenerationRow | null): str
   if (!row) return ['wiki mob reference generation has not been published'];
 
   const issues: string[] = [];
-  if (row.source_revision.trim() === '' || row.source_tree.trim() === '') {
+  if (!FULL_GIT_OBJECT_ID.test(row.source_revision) || !FULL_GIT_OBJECT_ID.test(row.source_tree)) {
     issues.push('wiki mob reference generation has no source identity');
   }
   const expected = Number(row.mob_count);
@@ -128,6 +134,10 @@ export function validateWikiMobGeneration(row: WikiMobGenerationRow | null): str
     issues.push('wiki mob reference generation is empty');
   } else if (actual !== expected) {
     issues.push(`wiki mob reference count drifted (published ${expected}, current ${actual})`);
+  }
+  const metadataCounts = [row.mob_class_count, row.mob_race_count, row.mob_flag_count].map(Number);
+  if (metadataCounts.some((count) => !Number.isSafeInteger(count) || count <= 0)) {
+    issues.push('wiki mob reference generation has no applicable filter metadata');
   }
   if (!Number.isSafeInteger(Number(row.orphan_flags)) || Number(row.orphan_flags) !== 0) {
     issues.push('wiki mob reference generation has inconsistent flag rows');

@@ -83,6 +83,9 @@ function validMobRow(): WikiMobGenerationRow {
     source_tree: SOURCE_TREE,
     mob_count: 12,
     actual_mob_count: 12,
+    mob_class_count: 4,
+    mob_race_count: 5,
+    mob_flag_count: 6,
     orphan_flags: 0,
   } as WikiMobGenerationRow;
 }
@@ -104,11 +107,13 @@ describe('wiki mob generation readiness', () => {
         ...validMobRow(),
         source_revision: '',
         actual_mob_count: 11,
+        mob_flag_count: 0,
         orphan_flags: 1,
       }),
     ).toEqual([
       'wiki mob reference generation has no source identity',
       'wiki mob reference count drifted (published 12, current 11)',
+      'wiki mob reference generation has no applicable filter metadata',
       'wiki mob reference generation has inconsistent flag rows',
     ]);
   });

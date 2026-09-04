@@ -55,11 +55,13 @@ const router = useRouter()
 const initialLoading = ref(true)
 const tableLoading = ref(false)
 const referenceUnavailable = ref(false)
+const loadError = ref<string | null>(null)
 const mobs = ref<WikiMob[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const totalPages = ref(1)
 const limit = 20
+let mobRequestSequence = 0
 
 // Filter options
 const mobClasses = ref<WikiMobClass[]>([])
@@ -168,8 +170,8 @@ const filters = computed((): WikiMobFilters => {
   return f
 })
 
-// Load filter options
-async function loadFilterOptions() {
+/** Load applicable mob filter metadata and distinguish readiness from transport failures. */
+async function loadFilterOptions(): Promise<boolean> {
   try {
     const [classes, races, flags] = await Promise.all([
       wikiApi.getMobClasses(),
@@ -179,8 +181,19 @@ async function loadFilterOptions() {
     mobClasses.value = classes.filter((c) => c.id > 0) // Filter out "None"
     mobRaces.value = races.filter((r) => r.id > 0) // Filter out "None"
     actFlags.value = flags.filter((f) => f.name !== 'ISNPC') // Filter out internal flag
+    referenceUnavailable.value = false
+    loadError.value = null
+    return true
   } catch (e) {
-    console.error('Failed to load filter options:', e)
+    if (hasApiErrorCode(e, 503, 'WIKI_MOB_REFERENCE_UNAVAILABLE')) {
+      referenceUnavailable.value = true
+      loadError.value = null
+    } else {
+      referenceUnavailable.value = false
+      loadError.value = 'Failed to load mob data. Please try again.'
+      console.error('Failed to load filter options:', e)
+    }
+    return false
   }
 }
 
@@ -248,8 +261,9 @@ watch(zoneOpen, (open) => {
   }
 })
 
-// Load mobs
+/** Load only the latest requested mob page so stale completions cannot replace current state. */
 async function loadMobs(isInitial = false) {
+  const requestSequence = ++mobRequestSequence
   try {
     if (isInitial) {
       initialLoading.value = true
@@ -263,22 +277,43 @@ async function loadMobs(isInitial = false) {
       sortBy.value,
       sortOrder.value,
     )
+    if (requestSequence !== mobRequestSequence) return
     mobs.value = result.mobs
     referenceUnavailable.value = false
+    loadError.value = null
     total.value = result.total
     totalPages.value = result.totalPages
   } catch (e) {
+    if (requestSequence !== mobRequestSequence) return
     if (hasApiErrorCode(e, 503, 'WIKI_MOB_REFERENCE_UNAVAILABLE')) {
       referenceUnavailable.value = true
+      loadError.value = null
       mobs.value = []
       total.value = 0
       totalPages.value = 0
     } else {
+      referenceUnavailable.value = false
+      loadError.value = 'Failed to load mob data. Please try again.'
+      mobs.value = []
+      total.value = 0
+      totalPages.value = 0
       console.error('Failed to load mobs:', e)
     }
   } finally {
+    if (requestSequence === mobRequestSequence) {
+      initialLoading.value = false
+      tableLoading.value = false
+    }
+  }
+}
+
+/** Retry the complete mob reference surface, including its applicable filter metadata. */
+async function retryLoading() {
+  initialLoading.value = true
+  if (await loadFilterOptions()) {
+    await loadMobs(true)
+  } else {
     initialLoading.value = false
-    tableLoading.value = false
   }
 }
 
@@ -408,8 +443,11 @@ function selectZone(zone: { number: number; name: string } | null) {
 
 // Load on mount
 onMounted(async () => {
-  await loadFilterOptions()
-  await loadMobs(true)
+  if (await loadFilterOptions()) {
+    await loadMobs(true)
+  } else {
+    initialLoading.value = false
+  }
 })
 </script>
 
@@ -950,6 +988,12 @@ onMounted(async () => {
             <div v-else-if="referenceUnavailable" class="text-center py-12 px-4 text-muted-foreground">
               <p class="font-medium text-foreground">Mob reference data is temporarily unavailable.</p>
               <p class="mt-1 text-sm">An operator must publish and verify the current reference generation.</p>
+            </div>
+
+            <!-- Generic Loading Error State -->
+            <div v-else-if="loadError" class="text-center py-12 px-4 text-muted-foreground">
+              <p class="font-medium text-foreground">{{ loadError }}</p>
+              <Button class="mt-4" variant="outline" @click="retryLoading">Retry</Button>
             </div>
 
             <!-- Empty Filter State -->

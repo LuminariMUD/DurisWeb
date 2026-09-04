@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import AnsiText from '@/components/ui/AnsiText.vue'
 import { wikiApi } from '@/services/api'
+import { hasApiErrorCode } from '@/utils/apiError'
 import type { WikiMobDetail } from '@/types'
 import { Loader2, ArrowLeft, MapPin, Swords, Heart, Skull, Info, Package } from 'lucide-vue-next'
 
@@ -21,7 +22,7 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const mob = ref<WikiMobDetail | null>(null)
 
-// Load mob data
+/** Load mob details while preserving the stable unavailable-generation contract. */
 async function loadMob() {
   try {
     loading.value = true
@@ -35,13 +36,20 @@ async function loadMob() {
     }
 
     mob.value = await wikiApi.getMobDetail(zoneNum, mobVnum)
-  } catch (e: any) {
-    if (e.response?.status === 404) {
+  } catch (e: unknown) {
+    if (hasApiErrorCode(e, 503, 'WIKI_MOB_REFERENCE_UNAVAILABLE')) {
+      error.value = 'Mob reference data is temporarily unavailable. An operator must publish it.'
+    } else if (
+      e &&
+      typeof e === 'object' &&
+      'response' in e &&
+      (e as { response?: { status?: unknown } }).response?.status === 404
+    ) {
       error.value = 'Mob not found'
     } else {
       error.value = 'Failed to load mob data'
+      console.error('Failed to load wiki mob:', e)
     }
-    console.error('Failed to load wiki mob:', e)
   } finally {
     loading.value = false
   }
