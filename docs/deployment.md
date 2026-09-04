@@ -187,7 +187,10 @@ The cache service consumes `CACHE_REDIS_PASSWORD` from the backend environment,
 so that file is the credential owner for both the application and managed
 Redis. Set `DEPLOY_CLOUDFLARED_ENABLED` and `DEPLOY_NGINX_ENABLED` explicitly;
 values in a disabled group are ignored, while every value in an enabled group
-must be replaced. Then render:
+must be replaced. `NGINX_SERVICE` names the system service recovered for an
+Nginx-only ingress; Cloudflared remains the selected user service when both
+groups are enabled. Health URLs must not contain URI user-info or credentials.
+Then render:
 
 ```bash
 deploy/scripts/render-config /absolute/operator/path/deployment.env
@@ -198,7 +201,9 @@ The required `RENDER_OUTPUT_DIR` receives:
 - systemd units for the application and private Redis cache;
 - a Redis base configuration without an embedded password;
 - the Cloudflare unit when its group is enabled;
-- bootstrap and TLS nginx configurations when their group is enabled.
+- bootstrap and TLS nginx configurations when their group is enabled;
+- a non-secret deployment selection consumed by the complete-group recovery
+  and acceptance command.
 
 The renderer rejects missing values, unsafe input permissions, symlinks,
 unresolved/example placeholders, and missing or non-empty unmarked output
@@ -272,9 +277,23 @@ restart player-visible.
    rendered-unit verification before stopping healthy processes.
 3. If the private cache configuration changed, restart the cache first and
    expect the app/tunnel dependency chain to stop. Verify authenticated `PONG`.
-4. Switch the complete staged backend/frontend artifacts, then start or restart
-   the application through systemd. Do not expose a partial frontend build.
-5. Start the optional ingress unit if dependency propagation did not do so.
+4. Switch the complete staged backend/frontend artifacts. Do not expose a
+   partial frontend build.
+5. Recover the complete rendered group and require acceptance before ending
+   maintenance:
+
+   ```bash
+   deploy/scripts/recover-deployment /absolute/render/output
+   ```
+
+   This explicitly starts the cache, application, and selected optional ingress,
+   then requires `ActiveState=active`, `Result=success`, `NRestarts=0`, and
+   bounded local and configured public `/health` responses with the
+   `durisweb-backend` service identity and healthy database/cache checks. Use
+   `--accept-only` to prove the same gate without starting anything. An
+   Nginx-only selection uses `systemctl --system`; run recovery from an operator
+   identity already authorized to start that configured service. The command
+   does not elevate privileges or invoke `sudo`.
 6. Do not restart the MUD or shared database as part of a web-only release.
    Compare their PIDs and active timestamps with the pre-cutover record.
 7. Enable the validated units and run the acceptance matrix. Unexpected
@@ -289,9 +308,10 @@ backend readiness path is `/health`, not `/api/health`; an unknown path can be
 served by the SPA fallback, so HTTP 200 alone is not health evidence.
 
 ```bash
-curl --fail-with-body --retry 15 --retry-connrefused --retry-delay 1 \
+curl --fail-with-body --connect-timeout 5 --max-time 15 \
+  --retry 15 --retry-max-time 60 --retry-connrefused --retry-delay 1 \
   http://127.0.0.1:3001/health \
-  | jq -e '.status == "ok" and .checks.database == "ok" and .checks.cache == "ok"'
+  | jq -e '.status == "ok" and .service == "durisweb-backend" and .checks.database == "ok" and .checks.cache == "ok"'
 ```
 
 Use the configured origin rather than the example port. After start or restart,
@@ -352,8 +372,9 @@ Historical down migrations are not the recovery plan.
 
 Application rollback uses an explicitly selected last-known-good commit whose
 migrations are compatible with the live schema, followed by rebuild, preflight,
-restart, and the same acceptance checks. DNS and database rollback targets must
-come from a fresh operator journal, never tracked documentation.
+and the same complete-group recovery command and acceptance checks. DNS and
+database rollback targets must come from a fresh operator journal, never
+tracked documentation.
 
 For the fastest code-only rollback, restore the checksum-verified prior compiled
 artifacts and rendered/unit configuration, restart through the same dependency

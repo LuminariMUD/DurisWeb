@@ -35,7 +35,7 @@ done <"${render_input}"
 
 render_variables=(
   RENDER_OUTPUT_DIR BACKEND_ROOT FRONTEND_DIST BACKEND_ENV_FILE NODE_BIN TEST_BIN
-  SERVICE_PATH APPLICATION_SERVICE CACHE_SERVICE
+  SERVICE_PATH LOCAL_HEALTH_URL APPLICATION_SERVICE CACHE_SERVICE
   DATABASE_SERVICE MUD_SERVICE REDIS_BIN REDIS_LIBRARY_PATH REDIS_CONFIG_PATH
   REDIS_DATA_DIR REDIS_BIND_ADDRESS REDIS_PORT REDIS_DATABASE_COUNT REDIS_MAX_MEMORY
   DEPLOY_CLOUDFLARED_ENABLED DEPLOY_NGINX_ENABLED
@@ -58,10 +58,14 @@ fi
 
 if [ "${DEPLOY_NGINX_ENABLED}" = 'true' ]; then
   render_variables+=(
-    NGINX_HTTP_LISTEN NGINX_HTTPS_LISTEN NGINX_SERVER_NAMES NGINX_BACKEND_UPSTREAM
+    NGINX_SERVICE NGINX_HTTP_LISTEN NGINX_HTTPS_LISTEN NGINX_SERVER_NAMES NGINX_BACKEND_UPSTREAM
     NGINX_ACME_ROOT NGINX_TLS_CERTIFICATE NGINX_TLS_CERTIFICATE_KEY
     NGINX_TLS_OPTIONS_INCLUDE NGINX_TLS_DHPARAM
   )
+fi
+
+if [ "${DEPLOY_CLOUDFLARED_ENABLED}" = 'true' ] || [ "${DEPLOY_NGINX_ENABLED}" = 'true' ]; then
+  render_variables+=(PUBLIC_HEALTH_URL)
 fi
 
 for render_name in "${render_variables[@]}"; do
@@ -73,6 +77,27 @@ for render_name in "${render_variables[@]}"; do
   if [[ "${render_value}" == *change_me* || "${render_value}" == *change-me* ||
     "${render_value}" == *replace_with* || "${render_value}" == *example* ]]; then
     printf 'Replace placeholder deployment value: %s\n' "${render_name}" >&2
+    exit 78
+  fi
+done
+
+if [[ ! "${LOCAL_HEALTH_URL}" =~ ^http://(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?/health$ ]]; then
+  printf 'LOCAL_HEALTH_URL must be an exact loopback /health URL.\n' >&2
+  exit 78
+fi
+if { [ "${DEPLOY_CLOUDFLARED_ENABLED}" = 'true' ] || [ "${DEPLOY_NGINX_ENABLED}" = 'true' ]; } &&
+  { [[ ! "${PUBLIC_HEALTH_URL}" =~ ^https://[^/?#[:space:]]+/health$ ]] ||
+    [[ "${PUBLIC_HEALTH_URL}" == *@* ]]; }; then
+  printf 'PUBLIC_HEALTH_URL must be an exact HTTPS /health URL when public ingress is enabled.\n' >&2
+  exit 78
+fi
+render_services=(APPLICATION_SERVICE CACHE_SERVICE)
+if [ "${DEPLOY_NGINX_ENABLED}" = 'true' ]; then
+  render_services+=(NGINX_SERVICE)
+fi
+for render_service in "${render_services[@]}"; do
+  if [[ ! "${!render_service}" =~ ^[A-Za-z0-9_.@:-]+\.service$ ]]; then
+    printf 'Invalid systemd service name: %s\n' "${render_service}" >&2
     exit 78
   fi
 done
@@ -117,6 +142,7 @@ for render_subdirectory in systemd redis nginx; do
   fi
 done
 
+# Render one owned deployment template and reject unresolved variables.
 render_template() {
   local render_source=$1
   local render_target=$2
@@ -163,4 +189,28 @@ fi
 
 chmod 0600 "${RENDER_OUTPUT_DIR}/redis/redis.conf"
 chmod 0644 "${RENDER_OUTPUT_DIR}"/systemd/*.service
+
+render_public_health=''
+render_ingress_service=''
+render_ingress_service_scope=''
+if [ "${DEPLOY_CLOUDFLARED_ENABLED}" = 'true' ]; then
+  render_ingress_service='durisweb-cloudflared.service'
+  render_ingress_service_scope='user'
+elif [ "${DEPLOY_NGINX_ENABLED}" = 'true' ]; then
+  render_ingress_service=${NGINX_SERVICE}
+  render_ingress_service_scope='system'
+fi
+if [ "${DEPLOY_CLOUDFLARED_ENABLED}" = 'true' ] || [ "${DEPLOY_NGINX_ENABLED}" = 'true' ]; then
+  render_public_health=${PUBLIC_HEALTH_URL}
+fi
+{
+  printf 'NODE_BIN=%s\n' "${NODE_BIN}"
+  printf 'APPLICATION_SERVICE=%s\n' "${APPLICATION_SERVICE}"
+  printf 'CACHE_SERVICE=%s\n' "${CACHE_SERVICE}"
+  printf 'INGRESS_SERVICE=%s\n' "${render_ingress_service}"
+  printf 'INGRESS_SERVICE_SCOPE=%s\n' "${render_ingress_service_scope}"
+  printf 'LOCAL_HEALTH_URL=%s\n' "${LOCAL_HEALTH_URL}"
+  printf 'PUBLIC_HEALTH_URL=%s\n' "${render_public_health}"
+} >"${RENDER_OUTPUT_DIR}/deployment-selection.env"
+chmod 0644 "${RENDER_OUTPUT_DIR}/deployment-selection.env"
 printf 'Rendered deployment files under %s\n' "${RENDER_OUTPUT_DIR}"

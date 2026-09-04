@@ -60,6 +60,7 @@ describe('deployment configuration renderer', () => {
       'systemd/durisweb-production.service',
       'systemd/durisweb-redis.service',
       'systemd/durisweb-cloudflared.service',
+      'deployment-selection.env',
       'redis/redis.conf',
       'nginx/bootstrap.conf',
       'nginx/production.conf',
@@ -68,6 +69,9 @@ describe('deployment configuration renderer', () => {
       const content = fs.readFileSync(path.join(outputPath, relativePath), 'utf8');
       expect(content).not.toMatch(/@[A-Z][A-Z0-9_]*@/);
     }
+    const selection = fs.readFileSync(path.join(outputPath, 'deployment-selection.env'), 'utf8');
+    expect(selection).toContain('INGRESS_SERVICE=durisweb-cloudflared.service\n');
+    expect(selection).toContain('INGRESS_SERVICE_SCOPE=user\n');
 
     const rerender = spawnSync(
       'bash',
@@ -96,7 +100,41 @@ describe('deployment configuration renderer', () => {
     expect(fs.existsSync(path.join(outputPath, 'systemd/durisweb-cloudflared.service'))).toBe(
       false,
     );
+    expect(fs.readFileSync(path.join(outputPath, 'deployment-selection.env'), 'utf8')).toContain(
+      'INGRESS_SERVICE=\n',
+    );
+    expect(fs.readFileSync(path.join(outputPath, 'deployment-selection.env'), 'utf8')).toContain(
+      'INGRESS_SERVICE_SCOPE=\n',
+    );
     expect(fs.existsSync(path.join(outputPath, 'nginx'))).toBe(false);
+  });
+
+  it('rejects public health URI user-info before writing rendered files', () => {
+    const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-deploy-'));
+    temporaryDirectories.push(temporaryRoot);
+    const outputPath = path.join(temporaryRoot, 'rendered');
+    fs.mkdirSync(outputPath);
+    const inputPath = writeDeploymentInput(temporaryRoot, outputPath, true);
+    fs.writeFileSync(
+      inputPath,
+      fs
+        .readFileSync(inputPath, 'utf8')
+        .replace(
+          'PUBLIC_HEALTH_URL=https://portable.invalid/health',
+          'PUBLIC_HEALTH_URL=https://token@portable.invalid/health',
+        ),
+      { mode: 0o600 },
+    );
+
+    const result = spawnSync(
+      'bash',
+      [path.join(PROJECT_ROOT, 'deploy/scripts/render-config'), inputPath],
+      { encoding: 'utf8' },
+    );
+
+    expect(result.status).toBe(78);
+    expect(result.stderr).toMatch(/PUBLIC_HEALTH_URL must be an exact HTTPS \/health URL/i);
+    expect(fs.readdirSync(outputPath)).toEqual([]);
   });
 
   it('requires the operator to create a dedicated render output directory', () => {

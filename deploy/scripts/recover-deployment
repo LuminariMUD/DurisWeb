@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+recovery_mode='recover'
+if [ "${1:-}" = '--accept-only' ]; then
+  recovery_mode='accept'
+  shift
+fi
+
+if [ "$#" -ne 1 ]; then
+  printf 'Usage: %s [--accept-only] /absolute/render/output\n' "$0" >&2
+  exit 64
+fi
+
+recovery_root=$1
+if [[ "${recovery_root}" != /* ]] ||
+  [ "$(realpath -m -- "${recovery_root}")" != "${recovery_root}" ] ||
+  [ ! -d "${recovery_root}" ] || [ -L "${recovery_root}" ]; then
+  printf 'Render output must be an absolute, canonical, non-symlink directory.\n' >&2
+  exit 78
+fi
+if [ "$(stat -c '%u' "${recovery_root}")" != "$(id -u)" ]; then
+  printf 'Render output must be owned by the current user.\n' >&2
+  exit 78
+fi
+
+recovery_marker="${recovery_root}/.durisweb-render-output"
+recovery_selection="${recovery_root}/deployment-selection.env"
+for recovery_file in "${recovery_marker}" "${recovery_selection}"; do
+  if [ ! -f "${recovery_file}" ] || [ -L "${recovery_file}" ] ||
+    [ "$(stat -c '%u' "${recovery_file}")" != "$(id -u)" ]; then
+    printf 'Invalid rendered deployment control file: %s\n' "${recovery_file}" >&2
+    exit 78
+  fi
+done
+
+declare -A recovery_seen=()
+while IFS= read -r recovery_line || [ -n "${recovery_line}" ]; do
+  if [[ ! "${recovery_line}" =~ ^([A-Z][A-Z0-9_]*)=(.*)$ ]]; then
+    printf 'Invalid rendered deployment selection line.\n' >&2
+    exit 78
+  fi
+  recovery_key=${BASH_REMATCH[1]}
+  recovery_value=${BASH_REMATCH[2]}
+  case "${recovery_key}" in
+    NODE_BIN|APPLICATION_SERVICE|CACHE_SERVICE|INGRESS_SERVICE|INGRESS_SERVICE_SCOPE|LOCAL_HEALTH_URL|PUBLIC_HEALTH_URL) ;;
+    *)
+      printf 'Unexpected rendered deployment selection key: %s\n' "${recovery_key}" >&2
+      exit 78
+      ;;
+  esac
+  if [ -n "${recovery_seen[${recovery_key}]:-}" ]; then
+    printf 'Duplicate rendered deployment selection key: %s\n' "${recovery_key}" >&2
+    exit 78
+  fi
+  recovery_seen[${recovery_key}]=true
+  printf -v "${recovery_key}" '%s' "${recovery_value}"
+done <"${recovery_selection}"
+
+for recovery_key in NODE_BIN APPLICATION_SERVICE CACHE_SERVICE INGRESS_SERVICE INGRESS_SERVICE_SCOPE LOCAL_HEALTH_URL PUBLIC_HEALTH_URL; do
+  if [ -z "${recovery_seen[${recovery_key}]:-}" ]; then
+    printf 'Missing rendered deployment selection key: %s\n' "${recovery_key}" >&2
+    exit 78
+  fi
+done
+for recovery_key in NODE_BIN APPLICATION_SERVICE CACHE_SERVICE LOCAL_HEALTH_URL; do
+  if [ -z "${!recovery_key:-}" ]; then
+    printf 'Empty rendered deployment selection: %s\n' "${recovery_key}" >&2
+    exit 78
+  fi
+done
+for recovery_service in "${APPLICATION_SERVICE}" "${CACHE_SERVICE}" "${INGRESS_SERVICE:-}"; do
+  if [ -n "${recovery_service}" ] && [[ ! "${recovery_service}" =~ ^[A-Za-z0-9_.@:-]+\.service$ ]]; then
+    printf 'Invalid rendered systemd service name.\n' >&2
+    exit 78
+  fi
+done
+if [[ ! "${LOCAL_HEALTH_URL}" =~ ^http://(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?/health$ ]]; then
+  printf 'Invalid rendered local health URL.\n' >&2
+  exit 78
+fi
+if [ -n "${PUBLIC_HEALTH_URL}" ] &&
+  { [[ ! "${PUBLIC_HEALTH_URL}" =~ ^https://[^/?#[:space:]]+/health$ ]] ||
+    [[ "${PUBLIC_HEALTH_URL}" == *@* ]]; }; then
+  printf 'Invalid rendered public health URL.\n' >&2
+  exit 78
+fi
+if [ -n "${INGRESS_SERVICE}" ] && [ -z "${PUBLIC_HEALTH_URL}" ]; then
+  printf 'Enabled ingress requires a rendered public health URL.\n' >&2
+  exit 78
+fi
+case "${INGRESS_SERVICE_SCOPE}" in
+  '')
+    if [ -n "${INGRESS_SERVICE}" ]; then
+      printf 'Rendered ingress service requires a service scope.\n' >&2
+      exit 78
+    fi
+    ;;
+  user|system)
+    if [ -z "${INGRESS_SERVICE}" ]; then
+      printf 'Rendered ingress service scope requires a service name.\n' >&2
+      exit 78
+    fi
+    ;;
+  *)
+    printf 'Invalid rendered ingress service scope.\n' >&2
+    exit 78
+    ;;
+esac
+if [ ! -x "${NODE_BIN}" ]; then
+  printf 'Rendered Node binary is not executable: %s\n' "${NODE_BIN}" >&2
+  exit 78
+fi
+if ! command -v systemctl >/dev/null || ! command -v curl >/dev/null; then
+  printf 'Recovery requires systemctl and curl on PATH.\n' >&2
+  exit 69
+fi
+
+recovery_units=("${CACHE_SERVICE}" "${APPLICATION_SERVICE}")
+recovery_unit_scopes=(user user)
+recovery_user_units=("${CACHE_SERVICE}" "${APPLICATION_SERVICE}")
+recovery_system_units=()
+case "${INGRESS_SERVICE_SCOPE}" in
+  user)
+    recovery_units+=("${INGRESS_SERVICE}")
+    recovery_unit_scopes+=(user)
+    recovery_user_units+=("${INGRESS_SERVICE}")
+    ;;
+  system)
+    recovery_units+=("${INGRESS_SERVICE}")
+    recovery_unit_scopes+=(system)
+    recovery_system_units+=("${INGRESS_SERVICE}")
+    ;;
+esac
+
+if [ "${recovery_mode}" = 'recover' ]; then
+  if ! systemctl --user start "${recovery_user_units[@]}"; then
+    printf 'Failed to start the rendered user-service group.\n' >&2
+    exit 1
+  fi
+  if [ "${#recovery_system_units[@]}" -gt 0 ] &&
+    ! systemctl --system start "${recovery_system_units[@]}"; then
+    printf 'Failed to start the rendered system-service ingress.\n' >&2
+    exit 1
+  fi
+fi
+
+for recovery_index in "${!recovery_units[@]}"; do
+  recovery_unit=${recovery_units[${recovery_index}]}
+  recovery_unit_scope=${recovery_unit_scopes[${recovery_index}]}
+  mapfile -t recovery_state < <(
+    systemctl "--${recovery_unit_scope}" show "${recovery_unit}" \
+      --property=ActiveState --property=Result --property=NRestarts --value
+  )
+  if [ "${recovery_state[0]:-}" != 'active' ] ||
+    [ "${recovery_state[1]:-}" != 'success' ] ||
+    [ "${recovery_state[2]:-}" != '0' ]; then
+    printf '%s failed acceptance (ActiveState=%s Result=%s NRestarts=%s).\n' \
+      "${recovery_unit}" "${recovery_state[0]:-missing}" "${recovery_state[1]:-missing}" \
+      "${recovery_state[2]:-missing}" >&2
+    exit 1
+  fi
+done
+
+# Request and structurally validate one DurisWeb backend health endpoint.
+check_health() {
+  local recovery_url=$1
+  local recovery_body
+  if ! recovery_body=$(curl --fail-with-body --silent --show-error \
+    --connect-timeout 5 --max-time 15 --retry 15 --retry-max-time 60 \
+    --retry-connrefused --retry-delay 1 "${recovery_url}"); then
+    printf 'Health request failed: %s\n' "${recovery_url}" >&2
+    return 1
+  fi
+  if ! printf '%s' "${recovery_body}" | "${NODE_BIN}" -e '
+    let body = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk) => { body += chunk; });
+    process.stdin.on("end", () => {
+      try {
+        const value = JSON.parse(body);
+        if (value.status !== "ok" || value.service !== "durisweb-backend" || value.checks?.database !== "ok" || value.checks?.cache !== "ok") process.exit(1);
+      } catch {
+        process.exit(1);
+      }
+    });
+  '; then
+    printf 'Health response was not structurally healthy: %s\n' "${recovery_url}" >&2
+    return 1
+  fi
+}
+
+check_health "${LOCAL_HEALTH_URL}"
+if [ -n "${PUBLIC_HEALTH_URL}" ]; then
+  check_health "${PUBLIC_HEALTH_URL}"
+fi
+
+printf 'Complete deployment group accepted (%s units, %s health probes).\n' \
+  "${#recovery_units[@]}" "$((1 + (${#PUBLIC_HEALTH_URL} > 0)))"
