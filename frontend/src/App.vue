@@ -14,6 +14,7 @@ import AppSidebar from './components/layout/AppSidebar.vue'
 import InstallBanner from './components/pwa/InstallBanner.vue'
 import BottomNavbar from './components/layout/BottomNavbar.vue'
 import NewsAnnouncementModal from './components/NewsAnnouncementModal.vue'
+import SiteAvailabilityNotice from './components/SiteAvailabilityNotice.vue'
 import ChangelogBanner from './components/changelog/ChangelogBanner.vue'
 import { Toaster } from 'vue-sonner'
 import { parseAnsiForVue } from './utils/ansiParser'
@@ -90,7 +91,6 @@ const {
   mudPort,
   mudPortTls,
   isAvailable: isSiteConfigAvailable,
-  error: siteConfigError,
   loadConfig,
 } = useSiteConfig()
 
@@ -345,6 +345,7 @@ const isPlayPage = computed(() => route.path === '/play')
 <template>
   <!-- Pop-out window mode: no nav, full screen -->
   <div v-if="hideNav" class="h-screen w-screen overflow-hidden">
+    <SiteAvailabilityNotice />
     <RouterView />
     <Toaster position="top-right" theme="dark" :rich-colors="true" :close-button="true" />
   </div>
@@ -353,13 +354,7 @@ const isPlayPage = computed(() => route.path === '/play')
   <div v-else class="flex flex-col h-screen bg-black text-gray-300">
     <!-- Top Progress Bar is handled by NProgress (CSS-based, no component needed) -->
 
-    <div
-      v-if="siteConfigError"
-      role="alert"
-      class="bg-red-950 border-b border-red-800 px-4 py-2 text-center text-sm text-red-200"
-    >
-      {{ siteConfigError }}
-    </div>
+    <SiteAvailabilityNotice />
 
     <!-- Header - hidden on mobile when on /play page -->
     <header :class="{ 'hidden lg:block': isPlayPage, 'home-header': route.path === '/' }" class="border-b border-gray-800 bg-gray-950">

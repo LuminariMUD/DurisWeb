@@ -47,6 +47,12 @@ optimistic toggle results.
 Mutable public branding and MUD addresses come only from `/api/site-config`;
 the UI reports an unavailable state when that database contract is incomplete.
 
+Website/network failures open a dismissible availability dialog with a read-only
+Retry action. A separately deployed Cloudflare Worker supplies explicit
+maintenance reasons and an independent page for complete origin/tunnel outages.
+See [availability notices](../deploy/maintenance/README.md) for activation and
+operator controls. Neither feature starts or stops the MUD.
+
 The homepage presents the exact legacy `NewDuris` name as `Duris` and replaces
 the stock welcome copy with the eclipse design. Custom hero settings and
 sanitized editor content remain supported. See the

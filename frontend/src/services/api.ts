@@ -99,7 +99,17 @@ api.interceptors.request.use(
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  (error: unknown) => {
+    if (axios.isAxiosError(error) && !axios.isCancel(error)) {
+      const status = error.response?.status
+      if (
+        (status !== undefined && status >= 500) ||
+        ['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'].includes(error.code ?? '')
+      ) {
+        // No raw error details cross into the public notice, and no request is replayed.
+        window.dispatchEvent(new Event('site-unavailable'))
+      }
+    }
     return Promise.reject(error)
   },
 )

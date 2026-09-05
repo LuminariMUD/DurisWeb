@@ -160,7 +160,7 @@ export function useSiteConfig() {
         config.value = parseSiteConfig(await getSiteConfig())
       } catch {
         config.value = null
-        error.value = 'Site configuration is unavailable. Retry after the server is configured.'
+        error.value = 'The website is temporarily unavailable. Please try again shortly.'
       } finally {
         isLoaded.value = true
         isLoading.value = false

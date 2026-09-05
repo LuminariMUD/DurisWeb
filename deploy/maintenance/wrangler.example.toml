@@ -1,0 +1,15 @@
+# Copy outside the repository and replace BOTH placeholders before deploying.
+name = "durisweb-maintenance"
+main = "/absolute/path/to/durisweb/deploy/maintenance/worker.mjs"
+compatibility_date = "2026-09-05"
+workers_dev = false
+preview_urls = false
+keep_vars = true
+
+# A Route, NOT a Custom Domain. Keep the existing tunnel DNS record.
+# Match only the website hostname, never the MUD or the whole zone.
+routes = [{ pattern = "website.example.invalid/*", zone_name = "example.invalid" }]
+
+# MAINTENANCE_REASON is an operator-owned dashboard variable, deliberately not in [vars].
+# Accepted values: off (default), maintenance, mud_burnin.
+# keep_vars preserves this setting across code deployments.

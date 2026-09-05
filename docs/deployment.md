@@ -267,6 +267,11 @@ Redis credential.
 
 ## Cutover sequence
 
+For a visitor-facing maintenance reason that survives an offline origin/tunnel,
+prepare the optional [edge availability notices](../deploy/maintenance/README.md)
+before the window. Its operator switch and frontend popup are separate from
+service recovery; committing the implementation does not activate either.
+
 Inspect reverse dependencies before restarting any database or Redis service.
 The maintained application unit `Requires=` its private cache. The maintained
 tunnel unit `BindsTo=` and is `PartOf=` the application, so a cache restart can
