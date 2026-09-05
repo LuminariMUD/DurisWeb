@@ -84,10 +84,13 @@ export function parseSiteConfig(value: unknown): SiteConfig {
   }
 }
 
-/** Exposes shared configuration state without local or branded fallbacks. */
+/** Exposes shared configuration state; retires the legacy display name. */
 export function useSiteConfig() {
   const isAvailable = computed(() => config.value !== null && error.value === null)
-  const siteTitle = computed(() => config.value?.siteTitle ?? '')
+  const siteTitle = computed(() => {
+    const title = config.value?.siteTitle ?? ''
+    return title === 'NewDuris' ? 'Duris' : title
+  })
   const siteLogoUrl = computed(() => config.value?.siteLogoUrl ?? '')
   const supportUrl = computed(() => config.value?.supportUrl ?? '')
   const mudHost = computed(() => config.value?.mudHost ?? '')

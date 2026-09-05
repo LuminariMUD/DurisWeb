@@ -47,5 +47,11 @@ optimistic toggle results.
 Mutable public branding and MUD addresses come only from `/api/site-config`;
 the UI reports an unavailable state when that database contract is incomplete.
 
+The homepage presents the exact legacy `NewDuris` name as `Duris` and replaces
+the stock welcome copy with the eclipse design. Custom hero settings and
+sanitized editor content remain supported. See the
+[homepage design record](../docs/ongoing-projects/homepage-redesign.md) for
+asset provenance, motion controls, and verification.
+
 See [Development](../docs/development.md) and
 [Architecture](../docs/ARCHITECTURE.md).

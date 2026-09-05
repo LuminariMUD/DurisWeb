@@ -362,7 +362,7 @@ const isPlayPage = computed(() => route.path === '/play')
     </div>
 
     <!-- Header - hidden on mobile when on /play page -->
-    <header :class="{ 'hidden lg:block': isPlayPage }" class="border-b border-gray-800 bg-gray-950">
+    <header :class="{ 'hidden lg:block': isPlayPage, 'home-header': route.path === '/' }" class="border-b border-gray-800 bg-gray-950">
       <div class="px-4 py-4">
         <div class="flex items-center justify-between">
           <RouterLink to="/" class="flex items-center space-x-4 hover:opacity-80 transition-opacity">
@@ -372,17 +372,17 @@ const isPlayPage = computed(() => route.path === '/play')
               :alt="siteTitle"
               class="h-8 max-w-[120px] object-contain"
             />
-            <h1 v-if="isSiteConfigAvailable" class="text-2xl font-bold text-gray-100">
+            <span v-if="isSiteConfigAvailable" class="site-wordmark text-2xl font-bold text-gray-100">
               {{ siteTitle }}
-            </h1>
-            <h1 v-else class="text-2xl font-bold text-gray-400">Site unavailable</h1>
+            </span>
+            <span v-else class="text-2xl font-bold text-gray-400">Site unavailable</span>
           </RouterLink>
 
           <!-- MUD Address (Centered) - Click to play - hidden on mobile -->
           <RouterLink
             v-if="isSiteConfigAvailable"
             to="/play"
-            class="hidden lg:flex flex-1 justify-center hover:opacity-80 transition-opacity"
+            class="mud-address hidden lg:flex flex-1 justify-center hover:opacity-80 transition-opacity"
           >
             <div class="flex items-center gap-2">
               <div class="flex items-center justify-center w-8 h-8 rounded-full bg-cyan-500/20 text-cyan-400">
@@ -651,7 +651,7 @@ const isPlayPage = computed(() => route.path === '/play')
     <InstallBanner />
 
     <!-- mobile bottom navbar - hidden on /play page -->
-    <BottomNavbar v-if="!isPlayPage" />
+    <BottomNavbar v-if="!isPlayPage" :class="{ 'home-mobile-nav': route.path === '/' }" />
 
     <!-- news announcement modal -->
     <NewsAnnouncementModal />
@@ -662,6 +662,59 @@ const isPlayPage = computed(() => route.path === '/play')
 </template>
 
 <style scoped>
+.home-header {
+  background: #111310;
+  border-color: #575743;
+}
+
+.home-header > div {
+  padding: 1rem clamp(1.5rem, 2vw, 2rem);
+}
+
+.home-header .site-wordmark {
+  color: #ece8dd;
+  font: 400 2.5rem/1 'Cormorant Garamond', Georgia, serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.home-header .mud-address {
+  display: none;
+}
+
+.home-header nav {
+  flex: 1;
+  justify-content: center;
+  gap: clamp(1rem, 2.6vw, 2.5rem);
+}
+
+.home-header nav > * {
+  margin-left: 0;
+}
+
+.home-header :is(nav a, nav button span, a[href='/login']) {
+  color: #d6d3c6;
+  font: 400 1.3rem/1.4 'Cormorant Garamond', Georgia, serif;
+}
+
+.home-header :is(a, button):focus-visible {
+  outline: 2px solid #df583d;
+  outline-offset: 4px;
+}
+
+.home-header :is(nav a, nav button span, a[href='/login']):hover {
+  color: #df583d;
+}
+
+.home-mobile-nav {
+  background: #111310;
+  border-color: #575743;
+}
+
+.home-mobile-nav :deep([aria-current='page']) {
+  color: #df583d;
+}
+
 /* pwa banner transition animations */
 .slide-down-enter-active,
 .slide-down-leave-active {
