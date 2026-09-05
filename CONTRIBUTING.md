@@ -10,8 +10,7 @@ read the [architecture](docs/ARCHITECTURE.md),
 
 ## Branches
 
-The GitHub default branch is currently
-`fix/local-web-session-revocation`. Create focused branches from the intended
+The GitHub default branch is `master`. Create focused branches from the intended
 base and use `type/short-description`, for example `feat/hook-metrics`,
 `fix/session-expiry`, or `docs/onboarding`.
 
