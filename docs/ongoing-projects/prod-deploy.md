@@ -28,6 +28,16 @@ no longer exist and must not be treated as a fallback or secondary site.
   worktree and cut over in about 3 s (SPA entry `index-3YnVICbE.js`). The map
   background now comes from the API image endpoint and the dependency
   preflight requires a non-empty map. Details in [wiki-map.md](wiki-map.md).
+- 2026-10-08 15:09–15:14 UTC: the eclipse design was carried to every route
+  (commits `746957e`..`baaf057`, frontend only), cut over twice in about 3 s
+  each from a detached worktree (SPA entry `index-CmSwIfJM.js`). A Phase 1
+  verification build had already replaced the served `frontend/dist` at
+  14:20 UTC without the watchdog pause or checksums. Details in
+  [sitewide-design-transition.md](sitewide-design-transition.md).
+- 2026-10-08 15:20–15:27 UTC: 14 published website changelog entries
+  (10 public, 4 admin) written from the git history, then `774ff1f` cut over
+  in about 3 s (SPA entry `index-B4kaNh-S.js`) so long entries read well on
+  phones. Host details in the gitignored `deploy-production.md`.
 - Operator input: `deploy/deployment.env` in the checkout (gitignored, mode
   0600) with `DEPLOY_CLOUDFLARED_ENABLED=true`; rendered units under
   `/home/staging/.local/share/durisweb/rendered`. Credentials stay in that
