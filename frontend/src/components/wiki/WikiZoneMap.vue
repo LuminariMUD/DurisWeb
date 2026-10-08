@@ -505,19 +505,19 @@ onUnmounted(() => {
 <template>
   <div
     :class="[
-      'flex flex-col bg-zinc-950',
+      'flex flex-col bg-background',
       isFullscreen ? 'fixed inset-0 z-50' : 'h-full'
     ]"
   >
     <!-- Map Header -->
-    <div class="px-3 py-2 border-b border-zinc-800 flex items-center justify-between shrink-0">
+    <div class="px-3 py-2 border-b border-border flex items-center justify-between shrink-0">
       <div v-if="isFullscreen">
-        <h2 class="text-lg font-semibold text-zinc-100" v-html="zoneName ? parseAnsiToHtml(zoneName) : 'Zone Map'" />
-        <span class="text-xs text-zinc-500">{{ rooms.length }} rooms</span>
+        <h2 class="text-lg font-semibold text-foreground" v-html="zoneName ? parseAnsiToHtml(zoneName) : 'Zone Map'" />
+        <span class="text-xs text-faint">{{ rooms.length }} rooms</span>
       </div>
-      <span v-else class="text-sm text-zinc-400">Zone Map</span>
+      <span v-else class="text-sm text-muted-foreground">Zone Map</span>
       <div class="flex items-center gap-2">
-        <span v-if="!isFullscreen" class="text-xs text-zinc-500">{{ rooms.length }} rooms</span>
+        <span v-if="!isFullscreen" class="text-xs text-faint">{{ rooms.length }} rooms</span>
         <Button
           variant="ghost"
           size="icon"
@@ -527,16 +527,16 @@ onUnmounted(() => {
           :disabled="rooms.length === 0"
         >
           <X v-if="isFullscreen" class="h-5 w-5" />
-          <Fullscreen v-else class="h-3.5 w-3.5 text-zinc-500" />
+          <Fullscreen v-else class="h-3.5 w-3.5 text-faint" />
         </Button>
         <Popover v-if="!isFullscreen">
           <PopoverTrigger asChild>
             <Button variant="ghost" size="icon" class="h-5 w-5" title="Sector Legend">
-              <Info class="h-3.5 w-3.5 text-zinc-500" />
+              <Info class="h-3.5 w-3.5 text-faint" />
             </Button>
           </PopoverTrigger>
           <PopoverContent class="w-48 p-2" align="end">
-            <div class="text-xs font-medium mb-2 text-zinc-400">Sector Types</div>
+            <div class="text-xs font-medium mb-2 text-muted-foreground">Sector Types</div>
             <div class="space-y-1">
               <div
                 v-for="(name, sectorId) in SECTOR_NAMES"
@@ -550,7 +550,7 @@ onUnmounted(() => {
                     borderColor: SECTOR_COLORS[Number(sectorId)]?.border || DEFAULT_SECTOR_COLOR.border,
                   }"
                 />
-                <span class="text-xs text-zinc-300">{{ name }}</span>
+                <span class="text-xs text-bone-muted">{{ name }}</span>
               </div>
             </div>
           </PopoverContent>
@@ -569,7 +569,7 @@ onUnmounted(() => {
       <!-- Custom Tooltip -->
       <div
         v-if="tooltipVisible"
-        class="absolute pointer-events-none z-50 px-2 py-1 bg-zinc-800 border border-zinc-700 rounded text-sm shadow-lg"
+        class="absolute pointer-events-none z-50 px-2 py-1 bg-ink-high border border-border rounded text-sm shadow-lg"
         :style="{
           left: `${tooltipX}px`,
           top: `${tooltipY}px`,
@@ -582,15 +582,15 @@ onUnmounted(() => {
       </div>
 
       <!-- Zoom Controls -->
-      <div class="absolute bottom-4 left-4 flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+      <div class="absolute bottom-4 left-4 flex items-center gap-2 bg-card border border-border rounded-lg p-2">
         <Button variant="ghost" size="icon" class="h-7 w-7" @click="handleZoomOut">
           <ZoomOut class="h-4 w-4" />
         </Button>
-        <span class="text-xs text-zinc-400 w-10 text-center">{{ zoom }}%</span>
+        <span class="text-xs text-muted-foreground w-10 text-center">{{ zoom }}%</span>
         <Button variant="ghost" size="icon" class="h-7 w-7" @click="handleZoomIn">
           <ZoomIn class="h-4 w-4" />
         </Button>
-        <div class="border-l border-zinc-800 ml-1 pl-2 flex gap-1">
+        <div class="border-l border-border ml-1 pl-2 flex gap-1">
           <Button
             variant="ghost"
             size="icon"
@@ -615,9 +615,9 @@ onUnmounted(() => {
       <!-- Fullscreen Legend (bottom-right) -->
       <div
         v-if="isFullscreen"
-        class="absolute bottom-20 right-4 bg-zinc-900 border border-zinc-800 rounded-lg p-3 z-10"
+        class="absolute bottom-20 right-4 bg-card border border-border rounded-lg p-3 z-10"
       >
-        <div class="text-xs font-medium mb-2 text-zinc-400">Sector Types</div>
+        <div class="text-xs font-medium mb-2 text-muted-foreground">Sector Types</div>
         <div class="space-y-1.5">
           <div
             v-for="(name, sectorId) in SECTOR_NAMES"
@@ -631,7 +631,7 @@ onUnmounted(() => {
                 borderColor: SECTOR_COLORS[Number(sectorId)]?.border || DEFAULT_SECTOR_COLOR.border,
               }"
             />
-            <span class="text-xs text-zinc-300">{{ name }}</span>
+            <span class="text-xs text-bone-muted">{{ name }}</span>
           </div>
         </div>
       </div>
@@ -639,7 +639,7 @@ onUnmounted(() => {
       <!-- Empty State -->
       <div
         v-if="rooms.length === 0"
-        class="absolute inset-0 flex items-center justify-center text-zinc-500"
+        class="absolute inset-0 flex items-center justify-center text-faint"
       >
         <div class="text-center">
           <LayoutGrid class="h-12 w-12 mx-auto mb-2 opacity-50" />

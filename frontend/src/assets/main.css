@@ -346,6 +346,44 @@ html [data-sonner-toaster][data-sonner-theme="dark"] {
   --border-radius: 0px;
 }
 
+/* Leaflet chrome on ink (wiki maps); map imagery and terrain colors are data. */
+.leaflet-container .leaflet-bar {
+  border: 1px solid var(--color-rule);
+  border-radius: 0;
+  box-shadow: none;
+}
+.leaflet-container .leaflet-bar a,
+.leaflet-container .leaflet-bar a:hover {
+  background-color: var(--color-ink-raised);
+  border-bottom-color: var(--color-rule);
+  border-radius: 0;
+  color: var(--color-bone);
+}
+.leaflet-container .leaflet-bar a:hover {
+  background-color: var(--color-ink-high);
+  color: var(--color-vermilion);
+}
+.leaflet-container .leaflet-bar a.leaflet-disabled {
+  background-color: var(--color-ink);
+  color: var(--color-faint);
+}
+.leaflet-container .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--color-ink) 80%, transparent);
+  color: var(--color-faint);
+}
+.leaflet-container .leaflet-control-attribution a {
+  color: var(--muted-foreground);
+}
+.leaflet-container .leaflet-popup-content-wrapper,
+.leaflet-container .leaflet-popup-tip {
+  background: var(--color-ink-raised);
+  color: var(--color-bone);
+  border-radius: 0;
+}
+.leaflet-container a.leaflet-popup-close-button {
+  color: var(--muted-foreground);
+}
+
 /* Indeterminate Progress Bar Animation */
 @keyframes progress-indeterminate {
   0% {

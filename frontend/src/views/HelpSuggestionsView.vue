@@ -242,8 +242,8 @@ onMounted(async () => {
         <div class="flex items-center justify-between">
           <div>
             <div class="flex items-center gap-3 mb-2">
-              <BookOpen class="h-8 w-8 text-cyan-400" />
-              <h1 class="text-3xl font-bold text-white">Suggest Help Files</h1>
+              <BookOpen class="h-8 w-8 text-vermilion" />
+              <h1 class="text-4xl md:text-5xl text-foreground">Suggest Help Files</h1>
             </div>
             <p class="text-muted-foreground">
               Help improve our documentation by suggesting new help files or edits
@@ -256,13 +256,13 @@ onMounted(async () => {
         </div>
 
         <!-- Not authenticated warning -->
-        <Card v-if="!canSubmit" class="border-amber-500/50 bg-amber-500/10">
+        <Card v-if="!canSubmit" class="border-warning/50 bg-warning/10">
           <CardContent class="pt-6">
             <div class="flex items-start gap-3">
-              <Info class="h-5 w-5 text-amber-400 mt-0.5" />
+              <Info class="h-5 w-5 text-warning mt-0.5" />
               <div>
-                <p class="text-amber-200 font-medium">Login required</p>
-                <p class="text-amber-200/70 text-sm mt-1">
+                <p class="text-warning font-medium">Login required</p>
+                <p class="text-warning/70 text-sm mt-1">
                   You need to be logged in to submit help file suggestions.
                 </p>
                 <Button

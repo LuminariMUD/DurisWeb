@@ -62,28 +62,28 @@ const epicTypeLabels: Record<number, string> = {
 // Get sector type color for room list
 function getSectorColor(sectorType: number): string {
   const colors: Record<number, string> = {
-    0: 'bg-stone-500',
+    0: 'bg-faint',
     1: 'bg-white',
-    2: 'bg-green-400',
-    3: 'bg-green-600',
-    4: 'bg-yellow-500',
-    5: 'bg-yellow-700',
-    6: 'bg-cyan-400',
-    7: 'bg-blue-500',
-    8: 'bg-sky-300',
-    9: 'bg-blue-700',
-    10: 'bg-blue-800',
-    11: 'bg-red-500',
-    12: 'bg-blue-900',
+    2: 'bg-success',
+    3: 'bg-success-deep',
+    4: 'bg-warning',
+    5: 'bg-warning-deep',
+    6: 'bg-vermilion',
+    7: 'bg-info',
+    8: 'bg-info/15',
+    9: 'bg-info-deep',
+    10: 'bg-info-deep',
+    11: 'bg-danger',
+    12: 'bg-info-deep',
     13: 'bg-purple-700',
     14: 'bg-purple-300',
-    15: 'bg-stone-700',
-    24: 'bg-yellow-200',
-    25: 'bg-slate-100',
+    15: 'bg-ink-top',
+    24: 'bg-warning/15',
+    25: 'bg-bone',
     26: 'bg-purple-500',
-    37: 'bg-gray-500',
+    37: 'bg-faint',
   }
-  return colors[sectorType] || 'bg-gray-400'
+  return colors[sectorType] || 'bg-faint'
 }
 
 // Format exits for MUD-style display
@@ -340,7 +340,7 @@ watch(
               <Badge variant="outline" class="text-xs">
                 D{{ zone.difficulty }}
               </Badge>
-              <Badge v-if="zone.epicType > 0" variant="outline" class="text-xs bg-amber-500/10 text-amber-500 border-amber-500/20">
+              <Badge v-if="zone.epicType > 0" variant="outline" class="text-xs bg-warning/10 text-warning border-warning/20">
                 {{ epicTypeLabels[zone.epicType] }}
               </Badge>
             </div>
@@ -353,7 +353,7 @@ watch(
             <Badge variant="outline">
               Diff: {{ zone.difficulty }}
             </Badge>
-            <Badge v-if="zone.epicType > 0" variant="outline" class="bg-amber-500/10 text-amber-500 border-amber-500/20">
+            <Badge v-if="zone.epicType > 0" variant="outline" class="bg-warning/10 text-warning border-warning/20">
               {{ epicTypeLabels[zone.epicType] }}
             </Badge>
           </div>
@@ -426,52 +426,52 @@ watch(
           </TabsTrigger>
         </TabsList>
         <TabsContent value="details" class="flex-1 m-0 overflow-hidden">
-          <div class="h-full flex flex-col bg-black text-zinc-100 font-mono text-sm overflow-hidden">
+          <div class="h-full flex flex-col bg-black text-foreground font-mono text-sm overflow-hidden">
             <ScrollArea class="flex-1">
               <div v-if="selectedRoom" class="p-3 space-y-3">
                 <!-- Room Name with VNUM -->
-                <div class="text-cyan-400 font-bold text-sm">
-                  <span class="text-zinc-500 font-normal mr-2">#{{ selectedRoom.vnum }}</span>
+                <div class="text-vermilion font-bold text-sm">
+                  <span class="text-faint font-normal mr-2">#{{ selectedRoom.vnum }}</span>
                   <AnsiText :text="selectedRoom.name" />
                 </div>
                 <!-- Room Description -->
-                <div class="text-zinc-300 whitespace-pre-wrap leading-relaxed text-xs">
+                <div class="text-bone-muted whitespace-pre-wrap leading-relaxed text-xs">
                   <AnsiText :text="selectedRoom.description || 'No description.'" />
                 </div>
                 <!-- Exits -->
-                <div class="pt-2 border-t border-zinc-800 text-xs">
-                  <span class="text-green-400">Obvious exits: </span>
-                  <span class="text-zinc-300">{{ formattedExits }}</span>
+                <div class="pt-2 border-t border-border text-xs">
+                  <span class="text-success">Obvious exits: </span>
+                  <span class="text-bone-muted">{{ formattedExits }}</span>
                 </div>
                 <!-- Room Contents -->
                 <div v-if="currentRoomSpawns.length > 0" class="pt-2 space-y-1 text-xs">
-                  <div v-for="spawn in currentRoomSpawns" :key="`m-${spawn.type}-${spawn.vnum}`" class="cursor-pointer hover:text-cyan-300 flex items-center gap-2" @click="goToSpawn(spawn)">
+                  <div v-for="spawn in currentRoomSpawns" :key="`m-${spawn.type}-${spawn.vnum}`" class="cursor-pointer hover:text-vermilion-light flex items-center gap-2" @click="goToSpawn(spawn)">
                     <AnsiText :text="spawn.name" />
-                    <span v-if="spawn.isShopkeeper" class="text-xs text-amber-400 bg-amber-400/10 px-1 py-0.5 rounded">(Shop)</span>
+                    <span v-if="spawn.isShopkeeper" class="text-xs text-warning bg-warning/10 px-1 py-0.5 rounded">(Shop)</span>
                   </div>
                 </div>
                 <!-- Exit Links -->
-                <div v-if="selectedRoom.exits.length > 0" class="pt-3 border-t border-zinc-800">
-                  <div class="text-xs text-zinc-500 mb-2">Navigate to:</div>
+                <div v-if="selectedRoom.exits.length > 0" class="pt-3 border-t border-border">
+                  <div class="text-xs text-faint mb-2">Navigate to:</div>
                   <div class="flex flex-wrap gap-1">
-                    <Button v-for="exit in selectedRoom.exits" :key="`m-${exit.direction}`" variant="outline" size="sm" class="font-mono text-xs h-auto py-1 px-2" :class="{ 'border-amber-500/50 text-amber-400': exit.hasDoor }" @click="navigateToRoom(exit.toRoom)">
+                    <Button v-for="exit in selectedRoom.exits" :key="`m-${exit.direction}`" variant="outline" size="sm" class="font-mono text-xs h-auto py-1 px-2" :class="{ 'border-warning/50 text-warning': exit.hasDoor }" @click="navigateToRoom(exit.toRoom)">
                       {{ exit.direction }}
                     </Button>
                   </div>
                 </div>
                 <!-- Shop Items -->
-                <div v-if="currentRoomShopkeepers.length > 0" class="pt-3 border-t border-zinc-800">
+                <div v-if="currentRoomShopkeepers.length > 0" class="pt-3 border-t border-border">
                   <div v-for="shopkeeper in currentRoomShopkeepers" :key="`m-shop-${shopkeeper.vnum}`" class="mb-3 last:mb-0">
                     <div class="flex items-center gap-2 mb-2">
-                      <Store class="h-3 w-3 text-amber-400" />
-                      <span class="text-xs text-amber-400 font-medium truncate">
+                      <Store class="h-3 w-3 text-warning" />
+                      <span class="text-xs text-warning font-medium truncate">
                         <AnsiText :text="shopkeeper.shortDesc" /> sells:
                       </span>
                     </div>
                     <div class="space-y-1 ml-5">
-                      <div v-for="item in shopkeeper.shopItems" :key="`m-${item.vnum}`" class="text-xs cursor-pointer hover:text-cyan-300" @click="goToShopItem(item)">
+                      <div v-for="item in shopkeeper.shopItems" :key="`m-${item.vnum}`" class="text-xs cursor-pointer hover:text-vermilion-light" @click="goToShopItem(item)">
                         <AnsiText :text="item.name" />
-                        <span v-if="item.price" class="text-zinc-500 ml-1">
+                        <span v-if="item.price" class="text-faint ml-1">
                           {{ getWealthParts(item.price).plat > 0 ? getWealthParts(item.price).plat + 'p ' : '' }}{{ getWealthParts(item.price).gold > 0 ? getWealthParts(item.price).gold + 'g' : '' }}
                         </span>
                       </div>
@@ -479,7 +479,7 @@ watch(
                   </div>
                 </div>
               </div>
-              <div v-else class="h-full flex items-center justify-center text-zinc-500 p-4 text-sm">
+              <div v-else class="h-full flex items-center justify-center text-faint p-4 text-sm">
                 Select a room from the list or map
               </div>
             </ScrollArea>
@@ -500,24 +500,24 @@ watch(
         <ResizablePanelGroup direction="horizontal" class="h-full">
         <!-- Left Panel: MUD-style Room Display -->
         <ResizablePanel :default-size="50" :min-size="30">
-          <div class="h-full flex flex-col bg-black text-zinc-100 font-mono text-sm overflow-hidden">
+          <div class="h-full flex flex-col bg-black text-foreground font-mono text-sm overflow-hidden">
             <ScrollArea class="flex-1">
               <div v-if="selectedRoom" class="p-4 space-y-4">
                 <!-- Room Name with VNUM -->
-                <div class="text-cyan-400 font-bold">
-                  <span class="text-zinc-500 font-normal mr-2">#{{ selectedRoom.vnum }}</span>
+                <div class="text-vermilion font-bold">
+                  <span class="text-faint font-normal mr-2">#{{ selectedRoom.vnum }}</span>
                   <AnsiText :text="selectedRoom.name" />
                 </div>
 
                 <!-- Room Description -->
-                <div class="text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                <div class="text-bone-muted whitespace-pre-wrap leading-relaxed">
                   <AnsiText :text="selectedRoom.description || 'No description.'" />
                 </div>
 
                 <!-- Exits -->
-                <div class="pt-2 border-t border-zinc-800">
-                  <span class="text-green-400">Obvious exits: </span>
-                  <span class="text-zinc-300">{{ formattedExits }}</span>
+                <div class="pt-2 border-t border-border">
+                  <span class="text-success">Obvious exits: </span>
+                  <span class="text-bone-muted">{{ formattedExits }}</span>
                 </div>
 
                 <!-- Room Contents (mobs and objects) -->
@@ -525,20 +525,20 @@ watch(
                   <div
                     v-for="spawn in currentRoomSpawns"
                     :key="`${spawn.type}-${spawn.vnum}`"
-                    class="cursor-pointer hover:text-cyan-300 transition-colors flex items-center gap-2"
+                    class="cursor-pointer hover:text-vermilion-light transition-colors flex items-center gap-2"
                     @click="goToSpawn(spawn)"
                   >
                     <AnsiText :text="spawn.name" />
                     <span
                       v-if="spawn.isShopkeeper"
-                      class="text-xs text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded"
+                      class="text-xs text-warning bg-warning/10 px-1.5 py-0.5 rounded"
                     >(Shopkeeper)</span>
                   </div>
                 </div>
 
                 <!-- Exit Links -->
-                <div v-if="selectedRoom.exits.length > 0" class="pt-4 border-t border-zinc-800">
-                  <div class="text-xs text-zinc-500 mb-2">Navigate to:</div>
+                <div v-if="selectedRoom.exits.length > 0" class="pt-4 border-t border-border">
+                  <div class="text-xs text-faint mb-2">Navigate to:</div>
                   <div class="flex flex-col gap-1">
                     <Button
                       v-for="exit in selectedRoom.exits"
@@ -546,12 +546,12 @@ watch(
                       variant="outline"
                       size="sm"
                       class="font-mono text-xs justify-start h-auto py-1.5 px-2"
-                      :class="{ 'border-amber-500/50 text-amber-400': exit.hasDoor }"
+                      :class="{ 'border-warning/50 text-warning': exit.hasDoor }"
                       @click="navigateToRoom(exit.toRoom)"
                     >
                       <span class="w-20 text-left">{{ exit.direction }}</span>
                       <span class="text-muted-foreground">#{{ exit.toRoom }}</span>
-                      <span v-if="getRoomName(exit.toRoom)" class="ml-2 truncate text-zinc-400">
+                      <span v-if="getRoomName(exit.toRoom)" class="ml-2 truncate text-muted-foreground">
                         <AnsiText :text="getRoomName(exit.toRoom)" />
                       </span>
                     </Button>
@@ -559,23 +559,23 @@ watch(
                 </div>
 
                 <!-- Shop Items Section -->
-                <div v-if="currentRoomShopkeepers.length > 0" class="pt-4 border-t border-zinc-800">
+                <div v-if="currentRoomShopkeepers.length > 0" class="pt-4 border-t border-border">
                   <div v-for="shopkeeper in currentRoomShopkeepers" :key="`shop-${shopkeeper.vnum}`" class="mb-4 last:mb-0">
                     <div class="flex items-center gap-2 mb-2">
-                      <Store class="h-4 w-4 text-amber-400" />
-                      <span class="text-xs text-amber-400 font-medium">
+                      <Store class="h-4 w-4 text-warning" />
+                      <span class="text-xs text-warning font-medium">
                         <AnsiText :text="shopkeeper.shortDesc" /> sells:
                       </span>
-                      <span class="text-xs text-zinc-500">(base price)</span>
+                      <span class="text-xs text-faint">(base price)</span>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger as-child>
-                            <Info class="h-3.5 w-3.5 text-zinc-500 cursor-help" />
+                            <Info class="h-3.5 w-3.5 text-faint cursor-help" />
                           </TooltipTrigger>
-                          <TooltipContent side="top" class="max-w-xs text-xs bg-zinc-900 text-zinc-100 border border-zinc-700">
+                          <TooltipContent side="top" class="max-w-xs text-xs bg-card text-foreground border border-border">
                             <p class="font-medium mb-1">Price Formula</p>
-                            <p class="text-zinc-400">Base price = item cost x shop sell multiplier</p>
-                            <p class="text-zinc-400 mt-1">Actual in-game price varies based on your character's charisma, race match with shopkeeper, barter ability, and epic bonuses.</p>
+                            <p class="text-muted-foreground">Base price = item cost x shop sell multiplier</p>
+                            <p class="text-muted-foreground mt-1">Actual in-game price varies based on your character's charisma, race match with shopkeeper, barter ability, and epic bonuses.</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -585,7 +585,7 @@ watch(
                         <tr
                           v-for="item in shopkeeper.shopItems"
                           :key="item.vnum"
-                          class="cursor-pointer hover:text-cyan-300 transition-colors"
+                          class="cursor-pointer hover:text-vermilion-light transition-colors"
                           @click="goToShopItem(item)"
                         >
                           <td class="py-0.5 pr-2 text-white font-mono whitespace-nowrap">
@@ -597,21 +597,21 @@ watch(
                           <td class="py-0.5 pr-2 whitespace-nowrap">
                             <template v-if="item.price">
                               <template v-if="getWealthParts(item.price).plat > 0">
-                                <span class="text-zinc-300">{{ getWealthParts(item.price).plat.toLocaleString() }}</span><span class="text-white font-semibold">p </span>
+                                <span class="text-bone-muted">{{ getWealthParts(item.price).plat.toLocaleString() }}</span><span class="text-white font-semibold">p </span>
                               </template>
                               <template v-if="getWealthParts(item.price).gold > 0">
-                                <span class="text-zinc-300">{{ getWealthParts(item.price).gold }}</span><span class="text-yellow-300">g </span>
+                                <span class="text-bone-muted">{{ getWealthParts(item.price).gold }}</span><span class="text-warning">g </span>
                               </template>
                               <template v-if="getWealthParts(item.price).silver > 0">
-                                <span class="text-zinc-300">{{ getWealthParts(item.price).silver }}</span><span class="text-zinc-400">s </span>
+                                <span class="text-bone-muted">{{ getWealthParts(item.price).silver }}</span><span class="text-muted-foreground">s </span>
                               </template>
                               <template v-if="getWealthParts(item.price).copper > 0">
-                                <span class="text-zinc-300">{{ getWealthParts(item.price).copper }}</span><span class="text-amber-700">c</span>
+                                <span class="text-bone-muted">{{ getWealthParts(item.price).copper }}</span><span class="text-warning">c</span>
                               </template>
                             </template>
                             <span v-else>-</span>
                           </td>
-                          <td class="py-0.5 text-zinc-600 whitespace-nowrap">
+                          <td class="py-0.5 text-faint whitespace-nowrap">
                             {{ item.itemTypeName || '' }}
                           </td>
                         </tr>
@@ -622,7 +622,7 @@ watch(
               </div>
 
               <!-- No Room Selected -->
-              <div v-else class="h-full flex items-center justify-center text-zinc-500 p-4">
+              <div v-else class="h-full flex items-center justify-center text-faint p-4">
                 Click a room on the map to view details
               </div>
             </ScrollArea>

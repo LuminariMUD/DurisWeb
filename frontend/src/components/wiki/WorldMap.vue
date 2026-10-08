@@ -592,12 +592,12 @@ watch([showMarkers, showZoneNames], () => {
       @wheel="handleWheel"
     />
     <!-- toggle controls -->
-    <div class="absolute top-2 right-2 bg-slate-800/90 rounded px-2 py-1.5 text-xs text-slate-200 flex flex-col gap-1">
+    <div class="absolute top-2 right-2 bg-ink-high/90 rounded px-2 py-1.5 text-xs text-foreground flex flex-col gap-1">
       <label class="flex items-center gap-1.5 cursor-pointer hover:text-white">
         <input
           v-model="showMarkers"
           type="checkbox"
-          class="w-3 h-3 rounded border-slate-500 bg-slate-700 text-amber-500 focus:ring-amber-500 focus:ring-offset-0"
+          class="w-3 h-3 rounded border-faint bg-ink-top text-warning focus:ring-warning focus:ring-offset-0"
         />
         markers
       </label>
@@ -605,7 +605,7 @@ watch([showMarkers, showZoneNames], () => {
         <input
           v-model="showZoneNames"
           type="checkbox"
-          class="w-3 h-3 rounded border-slate-500 bg-slate-700 text-amber-500 focus:ring-amber-500 focus:ring-offset-0"
+          class="w-3 h-3 rounded border-faint bg-ink-top text-warning focus:ring-warning focus:ring-offset-0"
         />
         zone names
       </label>

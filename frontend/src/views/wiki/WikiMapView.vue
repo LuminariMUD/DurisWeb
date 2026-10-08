@@ -226,7 +226,7 @@ const legendItems = [
       </div>
 
       <!-- Map Area -->
-      <div class="flex-1 relative bg-slate-900 overflow-hidden">
+      <div class="flex-1 relative bg-card overflow-hidden">
         <LeafletMap
           ref="leafletMapRef"
           :bounds="mapBounds"
@@ -258,7 +258,7 @@ const legendItems = [
               </div>
               <div class="mt-2 pt-2 border-t text-xs">
                 <div class="flex items-center gap-1.5 sm:gap-2">
-                  <span class="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-500 shrink-0"></span>
+                  <span class="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-danger shrink-0"></span>
                   <span>Zone Entrance</span>
                 </div>
               </div>

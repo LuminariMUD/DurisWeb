@@ -114,10 +114,10 @@ function getStatusBadge(status: SuggestionStatus) {
     SuggestionStatus,
     { variant: 'default' | 'secondary' | 'destructive' | 'outline'; class: string; icon: any }
   > = {
-    pending: { variant: 'secondary', class: 'bg-yellow-500/20 text-yellow-400', icon: Clock },
-    in_review: { variant: 'secondary', class: 'bg-blue-500/20 text-blue-400', icon: Eye },
-    approved: { variant: 'default', class: 'bg-green-500/20 text-green-400', icon: CheckCircle },
-    rejected: { variant: 'destructive', class: 'bg-red-500/20 text-red-400', icon: XCircle },
+    pending: { variant: 'secondary', class: 'bg-warning/20 text-warning', icon: Clock },
+    in_review: { variant: 'secondary', class: 'bg-info/20 text-info', icon: Eye },
+    approved: { variant: 'default', class: 'bg-success/20 text-success', icon: CheckCircle },
+    rejected: { variant: 'destructive', class: 'bg-danger/20 text-danger', icon: XCircle },
     needs_revision: {
       variant: 'outline',
       class: 'bg-orange-500/20 text-orange-400',
@@ -178,8 +178,8 @@ onMounted(() => {
         <div class="flex items-center justify-between">
           <div>
             <div class="flex items-center gap-3 mb-2">
-              <FileText class="h-8 w-8 text-cyan-400" />
-              <h1 class="text-3xl font-bold text-white">My Suggestions</h1>
+              <FileText class="h-8 w-8 text-vermilion" />
+              <h1 class="text-4xl md:text-5xl text-foreground">My Suggestions</h1>
             </div>
             <p class="text-muted-foreground">
               Track the status of your help file suggestions
@@ -283,7 +283,7 @@ onMounted(() => {
                         size="sm"
                         @click="confirmDelete(suggestion.id)"
                       >
-                        <Trash2 class="h-4 w-4 text-red-400" />
+                        <Trash2 class="h-4 w-4 text-danger" />
                       </Button>
                     </div>
                   </TableCell>
@@ -300,7 +300,7 @@ onMounted(() => {
       <DialogContent class="sm:!max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle class="flex items-center gap-2">
-            <FileText class="h-5 w-5 text-cyan-400" />
+            <FileText class="h-5 w-5 text-vermilion" />
             {{ stripAnsiCodes(selectedSuggestion?.title || '') }}
           </DialogTitle>
           <DialogDescription as="div" class="flex flex-wrap items-center gap-3 mt-2">
@@ -327,8 +327,8 @@ onMounted(() => {
             v-if="selectedSuggestion.reviewer_notes"
             :class="[
               'p-4 rounded-lg border',
-              selectedSuggestion.status === 'approved' ? 'bg-green-500/10 border-green-500/30' :
-              selectedSuggestion.status === 'rejected' ? 'bg-red-500/10 border-red-500/30' :
+              selectedSuggestion.status === 'approved' ? 'bg-success/10 border-success/30' :
+              selectedSuggestion.status === 'rejected' ? 'bg-danger/10 border-danger/30' :
               'bg-orange-500/10 border-orange-500/30'
             ]"
           >
@@ -382,7 +382,7 @@ onMounted(() => {
           <AlertDialogAction
             @click="deleteSuggestion"
             :disabled="deleting"
-            class="bg-red-600 hover:bg-red-700"
+            class="bg-danger-deep hover:bg-danger-deep/80"
           >
             {{ deleting ? 'Cancelling...' : 'Cancel Suggestion' }}
           </AlertDialogAction>

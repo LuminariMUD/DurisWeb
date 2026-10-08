@@ -99,7 +99,7 @@ function markLineItems(items: string): string {
 function convertPlaceholdersToLinks(html: string): string {
   return html.replace(/\{\{HELPLINK:([^}]+)\}\}/g, (_match, title) => {
     const escaped = title.replace(/"/g, '&quot;')
-    return `<a href="#" class="help-link text-cyan-400 hover:text-cyan-300 hover:underline" data-help-title="${escaped}">${title}</a>`
+    return `<a href="#" class="help-link text-vermilion hover:text-vermilion-light hover:underline" data-help-title="${escaped}">${title}</a>`
   })
 }
 
@@ -204,14 +204,14 @@ function formatDate(dateStr: string | null): string {
 // Get category color
 function getCategoryColor(categoryName: string): string {
   const colors: Record<string, string> = {
-    General: 'bg-blue-500/20 text-blue-400',
+    General: 'bg-info/20 text-info',
     Class: 'bg-purple-500/20 text-purple-400',
     'Class Skillsets': 'bg-violet-500/20 text-violet-400',
-    Spec: 'bg-amber-500/20 text-amber-400',
-    Race: 'bg-green-500/20 text-green-400',
-    Redirect: 'bg-gray-500/20 text-gray-400',
+    Spec: 'bg-warning/20 text-warning',
+    Race: 'bg-success/20 text-success',
+    Redirect: 'bg-faint/20 text-muted-foreground',
   }
-  return colors[categoryName] || 'bg-cyan-500/20 text-cyan-400'
+  return colors[categoryName] || 'bg-vermilion/20 text-vermilion'
 }
 
 // Handle close
@@ -266,7 +266,7 @@ function goToSuggestEdit() {
               <ArrowLeft class="h-4 w-4" />
             </Button>
             <DialogTitle class="text-xl flex items-center gap-2 flex-1">
-              <BookOpen class="h-5 w-5 text-cyan-400" />
+              <BookOpen class="h-5 w-5 text-vermilion" />
               {{ stripAnsiCodes(currentFile.title || 'Untitled') }}
             </DialogTitle>
             <!-- Suggest Edit Button -->

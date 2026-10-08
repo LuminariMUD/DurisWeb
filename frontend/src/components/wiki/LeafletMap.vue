@@ -324,12 +324,12 @@ onUnmounted(() => {
   <div class="w-full h-full relative">
     <div ref="mapContainer" class="w-full h-full" />
     <!-- toggle controls -->
-    <div v-if="!hideControls" class="absolute top-2 right-2 bg-slate-800/90 rounded px-2 py-1.5 text-xs text-slate-200 flex flex-col gap-1 z-[1000]">
+    <div v-if="!hideControls" class="absolute top-2 right-2 bg-ink-high/90 rounded px-2 py-1.5 text-xs text-foreground flex flex-col gap-1 z-[1000]">
       <label class="flex items-center gap-1.5 cursor-pointer hover:text-white">
         <input
           v-model="showMarkers"
           type="checkbox"
-          class="w-3 h-3 rounded border-slate-500 bg-slate-700 text-amber-500 focus:ring-amber-500 focus:ring-offset-0"
+          class="w-3 h-3 rounded border-faint bg-ink-top text-warning focus:ring-warning focus:ring-offset-0"
         />
         markers
       </label>
@@ -337,7 +337,7 @@ onUnmounted(() => {
         <input
           v-model="showZoneNames"
           type="checkbox"
-          class="w-3 h-3 rounded border-slate-500 bg-slate-700 text-amber-500 focus:ring-amber-500 focus:ring-offset-0"
+          class="w-3 h-3 rounded border-faint bg-ink-top text-warning focus:ring-warning focus:ring-offset-0"
         />
         zone names
       </label>
@@ -347,31 +347,31 @@ onUnmounted(() => {
 
 <style>
 .leaflet-container {
-  background: #0f172a;
+  background: var(--color-ink-raised);
   font-family: inherit;
   z-index: 0;
 }
 
 .leaflet-tooltip {
-  background: rgba(0, 0, 0, 0.9);
-  border: 1px solid #374151;
-  color: #f3f4f6;
+  background: var(--color-ink-raised);
+  border: 1px solid var(--color-rule);
+  color: var(--color-bone);
   padding: 4px 8px;
   font-size: 12px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 .zone-entrance-marker {
   width: 12px !important;
   height: 12px !important;
-  background-color: #ef4444;
-  border: 2px solid #ffffff;
+  background-color: var(--color-vermilion);
+  border: 2px solid var(--color-bone);
   border-radius: 50%;
   cursor: pointer;
 }
 
 .zone-entrance-marker:hover {
-  background-color: #f59e0b;
+  background-color: var(--color-ember);
   transform: scale(1.2);
 }
 
@@ -386,7 +386,7 @@ onUnmounted(() => {
   background: transparent;
   border: none;
   box-shadow: none;
-  color: #ffffff;
+  color: var(--color-bone);
   font-size: 11px;
   font-weight: 500;
   text-shadow: 1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000;
@@ -399,15 +399,15 @@ onUnmounted(() => {
 }
 
 .zone-popup-container .leaflet-popup-content-wrapper {
-  background: rgba(0, 0, 0, 0.95);
-  border: 1px solid #374151;
-  border-radius: 6px;
-  color: #f3f4f6;
+  background: var(--color-ink-raised);
+  border: 1px solid var(--color-rule);
+  border-radius: 0;
+  color: var(--color-bone);
 }
 
 .zone-popup-container .leaflet-popup-tip {
-  background: rgba(0, 0, 0, 0.95);
-  border: 1px solid #374151;
+  background: var(--color-ink-raised);
+  border: 1px solid var(--color-rule);
 }
 
 .zone-popup {

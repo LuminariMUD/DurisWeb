@@ -16,7 +16,6 @@ src/components/builder/Design4TabbedWorkspace.vue
 src/components/builder/Design5NotionStyle.vue
 src/components/builder/MentionList.vue
 src/components/builder/ZoneMap.vue
-src/components/guide/HelpFileDialog.vue
 src/components/mud/AliasFormDialog.vue
 src/components/mud/MudActivityLog.vue
 src/components/mud/MudAffects.vue
@@ -39,17 +38,11 @@ src/components/ui/ImageLightbox.vue
 src/components/ui/PeriodSelector.vue
 src/components/ui/Select.vue
 src/components/ui/tooltip/TooltipContent.vue
-src/components/wiki/LeafletMap.vue
-src/components/wiki/WikiZoneMap.vue
-src/components/wiki/WorldMap.vue
 src/composables/useAuth.ts
 src/composables/useServerReboot.ts
 src/composables/useZones.ts
 src/views/ForbiddenView.vue
-src/views/GuideView.vue
-src/views/HelpSuggestionsView.vue
 src/views/MudClientView.vue
-src/views/MySuggestionsView.vue
 src/views/PopOutMapView.vue
 src/views/SearchView.vue
 src/views/StatusView.vue
@@ -74,6 +67,3 @@ src/views/admin/mud/PropertiesView.vue
 src/views/admin/mud/TimersView.vue
 src/views/builder/BuilderMockupsView.vue
 src/views/builder/ZoneEditorView.vue
-src/views/wiki/WikiMapView.vue
-src/views/wiki/WikiMobDetailView.vue
-src/views/wiki/WikiZoneDetailView.vue

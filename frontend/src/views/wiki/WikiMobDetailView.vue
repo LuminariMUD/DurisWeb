@@ -250,7 +250,7 @@ watch([() => props.zoneNumber, () => props.vnum], () => {
           <p class="text-xs sm:text-sm text-muted-foreground mb-2">
             What you see when the mob is in the room:
           </p>
-          <div class="bg-black text-zinc-100 p-3 sm:p-4 rounded-lg font-mono text-xs sm:text-sm">
+          <div class="bg-black text-foreground p-3 sm:p-4 rounded-lg font-mono text-xs sm:text-sm">
             <AnsiText :text="mob.longDesc || 'No room description.'" />
           </div>
         </CardContent>
@@ -268,7 +268,7 @@ watch([() => props.zoneNumber, () => props.vnum], () => {
           <p class="text-xs sm:text-sm text-muted-foreground mb-2">
             What you see when you look at the mob:
           </p>
-          <div class="bg-black text-zinc-100 p-3 sm:p-4 rounded-lg font-mono text-xs sm:text-sm whitespace-pre-wrap">
+          <div class="bg-black text-foreground p-3 sm:p-4 rounded-lg font-mono text-xs sm:text-sm whitespace-pre-wrap">
             <AnsiText :text="mob.detailedDesc" />
           </div>
         </CardContent>

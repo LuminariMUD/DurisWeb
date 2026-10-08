@@ -182,14 +182,14 @@ function formatDate(dateStr: string | null): string {
 // Get category badge color
 function getCategoryColor(categoryName: string): string {
   const colors: Record<string, string> = {
-    General: 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30',
+    General: 'bg-info/20 text-info hover:bg-info/30',
     Class: 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30',
     'Class Skillsets': 'bg-violet-500/20 text-violet-400 hover:bg-violet-500/30',
-    Spec: 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30',
-    Race: 'bg-green-500/20 text-green-400 hover:bg-green-500/30',
-    Redirect: 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/30',
+    Spec: 'bg-warning/20 text-warning hover:bg-warning/30',
+    Race: 'bg-success/20 text-success hover:bg-success/30',
+    Redirect: 'bg-faint/20 text-muted-foreground hover:bg-faint/30',
   }
-  return colors[categoryName] || 'bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30'
+  return colors[categoryName] || 'bg-vermilion/20 text-vermilion hover:bg-vermilion/30'
 }
 
 // Load on mount
@@ -206,8 +206,8 @@ onMounted(() => {
         <!-- Header -->
         <div class="text-center mb-6 lg:mb-8">
           <div class="flex items-center justify-center gap-2 lg:gap-3 mb-2">
-            <BookOpen class="h-6 w-6 lg:h-8 lg:w-8 text-cyan-400" />
-            <h1 class="text-2xl lg:text-3xl font-bold text-white">Guide</h1>
+            <BookOpen class="h-6 w-6 lg:h-8 lg:w-8 text-vermilion" />
+            <h1 class="text-4xl md:text-5xl text-foreground">Guide</h1>
           </div>
           <p class="text-sm text-muted-foreground">
             Browse in-game help files and documentation
@@ -250,7 +250,7 @@ onMounted(() => {
                   :class="[
                     'h-7 px-3 text-xs rounded-full transition-colors flex-shrink-0',
                     selectedCategoryId === null
-                      ? 'bg-cyan-500/20 text-cyan-400'
+                      ? 'bg-vermilion/20 text-vermilion'
                       : 'bg-muted/50 text-muted-foreground hover:text-foreground'
                   ]"
                   @click="selectCategory(null)"
