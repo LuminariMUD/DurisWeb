@@ -125,7 +125,10 @@ credentials and host ports. Deployment operators keep a mode-0600 copy of
 `deploy/deployment.env.example` outside the repository and render portable
 systemd and Redis files. `DEPLOY_CLOUDFLARED_ENABLED` and
 `DEPLOY_NGINX_ENABLED` explicitly select complete optional ingress groups and
-their rendered artifacts. See [Deployment](deployment.md).
+their rendered artifacts. See [Deployment](deployment.md). The single
+production deployment selects `DEPLOY_CLOUDFLARED_ENABLED=true`; its Cloudflare
+tunnel is the only public ingress, as recorded in the
+[production location](ongoing-projects/prod-deploy.md#production-location-authoritative).
 
 `backend/.env.test` is the only test override. Under `NODE_ENV=test`, it is
 loaded before `backend/.env`; tests fill isolated in-process values only when a

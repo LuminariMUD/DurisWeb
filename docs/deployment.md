@@ -5,6 +5,12 @@ directory, port, service dependency, credential, or secret. The maintained
 artifacts are templates under `deploy/templates/`; historical machine-specific
 nginx and split frontend/backend service files have been removed.
 
+These procedures are portable, but there is exactly one production deployment,
+recorded in the [production journal](ongoing-projects/prod-deploy.md#production-location-authoritative).
+Its public ingress is the Cloudflare tunnel group (`DEPLOY_CLOUDFLARED_ENABLED=true`),
+which is required. Do not plan a second host, a mirror, or a non-tunnel ingress
+for it.
+
 ## Build and validate
 
 A pull changes source only; it does not prove that the running process or static

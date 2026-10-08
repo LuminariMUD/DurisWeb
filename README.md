@@ -203,6 +203,12 @@ hostname, port, or installation path. Follow the
 publication, database rehearsal, and recovery. Website and MUD releases must
 record and verify their exact commits independently.
 
+There is exactly one production deployment: a single host that also runs the
+MUD, reached only through its Cloudflare tunnel. No second host, mirror, or
+alternative ingress exists or is planned. Read the
+[production location](docs/ongoing-projects/prod-deploy.md#production-location-authoritative)
+section before any deployment work.
+
 - **Health:** backend `/health` checks MySQL and Redis. The frontend health
   artifact is static; neither check validates every feature or imported dataset.
 - **Mutation boundaries:** direct auction bid/buy-now writes, item deletion,

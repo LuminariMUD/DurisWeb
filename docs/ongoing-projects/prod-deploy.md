@@ -1,8 +1,42 @@
 # Production deployment journal
 
-Last checked: 2026-09-10 07:50 UTC.
+Last checked: 2026-10-08 UTC.
 
-## Current status
+## Production location (authoritative)
+
+There is exactly one production website location: this checkout on
+`plesk.luminarimud.com`, account `staging`, serving `duris.sbs` and
+`www.duris.sbs`. The host and paths recorded in the historical section below
+(`/home/duris`, `www.newduris.com`, tunnel `5b7d0472-7d5b-4c6e-8aa3-cd550e2bdb60`)
+no longer exist and must not be treated as a fallback or secondary site.
+
+- Checkout `/home/staging/durisweb`; paired MUD checkout `/home/staging/duris`
+  (user units `duris-mariadb` on 127.0.0.1:3307, `duris-redis` on
+  127.0.0.1:6381, `duris-mud-production` on `mud.duris.sbs:7777/7778`).
+- Application `durisweb-production.service` on `127.0.0.1:7770`; private cache
+  `durisweb-redis.service` on `127.0.0.1:6380`; user-scope systemd with
+  lingering enabled.
+- Public ingress is the Cloudflare tunnel `durisweb-production`
+  (`afb18d75-613f-41af-bd53-bb0d19bbf5dc`), run on this host by
+  `durisweb-cloudflared.service`. Cloudflare is required: `duris.sbs` and
+  `www.duris.sbs` are proxied CNAMEs to that tunnel, and its remote ingress
+  routes both to `http://127.0.0.1:7770`. Nginx ingress is disabled because
+  Plesk owns the system Nginx on this host.
+- Operator input: `deploy/deployment.env` in the checkout (gitignored, mode
+  0600) with `DEPLOY_CLOUDFLARED_ENABLED=true`; rendered units under
+  `/home/staging/.local/share/durisweb/rendered`. Credentials stay in that
+  file and in `backend/.env`; none are recorded here.
+- As of 2026-10-08 the tunnel has zero connectors and both hostnames return
+  Cloudflare error 1033 until the application and tunnel units are started on
+  this host. Remaining prerequisites are recorded in the gitignored local
+  journal `docs/ongoing-projects/deploy-production.md`.
+
+## Historical status from the retired host (2026-09-10, superseded)
+
+The remainder of this file is the journal of the earlier deployment on a host
+that is now gone. It is kept as a record of the procedures and evidence used;
+none of its hostnames, paths, or tunnel identifiers are current.
+
 
 The website is live at https://www.newduris.com. Public cutover and live
 acceptance have passed, including the post-restart bridge soak. Credential
