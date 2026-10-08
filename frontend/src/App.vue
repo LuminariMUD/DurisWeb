@@ -44,7 +44,7 @@ import {
   Activity,
   Heart,
   Radio,
-  ExternalLink,
+  Globe,
 } from '@lucide/vue'
 import {
   DropdownMenu,
@@ -462,13 +462,15 @@ const isPlayPage = computed(() => route.path === '/play')
                 <FileText class="mr-2 h-4 w-4" />
                 <span>My Suggestions</span>
               </DropdownMenuItem>
+              <DropdownMenuItem as-child class="cursor-pointer">
+                <a :href="projectSiteUrl" target="_blank" rel="noopener noreferrer">
+                  <Globe class="mr-2 h-4 w-4" />
+                  <span>Project Site</span>
+                </a>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <RouterLink to="/forum" :class="navClass($route.path.startsWith('/forum'))">Forum</RouterLink>
-          <a :href="projectSiteUrl" target="_blank" rel="noopener noreferrer" :class="navClass(false)">
-            Project Site
-            <ExternalLink class="h-3 w-3" aria-hidden="true" />
-          </a>
           <a
             v-if="supportUrl"
             :href="supportUrl"

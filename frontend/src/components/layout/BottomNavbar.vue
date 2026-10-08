@@ -48,8 +48,8 @@ const moreNavItems = computed(() => [
   { name: 'Faction', path: '/statistics/faction-activity', icon: Activity },
   { name: 'Leaderboard', path: '/frag-leaderboard', icon: Trophy },
   { name: 'Guide', path: '/guide', icon: BookOpen },
-  { name: 'Status', path: '/status', icon: Radio },
   { name: 'Project Site', path: projectSiteUrl, icon: Globe, external: true },
+  { name: 'Status', path: '/status', icon: Radio },
   ...(supportUrl.value
     ? [
         {
