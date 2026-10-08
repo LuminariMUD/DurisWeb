@@ -266,7 +266,7 @@ onMounted(() => {
                     <div class="flex items-center gap-2 flex-wrap">
                       <p
                         v-if="isCharacterDeleted(member.name)"
-                        class="text-sm lg:text-base font-medium line-through decoration-red-500 text-muted-foreground truncate"
+                        class="text-sm lg:text-base font-medium line-through decoration-danger text-muted-foreground truncate"
                       >{{ member.name }}</p>
                       <p
                         v-else-if="isCharacterVerified(member.name)"

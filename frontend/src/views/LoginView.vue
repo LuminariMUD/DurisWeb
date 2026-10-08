@@ -56,7 +56,7 @@ function handleKeyPress(event: KeyboardEvent) {
   <div class="flex h-full items-center justify-center px-4">
     <Card class="w-full max-w-md">
       <CardHeader class="space-y-1">
-        <CardTitle class="text-2xl font-bold">Login to DurisMUD</CardTitle>
+        <CardTitle class="font-display text-4xl font-normal">Login to DurisMUD</CardTitle>
         <CardDescription>
           Enter your MUD account credentials to access the forums
         </CardDescription>
@@ -107,9 +107,10 @@ function handleKeyPress(event: KeyboardEvent) {
       <CardFooter class="flex flex-col space-y-3">
         <!-- Login Button -->
         <Button
+          variant="brand"
           @click="handleLogin"
           :disabled="isLoading"
-          class="w-full"
+          class="h-11 w-full font-display text-xl font-normal"
         >
           <span v-if="isLoading">Logging in...</span>
           <span v-else>Login</span>

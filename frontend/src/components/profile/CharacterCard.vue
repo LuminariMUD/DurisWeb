@@ -77,7 +77,7 @@ const characterName = computed(() => {
 
         <div class="flex items-center gap-3">
           <div class="text-right">
-            <div class="text-xl font-bold text-green-400">{{ character.stats.frags }}</div>
+            <div class="text-xl font-bold text-success">{{ character.stats.frags }}</div>
             <div class="text-xs text-muted-foreground">frags</div>
           </div>
           <component :is="isExpanded ? ChevronUp : ChevronDown" class="w-5 h-5 text-muted-foreground" />
@@ -89,21 +89,21 @@ const characterName = computed(() => {
         <!-- Stats Grid -->
         <div class="grid grid-cols-5 gap-4 text-center">
           <div>
-            <div class="flex items-center justify-center gap-1 text-green-400">
+            <div class="flex items-center justify-center gap-1 text-success">
               <Sword class="w-4 h-4" />
               <span class="text-xl font-bold">{{ character.stats.frags }}</span>
             </div>
             <div class="text-xs text-muted-foreground">Frags</div>
           </div>
           <div>
-            <div class="flex items-center justify-center gap-1 text-red-400">
+            <div class="flex items-center justify-center gap-1 text-danger">
               <Skull class="w-4 h-4" />
               <span class="text-xl font-bold">{{ character.stats.deaths }}</span>
             </div>
             <div class="text-xs text-muted-foreground">Deaths</div>
           </div>
           <div>
-            <div class="text-xl font-bold text-blue-400">{{ kdRatio }}</div>
+            <div class="text-xl font-bold text-info">{{ kdRatio }}</div>
             <div class="text-xs text-muted-foreground">K/D Ratio</div>
           </div>
           <div>
@@ -114,7 +114,7 @@ const characterName = computed(() => {
             <div class="text-xs text-muted-foreground">Epics</div>
           </div>
           <div>
-            <div class="flex items-center justify-center gap-1 text-cyan-400">
+            <div class="flex items-center justify-center gap-1 text-vermilion">
               <MessageSquare class="w-4 h-4" />
               <span class="text-xl font-bold">{{ character.stats.forumPosts }}</span>
             </div>

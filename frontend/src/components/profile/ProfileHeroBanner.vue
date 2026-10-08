@@ -14,6 +14,7 @@ import {
 import { Camera, Trash2, Loader2, ImagePlus } from '@lucide/vue'
 import { profileApi } from '@/services/api'
 import { useToast } from '@/composables/useToast'
+import defaultBannerImage from '@/assets/home/duris-eclipse.webp'
 
 const props = defineProps<{
   accountName: string
@@ -172,19 +173,25 @@ async function deleteBanner() {
 </script>
 
 <template>
-  <div class="relative rounded-lg overflow-hidden">
+  <div class="relative overflow-hidden border border-border">
     <!-- Banner Background with Profile Content Overlaid -->
-    <div class="relative min-h-[200px] bg-gradient-to-r from-blue-900 to-purple-900">
-      <!-- Banner Image -->
+    <div class="relative min-h-[200px] bg-ink-raised">
+      <!-- Banner Image (the eclipse art stands in until the player sets one) -->
       <img
         v-if="bannerUrl"
         :src="bannerUrl"
         :alt="`${accountName}'s banner`"
         class="absolute inset-0 w-full h-full object-cover"
       />
+      <img
+        v-else
+        :src="defaultBannerImage"
+        alt=""
+        class="absolute inset-0 h-full w-full object-cover object-[center_35%] opacity-70"
+      />
 
-      <!-- Dark overlay for text readability -->
-      <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20" />
+      <!-- Bottom mask into ink for text readability -->
+      <div class="absolute inset-0 bg-gradient-to-t from-ink via-ink/60 to-ink/10" />
 
       <!-- Banner upload controls (top right) -->
       <div v-if="canEdit" class="absolute top-3 right-3 z-20 flex items-center gap-2">
@@ -278,9 +285,9 @@ async function deleteBanner() {
 
           <!-- Profile Info -->
           <div class="flex-1 min-w-0">
-            <h1 class="text-3xl font-bold text-white drop-shadow-md">{{ accountName }}</h1>
-            <p v-if="bio" class="text-white/80 mt-1 line-clamp-2 drop-shadow-sm">{{ bio }}</p>
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-white/70">
+            <h1 class="display-heading display-heading--page drop-shadow-md">{{ accountName }}</h1>
+            <p v-if="bio" class="text-bone-muted mt-2 line-clamp-2 drop-shadow-sm">{{ bio }}</p>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
               <span v-if="location">{{ location }}</span>
               <span v-if="location && website">|</span>
               <a
@@ -288,7 +295,7 @@ async function deleteBanner() {
                 :href="website"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="hover:text-white hover:underline"
+                class="brand-link hover:text-vermilion"
               >
                 {{ website.replace(/^https?:\/\//, '') }}
               </a>

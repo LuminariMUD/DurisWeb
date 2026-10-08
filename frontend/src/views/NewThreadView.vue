@@ -252,6 +252,7 @@ onMounted(() => {
               Cancel
             </Button>
             <Button
+              variant="brand"
               @click="submitThread"
               :disabled="isSubmitting || !title.trim() || content.length < 10"
             >

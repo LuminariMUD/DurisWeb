@@ -32,7 +32,6 @@ src/components/mud/TriggerActionCard.vue
 src/components/mud/TriggerFormDialog.vue
 src/components/mud/TriggerTable.vue
 src/components/mud/chargen/MudCharacterCreate.vue
-src/components/profile/CharacterCard.vue
 src/components/ui/Dialog.vue
 src/components/ui/ImageLightbox.vue
 src/components/ui/PeriodSelector.vue

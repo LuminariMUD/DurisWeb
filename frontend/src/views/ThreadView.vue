@@ -1318,7 +1318,7 @@ onUnmounted(() => {
               >
                 Cancel
               </Button>
-              <Button @click="submitReply" :disabled="isSubmitting || !replyContent.trim()">
+              <Button variant="brand" @click="submitReply" :disabled="isSubmitting || !replyContent.trim()">
                 {{ isSubmitting ? 'Posting...' : 'Post Reply' }}
               </Button>
             </div>

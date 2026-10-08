@@ -462,7 +462,7 @@ onMounted(async () => {
                       <div
                         v-for="(killer, idx) in favorite.killers.slice(0, 3)"
                         :key="idx"
-                        class="text-green-500 truncate text-xs"
+                        class="text-success truncate text-xs"
                         v-html="parseAnsiForVue(killer)"
                       ></div>
                       <div v-if="favorite.killers.length > 3" class="text-xs text-muted-foreground">
@@ -476,7 +476,7 @@ onMounted(async () => {
                       <div
                         v-for="(victim, idx) in favorite.victims.slice(0, 3)"
                         :key="idx"
-                        class="text-red-500 truncate text-xs"
+                        class="text-danger truncate text-xs"
                         v-html="parseAnsiForVue(victim)"
                       ></div>
                       <div v-if="favorite.victims.length > 3" class="text-xs text-muted-foreground">
