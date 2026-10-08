@@ -22,6 +22,12 @@ no longer exist and must not be treated as a fallback or secondary site.
   `www.duris.sbs` are proxied CNAMEs to that tunnel, and its remote ingress
   routes both to `http://127.0.0.1:7770`. Nginx ingress is disabled because
   Plesk owns the system Nginx on this host.
+- 2026-10-08 13:11–13:23 UTC: the world-map projection was published with
+  `extract-map-data` (266,083 rooms, 546 entrances, 14 continent centers;
+  MUD checkout `f4429104`), then commit `979e68a` was built in a detached
+  worktree and cut over in about 3 s (SPA entry `index-3YnVICbE.js`). The map
+  background now comes from the API image endpoint and the dependency
+  preflight requires a non-empty map. Details in [wiki-map.md](wiki-map.md).
 - Operator input: `deploy/deployment.env` in the checkout (gitignored, mode
   0600) with `DEPLOY_CLOUDFLARED_ENABLED=true`; rendered units under
   `/home/staging/.local/share/durisweb/rendered`. Credentials stay in that

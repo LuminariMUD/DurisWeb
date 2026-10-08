@@ -1,4 +1,4 @@
-# Wiki map — blank on production
+# Wiki map — blank on production (resolved 2026-10-08)
 
 Investigated 2026-10-08 UTC on the single production deployment described in
 [prod-deploy.md](prod-deploy.md#production-location-authoritative). The
@@ -10,8 +10,12 @@ the page had no data to draw and no background image to show.
 | Step | State |
 | --- | --- |
 | 1. Populate the map tables | Done 2026-10-08 13:11 UTC (see [Work log](#work-log)) |
-| 2. Serve the background image | Code written (durable option), awaiting build and cutover |
-| 3. Record it (deployment doc, preflight) | Docs and preflight written, awaiting the same cutover |
+| 2. Serve the background image | Done 2026-10-08 13:23 UTC, durable option, commit `979e68a` deployed |
+| 3. Record it (deployment doc, preflight) | Done in the same commit and cutover |
+
+All three steps are complete and live. What remains is the ordinary
+re-extraction whenever the MUD area files change (see
+[docs/deployment.md](../deployment.md#publish-wiki-reference-data)).
 
 ## Findings
 
@@ -71,7 +75,7 @@ Related code paths that do not help today:
   it with a 7-day `maxAge` when present. `.gitignore` already excludes
   `backend/public/maps/`.
 
-## Proposed fix
+## Fix (as proposed; all three steps applied)
 
 1. **Populate the tables** (production database write; authorize first):
 
@@ -158,6 +162,38 @@ nothing from it is committed.
   (15 passed), frontend helper spec (4 passed), and `format:check`, `lint`,
   `type-check` for both packages pass. DB-backed backend tests cannot run on
   this host (no test database user).
+
+### 2026-10-08 13:23 UTC — steps 2 and 3 deployed
+
+- Commit `979e68a` (code and docs above) built in a detached worktree under the
+  release directory from fresh `--frozen-lockfile` installs. Gates there: both
+  packages pass `config:check`, `format:check`, `lint`, `type-check`, and
+  `build`; backend readiness/preflight/generation tests 21 passed; frontend
+  unit suite 181 of 182 passed, the one failure being the pre-existing
+  `useSiteConfig.test.ts` brand expectation recorded in the deployment
+  journal. Compiled `--configuration` and `--dependencies` preflights passed
+  from the staged build, so the new map readiness check accepts the live data.
+- Cutover 13:22:58–13:23:01 UTC (about 3 s offline): watchdog paused, app
+  stopped, live `backend/dist` (1064 files) and `frontend/dist` (283 files)
+  replaced with the staged trees and checksum-verified, `recover-deployment`
+  accepted the group (3 units, 2 health probes). No dependency change, so
+  `node_modules` was left alone. Old dist tarballs and checksums kept in the
+  release directory.
+- Acceptance: local and both public hostnames return healthy backend health;
+  new SPA entry `index-3YnVICbE.js` (was `index-C7XknIZW.js`) served locally
+  and through both hostnames; the `LeafletMap` chunk is served as JavaScript;
+  `/api/wiki/map/image?layer=0` through the edge is `image/png`, 62,629 bytes,
+  `cache-control: public, max-age=3600`; all four layer images render locally;
+  continents 14 of 14 with centers; `NRestarts=0`, `Result=success`; the
+  cache, tunnel, MariaDB, MUD Redis, and MUD PIDs are unchanged; no
+  error- or warning-priority journal lines since the cutover; live compiled
+  preflights pass (24 required tables); `migrate:status` has no pending files.
+  Watchdog pause removed after acceptance.
+- Not run: a real-browser pass of `/wiki/map` at desktop and mobile
+  viewports. The host has no browser or headless tooling. The served bundle
+  contains the new URL helper, and every URL it now requests was verified by
+  HTTP. The forum map-preview widget shares `LeafletMap.vue` and gains the
+  same fix.
 
 ## Evidence
 
