@@ -96,9 +96,9 @@ const history = computed(() => data.value?.data || [])
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div class="flex items-center gap-3">
-        <History class="w-7 h-7 lg:w-8 lg:h-8 text-blue-500 flex-shrink-0" />
+        <History class="w-7 h-7 lg:w-8 lg:h-8 text-info flex-shrink-0" />
         <div>
-          <h1 class="text-2xl lg:text-3xl font-bold">Auction History</h1>
+          <h1 class="text-4xl md:text-5xl">Auction History</h1>
           <p class="text-sm text-muted-foreground">
             Completed sales from the last 30 days
           </p>
@@ -150,7 +150,7 @@ const history = computed(() => data.value?.data || [])
     </div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="text-center py-12 text-red-500">
+    <div v-else-if="error" class="text-center py-12 text-danger">
       Failed to load auction history. Please try again.
     </div>
 
@@ -182,7 +182,7 @@ const history = computed(() => data.value?.data || [])
             <div class="flex items-center justify-between mt-3 pt-3 border-t">
               <div>
                 <div class="text-xs text-muted-foreground">Sale Price</div>
-                <div class="font-semibold text-green-500">{{ formatPrice(item.salePrice) }}</div>
+                <div class="font-semibold text-success">{{ formatPrice(item.salePrice) }}</div>
               </div>
               <div class="text-center">
                 <div class="text-xs text-muted-foreground">Bids</div>
@@ -242,7 +242,7 @@ const history = computed(() => data.value?.data || [])
               <TableCell class="text-muted-foreground">
                 {{ item.buyerName }}
               </TableCell>
-              <TableCell class="font-medium text-green-500">
+              <TableCell class="font-medium text-success">
                 {{ formatPrice(item.salePrice) }}
               </TableCell>
               <TableCell>

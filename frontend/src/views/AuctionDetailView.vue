@@ -243,7 +243,7 @@ async function handleRemoveAuction() {
     </div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="text-center py-12 text-red-500">
+    <div v-else-if="error" class="text-center py-12 text-danger">
       Failed to load auction details. The auction may have ended or been removed.
     </div>
 
@@ -288,7 +288,7 @@ async function handleRemoveAuction() {
               </div>
               <div v-if="auction.buyPrice > 0">
                 <div class="text-sm text-muted-foreground">Buy It Now</div>
-                <div class="text-2xl font-bold text-green-500">{{ formatPrice(auction.buyPrice) }}</div>
+                <div class="text-2xl font-bold text-success">{{ formatPrice(auction.buyPrice) }}</div>
                 <div class="text-sm text-muted-foreground">{{ formatPriceFull(auction.buyPrice) }}</div>
               </div>
             </div>

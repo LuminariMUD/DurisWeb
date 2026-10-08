@@ -263,9 +263,9 @@ const auctions = computed(() => data.value?.data || [])
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div class="flex items-center gap-3">
-        <Gavel class="w-7 h-7 lg:w-8 lg:h-8 text-yellow-500 flex-shrink-0" />
+        <Gavel class="w-7 h-7 lg:w-8 lg:h-8 text-warning flex-shrink-0" />
         <div>
-          <h1 class="text-2xl lg:text-3xl font-bold">Auction House</h1>
+          <h1 class="text-4xl md:text-5xl">Auction House</h1>
           <p class="text-sm text-muted-foreground">
             Browse and bid on items listed by players
           </p>
@@ -411,7 +411,7 @@ const auctions = computed(() => data.value?.data || [])
     </div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="text-center py-12 text-red-500">
+    <div v-else-if="error" class="text-center py-12 text-danger">
       Failed to load auctions. Please try again.
     </div>
 
@@ -457,7 +457,7 @@ const auctions = computed(() => data.value?.data || [])
               </div>
               <div v-if="auction.buyPrice > 0" class="text-right">
                 <div class="text-xs text-muted-foreground">Buy Now</div>
-                <div class="font-semibold text-green-500">{{ formatPrice(auction.buyPrice) }}</div>
+                <div class="font-semibold text-success">{{ formatPrice(auction.buyPrice) }}</div>
               </div>
               <div class="text-right">
                 <div class="text-xs text-muted-foreground">Bids</div>
@@ -551,7 +551,7 @@ const auctions = computed(() => data.value?.data || [])
                 {{ formatPrice(auction.curPrice) }}
               </TableCell>
               <TableCell>
-                <span v-if="auction.buyPrice > 0" class="text-green-500">
+                <span v-if="auction.buyPrice > 0" class="text-success">
                   {{ formatPrice(auction.buyPrice) }}
                 </span>
                 <span v-else class="text-muted-foreground">-</span>
