@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { FileText, UserPlus, UserMinus, History, Loader2, AlertCircle } from 'lucide-vue-next'
+import { FileText, UserPlus, UserMinus, History, Loader2, AlertCircle } from '@lucide/vue'
 import type { ZoneInfoHistory } from '@/types'
 
 const props = defineProps<{

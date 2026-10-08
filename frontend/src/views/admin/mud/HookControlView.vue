@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
-import { Filter, RefreshCw, Search, ShieldCheck } from 'lucide-vue-next'
+import { Filter, RefreshCw, Search, ShieldCheck } from '@lucide/vue'
 import type { HookChannel } from '@/types/hooks'
 import { useHookControl } from '@/composables/useHookControl'
 import { hookApiError } from '@/services/hooksApi'

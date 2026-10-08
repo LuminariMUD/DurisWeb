@@ -19,7 +19,7 @@ import {
   Minus,
   PictureInPicture2,
   Layers,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { MudRoom, MudExit } from '@/types/mud'
 
 import { parseAnsiToHtml } from '@/utils/ansiParser'

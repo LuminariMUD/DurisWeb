@@ -17,7 +17,7 @@ import {
   ChevronsRight,
   Filter,
   ChevronDown,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { FragLeaderboardFilters } from '@/types'
 
 const showFilters = ref(false)

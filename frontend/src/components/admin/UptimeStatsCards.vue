@@ -102,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { Loader2 } from 'lucide-vue-next'
+import { Loader2 } from '@lucide/vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useUptimeStats, useMudUptimeStats, formatUptime } from '@/composables/useServerReboot'
 import { useServerHealth } from '@/composables/useServerHealth'

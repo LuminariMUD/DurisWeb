@@ -2,9 +2,9 @@
 import { computed } from 'vue'
 import { usePvPStats } from '@/composables/useAdminAnalytics'
 import StatCard from './StatCard.vue'
-import { Swords, TrendingUp, Calendar, MapPin } from 'lucide-vue-next'
+import { Swords, TrendingUp, Calendar, MapPin } from '@lucide/vue'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle } from 'lucide-vue-next'
+import { AlertCircle } from '@lucide/vue'
 import { parseAnsiForVue } from '@/utils/ansiParser'
 
 const { data: stats, isLoading, error } = usePvPStats()

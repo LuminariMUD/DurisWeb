@@ -21,7 +21,7 @@ import {
   MoreVertical,
   Copy,
   Trash2,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import type { ZoneIndex } from '@/types'
 

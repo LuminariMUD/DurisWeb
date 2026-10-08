@@ -29,7 +29,7 @@ import {
   Trash2,
   Shield,
   Zap,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { ZoneObject, ExtraDescription } from '@/types'
 
 const props = defineProps<{

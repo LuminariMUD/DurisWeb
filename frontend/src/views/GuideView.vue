@@ -19,7 +19,7 @@ import HelpFileDialog from '@/components/guide/HelpFileDialog.vue'
 import { guideApi } from '@/services/api'
 import { stripAnsiCodes } from '@/utils/ansiParser'
 import type { PublicHelpFile, GuideCategoryWithCount } from '@/types'
-import { Search, BookOpen, X, ArrowUp, ArrowDown } from 'lucide-vue-next'
+import { Search, BookOpen, X, ArrowUp, ArrowDown } from '@lucide/vue'
 
 // State
 const initialLoading = ref(true)

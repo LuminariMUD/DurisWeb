@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useInstallPrompt } from '@/composables/useInstallPrompt'
 import { useSiteConfig } from '@/composables/useSiteConfig'
-import { Download, X } from 'lucide-vue-next'
+import { Download, X } from '@lucide/vue'
 
 const { canInstall, install, dismiss } = useInstallPrompt()
 const { siteTitle, isAvailable } = useSiteConfig()

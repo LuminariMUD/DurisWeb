@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { HelpCircle, Loader2 } from 'lucide-vue-next'
+import { HelpCircle, Loader2 } from '@lucide/vue'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 
 const props = defineProps<{

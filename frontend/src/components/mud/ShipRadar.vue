@@ -24,7 +24,7 @@ import {
   Radar,
   Loader2,
   Home,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 import type { MudShipContact } from '@/types/mud'
 import type { WikiMapBounds } from '@/types'

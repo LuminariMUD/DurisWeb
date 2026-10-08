@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-vue-next'
+import { ArrowDownLeft, ArrowUpRight, ChevronRight } from '@lucide/vue'
 import type { HookStatus } from '@/types/hooks'
 import { Badge } from '@/components/ui/badge'
 import DualStateLamp from './DualStateLamp.vue'

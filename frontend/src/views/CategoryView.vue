@@ -13,8 +13,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import BreadcrumbsNav from '@/components/layout/BreadcrumbsNav.vue'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
 import AnsiText from '@/components/ui/AnsiText.vue'
-import { Pin, Lock, MessageSquare, User, Eye, Clock } from 'lucide-vue-next'
-import * as LucideIcons from 'lucide-vue-next'
+import { Pin, Lock, MessageSquare, User, Eye, Clock } from '@lucide/vue'
+import * as LucideIcons from '@lucide/vue'
 
 const props = defineProps<{
   categoryId: string

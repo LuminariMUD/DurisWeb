@@ -31,7 +31,7 @@ import {
   TrendingUp,
   Trophy,
   DollarSign,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import AnsiText from '@/components/ui/AnsiText.vue'
 import {
   DropdownMenu,

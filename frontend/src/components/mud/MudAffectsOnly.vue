@@ -19,7 +19,7 @@ import {
   Moon,
   Sun,
   PictureInPicture2,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { Component } from 'vue'
 
 const emit = defineEmits<{

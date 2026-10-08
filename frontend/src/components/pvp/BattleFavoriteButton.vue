@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { Star } from 'lucide-vue-next'
+import { Star } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { pvpApi } from '@/services/api'
 import { useAuth } from '@/composables/useAuth'

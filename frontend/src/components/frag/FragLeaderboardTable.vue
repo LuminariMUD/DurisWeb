@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Trophy, Medal } from 'lucide-vue-next'
+import { Trophy, Medal } from '@lucide/vue'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import { formatDistanceToNow } from 'date-fns'
 import type { FragLeaderboardEntry } from '@/types'

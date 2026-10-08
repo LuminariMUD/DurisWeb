@@ -32,7 +32,7 @@ import {
   User,
   Terminal,
   ExternalLink,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { useToast } from '@/composables/useToast'
 import { RouterLink } from 'vue-router'
 

@@ -5,7 +5,7 @@ import { changelogApi } from '@/services/api'
 import { useAuth } from '@/composables/useAuth'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ChevronDown, Circle, CheckCircle2 } from 'lucide-vue-next'
+import { ChevronDown, Circle, CheckCircle2 } from '@lucide/vue'
 import { sanitizeChangelogContent } from '@/utils/sanitizeChangelogContent'
 
 const { isAuthenticated, accountName } = useAuth()

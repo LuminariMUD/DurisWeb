@@ -413,7 +413,7 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { apiClient as api } from '@/services/api'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'

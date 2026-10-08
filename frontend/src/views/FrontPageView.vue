@@ -10,7 +10,7 @@ import {
   Pause,
   Play,
   Swords,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { RouterLink } from 'vue-router'
 import { usePreferredReducedMotion } from '@vueuse/core'
 import { useHead } from '@unhead/vue'

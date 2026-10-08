@@ -45,7 +45,7 @@ import {
   XCircle,
   AlertCircle,
   Edit,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 const router = useRouter()
 const { isAuthenticated } = useAuth()

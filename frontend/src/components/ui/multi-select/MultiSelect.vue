@@ -1,6 +1,6 @@
 <script setup lang="ts" generic="T extends { value: string | number; label: string }">
 import { ref, computed } from 'vue'
-import { X, ChevronsUpDown, Search } from 'lucide-vue-next'
+import { X, ChevronsUpDown, Search } from '@lucide/vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {

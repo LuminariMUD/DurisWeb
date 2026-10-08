@@ -18,7 +18,7 @@ import {
   Trophy,
   DollarSign,
   Swords,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import AnsiText from '@/components/ui/AnsiText.vue'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'

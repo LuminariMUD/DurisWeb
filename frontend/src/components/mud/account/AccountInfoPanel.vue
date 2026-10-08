@@ -5,7 +5,7 @@ import { parseAnsiToHtml } from '@/utils/ansiParser'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
-import { User, Calendar, Clock, Crown, Mail } from 'lucide-vue-next'
+import { User, Calendar, Clock, Crown, Mail } from '@lucide/vue'
 import { format } from 'date-fns'
 
 const store = useMudStore()

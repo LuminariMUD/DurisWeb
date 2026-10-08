@@ -34,7 +34,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowUpDown, Edit } from 'lucide-vue-next'
+import { ArrowUpDown, Edit } from '@lucide/vue'
 import ZoneEditDialog from '@/components/ZoneEditDialog.vue'
 import ZoneBulkEditDialog from '@/components/ZoneBulkEditDialog.vue'
 import ZoneStatsCard from '@/components/ZoneStatsCard.vue'

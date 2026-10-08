@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { HelpCircle } from 'lucide-vue-next'
+import { HelpCircle } from '@lucide/vue'
 import GroupSelectDropdown from './GroupSelectDropdown.vue'
 
 const props = defineProps<{

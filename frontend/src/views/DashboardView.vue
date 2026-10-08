@@ -2,7 +2,7 @@
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
-import { BarChart3 } from 'lucide-vue-next'
+import { BarChart3 } from '@lucide/vue'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import AdminDashboardOverview from '@/components/admin/AdminDashboardOverview.vue'
 import AdminDashboardForum from '@/components/admin/AdminDashboardForum.vue'

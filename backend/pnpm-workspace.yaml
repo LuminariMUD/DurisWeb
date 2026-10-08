@@ -1,3 +1,12 @@
-onlyBuiltDependencies:
-  - node-pty
-  - bcrypt
+allowBuilds:
+  "@parcel/watcher": true
+  bcrypt: true
+  esbuild: true
+  node-pty: true
+  unrs-resolver: true
+
+# @types/express-serve-static-core 5.1.1+ widens req.params values to
+# `string | string[]`, which breaks ~300 route call sites. Keep the last
+# version with plain string params until the routes are migrated.
+overrides:
+  "@types/express-serve-static-core": "5.1.0"

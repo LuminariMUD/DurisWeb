@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Save, Search, Loader2, AlertTriangle, RefreshCw, Undo2 } from 'lucide-vue-next'
+import { Plus, Save, Search, Loader2, AlertTriangle, RefreshCw, Undo2 } from '@lucide/vue'
 import Sortable from 'sortablejs'
 import { useToast } from '@/composables/useToast'
 import { useZoneCache } from '@/composables/useZoneCache'

@@ -27,7 +27,7 @@
 
 <script setup lang="ts">
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
-import { Swords, X } from 'lucide-vue-next'
+import { Swords, X } from '@lucide/vue'
 import RecentPvPDisplay from '@/components/forum/widgets/RecentPvPDisplay.vue'
 
 const props = defineProps(nodeViewProps)

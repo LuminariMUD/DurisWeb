@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Battery, BatteryFull, BatteryMedium, BatteryLow, RefreshCw, User } from 'lucide-vue-next'
+import { Battery, BatteryFull, BatteryMedium, BatteryLow, RefreshCw, User } from '@lucide/vue'
 
 const store = useMudStore()
 const { getRestedBonus } = useMudConnection()

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Bell, BellOff, Loader2 } from 'lucide-vue-next'
+import { Bell, BellOff, Loader2 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { usePushNotification } from '@/composables/usePushNotification'

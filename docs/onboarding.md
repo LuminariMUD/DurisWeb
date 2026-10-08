@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Git access to this repository.
-- Node.js 22 and pnpm 10.15.1.
+- Node.js 26 and pnpm 12.10.1.
 - Docker with the `docker compose` subcommand.
 - A local DurisMUD checkout and an operator-approved MUD-compatible database
   baseline for features that read game data.
@@ -13,7 +13,7 @@
 Install both independent packages:
 
 ```bash
-corepack prepare pnpm@10.15.1 --activate
+corepack prepare pnpm@12.10.1 --activate
 pnpm --dir backend install --frozen-lockfile
 pnpm --dir frontend install --frozen-lockfile
 ```

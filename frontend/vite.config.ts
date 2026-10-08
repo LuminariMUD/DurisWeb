@@ -4,7 +4,7 @@ import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import { VitePWA } from 'vite-plugin-pwa'
-import { parseViteEnvironment } from './config/environment'
+import { parseViteEnvironment } from './config/environment.ts'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -107,20 +107,31 @@ export default defineConfig(({ mode }) => {
       port: environment.previewPort,
     },
     build: {
-      // Reduce memory usage during build
-      minify: 'esbuild', // esbuild uses less RAM than terser
+      // Vite 8 minifies with Oxc by default (the esbuild minifier is deprecated).
       sourcemap: false, // Skip sourcemaps to save memory
       // The route-split main bundle remains below 200 KiB compressed. Keep the
       // warning above its observed uncompressed size so genuine regressions
       // still surface without flagging the intentionally shared application UI.
       chunkSizeWarningLimit: 600,
-      rollupOptions: {
+      rolldownOptions: {
         output: {
-          manualChunks: {
-            // Split large deps into separate chunks
-            'vendor-vue': ['vue', 'vue-router', 'pinia'],
-            'vendor-charts': ['chart.js', 'vue-chartjs'],
-            'vendor-editor': ['@tiptap/core', '@tiptap/vue-3', '@tiptap/starter-kit'],
+          // Split large deps into separate chunks. Rolldown (Vite 8) replaced
+          // manualChunks with codeSplitting groups matched against module ids.
+          codeSplitting: {
+            groups: [
+              {
+                name: 'vendor-vue',
+                test: /[\\/]node_modules[\\/](?:.*[\\/]node_modules[\\/])?(?:vue|@vue|vue-router|pinia)[\\/]/,
+              },
+              {
+                name: 'vendor-charts',
+                test: /[\\/]node_modules[\\/](?:.*[\\/]node_modules[\\/])?(?:chart\.js|vue-chartjs)[\\/]/,
+              },
+              {
+                name: 'vendor-editor',
+                test: /[\\/]node_modules[\\/](?:.*[\\/]node_modules[\\/])?(?:@tiptap|prosemirror-[^\\/]+)[\\/]/,
+              },
+            ],
           },
         },
       },

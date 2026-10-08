@@ -14,16 +14,7 @@ import ExitEditor from '@/components/builder/ExitEditor.vue'
 import ExtraDescEditor from '@/components/builder/ExtraDescEditor.vue'
 import AnsiEditor from '@/components/builder/AnsiEditor.vue'
 import DescriptionPreview from '@/components/builder/DescriptionPreview.vue'
-import {
-  Save,
-  ChevronDown,
-  ChevronRight,
-  Info,
-  DoorOpen,
-  Flag,
-  FileText,
-  Eye,
-} from 'lucide-vue-next'
+import { Save, ChevronDown, ChevronRight, Info, DoorOpen, Flag, FileText, Eye } from '@lucide/vue'
 import type { Room, RoomExit, ExtraDescription } from '@/types'
 
 const props = defineProps<{

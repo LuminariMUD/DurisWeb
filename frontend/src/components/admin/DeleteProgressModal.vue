@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { CheckCircle2, XCircle, Loader2, Info } from 'lucide-vue-next'
+import { CheckCircle2, XCircle, Loader2, Info } from '@lucide/vue'
 
 interface ProgressEntry {
   message: string

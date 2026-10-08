@@ -40,7 +40,7 @@ import SubscribeButton from '@/components/forum/SubscribeButton.vue'
 import MentionAutocomplete from '@/components/forum/MentionAutocomplete.vue'
 import PollDisplay from '@/components/forum/PollDisplay.vue'
 import ImageLightbox from '@/components/ui/ImageLightbox.vue'
-import { RotateCcw } from 'lucide-vue-next'
+import { RotateCcw } from '@lucide/vue'
 
 const props = defineProps<{
   threadId: string

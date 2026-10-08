@@ -37,15 +37,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Pagination from '@/components/forum/PaginationWithEllipsis.vue'
-import {
-  Shield,
-  Filter,
-  Archive,
-  RotateCcw,
-  Trash2,
-  MessageSquare,
-  FileText,
-} from 'lucide-vue-next'
+import { Shield, Filter, Archive, RotateCcw, Trash2, MessageSquare, FileText } from '@lucide/vue'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 
 const router = useRouter()

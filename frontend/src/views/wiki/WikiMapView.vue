@@ -13,7 +13,7 @@ import {
 import LeafletMap from '@/components/wiki/LeafletMap.vue'
 import { wikiApi } from '@/services/api'
 import type { WikiContinent, WikiMapBounds } from '@/types'
-import { Loader2, ZoomIn, ZoomOut, Crosshair, Home, Layers } from 'lucide-vue-next'
+import { Loader2, ZoomIn, ZoomOut, Crosshair, Home, Layers } from '@lucide/vue'
 
 const router = useRouter()
 

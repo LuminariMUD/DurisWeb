@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { LockKeyhole, ShieldAlert, Unplug } from 'lucide-vue-next'
+import { LockKeyhole, ShieldAlert, Unplug } from '@lucide/vue'
 import type { MudTransportStatus } from '@/types/hooks'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'

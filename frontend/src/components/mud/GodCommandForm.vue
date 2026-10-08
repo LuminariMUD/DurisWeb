@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/command'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import AnsiText from '@/components/ui/AnsiText.vue'
-import { Check, ChevronsUpDown, Loader2, AlertTriangle, Eye, EyeOff } from 'lucide-vue-next'
+import { Check, ChevronsUpDown, Loader2, AlertTriangle, Eye, EyeOff } from '@lucide/vue'
 import { cn } from '@/lib/utils'
 import { useQuery } from '@tanstack/vue-query'
 import { useDebounceFn } from '@vueuse/core'

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Eye } from 'lucide-vue-next'
+import { Eye } from '@lucide/vue'
 
 const props = defineProps<{
   text: string

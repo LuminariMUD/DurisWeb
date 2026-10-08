@@ -26,7 +26,7 @@ import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vu
 import AnsiText from '@/components/ui/AnsiText.vue'
 import { wikiApi } from '@/services/api'
 import type { WikiZone, WikiZoneFilters } from '@/types'
-import { Search, SortAsc, SortDesc, X, Filter, ChevronDown, ChevronUp } from 'lucide-vue-next'
+import { Search, SortAsc, SortDesc, X, Filter, ChevronDown, ChevronUp } from '@lucide/vue'
 
 const router = useRouter()
 

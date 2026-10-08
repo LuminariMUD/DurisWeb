@@ -38,7 +38,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Map } from 'lucide-vue-next'
+import { Map } from '@lucide/vue'
 import LeafletMap from '@/components/wiki/LeafletMap.vue'
 import { wikiApi } from '@/services/api'
 import type { WikiMapBounds } from '@/types'

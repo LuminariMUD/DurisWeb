@@ -3,16 +3,7 @@ import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import cytoscape, { type Core, type NodeSingular, type ElementDefinition } from 'cytoscape'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import {
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  LayoutGrid,
-  Info,
-  Fullscreen,
-  X,
-  Download,
-} from 'lucide-vue-next'
+import { ZoomIn, ZoomOut, Maximize2, LayoutGrid, Info, Fullscreen, X, Download } from '@lucide/vue'
 import { parseAnsiToHtml, drawAnsiText } from '@/utils/ansiParser'
 import type { RoomPosition } from '@/composables/useZoneMap'
 import type { RoomIndex } from '@/types'

@@ -15,15 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
-import {
-  History,
-  Search,
-  Loader2,
-  ArrowLeft,
-  ArrowUp,
-  ArrowDown,
-  ArrowUpDown,
-} from 'lucide-vue-next'
+import { History, Search, Loader2, ArrowLeft, ArrowUp, ArrowDown, ArrowUpDown } from '@lucide/vue'
 import type { AuctionHistoryFilters } from '@/types'
 import AnsiText from '@/components/ui/AnsiText.vue'
 

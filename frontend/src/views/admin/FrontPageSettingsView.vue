@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import TipTapEditor from '@/components/forum/editor/TipTapEditor.vue'
-import { Home, Image, Trash2, Upload } from 'lucide-vue-next'
+import { Home, Image, Trash2, Upload } from '@lucide/vue'
 
 const router = useRouter()
 const { isOverlord, hasPermission } = useAuth()

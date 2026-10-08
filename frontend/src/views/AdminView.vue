@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ROLE_OPTIONS, getRoleLabel } from '@/utils/roleMapping'
-import { Shield, Lock, Users, Settings, History } from 'lucide-vue-next'
+import { Shield, Lock, Users, Settings, History } from '@lucide/vue'
 
 const router = useRouter()
 const { isOverlord } = useAuth()

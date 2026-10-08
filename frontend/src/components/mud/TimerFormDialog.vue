@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Plus, Terminal, Volume2, MessageSquare, HelpCircle } from 'lucide-vue-next'
+import { Plus, Terminal, Volume2, MessageSquare, HelpCircle } from '@lucide/vue'
 import TriggerActionCard from './TriggerActionCard.vue'
 import GroupSelectDropdown from './GroupSelectDropdown.vue'
 

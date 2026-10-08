@@ -18,7 +18,7 @@ import {
   Shield,
   RefreshCw,
   AlertCircle,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { MudRace, MudChargenClass, MudStatLabels, MudHometown } from '@/types/mud'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import HelpModal from './HelpModal.vue'

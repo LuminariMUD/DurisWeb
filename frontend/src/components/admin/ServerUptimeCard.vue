@@ -116,7 +116,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Server, Activity, Loader2, AlertCircle } from 'lucide-vue-next'
+import { Server, Activity, Loader2, AlertCircle } from '@lucide/vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'

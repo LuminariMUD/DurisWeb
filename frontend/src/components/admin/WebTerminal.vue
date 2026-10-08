@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useTerminal } from '@/composables/useTerminal'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { PlugZap, Unplug, Trash2, Maximize2 } from 'lucide-vue-next'
+import { PlugZap, Unplug, Trash2, Maximize2 } from '@lucide/vue'
 
 const terminalContainer = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)

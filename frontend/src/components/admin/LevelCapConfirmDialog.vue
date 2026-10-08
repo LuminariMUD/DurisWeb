@@ -90,7 +90,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { ArrowRight, AlertTriangle } from 'lucide-vue-next'
+import { ArrowRight, AlertTriangle } from '@lucide/vue'
 import {
   AlertDialog,
   AlertDialogContent,

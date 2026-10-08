@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { X, Terminal, Highlighter, Volume2, EyeOff, MessageSquare } from 'lucide-vue-next'
+import { X, Terminal, Highlighter, Volume2, EyeOff, MessageSquare } from '@lucide/vue'
 
 const props = defineProps<{
   action: TriggerAction
@@ -80,6 +80,12 @@ const actionTitle = computed(() => {
       return 'Unknown Action'
   }
 })
+
+// vue-tsc loses the `action.type === 'sound'` narrowing after the nested
+// custom-sound block, so read the volume through a typed computed instead.
+const soundVolume = computed(() =>
+  props.action.type === 'sound' ? (props.action.volume ?? 0.5) : 0.5,
+)
 
 function updateAction(updates: Partial<TriggerAction>) {
   emit('update', props.index, { ...props.action, ...updates } as TriggerAction)
@@ -179,14 +185,14 @@ function updateAction(updates: Partial<TriggerAction>) {
           <Input
             :model-value="action.customUrl ?? ''"
             placeholder="https://example.com/sound.mp3"
-            @update:model-value="(val) => updateAction({ customUrl: val as string })"
+            @update:model-value="(val: string | number) => updateAction({ customUrl: String(val) })"
           />
         </div>
 
         <div class="space-y-2">
-          <Label>Volume: {{ Math.round((action.volume ?? 0.5) * 100) }}%</Label>
+          <Label>Volume: {{ Math.round(soundVolume * 100) }}%</Label>
           <Slider
-            :model-value="[(action.volume ?? 0.5) * 100]"
+            :model-value="[soundVolume * 100]"
             :min="0"
             :max="100"
             :step="5"

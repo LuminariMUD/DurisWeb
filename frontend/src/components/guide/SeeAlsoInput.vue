@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { guideApi } from '@/services/api'
 import { stripAnsiCodes } from '@/utils/ansiParser'
-import { X, Search, Loader2 } from 'lucide-vue-next'
+import { X, Search, Loader2 } from '@lucide/vue'
 
 const props = defineProps<{
   modelValue: string

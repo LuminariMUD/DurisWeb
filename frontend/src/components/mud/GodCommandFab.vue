@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
 import { Button } from '@/components/ui/button'
-import { Zap } from 'lucide-vue-next'
+import { Zap } from '@lucide/vue'
 import GodCommandDialog from './GodCommandDialog.vue'
 
 const store = useMudStore()

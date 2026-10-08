@@ -10,7 +10,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import { ChevronsUpDown, Check, X } from 'lucide-vue-next'
+import { ChevronsUpDown, Check, X } from '@lucide/vue'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import { cn } from '@/lib/utils'
 

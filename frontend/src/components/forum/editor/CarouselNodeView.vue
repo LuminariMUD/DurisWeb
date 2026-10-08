@@ -162,7 +162,7 @@ import {
   X,
   Loader2,
   AlertCircle,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { forumApi } from '@/services/api'
 
 const props = defineProps(nodeViewProps)

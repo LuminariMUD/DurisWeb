@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Lock, LockOpen, Pin, PinOff, Trash2, MoveRight, RotateCcw } from 'lucide-vue-next'
+import { Lock, LockOpen, Pin, PinOff, Trash2, MoveRight, RotateCcw } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {

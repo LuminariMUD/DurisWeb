@@ -8,7 +8,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { CheckCircle, XCircle, Loader2 } from 'lucide-vue-next'
+import { CheckCircle, XCircle, Loader2 } from '@lucide/vue'
 import { frontendConfiguration } from '@/config/environment'
 
 const props = defineProps<{

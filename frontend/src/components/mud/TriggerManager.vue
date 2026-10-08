@@ -24,7 +24,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { Plus, Download, Upload, VolumeX, Volume2, FolderTree } from 'lucide-vue-next'
+import { Plus, Download, Upload, VolumeX, Volume2, FolderTree } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 
 import TriggerTable from './TriggerTable.vue'

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { parseAnsiForVue } from '@/utils/ansiParser'
 import { computed } from 'vue'
-import { Bell } from 'lucide-vue-next'
+import { Bell } from '@lucide/vue'
 
 const props = defineProps<{
   message: string

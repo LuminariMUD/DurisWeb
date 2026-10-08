@@ -26,16 +26,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import TipTapEditor from '@/components/forum/editor/TipTapEditor.vue'
 import AccountAutocomplete from './AccountAutocomplete.vue'
 import AnsiText from '@/components/ui/AnsiText.vue'
-import {
-  Home,
-  User,
-  Package,
-  Save,
-  RefreshCw,
-  ChevronsUpDown,
-  Check,
-  Loader2,
-} from 'lucide-vue-next'
+import { Home, User, Package, Save, RefreshCw, ChevronsUpDown, Check, Loader2 } from '@lucide/vue'
 import type {
   ProcRequest,
   ProcRequestEntityType,

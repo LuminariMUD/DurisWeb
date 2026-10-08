@@ -2,9 +2,9 @@
 import { computed } from 'vue'
 import { usePlayerStats } from '@/composables/useAdminAnalytics'
 import StatCard from './StatCard.vue'
-import { Users, TrendingUp, Shield, BarChart3 } from 'lucide-vue-next'
+import { Users, TrendingUp, Shield, BarChart3 } from '@lucide/vue'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle } from 'lucide-vue-next'
+import { AlertCircle } from '@lucide/vue'
 import { parseAnsiForVue } from '@/utils/ansiParser'
 
 const { data: stats, isLoading, error } = usePlayerStats()

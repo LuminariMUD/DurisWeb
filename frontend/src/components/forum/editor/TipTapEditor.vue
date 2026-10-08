@@ -856,7 +856,7 @@ import {
   Trophy,
   Swords,
   Map,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { htmlToAnsi, ansiToHtmlWithStyles } from '@/utils/ansiParser'
 import { forumApi } from '@/services/api'
 

@@ -103,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { History, User, Clock, ArrowRight } from 'lucide-vue-next'
+import { History, User, Clock, ArrowRight } from '@lucide/vue'
 import {
   Dialog,
   DialogContent,

@@ -2,7 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useMapBroadcastReceiver } from '@/composables/useMapBroadcast'
 import MudMap from '@/components/mud/MudMap.vue'
-import { WifiOff, Loader2 } from 'lucide-vue-next'
+import { WifiOff, Loader2 } from '@lucide/vue'
 
 const {
   room,

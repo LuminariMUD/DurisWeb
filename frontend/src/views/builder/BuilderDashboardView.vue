@@ -44,7 +44,7 @@ import {
   Settings,
   SearchCode,
   Lock,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { ZoneIndex } from '@/types'
 
 const router = useRouter()

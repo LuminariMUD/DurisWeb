@@ -1,0 +1,9 @@
+allowBuilds:
+  esbuild: true
+  vue-demi: true
+
+# Releases younger than pnpm 12's 24h cooldown that we accept on purpose:
+# the icon library rename target, and a security patch.
+minimumReleaseAgeExclude:
+  - '@lucide/vue@1.53.0'
+  - source-map-js

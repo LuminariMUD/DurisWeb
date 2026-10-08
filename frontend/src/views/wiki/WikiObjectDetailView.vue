@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import AnsiText from '@/components/ui/AnsiText.vue'
 import { wikiApi } from '@/services/api'
 import type { WikiObjectDetail } from '@/types'
-import { Loader2, ArrowLeft, MapPin, Shield, Sword, Sparkles, Zap } from 'lucide-vue-next'
+import { Loader2, ArrowLeft, MapPin, Shield, Sword, Sparkles, Zap } from '@lucide/vue'
 
 const props = defineProps<{
   vnum: string

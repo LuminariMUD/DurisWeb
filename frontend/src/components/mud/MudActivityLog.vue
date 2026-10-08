@@ -16,7 +16,7 @@ import {
   Activity,
   Merge,
   FolderTree,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { MudLogEntry } from '@/types/mud'
 import AliasManager from './AliasManager.vue'
 import TriggerManager from './TriggerManager.vue'

@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import TipTapEditor from '@/components/forum/editor/TipTapEditor.vue'
 import ZoneComment from './ZoneComment.vue'
-import { Send, AlertCircle, MessageSquare, RefreshCw } from 'lucide-vue-next'
+import { Send, AlertCircle, MessageSquare, RefreshCw } from '@lucide/vue'
 import type { ZoneComment as ZoneCommentType, CreateZoneComment } from '@/types'
 
 const props = defineProps<{

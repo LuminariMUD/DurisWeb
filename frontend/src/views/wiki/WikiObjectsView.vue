@@ -50,7 +50,7 @@ import {
   Check,
   ChevronsUpDown,
   Filter,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 const router = useRouter()
 

@@ -35,7 +35,7 @@ import {
   History,
   Copy,
   Cable,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { useAuth } from '@/composables/useAuth'
 import { useToast } from '@/composables/useToast'
 import { helpSuggestionApi, dupeApi, type DupedItem } from '@/services/api'

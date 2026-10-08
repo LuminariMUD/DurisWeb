@@ -1,9 +1,9 @@
 ![DurisWeb — the web companion to DurisMUD. A fortress beneath a crimson eclipse.](docs/assets/readme-banner.png)
 
 <p align="center">
-  <a href="https://github.com/Community-Duris/DurisWebApp/actions/workflows/quality.yml"><img src="https://img.shields.io/github/actions/workflow/status/Community-Duris/DurisWebApp/quality.yml?branch=master&amp;style=flat-square&amp;label=code%20quality" alt="Code Quality workflow on master"></a>
-  <a href="docs/onboarding.md"><img src="https://img.shields.io/badge/Node.js-22-5FA04E?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 22"></a>
-  <a href="backend/package.json"><img src="https://img.shields.io/badge/pnpm-10.15.1-F69220?style=flat-square&amp;logo=pnpm&amp;logoColor=white" alt="pnpm 10.15.1"></a>
+  <a href="https://github.com/LuminariMUD/DurisWeb/actions/workflows/quality.yml"><img src="https://img.shields.io/github/actions/workflow/status/LuminariMUD/DurisWeb/quality.yml?branch=master&amp;style=flat-square&amp;label=code%20quality" alt="Code Quality workflow on master"></a>
+  <a href="docs/onboarding.md"><img src="https://img.shields.io/badge/Node.js-26-5FA04E?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 26"></a>
+  <a href="backend/package.json"><img src="https://img.shields.io/badge/pnpm-12.10.1-F69220?style=flat-square&amp;logo=pnpm&amp;logoColor=white" alt="pnpm 12.10.1"></a>
   <a href="docs/CONVENTIONS.md"><img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&amp;logo=typescript&amp;logoColor=white" alt="TypeScript 5.9"></a>
   <br>
   <a href="frontend/README_frontend.md"><img src="https://img.shields.io/badge/Vue-3-4FC08D?style=flat-square&amp;logo=vuedotjs&amp;logoColor=white" alt="Vue 3"></a>
@@ -29,7 +29,7 @@ Express API and integrates with the separately maintained DurisMUD C server.
   <a href="#get-started">Get started</a> ·
   <a href="#development">Development</a> ·
   <a href="#documentation">Documentation</a> ·
-  <a href="https://github.com/Community-Duris/DurisWebApp/issues">Issues</a>
+  <a href="https://github.com/LuminariMUD/DurisWeb/issues">Issues</a>
 </p>
 
 ## What you can do
@@ -109,7 +109,7 @@ See the [architecture and data contracts](docs/ARCHITECTURE.md) and
 
 ## Get started
 
-Use **Node.js 22.12 or newer in the 22.x line**, **pnpm 10.15.1**, and **Docker
+Use **Node.js 26** (22.22+ or 24.15+ also satisfy the engines range), **pnpm 12.10.1**, and **Docker
 with Docker Compose**. Game-data features also need a local DurisMUD checkout
 and an operator-approved database baseline.
 
@@ -123,9 +123,9 @@ and an operator-approved database baseline.
 **1. Clone and install both packages.**
 
 ```bash
-git clone https://github.com/Community-Duris/DurisWebApp.git
-cd DurisWebApp
-corepack prepare pnpm@10.15.1 --activate
+git clone https://github.com/LuminariMUD/DurisWeb.git
+cd DurisWeb
+corepack prepare pnpm@12.10.1 --activate
 pnpm --dir backend install --frozen-lockfile
 pnpm --dir frontend install --frozen-lockfile
 ```
@@ -229,7 +229,7 @@ record and verify their exact commits independently.
 
 ## Contribute
 
-Use the [issue tracker](https://github.com/Community-Duris/DurisWebApp/issues)
+Use the [issue tracker](https://github.com/LuminariMUD/DurisWeb/issues)
 for bugs and focused proposals. Start from the current `master` branch, keep
 changes scoped, and follow the [contribution guide](CONTRIBUTING.md) and relevant
 package checks. Work on the DurisMUD server belongs in its separate repository.

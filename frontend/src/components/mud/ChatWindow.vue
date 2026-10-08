@@ -7,7 +7,7 @@ import { useChatHistory } from '@/composables/useChatHistory'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { X, Minus, Plus, Send, Trash2 } from 'lucide-vue-next'
+import { X, Minus, Plus, Send, Trash2 } from '@lucide/vue'
 import type { ChatWindowType, ChatMessageType } from '@/types/chat'
 import { CHANNEL_KEYS } from '@/types/chat'
 

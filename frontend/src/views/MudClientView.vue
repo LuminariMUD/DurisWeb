@@ -15,7 +15,7 @@ import MudGameClient from '@/components/mud/MudGameClient.vue'
 import MudReturnToMenuDialog from '@/components/mud/MudReturnToMenuDialog.vue'
 import MudReconnectDialog from '@/components/mud/MudReconnectDialog.vue'
 import CopyoverBanner from '@/components/mud/CopyoverBanner.vue'
-import { Loader2, WifiOff, RefreshCw, AlertCircle } from 'lucide-vue-next'
+import { Loader2, WifiOff, RefreshCw, AlertCircle } from '@lucide/vue'
 
 type ClientState =
   | 'connecting'

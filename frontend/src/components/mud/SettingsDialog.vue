@@ -57,7 +57,7 @@ import {
   Wifi,
   Wind,
   Zap,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { Input } from '@/components/ui/input'
 import type { Component } from 'vue'
 import { toast } from 'vue-sonner'

@@ -10,7 +10,7 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-vue-next'
+import { CheckCircle2, XCircle, AlertTriangle } from '@lucide/vue'
 import UptimeBar from '@/components/UptimeBar.vue'
 import { useSiteConfig } from '@/composables/useSiteConfig'
 

@@ -12,7 +12,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { Anchor, Crosshair, AlertCircle, ExternalLink, PictureInPicture2 } from 'lucide-vue-next'
+import { Anchor, Crosshair, AlertCircle, ExternalLink, PictureInPicture2 } from '@lucide/vue'
 import type { MudShipContact } from '@/types/mud'
 
 const emit = defineEmits<{

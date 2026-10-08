@@ -1,4 +1,4 @@
-import { constants } from 'fs';
+import { constants, type Stats } from 'fs';
 import * as fs from 'fs/promises';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import * as path from 'path';
@@ -326,7 +326,7 @@ export async function listMudDirectory(
 export async function statMudPath(
   hookId: FilesystemHookId,
   relativeOrAbsolutePath: string,
-): Promise<Awaited<ReturnType<typeof fs.stat>>> {
+): Promise<Stats> {
   assertAttemptAllowed(hookId);
   const { root, target } = resolveContainedPath(hookId, relativeOrAbsolutePath);
   const realTarget = await assertRealPathContained(hookId, root, target, false);

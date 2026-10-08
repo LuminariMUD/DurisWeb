@@ -21,7 +21,7 @@ import {
   Battery,
   Info,
   AlertTriangle,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { MudCharacterInfo } from '@/types/mud'
 import AccountInfoPanel from './account/AccountInfoPanel.vue'
 import ChangeEmailForm from './account/ChangeEmailForm.vue'

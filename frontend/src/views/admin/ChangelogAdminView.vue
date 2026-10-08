@@ -41,7 +41,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, Eye, EyeOff } from '@lucide/vue'
 import { useToast } from '@/composables/useToast'
 import TipTapEditor from '@/components/forum/editor/TipTapEditor.vue'
 

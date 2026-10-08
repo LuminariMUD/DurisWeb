@@ -8,7 +8,7 @@ import AnsiText from '@/components/ui/AnsiText.vue'
 import { wikiApi } from '@/services/api'
 import { hasApiErrorCode } from '@/utils/apiError'
 import type { WikiMobDetail } from '@/types'
-import { Loader2, ArrowLeft, MapPin, Swords, Heart, Skull, Info, Package } from 'lucide-vue-next'
+import { Loader2, ArrowLeft, MapPin, Swords, Heart, Skull, Info, Package } from '@lucide/vue'
 
 const props = defineProps<{
   zoneNumber: string

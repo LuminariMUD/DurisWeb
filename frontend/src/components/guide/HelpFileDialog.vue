@@ -14,7 +14,7 @@ import { parseAnsiForVue, stripAnsiCodes } from '@/utils/ansiParser'
 import { guideApi } from '@/services/api'
 import { useAuth } from '@/composables/useAuth'
 import type { PublicHelpFile } from '@/types'
-import { BookOpen, Calendar, User, ArrowLeft, Pencil } from 'lucide-vue-next'
+import { BookOpen, Calendar, User, ArrowLeft, Pencil } from '@lucide/vue'
 
 const router = useRouter()
 const { isAuthenticated } = useAuth()

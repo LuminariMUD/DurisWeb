@@ -21,7 +21,7 @@ import {
   Shield,
   Info,
   MessageSquare,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 

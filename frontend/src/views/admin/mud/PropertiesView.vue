@@ -248,7 +248,7 @@ import {
   Check,
   X,
   History,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { apiClient as api } from '@/services/api'
 import { useDebounceFn } from '@vueuse/core'
 import { toast } from 'vue-sonner'

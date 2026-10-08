@@ -2,7 +2,7 @@ export interface ClientIdRuntime {
   /** Browser-native UUID generator when available (secure contexts). */
   randomUUID?: () => string
   /** Browser random byte source, available more broadly than randomUUID. */
-  getRandomValues?: (array: Uint8Array) => Uint8Array
+  getRandomValues?: (array: Uint8Array<ArrayBuffer>) => Uint8Array<ArrayBuffer>
 }
 
 function browserRuntime(): ClientIdRuntime {

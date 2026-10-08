@@ -24,7 +24,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Trash2, Plus, X } from 'lucide-vue-next'
+import { Trash2, Plus, X } from '@lucide/vue'
 import { ROLE_OPTIONS, getRoleLabel } from '@/utils/roleMapping'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 

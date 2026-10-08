@@ -23,7 +23,7 @@ import {
   Package,
   FileText,
   Activity,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 const searchQuery = ref('')
 

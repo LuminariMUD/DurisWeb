@@ -27,7 +27,7 @@
 
 <script setup lang="ts">
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
-import { Map as MapIcon, X } from 'lucide-vue-next'
+import { Map as MapIcon, X } from '@lucide/vue'
 import MapPreviewDisplay from '@/components/forum/widgets/MapPreviewDisplay.vue'
 
 const props = defineProps(nodeViewProps)

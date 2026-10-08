@@ -87,7 +87,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { Clock, AlertTriangle } from 'lucide-vue-next'
+import { Clock, AlertTriangle } from '@lucide/vue'
 import {
   AlertDialog,
   AlertDialogContent,

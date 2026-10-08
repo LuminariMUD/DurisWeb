@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { X, Minimize2, Maximize2, GripHorizontal } from 'lucide-vue-next'
+import { X, Minimize2, Maximize2, GripHorizontal } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 
 const props = withDefaults(

@@ -70,7 +70,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { TextStyle } from '@tiptap/extension-text-style'
 import { MudColor, MUD_COLORS } from '@/components/forum/editor/MudColorExtension'
 import { htmlToAnsi, ansiToHtmlWithStyles } from '@/utils/ansiParser'
-import { Palette, ChevronDown, X } from 'lucide-vue-next'
+import { Palette, ChevronDown, X } from '@lucide/vue'
 
 const props = withDefaults(
   defineProps<{

@@ -34,7 +34,7 @@ import {
   Coins,
   Eye,
   Check,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { Mobile } from '@/types'
 
 const props = defineProps<{

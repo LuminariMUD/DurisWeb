@@ -21,7 +21,7 @@ import {
   Crown,
   Droplet,
   MessageSquare,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { PvPBattleStats, PvPBattleComment } from '@/types'
 
 // Mobile tab state

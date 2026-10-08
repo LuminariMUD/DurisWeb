@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Trash2, ChevronDown, ChevronRight, FileText } from 'lucide-vue-next'
+import { Plus, Trash2, ChevronDown, ChevronRight, FileText } from '@lucide/vue'
 import AnsiEditor from '@/components/builder/AnsiEditor.vue'
 import type { ExtraDescription } from '@/types'
 

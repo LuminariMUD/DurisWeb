@@ -16,7 +16,7 @@ import {
   ContextMenuSeparator,
 } from '@/components/ui/context-menu'
 import GroupActionsDialog from './GroupActionsDialog.vue'
-import { Users, Crown, Bot, Settings, PictureInPicture2 } from 'lucide-vue-next'
+import { Users, Crown, Bot, Settings, PictureInPicture2 } from '@lucide/vue'
 
 const emit = defineEmits<{
   detach: []

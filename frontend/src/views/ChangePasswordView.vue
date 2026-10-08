@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useToast } from '@/composables/useToast'
 import { useAuth } from '@/composables/useAuth'
 import { authApi } from '@/services/api'
-import { Loader2, KeyRound, AlertCircle } from 'lucide-vue-next'
+import { Loader2, KeyRound, AlertCircle } from '@lucide/vue'
 
 const router = useRouter()
 const { success } = useToast()

@@ -90,7 +90,7 @@ import {
   Calendar,
   Clock,
   Terminal,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 // Toast notifications
 const { success } = useToast()

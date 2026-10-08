@@ -20,7 +20,7 @@ import {
   AlertTriangle,
   Clock,
   ChevronRight,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { UseGodCommandsReturn } from './god-commands/useGodCommands'
 import type { GodCommand, GodCommandCategory, RecentGodCommand } from './god-commands/types'
 

@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { GitCommit, FileEdit, FilePlus, FileX, Loader2, Check, AlertCircle } from 'lucide-vue-next'
+import { GitCommit, FileEdit, FilePlus, FileX, Loader2, Check, AlertCircle } from '@lucide/vue'
 
 const props = defineProps<{
   open: boolean

@@ -16,7 +16,7 @@ import {
   Filter,
   ChevronDown,
   ChevronRight,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { PvPEvent, PaginatedResponse } from '@/types'
 
 useHead({

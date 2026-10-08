@@ -31,7 +31,7 @@ import {
   Info,
   Map as MapIcon,
   FileText,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { getWealthParts } from '@/utils/formatWealth'
 
 const props = defineProps<{

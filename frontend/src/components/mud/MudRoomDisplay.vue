@@ -27,7 +27,7 @@ import {
   Settings,
   PictureInPicture2,
   Swords,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 // Minimized state
 const isMinimized = defineModel<boolean>('minimized', { default: false })

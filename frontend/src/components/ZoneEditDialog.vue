@@ -34,7 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Loader2, Save } from 'lucide-vue-next'
+import { Loader2, Save } from '@lucide/vue'
 
 const props = defineProps<{
   zoneNumber: number

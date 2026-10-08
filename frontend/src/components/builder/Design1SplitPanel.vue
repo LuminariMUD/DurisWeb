@@ -29,7 +29,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Circle,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 // Sample data
 const zones = ref([

@@ -484,7 +484,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Edit, Trash2, Loader2, X } from 'lucide-vue-next'
+import { Plus, Edit, Trash2, Loader2, X } from '@lucide/vue'
 import RoleEditDialog from '@/components/admin/RoleEditDialog.vue'
 import AccountPermissionsDialog from '@/components/admin/AccountPermissionsDialog.vue'
 import {

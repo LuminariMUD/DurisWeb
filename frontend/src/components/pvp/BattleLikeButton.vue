@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { ThumbsUp } from 'lucide-vue-next'
+import { ThumbsUp } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { pvpApi } from '@/services/api'
 import { useAuth } from '@/composables/useAuth'

@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { notificationApi } from '@/services/api'
-import { Bell } from 'lucide-vue-next'
+import { Bell } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import AnsiText from '@/components/ui/AnsiText.vue'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'

@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { Button } from '@/components/ui/button'
 import { formatDistanceToNow } from 'date-fns'
-import { Reply, Trash2, User } from 'lucide-vue-next'
+import { Reply, Trash2, User } from '@lucide/vue'
 import { highlightMentions } from '@/utils/mentionHighlight'
 import { sanitizeChangelogContent } from '@/utils/sanitizeChangelogContent'
 import type { ZoneComment } from '@/types'

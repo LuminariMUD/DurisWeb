@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useServerHealth } from '@/composables/useAdminAnalytics'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle } from 'lucide-vue-next'
+import { AlertCircle } from '@lucide/vue'
 
 const { data: health, isLoading, error } = useServerHealth()
 

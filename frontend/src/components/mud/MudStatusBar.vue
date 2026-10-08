@@ -19,7 +19,7 @@ import {
   Armchair,
   BedDouble,
   Moon,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import QuestPopover from './QuestPopover.vue'

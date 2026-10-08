@@ -42,7 +42,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Ban, ShieldOff, Search, ArrowUpDown, Trash2 } from 'lucide-vue-next'
+import { Ban, ShieldOff, Search, ArrowUpDown, Trash2 } from '@lucide/vue'
 import { Skeleton } from '@/components/ui/skeleton'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import { format } from 'date-fns'

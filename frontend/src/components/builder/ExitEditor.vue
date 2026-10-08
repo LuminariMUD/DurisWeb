@@ -34,7 +34,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Loader2,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { builderApi } from '@/services/api'
 import type { RoomExit, FlagDefinition, Direction } from '@/types'
 

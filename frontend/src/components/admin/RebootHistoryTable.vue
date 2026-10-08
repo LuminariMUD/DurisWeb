@@ -165,7 +165,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Loader2, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { Loader2, ChevronLeft, ChevronRight } from '@lucide/vue'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,

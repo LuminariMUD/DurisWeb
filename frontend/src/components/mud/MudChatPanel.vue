@@ -3,7 +3,7 @@ import ChatPresentation from './ChatPresentation.vue'
 import { ref, computed, watch, nextTick } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
 import { parseAnsiToHtml, stripAnsiCodes } from '@/utils/ansiParser'
-import { Trash2, Minus, Plus, ArrowDown, PictureInPicture2 } from 'lucide-vue-next'
+import { Trash2, Minus, Plus, ArrowDown, PictureInPicture2 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import ChatWindowManager from './ChatWindowManager.vue'
 

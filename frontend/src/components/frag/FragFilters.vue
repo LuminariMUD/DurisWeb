@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Filter, X } from 'lucide-vue-next'
+import { Filter, X } from '@lucide/vue'
 import { useFragRaces, useFragClasses } from '@/composables/useFragLeaderboard'
 import type { FragLeaderboardFilters } from '@/types'
 

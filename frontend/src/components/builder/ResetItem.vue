@@ -14,7 +14,7 @@ import {
   Trash2,
   Edit,
   AlertTriangle,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import type { ResetWithMetadata } from '@/types'
 

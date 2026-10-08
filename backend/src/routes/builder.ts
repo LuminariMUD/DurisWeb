@@ -2,7 +2,7 @@ import express, { Router, Request, Response } from 'express';
 import logger, { getErrorMessage } from '../utils/logger.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { pool } from '../db/connection.js';
 import { processContentForWrite } from '../utils/contentParser.js';
@@ -1544,7 +1544,7 @@ router.get('/zones/:id/download/:type', async (req: Request, res: Response) => {
       }));
 
       // Create zip archive with all zone files
-      const archive = archiver('zip', { zlib: { level: 9 } });
+      const archive = new ZipArchive({ zlib: { level: 9 } });
 
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', `attachment; filename="${zoneId}.zip"`);

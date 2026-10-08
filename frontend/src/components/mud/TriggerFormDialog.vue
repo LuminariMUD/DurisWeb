@@ -42,7 +42,7 @@ import {
   MessageSquare,
   X,
   HelpCircle,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import TriggerActionCard from './TriggerActionCard.vue'
 import GroupSelectDropdown from './GroupSelectDropdown.vue'
 

@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Plus, Pencil, Trash2, Save, X, GripVertical, Download, Upload } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, Save, X, GripVertical, Download, Upload } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 
 const isOpen = defineModel<boolean>('open', { default: false })

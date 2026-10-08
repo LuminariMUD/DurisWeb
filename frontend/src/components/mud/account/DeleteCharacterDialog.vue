@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Trash2, AlertTriangle } from 'lucide-vue-next'
+import { Trash2, AlertTriangle } from '@lucide/vue'
 import type { MudCharacterInfo } from '@/types/mud'
 
 const props = defineProps<{

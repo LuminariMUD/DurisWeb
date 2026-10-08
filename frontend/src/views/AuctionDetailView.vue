@@ -58,7 +58,7 @@ import {
   ShoppingCart,
   Trash2,
   Info,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import AnsiText from '@/components/ui/AnsiText.vue'
 
 const route = useRoute()

@@ -29,7 +29,7 @@ import {
   ChevronDown as ChevronDownIcon,
   Eye,
   MapPin,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 const room = ref({
   vnum: 34500,

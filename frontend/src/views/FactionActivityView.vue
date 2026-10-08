@@ -17,7 +17,7 @@ import {
 import flatpickr from 'flatpickr'
 import 'flatpickr/dist/flatpickr.min.css'
 import 'flatpickr/dist/themes/dark.css'
-import { Calendar } from 'lucide-vue-next'
+import { Calendar } from '@lucide/vue'
 import { useFactionActivity, useAvailableDates } from '@/composables/usePublicStatistics'
 
 ChartJS.register(

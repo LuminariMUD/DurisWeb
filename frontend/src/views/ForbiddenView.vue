@@ -56,7 +56,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
-import { ShieldXIcon, HomeIcon, ArrowLeftIcon } from 'lucide-vue-next'
+import { ShieldXIcon, HomeIcon, ArrowLeftIcon } from '@lucide/vue'
 
 const route = useRoute()
 const router = useRouter()

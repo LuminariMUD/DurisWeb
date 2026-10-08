@@ -29,7 +29,7 @@ import {
   FolderOpen,
   FileText,
   Users,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 interface Tab {
   id: string

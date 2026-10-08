@@ -39,7 +39,7 @@ import {
   User,
   Package,
   MessageSquare,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { ProcRequest, ProcRequestStatus, ProcRequestEntityType } from '@/types'
 import { highlightMentions } from '@/utils/mentionHighlight'
 import { sanitizeChangelogContent } from '@/utils/sanitizeChangelogContent'

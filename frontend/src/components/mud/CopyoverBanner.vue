@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
-import { Loader2, ServerCog } from 'lucide-vue-next'
+import { Loader2, ServerCog } from '@lucide/vue'
 
 const store = useMudStore()
 

@@ -11,7 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Skull, DoorOpen, AlertTriangle, LogOut } from 'lucide-vue-next'
+import { Skull, DoorOpen, AlertTriangle, LogOut } from '@lucide/vue'
 
 const store = useMudStore()
 

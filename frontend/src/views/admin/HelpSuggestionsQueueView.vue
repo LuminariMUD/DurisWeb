@@ -47,7 +47,7 @@ import {
   User,
   Calendar,
   Tag,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 const toast = useToast()
 

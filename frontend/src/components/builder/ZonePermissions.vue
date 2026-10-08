@@ -48,7 +48,7 @@ import {
   Check,
   ChevronsUpDown,
   Loader2,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { ZonePermissionLevel } from '@/types'
 
 const props = defineProps<{

@@ -43,7 +43,7 @@ import {
   GitCommit,
   Info,
   Plus,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import {
   DropdownMenu,
   DropdownMenuContent,

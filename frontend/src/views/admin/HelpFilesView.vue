@@ -39,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Search, Plus, Pencil, Trash2 } from 'lucide-vue-next'
+import { Search, Plus, Pencil, Trash2 } from '@lucide/vue'
 import { useToast } from '@/composables/useToast'
 import TipTapEditor from '@/components/forum/editor/TipTapEditor.vue'
 import { ansiToHtmlWithStyles, htmlToAnsi } from '@/utils/ansiParser'

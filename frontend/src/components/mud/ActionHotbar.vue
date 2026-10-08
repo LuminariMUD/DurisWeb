@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useHotbarSettings } from '@/composables/useHotbarSettings'
 import { useMudConnection } from '@/composables/useMudConnection'
-import * as icons from 'lucide-vue-next'
+import * as icons from '@lucide/vue'
 import type { Component } from 'vue'
 
 const { settings, enabledButtons, isVertical, setPosition, setSnapEdge, saveSettings } =

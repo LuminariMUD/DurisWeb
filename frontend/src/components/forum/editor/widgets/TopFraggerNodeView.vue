@@ -27,7 +27,7 @@
 
 <script setup lang="ts">
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
-import { Trophy, X } from 'lucide-vue-next'
+import { Trophy, X } from '@lucide/vue'
 import TopFraggerDisplay from '@/components/forum/widgets/TopFraggerDisplay.vue'
 
 const props = defineProps(nodeViewProps)

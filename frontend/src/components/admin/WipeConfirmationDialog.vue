@@ -131,7 +131,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { AlertTriangle, Shield, Clock, Loader2 } from 'lucide-vue-next'
+import { AlertTriangle, Shield, Clock, Loader2 } from '@lucide/vue'
 
 interface Player {
   pid: number

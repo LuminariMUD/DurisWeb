@@ -38,7 +38,7 @@ import {
   Home,
   Settings2,
   GitCommit,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 const router = useRouter()
 const queryClient = useQueryClient()

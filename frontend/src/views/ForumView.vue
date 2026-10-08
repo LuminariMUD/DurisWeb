@@ -43,13 +43,13 @@ import {
   FileText,
   MessagesSquare,
   Clock,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import Sortable from 'sortablejs'
 import { ROLE_OPTIONS } from '@/utils/roleMapping'
 import CategoryPermissionDialog from '@/components/admin/CategoryPermissionDialog.vue'
 import DeleteCategoryDialog from '@/components/forum/DeleteCategoryDialog.vue'
 import ArchiveCategoryDialog from '@/components/forum/ArchiveCategoryDialog.vue'
-import * as LucideIcons from 'lucide-vue-next'
+import * as LucideIcons from '@lucide/vue'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 
 const router = useRouter()

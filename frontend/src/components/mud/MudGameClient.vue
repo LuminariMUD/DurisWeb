@@ -40,7 +40,7 @@ import {
   Bell,
   BookOpen,
   BarChart3,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { Progress } from '@/components/ui/progress'
 import QuestPopover from './QuestPopover.vue'
 

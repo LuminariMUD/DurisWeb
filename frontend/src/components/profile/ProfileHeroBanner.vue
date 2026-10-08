@@ -11,7 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Camera, Trash2, Loader2, ImagePlus } from 'lucide-vue-next'
+import { Camera, Trash2, Loader2, ImagePlus } from '@lucide/vue'
 import { profileApi } from '@/services/api'
 import { useToast } from '@/composables/useToast'
 

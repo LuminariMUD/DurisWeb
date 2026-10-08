@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Progress } from '@/components/ui/progress'
-import { Loader2, CheckCircle2, XCircle } from 'lucide-vue-next'
+import { Loader2, CheckCircle2, XCircle } from '@lucide/vue'
 
 const props = defineProps<{
   type: 'rooms' | 'mobs' | 'objects'

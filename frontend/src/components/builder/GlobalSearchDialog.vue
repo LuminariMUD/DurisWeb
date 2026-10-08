@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search, Home, User, Package, ChevronLeft, ChevronRight, Loader2 } from 'lucide-vue-next'
+import { Search, Home, User, Package, ChevronLeft, ChevronRight, Loader2 } from '@lucide/vue'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 
 const props = defineProps<{

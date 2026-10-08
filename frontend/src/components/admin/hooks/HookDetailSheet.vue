@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Activity, Database, Radio, UserRound } from 'lucide-vue-next'
+import { Activity, Database, Radio, UserRound } from '@lucide/vue'
 import type { HookStatus } from '@/types/hooks'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

@@ -2,9 +2,9 @@
 import { computed } from 'vue'
 import { useForumStats } from '@/composables/useAdminAnalytics'
 import StatCard from './StatCard.vue'
-import { MessageSquare, Users, TrendingUp, Calendar } from 'lucide-vue-next'
+import { MessageSquare, Users, TrendingUp, Calendar } from '@lucide/vue'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle } from 'lucide-vue-next'
+import { AlertCircle } from '@lucide/vue'
 
 const { data: stats, isLoading, error } = useForumStats()
 

@@ -40,7 +40,7 @@ import {
   ArrowDown,
   ArrowUpDown,
   History,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { AuctionFilters, AuctionListItem } from '@/types'
 import AnsiText from '@/components/ui/AnsiText.vue'
 

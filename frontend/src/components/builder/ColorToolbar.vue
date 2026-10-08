@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Palette } from 'lucide-vue-next'
+import { Palette } from '@lucide/vue'
 
 const emit = defineEmits<{
   (e: 'insert', code: string): void

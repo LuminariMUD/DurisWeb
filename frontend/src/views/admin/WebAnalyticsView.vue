@@ -37,7 +37,7 @@ import {
   Tablet,
   TrendingUp,
   RefreshCw,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { frontendConfiguration } from '@/config/environment'
 
 const API_URL = frontendConfiguration.apiUrl

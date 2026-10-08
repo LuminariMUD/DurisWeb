@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { WifiOff, RefreshCw, Home } from 'lucide-vue-next'
+import { WifiOff, RefreshCw, Home } from '@lucide/vue'
 
 const emit = defineEmits<{
   (e: 'reconnect'): void

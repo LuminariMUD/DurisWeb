@@ -17,7 +17,7 @@ import {
   List,
   Code,
   Map,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 const viewMode = ref('map')
 const zoom = ref(100)

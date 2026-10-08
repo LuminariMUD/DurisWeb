@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { changelogApi } from '@/services/api'
 import { useAuth } from '@/composables/useAuth'
 import { Button } from '@/components/ui/button'
-import { X, History } from 'lucide-vue-next'
+import { X, History } from '@lucide/vue'
 
 const router = useRouter()
 const queryClient = useQueryClient()

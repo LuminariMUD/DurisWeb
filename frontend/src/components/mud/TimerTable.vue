@@ -34,7 +34,7 @@ import {
   ToggleLeft,
   ToggleRight,
   ChevronsUpDown,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 const props = defineProps<{
   timers: Timer[]

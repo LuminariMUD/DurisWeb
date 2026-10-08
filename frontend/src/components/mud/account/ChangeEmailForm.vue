@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Mail, Check, AlertTriangle } from 'lucide-vue-next'
+import { Mail, Check, AlertTriangle } from '@lucide/vue'
 
 const { changeEmail } = useMudConnection()
 const store = useMudStore()

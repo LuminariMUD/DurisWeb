@@ -3,7 +3,7 @@ import { ref, watch, computed } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { builderApi } from '@/services/api'
 import { Input } from '@/components/ui/input'
-import { User, Loader2 } from 'lucide-vue-next'
+import { User, Loader2 } from '@lucide/vue'
 
 const props = withDefaults(
   defineProps<{

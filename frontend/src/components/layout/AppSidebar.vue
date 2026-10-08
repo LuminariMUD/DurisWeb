@@ -23,7 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { User, KeyRound, LogOut, ChevronUp } from 'lucide-vue-next'
+import { User, KeyRound, LogOut, ChevronUp } from '@lucide/vue'
 import ForumMenu from './ForumMenu.vue'
 import AdminMenu from './AdminMenu.vue'
 import NotificationBell from '@/components/forum/NotificationBell.vue'

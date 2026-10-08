@@ -24,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Archive, RotateCcw, Trash2, MessageSquare, FileText } from 'lucide-vue-next'
+import { Archive, RotateCcw, Trash2, MessageSquare, FileText } from '@lucide/vue'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 
 const toast = useToast()

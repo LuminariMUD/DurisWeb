@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { TrendingUp, TrendingDown, Minus } from 'lucide-vue-next'
+import { TrendingUp, TrendingDown, Minus } from '@lucide/vue'
 import type { Component } from 'vue'
 
 interface Props {

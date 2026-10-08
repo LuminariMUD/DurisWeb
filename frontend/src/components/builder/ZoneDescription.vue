@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import TipTapEditor from '@/components/forum/editor/TipTapEditor.vue'
-import { Edit, Save, X, AlertCircle } from 'lucide-vue-next'
+import { Edit, Save, X, AlertCircle } from '@lucide/vue'
 import type { ZoneInfoUpdate } from '@/types'
 import { sanitizeChangelogContent } from '@/utils/sanitizeChangelogContent'
 

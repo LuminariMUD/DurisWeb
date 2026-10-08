@@ -3,7 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { profileApi, pvpApi } from '@/services/api'
 import { useAuth } from '@/composables/useAuth'
-import { ThumbsUp, MessageSquare, Star, Clock } from 'lucide-vue-next'
+import { ThumbsUp, MessageSquare, Star, Clock } from '@lucide/vue'
 import type {
   UserProfileWithStats,
   UserPost,

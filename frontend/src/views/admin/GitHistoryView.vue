@@ -18,15 +18,7 @@ import {
 } from '@/components/ui/table'
 import Pagination from '@/components/forum/PaginationWithEllipsis.vue'
 import DeploymentLogDialog from '@/components/admin/DeploymentLogDialog.vue'
-import {
-  GitBranch,
-  RefreshCw,
-  Check,
-  AlertCircle,
-  FileCode,
-  ArrowUp,
-  ArrowDown,
-} from 'lucide-vue-next'
+import { GitBranch, RefreshCw, Check, AlertCircle, FileCode, ArrowUp, ArrowDown } from '@lucide/vue'
 
 const { user } = useAuth()
 

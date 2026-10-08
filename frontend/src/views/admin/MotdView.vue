@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { apiClient as api } from '@/services/api'
 import { Button } from '@/components/ui/button'
-import { Save } from 'lucide-vue-next'
+import { Save } from '@lucide/vue'
 import { useToast } from '@/composables/useToast'
 import TipTapEditor from '@/components/forum/editor/TipTapEditor.vue'
 import { ansiToHtmlWithStyles, htmlToAnsi } from '@/utils/ansiParser'

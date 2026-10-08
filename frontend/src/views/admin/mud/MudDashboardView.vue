@@ -206,7 +206,7 @@ import {
   Target,
   AlertTriangle,
   Clock,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { apiClient as api } from '@/services/api'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import HookHealthCard from '@/components/admin/hooks/HookHealthCard.vue'

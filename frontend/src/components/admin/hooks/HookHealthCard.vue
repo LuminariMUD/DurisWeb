@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
-import { Activity, ArrowRight } from 'lucide-vue-next'
+import { Activity, ArrowRight } from '@lucide/vue'
 import { useHookControl } from '@/composables/useHookControl'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'

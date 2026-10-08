@@ -18,10 +18,10 @@ import {
   Clock,
   Database,
   RefreshCw,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { AlertCircle } from 'lucide-vue-next'
+import { AlertCircle } from '@lucide/vue'
 import { parseAnsiForVue } from '@/utils/ansiParser'
 import { useToast } from '@/composables/useToast'
 import { analyticsApi } from '@/services/api'

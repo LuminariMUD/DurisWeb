@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Check, Circle, CircleDotDashed, Minus, ShieldAlert } from 'lucide-vue-next'
+import { Check, Circle, CircleDotDashed, Minus, ShieldAlert } from '@lucide/vue'
 import type { HookStatus, MudHookState } from '@/types/hooks'
 
 const props = defineProps<{ hook: HookStatus }>()

@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Map, Layers, Package, Skull } from 'lucide-vue-next'
+import { Map, Layers, Package, Skull } from '@lucide/vue'
 
 const route = useRoute()
 const router = useRouter()

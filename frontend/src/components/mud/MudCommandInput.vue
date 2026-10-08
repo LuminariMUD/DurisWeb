@@ -5,7 +5,7 @@ import { useAliases } from '@/composables/useAliases'
 import { useMudStore } from '@/stores/mudStore'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Send } from 'lucide-vue-next'
+import { Send } from '@lucide/vue'
 
 const { sendGameCommand } = useMudConnection()
 const { expandCommand, echoExpansion, echoCommands } = useAliases()

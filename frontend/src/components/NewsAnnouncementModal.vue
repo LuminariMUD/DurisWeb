@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Newspaper } from 'lucide-vue-next'
+import { Newspaper } from '@lucide/vue'
 
 const router = useRouter()
 const { accountName } = useAuth()

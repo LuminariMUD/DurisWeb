@@ -59,7 +59,7 @@ import {
   Settings,
   Save,
   Copy,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import type { BackupInfo, BackupContents, RestoreCategories } from '@/types'
 import { DEFAULT_RESTORE_CATEGORIES } from '@/types'
 import { MultiSelect } from '@/components/ui/multi-select'

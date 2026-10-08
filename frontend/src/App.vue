@@ -43,7 +43,7 @@ import {
   Activity,
   Heart,
   Radio,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import {
   DropdownMenu,
   DropdownMenuContent,
