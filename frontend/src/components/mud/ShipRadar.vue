@@ -358,7 +358,7 @@ const getRaceColor = (race: MudShipContact['race']): string => {
     case 'squid':
       return 'text-orange-400 border-orange-400/50'
     default:
-      return 'text-gray-400 border-gray-400/50'
+      return 'text-muted-foreground border-bone-muted/50'
   }
 }
 
@@ -369,11 +369,11 @@ const getStatusColor = (status: MudShipContact['status']): string => {
     case 'sinking':
       return 'text-red-400 border-red-400/50 animate-pulse'
     case 'docked':
-      return 'text-gray-400 border-gray-400/50'
+      return 'text-muted-foreground border-bone-muted/50'
     case 'anchored':
       return 'text-amber-400 border-amber-400/50'
     default:
-      return 'text-gray-400 border-gray-400/50'
+      return 'text-muted-foreground border-bone-muted/50'
   }
 }
 
@@ -520,7 +520,7 @@ function getRaceColorClass(race: MudShipContact['race']): string {
     case 'squid':
       return 'bg-orange-500 border-orange-300'
     default:
-      return 'bg-gray-500 border-gray-300'
+      return 'bg-faint border-bone-muted'
   }
 }
 
@@ -882,7 +882,7 @@ onMounted(() => {
             <!-- Contact radius circle (percentage-based, scales with map) -->
             <div
               v-if="canShowMapPosition && worldMapBounds"
-              class="absolute rounded-full border border-gray-400/50 bg-gray-400/20 pointer-events-none"
+              class="absolute rounded-full border border-bone-muted/50 bg-faint/20 pointer-events-none"
               :style="{
                 left: `${getMapPosition(playerWorldPosition.x, playerWorldPosition.y).x}%`,
                 top: `${getMapPosition(playerWorldPosition.x, playerWorldPosition.y).y}%`,
@@ -941,7 +941,7 @@ onMounted(() => {
                   :class="contact.targeting_you ? 'text-red-500' : {
                     'text-yellow-400': contact.race === 'good',
                     'text-red-800': contact.race === 'evil',
-                    'text-gray-900': contact.race === 'undead',
+                    'text-paper-ink': contact.race === 'undead',
                     'text-white': contact.race !== 'good' && contact.race !== 'evil' && contact.race !== 'undead',
                   }"
                 >{{ contact.id }}</span>

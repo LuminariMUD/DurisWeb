@@ -765,11 +765,11 @@ onUnmounted(() => {
                   <span class="text-sm font-semibold">Coins</span>
                 </div>
                 <div class="flex items-center gap-3 text-sm font-mono">
-                  <span v-if="vitals.platinum" class="text-cyan-300">{{ vitals.platinum }}p</span>
+                  <span v-if="vitals.platinum" class="text-vermilion-light">{{ vitals.platinum }}p</span>
                   <span v-if="vitals.gold" class="text-yellow-300">{{ vitals.gold }}g</span>
-                  <span v-if="vitals.silver" class="text-gray-300">{{ vitals.silver }}s</span>
+                  <span v-if="vitals.silver" class="text-bone-muted">{{ vitals.silver }}s</span>
                   <span v-if="vitals.copper" class="text-orange-300">{{ vitals.copper }}c</span>
-                  <span v-if="!vitals.platinum && !vitals.gold && !vitals.silver && !vitals.copper" class="text-gray-500">None</span>
+                  <span v-if="!vitals.platinum && !vitals.gold && !vitals.silver && !vitals.copper" class="text-faint">None</span>
                 </div>
               </div>
 

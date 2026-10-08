@@ -37,21 +37,21 @@ onMounted(() => {
     <!-- Waiting for connection -->
     <div
       v-if="!hasReceivedData"
-      class="absolute inset-0 flex flex-col items-center justify-center text-gray-400 z-10"
+      class="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground z-10"
     >
       <Loader2 class="h-8 w-8 animate-spin mb-4" />
       <p class="text-sm">Waiting for game window...</p>
-      <p class="text-xs mt-2 text-gray-500">Make sure the game is running</p>
+      <p class="text-xs mt-2 text-faint">Make sure the game is running</p>
     </div>
 
     <!-- Disconnected warning -->
     <div
       v-else-if="!isConnected"
-      class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80 z-10"
+      class="absolute inset-0 flex flex-col items-center justify-center bg-card/80 z-10"
     >
       <WifiOff class="h-8 w-8 text-red-400 mb-4" />
-      <p class="text-sm text-gray-300">Connection lost</p>
-      <p class="text-xs mt-2 text-gray-500">Game window may be closed</p>
+      <p class="text-sm text-bone-muted">Connection lost</p>
+      <p class="text-xs mt-2 text-faint">Game window may be closed</p>
     </div>
 
     <!-- Map Component (reusing MudMap in standalone mode) -->
@@ -74,7 +74,7 @@ onMounted(() => {
           isConnected ? 'bg-green-500' : 'bg-red-500'
         ]"
       />
-      <span class="text-xs text-gray-400">
+      <span class="text-xs text-muted-foreground">
         {{ isConnected ? 'Synced' : 'Disconnected' }}
       </span>
     </div>

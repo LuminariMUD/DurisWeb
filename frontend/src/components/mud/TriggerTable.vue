@@ -248,7 +248,7 @@ function getActionSummary(trigger: Trigger): string {
                     </Badge>
                   </span>
                   <span class="font-mono text-sm text-muted-foreground flex-1 truncate" :title="trigger.patterns.map(p => p.value).join('\n')">
-                    <span v-if="trigger.patterns[0]?.isGmcp" class="text-cyan-400 mr-1">[GMCP]</span>
+                    <span v-if="trigger.patterns[0]?.isGmcp" class="text-vermilion mr-1">[GMCP]</span>
                     {{ truncate(trigger.patterns[0]?.value ?? '', 30) }}
                     <Badge v-if="trigger.patterns.length > 1" variant="outline" class="text-[10px] px-1 ml-1">
                       +{{ trigger.patterns.length - 1 }}
@@ -344,7 +344,7 @@ function getActionSummary(trigger: Trigger): string {
                               </Badge>
                             </span>
                             <span class="font-mono text-sm text-muted-foreground flex-1 truncate">
-                              <span v-if="trigger.patterns[0]?.isGmcp" class="text-cyan-400 mr-1">[GMCP]</span>
+                              <span v-if="trigger.patterns[0]?.isGmcp" class="text-vermilion mr-1">[GMCP]</span>
                               {{ truncate(trigger.patterns[0]?.value ?? '', 30) }}
                               <Badge v-if="trigger.patterns.length > 1" variant="outline" class="text-[10px] px-1 ml-1">
                                 +{{ trigger.patterns.length - 1 }}
@@ -473,7 +473,7 @@ function getActionSummary(trigger: Trigger): string {
               </Badge>
             </span>
             <span class="font-mono text-sm text-muted-foreground flex-1 truncate" :title="trigger.patterns.map(p => p.value).join('\n')">
-              <span v-if="trigger.patterns[0]?.isGmcp" class="text-cyan-400 mr-1">[GMCP]</span>
+              <span v-if="trigger.patterns[0]?.isGmcp" class="text-vermilion mr-1">[GMCP]</span>
               {{ truncate(trigger.patterns[0]?.value ?? '', 30) }}
               <Badge v-if="trigger.patterns.length > 1" variant="outline" class="text-[10px] px-1 ml-1">
                 +{{ trigger.patterns.length - 1 }}

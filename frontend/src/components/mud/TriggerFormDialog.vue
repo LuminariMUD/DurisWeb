@@ -352,7 +352,7 @@ function handleCancel() {
                       @update:model-value="(val) => { const p = patterns[index]; if (p) p.isGmcp = val }"
                       class="scale-75"
                     />
-                    <Label :for="`gmcp-${index}`" class="text-xs cursor-pointer whitespace-nowrap" :class="{ 'text-cyan-400': pattern.isGmcp }">
+                    <Label :for="`gmcp-${index}`" class="text-xs cursor-pointer whitespace-nowrap" :class="{ 'text-vermilion': pattern.isGmcp }">
                       GMCP
                     </Label>
                   </div>
@@ -584,15 +584,15 @@ function handleCancel() {
         </div>
 
         <div>
-          <h4 class="font-semibold mb-2 text-cyan-400">GMCP Pattern Mode</h4>
+          <h4 class="font-semibold mb-2 text-vermilion">GMCP Pattern Mode</h4>
           <p class="text-muted-foreground mb-2">Toggle the GMCP switch to match based on character state instead of text.</p>
           <div class="bg-muted p-2 rounded font-mono text-xs space-y-1">
             <p>Operators: <span class="text-yellow-400">&lt;</span> <span class="text-yellow-400">&gt;</span> <span class="text-yellow-400">&lt;=</span> <span class="text-yellow-400">&gt;=</span> <span class="text-yellow-400">==</span> <span class="text-yellow-400">!=</span></p>
-            <p class="mt-1"><span class="text-cyan-400">%hppct% &lt; 50</span> - HP below 50%</p>
-            <p><span class="text-cyan-400">%mv% &gt;= 100</span> - at least 100 move</p>
-            <p><span class="text-cyan-400">%pos% == sitting</span> - character is sitting</p>
-            <p><span class="text-cyan-400">%target% != </span> - currently fighting (target not empty)</p>
-            <p><span class="text-cyan-400">%target% == </span> - not fighting (target is empty)</p>
+            <p class="mt-1"><span class="text-vermilion">%hppct% &lt; 50</span> - HP below 50%</p>
+            <p><span class="text-vermilion">%mv% &gt;= 100</span> - at least 100 move</p>
+            <p><span class="text-vermilion">%pos% == sitting</span> - character is sitting</p>
+            <p><span class="text-vermilion">%target% != </span> - currently fighting (target not empty)</p>
+            <p><span class="text-vermilion">%target% == </span> - not fighting (target is empty)</p>
           </div>
         </div>
 
@@ -612,13 +612,13 @@ function handleCancel() {
         <div>
           <h4 class="font-semibold mb-2">GMCP Variables</h4>
           <div class="bg-muted p-2 rounded font-mono text-xs space-y-1">
-            <p><span class="text-cyan-400">%hp%</span> <span class="text-cyan-400">%maxhp%</span> <span class="text-cyan-400">%hppct%</span> - HP (current, max, percentage 0-100)</p>
-            <p><span class="text-cyan-400">%mana%</span> <span class="text-cyan-400">%maxmana%</span> <span class="text-cyan-400">%manapct%</span> - mana</p>
-            <p><span class="text-cyan-400">%mv%</span> <span class="text-cyan-400">%maxmv%</span> <span class="text-cyan-400">%mvpct%</span> - movement</p>
-            <p><span class="text-cyan-400">%exp%</span> <span class="text-cyan-400">%tnl%</span> - exp, exp to next level</p>
-            <p><span class="text-cyan-400">%pos%</span> - position (standing, sitting, resting, sleeping, fighting)</p>
-            <p><span class="text-cyan-400">%target%</span> - combat target name (empty if not fighting)</p>
-            <p><span class="text-cyan-400">%plat%</span> <span class="text-cyan-400">%gold%</span> <span class="text-cyan-400">%silver%</span> <span class="text-cyan-400">%copper%</span> - currency</p>
+            <p><span class="text-vermilion">%hp%</span> <span class="text-vermilion">%maxhp%</span> <span class="text-vermilion">%hppct%</span> - HP (current, max, percentage 0-100)</p>
+            <p><span class="text-vermilion">%mana%</span> <span class="text-vermilion">%maxmana%</span> <span class="text-vermilion">%manapct%</span> - mana</p>
+            <p><span class="text-vermilion">%mv%</span> <span class="text-vermilion">%maxmv%</span> <span class="text-vermilion">%mvpct%</span> - movement</p>
+            <p><span class="text-vermilion">%exp%</span> <span class="text-vermilion">%tnl%</span> - exp, exp to next level</p>
+            <p><span class="text-vermilion">%pos%</span> - position (standing, sitting, resting, sleeping, fighting)</p>
+            <p><span class="text-vermilion">%target%</span> - combat target name (empty if not fighting)</p>
+            <p><span class="text-vermilion">%plat%</span> <span class="text-vermilion">%gold%</span> <span class="text-vermilion">%silver%</span> <span class="text-vermilion">%copper%</span> - currency</p>
           </div>
         </div>
       </div>
@@ -654,13 +654,13 @@ function handleCancel() {
           </h4>
           <p class="text-muted-foreground mb-2">Use live character data in commands.</p>
           <div class="bg-muted p-2 rounded font-mono text-xs space-y-1">
-            <p><span class="text-cyan-400">%hp%</span> current HP, <span class="text-cyan-400">%maxhp%</span> max HP, <span class="text-cyan-400">%hppct%</span> HP percentage (0-100)</p>
-            <p><span class="text-cyan-400">%mana%</span> current mana, <span class="text-cyan-400">%maxmana%</span> max mana, <span class="text-cyan-400">%manapct%</span> mana %</p>
-            <p><span class="text-cyan-400">%mv%</span> current move, <span class="text-cyan-400">%maxmv%</span> max move, <span class="text-cyan-400">%mvpct%</span> move %</p>
-            <p><span class="text-cyan-400">%exp%</span> current exp, <span class="text-cyan-400">%tnl%</span> exp to next level</p>
-            <p><span class="text-cyan-400">%pos%</span> position (standing, sitting, etc.)</p>
-            <p><span class="text-cyan-400">%target%</span> current combat target (empty if not fighting)</p>
-            <p><span class="text-cyan-400">%plat%</span> <span class="text-cyan-400">%gold%</span> <span class="text-cyan-400">%silver%</span> <span class="text-cyan-400">%copper%</span> - currency</p>
+            <p><span class="text-vermilion">%hp%</span> current HP, <span class="text-vermilion">%maxhp%</span> max HP, <span class="text-vermilion">%hppct%</span> HP percentage (0-100)</p>
+            <p><span class="text-vermilion">%mana%</span> current mana, <span class="text-vermilion">%maxmana%</span> max mana, <span class="text-vermilion">%manapct%</span> mana %</p>
+            <p><span class="text-vermilion">%mv%</span> current move, <span class="text-vermilion">%maxmv%</span> max move, <span class="text-vermilion">%mvpct%</span> move %</p>
+            <p><span class="text-vermilion">%exp%</span> current exp, <span class="text-vermilion">%tnl%</span> exp to next level</p>
+            <p><span class="text-vermilion">%pos%</span> position (standing, sitting, etc.)</p>
+            <p><span class="text-vermilion">%target%</span> current combat target (empty if not fighting)</p>
+            <p><span class="text-vermilion">%plat%</span> <span class="text-vermilion">%gold%</span> <span class="text-vermilion">%silver%</span> <span class="text-vermilion">%copper%</span> - currency</p>
             <p class="mt-2">Example: <span class="text-green-400">gt I have %hp%/%maxhp% HP left!</span></p>
           </div>
         </div>

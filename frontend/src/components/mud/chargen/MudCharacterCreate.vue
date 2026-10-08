@@ -98,14 +98,14 @@ const STAT_COLORS: Record<string, string> = {
   'very good': 'text-green-400',
   good: 'text-blue-400',
   'above average': 'text-blue-500',
-  average: 'text-gray-400',
+  average: 'text-muted-foreground',
   'below average': 'text-yellow-500',
   poor: 'text-orange-500',
   lame: 'text-red-500',
 }
 
 function getStatColor(label: string | undefined): string {
-  return STAT_COLORS[label ?? ''] || 'text-gray-400'
+  return STAT_COLORS[label ?? ''] || 'text-muted-foreground'
 }
 
 // All stats for display (10 total)

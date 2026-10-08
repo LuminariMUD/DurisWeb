@@ -68,7 +68,7 @@ const getStatusColor = (status: string): string => {
     case 'sinking':
       return 'text-red-400 border-red-400/50'
     case 'flying':
-      return 'text-cyan-400 border-cyan-400/50'
+      return 'text-vermilion border-vermilion/50'
     case 'docked':
       return 'text-yellow-400 border-yellow-400/50'
     case 'anchored':

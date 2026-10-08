@@ -228,7 +228,7 @@ const getRaceColor = (race: MudShipContact['race']): string => {
     case 'squid':
       return 'text-orange-400 border-orange-400/50'
     default:
-      return 'text-gray-400 border-gray-400/50'
+      return 'text-muted-foreground border-bone-muted/50'
   }
 }
 
@@ -240,11 +240,11 @@ const getStatusColor = (status: MudShipContact['status']): string => {
     case 'sinking':
       return 'text-red-400 border-red-400/50 animate-pulse'
     case 'docked':
-      return 'text-gray-400 border-gray-400/50'
+      return 'text-muted-foreground border-bone-muted/50'
     case 'anchored':
       return 'text-amber-400 border-amber-400/50'
     default:
-      return 'text-gray-400 border-gray-400/50'
+      return 'text-muted-foreground border-bone-muted/50'
   }
 }
 
@@ -461,7 +461,7 @@ const executeShipAction = (command: string, contact: MudShipContact) => {
             <div class="flex items-center gap-1.5 mb-1">
               <!-- Leader crown or NPC bot icon -->
               <Crown v-if="member.rank === 'head'" class="h-3.5 w-3.5 text-yellow-400 shrink-0" />
-              <Bot v-else-if="member.isNpc" class="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+              <Bot v-else-if="member.isNpc" class="h-3.5 w-3.5 text-faint shrink-0" />
               <span v-else class="w-3.5" />
 
               <!-- Name display -->

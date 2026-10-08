@@ -26,6 +26,7 @@ const emit = defineEmits<{
   remove: [index: number]
 }>()
 
+// palette-literals: off (swatches preview player highlight colors)
 const highlightColors: { value: TriggerHighlightColor; label: string; class: string }[] = [
   { value: 'red', label: 'Red', class: 'bg-red-500' },
   { value: 'orange', label: 'Orange', class: 'bg-orange-500' },
@@ -37,6 +38,7 @@ const highlightColors: { value: TriggerHighlightColor; label: string; class: str
   { value: 'cyan', label: 'Cyan', class: 'bg-cyan-500' },
   { value: 'white', label: 'White', class: 'bg-gray-300' },
 ]
+// palette-literals: on
 
 const sounds: { value: TriggerSound; label: string }[] = [
   { value: 'beep', label: 'Beep' },

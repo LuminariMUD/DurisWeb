@@ -286,7 +286,7 @@ function handleCancel() {
             <p><span class="text-yellow-400">$1-$9</span> - individual arguments</p>
             <p><span class="text-yellow-400">$*</span> - all arguments combined</p>
             <p class="mt-2">Alias: <span class="text-green-400">kk</span> = <span class="text-green-400">kill $1</span></p>
-            <p>Input: <span class="text-cyan-400">kk orc</span></p>
+            <p>Input: <span class="text-vermilion">kk orc</span></p>
             <p>Result: <span class="text-green-400">kill orc</span></p>
           </div>
         </div>
@@ -304,13 +304,13 @@ function handleCancel() {
           <h4 class="font-semibold mb-2">GMCP Variables</h4>
           <p class="text-muted-foreground mb-2">Use live character data in expansions.</p>
           <div class="bg-muted p-2 rounded font-mono text-xs space-y-1">
-            <p><span class="text-cyan-400">%hp%</span> current HP, <span class="text-cyan-400">%maxhp%</span> max HP, <span class="text-cyan-400">%hppct%</span> HP percentage (0-100)</p>
-            <p><span class="text-cyan-400">%mana%</span> current mana, <span class="text-cyan-400">%maxmana%</span> max mana, <span class="text-cyan-400">%manapct%</span> mana %</p>
-            <p><span class="text-cyan-400">%mv%</span> current move, <span class="text-cyan-400">%maxmv%</span> max move, <span class="text-cyan-400">%mvpct%</span> move %</p>
-            <p><span class="text-cyan-400">%exp%</span> current exp, <span class="text-cyan-400">%tnl%</span> exp to next level</p>
-            <p><span class="text-cyan-400">%pos%</span> position (standing, sitting, etc.)</p>
-            <p><span class="text-cyan-400">%target%</span> current combat target (empty if not fighting)</p>
-            <p><span class="text-cyan-400">%plat%</span> <span class="text-cyan-400">%gold%</span> <span class="text-cyan-400">%silver%</span> <span class="text-cyan-400">%copper%</span> - currency</p>
+            <p><span class="text-vermilion">%hp%</span> current HP, <span class="text-vermilion">%maxhp%</span> max HP, <span class="text-vermilion">%hppct%</span> HP percentage (0-100)</p>
+            <p><span class="text-vermilion">%mana%</span> current mana, <span class="text-vermilion">%maxmana%</span> max mana, <span class="text-vermilion">%manapct%</span> mana %</p>
+            <p><span class="text-vermilion">%mv%</span> current move, <span class="text-vermilion">%maxmv%</span> max move, <span class="text-vermilion">%mvpct%</span> move %</p>
+            <p><span class="text-vermilion">%exp%</span> current exp, <span class="text-vermilion">%tnl%</span> exp to next level</p>
+            <p><span class="text-vermilion">%pos%</span> position (standing, sitting, etc.)</p>
+            <p><span class="text-vermilion">%target%</span> current combat target (empty if not fighting)</p>
+            <p><span class="text-vermilion">%plat%</span> <span class="text-vermilion">%gold%</span> <span class="text-vermilion">%silver%</span> <span class="text-vermilion">%copper%</span> - currency</p>
             <p class="mt-2">Example: <span class="text-green-400">rep</span> = <span class="text-green-400">gt HP: %hp%/%maxhp% MV: %mv%/%maxmv%</span></p>
           </div>
         </div>
@@ -362,7 +362,7 @@ function handleCancel() {
           <div class="bg-muted p-2 rounded font-mono text-xs space-y-1">
             <p>Alias: <span class="text-green-400">heal</span></p>
             <p>Expansion: <span class="text-green-400">cast 'heal' $1;gt Healed $1, I have %hppct%% HP</span></p>
-            <p>Input: <span class="text-cyan-400">heal Arih</span></p>
+            <p>Input: <span class="text-vermilion">heal Arih</span></p>
             <p>Result: casts heal on Arih and reports HP to group</p>
           </div>
         </div>

@@ -182,6 +182,7 @@ const formatTime = (date: Date): string => {
   })
 }
 
+// palette-literals: off (channel colors mirror the game)
 // Channel colors
 const channelColors: Record<string, string> = {
   say: 'text-white',
@@ -210,6 +211,7 @@ const getSenderColor = (channel: string, alignment?: string): string => {
   }
   return channelColors[channel.toLowerCase()] || 'text-gray-300'
 }
+// palette-literals: on
 
 // Get channel label for All tab prefix (includes alignment for nchat)
 const getChannelPrefix = (channel: string, alignment?: string): string => {

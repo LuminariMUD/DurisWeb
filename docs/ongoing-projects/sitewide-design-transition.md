@@ -17,7 +17,7 @@ homepage design to the whole site in shippable phases.
 | 1. Foundation: tokens, fonts, global chrome | Done 2026-10-08 |
 | 2. Shell: header, navigation, sidebar, banners, shared primitives | Done 2026-10-08 |
 | 3. Public surfaces sweep | Done 2026-10-08 |
-| 4. Play client chrome | Not started |
+| 4. Play client chrome | Done 2026-10-08 (manual connect: see log) |
 | 5. Admin and builder | Not started |
 | 6. Closeout: guard rail, cleanup, documentation | Not started |
 
@@ -632,3 +632,24 @@ of them play client, admin or builder.
   now the success color so red never signals "good".
 - Specs: `ForumViewProvisioning`, `WikiMobsReadiness`, `WikiObjectsReadiness`,
   `FrontPageView` and `BottomNavbar` pass.
+
+### Phase 4 — 2026-10-08
+
+- `src/utils/__tests__/ansiParser.spec.ts` pins every `ANSI_COLORS` class and
+  the rendered HTML of a fixed sample through inline snapshots, so a token or
+  palette change cannot alter game colors silently. It is exempt from the
+  palette guard because it holds the raw game classes by design.
+- The guard and the sweep now honor `palette-literals: off` / `on` comment
+  regions for small game-color tables inside otherwise themed files. Marked
+  tables: room terrain styles (`MudRoomDisplay.vue`), chat channel and nchat
+  alignment colors (`MudChatPanel.vue`) and trigger highlight swatches
+  (`TriggerActionCard.vue`).
+- Chrome only: the 17 play-client files with neutral or cyan classes were
+  swept (dialogs, panels, overlays, settings, map container). Status hues
+  were not remapped anywhere in `components/mud/**`, `MudClientView.vue` or
+  `PopOutMapView.vue`, and the hex values in `MudMap.vue` (sector colors and
+  path arrows), HP/mana bar styles in `MudStatusBar.vue`, `MudAffects.vue`,
+  `MudGroupPanel.vue`, `useTerminal.ts`, `chatPalette.ts` and hotbar button
+  defaults are game data and stay.
+- The pop-out window's `Toaster` picks up the toast variables from
+  `main.css` like the main one.

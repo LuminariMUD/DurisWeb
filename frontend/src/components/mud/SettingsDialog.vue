@@ -347,7 +347,7 @@ async function handleImportFile(event: Event) {
           <!-- Permission prompt if not granted -->
           <div
             v-if="isSupported && !hasPermission"
-            class="flex items-center gap-2 text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 p-2 rounded"
+            class="flex items-center gap-2 text-xs bg-amber-500/10 text-amber-400 p-2 rounded"
           >
             <Button size="sm" variant="outline" @click="requestPermission">
               Enable Notifications

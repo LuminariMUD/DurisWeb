@@ -151,7 +151,7 @@ function handleRecentExecute(recent: RecentGodCommand) {
           <code class="block bg-muted px-3 py-2 rounded text-sm font-mono">
             {{ godCommands.execution.value?.preview }}
           </code>
-          <p v-if="godCommands.execution.value?.command.help" class="mt-2 text-yellow-600 dark:text-yellow-400">
+          <p v-if="godCommands.execution.value?.command.help" class="mt-2 text-yellow-400">
             {{ godCommands.execution.value.command.help }}
           </p>
         </AlertDialogDescription>

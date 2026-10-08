@@ -214,7 +214,7 @@ onUnmounted(() => {
     <!-- offline overlay -->
     <div
       v-if="isOffline"
-      class="absolute inset-0 z-40 bg-gray-900/90 flex items-center justify-center"
+      class="absolute inset-0 z-40 bg-card/90 flex items-center justify-center"
     >
       <Card class="w-full max-w-96">
         <CardContent class="pt-6 text-center space-y-4">

@@ -319,7 +319,7 @@ defineExpose({
         <div class="p-2 space-y-0.5 mud-output">
           <div
             v-if="filteredLog.length === 0"
-            class="text-center py-8 text-gray-500"
+            class="text-center py-8 text-faint"
           >
             No activity yet...
           </div>

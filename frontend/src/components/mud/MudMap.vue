@@ -1186,9 +1186,9 @@ const emit = defineEmits<{
     <!-- Loading state -->
     <div
       v-if="isLoading"
-      class="absolute inset-0 flex items-center justify-center bg-zinc-900/80 z-10"
+      class="absolute inset-0 flex items-center justify-center bg-card/80 z-10"
     >
-      <Loader2 class="h-8 w-8 animate-spin text-zinc-400" />
+      <Loader2 class="h-8 w-8 animate-spin text-muted-foreground" />
     </div>
 
     <!-- Cytoscape Container -->
@@ -1200,7 +1200,7 @@ const emit = defineEmits<{
     <!-- Custom Tooltip -->
     <div
       v-if="tooltipVisible"
-      class="absolute pointer-events-none z-50 px-2 py-1 bg-zinc-800 border border-zinc-700 rounded text-sm shadow-lg"
+      class="absolute pointer-events-none z-50 px-2 py-1 bg-ink-high border border-border rounded text-sm shadow-lg"
       :style="{
         left: `${tooltipX}px`,
         top: `${tooltipY}px`,
@@ -1252,15 +1252,15 @@ const emit = defineEmits<{
     <!-- Legend -->
     <div class="absolute top-2 left-2 z-20 text-[10px] text-muted-foreground bg-background/80 rounded px-2 py-1 space-y-0.5">
       <div class="flex items-center gap-1">
-        <div class="w-3 h-3 rounded-full bg-zinc-600 border-2 border-yellow-400" />
+        <div class="w-3 h-3 rounded-full bg-rule border-2 border-yellow-400" />
         <span>Current</span>
       </div>
       <div class="flex items-center gap-1">
-        <div class="w-3 h-3 rounded-full bg-zinc-600 border border-zinc-500" />
+        <div class="w-3 h-3 rounded-full bg-rule border border-faint" />
         <span>Visited</span>
       </div>
       <div class="flex items-center gap-1">
-        <div class="w-3 h-3 rounded-full bg-transparent border border-zinc-600" />
+        <div class="w-3 h-3 rounded-full bg-transparent border border-faint" />
         <span>Unexplored</span>
       </div>
     </div>
@@ -1276,7 +1276,7 @@ const emit = defineEmits<{
         :style="{ fontSize: asciiMapFontSize }"
         v-html="parseAnsiToHtml(currentWildernessMap)"
       />
-      <div v-else class="text-center text-zinc-500">
+      <div v-else class="text-center text-faint">
         <MapIcon class="h-12 w-12 mx-auto mb-2 opacity-50" />
         <p class="text-sm">Waiting for map data...</p>
       </div>
@@ -1285,7 +1285,7 @@ const emit = defineEmits<{
     <!-- Empty State -->
     <div
       v-if="!isLoading && !isSkippedZone && (!zoneMapData || zoneMapData.nodes.length === 0)"
-      class="absolute inset-0 flex items-center justify-center text-zinc-500"
+      class="absolute inset-0 flex items-center justify-center text-faint"
     >
       <div class="text-center">
         <MapIcon class="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -1356,9 +1356,9 @@ const emit = defineEmits<{
       <!-- Loading state -->
       <div
         v-if="isLoading"
-        class="absolute inset-0 flex items-center justify-center bg-zinc-900/80 z-10"
+        class="absolute inset-0 flex items-center justify-center bg-card/80 z-10"
       >
-        <Loader2 class="h-8 w-8 animate-spin text-zinc-400" />
+        <Loader2 class="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
 
       <!-- Cytoscape Container -->
@@ -1370,7 +1370,7 @@ const emit = defineEmits<{
       <!-- Custom Tooltip -->
       <div
         v-if="tooltipVisible"
-        class="absolute pointer-events-none z-50 px-2 py-1 bg-zinc-800 border border-zinc-700 rounded text-sm shadow-lg"
+        class="absolute pointer-events-none z-50 px-2 py-1 bg-ink-high border border-border rounded text-sm shadow-lg"
         :style="{
           left: `${tooltipX}px`,
           top: `${tooltipY}px`,
@@ -1422,18 +1422,18 @@ const emit = defineEmits<{
       <!-- Legend -->
       <div class="absolute top-2 left-2 text-[10px] text-muted-foreground bg-background/80 rounded px-2 py-1 space-y-0.5">
         <div class="flex items-center gap-1">
-          <div class="w-3 h-3 rounded-full bg-zinc-600 border-2 border-yellow-400" />
+          <div class="w-3 h-3 rounded-full bg-rule border-2 border-yellow-400" />
           <span>Current</span>
         </div>
         <div class="flex items-center gap-1">
-          <div class="w-3 h-3 rounded-full bg-zinc-600 border border-zinc-500" />
+          <div class="w-3 h-3 rounded-full bg-rule border border-faint" />
           <span>Visited</span>
         </div>
         <div class="flex items-center gap-1">
-          <div class="w-3 h-3 rounded-full bg-transparent border border-zinc-600" />
+          <div class="w-3 h-3 rounded-full bg-transparent border border-faint" />
           <span>Unexplored</span>
         </div>
-        <div class="flex items-center gap-1 mt-1 pt-1 border-t border-zinc-700">
+        <div class="flex items-center gap-1 mt-1 pt-1 border-t border-border">
           <div class="w-3 h-0.5 bg-green-500" />
           <span>Open door</span>
         </div>
@@ -1458,7 +1458,7 @@ const emit = defineEmits<{
           :style="{ fontSize: asciiMapFontSize }"
           v-html="parseAnsiToHtml(currentWildernessMap)"
         />
-        <div v-else class="text-center text-zinc-500">
+        <div v-else class="text-center text-faint">
           <MapIcon class="h-12 w-12 mx-auto mb-2 opacity-50" />
           <p class="text-sm">Waiting for map data...</p>
         </div>
@@ -1496,7 +1496,7 @@ const emit = defineEmits<{
       <!-- Empty State -->
       <div
         v-if="!isLoading && !isSkippedZone && (!zoneMapData || zoneMapData.nodes.length === 0)"
-        class="absolute inset-0 flex items-center justify-center text-zinc-500"
+        class="absolute inset-0 flex items-center justify-center text-faint"
       >
         <div class="text-center">
           <MapIcon class="h-12 w-12 mx-auto mb-2 opacity-50" />

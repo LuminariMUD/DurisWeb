@@ -210,20 +210,20 @@ const getPositionIcon = (position: string) => {
             <div class="flex items-center gap-1 cursor-default">
               <Coins class="h-4 w-4 text-yellow-400" />
               <span class="text-sm font-mono">
-                <span v-if="vitals.platinum" class="text-cyan-300">{{ vitals.platinum }}p </span>
+                <span v-if="vitals.platinum" class="text-vermilion-light">{{ vitals.platinum }}p </span>
                 <span v-if="vitals.gold" class="text-yellow-300">{{ vitals.gold }}g </span>
-                <span v-if="vitals.silver" class="text-gray-300">{{ vitals.silver }}s </span>
+                <span v-if="vitals.silver" class="text-bone-muted">{{ vitals.silver }}s </span>
                 <span v-if="vitals.copper" class="text-orange-300">{{ vitals.copper }}c</span>
-                <span v-if="!vitals.platinum && !vitals.gold && !vitals.silver && !vitals.copper" class="text-gray-500">0</span>
+                <span v-if="!vitals.platinum && !vitals.gold && !vitals.silver && !vitals.copper" class="text-faint">0</span>
               </span>
             </div>
           </TooltipTrigger>
           <TooltipContent>
             <p class="font-semibold">Coins Carried</p>
             <p class="text-xs text-muted-foreground">
-              <span class="text-cyan-300">p</span>=platinum,
+              <span class="text-vermilion-light">p</span>=platinum,
               <span class="text-yellow-300">g</span>=gold,
-              <span class="text-gray-300">s</span>=silver,
+              <span class="text-bone-muted">s</span>=silver,
               <span class="text-orange-300">c</span>=copper
             </p>
           </TooltipContent>

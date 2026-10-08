@@ -46,6 +46,7 @@ const showMobActionsDialog = ref(false)
 
 const room = computed(() => store.room)
 
+// palette-literals: off (terrain colors are game data)
 // Terrain to color/icon mapping
 const terrainStyles: Record<string, { bg: string; text: string }> = {
   city: { bg: 'bg-slate-600', text: 'text-slate-100' },
@@ -64,6 +65,7 @@ const terrainStyles: Record<string, { bg: string; text: string }> = {
 }
 
 const defaultStyle = { bg: 'bg-zinc-700', text: 'text-zinc-100' }
+// palette-literals: on
 
 const getTerrainStyle = (terrain: string | undefined): { bg: string; text: string } => {
   if (!terrain) return defaultStyle

@@ -405,10 +405,10 @@ function handleCancel() {
           <h4 class="font-semibold mb-2">GMCP Variables</h4>
           <p class="text-muted-foreground mb-2">Use live character data in commands.</p>
           <div class="bg-muted p-2 rounded font-mono text-xs space-y-1">
-            <p><span class="text-cyan-400">%hp%</span> current HP, <span class="text-cyan-400">%maxhp%</span> max HP, <span class="text-cyan-400">%hppct%</span> HP %</p>
-            <p><span class="text-cyan-400">%mana%</span> current mana, <span class="text-cyan-400">%maxmana%</span> max mana, <span class="text-cyan-400">%manapct%</span> mana %</p>
-            <p><span class="text-cyan-400">%mv%</span> move, <span class="text-cyan-400">%maxmv%</span> max move, <span class="text-cyan-400">%mvpct%</span> move %</p>
-            <p><span class="text-cyan-400">%pos%</span> position, <span class="text-cyan-400">%target%</span> combat target</p>
+            <p><span class="text-vermilion">%hp%</span> current HP, <span class="text-vermilion">%maxhp%</span> max HP, <span class="text-vermilion">%hppct%</span> HP %</p>
+            <p><span class="text-vermilion">%mana%</span> current mana, <span class="text-vermilion">%maxmana%</span> max mana, <span class="text-vermilion">%manapct%</span> mana %</p>
+            <p><span class="text-vermilion">%mv%</span> move, <span class="text-vermilion">%maxmv%</span> max move, <span class="text-vermilion">%mvpct%</span> move %</p>
+            <p><span class="text-vermilion">%pos%</span> position, <span class="text-vermilion">%target%</span> combat target</p>
             <p class="mt-2">Example: <span class="text-green-400">gt Status: %hp%/%maxhp% HP</span></p>
           </div>
         </div>

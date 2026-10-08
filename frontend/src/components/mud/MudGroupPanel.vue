@@ -126,7 +126,7 @@ const handleGroupAction = (action: { command: string }, targetRef: string) => {
               >
                 <div class="flex items-center gap-1.5 mb-1">
                   <Crown v-if="member.rank === 'head'" class="h-3.5 w-3.5 text-yellow-400 shrink-0" />
-                  <Bot v-else-if="member.isNpc" class="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                  <Bot v-else-if="member.isNpc" class="h-3.5 w-3.5 text-faint shrink-0" />
                   <span v-else class="w-3.5" />
 
                   <span
