@@ -468,7 +468,7 @@ const isPlayPage = computed(() => route.path === '/play')
             :href="supportUrl"
             target="_blank"
             rel="noopener noreferrer"
-            class="site-nav-link text-ember hover:text-vermilion"
+            :class="navClass(false)"
           >
             <Heart class="h-4 w-4" aria-hidden="true" />
             Donate
@@ -650,7 +650,7 @@ const isPlayPage = computed(() => route.path === '/play')
 }
 
 .site-nav {
-  gap: clamp(1rem, 2.6vw, 2.5rem);
+  gap: clamp(1.25rem, 4.4vw, 3.5rem);
 }
 
 :deep(.site-nav-link) {

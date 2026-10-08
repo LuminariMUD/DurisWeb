@@ -156,7 +156,7 @@ onMounted(async () => {
 <template>
   <Card class="w-full max-w-md mx-auto">
     <CardHeader class="text-center">
-      <CardTitle class="text-2xl font-bold text-primary">{{ siteTitle }} MUD</CardTitle>
+      <CardTitle class="font-display text-4xl font-normal text-foreground">{{ siteTitle }} MUD</CardTitle>
       <CardDescription>Enter the realm of {{ siteTitle }}</CardDescription>
     </CardHeader>
     <CardContent>
@@ -197,7 +197,7 @@ onMounted(async () => {
               <AlertDescription>{{ loginError || connectionError }}</AlertDescription>
             </Alert>
 
-            <Button type="submit" class="w-full" :disabled="isLoading">
+            <Button type="submit" variant="brand" class="h-11 w-full font-display text-xl font-normal" :disabled="isLoading">
               <Loader2 v-if="isLoading" class="mr-2 h-4 w-4 animate-spin" />
               {{ isLoading ? 'Logging in...' : 'Login' }}
             </Button>
@@ -259,7 +259,7 @@ onMounted(async () => {
               <AlertDescription>{{ registerError || connectionError }}</AlertDescription>
             </Alert>
 
-            <Button type="submit" class="w-full" :disabled="isLoading">
+            <Button type="submit" variant="brand" class="h-11 w-full font-display text-xl font-normal" :disabled="isLoading">
               <Loader2 v-if="isLoading" class="mr-2 h-4 w-4 animate-spin" />
               {{ isLoading ? 'Creating account...' : 'Create Account' }}
             </Button>
