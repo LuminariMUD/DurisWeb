@@ -147,8 +147,9 @@ The wiki publisher also rejects an aggregate if any source input was dropped or
 if the prerequisite builder-flag projection leaves mobile filter metadata
 unresolved.
 Production preflight checks the published object and mob markers, counts,
-applicable filter metadata, and child consistency. Release acceptance must still
-verify the enabled feature's API data and rendered surface.
+applicable filter metadata, and child consistency, and requires a non-empty
+world-map projection (surface rooms and zone entrances). Release acceptance
+must still verify the enabled feature's API data and rendered surface.
 
 Object- and mob-detail caches include the published source revision and tree in
 their keys. Cache misses reconstruct flatfile-only detail, load-location, spawn,

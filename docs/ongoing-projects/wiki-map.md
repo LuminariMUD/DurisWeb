@@ -2,10 +2,16 @@
 
 Investigated 2026-10-08 UTC on the single production deployment described in
 [prod-deploy.md](prod-deploy.md#production-location-authoritative). The
-`/wiki/map` page renders an empty map with no error banner. The API answers;
-the page has no data to draw and no background image to show. Nothing has been
-changed or run yet; the fix below needs operator authorization because its
-first step writes to the production database.
+`/wiki/map` page rendered an empty map with no error banner. The API answered;
+the page had no data to draw and no background image to show.
+
+## Progress
+
+| Step | State |
+| --- | --- |
+| 1. Populate the map tables | Done 2026-10-08 13:11 UTC (see [Work log](#work-log)) |
+| 2. Serve the background image | Code written (durable option), awaiting build and cutover |
+| 3. Record it (deployment doc, preflight) | Docs and preflight written, awaiting the same cutover |
 
 ## Findings
 
@@ -97,6 +103,61 @@ Related code paths that do not help today:
    `sync-flags` and `wiki:publish`, and extend the dependency preflight's
    data-readiness checks to require non-empty map positions, so a fresh
    installation cannot pass acceptance with an empty map again.
+
+## Work log
+
+### 2026-10-08 13:11 UTC — step 1, map tables populated
+
+Authorized by the operator goal for this session. Release evidence (mode 0700,
+logs mode 0600) is under
+`~/.local/share/durisweb/releases/20261008-wikimap/` on the production host;
+nothing from it is committed.
+
+- Pre-change state recorded: web commit `c3b2977`, MUD checkout clean at
+  `f4429104` (tree `8b4bb86e`), all six service PIDs and restart counters,
+  served SPA asset `index-C7XknIZW.js`, and the zero bounds response.
+- `pnpm --dir backend extract-map-data` from the live checkout with the
+  production backend environment, exit 0 in 11.8 s. It mapped 442 zone files
+  and 490,611 rooms, staged 266,083 map rooms and 546 zone entrances, and
+  committed them in one transaction with all 14 continent centers.
+- Rows after the run: layer `0` 160,004 rooms (0–399 × 0–399), layer `1`
+  29,996 (0–299 × 0–99), layer `-1` 13,587 (0–399 × 0–399), layer `-2`
+  2,645 (0–99 × 0–38); 546 entrances into 214 zones; 14 of 14 continents
+  have centers. No MUD-owned table was touched.
+- Stale private-cache entries (`wiki:mapImage:*`, `wiki:entrances:*`,
+  `wiki:continents`) were removed with `SCAN` + `UNLINK`; the rendered Redis
+  disables `FLUSHALL`. No `wiki:mapBounds*` key existed.
+- Verified locally and through the public hostname: `/api/wiki/map/bounds` is
+  `0–399 × 0–399` for layer 0 (`0–99 × 0–38` for `-2`, `0–299 × 0–99` for
+  `1`); `/api/wiki/map/image?layer=0` is a 62,629-byte 1600×1600 PNG (layer
+  `-1` 1600×1600, layer `-2` 400×156); a sample tile viewport returns 121
+  tiles and the full surface viewport returns 370 entrances.
+- Still failing at this point: `/duris/maps/layer-0.png` returns the SPA HTML,
+  so the page draws entrances over a blank background until step 2 ships.
+
+### 2026-10-08 13:15 UTC — steps 2 and 3, code and documentation written
+
+- `frontend/src/utils/mapLayerImageUrl.ts` resolves the layer background:
+  when `VITE_STATIC_URL` equals `VITE_API_URL` it returns
+  `<api>/api/wiki/map/image?layer=<N>`; otherwise it keeps the static object
+  path `<static>/duris/maps/layer-<N>.png`. `LeafletMap.vue` uses it. Unit
+  spec added.
+- `backend/src/routes/wiki.ts`: the image endpoint's `Cache-Control` drops
+  from one week to one hour, matching the server-side image cache TTL, so a
+  re-extraction becomes visible within the hour.
+- `backend/src/services/wikiMapReadiness.ts` reads aggregate counts of
+  `wiki_map_positions` (total and `z_coord = 0`) and `wiki_zone_entrances`;
+  `productionPreflight.ts` requires those three tables plus `wiki_continents`
+  and fails the dependency stage when the projection is empty. Unit test
+  added.
+- `docs/deployment.md` adds `extract-map-data` to the publishing sequence with
+  its cache-flush note, a map acceptance bullet, and a fresh-installation
+  paragraph; `docs/ARCHITECTURE.md` and `docs/environments.md` record the
+  preflight check and the static-origin rule.
+- Quality gates in the live checkout: backend readiness/preflight tests
+  (15 passed), frontend helper spec (4 passed), and `format:check`, `lint`,
+  `type-check` for both packages pass. DB-backed backend tests cannot run on
+  this host (no test database user).
 
 ## Evidence
 

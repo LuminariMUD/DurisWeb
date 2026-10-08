@@ -178,11 +178,12 @@ router.get(
 
       const pngBuffer = await wikiService.generateMapImage(layerNum);
 
-      // Set appropriate headers for PNG image with long cache
+      // Browser lifetime matches the server-side image cache, so a map
+      // re-extraction is visible within the hour instead of a week later.
       res.set({
         'Content-Type': 'image/png',
         'Content-Length': pngBuffer.length.toString(),
-        'Cache-Control': 'public, max-age=604800', // 1 week
+        'Cache-Control': 'public, max-age=3600',
       });
 
       res.send(pngBuffer);

@@ -7,6 +7,7 @@ import mysql, { type RowDataPacket } from 'mysql2/promise';
 
 import { ConfigurationError, getBackendConfiguration } from '../config/environment.js';
 import { readForumReadiness, validateForumReadiness } from '../services/forumReadiness.js';
+import { readWikiMapReadiness, validateWikiMapReadiness } from '../services/wikiMapReadiness.js';
 import {
   readWikiMobGeneration,
   readWikiObjectGeneration,
@@ -41,6 +42,8 @@ const REQUIRED_TABLES = [
   'user_profile_stats',
   'web_sessions',
   'web_settings',
+  'wiki_continents',
+  'wiki_map_positions',
   'wiki_mob_flags',
   'wiki_mobs',
   'wiki_object_affects',
@@ -50,6 +53,7 @@ const REQUIRED_TABLES = [
   'wiki_object_spell_effects',
   'wiki_objects',
   'wiki_reference_generations',
+  'wiki_zone_entrances',
 ] as const;
 
 export type PreflightMode = 'all' | 'configuration' | 'dependencies';
@@ -219,6 +223,9 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
 
     const forumIssues = validateForumReadiness(await readForumReadiness(database));
     if (forumIssues.length > 0) throw new ConfigurationError(forumIssues);
+
+    const mapIssues = validateWikiMapReadiness(await readWikiMapReadiness(database));
+    if (mapIssues.length > 0) throw new ConfigurationError(mapIssues);
 
     const [runtimeContractRows] = await database.query<RowDataPacket[]>(`
       SELECT COUNT(*) AS matching_columns

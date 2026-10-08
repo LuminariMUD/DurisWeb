@@ -61,7 +61,8 @@ The first command aggregates invalid configuration and verifies the migration
 bundle. The second verifies required tables, the canonical MUD-owned
 `server_reboots` shape, absence of the prohibited incoming extension foreign
 key, refresh-token column capacity, nonempty and internally consistent wiki
-object and mob generations with persisted source identity, the complete
+object and mob generations with persisted source identity, a non-empty
+world-map projection (surface rooms and zone entrances), the complete
 migration ledger, general cache, the optional scoped presence read/subscription
 operations, and the auction engine/timestamp contract when direct auction writes
 are explicitly enabled. Other feature projections still need explicit
@@ -90,6 +91,7 @@ pnpm --dir backend sync-flags
 pnpm --dir backend wiki:publish \
   --source-revision <recorded-commit> \
   --source-tree <recorded-tree>
+pnpm --dir backend extract-map-data
 node backend/dist/scripts/productionPreflight.js --dependencies
 ```
 
@@ -105,6 +107,22 @@ filter metadata. It stores the commit, tree identity, and published object/mob
 counts with the same transaction as the rows. A failed
 parse, insert, or marker write leaves the prior generation intact. Complete the
 clone rehearsal and backup gates before publishing on a shared environment.
+
+The map extractor is the third publisher and must not be skipped: without it
+every `/api/wiki/map/*` endpoint answers successfully with empty data and
+`/wiki/map` renders a blank map with no error. It reads `areas/zon` and
+`areas/wld` from the configured `MUD_DIR` working tree (not a detached
+snapshot, so run it from the same clean checkout whose revision was recorded
+above), stages the complete surface, newbie, Underdark, and Depths projection
+in memory, refuses an empty generation, and replaces `wiki_zone_entrances` and
+`wiki_map_positions` in one transaction while preserving existing continent
+assignments and recomputing `wiki_continents` centers. It writes only
+website-owned tables and is idempotent; rerun it whenever the MUD area files
+change. After a re-extraction, remove the private cache's `wiki:mapBounds*`,
+`wiki:mapImage*`, `wiki:tiles:*`, `wiki:entrances:*`, and `wiki:continents`
+keys with `SCAN` plus `UNLINK` (the rendered Redis disables `FLUSHALL`), or
+accept their TTLs of up to 24 hours. The dependency preflight rejects an empty
+map projection.
 
 ## Release evidence and rollback set
 
@@ -424,6 +442,9 @@ verify:
 
 - the configured local and public health endpoints;
 - `/api/ping`, `/api/site-config`, the SPA shell, and a generated asset;
+- `/api/wiki/map/bounds?layer=0` with non-zero extents and
+  `/api/wiki/map/image?layer=0` returning a full-size `image/png`, then the
+  `/wiki/map` page showing terrain and entrance markers in a browser;
 - allowed-origin CORS and rejection of an untrusted origin;
 - browser application WebSocket ping/pong, plus fresh authenticated MUD bridge
   state. If a direct MUD WebSocket handshake must be tested, do it before the
@@ -482,6 +503,15 @@ all existing identifiers, custom categories, threads, and posts. An administrato
 with the configured forum-moderation permission can instead use **Set up the
 first category** on the empty forum screen. Do not treat private-only or archived
 categories as ordinary-user readiness.
+
+The dependency preflight likewise rejects an empty world-map projection. For a
+fresh installation, run `pnpm --dir backend extract-map-data` after the wiki
+publisher (see [Publish wiki reference data](#publish-wiki-reference-data)).
+The map background is requested from `/api/wiki/map/image` whenever
+`VITE_STATIC_URL` equals `VITE_API_URL`; a deployment that configures a
+separate static origin must host pre-rendered `duris/maps/layer-<N>.png`
+objects there, or the background overlay fails while the data endpoints
+succeed.
 
 Hold the stability soak across the longest relevant idle and reconnect boundary.
 While DurisMUD #116 applies, exceed its 15-minute service-descriptor timeout and

@@ -99,6 +99,13 @@ Every frontend build requires `VITE_BASE_URL`, `VITE_API_URL`, `VITE_WS_URL`,
 `FRONTEND_PREVIEW_HOST`, `FRONTEND_PREVIEW_PORT`, and
 `FRONTEND_ALLOWED_HOSTS`. All `VITE_*` values are public browser data.
 
+`VITE_STATIC_URL` names the origin that hosts pre-rendered world-map layer
+images at `/duris/maps/layer-<N>.png`. When it equals `VITE_API_URL`, the
+frontend requests the map background from the backend's on-demand
+`/api/wiki/map/image` endpoint instead, because the backend does not serve
+that static path and the request would otherwise fall through to the SPA
+fallback.
+
 ## Database-backed site settings
 
 `web_settings` is the only runtime owner for public mutable settings:

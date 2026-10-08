@@ -6,6 +6,7 @@ import { wikiApi } from '@/services/api'
 import type { WikiZoneEntrance, WikiMapBounds } from '@/types'
 import { stripAnsiCodes } from '@/utils/ansiParser'
 import { frontendConfiguration } from '@/config/environment'
+import { resolveMapLayerImageUrl } from '@/utils/mapLayerImageUrl'
 
 const props = withDefaults(
   defineProps<{
@@ -59,9 +60,9 @@ function latToMudY(lat: number): number {
   return -lat
 }
 
-/** Builds a static map layer URL from the validated public asset origin. */
+/** Resolves the layer background from the validated public origins. */
 function getMapImageUrl(layer: number): string {
-  return `${frontendConfiguration.staticUrl}/duris/maps/layer-${layer}.png`
+  return resolveMapLayerImageUrl(frontendConfiguration, layer)
 }
 
 // Load entrances for a region
