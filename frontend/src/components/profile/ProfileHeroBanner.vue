@@ -14,7 +14,7 @@ import {
 import { Camera, Trash2, Loader2, ImagePlus } from '@lucide/vue'
 import { profileApi } from '@/services/api'
 import { useToast } from '@/composables/useToast'
-import defaultBannerImage from '@/assets/home/duris-eclipse.webp'
+import defaultBannerImage from '@/assets/eclipse/duris-eclipse.webp'
 
 const props = defineProps<{
   accountName: string

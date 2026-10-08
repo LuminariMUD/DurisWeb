@@ -113,7 +113,7 @@ Concept source directory:
 - Standalone artwork, 1672×941:
   `exec-18475876-1f70-49df-bb4a-883c3f23b4c3.png`.
 
-Production asset: `frontend/src/assets/home/duris-eclipse.webp`, 171,088 bytes.
+Production asset: `frontend/src/assets/eclipse/duris-eclipse.webp`, 171,088 bytes.
 Chromium's WebP encoder packaged the generated pixels at quality 0.88 without
 creative edits. The project references only the packaged repository asset.
 

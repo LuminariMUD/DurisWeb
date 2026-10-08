@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUpRight, Compass, Flag, Pause, Play, Swords } from '@lu
 import { RouterLink } from 'vue-router'
 import { usePreferredReducedMotion } from '@vueuse/core'
 import { useHead } from '@unhead/vue'
-import defaultHeroImage from '@/assets/home/duris-eclipse.webp'
+import defaultHeroImage from '@/assets/eclipse/duris-eclipse.webp'
 import { BrandActionLink, BrandTextLink, DisplayHeading, IndexLabel } from '@/components/brand'
 import CarouselDisplay from '@/components/forum/CarouselDisplay.vue'
 import MapPreviewDisplay from '@/components/forum/widgets/MapPreviewDisplay.vue'
