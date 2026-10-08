@@ -146,7 +146,7 @@ const indentLevel = computed(() => {
     <!-- Warning indicator -->
     <AlertTriangle
       v-if="hasWarning"
-      class="h-4 w-4 text-yellow-500 shrink-0"
+      class="h-4 w-4 text-warning shrink-0"
       :title="warningMessage"
     />
 

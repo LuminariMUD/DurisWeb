@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold flex items-center gap-2">
+        <h1 class="text-4xl md:text-5xl flex items-center gap-2">
           <Sparkles class="h-8 w-8 text-purple-500" />
           AI-Powered Suspicion Analysis
         </h1>
@@ -41,21 +41,21 @@
             </div>
           </div>
           <div class="flex items-start gap-2 text-sm">
-            <DollarSign class="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
+            <DollarSign class="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
             <div>
               <p class="font-medium">Cost: Free</p>
               <p class="text-xs text-muted-foreground">Free tier: 10 requests/min, 250 requests/day</p>
             </div>
           </div>
           <div class="flex items-start gap-2 text-sm">
-            <Clock class="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+            <Clock class="h-4 w-4 text-info mt-0.5 flex-shrink-0" />
             <div>
               <p class="font-medium">Analysis Time:</p>
               <p class="text-xs text-muted-foreground">2-3 minutes (free tier is slower)</p>
             </div>
           </div>
           <div class="flex items-start gap-2 text-sm">
-            <Shield class="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" />
+            <Shield class="h-4 w-4 text-warning mt-0.5 flex-shrink-0" />
             <div>
               <p class="font-medium">Auto-Flagging:</p>
               <p class="text-xs text-muted-foreground">70+ confidence = flagged, detailed evidence provided</p>
@@ -158,9 +158,9 @@
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm text-muted-foreground">Patterns Detected</p>
-                <p class="text-2xl font-bold text-amber-500">{{ latestAnalysis.patterns_detected.length }}</p>
+                <p class="text-2xl font-bold text-warning">{{ latestAnalysis.patterns_detected.length }}</p>
               </div>
-              <Activity class="h-8 w-8 text-amber-500" />
+              <Activity class="h-8 w-8 text-warning" />
             </div>
           </div>
         </div>

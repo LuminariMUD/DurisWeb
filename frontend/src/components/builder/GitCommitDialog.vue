@@ -130,9 +130,9 @@ function getStatusVariant(
 
       <!-- Success State -->
       <div v-if="commitResult?.success" class="py-6">
-        <Alert variant="default" class="border-green-500/50 bg-green-500/10">
-          <Check class="h-4 w-4 text-green-500" />
-          <AlertDescription class="text-green-500">
+        <Alert variant="default" class="border-success/50 bg-success/10">
+          <Check class="h-4 w-4 text-success" />
+          <AlertDescription class="text-success">
             Changes committed successfully!
             <span v-if="commitResult.commitHash" class="font-mono ml-1">
               ({{ commitResult.commitHash }})

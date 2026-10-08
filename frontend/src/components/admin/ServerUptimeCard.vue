@@ -26,7 +26,7 @@
         <div v-else class="space-y-4">
           <!-- Current Server Uptime Display -->
           <div class="text-center py-4 bg-muted/50 rounded-lg">
-            <div class="text-4xl font-bold font-mono text-green-500">
+            <div class="text-4xl font-bold font-mono text-success">
               {{ formattedUptime }}
             </div>
             <div class="text-sm text-muted-foreground mt-2">
@@ -139,9 +139,9 @@ const mudUptimeHours = computed(() => (mudHealth.value?.mudUptimeSeconds || 0) /
 // Server uptime styling
 const serverHealthColorClass = computed(() => {
   const days = uptimeDays.value
-  if (days >= 30) return 'bg-green-500 text-white' // Great uptime!
-  if (days >= 7) return 'bg-blue-500 text-white' // Good
-  return 'bg-yellow-500 text-black' // Recently rebooted
+  if (days >= 30) return 'bg-success text-white' // Great uptime!
+  if (days >= 7) return 'bg-info text-white' // Good
+  return 'bg-warning text-black' // Recently rebooted
 })
 
 const serverUptimeStatus = computed(() => {
@@ -154,16 +154,16 @@ const serverUptimeStatus = computed(() => {
 // MUD uptime styling (with 65h warning)
 const mudUptimeColorClass = computed(() => {
   const hours = mudUptimeHours.value
-  if (hours >= 65) return 'text-red-500'
-  if (hours >= 60) return 'text-yellow-500'
-  return 'text-green-500'
+  if (hours >= 65) return 'text-danger'
+  if (hours >= 60) return 'text-warning'
+  return 'text-success'
 })
 
 const mudHealthColorClass = computed(() => {
   const hours = mudUptimeHours.value
-  if (hours >= 65) return 'bg-red-500 text-white'
-  if (hours >= 60) return 'bg-yellow-500 text-black'
-  return 'bg-green-500 text-white'
+  if (hours >= 65) return 'bg-danger text-white'
+  if (hours >= 60) return 'bg-warning text-black'
+  return 'bg-success text-white'
 })
 
 const mudUptimeStatus = computed(() => {

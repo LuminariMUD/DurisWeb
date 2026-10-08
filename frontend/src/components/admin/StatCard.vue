@@ -31,7 +31,7 @@ const trendIcon = computed(() => {
 
 const trendColor = computed(() => {
   if (!props.change) return 'text-muted-foreground'
-  return props.change > 0 ? 'text-green-500' : 'text-red-500'
+  return props.change > 0 ? 'text-success' : 'text-danger'
 })
 </script>
 
@@ -56,9 +56,9 @@ const trendColor = computed(() => {
       </div>
       <div v-else class="space-y-1">
         <div class="flex items-baseline gap-2">
-          <div class="text-2xl font-bold" :class="{ 'text-red-500': error }">{{ value }}</div>
+          <div class="text-2xl font-bold" :class="{ 'text-danger': error }">{{ value }}</div>
           <Badge v-if="live" variant="outline" class="text-xs">
-            <span class="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></span>
+            <span class="w-2 h-2 bg-success rounded-full mr-1 animate-pulse"></span>
             Live
           </Badge>
         </div>

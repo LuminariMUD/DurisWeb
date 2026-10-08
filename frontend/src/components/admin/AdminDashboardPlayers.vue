@@ -62,26 +62,26 @@ const levelDistribution = computed(() => stats.value?.levelDistribution || [])
     <div class="rounded-lg border p-6">
       <h3 class="text-lg font-semibold mb-4">Racewar Distribution</h3>
       <div class="grid gap-4 md:grid-cols-5">
-        <div class="p-4 rounded-lg bg-gray-500/10 border border-gray-500/20">
-          <h3 class="text-sm font-medium text-gray-300 mb-2">None (0)</h3>
+        <div class="p-4 rounded-lg bg-faint/10 border border-faint/20">
+          <h3 class="text-sm font-medium text-bone-muted mb-2">None (0)</h3>
           <div v-if="isLoading" class="h-12 bg-muted animate-pulse rounded"></div>
-          <div v-else class="text-3xl font-bold text-gray-400">
+          <div v-else class="text-3xl font-bold text-muted-foreground">
             {{ stats?.noneCount ?? 0 }}
           </div>
         </div>
 
-        <div class="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-          <h3 class="text-sm font-medium text-yellow-300 mb-2">Good (1)</h3>
+        <div class="p-4 rounded-lg bg-warning/10 border border-warning/20">
+          <h3 class="text-sm font-medium text-warning mb-2">Good (1)</h3>
           <div v-if="isLoading" class="h-12 bg-muted animate-pulse rounded"></div>
-          <div v-else class="text-3xl font-bold text-yellow-400">
+          <div v-else class="text-3xl font-bold text-warning">
             {{ stats?.goodsCount ?? 0 }}
           </div>
         </div>
 
-        <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
-          <h3 class="text-sm font-medium text-red-300 mb-2">Evil (2)</h3>
+        <div class="p-4 rounded-lg bg-danger/10 border border-danger/20">
+          <h3 class="text-sm font-medium text-danger mb-2">Evil (2)</h3>
           <div v-if="isLoading" class="h-12 bg-muted animate-pulse rounded"></div>
-          <div v-else class="text-3xl font-bold text-red-400">
+          <div v-else class="text-3xl font-bold text-danger">
             {{ stats?.evilsCount ?? 0 }}
           </div>
         </div>
@@ -94,10 +94,10 @@ const levelDistribution = computed(() => stats.value?.levelDistribution || [])
           </div>
         </div>
 
-        <div class="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-          <h3 class="text-sm font-medium text-blue-300 mb-2">Neutral (4)</h3>
+        <div class="p-4 rounded-lg bg-info/10 border border-info/20">
+          <h3 class="text-sm font-medium text-info mb-2">Neutral (4)</h3>
           <div v-if="isLoading" class="h-12 bg-muted animate-pulse rounded"></div>
-          <div v-else class="text-3xl font-bold text-blue-400">
+          <div v-else class="text-3xl font-bold text-info">
             {{ stats?.neutralsCount ?? 0 }}
           </div>
         </div>

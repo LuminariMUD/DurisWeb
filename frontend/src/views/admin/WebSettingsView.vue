@@ -255,7 +255,7 @@ onMounted(async () => {
       <div class="flex items-center gap-3">
         <Cog class="w-8 h-8 text-primary" />
         <div>
-          <h1 class="text-3xl font-bold">Web Settings</h1>
+          <h1 class="text-4xl md:text-5xl">Web Settings</h1>
           <p class="text-muted-foreground mt-1">
             Configure website branding, PvP display, and server information
           </p>

@@ -3,13 +3,13 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-white">Level Cap Management</h1>
-        <p class="text-gray-400 mt-1">Manually override the automatic level cap system</p>
+        <h1 class="text-4xl md:text-5xl text-foreground">Level Cap Management</h1>
+        <p class="text-muted-foreground mt-1">Manually override the automatic level cap system</p>
       </div>
       <button
         @click="loadLevelCap"
         :disabled="isLoading"
-        class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors disabled:opacity-50"
+        class="px-4 py-2 bg-ink-top text-white rounded hover:bg-rule transition-colors disabled:opacity-50"
         title="Refresh data"
       >
         <RefreshCw :class="['w-4 h-4', isLoading && 'animate-spin']" />
@@ -18,7 +18,7 @@
 
     <!-- Loading State -->
     <div v-if="isLoading && !levelCap" class="flex items-center justify-center py-12">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-info"></div>
     </div>
 
     <!-- Error State -->
@@ -32,7 +32,7 @@
       <Card>
         <CardHeader>
           <CardTitle class="flex items-center gap-2">
-            <TrendingUp class="w-5 h-5 text-blue-400" />
+            <TrendingUp class="w-5 h-5 text-info" />
             Current Level Cap Status
           </CardTitle>
         </CardHeader>
@@ -84,7 +84,7 @@
                 type="number"
                 min="25"
                 max="60"
-                class="w-full bg-background border rounded px-4 py-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                class="w-full bg-background border rounded px-4 py-2 focus:outline-none focus:border-info focus:ring-1 focus:ring-info"
                 placeholder="Enter new level cap"
               />
               <p class="text-xs text-muted-foreground mt-1">
@@ -116,7 +116,7 @@
                     :value="1"
                     class="sr-only peer"
                   />
-                  <div class="bg-background border-2 rounded px-4 py-2 text-center text-blue-400 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 hover:border-blue-400 transition-colors">
+                  <div class="bg-background border-2 rounded px-4 py-2 text-center text-info peer-checked:border-info peer-checked:bg-info/10 hover:border-info transition-colors">
                     <p class="text-sm font-medium">Good</p>
                   </div>
                 </label>
@@ -127,7 +127,7 @@
                     :value="2"
                     class="sr-only peer"
                   />
-                  <div class="bg-background border-2 rounded px-4 py-2 text-center text-red-400 peer-checked:border-red-500 peer-checked:bg-red-500/10 hover:border-red-400 transition-colors">
+                  <div class="bg-background border-2 rounded px-4 py-2 text-center text-danger peer-checked:border-danger peer-checked:bg-danger/10 hover:border-danger transition-colors">
                     <p class="text-sm font-medium">Evil</p>
                   </div>
                 </label>
@@ -143,7 +143,7 @@
             <button
               @click="openUpdateDialog"
               :disabled="!canUpdate"
-              class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              class="px-6 py-2 bg-info-deep text-white rounded hover:bg-info-deep/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Update Level Cap
             </button>
@@ -158,11 +158,11 @@
       </Card>
 
       <!-- Info Box -->
-      <div class="rounded-lg border border-blue-500/20 bg-blue-500/10 p-4">
+      <div class="rounded-lg border border-info/20 bg-info/10 p-4">
         <div class="flex items-start gap-3">
-          <Info class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+          <Info class="w-5 h-5 text-info flex-shrink-0 mt-0.5" />
           <div>
-            <p class="text-sm text-blue-300 font-medium">How Level Cap Works</p>
+            <p class="text-sm text-info font-medium">How Level Cap Works</p>
             <ul class="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
               <li>The MUD automatically increases the level cap based on frag counts</li>
               <li>Manual changes override the automatic system temporarily</li>
@@ -229,10 +229,10 @@ const racewarLeader = computed(() => {
 })
 
 const racewarColor = computed(() => {
-  if (!levelCap.value) return 'text-gray-400'
-  if (levelCap.value.racewarLeader === 1) return 'text-blue-400'
-  if (levelCap.value.racewarLeader === 2) return 'text-red-400'
-  return 'text-gray-400'
+  if (!levelCap.value) return 'text-muted-foreground'
+  if (levelCap.value.racewarLeader === 1) return 'text-info'
+  if (levelCap.value.racewarLeader === 2) return 'text-danger'
+  return 'text-muted-foreground'
 })
 
 const canUpdate = computed(() => {

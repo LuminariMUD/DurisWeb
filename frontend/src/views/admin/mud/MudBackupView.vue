@@ -228,13 +228,13 @@ function getStatusVariant(status: string): 'default' | 'secondary' | 'destructiv
 function getStatusClass(status: string): string {
   switch (status) {
     case 'completed':
-      return 'bg-green-500 hover:bg-green-600'
+      return 'bg-success hover:bg-success-deep/80'
     case 'in_progress':
-      return 'bg-blue-500 hover:bg-blue-600'
+      return 'bg-info hover:bg-info-deep/80'
     case 'pending':
-      return 'bg-yellow-500 hover:bg-yellow-600'
+      return 'bg-warning hover:bg-warning-deep/80'
     case 'failed':
-      return 'bg-red-500 hover:bg-red-600'
+      return 'bg-danger hover:bg-danger-deep/80'
     default:
       return ''
   }
@@ -245,7 +245,7 @@ function getBackupTypeBadge(backupType: string): { class: string; label: string 
   if (backupType === 'hourly') {
     return { class: 'bg-purple-500/20 text-purple-600 border-purple-500/50', label: 'Auto' }
   }
-  return { class: 'bg-blue-500/20 text-blue-600 border-blue-500/50', label: 'Manual' }
+  return { class: 'bg-info/20 text-info border-info/50', label: 'Manual' }
 }
 
 // Handle download
@@ -417,7 +417,7 @@ function executeUploadRestore() {
       <div>
         <div class="flex items-center gap-2">
           <HardDrive class="h-8 w-8" />
-          <h1 class="text-3xl font-bold">MUD Backups</h1>
+          <h1 class="text-4xl md:text-5xl">MUD Backups</h1>
         </div>
         <p class="text-muted-foreground mt-1">Backup database, player files, and accounts</p>
       </div>
@@ -462,14 +462,14 @@ function executeUploadRestore() {
     </Alert>
 
     <!-- In Progress Alert (Backup) -->
-    <Card v-if="inProgressBackup" class="mb-6 border-blue-500/50 bg-blue-500/5">
+    <Card v-if="inProgressBackup" class="mb-6 border-info/50 bg-info/5">
       <CardContent class="pt-6">
         <div class="flex items-center gap-4">
-          <div class="flex items-center justify-center w-12 h-12 rounded-full bg-blue-500/10">
-            <Loader2 class="h-6 w-6 text-blue-500 animate-spin" />
+          <div class="flex items-center justify-center w-12 h-12 rounded-full bg-info/10">
+            <Loader2 class="h-6 w-6 text-info animate-spin" />
           </div>
           <div class="flex-1">
-            <div class="font-semibold text-blue-600 dark:text-blue-400">Backup in progress</div>
+            <div class="font-semibold text-info">Backup in progress</div>
             <div class="text-sm text-muted-foreground">
               {{ inProgressBackup.currentStep || 'Starting...' }}
             </div>
@@ -492,7 +492,7 @@ function executeUploadRestore() {
             <RotateCcw class="h-6 w-6 text-purple-500 animate-spin" />
           </div>
           <div class="flex-1">
-            <div class="font-semibold text-purple-600 dark:text-purple-400">Restore in progress</div>
+            <div class="font-semibold text-purple-400">Restore in progress</div>
             <div class="text-sm text-muted-foreground">
               {{ currentRestore.currentStep || 'Starting...' }}
             </div>
@@ -553,8 +553,8 @@ function executeUploadRestore() {
               :key="backup.id"
               class="hover:bg-transparent"
               :class="{
-                'bg-blue-500/5': backup.status === 'in_progress' || backup.status === 'pending',
-                'bg-red-500/5': backup.status === 'failed',
+                'bg-info/5': backup.status === 'in_progress' || backup.status === 'pending',
+                'bg-danger/5': backup.status === 'failed',
               }"
             >
               <TableCell>

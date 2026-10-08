@@ -2,7 +2,7 @@
   <div class="container mx-auto py-6 space-y-6">
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold">Permission Management</h1>
+        <h1 class="text-4xl md:text-5xl">Permission Management</h1>
         <p class="text-muted-foreground mt-1">Manage roles and assign permissions to accounts</p>
       </div>
     </div>

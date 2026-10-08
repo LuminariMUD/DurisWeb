@@ -18,7 +18,7 @@ homepage design to the whole site in shippable phases.
 | 2. Shell: header, navigation, sidebar, banners, shared primitives | Done 2026-10-08 |
 | 3. Public surfaces sweep | Done 2026-10-08 |
 | 4. Play client chrome | Done 2026-10-08 (manual connect: see log) |
-| 5. Admin and builder | Not started |
+| 5. Admin and builder | Done 2026-10-08 (immortal walk: see log) |
 | 6. Closeout: guard rail, cleanup, documentation | Not started |
 
 Each phase leaves the site coherent and can be deployed on its own. Phase 1
@@ -653,3 +653,25 @@ of them play client, admin or builder.
   defaults are game data and stay.
 - The pop-out window's `Toaster` picks up the toast variables from
   `main.css` like the main one.
+
+### Phase 5 — 2026-10-08
+
+- Builder mockups removed per decision 6: the `/builder-mockups` route,
+  `BuilderMockupsView.vue` and `Design1SplitPanel` through
+  `Design5NotionStyle`.
+- Admin, builder and the remaining top-level components (zone dialogs, zone
+  stats) were swept with the same mapping; page titles took the display
+  scale. Confirmation dialogs keep `destructive` styling, which now renders
+  as the danger fill.
+- Admin charts (`WebAnalyticsView`, `ServerHealthView`,
+  `AdminDashboardOverview`, `ZoneStatsCard`) read `chartTheme`; the palette
+  gained a sixth series color (success) and a neutral slice color. The zone
+  alignment pie keeps evil red, neutral gray and good blue.
+- Mention chips in builder comments and proc requests use vermilion
+  variables.
+- Not touched, as game data: `ZoneMap.vue` sector colors,
+  `DescriptionPreview.vue`, `ColorToolbar.vue` and `AnsiEditor.vue` MUD color
+  tables.
+- The palette guard passes with an empty allowlist after this phase.
+- Matrix: format, lint, type-check pass; unit tests 182/183 with only the
+  baseline failure (`DashboardView.spec.ts` passes).

@@ -90,7 +90,7 @@ onMounted(() => {
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
       <div>
-        <h1 class="text-3xl font-bold text-white">credits Management</h1>
+        <h1 class="text-4xl md:text-5xl text-foreground">credits Management</h1>
         <p class="text-muted-foreground mt-1">
           Manage the MUD Credits shown to players on login
         </p>
@@ -107,7 +107,7 @@ onMounted(() => {
     <!-- Editor -->
     <div class="space-y-2">
       <div class="flex justify-between items-center">
-        <label class="text-sm font-medium text-gray-200">
+        <label class="text-sm font-medium text-foreground">
           credits Content
         </label>
         <span class="text-xs text-muted-foreground">
@@ -123,9 +123,9 @@ onMounted(() => {
     </div>
 
     <!-- Info Box -->
-    <div class="mt-6 border border-blue-500/30 bg-blue-500/10 rounded-lg p-4">
-      <h3 class="font-medium text-blue-400 mb-2">About credits</h3>
-      <p class="text-sm text-gray-300">
+    <div class="mt-6 border border-info/30 bg-info/10 rounded-lg p-4">
+      <h3 class="font-medium text-info mb-2">About credits</h3>
+      <p class="text-sm text-bone-muted">
         The MUD Credits (credits) is displayed to all players listing zone builders and contributors.
         Use this to communicate important server announcements, upcoming events, maintenance
         schedules, or welcome new players. Use the color picker in the editor to apply MUD ANSI colors.

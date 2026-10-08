@@ -17,8 +17,10 @@ export const chartTheme = {
     borderWidth: 1,
     padding: 12,
   },
-  /** --chart-1..5: vermilion, ember, label, bone-muted, info. */
-  series: ['#df583d', '#f79250', '#b3b086', '#d0cec2', '#7f9fb0'],
+  /** --chart-1..5 (vermilion, ember, label, bone-muted, info), then success. */
+  series: ['#df583d', '#f79250', '#b3b086', '#d0cec2', '#7f9fb0', '#8aa66b'],
+  /** Neutral category (for example "none" or "neutral" slices). */
+  neutralSeries: '#898879',
   /** Alignment keeps its meaning: good, evil, neutral, undead. */
   faction: {
     good: '#8aa66b',

@@ -127,14 +127,14 @@ onUnmounted(() => {
 function getStateClass(state: string): string {
   switch (state) {
     case 'running':
-      return 'bg-green-500 hover:bg-green-600'
+      return 'bg-success hover:bg-success-deep/80'
     case 'stopped':
-      return 'bg-red-500 hover:bg-red-600'
+      return 'bg-danger hover:bg-danger-deep/80'
     case 'starting':
     case 'stopping':
-      return 'bg-yellow-500 hover:bg-yellow-600'
+      return 'bg-warning hover:bg-warning-deep/80'
     default:
-      return 'bg-gray-500 hover:bg-gray-600'
+      return 'bg-faint hover:bg-rule'
   }
 }
 
@@ -233,7 +233,7 @@ const anyActionInProgress = computed(
       <div>
         <div class="flex items-center gap-2">
           <Power class="h-8 w-8" />
-          <h1 class="text-3xl font-bold">MUD Control</h1>
+          <h1 class="text-4xl md:text-5xl">MUD Control</h1>
         </div>
         <p class="text-muted-foreground mt-1">Start, stop, and restart the MUD server</p>
       </div>
@@ -249,9 +249,9 @@ const anyActionInProgress = computed(
 
     <!-- Status Card -->
     <Card class="mb-6" :class="{
-      'border-green-500/50': status?.state === 'running',
-      'border-red-500/50': status?.state === 'stopped',
-      'border-yellow-500/50': status?.state === 'starting' || status?.state === 'stopping',
+      'border-success/50': status?.state === 'running',
+      'border-danger/50': status?.state === 'stopped',
+      'border-warning/50': status?.state === 'starting' || status?.state === 'stopping',
     }">
       <CardContent class="pt-6">
         <div v-if="statusLoading && !status" class="space-y-4">
@@ -271,23 +271,23 @@ const anyActionInProgress = computed(
               <div
                 class="w-16 h-16 rounded-full flex items-center justify-center"
                 :class="{
-                  'bg-green-500/20': status.state === 'running',
-                  'bg-red-500/20': status.state === 'stopped',
-                  'bg-yellow-500/20': status.state === 'starting' || status.state === 'stopping',
-                  'bg-gray-500/20': status.state === 'unknown',
+                  'bg-success/20': status.state === 'running',
+                  'bg-danger/20': status.state === 'stopped',
+                  'bg-warning/20': status.state === 'starting' || status.state === 'stopping',
+                  'bg-faint/20': status.state === 'unknown',
                 }"
               >
                 <template v-if="status.state === 'running'">
-                  <CheckCircle class="h-8 w-8 text-green-500" />
+                  <CheckCircle class="h-8 w-8 text-success" />
                 </template>
                 <template v-else-if="status.state === 'stopped'">
-                  <Square class="h-8 w-8 text-red-500" />
+                  <Square class="h-8 w-8 text-danger" />
                 </template>
                 <template v-else-if="status.state === 'starting' || status.state === 'stopping'">
-                  <Loader2 class="h-8 w-8 text-yellow-500 animate-spin" />
+                  <Loader2 class="h-8 w-8 text-warning animate-spin" />
                 </template>
                 <template v-else>
-                  <AlertCircle class="h-8 w-8 text-gray-500" />
+                  <AlertCircle class="h-8 w-8 text-faint" />
                 </template>
               </div>
               <div>
@@ -311,7 +311,7 @@ const anyActionInProgress = computed(
                 v-if="isStopped || status.state === 'unknown'"
                 @click="handleStart"
                 :disabled="anyActionInProgress || isTransitioning"
-                class="bg-green-600 hover:bg-green-700"
+                class="bg-success-deep hover:bg-success-deep/80"
               >
                 <Play class="h-4 w-4 mr-2" v-if="!isStarting" />
                 <Loader2 class="h-4 w-4 mr-2 animate-spin" v-else />
@@ -479,8 +479,8 @@ const anyActionInProgress = computed(
           <DialogTitle class="flex items-center gap-2">
             <Terminal class="h-5 w-5" />
             Command Output
-            <span v-if="isLiveOutput" class="inline-flex items-center gap-1 text-xs font-normal text-green-500">
-              <span class="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            <span v-if="isLiveOutput" class="inline-flex items-center gap-1 text-xs font-normal text-success">
+              <span class="h-2 w-2 rounded-full bg-success animate-pulse" />
               Live
             </span>
           </DialogTitle>
@@ -493,7 +493,7 @@ const anyActionInProgress = computed(
             ref="outputContainerRef"
             class="h-[400px] w-full rounded-md border bg-black/90 overflow-auto"
           >
-            <pre class="p-4 text-sm font-mono text-green-400 whitespace-pre-wrap break-all">{{ selectedOutput || (outputLoading ? 'Waiting for output...' : 'No output available') }}</pre>
+            <pre class="p-4 text-sm font-mono text-success whitespace-pre-wrap break-all">{{ selectedOutput || (outputLoading ? 'Waiting for output...' : 'No output available') }}</pre>
           </div>
         </div>
         <DialogFooter class="flex-shrink-0">

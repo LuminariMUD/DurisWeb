@@ -112,7 +112,7 @@ const renderedHtml = computed(() => parseColorCodes(props.text))
     </CardHeader>
     <CardContent>
       <div
-        class="font-mono text-sm bg-black text-gray-300 p-4 rounded-md whitespace-pre-wrap min-h-[100px] max-h-[300px] overflow-y-auto"
+        class="font-mono text-sm bg-black text-bone-muted p-4 rounded-md whitespace-pre-wrap min-h-[100px] max-h-[300px] overflow-y-auto"
         v-html="renderedHtml"
       />
     </CardContent>

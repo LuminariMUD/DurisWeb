@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { chartTheme, withAlpha } from '@/utils/chartTheme'
 import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import { formatDistanceToNow } from 'date-fns'
@@ -210,16 +211,16 @@ const trafficChartData = computed<ChartData<'line'>>(() => {
       {
         label: 'Page Views',
         data: data.map((item) => item.views),
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderColor: chartTheme.series[0],
+        backgroundColor: withAlpha(chartTheme.series[0], 0.1),
         fill: true,
         tension: 0.4,
       },
       {
         label: 'Unique Visitors',
         data: data.map((item) => item.visitors),
-        borderColor: 'rgb(34, 197, 94)',
-        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+        borderColor: chartTheme.series[1],
+        backgroundColor: withAlpha(chartTheme.series[1], 0.1),
         fill: true,
         tension: 0.4,
       },
@@ -234,7 +235,7 @@ const trafficChartOptions = computed<ChartOptions<'line'>>(() => ({
     legend: {
       position: 'top' as const,
       labels: {
-        color: 'rgb(156, 163, 175)',
+        color: chartTheme.muted,
       },
     },
   },
@@ -242,18 +243,18 @@ const trafficChartOptions = computed<ChartOptions<'line'>>(() => ({
     y: {
       beginAtZero: true,
       grid: {
-        color: 'rgba(75, 85, 99, 0.3)',
+        color: chartTheme.grid,
       },
       ticks: {
-        color: 'rgb(156, 163, 175)',
+        color: chartTheme.muted,
       },
     },
     x: {
       grid: {
-        color: 'rgba(75, 85, 99, 0.3)',
+        color: chartTheme.grid,
       },
       ticks: {
-        color: 'rgb(156, 163, 175)',
+        color: chartTheme.muted,
         maxRotation: 45,
         minRotation: 45,
       },
@@ -270,16 +271,16 @@ const deviceChartData = computed<ChartData<'pie'>>(() => {
       {
         data: devices.map((d: any) => d.count),
         backgroundColor: [
-          'rgba(59, 130, 246, 0.8)',
-          'rgba(34, 197, 94, 0.8)',
-          'rgba(249, 115, 22, 0.8)',
-          'rgba(168, 85, 247, 0.8)',
+          withAlpha(chartTheme.series[0], 0.8),
+          withAlpha(chartTheme.series[1], 0.8),
+          withAlpha(chartTheme.series[2], 0.8),
+          withAlpha(chartTheme.series[3], 0.8),
         ],
         borderColor: [
-          'rgb(59, 130, 246)',
-          'rgb(34, 197, 94)',
-          'rgb(249, 115, 22)',
-          'rgb(168, 85, 247)',
+          chartTheme.series[0],
+          chartTheme.series[1],
+          chartTheme.series[2],
+          chartTheme.series[3],
         ],
         borderWidth: 1,
       },
@@ -296,11 +297,11 @@ const browserChartData = computed<ChartData<'pie'>>(() => {
       {
         data: browsers.map((b: any) => b.count),
         backgroundColor: [
-          'rgba(59, 130, 246, 0.8)',
-          'rgba(34, 197, 94, 0.8)',
-          'rgba(249, 115, 22, 0.8)',
-          'rgba(168, 85, 247, 0.8)',
-          'rgba(236, 72, 153, 0.8)',
+          withAlpha(chartTheme.series[0], 0.8),
+          withAlpha(chartTheme.series[1], 0.8),
+          withAlpha(chartTheme.series[2], 0.8),
+          withAlpha(chartTheme.series[3], 0.8),
+          withAlpha(chartTheme.series[4], 0.8),
         ],
         borderWidth: 1,
       },
@@ -317,12 +318,12 @@ const referrerChartData = computed<ChartData<'pie'>>(() => {
       {
         data: refs.map((r: any) => r.visits),
         backgroundColor: [
-          'rgba(59, 130, 246, 0.8)',
-          'rgba(34, 197, 94, 0.8)',
-          'rgba(249, 115, 22, 0.8)',
-          'rgba(168, 85, 247, 0.8)',
-          'rgba(236, 72, 153, 0.8)',
-          'rgba(14, 165, 233, 0.8)',
+          withAlpha(chartTheme.series[0], 0.8),
+          withAlpha(chartTheme.series[1], 0.8),
+          withAlpha(chartTheme.series[2], 0.8),
+          withAlpha(chartTheme.series[3], 0.8),
+          withAlpha(chartTheme.series[4], 0.8),
+          withAlpha(chartTheme.series[5], 0.8),
         ],
         borderWidth: 1,
       },
@@ -337,7 +338,7 @@ const pieChartOptions = computed<ChartOptions<'pie'>>(() => ({
     legend: {
       position: 'right' as const,
       labels: {
-        color: 'rgb(156, 163, 175)',
+        color: chartTheme.muted,
         padding: 15,
       },
     },
@@ -372,7 +373,7 @@ onMounted(() => {
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold">Web Analytics</h1>
+        <h1 class="text-4xl md:text-5xl">Web Analytics</h1>
         <p class="text-muted-foreground mt-1">
           Track page views, visitor behavior, and traffic sources
         </p>
@@ -397,11 +398,11 @@ onMounted(() => {
     </div>
 
     <!-- Realtime Banner -->
-    <Card class="bg-gradient-to-r from-green-500/10 to-blue-500/10 border-green-500/30">
+    <Card class="bg-gradient-to-r from-success/10 to-info/10 border-success/30">
       <CardContent class="py-4">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <div class="h-3 w-3 bg-green-500 rounded-full animate-pulse" />
+            <div class="h-3 w-3 bg-success rounded-full animate-pulse" />
             <span class="font-semibold">{{ realtimeCount }} active visitors</span>
             <span class="text-muted-foreground">in the last 5 minutes</span>
           </div>
@@ -429,7 +430,7 @@ onMounted(() => {
                 {{ overview?.todayPageViews?.toLocaleString() || 0 }} today
               </p>
             </div>
-            <Eye class="h-8 w-8 text-blue-500" />
+            <Eye class="h-8 w-8 text-info" />
           </div>
         </CardContent>
       </Card>
@@ -444,7 +445,7 @@ onMounted(() => {
                 {{ overview?.todayUniqueVisitors?.toLocaleString() || 0 }} today
               </p>
             </div>
-            <Users class="h-8 w-8 text-green-500" />
+            <Users class="h-8 w-8 text-success" />
           </div>
         </CardContent>
       </Card>
@@ -472,7 +473,7 @@ onMounted(() => {
               <p class="text-2xl font-bold">{{ overview?.bounceRate?.toFixed(1) || 0 }}%</p>
               <p class="text-xs text-muted-foreground mt-1">single page visits</p>
             </div>
-            <MousePointerClick class="h-8 w-8 text-red-500" />
+            <MousePointerClick class="h-8 w-8 text-danger" />
           </div>
         </CardContent>
       </Card>

@@ -187,11 +187,11 @@ function downloadLog() {
 function getLogLevelClass(level: string): string {
   switch (level) {
     case 'ERROR':
-      return 'bg-red-900/20 text-red-400 border-l-4 border-red-500'
+      return 'bg-danger-deep/20 text-danger border-l-4 border-danger'
     case 'WARNING':
-      return 'bg-yellow-900/20 text-yellow-400 border-l-4 border-yellow-500'
+      return 'bg-warning-deep/20 text-warning border-l-4 border-warning'
     case 'DEBUG':
-      return 'text-gray-500'
+      return 'text-faint'
     default:
       return ''
   }
@@ -209,8 +209,8 @@ function formatFileSize(bytes: number): string {
   <div class="container mx-auto py-6 space-y-6">
     <!-- Header -->
     <div>
-      <h1 class="text-3xl font-bold text-white mb-2">Server Logs</h1>
-      <p class="text-gray-400">View and monitor DurisMUD server logs in real-time</p>
+      <h1 class="text-4xl md:text-5xl text-foreground mb-2">Server Logs</h1>
+      <p class="text-muted-foreground">View and monitor DurisMUD server logs in real-time</p>
     </div>
 
     <!-- Controls -->
@@ -249,7 +249,7 @@ function formatFileSize(bytes: number): string {
                   :value="log.name"
                 >
                   {{ log.name }}
-                  <span class="text-gray-500 text-xs ml-2">
+                  <span class="text-faint text-xs ml-2">
                     ({{ formatFileSize(log.size) }})
                   </span>
                 </SelectItem>
@@ -291,7 +291,7 @@ function formatFileSize(bytes: number): string {
           <div class="space-y-2 md:col-span-2">
             <Label>Search</Label>
             <div class="relative">
-              <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
               <Input
                 :model-value="searchText"
                 @input="handleSearchInput"
@@ -336,7 +336,7 @@ function formatFileSize(bytes: number): string {
             />
             <Label for="auto-refresh" class="cursor-pointer">
               Auto-refresh (Real-time updates)
-              <span v-if="isSubscribed" class="text-green-500 ml-2">● Live</span>
+              <span v-if="isSubscribed" class="text-success ml-2">● Live</span>
             </Label>
           </div>
 
@@ -361,44 +361,44 @@ function formatFileSize(bytes: number): string {
           <span v-if="logContent">
             Showing {{ logContent.lines.length }} of {{ logContent.totalLines }} lines
           </span>
-          <span v-if="filters.search || startDateStr || endDateStr" class="text-yellow-500 ml-2">
+          <span v-if="filters.search || startDateStr || endDateStr" class="text-warning ml-2">
             (Filtered)
           </span>
         </CardDescription>
       </CardHeader>
       <CardContent>
         <!-- Loading State -->
-        <div v-if="isLoadingContent" class="text-center py-8 text-gray-500">
+        <div v-if="isLoadingContent" class="text-center py-8 text-faint">
           Loading log content...
         </div>
 
         <!-- Empty State -->
-        <div v-else-if="!logContent || logContent.lines.length === 0" class="text-center py-8 text-gray-500">
+        <div v-else-if="!logContent || logContent.lines.length === 0" class="text-center py-8 text-faint">
           No log lines found
           <span v-if="filters.search || startDateStr || endDateStr">(try adjusting filters)</span>
         </div>
 
         <!-- Log Lines -->
         <div v-else class="space-y-2">
-          <div class="h-[600px] w-full overflow-y-auto rounded-md border border-gray-800 p-4 bg-black/50 font-mono text-sm">
+          <div class="h-[600px] w-full overflow-y-auto rounded-md border border-border p-4 bg-black/50 font-mono text-sm">
             <div
               v-for="line in logContent.lines"
               :key="line.lineNumber"
               :class="['py-1 px-2 rounded', getLogLevelClass(line.level)]"
             >
-              <span class="text-gray-600 mr-4 select-none">[{{ line.lineNumber }}]</span>
+              <span class="text-faint mr-4 select-none">[{{ line.lineNumber }}]</span>
               <AnsiText :text="line.content" />
             </div>
 
             <!-- Real-time new lines indicator -->
-            <div v-if="newLines.length > 0 && currentPage === logContent.totalPages" class="mt-4 pt-4 border-t border-green-500/30">
-              <div class="text-green-500 text-xs mb-2">New lines (real-time):</div>
+            <div v-if="newLines.length > 0 && currentPage === logContent.totalPages" class="mt-4 pt-4 border-t border-success/30">
+              <div class="text-success text-xs mb-2">New lines (real-time):</div>
               <div
                 v-for="(newLine, idx) in newLines"
                 :key="`new-${idx}`"
-                class="py-1 px-2 rounded bg-green-900/10 border-l-4 border-green-500"
+                class="py-1 px-2 rounded bg-success-deep/10 border-l-4 border-success"
               >
-                <span class="text-gray-600 mr-4 select-none">[+{{ idx + 1 }}]</span>
+                <span class="text-faint mr-4 select-none">[+{{ idx + 1 }}]</span>
                 <AnsiText :text="newLine" />
               </div>
             </div>
@@ -418,7 +418,7 @@ function formatFileSize(bytes: number): string {
 
     <!-- No Log Selected -->
     <Card v-else>
-      <CardContent class="text-center py-12 text-gray-500">
+      <CardContent class="text-center py-12 text-faint">
         Select a log file to view its contents
       </CardContent>
     </Card>

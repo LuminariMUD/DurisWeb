@@ -93,7 +93,7 @@ async function closeHook() {
         <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           <ShieldCheck class="size-4" /> MUD settings
         </div>
-        <h1 class="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Hook Control</h1>
+        <h1 class="text-4xl md:text-5xl mt-2">Hook Control</h1>
         <p class="mt-1 max-w-2xl text-sm text-muted-foreground">Website gates, MUD reports, and effective delivery state in one operator surface.</p>
       </div>
       <div class="flex items-center gap-3 text-xs text-muted-foreground">

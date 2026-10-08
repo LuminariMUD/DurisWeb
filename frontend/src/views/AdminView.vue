@@ -157,7 +157,7 @@ onMounted(async () => {
       <div class="flex items-center gap-3">
         <Shield class="w-8 h-8 text-primary" />
         <div>
-          <h1 class="text-3xl font-bold">Admin Panel</h1>
+          <h1 class="text-4xl md:text-5xl">Admin Panel</h1>
           <p class="text-muted-foreground mt-1">
             Manage forum permissions and settings (Overlord only)
           </p>

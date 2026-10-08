@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { chartTheme, withAlpha } from '@/utils/chartTheme'
 import { computed } from 'vue'
 import { type ZoneStats, EPIC_TYPE_LABELS } from '@/composables/useZones'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -33,16 +34,16 @@ const epicTypeChartData = computed<ChartData<'pie'>>(() => {
       {
         data: props.stats.epicTypeDistribution.map((item) => item.count),
         backgroundColor: [
-          'rgba(156, 163, 175, 0.8)', // Gray for None
-          'rgba(59, 130, 246, 0.8)', // Blue for Small
-          'rgba(139, 92, 246, 0.8)', // Purple for Large
-          'rgba(236, 72, 153, 0.8)', // Pink for Monolith
+          withAlpha(chartTheme.neutralSeries, 0.8), // Gray for None
+          withAlpha(chartTheme.series[0], 0.8), // Blue for Small
+          withAlpha(chartTheme.series[3], 0.8), // Purple for Large
+          withAlpha(chartTheme.series[4], 0.8), // Pink for Monolith
         ],
         borderColor: [
-          'rgba(156, 163, 175, 1)',
-          'rgba(59, 130, 246, 1)',
-          'rgba(139, 92, 246, 1)',
-          'rgba(236, 72, 153, 1)',
+          chartTheme.neutralSeries,
+          chartTheme.series[0],
+          chartTheme.series[3],
+          chartTheme.series[4],
         ],
         borderWidth: 2,
       },
@@ -71,11 +72,11 @@ const alignmentChartData = computed<ChartData<'pie'>>(() => {
       {
         data: [evil, neutral, good],
         backgroundColor: [
-          'rgba(239, 68, 68, 0.8)', // Red for Evil
-          'rgba(156, 163, 175, 0.8)', // Gray for Neutral
-          'rgba(59, 130, 246, 0.8)', // Blue for Good
+          withAlpha(chartTheme.faction.evil, 0.8),
+          withAlpha(chartTheme.neutralSeries, 0.8),
+          withAlpha(chartTheme.series[4], 0.8), // info blue for good
         ],
-        borderColor: ['rgba(239, 68, 68, 1)', 'rgba(156, 163, 175, 1)', 'rgba(59, 130, 246, 1)'],
+        borderColor: [chartTheme.faction.evil, chartTheme.neutralSeries, chartTheme.series[4]],
         borderWidth: 2,
       },
     ],
@@ -89,7 +90,7 @@ const chartOptions: ChartOptions<'pie'> = {
     legend: {
       position: 'bottom',
       labels: {
-        color: 'rgb(156, 163, 175)',
+        color: chartTheme.muted,
         padding: 10,
       },
     },

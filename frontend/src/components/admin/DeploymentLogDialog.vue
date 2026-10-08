@@ -178,19 +178,19 @@ async function scrollToBottom() {
 function getLogClass(type: string): string {
   switch (type) {
     case 'error':
-      return 'text-red-500'
+      return 'text-danger'
     case 'success':
-      return 'text-green-500'
+      return 'text-success'
     case 'step':
-      return 'text-blue-400 font-semibold'
+      return 'text-info font-semibold'
     case 'info':
-      return 'text-yellow-400'
+      return 'text-warning'
     case 'compile':
-      return 'text-gray-300'
+      return 'text-bone-muted'
     case 'output':
-      return 'text-gray-400'
+      return 'text-muted-foreground'
     default:
-      return 'text-gray-400'
+      return 'text-muted-foreground'
   }
 }
 
@@ -209,8 +209,8 @@ function handleClose() {
       <DialogHeader>
         <DialogTitle class="flex items-center gap-2">
           <Loader2 v-if="isRunning" class="h-5 w-5 animate-spin" />
-          <CheckCircle v-else-if="success" class="h-5 w-5 text-green-500" />
-          <XCircle v-else-if="isComplete" class="h-5 w-5 text-red-500" />
+          <CheckCircle v-else-if="success" class="h-5 w-5 text-success" />
+          <XCircle v-else-if="isComplete" class="h-5 w-5 text-danger" />
           {{ action === 'deploy' ? 'Deploying' : 'Rolling back' }} to {{ targetHash.substring(0, 7) }}
         </DialogTitle>
         <DialogDescription class="truncate">
@@ -230,11 +230,11 @@ function handleClose() {
           class="whitespace-pre-wrap break-all leading-relaxed"
         >{{ log.message }}</div>
 
-        <div v-if="isRunning && logs.length === 0" class="text-gray-500">
+        <div v-if="isRunning && logs.length === 0" class="text-faint">
           Connecting...
         </div>
 
-        <div v-if="isRunning && logs.length > 0" class="text-gray-500 animate-pulse mt-2">
+        <div v-if="isRunning && logs.length > 0" class="text-faint animate-pulse mt-2">
           _
         </div>
       </div>
@@ -243,12 +243,12 @@ function handleClose() {
       <div class="flex items-center justify-between pt-4 border-t">
         <div v-if="isComplete" class="flex items-center gap-2">
           <template v-if="success">
-            <CheckCircle class="h-5 w-5 text-green-500" />
-            <span class="text-green-500 text-sm">Complete! Remember to shutdown/copyover the MUD.</span>
+            <CheckCircle class="h-5 w-5 text-success" />
+            <span class="text-success text-sm">Complete! Remember to shutdown/copyover the MUD.</span>
           </template>
           <template v-else>
-            <XCircle class="h-5 w-5 text-red-500" />
-            <span class="text-red-500 text-sm">Deployment failed. Check the log above for errors.</span>
+            <XCircle class="h-5 w-5 text-danger" />
+            <span class="text-danger text-sm">Deployment failed. Check the log above for errors.</span>
           </template>
         </div>
         <div v-else class="text-muted-foreground text-sm">

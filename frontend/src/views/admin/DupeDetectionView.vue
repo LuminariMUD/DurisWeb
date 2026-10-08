@@ -2,7 +2,7 @@
   <div class="container mx-auto p-6 space-y-6">
     <!-- Header -->
     <div>
-      <h1 class="text-3xl font-bold">Item Dupe Detection</h1>
+      <h1 class="text-4xl md:text-5xl">Item Dupe Detection</h1>
       <p class="text-muted-foreground mt-1">
         Items with same UID appearing on multiple players
       </p>
@@ -27,9 +27,9 @@
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm text-muted-foreground">Total Records</p>
-              <p class="text-2xl font-bold text-amber-500">{{ summary.total_duped_records }}</p>
+              <p class="text-2xl font-bold text-warning">{{ summary.total_duped_records }}</p>
             </div>
-            <Package class="h-8 w-8 text-amber-500" />
+            <Package class="h-8 w-8 text-warning" />
           </div>
         </CardContent>
       </Card>
@@ -39,9 +39,9 @@
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm text-muted-foreground">Player Pairs</p>
-              <p class="text-2xl font-bold text-blue-500">{{ summary.player_pairs.length }}</p>
+              <p class="text-2xl font-bold text-info">{{ summary.player_pairs.length }}</p>
             </div>
-            <Users class="h-8 w-8 text-blue-500" />
+            <Users class="h-8 w-8 text-info" />
           </div>
         </CardContent>
       </Card>
@@ -107,7 +107,7 @@
         </div>
 
         <div v-else-if="items.length === 0" class="text-center py-8 text-muted-foreground">
-          <CheckCircle class="h-8 w-8 mx-auto mb-2 text-green-500" />
+          <CheckCircle class="h-8 w-8 mx-auto mb-2 text-success" />
           <p>No duplicated items found</p>
         </div>
 

@@ -265,7 +265,7 @@ function goToPage(page: number) {
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
       <div>
-        <h1 class="text-3xl font-bold text-white">Website Changelog</h1>
+        <h1 class="text-4xl md:text-5xl text-foreground">Website Changelog</h1>
         <p class="text-muted-foreground mt-1">
           Manage website changelog entries and announcements
         </p>
@@ -318,7 +318,7 @@ function goToPage(page: number) {
                 variant="ghost"
                 size="sm"
                 @click="togglePublished(entry)"
-                :class="entry.isPublished ? 'text-green-500' : 'text-muted-foreground'"
+                :class="entry.isPublished ? 'text-success' : 'text-muted-foreground'"
               >
                 <Eye v-if="entry.isPublished" class="w-4 h-4" />
                 <EyeOff v-else class="w-4 h-4" />

@@ -211,9 +211,9 @@ const alignmentLabel = computed(() => {
             class="w-full"
           />
           <div class="flex justify-between text-xs text-muted-foreground">
-            <span class="text-red-600 dark:text-red-400">Very Evil (-5)</span>
+            <span class="text-danger">Very Evil (-5)</span>
             <span>Neutral (0)</span>
-            <span class="text-blue-600 dark:text-blue-400">Very Good (+5)</span>
+            <span class="text-info">Very Good (+5)</span>
           </div>
           <p v-if="errors.alignment" class="text-sm text-destructive">{{ errors.alignment }}</p>
         </div>

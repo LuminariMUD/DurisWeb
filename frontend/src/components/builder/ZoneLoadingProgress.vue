@@ -43,7 +43,7 @@ const typeLabel = computed(() => {
         />
         <CheckCircle2
           v-else-if="isComplete && !error"
-          class="h-4 w-4 text-green-500"
+          class="h-4 w-4 text-success"
         />
         <XCircle
           v-else-if="error"

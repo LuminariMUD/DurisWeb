@@ -141,10 +141,10 @@ async function submitReview() {
 // Status helpers
 function getStatusBadge(status: SuggestionStatus) {
   const badges: Record<SuggestionStatus, { class: string; icon: any }> = {
-    pending: { class: 'bg-yellow-500/20 text-yellow-400', icon: Clock },
-    in_review: { class: 'bg-blue-500/20 text-blue-400', icon: Eye },
-    approved: { class: 'bg-green-500/20 text-green-400', icon: CheckCircle },
-    rejected: { class: 'bg-red-500/20 text-red-400', icon: XCircle },
+    pending: { class: 'bg-warning/20 text-warning', icon: Clock },
+    in_review: { class: 'bg-info/20 text-info', icon: Eye },
+    approved: { class: 'bg-success/20 text-success', icon: CheckCircle },
+    rejected: { class: 'bg-danger/20 text-danger', icon: XCircle },
     needs_revision: { class: 'bg-orange-500/20 text-orange-400', icon: AlertCircle },
   }
   return badges[status] || badges.pending
@@ -194,7 +194,7 @@ onMounted(() => {
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-white">Help File Suggestions</h1>
+        <h1 class="text-4xl md:text-5xl text-foreground">Help File Suggestions</h1>
         <p class="text-muted-foreground mt-1">
           Review and manage player-submitted help file suggestions
         </p>
@@ -318,7 +318,7 @@ onMounted(() => {
       <DialogContent class="sm:!max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle class="flex items-center gap-2">
-            <FileText class="h-5 w-5 text-cyan-400" />
+            <FileText class="h-5 w-5 text-vermilion" />
             Review: {{ stripAnsiCodes(reviewingSuggestion?.title || '') }}
           </DialogTitle>
           <DialogDescription as="div" class="flex flex-wrap items-center gap-3 mt-2">
@@ -359,14 +359,14 @@ onMounted(() => {
             <div>
               <h4 class="text-sm font-medium mb-2">Original Content:</h4>
               <div
-                class="font-mono text-xs leading-relaxed whitespace-pre-wrap break-words p-3 bg-red-500/5 border border-red-500/20 rounded-lg max-h-[300px] overflow-y-auto"
+                class="font-mono text-xs leading-relaxed whitespace-pre-wrap break-words p-3 bg-danger/5 border border-danger/20 rounded-lg max-h-[300px] overflow-y-auto"
                 v-html="parsedOriginalContent"
               />
             </div>
             <div>
               <h4 class="text-sm font-medium mb-2">Proposed Changes:</h4>
               <div
-                class="font-mono text-xs leading-relaxed whitespace-pre-wrap break-words p-3 bg-green-500/5 border border-green-500/20 rounded-lg max-h-[300px] overflow-y-auto"
+                class="font-mono text-xs leading-relaxed whitespace-pre-wrap break-words p-3 bg-success/5 border border-success/20 rounded-lg max-h-[300px] overflow-y-auto"
                 v-html="parsedContent"
               />
             </div>
@@ -398,7 +398,7 @@ onMounted(() => {
                 :variant="reviewAction === 'approve' ? 'default' : 'outline'"
                 size="sm"
                 class="gap-1"
-                :class="reviewAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : ''"
+                :class="reviewAction === 'approve' ? 'bg-success-deep hover:bg-success-deep/80' : ''"
                 @click="reviewAction = 'approve'"
               >
                 <Check class="h-4 w-4" />
@@ -408,7 +408,7 @@ onMounted(() => {
                 :variant="reviewAction === 'reject' ? 'default' : 'outline'"
                 size="sm"
                 class="gap-1"
-                :class="reviewAction === 'reject' ? 'bg-red-600 hover:bg-red-700' : ''"
+                :class="reviewAction === 'reject' ? 'bg-danger-deep hover:bg-danger-deep/80' : ''"
                 @click="reviewAction = 'reject'"
               >
                 <X class="h-4 w-4" />
@@ -429,7 +429,7 @@ onMounted(() => {
             <div class="space-y-2">
               <Label for="reviewNotes">
                 Notes for Submitter
-                <span v-if="reviewAction !== 'approve'" class="text-red-400"> *</span>
+                <span v-if="reviewAction !== 'approve'" class="text-danger"> *</span>
               </Label>
               <Textarea
                 id="reviewNotes"
@@ -455,8 +455,8 @@ onMounted(() => {
             @click="submitReview"
             :disabled="submitting || (reviewAction !== 'approve' && !reviewNotes.trim())"
             :class="{
-              'bg-green-600 hover:bg-green-700': reviewAction === 'approve',
-              'bg-red-600 hover:bg-red-700': reviewAction === 'reject',
+              'bg-success-deep hover:bg-success-deep/80': reviewAction === 'approve',
+              'bg-danger-deep hover:bg-danger-deep/80': reviewAction === 'reject',
               'bg-orange-600 hover:bg-orange-700': reviewAction === 'needs_revision',
             }"
           >

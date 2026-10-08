@@ -140,7 +140,7 @@ async function onDeployComplete(success: boolean) {
       <div>
         <div class="flex items-center gap-2">
           <GitBranch class="h-8 w-8" />
-          <h1 class="text-3xl font-bold">Git History</h1>
+          <h1 class="text-4xl md:text-5xl">Git History</h1>
         </div>
         <p class="text-muted-foreground mt-1">MUD codebase commit history and deployment status</p>
       </div>
@@ -164,8 +164,8 @@ async function onDeployComplete(success: boolean) {
         <div class="flex flex-wrap gap-6">
           <!-- Current Deployed -->
           <div class="flex items-center gap-3">
-            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-green-500/10">
-              <Check class="h-5 w-5 text-green-500" />
+            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-success/10">
+              <Check class="h-5 w-5 text-success" />
             </div>
             <div>
               <div class="text-sm text-muted-foreground">Currently Deployed</div>
@@ -175,8 +175,8 @@ async function onDeployComplete(success: boolean) {
 
           <!-- Latest Remote -->
           <div class="flex items-center gap-3">
-            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500/10">
-              <GitBranch class="h-5 w-5 text-blue-500" />
+            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-info/10">
+              <GitBranch class="h-5 w-5 text-info" />
             </div>
             <div>
               <div class="text-sm text-muted-foreground">Latest on {{ status.branch }}</div>
@@ -188,21 +188,21 @@ async function onDeployComplete(success: boolean) {
           <div class="flex items-center gap-3">
             <div
               class="flex items-center justify-center w-10 h-10 rounded-full"
-              :class="status.commitsAhead > 0 ? 'bg-yellow-500/10' : 'bg-green-500/10'"
+              :class="status.commitsAhead > 0 ? 'bg-warning/10' : 'bg-success/10'"
             >
               <AlertCircle
                 v-if="status.commitsAhead > 0"
-                class="h-5 w-5 text-yellow-500"
+                class="h-5 w-5 text-warning"
               />
-              <Check v-else class="h-5 w-5 text-green-500" />
+              <Check v-else class="h-5 w-5 text-success" />
             </div>
             <div>
               <div class="text-sm text-muted-foreground">Status</div>
               <div class="font-semibold">
-                <span v-if="status.commitsAhead > 0" class="text-yellow-500">
+                <span v-if="status.commitsAhead > 0" class="text-warning">
                   {{ status.commitsAhead }} commit{{ status.commitsAhead > 1 ? 's' : '' }} behind
                 </span>
-                <span v-else class="text-green-500">
+                <span v-else class="text-success">
                   Up to date
                 </span>
               </div>
@@ -248,7 +248,7 @@ async function onDeployComplete(success: boolean) {
             <TableRow
               v-for="commit in commits"
               :key="commit.hash"
-              :class="{ 'bg-green-500/5': isDeployed(commit) }"
+              :class="{ 'bg-success/5': isDeployed(commit) }"
             >
               <TableCell class="text-sm text-muted-foreground">
                 {{ formatDate(commit.date) }}
@@ -275,15 +275,15 @@ async function onDeployComplete(success: boolean) {
                 <div class="flex items-center justify-end gap-2 text-xs">
                   <FileCode class="h-3.5 w-3.5 text-muted-foreground" />
                   <span class="text-muted-foreground">{{ commit.filesChanged }}</span>
-                  <span class="text-green-500">+{{ commit.insertions }}</span>
-                  <span class="text-red-500">-{{ commit.deletions }}</span>
+                  <span class="text-success">+{{ commit.insertions }}</span>
+                  <span class="text-danger">-{{ commit.deletions }}</span>
                 </div>
               </TableCell>
               <TableCell class="text-center">
                 <Badge
                   v-if="isDeployed(commit)"
                   variant="default"
-                  class="bg-green-500 hover:bg-green-600"
+                  class="bg-success hover:bg-success-deep/80"
                 >
                   DEPLOYED
                 </Badge>
@@ -299,7 +299,7 @@ async function onDeployComplete(success: boolean) {
                   <ArrowDown v-else class="h-4 w-4 mr-1" />
                   {{ isNewerThanDeployed(commit) ? 'Deploy' : 'Rollback' }}
                 </Button>
-                <Badge v-else variant="outline" class="text-green-500 border-green-500">
+                <Badge v-else variant="outline" class="text-success border-success">
                   Current
                 </Badge>
               </TableCell>

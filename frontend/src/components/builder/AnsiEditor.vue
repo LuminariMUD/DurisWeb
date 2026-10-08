@@ -1,16 +1,16 @@
 <template>
-  <div class="ansi-editor border border-gray-700 rounded-lg bg-gray-900">
+  <div class="ansi-editor border border-border rounded-lg bg-card">
     <!-- Toolbar -->
     <div
       v-if="editor"
-      class="flex items-center gap-1 border-b border-gray-700 bg-gray-800 p-2"
+      class="flex items-center gap-1 border-b border-border bg-ink-high p-2"
     >
       <!-- MUD Colors Dropdown -->
       <div class="relative" ref="colorDropdownRef">
         <button
           type="button"
           @click="showColorDropdown = !showColorDropdown"
-          class="flex items-center gap-1 rounded bg-gray-700 px-2 py-1.5 text-gray-300 transition-colors hover:bg-gray-600"
+          class="flex items-center gap-1 rounded bg-ink-top px-2 py-1.5 text-bone-muted transition-colors hover:bg-rule"
           title="MUD Colors"
         >
           <Palette class="h-4 w-4" />
@@ -21,7 +21,7 @@
         <!-- Color Dropdown -->
         <div
           v-if="showColorDropdown"
-          class="absolute left-0 top-full z-50 mt-1 w-48 rounded-lg border border-gray-700 bg-gray-800 p-2 shadow-xl"
+          class="absolute left-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-ink-high p-2 shadow-xl"
         >
           <div class="grid grid-cols-1 gap-1">
             <button
@@ -29,22 +29,22 @@
               :key="color.code"
               type="button"
               @click="applyMudColor(color.code)"
-              class="flex items-center gap-2 rounded px-2 py-1 text-left text-sm transition-colors hover:bg-gray-700"
+              class="flex items-center gap-2 rounded px-2 py-1 text-left text-sm transition-colors hover:bg-ink-top"
             >
               <span :class="[color.class, 'font-semibold']">A</span>
-              <span class="text-gray-300">{{ color.name }}</span>
-              <span class="ml-auto font-mono text-xs text-gray-500">{{
+              <span class="text-bone-muted">{{ color.name }}</span>
+              <span class="ml-auto font-mono text-xs text-faint">{{
                 color.code
               }}</span>
             </button>
           </div>
 
           <!-- Remove Color -->
-          <div class="mt-2 border-t border-gray-700 pt-2">
+          <div class="mt-2 border-t border-border pt-2">
             <button
               type="button"
               @click="removeMudColor"
-              class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm text-gray-400 transition-colors hover:bg-gray-700"
+              class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm text-muted-foreground transition-colors hover:bg-ink-top"
             >
               <X class="h-4 w-4" />
               <span>Remove Color</span>
@@ -117,7 +117,7 @@ const editor = useEditor({
   ],
   editorProps: {
     attributes: {
-      class: 'min-h-[50px] focus:outline-none p-3 text-gray-300',
+      class: 'min-h-[50px] focus:outline-none p-3 text-bone-muted',
     },
     handleKeyDown: props.singleLine
       ? (view, event) => {

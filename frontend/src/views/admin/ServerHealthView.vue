@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { chartTheme, withAlpha } from '@/utils/chartTheme'
 import { ref, computed, onMounted, nextTick, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
@@ -134,10 +135,10 @@ const currentHealth = computed(() => liveHealth.value || health.value)
 // Status badge styling
 const statusColor = computed(() => {
   const s = status.value?.status
-  if (s === 'operational') return 'bg-green-500/20 text-green-400 border-green-500/50'
+  if (s === 'operational') return 'bg-success/20 text-success border-success/50'
   if (s === 'degraded') return 'bg-orange-500/20 text-orange-400 border-orange-500/50'
-  if (s === 'offline') return 'bg-red-500/20 text-red-500 border-red-500/50'
-  return 'bg-gray-500/20 text-gray-400 border-gray-500/50'
+  if (s === 'offline') return 'bg-danger/20 text-danger border-danger/50'
+  return 'bg-faint/20 text-muted-foreground border-faint/50'
 })
 
 const statusIcon = computed(() => {
@@ -183,8 +184,8 @@ const cpuChartData = computed<ChartData<'line'>>(() => {
       {
         label: 'CPU Usage (%)',
         data: data.map((item) => item.mud_cpu_percent),
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderColor: chartTheme.series[0],
+        backgroundColor: withAlpha(chartTheme.series[0], 0.1),
         fill: true,
         tension: 0.4,
       },
@@ -200,8 +201,8 @@ const memoryChartData = computed<ChartData<'line'>>(() => {
       {
         label: 'Memory Usage (MB)',
         data: data.map((item) => item.mud_memory_mb),
-        borderColor: 'rgb(168, 85, 247)',
-        backgroundColor: 'rgba(168, 85, 247, 0.1)',
+        borderColor: chartTheme.series[3],
+        backgroundColor: withAlpha(chartTheme.series[3], 0.1),
         fill: true,
         tension: 0.4,
       },
@@ -217,8 +218,8 @@ const playersChartData = computed<ChartData<'line'>>(() => {
       {
         label: 'Online Players',
         data: data.map((item) => item.online_players),
-        borderColor: 'rgb(34, 197, 94)',
-        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+        borderColor: chartTheme.series[1],
+        backgroundColor: withAlpha(chartTheme.series[1], 0.1),
         fill: true,
         tension: 0.4,
       },
@@ -234,8 +235,8 @@ const dbChartData = computed<ChartData<'line'>>(() => {
       {
         label: 'DB Query Time (ms)',
         data: data.map((item) => item.db_query_time_ms),
-        borderColor: 'rgb(249, 115, 22)',
-        backgroundColor: 'rgba(249, 115, 22, 0.1)',
+        borderColor: chartTheme.series[2],
+        backgroundColor: withAlpha(chartTheme.series[2], 0.1),
         fill: true,
         tension: 0.4,
       },
@@ -254,20 +255,20 @@ const chartOptions: ChartOptions<'line'> = {
   scales: {
     x: {
       grid: {
-        color: 'rgba(255, 255, 255, 0.05)',
+        color: chartTheme.grid,
       },
       ticks: {
-        color: 'rgba(255, 255, 255, 0.7)',
+        color: chartTheme.muted,
         maxRotation: 0,
         autoSkipPadding: 20,
       },
     },
     y: {
       grid: {
-        color: 'rgba(255, 255, 255, 0.05)',
+        color: chartTheme.grid,
       },
       ticks: {
-        color: 'rgba(255, 255, 255, 0.7)',
+        color: chartTheme.muted,
       },
     },
   },
@@ -602,14 +603,14 @@ function getSeverityVariant(severity: string): 'default' | 'destructive' | 'seco
 }
 
 function getTypeColor(type: string): string {
-  if (type === 'crash') return 'text-red-500'
-  if (type === 'shutdown') return 'text-gray-400'
-  if (type === 'reboot') return 'text-green-400'
-  if (type === 'copyover') return 'text-cyan-400'
-  if (type === 'maintenance') return 'text-blue-500'
-  if (type === 'degraded') return 'text-yellow-500'
+  if (type === 'crash') return 'text-danger'
+  if (type === 'shutdown') return 'text-muted-foreground'
+  if (type === 'reboot') return 'text-success'
+  if (type === 'copyover') return 'text-vermilion'
+  if (type === 'maintenance') return 'text-info'
+  if (type === 'degraded') return 'text-warning'
   if (type === 'outage') return 'text-purple-500'
-  return 'text-gray-500'
+  return 'text-faint'
 }
 </script>
 
@@ -617,7 +618,7 @@ function getTypeColor(type: string): string {
   <div class="container mx-auto py-6 space-y-6">
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold">Server Health</h1>
+        <h1 class="text-4xl md:text-5xl">Server Health</h1>
         <p class="text-muted-foreground">Real-time metrics, crash logs, and incident management</p>
       </div>
 
@@ -626,15 +627,15 @@ function getTypeColor(type: string): string {
           <Tooltip>
             <TooltipTrigger as-child>
               <div class="flex items-center gap-2 cursor-help">
-                <component :is="statusIcon" :class="['h-5 w-5', status.status === 'operational' ? 'text-green-400' : status.status === 'degraded' ? 'text-orange-400' : 'text-red-500']" />
+                <component :is="statusIcon" :class="['h-5 w-5', status.status === 'operational' ? 'text-success' : status.status === 'degraded' ? 'text-orange-400' : 'text-danger']" />
                 <Badge :class="statusColor">{{ status.status }}</Badge>
               </div>
             </TooltipTrigger>
-            <TooltipContent class="bg-gray-900 border-gray-700">
-              <p :class="['font-semibold', status.status === 'operational' ? 'text-green-400' : status.status === 'degraded' ? 'text-orange-400' : 'text-red-500']">
+            <TooltipContent class="bg-card border-border">
+              <p :class="['font-semibold', status.status === 'operational' ? 'text-success' : status.status === 'degraded' ? 'text-orange-400' : 'text-danger']">
                 {{ status.message }}
               </p>
-              <p class="text-xs text-gray-400 mt-1">Status updates every 30 seconds</p>
+              <p class="text-xs text-muted-foreground mt-1">Status updates every 30 seconds</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -759,7 +760,7 @@ function getTypeColor(type: string): string {
                 <CheckCircle2 class="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div v-if="!isLoadingUptime" class="text-2xl font-bold text-green-500">
+                <div v-if="!isLoadingUptime" class="text-2xl font-bold text-success">
                   {{ uptime == null ? 'No data' : `${uptime.toFixed(2)}%` }}
                 </div>
                 <div v-else class="text-2xl font-bold">Loading...</div>
@@ -804,7 +805,7 @@ function getTypeColor(type: string): string {
                 <AlertTriangle class="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div class="text-2xl font-bold" :class="currentHealth.crashesLast24h > 0 ? 'text-red-500' : 'text-green-500'">
+                <div class="text-2xl font-bold" :class="currentHealth.crashesLast24h > 0 ? 'text-danger' : 'text-success'">
                   {{ currentHealth.crashesLast24h }}
                 </div>
                 <p class="text-xs text-muted-foreground">
@@ -1090,14 +1091,14 @@ function getTypeColor(type: string): string {
                     <TableCell class="text-sm">{{ formatDuration(incident.duration_seconds) }}</TableCell>
                     <TableCell>
                       <div class="flex items-center gap-2">
-                        <CheckCircle2 v-if="incident.resolved" class="h-4 w-4 text-green-500" />
-                        <XCircle v-else class="h-4 w-4 text-red-500" />
+                        <CheckCircle2 v-if="incident.resolved" class="h-4 w-4 text-success" />
+                        <XCircle v-else class="h-4 w-4 text-danger" />
                         <span class="text-sm">{{ incident.resolved ? 'Resolved' : 'Ongoing' }}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Check v-if="incident.public_visible" class="h-4 w-4 text-green-500" />
-                      <X v-else class="h-4 w-4 text-red-500" />
+                      <Check v-if="incident.public_visible" class="h-4 w-4 text-success" />
+                      <X v-else class="h-4 w-4 text-danger" />
                     </TableCell>
                     <TableCell class="text-right" @click.stop>
                       <div class="flex items-center justify-end gap-2">

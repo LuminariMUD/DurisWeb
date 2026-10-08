@@ -2,7 +2,7 @@
   <div class="container mx-auto py-6 space-y-6">
     <!-- Header -->
     <div>
-      <h1 class="text-3xl font-bold">Admin Action Audit Log</h1>
+      <h1 class="text-4xl md:text-5xl">Admin Action Audit Log</h1>
       <p class="text-muted-foreground mt-1">Track all administrative actions and MUD property changes</p>
     </div>
 

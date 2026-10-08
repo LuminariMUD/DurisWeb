@@ -50,8 +50,8 @@ const memoryUsagePercent = computed(() => {
     </Alert>
 
     <!-- DMS Process Stats -->
-    <div v-if="health?.dmsProcess?.isRunning" class="rounded-lg border p-6 bg-green-500/10 border-green-500/50">
-      <h3 class="text-lg font-semibold mb-4 text-green-400">DurisMUD Server Process</h3>
+    <div v-if="health?.dmsProcess?.isRunning" class="rounded-lg border p-6 bg-success/10 border-success/50">
+      <h3 class="text-lg font-semibold mb-4 text-success">DurisMUD Server Process</h3>
       <div class="grid gap-4 md:grid-cols-4">
         <div class="space-y-1">
           <div class="text-sm text-muted-foreground">CPU Usage</div>
@@ -115,9 +115,9 @@ const memoryUsagePercent = computed(() => {
                 class="h-full bg-primary transition-all"
                 :style="{ width: `${diskUsagePercent}%` }"
                 :class="{
-                  'bg-green-500': diskUsagePercent < 70,
-                  'bg-yellow-500': diskUsagePercent >= 70 && diskUsagePercent < 90,
-                  'bg-red-500': diskUsagePercent >= 90
+                  'bg-success': diskUsagePercent < 70,
+                  'bg-warning': diskUsagePercent >= 70 && diskUsagePercent < 90,
+                  'bg-danger': diskUsagePercent >= 90
                 }"
               ></div>
             </div>
@@ -159,9 +159,9 @@ const memoryUsagePercent = computed(() => {
                 class="h-full transition-all"
                 :style="{ width: `${memoryUsagePercent}%` }"
                 :class="{
-                  'bg-green-500': memoryUsagePercent < 70,
-                  'bg-yellow-500': memoryUsagePercent >= 70 && memoryUsagePercent < 90,
-                  'bg-red-500': memoryUsagePercent >= 90
+                  'bg-success': memoryUsagePercent < 70,
+                  'bg-warning': memoryUsagePercent >= 70 && memoryUsagePercent < 90,
+                  'bg-danger': memoryUsagePercent >= 90
                 }"
               ></div>
             </div>

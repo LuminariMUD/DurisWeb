@@ -3,14 +3,14 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-white">MUD Settings Dashboard</h1>
-        <p class="text-gray-400 mt-1">Game configuration overview (Read-Only)</p>
+        <h1 class="text-4xl md:text-5xl text-foreground">MUD Settings Dashboard</h1>
+        <p class="text-muted-foreground mt-1">Game configuration overview (Read-Only)</p>
       </div>
     </div>
 
     <!-- Loading State -->
     <div v-if="isLoading" class="flex items-center justify-center py-12">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-info"></div>
     </div>
 
     <!-- Error State -->
@@ -24,7 +24,7 @@
       <Card>
         <CardHeader>
           <CardTitle class="flex items-center gap-2">
-            <TrendingUp class="w-5 h-5 text-blue-400" />
+            <TrendingUp class="w-5 h-5 text-info" />
             Current Level Cap
           </CardTitle>
         </CardHeader>
@@ -62,7 +62,7 @@
         <Card>
           <CardContent class="pt-6">
             <div class="flex items-center gap-2 mb-2">
-              <Zap class="w-4 h-4 text-yellow-400" />
+              <Zap class="w-4 h-4 text-warning" />
               <p class="text-sm text-muted-foreground">Max XP Level</p>
             </div>
             <p class="text-2xl font-bold">{{ dashboard.keySettings.maxExpLevel ?? 'N/A' }}</p>
@@ -74,7 +74,7 @@
         <Card>
           <CardContent class="pt-6">
             <div class="flex items-center gap-2 mb-2">
-              <Activity class="w-4 h-4 text-green-400" />
+              <Activity class="w-4 h-4 text-success" />
               <p class="text-sm text-muted-foreground">Global XP Rate</p>
             </div>
             <p class="text-2xl font-bold">{{ formatMultiplier(dashboard.keySettings.globalXpRate) }}</p>
@@ -91,11 +91,11 @@
             </div>
             <div class="flex gap-4 mt-1">
               <div>
-                <p class="text-sm text-blue-400">Good:</p>
+                <p class="text-sm text-info">Good:</p>
                 <p class="text-lg font-bold">{{ formatMultiplier(dashboard.keySettings.goodXpRate) }}</p>
               </div>
               <div>
-                <p class="text-sm text-red-400">Evil:</p>
+                <p class="text-sm text-danger">Evil:</p>
                 <p class="text-lg font-bold">{{ formatMultiplier(dashboard.keySettings.evilXpRate) }}</p>
               </div>
             </div>
@@ -106,7 +106,7 @@
         <Card>
           <CardContent class="pt-6">
             <div class="flex items-center gap-2 mb-2">
-              <Sparkles class="w-4 h-4 text-amber-400" />
+              <Sparkles class="w-4 h-4 text-warning" />
               <p class="text-sm text-muted-foreground">Max Epic Level</p>
             </div>
             <p class="text-2xl font-bold">{{ dashboard.keySettings.maxEpicLevel ?? 'N/A' }}</p>
@@ -130,7 +130,7 @@
         <Card>
           <CardContent class="pt-6">
             <div class="flex items-center gap-2 mb-2">
-              <AlertTriangle class="w-4 h-4 text-red-400" />
+              <AlertTriangle class="w-4 h-4 text-danger" />
               <p class="text-sm text-muted-foreground">Last Player Wipe</p>
             </div>
             <p class="text-sm mt-1">{{ formatWipeDate(dashboard.lastWipeDate) }}</p>
@@ -271,8 +271,8 @@ const racewarLeader = computed(() => {
 })
 
 const racewarColor = computed(() => {
-  if (!dashboard.value?.levelCap) return 'text-gray-400'
-  return dashboard.value.levelCap.racewarLeader === 1 ? 'text-blue-400' : 'text-red-400'
+  if (!dashboard.value?.levelCap) return 'text-muted-foreground'
+  return dashboard.value.levelCap.racewarLeader === 1 ? 'text-info' : 'text-danger'
 })
 
 const formatMultiplier = (value: number | null): string => {
@@ -316,15 +316,15 @@ const formatTimerName = (name: string): string => {
 const getSeasonColor = (season: string): string => {
   switch (season) {
     case 'Spring':
-      return 'text-green-400'
+      return 'text-success'
     case 'Summer':
-      return 'text-yellow-400'
+      return 'text-warning'
     case 'Fall':
       return 'text-orange-400'
     case 'Winter':
-      return 'text-blue-300'
+      return 'text-info'
     default:
-      return 'text-gray-400'
+      return 'text-muted-foreground'
   }
 }
 
@@ -333,17 +333,17 @@ const getTimeOfDayColor = (timeOfDay: string): string => {
     case 'Dawn':
       return 'text-orange-300'
     case 'Morning':
-      return 'text-yellow-300'
+      return 'text-warning'
     case 'Afternoon':
-      return 'text-amber-300'
+      return 'text-warning'
     case 'Dusk':
       return 'text-purple-300'
     case 'Night':
       return 'text-indigo-300'
     case 'Midnight':
-      return 'text-blue-300'
+      return 'text-info'
     default:
-      return 'text-gray-400'
+      return 'text-muted-foreground'
   }
 }
 

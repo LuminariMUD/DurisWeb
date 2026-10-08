@@ -108,7 +108,7 @@ async function confirmRestore() {
 <template>
   <div class="container mx-auto p-6">
     <div class="mb-6">
-      <h1 class="text-3xl font-bold flex items-center gap-2">
+      <h1 class="text-4xl md:text-5xl flex items-center gap-2">
         <Archive class="w-8 h-8" />
         Archives
       </h1>

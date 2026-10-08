@@ -82,9 +82,9 @@ const killsByClass = computed(() => stats.value?.killsByClass || [])
           No PvP activity yet
         </div>
         <div v-else class="space-y-3">
-          <div class="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+          <div class="p-4 rounded-lg bg-success/10 border border-success/20">
             <div class="font-medium mb-1" v-html="parseAnsiForVue(stats.topKiller.name)"></div>
-            <div class="text-2xl font-bold text-green-400">
+            <div class="text-2xl font-bold text-success">
               {{ stats.topKiller.kills }} kills
             </div>
           </div>
@@ -99,9 +99,9 @@ const killsByClass = computed(() => stats.value?.killsByClass || [])
           No PvP activity yet
         </div>
         <div v-else class="space-y-3">
-          <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+          <div class="p-4 rounded-lg bg-danger/10 border border-danger/20">
             <div class="font-medium mb-1" v-html="parseAnsiForVue(stats.topVictim.name)"></div>
-            <div class="text-2xl font-bold text-red-400">
+            <div class="text-2xl font-bold text-danger">
               {{ stats.topVictim.deaths }} deaths
             </div>
           </div>

@@ -121,7 +121,7 @@ function getStatusBadge(status: ProcRequestStatus) {
         variant: 'outline' as const,
         icon: UserCheck,
         label: 'Assigned',
-        class: 'border-blue-500 text-blue-500',
+        class: 'border-info text-info',
       }
     case 'in_progress':
       return { variant: 'default' as const, icon: PlayCircle, label: 'In Progress', class: '' }
@@ -130,7 +130,7 @@ function getStatusBadge(status: ProcRequestStatus) {
         variant: 'secondary' as const,
         icon: CheckCircle2,
         label: 'Completed',
-        class: 'bg-green-500/20 text-green-500',
+        class: 'bg-success/20 text-success',
       }
   }
 }
@@ -358,8 +358,8 @@ function getHighlightedDescription(request: ProcRequest): string | null {
 <style>
 /* Mention highlight styles for proc request descriptions */
 .proc-description .mention-highlight {
-  color: rgb(34 211 238); /* cyan-400 */
-  background-color: rgba(34, 211, 238, 0.1);
+  color: var(--color-vermilion);
+  background-color: color-mix(in srgb, var(--color-vermilion) 10%, transparent);
   padding: 0.125rem 0.25rem;
   border-radius: 0.25rem;
   font-weight: 500;

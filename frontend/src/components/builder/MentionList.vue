@@ -66,21 +66,21 @@ defineExpose({
 </script>
 
 <template>
-  <div class="mention-dropdown bg-gray-800 border border-gray-700 rounded-lg shadow-xl overflow-hidden min-w-[200px]">
+  <div class="mention-dropdown bg-ink-high border border-border rounded-lg shadow-xl overflow-hidden min-w-[200px]">
     <template v-if="items.length">
       <button
         v-for="(item, index) in items"
         :key="item.id"
         type="button"
         class="w-full px-3 py-2 text-left text-sm transition-colors flex items-center gap-2"
-        :class="index === selectedIndex ? 'bg-cyan-600 text-white' : 'text-gray-300 hover:bg-gray-700'"
+        :class="index === selectedIndex ? 'bg-vermilion-deep text-white' : 'text-bone-muted hover:bg-ink-top'"
         @click="selectItem(index)"
       >
-        <span class="text-gray-400">@</span>
+        <span class="text-muted-foreground">@</span>
         <span>{{ item.label }}</span>
       </button>
     </template>
-    <div v-else class="px-3 py-2 text-sm text-gray-500">
+    <div v-else class="px-3 py-2 text-sm text-faint">
       No results
     </div>
   </div>

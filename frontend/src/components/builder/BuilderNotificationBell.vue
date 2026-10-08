@@ -265,7 +265,7 @@ onUnmounted(() => {
         <Bell class="h-4 w-4" />
         <Badge
           v-if="totalUnreadCount > 0"
-          class="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 flex items-center justify-center text-[10px] bg-red-500 text-white border-0"
+          class="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 flex items-center justify-center text-[10px] bg-danger text-white border-0"
         >
           {{ totalUnreadCount > 99 ? '99+' : totalUnreadCount }}
         </Badge>

@@ -28,7 +28,7 @@ onMounted(async () => {
       <div class="flex items-center gap-3">
         <BarChart3 class="w-8 h-8 text-primary" />
         <div>
-          <h1 class="text-3xl font-bold">Server Dashboard</h1>
+          <h1 class="text-4xl md:text-5xl">Server Dashboard</h1>
           <p class="text-muted-foreground mt-1">
             Real-time analytics and server metrics (Overlord only)
           </p>

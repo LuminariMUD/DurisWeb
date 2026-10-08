@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold">Connection Logs</h1>
+        <h1 class="text-4xl md:text-5xl">Connection Logs</h1>
         <p class="text-muted-foreground mt-1">
           Track MUD login/logout events and detect suspicious multi-account patterns
         </p>
@@ -11,7 +11,7 @@
       <Button
         @click="router.push('/admin/connections/suspicious')"
         variant="outline"
-        class="border-orange-500 text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-600 dark:hover:bg-orange-950"
+        class="text-orange-400 border-orange-600 hover:bg-orange-950"
       >
         <AlertTriangle class="h-4 w-4 mr-2" />
         Suspicious Accounts
@@ -360,8 +360,8 @@
             class="flex items-start gap-3 p-3 rounded-lg border"
           >
             <div class="mt-1">
-              <LogIn v-if="event.status === 'login'" class="h-5 w-5 text-green-500" />
-              <LogOut v-else class="h-5 w-5 text-red-500" />
+              <LogIn v-if="event.status === 'login'" class="h-5 w-5 text-success" />
+              <LogOut v-else class="h-5 w-5 text-danger" />
             </div>
             <div class="flex-1">
               <div class="flex items-center justify-between">

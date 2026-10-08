@@ -75,11 +75,11 @@ function getStatusIcon(status: string) {
 function getStatusColor(status: string) {
   switch (status) {
     case 'success':
-      return 'text-green-500'
+      return 'text-success'
     case 'error':
-      return 'text-red-500'
+      return 'text-danger'
     default:
-      return 'text-blue-500'
+      return 'text-info'
   }
 }
 
@@ -98,8 +98,8 @@ onUnmounted(() => {
       <DialogHeader>
         <DialogTitle class="flex items-center gap-2">
           <Loader2 v-if="!isComplete" class="h-5 w-5 animate-spin" />
-          <CheckCircle2 v-else-if="wasSuccessful" class="h-5 w-5 text-green-500" />
-          <XCircle v-else class="h-5 w-5 text-red-500" />
+          <CheckCircle2 v-else-if="wasSuccessful" class="h-5 w-5 text-success" />
+          <XCircle v-else class="h-5 w-5 text-danger" />
           Deleting {{ characterName }}
         </DialogTitle>
       </DialogHeader>
@@ -124,7 +124,7 @@ onUnmounted(() => {
               class="h-4 w-4 mt-0.5 shrink-0"
               :class="getStatusColor(entry.status)"
             />
-            <span :class="entry.status === 'error' ? 'text-red-500' : ''">
+            <span :class="entry.status === 'error' ? 'text-danger' : ''">
               {{ entry.message }}
             </span>
           </div>

@@ -376,14 +376,6 @@ const router = createRouter({
       ],
     },
 
-    // Zone Builder Mockups (for design review)
-    {
-      path: '/builder-mockups',
-      name: 'builder-mockups',
-      component: () => import('../views/builder/BuilderMockupsView.vue'),
-      meta: { public: true },
-    },
-
     // Zone Builder
     {
       path: '/builder',

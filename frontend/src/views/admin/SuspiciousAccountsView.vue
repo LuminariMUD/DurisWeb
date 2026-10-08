@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold">Suspicious Accounts</h1>
+        <h1 class="text-4xl md:text-5xl">Suspicious Accounts</h1>
         <p class="text-muted-foreground mt-1">
           Multi-account detection and flagged accounts requiring review
         </p>
@@ -33,11 +33,11 @@
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm text-muted-foreground">Needs Review</p>
-              <p class="text-2xl font-bold text-amber-500">
+              <p class="text-2xl font-bold text-warning">
                 {{ unreviewedCount }}
               </p>
             </div>
-            <Clock class="h-8 w-8 text-amber-500" />
+            <Clock class="h-8 w-8 text-warning" />
           </div>
         </CardContent>
       </Card>
@@ -47,21 +47,21 @@
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm text-muted-foreground">Reviewed</p>
-              <p class="text-2xl font-bold text-green-500">
+              <p class="text-2xl font-bold text-success">
                 {{ reviewedCount }}
               </p>
             </div>
-            <CheckCircle class="h-8 w-8 text-green-500" />
+            <CheckCircle class="h-8 w-8 text-success" />
           </div>
         </CardContent>
       </Card>
     </div>
 
     <!-- Scoring System Legend -->
-    <Card class="border-blue-500/50 bg-blue-950/20">
+    <Card class="border-info/50 bg-info-deep/20">
       <CardHeader>
         <CardTitle class="text-lg flex items-center gap-2">
-          <Info class="h-5 w-5 text-blue-400" />
+          <Info class="h-5 w-5 text-info" />
           Suspicion Scoring System
         </CardTitle>
       </CardHeader>
@@ -90,7 +90,7 @@
 
           <!-- Overlapping Sessions -->
           <div class="flex items-start gap-3 p-3 rounded-lg border bg-card">
-            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-red-500/20 text-red-400 font-bold text-sm">
+            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-danger/20 text-danger font-bold text-sm">
               +60
             </div>
             <div class="flex-1">
@@ -106,7 +106,7 @@
 
           <!-- Rapid Character Switches -->
           <div class="flex items-start gap-3 p-3 rounded-lg border bg-card">
-            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-amber-500/20 text-amber-400 font-bold text-sm">
+            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-warning/20 text-warning font-bold text-sm">
               +25
             </div>
             <div class="flex-1">
@@ -122,7 +122,7 @@
 
           <!-- Same IP Within Hour -->
           <div class="flex items-start gap-3 p-3 rounded-lg border bg-card">
-            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-yellow-500/20 text-yellow-400 font-bold text-sm">
+            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-warning/20 text-warning font-bold text-sm">
               +25
             </div>
             <div class="flex-1">
@@ -138,7 +138,7 @@
 
           <!-- Multiple IPs (Reduction) -->
           <div class="flex items-start gap-3 p-3 rounded-lg border bg-card">
-            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-green-500/20 text-green-400 font-bold text-sm">
+            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-success/20 text-success font-bold text-sm">
               -10
             </div>
             <div class="flex-1">
@@ -154,22 +154,22 @@
 
           <!-- Score Ranges -->
           <div class="flex items-start gap-3 p-3 rounded-lg border bg-card">
-            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500/20 text-blue-400">
+            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-info/20 text-info">
               <Info class="h-5 w-5" />
             </div>
             <div class="flex-1">
               <p class="font-medium text-sm">Score Ranges</p>
               <div class="space-y-1 mt-1 text-xs">
-                <p><strong class="text-green-500">0-40:</strong> Low risk (not flagged)</p>
-                <p><strong class="text-amber-500">40-69:</strong> Medium risk (monitored)</p>
-                <p><strong class="text-red-500">70-100:</strong> High risk (auto-flagged)</p>
+                <p><strong class="text-success">0-40:</strong> Low risk (not flagged)</p>
+                <p><strong class="text-warning">40-69:</strong> Medium risk (monitored)</p>
+                <p><strong class="text-danger">70-100:</strong> High risk (auto-flagged)</p>
               </div>
             </div>
           </div>
         </div>
 
         <div class="flex items-start gap-2 p-3 rounded-lg bg-muted/50 text-sm">
-          <Info class="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+          <Info class="h-4 w-4 text-info mt-0.5 flex-shrink-0" />
           <p class="text-muted-foreground">
             <strong>Note:</strong> The maximum possible score is capped at 100. Scores are recalculated whenever
             new login activity is detected. Overlords should review flagged accounts and mark them as resolved
@@ -209,7 +209,7 @@
         </div>
 
         <div v-else-if="suspiciousAccounts.length === 0" class="text-center py-8 text-muted-foreground">
-          <CheckCircle class="h-8 w-8 mx-auto mb-2 text-green-500" />
+          <CheckCircle class="h-8 w-8 mx-auto mb-2 text-success" />
           <p>No suspicious accounts found</p>
         </div>
 
@@ -266,7 +266,7 @@
                 <TableCell>
                   <Tooltip v-if="account.is_resolved">
                     <TooltipTrigger as-child>
-                      <Badge variant="outline" class="text-green-500 border-green-500 cursor-help">
+                      <Badge variant="outline" class="text-success border-success cursor-help">
                         <CheckCircle class="h-3 w-3 mr-1" />
                         Reviewed
                       </Badge>
@@ -483,8 +483,8 @@
                 class="flex items-start gap-3 p-3 rounded-lg border"
               >
                 <div class="mt-1">
-                  <LogIn v-if="event.status === 'login'" class="h-5 w-5 text-green-500" />
-                  <LogOut v-else class="h-5 w-5 text-red-500" />
+                  <LogIn v-if="event.status === 'login'" class="h-5 w-5 text-success" />
+                  <LogOut v-else class="h-5 w-5 text-danger" />
                 </div>
                 <div class="flex-1">
                   <div class="flex items-center justify-between">
@@ -712,8 +712,8 @@ const getScoreBadgeVariant = (score: number) => {
 // Get score bar color
 const getScoreBarColor = (score: number) => {
   if (score >= 90) return 'bg-danger-deep'
-  if (score >= 70) return 'bg-amber-500'
-  return 'bg-green-500'
+  if (score >= 70) return 'bg-warning'
+  return 'bg-success'
 }
 
 // Get classification label based on evidence

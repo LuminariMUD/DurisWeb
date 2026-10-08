@@ -360,7 +360,7 @@ function isDoorFlagSet(flag: FlagDefinition): boolean {
                 <Badge>{{ exit.direction }}</Badge>
                 <span class="text-sm font-mono">-> {{ exit.toRoom }}</span>
                 <DoorOpen v-if="hasDoor(exit)" class="h-4 w-4 text-muted-foreground" />
-                <Key v-if="exit.keyVnum > 0" class="h-4 w-4 text-yellow-500" />
+                <Key v-if="exit.keyVnum > 0" class="h-4 w-4 text-warning" />
               </div>
               <p v-if="exit.description" class="text-xs text-muted-foreground">
                 {{ exit.description }}
@@ -410,9 +410,9 @@ function isDoorFlagSet(flag: FlagDefinition): boolean {
             </AlertDescription>
           </Alert>
 
-          <Alert v-if="validationWarnings.length > 0" class="border-yellow-500 bg-yellow-500/10">
-            <AlertTriangle class="h-4 w-4 text-yellow-500" />
-            <AlertDescription class="text-yellow-700 dark:text-yellow-300">
+          <Alert v-if="validationWarnings.length > 0" class="border-warning bg-warning/10">
+            <AlertTriangle class="h-4 w-4 text-warning" />
+            <AlertDescription class="text-warning">
               <ul class="list-disc list-inside space-y-1">
                 <li v-for="(warning, idx) in validationWarnings" :key="`warn-${idx}`">{{ warning }}</li>
               </ul>
@@ -427,7 +427,7 @@ function isDoorFlagSet(flag: FlagDefinition): boolean {
               v-model.number="editForm.toRoom"
               type="number"
               placeholder="Enter destination room VNUM..."
-              :class="{ 'border-yellow-500': validationWarnings.some(w => w.includes('Room')) }"
+              :class="{ 'border-warning': validationWarnings.some(w => w.includes('Room')) }"
             />
           </div>
 

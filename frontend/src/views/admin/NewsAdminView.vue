@@ -126,7 +126,7 @@ onMounted(() => {
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
       <div>
-        <h1 class="text-3xl font-bold text-white">MUD News Management</h1>
+        <h1 class="text-4xl md:text-5xl text-foreground">MUD News Management</h1>
         <p class="text-muted-foreground mt-1">
           Manage the in-game news content displayed to all players
         </p>
@@ -143,7 +143,7 @@ onMounted(() => {
     <!-- Editor -->
     <div class="space-y-2">
       <div class="flex justify-between items-center">
-        <label class="text-sm font-medium text-gray-200">
+        <label class="text-sm font-medium text-foreground">
           News Content
         </label>
         <span class="text-xs text-muted-foreground">
@@ -159,9 +159,9 @@ onMounted(() => {
     </div>
 
     <!-- Info Box -->
-    <div class="mt-6 border border-blue-500/30 bg-blue-500/10 rounded-lg p-4">
-      <h3 class="font-medium text-blue-400 mb-2">About MUD News</h3>
-      <p class="text-sm text-gray-300">
+    <div class="mt-6 border border-info/30 bg-info/10 rounded-lg p-4">
+      <h3 class="font-medium text-info mb-2">About MUD News</h3>
+      <p class="text-sm text-bone-muted">
         The MUD News is displayed to players when they use the 'news' command in-game.
         Use this to share important updates, patch notes, new features, or community events.
         Use the color picker in the editor to apply MUD ANSI colors.

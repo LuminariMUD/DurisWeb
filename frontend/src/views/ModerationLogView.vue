@@ -266,7 +266,7 @@ onMounted(() => {
       <div>
         <div class="flex items-center gap-2">
           <Shield class="h-8 w-8" />
-          <h1 class="text-3xl font-bold">Moderation</h1>
+          <h1 class="text-4xl md:text-5xl">Moderation</h1>
         </div>
         <p class="text-muted-foreground mt-1">View moderation actions and manage archives</p>
       </div>

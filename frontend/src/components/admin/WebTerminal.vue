@@ -43,22 +43,22 @@ function toggleFullscreen() {
 <template>
   <div
     :class="[
-      'flex flex-col bg-zinc-900 rounded-lg overflow-hidden',
+      'flex flex-col bg-card rounded-lg overflow-hidden',
       isFullscreen ? 'fixed inset-0 z-50' : 'h-full'
     ]"
   >
     <!-- Terminal Header -->
-    <div class="flex items-center justify-between px-4 py-2 bg-zinc-800 border-b border-zinc-700">
+    <div class="flex items-center justify-between px-4 py-2 bg-ink-high border-b border-border">
       <div class="flex items-center gap-3">
         <!-- Connection Status -->
         <div class="flex items-center gap-2">
           <div
             :class="[
               'w-2.5 h-2.5 rounded-full',
-              isConnected ? 'bg-green-500 animate-pulse' : 'bg-zinc-500'
+              isConnected ? 'bg-success animate-pulse' : 'bg-faint'
             ]"
           />
-          <span class="text-sm text-zinc-400">
+          <span class="text-sm text-muted-foreground">
             {{ isConnected ? 'Connected' : 'Disconnected' }}
           </span>
         </div>
@@ -118,7 +118,7 @@ function toggleFullscreen() {
     <!-- Error Display -->
     <div
       v-if="error"
-      class="px-4 py-2 bg-red-900/30 border-b border-red-800 text-red-300 text-sm"
+      class="px-4 py-2 bg-danger-deep/30 border-b border-danger-deep text-danger text-sm"
     >
       {{ error }}
     </div>
@@ -135,10 +135,10 @@ function toggleFullscreen() {
       v-if="!isConnected && !error"
       class="absolute inset-0 flex items-center justify-center pointer-events-none"
     >
-      <div class="text-center text-zinc-500 p-6">
+      <div class="text-center text-faint p-6">
         <p class="text-lg mb-2">MUD Server Terminal</p>
         <p class="text-sm">Click "Connect" to start a terminal session</p>
-        <p class="text-xs mt-2 text-zinc-600">
+        <p class="text-xs mt-2 text-faint">
           Restricted to MUD folder - Auto-attaches to screen session
         </p>
       </div>

@@ -3,16 +3,16 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-white flex items-center gap-2">
-          <AlertTriangle class="w-8 h-8 text-red-500" />
+        <h1 class="text-4xl md:text-5xl text-foreground flex items-center gap-2">
+          <AlertTriangle class="w-8 h-8 text-danger" />
           Player Wipe Control
         </h1>
-        <p class="text-gray-400 mt-1">DANGER ZONE - Irreversible player data deletion</p>
+        <p class="text-muted-foreground mt-1">DANGER ZONE - Irreversible player data deletion</p>
       </div>
       <button
         @click="loadData"
         :disabled="isLoading"
-        class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors disabled:opacity-50"
+        class="px-4 py-2 bg-ink-top text-white rounded hover:bg-rule transition-colors disabled:opacity-50"
         title="Refresh data"
       >
         <RefreshCw :class="['w-4 h-4', isLoading && 'animate-spin']" />
@@ -21,7 +21,7 @@
 
     <!-- Loading State -->
     <div v-if="isLoading && !wipeStatus" class="flex items-center justify-center py-12">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-info"></div>
     </div>
 
     <!-- Error State -->
@@ -34,12 +34,12 @@
       <!-- Cooldown Warning (if active) -->
       <div
         v-if="wipeStatus.isOnCooldown"
-        class="rounded-lg border border-yellow-500/20 bg-yellow-500/10 p-6"
+        class="rounded-lg border border-warning/20 bg-warning/10 p-6"
       >
         <div class="flex items-start gap-4">
-          <Clock class="w-8 h-8 text-yellow-400 flex-shrink-0" />
+          <Clock class="w-8 h-8 text-warning flex-shrink-0" />
           <div>
-            <h2 class="text-xl font-semibold text-yellow-300 mb-2">Wipe On Cooldown</h2>
+            <h2 class="text-xl font-semibold text-warning mb-2">Wipe On Cooldown</h2>
             <p class="mb-3">
               A wipe was recently performed. You must wait {{ cooldownDaysRemaining }} days before executing another wipe.
             </p>
@@ -57,7 +57,7 @@
       <Card v-if="wipeStatus.lastWipe">
         <CardContent class="pt-6">
           <div class="flex items-start gap-4">
-            <History class="w-6 h-6 text-blue-400 flex-shrink-0" />
+            <History class="w-6 h-6 text-info flex-shrink-0" />
             <div class="flex-1">
               <h2 class="text-lg font-semibold mb-3">Last Wipe Information</h2>
               <div class="grid grid-cols-2 gap-4">
@@ -91,7 +91,7 @@
       <Card>
         <CardHeader>
           <CardTitle class="flex items-center gap-3">
-            <Users class="w-6 h-6 text-blue-400" />
+            <Users class="w-6 h-6 text-info" />
             Player Statistics
           </CardTitle>
         </CardHeader>
@@ -103,11 +103,11 @@
             </div>
             <div class="rounded-lg border p-4">
               <p class="text-xs text-muted-foreground">Protected Players</p>
-              <p class="text-2xl font-bold text-yellow-400">{{ excludedPlayers.length }}</p>
+              <p class="text-2xl font-bold text-warning">{{ excludedPlayers.length }}</p>
             </div>
             <div class="rounded-lg border p-4">
               <p class="text-xs text-muted-foreground">Will Be Wiped</p>
-              <p class="text-2xl font-bold text-red-400">{{ players.length - excludedPlayers.length }}</p>
+              <p class="text-2xl font-bold text-danger">{{ players.length - excludedPlayers.length }}</p>
             </div>
           </div>
         </CardContent>
@@ -117,7 +117,7 @@
       <Card>
         <CardHeader>
           <CardTitle class="flex items-center gap-3">
-            <Shield class="w-6 h-6 text-yellow-400" />
+            <Shield class="w-6 h-6 text-warning" />
             Exclude Players from Wipe
           </CardTitle>
         </CardHeader>
@@ -129,24 +129,24 @@
         <!-- Search and Filter -->
         <div class="flex gap-3 mb-4">
           <div class="flex-1 relative">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
             <Input
               v-model="searchQuery"
               placeholder="Search by name, class, race, or guild..."
-              class="bg-gray-900 border-gray-700 text-white pl-10"
+              class="bg-card border-border text-white pl-10"
             />
           </div>
           <Button
             @click="selectAllVisible"
             variant="outline"
-            class="border-gray-600 text-gray-300 hover:bg-gray-700"
+            class="border-faint text-bone-muted hover:bg-ink-top"
           >
             Select All ({{ filteredPlayers.length }})
           </Button>
           <Button
             @click="deselectAll"
             variant="outline"
-            class="border-gray-600 text-gray-300 hover:bg-gray-700"
+            class="border-faint text-bone-muted hover:bg-ink-top"
           >
             Clear Selection
           </Button>
@@ -159,7 +159,7 @@
                 v-for="player in filteredPlayers"
                 :key="player.pid"
                 class="p-3 hover:bg-muted/50 cursor-pointer transition-colors"
-                :class="{ 'bg-yellow-500/10': isExcluded(player.pid) }"
+                :class="{ 'bg-warning/10': isExcluded(player.pid) }"
                 @click="togglePlayer(player.pid)"
               >
                 <div class="flex items-center gap-3">
@@ -167,7 +167,7 @@
                     type="checkbox"
                     :checked="isExcluded(player.pid)"
                     @click.stop="togglePlayer(player.pid)"
-                    class="w-4 h-4 rounded text-yellow-600 focus:ring-yellow-500 cursor-pointer"
+                    class="w-4 h-4 rounded text-warning focus:ring-warning cursor-pointer"
                   />
                   <div class="flex-1">
                     <div class="flex items-center gap-2">
@@ -180,7 +180,7 @@
                   </div>
                   <div class="text-right">
                     <p class="text-xs text-muted-foreground">Wealth</p>
-                    <p class="text-sm text-yellow-400 font-mono">{{ formatWealth(player.wealth) }}</p>
+                    <p class="text-sm text-warning font-mono">{{ formatWealth(player.wealth) }}</p>
                   </div>
                 </div>
               </div>
@@ -299,7 +299,7 @@
                     <td class="px-4 py-3 text-sm max-w-xs truncate" :title="entry.reason">
                       {{ entry.reason }}
                     </td>
-                    <td class="px-4 py-3 text-sm text-yellow-400 text-right">
+                    <td class="px-4 py-3 text-sm text-warning text-right">
                       {{ entry.excludedPlayers.length }}
                     </td>
                     <td class="px-4 py-3 text-sm text-right">
@@ -308,7 +308,7 @@
                     <td class="px-4 py-3 text-center">
                       <span
                         v-if="entry.success"
-                        class="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 text-green-400 rounded text-xs font-medium"
+                        class="inline-flex items-center gap-1 px-2 py-1 bg-success/10 text-success rounded text-xs font-medium"
                       >
                         <CheckCircle class="w-3 h-3" />
                         Success
@@ -344,11 +344,11 @@
       </Card>
 
       <!-- Info Box -->
-      <div class="rounded-lg border border-blue-500/20 bg-blue-500/10 p-4">
+      <div class="rounded-lg border border-info/20 bg-info/10 p-4">
         <div class="flex items-start gap-3">
-          <Info class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+          <Info class="w-5 h-5 text-info flex-shrink-0 mt-0.5" />
           <div>
-            <p class="text-sm text-blue-300 font-medium">About Player Wipe</p>
+            <p class="text-sm text-info font-medium">About Player Wipe</p>
             <ul class="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
               <li>Hard-deletes character data — accounts are preserved, players can re-roll</li>
               <li>Protected players keep everything</li>
@@ -374,9 +374,9 @@
 
     <!-- MUD Running Prompt -->
     <Dialog :open="showShutdownPrompt" @update:open="showShutdownPrompt = $event">
-      <DialogContent class="bg-gray-800 border border-yellow-500">
+      <DialogContent class="bg-ink-high border border-warning">
         <DialogHeader>
-          <DialogTitle class="text-yellow-300 flex items-center gap-2">
+          <DialogTitle class="text-warning flex items-center gap-2">
             <AlertTriangle class="w-5 h-5" /> MUD is running
           </DialogTitle>
           <DialogDescription>

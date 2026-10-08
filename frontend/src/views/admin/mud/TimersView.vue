@@ -3,13 +3,13 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-white">Timer Management</h1>
-        <p class="text-gray-400 mt-1">View and reset global game timers</p>
+        <h1 class="text-4xl md:text-5xl text-foreground">Timer Management</h1>
+        <p class="text-muted-foreground mt-1">View and reset global game timers</p>
       </div>
       <button
         @click="loadTimers"
         :disabled="isLoading"
-        class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors disabled:opacity-50"
+        class="px-4 py-2 bg-ink-top text-white rounded hover:bg-rule transition-colors disabled:opacity-50"
         title="Refresh data"
       >
         <RefreshCw :class="['w-4 h-4', isLoading && 'animate-spin']" />
@@ -18,7 +18,7 @@
 
     <!-- Loading State -->
     <div v-if="isLoading && timers.length === 0" class="flex items-center justify-center py-12">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-info"></div>
     </div>
 
     <!-- Error State -->
@@ -33,7 +33,7 @@
         <div class="flex items-center gap-4">
           <button
             @click="selectAll"
-            class="text-sm text-blue-400 hover:text-blue-300"
+            class="text-sm text-info hover:text-info"
           >
             Select All
           </button>
@@ -52,7 +52,7 @@
           <button
             @click="resetSelectedTimers"
             :disabled="selectedTimers.length === 0"
-            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            class="px-4 py-2 bg-info-deep text-white rounded hover:bg-info-deep/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
             Reset Selected ({{ selectedTimers.length }})
           </button>
@@ -85,7 +85,7 @@
                 v-for="timer in timers"
                 :key="timer.name"
                 class="hover:bg-muted/50 transition-colors"
-                :class="{ 'bg-blue-500/10': selectedTimers.includes(timer.name) }"
+                :class="{ 'bg-info/10': selectedTimers.includes(timer.name) }"
               >
                 <!-- Checkbox -->
                 <td class="px-4 py-3">
@@ -93,7 +93,7 @@
                     type="checkbox"
                     :checked="selectedTimers.includes(timer.name)"
                     @change="toggleTimer(timer.name)"
-                    class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    class="w-4 h-4 rounded text-info focus:ring-info cursor-pointer"
                   />
                 </td>
 
@@ -128,7 +128,7 @@
                 <td class="px-4 py-3 text-sm text-center">
                   <button
                     @click="resetSingleTimer(timer.name)"
-                    class="p-1 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 rounded"
+                    class="p-1 text-info hover:text-info hover:bg-info/20 rounded"
                     title="Reset this timer"
                   >
                     <RotateCcw class="w-4 h-4" />
@@ -141,15 +141,15 @@
       </div>
 
       <!-- Info Box -->
-      <div class="rounded-lg border border-blue-500/20 bg-blue-500/10 p-4">
+      <div class="rounded-lg border border-info/20 bg-info/10 p-4">
         <div class="flex items-start gap-3">
-          <Info class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+          <Info class="w-5 h-5 text-info flex-shrink-0 mt-0.5" />
           <div>
-            <p class="text-sm text-blue-300 font-medium">About Timers</p>
+            <p class="text-sm text-info font-medium">About Timers</p>
             <ul class="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
               <li>Timers control when certain game events and updates trigger</li>
               <li>Resetting a timer to NOW() will cause its event to trigger sooner</li>
-              <li>Color indicators: <span class="text-green-400">Green (&lt; 1hr)</span>, <span class="text-yellow-400">Yellow (1-24hr)</span>, <span class="text-red-400">Red (&gt; 24hr)</span></li>
+              <li>Color indicators: <span class="text-success">Green (&lt; 1hr)</span>, <span class="text-warning">Yellow (1-24hr)</span>, <span class="text-danger">Red (&gt; 24hr)</span></li>
               <li>All timer resets are logged to the audit trail</li>
               <li>Auto-refreshes every 30 seconds</li>
             </ul>
@@ -256,9 +256,9 @@ const _getTimeAgoColor = (timestamp: string): string => {
   const date = new Date(timestamp)
   const diffHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
 
-  if (diffHours < 1) return 'text-green-400'
-  if (diffHours < 24) return 'text-yellow-400'
-  return 'text-red-400'
+  if (diffHours < 1) return 'text-success'
+  if (diffHours < 24) return 'text-warning'
+  return 'text-danger'
 }
 
 const formatNextTrigger = (name: string, lastResetTimestamp: string): string => {
@@ -289,7 +289,7 @@ const formatNextTrigger = (name: string, lastResetTimestamp: string): string => 
 
 const getNextTriggerColor = (name: string, lastResetTimestamp: string): string => {
   const intervalSeconds = timerIntervalSeconds[name]
-  if (!intervalSeconds) return 'text-gray-400'
+  if (!intervalSeconds) return 'text-muted-foreground'
 
   const lastReset = new Date(lastResetTimestamp)
   const nextTrigger = new Date(lastReset.getTime() + intervalSeconds * 1000)
@@ -297,7 +297,7 @@ const getNextTriggerColor = (name: string, lastResetTimestamp: string): string =
 
   // If overdue or ready
   if (nextTrigger.getTime() <= now.getTime()) {
-    return 'text-red-400 font-semibold'
+    return 'text-danger font-semibold'
   }
 
   // Calculate percentage of time elapsed
@@ -305,9 +305,9 @@ const getNextTriggerColor = (name: string, lastResetTimestamp: string): string =
   const elapsed = now.getTime() - lastReset.getTime()
   const percentElapsed = (elapsed / totalInterval) * 100
 
-  if (percentElapsed >= 75) return 'text-yellow-400' // 75%+ elapsed
-  if (percentElapsed >= 50) return 'text-blue-400' // 50%+ elapsed
-  return 'text-green-400' // < 50% elapsed
+  if (percentElapsed >= 75) return 'text-warning' // 75%+ elapsed
+  if (percentElapsed >= 50) return 'text-info' // 50%+ elapsed
+  return 'text-success' // < 50% elapsed
 }
 
 const toggleTimer = (name: string) => {

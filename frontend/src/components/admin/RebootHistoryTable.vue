@@ -115,7 +115,7 @@
                 <div v-if="reboot.shutdownTime" class="text-sm">
                   {{ formatDateTime(reboot.shutdownTime) }}
                 </div>
-                <Badge v-else variant="outline" class="bg-green-500/10 text-green-500">
+                <Badge v-else variant="outline" class="bg-success/10 text-success">
                   Running
                 </Badge>
               </TableCell>

@@ -181,7 +181,7 @@ function clearFilters() {
 
 <template>
   <div class="container mx-auto p-6 space-y-6">
-    <h1 class="text-2xl font-bold">Zone Management</h1>
+    <h1 class="text-4xl md:text-5xl">Zone Management</h1>
 
     <div class="space-y-4">
         <!-- Statistics Card -->
@@ -270,7 +270,7 @@ function clearFilters() {
             </div>
 
             <!-- Error State -->
-            <div v-show="error && !isLoading" class="text-center py-8 text-red-500">
+            <div v-show="error && !isLoading" class="text-center py-8 text-danger">
               Error loading zones: {{ error }}
             </div>
 
@@ -355,8 +355,8 @@ function clearFilters() {
                     <TableCell>
                       <Badge
                         :class="{
-                          'bg-gray-500/20 text-gray-400 border-gray-500': zone.epicType === 0,
-                          'bg-blue-500/20 text-blue-400 border-blue-500': zone.epicType === 1,
+                          'bg-faint/20 text-muted-foreground border-faint': zone.epicType === 0,
+                          'bg-info/20 text-info border-info': zone.epicType === 1,
                           'bg-purple-500/20 text-purple-400 border-purple-500': zone.epicType === 2,
                           'bg-pink-500/20 text-pink-400 border-pink-500': zone.epicType === 3,
                         }"

@@ -248,15 +248,15 @@ function executeDelete() {
       <!-- Permissions list -->
       <div class="space-y-2">
         <!-- Zone owner (implicit full access) -->
-        <div v-if="isOwner" class="flex items-center justify-between p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+        <div v-if="isOwner" class="flex items-center justify-between p-3 bg-warning/10 border border-warning/30 rounded-lg">
           <div class="flex items-center gap-3">
-            <Crown class="h-5 w-5 text-yellow-500" />
+            <Crown class="h-5 w-5 text-warning" />
             <div>
               <span class="font-medium">{{ user?.accountName }}</span>
               <span class="text-muted-foreground ml-2">(You)</span>
             </div>
           </div>
-          <Badge variant="outline" class="border-yellow-500 text-yellow-500">
+          <Badge variant="outline" class="border-warning text-warning">
             <Crown class="h-3 w-3 mr-1" />
             Owner
           </Badge>

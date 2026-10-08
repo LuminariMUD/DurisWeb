@@ -222,7 +222,7 @@ function confirmSync() {
           <ArrowLeft class="h-5 w-5" />
         </Button>
         <div>
-          <h1 class="text-3xl font-bold tracking-tight">Builder Settings</h1>
+          <h1 class="text-4xl md:text-5xl">Builder Settings</h1>
           <p class="text-muted-foreground">
             Manage flag definitions for zone building
           </p>
@@ -281,8 +281,8 @@ function confirmSync() {
       <Card>
         <CardContent class="pt-6">
           <div class="flex items-center gap-3">
-            <div class="p-2 bg-green-500/10 rounded-lg">
-              <Users class="h-5 w-5 text-green-500" />
+            <div class="p-2 bg-success/10 rounded-lg">
+              <Users class="h-5 w-5 text-success" />
             </div>
             <div>
               <p class="text-sm text-muted-foreground">Mob Flags</p>
@@ -301,8 +301,8 @@ function confirmSync() {
       <Card>
         <CardContent class="pt-6">
           <div class="flex items-center gap-3">
-            <div class="p-2 bg-blue-500/10 rounded-lg">
-              <Home class="h-5 w-5 text-blue-500" />
+            <div class="p-2 bg-info/10 rounded-lg">
+              <Home class="h-5 w-5 text-info" />
             </div>
             <div>
               <p class="text-sm text-muted-foreground">Room Flags</p>

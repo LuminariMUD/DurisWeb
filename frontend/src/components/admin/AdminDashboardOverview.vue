@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { chartTheme, withAlpha } from '@/utils/chartTheme'
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import {
   useOverviewStats,
@@ -187,8 +188,8 @@ const chartData = computed<ChartData<'line'>>(() => {
       {
         label: 'Players Online',
         data,
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderColor: chartTheme.series[0],
+        backgroundColor: withAlpha(chartTheme.series[0], 0.1),
         fill: true,
         tension: 0.4,
       },

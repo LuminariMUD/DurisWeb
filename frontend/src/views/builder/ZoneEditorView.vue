@@ -1575,7 +1575,7 @@ function handleGitCommitted(commitHash: string) {
                     <span class="font-mono text-xs text-muted-foreground">#{{ room.vnum }}</span>
                     <span
                       v-if="zoneCache.isRoomDirty(room.vnum)"
-                      class="w-1.5 h-1.5 rounded-full bg-yellow-500"
+                      class="w-1.5 h-1.5 rounded-full bg-warning"
                       title="Unsaved changes"
                     />
                   </div>
@@ -1633,7 +1633,7 @@ function handleGitCommitted(commitHash: string) {
                     <span class="font-mono text-xs text-muted-foreground">#{{ mob.vnum }}</span>
                     <span
                       v-if="zoneCache.isMobDirty(mob.vnum)"
-                      class="w-1.5 h-1.5 rounded-full bg-yellow-500"
+                      class="w-1.5 h-1.5 rounded-full bg-warning"
                       title="Unsaved changes"
                     />
                   </div>
@@ -1685,7 +1685,7 @@ function handleGitCommitted(commitHash: string) {
                     <span class="font-mono text-xs text-muted-foreground">#{{ obj.vnum }}</span>
                     <span
                       v-if="zoneCache.isObjectDirty(obj.vnum)"
-                      class="w-1.5 h-1.5 rounded-full bg-yellow-500"
+                      class="w-1.5 h-1.5 rounded-full bg-warning"
                       title="Unsaved changes"
                     />
                   </div>
@@ -1700,7 +1700,7 @@ function handleGitCommitted(commitHash: string) {
         <!-- Toggle Button (visible when expanded) -->
         <button
           v-if="!sidebarCollapsed"
-          class="absolute top-1/2 -right-4 -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-muted border flex items-center justify-center hover:bg-cyan-600 hover:text-white transition-colors"
+          class="absolute top-1/2 -right-4 -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-muted border flex items-center justify-center hover:bg-vermilion-hover hover:text-white transition-colors"
           @click="sidebarCollapsed = true"
           title="Collapse sidebar"
         >
@@ -1711,7 +1711,7 @@ function handleGitCommitted(commitHash: string) {
       <!-- Toggle Button (visible when collapsed) -->
       <button
         v-if="sidebarCollapsed"
-        class="shrink-0 h-full w-10 bg-muted/50 flex items-center justify-center hover:bg-cyan-600 hover:text-white transition-colors border-r"
+        class="shrink-0 h-full w-10 bg-muted/50 flex items-center justify-center hover:bg-vermilion-hover hover:text-white transition-colors border-r"
         @click="sidebarCollapsed = false"
         title="Expand sidebar"
       >
@@ -1931,7 +1931,7 @@ function handleGitCommitted(commitHash: string) {
       <!-- Toggle Button (visible when map collapsed) -->
       <button
         v-if="mapCollapsed"
-        class="shrink-0 h-full w-10 bg-muted/50 flex items-center justify-center hover:bg-cyan-600 hover:text-white transition-colors border-l"
+        class="shrink-0 h-full w-10 bg-muted/50 flex items-center justify-center hover:bg-vermilion-hover hover:text-white transition-colors border-l"
         @click="mapCollapsed = false"
         title="Expand map"
       >
@@ -1946,7 +1946,7 @@ function handleGitCommitted(commitHash: string) {
         <!-- Toggle Button (visible when expanded) -->
         <button
           v-if="!mapCollapsed"
-          class="absolute top-1/2 -left-4 -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-muted border flex items-center justify-center hover:bg-cyan-600 hover:text-white transition-colors"
+          class="absolute top-1/2 -left-4 -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-muted border flex items-center justify-center hover:bg-vermilion-hover hover:text-white transition-colors"
           @click="mapCollapsed = true"
           title="Collapse map"
         >
@@ -2054,8 +2054,8 @@ function handleGitCommitted(commitHash: string) {
 
     <!-- Recovery Banner -->
     <div v-if="showRecoveryBanner" class="fixed top-16 left-0 right-0 z-50 px-4">
-      <Alert class="mx-auto max-w-4xl border-yellow-500 bg-yellow-950 shadow-lg">
-        <AlertTriangle class="h-4 w-4 text-yellow-500" />
+      <Alert class="mx-auto max-w-4xl border-warning bg-warning-deep shadow-lg">
+        <AlertTriangle class="h-4 w-4 text-warning" />
         <AlertTitle>Unsaved changes from previous session</AlertTitle>
         <AlertDescription class="flex items-center justify-between">
           <span>You have {{ zoneCache.dirtyCount.value }} unsaved change(s) that were not saved to file.</span>

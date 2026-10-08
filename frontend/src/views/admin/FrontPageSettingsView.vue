@@ -208,7 +208,7 @@ onMounted(async () => {
       <div class="flex items-center gap-3">
         <Home class="w-8 h-8 text-primary" />
         <div>
-          <h1 class="text-3xl font-bold">Front Page Editor</h1>
+          <h1 class="text-4xl md:text-5xl">Front Page Editor</h1>
           <p class="text-muted-foreground mt-1">
             Configure the front page hero banner and content
           </p>
@@ -426,7 +426,7 @@ onMounted(async () => {
   background-color: black;
 }
 
-.frontpage-editor :deep(.top-fragger-widget .bg-gray-800\/50) {
+.frontpage-editor :deep(.top-fragger-widget .bg-ink-high\/50) {
   background-color: transparent;
 }
 </style>

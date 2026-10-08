@@ -3,26 +3,26 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-white">MUD Properties</h1>
-        <p class="text-gray-400 mt-1">Browse and edit game settings ({{ totalProperties }} properties)</p>
+        <h1 class="text-4xl md:text-5xl text-foreground">MUD Properties</h1>
+        <p class="text-muted-foreground mt-1">Browse and edit game settings ({{ totalProperties }} properties)</p>
       </div>
     </div>
 
     <!-- Search Bar -->
     <div class="relative">
-      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+      <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
       <input
         v-model="searchQuery"
         type="text"
         placeholder="Search properties (e.g., exp., epic., ship.)..."
-        class="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+        class="w-full bg-ink-high border border-border rounded-lg pl-10 pr-4 py-2 text-white placeholder:text-muted-foreground focus:border-info focus:ring-1 focus:ring-info outline-none"
         @input="onSearchInput"
       />
     </div>
 
     <!-- Loading State -->
     <div v-if="isLoading" class="flex items-center justify-center py-12">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-info"></div>
     </div>
 
     <!-- Error State -->
@@ -52,13 +52,13 @@
               <tr v-for="prop in searchResults" :key="prop.key" class="hover:bg-muted/50 transition-colors">
                 <td class="px-4 py-3 text-sm font-mono">{{ prop.key }}</td>
                 <td class="px-4 py-3 text-sm font-mono text-right">
-                  <span v-if="editingKey !== prop.key" class="text-blue-400">{{ prop.value }}</span>
+                  <span v-if="editingKey !== prop.key" class="text-info">{{ prop.value }}</span>
                   <input
                     v-else
                     v-model="editingValue"
                     type="number"
                     step="any"
-                    class="w-32 bg-background border border-blue-500 rounded px-2 py-1 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    class="w-32 bg-background border border-info rounded px-2 py-1 text-right focus:outline-none focus:ring-1 focus:ring-info"
                     @keydown.enter="saveProperty(prop.key)"
                     @keydown.escape="cancelEdit"
                   />
@@ -70,7 +70,7 @@
                   <div v-if="editingKey !== prop.key" class="flex items-center justify-center gap-2">
                     <button
                       @click="startEdit(prop.key, prop.value)"
-                      class="p-1 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 rounded"
+                      class="p-1 text-info hover:text-info hover:bg-info/20 rounded"
                       title="Edit property"
                     >
                       <Edit class="w-4 h-4" />
@@ -86,14 +86,14 @@
                   <div v-else class="flex items-center justify-center gap-2">
                     <button
                       @click="saveProperty(prop.key)"
-                      class="p-1 text-green-400 hover:text-green-300 hover:bg-green-500/20 rounded"
+                      class="p-1 text-success hover:text-success hover:bg-success/20 rounded"
                       title="Save changes"
                     >
                       <Check class="w-4 h-4" />
                     </button>
                     <button
                       @click="cancelEdit"
-                      class="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded"
+                      class="p-1 text-danger hover:text-danger hover:bg-danger/20 rounded"
                       title="Cancel"
                     >
                       <X class="w-4 h-4" />
@@ -152,13 +152,13 @@
                 <tr v-for="prop in category.properties" :key="prop.key" class="hover:bg-muted/50 transition-colors">
                   <td class="px-6 py-3 text-sm font-mono">{{ prop.key }}</td>
                   <td class="px-6 py-3 text-sm font-mono text-right">
-                    <span v-if="editingKey !== prop.key" class="text-blue-400">{{ prop.value }}</span>
+                    <span v-if="editingKey !== prop.key" class="text-info">{{ prop.value }}</span>
                     <input
                       v-else
                       v-model="editingValue"
                       type="number"
                       step="any"
-                      class="w-32 bg-background border border-blue-500 rounded px-2 py-1 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      class="w-32 bg-background border border-info rounded px-2 py-1 text-right focus:outline-none focus:ring-1 focus:ring-info"
                       @keydown.enter="saveProperty(prop.key)"
                       @keydown.escape="cancelEdit"
                     />
@@ -168,7 +168,7 @@
                     <div v-if="editingKey !== prop.key" class="flex items-center justify-center gap-2">
                       <button
                         @click="startEdit(prop.key, prop.value)"
-                        class="p-1 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 rounded"
+                        class="p-1 text-info hover:text-info hover:bg-info/20 rounded"
                         title="Edit property"
                       >
                         <Edit class="w-4 h-4" />
@@ -185,7 +185,7 @@
                       <button
                         @click="saveProperty(prop.key)"
                         :disabled="isSaving"
-                        class="p-1 text-green-400 hover:text-green-300 hover:bg-green-500/20 rounded disabled:opacity-50"
+                        class="p-1 text-success hover:text-success hover:bg-success/20 rounded disabled:opacity-50"
                         title="Save changes"
                       >
                         <Check class="w-4 h-4" />
@@ -193,7 +193,7 @@
                       <button
                         @click="cancelEdit"
                         :disabled="isSaving"
-                        class="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded disabled:opacity-50"
+                        class="p-1 text-danger hover:text-danger hover:bg-danger/20 rounded disabled:opacity-50"
                         title="Cancel"
                       >
                         <X class="w-4 h-4" />
@@ -327,17 +327,17 @@ const getCategoryIcon = (name: string) => {
 const getCategoryColor = (name: string): string => {
   switch (name) {
     case 'Leveling':
-      return 'text-blue-400'
+      return 'text-info'
     case 'Epic':
-      return 'text-amber-400'
+      return 'text-warning'
     case 'Economy':
-      return 'text-green-400'
+      return 'text-success'
     case 'Combat':
-      return 'text-red-400'
+      return 'text-danger'
     case 'Timers':
       return 'text-purple-400'
     default:
-      return 'text-gray-400'
+      return 'text-muted-foreground'
   }
 }
 

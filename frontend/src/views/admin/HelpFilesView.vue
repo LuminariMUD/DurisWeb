@@ -499,7 +499,7 @@ onMounted(() => {
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
       <div>
-        <h1 class="text-3xl font-bold text-white">Help Files Management</h1>
+        <h1 class="text-4xl md:text-5xl text-foreground">Help Files Management</h1>
         <p class="text-muted-foreground mt-1">
           Manage in-game help documentation ({{ totalItems }} total)
         </p>
@@ -540,7 +540,7 @@ onMounted(() => {
     </div>
 
     <!-- Table -->
-    <div class="border border-gray-800 rounded-lg overflow-hidden">
+    <div class="border border-border rounded-lg overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow>
@@ -567,7 +567,7 @@ onMounted(() => {
             <TableCell>
               <span
                 v-if="page.category_name"
-                class="px-2 py-1 text-xs rounded bg-blue-500/20 text-blue-400"
+                class="px-2 py-1 text-xs rounded bg-info/20 text-info"
               >
                 {{ page.category_name }}
               </span>
@@ -595,7 +595,7 @@ onMounted(() => {
                   variant="ghost"
                   size="sm"
                 >
-                  <Trash2 class="w-4 h-4 text-red-500" />
+                  <Trash2 class="w-4 h-4 text-danger" />
                 </Button>
               </div>
             </TableCell>
@@ -654,13 +654,13 @@ onMounted(() => {
         </DialogHeader>
         <div class="space-y-4">
           <div>
-            <label class="text-sm font-medium text-gray-200 mb-2 block">
+            <label class="text-sm font-medium text-foreground mb-2 block">
               Title
             </label>
             <Input v-model="formTitle" placeholder="e.g., spells, combat, guilds" />
           </div>
           <div>
-            <label class="text-sm font-medium text-gray-200 mb-2 block">
+            <label class="text-sm font-medium text-foreground mb-2 block">
               Category
             </label>
             <Select v-model="formCategoryId">
@@ -679,7 +679,7 @@ onMounted(() => {
             </Select>
           </div>
           <div>
-            <label class="text-sm font-medium text-gray-200 mb-2 block">
+            <label class="text-sm font-medium text-foreground mb-2 block">
               Content
             </label>
             <div class="text-xs text-muted-foreground mb-2">
@@ -714,13 +714,13 @@ onMounted(() => {
         </DialogHeader>
         <div class="space-y-4">
           <div>
-            <label class="text-sm font-medium text-gray-200 mb-2 block">
+            <label class="text-sm font-medium text-foreground mb-2 block">
               Title
             </label>
             <Input v-model="formTitle" />
           </div>
           <div>
-            <label class="text-sm font-medium text-gray-200 mb-2 block">
+            <label class="text-sm font-medium text-foreground mb-2 block">
               Category
             </label>
             <Select v-model="formCategoryId">
@@ -739,7 +739,7 @@ onMounted(() => {
             </Select>
           </div>
           <div>
-            <label class="text-sm font-medium text-gray-200 mb-2 block">
+            <label class="text-sm font-medium text-foreground mb-2 block">
               Content
             </label>
             <div class="text-xs text-muted-foreground mb-2">
@@ -776,7 +776,7 @@ onMounted(() => {
           <AlertDialogCancel @click="showDeleteDialog = false">
             Cancel
           </AlertDialogCancel>
-          <AlertDialogAction @click="deletePage" class="bg-red-600 hover:bg-red-700">
+          <AlertDialogAction @click="deletePage" class="bg-danger-deep hover:bg-danger-deep/80">
             Delete
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -794,16 +794,16 @@ onMounted(() => {
         </DialogHeader>
         <div class="space-y-4">
           <!-- Create/Edit Form -->
-          <div class="border border-gray-800 rounded-lg p-4 space-y-3">
+          <div class="border border-border rounded-lg p-4 space-y-3">
             <h3 class="font-medium text-white">
               {{ editingCategory ? 'Edit Category' : 'Create Category' }}
             </h3>
             <div>
-              <label class="text-sm text-gray-400 mb-1 block">Name</label>
+              <label class="text-sm text-muted-foreground mb-1 block">Name</label>
               <Input v-model="categoryFormName" placeholder="Category name" />
             </div>
             <div>
-              <label class="text-sm text-gray-400 mb-1 block">
+              <label class="text-sm text-muted-foreground mb-1 block">
                 Description (optional)
               </label>
               <Input
@@ -848,7 +848,7 @@ onMounted(() => {
             <div
               v-for="cat in categories"
               :key="cat.id"
-              class="flex items-center justify-between p-3 border border-gray-800 rounded-lg hover:bg-gray-900/50"
+              class="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-card/50"
             >
               <div>
                 <div class="font-medium text-white">{{ cat.name }}</div>
@@ -865,7 +865,7 @@ onMounted(() => {
                   variant="ghost"
                   size="sm"
                 >
-                  <Trash2 class="w-4 h-4 text-red-500" />
+                  <Trash2 class="w-4 h-4 text-danger" />
                 </Button>
               </div>
             </div>

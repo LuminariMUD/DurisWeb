@@ -18,7 +18,7 @@
           </div>
           <div class="flex items-center justify-between">
             <span class="text-xs text-muted-foreground">Server</span>
-            <span class="text-sm font-mono font-semibold text-green-500">{{ formatUptime(stats?.currentUptime || 0) }}</span>
+            <span class="text-sm font-mono font-semibold text-success">{{ formatUptime(stats?.currentUptime || 0) }}</span>
           </div>
         </div>
       </CardContent>
@@ -66,7 +66,7 @@
           </div>
           <div class="flex items-center justify-between">
             <span class="text-xs text-muted-foreground">Server</span>
-            <span class="text-sm font-mono font-semibold text-green-500">{{ stats?.longestUptime ? formatUptime(stats.longestUptime) : 'N/A' }}</span>
+            <span class="text-sm font-mono font-semibold text-success">{{ stats?.longestUptime ? formatUptime(stats.longestUptime) : 'N/A' }}</span>
           </div>
         </div>
       </CardContent>
