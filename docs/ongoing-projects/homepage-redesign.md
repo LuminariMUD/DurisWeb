@@ -6,7 +6,9 @@
 > [prod-deploy.md](prod-deploy.md#production-location-authoritative): one host,
 > also running the MUD, served exclusively through its Cloudflare tunnel.
 
-Updated 2026-09-05. This replaces the previous designer's unfinished proposal.
+Updated 2026-09-05. The plan to carry this design to every route is
+[sitewide-design-transition.md](sitewide-design-transition.md).
+This replaces the previous designer's unfinished proposal.
 Implementation is on the user-authorized `master` branch. Source and local
 production-preview verification are recorded below. The user subsequently
 authorized committing, pushing master and deploying on this production host;
