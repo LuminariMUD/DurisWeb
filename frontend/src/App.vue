@@ -7,6 +7,7 @@ import { useNotifications } from './composables/useNotifications'
 import { useAuth } from './composables/useAuth'
 import { useMudConnection } from './composables/useMudConnection'
 import { useSiteConfig } from './composables/useSiteConfig'
+import { projectSiteUrl } from './config/links'
 import { useOfflineStatus } from './composables/useOfflineStatus'
 import { usePwaUpdate } from './composables/usePwaUpdate'
 import { SidebarProvider } from './components/ui/sidebar'
@@ -43,6 +44,7 @@ import {
   Activity,
   Heart,
   Radio,
+  ExternalLink,
 } from '@lucide/vue'
 import {
   DropdownMenu,
@@ -463,6 +465,10 @@ const isPlayPage = computed(() => route.path === '/play')
             </DropdownMenuContent>
           </DropdownMenu>
           <RouterLink to="/forum" :class="navClass($route.path.startsWith('/forum'))">Forum</RouterLink>
+          <a :href="projectSiteUrl" target="_blank" rel="noopener noreferrer" :class="navClass(false)">
+            Project Site
+            <ExternalLink class="h-3 w-3" aria-hidden="true" />
+          </a>
           <a
             v-if="supportUrl"
             :href="supportUrl"

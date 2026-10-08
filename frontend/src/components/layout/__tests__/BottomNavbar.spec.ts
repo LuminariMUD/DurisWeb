@@ -40,4 +40,33 @@ describe('BottomNavbar News discoverability', () => {
     expect(wrapper.text()).toContain('News & Updates')
     expect(wrapper.find('nav').attributes('aria-label')).toBe('Primary navigation')
   })
+
+  it('opens the Project Site from the More menu in a new tab', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const wrapper = mount(BottomNavbar, {
+      global: {
+        stubs: {
+          Sheet: passthrough,
+          SheetContent: passthrough,
+          SheetHeader: passthrough,
+          SheetTitle: passthrough,
+          SheetTrigger: passthrough,
+        },
+      },
+    })
+
+    const projectSiteButton = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Project Site')
+    expect(projectSiteButton).toBeDefined()
+    await projectSiteButton?.trigger('click')
+
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://luminarimud.github.io/Duris/',
+      '_blank',
+      'noopener,noreferrer',
+    )
+    expect(router.push).not.toHaveBeenCalled()
+    openSpy.mockRestore()
+  })
 })

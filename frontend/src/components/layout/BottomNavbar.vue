@@ -22,7 +22,9 @@ import {
   Radio,
   Heart,
   Newspaper,
+  Globe,
 } from '@lucide/vue'
+import { projectSiteUrl } from '@/config/links'
 
 const route = useRoute()
 const router = useRouter()
@@ -47,6 +49,7 @@ const moreNavItems = computed(() => [
   { name: 'Leaderboard', path: '/frag-leaderboard', icon: Trophy },
   { name: 'Guide', path: '/guide', icon: BookOpen },
   { name: 'Status', path: '/status', icon: Radio },
+  { name: 'Project Site', path: projectSiteUrl, icon: Globe, external: true },
   ...(supportUrl.value
     ? [
         {
