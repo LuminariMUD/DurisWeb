@@ -255,7 +255,7 @@ async function onDeployComplete(success: boolean) {
               </TableCell>
               <TableCell>
                 <a
-                  :href="`https://github.com/Community-Duris/DurisMUD/commit/${commit.hash}`"
+                  :href="`https://github.com/LuminariMUD/DurisMUD/commit/${commit.hash}`"
                   target="_blank"
                   rel="noopener noreferrer"
                   class="hover:underline"

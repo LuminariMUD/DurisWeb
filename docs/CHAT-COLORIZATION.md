@@ -1,8 +1,8 @@
 # Recipient colors in web chat
 
-This client implements [Duris server #288](https://github.com/Community-Duris/Duris/issues/288), tracked locally
-by [#43](https://github.com/Community-Duris/DurisWebApp/issues/43). The authoritative wire contract is
-[`STRUCTURED_CHAT_COLORIZATION.md`](https://github.com/Community-Duris/Duris/blob/master/docs/guides/STRUCTURED_CHAT_COLORIZATION.md)
+This client implements [Duris server #288](https://github.com/LuminariMUD/Duris/issues/288), tracked locally
+by [#43](https://github.com/LuminariMUD/DurisWebApp/issues/43). The authoritative wire contract is
+[`STRUCTURED_CHAT_COLORIZATION.md`](https://github.com/LuminariMUD/Duris/blob/master/docs/guides/STRUCTURED_CHAT_COLORIZATION.md)
 in the server repository.
 
 Players use server commands such as `toggle color tell brightcyan`, `toggle color gcc yellow`,
