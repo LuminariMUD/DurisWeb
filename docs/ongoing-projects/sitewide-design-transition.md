@@ -19,7 +19,7 @@ homepage design to the whole site in shippable phases.
 | 3. Public surfaces sweep | Done 2026-10-08 |
 | 4. Play client chrome | Done 2026-10-08 (manual connect: see log) |
 | 5. Admin and builder | Done 2026-10-08 (immortal walk: see log) |
-| 6. Closeout: guard rail, cleanup, documentation | Not started |
+| 6. Closeout: guard rail, cleanup, documentation | Done 2026-10-08, deployed |
 
 Each phase leaves the site coherent and can be deployed on its own. Phase 1
 changes the look of every page at once because most components already read
@@ -705,3 +705,41 @@ Phase 1 was designed to be safe to ship alone and the site kept responding,
 but the release skipped the watchdog pause and checksum steps. Every later
 build ran in a detached worktree, and `docs/development.md` now warns about
 this.
+
+## Outcome
+
+Deployed 2026-10-08 as a frontend-only release from `baaf057` (SPA entry
+`index-CmSwIfJM.js`), following an initial cutover of `3ee6eff` at
+15:09 UTC and a follow-up at 15:14 UTC for a 360px overflow found during
+acceptance. Each cutover took about 3 s offline. The backend, lockfiles,
+database, MUD and `deploy/` were untouched; no cache flush was needed.
+
+Acceptance evidence is under
+`/home/staging/.local/share/durisweb/releases/20261008-eclipse/evidence`
+(mode 0700): gate logs, staged checksums, old `dist` tarballs, cutover and
+acceptance logs, and three screenshot sets at 360, 768 and 1280 px
+(`baseline` from `6cce81e`, `after1` from the release build, `production`
+from the live site).
+
+- Gates on the release commit: format, lint, palette check, type-check,
+  `config:check` and build pass; unit tests 182 of 183 with only the
+  baseline `useSiteConfig.test.ts` failure; `check-config-literals.sh`
+  findings fell from 24 to 22 (the asset folder rename cleared two).
+- Both compiled production preflights pass. Every public asset returned 200.
+  Dependency PIDs (private Redis, tunnel, MariaDB, MUD Redis, MUD) were the
+  same before and after.
+- At 360px no route scrolls horizontally inside `main`, and no page errors
+  were raised. `/guide` and `/wiki/zones` overflow the document by a few
+  pixels exactly as on the baseline; `body` hides it.
+- Keyboard focus is visible on every header control and input.
+- Homepage: identical to the baseline after the header spacing and Donate
+  fixes, apart from the shared components it now uses.
+
+Not done, and why:
+
+- The manual connect to the MUD through the web client (Phase 4) and the
+  immortal walk of the admin menu (Phase 5) need account credentials, which
+  this session did not use. The `/play` sign-in and `/admin` redirect render
+  correctly logged out; an operator should do both walks.
+- Thread and profile pages were not captured, because the screenshot script
+  could not discover their URLs from logged-out pages.
