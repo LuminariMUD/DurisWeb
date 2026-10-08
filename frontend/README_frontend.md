@@ -53,11 +53,19 @@ maintenance reasons and an independent page for complete origin/tunnel outages.
 See [availability notices](../deploy/maintenance/README.md) for activation and
 operator controls. Neither feature starts or stops the MUD.
 
-The homepage presents the exact legacy `Duris SBS` name as `Duris` and replaces
-the stock welcome copy with the eclipse design. Custom hero settings and
-sanitized editor content remain supported. See the
+Every route uses the eclipse design first shipped on the homepage: ink and
+bone surfaces, vermilion accents, and Cormorant Garamond for the wordmark,
+page headings and brand calls to action. Tokens live in
+`src/assets/main.css`, shared pieces in `src/components/brand/`, and chart
+colors in `src/utils/chartTheme.ts`; `scripts/check-palette-literals.sh`
+rejects raw gray/cyan/zinc/slate classes. MUD game colors are exempt and
+pinned by a spec. See [theme and colors](../docs/development.md#theme-and-colors)
+and the [site-wide transition record](../docs/ongoing-projects/sitewide-design-transition.md).
+
+The homepage presents the exact legacy `Duris SBS` name as `Duris`. Custom hero
+settings and sanitized editor content remain supported. See the
 [homepage design record](../docs/ongoing-projects/homepage-redesign.md) for
-asset provenance, motion controls, and verification.
+asset provenance and motion controls.
 
 See [Development](../docs/development.md) and
 [Architecture](../docs/ARCHITECTURE.md).

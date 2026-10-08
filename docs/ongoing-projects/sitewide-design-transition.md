@@ -675,3 +675,33 @@ of them play client, admin or builder.
 - The palette guard passes with an empty allowlist after this phase.
 - Matrix: format, lint, type-check pass; unit tests 182/183 with only the
   baseline failure (`DashboardView.spec.ts` passes).
+
+### Phase 6 — 2026-10-08
+
+- The allowlist file is gone; `check-palette-literals.sh` keeps only the
+  permanent game-semantics exemptions and the `palette-literals: off`/`on`
+  regions, and runs in the frontend job of `.github/workflows/quality.yml`.
+- Dead code: the `dark` custom variant and `class="dark"` on `<html>` are
+  removed (no `dark:` variants remain; `color-scheme: dark` is set on
+  `:root` and in the meta tag). No `.home-*` selectors remain outside the
+  homepage's own scoped classes.
+- Documentation: `docs/development.md` gained "Theme and colors", the palette
+  check in the command table and quality matrix, and a warning that a build in
+  the production checkout publishes immediately; `frontend/README_frontend.md`
+  describes the site-wide theme; `homepage-redesign.md` is marked superseded.
+- Screenshot review (baseline built from `6cce81e` in a worktree, the release
+  built from the branch in another worktree, both served with `vite preview`
+  and API calls proxied to production with analytics blocked) found two
+  homepage header drifts, nav spacing and an ember Donate link, both fixed.
+  Keyboard focus shows the 2px vermilion outline on every header control and
+  the vermilion ring on inputs.
+
+#### Process incident
+
+The Phase 1 verification ran `pnpm --dir frontend build` in the production
+checkout. That writes `frontend/dist`, which the backend serves directly, so
+production served the Phase 1 build from 14:20 UTC until the final release.
+Phase 1 was designed to be safe to ship alone and the site kept responding,
+but the release skipped the watchdog pause and checksum steps. Every later
+build ran in a detached worktree, and `docs/development.md` now warns about
+this.

@@ -30,6 +30,41 @@ all three environment files, before running `./scripts/dev.sh`.
 | `pnpm --dir frontend format:check` | Check Biome formatting |
 | `pnpm --dir frontend lint` | Run ESLint |
 | `pnpm --dir frontend type-check` | Check Vue/TypeScript projects |
+| `./frontend/scripts/check-palette-literals.sh` | Reject raw gray/cyan/zinc/slate classes outside game-color tables |
+
+On the production host, `frontend/dist` in the checkout is the live site, so a
+`build` or `build-only` there publishes immediately. Build releases in a
+detached worktree as [deployment](deployment.md#build-and-validate) describes.
+
+## Theme and colors
+
+The site has one dark palette, the "eclipse" design. Its tokens live in
+`frontend/src/assets/main.css`:
+
+- Named colors in `@theme` (`ink`, `ink-raised`, `ink-high`, `ink-top`,
+  `ink-sunken`, `bone`, `bone-muted`, `faint`, `rule`, `vermilion` and its
+  `-light`/`-deep`/`-hover` steps, `ember`, `label`, and the status colors
+  `success`, `warning`, `danger`, `info` with `-deep` fill steps) become
+  utilities such as `bg-ink-raised` or `text-vermilion`.
+- The shadcn-vue semantic tokens (`--background`, `--primary`, `--brand`,
+  `--destructive`, `--border`, `--ring`, sidebar and chart tokens) map onto
+  those colors in `:root`; prefer semantic utilities such as
+  `text-muted-foreground` and `border-border` in application UI.
+- Fonts: Cormorant Garamond (display, self-hosted in `assets/fonts.css`) for
+  the wordmark, `h1`, `h2` and brand calls to action; the system sans for
+  everything else; `font-label` (monospace) for the `index-label` class.
+- Shared pieces: `components/brand/` (`BrandActionLink`, `BrandTextLink`,
+  `DisplayHeading`, `IndexLabel`, `SectionRule`) and the `brand` `Button`
+  variant.
+- Canvas charts cannot read CSS variables; they use
+  `frontend/src/utils/chartTheme.ts`, which must stay in step with the tokens.
+
+To add a color, add a `--color-*` token to `@theme` (and to `chartTheme.ts` if
+charts need it), then use its utility. MUD color codes are game semantics: the
+classes in `utils/ansiParser.ts`, `MudColorExtension.ts` and player highlight
+colors are pinned by `utils/__tests__/ansiParser.spec.ts` and exempt from the
+palette check, and small game-color tables elsewhere sit between
+`palette-literals: off` and `palette-literals: on` comments.
 
 ## Complete quality matrix
 
@@ -45,6 +80,7 @@ pnpm --dir backend build
 pnpm --dir frontend config:check
 pnpm --dir frontend format:check
 pnpm --dir frontend lint
+./frontend/scripts/check-palette-literals.sh
 pnpm --dir frontend type-check
 pnpm --dir frontend test:unit --run
 pnpm --dir frontend build

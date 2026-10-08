@@ -79,6 +79,10 @@ jobs:
         working-directory: ${{ matrix.package }}
         run: pnpm lint
 
+      - name: Check palette literals
+        if: matrix.package == 'frontend'
+        run: ./frontend/scripts/check-palette-literals.sh
+
       - name: Type-check
         working-directory: ${{ matrix.package }}
         run: pnpm type-check

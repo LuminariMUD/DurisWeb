@@ -2,9 +2,6 @@
 @import "tw-animate-css";
 @import "./fonts.css";
 
-/* The site has a single dark palette; the class stays on <html> for third-party widgets. */
-@custom-variant dark (&:is(.dark *));
-
 /*
  * Eclipse design tokens. Hex values are the ones shipped on the homepage in
  * September 2026. Add a color here, then reference it through a utility such

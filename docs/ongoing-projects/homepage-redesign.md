@@ -1,5 +1,9 @@
 # Duris homepage — eclipse edition
 
+> **Superseded 2026-10-08.** The eclipse design now covers the whole site;
+> see [sitewide-design-transition.md](sitewide-design-transition.md). This
+> record stays for the homepage asset provenance and its original acceptance.
+
 > **Historical record from the retired host.** The paths, hostnames, ports, and
 > service scope below describe a deployment that no longer exists. The only
 > production website is documented in

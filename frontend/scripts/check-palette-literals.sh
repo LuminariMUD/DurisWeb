@@ -10,7 +10,6 @@ guard_script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 guard_frontend_root=$(cd "${guard_script_dir}/.." && pwd)
 cd "${guard_frontend_root}"
 
-guard_allowlist="${guard_script_dir}/palette-literals-allowlist.txt"
 guard_pattern='(^|[^[:alnum:]_-])([a-z-]+:)*(bg|text|border(-[trblxyse])?|ring(-offset)?|from|to|via|divide|placeholder|outline|fill|stroke|accent|decoration|caret|shadow)-(gray|cyan|zinc|slate|neutral|stone)-[0-9]{2,3}([^[:alnum:]_-]|$)'
 
 guard_exclusions=(
@@ -19,15 +18,6 @@ guard_exclusions=(
   --glob '!src/types/trigger.ts'
   --glob '!src/utils/__tests__/ansiParser.spec.ts'
 )
-
-if [ -f "${guard_allowlist}" ]; then
-  while IFS= read -r guard_entry; do
-    case "${guard_entry}" in
-      '' | '#'*) continue ;;
-    esac
-    guard_exclusions+=(--glob "!${guard_entry}")
-  done <"${guard_allowlist}"
-fi
 
 guard_files=$(rg -l --pcre2 "${guard_pattern}" src index.html \
   --glob '*.{vue,ts,css,html}' \
