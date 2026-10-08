@@ -16,7 +16,6 @@ src/components/builder/Design4TabbedWorkspace.vue
 src/components/builder/Design5NotionStyle.vue
 src/components/builder/MentionList.vue
 src/components/builder/ZoneMap.vue
-src/components/charts/WorldMap.vue
 src/components/forum/CarouselDisplay.vue
 src/components/forum/editor/CarouselNodeView.vue
 src/components/forum/editor/TipTapEditor.vue
@@ -26,7 +25,6 @@ src/components/forum/editor/widgets/TopFraggerNodeView.vue
 src/components/forum/widgets/MapPreviewDisplay.vue
 src/components/forum/widgets/RecentPvPDisplay.vue
 src/components/forum/widgets/TopFraggerDisplay.vue
-src/components/frag/FragLeaderboardTable.vue
 src/components/guide/HelpFileDialog.vue
 src/components/mud/AliasFormDialog.vue
 src/components/mud/MudActivityLog.vue
@@ -45,7 +43,6 @@ src/components/mud/TriggerFormDialog.vue
 src/components/mud/TriggerTable.vue
 src/components/mud/chargen/MudCharacterCreate.vue
 src/components/profile/CharacterCard.vue
-src/components/pvp/BattleCommentSection.vue
 src/components/ui/Dialog.vue
 src/components/ui/ImageLightbox.vue
 src/components/ui/PeriodSelector.vue
@@ -57,9 +54,7 @@ src/components/wiki/WorldMap.vue
 src/composables/useAuth.ts
 src/composables/useServerReboot.ts
 src/composables/useZones.ts
-src/views/BattleDetailView.vue
 src/views/CategoryView.vue
-src/views/FactionActivityView.vue
 src/views/ForbiddenView.vue
 src/views/ForumView.vue
 src/views/GuideView.vue
@@ -67,9 +62,7 @@ src/views/HelpSuggestionsView.vue
 src/views/MudClientView.vue
 src/views/MySuggestionsView.vue
 src/views/PopOutMapView.vue
-src/views/PvPListView.vue
 src/views/SearchView.vue
-src/views/StatsView.vue
 src/views/StatusView.vue
 src/views/ZoneManagementView.vue
 src/views/admin/CreditsView.vue

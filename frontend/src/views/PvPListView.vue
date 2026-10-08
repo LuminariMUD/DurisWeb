@@ -675,25 +675,25 @@ const activeFilterCount = computed(() => {
   <div class="space-y-6">
     <!-- Header -->
     <div>
-      <h2 class="text-3xl font-bold tracking-tight text-gray-100">PvP Logs</h2>
-      <p class="text-gray-400">
+      <h2 class="text-4xl md:text-5xl text-foreground">PvP Logs</h2>
+      <p class="text-muted-foreground">
         Browse and filter all player vs player combat events
       </p>
     </div>
 
     <!-- Filters -->
-    <div class="rounded-lg border border-gray-800 bg-gray-950">
+    <div class="rounded-lg border border-border bg-background">
       <!-- Mobile: Quick filters bar + collapsible -->
       <div class="lg:hidden">
         <!-- Quick filter chips -->
-        <div class="flex items-center gap-2 p-4 overflow-x-auto border-b border-gray-800">
+        <div class="flex items-center gap-2 p-4 overflow-x-auto border-b border-border">
           <button
             @click="showFilters = !showFilters"
-            class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-gray-800 text-gray-300 hover:bg-gray-700 flex-shrink-0"
+            class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-ink-high text-bone-muted hover:bg-ink-top flex-shrink-0"
           >
             <Filter class="h-4 w-4" />
             Filters
-            <span v-if="activeFilterCount > 0" class="ml-1 px-1.5 py-0.5 text-xs bg-cyan-600 text-white rounded-full">
+            <span v-if="activeFilterCount > 0" class="ml-1 px-1.5 py-0.5 text-xs bg-vermilion-deep text-white rounded-full">
               {{ activeFilterCount }}
             </span>
             <ChevronDown :class="['h-4 w-4 transition-transform', showFilters ? 'rotate-180' : '']" />
@@ -702,7 +702,7 @@ const activeFilterCount = computed(() => {
             @click="selectedAlignment = selectedAlignment === 'good' ? '' : 'good'"
             :class="[
               'px-3 py-1.5 rounded-md text-sm font-medium flex-shrink-0 transition-colors',
-              selectedAlignment === 'good' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400'
+              selectedAlignment === 'good' ? 'bg-success-deep text-white' : 'bg-ink-high text-muted-foreground'
             ]"
           >
             Good
@@ -711,7 +711,7 @@ const activeFilterCount = computed(() => {
             @click="selectedAlignment = selectedAlignment === 'evil' ? '' : 'evil'"
             :class="[
               'px-3 py-1.5 rounded-md text-sm font-medium flex-shrink-0 transition-colors',
-              selectedAlignment === 'evil' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400'
+              selectedAlignment === 'evil' ? 'bg-danger-deep text-white' : 'bg-ink-high text-muted-foreground'
             ]"
           >
             Evil
@@ -720,7 +720,7 @@ const activeFilterCount = computed(() => {
             @click="sortBy = sortBy === 'likes' ? 'date' : 'likes'"
             :class="[
               'px-3 py-1.5 rounded-md text-sm font-medium flex-shrink-0 transition-colors',
-              sortBy === 'likes' ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-400'
+              sortBy === 'likes' ? 'bg-vermilion-deep text-white' : 'bg-ink-high text-muted-foreground'
             ]"
           >
             {{ sortBy === 'likes' ? '♥ Popular' : '🕐 Recent' }}
@@ -728,7 +728,7 @@ const activeFilterCount = computed(() => {
         </div>
 
         <!-- Collapsible filter content -->
-        <div v-show="showFilters" class="p-4 space-y-4 border-b border-gray-800">
+        <div v-show="showFilters" class="p-4 space-y-4 border-b border-border">
           <!-- Player & Location -->
           <div class="grid grid-cols-2 gap-3">
             <div class="relative">
@@ -739,7 +739,7 @@ const activeFilterCount = computed(() => {
                 @blur="handlePlayerBlur"
                 type="text"
                 placeholder="Player..."
-                class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-3 py-1 text-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+                class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm placeholder:text-faint focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
               />
             </div>
             <div class="relative">
@@ -750,7 +750,7 @@ const activeFilterCount = computed(() => {
                 @blur="handleLocationBlur"
                 type="text"
                 placeholder="Location..."
-                class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-3 py-1 text-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+                class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm placeholder:text-faint focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
               />
             </div>
           </div>
@@ -760,29 +760,29 @@ const activeFilterCount = computed(() => {
             <input
               v-model="dateFrom"
               type="date"
-              class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 date-input"
+              class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion date-input"
             />
             <input
               v-model="dateTo"
               type="date"
-              class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 date-input"
+              class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion date-input"
             />
           </div>
 
           <!-- Level range simplified -->
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-2">Level: {{ levelMin }} - {{ levelMax }}</label>
+            <label class="block text-xs font-medium text-muted-foreground mb-2">Level: {{ levelMin }} - {{ levelMax }}</label>
             <div class="flex gap-2">
-              <input v-model.number="levelMin" type="number" min="1" max="56" class="w-16 h-8 rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-2 text-sm text-center" />
-              <span class="text-gray-500 self-center">to</span>
-              <input v-model.number="levelMax" type="number" min="1" max="56" class="w-16 h-8 rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-2 text-sm text-center" />
+              <input v-model.number="levelMin" type="number" min="1" max="56" class="w-16 h-8 rounded-md border border-border bg-card text-bone-muted px-2 text-sm text-center" />
+              <span class="text-faint self-center">to</span>
+              <input v-model.number="levelMax" type="number" min="1" max="56" class="w-16 h-8 rounded-md border border-border bg-card text-bone-muted px-2 text-sm text-center" />
             </div>
           </div>
 
           <!-- Reset button -->
           <button
             @click="handleReset"
-            class="w-full py-2 rounded-md text-sm font-medium bg-gray-800 text-gray-300 hover:bg-gray-700"
+            class="w-full py-2 rounded-md text-sm font-medium bg-ink-high text-bone-muted hover:bg-ink-top"
           >
             Reset Filters
           </button>
@@ -796,7 +796,7 @@ const activeFilterCount = computed(() => {
           <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <!-- Player Name Combo Box -->
           <div class="relative">
-            <label class="block text-sm font-medium text-gray-300 mb-2">Player Name</label>
+            <label class="block text-sm font-medium text-bone-muted mb-2">Player Name</label>
             <div class="relative">
               <input
                 :value="playerInputValue"
@@ -805,11 +805,11 @@ const activeFilterCount = computed(() => {
                 @blur="handlePlayerBlur"
                 type="text"
                 placeholder="Search player..."
-                class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 pl-3 pr-9 py-1 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+                class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted pl-3 pr-9 py-1 text-sm shadow-sm transition-colors placeholder:text-faint focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
               />
               <button
                 @mousedown.prevent="togglePlayerDropdown"
-                class="absolute inset-y-0 right-0 flex items-center pr-2 text-gray-400 hover:text-gray-300"
+                class="absolute inset-y-0 right-0 flex items-center pr-2 text-muted-foreground hover:text-bone-muted"
                 type="button"
               >
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -821,36 +821,36 @@ const activeFilterCount = computed(() => {
             <div
               v-if="showPlayerDropdown && playerSuggestionsList && playerSuggestionsList.length > 0"
               @scroll="handlePlayerScroll"
-              class="absolute z-10 mt-1 w-full rounded-md border border-gray-700 bg-gray-900 shadow-lg max-h-60 overflow-auto"
+              class="absolute z-10 mt-1 w-full rounded-md border border-border bg-card shadow-lg max-h-60 overflow-auto"
             >
               <button
                 v-for="player in playerSuggestionsList"
                 :key="player.name"
                 @mousedown.prevent="selectPlayer(player.name)"
-                class="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 transition-colors flex items-center justify-between font-mono"
+                class="w-full px-3 py-2 text-left text-sm hover:bg-ink-high transition-colors flex items-center justify-between font-mono"
               >
                 <span class="flex-1" v-html="parseAnsiForVue(player.displayName)"></span>
-                <span class="text-xs text-gray-400 whitespace-nowrap ml-4">
+                <span class="text-xs text-muted-foreground whitespace-nowrap ml-4">
                   Lv{{ player.level }} <span v-html="parseAnsiForVue(player.race)"></span> <span v-html="parseAnsiForVue(player.class)"></span>
                 </span>
               </button>
               <!-- Loading indicator -->
-              <div v-if="playerLoading" class="px-3 py-2 text-center text-sm text-gray-500">
+              <div v-if="playerLoading" class="px-3 py-2 text-center text-sm text-faint">
                 Loading...
               </div>
             </div>
             <!-- Show "No results" if searching but no results -->
             <div
               v-else-if="showPlayerDropdown && playerSearch.length >= 2 && (!playerSuggestionsList || playerSuggestionsList.length === 0)"
-              class="absolute z-10 mt-1 w-full rounded-md border border-gray-700 bg-gray-900 shadow-lg px-3 py-2"
+              class="absolute z-10 mt-1 w-full rounded-md border border-border bg-card shadow-lg px-3 py-2"
             >
-              <span class="text-sm text-gray-500">No players found</span>
+              <span class="text-sm text-faint">No players found</span>
             </div>
           </div>
 
           <!-- Location Combo Box -->
           <div class="relative">
-            <label class="block text-sm font-medium text-gray-300 mb-2">Location</label>
+            <label class="block text-sm font-medium text-bone-muted mb-2">Location</label>
             <div class="relative">
               <input
                 :value="locationInputValue"
@@ -859,11 +859,11 @@ const activeFilterCount = computed(() => {
                 @blur="handleLocationBlur"
                 type="text"
                 placeholder="Search location..."
-                class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 pl-3 pr-9 py-1 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+                class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted pl-3 pr-9 py-1 text-sm shadow-sm transition-colors placeholder:text-faint focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
               />
               <button
                 @mousedown.prevent="toggleLocationDropdown"
-                class="absolute inset-y-0 right-0 flex items-center pr-2 text-gray-400 hover:text-gray-300"
+                class="absolute inset-y-0 right-0 flex items-center pr-2 text-muted-foreground hover:text-bone-muted"
                 type="button"
               >
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -875,51 +875,51 @@ const activeFilterCount = computed(() => {
             <div
               v-if="showLocationDropdown && locationSuggestionsList && locationSuggestionsList.length > 0"
               @scroll="handleLocationScroll"
-              class="absolute z-10 mt-1 w-full rounded-md border border-gray-700 bg-gray-900 shadow-lg max-h-60 overflow-auto"
+              class="absolute z-10 mt-1 w-full rounded-md border border-border bg-card shadow-lg max-h-60 overflow-auto"
             >
               <button
                 v-for="location in locationSuggestionsList"
                 :key="location.room_vnum"
                 @mousedown.prevent="selectLocation(location.room_name)"
-                class="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 transition-colors"
+                class="w-full px-3 py-2 text-left text-sm hover:bg-ink-high transition-colors"
               >
                 <div v-html="parseAnsiForVue(location.room_name)"></div>
-                <div class="text-xs text-gray-500 mt-1">{{ location.battle_count }} battles</div>
+                <div class="text-xs text-faint mt-1">{{ location.battle_count }} battles</div>
               </button>
               <!-- Loading indicator -->
-              <div v-if="locationLoading" class="px-3 py-2 text-center text-sm text-gray-500">
+              <div v-if="locationLoading" class="px-3 py-2 text-center text-sm text-faint">
                 Loading...
               </div>
             </div>
             <!-- Show "No results" if searching but no results -->
             <div
               v-else-if="showLocationDropdown && locationSearch.length >= 2 && (!locationSuggestionsList || locationSuggestionsList.length === 0)"
-              class="absolute z-10 mt-1 w-full rounded-md border border-gray-700 bg-gray-900 shadow-lg px-3 py-2"
+              class="absolute z-10 mt-1 w-full rounded-md border border-border bg-card shadow-lg px-3 py-2"
             >
-              <span class="text-sm text-gray-500">No locations found</span>
+              <span class="text-sm text-faint">No locations found</span>
             </div>
           </div>
 
           <!-- Date From -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2">Date From</label>
+            <label class="block text-sm font-medium text-bone-muted mb-2">Date From</label>
             <div class="relative">
               <input
                 v-model="dateFrom"
                 type="date"
-                class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 date-input"
+                class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion date-input"
               />
             </div>
           </div>
 
           <!-- Date To -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2">Date To</label>
+            <label class="block text-sm font-medium text-bone-muted mb-2">Date To</label>
             <div class="relative">
               <input
                 v-model="dateTo"
                 type="date"
-                class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 date-input"
+                class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion date-input"
               />
             </div>
           </div>
@@ -929,10 +929,10 @@ const activeFilterCount = computed(() => {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <!-- Alignment -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2">Alignment</label>
+            <label class="block text-sm font-medium text-bone-muted mb-2">Alignment</label>
             <select
               v-model="selectedAlignment"
-              class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+              class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
             >
               <option value="">All Alignments</option>
               <option value="good">Good</option>
@@ -943,10 +943,10 @@ const activeFilterCount = computed(() => {
 
           <!-- Sort By -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2">Sort By</label>
+            <label class="block text-sm font-medium text-bone-muted mb-2">Sort By</label>
             <select
               v-model="sortBy"
-              class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+              class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
             >
               <option value="date">Most Recent</option>
               <option value="likes">Most Liked</option>
@@ -955,7 +955,7 @@ const activeFilterCount = computed(() => {
 
           <!-- Level Range -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2">
+            <label class="block text-sm font-medium text-bone-muted mb-2">
               Level Range: {{ levelMin }} - {{ levelMax }}
             </label>
             <div class="flex items-center gap-3">
@@ -964,12 +964,12 @@ const activeFilterCount = computed(() => {
                 type="number"
                 min="1"
                 max="56"
-                class="w-14 h-9 rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-2 text-sm text-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+                class="w-14 h-9 rounded-md border border-border bg-card text-bone-muted px-2 text-sm text-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
               />
               <div class="relative flex-1 h-2">
-                <div class="absolute w-full h-2 bg-gray-700 rounded-lg"></div>
+                <div class="absolute w-full h-2 bg-ink-top rounded-lg"></div>
                 <div
-                  class="absolute h-2 bg-cyan-500 rounded-lg"
+                  class="absolute h-2 bg-vermilion-deep rounded-lg"
                   :style="{
                     left: `${((levelMin - 1) / 55) * 100}%`,
                     right: `${100 - ((levelMax - 1) / 55) * 100}%`
@@ -999,7 +999,7 @@ const activeFilterCount = computed(() => {
                 type="number"
                 min="1"
                 max="56"
-                class="w-14 h-9 rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-2 text-sm text-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+                class="w-14 h-9 rounded-md border border-border bg-card text-bone-muted px-2 text-sm text-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
               />
             </div>
           </div>
@@ -1007,7 +1007,7 @@ const activeFilterCount = computed(() => {
 
         <!-- Row 3: Class Filter -->
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">Classes</label>
+          <label class="block text-sm font-medium text-bone-muted mb-2">Classes</label>
           <div class="flex flex-wrap gap-2">
             <button
               v-for="cls in classList"
@@ -1016,8 +1016,8 @@ const activeFilterCount = computed(() => {
               :class="[
                 'px-3 py-1 rounded-md text-xs font-medium transition-colors',
                 selectedClasses.includes(cls)
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  ? 'bg-vermilion-deep text-white'
+                  : 'bg-ink-high text-bone-muted hover:bg-ink-top'
               ]"
             >
               {{ cls }}
@@ -1027,7 +1027,7 @@ const activeFilterCount = computed(() => {
 
         <!-- Row 4: Race Filter -->
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">Races</label>
+          <label class="block text-sm font-medium text-bone-muted mb-2">Races</label>
           <div class="flex flex-wrap gap-2">
             <button
               v-for="race in raceList"
@@ -1036,8 +1036,8 @@ const activeFilterCount = computed(() => {
               :class="[
                 'px-3 py-1 rounded-md text-xs font-medium transition-colors',
                 selectedRaces.includes(race)
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  ? 'bg-vermilion-deep text-white'
+                  : 'bg-ink-high text-bone-muted hover:bg-ink-top'
               ]"
             >
               {{ race }}
@@ -1046,10 +1046,10 @@ const activeFilterCount = computed(() => {
         </div>
 
         <!-- Row 5: Reset Button -->
-        <div class="flex items-end justify-end pt-2 border-t border-gray-800">
+        <div class="flex items-end justify-end pt-2 border-t border-border">
           <button
             @click="handleReset"
-            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 bg-gray-800 text-gray-300 hover:bg-gray-700 h-9 px-6"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermilion bg-ink-high text-bone-muted hover:bg-ink-top h-9 px-6"
           >
             Reset Filters
           </button>
@@ -1062,92 +1062,92 @@ const activeFilterCount = computed(() => {
     <div v-if="isLoading" class="flex items-center justify-center py-12">
       <div class="text-center">
         <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
-        <p class="mt-4 text-gray-400">Loading PvP events...</p>
+        <p class="mt-4 text-muted-foreground">Loading PvP events...</p>
       </div>
     </div>
 
     <!-- Error State -->
-    <div v-else-if="isError" class="rounded-lg border border-red-800 bg-red-950/20 p-4">
-      <h3 class="font-semibold text-red-400">Error loading PvP events</h3>
-      <p class="text-sm text-red-400/80">{{ error?.message || 'Unknown error occurred' }}</p>
+    <div v-else-if="isError" class="rounded-lg border border-danger-deep bg-danger-deep/20 p-4">
+      <h3 class="font-semibold text-danger">Error loading PvP events</h3>
+      <p class="text-sm text-danger/80">{{ error?.message || 'Unknown error occurred' }}</p>
     </div>
 
     <!-- Events List/Table -->
-    <div v-else-if="data?.data && data.data.length > 0" class="rounded-lg border border-gray-800 bg-gray-950">
+    <div v-else-if="data?.data && data.data.length > 0" class="rounded-lg border border-border bg-background">
       <!-- Mobile: Compact List -->
-      <div class="lg:hidden divide-y divide-gray-800">
+      <div class="lg:hidden divide-y divide-border">
         <div
           v-for="event in data.data"
           :key="event.id"
           @click="viewBattle(event.id)"
-          class="flex items-center gap-3 p-4 hover:bg-gray-900 transition-colors cursor-pointer"
+          class="flex items-center gap-3 p-4 hover:bg-card transition-colors cursor-pointer"
         >
           <!-- Alignment indicator -->
           <div
             :class="[
               'w-1 h-12 rounded-full flex-shrink-0',
-              getAlignmentIndicator(event) === 'good' ? 'bg-green-500' :
-              getAlignmentIndicator(event) === 'evil' ? 'bg-red-500' :
-              'bg-gradient-to-b from-green-500 to-red-500'
+              getAlignmentIndicator(event) === 'good' ? 'bg-success' :
+              getAlignmentIndicator(event) === 'evil' ? 'bg-danger' :
+              'bg-gradient-to-b from-success to-danger'
             ]"
           ></div>
 
           <!-- Main content -->
           <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium text-gray-100 truncate">
+            <div class="text-sm font-medium text-foreground truncate">
               <span v-html="parseAnsiForVue(event.room_name)"></span>
             </div>
-            <div class="text-xs text-gray-500 mt-0.5 truncate">
+            <div class="text-xs text-faint mt-0.5 truncate">
               {{ getPlayerSummary(event) }}
             </div>
           </div>
 
           <!-- Right side: time & stats -->
           <div class="text-right flex-shrink-0">
-            <div class="text-xs text-gray-500">{{ formatTimeMobile(event.stamp) }}</div>
-            <div class="text-xs text-gray-600">{{ formatDateMobile(event.stamp) }}</div>
+            <div class="text-xs text-faint">{{ formatTimeMobile(event.stamp) }}</div>
+            <div class="text-xs text-faint">{{ formatDateMobile(event.stamp) }}</div>
             <div class="flex items-center gap-2 mt-1 justify-end">
-              <span v-if="(event.like_count ?? 0) > 0" class="text-xs text-gray-500 flex items-center gap-0.5">
+              <span v-if="(event.like_count ?? 0) > 0" class="text-xs text-faint flex items-center gap-0.5">
                 <ThumbsUp class="h-3 w-3" /> {{ event.like_count }}
               </span>
-              <span v-if="(event.comment_count ?? 0) > 0" class="text-xs text-gray-500 flex items-center gap-0.5">
+              <span v-if="(event.comment_count ?? 0) > 0" class="text-xs text-faint flex items-center gap-0.5">
                 <MessageSquare class="h-3 w-3" /> {{ event.comment_count }}
               </span>
             </div>
           </div>
 
           <!-- Chevron -->
-          <ChevronRight class="h-4 w-4 text-gray-600 flex-shrink-0" />
+          <ChevronRight class="h-4 w-4 text-faint flex-shrink-0" />
         </div>
       </div>
 
       <!-- Desktop: Table -->
       <div class="hidden lg:block overflow-x-auto">
         <table class="w-full">
-          <thead class="border-b border-gray-800 bg-gray-900">
+          <thead class="border-b border-border bg-card">
             <tr>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Date/Time</th>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Location</th>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Killers</th>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Victims</th>
-              <th class="px-4 py-3 text-center text-sm font-medium text-gray-400 w-16">
+              <th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Date/Time</th>
+              <th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Location</th>
+              <th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Killers</th>
+              <th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Victims</th>
+              <th class="px-4 py-3 text-center text-sm font-medium text-muted-foreground w-16">
                 <ThumbsUp class="h-4 w-4 mx-auto" />
               </th>
-              <th class="px-4 py-3 text-center text-sm font-medium text-gray-400 w-16">
+              <th class="px-4 py-3 text-center text-sm font-medium text-muted-foreground w-16">
                 <MessageSquare class="h-4 w-4 mx-auto" />
               </th>
-              <th class="px-4 py-3 text-right text-sm font-medium text-gray-400">Actions</th>
+              <th class="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr
               v-for="event in data.data"
               :key="event.id"
-              class="border-b border-gray-800 hover:bg-gray-900 transition-colors"
+              class="border-b border-border hover:bg-card transition-colors"
             >
               <td class="px-4 py-3 text-sm">{{ formatDate(event.stamp) }}</td>
               <td class="px-4 py-3 text-sm"><span v-html="parseAnsiForVue(event.room_name)"></span></td>
-              <td class="px-4 py-3 text-sm text-green-600 dark:text-green-400">
+              <td class="px-4 py-3 text-sm text-success">
                 <div class="space-y-1">
                   <div v-for="(killer, idx) in event.killers" :key="idx" class="flex items-center gap-1">
                     <span
@@ -1155,11 +1155,11 @@ const activeFilterCount = computed(() => {
                       @click="navigateToPov(event.id, killer.description, $event)"
                       v-html="parseAnsiForVue(killer.description)"
                     ></span>
-                    <Crown v-if="killer.isLeader" class="h-3 w-3 text-yellow-500 flex-shrink-0" />
+                    <Crown v-if="killer.isLeader" class="h-3 w-3 text-warning flex-shrink-0" />
                   </div>
                 </div>
               </td>
-              <td class="px-4 py-3 text-sm text-red-600 dark:text-red-400">
+              <td class="px-4 py-3 text-sm text-danger">
                 <div class="space-y-1">
                   <div v-for="(victim, idx) in event.victims" :key="idx" class="flex items-center gap-1">
                     <span
@@ -1167,27 +1167,27 @@ const activeFilterCount = computed(() => {
                       @click="navigateToPov(event.id, victim.description, $event)"
                       v-html="parseAnsiForVue(victim.description)"
                     ></span>
-                    <Droplet v-if="victim.died" class="h-3 w-3 text-red-500 fill-red-500 flex-shrink-0" />
-                    <Crown v-if="victim.isLeader" class="h-3 w-3 text-yellow-500 flex-shrink-0" />
+                    <Droplet v-if="victim.died" class="h-3 w-3 text-danger fill-danger flex-shrink-0" />
+                    <Crown v-if="victim.isLeader" class="h-3 w-3 text-warning flex-shrink-0" />
                   </div>
                 </div>
               </td>
-              <td class="px-4 py-3 text-sm text-center text-gray-400">
+              <td class="px-4 py-3 text-sm text-center text-muted-foreground">
                 <span v-if="(event.like_count ?? 0) > 0" class="inline-flex items-center gap-1">
                   {{ event.like_count }}
                 </span>
-                <span v-else class="text-gray-600">-</span>
+                <span v-else class="text-faint">-</span>
               </td>
-              <td class="px-4 py-3 text-sm text-center text-gray-400">
+              <td class="px-4 py-3 text-sm text-center text-muted-foreground">
                 <span v-if="(event.comment_count ?? 0) > 0" class="inline-flex items-center gap-1">
                   {{ event.comment_count }}
                 </span>
-                <span v-else class="text-gray-600">-</span>
+                <span v-else class="text-faint">-</span>
               </td>
               <td class="px-4 py-3 text-sm text-right">
                 <button
                   @click.stop="viewBattle(event.id)"
-                  class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-cyan-600 text-white hover:bg-cyan-700 h-9 px-4"
+                  class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-vermilion-deep text-white hover:bg-vermilion-hover h-9 px-4"
                 >
                   View Details
                 </button>
@@ -1198,18 +1198,18 @@ const activeFilterCount = computed(() => {
       </div>
 
       <!-- Pagination -->
-      <div v-if="data?.pagination" class="border-t border-gray-800 px-4 py-3">
+      <div v-if="data?.pagination" class="border-t border-border px-4 py-3">
         <div class="flex flex-col lg:flex-row items-center justify-between gap-3">
           <div class="flex items-center gap-4 w-full lg:w-auto justify-between lg:justify-start">
-            <div class="text-xs lg:text-sm text-gray-400">
+            <div class="text-xs lg:text-sm text-muted-foreground">
               <span class="lg:hidden">{{ data.pagination.total }} events</span>
               <span class="hidden lg:inline">Showing {{ ((currentPage - 1) * pageSize) + 1 }} - {{ Math.min(currentPage * pageSize, data.pagination.total) }} of {{ data.pagination.total }} events</span>
             </div>
             <div class="hidden lg:flex items-center space-x-2">
-              <label class="text-xs text-gray-400">Per page:</label>
+              <label class="text-xs text-muted-foreground">Per page:</label>
               <select
                 v-model.number="pageSize"
-                class="h-8 rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-2 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+                class="h-8 rounded-md border border-border bg-card text-bone-muted px-2 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
               >
                 <option :value="10">10</option>
                 <option :value="20">20</option>
@@ -1224,7 +1224,7 @@ const activeFilterCount = computed(() => {
           <button
             @click="currentPage--"
             :disabled="currentPage === 1"
-            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 border border-gray-700 bg-gray-900 hover:bg-gray-800 text-gray-300 h-8 lg:h-9 px-2 lg:px-3"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 border border-border bg-card hover:bg-ink-high text-bone-muted h-8 lg:h-9 px-2 lg:px-3"
           >
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -1239,20 +1239,20 @@ const activeFilterCount = computed(() => {
               :class="[
                 'inline-flex items-center justify-center rounded-md text-xs lg:text-sm font-medium transition-colors h-8 w-8 lg:h-9 lg:w-9',
                 page === currentPage
-                  ? 'bg-cyan-600 text-white'
-                  : 'border border-gray-700 bg-gray-900 hover:bg-gray-800 text-gray-300'
+                  ? 'bg-vermilion-deep text-white'
+                  : 'border border-border bg-card hover:bg-ink-high text-bone-muted'
               ]"
             >
               {{ page }}
             </button>
-            <span v-else class="px-1 lg:px-2 text-gray-500 text-xs lg:text-sm">...</span>
+            <span v-else class="px-1 lg:px-2 text-faint text-xs lg:text-sm">...</span>
           </template>
 
           <!-- Next Button -->
           <button
             @click="currentPage++"
             :disabled="currentPage >= totalPages"
-            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 border border-gray-700 bg-gray-900 hover:bg-gray-800 text-gray-300 h-8 lg:h-9 px-2 lg:px-3"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 border border-border bg-card hover:bg-ink-high text-bone-muted h-8 lg:h-9 px-2 lg:px-3"
           >
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -1264,12 +1264,12 @@ const activeFilterCount = computed(() => {
     </div>
 
     <!-- Empty State -->
-    <div v-else class="rounded-lg border border-gray-800 bg-gray-950 p-12 text-center">
-      <svg class="h-16 w-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div v-else class="rounded-lg border border-border bg-background p-12 text-center">
+      <svg class="h-16 w-16 mx-auto mb-4 text-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
-      <h3 class="text-xl font-semibold text-gray-100 mb-2">No PvP Events Found</h3>
-      <p class="text-gray-400">
+      <h3 class="text-xl font-semibold text-foreground mb-2">No PvP Events Found</h3>
+      <p class="text-muted-foreground">
         {{ playerName || locationName || dateFrom || dateTo || selectedClasses.length > 0 || selectedRaces.length > 0 || levelMin > 1 || levelMax < 56 || selectedAlignment
           ? 'Try adjusting your filters to see more results'
           : 'No PvP events have been logged yet'
@@ -1303,30 +1303,30 @@ const activeFilterCount = computed(() => {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #06b6d4; /* cyan-500 */
+  background: #df583d; /* cyan-500 */
   cursor: pointer;
-  border: 2px solid #0e7490; /* cyan-700 */
+  border: 2px solid #b92e1c; /* cyan-700 */
   position: relative;
   z-index: 5;
 }
 
 .range-slider::-webkit-slider-thumb:hover {
-  background: #22d3ee; /* cyan-400 */
+  background: #df583d; /* cyan-400 */
 }
 
 .range-slider::-moz-range-thumb {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #06b6d4;
+  background: #df583d;
   cursor: pointer;
-  border: 2px solid #0e7490;
+  border: 2px solid #b92e1c;
   position: relative;
   z-index: 5;
 }
 
 .range-slider::-moz-range-thumb:hover {
-  background: #22d3ee;
+  background: #df583d;
 }
 
 /* Hide default track for both browsers */

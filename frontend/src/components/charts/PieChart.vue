@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { chartTheme } from '@/utils/chartTheme'
 import { computed } from 'vue'
 import {
   Chart as ChartJS,
@@ -31,22 +32,17 @@ const defaultOptions: ChartOptions<'pie'> = {
     legend: {
       position: 'right',
       labels: {
-        color: 'rgba(255, 255, 255, 0.7)',
+        color: chartTheme.muted,
         padding: 15,
         usePointStyle: true,
         pointStyle: 'circle',
       },
     },
     tooltip: {
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      titleColor: '#fff',
-      bodyColor: '#fff',
-      borderColor: '#444',
-      borderWidth: 1,
-      padding: 12,
+      ...chartTheme.tooltip,
     },
     datalabels: {
-      color: '#fff',
+      color: chartTheme.text,
       font: {
         weight: 'bold',
         size: 12,

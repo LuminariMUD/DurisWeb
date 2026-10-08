@@ -352,11 +352,11 @@ onMounted(() => {
                   <!-- Quoted text -->
                   <div
                     v-if="comment.quotedText"
-                    class="mb-2 border-l-2 border-cyan-500/50 pl-2 py-1 bg-cyan-950/20 rounded-r cursor-pointer hover:bg-cyan-950/40 transition-colors"
+                    class="mb-2 border-l-2 border-vermilion/50 pl-2 py-1 bg-vermilion-deep/20 rounded-r cursor-pointer hover:bg-vermilion-deep/40 transition-colors"
                     @click="handleQuoteClick(comment)"
                     :title="comment.lineNumber ? `Line ${comment.lineNumber} - Click to view` : ''"
                   >
-                    <div class="flex items-center gap-1 text-[10px] text-cyan-400/70 mb-0.5">
+                    <div class="flex items-center gap-1 text-[10px] text-vermilion/70 mb-0.5">
                       <Quote class="h-3 w-3" />
                       <span v-if="comment.lineNumber">Line {{ comment.lineNumber }}</span>
                     </div>
@@ -462,11 +462,11 @@ onMounted(() => {
                     <!-- Quoted text -->
                     <div
                       v-if="reply.quotedText"
-                      class="mb-2 border-l-2 border-cyan-500/50 pl-2 py-1 bg-cyan-950/20 rounded-r cursor-pointer hover:bg-cyan-950/40 transition-colors"
+                      class="mb-2 border-l-2 border-vermilion/50 pl-2 py-1 bg-vermilion-deep/20 rounded-r cursor-pointer hover:bg-vermilion-deep/40 transition-colors"
                       @click="handleQuoteClick(reply)"
                       :title="reply.lineNumber ? `Line ${reply.lineNumber} - Click to view` : ''"
                     >
-                      <div class="flex items-center gap-1 text-[10px] text-cyan-400/70 mb-0.5">
+                      <div class="flex items-center gap-1 text-[10px] text-vermilion/70 mb-0.5">
                         <Quote class="h-3 w-3" />
                         <span v-if="reply.lineNumber">Line {{ reply.lineNumber }}</span>
                       </div>
@@ -508,10 +508,10 @@ onMounted(() => {
         <!-- Quoted line indicator -->
         <div
           v-if="quotedLine"
-          class="border-l-2 border-cyan-500 pl-3 py-2 bg-cyan-950/30 rounded-r"
+          class="border-l-2 border-vermilion pl-3 py-2 bg-vermilion-deep/30 rounded-r"
         >
           <div class="flex items-center justify-between mb-1">
-            <div class="flex items-center gap-1 text-xs text-cyan-400">
+            <div class="flex items-center gap-1 text-xs text-vermilion">
               <Quote class="h-3 w-3" />
               <span>Quoting line {{ quotedLine.lineNumber }}</span>
             </div>

@@ -277,8 +277,8 @@ const victims = computed(() => {
 })
 
 // SVG icons for POV selector
-const crownIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block text-yellow-500 ml-1"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>`
-const dropletIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block text-red-500 ml-1"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>`
+const crownIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block text-warning ml-1"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>`
+const dropletIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block text-danger ml-1"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>`
 
 // Create select options with MUD colors
 const povOptions = computed(() => {
@@ -292,7 +292,7 @@ const povOptions = computed(() => {
       options.push({
         value: killer.id,
         label: stripAnsiCodes(killer.player_description),
-        html: `<span class="text-green-400">KILLER:</span> ${parseAnsiForVue(killer.player_description)}${leaderBadge}`,
+        html: `<span class="text-success">KILLER:</span> ${parseAnsiForVue(killer.player_description)}${leaderBadge}`,
       })
     })
 
@@ -305,7 +305,7 @@ const povOptions = computed(() => {
       options.push({
         value: victim.id,
         label: stripAnsiCodes(victim.player_description),
-        html: `<span class="text-red-400">VICTIM:</span> ${parseAnsiForVue(victim.player_description)}${diedBadge}${leaderBadge}`,
+        html: `<span class="text-danger">VICTIM:</span> ${parseAnsiForVue(victim.player_description)}${diedBadge}${leaderBadge}`,
       })
     })
 
@@ -464,12 +464,12 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
     <!-- Battle Details -->
     <div v-else-if="data && data.event" class="space-y-4 lg:space-y-6">
       <!-- Battle Overview Card -->
-      <div class="rounded-lg border border-gray-800 bg-gray-950">
+      <div class="rounded-lg border border-border bg-background">
         <!-- Mobile Header -->
         <div class="lg:hidden p-4">
           <div class="text-center mb-3">
-            <h2 class="text-lg font-bold text-gray-100" v-html="parseAnsiForVue(data.event.room_name)"></h2>
-            <p class="text-xs text-gray-500 mt-1">{{ formatDate(data.event.stamp) }}</p>
+            <h2 class="text-lg font-bold text-foreground" v-html="parseAnsiForVue(data.event.room_name)"></h2>
+            <p class="text-xs text-faint mt-1">{{ formatDate(data.event.stamp) }}</p>
           </div>
 
           <!-- Mobile Action Icons -->
@@ -491,7 +491,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
             <div class="flex flex-col items-center gap-1">
               <button
                 @click="copyLink"
-                class="inline-flex items-center justify-center rounded-full text-sm font-medium bg-gray-800 text-gray-400 hover:bg-gray-700 h-10 w-10"
+                class="inline-flex items-center justify-center rounded-full text-sm font-medium bg-ink-high text-muted-foreground hover:bg-ink-top h-10 w-10"
               >
                 <Share2 class="h-4 w-4" />
               </button>
@@ -509,29 +509,29 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
           </div>
 
           <!-- Mobile Teams Mini -->
-          <div class="grid grid-cols-2 gap-3 mt-4 p-3 bg-gray-900 rounded-lg">
+          <div class="grid grid-cols-2 gap-3 mt-4 p-3 bg-card rounded-lg">
             <div>
               <div class="flex items-center gap-1.5 mb-2">
-                <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                <span class="text-xs text-green-400 font-medium">Killers ({{ killers.length }})</span>
+                <div class="w-1.5 h-1.5 rounded-full bg-success"></div>
+                <span class="text-xs text-success font-medium">Killers ({{ killers.length }})</span>
               </div>
               <div class="space-y-1">
-                <div v-for="killer in killers" :key="killer.id" class="text-xs text-gray-300 truncate flex items-center gap-1">
+                <div v-for="killer in killers" :key="killer.id" class="text-xs text-bone-muted truncate flex items-center gap-1">
                   <span v-html="parseAnsiForVue(killer.player_description)"></span>
-                  <Crown v-if="killer.leader" class="h-3 w-3 text-yellow-500 flex-shrink-0" />
+                  <Crown v-if="killer.leader" class="h-3 w-3 text-warning flex-shrink-0" />
                 </div>
               </div>
             </div>
             <div>
               <div class="flex items-center gap-1.5 mb-2">
-                <div class="w-1.5 h-1.5 rounded-full bg-red-500"></div>
-                <span class="text-xs text-red-400 font-medium">Victims ({{ victims.length }})</span>
+                <div class="w-1.5 h-1.5 rounded-full bg-danger"></div>
+                <span class="text-xs text-danger font-medium">Victims ({{ victims.length }})</span>
               </div>
               <div class="space-y-1">
-                <div v-for="victim in victims" :key="victim.id" class="text-xs text-gray-300 truncate flex items-center gap-1">
+                <div v-for="victim in victims" :key="victim.id" class="text-xs text-bone-muted truncate flex items-center gap-1">
                   <span v-html="parseAnsiForVue(victim.player_description)"></span>
-                  <Droplet v-if="victim.pk_type === 'VICTIM'" class="h-3 w-3 text-red-500 fill-red-500 flex-shrink-0" />
-                  <Crown v-if="victim.leader" class="h-3 w-3 text-yellow-500 flex-shrink-0" />
+                  <Droplet v-if="victim.pk_type === 'VICTIM'" class="h-3 w-3 text-danger fill-danger flex-shrink-0" />
+                  <Crown v-if="victim.leader" class="h-3 w-3 text-warning flex-shrink-0" />
                 </div>
               </div>
             </div>
@@ -543,22 +543,22 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
           <div class="space-y-4">
             <div class="flex items-start justify-between gap-4">
               <div>
-                <h2 class="text-2xl font-bold text-gray-100">Battle #{{ data.event.id }}</h2>
-                <p class="text-sm text-gray-400">{{ formatDate(data.event.stamp) }}</p>
-                <p class="text-sm text-gray-400 mt-1"><span v-html="parseAnsiForVue(data.event.room_name)"></span></p>
+                <h2 class="text-2xl font-bold text-foreground">Battle #{{ data.event.id }}</h2>
+                <p class="text-sm text-muted-foreground">{{ formatDate(data.event.stamp) }}</p>
+                <p class="text-sm text-muted-foreground mt-1"><span v-html="parseAnsiForVue(data.event.room_name)"></span></p>
               </div>
               <!-- Action Buttons -->
               <div class="flex items-center gap-2">
                 <button
                   @click="copyLink"
-                  class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 bg-gray-800 text-gray-300 hover:bg-gray-700 h-9 w-9"
+                  class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermilion bg-ink-high text-bone-muted hover:bg-ink-top h-9 w-9"
                   title="Copy link"
                 >
                   <Link class="h-4 w-4" />
                 </button>
                 <button
                   @click="isTeamsMinimized = !isTeamsMinimized"
-                  class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 bg-gray-800 text-gray-300 hover:bg-gray-700 h-9 w-9"
+                  class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermilion bg-ink-high text-bone-muted hover:bg-ink-top h-9 w-9"
                   :title="isTeamsMinimized ? 'Expand teams' : 'Minimize teams'"
                 >
                   <ChevronUp v-if="!isTeamsMinimized" class="h-4 w-4" />
@@ -590,10 +590,10 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
             </div>
 
             <!-- Teams (Desktop) -->
-            <div v-if="!isTeamsMinimized" class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-800">
+            <div v-if="!isTeamsMinimized" class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-border">
             <!-- Killers (Goods) -->
             <div>
-              <h3 class="text-sm font-semibold text-green-600 dark:text-green-400 mb-2">
+              <h3 class="text-sm font-semibold text-success mb-2">
                 Killers ({{ killers.length }})
               </h3>
               <div class="space-y-1">
@@ -605,7 +605,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                 >
                   <span
                     v-if="isCharacterDeleted(killer.player_description)"
-                    class="line-through decoration-red-500"
+                    class="line-through decoration-danger"
                     v-html="parseAnsiForVue(killer.player_description)"
                   ></span>
                   <span
@@ -622,7 +622,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
 
             <!-- Victims (Evils) -->
             <div>
-              <h3 class="text-sm font-semibold text-red-600 dark:text-red-400 mb-2">
+              <h3 class="text-sm font-semibold text-danger mb-2">
                 Victims ({{ victims.length }})
               </h3>
               <div class="space-y-1">
@@ -634,7 +634,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                 >
                   <span
                     v-if="isCharacterDeleted(victim.player_description)"
-                    class="line-through decoration-red-500"
+                    class="line-through decoration-danger"
                     v-html="parseAnsiForVue(victim.player_description)"
                   ></span>
                   <span
@@ -655,12 +655,12 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
 
       <!-- Mobile: Segmented Tabs -->
       <div class="lg:hidden">
-        <div class="flex bg-gray-800 rounded-lg p-1 mx-0">
+        <div class="flex bg-ink-high rounded-lg p-1 mx-0">
           <button
             @click="mobileTab = 'log'"
             :class="[
               'flex-1 py-2.5 text-sm font-medium rounded-md transition-colors',
-              mobileTab === 'log' ? 'bg-cyan-600 text-white' : 'text-gray-400'
+              mobileTab === 'log' ? 'bg-vermilion-deep text-white' : 'text-muted-foreground'
             ]"
           >
             Combat Log
@@ -669,7 +669,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
             @click="mobileTab = 'equipment'"
             :class="[
               'flex-1 py-2.5 text-sm font-medium rounded-md transition-colors',
-              mobileTab === 'equipment' ? 'bg-cyan-600 text-white' : 'text-gray-400'
+              mobileTab === 'equipment' ? 'bg-vermilion-deep text-white' : 'text-muted-foreground'
             ]"
           >
             Equipment
@@ -678,7 +678,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
             @click="mobileTab = 'comments'"
             :class="[
               'flex-1 py-2.5 text-sm font-medium rounded-md transition-colors',
-              mobileTab === 'comments' ? 'bg-cyan-600 text-white' : 'text-gray-400'
+              mobileTab === 'comments' ? 'bg-vermilion-deep text-white' : 'text-muted-foreground'
             ]"
           >
             Comments {{ battleStats?.commentCount ? `(${battleStats.commentCount})` : '' }}
@@ -688,9 +688,9 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
         <!-- Mobile Tab Content -->
         <div class="mt-4">
           <!-- Combat Log Tab -->
-          <div v-if="mobileTab === 'log'" class="rounded-lg border border-gray-800 bg-gray-950">
+          <div v-if="mobileTab === 'log'" class="rounded-lg border border-border bg-background">
             <!-- POV Selector -->
-            <div class="p-3 border-b border-gray-800">
+            <div class="p-3 border-b border-border">
               <Select
                 v-model="selectedPovId"
                 :options="povOptions"
@@ -703,29 +703,29 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
               <!-- Fullscreen Button -->
               <button
                 @click="isFullscreenOpen = true"
-                class="absolute top-3 right-3 z-10 inline-flex items-center justify-center rounded-lg bg-cyan-600 text-white h-9 w-9 shadow-lg"
+                class="absolute top-3 right-3 z-10 inline-flex items-center justify-center rounded-lg bg-vermilion-deep text-white h-9 w-9 shadow-lg"
                 title="View fullscreen"
               >
                 <Maximize2 class="h-4 w-4" />
               </button>
 
               <div class="p-3">
-                <div class="rounded-md bg-black font-mono text-xs text-gray-100 overflow-x-auto max-h-[400px] overflow-y-auto">
+                <div class="rounded-md bg-black font-mono text-xs text-foreground overflow-x-auto max-h-[400px] overflow-y-auto">
                   <div v-if="selectedParticipant.log" class="relative">
                     <div
                       v-for="(line, index) in logLines"
                       :id="`mobile-log-line-${index + 1}`"
                       :key="index"
-                      class="group flex hover:bg-gray-800/50"
+                      class="group flex hover:bg-ink-high/50"
                       :class="{ 'animate-highlight-fade': highlightedLine === index + 1 }"
                     >
                       <div
-                        class="sticky left-0 w-12 flex-shrink-0 select-none text-right pr-1 text-gray-600 bg-gray-900/80 border-r border-gray-800 text-[10px] leading-4 cursor-pointer active:bg-cyan-900 flex items-center justify-end gap-0.5"
+                        class="sticky left-0 w-12 flex-shrink-0 select-none text-right pr-1 text-faint bg-card/80 border-r border-border text-[10px] leading-4 cursor-pointer active:bg-vermilion-deep flex items-center justify-end gap-0.5"
                         @click="handleLineClick(index + 1, line)"
                       >
                         <span
                           v-if="getLineCommentCount(index + 1) > 0"
-                          class="inline-flex items-center justify-center min-w-[14px] h-3.5 px-0.5 text-[8px] font-medium bg-cyan-600 text-white rounded-full"
+                          class="inline-flex items-center justify-center min-w-[14px] h-3.5 px-0.5 text-[8px] font-medium bg-vermilion-deep text-white rounded-full"
                         >
                           {{ getLineCommentCount(index + 1) }}
                         </span>
@@ -734,17 +734,17 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                       <div class="flex-1 whitespace-pre-wrap px-2 leading-4" v-html="parseAnsiForVue(line, true)"></div>
                     </div>
                   </div>
-                  <p v-else class="text-gray-400 p-3">No combat log available</p>
+                  <p v-else class="text-muted-foreground p-3">No combat log available</p>
                 </div>
               </div>
             </div>
-            <div v-else class="p-8 text-center text-gray-500 text-sm">
+            <div v-else class="p-8 text-center text-faint text-sm">
               Select a participant to view their combat log
             </div>
           </div>
 
           <!-- Equipment Tab -->
-          <div v-if="mobileTab === 'equipment'" class="rounded-lg border border-gray-800 bg-gray-950">
+          <div v-if="mobileTab === 'equipment'" class="rounded-lg border border-border bg-background">
             <div v-if="selectedParticipant?.equip" class="p-3">
               <div class="mb-3">
                 <Select
@@ -753,11 +753,11 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                   placeholder="Select POV"
                 />
               </div>
-              <div class="rounded-md bg-black p-3 font-mono text-xs text-gray-100 overflow-x-auto max-h-[500px] overflow-y-auto">
+              <div class="rounded-md bg-black p-3 font-mono text-xs text-foreground overflow-x-auto max-h-[500px] overflow-y-auto">
                 <pre class="whitespace-pre-wrap leading-relaxed" v-html="parseAnsiForVue(selectedParticipant.equip)"></pre>
               </div>
             </div>
-            <div v-else class="p-8 text-center text-gray-500 text-sm">
+            <div v-else class="p-8 text-center text-faint text-sm">
               <p v-if="selectedParticipant">No equipment data for this participant</p>
               <p v-else>Select a participant to view equipment</p>
             </div>
@@ -780,10 +780,10 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
       <!-- Desktop: POV Selector & Combat Log with Comments (70/30 layout) -->
       <div class="hidden lg:grid grid-cols-1 lg:grid-cols-[7fr_3fr] gap-4">
         <!-- Left side: POV selector + Combat Log (70%) -->
-        <div class="rounded-lg border border-gray-800 bg-gray-950">
-          <div class="border-b border-gray-800 p-4">
+        <div class="rounded-lg border border-border bg-background">
+          <div class="border-b border-border p-4">
             <div class="flex items-center gap-4">
-              <label class="text-sm font-medium text-gray-300 whitespace-nowrap">Point of View:</label>
+              <label class="text-sm font-medium text-bone-muted whitespace-nowrap">Point of View:</label>
               <div class="flex-1">
                 <Select
                   v-model="selectedPovId"
@@ -795,7 +795,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                 <button
                   v-if="selectedParticipant?.equip"
                   @click="isEquipmentOpen = true"
-                  class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:pointer-events-none disabled:opacity-50 bg-gray-800 text-gray-300 hover:bg-gray-700 h-9 px-4 whitespace-nowrap"
+                  class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermilion disabled:pointer-events-none disabled:opacity-50 bg-ink-high text-bone-muted hover:bg-ink-top h-9 px-4 whitespace-nowrap"
                   title="View equipment"
                 >
                   <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -806,7 +806,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                 <button
                   v-if="selectedParticipant"
                   @click="isFullscreenOpen = true"
-                  class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:pointer-events-none disabled:opacity-50 bg-gray-800 text-gray-300 hover:bg-gray-700 h-9 px-4 whitespace-nowrap"
+                  class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermilion disabled:pointer-events-none disabled:opacity-50 bg-ink-high text-bone-muted hover:bg-ink-top h-9 px-4 whitespace-nowrap"
                   title="Maximize combat log"
                 >
                   <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -822,7 +822,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
           <div v-if="selectedParticipant" class="p-4">
             <!-- Log Line Count Info -->
             <div v-if="selectedParticipant.log && getLineCount(selectedParticipant.log) > 100" class="mb-2 flex items-center justify-between">
-              <p class="text-xs text-gray-400">
+              <p class="text-xs text-muted-foreground">
                 <span v-if="isLogTruncated">
                   Showing {{ MAX_PREVIEW_LINES }} of {{ getLineCount(selectedParticipant.log).toLocaleString() }} lines
                 </span>
@@ -833,30 +833,30 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
               <button
                 v-if="getLineCount(selectedParticipant.log) > MAX_PREVIEW_LINES"
                 @click="showFullLog = !showFullLog"
-                class="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                class="text-xs text-vermilion hover:text-vermilion-light transition-colors"
               >
                 {{ showFullLog ? 'Show Less' : 'Show All' }}
               </button>
             </div>
 
-            <div ref="logContainerRef" class="rounded-md bg-black font-mono text-sm text-gray-100 overflow-x-auto max-h-[800px] overflow-y-auto">
+            <div ref="logContainerRef" class="rounded-md bg-black font-mono text-sm text-foreground overflow-x-auto max-h-[800px] overflow-y-auto">
               <div v-if="selectedParticipant.log" class="relative">
                 <div
                   v-for="(line, index) in logLines"
                   :id="`log-line-${index + 1}`"
                   :key="index"
-                  class="group flex hover:bg-gray-800/50 transition-colors duration-150"
+                  class="group flex hover:bg-ink-high/50 transition-colors duration-150"
                   :class="{ 'animate-highlight-fade': highlightedLine === index + 1 }"
                 >
                   <!-- Line number -->
                   <div
-                    class="sticky left-0 w-14 flex-shrink-0 select-none text-right pr-2 text-gray-600 bg-gray-900/80 border-r border-gray-800 text-xs leading-5 cursor-pointer hover:text-cyan-400 hover:bg-gray-800 group-hover:text-gray-400 flex items-center justify-end gap-1"
+                    class="sticky left-0 w-14 flex-shrink-0 select-none text-right pr-2 text-faint bg-card/80 border-r border-border text-xs leading-5 cursor-pointer hover:text-vermilion hover:bg-ink-high group-hover:text-muted-foreground flex items-center justify-end gap-1"
                     @click="handleLineClick(index + 1, line)"
                     :title="`Comment on line ${index + 1}`"
                   >
                     <span
                       v-if="getLineCommentCount(index + 1) > 0"
-                      class="inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] font-medium bg-cyan-600 text-white rounded-full"
+                      class="inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] font-medium bg-vermilion-deep text-white rounded-full"
                     >
                       {{ getLineCommentCount(index + 1) }}
                     </span>
@@ -867,14 +867,14 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                   <div class="flex-1 whitespace-pre-wrap px-2 leading-5" v-html="parseAnsiForVue(line, true)"></div>
                 </div>
               </div>
-              <p v-else class="text-gray-400 p-4">No combat log available for this participant</p>
+              <p v-else class="text-muted-foreground p-4">No combat log available for this participant</p>
             </div>
 
             <!-- Truncation Notice -->
-            <div v-if="isLogTruncated" class="mt-2 rounded-md bg-gray-900 border border-gray-800 p-3 text-center">
-              <p class="text-sm text-gray-400">
+            <div v-if="isLogTruncated" class="mt-2 rounded-md bg-card border border-border p-3 text-center">
+              <p class="text-sm text-muted-foreground">
                 Log truncated for performance.
-                <button @click="showFullLog = true" class="text-cyan-400 hover:text-cyan-300 underline ml-1">
+                <button @click="showFullLog = true" class="text-vermilion hover:text-vermilion-light underline ml-1">
                   Click here to show all {{ getLineCount(selectedParticipant.log).toLocaleString() }} lines
                 </button>
               </p>
@@ -904,9 +904,9 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
     <Dialog v-model:open="isFullscreenOpen" :title-html="`Combat Log - ${selectedParticipant ? parseAnsiForVue(selectedParticipant.player_description) : ''}`" noPadding>
       <div v-if="selectedParticipant" class="h-full">
         <!-- Combat Log Only -->
-        <div class="bg-black font-mono text-xs lg:text-sm text-gray-100 overflow-x-auto h-full overflow-y-auto">
+        <div class="bg-black font-mono text-xs lg:text-sm text-foreground overflow-x-auto h-full overflow-y-auto">
           <pre v-if="selectedParticipant.log" class="whitespace-pre-wrap px-2 py-1" v-html="parseAnsiForVue(selectedParticipant.log, true)"></pre>
-          <p v-else class="text-gray-400 p-4">No combat log available for this participant</p>
+          <p v-else class="text-muted-foreground p-4">No combat log available for this participant</p>
         </div>
       </div>
     </Dialog>
@@ -914,11 +914,11 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
     <!-- Equipment Dialog -->
     <Dialog v-model:open="isEquipmentOpen" size="compact" :title-html="`Equipment - ${selectedParticipant ? parseAnsiForVue(selectedParticipant.player_description) : ''}`">
       <div v-if="selectedParticipant?.equip">
-        <div class="rounded-md bg-black p-3 font-mono text-xs text-gray-100 overflow-x-auto max-h-[70vh] overflow-y-auto">
+        <div class="rounded-md bg-black p-3 font-mono text-xs text-foreground overflow-x-auto max-h-[70vh] overflow-y-auto">
           <pre class="whitespace-pre-wrap leading-tight" v-html="parseAnsiForVue(selectedParticipant.equip)"></pre>
         </div>
       </div>
-      <div v-else class="text-center text-gray-400 py-4">
+      <div v-else class="text-center text-muted-foreground py-4">
         No equipment information available for this participant
       </div>
     </Dialog>
@@ -928,17 +928,23 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
 <style scoped>
 @keyframes highlight-pulse {
   0%, 100% {
-    background-color: rgb(234 179 8 / 0.5);
-    box-shadow: inset 0 0 0 2px rgb(234 179 8 / 0.8);
+    background-color: color-mix(in srgb, var(--color-ember) 35%, transparent);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-ember) 80%, transparent);
   }
   50% {
-    background-color: rgb(234 179 8 / 0.2);
-    box-shadow: inset 0 0 0 2px rgb(234 179 8 / 0.4);
+    background-color: color-mix(in srgb, var(--color-ember) 15%, transparent);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-ember) 40%, transparent);
   }
 }
 
 .animate-highlight-fade {
   animation: highlight-pulse 0.5s ease-in-out 4;
-  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-highlight-fade {
+    animation: none;
+    box-shadow: inset 0 0 0 2px var(--color-ember);
+  }
 }
 </style>

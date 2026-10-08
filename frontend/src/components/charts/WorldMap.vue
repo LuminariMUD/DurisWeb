@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { chartTheme, heatColor } from '@/utils/chartTheme'
 import { ref, onMounted, watch, computed } from 'vue'
 import { Chart as ChartJS, Tooltip, Legend, type ChartOptions } from 'chart.js'
 import { ChoroplethController, GeoFeature, ColorScale, ProjectionScale } from 'chartjs-chart-geo'
@@ -292,18 +293,13 @@ function createChart() {
             value: visitorData?.count || 0,
           }
         }),
-        // Color scale from light to dark blue
+        // Ember heat scale; countries without visitors stay on ink
         backgroundColor: (context: any) => {
           const value = context.raw?.value || 0
-          if (value === 0) return 'rgba(30, 41, 59, 0.5)' // slate-800 with opacity for no data
-          const intensity = Math.min(value / maxCount.value, 1)
-          // Interpolate from light blue to dark blue
-          const r = Math.round(224 - intensity * 221)
-          const g = Math.round(242 - intensity * 186)
-          const b = Math.round(254 - intensity * 93)
-          return `rgb(${r}, ${g}, ${b})`
+          if (value === 0) return chartTheme.noData
+          return heatColor(value / maxCount.value)
         },
-        borderColor: 'rgba(255, 255, 255, 0.2)',
+        borderColor: chartTheme.outline,
         borderWidth: 0.5,
       },
     ],
@@ -319,12 +315,7 @@ function createChart() {
         display: false,
       },
       tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        titleColor: '#fff',
-        bodyColor: '#fff',
-        borderColor: '#444',
-        borderWidth: 1,
-        padding: 12,
+        ...chartTheme.tooltip,
         callbacks: {
           label: (context: any) => {
             const value = context.raw?.value || 0
@@ -352,13 +343,7 @@ function createChart() {
           position: 'bottom-right',
           align: 'right',
         },
-        interpolate: (value: number) => {
-          // Color scale from light to dark blue
-          const r = Math.round(224 - value * 221)
-          const g = Math.round(242 - value * 186)
-          const b = Math.round(254 - value * 93)
-          return `rgb(${r}, ${g}, ${b})`
-        },
+        interpolate: (value: number) => heatColor(value),
       },
     },
   } as any
@@ -392,11 +377,11 @@ watch(countries, () => {
 
 <template>
   <div class="relative" :style="{ height: `${height}px` }">
-    <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-slate-900/50">
-      <span class="text-slate-400">Loading map...</span>
+    <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-card/50">
+      <span class="text-muted-foreground">Loading map...</span>
     </div>
-    <div v-else-if="loadError" class="absolute inset-0 flex items-center justify-center bg-slate-900/50">
-      <span class="text-red-400">{{ loadError }}</span>
+    <div v-else-if="loadError" class="absolute inset-0 flex items-center justify-center bg-card/50">
+      <span class="text-danger">{{ loadError }}</span>
     </div>
     <canvas ref="chartCanvas" />
   </div>

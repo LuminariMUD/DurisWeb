@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { chartTheme, seriesColors, withAlpha } from '@/utils/chartTheme'
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
@@ -174,30 +175,8 @@ const barChartData = computed(() => {
       {
         label: typeLabels[leaderboardType.value],
         data: top10.map((entry) => entry.value),
-        backgroundColor: [
-          'rgba(34, 211, 238, 0.8)', // cyan
-          'rgba(6, 182, 212, 0.8)', // cyan-600
-          'rgba(8, 145, 178, 0.8)', // cyan-700
-          'rgba(21, 94, 117, 0.8)', // cyan-800
-          'rgba(22, 78, 99, 0.8)', // cyan-900
-          'rgba(34, 211, 238, 0.6)',
-          'rgba(6, 182, 212, 0.6)',
-          'rgba(8, 145, 178, 0.6)',
-          'rgba(21, 94, 117, 0.6)',
-          'rgba(22, 78, 99, 0.6)',
-        ],
-        borderColor: [
-          'rgb(34, 211, 238)',
-          'rgb(6, 182, 212)',
-          'rgb(8, 145, 178)',
-          'rgb(21, 94, 117)',
-          'rgb(22, 78, 99)',
-          'rgb(34, 211, 238)',
-          'rgb(6, 182, 212)',
-          'rgb(8, 145, 178)',
-          'rgb(21, 94, 117)',
-          'rgb(22, 78, 99)',
-        ],
+        backgroundColor: [...seriesColors(5, 0.8), ...seriesColors(5, 0.55)],
+        borderColor: [...seriesColors(5), ...seriesColors(5)],
         borderWidth: 1,
       },
     ],
@@ -214,7 +193,7 @@ const barChartOptions = {
     title: {
       display: true,
       text: 'Top 10 Players',
-      color: '#e5e7eb',
+      color: chartTheme.text,
       font: {
         size: 16,
       },
@@ -224,20 +203,20 @@ const barChartOptions = {
     y: {
       beginAtZero: true,
       ticks: {
-        color: '#9ca3af',
+        color: chartTheme.muted,
       },
       grid: {
-        color: 'rgba(75, 85, 99, 0.3)',
+        color: chartTheme.grid,
       },
     },
     x: {
       ticks: {
-        color: '#9ca3af',
+        color: chartTheme.muted,
         maxRotation: 45,
         minRotation: 45,
       },
       grid: {
-        color: 'rgba(75, 85, 99, 0.3)',
+        color: chartTheme.grid,
       },
     },
   },
@@ -257,20 +236,8 @@ const doughnutChartData = computed(() => {
       {
         label: 'K/D Ratio',
         data: top5.map((entry) => entry.kdRatio || 0),
-        backgroundColor: [
-          'rgba(34, 211, 238, 0.8)',
-          'rgba(6, 182, 212, 0.8)',
-          'rgba(8, 145, 178, 0.8)',
-          'rgba(21, 94, 117, 0.8)',
-          'rgba(22, 78, 99, 0.8)',
-        ],
-        borderColor: [
-          'rgb(34, 211, 238)',
-          'rgb(6, 182, 212)',
-          'rgb(8, 145, 178)',
-          'rgb(21, 94, 117)',
-          'rgb(22, 78, 99)',
-        ],
+        backgroundColor: seriesColors(5, 0.8),
+        borderColor: seriesColors(5),
         borderWidth: 1,
       },
     ],
@@ -284,7 +251,7 @@ const doughnutChartOptions = {
     legend: {
       position: 'right' as const,
       labels: {
-        color: '#e5e7eb',
+        color: chartTheme.text,
         font: {
           size: 12,
         },
@@ -293,7 +260,7 @@ const doughnutChartOptions = {
     title: {
       display: true,
       text: 'K/D Ratio Comparison (Top 5)',
-      color: '#e5e7eb',
+      color: chartTheme.text,
       font: {
         size: 16,
       },
@@ -311,8 +278,8 @@ const timelineChartData = computed(() => {
       {
         label: 'PvP Kills',
         data: killTimeline.value.map((item) => item.kills),
-        borderColor: 'rgb(34, 211, 238)',
-        backgroundColor: 'rgba(34, 211, 238, 0.1)',
+        borderColor: chartTheme.series[0],
+        backgroundColor: withAlpha(chartTheme.series[0], 0.1),
         fill: true,
         tension: 0.4,
       },
@@ -330,18 +297,18 @@ const timelineChartOptions = computed(() => ({
     title: {
       display: true,
       text: `Kill Timeline (${periodLabel.value})`,
-      color: '#e5e7eb',
+      color: chartTheme.text,
       font: { size: 16 },
     },
   },
   scales: {
     y: {
-      ticks: { color: '#9ca3af' },
-      grid: { color: 'rgba(75, 85, 99, 0.3)' },
+      ticks: { color: chartTheme.muted },
+      grid: { color: chartTheme.grid },
     },
     x: {
-      ticks: { color: '#9ca3af' },
-      grid: { color: 'rgba(75, 85, 99, 0.3)' },
+      ticks: { color: chartTheme.muted },
+      grid: { color: chartTheme.grid },
     },
   },
   onClick: handleTimelineClick,
@@ -357,8 +324,8 @@ const activeHoursChartData = computed(() => {
       {
         label: 'PvP Activity',
         data: activeHours.value.map((item) => item.kills),
-        backgroundColor: 'rgba(34, 211, 238, 0.8)',
-        borderColor: 'rgb(34, 211, 238)',
+        backgroundColor: withAlpha(chartTheme.series[0], 0.8),
+        borderColor: chartTheme.series[0],
         borderWidth: 1,
       },
     ],
@@ -375,18 +342,18 @@ const activeHoursChartOptions = computed(() => ({
     title: {
       display: true,
       text: `Active Hours (${periodLabel.value})`,
-      color: '#e5e7eb',
+      color: chartTheme.text,
       font: { size: 16 },
     },
   },
   scales: {
     y: {
-      ticks: { color: '#9ca3af' },
-      grid: { color: 'rgba(75, 85, 99, 0.3)' },
+      ticks: { color: chartTheme.muted },
+      grid: { color: chartTheme.grid },
     },
     x: {
-      ticks: { color: '#9ca3af' },
-      grid: { color: 'rgba(75, 85, 99, 0.3)' },
+      ticks: { color: chartTheme.muted },
+      grid: { color: chartTheme.grid },
     },
   },
   onClick: handleActiveHoursClick,
@@ -403,30 +370,8 @@ const clientStatsChartData = computed(() => {
       {
         label: 'Logins',
         data: clientStats.value.clients.map((c) => c.count),
-        backgroundColor: [
-          'rgba(34, 211, 238, 0.8)',
-          'rgba(6, 182, 212, 0.8)',
-          'rgba(8, 145, 178, 0.8)',
-          'rgba(21, 94, 117, 0.8)',
-          'rgba(22, 78, 99, 0.8)',
-          'rgba(34, 211, 238, 0.6)',
-          'rgba(6, 182, 212, 0.6)',
-          'rgba(8, 145, 178, 0.6)',
-          'rgba(21, 94, 117, 0.6)',
-          'rgba(22, 78, 99, 0.6)',
-        ],
-        borderColor: [
-          'rgb(34, 211, 238)',
-          'rgb(6, 182, 212)',
-          'rgb(8, 145, 178)',
-          'rgb(21, 94, 117)',
-          'rgb(22, 78, 99)',
-          'rgb(34, 211, 238)',
-          'rgb(6, 182, 212)',
-          'rgb(8, 145, 178)',
-          'rgb(21, 94, 117)',
-          'rgb(22, 78, 99)',
-        ],
+        backgroundColor: [...seriesColors(5, 0.8), ...seriesColors(5, 0.55)],
+        borderColor: [...seriesColors(5), ...seriesColors(5)],
         borderWidth: 1,
       },
     ],
@@ -440,14 +385,14 @@ const clientStatsChartOptions = computed(() => ({
     legend: {
       position: 'right' as const,
       labels: {
-        color: '#e5e7eb',
+        color: chartTheme.text,
         font: { size: 12 },
       },
     },
     title: {
       display: true,
       text: `MUD Clients (${periodLabel.value})`,
-      color: '#e5e7eb',
+      color: chartTheme.text,
       font: { size: 16 },
     },
     tooltip: {
@@ -482,19 +427,8 @@ const locationsChartData = computed(() => {
       {
         label: 'Kills',
         data: popularLocations.value.map((item) => item.kills),
-        backgroundColor: [
-          'rgba(34, 211, 238, 0.8)',
-          'rgba(6, 182, 212, 0.8)',
-          'rgba(8, 145, 178, 0.8)',
-          'rgba(21, 94, 117, 0.8)',
-          'rgba(22, 78, 99, 0.8)',
-          'rgba(34, 211, 238, 0.6)',
-          'rgba(6, 182, 212, 0.6)',
-          'rgba(8, 145, 178, 0.6)',
-          'rgba(21, 94, 117, 0.6)',
-          'rgba(22, 78, 99, 0.6)',
-        ],
-        borderColor: 'rgb(34, 211, 238)',
+        backgroundColor: [...seriesColors(5, 0.8), ...seriesColors(5, 0.55)],
+        borderColor: seriesColors(10),
         borderWidth: 1,
       },
     ],
@@ -514,18 +448,18 @@ const locationsChartOptions = computed(
         title: {
           display: true,
           text: `Popular PvP Locations (${periodLabel.value})`,
-          color: '#e5e7eb',
+          color: chartTheme.text,
           font: { size: 16 },
         },
       },
       scales: {
         y: {
-          ticks: { color: '#9ca3af' },
-          grid: { color: 'rgba(75, 85, 99, 0.3)' },
+          ticks: { color: chartTheme.muted },
+          grid: { color: chartTheme.grid },
         },
         x: {
-          ticks: { color: '#9ca3af' },
-          grid: { color: 'rgba(75, 85, 99, 0.3)' },
+          ticks: { color: chartTheme.muted },
+          grid: { color: chartTheme.grid },
         },
       },
     }) as any,
@@ -615,8 +549,8 @@ const navigateToPlayer = async (playerName: string) => {
   <div class="space-y-8">
     <!-- Header -->
     <div>
-      <h2 class="text-3xl font-bold tracking-tight text-gray-100">Statistics</h2>
-      <p class="text-gray-400">
+      <h2 class="text-4xl md:text-5xl text-foreground">Statistics</h2>
+      <p class="text-muted-foreground">
         PvP leaderboards and player statistics
       </p>
     </div>
@@ -624,12 +558,12 @@ const navigateToPlayer = async (playerName: string) => {
     <!-- Leaderboard Section -->
     <div class="space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h3 class="text-lg lg:text-xl font-semibold text-gray-100">Leaderboard</h3>
+        <h3 class="text-lg lg:text-xl font-semibold text-foreground">Leaderboard</h3>
         <div class="flex items-center gap-2 sm:gap-4">
           <!-- Type Selector -->
           <select
             v-model="leaderboardType"
-            class="flex h-8 lg:h-9 rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-2 lg:px-3 py-1 text-xs lg:text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+            class="flex h-8 lg:h-9 rounded-md border border-border bg-card text-bone-muted px-2 lg:px-3 py-1 text-xs lg:text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
           >
             <option value="kills">Most Kills</option>
             <option value="deaths">Most Deaths</option>
@@ -639,7 +573,7 @@ const navigateToPlayer = async (playerName: string) => {
           <!-- Period Selector -->
           <select
             v-model="leaderboardPeriod"
-            class="flex h-8 lg:h-9 rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-2 lg:px-3 py-1 text-xs lg:text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+            class="flex h-8 lg:h-9 rounded-md border border-border bg-card text-bone-muted px-2 lg:px-3 py-1 text-xs lg:text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
           >
             <option value="7d">7 Days</option>
             <option value="30d">30 Days</option>
@@ -665,36 +599,36 @@ const navigateToPlayer = async (playerName: string) => {
           <div
             v-for="entry in paginatedLeaderboard"
             :key="entry.rank"
-            class="rounded-lg border border-gray-800 bg-gray-950 p-3 cursor-pointer hover:bg-gray-900 transition-colors"
+            class="rounded-lg border border-border bg-background p-3 cursor-pointer hover:bg-card transition-colors"
             @click="navigateToPlayer(entry.playerName)"
           >
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-center gap-2 min-w-0">
                 <div class="flex items-center gap-1 flex-shrink-0 w-8">
-                  <Trophy v-if="entry.rank === 1" class="w-4 h-4 text-yellow-500" />
-                  <Medal v-else-if="entry.rank === 2" class="w-4 h-4 text-gray-400" />
+                  <Trophy v-if="entry.rank === 1" class="w-4 h-4 text-warning" />
+                  <Medal v-else-if="entry.rank === 2" class="w-4 h-4 text-muted-foreground" />
                   <Medal v-else-if="entry.rank === 3" class="w-4 h-4 text-orange-600" />
-                  <span v-else class="text-sm text-gray-400">#{{ entry.rank }}</span>
+                  <span v-else class="text-sm text-muted-foreground">#{{ entry.rank }}</span>
                 </div>
                 <div class="min-w-0">
-                  <div class="font-medium text-gray-100 truncate">{{ entry.playerName }}</div>
-                  <div class="text-xs text-gray-400">
+                  <div class="font-medium text-foreground truncate">{{ entry.playerName }}</div>
+                  <div class="text-xs text-muted-foreground">
                     Lv{{ entry.level }} <span v-html="parseAnsiForVue(entry.class)"></span>
                   </div>
                 </div>
               </div>
               <div class="flex items-center gap-3 text-sm flex-shrink-0">
                 <div class="text-center">
-                  <div class="font-semibold text-green-400">{{ entry.kills }}</div>
-                  <div class="text-xs text-gray-500">K</div>
+                  <div class="font-semibold text-success">{{ entry.kills }}</div>
+                  <div class="text-xs text-faint">K</div>
                 </div>
                 <div class="text-center">
-                  <div class="font-semibold text-red-400">{{ entry.deaths }}</div>
-                  <div class="text-xs text-gray-500">D</div>
+                  <div class="font-semibold text-danger">{{ entry.deaths }}</div>
+                  <div class="text-xs text-faint">D</div>
                 </div>
                 <div class="text-center">
-                  <div class="font-semibold text-gray-100">{{ entry.kdRatio.toFixed(2) }}</div>
-                  <div class="text-xs text-gray-500">K/D</div>
+                  <div class="font-semibold text-foreground">{{ entry.kdRatio.toFixed(2) }}</div>
+                  <div class="text-xs text-faint">K/D</div>
                 </div>
               </div>
             </div>
@@ -702,44 +636,44 @@ const navigateToPlayer = async (playerName: string) => {
         </div>
 
         <!-- Desktop Table -->
-        <div class="hidden lg:block rounded-lg border border-gray-800 bg-gray-950 overflow-hidden">
+        <div class="hidden lg:block rounded-lg border border-border bg-background overflow-hidden">
           <table class="w-full">
-            <thead class="border-b border-gray-800 bg-gray-900">
+            <thead class="border-b border-border bg-card">
               <tr>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400 w-16">Rank</th>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Player</th>
-                <th class="px-4 py-3 text-center text-sm font-medium text-gray-400">Level</th>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Class</th>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Race</th>
-                <th class="px-4 py-3 text-right text-sm font-medium text-gray-400">Kills</th>
-                <th class="px-4 py-3 text-right text-sm font-medium text-gray-400">Deaths</th>
-                <th class="px-4 py-3 text-right text-sm font-medium text-gray-400">K/D Ratio</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground w-16">Rank</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Player</th>
+                <th class="px-4 py-3 text-center text-sm font-medium text-muted-foreground">Level</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Class</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Race</th>
+                <th class="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Kills</th>
+                <th class="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Deaths</th>
+                <th class="px-4 py-3 text-right text-sm font-medium text-muted-foreground">K/D Ratio</th>
               </tr>
             </thead>
             <tbody>
               <tr
                 v-for="entry in paginatedLeaderboard"
                 :key="entry.rank"
-                class="border-b border-gray-800 transition-colors hover:bg-gray-900 cursor-pointer"
+                class="border-b border-border transition-colors hover:bg-card cursor-pointer"
                 @click="navigateToPlayer(entry.playerName)"
               >
                 <td class="px-4 py-3 text-sm font-bold">
                   <div class="flex items-center gap-1">
-                    <Trophy v-if="entry.rank === 1" class="w-4 h-4 text-yellow-500" />
-                    <Medal v-else-if="entry.rank === 2" class="w-4 h-4 text-gray-400" />
+                    <Trophy v-if="entry.rank === 1" class="w-4 h-4 text-warning" />
+                    <Medal v-else-if="entry.rank === 2" class="w-4 h-4 text-muted-foreground" />
                     <Medal v-else-if="entry.rank === 3" class="w-4 h-4 text-orange-600" />
-                    <span :class="entry.rank <= 3 ? '' : 'text-gray-400'">{{ entry.rank }}</span>
+                    <span :class="entry.rank <= 3 ? '' : 'text-muted-foreground'">{{ entry.rank }}</span>
                   </div>
                 </td>
-                <td class="px-4 py-3 text-sm font-medium text-gray-100 hover:underline">
+                <td class="px-4 py-3 text-sm font-medium text-foreground hover:underline">
                   {{ entry.playerName }}
                 </td>
-                <td class="px-4 py-3 text-sm text-center text-cyan-400">{{ entry.level }}</td>
+                <td class="px-4 py-3 text-sm text-center text-vermilion">{{ entry.level }}</td>
                 <td class="px-4 py-3 text-sm" v-html="parseAnsiForVue(entry.class)"></td>
                 <td class="px-4 py-3 text-sm" v-html="parseAnsiForVue(entry.race)"></td>
-                <td class="px-4 py-3 text-sm text-right font-semibold text-green-400">{{ entry.kills }}</td>
-                <td class="px-4 py-3 text-sm text-right font-semibold text-red-400">{{ entry.deaths }}</td>
-                <td class="px-4 py-3 text-sm text-right font-semibold text-gray-100">
+                <td class="px-4 py-3 text-sm text-right font-semibold text-success">{{ entry.kills }}</td>
+                <td class="px-4 py-3 text-sm text-right font-semibold text-danger">{{ entry.deaths }}</td>
+                <td class="px-4 py-3 text-sm text-right font-semibold text-foreground">
                   {{ entry.kdRatio.toFixed(2) }}
                 </td>
               </tr>
@@ -748,7 +682,7 @@ const navigateToPlayer = async (playerName: string) => {
         </div>
 
         <!-- Pagination -->
-        <div v-if="leaderboardTotalPages > 1" class="flex justify-center items-center gap-1 p-4 lg:border-t lg:border-gray-800 mt-4 lg:mt-0">
+        <div v-if="leaderboardTotalPages > 1" class="flex justify-center items-center gap-1 p-4 lg:border-t lg:border-border mt-4 lg:mt-0">
           <Button
             variant="outline"
             size="icon"
@@ -809,22 +743,22 @@ const navigateToPlayer = async (playerName: string) => {
     <!-- Charts Section -->
     <div v-if="leaderboard && barChartData" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- Bar Chart -->
-      <div class="rounded-lg border border-gray-800 bg-gray-950 p-6">
+      <div class="rounded-lg border border-border bg-background p-6">
         <div style="height: 350px;">
           <Bar :data="barChartData" :options="barChartOptions" />
         </div>
       </div>
 
       <!-- Doughnut Chart -->
-      <div v-if="doughnutChartData" class="rounded-lg border border-gray-800 bg-gray-950 p-6">
+      <div v-if="doughnutChartData" class="rounded-lg border border-border bg-background p-6">
         <div style="height: 350px;">
           <Doughnut :data="doughnutChartData" :options="doughnutChartOptions" />
         </div>
       </div>
 
       <!-- Placeholder if K/D Ratio selected -->
-      <div v-else class="rounded-lg border border-gray-800 bg-gray-950 p-6 flex items-center justify-center">
-        <p class="text-gray-400 text-center">
+      <div v-else class="rounded-lg border border-border bg-background p-6 flex items-center justify-center">
+        <p class="text-muted-foreground text-center">
           K/D Ratio comparison chart is only available<br />when viewing Kills or Deaths leaderboards
         </p>
       </div>
@@ -832,7 +766,7 @@ const navigateToPlayer = async (playerName: string) => {
 
     <!-- Player Search Section -->
     <div class="space-y-4">
-      <h3 class="text-lg lg:text-xl font-semibold text-gray-100">Player Statistics</h3>
+      <h3 class="text-lg lg:text-xl font-semibold text-foreground">Player Statistics</h3>
 
       <div class="flex flex-col sm:flex-row gap-2">
         <input
@@ -840,11 +774,11 @@ const navigateToPlayer = async (playerName: string) => {
           @keyup.enter="searchPlayer"
           type="text"
           placeholder="Enter player name..."
-          class="flex h-9 w-full sm:max-w-sm rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+          class="flex h-9 w-full sm:max-w-sm rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-faint focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
         />
         <button
           @click="searchPlayer"
-          class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:pointer-events-none disabled:opacity-50 bg-cyan-600 text-white hover:bg-cyan-700 h-9 px-4 flex-shrink-0"
+          class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermilion disabled:pointer-events-none disabled:opacity-50 bg-vermilion-deep text-white hover:bg-vermilion-hover h-9 px-4 flex-shrink-0"
         >
           Search
         </button>
@@ -859,29 +793,29 @@ const navigateToPlayer = async (playerName: string) => {
         <p class="text-sm text-destructive">Player not found or error loading stats</p>
       </div>
 
-      <div v-else-if="playerStats" class="rounded-lg border border-gray-800 bg-gray-950 p-4 lg:p-6">
+      <div v-else-if="playerStats" class="rounded-lg border border-border bg-background p-4 lg:p-6">
         <div class="mb-4 lg:mb-6">
-          <h4 class="text-xl lg:text-2xl font-bold text-gray-100 mb-2">{{ playerStats.playerName }}</h4>
+          <h4 class="text-xl lg:text-2xl font-bold text-foreground mb-2">{{ playerStats.playerName }}</h4>
           <div class="flex flex-wrap items-center gap-2 lg:gap-3 text-sm">
-            <span class="text-cyan-400 font-semibold">Level {{ playerStats.level }}</span>
-            <span class="text-gray-500">•</span>
+            <span class="text-vermilion font-semibold">Level {{ playerStats.level }}</span>
+            <span class="text-faint">•</span>
             <span v-html="parseAnsiForVue(playerStats.class)"></span>
-            <span class="text-gray-500">•</span>
+            <span class="text-faint">•</span>
             <span v-html="parseAnsiForVue(playerStats.race)"></span>
           </div>
         </div>
         <div class="grid grid-cols-3 gap-2 lg:gap-4">
-          <div class="rounded-lg border border-gray-800 bg-gray-900 p-3 lg:p-4 text-center">
-            <div class="text-xl lg:text-3xl font-bold text-green-400">{{ playerStats.kills }}</div>
-            <div class="text-xs lg:text-sm text-gray-400 mt-1">Kills</div>
+          <div class="rounded-lg border border-border bg-card p-3 lg:p-4 text-center">
+            <div class="text-xl lg:text-3xl font-bold text-success">{{ playerStats.kills }}</div>
+            <div class="text-xs lg:text-sm text-muted-foreground mt-1">Kills</div>
           </div>
-          <div class="rounded-lg border border-gray-800 bg-gray-900 p-3 lg:p-4 text-center">
-            <div class="text-xl lg:text-3xl font-bold text-red-400">{{ playerStats.deaths }}</div>
-            <div class="text-xs lg:text-sm text-gray-400 mt-1">Deaths</div>
+          <div class="rounded-lg border border-border bg-card p-3 lg:p-4 text-center">
+            <div class="text-xl lg:text-3xl font-bold text-danger">{{ playerStats.deaths }}</div>
+            <div class="text-xs lg:text-sm text-muted-foreground mt-1">Deaths</div>
           </div>
-          <div class="rounded-lg border border-gray-800 bg-gray-900 p-3 lg:p-4 text-center">
-            <div class="text-xl lg:text-3xl font-bold text-gray-100">{{ playerStats.kdRatio.toFixed(2) }}</div>
-            <div class="text-xs lg:text-sm text-gray-400 mt-1">K/D</div>
+          <div class="rounded-lg border border-border bg-card p-3 lg:p-4 text-center">
+            <div class="text-xl lg:text-3xl font-bold text-foreground">{{ playerStats.kdRatio.toFixed(2) }}</div>
+            <div class="text-xs lg:text-sm text-muted-foreground mt-1">K/D</div>
           </div>
         </div>
       </div>
@@ -890,17 +824,17 @@ const navigateToPlayer = async (playerName: string) => {
     <!-- Analytics Section -->
     <div class="space-y-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h3 class="text-xl lg:text-2xl font-bold text-gray-100">Analytics & Trends</h3>
+        <h3 class="text-xl lg:text-2xl font-bold text-foreground">Analytics & Trends</h3>
         <PeriodSelector v-model="analyticsPeriod" />
       </div>
 
       <!-- Kill Timeline Chart -->
-      <div v-if="timelineChartData" class="rounded-lg border border-gray-800 bg-gray-950 p-3 lg:p-6">
+      <div v-if="timelineChartData" class="rounded-lg border border-border bg-background p-3 lg:p-6">
         <div class="h-[200px] lg:h-[300px]">
           <Line :data="timelineChartData" :options="timelineChartOptions" />
         </div>
       </div>
-      <div v-else-if="isLoadingTimeline" class="rounded-lg border border-gray-800 bg-gray-950 p-3 lg:p-6 flex items-center justify-center h-[200px] lg:h-[300px]">
+      <div v-else-if="isLoadingTimeline" class="rounded-lg border border-border bg-background p-3 lg:p-6 flex items-center justify-center h-[200px] lg:h-[300px]">
         <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
       </div>
 
@@ -908,59 +842,59 @@ const navigateToPlayer = async (playerName: string) => {
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         <!-- Active Hours + MUD Clients -->
         <div class="flex flex-col gap-4">
-          <div v-if="activeHoursChartData" class="rounded-lg border border-gray-800 bg-gray-950 p-3 lg:p-6">
+          <div v-if="activeHoursChartData" class="rounded-lg border border-border bg-background p-3 lg:p-6">
             <div class="h-[250px] lg:h-[350px]">
               <Bar :data="activeHoursChartData" :options="activeHoursChartOptions" />
             </div>
           </div>
-          <div v-else-if="isLoadingHours" class="rounded-lg border border-gray-800 bg-gray-950 p-3 lg:p-6 flex items-center justify-center h-[250px] lg:h-[350px]">
+          <div v-else-if="isLoadingHours" class="rounded-lg border border-border bg-background p-3 lg:p-6 flex items-center justify-center h-[250px] lg:h-[350px]">
             <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
           </div>
 
           <!-- MUD Clients -->
-          <div v-if="clientStatsChartData" class="flex-1 rounded-lg border border-gray-800 bg-gray-950 p-3 lg:p-6">
+          <div v-if="clientStatsChartData" class="flex-1 rounded-lg border border-border bg-background p-3 lg:p-6">
             <div class="h-full">
               <Doughnut :data="clientStatsChartData" :options="clientStatsChartOptions" />
             </div>
           </div>
-          <div v-else-if="isLoadingClients" class="flex-1 rounded-lg border border-gray-800 bg-gray-950 p-3 lg:p-6 flex items-center justify-center">
+          <div v-else-if="isLoadingClients" class="flex-1 rounded-lg border border-border bg-background p-3 lg:p-6 flex items-center justify-center">
             <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
           </div>
         </div>
 
         <!-- Popular Locations -->
         <div class="space-y-4">
-          <div v-if="locationsChartData" class="rounded-lg border border-gray-800 bg-gray-950 p-3 lg:p-6">
+          <div v-if="locationsChartData" class="rounded-lg border border-border bg-background p-3 lg:p-6">
             <div class="h-[250px] lg:h-[350px]">
               <Bar :data="locationsChartData" :options="locationsChartOptionsWithClick" />
             </div>
           </div>
-          <div v-else-if="isLoadingLocations" class="rounded-lg border border-gray-800 bg-gray-950 p-3 lg:p-6 flex items-center justify-center h-[250px] lg:h-[350px]">
+          <div v-else-if="isLoadingLocations" class="rounded-lg border border-border bg-background p-3 lg:p-6 flex items-center justify-center h-[250px] lg:h-[350px]">
             <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
           </div>
 
           <!-- Popular Locations Table with MUD colors -->
-          <div v-if="popularLocations && popularLocations.length > 0" class="rounded-lg border border-gray-800 bg-gray-950 overflow-hidden">
+          <div v-if="popularLocations && popularLocations.length > 0" class="rounded-lg border border-border bg-background overflow-hidden">
             <div class="overflow-x-auto">
               <table class="w-full">
-                <thead class="border-b border-gray-800 bg-gray-900">
+                <thead class="border-b border-border bg-card">
                   <tr>
-                    <th class="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-medium text-gray-400 w-10 lg:w-16">#</th>
-                    <th class="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-medium text-gray-400">Location</th>
-                    <th class="px-2 lg:px-4 py-2 lg:py-3 text-right text-xs lg:text-sm font-medium text-gray-400">Kills</th>
+                    <th class="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-medium text-muted-foreground w-10 lg:w-16">#</th>
+                    <th class="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-medium text-muted-foreground">Location</th>
+                    <th class="px-2 lg:px-4 py-2 lg:py-3 text-right text-xs lg:text-sm font-medium text-muted-foreground">Kills</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr
                     v-for="(location, index) in popularLocations"
                     :key="index"
-                    class="border-b border-gray-800 hover:bg-gray-900 transition-colors"
+                    class="border-b border-border hover:bg-card transition-colors"
                   >
-                    <td class="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm font-bold text-gray-400">
+                    <td class="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm font-bold text-muted-foreground">
                       {{ index + 1 }}
                     </td>
                     <td class="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm" v-html="parseAnsiForVue(location.location)"></td>
-                    <td class="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-right font-semibold text-cyan-400">{{ location.kills }}</td>
+                    <td class="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-right font-semibold text-vermilion">{{ location.kills }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -970,35 +904,35 @@ const navigateToPlayer = async (playerName: string) => {
       </div>
 
       <!-- Class Matchup Matrix -->
-      <div class="rounded-lg border border-gray-800 bg-gray-950 p-3 lg:p-6">
-        <h4 class="text-base lg:text-lg font-semibold mb-3 lg:mb-4 text-gray-100">Class Matchup Matrix</h4>
+      <div class="rounded-lg border border-border bg-background p-3 lg:p-6">
+        <h4 class="text-base lg:text-lg font-semibold mb-3 lg:mb-4 text-foreground">Class Matchup Matrix</h4>
         <div v-if="isLoadingMatchups" class="flex items-center justify-center py-8">
           <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
         </div>
         <div v-else-if="classMatchups && classMatchups.length > 0" class="overflow-x-auto">
           <table class="w-full">
-            <thead class="border-b border-gray-800 bg-gray-900">
+            <thead class="border-b border-border bg-card">
               <tr>
-                <th class="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-medium text-gray-400">Killer</th>
-                <th class="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-medium text-gray-400">Victim</th>
-                <th class="px-2 lg:px-4 py-2 lg:py-3 text-right text-xs lg:text-sm font-medium text-gray-400">Wins</th>
+                <th class="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-medium text-muted-foreground">Killer</th>
+                <th class="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-medium text-muted-foreground">Victim</th>
+                <th class="px-2 lg:px-4 py-2 lg:py-3 text-right text-xs lg:text-sm font-medium text-muted-foreground">Wins</th>
               </tr>
             </thead>
             <tbody>
               <tr
                 v-for="(matchup, index) in classMatchups.slice(0, 20)"
                 :key="index"
-                class="border-b border-gray-800 hover:bg-gray-900 transition-colors cursor-pointer"
+                class="border-b border-border hover:bg-card transition-colors cursor-pointer"
                 @click="handleMatchupClick(matchup.killer_class, matchup.victim_class)"
               >
-                <td class="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm font-medium text-green-400">{{ matchup.killer_class }}</td>
-                <td class="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm font-medium text-red-400">{{ matchup.victim_class }}</td>
-                <td class="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-right font-semibold text-cyan-400">{{ matchup.wins }}</td>
+                <td class="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm font-medium text-success">{{ matchup.killer_class }}</td>
+                <td class="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm font-medium text-danger">{{ matchup.victim_class }}</td>
+                <td class="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-right font-semibold text-vermilion">{{ matchup.wins }}</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div v-else class="text-center text-gray-400 py-8">
+        <div v-else class="text-center text-muted-foreground py-8">
           No class matchup data available
         </div>
       </div>

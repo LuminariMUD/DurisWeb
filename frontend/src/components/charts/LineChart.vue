@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { chartTheme } from '@/utils/chartTheme'
 import { computed } from 'vue'
 import {
   Chart as ChartJS,
@@ -48,22 +49,17 @@ const defaultOptions: ChartOptions<'line'> = {
       display: false,
     },
     tooltip: {
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      titleColor: '#fff',
-      bodyColor: '#fff',
-      borderColor: '#444',
-      borderWidth: 1,
-      padding: 12,
+      ...chartTheme.tooltip,
       displayColors: false,
     },
   },
   scales: {
     x: {
       grid: {
-        color: 'rgba(255, 255, 255, 0.05)',
+        color: chartTheme.grid,
       },
       ticks: {
-        color: 'rgba(255, 255, 255, 0.6)',
+        color: chartTheme.muted,
         maxRotation: 0,
         autoSkipPadding: 20,
       },
@@ -71,10 +67,10 @@ const defaultOptions: ChartOptions<'line'> = {
     y: {
       beginAtZero: true,
       grid: {
-        color: 'rgba(255, 255, 255, 0.05)',
+        color: chartTheme.grid,
       },
       ticks: {
-        color: 'rgba(255, 255, 255, 0.6)',
+        color: chartTheme.muted,
         precision: 0,
       },
     },

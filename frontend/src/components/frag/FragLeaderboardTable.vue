@@ -32,9 +32,9 @@ function goToUserProfile(accountName: string) {
 }
 
 function getRankBadge(rank: number) {
-  if (rank === 1) return { icon: Trophy, class: 'bg-yellow-500 text-white' }
-  if (rank === 2) return { icon: Medal, class: 'bg-gray-300 text-gray-800' }
-  if (rank === 3) return { icon: Medal, class: 'bg-amber-600 text-white' }
+  if (rank === 1) return { icon: Trophy, class: 'bg-warning text-white' }
+  if (rank === 2) return { icon: Medal, class: 'bg-bone-muted text-paper-ink' }
+  if (rank === 3) return { icon: Medal, class: 'bg-warning-deep text-white' }
   return null
 }
 
@@ -52,11 +52,11 @@ function getAlignmentLabel(racewar: number) {
 function getAlignmentColor(racewar: number) {
   switch (racewar) {
     case 1:
-      return 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+      return 'bg-info/20 text-info border-info/30'
     case 2:
-      return 'bg-red-500/20 text-red-400 border-red-500/30'
+      return 'bg-danger/20 text-danger border-danger/30'
     default:
-      return 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+      return 'bg-faint/20 text-muted-foreground border-faint/30'
   }
 }
 </script>

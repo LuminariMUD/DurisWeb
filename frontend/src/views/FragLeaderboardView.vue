@@ -89,9 +89,9 @@ function getVisiblePages(currentPage: number, totalPages: number) {
   <div class="space-y-4 lg:space-y-6">
     <!-- Header -->
     <div class="flex items-center gap-3">
-      <Trophy class="w-7 h-7 lg:w-8 lg:h-8 text-yellow-500 flex-shrink-0" />
+      <Trophy class="w-7 h-7 lg:w-8 lg:h-8 text-warning flex-shrink-0" />
       <div>
-        <h1 class="text-2xl lg:text-3xl font-bold">Frag Leaderboard</h1>
+        <h1 class="text-4xl md:text-5xl">Frag Leaderboard</h1>
         <p class="text-sm text-muted-foreground">
           Top players ranked by total frags
         </p>
@@ -156,7 +156,7 @@ function getVisiblePages(currentPage: number, totalPages: number) {
         <!-- Error State -->
         <div
           v-if="error"
-          class="text-center py-12 text-red-500"
+          class="text-center py-12 text-danger"
         >
           Failed to load leaderboard. Please try again.
         </div>
