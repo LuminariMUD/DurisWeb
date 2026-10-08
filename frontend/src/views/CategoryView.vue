@@ -328,7 +328,7 @@ onMounted(async () => {
           <!-- Left accent bar -->
           <div
             class="w-1 flex-shrink-0"
-            :class="thread.is_pinned ? 'bg-primary' : thread.is_locked ? 'bg-muted-foreground' : 'bg-cyan-600 group-hover:bg-cyan-500'"
+            :class="thread.is_pinned ? 'bg-primary' : thread.is_locked ? 'bg-muted-foreground' : 'bg-vermilion-deep group-hover:bg-vermilion-hover'"
           ></div>
 
           <div class="flex-1 p-4">

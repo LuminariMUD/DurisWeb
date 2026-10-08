@@ -1,8 +1,8 @@
 <template>
   <NodeViewWrapper class="carousel-node-wrapper my-4">
     <div
-      class="carousel-container bg-gray-800 rounded-lg border overflow-hidden transition-colors"
-      :class="isDragging ? 'border-cyan-500 border-2' : 'border-gray-600'"
+      class="carousel-container bg-ink-high rounded-lg border overflow-hidden transition-colors"
+      :class="isDragging ? 'border-vermilion border-2' : 'border-faint'"
       @dragover.prevent="onDragOver"
       @dragleave.prevent="onDragLeave"
       @drop.prevent="onDrop"
@@ -11,7 +11,7 @@
       <!-- pending images warning -->
       <div
         v-if="pendingCount >= maxImages"
-        class="bg-yellow-900/50 border-b border-yellow-700 px-3 py-2 text-xs text-yellow-400 flex items-center justify-between"
+        class="bg-warning-deep/50 border-b border-warning-deep px-3 py-2 text-xs text-warning flex items-center justify-between"
       >
         <div class="flex items-center gap-2">
           <AlertCircle class="h-4 w-4 flex-shrink-0" />
@@ -20,7 +20,7 @@
         <button
           @click="clearOrphans"
           :disabled="isClearing"
-          class="px-2 py-0.5 bg-yellow-700 text-yellow-200 rounded text-xs hover:bg-yellow-600 transition-colors disabled:opacity-50"
+          class="px-2 py-0.5 bg-warning-deep text-warning rounded text-xs hover:bg-warning-deep/80 transition-colors disabled:opacity-50"
           type="button"
         >
           {{ isClearing ? 'clearing...' : 'clear all' }}
@@ -36,7 +36,7 @@
         <button
           v-if="images.length > 1"
           @click="prevImage"
-          class="absolute left-2 z-10 p-2 bg-gray-900/80 rounded-full text-white hover:bg-gray-700 transition-colors"
+          class="absolute left-2 z-10 p-2 bg-card/80 rounded-full text-white hover:bg-ink-top transition-colors"
           type="button"
         >
           <ChevronLeft class="h-6 w-6" />
@@ -50,17 +50,17 @@
             class="h-full w-auto max-w-full rounded object-contain"
           />
         </div>
-        <div v-else class="text-gray-400 text-center py-8">
+        <div v-else class="text-muted-foreground text-center py-8">
           <ImageIcon class="h-12 w-12 mx-auto mb-2 opacity-50" />
           <p class="text-sm">Drop images here or click "Add Image"</p>
-          <p class="text-xs mt-2 text-gray-500">recommended: landscape images with same aspect ratio (e.g. 800x400)</p>
+          <p class="text-xs mt-2 text-faint">recommended: landscape images with same aspect ratio (e.g. 800x400)</p>
         </div>
 
         <!-- right arrow -->
         <button
           v-if="images.length > 1"
           @click="nextImage"
-          class="absolute right-2 z-10 p-2 bg-gray-900/80 rounded-full text-white hover:bg-gray-700 transition-colors"
+          class="absolute right-2 z-10 p-2 bg-card/80 rounded-full text-white hover:bg-ink-top transition-colors"
           type="button"
         >
           <ChevronRight class="h-6 w-6" />
@@ -75,16 +75,16 @@
           @click="currentIndex = index"
           :class="[
             'w-2 h-2 rounded-full transition-colors',
-            index === currentIndex ? 'bg-cyan-500' : 'bg-gray-600 hover:bg-gray-500'
+            index === currentIndex ? 'bg-vermilion-deep' : 'bg-rule hover:bg-faint'
           ]"
           type="button"
         />
       </div>
 
       <!-- controls -->
-      <div class="border-t border-gray-700 bg-gray-900 px-3 py-2 flex items-center justify-between">
+      <div class="border-t border-border bg-card px-3 py-2 flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="text-xs text-gray-400">
+          <div class="text-xs text-muted-foreground">
             {{ images.length }} image{{ images.length !== 1 ? 's' : '' }}
             <span v-if="images.length > 1" class="ml-2">
               ({{ currentIndex + 1 }}/{{ images.length }})
@@ -93,7 +93,7 @@
           <select
             :value="height"
             @change="updateHeight"
-            class="bg-gray-700 text-gray-300 rounded text-xs px-2 py-1 border-none outline-none"
+            class="bg-ink-top text-bone-muted rounded text-xs px-2 py-1 border-none outline-none"
           >
             <option :value="200">200px</option>
             <option :value="300">300px</option>
@@ -112,7 +112,7 @@
           <button
             @click="triggerFileInput"
             :disabled="isUploading"
-            class="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs hover:bg-gray-600 transition-colors flex items-center gap-1 disabled:opacity-50"
+            class="px-2 py-1 bg-ink-top text-bone-muted rounded text-xs hover:bg-rule transition-colors flex items-center gap-1 disabled:opacity-50"
             type="button"
           >
             <Loader2 v-if="isUploading" class="h-3 w-3 animate-spin" />
@@ -122,7 +122,7 @@
           <button
             v-if="images.length > 0"
             @click="removeCurrentImage"
-            class="px-2 py-1 bg-red-900/50 text-red-400 rounded text-xs hover:bg-red-900 transition-colors flex items-center gap-1"
+            class="px-2 py-1 bg-danger-deep/50 text-danger rounded text-xs hover:bg-danger-deep/80 transition-colors flex items-center gap-1"
             type="button"
           >
             <Trash2 class="h-3 w-3" />
@@ -130,7 +130,7 @@
           </button>
           <button
             @click="deleteNode"
-            class="px-2 py-1 bg-gray-700 text-gray-400 rounded text-xs hover:bg-gray-600 hover:text-red-400 transition-colors"
+            class="px-2 py-1 bg-ink-top text-muted-foreground rounded text-xs hover:bg-rule hover:text-danger transition-colors"
             type="button"
             title="Delete carousel"
           >
@@ -142,7 +142,7 @@
       <!-- error message -->
       <div
         v-if="errorMessage"
-        class="bg-red-900/50 border-t border-red-700 px-3 py-2 text-xs text-red-400"
+        class="bg-danger-deep/50 border-t border-danger-deep px-3 py-2 text-xs text-danger"
       >
         {{ errorMessage }}
       </div>

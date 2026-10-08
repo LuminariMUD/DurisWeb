@@ -1,12 +1,12 @@
 <template>
   <div class="map-preview-widget h-full relative" :style="height ? { minHeight: `${height}px` } : {}">
     <!-- Loading state -->
-    <div v-if="isLoading" class="flex items-center justify-center bg-gray-800/50 rounded" :style="{ height: `${height}px` }">
-      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400" />
+    <div v-if="isLoading" class="flex items-center justify-center bg-ink-high/50 rounded" :style="{ height: `${height}px` }">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-vermilion" />
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="flex items-center justify-center bg-gray-800/50 rounded text-gray-500" :style="{ height: `${height}px` }">
+    <div v-else-if="error" class="flex items-center justify-center bg-ink-high/50 rounded text-faint" :style="{ height: `${height}px` }">
       Failed to load map
     </div>
 
@@ -27,7 +27,7 @@
       </div>
       <a
         href="/wiki/map"
-        class="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-2 text-white px-4 py-2 bg-cyan-600 rounded-lg hover:bg-cyan-500 transition-colors shadow-lg"
+        class="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-2 text-white px-4 py-2 bg-vermilion-deep rounded-lg hover:bg-vermilion-hover transition-colors shadow-lg"
       >
         <Map class="h-4 w-4" />
         <span class="text-sm font-medium">Explore World Map</span>

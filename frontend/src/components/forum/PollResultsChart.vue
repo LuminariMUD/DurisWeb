@@ -34,6 +34,7 @@ import { Pie } from 'vue-chartjs'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, type ChartOptions } from 'chart.js'
 import ChartDataLabels from 'chartjs-plugin-datalabels'
 import type { PollOption } from '@/types'
+import { chartTheme, withAlpha } from '@/utils/chartTheme'
 
 // Register Chart.js components
 ChartJS.register(ArcElement, Tooltip, Legend, ChartDataLabels)
@@ -44,14 +45,12 @@ const props = defineProps<{
   userVotes: number[]
 }>()
 
-// Generate colors for each option
+// Each option takes the next chart palette color; the viewer's own votes are opaque
 function getColor(optionId: number): string {
   const index = props.options.findIndex((o) => o.id === optionId)
-  const hue = (index * 360) / props.options.length
-  const isUserVote = props.userVotes.includes(optionId)
-  const saturation = isUserVote ? 70 : 50
-  const lightness = isUserVote ? 55 : 45
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`
+  const color =
+    chartTheme.series[Math.max(index, 0) % chartTheme.series.length] ?? chartTheme.series[0]
+  return props.userVotes.includes(optionId) ? color : withAlpha(color, 0.7)
 }
 
 const chartData = computed(() => ({
@@ -60,7 +59,7 @@ const chartData = computed(() => ({
     {
       data: props.options.map((o) => o.voteCount),
       backgroundColor: props.options.map((o) => getColor(o.id)),
-      borderColor: '#18181b',
+      borderColor: chartTheme.tooltip.backgroundColor,
       borderWidth: 2,
     },
   ],
@@ -84,7 +83,7 @@ const chartOptions = computed<ChartOptions<'pie'>>(() => ({
       },
     },
     datalabels: {
-      color: '#ffffff',
+      color: '#111310',
       font: {
         weight: 'bold',
         size: 14,

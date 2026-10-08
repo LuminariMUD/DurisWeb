@@ -136,7 +136,7 @@ onMounted(() => {
       <Button variant="ghost" @click="router.push(`/forum/category/${categoryId}`)">
         ← Back to {{ category?.name || 'Category' }}
       </Button>
-      <h1 class="text-3xl font-bold mt-4">Create New Thread</h1>
+      <h1 class="text-4xl md:text-5xl mt-4">Create New Thread</h1>
       <p class="text-muted-foreground mt-2">
         Start a new discussion in {{ category?.name }}
       </p>
@@ -150,7 +150,7 @@ onMounted(() => {
           Posting as: <span class="font-medium">{{ selectedCharacter.name }}</span>
           ({{ selectedCharacter.classname }})
         </div>
-        <div v-else-if="characters.length > 0" class="text-sm text-yellow-600">
+        <div v-else-if="characters.length > 0" class="text-sm text-warning">
           No character selected - posting as account
         </div>
       </CardHeader>

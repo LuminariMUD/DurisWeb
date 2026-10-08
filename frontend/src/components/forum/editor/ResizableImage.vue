@@ -155,7 +155,7 @@ function startTouchResize(event: TouchEvent, direction: 'left' | 'right') {
 }
 
 .resizable-image-wrapper.selected .resizable-image {
-  outline: 2px solid rgb(34 211 238);
+  outline: 2px solid var(--color-vermilion);
   outline-offset: 2px;
 }
 
@@ -194,13 +194,13 @@ function startTouchResize(event: TouchEvent, direction: 'left' | 'right') {
   width: 4px;
   height: 40px;
   max-height: 50%;
-  background: rgb(34 211 238);
+  background: var(--color-vermilion);
   border-radius: 2px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .resize-handle:hover .handle-bar {
-  background: rgb(103 232 249);
+  background: var(--color-vermilion-light);
 }
 
 .size-indicator {
@@ -208,9 +208,9 @@ function startTouchResize(event: TouchEvent, direction: 'left' | 'right') {
   bottom: -24px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgb(17 24 39);
-  border: 1px solid rgb(55 65 81);
-  color: rgb(156 163 175);
+  background: var(--color-ink-raised);
+  border: 1px solid var(--color-ink-top);
+  color: var(--muted-foreground);
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 4px;

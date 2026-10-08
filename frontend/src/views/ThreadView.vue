@@ -620,7 +620,7 @@ function formatDate(dateString: string): string {
 function getIndentStyle(depth: number) {
   return {
     marginLeft: `${depth * 2}rem`,
-    borderLeft: depth > 0 ? '2px solid rgb(55, 65, 81)' : 'none',
+    borderLeft: depth > 0 ? '2px solid var(--color-ink-top)' : 'none',
   }
 }
 
@@ -915,7 +915,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- IP Address (Overlord-only) -->
-                <div v-if="isOverlord && thread.ip_address" class="text-xs text-amber-500 mt-2 font-mono">
+                <div v-if="isOverlord && thread.ip_address" class="text-xs text-warning mt-2 font-mono">
                   IP: {{ thread.ip_address }}
                 </div>
               </div>
@@ -950,7 +950,7 @@ onUnmounted(() => {
               </div>
 
               <!-- Thread Content - View Mode -->
-              <div v-else class="prose prose-sm dark:prose-invert max-w-none mb-4 overflow-x-auto">
+              <div v-else class="prose prose-sm prose-invert max-w-none mb-4 overflow-x-auto">
                 <PostContent :content="thread.content" />
               </div>
 
@@ -1136,7 +1136,7 @@ onUnmounted(() => {
                   </div>
 
                   <!-- IP Address (Overlord-only) -->
-                  <div v-if="isOverlord && post.ip_address" class="text-xs text-amber-500 mt-2 font-mono">
+                  <div v-if="isOverlord && post.ip_address" class="text-xs text-warning mt-2 font-mono">
                     IP: {{ post.ip_address }}
                   </div>
                 </div>
@@ -1190,7 +1190,7 @@ onUnmounted(() => {
                 <div v-else>
                   <!-- Content -->
                   <div
-                    class="prose prose-sm dark:prose-invert max-w-none mb-4 overflow-x-auto"
+                    class="prose prose-sm prose-invert max-w-none mb-4 overflow-x-auto"
                     :data-post-id="post.id"
                   >
                     <!-- Parse and render quotes and mentions -->

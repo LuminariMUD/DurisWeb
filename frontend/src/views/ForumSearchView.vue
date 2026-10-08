@@ -90,7 +90,7 @@ watch(
 
     <!-- Search Header -->
     <div class="mb-8">
-      <h1 class="text-3xl font-bold mb-4">Search Forum</h1>
+      <h1 class="text-4xl md:text-5xl mb-4">Search Forum</h1>
 
       <!-- Search Bar -->
       <div class="flex gap-2">

@@ -16,15 +16,7 @@ src/components/builder/Design4TabbedWorkspace.vue
 src/components/builder/Design5NotionStyle.vue
 src/components/builder/MentionList.vue
 src/components/builder/ZoneMap.vue
-src/components/forum/CarouselDisplay.vue
-src/components/forum/editor/CarouselNodeView.vue
 src/components/forum/editor/TipTapEditor.vue
-src/components/forum/editor/widgets/MapPreviewNodeView.vue
-src/components/forum/editor/widgets/RecentPvPNodeView.vue
-src/components/forum/editor/widgets/TopFraggerNodeView.vue
-src/components/forum/widgets/MapPreviewDisplay.vue
-src/components/forum/widgets/RecentPvPDisplay.vue
-src/components/forum/widgets/TopFraggerDisplay.vue
 src/components/guide/HelpFileDialog.vue
 src/components/mud/AliasFormDialog.vue
 src/components/mud/MudActivityLog.vue
@@ -54,9 +46,7 @@ src/components/wiki/WorldMap.vue
 src/composables/useAuth.ts
 src/composables/useServerReboot.ts
 src/composables/useZones.ts
-src/views/CategoryView.vue
 src/views/ForbiddenView.vue
-src/views/ForumView.vue
 src/views/GuideView.vue
 src/views/HelpSuggestionsView.vue
 src/views/MudClientView.vue

@@ -13,7 +13,7 @@
       <button
         v-if="images.length > 1"
         @click="prevImage"
-        class="absolute left-2 z-10 p-2 bg-gray-900/80 rounded-full text-white hover:bg-gray-700 transition-colors"
+        class="absolute left-2 z-10 p-2 bg-card/80 rounded-full text-white hover:bg-ink-top transition-colors"
         type="button"
       >
         <ChevronLeft class="h-6 w-6" />
@@ -34,7 +34,7 @@
       <button
         v-if="images.length > 1"
         @click="nextImage"
-        class="absolute right-2 z-10 p-2 bg-gray-900/80 rounded-full text-white hover:bg-gray-700 transition-colors"
+        class="absolute right-2 z-10 p-2 bg-card/80 rounded-full text-white hover:bg-ink-top transition-colors"
         type="button"
       >
         <ChevronRight class="h-6 w-6" />
@@ -49,7 +49,7 @@
         @click="currentIndex = index"
         :class="[
           'w-2 h-2 rounded-full transition-colors',
-          index === currentIndex ? 'bg-cyan-500' : 'bg-gray-600 hover:bg-gray-500'
+          index === currentIndex ? 'bg-vermilion-deep' : 'bg-rule hover:bg-faint'
         ]"
         type="button"
       />

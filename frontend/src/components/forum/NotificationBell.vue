@@ -150,7 +150,7 @@ onUnmounted(() => {
         <Bell class="h-5 w-5" />
         <span
           v-if="unreadCount > 0"
-          class="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-600 text-white text-xs flex items-center justify-center font-semibold"
+          class="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-danger-deep text-white text-xs flex items-center justify-center font-semibold"
         >
           {{ unreadCount > 9 ? '9+' : unreadCount }}
         </span>
@@ -186,7 +186,7 @@ onUnmounted(() => {
           @click="handleNotificationClick(notification)"
         >
           <div class="flex items-start gap-3">
-            <div class="h-2 w-2 mt-2 rounded-full bg-blue-500 flex-shrink-0" />
+            <div class="h-2 w-2 mt-2 rounded-full bg-info flex-shrink-0" />
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium"><AnsiText :text="notification.message" /></p>
               <p class="text-xs text-muted-foreground mt-1">

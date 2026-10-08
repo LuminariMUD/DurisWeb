@@ -227,25 +227,25 @@ function parseMentionsWithAnsi(text: string): string {
 
 :deep(th),
 :deep(td) {
-  border: 1px solid rgb(55 65 81);
+  border: 1px solid var(--color-ink-top);
   padding: 0.5rem 0.75rem;
   text-align: left;
   vertical-align: top;
 }
 
 :deep(th) {
-  background-color: rgb(31 41 55);
+  background-color: var(--color-ink-high);
   font-weight: 600;
-  color: rgb(229 231 235);
+  color: var(--color-bone);
 }
 
 :deep(td) {
-  background-color: rgb(17 24 39);
-  color: rgb(209 213 219);
+  background-color: var(--color-ink-raised);
+  color: var(--color-bone-muted);
 }
 
 :deep(tr:hover td) {
-  background-color: rgb(31 41 55);
+  background-color: var(--color-ink-high);
 }
 
 /* Rounded corners for images */
@@ -310,21 +310,21 @@ function parseMentionsWithAnsi(text: string): string {
 :deep(h1) {
   font-size: 1.5rem;
   font-weight: bold;
-  color: rgb(229 231 235);
+  color: var(--color-bone);
   margin-bottom: 0.5rem;
 }
 
 :deep(h2) {
   font-size: 1.25rem;
   font-weight: bold;
-  color: rgb(229 231 235);
+  color: var(--color-bone);
   margin-bottom: 0.5rem;
 }
 
 :deep(h3) {
   font-size: 1.125rem;
   font-weight: bold;
-  color: rgb(229 231 235);
+  color: var(--color-bone);
   margin-bottom: 0.5rem;
 }
 

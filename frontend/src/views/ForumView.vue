@@ -492,7 +492,7 @@ watch([editMode, sortableContainer], ([isEditMode, container]: [boolean, HTMLEle
     <div class="mb-6">
       <div class="flex items-center justify-between mb-6">
         <div>
-          <h1 class="text-3xl font-bold">DurisMUD Forums</h1>
+          <h1 class="text-4xl md:text-5xl">DurisMUD Forums</h1>
           <p class="text-muted-foreground mt-2">
             Community discussions for players and immortals
           </p>
@@ -887,8 +887,8 @@ watch([editMode, sortableContainer], ([isEditMode, container]: [boolean, HTMLEle
                 :class="{
                   'bg-primary': category.access_type === 'authenticated',
                   'bg-purple-500': category.access_type === 'guild',
-                  'bg-amber-500': category.access_type === 'role_based',
-                  'bg-cyan-600 group-hover:bg-cyan-500': category.access_type === 'public',
+                  'bg-warning': category.access_type === 'role_based',
+                  'bg-vermilion-deep group-hover:bg-vermilion-hover': category.access_type === 'public',
                   'bg-muted-foreground': category.is_archived
                 }"
               ></div>

@@ -179,10 +179,10 @@ function getIconBgClass(notification: UnifiedNotification): string {
     case 'help_suggestion_approve':
     case 'auction_won':
     case 'item_sold':
-      return 'bg-green-500/20'
+      return 'bg-success/20'
     case 'help_suggestion_reject':
     case 'outbid':
-      return 'bg-red-500/20'
+      return 'bg-danger/20'
     case 'help_suggestion_needs_revision':
       return 'bg-orange-500/20'
     default:
@@ -196,10 +196,10 @@ function getIconClass(notification: UnifiedNotification): string {
     case 'help_suggestion_approve':
     case 'auction_won':
     case 'item_sold':
-      return 'text-green-500'
+      return 'text-success'
     case 'help_suggestion_reject':
     case 'outbid':
-      return 'text-red-500'
+      return 'text-danger'
     case 'help_suggestion_needs_revision':
       return 'text-orange-500'
     default:
@@ -250,7 +250,7 @@ onMounted(() => {
     <div class="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
       <div class="max-w-2xl mx-auto mb-4 px-4">
         <div class="flex items-center justify-between py-4">
-          <h1 class="text-2xl font-bold">Notifications</h1>
+          <h1 class="text-4xl md:text-5xl">Notifications</h1>
           <button
             v-if="unreadCount > 0"
             class="text-sm text-primary hover:underline"
