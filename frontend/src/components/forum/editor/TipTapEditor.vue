@@ -1422,25 +1422,13 @@ function htmlToMudAnsi(html: string): string {
   const temp = document.createElement('div')
   temp.innerHTML = html
 
-  // Map Tailwind classes back to MUD color codes
-  const colorClassToMudCode: Record<string, string> = {
-    'text-danger': '&+R',
-    'text-success': '&+G',
-    'text-info': '&+B',
-    'text-warning': '&+Y',
-    'text-purple-500': '&+M',
-    'text-vermilion': '&+C',
-    'text-white': '&+W',
-    'text-muted-foreground': '&+L',
-    'text-danger': '&+r',
-    'text-success': '&+g',
-    'text-info': '&+b',
-    'text-warning': '&+y',
-    'text-purple-400': '&+m',
-    'text-vermilion': '&+c',
-    'text-foreground': '&+w',
-    'text-faint': '&+l',
-  }
+  // Map MUD color classes back to their codes (reset codes carry no prefix)
+  const colorClassToMudCode: Record<string, string> = Object.fromEntries(
+    MUD_COLORS.filter((color) => !/^&n$/i.test(color.code)).map((color) => [
+      color.class,
+      color.code,
+    ]),
+  )
 
   function processNode(node: Node): string {
     if (node.nodeType === Node.TEXT_NODE) {
