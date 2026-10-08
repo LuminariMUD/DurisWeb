@@ -152,13 +152,13 @@ function goToPage(page: number) {
           </div>
 
           <!-- Version -->
-          <Badge variant="outline" class="font-mono flex-shrink-0">
+          <Badge variant="outline" class="hidden font-mono flex-shrink-0 sm:inline-flex">
             {{ entry.version }}
           </Badge>
 
           <!-- Title and date -->
           <div class="flex-1 min-w-0">
-            <h3 class="font-medium text-foreground truncate">{{ entry.title }}</h3>
+            <h3 class="font-medium leading-snug text-foreground">{{ entry.title }}</h3>
             <p class="text-xs text-muted-foreground">{{ formatDate(entry.createdAt) }}</p>
           </div>
 
@@ -179,7 +179,7 @@ function goToPage(page: number) {
           :id="`changelog-entry-${entry.id}`"
           v-show="isExpanded(entry.id)"
           :ref="(el) => { if (el) contentRefs.set(entry.id, el as HTMLElement) }"
-          class="border-t border-border px-4 py-4 prose prose-invert prose-sm max-w-none tiptap-content"
+          class="changelog-body border-t border-border px-4 py-4 prose prose-invert prose-sm max-w-none tiptap-content"
           v-html="sanitizeChangelogContent(entry.content)"
         ></div>
       </div>
@@ -209,3 +209,40 @@ function goToPage(page: number) {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Long entries read as short sections: display-face headings and clear spacing. */
+.changelog-body :deep(:is(h2, h3, h4)) {
+  margin: 1.25rem 0 0.4rem;
+  color: var(--color-bone);
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.changelog-body :deep(:is(h2, h3, h4):first-child) {
+  margin-top: 0;
+}
+
+.changelog-body :deep(p) {
+  margin: 0 0 0.75rem;
+  min-height: 0;
+}
+
+.changelog-body :deep(ul) {
+  margin: 0 0 0.75rem;
+}
+
+.changelog-body :deep(li + li) {
+  margin-top: 0.35rem;
+}
+
+.changelog-body :deep(li::marker) {
+  color: var(--color-vermilion);
+}
+
+.changelog-body :deep(:is(p, ul):last-child) {
+  margin-bottom: 0;
+}
+</style>
