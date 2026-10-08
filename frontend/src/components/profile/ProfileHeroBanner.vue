@@ -199,7 +199,7 @@ async function deleteBanner() {
         <button
           v-if="bannerUrl && !isUploadingBanner"
           @click="showDeleteBannerDialog = true"
-          class="p-1.5 bg-destructive/80 hover:bg-destructive text-white rounded-md transition-colors"
+          class="p-1.5 bg-destructive/80 hover:bg-danger-deep text-white rounded-md transition-colors"
           title="Remove banner"
         >
           <Trash2 class="w-4 h-4" />
@@ -260,7 +260,7 @@ async function deleteBanner() {
             <button
               v-if="canEdit && avatarUrl && !isUploadingAvatar"
               @click.stop="showDeleteAvatarDialog = true"
-              class="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/90"
+              class="absolute -top-2 -right-2 w-6 h-6 bg-danger-deep text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-danger-deep/90"
               title="Remove avatar"
             >
               <Trash2 class="w-3 h-3" />
@@ -314,7 +314,7 @@ async function deleteBanner() {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction @click="deleteAvatar" class="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+          <AlertDialogAction @click="deleteAvatar" class="bg-danger-deep text-destructive-foreground hover:bg-danger-deep/90">
             Remove
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -332,7 +332,7 @@ async function deleteBanner() {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction @click="deleteBanner" class="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+          <AlertDialogAction @click="deleteBanner" class="bg-danger-deep text-destructive-foreground hover:bg-danger-deep/90">
             Remove
           </AlertDialogAction>
         </AlertDialogFooter>

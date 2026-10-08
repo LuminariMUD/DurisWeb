@@ -410,7 +410,7 @@
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction @click="handleDeleteRole" class="bg-destructive hover:bg-destructive/90">
+          <AlertDialogAction @click="handleDeleteRole" class="bg-danger-deep hover:bg-danger-deep/90">
             Delete
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -428,7 +428,7 @@
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction @click="handleRevokeRole" class="bg-destructive hover:bg-destructive/90 text-white">
+          <AlertDialogAction @click="handleRevokeRole" class="bg-danger-deep hover:bg-danger-deep/90 text-white">
             Revoke Role
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -446,7 +446,7 @@
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction @click="handleRevokePermission" class="bg-destructive hover:bg-destructive/90 text-white">
+          <AlertDialogAction @click="handleRevokePermission" class="bg-danger-deep hover:bg-danger-deep/90 text-white">
             Revoke Permission
           </AlertDialogAction>
         </AlertDialogFooter>

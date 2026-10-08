@@ -604,7 +604,7 @@ onMounted(() => {
       </AlertDialogHeader>
       <AlertDialogFooter>
         <AlertDialogCancel>Cancel</AlertDialogCancel>
-        <AlertDialogAction @click="deleteComment" class="bg-destructive text-destructive-foreground">
+        <AlertDialogAction @click="deleteComment" class="bg-danger-deep text-destructive-foreground">
           Delete
         </AlertDialogAction>
       </AlertDialogFooter>

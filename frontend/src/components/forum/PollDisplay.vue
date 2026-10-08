@@ -120,7 +120,7 @@
       </div>
       <AlertDialogFooter>
         <AlertDialogCancel>Cancel</AlertDialogCancel>
-        <AlertDialogAction @click="confirmDeletePoll" class="bg-destructive hover:bg-destructive/90">
+        <AlertDialogAction @click="confirmDeletePoll" class="bg-danger-deep hover:bg-danger-deep/90">
           Delete Poll
         </AlertDialogAction>
       </AlertDialogFooter>

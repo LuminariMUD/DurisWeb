@@ -307,7 +307,7 @@
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction @click="deleteAllDupes" class="bg-destructive text-white hover:bg-destructive/90">
+          <AlertDialogAction @click="deleteAllDupes" class="bg-danger-deep text-white hover:bg-danger-deep/90">
             Delete Duplicates
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -326,7 +326,7 @@
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction @click="executeBulkDelete" class="bg-destructive text-white hover:bg-destructive/90">
+          <AlertDialogAction @click="executeBulkDelete" class="bg-danger-deep text-white hover:bg-danger-deep/90">
             Delete All Selected
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -345,7 +345,7 @@
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction @click="executeDeleteAll" class="bg-destructive text-white hover:bg-destructive/90">
+          <AlertDialogAction @click="executeDeleteAll" class="bg-danger-deep text-white hover:bg-danger-deep/90">
             Delete All Duplicates
           </AlertDialogAction>
         </AlertDialogFooter>

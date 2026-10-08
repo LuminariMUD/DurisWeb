@@ -100,7 +100,7 @@ const handleClose = () => {
         </AlertDialogCancel>
         <AlertDialogAction
           :disabled="!isConfirmed || isDeleting"
-          class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          class="bg-danger-deep text-destructive-foreground hover:bg-danger-deep/90"
           @click="handleDelete"
         >
           <Trash2 class="h-4 w-4 mr-2" />

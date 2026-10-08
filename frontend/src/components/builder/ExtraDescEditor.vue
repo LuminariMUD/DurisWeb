@@ -205,7 +205,7 @@ function getPreviewText(extra: ExtraDescription): string {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction @click="deleteExtra" class="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+          <AlertDialogAction @click="deleteExtra" class="bg-danger-deep text-destructive-foreground hover:bg-danger-deep/90">
             Delete
           </AlertDialogAction>
         </AlertDialogFooter>

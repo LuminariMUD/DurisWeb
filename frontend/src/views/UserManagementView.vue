@@ -502,7 +502,7 @@ const groupedUsers = computed(() => {
                             <Button
                               size="icon"
                               variant="ghost"
-                              class="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              class="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-danger-deep/10"
                               @click.stop="openDeleteDialog(account.account_name, account.characters[0].character_name)"
                               :disabled="isDeleting"
                             >
@@ -604,7 +604,7 @@ const groupedUsers = computed(() => {
                             <Button
                               size="icon"
                               variant="ghost"
-                              class="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              class="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-danger-deep/10"
                               @click.stop="openDeleteDialog(account.account_name, char.character_name)"
                               :disabled="isDeleting"
                             >

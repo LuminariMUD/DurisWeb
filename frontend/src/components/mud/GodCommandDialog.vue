@@ -159,7 +159,7 @@ function handleRecentExecute(recent: RecentGodCommand) {
       <AlertDialogFooter>
         <AlertDialogCancel @click="handleCancelConfirm">Cancel</AlertDialogCancel>
         <AlertDialogAction
-          class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          class="bg-danger-deep text-destructive-foreground hover:bg-danger-deep/90"
           @click="handleConfirmExecute"
         >
           Execute

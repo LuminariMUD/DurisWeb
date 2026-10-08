@@ -84,7 +84,7 @@ const handleCancel = () => {
         </div>
       </AlertDialogHeader>
       <AlertDialogFooter class="mt-6 sm:justify-center gap-2">
-        <AlertDialogCancel @click="handleCancel" class="!bg-destructive !text-white !border-destructive hover:!bg-red-700">
+        <AlertDialogCancel @click="handleCancel" class="!bg-danger-deep !text-white !border-destructive hover:!bg-red-700">
           Cancel
         </AlertDialogCancel>
         <AlertDialogAction @click="handleContinue">

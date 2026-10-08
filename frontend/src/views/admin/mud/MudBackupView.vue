@@ -669,7 +669,7 @@ function executeUploadRestore() {
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                          class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          class="bg-danger-deep text-destructive-foreground hover:bg-danger-deep/90"
                           @click="handleDeleteBackup(backup.id)"
                         >
                           Delete
@@ -1015,7 +1015,7 @@ function executeUploadRestore() {
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
-                  class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  class="bg-danger-deep text-destructive-foreground hover:bg-danger-deep/90"
                   @click="executeRestore"
                 >
                   Yes, Restore Everything
@@ -1241,7 +1241,7 @@ function executeUploadRestore() {
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
-                  class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  class="bg-danger-deep text-destructive-foreground hover:bg-danger-deep/90"
                   @click="executeUploadRestore"
                 >
                   Yes, Restore Everything

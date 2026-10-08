@@ -518,7 +518,7 @@ function goToPage(page: number) {
           <AlertDialogAction
             @click="deleteEntry"
             :disabled="submitting"
-            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            class="bg-danger-deep text-destructive-foreground hover:bg-danger-deep/90"
           >
             {{ submitting ? 'Deleting...' : 'Delete' }}
           </AlertDialogAction>

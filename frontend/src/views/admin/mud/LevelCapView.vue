@@ -149,7 +149,7 @@
             </button>
             <button
               @click="openResetDialog"
-              class="px-6 py-2 bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 transition-colors"
+              class="px-6 py-2 bg-danger-deep text-destructive-foreground rounded hover:bg-danger-deep/90 transition-colors"
             >
               Reset to Defaults
             </button>

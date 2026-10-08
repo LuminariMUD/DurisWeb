@@ -58,7 +58,7 @@
           </button>
           <button
             @click="resetAllTimers"
-            class="px-4 py-2 bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 transition-colors text-sm"
+            class="px-4 py-2 bg-danger-deep text-destructive-foreground rounded hover:bg-danger-deep/90 transition-colors text-sm"
           >
             Reset All Timers
           </button>

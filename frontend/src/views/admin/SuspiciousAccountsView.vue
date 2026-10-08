@@ -711,7 +711,7 @@ const getScoreBadgeVariant = (score: number) => {
 
 // Get score bar color
 const getScoreBarColor = (score: number) => {
-  if (score >= 90) return 'bg-destructive'
+  if (score >= 90) return 'bg-danger-deep'
   if (score >= 70) return 'bg-amber-500'
   return 'bg-green-500'
 }

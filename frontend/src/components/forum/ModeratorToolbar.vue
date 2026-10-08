@@ -142,7 +142,7 @@ function handleRestoreThread() {
 
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction @click="handleDeleteThread" class="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+          <AlertDialogAction @click="handleDeleteThread" class="bg-danger-deep text-destructive-foreground hover:bg-danger-deep/90">
             Delete Thread
           </AlertDialogAction>
         </AlertDialogFooter>

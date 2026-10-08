@@ -76,7 +76,7 @@ defineExpose({ open, close })
         <AlertDialogCancel @click="handleCancel">Cancel</AlertDialogCancel>
         <AlertDialogAction
           @click="handleConfirm"
-          class="bg-destructive hover:bg-destructive/90"
+          class="bg-danger-deep hover:bg-danger-deep/90"
         >
           Delete Category
         </AlertDialogAction>
