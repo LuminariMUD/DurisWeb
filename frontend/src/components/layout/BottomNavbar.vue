@@ -83,7 +83,7 @@ const navigateTo = (item: string | { path: string; external?: boolean }) => {
 </script>
 
 <template>
-  <nav aria-label="Primary navigation" class="fixed bottom-0 left-0 right-0 z-40 bg-gray-950 border-t border-gray-800 lg:hidden">
+  <nav aria-label="Primary navigation" class="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background lg:hidden">
     <div class="flex items-center justify-around h-16">
       <!-- main nav items -->
       <button
@@ -92,7 +92,7 @@ const navigateTo = (item: string | { path: string; external?: boolean }) => {
         type="button"
         @click="navigateTo(item.path)"
         class="flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors"
-        :class="isActive(item.path) ? 'text-cyan-400' : 'text-gray-400 hover:text-gray-200'"
+        :class="isActive(item.path) ? 'text-vermilion' : 'text-muted-foreground hover:text-foreground'"
         :aria-current="isActive(item.path) ? 'page' : undefined"
       >
         <component :is="item.icon" class="w-5 h-5" />
@@ -105,15 +105,15 @@ const navigateTo = (item: string | { path: string; external?: boolean }) => {
           <button
             type="button"
             aria-label="Open more navigation"
-            class="flex flex-col items-center justify-center flex-1 h-full gap-1 text-gray-400 hover:text-gray-200 transition-colors"
+            class="flex flex-col items-center justify-center flex-1 h-full gap-1 text-muted-foreground hover:text-foreground transition-colors"
           >
             <MoreHorizontal class="w-5 h-5" />
             <span class="text-xs">More</span>
           </button>
         </SheetTrigger>
-        <SheetContent side="bottom" class="rounded-t-xl">
+        <SheetContent side="bottom">
           <SheetHeader class="text-left">
-            <SheetTitle>Menu</SheetTitle>
+            <SheetTitle class="font-display text-2xl font-normal">Menu</SheetTitle>
           </SheetHeader>
           <div class="grid grid-cols-4 gap-4 py-6">
             <button
@@ -121,8 +121,8 @@ const navigateTo = (item: string | { path: string; external?: boolean }) => {
               :key="item.path"
               type="button"
               @click="navigateTo(item)"
-              class="flex flex-col items-center gap-2 p-3 rounded-lg transition-colors hover:bg-gray-800"
-              :class="item.highlight ? 'text-pink-400' : isActive(item.path) ? 'text-cyan-400 bg-gray-800/50' : 'text-gray-300'"
+              class="flex flex-col items-center gap-2 p-3 transition-colors hover:bg-ink-high"
+              :class="item.highlight ? 'text-ember' : isActive(item.path) ? 'text-vermilion bg-ink-high/60' : 'text-bone-muted'"
               :aria-current="isActive(item.path) ? 'page' : undefined"
             >
               <component :is="item.icon" class="w-6 h-6" />

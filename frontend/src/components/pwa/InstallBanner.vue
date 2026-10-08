@@ -20,18 +20,18 @@ const handleInstall = async () => {
       :aria-label="`Install ${siteTitle} app`"
       class="install-banner fixed left-3 right-3 z-50 max-w-md mx-auto pointer-events-none"
     >
-      <div class="pointer-events-auto bg-gray-900 border border-gray-700 rounded-xl shadow-2xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+      <div class="pointer-events-auto bg-card border border-border rounded-xl shadow-2xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
         <!-- icon -->
-        <div class="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg">
+        <div class="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-vermilion-deep to-vermilion-deep rounded-xl flex items-center justify-center shadow-lg">
           <Download class="w-5 h-5 sm:w-6 sm:h-6 text-white" />
         </div>
 
         <!-- text -->
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-semibold text-gray-100">
+          <p class="text-sm font-semibold text-foreground">
             install {{ siteTitle }}
           </p>
-          <p class="text-xs text-gray-400">
+          <p class="text-xs text-muted-foreground">
             quick access & offline support
           </p>
         </div>
@@ -41,14 +41,14 @@ const handleInstall = async () => {
           <button
             type="button"
             @click="handleInstall"
-            class="min-h-11 min-w-20 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-medium rounded-lg transition-colors"
+            class="min-h-11 min-w-20 px-4 py-2 bg-vermilion-deep hover:bg-vermilion-hover text-white text-sm font-medium rounded-lg transition-colors"
           >
             install
           </button>
           <button
             type="button"
             @click="dismiss"
-            class="inline-flex min-h-11 min-w-11 items-center justify-center p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+            class="inline-flex min-h-11 min-w-11 items-center justify-center p-1.5 text-faint hover:text-bone-muted hover:bg-ink-high rounded-lg transition-colors"
             aria-label="Dismiss install prompt"
           >
             <X class="w-4 h-4" />

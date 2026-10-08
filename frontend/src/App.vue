@@ -218,10 +218,10 @@ onNewEvent((event) => {
   // Also show in-app toast notification
   const message = `
     <div class="space-y-1">
-      <div><span class="text-green-400">Killers:</span> ${parseAnsiForVue(killers)}</div>
-      <div><span class="text-red-400">Victims:</span> ${parseAnsiForVue(victims)}</div>
-      <div><span class="text-gray-400">Location:</span> ${parseAnsiForVue(location)}</div>
-      <div class="text-xs text-cyan-400 cursor-pointer hover:underline" onclick="window.location.href='/pvp/battle/${event.id}'">Click to view details →</div>
+      <div><span class="text-success">Killers:</span> ${parseAnsiForVue(killers)}</div>
+      <div><span class="text-danger">Victims:</span> ${parseAnsiForVue(victims)}</div>
+      <div><span class="text-muted-foreground">Location:</span> ${parseAnsiForVue(location)}</div>
+      <div class="text-xs text-vermilion cursor-pointer hover:underline" onclick="window.location.href='/pvp/battle/${event.id}'">Click to view details →</div>
     </div>
   `
 
@@ -333,6 +333,16 @@ const isFullscreen = computed(() => {
   return route.meta?.fullscreen === true
 })
 
+// Routes pad their content by default; full-bleed pages set meta.contentGutter = false
+const hasContentGutter = computed(() => route.meta?.contentGutter !== false)
+
+// Shared header link treatment: display face, vermilion when active
+function navClass(active: boolean): string {
+  return active
+    ? 'site-nav-link text-vermilion'
+    : 'site-nav-link text-bone-muted hover:text-vermilion'
+}
+
 // Check if current route should hide navigation (pop-out windows)
 const hideNav = computed(() => {
   return route.meta?.hideNav === true
@@ -351,234 +361,208 @@ const isPlayPage = computed(() => route.path === '/play')
   </div>
 
   <!-- Normal mode: with nav -->
-  <div v-else class="flex flex-col h-screen bg-black text-gray-300">
+  <div v-else class="flex flex-col h-screen bg-background text-foreground">
     <!-- Top Progress Bar is handled by NProgress (CSS-based, no component needed) -->
 
     <SiteAvailabilityNotice />
 
     <!-- Header - hidden on mobile when on /play page -->
-    <header :class="{ 'hidden lg:block': isPlayPage, 'home-header': route.path === '/' }" class="border-b border-gray-800 bg-gray-950">
-      <div class="px-4 py-4">
-        <div class="flex items-center justify-between">
-          <RouterLink to="/" class="flex items-center space-x-4 hover:opacity-80 transition-opacity">
-            <img
-              v-if="siteLogoUrl"
-              :src="siteLogoUrl"
-              :alt="siteTitle"
-              class="h-8 max-w-[120px] object-contain"
-            />
-            <span v-if="isSiteConfigAvailable" class="site-wordmark text-2xl font-bold text-gray-100">
-              {{ siteTitle }}
-            </span>
-            <span v-else class="text-2xl font-bold text-gray-400">Site unavailable</span>
-          </RouterLink>
+    <header :class="{ 'hidden lg:block': isPlayPage }" class="site-header border-b border-border bg-background">
+      <div class="site-header-inner flex items-center justify-between gap-6">
+        <RouterLink to="/" class="flex shrink-0 items-center gap-4 transition-opacity hover:opacity-80">
+          <img
+            v-if="siteLogoUrl"
+            :src="siteLogoUrl"
+            :alt="siteTitle"
+            class="h-8 max-w-[120px] object-contain"
+          />
+          <span v-if="isSiteConfigAvailable" class="site-wordmark">{{ siteTitle }}</span>
+          <span v-else class="site-wordmark text-muted-foreground">Site unavailable</span>
+        </RouterLink>
 
-          <!-- MUD Address (Centered) - Click to play - hidden on mobile -->
+        <nav aria-label="Site sections" class="site-nav hidden flex-1 items-center justify-center lg:flex">
+          <RouterLink to="/news" :class="navClass($route.path.startsWith('/news'))">News</RouterLink>
+          <RouterLink
+            to="/pvp"
+            :class="navClass($route.path === '/pvp' || ($route.path.startsWith('/pvp/') && !$route.path.includes('stats')))"
+          >
+            PvP Logs
+          </RouterLink>
+          <!-- Browse Dropdown -->
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              :class="
+                navClass(
+                  $route.path === '/pvp/stats' ||
+                    $route.path.startsWith('/statistics/') ||
+                    $route.path === '/frag-leaderboard' ||
+                    $route.path.startsWith('/auction') ||
+                    $route.path === '/status',
+                )
+              "
+            >
+              Browse
+              <ChevronDown class="h-3 w-3" aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" class="w-48">
+              <DropdownMenuItem @click="router.push('/pvp/stats')" class="cursor-pointer">
+                <BarChart3 class="mr-2 h-4 w-4" />
+                <span>Statistics</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="router.push('/statistics/faction-activity')" class="cursor-pointer">
+                <Activity class="mr-2 h-4 w-4" />
+                <span>Faction Activity</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="router.push('/frag-leaderboard')" class="cursor-pointer">
+                <Trophy class="mr-2 h-4 w-4" />
+                <span>Frag Leaderboard</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="router.push('/auction')" class="cursor-pointer">
+                <Gavel class="mr-2 h-4 w-4" />
+                <span>Auction House</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem @click="router.push('/status')" class="cursor-pointer">
+                <Radio class="mr-2 h-4 w-4" />
+                <span>Server Status</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <!-- Wiki Dropdown -->
+          <DropdownMenu>
+            <DropdownMenuTrigger :class="navClass($route.path.startsWith('/wiki') || $route.path.startsWith('/guide'))">
+              Wiki
+              <ChevronDown class="h-3 w-3" aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" class="w-48">
+              <DropdownMenuItem @click="router.push('/wiki/map')" class="cursor-pointer">
+                <Map class="mr-2 h-4 w-4" />
+                <span>Map</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="router.push('/wiki/zones')" class="cursor-pointer">
+                <Layers class="mr-2 h-4 w-4" />
+                <span>Zones</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="router.push('/wiki/objects')" class="cursor-pointer">
+                <Package class="mr-2 h-4 w-4" />
+                <span>Objects</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="router.push('/wiki/mobs')" class="cursor-pointer">
+                <Skull class="mr-2 h-4 w-4" />
+                <span>Mobs</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem @click="router.push('/guide')" class="cursor-pointer">
+                <BookOpen class="mr-2 h-4 w-4" />
+                <span>Guide</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem v-if="isAuthenticated" @click="router.push('/guide/my-suggestions')" class="cursor-pointer">
+                <FileText class="mr-2 h-4 w-4" />
+                <span>My Suggestions</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <RouterLink to="/forum" :class="navClass($route.path.startsWith('/forum'))">Forum</RouterLink>
+          <a
+            v-if="supportUrl"
+            :href="supportUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="site-nav-link text-ember hover:text-vermilion"
+          >
+            <Heart class="h-4 w-4" aria-hidden="true" />
+            Donate
+          </a>
+          <RouterLink
+            v-if="hasAnyAdminAccess"
+            to="/admin/dashboard"
+            :class="navClass($route.path.startsWith('/admin'))"
+          >
+            Admin
+          </RouterLink>
+        </nav>
+
+        <div class="flex shrink-0 items-center gap-5">
+          <!-- MUD address: wide screens only, click to play -->
           <RouterLink
             v-if="isSiteConfigAvailable"
             to="/play"
-            class="mud-address hidden lg:flex flex-1 justify-center hover:opacity-80 transition-opacity"
+            class="mud-address hidden items-center gap-3 border-l border-border pl-5 transition-colors hover:text-vermilion 2xl:flex"
           >
-            <div class="flex items-center gap-2">
-              <div class="flex items-center justify-center w-8 h-8 rounded-full bg-cyan-500/20 text-cyan-400">
-                <Play class="w-4 h-4 fill-current" />
-              </div>
-              <div class="text-center">
-                <div class="text-sm font-mono text-cyan-400">{{ mudHost }}</div>
-                <div class="text-xs text-gray-500">
-                  Port {{ mudPort }}<span v-if="mudPortTls"> | TLS {{ mudPortTls }}</span>
-                </div>
-              </div>
-            </div>
+            <Play class="h-4 w-4 text-vermilion" aria-hidden="true" />
+            <span class="flex flex-col leading-tight">
+              <span class="index-label text-bone-muted">{{ mudHost }}</span>
+              <span class="index-label">
+                Port {{ mudPort }}<span v-if="mudPortTls"> · TLS {{ mudPortTls }}</span>
+              </span>
+            </span>
           </RouterLink>
 
-          <nav class="hidden lg:flex items-center space-x-6">
-                <RouterLink
-                  to="/news"
-                  class="text-sm font-medium transition-colors hover:text-cyan-400"
-                  :class="$route.path.startsWith('/news') ? 'text-cyan-400' : 'text-gray-400'"
-                >
-                  News
-                </RouterLink>
-                <RouterLink
-                  to="/pvp"
-                  class="text-sm font-medium transition-colors hover:text-cyan-400"
-                  :class="$route.path === '/pvp' || $route.path.startsWith('/pvp/') && !$route.path.includes('stats') ? 'text-cyan-400' : 'text-gray-400'"
-                >
-                  PvP Logs
-                </RouterLink>
-                <!-- Browse Dropdown -->
-                <DropdownMenu>
-                  <DropdownMenuTrigger class="focus:outline-none">
-                    <span
-                      class="text-sm font-medium transition-colors hover:text-cyan-400 flex items-center gap-1"
-                      :class="$route.path === '/pvp/stats' || $route.path.startsWith('/statistics/') || $route.path === '/frag-leaderboard' || $route.path.startsWith('/auction') || $route.path === '/status' ? 'text-cyan-400' : 'text-gray-400'"
-                    >
-                      Browse
-                      <ChevronDown class="h-3 w-3" />
-                    </span>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" class="w-48">
-                    <DropdownMenuItem @click="router.push('/pvp/stats')" class="cursor-pointer">
-                      <BarChart3 class="mr-2 h-4 w-4" />
-                      <span>Statistics</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem @click="router.push('/statistics/faction-activity')" class="cursor-pointer">
-                      <Activity class="mr-2 h-4 w-4" />
-                      <span>Faction Activity</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem @click="router.push('/frag-leaderboard')" class="cursor-pointer">
-                      <Trophy class="mr-2 h-4 w-4" />
-                      <span>Frag Leaderboard</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem @click="router.push('/auction')" class="cursor-pointer">
-                      <Gavel class="mr-2 h-4 w-4" />
-                      <span>Auction House</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem @click="router.push('/status')" class="cursor-pointer">
-                      <Radio class="mr-2 h-4 w-4" />
-                      <span>Server Status</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <!-- Wiki Dropdown -->
-                <DropdownMenu>
-                  <DropdownMenuTrigger class="focus:outline-none">
-                    <span
-                      class="text-sm font-medium transition-colors hover:text-cyan-400 flex items-center gap-1"
-                      :class="$route.path.startsWith('/wiki') || $route.path.startsWith('/guide') ? 'text-cyan-400' : 'text-gray-400'"
-                    >
-                      Wiki
-                      <ChevronDown class="h-3 w-3" />
-                    </span>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" class="w-48">
-                    <DropdownMenuItem @click="router.push('/wiki/map')" class="cursor-pointer">
-                      <Map class="mr-2 h-4 w-4" />
-                      <span>Map</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem @click="router.push('/wiki/zones')" class="cursor-pointer">
-                      <Layers class="mr-2 h-4 w-4" />
-                      <span>Zones</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem @click="router.push('/wiki/objects')" class="cursor-pointer">
-                      <Package class="mr-2 h-4 w-4" />
-                      <span>Objects</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem @click="router.push('/wiki/mobs')" class="cursor-pointer">
-                      <Skull class="mr-2 h-4 w-4" />
-                      <span>Mobs</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem @click="router.push('/guide')" class="cursor-pointer">
-                      <BookOpen class="mr-2 h-4 w-4" />
-                      <span>Guide</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem v-if="isAuthenticated" @click="router.push('/guide/my-suggestions')" class="cursor-pointer">
-                      <FileText class="mr-2 h-4 w-4" />
-                      <span>My Suggestions</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <RouterLink
-                  to="/forum"
-                  class="text-sm font-medium transition-colors hover:text-cyan-400"
-                  :class="$route.path.startsWith('/forum') ? 'text-cyan-400' : 'text-gray-400'"
-                >
-                  Forum
-                </RouterLink>
-                <a
-                  v-if="supportUrl"
-                  :href="supportUrl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="flex items-center gap-1 text-sm font-medium text-pink-400 hover:text-pink-300 transition-colors"
-                >
-                  <Heart class="h-4 w-4" />
-                  Donate
-                </a>
-                <RouterLink
-                  v-if="hasAnyAdminAccess"
-                  to="/admin/dashboard"
-                  class="text-sm font-medium transition-colors hover:text-cyan-400"
-                  :class="$route.path.startsWith('/admin') ? 'text-cyan-400' : 'text-gray-400'"
-                >
-                  Admin
-                </RouterLink>
-            </nav>
+          <!-- Builder Notification Bell (only for authenticated users) -->
+          <BuilderNotificationBell v-if="isAuthenticated" />
 
-            <!-- notification + profile (always visible) -->
-            <div class="flex items-center space-x-4">
-                <!-- Builder Notification Bell (only for authenticated users) -->
-                <BuilderNotificationBell v-if="isAuthenticated" />
-
-                <!-- Profile Avatar with Connection Status -->
-                <DropdownMenu v-if="isAuthenticated">
-                  <DropdownMenuTrigger class="focus:outline-none">
-                    <div
-                      class="relative cursor-pointer hover:opacity-80 transition-opacity"
-                      :title="isConnected ? 'Connected to live updates' : 'Disconnected'"
-                    >
-                      <!-- Avatar -->
-                      <div class="flex items-center justify-center w-8 h-8 rounded-full overflow-hidden" :class="!avatarUrl ? getRoleBadgeColor() : 'bg-gray-700'">
-                        <img v-if="avatarUrl" :src="avatarUrl" :alt="accountName || ''" class="w-full h-full object-cover" />
-                        <span v-else class="text-sm font-medium text-white">{{ accountName?.charAt(0).toUpperCase() }}</span>
-                      </div>
-                      <!-- Connection Status Indicator -->
-                      <div
-                        class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-gray-900"
-                        :class="isConnected ? 'bg-green-500' : 'bg-red-500'"
-                      ></div>
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" class="w-56">
-                    <DropdownMenuLabel class="font-normal">
-                      <div class="flex flex-col space-y-1">
-                        <p class="text-sm font-medium leading-none">{{ accountName }}</p>
-                        <p class="text-xs leading-none text-muted-foreground">{{ getRoleDisplayName() }}</p>
-                      </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem @click="router.push(`/user/${accountName}`)">
-                      <User class="mr-2 h-4 w-4" />
-                      Profile
-                    </DropdownMenuItem>
-                    <DropdownMenuItem @click="router.push('/change-password')">
-                      <KeyRound class="mr-2 h-4 w-4" />
-                      Change Password
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem v-if="isSupported" @click="handleNotificationClick">
-                      <Bell v-if="hasPermission && isEnabled" class="mr-2 h-4 w-4" />
-                      <BellOff v-else class="mr-2 h-4 w-4" />
-                      {{ hasPermission && isEnabled ? 'Disable Notifications' : 'Enable Notifications' }}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem @click="handleMudLogout">
-                      <Play class="mr-2 h-4 w-4" />
-                      Logout from MUD
-                    </DropdownMenuItem>
-                    <DropdownMenuItem @click="handleLogout">
-                      <LogOut class="mr-2 h-4 w-4" />
-                      Logout
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <!-- Login button when not authenticated -->
-                <RouterLink
-                  v-else
-                  to="/login"
-                  class="flex items-center gap-1 ml-2 text-sm font-medium text-gray-400 hover:text-cyan-400 transition-colors"
+          <!-- Profile Avatar with Connection Status -->
+          <DropdownMenu v-if="isAuthenticated">
+            <DropdownMenuTrigger aria-label="Account menu">
+              <div
+                class="relative cursor-pointer transition-opacity hover:opacity-80"
+                :title="isConnected ? 'Connected to live updates' : 'Disconnected'"
+              >
+                <div
+                  class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full"
+                  :class="!avatarUrl ? getRoleBadgeColor() : 'bg-ink-top'"
                 >
-                  <LogIn class="h-4 w-4" />
-                  Login
-                </RouterLink>
-            </div>
-          </div>
+                  <img v-if="avatarUrl" :src="avatarUrl" :alt="accountName || ''" class="h-full w-full object-cover" />
+                  <span v-else class="text-sm font-medium text-white">{{ accountName?.charAt(0).toUpperCase() }}</span>
+                </div>
+                <div
+                  class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background"
+                  :class="isConnected ? 'bg-success' : 'bg-danger'"
+                ></div>
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="w-56">
+              <DropdownMenuLabel class="font-normal">
+                <div class="flex flex-col space-y-1">
+                  <p class="text-sm font-medium leading-none">{{ accountName }}</p>
+                  <p class="text-xs leading-none text-muted-foreground">{{ getRoleDisplayName() }}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem @click="router.push(`/user/${accountName}`)">
+                <User class="mr-2 h-4 w-4" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="router.push('/change-password')">
+                <KeyRound class="mr-2 h-4 w-4" />
+                Change Password
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem v-if="isSupported" @click="handleNotificationClick">
+                <Bell v-if="hasPermission && isEnabled" class="mr-2 h-4 w-4" />
+                <BellOff v-else class="mr-2 h-4 w-4" />
+                {{ hasPermission && isEnabled ? 'Disable Notifications' : 'Enable Notifications' }}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem @click="handleMudLogout">
+                <Play class="mr-2 h-4 w-4" />
+                Logout from MUD
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="handleLogout">
+                <LogOut class="mr-2 h-4 w-4" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <!-- Login link when not authenticated -->
+          <RouterLink v-else to="/login" :class="navClass($route.path === '/login')">
+            <LogIn class="h-4 w-4" aria-hidden="true" />
+            Login
+          </RouterLink>
         </div>
-      </header>
+      </div>
+    </header>
 
     <!-- Changelog Banner (for logged-in users with unread entries) -->
     <ChangelogBanner />
@@ -592,27 +576,19 @@ const isPlayPage = computed(() => route.path === '/play')
         <!-- Main Content -->
         <main
           class="flex-1 overflow-hidden"
-          :class="isFullscreen ? '' : 'overflow-y-auto px-4 py-4 pb-20 lg:pb-4'"
+          :class="isFullscreen ? '' : hasContentGutter ? 'overflow-y-auto px-4 py-4 pb-20 lg:px-[clamp(1rem,2vw,2rem)] lg:pb-4' : 'overflow-y-auto pb-16 lg:pb-0'"
         >
           <RouterView />
         </main>
       </div>
     </SidebarProvider>
 
-    <!-- Footer -->
-    <!-- <footer class="border-t border-gray-800 bg-gray-950 mt-auto">
-      <div class="px-4 py-6">
-        <p class="text-center text-sm text-gray-500">
-          DurisMUD PvP Logs - Real-time Player vs Player combat tracking
-        </p>
-      </div>
-    </footer> -->
-
     <!-- pwa offline indicator -->
     <Transition name="slide-down">
       <div
         v-if="isOffline"
-        class="fixed top-0 left-0 right-0 z-50 bg-amber-600 text-white px-4 py-2 flex items-center justify-center gap-2 text-sm font-medium"
+        role="status"
+        class="fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-2 border-b border-warning-deep bg-ink-raised px-4 py-2 text-sm font-medium text-warning"
       >
         <WifiOff class="h-4 w-4" />
         <span>you're offline - some features may not work</span>
@@ -623,21 +599,25 @@ const isPlayPage = computed(() => route.path === '/play')
     <Transition name="slide-down">
       <div
         v-if="needRefresh"
-        class="fixed top-0 left-0 right-0 z-50 bg-cyan-600 text-white px-4 py-2 flex items-center justify-center gap-3 text-sm font-medium"
+        role="status"
+        class="fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-3 border-b border-border bg-ink-raised px-4 py-2 text-sm font-medium text-foreground"
       >
-        <RefreshCw class="h-4 w-4" />
+        <RefreshCw class="h-4 w-4 text-vermilion" aria-hidden="true" />
         <span>a new version is available</span>
         <button
           @click="updateApp"
-          class="px-3 py-1 bg-white text-cyan-600 rounded text-xs font-semibold hover:bg-gray-100 transition-colors"
+          type="button"
+          class="bg-brand px-3 py-1 text-xs font-semibold text-brand-foreground transition-colors hover:bg-vermilion-hover"
         >
           update now
         </button>
         <button
+          type="button"
+          aria-label="Dismiss update notice"
           @click="dismissUpdate"
-          class="p-1 hover:bg-cyan-700 rounded transition-colors"
+          class="p-1 text-muted-foreground transition-colors hover:bg-ink-high hover:text-foreground"
         >
-          <X class="h-4 w-4" />
+          <X class="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
     </Transition>
@@ -646,7 +626,7 @@ const isPlayPage = computed(() => route.path === '/play')
     <InstallBanner />
 
     <!-- mobile bottom navbar - hidden on /play page -->
-    <BottomNavbar v-if="!isPlayPage" :class="{ 'home-mobile-nav': route.path === '/' }" />
+    <BottomNavbar v-if="!isPlayPage" />
 
     <!-- news announcement modal -->
     <NewsAnnouncementModal />
@@ -657,57 +637,38 @@ const isPlayPage = computed(() => route.path === '/play')
 </template>
 
 <style scoped>
-.home-header {
-  background: #111310;
-  border-color: #575743;
-}
-
-.home-header > div {
+.site-header-inner {
   padding: 1rem clamp(1.5rem, 2vw, 2rem);
 }
 
-.home-header .site-wordmark {
-  color: #ece8dd;
-  font: 400 2.5rem/1 'Cormorant Garamond', Georgia, serif;
+.site-wordmark {
+  color: var(--color-bone);
+  font: 400 2.5rem/1 var(--font-display);
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.home-header .mud-address {
-  display: none;
-}
-
-.home-header nav {
-  flex: 1;
-  justify-content: center;
+.site-nav {
   gap: clamp(1rem, 2.6vw, 2.5rem);
 }
 
-.home-header nav > * {
-  margin-left: 0;
+:deep(.site-nav-link) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font: 400 1.3rem/1.4 var(--font-display);
+  transition: color 180ms ease;
+  white-space: nowrap;
 }
 
-.home-header :is(nav a, nav button span, a[href='/login']) {
-  color: #d6d3c6;
-  font: 400 1.3rem/1.4 'Cormorant Garamond', Georgia, serif;
-}
-
-.home-header :is(a, button):focus-visible {
-  outline: 2px solid #df583d;
-  outline-offset: 4px;
-}
-
-.home-header :is(nav a, nav button span, a[href='/login']):hover {
-  color: #df583d;
-}
-
-.home-mobile-nav {
-  background: #111310;
-  border-color: #575743;
-}
-
-.home-mobile-nav :deep([aria-current='page']) {
-  color: #df583d;
+@media (max-width: 1279px) {
+  .site-wordmark {
+    font-size: 2rem;
+  }
+  :deep(.site-nav-link) {
+    font-size: 1.15rem;
+  }
 }
 
 /* pwa banner transition animations */

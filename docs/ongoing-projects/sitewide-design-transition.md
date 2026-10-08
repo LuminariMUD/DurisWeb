@@ -15,7 +15,7 @@ homepage design to the whole site in shippable phases.
 | --- | --- |
 | 0. Decisions and baseline | Done 2026-10-08 (screenshots: see log) |
 | 1. Foundation: tokens, fonts, global chrome | Done 2026-10-08 |
-| 2. Shell: header, navigation, sidebar, banners, shared primitives | Not started |
+| 2. Shell: header, navigation, sidebar, banners, shared primitives | Done 2026-10-08 |
 | 3. Public surfaces sweep | Not started |
 | 4. Play client chrome | Not started |
 | 5. Admin and builder | Not started |
@@ -536,3 +536,55 @@ Rough, in focused sessions, assuming one person and review between phases.
   permanently exempt as game semantics.
 - Matrix: format, lint, type-check pass; unit tests 180/181 with only the
   baseline failure; build passes and emits both font preloads.
+
+### Phase 2 — 2026-10-08
+
+- `App.vue`: the homepage header treatment is now the only header. Wordmark
+  and nav links in the display face, active link vermilion, `navClass()`
+  replaces the repeated cyan/gray ternaries, and the `.home-header` /
+  `.home-mobile-nav` overrides and `route.path === '/'` conditionals are gone.
+  The MUD address returns in label mono at `2xl` widths (≥1536px) in the
+  right-hand group, where it no longer competes with the centered nav.
+  Donate uses ember instead of pink. The commented-out footer was removed.
+- Banners: offline is a warning line on ink-raised, the update notice is
+  ink-raised with a `brand` "update now" action, and both carry
+  `role="status"`; the dismiss button gained an accessible name.
+  `InstallBanner`, `ChangelogBanner`, `NewsAnnouncementModal` and `UptimeBar`
+  were swept with the token mapping below.
+- `AppSidebar`, `AdminMenu`, `ForumMenu`, `BreadcrumbsNav` already used only
+  sidebar and semantic tokens; no change was needed.
+- `contentGutter` route meta (typed through a `RouteMeta` augmentation in
+  `router/index.ts`): `main` pads by default and the homepage opts out, so
+  `.duris-home` lost its negative margins and bottom-padding compensation.
+  Gutter on application pages is `clamp(1rem, 2vw, 2rem)` from `lg` up.
+- `components/brand/`: `BrandActionLink`, `BrandTextLink`, `DisplayHeading`,
+  `IndexLabel`, `SectionRule`. Their visual rules live in `main.css`
+  (`.brand-action`, `.brand-text-link`, `.display-heading`, `.index-label`,
+  `.section-rule`) so pages can still size them with scoped overrides. The
+  homepage now consumes them; `FrontPageView.spec.ts` and
+  `BottomNavbar.spec.ts` pass unchanged.
+- `Button` gained the `brand` variant (`bg-brand`, hover vermilion-hover).
+- Radius: every Tailwind step except `sm` resolves to `--radius` (0), so
+  existing `rounded-lg`/`rounded-xl` classes render square; `rounded-sm` is
+  2px and `rounded-full` is untouched for avatars and status dots.
+
+#### Token mapping used by the sweeps
+
+Applied by a one-off codemod (kept outside the repository) and then reviewed
+per file:
+
+| Raw class | Token |
+| --- | --- |
+| neutral (gray/zinc/slate/neutral/stone) text 50–200 / 300 / 400 / 500–600 | `foreground` / `bone-muted` / `muted-foreground` / `faint` |
+| neutral bg 950 / 900 / 800 / 700 / 600 / 400–500 | `background` / `card` / `ink-high` / `ink-top` / `rule` / `faint` |
+| neutral border 900+ / 700–800 / 500–600 | `ink-top` / `border` / `faint` |
+| cyan text 100–300 / 400–500 | `vermilion-light` / `vermilion` |
+| cyan bg solid 500–700, hover | `vermilion-deep`, hover `vermilion-hover` |
+| cyan with alpha, ring, accent | `vermilion` (alpha kept) |
+| red/rose, green/emerald/lime, yellow/amber, blue/sky | `danger`, `success`, `warning`, `info`; 600+ solid fills use the `-deep` step, 100–300 fills become `/15` tints |
+| `dark:` variants | the dark value replaces the base value it overrode |
+
+Purple, orange, pink, indigo, violet and teal are left alone: they carry
+faction, class, role and severity meaning. Status hues are not remapped in
+`components/mud/**`, `MudClientView.vue` or `PopOutMapView.vue` (game
+semantics, Phase 4).

@@ -1,7 +1,4 @@
 # Files still carrying raw palette classes. Each sweep removes its entries.
-src/App.vue
-src/components/NewsAnnouncementModal.vue
-src/components/UptimeBar.vue
 src/components/admin/AdminDashboardPlayers.vue
 src/components/admin/DeploymentLogDialog.vue
 src/components/admin/LevelCapConfirmDialog.vue
@@ -19,7 +16,6 @@ src/components/builder/Design4TabbedWorkspace.vue
 src/components/builder/Design5NotionStyle.vue
 src/components/builder/MentionList.vue
 src/components/builder/ZoneMap.vue
-src/components/changelog/ChangelogBanner.vue
 src/components/changelog/ChangelogList.vue
 src/components/charts/WorldMap.vue
 src/components/forum/CarouselDisplay.vue
@@ -33,7 +29,6 @@ src/components/forum/widgets/RecentPvPDisplay.vue
 src/components/forum/widgets/TopFraggerDisplay.vue
 src/components/frag/FragLeaderboardTable.vue
 src/components/guide/HelpFileDialog.vue
-src/components/layout/BottomNavbar.vue
 src/components/mud/AliasFormDialog.vue
 src/components/mud/MudActivityLog.vue
 src/components/mud/MudAffects.vue
@@ -52,7 +47,6 @@ src/components/mud/TriggerTable.vue
 src/components/mud/chargen/MudCharacterCreate.vue
 src/components/profile/CharacterCard.vue
 src/components/pvp/BattleCommentSection.vue
-src/components/pwa/InstallBanner.vue
 src/components/ui/Dialog.vue
 src/components/ui/ImageLightbox.vue
 src/components/ui/PeriodSelector.vue

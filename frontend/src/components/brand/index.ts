@@ -1,0 +1,5 @@
+export { default as BrandActionLink } from './BrandActionLink.vue'
+export { default as BrandTextLink } from './BrandTextLink.vue'
+export { default as DisplayHeading } from './DisplayHeading.vue'
+export { default as IndexLabel } from './IndexLabel.vue'
+export { default as SectionRule } from './SectionRule.vue'

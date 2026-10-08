@@ -12,24 +12,24 @@ const barColor = computed(() => {
   const { uptime_percent, worst_severity, total_checks } = props.day
 
   if (!total_checks || total_checks === 0) {
-    return 'bg-gray-700 hover:bg-gray-600'
+    return 'bg-ink-top hover:bg-rule'
   }
 
   if (uptime_percent === 100 && !worst_severity) {
-    return 'bg-green-600 hover:bg-green-700'
+    return 'bg-success-deep hover:bg-success-deep/80'
   }
 
   if (worst_severity) {
-    if (worst_severity === 'critical') return 'bg-red-600 hover:bg-red-700'
+    if (worst_severity === 'critical') return 'bg-danger-deep hover:bg-danger-deep/80'
     if (worst_severity === 'major') return 'bg-orange-500 hover:bg-orange-600'
-    if (worst_severity === 'minor') return 'bg-yellow-500 hover:bg-yellow-600'
-    return 'bg-blue-400 hover:bg-blue-500'
+    if (worst_severity === 'minor') return 'bg-warning hover:bg-warning-deep/80'
+    return 'bg-info hover:bg-info/80'
   }
 
-  if (uptime_percent >= 99.5) return 'bg-green-500 hover:bg-green-600'
-  if (uptime_percent >= 95) return 'bg-yellow-500 hover:bg-yellow-600'
+  if (uptime_percent >= 99.5) return 'bg-success hover:bg-success-deep/80'
+  if (uptime_percent >= 95) return 'bg-warning hover:bg-warning-deep/80'
   if (uptime_percent >= 90) return 'bg-orange-500 hover:bg-orange-600'
-  return 'bg-red-600 hover:bg-red-700'
+  return 'bg-danger-deep hover:bg-danger-deep/80'
 })
 
 const formattedDate = computed(() => format(new Date(props.day.date), 'MMM d, yyyy'))
@@ -86,10 +86,10 @@ function getIncidentLabel(incident: any): string {
           :class="['h-16 w-3 rounded-sm flex-shrink-0 cursor-pointer transition-colors', barColor]"
         ></div>
       </TooltipTrigger>
-      <TooltipContent class="max-w-xs p-3 bg-gray-900 border-gray-700" side="top">
+      <TooltipContent class="max-w-xs p-3 bg-card border-border" side="top">
         <div class="space-y-2">
           <!-- Date Header -->
-          <div class="text-sm font-semibold text-gray-100">{{ formattedDate }}</div>
+          <div class="text-sm font-semibold text-foreground">{{ formattedDate }}</div>
 
           <!-- Incidents List -->
           <div v-if="day.incidents && day.incidents.length > 0" class="space-y-2">
@@ -100,11 +100,11 @@ function getIncidentLabel(incident: any): string {
             >
               <!-- Incident Type -->
               <div class="flex items-center gap-2">
-                <span class="text-yellow-400 text-sm">⚠</span>
-                <span class="text-sm text-gray-200 capitalize">{{ getIncidentLabel(incident) }}</span>
+                <span class="text-warning text-sm">⚠</span>
+                <span class="text-sm text-foreground capitalize">{{ getIncidentLabel(incident) }}</span>
               </div>
               <!-- Duration -->
-              <div class="text-sm text-gray-400 pl-5">
+              <div class="text-sm text-muted-foreground pl-5">
                 {{ formatDuration(incident.duration_seconds) }}
               </div>
             </div>
@@ -113,16 +113,16 @@ function getIncidentLabel(incident: any): string {
           <!-- Downtime without incident record -->
           <div v-else-if="day.uptime_percent < 100" class="space-y-0.5">
             <div class="flex items-center gap-2">
-              <span class="text-yellow-400 text-sm">⚠</span>
-              <span class="text-sm text-gray-200">Partial outage</span>
+              <span class="text-warning text-sm">⚠</span>
+              <span class="text-sm text-foreground">Partial outage</span>
             </div>
-            <div class="text-sm text-gray-400 pl-5">
+            <div class="text-sm text-muted-foreground pl-5">
               {{ formatDowntime(day.uptime_percent, day.total_checks) }}
             </div>
           </div>
 
           <!-- No incidents -->
-          <div v-else class="text-sm text-gray-400">
+          <div v-else class="text-sm text-muted-foreground">
             No downtime recorded
           </div>
         </div>

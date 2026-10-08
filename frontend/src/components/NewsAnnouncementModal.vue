@@ -68,7 +68,7 @@ onUnmounted(() => {
     <DialogContent class="sm:max-w-lg">
       <DialogHeader>
         <DialogTitle class="flex items-center gap-2">
-          <Newspaper class="h-5 w-5 text-blue-400" />
+          <Newspaper class="h-5 w-5 text-info" />
           News Update ({{ newsDate }})
         </DialogTitle>
         <DialogDescription>
@@ -77,13 +77,13 @@ onUnmounted(() => {
       </DialogHeader>
 
       <div class="max-h-80 overflow-y-auto">
-        <ul class="space-y-2 text-sm text-gray-300">
+        <ul class="space-y-2 text-sm text-bone-muted">
           <li
             v-for="(item, index) in newsItems"
             :key="index"
             class="flex items-start gap-2"
           >
-            <span class="text-blue-400 mt-0.5">{{ item.startsWith('*') ? '  ' : '' }}{{ item.startsWith('*') ? '•' : '•' }}</span>
+            <span class="text-info mt-0.5">{{ item.startsWith('*') ? '  ' : '' }}{{ item.startsWith('*') ? '•' : '•' }}</span>
             <span>{{ item.replace(/^[-*]\s*/, '') }}</span>
           </li>
         </ul>

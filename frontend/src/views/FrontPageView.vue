@@ -1,20 +1,12 @@
 <script setup lang="ts">
 import { computed, createApp, onBeforeUnmount, ref, watch } from 'vue'
 import DOMPurify from 'dompurify'
-import {
-  ArrowDown,
-  ArrowRight,
-  ArrowUpRight,
-  Compass,
-  Flag,
-  Pause,
-  Play,
-  Swords,
-} from '@lucide/vue'
+import { ArrowDown, ArrowUpRight, Compass, Flag, Pause, Play, Swords } from '@lucide/vue'
 import { RouterLink } from 'vue-router'
 import { usePreferredReducedMotion } from '@vueuse/core'
 import { useHead } from '@unhead/vue'
 import defaultHeroImage from '@/assets/home/duris-eclipse.webp'
+import { BrandActionLink, BrandTextLink, DisplayHeading, IndexLabel } from '@/components/brand'
 import CarouselDisplay from '@/components/forum/CarouselDisplay.vue'
 import MapPreviewDisplay from '@/components/forum/widgets/MapPreviewDisplay.vue'
 import RecentPvPDisplay from '@/components/forum/widgets/RecentPvPDisplay.vue'
@@ -246,16 +238,14 @@ onBeforeUnmount(() => {
           </h1>
           <p class="hero-subtitle">{{ heroSubtitle }}</p>
           <div class="hero-actions">
-            <RouterLink to="/play" class="action-link">
-              <span>Enter the world</span><ArrowRight aria-hidden="true" />
-            </RouterLink>
-            <RouterLink to="/news" class="text-link">News &amp; Updates</RouterLink>
+            <BrandActionLink to="/play">Enter the world</BrandActionLink>
+            <BrandTextLink to="/news">News &amp; Updates</BrandTextLink>
           </div>
           <p class="play-note">Free to play. Played in your browser.</p>
         </div>
       </div>
       <div class="hero-rail">
-        <p>Words build worlds. Players make history.</p>
+        <IndexLabel as="p" class="rail-label">Words build worlds. Players make history.</IndexLabel>
         <div class="rail-controls">
           <button type="button" class="explore-link" @click="exploreWorld">
             Explore Duris <ArrowDown aria-hidden="true" />
@@ -282,7 +272,7 @@ onBeforeUnmount(() => {
     <section id="world" ref="worldRef" class="world-section" aria-labelledby="world-heading" tabindex="-1">
       <div class="world-inner">
         <div class="world-intro">
-          <h2 id="world-heading">The world is text.<br /><em>The stakes are real.</em></h2>
+          <DisplayHeading id="world-heading" :level="2" size="none">The world is text.<br /><em>The stakes are real.</em></DisplayHeading>
           <p>No quest marker can tell you who to trust. Learn the lands, follow the rivalries, and find the people who will stand beside you.</p>
         </div>
         <div class="pathways">
@@ -310,9 +300,9 @@ onBeforeUnmount(() => {
 
     <section class="final-call" aria-labelledby="final-call-heading">
       <div class="final-call-inner">
-        <h2 id="final-call-heading">What will your<br /><em>next command be?</em></h2>
+        <DisplayHeading id="final-call-heading" :level="2" size="none">What will your<br /><em>next command be?</em></DisplayHeading>
         <div class="final-action">
-          <RouterLink to="/play" class="action-link"><span>Enter Duris</span><ArrowRight aria-hidden="true" /></RouterLink>
+          <BrandActionLink to="/play">Enter Duris</BrandActionLink>
           <p>Free to play. No download required.</p>
         </div>
         <div class="colophon"><span>Duris</span><p>A world made by its players.</p></div>
@@ -330,8 +320,6 @@ onBeforeUnmount(() => {
   --rule: #575743;
   --display: "Cormorant Garamond", Georgia, serif;
   --gutter: clamp(1.5rem, 5.2vw, 6rem);
-  margin: -1rem -1rem -5rem;
-  padding-bottom: 5rem;
   background: var(--ink);
   color: var(--bone);
   overflow: clip;
@@ -404,39 +392,6 @@ onBeforeUnmount(() => {
   gap: 1.75rem;
   margin-top: 2.5rem;
 }
-.action-link {
-  display: inline-flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 2rem;
-  min-height: 3.875rem;
-  padding: 0.875rem 1.5rem;
-  background: #b92e1c;
-  color: #fff4e8;
-  font: 400 1.5rem / 1.2 var(--display);
-  transition: background 180ms ease;
-}
-.action-link:hover {
-  background: #d03b26;
-}
-.action-link svg {
-  width: 1.65rem;
-  height: 1.65rem;
-  stroke-width: 1;
-  transition: transform 180ms ease;
-}
-.action-link:hover svg {
-  transform: translateX(0.25rem);
-}
-.text-link {
-  font: 400 1.5rem / 1.3 var(--display);
-  text-decoration: underline;
-  text-underline-offset: 0.35rem;
-  text-decoration-color: #898879;
-}
-.text-link:hover {
-  color: var(--red);
-}
 .play-note {
   font-size: 0.875rem;
   color: var(--muted);
@@ -453,13 +408,8 @@ onBeforeUnmount(() => {
   gap: 1.5rem;
   background: var(--ink);
 }
-.hero-rail > p {
-  font:
-    0.6875rem / 1.5 ui-monospace,
-    monospace;
-  text-transform: uppercase;
+.rail-label {
   letter-spacing: 0.2em;
-  color: #b3b086;
 }
 .rail-controls {
   display: flex;
@@ -543,10 +493,12 @@ button:hover {
   padding-bottom: 3rem;
 }
 .world-intro h2 {
+  color: inherit;
   font: 400 clamp(3.3rem, 6.2vw, 6.5rem) / 0.98 var(--display);
   letter-spacing: -0.04em;
 }
 .world-intro em {
+  color: inherit;
   font-weight: 400;
 }
 .world-intro > p {
@@ -643,16 +595,12 @@ button:hover {
   font: 400 clamp(3.5rem, 6.5vw, 7rem) / 0.9 var(--display);
   letter-spacing: -0.04em;
 }
-.final-call h2 em {
-  color: var(--red);
-  font-weight: 400;
-}
-.final-action .action-link {
+.final-action .brand-action {
   width: 100%;
   padding: 1.5rem 2.5rem;
   font-size: 3rem;
 }
-.final-action .action-link svg {
+.final-action :deep(.brand-action svg) {
   width: 3rem;
   height: 3rem;
 }
@@ -716,12 +664,6 @@ button:hover {
 .motion-paused :is(.hero-art, .hero-copy, .ash) {
   animation-play-state: paused;
 }
-@media (min-width: 1024px) {
-  .duris-home {
-    margin-bottom: -1rem;
-    padding-bottom: 0;
-  }
-}
 @media (max-width: 1199px) and (min-width: 761px) {
   .hero-inner {
     min-height: 42rem;
@@ -740,7 +682,7 @@ button:hover {
   .hero-actions {
     gap: 1.2rem;
   }
-  .action-link {
+  .brand-action {
     gap: 1rem;
     padding-inline: 1rem;
   }
@@ -753,7 +695,7 @@ button:hover {
   .final-call-inner {
     gap: 2rem;
   }
-  .final-action .action-link {
+  .final-action .brand-action {
     font-size: 2.4rem;
   }
 }
@@ -789,12 +731,12 @@ button:hover {
     gap: 1.5rem;
     margin-top: 1.75rem;
   }
-  .action-link {
+  .brand-action {
     padding-inline: 1.1rem;
     gap: 1.25rem;
     font-size: 1.3rem;
   }
-  .text-link {
+  .brand-text-link {
     font-size: 1.3rem;
   }
   .play-note {
@@ -806,7 +748,7 @@ button:hover {
     padding-block: 1rem;
     gap: 0.75rem;
   }
-  .hero-rail > p {
+  .rail-label {
     font-size: 0.6rem;
     letter-spacing: 0.13em;
   }
@@ -865,7 +807,7 @@ button:hover {
   .final-call h2 {
     font-size: clamp(2.8rem, 10.5vw, 5rem);
   }
-  .final-action .action-link {
+  .final-action .brand-action {
     font-size: 2rem;
     padding: 1.25rem 1.5rem;
   }

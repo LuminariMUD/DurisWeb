@@ -47,10 +47,15 @@
 }
 
 @theme inline {
+  /* Rectangular by default (decision 1); rounded-sm is the soft-corner opt-in. */
+  --radius-xs: var(--radius);
   --radius-sm: calc(var(--radius) + 2px);
   --radius-md: var(--radius);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: var(--radius);
+  --radius-2xl: var(--radius);
+  --radius-3xl: var(--radius);
+  --radius-4xl: var(--radius);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -186,6 +191,76 @@
   }
   .brand-link:hover {
     color: var(--color-vermilion);
+  }
+  /* Vermilion call to action with a trailing arrow (BrandActionLink). */
+  .brand-action {
+    display: inline-flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2rem;
+    min-height: 3.875rem;
+    padding: 0.875rem 1.5rem;
+    background: var(--color-vermilion-deep);
+    color: #fff4e8;
+    font: 400 1.5rem / 1.2 var(--font-display);
+    transition: background 180ms ease;
+  }
+  .brand-action:hover {
+    background: var(--color-vermilion-hover);
+  }
+  .brand-action svg {
+    width: 1.65rem;
+    height: 1.65rem;
+    stroke-width: 1;
+    transition: transform 180ms ease;
+  }
+  .brand-action:hover svg {
+    transform: translateX(0.25rem);
+  }
+  .brand-action--compact {
+    gap: 1rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 1rem;
+    font-size: 1.25rem;
+  }
+  .brand-action--compact svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  /* Display-face text link (BrandTextLink). */
+  .brand-text-link {
+    font: 400 1.5rem / 1.3 var(--font-display);
+  }
+  /* Display heading with a vermilion italic accent (DisplayHeading). */
+  .display-heading {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: var(--color-bone);
+  }
+  .display-heading em {
+    color: var(--color-vermilion);
+    font-weight: 400;
+  }
+  .display-heading--page {
+    font-size: clamp(2.5rem, 4.5vw, 4rem);
+  }
+  .display-heading--section {
+    font-size: clamp(1.75rem, 3vw, 2.5rem);
+  }
+  /* Hairline rule between sections (SectionRule). */
+  .section-rule {
+    border: 0;
+    border-top: 1px solid var(--color-rule);
+    margin: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .brand-action,
+    .brand-action svg,
+    .brand-link {
+      transition: none;
+    }
   }
   /* Monospace, uppercase, tracked label. */
   .index-label {

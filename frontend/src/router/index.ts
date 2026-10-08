@@ -3,6 +3,13 @@ import { frontendConfiguration } from '@/config/environment'
 import { useAuth } from '@/composables/useAuth'
 import { profileApi, wikiApi } from '@/services/api'
 
+declare module 'vue-router' {
+  interface RouteMeta {
+    /** Pad the page with the standard gutter (default). Full-bleed pages set false. */
+    contentGutter?: boolean
+  }
+}
+
 const router = createRouter({
   history: createWebHistory(frontendConfiguration.baseUrl),
   routes: [
@@ -10,6 +17,7 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: () => import('../views/FrontPageView.vue'),
+      meta: { contentGutter: false },
     },
     {
       path: '/news',

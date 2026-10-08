@@ -105,12 +105,12 @@ async function markAllAsRead() {
   >
     <div
       v-if="showBanner"
-      class="bg-cyan-500/10 border-b border-cyan-500/30 px-4 py-2"
+      class="bg-vermilion/10 border-b border-vermilion/30 px-4 py-2"
     >
       <div class="container mx-auto flex items-center justify-between gap-4">
         <div class="flex items-center gap-3">
-          <History class="h-4 w-4 text-cyan-500 flex-shrink-0" />
-          <span class="text-sm text-cyan-200">
+          <History class="h-4 w-4 text-vermilion flex-shrink-0" />
+          <span class="text-sm text-vermilion-light">
             {{ unreadCount }} new update{{ unreadCount > 1 ? 's' : '' }} available
           </span>
         </div>
@@ -119,7 +119,7 @@ async function markAllAsRead() {
           <Button
             variant="ghost"
             size="sm"
-            class="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/20"
+            class="text-vermilion hover:text-vermilion-light hover:bg-vermilion/20"
             @click="goToChangelog"
           >
             View Changelog
@@ -127,7 +127,7 @@ async function markAllAsRead() {
           <Button
             variant="ghost"
             size="sm"
-            class="text-gray-400 hover:text-gray-300"
+            class="text-muted-foreground hover:text-bone-muted"
             @click="markAllAsRead"
           >
             Mark as Read
@@ -135,7 +135,7 @@ async function markAllAsRead() {
           <Button
             variant="ghost"
             size="icon"
-            class="h-6 w-6 text-gray-500 hover:text-gray-400"
+            class="h-6 w-6 text-faint hover:text-muted-foreground"
             @click="dismiss"
           >
             <X class="h-4 w-4" />
