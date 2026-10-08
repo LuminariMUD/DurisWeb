@@ -26,10 +26,24 @@ no longer exist and must not be treated as a fallback or secondary site.
   0600) with `DEPLOY_CLOUDFLARED_ENABLED=true`; rendered units under
   `/home/staging/.local/share/durisweb/rendered`. Credentials stay in that
   file and in `backend/.env`; none are recorded here.
-- As of 2026-10-08 the tunnel has zero connectors and both hostnames return
-  Cloudflare error 1033 until the application and tunnel units are started on
-  this host. Remaining prerequisites are recorded in the gitignored local
-  journal `docs/ongoing-projects/deploy-production.md`.
+- Live since 2026-10-08 12:03 UTC. The website schema was created on the shared
+  database by applying the twelve baseline SQL artifacts classified
+  `baseline-pending-conversion` followed by all 83 Knex migrations, rehearsed
+  first on a disposable restore where the 198 MUD-owned tables stayed
+  byte-identical; flags, wiki reference data, and forum categories were then
+  published and both compiled preflights pass. The tunnel also routes
+  `ws.duris.sbs` to the MUD WebSocket origin for browser play.
+- User-scope caveat: the unprivileged user manager implements `ProtectSystem=`,
+  `PrivateTmp=`, `ProtectKernelTunables=`, and `ProtectControlGroups=` through a
+  user namespace, from which the kernel denies reading the MUD process's
+  `/proc/<pid>/exe` and `cwd`, so the process monitor reported the game
+  offline. A host-local drop-in,
+  `~/.config/systemd/user/durisweb-production.service.d/10-user-scope-process-monitor.conf`,
+  disables those four properties; everything else in the rendered unit stays
+  in force. Follow-up: render that difference from `DEPLOY_SERVICE_SCOPE` in
+  the template instead of a handwritten override.
+- Operational notes live in the gitignored local journal
+  `docs/ongoing-projects/deploy-production.md`.
 
 ## Historical status from the retired host (2026-09-10, superseded)
 
