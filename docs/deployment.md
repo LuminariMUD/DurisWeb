@@ -230,7 +230,11 @@ backend-owned password to a mode-0600 runtime config; the secret never appears
 in `ExecStart`. For user services, enable linger for the selected service
 account and verify `Linger=yes` before enabling units.
 
-`DEPLOY_SERVICE_SCOPE=user` is the default. To use the system manager instead,
+`DEPLOY_SERVICE_SCOPE=user` is the default and is what the single production
+deployment uses; the system-scope instructions in this guide (root-owned unit
+copies under `/etc/systemd/system`, the `sudo` install of the watchdog to
+`/usr/local/sbin`) are retained for portability and are not used in production.
+To use the system manager instead,
 set `DEPLOY_SERVICE_SCOPE=system` and `SERVICE_USER` to an existing non-root
 account. All website units then use that identity and `multi-user.target`;
 the recovery selection records their scope. System mode preserves IPC owned
@@ -297,7 +301,7 @@ the same `REDIS_LIBRARY_PATH` rendered into the cache unit. A dynamic-loader
 error occurs before network authentication and must not be diagnosed as a bad
 Redis credential.
 
-For system scope, use `systemd-analyze verify` and install root-owned copies of
+For system scope (not used by the production deployment), use `systemd-analyze verify` and install root-owned copies of
 the reviewed units under `/etc/systemd/system` instead of linking them into a
 user manager. Run `systemctl daemon-reload`, then start/enable only the selected
 system group. Keep the operator input owned by `SERVICE_USER` for the tunnel
