@@ -57,16 +57,16 @@ watch(
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
         @click.self="close"
       >
-        <div :class="['relative m-4 flex flex-col bg-gray-950 border border-gray-800 rounded-lg shadow-xl', dialogClasses]">
+        <div :class="['relative m-4 flex flex-col bg-background border border-border rounded-lg shadow-xl', dialogClasses]">
           <!-- Header -->
-          <div class="flex items-center justify-between p-4 border-b border-gray-800">
-            <h2 v-if="titleHtml" class="text-lg font-semibold text-gray-100" v-html="titleHtml"></h2>
-            <h2 v-else-if="title" class="text-lg font-semibold text-gray-100">{{ title }}</h2>
+          <div class="flex items-center justify-between p-4 border-b border-border">
+            <h2 v-if="titleHtml" class="text-lg font-semibold text-foreground" v-html="titleHtml"></h2>
+            <h2 v-else-if="title" class="text-lg font-semibold text-foreground">{{ title }}</h2>
             <button
               @click="close"
-              class="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2"
+              class="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-vermilion focus:ring-offset-2"
             >
-              <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="h-6 w-6 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
               <span class="sr-only">Close</span>

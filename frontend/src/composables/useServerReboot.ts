@@ -174,11 +174,11 @@ export function getUptimeHealthColor(uptimeSeconds: number): string {
   const uptimeHours = uptimeSeconds / 3600
 
   if (uptimeHours >= 65) {
-    return 'text-red-500' // Critical - auto-reboot threshold
+    return 'text-danger' // Critical - auto-reboot threshold
   } else if (uptimeHours >= 60) {
-    return 'text-yellow-500' // Warning - approaching auto-reboot
+    return 'text-warning' // Warning - approaching auto-reboot
   } else {
-    return 'text-green-500' // Healthy
+    return 'text-success' // Healthy
   }
 }
 
@@ -191,18 +191,18 @@ export function getShutdownTypeBadge(type: string): {
   label: string
 } {
   // Assign colors based on type
-  let color = 'bg-blue-500' // default
+  let color = 'bg-info' // default
 
   if (type === 'crash') {
-    color = 'bg-red-500'
+    color = 'bg-danger'
   } else if (type === 'shutdown') {
-    color = 'bg-gray-500'
+    color = 'bg-faint'
   } else if (type === 'unknown') {
-    color = 'bg-gray-500'
+    color = 'bg-faint'
   } else if (type.includes('reboot')) {
-    color = 'bg-green-500'
+    color = 'bg-success'
   } else if (type === 'copyover') {
-    color = 'bg-yellow-500'
+    color = 'bg-warning'
   }
 
   // Convert to title case (e.g., "autoreboot_copyover" -> "Autoreboot Copyover")

@@ -258,23 +258,23 @@ export function useAuth() {
    * Get role badge color
    */
   function getRoleBadgeColor(): string {
-    if (!permissions.value) return 'bg-gray-500'
+    if (!permissions.value) return 'bg-faint'
 
     switch (permissions.value.role) {
       case 'overlord':
         return 'bg-purple-600'
       case 'forger':
-        return 'bg-red-600'
+        return 'bg-danger-deep'
       case 'greater_god':
-        return 'bg-yellow-600'
+        return 'bg-warning-deep'
       case 'lesser_god':
-        return 'bg-blue-600'
+        return 'bg-info-deep'
       case 'immortal':
-        return 'bg-green-600'
+        return 'bg-success-deep'
       case 'avatar':
-        return 'bg-cyan-600'
+        return 'bg-vermilion-deep'
       default:
-        return 'bg-gray-500'
+        return 'bg-faint'
     }
   }
 

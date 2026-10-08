@@ -9,7 +9,7 @@
       >
         <!-- Close button -->
         <button
-          class="absolute right-4 top-4 rounded-full bg-gray-800/80 p-2 text-gray-300 transition-colors hover:bg-gray-700 hover:text-white"
+          class="absolute right-4 top-4 rounded-full bg-ink-high/80 p-2 text-bone-muted transition-colors hover:bg-ink-top hover:text-white"
           @click.stop="close"
           title="Close (Escape)"
         >

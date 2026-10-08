@@ -32,14 +32,6 @@ src/components/mud/TriggerActionCard.vue
 src/components/mud/TriggerFormDialog.vue
 src/components/mud/TriggerTable.vue
 src/components/mud/chargen/MudCharacterCreate.vue
-src/components/ui/Dialog.vue
-src/components/ui/ImageLightbox.vue
-src/components/ui/PeriodSelector.vue
-src/components/ui/Select.vue
-src/components/ui/tooltip/TooltipContent.vue
-src/composables/useAuth.ts
-src/composables/useServerReboot.ts
-src/composables/useZones.ts
 src/views/MudClientView.vue
 src/views/PopOutMapView.vue
 src/views/ZoneManagementView.vue

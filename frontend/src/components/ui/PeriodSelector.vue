@@ -32,7 +32,7 @@ function selectPeriod(period: AnalyticsPeriod) {
 </script>
 
 <template>
-  <div class="inline-flex gap-1 rounded-lg border border-gray-700 bg-gray-900 p-1">
+  <div class="inline-flex gap-1 rounded-lg border border-border bg-card p-1">
     <button
       v-for="period in periods"
       :key="period.value"
@@ -40,8 +40,8 @@ function selectPeriod(period: AnalyticsPeriod) {
       :class="[
         'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
         selectedPeriod === period.value
-          ? 'bg-cyan-600 text-white shadow-sm'
-          : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200',
+          ? 'bg-vermilion-deep text-white shadow-sm'
+          : 'text-muted-foreground hover:bg-ink-high hover:text-foreground',
       ]"
       @click="selectPeriod(period.value)"
     >

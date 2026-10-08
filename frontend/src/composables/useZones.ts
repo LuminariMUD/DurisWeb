@@ -206,11 +206,11 @@ export function getAlignmentLabel(alignment: number): string {
 
 // Helper function to get alignment color
 export function getAlignmentColor(alignment: number): string {
-  if (alignment < -2) return 'text-red-600 dark:text-red-400'
-  if (alignment < 0) return 'text-orange-600 dark:text-orange-400'
-  if (alignment === 0) return 'text-gray-600 dark:text-gray-400'
-  if (alignment <= 2) return 'text-blue-600 dark:text-blue-400'
-  return 'text-cyan-600 dark:text-cyan-400'
+  if (alignment < -2) return 'text-danger'
+  if (alignment < 0) return 'text-orange-400'
+  if (alignment === 0) return 'text-muted-foreground'
+  if (alignment <= 2) return 'text-info'
+  return 'text-success'
 }
 
 // Helper function to format difficulty as stars
