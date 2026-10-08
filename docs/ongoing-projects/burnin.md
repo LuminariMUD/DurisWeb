@@ -1,5 +1,11 @@
 # Production Burn-In Journal
 
+> **Historical record from the retired host.** The paths, hostnames, ports, and
+> service scope below describe a deployment that no longer exists. The only
+> production website is documented in
+> [prod-deploy.md](prod-deploy.md#production-location-authoritative): one host,
+> also running the MUD, served exclusively through its Cloudflare tunnel.
+
 ## Scope and authority
 
 - Started: 2026-09-04 UTC.

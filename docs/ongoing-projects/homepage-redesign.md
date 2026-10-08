@@ -1,5 +1,11 @@
 # Duris homepage — eclipse edition
 
+> **Historical record from the retired host.** The paths, hostnames, ports, and
+> service scope below describe a deployment that no longer exists. The only
+> production website is documented in
+> [prod-deploy.md](prod-deploy.md#production-location-authoritative): one host,
+> also running the MUD, served exclusively through its Cloudflare tunnel.
+
 Updated 2026-09-05. This replaces the previous designer's unfinished proposal.
 Implementation is on the user-authorized `master` branch. Source and local
 production-preview verification are recorded below. The user subsequently
