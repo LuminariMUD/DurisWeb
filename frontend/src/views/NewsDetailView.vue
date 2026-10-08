@@ -46,18 +46,18 @@ const goBack = () => {
     </div>
 
     <!-- News Content -->
-    <div v-else-if="data && data.news" class="rounded-lg border border-gray-800 bg-gray-950 p-6">
-      <div class="rounded-md bg-black p-6 font-mono text-sm text-gray-100 overflow-x-auto">
+    <div v-else-if="data && data.news" class="rounded-lg border border-border bg-background p-6">
+      <div class="rounded-md bg-black p-6 font-mono text-sm text-foreground overflow-x-auto">
         <pre class="whitespace-pre-wrap" v-html="parsedContent"></pre>
       </div>
     </div>
 
     <!-- Empty State -->
     <div v-else class="text-center py-12">
-      <p class="text-gray-400">No news available</p>
+      <p class="text-muted-foreground">No news available</p>
       <button
         @click="goBack"
-        class="mt-4 inline-flex items-center text-sm text-cyan-400 hover:text-cyan-300"
+        class="mt-4 inline-flex items-center text-sm text-vermilion hover:text-vermilion-light"
       >
         ← Back to News
       </button>

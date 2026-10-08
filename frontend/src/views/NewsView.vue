@@ -65,7 +65,7 @@ const parsedContent = computed(() => {
   <div class="space-y-6">
     <!-- Header -->
     <div>
-      <h1 class="text-3xl font-bold text-gray-100">News</h1>
+      <h1 class="text-4xl md:text-5xl text-foreground">News</h1>
     </div>
 
     <!-- Tabs -->
@@ -104,15 +104,15 @@ const parsedContent = computed(() => {
         </div>
 
         <!-- News Content -->
-        <div v-else-if="data && data.news" class="rounded-lg border border-gray-800 bg-gray-950 p-6">
-          <div class="rounded-md bg-black p-6 font-mono text-sm text-gray-100 overflow-x-auto">
+        <div v-else-if="data && data.news" class="rounded-lg border border-border bg-background p-6">
+          <div class="rounded-md bg-black p-6 font-mono text-sm text-foreground overflow-x-auto">
             <pre class="whitespace-pre-wrap" v-html="parsedContent"></pre>
           </div>
         </div>
 
         <!-- Empty State -->
         <div v-else class="text-center py-12">
-          <p class="text-gray-400">No news available</p>
+          <p class="text-muted-foreground">No news available</p>
         </div>
       </TabsContent>
 

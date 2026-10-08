@@ -126,7 +126,7 @@ function goToPage(page: number) {
 
     <!-- Empty State -->
     <div v-else-if="entries.length === 0" class="text-center py-12">
-      <p class="text-gray-400">no changelog entries yet</p>
+      <p class="text-muted-foreground">no changelog entries yet</p>
     </div>
 
     <!-- Changelog Entries -->
@@ -134,8 +134,8 @@ function goToPage(page: number) {
       <div
         v-for="entry in entries"
         :key="entry.id"
-        class="rounded-lg border border-gray-800 bg-gray-950 overflow-hidden transition-colors"
-        :class="{ 'border-cyan-500/30': !entry.isRead && isAuthenticated }"
+        class="rounded-lg border border-border bg-background overflow-hidden transition-colors"
+        :class="{ 'border-vermilion/30': !entry.isRead && isAuthenticated }"
       >
         <!-- Header (clickable) -->
         <button
@@ -143,12 +143,12 @@ function goToPage(page: number) {
           @click="toggleEntry(entry.id)"
           :aria-expanded="isExpanded(entry.id)"
           :aria-controls="`changelog-entry-${entry.id}`"
-          class="w-full flex items-center gap-4 p-4 text-left hover:bg-gray-900/50 transition-colors"
+          class="w-full flex items-center gap-4 p-4 text-left hover:bg-card/50 transition-colors"
         >
           <!-- Read indicator -->
           <div v-if="isAuthenticated" class="flex-shrink-0">
-            <CheckCircle2 v-if="entry.isRead" class="h-4 w-4 text-gray-600" />
-            <Circle v-else class="h-4 w-4 text-cyan-500" />
+            <CheckCircle2 v-if="entry.isRead" class="h-4 w-4 text-faint" />
+            <Circle v-else class="h-4 w-4 text-vermilion" />
           </div>
 
           <!-- Version -->
@@ -158,7 +158,7 @@ function goToPage(page: number) {
 
           <!-- Title and date -->
           <div class="flex-1 min-w-0">
-            <h3 class="font-medium text-gray-100 truncate">{{ entry.title }}</h3>
+            <h3 class="font-medium text-foreground truncate">{{ entry.title }}</h3>
             <p class="text-xs text-muted-foreground">{{ formatDate(entry.createdAt) }}</p>
           </div>
 
@@ -169,7 +169,7 @@ function goToPage(page: number) {
 
           <!-- Expand/collapse icon -->
           <ChevronDown
-            class="h-5 w-5 text-gray-500 flex-shrink-0 transition-transform duration-200"
+            class="h-5 w-5 text-faint flex-shrink-0 transition-transform duration-200"
             :class="{ 'rotate-180': isExpanded(entry.id) }"
           />
         </button>
@@ -179,7 +179,7 @@ function goToPage(page: number) {
           :id="`changelog-entry-${entry.id}`"
           v-show="isExpanded(entry.id)"
           :ref="(el) => { if (el) contentRefs.set(entry.id, el as HTMLElement) }"
-          class="border-t border-gray-800 px-4 py-4 prose prose-invert prose-sm max-w-none tiptap-content"
+          class="border-t border-border px-4 py-4 prose prose-invert prose-sm max-w-none tiptap-content"
           v-html="sanitizeChangelogContent(entry.content)"
         ></div>
       </div>

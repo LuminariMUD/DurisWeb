@@ -16,7 +16,6 @@ src/components/builder/Design4TabbedWorkspace.vue
 src/components/builder/Design5NotionStyle.vue
 src/components/builder/MentionList.vue
 src/components/builder/ZoneMap.vue
-src/components/changelog/ChangelogList.vue
 src/components/charts/WorldMap.vue
 src/components/forum/CarouselDisplay.vue
 src/components/forum/editor/CarouselNodeView.vue
@@ -67,8 +66,6 @@ src/views/GuideView.vue
 src/views/HelpSuggestionsView.vue
 src/views/MudClientView.vue
 src/views/MySuggestionsView.vue
-src/views/NewsDetailView.vue
-src/views/NewsView.vue
 src/views/PopOutMapView.vue
 src/views/PvPListView.vue
 src/views/SearchView.vue
