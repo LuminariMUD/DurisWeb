@@ -15,7 +15,6 @@ import { RouterLink } from 'vue-router'
 import { usePreferredReducedMotion } from '@vueuse/core'
 import { useHead } from '@unhead/vue'
 import defaultHeroImage from '@/assets/home/duris-eclipse.webp'
-import '@/assets/home/typography.css'
 import CarouselDisplay from '@/components/forum/CarouselDisplay.vue'
 import MapPreviewDisplay from '@/components/forum/widgets/MapPreviewDisplay.vue'
 import RecentPvPDisplay from '@/components/forum/widgets/RecentPvPDisplay.vue'
@@ -919,11 +918,6 @@ button:hover {
   font-size: 1.75rem;
 }
 
-:deep(.tiptap-content a) {
-  color: var(--red);
-  text-underline-offset: 0.2em;
-}
-
 :deep(.tiptap-content img) {
   max-width: 100%;
   height: auto;
@@ -953,33 +947,9 @@ button:hover {
   border-radius: 0.75rem;
 }
 
-:deep(.tiptap-content)::after {
-  display: table;
-  clear: both;
-  content: '';
-}
-
-:deep(.tiptap-content table) {
-  width: 100%;
-  margin: 1.5rem 0;
-  border-collapse: collapse;
-}
-
-:deep(.tiptap-content th),
-:deep(.tiptap-content td) {
+:deep(.tiptap-content :is(th, td)) {
   padding: 0.75rem 1rem;
-  border: 1px solid var(--rule);
-  text-align: left;
   vertical-align: top;
-}
-
-:deep(.tiptap-content th) {
-  background: #17110e;
-  color: var(--bone);
-}
-
-:deep(.tiptap-content td) {
-  background: #0b0908;
 }
 
 :deep(.tiptap-content .columns) {

@@ -4,8 +4,8 @@
   "description": "Play DurisMUD online - PvP, Auction House, Forum & More",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a2e",
-  "theme_color": "#16213e",
+  "background_color": "#111310",
+  "theme_color": "#111310",
   "orientation": "any",
   "icons": [
     {

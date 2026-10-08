@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="64" fill="#16213e"/>
-  <text x="256" y="350" font-family="Arial, sans-serif" font-size="320" font-weight="bold" fill="#41b883" text-anchor="middle">D</text>
+  <rect width="512" height="512" fill="#111310"/>
+  <text x="256" y="362" font-family="'Cormorant Garamond', Georgia, 'Times New Roman', serif" font-size="352" fill="#ece8dd" text-anchor="middle">D</text>
+  <rect x="164" y="410" width="184" height="8" fill="#df583d"/>
 </svg>

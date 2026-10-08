@@ -1,10 +1,35 @@
 import { fileURLToPath, URL } from 'node:url'
 
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import { VitePWA } from 'vite-plugin-pwa'
 import { parseViteEnvironment } from './config/environment.ts'
+
+/** Preload the hashed display-face files so headings do not flash in the fallback serif. */
+function preloadDisplayFonts(base: string): Plugin {
+  return {
+    name: 'duris-preload-display-fonts',
+    enforce: 'post',
+    transformIndexHtml(_html, context) {
+      if (!context.bundle) return []
+      return Object.keys(context.bundle)
+        .filter((fileName) => /cormorant-garamond-[^/]*\.woff2$/.test(fileName))
+        .sort()
+        .map((fileName) => ({
+          tag: 'link',
+          attrs: {
+            rel: 'preload',
+            href: `${base}${fileName}`,
+            as: 'font',
+            type: 'font/woff2',
+            crossorigin: '',
+          },
+          injectTo: 'head' as const,
+        }))
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -16,6 +41,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       vue(),
       vueDevTools(),
+      preloadDisplayFonts(environment.baseUrl),
       VitePWA({
         registerType: 'prompt',
         includeAssets: ['favicon.ico', 'icons/*.svg'],

@@ -1,36 +1,54 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./fonts.css";
 
+/* The site has a single dark palette; the class stays on <html> for third-party widgets. */
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Eclipse design tokens. Hex values are the ones shipped on the homepage in
+ * September 2026. Add a color here, then reference it through a utility such
+ * as `bg-ink-raised` or `text-vermilion`; raw Tailwind palette classes
+ * (gray, cyan, zinc, slate) are rejected by scripts/check-palette-literals.sh.
+ */
 @theme {
-  --color-background: #ffffff;
-  --color-foreground: #0a0a0a;
-  --color-card: #ffffff;
-  --color-card-foreground: #0a0a0a;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #0a0a0a;
-  --color-primary: #171717;
-  --color-primary-foreground: #fafafa;
-  --color-secondary: #f5f5f5;
-  --color-secondary-foreground: #171717;
-  --color-muted: #f5f5f5;
-  --color-muted-foreground: #737373;
-  --color-accent: #f5f5f5;
-  --color-accent-foreground: #171717;
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #fafafa;
-  --color-border: #e5e5e5;
-  --color-input: #e5e5e5;
-  --color-ring: #0a0a0a;
-  --radius-lg: 0.5rem;
-  --radius-md: calc(0.5rem - 2px);
-  --radius-sm: calc(0.5rem - 4px);
+  --color-ink: #111310;
+  --color-ink-raised: #1a1c18;
+  --color-ink-high: #262820;
+  --color-ink-top: #34362c;
+  --color-ink-sunken: #0b0908;
+  --color-bone: #ece8dd;
+  --color-bone-muted: #d0cec2;
+  --color-faint: #898879;
+  --color-rule: #575743;
+  --color-rule-paper: #999a8d;
+  --color-paper-ink: #171a15;
+  --color-vermilion: #df583d;
+  --color-vermilion-light: #ec8468;
+  --color-vermilion-deep: #b92e1c;
+  --color-vermilion-hover: #d03b26;
+  --color-vermilion-paper: #a3281b;
+  --color-ember: #f79250;
+  --color-label: #b3b086;
+
+  /* Status palette, tuned to sit on ink. Use `/15` alpha for badge fills. */
+  --color-success: #8aa66b;
+  --color-success-deep: #4d6a35;
+  --color-warning: #d9a553;
+  --color-warning-deep: #8a5f1c;
+  --color-danger: #df583d;
+  --color-danger-deep: #9e2a1a;
+  --color-info: #7f9fb0;
+  --color-info-deep: #3d5d6e;
+
+  --font-sans: ui-sans-serif, system-ui, Arial, sans-serif;
+  --font-display: "Cormorant Garamond", Georgia, serif;
+  --font-label: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) + 2px);
+  --radius-md: var(--radius);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --color-background: var(--background);
@@ -47,9 +65,10 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
@@ -69,79 +88,45 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Semantic (shadcn-vue) mapping. This is the only palette; there is no light theme. */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --warning: oklch(0.555 0.163 48.998);
-  --warning-foreground: oklch(0.208 0.042 265.755);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
-}
-
-.dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.129 0.042 264.695);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.129 0.042 264.695);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.984 0.003 247.858);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --warning: oklch(0.769 0.188 70.08);
-  --warning-foreground: oklch(0.208 0.042 265.755);
-  --border: oklch(0.279 0.041 260.031);
-  --input: oklch(0.279 0.041 260.031);
-  --ring: oklch(0.446 0.043 257.281);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: #030712;
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: #1f2937;
-  --sidebar-ring: oklch(0.446 0.043 257.281);
+  --radius: 0px;
+  --background: var(--color-ink);
+  --foreground: var(--color-bone);
+  --card: var(--color-ink-raised);
+  --card-foreground: var(--color-bone);
+  --popover: var(--color-ink-raised);
+  --popover-foreground: var(--color-bone);
+  --primary: var(--color-bone);
+  --primary-foreground: var(--color-ink);
+  --secondary: var(--color-ink-high);
+  --secondary-foreground: var(--color-bone);
+  --muted: var(--color-ink-raised);
+  --muted-foreground: #b8b5a8;
+  --accent: var(--color-ink-high);
+  --accent-foreground: var(--color-bone);
+  --brand: var(--color-vermilion-deep);
+  --brand-foreground: #fff4e8;
+  --destructive: var(--color-danger-deep);
+  --destructive-foreground: var(--color-vermilion-light);
+  --warning-foreground: var(--color-ink);
+  --border: var(--color-rule);
+  --input: var(--color-rule);
+  --ring: var(--color-vermilion);
+  --chart-1: var(--color-vermilion);
+  --chart-2: var(--color-ember);
+  --chart-3: var(--color-label);
+  --chart-4: var(--color-bone-muted);
+  --chart-5: var(--color-info);
+  --sidebar: var(--color-ink);
+  --sidebar-foreground: var(--color-bone);
+  --sidebar-primary: var(--color-vermilion);
+  --sidebar-primary-foreground: var(--color-ink);
+  --sidebar-accent: var(--color-ink-raised);
+  --sidebar-accent-foreground: var(--color-bone);
+  --sidebar-border: var(--color-rule);
+  --sidebar-ring: var(--color-vermilion);
+  color-scheme: dark;
 }
 
 @layer base {
@@ -150,7 +135,7 @@
   }
   html,
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -162,12 +147,61 @@
     width: 100vw;
     overflow: hidden;
   }
+  /* Display face for page and section headings; only the 400 weight ships, so never fake bold. */
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-synthesis: none;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+  :where(a, button, summary, [role="button"], [tabindex]):focus-visible {
+    outline: 2px solid var(--color-vermilion);
+    outline-offset: 4px;
+  }
+  ::selection {
+    background: var(--color-vermilion-deep);
+    color: #fff4e8;
+  }
 }
 
-/* Custom Scrollbar Styling */
+@layer components {
+  /* Long-form reading surface (guide pages, wiki articles, news bodies). */
+  .surface-paper {
+    background: var(--color-bone);
+    color: var(--color-paper-ink);
+    --tw-prose-body: var(--color-paper-ink);
+    --tw-prose-headings: var(--color-paper-ink);
+  }
+  .surface-paper a {
+    color: var(--color-vermilion-paper);
+  }
+  /* Underlined secondary link, as used on the homepage. */
+  .brand-link {
+    text-decoration: underline;
+    text-decoration-color: var(--color-faint);
+    text-underline-offset: 0.35rem;
+    transition: color 180ms ease;
+  }
+  .brand-link:hover {
+    color: var(--color-vermilion);
+  }
+  /* Monospace, uppercase, tracked label. */
+  .index-label {
+    font-family: var(--font-label);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    color: var(--color-label);
+  }
+}
+
+/* Scrollbar: rule on ink */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #374151 #030712;
+  scrollbar-color: var(--color-rule) var(--color-ink);
 }
 
 *::-webkit-scrollbar {
@@ -176,25 +210,24 @@
 }
 
 *::-webkit-scrollbar-track {
-  background: #030712;
+  background: var(--color-ink);
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #374151;
-  border-radius: 4px;
+  background: var(--color-rule);
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+  background: var(--color-faint);
 }
 
-/* NProgress Custom Styling - Cyan Theme */
+/* NProgress: vermilion */
 #nprogress {
   pointer-events: none;
 }
 
 #nprogress .bar {
-  background: #22d3ee;
+  background: var(--color-vermilion);
   position: fixed;
   z-index: 1031;
   top: 0;
@@ -210,10 +243,32 @@
   width: 100px;
   height: 100%;
   box-shadow:
-    0 0 10px #22d3ee,
-    0 0 5px #22d3ee;
+    0 0 10px var(--color-vermilion),
+    0 0 5px var(--color-vermilion);
   opacity: 1;
   transform: rotate(3deg) translate(0px, -4px);
+}
+
+/* vue-sonner toasts on ink */
+html [data-sonner-toaster][data-sonner-theme="dark"] {
+  --normal-bg: var(--color-ink-raised);
+  --normal-bg-hover: var(--color-ink-high);
+  --normal-border: var(--color-rule);
+  --normal-border-hover: var(--color-faint);
+  --normal-text: var(--color-bone);
+  --success-bg: var(--color-ink-raised);
+  --success-border: var(--color-success-deep);
+  --success-text: var(--color-success);
+  --info-bg: var(--color-ink-raised);
+  --info-border: var(--color-info-deep);
+  --info-text: var(--color-info);
+  --warning-bg: var(--color-ink-raised);
+  --warning-border: var(--color-warning-deep);
+  --warning-text: var(--color-warning);
+  --error-bg: var(--color-ink-raised);
+  --error-border: var(--color-danger-deep);
+  --error-text: var(--color-vermilion-light);
+  --border-radius: 0px;
 }
 
 /* Indeterminate Progress Bar Animation */
@@ -253,7 +308,6 @@
 .tiptap-content img {
   max-width: 100%;
   height: auto;
-  border-radius: 0.5rem;
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
 }
@@ -311,7 +365,6 @@
 
 .tiptap-content .column {
   padding: 0.75rem;
-  border-radius: 0.375rem;
 }
 
 /* Table styles */
@@ -323,20 +376,20 @@
 
 .tiptap-content th,
 .tiptap-content td {
-  border: 1px solid rgb(55 65 81);
+  border: 1px solid var(--color-rule);
   padding: 0.5rem 0.75rem;
   text-align: left;
 }
 
 .tiptap-content th {
-  background-color: rgb(31 41 55);
+  background-color: var(--color-ink-raised);
   font-weight: 600;
-  color: rgb(229 231 235);
+  color: var(--color-bone);
 }
 
 .tiptap-content td {
-  background-color: rgb(17 24 39);
-  color: rgb(209 213 219);
+  background-color: var(--color-ink-sunken);
+  color: var(--color-bone-muted);
 }
 
 .tiptap-content table[data-rounded="true"] {
@@ -348,50 +401,49 @@
 .tiptap-content pre {
   margin: 1rem 0;
   overflow-x: auto;
-  border-radius: 0.25rem;
-  background-color: rgb(3 7 18);
+  background-color: var(--color-ink-sunken);
   padding: 1rem;
   font-family: ui-monospace, monospace;
   font-size: 0.875rem;
 }
 
 .tiptap-content code {
-  border-radius: 0.25rem;
-  background-color: rgb(31 41 55);
+  background-color: var(--color-ink-raised);
   padding: 0.125rem 0.375rem;
   font-family: ui-monospace, monospace;
   font-size: 0.875rem;
-  color: rgb(34 211 238);
+  color: var(--color-ember);
 }
 
 .tiptap-content pre code {
   background-color: transparent;
   padding: 0;
-  color: rgb(209 213 219);
+  color: var(--color-bone-muted);
 }
 
 /* Blockquote */
 .tiptap-content blockquote {
-  border-left: 4px solid rgb(55 65 81);
+  border-left: 2px solid var(--color-rule);
   padding-left: 1rem;
   font-style: italic;
-  color: rgb(156 163 175);
+  color: var(--muted-foreground);
 }
 
 /* Horizontal rule */
 .tiptap-content hr {
   margin: 1rem 0;
-  border-color: rgb(55 65 81);
+  border-color: var(--color-rule);
 }
 
 /* Links */
 .tiptap-content a {
-  color: rgb(34 211 238);
+  color: var(--color-vermilion);
   text-decoration: underline;
+  text-underline-offset: 0.2em;
 }
 
 .tiptap-content a:hover {
-  color: rgb(103 232 249);
+  color: var(--color-vermilion-light);
 }
 
 /* Lists */
@@ -409,9 +461,8 @@
 .tiptap-content .image-carousel {
   position: relative;
   margin: 1rem 0;
-  border-radius: 0.5rem;
   overflow: hidden;
-  background: rgb(17 24 39);
+  background: var(--color-ink-raised);
 }
 
 /* Responsive columns */

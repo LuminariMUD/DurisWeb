@@ -1,6 +1,7 @@
 # Site-wide design transition — eclipse edition everywhere
 
-Written 2026-10-08. Plan only; no code has changed. The production website is
+Written 2026-10-08; implementation started the same day (see Progress and
+the Implementation log at the end). The production website is
 the single deployment described in
 [prod-deploy.md](prod-deploy.md#production-location-authoritative). The
 homepage shipped the "eclipse" design on 2026-09-05 (commit `e86c895`, recorded
@@ -12,8 +13,8 @@ homepage design to the whole site in shippable phases.
 
 | Phase | State |
 | --- | --- |
-| 0. Decisions and baseline | Not started |
-| 1. Foundation: tokens, fonts, global chrome | Not started |
+| 0. Decisions and baseline | Done 2026-10-08 (screenshots: see log) |
+| 1. Foundation: tokens, fonts, global chrome | Done 2026-10-08 |
 | 2. Shell: header, navigation, sidebar, banners, shared primitives | Not started |
 | 3. Public surfaces sweep | Not started |
 | 4. Play client chrome | Not started |
@@ -91,6 +92,12 @@ Two categories are deliberately **not** recolored:
 ## Decisions to confirm before Phase 1
 
 Each has a recommendation. Record the answer in this file before starting.
+
+**Recorded 2026-10-08: all six recommendations accepted.** Radius 0 with
+`rounded-sm` opt-in; bone-on-ink `default` button plus a vermilion `brand`
+variant; ink by default with an opt-in `surface-paper` class; display face
+only for wordmark, `h1`, `h2` and brand CTAs; Lucide default stroke in
+application UI; builder mockups removed in Phase 5.
 
 1. **Corner radius.** Recommendation: `--radius: 0` site-wide to match the
    homepage's rectangular controls. Inputs, badges and avatars can opt into
@@ -476,3 +483,56 @@ Rough, in focused sessions, assuming one person and review between phases.
 | 4 | 1 |
 | 5 | 2 |
 | 6 | 0.5 |
+
+## Implementation log
+
+### Phase 0 — 2026-10-08
+
+- Decisions recorded above.
+- Baseline matrix on `master` at `6cce81e`: `format:check`, `lint` and
+  `type-check` pass; `test:unit --run` has 1 failure out of 182, the known
+  `useSiteConfig.test.ts` "retired Duris SBS brand" case. Later phases are
+  measured against that single failure.
+- Baseline screenshots: no Playwright or Chromium exists on the host; an ad
+  hoc install in the session scratchpad is used for acceptance captures
+  (outside the checkout, never committed).
+
+### Phase 1 — 2026-10-08
+
+- `main.css` now holds the eclipse tokens and the semantic mapping; the light
+  `:root` block and the `.dark` override block are gone. Deviations from the
+  table above:
+  - The plan's `--color-muted` (`#b8b5a8`) would collide with shadcn's
+    `--color-muted` surface token, so that value lives only in
+    `--muted-foreground`.
+  - Two extra surface steps were needed to keep the old 800/700 hover
+    hierarchy: `--color-ink-high` `#262820` and `--color-ink-top` `#34362c`.
+    Also added `--color-vermilion-light` `#ec8468` for small accent text and
+    hovers on ink, and `-deep` variants of each status color for solid fills
+    under white text.
+  - `--primary` is bone and `--brand` is vermilion-deep (decision 2);
+    `--destructive` is `--color-danger-deep` `#9e2a1a`, darker than the brand
+    fill.
+- Fonts moved to `src/assets/fonts.css`; `home/typography.css` and
+  `base.css` deleted. Vite hashes the font files, so a small plugin in
+  `vite.config.ts` injects `<link rel="preload">` for the two hashed WOFF2
+  files at build time instead of hard-coding paths in `index.html`.
+- Base layer: `h1`/`h2` in the display face with `font-synthesis: none`
+  (existing `font-bold` classes cannot fake a bold serif), global
+  vermilion focus outline for links, buttons and `[tabindex]`, selection
+  color, plus `.surface-paper`, `.brand-link` and `.index-label` component
+  classes.
+- Scrollbar, NProgress, TipTap content and vue-sonner toasts are retokened.
+  Toasts are themed with CSS variables in `main.css` instead of a style prop,
+  so both `Toaster` instances (normal and pop-out) match.
+- PWA: `theme-color`, manifest colors, `offline.html`, the four SVG icons and
+  `favicon.ico` (redrawn as a bone "D" with a vermilion rule on ink).
+- Scaffold removed: `base.css`, `HomeView.vue`, `AboutView.vue`,
+  `HelloWorld.vue`, `TheWelcome.vue`, `WelcomeItem.vue`, `components/icons/*`
+  (only used by `TheWelcome.vue`) and `HelloWorld.spec.ts`.
+- Guard: `frontend/scripts/check-palette-literals.sh` with
+  `palette-literals-allowlist.txt` seeded with 105 files. `ansiParser.ts`,
+  `MudColorExtension.ts` and `types/trigger.ts` (player highlight colors) are
+  permanently exempt as game semantics.
+- Matrix: format, lint, type-check pass; unit tests 180/181 with only the
+  baseline failure; build passes and emits both font preloads.
