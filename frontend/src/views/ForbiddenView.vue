@@ -1,28 +1,28 @@
 <template>
-  <div class="min-h-screen bg-gray-950 flex items-center justify-center px-4">
+  <div class="min-h-screen bg-background flex items-center justify-center px-4">
     <div class="max-w-md w-full text-center">
       <!-- Error Icon -->
       <div class="flex justify-center mb-6">
-        <div class="rounded-full bg-red-500/10 p-6">
-          <ShieldXIcon class="h-16 w-16 text-red-500" />
+        <div class="rounded-full bg-danger/10 p-6">
+          <ShieldXIcon class="h-16 w-16 text-danger" />
         </div>
       </div>
 
       <!-- Error Message -->
-      <h1 class="text-4xl font-bold text-white mb-4">403 - Access Forbidden</h1>
-      <p class="text-gray-400 mb-2">
+      <h1 class="text-4xl md:text-5xl text-foreground mb-4">403 - Access Forbidden</h1>
+      <p class="text-muted-foreground mb-2">
         You do not have permission to access this area.
       </p>
-      <p class="text-sm text-gray-500 mb-8">
+      <p class="text-sm text-faint mb-8">
         {{ errorMessage }}
       </p>
 
       <!-- Required Level Info -->
-      <div v-if="requiredLevel" class="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-8">
-        <p class="text-sm text-gray-400 mb-2">Required Permission Level:</p>
-        <p class="text-lg font-semibold text-red-400">{{ requiredLevel }}</p>
-        <p v-if="currentLevel" class="text-sm text-gray-500 mt-2">
-          Your Level: <span class="text-gray-400">{{ currentLevel }}</span>
+      <div v-if="requiredLevel" class="bg-card border border-border rounded-lg p-4 mb-8">
+        <p class="text-sm text-muted-foreground mb-2">Required Permission Level:</p>
+        <p class="text-lg font-semibold text-danger">{{ requiredLevel }}</p>
+        <p v-if="currentLevel" class="text-sm text-faint mt-2">
+          Your Level: <span class="text-muted-foreground">{{ currentLevel }}</span>
         </p>
       </div>
 
@@ -30,14 +30,14 @@
       <div class="flex flex-col sm:flex-row gap-4 justify-center">
         <RouterLink
           :to="{ name: 'forum' }"
-          class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+          class="px-6 py-3 bg-info-deep hover:bg-info-deep/80 text-white rounded-lg font-medium transition-colors"
         >
           <HomeIcon class="h-4 w-4 inline-block mr-2" />
           Go to Forum
         </RouterLink>
         <button
           @click="goBack"
-          class="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+          class="px-6 py-3 bg-ink-high hover:bg-ink-top text-white rounded-lg font-medium transition-colors"
         >
           <ArrowLeftIcon class="h-4 w-4 inline-block mr-2" />
           Go Back
@@ -45,7 +45,7 @@
       </div>
 
       <!-- Contact Info -->
-      <p class="text-xs text-gray-600 mt-8">
+      <p class="text-xs text-faint mt-8">
         If you believe this is an error, please contact a Greater God or Overlord in-game.
       </p>
     </div>

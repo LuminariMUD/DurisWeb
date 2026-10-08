@@ -261,50 +261,50 @@ const toggleSelection = (list: string[], value: string) => {
   <div class="space-y-6">
     <!-- Header -->
     <div>
-      <h2 class="text-3xl font-bold tracking-tight text-gray-100">Advanced Search</h2>
-      <p class="text-gray-400">
+      <h2 class="text-4xl md:text-5xl text-foreground">Advanced Search</h2>
+      <p class="text-muted-foreground">
         Search and filter PvP events with advanced criteria
       </p>
     </div>
 
     <!-- Search Form -->
-    <div class="rounded-lg border border-gray-800 bg-gray-950 p-6">
+    <div class="rounded-lg border border-border bg-background p-6">
       <div class="space-y-6">
         <!-- Row 1: Player & Date Range -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <!-- Player Name -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2">Player Name</label>
+            <label class="block text-sm font-medium text-bone-muted mb-2">Player Name</label>
             <input
               v-model="playerName"
               type="text"
               placeholder="Search by player name..."
-              class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+              class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-faint focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
               @input="playerSearch = playerName"
             />
           </div>
 
           <!-- Start Date -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2">Start Date</label>
+            <label class="block text-sm font-medium text-bone-muted mb-2">Start Date</label>
             <input
               ref="startDateInput"
               v-model="dateRangeStart"
               type="text"
               placeholder="Select start date..."
-              class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+              class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-faint focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
             />
           </div>
 
           <!-- End Date -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2">End Date</label>
+            <label class="block text-sm font-medium text-bone-muted mb-2">End Date</label>
             <input
               ref="endDateInput"
               v-model="dateRangeEnd"
               type="text"
               placeholder="Select end date..."
-              class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+              class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-faint focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
             />
           </div>
         </div>
@@ -313,22 +313,22 @@ const toggleSelection = (list: string[], value: string) => {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <!-- Location -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2">Location</label>
+            <label class="block text-sm font-medium text-bone-muted mb-2">Location</label>
             <input
               v-model="selectedLocation"
               type="text"
               placeholder="Search by location..."
-              class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+              class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-faint focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
               @input="locationSearch = selectedLocation"
             />
           </div>
 
           <!-- Alignment -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2">Alignment</label>
+            <label class="block text-sm font-medium text-bone-muted mb-2">Alignment</label>
             <select
               v-model="selectedAlignment"
-              class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+              class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
             >
               <option value="">All Alignments</option>
               <option value="good">Good</option>
@@ -339,10 +339,10 @@ const toggleSelection = (list: string[], value: string) => {
 
           <!-- Group Size -->
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2">Group Size</label>
+            <label class="block text-sm font-medium text-bone-muted mb-2">Group Size</label>
             <select
               v-model="groupSize"
-              class="flex h-9 w-full rounded-md border border-gray-700 bg-gray-900 text-gray-300 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+              class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion"
             >
               <option value="">Any Size</option>
               <option v-for="size in groupSizes" :key="size" :value="size">{{ size }}</option>
@@ -352,7 +352,7 @@ const toggleSelection = (list: string[], value: string) => {
 
         <!-- Row 3: Level Range -->
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
+          <label class="block text-sm font-medium text-bone-muted mb-2">
             Level Range: {{ levelMin }} - {{ levelMax }}
           </label>
           <div class="flex items-center space-x-4">
@@ -361,21 +361,21 @@ const toggleSelection = (list: string[], value: string) => {
               type="range"
               min="1"
               max="60"
-              class="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+              class="flex-1 h-2 bg-ink-top rounded-lg appearance-none cursor-pointer accent-vermilion"
             />
             <input
               v-model.number="levelMax"
               type="range"
               min="1"
               max="60"
-              class="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+              class="flex-1 h-2 bg-ink-top rounded-lg appearance-none cursor-pointer accent-vermilion"
             />
           </div>
         </div>
 
         <!-- Row 4: Class Filter -->
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">Classes</label>
+          <label class="block text-sm font-medium text-bone-muted mb-2">Classes</label>
           <div class="flex flex-wrap gap-2">
             <button
               v-for="cls in classList"
@@ -384,8 +384,8 @@ const toggleSelection = (list: string[], value: string) => {
               :class="[
                 'px-3 py-1 rounded-md text-xs font-medium transition-colors',
                 selectedClasses.includes(cls)
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  ? 'bg-vermilion-deep text-white'
+                  : 'bg-ink-high text-bone-muted hover:bg-ink-top'
               ]"
             >
               {{ cls }}
@@ -395,7 +395,7 @@ const toggleSelection = (list: string[], value: string) => {
 
         <!-- Row 5: Race Filter -->
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">Races</label>
+          <label class="block text-sm font-medium text-bone-muted mb-2">Races</label>
           <div class="flex flex-wrap gap-2">
             <button
               v-for="race in raceList"
@@ -404,8 +404,8 @@ const toggleSelection = (list: string[], value: string) => {
               :class="[
                 'px-3 py-1 rounded-md text-xs font-medium transition-colors',
                 selectedRaces.includes(race)
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  ? 'bg-vermilion-deep text-white'
+                  : 'bg-ink-high text-bone-muted hover:bg-ink-top'
               ]"
             >
               {{ race }}
@@ -414,10 +414,10 @@ const toggleSelection = (list: string[], value: string) => {
         </div>
 
         <!-- Action Buttons -->
-        <div class="flex items-center space-x-4 pt-4 border-t border-gray-800">
+        <div class="flex items-center space-x-4 pt-4 border-t border-border">
           <button
             @click="handleSearch"
-            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:pointer-events-none disabled:opacity-50 bg-cyan-600 text-white hover:bg-cyan-700 h-9 px-6"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermilion disabled:pointer-events-none disabled:opacity-50 bg-vermilion-deep text-white hover:bg-vermilion-hover h-9 px-6"
           >
             <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -426,7 +426,7 @@ const toggleSelection = (list: string[], value: string) => {
           </button>
           <button
             @click="handleReset"
-            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:pointer-events-none disabled:opacity-50 bg-gray-800 text-gray-300 hover:bg-gray-700 h-9 px-6"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermilion disabled:pointer-events-none disabled:opacity-50 bg-ink-high text-bone-muted hover:bg-ink-top h-9 px-6"
           >
             Reset
           </button>
@@ -449,11 +449,11 @@ const toggleSelection = (list: string[], value: string) => {
     </div>
 
     <!-- Search Results -->
-    <div v-else-if="hasSearched && searchResults" class="rounded-lg border border-gray-800 bg-gray-950">
-      <div class="border-b border-gray-800 px-4 py-3">
-        <h3 class="text-lg font-semibold text-gray-100">
+    <div v-else-if="hasSearched && searchResults" class="rounded-lg border border-border bg-background">
+      <div class="border-b border-border px-4 py-3">
+        <h3 class="text-lg font-semibold text-foreground">
           Search Results
-          <span class="text-sm text-gray-400 font-normal ml-2">
+          <span class="text-sm text-muted-foreground font-normal ml-2">
             ({{ searchResults.pagination?.total || 0 }} events found)
           </span>
         </h3>
@@ -461,32 +461,32 @@ const toggleSelection = (list: string[], value: string) => {
 
       <div v-if="searchResults?.data?.length > 0" class="overflow-x-auto">
         <table class="w-full">
-          <thead class="border-b border-gray-800 bg-gray-900">
+          <thead class="border-b border-border bg-card">
             <tr>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Date/Time</th>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Location</th>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Killers</th>
-              <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Victims</th>
-              <th class="px-4 py-3 text-right text-sm font-medium text-gray-400">Actions</th>
+              <th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Date/Time</th>
+              <th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Location</th>
+              <th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Killers</th>
+              <th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Victims</th>
+              <th class="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr
               v-for="event in searchResults.data"
               :key="event.id"
-              class="border-b border-gray-800 hover:bg-gray-900 transition-colors cursor-pointer"
+              class="border-b border-border hover:bg-card transition-colors cursor-pointer"
               @click="viewBattle(event.id)"
             >
               <td class="px-4 py-3 text-sm">{{ formatDate(event.stamp) }}</td>
               <td class="px-4 py-3 text-sm"><span v-html="parseAnsiForVue(event.room_name)"></span></td>
-              <td class="px-4 py-3 text-sm text-green-600 dark:text-green-400">
+              <td class="px-4 py-3 text-sm text-success">
                 <div class="space-y-1">
                   <div v-for="(killer, idx) in event.killers" :key="idx">
                     <span v-html="parseAnsiForVue(killer.description)"></span>
                   </div>
                 </div>
               </td>
-              <td class="px-4 py-3 text-sm text-red-600 dark:text-red-400">
+              <td class="px-4 py-3 text-sm text-danger">
                 <div class="space-y-1">
                   <div v-for="(victim, idx) in event.victims" :key="idx">
                     <span v-html="parseAnsiForVue(victim.description)"></span>
@@ -507,8 +507,8 @@ const toggleSelection = (list: string[], value: string) => {
       </div>
 
       <!-- Empty Results -->
-      <div v-else class="p-12 text-center text-gray-400">
-        <svg class="h-12 w-12 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div v-else class="p-12 text-center text-muted-foreground">
+        <svg class="h-12 w-12 mx-auto mb-4 text-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <p>No PvP events found matching your criteria</p>
@@ -516,8 +516,8 @@ const toggleSelection = (list: string[], value: string) => {
       </div>
 
       <!-- Pagination -->
-      <div v-if="searchResults?.pagination && searchResults?.data?.length > 0" class="flex items-center justify-between border-t border-gray-800 px-4 py-3">
-        <div class="text-sm text-gray-400">
+      <div v-if="searchResults?.pagination && searchResults?.data?.length > 0" class="flex items-center justify-between border-t border-border px-4 py-3">
+        <div class="text-sm text-muted-foreground">
           Showing page {{ searchResults.pagination.page }} of {{ searchResults.pagination.totalPages }}
           ({{ searchResults.pagination.total }} total events)
         </div>
@@ -525,14 +525,14 @@ const toggleSelection = (list: string[], value: string) => {
           <button
             @click="currentPage--"
             :disabled="currentPage === 1"
-            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 border border-gray-700 bg-gray-900 hover:bg-gray-800 text-gray-300 h-9 px-4"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 border border-border bg-card hover:bg-ink-high text-bone-muted h-9 px-4"
           >
             Previous
           </button>
           <button
             @click="currentPage++"
             :disabled="currentPage >= searchResults.pagination.totalPages"
-            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 border border-gray-700 bg-gray-900 hover:bg-gray-800 text-gray-300 h-9 px-4"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 border border-border bg-card hover:bg-ink-high text-bone-muted h-9 px-4"
           >
             Next
           </button>
@@ -541,16 +541,16 @@ const toggleSelection = (list: string[], value: string) => {
     </div>
 
     <!-- Initial State -->
-    <div v-else-if="!hasSearched" class="rounded-lg border border-gray-800 bg-gray-950 p-12 text-center">
+    <div v-else-if="!hasSearched" class="rounded-lg border border-border bg-background p-12 text-center">
       <div class="space-y-4">
-        <svg class="h-16 w-16 mx-auto text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="h-16 w-16 mx-auto text-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
-        <h3 class="text-xl font-semibold text-gray-100">Ready to Search</h3>
-        <p class="text-gray-400 max-w-md mx-auto">
+        <h3 class="text-xl font-semibold text-foreground">Ready to Search</h3>
+        <p class="text-muted-foreground max-w-md mx-auto">
           Use the filters above to search for specific PvP events. You can filter by player, date, location, class, race, level range, and more.
         </p>
-        <p class="text-sm text-gray-400">
+        <p class="text-sm text-muted-foreground">
           All search criteria are optional - use as many or as few as you need!
         </p>
       </div>
@@ -562,64 +562,64 @@ const toggleSelection = (list: string[], value: string) => {
 /* Flatpickr Dark MUD Theme Overrides */
 .flatpickr-calendar.arrowTop:before,
 .flatpickr-calendar.arrowTop:after {
-  border-bottom-color: rgb(31, 41, 55) !important; /* gray-800 */
+  border-bottom-color: var(--color-ink-high) !important;
 }
 
 .flatpickr-calendar {
-  background: rgb(17, 24, 39) !important; /* gray-900 */
-  border: 1px solid rgb(31, 41, 55) !important; /* gray-800 */
+  background: var(--color-ink-raised) !important;
+  border: 1px solid var(--color-ink-high) !important;
   box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5) !important;
 }
 
 .flatpickr-months {
-  background: rgb(31, 41, 55) !important; /* gray-800 */
-  border-bottom: 1px solid rgb(55, 65, 81) !important; /* gray-700 */
+  background: var(--color-ink-high) !important;
+  border-bottom: 1px solid var(--color-ink-top) !important;
 }
 
 .flatpickr-current-month .flatpickr-monthDropdown-months,
 .flatpickr-current-month input.cur-year {
-  background: rgb(17, 24, 39) !important; /* gray-900 */
-  color: rgb(229, 231, 235) !important; /* gray-200 */
-  border: 1px solid rgb(55, 65, 81) !important; /* gray-700 */
+  background: var(--color-ink-raised) !important;
+  color: var(--color-bone) !important;
+  border: 1px solid var(--color-ink-top) !important;
 }
 
 .flatpickr-current-month .flatpickr-monthDropdown-months:hover,
 .flatpickr-current-month input.cur-year:hover {
-  background: rgb(31, 41, 55) !important; /* gray-800 */
+  background: var(--color-ink-high) !important;
 }
 
 .flatpickr-weekdays {
-  background: rgb(31, 41, 55) !important; /* gray-800 */
+  background: var(--color-ink-high) !important;
 }
 
 span.flatpickr-weekday {
-  color: rgb(156, 163, 175) !important; /* gray-400 */
+  color: var(--muted-foreground) !important;
   font-weight: 600;
 }
 
 .flatpickr-day {
-  color: rgb(229, 231, 235) !important; /* gray-200 */
+  color: var(--color-bone) !important;
   border: none !important;
 }
 
 .flatpickr-day:hover,
 .flatpickr-day:focus {
-  background: rgb(31, 41, 55) !important; /* gray-800 */
-  border-color: rgb(31, 41, 55) !important; /* gray-800 */
-  color: rgb(34, 211, 238) !important; /* cyan-400 */
+  background: var(--color-ink-high) !important;
+  border-color: var(--color-ink-high) !important;
+  color: var(--color-vermilion) !important;
 }
 
 .flatpickr-day.today {
-  border-color: rgb(6, 182, 212) !important; /* cyan-600 */
-  background: rgb(22, 78, 99) !important; /* cyan-900 */
-  color: rgb(34, 211, 238) !important; /* cyan-400 */
+  border-color: var(--color-vermilion) !important;
+  background: rgb(90, 29, 18) !important;
+  color: var(--color-vermilion) !important;
 }
 
 .flatpickr-day.today:hover,
 .flatpickr-day.today:focus {
-  border-color: rgb(6, 182, 212) !important; /* cyan-600 */
-  background: rgb(21, 94, 117) !important; /* cyan-800 */
-  color: rgb(34, 211, 238) !important; /* cyan-400 */
+  border-color: var(--color-vermilion) !important;
+  background: rgb(138, 36, 22) !important;
+  color: var(--color-vermilion) !important;
 }
 
 .flatpickr-day.selected,
@@ -640,15 +640,15 @@ span.flatpickr-weekday {
 .flatpickr-day.selected.nextMonthDay,
 .flatpickr-day.startRange.nextMonthDay,
 .flatpickr-day.endRange.nextMonthDay {
-  background: rgb(6, 182, 212) !important; /* cyan-600 */
-  border-color: rgb(6, 182, 212) !important; /* cyan-600 */
+  background: var(--color-vermilion) !important;
+  border-color: var(--color-vermilion) !important;
   color: white !important;
 }
 
 .flatpickr-day.inRange {
-  background: rgba(6, 182, 212, 0.2) !important; /* cyan-600 with opacity */
+  background: color-mix(in srgb, var(--color-vermilion) 20%, transparent) !important;
   border-color: transparent !important;
-  box-shadow: -5px 0 0 rgba(6, 182, 212, 0.2), 5px 0 0 rgba(6, 182, 212, 0.2) !important;
+  box-shadow: -5px 0 0 color-mix(in srgb, var(--color-vermilion) 20%, transparent), 5px 0 0 color-mix(in srgb, var(--color-vermilion) 20%, transparent) !important;
 }
 
 .flatpickr-day.disabled,
@@ -658,38 +658,38 @@ span.flatpickr-weekday {
 .flatpickr-day.notAllowed,
 .flatpickr-day.notAllowed.prevMonthDay,
 .flatpickr-day.notAllowed.nextMonthDay {
-  color: rgb(75, 85, 99) !important; /* gray-600 */
+  color: var(--color-rule) !important;
   background: transparent !important;
 }
 
 .flatpickr-months .flatpickr-prev-month,
 .flatpickr-months .flatpickr-next-month {
-  color: rgb(156, 163, 175) !important; /* gray-400 */
+  color: var(--muted-foreground) !important;
 }
 
 .flatpickr-months .flatpickr-prev-month:hover,
 .flatpickr-months .flatpickr-next-month:hover {
-  color: rgb(34, 211, 238) !important; /* cyan-400 */
+  color: var(--color-vermilion) !important;
 }
 
 .flatpickr-months .flatpickr-prev-month:hover svg,
 .flatpickr-months .flatpickr-next-month:hover svg {
-  fill: rgb(34, 211, 238) !important; /* cyan-400 */
+  fill: var(--color-vermilion) !important;
 }
 
 .flatpickr-time {
-  border-top: 1px solid rgb(55, 65, 81) !important; /* gray-700 */
-  background: rgb(31, 41, 55) !important; /* gray-800 */
+  border-top: 1px solid var(--color-ink-top) !important;
+  background: var(--color-ink-high) !important;
 }
 
 .flatpickr-time input {
-  background: rgb(17, 24, 39) !important; /* gray-900 */
-  color: rgb(229, 231, 235) !important; /* gray-200 */
-  border: 1px solid rgb(55, 65, 81) !important; /* gray-700 */
+  background: var(--color-ink-raised) !important;
+  color: var(--color-bone) !important;
+  border: 1px solid var(--color-ink-top) !important;
 }
 
 .flatpickr-time .flatpickr-time-separator,
 .flatpickr-time .flatpickr-am-pm {
-  color: rgb(156, 163, 175) !important; /* gray-400 */
+  color: var(--muted-foreground) !important;
 }
 </style>

@@ -40,11 +40,8 @@ src/components/ui/tooltip/TooltipContent.vue
 src/composables/useAuth.ts
 src/composables/useServerReboot.ts
 src/composables/useZones.ts
-src/views/ForbiddenView.vue
 src/views/MudClientView.vue
 src/views/PopOutMapView.vue
-src/views/SearchView.vue
-src/views/StatusView.vue
 src/views/ZoneManagementView.vue
 src/views/admin/CreditsView.vue
 src/views/admin/FaqView.vue

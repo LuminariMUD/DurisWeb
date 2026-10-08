@@ -39,10 +39,10 @@ const statusIcon = computed(() => {
 
 const statusColor = computed(() => {
   const s = status.value?.status
-  if (s === 'operational') return 'text-green-500'
-  if (s === 'degraded') return 'text-yellow-500'
-  if (s === 'offline') return 'text-red-500'
-  return 'text-gray-500'
+  if (s === 'operational') return 'text-success'
+  if (s === 'degraded') return 'text-warning'
+  if (s === 'offline') return 'text-danger'
+  return 'text-faint'
 })
 
 // Helper functions
@@ -73,7 +73,7 @@ function getSeverityVariant(
     <div class="container mx-auto py-12 space-y-8">
       <!-- Hero Section -->
       <div class="text-center space-y-4">
-        <h1 class="text-4xl font-bold">{{ siteTitle }} MUD Status</h1>
+        <h1 class="text-4xl md:text-5xl">{{ siteTitle }} MUD Status</h1>
         <p class="text-muted-foreground">Current system status and uptime</p>
 
         <div v-if="isLoadingStatus" class="py-8">
@@ -100,7 +100,7 @@ function getSeverityVariant(
         <Card>
           <CardHeader class="flex flex-row items-center justify-between pb-2">
             <CardTitle class="text-sm font-medium">90-Day Uptime</CardTitle>
-            <div v-if="!isLoadingUptime && uptime" class="text-3xl font-bold text-green-500">
+            <div v-if="!isLoadingUptime && uptime" class="text-3xl font-bold text-success">
               {{ uptime.last90Days === null ? 'No data' : `${uptime.last90Days.toFixed(2)}%` }}
             </div>
             <div v-else class="text-3xl font-bold">Loading...</div>
@@ -158,11 +158,11 @@ function getSeverityVariant(
             <!-- Legend -->
             <div class="flex items-center justify-end gap-4 text-xs text-muted-foreground flex-wrap">
               <div class="flex items-center gap-1">
-                <div class="h-3 w-3 rounded-sm bg-gray-700"></div>
+                <div class="h-3 w-3 rounded-sm bg-ink-top"></div>
                 <span>No data</span>
               </div>
               <div class="flex items-center gap-1">
-                <div class="h-3 w-3 rounded-sm bg-red-600"></div>
+                <div class="h-3 w-3 rounded-sm bg-danger-deep"></div>
                 <span>Critical outage</span>
               </div>
               <div class="flex items-center gap-1">
@@ -170,15 +170,15 @@ function getSeverityVariant(
                 <span>Major incident</span>
               </div>
               <div class="flex items-center gap-1">
-                <div class="h-3 w-3 rounded-sm bg-yellow-500"></div>
+                <div class="h-3 w-3 rounded-sm bg-warning"></div>
                 <span>Minor issues</span>
               </div>
               <div class="flex items-center gap-1">
-                <div class="h-3 w-3 rounded-sm bg-green-500"></div>
+                <div class="h-3 w-3 rounded-sm bg-success"></div>
                 <span>Partial uptime</span>
               </div>
               <div class="flex items-center gap-1">
-                <div class="h-3 w-3 rounded-sm bg-green-600"></div>
+                <div class="h-3 w-3 rounded-sm bg-success-deep"></div>
                 <span>100% operational</span>
               </div>
             </div>
@@ -205,7 +205,7 @@ function getSeverityVariant(
               :key="incident.id"
               class="flex items-start gap-4 p-4 border rounded-lg"
             >
-              <AlertTriangle class="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+              <AlertTriangle class="h-5 w-5 text-danger mt-0.5 flex-shrink-0" />
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
                   <span class="font-semibold">{{ incident.incident_type }}</span>
@@ -231,7 +231,7 @@ function getSeverityVariant(
             </div>
           </div>
 
-          <div v-else class="text-center py-8 text-green-600">
+          <div v-else class="text-center py-8 text-success">
             No incidents recorded in the last 90 days
           </div>
         </CardContent>
