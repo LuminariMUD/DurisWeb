@@ -80,7 +80,7 @@ function goToUserProfile(accountName: string) {
 <template>
   <Card>
     <CardHeader>
-      <div class="flex items-center justify-between">
+      <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2">
           <TrendingUp class="w-5 h-5 text-success" />
           <CardTitle>Top Frag Gainers</CardTitle>
