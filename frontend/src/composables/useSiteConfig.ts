@@ -89,7 +89,7 @@ export function useSiteConfig() {
   const isAvailable = computed(() => config.value !== null && error.value === null)
   const siteTitle = computed(() => {
     const title = config.value?.siteTitle ?? ''
-    return title === 'NewDuris' ? 'Duris' : title
+    return title === 'Duris SBS' ? 'Duris' : title
   })
   const siteLogoUrl = computed(() => config.value?.siteLogoUrl ?? '')
   const supportUrl = computed(() => config.value?.supportUrl ?? '')

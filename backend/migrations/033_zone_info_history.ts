@@ -7,7 +7,7 @@ export async function up(knex: Knex): Promise<void> {
     table.string('zone_id', 100).notNullable();
     table.string('account_name', 50).notNullable();
     table.string('field_changed', 50).notNullable(); // 'description', 'permission_grant', 'permission_revoke', 'permission_update'
-    table.string('details', 255).nullable(); // Human-readable summary (e.g., "Granted edit to resakse")
+    table.string('details', 255).nullable(); // Human-readable summary (e.g., "Granted edit to Zusuk")
     table.datetime('changed_at').defaultTo(knex.fn.now());
 
     // Indexes

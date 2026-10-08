@@ -39,7 +39,7 @@ legacy_aliases=$(rg -n '\b(DURIS_DB_(HOST|PORT|USER|PASSWORD|NAME)|MUD_WS_HOST|R
 report_matches 'Legacy configuration aliases remain outside the rejection boundary:' \
   "${legacy_aliases}"
 
-deployment_literals=$(rg -ni '(/home/(resakse|duris)|static2\.resakse\.com|newduris\.com|\bnewduris\b|\bduris\.sbs\b)' \
+deployment_literals=$(rg -ni '(/home/(durissbs|duris)|static2\.zusuk\.com|duris\.com|\bduris\.sbs\b)' \
   README.md docs backend/src frontend/src frontend/public frontend/index.html deploy scripts podman-compose.yml \
   --glob '!scripts/check-config-literals.sh' \
   --glob '!backend/src/**/__tests__/**' \

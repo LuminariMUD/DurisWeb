@@ -74,7 +74,7 @@ Continuation:
 ## Configuration behavior
 
 The existing site-config API is retained. The exact legacy display title
-`NewDuris` is exposed as `Duris` by the shared frontend composable, including the
+`Duris SBS` is exposed as `Duris` by the shared frontend composable, including the
 header and homepage document title. Other configured titles remain unchanged.
 
 The exact stock hero title and subtitle use the new designed copy. Custom

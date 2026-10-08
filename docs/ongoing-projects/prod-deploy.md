@@ -7,7 +7,7 @@ Last checked: 2026-10-08 UTC.
 There is exactly one production website location: this checkout on
 `plesk.luminarimud.com`, account `staging`, serving `duris.sbs` and
 `www.duris.sbs`. The host and paths recorded in the historical section below
-(`/home/duris`, `www.newduris.com`, tunnel `5b7d0472-7d5b-4c6e-8aa3-cd550e2bdb60`)
+(`/home/duris`, tunnel `5b7d0472-7d5b-4c6e-8aa3-cd550e2bdb60`)
 no longer exist and must not be treated as a fallback or secondary site.
 
 - Checkout `/home/staging/durisweb`; paired MUD checkout `/home/staging/duris`
@@ -52,7 +52,7 @@ that is now gone. It is kept as a record of the procedures and evidence used;
 none of its hostnames, paths, or tunnel identifiers are current.
 
 
-The website is live at https://www.newduris.com. Public cutover and live
+The website is live at https://duris.sbs. Public cutover and live
 acceptance have passed, including the post-restart bridge soak. Credential
 hardening remains open; this is not a clean security/compliance sign-off.
 This summary supersedes earlier preparation-only status and approval blockers.
@@ -153,7 +153,7 @@ No replacement token is required to keep the accepted deployment running.
   return the expected headers. The previous setting is saved privately as
   `security-header-before.json`; HTTPS must remain available during the cached
   HSTS lifetime, including any rollback.
-- Corrected the imported browser-game endpoint to `wss://mud.newduris.com`.
+- Corrected the imported browser-game endpoint to `wss://mud.duris.sbs`.
 - Browser checks rendered the home page at desktop and mobile widths without
   console errors or horizontal overflow. Public forums, wiki map, objects, mobs,
   and the play login screen rendered. Home screenshots are retained privately.

@@ -6,9 +6,9 @@ const REQUIRED_WEB_SETTINGS = [
   ['mud_port', '7777', 'MUD server port displayed on the website'],
   ['mud_port_tls', '4001', 'Optional direct TLS MUD port displayed on the website'],
   ['mud_ws_url', 'wss://ws.duris.sbs', 'Complete public browser MUD WebSocket URL'],
-  ['site_title', 'NewDuris', 'Website title shown in navigation and browser metadata'],
+  ['site_title', 'Duris', 'Website title shown in navigation and browser metadata'],
   ['site_logo_url', '', 'URL to the website logo'],
-  ['support_url', 'https://ko-fi.com/newduris', 'Public support or donation page URL'],
+  ['support_url', 'https://github.com/sponsors/moshehbenavraham', 'Public support or donation page URL'],
   ['front_page_hero_enabled', 'true', 'Show the hero banner on the front page'],
   ['front_page_hero_title', 'Welcome to DurisMUD', 'Hero banner main title'],
   [

@@ -53,7 +53,7 @@ maintenance reasons and an independent page for complete origin/tunnel outages.
 See [availability notices](../deploy/maintenance/README.md) for activation and
 operator controls. Neither feature starts or stops the MUD.
 
-The homepage presents the exact legacy `NewDuris` name as `Duris` and replaces
+The homepage presents the exact legacy `Duris SBS` name as `Duris` and replaces
 the stock welcome copy with the eclipse design. Custom hero settings and
 sanitized editor content remain supported. See the
 [homepage design record](../docs/ongoing-projects/homepage-redesign.md) for

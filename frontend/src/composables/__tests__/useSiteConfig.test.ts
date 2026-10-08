@@ -31,12 +31,12 @@ beforeEach(() => {
 })
 
 describe('site configuration availability', () => {
-  it('displays the retired NewDuris brand as Duris without changing the stored configuration', async () => {
-    mocks.getSiteConfig.mockResolvedValue({ ...validConfiguration, siteTitle: 'NewDuris' })
+  it('displays the retired Duris SBS brand as Duris without changing the stored configuration', async () => {
+    mocks.getSiteConfig.mockResolvedValue({ ...validConfiguration, siteTitle: 'Duris SBS' })
     const site = useSiteConfig()
     await site.loadConfig()
     expect(site.siteTitle.value).toBe('Duris')
-    expect(site.config.value?.siteTitle).toBe('NewDuris')
+    expect(site.config.value?.siteTitle).toBe('DurisSBS')
   })
 
   it('publishes configured values after a complete response', async () => {

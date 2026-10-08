@@ -35,7 +35,7 @@ export async function up(knex: Knex): Promise<void> {
     },
     {
       setting_key: 'site_title',
-      setting_value: 'NewDuris',
+      setting_value: 'Duris',
       description: 'Website title shown in navbar and browser tab',
     },
     {
