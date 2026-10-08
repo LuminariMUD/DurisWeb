@@ -16,7 +16,7 @@ homepage design to the whole site in shippable phases.
 | 0. Decisions and baseline | Done 2026-10-08 (screenshots: see log) |
 | 1. Foundation: tokens, fonts, global chrome | Done 2026-10-08 |
 | 2. Shell: header, navigation, sidebar, banners, shared primitives | Done 2026-10-08 |
-| 3. Public surfaces sweep | Not started |
+| 3. Public surfaces sweep | Done 2026-10-08 |
 | 4. Play client chrome | Not started |
 | 5. Admin and builder | Not started |
 | 6. Closeout: guard rail, cleanup, documentation | Not started |
@@ -588,3 +588,47 @@ Purple, orange, pink, indigo, violet and teal are left alone: they carry
 faction, class, role and severity meaning. Status hues are not remapped in
 `components/mud/**`, `MudClientView.vue` or `PopOutMapView.vue` (game
 semantics, Phase 4).
+
+### Phase 3 — 2026-10-08
+
+Committed as one change set per area: UI kit, news, PvP and statistics,
+auctions, forum, TipTap editor, wiki and guide, accounts and profiles,
+utility pages, shared helpers. The allowlist fell from 105 to 56 files, all
+of them play client, admin or builder.
+
+- **UI kit.** `dark:` variants resolved; inputs, textareas, selects and radio
+  items sit on ink-sunken; outline buttons are transparent. `--destructive`
+  became vermilion so the 131 `text-destructive` error messages stay above
+  AA on ink; solid destructive fills (`Button`/`Badge` destructive and every
+  view's `bg-destructive`) use `bg-danger-deep` with cream text.
+- **Headings.** Page titles (`h1`, and `h2` used as page titles at `text-3xl`
+  and above) lost `font-bold`/`tracking-tight` and use `text-4xl
+  md:text-5xl` in the display face. The plan's `DisplayHeading` component is
+  used where markup was rewritten (homepage, profile hero); elsewhere the base
+  `h1`/`h2` rule supplies the face so the change stays a class edit.
+- **Charts.** New `src/utils/chartTheme.ts` holds the canvas colors (canvas
+  cannot read CSS variables): series use the `--chart-*` order, grid and ticks
+  use rule and muted, tooltips use ink-raised. Faction lines keep their
+  alignment meaning on the status palette. The visitor choropleth uses an
+  ember heat scale. Poll results use the series palette. The plan named
+  ECharts; the site actually uses Chart.js.
+- **Leaflet.** Zoom, attribution and popup chrome are overridden globally in
+  `main.css` under `.leaflet-container`; terrain and sector colors in
+  `WikiMapView.vue`, `WikiZoneMap.vue` and `wiki/WorldMap.vue` are game data
+  and were deliberately left as they were.
+- **Paper surface (decision 3).** `.surface-paper` exists, but no body was
+  moved onto it: news, guide help files and wiki descriptions are ANSI-colored
+  MUD text whose game colors need ink. Revisit if a plain-prose surface ships.
+- **Brand actions.** Log in, Create Thread and Post Reply use
+  `variant="brand"`; the profile hero shows the eclipse art until a player
+  uploads a banner, under an ink bottom mask with a display heading.
+- **Regression caught and fixed.** The sweep rewrote the TipTap editor's
+  class-to-MUD-code table, which collapsed distinct game colors onto the same
+  keys (`vue-tsc` reported duplicate keys). The table is now derived from
+  `MUD_COLORS` in `MudColorExtension.ts`. Column-background swatches in the
+  editor keep their original hues because they preview colors stored in post
+  content. Every later sweep greps for `'&+'`/ANSI tables before running.
+- Zone alignment: very good was cyan and would have become vermilion; it is
+  now the success color so red never signals "good".
+- Specs: `ForumViewProvisioning`, `WikiMobsReadiness`, `WikiObjectsReadiness`,
+  `FrontPageView` and `BottomNavbar` pass.
