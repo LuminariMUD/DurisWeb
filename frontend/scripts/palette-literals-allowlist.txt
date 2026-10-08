@@ -16,7 +16,6 @@ src/components/builder/Design4TabbedWorkspace.vue
 src/components/builder/Design5NotionStyle.vue
 src/components/builder/MentionList.vue
 src/components/builder/ZoneMap.vue
-src/components/forum/editor/TipTapEditor.vue
 src/components/guide/HelpFileDialog.vue
 src/components/mud/AliasFormDialog.vue
 src/components/mud/MudActivityLog.vue

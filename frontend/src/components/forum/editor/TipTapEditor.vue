@@ -1,9 +1,9 @@
 <template>
-  <div class="tiptap-editor border border-gray-700 rounded-lg bg-gray-900">
+  <div class="tiptap-editor border border-border rounded-lg bg-card">
     <!-- Toolbar -->
     <div
       v-if="editor"
-      class="flex flex-wrap items-center gap-1 border-b border-gray-700 bg-gray-800 p-2"
+      class="flex flex-wrap items-center gap-1 border-b border-border bg-ink-high p-2"
     >
       <!-- Headings Dropdown -->
       <div class="relative" ref="headingDropdownRef">
@@ -13,8 +13,8 @@
           :class="[
             'flex items-center gap-1 rounded p-1.5 transition-colors',
             editor?.isActive('heading')
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Heading"
         >
@@ -25,14 +25,14 @@
 
         <div
           v-if="showHeadingDropdown"
-          class="absolute left-0 top-full z-50 mt-1 w-36 rounded-lg border border-gray-700 bg-gray-800 p-2 shadow-xl"
+          class="absolute left-0 top-full z-50 mt-1 w-36 rounded-lg border border-border bg-ink-high p-2 shadow-xl"
         >
           <button
             type="button"
             @click="setHeading(1)"
             :class="[
-              'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-gray-700',
-              editor?.isActive('heading', { level: 1 }) ? 'text-cyan-400' : 'text-gray-300',
+              'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-ink-top',
+              editor?.isActive('heading', { level: 1 }) ? 'text-vermilion' : 'text-bone-muted',
             ]"
           >
             <span class="text-lg font-bold">H1</span>
@@ -42,8 +42,8 @@
             type="button"
             @click="setHeading(2)"
             :class="[
-              'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-gray-700',
-              editor?.isActive('heading', { level: 2 }) ? 'text-cyan-400' : 'text-gray-300',
+              'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-ink-top',
+              editor?.isActive('heading', { level: 2 }) ? 'text-vermilion' : 'text-bone-muted',
             ]"
           >
             <span class="text-base font-bold">H2</span>
@@ -53,20 +53,20 @@
             type="button"
             @click="setHeading(3)"
             :class="[
-              'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-gray-700',
-              editor?.isActive('heading', { level: 3 }) ? 'text-cyan-400' : 'text-gray-300',
+              'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-ink-top',
+              editor?.isActive('heading', { level: 3 }) ? 'text-vermilion' : 'text-bone-muted',
             ]"
           >
             <span class="text-sm font-bold">H3</span>
             <span class="text-sm">Heading 3</span>
           </button>
-          <div class="my-1 border-t border-gray-700" />
+          <div class="my-1 border-t border-border" />
           <button
             type="button"
             @click="setParagraph"
             :class="[
-              'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-gray-700',
-              !editor?.isActive('heading') ? 'text-cyan-400' : 'text-gray-300',
+              'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-ink-top',
+              !editor?.isActive('heading') ? 'text-vermilion' : 'text-bone-muted',
             ]"
           >
             <Pilcrow class="h-4 w-4" />
@@ -80,7 +80,7 @@
         <button
           type="button"
           @click="showFontSizeDropdown = !showFontSizeDropdown"
-          class="flex items-center gap-1 rounded bg-gray-700 p-1.5 text-gray-300 transition-colors hover:bg-gray-600"
+          class="flex items-center gap-1 rounded bg-ink-top p-1.5 text-bone-muted transition-colors hover:bg-rule"
           title="Font Size"
         >
           <ALargeSmall class="h-4 w-4" />
@@ -90,7 +90,7 @@
 
         <div
           v-if="showFontSizeDropdown"
-          class="absolute left-0 top-full z-50 mt-1 w-32 rounded-lg border border-gray-700 bg-gray-800 p-2 shadow-xl"
+          class="absolute left-0 top-full z-50 mt-1 w-32 rounded-lg border border-border bg-ink-high p-2 shadow-xl"
         >
           <button
             v-for="size in FONT_SIZES"
@@ -98,26 +98,26 @@
             type="button"
             @click="setFontSize(size.value)"
             :class="[
-              'flex w-full items-center justify-between rounded px-2 py-1.5 text-left transition-colors hover:bg-gray-700',
-              currentFontSize === size.value ? 'text-cyan-400' : 'text-gray-300',
+              'flex w-full items-center justify-between rounded px-2 py-1.5 text-left transition-colors hover:bg-ink-top',
+              currentFontSize === size.value ? 'text-vermilion' : 'text-bone-muted',
             ]"
           >
             <span :style="{ fontSize: size.value || '1rem' }">{{ size.name }}</span>
-            <span class="text-xs text-gray-500">{{ size.label }}</span>
+            <span class="text-xs text-faint">{{ size.label }}</span>
           </button>
         </div>
       </div>
 
       <!-- Basic Formatting -->
-      <div class="flex items-center gap-0.5 border-r border-gray-700 pr-2">
+      <div class="flex items-center gap-0.5 border-r border-border pr-2">
         <button
           type="button"
           @click="editor.chain().focus().toggleBold().run()"
           :class="[
             'rounded p-1.5 transition-colors',
             editor.isActive('bold')
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Bold (Ctrl+B)"
         >
@@ -130,8 +130,8 @@
           :class="[
             'rounded p-1.5 transition-colors',
             editor.isActive('italic')
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Italic (Ctrl+I)"
         >
@@ -145,8 +145,8 @@
           :class="[
             'hidden lg:block rounded p-1.5 transition-colors',
             editor.isActive('underline')
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Underline (Ctrl+U)"
         >
@@ -159,8 +159,8 @@
           :class="[
             'hidden lg:block rounded p-1.5 transition-colors',
             editor.isActive('strike')
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Strikethrough"
         >
@@ -169,15 +169,15 @@
       </div>
 
       <!-- Lists -->
-      <div class="flex items-center gap-0.5 border-r border-gray-700 pr-2">
+      <div class="flex items-center gap-0.5 border-r border-border pr-2">
         <button
           type="button"
           @click="editor.chain().focus().toggleBulletList().run()"
           :class="[
             'rounded p-1.5 transition-colors',
             editor.isActive('bulletList')
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Bullet List"
         >
@@ -190,8 +190,8 @@
           :class="[
             'rounded p-1.5 transition-colors',
             editor.isActive('orderedList')
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Numbered List"
         >
@@ -200,15 +200,15 @@
       </div>
 
       <!-- Code (desktop only) -->
-      <div class="hidden lg:flex items-center gap-0.5 border-r border-gray-700 pr-2">
+      <div class="hidden lg:flex items-center gap-0.5 border-r border-border pr-2">
         <button
           type="button"
           @click="editor.chain().focus().toggleCode().run()"
           :class="[
             'rounded p-1.5 transition-colors',
             editor.isActive('code')
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Inline Code"
         >
@@ -221,8 +221,8 @@
           :class="[
             'rounded p-1.5 transition-colors',
             editor.isActive('codeBlock')
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Code Block"
         >
@@ -232,7 +232,7 @@
         <button
           type="button"
           @click="editor.chain().focus().setHorizontalRule().run()"
-          class="rounded p-1.5 transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600"
+          class="rounded p-1.5 transition-colors bg-ink-top text-bone-muted hover:bg-rule"
           title="Horizontal Rule"
         >
           <HorizontalRuleIcon class="h-4 w-4" />
@@ -240,15 +240,15 @@
       </div>
 
       <!-- Link -->
-      <div class="flex items-center gap-0.5 border-r border-gray-700 pr-2">
+      <div class="flex items-center gap-0.5 border-r border-border pr-2">
         <button
           type="button"
           @click="toggleLink"
           :class="[
             'rounded p-1.5 transition-colors',
             editor.isActive('link')
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Insert Link"
         >
@@ -257,7 +257,7 @@
       </div>
 
       <!-- Image Upload -->
-      <div class="flex items-center gap-0.5 border-r border-gray-700 pr-2">
+      <div class="flex items-center gap-0.5 border-r border-border pr-2">
         <input
           ref="imageInputRef"
           type="file"
@@ -272,8 +272,8 @@
           :class="[
             'rounded p-1.5 transition-colors',
             isUploadingImage
-              ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-rule text-muted-foreground cursor-not-allowed'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           :title="isUploadingImage ? 'Uploading...' : 'Insert Image (max 350KB)'"
         >
@@ -283,7 +283,7 @@
         <button
           type="button"
           @click="insertCarousel"
-          class="hidden lg:block rounded p-1.5 transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600"
+          class="hidden lg:block rounded p-1.5 transition-colors bg-ink-top text-bone-muted hover:bg-rule"
           title="Insert Image Carousel"
         >
           <GalleryHorizontalEnd class="h-4 w-4" />
@@ -293,7 +293,7 @@
       <!-- Image Alignment (only shown when image is selected) -->
       <div
         v-if="isImageSelected"
-        class="flex items-center gap-0.5 border-r border-gray-700 pr-2"
+        class="flex items-center gap-0.5 border-r border-border pr-2"
       >
         <button
           type="button"
@@ -301,8 +301,8 @@
           :class="[
             'rounded p-1.5 transition-colors',
             currentImageAlignment === 'left'
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Align Left (text wraps right)"
         >
@@ -314,8 +314,8 @@
           :class="[
             'rounded p-1.5 transition-colors',
             currentImageAlignment === 'center'
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Align Center"
         >
@@ -327,22 +327,22 @@
           :class="[
             'rounded p-1.5 transition-colors',
             currentImageAlignment === 'right'
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Align Right (text wraps left)"
         >
           <AlignRight class="h-4 w-4" />
         </button>
-        <div class="w-px h-4 bg-gray-600 mx-1" />
+        <div class="w-px h-4 bg-rule mx-1" />
         <button
           type="button"
           @click="toggleImageRounded"
           :class="[
             'rounded p-1.5 transition-colors',
             currentImageRounded
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Toggle Rounded Corners"
         >
@@ -353,7 +353,7 @@
       <!-- Text Alignment (only shown when text is selected, not images) -->
       <div
         v-if="isTextSelected && !isImageSelected"
-        class="flex items-center gap-0.5 border-r border-gray-700 pr-2"
+        class="flex items-center gap-0.5 border-r border-border pr-2"
       >
         <button
           type="button"
@@ -361,8 +361,8 @@
           :class="[
             'rounded p-1.5 transition-colors',
             currentTextAlignment === 'left'
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Align Left"
         >
@@ -374,8 +374,8 @@
           :class="[
             'rounded p-1.5 transition-colors',
             currentTextAlignment === 'center'
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Align Center"
         >
@@ -387,8 +387,8 @@
           :class="[
             'rounded p-1.5 transition-colors',
             currentTextAlignment === 'right'
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Align Right"
         >
@@ -400,8 +400,8 @@
           :class="[
             'rounded p-1.5 transition-colors',
             currentTextAlignment === 'justify'
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Justify"
         >
@@ -417,8 +417,8 @@
           :class="[
             'flex items-center gap-1 rounded p-1.5 transition-colors',
             editor?.isActive('table')
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Table"
         >
@@ -430,24 +430,24 @@
         <!-- Table Dropdown Menu -->
         <div
           v-if="showTableDropdown"
-          class="absolute left-0 top-full z-50 mt-1 w-48 rounded-lg border border-gray-700 bg-gray-800 p-2 shadow-xl"
+          class="absolute left-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-ink-high p-2 shadow-xl"
         >
           <button
             type="button"
             @click="insertTable"
-            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-gray-300 transition-colors hover:bg-gray-700"
+            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-bone-muted transition-colors hover:bg-ink-top"
           >
             <Plus class="h-4 w-4" />
             Insert 3x3 Table
           </button>
 
-          <div class="my-1 border-t border-gray-700" />
+          <div class="my-1 border-t border-border" />
 
           <button
             type="button"
             @click="addColumnBefore"
             :disabled="!editor?.can().addColumnBefore()"
-            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-gray-300 hover:bg-gray-700"
+            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-bone-muted hover:bg-ink-top"
           >
             Add Column Before
           </button>
@@ -455,7 +455,7 @@
             type="button"
             @click="addColumnAfter"
             :disabled="!editor?.can().addColumnAfter()"
-            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-gray-300 hover:bg-gray-700"
+            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-bone-muted hover:bg-ink-top"
           >
             Add Column After
           </button>
@@ -463,19 +463,19 @@
             type="button"
             @click="deleteTableColumn"
             :disabled="!editor?.can().deleteColumn()"
-            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-gray-300 hover:bg-gray-700"
+            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-bone-muted hover:bg-ink-top"
           >
             <Minus class="h-4 w-4" />
             Delete Column
           </button>
 
-          <div class="my-1 border-t border-gray-700" />
+          <div class="my-1 border-t border-border" />
 
           <button
             type="button"
             @click="addRowBefore"
             :disabled="!editor?.can().addRowBefore()"
-            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-gray-300 hover:bg-gray-700"
+            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-bone-muted hover:bg-ink-top"
           >
             Add Row Before
           </button>
@@ -483,7 +483,7 @@
             type="button"
             @click="addRowAfter"
             :disabled="!editor?.can().addRowAfter()"
-            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-gray-300 hover:bg-gray-700"
+            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-bone-muted hover:bg-ink-top"
           >
             Add Row After
           </button>
@@ -491,31 +491,31 @@
             type="button"
             @click="deleteTableRow"
             :disabled="!editor?.can().deleteRow()"
-            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-gray-300 hover:bg-gray-700"
+            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-bone-muted hover:bg-ink-top"
           >
             <Minus class="h-4 w-4" />
             Delete Row
           </button>
 
-          <div class="my-1 border-t border-gray-700" />
+          <div class="my-1 border-t border-border" />
 
           <button
             type="button"
             @click="toggleTableRounded"
             :disabled="!editor?.isActive('table')"
-            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-gray-300 hover:bg-gray-700"
+            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-bone-muted hover:bg-ink-top"
           >
             <Circle class="h-4 w-4" />
             {{ currentTableRounded ? 'Remove Rounded Corners' : 'Add Rounded Corners' }}
           </button>
 
-          <div class="my-1 border-t border-gray-700" />
+          <div class="my-1 border-t border-border" />
 
           <button
             type="button"
             @click="deleteTable"
             :disabled="!editor?.can().deleteTable()"
-            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-red-400 transition-colors hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-danger transition-colors hover:bg-ink-top disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Trash2 class="h-4 w-4" />
             Delete Table
@@ -531,8 +531,8 @@
           :class="[
             'flex items-center gap-1 rounded p-1.5 transition-colors',
             editor?.isActive('columns')
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="Multi-Column Layout"
         >
@@ -544,12 +544,12 @@
         <!-- Columns Dropdown Menu -->
         <div
           v-if="showColumnsDropdown"
-          class="absolute left-0 top-full z-50 mt-1 w-40 rounded-lg border border-gray-700 bg-gray-800 p-2 shadow-xl"
+          class="absolute left-0 top-full z-50 mt-1 w-40 rounded-lg border border-border bg-ink-high p-2 shadow-xl"
         >
           <button
             type="button"
             @click="insertColumns(2)"
-            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-gray-300 transition-colors hover:bg-gray-700"
+            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-bone-muted transition-colors hover:bg-ink-top"
           >
             <Columns2 class="h-4 w-4" />
             2 Columns
@@ -557,19 +557,19 @@
           <button
             type="button"
             @click="insertColumns(3)"
-            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-gray-300 transition-colors hover:bg-gray-700"
+            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-bone-muted transition-colors hover:bg-ink-top"
           >
             <Columns2 class="h-4 w-4" />
             3 Columns
           </button>
 
-          <div class="my-1 border-t border-gray-700" />
+          <div class="my-1 border-t border-border" />
 
           <button
             type="button"
             @click="deleteColumns"
             :disabled="!editor?.isActive('columns')"
-            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-red-400 transition-colors hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-danger transition-colors hover:bg-ink-top disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Trash2 class="h-4 w-4" />
             Remove Columns
@@ -586,7 +586,7 @@
         <button
           type="button"
           @click="showColumnBgDropdown = !showColumnBgDropdown"
-          class="flex items-center gap-1 rounded bg-cyan-700 p-1.5 text-white transition-colors hover:bg-cyan-600"
+          class="flex items-center gap-1 rounded bg-vermilion-deep p-1.5 text-white transition-colors hover:bg-vermilion-hover"
           title="Column Background Color"
         >
           <Paintbrush class="h-4 w-4" />
@@ -597,7 +597,7 @@
         <!-- Column Background Dropdown -->
         <div
           v-if="showColumnBgDropdown"
-          class="absolute left-0 top-full z-50 mt-1 w-36 rounded-lg border border-gray-700 bg-gray-800 p-2 shadow-xl"
+          class="absolute left-0 top-full z-50 mt-1 w-36 rounded-lg border border-border bg-ink-high p-2 shadow-xl"
         >
           <div class="grid grid-cols-4 gap-1">
             <button
@@ -609,8 +609,8 @@
                 'w-7 h-7 rounded transition-all',
                 color.class,
                 currentColumnBgColor === color.value
-                  ? 'ring-2 ring-cyan-400 ring-offset-1 ring-offset-gray-800'
-                  : 'hover:ring-1 hover:ring-gray-500',
+                  ? 'ring-2 ring-vermilion ring-offset-1 ring-offset-background'
+                  : 'hover:ring-1 hover:ring-faint',
               ]"
               :title="color.name"
             />
@@ -623,7 +623,7 @@
         <button
           type="button"
           @click="showColorDropdown = !showColorDropdown"
-          class="flex items-center gap-1 rounded bg-gray-700 p-1.5 text-gray-300 transition-colors hover:bg-gray-600"
+          class="flex items-center gap-1 rounded bg-ink-top p-1.5 text-bone-muted transition-colors hover:bg-rule"
           title="MUD Colors"
         >
           <Palette class="h-4 w-4" />
@@ -634,7 +634,7 @@
         <!-- Color Dropdown -->
         <div
           v-if="showColorDropdown"
-          class="absolute left-0 top-full z-50 mt-1 w-48 rounded-lg border border-gray-700 bg-gray-800 p-2 shadow-xl"
+          class="absolute left-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-ink-high p-2 shadow-xl"
         >
           <div class="grid grid-cols-1 gap-1">
             <button
@@ -642,22 +642,22 @@
               :key="color.code"
               type="button"
               @click="applyMudColor(color.code)"
-              class="flex items-center gap-2 rounded px-2 py-1 text-left text-sm transition-colors hover:bg-gray-700"
+              class="flex items-center gap-2 rounded px-2 py-1 text-left text-sm transition-colors hover:bg-ink-top"
             >
               <span :class="[color.class, 'font-semibold']">●</span>
-              <span class="text-gray-300">{{ color.name }}</span>
-              <span class="ml-auto font-mono text-xs text-gray-500">{{
+              <span class="text-bone-muted">{{ color.name }}</span>
+              <span class="ml-auto font-mono text-xs text-faint">{{
                 color.code
               }}</span>
             </button>
           </div>
 
           <!-- Remove Color -->
-          <div class="mt-2 border-t border-gray-700 pt-2">
+          <div class="mt-2 border-t border-border pt-2">
             <button
               type="button"
               @click="removeMudColor"
-              class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm text-gray-400 transition-colors hover:bg-gray-700"
+              class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm text-muted-foreground transition-colors hover:bg-ink-top"
             >
               <X class="h-4 w-4" />
               <span>Remove Color</span>
@@ -667,15 +667,15 @@
       </div>
 
       <!-- View Source Toggle (desktop only) -->
-      <div class="hidden lg:flex items-center gap-0.5 border-l border-gray-700 pl-2">
+      <div class="hidden lg:flex items-center gap-0.5 border-l border-border pl-2">
         <button
           type="button"
           @click="viewMode = viewMode === 'editor' ? 'html' : 'editor'"
           :class="[
             'rounded p-1.5 transition-colors',
             viewMode === 'html'
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="View HTML Source"
         >
@@ -688,8 +688,8 @@
           :class="[
             'rounded p-1.5 transition-colors',
             viewMode === 'ansi'
-              ? 'bg-cyan-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600',
+              ? 'bg-ink-high text-vermilion ring-1 ring-inset ring-vermilion/60'
+              : 'bg-ink-raised text-bone-muted hover:bg-ink-high hover:text-foreground',
           ]"
           title="View Raw ANSI (Database Format)"
         >
@@ -698,11 +698,11 @@
       </div>
 
       <!-- Widgets Dropdown (only shown when enableWidgets is true) -->
-      <div v-if="enableWidgets" class="relative border-l border-gray-700 pl-2" ref="widgetDropdownRef">
+      <div v-if="enableWidgets" class="relative border-l border-border pl-2" ref="widgetDropdownRef">
         <button
           type="button"
           @click="showWidgetDropdown = !showWidgetDropdown"
-          class="flex items-center gap-1 rounded bg-gray-700 p-1.5 text-gray-300 transition-colors hover:bg-gray-600"
+          class="flex items-center gap-1 rounded bg-ink-top p-1.5 text-bone-muted transition-colors hover:bg-rule"
           title="Insert Widget"
         >
           <LayoutGrid class="h-4 w-4" />
@@ -713,30 +713,30 @@
         <!-- Widget Dropdown Menu -->
         <div
           v-if="showWidgetDropdown"
-          class="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-gray-700 bg-gray-800 p-2 shadow-xl"
+          class="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-ink-high p-2 shadow-xl"
         >
           <button
             type="button"
             @click="insertTopFragger"
-            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-gray-300 transition-colors hover:bg-gray-700"
+            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-bone-muted transition-colors hover:bg-ink-top"
           >
-            <Trophy class="h-4 w-4 text-yellow-500" />
+            <Trophy class="h-4 w-4 text-warning" />
             Top Fragger
           </button>
           <button
             type="button"
             @click="insertRecentPvP"
-            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-gray-300 transition-colors hover:bg-gray-700"
+            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-bone-muted transition-colors hover:bg-ink-top"
           >
-            <Swords class="h-4 w-4 text-red-500" />
+            <Swords class="h-4 w-4 text-danger" />
             Recent PvP
           </button>
           <button
             type="button"
             @click="insertMapPreview"
-            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-gray-300 transition-colors hover:bg-gray-700"
+            class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-bone-muted transition-colors hover:bg-ink-top"
           >
-            <Map class="h-4 w-4 text-cyan-500" />
+            <Map class="h-4 w-4 text-vermilion" />
             World Map
           </button>
         </div>
@@ -757,20 +757,20 @@
       <textarea
         :value="editor?.getHTML()"
         @input="updateFromSource"
-        class="w-full min-h-[200px] font-mono text-sm bg-gray-950 text-gray-300 border border-gray-700 rounded p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+        class="w-full min-h-[200px] font-mono text-sm bg-background text-bone-muted border border-border rounded p-3 focus:outline-none focus:ring-2 focus:ring-vermilion"
         spellcheck="false"
       />
     </div>
 
     <!-- ANSI Raw View -->
     <div v-else-if="viewMode === 'ansi'" class="p-4">
-      <div class="mb-2 text-xs text-gray-400">
+      <div class="mb-2 text-xs text-muted-foreground">
         Edit raw ANSI codes directly. Changes will update the visual editor.
       </div>
       <textarea
         :value="getRawAnsi()"
         @input="updateFromAnsi"
-        class="w-full min-h-[200px] font-mono text-sm bg-gray-950 text-gray-300 border border-gray-700 rounded p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+        class="w-full min-h-[200px] font-mono text-sm bg-background text-bone-muted border border-border rounded p-3 focus:outline-none focus:ring-2 focus:ring-vermilion"
         spellcheck="false"
       />
     </div>
@@ -778,7 +778,7 @@
     <!-- Image Upload Error -->
     <div
       v-if="imageUploadError"
-      class="border-t border-red-700 bg-red-900/50 px-4 py-2 text-xs text-red-400"
+      class="border-t border-danger-deep bg-danger-deep/50 px-4 py-2 text-xs text-danger"
     >
       {{ imageUploadError }}
     </div>
@@ -786,7 +786,7 @@
     <!-- Character Count -->
     <div
       v-if="editor"
-      class="flex items-center justify-between border-t border-gray-700 bg-gray-800 px-4 py-2 text-xs text-gray-400"
+      class="flex items-center justify-between border-t border-border bg-ink-high px-4 py-2 text-xs text-muted-foreground"
     >
       <span>{{ editor.storage.characterCount.characters() }} characters</span>
       <span v-if="maxLength">
@@ -902,7 +902,7 @@ const currentColumnBgColor = ref<string | null>(null)
 
 // Column background color presets
 const COLUMN_BG_COLORS = [
-  { name: 'None', value: null, class: 'bg-transparent border border-gray-600' },
+  { name: 'None', value: null, class: 'bg-transparent border border-faint' },
   { name: 'Light', value: 'rgba(255,255,255,0.05)', class: 'bg-white/5' },
   { name: 'Dark', value: 'rgba(0,0,0,0.3)', class: 'bg-black/30' },
   { name: 'Blue', value: 'rgba(59,130,246,0.15)', class: 'bg-blue-500/15' },
@@ -990,7 +990,7 @@ const baseExtensions = [
   LinkExtension.configure({
     openOnClick: false,
     HTMLAttributes: {
-      class: 'text-cyan-400 underline hover:text-cyan-300',
+      class: 'text-vermilion underline hover:text-vermilion-light',
     },
   }),
   ForumImage.configure({
@@ -1003,7 +1003,7 @@ const baseExtensions = [
   CodeBlockLowlight.configure({
     lowlight,
     HTMLAttributes: {
-      class: 'bg-gray-950 rounded p-4 font-mono text-sm overflow-x-auto',
+      class: 'bg-background rounded p-4 font-mono text-sm overflow-x-auto',
     },
   }),
   TextStyle,
@@ -1074,7 +1074,7 @@ const editor = useEditor({
   editorProps: {
     attributes: {
       class:
-        'min-h-[200px] focus:outline-none prose-headings:text-gray-200 prose-p:text-gray-300 prose-strong:text-gray-200 prose-code:text-cyan-400 prose-code:bg-gray-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded',
+        'min-h-[200px] focus:outline-none prose-headings:text-foreground prose-p:text-bone-muted prose-strong:text-foreground prose-code:text-vermilion prose-code:bg-ink-high prose-code:px-1 prose-code:py-0.5 prose-code:rounded',
     },
     handlePaste: (view, event) => {
       const items = event.clipboardData?.items
@@ -1424,22 +1424,22 @@ function htmlToMudAnsi(html: string): string {
 
   // Map Tailwind classes back to MUD color codes
   const colorClassToMudCode: Record<string, string> = {
-    'text-red-500': '&+R',
-    'text-green-500': '&+G',
-    'text-blue-500': '&+B',
-    'text-yellow-500': '&+Y',
+    'text-danger': '&+R',
+    'text-success': '&+G',
+    'text-info': '&+B',
+    'text-warning': '&+Y',
     'text-purple-500': '&+M',
-    'text-cyan-500': '&+C',
+    'text-vermilion': '&+C',
     'text-white': '&+W',
-    'text-gray-400': '&+L',
-    'text-red-400': '&+r',
-    'text-green-400': '&+g',
-    'text-blue-400': '&+b',
-    'text-yellow-400': '&+y',
+    'text-muted-foreground': '&+L',
+    'text-danger': '&+r',
+    'text-success': '&+g',
+    'text-info': '&+b',
+    'text-warning': '&+y',
     'text-purple-400': '&+m',
-    'text-cyan-400': '&+c',
-    'text-gray-200': '&+w',
-    'text-gray-500': '&+l',
+    'text-vermilion': '&+c',
+    'text-foreground': '&+w',
+    'text-faint': '&+l',
   }
 
   function processNode(node: Node): string {
@@ -1603,11 +1603,11 @@ onBeforeUnmount(() => {
 <style scoped>
 /* TipTap Editor Styles - using :deep() to penetrate into EditorContent */
 :deep(.tiptap) {
-  color: rgb(209 213 219);
+  color: var(--color-bone-muted);
 }
 
 :deep(.tiptap p.is-editor-empty:first-child::before) {
-  color: #6b7280;
+  color: var(--color-faint);
   content: attr(data-placeholder);
   float: left;
   height: 0;
@@ -1617,7 +1617,7 @@ onBeforeUnmount(() => {
 :deep(.tiptap ul),
 :deep(.tiptap ol) {
   padding-left: 1.5rem;
-  color: rgb(209 213 219);
+  color: var(--color-bone-muted);
 }
 
 :deep(.tiptap ul) {
@@ -1630,18 +1630,18 @@ onBeforeUnmount(() => {
 
 :deep(.tiptap code) {
   border-radius: 0.25rem;
-  background-color: rgb(31 41 55);
+  background-color: var(--color-ink-high);
   padding: 0.125rem 0.375rem;
   font-family: ui-monospace, monospace;
   font-size: 0.875rem;
-  color: rgb(34 211 238);
+  color: var(--color-vermilion);
 }
 
 :deep(.tiptap pre) {
   margin: 1rem 0;
   overflow-x: auto;
   border-radius: 0.25rem;
-  background-color: rgb(3 7 18);
+  background-color: var(--color-ink);
   padding: 1rem;
   font-family: ui-monospace, monospace;
   font-size: 0.875rem;
@@ -1650,26 +1650,26 @@ onBeforeUnmount(() => {
 :deep(.tiptap pre code) {
   background-color: transparent;
   padding: 0;
-  color: rgb(209 213 219);
+  color: var(--color-bone-muted);
 }
 
 :deep(.tiptap blockquote) {
-  border-left: 4px solid rgb(55 65 81);
+  border-left: 4px solid var(--color-ink-top);
   padding-left: 1rem;
   font-style: italic;
-  color: rgb(156 163 175);
+  color: var(--muted-foreground);
 }
 
 :deep(.tiptap hr) {
   margin: 1rem 0;
-  border-color: rgb(55 65 81);
+  border-color: var(--color-ink-top);
 }
 
 :deep(.tiptap h1),
 :deep(.tiptap h2),
 :deep(.tiptap h3) {
   font-weight: bold;
-  color: rgb(229 231 235);
+  color: var(--color-bone);
 }
 
 :deep(.tiptap h1) {
@@ -1685,12 +1685,12 @@ onBeforeUnmount(() => {
 }
 
 :deep(.tiptap a) {
-  color: rgb(34 211 238);
+  color: var(--color-vermilion);
   text-decoration: underline;
 }
 
 :deep(.tiptap a:hover) {
-  color: rgb(103 232 249);
+  color: var(--color-vermilion-light);
 }
 
 /* Image alignment */
@@ -1726,8 +1726,8 @@ onBeforeUnmount(() => {
 
 /* Mention highlight styles */
 :deep(.tiptap .mention-highlight) {
-  color: rgb(34 211 238);
-  background-color: rgba(34, 211, 238, 0.1);
+  color: var(--color-vermilion);
+  background-color: color-mix(in srgb, var(--color-vermilion) 10%, transparent);
   padding: 0.125rem 0.25rem;
   border-radius: 0.25rem;
   font-weight: 500;
@@ -1743,7 +1743,7 @@ onBeforeUnmount(() => {
 
 :deep(.tiptap th),
 :deep(.tiptap td) {
-  border: 1px solid rgb(55 65 81);
+  border: 1px solid var(--color-ink-top);
   padding: 0.5rem 0.75rem;
   text-align: left;
   vertical-align: top;
@@ -1751,18 +1751,18 @@ onBeforeUnmount(() => {
 }
 
 :deep(.tiptap th) {
-  background-color: rgb(31 41 55);
+  background-color: var(--color-ink-high);
   font-weight: 600;
-  color: rgb(229 231 235);
+  color: var(--color-bone);
 }
 
 :deep(.tiptap td) {
-  background-color: rgb(17 24 39);
-  color: rgb(209 213 219);
+  background-color: var(--color-ink-raised);
+  color: var(--color-bone-muted);
 }
 
 :deep(.tiptap tr:hover td) {
-  background-color: rgb(31 41 55);
+  background-color: var(--color-ink-high);
 }
 
 /* Table rounded corners */
@@ -1796,7 +1796,7 @@ onBeforeUnmount(() => {
   right: 0;
   top: 0;
   bottom: 0;
-  background: rgba(34, 211, 238, 0.2);
+  background: color-mix(in srgb, var(--color-vermilion) 20%, transparent);
   pointer-events: none;
 }
 
@@ -1811,9 +1811,8 @@ onBeforeUnmount(() => {
   gap: 1rem;
   margin: 1rem 0;
   padding: 0.5rem;
-  border: 2px dashed rgb(59 130 246);
-  border-radius: 0.5rem;
-  background-color: rgba(59, 130, 246, 0.05);
+  border: 1px dashed var(--color-rule);
+  background-color: color-mix(in srgb, var(--color-label) 4%, transparent);
   position: relative;
   align-items: stretch;
 }
@@ -1824,13 +1823,12 @@ onBeforeUnmount(() => {
   top: -0.75rem;
   left: 0.75rem;
   padding: 0 0.5rem;
+  font-family: var(--font-label);
   font-size: 0.7rem;
-  font-weight: 600;
-  color: rgb(59 130 246);
-  background-color: rgb(17 24 39);
-  border-radius: 0.25rem;
+  color: var(--color-label);
+  background-color: var(--color-ink-raised);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.14em;
 }
 
 :deep(.tiptap .columns[data-columns="2"]) {
@@ -1843,10 +1841,10 @@ onBeforeUnmount(() => {
 
 :deep(.tiptap .column) {
   padding: 0.75rem;
-  border: 2px solid rgb(75 85 99);
+  border: 2px solid var(--color-rule);
   border-radius: 0.375rem;
   min-height: 80px;
-  background-color: rgba(31, 41, 55, 0.5);
+  background-color: color-mix(in srgb, var(--color-ink-high) 50%, transparent);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -1859,7 +1857,7 @@ onBeforeUnmount(() => {
   right: 0.5rem;
   font-size: 0.6rem;
   font-weight: 500;
-  color: rgb(107 114 128);
+  color: var(--color-faint);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   pointer-events: none;
@@ -1886,12 +1884,12 @@ onBeforeUnmount(() => {
 }
 
 :deep(.tiptap .column:focus-within) {
-  border-color: rgb(34 211 238);
-  background-color: rgba(34, 211, 238, 0.1);
+  border-color: var(--color-vermilion);
+  background-color: color-mix(in srgb, var(--color-vermilion) 10%, transparent);
 }
 
 :deep(.tiptap .column:focus-within::before) {
-  color: rgb(34 211 238);
+  color: var(--color-vermilion);
 }
 
 /* Widget in column should fill height */
