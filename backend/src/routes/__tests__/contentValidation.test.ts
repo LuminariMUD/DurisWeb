@@ -1,4 +1,6 @@
-import express from 'express';
+import express, { type RequestHandler } from 'express';
+import { configureRequestBodyParsers } from '../../middleware/requestLimits.js';
+import { MAX_NEWS_LENGTH } from '../../utils/contentParser.js';
 import request from 'supertest';
 import { beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
@@ -13,7 +15,9 @@ const updateCategory = jest.fn();
 const setMotd = jest.fn(
   (..._args: unknown[]): Promise<{ content: string }> => Promise.resolve({ content: '' }),
 );
-const setNews = jest.fn();
+const setNews = jest.fn(async (content: string) => ({ content }));
+const getNews = jest.fn<() => Promise<{ content: string } | null>>();
+const notifyNewsUpdate = jest.fn<(...args: unknown[]) => Promise<void>>();
 const setWizMotd = jest.fn();
 const setRules = jest.fn();
 const setCredits = jest.fn();
@@ -21,17 +25,32 @@ const setWizlist = jest.fn();
 const setFaq = jest.fn();
 
 jest.unstable_mockModule('../../middleware/auth.js', () => ({
-  requireAuth: (req: any, _res: any, next: any) => {
+  requireAuth: ((req, _res, next) => {
     req.user = {
       accountName: 'Cwial',
       email: 'cwial@example.invalid',
       sessionId: 'content-test-session',
-      permissions: {},
+      permissions: {
+        accountName: 'Cwial',
+        role: 'overlord',
+        immortalLevel: 62,
+        maxLevel: 62,
+        canAccessImmortalForum: true,
+        canAccessGodForum: true,
+        guilds: [],
+        canModerate: true,
+        canBan: true,
+        canEditPosts: true,
+        canDeletePosts: true,
+        canPinThreads: true,
+        canLockThreads: true,
+        adminPermissions: ['manage_news'],
+      },
       adminPermissions: new Set(),
     };
     next();
-  },
-  requirePermission: () => (_req: any, _res: any, next: any) => next(),
+  }) satisfies RequestHandler,
+  requirePermission: () => ((_req, _res, next) => next()) satisfies RequestHandler,
 }));
 
 jest.unstable_mockModule('../../services/contentService.js', () => ({
@@ -41,6 +60,7 @@ jest.unstable_mockModule('../../services/contentService.js', () => ({
   updateCategory,
   setMotd,
   setNews,
+  getNews,
   setWizMotd,
   setRules,
   setCredits,
@@ -59,11 +79,8 @@ jest.unstable_mockModule('../../utils/ipExtractor.js', () => ({
 jest.unstable_mockModule('../../db/connection.js', () => ({
   pool: { query: jest.fn() },
 }));
-jest.unstable_mockModule('../../utils/newsParser.js', () => ({
-  parseLatestNewsEntry: jest.fn(),
-}));
 jest.unstable_mockModule('../../services/unifiedNotificationService.js', () => ({
-  notifyNewsUpdate: jest.fn(),
+  notifyNewsUpdate,
 }));
 
 describe('content route write validation', () => {
@@ -72,12 +89,64 @@ describe('content route write validation', () => {
   beforeAll(async () => {
     const { default: contentRoutes } = await import('../content.js');
     app = express();
-    app.use(express.json());
+    configureRequestBodyParsers(app);
     app.use('/api/content', contentRoutes);
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it.each([54_922, 56_066, MAX_NEWS_LENGTH])(
+    'saves %i characters of MUD news unchanged',
+    async (length) => {
+      const content = '&+YNews&n\n  buy <item> & more\n'.padEnd(length, 'x');
+      const response = await request(app).put('/api/content/news').send({ content });
+      expect(response.status).toBe(200);
+      expect(setNews).toHaveBeenCalledWith(content);
+      expect(response.body.news).toBe(content);
+      expect(notifyNewsUpdate).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([null, 123, '', '&n  ', 'x'.repeat(MAX_NEWS_LENGTH + 1)])(
+    'rejects invalid news before persistence (%#)',
+    async (content) => {
+      const response = await request(app).put('/api/content/news').send({ content });
+      expect(response.status).toBe(400);
+      expect(setNews).not.toHaveBeenCalled();
+    },
+  );
+
+  it('announces the current range with complete items only', async () => {
+    getNews.mockResolvedValueOnce({
+      content:
+        '&+R09/15/26 - 09/21/26&n - Title\n- First\n  continuation\n- Second\n09/07/26 - 09/14/26 - Old\n- Older',
+    });
+    const response = await request(app).post('/api/content/news/announce');
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ success: true, date: '09/15/26 - 09/21/26', itemCount: 2 });
+    expect(notifyNewsUpdate).toHaveBeenCalledWith('09/15/26 - 09/21/26', [
+      '- First continuation',
+      '- Second',
+    ]);
+  });
+
+  it('still announces a legacy dated entry', async () => {
+    getNews.mockResolvedValueOnce({ content: '12/13/25\n- Legacy' });
+    expect((await request(app).post('/api/content/news/announce')).status).toBe(200);
+    expect(notifyNewsUpdate).toHaveBeenCalledWith('12/13/25', ['- Legacy']);
+  });
+
+  it.each([
+    null,
+    { content: '' },
+    { content: 'Unparseable' },
+    { content: '09/15/26 - 09/21/26\n12/13/25\n- Old' },
+  ])('does not notify for absent or unparseable latest news (%#)', async (news) => {
+    getNews.mockResolvedValueOnce(news);
+    expect((await request(app).post('/api/content/news/announce')).status).toBe(400);
+    expect(notifyNewsUpdate).not.toHaveBeenCalled();
   });
 
   it('rejects script-only help content before calling persistence', async () => {

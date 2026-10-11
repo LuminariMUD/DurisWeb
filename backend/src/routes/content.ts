@@ -1,7 +1,7 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import logger, { getErrorMessage } from '../utils/logger.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
-import { processContentForWrite } from '../utils/contentParser.js';
+import { processContentForWrite, processNewsForWrite } from '../utils/contentParser.js';
 import * as contentService from '../services/contentService.js';
 import * as categoryService from '../services/categoryService.js';
 import { extractClientIP } from '../utils/ipExtractor.js';
@@ -25,14 +25,17 @@ function validateContentForWrite(value: unknown): ContentWriteResult {
   return result.error ? { error: result.error } : { content: result.content };
 }
 
-function validateSingleContentBody(value: unknown): ContentWriteResult {
+function validateSingleContentBody(
+  value: unknown,
+  processContent = validateContentForWrite,
+): ContentWriteResult {
   const structureError = validateObjectFields(value, ['content']);
   if (structureError) {
     return { error: structureError };
   }
 
   const content = (value as Record<string, unknown>).content;
-  return validateContentForWrite(content);
+  return processContent(content);
 }
 
 function validateHelpPageBody(value: unknown, requireCoreFields: boolean): string | null {
@@ -499,12 +502,14 @@ router.get('/news', async (_req, res) => {
 // PUT /api/content/news - Update MUD News (requires manage_news permission)
 router.put('/news', requireAuth, requirePermission('manage_news'), async (req, res) => {
   try {
-    const validated = validateSingleContentBody(req.body);
+    const validated = validateSingleContentBody(req.body, (value) => {
+      const result = processNewsForWrite(value);
+      return result.error ? { error: result.error } : { content: result.content };
+    });
     if ('error' in validated) {
       return res.status(400).json({ error: validated.error });
     }
-    const sanitizedContent = validated.content;
-    const news = await contentService.setNews(sanitizedContent);
+    const news = await contentService.setNews(validated.content);
 
     // Audit log
     await logAdminAction(
@@ -536,7 +541,8 @@ router.post('/news/announce', requireAuth, requirePermission('manage_news'), asy
     const latestEntry = parseLatestNewsEntry(news.content);
     if (!latestEntry) {
       return res.status(400).json({
-        error: 'Could not parse news entry. Make sure news starts with a date (M/D/YY format)',
+        error:
+          'Could not parse the latest news section. Use M/D/YY or M/D/YY - M/D/YY, an optional title, and bullet items.',
       });
     }
 

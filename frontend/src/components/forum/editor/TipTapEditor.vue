@@ -866,12 +866,14 @@ const props = withDefaults(
     placeholder?: string
     maxLength?: number
     editable?: boolean
+    preserveWhitespace?: boolean
     enableMentions?: boolean
     enableWidgets?: boolean
   }>(),
   {
     placeholder: 'Write something...',
     editable: true,
+    preserveWhitespace: false,
     enableMentions: false,
     enableWidgets: false,
   },
@@ -1069,6 +1071,7 @@ const extensions = computed(() => {
 // Initialize editor
 const editor = useEditor({
   content: props.modelValue,
+  parseOptions: { preserveWhitespace: props.preserveWhitespace ? 'full' : false },
   editable: props.editable,
   extensions: extensions.value,
   editorProps: {
@@ -1152,7 +1155,10 @@ watch(
   () => props.modelValue,
   (newValue) => {
     if (editor.value && editor.value.getHTML() !== newValue) {
-      editor.value.commands.setContent(newValue)
+      editor.value.commands.setContent(newValue, {
+        emitUpdate: false,
+        parseOptions: { preserveWhitespace: props.preserveWhitespace ? 'full' : false },
+      })
     }
   },
 )
@@ -1402,7 +1408,9 @@ async function uploadAndInsertImage(file: File) {
 function updateFromSource(event: Event) {
   const target = event.target as HTMLTextAreaElement
   if (editor.value) {
-    editor.value.commands.setContent(target.value)
+    editor.value.commands.setContent(target.value, {
+      parseOptions: { preserveWhitespace: props.preserveWhitespace ? 'full' : false },
+    })
   }
 }
 
@@ -1412,7 +1420,9 @@ function updateFromAnsi(event: Event) {
   // Convert ANSI to HTML and update editor
   const htmlContent = ansiToHtmlWithStyles(ansiText)
   if (editor.value) {
-    editor.value.commands.setContent(htmlContent)
+    editor.value.commands.setContent(htmlContent, {
+      parseOptions: { preserveWhitespace: props.preserveWhitespace ? 'full' : false },
+    })
   }
 }
 

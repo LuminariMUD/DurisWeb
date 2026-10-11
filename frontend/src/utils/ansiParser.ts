@@ -459,116 +459,74 @@ export function parseAnsiForVue(text: string, collapseBlankLines = false): strin
   return parsedLines.join('\n')
 }
 
-/**
- * Convert ANSI codes to HTML with data-mud-color attributes (for TipTap editor)
- */
+/** Convert MUD text to escaped, colored paragraphs for the editor. */
 export function ansiToHtmlWithStyles(text: string): string {
   if (!text) return ''
+  const escape = (value: string) =>
+    value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
-  // Map of ANSI codes (only the ones in MudColorExtension)
-  const mudCodes = [
-    '&+R',
-    '&+G',
-    '&+B',
-    '&+Y',
-    '&+M',
-    '&+C',
-    '&+W',
-    '&+L',
-    '&+r',
-    '&+g',
-    '&+b',
-    '&+y',
-    '&+m',
-    '&+c',
-    '&+w',
-    '&+l',
-    '&n',
-    '&N',
-  ]
-
-  let html = text
-
-  // Split by lines to process each line separately
-  const lines = html.split('\n')
-  const processedLines = lines.map((line) => {
-    let processedLine = line
-
-    // Find all ANSI codes in the line and convert to spans
-    for (const code of mudCodes) {
-      const regex = new RegExp(escapeRegExp(code), 'g')
-      processedLine = processedLine.replace(regex, `</span><span data-mud-color="${code}">`)
-    }
-
-    // Wrap in base span
-    processedLine = `<span data-mud-color="&n">${processedLine}</span>`
-
-    // Remove empty spans
-    processedLine = processedLine.replace(/<span[^>]*><\/span>/g, '')
-
-    return processedLine
-  })
-
-  // Join with paragraphs
-  html = '<p>' + processedLines.join('</p><p>') + '</p>'
-
-  return html
+  return text
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => {
+      let color = '&n'
+      let offset = 0
+      let html = ''
+      const append = (value: string) => {
+        if (value) html += `<span data-mud-color="${escape(color)}">${escape(value)}</span>`
+      }
+      for (const match of line.matchAll(/&(=[a-zA-Z]{2}|[+\-][a-zA-Z*]|[nN])/g)) {
+        append(line.slice(offset, match.index))
+        color = match[0]
+        offset = match.index + color.length
+      }
+      append(line.slice(offset))
+      return `<p>${html}</p>`
+    })
+    .join('')
 }
 
-/**
- * Convert HTML with data-mud-color spans back to ANSI codes
- * This reverses the ansiToHtmlWithStyles transformation
- */
+/** Serialize editor text and MUD colors without treating literal text as markup. */
 export function htmlToAnsi(html: string): string {
   if (!html) return ''
+  const template = document.createElement('template')
+  template.innerHTML = html
+  const validColor = /^&(=[a-zA-Z]{2}|[+\-][a-zA-Z*]|[nN])$/
+  let activeColor = '&n'
+  const isBlock = (node: Node) =>
+    node instanceof HTMLElement &&
+    /^(P|DIV|H[1-6]|LI|UL|OL|BLOCKQUOTE|PRE|TABLE|TR|HR)$/.test(node.tagName)
 
-  let result = html
+  const serializeChildren = (parent: Node, color: string): string => {
+    const children = Array.from(parent.childNodes)
+    return children
+      .map((child, index) => {
+        const separator = index > 0 && (isBlock(child) || isBlock(children[index - 1]!)) ? '\n' : ''
+        return separator + serialize(child, color)
+      })
+      .join('')
+  }
 
-  // Extract text content while preserving ANSI codes from data-mud-color attributes
-  // Replace spans with data-mud-color with the ANSI code + text content
-  result = result.replace(
-    /<span data-mud-color="([^"]+)"[^>]*>(.*?)<\/span>/gi,
-    (match, code, content) => {
-      // Don't add ANSI code if it's the default &n and content is empty
-      if (code === '&n' && !content.trim()) {
-        return content
-      }
-      // Don't add code if content is empty
-      if (!content.trim()) {
-        return ''
-      }
-      return code + content
-    },
-  )
+  const serialize = (node: Node, color = '&n'): string => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const value = node.textContent || ''
+      if (!value) return ''
+      const prefix = color === activeColor ? '' : color
+      activeColor = color
+      return prefix + value
+    }
+    if (!(node instanceof HTMLElement)) return ''
+    if (node.tagName === 'BR') return '\n'
+    if (node.tagName === 'HR') return '----------------------------------------'
+    const mudColor = node.getAttribute('data-mud-color')
+    const nextColor = mudColor && validColor.test(mudColor) ? mudColor : color
+    if (isBlock(node)) activeColor = '&n'
+    const value = serializeChildren(node, nextColor)
+    if (!isBlock(node)) return value
+    const reset = activeColor === '&n' ? '' : '&n'
+    activeColor = '&n'
+    return value + reset
+  }
 
-  // Convert horizontal rules to dashes
-  result = result.replace(/<hr\s*\/?>/gi, '\n----------------------------------------\n')
-
-  // Remove other HTML tags
-  result = result.replace(/<br\s*\/?>/gi, '\n')
-  result = result.replace(/<\/p>/gi, '\n')
-  result = result.replace(/<p[^>]*>/gi, '')
-  result = result.replace(/<strong>/gi, '')
-  result = result.replace(/<\/strong>/gi, '')
-  result = result.replace(/<em>/gi, '')
-  result = result.replace(/<\/em>/gi, '')
-  result = result.replace(/<u>/gi, '')
-  result = result.replace(/<\/u>/gi, '')
-  result = result.replace(/<[^>]+>/g, '')
-
-  // Decode HTML entities
-  result = result.replace(/&nbsp;/g, ' ')
-  result = result.replace(/&lt;/g, '<')
-  result = result.replace(/&gt;/g, '>')
-  result = result.replace(/&amp;/g, '&')
-  result = result.replace(/&quot;/g, '"')
-  result = result.replace(/&#039;/g, "'")
-
-  // Clean up multiple ANSI codes in a row (e.g., &n&n -> &n)
-  result = result.replace(/(&[+\-=]?[a-zA-Z])\1+/g, '$1')
-
-  // Clean up multiple newlines
-  result = result.replace(/\n{3,}/g, '\n\n')
-
-  return result.trim()
+  return serializeChildren(template.content, '&n')
 }

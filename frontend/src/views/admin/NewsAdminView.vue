@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useQueryClient } from '@tanstack/vue-query'
+import { isAxiosError } from 'axios'
 import { apiClient as api } from '@/services/api'
 import { Button } from '@/components/ui/button'
 import { Save } from '@lucide/vue'
@@ -18,10 +20,21 @@ import {
 } from '@/components/ui/alert-dialog'
 
 const toast = useToast()
+const queryClient = useQueryClient()
+
+function errorMessage(error: unknown, fallback: string): string {
+  if (isAxiosError<{ error?: string }>(error) && typeof error.response?.data.error === 'string') {
+    return error.response.data.error
+  }
+  return error instanceof Error ? error.message : fallback
+}
 
 // State
 const newsContent = ref('')
-const loading = ref(false)
+const loading = ref(true)
+const loadFailed = ref(false)
+let originalNews = ''
+let originalHtml = ''
 const saving = ref(false)
 const announcing = ref(false)
 const lastUpdate = ref<string | null>(null)
@@ -34,11 +47,15 @@ async function loadNews() {
     const response = await api.get('/api/content/news')
     // Convert ANSI codes to HTML for TipTap editor
     const ansiText = response.data.news || ''
-    newsContent.value = ansiToHtmlWithStyles(ansiText)
-  } catch (error: any) {
+    originalNews = ansiText
+    originalHtml = ansiToHtmlWithStyles(ansiText)
+    newsContent.value = originalHtml
+    loadFailed.value = false
+  } catch (error: unknown) {
+    loadFailed.value = true
     toast.show({
       title: 'Error',
-      message: error.response?.data?.error?.message || error.message || 'Failed to load MUD news',
+      message: errorMessage(error, 'Failed to load MUD news'),
       type: 'error',
     })
   } finally {
@@ -48,6 +65,7 @@ async function loadNews() {
 
 // Save news
 async function saveNews() {
+  if (loading.value || saving.value || loadFailed.value) return
   if (!newsContent.value.trim()) {
     toast.show({
       title: 'Validation Error',
@@ -60,11 +78,15 @@ async function saveNews() {
   saving.value = true
   try {
     // Convert HTML back to ANSI codes for database storage
-    const ansiText = htmlToAnsi(newsContent.value)
+    const ansiText =
+      newsContent.value === originalHtml ? originalNews : htmlToAnsi(newsContent.value)
     await api.put('/api/content/news', {
       content: ansiText,
     })
 
+    originalNews = ansiText
+    originalHtml = newsContent.value
+    await queryClient.invalidateQueries({ queryKey: ['news'] })
     toast.show({
       title: 'Success',
       message: 'MUD News updated successfully',
@@ -74,10 +96,10 @@ async function saveNews() {
 
     // show announce dialog
     showAnnounceDialog.value = true
-  } catch (error: any) {
+  } catch (error: unknown) {
     toast.show({
       title: 'Error',
-      message: error.response?.data?.error?.message || error.message || 'Failed to save MUD news',
+      message: errorMessage(error, 'Failed to save MUD news'),
       type: 'error',
     })
   } finally {
@@ -94,10 +116,10 @@ async function announceNews() {
       title: 'Success',
       message: `News update announced to all users (${response.data.date})`,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     toast.show({
       title: 'Error',
-      message: error.response?.data?.error || error.message || 'Failed to announce news',
+      message: errorMessage(error, 'Failed to announce news'),
       type: 'error',
     })
   } finally {
@@ -134,7 +156,7 @@ onMounted(() => {
           Last updated: {{ formatDate(lastUpdate) }}
         </p>
       </div>
-      <Button @click="saveNews" :disabled="saving || loading">
+      <Button @click="saveNews" :disabled="saving || loading || loadFailed">
         <Save class="w-4 h-4 mr-2" />
         {{ saving ? 'Saving...' : 'Save Changes' }}
       </Button>
@@ -152,7 +174,8 @@ onMounted(() => {
       </div>
       <TipTapEditor
         v-model="newsContent"
-        :disabled="loading"
+        :editable="!loading && !saving && !loadFailed"
+        preserve-whitespace
         placeholder="Enter MUD news content here..."
         :min-height="500"
       />
@@ -174,7 +197,7 @@ onMounted(() => {
         <AlertDialogHeader>
           <AlertDialogTitle>Announce Update?</AlertDialogTitle>
           <AlertDialogDescription>
-            Do you want to notify all users about this news update? This will send a popup notification to online users and a push notification to subscribers.
+            Do you want to notify all users about this news update? Online users receive a popup and account notifications are saved. Browser push is sent to subscribers only when it is configured and enabled.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

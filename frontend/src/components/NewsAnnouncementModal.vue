@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useQueryClient } from '@tanstack/vue-query'
 import { useAuth } from '@/composables/useAuth'
 import {
   Dialog,
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Newspaper } from '@lucide/vue'
 
 const router = useRouter()
+const queryClient = useQueryClient()
 const { accountName } = useAuth()
 
 const isOpen = ref(false)
@@ -29,6 +31,7 @@ const storageKey = () => {
 
 function handleNewsUpdate(event: CustomEvent<{ date: string; items: string[] }>) {
   const { date, items } = event.detail
+  void queryClient.invalidateQueries({ queryKey: ['news'] })
 
   // check if user has already seen this news
   const lastSeen = localStorage.getItem(storageKey())

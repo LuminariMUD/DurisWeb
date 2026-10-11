@@ -1,15 +1,3 @@
-/**
- * parses the latest news entry from the news content
- *
- * news format:
- * M/D/YY or MM/DD/YY
- * - bullet point 1
- * - bullet point 2
- * * sub-bullet (treated as continuation)
- *
- * next date...
- */
-
 import { stripAnsiCodes } from './stringUtils.js';
 
 export interface NewsEntry {
@@ -17,58 +5,63 @@ export interface NewsEntry {
   items: string[];
 }
 
-/**
- * extracts the first (latest) news entry from the content
- */
+const NUMERIC_DATE = String.raw`\d{1,2}/\d{1,2}/(?:\d{4}|\d{2})`;
+const HEADING = new RegExp(
+  `^(${NUMERIC_DATE})(?:\\s*[-–—]\\s*(${NUMERIC_DATE}))?(?:\\s+[-–—:]\\s+.+)?$`,
+);
+
+function dateValue(value: string): number | null {
+  const [month, day, shortYear] = value.split('/').map(Number);
+  const year = shortYear < 100 ? 2000 + shortYear : shortYear;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+    ? date.getTime()
+    : null;
+}
+
+/** Extract the first dated section; never fall through an empty or invalid section. */
 export function parseLatestNewsEntry(content: string): NewsEntry | null {
-  if (!content || !content.trim()) {
-    return null;
-  }
-
-  const lines = content.split('\n');
-
-  // regex to match date pattern: M/D/YY, MM/DD/YY, M/DD/YY, MM/D/YY
-  const datePattern = /^\d{1,2}\/\d{1,2}\/\d{2,4}\s*$/;
-
   let date: string | null = null;
   const items: string[] = [];
-  let foundFirstDate = false;
+  let continuingBullet = false;
 
-  for (const line of lines) {
-    // strip ansi codes before processing
-    const cleanLine = stripAnsiCodes(line).trim();
+  for (const line of content.split(/\r?\n/)) {
+    const plainLine = stripAnsiCodes(line);
+    const cleanLine = plainLine.trim();
+    const heading = HEADING.exec(cleanLine);
 
-    // skip empty lines before first date
-    if (!foundFirstDate && !cleanLine) {
+    if (heading) {
+      if (date) break;
+      const start = dateValue(heading[1]);
+      const end = heading[2] ? dateValue(heading[2]) : start;
+      if (start === null || end === null || end < start) return null;
+      date = heading[2] ? `${heading[1]} - ${heading[2]}` : heading[1];
       continue;
     }
 
-    // check if this is a date line
-    if (datePattern.test(cleanLine)) {
-      if (foundFirstDate) {
-        // we've hit the next date entry, stop here
-        break;
-      }
-      // this is the first date
-      date = cleanLine;
-      foundFirstDate = true;
+    // An unsupported numeric heading must not advertise an older section.
+    if (/^\d{1,4}[/.\-]/.test(cleanLine)) {
+      if (!date) return null;
+      break;
+    }
+    if (!date) {
+      if (/^[-*]\s+\S/.test(cleanLine)) return null;
       continue;
     }
 
-    // if we haven't found a date yet, skip
-    if (!foundFirstDate) {
-      continue;
-    }
-
-    // collect bullet points (lines starting with - or *)
-    if (cleanLine.startsWith('- ') || cleanLine.startsWith('* ')) {
+    if (/^[-*]\s+\S/.test(cleanLine)) {
       items.push(cleanLine);
+      continuingBullet = true;
+    } else if (continuingBullet && cleanLine && /^\s/.test(plainLine)) {
+      const separator = /[a-zA-Z]-$/.test(items[items.length - 1]) ? '' : ' ';
+      items[items.length - 1] += separator + cleanLine;
+    } else {
+      // Blank lines, separators and subsection titles end a wrapped bullet.
+      continuingBullet = false;
     }
   }
 
-  if (!date || items.length === 0) {
-    return null;
-  }
-
-  return { date, items };
+  return date && items.length ? { date, items } : null;
 }

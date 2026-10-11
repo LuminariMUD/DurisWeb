@@ -1,5 +1,6 @@
 import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
+import { stripAnsiCodes } from './stringUtils.js';
 
 // Use a standards-compliant DOM implementation. DOMPurify's security behavior
 // is not reliable when initialized with the lightweight linkedom window.
@@ -297,4 +298,24 @@ export function htmlToText(html: string, maxLength?: number): string {
   }
 
   return text;
+}
+
+// News contains the complete MUD history, not one forum post. Keep a bounded
+// allowance for growth while staying within the existing 1 MB JSON body limit.
+export const MAX_NEWS_LENGTH = 250_000;
+
+/** News is plain MUD text. Escape it when rendering, never sanitize it as HTML. */
+export function processNewsForWrite(value: unknown): { content: string; error: string | null } {
+  if (typeof value !== 'string') return { content: '', error: 'Content must be a string' };
+  if (value.length > MAX_NEWS_LENGTH) {
+    return {
+      content: '',
+      error: `Content exceeds maximum length of ${MAX_NEWS_LENGTH} characters`,
+    };
+  }
+  if (!stripAnsiCodes(value).trim()) return { content: '', error: 'Content cannot be empty' };
+  if (/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value)) {
+    return { content: '', error: 'Content contains unsupported control characters' };
+  }
+  return { content: value, error: null };
 }

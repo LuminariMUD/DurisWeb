@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { ANSI_COLORS, parseAnsiForVue, parseAnsiToHtml } from '../ansiParser'
+import {
+  ANSI_COLORS,
+  parseAnsiForVue,
+  parseAnsiToHtml,
+  ansiToHtmlWithStyles,
+  htmlToAnsi,
+} from '../ansiParser'
 
 /*
  * MUD color codes map to fixed Tailwind classes: they are game semantics, not
@@ -320,5 +326,42 @@ describe('ANSI color classes are pinned', () => {
     expect(parseAnsiForVue(SAMPLE)).toMatchInlineSnapshot(
       `"<span class="text-red-400 font-bold">red </span><span class="text-green-600">green </span><span class="text-yellow-300 font-bold">yellow </span><span class="text-blue-600">blue </span><span class="text-purple-400 font-bold">magenta </span><span class="text-cyan-600">cyan </span><span class="text-white font-bold">white </span><span class="text-gray-500 font-bold">gray </span><span class="bg-red-900 text-white font-bold">alert</span><span class="text-gray-300"> plain</span>"`,
     )
+  })
+})
+
+// The editor conversion must preserve literal MUD text rather than parse it as HTML.
+describe('MUD editor conversion', () => {
+  it('round-trips command placeholders, entities, indentation and blank lines', () => {
+    const text = '&+RNews&n\n  build <forge|loom> <direction> & more &copy;\n\n\n&+CWrapped&n\n'
+    expect(htmlToAnsi(ansiToHtmlWithStyles(text))).toBe(text)
+  })
+
+  it('escapes markup before it reaches the editable DOM', () => {
+    const text = '<script>alert(1)</script><img src=x onerror=alert(2)> &amp;'
+    const element = document.createElement('div')
+    element.innerHTML = ansiToHtmlWithStyles(text)
+    expect(element.querySelector('script,img')).toBeNull()
+    expect(htmlToAnsi(element.innerHTML)).toBe(text)
+    const display = document.createElement('div')
+    display.innerHTML = parseAnsiForVue(text)
+    expect(display.querySelector('script,img')).toBeNull()
+    expect(display.textContent).toBe(text)
+  })
+
+  it('handles nested formatting, serialized attribute order and resets to surrounding color', () => {
+    expect(
+      htmlToAnsi(
+        '<p><span class="color" data-mud-color="&amp;+R">red <strong>bold</strong></span> plain</p><p>next<br>line</p>',
+      ),
+    ).toBe('&+Rred bold&n plain\nnext\nline')
+  })
+
+  it('does not accept arbitrary attribute text as a MUD color', () => {
+    expect(htmlToAnsi('<p><span data-mud-color="not-a-color">text</span></p>')).toBe('text')
+  })
+  it('retains line boundaries in nested rich-text blocks', () => {
+    expect(
+      htmlToAnsi('<h2>Heading</h2><ul><li><p>First</p></li><li><p>Second</p></li></ul><p>End</p>'),
+    ).toBe('Heading\nFirst\nSecond\nEnd')
   })
 })

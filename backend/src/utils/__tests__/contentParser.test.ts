@@ -1,6 +1,8 @@
 import { describe, expect, it } from '@jest/globals';
 import {
   escapeHtml,
+  MAX_NEWS_LENGTH,
+  processNewsForWrite,
   processContentForWrite,
   processForumContent,
   sanitizeContent,
@@ -47,5 +49,32 @@ describe('content write validation', () => {
     expect(escapeHtml(`A&B <tag> "double" 'single'`)).toBe(
       'A&amp;B &lt;tag&gt; &quot;double&quot; &#39;single&#39;',
     );
+  });
+});
+
+describe('MUD news write validation', () => {
+  it.each([54_922, 56_066, MAX_NEWS_LENGTH])(
+    'accepts %i characters without changing text',
+    (length) => {
+      const content = '&+YNews&n\n  build <forge|loom> <direction> & more\n'.padEnd(length, 'x');
+      expect(processNewsForWrite(content)).toEqual({ content, error: null });
+    },
+  );
+
+  it('rejects the first character beyond the news limit', () => {
+    expect(processNewsForWrite('x'.repeat(MAX_NEWS_LENGTH + 1)).error).toContain('maximum length');
+  });
+
+  it.each([null, undefined, 123, {}, [], '', ' \n\t', '&+R&n', 'text\0hidden', '\u001b[2J'])(
+    'rejects invalid news: %p',
+    (input) => {
+      expect(processNewsForWrite(input).error).not.toBeNull();
+      expect(processNewsForWrite(input).content).toBe('');
+    },
+  );
+
+  it('retains the forum and other HTML write limits', () => {
+    expect(processForumContent('x'.repeat(50_001)).error).toContain('50000');
+    expect(processContentForWrite('x'.repeat(50_001)).error).toContain('50000');
   });
 });
