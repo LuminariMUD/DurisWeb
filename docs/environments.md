@@ -16,6 +16,40 @@ backend/frontend values are reported together before the application starts.
 Disabled optional integrations require an explicit `false` flag; enabling one
 requires its complete configuration group.
 
+## Find installation-specific settings
+
+Each installation supplies its own values through the owning component's input
+file. The examples describe the supported keys; their sample paths and ports
+are replaceable values, not a required directory layout.
+
+| Setting | Configuration owner | Variables |
+|---|---|---|
+| Backend listener and website origins | `backend/.env` | `HOST`, `PORT`, `SITE_URL`, `ALLOWED_ORIGINS` |
+| Web database and database ownership mode | `backend/.env` | `DB_*`, `MUD_DATABASE_MODE`, optional `MUD_DB_*` |
+| Website cache and scoped MUD Redis access | `backend/.env` | `CACHE_REDIS_*`, `MUD_REDIS_*` |
+| Selected MUD checkout and privileged bridge | `backend/.env` | `MUD_DIR`, `MUD_WS_URL`, `MUD_PROCESS_*` |
+| Website backup storage | `backend/.env` | `BACKUP_DIR` |
+| Browser API, application WebSocket and static origins | `frontend/.env` | `VITE_API_URL`, `VITE_WS_URL`, `VITE_STATIC_URL`, `VITE_BASE_URL` |
+| Application paths, environment location and rendered artifacts | Deployment input | `BACKEND_ROOT`, `FRONTEND_DIST`, `BACKEND_ENV_FILE`, `RENDER_OUTPUT_DIR`, `DEPLOYMENT_ENV_FILE` |
+| Service manager, identity and dependency names | Deployment input | `DEPLOY_SERVICE_SCOPE`, `SERVICE_USER`, `APPLICATION_SERVICE`, `CACHE_SERVICE`, `DATABASE_SERVICE`, `MUD_SERVICE` |
+| Runtime tools and service home | Deployment input | `NODE_BIN`, `TEST_BIN`, `SERVICE_PATH`, `SERVICE_HOME`, `REDIS_BIN`, `CLOUDFLARED_BIN` |
+| Managed private Redis storage and listener | Deployment input | `REDIS_CONFIG_PATH`, `REDIS_DATA_DIR`, `REDIS_BIND_ADDRESS`, `REDIS_PORT` |
+| Public ingress and acceptance endpoints | Deployment input | `DEPLOY_CLOUDFLARED_ENABLED`, `CLOUDFLARE_*`, `DEPLOY_NGINX_ENABLED`, `NGINX_*`, `LOCAL_HEALTH_URL`, `PUBLIC_HEALTH_URL` |
+| Local Compose dependencies | Root `.env` | `COMPOSE_MYSQL_*`, `COMPOSE_REDIS_*` |
+
+Start with the [backend](../backend/.env.example),
+[frontend](../frontend/.env.example), [deployment](../deploy/deployment.env.example)
+and [Compose](../.env.example) examples. The deployment input is a separately
+protected copy selected by `DEPLOYMENT_ENV_FILE`; its filename/location can
+differ between installations. Keep the separate DurisMUD product's configuration
+under its own ownership. DurisWeb's MUD settings select integration targets;
+they are not a replacement for the game's environment.
+
+When adding a configurable behavior, add its key to the appropriate example,
+parser/validation and consumer together, then provision it in the installation's
+protected input. A documentation-only or unused environment key does not make a
+hardcoded behavior configurable. Browser-visible keys remain public.
+
 ## Backend environment
 
 The backend always requires:
@@ -132,10 +166,9 @@ credentials and host ports. Deployment operators keep a mode-0600 copy of
 `deploy/deployment.env.example` outside the repository and render portable
 systemd and Redis files. `DEPLOY_CLOUDFLARED_ENABLED` and
 `DEPLOY_NGINX_ENABLED` explicitly select complete optional ingress groups and
-their rendered artifacts. See [Deployment](deployment.md). The single
-production deployment selects `DEPLOY_CLOUDFLARED_ENABLED=true`; its Cloudflare
-tunnel is the only public ingress, as recorded in the
-[production location](ongoing-projects/prod-deploy.md#production-location-authoritative).
+their rendered artifacts. Select the groups appropriate to your installation
+and preserve its existing ingress during maintenance. See
+[Deployment](deployment.md).
 
 `backend/.env.test` is the only test override. Under `NODE_ENV=test`, it is
 loaded before `backend/.env`; tests fill isolated in-process values only when a

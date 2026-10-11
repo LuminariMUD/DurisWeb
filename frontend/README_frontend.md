@@ -59,12 +59,11 @@ page headings and brand calls to action. Tokens live in
 `src/assets/main.css`, shared pieces in `src/components/brand/`, and chart
 colors in `src/utils/chartTheme.ts`; `scripts/check-palette-literals.sh`
 rejects raw gray/cyan/zinc/slate classes. MUD game colors are exempt and
-pinned by a spec. See [theme and colors](../docs/development.md#theme-and-colors)
-and the [site-wide transition record](../docs/ongoing-projects/sitewide-design-transition.md).
+pinned by a spec. See [theme and colors](../docs/development.md#theme-and-colors).
 
 The homepage presents the exact legacy `Duris SBS` name as `Duris`. Custom hero
 settings and sanitized editor content remain supported. See the
-[homepage design record](../docs/ongoing-projects/homepage-redesign.md) for
+[homepage assets and configuration](../docs/development.md#homepage-assets-and-configuration) for
 asset provenance and motion controls.
 
 See [Development](../docs/development.md) and

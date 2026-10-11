@@ -4,6 +4,10 @@ This verifier is the aggregate-only completion gate for the 68,284 ownership
 baselines accepted by `legacy-target-wins-v1`. It does not discover or print
 row identifiers. The authoritative MUD-side observer must create a protected
 JSON observation from the same cohort at a declared live or quiesced boundary.
+This is the historical import cohort, not an assertion about the current
+production database. Confirm [target and import provenance](../ARCHITECTURE.md#legacy-import-boundaries)
+before collecting an observation; do not manufacture a matching cohort on a
+different installation.
 
 Run it from the repository root:
 

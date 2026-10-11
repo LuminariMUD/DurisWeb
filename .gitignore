@@ -76,5 +76,5 @@ yarn.lock
 backend/public/maps/
 *.kate-swp
 
-# Local deployment journals (may contain host-specific operational details)
-/docs/ongoing-projects/deploy-production.md
+# Local operator reference (host-specific details, never credentials)
+/docs/local-production.md

@@ -53,6 +53,43 @@ points and security boundaries rather than duplicating every handler.
 Some route modules contain both public and protected handlers. Do not infer
 authorization from the prefix alone; inspect the handler middleware and tests.
 
+## MUD news publishing
+
+MUD news is the complete plain-text history, including MUD color codes, in
+`mud_info` with `name = 'news'`. It is separate from the Website Changelog,
+which uses `website_changelog` and `/api/changelog`.
+
+| Method | Path | Contract |
+|---|---|---|
+| `GET` | `/api/content/news` | Public, returns `{ news }` |
+| `GET` | `/api/news` | Public, returns the same text as `{ content }` |
+| `PUT` | `/api/content/news` | Requires `manage_news`; body `{ content }` updates the database |
+| `POST` | `/api/content/news/announce` | Requires `manage_news`; announces the first dated section without editing or importing content |
+
+The checked-in news validator accepts nonempty strings up to 250,000 JavaScript
+string characters, rejects unsupported control characters, and preserves text
+instead of treating it as HTML. Other managed HTML content keeps its separate
+50,000-character limit. Render news with text escaping so command placeholders,
+ampersands and color codes survive safely. The editor retains original bytes
+for an untouched save; an edit can normalize color-span encoding while retaining
+the visible text, whitespace and colors.
+
+Announcement headings support `M/D/YY` or `M/D/YYYY`, optionally a date range
+and a title separated by a dash or colon. `-` and `*` introduce bullets;
+indented continuation lines are joined. Parsing stops at the next dated section
+and refuses an invalid or empty first section instead of advertising an older
+entry. Delivery broadcasts `NEWS_UPDATED`, attempts configured browser push,
+and stores notifications for accounts drawn from login history. An announcement
+does not guarantee push delivery when push is disabled or no subscription exists.
+
+The website query has a five-minute freshness window, with no polling or
+window-focus refetch. Becoming stale alone does not fetch new content.
+`NEWS_UPDATED` invalidates the news query before checking whether its popup
+date was dismissed; an editor save invalidates that browser's query too.
+See [publishing and MUD refresh](../deployment.md#publish-mud-news) for the
+database/file/runtime ownership boundary. As with any release, verify installed
+artifacts before relying on the checked-in contract.
+
 ## Default-closed MUD mutation routes
 
 Several legacy routes remain addressable for compatibility but return HTTP 503

@@ -13,7 +13,7 @@ Website for DurisMUD - usually hosted on same server as DurisMUD
 
 - The only production website is this checkout on `plesk.luminarimud.com` (account `staging`, `/home/staging/durisweb`), serving `duris.sbs` and `www.duris.sbs`. There is no other host: the earlier `/home/duris` deployment and the tunnel `5b7d0472-7d5b-4c6e-8aa3-cd550e2bdb60` described in older journals are gone.
 - Public ingress is the Cloudflare tunnel `durisweb-production` (`afb18d75-613f-41af-bd53-bb0d19bbf5dc`), run on this host by `durisweb-cloudflared.service`. Both hostnames are proxied CNAMEs to that tunnel, and its ingress routes them to the backend on `127.0.0.1:7770`. Cloudflare is required, not optional; do not disable the tunnel group or plan an alternative ingress.
-- The paired MUD is `/home/staging/duris` with user units `duris-mariadb` (127.0.0.1:3307), `duris-redis` (127.0.0.1:6381), and `duris-mud-production`. Live settings are the gitignored `.env`, `backend/.env`, `frontend/.env`, and `deploy/deployment.env`; host-specific notes live in the gitignored `docs/ongoing-projects/deploy-production.md`.
+- The paired MUD is `/home/staging/duris` with user units `duris-mariadb` (127.0.0.1:3307), `duris-redis` (127.0.0.1:6381), and `duris-mud-production`. Live settings are the gitignored `.env`, `backend/.env`, `frontend/.env`, and `deploy/deployment.env`; host-specific topology and recovery locations live in the gitignored `docs/local-production.md`. Public contributor guides remain portable. Sensitive release evidence stays outside the checkout.
 
 ## Working Rules
 

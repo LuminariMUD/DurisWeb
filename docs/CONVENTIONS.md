@@ -205,24 +205,26 @@ the [architecture guide](ARCHITECTURE.md#mud-integration-channels),
 
 | Package | Path | Role | Deploys Independently | Platform |
 |---------|------|------|-----------------------|----------|
-| backend | `backend` | Express API and WebSocket server | Yes | Not selected |
-| frontend | `frontend` | Vite static application | Yes | Not selected |
+| backend | `backend` | Express API and WebSocket server | Yes | Configurable systemd templates |
+| frontend | `frontend` | Vite static application | Yes | Static output served by the backend |
 
 Shared infrastructure: MySQL is used directly by the backend and external MUD;
-Redis is operated by the backend. The frontend reaches both only through the
-backend API.
+the website has a private Redis cache and scoped access to the MUD's separate
+Redis. The frontend reaches database/cache services only through backend APIs.
+The [deployment guide](deployment.md) describes configurable service scope and
+ingress; installed host details belong in operator-owned records.
 
 | Component | Package | Provider | Details |
 |-----------|---------|----------|---------|
-| Hosting | backend | not verified | PM2/systemd reference files exist with hardcoded legacy paths; local start validated |
-| Hosting | frontend | not verified | nginx/systemd reference files exist with inconsistent host paths; production preview validated |
+| Hosting | backend | systemd | Portable templates plus protected operator configuration |
+| Hosting | frontend | backend static serving | Build in an isolated worktree; replacing served `frontend/dist` publishes immediately |
 | Health | backend | Express | `GET /health`; returns 200 only when MySQL and Redis checks pass |
 | Health | frontend | static artifact | `frontend/public/health`; copied to build output as `/health` |
 | Rate limiting | backend | `express-rate-limit` | Route-specific limits; WAF portion of Security bundle remains unconfigured |
 | Database | backend + external DurisMUD | MySQL 8 | Shared schema; MUD core tables exist outside the DurisWeb Knex chain |
 | Cache | backend | Redis 7 | Backend-owned; local Compose service |
 | Backup | (shared) | local ZIP archive | Hourly scheduler, manual retention 5, configurable hourly retention; restore verified against ephemeral MySQL |
-| Deploy | backend, frontend | not configured | Admin MUD deployment UI is not a website CD trigger |
+| Deploy | backend, frontend | operator-controlled | Staged artifacts, preflight, and complete-group recovery; admin MUD deployment UI is not a website CD trigger |
 
 ### Database Ownership
 

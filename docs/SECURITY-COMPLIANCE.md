@@ -1,7 +1,7 @@
 # Security & Compliance
 
 > Cumulative security posture and GDPR record.
-> **Line budget**: 1000 max | **Last updated**: 2026-09-09
+> **Line budget**: 1000 max | **Last updated**: 2026-10-11
 
 ---
 
@@ -19,7 +19,8 @@
 Phase 00's scoped changes validated successfully and materially strengthened
 the MUD integration boundary. The project is still at risk because two
 auth/session findings remain High and privacy lifecycle requirements are not
-implemented. Dependency audits are currently clean.
+implemented. The dependency audit below is dated evidence, not a current
+dependency-security guarantee.
 
 ---
 
@@ -41,7 +42,7 @@ implemented. Dependency audits are currently clean.
 - **Remediation**: Store SHA-256 token digests and compare digests. Keep the raw
   token only in the client cookie. Deployment invalidates all existing sessions
   and therefore needs an explicit rollout/logout decision.
-- **Status**: Open.
+- **Status**: Open; [issue #7](https://github.com/LuminariMUD/DurisWeb/issues/7).
 
 #### SEC-TZ-1: Session expiry can fail open when host timezones differ
 
@@ -55,7 +56,7 @@ implemented. Dependency audits are currently clean.
 - **Remediation**: Store and compare UTC explicitly (`UTC_TIMESTAMP()` and/or a
   mysql2 `timezone: "Z"` policy), or fail startup when application and database
   timezones disagree. Add an offset-mismatch regression test.
-- **Status**: Open.
+- **Status**: Open; [issue #8](https://github.com/LuminariMUD/DurisWeb/issues/8).
 
 ### Medium / Low
 
@@ -71,8 +72,9 @@ implemented. Dependency audits are currently clean.
   database partial failure.
 - **Remediation**: Revisit transaction or outbox designs that preserve the
   higher-priority toggle even when audit persistence fails.
-- **Status**: Open, accepted by design; do not silently make the incident safety
-  control contingent on audit availability.
+- **Status**: Open, accepted by design;
+  [issue #9](https://github.com/LuminariMUD/DurisWeb/issues/9). Do not silently
+  make the incident safety control contingent on audit availability.
 
 ---
 
@@ -118,15 +120,19 @@ implemented. Dependency audits are currently clean.
 
 ### Delivery and Operational Acceptance
 
-- **[P00-external/DurisMUD]** MUD commit `df121bb3` is pushed on
-  `feat/durisweb-hook-toggles` and intentionally unmerged. This is the requested
-  handoff topology, not proof that the default MUD branch contains the feature.
-- **[P00-infra]** Repository tests cannot prove an undeclared production reverse
-  proxy. Before any cross-host bridge rollout, an operator must demonstrate a
+- Website and MUD releases require independently verified source and runtime
+  identities. A historical branch handoff does not identify the deployed binary.
+- Repository tests cannot prove production transport. Before any cross-host
+  bridge rollout, an operator must demonstrate a
   certificate-valid WSS connection without weakening the plaintext or
   certificate policies.
-- **[P00-infra]** Local backend and frontend health checks pass. A hosting target
-  and production health probes remain unset.
+- Public browser WSS and the privileged MUD bridge are separate channels.
+  Select transport according to the configured topology; plaintext privileged
+  connections are restricted to loopback. Health probes and release acceptance
+  are described in the [deployment guide](deployment.md).
+- Tunnel credential separation and canonical-host CSRF routing remain tracked
+  in [issue #6](https://github.com/LuminariMUD/DurisWeb/issues/6) and
+  [issue #4](https://github.com/LuminariMUD/DurisWeb/issues/4), respectively.
 
 ---
 
@@ -186,6 +192,15 @@ review.
 | Automated profiling disclosed/contestable | GAP | Gemini suspicion analysis has no subject notice or appeal path identified |
 | Credentials protected at rest | GAP | Raw refresh JWT storage remains SEC-RT-1 |
 
+Implementation work is tracked separately:
+[notice and optional analytics consent (#10)](https://github.com/LuminariMUD/DurisWeb/issues/10),
+[retention enforcement (#11)](https://github.com/LuminariMUD/DurisWeb/issues/11),
+[account export and erasure (#12)](https://github.com/LuminariMUD/DurisWeb/issues/12),
+and [GeoIP log minimization (#13)](https://github.com/LuminariMUD/DurisWeb/issues/13).
+The [Gemini rollout (#18)](https://github.com/LuminariMUD/DurisWeb/issues/18)
+is proposed and depends on approved privacy and human-review controls; it is
+not evidence that provider processing is enabled.
+
 ---
 
 ## Dependency Security
@@ -238,10 +253,13 @@ finding was suppressed or ignored.
    timezone-offset regression test.
 3. **[P00-privacy] Assign a privacy owner** for notice/consent, transfer and
    profiling disclosure, retention schedules, and user export/erasure.
-4. **[P00-infra] Prove production WSS and health probes** after a hosting target
-   is selected; do not weaken transport policy to make rollout pass.
-5. **[P00-data] Design the migration baseline and shared-schema ledger repair**
-   as separate backup-first work before claiming clean-room deployability.
+4. **[P00-infra] Qualify each production release** against the configured
+   topology and resolve the tracked ingress/credential gaps without weakening
+   transport policy.
+5. **[P00-data] Provide a versioned migration baseline** through
+   [issue #14](https://github.com/LuminariMUD/DurisWeb/issues/14) before claiming
+   clean-room deployability. Existing ledgers must not be rewritten to conceal
+   an incomplete baseline.
 
 ---
 

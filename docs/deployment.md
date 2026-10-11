@@ -5,11 +5,11 @@ directory, port, service dependency, credential, or secret. The maintained
 artifacts are templates under `deploy/templates/`; historical machine-specific
 nginx and split frontend/backend service files have been removed.
 
-These procedures are portable, but there is exactly one production deployment,
-recorded in the [production journal](ongoing-projects/prod-deploy.md#production-location-authoritative).
-Its public ingress is the Cloudflare tunnel group (`DEPLOY_CLOUDFLARED_ENABLED=true`),
-which is required. Do not plan a second host, a mirror, or a non-tunnel ingress
-for it.
+Choose paths, accounts, ports, service scope and ingress for your installation
+through the deployment input. Keep the installed topology, local overrides and
+protected recovery locations in an operator-owned inventory outside version
+control. Historical release notes are not a reliable source of current host
+configuration.
 
 ## Build and validate
 
@@ -123,6 +123,36 @@ change. After a re-extraction, remove the private cache's `wiki:mapBounds*`,
 keys with `SCAN` plus `UNLINK` (the rendered Redis disables `FLUSHALL`), or
 accept their TTLs of up to 24 hours. The dependency preflight rejects an empty
 map projection.
+
+### Publish MUD news
+
+The website reads `mud_info.name = 'news'`. Editing the separate MUD
+checkout's `lib/information/news` does not publish it, and saving through
+`/admin/news` changes the database without writing that tracked file. Select
+and reconcile the intended source before a later import overwrites website
+edits. Website Changelog entries are a different content stream.
+
+For a separately authorized MUD file publication, the MUD-owned
+`scripts/import_help_to_prod.sh --news-only` path imports only news. Its
+`--news-only --dry-run` mode validates source presence and reports byte count
+without connecting to the database; it is not a backup or a comparison with
+the existing row. Use the selected MUD revision's
+`docs/content/HELP_SYSTEM.md` for its exact source, target-confirmation and
+transaction requirements. Avoid the bulk import for a news-only update.
+
+After a database edit/import, the MUD's display string remains cached until an
+authorized immortal runs plain `page` (no arguments), or the game boots again.
+`page help`, `page info` and periodic information-map refreshes do not reload
+that news display string. A website publication does not authorize a MUD
+restart. The MUD's `docs/operations/information-cache.md` describes the
+separate cache owners.
+
+Saving and announcing are separate website actions. External imports do not
+emit the website's announcement event. When an announcement is intended,
+preview its extracted section and use the permissioned announce action after
+verifying the saved text. Browser push additionally requires its own configured
+and accepted rollout. See the [news API contract](api/README_api.md#mud-news-publishing)
+for limits, parsing, editor preservation and browser-cache behavior.
 
 ## Release evidence and rollback set
 
@@ -248,10 +278,7 @@ backend-owned password to a mode-0600 runtime config; the secret never appears
 in `ExecStart`. For user services, enable linger for the selected service
 account and verify `Linger=yes` before enabling units.
 
-`DEPLOY_SERVICE_SCOPE=user` is the default and is what the single production
-deployment uses; the system-scope instructions in this guide (root-owned unit
-copies under `/etc/systemd/system`, the `sudo` install of the watchdog to
-`/usr/local/sbin`) are retained for portability and are not used in production.
+`DEPLOY_SERVICE_SCOPE=user` is the default.
 To use the system manager instead,
 set `DEPLOY_SERVICE_SCOPE=system` and `SERVICE_USER` to an existing non-root
 account. All website units then use that identity and `multi-user.target`;
@@ -265,6 +292,13 @@ bubblewrap executes. A profile for bubblewrap alone may not overcome that
 inherited restriction. Validate the exact sandbox flags under the chosen
 manager. System mode can preserve the same unit restrictions while running as
 the unprivileged account; do not disable host-wide user-namespace protection.
+
+User-service filesystem namespaces can also prevent the process monitor from
+reading the paired MUD process's `exe` and `cwd` links under `/proc`. Check the
+actual loaded unit and process-monitor result on the target host. A supported
+scope-specific rendering policy is proposed in
+[issue #3](https://github.com/LuminariMUD/DurisWeb/issues/3); copying a host's
+local protection overrides into every deployment is not the solution.
 
 The application unit permits the mount, user, IPC, UTS, and cgroup namespaces used
 by its bubblewrap terminal; PID and network namespace creation remain denied.
@@ -319,7 +353,7 @@ the same `REDIS_LIBRARY_PATH` rendered into the cache unit. A dynamic-loader
 error occurs before network authentication and must not be diagnosed as a bad
 Redis credential.
 
-For system scope (not used by the production deployment), use `systemd-analyze verify` and install root-owned copies of
+For system scope, use `systemd-analyze verify` and install root-owned copies of
 the reviewed units under `/etc/systemd/system` instead of linking them into a
 user manager. Run `systemctl daemon-reload`, then start/enable only the selected
 system group. Keep the operator input owned by `SERVICE_USER` for the tunnel

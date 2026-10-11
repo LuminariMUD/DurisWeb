@@ -34,9 +34,9 @@ forensic recovery for a specifically proven graph.
 - A correct recovery would have to update payload, metadata, parent/root,
   current-owner, opening-baseline, owner-revision, allocator, and ledger state
   as one MUD-authoritative operation. DurisWeb does not own that operation.
-- The accepted production rows already pass uniqueness, topology, artifact,
-  allocator, and declared-foreign-key checks. They must not be rewritten to
-  recover ambiguous source material.
+- The accepted rows passed uniqueness, topology, artifact, allocator, and
+  declared-foreign-key checks at import qualification. Revalidate any later
+  target; do not rewrite accepted rows to recover ambiguous source material.
 
 ## Evidence retention
 
@@ -44,9 +44,10 @@ Keep the owner-only original dump, qualified stage, import report, and raw
 description archives through at least 2027-03-03. At that date an authorized
 operator must make and record a security/retention review; there is no automatic
 deletion. Any earlier deletion or any retention beyond the reviewed period must
-follow the project's protected-data policy and preserve the aggregate import
-journal. Row-level UIDs, owners, descriptions, and account/player identifiers
-must never enter Git, CI output, routine logs, or public issue discussion.
+follow the project's protected-data policy and preserve the protected aggregate
+import report and this disposition. Row-level UIDs, owners, descriptions, and
+account/player identifiers must never enter Git, CI output, routine logs, or
+public issue discussion.
 
 ## Player support policy
 

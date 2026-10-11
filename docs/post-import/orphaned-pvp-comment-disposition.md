@@ -36,7 +36,8 @@ Keep the owner-only original dump and qualified stage containing the 37 rows
 through at least 2027-03-03. At that date an authorized operator must record a
 security/retention review; there is no automatic deletion or publication. The
 review may retain or securely retire the protected source according to the
-project's data policy, but the aggregate journal and this disposition remain.
+project's data policy, but the protected aggregate import report and this
+disposition remain.
 
 Comment text, author/account names, character or participant pointers, event
 IDs, and row IDs must not be copied into Git, CI output, logs, tickets, or a

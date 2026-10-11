@@ -176,6 +176,34 @@ measured RPO/RTO. Selective account or character recovery must reconcile the
 MUD's ownership, custody, balance, revision, ledger, and cache state rather than
 merge a partial row list.
 
+### Legacy import boundaries
+
+A replacement restore is not an insert-only merge. A non-destructive legacy
+merge must prove every accepted identity and parent relationship against a
+frozen target reference, retain existing target rows on conflict, and allocate
+new surrogate IDs only after proving the source history's semantic and
+chronological boundary. Numeric equality alone is not identity. Session,
+permission, current-world control and live transactional state are not portable
+merely because their table shapes match.
+
+Item import additionally requires an unambiguous complete ownership/container
+graph, metadata, opening baselines and current custody/revisions; any allocator
+advance must be monotonic. Ambiguous graphs remain inactive evidence. Preserve
+the source fingerprint, an idempotence marker, aggregate disposition report and
+protected row-level evidence, and prove existing rows unchanged before writers
+resume. These are acceptance constraints, not a supported web merge command.
+
+The [item](post-import/quarantined-item-disposition.md),
+[affiliation](post-import/legacy-affiliation-disposition.md) and
+[PvP comment](post-import/orphaned-pvp-comment-disposition.md) dispositions
+apply to the historical `legacy-target-wins-v1` cohort. Their counts and the
+cohort-specific [item baseline](runbooks/imported-item-baseline-verification.md)
+and [topology](runbooks/item-topology-repair.md) attestations are not current
+production counts. Require matching target/import provenance and protected
+evidence before using them. A verifier's presence does not prove that a data
+repair ran. The [combat baseline verifier](runbooks/combat-frag-baseline-repair.md)
+instead evaluates the selected database's current active characters.
+
 ### Data lifecycle boundary
 
 Retention periods for web analytics, terminal/deployment output, login history,

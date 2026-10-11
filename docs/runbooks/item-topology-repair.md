@@ -1,7 +1,10 @@
 # Pre-existing item topology repair
 
-The 14 pre-existing production topology mismatches must first be classified at
-an approved quiesced save boundary. Row-level evidence stays in a protected
+This runbook covers the 14 mismatches recorded before the historical
+`legacy-target-wins-v1` import, not an assertion that the current production
+database has those rows. Confirm [target and import provenance](../ARCHITECTURE.md#legacy-import-boundaries)
+before using this fixed-cohort contract. The mismatches must first be classified
+at an approved quiesced save boundary. Row-level evidence stays in a protected
 operator artifact. DurisWeb accepts only an immutable statement signed by the
 official checker:
 

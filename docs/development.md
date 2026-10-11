@@ -66,6 +66,50 @@ colors are pinned by `utils/__tests__/ansiParser.spec.ts` and exempt from the
 palette check, and small game-color tables elsewhere sit between
 `palette-literals: off` and `palette-literals: on` comments.
 
+The design deliberately separates ordinary actions from brand and destructive
+actions: the default button is bone on ink, `brand` uses vermilion, and solid
+destructive controls use `danger-deep`. Controls are rectangular by default;
+`rounded-sm` opts into a 2px corner and `rounded-full` remains available for
+avatars and status dots. The `surface-paper` utility is opt-in. Keep ANSI MUD
+content on ink because its game colors were not designed for a paper surface.
+
+Route metadata `contentGutter` defaults on; the homepage opts out for full-bleed
+sections. Use that contract instead of negative margins around the application
+shell. Font declarations use `font-display: swap`, and the Vite configuration
+injects preloads for the hashed display-font assets during a build.
+
+### Homepage assets and configuration
+
+The generated decorative eclipse artwork is packaged as
+[`duris-eclipse.webp`](../frontend/src/assets/eclipse/duris-eclipse.webp)
+(1672 × 941). It is also the default profile banner. It contains no interface
+text: headings, navigation and controls remain HTML. The Cormorant Garamond
+regular/italic Latin subsets are hosted locally under `frontend/src/assets/fonts/`
+with their [SIL Open Font License](../frontend/src/assets/fonts/OFL.txt); no
+runtime Google Fonts request is needed. The separate root-README image has its
+own [asset provenance](assets/readme-banner.md).
+
+`FrontPageView.vue` preserves operator hero visibility, custom title/subtitle,
+image URL and sanitized CMS content. Only the exact legacy stock copy and
+editor placeholder receive special treatment. The shared site configuration
+composable displays the exact legacy title `Duris SBS` as `Duris` without
+rewriting stored settings. Widget-only and image-only CMS content must remain
+visible; mounted carousel, fragger, PvP and map widgets must be unmounted when
+content changes or the page leaves. The homepage spec covers these contracts.
+
+The hero's pause control and `prefers-reduced-motion` both stop animation;
+the Explore action also avoids smooth scrolling under reduced motion and moves
+keyboard focus to the destination.
+
+## Temporary planning workspace
+
+`docs/ongoing-projects/` is a temporary human workspace. Before deleting a
+working document, verify its claims, put still-actionable gaps in the issue
+tracker, and integrate only accurate, nonduplicated contributor or operator
+guidance into permanent documentation. Completed checklists, release diaries,
+old host identities and speculative designs do not belong in lasting guides.
+Keep sensitive release evidence and recovery artifacts outside the checkout.
+
 ## Complete quality matrix
 
 ```bash
