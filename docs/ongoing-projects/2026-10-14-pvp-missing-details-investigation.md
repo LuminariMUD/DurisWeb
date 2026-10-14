@@ -83,7 +83,7 @@ to that instance.
 | `bash tests/async/run_combat_outcome_schema_mysql.sh` with explicit `TEST_DB_HOST`, `TEST_DB_PORT`, `TEST_DB_USER`, `TEST_DB_PASSWORD` fixture settings | Passed; rich/max-length snapshots, rollback after partial insertion, identical-command retry, replay without duplicates, existing ledger behavior |
 | `nice -n 10 make -C src -j2 dms_new BUILD_PROFILE=production DMS_BINARY=../bin/pvp-validation/dms_new` | Passed; candidate output only |
 | `./scripts/format.sh` in the MUD | Changed lines formatted |
-| `./scripts/format.sh --check` in the MUD | Whole-file check fails on pre-existing namespace formatting in `actinf.c`, `combat_outcome_command.c`, and `combat_outcome_repository.c`; changed lines pass. Formatting the `HEAD` versions reproduces this drift; unrelated lines were preserved. |
+| `./scripts/format.sh --check` in the MUD | Passed during commit/push follow-up after whitespace-only cleanup of the three files with pre-existing namespace formatting drift. All 5 focused capture/codec tests also passed again. |
 | `git diff --check` in both repositories | Passed |
 | Python local-link and staged-entry-asset checks | Passed; all 40 referenced entry assets exist |
 
@@ -117,7 +117,16 @@ package gates. No production migration, settings change, restart, or backfill ra
 
 ### Candidate artifacts and activation
 
-These SHA-256 identities refer to the final isolated builds, not live artifacts:
+Both repositories were published directly to `master` at the owner's request.
+The MUD repair is commit `40f125b3a`, followed by formatting-only commit
+`d27e2b5ec`; the website repair is commit `247638b`. Production activation
+remains pending.
+
+These SHA-256 identities refer to the isolated validation builds, not live
+artifacts. Rebuild from published `master` before deployment: the MUD candidate
+predates the later formatting cleanup and a concurrent new-character default
+change already published separately to MUD `master`.
+
 
 | Candidate | SHA-256 |
 | --- | --- |
