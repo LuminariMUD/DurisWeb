@@ -28,6 +28,8 @@ const password = ref('')
 const localError = ref<string | null>(null)
 
 async function handleLogin() {
+  if (isLoading.value) return
+
   localError.value = null
 
   // Basic validation
@@ -44,12 +46,6 @@ async function handleLogin() {
     router.push(returnUrl || '/forum')
   }
 }
-
-function handleKeyPress(event: KeyboardEvent) {
-  if (event.key === 'Enter') {
-    handleLogin()
-  }
-}
 </script>
 
 <template>
@@ -62,70 +58,73 @@ function handleKeyPress(event: KeyboardEvent) {
         </CardDescription>
       </CardHeader>
 
-      <CardContent class="space-y-4">
-        <!-- Error Alert -->
-        <Alert v-if="localError || error" variant="destructive">
-          <AlertDescription>
-            {{ localError || error }}
-          </AlertDescription>
-        </Alert>
+      <form class="space-y-6" @submit.prevent="handleLogin">
+        <CardContent class="space-y-4">
+          <!-- Error Alert -->
+          <Alert v-if="localError || error" variant="destructive">
+            <AlertDescription>
+              {{ localError || error }}
+            </AlertDescription>
+          </Alert>
 
-        <!-- Username Field -->
-        <div class="space-y-2">
-          <Label for="username">Account Name</Label>
-          <Input
-            id="username"
-            v-model="username"
-            type="text"
-            placeholder="Your MUD account name"
-            autocomplete="username"
-            @keypress="handleKeyPress"
+          <!-- Username Field -->
+          <div class="space-y-2">
+            <Label for="username">Account Name</Label>
+            <Input
+              id="username"
+              name="username"
+              v-model="username"
+              type="text"
+              placeholder="Your MUD account name"
+              autocomplete="username"
+              :disabled="isLoading"
+            />
+          </div>
+
+          <!-- Password Field -->
+          <div class="space-y-2">
+            <Label for="password">Password</Label>
+            <Input
+              id="password"
+              name="password"
+              v-model="password"
+              type="password"
+              placeholder="Your MUD password"
+              autocomplete="current-password"
+              :disabled="isLoading"
+            />
+          </div>
+
+          <!-- Info Text -->
+          <p class="text-sm text-muted-foreground">
+            Use the same credentials you use to connect to the MUD game server.
+          </p>
+        </CardContent>
+
+        <CardFooter class="flex flex-col space-y-3">
+          <!-- Login Button -->
+          <Button
+            variant="brand"
+            type="submit"
             :disabled="isLoading"
-          />
-        </div>
+            class="h-11 w-full font-display text-xl font-normal"
+          >
+            <span v-if="isLoading">Logging in...</span>
+            <span v-else>Login</span>
+          </Button>
 
-        <!-- Password Field -->
-        <div class="space-y-2">
-          <Label for="password">Password</Label>
-          <Input
-            id="password"
-            v-model="password"
-            type="password"
-            placeholder="Your MUD password"
-            autocomplete="current-password"
-            @keypress="handleKeyPress"
+          <!-- Back to Home -->
+          <Button
+            variant="ghost"
+            type="button"
+            @click="router.push('/')"
             :disabled="isLoading"
-          />
-        </div>
-
-        <!-- Info Text -->
-        <p class="text-sm text-muted-foreground">
-          Use the same credentials you use to connect to the MUD game server.
-        </p>
-      </CardContent>
-
-      <CardFooter class="flex flex-col space-y-3">
-        <!-- Login Button -->
-        <Button
-          variant="brand"
-          @click="handleLogin"
-          :disabled="isLoading"
-          class="h-11 w-full font-display text-xl font-normal"
-        >
-          <span v-if="isLoading">Logging in...</span>
-          <span v-else>Login</span>
-        </Button>
-
-        <!-- Back to Home -->
-        <Button
-          variant="ghost"
-          @click="router.push('/')"
-          :disabled="isLoading"
-          class="w-full"
-        >
-          Back to Home
-        </Button>
-      </CardFooter>
+            class="w-full"
+          >
+            Back to Home
+          </Button>
+        </CardFooter>
+      </form>
     </Card>
   </div>
 </template>

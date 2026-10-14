@@ -53,6 +53,11 @@ maintenance reasons and an independent page for complete origin/tunnel outages.
 See [availability notices](../deploy/maintenance/README.md) for activation and
 operator controls. Neither feature starts or stops the MUD.
 
+The login page uses a native form so password managers can associate the account
+and password fields. Enter and the Login button share one submission handler;
+additional submissions are ignored while authentication is pending. Back to Home
+only navigates away.
+
 Every route uses the eclipse design first shipped on the homepage: ink and
 bone surfaces, vermilion accents, and Cormorant Garamond for the wordmark,
 page headings and brand calls to action. Tokens live in
