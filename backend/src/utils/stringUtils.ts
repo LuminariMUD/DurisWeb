@@ -33,8 +33,9 @@ export function stripAnsiCodes(text: string | null): string {
  * @returns Player name or empty string
  */
 export function extractPlayerName(description: string): string {
-  const match = description.match(/\]\s+(\w+)/);
-  return match ? match[1] : '';
+  const plain = stripAnsiCodes(description).trim();
+  const match = plain.match(/\]\s+(\w+)/);
+  return match ? match[1] : /^\w+$/.test(plain) ? plain : '';
 }
 
 /**

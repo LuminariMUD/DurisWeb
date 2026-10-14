@@ -1,10 +1,12 @@
 // Participant summary for list view
 export interface PvPKillerSummary {
+  level?: number
   description: string
   isLeader: boolean
 }
 
 export interface PvPVictimSummary {
+  level?: number
   description: string
   isLeader: boolean
   died: boolean
@@ -32,7 +34,7 @@ export interface PvPParticipant {
   level: number
   pk_type: 'KILLER' | 'VICTIM' | 'KILLER-GROUP' | 'VICTIM-GROUP'
   player_description: string // e.g., "[56 Crusader] Juts (Githzerai)"
-  equip: string
+  equip: string | null
   log: string | null
   inroom: boolean
   leader: boolean

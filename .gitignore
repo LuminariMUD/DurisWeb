@@ -74,6 +74,8 @@ yarn.lock
 
 # Generated content
 backend/public/maps/
+backend/public/stats/history.json
+backend/public/stats/latest.json
 *.kate-swp
 
 # Local operator reference (host-specific details, never credentials)

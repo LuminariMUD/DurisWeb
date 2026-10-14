@@ -8,6 +8,7 @@ import pvpApi from '@/services/api'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { format } from 'date-fns'
 import { parseAnsiForVue } from '@/utils/ansiParser'
+import { extractPlayerName as extractCharacterName } from '@/utils/pvpParticipant'
 import {
   ThumbsUp,
   MessageSquare,
@@ -503,15 +504,6 @@ const handleMaxLevelChange = () => {
 // Navigate to battle detail
 const viewBattle = (eventId: number) => {
   router.push({ name: 'battle-detail', params: { id: eventId } })
-}
-
-// Extract character name from player_description like "[56 Crusader] Juts (Githzerai)"
-const extractCharacterName = (playerDescription: string): string | null => {
-  // Remove ANSI codes first (handles &+X, &-X, &n patterns)
-  const stripped = playerDescription.replace(/&[+\-]?[a-zA-Z]/g, '')
-  // Match pattern: [level class] Name - allow optional space before level for single-digit levels
-  const match = stripped.match(/\[\s*\d+\s+[^\]]+\]\s+(\w+)/)
-  return match && match[1] ? match[1] : null
 }
 
 // Navigate to battle POV when clicking a player name
@@ -1155,6 +1147,7 @@ const activeFilterCount = computed(() => {
                       @click="navigateToPov(event.id, killer.description, $event)"
                       v-html="parseAnsiForVue(killer.description)"
                     ></span>
+                    <span v-if="!killer.description.includes(']') && killer.level" class="text-xs text-muted-foreground">(Level {{ killer.level }})</span>
                     <Crown v-if="killer.isLeader" class="h-3 w-3 text-warning flex-shrink-0" />
                   </div>
                 </div>
@@ -1167,6 +1160,7 @@ const activeFilterCount = computed(() => {
                       @click="navigateToPov(event.id, victim.description, $event)"
                       v-html="parseAnsiForVue(victim.description)"
                     ></span>
+                    <span v-if="!victim.description.includes(']') && victim.level" class="text-xs text-muted-foreground">(Level {{ victim.level }})</span>
                     <Droplet v-if="victim.died" class="h-3 w-3 text-danger fill-danger flex-shrink-0" />
                     <Crown v-if="victim.isLeader" class="h-3 w-3 text-warning flex-shrink-0" />
                   </div>

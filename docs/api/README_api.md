@@ -53,6 +53,24 @@ points and security boundaries rather than duplicating every handler.
 Some route modules contain both public and protected handlers. Do not infer
 authorization from the prefix alone; inspect the handler middleware and tests.
 
+## PvP participant snapshots
+
+PvP descriptions, equipment, and public combat logs are battle-time snapshots
+written by the MUD. The website does not substitute current character state for
+missing historical data. Name-only historical descriptions remain valid for
+player lookup, leaderboards, and autocomplete; unavailable class/race metadata
+stays empty. Level filters use the stored numeric `pkill_info.level`, and list
+participant summaries include that captured `level` alongside `description`.
+
+The detail view allows every returned participant to be selected independently
+of log availability. An empty or null `log` means no combat log is available.
+When `respect_webinfo_toggle` is enabled, equipment is `null` if the character's
+visibility bit is disabled or its privacy record is unavailable. An empty
+equipment string means no snapshot was captured; a nonempty string is the
+stored snapshot. The UI preserves this distinction and allows selection of
+participants who have equipment but no log. It never bypasses the equipment
+privacy gate to diagnose missing data.
+
 ## MUD news publishing
 
 MUD news is the complete plain-text history, including MUD color codes, in

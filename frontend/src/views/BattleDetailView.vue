@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useBattleDetail } from '@/composables/usePvPEvents'
 import { format } from 'date-fns'
 import { parseAnsiForVue, stripAnsiCodes } from '@/utils/ansiParser'
+import { extractPlayerName } from '@/utils/pvpParticipant'
 import { profileApi, pvpApi, adminApi } from '@/services/api'
 import { useToast } from '@/composables/useToast'
 import { useAuth } from '@/composables/useAuth'
@@ -27,14 +28,6 @@ import type { PvPBattleStats, PvPBattleComment } from '@/types'
 // Mobile tab state
 type MobileTab = 'log' | 'equipment' | 'comments'
 const mobileTab = ref<MobileTab>('log')
-
-// Extract player name from description like "[26 Cleric] Ubak (Orc)" or "[56 Crusader] Juts -Guild- (Race)"
-const extractPlayerName = (description: string): string | null => {
-  const stripped = stripAnsiCodes(description)
-  // Match pattern: [level Class] Name - capture first word after ]
-  const match = stripped.match(/\]\s*(\w+)/)
-  return match && match[1] ? match[1] : null
-}
 
 const route = useRoute()
 const router = useRouter()
@@ -183,6 +176,12 @@ const selectedParticipant = computed(() => {
   return data.value.participants.find((p) => p.id === selectedPovId.value)
 })
 
+const equipmentMessage = computed(() =>
+  selectedParticipant.value?.equip === null
+    ? 'Equipment is hidden by player privacy settings.'
+    : 'No equipment snapshot was captured for this participant.',
+)
+
 // Get limited combat log for preview
 const getLimitedLog = (log: string | null): string => {
   if (!log) return ''
@@ -206,19 +205,14 @@ const isLogTruncated = computed(() => {
   return getLineCount(selectedParticipant.value.log) > MAX_PREVIEW_LINES && !showFullLog.value
 })
 
-// Auto-select first participant with log when data loads
-const participantsWithLogs = computed(() => {
-  if (!data.value || !data.value.participants) return []
-  return data.value.participants.filter((p) => p.log)
-})
-
-// Auto-select POV based on query param or first killer with a log
+// Prefer a log when available, but allow every participant's details to be viewed.
 const autoSelectPov = () => {
-  if (data.value && participantsWithLogs.value.length > 0) {
+  const participants = data.value?.participants ?? []
+  if (participants.length > 0) {
     // Check for POV query parameter first
     const povParam = route.query.pov as string | undefined
     if (povParam) {
-      const matchingParticipant = participantsWithLogs.value.find((p) => {
+      const matchingParticipant = participants.find((p) => {
         const name = extractPlayerName(p.player_description)
         return name?.toLowerCase() === povParam.toLowerCase()
       })
@@ -229,10 +223,15 @@ const autoSelectPov = () => {
     }
 
     // Fallback to first killer with a log if no POV selected yet
-    if (!selectedPovId.value) {
-      const firstKiller = participantsWithLogs.value.find((p) => p.pk_type.includes('KILLER'))
-      selectedPovId.value = firstKiller?.id || participantsWithLogs.value[0]?.id || null
+    if (!participants.some((p) => p.id === selectedPovId.value)) {
+      const preferred =
+        participants.find((p) => p.log && p.pk_type.includes('KILLER')) ??
+        participants.find((p) => p.log) ??
+        participants[0]
+      selectedPovId.value = preferred?.id ?? null
     }
+  } else {
+    selectedPovId.value = null
   }
 }
 
@@ -285,29 +284,25 @@ const povOptions = computed(() => {
   const options: Array<{ value: number; label: string; html: string }> = []
 
   // Add killers
-  killers.value
-    .filter((k) => k.log)
-    .forEach((killer) => {
-      const leaderBadge = killer.leader ? crownIcon : ''
-      options.push({
-        value: killer.id,
-        label: stripAnsiCodes(killer.player_description),
-        html: `<span class="text-success">KILLER:</span> ${parseAnsiForVue(killer.player_description)}${leaderBadge}`,
-      })
+  killers.value.forEach((killer) => {
+    const leaderBadge = killer.leader ? crownIcon : ''
+    options.push({
+      value: killer.id,
+      label: stripAnsiCodes(killer.player_description),
+      html: `<span class="text-success">KILLER:</span> ${parseAnsiForVue(killer.player_description)}${leaderBadge}`,
     })
+  })
 
   // Add victims
-  victims.value
-    .filter((v) => v.log)
-    .forEach((victim) => {
-      const leaderBadge = victim.leader ? crownIcon : ''
-      const diedBadge = victim.pk_type === 'VICTIM' ? dropletIcon : ''
-      options.push({
-        value: victim.id,
-        label: stripAnsiCodes(victim.player_description),
-        html: `<span class="text-danger">VICTIM:</span> ${parseAnsiForVue(victim.player_description)}${diedBadge}${leaderBadge}`,
-      })
+  victims.value.forEach((victim) => {
+    const leaderBadge = victim.leader ? crownIcon : ''
+    const diedBadge = victim.pk_type === 'VICTIM' ? dropletIcon : ''
+    options.push({
+      value: victim.id,
+      label: stripAnsiCodes(victim.player_description),
+      html: `<span class="text-danger">VICTIM:</span> ${parseAnsiForVue(victim.player_description)}${diedBadge}${leaderBadge}`,
     })
+  })
 
   return options
 })
@@ -518,6 +513,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
               <div class="space-y-1">
                 <div v-for="killer in killers" :key="killer.id" class="text-xs text-bone-muted truncate flex items-center gap-1">
                   <span v-html="parseAnsiForVue(killer.player_description)"></span>
+                  <span v-if="!killer.player_description.includes(']') && killer.level > 0" class="text-xs text-muted-foreground">(Level {{ killer.level }})</span>
                   <Crown v-if="killer.leader" class="h-3 w-3 text-warning flex-shrink-0" />
                 </div>
               </div>
@@ -530,6 +526,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
               <div class="space-y-1">
                 <div v-for="victim in victims" :key="victim.id" class="text-xs text-bone-muted truncate flex items-center gap-1">
                   <span v-html="parseAnsiForVue(victim.player_description)"></span>
+                  <span v-if="!victim.player_description.includes(']') && victim.level > 0" class="text-xs text-muted-foreground">(Level {{ victim.level }})</span>
                   <Droplet v-if="victim.pk_type === 'VICTIM'" class="h-3 w-3 text-danger fill-danger flex-shrink-0" />
                   <Crown v-if="victim.leader" class="h-3 w-3 text-warning flex-shrink-0" />
                 </div>
@@ -615,6 +612,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                     v-html="parseAnsiForVue(killer.player_description)"
                   ></span>
                   <span v-else v-html="parseAnsiForVue(killer.player_description)"></span>
+                  <span v-if="!killer.player_description.includes(']') && killer.level > 0" class="text-xs text-muted-foreground">(Level {{ killer.level }})</span>
                   <span v-if="killer.leader" class="text-xs text-muted-foreground">(Leader)</span>
                 </div>
               </div>
@@ -644,6 +642,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                     v-html="parseAnsiForVue(victim.player_description)"
                   ></span>
                   <span v-else v-html="parseAnsiForVue(victim.player_description)"></span>
+                  <span v-if="!victim.player_description.includes(']') && victim.level > 0" class="text-xs text-muted-foreground">(Level {{ victim.level }})</span>
                   <span v-if="victim.leader" class="text-xs text-muted-foreground">(Leader)</span>
                 </div>
               </div>
@@ -734,32 +733,32 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                       <div class="flex-1 whitespace-pre-wrap px-2 leading-4" v-html="parseAnsiForVue(line, true)"></div>
                     </div>
                   </div>
-                  <p v-else class="text-muted-foreground p-3">No combat log available</p>
+                  <p v-else class="text-muted-foreground p-3">No combat log was captured for this participant.</p>
                 </div>
               </div>
             </div>
             <div v-else class="p-8 text-center text-faint text-sm">
-              Select a participant to view their combat log
+              No participants were recorded for this battle.
             </div>
           </div>
 
           <!-- Equipment Tab -->
           <div v-if="mobileTab === 'equipment'" class="rounded-lg border border-border bg-background">
+            <div v-if="povOptions.length" class="p-3 border-b border-border">
+              <Select
+                v-model="selectedPovId"
+                :options="povOptions"
+                placeholder="Select POV"
+              />
+            </div>
             <div v-if="selectedParticipant?.equip" class="p-3">
-              <div class="mb-3">
-                <Select
-                  v-model="selectedPovId"
-                  :options="povOptions"
-                  placeholder="Select POV"
-                />
-              </div>
               <div class="rounded-md bg-black p-3 font-mono text-xs text-foreground overflow-x-auto max-h-[500px] overflow-y-auto">
                 <pre class="whitespace-pre-wrap leading-relaxed" v-html="parseAnsiForVue(selectedParticipant.equip)"></pre>
               </div>
             </div>
             <div v-else class="p-8 text-center text-faint text-sm">
-              <p v-if="selectedParticipant">No equipment data for this participant</p>
-              <p v-else>Select a participant to view equipment</p>
+              <p v-if="selectedParticipant">{{ equipmentMessage }}</p>
+              <p v-else>No participants were recorded for this battle.</p>
             </div>
           </div>
 
@@ -793,7 +792,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
               </div>
               <div class="flex gap-2">
                 <button
-                  v-if="selectedParticipant?.equip"
+                  v-if="selectedParticipant"
                   @click="isEquipmentOpen = true"
                   class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermilion disabled:pointer-events-none disabled:opacity-50 bg-ink-high text-bone-muted hover:bg-ink-top h-9 px-4 whitespace-nowrap"
                   title="View equipment"
@@ -867,7 +866,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                   <div class="flex-1 whitespace-pre-wrap px-2 leading-5" v-html="parseAnsiForVue(line, true)"></div>
                 </div>
               </div>
-              <p v-else class="text-muted-foreground p-4">No combat log available for this participant</p>
+              <p v-else class="text-muted-foreground p-4">No combat log was captured for this participant.</p>
             </div>
 
             <!-- Truncation Notice -->
@@ -882,7 +881,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
           </div>
 
           <div v-else class="p-8 text-center text-muted-foreground">
-            Select a participant to view their combat log
+            No participants were recorded for this battle.
           </div>
         </div>
 
@@ -906,7 +905,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
         <!-- Combat Log Only -->
         <div class="bg-black font-mono text-xs lg:text-sm text-foreground overflow-x-auto h-full overflow-y-auto">
           <pre v-if="selectedParticipant.log" class="whitespace-pre-wrap px-2 py-1" v-html="parseAnsiForVue(selectedParticipant.log, true)"></pre>
-          <p v-else class="text-muted-foreground p-4">No combat log available for this participant</p>
+          <p v-else class="text-muted-foreground p-4">No combat log was captured for this participant.</p>
         </div>
       </div>
     </Dialog>
@@ -919,7 +918,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
         </div>
       </div>
       <div v-else class="text-center text-muted-foreground py-4">
-        No equipment information available for this participant
+        {{ equipmentMessage }}
       </div>
     </Dialog>
   </div>

@@ -22,11 +22,13 @@ export interface PkillInfo {
 
 // Participant info for list view
 export interface PvPKillerSummary {
+  level?: number;
   description: string;
   isLeader: boolean;
 }
 
 export interface PvPVictimSummary {
+  level?: number;
   description: string;
   isLeader: boolean;
   died: boolean;
@@ -64,7 +66,7 @@ export interface ParticipantInfo {
   level: number;
   pk_type: string;
   player_description: string;
-  equip: string;
+  equip: string | null;
   log: string | null;
   inroom: number;
   leader: number | null;

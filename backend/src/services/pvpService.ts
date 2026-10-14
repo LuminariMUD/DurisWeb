@@ -108,17 +108,13 @@ export async function getPvPEvents(
     }
   }
 
-  // Level range filter - extract level from player_description (level is before ANSI, no need to strip)
+  // The numeric snapshot also exists on historical name-only records.
   if (searchFilters.level_min !== undefined && searchFilters.level_min > 1) {
-    whereConditions.push(
-      'CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(p.player_description, " ", 1), "[", -1) AS UNSIGNED) >= ?',
-    );
+    whereConditions.push('p.level >= ?');
     queryParams.push(searchFilters.level_min);
   }
   if (searchFilters.level_max !== undefined && searchFilters.level_max < 56) {
-    whereConditions.push(
-      'CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(p.player_description, " ", 1), "[", -1) AS UNSIGNED) <= ?',
-    );
+    whereConditions.push('p.level <= ?');
     queryParams.push(searchFilters.level_max);
   }
 
@@ -194,12 +190,12 @@ export async function getPvPEvents(
       e.comment_count,
       GROUP_CONCAT(
         DISTINCT CASE WHEN p.pk_type LIKE 'KILLER%'
-        THEN CONCAT(p.player_description, '<<>>', IF(p.leader, '1', '0')) END
+        THEN CONCAT(p.player_description, '<<>>', IF(p.leader, '1', '0'), '<<>>', p.level) END
         SEPARATOR '|||'
       ) as killers,
       GROUP_CONCAT(
         DISTINCT CASE WHEN p.pk_type LIKE 'VICTIM%'
-        THEN CONCAT(p.player_description, '<<>>', IF(p.leader, '1', '0'), '<<>>', IF(p.pk_type = 'VICTIM', '1', '0')) END
+        THEN CONCAT(p.player_description, '<<>>', IF(p.leader, '1', '0'), '<<>>', IF(p.pk_type = 'VICTIM', '1', '0'), '<<>>', p.level) END
         SEPARATOR '|||'
       ) as victims
     FROM pkill_event e
@@ -219,8 +215,8 @@ export async function getPvPEvents(
       .split('|||')
       .filter(Boolean)
       .map((entry) => {
-        const [description, leaderFlag] = entry.split('<<>>');
-        return { description, isLeader: leaderFlag === '1' };
+        const [description, leaderFlag, level] = entry.split('<<>>');
+        return { description, isLeader: leaderFlag === '1', level: Number(level) || 0 };
       });
   };
 
@@ -230,8 +226,13 @@ export async function getPvPEvents(
       .split('|||')
       .filter(Boolean)
       .map((entry) => {
-        const [description, leaderFlag, diedFlag] = entry.split('<<>>');
-        return { description, isLeader: leaderFlag === '1', died: diedFlag === '1' };
+        const [description, leaderFlag, diedFlag, level] = entry.split('<<>>');
+        return {
+          description,
+          isLeader: leaderFlag === '1',
+          died: diedFlag === '1',
+          level: Number(level) || 0,
+        };
       });
   };
 
@@ -368,6 +369,7 @@ export async function getLeaderboard(
   const query = `
     SELECT
       p.player_description,
+      MAX(p.level) AS level,
       SUM(CASE WHEN p.pk_type LIKE 'KILLER%' THEN 1 ELSE 0 END) as kills,
       SUM(CASE WHEN p.pk_type = 'VICTIM' THEN 1 ELSE 0 END) as deaths,
       CASE
@@ -408,11 +410,11 @@ export async function getLeaderboard(
     const cleanDesc = stripAnsi(row.player_description);
 
     // Extract level (strip ANSI)
-    const levelMatch = cleanDesc.match(/\[(\d+)/);
-    const level = levelMatch ? parseInt(levelMatch[1]) : 0;
+    const levelMatch = cleanDesc.match(/\[\s*(\d+)/);
+    const level = Number(row.level) || (levelMatch ? parseInt(levelMatch[1]) : 0);
 
     // Extract class WITH ANSI codes: &+cCleric&n&n
-    const classMatch = row.player_description.match(/\[\d+\s+([^\]]+)\]/);
+    const classMatch = row.player_description.match(/\[\s*\d+\s+([^\]]+)\]/);
     const charClass = classMatch ? classMatch[1].trim() : '';
 
     // Extract race WITH ANSI codes: &+LOrc&n&n
@@ -450,19 +452,24 @@ export async function getPlayerStats(playerName: string): Promise<PlayerStats | 
       END as kd_ratio,
       (SELECT player_description
        FROM pkill_info p2
-       WHERE p2.player_description LIKE ?
+       WHERE (p2.player_description = ? OR p2.player_description LIKE ?)
        ORDER BY p2.id DESC
-       LIMIT 1) as latest_description
+       LIMIT 1) as latest_description,
+      (SELECT level FROM pkill_info p2
+       WHERE (p2.player_description = ? OR p2.player_description LIKE ?)
+       ORDER BY p2.id DESC LIMIT 1) AS level
     FROM pkill_info p
-    WHERE p.player_description LIKE ?
+    WHERE (p.player_description = ? OR p.player_description LIKE ?)
   `;
 
+  const nameParams = [playerName, `%] ${playerName}%`];
   const [statsRows] = await pool.query<RowDataPacket[]>(statsQuery, [
-    `%] ${playerName}%`,
-    `%] ${playerName}%`,
+    ...nameParams,
+    ...nameParams,
+    ...nameParams,
   ]);
 
-  if (statsRows.length === 0 || (statsRows[0].kills === 0 && statsRows[0].deaths === 0)) {
+  if (statsRows.length === 0 || (!Number(statsRows[0].kills) && !Number(statsRows[0].deaths))) {
     return null;
   }
 
@@ -474,11 +481,11 @@ export async function getPlayerStats(playerName: string): Promise<PlayerStats | 
   const cleanDesc = stripAnsi(playerDesc);
 
   // Extract level
-  const levelMatch = cleanDesc.match(/\[(\d+)/);
-  const level = levelMatch ? parseInt(levelMatch[1]) : 0;
+  const levelMatch = cleanDesc.match(/\[\s*(\d+)/);
+  const level = Number(stats.level) || (levelMatch ? parseInt(levelMatch[1]) : 0);
 
   // Extract class WITH ANSI codes
-  const classMatch = playerDesc.match(/\[\d+\s+([^\]]+)\]/);
+  const classMatch = playerDesc.match(/\[\s*\d+\s+([^\]]+)\]/);
   const charClass = classMatch ? classMatch[1].trim() : '';
 
   // Extract race WITH ANSI codes
@@ -500,13 +507,13 @@ export async function getPlayerStats(playerName: string): Promise<PlayerStats | 
     FROM pkill_event e
     JOIN pkill_info p ON e.id = p.event_id
     LEFT JOIN pkill_info p2 ON e.id = p2.event_id AND p2.player_description != p.player_description
-    WHERE p.player_description LIKE ?
+    WHERE (p.player_description = ? OR p.player_description LIKE ?)
     GROUP BY e.id, e.stamp, e.room_name, p.pk_type
     ORDER BY e.stamp DESC
     LIMIT 10
   `;
 
-  const [recentRows] = await pool.query<RowDataPacket[]>(recentQuery, [`%] ${playerName}%`]);
+  const [recentRows] = await pool.query<RowDataPacket[]>(recentQuery, nameParams);
 
   const recentBattles: RecentBattle[] = recentRows.map((row) => ({
     event_id: row.event_id,
@@ -526,13 +533,13 @@ export async function getPlayerStats(playerName: string): Promise<PlayerStats | 
     FROM pkill_event e
     JOIN pkill_info p ON e.id = p.event_id AND p.pk_type = 'VICTIM'
     JOIN pkill_info p2 ON e.id = p2.event_id AND p2.pk_type LIKE 'KILLER%'
-    WHERE p.player_description LIKE ?
+    WHERE (p.player_description = ? OR p.player_description LIKE ?)
     GROUP BY p2.player_description
     ORDER BY count DESC
     LIMIT 5
   `;
 
-  const [killedByRows] = await pool.query<RowDataPacket[]>(killedByQuery, [`%] ${playerName}%`]);
+  const [killedByRows] = await pool.query<RowDataPacket[]>(killedByQuery, nameParams);
 
   const mostKilledBy: OpponentStat[] = killedByRows.map((row) => ({
     opponent_name: extractPlayerName(row.player_description),
@@ -547,15 +554,13 @@ export async function getPlayerStats(playerName: string): Promise<PlayerStats | 
     FROM pkill_event e
     JOIN pkill_info p ON e.id = p.event_id AND p.pk_type LIKE 'KILLER%'
     JOIN pkill_info p2 ON e.id = p2.event_id AND p2.pk_type = 'VICTIM'
-    WHERE p.player_description LIKE ?
+    WHERE (p.player_description = ? OR p.player_description LIKE ?)
     GROUP BY p2.player_description
     ORDER BY count DESC
     LIMIT 5
   `;
 
-  const [mostKilledRows] = await pool.query<RowDataPacket[]>(mostKilledQuery, [
-    `%] ${playerName}%`,
-  ]);
+  const [mostKilledRows] = await pool.query<RowDataPacket[]>(mostKilledQuery, nameParams);
 
   const mostKilled: OpponentStat[] = mostKilledRows.map((row) => ({
     opponent_name: extractPlayerName(row.player_description),
@@ -634,6 +639,7 @@ export async function getPlayerAutocomplete(
   const sql = `
     SELECT
       player_description,
+      MAX(level) AS level,
       COUNT(*) as battle_count
     FROM pkill_info
     WHERE player_description LIKE ?
@@ -653,11 +659,11 @@ export async function getPlayerAutocomplete(
       const cleanDesc = stripAnsi(row.player_description);
 
       // Extract level
-      const levelMatch = cleanDesc.match(/\[(\d+)/);
-      const level = levelMatch ? parseInt(levelMatch[1]) : 0;
+      const levelMatch = cleanDesc.match(/\[\s*(\d+)/);
+      const level = Number(row.level) || (levelMatch ? parseInt(levelMatch[1]) : 0);
 
       // Extract class WITH ANSI codes
-      const classMatch = row.player_description.match(/\[\d+\s+([^\]]+)\]/);
+      const classMatch = row.player_description.match(/\[\s*\d+\s+([^\]]+)\]/);
       const charClass = classMatch ? classMatch[1].trim() : '';
 
       // Extract race WITH ANSI codes
