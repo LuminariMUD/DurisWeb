@@ -496,16 +496,28 @@ verify:
 - recent error-priority logs. Use `journalctl --quiet` in assertions so its
   literal `-- No entries --` banner is not mistaken for an error.
 
-When the frontend uses an absolute canonical API origin, redirect website aliases
-to that origin before serving the SPA. Host-only CSRF cookies cannot be read by
-JavaScript on a different hostname, even when CORS permits both origins. Verify
-login through each public alias, not just the canonical login page. Preserve the
-exact backend health route when an alias is routed through a redirect proxy, and
-record that proxy configuration with the release's ingress recovery artifacts.
+The production backend redirects website aliases from `ALLOWED_ORIGINS` to the
+origin in `SITE_URL` before serving the SPA or setting cookies. It uses the
+original Host header, so ingress must preserve the public hostname. Paths and
+queries are preserved with HTTP 308; API requests, mutations, and exact `/health`
+keep their existing contracts. Align the frontend API, WebSocket and static URLs
+with the canonical site. Host-only CSRF cookies cannot be read by JavaScript on
+another hostname, even when CORS permits both origins. Verify login through each
+public alias, not just the canonical login page.
 
-For a tunnel alias routed through Nginx, set the optional operator value
-`NGINX_CANONICAL_ORIGIN` to the canonical HTTPS DNS origin (no port, path, or
-trailing slash). The renderer then produces `nginx/canonical-redirect.conf`,
+The frontend registers `/service-worker.js`. Keep the backend's legacy `/sw.js`
+retirement endpoint reachable on both canonical and alias hosts: old cached apps
+still check that URL for updates. It activates immediately, unregisters itself,
+and reloads its windows through the network so both the canonical redirect and
+the current frontend take effect. It does not delete browser storage. Deploy the
+backend and frontend together, and verify an update from the prior cached app on
+each hostname. Already-open tabs check for updates hourly; reopening/reloading
+also triggers the browser's update checks. Do not redirect `/sw.js` at an upstream
+proxy or edge rule, since browsers reject redirected service-worker updates.
+
+For an installation using a separate Nginx redirect instead, set the optional
+operator value `NGINX_CANONICAL_ORIGIN` to the canonical HTTPS DNS origin (no
+port, path, or trailing slash). The renderer then produces `nginx/canonical-redirect.conf`,
 which preserves ACME and exact `/health` routes and redirects other requests
 with HTTP 308. Install or include this artifact **instead of** the existing
 HTTP vhost for those names; do not install both it and the HTTP server from
@@ -513,6 +525,8 @@ HTTP vhost for those names; do not install both it and the HTTP server from
 directly to the application to avoid a redirect loop. Blank disables generation;
 if retiring a previously installed redirect, explicitly remove its live include
 and review any previously generated artifact before deploying replacements.
+For installations with legacy PWA clients, also proxy exact `/sw.js` to the
+backend before enabling that redirect; the template does not supply this exception.
 
 For a Cloudflare-terminated deployment, verify security headers at the edge, not
 only at the origin. Its `security_header` zone setting can supply HSTS and

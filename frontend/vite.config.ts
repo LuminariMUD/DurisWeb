@@ -43,6 +43,8 @@ export default defineConfig(({ mode }) => {
       vueDevTools(),
       preloadDisplayFonts(environment.baseUrl),
       VitePWA({
+        // /sw.js retires old registrations whose cached API URL used another host.
+        filename: 'service-worker.js',
         registerType: 'prompt',
         includeAssets: ['favicon.ico', 'icons/*.svg'],
         manifest: false, // use manifest.json from public folder

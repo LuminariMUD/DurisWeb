@@ -43,6 +43,7 @@ import { probeAllFlatfileHooks, recoverFlatfileHook } from './services/flatfileA
 import kofiRoutes from './routes/kofi.js';
 import { AppError, errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { generateCsrfToken, verifyCsrfToken } from './middleware/csrf.js';
+import { canonicalHost } from './middleware/canonicalHost.js';
 import { configureRequestBodyParsers } from './middleware/requestLimits.js';
 import {
   checkDatabaseConnection,
@@ -133,6 +134,11 @@ const HOST = environment.server.host;
 // Trust proxy - required when running behind nginx/reverse proxy
 // This allows express-rate-limit to correctly identify users via X-Forwarded-For
 app.set('trust proxy', 1);
+
+// Redirect website aliases before issuing any host-only cookies or SPA assets.
+if (environment.environment === 'production') {
+  app.use(canonicalHost(environment.siteUrl, environment.server.allowedOrigins));
+}
 
 // Middleware
 app.use(compression()); // Enable gzip/deflate compression for all responses

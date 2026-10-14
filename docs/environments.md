@@ -68,6 +68,14 @@ The backend always requires:
 `MUD_DATABASE_MODE=separate`, all five `MUD_DB_HOST`, `MUD_DB_PORT`,
 `MUD_DB_USER`, `MUD_DB_PASSWORD`, and `MUD_DB_NAME` values are required.
 
+`SITE_URL` selects the canonical website origin in production. Website GET/HEAD
+requests on other hosts listed in `ALLOWED_ORIGINS` redirect to that origin,
+preserving the path and query. API requests, exact `/health`, and mutations keep
+their existing behavior. Align `VITE_API_URL`, `VITE_WS_URL`, and `VITE_STATIC_URL`
+with that website origin when the backend serves all three; CORS permission alone
+does not let one hostname read another hostname's CSRF cookie. Development
+continues to use its separately configured frontend and backend listeners.
+
 `CACHE_REDIS_AUTH_MODE` is `none`, `password`, or `acl`. Password and ACL modes
 require `CACHE_REDIS_PASSWORD`; ACL also requires `CACHE_REDIS_USERNAME`.
 Production refuses unauthenticated cache Redis. Credentialed connections may
