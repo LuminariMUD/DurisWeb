@@ -168,7 +168,14 @@ state rather than applying an optimistic result.
 ## WebSockets and the MUD Bridge
 
 The browser-facing WebSocket uses `/ws` on the DurisWeb server for terminal,
-streaming, and application events. It is distinct from the backend's outbound
+streaming, and application events. Authenticated clients obtain a five-minute,
+session-bound capability from `GET /api/auth/websocket-token` for subscriptions,
+builder streams, and deployment requests. Every operation retains its session,
+level, and permission checks. `GET /api/auth/terminal-token` issues a separate
+terminal-only capability; neither capability authenticates ordinary HTTP
+requests. Initial socket identity is hydrated from the HTTP-only access cookie.
+
+The application WebSocket is distinct from the backend's outbound
 privileged MUD bridge, whose endpoint is required through `MUD_WS_URL`. A
 loopback `ws://127.0.0.1:4050` value is a local example, not an application
 default. Hook state and reconciliation behavior is implemented by the

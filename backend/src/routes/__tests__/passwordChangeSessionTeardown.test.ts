@@ -37,6 +37,7 @@ jest.unstable_mockModule('../../middleware/auth.js', () => ({
   generateAccessToken: jest.fn(),
   generateRefreshToken: jest.fn(),
   generateTerminalToken: jest.fn(),
+  generateWebSocketToken: jest.fn(),
   verifyToken: jest.fn(),
   isAccessToken: jest.fn(() => true),
   isRefreshToken: jest.fn(() => true),

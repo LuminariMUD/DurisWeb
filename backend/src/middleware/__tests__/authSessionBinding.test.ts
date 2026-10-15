@@ -9,18 +9,12 @@ import redis from '../../db/redis.js';
 import { generateAccessToken, requireAuth, verifyToken } from '../auth.js';
 
 describe('session-bound access tokens', () => {
-  const accountName = 'Cwial';
+  const accountName = `binding_${crypto.randomBytes(10).toString('hex')}`;
   const sessionId = `binding-session-${crypto.randomUUID()}`;
   const refreshToken = `binding-refresh-${crypto.randomBytes(24).toString('hex')}`;
 
   beforeAll(async () => {
-    const [accounts] = (await pool.query(
-      'SELECT account_name FROM accounts WHERE LOWER(account_name) = LOWER(?) LIMIT 1',
-      [accountName],
-    )) as any;
-    if (accounts.length === 0) {
-      throw new Error('Cwial account is required for the local auth fixture');
-    }
+    await pool.query('INSERT INTO accounts (account_name) VALUES (?)', [accountName]);
 
     await pool.query(
       'INSERT INTO web_sessions (id, account_name, refresh_token, expires_at) VALUES (?, ?, ?, ?)',
@@ -30,6 +24,7 @@ describe('session-bound access tokens', () => {
 
   afterAll(async () => {
     await pool.query('DELETE FROM web_sessions WHERE id = ?', [sessionId]);
+    await pool.query('DELETE FROM accounts WHERE account_name = ?', [accountName]);
     await pool.end();
     await redis.quit();
   });

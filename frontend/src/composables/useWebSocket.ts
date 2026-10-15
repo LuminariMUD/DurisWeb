@@ -50,7 +50,7 @@ const playerLogoutCallbacks = ref<Array<(data: any) => void>>([])
 async function getAuthToken(): Promise<string | null> {
   try {
     const apiUrl = frontendConfiguration.apiUrl
-    const response = await fetch(`${apiUrl}/api/auth/terminal-token`, {
+    const response = await fetch(`${apiUrl}/api/auth/websocket-token`, {
       credentials: 'include',
     })
     if (!response.ok) return null

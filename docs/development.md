@@ -105,6 +105,14 @@ For database tests, copy `backend/.env.test.example` to `backend/.env.test` and
 use isolated credentials/data. Source-text security tests pin sensitive
 boundaries; update them only when the new structure preserves the policy.
 
+Auth/session tests create and remove synthetic accounts in that isolated
+database; they do not require an existing player account. The PvP SQL contract
+tests additionally require `TEST_PVP_DB_PORT` in `.env.test`, selecting a
+disposable loopback MariaDB/MySQL instance with passwordless `root` access.
+They create and drop only `pvp_snapshot_test` and refuse ports 3306 and 3307.
+Leave the setting absent for a unit-only run; a full burn-in must provide the
+disposable instance and run these checks without skips.
+
 Do not commit `.env` files, dumps, account data, generated deployment output,
 or backup archives. See [Configuration and Environments](environments.md) before
 adding any new setting.

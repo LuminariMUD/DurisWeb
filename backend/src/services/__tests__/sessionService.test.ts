@@ -7,7 +7,7 @@ import { pool } from '../../db/connection.js';
 import { hasActiveWebSession, hasMatchingRefreshSession } from '../sessionService.js';
 
 describe('web session revocation', () => {
-  const accountName = 'Cwial';
+  const accountName = `session_${crypto.randomBytes(10).toString('hex')}`;
   const sessionId = `test-session-${crypto.randomUUID()}`;
   const refreshToken = `test-refresh-${crypto.randomBytes(24).toString('hex')}`;
   const otherSessionId = `test-session-other-${crypto.randomUUID()}`;
@@ -16,14 +16,7 @@ describe('web session revocation', () => {
   const expiredRefreshToken = `test-refresh-expired-${crypto.randomBytes(24).toString('hex')}`;
 
   beforeAll(async () => {
-    const [accounts] = (await pool.query(
-      'SELECT account_name FROM accounts WHERE LOWER(account_name) = LOWER(?) LIMIT 1',
-      [accountName],
-    )) as any;
-
-    if (accounts.length === 0) {
-      throw new Error('Cwial account is required for the local auth fixture');
-    }
+    await pool.query('INSERT INTO accounts (account_name) VALUES (?)', [accountName]);
 
     await pool.query(
       'INSERT INTO web_sessions (id, account_name, refresh_token, expires_at) VALUES (?, ?, ?, ?)',
@@ -47,6 +40,7 @@ describe('web session revocation', () => {
       otherSessionId,
       expiredSessionId,
     ]);
+    await pool.query('DELETE FROM accounts WHERE account_name = ?', [accountName]);
     await pool.end();
   });
 

@@ -162,6 +162,13 @@ export default defineConfig(({ mode }) => {
                 name: 'vendor-editor',
                 test: /[\\/]node_modules[\\/](?:.*[\\/]node_modules[\\/])?(?:@tiptap|prosemirror-[^\\/]+)[\\/]/,
               },
+              {
+                // Category and hotbar icons are selected by name at runtime.
+                // Keep that complete catalog in bounded, cacheable chunks.
+                name: 'vendor-icons',
+                test: /[\\/]node_modules[\\/](?:.*[\\/]node_modules[\\/])?@lucide[\\/]vue[\\/]/,
+                maxSize: 400_000,
+              },
             ],
           },
         },

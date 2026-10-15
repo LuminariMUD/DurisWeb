@@ -71,7 +71,12 @@ import {
   getSessionByWebSocket,
   isTerminalOperationAuthorized,
 } from './services/terminalService.js';
-import { verifyToken, verifyTerminalToken, isAccessToken } from './middleware/auth.js';
+import {
+  verifyToken,
+  verifyTerminalToken,
+  verifyWebSocketToken,
+  isAccessToken,
+} from './middleware/auth.js';
 import { parseAccountFile } from './services/accountService.js';
 import { hasActiveWebSession } from './services/sessionService.js';
 import { getUserPermissions, type UserPermissions } from './services/permissionService.js';
@@ -894,14 +899,15 @@ async function initializeFlatfileHealth(): Promise<void> {
 async function verifyWebSocketAuth(
   token: string | undefined,
   minLevel: number,
+  fromCookie = false,
 ): Promise<WebSocketPrincipal | null> {
   if (!token) {
     logger.warn('[verifyWebSocketAuth] no token provided');
     return null;
   }
-  const payload = verifyToken(token);
-  if (!isAccessToken(payload)) {
-    logger.warn('[verifyWebSocketAuth] invalid or non-access token');
+  const payload = fromCookie ? verifyToken(token) : verifyWebSocketToken(token);
+  if (!payload || (fromCookie && !isAccessToken(payload))) {
+    logger.warn('[verifyWebSocketAuth] invalid or wrong-purpose token');
     return null;
   }
   if (!payload.sid || !(await hasActiveWebSession(payload.accountName, payload.sid))) {
@@ -938,7 +944,7 @@ async function hydrateWebSocketPrincipal(
   if (!token) return;
 
   try {
-    const principal = await verifyWebSocketAuth(decodeURIComponent(token), 0);
+    const principal = await verifyWebSocketAuth(decodeURIComponent(token), 0, true);
     if (principal) (ws as any).wsPrincipal = principal;
   } catch (error) {
     logger.warn('[WebSocket] cookie principal hydration failed:', getErrorMessage(error));
@@ -1558,9 +1564,9 @@ async function startServer() {
                 return;
               }
 
-              // Verify JWT token
-              const payload = verifyToken(token);
-              if (!isAccessToken(payload)) {
+              // Verify the short-lived application WebSocket capability.
+              const payload = verifyWebSocketToken(token);
+              if (!payload) {
                 ws.send(
                   JSON.stringify({
                     type: 'DEPLOY_ERROR',

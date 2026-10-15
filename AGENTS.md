@@ -12,8 +12,8 @@ Website for DurisMUD - usually hosted on same server as DurisMUD
 
 ## Environmental Settings
 
-- Each of project's root, backend/ and frontend/ has environmental files, root `.env` holds whether
-    this particular checkout is local/dev, staging, or production
+- Each of project's root, backend/ and frontend/ has environmental files, *root `.env` holds whether
+    this particular checkout is local/dev, staging, or production AND a usable account for live testing on the website*
 - project root has `.env` `.env.example`
 - backend/ has `backend/.env` `backend/.env.example` `backend/.env.test` `backend/.env.test.example`
 - frontend/ has `frontend/.env` `frontend/.env.example`

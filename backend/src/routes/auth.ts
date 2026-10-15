@@ -21,6 +21,7 @@ import {
   requireAuth,
   optionalAuth,
   generateTerminalToken,
+  generateWebSocketToken,
 } from '../middleware/auth.js';
 import {
   hasActiveWebSession,
@@ -302,12 +303,11 @@ router.get('/check', async (req: Request, res: Response) => {
 
 /**
  * GET /api/auth/terminal-token
- * Returns the access token for authenticated users (for WebSocket terminal auth)
+ * Returns a short-lived terminal capability for authenticated users
  * Requires authentication via HTTP-only cookie
  */
 router.get('/terminal-token', requireAuth, async (req: Request, res: Response) => {
-  // The requireAuth middleware already verified the token and attached user
-  // We just need to return the token from the cookie
+  // The requireAuth middleware already verified the cookie and live session.
   const accessToken = req.cookies?.access_token;
 
   if (!accessToken) {
@@ -320,6 +320,12 @@ router.get('/terminal-token', requireAuth, async (req: Request, res: Response) =
     req.user!.sessionId,
   );
   return res.json({ token: terminalToken });
+});
+
+/** Issue a capability for application subscriptions and authorized streams. */
+router.get('/websocket-token', requireAuth, (req: Request, res: Response) => {
+  const user = req.user!;
+  res.json({ token: generateWebSocketToken(user.accountName, user.email, user.sessionId) });
 });
 
 /**

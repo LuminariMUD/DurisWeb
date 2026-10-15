@@ -28,7 +28,7 @@ export interface JWTPayload {
   accountName: string;
   email: string;
   sid: string;
-  tokenType?: 'access' | 'refresh' | 'terminal';
+  tokenType?: 'access' | 'refresh' | 'terminal' | 'websocket';
   iat: number;
   exp: number;
 }
@@ -72,6 +72,23 @@ export function generateTerminalToken(
   return jwt.sign({ accountName, email, sid: sessionId, tokenType: 'terminal' }, JWT_SECRET, {
     expiresIn: '5m',
   });
+}
+
+/** Issue a short-lived capability for non-terminal WebSocket operations. */
+export function generateWebSocketToken(
+  accountName: string,
+  email: string,
+  sessionId: string,
+): string {
+  return jwt.sign({ accountName, email, sid: sessionId, tokenType: 'websocket' }, JWT_SECRET, {
+    expiresIn: '5m',
+  });
+}
+
+/** WebSocket capabilities cannot authenticate HTTP requests or terminal sessions. */
+export function verifyWebSocketToken(token: string): JWTPayload | null {
+  const payload = verifyToken(token);
+  return payload?.tokenType === 'websocket' ? payload : null;
 }
 
 /**
