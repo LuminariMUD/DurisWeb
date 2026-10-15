@@ -237,6 +237,10 @@ space; give high fetch priority only to important initial-viewport imagery,
 and consider lazy loading for images below it. Keep asset provenance and
 licenses beside the assets and link them here.
 
+The [Mudlet GUI screenshot record](ongoing-projects/assets/mudlet-gui/README.md)
+documents native client captures with invented demonstration data, the source
+revision, image checksums, and reproduction steps for the proposed GUI page.
+
 ## Interaction and accessibility
 
 For new and changed UI, review the complete interaction, not just its resting
