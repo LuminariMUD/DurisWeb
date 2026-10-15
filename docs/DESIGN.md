@@ -158,7 +158,7 @@ adding sticky content, dialogs, or nested scrolling regions.
 
 | Metadata | Behavior |
 |---|---|
-| `contentGutter` omitted or `true` | Standard content padding. The shell provides mobile bottom clearance and wider-screen gutter adjustments. |
+| `contentGutter` omitted or `true` | Standard content padding. The shell provides mobile bottom clearance, matching scroll padding to keep keyboard-focused links above the bottom navigation, and wider-screen gutter adjustments. |
 | `contentGutter: false` | Full-bleed sections, as on the homepage. The page supplies its own internal gutters. Use this instead of negative margins around the shell. |
 | `fullscreen: true` | Removes the standard content padding and shell vertical scrolling for immersive views such as the MUD client. |
 | `hideNav: true` | Uses the pop-out shell without normal navigation; availability notices and toasts remain. |
@@ -237,9 +237,11 @@ space; give high fetch priority only to important initial-viewport imagery,
 and consider lazy loading for images below it. Keep asset provenance and
 licenses beside the assets and link them here.
 
-The [Mudlet GUI screenshot record](ongoing-projects/assets/mudlet-gui/README.md)
-documents native client captures with invented demonstration data, the source
-revision, image checksums, and reproduction steps for the proposed GUI page.
+The [Mudlet GUI page screenshot record](../frontend/src/assets/mudlet-gui/README.md)
+documents native captures of the downloadable client with invented demonstration
+data, release identity, image checksums, and reproduction steps. The original
+[planning captures](ongoing-projects/assets/mudlet-gui/README.md) remain available
+with their separate source revision and provenance.
 
 ## Interaction and accessibility
 
@@ -358,6 +360,7 @@ the changed behavior; extend them when behavior changes require coverage.
 |---|---|
 | Homepage copy/configuration, content visibility, sanitization, widgets, pause control, failure state | [`FrontPageView.spec.ts`](../frontend/src/views/__tests__/FrontPageView.spec.ts) |
 | Public configuration and legacy title presentation | [`useSiteConfig.test.ts`](../frontend/src/composables/__tests__/useSiteConfig.test.ts) |
+| Mudlet GUI content, download/support links, image descriptions, and configuration states | [`MudletGuiView.spec.ts`](../frontend/src/views/__tests__/MudletGuiView.spec.ts) |
 | Native login submission, pending state, errors, and navigation | [`LoginView.spec.ts`](../frontend/src/views/__tests__/LoginView.spec.ts) |
 | Availability reasons, dismissal, reopening, and read-only Retry | [`SiteAvailabilityNotice.spec.ts`](../frontend/src/components/__tests__/SiteAvailabilityNotice.spec.ts) |
 | ANSI mappings, escaping, and editor round trips | [`ansiParser.spec.ts`](../frontend/src/utils/__tests__/ansiParser.spec.ts) |

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useSiteConfig } from '@/composables/useSiteConfig'
@@ -23,6 +23,7 @@ import {
   Heart,
   Newspaper,
   Globe,
+  Monitor,
 } from '@lucide/vue'
 import { projectSiteUrl } from '@/config/links'
 
@@ -30,6 +31,7 @@ const route = useRoute()
 const router = useRouter()
 const { isAuthenticated, accountName } = useAuth()
 const { supportUrl } = useSiteConfig()
+const isMoreOpen = ref(false)
 
 // main nav items (shown in bottom bar)
 const mainNavItems = [
@@ -48,6 +50,7 @@ const moreNavItems = computed(() => [
   { name: 'Faction', path: '/statistics/faction-activity', icon: Activity },
   { name: 'Leaderboard', path: '/frag-leaderboard', icon: Trophy },
   { name: 'Guide', path: '/guide', icon: BookOpen },
+  { name: 'Mudlet GUI', path: '/mudlet-gui', icon: Monitor },
   { name: 'Project Site', path: projectSiteUrl, icon: Globe, external: true },
   { name: 'Status', path: '/status', icon: Radio },
   ...(supportUrl.value
@@ -75,6 +78,7 @@ const isActive = (path: string) => {
 }
 
 const navigateTo = (item: string | { path: string; external?: boolean }) => {
+  isMoreOpen.value = false
   if (typeof item === 'string') {
     router.push(item)
   } else if (item.external) {
@@ -98,23 +102,23 @@ const navigateTo = (item: string | { path: string; external?: boolean }) => {
         :class="isActive(item.path) ? 'text-vermilion' : 'text-muted-foreground hover:text-foreground'"
         :aria-current="isActive(item.path) ? 'page' : undefined"
       >
-        <component :is="item.icon" class="w-5 h-5" />
+        <component :is="item.icon" class="w-5 h-5" aria-hidden="true" />
         <span class="text-xs">{{ item.name }}</span>
       </button>
 
       <!-- more button with sheet -->
-      <Sheet>
+      <Sheet v-model:open="isMoreOpen">
         <SheetTrigger as-child>
           <button
             type="button"
             aria-label="Open more navigation"
             class="flex flex-col items-center justify-center flex-1 h-full gap-1 text-muted-foreground hover:text-foreground transition-colors"
           >
-            <MoreHorizontal class="w-5 h-5" />
+            <MoreHorizontal class="w-5 h-5" aria-hidden="true" />
             <span class="text-xs">More</span>
           </button>
         </SheetTrigger>
-        <SheetContent side="bottom">
+        <SheetContent side="bottom" :aria-describedby="undefined" class="max-h-[calc(100dvh-1rem)] overflow-y-auto">
           <SheetHeader class="text-left">
             <SheetTitle class="font-display text-2xl font-normal">Menu</SheetTitle>
           </SheetHeader>
@@ -128,7 +132,7 @@ const navigateTo = (item: string | { path: string; external?: boolean }) => {
               :class="item.highlight ? 'text-ember' : isActive(item.path) ? 'text-vermilion bg-ink-high/60' : 'text-bone-muted'"
               :aria-current="isActive(item.path) ? 'page' : undefined"
             >
-              <component :is="item.icon" class="w-6 h-6" />
+              <component :is="item.icon" class="w-6 h-6" aria-hidden="true" />
               <span class="text-xs">{{ item.name }}</span>
             </button>
           </div>

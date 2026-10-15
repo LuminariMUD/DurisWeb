@@ -3,6 +3,10 @@
 Assets for the [Mudlet GUI page plan](../../2026-10-15-mudlet-gui-page-plan.md),
 following the [website design guide](../../../DESIGN.md#preparing-images-and-screenshots).
 
+These original **1.3.3 planning captures** are retained unchanged. The implemented
+page uses separately [recaptured public 1.3.0 assets](../../../../frontend/src/assets/mudlet-gui/README.md)
+to match the downloadable release. The record below describes only this original set.
+
 These four PNGs are original captures of **the native Mudlet application running
 Arjinius Client**, with synthetic offline data. They are not generated artwork,
 website mockups, or recordings of a live player session. No pixels were edited,
