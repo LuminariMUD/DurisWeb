@@ -76,7 +76,8 @@ and mobile **More**, beside Guide. It introduces the desktop Arjinius Client,
 shows native demonstration screenshots, and links to GitHub releases and setup
 instructions. Primary **Play** navigation still opens the browser client at
 `/play`. Branding and connection details use the shared public site configuration;
-external destinations live in `src/config/links.ts`.
+setup lists the encrypted TLS port when configured and labels the plaintext port
+separately. External destinations live in `src/config/links.ts`.
 
 The [asset record](src/assets/mudlet-gui/README.md) pins the public package used
 for the screenshots. Recheck the downloadable release and its behavior when

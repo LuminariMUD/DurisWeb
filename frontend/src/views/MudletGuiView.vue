@@ -10,7 +10,7 @@ import combatGroup from '@/assets/mudlet-gui/combat-group.png'
 import chatEquipment from '@/assets/mudlet-gui/chat-equipment.png'
 import wilderness from '@/assets/mudlet-gui/wilderness.png'
 
-const { siteTitle, mudHost, mudPort, isAvailable, isLoading, error } = useSiteConfig()
+const { siteTitle, mudHost, mudPort, mudPortTls, isAvailable, isLoading, error } = useSiteConfig()
 
 useHead(() => ({
   title:
@@ -196,7 +196,7 @@ const illustratedBenefits: IllustratedBenefit[] = [
             <h3 class="font-medium">Open your {{ siteTitle }} profile.</h3>
             <p class="leading-relaxed text-bone-muted">Enable GMCP in the profile and in the game.</p>
             <p v-if="mudHost && mudPort" class="break-words text-sm text-muted-foreground">
-              Host: <code>{{ mudHost }}</code> · Port: <code>{{ mudPort }}</code>
+              Host: <code>{{ mudHost }}</code> · <template v-if="mudPortTls">TLS port (encrypted): <code>{{ mudPortTls }}</code> · </template>Plaintext port: <code>{{ mudPort }}</code>
             </p>
           </li>
           <li class="space-y-2 pl-2">

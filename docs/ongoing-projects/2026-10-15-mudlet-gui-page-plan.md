@@ -401,6 +401,63 @@ production deployment acceptance. The client capture record separately documents
 its OS/version/data-format limitations. Changelog publication waits for an
 authorized, verified website deployment.
 
+## PR review verification — 2026-10-15
+
+The [PR #29 TLS finding](https://github.com/LuminariMUD/DurisWeb/pull/29#discussion_r4283155595)
+was confirmed: setup read only `mudPort`, while `useSiteConfig` and the site
+header already exposed the optional `mudPortTls`. Setup now lists the configured
+TLS port as encrypted, followed by a separately labeled plaintext port. An empty
+TLS setting produces no TLS label or invented port. Configuration changes remain
+reactive, and the unavailable state hides all connection details.
+
+Verification used detached worktree `/tmp/durisweb-pr29.5Fad5r/website`, based on
+PR commit `22fa68faf0b00003f00690f0c4398137aaaa1040`, with an isolated preview at
+`http://127.0.0.1:4181/mudlet-gui`. Commands were run from that worktree's root:
+
+| Command | Result |
+|---|---|
+| `pnpm --dir frontend install --frozen-lockfile --offline --store-dir /home/staging/.local/share/pnpm/store` | Passed with the existing lockfile and cached dependencies. |
+| `pnpm --dir frontend test:unit --run src/views/__tests__/MudletGuiView.spec.ts` | Before the fix: two assertions failed, reproducing the missing TLS port and ambiguous plaintext label; four tests passed. |
+| `pnpm --dir frontend exec biome format --write src/views/MudletGuiView.vue src/views/__tests__/MudletGuiView.spec.ts` | Passed; no formatting changes needed. |
+| `pnpm --dir frontend test:unit --run src/views/__tests__/MudletGuiView.spec.ts src/components/layout/__tests__/BottomNavbar.spec.ts src/composables/__tests__/useSiteConfig.test.ts` | After the fix: all 16 tests passed. Covers configured TLS, changes/removal, absent TLS, and unavailable configuration. |
+| `pnpm --dir frontend format:check` | Passed, 642 files checked. |
+| `pnpm --dir frontend lint` | Passed. |
+| `pnpm --dir frontend type-check` | Passed. |
+| `pnpm --dir frontend config:check` | Passed with loopback preview settings. |
+| `./frontend/scripts/check-palette-literals.sh` | Passed. |
+| `pnpm --dir frontend build` | Passed; the Lucide chunk warning remains 683.43 kB. |
+| `pnpm --dir frontend preview` | Served the isolated build. |
+| `git diff --check` and `git diff --cached --check` | Passed. |
+| `node --check /tmp/durisweb-pr29.5Fad5r/tls-browser-check.mjs` and `node --check /tmp/durisweb-pr29.5Fad5r/tls-zoom-check.mjs` | Temporary browser scripts passed syntax checks. |
+
+The Browser plugin was unavailable, so the existing temporary Playwright and
+Chromium installation was reused, with anonymous API/WebSocket fixtures and
+service-worker registration disabled in the fixtures. No browser dependencies
+were added. Browser commands:
+
+```bash
+LD_LIBRARY_PATH=/tmp/durisweb-mudlet.gQqw9C/browser-libs/usr/lib/x86_64-linux-gnu node /tmp/durisweb-pr29.5Fad5r/tls-browser-check.mjs
+LD_LIBRARY_PATH=/tmp/durisweb-mudlet.gQqw9C/browser-libs/usr/lib/x86_64-linux-gnu xvfb-run --auto-servernum --server-args='-screen 0 1600x1200x24 -dpi 96 -nolisten tcp' node /tmp/durisweb-pr29.5Fad5r/tls-zoom-check.mjs
+```
+
+Home → Browse/More → Mudlet GUI passed at 390 × 844, 768 × 1024, 1023 × 900,
+1024 × 900, and 1440 × 1000 CSS pixels. Page identity, meaningful content,
+absence of framework overlays, labeled configured ports, and wrapping passed;
+there were no console errors or warnings. Reloading without TLS configuration
+removed its label and port. Actual 200% browser zoom (720 × 456 CSS viewport,
+DPR 2, visual viewport scale 1) kept the port text within its container; all 19
+page links remained reachable by keyboard, and the More menu closed after
+navigation. Reduced motion was enabled. The first zoom harness attempt raced
+the native window-title update; waiting for that title fixed the harness, and
+the repeated check passed without an application change.
+
+Screenshots and JSON results are outside the checkout under
+`/tmp/durisweb-pr29.5Fad5r/`. The full frontend suite, local backend checks,
+non-Chromium browsers, PWA lifecycle, real TLS/MUD connections, and deployment
+acceptance were not rerun for this display-only correction. The prepared release
+entry below already covers setup instructions; this correction needs no separate
+entry. The website and its changelog remain undeployed/unpublished by this work.
+
 ## Prepared Website Changelog
 
 This is an unpublished payload for the website deployment, prepared using the

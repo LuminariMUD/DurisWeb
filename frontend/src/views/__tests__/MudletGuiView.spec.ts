@@ -7,6 +7,7 @@ const site = {
   siteTitle: ref('Duris'),
   mudHost: ref('mud.example.test'),
   mudPort: ref('1234'),
+  mudPortTls: ref(''),
   isAvailable: ref(true),
   isLoading: ref(false),
   error: ref<string | null>(null),
@@ -26,6 +27,7 @@ beforeEach(() => {
   site.siteTitle.value = 'Duris'
   site.mudHost.value = 'mud.example.test'
   site.mudPort.value = '1234'
+  site.mudPortTls.value = ''
   site.isAvailable.value = true
   site.isLoading.value = false
   site.error.value = null
@@ -128,9 +130,30 @@ describe('Mudlet GUI public page', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Explore Configured World')
     expect(wrapper.text()).toContain('Open your Configured World profile.')
-    expect(wrapper.text()).toContain('Host: configured.example.test · Port: 4321')
+    expect(wrapper.text()).toContain('Host: configured.example.test · Plaintext port: 4321')
+    expect(wrapper.text()).not.toContain('TLS port')
     expect(wrapper.text()).not.toContain('mud.example.test')
     expect(pageMetadata()?.title).toBe('Mudlet GUI | Configured World')
+  })
+
+  it('labels the configured TLS port and removes it when TLS is no longer configured', async () => {
+    site.mudPortTls.value = '5432'
+    wrapper = mount(MudletGuiView)
+    const setup = wrapper.get('section[aria-labelledby="installation-heading"]')
+    expect(setup.text()).toContain('Host: mud.example.test')
+    expect(setup.text()).toContain('TLS port (encrypted): 5432')
+    expect(setup.text()).toContain('Plaintext port: 1234')
+
+    site.mudPortTls.value = '6543'
+    await flushPromises()
+    expect(setup.text()).toContain('TLS port (encrypted): 6543')
+    expect(setup.text()).not.toContain('5432')
+
+    site.mudPortTls.value = ''
+    await flushPromises()
+    expect(setup.text()).not.toContain('TLS port')
+    expect(setup.text()).not.toContain('6543')
+    expect(setup.text()).toContain('Plaintext port: 1234')
   })
 
   it('shows loading and unavailable states without inventing a title or connection address', async () => {
@@ -139,6 +162,7 @@ describe('Mudlet GUI public page', () => {
     site.siteTitle.value = ''
     site.mudHost.value = ''
     site.mudPort.value = ''
+    site.mudPortTls.value = '5432'
     wrapper = mount(MudletGuiView)
     expect(wrapper.get('[role="status"]').text()).toBe('Loading site information…')
     expect(wrapper.find('figure').exists()).toBe(false)
@@ -148,6 +172,8 @@ describe('Mudlet GUI public page', () => {
     expect(wrapper.get('[role="alert"]').text()).toBe(site.error.value)
     expect(wrapper.find('header').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('Host:')
+    expect(wrapper.text()).not.toContain('TLS port')
+    expect(wrapper.text()).not.toContain('5432')
     expect(wrapper.text()).not.toContain('Duris')
     expect(pageMetadata()?.title).toBe('Site unavailable')
   })
