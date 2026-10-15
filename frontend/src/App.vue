@@ -45,6 +45,7 @@ import {
   Heart,
   Radio,
   Globe,
+  Monitor,
 } from '@lucide/vue'
 import {
   DropdownMenu,
@@ -380,7 +381,7 @@ const isPlayPage = computed(() => route.path === '/play')
             class="h-8 max-w-[120px] object-contain"
           />
           <span v-if="isSiteConfigAvailable" class="site-wordmark">{{ siteTitle }}</span>
-          <span v-else class="site-wordmark text-muted-foreground">Site unavailable</span>
+          <span v-else class="text-sm text-muted-foreground">Site unavailable</span>
         </RouterLink>
 
         <nav aria-label="Site sections" class="site-nav hidden flex-1 items-center justify-center lg:flex">
@@ -400,6 +401,7 @@ const isPlayPage = computed(() => route.path === '/play')
                     $route.path.startsWith('/statistics/') ||
                     $route.path === '/frag-leaderboard' ||
                     $route.path.startsWith('/auction') ||
+                    $route.path === '/mudlet-gui' ||
                     $route.path === '/status',
                 )
               "
@@ -425,6 +427,12 @@ const isPlayPage = computed(() => route.path === '/play')
                 <span>Auction House</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem as-child class="cursor-pointer">
+                <RouterLink to="/mudlet-gui" :aria-current="$route.path === '/mudlet-gui' ? 'page' : undefined">
+                  <Monitor class="mr-2 h-4 w-4" aria-hidden="true" />
+                  <span>Mudlet GUI</span>
+                </RouterLink>
+              </DropdownMenuItem>
               <DropdownMenuItem @click="router.push('/status')" class="cursor-pointer">
                 <Radio class="mr-2 h-4 w-4" />
                 <span>Server Status</span>
@@ -585,7 +593,7 @@ const isPlayPage = computed(() => route.path === '/play')
         <!-- Main Content -->
         <main
           class="flex-1 overflow-hidden"
-          :class="isFullscreen ? '' : hasContentGutter ? 'overflow-y-auto px-4 py-4 pb-20 lg:px-[clamp(1rem,2vw,2rem)] lg:pb-4' : 'overflow-y-auto pb-16 lg:pb-0'"
+          :class="isFullscreen ? '' : hasContentGutter ? 'overflow-y-auto px-4 py-4 pb-20 scroll-pb-20 lg:px-[clamp(1rem,2vw,2rem)] lg:pb-4 lg:scroll-pb-4' : 'overflow-y-auto pb-16 lg:pb-0'"
         >
           <RouterView />
         </main>

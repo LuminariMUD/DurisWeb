@@ -68,3 +68,17 @@ the relevant checks.
 
 See [Development](../docs/development.md) and
 [Architecture](../docs/ARCHITECTURE.md).
+
+## Mudlet GUI page
+
+`/mudlet-gui` is a public, lazy-loaded page available through desktop **Browse**
+and mobile **More**, beside Guide. It introduces the desktop Arjinius Client,
+shows native demonstration screenshots, and links to GitHub releases and setup
+instructions. Primary **Play** navigation still opens the browser client at
+`/play`. Branding and connection details use the shared public site configuration;
+setup lists the encrypted TLS port when configured and labels the plaintext port
+separately. External destinations live in `src/config/links.ts`.
+
+The [asset record](src/assets/mudlet-gui/README.md) pins the public package used
+for the screenshots. Recheck the downloadable release and its behavior when
+updating those images or claims. The page makes no runtime GitHub API request.

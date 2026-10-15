@@ -451,6 +451,13 @@ const router = createRouter({
       ],
     },
 
+    {
+      path: '/mudlet-gui',
+      name: 'mudlet-gui',
+      component: () => import('../views/MudletGuiView.vue'),
+      meta: { public: true },
+    },
+
     // Public Guide (Help Files) Page
     {
       path: '/guide',

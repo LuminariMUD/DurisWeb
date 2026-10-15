@@ -1,10 +1,21 @@
 # Mudlet GUI page plan
 
-Prepared 2026-10-15. **Scope: plan, draft page copy, and real client screenshots.**
-The website page is not implemented by this document. Its proposed public route
-is `/mudlet-gui`, with the navigation label **Mudlet GUI**.
+Prepared 2026-10-15. **Implementation: `/mudlet-gui`, navigation label Mudlet GUI.**
+The page is implemented in [MudletGuiView.vue](../../frontend/src/views/MudletGuiView.vue).
+The original plan and 1.3.3 planning captures below remain as the design record.
+The implementation uses separately [recaptured public 1.3.0 assets](../../frontend/src/assets/mudlet-gui/README.md)
+to resolve the download/screenshot dependency. Source implementation and local
+verification do not publish this route; deployment follows the normal release process.
 
 ## Purpose and launch dependency
+
+**Implementation decision:** GitHub's current release was still v1.3.0 during
+implementation review. Its downloaded `duris-client.mpackage`, SHA-256
+`6e30c14e1b2af01d6cba3d4947729206204a30d8a135188667aa604d7f09747f`, matches the
+archive committed at the release tag. The page therefore shows new native
+captures of that exact package and labels them **Arjinius Client 1.3.0**. No GUI
+release or package mirror was created. The page keeps the stable releases URL;
+recheck the current package at website deployment time.
 
 Help a visitor understand the Duris desktop interface, inspect what it actually
 shows, and install the **Arjinius Client** package in Mudlet. Keep the existing
@@ -219,8 +230,10 @@ All four originals are 1920 × 1080 PNGs. On the eventual page:
 
 ## Implementation tasks
 
-These tasks are for the subsequent page implementation. The completed planning
-deliverables are the copy, screenshot set, fixture, and provenance in this change.
+These tasks define the implementation scope. The original planning deliverables
+are the copy, screenshot set, fixture, and provenance; the implementation adds
+the view, public route, navigation, centralized destinations, tests, and release
+capture record.
 
 1. **Resolve the download/screenshot version dependency.** Verify the release
    asset and package metadata. Recapture or revise feature wording if the
@@ -256,32 +269,36 @@ deliverables are the copy, screenshot set, fixture, and provenance in this chang
    this proposed route. Follow the website deployment process when the page
    implementation is approved for release.
 
-## Acceptance and verification for the eventual page
+## Acceptance and verification
 
-- [ ] A logged-out visitor can open `/mudlet-gui` directly and through both
+Checked against the production build in the isolated local preview, with
+anonymous fixture APIs. These checks establish implementation readiness, not
+live website deployment.
+
+- [x] A logged-out visitor can open `/mudlet-gui` directly and through both
   navigation menus. Play still opens `/play`.
-- [ ] The download action opens the supplied GitHub releases page, where the
+- [x] The download action opens the supplied GitHub releases page, where the
   intended `.mpackage` is available. Its version matches the screenshots and
   advertised behavior. Readme, support, and Mudlet links work.
-- [ ] The page follows the eclipse tokens, serif heading weight 400, rectangular
+- [x] The page follows the eclipse tokens, serif heading weight 400, rectangular
   controls, ordinary shell gutter, and existing focus treatments.
-- [ ] At 390, 768, and 1440 CSS pixels wide, and at 200% browser zoom, content
+- [x] At 390, 768, and 1440 CSS pixels wide, and at 200% browser zoom, content
   fits without horizontal page scrolling or fixed navigation covering controls.
-- [ ] Keyboard users can reach the download, installation links, full-size
+- [x] Keyboard users can reach the download, installation links, full-size
   screenshots, and browser alternative. Link names describe their destinations;
   decorative icons are hidden from assistive technology.
-- [ ] Every screenshot has useful alt text, a visible demonstration-data caption,
+- [x] Every screenshot has useful alt text, a visible demonstration-data caption,
   reserved dimensions, and a readable full-size destination. Information is
   available in text as well as through colored native panels.
-- [ ] Missing site configuration does not invent a MUD address, port, or title.
+- [x] Missing site configuration does not invent a MUD address, port, or title.
   The route preserves the shell's existing availability behavior.
-- [ ] Add focused `MudletGuiView.spec.ts` coverage for the public content,
+- [x] Add focused `MudletGuiView.spec.ts` coverage for the public content,
   download destinations, image descriptions, and configuration behavior.
   Extend the existing
   [BottomNavbar tests](../../frontend/src/components/layout/__tests__/BottomNavbar.spec.ts)
   to verify the new internal destination. Verify desktop Browse navigation in
   the rendered app, including its active state.
-- [ ] Run the following from the repository root, with the build in a disposable
+- [x] Run the following from the repository root, with the build in a disposable
   checkout because this host's main `frontend/dist` is served live:
 
 ```bash
@@ -293,6 +310,177 @@ pnpm --dir frontend type-check
 pnpm --dir frontend build
 ```
 
-The current planning change does not modify either application package. Its
-actual checks are recorded in the [asset README](assets/mudlet-gui/README.md);
-the frontend commands above remain future implementation acceptance criteria.
+The original planning-only checks remain in the
+[original asset README](assets/mudlet-gui/README.md). Implementation verification
+and the prepared release news are recorded below.
+
+## Implementation verification — 2026-10-15
+
+Implementation and builds used detached worktree
+`/tmp/durisweb-mudlet.gQqw9C/website`, based on
+`0ce539be610e3faca34492e53418d35e77037763`. The local preview was
+`http://127.0.0.1:4178/mudlet-gui`. No production build directory, backend,
+database, MUD process, or client release was changed.
+
+| Command / inspection | Result |
+|---|---|
+| `pnpm --dir frontend install --frozen-lockfile --offline --store-dir /home/staging/.local/share/pnpm/store` | Passed; existing locked dependencies copied into the worktree. The first offline install selected an empty temporary store and failed; explicitly selecting the populated store resolved it. |
+| `pnpm --dir frontend exec biome format --write src/views/MudletGuiView.vue src/views/__tests__/MudletGuiView.spec.ts src/components/layout/__tests__/BottomNavbar.spec.ts src/config/links.ts src/router/index.ts src/App.vue src/components/layout/BottomNavbar.vue` | Formatted only implementation files. |
+| `pnpm --dir frontend test:unit --run src/views/__tests__/MudletGuiView.spec.ts src/components/layout/__tests__/BottomNavbar.spec.ts` | 8 tests passed. |
+| `pnpm --dir frontend test:unit --run src/views/__tests__/MudletGuiView.spec.ts src/components/layout/__tests__/BottomNavbar.spec.ts src/composables/__tests__/useSiteConfig.test.ts` | 15 tests passed, including public configuration and legacy title handling. |
+| `pnpm --dir frontend format:check` | Passed, 642 files checked. |
+| `pnpm --dir frontend lint` | Passed. |
+| `pnpm --dir frontend type-check` | Passed. An initial test-helper union type error was corrected before the successful checks/builds. |
+| `./frontend/scripts/check-palette-literals.sh` | Passed. |
+| `pnpm --dir frontend config:check` | Passed with isolated loopback preview configuration. |
+| `pnpm --dir frontend build` | Passed; view is a separate lazy chunk, and all four original PNGs are emitted. Vite reports a 683.43 kB Lucide chunk warning. |
+| `pnpm --dir frontend preview` | Served the isolated build for browser checks. |
+| `git diff --check` | Passed. |
+| Native capture `doctor`, `luac5.1 -p`, `run`, and `review` | Selected capture: 29 assertions passed, no Lua errors, visual review PASS. Exact commands, version adjustments, and hashes are in the [delivery asset record](../../frontend/src/assets/mudlet-gui/README.md). |
+| HTTP destination checks and package digest comparison | All six external destinations returned 200, the client guide's install anchor exists, latest release remained v1.3.0, and its asset digest matches the captured archive and the committed release package. |
+| Relative documentation links and capture reproduction recipe | Links resolve; replaying the documented fixture transformations produces the recorded SHA-256. |
+
+Browser tooling was temporary Playwright 1.55.1 with Chromium 140.0.7339.186;
+the Browser plugin was unavailable. The older Playwright installer did not
+recognize Ubuntu 26.04 and its Node 26 extraction stalled. Its Ubuntu 24.04
+Chromium download passed ZIP integrity checks and was extracted in the task's
+temporary directory; the one missing `libxdamage1` library was also extracted
+there. No browser dependency was added to either project manifest. Application
+API/WebSocket responses were anonymous fixtures, and service-worker registration
+was disabled in the browser fixture to keep its requests under fixture control.
+
+The actual browser commands were run with
+`LD_LIBRARY_PATH=/tmp/durisweb-mudlet.gQqw9C/browser-libs/usr/lib/x86_64-linux-gnu`:
+
+```bash
+node /tmp/durisweb-mudlet.gQqw9C/browser-check.mjs
+node /tmp/durisweb-mudlet.gQqw9C/contrast-check.mjs
+node /tmp/durisweb-mudlet.gQqw9C/menu-check.mjs
+xvfb-run --auto-servernum --server-args='-screen 0 1600x1200x24 -dpi 96 -nolisten tcp' node /tmp/durisweb-mudlet.gQqw9C/zoom-check.mjs
+```
+
+Observed browser acceptance:
+
+- Direct anonymous navigation; desktop Home → Browse → Mudlet GUI, including
+  Browse's active styling and the item's current-page state; mobile Home → More
+  → Mudlet GUI, menu closure, and preserved Play → `/play` navigation all passed.
+- Page identity, meaningful content, absence of framework error overlays, and
+  console health passed. The final fixture run had no console errors or warnings.
+- Viewports: 390 × 844, 768 × 1024, 1023 × 900, 1024 × 900, and 1440 × 1000 CSS
+  pixels. All fit without horizontal page or main-content scrolling.
+- All 19 page links were reached with Tab at 390 and 1440 pixels with visible
+  focus and without navigation overlap. Browser testing found that normal gutter
+  pages needed matching scroll padding on the shell's `main` element to keep
+  mid-page focused links above the mobile bar; that shared gutter fix is included.
+- Actual Chromium toolbar zoom reached 200% in a 1440 × 1000 window: 720 × 456
+  CSS viewport, device pixel ratio 2, visual viewport scale 1. All 19 links,
+  the scrollable More menu, and reduced-motion rendering passed.
+- Images loaded at their reserved 16:9 ratio. Opening the overview's full-size
+  link navigated to its actual 1920-pixel-wide PNG. Each caption visibly identifies
+  the client version and invented demonstration data. Remaining originals were
+  also decoded at 1920 pixels wide.
+- Download navigation reached the exact configured GitHub releases URL; the
+  browser destination was intercepted, while actual release/asset availability
+  was verified separately over HTTP.
+- Incomplete public configuration produced the shared availability dialog,
+  `Site unavailable` title, and page error. Dismissal kept the Details action;
+  no host, port, or invented branding appeared. Compact unavailable header text
+  also prevents the status from colliding with Login on a narrow phone.
+- Computed heading font is local Cormorant Garamond at weight 400; buttons have
+  zero-radius corners. Sampled contrast ratios were 4.98:1 for links, 5.58:1 for
+  the primary action, 9.08:1 for muted copy, and higher for body/display text.
+
+Browser screenshots and JSON results are outside the checkout under
+`/tmp/durisweb-mudlet.gQqw9C/browser/` and its parent. The early browser attempts
+exposed the focus-clearance issue and test-harness animation timing; the final
+checks above passed after those corrections.
+
+Not run: the full frontend suite, backend checks/`verify:mud-writes` (no backend
+change), non-Chromium browsers, PWA lifecycle checks, live MUD connectivity, or
+production deployment acceptance. The client capture record separately documents
+its OS/version/data-format limitations. Changelog publication waits for an
+authorized, verified website deployment.
+
+## PR review verification — 2026-10-15
+
+The [PR #29 TLS finding](https://github.com/LuminariMUD/DurisWeb/pull/29#discussion_r4283155595)
+was confirmed: setup read only `mudPort`, while `useSiteConfig` and the site
+header already exposed the optional `mudPortTls`. Setup now lists the configured
+TLS port as encrypted, followed by a separately labeled plaintext port. An empty
+TLS setting produces no TLS label or invented port. Configuration changes remain
+reactive, and the unavailable state hides all connection details.
+
+Verification used detached worktree `/tmp/durisweb-pr29.5Fad5r/website`, based on
+PR commit `22fa68faf0b00003f00690f0c4398137aaaa1040`, with an isolated preview at
+`http://127.0.0.1:4181/mudlet-gui`. Commands were run from that worktree's root:
+
+| Command | Result |
+|---|---|
+| `pnpm --dir frontend install --frozen-lockfile --offline --store-dir /home/staging/.local/share/pnpm/store` | Passed with the existing lockfile and cached dependencies. |
+| `pnpm --dir frontend test:unit --run src/views/__tests__/MudletGuiView.spec.ts` | Before the fix: two assertions failed, reproducing the missing TLS port and ambiguous plaintext label; four tests passed. |
+| `pnpm --dir frontend exec biome format --write src/views/MudletGuiView.vue src/views/__tests__/MudletGuiView.spec.ts` | Passed; no formatting changes needed. |
+| `pnpm --dir frontend test:unit --run src/views/__tests__/MudletGuiView.spec.ts src/components/layout/__tests__/BottomNavbar.spec.ts src/composables/__tests__/useSiteConfig.test.ts` | After the fix: all 16 tests passed. Covers configured TLS, changes/removal, absent TLS, and unavailable configuration. |
+| `pnpm --dir frontend format:check` | Passed, 642 files checked. |
+| `pnpm --dir frontend lint` | Passed. |
+| `pnpm --dir frontend type-check` | Passed. |
+| `pnpm --dir frontend config:check` | Passed with loopback preview settings. |
+| `./frontend/scripts/check-palette-literals.sh` | Passed. |
+| `pnpm --dir frontend build` | Passed; the Lucide chunk warning remains 683.43 kB. |
+| `pnpm --dir frontend preview` | Served the isolated build. |
+| `git diff --check` and `git diff --cached --check` | Passed. |
+| `node --check /tmp/durisweb-pr29.5Fad5r/tls-browser-check.mjs` and `node --check /tmp/durisweb-pr29.5Fad5r/tls-zoom-check.mjs` | Temporary browser scripts passed syntax checks. |
+
+The Browser plugin was unavailable, so the existing temporary Playwright and
+Chromium installation was reused, with anonymous API/WebSocket fixtures and
+service-worker registration disabled in the fixtures. No browser dependencies
+were added. Browser commands:
+
+```bash
+LD_LIBRARY_PATH=/tmp/durisweb-mudlet.gQqw9C/browser-libs/usr/lib/x86_64-linux-gnu node /tmp/durisweb-pr29.5Fad5r/tls-browser-check.mjs
+LD_LIBRARY_PATH=/tmp/durisweb-mudlet.gQqw9C/browser-libs/usr/lib/x86_64-linux-gnu xvfb-run --auto-servernum --server-args='-screen 0 1600x1200x24 -dpi 96 -nolisten tcp' node /tmp/durisweb-pr29.5Fad5r/tls-zoom-check.mjs
+```
+
+Home → Browse/More → Mudlet GUI passed at 390 × 844, 768 × 1024, 1023 × 900,
+1024 × 900, and 1440 × 1000 CSS pixels. Page identity, meaningful content,
+absence of framework overlays, labeled configured ports, and wrapping passed;
+there were no console errors or warnings. Reloading without TLS configuration
+removed its label and port. Actual 200% browser zoom (720 × 456 CSS viewport,
+DPR 2, visual viewport scale 1) kept the port text within its container; all 19
+page links remained reachable by keyboard, and the More menu closed after
+navigation. Reduced motion was enabled. The first zoom harness attempt raced
+the native window-title update; waiting for that title fixed the harness, and
+the repeated check passed without an application change.
+
+Screenshots and JSON results are outside the checkout under
+`/tmp/durisweb-pr29.5Fad5r/`. The full frontend suite, local backend checks,
+non-Chromium browsers, PWA lifecycle, real TLS/MUD connections, and deployment
+acceptance were not rerun for this display-only correction. The prepared release
+entry below already covers setup instructions; this correction needs no separate
+entry. The website and its changelog remain undeployed/unpublished by this work.
+
+## Prepared Website Changelog
+
+This is an unpublished payload for the website deployment, prepared using the
+local [news-update skill](../../.agents/skills/news-update/SKILL.md). The public
+list contained 10 entries on 2026-10-15 (IDs 15–27, with gaps); none covered the
+Mudlet GUI page. Most recent: ID 27, version `2026.10.08`, “The eclipse look,
+everywhere.” All 10 published entries were read. Unpublished/admin drafts were
+not accessible in this implementation session and must be reconciled with an
+authorized editor before publication.
+
+The candidate is the implementation diff on website source
+`0ce539be610e3faca34492e53418d35e77037763`; it is not a claim about a deployed
+release. At deployment, pin the final website SHA, confirm the current GUI
+release, verify the route live, choose the actual release date/version, and
+reuse a matching saved draft if one exists. Then publish through the existing
+changelog UI/API and verify both its saved record and anonymous public rendering.
+
+```json
+{
+  "version": "2026.10.15",
+  "title": "Meet the Mudlet GUI",
+  "category": "public",
+  "isPublished": false,
+  "content": "<h3>A closer look at desktop play</h3><p>Explore the <a href=\"/mudlet-gui\">Mudlet GUI</a> page for native screenshots of Arjinius Client, a Duris interface for desktop Mudlet. See how maps, group status, chat, and character details fit around the game console.</p><ul><li>Find the page in Browse on desktop or More on mobile.</li><li>Follow the setup instructions and links to the GUI package, Mudlet downloads, client guide, and support.</li><li>The screenshots use invented demonstration data. Prefer to start here? Play still opens the browser client.</li></ul>"
+}
+```
