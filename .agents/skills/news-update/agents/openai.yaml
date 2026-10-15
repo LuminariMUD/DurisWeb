@@ -1,0 +1,4 @@
+interface:
+  display_name: "Website Changelog"
+  short_description: "Publish website release news without duplicate entries"
+  default_prompt: "Use $news-update to reconcile the deployed website changes with Website Changelog and publish any missing entries."

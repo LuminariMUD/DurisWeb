@@ -10,6 +10,14 @@ Website for DurisMUD - usually hosted on same server as DurisMUD
 - UI work also follows [docs/DESIGN.md](docs/DESIGN.md), the central design guide and index of source-owned design contracts.
 - DurisMUD is a separate repository. Do not modify or operate it unless explicitly requested.
 
+## Environmental Settings
+
+- Each of project's root, backend/ and frontend/ has environmental files, root `.env` holds whether
+    this particular checkout is local/dev, staging, or production
+- project root has `.env` `.env.example`
+- backend/ has `backend/.env` `backend/.env.example` `backend/.env.test` `backend/.env.test.example`
+- frontend/ has `frontend/.env` `frontend/.env.example`
+
 ## Production location
 
 - The only production website is this checkout on `plesk.luminarimud.com` (account `staging`, `/home/staging/durisweb`), serving `duris.sbs` and `www.duris.sbs`. There is no other host: the earlier `/home/duris` deployment and the tunnel `5b7d0472-7d5b-4c6e-8aa3-cd550e2bdb60` described in older journals are gone.
@@ -24,6 +32,13 @@ Website for DurisMUD - usually hosted on same server as DurisMUD
 - Use `camelCase` for values/functions, `PascalCase` for types and Vue components, and `snake_case` for database fields and hook IDs.
 - Treat browser-visible `VITE_*` values as public. Never log secrets, tokens, or IP addresses; security and integration failures must fail closed.
 - Never edit an applied migration. New migrations need a reversible `down`; use an isolated test database and do not run migrations against shared environments without explicit direction.
+
+## Website changelog
+
+- For website updates and deployments, use the local [news-update skill](.agents/skills/news-update/SKILL.md) (`$news-update`) to reconcile release changes with **News → Website Changelog**.
+- Prepare release news during implementation; publish it through `/admin/changelog` or `/api/changelog` after the described release is verified live. Include this step in an authorized website deployment, reusing the session's authorization.
+- Before declaring the release complete, verify the saved entry and its public rendering, or record why no new entry is needed (already covered or no reader-visible change). A draft is not a published update.
+- Website Changelog uses `website_changelog`; it is separate from MUD News and the MUD repository's news file/import workflow.
 
 ## Verification
 

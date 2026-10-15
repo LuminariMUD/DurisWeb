@@ -26,9 +26,7 @@ the existing architecture was insufficient.
 
 ## Select the target
 
-Require the user to select `development` or `production`. If the request is ambiguous, inspect only
-read-only state and ask before stopping a service, replacing an artifact, or connecting to a live
-dependency. Never infer permission for production work from the checkout path or `NODE_ENV` alone.
+Check `.env` to determine if this is development or production burnin.
 
 From the repository root, inspect the worktree and read `README.md`, `docs/development.md`,
 `docs/environments.md`, and the relevant mode reference:
@@ -126,6 +124,13 @@ migration and rehearse/apply it through the same mode workflow.
 
 Finish only when the final source matrix, a fresh build, dependency checks, runtime acceptance,
 log review, and stability soak all pass consecutively on the selected target after the last change.
+
+Run [$news-update](../news-update/SKILL.md) as a required completion step for the final qualified
+revision: draft-only in development; publish and verify in production after acceptance and soak,
+reusing existing authorization. Changelog publication is separate from read-only smoke probes.
+Report the draft, published entry IDs and verification, or a verified no-news reason. An unresolved
+required publication or verification makes the burn-in partial.
+
 Leave a successfully burned-in target healthy and running unless the user requested otherwise.
 Unavailable credentials or another omitted required acceptance surface makes the result partial,
 not clean.

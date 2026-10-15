@@ -11,6 +11,10 @@ protected recovery locations in an operator-owned inventory outside version
 control. Historical release notes are not a reliable source of current host
 configuration.
 
+Every website release includes a Website Changelog review. Prepare its entry
+during release review with the local [$news-update skill](../.agents/skills/news-update/SKILL.md),
+then complete the [publication step](#publish-website-changelog) after acceptance.
+
 ## Build and validate
 
 A pull changes source only; it does not prove that the running process or static
@@ -153,6 +157,35 @@ preview its extracted section and use the permissioned announce action after
 verifying the saved text. Browser push additionally requires its own configured
 and accepted rollout. See the [news API contract](api/README_api.md#mud-news-publishing)
 for limits, parsing, editor preservation and browser-cache behavior.
+
+### Publish Website Changelog
+
+Website release notes live in `website_changelog`, edited at `/admin/changelog`
+and served by `/api/changelog` on **News → Website Changelog**
+(`/news?tab=changelog`). A source checkout, build, Markdown edit, or MUD news
+import does not publish these entries.
+
+Use the local [$news-update skill](../.agents/skills/news-update/SKILL.md) to
+compare existing entries and drafts with the exact deployed website revision.
+Prepare readable visitor-facing HTML before cutover; publish only after the
+normal acceptance checks and stability soak succeed. Reuse an existing matching
+draft and record its ID with the release evidence. If publication is outside
+the authorized release scope, finish the payload and report that remaining step.
+
+Publishing requires an authenticated `manage_news` editor (or overlord) and
+triggers the application's changelog notifications. Use the existing UI/API,
+including its session and CSRF checks. After a failed or ambiguous request,
+read back the row before retrying; creation is not idempotent. The skill's
+[publishing reference](../.agents/skills/news-update/references/publishing.md)
+documents fields, visibility, and retry behavior.
+
+Before closing the release, verify the public API entry and expand it on a fresh
+anonymous `/news?tab=changelog` page; verify admin-only entries with the intended
+reader instead. Record entry ID/version, covered release, and verification in
+the protected release evidence. When there is no new reader-visible change or
+the release is already covered, record that reason instead of posting filler.
+Keep a failed deployment's entry unpublished; reconcile any published claims if
+the application is rolled back.
 
 ## Release evidence and rollback set
 
@@ -456,6 +489,9 @@ make its restart player-visible.
    `NRestarts`, dependency restarts, or a mismatched served asset stop the
    release and trigger rollback analysis. Remove the watchdog pause once
    acceptance passes.
+8. After acceptance and the stability soak, complete
+   [Website Changelog publication](#publish-website-changelog) or record the
+   verified no-news reason before closing the release.
 
 ## Acceptance and rollback
 
