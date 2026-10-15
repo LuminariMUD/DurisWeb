@@ -1,5 +1,8 @@
 # Architecture
 
+This guide owns system, integration, and database design. Website visual and
+interaction design lives in the [Design guide](DESIGN.md).
+
 ## System Overview
 
 DurisWeb is a two-package TypeScript application coupled to a separate C MUD

@@ -73,6 +73,10 @@ privacy gate to diagnose missing data.
 
 ## MUD news publishing
 
+For visual treatment and game-color rules, see the
+[Design guide](../DESIGN.md#game-content-and-charts). This section owns the
+news data, editing, and publishing contract.
+
 MUD news is the complete plain-text history, including MUD color codes, in
 `mud_info` with `name = 'news'`. It is separate from the Website Changelog,
 which uses `website_changelog` and `/api/changelog`.

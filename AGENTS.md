@@ -7,6 +7,7 @@ Website for DurisMUD - usually hosted on same server as DurisMUD
 - This is a logical monorepo with independent `backend/` and `frontend/` pnpm projects; there is no root package manifest.
 - Backend: Express 5, TypeScript, Knex, MySQL, and Redis. Frontend: Vue 3, Vite, TypeScript, and Tailwind CSS.
 - Read the nearest README plus `docs/development.md`. Follow `docs/CONVENTIONS.md`; integration or security work also requires `docs/SECURITY-COMPLIANCE.md`.
+- UI work also follows [docs/DESIGN.md](docs/DESIGN.md), the central design guide and index of source-owned design contracts.
 - DurisMUD is a separate repository. Do not modify or operate it unless explicitly requested.
 
 ## Production location

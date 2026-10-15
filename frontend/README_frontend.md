@@ -53,23 +53,18 @@ maintenance reasons and an independent page for complete origin/tunnel outages.
 See [availability notices](../deploy/maintenance/README.md) for activation and
 operator controls. Neither feature starts or stops the MUD.
 
-The login page uses a native form so password managers can associate the account
-and password fields. Enter and the Login button share one submission handler;
-additional submissions are ignored while authentication is pending. Back to Home
-only navigates away.
+## Design
 
-Every route uses the eclipse design first shipped on the homepage: ink and
-bone surfaces, vermilion accents, and Cormorant Garamond for the wordmark,
-page headings and brand calls to action. Tokens live in
-`src/assets/main.css`, shared pieces in `src/components/brand/`, and chart
-colors in `src/utils/chartTheme.ts`; `scripts/check-palette-literals.sh`
-rejects raw gray/cyan/zinc/slate classes. MUD game colors are exempt and
-pinned by a spec. See [theme and colors](../docs/development.md#theme-and-colors).
+The [Design guide](../docs/DESIGN.md) is the starting point for UI work. It
+covers the eclipse palette, typography, shared components, responsive layout,
+copy and imagery, forms, motion, and accessibility. It also links the source
+files that own exact tokens and behavior.
 
-The homepage presents the exact legacy `Duris SBS` name as `Duris`. Custom hero
-settings and sanitized editor content remain supported. See the
-[homepage assets and configuration](../docs/development.md#homepage-assets-and-configuration) for
-asset provenance and motion controls.
+See [adding or changing a page](../docs/DESIGN.md#adding-or-changing-a-page),
+[homepage assets and configuration](../docs/DESIGN.md#homepage-assets-and-configuration),
+and [game content and charts](../docs/DESIGN.md#game-content-and-charts) for the
+contracts to preserve, and [verification](../docs/DESIGN.md#verification) for
+the relevant checks.
 
 See [Development](../docs/development.md) and
 [Architecture](../docs/ARCHITECTURE.md).

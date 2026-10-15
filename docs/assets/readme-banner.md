@@ -1,5 +1,8 @@
 # README banner
 
+See the [Design guide](../DESIGN.md#content-and-imagery) for the website's
+visual direction and image guidance. Asset-specific provenance stays here.
+
 `readme-banner.png` is original AI-generated artwork created for the root README
 using the built-in imagegen tool on 2026-09-05. Its visual direction follows the
 existing eclipse homepage; it is atmospheric branding, not a gameplay screenshot.

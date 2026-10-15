@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// Design and CMS contract: [Design guide](../../../docs/DESIGN.md#homepage-assets-and-configuration).
 import { computed, createApp, onBeforeUnmount, ref, watch } from 'vue'
 import DOMPurify from 'dompurify'
 import { ArrowDown, ArrowUpRight, Compass, Flag, Pause, Play, Swords } from '@lucide/vue'

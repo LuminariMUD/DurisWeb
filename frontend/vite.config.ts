@@ -6,7 +6,10 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 import { VitePWA } from 'vite-plugin-pwa'
 import { parseViteEnvironment } from './config/environment.ts'
 
-/** Preload the hashed display-face files so headings do not flash in the fallback serif. */
+/**
+ * Preload the hashed display-face files to reduce fallback-font display.
+ * Design contract: [Typography](../docs/DESIGN.md#typography).
+ */
 function preloadDisplayFonts(base: string): Plugin {
   return {
     name: 'duris-preload-display-fonts',

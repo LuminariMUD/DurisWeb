@@ -4,6 +4,7 @@
 # classes are game semantics, not theme, and are permanently exempt. Smaller
 # game-color tables inside other files sit between `palette-literals: off`
 # and `palette-literals: on` comments.
+# Usage: [Changing the palette](../../docs/DESIGN.md#changing-the-palette).
 set -euo pipefail
 
 guard_script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -36,7 +37,7 @@ if [ -n "${guard_files}" ]; then
 fi
 
 if [ -n "${guard_matches}" ]; then
-  printf 'Raw gray/cyan/zinc/slate palette classes must use eclipse tokens (src/assets/main.css):\n%s\n' \
+  printf 'Raw gray/cyan/zinc/slate/neutral/stone palette classes must use eclipse tokens (src/assets/main.css):\n%s\n' \
     "${guard_matches}" >&2
   exit 1
 fi

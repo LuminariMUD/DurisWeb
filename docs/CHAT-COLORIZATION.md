@@ -1,5 +1,9 @@
 # Recipient colors in web chat
 
+The [Design guide](DESIGN.md#game-content-and-charts) explains how game colors
+relate to the website theme. This document retains the recipient presentation,
+palette, and history contracts.
+
 This client implements [Duris server #288](https://github.com/LuminariMUD/Duris/issues/288), tracked locally
 by [#43](https://github.com/LuminariMUD/DurisWebApp/issues/43). The authoritative wire contract is
 [`STRUCTURED_CHAT_COLORIZATION.md`](https://github.com/LuminariMUD/Duris/blob/master/docs/guides/STRUCTURED_CHAT_COLORIZATION.md)
@@ -17,8 +21,9 @@ its formatted line can still open a direct chat. Floating windows use the same e
 The server has already applied recipient language/visibility rules and chosen the frame. There is no browser
 animation timer, color guessing or second application of a base color.
 
-The exact ID mapping is exported by `src/utils/chatPalette.ts`: 0 is default; 16–23 are black, blue, green,
-cyan, red, magenta, yellow and white; 24–31 are their bright variants. This differs from ANSI SGR numeric order.
+The exact ID mapping is exported by [`chatPalette.ts`](../frontend/src/utils/chatPalette.ts):
+0 is default; 16–23 are black, blue, green, cyan, red, magenta, yellow and white;
+24–31 are their bright variants. This differs from ANSI SGR numeric order.
 Named `--mud-black`, `--mud-blue`, …, `--mud-bright-white` CSS variables can replace the documented hex defaults.
 `--mud-background` and `--mud-foreground` control default colors independently of white. Foreground brightness
 adds bold; authored background brightness selects the server's historical underline behavior when requested.
@@ -30,8 +35,9 @@ future protocol versions fall back to the legacy message. The existing local his
 with an optional field. This change adds no credentials, server endpoints or preference persistence API.
 
 The server harness exports the synthetic fixture in
-`frontend/src/components/mud/__tests__/fixtures/chat-presentation-v1.json`. It contains real production-rendered
-say/tell/guild frames for two recipients, reset and reconnect. Tests compare rendered text and palette values,
+[`chat-presentation-v1.json`](../frontend/src/components/mud/__tests__/fixtures/chat-presentation-v1.json).
+It contains real production-rendered say/tell/guild frames for two recipients, reset and reconnect.
+Tests compare rendered text and palette values,
 reject malformed metadata, dispatch through the actual WebSocket handler, and exercise the real store, panel,
 window manager and persisted-history reload. The floating window's input reference uses its actual component
 element so opening or expanding the window can focus the input without a runtime error.

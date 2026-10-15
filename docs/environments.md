@@ -150,6 +150,9 @@ fallback.
 
 ## Database-backed site settings
 
+The [Design guide](DESIGN.md#copy-and-public-settings) describes how the UI
+presents these settings; this section owns their configuration contract.
+
 `web_settings` is the only runtime owner for public mutable settings:
 `pvp_delay_minutes`, `mud_host`, `mud_port`, `mud_port_tls`, `mud_ws_url`,
 `site_title`, `site_logo_url`, `support_url`,

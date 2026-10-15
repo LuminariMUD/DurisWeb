@@ -6,7 +6,8 @@ Read [Onboarding](docs/onboarding.md), [Development](docs/development.md), and
 the [repository conventions](docs/CONVENTIONS.md). Integration work must also
 read the [architecture](docs/ARCHITECTURE.md),
 [hook registry guide](backend/src/hooks/README_hooks.md), and cumulative
-[security record](docs/SECURITY-COMPLIANCE.md).
+[security record](docs/SECURITY-COMPLIANCE.md). UI work also follows the
+[Design guide](docs/DESIGN.md), including its component and verification guidance.
 
 ## Branches
 

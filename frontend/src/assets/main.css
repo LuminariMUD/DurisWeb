@@ -3,10 +3,11 @@
 @import "./fonts.css";
 
 /*
- * Eclipse design tokens. Hex values are the ones shipped on the homepage in
- * September 2026. Add a color here, then reference it through a utility such
+ * Eclipse design tokens. Usage and design decisions:
+ * [Design guide](../../../docs/DESIGN.md#colors-and-surfaces).
+ * Add a color here, then reference it through a utility such
  * as `bg-ink-raised` or `text-vermilion`; raw Tailwind palette classes
- * (gray, cyan, zinc, slate) are rejected by scripts/check-palette-literals.sh.
+ * (gray, cyan, zinc, slate, neutral, stone) are rejected by scripts/check-palette-literals.sh.
  */
 @theme {
   --color-ink: #111310;
@@ -44,7 +45,7 @@
 }
 
 @theme inline {
-  /* Rectangular by default (decision 1); rounded-sm is the soft-corner opt-in. */
+  /* Rectangular by default; see DESIGN.md's paper surfaces and corners guidance. */
   --radius-xs: var(--radius);
   --radius-sm: calc(var(--radius) + 2px);
   --radius-md: var(--radius);

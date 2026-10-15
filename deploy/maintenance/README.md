@@ -1,5 +1,9 @@
 # Website availability notices
 
+The [Design guide](../../docs/DESIGN.md#interaction-and-accessibility) links
+this document as the owner of the availability flow and standalone outage-page
+constraints. General visual and interaction guidance lives in that guide.
+
 This optional Cloudflare Worker runs **outside the production server**, on a
 Worker Route in front of the existing website tunnel. It serves a small,
 self-contained page even when the app, database, tunnel, or entire origin host

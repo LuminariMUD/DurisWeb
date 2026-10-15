@@ -1,7 +1,7 @@
 /**
- * Chart colors resolved from the eclipse tokens in assets/main.css. Canvas
- * charts cannot read CSS variables, so keep these hex values in step with
- * the tokens when the palette changes.
+ * Resolved colors for canvas chart options, matching the eclipse tokens in
+ * assets/main.css. Keep these values in step when the matching tokens change.
+ * Usage: [Game content and charts](../../../docs/DESIGN.md#game-content-and-charts).
  */
 export const chartTheme = {
   text: '#ece8dd',

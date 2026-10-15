@@ -36,7 +36,7 @@ describe('site configuration availability', () => {
     const site = useSiteConfig()
     await site.loadConfig()
     expect(site.siteTitle.value).toBe('Duris')
-    expect(site.config.value?.siteTitle).toBe('DurisSBS')
+    expect(site.config.value?.siteTitle).toBe('Duris SBS')
   })
 
   it('publishes configured values after a complete response', async () => {

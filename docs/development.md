@@ -30,7 +30,7 @@ all three environment files, before running `./scripts/dev.sh`.
 | `pnpm --dir frontend format:check` | Check Biome formatting |
 | `pnpm --dir frontend lint` | Run ESLint |
 | `pnpm --dir frontend type-check` | Check Vue/TypeScript projects |
-| `./frontend/scripts/check-palette-literals.sh` | Reject raw gray/cyan/zinc/slate classes outside game-color tables |
+| `./frontend/scripts/check-palette-literals.sh` | Reject raw gray/cyan/zinc/slate/neutral/stone classes outside game-color tables |
 
 On the production host, `frontend/dist` in the checkout is the live site, so a
 `build` or `build-only` there publishes immediately. Build releases in a
@@ -38,68 +38,18 @@ detached worktree as [deployment](deployment.md#build-and-validate) describes.
 
 ## Theme and colors
 
-The site has one dark palette, the "eclipse" design. Its tokens live in
-`frontend/src/assets/main.css`:
-
-- Named colors in `@theme` (`ink`, `ink-raised`, `ink-high`, `ink-top`,
-  `ink-sunken`, `bone`, `bone-muted`, `faint`, `rule`, `vermilion` and its
-  `-light`/`-deep`/`-hover` steps, `ember`, `label`, and the status colors
-  `success`, `warning`, `danger`, `info` with `-deep` fill steps) become
-  utilities such as `bg-ink-raised` or `text-vermilion`.
-- The shadcn-vue semantic tokens (`--background`, `--primary`, `--brand`,
-  `--destructive`, `--border`, `--ring`, sidebar and chart tokens) map onto
-  those colors in `:root`; prefer semantic utilities such as
-  `text-muted-foreground` and `border-border` in application UI.
-- Fonts: Cormorant Garamond (display, self-hosted in `assets/fonts.css`) for
-  the wordmark, `h1`, `h2` and brand calls to action; the system sans for
-  everything else; `font-label` (monospace) for the `index-label` class.
-- Shared pieces: `components/brand/` (`BrandActionLink`, `BrandTextLink`,
-  `DisplayHeading`, `IndexLabel`, `SectionRule`) and the `brand` `Button`
-  variant.
-- Canvas charts cannot read CSS variables; they use
-  `frontend/src/utils/chartTheme.ts`, which must stay in step with the tokens.
-
-To add a color, add a `--color-*` token to `@theme` (and to `chartTheme.ts` if
-charts need it), then use its utility. MUD color codes are game semantics: the
-classes in `utils/ansiParser.ts`, `MudColorExtension.ts` and player highlight
-colors are pinned by `utils/__tests__/ansiParser.spec.ts` and exempt from the
-palette check, and small game-color tables elsewhere sit between
-`palette-literals: off` and `palette-literals: on` comments.
-
-The design deliberately separates ordinary actions from brand and destructive
-actions: the default button is bone on ink, `brand` uses vermilion, and solid
-destructive controls use `danger-deep`. Controls are rectangular by default;
-`rounded-sm` opts into a 2px corner and `rounded-full` remains available for
-avatars and status dots. The `surface-paper` utility is opt-in. Keep ANSI MUD
-content on ink because its game colors were not designed for a paper surface.
-
-Route metadata `contentGutter` defaults on; the homepage opts out for full-bleed
-sections. Use that contract instead of negative margins around the application
-shell. Font declarations use `font-display: swap`, and the Vite configuration
-injects preloads for the hashed display-font assets during a build.
+The canonical [Design guide](DESIGN.md) covers the eclipse palette,
+typography, components, layout, content, accessibility, and game-color
+exceptions. Start with [colors and surfaces](DESIGN.md#colors-and-surfaces)
+when changing tokens, and use its [verification guide](DESIGN.md#verification)
+for UI work.
 
 ### Homepage assets and configuration
 
-The generated decorative eclipse artwork is packaged as
-[`duris-eclipse.webp`](../frontend/src/assets/eclipse/duris-eclipse.webp)
-(1672 × 941). It is also the default profile banner. It contains no interface
-text: headings, navigation and controls remain HTML. The Cormorant Garamond
-regular/italic Latin subsets are hosted locally under `frontend/src/assets/fonts/`
-with their [SIL Open Font License](../frontend/src/assets/fonts/OFL.txt); no
-runtime Google Fonts request is needed. The separate root-README image has its
-own [asset provenance](assets/readme-banner.md).
-
-`FrontPageView.vue` preserves operator hero visibility, custom title/subtitle,
-image URL and sanitized CMS content. Only the exact legacy stock copy and
-editor placeholder receive special treatment. The shared site configuration
-composable displays the exact legacy title `Duris SBS` as `Duris` without
-rewriting stored settings. Widget-only and image-only CMS content must remain
-visible; mounted carousel, fragger, PvP and map widgets must be unmounted when
-content changes or the page leaves. The homepage spec covers these contracts.
-
-The hero's pause control and `prefers-reduced-motion` both stop animation;
-the Explore action also avoids smooth scrolling under reduced motion and moves
-keyboard focus to the destination.
+See [homepage assets and configuration](DESIGN.md#homepage-assets-and-configuration)
+and [interaction and accessibility](DESIGN.md#interaction-and-accessibility)
+in the Design guide. This heading remains so existing documentation links keep
+working.
 
 ## Temporary planning workspace
 

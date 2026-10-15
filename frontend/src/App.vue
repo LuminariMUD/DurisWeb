@@ -335,7 +335,8 @@ const isFullscreen = computed(() => {
   return route.meta?.fullscreen === true
 })
 
-// Routes pad their content by default; full-bleed pages set meta.contentGutter = false
+// Layout contract: [Design guide](../../docs/DESIGN.md#layout-and-responsive-behavior).
+// Routes pad their content by default; full-bleed pages set meta.contentGutter = false.
 const hasContentGutter = computed(() => route.meta?.contentGutter !== false)
 
 // Shared header link treatment: display face, vermilion when active

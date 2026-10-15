@@ -229,6 +229,7 @@ and release procedures.
 | [Configuration & environments](docs/environments.md) | [Hook registry & integration](backend/src/hooks/README_hooks.md) |
 | [Backend guide](backend/README_backend.md) | [Deployment & recovery](docs/deployment.md) |
 | [Frontend guide](frontend/README_frontend.md) | [Incident response](docs/runbooks/incident-response.md) |
+| [Design system & UI patterns](docs/DESIGN.md) | [Chat colorization](docs/CHAT-COLORIZATION.md) |
 | [Contributing](CONTRIBUTING.md) | [Security & compliance record](docs/SECURITY-COMPLIANCE.md) |
 | [Repository conventions](docs/CONVENTIONS.md) | [Project considerations](docs/CONSIDERATIONS.md) |
 

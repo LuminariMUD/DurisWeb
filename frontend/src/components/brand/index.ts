@@ -1,3 +1,4 @@
+/** Component guide: [Shared components](../../../../docs/DESIGN.md#shared-components). */
 export { default as BrandActionLink } from './BrandActionLink.vue'
 export { default as BrandTextLink } from './BrandTextLink.vue'
 export { default as DisplayHeading } from './DisplayHeading.vue'

@@ -1,5 +1,8 @@
 # Notification Sounds
 
+See the [Design guide](../../../docs/DESIGN.md#interaction-and-accessibility)
+for notification interaction guidance. Asset and fallback details stay here.
+
 The notification composable first tries `/sounds/notification.mp3` at 50%
 volume. This repository does not currently include that asset. When the file is
 missing or browser playback rejects it, `useNotifications.ts` falls back to a

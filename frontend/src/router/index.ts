@@ -5,7 +5,10 @@ import { profileApi, wikiApi } from '@/services/api'
 
 declare module 'vue-router' {
   interface RouteMeta {
-    /** Pad the page with the standard gutter (default). Full-bleed pages set false. */
+    /**
+     * Pad the page with the standard gutter (default). Full-bleed pages set false.
+     * See [Layout](../../../docs/DESIGN.md#layout-and-responsive-behavior).
+     */
     contentGutter?: boolean
   }
 }

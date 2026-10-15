@@ -5,6 +5,7 @@
 - Optimize for readability over cleverness
 - Code is written once, read many times
 - Consistency beats personal preference
+- UI design follows the [Design guide](DESIGN.md); use its shared tokens, components, and interaction patterns.
 - If it can be automated, automate it
 - When writing code: Make NO assumptions. Do not be lazy.  Pattern match precisely.  Do not skim when you need detailed info from documents. Validate systematically.
 
