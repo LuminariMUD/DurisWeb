@@ -85,7 +85,7 @@
     "@tsconfig/node26": "^26.0.1",
     "@types/geojson": "^7946.0.16",
     "@types/jsdom": "^30.0.0",
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "@types/sortablejs": "^1.15.9",
     "@types/topojson-client": "^3.1.5",
     "@types/topojson-specification": "^1.0.5",
