@@ -132,6 +132,8 @@ databaseTests('PvP SQL contract on a disposable database', () => {
     });
     await connection.query('CREATE DATABASE pvp_snapshot_test');
     await connection.changeUser({ database: 'pvp_snapshot_test' });
+    // changeUser resets session variables; set the fixture timezone afterward.
+    await connection.query("SET time_zone = '+00:00'");
     await connection.query(
       'CREATE TABLE pkill_event(id INT PRIMARY KEY, stamp DATETIME, room_name TEXT, room_vnum INT, like_count INT DEFAULT 0, comment_count INT DEFAULT 0)',
     );
@@ -393,6 +395,7 @@ databaseTests('PvP SQL contract on a disposable database', () => {
     expect(
       (await service.getReleasedEventsAfter({ ...cursor, id: 3 }, 100)).map((e) => e.id),
     ).toEqual([4]);
+    expect(query.mock.calls.every(([sql]) => !sql.includes('COUNT('))).toBe(true);
   });
 
   it('counts complete matchup history beyond the former 1,000-row sample', async () => {

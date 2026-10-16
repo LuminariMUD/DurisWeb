@@ -182,6 +182,8 @@ jest.unstable_mockModule('../../services/dupeDetectionService.js', () =>
 );
 jest.unstable_mockModule('../../services/discordService.js', () => ({
   testDiscordBot: asyncMock(),
+}));
+jest.unstable_mockModule('../../services/pvpDiscordDelivery.js', () => ({
   manualPostBattle: asyncMock(),
 }));
 

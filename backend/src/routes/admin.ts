@@ -127,7 +127,8 @@ import {
   deletePlayerItems,
   deleteAllDupesForUid,
 } from '../services/dupeDetectionService.js';
-import { testDiscordBot, manualPostBattle } from '../services/discordService.js';
+import { testDiscordBot } from '../services/discordService.js';
+import { manualPostBattle } from '../services/pvpDiscordDelivery.js';
 
 const router: IRouter = Router();
 

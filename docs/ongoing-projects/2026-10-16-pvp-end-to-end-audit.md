@@ -36,11 +36,14 @@ verification. Tests must prove delivery through the worker/API, not only helpers
 1. **Transport outcomes** — branch `branch/issue-30-discord-transport`.
    Structured confirmed/retry/failed outcomes, sanitized event-linked errors,
    rate-limit deadlines, destination pinning, stable nonce support, and overlap
-   prevention. Implemented and validated; PR publication follows this commit.
+   prevention. Published as [PR #32](https://github.com/LuminariMUD/DurisWeb/pull/32),
+   commit `a39a1a0bdb0824a9397ac0d887de6dd84da5e8d1`; open against `master`.
 2. **Durable delivery and discovery** — stack on chunk 1. Persist first-enable
    boundaries, pending/retry/delivered state and destination ownership; replace
    fire-and-forget Discord dispatch with an independent bounded worker. Avoid
-   using public list count queries for event discovery. Not started.
+   using public list count queries for event discovery. Implemented on
+   `branch/issue-30-durable-discord`; 103 focused tests and backend gates pass.
+   PR publication follows this commit, based on PR #32.
 3. **Operator status and acceptance** — stack on chunk 2. Show last automatic
    success, pending/failed/uncertain work and sanitized errors, with an authorized
    retry action. Complete lifecycle tests, documentation, release draft and
@@ -100,6 +103,29 @@ retried.</p>`
 This describes the full intended release, not chunk 1 alone. Reconcile the final
 claims and existing Website Changelog entries after an authorized deployment;
 publish only once that exact release is verified live. No live entry was changed.
+
+### Chunk 2 verification and continuation
+
+- `TEST_PVP_DB_PORT=34931 pnpm --dir backend test --runInBand src/services/__tests__/pvpDiscordDelivery.test.ts src/services/__tests__/discordService.test.ts src/services/__tests__/pvpPolling.test.ts src/services/__tests__/pvpService.test.ts src/routes/__tests__/adminAccountPermissionIdValidation.test.ts src/services/__tests__/webSettingsConfiguration.test.ts src/services/__tests__/productionReviewRegression.test.ts --silent`: **103 passed**, seven suites, including 17 durable-delivery SQL cases.
+- `pnpm --dir backend format:check`, `lint`, `type-check`,
+  `verify:mud-writes` (53 classified writes), and `build`: passed.
+- Both `up` and `down` of the actual new migration ran against disposable MariaDB
+  10.11.14 on port 34931; fixture schemas were removed by suite teardown. No
+  shared environment or MUD table was migrated.
+- The initial existing PvP calendar fixtures inherited the host timezone;
+  explicitly setting UTC **after** `changeUser` (which resets session variables)
+  corrected the fixture. All 35 existing PvP service cases now pass, including
+  the no-count polling assertion. Runtime timestamp interpretation is unchanged.
+- A database trigger simulated receipt persistence failing after a successful
+  send. The row remained `sending`; recovery waited its deadline, reused its
+  nonce, preserved uncertainty, and never retried the confirmed receipt again.
+- The migration is loaded dynamically in its SQL test, matching the separate
+  Knex migration runner and keeping migrations outside the application build's
+  `src` root. Production migrations, real Discord calls, full package suites,
+  frontend checks, and live acceptance were not run for this backend chunk.
+- Next: implement a permission-protected status/retry API and Web Settings UI;
+  cover retry authorization, failed/uncertain state, last automatic success,
+  paused backlog and channel history; finish acceptance and current Git audit.
 
 ## Verdict
 
