@@ -7,6 +7,7 @@ import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { loadMudWriteAllowlist } from '../../scripts/verifyMudWriteAllowlist.js';
 import { parseBaselineArguments } from '../../scripts/webBaseline.js';
+import { runFixtureWebMigrations } from '../../test/webMigrationFixture.js';
 import {
   type BaselineDatabase,
   externalSchemaSha256,
@@ -277,11 +278,18 @@ for (const port of ports) {
       async (mode) => {
         await fixture(port, async (database, expected, name) => {
           await runWebBaseline(database, 'bootstrap', expected);
-          const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-forward-ownership-'));
+          runFixtureWebMigrations(port, name);
+          const project = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-forward-ownership-'));
+          const directory = path.join(project, 'migrations');
           const backendRoot = path.resolve(webBaselineDirectory(), '../..');
           try {
             fs.cpSync(path.join(backendRoot, 'migrations'), directory, { recursive: true });
-            const migrationName = '20261017000000_undeclared_mud_ddl.ts';
+            fs.symlinkSync(path.join(backendRoot, 'src'), path.join(project, 'src'), 'dir');
+            fs.copyFileSync(
+              path.join(backendRoot, 'package.json'),
+              path.join(project, 'package.json'),
+            );
+            const migrationName = '20990103000000_undeclared_mud_ddl.ts';
             const ddl =
               mode === 'schema'
                 ? "await knex.schema.alterTable(['acc','ounts'].join(''), (table) => table.integer('blocked_value'));"
@@ -291,7 +299,12 @@ for (const port of ports) {
             fs.writeFileSync(path.join(directory, migrationName), migration);
             fs.writeFileSync(
               path.join(directory, migrationName.replace('.ts', '.schema.json')),
-              JSON.stringify({ sha256: sha256(migration), tables: {} }),
+              JSON.stringify({
+                formatVersion: 1,
+                fingerprint: 'information_schema_v1',
+                sha256: sha256(migration),
+                tables: {},
+              }),
             );
             const script = `
             import {createRequire} from 'node:module';
@@ -302,14 +315,15 @@ for (const port of ports) {
             const connection={host:'127.0.0.1',port:Number(port),user:'root',password:'',database};
             const knex=require('knex')({client:'mysql2',connection,pool:{min:0,max:1},migrations:{migrationSource:new WebMigrationSource(connection,directory)}});
             try {
+              const before=await knex('knex_migrations').select('name').orderBy('id');
               if(mode==='down') await knex.migrate.latest();
               let refused=false;
               try { await knex.migrate[mode==='down'?'rollback':'latest'](); }
               catch(error) { if(!error.message.includes('forward_schema_undeclared_table')) throw error; refused=true; }
               if(!refused) throw new Error('Undeclared game DDL was accepted');
               if(await knex.schema.hasColumn('accounts','blocked_value')) throw new Error('Game DDL reached database');
-              const ledger=await knex('knex_migrations').select('name');
-              if(ledger.length!==(mode==='down'?1:0)) throw new Error('Refused migration changed ledger');
+              const ledger=await knex('knex_migrations').select('name').orderBy('id');
+              if(ledger.length!==before.length+(mode==='down'?1:0)||JSON.stringify(ledger.slice(0,before.length))!==JSON.stringify(before)) throw new Error('Refused migration changed ledger');
               console.log('Undeclared MUD DDL refused before execution and ledger unchanged.');
             } finally {await knex.destroy();}
           `;
@@ -335,7 +349,7 @@ for (const port of ports) {
               stdout: result.stdout,
             }).toMatchObject({ status: 0 });
           } finally {
-            fs.rmSync(directory, { recursive: true });
+            fs.rmSync(project, { recursive: true });
           }
         });
       },
@@ -345,6 +359,7 @@ for (const port of ports) {
     it('verifies altered baseline tables through real Knex forward/down/forward and rejects unrelated drift', async () => {
       await fixture(port, async (database, expected, name) => {
         await runWebBaseline(database, 'bootstrap', expected);
+        runFixtureWebMigrations(port, name);
         const project = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-forward-migration-'));
         const directory = path.join(project, 'migrations');
         const backendRoot = path.resolve(webBaselineDirectory(), '../..');
@@ -355,7 +370,7 @@ for (const port of ports) {
             path.join(backendRoot, 'package.json'),
             path.join(project, 'package.json'),
           );
-          const migrationName = '20261017000000_synthetic_forward.ts';
+          const migrationName = '20990101000000_synthetic_forward.ts';
           const migration = `
             import type { Knex } from 'knex';
             export async function up(knex:Knex):Promise<void>{await knex.raw('ALTER TABLE web_sessions ADD COLUMN forward_value INT');await knex.raw('CREATE TABLE web_synthetic_forward (id INT PRIMARY KEY) ENGINE=InnoDB');}
@@ -396,7 +411,7 @@ for (const port of ports) {
               tables: { web_sessions: shape, web_synthetic_forward: addedShape },
             }),
           );
-          const secondName = '20261018000000_synthetic_forward.ts';
+          const secondName = '20990102000000_synthetic_forward.ts';
           const secondMigration = `
             import type { Knex } from 'knex';
             export async function up(knex:Knex):Promise<void>{await knex.raw('ALTER TABLE web_sessions MODIFY forward_value BIGINT');await knex.raw('DROP TABLE web_synthetic_forward');}
@@ -444,6 +459,7 @@ for (const port of ports) {
               const applied=await knex('knex_migrations').select('name');
               const historical=new Set(loadWebBaselineBundle().manifest.historicalMigrations.map(({name})=>name));
               if(JSON.stringify(applied.map(({name})=>name).sort())!==JSON.stringify(available.filter(name=>!historical.has(name)).sort())) throw new Error('historical ledger was fabricated');
+              await knex.migrate.rollback();
               await knex.migrate.rollback();
               await knex.migrate.rollback();
               if((await knex('knex_migrations').select('name')).length!==0) throw new Error('rollback left fake history');

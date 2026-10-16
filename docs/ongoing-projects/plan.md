@@ -402,6 +402,20 @@ outside this request. Keep this single evolving execution plan current.
   acceptance is now complete again. Shared deployment/production acceptance
   remains outside this work. No new public news is required for the source-owned
   installation/adoption tooling; no release tag or live change was made.
+- **Merged-parent closeout:** PR #38 landed on master at `8946860`. Refreshed
+  #39 without rewriting history and retained the emitted-DDL ownership guard.
+  Native fixtures now use the versioned metadata contract format, a complete
+  copied project layout and the real forward ledger before synthetic changes.
+  Ten two-engine CLI/forward/ownership checks pass; the full #39 backend tree
+  passes **1,162 tests / 117 suites** with the existing full-owner synthetic
+  runner. Required backend gates pass. An initial dependency-directory symlink
+  caused pnpm installation warnings; replaced it with a real frozen install
+  and repeated the full suite and actual two-engine CLI tests successfully.
+  Evidence: `/tmp/durisweb-pr39-final-parent-native.log`,
+  `/tmp/durisweb-pr39-final-parent-suite.log`,
+  `/tmp/durisweb-pr39-final-parent-cli.log`. Temporary refresh worktree:
+  `/tmp/durisweb-pr39-parent-refresh-20261016`. Retarget #39 to master now its
+  prerequisite is merged. P3 remains a separate dependent implementation.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
