@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import mysql, { type Pool, type RowDataPacket } from 'mysql2/promise';
+import mysql, { type Pool, type PoolConnection, type RowDataPacket } from 'mysql2/promise';
 import knex, { type Knex } from 'knex';
 import { resolve } from 'node:path';
 import type { postBattleToDiscord } from '../discordService.js';
@@ -25,8 +25,9 @@ const configuration = {
   discordBot: { channelId, token: 'fixture-only' },
 };
 const send = jest.fn<typeof postBattleToDiscord>();
+const getConnection = jest.fn<() => Promise<PoolConnection>>();
 jest.unstable_mockModule('../../db/connection.js', () => ({
-  pool: { getConnection: () => database.getConnection() },
+  pool: { getConnection },
 }));
 jest.unstable_mockModule('../../config/environment.js', () => ({
   getBackendConfiguration: () => configuration,
@@ -69,6 +70,7 @@ isolated('durable Discord delivery on a disposable database', () => {
     }
   });
   beforeEach(async () => {
+    getConnection.mockReset().mockImplementation(() => database.getConnection());
     await database.query('DROP TRIGGER IF EXISTS fail_delivery_receipt');
     await database.query('DROP TRIGGER IF EXISTS fail_destination_state');
     for (const table of [
@@ -430,6 +432,69 @@ isolated('durable Discord delivery on a disposable database', () => {
       lastAutomaticSuccess: null,
       otherDestinations: [{ channelId, outstanding: 1 }],
     });
+  });
+
+  it('keeps status fields in one snapshot while a worker commits between reads', async () => {
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await service.setDiscordAutoPosting(false, 'fixture');
+    await event(1);
+    await service.pollDiscordDeliveries();
+    await service.setDiscordAutoPosting(true, 'fixture');
+    const connection = await database.getConnection();
+    await connection.query('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
+    const originalQuery = connection.query.bind(connection);
+    const query = jest.spyOn(connection, 'query').mockImplementation(async (...args) => {
+      const result = await originalQuery(...args);
+      const sql: unknown = args[0];
+      if (typeof sql === 'string' && sql.includes('AS pending')) {
+        await service.pollDiscordDeliveries();
+      }
+      return result;
+    });
+    getConnection.mockResolvedValueOnce(connection);
+    try {
+      expect(await service.getDiscordDeliveryStatus()).toMatchObject({
+        pending: 1,
+        lastAutomaticSuccess: null,
+        outstanding: [{ eventId: 1, status: 'pending' }],
+      });
+    } finally {
+      query.mockRestore();
+    }
+    expect(await service.getDiscordDeliveryStatus()).toMatchObject({
+      pending: 0,
+      lastAutomaticSuccess: { eventId: 1 },
+      outstanding: [],
+    });
+  });
+
+  it('counts undiscovered eligible work for inactive destinations without duplicating receipts or exposing embargoed battles', async () => {
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await event(1);
+    await service.pollDiscordDeliveries();
+    await event(2);
+    send.mockResolvedValueOnce({ status: 'failed', code: 'invalid_payload' });
+    await service.pollDiscordDeliveries();
+    configuration.discordBot.channelId = '987654321012345678';
+    await service.pollDiscordDeliveries();
+    await event(3);
+    await database.query(
+      "UPDATE web_settings SET setting_value='15' WHERE setting_key='pvp_delay_minutes'",
+    );
+    await database.query("INSERT INTO pkill_event VALUES (4, NOW(), 'Hidden')");
+    await service.pollDiscordDeliveries();
+    expect((await service.getDiscordDeliveryStatus()).otherDestinations).toEqual([
+      { channelId, outstanding: 2 },
+    ]);
+    // Status must not create delivery records or send old-channel messages.
+    expect(
+      (await rows()).filter((row) => row.channel_id === channelId).map((row) => row.event_id),
+    ).toEqual([1, 2]);
+    configuration.discordBot.channelId = channelId;
+    await service.pollDiscordDeliveries();
+    expect(
+      send.mock.calls.filter((call) => call[4]?.channelId === channelId).map(([id]) => id),
+    ).toEqual([1, 2, 3]);
   });
 
   it('operator retry preserves receipts, pause, uncertainty and rate-limit deadlines', async () => {

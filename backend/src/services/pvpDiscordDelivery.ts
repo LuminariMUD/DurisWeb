@@ -316,6 +316,10 @@ export async function getDiscordDeliveryStatus(): Promise<DiscordDeliveryStatus>
   const bot = getBackendConfiguration().discordBot;
   const connection = await pool.getConnection();
   try {
+    // Pool sessions may use READ COMMITTED; pin this read-only transaction so
+    // worker/retry commits cannot mix counts, receipts, and details in one response.
+    await connection.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+    await connection.query('START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY');
     const settings = await readDeliverySettings(connection);
     const currentChannel = bot?.channelId || '';
     const [destinations] = await connection.query<RowDataPacket[]>(
@@ -342,11 +346,21 @@ export async function getDiscordDeliveryStatus(): Promise<DiscordDeliveryStatus>
       [STATUS_TIME_FORMAT, currentChannel],
     );
     const [other] = await connection.query<RowDataPacket[]>(
-      `SELECT channel_id, COUNT(*) AS outstanding FROM web_pvp_discord_deliveries
-       WHERE channel_id != ? AND status != 'delivered' GROUP BY channel_id ORDER BY channel_id`,
-      [currentChannel],
+      `SELECT channel_id, SUM(outstanding) AS outstanding FROM (
+         SELECT channel_id, COUNT(*) AS outstanding FROM web_pvp_discord_deliveries
+         WHERE channel_id != ? AND status != 'delivered' GROUP BY channel_id
+         UNION ALL
+         SELECT destination.channel_id, COUNT(*) AS outstanding
+         FROM web_pvp_discord_destinations destination
+         JOIN pkill_event e ON e.id > destination.boundary_event_id
+         LEFT JOIN web_pvp_discord_deliveries d
+           ON d.channel_id = destination.channel_id AND d.event_id = e.id
+         WHERE destination.channel_id != ? AND d.event_id IS NULL AND ${pvpVisibilitySql()}
+         GROUP BY destination.channel_id
+       ) backlog GROUP BY channel_id ORDER BY channel_id`,
+      [currentChannel, currentChannel, settings.delay],
     );
-    return {
+    const status: DiscordDeliveryStatus = {
       configured: !!bot,
       enabled: settings.enabled,
       channelId: bot?.channelId || null,
@@ -372,6 +386,11 @@ export async function getDiscordDeliveryStatus(): Promise<DiscordDeliveryStatus>
         outstanding: Number(row.outstanding),
       })),
     };
+    await connection.commit();
+    return status;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
   } finally {
     connection.release();
   }

@@ -111,6 +111,13 @@ const hasAnyAdminAccess = computed(() => {
     isOverlord.value || isLesserGod.value || (permissions.value?.adminPermissions?.length ?? 0) > 0
   )
 })
+const adminDestination = computed(() =>
+  !isOverlord.value &&
+  (permissions.value?.immortalLevel ?? 0) < 60 &&
+  permissions.value?.adminPermissions?.includes('manage_front_page')
+    ? '/admin/web-settings'
+    : '/admin/dashboard',
+)
 const {
   isSupported,
   hasPermission,
@@ -492,7 +499,7 @@ const isPlayPage = computed(() => route.path === '/play')
           </a>
           <RouterLink
             v-if="hasAnyAdminAccess"
-            to="/admin/dashboard"
+            :to="adminDestination"
             :class="navClass($route.path.startsWith('/admin'))"
           >
             Admin

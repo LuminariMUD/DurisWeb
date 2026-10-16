@@ -175,7 +175,11 @@ const router = createRouter({
           path: 'web-settings',
           name: 'admin-web-settings',
           component: () => import('../views/admin/WebSettingsView.vue'),
-          meta: { requiresAuth: true, requiresOverlord: true },
+          meta: {
+            requiresAuth: true,
+            requiresImmortal: false,
+            requiredPermission: 'manage_front_page',
+          },
         },
         {
           path: 'front-page',

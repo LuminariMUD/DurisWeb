@@ -73,6 +73,16 @@ and marked uncertain. This is **at-least-once recovery**, not exactly-once
 delivery: after Discord's nonce window, retries can duplicate an accepted post.
 Persisted confirmed successes are not retried automatically.
 
+Status reads use one consistent database snapshot. Other-destination counts include
+both saved outstanding deliveries and eligible battles that will be discovered
+when that destination is selected again, without double-counting saved receipts
+or including undiscovered battles still under the privacy delay. Reading status
+does not queue or send those battles.
+
+Web Settings and its delivery controls are available to accounts with
+`manage_front_page`, including delegated managers without an immortal level.
+For those managers, the Admin navigation link opens Web Settings directly.
+
 ## Operator status and recovery
 
 Web Settings → Discord Integration shows the current destination, pause/block
