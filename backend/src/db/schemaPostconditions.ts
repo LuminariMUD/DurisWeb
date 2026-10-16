@@ -32,6 +32,16 @@ export async function schemaRows(
   return result[0];
 }
 
+export async function schemaDatabaseFamily(
+  database: SchemaDatabase,
+): Promise<BaselineDatabaseFamily> {
+  const rows = await schemaRows(database, 'SELECT VERSION() AS version');
+  const version = String(rows[0]?.version);
+  if (/^11\.8\..*MariaDB/i.test(version)) return 'mariadb11';
+  if (/^8\./.test(version) && !/MariaDB/i.test(version)) return 'mysql8';
+  throw new Error('unsupported_database_family');
+}
+
 /** Compare stored semantics, avoiding SHOW CREATE's client/session-dependent rendering. */
 export async function readTableMetadata(
   database: SchemaDatabase,
@@ -88,7 +98,7 @@ interface SchemaPostconditions {
   baselineManifestSha256: string;
   tables: Record<string, Record<BaselineDatabaseFamily, string[]>>;
 }
-const POSTCONDITION_SHA256 = 'c04d5baac8c30298f5a37c973e522809e55c2ca6717c560efa7b98cdf8eca843';
+const POSTCONDITION_SHA256 = '15354c1b3fe6475fecbfa5d53bb0a2ca3d8a7d500720bfffcb8192947da0a8df';
 export function loadSchemaPostconditions(): SchemaPostconditions {
   const text = fs.readFileSync(
     path.resolve(webBaselineDirectory(), '../../schema-contracts/web-baseline-v1.json'),

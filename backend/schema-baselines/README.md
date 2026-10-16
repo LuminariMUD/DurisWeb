@@ -107,8 +107,9 @@ path; no historical rows are fabricated or cleared. Production preflight uses
 the same coverage proof and still requires all feature-readiness checks.
 
 Every post-cutoff `NAME.ts` must include a reviewed `NAME.schema.json` beside
-it, containing `sha256` of the migration bytes and a `tables` object. Each
-created or altered web table maps to its complete normalized `SHOW CREATE TABLE`
+it, containing `formatVersion: 1`, `fingerprint: "information_schema_v1"`,
+`sha256` of the migration bytes and a `tables` object. Each
+created or altered web table maps to its complete stored metadata
 hashes, `{ "mysql8": "<sha256>", "mariadb11": "<sha256>" }`, after `up` on
 the corresponding database family. A dropped table maps to `null`; a data-only
 migration uses `{}`. Rehearse `up` and `down` on both families before recording
@@ -126,6 +127,25 @@ For a matching existing schema and complete historical ledger, replace
 or rewrite the ledger; it records adoption separately. Legacy collation/shape
 differences are explicit refusals, requiring reviewed forward repair. Missing
 history must be investigated, never filled with fictional applied names.
+
+The historical sources omit the active builder route's `builder_settings`
+table. The reviewed fresh baseline includes it. For an existing 85-migration
+installation without that table, run the specific forward repair **before**
+adoption, then use `adopt` and verify as above:
+
+```bash
+NODE_OPTIONS='--import tsx' pnpm --dir backend exec knex \
+  migrate:up 20261016230000_repair_builder_settings.ts --knexfile knexfile.ts
+```
+
+This executes a real new migration and keeps all 85 historical ledger rows.
+It journals creation intent in `web_settings`, verifies the exact source-owned
+shape, and never replaces an existing matching table or seeds account data.
+Its down retains preexisting stores; before adoption it can remove only an
+empty repair-created store. User data and adopted-baseline ownership refuse
+that rollback. Finish or reverse this repair before adoption; after adoption,
+recovery must preserve the baseline's required table. This is an isolated
+rehearsal procedure until a shared-environment release is separately authorized.
 
 If installation fails, preserve the journal and correct the cause before rerun.
 Do not delete it to make an arbitrary existing schema look fresh. For a recovery

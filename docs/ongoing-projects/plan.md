@@ -338,6 +338,51 @@ outside this request. Keep this single evolving execution plan current.
   process, provider, deployment, or public changelog operation occurred. There
   is no reader-visible website change requiring a Website Changelog entry.
 
+- **Current continuation: integrate parent reviews into P2c.** #37/#38 advanced
+  to `f6ad133` while P3 was in progress. Merged that parent without rewriting
+  history (`4d845dd`). The newly included `builder_settings` table is genuinely
+  absent from the 85 historical sources, so previous P2c completion evidence
+  predates this requirement. Qualification is reopened until its real legacy
+  forward repair and updated native/full-suite checks pass. No finalized
+  historical migration was edited. The 77-table parent artifact remains intact.
+- **Integration ablation:** reuse the parent's per-migration forward contracts
+  and ledger-order composition with the existing stored-metadata reader. Require
+  `information_schema_v1` fingerprints explicitly; do not retain a second raw
+  DDL verification path. Regenerated the baseline metadata contract only to bind
+  the reviewed parent manifest and its newly added builder table. Added the
+  targeted `20261016230000_repair_builder_settings.ts` with durable creation
+  intent, exact-shape refusal, and ownership/data-safe rollback before adoption.
+  Existing histories get one truthful forward row; no old row is fabricated.
+- **P3 saved continuation:** branch `branch/issues-7-8-session-credentials`
+  still starts at `21b7ed0`. Its unfinished changes are retained in the named
+  stash `p3-session-credentials-before-parent-review-integration` (including
+  untracked source/migrations). HTTP credential/failure tests passed eight
+  tests; native DDL/timezone proof has not passed. The initial fault injector
+  attempted to assign Knex's read-only `raw` property; fix the fixture via its
+  client query method. On resume, merge this qualified #39 head first and reuse
+  the shared forward contracts, dropping P3's redundant separate contract JSON.
+  Dedicated P3 containers on 23436/23437 and Redis 23479 hold no shared data;
+  changing their defaults for the timezone matrix is permitted. Never change
+  defaults on the baseline/review/development containers.
+- **Parent-integration proof:** `TEST_BASELINE_DB_PORTS=23336,23337
+  TEST_BASELINE_MUD_SOURCE=/home/aiwithapex/projects/duris/migrations pnpm
+  --dir backend test --runInBand
+  src/db/__tests__/webBaselineQualification.test.ts` passes five tests. It now
+  genuinely executes the builder repair up/down/up before dump/restore,
+  preserves every original historical row, checks actual per-account builder
+  preferences, refuses data loss, and refuses rollback across adoption. A
+  separate native CLI/forward regression passes four tests on both engines.
+  The full backend rerun passes **1,127 tests / 115 suites**, and both native
+  configuration/dependency preflights pass with 86 real migration sources.
+  Logs: `/tmp/durisweb-p2c-parent-restored.log`,
+  `/tmp/durisweb-p2c-parent-cli-forward.log`,
+  `/tmp/durisweb-p2c-parent-full-suite.log`, and
+  `/tmp/durisweb-p2c-parent-maria-preflight.log`. The initial integration run
+  exposed a missing shared family export and a copied-migration test fixture
+  lacking its relative source layout; both were repaired. Other installer tests
+  passed in that run; only affected paths were repeated. Required backend gates
+  and a strict standalone TypeScript check of the new migration pass.
+
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
 [design](../DESIGN.md). Preserve existing safety gates and the MUD's schema and

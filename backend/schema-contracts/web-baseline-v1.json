@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "baselineManifestSha256": "11dd438b338648bb094ea1784b87a2b758f8af01db38d5a0afd42a04e6b49583",
+  "baselineManifestSha256": "c09c88e4900209529d373f8173534e59203985c28fb554a09e0adde6a262181a",
   "tables": {
     "account_login_history": {
       "mysql8": [
@@ -96,6 +96,14 @@
       ],
       "mariadb11": [
         "831d96fc2c74afc3ccd625a0d5c311acbbdbaaa3262565a2b141cedaa6a3c409"
+      ]
+    },
+    "builder_settings": {
+      "mysql8": [
+        "44e5b669dc8c39a655c38b29ac8b09ff55107f73b5fcbff12301461f11d37e5e"
+      ],
+      "mariadb11": [
+        "c3dd63c26eced0dec0504acf77b0e40c8ae1b93d96776d90f22b1260ac28426b"
       ]
     },
     "builder_zone_comments": {

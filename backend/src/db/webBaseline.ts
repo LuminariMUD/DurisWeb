@@ -14,6 +14,10 @@ import {
 import { loadMudWriteAllowlist } from './mudWriteInventory.js';
 import {
   matchesSchemaPostcondition,
+  loadSchemaPostconditions,
+  readTableMetadata,
+  tableMetadataSha256,
+  schemaDatabaseFamily as family,
   schemaRows as rows,
   type SchemaDatabase,
 } from './schemaPostconditions.js';
@@ -55,13 +59,6 @@ async function objectNames(database: BaselineDatabase): Promise<string[]> {
     'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME',
   );
   return result.map((row) => String(row.TABLE_NAME));
-}
-async function family(database: BaselineDatabase): Promise<BaselineDatabaseFamily> {
-  const result = await rows(database, 'SELECT VERSION() AS version');
-  const version = String(result[0]?.version);
-  if (/^11\.8\..*MariaDB/i.test(version)) return 'mariadb11';
-  if (/^8\./.test(version) && !/MariaDB/i.test(version)) return 'mysql8';
-  throw new WebBaselineError('unsupported_database_family');
 }
 async function createTable(database: BaselineDatabase, name: string): Promise<string> {
   const result = await rows(database, 'SHOW CREATE TABLE ??', [name]);
@@ -249,15 +246,20 @@ async function verifyWebSchema(
   directory?: string,
 ): Promise<void> {
   const forward = loadWebForwardSchemas(bundle, directory);
-  const expected = new Map<string, (typeof bundle.tables)[number]['installedSha256'] | null>(
-    bundle.tables.map((table) => [table.name, table.installedSha256]),
+  const baseline = loadSchemaPostconditions();
+  const expected = new Map<string, Record<BaselineDatabaseFamily, string[]> | null>(
+    bundle.tables.map((table) => [table.name, baseline.tables[table.name]]),
   );
   for (const { tables } of forward)
     for (const name of Object.keys(tables)) if (!expected.has(name)) expected.set(name, null);
   for (const name of ledger) {
     const state = forward.find((migration) => migration.name === name);
     if (state)
-      for (const [table, shape] of Object.entries(state.tables)) expected.set(table, shape);
+      for (const [table, shape] of Object.entries(state.tables))
+        expected.set(
+          table,
+          shape === null ? null : { mysql8: [shape.mysql8], mariadb11: [shape.mariadb11] },
+        );
   }
   await verifyNoWebTriggers(database, bundle, [...expected.keys()]);
   const product = await family(database);
@@ -267,7 +269,9 @@ async function verifyWebSchema(
       shape === null
         ? present.has(name)
         : !present.has(name) ||
-          installedTableSha256(await createTable(database, name)) !== shape[product]
+          !shape[product].includes(
+            tableMetadataSha256(await readTableMetadata(database, name, product)),
+          )
     )
       throw new WebBaselineError(`schema_drift_${name}`);
   }

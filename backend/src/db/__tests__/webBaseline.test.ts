@@ -13,12 +13,8 @@ import {
   runWebBaseline,
   verifiedWebBaselineCoverage,
 } from '../webBaseline.js';
-import {
-  installedTableSha256,
-  loadWebBaselineBundle,
-  sha256,
-  webBaselineDirectory,
-} from '../webBaselineBundle.js';
+import { loadWebBaselineBundle, sha256, webBaselineDirectory } from '../webBaselineBundle.js';
+import { readTableMetadata, tableMetadataSha256 } from '../schemaPostconditions.js';
 
 const bundle = loadWebBaselineBundle();
 const ports = (process.env.TEST_BASELINE_DB_PORTS ?? '').split(',').filter(Boolean).map(Number);
@@ -242,13 +238,9 @@ for (const port of ports) {
           });
           expect(result.stdout).toContain('bootstrap verified');
           expect(result.stdout + result.stderr).not.toContain(password);
-          const initialized = migrate();
-          expect(initialized.status).toBe(0);
-          expect(initialized.stdout + initialized.stderr).not.toContain('resets migrationSource');
-          expect(initialized.stdout + initialized.stderr).not.toContain(password);
-          expect(initialized.stdout).toContain('Already up to date');
-          const [ledger] = await database.query('SELECT name FROM knex_migrations');
-          expect(ledger).toEqual([]);
+          await database.query(
+            "INSERT INTO builder_settings (account_name,setting_key,setting_value) VALUES ('SyntheticExisting','theme','preserved')",
+          );
           expect((await verifiedWebBaselineCoverage(database)).size).toBe(85);
           for (const command of [
             'migrate:latest',
@@ -270,6 +262,10 @@ for (const port of ports) {
           }
           const [ledger] = await database.query('SELECT name FROM knex_migrations');
           expect(ledger).toEqual([]);
+          const [preferences] = await database.query<RowDataPacket[]>(
+            "SELECT setting_value FROM builder_settings WHERE account_name='SyntheticExisting' AND setting_key='theme'",
+          );
+          expect(preferences.map(({ setting_value }) => setting_value)).toEqual(['preserved']);
         } finally {
           if (userCreated) await database.query('DROP USER ?@?', [user, '%']);
         }
@@ -279,10 +275,16 @@ for (const port of ports) {
     it('verifies altered baseline tables through real Knex forward/down/forward and rejects unrelated drift', async () => {
       await fixture(port, async (database, expected, name) => {
         await runWebBaseline(database, 'bootstrap', expected);
-        const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-forward-migration-'));
+        const project = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-forward-migration-'));
+        const directory = path.join(project, 'migrations');
         const backendRoot = path.resolve(webBaselineDirectory(), '../..');
         try {
           fs.cpSync(path.join(backendRoot, 'migrations'), directory, { recursive: true });
+          fs.symlinkSync(path.join(backendRoot, 'src'), path.join(project, 'src'), 'dir');
+          fs.copyFileSync(
+            path.join(backendRoot, 'package.json'),
+            path.join(project, 'package.json'),
+          );
           const migrationName = '20261017000000_synthetic_forward.ts';
           const migration = `
             import type { Knex } from 'knex';
@@ -291,34 +293,35 @@ for (const port of ports) {
           `;
           fs.writeFileSync(path.join(directory, migrationName), migration);
           await database.query('ALTER TABLE web_sessions ADD COLUMN forward_value INT');
-          const [ddl] = await database.query<RowDataPacket[]>('SHOW CREATE TABLE web_sessions');
           const [version] = await database.query<RowDataPacket[]>('SELECT VERSION() AS version');
           const product = String(version[0].version).includes('MariaDB') ? 'mariadb11' : 'mysql8';
           const shape = {
             ...bundle.tables.find(({ name }) => name === 'web_sessions')!.installedSha256,
           };
-          shape[product] = installedTableSha256(String(ddl[0]['Create Table']));
+          shape[product] = tableMetadataSha256(
+            await readTableMetadata(database, 'web_sessions', product),
+          );
           await database.query(
             'CREATE TABLE web_synthetic_forward (id INT PRIMARY KEY) ENGINE=InnoDB',
           );
-          const [newDDL] = await database.query<RowDataPacket[]>(
-            'SHOW CREATE TABLE web_synthetic_forward',
-          );
           const addedShape = { mysql8: 'a'.repeat(64), mariadb11: 'a'.repeat(64) };
-          addedShape[product] = installedTableSha256(String(newDDL[0]['Create Table']));
-          await database.query('ALTER TABLE web_sessions MODIFY forward_value BIGINT');
-          const [secondDDL] = await database.query<RowDataPacket[]>(
-            'SHOW CREATE TABLE web_sessions',
+          addedShape[product] = tableMetadataSha256(
+            await readTableMetadata(database, 'web_synthetic_forward', product),
           );
+          await database.query('ALTER TABLE web_sessions MODIFY forward_value BIGINT');
           const secondShape = {
             ...shape,
-            [product]: installedTableSha256(String(secondDDL[0]['Create Table'])),
+            [product]: tableMetadataSha256(
+              await readTableMetadata(database, 'web_sessions', product),
+            ),
           };
           await database.query('DROP TABLE web_synthetic_forward');
           await database.query('ALTER TABLE web_sessions DROP COLUMN forward_value');
           fs.writeFileSync(
             path.join(directory, migrationName.replace('.ts', '.schema.json')),
             JSON.stringify({
+              formatVersion: 1,
+              fingerprint: 'information_schema_v1',
               sha256: sha256(migration),
               tables: { web_sessions: shape, web_synthetic_forward: addedShape },
             }),
@@ -333,6 +336,8 @@ for (const port of ports) {
           fs.writeFileSync(
             path.join(directory, secondName.replace('.ts', '.schema.json')),
             JSON.stringify({
+              formatVersion: 1,
+              fingerprint: 'information_schema_v1',
               sha256: sha256(secondMigration),
               tables: { web_sessions: secondShape, web_synthetic_forward: null },
             }),
@@ -345,6 +350,7 @@ for (const port of ports) {
             const require=createRequire(root+'/package.json');
             const {WebMigrationSource}=await import(pathToFileURL(root+'/src/db/webMigrationSource.ts').href);
             const {verifiedWebBaselineCoverage}=await import(pathToFileURL(root+'/src/db/webBaseline.ts').href);
+            const {loadWebBaselineBundle}=await import(pathToFileURL(root+'/src/db/webBaselineBundle.ts').href);
             const connection={host:'127.0.0.1',port:Number(port),user:'root',password:'',database};
             const source=new WebMigrationSource(connection,directory);
             const knex=require('knex')({client:'mysql2',connection,pool:{min:0,max:1},migrations:{migrationSource:source}});
@@ -366,7 +372,8 @@ for (const port of ports) {
                 if(!error.message.includes('schema_drift_web_sessions')) throw error;
               } finally {await probe.query('ALTER TABLE web_sessions DROP COLUMN unexpected');}
               const applied=await knex('knex_migrations').select('name');
-              if(applied.length!==2||applied[0].name!=='20261017000000_synthetic_forward.ts'||applied[1].name!=='20261018000000_synthetic_forward.ts') throw new Error('historical ledger was fabricated');
+              const historical=new Set(loadWebBaselineBundle().manifest.historicalMigrations.map(({name})=>name));
+              if(JSON.stringify(applied.map(({name})=>name).sort())!==JSON.stringify(available.filter(name=>!historical.has(name)).sort())) throw new Error('historical ledger was fabricated');
               await knex.migrate.rollback();
               await knex.migrate.rollback();
               if((await knex('knex_migrations').select('name')).length!==0) throw new Error('rollback left fake history');
@@ -395,7 +402,7 @@ for (const port of ports) {
           expect(result.stdout).toContain('no historical ledger rows');
           expect((await verifiedWebBaselineCoverage(database)).size).toBe(85);
         } finally {
-          fs.rmSync(directory, { recursive: true });
+          fs.rmSync(project, { recursive: true });
         }
       });
     }, 60000);

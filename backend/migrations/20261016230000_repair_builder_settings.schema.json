@@ -1,0 +1,11 @@
+{
+  "formatVersion": 1,
+  "fingerprint": "information_schema_v1",
+  "sha256": "f0962c759f190c2d42c5750c11fbe58a907efe383e1591f8b8bdd7e79b91c3b0",
+  "tables": {
+    "builder_settings": {
+      "mysql8": "44e5b669dc8c39a655c38b29ac8b09ff55107f73b5fcbff12301461f11d37e5e",
+      "mariadb11": "c3dd63c26eced0dec0504acf77b0e40c8ae1b93d96776d90f22b1260ac28426b"
+    }
+  }
+}

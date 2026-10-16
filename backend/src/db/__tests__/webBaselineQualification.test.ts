@@ -102,6 +102,9 @@ function sqlClient(port: number, name: string, sql: string): void {
 
 async function populateSyntheticWebsite(database: Connection): Promise<void> {
   await database.query(
+    "INSERT INTO builder_settings (account_name,setting_key,setting_value) VALUES ('FixtureAlice','editor_theme','synthetic-theme'),('FixtureBob','editor_theme','other-theme')",
+  );
+  await database.query(
     "INSERT INTO forum_categories (name,access_type) VALUES ('Synthetic public forum','public')",
   );
   await database.query(
@@ -139,6 +142,10 @@ async function populateSyntheticWebsite(database: Connection): Promise<void> {
 }
 
 async function verifyRepresentativeQueries(database: Connection): Promise<void> {
+  const [builder] = await database.query<RowDataPacket[]>(
+    "SELECT setting_value FROM builder_settings WHERE account_name='FixtureAlice' AND setting_key='editor_theme'",
+  );
+  expect(builder.map(({ setting_value }) => setting_value)).toEqual(['synthetic-theme']);
   expect(validateForumReadiness(await readForumReadiness(database))).toEqual([]);
   expect(validateWikiMapReadiness(await readWikiMapReadiness(database))).toEqual([]);
   expect(validateWikiObjectGeneration(await readWikiObjectGeneration(database))).toEqual([]);
@@ -237,7 +244,25 @@ async function replayLegacyFixture(
       const historical=loadWebBaselineBundle().manifest.historicalMigrations.map(({name})=>name);
       const source={getMigrations:async()=>historical,getMigrationName:name=>name,getMigration:async name=>import(pathToFileURL(root+'/migrations/'+name).href)};
       const knex=require('knex')({client:'mysql2',connection:{host:'127.0.0.1',port:Number(port),database,user,password:process.env.DB_PASSWORD},pool:{min:0,max:1},migrations:{migrationSource:source}});
-      try{await knex.migrate.latest();console.log('Historical sources executed in synthetic derivation fixture.');}
+      try{
+        await knex.migrate.latest();
+        const original=await knex('knex_migrations').select('*').orderBy('id');
+        if(original.length!==85||await knex.schema.hasTable('builder_settings'))throw new Error('Unexpected historical fixture');
+        const {WebMigrationSource}=await import(pathToFileURL(root+'/src/db/webMigrationSource.ts').href);
+        const current=new WebMigrationSource({host:'127.0.0.1',port:Number(port),database,user,password:process.env.DB_PASSWORD});
+        const name='20261016230000_repair_builder_settings.ts';
+        await knex.migrate.up({name,migrationSource:current});
+        await knex('builder_settings').insert({account_name:'SyntheticRollback',setting_key:'theme',setting_value:'synthetic'});
+        try{await knex.migrate.down({name,migrationSource:current});throw new Error('Rollback deleted user data');}
+        catch(error){if(!error.message.includes('refuses user data'))throw error;}
+        await knex('builder_settings').where({account_name:'SyntheticRollback'}).delete();
+        await knex.migrate.down({name,migrationSource:current});
+        if(await knex.schema.hasTable('builder_settings'))throw new Error('Empty legacy repair did not reverse');
+        await knex.migrate.up({name,migrationSource:current});
+        const after=await knex('knex_migrations').whereIn('name',historical).select('*').orderBy('id');
+        if(JSON.stringify(after)!==JSON.stringify(original))throw new Error('Historical ledger changed');
+        console.log('Historical sources executed in synthetic derivation fixture.');
+      }
       finally{await knex.destroy();const {closeDatabaseConnection}=await import(pathToFileURL(root+'/src/db/connection.ts').href);await closeDatabaseConnection();const {default:redis}=await import(pathToFileURL(root+'/src/db/redis.ts').href);redis.disconnect();}
     `;
     const result = spawnSync(
@@ -336,6 +361,37 @@ if (inputs)
             const expected = await externalSchemaSha256(restored, bundle);
             await runWebBaseline(restored, 'adopt', expected);
             expect(await verifiedWebBaselineCoverage(restored)).toEqual(new Set());
+            const rollback = spawnSync(
+              process.execPath,
+              [
+                '--import',
+                'tsx',
+                '--input-type=module',
+                '--eval',
+                `
+                import {createRequire} from 'node:module';import {pathToFileURL} from 'node:url';
+                const [root,port,database]=process.argv.slice(1);
+                const require=createRequire(root+'/package.json');
+                const {WebMigrationSource}=await import(pathToFileURL(root+'/src/db/webMigrationSource.ts').href);
+                const connection={host:'127.0.0.1',port:Number(port),user:'root',password:'',database};
+                const knex=require('knex')({client:'mysql2',connection,pool:{min:0,max:1},migrations:{migrationSource:new WebMigrationSource(connection)}});
+                try{
+                  try{await knex.migrate.down({name:'20261016230000_repair_builder_settings.ts'});throw new Error('Adopted table was removed');}
+                  catch(error){if(!error.message.includes('do not roll back across adoption'))throw error;}
+                  console.log('Adopted builder settings retained.');
+                }finally{await knex.destroy();}
+              `,
+                backendRoot,
+                String(port),
+                restoredName,
+              ],
+              { cwd: backendRoot, encoding: 'utf8', timeout: 30000 },
+            );
+            expect({ status: rollback.status, stderr: rollback.stderr }).toEqual({
+              status: 0,
+              stderr: '',
+            });
+            expect(rollback.stdout).toContain('Adopted builder settings retained');
             const [after] = await restored.query('SELECT * FROM knex_migrations ORDER BY id');
             expect(after).toEqual(before);
             await verifyRepresentativeQueries(restored);
