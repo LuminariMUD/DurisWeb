@@ -272,6 +272,76 @@ for (const port of ports) {
       });
     }, 60000);
 
+    it.each(['raw', 'schema', 'down'])(
+      'refuses undeclared MUD DDL before execution through real Knex %s',
+      async (mode) => {
+        await fixture(port, async (database, expected, name) => {
+          await runWebBaseline(database, 'bootstrap', expected);
+          const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-forward-ownership-'));
+          const backendRoot = path.resolve(webBaselineDirectory(), '../..');
+          try {
+            fs.cpSync(path.join(backendRoot, 'migrations'), directory, { recursive: true });
+            const migrationName = '20261017000000_undeclared_mud_ddl.ts';
+            const ddl =
+              mode === 'schema'
+                ? "await knex.schema.alterTable(['acc','ounts'].join(''), (table) => table.integer('blocked_value'));"
+                : "await knex.raw(['ALTER TABLE', 'accounts', 'ADD COLUMN blocked_value INT'].join(' '));";
+            const migration = `export async function up(knex) { ${mode === 'down' ? "await knex.raw('SELECT 1');" : ddl} }
+            export async function down(knex) { ${mode === 'down' ? ddl : ''} }`;
+            fs.writeFileSync(path.join(directory, migrationName), migration);
+            fs.writeFileSync(
+              path.join(directory, migrationName.replace('.ts', '.schema.json')),
+              JSON.stringify({ sha256: sha256(migration), tables: {} }),
+            );
+            const script = `
+            import {createRequire} from 'node:module';
+            import {pathToFileURL} from 'node:url';
+            const [root,port,database,directory,mode]=process.argv.slice(1);
+            const require=createRequire(root+'/package.json');
+            const {WebMigrationSource}=await import(pathToFileURL(root+'/src/db/webMigrationSource.ts').href);
+            const connection={host:'127.0.0.1',port:Number(port),user:'root',password:'',database};
+            const knex=require('knex')({client:'mysql2',connection,pool:{min:0,max:1},migrations:{migrationSource:new WebMigrationSource(connection,directory)}});
+            try {
+              if(mode==='down') await knex.migrate.latest();
+              let refused=false;
+              try { await knex.migrate[mode==='down'?'rollback':'latest'](); }
+              catch(error) { if(!error.message.includes('forward_schema_undeclared_table')) throw error; refused=true; }
+              if(!refused) throw new Error('Undeclared game DDL was accepted');
+              if(await knex.schema.hasColumn('accounts','blocked_value')) throw new Error('Game DDL reached database');
+              const ledger=await knex('knex_migrations').select('name');
+              if(ledger.length!==(mode==='down'?1:0)) throw new Error('Refused migration changed ledger');
+              console.log('Undeclared MUD DDL refused before execution and ledger unchanged.');
+            } finally {await knex.destroy();}
+          `;
+            const result = spawnSync(
+              process.execPath,
+              [
+                '--import',
+                'tsx',
+                '--input-type=module',
+                '-e',
+                script,
+                backendRoot,
+                String(port),
+                name,
+                directory,
+                mode,
+              ],
+              { cwd: backendRoot, env: process.env, encoding: 'utf8', timeout: 45000 },
+            );
+            expect({
+              status: result.status,
+              stderr: result.stderr,
+              stdout: result.stdout,
+            }).toMatchObject({ status: 0 });
+          } finally {
+            fs.rmSync(directory, { recursive: true });
+          }
+        });
+      },
+      60000,
+    );
+
     it('verifies altered baseline tables through real Knex forward/down/forward and rejects unrelated drift', async () => {
       await fixture(port, async (database, expected, name) => {
         await runWebBaseline(database, 'bootstrap', expected);
