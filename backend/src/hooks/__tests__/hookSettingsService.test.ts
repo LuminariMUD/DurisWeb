@@ -570,7 +570,11 @@ describe('durable hook changes and recovery', () => {
       try {
         await root.query('CREATE USER ?@? IDENTIFIED BY ?', [user, '%', password]);
         created = true;
-        await root.query('GRANT SELECT ON ??.* TO ?@?', [nativeDatabase, user, '%']);
+        await root.query('GRANT SELECT ON ??.* TO ?@?', [
+          nativeDatabase.replaceAll('_', '\\_'),
+          user,
+          '%',
+        ]);
         await root.query('GRANT INSERT,UPDATE,DELETE ON ??.web_settings TO ?@?', [
           nativeDatabase,
           user,

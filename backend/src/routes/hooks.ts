@@ -3,6 +3,7 @@
  */
 
 import { Router, type Request, type Response, type IRouter } from 'express';
+import crypto from 'node:crypto';
 
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import logger from '../utils/logger.js';
@@ -14,6 +15,11 @@ import { reconcileHook } from '../services/hookReconcileService.js';
 import { getHookAuditHealth, processHookAuditJournal } from '../hooks/hookToggleJournal.js';
 
 const router: IRouter = Router();
+function reportFailure(
+  reason: 'status_failed' | 'toggle_failed' | 'reconcile_failed' | 'audit_health_unavailable',
+): void {
+  logger.error('[hooks] Control operation failed', { reason, reference: crypto.randomUUID() });
+}
 
 function serialize(row: Awaited<ReturnType<typeof getHookStatuses>>[number]) {
   return {
@@ -64,8 +70,8 @@ router.get(
         transport,
         refreshedAt: new Date().toISOString(),
       });
-    } catch (error) {
-      logger.error('[hooks] Failed to read hook statuses', error);
+    } catch {
+      reportFailure('status_failed');
       return res.status(500).json({ error: 'Failed to read hook statuses' });
     }
   },
@@ -80,7 +86,7 @@ router.get(
     try {
       return res.json(await getHookAuditHealth());
     } catch {
-      logger.error('[hooks] Audit health unavailable');
+      reportFailure('audit_health_unavailable');
       return res.status(503).json({ error: 'Audit health is unavailable' });
     }
   },
@@ -139,7 +145,7 @@ router.patch(
                 : 409;
         return res.status(code).json({ error: error.message });
       }
-      logger.error(`[hooks] Failed to set toggle for ${id}`, error);
+      reportFailure('toggle_failed');
       return res.status(500).json({ error: 'Failed to update hook toggle' });
     }
   },
@@ -183,7 +189,7 @@ router.post(
             error: error.message,
           });
       }
-      logger.error(`[hooks] Failed to reconcile ${id}`, error);
+      reportFailure('reconcile_failed');
       return res.status(500).json({ error: 'Failed to reconcile hook state' });
     }
   },

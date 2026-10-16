@@ -1,5 +1,6 @@
 import express from 'express';
 import request from 'supertest';
+import { inspect } from 'node:util';
 import { beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const requiredPermissions: string[] = [];
@@ -9,6 +10,7 @@ const getHookStatuses = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const getMudTransportStatus = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const getHookAuditHealth = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const processHookAuditJournal = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const errorLog = jest.fn();
 
 class MockHookToggleError extends Error {
   constructor(
@@ -74,7 +76,7 @@ jest.unstable_mockModule('../../hooks/hookToggleJournal.js', () => ({
   processHookAuditJournal,
 }));
 jest.unstable_mockModule('../../utils/logger.js', () => ({
-  default: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
+  default: { error: errorLog, info: jest.fn(), warn: jest.fn() },
 }));
 
 describe('hook control route boundary', () => {
@@ -156,6 +158,21 @@ describe('hook control route boundary', () => {
     const retry = await request(app).post('/api/hooks/audit/retry').send({ batchSize: 2 });
     expect(retry.status).toBe(200);
     expect(processHookAuditJournal).toHaveBeenCalledWith({ batchSize: 2, force: true });
+  });
+  it('does not send driver/transport errors or their metadata to any log argument', async () => {
+    const failure = Object.assign(new Error('private-driver-sentinel'), {
+      sql: 'private-sql-sentinel',
+    });
+    getHookStatuses.mockRejectedValueOnce(failure);
+    expect((await request(app).get('/api/hooks')).status).toBe(500);
+    reconcileHook.mockRejectedValueOnce(failure);
+    expect(
+      (await request(app).post('/api/hooks/auction_new/reconcile').send({ enabled: false })).status,
+    ).toBe(500);
+    expect(errorLog).toHaveBeenCalledTimes(2);
+    expect(inspect(errorLog.mock.calls)).not.toMatch(
+      /private-driver-sentinel|private-sql-sentinel/,
+    );
   });
 
   it('returns sanitized status and transport metadata', async () => {
