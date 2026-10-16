@@ -4,7 +4,7 @@ Status: **implementation in progress**. Updated 2026-10-16.
 
 Current checkpoint: engineering through P4, the UTC correction, first P5
 collection closure and browser storage-denial repair are published for review
-(#39, #41–#46). The source-backed lifecycle registry is now prepared for review;
+(#39, #41–#47). The source-backed lifecycle registry is now published for review;
 remaining P5 notice/choice implementation and P6–P7 are still open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
 
@@ -941,6 +941,15 @@ outside this request. Keep this single evolving execution plan current.
   database, migration, browser or build rerun is needed or claimed for this
   documentation plus shell-guard change. No Website Changelog entry is needed:
   it does not add a public page or change live behavior.
+
+- **Published registry:** [PR #47](https://github.com/LuminariMUD/DurisWeb/pull/47),
+  open/non-draft at code/document head `65d756d`, stacked on #46 `1761613`.
+  Exact local, remote and PR heads match; ahead/behind `0 0` and a clean worktree
+  are verified. No tag, merge or production action is justified. Current branch:
+  `branch/privacy-processing-registry`; original checkout remains untouched.
+  Continue P5 from this published head, using the permanent lifecycle inventory
+  to draft the notice and a separate versioned server-owned choice contract.
+  Proposed periods remain unapproved; runtime collection remains absent.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
