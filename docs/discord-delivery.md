@@ -8,7 +8,9 @@ the message. Logs identify the battle and a fixed error code, never response
 content or credentials.
 
 Requests respect Discord's retry headers/body and stop further local sends until
-that deadline. A slow request prevents another request from overlapping it.
+that deadline. Concurrent calls wait their turn, so a slow manual/test request
+cannot discard an automatic battle as busy. The queue advances after failures,
+and checks configuration and rate-limit deadlines again when each turn starts.
 Manual posts and test messages retain their existing success/error response.
 
 Queued callers can pin a channel and provide a persisted nonce; a changed channel
