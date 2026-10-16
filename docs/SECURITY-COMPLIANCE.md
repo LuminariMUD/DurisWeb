@@ -1,7 +1,7 @@
 # Security & Compliance
 
 > Cumulative security posture and GDPR record.
-> **Line budget**: 1000 max | **Last updated**: 2026-10-11
+> **Line budget**: 1000 max | **Last updated**: 2026-10-16
 
 ---
 
@@ -12,7 +12,7 @@
 | Metric | Value |
 |--------|-------|
 | Open Security Findings | 3 named: 2 High, 1 Low |
-| GDPR Baseline | 9 gaps, 1 partial control |
+| GDPR Baseline | 8 gaps, 2 partial controls (source status; deployment unverified) |
 | Phases Audited | 1 (Phase 00, 7/7 sessions validated) |
 | Last Clean Phase | None |
 
@@ -171,7 +171,7 @@ review.
 | Recipient | Data sent | Package / Mechanism | Open concern |
 |-----------|-----------|---------------------|--------------|
 | Google Gemini (`gemini-2.5-flash`) | Account name, character name, IP, login timestamps | `backend`; `geminiSuspicionAnalyzer.ts` | Automated profiling and transfer are not disclosed in-repo |
-| ip-api.com | Visitor IP | `backend`; `utils/geoip.ts` | IP is still logged on lookup/error paths |
+| ip-api.com | Visitor IP | `backend`; `utils/geoip.ts` | Transfer/HTTP transport policy remains open; lookup/cache diagnostics exclude identifying data in source |
 | Ko-fi | Donor name, email, amount, message | `backend`; webhook and donation services | Processing/retention documentation absent |
 | Discord | Notification content | `backend`; `discordService.ts` | Payload minimization not documented |
 | Cloudflare R2 | Uploaded images | `backend`; `r2Service.ts` | Retention/deletion agreement not documented |
@@ -187,7 +187,7 @@ review.
 | Subject access/export | GAP | No complete user data export path identified |
 | Deletion/erasure | GAP | No account-wide deletion/anonymization entry point identified |
 | Retention enforcement | GAP | No purge job for analytics, login, or audit records identified |
-| PII excluded from logs | GAP | Session 05 removed connection-sync IP logs; `utils/geoip.ts` still logs IPs |
+| PII excluded from logs | PARTIAL | Connection-sync IP logging was removed previously; #13 now sanitizes all GeoIP and reachable Redis diagnostics with sentinel-tested categories/references. Other log paths still need inventory; production deployment is unverified. |
 | Third-party transfers documented | GAP | Transfers above are inventoried only in this internal file |
 | Automated profiling disclosed/contestable | GAP | Gemini suspicion analysis has no subject notice or appeal path identified |
 | Credentials protected at rest | GAP | Raw refresh JWT storage remains SEC-RT-1 |
@@ -232,6 +232,7 @@ finding was suppressed or ignored.
 | P00-S04 | Secret rotation gap | Current key plus exactly one previous-key retry is implemented and tested end to end. |
 | P00-S05 | Flatfile path/content attacks | Centralized boundary rejects escape, unsafe file type, oversized/growing, malformed, and unbounded input. |
 | P00-S05 | Connection log PII emission | IP values are no longer included in connection-sync application logs. |
+| 2026-10-16 / #13 | GeoIP/cache diagnostic disclosure | Fixed GeoIP failure categories and locally generated operation IDs replace IPs, provider text and raw errors. Redis command/error-event/lifecycle diagnostics are also sanitized because errors can carry IP-bearing keys. Mocked success/failure/cache/local/batch tests cover all reachable logger arguments. Cache TTL and VPN/proxy fallback are preserved. Provider policy remains #10; live deployment is unverified. |
 | P00-S07 | 1 Medium and 2 Low review findings | Gate-order assertion and handoff/commit evidence were repaired before validation. |
 | 2026-09-09 dependency remediation | SEC-DEP-1 | Backend and frontend full and production-only `pnpm audit` checks report zero advisories. |
 

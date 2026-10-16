@@ -1,6 +1,6 @@
 # Website security, privacy, and schema implementation plan
 
-Status: **planned; implementation has not started**. Prepared 2026-10-16.
+Status: **implementation in progress**. Updated 2026-10-16.
 
 Single working plan for [#7](https://github.com/LuminariMUD/DurisWeb/issues/7),
 [#8](https://github.com/LuminariMUD/DurisWeb/issues/8),
@@ -19,11 +19,50 @@ references are context; the findings below come from the pinned checkout.
 
 ## Scope and authority
 
-This publication contains this plan only. It does not implement the changes,
-close the issues, deploy, invalidate sessions, run migrations, purge records, or
-operate the separate DurisMUD repository. Future implementation follows the
-sequence and acceptance gates below. Keep one evolving plan here rather than
-creating a separate implementation plan for each issue.
+Implementation is authorized, including local isolated verification, commits,
+pushes, and focused review-ready PRs. Stack dependent PRs as each chunk is ready.
+Deployment, production session invalidation, shared-environment migrations,
+destructive retention, and operations in the separate DurisMUD repository remain
+outside this request. Keep this single evolving execution plan current.
+
+## Execution record and continuation
+
+- Worktree: `/tmp/durisweb-security-privacy-plan-20261016`; the original checkout
+  has independent issue #30 work and must remain untouched.
+- Starting branch: `branch/issues-7-14-security-privacy-baseline` at `a4c5e51`;
+  base `origin/master` is `ade01dd`. No PR existed for this branch at kickoff.
+- **First chunk: P1 / #13. Outcome:** no IP, provider payload, URL, token, or
+  raw exception reaches GeoIP/cache diagnostics; normal lookups and fallback
+  decisions remain available. **Non-goals:** provider/transport policy, consent,
+  database changes, production operations, and a generic logging framework.
+  **Files:** GeoIP utility, its reachable Redis diagnostics, focused tests,
+  security record, and this plan. **Proof:** mocked provider and Redis failures
+  with sentinels across all logger arguments, successful/cache/local/batch
+  behavior, backend format/lint/types/build, and whitespace review.
+- **Ablation:** reuse existing GeoIP/cache helpers and Jest. Fixed diagnostic
+  categories plus locally generated references suffice; no retry service,
+  dependency, logger adapter, configuration option, or alternate provider is
+  needed. Redis sanitization is required because command errors include cache
+  keys containing IPs. Provider responses require type validation so malformed
+  successes cannot escape the documented null-on-failure contract.
+- **Owner input:** Max (Moshe), `zusuk@duris.sbs`, supplied as the owner/contact.
+  Retention periods, public controller wording, external-provider commitments,
+  and one-time logout have not yet been approved. Continue independent work;
+  ask only when a consequential decision is essential, in plain language, with
+  a concrete proposal. No automatic deletion or public policy claim may infer
+  approval from the owner's contact details. P0/P5/P6/P7 release gates remain open.
+- Node `v24.15.0`, pnpm `12.10.1`; backend dependencies installed from the frozen
+  lockfile in this worktree. No production or provider access has occurred.
+- **P1 verification:** `pnpm --dir backend test --runInBand
+  src/utils/__tests__/geoip.test.ts` passes 25 tests with real cache helpers and
+  mocked Redis/provider boundaries. Pre-fix tests reproduced diagnostic leaks.
+  `pnpm --dir backend format:check`, `lint`, `type-check`, and `build` pass.
+  No database, MUD-write, frontend, browser, provider, or production check is
+  needed or claimed for this diagnostics-only chunk. The full backend suite
+  is deferred to the P2 synthetic baseline, not represented as passing here.
+- **P1 Website Changelog:** no entry needed: diagnostic minimization and
+  malformed-provider rejection do not add reader-visible website behavior.
+  No release, tag, deployment, or public news publication is claimed.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
@@ -223,23 +262,23 @@ implementation, with this file remaining the single execution plan.
 
 ## P1 — Safe GeoIP diagnostics (#13)
 
-- [ ] Replace all GeoIP failure logging with fixed categories such as
+- [x] Replace all GeoIP failure logging with fixed categories such as
   `provider_http_failure`, `provider_refusal`, `invalid_response`, and
   `lookup_exception`. Only allow a validated numeric HTTP status and bounded
   locally generated operation reference; never include IP, URL, statusText,
   provider message/body, exception object/message/stack, or request headers.
-- [ ] Validate untrusted response data with strict types rather than adding new
+- [x] Validate untrusted response data with strict types rather than adding new
   `any`. Preserve cache TTL, cache hit/local-IP behavior, null-on-lookup-failure,
   and the existing VPN/proxy fallback/access semantics.
-- [ ] Exercise failures through Redis helpers as well as the GeoIP logger. If
+- [x] Exercise failures through Redis helpers as well as the GeoIP logger. If
   injected command errors leak the IP-bearing cache key, minimally sanitize
   those helper diagnostics too; do not stop at the direct GeoIP call sites.
-- [ ] Add focused mocked tests for HTTP refusal including hostile statusText,
+- [x] Add focused mocked tests for HTTP refusal including hostile statusText,
   provider `status: fail`, network rejection, malformed JSON/response, cache
   failure, successful/cache/local lookup, and batch behavior. Assert synthetic
   IPv4/IPv6, URL, token, and payload sentinels are absent from **all** logger
   arguments, while safe categories remain observable.
-- [ ] Update the GeoIP finding after verification; leave provider disclosure and
+- [x] Update the GeoIP finding after verification; leave provider disclosure and
   transport disposition to P5.
 
 Exit: failure behavior is preserved and sentinel tests cover every reachable
