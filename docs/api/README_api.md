@@ -21,6 +21,12 @@ points and security boundaries rather than duplicating every handler.
 
 ## Route Groups
 
+`GET /api/admin/web/settings` requires the existing front-page management
+permission. Its `updated_at` values are ISO 8601 UTC instants derived from the
+stored database timestamp, or `null` when the instant is unknown. A database
+session offset never changes the reported instant. Internal hook journal rows
+and the retired webhook secret remain excluded.
+
 Forum post links use `/forum/thread/:id#post-:postId`. The thread reader passes
 the fragment's positive safe integer as `postId` to
 `GET /api/forum/threads/:id?page=1&limit=50&postId=:postId`. After the existing

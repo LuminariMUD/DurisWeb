@@ -722,6 +722,38 @@ outside this request. Keep this single evolving execution plan current.
   is claimed. Next: the recorded standalone raw-settings UTC correction, then
   notice/analytics choice and the remaining privacy lifecycle work.
 
+- **Current follow-up:** `branch/settings-utc-provenance` starts at #42
+  `4b28587`. **Outcome:** generic raw-settings timestamps represent the stored
+  instant as UTC, including a truthful unknown/null value. **Non-goals:** schema
+  changes, pool timezone changes, historical backfills or UI redesign. **Files:**
+  backend settings reader/type, matching frontend type, existing configuration
+  tests and this plan. **Proof:** real TIMESTAMP rows read under a +03 database
+  session while the app is UTC, null timestamp handling, required package gates
+  and a focused review-ready PR. Use SQL epoch extraction; remove the old Date/
+  naive-text formatting branches rather than adding a timezone workaround.
+
+- **UTC follow-up proof:** the pre-fix native check reproduced a three-hour
+  shift: stored `2026-03-27T01:02:03Z` returned as `04:02:03Z` under a +03
+  database session. Epoch extraction now returns the original UTC instant and
+  `null` for unknown/invalid timestamps; the frontend type reflects nullability.
+  Both native runners pass **55 focused tests** with dependency preflight and
+  exact owner metadata before/after. Logs: `/tmp/durisweb-settings-utc-before.log`,
+  `/tmp/durisweb-settings-utc-mysql.log`,
+  `/tmp/durisweb-settings-utc-maria.log`. The backend required format/lint/types/
+  build and whitespace gates pass. Frontend `format:check`, `lint`, `type-check`,
+  `test:unit --run` (**239 tests / 49 files**) and `build` pass with explicit
+  synthetic public build configuration. `pnpm --dir backend verify:mud-writes
+  --mud-manifest /home/aiwithapex/projects/duris/migrations/migration_manifest.json`
+  passes (53 classified writes). Logs:
+  `/tmp/durisweb-settings-utc-frontend.log` and
+  `/tmp/durisweb-settings-utc-frontend-build.log`.
+  No schema/migration, stored value, cache
+  policy, pool state or MUD behavior changes. Unaffected full-backend/session
+  matrix evidence is reused; no new full/backend browser/live claim is made.
+  Prepared admin release wording: “Website-setting update times now show the
+  correct UTC instant when server timezones differ.” Publish only after live
+  verification; no tag, production or changelog operation occurred.
+
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
 [design](../DESIGN.md). Preserve existing safety gates and the MUD's schema and
