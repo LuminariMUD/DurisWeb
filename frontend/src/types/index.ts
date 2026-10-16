@@ -1843,3 +1843,25 @@ export interface ChangelogListResponse {
   entries: ChangelogEntry[]
   total: number
 }
+
+export interface DiscordDeliveryStatus {
+  configured: boolean
+  enabled: boolean
+  channelId: string | null
+  activated: boolean
+  blockedReason: string | null
+  nextAttemptAt: string | null
+  pending: number
+  failed: number
+  uncertain: number
+  lastAutomaticSuccess: { eventId: number; at: string } | null
+  outstanding: Array<{
+    eventId: number
+    status: string
+    attempts: number
+    ambiguous: boolean
+    errorCode: string | null
+    nextAttemptAt: string
+  }>
+  otherDestinations: Array<{ channelId: string; outstanding: number }>
+}

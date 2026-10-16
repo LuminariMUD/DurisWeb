@@ -65,6 +65,26 @@ and marked uncertain. This is **at-least-once recovery**, not exactly-once
 delivery: after Discord's nonce window, retries can duplicate an accepted post.
 Persisted confirmed successes are not retried automatically.
 
-Operator status and recovery controls remain the next chunk of
-[issue #30](https://github.com/LuminariMUD/DurisWeb/issues/30); this intermediate
-backend change must be deployed with that follow-up to provide the complete workflow.
+## Operator status and recovery
+
+Web Settings → Discord Integration shows the current destination, pause/block
+state, pending/failed counts, uncertain attempts, last confirmed automatic post,
+and up to 50 recent outstanding or uncertain entries with battle links. Retained
+work for other channels is counted separately. Status failures are shown as
+unavailable rather than an empty healthy queue. Use **Refresh status** for a new
+read; status reads never send a message.
+
+After correcting credentials, channel permissions, or rejected content, use
+**Retry failed deliveries**. It requeues only failed rows for the currently
+configured destination and clears its block. It does not turn automatic posting
+on, resend confirmed deliveries, or shorten an existing cooldown. A paused
+queue stays paused. The retry action can return busy while another attempt is
+running; refresh before trying again. The independent **Send test message** and
+per-battle manual-post action retain their existing behavior.
+
+`GET /api/admin/discord/delivery` and `POST /api/admin/discord/delivery/retry`
+require authentication and `manage_front_page` (or overlord access). The GET
+response has `Cache-Control: no-store`; errors return 503 without database
+details. Retry returns 409 when busy/unconfigured and 503 for a persistence
+failure. The response contains no bot credentials, nonce, raw response, or player
+payload. Times are UTC ISO strings rendered in the operator's local timezone.

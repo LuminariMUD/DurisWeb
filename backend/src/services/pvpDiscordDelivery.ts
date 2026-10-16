@@ -284,3 +284,119 @@ export async function manualPostBattle(
     };
   }
 }
+
+export interface DiscordDeliveryStatus {
+  configured: boolean;
+  enabled: boolean;
+  channelId: string | null;
+  activated: boolean;
+  blockedReason: string | null;
+  nextAttemptAt: string | null;
+  pending: number;
+  failed: number;
+  uncertain: number;
+  lastAutomaticSuccess: { eventId: number; at: string } | null;
+  outstanding: Array<{
+    eventId: number;
+    status: string;
+    attempts: number;
+    ambiguous: boolean;
+    errorCode: string | null;
+    nextAttemptAt: string;
+  }>;
+  otherDestinations: Array<{ channelId: string; outstanding: number }>;
+}
+
+const STATUS_TIME_FORMAT = '%Y-%m-%dT%H:%i:%sZ';
+
+/** Read-only operator view: no configuration token, response body, or player payload. */
+export async function getDiscordDeliveryStatus(): Promise<DiscordDeliveryStatus> {
+  const bot = getBackendConfiguration().discordBot;
+  const connection = await pool.getConnection();
+  try {
+    const settings = await readDeliverySettings(connection);
+    const currentChannel = bot?.channelId || '';
+    const [destinations] = await connection.query<RowDataPacket[]>(
+      `SELECT channel_id, blocked_reason, DATE_FORMAT(available_at, ?) AS available_at
+       FROM web_pvp_discord_destinations WHERE channel_id = ?`,
+      [STATUS_TIME_FORMAT, currentChannel],
+    );
+    const [counts] = await connection.query<RowDataPacket[]>(
+      `SELECT COALESCE(SUM(status IN ('pending', 'sending')), 0) AS pending,
+       COALESCE(SUM(status = 'failed'), 0) AS failed, COALESCE(SUM(ambiguous), 0) AS uncertain
+       FROM web_pvp_discord_deliveries WHERE channel_id = ?`,
+      [currentChannel],
+    );
+    const [last] = await connection.query<RowDataPacket[]>(
+      `SELECT event_id, DATE_FORMAT(delivered_at, ?) AS delivered_at FROM web_pvp_discord_deliveries
+       WHERE channel_id = ? AND status = 'delivered' AND delivered_by = 'automatic'
+       ORDER BY delivered_at DESC, event_id DESC LIMIT 1`,
+      [STATUS_TIME_FORMAT, currentChannel],
+    );
+    const [outstanding] = await connection.query<RowDataPacket[]>(
+      `SELECT event_id, status, attempts, ambiguous, error_code, DATE_FORMAT(available_at, ?) AS available_at
+       FROM web_pvp_discord_deliveries WHERE channel_id = ? AND (status != 'delivered' OR ambiguous = 1)
+       ORDER BY (status = 'failed') DESC, updated_at DESC, event_id DESC LIMIT 50`,
+      [STATUS_TIME_FORMAT, currentChannel],
+    );
+    const [other] = await connection.query<RowDataPacket[]>(
+      `SELECT channel_id, COUNT(*) AS outstanding FROM web_pvp_discord_deliveries
+       WHERE channel_id != ? AND status != 'delivered' GROUP BY channel_id ORDER BY channel_id`,
+      [currentChannel],
+    );
+    return {
+      configured: !!bot,
+      enabled: settings.enabled,
+      channelId: bot?.channelId || null,
+      activated: destinations.length > 0,
+      blockedReason: destinations[0]?.blocked_reason || null,
+      nextAttemptAt: destinations[0]?.available_at || null,
+      pending: Number(counts[0].pending),
+      failed: Number(counts[0].failed),
+      uncertain: Number(counts[0].uncertain),
+      lastAutomaticSuccess: last.length
+        ? { eventId: Number(last[0].event_id), at: String(last[0].delivered_at) }
+        : null,
+      outstanding: outstanding.map((row) => ({
+        eventId: Number(row.event_id),
+        status: String(row.status),
+        attempts: Number(row.attempts),
+        ambiguous: !!row.ambiguous,
+        errorCode: row.error_code || null,
+        nextAttemptAt: String(row.available_at),
+      })),
+      otherDestinations: other.map((row) => ({
+        channelId: String(row.channel_id),
+        outstanding: Number(row.outstanding),
+      })),
+    };
+  } finally {
+    connection.release();
+  }
+}
+
+/** Requeue failed work only; never resend receipts, override cooldowns, or enable posting. */
+export async function retryFailedDiscordDeliveries(): Promise<boolean> {
+  const bot = getBackendConfiguration().discordBot;
+  if (!bot) return false;
+  const result = await withDeliveryLock(async (connection) => {
+    await connection.beginTransaction();
+    try {
+      await connection.query(
+        `UPDATE web_pvp_discord_deliveries SET status = 'pending', error_code = NULL,
+         updated_at = UTC_TIMESTAMP() WHERE channel_id = ? AND status = 'failed'`,
+        [bot.channelId],
+      );
+      await connection.query(
+        'UPDATE web_pvp_discord_destinations SET blocked_reason = NULL WHERE channel_id = ?',
+        [bot.channelId],
+      );
+      await connection.commit();
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    }
+  });
+  return result === true;
+}

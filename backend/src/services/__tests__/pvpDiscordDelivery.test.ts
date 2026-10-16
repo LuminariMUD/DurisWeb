@@ -330,4 +330,65 @@ isolated('durable Discord delivery on a disposable database', () => {
     await service.pollDiscordDeliveries();
     expect(send).toHaveBeenCalledTimes(2);
   });
+
+  it('reports last automatic success, failed work and old-channel backlog without message content', async () => {
+    expect(await service.getDiscordDeliveryStatus()).toMatchObject({
+      configured: true,
+      enabled: false,
+      activated: false,
+      pending: 0,
+      failed: 0,
+    });
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await event(1);
+    await service.pollDiscordDeliveries();
+    await service.manualPostBattle(1);
+    await event(2);
+    send.mockResolvedValueOnce({ status: 'failed', code: 'forbidden' });
+    await service.pollDiscordDeliveries();
+    const status = await service.getDiscordDeliveryStatus();
+    expect(status).toMatchObject({
+      activated: true,
+      blockedReason: 'forbidden',
+      failed: 1,
+      lastAutomaticSuccess: { eventId: 1, at: expect.stringMatching(/Z$/) },
+      outstanding: [{ eventId: 2, status: 'failed', attempts: 1, errorCode: 'forbidden' }],
+    });
+    expect(JSON.stringify(status)).not.toMatch(/fixture-only|Fixture|Victim|nonce|token/);
+    configuration.discordBot.channelId = '987654321012345678';
+    expect(await service.getDiscordDeliveryStatus()).toMatchObject({
+      activated: false,
+      lastAutomaticSuccess: null,
+      otherDestinations: [{ channelId, outstanding: 1 }],
+    });
+  });
+
+  it('operator retry preserves receipts, pause, uncertainty and rate-limit deadlines', async () => {
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await event(1);
+    await service.pollDiscordDeliveries();
+    await event(2);
+    send.mockResolvedValueOnce({ status: 'failed', code: 'forbidden' });
+    await service.pollDiscordDeliveries();
+    await service.setDiscordAutoPosting(false, 'fixture');
+    await database.query(
+      'UPDATE web_pvp_discord_destinations SET available_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL 5 MINUTE)',
+    );
+    expect(await service.retryFailedDiscordDeliveries()).toBe(true);
+    expect(await service.getDiscordDeliveryStatus()).toMatchObject({
+      enabled: false,
+      blockedReason: null,
+      pending: 1,
+      failed: 0,
+      lastAutomaticSuccess: { eventId: 1 },
+    });
+    await service.pollDiscordDeliveries();
+    expect(send).toHaveBeenCalledTimes(2);
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await service.pollDiscordDeliveries();
+    expect(send).toHaveBeenCalledTimes(2);
+    await makeReady();
+    await service.pollDiscordDeliveries();
+    expect(send.mock.calls.map(([id]) => id)).toEqual([1, 2, 2]);
+  });
 });

@@ -37,17 +37,20 @@ verification. Tests must prove delivery through the worker/API, not only helpers
    Structured confirmed/retry/failed outcomes, sanitized event-linked errors,
    rate-limit deadlines, destination pinning, stable nonce support, and overlap
    prevention. Published as [PR #32](https://github.com/LuminariMUD/DurisWeb/pull/32),
-   commit `a39a1a0bdb0824a9397ac0d887de6dd84da5e8d1`; open against `master`.
+   implementation commit `a39a1a0bdb0824a9397ac0d887de6dd84da5e8d1`;
+   head `3a33250` includes `master`'s added ablation skill (`ade01dd`).
 2. **Durable delivery and discovery** — stack on chunk 1. Persist first-enable
    boundaries, pending/retry/delivered state and destination ownership; replace
    fire-and-forget Discord dispatch with an independent bounded worker. Avoid
    using public list count queries for event discovery. Implemented on
-   `branch/issue-30-durable-discord`; 103 focused tests and backend gates pass.
-   PR publication follows this commit, based on PR #32.
+   `branch/issue-30-durable-discord`; published as
+   [PR #33](https://github.com/LuminariMUD/DurisWeb/pull/33), based on PR #32.
+   Implementation commit `015df5d`, head `570256d` includes the parent update.
 3. **Operator status and acceptance** — stack on chunk 2. Show last automatic
    success, pending/failed/uncertain work and sanitized errors, with an authorized
    retry action. Complete lifecycle tests, documentation, release draft and
-   requirement-by-requirement audit. Not started.
+   requirement-by-requirement audit. Implemented on `branch/issue-30-discord-status`;
+   SQL/route/UI and browser checks pass. PR publication follows this commit.
 
 ### Lifecycle policy to implement and prove
 
@@ -126,6 +129,46 @@ publish only once that exact release is verified live. No live entry was changed
 - Next: implement a permission-protected status/retry API and Web Settings UI;
   cover retry authorization, failed/uncertain state, last automatic success,
   paused backlog and channel history; finish acceptance and current Git audit.
+
+### Chunk 3 verification and continuation
+
+- Backend: the chunk 2 command plus
+  `src/routes/__tests__/pvpIdValidation.test.ts` passed **162 tests in eight suites**.
+  The SQL suite now includes 19 delivery cases, including status contents,
+  preserved automatic receipts after manual repost, and operator retry without
+  bypassing pause/cooldown. Route tests cover authenticated permission gates,
+  read-only uncached status, explicit retry, busy state, and sanitized 503 errors.
+- `pnpm --dir frontend test:unit --run`: **226 passed in 47 files**.
+  Six new mounted Web Settings tests cover blocked/paused status, links, retry,
+  unavailable/recovery, rejected toggle rollback, test-message compatibility,
+  and unauthorized entry. The six tests were rerun after adding keyboard focus
+  restoration to Refresh when the completed retry control disappears.
+- Both packages: format, lint, type checks and build passed. Also passed:
+  `pnpm --dir backend verify:mud-writes`, `./scripts/check-config-literals.sh`,
+  `./frontend/scripts/check-palette-literals.sh`, and `git diff --check`.
+  Frontend build used explicit local fixture URLs/ports, with no environment
+  file or production output changed.
+- Browser plugin not available. Existing Python Playwright 1.58 with cached
+  Chromium **153.0.8010.12** exercised the real application route
+  `http://127.0.0.1:5176/admin/web-settings`, with all API/Discord-facing data
+  intercepted as synthetic fixtures. The default Playwright browser revision
+  was absent; selecting an already-cached Chromium required no installation.
+- Verified page/title/content, no framework overlay, no runtime exceptions,
+  four viewport widths (390/768/1024/1440), no page/panel horizontal overflow,
+  Enter-to-retry once, pending-disabled state, focus restoration, refreshed
+  paused status, toggle rollback on busy, and unavailable-state recovery.
+  Inspected screenshots for mobile blocked, desktop retried, and unavailable
+  states. Screenshots and temporary harness remain outside Git under
+  `/tmp/durisweb-issue30-browser`; these are local fixture evidence, not live acceptance.
+- Browser console: only intentionally injected HTTP 400/503 failures plus the
+  existing Vue Router `next()` deprecation warning. The first harness run acted
+  before retry/status completion and encountered the expected availability
+  modal; waiting for the completed state and dismissing that modal corrected the
+  harness. No application assertion was weakened.
+- Remaining before completion: final acceptance and focused code review,
+  publish/read back the last PR and current stack heads, then stop temporary
+  services. Full backend suite, real account/session/Discord delivery, shared
+  migrations, production release and changelog publication remain unperformed.
 
 ## Verdict
 
