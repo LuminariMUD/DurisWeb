@@ -20,6 +20,7 @@ bootstrap a new shared schema safely.
 | `pnpm build` | Compile to `dist/` |
 | `pnpm start` | Run the compiled service |
 | `pnpm config:check` | Validate the complete environment without dependency connections |
+| `pnpm schema:check` | Verify versioned web schema inputs and historical checksums without a database |
 | `pnpm test --runInBand` | Run Jest serially |
 | `pnpm format:check` | Check Biome formatting without edits |
 | `pnpm lint` | Run non-mutating ESLint checks |

@@ -69,6 +69,7 @@ pnpm --dir backend format:check
 pnpm --dir backend lint
 pnpm --dir backend type-check
 pnpm --dir backend verify:mud-writes
+pnpm --dir backend schema:check
 pnpm --dir backend test --runInBand
 pnpm --dir backend build
 pnpm --dir frontend config:check
@@ -81,6 +82,11 @@ pnpm --dir frontend build
 ```
 
 ## Database contract checks
+
+`pnpm --dir backend schema:check` validates the source-owned
+[website schema bundle](../backend/schema-baselines/README.md) and its historical
+checksums without opening a database connection. This is input verification,
+not bootstrap, ledger adoption, or a change to Knex migration discovery.
 
 `backend/mud-write-allowlist.json` is the operation-level inventory for direct
 DurisWeb writes to MUD-owned tables. `verify:mud-writes` scans non-test backend

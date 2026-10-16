@@ -1,0 +1,852 @@
+[
+  {
+    "table": "admin_permissions",
+    "rows": [
+      {
+        "id": 1,
+        "permission_key": "terminal_access",
+        "permission_name": "Terminal Access",
+        "description": "Access the web-based terminal to manage MUD server files and processes",
+        "category": "system",
+        "sort_order": 16
+      },
+      {
+        "id": 2,
+        "permission_key": "manage_mud_backup",
+        "permission_name": "Manage MUD Backups",
+        "description": "Create and download MUD backups (database + player files)",
+        "category": "system",
+        "sort_order": 17
+      },
+      {
+        "id": 3,
+        "permission_key": "mud_control",
+        "permission_name": "MUD Process Control",
+        "description": "Start, stop, and restart the MUD server",
+        "category": "system",
+        "sort_order": 18
+      },
+      {
+        "id": 4,
+        "permission_key": "manage_user_profiles",
+        "permission_name": "Manage User Profiles",
+        "description": "Can modify any user profile including profile pictures",
+        "category": "users",
+        "sort_order": 17
+      },
+      {
+        "id": 5,
+        "permission_key": "manage_zone_permissions",
+        "permission_name": "Manage Zone Permissions",
+        "description": "Can grant/revoke zone access to other accounts",
+        "category": "zone",
+        "sort_order": 20
+      },
+      {
+        "id": 6,
+        "permission_key": "manage_front_page",
+        "permission_name": "Manage Front Page",
+        "description": "Edit front page hero banner and content",
+        "category": "content",
+        "sort_order": 5
+      },
+      {
+        "id": 7,
+        "permission_key": "manage_help_files",
+        "permission_name": "Manage Help Files",
+        "description": "Create, edit, and delete help files",
+        "category": "content",
+        "sort_order": 1
+      },
+      {
+        "id": 8,
+        "permission_key": "manage_news",
+        "permission_name": "Manage News",
+        "description": "Create, edit, and delete news posts",
+        "category": "content",
+        "sort_order": 2
+      },
+      {
+        "id": 9,
+        "permission_key": "manage_motd",
+        "permission_name": "Manage MOTD & Static Pages",
+        "description": "Edit MOTD, Wiz MOTD, Rules, Credits, Info, Wizlist, FAQ",
+        "category": "content",
+        "sort_order": 3
+      },
+      {
+        "id": 10,
+        "permission_key": "manage_forum_settings",
+        "permission_name": "Manage Forum Settings",
+        "description": "Edit forum settings and configuration",
+        "category": "content",
+        "sort_order": 4
+      },
+      {
+        "id": 11,
+        "permission_key": "manage_forum_categories",
+        "permission_name": "Manage Forum Categories",
+        "description": "Create, edit, and archive forum categories",
+        "category": "content",
+        "sort_order": 5
+      },
+      {
+        "id": 12,
+        "permission_key": "moderate_forum",
+        "permission_name": "Moderate Forum",
+        "description": "Moderate posts and threads (lock, pin, move, delete)",
+        "category": "content",
+        "sort_order": 6
+      },
+      {
+        "id": 13,
+        "permission_key": "manage_zones",
+        "permission_name": "Manage Zones",
+        "description": "Create, edit, and delete zones and zone properties",
+        "category": "zone",
+        "sort_order": 7
+      },
+      {
+        "id": 14,
+        "permission_key": "view_server_logs",
+        "permission_name": "View Server Logs",
+        "description": "View and download server logs",
+        "category": "monitoring",
+        "sort_order": 8
+      },
+      {
+        "id": 15,
+        "permission_key": "view_server_health",
+        "permission_name": "View Server Health",
+        "description": "View health metrics, crashes, and incidents",
+        "category": "monitoring",
+        "sort_order": 9
+      },
+      {
+        "id": 16,
+        "permission_key": "view_connection_logs",
+        "permission_name": "View Connection Logs",
+        "description": "View login/logout tracking and IP analysis",
+        "category": "monitoring",
+        "sort_order": 10
+      },
+      {
+        "id": 17,
+        "permission_key": "manage_mud_properties",
+        "permission_name": "Manage MUD Properties",
+        "description": "Edit game properties and configuration",
+        "category": "configuration",
+        "sort_order": 11
+      },
+      {
+        "id": 18,
+        "permission_key": "manage_level_cap",
+        "permission_name": "Manage Level Cap",
+        "description": "View and modify level cap settings",
+        "category": "configuration",
+        "sort_order": 12
+      },
+      {
+        "id": 19,
+        "permission_key": "manage_timers",
+        "permission_name": "Manage Timers",
+        "description": "View and modify global game timers",
+        "category": "configuration",
+        "sort_order": 13
+      },
+      {
+        "id": 20,
+        "permission_key": "view_analytics",
+        "permission_name": "View Analytics",
+        "description": "View analytics dashboard and statistics",
+        "category": "monitoring",
+        "sort_order": 14
+      },
+      {
+        "id": 21,
+        "permission_key": "manage_permissions",
+        "permission_name": "Manage Permissions",
+        "description": "Assign roles and permissions to accounts (Overlord-only)",
+        "category": "system",
+        "sort_order": 15
+      },
+      {
+        "id": 22,
+        "permission_key": "use_ai_analysis",
+        "permission_name": "Use AI Analysis",
+        "description": "Access AI-powered log analysis and anomaly detection",
+        "category": "monitoring",
+        "sort_order": 16
+      },
+      {
+        "id": 23,
+        "permission_key": "view_audit_log",
+        "permission_name": "View Audit Log",
+        "description": "View audit logs of all admin actions and changes",
+        "category": "monitoring",
+        "sort_order": 17
+      },
+      {
+        "id": 24,
+        "permission_key": "view_git_history",
+        "permission_name": "View Git History",
+        "description": "View MUD codebase commit history",
+        "category": "Monitoring",
+        "sort_order": 0
+      },
+      {
+        "id": 25,
+        "permission_key": "manage_deployment",
+        "permission_name": "Manage Deployment",
+        "description": "Deploy or rollback MUD codebase to specific commits",
+        "category": "System",
+        "sort_order": 0
+      },
+      {
+        "id": 26,
+        "permission_key": "view_wiki_realtime",
+        "permission_name": "View Wiki Realtime Map",
+        "description": "View real-time player and ship positions on the wiki world map",
+        "category": "wiki",
+        "sort_order": 50
+      },
+      {
+        "id": 27,
+        "permission_key": "manage_help_suggestions",
+        "permission_name": "Manage Help File Suggestions",
+        "description": "Review, approve, and reject help file suggestions",
+        "category": "content",
+        "sort_order": 7
+      },
+      {
+        "id": 28,
+        "permission_key": "manage_server_incidents",
+        "permission_name": "Manage Server Incidents",
+        "description": "Create, update, and delete server incidents",
+        "category": "monitoring",
+        "sort_order": 18
+      }
+    ]
+  },
+  {
+    "table": "admin_roles",
+    "rows": [
+      {
+        "id": 1,
+        "role_name": "Content Editor",
+        "description": "Can manage help files, news, and MOTD pages",
+        "is_system_role": 1,
+        "created_by": "system"
+      },
+      {
+        "id": 2,
+        "role_name": "Zone Manager",
+        "description": "Can create and edit zones",
+        "is_system_role": 1,
+        "created_by": "system"
+      },
+      {
+        "id": 3,
+        "role_name": "Server Monitor",
+        "description": "Can view server logs, health, and connection logs",
+        "is_system_role": 1,
+        "created_by": "system"
+      },
+      {
+        "id": 4,
+        "role_name": "Full Admin",
+        "description": "All permissions except permission management",
+        "is_system_role": 1,
+        "created_by": "system"
+      }
+    ]
+  },
+  {
+    "table": "admin_role_permissions",
+    "rows": [
+      {
+        "id": 1,
+        "role_id": 1,
+        "permission_id": 7
+      },
+      {
+        "id": 2,
+        "role_id": 1,
+        "permission_id": 8
+      },
+      {
+        "id": 3,
+        "role_id": 1,
+        "permission_id": 9
+      },
+      {
+        "id": 4,
+        "role_id": 2,
+        "permission_id": 13
+      },
+      {
+        "id": 5,
+        "role_id": 2,
+        "permission_id": 14
+      },
+      {
+        "id": 6,
+        "role_id": 3,
+        "permission_id": 14
+      },
+      {
+        "id": 7,
+        "role_id": 3,
+        "permission_id": 15
+      },
+      {
+        "id": 8,
+        "role_id": 3,
+        "permission_id": 16
+      },
+      {
+        "id": 9,
+        "role_id": 3,
+        "permission_id": 20
+      },
+      {
+        "id": 10,
+        "role_id": 4,
+        "permission_id": 11
+      },
+      {
+        "id": 11,
+        "role_id": 4,
+        "permission_id": 10
+      },
+      {
+        "id": 12,
+        "role_id": 4,
+        "permission_id": 6
+      },
+      {
+        "id": 13,
+        "role_id": 4,
+        "permission_id": 7
+      },
+      {
+        "id": 14,
+        "role_id": 4,
+        "permission_id": 18
+      },
+      {
+        "id": 15,
+        "role_id": 4,
+        "permission_id": 9
+      },
+      {
+        "id": 16,
+        "role_id": 4,
+        "permission_id": 2
+      },
+      {
+        "id": 17,
+        "role_id": 4,
+        "permission_id": 17
+      },
+      {
+        "id": 18,
+        "role_id": 4,
+        "permission_id": 8
+      },
+      {
+        "id": 19,
+        "role_id": 4,
+        "permission_id": 19
+      },
+      {
+        "id": 20,
+        "role_id": 4,
+        "permission_id": 4
+      },
+      {
+        "id": 21,
+        "role_id": 4,
+        "permission_id": 5
+      },
+      {
+        "id": 22,
+        "role_id": 4,
+        "permission_id": 13
+      },
+      {
+        "id": 23,
+        "role_id": 4,
+        "permission_id": 12
+      },
+      {
+        "id": 24,
+        "role_id": 4,
+        "permission_id": 3
+      },
+      {
+        "id": 25,
+        "role_id": 4,
+        "permission_id": 1
+      },
+      {
+        "id": 26,
+        "role_id": 4,
+        "permission_id": 20
+      },
+      {
+        "id": 27,
+        "role_id": 4,
+        "permission_id": 16
+      },
+      {
+        "id": 28,
+        "role_id": 4,
+        "permission_id": 15
+      },
+      {
+        "id": 29,
+        "role_id": 4,
+        "permission_id": 14
+      },
+      {
+        "id": 30,
+        "role_id": 3,
+        "permission_id": 22
+      },
+      {
+        "id": 31,
+        "role_id": 3,
+        "permission_id": 23
+      },
+      {
+        "id": 32,
+        "role_id": 4,
+        "permission_id": 22
+      },
+      {
+        "id": 33,
+        "role_id": 4,
+        "permission_id": 23
+      },
+      {
+        "id": 34,
+        "role_id": 4,
+        "permission_id": 26
+      },
+      {
+        "id": 35,
+        "role_id": 4,
+        "permission_id": 28
+      }
+    ]
+  },
+  {
+    "table": "forum_settings",
+    "rows": [
+      {
+        "setting_key": "allow_mortal_posts",
+        "setting_value": "1",
+        "description": "Allow mortals to post in public forums (1=yes, 0=no)",
+        "updated_by": null
+      },
+      {
+        "setting_key": "min_level_god_forum",
+        "setting_value": "59",
+        "description": "Minimum level for god forum access (Lesser God+)",
+        "updated_by": null
+      },
+      {
+        "setting_key": "min_level_immortal_forum",
+        "setting_value": "57",
+        "description": "Minimum level for immortal forum access (Avatar+)",
+        "updated_by": null
+      },
+      {
+        "setting_key": "min_level_to_ban",
+        "setting_value": "61",
+        "description": "Minimum level to ban users (Forger+)",
+        "updated_by": null
+      },
+      {
+        "setting_key": "min_level_to_delete_any_post",
+        "setting_value": "59",
+        "description": "Minimum level to delete any post (Lesser God+)",
+        "updated_by": null
+      },
+      {
+        "setting_key": "min_level_to_lock",
+        "setting_value": "59",
+        "description": "Minimum level to lock threads (Lesser God+)",
+        "updated_by": null
+      },
+      {
+        "setting_key": "min_level_to_moderate",
+        "setting_value": "59",
+        "description": "Minimum level to moderate forums (Lesser God+)",
+        "updated_by": null
+      },
+      {
+        "setting_key": "min_level_to_pin",
+        "setting_value": "59",
+        "description": "Minimum level to pin threads (Lesser God+)",
+        "updated_by": null
+      },
+      {
+        "setting_key": "post_rate_limit",
+        "setting_value": "20",
+        "description": "Maximum posts per minute per user",
+        "updated_by": null
+      },
+      {
+        "setting_key": "thread_rate_limit",
+        "setting_value": "5",
+        "description": "Maximum threads per hour per user",
+        "updated_by": null
+      }
+    ]
+  },
+  {
+    "table": "mud_process_state",
+    "rows": [
+      {
+        "id": 1,
+        "cycle_mud_pid": null,
+        "dms_pid": null,
+        "state": "unknown",
+        "last_start_time": null,
+        "last_stop_time": null,
+        "started_by": null
+      }
+    ]
+  },
+  {
+    "table": "web_settings",
+    "rows": [
+      {
+        "setting_key": "discord_webhook_enabled",
+        "setting_value": "false",
+        "description": "enable/disable auto-posting battles to discord",
+        "updated_by": null
+      },
+      {
+        "setting_key": "discord_webhook_url",
+        "setting_value": "",
+        "description": "discord webhook url for pvp battle notifications",
+        "updated_by": null
+      },
+      {
+        "setting_key": "front_page_content",
+        "setting_value": "<p>Welcome to the official DurisMUD website. Edit this content in Web Settings.</p>",
+        "description": "Front page main content (TipTap HTML)",
+        "updated_by": null
+      },
+      {
+        "setting_key": "front_page_hero_enabled",
+        "setting_value": "true",
+        "description": "Show hero banner on front page",
+        "updated_by": null
+      },
+      {
+        "setting_key": "front_page_hero_image_url",
+        "setting_value": "",
+        "description": "Hero banner background image URL (uploaded to R2)",
+        "updated_by": null
+      },
+      {
+        "setting_key": "front_page_hero_subtitle",
+        "setting_value": "The Premier PvP MUD Since 1994",
+        "description": "Hero banner subtitle text",
+        "updated_by": null
+      },
+      {
+        "setting_key": "front_page_hero_title",
+        "setting_value": "Welcome to DurisMUD",
+        "description": "Hero banner main title",
+        "updated_by": null
+      },
+      {
+        "setting_key": "hook_enabled_admin_delete_character",
+        "setting_value": "true",
+        "description": "DurisWeb hook toggle: Administrative character deletion requested by the website.",
+        "updated_by": null
+      },
+      {
+        "setting_key": "hook_enabled_auction_bid",
+        "setting_value": "true",
+        "description": "DurisWeb hook toggle: Auction bid events broadcast from the MUD.",
+        "updated_by": null
+      },
+      {
+        "setting_key": "hook_enabled_auction_close",
+        "setting_value": "true",
+        "description": "DurisWeb hook toggle: Auction close and settlement events from the MUD.",
+        "updated_by": null
+      },
+      {
+        "setting_key": "hook_enabled_auction_new",
+        "setting_value": "true",
+        "description": "DurisWeb hook toggle: New auction listings broadcast from the MUD.",
+        "updated_by": null
+      },
+      {
+        "setting_key": "hook_enabled_connection_log",
+        "setting_value": "true",
+        "description": "DurisWeb hook toggle: Dormant legacy parser for connection records in the MUD comm log. Authenticated bridge events are the active ingestion path; retaining this website-side toggle does not restart the tail or stop MUD logging.",
+        "updated_by": null
+      },
+      {
+        "setting_key": "hook_enabled_donation_delivery",
+        "setting_value": "true",
+        "description": "DurisWeb hook toggle: Signed donation events delivered to the MUD over scoped Redis. The MUD side gates application on the game-thread runtime pump, not the Redis worker.",
+        "updated_by": null
+      },
+      {
+        "setting_key": "hook_enabled_flag_parsing",
+        "setting_value": "true",
+        "description": "DurisWeb hook toggle: Builder flag definitions read from MUD source files. Website-side read; the MUD has no emitter to gate.",
+        "updated_by": null
+      },
+      {
+        "setting_key": "hook_enabled_guild_parsing",
+        "setting_value": "true",
+        "description": "DurisWeb hook toggle: Database-backed guild compatibility facade and background forum sync. The stable flatfile-era id is retained, but availability is independent of MUD_DIR and the MUD has no emitter to gate.",
+        "updated_by": null
+      },
+      {
+        "setting_key": "hook_enabled_mud_shutdown",
+        "setting_value": "true",
+        "description": "DurisWeb hook toggle: MUD shutdown and crash notifications.",
+        "updated_by": null
+      },
+      {
+        "setting_key": "hook_enabled_player_presence",
+        "setting_value": "true",
+        "description": "DurisWeb hook toggle: Player login and logout presence. One hook covers both MUD emitters; presence also has a Redis current-state feed read by onlinePlayersService. Payloads omit account names and IPs unless DURISWEB_PRIVATE_PRESENCE is TRUE.",
+        "updated_by": null
+      },
+      {
+        "setting_key": "hook_enabled_process_control",
+        "setting_value": "true",
+        "description": "DurisWeb hook toggle: Start, stop, and reboot of the MUD process from the website. Gated by the mud_control permission; the MUD has no in-process side to toggle.",
+        "updated_by": null
+      },
+      {
+        "setting_key": "hook_enabled_wholist",
+        "setting_value": "true",
+        "description": "DurisWeb hook toggle: Online player list served in response to request_wholist. Registered on the response, which is what an operator would cut.",
+        "updated_by": null
+      },
+      {
+        "setting_key": "hook_enabled_zone_builder_parsing",
+        "setting_value": "true",
+        "description": "DurisWeb hook toggle: Zone and area files parsed for the builder tools. Website-side read; the MUD has no emitter to gate.",
+        "updated_by": null
+      },
+      {
+        "setting_key": "max_hourly_backups",
+        "setting_value": "24",
+        "description": "Maximum number of hourly backups to keep (1-168)",
+        "updated_by": null
+      },
+      {
+        "setting_key": "mud_host",
+        "setting_value": "mud.duris.sbs",
+        "description": "MUD server hostname displayed on the website",
+        "updated_by": null
+      },
+      {
+        "setting_key": "mud_port",
+        "setting_value": "7777",
+        "description": "MUD server port displayed on the website",
+        "updated_by": null
+      },
+      {
+        "setting_key": "mud_port_tls",
+        "setting_value": "4001",
+        "description": "Optional direct TLS MUD port displayed on the website",
+        "updated_by": null
+      },
+      {
+        "setting_key": "mud_ws_host",
+        "setting_value": "ws.duris.sbs",
+        "description": "Public hostname used by the browser-based MUD client",
+        "updated_by": null
+      },
+      {
+        "setting_key": "mud_ws_port",
+        "setting_value": "4050",
+        "description": "MUD WebSocket port for web client connection",
+        "updated_by": null
+      },
+      {
+        "setting_key": "mud_ws_url",
+        "setting_value": "wss://ws.duris.sbs",
+        "description": "Complete public browser MUD WebSocket URL",
+        "updated_by": null
+      },
+      {
+        "setting_key": "pvp_delay_minutes",
+        "setting_value": "15",
+        "description": "Minutes to delay PvP logs from appearing publicly",
+        "updated_by": null
+      },
+      {
+        "setting_key": "respect_webinfo_toggle",
+        "setting_value": "true",
+        "description": "Honor each player web visibility preference",
+        "updated_by": null
+      },
+      {
+        "setting_key": "site_logo_url",
+        "setting_value": "",
+        "description": "URL to website logo (uploaded to R2)",
+        "updated_by": null
+      },
+      {
+        "setting_key": "site_title",
+        "setting_value": "Duris",
+        "description": "Website title shown in navbar and browser tab",
+        "updated_by": null
+      },
+      {
+        "setting_key": "support_url",
+        "setting_value": "https://github.com/sponsors/moshehbenavraham",
+        "description": "Public support or donation page URL",
+        "updated_by": null
+      }
+    ]
+  },
+  {
+    "table": "wiki_continents",
+    "rows": [
+      {
+        "id": 1,
+        "name": "Good Continent",
+        "name_ansi": "&+WGood Continent",
+        "seed_room_vnum": 546926,
+        "center_x": null,
+        "center_y": null
+      },
+      {
+        "id": 2,
+        "name": "Evil Continent",
+        "name_ansi": "&+LEvil Continent",
+        "seed_room_vnum": 607066,
+        "center_x": null,
+        "center_y": null
+      },
+      {
+        "id": 3,
+        "name": "Ice Crag",
+        "name_ansi": "&+WIce &+CCrag",
+        "seed_room_vnum": 521504,
+        "center_x": null,
+        "center_y": null
+      },
+      {
+        "id": 4,
+        "name": "Khomani-Khan",
+        "name_ansi": "&+gKhomani-Khan",
+        "seed_room_vnum": 608451,
+        "center_x": null,
+        "center_y": null
+      },
+      {
+        "id": 5,
+        "name": "Undead Continent",
+        "name_ansi": "&+rUndead Continent",
+        "seed_room_vnum": 567408,
+        "center_x": null,
+        "center_y": null
+      },
+      {
+        "id": 6,
+        "name": "Jade Empire",
+        "name_ansi": "&+GJade &+gEmpire",
+        "seed_room_vnum": 644892,
+        "center_x": null,
+        "center_y": null
+      },
+      {
+        "id": 7,
+        "name": "Island of Dragons",
+        "name_ansi": "&+cIsland &+yof &+cDragons",
+        "seed_room_vnum": 643968,
+        "center_x": null,
+        "center_y": null
+      },
+      {
+        "id": 8,
+        "name": "Ceothia",
+        "name_ansi": "&+bCeothia",
+        "seed_room_vnum": 628685,
+        "center_x": null,
+        "center_y": null
+      },
+      {
+        "id": 9,
+        "name": "Fort Boyard",
+        "name_ansi": "&+rFort &+RBoyard",
+        "seed_room_vnum": 562323,
+        "center_x": null,
+        "center_y": null
+      },
+      {
+        "id": 10,
+        "name": "Venan'Trut",
+        "name_ansi": "&+YVenan'Trut",
+        "seed_room_vnum": 545016,
+        "center_x": null,
+        "center_y": null
+      },
+      {
+        "id": 11,
+        "name": "Shadow Island",
+        "name_ansi": "&+LShadow Island",
+        "seed_room_vnum": 513382,
+        "center_x": null,
+        "center_y": null
+      },
+      {
+        "id": 12,
+        "name": "Scorched Island",
+        "name_ansi": "&+rSc&+Ro&+Yrc&+Rh&+red &+rIsland",
+        "seed_room_vnum": 576166,
+        "center_x": null,
+        "center_y": null
+      },
+      {
+        "id": 13,
+        "name": "Tezcatlipoca",
+        "name_ansi": "&+rT&+Rez&+rca&+Rtl&+rip&+Ro&+rca",
+        "seed_room_vnum": 575445,
+        "center_x": null,
+        "center_y": null
+      },
+      {
+        "id": 14,
+        "name": "Moonshae Island",
+        "name_ansi": "&+YMoonshae &+GIsland",
+        "seed_room_vnum": 556818,
+        "center_x": null,
+        "center_y": null
+      }
+    ]
+  },
+  {
+    "table": "wiki_settings",
+    "rows": [
+      {
+        "key": "access_level",
+        "value": "public",
+        "description": "Wiki access level: public (anyone) or registered (logged in users only)"
+      },
+      {
+        "key": "realtime_enabled",
+        "value": "false",
+        "description": "Whether real-time player/ship positions are enabled on the map"
+      }
+    ]
+  }
+]
