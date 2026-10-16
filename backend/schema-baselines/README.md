@@ -119,6 +119,15 @@ the corresponding database family. A dropped table maps to `null`; a data-only
 migration uses `{}`. Rehearse `up` and `down` on both families before recording
 these shapes. Include every affected table, including changes to referencing
 tables. Game tables and baseline/Knex metadata cannot be declared web-owned.
+Both `up` and `down` check the SQL Knex emits before it reaches the driver,
+including dynamically assembled SQL and schema-builder calls. Every DDL target,
+rename destination and foreign-key reference must be declared in the contract;
+MUD tables and provenance/Knex metadata cannot be declared. Data-only contracts
+therefore cannot execute DDL. Supported forms are single-statement table DDL and
+index DDL using unqualified canonical table names; indirect/executable-comment,
+trigger/routine, cross-database and administrative DDL fail closed. Use ordinary
+queries for data changes; stored calls and prepared statements are refused.
+This guard preserves historical migration behavior and adds no database grants.
 Do not edit the baseline manifest to record forward states: its hash identifies
 existing installations. Missing/stale contracts and changed migration bytes
 fail validation. Verification composes the baseline with contracts in actual
