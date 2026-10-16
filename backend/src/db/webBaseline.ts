@@ -6,6 +6,7 @@ import {
   type WebBaselineBundle,
   installedTableSha256,
   loadWebBaselineBundle,
+  loadWebForwardSchemas,
   normalizedTableDefinition,
   sha256,
   verifyWebBaselineSources,
@@ -97,6 +98,7 @@ export async function externalSchemaSha256(
 ): Promise<string> {
   const webNames = new Set([
     ...bundle.tables.map(({ name }) => name),
+    ...loadWebForwardSchemas(bundle).flatMap(({ tables }) => Object.keys(tables)),
     PROVENANCE_TABLE,
     'knex_migrations',
     'knex_migrations_lock',
@@ -141,6 +143,7 @@ async function verifyTable(
 async function verifyNoWebTriggers(
   database: BaselineDatabase,
   bundle: WebBaselineBundle,
+  forwardNames: string[] = [],
 ): Promise<void> {
   const triggers = await rows(
     database,
@@ -148,6 +151,7 @@ async function verifyNoWebTriggers(
   );
   const webNames = new Set([
     ...bundle.tables.map(({ name }) => name),
+    ...forwardNames,
     PROVENANCE_TABLE,
     'knex_migrations',
     'knex_migrations_lock',
@@ -181,8 +185,8 @@ export async function readWebMigrationLedger(
     if (installedTableSha256(lockDDL) !== LOCK_SHAPES[product])
       throw new WebBaselineError('unexpected_migration_lock_shape');
   }
-  const ledger = (await rows(database, 'SELECT name FROM knex_migrations ORDER BY name')).map(
-    (row) => String(row.name),
+  const ledger = (await rows(database, 'SELECT name FROM knex_migrations ORDER BY id')).map((row) =>
+    String(row.name),
   );
   if (new Set(ledger).size !== ledger.length)
     throw new WebBaselineError('duplicate_migration_ledger_names');
@@ -272,14 +276,53 @@ function checkedBundle(): WebBaselineBundle {
   return bundle;
 }
 
+async function verifyWebSchema(
+  database: BaselineDatabase,
+  bundle: WebBaselineBundle,
+  ledger: readonly string[],
+  directory?: string,
+): Promise<void> {
+  const forward = loadWebForwardSchemas(bundle, directory);
+  const expected = new Map<string, (typeof bundle.tables)[number]['installedSha256'] | null>(
+    bundle.tables.map((table) => [table.name, table.installedSha256]),
+  );
+  for (const { tables } of forward)
+    for (const name of Object.keys(tables)) if (!expected.has(name)) expected.set(name, null);
+  for (const name of ledger) {
+    const state = forward.find((migration) => migration.name === name);
+    if (state)
+      for (const [table, shape] of Object.entries(state.tables)) expected.set(table, shape);
+  }
+  await verifyNoWebTriggers(database, bundle, [...expected.keys()]);
+  const product = await family(database);
+  const present = new Set(await objectNames(database));
+  for (const [name, shape] of expected) {
+    if (
+      shape === null
+        ? present.has(name)
+        : !present.has(name) ||
+          installedTableSha256(await createTable(database, name)) !== shape[product]
+    )
+      throw new WebBaselineError(`schema_drift_${name}`);
+  }
+}
+
 /** Returns coverage only for an installed and reverified fresh baseline. Existing history stays visible. */
 export async function verifiedWebBaselineCoverage(
   database: BaselineDatabase,
   availableNames?: readonly string[],
+  migrationsDirectory?: string,
 ): Promise<Set<string>> {
   const bundle = checkedBundle();
   await verifyNoWebTriggers(database, bundle);
-  const ledger = new Set(await readWebMigrationLedger(database, availableNames));
+  const applied = await readWebMigrationLedger(
+    database,
+    availableNames ??
+      (migrationsDirectory
+        ? fs.readdirSync(migrationsDirectory).filter((name) => name.endsWith('.ts'))
+        : undefined),
+  );
+  const ledger = new Set(applied);
   const provenance = await readProvenance(database, bundle);
   if (!provenance) {
     if ((await objectNames(database)).includes(PROVENANCE_TABLE))
@@ -294,8 +337,7 @@ export async function verifiedWebBaselineCoverage(
     provenance.journal.completed.length !== bundle.tables.length
   )
     throw new WebBaselineError('installation_incomplete');
-  const product = await family(database);
-  for (const table of bundle.tables) await verifyTable(database, table, product);
+  await verifyWebSchema(database, bundle, applied, migrationsDirectory);
   if (provenance.state === 'adopted') {
     if (bundle.manifest.historicalMigrations.some(({ name }) => !ledger.has(name)))
       throw new WebBaselineError('adopted_history_missing');
@@ -346,9 +388,30 @@ export async function runWebBaseline(
       return;
     }
     if (action === 'teardown') {
-      if (!provenance) throw new WebBaselineError('missing_provenance');
-      if (provenance.state === 'adopted' || ledger.length > 0)
+      if (provenance?.state === 'adopted' || ledger.length > 0)
         throw new WebBaselineError('teardown_of_adopted_or_migrated_store');
+      const names = new Set(await objectNames(database));
+      const forwardNames = loadWebForwardSchemas(bundle).flatMap(({ tables }) =>
+        Object.keys(tables),
+      );
+      if (!provenance) {
+        // A lost acknowledgement for the final autocommitted DROP leaves no
+        // journal. An entirely absent web store needs no destructive retry.
+        if (
+          names.has(PROVENANCE_TABLE) ||
+          [...bundle.tables.map(({ name }) => name), ...forwardNames].some((name) =>
+            names.has(name),
+          )
+        )
+          throw new WebBaselineError('missing_provenance');
+        return;
+      }
+      if (
+        forwardNames.some(
+          (name) => names.has(name) && !bundle.tables.some((table) => table.name === name),
+        )
+      )
+        throw new WebBaselineError('teardown_unowned_object');
       await removeBaseline(database, bundle, provenance, product);
       await verifyMudTarget(database, bundle, expectedMudSha256);
       return;
@@ -362,7 +425,7 @@ export async function runWebBaseline(
       if (provenance) throw new WebBaselineError('installation_in_progress');
       if (bundle.manifest.historicalMigrations.some(({ name }) => !ledger.includes(name)))
         throw new WebBaselineError('existing_history_incomplete');
-      for (const table of bundle.tables) await verifyTable(database, table, product);
+      await verifyWebSchema(database, bundle, ledger);
       provenance = {
         state: 'adopted',
         mudSchemaSha256: expectedMudSha256,
@@ -375,7 +438,11 @@ export async function runWebBaseline(
         ...(provenance?.journal.completed ?? []),
         ...(provenance?.journal.pending ? [provenance.journal.pending] : []),
       ]);
-      if (bundle.tables.some(({ name }) => existing.has(name) && !allowed.has(name)))
+      const webNames = [
+        ...bundle.tables.map(({ name }) => name),
+        ...loadWebForwardSchemas(bundle).flatMap(({ tables }) => Object.keys(tables)),
+      ];
+      if (webNames.some((name) => existing.has(name) && !allowed.has(name)))
         throw new WebBaselineError('unrecorded_existing_web_schema');
       provenance ??= {
         state: 'installing',

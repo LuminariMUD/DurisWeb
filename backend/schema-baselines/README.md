@@ -92,6 +92,21 @@ validation. Later migrations execute and roll back through the ordinary Knex
 path; no historical rows are fabricated or cleared. Production preflight uses
 the same coverage proof and still requires all feature-readiness checks.
 
+Every post-cutoff `NAME.ts` must include a reviewed `NAME.schema.json` beside
+it, containing `sha256` of the migration bytes and a `tables` object. Each
+created or altered web table maps to its complete normalized `SHOW CREATE TABLE`
+hashes, `{ "mysql8": "<sha256>", "mariadb11": "<sha256>" }`, after `up` on
+the corresponding database family. A dropped table maps to `null`; a data-only
+migration uses `{}`. Rehearse `up` and `down` on both families before recording
+these shapes. Include every affected table, including changes to referencing
+tables. Game tables and baseline/Knex metadata cannot be declared web-owned.
+Do not edit the baseline manifest to record forward states: its hash identifies
+existing installations. Missing/stale contracts and changed migration bytes
+fail validation. Verification composes the baseline with contracts in actual
+applied-ledger order, so repeated `latest`, rollback, status and preflight check
+the installed forward state while still rejecting unrelated drift. Rolling back
+restores the preceding expected state; new web objects must then be absent.
+
 For a matching existing schema and complete historical ledger, replace
 `bootstrap` with `adopt`. Adoption does not seed, replace user rows, alter schema,
 or rewrite the ledger; it records adoption separately. Legacy collation/shape
@@ -106,6 +121,11 @@ subsequently migrated stores, user data, changed seeds, and drifted objects.
 Deletion progress is journaled for safe retry. It never calls historical downs,
 drops game objects, or automatically restores deleted data. Existing Knex metadata
 is retained; a production restore requires the separately authorized procedure.
+If the final provenance-table drop committed but its acknowledgement was lost,
+retrying teardown succeeds only when provenance and all declared web objects are
+absent, the applied ledger is empty, and the approved external schema still
+matches. This confirms an already absent store without deleting anything; a
+partially present store without provenance is refused.
 
 ## Verification boundary
 

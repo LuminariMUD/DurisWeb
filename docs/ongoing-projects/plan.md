@@ -45,7 +45,7 @@ outside this request. Keep this single evolving execution plan current.
   needed. Redis sanitization is required because command errors include cache
   keys containing IPs. Provider responses require type validation so malformed
   successes cannot escape the documented null-on-failure contract.
-- **Owner input:** Max (Moshe), `zusuk@duris.sbs`, supplied as the owner/contact.
+- **Owner input:** Max (Moshe) supplied the owner/contact details in the planning session.
   Retention periods, public controller wording, external-provider commitments,
   and one-time logout have not yet been approved. Continue independent work;
   ask only when a consequential decision is essential, in plain language, with

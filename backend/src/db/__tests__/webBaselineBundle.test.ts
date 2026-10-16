@@ -8,6 +8,7 @@ import type { RowDataPacket } from 'mysql2/promise';
 import {
   type BaselineManifest,
   installedTableSha256,
+  loadWebForwardSchemas,
   loadWebBaselineBundle,
   sha256,
   verifyWebBaselineSources,
@@ -63,6 +64,10 @@ describe('immutable website schema inputs', () => {
       path.join(migrations, '20261017000000_future_change.ts'),
       '// future migration',
     );
+    fs.writeFileSync(
+      path.join(migrations, '20261017000000_future_change.schema.json'),
+      JSON.stringify({ sha256: sha256('// future migration'), tables: {} }),
+    );
     expect(() => verifyWebBaselineSources(loadWebBaselineBundle(), migrations)).not.toThrow();
     fs.writeFileSync(
       path.join(migrations, '20261001000000_unknown_history.ts'),
@@ -71,6 +76,35 @@ describe('immutable website schema inputs', () => {
     expect(() => verifyWebBaselineSources(loadWebBaselineBundle(), migrations)).toThrow(
       /coverage mismatch/,
     );
+  });
+
+  it('requires forward contracts to pin the migration bytes and web ownership', () => {
+    const { directory } = copyBundle();
+    const source = '20261017000000_future_change.ts';
+    const contract = path.join(directory, source.replace('.ts', '.schema.json'));
+    fs.writeFileSync(path.join(directory, source), '// future migration');
+    const bundle = loadWebBaselineBundle();
+    expect(() => loadWebForwardSchemas(bundle, directory)).toThrow(/ENOENT/);
+    const save = (tables: unknown, digest = sha256('// future migration')) =>
+      fs.writeFileSync(contract, JSON.stringify({ sha256: digest, tables }));
+    save({}, 'a'.repeat(64));
+    expect(() => loadWebForwardSchemas(bundle, directory)).toThrow(/source checksum/);
+    for (const table of [
+      'accounts',
+      'server_reboots',
+      'web_schema_baselines',
+      'knex_migrations',
+      'knex_migrations_lock',
+    ]) {
+      save({ [table]: null });
+      expect(() => loadWebForwardSchemas(bundle, directory)).toThrow(/ownership/);
+    }
+    save({ web_sessions: { mysql8: 'a'.repeat(64) } });
+    expect(() => loadWebForwardSchemas(bundle, directory)).toThrow(/shape/);
+    save({ web_sessions: { mysql8: 'a'.repeat(64), mariadb11: 'b'.repeat(64) }, web_new: null });
+    expect(loadWebForwardSchemas(bundle, directory)[0].tables.web_new).toBeNull();
+    fs.writeFileSync(path.join(directory, '20261018000000_stale.schema.json'), '{}');
+    expect(() => loadWebForwardSchemas(bundle, directory)).toThrow(/unexpected forward/);
   });
 
   it('rejects altered source checksums, including excluded historical SQL', () => {
