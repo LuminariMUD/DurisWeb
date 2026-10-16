@@ -3,6 +3,104 @@
 Tracking issue: [#31 — Fix remaining PvP log correctness gaps](https://github.com/LuminariMUD/DurisWeb/issues/31).
 Notification delivery/polling work also overlaps [#30](https://github.com/LuminariMUD/DurisWeb/issues/30).
 
+## Implementation handoff — issue #30 (2026-10-16)
+
+The audit below is retained as dated evidence, not a description of current
+source. Commit `194f2e3` on `master` repairs the #31 implementation findings;
+#31 is closed. Issue #30 remains open for durable Discord delivery. Current
+implementation baseline: `e2aba2fad3e1026afa2c8efea089f59ac248f1a6`.
+
+**Outcome:** discover every eligible battle without count queries, keep Discord
+progress independent of WebSocket/push, persist pending and confirmed delivery,
+retry transient/rate-limit failures, recover after restart, and expose actionable
+operator status. Preserve delay/privacy, manual posts, test messages, browser
+notifications, and frag polling.
+
+**Non-goals:** production deployment, enabling automatic posts, real Discord
+messages/gameplay, MUD changes, historical snapshot reconstruction, or a general
+notification framework. No release tag is warranted before a release exists.
+
+**Files:** the existing Discord/PvP polling/services and their tests; one new
+reversible website-owned migration and a delivery service for persistence;
+existing admin routes, API client, and Web Settings view for status/retry; this
+handoff and the permanent API/configuration guides. No new dependency or broker.
+
+**Proof:** mocked HTTP outcomes; existing serial poll tests; isolated MariaDB
+tests for discovery, delay boundaries/changes, concurrency, durable state,
+restart and crash windows; permission/route and mounted admin UI tests; both
+packages' required format/lint/type checks, applicable builds and MUD-write
+verification. Tests must prove delivery through the worker/API, not only helpers.
+
+### Focused PR sequence and current status
+
+1. **Transport outcomes** — branch `branch/issue-30-discord-transport`.
+   Structured confirmed/retry/failed outcomes, sanitized event-linked errors,
+   rate-limit deadlines, destination pinning, stable nonce support, and overlap
+   prevention. Implemented and validated; PR publication follows this commit.
+2. **Durable delivery and discovery** — stack on chunk 1. Persist first-enable
+   boundaries, pending/retry/delivered state and destination ownership; replace
+   fire-and-forget Discord dispatch with an independent bounded worker. Avoid
+   using public list count queries for event discovery. Not started.
+3. **Operator status and acceptance** — stack on chunk 2. Show last automatic
+   success, pending/failed/uncertain work and sanitized errors, with an authorized
+   retry action. Complete lifecycle tests, documentation, release draft and
+   requirement-by-requirement audit. Not started.
+
+### Lifecycle policy to implement and prove
+
+- First activation of a destination establishes a durable existing-event ID
+  boundary. Earlier events, including currently embargoed ones, are not
+  automatically backfilled; operators can post specific visible battles manually.
+- After activation, pausing stops automatic sends but retains pending work and
+  discovers new work. Resuming drains that backlog in bounded batches, always
+  rechecking the current privacy delay. Restart preserves the same boundary.
+- A new configured channel establishes its own boundary. Existing queued work
+  stays with its original channel; it is never silently sent to a replacement.
+  Switching back resumes that channel's retained state.
+- A successful manual post satisfies automatic delivery for that event and
+  destination; later explicit manual posts remain intentional reposts. Manual
+  and automatic attempts must share the same concurrency boundary.
+- Transient failures remain pending with capped exponential backoff; Discord's
+  requested rate-limit wait is a lower bound. Authentication/permission/channel
+  failures pause the destination until explicit operator retry; invalid-event
+  payload failures remain visible without blocking unrelated battles.
+- A delivery attempt uses a persisted nonce. Discord only checks nonce uniqueness
+  for the past few minutes, with no durable exactly-once guarantee. Timeouts,
+  lost success responses and a crash after send/before persistence are uncertain
+  outcomes. Recovery retains that uncertainty and may duplicate a post when
+  retrying outside Discord's deduplication window; confirmed persisted successes
+  are never automatically retried. No silent success or discarded pending work.
+
+Transport references: [Discord message creation](https://docs.discord.com/developers/resources/message#create-message)
+and [rate limits](https://docs.discord.com/developers/topics/rate-limits).
+
+### Chunk 1 verification
+
+- `pnpm --dir backend test --runInBand src/services/__tests__/discordService.test.ts src/services/__tests__/pvpPolling.test.ts`: 29 passed.
+- `pnpm --dir backend format:check`, `lint`, `type-check`, and `build`: passed.
+- `git diff --check`: passed.
+- The first test run exposed a fixed-value test clock; the clock now advances
+  with the fixture, and the exact rate-limit deadline passes. No application
+  behavior was weakened to accommodate the fixture.
+- No database/schema change, frontend change, shared-service operation, or real
+  Discord request occurs in this chunk. Full backend/database/frontend suites
+  and live delivery were not run. The existing scheduler still lacks durable
+  retries until chunk 2; structured transport results alone do not close #30.
+
+### Release news draft (unpublished)
+
+Admin entry, title **Reliable PvP Discord announcements**:
+`<p>Automatic PvP announcements retain pending battles across website restarts
+and retry temporary Discord failures while respecting the battle visibility
+delay.</p><p>Web Settings shows delivery progress and problems requiring attention.
+Pausing retains a backlog; a new channel starts with future battles. Manual posts
+remain available. An interrupted delivery can occasionally be duplicated when
+retried.</p>`
+
+This describes the full intended release, not chunk 1 alone. Reconcile the final
+claims and existing Website Changelog entries after an authorized deployment;
+publish only once that exact release is verified live. No live entry was changed.
+
 ## Verdict
 
 **New combat logs are reaching the live website correctly, but the feature does

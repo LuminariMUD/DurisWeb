@@ -169,6 +169,8 @@ is needed: the website sends embeds through Discord's authenticated REST API.
 The token is server-only and never enters frontend configuration or settings.
 Restart the website backend after changing these environment values.
 
+See [Discord delivery](discord-delivery.md) for transport outcomes and recovery limits.
+
 The historical `discord_webhook_enabled` key still controls automatic battle
 posts, avoiding a settings migration. Manual PvP posts and the admin **Send test
 message** action work independently of that toggle. The old `discord_webhook_url`
