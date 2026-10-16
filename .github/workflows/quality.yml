@@ -91,3 +91,8 @@ jobs:
         if: matrix.package == 'backend'
         working-directory: ${{ matrix.package }}
         run: pnpm verify:mud-writes
+
+      - name: Verify website schema baseline inputs
+        if: matrix.package == 'backend'
+        working-directory: backend
+        run: pnpm schema:check

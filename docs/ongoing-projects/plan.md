@@ -45,7 +45,7 @@ outside this request. Keep this single evolving execution plan current.
   needed. Redis sanitization is required because command errors include cache
   keys containing IPs. Provider responses require type validation so malformed
   successes cannot escape the documented null-on-failure contract.
-- **Owner input:** Max (Moshe), `zusuk@duris.sbs`, supplied as the owner/contact.
+- **Owner input:** The owner and contact were supplied in the planning session.
   Retention periods, public controller wording, external-provider commitments,
   and one-time logout have not yet been approved. Continue independent work;
   ask only when a consequential decision is essential, in plain language, with
@@ -90,7 +90,7 @@ outside this request. Keep this single evolving execution plan current.
   Historical replay is derivation evidence only, never the supported bootstrap.
   One manifest supplies checksums, ownership and covered names to both the CLI
   and migration/preflight paths; do not add an alternate legacy bootstrap.
-- **P2a inputs:** 76 explicit website tables, 126 nonsecret seed rows, 85 pinned
+- **P2a inputs:** 77 explicit website tables, 126 nonsecret seed rows, 85 pinned
   historical TypeScript migrations, all 14 legacy SQL artifacts checksummed
   (12 schema sources; MUD accounts DDL and one-off emoji repair excluded).
   `server_reboots` is MUD-owned despite its absence from the old required-table
@@ -285,6 +285,58 @@ outside this request. Keep this single evolving execution plan current.
   full local/remote/PR head matched, ahead/behind was `0 0`, and the worktree
   was clean. #14's engineering acceptance is complete across this stack;
   review/merge and P8 production acceptance remain separate.
+- **PR #37 review repairs:** all six findings were validated and addressed.
+  Reuse the ownership fingerprint helper, separate the sequence/timestamp
+  coverage cutoffs, reject noncanonical foreign-key syntax, retain actionable
+  CLI errors without JSON input excerpts, run `schema:check` in backend CI,
+  and define the active routes' missing `builder_settings` table without
+  seeding account data. No installer, service, dependency, or new configuration
+  surface was needed. The finalized bundle now includes 77 tables.
+- **Review proof:** the new regressions reproduced eight failures before the
+  fixes. `TEST_BASELINE_DB_PORTS=23336,23337 pnpm --dir backend test --runInBand
+  src/db/__tests__/webBaselineBundle.test.ts
+  src/scripts/__tests__/mudWriteAllowlist.test.ts` passes 43 tests, including
+  all 77 installed hashes, unchanged external sentinels and builder-settings
+  insert/update/account isolation on MySQL 8.0.46 and MariaDB 11.8.9. Backend
+  format/lint/type-check/build/schema and MUD-write gates pass. Local workflow
+  coverage also passes frontend format/lint/type-check/palette checks and the
+  configuration literal guard. The latter exposed an existing deployment
+  address in this plan, repaired in its own commit. Full application suites,
+  frontend build/browser, bootstrap/adoption and production checks were not
+  required or run for these input-verifier repairs. No public news is needed.
+- **Stack decision:** current master `fa7127e` is already an ancestor; retain
+  PR #36 as the dependency and PR #38 as the child. PR #38 integrated the updated
+  parent at `2ed1a28`, preserving both review histories. No tag, squash, merge to master, deployment,
+  shared database migration, or MUD operation is part of this review closeout.
+- **PR #38 review closeout:** both findings reproduced and repaired. New forward
+  migrations carry checksummed per-family schema contracts; the shared verifier
+  composes applied states in ledger order, preserving rollback and rejecting
+  unrelated drift. The immutable baseline and historical migration bytes are
+  unchanged by these repairs. A fully absent web store is a safe teardown retry
+  only with an empty ledger and the approved external-schema identity; orphaned
+  web objects and incorrect identities still fail closed.
+- **Reachable CLI repair:** the full isolated rehearsal exposed Knex discarding
+  the custom source when `migrations.directory` was also supplied. Remove that
+  conflicting option. Regression tests invoke the actual operator CLI and
+  `migrate:latest` twice, rollback and status without replaying historical files
+  or inventing ledger rows. The parent ownership fingerprint helper moved into
+  the existing shared reader to preserve the noncircular dependency boundary.
+- **Final local proof:** Node 26.11.1 / pnpm 12.10.1; dedicated disposable ports
+  24336 (MySQL 8.0.46), 24337 (MariaDB 11.8.9), and 24379 (Redis). The five
+  focused suites pass 100 tests, including multi-migration state transitions,
+  add/drop states, drift refusal and fresh-connection teardown retries before
+  and after the final DDL acknowledgement. The full backend suite passes all
+  114 suites / 1,126 tests against a fresh source-derived schema and synthetic
+  account/character data. Backend format/lint/types/build/schema/MUD-write,
+  frontend workflow format/lint/types/palette, configuration literals, and
+  whitespace checks pass. Earlier fixture collision and empty-account failures
+  were isolated fixture issues, corrected before this final run.
+- **Limits and news:** frontend unit/build/browser and production acceptance
+  were not needed or run for these backend operator changes. The full approved
+  owner-schema/restored-environment qualification and feature-readiness work
+  remain P2c obligations; #14 stays open. No shared/production database, MUD
+  process, provider, deployment, or public changelog operation occurred. There
+  is no reader-visible website change requiring a Website Changelog entry.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and

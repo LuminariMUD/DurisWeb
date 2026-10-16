@@ -13,7 +13,12 @@ import {
   runWebBaseline,
   verifiedWebBaselineCoverage,
 } from '../webBaseline.js';
-import { loadWebBaselineBundle, sha256, webBaselineDirectory } from '../webBaselineBundle.js';
+import {
+  installedTableSha256,
+  loadWebBaselineBundle,
+  sha256,
+  webBaselineDirectory,
+} from '../webBaselineBundle.js';
 
 const bundle = loadWebBaselineBundle();
 const ports = (process.env.TEST_BASELINE_DB_PORTS ?? '').split(',').filter(Boolean).map(Number);
@@ -245,44 +250,128 @@ for (const port of ports) {
           const [ledger] = await database.query('SELECT name FROM knex_migrations');
           expect(ledger).toEqual([]);
           expect((await verifiedWebBaselineCoverage(database)).size).toBe(85);
+          for (const command of [
+            'migrate:latest',
+            'migrate:latest',
+            'migrate:rollback',
+            'migrate:status',
+          ]) {
+            const migrated = spawnSync('pnpm', ['--dir', 'backend', command], {
+              cwd: path.resolve(webBaselineDirectory(), '../../..'),
+              env: environment,
+              encoding: 'utf8',
+              timeout: 45000,
+            });
+            expect({ command, status: migrated.status, stderr: migrated.stderr }).toMatchObject({
+              status: 0,
+            });
+            expect(migrated.stdout + migrated.stderr).not.toContain('resets migrationSource');
+            expect(migrated.stdout + migrated.stderr).not.toContain(password);
+          }
+          const [ledger] = await database.query('SELECT name FROM knex_migrations');
+          expect(ledger).toEqual([]);
         } finally {
           if (userCreated) await database.query('DROP USER ?@?', [user, '%']);
         }
       });
     }, 60000);
 
-    it('runs real Knex forward/down/forward without inventing historical ledger rows', async () => {
+    it('verifies altered baseline tables through real Knex forward/down/forward and rejects unrelated drift', async () => {
       await fixture(port, async (database, expected, name) => {
         await runWebBaseline(database, 'bootstrap', expected);
         const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-forward-migration-'));
         const backendRoot = path.resolve(webBaselineDirectory(), '../..');
         try {
           fs.cpSync(path.join(backendRoot, 'migrations'), directory, { recursive: true });
-          fs.writeFileSync(
-            path.join(directory, '20261017000000_synthetic_forward.ts'),
-            `
+          const migrationName = '20261017000000_synthetic_forward.ts';
+          const migration = `
             import type { Knex } from 'knex';
-            export async function up(knex:Knex):Promise<void>{await knex.schema.createTable('web_synthetic_forward',table=>{table.integer('id').primary();});}
-            export async function down(knex:Knex):Promise<void>{await knex.schema.dropTable('web_synthetic_forward');}
-          `,
+            export async function up(knex:Knex):Promise<void>{await knex.raw('ALTER TABLE web_sessions ADD COLUMN forward_value INT');await knex.raw('CREATE TABLE web_synthetic_forward (id INT PRIMARY KEY) ENGINE=InnoDB');}
+            export async function down(knex:Knex):Promise<void>{await knex.raw('DROP TABLE web_synthetic_forward');await knex.raw('ALTER TABLE web_sessions DROP COLUMN forward_value');}
+          `;
+          fs.writeFileSync(path.join(directory, migrationName), migration);
+          await database.query('ALTER TABLE web_sessions ADD COLUMN forward_value INT');
+          const [ddl] = await database.query<RowDataPacket[]>('SHOW CREATE TABLE web_sessions');
+          const [version] = await database.query<RowDataPacket[]>('SELECT VERSION() AS version');
+          const product = String(version[0].version).includes('MariaDB') ? 'mariadb11' : 'mysql8';
+          const shape = {
+            ...bundle.tables.find(({ name }) => name === 'web_sessions')!.installedSha256,
+          };
+          shape[product] = installedTableSha256(String(ddl[0]['Create Table']));
+          await database.query(
+            'CREATE TABLE web_synthetic_forward (id INT PRIMARY KEY) ENGINE=InnoDB',
+          );
+          const [newDDL] = await database.query<RowDataPacket[]>(
+            'SHOW CREATE TABLE web_synthetic_forward',
+          );
+          const addedShape = { mysql8: 'a'.repeat(64), mariadb11: 'a'.repeat(64) };
+          addedShape[product] = installedTableSha256(String(newDDL[0]['Create Table']));
+          await database.query('ALTER TABLE web_sessions MODIFY forward_value BIGINT');
+          const [secondDDL] = await database.query<RowDataPacket[]>(
+            'SHOW CREATE TABLE web_sessions',
+          );
+          const secondShape = {
+            ...shape,
+            [product]: installedTableSha256(String(secondDDL[0]['Create Table'])),
+          };
+          await database.query('DROP TABLE web_synthetic_forward');
+          await database.query('ALTER TABLE web_sessions DROP COLUMN forward_value');
+          fs.writeFileSync(
+            path.join(directory, migrationName.replace('.ts', '.schema.json')),
+            JSON.stringify({
+              sha256: sha256(migration),
+              tables: { web_sessions: shape, web_synthetic_forward: addedShape },
+            }),
+          );
+          const secondName = '20261018000000_synthetic_forward.ts';
+          const secondMigration = `
+            import type { Knex } from 'knex';
+            export async function up(knex:Knex):Promise<void>{await knex.raw('ALTER TABLE web_sessions MODIFY forward_value BIGINT');await knex.raw('DROP TABLE web_synthetic_forward');}
+            export async function down(knex:Knex):Promise<void>{await knex.raw('CREATE TABLE web_synthetic_forward (id INT PRIMARY KEY) ENGINE=InnoDB');await knex.raw('ALTER TABLE web_sessions MODIFY forward_value INT');}
+          `;
+          fs.writeFileSync(path.join(directory, secondName), secondMigration);
+          fs.writeFileSync(
+            path.join(directory, secondName.replace('.ts', '.schema.json')),
+            JSON.stringify({
+              sha256: sha256(secondMigration),
+              tables: { web_sessions: secondShape, web_synthetic_forward: null },
+            }),
           );
           const script = `
             import {createRequire} from 'node:module';
             import {pathToFileURL} from 'node:url';
+            import fs from 'node:fs';
             const [root,port,database,directory]=process.argv.slice(1);
             const require=createRequire(root+'/package.json');
             const {WebMigrationSource}=await import(pathToFileURL(root+'/src/db/webMigrationSource.ts').href);
+            const {verifiedWebBaselineCoverage}=await import(pathToFileURL(root+'/src/db/webBaseline.ts').href);
             const connection={host:'127.0.0.1',port:Number(port),user:'root',password:'',database};
             const source=new WebMigrationSource(connection,directory);
             const knex=require('knex')({client:'mysql2',connection,pool:{min:0,max:1},migrations:{migrationSource:source}});
+            const probe=await require('mysql2/promise').createConnection(connection);
+            const available=fs.readdirSync(directory).filter(name=>name.endsWith('.ts'));
             try{
-              for(const action of ['latest','rollback','latest']) await knex.migrate[action]();
+              for(const action of ['latest','latest','rollback','latest']) {
+                await knex.migrate[action]();
+                if((await verifiedWebBaselineCoverage(probe,available,directory)).size!==85) throw new Error('coverage lost');
+              }
+              await knex.migrate.down();
+              if((await verifiedWebBaselineCoverage(probe,available,directory)).size!==85) throw new Error('preceding forward state lost');
+              await knex.migrate.up();
+              await probe.query('ALTER TABLE web_sessions ADD COLUMN unexpected INT');
+              try {
+                await source.getMigrations();
+                throw new Error('unrelated drift was accepted');
+              } catch(error) {
+                if(!error.message.includes('schema_drift_web_sessions')) throw error;
+              } finally {await probe.query('ALTER TABLE web_sessions DROP COLUMN unexpected');}
               const applied=await knex('knex_migrations').select('name');
-              if(applied.length!==1||applied[0].name!=='20261017000000_synthetic_forward.ts') throw new Error('historical ledger was fabricated');
+              if(applied.length!==2||applied[0].name!=='20261017000000_synthetic_forward.ts'||applied[1].name!=='20261018000000_synthetic_forward.ts') throw new Error('historical ledger was fabricated');
+              await knex.migrate.rollback();
               await knex.migrate.rollback();
               if((await knex('knex_migrations').select('name')).length!==0) throw new Error('rollback left fake history');
               console.log('Native Knex forward/down/forward verified; no historical ledger rows.');
-            }finally{await knex.destroy();}
+            }finally{await probe.end();await knex.destroy();}
           `;
           const result = spawnSync(
             process.execPath,
@@ -310,6 +399,52 @@ for (const port of ports) {
         }
       });
     }, 60000);
+
+    it.each(['before', 'after'])(
+      'retries teardown from a fresh connection when the final DROP fails %s commit',
+      async (timing) => {
+        await fixture(port, async (database, expected, name) => {
+          await runWebBaseline(database, 'bootstrap', expected);
+          const interrupted: BaselineDatabase = {
+            query: async (sql, bindings) => {
+              if (sql === 'DROP TABLE web_schema_baselines' && timing === 'before')
+                throw new Error('synthetic final DROP failure');
+              const result = await database.query(sql, bindings);
+              if (sql === 'DROP TABLE web_schema_baselines' && timing === 'after')
+                throw new Error('synthetic final DROP failure');
+              return result;
+            },
+          };
+          await expect(runWebBaseline(interrupted, 'teardown', expected)).rejects.toThrow(
+            /final DROP/,
+          );
+          const fresh = await mysql.createConnection({
+            host: '127.0.0.1',
+            port,
+            user: 'root',
+            database: name,
+          });
+          try {
+            await runWebBaseline(fresh, 'teardown', expected);
+            await runWebBaseline(fresh, 'teardown', expected);
+            const [objects] = await fresh.query<RowDataPacket[]>(
+              "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='web_schema_baselines'",
+            );
+            expect(objects).toEqual([]);
+            await expect(runWebBaseline(fresh, 'teardown', '0'.repeat(64))).rejects.toThrow(
+              /mud_schema_identity/,
+            );
+            await fresh.query(bundle.tables[0].sql);
+            await expect(runWebBaseline(fresh, 'teardown', expected)).rejects.toThrow(
+              /missing_provenance/,
+            );
+          } finally {
+            await fresh.end();
+          }
+        });
+      },
+      60000,
+    );
 
     it('installs, verifies, repeats without replacing user rows, refuses destructive teardown and then removes only its own empty/default stores', async () => {
       await fixture(port, async (database, expected) => {

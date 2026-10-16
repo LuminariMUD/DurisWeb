@@ -9,7 +9,7 @@
   "additionalMudOwnedTables": [
     "server_reboots"
   ],
-  "schemaSha256": "39a7ca9a7e7a30e4714514d1233bb51ab95e4e195d5a460a7e65a62129fc9b39",
+  "schemaSha256": "850722b559220aa55d5e0ec7e2ddec758cad4fa2d11247c1f8f0cc57c5fa6db3",
   "seedsSha256": "9a4104bec437409f6c8ff64284cddefb7c875e924345182f4e9df9c98f05126c",
   "historicalMigrations": [
     {
@@ -520,6 +520,14 @@
       "installedSha256": {
         "mysql8": "60267a6e5d346b828eb9ae41a1a11e45a738251d5dfb1548475156cf408dd834",
         "mariadb11": "ab75376338f1ab12d8e436581a866433e501abffc00a3a3f3da4501671ff892b"
+      }
+    },
+    {
+      "name": "builder_settings",
+      "sha256": "0d8f7705551c06d265d8c80d23e9018891f5bc4873f9a72a916b6cae9715d9e3",
+      "installedSha256": {
+        "mysql8": "2da1ff5c04e2dccb397c9ee463dbef885a8b5d860d5c4620de6f1a968721f9f4",
+        "mariadb11": "efd10ae8048d85ef13d819a7152393af221b846f3ea4b41976de8ed8ab0abba0"
       }
     },
     {

@@ -1,7 +1,7 @@
 # Website schema baselines
 
 `2026-10-16/` contains the explicit website schema at migration cutoff
-`20261016160000_pvp_discord_audit_columns.ts`. It defines 76 website-owned
+`20261016160000_pvp_discord_audit_columns.ts`. It defines 77 website-owned
 tables, their foreign-key creation order, and 126 nonsecret default rows.
 It is source-owned schema, not a production dump or historical migration replay.
 Treat a finalized version as immutable; later changes belong in new forward
@@ -11,7 +11,10 @@ Run `pnpm --dir backend schema:check` from the repository root. This command
 needs no runtime environment or database connection. It verifies the schema,
 seed, per-table, historical TypeScript, and classified SQL checksums, checks
 foreign-key creation order and ownership, and refuses unexpected historical
-files. Later migration names remain outside this baseline's coverage.
+files. Sequence and timestamp names have separate cutoffs, derived from the
+pinned historical names (`048_` and `20261016160000_` respectively). Later names
+in either series remain outside this baseline's coverage. The backend quality
+job runs this command, and failures identify the source file or violated invariant.
 The command does not install a schema, mark historical migrations applied,
 change Knex discovery, or certify an existing database.
 
@@ -22,6 +25,10 @@ change Knex discovery, or certify an existing database.
   key points into the game schema. `server_reboots` is explicitly excluded:
   the MUD's immutable migration 0004 owns it, although it is absent from the
   older copied baseline's required-table list.
+  Foreign-key references must use the canonical `REFERENCES \`table\` (`
+  syntax. Other casing, quoting, qualification, or comments are rejected rather
+  than partially parsed. The copied MUD ownership list is fingerprinted before
+  any ownership decision.
 - `seeds.json`: source-defined permission/role definitions and relationships,
   forum/web/wiki settings, continent reference definitions, and the stopped/
   unknown process singleton. No account permissions, account assignments,
@@ -43,6 +50,12 @@ account-character collation migration has no website effect and was omitted.
 Hook seed derivation imported the same registry directly to avoid the public
 barrel's runtime clients. These derivation accommodations are not an installer
 or a rehearsal against an approved MUD schema.
+
+The active builder settings routes also require `builder_settings`, which had
+no historical schema source. Its definition is derived from their read/upsert
+contract: account name, setting key/value, timestamps, and a unique account/key
+pair. No account preferences are seeded. Both native database tests exercise
+inserts, repeated updates, account isolation, and its installed-shape hash.
 
 Every web text column/table uses the documented `utf8mb4_unicode_ci` collation,
 making defaults explicit across both database families. A legacy table still
@@ -93,6 +106,21 @@ validation. Later migrations execute and roll back through the ordinary Knex
 path; no historical rows are fabricated or cleared. Production preflight uses
 the same coverage proof and still requires all feature-readiness checks.
 
+Every post-cutoff `NAME.ts` must include a reviewed `NAME.schema.json` beside
+it, containing `sha256` of the migration bytes and a `tables` object. Each
+created or altered web table maps to its complete normalized `SHOW CREATE TABLE`
+hashes, `{ "mysql8": "<sha256>", "mariadb11": "<sha256>" }`, after `up` on
+the corresponding database family. A dropped table maps to `null`; a data-only
+migration uses `{}`. Rehearse `up` and `down` on both families before recording
+these shapes. Include every affected table, including changes to referencing
+tables. Game tables and baseline/Knex metadata cannot be declared web-owned.
+Do not edit the baseline manifest to record forward states: its hash identifies
+existing installations. Missing/stale contracts and changed migration bytes
+fail validation. Verification composes the baseline with contracts in actual
+applied-ledger order, so repeated `latest`, rollback, status and preflight check
+the installed forward state while still rejecting unrelated drift. Rolling back
+restores the preceding expected state; new web objects must then be absent.
+
 For a matching existing schema and complete historical ledger, replace
 `bootstrap` with `adopt`. Adoption does not seed, replace user rows, alter schema,
 or rewrite the ledger; it records adoption separately. Legacy collation/shape
@@ -107,11 +135,17 @@ subsequently migrated stores, user data, changed seeds, and drifted objects.
 Deletion progress is journaled for safe retry. It never calls historical downs,
 drops game objects, or automatically restores deleted data. Existing Knex metadata
 is retained; a production restore requires the separately authorized procedure.
+If the final provenance-table drop committed but its acknowledgement was lost,
+retrying teardown succeeds only when provenance and all declared web objects are
+absent, the applied ledger is empty, and the approved external schema still
+matches. This confirms an already absent store without deleting anything; a
+partially present store without provenance is refused.
 
 ## Verification boundary
 
 `webBaselineBundle.test.ts` covers altered artifacts/sources, unknown ownership,
-duplicate objects, forbidden account assignments, and the database-free CLI.
+duplicate objects, forbidden account assignments, both forward migration naming
+series, strict foreign-key syntax, and actionable database-free CLI failures.
 To opt into DDL/seed checks on **new disposable loopback servers**, use:
 
 ```bash

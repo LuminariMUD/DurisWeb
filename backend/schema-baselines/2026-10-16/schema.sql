@@ -196,6 +196,18 @@ CREATE TABLE `builder_proc_requests` (
   KEY `idx_proc_requested_by` (`requested_by`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Table: builder_settings
+CREATE TABLE `builder_settings` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `account_name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `setting_key` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `setting_value` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `builder_settings_account_name_setting_key_unique` (`account_name`,`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Table: builder_zone_comments
 CREATE TABLE `builder_zone_comments` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,

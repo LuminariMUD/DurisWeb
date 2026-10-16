@@ -19,9 +19,9 @@ export function checkWebBaseline(): void {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     checkWebBaseline();
-  } catch {
+  } catch (error) {
     console.error(
-      'Website baseline input verification failed; inspect the versioned artifacts and historical sources.',
+      `Website baseline input verification failed: ${error instanceof Error ? error.message : 'unknown error'}`,
     );
     process.exitCode = 1;
   }
