@@ -10,14 +10,14 @@ const SITE_URL = getBackendConfiguration().siteUrl;
 // rate limiting
 let lastPostTime = 0;
 const MIN_POST_INTERVAL = 500;
-let sending = false;
+let sendQueue = Promise.resolve();
 let rateLimitedUntil = 0;
 
 export type DiscordDeliveryResult =
   | { status: 'delivered'; messageId: string }
   | {
       status: 'retry';
-      code: 'busy' | 'rate_limited' | 'server_error' | 'network_error' | 'invalid_response';
+      code: 'rate_limited' | 'server_error' | 'network_error' | 'invalid_response';
       retryAfterMs: number;
       ambiguous: boolean;
     }
@@ -155,28 +155,32 @@ async function sendDiscordPayload(
   payload: DiscordPayload,
   identity?: DiscordDeliveryIdentity,
 ): Promise<DiscordDeliveryResult> {
-  const bot = getBackendConfiguration().discordBot;
-  if (!bot) return { status: 'failed', code: 'not_configured' };
-  if (identity && identity.channelId !== bot.channelId) {
-    return { status: 'failed', code: 'destination_changed' };
-  }
-  if (identity && !/^[a-zA-Z0-9_-]{1,25}$/.test(identity.nonce)) {
-    return { status: 'failed', code: 'invalid_payload' };
-  }
-  if (sending) {
-    return { status: 'retry', code: 'busy', retryAfterMs: MIN_POST_INTERVAL, ambiguous: false };
-  }
-  if (rateLimitedUntil > Date.now()) {
-    return {
-      status: 'retry',
-      code: 'rate_limited',
-      retryAfterMs: rateLimitedUntil - Date.now(),
-      ambiguous: false,
-    };
-  }
-
-  sending = true;
+  // Reserve a turn before waiting so concurrent manual/test posts cannot make
+  // the release poller consume an automatic battle without attempting delivery.
+  const previous = sendQueue;
+  let release!: () => void;
+  sendQueue = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await previous;
   try {
+    const bot = getBackendConfiguration().discordBot;
+    if (!bot) return { status: 'failed', code: 'not_configured' };
+    if (identity && identity.channelId !== bot.channelId) {
+      return { status: 'failed', code: 'destination_changed' };
+    }
+    if (identity && !/^[a-zA-Z0-9_-]{1,25}$/.test(identity.nonce)) {
+      return { status: 'failed', code: 'invalid_payload' };
+    }
+    if (rateLimitedUntil > Date.now()) {
+      return {
+        status: 'retry',
+        code: 'rate_limited',
+        retryAfterMs: rateLimitedUntil - Date.now(),
+        ambiguous: false,
+      };
+    }
+
     const elapsed = Date.now() - lastPostTime;
     if (elapsed < MIN_POST_INTERVAL) await sleep(MIN_POST_INTERVAL - elapsed);
     lastPostTime = Date.now();
@@ -238,7 +242,7 @@ async function sendDiscordPayload(
   } catch {
     return { status: 'retry', code: 'network_error', retryAfterMs: 30_000, ambiguous: true };
   } finally {
-    sending = false;
+    release();
   }
 }
 

@@ -8,7 +8,9 @@ the message. Logs identify the battle and a fixed error code, never response
 content or credentials.
 
 Requests respect Discord's retry headers/body and stop further local sends until
-that deadline. A slow request prevents another request from overlapping it.
+that deadline. Concurrent calls wait their turn, so a slow manual/test request
+cannot discard an automatic battle as busy. The queue advances after failures,
+and checks configuration and rate-limit deadlines again when each turn starts.
 Manual posts and test messages retain their existing success/error response.
 
 Queued callers can pin a channel and provide a persisted nonce; a changed channel
@@ -21,9 +23,12 @@ and [rate-limit contract](https://docs.discord.com/developers/topics/rate-limits
 
 ## Durable scheduling and lifecycle
 
-Apply migration `20261016150000_pvp_discord_delivery.ts` before starting the new
-backend. It creates two website-owned tables and does not mutate MUD records.
-Its `down` removes delivery state; rolling it back loses deduplication receipts
+Apply migrations `20261016150000_pvp_discord_delivery.ts` and
+`20261016160000_pvp_discord_audit_columns.ts` before starting the new backend.
+They create two website-owned tables with standard IDs and timestamps, without
+mutating MUD records. The audit-column migration preserves existing receipts and
+keys; its `down` removes only the added metadata columns. The original migration's
+`down` removes delivery state; rolling it back loses deduplication receipts
 and activation boundaries, so preserve those tables before an intentional rollback.
 Do not run the whole historical migration chain against an empty MUD database.
 
@@ -52,13 +57,16 @@ the public API. Already-sent messages cannot be retracted by raising the delay.
 - **Retries:** transient failures use exponential backoff from 30 seconds to one
   hour. A Discord rate-limit deadline can extend that wait. Failures delay the
   destination as well as the event, preventing a burst of failures across the
-  queue. Authentication/permission/missing-channel failures block the destination;
+  queue. Authentication/permission/missing-channel and unclassified HTTP failures
+  block the destination;
   invalid payloads fail that event and allow unrelated battles to continue.
 
 A database advisory lock serializes workers, manual posts, and auto-post toggle
 changes across processes sharing a database. A toggle change during an active
 send returns a busy error; retry it after that attempt finishes. Polls never
-overlap the current owner. Delivery state is committed before the HTTP request;
+overlap the current owner. Delivery results and destination backoff/block state
+commit in one transaction, so a database failure cannot save only half the policy.
+Delivery state is committed before the HTTP request;
 an interrupted `sending` row waits at least 30 seconds before uncertain recovery.
 An accepted request whose receipt cannot be saved is retried with the same nonce
 and marked uncertain. This is **at-least-once recovery**, not exactly-once

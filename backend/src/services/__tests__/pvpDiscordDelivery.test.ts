@@ -10,6 +10,12 @@ const { up, down } = (await import(migrationPath)) as {
   up: (db: Knex) => Promise<void>;
   down: (db: Knex) => Promise<void>;
 };
+const auditMigration = (await import(
+  resolve('migrations/20261016160000_pvp_discord_audit_columns.ts')
+)) as {
+  up: (db: Knex) => Promise<void>;
+  down: (db: Knex) => Promise<void>;
+};
 
 let database: Pool;
 let migrationDb: Knex;
@@ -53,6 +59,7 @@ isolated('durable Discord delivery on a disposable database', () => {
       'CREATE TABLE web_settings(setting_key VARCHAR(64) PRIMARY KEY, setting_value TEXT, updated_by VARCHAR(64), updated_at DATETIME)',
     );
     await up(migrationDb);
+    await auditMigration.up(migrationDb);
   });
   afterAll(async () => {
     if (database) {
@@ -63,6 +70,7 @@ isolated('durable Discord delivery on a disposable database', () => {
   });
   beforeEach(async () => {
     await database.query('DROP TRIGGER IF EXISTS fail_delivery_receipt');
+    await database.query('DROP TRIGGER IF EXISTS fail_destination_state');
     for (const table of [
       'web_pvp_discord_deliveries',
       'web_pvp_discord_destinations',
@@ -100,10 +108,41 @@ isolated('durable Discord delivery on a disposable database', () => {
 
   it('reverses and reapplies its migration without modifying MUD tables', async () => {
     await event(1);
+    await auditMigration.down(migrationDb);
     await down(migrationDb);
     expect(await rows('SELECT id FROM pkill_event')).toEqual([{ id: 1 }]);
     await up(migrationDb);
+    await auditMigration.up(migrationDb);
     expect(await rows()).toEqual([]);
+  });
+
+  it('upgrades existing receipts with unique row IDs and destination timestamps reversibly', async () => {
+    await auditMigration.down(migrationDb);
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await event(1);
+    await service.pollDiscordDeliveries();
+    const [receipt] = await rows();
+    const [destination] = await rows('SELECT * FROM web_pvp_discord_destinations');
+    await auditMigration.up(migrationDb);
+    expect((await rows())[0]).toMatchObject({ ...receipt, id: expect.any(Number) });
+    expect((await rows('SELECT * FROM web_pvp_discord_destinations'))[0]).toMatchObject({
+      ...destination,
+      id: expect.any(Number),
+      created_at: destination.activated_at,
+      updated_at: destination.activated_at,
+    });
+    await database.query("UPDATE web_pvp_discord_destinations SET updated_at = '2000-01-01'");
+    await event(2);
+    send.mockResolvedValueOnce({ status: 'failed', code: 'forbidden' });
+    await service.pollDiscordDeliveries();
+    expect((await rows('SELECT * FROM web_pvp_discord_destinations'))[0].updated_at).not.toContain(
+      '2000-01-01',
+    );
+    const receipts = await rows();
+    expect(new Set(receipts.map((row) => row.id)).size).toBe(2);
+    await auditMigration.down(migrationDb);
+    expect((await rows())[0]).toEqual(receipt);
+    await auditMigration.up(migrationDb);
   });
 
   it('starts at first enable without historical flooding and drains more than one tied-timestamp batch', async () => {
@@ -206,7 +245,7 @@ isolated('durable Discord delivery on a disposable database', () => {
     },
   );
 
-  it.each(['unauthorized', 'forbidden', 'not_found'] as const)(
+  it.each(['unauthorized', 'forbidden', 'not_found', 'http_error'] as const)(
     'blocks the destination on %s without a rapid per-event retry loop',
     async (code) => {
       await service.setDiscordAutoPosting(true, 'fixture');
@@ -221,6 +260,36 @@ isolated('durable Discord delivery on a disposable database', () => {
         code,
       );
       expect((await rows())[0].status).toBe('failed');
+      expect((await rows())[1].status).toBe('pending');
+    },
+  );
+
+  it.each(['retry', 'failed'] as const)(
+    'rolls back the %s event result when its destination policy cannot be saved',
+    async (status) => {
+      await service.setDiscordAutoPosting(true, 'fixture');
+      await event(1);
+      await event(2);
+      send.mockResolvedValueOnce(
+        status === 'retry'
+          ? { status, code: 'network_error', retryAfterMs: 30_000, ambiguous: true }
+          : { status, code: 'forbidden' },
+      );
+      await database.query(`CREATE TRIGGER fail_destination_state BEFORE UPDATE ON web_pvp_discord_destinations
+        FOR EACH ROW BEGIN IF NEW.blocked_reason IS NOT NULL OR NEW.available_at > OLD.available_at
+        THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fixture destination failure'; END IF; END`);
+      await expect(service.pollDiscordDeliveries()).rejects.toThrow('fixture destination failure');
+      expect((await rows()).map((row) => row.status)).toEqual(['sending', 'pending']);
+      expect((await rows())[0]).toMatchObject({ error_code: null, attempts: 1 });
+      expect(
+        (await rows('SELECT * FROM web_pvp_discord_destinations'))[0].blocked_reason,
+      ).toBeNull();
+      await database.query('DROP TRIGGER fail_destination_state');
+      await makeReady();
+      await service.pollDiscordDeliveries();
+      expect(send.mock.calls.map(([id]) => id)).toEqual([1, 1, 2]);
+      expect(send.mock.calls[1][4]).toEqual(send.mock.calls[0][4]);
+      expect((await rows())[0]).toMatchObject({ status: 'delivered', ambiguous: 1 });
     },
   );
 
