@@ -31,7 +31,6 @@ import {
  */
 export async function getPvPEvents(
   filters: EventFilters,
-  after?: PvpCursor,
 ): Promise<{ events: PvPEventListItem[]; total: number }> {
   const page = Math.max(1, filters.page || 1);
   const limit = Math.min(100, Math.max(1, filters.limit || 50));
@@ -48,14 +47,6 @@ export async function getPvPEvents(
 
   whereConditions.push(pvpVisibilitySql());
   queryParams.push(pvpDelayMinutes);
-
-  if (after) {
-    const epoch = new Date(after.stamp).getTime() / 1000;
-    whereConditions.push(
-      '(e.stamp > FROM_UNIXTIME(?) OR (e.stamp = FROM_UNIXTIME(?) AND e.id > ?))',
-    );
-    queryParams.push(epoch, epoch, after.id);
-  }
 
   // Apply filters
   if (filters.player) {
@@ -197,13 +188,27 @@ export async function getPvPEvents(
   const [countRows] = await pool.query<RowDataPacket[]>(countQuery, queryParams);
   const total = countRows[0].total;
 
-  // Determine sort order
-  const orderBy = after
-    ? 'e.stamp ASC, e.id ASC'
-    : filters.sort_by === 'likes'
+  const orderBy =
+    filters.sort_by === 'likes'
       ? 'e.like_count DESC, e.stamp DESC, e.id DESC'
       : 'e.stamp DESC, e.id DESC';
+  return {
+    events: await readEventSummaries(whereClause, queryParams, orderBy, limit, offset),
+    total,
+  };
+}
 
+/** Shared projection without the public pagination count query. */
+async function readEventSummaries(
+  whereClause: string,
+  queryParams: (string | number)[],
+  orderBy:
+    | 'e.stamp DESC, e.id DESC'
+    | 'e.stamp ASC, e.id ASC'
+    | 'e.like_count DESC, e.stamp DESC, e.id DESC',
+  limit: number,
+  offset = 0,
+): Promise<PvPEventListItem[]> {
   // Get paginated events
   const query = `
     SELECT
@@ -275,7 +280,7 @@ export async function getPvPEvents(
     comment_count: row.comment_count || 0,
   }));
 
-  return { events, total };
+  return events;
 }
 
 /**
@@ -730,22 +735,30 @@ export async function getPlayerAutocomplete(
   return Array.from(uniquePlayers.values());
 }
 
-/**
- * Get latest PvP events (for WebSocket polling)
- */
-export async function getLatestEvents(
-  limit: number,
-  _offset: number,
-): Promise<{ events: PvPEventListItem[]; total: number }> {
-  return getPvPEvents({ page: 1, limit, date_from: undefined, date_to: undefined });
+/** Startup cursor for live browser notifications; Discord uses durable delivery state. */
+export async function getLatestReleasedEvent(): Promise<PvPEventListItem | undefined> {
+  return (
+    await readEventSummaries(
+      `WHERE ${pvpVisibilitySql()}`,
+      [await getPvpDelayMinutes()],
+      'e.stamp DESC, e.id DESC',
+      1,
+    )
+  )[0];
 }
 
-/** Read every newly released event in a deterministic timestamp/ID order. */
+/** Read every newly released event without computing the full pagination count. */
 export async function getReleasedEventsAfter(
   cursor: PvpCursor,
   limit: number,
 ): Promise<PvPEventListItem[]> {
-  return (await getPvPEvents({ page: 1, limit }, cursor)).events;
+  const epoch = new Date(cursor.stamp).getTime() / 1000;
+  return readEventSummaries(
+    `WHERE ${pvpVisibilitySql()} AND (e.stamp > FROM_UNIXTIME(?) OR (e.stamp = FROM_UNIXTIME(?) AND e.id > ?))`,
+    [await getPvpDelayMinutes(), epoch, epoch, cursor.id],
+    'e.stamp ASC, e.id ASC',
+    Math.min(100, Math.max(1, limit)),
+  );
 }
 
 /**

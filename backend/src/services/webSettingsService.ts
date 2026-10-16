@@ -413,6 +413,13 @@ export async function updateWebSetting(
     }
   }
 
+  if (key === 'discord_webhook_enabled') {
+    const { setDiscordAutoPosting } = await import('./pvpDiscordDelivery.js');
+    await setDiscordAutoPosting(value === 'true', updatedBy);
+    settingsCache = null;
+    return;
+  }
+
   // Upsert setting (insert if not exists, update if exists)
   await db.query(
     `INSERT INTO web_settings (setting_key, setting_value, updated_by, updated_at)

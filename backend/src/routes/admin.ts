@@ -127,7 +127,12 @@ import {
   deletePlayerItems,
   deleteAllDupesForUid,
 } from '../services/dupeDetectionService.js';
-import { testDiscordBot, manualPostBattle } from '../services/discordService.js';
+import { testDiscordBot } from '../services/discordService.js';
+import {
+  manualPostBattle,
+  getDiscordDeliveryStatus,
+  retryFailedDiscordDeliveries,
+} from '../services/pvpDiscordDelivery.js';
 
 const router: IRouter = Router();
 
@@ -4531,6 +4536,43 @@ router.delete(
 // ============================================
 // Discord Integration
 // ============================================
+
+router.get(
+  '/discord/delivery',
+  requireAuth,
+  requirePermission('manage_front_page'),
+  async (_req: Request, res: Response) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json(await getDiscordDeliveryStatus());
+    } catch {
+      logger.error('[Discord] delivery_status_unavailable');
+      return res.status(503).json({ error: 'Discord delivery status is unavailable' });
+    }
+  },
+);
+
+router.post(
+  '/discord/delivery/retry',
+  requireAuth,
+  requirePermission('manage_front_page'),
+  async (_req: Request, res: Response) => {
+    try {
+      if (!(await retryFailedDiscordDeliveries())) {
+        return res
+          .status(409)
+          .json({ error: 'Discord is unconfigured or busy; refresh status and try again' });
+      }
+      logger.info('[Discord] operator requested retry of failed deliveries');
+      return res.json({ success: true });
+    } catch {
+      logger.error('[Discord] delivery_retry_unavailable');
+      return res
+        .status(503)
+        .json({ error: 'Unable to queue failed deliveries; refresh status before retrying' });
+    }
+  },
+);
 
 /**
  * POST /api/admin/discord/test

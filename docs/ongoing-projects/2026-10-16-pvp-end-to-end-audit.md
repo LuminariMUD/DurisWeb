@@ -3,6 +3,273 @@
 Tracking issue: [#31 — Fix remaining PvP log correctness gaps](https://github.com/LuminariMUD/DurisWeb/issues/31).
 Notification delivery/polling work also overlaps [#30](https://github.com/LuminariMUD/DurisWeb/issues/30).
 
+## Implementation handoff — issue #30 (2026-10-16)
+
+The audit below is retained as dated evidence, not a description of current
+source. Commit `194f2e3` on `master` repairs the #31 implementation findings;
+#31 is closed. Issue #30 remains open for durable Discord delivery. Current
+implementation baseline: `e2aba2fad3e1026afa2c8efea089f59ac248f1a6`.
+
+**Outcome:** discover every eligible battle without count queries, keep Discord
+progress independent of WebSocket/push, persist pending and confirmed delivery,
+retry transient/rate-limit failures, recover after restart, and expose actionable
+operator status. Preserve delay/privacy, manual posts, test messages, browser
+notifications, and frag polling.
+
+**Non-goals:** production deployment, enabling automatic posts, real Discord
+messages/gameplay, MUD changes, historical snapshot reconstruction, or a general
+notification framework. No release tag is warranted before a release exists.
+
+**Files:** the existing Discord/PvP polling/services and their tests; one new
+reversible website-owned migration and a delivery service for persistence;
+existing admin routes, API client, and Web Settings view for status/retry; this
+handoff and the permanent API/configuration guides. No new dependency or broker.
+
+**Proof:** mocked HTTP outcomes; existing serial poll tests; isolated MariaDB
+tests for discovery, delay boundaries/changes, concurrency, durable state,
+restart and crash windows; permission/route and mounted admin UI tests; both
+packages' required format/lint/type checks, applicable builds and MUD-write
+verification. Tests must prove delivery through the worker/API, not only helpers.
+
+### Focused PR sequence and current status
+
+1. **Transport outcomes** — branch `branch/issue-30-discord-transport`.
+   Structured confirmed/retry/failed outcomes, sanitized event-linked errors,
+   rate-limit deadlines, destination pinning, stable nonce support, and overlap
+   prevention. Published as [PR #32](https://github.com/LuminariMUD/DurisWeb/pull/32),
+   implementation commit `a39a1a0bdb0824a9397ac0d887de6dd84da5e8d1`;
+   head `3a33250` includes `master`'s added ablation skill (`ade01dd`).
+2. **Durable delivery and discovery** — stack on chunk 1. Persist first-enable
+   boundaries, pending/retry/delivered state and destination ownership; replace
+   fire-and-forget Discord dispatch with an independent bounded worker. Avoid
+   using public list count queries for event discovery. Implemented on
+   `branch/issue-30-durable-discord`; published as
+   [PR #33](https://github.com/LuminariMUD/DurisWeb/pull/33), based on PR #32.
+   Implementation commit `015df5d`, head `570256d` includes the parent update.
+3. **Operator status and acceptance** — stack on chunk 2. Show last automatic
+   success, pending/failed/uncertain work and sanitized errors, with an authorized
+   retry action. Complete lifecycle tests, documentation, release draft and
+   requirement-by-requirement audit. Implemented on `branch/issue-30-discord-status`;
+   SQL/route/UI and browser checks pass. Published as
+   [PR #34](https://github.com/LuminariMUD/DurisWeb/pull/34), head `dfed2f5`,
+   based on PR #33.
+4. **Large announcement bounds** — final review reproduced HTTP 400 for a
+   normal 15-participant battle because the original renderer exceeded Discord's
+   field limit. A separate focused fix on `branch/issue-30-discord-payload-bounds`
+   preserves all participant POV links across fields and bounds oversized
+   legacy content with an explicit full-roster link notice. Published as
+   [PR #35](https://github.com/LuminariMUD/DurisWeb/pull/35), implementation
+   commit `2fd452d06bd3a497751ea707139b8a6f1947cb1d`, stacked on PR #34.
+
+### Lifecycle policy to implement and prove
+
+- First activation of a destination establishes a durable existing-event ID
+  boundary. Earlier events, including currently embargoed ones, are not
+  automatically backfilled; operators can post specific visible battles manually.
+- After activation, pausing stops automatic sends but retains pending work and
+  discovers new work. Resuming drains that backlog in bounded batches, always
+  rechecking the current privacy delay. Restart preserves the same boundary.
+- A new configured channel establishes its own boundary. Existing queued work
+  stays with its original channel; it is never silently sent to a replacement.
+  Switching back resumes that channel's retained state.
+- A successful manual post satisfies automatic delivery for that event and
+  destination; later explicit manual posts remain intentional reposts. Manual
+  and automatic attempts must share the same concurrency boundary.
+- Transient failures remain pending with capped exponential backoff; Discord's
+  requested rate-limit wait is a lower bound. Authentication/permission/channel
+  failures pause the destination until explicit operator retry; invalid-event
+  payload failures remain visible without blocking unrelated battles.
+- A delivery attempt uses a persisted nonce. Discord only checks nonce uniqueness
+  for the past few minutes, with no durable exactly-once guarantee. Timeouts,
+  lost success responses and a crash after send/before persistence are uncertain
+  outcomes. Recovery retains that uncertainty and may duplicate a post when
+  retrying outside Discord's deduplication window; confirmed persisted successes
+  are never automatically retried. No silent success or discarded pending work.
+
+Transport references: [Discord message creation](https://docs.discord.com/developers/resources/message#create-message)
+and [rate limits](https://docs.discord.com/developers/topics/rate-limits).
+
+### Chunk 1 verification
+
+- `pnpm --dir backend test --runInBand src/services/__tests__/discordService.test.ts src/services/__tests__/pvpPolling.test.ts`: 29 passed.
+- `pnpm --dir backend format:check`, `lint`, `type-check`, and `build`: passed.
+- `git diff --check`: passed.
+- The first test run exposed a fixed-value test clock; the clock now advances
+  with the fixture, and the exact rate-limit deadline passes. No application
+  behavior was weakened to accommodate the fixture.
+- No database/schema change, frontend change, shared-service operation, or real
+  Discord request occurs in this chunk. Full backend/database/frontend suites
+  and live delivery were not run. The existing scheduler still lacks durable
+  retries until chunk 2; structured transport results alone do not close #30.
+
+### Release news draft (unpublished)
+
+Admin entry, title **Reliable PvP Discord announcements**:
+`<p>Automatic PvP announcements retain pending battles across website restarts
+and retry temporary Discord failures while respecting the battle visibility
+delay.</p><p>Web Settings shows consistent delivery progress, retained work for
+other channels, and problems requiring attention. Delegated website managers
+can open these controls from Admin.
+Pausing retains a backlog; a new channel starts with future battles. Manual posts
+remain available. An interrupted delivery can occasionally be duplicated when
+retried.</p><p>Large battle announcements keep participant links where they fit.
+When a participant's details or link cannot fit, a Full roster notice points
+readers to the complete battle record.</p>`
+
+This describes the full intended release, not chunk 1 alone. Reconcile the final
+claims and existing Website Changelog entries after an authorized deployment;
+publish only once that exact release is verified live. No live entry was changed.
+
+### Chunk 2 verification and continuation
+
+- `TEST_PVP_DB_PORT=34931 pnpm --dir backend test --runInBand src/services/__tests__/pvpDiscordDelivery.test.ts src/services/__tests__/discordService.test.ts src/services/__tests__/pvpPolling.test.ts src/services/__tests__/pvpService.test.ts src/routes/__tests__/adminAccountPermissionIdValidation.test.ts src/services/__tests__/webSettingsConfiguration.test.ts src/services/__tests__/productionReviewRegression.test.ts --silent`: **103 passed**, seven suites, including 17 durable-delivery SQL cases.
+- `pnpm --dir backend format:check`, `lint`, `type-check`,
+  `verify:mud-writes` (53 classified writes), and `build`: passed.
+- Both `up` and `down` of the actual new migration ran against disposable MariaDB
+  10.11.14 on port 34931; fixture schemas were removed by suite teardown. No
+  shared environment or MUD table was migrated.
+- The initial existing PvP calendar fixtures inherited the host timezone;
+  explicitly setting UTC **after** `changeUser` (which resets session variables)
+  corrected the fixture. All 35 existing PvP service cases now pass, including
+  the no-count polling assertion. Runtime timestamp interpretation is unchanged.
+- A database trigger simulated receipt persistence failing after a successful
+  send. The row remained `sending`; recovery waited its deadline, reused its
+  nonce, preserved uncertainty, and never retried the confirmed receipt again.
+- The migration is loaded dynamically in its SQL test, matching the separate
+  Knex migration runner and keeping migrations outside the application build's
+  `src` root. Production migrations, real Discord calls, full package suites,
+  frontend checks, and live acceptance were not run for this backend chunk.
+- Next: implement a permission-protected status/retry API and Web Settings UI;
+  cover retry authorization, failed/uncertain state, last automatic success,
+  paused backlog and channel history; finish acceptance and current Git audit.
+
+### Chunk 3 verification and continuation
+
+- Backend: the chunk 2 command plus
+  `src/routes/__tests__/pvpIdValidation.test.ts` passed **162 tests in eight suites**.
+  The SQL suite now includes 19 delivery cases, including status contents,
+  preserved automatic receipts after manual repost, and operator retry without
+  bypassing pause/cooldown. Route tests cover authenticated permission gates,
+  read-only uncached status, explicit retry, busy state, and sanitized 503 errors.
+- `pnpm --dir frontend test:unit --run`: **226 passed in 47 files**.
+  Six new mounted Web Settings tests cover blocked/paused status, links, retry,
+  unavailable/recovery, rejected toggle rollback, test-message compatibility,
+  and unauthorized entry. The six tests were rerun after adding keyboard focus
+  restoration to Refresh when the completed retry control disappears.
+- Both packages: format, lint, type checks and build passed. Also passed:
+  `pnpm --dir backend verify:mud-writes`, `./scripts/check-config-literals.sh`,
+  `./frontend/scripts/check-palette-literals.sh`, and `git diff --check`.
+  Frontend build used explicit local fixture URLs/ports, with no environment
+  file or production output changed.
+- Browser plugin not available. Existing Python Playwright 1.58 with cached
+  Chromium **153.0.8010.12** exercised the real application route
+  `http://127.0.0.1:5176/admin/web-settings`, with all API/Discord-facing data
+  intercepted as synthetic fixtures. The default Playwright browser revision
+  was absent; selecting an already-cached Chromium required no installation.
+- Verified page/title/content, no framework overlay, no runtime exceptions,
+  four viewport widths (390/768/1024/1440), no page/panel horizontal overflow,
+  Enter-to-retry once, pending-disabled state, focus restoration, refreshed
+  paused status, toggle rollback on busy, and unavailable-state recovery.
+  Inspected screenshots for mobile blocked, desktop retried, and unavailable
+  states. Screenshots and temporary harness remain outside Git under
+  `/tmp/durisweb-issue30-browser`; these are local fixture evidence, not live acceptance.
+- Browser console: only intentionally injected HTTP 400/503 failures plus the
+  existing Vue Router `next()` deprecation warning. The first harness run acted
+  before retry/status completion and encountered the expected availability
+  modal; waiting for the completed state and dismissing that modal corrected the
+  harness. No application assertion was weakened.
+- Final acceptance and focused code review are recorded below; all four PRs
+  were published, attached to the chat, and read back with the expected heads
+  and bases. Temporary Vite and MariaDB services were stopped and their ports
+  verified closed. Full backend suite, real account/session/Discord delivery, shared
+  migrations, production release and changelog publication remain unperformed.
+
+### Final implementation acceptance audit
+
+Checked against every #30 acceptance item, rather than treating the historical
+#31 closure or passing helper tests as completion:
+
+1. **All newly eligible events, ties, multiple batches:** actual SQL discovery
+   and worker tests deliver 104 new same-timestamp events across passes. The
+   missing-record query also finds a lower-ID event committed after a higher ID.
+2. **Privacy delay and changes:** SQL tests cover exact release, hidden fresh
+   events, zero delay, raised delay on queued work, and a change between sends.
+   Both manual and automatic attempts query the shared visibility predicate.
+3. **Bounded cadence and no overlap:** startup schedules Discord and existing
+   PvP/frag work on the positive 30-second constant. Real concurrent SQL workers,
+   manual sends and toggle changes cannot share the database lock. The HTTP
+   transport separately refuses overlapping sends.
+4. **Rate limits, server errors, timeouts:** mocked transport classifies the
+   response and honors fractional retry instructions; real SQL retains pending
+   work, deadlines, uncertainty and the same nonce through later worker calls.
+5. **Authentication/permission failures:** persistent failed/event and blocked/
+   destination state prevents repeated calls, with actionable UI text and an
+   explicit authorized retry action.
+6. **Restart/crash recovery:** discovery has no memory cursor; persisted receipts
+   prevent repeat automatic sends. Trigger-injected receipt failure leaves
+   `sending`, recovery waits the attempt deadline and retains ambiguity, then
+   reuses the same nonce. Exactly-once delivery is explicitly not promised.
+7. **Lifecycle/manual interaction:** SQL tests and the permanent guide cover
+   first enable, pause/resume, destination switch/back, manual success, intentional
+   manual repost and failed repost preserving a prior receipt. Operator retry
+   preserves pause and cooldown. No automatic historical backfill is introduced.
+8. **Existing consumers:** Discord dispatch is removed from browser publication
+   and owns a separate timer. WebSocket/push publication and frag polling retain
+   their calls and cadence; existing poller, PvP route/view and regression tests
+   pass. Manual/test transport and rendered controls retain their workflows.
+9. **Safe proof:** all Discord requests were mocked, persistence tests used the
+   disposable MariaDB, and browser APIs were intercepted as synthetic fixtures.
+   No real channel traffic is required or claimed.
+
+The additional payload regression failed against the prior renderer with
+`status: failed` under a mock enforcing Discord's published embed limits. After
+the repair, all 15 POV links survive and oversized legacy data remains within
+the title/field/count/6,000-character bounds with an explicit full-roster notice.
+`pnpm --dir backend test --runInBand src/services/__tests__/discordService.test.ts`
+passes 27 tests; combined with the isolated delivery suite, **46 passed**.
+Backend format/lint/type/build/whitespace checks were rerun for this final patch.
+Other unchanged checks retain the chunk 3 evidence above.
+
+All implementation acceptance is satisfied locally. The deliverable is the
+focused PR stack for review, not a production release. Merge in order from the
+bottom, retarget each dependent PR after its parent lands, and refresh current
+base/head before merging. No release tag was created. Deployment still requires
+both delivery migrations documented in [Discord delivery](../discord-delivery.md),
+environment/configuration checks, normal release acceptance,
+and publication/read-back of the prepared Website Changelog entry. Full backend
+suite, live account/session/channel tests, and physical-device/other-engine
+browser acceptance are not claimed.
+
+### Git and takeover state before review follow-up
+
+The commit identities and check counts below are the original handoff snapshot.
+The review follow-up comments on PRs #32–#35 record the repaired heads and fresh
+validation; refresh live refs before integration.
+
+- All four PRs are open and mergeable, ordered **#32 → #33 → #34 → #35**.
+  The first targets `master`; each later PR targets its predecessor's branch.
+- `master` advanced only by `ade01dd` (adding the requested ablation skill).
+  That commit was merged into the first branch and carried forward through the
+  stack without rewriting any published history. All four branches contain it.
+- Published heads inspected: #32 `3a332501f54cace7d8d5d8617d21f12cff20f228`,
+  #33 `570256d3974e30caa215428642c1515a5a7dfcf8`,
+  #34 `dfed2f5b50151b808fb537fc7cdfb276735bd10d`, and #35's implementation
+  commit above. This documentation-only closeout follows on #35's branch.
+- Source HEAD matched its remote with ahead/behind `0 0`, clean porcelain,
+  `git diff --check`, and verified ancestry through every stack edge before
+  this documentation-only closeout. Refresh these checks before merging.
+- GitHub backend/frontend quality checks succeeded on #32–#34; #35's backend
+  checks succeeded and frontend checks were still running at inspection.
+  Fresh local checks above are the validation evidence, independent of hosted CI.
+- Temporary service cleanup verified the MariaDB data directory was this task's
+  `/tmp/durisweb-issue30-db-01a144e7`, shut it down through its private socket,
+  verified the Vite PID belonged to this frontend, and stopped it. Ports 34931
+  and 5176 no longer listen. A terminated Vite process returns 143 as expected.
+- Next authorized work is review/integration of this stack. There is no unfinished
+  implementation chunk. If deployment is requested separately, use the migration
+  and recovery notes in [Discord delivery](../discord-delivery.md), the normal
+  deployment guide, and the unpublished release-news draft above.
+
 ## Verdict
 
 **New combat logs are reaching the live website correctly, but the feature does

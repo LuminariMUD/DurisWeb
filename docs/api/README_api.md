@@ -97,12 +97,17 @@ and unsupported sort/alignment values return 400. Battle timestamps in list,
 detail, favorites, statistics, and profile history are ISO 8601 instants with an
 explicit UTC offset, derived from the database's timestamp interpretation.
 
-PvP notifications poll every 30 seconds independently of the release delay.
+Browser PvP notifications poll every 30 seconds independently of the release delay.
 Serial batches use timestamp and ID ordering to deliver every newly eligible
 battle after the startup cursor, including tied timestamps. A restart begins
 at the newest visible battle and does not replay historical notifications.
 Notification links use `/pvp/:id`. Battle dialogs support keyboard focus and
 Escape dismissal through the shared dialog primitives.
+
+Discord has an independent persistent queue, retry deadlines, and destination
+boundaries; it does not inherit the browser startup cursor. See
+[Discord delivery](../discord-delivery.md) for pause/resume, manual posting,
+channel changes, required migration, and uncertain-delivery recovery.
 
 Comment counts include retained thread slots. Deleting a comment replaces its
 body with `[deleted]`, preserving its replies and its contribution to the count;
