@@ -120,6 +120,14 @@ entire migration preparation, shared matrix, and selected mode's fresh-build and
 again. Never edit a migration already recorded in a target ledger; add a new forward corrective
 migration and rehearse/apply it through the same mode workflow.
 
+## Stability soak
+
+In both modes, run one uninterrupted 10-minute (600-second) stability soak after the last runtime
+acceptance action, sampling at intervals no longer than 30 seconds. Keep the selected mode's health,
+process, artifact, and log checks active throughout. After a repair and repeated acceptance, start
+a new full soak. Record longer idle or reconnect boundaries as untested; do not automatically extend
+the soak to cover them. Longer observation is a separate targeted check when explicitly requested.
+
 ## Completion
 
 Finish only when the final source matrix, a fresh build, dependency checks, runtime acceptance,

@@ -206,8 +206,8 @@ burn-in.
 An enabled integration without a safe authorized probe is untested and makes the overall burn-in
 partial; do not disable production functionality merely to claim a clean result.
 
-Continue monitoring health, listeners, service properties, and logs for at least five minutes after
-the last acceptance action, sampling at intervals no longer than 30 seconds. Require zero unexpected
+Continue monitoring health, listeners, service properties, and logs for the
+[shared stability soak](../SKILL.md#stability-soak) after the last acceptance action. Require zero unexpected
 restart-count changes, out-of-scope PID/timestamp changes, asset identity drift, unhealthy samples,
 or new log findings throughout. Any failure restarts the repair loop; a restart that merely returns
 to green is not a clean pass. If a finding cannot be repaired safely, use the schema-compatibility

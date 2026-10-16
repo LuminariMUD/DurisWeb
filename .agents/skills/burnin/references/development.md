@@ -126,8 +126,8 @@ report that integration as untested and the overall burn-in as partial rather th
 claiming clean coverage.
 
 Monitor the process output, health, listener, and current application logs from a recorded boundary
-for at least five minutes and ten seconds after the last smoke action, polling at intervals no longer
-than 30 seconds. This must cross one five-minute health/guild scheduling cycle; verify any scheduled
+for the [shared stability soak](../SKILL.md#stability-soak) after the last smoke action.
+This must cross one five-minute health/guild scheduling cycle; verify any scheduled
 write stayed inside the disposable targets. On a finding, stop only this development session,
 repair it, and restart the full migration/shared/fresh-build/live sequence. On success, leave the
 stack running unless asked to stop it; state separately whether the local Compose dependencies

@@ -597,10 +597,13 @@ separate static origin must host pre-rendered `duris/maps/layer-<N>.png`
 objects there, or the background overlay fails while the data endpoints
 succeed.
 
-Hold the stability soak across the longest relevant idle and reconnect boundary.
-While DurisMUD #116 applies, exceed its 15-minute service-descriptor timeout and
-require no unexplained bridge drop/reconnect. Do not open another MUD WebSocket
-during that soak; use DurisWeb's structured bridge state and correlated logs.
+Run an uninterrupted 10-minute stability soak after the last acceptance action,
+sampling at intervals no longer than 30 seconds. Require no unexplained bridge
+drop/reconnect. Do not open another MUD WebSocket during that soak; use DurisWeb's
+structured bridge state and correlated logs. Record longer idle or reconnect
+boundaries, including the 15-minute service-descriptor timeout in DurisMUD #116,
+as untested by this window. Longer observation is a separate targeted check when
+explicitly requested, rather than an automatic extension of the release soak.
 
 Prove release identity by extracting a generated asset name from the staged
 build and requiring that exact asset (and expected size or digest) locally and
