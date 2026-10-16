@@ -2,11 +2,10 @@
 
 Status: **implementation in progress**. Updated 2026-10-16.
 
-Current checkpoint: engineering through P4, the UTC correction and the first P5
-collection closure are published for review (#39, #41–#45). The separate browser
-storage-denial repair is qualified and being published. Next is the remaining P5
-notice/choice implementation, then P6–P7. Policy/approval and live-release gates
-remain open; no production rollout is implied.
+Current checkpoint: engineering through P4, the UTC correction, first P5
+collection closure and browser storage-denial repair are published for review
+(#39, #41–#46). Next is the remaining P5 notice/choice implementation, then P6–P7.
+Policy/approval and live-release gates remain open; no production rollout is implied.
 
 Single working plan for [#7](https://github.com/LuminariMUD/DurisWeb/issues/7),
 [#8](https://github.com/LuminariMUD/DurisWeb/issues/8),
@@ -881,6 +880,27 @@ outside this request. Keep this single evolving execution plan current.
   acceptance. No historical analytics are deleted. No deployment/tag/public
   Changelog operation occurred. Additional future release wording: “Notification
   and website-update controls handle browsers that cannot save preferences.”
+
+- **Published storage repair:** [PR #46](https://github.com/LuminariMUD/DurisWeb/pull/46),
+  open/non-draft at code head `266058e`, stacked on #45 `069f7b5`. Exact local,
+  remote and PR heads match; clean checkout and ahead/behind `0 0` verified.
+  #45's description now links the separately proven browser repair. Keep all
+  focused PRs open for review, with normal ancestry preserved; no tag/merge
+  is justified. Preview is stopped after qualification. Private reproduction
+  logs and generators remain outside Git; the one-time writer-removal script
+  was removed after its source change was committed.
+- **Next continuation:** worktree `/tmp/durisweb-security-privacy-plan-20261016`,
+  branch `branch/browser-storage-preferences`. Start a dependent branch from its
+  published head. P5 is deliberately incomplete: the current source has no
+  optional writer, client identifier, consent cookie or analytics enable switch.
+  Inspect existing shell/router/mobile navigation and same-origin CSRF plumbing,
+  prepare a truthful versioned public-notice draft and concrete minimized policy
+  proposal, and implement the choice receipt/state machine without silently
+  approving provider transfers or retention periods. Acceptance/refusal/expiry/
+  withdrawal/cross-tab/in-flight ordering must precede any future reintroduction
+  of collection. Do not mark #10 complete for the temporary closure alone.
+  P6/P7 still need their complete engineering and approved lifecycle decisions;
+  production rollout remains outside this request.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
