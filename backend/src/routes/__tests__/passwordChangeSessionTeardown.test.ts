@@ -23,6 +23,7 @@ jest.unstable_mockModule('../../services/permissionService.js', () => ({
   getFullUserContext: jest.fn(),
 }));
 jest.unstable_mockModule('../../services/sessionService.js', () => ({
+  createWebSession: jest.fn(),
   hasActiveWebSession: jest.fn(),
   hasMatchingRefreshSession: jest.fn(),
   revokeAllWebSessions,

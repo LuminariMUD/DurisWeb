@@ -402,6 +402,70 @@ outside this request. Keep this single evolving execution plan current.
   acceptance is now complete again. Shared deployment/production acceptance
   remains outside this work. No new public news is required for the source-owned
   installation/adoption tooling; no release tag or live change was made.
+- **Current chunk: P3 / #7 + #8**, branch
+  `branch/issues-7-8-session-credentials`, based on #39 at `21b7ed0`.
+  **Outcome:** SHA-256 refresh credentials, database-epoch expiry, and one
+  coordinated, explicitly destructive offline session cutover with reversible
+  empty-session schema rollback. **Non-goals:** refresh rotation, changing the
+  seven-day lifetime, changing unrelated pool timezones, production logout or
+  deployment. **Files:** session service/credential boundary, auth route,
+  two new forward migrations, session-specific postconditions, preflight,
+  existing tests plus native transition/timezone/route regressions, and guides.
+  **Proof:** real login/refresh/access and database failure; both native engines;
+  app/database timezone matrix and DST epochs; expand/cutover/contract and empty
+  rollback/retry; exact owner metadata and unchanged pool safeguards.
+- **P3 ablation:** reuse Node crypto, Knex and the existing session service.
+  Two explicit migrations separate expansion from cutover/contraction. Each
+  atomic DDL statement must recognize only its exact before/after signatures.
+  The migration source may recognize an adjacent exact phase to recover an
+  ambiguous nontransactional DDL acknowledgement; normal verification/preflight
+  stays strict to the ledger phase and refuses pending migrations. This avoids
+  a new migration journal/service or public configuration flag. Historical
+  baseline signatures stay immutable; session-specific forward signatures are
+  versioned separately. New writers never read or store raw refresh JWTs.
+- **P3 resumed after integration:** based on #39 at `c01c81f`; the named stash
+  remains as a backup until publication. Its changes are restored and adapted
+  to the shared per-migration `information_schema_v1` contracts. Removed the
+  redundant separate session-contract JSON and checksum reader. Native
+  fault injection now uses the actual Knex client query boundary. HTTP fixtures
+  use scoped synthetic users, avoiding test defaults replacing an empty root
+  password. Ordinary baseline/preflight verification remains strict; recovery
+  is confined to exact adjacent session phases, with no unrelated forward
+  session change already applied. Both rollback directions require an empty
+  store after a recovered acknowledgement.
+- **P3 proved boundaries:** native cutover/rollback and actual HTTP checks pass
+  on MySQL 8.0.46 and MariaDB 11.8.9. Each engine covers three database defaults
+  (`+00:00`, `+03:00`, `-07:00`), three application zones (`UTC`,
+  `Asia/Jerusalem`, `America/Los_Angeles`) and eight DST-adjacent epochs: **144
+  date/zone cases**. Signed, still-valid JWTs fail HTTP access and refresh at
+  equality and 60 seconds after database expiry. Wrong digest/token/account/SID,
+  deleted rows, nullable legacy fields and digest replay fail; new expanded
+  writes are digest-only. Every DDL direction recovers a lost acknowledgement;
+  rollback leaves an empty exact prior schema. A transaction-scoped corrupted
+  ledger is refused and rolled back without fabricating any historical record.
+  Owner-published metadata remains exact. Evidence:
+  `/tmp/durisweb-p3-native-cutover.log` (three tests).
+- **P3 export boundary:** ordinary backup downloads previously dumped every
+  shared-database session row. The backup writer now streams ordinary data plus
+  session DDL only, using structured process arguments and a private output
+  file; neither password arguments nor shell interpolation are needed. Both
+  engines prove restored ordinary rows survive and session rows are absent,
+  including a separate-MUD target without a session table. Source backup
+  filenames/archives and old historical backups were not operated on. Evidence:
+  `/tmp/durisweb-p3-backup-snapshot.log` (two tests). Existing pool sampling now
+  observes minimum clock skew over 60 seconds with bounded round-trip/precision
+  handling; it never changes safeguards or clocks.
+- **P3 maintenance proof:** `schema:sessions --target` runs the actual writer
+  with a random non-JWT and generated nonexistent account name, checks the
+  digest/epoch lifetime and deletes its exact transient row. Native tests prove
+  target refusal and expanded-schema success. This supplies the planned
+  pre-contraction write checkpoint without an HTTP maintenance server, MUD
+  account writes, new configuration, credential fallback, or extra service.
+  The release guide retains stopped/drained writers and the pending one-time
+  logout approval. Website Changelog draft for the eventual verified release:
+  **Safer website sign-ins** — “We strengthened website sign-in security. You
+  will be asked to sign in again after this update.” No publication is authorized
+  or claimed here; no new owner question is needed during engineering.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and

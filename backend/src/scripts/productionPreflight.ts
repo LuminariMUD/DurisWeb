@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { verifiedWebBaselineCoverage } from '../db/webBaseline.js';
 import { loadSchemaPostconditions } from '../db/schemaPostconditions.js';
+import { loadSessionSchemaContract } from '../db/webSessionSchema.js';
 import { loadWebBaselineBundle, verifyWebBaselineSources } from '../db/webBaselineBundle.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -154,6 +155,7 @@ export function loadPreflightConfiguration(): PreflightConfiguration {
   try {
     verifyWebBaselineSources(loadWebBaselineBundle(), migrationDirectory());
     loadSchemaPostconditions();
+    loadSessionSchemaContract();
   } catch {
     throw new ConfigurationError(['versioned website baseline inputs failed verification']);
   }
@@ -267,16 +269,23 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
     }
 
     const [sessionRows] = await database.query<RowDataPacket[]>(
-      `SELECT CHARACTER_MAXIMUM_LENGTH
+      `SELECT COLUMN_NAME
          FROM information_schema.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'web_sessions'
-          AND COLUMN_NAME = 'refresh_token'`,
+          AND (
+            (COLUMN_NAME='refresh_token_digest' AND COLUMN_TYPE='binary(32)' AND IS_NULLABLE='NO')
+            OR (COLUMN_NAME='expires_at_epoch' AND DATA_TYPE='bigint' AND COLUMN_TYPE LIKE '%unsigned%' AND IS_NULLABLE='NO')
+            OR COLUMN_NAME IN ('refresh_token','expires_at')
+          )`,
     );
-    if (sessionRows.length !== 1 || Number(sessionRows[0].CHARACTER_MAXIMUM_LENGTH) < 512) {
-      throw new ConfigurationError([
-        'web_sessions.refresh_token must hold at least 512 characters',
-      ]);
+    const sessionColumns = new Set(sessionRows.map(({ COLUMN_NAME }) => String(COLUMN_NAME)));
+    if (
+      sessionColumns.size !== 2 ||
+      !sessionColumns.has('refresh_token_digest') ||
+      !sessionColumns.has('expires_at_epoch')
+    ) {
+      throw new ConfigurationError(['web_sessions requires the completed digest/epoch cutover']);
     }
 
     // Direct auction writes are only safe against the current MUD contract:

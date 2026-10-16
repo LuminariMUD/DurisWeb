@@ -14,6 +14,7 @@ import {
   resolveSafeUploadedBackupPath,
 } from '../utils/safeBackupPath.js';
 import { getBackendConfiguration } from '../config/environment.js';
+import { writeDatabaseBackupDump } from './databaseBackupDump.js';
 
 const execAsync = promisify(exec);
 
@@ -460,13 +461,7 @@ async function runBackup(
       filename,
     });
 
-    const {
-      database: dbName,
-      user: dbUser,
-      password: dbPassword,
-      host: dbHost,
-      port: dbPort,
-    } = environment.mudDatabase.connection;
+    const { database: dbName } = environment.mudDatabase.connection;
 
     // skip views entirely: they can reference tables dropped by past migrations,
     // which makes mysqldump fail with "references invalid table(s)". our restore
@@ -474,21 +469,20 @@ async function runBackup(
     // dumping views adds fragility without value. migrations are the source of
     // truth for views.
     const [viewRows] = await mudPool.execute<RowDataPacket[]>(
-      `SELECT TABLE_NAME FROM information_schema.tables
-       WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'VIEW'`,
+      `SELECT TABLE_NAME,TABLE_TYPE FROM information_schema.tables
+       WHERE TABLE_SCHEMA = ? AND (TABLE_TYPE = 'VIEW' OR TABLE_NAME = 'web_sessions')`,
       [dbName],
     );
-    const ignoreFlags = (viewRows as { TABLE_NAME: string }[])
-      .map((r) => `--ignore-table=${dbName}.${r.TABLE_NAME}`)
-      .join(' ');
-
-    // --single-transaction: innodb-consistent snapshot without LOCK TABLES
-    // (avoids needing the LOCK TABLES privilege).
-    // --no-tablespaces: skip tablespace metadata dump
-    // (avoids needing the PROCESS privilege, required by default in mysql 8.0+).
-    await execAsync(
-      `mysqldump --single-transaction --no-tablespaces ${ignoreFlags} -h ${dbHost} -P ${dbPort} -u ${dbUser} -p'${dbPassword}' ${dbName} > "${tempSqlPath}"`,
-      { maxBuffer: 100 * 1024 * 1024 },
+    await writeDatabaseBackupDump(
+      environment.mudDatabase.connection,
+      tempSqlPath,
+      viewRows
+        .filter(({ TABLE_TYPE }) => TABLE_TYPE === 'VIEW')
+        .map(({ TABLE_NAME }) => String(TABLE_NAME)),
+      viewRows.some(
+        ({ TABLE_NAME, TABLE_TYPE }) =>
+          TABLE_NAME === 'web_sessions' && TABLE_TYPE === 'BASE TABLE',
+      ),
     );
 
     await updateBackupStatus(backupId, 'in_progress', 40, 'Database dump complete');

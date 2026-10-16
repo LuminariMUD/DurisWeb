@@ -103,6 +103,22 @@ focus or open the site. Deploy the frontend worker and backend VAPID
 configuration together; rotating the VAPID key pair requires users to create
 new subscriptions.
 
+## Session time and credential contract
+
+Session creation uses database `UNIX_TIMESTAMP()+604800`; access and refresh
+require `expires_at_epoch > UNIX_TIMESTAMP()`. The database owns the unchanged
+seven-day lifetime. Thirty-day JWT/cookie validity does not extend it. Refresh
+JWTs are stored only as exact-byte SHA-256 digests in `BINARY(32)`; missing
+credentials and incomplete legacy rows never become access-only refresh checks.
+
+Application and database timezones may differ. No new timezone setting, Date
+serialization policy, SQL-mode relaxation, or raw-token fallback is needed.
+Clocks must still be synchronized: existing five-minute pool sampling warns
+when the minimum observed skew exceeds 60 seconds, accounting for round-trip
+latency and SQL second precision. It does not alter either clock or pool state.
+The [session cutover procedure](../backend/schema-baselines/README.md#session-credential-cutover)
+requires an approved one-time website logout and empty-session rollback.
+
 ## Unsafe mutation gates
 
 The following settings are not normal feature flags. They expose legacy write

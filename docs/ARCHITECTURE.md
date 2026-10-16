@@ -142,6 +142,9 @@ retain the server's effective SQL mode, isolation level, time zone, and foreign
 key setting. The comparison ignores only mysql2's parser-only `IGNORE_SPACE`
 session addition. Empty or otherwise weakened modes fail startup. A periodic,
 non-overlapping sample logs drift detected after startup.
+The same probe reads the database epoch and warns if the minimum observed clock
+skew exceeds 60 seconds, accounting for the query round trip and SQL second
+precision. This adds telemetry without changing clocks or pool safeguards.
 
 The PvP interaction compatibility path temporarily relaxes SQL mode for the
 legacy MUD timestamp default. It captures and restores the exact prior value in
@@ -267,9 +270,12 @@ See [ADR 0001](adr/0001-hook-control-ownership-and-state.md) and the
 - Authentication uses HTTP-only JWT cookies bound to a live `web_sessions`
   record. Authorization combines game level/role and granular admin
   permissions.
+- Refresh credentials are exact-byte SHA-256 digests; session expiry uses the
+  database epoch for both writes and comparisons, with an unchanged seven-day
+  lifetime. Thirty-day JWT/cookie validity never overrides database revocation
+  or expiry. Backup exports omit session rows and preserve only their schema.
 - Request bodies and selected sensitive routes are size/rate limited.
-- Known cumulative exceptions, including raw refresh-token storage and timezone
-  expiry semantics, live in
+- Release gates and remaining cumulative findings live in
   [Security and Compliance](SECURITY-COMPLIANCE.md).
 
 ## Health and Operations

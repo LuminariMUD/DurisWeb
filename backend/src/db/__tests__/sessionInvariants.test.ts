@@ -72,7 +72,7 @@ describe('pooled session invariants', () => {
     function mockCheckout(row: object): void {
       const query = jest.fn<(...args: unknown[]) => Promise<unknown>>();
       query.mockResolvedValueOnce([[]]);
-      query.mockResolvedValueOnce([[row]]);
+      query.mockResolvedValueOnce([[{ databaseEpoch: Date.now() / 1000, ...row }]]);
       (pool as unknown as { getConnection: () => Promise<unknown> }).getConnection = jest
         .fn<() => Promise<unknown>>()
         .mockResolvedValue({ query, release: jest.fn() });
@@ -94,6 +94,35 @@ describe('pooled session invariants', () => {
 
       await expect(samplePoolSessionInvariants()).resolves.toBeUndefined();
       expect(loggerError).not.toHaveBeenCalled();
+    });
+
+    it.each([180, -180])(
+      'alerts on observed clock skew of %s seconds without changing pool safeguards',
+      async (offset) => {
+        const now = 1800000000000;
+        mockCheckout({ ...strictSession, databaseEpoch: now / 1000 + offset });
+        jest.spyOn(Date, 'now').mockReturnValue(now);
+        const warn = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
+        await expect(samplePoolSessionInvariants()).resolves.toBeUndefined();
+        expect(warn.mock.calls).toEqual([
+          [
+            'web database/application clock skew exceeds 60 seconds',
+            { minimumSkewSeconds: offset > 0 ? offset : offset + 1 },
+          ],
+        ]);
+      },
+    );
+
+    it('does not mistake a slow clock-probe round trip for skew', async () => {
+      const now = 1800000000000;
+      mockCheckout({ ...strictSession, databaseEpoch: now / 1000 + 90 });
+      jest
+        .spyOn(Date, 'now')
+        .mockReturnValueOnce(now)
+        .mockReturnValueOnce(now + 120000);
+      const warn = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
+      await samplePoolSessionInvariants();
+      expect(warn).not.toHaveBeenCalled();
     });
 
     it('alerts instead of throwing when the sampled checkout fails', async () => {

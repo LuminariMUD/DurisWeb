@@ -4,6 +4,12 @@
 import { describe, it, expect, afterAll } from '@jest/globals';
 import { pool } from '../../db/connection.js';
 import redis from '../../db/redis.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import mysql, { type RowDataPacket } from 'mysql2/promise';
+import { writeDatabaseBackupDump } from '../databaseBackupDump.js';
 import {
   ALL_RESTORE_TABLES,
   CATEGORY_TABLES,
@@ -24,6 +30,87 @@ describe('backupService', () => {
     await pool.end();
     await redis.quit();
   });
+
+  const backupPorts = (process.env.TEST_BACKUP_DB_PORTS ?? '')
+    .split(',')
+    .filter(Boolean)
+    .map(Number);
+  if (backupPorts.some((port) => ![23436, 23437].includes(port)))
+    throw new Error('Backup snapshot qualification requires dedicated disposable ports');
+  for (const port of backupPorts)
+    it(`backup snapshots omit session credentials and restore an empty session store on ${port}`, async () => {
+      const database = await mysql.createConnection({ host: '127.0.0.1', port, user: 'root' });
+      const name = `durisweb_backup_fixture_${process.pid}`;
+      const restored = `${name}_restored`;
+      const user = `dw_backup_${process.pid}`;
+      const password = "synthetic-backup-'quote-$()-only";
+      const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-backup with spaces-'));
+      let created = false,
+        restoreCreated = false,
+        userCreated = false;
+      try {
+        await database.query(`CREATE DATABASE ${name}`);
+        created = true;
+        await database.changeUser({ database: name });
+        await database.query(
+          'CREATE TABLE web_sessions (id VARCHAR(255) PRIMARY KEY,refresh_token_digest BINARY(32),expires_at_epoch BIGINT UNSIGNED)',
+        );
+        await database.query(
+          "INSERT INTO web_sessions VALUES ('session-export-sentinel',?,9999999999)",
+          [Buffer.from('a'.repeat(64), 'hex')],
+        );
+        await database.query(
+          'CREATE TABLE ordinary_fixture (id INT PRIMARY KEY,content VARCHAR(100))',
+        );
+        await database.query("INSERT INTO ordinary_fixture VALUES (1,'ordinary fixture data')");
+        await database.query('CREATE VIEW ignored_fixture_view AS SELECT id FROM ordinary_fixture');
+        await database.query('CREATE USER ?@? IDENTIFIED BY ?', [user, '%', password]);
+        userCreated = true;
+        await database.query('GRANT SELECT, SHOW VIEW ON ??.* TO ?@?', [name, user, '%']);
+        const target = path.join(directory, 'snapshot.sql');
+        const configuration = { host: '127.0.0.1', port, user, password, database: name };
+        await writeDatabaseBackupDump(configuration, target, ['ignored_fixture_view'], true);
+        const dump = fs.readFileSync(target, 'utf8');
+        expect(dump).toContain('ordinary fixture data');
+        expect(dump).not.toContain('session-export-sentinel');
+        expect(dump).not.toMatch(/INSERT INTO [`]?web_sessions/);
+        expect(dump).toMatch(/CREATE TABLE [`]?web_sessions/);
+        expect(fs.statSync(target).mode & 0o777).toBe(0o600);
+        await database.query(`CREATE DATABASE ${restored}`);
+        restoreCreated = true;
+        const restore = spawnSync(
+          'mysql',
+          [
+            '--no-defaults',
+            '--protocol=TCP',
+            '--host=127.0.0.1',
+            `--port=${port}`,
+            '--user=root',
+            restored,
+          ],
+          { input: dump, encoding: 'utf8', timeout: 30000 },
+        );
+        expect(restore.status).toBe(0);
+        await database.changeUser({ database: restored });
+        const [sessions] = await database.query('SELECT id FROM web_sessions');
+        expect(sessions).toEqual([]);
+        const [ordinary] = await database.query<RowDataPacket[]>(
+          'SELECT content FROM ordinary_fixture',
+        );
+        expect(ordinary.map(({ content }) => content)).toEqual(['ordinary fixture data']);
+        await database.changeUser({ database: name });
+        await database.query('DROP TABLE web_sessions');
+        const separate = path.join(directory, 'separate-mud.sql');
+        await writeDatabaseBackupDump(configuration, separate, ['ignored_fixture_view'], false);
+        expect(fs.readFileSync(separate, 'utf8')).toContain('ordinary fixture data');
+      } finally {
+        if (userCreated) await database.query('DROP USER ?@?', [user, '%']);
+        if (restoreCreated) await database.query(`DROP DATABASE ${restored}`);
+        if (created) await database.query(`DROP DATABASE ${name}`);
+        await database.end();
+        fs.rmSync(directory, { recursive: true });
+      }
+    }, 60000);
 
   describe('table existence verification', () => {
     const EXPECTED_TABLES = [

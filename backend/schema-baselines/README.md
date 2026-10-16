@@ -235,3 +235,48 @@ rendering also no longer rejects a valid restored ledger. No schema repair or
 new migration is needed for these rendering differences. New application schema
 changes require forward migrations and versioned postconditions; never edit
 these accepted baseline signatures to hide drift.
+
+## Session credential cutover
+
+This procedure is prepared for isolated rehearsal. Shared deployment requires
+the recorded owner decision for a one-time website logout and advance notice.
+Keep all website writers stopped/drained during the transition; do not restart
+the separate MUD. The original baseline remains immutable.
+
+After baseline installation/adoption and the builder repair, apply the two
+specific forward migrations. Expansion adds nullable digest/epoch columns and
+permits null legacy values. Verify the new writer during maintenance before
+contraction discards all old sessions and removes the old columns:
+
+```bash
+NODE_OPTIONS='--import tsx' pnpm --dir backend exec knex \
+  migrate:up 20261017000000_expand_web_session_credentials.ts --knexfile knexfile.ts
+pnpm --dir backend schema:sessions --target '<host>:<port>/<database>'
+NODE_OPTIONS='--import tsx' pnpm --dir backend exec knex \
+  migrate:up 20261017001000_cutover_web_session_credentials.ts --knexfile knexfile.ts
+pnpm --dir backend migrate:status
+pnpm --dir backend schema:sessions --target '<host>:<port>/<database>'
+```
+
+The target must match configured connection identity before any query. The write
+probe uses the actual session writer, a generated nonexistent account name, and
+a random non-JWT; it neither creates a MUD account nor issues cookies. It checks
+the digest and database-derived seven-day expiry and deletes the exact probe
+row before reporting success. Failure leaves release acceptance incomplete.
+Run both production preflight stages before resuming HTTP writers, then verify
+real login/access/refresh/logout through the authorized release path.
+
+Each DDL step recognizes only exact source-owned before/after metadata. Knex may
+retry an adjacent session phase after DDL committed without its ledger
+acknowledgement. Normal verification/preflight stays ledger-strict, rejects
+pending migrations, and never accepts unrelated session drift. Expansion must
+be recorded before cutover; rollback reverses cutover before expansion.
+
+An authorized rollback uses targeted `knex migrate:down` in reverse order,
+first `20261017001000_cutover_web_session_credentials.ts`, then
+`20261017000000_expand_web_session_credentials.ts`. Both deliberately leave
+sessions empty. Digests cannot reconstruct tokens, and old timestamp offsets
+are never guessed or backfilled. Never restore session rows from an archive or
+automatically restart old writers; keep authentication closed until the selected
+binary/schema pair passes its approved recovery checks. New website backup
+exports include session DDL without rows, including in shared-database mode.

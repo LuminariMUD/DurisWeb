@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { pool } from '../../db/connection.js';
 import redis from '../../db/redis.js';
 import { generateAccessToken, requireAuth, verifyToken } from '../auth.js';
+import { refreshTokenDigest } from '../../services/sessionCredential.js';
 
 describe('session-bound access tokens', () => {
   const accountName = `binding_${crypto.randomBytes(10).toString('hex')}`;
@@ -17,8 +18,8 @@ describe('session-bound access tokens', () => {
     await pool.query('INSERT INTO accounts (account_name) VALUES (?)', [accountName]);
 
     await pool.query(
-      'INSERT INTO web_sessions (id, account_name, refresh_token, expires_at) VALUES (?, ?, ?, ?)',
-      [sessionId, accountName, refreshToken, new Date(Date.now() + 5 * 60 * 1000)],
+      'INSERT INTO web_sessions (id, account_name, refresh_token_digest, expires_at_epoch) VALUES (?, ?, ?, UNIX_TIMESTAMP()+300)',
+      [sessionId, accountName, refreshTokenDigest(refreshToken)],
     );
   });
 
