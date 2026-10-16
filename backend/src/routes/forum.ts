@@ -1,4 +1,5 @@
 import { Router, Request, Response, type IRouter } from 'express';
+import { randomUUID } from 'node:crypto';
 import { pool as db } from '../db/connection.js';
 import type { RowDataPacket } from 'mysql2';
 import logger, { getErrorMessage, isErrorWithCode } from '../utils/logger.js';
@@ -97,6 +98,10 @@ import { broadcastForumPost } from '../index.js';
 import {
   uploadPostImage,
   deletePostImage,
+  clearOrphanImagesForAccount,
+  getPendingImageRemovalCount,
+  PostImageDeletionError,
+  PostImageAttachmentError,
   validatePostImage,
   canUploadMoreImages,
   getOrphanImageCount,
@@ -692,7 +697,9 @@ router.post(
         message: 'Thread created successfully',
       });
     } catch (error) {
-      logger.error('Create thread error:', error);
+      if (error instanceof PostImageAttachmentError)
+        return res.status(409).json({ error: error.message });
+      logger.error('Create thread failed', { reference: randomUUID() });
       return res.status(500).json({ error: 'Failed to create thread' });
     }
   },
@@ -756,6 +763,7 @@ router.patch(
         threadId,
         title || thread.title,
         content || thread.content,
+        req.user.accountName,
       );
 
       if (!success) {
@@ -764,7 +772,9 @@ router.patch(
 
       return res.json({ success: true, message: 'Thread updated successfully' });
     } catch (error) {
-      logger.error('Update thread error:', error);
+      if (error instanceof PostImageAttachmentError)
+        return res.status(409).json({ error: error.message });
+      logger.error('Update thread failed', { reference: randomUUID() });
       return res.status(500).json({ error: 'Failed to update thread' });
     }
   },
@@ -1026,7 +1036,9 @@ router.post(
         message: 'Post created successfully',
       });
     } catch (error) {
-      logger.error('Create post error:', error);
+      if (error instanceof PostImageAttachmentError)
+        return res.status(409).json({ error: error.message });
+      logger.error('Create post failed', { reference: randomUUID() });
       return res.status(500).json({ error: 'Failed to create post' });
     }
   },
@@ -1081,7 +1093,7 @@ router.patch(
         });
       }
 
-      const success = await updatePost(postId, content);
+      const success = await updatePost(postId, content, req.user.accountName);
 
       if (!success) {
         return res.status(500).json({ error: 'Failed to update post' });
@@ -1089,7 +1101,9 @@ router.patch(
 
       return res.json({ success: true, message: 'Post updated successfully' });
     } catch (error) {
-      logger.error('Update post error:', error);
+      if (error instanceof PostImageAttachmentError)
+        return res.status(409).json({ error: error.message });
+      logger.error('Update post failed', { reference: randomUUID() });
       return res.status(500).json({ error: 'Failed to update post' });
     }
   },
@@ -3194,14 +3208,16 @@ router.get('/images/status', requireAuth, async (req: Request, res: Response) =>
   try {
     const accountName = req.user!.accountName;
     const orphanCount = await getOrphanImageCount(accountName);
+    const pendingRemovals = await getPendingImageRemovalCount(accountName);
 
     return res.json({
       pendingImages: orphanCount,
+      pendingRemovals,
       maxImages: MAX_IMAGES_PER_POST,
       canUpload: orphanCount < MAX_IMAGES_PER_POST,
     });
-  } catch (error) {
-    logger.error('Get image status error:', error);
+  } catch {
+    logger.warn('post_image_status_unavailable', { reference: randomUUID() });
     return res.status(500).json({ error: 'Failed to get image status' });
   }
 });
@@ -3215,13 +3231,13 @@ router.get('/images/orphans', requireAuth, async (req: Request, res: Response) =
     const accountName = req.user!.accountName;
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT id, image_url, created_at FROM forum_post_images
-       WHERE account_name = ? AND is_orphan = TRUE
+       WHERE account_name = ? AND (is_orphan = TRUE OR removal_requested_at_epoch IS NOT NULL)
        ORDER BY created_at DESC`,
       [accountName],
     );
     return res.json({ orphans: rows });
-  } catch (error) {
-    logger.error('Get orphan images error:', error);
+  } catch {
+    logger.warn('post_image_list_unavailable', { reference: randomUUID() });
     return res.status(500).json({ error: 'Failed to get orphan images' });
   }
 });
@@ -3234,28 +3250,15 @@ router.delete('/images/orphans', requireAuth, async (req: Request, res: Response
   try {
     const accountName = req.user!.accountName;
 
-    // Get orphan images to delete
-    const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT id, image_url FROM forum_post_images
-       WHERE account_name = ? AND is_orphan = TRUE`,
-      [accountName],
-    );
-
-    // Delete each one (handles R2 + database)
-    let deleted = 0;
-    for (const row of rows) {
-      try {
-        await deletePostImage(row.id, accountName);
-        deleted++;
-      } catch (err) {
-        logger.error(`Failed to delete orphan image ${row.id}:`, err);
-      }
-    }
-
-    return res.json({ deleted });
+    return res.json(await clearOrphanImagesForAccount(accountName));
   } catch (error) {
-    logger.error('Clear orphan images error:', error);
-    return res.status(500).json({ error: 'Failed to clear orphan images' });
+    logger.warn('post_image_batch_removal_incomplete', { reference: randomUUID() });
+    return res.status(503).json({
+      error:
+        error instanceof PostImageDeletionError
+          ? error.message
+          : 'Image removal is temporarily unavailable',
+    });
   }
 });
 
@@ -3287,8 +3290,10 @@ router.delete(
 
       return res.json({ success: true });
     } catch (error) {
-      logger.error('Delete post image error:', error);
-      return res.status(500).json({ error: 'Failed to delete image' });
+      logger.warn('post_image_removal_incomplete', { reference: randomUUID() });
+      if (error instanceof PostImageDeletionError)
+        return res.status(503).json({ error: error.message, reference: error.reference });
+      return res.status(503).json({ error: 'Image removal is temporarily unavailable' });
     }
   },
 );

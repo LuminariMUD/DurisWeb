@@ -4,12 +4,41 @@ import { UserPermissions } from './permissionService.js';
 import { getCategoryAccessForAccount } from './categoryService.js';
 import { findCharacterGuild } from './guildService.js';
 import { processForumContent } from '../utils/contentParser.js';
-import { extractImageUrls, linkImagesToPost, linkImagesToThread } from './postImageService.js';
+import {
+  extractForumImageSources,
+  linkImagesToPost,
+  linkImagesToThread,
+} from './postImageService.js';
+import type { PoolConnection } from 'mysql2/promise';
 import logger, { isErrorWithCode } from '../utils/logger.js';
 import * as notificationService from './unifiedNotificationService.js';
 import { sendForumReplyNotification } from './pushNotificationService.js';
 import { getWebSettings } from './webSettingsService.js';
 import { getPvpDelayMinutes, pvpVisibilitySql, pvpTimestamp } from './pvpVisibility.js';
+
+/** Content and managed image claims share one commit; notifications remain outside. */
+async function forumContentTransaction<T>(
+  action: (connection: PoolConnection) => Promise<T>,
+): Promise<T> {
+  const connection = await db.getConnection();
+  let reusable = true;
+  try {
+    await connection.beginTransaction();
+    const value = await action(connection);
+    await connection.commit();
+    return value;
+  } catch (error) {
+    try {
+      await connection.rollback();
+    } catch {
+      reusable = false;
+    }
+    throw error;
+  } finally {
+    if (reusable) connection.release();
+    else connection.destroy();
+  }
+}
 
 // ============================================================================
 // Types & Interfaces
@@ -576,22 +605,28 @@ export async function createThread(
     throw new Error(processed.error);
   }
 
-  const [result] = await db.query<ResultSetHeader>(
-    `INSERT INTO forum_threads
-     (category_id, author_account_name, author_character_pid, title, content, ip_address, last_post_at)
-     VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-    [categoryId, authorAccountName, authorCharacterPid, title, processed.content, ipAddress],
-  );
-
-  const threadId = result.insertId;
-
-  // Link any images in the thread content (non-blocking)
-  const imageUrls = extractImageUrls(processed.content || '');
-  if (imageUrls.length > 0) {
-    linkImagesToThread(threadId, imageUrls, authorAccountName).catch((err) => {
-      logger.error('Failed to link images to thread:', err);
-    });
-  }
+  const threadId = await forumContentTransaction(async (connection) => {
+    const [result] = await connection.execute<ResultSetHeader>(
+      `INSERT INTO forum_threads
+       (category_id, author_account_name, author_character_pid, title, content, ip_address, last_post_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        categoryId,
+        authorAccountName,
+        authorCharacterPid?.toString() ?? null,
+        title,
+        processed.content,
+        ipAddress,
+      ],
+    );
+    await linkImagesToThread(
+      result.insertId,
+      extractForumImageSources(processed.content || ''),
+      authorAccountName,
+      connection,
+    );
+    return result.insertId;
+  });
 
   // Create mention notifications (non-blocking)
   if (processed.mentions.length > 0) {
@@ -610,19 +645,28 @@ export async function updateThread(
   threadId: number,
   title: string,
   content: string,
+  editorAccountName?: string,
 ): Promise<boolean> {
-  // Sanitize and process content
   const processed = processForumContent(content);
-  if (processed.error) {
-    throw new Error(processed.error);
-  }
-
-  const [result] = await db.query<ResultSetHeader>(
-    'UPDATE forum_threads SET title = ?, content = ?, updated_at = NOW() WHERE id = ?',
-    [title, processed.content, threadId],
-  );
-
-  return result.affectedRows > 0;
+  if (processed.error) throw new Error(processed.error);
+  return forumContentTransaction(async (connection) => {
+    const [rows] = await connection.execute<RowDataPacket[]>(
+      'SELECT author_account_name FROM forum_threads WHERE id = ? FOR UPDATE',
+      [threadId],
+    );
+    if (!rows.length) return false;
+    await linkImagesToThread(
+      threadId,
+      extractForumImageSources(processed.content || ''),
+      editorAccountName ?? String(rows[0].author_account_name),
+      connection,
+    );
+    const [result] = await connection.execute<ResultSetHeader>(
+      'UPDATE forum_threads SET title = ?, content = ?, updated_at = NOW() WHERE id = ?',
+      [title, processed.content, threadId],
+    );
+    return result.affectedRows > 0;
+  });
 }
 
 /**
@@ -880,12 +924,9 @@ export async function createPost(
     throw new Error(processed.error);
   }
 
-  const connection = await db.getConnection();
-  try {
-    await connection.beginTransaction();
-
+  const committed = await forumContentTransaction(async (connection) => {
     // Get thread info for notifications
-    const [threads] = await connection.query<RowDataPacket[]>(
+    const [threads] = await connection.execute<RowDataPacket[]>(
       'SELECT category_id FROM forum_threads WHERE id = ?',
       [threadId],
     );
@@ -904,17 +945,24 @@ export async function createPost(
     }
 
     // Insert post with sanitized content
-    const [result] = await connection.query<ResultSetHeader>(
+    const [result] = await connection.execute<ResultSetHeader>(
       `INSERT INTO forum_posts
        (thread_id, parent_post_id, author_account_name, author_character_pid, content, ip_address)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [threadId, parentPostId, authorAccountName, authorCharacterPid, processed.content, ipAddress],
+      [
+        threadId,
+        parentPostId,
+        authorAccountName,
+        authorCharacterPid?.toString() ?? null,
+        processed.content,
+        ipAddress,
+      ],
     );
 
     const postId = result.insertId;
 
     // Update thread's last_post_at and reply_count
-    await connection.query(
+    await connection.execute(
       'UPDATE forum_threads SET last_post_at = NOW(), reply_count = reply_count + 1 WHERE id = ?',
       [threadId],
     );
@@ -922,65 +970,71 @@ export async function createPost(
     // Get character name for notifications
     let characterName: string | null = null;
     if (authorCharacterPid) {
-      const [chars] = await connection.query<RowDataPacket[]>(
+      const [chars] = await connection.execute<RowDataPacket[]>(
         'SELECT COALESCE(fl.char_name, pd.name) as name FROM player_data pd LEFT JOIN frag_leaderboard fl ON pd.pid = fl.pid WHERE pd.pid = ?',
-        [authorCharacterPid],
+        [authorCharacterPid.toString()],
       );
       if (chars.length > 0) {
         characterName = chars[0].name;
       }
     }
 
-    await connection.commit();
-
-    // Link any images in the post content (after commit, non-blocking)
-    const imageUrls = extractImageUrls(processed.content || '');
-    if (imageUrls.length > 0) {
-      linkImagesToPost(postId, imageUrls, authorAccountName).catch((err) => {
-        logger.error('Failed to link images to post:', err);
-      });
-    }
-
-    // Create mention notifications (after commit, non-blocking)
-    if (processed.mentions.length > 0) {
-      createMentions(postId, processed.mentions, authorAccountName).catch((err) => {
-        logger.error('Failed to create mentions:', err);
-      });
-    }
-
-    // Create notifications (after commit, non-blocking)
-    // We don't await this to avoid slowing down post creation
-    createPostNotifications(postId, threadId, categoryId, authorAccountName, characterName).catch(
-      (err) => {
-        logger.error('Failed to create post notifications:', err);
-      },
+    await linkImagesToPost(
+      postId,
+      extractForumImageSources(processed.content || ''),
+      authorAccountName,
+      connection,
     );
+    return { postId, categoryId, characterName };
+  });
+  const { postId, categoryId, characterName } = committed;
 
-    return postId;
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
+  // Create mention notifications (after commit, non-blocking)
+  if (processed.mentions.length > 0) {
+    createMentions(postId, processed.mentions, authorAccountName).catch((err) => {
+      logger.error('Failed to create mentions:', err);
+    });
   }
+
+  // Create notifications (after commit, non-blocking)
+  // We don't await this to avoid slowing down post creation
+  createPostNotifications(postId, threadId, categoryId, authorAccountName, characterName).catch(
+    (err) => {
+      logger.error('Failed to create post notifications:', err);
+    },
+  );
+
+  return postId;
 }
 
 /**
  * Update post (author only, within 15 minutes)
  */
-export async function updatePost(postId: number, content: string): Promise<boolean> {
-  // Sanitize and process content
+export async function updatePost(
+  postId: number,
+  content: string,
+  editorAccountName?: string,
+): Promise<boolean> {
   const processed = processForumContent(content);
-  if (processed.error) {
-    throw new Error(processed.error);
-  }
-
-  const [result] = await db.query<ResultSetHeader>(
-    'UPDATE forum_posts SET content = ?, edited_at = NOW() WHERE id = ?',
-    [processed.content, postId],
-  );
-
-  return result.affectedRows > 0;
+  if (processed.error) throw new Error(processed.error);
+  return forumContentTransaction(async (connection) => {
+    const [rows] = await connection.execute<RowDataPacket[]>(
+      'SELECT author_account_name FROM forum_posts WHERE id = ? FOR UPDATE',
+      [postId],
+    );
+    if (!rows.length) return false;
+    await linkImagesToPost(
+      postId,
+      extractForumImageSources(processed.content || ''),
+      editorAccountName ?? String(rows[0].author_account_name),
+      connection,
+    );
+    const [result] = await connection.execute<ResultSetHeader>(
+      'UPDATE forum_posts SET content = ?, edited_at = NOW() WHERE id = ?',
+      [processed.content, postId],
+    );
+    return result.affectedRows > 0;
+  });
 }
 
 /**

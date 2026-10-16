@@ -987,6 +987,7 @@ export const forumApi = {
    */
   async getImageUploadStatus(): Promise<{
     pendingImages: number
+    pendingRemovals: number
     maxImages: number
     canUpload: boolean
   }> {
@@ -997,9 +998,34 @@ export const forumApi = {
   /**
    * Clear all orphan images for current user
    */
-  async clearOrphanImages(): Promise<{ deleted: number }> {
-    const { data } = await api.delete('/api/forum/images/orphans')
-    return data
+  async clearOrphanImages(): Promise<{
+    deleted: number
+    failed: number
+    remaining: number
+    unavailableImageUrls: string[]
+  }> {
+    const { data } = await api.delete<unknown>('/api/forum/images/orphans')
+    if (!data || typeof data !== 'object' || Array.isArray(data))
+      throw new Error('Invalid image removal response')
+    const { deleted, failed, remaining, unavailableImageUrls } = data as Record<string, unknown>
+    if (
+      [deleted, failed, remaining].some(
+        (value) => typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0,
+      ) ||
+      !Array.isArray(unavailableImageUrls) ||
+      unavailableImageUrls.length > 100 ||
+      !unavailableImageUrls.every(
+        (value): value is string =>
+          typeof value === 'string' && value.length > 0 && value.length <= 2048,
+      )
+    )
+      throw new Error('Invalid image removal response')
+    return {
+      deleted: deleted as number,
+      failed: failed as number,
+      remaining: remaining as number,
+      unavailableImageUrls,
+    }
   },
 }
 

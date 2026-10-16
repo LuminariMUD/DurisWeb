@@ -5,8 +5,9 @@ Status: **implementation in progress**. Updated 2026-10-17.
 Current checkpoint: engineering through P4, the UTC correction, first P5
 collection closure and browser storage-denial repair are published for review
 (#39, #41–#49). The browser choice state machine and draft notice are qualified
-and published for review. Active continuation branch: `branch/privacy-browser-choices`.
-Next: P6/P7 engineering and unresolved policy/provider decisions. P5's approved
+and published for review. The image-removal recovery prerequisite is implemented
+and qualified on `branch/post-image-deletion-recovery`, awaiting focused PR
+publication. Next: P6/P7 engineering and unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
 
@@ -1166,6 +1167,104 @@ outside this request. Keep this single evolving execution plan current.
   with the concrete source/policy proposal ready to review and plain wording.
   P5 public/provider/period approval and P8 live release remain open; do not
   mistake isolated synthetic acceptance for those approvals.
+
+- **Image-removal recovery prerequisite:** `branch/post-image-deletion-recovery`
+  starts at #49 `7f07bc9`. **Outcome:** confirmed origin-object deletion precedes
+  removal of its retry row; disabled/failing/unacknowledged storage keeps that
+  row, durable deletion intent prevents reuse after uncertain provider outcomes,
+  and batch counts/UI report only confirmed removals. **Non-goals:** general P6/P7
+  jobs, approved retention periods, a new queue/table/service, upload-format or
+  content-policy changes, provider/CDN-wide erasure, or live operations. **Files:**
+  one nullable removal-intent column/index with reversible guarded migration/contract,
+  image deletion/linking and atomic forum publication, HTTP handlers, bulk consumer,
+  focused native/HTTP/component tests, API/lifecycle docs and this plan.
+  **Proof:** pre-fix provider failure/disabled regressions; real MySQL/MariaDB
+  retry/rollback/concurrent-link cases with a fake provider; partial batch/route/
+  UI counts and safe diagnostics; bounded cleanup/timeout behavior; both packages'
+  required gates and a focused stacked PR. No actual provider is contacted.
+- **Image ablation:** reuse `forum_post_images` as the durable retry reference
+  and the existing hourly job. A new worker/table/state framework is unnecessary.
+  One removal helper serves the API and cleanup, commits intent before the
+  provider request and deletes metadata only after its documented acknowledgement.
+  A connection-scoped lease prevents duplicate workers without holding a database
+  transaction across the network. Link/delete decisions use the same image row
+  lock; publishers link in their own transaction before committing content. Bounded
+  batches and an in-process cursor prevent retained failures from causing an
+  unbounded cleanup loop or permanently hiding later eligible rows; this is not
+  the future general retention engine. Keep the existing one-hour orphan age.
+  Bulk replies distinguish confirmed deletions from unconfirmed attempts; the
+  present carousel consumer must show that partial result and refresh its count.
+- **Evidence-driven scope correction:** the initial lock-only repair passed
+  disabled/failure acknowledgement cases, but cannot prevent reuse after a
+  timed-out external request or process crash. The current publisher also links
+  images after commit without awaiting the result; edits never link new images.
+  Both are concrete paths to cleanup deleting published media. Use the explicit
+  nullable `removal_requested_at_epoch` field, not an overloaded boolean/timestamp
+  or a generic task framework. Pending images remain unattachable until deletion
+  is confirmed. Create/edit publication must atomically validate/link managed
+  images, roll back on pending-removal conflicts, and keep other notification
+  work outside the transaction. Untracked external image URLs retain their
+  existing content semantics. The bulk UI drops only confirmed/unavailable
+  managed previews while retaining the durable retry record for failed removal.
+  Claiming intent also clears `is_orphan`, so older link/cleanup predicates cannot
+  adopt or discard the pending row. New status/cleanup paths explicitly include
+  marked rows; unmarked old non-orphans remain excluded. Already completed URL
+  removal does not add a new existence guarantee for arbitrary external HTML.
+- **Image source qualification:** the pre-fix regression run failed 12 cases,
+  demonstrating discarded retry references, unconfirmed provider results and
+  false cleanup counts. The final real-database fixtures pass on MySQL 8.0.46
+  and MariaDB 11.8.9: 14 native transaction/HTTP/migration cases plus 13 narrow
+  deletion/parser cases. They cover disabled/failing/timeout/uncertain storage,
+  failure after provider acknowledgement, retry after process restart, all four
+  atomic create/edit paths, concurrent publisher/remover ordering, connection
+  lease refusal/release, partial bulk/status/CSRF/409 behavior, bounded fair
+  cleanup and guarded down/exact lost-DDL-ack recovery. Both final dependency
+  preflights accept 90 migrations; all 198 copied owner tables retain their
+  original fingerprints. No provider is contacted.
+  HTTP cases mount the real forum router and CSRF middleware with a typed
+  synthetic authenticated identity; unchanged JWT/session authentication is
+  covered by P3 and the full suite, not re-created by this image fixture.
+- **Image exact verification commands:** with the dedicated synthetic fixture,
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-image-suite.mts 23436` provisions the full published owner
+  schema, website baseline and forwards, runs configuration/dependency preflight
+  and `pnpm --dir backend test --runInBand`, then rechecks readiness/ownership
+  and removes only its own database/user. **1,234 tests / 123 suites pass**;
+  ten unchanged P5 receipt native cases are deliberately not repeated (their
+  two-engine proof is recorded above), and no shared/live database is used.
+  The same runner with `23437 image-only` runs
+  `pnpm --dir backend test --runInBand
+  src/services/__tests__/postImageDeletion.test.ts
+  src/services/__tests__/postImageRemovalNative.test.ts`: **27 tests / 2 suites
+  pass**. Logs: `/tmp/durisweb-image-full-mysql.log` and
+  `/tmp/durisweb-image-removal-maria.log`.
+- **Image package/browser gates:** both packages' `format:check`, `lint`,
+  `type-check` and `build` pass; backend `verify:mud-writes` (53 classified
+  writes), `schema:check`, frontend `config:check`, palette guard, configuration
+  literal guard and `git diff --check` pass. The new migration additionally
+  passes `pnpm --dir backend exec tsc --ignoreConfig --noEmit --strict
+  --skipLibCheck --target ES2022 --module NodeNext --moduleResolution NodeNext
+  --esModuleInterop migrations/20261017003000_post_image_removal_intent.ts`.
+  `pnpm --dir frontend test:unit --run` passes **283 tests / 57 files**, including
+  three mounted editor and six API-result cases. Installed Playwright Chromium
+  (browser plugin unavailable) renders the real Tiptap carousel: four checks
+  pass at 1440px/390px for partial retry, successful retry and whole-request
+  failure, safe feedback, preserved linked previews and no horizontal overflow
+  or page errors. Screenshots were inspected; the temporary harness was removed.
+  Logs/runners remain outside the checkout at `/tmp/durisweb-image-*`.
+  Initial frontend config/dev checks correctly refused absent local settings;
+  explicit loopback fixture settings fixed the harness. Standalone TS6 needed
+  `--ignoreConfig`; its corrected check passed. An initial Maria fixture run
+  found accidentally nested test declarations; the declarations were repaired
+  and all 27 cases rerun successfully. No application gate was bypassed.
+- **Image lifecycle/news boundary:** permanent API, schema/recovery, deployment,
+  development and exact 77-table lifecycle inventory now describe the intent
+  and partial acknowledgement. Future verified-live Website Changelog draft:
+  **Image removal retries are clearer** — “Image removals that cannot finish
+  remain available to retry. The forum editor now shows pending removals and
+  keeps drafts from reusing images already awaiting removal.” Reconcile and
+  publish only after authorized live acceptance. No CDN/backup-wide erasure,
+  approved retention, general P6/P7 completion, merge, tag or release is claimed.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and

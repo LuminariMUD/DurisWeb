@@ -73,7 +73,7 @@ capability is not proof it runs live. Do not enable it as part of privacy work.
 | `forum_category_permissions` | `account_name`, `character_pid`, `created_by`; guild rules | `created_at`; remove personal grants, retain shared rules |
 | `forum_threads` | `author_account_name`, `author_character_pid`, `deleted_by`; IP, title/content | `created_at`, `updated_at`, `deleted_at`; pseudonymization/content review must preserve thread relationships |
 | `forum_posts` | `author_account_name`, `author_character_pid`, `deleted_by`; IP, content; thread/parent links | `created_at`, `edited_at`, `deleted_at`; review quotes and other participants before redaction |
-| `forum_post_images` | `account_name`; post/thread links, object key/URL, original filename | `created_at`, `linked_at`; retain retry identity until object deletion is acknowledged |
+| `forum_post_images` | `account_name`; post/thread links, object key/URL, original filename | `created_at`, `linked_at`, `removal_requested_at_epoch`; retain pending retry identity until origin-object deletion is acknowledged |
 | `forum_mentions` | `mentioned_account_name`, `mentioned_by_account_name`, `post_id` | `created_at`; remove/rewrite references as approved, include both subject roles |
 | `forum_reactions` | `user_account_name`; post/thread links and emoji | `created_at`; remove attributable reaction and recompute projections |
 | `forum_subscriptions` | `user_account_name`; thread/category and preference | `created_at`; remove subscriptions, cease deliveries |
@@ -302,8 +302,16 @@ journal or restore-removal replay is implemented by this inventory. Any new
 consent/request/export store must be added here with exact ownership, selectors,
 cutoff and copy handling before its lifecycle can be considered complete.
 
-The current forum image deletion and orphan cleanup discard the database record
-after an R2 failure (or when R2 is disabled). Repair that recovery behavior in a
-separate implementation chunk before using it for general erasure. Existing
-backup count pruning, per-account notification deletion and invalid push-endpoint
-cleanup are feature mechanisms, not proof of the proposed periods above.
+Forum image removal records a durable intent before contacting R2 and retains
+the retry row on disabled storage, failure, timeout or an unconfirmed response.
+Pending images cannot be attached; forum create/edit operations link managed
+images in the publication transaction. The existing hourly cleanup retries
+pending work and keeps the one-hour rule for newly abandoned uploads, with
+bounded batches. See the [schema and recovery procedure](../backend/schema-baselines/README.md#forum-image-removal)
+and [API result contract](api/README_api.md#forum-image-removal). This source
+repair is qualified on disposable databases; live rollout and provider/CDN-copy
+handling remain unverified. It does not establish general erasure, restore
+replay, approved retention periods or deletion of cached/backup copies.
+Existing backup count pruning, per-account notification deletion and invalid
+push-endpoint cleanup are feature mechanisms, not proof of the proposed periods
+above.

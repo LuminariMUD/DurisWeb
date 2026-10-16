@@ -10,12 +10,13 @@
 
       <!-- pending images warning -->
       <div
-        v-if="pendingCount >= maxImages"
+        v-if="pendingCount >= maxImages || pendingRemovals > 0 || clearIncomplete"
         class="bg-warning-deep/50 border-b border-warning-deep px-3 py-2 text-xs text-warning flex items-center justify-between"
       >
         <div class="flex items-center gap-2">
           <AlertCircle class="h-4 w-4 flex-shrink-0" />
-          <span>{{ pendingCount }}/{{ maxImages }} pending images.</span>
+          <span v-if="pendingRemovals > 0">{{ pendingRemovals }} image{{ pendingRemovals === 1 ? '' : 's' }} awaiting removal.</span>
+          <span v-else>{{ pendingCount }}/{{ maxImages }} pending images.</span>
         </div>
         <button
           @click="clearOrphans"
@@ -142,6 +143,7 @@
       <!-- error message -->
       <div
         v-if="errorMessage"
+        role="alert"
         class="bg-danger-deep/50 border-t border-danger-deep px-3 py-2 text-xs text-danger"
       >
         {{ errorMessage }}
@@ -174,6 +176,8 @@ const isClearing = ref(false)
 const errorMessage = ref<string | null>(null)
 const isDragging = ref(false)
 const pendingCount = ref(0)
+const pendingRemovals = ref(0)
+const clearIncomplete = ref(false)
 const maxImages = ref(5)
 
 const MAX_IMAGE_SIZE = 350 * 1024 // 350KB
@@ -188,23 +192,42 @@ async function checkImageStatus() {
   try {
     const status = await forumApi.getImageUploadStatus()
     pendingCount.value = status.pendingImages
+    pendingRemovals.value = status.pendingRemovals ?? 0
     maxImages.value = status.maxImages
   } catch {
     // ignore errors
   }
 }
 
+function imageResource(value: string): string {
+  try {
+    const url = new URL(value, document.baseURI)
+    return url.origin + decodeURIComponent(url.pathname)
+  } catch {
+    return value
+  }
+}
+
 async function clearOrphans() {
   isClearing.value = true
+  errorMessage.value = null
   try {
-    await forumApi.clearOrphanImages()
-    await checkImageStatus()
+    const result = await forumApi.clearOrphanImages()
+    const unavailable = new Set(result.unavailableImageUrls.map(imageResource))
+    const retained = images.value.filter((image) => !unavailable.has(imageResource(image.src)))
+    if (retained.length !== images.value.length) {
+      props.updateAttributes({ images: retained })
+      currentIndex.value = Math.max(0, Math.min(currentIndex.value, retained.length - 1))
+    }
+    clearIncomplete.value = result.remaining > 0
+    if (result.failed > 0 || result.remaining > 0)
+      errorMessage.value =
+        'Some image removals could not be confirmed. Please retry the pending images.'
   } catch {
-    errorMessage.value = 'Failed to clear orphan images'
-    setTimeout(() => {
-      errorMessage.value = null
-    }, 3000)
+    clearIncomplete.value = true
+    errorMessage.value = 'Image removal could not be confirmed. Please retry the pending images.'
   } finally {
+    await checkImageStatus()
     isClearing.value = false
   }
 }

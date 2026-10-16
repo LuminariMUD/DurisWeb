@@ -28,6 +28,10 @@ import {
   SESSION_CUTOVER_MIGRATION,
 } from './webSessionSchema.js';
 import { HOOK_AUDIT_MIGRATION, matchesHookAuditPhase } from './hookAuditSchema.js';
+import {
+  POST_IMAGE_REMOVAL_MIGRATION,
+  matchesPostImageRemovalPhase,
+} from './postImageRemovalSchema.js';
 
 export type BaselineDatabase = SchemaDatabase;
 type BaselineState = 'installing' | 'complete' | 'adopted' | 'removing';
@@ -306,6 +310,19 @@ async function verifyWebSchema(
         recoverSessionDdl &&
         !unsupportedAuditForward &&
         (await matchesHookAuditPhase(database, product, new Set(ledger), directory))
+      )
+        continue;
+      const unsupportedImageForward = forward.some(
+        (migration) =>
+          ledger.includes(migration.name) &&
+          Object.hasOwn(migration.tables, 'forum_post_images') &&
+          migration.name !== POST_IMAGE_REMOVAL_MIGRATION,
+      );
+      if (
+        name === 'forum_post_images' &&
+        recoverSessionDdl &&
+        !unsupportedImageForward &&
+        (await matchesPostImageRemovalPhase(database, product, new Set(ledger), directory))
       )
         continue;
       throw new WebBaselineError(`schema_drift_${name}`);
