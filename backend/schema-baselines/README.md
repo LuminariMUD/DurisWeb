@@ -292,3 +292,53 @@ exports include session DDL without rows, including in shared-database mode.
 The qualified historical column is `TIMESTAMP`. Unknown shapes, including a
 naive `DATETIME` variant, are refused before mutation; inspect the deployed
 shape and prepare an explicitly reviewed empty-session repair if it differs.
+
+## Hook audit journal
+
+`20261017002000_hook_audit_identity.ts` adds a nullable, uniquely indexed hook
+event UUID to the web-owned audit table. Existing audit rows keep their values
+and null identities. Apply the migration before deploying the journal worker.
+Its unused schema down is reversible; once a receipt or attributed audit row
+exists, down refuses rather than discarding attribution. Use a forward repair
+or an authorized compatible recovery, never clear the journal to force rollback.
+
+Each accepted website toggle and its minimal actor/old/new/UTC receipt commit
+in one `web_settings` transaction. `PATCH /api/hooks/:id` optionally accepts an
+`Idempotency-Key` UUID v4. Reusing it with the same actor/hook/value returns the
+same `hook.change.event` receipt and fresh current hook status; it never undoes
+a newer setting. Conflicting reuse is 409. A distinct same-state request is
+another audited intent. Reconcile remains a fresh observed distributed action;
+its website steps get distinct identities and do not deduplicate remote commands.
+
+The worker runs independently of toggle acknowledgement, every five seconds
+without overlapping polls. It scans at most 100 bounded envelopes, stops
+starting more work after a two-second monotonic budget, and gives each database
+query a five-second timeout. Pending events use capped backoff without a retry
+limit or trimming. The reserved row's `description` carries the delivery marker;
+JSON holds the immutable event and retry metadata. Completed receipts stay out
+of the hot queue without duplicating status in the JSON. Publication and journal acknowledgement share a transaction;
+the unique event identity resolves uncertain outcomes. Audit retries never write
+the effective toggle. Prepared bindings preserve JSON without weakening SQL mode.
+
+Authorized operators with `manage_mud_properties` can use:
+
+- `GET /api/hooks/audit`: aggregate counts, oldest pending age, worker/scan
+  observations and a safe last-failure category. `sinkReadable` proves only
+  schema/read access, not successful publication. Pending-scan invalid counts and
+  backlog must be assessed together. No journal payload or actor list is returned.
+- `POST /api/hooks/audit/retry` with `{ "batchSize": 25 }`: one bounded forced
+  retry (maximum 100). `busy: true` means another batch is already running.
+  Ordinary authenticated state-change CSRF protection still applies.
+
+Generic settings APIs exclude the reserved namespace, including collation-
+equivalent lookup aliases. Invalid/oversized envelopes remain for investigation;
+repair from preserved evidence rather than inventing attribution. Restoring audit
+write permissions can drain a backlog across process restarts. Structural table
+loss still refuses startup under the baseline contract; whole settings-storage
+failure cannot persist a safety change. The terminal keeps its existing always-on,
+permission-gated recovery role and underlying availability limits.
+
+Acknowledgement retains the receipt. P6 owns approved delivered retention and
+subject-request holds; pending/invalid events must never be deleted by age or
+queue size. Only new hook audit rows have explicit UTC event timestamps; do not
+reinterpret older naive audit timestamps or change pooled timezones.

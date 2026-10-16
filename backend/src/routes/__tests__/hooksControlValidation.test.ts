@@ -7,11 +7,18 @@ const setHookEnabled = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const reconcileHook = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const getHookStatuses = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const getMudTransportStatus = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const getHookAuditHealth = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const processHookAuditJournal = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 
 class MockHookToggleError extends Error {
   constructor(
     message: string,
-    readonly code: 'unknown_hook' | 'always_on',
+    readonly code:
+      | 'unknown_hook'
+      | 'always_on'
+      | 'invalid_request'
+      | 'idempotency_conflict'
+      | 'storage_unavailable',
   ) {
     super(message);
   }
@@ -62,6 +69,10 @@ jest.unstable_mockModule('../../services/mudTransportStatus.js', () => ({
 jest.unstable_mockModule('../../services/hookReconcileService.js', () => ({
   reconcileHook,
 }));
+jest.unstable_mockModule('../../hooks/hookToggleJournal.js', () => ({
+  getHookAuditHealth,
+  processHookAuditJournal,
+}));
 jest.unstable_mockModule('../../utils/logger.js', () => ({
   default: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }));
@@ -95,6 +106,14 @@ describe('hook control route boundary', () => {
     });
     setHookEnabled.mockResolvedValue(status);
     reconcileHook.mockResolvedValue({ complete: true, warning: null, hook: status });
+    getHookAuditHealth.mockResolvedValue({ unacknowledgedRows: 3, sinkReadable: false });
+    processHookAuditJournal.mockResolvedValue({
+      busy: false,
+      scanned: 2,
+      delivered: 2,
+      failed: 0,
+      invalid: 0,
+    });
   });
 
   it('uses the MUD-properties permission for every hook endpoint', () => {
@@ -102,7 +121,41 @@ describe('hook control route boundary', () => {
       'manage_mud_properties',
       'manage_mud_properties',
       'manage_mud_properties',
+      'manage_mud_properties',
+      'manage_mud_properties',
     ]);
+  });
+
+  it('passes website-only idempotency identity and maps conflict/storage failures safely', async () => {
+    const identity = '12345678-1234-4567-89ab-123456789abc';
+    const response = await request(app)
+      .patch('/api/hooks/auction_new')
+      .set('Idempotency-Key', identity)
+      .send({ enabled: false });
+    expect(response.status).toBe(200);
+    expect(setHookEnabled).toHaveBeenCalledWith('auction_new', false, 'Operator', identity);
+    for (const [code, expected] of [
+      ['invalid_request', 400],
+      ['idempotency_conflict', 409],
+      ['storage_unavailable', 503],
+    ] as const) {
+      setHookEnabled.mockRejectedValueOnce(new MockHookToggleError('Safe failure', code));
+      expect(
+        (await request(app).patch('/api/hooks/auction_new').send({ enabled: false })).status,
+      ).toBe(expected);
+    }
+  });
+  it('exposes aggregate health and a bounded authorized retry without journal payloads', async () => {
+    const response = await request(app).get('/api/hooks/audit');
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ unacknowledgedRows: 3, sinkReadable: false });
+    expect(
+      (await request(app).post('/api/hooks/audit/retry').send({ batchSize: 101 })).status,
+    ).toBe(400);
+    expect(processHookAuditJournal).not.toHaveBeenCalled();
+    const retry = await request(app).post('/api/hooks/audit/retry').send({ batchSize: 2 });
+    expect(retry.status).toBe(200);
+    expect(processHookAuditJournal).toHaveBeenCalledWith({ batchSize: 2, force: true });
   });
 
   it('returns sanitized status and transport metadata', async () => {

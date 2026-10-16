@@ -34,6 +34,7 @@ import publicStatisticsRoutes from './routes/publicStatistics.js';
 import hookRoutes from './routes/hooks.js';
 import { mudHookStateProvider } from './hooks/mudHookStateClient.js';
 import { refreshHookState, setMudHookStateProvider } from './hooks/hookSettingsService.js';
+import { startHookAuditWorker, stopHookAuditWorker } from './hooks/hookToggleJournal.js';
 import {
   getFlatfileHookHealthSnapshot,
   startFlatfileRecoveryMonitor,
@@ -839,6 +840,7 @@ const gracefulShutdown = async () => {
   }
 
   await stopDonationOutboxPublisher();
+  await stopHookAuditWorker();
   stopFlatfileRecoveryMonitor();
   await closeOnlinePlayersRedisConnections();
   await closeDatabaseConnection();
@@ -1733,6 +1735,7 @@ async function startServer() {
     // Initialize the durable donation outbox. It remains disabled until its
     // production delivery settings and independent HMAC secret are present.
     if (environment.features.donations) startDonationOutboxPublisher();
+    startHookAuditWorker();
 
     // Initialize notification broadcaster
     setNotificationBroadcaster(broadcastNotification);

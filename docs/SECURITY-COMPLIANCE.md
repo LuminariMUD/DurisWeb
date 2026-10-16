@@ -75,14 +75,17 @@ dependency-security guarantee.
 - **Introduced/confirmed**: [P00-S03].
 - **Severity**: Low, accepted for now.
 - **Affected package**: `backend`.
-- **Evidence**: `hookSettingsService.ts` commits the safety toggle before its
+- **Original evidence**: `hookSettingsService.ts` committed the safety toggle before its
   audit insert. If the audit write fails, the changed toggle remains and the
   error is logged, but no audit record exists.
 - **Impact**: A control change can lose its durable attribution during a
   database partial failure.
-- **Remediation**: Revisit transaction or outbox designs that preserve the
-  higher-priority toggle even when audit persistence fails.
-- **Status**: Open, accepted by design;
+- **Source remediation**: a minimal actor/old/new/UTC receipt commits with the
+  toggle in `web_settings`. A separate bounded worker appends and acknowledges
+  one uniquely identified audit row, preserving pending attribution across
+  write outages, restarts and ambiguous acknowledgement. Generic settings
+  cannot read/edit journal keys; worker errors contain safe categories only.
+- **Status**: Open pending deployment verification;
   [issue #9](https://github.com/LuminariMUD/DurisWeb/issues/9). Do not silently
   make the incident safety control contingent on audit availability.
 
@@ -172,6 +175,7 @@ review.
 | Forum content, reactions, votes, mentions | `frontend`/`backend`; `forum_*` | Community features | Poll vote history retains attributable records |
 | Donor name, email, amount, message | `backend`; `donations` | Donation fulfillment and account linkage | Financial/identity data; no documented retention |
 | Bans, moderation, and admin actions | `backend`; moderation/audit tables | Safety and accountability | No documented retention |
+| Hook-control journal | `backend`; reserved `web_settings` receipts and identified audit rows | Recoverable staff accountability; actor/hook/old/new/UTC UUID only, no IP | Pending/invalid events retained; delivered policy/subject holds remain P6; source deployment unverified |
 | Suspicion score and evidence | `backend`; `suspicious_accounts.evidence` | Multi-account detection | Automated profiling; no appeal/erasure path found |
 | Push subscription endpoints | `frontend`/`backend`; push service storage | Browser notifications | Revocation exists at browser level; policy not documented |
 | User-uploaded images | `frontend`/`backend`; Cloudflare R2 references | Profiles/community content | Feature deletion paths need end-to-end verification |

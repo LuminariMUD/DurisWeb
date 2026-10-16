@@ -8,6 +8,7 @@
  */
 
 import { pool } from '../db/connection.js';
+import crypto from 'node:crypto';
 import logger from '../utils/logger.js';
 import { clearWebSettingsCache } from '../services/webSettingsService.js';
 import { getHook, getToggleableHooks, requireHook } from './registry.js';
@@ -20,6 +21,13 @@ import {
 import type { HookDefinition, HookId } from './types.js';
 import { getFlatfileHookHealth, type FlatfileHookHealth } from './flatfileHookState.js';
 import { getHookLastActivity } from './hookActivity.js';
+import {
+  commitHookChange,
+  HookToggleError,
+  wakeHookAuditWorker,
+  type HookChangeReceipt,
+} from './hookToggleJournal.js';
+export { HookToggleError } from './hookToggleJournal.js';
 
 /** Supplies what the MUD currently reports. Session 04 replaces the default. */
 export interface MudHookStateProvider {
@@ -50,6 +58,7 @@ export function resetMudHookStateProvider(): void {
 /** In-memory view of the website toggles, refreshed on read and on write. */
 let webStateCache: Map<string, boolean> | null = null;
 let webProvenanceCache: Map<string, HookProvenance> | null = null;
+let cacheGeneration = 0;
 
 export interface HookProvenance {
   readonly actor: string | null;
@@ -59,12 +68,6 @@ export interface HookProvenance {
 interface WebStateSnapshot {
   readonly state: Map<string, boolean>;
   readonly provenance: Map<string, HookProvenance>;
-}
-
-function isoTimestamp(raw: unknown): string | null {
-  if (!(raw instanceof Date) && typeof raw !== 'string') return null;
-  const date = raw instanceof Date ? raw : new Date(raw);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 function parseSettingValue(raw: unknown): boolean | null {
@@ -96,15 +99,15 @@ async function loadWebState(): Promise<WebStateSnapshot> {
 
   try {
     const [rows] = (await pool.query(
-      `SELECT setting_key, setting_value, updated_by, updated_at
-       FROM web_settings WHERE setting_key LIKE ?`,
-      ['hook_enabled_%'],
+      `SELECT setting_key, setting_value, updated_by, UNIX_TIMESTAMP(updated_at) AS updated_at_epoch
+       FROM web_settings WHERE setting_key IN (?)`,
+      [getToggleableHooks().map((hook) => hook.webSettingKey)],
     )) as [
       Array<{
         setting_key: string;
         setting_value: string;
         updated_by?: unknown;
-        updated_at?: unknown;
+        updated_at_epoch?: unknown;
       }>,
       unknown,
     ];
@@ -124,27 +127,46 @@ async function loadWebState(): Promise<WebStateSnapshot> {
       state.set(hook.id, parsed);
       provenance.set(hook.id, {
         actor: typeof row.updated_by === 'string' && row.updated_by.trim() ? row.updated_by : null,
-        changedAt: isoTimestamp(row.updated_at),
+        changedAt:
+          row.updated_at_epoch === null || !Number.isFinite(Number(row.updated_at_epoch))
+            ? null
+            : new Date(Number(row.updated_at_epoch) * 1000).toISOString(),
       });
     }
-  } catch (error) {
-    logger.error('[hooks] Failed to read hook toggles; defaulting all to enabled', error);
+  } catch {
+    logger.error('[hooks] Failed to read hook toggles; defaulting all to enabled', {
+      reason: 'settings_unavailable',
+      reference: crypto.randomUUID(),
+    });
   }
 
   return { state, provenance };
 }
 
 export async function refreshHookState(): Promise<void> {
-  const snapshot = await loadWebState();
-  webStateCache = snapshot.state;
-  webProvenanceCache = snapshot.provenance;
+  await populateCache();
+}
+
+async function populateCache(): Promise<Map<string, boolean>> {
+  for (;;) {
+    const generation = cacheGeneration;
+    const snapshot = await loadWebState();
+    if (generation !== cacheGeneration) continue;
+    webStateCache = snapshot.state;
+    webProvenanceCache = snapshot.provenance;
+    return webStateCache;
+  }
+}
+function invalidateCaches(): void {
+  cacheGeneration++;
+  webStateCache = null;
+  webProvenanceCache = null;
+  clearWebSettingsCache();
 }
 
 async function ensureLoaded(): Promise<Map<string, boolean>> {
   if (!webStateCache || !webProvenanceCache) {
-    const snapshot = await loadWebState();
-    webStateCache = snapshot.state;
-    webProvenanceCache = snapshot.provenance;
+    return populateCache();
   }
   return webStateCache;
 }
@@ -155,6 +177,7 @@ export function peekWebState(): ReadonlyMap<string, boolean> | null {
 }
 
 export interface HookStatusRow {
+  readonly change?: HookChangeReceipt;
   readonly hook: HookDefinition;
   readonly webEnabled: boolean;
   readonly mudState: MudHookState;
@@ -206,16 +229,6 @@ export async function getHookStatus(id: string): Promise<HookStatusRow> {
   return statusFor(hook, webState);
 }
 
-export class HookToggleError extends Error {
-  constructor(
-    message: string,
-    readonly code: 'unknown_hook' | 'always_on',
-  ) {
-    super(message);
-    this.name = 'HookToggleError';
-  }
-}
-
 /**
  * Set a website toggle, invalidate both caches, and record the change.
  *
@@ -226,6 +239,7 @@ export async function setHookEnabled(
   id: string,
   enabled: boolean,
   actor: string,
+  requestId?: string,
 ): Promise<HookStatusRow> {
   const hook = getHook(id);
   if (!hook) {
@@ -235,44 +249,17 @@ export async function setHookEnabled(
     throw new HookToggleError(`Hook ${hook.id} is always on and cannot be toggled.`, 'always_on');
   }
 
-  const previous = (await ensureLoaded()).get(hook.id) ?? true;
-  const nextValue = enabled ? 'true' : 'false';
-
-  await pool.query(
-    `INSERT INTO web_settings (setting_key, setting_value, updated_by, updated_at)
-     VALUES (?, ?, ?, NOW())
-     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value),
-                             updated_by = VALUES(updated_by),
-                             updated_at = NOW()`,
-    [hook.webSettingKey, nextValue, actor],
-  );
-
-  // Invalidate before returning so the next read cannot serve a stale value.
-  webStateCache = null;
-  webProvenanceCache = null;
-  clearWebSettingsCache();
-
-  // Audit. `action_type` is a fixed ENUM on a table shared with the MUD
-  // database, so rather than ALTER it we reuse `property_change` and namespace
-  // the target, which keeps hook toggles filterable. No IP is recorded.
+  let receipt: HookChangeReceipt;
   try {
-    await pool.query(
-      `INSERT INTO admin_action_log (account_name, action_type, target, old_value, new_value, notes)
-       VALUES (?, 'property_change', ?, ?, ?, ?)`,
-      [
-        actor,
-        `hook:${hook.id}`,
-        previous ? 'enabled' : 'disabled',
-        enabled ? 'enabled' : 'disabled',
-        `DurisWeb hook toggle (${hook.channel})`,
-      ],
-    );
+    receipt = await commitHookChange(hook, enabled, actor, requestId);
   } catch (error) {
-    // The toggle already applied; losing its audit row must not be silent.
-    logger.error(`[hooks] Toggle for ${hook.id} applied but audit log write failed`, error);
+    if (error instanceof HookToggleError && error.acknowledgementUnknown) invalidateCaches();
+    throw error;
   }
-
-  return getHookStatus(hook.id);
+  invalidateCaches();
+  const status = await getHookStatus(hook.id);
+  wakeHookAuditWorker();
+  return { ...status, change: receipt };
 }
 
 export type { EffectiveHookState, MudHookState, HookId };
