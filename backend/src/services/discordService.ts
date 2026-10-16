@@ -14,6 +14,34 @@ const SITE_URL = getBackendConfiguration().siteUrl;
 // rate limiting
 let lastPostTime = 0;
 const MIN_POST_INTERVAL = 500;
+let sendQueue = Promise.resolve();
+let rateLimitedUntil = 0;
+
+export type DiscordDeliveryResult =
+  | { status: 'delivered'; messageId: string }
+  | {
+      status: 'retry';
+      code: 'rate_limited' | 'server_error' | 'network_error' | 'invalid_response';
+      retryAfterMs: number;
+      ambiguous: boolean;
+    }
+  | {
+      status: 'failed';
+      code:
+        | 'not_configured'
+        | 'destination_changed'
+        | 'invalid_payload'
+        | 'unauthorized'
+        | 'forbidden'
+        | 'not_found'
+        | 'http_error';
+    };
+
+/** Persist this nonce with the delivery, and reuse it only for that delivery. */
+export interface DiscordDeliveryIdentity {
+  channelId: string;
+  nonce: string;
+}
 
 interface DiscordEmbed {
   title: string;
@@ -129,62 +157,134 @@ function sleep(ms: number): Promise<void> {
 /**
  * send payload through the configured Discord bot with rate limiting
  */
-async function sendDiscordPayload(payload: DiscordPayload): Promise<boolean> {
-  const bot = getBackendConfiguration().discordBot;
-  if (!bot) return false;
+function retryDelayMs(value: unknown): number {
+  if (typeof value !== 'number' && typeof value !== 'string') return 0;
+  const milliseconds = Math.ceil(Number(value) * 1000);
+  return Number.isSafeInteger(milliseconds) && milliseconds > 0 ? milliseconds : 0;
+}
 
-  // rate limiting
-  const now = Date.now();
-  const elapsed = now - lastPostTime;
-  if (elapsed < MIN_POST_INTERVAL) {
-    await sleep(MIN_POST_INTERVAL - elapsed);
-  }
-  lastPostTime = Date.now();
-
-  const response = await fetch(`https://discord.com/api/v10/channels/${bot.channelId}/messages`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bot ${bot.token}` },
-    body: JSON.stringify({ ...payload, allowed_mentions: { parse: [] } }),
-    signal: AbortSignal.timeout(10_000),
+async function sendDiscordPayload(
+  payload: DiscordPayload,
+  identity?: DiscordDeliveryIdentity,
+): Promise<DiscordDeliveryResult> {
+  // Reserve a turn before waiting so concurrent manual/test posts cannot make
+  // the release poller consume an automatic battle without attempting delivery.
+  const previous = sendQueue;
+  let release!: () => void;
+  sendQueue = new Promise<void>((resolve) => {
+    release = resolve;
   });
+  await previous;
+  try {
+    const bot = getBackendConfiguration().discordBot;
+    if (!bot) return { status: 'failed', code: 'not_configured' };
+    if (identity && identity.channelId !== bot.channelId) {
+      return { status: 'failed', code: 'destination_changed' };
+    }
+    if (identity && !/^[a-zA-Z0-9_-]{1,25}$/.test(identity.nonce)) {
+      return { status: 'failed', code: 'invalid_payload' };
+    }
+    if (rateLimitedUntil > Date.now()) {
+      return {
+        status: 'retry',
+        code: 'rate_limited',
+        retryAfterMs: rateLimitedUntil - Date.now(),
+        ambiguous: false,
+      };
+    }
 
-  if (!response.ok) {
-    logger.error(`[Discord] bot delivery failed: HTTP ${response.status}`);
-    return false;
+    const elapsed = Date.now() - lastPostTime;
+    if (elapsed < MIN_POST_INTERVAL) await sleep(MIN_POST_INTERVAL - elapsed);
+    lastPostTime = Date.now();
+    const response = await fetch(`https://discord.com/api/v10/channels/${bot.channelId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bot ${bot.token}` },
+      body: JSON.stringify({
+        ...payload,
+        allowed_mentions: { parse: [] },
+        ...(identity ? { nonce: identity.nonce, enforce_nonce: true } : {}),
+      }),
+      signal: AbortSignal.timeout(10_000),
+      redirect: 'error',
+    });
+    // Never retain Discord response text: it can echo content or credentials.
+    const body: unknown = await response.json().catch(() => null);
+    const fields = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const retryAfterMs = Math.max(
+      retryDelayMs(response.headers.get('Retry-After')),
+      retryDelayMs(response.headers.get('X-RateLimit-Reset-After')),
+      retryDelayMs(fields.retry_after),
+    );
+    if (response.status === 429 || response.headers.get('X-RateLimit-Remaining') === '0') {
+      rateLimitedUntil = Date.now() + Math.max(retryAfterMs || 60_000, 1000);
+    }
+    if (response.ok) {
+      if (typeof fields.id === 'string' && /^\d{1,20}$/.test(fields.id)) {
+        return { status: 'delivered', messageId: fields.id };
+      }
+      return { status: 'retry', code: 'invalid_response', retryAfterMs: 30_000, ambiguous: true };
+    }
+    if (response.status === 429) {
+      return {
+        status: 'retry',
+        code: 'rate_limited',
+        retryAfterMs: rateLimitedUntil - Date.now(),
+        ambiguous: false,
+      };
+    }
+    if (response.status >= 500 || response.status === 408) {
+      return {
+        status: 'retry',
+        code: 'server_error',
+        retryAfterMs: Math.max(retryAfterMs, 30_000),
+        ambiguous: true,
+      };
+    }
+    const code =
+      response.status === 401
+        ? 'unauthorized'
+        : response.status === 403
+          ? 'forbidden'
+          : response.status === 404
+            ? 'not_found'
+            : response.status === 400
+              ? 'invalid_payload'
+              : 'http_error';
+    return { status: 'failed', code };
+  } catch {
+    return { status: 'retry', code: 'network_error', retryAfterMs: 30_000, ambiguous: true };
+  } finally {
+    release();
   }
-
-  return true;
 }
 
 /**
  * post battle to discord (called automatically when battles occur)
- * fire-and-forget pattern - errors are logged but don't fail the caller
+ * One attempt only. The scheduler owns durable retry and recovery decisions.
  */
 export async function postBattleToDiscord(
   eventId: number,
   stamp: Date | string,
   roomName: string,
   participants: BattleParticipant[],
-): Promise<boolean> {
+  identity?: DiscordDeliveryIdentity,
+): Promise<DiscordDeliveryResult> {
   try {
-    if (!getBackendConfiguration().discordBot) {
-      logger.warn('[Discord] bot not configured');
-      return false;
-    }
-
     const embed = buildBattleEmbed(eventId, stamp, roomName, participants);
     const payload: DiscordPayload = { embeds: [embed] };
 
-    const success = await sendDiscordPayload(payload);
+    const result = await sendDiscordPayload(payload, identity);
 
-    if (success) {
+    if (result.status === 'delivered') {
       logger.info(`[Discord] posted battle ${eventId}`);
+    } else {
+      logger.warn(`[Discord] battle ${eventId}: ${result.code}`);
     }
 
-    return success;
+    return result;
   } catch {
-    logger.error('[Discord] post failed');
-    return false;
+    logger.error(`[Discord] battle ${eventId}: invalid_payload`);
+    return { status: 'failed', code: 'invalid_payload' };
   }
 }
 
@@ -231,13 +331,14 @@ export async function manualPostBattle(
     );
     const payload: DiscordPayload = { embeds: [embed] };
 
-    const success = await sendDiscordPayload(payload);
+    const result = await sendDiscordPayload(payload);
 
-    if (success) {
+    if (result.status === 'delivered') {
       logger.info(`[Discord] manually posted battle ${eventId}`);
       return { success: true };
     }
 
+    logger.warn(`[Discord] manual battle ${eventId}: ${result.code}`);
     return {
       success: false,
       error: 'Failed to send to Discord; check bot channel permissions and try again',
@@ -274,12 +375,13 @@ export async function testDiscordBot(): Promise<{ success: boolean; error?: stri
     };
 
     const payload: DiscordPayload = { embeds: [testEmbed] };
-    const success = await sendDiscordPayload(payload);
+    const result = await sendDiscordPayload(payload);
 
-    if (success) {
+    if (result.status === 'delivered') {
       return { success: true };
     }
 
+    logger.warn(`[Discord] bot test: ${result.code}`);
     return { success: false, error: 'failed to send test message' };
   } catch {
     logger.error('[Discord] bot test failed');

@@ -23,9 +23,11 @@ let now = Date.now();
 beforeEach(() => {
   jest.clearAllMocks();
   configuration.discordBot = { token: 'private-test-token', channelId: '123456789012345678' };
-  now += 1000;
-  jest.spyOn(Date, 'now').mockReturnValue(now);
-  jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }));
+  now += 86_400_000;
+  jest.spyOn(Date, 'now').mockImplementation(() => now);
+  jest
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation(async () => new Response('{"id":"987654321012345678"}', { status: 200 }));
   query.mockResolvedValue([
     [
       {
@@ -90,7 +92,10 @@ describe('Discord bot battle delivery', () => {
   });
 
   it('uses the bot for automatic battle delivery', async () => {
-    expect(await service.postBattleToDiscord(4, '2026-10-16', 'Room', [])).toBe(true);
+    expect(await service.postBattleToDiscord(4, '2026-10-16', 'Room', [])).toEqual({
+      status: 'delivered',
+      messageId: '987654321012345678',
+    });
     expect(fetch).toHaveBeenCalledWith(
       'https://discord.com/api/v10/channels/123456789012345678/messages',
       expect.objectContaining({ method: 'POST' }),
@@ -111,7 +116,10 @@ describe('Discord bot battle delivery', () => {
       error: 'Discord bot is not configured',
     });
     expect(await service.testDiscordBot()).toMatchObject({ success: false });
-    expect(await service.postBattleToDiscord(4, '2026-10-16', 'Room', [])).toBe(false);
+    expect(await service.postBattleToDiscord(4, '2026-10-16', 'Room', [])).toEqual({
+      status: 'failed',
+      code: 'not_configured',
+    });
     expect(query).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -125,19 +133,176 @@ describe('Discord bot battle delivery', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it.each([401, 403, 429, 500])(
-    'reports Discord HTTP %s as failure without retrying',
-    async (status) => {
-      jest.mocked(fetch).mockResolvedValue(new Response('private response', { status }));
-      expect(await service.manualPostBattle(4)).toMatchObject({ success: false });
-      expect(fetch).toHaveBeenCalledTimes(1);
-      expect(JSON.stringify(logger.error.mock.calls)).not.toContain('private');
-    },
-  );
+  it.each([
+    [401, 'unauthorized'],
+    [403, 'forbidden'],
+    [429, 'rate_limited'],
+    [500, 'server_error'],
+  ])('reports Discord HTTP %s as failure without retrying', async (status, code) => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(new Response('private response', { status: Number(status) }));
+    expect(await service.manualPostBattle(4)).toMatchObject({ success: false });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(`[Discord] manual battle 4: ${code}`);
+    expect(JSON.stringify(logger.error.mock.calls)).not.toContain('private');
+  });
 
   it('handles network failures without logging credentials', async () => {
     jest.mocked(fetch).mockRejectedValue(new Error('private-test-token'));
     expect(await service.manualPostBattle(4)).toMatchObject({ success: false });
+    expect(logger.warn).toHaveBeenCalledWith('[Discord] manual battle 4: network_error');
     expect(JSON.stringify(logger.error.mock.calls)).not.toContain('private-test-token');
+  });
+
+  it.each(['unauthorized', 'network_error'])(
+    'logs a sanitized bot-test %s outcome',
+    async (code) => {
+      if (code === 'network_error')
+        jest.mocked(fetch).mockRejectedValue(new Error('private-test-token'));
+      else
+        jest.mocked(fetch).mockResolvedValue(new Response('private-test-token', { status: 401 }));
+      expect(await service.testDiscordBot()).toMatchObject({ success: false });
+      expect(logger.warn).toHaveBeenCalledWith(`[Discord] bot test: ${code}`);
+      expect(JSON.stringify([logger.warn.mock.calls, logger.error.mock.calls])).not.toContain(
+        'private-test-token',
+      );
+    },
+  );
+
+  it('uses the persisted nonce for retries and leaves manual reposts independent', async () => {
+    const identity = { channelId: '123456789012345678', nonce: 'pvp_delivery_4' };
+    await service.postBattleToDiscord(4, '2026-10-16', 'Room', [], identity);
+    const payload = JSON.parse(String(jest.mocked(fetch).mock.calls[0][1]?.body));
+    expect(payload).toMatchObject({ nonce: identity.nonce, enforce_nonce: true });
+    now += 1000;
+    await service.manualPostBattle(4);
+    const manualPayload = JSON.parse(String(jest.mocked(fetch).mock.calls[1][1]?.body));
+    expect(manualPayload).not.toHaveProperty('nonce');
+    expect(manualPayload).not.toHaveProperty('enforce_nonce');
+  });
+
+  it('refuses a queued delivery when the configured destination has changed', async () => {
+    expect(
+      await service.postBattleToDiscord(4, '2026-10-16', 'Room', [], {
+        channelId: '999999999999999999',
+        nonce: 'pvp_delivery_4',
+      }),
+    ).toEqual({ status: 'failed', code: 'destination_changed' });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [401, 'unauthorized'],
+    [403, 'forbidden'],
+    [404, 'not_found'],
+    [400, 'invalid_payload'],
+  ])('classifies HTTP %s as requiring operator action', async (status, code) => {
+    jest.mocked(fetch).mockResolvedValue(new Response('private-test-token', { status }));
+    expect(await service.postBattleToDiscord(4, '2026-10-16', 'Room', [])).toEqual({
+      status: 'failed',
+      code,
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(`[Discord] battle 4: ${code}`);
+    expect(JSON.stringify([logger.warn.mock.calls, logger.error.mock.calls])).not.toContain(
+      'private-test-token',
+    );
+  });
+
+  it.each([500, 502, 503, 408])('retains HTTP %s as an uncertain retry', async (status) => {
+    jest.mocked(fetch).mockResolvedValue(new Response('{}', { status }));
+    expect(await service.postBattleToDiscord(4, '2026-10-16', 'Room', [])).toEqual({
+      status: 'retry',
+      code: 'server_error',
+      retryAfterMs: 30_000,
+      ambiguous: true,
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('honors fractional body/header rate limits and blocks subsequent sends until the deadline', async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(
+        new Response('{"retry_after":64.57}', { status: 429, headers: { 'Retry-After': '65' } }),
+      );
+    expect(await service.postBattleToDiscord(4, '2026-10-16', 'Room', [])).toEqual({
+      status: 'retry',
+      code: 'rate_limited',
+      retryAfterMs: 65_000,
+      ambiguous: false,
+    });
+    now += 1000;
+    expect(await service.postBattleToDiscord(5, '2026-10-16', 'Room', [])).toMatchObject({
+      status: 'retry',
+      code: 'rate_limited',
+      retryAfterMs: 64_000,
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    now += 64_000;
+    jest.mocked(fetch).mockResolvedValue(new Response('{"id":"123"}', { status: 200 }));
+    expect(await service.postBattleToDiscord(5, '2026-10-16', 'Room', [])).toMatchObject({
+      status: 'delivered',
+      messageId: '123',
+    });
+  });
+
+  it.each(['{}', '{"retry_after":-1}', '{"retry_after":"invalid"}'])(
+    'uses a bounded fallback for invalid rate-limit metadata %s',
+    async (body) => {
+      jest.mocked(fetch).mockResolvedValue(new Response(body, { status: 429 }));
+      expect(await service.postBattleToDiscord(4, '2026-10-16', 'Room', [])).toMatchObject({
+        status: 'retry',
+        code: 'rate_limited',
+        retryAfterMs: 60_000,
+        ambiguous: false,
+      });
+    },
+  );
+
+  it('treats a lost or malformed success response as ambiguous, never confirmed', async () => {
+    jest.mocked(fetch).mockResolvedValue(new Response('{}', { status: 200 }));
+    expect(await service.postBattleToDiscord(4, '2026-10-16', 'Room', [])).toEqual({
+      status: 'retry',
+      code: 'invalid_response',
+      retryAfterMs: 30_000,
+      ambiguous: true,
+    });
+    now += 1000;
+    jest.mocked(fetch).mockRejectedValue(new Error('private-test-token'));
+    expect(await service.postBattleToDiscord(4, '2026-10-16', 'Room', [])).toMatchObject({
+      status: 'retry',
+      code: 'network_error',
+      ambiguous: true,
+    });
+    expect(JSON.stringify([logger.warn.mock.calls, logger.error.mock.calls])).not.toContain(
+      'private-test-token',
+    );
+  });
+
+  it('waits for a slow test message before sending automatic battles, including after failure', async () => {
+    let reject!: (reason: Error) => void;
+    jest.mocked(fetch).mockImplementationOnce(
+      () =>
+        new Promise((_resolve, fail) => {
+          reject = fail;
+        }),
+    );
+    const first = service.testDiscordBot();
+    await Promise.resolve();
+    const second = service.postBattleToDiscord(4, '2026-10-16', 'Room', []);
+    const third = service.postBattleToDiscord(5, '2026-10-16', 'Room', []);
+    await Promise.resolve();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    now += 1000;
+    reject(new Error('timeout'));
+    await expect(first).resolves.toEqual({ success: false, error: 'failed to send test message' });
+    await expect(second).resolves.toMatchObject({ status: 'delivered' });
+    now += 1000;
+    await expect(third).resolves.toMatchObject({ status: 'delivered' });
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(String(jest.mocked(fetch).mock.calls[1][1]?.body)).toContain('/pvp/4');
+    expect(String(jest.mocked(fetch).mock.calls[2][1]?.body)).toContain('/pvp/5');
   });
 });
