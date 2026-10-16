@@ -58,7 +58,12 @@ import {
   startDonationOutboxPublisher,
   stopDonationOutboxPublisher,
 } from './services/donationOutboxService.js';
-import { getLatestEvents, getPvPEventDetail } from './services/pvpService.js';
+import { createPvpPoller, PVP_POLL_INTERVAL_MS } from './services/pvpPolling.js';
+import {
+  getLatestEvents,
+  getReleasedEventsAfter,
+  getPvPEventDetail,
+} from './services/pvpService.js';
 import fs from 'fs';
 import { startGuildSync, stopGuildSync } from './services/guildSyncService.js';
 // netstatWatcher removed - player count now tracked via mud websocket events
@@ -290,7 +295,7 @@ if (environment.environment === 'production') {
   /** Builds HTML-encoded Open Graph metadata for one PvP battle. */
   const generateBattleOgTags = (
     eventId: number,
-    event: { room_name: string; stamp: Date },
+    event: { room_name: string; stamp: string },
     participants: Array<{ player_description: string; pk_type: string }>,
     siteTitle: string,
     logoUrl?: string,
@@ -434,8 +439,9 @@ let orphanImageCleanupInterval: NodeJS.Timeout | null = null;
 const healthBroadcastInterval: NodeJS.Timeout | null = null;
 let wsConnectionCountInterval: NodeJS.Timeout | null = null;
 
-// Track last event ID for new event detection
-let lastEventId = 0;
+// Initialized from the latest visible battle at startup.
+let pollReleasedEvents: (() => Promise<void>) | null = null;
+let fragPollRunning = false;
 
 // Track last frag update timestamp for change detection
 let lastFragUpdateCheck = new Date();
@@ -727,6 +733,8 @@ function updateWebSocketConnectionCount() {
 
 // Check for frag leaderboard changes
 async function checkForFragUpdates() {
+  if (fragPollRunning) return;
+  fragPollRunning = true;
   try {
     // Query for any frag records updated since last check
     const [rows] = await pool.query<any[]>(
@@ -741,66 +749,55 @@ async function checkForFragUpdates() {
     }
   } catch (error) {
     logger.error('Error checking for frag updates:', error);
+  } finally {
+    fragPollRunning = false;
   }
 }
 
-// Poll database for new events
+// Poll database for every newly released event without overlapping runs.
 async function checkForNewEvents() {
   try {
-    const result = await getLatestEvents(1, 0);
-
-    if (result.events.length > 0) {
-      const latestEvent = result.events[0];
-
-      // If we have a new event, broadcast it
-      if (latestEvent.id > lastEventId) {
-        lastEventId = latestEvent.id;
-        broadcastNewEvent(latestEvent);
-
-        // send push notification to all subscribers
-        if (latestEvent.victims && latestEvent.killers) {
-          notifyPvpBattle(
-            latestEvent.id,
-            latestEvent.victims,
-            latestEvent.killers,
-            latestEvent.room_name || 'Unknown',
-          ).catch((err) => logger.error('failed to send pvp push notification:', err));
-
-          // post to discord if enabled
-          (async () => {
-            try {
-              const enabled = await isDiscordEnabled();
-              if (enabled) {
-                const participants = [
-                  ...latestEvent.killers.map((k: { description: string; isLeader: boolean }) => ({
-                    description: k.description,
-                    pk_type: k.isLeader ? 'KILLER' : 'KILLER-GROUP',
-                    leader: k.isLeader,
-                  })),
-                  ...latestEvent.victims.map(
-                    (v: { description: string; isLeader: boolean; died: boolean }) => ({
-                      description: v.description,
-                      pk_type: v.died ? 'VICTIM' : 'VICTIM-GROUP',
-                      leader: v.isLeader,
-                    }),
-                  ),
-                ];
-                await postBattleToDiscord(
-                  latestEvent.id,
-                  latestEvent.stamp,
-                  latestEvent.room_name || 'Unknown',
-                  participants,
-                );
-              }
-            } catch (err) {
-              logger.error('failed to post to discord:', err);
-            }
-          })();
-        }
-      }
-    }
+    await pollReleasedEvents?.();
   } catch (error) {
     logger.error('Error checking for new events:', error);
+  }
+}
+
+async function publishReleasedEvent(latestEvent: import('./types/index.js').PvPEventListItem) {
+  broadcastNewEvent(latestEvent);
+  try {
+    await notifyPvpBattle(
+      latestEvent.id,
+      latestEvent.victims,
+      latestEvent.killers,
+      latestEvent.room_name || 'Unknown',
+    );
+  } catch (error) {
+    logger.error('failed to send pvp push notification:', error);
+  }
+  try {
+    if (await isDiscordEnabled()) {
+      const participants = [
+        ...latestEvent.killers.map((k) => ({
+          description: k.description,
+          pk_type: k.isLeader ? 'KILLER' : 'KILLER-GROUP',
+          leader: k.isLeader,
+        })),
+        ...latestEvent.victims.map((v) => ({
+          description: v.description,
+          pk_type: v.died ? 'VICTIM' : 'VICTIM-GROUP',
+          leader: v.isLeader,
+        })),
+      ];
+      await postBattleToDiscord(
+        latestEvent.id,
+        latestEvent.stamp,
+        latestEvent.room_name || 'Unknown',
+        participants,
+      );
+    }
+  } catch (error) {
+    logger.error('failed to post to discord:', error);
   }
 }
 
@@ -1009,11 +1006,14 @@ async function startServer() {
     // Keep sampling checkouts so post-boot session drift is alerted, not silent.
     startPoolSessionInvariantSampling();
 
-    // Get initial last event ID
+    // Begin after the newest visible battle; restarting must not replay old notifications.
     const initialEvents = await getLatestEvents(1, 0);
-    if (initialEvents.events.length > 0) {
-      lastEventId = initialEvents.events[0].id;
-    }
+    const initialCursor = initialEvents.events[0] || { id: 0, stamp: '1970-01-01T00:00:00.000Z' };
+    pollReleasedEvents = createPvpPoller(
+      initialCursor,
+      getReleasedEventsAfter,
+      publishReleasedEvent,
+    );
 
     // Create HTTP server from Express app
     server = http.createServer(app);
@@ -1686,16 +1686,10 @@ async function startServer() {
       );
     });
 
-    // Get pvp delay setting for polling interval
-    const settings = await getWebSettings();
-    const pvpPollInterval = settings.pvpDelayMinutes * 60 * 1000;
-    logger.info(`PvP/frag polling interval set to ${settings.pvpDelayMinutes} minutes`);
-
-    // Start polling for new events using pvpDelayMinutes setting
-    eventCheckInterval = setInterval(checkForNewEvents, pvpPollInterval);
-
-    // Start polling for frag updates using same interval
-    fragCheckInterval = setInterval(checkForFragUpdates, pvpPollInterval);
+    // Release delay is evaluated by every query; timer cadence stays positive and independent.
+    logger.info(`PvP/frag polling interval set to ${PVP_POLL_INTERVAL_MS / 1000} seconds`);
+    eventCheckInterval = setInterval(checkForNewEvents, PVP_POLL_INTERVAL_MS);
+    fragCheckInterval = setInterval(checkForFragUpdates, PVP_POLL_INTERVAL_MS);
 
     // netstat watcher removed - player count now tracked via mud websocket events
 

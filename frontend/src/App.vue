@@ -224,7 +224,7 @@ onNewEvent((event) => {
       <div><span class="text-success">Killers:</span> ${parseAnsiForVue(killers)}</div>
       <div><span class="text-danger">Victims:</span> ${parseAnsiForVue(victims)}</div>
       <div><span class="text-muted-foreground">Location:</span> ${parseAnsiForVue(location)}</div>
-      <div class="text-xs text-vermilion cursor-pointer hover:underline" onclick="window.location.href='/pvp/battle/${event.id}'">Click to view details →</div>
+      <div class="text-xs text-vermilion cursor-pointer hover:underline" onclick="window.location.href='/pvp/${event.id}'">Click to view details →</div>
     </div>
   `
 

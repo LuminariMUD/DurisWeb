@@ -9,7 +9,10 @@ const configuration: {
 const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 
 jest.unstable_mockModule('../../db/connection.js', () => ({ pool: { query } }));
-jest.unstable_mockModule('../webSettingsService.js', () => ({ getWebSetting }));
+jest.unstable_mockModule('../webSettingsService.js', () => ({
+  getWebSetting,
+  getWebSettings: async () => ({ pvpDelayMinutes: 15 }),
+}));
 jest.unstable_mockModule('../../config/environment.js', () => ({
   getBackendConfiguration: () => configuration,
 }));
@@ -27,7 +30,7 @@ beforeEach(() => {
     [
       {
         id: 4,
-        stamp: '2026-10-16T12:00:00Z',
+        stamp_epoch: Date.parse('2026-10-16T12:00:00Z') / 1000,
         room_name: 'Battle Room',
         player_description: 'Pil',
         pk_type: 'KILLER',
@@ -50,7 +53,10 @@ afterEach(() => {
 describe('Discord bot battle delivery', () => {
   it('posts the manual battle with POV links while automatic posting is disabled', async () => {
     expect(await service.manualPostBattle(4)).toEqual({ success: true });
-    expect(query).toHaveBeenCalledWith(expect.any(String), [4]);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('e.stamp <= DATE_SUB(NOW(), INTERVAL ? MINUTE)'),
+      [4, 15],
+    );
     expect(fetch).toHaveBeenCalledWith(
       'https://discord.com/api/v10/channels/123456789012345678/messages',
       expect.objectContaining({

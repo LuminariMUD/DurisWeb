@@ -88,7 +88,7 @@ export function useNotifications() {
 
         // Navigate to battle detail if data contains eventId
         if (options.data?.eventId) {
-          window.location.href = `/pvp/battle/${options.data.eventId}`
+          window.location.href = `/pvp/${options.data.eventId}`
         }
 
         notification.close()

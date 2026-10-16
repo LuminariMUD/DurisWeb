@@ -53,6 +53,14 @@ points and security boundaries rather than duplicating every handler.
 Some route modules contain both public and protected handlers. Do not infer
 authorization from the prefix alone; inspect the handler middleware and tests.
 
+## PvP pagination
+
+PvP event lists, advanced search, player/location autocomplete, and favorites
+clamp `page` to 1–10,000 and `limit` to 1–100. Missing or nonnumeric values use
+page 1 and the endpoint's default limit: 50 for events/search, 20 for
+autocomplete/favorites. Popular-location analytics uses the same limit bounds
+with a default of 10. Response pagination reports the normalized query values.
+
 ## PvP participant snapshots
 
 PvP descriptions, equipment, and public combat logs are battle-time snapshots
@@ -70,6 +78,35 @@ equipment string means no snapshot was captured; a nonempty string is the
 stored snapshot. The UI preserves this distinction and allows selection of
 participants who have equipment but no log. It never bypasses the equipment
 privacy gate to diagnose missing data.
+
+Every public battle-derived response uses `pvp_delay_minutes`, including statistics,
+autocomplete, analytics, favorites, comments, and profile histories/counts. Reads
+and interactions targeting a still-hidden battle return the same 404 as a missing
+battle. Changing the delay takes effect on subsequent queries.
+
+Participant filters match an in-room participant and return the complete in-room
+teams. Statistics combine snapshots by PID and resolve exact names from stored
+history, including characters no longer present in `player_data`. Autocomplete
+pages distinct identities before returning suggestions. Kills retain the MUD's
+existing killer-side/assist semantics; they are not a final-blow count.
+
+Both event-list and advanced-search routes accept `sort_by=date|likes`. Calendar
+filters use the database server's calendar (UTC in the production deployment);
+`date_to` includes that entire day. Invalid dates, hours, advanced level ranges,
+and unsupported sort/alignment values return 400. Battle timestamps in list,
+detail, favorites, statistics, and profile history are ISO 8601 instants with an
+explicit UTC offset, derived from the database's timestamp interpretation.
+
+PvP notifications poll every 30 seconds independently of the release delay.
+Serial batches use timestamp and ID ordering to deliver every newly eligible
+battle after the startup cursor, including tied timestamps. A restart begins
+at the newest visible battle and does not replay historical notifications.
+Notification links use `/pvp/:id`. Battle dialogs support keyboard focus and
+Escape dismissal through the shared dialog primitives.
+
+Comment counts include retained thread slots. Deleting a comment replaces its
+body with `[deleted]`, preserving its replies and its contribution to the count;
+repeated deletion does not decrement the count.
 
 ## MUD news publishing
 

@@ -751,11 +751,13 @@ const activeFilterCount = computed(() => {
           <div class="grid grid-cols-2 gap-3">
             <input
               v-model="dateFrom"
+              aria-label="Server date from"
               type="date"
               class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion date-input"
             />
             <input
               v-model="dateTo"
+              aria-label="Server date to"
               type="date"
               class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion date-input"
             />
@@ -894,10 +896,11 @@ const activeFilterCount = computed(() => {
 
           <!-- Date From -->
           <div>
-            <label class="block text-sm font-medium text-bone-muted mb-2">Date From</label>
+            <label class="block text-sm font-medium text-bone-muted mb-2">Server date from</label>
             <div class="relative">
               <input
                 v-model="dateFrom"
+              aria-label="Server date from"
                 type="date"
                 class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion date-input"
               />
@@ -906,10 +909,11 @@ const activeFilterCount = computed(() => {
 
           <!-- Date To -->
           <div>
-            <label class="block text-sm font-medium text-bone-muted mb-2">Date To</label>
+            <label class="block text-sm font-medium text-bone-muted mb-2">Server date to</label>
             <div class="relative">
               <input
                 v-model="dateTo"
+              aria-label="Server date to"
                 type="date"
                 class="flex h-9 w-full rounded-md border border-border bg-card text-bone-muted px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-vermilion date-input"
               />

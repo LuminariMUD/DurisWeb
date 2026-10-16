@@ -3,10 +3,8 @@ import type { IRouter } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler.js';
 import {
   parsePagination,
-  validateHour,
   validateDateString,
   sanitizeSearchString,
-  validateEnum,
   validateIdParam,
 } from '../utils/validation.js';
 import {
@@ -66,6 +64,60 @@ function parseOptionalPvpId(value: unknown, label: string): number | undefined {
   throw new AppError(`Invalid ${label}`, 400);
 }
 
+function parseEventFilters(req: Request, advanced = false): SearchFilters {
+  const text = (key: string, length = 100): string | undefined => {
+    const value = req.query[key];
+    if (value === undefined || value === '') return undefined;
+    if (typeof value !== 'string') throw new AppError(`Invalid ${key}`, 400);
+    return sanitizeSearchString(value, length);
+  };
+  const date = (key: string): string | undefined => {
+    const value = text(key);
+    if (value === undefined) return undefined;
+    if (!validateDateString(value) || new Date(value).toISOString().slice(0, 10) !== value) {
+      throw new AppError(`Invalid ${key}; use YYYY-MM-DD`, 400);
+    }
+    return value;
+  };
+  const integer = (key: string, min: number, max: number): number | undefined => {
+    const value = text(key);
+    if (value === undefined) return undefined;
+    if (!/^\d+$/.test(value) || Number(value) < min || Number(value) > max) {
+      throw new AppError(`Invalid ${key}; expected ${min}–${max}`, 400);
+    }
+    return Number(value);
+  };
+  const sort = text('sort_by') || 'date';
+  if (sort !== 'date' && sort !== 'likes') throw new AppError('Invalid sort_by', 400);
+  const filters: SearchFilters = {
+    ...parsePagination(text('page'), text('limit'), 50, 100),
+    player: text('player', 50),
+    location: text('location'),
+    date_from: date('date_from'),
+    date_to: date('date_to'),
+    hour: integer('hour', 0, 23),
+    sort_by: sort,
+  };
+  if (filters.date_from && filters.date_to && filters.date_from > filters.date_to) {
+    throw new AppError('date_from must not follow date_to', 400);
+  }
+  if (advanced) {
+    filters.class = text('class');
+    filters.race = text('race');
+    filters.level_min = integer('level_min', 1, 56);
+    filters.level_max = integer('level_max', 1, 56);
+    if (filters.level_min && filters.level_max && filters.level_min > filters.level_max) {
+      throw new AppError('level_min must not exceed level_max', 400);
+    }
+    const alignment = text('alignment');
+    if (alignment !== undefined && alignment !== 'good' && alignment !== 'evil') {
+      throw new AppError('Invalid alignment', 400);
+    }
+    filters.alignment = alignment;
+  }
+  return filters;
+}
+
 /**
  * GET /api/pvp/events
  * Get paginated list of PvP events
@@ -73,23 +125,8 @@ function parseOptionalPvpId(value: unknown, label: string): number | undefined {
 router.get(
   '/events',
   asyncHandler(async (req: Request, res: Response) => {
-    const { page, limit } = parsePagination(
-      req.query.page as string,
-      req.query.limit as string,
-      50,
-      100,
-    );
-
-    const filters: EventFilters = {
-      player: sanitizeSearchString(req.query.player as string, 50),
-      location: sanitizeSearchString(req.query.location as string, 100),
-      date_from: validateDateString(req.query.date_from as string) || undefined,
-      date_to: validateDateString(req.query.date_to as string) || undefined,
-      hour: validateHour(req.query.hour as string),
-      page,
-      limit,
-      sort_by: validateEnum(req.query.sort_by as string, ['date', 'likes'] as const, 'date'),
-    };
+    const filters: EventFilters = parseEventFilters(req);
+    const { page = 1, limit = 50 } = filters;
 
     const { events, total } = await getPvPEvents(filters);
 
@@ -197,26 +234,10 @@ router.get(
 router.get(
   '/search',
   asyncHandler(async (req: Request, res: Response) => {
-    const hourParam = req.query.hour as string;
-    const filters: SearchFilters = {
-      player: req.query.player as string,
-      location: req.query.location as string,
-      date_from: req.query.date_from as string,
-      date_to: req.query.date_to as string,
-      hour: hourParam ? parseInt(hourParam) : undefined,
-      class: req.query.class as string,
-      race: req.query.race as string,
-      level_min: req.query.level_min ? parseInt(req.query.level_min as string) : undefined,
-      level_max: req.query.level_max ? parseInt(req.query.level_max as string) : undefined,
-      alignment: req.query.alignment as 'good' | 'evil' | undefined,
-      page: req.query.page ? parseInt(req.query.page as string) : 1,
-      limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
-    };
+    const filters = parseEventFilters(req, true);
+    const { page = 1, limit = 50 } = filters;
 
     const { events, total } = await searchPvPEvents(filters);
-
-    const page = filters.page || 1;
-    const limit = filters.limit || 50;
 
     const response: PaginatedResponse<(typeof events)[0]> = {
       data: events,
@@ -240,8 +261,11 @@ router.get(
   '/locations',
   asyncHandler(async (req: Request, res: Response) => {
     const query = (req.query.q as string) || '';
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const { page, limit } = parsePagination(
+      req.query.page as string,
+      req.query.limit as string,
+      20,
+    );
 
     // Allow empty query to return all locations (with pagination)
     const locations = await getLocationAutocomplete(query, page, limit);
@@ -257,8 +281,11 @@ router.get(
   '/players',
   asyncHandler(async (req: Request, res: Response) => {
     const query = (req.query.q as string) || '';
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const { page, limit } = parsePagination(
+      req.query.page as string,
+      req.query.limit as string,
+      20,
+    );
 
     // Allow empty query to return all players (with pagination)
     const players = await getPlayerAutocomplete(query, page, limit);
@@ -309,7 +336,7 @@ router.get(
 router.get(
   '/analytics/popular-locations',
   asyncHandler(async (_req: Request, res: Response): Promise<void> => {
-    const limit = _req.query.limit ? parseInt(_req.query.limit as string) : 10;
+    const { limit } = parsePagination(undefined, _req.query.limit as string, 10);
     const period = (_req.query.period as '7d' | '30d' | '90d' | 'all') || 'all';
     // Validate period
     if (!['7d', '30d', '90d', 'all'].includes(period)) {
@@ -585,8 +612,11 @@ router.get(
   '/users/:accountName/favorites',
   asyncHandler(async (req: Request, res: Response) => {
     const { accountName } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const { page, limit } = parsePagination(
+      req.query.page as string,
+      req.query.limit as string,
+      20,
+    );
 
     const { data, total } = await getUserFavorites(accountName, page, limit);
 

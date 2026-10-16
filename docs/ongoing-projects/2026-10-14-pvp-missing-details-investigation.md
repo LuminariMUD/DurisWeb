@@ -1,6 +1,12 @@
 # PvP missing details investigation
 
-Investigated on 2026-10-14 UTC. Status: source repair complete and validated in both repositories; not deployed.
+Investigated on 2026-10-14 UTC. Status at that investigation: source repair complete and validated in both repositories; not deployed.
+
+**2026-10-16 follow-up:** the [end-to-end audit](2026-10-16-pvp-end-to-end-audit.md)
+verifies that snapshot capture and website display repairs are now active in
+production, including the later log-capacity schema change. See that report for
+current runtime evidence, remaining defects, and verification limits. Deployment
+and migration statements below describe the earlier investigation/repair stage.
 
 ## Repair progress
 

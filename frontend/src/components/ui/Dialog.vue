@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { watch, computed } from 'vue'
+import { computed } from 'vue'
+import {
+  DialogRoot,
+  DialogPortal,
+  DialogOverlay,
+  DialogContent,
+  DialogTitle,
+  DialogClose,
+} from 'reka-ui'
 
 interface Props {
   open: boolean
@@ -17,68 +25,37 @@ const emit = defineEmits<{
   'update:open': [value: boolean]
 }>()
 
-const close = () => {
-  emit('update:open', false)
-}
-
 // Compute dialog size classes
 const dialogClasses = computed(() => {
   if (props.size === 'compact') {
-    return 'w-full max-w-2xl max-h-[80vh]'
+    return 'w-[calc(100%-2rem)] sm:w-full sm:max-w-2xl max-h-[80vh]'
   }
-  return 'w-full h-full max-w-7xl max-h-[95vh]'
+  return 'w-[calc(100%-2rem)] h-full sm:max-w-7xl max-h-[95vh]'
 })
-
-// Prevent body scroll when dialog is open
-watch(
-  () => props.open,
-  (isOpen) => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
-  },
-)
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition
-      enter-active-class="transition-opacity duration-200"
-      enter-from-class="opacity-0"
-      enter-to-class="opacity-100"
-      leave-active-class="transition-opacity duration-200"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
-    >
-      <div
-        v-if="open"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
-        @click.self="close"
+  <DialogRoot :open="open" @update:open="emit('update:open', $event)">
+    <DialogPortal>
+      <DialogOverlay class="fixed inset-0 z-50 bg-black/80" />
+      <DialogContent
+        :aria-describedby="undefined"
+        :class="['fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 max-w-[calc(100%-2rem)] flex flex-col bg-background border border-border rounded-lg shadow-xl', dialogClasses]"
       >
-        <div :class="['relative m-4 flex flex-col bg-background border border-border rounded-lg shadow-xl', dialogClasses]">
-          <!-- Header -->
-          <div class="flex items-center justify-between p-4 border-b border-border">
-            <h2 v-if="titleHtml" class="text-lg font-semibold text-foreground" v-html="titleHtml"></h2>
-            <h2 v-else-if="title" class="text-lg font-semibold text-foreground">{{ title }}</h2>
-            <button
-              @click="close"
-              class="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-vermilion focus:ring-offset-2"
-            >
-              <svg class="h-6 w-6 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              <span class="sr-only">Close</span>
-            </button>
-          </div>
-
-          <!-- Content -->
-          <div :class="['flex-1 overflow-auto', noPadding ? '' : 'p-6']">
-            <slot></slot>
-          </div>
+        <div class="flex items-center justify-between p-4 border-b border-border">
+          <DialogTitle v-if="titleHtml" class="text-lg font-semibold text-foreground"><span v-html="titleHtml" /></DialogTitle>
+          <DialogTitle v-else class="text-lg font-semibold text-foreground">{{ title || 'Dialog' }}</DialogTitle>
+          <DialogClose class="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-vermilion focus:ring-offset-2">
+            <svg class="h-6 w-6 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            <span class="sr-only">Close</span>
+          </DialogClose>
         </div>
-      </div>
-    </Transition>
-  </Teleport>
+        <div :class="['flex-1 overflow-auto', noPadding ? '' : 'p-6']">
+          <slot />
+        </div>
+      </DialogContent>
+    </DialogPortal>
+  </DialogRoot>
 </template>

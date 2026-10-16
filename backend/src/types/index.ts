@@ -37,7 +37,7 @@ export interface PvPVictimSummary {
 // API response types
 export interface PvPEventListItem {
   id: number;
-  stamp: Date;
+  stamp: string;
   room_name: string;
   room_vnum: number;
   killers: PvPKillerSummary[];
@@ -51,7 +51,7 @@ export interface PvPEventListItem {
 export interface PvPEventDetail {
   event: {
     id: number;
-    stamp: Date;
+    stamp: string;
     room_name: string;
     room_vnum: number;
     tweeted: boolean;
@@ -87,7 +87,7 @@ export interface PlayerStats {
 
 export interface RecentBattle {
   event_id: number;
-  stamp: Date;
+  stamp: string;
   room_name: string;
   result: 'KILLER' | 'VICTIM';
   opponents: string[];

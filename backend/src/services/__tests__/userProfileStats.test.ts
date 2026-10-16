@@ -34,7 +34,9 @@ jest.unstable_mockModule('../unifiedNotificationService.js', () => ({}));
 jest.unstable_mockModule('../pushNotificationService.js', () => ({
   sendForumReplyNotification: jest.fn(),
 }));
-jest.unstable_mockModule('../webSettingsService.js', () => ({ getWebSettings: jest.fn() }));
+jest.unstable_mockModule('../webSettingsService.js', () => ({
+  getWebSettings: async () => ({ pvpDelayMinutes: 15 }),
+}));
 
 const { getUserProfile } = await import('../forumService.js');
 
@@ -83,6 +85,10 @@ describe('user profile statistics', () => {
     expect(String(query.mock.calls[5]?.[0])).toContain('EXISTS');
     expect(String(query.mock.calls[5]?.[0])).not.toContain('frag_leaderboard');
     expect(String(query.mock.calls[6]?.[0])).toContain('EXISTS');
+    expect(String(query.mock.calls[6]?.[0])).toContain(
+      'e.stamp <= DATE_SUB(NOW(), INTERVAL ? MINUTE)',
+    );
+    expect(query.mock.calls[6]?.[1]).toEqual([15, 'Player']);
     expect(release).toHaveBeenCalledTimes(1);
   });
 

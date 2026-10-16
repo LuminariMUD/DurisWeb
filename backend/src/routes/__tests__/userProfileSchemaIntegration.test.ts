@@ -5,6 +5,11 @@ import express from 'express';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import request from 'supertest';
 
+const settings = { pvpDelayMinutes: 15, respectWebinfoToggle: false };
+jest.unstable_mockModule('../../services/webSettingsService.js', () => ({
+  getWebSettings: async () => settings,
+}));
+
 jest.unstable_mockModule('../../db/redis.js', () => ({
   default: {},
   checkRedisConnection: jest.fn<() => Promise<boolean>>().mockResolvedValue(true),
@@ -60,6 +65,7 @@ describe('user profile schema integration', () => {
   const secondCharacterName = `profile_b_${fixtureSuffix}`;
   let firstPid = 0;
   let secondPid = 0;
+  const eventIds: number[] = [];
 
   beforeAll(async () => {
     const [columns] = await pool.query<SchemaColumnRow[]>(
@@ -119,20 +125,46 @@ describe('user profile schema integration', () => {
        VALUES (?, ?, ?, 1234, 1), (?, ?, ?, 567, 1)`,
       [firstPid, accountName, firstCharacterName, secondPid, accountName, secondCharacterName],
     );
-    await pool.query(
-      `INSERT INTO pkill_info (event_id, pid, level, pk_type, equip)
-       VALUES (0, ?, 1, 'VICTIM', ''), (0, ?, 1, 'KILLER', '')`,
-      [firstPid, secondPid],
-    );
+    for (const stamp of [
+      '2000-01-01 12:00:00',
+      new Date().toISOString().slice(0, 19).replace('T', ' '),
+    ]) {
+      const [result] = await pool.query<ResultSetHeader>(
+        'INSERT INTO pkill_event (stamp, room_vnum, room_name) VALUES (?, 0, ?)',
+        [stamp, 'Profile fixture'],
+      );
+      eventIds.push(result.insertId);
+      await pool.query(
+        `INSERT INTO pkill_info (event_id, pid, level, pk_type, equip)
+         VALUES (?, ?, 1, 'VICTIM', ''), (?, ?, 1, 'KILLER', '')`,
+        [result.insertId, firstPid, result.insertId, secondPid],
+      );
+    }
   });
 
   afterAll(async () => {
     await pool.query('DELETE FROM pkill_info WHERE pid IN (?, ?)', [firstPid, secondPid]);
+    if (eventIds.length) await pool.query('DELETE FROM pkill_event WHERE id IN (?)', [eventIds]);
     await pool.query('DELETE FROM frag_leaderboard WHERE pid IN (?, ?)', [firstPid, secondPid]);
     await pool.query('DELETE FROM account_characters WHERE account_name = ?', [accountName]);
     await pool.query('DELETE FROM player_data WHERE pid IN (?, ?)', [firstPid, secondPid]);
     await pool.query('DELETE FROM accounts WHERE account_name = ?', [accountName]);
     await pool.end();
+  });
+
+  it('filters character history and statistics until the delay expires', async () => {
+    const { getCharacterPvPEvents, getCharacterProfile, getAccountCharacters } = await import(
+      '../../services/forumService.js'
+    );
+    const history = await getCharacterPvPEvents(firstCharacterName);
+    expect(history.total).toBe(1);
+    expect(history.events).toEqual([
+      expect.objectContaining({ eventId: eventIds[0], date: '2000-01-01T12:00:00.000Z' }),
+    ]);
+    const profile = await getCharacterProfile(firstCharacterName);
+    expect(profile.stats.pvpDeaths).toBe(1);
+    const characters = await getAccountCharacters(accountName);
+    expect(characters.characters.find((c) => c.pid === firstPid)?.stats.deaths).toBe(1);
   });
 
   it('returns a successful aggregate response without multiplying duplicate PID mappings', async () => {

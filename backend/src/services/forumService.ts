@@ -9,6 +9,7 @@ import logger, { isErrorWithCode } from '../utils/logger.js';
 import * as notificationService from './unifiedNotificationService.js';
 import { sendForumReplyNotification } from './pushNotificationService.js';
 import { getWebSettings } from './webSettingsService.js';
+import { getPvpDelayMinutes, pvpVisibilitySql, pvpTimestamp } from './pvpVisibility.js';
 
 // ============================================================================
 // Types & Interfaces
@@ -2066,14 +2067,14 @@ export async function getUserProfile(accountName: string): Promise<UserProfileWi
     // Get total deaths across all characters
     const [deathTotals] = await connection.query<RowDataPacket[]>(
       `SELECT COUNT(*) as total_deaths
-       FROM pkill_info pi
-       WHERE pi.pk_type = 'VICTIM'
+       FROM pkill_info pi JOIN pkill_event e ON pi.event_id = e.id
+       WHERE ${pvpVisibilitySql()} AND pi.pk_type = 'VICTIM'
          AND EXISTS (
            SELECT 1
            FROM account_characters ac
            WHERE ac.pid = pi.pid AND ac.account_name = ? AND ac.deleted_at IS NULL
          )`,
-      [accountName],
+      [await getPvpDelayMinutes(), accountName],
     );
 
     const characterStats = characterTotals[0] || { character_count: 0 };
@@ -2492,16 +2493,16 @@ export async function getCharacterProfile(characterName: string): Promise<any | 
     // Get PvP stats (kills and deaths)
     const [killsRows] = await connection.query<RowDataPacket[]>(
       `SELECT COUNT(*) as kills
-       FROM pkill_info
-       WHERE pid = ? AND pk_type IN ('KILLER', 'KILLER-GROUP')`,
-      [character.pid],
+       FROM pkill_info pi JOIN pkill_event e ON pi.event_id = e.id
+       WHERE pi.pid = ? AND pi.pk_type IN ('KILLER', 'KILLER-GROUP') AND ${pvpVisibilitySql()}`,
+      [character.pid, await getPvpDelayMinutes()],
     );
 
     const [deathsRows] = await connection.query<RowDataPacket[]>(
       `SELECT COUNT(*) as deaths
-       FROM pkill_info
-       WHERE pid = ? AND pk_type = 'VICTIM'`,
-      [character.pid],
+       FROM pkill_info pi JOIN pkill_event e ON pi.event_id = e.id
+       WHERE pi.pid = ? AND pi.pk_type = 'VICTIM' AND ${pvpVisibilitySql()}`,
+      [character.pid, await getPvpDelayMinutes()],
     );
 
     // Try to get guild info if character is in a guild
@@ -2632,21 +2633,22 @@ export async function getCharacterPvPEvents(
     }
 
     const pid = characters[0].pid;
+    const delay = await getPvpDelayMinutes();
     const offset = (page - 1) * limit;
 
     // Get total count
     const [countRows] = await connection.query<RowDataPacket[]>(
-      `SELECT COUNT(DISTINCT event_id) as total
-       FROM pkill_info
-       WHERE pid = ?`,
-      [pid],
+      `SELECT COUNT(DISTINCT pi.event_id) as total
+       FROM pkill_info pi JOIN pkill_event e ON pi.event_id = e.id
+       WHERE pi.pid = ? AND ${pvpVisibilitySql()}`,
+      [pid, delay],
     );
 
     // Get PvP events
     const [events] = await connection.query<RowDataPacket[]>(
       `SELECT
          e.id as event_id,
-         e.stamp as event_date,
+         UNIX_TIMESTAMP(e.stamp) as event_date,
          e.room_name as location,
          pi.pk_type,
          pi.player_description,
@@ -2655,16 +2657,16 @@ export async function getCharacterPvPEvents(
          pi.leader
        FROM pkill_info pi
        JOIN pkill_event e ON pi.event_id = e.id
-       WHERE pi.pid = ?
+       WHERE pi.pid = ? AND ${pvpVisibilitySql()}
        ORDER BY e.stamp DESC
        LIMIT ? OFFSET ?`,
-      [pid, limit, offset],
+      [pid, delay, limit, offset],
     );
 
     return {
       events: events.map((e: any) => ({
         eventId: e.event_id,
-        date: e.event_date,
+        date: pvpTimestamp(e.event_date),
         location: e.location,
         role: e.pk_type, // 'KILLER', 'VICTIM', 'KILLER-GROUP', 'VICTIM-GROUP'
         description: e.player_description,
@@ -2757,8 +2759,9 @@ export async function getGuildProfile(guildNameOrSlug: string): Promise<any | nu
        FROM player_data pd
        JOIN associations a ON pd.assoc_id = a.id
        JOIN pkill_info pi ON pd.pid = pi.pid
-       WHERE a.name = ?`,
-      [actualGuildName],
+       JOIN pkill_event e ON pi.event_id = e.id
+       WHERE a.name = ? AND ${pvpVisibilitySql()}`,
+      [actualGuildName, await getPvpDelayMinutes()],
     );
 
     // Get active member list with character data
@@ -3186,9 +3189,9 @@ export async function getAccountCharacters(accountName: string): Promise<{
       // Get death count from pkill_info
       const [deathRows] = await connection.query<RowDataPacket[]>(
         `SELECT COUNT(*) as deaths
-         FROM pkill_info
-         WHERE pid = ? AND pk_type = 'VICTIM'`,
-        [char.pid],
+         FROM pkill_info pi JOIN pkill_event e ON pi.event_id = e.id
+         WHERE pi.pid = ? AND pi.pk_type = 'VICTIM' AND ${pvpVisibilitySql()}`,
+        [char.pid, await getPvpDelayMinutes()],
       );
 
       // Get forum stats

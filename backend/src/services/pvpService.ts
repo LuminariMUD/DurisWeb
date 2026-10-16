@@ -1,3 +1,4 @@
+import type { PvpCursor } from './pvpPolling.js';
 import { pool } from '../db/connection.js';
 import { RowDataPacket } from 'mysql2';
 import type { PoolConnection } from 'mysql2/promise';
@@ -18,34 +19,48 @@ import {
 } from '../types/index.js';
 import { extractPlayerName } from '../utils/stringUtils.js';
 import { getWebSettings } from './webSettingsService.js';
+import {
+  getPvpDelayMinutes,
+  pvpVisibilitySql,
+  requireVisiblePvpEvent,
+  pvpTimestamp,
+} from './pvpVisibility.js';
 
 /**
  * Get paginated list of PvP events
  */
 export async function getPvPEvents(
   filters: EventFilters,
+  after?: PvpCursor,
 ): Promise<{ events: PvPEventListItem[]; total: number }> {
   const page = Math.max(1, filters.page || 1);
   const limit = Math.min(100, Math.max(1, filters.limit || 50));
   const offset = (page - 1) * limit;
 
   const whereConditions: string[] = [];
-  const queryParams: any[] = [];
+  const queryParams: (string | number)[] = [];
+  const participantConditions: string[] = [];
+  const participantParams: (string | number)[] = [];
 
   // Get PvP delay setting
   const webSettings = await getWebSettings();
   const pvpDelayMinutes = webSettings.pvpDelayMinutes || 0;
 
-  // Apply PvP delay filter (hide events newer than the delay)
-  if (pvpDelayMinutes > 0) {
-    whereConditions.push('e.stamp <= DATE_SUB(NOW(), INTERVAL ? MINUTE)');
-    queryParams.push(pvpDelayMinutes);
+  whereConditions.push(pvpVisibilitySql());
+  queryParams.push(pvpDelayMinutes);
+
+  if (after) {
+    const epoch = new Date(after.stamp).getTime() / 1000;
+    whereConditions.push(
+      '(e.stamp > FROM_UNIXTIME(?) OR (e.stamp = FROM_UNIXTIME(?) AND e.id > ?))',
+    );
+    queryParams.push(epoch, epoch, after.id);
   }
 
   // Apply filters
   if (filters.player) {
-    whereConditions.push('p.player_description LIKE ?');
-    queryParams.push(`%${filters.player}%`);
+    participantConditions.push('matched.player_description LIKE ?');
+    participantParams.push(`%${filters.player}%`);
   }
 
   if (filters.location) {
@@ -59,7 +74,7 @@ export async function getPvPEvents(
   }
 
   if (filters.date_to) {
-    whereConditions.push('e.stamp <= ?');
+    whereConditions.push('e.stamp < DATE_ADD(?, INTERVAL 1 DAY)');
     queryParams.push(filters.date_to);
   }
 
@@ -72,7 +87,7 @@ export async function getPvPEvents(
   // Helper to strip ANSI codes in SQL: &+c, &-c, &n, &N, &L, etc.
   // Note: use {0,1} instead of ? to avoid mysql2 treating ? as placeholder
   const stripAnsiSQL = (col: string) => `REGEXP_REPLACE(${col}, '&[+nNL-]{0,1}[a-zA-Z]', '')`;
-  const strippedDesc = stripAnsiSQL('p.player_description');
+  const strippedDesc = stripAnsiSQL('matched.player_description');
 
   // Class filter - searches within player_description like "[56 Warrior]"
   // Cast to SearchFilters to access advanced filter properties
@@ -84,10 +99,10 @@ export async function getPvPEvents(
       .filter(Boolean);
     if (classes.length > 0) {
       const classConditions = classes.map(() => `${strippedDesc} LIKE ?`);
-      whereConditions.push(`(${classConditions.join(' OR ')})`);
+      participantConditions.push(`(${classConditions.join(' OR ')})`);
       classes.forEach((cls) => {
         // Match class name after level number in brackets, e.g., "[56 Warrior]"
-        queryParams.push(`%[% ${cls}]%`);
+        participantParams.push(`%[% ${cls}]%`);
       });
     }
   }
@@ -100,22 +115,22 @@ export async function getPvPEvents(
       .filter(Boolean);
     if (races.length > 0) {
       const raceConditions = races.map(() => `${strippedDesc} LIKE ?`);
-      whereConditions.push(`(${raceConditions.join(' OR ')})`);
+      participantConditions.push(`(${raceConditions.join(' OR ')})`);
       races.forEach((race) => {
         // Match race name in parentheses, e.g., "(Githzerai)"
-        queryParams.push(`%(${race})%`);
+        participantParams.push(`%(${race})%`);
       });
     }
   }
 
   // The numeric snapshot also exists on historical name-only records.
   if (searchFilters.level_min !== undefined && searchFilters.level_min > 1) {
-    whereConditions.push('p.level >= ?');
-    queryParams.push(searchFilters.level_min);
+    participantConditions.push('matched.level >= ?');
+    participantParams.push(searchFilters.level_min);
   }
   if (searchFilters.level_max !== undefined && searchFilters.level_max < 56) {
-    whereConditions.push('p.level <= ?');
-    queryParams.push(searchFilters.level_max);
+    participantConditions.push('matched.level <= ?');
+    participantParams.push(searchFilters.level_max);
   }
 
   // Alignment filter - based on race (use stripped desc)
@@ -156,11 +171,18 @@ export async function getPvPEvents(
 
     if (racesToMatch.length > 0) {
       const alignConditions = racesToMatch.map(() => `${strippedDesc} LIKE ?`);
-      whereConditions.push(`(${alignConditions.join(' OR ')})`);
+      participantConditions.push(`(${alignConditions.join(' OR ')})`);
       racesToMatch.forEach((race) => {
-        queryParams.push(`%(${race})%`);
+        participantParams.push(`%(${race})%`);
       });
     }
+  }
+
+  if (participantConditions.length) {
+    whereConditions.push(`EXISTS (SELECT 1 FROM pkill_info matched
+      WHERE matched.event_id = e.id AND matched.inroom = 1
+      AND ${participantConditions.join(' AND ')})`);
+    queryParams.push(...participantParams);
   }
 
   const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
@@ -169,7 +191,6 @@ export async function getPvPEvents(
   const countQuery = `
     SELECT COUNT(DISTINCT e.id) as total
     FROM pkill_event e
-    LEFT JOIN pkill_info p ON e.id = p.event_id
     ${whereClause}
   `;
 
@@ -177,13 +198,18 @@ export async function getPvPEvents(
   const total = countRows[0].total;
 
   // Determine sort order
-  const orderBy = filters.sort_by === 'likes' ? 'e.like_count DESC, e.stamp DESC' : 'e.stamp DESC';
+  const orderBy = after
+    ? 'e.stamp ASC, e.id ASC'
+    : filters.sort_by === 'likes'
+      ? 'e.like_count DESC, e.stamp DESC, e.id DESC'
+      : 'e.stamp DESC, e.id DESC';
 
   // Get paginated events
   const query = `
     SELECT
       e.id,
       e.stamp,
+      UNIX_TIMESTAMP(e.stamp) AS stamp_epoch,
       e.room_name,
       e.room_vnum,
       e.like_count,
@@ -238,7 +264,7 @@ export async function getPvPEvents(
 
   const events: PvPEventListItem[] = rows.map((row) => ({
     id: row.id,
-    stamp: row.stamp,
+    stamp: pvpTimestamp(row.stamp_epoch),
     room_name: row.room_name,
     room_vnum: row.room_vnum,
     killers: parseKillers(row.killers),
@@ -263,12 +289,8 @@ export async function getPvPEventDetail(eventId: number): Promise<PvPEventDetail
 
   // Build WHERE clause with delay filter
   const whereConditions = ['e.id = ?'];
-  const queryParams: any[] = [eventId];
-
-  if (pvpDelayMinutes > 0) {
-    whereConditions.push('e.stamp <= DATE_SUB(NOW(), INTERVAL ? MINUTE)');
-    queryParams.push(pvpDelayMinutes);
-  }
+  const queryParams = [eventId, pvpDelayMinutes];
+  whereConditions.push(pvpVisibilitySql());
 
   // If respectWebinfoToggle is enabled, hide equipment when player's webinfo is off
   // webinfo is stored as bit 28 (134217728) in act2 column
@@ -281,6 +303,7 @@ export async function getPvPEventDetail(eventId: number): Promise<PvPEventDetail
     SELECT
       e.id,
       e.stamp,
+      UNIX_TIMESTAMP(e.stamp) AS stamp_epoch,
       e.room_name,
       e.room_vnum,
       p.player_description,
@@ -331,13 +354,24 @@ export async function getPvPEventDetail(eventId: number): Promise<PvPEventDetail
   return {
     event: {
       id: firstRow.id,
-      stamp: firstRow.stamp,
+      stamp: pvpTimestamp(firstRow.stamp_epoch),
       room_name: firstRow.room_name,
       room_vnum: firstRow.room_vnum,
       tweeted: false,
     },
     participants,
   };
+}
+
+/** Extract the exact snapshot name, including legacy name-only records. */
+function playerNameSql(alias: 'p' | 'p2'): string {
+  const plain = `TRIM(REGEXP_REPLACE(${alias}.player_description, '&=[a-zA-Z]{2}|&[+-][a-zA-Z*]|&[nN]', ''))`;
+  return `REGEXP_SUBSTR(TRIM(SUBSTRING_INDEX(${plain}, ']', -1)), '^[[:alnum:]_]+')`;
+}
+
+function playerIdentitySql(alias: 'p' | 'p2'): string {
+  return `CASE WHEN ${alias}.pid > 0 THEN CONCAT('pid:', ${alias}.pid)
+    ELSE CONCAT('name:', LOWER(${playerNameSql(alias)})) END`;
 }
 
 /**
@@ -347,6 +381,7 @@ export async function getLeaderboard(
   type: 'kills' | 'deaths' | 'kd',
   period: '7d' | '30d' | 'all',
 ): Promise<LeaderboardEntry[]> {
+  const delay = await getPvpDelayMinutes();
   let dateFilter = '';
 
   if (period === '7d') {
@@ -367,9 +402,15 @@ export async function getLeaderboard(
   }
 
   const query = `
+    WITH visible AS (
+      SELECT p.*, ${playerIdentitySql('p')} AS identity_key,
+        ROW_NUMBER() OVER (PARTITION BY ${playerIdentitySql('p')} ORDER BY e.stamp DESC, p.id DESC) AS snapshot_rank
+      FROM pkill_info p JOIN pkill_event e ON p.event_id = e.id
+      WHERE ${pvpVisibilitySql()} ${dateFilter}
+    )
     SELECT
-      p.player_description,
-      MAX(p.level) AS level,
+      MAX(CASE WHEN p.snapshot_rank = 1 THEN p.player_description END) AS player_description,
+      MAX(CASE WHEN p.snapshot_rank = 1 THEN p.level END) AS level,
       SUM(CASE WHEN p.pk_type LIKE 'KILLER%' THEN 1 ELSE 0 END) as kills,
       SUM(CASE WHEN p.pk_type = 'VICTIM' THEN 1 ELSE 0 END) as deaths,
       CASE
@@ -378,16 +419,14 @@ export async function getLeaderboard(
         ELSE SUM(CASE WHEN p.pk_type LIKE 'KILLER%' THEN 1 ELSE 0 END) /
              SUM(CASE WHEN p.pk_type = 'VICTIM' THEN 1 ELSE 0 END)
       END as kd_ratio
-    FROM pkill_info p
-    JOIN pkill_event e ON p.event_id = e.id
-    WHERE 1=1 ${dateFilter}
-    GROUP BY p.player_description
+    FROM visible p
+    GROUP BY p.identity_key
     ${havingClause}
-    ORDER BY ${type === 'kills' ? 'kills' : type === 'deaths' ? 'deaths' : 'kd_ratio'} DESC
+    ORDER BY ${type === 'kills' ? 'kills' : type === 'deaths' ? 'deaths' : 'kd_ratio'} DESC, p.identity_key
     LIMIT 100
   `;
 
-  const [rows] = await pool.query<RowDataPacket[]>(query);
+  const [rows] = await pool.query<RowDataPacket[]>(query, [delay]);
 
   return rows.map((row, index) => {
     const kills = Number(row.kills);
@@ -439,35 +478,27 @@ export async function getLeaderboard(
  * Get player statistics
  */
 export async function getPlayerStats(playerName: string): Promise<PlayerStats | null> {
-  // Find player by name in player_description and get their latest info
-  const statsQuery = `
-    SELECT
-      SUM(CASE WHEN p.pk_type LIKE 'KILLER%' THEN 1 ELSE 0 END) as kills,
-      SUM(CASE WHEN p.pk_type = 'VICTIM' THEN 1 ELSE 0 END) as deaths,
-      CASE
-        WHEN SUM(CASE WHEN p.pk_type = 'VICTIM' THEN 1 ELSE 0 END) = 0
-        THEN SUM(CASE WHEN p.pk_type LIKE 'KILLER%' THEN 1 ELSE 0 END)
-        ELSE SUM(CASE WHEN p.pk_type LIKE 'KILLER%' THEN 1 ELSE 0 END) /
-             SUM(CASE WHEN p.pk_type = 'VICTIM' THEN 1 ELSE 0 END)
-      END as kd_ratio,
-      (SELECT player_description
-       FROM pkill_info p2
-       WHERE (p2.player_description = ? OR p2.player_description LIKE ?)
-       ORDER BY p2.id DESC
-       LIMIT 1) as latest_description,
-      (SELECT level FROM pkill_info p2
-       WHERE (p2.player_description = ? OR p2.player_description LIKE ?)
-       ORDER BY p2.id DESC LIMIT 1) AS level
-    FROM pkill_info p
-    WHERE (p.player_description = ? OR p.player_description LIKE ?)
-  `;
-
-  const nameParams = [playerName, `%] ${playerName}%`];
-  const [statsRows] = await pool.query<RowDataPacket[]>(statsQuery, [
-    ...nameParams,
-    ...nameParams,
-    ...nameParams,
-  ]);
+  const delay = await getPvpDelayMinutes();
+  const [identities] = await pool.query<RowDataPacket[]>(
+    `SELECT p.pid, p.player_description, p.level FROM pkill_info p
+     JOIN pkill_event e ON p.event_id = e.id
+     WHERE ${playerNameSql('p')} = ? AND ${pvpVisibilitySql()}
+     ORDER BY e.stamp DESC, p.id DESC LIMIT 1`,
+    [playerName, delay],
+  );
+  if (!identities.length) return null;
+  const identity = identities[0];
+  const playerPredicate = Number(identity.pid) > 0 ? 'p.pid = ?' : `${playerNameSql('p')} = ?`;
+  const nameParams = [Number(identity.pid) > 0 ? Number(identity.pid) : playerName];
+  const [statsRows] = await pool.query<RowDataPacket[]>(
+    `SELECT
+       SUM(p.pk_type LIKE 'KILLER%') AS kills,
+       SUM(p.pk_type = 'VICTIM') AS deaths,
+       SUM(p.pk_type LIKE 'KILLER%') / GREATEST(SUM(p.pk_type = 'VICTIM'), 1) AS kd_ratio
+     FROM pkill_info p JOIN pkill_event e ON p.event_id = e.id
+     WHERE ${playerPredicate} AND ${pvpVisibilitySql()}`,
+    [...nameParams, delay],
+  );
 
   if (statsRows.length === 0 || (!Number(statsRows[0].kills) && !Number(statsRows[0].deaths))) {
     return null;
@@ -476,13 +507,13 @@ export async function getPlayerStats(playerName: string): Promise<PlayerStats | 
   const stats = statsRows[0];
 
   // Extract level, class, and race from latest player_description
-  const playerDesc = stats.latest_description || '';
+  const playerDesc = identity.player_description || '';
   const stripAnsi = (str: string) => str.replace(/&[+nNL]?[a-zA-Z]/g, '');
   const cleanDesc = stripAnsi(playerDesc);
 
   // Extract level
   const levelMatch = cleanDesc.match(/\[\s*(\d+)/);
-  const level = Number(stats.level) || (levelMatch ? parseInt(levelMatch[1]) : 0);
+  const level = Number(identity.level) || (levelMatch ? parseInt(levelMatch[1]) : 0);
 
   // Extract class WITH ANSI codes
   const classMatch = playerDesc.match(/\[\s*\d+\s+([^\]]+)\]/);
@@ -497,6 +528,7 @@ export async function getPlayerStats(playerName: string): Promise<PlayerStats | 
     SELECT
       e.id as event_id,
       e.stamp,
+      UNIX_TIMESTAMP(e.stamp) AS stamp_epoch,
       e.room_name,
       p.pk_type,
       GROUP_CONCAT(
@@ -507,17 +539,17 @@ export async function getPlayerStats(playerName: string): Promise<PlayerStats | 
     FROM pkill_event e
     JOIN pkill_info p ON e.id = p.event_id
     LEFT JOIN pkill_info p2 ON e.id = p2.event_id AND p2.player_description != p.player_description
-    WHERE (p.player_description = ? OR p.player_description LIKE ?)
+    WHERE ${playerPredicate} AND ${pvpVisibilitySql()}
     GROUP BY e.id, e.stamp, e.room_name, p.pk_type
     ORDER BY e.stamp DESC
     LIMIT 10
   `;
 
-  const [recentRows] = await pool.query<RowDataPacket[]>(recentQuery, nameParams);
+  const [recentRows] = await pool.query<RowDataPacket[]>(recentQuery, [...nameParams, delay]);
 
   const recentBattles: RecentBattle[] = recentRows.map((row) => ({
     event_id: row.event_id,
-    stamp: row.stamp,
+    stamp: pvpTimestamp(row.stamp_epoch),
     room_name: row.room_name,
     result: row.pk_type.includes('KILLER') ? 'KILLER' : 'VICTIM',
     opponents: row.opponents
@@ -528,18 +560,18 @@ export async function getPlayerStats(playerName: string): Promise<PlayerStats | 
   // Get most killed by
   const killedByQuery = `
     SELECT
-      p2.player_description,
+      MAX(p2.player_description) AS player_description,
       COUNT(*) as count
     FROM pkill_event e
     JOIN pkill_info p ON e.id = p.event_id AND p.pk_type = 'VICTIM'
     JOIN pkill_info p2 ON e.id = p2.event_id AND p2.pk_type LIKE 'KILLER%'
-    WHERE (p.player_description = ? OR p.player_description LIKE ?)
-    GROUP BY p2.player_description
+    WHERE ${playerPredicate} AND ${pvpVisibilitySql()}
+    GROUP BY ${playerIdentitySql('p2')}
     ORDER BY count DESC
     LIMIT 5
   `;
 
-  const [killedByRows] = await pool.query<RowDataPacket[]>(killedByQuery, nameParams);
+  const [killedByRows] = await pool.query<RowDataPacket[]>(killedByQuery, [...nameParams, delay]);
 
   const mostKilledBy: OpponentStat[] = killedByRows.map((row) => ({
     opponent_name: extractPlayerName(row.player_description),
@@ -549,18 +581,21 @@ export async function getPlayerStats(playerName: string): Promise<PlayerStats | 
   // Get most killed
   const mostKilledQuery = `
     SELECT
-      p2.player_description,
+      MAX(p2.player_description) AS player_description,
       COUNT(*) as count
     FROM pkill_event e
     JOIN pkill_info p ON e.id = p.event_id AND p.pk_type LIKE 'KILLER%'
     JOIN pkill_info p2 ON e.id = p2.event_id AND p2.pk_type = 'VICTIM'
-    WHERE (p.player_description = ? OR p.player_description LIKE ?)
-    GROUP BY p2.player_description
+    WHERE ${playerPredicate} AND ${pvpVisibilitySql()}
+    GROUP BY ${playerIdentitySql('p2')}
     ORDER BY count DESC
     LIMIT 5
   `;
 
-  const [mostKilledRows] = await pool.query<RowDataPacket[]>(mostKilledQuery, nameParams);
+  const [mostKilledRows] = await pool.query<RowDataPacket[]>(mostKilledQuery, [
+    ...nameParams,
+    delay,
+  ]);
 
   const mostKilled: OpponentStat[] = mostKilledRows.map((row) => ({
     opponent_name: extractPlayerName(row.player_description),
@@ -603,6 +638,7 @@ export async function getLocationAutocomplete(
   page: number = 1,
   limit: number = 20,
 ): Promise<any[]> {
+  const delay = await getPvpDelayMinutes();
   const offset = (page - 1) * limit;
 
   const sql = `
@@ -610,14 +646,14 @@ export async function getLocationAutocomplete(
       room_vnum,
       room_name,
       COUNT(*) as battle_count
-    FROM pkill_event
-    WHERE room_name LIKE ?
+    FROM pkill_event e
+    WHERE room_name LIKE ? AND ${pvpVisibilitySql()}
     GROUP BY room_vnum, room_name
     ORDER BY battle_count DESC, room_name
     LIMIT ? OFFSET ?
   `;
 
-  const [rows] = await pool.query<RowDataPacket[]>(sql, [`%${query}%`, limit, offset]);
+  const [rows] = await pool.query<RowDataPacket[]>(sql, [`%${query}%`, delay, limit, offset]);
 
   return rows.map((row) => ({
     room_vnum: row.room_vnum,
@@ -634,21 +670,26 @@ export async function getPlayerAutocomplete(
   page: number = 1,
   limit: number = 20,
 ): Promise<any[]> {
+  const delay = await getPvpDelayMinutes();
   const offset = (page - 1) * limit;
 
   const sql = `
-    SELECT
-      player_description,
-      MAX(level) AS level,
-      COUNT(*) as battle_count
-    FROM pkill_info
-    WHERE player_description LIKE ?
-    GROUP BY player_description
-    ORDER BY battle_count DESC
+    WITH visible AS (
+      SELECT p.*, ${playerIdentitySql('p')} AS identity_key,
+        ROW_NUMBER() OVER (PARTITION BY ${playerIdentitySql('p')} ORDER BY e.stamp DESC, p.id DESC) AS snapshot_rank
+      FROM pkill_info p JOIN pkill_event e ON p.event_id = e.id
+      WHERE ${playerNameSql('p')} LIKE ? AND ${pvpVisibilitySql()}
+    )
+    SELECT MAX(CASE WHEN snapshot_rank = 1 THEN player_description END) AS player_description,
+      MAX(CASE WHEN snapshot_rank = 1 THEN level END) AS level,
+      COUNT(*) AS battle_count
+    FROM visible
+    GROUP BY identity_key
+    ORDER BY battle_count DESC, identity_key
     LIMIT ? OFFSET ?
   `;
 
-  const [rows] = await pool.query<RowDataPacket[]>(sql, [`%${query}%`, limit, offset]);
+  const [rows] = await pool.query<RowDataPacket[]>(sql, [`%${query}%`, delay, limit, offset]);
 
   const stripAnsi = (str: string) => str.replace(/&[+nNL]?[a-zA-Z]/g, '');
   const uniquePlayers = new Map<string, any>();
@@ -699,6 +740,14 @@ export async function getLatestEvents(
   return getPvPEvents({ page: 1, limit, date_from: undefined, date_to: undefined });
 }
 
+/** Read every newly released event in a deterministic timestamp/ID order. */
+export async function getReleasedEventsAfter(
+  cursor: PvpCursor,
+  limit: number,
+): Promise<PvPEventListItem[]> {
+  return (await getPvPEvents({ page: 1, limit }, cursor)).events;
+}
+
 /**
  * Get kill timeline data (daily kill counts)
  */
@@ -714,14 +763,15 @@ export async function getKillTimeline(
   };
 
   const days = periodDays[period];
+  const delay = await getPvpDelayMinutes();
 
   const sql = days
     ? `
       SELECT
         DATE(stamp) as date,
         COUNT(*) as kills
-      FROM pkill_event
-      WHERE stamp >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+      FROM pkill_event e
+      WHERE ${pvpVisibilitySql()} AND stamp >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
       GROUP BY DATE(stamp)
       ORDER BY date ASC
     `
@@ -729,14 +779,15 @@ export async function getKillTimeline(
       SELECT
         DATE(stamp) as date,
         COUNT(*) as kills
-      FROM pkill_event
+      FROM pkill_event e
+      WHERE ${pvpVisibilitySql()}
       GROUP BY DATE(stamp)
       ORDER BY date ASC
     `;
 
   const [rows] = days
-    ? await pool.query<RowDataPacket[]>(sql, [days])
-    : await pool.query<RowDataPacket[]>(sql);
+    ? await pool.query<RowDataPacket[]>(sql, [delay, days])
+    : await pool.query<RowDataPacket[]>(sql, [delay]);
 
   return rows.map((row) => ({
     date: row.date,
@@ -759,14 +810,15 @@ export async function getActiveHours(
   };
 
   const days = periodDays[period];
+  const delay = await getPvpDelayMinutes();
 
   const sql = days
     ? `
       SELECT
         HOUR(stamp) as hour,
         COUNT(*) as kills
-      FROM pkill_event
-      WHERE stamp >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+      FROM pkill_event e
+      WHERE ${pvpVisibilitySql()} AND stamp >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
       GROUP BY HOUR(stamp)
       ORDER BY hour ASC
     `
@@ -774,14 +826,15 @@ export async function getActiveHours(
       SELECT
         HOUR(stamp) as hour,
         COUNT(*) as kills
-      FROM pkill_event
+      FROM pkill_event e
+      WHERE ${pvpVisibilitySql()}
       GROUP BY HOUR(stamp)
       ORDER BY hour ASC
     `;
 
   const [rows] = days
-    ? await pool.query<RowDataPacket[]>(sql, [days])
-    : await pool.query<RowDataPacket[]>(sql);
+    ? await pool.query<RowDataPacket[]>(sql, [delay, days])
+    : await pool.query<RowDataPacket[]>(sql, [delay]);
 
   // Fill in missing hours with 0
   const hourMap = new Map<number, number>();
@@ -816,14 +869,15 @@ export async function getPopularLocations(
   };
 
   const days = periodDays[period];
+  const delay = await getPvpDelayMinutes();
 
   const sql = days
     ? `
       SELECT
         room_name as location,
         COUNT(*) as kills
-      FROM pkill_event
-      WHERE stamp >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+      FROM pkill_event e
+      WHERE ${pvpVisibilitySql()} AND stamp >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
       GROUP BY room_name
       ORDER BY kills DESC
       LIMIT ?
@@ -832,15 +886,16 @@ export async function getPopularLocations(
       SELECT
         room_name as location,
         COUNT(*) as kills
-      FROM pkill_event
+      FROM pkill_event e
+      WHERE ${pvpVisibilitySql()}
       GROUP BY room_name
       ORDER BY kills DESC
       LIMIT ?
     `;
 
   const [rows] = days
-    ? await pool.query<RowDataPacket[]>(sql, [days, limit])
-    : await pool.query<RowDataPacket[]>(sql, [limit]);
+    ? await pool.query<RowDataPacket[]>(sql, [delay, days, limit])
+    : await pool.query<RowDataPacket[]>(sql, [delay, limit]);
 
   return rows.map((row) => ({
     location: row.location,
@@ -867,6 +922,7 @@ export async function getClassMatchups(period: '7d' | '30d' | '90d' | 'all' = 'a
   };
 
   const days = periodDays[period];
+  const delay = await getPvpDelayMinutes();
 
   // Get all killer vs victim matchups
   const sql = days
@@ -877,10 +933,9 @@ export async function getClassMatchups(period: '7d' | '30d' | '90d' | 'all' = 'a
       FROM pkill_info k
       JOIN pkill_info v ON k.event_id = v.event_id
       JOIN pkill_event e ON k.event_id = e.id
-      WHERE k.pk_type = 'KILLER'
+      WHERE ${pvpVisibilitySql()} AND k.pk_type = 'KILLER'
         AND v.pk_type = 'VICTIM'
         AND e.stamp >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-      LIMIT 1000
     `
     : `
       SELECT
@@ -888,14 +943,14 @@ export async function getClassMatchups(period: '7d' | '30d' | '90d' | 'all' = 'a
         v.player_description as victim_desc
       FROM pkill_info k
       JOIN pkill_info v ON k.event_id = v.event_id
-      WHERE k.pk_type = 'KILLER'
+      JOIN pkill_event e ON k.event_id = e.id
+      WHERE ${pvpVisibilitySql()} AND k.pk_type = 'KILLER'
         AND v.pk_type = 'VICTIM'
-      LIMIT 1000
     `;
 
   const [rows] = days
-    ? await pool.query<RowDataPacket[]>(sql, [days])
-    : await pool.query<RowDataPacket[]>(sql);
+    ? await pool.query<RowDataPacket[]>(sql, [delay, days])
+    : await pool.query<RowDataPacket[]>(sql, [delay]);
 
   // Extract class names using JavaScript regex
   const matchups = new Map<string, number>();
@@ -1066,6 +1121,7 @@ async function withRelaxedSqlMode<T>(run: (connection: PoolConnection) => Promis
  * Add a like to a battle
  */
 export async function addBattleLike(eventId: number, accountName: string): Promise<boolean> {
+  await requireVisiblePvpEvent(eventId);
   return withRelaxedSqlMode(async (connection) => {
     try {
       await connection.beginTransaction();
@@ -1096,6 +1152,7 @@ export async function addBattleLike(eventId: number, accountName: string): Promi
  * Remove a like from a battle
  */
 export async function removeBattleLike(eventId: number, accountName: string): Promise<boolean> {
+  await requireVisiblePvpEvent(eventId);
   return withRelaxedSqlMode(async (connection) => {
     try {
       await connection.beginTransaction();
@@ -1130,6 +1187,7 @@ export async function removeBattleLike(eventId: number, accountName: string): Pr
  * Check if user has liked a battle
  */
 export async function hasUserLiked(eventId: number, accountName: string): Promise<boolean> {
+  await requireVisiblePvpEvent(eventId);
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT 1 FROM pvp_battle_likes WHERE event_id = ? AND account_name = ?',
     [eventId, accountName],
@@ -1141,6 +1199,7 @@ export async function hasUserLiked(eventId: number, accountName: string): Promis
  * Add a favorite to a battle
  */
 export async function addBattleFavorite(eventId: number, accountName: string): Promise<boolean> {
+  await requireVisiblePvpEvent(eventId);
   try {
     await pool.query('INSERT INTO pvp_battle_favorites (event_id, account_name) VALUES (?, ?)', [
       eventId,
@@ -1159,6 +1218,7 @@ export async function addBattleFavorite(eventId: number, accountName: string): P
  * Remove a favorite from a battle
  */
 export async function removeBattleFavorite(eventId: number, accountName: string): Promise<boolean> {
+  await requireVisiblePvpEvent(eventId);
   const [result] = await pool.query<any>(
     'DELETE FROM pvp_battle_favorites WHERE event_id = ? AND account_name = ?',
     [eventId, accountName],
@@ -1170,6 +1230,7 @@ export async function removeBattleFavorite(eventId: number, accountName: string)
  * Check if user has favorited a battle
  */
 export async function hasUserFavorited(eventId: number, accountName: string): Promise<boolean> {
+  await requireVisiblePvpEvent(eventId);
   const [rows] = await pool.query<RowDataPacket[]>(
     'SELECT 1 FROM pvp_battle_favorites WHERE event_id = ? AND account_name = ?',
     [eventId, accountName],
@@ -1184,6 +1245,7 @@ export async function getBattleInteractionStats(
   eventId: number,
   accountName?: string,
 ): Promise<PvPBattleStats> {
+  await requireVisiblePvpEvent(eventId);
   // Get like and comment counts from the event table
   const [eventRows] = await pool.query<RowDataPacket[]>(
     'SELECT like_count, comment_count FROM pkill_event WHERE id = ?',
@@ -1217,12 +1279,15 @@ export async function getUserFavorites(
   page: number = 1,
   limit: number = 20,
 ): Promise<{ data: PvPFavorite[]; total: number }> {
+  const delay = await getPvpDelayMinutes();
   const offset = (page - 1) * limit;
 
   // Get total count
   const [countRows] = await pool.query<RowDataPacket[]>(
-    'SELECT COUNT(*) as total FROM pvp_battle_favorites WHERE account_name = ?',
-    [accountName],
+    `SELECT COUNT(*) as total FROM pvp_battle_favorites f
+     JOIN pkill_event e ON f.event_id = e.id
+     WHERE f.account_name = ? AND ${pvpVisibilitySql()}`,
+    [accountName, delay],
   );
   const total = countRows[0].total;
 
@@ -1232,6 +1297,7 @@ export async function getUserFavorites(
       f.event_id,
       f.created_at as favorited_at,
       e.stamp,
+      UNIX_TIMESTAMP(e.stamp) AS stamp_epoch,
       e.room_name,
       e.room_vnum,
       e.like_count,
@@ -1249,17 +1315,17 @@ export async function getUserFavorites(
     FROM pvp_battle_favorites f
     JOIN pkill_event e ON f.event_id = e.id
     LEFT JOIN pkill_info p ON e.id = p.event_id
-    WHERE f.account_name = ?
+    WHERE f.account_name = ? AND ${pvpVisibilitySql()}
     GROUP BY f.event_id, f.created_at, e.stamp, e.room_name, e.room_vnum, e.like_count, e.comment_count
     ORDER BY f.created_at DESC
     LIMIT ? OFFSET ?
   `;
 
-  const [rows] = await pool.query<RowDataPacket[]>(query, [accountName, limit, offset]);
+  const [rows] = await pool.query<RowDataPacket[]>(query, [accountName, delay, limit, offset]);
 
   const data: PvPFavorite[] = rows.map((row) => ({
     eventId: row.event_id,
-    stamp: row.stamp,
+    stamp: pvpTimestamp(row.stamp_epoch),
     roomName: row.room_name,
     roomVnum: row.room_vnum,
     killers: row.killers ? row.killers.split('|||').filter(Boolean) : [],
@@ -1278,6 +1344,7 @@ export async function getUserFavorites(
  * Get comments for a battle
  */
 export async function getBattleComments(eventId: number): Promise<PvPBattleComment[]> {
+  await requireVisiblePvpEvent(eventId);
   const query = `
     SELECT
       c.id,
@@ -1369,6 +1436,7 @@ export async function createBattleComment(
   lineNumber?: number,
   participantId?: number,
 ): Promise<PvPBattleComment> {
+  await requireVisiblePvpEvent(eventId);
   return withRelaxedSqlMode(async (connection) => {
     let committed = false;
     try {
@@ -1457,6 +1525,7 @@ export async function updateBattleComment(
   accountName: string,
   content: string,
 ): Promise<boolean> {
+  if (!(await getBattleCommentById(commentId))) return false;
   const [result] = await pool.query<any>(
     `UPDATE pvp_battle_comments
      SET content = ?, updated_at = NOW()
@@ -1474,6 +1543,7 @@ export async function deleteBattleComment(
   accountName: string,
   isModerator: boolean,
 ): Promise<boolean> {
+  if (!(await getBattleCommentById(commentId))) return false;
   let query: string;
   let params: any[];
 
@@ -1498,9 +1568,12 @@ export async function deleteBattleComment(
 export async function getBattleCommentById(
   commentId: number,
 ): Promise<{ eventId: number; accountName: string } | null> {
+  const delay = await getPvpDelayMinutes();
   const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT event_id, account_name FROM pvp_battle_comments WHERE id = ?',
-    [commentId],
+    `SELECT c.event_id, c.account_name FROM pvp_battle_comments c
+     JOIN pkill_event e ON c.event_id = e.id
+     WHERE c.id = ? AND ${pvpVisibilitySql()}`,
+    [commentId, delay],
   );
   if (rows.length === 0) return null;
   return {

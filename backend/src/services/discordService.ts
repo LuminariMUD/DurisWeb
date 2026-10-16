@@ -2,6 +2,7 @@ import { pool } from '../db/connection.js';
 import { RowDataPacket } from 'mysql2';
 import logger from '../utils/logger.js';
 import { stripAnsiCodes, extractPlayerName } from '../utils/stringUtils.js';
+import { getPvpDelayMinutes, pvpVisibilitySql, pvpTimestamp } from './pvpVisibility.js';
 import { getWebSetting } from './webSettingsService.js';
 import { getBackendConfiguration } from '../config/environment.js';
 
@@ -201,12 +202,12 @@ export async function manualPostBattle(
     // fetch battle data
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT
-        e.id, e.stamp, e.room_name,
+        e.id, UNIX_TIMESTAMP(e.stamp) AS stamp_epoch, e.room_name,
         p.player_description, p.pk_type, p.leader
       FROM pkill_event e
       LEFT JOIN pkill_info p ON e.id = p.event_id AND p.inroom = 1
-      WHERE e.id = ?`,
-      [eventId],
+      WHERE e.id = ? AND ${pvpVisibilitySql()}`,
+      [eventId, await getPvpDelayMinutes()],
     );
 
     if (rows.length === 0) {
@@ -222,7 +223,12 @@ export async function manualPostBattle(
         leader: !!r.leader,
       }));
 
-    const embed = buildBattleEmbed(event.id, event.stamp, event.room_name, participants);
+    const embed = buildBattleEmbed(
+      event.id,
+      pvpTimestamp(event.stamp_epoch),
+      event.room_name,
+      participants,
+    );
     const payload: DiscordPayload = { embeds: [embed] };
 
     const success = await sendDiscordPayload(payload);
