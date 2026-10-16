@@ -58,6 +58,7 @@ within the current thread; ordinary pagination still uses the requested page.
 | `/api/guide/suggestions` | `routes/helpSuggestions.ts` | Authenticated guide suggestions/moderation |
 | `/api/notifications` | `routes/notifications.ts` | Authenticated notifications |
 | `/api/analytics` | `routes/webAnalytics.ts` | Retired tracking endpoint and protected analytics reads |
+| `/api/privacy` | `routes/privacy.ts` | Public choice status and same-origin CSRF choice actions; unapproved policy stays disabled |
 | `/api/admin/analytics/web` | `routes/webAnalytics.ts` | Protected web analytics alias |
 | `/api/auction` | `routes/auction.ts` | Auction reads, default-gated bid/buy actions, and MUD-authoritative admin removal |
 | `/api/push` | `routes/push.ts` | VAPID key and authenticated subscriptions |
@@ -203,15 +204,67 @@ missing safety contracts and should remain closed in ordinary deployments; see
   durable recording.
 - Both `POST /api/analytics/track` and the alias
   `POST /api/admin/analytics/web/track` return `410` for CSRF-valid requests.
-  Optional website collection is closed pending approved notice/choice controls;
-  no browser claim of consent enables it. Neither route writes analytics nor
-  calls a geolocation provider. Invalid CSRF still returns `403`. The protected
+  Optional website collection is closed pending approved notice/choice controls
+  and retention readiness. No browser claim of consent enables it. The prepared
+  policy disables receipt issuance and collection; neither route calls a
+  geolocation provider. Invalid CSRF still returns `403`. The protected
   historical dashboard remains available; this does not delete earlier records.
 - Credentialed CORS accepts only `ALLOWED_ORIGINS` (plus requests with no
   browser Origin header).
 
 Raw refresh-token storage and session timezone semantics are open findings; see
 the [security record](../SECURITY-COMPLIANCE.md).
+
+## Privacy choice contract
+
+The source-owned [draft policy](../../backend/src/config/privacyPolicy.ts) is
+unapproved, with collection and retention-readiness gates disabled. No runtime
+environment flag or generic admin setting can approve it. The following contract
+is prepared for reviewed policy/client integration; it is not a live feature claim.
+
+- `GET /api/privacy` is public and returns noncached notice/choice versions,
+  `choicesAvailable`, `collectionAvailable`, decision (`unknown`, `accepted`,
+  `refused`, `withdrawn`), revision, nullable database expiry epoch and
+  `receiptValid`. It never issues a receipt or optional visit identifier.
+  Invalid/obsolete/expired receipt cookies are cleared. Unapproved policy returns
+  unknown/unavailable without reading or writing a preference.
+- `POST /api/privacy/choice` requires an explicit same-origin request (`Origin`
+  equal to the configured website origin, no cross-site fetch metadata), the
+  double-submit CSRF cookie/header, and body
+  `{ noticeVersion, choiceVersion, decision, revision }`.
+  Unknown fields, coerced decisions and invalid revisions are refused. Competing
+  changes use the current revision; an outdated revision is `409`, while a
+  rotated/invalid credential is `403`. Refresh before an explicit retry. Failure
+  must leave the client locally stopped and visibly unsaved. Both notice and
+  choice versions must match, even if only the notice changed.
+- Only an acknowledged choice transaction issues/rotates the opaque HTTP-only,
+  SameSite Strict, root-path cookie; production additionally uses Secure and the
+  `__Host-privacy_choice` name (`privacy_choice` outside production). Only a
+  domain-separated SHA-256 credential digest is retained. The existing necessary
+  CSRF token binds a first choice via an HMAC; no analytics identifier is created
+  beforehand. A client-supplied `consent: true` has no authority.
+- Choice records use the reserved `privacy-choice-v1:` namespace in InnoDB
+  `web_settings`, excluded from generic settings readers/writers including
+  collation-folded aliases. They store only format, versions, decision, revision,
+  digest and database epochs; no account or IP. Invalid records are retained and
+  fail closed. Preference expiry does not assert physical-row retention.
+- After **all** source release gates are approved and ready, tracking accepts
+  exactly `{ route, visitNonce, choiceVersion, revision }` with a current receipt
+  and CSRF token. The server maps an allowlisted route family to a canonical
+  template, derives a visit pseudonym and writes the page-view/session pair in
+  one transaction. No raw path, query, fragment, title, account, IP, referrer,
+  UTM, user-agent, screen or geography field is accepted or enriched. Both old
+  tracking mounts call this same authorization/persistence boundary.
+- Collection and choice updates lock the same receipt row. An event whose lock
+  precedes withdrawal completes before withdrawal is acknowledged; one ordered
+  afterward fails. Revision/credential rotation rejects stale queued events and
+  other tabs' old grants. An already completed write/transfer cannot be recalled
+  by browser cancellation. There are no optional provider transfers in this path.
+
+The client state machine, accessible notice/preferences and cross-tab/browser
+acceptance remain separate implementation work. Owner policy approval and P6
+retention/hold handling remain release gates; do not enable the prepared collector
+just because isolated tests exercise a synthetic approved policy.
 
 ## Hook Control API
 

@@ -56,7 +56,7 @@ export function verifyCsrfToken(req: Request, res: Response, next: NextFunction)
     return next();
   }
 
-  const tokenFromCookie = req.cookies.csrf_token;
+  const tokenFromCookie = req.cookies?.csrf_token;
   const tokenFromHeader = req.headers['x-csrf-token'];
 
   if (!tokenFromCookie || !tokenFromHeader || tokenFromCookie !== tokenFromHeader) {

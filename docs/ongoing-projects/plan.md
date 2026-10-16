@@ -1,6 +1,6 @@
 # Website security, privacy, and schema implementation plan
 
-Status: **implementation in progress**. Updated 2026-10-16.
+Status: **implementation in progress**. Updated 2026-10-17.
 
 Current checkpoint: engineering through P4, the UTC correction, first P5
 collection closure and browser storage-denial repair are published for review
@@ -950,6 +950,88 @@ outside this request. Keep this single evolving execution plan current.
   Continue P5 from this published head, using the permanent lifecycle inventory
   to draft the notice and a separate versioned server-owned choice contract.
   Proposed periods remain unapproved; runtime collection remains absent.
+
+- **P5 server-owned choice chunk:** `branch/privacy-choice-receipts` starts at
+  #47 `ce3224b`. **Outcome:** versioned accept/refuse/withdraw receipts with
+  same-origin CSRF actions, digest-only credentials, revision ordering, expiry,
+  fail-closed direct collection and atomic minimized event/session writes.
+  **Non-goals:** owner approval, live collection, a new database/service/secret,
+  GeoIP enrichment, historical cleanup, full UI or P6/P7 completion. **Files:**
+  policy/choice service, privacy route, shared tracking route, reserved-setting
+  filters, isolated service/HTTP tests, API/inventory docs and this plan.
+  **Proof:** real MySQL/MariaDB receipt/event/withdraw transactions, CAS races,
+  stale/forged/expired policy/receipt denial, direct service calls, both tracking
+  mounts, same-origin/CSRF guards, rollback/failure diagnostics, generic-setting
+  exclusion, native owner/schema invariants and required backend gates.
+- **P5 ablation decision:** reuse the existing InnoDB `web_settings` storage
+  domain and a dedicated `privacy-choice-v1:` namespace, excluded from generic
+  readers/writers just like hook receipts. A new table/migration or separate
+  Redis revocation service is unnecessary. One bounded JSON receipt per browser
+  choice contains no account/IP and only a credential digest, versions/revision,
+  decision and database epochs. An existing necessary CSRF token binds first
+  choices via a domain-separated HMAC; no pre-choice analytics identifier is
+  created. Explicit actions issue/rotate an opaque HTTP-only receipt cookie.
+  Row locks linearize collection and withdrawal, with optimistic revisions for
+  competing actions. Optional visit nonces are accepted only behind a current
+  receipt; only allowlisted route families enter atomic event/session writes.
+  No enrichment/provider call, raw URL/title or account linkage is introduced.
+- **Policy gate:** source-owned draft policy remains unapproved and collection
+  disabled. No environment/admin shortcut may authorize it. Tests exercise an
+  explicitly approved synthetic policy through module mocks and real database
+  transactions; distinguish that qualification from the shipped disabled state.
+  Approval, P6 retention readiness and full client/notice acceptance must all be
+  resolved before a future source change can enable collection. The proposed
+  preference lifetime is not treated as an approved retention rule.
+- **P5 server proof:** the real private runner
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-p5-suite.mts 23436` passes the complete backend suite:
+  **1,217 tests / 121 suites**. The same runner with `23437 privacy-only` passes
+  **33 tests / 4 suites** on MariaDB 11.8.9, including all new native cases.
+  It provisions a full-owner synthetic database, verifies 89 migrations and
+  readiness before/after, uses private Redis, and removes only its own database/
+  account afterward. Both owner fingerprints are unchanged (198 tables).
+  Native privacy tests use independent `TEST_PRIVACY_DB_PORT`, exact database
+  `durisweb_qualification_privacy_suite`, and dedicated loopback ports 23436/23437;
+  a hook-only opt-in cannot accidentally activate this suite. The optional flag
+  is documented in `backend/.env.test.example`. No shared target is accepted.
+- **Covered behavior:** first and repeated choice revisions, explicit refusal /
+  withdrawal / reacceptance, persisted digest-only credentials, no pre-choice
+  row/identifier, expired/forged/obsolete/stale/invalid/oversized receipt denial,
+  direct collection bypass attempts, both HTTP mounts, same-origin/CSRF and
+  HTTP-only cookie behavior, unknown policy/disabled collection/retention gates,
+  generic-settings namespace/collation exclusion, minimal canonical rows and
+  atomic rollback, sanitized errors and an ambiguous preference commit that
+  never issues a credential. Both in-flight orderings are demonstrated with
+  real blocked database statements. Native test teardown closes its own Redis
+  connection and drains transactions even if an assertion fails.
+- **Verification repair:** initial race observation relied on InnoDB transaction
+  snapshots that did not reliably represent a locking read, and an actual-auth
+  import left a native test Redis connection open. MySQL now observes the
+  identified wait edge through performance-schema; MariaDB observes its specific
+  still-executing statement and server elapsed time while a barrier holds the
+  conflicting transaction. The final assertions check the actual accepted or
+  rejected event and retained row counts after release. No timing-only outcome
+  assertion or transaction/SQL safeguard relaxation substitutes for that proof.
+- **Notice binding repair:** a focused pre-fix check showed that a request without
+  a notice version reached storage even when the notice had changed. Require
+  exact notice **and** choice versions before storage. Evidence:
+  `/tmp/durisweb-p5-notice-binding-before.log`. Final full/native runs above
+  include the repaired contract. Native logs:
+  `/tmp/durisweb-p5-receipts-full-backend.log`,
+  `/tmp/durisweb-p5-receipts-maria.log`. The earlier MySQL focused qualification
+  log `/tmp/durisweb-p5-receipts-mysql.log` predates the additional notice-binding
+  test; use the final full run as current MySQL evidence.
+- **Quality checks:** backend `format:check`, `lint`, `type-check`, `build`,
+  `verify:mud-writes --mud-manifest
+  /home/aiwithapex/projects/duris/migrations/migration_manifest.json` (53 writes),
+  configuration-literal guard, lifecycle-inventory coverage and `git diff --check`
+  pass. Changed TypeScript was formatted with backend Biome. No dependency,
+  schema/migration, pool safeguard or MUD behavior changed. The frontend was
+  unchanged; its existing 250-test/browser evidence is retained, without a fresh
+  frontend/build/browser or full consent-flow claim. Public release news remains
+  the prior paused-analytics draft until the client/notice and approved release
+  exist; no new reader-visible feature is announced for this disabled server
+  preparation. No production/shared migration/provider/deployment/tag operation.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and

@@ -140,6 +140,17 @@ marker. They contain no IP. Pending or invalid receipts must remain recoverable;
 the delivered receipt and its unique audit sink event must share retention/hold
 decisions. No implemented subject-request hold or delivered purge is claimed.
 
+The prepared [privacy choice service](../backend/src/services/privacyChoiceService.ts)
+adds a separate `privacy-choice-v1:` namespace in this same table. Subject
+verification uses the opaque browser credential and its digest, not an account
+or IP join. Fields are format, notice/choice versions, decision, revision,
+credential digest, changed epoch and expiry epoch. The key derives from an HMAC
+of the existing necessary CSRF token; raw CSRF/cookie secrets are not stored.
+Generic settings APIs exclude both internal namespaces. Invalid choice records
+remain fail-closed; physical-row retention/holds and verified browser-request
+handling still belong to P6/P7. The draft policy prevents issuance in prepared
+source, so the proposed preference lifetime remains unapproved and inactive.
+
 [Terminal](../backend/src/services/terminalService.ts),
 [operations](../backend/src/services/mudControlService.ts),
 [builder](../backend/src/services/zoneCommentService.ts),
@@ -165,9 +176,14 @@ access boundaries. Exports cannot make staff-only evidence public.
 [outbox](../backend/src/services/donationOutboxService.ts),
 [Discord delivery](../backend/src/services/pvpDiscordDelivery.ts), and the
 [read-only historical website dashboard](../backend/src/services/webAnalyticsService.ts)
-own these paths. Both old website tracking URLs are closed in prepared source;
-there is no new consent/analytics identifier or writer yet. That closure is not
-the complete notice/accept/refuse/withdrawal implementation.
+own these paths. Both old website tracking URLs are closed under the draft
+policy. A prepared common collector can accept only a versioned receipt,
+revision, opaque visit nonce and allowlisted route family after all source gates
+are approved/ready. Its atomic page-view/session writes contain only a derived
+visit pseudonym, canonical route template and database time; the other legacy
+fields remain null. No optional enrichment/provider call occurs. Receipt
+issuance and collection remain inactive; this is not the complete client
+notice/accept/refuse/withdrawal implementation or an approval of the proposals.
 
 ## Shared publication metadata without an account selector
 

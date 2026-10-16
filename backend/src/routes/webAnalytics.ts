@@ -1,6 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth, requireOverlord } from '../middleware/auth.js';
 import logger from '../utils/logger.js';
+import { privacyCollectionEnabled } from '../config/privacyPolicy.js';
+import { verifyCsrfToken } from '../middleware/csrf.js';
+import {
+  collectPrivacyPageView,
+  PrivacyChoiceError,
+  PRIVACY_COOKIE,
+} from '../services/privacyChoiceService.js';
+import rateLimit from 'express-rate-limit';
 import {
   getWebOverviewStats,
   getTopPages,
@@ -16,13 +24,34 @@ import {
 } from '../services/webAnalyticsService.js';
 
 const router: Router = Router();
+const trackLimiter = rateLimit({
+  windowMs: 60000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many analytics events; please try again later' },
+});
 
 /**
  * Retire ungated collection for both router mounts and cached older clients.
  * Optional analytics must remain closed until the versioned choice flow is ready.
  */
-router.post('/track', (_req: Request, res: Response) => {
-  res.status(410).json({ error: 'Optional website analytics collection is unavailable' });
+router.post('/track', trackLimiter, verifyCsrfToken, async (req: Request, res: Response) => {
+  if (!privacyCollectionEnabled()) {
+    res.status(410).json({ error: 'Optional website analytics collection is unavailable' });
+    return;
+  }
+  try {
+    await collectPrivacyPageView(req.cookies?.[PRIVACY_COOKIE] as unknown, req.body);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(error instanceof PrivacyChoiceError ? error.status : 503).json({
+      error:
+        error instanceof PrivacyChoiceError
+          ? error.message
+          : 'Optional analytics is temporarily unavailable',
+    });
+  }
 });
 
 /**

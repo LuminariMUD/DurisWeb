@@ -165,9 +165,12 @@ removes its retired `analytics_session_id` when storage permits, installs no
 tracking timers or navigation handlers, and sends no page-view events. Both
 tracking API mounts refuse events, with CSRF protection restored, and the
 ungated service writer and optional GeoIP call path have been removed. Historical
-records and protected dashboard reads remain. This is the first engineering
-step; notice, approved policy, server-owned choice receipts and withdrawal still
-require completion before optional collection can return. Deployment is unverified.
+records and protected dashboard reads remain. Prepared server-owned choice
+receipts now enforce versions/revisions, digest credentials, expiry and atomic
+collection/withdrawal ordering. The draft policy disables issuance and collection;
+an approved synthetic policy is used only in isolated tests. The notice, client
+choice/withdrawal flow, policy approval and retention readiness remain necessary
+before optional collection can return. Deployment is unverified.
 
 ### Personal Data Inventory
 
