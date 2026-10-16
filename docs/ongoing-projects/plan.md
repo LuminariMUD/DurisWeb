@@ -5,9 +5,10 @@ Status: **implementation in progress**. Updated 2026-10-17.
 Current checkpoint: engineering through P4, the UTC correction, first P5
 collection closure and browser storage-denial repair are published for review
 (#39, #41–#49). The browser choice state machine and draft notice are qualified
-and published for review. The image-removal recovery prerequisite is implemented
-and qualified on `branch/post-image-deletion-recovery`, awaiting focused PR
-publication. Next: P6/P7 engineering and unresolved policy/provider decisions. P5's approved
+and published for review. The image-removal recovery prerequisite is qualified
+and published as [PR #50](https://github.com/LuminariMUD/DurisWeb/pull/50) on
+`branch/post-image-deletion-recovery`, stacked on #49. Next: P6/P7 engineering
+and unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
 
@@ -1265,6 +1266,24 @@ outside this request. Keep this single evolving execution plan current.
   keeps drafts from reusing images already awaiting removal.” Reconcile and
   publish only after authorized live acceptance. No CDN/backup-wide erasure,
   approved retention, general P6/P7 completion, merge, tag or release is claimed.
+- **Published image recovery:** [PR #50](https://github.com/LuminariMUD/DurisWeb/pull/50),
+  open/non-draft, code head `2596039cea900a6de83e58f05fc6402dd6ca0818`,
+  stacked on #49 `7f07bc9`. The code push was read back: local/remote/API head
+  matched, ahead/behind `0 0`, and the worktree was clean. The follow-up plan
+  closeout is documentation only. Latest fetched master remains `8946860`;
+  #49 is unchanged and open. Keep this PR ready for review; do not merge,
+  tag, deploy or use shared databases. The existing named P3 recovery stash
+  and unrelated original-checkout work remain preserved.
+- **Next continuation after #50:** continue in the isolated worktree
+  `/tmp/durisweb-security-privacy-plan-20261016` from the published image branch.
+  Re-read P6/P7 and the permanent lifecycle inventory, choose a bounded next
+  engineering chunk with ablation and start a dependent branch. P6 default
+  dry-run, explicit policy/target, holds and protected restore handling remain
+  unimplemented. Do not invent approved periods or allow destructive execution
+  for unapproved classes. Image recovery supplies a prerequisite only; owner
+  policy/provider/period decisions, complete P5 acceptance and all P8 live
+  release steps remain open. Ask only when a necessary consequential decision
+  actually blocks further independent work.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
