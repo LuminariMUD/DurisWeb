@@ -13,8 +13,9 @@ code or another configuration surface to compensate for a missing setting.
 
 There are no implicit development or production values. Missing and invalid
 backend/frontend values are reported together before the application starts.
-Disabled optional integrations require an explicit `false` flag; enabling one
-requires its complete configuration group.
+Integrations controlled by an enable flag require an explicit `false` when
+disabled and their complete configuration group when enabled. Discord delivery
+uses an optional token/channel pair, described under database-backed settings.
 
 ## Find installation-specific settings
 
@@ -29,6 +30,7 @@ are replaceable values, not a required directory layout.
 | Website cache and scoped MUD Redis access | `backend/.env` | `CACHE_REDIS_*`, `MUD_REDIS_*` |
 | Selected MUD checkout and privileged bridge | `backend/.env` | `MUD_DIR`, `MUD_WS_URL`, `MUD_PROCESS_*` |
 | Website backup storage | `backend/.env` | `BACKUP_DIR` |
+| Discord battle delivery | `backend/.env` | `DISCORD_BOT_TOKEN`, `DISCORD_CHANNEL_ID` |
 | Browser API, application WebSocket and static origins | `frontend/.env` | `VITE_API_URL`, `VITE_WS_URL`, `VITE_STATIC_URL`, `VITE_BASE_URL` |
 | Application paths, environment location and rendered artifacts | Deployment input | `BACKEND_ROOT`, `FRONTEND_DIST`, `BACKEND_ENV_FILE`, `RENDER_OUTPUT_DIR`, `DEPLOYMENT_ENV_FILE` |
 | Service manager, identity and dependency names | Deployment input | `DEPLOY_SERVICE_SCOPE`, `SERVICE_USER`, `APPLICATION_SERVICE`, `CACHE_SERVICE`, `DATABASE_SERVICE`, `MUD_SERVICE` |
@@ -159,8 +161,19 @@ presents these settings; this section owns their configuration contract.
 `front_page_hero_enabled`, `front_page_hero_title`,
 `front_page_hero_subtitle`, `front_page_hero_image_url`, `front_page_content`,
 `max_hourly_backups`, `respect_webinfo_toggle`, and `discord_webhook_enabled`.
-The same table stores `discord_webhook_url` for server-side delivery only; it is
-a bearer credential and is never part of the browser-safe public inventory.
+Discord delivery uses `DISCORD_BOT_TOKEN` and `DISCORD_CHANNEL_ID` in the backend
+runtime environment. Set both to reuse an existing bridge bot, or leave both
+unset to disable delivery. The bot needs View Channel, Send Messages, and Embed
+Links in the destination channel. No additional bot connection or bridge listener
+is needed: the website sends embeds through Discord's authenticated REST API.
+The token is server-only and never enters frontend configuration or settings.
+Restart the website backend after changing these environment values.
+
+The historical `discord_webhook_enabled` key still controls automatic battle
+posts, avoiding a settings migration. Manual PvP posts and the admin **Send test
+message** action work independently of that toggle. The old `discord_webhook_url`
+row is ignored and excluded from admin settings; webhook delivery is no longer
+used. Leave automatic posting off while testing a temporary destination.
 
 The forward migration backfills missing keys to preserve the existing
 deployment. Runtime code does not recreate those values. An incomplete or

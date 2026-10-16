@@ -127,7 +127,7 @@ import {
   deletePlayerItems,
   deleteAllDupesForUid,
 } from '../services/dupeDetectionService.js';
-import { testWebhook, manualPostBattle } from '../services/discordService.js';
+import { testDiscordBot, manualPostBattle } from '../services/discordService.js';
 
 const router: IRouter = Router();
 
@@ -4534,25 +4534,19 @@ router.delete(
 
 /**
  * POST /api/admin/discord/test
- * test discord webhook by sending a test message
+ * test the configured Discord bot by sending a test message
  */
 router.post(
   '/discord/test',
   requireAuth,
   requirePermission('manage_front_page'),
-  async (req: Request, res: Response) => {
+  async (_req: Request, res: Response) => {
     try {
-      const { webhookUrl } = req.body;
-
-      if (!webhookUrl) {
-        return res.status(400).json({ error: 'webhook url is required' });
-      }
-
-      const result = await testWebhook(webhookUrl);
+      const result = await testDiscordBot();
       return res.json(result);
     } catch (error) {
-      logger.error('Discord test webhook error:', error);
-      return res.status(500).json({ success: false, error: 'failed to test webhook' });
+      logger.error('Discord bot test error:', error);
+      return res.status(500).json({ success: false, error: 'failed to test Discord bot' });
     }
   },
 );

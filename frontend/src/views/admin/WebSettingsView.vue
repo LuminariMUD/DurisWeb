@@ -214,28 +214,22 @@ function cancelLogoUpload() {
   }
 }
 
-// discord webhook testing
-const isTestingWebhook = ref(false)
+// Discord bot testing
+const isTestingDiscord = ref(false)
 
-async function testDiscordWebhook() {
-  const webhookUrl = editedSettings.value.discord_webhook_url
-  if (!webhookUrl) {
-    toast.error('Please enter a webhook URL first', 'Error')
-    return
-  }
-
-  isTestingWebhook.value = true
+async function testDiscordBot() {
+  isTestingDiscord.value = true
   try {
-    const result = await adminApi.testDiscordWebhook(webhookUrl)
+    const result = await adminApi.testDiscordBot()
     if (result.success) {
       toast.success('Test message sent to Discord!', 'Success')
     } else {
       toast.error(result.error || 'Failed to send test message', 'Error')
     }
   } catch (err: any) {
-    toast.error(err.response?.data?.error || 'Failed to test webhook', 'Error')
+    toast.error(err.response?.data?.error || 'Failed to test Discord bot', 'Error')
   } finally {
-    isTestingWebhook.value = false
+    isTestingDiscord.value = false
   }
 }
 
@@ -366,7 +360,7 @@ onMounted(async () => {
             <CardTitle>Discord Integration</CardTitle>
           </div>
           <CardDescription>
-            Post PvP battles to a Discord channel via webhook
+            Post PvP battles to the configured Discord bot channel
           </CardDescription>
         </CardHeader>
         <CardContent v-if="isLoading">
@@ -392,36 +386,17 @@ onMounted(async () => {
             />
           </div>
 
-          <!-- Webhook URL Input -->
           <div class="space-y-2">
-            <Label for="discord_webhook_url">Discord Webhook URL</Label>
-            <div class="flex gap-2">
-              <Input
-                id="discord_webhook_url"
-                v-model="editedSettings.discord_webhook_url"
-                type="password"
-                placeholder="https://discord.com/api/webhooks/..."
-                :disabled="isSaving.discord_webhook_url"
-                class="flex-1"
-              />
-              <Button
-                @click="saveSetting('discord_webhook_url')"
-                :disabled="isSaving.discord_webhook_url || !hasChanges('discord_webhook_url')"
-                size="sm"
-              >
-                {{ isSaving.discord_webhook_url ? 'Saving...' : 'Save' }}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                @click="testDiscordWebhook"
-                :disabled="isTestingWebhook || !editedSettings.discord_webhook_url"
-              >
-                {{ isTestingWebhook ? 'Testing...' : 'Test' }}
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              @click="testDiscordBot"
+              :disabled="isTestingDiscord"
+            >
+              {{ isTestingDiscord ? 'Sending...' : 'Send test message' }}
+            </Button>
             <p class="text-xs text-muted-foreground">
-              Create a webhook in your Discord channel settings. The URL should start with https://discord.com/api/webhooks/
+              Sends a test message to the bot's configured channel. You can also post individual battles using the Discord button on a PvP log.
             </p>
           </div>
         </CardContent>

@@ -71,6 +71,32 @@ function validProductionEnvironment(): Record<string, string> {
 }
 
 describe('backend environment configuration', () => {
+  it('accepts an optional complete Discord bot configuration', () => {
+    expect(parseBackendEnvironment(validEnvironment()).discordBot).toBeUndefined();
+    expect(
+      parseBackendEnvironment({
+        ...validEnvironment(),
+        DISCORD_BOT_TOKEN: 'private-test-bot-token',
+        DISCORD_CHANNEL_ID: '123456789012345678',
+      }).discordBot,
+    ).toEqual({ token: 'private-test-bot-token', channelId: '123456789012345678' });
+  });
+
+  it.each([
+    { DISCORD_BOT_TOKEN: 'private-test-bot-token' },
+    { DISCORD_CHANNEL_ID: '123456789012345678' },
+    { DISCORD_BOT_TOKEN: 'private-test-bot-token', DISCORD_CHANNEL_ID: '../messages' },
+  ])('rejects incomplete or invalid Discord configuration without exposing tokens', (values) => {
+    try {
+      parseBackendEnvironment({ ...validEnvironment(), ...values });
+      throw new Error('Expected invalid Discord configuration');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigurationError);
+      expect((error as Error).message).toContain('DISCORD_');
+      expect((error as Error).message).not.toContain('private-test-bot-token');
+    }
+  });
+
   it('returns typed values for a complete configuration', () => {
     const configuration = parseBackendEnvironment(validEnvironment());
 

@@ -26,8 +26,7 @@ export interface WebSettings {
   // Privacy settings
   respectWebinfoToggle: boolean;
   // Discord settings
-  discordWebhookUrl: string;
-  discordWebhookEnabled: boolean;
+  discordAutoPostEnabled: boolean;
 }
 
 export interface WebSettingRow {
@@ -82,7 +81,6 @@ const REQUIRED_SETTING_KEYS = [
   'front_page_content',
   'max_hourly_backups',
   'respect_webinfo_toggle',
-  'discord_webhook_url',
   'discord_webhook_enabled',
 ] as const;
 
@@ -216,15 +214,7 @@ export function parseWebSettingsRows(
     issues,
   );
 
-  const discordWebhookEnabled = parseBooleanSetting(values, 'discord_webhook_enabled', issues);
-  const discordWebhookUrl = values.get('discord_webhook_url') ?? '';
-  if (discordWebhookEnabled && !discordWebhookUrl) {
-    issues.push('discord_webhook_url is required when discord_webhook_enabled is true');
-  }
-  if (discordWebhookUrl && !discordWebhookUrl.startsWith('https://discord.com/api/webhooks/')) {
-    issues.push('discord_webhook_url must be a Discord HTTPS webhook URL');
-  }
-
+  const discordAutoPostEnabled = parseBooleanSetting(values, 'discord_webhook_enabled', issues);
   const settings: WebSettings = {
     pvpDelayMinutes: parseIntegerSetting(values, 'pvp_delay_minutes', 0, 1440, issues),
     mudHost,
@@ -241,8 +231,7 @@ export function parseWebSettingsRows(
     frontPageContent: values.get('front_page_content') ?? '',
     maxHourlyBackups: parseIntegerSetting(values, 'max_hourly_backups', 1, 168, issues),
     respectWebinfoToggle: parseBooleanSetting(values, 'respect_webinfo_toggle', issues),
-    discordWebhookUrl,
-    discordWebhookEnabled,
+    discordAutoPostEnabled,
   };
 
   if (issues.length > 0) throw new WebSettingsConfigurationError(issues);
@@ -290,7 +279,7 @@ export async function getWebSetting(key: string): Promise<string | null> {
  */
 export async function getWebSettingsRaw(): Promise<WebSettingRow[]> {
   const [rows] = await db.query<RowDataPacket[]>(
-    'SELECT setting_key, setting_value, description, updated_at, updated_by FROM web_settings ORDER BY setting_key',
+    "SELECT setting_key, setting_value, description, updated_at, updated_by FROM web_settings WHERE setting_key != 'discord_webhook_url' ORDER BY setting_key",
   );
 
   return rows.map((row) => ({
@@ -330,7 +319,6 @@ export async function updateWebSetting(
     'front_page_content',
     'max_hourly_backups',
     'respect_webinfo_toggle',
-    'discord_webhook_url',
     'discord_webhook_enabled',
   ];
   if (!validKeys.includes(key)) {
@@ -354,17 +342,7 @@ export async function updateWebSetting(
   // Validate discord_webhook_enabled is boolean string
   if (key === 'discord_webhook_enabled') {
     if (value !== 'true' && value !== 'false') {
-      throw new Error('Discord webhook enabled must be "true" or "false"');
-    }
-  }
-
-  // Validate discord_webhook_url format (allow empty or valid discord webhook url)
-  if (key === 'discord_webhook_url') {
-    if (value && !value.startsWith('https://discord.com/api/webhooks/')) {
-      throw new Error('Invalid discord webhook url format');
-    }
-    if (value && value.length > 200) {
-      throw new Error('Discord webhook url too long');
+      throw new Error('Discord auto-post enabled must be "true" or "false"');
     }
   }
 

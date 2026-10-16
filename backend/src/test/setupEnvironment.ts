@@ -40,6 +40,9 @@ const testDefaults: Readonly<Record<string, string>> = {
   R2_ENABLED: 'false',
   PUSH_ENABLED: 'false',
   GEMINI_ENABLED: 'false',
+  // Keep the production dotenv fallback from enabling Discord delivery in tests.
+  DISCORD_BOT_TOKEN: '',
+  DISCORD_CHANNEL_ID: '',
 };
 
 for (const [name, value] of Object.entries(testDefaults)) {

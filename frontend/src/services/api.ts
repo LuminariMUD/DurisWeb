@@ -1445,13 +1445,10 @@ export const adminApi = {
   },
 
   /**
-   * Test discord webhook
+   * Test the configured Discord bot
    */
-  async testDiscordWebhook(webhookUrl: string): Promise<{ success: boolean; error?: string }> {
-    const { data } = await api.post<{ success: boolean; error?: string }>(
-      '/api/admin/discord/test',
-      { webhookUrl },
-    )
+  async testDiscordBot(): Promise<{ success: boolean; error?: string }> {
+    const { data } = await api.post<{ success: boolean; error?: string }>('/api/admin/discord/test')
     return data
   },
 

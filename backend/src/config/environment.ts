@@ -105,6 +105,7 @@ export interface BackendConfiguration {
   r2?: R2Configuration;
   push?: PushConfiguration;
   geminiApiKey?: string;
+  discordBot?: { token: string; channelId: string };
 }
 
 /** Aggregates configuration issues without including the rejected secret values. */
@@ -516,6 +517,14 @@ export function parseBackendEnvironment(source: EnvironmentSource): BackendConfi
   const r2Enabled = requiredBoolean(source, 'R2_ENABLED', issues);
   const pushEnabled = requiredBoolean(source, 'PUSH_ENABLED', issues);
   const geminiEnabled = requiredBoolean(source, 'GEMINI_ENABLED', issues);
+  const discordToken = optionalString(source, 'DISCORD_BOT_TOKEN', issues);
+  const discordChannelId = optionalString(source, 'DISCORD_CHANNEL_ID', issues);
+  if (Boolean(discordToken) !== Boolean(discordChannelId)) {
+    issues.push('DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID must be configured together');
+  }
+  if (discordChannelId && !/^[1-9]\d{16,19}$/.test(discordChannelId)) {
+    issues.push('DISCORD_CHANNEL_ID must be a Discord channel ID');
+  }
 
   if (donationsEnabled && !mudRedisEnabled) {
     issues.push('DONATIONS_ENABLED requires MUD_REDIS_ENABLED=true');
@@ -621,6 +630,10 @@ export function parseBackendEnvironment(source: EnvironmentSource): BackendConfi
     r2,
     push,
     geminiApiKey: geminiEnabled ? requiredString(source, 'GEMINI_API_KEY', issues) : undefined,
+    discordBot:
+      discordToken && discordChannelId
+        ? { token: discordToken, channelId: discordChannelId }
+        : undefined,
   };
 
   if (issues.length > 0) throw new ConfigurationError(issues);

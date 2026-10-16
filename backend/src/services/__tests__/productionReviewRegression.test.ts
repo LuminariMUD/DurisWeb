@@ -155,6 +155,7 @@ describe('production review regression contracts', () => {
     expect(architecture).toContain('When Cloudflared is enabled');
     expect(development).toContain('pnpm --dir backend config:check');
     expect(development).toContain('pnpm --dir frontend config:check');
-    expect(environments).toContain('`discord_webhook_url` for server-side delivery only');
+    expect(environments).toContain('`DISCORD_BOT_TOKEN` and `DISCORD_CHANNEL_ID`');
+    expect(environments).toContain('The token is server-only');
   });
 });

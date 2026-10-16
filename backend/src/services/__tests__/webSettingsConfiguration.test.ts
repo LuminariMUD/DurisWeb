@@ -24,7 +24,6 @@ function validRows(): Array<{ setting_key: string; setting_value: string }> {
     ['front_page_content', '<p>Configured content</p>'],
     ['max_hourly_backups', '24'],
     ['respect_webinfo_toggle', 'true'],
-    ['discord_webhook_url', ''],
     ['discord_webhook_enabled', 'false'],
   ].map(([setting_key, setting_value]) => ({ setting_key, setting_value }));
 }
@@ -58,12 +57,12 @@ describe('database-backed site configuration', () => {
     }
   });
 
-  it('requires a webhook URL only when Discord delivery is enabled', () => {
+  it('accepts automatic bot posting without a legacy webhook URL', () => {
     const rows = validRows();
     const enabled = rows.find((row) => row.setting_key === 'discord_webhook_enabled');
     if (enabled) enabled.setting_value = 'true';
 
-    expect(() => parseWebSettingsRows(rows)).toThrow(/discord_webhook_url is required/);
+    expect(parseWebSettingsRows(rows).discordAutoPostEnabled).toBe(true);
   });
 
   it('rejects plaintext and fragmented browser WebSocket URLs', async () => {

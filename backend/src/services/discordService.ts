@@ -1,7 +1,7 @@
 import { pool } from '../db/connection.js';
 import { RowDataPacket } from 'mysql2';
 import logger from '../utils/logger.js';
-import { stripAnsiCodes } from '../utils/stringUtils.js';
+import { stripAnsiCodes, extractPlayerName } from '../utils/stringUtils.js';
 import { getWebSetting } from './webSettingsService.js';
 import { getBackendConfiguration } from '../config/environment.js';
 
@@ -30,7 +30,7 @@ interface DiscordEmbed {
   };
 }
 
-interface DiscordWebhookPayload {
+interface DiscordPayload {
   content?: string;
   embeds: DiscordEmbed[];
 }
@@ -47,23 +47,7 @@ interface BattleParticipant {
  */
 export async function isDiscordEnabled(): Promise<boolean> {
   const enabled = await getWebSetting('discord_webhook_enabled');
-  const url = await getWebSetting('discord_webhook_url');
-  return enabled === 'true' && !!url;
-}
-
-/**
- * get webhook url from settings
- */
-async function getWebhookUrl(): Promise<string | null> {
-  return await getWebSetting('discord_webhook_url');
-}
-
-/**
- * extract player name from description like "[56 Blackguard] Orclife (Orc)"
- */
-function extractName(description: string): string | null {
-  const match = description.match(/\[\s*\d+\s+[^\]]+\]\s+(\w+)/);
-  return match?.[1] || null;
+  return enabled === 'true' && !!getBackendConfiguration().discordBot;
 }
 
 /**
@@ -71,7 +55,7 @@ function extractName(description: string): string | null {
  */
 function formatParticipant(participant: BattleParticipant, eventId: number): string {
   const clean = stripAnsiCodes(participant.description).trim();
-  const name = participant.name || extractName(clean);
+  const name = participant.name || extractPlayerName(clean);
 
   let suffix = '';
   if (participant.leader) suffix += ' 👑';
@@ -142,12 +126,12 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * send payload to discord webhook with rate limiting
+ * send payload through the configured Discord bot with rate limiting
  */
-async function sendWebhookPayload(
-  webhookUrl: string,
-  payload: DiscordWebhookPayload,
-): Promise<boolean> {
+async function sendDiscordPayload(payload: DiscordPayload): Promise<boolean> {
+  const bot = getBackendConfiguration().discordBot;
+  if (!bot) return false;
+
   // rate limiting
   const now = Date.now();
   const elapsed = now - lastPostTime;
@@ -156,15 +140,15 @@ async function sendWebhookPayload(
   }
   lastPostTime = Date.now();
 
-  const response = await fetch(webhookUrl, {
+  const response = await fetch(`https://discord.com/api/v10/channels/${bot.channelId}/messages`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    headers: { 'Content-Type': 'application/json', Authorization: `Bot ${bot.token}` },
+    body: JSON.stringify({ ...payload, allowed_mentions: { parse: [] } }),
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    logger.error(`[Discord] webhook failed: ${response.status} - ${text}`);
+    logger.error(`[Discord] bot delivery failed: HTTP ${response.status}`);
     return false;
   }
 
@@ -182,24 +166,23 @@ export async function postBattleToDiscord(
   participants: BattleParticipant[],
 ): Promise<boolean> {
   try {
-    const webhookUrl = await getWebhookUrl();
-    if (!webhookUrl) {
-      logger.warn('[Discord] webhook url not configured');
+    if (!getBackendConfiguration().discordBot) {
+      logger.warn('[Discord] bot not configured');
       return false;
     }
 
     const embed = buildBattleEmbed(eventId, stamp, roomName, participants);
-    const payload: DiscordWebhookPayload = { embeds: [embed] };
+    const payload: DiscordPayload = { embeds: [embed] };
 
-    const success = await sendWebhookPayload(webhookUrl, payload);
+    const success = await sendDiscordPayload(payload);
 
     if (success) {
       logger.info(`[Discord] posted battle ${eventId}`);
     }
 
     return success;
-  } catch (error) {
-    logger.error('[Discord] post error:', error);
+  } catch {
+    logger.error('[Discord] post failed');
     return false;
   }
 }
@@ -211,9 +194,8 @@ export async function manualPostBattle(
   eventId: number,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const webhookUrl = await getWebhookUrl();
-    if (!webhookUrl) {
-      return { success: false, error: 'discord webhook url not configured' };
+    if (!getBackendConfiguration().discordBot) {
+      return { success: false, error: 'Discord bot is not configured' };
     }
 
     // fetch battle data
@@ -241,32 +223,32 @@ export async function manualPostBattle(
       }));
 
     const embed = buildBattleEmbed(event.id, event.stamp, event.room_name, participants);
-    const payload: DiscordWebhookPayload = { embeds: [embed] };
+    const payload: DiscordPayload = { embeds: [embed] };
 
-    const success = await sendWebhookPayload(webhookUrl, payload);
+    const success = await sendDiscordPayload(payload);
 
     if (success) {
       logger.info(`[Discord] manually posted battle ${eventId}`);
       return { success: true };
     }
 
-    return { success: false, error: 'failed to send webhook' };
-  } catch (error) {
-    logger.error('[Discord] manual post error:', error);
+    return {
+      success: false,
+      error: 'Failed to send to Discord; check bot channel permissions and try again',
+    };
+  } catch {
+    logger.error('[Discord] manual post failed');
     return { success: false, error: 'internal error' };
   }
 }
 
 /**
- * test webhook by sending a test message
+ * test the configured bot by sending a test message
  */
-export async function testWebhook(
-  webhookUrl: string,
-): Promise<{ success: boolean; error?: string }> {
+export async function testDiscordBot(): Promise<{ success: boolean; error?: string }> {
   try {
-    // validate url format
-    if (!webhookUrl.startsWith('https://discord.com/api/webhooks/')) {
-      return { success: false, error: 'invalid discord webhook url format' };
+    if (!getBackendConfiguration().discordBot) {
+      return { success: false, error: 'Discord bot is not configured' };
     }
 
     const testEmbed: DiscordEmbed = {
@@ -276,7 +258,7 @@ export async function testWebhook(
       fields: [
         {
           name: 'Status',
-          value: 'Discord webhook is working correctly!',
+          value: 'Discord bot is working correctly!',
           inline: false,
         },
       ],
@@ -285,16 +267,16 @@ export async function testWebhook(
       },
     };
 
-    const payload: DiscordWebhookPayload = { embeds: [testEmbed] };
-    const success = await sendWebhookPayload(webhookUrl, payload);
+    const payload: DiscordPayload = { embeds: [testEmbed] };
+    const success = await sendDiscordPayload(payload);
 
     if (success) {
       return { success: true };
     }
 
     return { success: false, error: 'failed to send test message' };
-  } catch (error) {
-    logger.error('[Discord] test webhook error:', error);
+  } catch {
+    logger.error('[Discord] bot test failed');
     return { success: false, error: 'failed to connect to discord' };
   }
 }
