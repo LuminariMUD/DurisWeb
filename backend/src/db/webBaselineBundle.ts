@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadMudWriteAllowlist } from '../scripts/verifyMudWriteAllowlist.js';
+import { loadMudWriteAllowlist, tableFingerprint } from '../scripts/verifyMudWriteAllowlist.js';
 
 export interface BaselineSource {
   name: string;
@@ -137,19 +137,34 @@ function assertUnique(names: string[], category: string): void {
   if (new Set(names).size !== names.length) throw new Error(`baseline has duplicate ${category}`);
 }
 
+function parseBaselineJson(text: string, filename: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    // JSON parser errors may include input excerpts; report the source without its contents.
+    throw new Error(`invalid website baseline JSON: ${filename}`);
+  }
+}
+
 /** Validate immutable inputs without opening a connection or changing migration discovery. */
 export function loadWebBaselineBundle(directory = webBaselineDirectory()): WebBaselineBundle {
   const manifestText = fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8');
-  const manifest: unknown = JSON.parse(manifestText);
+  const manifest = parseBaselineJson(manifestText, 'manifest.json');
   if (!isManifest(manifest)) throw new Error('invalid website baseline manifest');
   const schemaText = fs.readFileSync(path.join(directory, 'schema.sql'), 'utf8');
   const seedText = fs.readFileSync(path.join(directory, 'seeds.json'), 'utf8');
-  if (sha256(schemaText) !== manifest.schemaSha256 || sha256(seedText) !== manifest.seedsSha256) {
-    throw new Error('website baseline artifact checksum mismatch');
+  if (sha256(schemaText) !== manifest.schemaSha256) {
+    throw new Error('website baseline artifact checksum mismatch: schema.sql');
+  }
+  if (sha256(seedText) !== manifest.seedsSha256) {
+    throw new Error('website baseline artifact checksum mismatch: seeds.json');
   }
 
   const backendRoot = path.resolve(webBaselineDirectory(), '../..');
   const ownership = loadMudWriteAllowlist(backendRoot);
+  if (tableFingerprint(ownership.mudOwnedTables) !== ownership.baseline.requiredTableFingerprint) {
+    throw new Error('website baseline MUD ownership inventory fingerprint mismatch');
+  }
   if (
     ownership.baseline.id !== manifest.mudBaseline.id ||
     ownership.baseline.requiredTableFingerprint !== manifest.mudBaseline.requiredTableFingerprint
@@ -186,7 +201,11 @@ export function loadWebBaselineBundle(directory = webBaselineDirectory()): WebBa
     ) {
       throw new Error(`invalid baseline definition: ${table.name}`);
     }
-    for (const reference of sql.matchAll(/REFERENCES `([^`]+)`/g)) {
+    // This source-owned snapshot uses one canonical FK grammar. Refuse alternate
+    // quoting, qualification, comments or casing rather than partially parsing SQL.
+    for (const keyword of sql.matchAll(/\bREFERENCES\b/gi)) {
+      const reference = /^REFERENCES `([a-z][a-z0-9_]{0,63})` \(/.exec(sql.slice(keyword.index));
+      if (!reference) throw new Error(`unsupported baseline foreign key syntax: ${table.name}`);
       if (reference[1] !== table.name && !installed.has(reference[1])) {
         throw new Error(`baseline foreign key crosses ownership or creation order: ${table.name}`);
       }
@@ -195,7 +214,7 @@ export function loadWebBaselineBundle(directory = webBaselineDirectory()): WebBa
     return { ...table, sql };
   });
 
-  const seeds: unknown = JSON.parse(seedText);
+  const seeds = parseBaselineJson(seedText, 'seeds.json');
   if (
     !Array.isArray(seeds) ||
     !seeds.every(isSeed) ||
@@ -224,7 +243,18 @@ export function verifyWebBaselineSources(
   );
   const actual = fs
     .readdirSync(migrationsDirectory)
-    .filter((name) => name.endsWith('.ts') && name <= manifest.migrationCutoff)
+    .filter((name) => {
+      if (!name.endsWith('.ts')) return false;
+      // Sequence and timestamp names are independent clocks. A new 049_ file
+      // sorts before every timestamp, but lies beyond the covered 048_ history.
+      const prefix = /^(\d{3}|\d{14})[a-z]?_/.exec(name)?.[1];
+      if (!prefix) throw new Error(`invalid website migration name: ${name}`);
+      const cutoff = historicalNames
+        .filter((historical) => historical.match(/^\d+/)?.[0].length === prefix.length)
+        .sort()
+        .at(-1);
+      return cutoff !== undefined && name <= cutoff;
+    })
     .sort();
   if (
     JSON.stringify([...historicalNames].sort()) !== JSON.stringify(actual) ||
@@ -237,7 +267,7 @@ export function verifyWebBaselineSources(
       !/^[a-zA-Z0-9_]+\.(ts|sql)$/.test(source.name) ||
       sha256(fs.readFileSync(path.join(migrationsDirectory, source.name))) !== source.sha256
     ) {
-      throw new Error('website baseline historical source checksum mismatch');
+      throw new Error(`website baseline historical source checksum mismatch: ${source.name}`);
     }
   }
   const actualSql = fs

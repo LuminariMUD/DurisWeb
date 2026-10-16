@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, it } from '@jest/globals';
+import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import mysql from 'mysql2/promise';
 import type { RowDataPacket } from 'mysql2/promise';
+import { loadMudWriteAllowlist } from '../../scripts/verifyMudWriteAllowlist.js';
 import {
   type BaselineManifest,
   installedTableSha256,
@@ -26,6 +27,7 @@ function saveManifest(directory: string, manifest: BaselineManifest): void {
   fs.writeFileSync(path.join(directory, 'manifest.json'), JSON.stringify(manifest));
 }
 afterEach(() => {
+  jest.restoreAllMocks();
   for (const directory of temporaryDirectories.splice(0)) fs.rmSync(directory, { recursive: true });
 });
 
@@ -41,27 +43,115 @@ describe('immutable website schema inputs', () => {
       },
     );
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('76 web tables, 85 covered migration sources');
+    expect(result.stdout).toContain('77 web tables, 85 covered migration sources');
     expect(result.stdout).toContain('No database was inspected or changed');
   });
 
-  it('pins historical files without excluding new forward migrations', () => {
-    const { directory } = copyBundle();
-    const migrations = path.join(directory, 'migrations');
-    fs.cpSync(path.join(backendRoot, 'migrations'), migrations, { recursive: true });
-    fs.writeFileSync(
-      path.join(migrations, '20261017000000_future_change.ts'),
-      '// future migration',
-    );
-    expect(() => verifyWebBaselineSources(loadWebBaselineBundle(), migrations)).not.toThrow();
-    fs.writeFileSync(
-      path.join(migrations, '20261001000000_unknown_history.ts'),
-      '// unexpected past',
-    );
-    expect(() => verifyWebBaselineSources(loadWebBaselineBundle(), migrations)).toThrow(
-      /coverage mismatch/,
-    );
+  it.each(['013_unknown_history.ts', '20261001000000_unknown_history.ts'])(
+    'permits both forward naming series but rejects uncovered historical %s',
+    (historicalName) => {
+      const { directory } = copyBundle();
+      const migrations = path.join(directory, 'migrations');
+      fs.cpSync(path.join(backendRoot, 'migrations'), migrations, { recursive: true });
+      fs.writeFileSync(
+        path.join(migrations, '20261017000000_future_change.ts'),
+        '// future migration',
+      );
+      fs.writeFileSync(
+        path.join(migrations, '049_add_feature.ts'),
+        '// future sequential migration',
+      );
+      expect(() => verifyWebBaselineSources(loadWebBaselineBundle(), migrations)).not.toThrow();
+      fs.writeFileSync(path.join(migrations, historicalName), '// unexpected past');
+      expect(() => verifyWebBaselineSources(loadWebBaselineBundle(), migrations)).toThrow(
+        /coverage mismatch/,
+      );
+    },
+  );
+
+  it('rejects a reduced ownership inventory even when its pinned identity is unchanged', () => {
+    const readFileSync = fs.readFileSync;
+    const ownership = loadMudWriteAllowlist(backendRoot);
+    ownership.mudOwnedTables = ownership.mudOwnedTables.filter((name) => name !== 'accounts');
+    jest.spyOn(fs, 'readFileSync').mockImplementation((...args) => {
+      const value = readFileSync(...args);
+      if (String(args[0]) !== path.join(backendRoot, 'mud-write-allowlist.json')) return value;
+      return JSON.stringify(ownership);
+    });
+    expect(() => loadWebBaselineBundle()).toThrow(/ownership.*fingerprint/i);
   });
+
+  it.each([
+    'references accounts(id)',
+    'REFERENCES accounts (id)',
+    'REFERENCES `other_database`.`accounts` (`id`)',
+    'REFERENCES /* comment */ `accounts` (`id`)',
+    'REFERENCES `accounts` (`id`)',
+  ])('rejects external foreign keys expressed as %s', (reference) => {
+    const { directory, manifest } = copyBundle();
+    const schema = fs
+      .readFileSync(path.join(directory, 'schema.sql'), 'utf8')
+      .replace(
+        'PRIMARY KEY (`id`)',
+        `CONSTRAINT fk_external FOREIGN KEY (\`id\`) ${reference},\n  PRIMARY KEY (\`id\`)`,
+      );
+    fs.writeFileSync(path.join(directory, 'schema.sql'), schema);
+    manifest.schemaSha256 = sha256(schema);
+    manifest.tables[0].sha256 = sha256(
+      schema
+        .split(/^-- Table: /m)[1]
+        .split('\n')
+        .slice(1)
+        .join('\n')
+        .trim()
+        .replace(/;$/, ''),
+    );
+    saveManifest(directory, manifest);
+    expect(() => loadWebBaselineBundle(directory)).toThrow(/foreign key/);
+  });
+
+  it.each(['schema', 'source', 'json'])(
+    'reports an actionable %s failure through the CLI',
+    (failure) => {
+      const { directory } = copyBundle();
+      const root = path.join(directory, 'backend');
+      fs.mkdirSync(root);
+      for (const name of ['src', 'migrations', 'schema-baselines']) {
+        fs.cpSync(path.join(backendRoot, name), path.join(root, name), { recursive: true });
+      }
+      for (const name of ['package.json', 'mud-write-allowlist.json']) {
+        fs.copyFileSync(path.join(backendRoot, name), path.join(root, name));
+      }
+      fs.symlinkSync(
+        path.join(backendRoot, 'node_modules'),
+        path.join(root, 'node_modules'),
+        'dir',
+      );
+      const baseline = path.join(root, 'schema-baselines', '2026-10-16');
+      if (failure === 'schema') fs.appendFileSync(path.join(baseline, 'schema.sql'), '\n');
+      if (failure === 'source')
+        fs.appendFileSync(
+          path.join(root, 'migrations', '048_add_discord_webhook_settings.ts'),
+          '\n',
+        );
+      if (failure === 'json')
+        fs.writeFileSync(path.join(baseline, 'manifest.json'), '{ invalid-json-sentinel');
+      const result = spawnSync(
+        process.execPath,
+        ['--import', 'tsx', 'src/scripts/checkWebBaseline.ts'],
+        { cwd: root, env: {}, encoding: 'utf8' },
+      );
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        failure === 'source'
+          ? '048_add_discord_webhook_settings.ts'
+          : failure === 'json'
+            ? 'manifest.json'
+            : 'schema.sql',
+      );
+      expect(result.stderr).not.toContain('invalid-json-sentinel');
+    },
+  );
 
   it('rejects altered source checksums, including excluded historical SQL', () => {
     const { directory } = copyBundle();
@@ -168,6 +258,17 @@ for (const port of ports) {
         for (const { table, rows } of bundle.seeds) {
           for (const row of rows) await connection.query('INSERT INTO ?? SET ?', [table, row]);
         }
+        // Exercise the active settings route's upsert/read contract on the installed schema.
+        const upsert = `INSERT INTO builder_settings (account_name, setting_key, setting_value, updated_at)
+          VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE setting_value = ?, updated_at = NOW()`;
+        await connection.query(upsert, ['synthetic-builder', 'theme', 'dark', 'dark']);
+        await connection.query(upsert, ['synthetic-builder', 'theme', 'light', 'light']);
+        await connection.query(upsert, ['other-builder', 'theme', 'dark', 'dark']);
+        const [settings] = await connection.query<RowDataPacket[]>(
+          'SELECT setting_key, setting_value FROM builder_settings WHERE account_name = ?',
+          ['synthetic-builder'],
+        );
+        expect(settings).toEqual([{ setting_key: 'theme', setting_value: 'light' }]);
         const [constraints] = await connection.query<RowDataPacket[]>(
           'SELECT @@foreign_key_checks AS enabled',
         );
