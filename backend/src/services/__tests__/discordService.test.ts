@@ -104,6 +104,21 @@ describe('Discord bot battle delivery', () => {
     expect(JSON.stringify(logger.error.mock.calls)).not.toContain('private-test-token');
   });
 
+  it.each(['unauthorized', 'network_error'])(
+    'logs a sanitized bot-test %s outcome',
+    async (code) => {
+      if (code === 'network_error')
+        jest.mocked(fetch).mockRejectedValue(new Error('private-test-token'));
+      else
+        jest.mocked(fetch).mockResolvedValue(new Response('private-test-token', { status: 401 }));
+      expect(await service.testDiscordBot()).toMatchObject({ success: false });
+      expect(logger.warn).toHaveBeenCalledWith(`[Discord] bot test: ${code}`);
+      expect(JSON.stringify([logger.warn.mock.calls, logger.error.mock.calls])).not.toContain(
+        'private-test-token',
+      );
+    },
+  );
+
   it('uses the persisted nonce for retries and leaves manual reposts independent', async () => {
     const identity = { channelId: '123456789012345678', nonce: 'pvp_delivery_4' };
     await service.postBattleToDiscord(4, '2026-10-16', 'Room', [], identity);
