@@ -4,8 +4,9 @@ Status: **implementation in progress**. Updated 2026-10-17.
 
 Current checkpoint: engineering through P4, the UTC correction, first P5
 collection closure and browser storage-denial repair are published for review
-(#39, #41–#47). The source-backed lifecycle registry is now published for review;
-remaining P5 notice/choice implementation and P6–P7 are still open.
+(#39, #41–#48). The lifecycle registry and server-owned choice boundary are
+published. Active continuation branch: `branch/privacy-choice-receipts`.
+Next: P5 public notice and client choice state machine; P6–P7 remain open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
 
 Single working plan for [#7](https://github.com/LuminariMUD/DurisWeb/issues/7),
@@ -1032,6 +1033,31 @@ outside this request. Keep this single evolving execution plan current.
   the prior paused-analytics draft until the client/notice and approved release
   exist; no new reader-visible feature is announced for this disabled server
   preparation. No production/shared migration/provider/deployment/tag operation.
+
+- **Published server-owned choices:**
+  [PR #48](https://github.com/LuminariMUD/DurisWeb/pull/48), open/non-draft at code
+  head `56c94ae`, stacked on #47 `ce3224b`. Exact local, remote and PR heads
+  match; clean worktree, ahead/behind `0 0` and committed whitespace verified.
+  Keep review ancestry intact; no merge/tag/deployment is needed. One-time
+  observer-repair script removed after committing its result; private fixture
+  generators/runners and qualification logs remain outside Git.
+- **Next P5 client contract:** start a dependent branch from this published head.
+  Read `GET /api/privacy` as necessary preference state; unapproved/unavailable,
+  unreadable, expired or mismatched versions always stop optional storage and
+  requests. Render the accessible pre-login notice/preferences using the existing
+  shell/brand/navigation. The copy needs owner review; do not call it approved.
+  Bind explicit actions to both `noticeVersion` and `choiceVersion` plus revision.
+  Stop locally and broadcast withdrawal before submitting it; surface unsaved
+  writes without re-enabling from a failed response. Serialize competing actions
+  across tabs, including first grants, and refresh state before explicit retries.
+  Receipt cookies are opaque/shared; the client never reads or manufactures them.
+  A visit nonce may exist only after acknowledged current acceptance; discard it
+  and queued/in-flight work on withdrawal, unknown state or account transitions.
+  Reset visit identity on login/logout without treating login as consent. Prove
+  fresh/refused/accepted/withdrawn/reaccepted, cross-tab/storage-denied, delayed
+  navigation, policy changes and network silence using synthetic browser cases.
+  Backend gates remain false until approval, retention readiness and full client
+  acceptance are actually satisfied. No source preparation closes #10 by itself.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
