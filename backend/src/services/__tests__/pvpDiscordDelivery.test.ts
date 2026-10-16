@@ -182,6 +182,36 @@ isolated('durable Discord delivery on a disposable database', () => {
     expect(send.mock.calls.map(([id]) => id)).toEqual([5, 3, 7]);
   });
 
+  it('applies the first-enable ID cutoff to earlier reservations while recovering late commits above it', async () => {
+    const writer = await database.getConnection();
+    try {
+      await writer.beginTransaction();
+      await writer.query("INSERT INTO pkill_event VALUES (1, '2020-01-01', 'Earlier reservation')");
+      await event(2);
+      await service.setDiscordAutoPosting(true, 'fixture');
+      expect((await rows('SELECT * FROM web_pvp_discord_destinations'))[0].boundary_event_id).toBe(
+        2,
+      );
+      await writer.commit();
+      await service.pollDiscordDeliveries();
+      expect(send).not.toHaveBeenCalled();
+
+      await writer.beginTransaction();
+      await writer.query(
+        "INSERT INTO pkill_event VALUES (3, '2020-01-01', 'Post-boundary reservation')",
+      );
+      await event(4);
+      await service.pollDiscordDeliveries();
+      expect(send.mock.calls.map(([id]) => id)).toEqual([4]);
+      await writer.commit();
+      await service.pollDiscordDeliveries();
+      expect(send.mock.calls.map(([id]) => id)).toEqual([4, 3]);
+    } finally {
+      await writer.rollback();
+      writer.release();
+    }
+  });
+
   it('retains pause backlog and rechecks a raised privacy delay before sending queued work', async () => {
     await service.setDiscordAutoPosting(true, 'fixture');
     await service.setDiscordAutoPosting(false, 'fixture');
