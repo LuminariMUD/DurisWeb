@@ -76,7 +76,10 @@ function truncateText(value: string, limit: number): string {
 /**
  * format participant for discord display
  */
-function formatParticipant(participant: BattleParticipant, eventId: number): string {
+function formatParticipant(
+  participant: BattleParticipant,
+  eventId: number,
+): { text: string; omitted: boolean } {
   const clean = stripAnsiCodes(participant.description).trim();
   const name = participant.name || extractPlayerName(clean);
 
@@ -84,14 +87,15 @@ function formatParticipant(participant: BattleParticipant, eventId: number): str
   if (participant.leader) suffix += ' 👑';
   if (participant.pk_type === 'VICTIM') suffix += ' 🩸';
 
+  let text = `${clean}${suffix}`;
   if (name) {
     const logUrl = `${SITE_URL}/pvp/${eventId}?pov=${encodeURIComponent(name)}`;
-    const linked = `[${clean}](${logUrl})${suffix}`;
-    if (linked.length <= 1024) return linked;
+    text = `[${clean}](${logUrl})${suffix}`;
   }
 
-  // The embed itself still links to the full battle if a single line is oversized.
-  return truncateText(`${clean}${suffix}`, 1024);
+  const omitted = text.length > 1024;
+  // Dropping even just a POV link needs the same notice as an omitted participant.
+  return { text: omitted ? truncateText(`${clean}${suffix}`, 1024) : text, omitted };
 }
 
 /**
@@ -128,7 +132,8 @@ function buildBattleEmbed(
   ] as const) {
     let value = '';
     for (const participant of team) {
-      const line = formatParticipant(participant, eventId);
+      const { text: line, omitted: participantOmitted } = formatParticipant(participant, eventId);
+      omitted ||= participantOmitted;
       if (value && value.length + 1 + line.length > 1024) {
         if (!append(label, value)) {
           omitted = true;

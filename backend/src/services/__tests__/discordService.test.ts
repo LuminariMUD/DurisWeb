@@ -76,33 +76,37 @@ describe('Discord bot battle delivery', () => {
     for (const name of names) expect(payload).toContain(`/pvp/4?pov=${name}`);
   });
 
-  it('bounds oversized legacy content and points explicitly to the complete roster', async () => {
-    const participants = Array.from({ length: 50 }, () => ({
-      description: 'Fixture '.repeat(500),
-      pk_type: 'KILLER',
-    }));
-    await service.postBattleToDiscord(4, '2026-10-16', '⚔️'.repeat(300), participants);
-    const payload = JSON.parse(String(jest.mocked(fetch).mock.calls[0][1]?.body)) as {
-      embeds: Array<{
-        title: string;
-        footer: { text: string };
-        fields: Array<{ name: string; value: string }>;
-      }>;
-    };
-    const embed = payload.embeds[0];
-    expect(embed.title.length).toBeLessThanOrEqual(256);
-    expect(embed.fields.length).toBeLessThanOrEqual(25);
-    expect(embed.fields.every((field) => field.value.length <= 1024)).toBe(true);
-    expect(
-      embed.title.length +
-        embed.footer.text.length +
-        embed.fields.reduce((sum, field) => sum + field.name.length + field.value.length, 0),
-    ).toBeLessThanOrEqual(6000);
-    expect(embed.fields.at(-1)).toEqual({
-      name: 'Full roster',
-      value: 'Open the linked battle for all participants and POV logs.',
-    });
-  });
+  it.each([1, 50])(
+    'bounds %i oversized legacy participants and points explicitly to the complete roster',
+    async (count) => {
+      const participants = Array.from({ length: count }, () => ({
+        name: 'Fixture',
+        description: 'Fixture '.repeat(500),
+        pk_type: 'KILLER',
+      }));
+      await service.postBattleToDiscord(4, '2026-10-16', '⚔️'.repeat(300), participants);
+      const payload = JSON.parse(String(jest.mocked(fetch).mock.calls[0][1]?.body)) as {
+        embeds: Array<{
+          title: string;
+          footer: { text: string };
+          fields: Array<{ name: string; value: string }>;
+        }>;
+      };
+      const embed = payload.embeds[0];
+      expect(embed.title.length).toBeLessThanOrEqual(256);
+      expect(embed.fields.length).toBeLessThanOrEqual(25);
+      expect(embed.fields.every((field) => field.value.length <= 1024)).toBe(true);
+      expect(
+        embed.title.length +
+          embed.footer.text.length +
+          embed.fields.reduce((sum, field) => sum + field.name.length + field.value.length, 0),
+      ).toBeLessThanOrEqual(6000);
+      expect(embed.fields.at(-1)).toEqual({
+        name: 'Full roster',
+        value: 'Open the linked battle for all participants and POV logs.',
+      });
+    },
+  );
 
   it('posts participant POV links with mentions disabled', async () => {
     expect(

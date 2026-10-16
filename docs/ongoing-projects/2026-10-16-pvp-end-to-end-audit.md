@@ -107,10 +107,14 @@ and [rate limits](https://docs.discord.com/developers/topics/rate-limits).
 Admin entry, title **Reliable PvP Discord announcements**:
 `<p>Automatic PvP announcements retain pending battles across website restarts
 and retry temporary Discord failures while respecting the battle visibility
-delay.</p><p>Web Settings shows delivery progress and problems requiring attention.
+delay.</p><p>Web Settings shows consistent delivery progress, retained work for
+other channels, and problems requiring attention. Delegated website managers
+can open these controls from Admin.
 Pausing retains a backlog; a new channel starts with future battles. Manual posts
 remain available. An interrupted delivery can occasionally be duplicated when
-retried.</p>`
+retried.</p><p>Large battle announcements keep participant links where they fit.
+When a participant's details or link cannot fit, a Full roster notice points
+readers to the complete battle record.</p>`
 
 This describes the full intended release, not chunk 1 alone. Reconcile the final
 claims and existing Website Changelog entries after an authorized deployment;
@@ -230,12 +234,17 @@ All implementation acceptance is satisfied locally. The deliverable is the
 focused PR stack for review, not a production release. Merge in order from the
 bottom, retarget each dependent PR after its parent lands, and refresh current
 base/head before merging. No release tag was created. Deployment still requires
-the new migration, environment/configuration checks, normal release acceptance,
+both delivery migrations documented in [Discord delivery](../discord-delivery.md),
+environment/configuration checks, normal release acceptance,
 and publication/read-back of the prepared Website Changelog entry. Full backend
 suite, live account/session/channel tests, and physical-device/other-engine
 browser acceptance are not claimed.
 
-### Git and takeover state
+### Git and takeover state before review follow-up
+
+The commit identities and check counts below are the original handoff snapshot.
+The review follow-up comments on PRs #32–#35 record the repaired heads and fresh
+validation; refresh live refs before integration.
 
 - All four PRs are open and mergeable, ordered **#32 → #33 → #34 → #35**.
   The first targets `master`; each later PR targets its predecessor's branch.

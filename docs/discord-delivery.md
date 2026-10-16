@@ -24,7 +24,7 @@ and [rate-limit contract](https://docs.discord.com/developers/topics/rate-limits
 Large teams are split across embed fields so normal 15-participant battles keep
 their POV links without exceeding Discord's 1,024-character field limit. Titles,
 individual oversized legacy descriptions, and the total embed are bounded. If
-legacy content cannot fit, the announcement explicitly directs readers to the
+even one legacy participant's text or POV link cannot fit, the announcement explicitly directs readers to the
 linked battle for the full roster; stored battle data is never truncated.
 
 ## Durable scheduling and lifecycle
