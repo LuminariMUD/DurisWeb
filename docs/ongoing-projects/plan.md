@@ -466,6 +466,59 @@ outside this request. Keep this single evolving execution plan current.
   **Safer website sign-ins** — “We strengthened website sign-in security. You
   will be asked to sign in again after this update.” No publication is authorized
   or claimed here; no new owner question is needed during engineering.
+- **Merged-parent closeout:** PR #38 landed on master at `8946860`. Refreshed
+  #39 without rewriting history and retained the emitted-DDL ownership guard.
+  Native fixtures now use the versioned metadata contract format, a complete
+  copied project layout and the real forward ledger before synthetic changes.
+  Ten two-engine CLI/forward/ownership checks pass; the full #39 backend tree
+  passes **1,162 tests / 117 suites** with the existing full-owner synthetic
+  runner. Required backend gates pass. An initial dependency-directory symlink
+  caused pnpm installation warnings; replaced it with a real frozen install
+  and repeated the full suite and actual two-engine CLI tests successfully.
+  Evidence: `/tmp/durisweb-pr39-final-parent-native.log`,
+  `/tmp/durisweb-pr39-final-parent-suite.log`,
+  `/tmp/durisweb-pr39-final-parent-cli.log`. Temporary refresh worktree:
+  `/tmp/durisweb-pr39-parent-refresh-20261016`. Retarget #39 to master now its
+  prerequisite is merged. P3 remains a separate dependent implementation.
+
+- **P3 final source qualification:** refreshed the dependency to #39 at
+  `4b3677f`; its merge changed only this plan relative to the tested P3 tree.
+  The full P3 backend run passes **1,172 tests / 119 suites**. Both engines pass
+  contracted `schema:sessions` and configuration/dependency preflight through
+  `/tmp/durisweb-run-p3-suite.mts` (23436 full suite, 23437 preflight-only).
+  Logs: `/tmp/durisweb-p3-final-full-suite.log` and
+  `/tmp/durisweb-p3-maria-preflight.log`.
+- **P3 exact focused commands:**
+  `TEST_SESSION_DB_PORTS=23436,23437 TEST_BASELINE_MUD_SOURCE=
+  /home/aiwithapex/projects/duris/migrations pnpm --dir backend test --runInBand
+  src/db/__tests__/webSessionCutover.test.ts` passes three tests, including the
+  complete 144-case HTTP matrix, every DDL recovery direction and the actual
+  expanded write-probe CLI (`/tmp/durisweb-p3-final-native-cutover.log`).
+  `TEST_BASELINE_DB_PORTS=23336,23337 TEST_BASELINE_MUD_SOURCE=
+  /home/aiwithapex/projects/duris/migrations pnpm --dir backend test --runInBand
+  src/db/__tests__/webBaseline.test.ts
+  src/db/__tests__/webBaselineQualification.test.ts --testNamePattern=
+  "actual operator CLI|altered baseline tables|undeclared MUD DDL|full owner-schema|owner schema fixture"`
+  passes 15 tests; unchanged installer cases are deliberately not repeated.
+  Restored genuine legacy history reaches the same session forward schema with
+  its historical rows unchanged (`/tmp/durisweb-p3-final-baseline-native.log`).
+  `CACHE_REDIS_PORT=23479 CACHE_REDIS_DB=15 TEST_BACKUP_DB_PORTS=23436,23437
+  pnpm --dir backend test --runInBand src/services/__tests__/backupService.test.ts
+  --testNamePattern="backup snapshots omit"` passes both native dump/restore
+  tests. Focused auth/teardown/lifecycle/pool tests pass 23 tests in four suites
+  (`/tmp/durisweb-p3-unit.log`); the full run repeats these and all other backend
+  suites with opt-in PvP SQL fixtures on the private second engine.
+- **P3 gates/limits:** backend `schema:check`, `format:check`, `lint`,
+  `type-check`, `verify:mud-writes --mud-manifest
+  /home/aiwithapex/projects/duris/migrations/migration_manifest.json` (53 writes),
+  `build`, and whitespace checks pass. Both new migration files additionally
+  pass standalone `tsc --ignoreConfig --noEmit --module nodenext
+  --moduleResolution nodenext --target ES2022 --esModuleInterop --strict
+  --skipLibCheck`. No dependency was added. The baseline bytes are unchanged.
+  No frontend/browser, provider, shared database or production check was run.
+  No existing backup, MUD repository/process, shared service, live session or
+  release tag was changed. Engineering is ready for review; the explicit P3
+  release gate and P0/P5–P8 policy/operational requirements remain open.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
