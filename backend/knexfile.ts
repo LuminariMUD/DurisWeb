@@ -10,7 +10,6 @@ const connection: Knex.MySql2ConnectionConfig = {
 };
 
 const migrations: Knex.MigratorConfig = {
-  directory: './migrations',
   tableName: 'knex_migrations',
   extension: 'ts',
   migrationSource: new WebMigrationSource(environment.database),

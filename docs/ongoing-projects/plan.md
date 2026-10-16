@@ -45,7 +45,7 @@ outside this request. Keep this single evolving execution plan current.
   needed. Redis sanitization is required because command errors include cache
   keys containing IPs. Provider responses require type validation so malformed
   successes cannot escape the documented null-on-failure contract.
-- **Owner input:** Max (Moshe) supplied the owner/contact details in the planning session.
+- **Owner input:** The owner and contact were supplied in the planning session.
   Retention periods, public controller wording, external-provider commitments,
   and one-time logout have not yet been approved. Continue independent work;
   ask only when a consequential decision is essential, in plain language, with
@@ -90,7 +90,7 @@ outside this request. Keep this single evolving execution plan current.
   Historical replay is derivation evidence only, never the supported bootstrap.
   One manifest supplies checksums, ownership and covered names to both the CLI
   and migration/preflight paths; do not add an alternate legacy bootstrap.
-- **P2a inputs:** 76 explicit website tables, 126 nonsecret seed rows, 85 pinned
+- **P2a inputs:** 77 explicit website tables, 126 nonsecret seed rows, 85 pinned
   historical TypeScript migrations, all 14 legacy SQL artifacts checksummed
   (12 schema sources; MUD accounts DDL and one-off emoji repair excluded).
   `server_reboots` is MUD-owned despite its absence from the old required-table
@@ -189,6 +189,30 @@ outside this request. Keep this single evolving execution plan current.
   production target from existing Docker container names. Continue with the
   dedicated disposable containers and explicit synthetic credentials. Owner
   policy/release questions remain deferred until genuinely necessary.
+- **PR #37 review repairs:** all six findings were validated and addressed.
+  Reuse the ownership fingerprint helper, separate the sequence/timestamp
+  coverage cutoffs, reject noncanonical foreign-key syntax, retain actionable
+  CLI errors without JSON input excerpts, run `schema:check` in backend CI,
+  and define the active routes' missing `builder_settings` table without
+  seeding account data. No installer, service, dependency, or new configuration
+  surface was needed. The finalized bundle now includes 77 tables.
+- **Review proof:** the new regressions reproduced eight failures before the
+  fixes. `TEST_BASELINE_DB_PORTS=23336,23337 pnpm --dir backend test --runInBand
+  src/db/__tests__/webBaselineBundle.test.ts
+  src/scripts/__tests__/mudWriteAllowlist.test.ts` passes 43 tests, including
+  all 77 installed hashes, unchanged external sentinels and builder-settings
+  insert/update/account isolation on MySQL 8.0.46 and MariaDB 11.8.9. Backend
+  format/lint/type-check/build/schema and MUD-write gates pass. Local workflow
+  coverage also passes frontend format/lint/type-check/palette checks and the
+  configuration literal guard. The latter exposed an existing deployment
+  address in this plan, repaired in its own commit. Full application suites,
+  frontend build/browser, bootstrap/adoption and production checks were not
+  required or run for these input-verifier repairs. No public news is needed.
+- **Stack decision:** current master `fa7127e` is already an ancestor; retain
+  PR #36 as the dependency and PR #38 as the child. Its active review worktree
+  has uncommitted repairs, so preserve that work; PR #38's review must integrate
+  the updated parent before publication. No tag, squash, merge to master, deployment,
+  shared database migration, or MUD operation is part of this review closeout.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and

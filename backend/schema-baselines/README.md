@@ -1,7 +1,7 @@
 # Website schema baselines
 
 `2026-10-16/` contains the explicit website schema at migration cutoff
-`20261016160000_pvp_discord_audit_columns.ts`. It defines 76 website-owned
+`20261016160000_pvp_discord_audit_columns.ts`. It defines 77 website-owned
 tables, their foreign-key creation order, and 126 nonsecret default rows.
 It is source-owned schema, not a production dump or historical migration replay.
 Treat a finalized version as immutable; later changes belong in new forward
@@ -11,7 +11,10 @@ Run `pnpm --dir backend schema:check` from the repository root. This command
 needs no runtime environment or database connection. It verifies the schema,
 seed, per-table, historical TypeScript, and classified SQL checksums, checks
 foreign-key creation order and ownership, and refuses unexpected historical
-files. Later migration names remain outside this baseline's coverage.
+files. Sequence and timestamp names have separate cutoffs, derived from the
+pinned historical names (`048_` and `20261016160000_` respectively). Later names
+in either series remain outside this baseline's coverage. The backend quality
+job runs this command, and failures identify the source file or violated invariant.
 The command does not install a schema, mark historical migrations applied,
 change Knex discovery, or certify an existing database.
 
@@ -22,6 +25,10 @@ change Knex discovery, or certify an existing database.
   key points into the game schema. `server_reboots` is explicitly excluded:
   the MUD's immutable migration 0004 owns it, although it is absent from the
   older copied baseline's required-table list.
+  Foreign-key references must use the canonical `REFERENCES \`table\` (`
+  syntax. Other casing, quoting, qualification, or comments are rejected rather
+  than partially parsed. The copied MUD ownership list is fingerprinted before
+  any ownership decision.
 - `seeds.json`: source-defined permission/role definitions and relationships,
   forum/web/wiki settings, continent reference definitions, and the stopped/
   unknown process singleton. No account permissions, account assignments,
@@ -42,6 +49,12 @@ account-character collation migration has no website effect and was omitted.
 Hook seed derivation imported the same registry directly to avoid the public
 barrel's runtime clients. These derivation accommodations are not an installer
 or a rehearsal against an approved MUD schema.
+
+The active builder settings routes also require `builder_settings`, which had
+no historical schema source. Its definition is derived from their read/upsert
+contract: account name, setting key/value, timestamps, and a unique account/key
+pair. No account preferences are seeded. Both native database tests exercise
+inserts, repeated updates, account isolation, and its installed-shape hash.
 
 Every web text column/table uses the documented `utf8mb4_unicode_ci` collation,
 making defaults explicit across both database families. A legacy table still
@@ -130,7 +143,8 @@ partially present store without provenance is refused.
 ## Verification boundary
 
 `webBaselineBundle.test.ts` covers altered artifacts/sources, unknown ownership,
-duplicate objects, forbidden account assignments, and the database-free CLI.
+duplicate objects, forbidden account assignments, both forward migration naming
+series, strict foreign-key syntax, and actionable database-free CLI failures.
 To opt into DDL/seed checks on **new disposable loopback servers**, use:
 
 ```bash

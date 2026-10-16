@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { MutationGate } from '../middleware/mutationGate.js';
@@ -16,6 +17,13 @@ export interface MudWriteAllowlist {
   baseline: { id: string; requiredTableFingerprint: string };
   mudOwnedTables: string[];
   writes: Record<string, MudWriteEntry>;
+}
+
+/** Fingerprint of the MUD baseline table list, as published in the MUD manifest. */
+export function tableFingerprint(tables: readonly string[]): string {
+  return createHash('sha256')
+    .update(`${[...tables].sort().join('\n')}\n`)
+    .digest('hex');
 }
 
 /** Shared by the source verifier and web-only baseline boundary. */

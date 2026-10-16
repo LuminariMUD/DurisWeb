@@ -1,24 +1,20 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadWebBaselineBundle, verifyWebBaselineSources } from '../db/webBaselineBundle.js';
 import { fileURLToPath } from 'node:url';
 
 import { MUTATION_GATES } from '../middleware/mutationGate.js';
-import { loadMudWriteAllowlist, type MudWriteAllowlist } from '../db/mudWriteInventory.js';
+import {
+  loadMudWriteAllowlist,
+  type MudWriteAllowlist,
+  tableFingerprint,
+} from '../db/mudWriteInventory.js';
 export {
   loadMudWriteAllowlist,
   type MudWriteAllowlist,
   type MudWriteEntry,
+  tableFingerprint,
 } from '../db/mudWriteInventory.js';
-
-/** Fingerprint of the MUD baseline table list, as published in the MUD manifest. */
-export function tableFingerprint(tables: readonly string[]): string {
-  return crypto
-    .createHash('sha256')
-    .update(`${[...tables].sort().join('\n')}\n`)
-    .digest('hex');
-}
 
 const ALLOWLIST_FILE = 'mud-write-allowlist.json';
 const SKIPPED_DIRECTORIES = new Set(['__tests__', 'test']);

@@ -197,6 +197,27 @@ for (const port of ports) {
           expect(result.stdout).toContain('bootstrap verified');
           expect(result.stdout + result.stderr).not.toContain(password);
           expect((await verifiedWebBaselineCoverage(database)).size).toBe(85);
+          for (const command of [
+            'migrate:latest',
+            'migrate:latest',
+            'migrate:rollback',
+            'migrate:status',
+          ]) {
+            const migrated = spawnSync('pnpm', ['--dir', 'backend', command], {
+              cwd: path.resolve(webBaselineDirectory(), '../../..'),
+              env: environment,
+              encoding: 'utf8',
+              timeout: 45000,
+            });
+            expect({ command, status: migrated.status, stderr: migrated.stderr }).toEqual({
+              command,
+              status: 0,
+              stderr: '',
+            });
+            expect(migrated.stdout).not.toContain('resets migrationSource');
+          }
+          const [ledger] = await database.query('SELECT name FROM knex_migrations');
+          expect(ledger).toEqual([]);
         } finally {
           if (userCreated) await database.query('DROP USER ?@?', [user, '%']);
         }
