@@ -21,6 +21,15 @@ points and security boundaries rather than duplicating every handler.
 
 ## Route Groups
 
+Forum post links use `/forum/thread/:id#post-:postId`. The thread reader passes
+the fragment's positive safe integer as `postId` to
+`GET /api/forum/threads/:id?page=1&limit=50&postId=:postId`. After the existing
+thread/category access checks, the API selects the page containing that active
+post, ordered by creation time and ID, and returns its actual `pagination.page`
+and `pagination.pages`. Missing, deleted or other-thread posts do not resolve a
+destination. The view scrolls to the rendered post and handles fragment changes
+within the current thread; ordinary pagination still uses the requested page.
+
 | Prefix | Route Module | Surface |
 |--------|--------------|---------|
 | `/api/auth` | `routes/auth.ts` | Login, logout, refresh, current user, password/session actions |

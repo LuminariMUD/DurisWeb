@@ -681,25 +681,34 @@ export async function getPostsByThread(
   page: number = 1,
   limit: number = 50,
   userPermissions?: UserPermissions,
-  options: ForumReadOptions = {},
-): Promise<{ posts: ForumPost[]; total: number }> {
+  options: ForumReadOptions & { targetPostId?: number } = {},
+): Promise<{ posts: ForumPost[]; total: number; page: number }> {
   if (userPermissions) {
     const [threadRows] = await db.query<RowDataPacket[]>(
       'SELECT category_id, is_deleted FROM forum_threads WHERE id = ?',
       [threadId],
     );
     if (threadRows.length === 0 || (!options.includeDeleted && threadRows[0].is_deleted)) {
-      return { posts: [], total: 0 };
+      return { posts: [], total: 0, page };
     }
     const access = await getCategoryAccessForAccount(
       Number(threadRows[0].category_id),
       userPermissions,
     );
-    if (!access.canView) return { posts: [], total: 0 };
+    if (!access.canView) return { posts: [], total: 0, page };
   }
 
-  const offset = (page - 1) * limit;
   const postLifecycleClause = options.includeDeleted ? '' : ' AND is_deleted = 0';
+  if (options.targetPostId !== undefined) {
+    const active = options.includeDeleted ? '' : ' AND p.is_deleted=0 AND target.is_deleted=0';
+    const [positions] = await db.query<RowDataPacket[]>(
+      `SELECT COUNT(*) AS position FROM forum_posts p JOIN forum_posts target ON target.thread_id=p.thread_id AND target.id=? WHERE p.thread_id=?${active} AND (p.created_at<target.created_at OR (p.created_at=target.created_at AND p.id<=target.id))`,
+      [options.targetPostId, threadId],
+    );
+    const position = Number(positions[0].position);
+    if (position > 0) page = Math.ceil(position / limit);
+  }
+  const offset = (page - 1) * limit;
 
   // Get total count (active posts by default)
   const [countRows] = await db.query<RowDataPacket[]>(
@@ -719,7 +728,7 @@ export async function getPostsByThread(
     LEFT JOIN frag_leaderboard pc ON p.author_character_pid = pc.pid
     LEFT JOIN user_profiles up ON p.author_account_name = up.account_name
     WHERE p.thread_id = ?${postLifecycleClause}
-    ORDER BY p.created_at ASC
+    ORDER BY p.created_at ASC, p.id ASC
     LIMIT ? OFFSET ?`,
     [threadId, limit, offset],
   );
@@ -768,7 +777,7 @@ export async function getPostsByThread(
     posts.push(postData as ForumPost);
   }
 
-  return { posts, total };
+  return { posts, total, page };
 }
 
 /**

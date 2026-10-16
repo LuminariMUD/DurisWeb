@@ -190,8 +190,8 @@ TEST_BASELINE_DB_PORTS=23336,23337 pnpm --dir backend test --runInBand \
   src/db/__tests__/webBaseline.test.ts
 ```
 
-The fixtures use passwordless root solely on the explicitly selected ports,
-refuse the standard production/development ports, create their own fixed-name
+The fixtures use passwordless root solely for administration on the explicitly selected ports,
+refuse the standard production/development ports, create their own process-unique
 database, and remove it only if they created it. They verify all installed
 table hashes, foreign-key checks, absence of incoming game FKs, and unchanged
 external sentinel objects/rows. Successful checks on MySQL 8.0.46 and MariaDB
@@ -213,9 +213,16 @@ pnpm --dir backend test --runInBand \
   src/db/__tests__/webBaselineQualification.test.ts
 ```
 
-The helper verifies the owner's baseline identity, immutable SQL checksums,
-runtime head and normalized metadata contract, then applies those SQL inputs
-only to newly created disposable databases. It never invokes MUD scripts or
+The helper pins the bootstrap SQL and both manifests to the owner-published
+digests at Duris commit `6d4d71e56547c71898247e73ccca74da75e0a9f6`, then verifies
+the baseline identity, immutable SQL checksums, runtime head and normalized
+metadata contract. A changed source requires explicit review and pin updates;
+matching final metadata alone cannot approve altered SQL or manifests.
+It applies SQL only to newly created disposable databases through a temporary
+randomly authenticated account with grants confined to that database, escaping
+database-name wildcards. The account is removed after success or failure;
+global privileges, local-file loading and client shell commands are unavailable.
+It never invokes MUD scripts or
 invents owner migration history. The fresh web path checks empty-feature refusal,
 synthetic feature publication, representative queries, and unchanged owner
 metadata. The existing-web path genuinely executes the original web sources in
@@ -233,6 +240,10 @@ and exact CHECK clauses/enforcement. Engine-assigned CHECK names and mutable
 auto-increment counters do not affect behavior and are excluded. Knex's ASCII
 filename ledger accepts its three documented historical utf8mb4 collations;
 website text columns still require the canonical collation.
+The canonical tables have no explicit `CREATE_OPTIONS` or named partitions.
+Both are checked in `information_schema` before comparing signatures, including
+during adoption and forward verification. Partitioning or adding table options
+therefore fails closed without changing existing immutable hashes.
 
 Native qualification found matching column/index/FK metadata for canonical and
 historical schemas on both engines. The sole accepted clause variation is

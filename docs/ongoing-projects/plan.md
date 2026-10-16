@@ -27,6 +27,80 @@ outside this request. Keep this single evolving execution plan current.
 
 ## Execution record and continuation
 
+- **PR #39 review closeout (2026-10-16):** all five findings are valid,
+  including the two outdated inline locations inherited from merged parents.
+  Outcome: reject table-option/partition drift, authenticate every owner
+  fixture input against published digests, enforce database-scoped SQL import,
+  resolve forum notification posts on their actual page, and isolate concurrent
+  native fixture names. Non-goals: deployment, master merge, release tags,
+  production/MUD operations, or starting another implementation phase.
+- **Ablation:** retain the existing immutable signatures and reject noncanonical
+  options/partitions before hashing. Pin the existing bootstrap/manifests and
+  remove unused returned hashes. Use one temporary database account rather than
+  extending the SQL text filter into a parser. Preserve existing notification
+  URLs and resolve their post ID through the thread reader, with stable
+  timestamp/ID ordering, rendered anchors, same-thread navigation and stale
+  request suppression. No dependency, migration or new configuration is needed.
+- **Proof:** `TEST_BASELINE_DB_PORTS=23336,23337
+  TEST_BASELINE_MUD_SOURCE=/home/aiwithapex/projects/duris/migrations
+  pnpm --dir backend test --runInBand
+  src/db/__tests__/webBaselineQualification.test.ts
+  src/db/__tests__/webBaseline.test.ts
+  src/services/__tests__/forumSubscriptionsBaseline.test.ts
+  src/routes/__tests__/adminAccountPermissionIdValidation.test.ts`
+  passes **63 tests / 4 suites** on MySQL 8.0.46 and MariaDB 11.8.9.
+  A final rerun of `webBaselineQualification.test.ts` with the same opt-ins
+  passes **11 tests**, including the added self-consistent manifest/SQL case
+  and adoption-time partition refusal. Checks include partition/option drift,
+  changed/self-consistent owner inputs, cross-schema INSERT/DROP and global DDL
+  denial, account cleanup, approved full-owner imports, restored adoption,
+  active-post paging, equal-timestamp ties, and missing/deleted/other-thread
+  targets. Evidence: `/tmp/durisweb-pr39-review-native.log`.
+- **Full application proof:** `bash /tmp/durisweb-pr39-run-suite.sh` executes
+  the actual `pnpm --dir backend migrate:latest`, configuration/dependency
+  preflights, and `pnpm --dir backend test --runInBand` against a process-unique
+  full-owner synthetic database and private Redis: **117 suites / 1,162 tests
+  pass**. The full backend run deliberately omits the separately opted-in native
+  baseline tests. Evidence: `/tmp/durisweb-pr39-review-full-backend.log`.
+  Two simultaneous executions of `TEST_BASELINE_DB_PORTS=23336,23337 pnpm --dir
+  backend test --runInBand src/services/__tests__/forumSubscriptionsBaseline.test.ts
+  src/routes/__tests__/adminAccountPermissionIdValidation.test.ts` each pass
+  **16 tests**, proving collision-free names on the same servers.
+- **Frontend proof:** `pnpm --dir frontend test:unit --run` passes **238 tests /
+  49 files**; the subsequent focused `pnpm --dir frontend test:unit --run
+  src/views/__tests__/ThreadViewLinks.spec.ts` passes **4 tests**, adding the
+  out-of-order response regression. `node /tmp/durisweb-pr39-browser.mjs`
+  passes at 1440x1000 and 390x844 on
+  `http://127.0.0.1:25373/forum/thread/1#post-55`, then navigates to `#post-7`
+  in the same mounted view. Actual requests carry the target IDs; anchors are
+  rendered and scrolled into view. Identity, content, framework overlay and
+  screenshot checks pass with synthetic API responses. Browser plugin not
+  available; existing Playwright was used. Expected anonymous-auth 401 messages
+  and the preexisting Vue Router `next()` deprecation are recorded separately
+  from unexpected console/page errors (none).
+- **Quality commands:** both packages' `format:check`, `lint`, `type-check`,
+  and `build`; `pnpm --dir backend schema:check`;
+  `pnpm --dir backend verify:mud-writes --mud-manifest
+  /home/aiwithapex/projects/duris/migrations/migration_manifest.json` (53 writes);
+  `./scripts/check-config-literals.sh`;
+  `./frontend/scripts/check-palette-literals.sh`; frontend `config:check`
+  using `/tmp/durisweb-pr39-frontend-env.sh`; and `git diff --check` pass.
+  Changed TypeScript was formatted with each package's `pnpm --dir <package>
+  exec biome format --write <changed files>`. Dependencies use the committed
+  frozen lockfile. No hosted-CI wait, live browser/data acceptance, physical
+  device test, shared migration, MUD operation or deployment is claimed.
+- **Git decision:** master `8946860` is already an ancestor of #39. Preserve
+  published history because #41 depends on this branch; carry these repairs
+  forward without changing its session implementation. No rebase, squash or
+  tag is needed. Leave #39 open/non-draft and ready for a normal merge that
+  preserves the child ancestry. Independent worktrees remain untouched.
+- **Website Changelog draft:** after a future authorized deployment verifies
+  this fix live, reconcile existing entries and publish a public item titled
+  **Forum notifications open the right reply**, using the verified release
+  date/version and content `<ul><li>Forum reply and mention notifications now
+  open the referenced post, including replies on later pages of a thread.</li></ul>`.
+  It remains unpublished because this task ends at merge readiness.
+
 - Worktree: `/tmp/durisweb-security-privacy-plan-20261016`; the original checkout
   has independent issue #30 work and must remain untouched.
 - Starting branch: `branch/issues-7-14-security-privacy-baseline` at `a4c5e51`;

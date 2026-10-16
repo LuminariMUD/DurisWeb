@@ -55,6 +55,26 @@ export async function readTableMetadata(
     [name],
   );
   if (table.length !== 1) throw new Error('Required schema table is absent');
+  // The reviewed baseline has no explicit table options or partitions. Enforce
+  // that boundary before hashing so existing immutable signatures stay valid.
+  const options = await schemaRows(
+    database,
+    'SELECT CREATE_OPTIONS FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?',
+    [name],
+  );
+  const partitions = await schemaRows(
+    database,
+    'SELECT PARTITION_NAME,SUBPARTITION_NAME FROM information_schema.PARTITIONS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?',
+    [name],
+  );
+  if (
+    options.length !== 1 ||
+    options[0].CREATE_OPTIONS !== '' ||
+    partitions.length !== 1 ||
+    partitions[0].PARTITION_NAME !== null ||
+    partitions[0].SUBPARTITION_NAME !== null
+  )
+    throw new Error('Noncanonical schema table options or partitions');
   const columns = await schemaRows(
     database,
     'SELECT COLUMN_NAME,ORDINAL_POSITION,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,CHARACTER_SET_NAME,COLLATION_NAME,EXTRA,GENERATION_EXPRESSION,COLUMN_COMMENT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION',
