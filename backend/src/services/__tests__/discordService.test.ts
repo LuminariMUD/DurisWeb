@@ -133,21 +133,42 @@ describe('Discord bot battle delivery', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it.each([401, 403, 429, 500])(
-    'reports Discord HTTP %s as failure without retrying',
-    async (status) => {
-      jest.mocked(fetch).mockResolvedValue(new Response('private response', { status }));
-      expect(await service.manualPostBattle(4)).toMatchObject({ success: false });
-      expect(fetch).toHaveBeenCalledTimes(1);
-      expect(JSON.stringify(logger.error.mock.calls)).not.toContain('private');
-    },
-  );
+  it.each([
+    [401, 'unauthorized'],
+    [403, 'forbidden'],
+    [429, 'rate_limited'],
+    [500, 'server_error'],
+  ])('reports Discord HTTP %s as failure without retrying', async (status, code) => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValue(new Response('private response', { status: Number(status) }));
+    expect(await service.manualPostBattle(4)).toMatchObject({ success: false });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(`[Discord] manual battle 4: ${code}`);
+    expect(JSON.stringify(logger.error.mock.calls)).not.toContain('private');
+  });
 
   it('handles network failures without logging credentials', async () => {
     jest.mocked(fetch).mockRejectedValue(new Error('private-test-token'));
     expect(await service.manualPostBattle(4)).toMatchObject({ success: false });
+    expect(logger.warn).toHaveBeenCalledWith('[Discord] manual battle 4: network_error');
     expect(JSON.stringify(logger.error.mock.calls)).not.toContain('private-test-token');
   });
+
+  it.each(['unauthorized', 'network_error'])(
+    'logs a sanitized bot-test %s outcome',
+    async (code) => {
+      if (code === 'network_error')
+        jest.mocked(fetch).mockRejectedValue(new Error('private-test-token'));
+      else
+        jest.mocked(fetch).mockResolvedValue(new Response('private-test-token', { status: 401 }));
+      expect(await service.testDiscordBot()).toMatchObject({ success: false });
+      expect(logger.warn).toHaveBeenCalledWith(`[Discord] bot test: ${code}`);
+      expect(JSON.stringify([logger.warn.mock.calls, logger.error.mock.calls])).not.toContain(
+        'private-test-token',
+      );
+    },
+  );
 
   it('uses the persisted nonce for retries and leaves manual reposts independent', async () => {
     const identity = { channelId: '123456789012345678', nonce: 'pvp_delivery_4' };

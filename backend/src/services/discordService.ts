@@ -338,6 +338,7 @@ export async function manualPostBattle(
       return { success: true };
     }
 
+    logger.warn(`[Discord] manual battle ${eventId}: ${result.code}`);
     return {
       success: false,
       error: 'Failed to send to Discord; check bot channel permissions and try again',
@@ -380,6 +381,7 @@ export async function testDiscordBot(): Promise<{ success: boolean; error?: stri
       return { success: true };
     }
 
+    logger.warn(`[Discord] bot test: ${result.code}`);
     return { success: false, error: 'failed to send test message' };
   } catch {
     logger.error('[Discord] bot test failed');
