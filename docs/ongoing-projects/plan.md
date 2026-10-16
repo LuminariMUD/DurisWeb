@@ -136,8 +136,9 @@ outside this request. Keep this single evolving execution plan current.
   frontend build/browser, bootstrap/adoption and production checks were not
   required or run for these input-verifier repairs. No public news is needed.
 - **Stack decision:** current master `fa7127e` is already an ancestor; retain
-  PR #36 as the dependency and PR #38 as the child. Carry these repairs forward
-  without rewriting either branch. No tag, squash, merge to master, deployment,
+  PR #36 as the dependency and PR #38 as the child. Its active review worktree
+  has uncommitted repairs, so preserve that work; PR #38's review must integrate
+  the updated parent before publication. No tag, squash, merge to master, deployment,
   shared database migration, or MUD operation is part of this review closeout.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
