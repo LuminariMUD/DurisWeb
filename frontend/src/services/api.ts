@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { frontendConfiguration } from '@/config/environment'
 import type {
+  DiscordDeliveryStatus,
   PvPEvent,
   BattleDetail,
   PaginatedResponse,
@@ -1450,6 +1451,15 @@ export const adminApi = {
   async testDiscordBot(): Promise<{ success: boolean; error?: string }> {
     const { data } = await api.post<{ success: boolean; error?: string }>('/api/admin/discord/test')
     return data
+  },
+
+  async getDiscordDeliveryStatus(): Promise<DiscordDeliveryStatus> {
+    const { data } = await api.get<DiscordDeliveryStatus>('/api/admin/discord/delivery')
+    return data
+  },
+
+  async retryFailedDiscordDeliveries(): Promise<void> {
+    await api.post('/api/admin/discord/delivery/retry')
   },
 
   /**

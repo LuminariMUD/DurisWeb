@@ -1,4 +1,5 @@
 import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import request from 'supertest';
 import { beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
@@ -9,6 +10,11 @@ const revokePermission = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const createRole = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const updateRole = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const poolQuery = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const getDeliveryStatus = jest.fn<() => Promise<unknown>>();
+const retryDeliveries = jest.fn<() => Promise<boolean>>();
+let authenticated = true;
+let authorized = true;
+const permissionChecks: string[] = [];
 
 const asyncMock = () => jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const namedService = (names: string[]): Record<string, unknown> =>
@@ -16,6 +22,7 @@ const namedService = (names: string[]): Record<string, unknown> =>
 
 jest.unstable_mockModule('../../middleware/auth.js', () => ({
   requireAuth: (req: any, _res: any, next: any) => {
+    if (!authenticated) return _res.status(401).json({ error: 'Not authenticated' });
     req.user = {
       accountName: 'Operator',
       permissions: { role: 'overlord' },
@@ -24,7 +31,11 @@ jest.unstable_mockModule('../../middleware/auth.js', () => ({
     next();
   },
   requireOverlord: (_req: any, _res: any, next: any) => next(),
-  requirePermission: () => (_req: any, _res: any, next: any) => next(),
+  requirePermission: (key: string) => (_req: Request, res: Response, next: NextFunction) => {
+    permissionChecks.push(key);
+    if (!authorized) return res.status(403).json({ error: 'Forbidden' });
+    return next();
+  },
 }));
 jest.unstable_mockModule('../../utils/logger.js', () => ({
   default: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
@@ -185,6 +196,8 @@ jest.unstable_mockModule('../../services/discordService.js', () => ({
 }));
 jest.unstable_mockModule('../../services/pvpDiscordDelivery.js', () => ({
   manualPostBattle: asyncMock(),
+  getDiscordDeliveryStatus: getDeliveryStatus,
+  retryFailedDiscordDeliveries: retryDeliveries,
 }));
 
 describe('admin account permission ID validation', () => {
@@ -199,6 +212,11 @@ describe('admin account permission ID validation', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    authenticated = true;
+    authorized = true;
+    permissionChecks.length = 0;
+    getDeliveryStatus.mockResolvedValue({ pending: 2, failed: 1 });
+    retryDeliveries.mockResolvedValue(true);
     assignRole.mockResolvedValue(undefined);
     revokeRole.mockResolvedValue(undefined);
     grantPermission.mockResolvedValue(undefined);
@@ -206,6 +224,44 @@ describe('admin account permission ID validation', () => {
     createRole.mockResolvedValue(7);
     updateRole.mockResolvedValue(undefined);
     poolQuery.mockResolvedValue([[]]);
+  });
+
+  it('protects delivery status and retry with authentication and manage_front_page permission', async () => {
+    authenticated = false;
+    expect((await request(app).get('/api/admin/discord/delivery')).status).toBe(401);
+    expect((await request(app).post('/api/admin/discord/delivery/retry')).status).toBe(401);
+    authenticated = true;
+    authorized = false;
+    expect((await request(app).get('/api/admin/discord/delivery')).status).toBe(403);
+    expect((await request(app).post('/api/admin/discord/delivery/retry')).status).toBe(403);
+    expect(permissionChecks).toEqual(['manage_front_page', 'manage_front_page']);
+    expect(getDeliveryStatus).not.toHaveBeenCalled();
+    expect(retryDeliveries).not.toHaveBeenCalled();
+  });
+
+  it('returns uncached status and queues retries only through the explicit action', async () => {
+    const status = await request(app).get('/api/admin/discord/delivery');
+    expect(status.status).toBe(200);
+    expect(status.headers['cache-control']).toBe('no-store');
+    expect(status.body).toEqual({ pending: 2, failed: 1 });
+    expect(retryDeliveries).not.toHaveBeenCalled();
+    expect((await request(app).post('/api/admin/discord/delivery/retry')).body).toEqual({
+      success: true,
+    });
+    expect(retryDeliveries).toHaveBeenCalledTimes(1);
+    retryDeliveries.mockResolvedValue(false);
+    expect((await request(app).post('/api/admin/discord/delivery/retry')).status).toBe(409);
+  });
+
+  it('reports unavailable state without exposing database errors as an empty healthy queue', async () => {
+    getDeliveryStatus.mockRejectedValueOnce(new Error('private credentials'));
+    const status = await request(app).get('/api/admin/discord/delivery');
+    expect(status.status).toBe(503);
+    expect(JSON.stringify(status.body)).not.toContain('private');
+    retryDeliveries.mockRejectedValueOnce(new Error('private credentials'));
+    const retry = await request(app).post('/api/admin/discord/delivery/retry');
+    expect(retry.status).toBe(503);
+    expect(JSON.stringify(retry.body)).not.toContain('private');
   });
 
   it('rejects malformed role and permission IDs before privileged mutations', async () => {

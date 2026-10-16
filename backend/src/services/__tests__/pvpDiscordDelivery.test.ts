@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import mysql, { type Pool, type RowDataPacket } from 'mysql2/promise';
+import mysql, { type Pool, type PoolConnection, type RowDataPacket } from 'mysql2/promise';
 import knex, { type Knex } from 'knex';
 import { resolve } from 'node:path';
 import type { postBattleToDiscord } from '../discordService.js';
@@ -25,8 +25,9 @@ const configuration = {
   discordBot: { channelId, token: 'fixture-only' },
 };
 const send = jest.fn<typeof postBattleToDiscord>();
+const getConnection = jest.fn<() => Promise<PoolConnection>>();
 jest.unstable_mockModule('../../db/connection.js', () => ({
-  pool: { getConnection: () => database.getConnection() },
+  pool: { getConnection },
 }));
 jest.unstable_mockModule('../../config/environment.js', () => ({
   getBackendConfiguration: () => configuration,
@@ -69,6 +70,7 @@ isolated('durable Discord delivery on a disposable database', () => {
     }
   });
   beforeEach(async () => {
+    getConnection.mockReset().mockImplementation(() => database.getConnection());
     await database.query('DROP TRIGGER IF EXISTS fail_delivery_receipt');
     await database.query('DROP TRIGGER IF EXISTS fail_destination_state');
     for (const table of [
@@ -428,5 +430,149 @@ isolated('durable Discord delivery on a disposable database', () => {
     expect((await rows())[0]).toMatchObject({ status: 'delivered', ambiguous: 1, attempts: 2 });
     await service.pollDiscordDeliveries();
     expect(send).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports last automatic success, failed work and old-channel backlog without message content', async () => {
+    expect(await service.getDiscordDeliveryStatus()).toMatchObject({
+      configured: true,
+      enabled: false,
+      activated: false,
+      pending: 0,
+      failed: 0,
+    });
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await event(1);
+    await service.pollDiscordDeliveries();
+    await service.manualPostBattle(1);
+    await event(2);
+    send.mockResolvedValueOnce({ status: 'failed', code: 'forbidden' });
+    await service.pollDiscordDeliveries();
+    const status = await service.getDiscordDeliveryStatus();
+    expect(status).toMatchObject({
+      activated: true,
+      blockedReason: 'forbidden',
+      failed: 1,
+      lastAutomaticSuccess: { eventId: 1, at: expect.stringMatching(/Z$/) },
+      outstanding: [{ eventId: 2, status: 'failed', attempts: 1, errorCode: 'forbidden' }],
+    });
+    expect(JSON.stringify(status)).not.toMatch(/fixture-only|Fixture|Victim|nonce|token/);
+    configuration.discordBot.channelId = '987654321012345678';
+    expect(await service.getDiscordDeliveryStatus()).toMatchObject({
+      activated: false,
+      lastAutomaticSuccess: null,
+      otherDestinations: [{ channelId, outstanding: 1 }],
+    });
+  });
+
+  it('keeps status fields in one snapshot while a worker commits between reads', async () => {
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await service.setDiscordAutoPosting(false, 'fixture');
+    await event(1);
+    await service.pollDiscordDeliveries();
+    await service.setDiscordAutoPosting(true, 'fixture');
+    const connection = await database.getConnection();
+    await connection.query('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
+    const originalQuery = connection.query.bind(connection);
+    const query = jest.spyOn(connection, 'query').mockImplementation(async (...args) => {
+      const result = await originalQuery(...args);
+      const sql: unknown = args[0];
+      if (typeof sql === 'string' && sql.includes('AS pending')) {
+        await service.pollDiscordDeliveries();
+      }
+      return result;
+    });
+    getConnection.mockResolvedValueOnce(connection);
+    try {
+      expect(await service.getDiscordDeliveryStatus()).toMatchObject({
+        pending: 1,
+        lastAutomaticSuccess: null,
+        outstanding: [{ eventId: 1, status: 'pending' }],
+      });
+    } finally {
+      query.mockRestore();
+    }
+    expect(await service.getDiscordDeliveryStatus()).toMatchObject({
+      pending: 0,
+      lastAutomaticSuccess: { eventId: 1 },
+      outstanding: [],
+    });
+  });
+
+  it('counts undiscovered eligible work for inactive destinations without duplicating receipts or exposing embargoed battles', async () => {
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await event(1);
+    await service.pollDiscordDeliveries();
+    await event(2);
+    send.mockResolvedValueOnce({ status: 'failed', code: 'invalid_payload' });
+    await service.pollDiscordDeliveries();
+    configuration.discordBot.channelId = '987654321012345678';
+    await service.pollDiscordDeliveries();
+    await event(3);
+    await database.query(
+      "UPDATE web_settings SET setting_value='15' WHERE setting_key='pvp_delay_minutes'",
+    );
+    await database.query("INSERT INTO pkill_event VALUES (4, NOW(), 'Hidden')");
+    await service.pollDiscordDeliveries();
+    expect((await service.getDiscordDeliveryStatus()).otherDestinations).toEqual([
+      { channelId, outstanding: 2 },
+    ]);
+    // Status must not create delivery records or send old-channel messages.
+    expect(
+      (await rows()).filter((row) => row.channel_id === channelId).map((row) => row.event_id),
+    ).toEqual([1, 2]);
+    configuration.discordBot.channelId = channelId;
+    await service.pollDiscordDeliveries();
+    expect(
+      send.mock.calls.filter((call) => call[4]?.channelId === channelId).map(([id]) => id),
+    ).toEqual([1, 2, 3]);
+  });
+
+  it('operator retry preserves receipts, pause, uncertainty and rate-limit deadlines', async () => {
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await event(1);
+    await service.pollDiscordDeliveries();
+    await event(2);
+    send.mockResolvedValueOnce({ status: 'failed', code: 'forbidden' });
+    await service.pollDiscordDeliveries();
+    await service.setDiscordAutoPosting(false, 'fixture');
+    await database.query(
+      'UPDATE web_pvp_discord_destinations SET available_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL 5 MINUTE)',
+    );
+    expect(await service.retryFailedDiscordDeliveries()).toBe(true);
+    expect(await service.getDiscordDeliveryStatus()).toMatchObject({
+      enabled: false,
+      blockedReason: null,
+      pending: 1,
+      failed: 0,
+      lastAutomaticSuccess: { eventId: 1 },
+    });
+    await service.pollDiscordDeliveries();
+    expect(send).toHaveBeenCalledTimes(2);
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await service.pollDiscordDeliveries();
+    expect(send).toHaveBeenCalledTimes(2);
+    await makeReady();
+    await service.pollDiscordDeliveries();
+    expect(send.mock.calls.map(([id]) => id)).toEqual([1, 2, 2]);
+  });
+
+  it('counts current-channel eligible work before discovery and beyond a paused discovery batch', async () => {
+    await event(1);
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await service.setDiscordAutoPosting(false, 'fixture');
+    for (let id = 2; id <= 106; id++) await event(id);
+    await database.query(
+      "UPDATE web_settings SET setting_value='15' WHERE setting_key='pvp_delay_minutes'",
+    );
+    await database.query("INSERT INTO pkill_event VALUES (107, NOW(), 'Hidden')");
+    expect(await service.getDiscordDeliveryStatus()).toMatchObject({
+      pending: 105,
+      outstanding: [],
+    });
+    expect(await rows()).toHaveLength(0);
+    await service.pollDiscordDeliveries();
+    expect(await rows()).toHaveLength(100);
+    expect((await service.getDiscordDeliveryStatus()).pending).toBe(105);
+    expect(send).not.toHaveBeenCalled();
   });
 });

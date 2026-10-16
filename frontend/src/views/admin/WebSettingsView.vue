@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { adminApi } from '@/services/api'
 import { useAuth } from '@/composables/useAuth'
 import { useToast } from '@/composables/useToast'
-import type { WebSettingRow } from '@/types'
+import type { WebSettingRow, DiscordDeliveryStatus } from '@/types'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,7 +26,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const router = useRouter()
-const { isOverlord, hasPermission } = useAuth()
+const { isOverlord, isGreaterGod, hasPermission } = useAuth()
 const toast = useToast()
 
 const settings = ref<WebSettingRow[]>([])
@@ -79,7 +79,9 @@ async function saveSetting(key: string) {
     }
 
     toast.success(`Setting '${getSettingLabel(key)}' updated successfully`, 'Success')
+    if (key === 'discord_webhook_enabled') await loadDiscordStatus()
   } catch (err: any) {
+    if (key === 'discord_webhook_enabled') editedSettings.value[key] = getSettingValue(key)
     toast.error(err.response?.data?.error || 'Failed to update setting', 'Error')
   } finally {
     isSaving.value[key] = false
@@ -216,6 +218,64 @@ function cancelLogoUpload() {
 
 // Discord bot testing
 const isTestingDiscord = ref(false)
+const discordStatus = ref<DiscordDeliveryStatus | null>(null)
+const discordStatusError = ref('')
+const isLoadingDiscord = ref(false)
+const isRetryingDiscord = ref(false)
+const discordRefreshButton = ref<{ $el: HTMLElement } | null>(null)
+
+async function loadDiscordStatus() {
+  isLoadingDiscord.value = true
+  discordStatusError.value = ''
+  try {
+    discordStatus.value = await adminApi.getDiscordDeliveryStatus()
+  } catch {
+    discordStatus.value = null
+    discordStatusError.value = 'Delivery status is unavailable. Refresh to check again.'
+  } finally {
+    isLoadingDiscord.value = false
+  }
+}
+
+async function retryDiscordDeliveries() {
+  if (isRetryingDiscord.value) return
+  isRetryingDiscord.value = true
+  try {
+    await adminApi.retryFailedDiscordDeliveries()
+    toast.success('Failed deliveries queued. Paused posting stays paused.', 'Success')
+    await loadDiscordStatus()
+  } catch {
+    toast.error('Unable to queue failed deliveries. Refresh status before trying again.', 'Error')
+    await loadDiscordStatus()
+  } finally {
+    isRetryingDiscord.value = false
+    await nextTick()
+    discordRefreshButton.value?.$el.focus()
+  }
+}
+
+function discordErrorLabel(code: string | null): string {
+  const labels: Record<string, string> = {
+    unauthorized: 'Check the bot token, then retry failed deliveries.',
+    forbidden: 'Check the bot channel permissions, then retry failed deliveries.',
+    not_found: 'Check the configured channel, then retry failed deliveries.',
+    not_configured: 'Configure the bot before retrying.',
+    destination_changed: 'Delivery belongs to a different channel.',
+    invalid_payload: 'Battle content needs attention before retrying.',
+    http_error: 'Discord rejected the request. Check configuration before retrying.',
+    rate_limited: 'Waiting for Discord rate limit to expire.',
+    network_error: 'Connection failed; automatic retry is scheduled.',
+    server_error: 'Discord is unavailable; automatic retry is scheduled.',
+    invalid_response: 'Discord acceptance was not confirmed; retry is scheduled.',
+    interrupted: 'An interrupted attempt will be retried.',
+    busy: 'Another message is sending; retry is scheduled.',
+  }
+  return code ? labels[code] || 'Delivery needs attention.' : 'Waiting for delivery.'
+}
+
+function deliveryTime(value: string): string {
+  return new Date(value).toLocaleString()
+}
 
 async function testDiscordBot() {
   isTestingDiscord.value = true
@@ -238,7 +298,7 @@ onMounted(async () => {
     router.push('/forum')
     return
   }
-  await loadSettings()
+  await Promise.all([loadSettings(), loadDiscordStatus()])
 })
 </script>
 
@@ -255,7 +315,7 @@ onMounted(async () => {
           </p>
         </div>
       </div>
-      <Button variant="outline" @click="router.push('/admin/dashboard')">
+      <Button v-if="isGreaterGod" variant="outline" @click="router.push('/admin/dashboard')">
         Back to Dashboard
       </Button>
     </div>
@@ -372,7 +432,7 @@ onMounted(async () => {
             <div class="space-y-1">
               <Label for="discord_webhook_enabled">Auto-post battles to Discord</Label>
               <p class="text-xs text-muted-foreground">
-                Automatically post new PvP battles to Discord
+                First enable starts with future battles. Pausing retains a backlog; resuming sends it after the visibility delay.
               </p>
             </div>
             <Switch
@@ -385,6 +445,59 @@ onMounted(async () => {
               }"
             />
           </div>
+
+          <section aria-label="Discord delivery status" class="space-y-3 border-t pt-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h3 class="text-lg font-semibold">Delivery status</h3>
+              <Button ref="discordRefreshButton" variant="outline" size="sm" :disabled="isLoadingDiscord || isRetryingDiscord" @click="loadDiscordStatus">
+                {{ isLoadingDiscord ? 'Refreshing...' : 'Refresh status' }}
+              </Button>
+            </div>
+            <p v-if="discordStatusError" role="alert" class="text-destructive">{{ discordStatusError }}</p>
+            <p v-else-if="!discordStatus" role="status">Loading delivery status...</p>
+            <template v-else>
+              <p v-if="!discordStatus.configured" role="status">Discord bot is not configured.</p>
+              <template v-else>
+                <p class="text-sm break-words">
+                  Channel {{ discordStatus.channelId }} · {{ discordStatus.enabled ? 'Automatic posting enabled' : 'Automatic posting paused' }}
+                </p>
+                <p v-if="!discordStatus.activated" class="text-sm text-muted-foreground">This channel has not started automatic delivery. Existing battles will not be backfilled on first enable.</p>
+                <p v-if="discordStatus.blockedReason" role="alert" class="text-destructive">
+                  Automatic delivery is blocked. {{ discordErrorLabel(discordStatus.blockedReason) }}
+                </p>
+                <dl class="grid grid-cols-3 gap-3 text-sm">
+                  <div><dt class="text-muted-foreground">Pending</dt><dd class="font-semibold">{{ discordStatus.pending }}</dd></div>
+                  <div><dt class="text-muted-foreground">Failed</dt><dd class="font-semibold">{{ discordStatus.failed }}</dd></div>
+                  <div><dt class="text-muted-foreground">Uncertain attempts</dt><dd class="font-semibold">{{ discordStatus.uncertain }}</dd></div>
+                </dl>
+                <p v-if="discordStatus.lastAutomaticSuccess" class="text-sm">
+                  Last automatic success: <RouterLink :to="`/pvp/${discordStatus.lastAutomaticSuccess.eventId}`" class="underline">battle #{{ discordStatus.lastAutomaticSuccess.eventId }}</RouterLink>
+                  · {{ deliveryTime(discordStatus.lastAutomaticSuccess.at) }}
+                </p>
+                <p v-else class="text-sm text-muted-foreground">No confirmed automatic delivery yet.</p>
+                <p v-if="discordStatus.nextAttemptAt && discordStatus.pending" class="text-sm text-muted-foreground">Destination cooldown ends {{ deliveryTime(discordStatus.nextAttemptAt) }}. Individual attempts may have later deadlines. Checks run every 30 seconds while enabled.</p>
+                <p v-if="discordStatus.uncertain" class="text-sm text-warning">An interrupted attempt may have reached Discord. Retrying can create a duplicate.</p>
+                <Button v-if="discordStatus.failed || discordStatus.blockedReason" size="sm" :disabled="isRetryingDiscord || isLoadingDiscord" @click="retryDiscordDeliveries">
+                  {{ isRetryingDiscord ? 'Queuing...' : 'Retry failed deliveries' }}
+                </Button>
+                <ul v-if="discordStatus.outstanding.length" class="space-y-2 text-sm">
+                  <li v-for="delivery in discordStatus.outstanding" :key="delivery.eventId" class="border-t pt-2 break-words">
+                    <RouterLink :to="`/pvp/${delivery.eventId}`" class="underline">Battle #{{ delivery.eventId }}</RouterLink>
+                    · {{ delivery.status }} · {{ delivery.attempts }} attempts
+                    <p>{{ delivery.errorCode ? discordErrorLabel(delivery.errorCode) : delivery.status === 'delivered' ? 'Delivery confirmed after an uncertain attempt.' : 'Waiting for delivery.' }}</p>
+                    <p v-if="delivery.status === 'pending'" class="text-muted-foreground">Retry no earlier than {{ deliveryTime(delivery.nextAttemptAt) }}.</p>
+                    <p v-else-if="delivery.status === 'sending'" class="text-muted-foreground">Attempt recovery no earlier than {{ deliveryTime(delivery.nextAttemptAt) }} if no receipt is saved.</p>
+                  </li>
+                </ul>
+                <p v-else-if="discordStatus.pending" class="text-sm text-muted-foreground">Pending battles will appear here after the next delivery check.</p>
+                <p v-else class="text-sm text-muted-foreground">No outstanding deliveries.</p>
+                <p v-if="discordStatus.outstanding.length === 50" class="text-xs text-muted-foreground">Showing the 50 most recent entries requiring attention.</p>
+              </template>
+              <ul v-if="discordStatus.otherDestinations.length" class="text-sm text-muted-foreground space-y-1">
+                <li v-for="destination in discordStatus.otherDestinations" :key="destination.channelId" class="break-words">Channel {{ destination.channelId }} retains {{ destination.outstanding }} outstanding deliveries. They will not be sent to the current channel.</li>
+              </ul>
+            </template>
+          </section>
 
           <div class="space-y-2">
             <Button
