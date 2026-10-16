@@ -179,6 +179,16 @@ outside this request. Keep this single evolving execution plan current.
   migration bytes to get a later stage green.
 - **P2b release news:** contributor/operator tooling only; no visitor-visible
   website change, no Website Changelog entry, tag or production operation.
+- **Published P2b:** [PR #38](https://github.com/LuminariMUD/DurisWeb/pull/38),
+  open/non-draft, code head `d612723`, stacked on #37 → #36. Exact published
+  head, ahead/behind `0 0`, and clean worktree verified. No merges requested.
+- **Continuation:** finish P2c's full-source/synthetic-schema qualification and
+  legacy collation repair before claiming #14 complete. P3 session changes
+  remain unstarted. Original checkout `.env` and `backend/.env` are absent,
+  verified without reading any credentials; do not infer a configured local or
+  production target from existing Docker container names. Continue with the
+  dedicated disposable containers and explicit synthetic credentials. Owner
+  policy/release questions remain deferred until genuinely necessary.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
