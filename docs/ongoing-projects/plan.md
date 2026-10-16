@@ -280,6 +280,11 @@ outside this request. Keep this single evolving execution plan current.
   remains P8. No visitor-visible change needs Website Changelog publication.
   No dependency, DDL repair, release tag, merge, deployment or shared operation
   was introduced. Next engineering stage: P3 sessions (#7/#8).
+- **Published P2c:** [PR #39](https://github.com/LuminariMUD/DurisWeb/pull/39),
+  open/non-draft, code head `97eaf82`, stacked on #38 → #37 → #36. The exact
+  full local/remote/PR head matched, ahead/behind was `0 0`, and the worktree
+  was clean. #14's engineering acceptance is complete across this stack;
+  review/merge and P8 production acceptance remain separate.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
