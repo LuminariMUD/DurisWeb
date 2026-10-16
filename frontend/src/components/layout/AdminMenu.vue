@@ -51,7 +51,7 @@ import {
 } from '@/components/ui/sidebar'
 
 const router = useRouter()
-const { hasPermission, isOverlord } = useAuth()
+const { hasPermission, isOverlord, isGreaterGod, canModerate } = useAuth()
 const { warning } = useToast()
 
 // Collapsible state for each section (default all open)
@@ -154,7 +154,7 @@ onUnmounted(() => {
 <template>
   <div class="flex flex-col gap-2">
     <!-- Dashboard -->
-    <SidebarGroup>
+    <SidebarGroup v-if="isGreaterGod || isOverlord">
       <CollapsibleRoot v-model:open="dashboardOpen">
         <CollapsibleTrigger as-child>
           <SidebarGroupLabel class="cursor-pointer hover:bg-sidebar-accent/50 rounded-md flex items-center justify-between pr-2">
@@ -165,7 +165,7 @@ onUnmounted(() => {
         <CollapsibleContent>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
+              <SidebarMenuItem v-if="isGreaterGod">
                 <SidebarMenuButton
                   tooltip="Server Dashboard"
                   @click="router.push('/admin/dashboard')"
@@ -203,7 +203,7 @@ onUnmounted(() => {
         <CollapsibleContent>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
+              <SidebarMenuItem v-if="hasPermission('manage_front_page')">
                 <SidebarMenuButton
                   tooltip="Settings"
                   @click="router.push('/admin/web-settings')"
@@ -214,7 +214,7 @@ onUnmounted(() => {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <SidebarMenuItem>
+              <SidebarMenuItem v-if="isOverlord">
                 <SidebarMenuButton
                   tooltip="Front Page"
                   @click="router.push('/admin/front-page')"
@@ -225,7 +225,7 @@ onUnmounted(() => {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <SidebarMenuItem>
+              <SidebarMenuItem v-if="isOverlord">
                 <SidebarMenuButton
                   tooltip="Forum Settings"
                   @click="router.push('/admin/settings')"
@@ -236,7 +236,7 @@ onUnmounted(() => {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <SidebarMenuItem>
+              <SidebarMenuItem v-if="canModerate">
                 <SidebarMenuButton
                   tooltip="Moderation Log"
                   @click="router.push('/admin/moderation-log')"
@@ -247,7 +247,7 @@ onUnmounted(() => {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <SidebarMenuItem>
+              <SidebarMenuItem v-if="isOverlord">
                 <SidebarMenuButton as-child tooltip="User Management">
                   <RouterLink to="/admin/users">
                     <Users class="h-4 w-4" />
@@ -256,7 +256,7 @@ onUnmounted(() => {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <SidebarMenuItem>
+              <SidebarMenuItem v-if="isOverlord">
                 <SidebarMenuButton
                   tooltip="Permissions"
                   @click="router.push('/admin/permissions')"

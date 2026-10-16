@@ -12,11 +12,13 @@ const api = vi.hoisted(() => ({
 }))
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }))
 const isOverlord = ref(true)
+const isGreaterGod = ref(true)
+const hasPermission = vi.fn(() => false)
 const routerPush = vi.fn()
 vi.mock('@/services/api', () => ({ adminApi: api }))
 vi.mock('@/composables/useToast', () => ({ useToast: () => toast }))
 vi.mock('@/composables/useAuth', () => ({
-  useAuth: () => ({ isOverlord, hasPermission: () => false }),
+  useAuth: () => ({ isOverlord, isGreaterGod, hasPermission }),
 }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: routerPush }) }))
 import WebSettingsView from '../admin/WebSettingsView.vue'
@@ -48,6 +50,8 @@ const status = (): DiscordDeliveryStatus => ({
 beforeEach(() => {
   vi.resetAllMocks()
   isOverlord.value = true
+  isGreaterGod.value = true
+  hasPermission.mockReturnValue(false)
   api.getWebSettings.mockResolvedValue([
     { setting_key: 'discord_webhook_enabled', setting_value: 'false' },
   ])
@@ -150,5 +154,43 @@ describe('Discord delivery controls in Web Settings', () => {
     expect(routerPush).toHaveBeenCalledWith('/forum')
     expect(api.getDiscordDeliveryStatus).not.toHaveBeenCalled()
     expect(api.getWebSettings).not.toHaveBeenCalled()
+  })
+
+  it('does not offer forbidden dashboard navigation to a delegated manager', async () => {
+    isOverlord.value = false
+    isGreaterGod.value = false
+    hasPermission.mockReturnValue(true)
+    await openSettings()
+    expect(wrapper.text()).not.toContain('Back to Dashboard')
+    expect(api.getDiscordDeliveryStatus).toHaveBeenCalledOnce()
+  })
+
+  it('explains pending discovery instead of claiming there is no outstanding work', async () => {
+    api.getDiscordDeliveryStatus.mockResolvedValue({
+      ...status(),
+      pending: 105,
+      failed: 0,
+      outstanding: [],
+    })
+    await openSettings()
+    const panel = wrapper.get('section[aria-label="Discord delivery status"]')
+    expect(panel.text()).toContain(
+      'Pending battles will appear here after the next delivery check.',
+    )
+    expect(panel.text()).not.toContain('No outstanding deliveries.')
+  })
+
+  it('shows the recovery deadline for an interrupted sending attempt', async () => {
+    const fixture = status()
+    api.getDiscordDeliveryStatus.mockResolvedValue({
+      ...fixture,
+      outstanding: [
+        { ...fixture.outstanding[0], status: 'sending', nextAttemptAt: '2026-10-16T14:01:00Z' },
+      ],
+    })
+    await openSettings()
+    const panel = wrapper.get('section[aria-label="Discord delivery status"]')
+    expect(panel.text()).toContain('Attempt recovery no earlier than')
+    expect(panel.text()).toContain(new Date('2026-10-16T14:01:00Z').toLocaleString())
   })
 })

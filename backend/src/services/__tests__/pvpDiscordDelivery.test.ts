@@ -555,4 +555,24 @@ isolated('durable Discord delivery on a disposable database', () => {
     await service.pollDiscordDeliveries();
     expect(send.mock.calls.map(([id]) => id)).toEqual([1, 2, 2]);
   });
+
+  it('counts current-channel eligible work before discovery and beyond a paused discovery batch', async () => {
+    await event(1);
+    await service.setDiscordAutoPosting(true, 'fixture');
+    await service.setDiscordAutoPosting(false, 'fixture');
+    for (let id = 2; id <= 106; id++) await event(id);
+    await database.query(
+      "UPDATE web_settings SET setting_value='15' WHERE setting_key='pvp_delay_minutes'",
+    );
+    await database.query("INSERT INTO pkill_event VALUES (107, NOW(), 'Hidden')");
+    expect(await service.getDiscordDeliveryStatus()).toMatchObject({
+      pending: 105,
+      outstanding: [],
+    });
+    expect(await rows()).toHaveLength(0);
+    await service.pollDiscordDeliveries();
+    expect(await rows()).toHaveLength(100);
+    expect((await service.getDiscordDeliveryStatus()).pending).toBe(105);
+    expect(send).not.toHaveBeenCalled();
+  });
 });
