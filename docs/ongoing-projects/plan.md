@@ -519,6 +519,15 @@ outside this request. Keep this single evolving execution plan current.
   No existing backup, MUD repository/process, shared service, live session or
   release tag was changed. Engineering is ready for review; the explicit P3
   release gate and P0/P5–P8 policy/operational requirements remain open.
+- **Published P3:** [PR #41](https://github.com/LuminariMUD/DurisWeb/pull/41),
+  open/non-draft, code head `5e66605`, stacked on #39 at `4b3677f`. Exact local,
+  remote and PR head matched; ahead/behind was `0 0` and the worktree clean.
+  The latest base refresh still showed master `8946860` and unchanged #39.
+  The named pre-integration stash remains private recovery evidence until review
+  closeout; current code and all replacements are committed and pushed.
+  Next independent engineering chunk: P4 / #9 durable toggle attribution.
+  Keep #7/#8 open for their explicitly pending release acceptance. No owner
+  interruption is needed to continue P4.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
