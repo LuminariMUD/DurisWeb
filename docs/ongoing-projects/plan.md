@@ -2,6 +2,10 @@
 
 Status: **implementation in progress**. Updated 2026-10-16.
 
+Current checkpoint: engineering through P4 is published for review. Next is the
+separate raw-settings UTC display correction, then P5–P7. Policy/approval and
+live-release gates remain open; no production rollout is implied.
+
 Single working plan for [#7](https://github.com/LuminariMUD/DurisWeb/issues/7),
 [#8](https://github.com/LuminariMUD/DurisWeb/issues/8),
 [#9](https://github.com/LuminariMUD/DurisWeb/issues/9),
@@ -709,6 +713,14 @@ outside this request. Keep this single evolving execution plan current.
   qualification logs/fixture generators remain as recovery evidence. No browser,
   provider, production or shared-environment operation was run. P4 engineering
   is ready for review; P6 policy/holds and live acceptance remain separate.
+
+- **Published P4:** [PR #42](https://github.com/LuminariMUD/DurisWeb/pull/42),
+  open/non-draft, code head `1ab23ac`, stacked on #41 at `7fd35ba`. Exact local,
+  remote and PR head matched; ahead/behind `0 0` and a clean worktree were
+  verified. Final checks include the source-safe hook-route log sentinel and
+  least-privilege fixture grants. No merge, tag, deployment or live verification
+  is claimed. Next: the recorded standalone raw-settings UTC correction, then
+  notice/analytics choice and the remaining privacy lifecycle work.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
