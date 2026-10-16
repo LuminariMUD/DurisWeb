@@ -9,7 +9,9 @@ and published for review. The image-removal recovery prerequisite is qualified
 and published as [PR #50](https://github.com/LuminariMUD/DurisWeb/pull/50) on
 `branch/post-image-deletion-recovery`, stacked on #49. Active continuation:
 `branch/retention-readonly-preview`; P6a's bounded read-only CLI and private
-continuation are qualified, awaiting PR publication. Next: P6 holds/mutation/
+continuation are qualified and published as
+[PR #51](https://github.com/LuminariMUD/DurisWeb/pull/51), stacked on #50.
+Next: P6 holds/mutation/
 restore and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
@@ -1372,6 +1374,27 @@ outside this request. Keep this single evolving execution plan current.
   final two-engine cases. No schema guard was weakened. Operator/lifecycle/
   security guides record proposed counts, private indirectly linkable cursor
   evidence, unresolved retention and the absence of destructive execution.
+- **Published P6a:** [PR #51](https://github.com/LuminariMUD/DurisWeb/pull/51),
+  open/non-draft, code head `b695f432cd58eca338bd3f51a20898acb8158eb4`,
+  stacked on #50 `45b6387`. The published code was read back: local, remote
+  and API heads match, ahead/behind `0 0`, worktree clean. This final plan
+  closeout is documentation only. Hosted checks were queued/running at creation;
+  local source/native gates above pass. #50's hosted backend/frontend checks
+  now pass, and its source head is unchanged. Latest fetched master remains
+  `8946860`. No merge, tag, shared migration, deployment or provider operation
+  is justified. Original-checkout work and the named P3 stash remain preserved.
+- **Next continuation after #51:** use the same isolated worktree from this
+  published branch. Trace existing operator permission/identity and the exact
+  account/class selectors before the P6 hold primitive. Implement restricted,
+  durable hold scope/reason/approver/review/expiry plus tests and a required
+  forward schema contract, then the gated mutation/continuation/ownership and
+  restore handling. A preview is observational and must not become a deletion
+  authorization. Recheck holds/eligibility in any later mutation transaction;
+  pending/invalid delivery or audit evidence and protected imports remain
+  excluded. Do not invent approved periods or enable a scheduler. Full P6,
+  P7, P5 approval/provider readiness and P8 live release still remain open.
+  Continue independent engineering without a new owner question unless a
+  consequential necessary decision actually blocks that work.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
