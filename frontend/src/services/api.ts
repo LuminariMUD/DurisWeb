@@ -525,13 +525,17 @@ export const forumApi = {
     threadId: number,
     page: number = 1,
     limit: number = 50,
+    postId?: number,
   ): Promise<{
     thread: ForumThread
     category: { id: number; name: string }
     posts: ForumPost[]
-    pagination: any
+    pagination: { page: number; limit: number; total: number; pages: number }
   }> {
-    const { data } = await api.get(`/api/forum/threads/${threadId}?page=${page}&limit=${limit}`)
+    const target = postId === undefined ? '' : `&postId=${postId}`
+    const { data } = await api.get(
+      `/api/forum/threads/${threadId}?page=${page}&limit=${limit}${target}`,
+    )
     return data
   },
 

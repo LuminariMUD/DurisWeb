@@ -23,7 +23,7 @@ import {
   runWebBaseline,
   verifiedWebBaselineCoverage,
 } from '../webBaseline.js';
-import { loadWebBaselineBundle, webBaselineDirectory } from '../webBaselineBundle.js';
+import { loadWebBaselineBundle, sha256, webBaselineDirectory } from '../webBaselineBundle.js';
 
 const bundle = loadWebBaselineBundle();
 const backendRoot = path.resolve(webBaselineDirectory(), '../..');
@@ -51,7 +51,7 @@ describe('owner schema fixture input boundary', () => {
         }),
       );
       fs.writeFileSync(path.join(directory, 'runtime_compatibility_manifest.json'), '{}');
-      expect(() => readOwnerSchemaFixture(directory)).toThrow(/migration contract is invalid/);
+      expect(() => readOwnerSchemaFixture(directory)).toThrow(/published checksum differs/);
     } finally {
       fs.rmSync(directory, { recursive: true });
     }
@@ -59,6 +59,97 @@ describe('owner schema fixture input boundary', () => {
 });
 
 const inputs = source ? readOwnerSchemaFixture(source) : null;
+
+if (source) {
+  it('rejects a self-consistent replacement migration manifest and SQL', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-owner-replacement-'));
+    try {
+      fs.cpSync(source, directory, { recursive: true });
+      const filename = path.join(directory, 'migration_manifest.json');
+      const manifest = JSON.parse(fs.readFileSync(filename, 'utf8')) as {
+        migrations: { apply: string; apply_checksum: string }[];
+      };
+      const migration = path.join(directory, manifest.migrations[0].apply);
+      fs.appendFileSync(migration, '\nSELECT 1;\n');
+      manifest.migrations[0].apply_checksum = sha256(fs.readFileSync(migration, 'utf8'));
+      fs.writeFileSync(filename, JSON.stringify(manifest));
+      expect(() => readOwnerSchemaFixture(directory)).toThrow(
+        'Owner fixture published checksum differs: migration_manifest.json',
+      );
+    } finally {
+      fs.rmSync(directory, { recursive: true });
+    }
+  });
+
+  it.each([
+    'bootstrap_multithread_safe.sql',
+    'migration_manifest.json',
+    'runtime_compatibility_manifest.json',
+  ])('rejects modified owner input %s even when metadata would be unchanged', (filename) => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-owner-pins-'));
+    try {
+      fs.cpSync(source, directory, { recursive: true });
+      fs.appendFileSync(path.join(directory, filename), '\n');
+      expect(() => readOwnerSchemaFixture(directory)).toThrow(
+        `Owner fixture published checksum differs: ${filename}`,
+      );
+    } finally {
+      fs.rmSync(directory, { recursive: true });
+    }
+  });
+}
+
+for (const port of ports) {
+  it(`enforces database-scoped fixture privileges and removes accounts at port ${port}`, async () => {
+    const database = await mysql.createConnection({ host: '127.0.0.1', port, user: 'root' });
+    const name = `durisweb_qualification_scope_${process.pid}`;
+    // Would match an unescaped GRANT pattern because underscores are wildcards.
+    const adjacent = name.replaceAll('_', 'x');
+    const [usersBefore] = await database.query(
+      "SELECT User,Host FROM mysql.user WHERE User LIKE 'dw_fixture_%' ORDER BY User,Host",
+    );
+    try {
+      await database.query(`CREATE DATABASE ${name}`);
+      await database.query(`CREATE DATABASE ${adjacent}`);
+      await database.query(`CREATE TABLE ${adjacent}.sentinel (id INT PRIMARY KEY)`);
+      await database.query(`INSERT INTO ${adjacent}.sentinel VALUES (42)`);
+      await database.changeUser({ database: name });
+      const fixtureInput = {
+        sql: '',
+        headId: 'synthetic',
+        tableList: "'probe'",
+        tableCount: 1,
+        expected: { mysql8: '', mariadb10_11: '' },
+      };
+      for (const sql of [
+        `INSERT INTO ${adjacent}.sentinel VALUES (43);`,
+        `DROP TABLE ${adjacent}.sentinel;`,
+        `CREATE DATABASE ${name}_escape;`,
+      ]) {
+        await expect(
+          applyOwnerSchemaFixture(database, port, name, { ...fixtureInput, sql }),
+        ).rejects.toThrow('Owner fixture SQL application failed');
+        const [rows] = await database.query(`SELECT * FROM ${adjacent}.sentinel`);
+        expect(rows).toEqual([{ id: 42 }]);
+      }
+      await applyOwnerSchemaFixture(database, port, name, {
+        ...fixtureInput,
+        sql: 'CREATE TABLE probe (id INT); INSERT INTO probe VALUES (7);',
+      });
+      const [rows] = await database.query('SELECT * FROM probe');
+      expect(rows).toEqual([{ id: 7 }]);
+      const [usersAfter] = await database.query(
+        "SELECT User,Host FROM mysql.user WHERE User LIKE 'dw_fixture_%' ORDER BY User,Host",
+      );
+      expect(usersAfter).toEqual(usersBefore);
+    } finally {
+      await database.query(`DROP DATABASE IF EXISTS ${name}`);
+      await database.query(`DROP DATABASE IF EXISTS ${adjacent}`);
+      await database.query(`DROP DATABASE IF EXISTS ${name}_escape`);
+      await database.end();
+    }
+  }, 60000);
+}
 
 async function fixture(
   port: number,
@@ -359,6 +450,13 @@ if (inputs)
           await fixture(port, 'restored', async (restored, restoredName) => {
             sqlClient(port, restoredName, dump.stdout);
             const expected = await externalSchemaSha256(restored, bundle);
+            await restored.query(
+              'ALTER TABLE web_settings PARTITION BY KEY(setting_key) PARTITIONS 2',
+            );
+            await expect(runWebBaseline(restored, 'adopt', expected)).rejects.toThrow(
+              /Noncanonical schema table options or partitions/,
+            );
+            await restored.query('ALTER TABLE web_settings REMOVE PARTITIONING');
             await runWebBaseline(restored, 'adopt', expected);
             expect(await verifiedWebBaselineCoverage(restored)).toEqual(new Set());
             const rollback = spawnSync(

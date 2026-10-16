@@ -89,6 +89,23 @@ async function fixture(
 
 for (const port of ports) {
   describe(`guarded website baseline on disposable port ${port}`, () => {
+    it.each([
+      'ALTER TABLE web_settings PARTITION BY KEY(setting_key) PARTITIONS 2',
+      'ALTER TABLE web_settings AVG_ROW_LENGTH=123',
+    ])(
+      'rejects table-option drift: %s',
+      async (alter) => {
+        await fixture(port, async (database, expected) => {
+          await runWebBaseline(database, 'bootstrap', expected);
+          await database.query(alter);
+          await expect(verifiedWebBaselineCoverage(database)).rejects.toThrow(
+            /Noncanonical schema table options or partitions/,
+          );
+        });
+      },
+      60000,
+    );
+
     it('rejects changed nullability, uniqueness and weakened CHECK semantics', async () => {
       await fixture(port, async (database, expected) => {
         await runWebBaseline(database, 'bootstrap', expected);
