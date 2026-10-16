@@ -6,6 +6,7 @@
  * No API key required
  */
 
+import { randomUUID } from 'node:crypto';
 import { getCache, setCache, deleteCache } from '../db/redis.js';
 import logger from './logger.js';
 
@@ -25,6 +26,53 @@ export interface GeoLocation {
 // Cache TTL for geoip (in seconds for Redis)
 const GEOIP_CACHE_TTL = 24 * 60 * 60; // 24 hours
 const REDIS_KEY_PREFIX = 'geo:ip:';
+
+type GeoIPFailure =
+  | 'provider_http_failure'
+  | 'provider_refusal'
+  | 'invalid_response'
+  | 'lookup_exception';
+
+function logLookupFailure(category: GeoIPFailure, status?: number): void {
+  // Neither provider text nor exception objects are safe diagnostic inputs.
+  logger.error('GeoIP lookup failed', {
+    category,
+    operationId: randomUUID(),
+    ...(Number.isInteger(status) && status! >= 100 && status! <= 599 ? { status } : {}),
+  });
+}
+
+interface ProviderLocation {
+  status: 'success';
+  city?: string | null;
+  country?: string | null;
+  countryCode?: string | null;
+  continent?: string | null;
+  timezone?: string | null;
+  isp?: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  proxy?: boolean | null;
+  hosting?: boolean | null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isProviderLocation(value: unknown): value is ProviderLocation {
+  if (!isRecord(value) || value.status !== 'success') return false;
+  return (
+    ['city', 'country', 'countryCode', 'continent', 'timezone', 'isp'].every(
+      (field) => value[field] == null || typeof value[field] === 'string',
+    ) &&
+    ['lat', 'lon'].every(
+      (field) =>
+        value[field] == null || (typeof value[field] === 'number' && Number.isFinite(value[field])),
+    ) &&
+    ['proxy', 'hosting'].every((field) => value[field] == null || typeof value[field] === 'boolean')
+  );
+}
 
 /**
  * Initialize GeoIP service (no-op for API-based service)
@@ -71,14 +119,24 @@ export async function geolocateIP(ipAddress: string): Promise<GeoLocation | null
     );
 
     if (!response.ok) {
-      logger.error(`GeoIP API error: ${response.status} ${response.statusText}`);
+      logLookupFailure('provider_http_failure', response.status);
       return null;
     }
 
-    const data = (await response.json()) as any;
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch {
+      logLookupFailure('invalid_response');
+      return null;
+    }
 
-    if (data.status === 'fail') {
-      logger.error(`GeoIP lookup failed for ${ipAddress}: ${data.message}`);
+    if (isRecord(data) && data.status === 'fail') {
+      logLookupFailure('provider_refusal');
+      return null;
+    }
+    if (!isProviderLocation(data)) {
+      logLookupFailure('invalid_response');
       return null;
     }
 
@@ -99,8 +157,8 @@ export async function geolocateIP(ipAddress: string): Promise<GeoLocation | null
     await setCache(cacheKey, geoLocation, GEOIP_CACHE_TTL);
 
     return geoLocation;
-  } catch (error) {
-    logger.error(`Error geolocating IP ${ipAddress}:`, error);
+  } catch {
+    logLookupFailure('lookup_exception');
     return null;
   }
 }

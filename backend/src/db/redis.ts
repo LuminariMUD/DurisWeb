@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import Redis from 'ioredis';
 import { getBackendConfiguration } from '../config/environment.js';
 import logger from '../utils/logger.js';
@@ -31,15 +32,28 @@ redis.on('connect', () => {
   logger.info('Redis connected');
 });
 
-redis.on('error', (err) => {
-  logger.error('Redis error:', err.message);
+redis.on('error', () => {
+  logRedisFailure('connection_failure');
 });
+
+function logRedisFailure(
+  category:
+    | 'connection_failure'
+    | 'health_check_failure'
+    | 'close_failure'
+    | 'cache_get_failure'
+    | 'cache_set_failure'
+    | 'cache_delete_failure',
+): void {
+  // Redis errors may carry commands, keys, values, and connection credentials.
+  logger.error('Redis operation failed', { category, operationId: randomUUID() });
+}
 
 export async function checkRedisConnection(): Promise<boolean> {
   try {
     return (await redis.ping()) === 'PONG';
-  } catch (error) {
-    logger.error('Redis health check failed:', error);
+  } catch {
+    logRedisFailure('health_check_failure');
     return false;
   }
 }
@@ -51,8 +65,8 @@ export async function closeRedisConnection(): Promise<void> {
   try {
     await redis.quit();
     logger.info('Redis connection closed');
-  } catch (error) {
-    logger.error('Error closing Redis connection:', error);
+  } catch {
+    logRedisFailure('close_failure');
   }
 }
 
@@ -66,8 +80,8 @@ export async function getCache<T>(key: string): Promise<T | null> {
       return JSON.parse(data) as T;
     }
     return null;
-  } catch (err) {
-    logger.error('Redis get error:', err);
+  } catch {
+    logRedisFailure('cache_get_failure');
     return null;
   }
 }
@@ -75,8 +89,8 @@ export async function getCache<T>(key: string): Promise<T | null> {
 export async function setCache(key: string, value: unknown, ttlSeconds: number): Promise<void> {
   try {
     await redis.setex(key, ttlSeconds, JSON.stringify(value));
-  } catch (err) {
-    logger.error('Redis set error:', err);
+  } catch {
+    logRedisFailure('cache_set_failure');
   }
 }
 
@@ -86,8 +100,8 @@ export async function deleteCache(pattern: string): Promise<void> {
     if (keys.length > 0) {
       await redis.del(...keys);
     }
-  } catch (err) {
-    logger.error('Redis delete error:', err);
+  } catch {
+    logRedisFailure('cache_delete_failure');
   }
 }
 
