@@ -116,6 +116,69 @@ outside this request. Keep this single evolving execution plan current.
   new source/test files and `package.json`. The full backend/frontend matrix,
   runtime feature/preflight readiness, full MUD-schema rehearsal, and production
   acceptance remain unperformed; no claim exceeds the checks above.
+- **Published P2a:** [PR #37](https://github.com/LuminariMUD/DurisWeb/pull/37),
+  open/non-draft, head `f80592b`, stacked on #36. Exact local/remote head,
+  ahead/behind `0 0`, and a clean worktree were verified.
+- **Current chunk: P2b** on `branch/issue-14-web-schema-bootstrap`: guarded
+  bootstrap/adoption/verify/teardown, durable per-DDL progress, transactional
+  seed/provenance acknowledgement, and migration/preflight coverage. Require
+  an explicit target and owner-approved external-schema hash, fail on unknown
+  web objects or partial history, and preserve every existing ledger row.
+  No shared service or database will be touched during qualification.
+- **P2b implemented:** dedicated `web_schema_baselines` provenance; named
+  installation lock; strict/autocommit/FK preconditions; pending/completed DDL
+  journal; atomic seed/ack commit; native installed-table and ledger checksums;
+  trigger/drift/unknown-object refusal; adoption preserving original rows;
+  limited, restartable teardown refusing user data or modified defaults.
+  `schema:baseline` confirms the configured target before connecting. Its
+  observed external-schema hash is explicitly not owner approval.
+- **P2b migration transition:** custom Knex source keeps applied names visible,
+  skips only covered unapplied history after revalidation, and requires an
+  explicit baseline for a fresh database. Production preflight uses the same
+  coverage and checks immutable source inputs during configuration validation.
+  SQL classifications now point at the versioned artifact; the historical SQL
+  and TypeScript migration bytes and existing ledgers are unchanged.
+- **P2b ablation:** the baseline shares the existing ownership inventory through
+  one small reader used by the baseline and write verifier; this avoids a
+  circular dependency on the CLI verifier. No second bootstrap, speculative
+  upgrade reconciler, SQL-mode relaxation, generic job framework or fabricated
+  ledger records were added. Snapshot hashing ignores only the actual table
+  auto-increment option, preserving identically named text/default values.
+- **P2b proof:** `TEST_BASELINE_DB_PORTS=23336,23337 pnpm --dir backend test
+  --runInBand src/db/__tests__/webBaseline.test.ts
+  src/db/__tests__/webBaselineBundle.test.ts src/utils/__tests__/geoip.test.ts
+  src/scripts/__tests__/productionPreflight.test.ts
+  src/scripts/__tests__/mudWriteAllowlist.test.ts` passes **85 tests / 5 suites**
+  on MySQL 8.0.46 and MariaDB 11.8.9. Native tests include actual CLI credentials/
+  target refusal, Knex forward/down/forward with only the real forward name in
+  its ledger, ambiguous seed commit, DDL interruption with a fresh connection,
+  synthetic existing-ledger adoption, no overwrite on repeat, concurrent lock,
+  schema/metadata/trigger refusal, session-invariant refusal, refusal of a
+  matching unrecorded table appearing after initial inspection, and safe teardown.
+  Before the final run, a temporary missing verifier constant was repaired;
+  the final stable tree has no failing tests. Retained synthetic test logs:
+  `/tmp/durisweb-p2b-publication-tests.log` (no production/provider data).
+- **P2b checks:** `pnpm --dir backend schema:check`, `format:check`, `lint`,
+  `type-check`, `build`, `verify:mud-writes --mud-manifest
+  /home/aiwithapex/projects/duris/migrations/migration_manifest.json` (53 writes),
+  and `git diff --check` pass. Only changed TypeScript/package/configuration
+  files were formatted with `pnpm --dir backend exec biome format --write`.
+  `/tmp/duris` is a read-only source symlink for the existing verifier test's
+  sibling-layout discovery; no MUD repository file or process was changed.
+- **P2b remaining acceptance (P2c):** the MUD table fixtures are name/metadata
+  sentinels, not the complete owner-approved MUD schema. Still qualify an
+  authoritative full MUD baseline, a restored synthetic existing web schema
+  including supported collation repairs, representative application queries,
+  and dependency/data-readiness preflights. The complete backend/frontend suites
+  and production acceptance have not been run. #14 remains open. No new forward
+  migration was needed for the standalone provenance installer; native tests
+  exercise a later reversible synthetic migration through actual Knex.
+- **Next-stage constraint:** P3 and later schema changes must update
+  baseline-plus-forward postconditions in the verifier, leaving the versioned
+  baseline artifact immutable. Never bypass its drift refusal or edit historical
+  migration bytes to get a later stage green.
+- **P2b release news:** contributor/operator tooling only; no visitor-visible
+  website change, no Website Changelog entry, tag or production operation.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and

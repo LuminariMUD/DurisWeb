@@ -1,6 +1,7 @@
 import type { Knex } from 'knex';
 
 import { getBackendConfiguration } from './src/config/environment.js';
+import { WebMigrationSource } from './src/db/webMigrationSource.js';
 
 const environment = getBackendConfiguration();
 
@@ -12,6 +13,7 @@ const migrations: Knex.MigratorConfig = {
   directory: './migrations',
   tableName: 'knex_migrations',
   extension: 'ts',
+  migrationSource: new WebMigrationSource(environment.database),
 };
 
 const seeds: Knex.SeederConfig = {

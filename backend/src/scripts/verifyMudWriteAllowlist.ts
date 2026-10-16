@@ -1,9 +1,16 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { loadWebBaselineBundle, verifyWebBaselineSources } from '../db/webBaselineBundle.js';
 import { fileURLToPath } from 'node:url';
 
-import { MUTATION_GATES, type MutationGate } from '../middleware/mutationGate.js';
+import { MUTATION_GATES } from '../middleware/mutationGate.js';
+import { loadMudWriteAllowlist, type MudWriteAllowlist } from '../db/mudWriteInventory.js';
+export {
+  loadMudWriteAllowlist,
+  type MudWriteAllowlist,
+  type MudWriteEntry,
+} from '../db/mudWriteInventory.js';
 
 /** Fingerprint of the MUD baseline table list, as published in the MUD manifest. */
 export function tableFingerprint(tables: readonly string[]): string {
@@ -16,27 +23,6 @@ export function tableFingerprint(tables: readonly string[]): string {
 const ALLOWLIST_FILE = 'mud-write-allowlist.json';
 const SKIPPED_DIRECTORIES = new Set(['__tests__', 'test']);
 const WRITE_STATUSES = ['gated', 'allowed'] as const;
-
-type WriteStatus = (typeof WRITE_STATUSES)[number];
-
-export interface MudWriteEntry {
-  /** The component that owns the transaction, ledger, and revision contract. */
-  authoritativeWriter: string;
-  /** How this direct write stays correct against concurrent MUD activity. */
-  concurrency: string;
-  /** `gated` writes are unreachable unless an operator opens `gate`. */
-  status: WriteStatus;
-  gate?: MutationGate;
-  /** Stable contract identifier in docs/ARCHITECTURE.md#shared-database-contract. */
-  ticket: string;
-  note?: string;
-}
-
-export interface MudWriteAllowlist {
-  baseline: { id: string; requiredTableFingerprint: string };
-  mudOwnedTables: string[];
-  writes: Record<string, MudWriteEntry>;
-}
 
 /** Subset of the MUD repository's migrations/migration_manifest.json used here. */
 export interface MudMigrationManifest {
@@ -264,16 +250,6 @@ export function resolveMultiTableDeleteTargets(targetList: string, fromClause: s
   return splitTableList(targetList).map((target) => aliasToTable.get(target) ?? target);
 }
 
-/** Read the checked-in allowlist manifest. */
-export function loadMudWriteAllowlist(root = backendRoot()): MudWriteAllowlist {
-  const manifestPath = path.join(root, ALLOWLIST_FILE);
-  try {
-    return JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as MudWriteAllowlist;
-  } catch {
-    throw new Error(`${ALLOWLIST_FILE} is missing or unreadable at ${manifestPath}`);
-  }
-}
-
 /** Collect every non-test TypeScript source file under `directory`. */
 function sourceFiles(directory: string): string[] {
   const found: string[] = [];
@@ -362,6 +338,20 @@ export function verifyMudWriteAllowlist(
 ): string[] {
   const allowlist = loadMudWriteAllowlist(root);
   const issues: string[] = [];
+  // The offline baseline installer binds targets from this checksummed web-only
+  // bundle. Its parameterized seed/DDL targets are classified here as a group;
+  // they cannot name MUD tables or install incoming game foreign keys.
+  const baselineDirectory = path.join(root, 'schema-baselines', '2026-10-16');
+  if (fs.existsSync(baselineDirectory)) {
+    try {
+      verifyWebBaselineSources(
+        loadWebBaselineBundle(baselineDirectory),
+        path.join(root, 'migrations'),
+      );
+    } catch {
+      issues.push('versioned website baseline ownership or source verification failed');
+    }
+  }
 
   const fingerprint = tableFingerprint(allowlist.mudOwnedTables);
   if (fingerprint !== allowlist.baseline.requiredTableFingerprint) {

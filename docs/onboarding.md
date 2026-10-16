@@ -43,12 +43,36 @@ pnpm --dir backend config:check
 pnpm --dir frontend config:check
 ```
 
-## Database baseline warning
+## Database baseline
 
 The Compose MySQL service starts an empty database, not a complete DurisWeb
 schema. DurisWeb shares MUD-owned tables created outside Knex, and the historical
-migration chain is not a supported zero-to-current bootstrap. Obtain a
-sanitized, operator-approved schema baseline and use isolated development data.
+migration chain is not a supported zero-to-current bootstrap. Have the MUD owner
+provision and verify its schema in an isolated development database. The
+[website baseline procedure](../backend/schema-baselines/README.md#operator-procedure)
+then creates only website objects, using an explicit target and the owner's
+approved external-schema hash. Inspecting the observed hash is not approval.
+
+```bash
+pnpm --dir backend schema:check
+pnpm --dir backend schema:baseline inspect --target '<host>:<port>/<database>'
+pnpm --dir backend schema:baseline bootstrap \
+  --target '<host>:<port>/<database>' --mud-schema-sha256 '<approved hash>'
+pnpm --dir backend migrate:latest
+pnpm --dir backend migrate:status
+```
+
+Use the literal backend database endpoint/name in `--target`; the command refuses
+a mismatch. Bootstrap verifies existing MUD names and the approved metadata
+fingerprint, refuses unrecorded web objects/history, and resumes only recorded
+partial work. It creates a separate provenance record, not fictional historical
+migration rows. Existing installations use inspected adoption and retain their
+original ledger; never bootstrap over their data.
+
+The baseline does not populate player data, grant accounts permissions, create
+forum taxonomy, publish wiki references, or extract map rooms. Complete those
+explicit feature-readiness steps in [deployment](deployment.md) before claiming
+the site ready. No setup command here authorizes operating a shared database.
 
 ## Start and verify
 

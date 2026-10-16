@@ -30,6 +30,16 @@ afterEach(() => {
 });
 
 describe('immutable website schema inputs', () => {
+  it('ignores only the table auto-increment counter, preserving identically named text defaults', () => {
+    const ddl =
+      "CREATE TABLE `example` (\n  `value` varchar(100) DEFAULT ' AUTO_INCREMENT=12'\n) ENGINE=InnoDB AUTO_INCREMENT=42 DEFAULT CHARSET=utf8mb4";
+    expect(installedTableSha256(ddl)).toBe(
+      installedTableSha256(ddl.replace('AUTO_INCREMENT=42', 'AUTO_INCREMENT=43')),
+    );
+    expect(installedTableSha256(ddl)).not.toBe(
+      installedTableSha256(ddl.replace('AUTO_INCREMENT=12', 'AUTO_INCREMENT=13')),
+    );
+  });
   it('verifies the full source bundle with no runtime environment or database', () => {
     const result = spawnSync(
       process.execPath,

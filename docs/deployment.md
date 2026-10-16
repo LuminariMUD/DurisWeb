@@ -237,6 +237,17 @@ backup-first forward migration:
    with the rehearsal, and take a final backup. Apply only that reviewed forward
    set, then rerun status and the compiled dependency preflight.
 
+For a new website installation, use the explicit
+[website baseline procedure](../backend/schema-baselines/README.md#operator-procedure)
+after the MUD owner provisions and verifies the game schema. Confirm the target,
+approved external-schema hash, bundle checksum, and isolated rehearsal evidence.
+For an existing ledger, inspect schema compatibility before optional `adopt`;
+it records provenance without replacing rows or inventing migration history.
+Unknown or differently collated web shapes require reviewed forward repair.
+The custom migration source and dependency preflight independently reverify
+fresh-baseline coverage; incomplete installation is not accepted as applied
+history. Keep the website writers stopped during baseline/adoption operations.
+
 The historical down chain is not a production recovery mechanism. Never repair
 the shared ledger, replay pre-Knex SQL, or run a down migration merely to make a
 status command green.

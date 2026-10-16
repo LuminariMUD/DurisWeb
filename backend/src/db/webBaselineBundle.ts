@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadMudWriteAllowlist } from '../scripts/verifyMudWriteAllowlist.js';
+import { loadMudWriteAllowlist } from './mudWriteInventory.js';
 
 export interface BaselineSource {
   name: string;
@@ -49,7 +49,12 @@ export function sha256(value: string | Buffer): string {
 
 /** AUTO_INCREMENT's current counter is row state, not schema identity. */
 export function installedTableSha256(createTable: string): string {
-  return sha256(createTable.replace(/ AUTO_INCREMENT=\d+/g, ''));
+  return sha256(normalizedTableDefinition(createTable));
+}
+
+export function normalizedTableDefinition(createTable: string): string {
+  // Match the table-options line only; a literal/default can contain these words.
+  return createTable.replace(/^(\) ENGINE=\S+) AUTO_INCREMENT=\d+(?= )/m, '$1');
 }
 
 export function webBaselineDirectory(): string {
