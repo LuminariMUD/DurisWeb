@@ -382,6 +382,26 @@ outside this request. Keep this single evolving execution plan current.
   lacking its relative source layout; both were repaired. Other installer tests
   passed in that run; only affected paths were repeated. Required backend gates
   and a strict standalone TypeScript check of the new migration pass.
+- **Final refreshed-base qualification:** merged `origin/master` at `3bea138`
+  after its reviewed admin/forum repairs landed, preserving both histories.
+  The resulting tree passes **1,128 tests / 116 backend suites** with the same
+  full-owner synthetic fixture and private dependencies; evidence is
+  `/tmp/durisweb-p2c-final-full-suite.log`. The actual CLI regression additionally
+  proves preexisting builder preferences survive migration up/down on both
+  engines (`/tmp/durisweb-p2c-parent-preexisting.log`, two passing tests).
+  Final `schema:check`, `format:check`, `lint`, `type-check`,
+  `verify:mud-writes --mud-manifest
+  /home/aiwithapex/projects/duris/migrations/migration_manifest.json` (53 writes),
+  `build`, and `git diff --check` pass. The new migration also passes
+  `pnpm --dir backend exec tsc --ignoreConfig --noEmit --module nodenext
+  --moduleResolution nodenext --target ES2022 --esModuleInterop --strict
+  --skipLibCheck migrations/20261016230000_repair_builder_settings.ts`.
+  Its formatting used Biome through `--stdin-file-path=src/repairBuilderSettings.ts`
+  because the repository format scope excludes migration files; its forward
+  contract was updated to the exact formatted bytes. P2's reopened engineering
+  acceptance is now complete again. Shared deployment/production acceptance
+  remains outside this work. No new public news is required for the source-owned
+  installation/adoption tooling; no release tag or live change was made.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
