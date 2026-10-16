@@ -26,17 +26,29 @@ const dismissedStorageKey = computed(() => {
 // finish after this component mounts, so reload whenever account identity changes.
 function loadDismissedState() {
   isDismissed.value = false
-  const dismissed = localStorage.getItem(dismissedStorageKey.value)
-  if (dismissed) {
-    // check if dismissed timestamp is less than 24 hours old
-    const dismissedTime = parseInt(dismissed)
-    const now = Date.now()
-    const hours24 = 24 * 60 * 60 * 1000
-    if (now - dismissedTime < hours24) {
-      isDismissed.value = true
-    } else {
-      localStorage.removeItem(dismissedStorageKey.value)
+  try {
+    const dismissed = localStorage.getItem(dismissedStorageKey.value)
+    if (dismissed) {
+      // check if dismissed timestamp is less than 24 hours old
+      const dismissedTime = parseInt(dismissed)
+      const now = Date.now()
+      const hours24 = 24 * 60 * 60 * 1000
+      if (now - dismissedTime < hours24) {
+        isDismissed.value = true
+      } else {
+        clearStoredDismissal()
+      }
     }
+  } catch {
+    // Show unread updates when the saved dismissal is unknown.
+  }
+}
+
+function clearStoredDismissal() {
+  try {
+    localStorage.removeItem(dismissedStorageKey.value)
+  } catch {
+    // Current-page dismissal state remains authoritative without storage.
   }
 }
 
@@ -60,7 +72,7 @@ watch(
   (newCount, oldCount) => {
     if (newCount && oldCount !== undefined && newCount > oldCount) {
       isDismissed.value = false
-      localStorage.removeItem(dismissedStorageKey.value)
+      clearStoredDismissal()
     }
   },
 )
@@ -74,7 +86,11 @@ const showBanner = computed(() => {
 // actions
 function dismiss() {
   isDismissed.value = true
-  localStorage.setItem(dismissedStorageKey.value, Date.now().toString())
+  try {
+    localStorage.setItem(dismissedStorageKey.value, Date.now().toString())
+  } catch {
+    // Dismiss for this page even when the browser cannot retain the preference.
+  }
 }
 
 function goToChangelog() {

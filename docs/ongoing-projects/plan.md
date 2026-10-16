@@ -2,10 +2,11 @@
 
 Status: **implementation in progress**. Updated 2026-10-16.
 
-Current checkpoint: engineering through P4 and the separate raw-settings UTC
-correction are published for review (#39, #41, #42, #43). Next is P5 notice and
-analytics choice, then P6–P7. Policy/approval and live-release gates remain open;
-no production rollout is implied.
+Current checkpoint: engineering through P4, the UTC correction and the first P5
+collection closure are published for review (#39, #41–#45). The separate browser
+storage-denial repair is qualified and being published. Next is the remaining P5
+notice/choice implementation, then P6–P7. Policy/approval and live-release gates
+remain open; no production rollout is implied.
 
 Single working plan for [#7](https://github.com/LuminariMUD/DurisWeb/issues/7),
 [#8](https://github.com/LuminariMUD/DurisWeb/issues/8),
@@ -835,6 +836,51 @@ outside this request. Keep this single evolving execution plan current.
   website visit tracking is paused while privacy choices are prepared.” This
   describes the actual paused state; do not announce accept/withdraw controls
   before they exist. No live publication, tag or release is claimed now.
+
+- **Published P5 collection closure:**
+  [PR #45](https://github.com/LuminariMUD/DurisWeb/pull/45), open/non-draft at
+  `069f7b5`, is stacked on #44. Local/remote/API heads match, ahead/behind `0 0`,
+  clean checkout verified. Its full browser qualification follows the separate
+  storage-denial repair below; the approved notice/choice outcome remains open.
+- **Observed browser-storage repair:** `branch/browser-storage-preferences`
+  starts at #45 `069f7b5`. **Outcome:** blocked preference storage must not throw
+  during notification initialization or changelog-banner account changes and
+  dismissal. Unknown notification preference fails closed; explicit actions can
+  work for the current page without falsely claiming they were saved.
+  **Non-goals:** a repository-wide storage framework, changing permission prompts,
+  analytics collection, server persistence, or broad unrelated cleanup.
+  **Files:** `useNotifications`, `ChangelogBanner`, focused existing-domain tests
+  and this plan. **Proof:** denied reads/writes through mounted components,
+  successful browser permission despite a failed preference write, ordinary
+  persisted behavior, frontend gates, and the same real built browser matrix.
+  Use local guarded accesses; no dependency or configuration is needed.
+- **Storage repair proof:** `pnpm --dir frontend test:unit --run
+  src/composables/__tests__/useNotifications.spec.ts
+  src/components/changelog/__tests__/ChangelogBanner.spec.ts` initially reproduced
+  four failures plus an unhandled write exception. After the repair, the full
+  `pnpm --dir frontend test:unit --run` passes **250 tests / 52 files**, including
+  account switches and new-update dismissal invalidation when storage is denied.
+  Frontend `format:check`, `lint`, `type-check`, `build`, palette literal guard,
+  configuration literal guard and `git diff --check` pass. Changed files were
+  formatted with `pnpm --dir frontend exec biome format --write <changed files>`.
+  Logs: `/tmp/durisweb-storage-preferences-before.log`,
+  `/tmp/durisweb-storage-preferences-frontend.log`,
+  `/tmp/durisweb-storage-preferences-build.log`. Backend source is unchanged
+  from the qualified P5 collection closure; no new backend/native run is claimed.
+- **Completed closure/browser proof:** `node /tmp/durisweb-p5-closure-browser.mjs`
+  passes all six cases: 1440×1000 and 390×844, each with fresh storage, the legacy
+  identifier and all storage reads/writes/removals denied. The real built app
+  loads the login route, uses Back to Home navigation, renders meaningful home
+  content and survives refresh. Zero tracking/provider requests and no unexpected
+  console/page errors occur; expected anonymous-auth 401 and existing router
+  deprecation messages are classified separately. The old ID is absent where
+  storage permits inspection. Page identity, title, no-overlay and desktop/mobile
+  screenshots are verified. Logs: `/tmp/durisweb-p5-closure-browser.log`; images
+  `/tmp/durisweb-p5-closure-{1440,390}-{fresh,legacy,denied}.png` stay outside Git.
+  Preview is local/synthetic, not production, device, full consent or legal
+  acceptance. No historical analytics are deleted. No deployment/tag/public
+  Changelog operation occurred. Additional future release wording: “Notification
+  and website-update controls handle browsers that cannot save preferences.”
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
