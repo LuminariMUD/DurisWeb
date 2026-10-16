@@ -26,7 +26,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const router = useRouter()
-const { isOverlord, hasPermission } = useAuth()
+const { isOverlord, isGreaterGod, hasPermission } = useAuth()
 const toast = useToast()
 
 const settings = ref<WebSettingRow[]>([])
@@ -315,7 +315,7 @@ onMounted(async () => {
           </p>
         </div>
       </div>
-      <Button variant="outline" @click="router.push('/admin/dashboard')">
+      <Button v-if="isGreaterGod" variant="outline" @click="router.push('/admin/dashboard')">
         Back to Dashboard
       </Button>
     </div>
@@ -475,7 +475,7 @@ onMounted(async () => {
                   · {{ deliveryTime(discordStatus.lastAutomaticSuccess.at) }}
                 </p>
                 <p v-else class="text-sm text-muted-foreground">No confirmed automatic delivery yet.</p>
-                <p v-if="discordStatus.nextAttemptAt && discordStatus.pending" class="text-sm text-muted-foreground">Next check no earlier than {{ deliveryTime(discordStatus.nextAttemptAt) }}. Checks run every 30 seconds while enabled.</p>
+                <p v-if="discordStatus.nextAttemptAt && discordStatus.pending" class="text-sm text-muted-foreground">Destination cooldown ends {{ deliveryTime(discordStatus.nextAttemptAt) }}. Individual attempts may have later deadlines. Checks run every 30 seconds while enabled.</p>
                 <p v-if="discordStatus.uncertain" class="text-sm text-warning">An interrupted attempt may have reached Discord. Retrying can create a duplicate.</p>
                 <Button v-if="discordStatus.failed || discordStatus.blockedReason" size="sm" :disabled="isRetryingDiscord || isLoadingDiscord" @click="retryDiscordDeliveries">
                   {{ isRetryingDiscord ? 'Queuing...' : 'Retry failed deliveries' }}
@@ -486,8 +486,10 @@ onMounted(async () => {
                     · {{ delivery.status }} · {{ delivery.attempts }} attempts
                     <p>{{ delivery.errorCode ? discordErrorLabel(delivery.errorCode) : delivery.status === 'delivered' ? 'Delivery confirmed after an uncertain attempt.' : 'Waiting for delivery.' }}</p>
                     <p v-if="delivery.status === 'pending'" class="text-muted-foreground">Retry no earlier than {{ deliveryTime(delivery.nextAttemptAt) }}.</p>
+                    <p v-else-if="delivery.status === 'sending'" class="text-muted-foreground">Attempt recovery no earlier than {{ deliveryTime(delivery.nextAttemptAt) }} if no receipt is saved.</p>
                   </li>
                 </ul>
+                <p v-else-if="discordStatus.pending" class="text-sm text-muted-foreground">Pending battles will appear here after the next delivery check.</p>
                 <p v-else class="text-sm text-muted-foreground">No outstanding deliveries.</p>
                 <p v-if="discordStatus.outstanding.length === 50" class="text-xs text-muted-foreground">Showing the 50 most recent entries requiring attention.</p>
               </template>

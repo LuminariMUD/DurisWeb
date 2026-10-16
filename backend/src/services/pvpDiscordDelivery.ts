@@ -328,10 +328,16 @@ export async function getDiscordDeliveryStatus(): Promise<DiscordDeliveryStatus>
       [STATUS_TIME_FORMAT, currentChannel],
     );
     const [counts] = await connection.query<RowDataPacket[]>(
-      `SELECT COALESCE(SUM(status IN ('pending', 'sending')), 0) AS pending,
+      `SELECT (SELECT COUNT(*) FROM web_pvp_discord_destinations destination
+         JOIN pkill_event e ON e.id > destination.boundary_event_id
+         LEFT JOIN web_pvp_discord_deliveries d
+           ON d.channel_id = destination.channel_id AND d.event_id = e.id
+         WHERE destination.channel_id = ? AND d.event_id IS NULL AND ${pvpVisibilitySql()}
+       ) AS undiscovered,
+       COALESCE(SUM(status IN ('pending', 'sending')), 0) AS pending,
        COALESCE(SUM(status = 'failed'), 0) AS failed, COALESCE(SUM(ambiguous), 0) AS uncertain
        FROM web_pvp_discord_deliveries WHERE channel_id = ?`,
-      [currentChannel],
+      [currentChannel, settings.delay, currentChannel],
     );
     const [last] = await connection.query<RowDataPacket[]>(
       `SELECT event_id, DATE_FORMAT(delivered_at, ?) AS delivered_at FROM web_pvp_discord_deliveries
@@ -367,7 +373,7 @@ export async function getDiscordDeliveryStatus(): Promise<DiscordDeliveryStatus>
       activated: destinations.length > 0,
       blockedReason: destinations[0]?.blocked_reason || null,
       nextAttemptAt: destinations[0]?.available_at || null,
-      pending: Number(counts[0].pending),
+      pending: Number(counts[0].pending) + Number(counts[0].undiscovered),
       failed: Number(counts[0].failed),
       uncertain: Number(counts[0].uncertain),
       lastAutomaticSuccess: last.length
