@@ -3,6 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import mysql from 'mysql2/promise';
 import type { Knex } from 'knex';
+import { assertWebForwardSql } from './webMigrationGuard.js';
 import type { DatabaseConfiguration } from '../config/environment.js';
 import {
   readWebMigrationLedger,
@@ -11,6 +12,7 @@ import {
 } from './webBaseline.js';
 import {
   loadWebBaselineBundle,
+  loadWebForwardSchemas,
   verifyWebBaselineSources,
   webBaselineDirectory,
 } from './webBaselineBundle.js';
@@ -53,6 +55,33 @@ export class WebMigrationSource implements Knex.MigrationSource<string> {
 
   async getMigration(name: string): Promise<Knex.Migration> {
     if (!/^[a-zA-Z0-9_]+\.ts$/.test(name)) throw new WebBaselineError('invalid_migration_name');
-    return import(pathToFileURL(path.join(this.directory, name)).href);
+    const migration: Knex.Migration = await import(
+      pathToFileURL(path.join(this.directory, name)).href
+    );
+    const contract = loadWebForwardSchemas(loadWebBaselineBundle(), this.directory).find(
+      (entry) => entry.name === name,
+    );
+    if (!contract) return migration; // Preserve existing historical migration semantics.
+    if (typeof migration.up !== 'function' || typeof migration.down !== 'function') {
+      throw new WebBaselineError('invalid_migration_exports');
+    }
+    const declared = new Set(Object.keys(contract.tables));
+    const guarded = async (knex: Knex, direction: 'up' | 'down'): Promise<void> => {
+      const operation = migration[direction];
+      if (!operation) throw new WebBaselineError('invalid_migration_direction');
+      const guard = (query: { sql: string }): void => assertWebForwardSql(query.sql, declared);
+      // Knex emits query synchronously before handing SQL to the database driver.
+      knex.on('query', guard);
+      try {
+        await operation(knex);
+      } finally {
+        knex.removeListener('query', guard);
+      }
+    };
+    return {
+      ...migration,
+      up: (knex) => guarded(knex, 'up'),
+      down: (knex) => guarded(knex, 'down'),
+    };
   }
 }
