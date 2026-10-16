@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import { verifiedWebBaselineCoverage } from '../db/webBaseline.js';
+import { loadWebBaselineBundle, verifyWebBaselineSources } from '../db/webBaselineBundle.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -148,6 +150,11 @@ export function parsePreflightMode(args: string[]): PreflightMode {
 export function loadPreflightConfiguration(): PreflightConfiguration {
   const environment = getBackendConfiguration();
   verifySqlArtifactClassification();
+  try {
+    verifyWebBaselineSources(loadWebBaselineBundle(), migrationDirectory());
+  } catch {
+    throw new ConfigurationError(['versioned website baseline inputs failed verification']);
+  }
   const cache = environment.cacheRedis;
   const presence = environment.features.mudRedis
     ? getScopedRedisConfiguration('presence', environment)
@@ -309,8 +316,9 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
       'SELECT name FROM knex_migrations ORDER BY name',
     );
     const appliedMigrations = new Set(migrationRows.map((row) => String(row.name)));
+    const baselineCoverage = await verifiedWebBaselineCoverage(database);
     const pendingMigrations = configuration.expectedMigrations.filter(
-      (name) => !appliedMigrations.has(name),
+      (name) => !appliedMigrations.has(name) && !baselineCoverage.has(name),
     );
     if (pendingMigrations.length > 0) {
       throw new ConfigurationError([

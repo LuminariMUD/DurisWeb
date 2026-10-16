@@ -70,6 +70,91 @@ exercise those paths against the unchanged bundle on both database families.
 Explicit feature publication is still required for forum
 taxonomy and wiki/map content.
 
+## Operator procedure
+
+This installer targets a shared database on MySQL 8 or MariaDB 11.8, after
+the MUD owner has installed and verified its schema. It never supplies a game
+baseline. Obtain the approved hash from an owner-reviewed schema/restore record;
+an observed hash and matching table names alone do not prove game compatibility.
+Keep application writers stopped while installing or adopting. Use an isolated
+rehearsal first; shared-environment work requires its own release authorization.
+
+With the backend environment selecting the intended target, substitute its
+literal `host:port/database` and the approved external-schema SHA-256:
+
+```bash
+pnpm --dir backend schema:check
+pnpm --dir backend schema:baseline inspect --target '<host>:<port>/<database>'
+pnpm --dir backend schema:baseline bootstrap \
+  --target '<host>:<port>/<database>' --mud-schema-sha256 '<approved hash>'
+pnpm --dir backend migrate:latest
+pnpm --dir backend migrate:status
+pnpm --dir backend schema:baseline verify \
+  --target '<host>:<port>/<database>' --mud-schema-sha256 '<approved hash>'
+```
+
+`inspect` is read-only and reports the current external table-definition hash.
+The other actions require the explicit target/hash. Database credentials come
+only from backend configuration. Bootstrap refuses populated historical ledgers,
+unrecorded web objects, unsupported database families, wrong MUD names/hash,
+changed inputs, table/metadata drift, and unexpected triggers on web/ledger
+objects. It requires autocommit, foreign-key checks and a strict SQL mode rather
+than silently changing session safeguards. DDL is nontransactional: each attempted table is journaled before its
+creation, verified after creation, then acknowledged. A retry accepts only that
+recorded expected partial shape. Seeds and their acknowledgement commit together.
+An ambiguous commit can be retried without duplicating defaults.
+
+The `web_schema_baselines` provenance record is separate from Knex history.
+The Knex source verifies it and every web table before omitting covered
+**unapplied** historical files. Applied filenames remain visible to Knex ledger
+validation. Later migrations execute and roll back through the ordinary Knex
+path; no historical rows are fabricated or cleared. Production preflight uses
+the same coverage proof and still requires all feature-readiness checks.
+
+Every post-cutoff `NAME.ts` must include a reviewed `NAME.schema.json` beside
+it, containing `sha256` of the migration bytes and a `tables` object. Each
+created or altered web table maps to its complete normalized `SHOW CREATE TABLE`
+hashes, `{ "mysql8": "<sha256>", "mariadb11": "<sha256>" }`, after `up` on
+the corresponding database family. A dropped table maps to `null`; a data-only
+migration uses `{}`. Rehearse `up` and `down` on both families before recording
+these shapes. Include every affected table, including changes to referencing
+tables. Game tables and baseline/Knex metadata cannot be declared web-owned.
+Both `up` and `down` check the SQL Knex emits before it reaches the driver,
+including dynamically assembled SQL and schema-builder calls. Every DDL target,
+rename destination and foreign-key reference must be declared in the contract;
+MUD tables and provenance/Knex metadata cannot be declared. Data-only contracts
+therefore cannot execute DDL. Supported forms are single-statement table DDL and
+index DDL using unqualified canonical table names; indirect/executable-comment,
+trigger/routine, cross-database and administrative DDL fail closed. Use ordinary
+queries for data changes; stored calls and prepared statements are refused.
+This guard preserves historical migration behavior and adds no database grants.
+Do not edit the baseline manifest to record forward states: its hash identifies
+existing installations. Missing/stale contracts and changed migration bytes
+fail validation. Verification composes the baseline with contracts in actual
+applied-ledger order, so repeated `latest`, rollback, status and preflight check
+the installed forward state while still rejecting unrelated drift. Rolling back
+restores the preceding expected state; new web objects must then be absent.
+
+For a matching existing schema and complete historical ledger, replace
+`bootstrap` with `adopt`. Adoption does not seed, replace user rows, alter schema,
+or rewrite the ledger; it records adoption separately. Legacy collation/shape
+differences are explicit refusals, requiring reviewed forward repair. Missing
+history must be investigated, never filled with fictional applied names.
+
+If installation fails, preserve the journal and correct the cause before rerun.
+Do not delete it to make an arbitrary existing schema look fresh. For a recovery
+decision to remove this install, `teardown` with the same target/hash drops only
+objects recorded as created by it, in reverse FK order. It refuses adopted or
+subsequently migrated stores, user data, changed seeds, and drifted objects.
+Deletion progress is journaled for safe retry. It never calls historical downs,
+drops game objects, or automatically restores deleted data. Existing Knex metadata
+is retained; a production restore requires the separately authorized procedure.
+If the final provenance-table drop committed but its acknowledgement was lost,
+retrying teardown succeeds only when provenance and all declared web objects are
+absent, the applied ledger is empty, and the approved external schema still
+matches. This confirms an already absent store without deleting anything; a
+partially present store without provenance is refused.
+
 ## Verification boundary
 
 `webBaselineBundle.test.ts` covers altered artifacts/sources, unknown ownership,
@@ -80,6 +165,8 @@ To opt into DDL/seed checks on **new disposable loopback servers**, use:
 ```bash
 TEST_BASELINE_DB_PORTS=23336,23337 pnpm --dir backend test --runInBand \
   src/db/__tests__/webBaselineBundle.test.ts
+TEST_BASELINE_DB_PORTS=23336,23337 pnpm --dir backend test --runInBand \
+  src/db/__tests__/webBaseline.test.ts
 ```
 
 The fixtures use passwordless root solely on the explicitly selected ports,
@@ -87,7 +174,10 @@ refuse the standard production/development ports, create their own fixed-name
 database, and remove it only if they created it. They verify all installed
 table hashes, foreign-key checks, absence of incoming game FKs, and unchanged
 external sentinel objects/rows. Successful checks on MySQL 8.0.46 and MariaDB
-11.8.9 prove the bundle's syntax and installed shape on those versions. They do
-not prove a supported fresh-MUD bootstrap, existing-ledger adoption, resumable
-installation, migration-source transition, data readiness, or deployment.
-Those acceptance boundaries remain in the execution plan until implemented.
+11.8.9 prove the bundle's syntax and installed shape on those versions. Installer
+tests additionally cover the real CLI, native Knex forward/down/forward without
+fabricated history, synthetic existing-ledger adoption, DDL/seed interruption,
+concurrency, drift/trigger refusal and limited teardown. Their MUD fixtures are
+synthetic metadata/name sentinels. A full owner-verified MUD-schema rehearsal,
+restored-existing-environment qualification, feature readiness, and deployment
+acceptance remain separate requirements; these tests do not certify them.

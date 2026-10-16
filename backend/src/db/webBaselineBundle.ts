@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadMudWriteAllowlist, tableFingerprint } from '../scripts/verifyMudWriteAllowlist.js';
+import { loadMudWriteAllowlist, tableFingerprint } from './mudWriteInventory.js';
 
 export interface BaselineSource {
   name: string;
@@ -12,6 +12,10 @@ export interface BaselineSource {
 export type BaselineDatabaseFamily = 'mysql8' | 'mariadb11';
 export interface BaselineTableSource extends BaselineSource {
   installedSha256: Record<BaselineDatabaseFamily, string>;
+}
+
+export interface WebForwardSchema extends BaselineSource {
+  tables: Record<string, Record<BaselineDatabaseFamily, string> | null>;
 }
 
 export interface BaselineManifest {
@@ -49,7 +53,12 @@ export function sha256(value: string | Buffer): string {
 
 /** AUTO_INCREMENT's current counter is row state, not schema identity. */
 export function installedTableSha256(createTable: string): string {
-  return sha256(createTable.replace(/ AUTO_INCREMENT=\d+/g, ''));
+  return sha256(normalizedTableDefinition(createTable));
+}
+
+export function normalizedTableDefinition(createTable: string): string {
+  // Match the table-options line only; a literal/default can contain these words.
+  return createTable.replace(/^(\) ENGINE=\S+) AUTO_INCREMENT=\d+(?= )/m, '$1');
 }
 
 export function webBaselineDirectory(): string {
@@ -279,4 +288,52 @@ export function verifyWebBaselineSources(
   ) {
     throw new Error('website baseline SQL artifact inventory mismatch');
   }
+  loadWebForwardSchemas(bundle, migrationsDirectory);
+}
+
+/** Mutable forward contracts live beside new migrations, never in the immutable baseline. */
+export function loadWebForwardSchemas(
+  bundle: WebBaselineBundle,
+  directory = path.resolve(webBaselineDirectory(), '../../migrations'),
+): WebForwardSchema[] {
+  const files = fs.readdirSync(directory);
+  const historical = new Set(bundle.manifest.historicalMigrations.map(({ name }) => name));
+  const names = files.filter((name) => name.endsWith('.ts') && !historical.has(name)).sort();
+  const expectedFiles = names.map((name) => name.replace(/\.ts$/, '.schema.json'));
+  if (files.some((name) => name.endsWith('.schema.json') && !expectedFiles.includes(name)))
+    throw new Error('unexpected forward schema contract');
+  const ownership = loadMudWriteAllowlist(path.resolve(webBaselineDirectory(), '../..'));
+  const forbidden = new Set([
+    ...ownership.mudOwnedTables,
+    ...bundle.manifest.additionalMudOwnedTables,
+    'server_reboots',
+    'web_schema_baselines',
+    'knex_migrations',
+    'knex_migrations_lock',
+  ]);
+  return names.map((name) => {
+    const contract = parseBaselineJson(
+      fs.readFileSync(path.join(directory, name.replace(/\.ts$/, '.schema.json')), 'utf8'),
+      name.replace(/\.ts$/, '.schema.json'),
+    );
+    if (
+      !isRecord(contract) ||
+      !isDigest(contract.sha256) ||
+      contract.sha256 !== sha256(fs.readFileSync(path.join(directory, name))) ||
+      !isRecord(contract.tables)
+    )
+      throw new Error('invalid forward schema contract or source checksum');
+    const tables: WebForwardSchema['tables'] = {};
+    for (const [table, shape] of Object.entries(contract.tables)) {
+      if (!isIdentifier(table) || forbidden.has(table))
+        throw new Error('forward schema ownership violation');
+      if (shape === null) tables[table] = null;
+      else {
+        if (!isRecord(shape) || !isDigest(shape.mysql8) || !isDigest(shape.mariadb11))
+          throw new Error('invalid forward schema shape');
+        tables[table] = { mysql8: shape.mysql8, mariadb11: shape.mariadb11 };
+      }
+    }
+    return { name, sha256: contract.sha256, tables };
+  });
 }

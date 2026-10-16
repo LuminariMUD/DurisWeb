@@ -115,8 +115,8 @@ and an operator-approved database baseline.
 
 > [!IMPORTANT]
 > Compose starts database and cache infrastructure. It does **not** create a
-> complete application schema. The historical Knex migration chain cannot
-> bootstrap an empty MUD-compatible database. Follow the
+> complete application schema. Install the explicit website baseline after
+> the MUD owner has provisioned and verified the game schema. Follow the
 > [onboarding guide](docs/onboarding.md) with an approved schema baseline and
 > isolated development data before starting the application.
 

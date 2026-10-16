@@ -9,6 +9,7 @@ import { loadMudWriteAllowlist } from '../../scripts/verifyMudWriteAllowlist.js'
 import {
   type BaselineManifest,
   installedTableSha256,
+  loadWebForwardSchemas,
   loadWebBaselineBundle,
   sha256,
   verifyWebBaselineSources,
@@ -32,6 +33,16 @@ afterEach(() => {
 });
 
 describe('immutable website schema inputs', () => {
+  it('ignores only the table auto-increment counter, preserving identically named text defaults', () => {
+    const ddl =
+      "CREATE TABLE `example` (\n  `value` varchar(100) DEFAULT ' AUTO_INCREMENT=12'\n) ENGINE=InnoDB AUTO_INCREMENT=42 DEFAULT CHARSET=utf8mb4";
+    expect(installedTableSha256(ddl)).toBe(
+      installedTableSha256(ddl.replace('AUTO_INCREMENT=42', 'AUTO_INCREMENT=43')),
+    );
+    expect(installedTableSha256(ddl)).not.toBe(
+      installedTableSha256(ddl.replace('AUTO_INCREMENT=12', 'AUTO_INCREMENT=13')),
+    );
+  });
   it('verifies the full source bundle with no runtime environment or database', () => {
     const result = spawnSync(
       process.execPath,
@@ -61,6 +72,15 @@ describe('immutable website schema inputs', () => {
         path.join(migrations, '049_add_feature.ts'),
         '// future sequential migration',
       );
+      for (const name of ['20261017000000_future_change.ts', '049_add_feature.ts']) {
+        fs.writeFileSync(
+          path.join(migrations, name.replace('.ts', '.schema.json')),
+          JSON.stringify({
+            sha256: sha256(fs.readFileSync(path.join(migrations, name))),
+            tables: {},
+          }),
+        );
+      }
       expect(() => verifyWebBaselineSources(loadWebBaselineBundle(), migrations)).not.toThrow();
       fs.writeFileSync(path.join(migrations, historicalName), '// unexpected past');
       expect(() => verifyWebBaselineSources(loadWebBaselineBundle(), migrations)).toThrow(
@@ -152,6 +172,35 @@ describe('immutable website schema inputs', () => {
       expect(result.stderr).not.toContain('invalid-json-sentinel');
     },
   );
+
+  it('requires forward contracts to pin the migration bytes and web ownership', () => {
+    const { directory } = copyBundle();
+    const source = '20261017000000_future_change.ts';
+    const contract = path.join(directory, source.replace('.ts', '.schema.json'));
+    fs.writeFileSync(path.join(directory, source), '// future migration');
+    const bundle = loadWebBaselineBundle();
+    expect(() => loadWebForwardSchemas(bundle, directory)).toThrow(/ENOENT/);
+    const save = (tables: unknown, digest = sha256('// future migration')) =>
+      fs.writeFileSync(contract, JSON.stringify({ sha256: digest, tables }));
+    save({}, 'a'.repeat(64));
+    expect(() => loadWebForwardSchemas(bundle, directory)).toThrow(/source checksum/);
+    for (const table of [
+      'accounts',
+      'server_reboots',
+      'web_schema_baselines',
+      'knex_migrations',
+      'knex_migrations_lock',
+    ]) {
+      save({ [table]: null });
+      expect(() => loadWebForwardSchemas(bundle, directory)).toThrow(/ownership/);
+    }
+    save({ web_sessions: { mysql8: 'a'.repeat(64) } });
+    expect(() => loadWebForwardSchemas(bundle, directory)).toThrow(/shape/);
+    save({ web_sessions: { mysql8: 'a'.repeat(64), mariadb11: 'b'.repeat(64) }, web_new: null });
+    expect(loadWebForwardSchemas(bundle, directory)[0].tables.web_new).toBeNull();
+    fs.writeFileSync(path.join(directory, '20261018000000_stale.schema.json'), '{}');
+    expect(() => loadWebForwardSchemas(bundle, directory)).toThrow(/unexpected forward/);
+  });
 
   it('rejects altered source checksums, including excluded historical SQL', () => {
     const { directory } = copyBundle();

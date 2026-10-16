@@ -8,8 +8,9 @@ integration services.
 
 Copy `backend/.env.example` to `backend/.env`, replace every required secret,
 and configure a MUD-compatible shared database. See the root
-[onboarding guide](../docs/onboarding.md); the historical migration chain cannot
-bootstrap a new shared schema safely.
+[onboarding guide](../docs/onboarding.md) and explicit
+[website baseline procedure](schema-baselines/README.md). The historical chain
+is retained for existing ledgers, not replayed for a fresh installation.
 
 ## Run Commands
 
@@ -21,6 +22,7 @@ bootstrap a new shared schema safely.
 | `pnpm start` | Run the compiled service |
 | `pnpm config:check` | Validate the complete environment without dependency connections |
 | `pnpm schema:check` | Verify versioned web schema inputs and historical checksums without a database |
+| `pnpm schema:baseline` | Explicit target-confirmed baseline inspection, bootstrap, adoption, verification, or limited teardown |
 | `pnpm test --runInBand` | Run Jest serially |
 | `pnpm format:check` | Check Biome formatting without edits |
 | `pnpm lint` | Run non-mutating ESLint checks |

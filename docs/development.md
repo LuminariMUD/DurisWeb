@@ -87,6 +87,9 @@ pnpm --dir frontend build
 [website schema bundle](../backend/schema-baselines/README.md) and its historical
 checksums without opening a database connection. This is input verification,
 not bootstrap, ledger adoption, or a change to Knex migration discovery.
+Use the separate target-confirmed `schema:baseline` procedure for installation
+or adoption. Knex verifies provenance before skipping covered unapplied history;
+existing applied names stay visible, and later migrations still run normally.
 
 `backend/mud-write-allowlist.json` is the operation-level inventory for direct
 DurisWeb writes to MUD-owned tables. `verify:mud-writes` scans non-test backend
@@ -104,8 +107,10 @@ Knex loads only TypeScript migrations. Every excluded `.sql` artifact is
 classified in `backend/migrations/sql-artifacts.json`, and production
 configuration preflight rejects missing or stale classifications. Do not enable
 all file extensions or replay the SQL set: it includes MUD-owned definitions,
-one-off data repair, and web tables still awaiting a canonical baseline. The
-historical chain is therefore not a zero-to-current bootstrap.
+one-off data repair, and legacy web definitions now covered by the versioned
+baseline. The historical chain is not a zero-to-current bootstrap. The write
+verifier also checks the complete baseline bundle's ownership and source
+inventory; parameterized installer targets come only from that reviewed bundle.
 
 For database tests, copy `backend/.env.test.example` to `backend/.env.test` and
 use isolated credentials/data. Source-text security tests pin sensitive

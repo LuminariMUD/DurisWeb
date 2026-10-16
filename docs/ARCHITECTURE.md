@@ -92,19 +92,32 @@ project-status claims:
 
 ### Migration baseline and provenance
 
-Knex discovers only the TypeScript files in `backend/migrations/`. The legacy
-SQL artifacts in that directory are deliberately excluded and individually
-classified by `backend/migrations/sql-artifacts.json`; production configuration
-preflight fails if that inventory is missing, stale, or incomplete. Some
-artifacts classified as `baseline-pending-conversion` are still the sole
-definitions of web-extension tables. Consequently, the historical Knex chain
-cannot bootstrap an empty shared database.
+The [versioned web baseline](../backend/schema-baselines/README.md) supplies
+explicit website-only schema/defaults and checksums for covered historical
+sources. `schema:check`, the source-write verifier, and production configuration
+preflight verify those inputs without connecting to dependencies. Legacy SQL
+remains excluded and individually classified in `sql-artifacts.json`; MUD
+accounts DDL and one-off data repair are never bootstrap inputs to execute.
 
-Use a versioned, operator-approved schema baseline and verify migration
-postconditions rather than editing the ledger or replaying every SQL artifact.
-Do not add automatic `migrate:latest` to application startup. Development
-fixtures should be deterministic and synthetic; a text-rewritten production
-dump is neither a safe fixture nor a schema authority.
+Installation is an explicit offline operator action against an owner-provisioned
+MUD schema, confirmed target and approved external-schema hash. A separate
+`web_schema_baselines` record journals attempted/completed DDL and seed commit.
+Exact partial shapes can resume after interruption; unknown objects, changed
+checksums, ledger drift, and unexpected web triggers are refused. Adoption of
+matching existing web objects records provenance without replacing data or
+rewriting the original migration ledger. Unsupported shapes need an inspected
+forward repair; `IF NOT EXISTS` is not proof of compatibility.
+
+The custom Knex source retains every applied historical name. Only an installed,
+reverified fresh baseline can omit explicitly covered unapplied names; all later
+TypeScript migrations run normally. Preflight uses the same coverage proof.
+No fictitious `knex_migrations` records are inserted. Teardown refuses adopted,
+migrated, populated, or modified-default stores, and never drops game objects.
+
+Do not run automatic bootstrap or migration at application startup. Development
+fixtures remain synthetic; a rewritten production dump is neither a safe fixture
+nor schema authority. Native bundle/installer tests prove the website mechanism,
+not approval of an arbitrary MUD schema or production feature readiness.
 
 ### Mutation authority and default-closed gates
 
