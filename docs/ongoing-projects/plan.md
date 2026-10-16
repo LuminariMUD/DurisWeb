@@ -4,8 +4,8 @@ Status: **implementation in progress**. Updated 2026-10-17.
 
 Current checkpoint: engineering through P4, the UTC correction, first P5
 collection closure and browser storage-denial repair are published for review
-(#39, #41–#48). The browser choice state machine and draft notice are qualified
-and being published. Active continuation branch: `branch/privacy-browser-choices`.
+(#39, #41–#49). The browser choice state machine and draft notice are qualified
+and published for review. Active continuation branch: `branch/privacy-browser-choices`.
 Next: P6/P7 engineering and unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
@@ -1142,6 +1142,30 @@ outside this request. Keep this single evolving execution plan current.
   Optional visit statistics remain paused while privacy work continues.” Do not
   announce an approved notice, active optional collection or completed subject
   erasure. Keep the approval/retention gates false until their own proof exists.
+
+- **Published browser choices:**
+  [PR #49](https://github.com/LuminariMUD/DurisWeb/pull/49), open/non-draft at code
+  head `9b8dcb3`, stacked on #48 `58c33a0`. Exact local, remote and PR heads
+  match; clean worktree, ahead/behind `0 0` and committed whitespace verified.
+  Final checks include the cookie read-back, keyboard accept/refuse, actual
+  in-flight fetch abort and startup-readiness failure guard. No merge/tag/live
+  operation is needed. Local preview is stopped after qualification; screenshots,
+  browser/native logs and reproducible private runners remain outside Git.
+- **Next continuation:** use `/tmp/durisweb-security-privacy-plan-20261016`,
+  branch `branch/privacy-browser-choices`, and start a new dependent branch from
+  its published head. First repair the already identified post-image/R2 deletion
+  recovery gap as a separate focused change: a failed/disabled object deletion
+  must retain the database retry identity, for both user orphan deletion and
+  hourly cleanup. Inspect handlers/callers and reuse current feature gates; do
+  not contact providers or delete live data. Then implement P6 bounded dry-run /
+  approved-rule/hold/restore controls and P7 verified request/export/erasure
+  tracking. The full lifecycle inventory and proposed decisions are in the
+  permanent guide. All unapproved classes remain excluded from destructive
+  execution; pending/invalid audit/delivery and protected imports stay retained.
+  Ask only when a consequential missing decision actually blocks further work,
+  with the concrete source/policy proposal ready to review and plain wording.
+  P5 public/provider/period approval and P8 live release remain open; do not
+  mistake isolated synthetic acceptance for those approvals.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
