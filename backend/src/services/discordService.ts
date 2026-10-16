@@ -1,9 +1,5 @@
-import { pool } from '../db/connection.js';
-import { RowDataPacket } from 'mysql2';
 import logger from '../utils/logger.js';
 import { stripAnsiCodes, extractPlayerName } from '../utils/stringUtils.js';
-import { getPvpDelayMinutes, pvpVisibilitySql, pvpTimestamp } from './pvpVisibility.js';
-import { getWebSetting } from './webSettingsService.js';
 import { getBackendConfiguration } from '../config/environment.js';
 
 // discord embed color
@@ -69,14 +65,6 @@ interface BattleParticipant {
   name?: string;
   pk_type: string;
   leader?: boolean;
-}
-
-/**
- * check if discord posting is enabled
- */
-export async function isDiscordEnabled(): Promise<boolean> {
-  const enabled = await getWebSetting('discord_webhook_enabled');
-  return enabled === 'true' && !!getBackendConfiguration().discordBot;
 }
 
 /**
@@ -281,66 +269,6 @@ export async function postBattleToDiscord(
   } catch {
     logger.error(`[Discord] battle ${eventId}: invalid_payload`);
     return { status: 'failed', code: 'invalid_payload' };
-  }
-}
-
-/**
- * manually post a specific battle to discord (for admin button)
- */
-export async function manualPostBattle(
-  eventId: number,
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    if (!getBackendConfiguration().discordBot) {
-      return { success: false, error: 'Discord bot is not configured' };
-    }
-
-    // fetch battle data
-    const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT
-        e.id, UNIX_TIMESTAMP(e.stamp) AS stamp_epoch, e.room_name,
-        p.player_description, p.pk_type, p.leader
-      FROM pkill_event e
-      LEFT JOIN pkill_info p ON e.id = p.event_id AND p.inroom = 1
-      WHERE e.id = ? AND ${pvpVisibilitySql()}`,
-      [eventId, await getPvpDelayMinutes()],
-    );
-
-    if (rows.length === 0) {
-      return { success: false, error: 'battle not found' };
-    }
-
-    const event = rows[0];
-    const participants: BattleParticipant[] = rows
-      .filter((r) => r.player_description)
-      .map((r) => ({
-        description: r.player_description,
-        pk_type: r.pk_type,
-        leader: !!r.leader,
-      }));
-
-    const embed = buildBattleEmbed(
-      event.id,
-      pvpTimestamp(event.stamp_epoch),
-      event.room_name,
-      participants,
-    );
-    const payload: DiscordPayload = { embeds: [embed] };
-
-    const result = await sendDiscordPayload(payload);
-
-    if (result.status === 'delivered') {
-      logger.info(`[Discord] manually posted battle ${eventId}`);
-      return { success: true };
-    }
-
-    return {
-      success: false,
-      error: 'Failed to send to Discord; check bot channel permissions and try again',
-    };
-  } catch {
-    logger.error('[Discord] manual post failed');
-    return { success: false, error: 'internal error' };
   }
 }
 

@@ -60,7 +60,7 @@ import {
 } from './services/donationOutboxService.js';
 import { createPvpPoller, PVP_POLL_INTERVAL_MS } from './services/pvpPolling.js';
 import {
-  getLatestEvents,
+  getLatestReleasedEvent,
   getReleasedEventsAfter,
   getPvPEventDetail,
 } from './services/pvpService.js';
@@ -127,7 +127,7 @@ import {
   hasWebSocketPermission,
   type WebSocketPrincipal,
 } from './utils/websocketAccess.js';
-import { isDiscordEnabled, postBattleToDiscord } from './services/discordService.js';
+import { pollDiscordDeliveries } from './services/pvpDiscordDelivery.js';
 import { pool } from './db/connection.js';
 import { getBackendConfiguration } from './config/environment.js';
 import { escapeHtml } from './utils/contentParser.js';
@@ -434,6 +434,7 @@ function broadcastToPermission(
 
 // Interval timers that need to be cleared on shutdown
 let eventCheckInterval: NodeJS.Timeout | null = null;
+let discordCheckInterval: NodeJS.Timeout | null = null;
 let fragCheckInterval: NodeJS.Timeout | null = null;
 let orphanImageCleanupInterval: NodeJS.Timeout | null = null;
 const healthBroadcastInterval: NodeJS.Timeout | null = null;
@@ -775,30 +776,6 @@ async function publishReleasedEvent(latestEvent: import('./types/index.js').PvPE
   } catch (error) {
     logger.error('failed to send pvp push notification:', error);
   }
-  try {
-    if (await isDiscordEnabled()) {
-      const participants = [
-        ...latestEvent.killers.map((k) => ({
-          description: k.description,
-          pk_type: k.isLeader ? 'KILLER' : 'KILLER-GROUP',
-          leader: k.isLeader,
-        })),
-        ...latestEvent.victims.map((v) => ({
-          description: v.description,
-          pk_type: v.died ? 'VICTIM' : 'VICTIM-GROUP',
-          leader: v.isLeader,
-        })),
-      ];
-      await postBattleToDiscord(
-        latestEvent.id,
-        latestEvent.stamp,
-        latestEvent.room_name || 'Unknown',
-        participants,
-      );
-    }
-  } catch (error) {
-    logger.error('failed to post to discord:', error);
-  }
 }
 
 // Graceful shutdown
@@ -813,6 +790,7 @@ const gracefulShutdown = async () => {
 
   // Clear all interval timers
   if (eventCheckInterval) clearInterval(eventCheckInterval);
+  if (discordCheckInterval) clearInterval(discordCheckInterval);
   if (fragCheckInterval) clearInterval(fragCheckInterval);
   if (orphanImageCleanupInterval) clearInterval(orphanImageCleanupInterval);
   if (healthBroadcastInterval) clearInterval(healthBroadcastInterval);
@@ -1007,8 +985,10 @@ async function startServer() {
     startPoolSessionInvariantSampling();
 
     // Begin after the newest visible battle; restarting must not replay old notifications.
-    const initialEvents = await getLatestEvents(1, 0);
-    const initialCursor = initialEvents.events[0] || { id: 0, stamp: '1970-01-01T00:00:00.000Z' };
+    const initialCursor = (await getLatestReleasedEvent()) || {
+      id: 0,
+      stamp: '1970-01-01T00:00:00.000Z',
+    };
     pollReleasedEvents = createPvpPoller(
       initialCursor,
       getReleasedEventsAfter,
@@ -1690,6 +1670,11 @@ async function startServer() {
     logger.info(`PvP/frag polling interval set to ${PVP_POLL_INTERVAL_MS / 1000} seconds`);
     eventCheckInterval = setInterval(checkForNewEvents, PVP_POLL_INTERVAL_MS);
     fragCheckInterval = setInterval(checkForFragUpdates, PVP_POLL_INTERVAL_MS);
+    const checkDiscord = () => {
+      void pollDiscordDeliveries().catch(() => logger.error('[Discord] delivery_state_error'));
+    };
+    discordCheckInterval = setInterval(checkDiscord, PVP_POLL_INTERVAL_MS);
+    checkDiscord();
 
     // netstat watcher removed - player count now tracked via mud websocket events
 
