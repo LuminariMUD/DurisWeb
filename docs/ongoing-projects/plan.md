@@ -2,9 +2,10 @@
 
 Status: **implementation in progress**. Updated 2026-10-16.
 
-Current checkpoint: engineering through P4 is published for review. Next is the
-separate raw-settings UTC display correction, then P5–P7. Policy/approval and
-live-release gates remain open; no production rollout is implied.
+Current checkpoint: engineering through P4 and the separate raw-settings UTC
+correction are published for review (#39, #41, #42, #43). Next is P5 notice and
+analytics choice, then P6–P7. Policy/approval and live-release gates remain open;
+no production rollout is implied.
 
 Single working plan for [#7](https://github.com/LuminariMUD/DurisWeb/issues/7),
 [#8](https://github.com/LuminariMUD/DurisWeb/issues/8),
@@ -753,6 +754,15 @@ outside this request. Keep this single evolving execution plan current.
   Prepared admin release wording: “Website-setting update times now show the
   correct UTC instant when server timezones differ.” Publish only after live
   verification; no tag, production or changelog operation occurred.
+
+- **Published UTC follow-up:** [PR #43](https://github.com/LuminariMUD/DurisWeb/pull/43),
+  open/non-draft at code head `beba0f2`, stacked on #42 at `4b28587`. Local HEAD,
+  remote head and API head match, ahead/behind is `0 0`, and the worktree is
+  clean. No rebase, merge, tag or live operation is needed. Next independent
+  engineering stage is P5: inspect both analytics mounts, direct service callers,
+  CSRF exemption and unconditional client tracking before defining the smallest
+  enforceable choice boundary. Keep optional providers disabled until approved;
+  do not infer policy/retention approval from the supplied contact details.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
