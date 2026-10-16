@@ -292,7 +292,7 @@ describe('Discord bot battle delivery', () => {
     );
   });
 
-  it('does not overlap slow requests and releases the guard after a failure', async () => {
+  it('waits for a slow test message before sending automatic battles, including after failure', async () => {
     let reject!: (reason: Error) => void;
     jest.mocked(fetch).mockImplementationOnce(
       () =>
@@ -300,18 +300,20 @@ describe('Discord bot battle delivery', () => {
           reject = fail;
         }),
     );
-    const first = service.postBattleToDiscord(4, '2026-10-16', 'Room', []);
-    expect(await service.postBattleToDiscord(5, '2026-10-16', 'Room', [])).toMatchObject({
-      status: 'retry',
-      code: 'busy',
-      ambiguous: false,
-    });
+    const first = service.testDiscordBot();
+    await Promise.resolve();
+    const second = service.postBattleToDiscord(4, '2026-10-16', 'Room', []);
+    const third = service.postBattleToDiscord(5, '2026-10-16', 'Room', []);
+    await Promise.resolve();
     expect(fetch).toHaveBeenCalledTimes(1);
-    reject(new Error('timeout'));
-    await expect(first).resolves.toMatchObject({ status: 'retry', code: 'network_error' });
     now += 1000;
-    expect(await service.postBattleToDiscord(5, '2026-10-16', 'Room', [])).toMatchObject({
-      status: 'delivered',
-    });
+    reject(new Error('timeout'));
+    await expect(first).resolves.toEqual({ success: false, error: 'failed to send test message' });
+    await expect(second).resolves.toMatchObject({ status: 'delivered' });
+    now += 1000;
+    await expect(third).resolves.toMatchObject({ status: 'delivered' });
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(String(jest.mocked(fetch).mock.calls[1][1]?.body)).toContain('/pvp/4');
+    expect(String(jest.mocked(fetch).mock.calls[2][1]?.body)).toContain('/pvp/5');
   });
 });

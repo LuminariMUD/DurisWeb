@@ -150,55 +150,59 @@ async function attemptBattle(
     // Each explicit manual post is intentional; automatic retries reuse the stored nonce.
     manual ? undefined : { channelId, nonce: String(delivery.nonce) },
   );
-  if (result.status === 'delivered' && !alreadyDelivered) {
-    await connection.query(
-      `UPDATE web_pvp_discord_deliveries SET status = 'delivered', delivered_at = UTC_TIMESTAMP(),
+  // Keep the pre-send marker durable, then commit the receipt and destination
+  // policy together. A failed commit leaves a recoverable, uncertain attempt.
+  await connection.beginTransaction();
+  try {
+    if (result.status === 'delivered' && !alreadyDelivered) {
+      await connection.query(
+        `UPDATE web_pvp_discord_deliveries SET status = 'delivered', delivered_at = UTC_TIMESTAMP(),
        delivered_by = ?, message_id = ?, error_code = NULL, updated_at = UTC_TIMESTAMP()
        WHERE channel_id = ? AND event_id = ?`,
-      [manual ? 'manual' : 'automatic', result.messageId, channelId, eventId],
-    );
-  } else if (result.status !== 'delivered' && !alreadyDelivered) {
-    const seconds =
-      result.status === 'retry'
-        ? Math.max(
-            Math.ceil(result.retryAfterMs / 1000),
-            Math.min(MAX_BACKOFF_SECONDS, 30 * 2 ** Math.min(Number(delivery.attempts), 7)),
-          )
-        : 0;
-    await connection.query(
-      `UPDATE web_pvp_discord_deliveries SET status = ?, error_code = ?,
+        [manual ? 'manual' : 'automatic', result.messageId, channelId, eventId],
+      );
+    } else if (result.status !== 'delivered' && !alreadyDelivered) {
+      const seconds =
+        result.status === 'retry'
+          ? Math.max(
+              Math.ceil(result.retryAfterMs / 1000),
+              Math.min(MAX_BACKOFF_SECONDS, 30 * 2 ** Math.min(Number(delivery.attempts), 7)),
+            )
+          : 0;
+      await connection.query(
+        `UPDATE web_pvp_discord_deliveries SET status = ?, error_code = ?,
        ambiguous = ambiguous OR ?, available_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND),
        updated_at = UTC_TIMESTAMP() WHERE channel_id = ? AND event_id = ?`,
-      [
-        result.status === 'retry' ? 'pending' : 'failed',
-        result.code,
-        result.status === 'retry' && result.ambiguous,
-        seconds,
-        channelId,
-        eventId,
-      ],
-    );
-  }
-  if (
-    result.status === 'failed' &&
-    ['unauthorized', 'forbidden', 'not_found', 'not_configured', 'destination_changed'].includes(
-      result.code,
-    )
-  ) {
-    await connection.query(
-      'UPDATE web_pvp_discord_destinations SET blocked_reason = ? WHERE channel_id = ?',
-      [result.code, channelId],
-    );
-  } else if (result.status === 'retry') {
-    // A failing channel should not receive one request per queued event in this batch.
-    const seconds = Math.max(
-      Math.ceil(result.retryAfterMs / 1000),
-      Math.min(MAX_BACKOFF_SECONDS, 30 * 2 ** Math.min(Number(delivery.attempts), 7)),
-    );
-    await connection.query(
-      'UPDATE web_pvp_discord_destinations SET available_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND) WHERE channel_id = ?',
-      [seconds, channelId],
-    );
+        [
+          result.status === 'retry' ? 'pending' : 'failed',
+          result.code,
+          result.status === 'retry' && result.ambiguous,
+          seconds,
+          channelId,
+          eventId,
+        ],
+      );
+    }
+    if (result.status === 'failed' && result.code !== 'invalid_payload') {
+      await connection.query(
+        'UPDATE web_pvp_discord_destinations SET blocked_reason = ? WHERE channel_id = ?',
+        [result.code, channelId],
+      );
+    } else if (result.status === 'retry') {
+      // A failing channel should not receive one request per queued event in this batch.
+      const seconds = Math.max(
+        Math.ceil(result.retryAfterMs / 1000),
+        Math.min(MAX_BACKOFF_SECONDS, 30 * 2 ** Math.min(Number(delivery.attempts), 7)),
+      );
+      await connection.query(
+        'UPDATE web_pvp_discord_destinations SET available_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND) WHERE channel_id = ?',
+        [seconds, channelId],
+      );
+    }
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
   }
   return result;
 }
@@ -249,9 +253,7 @@ export async function pollDiscordDeliveries(): Promise<void> {
       if (
         !result ||
         result.status === 'retry' ||
-        (result.status === 'failed' &&
-          result.code !== 'invalid_payload' &&
-          result.code !== 'http_error')
+        (result.status === 'failed' && result.code !== 'invalid_payload')
       )
         break;
     }
@@ -314,6 +316,10 @@ export async function getDiscordDeliveryStatus(): Promise<DiscordDeliveryStatus>
   const bot = getBackendConfiguration().discordBot;
   const connection = await pool.getConnection();
   try {
+    // Pool sessions may use READ COMMITTED; pin this read-only transaction so
+    // worker/retry commits cannot mix counts, receipts, and details in one response.
+    await connection.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+    await connection.query('START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY');
     const settings = await readDeliverySettings(connection);
     const currentChannel = bot?.channelId || '';
     const [destinations] = await connection.query<RowDataPacket[]>(
@@ -340,11 +346,21 @@ export async function getDiscordDeliveryStatus(): Promise<DiscordDeliveryStatus>
       [STATUS_TIME_FORMAT, currentChannel],
     );
     const [other] = await connection.query<RowDataPacket[]>(
-      `SELECT channel_id, COUNT(*) AS outstanding FROM web_pvp_discord_deliveries
-       WHERE channel_id != ? AND status != 'delivered' GROUP BY channel_id ORDER BY channel_id`,
-      [currentChannel],
+      `SELECT channel_id, SUM(outstanding) AS outstanding FROM (
+         SELECT channel_id, COUNT(*) AS outstanding FROM web_pvp_discord_deliveries
+         WHERE channel_id != ? AND status != 'delivered' GROUP BY channel_id
+         UNION ALL
+         SELECT destination.channel_id, COUNT(*) AS outstanding
+         FROM web_pvp_discord_destinations destination
+         JOIN pkill_event e ON e.id > destination.boundary_event_id
+         LEFT JOIN web_pvp_discord_deliveries d
+           ON d.channel_id = destination.channel_id AND d.event_id = e.id
+         WHERE destination.channel_id != ? AND d.event_id IS NULL AND ${pvpVisibilitySql()}
+         GROUP BY destination.channel_id
+       ) backlog GROUP BY channel_id ORDER BY channel_id`,
+      [currentChannel, currentChannel, settings.delay],
     );
-    return {
+    const status: DiscordDeliveryStatus = {
       configured: !!bot,
       enabled: settings.enabled,
       channelId: bot?.channelId || null,
@@ -370,6 +386,11 @@ export async function getDiscordDeliveryStatus(): Promise<DiscordDeliveryStatus>
         outstanding: Number(row.outstanding),
       })),
     };
+    await connection.commit();
+    return status;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
   } finally {
     connection.release();
   }
