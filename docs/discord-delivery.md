@@ -40,14 +40,20 @@ Do not run the whole historical migration chain against an empty MUD database.
 
 Discord runs independently of browser WebSocket/push notifications every 30
 seconds. Each pass discovers and sends at most 100 events in timestamp/ID order.
-Discovery selects eligible events missing a delivery record; no moving delivery
-cursor or full public-list count can skip a late commit. Each attempt reloads
+Discovery selects eligible events above the fixed activation ID cutoff that are
+missing a delivery record; no moving delivery cursor or full public-list count
+can skip a late commit above that cutoff. Each attempt reloads
 the enabled setting and privacy delay and checks the same release predicate as
 the public API. Already-sent messages cannot be retracted by raising the delay.
 
 - **First enable:** commit the current maximum event ID as a destination boundary
   in the same transaction as the enabled setting. Older events, including ones
-  still embargoed, are excluded from automatic backfill. When upgrading an
+  still embargoed, are excluded from automatic backfill. This is an ID cutoff,
+  not a transaction-commit-time boundary: an earlier reserved ID at or below the
+  cutoff remains excluded even if its transaction commits after activation.
+  Use an explicit manual post for such a visible battle. Late commits with IDs
+  above the cutoff remain discoverable regardless of their commit order.
+  When upgrading an
   already-enabled installation or selecting a new channel, this initialization
   occurs on the first worker pass. Use manual posts for specific visible history.
 - **Pause/resume:** pausing stops sends, retains pending work, and continues
