@@ -2834,21 +2834,21 @@ router.get(
       const offset = (page - 1) * limit;
 
       const params: any[] = [];
-      let whereClause = '';
+      let whereClause = " WHERE incident_type = 'crash'";
 
       if (analyzed !== undefined) {
-        whereClause = ' WHERE analyzed = ?';
+        whereClause += ' AND analyzed = ?';
         params.push(analyzed);
       }
 
       const [countRows] = await db.query(
-        `SELECT COUNT(*) as total FROM crash_log${whereClause}`,
+        `SELECT COUNT(*) as total FROM server_incidents${whereClause}`,
         params,
       );
       const total = (countRows as any)[0].total;
 
       const [crashes] = await db.query<any[]>(
-        `SELECT * FROM crash_log${whereClause} ORDER BY crash_timestamp DESC LIMIT ? OFFSET ?`,
+        `SELECT *, started_at AS crash_timestamp FROM server_incidents${whereClause} ORDER BY started_at DESC LIMIT ? OFFSET ?`,
         [...params, limit, offset],
       );
 
@@ -2889,7 +2889,10 @@ router.get(
     try {
       const { id } = req.params;
 
-      const [crashes] = await db.query('SELECT * FROM crash_log WHERE id = ?', [id]);
+      const [crashes] = await db.query(
+        "SELECT *, started_at AS crash_timestamp FROM server_incidents WHERE id = ? AND incident_type = 'crash'",
+        [id],
+      );
       const row = (crashes as any[])[0];
 
       if (!row) {
@@ -2940,7 +2943,10 @@ router.patch(
 
       if (updates.length > 0) {
         params.push(id);
-        await db.query(`UPDATE crash_log SET ${updates.join(', ')} WHERE id = ?`, params);
+        await db.query(
+          `UPDATE server_incidents SET ${updates.join(', ')} WHERE id = ? AND incident_type = 'crash'`,
+          params,
+        );
       }
 
       return res.json({ success: true });

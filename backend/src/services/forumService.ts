@@ -1735,7 +1735,7 @@ export async function getUserSubscriptions(accountName: string): Promise<{
     const [threadSubs] = await connection.query<RowDataPacket[]>(
       `SELECT
         s.id,
-        s.account_name as accountName,
+        s.user_account_name as accountName,
         s.subscription_type as subscriptionType,
         s.thread_id as threadId,
         s.notification_preference as notificationPreference,
@@ -1872,8 +1872,8 @@ export async function createPostNotifications(
       .map((sub) => [
         sub.account_name,
         'new_post',
-        threadId,
-        postId,
+        `/forum/thread/${threadId}#post-${postId}`,
+        JSON.stringify({ threadId, postId }),
         authorAccount,
         authorCharacter,
         `${characterDisplay} posted in "${threadTitle}"`,
@@ -1883,7 +1883,7 @@ export async function createPostNotifications(
       const notifRows = notifications.map((n) => ['forum', ...n]);
       await connection.query(
         `INSERT INTO notifications
-         (source, account_name, notification_type, thread_id, post_id, triggered_by_account, triggered_by_character, message)
+         (source, account_name, notification_type, link, data, triggered_by_account, triggered_by_character, message)
          VALUES ?`,
         [notifRows],
       );
