@@ -57,8 +57,9 @@ verification. Tests must prove delivery through the worker/API, not only helpers
    normal 15-participant battle because the original renderer exceeded Discord's
    field limit. A separate focused fix on `branch/issue-30-discord-payload-bounds`
    preserves all participant POV links across fields and bounds oversized
-   legacy content with an explicit full-roster link notice. Publication follows
-   this commit, stacked on PR #34.
+   legacy content with an explicit full-roster link notice. Published as
+   [PR #35](https://github.com/LuminariMUD/DurisWeb/pull/35), implementation
+   commit `2fd452d06bd3a497751ea707139b8a6f1947cb1d`, stacked on PR #34.
 
 ### Lifecycle policy to implement and prove
 
@@ -173,9 +174,10 @@ publish only once that exact release is verified live. No live entry was changed
   before retry/status completion and encountered the expected availability
   modal; waiting for the completed state and dismissing that modal corrected the
   harness. No application assertion was weakened.
-- Remaining before completion: final acceptance and focused code review,
-  publish/read back the last PR and current stack heads, then stop temporary
-  services. Full backend suite, real account/session/Discord delivery, shared
+- Final acceptance and focused code review are recorded below; all four PRs
+  were published, attached to the chat, and read back with the expected heads
+  and bases. Temporary Vite and MariaDB services were stopped and their ports
+  verified closed. Full backend suite, real account/session/Discord delivery, shared
   migrations, production release and changelog publication remain unperformed.
 
 ### Final implementation acceptance audit
@@ -232,6 +234,32 @@ the new migration, environment/configuration checks, normal release acceptance,
 and publication/read-back of the prepared Website Changelog entry. Full backend
 suite, live account/session/channel tests, and physical-device/other-engine
 browser acceptance are not claimed.
+
+### Git and takeover state
+
+- All four PRs are open and mergeable, ordered **#32 → #33 → #34 → #35**.
+  The first targets `master`; each later PR targets its predecessor's branch.
+- `master` advanced only by `ade01dd` (adding the requested ablation skill).
+  That commit was merged into the first branch and carried forward through the
+  stack without rewriting any published history. All four branches contain it.
+- Published heads inspected: #32 `3a332501f54cace7d8d5d8617d21f12cff20f228`,
+  #33 `570256d3974e30caa215428642c1515a5a7dfcf8`,
+  #34 `dfed2f5b50151b808fb537fc7cdfb276735bd10d`, and #35's implementation
+  commit above. This documentation-only closeout follows on #35's branch.
+- Source HEAD matched its remote with ahead/behind `0 0`, clean porcelain,
+  `git diff --check`, and verified ancestry through every stack edge before
+  this documentation-only closeout. Refresh these checks before merging.
+- GitHub backend/frontend quality checks succeeded on #32–#34; #35's backend
+  checks succeeded and frontend checks were still running at inspection.
+  Fresh local checks above are the validation evidence, independent of hosted CI.
+- Temporary service cleanup verified the MariaDB data directory was this task's
+  `/tmp/durisweb-issue30-db-01a144e7`, shut it down through its private socket,
+  verified the Vite PID belonged to this frontend, and stopped it. Ports 34931
+  and 5176 no longer listen. A terminated Vite process returns 143 as expected.
+- Next authorized work is review/integration of this stack. There is no unfinished
+  implementation chunk. If deployment is requested separately, use the migration
+  and recovery notes in [Discord delivery](../discord-delivery.md), the normal
+  deployment guide, and the unpublished release-news draft above.
 
 ## Verdict
 
