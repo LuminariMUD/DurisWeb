@@ -27,6 +27,83 @@ afterEach(() => {
 });
 
 describe('Discord bot battle delivery', () => {
+  it('keeps a large team within Discord embed limits without losing participant links', async () => {
+    const names = [
+      'Alpha',
+      'Bravo',
+      'Charlie',
+      'Delta',
+      'Echo',
+      'Foxtrot',
+      'Golf',
+      'Hotel',
+      'India',
+      'Juliet',
+      'Kilo',
+      'Lima',
+      'Mike',
+      'November',
+      'Oscar',
+    ];
+    const participants = names.map((name, index) => ({
+      description: `[56 Warrior] ${name} -${'G'.repeat(180)}- (Human)`,
+      pk_type: index < 10 ? 'KILLER-GROUP' : 'VICTIM',
+    }));
+    jest.mocked(fetch).mockImplementationOnce(async (_url, init) => {
+      const payload = JSON.parse(String(init?.body)) as {
+        embeds: Array<{
+          title: string;
+          footer: { text: string };
+          fields: Array<{ name: string; value: string }>;
+        }>;
+      };
+      const embed = payload.embeds[0];
+      const size =
+        embed.title.length +
+        embed.footer.text.length +
+        embed.fields.reduce((sum, field) => sum + field.name.length + field.value.length, 0);
+      const valid =
+        embed.title.length <= 256 &&
+        embed.fields.length <= 25 &&
+        size <= 6000 &&
+        embed.fields.every((field) => field.value.length <= 1024);
+      return new Response(valid ? '{"id":"123"}' : '{}', { status: valid ? 200 : 400 });
+    });
+    expect(
+      await service.postBattleToDiscord(4, '2026-10-16', 'Room '.repeat(70), participants),
+    ).toMatchObject({ status: 'delivered' });
+    const payload = String(jest.mocked(fetch).mock.calls[0][1]?.body);
+    for (const name of names) expect(payload).toContain(`/pvp/4?pov=${name}`);
+  });
+
+  it('bounds oversized legacy content and points explicitly to the complete roster', async () => {
+    const participants = Array.from({ length: 50 }, () => ({
+      description: 'Fixture '.repeat(500),
+      pk_type: 'KILLER',
+    }));
+    await service.postBattleToDiscord(4, '2026-10-16', '⚔️'.repeat(300), participants);
+    const payload = JSON.parse(String(jest.mocked(fetch).mock.calls[0][1]?.body)) as {
+      embeds: Array<{
+        title: string;
+        footer: { text: string };
+        fields: Array<{ name: string; value: string }>;
+      }>;
+    };
+    const embed = payload.embeds[0];
+    expect(embed.title.length).toBeLessThanOrEqual(256);
+    expect(embed.fields.length).toBeLessThanOrEqual(25);
+    expect(embed.fields.every((field) => field.value.length <= 1024)).toBe(true);
+    expect(
+      embed.title.length +
+        embed.footer.text.length +
+        embed.fields.reduce((sum, field) => sum + field.name.length + field.value.length, 0),
+    ).toBeLessThanOrEqual(6000);
+    expect(embed.fields.at(-1)).toEqual({
+      name: 'Full roster',
+      value: 'Open the linked battle for all participants and POV logs.',
+    });
+  });
+
   it('posts participant POV links with mentions disabled', async () => {
     expect(
       await service.postBattleToDiscord(4, '2026-10-16', 'Battle Room', [

@@ -67,6 +67,12 @@ interface BattleParticipant {
   leader?: boolean;
 }
 
+function truncateText(value: string, limit: number): string {
+  if (value.length <= limit) return value;
+  // Do not leave a split UTF-16 surrogate at the truncation boundary.
+  return `${value.slice(0, limit - 1).replace(/[\uD800-\uDBFF]$/, '')}…`;
+}
+
 /**
  * format participant for discord display
  */
@@ -80,10 +86,12 @@ function formatParticipant(participant: BattleParticipant, eventId: number): str
 
   if (name) {
     const logUrl = `${SITE_URL}/pvp/${eventId}?pov=${encodeURIComponent(name)}`;
-    return `[${clean}](${logUrl})${suffix}`;
+    const linked = `[${clean}](${logUrl})${suffix}`;
+    if (linked.length <= 1024) return linked;
   }
 
-  return `${clean}${suffix}`;
+  // The embed itself still links to the full battle if a single line is oversized.
+  return truncateText(`${clean}${suffix}`, 1024);
 }
 
 /**
@@ -102,35 +110,54 @@ function buildBattleEmbed(
   const battleUrl = `${SITE_URL}/pvp/${eventId}`;
   const timestamp = stamp instanceof Date ? stamp.toISOString() : new Date(stamp).toISOString();
 
-  const killerLines = killers.map((k) => formatParticipant(k, eventId)).join('\n');
-  const victimLines = victims.map((v) => formatParticipant(v, eventId)).join('\n');
-
+  const title = truncateText(`⚔️ PvP Battle at ${cleanRoom}`, 256);
+  const footer = truncateText(`${SITE_URL.replace(/^https?:\/\//, '')}/pvp/${eventId}`, 2048);
   const fields: Array<{ name: string; value: string; inline?: boolean }> = [];
-
-  if (killerLines) {
-    fields.push({
-      name: '⚔️ Killers',
-      value: killerLines,
-      inline: true,
-    });
+  let remaining = 6000 - title.length - footer.length;
+  let omitted = false;
+  const append = (name: string, value: string): boolean => {
+    // Reserve a field and 100 characters for an explicit full-roster notice.
+    if (fields.length >= 24 || name.length + value.length > remaining - 100) return false;
+    fields.push({ name, value, inline: true });
+    remaining -= name.length + value.length;
+    return true;
+  };
+  teams: for (const [label, team] of [
+    ['⚔️ Killers', killers],
+    ['💀 Victims', victims],
+  ] as const) {
+    let value = '';
+    for (const participant of team) {
+      const line = formatParticipant(participant, eventId);
+      if (value && value.length + 1 + line.length > 1024) {
+        if (!append(label, value)) {
+          omitted = true;
+          break teams;
+        }
+        value = '';
+      }
+      value += `${value ? '\n' : ''}${line}`;
+    }
+    if (value && !append(label, value)) {
+      omitted = true;
+      break;
+    }
   }
-
-  if (victimLines) {
+  if (omitted) {
     fields.push({
-      name: '💀 Victims',
-      value: victimLines,
-      inline: true,
+      name: 'Full roster',
+      value: 'Open the linked battle for all participants and POV logs.',
     });
   }
 
   return {
-    title: `⚔️ PvP Battle at ${cleanRoom}`,
+    title,
     color: EMBED_COLOR,
     timestamp,
     url: battleUrl,
     fields,
     footer: {
-      text: `${SITE_URL.replace(/^https?:\/\//, '')}/pvp/${eventId}`,
+      text: footer,
     },
   };
 }
