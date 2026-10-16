@@ -1,6 +1,9 @@
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import request from 'supertest';
+import mysql from 'mysql2/promise';
+import type { RowDataPacket } from 'mysql2/promise';
+import { loadWebBaselineBundle } from '../../db/webBaselineBundle.js';
 import { beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const assignRole = jest.fn<(...args: unknown[]) => Promise<unknown>>();
@@ -225,6 +228,88 @@ describe('admin account permission ID validation', () => {
     updateRole.mockResolvedValue(undefined);
     poolQuery.mockResolvedValue([[]]);
   });
+
+  const baselinePorts = (process.env.TEST_BASELINE_DB_PORTS ?? '')
+    .split(',')
+    .filter(Boolean)
+    .map(Number);
+  if (
+    baselinePorts.some(
+      (port) =>
+        !Number.isInteger(port) ||
+        port < 1024 ||
+        port > 65535 ||
+        [3306, 3307, 13306].includes(port),
+    )
+  ) {
+    throw new Error('TEST_BASELINE_DB_PORTS must select disposable loopback servers');
+  }
+  for (const port of baselinePorts) {
+    it(`serves and updates only crash incidents on the canonical schema at port ${port}`, async () => {
+      const connection = await mysql.createConnection({
+        host: '127.0.0.1',
+        port,
+        user: 'root',
+        dateStrings: true,
+      });
+      const database = 'durisweb_admin_crash_baseline_test';
+      let created = false;
+      try {
+        await connection.query(
+          `CREATE DATABASE ${database} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+        );
+        created = true;
+        await connection.changeUser({ database });
+        const table = loadWebBaselineBundle().tables.find(
+          ({ name }) => name === 'server_incidents',
+        );
+        if (!table) throw new Error('Missing canonical incident schema');
+        await connection.query(table.sql);
+        await connection.query(`INSERT INTO server_incidents (id, started_at, incident_type, title, analyzed) VALUES
+          (1, '2026-10-16 10:00:00', 'crash', 'Synthetic crash', 0),
+          (2, '2026-10-16 11:00:00', 'crash', 'Reviewed crash', 1),
+          (3, '2026-10-16 12:00:00', 'maintenance', 'Maintenance', 0)`);
+        poolQuery.mockImplementation(async (sql, values) => {
+          if (typeof sql !== 'string' || (values !== undefined && !Array.isArray(values))) {
+            throw new Error('Expected parameterized SQL');
+          }
+          return connection.query(sql, values);
+        });
+        const list = await request(app).get('/api/admin/crashes?analyzed=false');
+        expect(list.status).toBe(200);
+        expect(list.body.pagination.total).toBe(1);
+        expect(list.body.crashes).toHaveLength(1);
+        expect(list.body.crashes[0]).toMatchObject({
+          id: 1,
+          crash_timestamp: '2026-10-16T10:00:00Z',
+        });
+        const detail = await request(app).get('/api/admin/crashes/1');
+        expect(detail.status).toBe(200);
+        expect(detail.body.crash.crash_timestamp).toBe('2026-10-16T10:00:00Z');
+        expect((await request(app).get('/api/admin/crashes/3')).status).toBe(404);
+        expect(
+          (
+            await request(app)
+              .patch('/api/admin/crashes/1')
+              .send({ analyzed: true, notes: 'Reviewed synthetic crash' })
+          ).status,
+        ).toBe(200);
+        await request(app)
+          .patch('/api/admin/crashes/3')
+          .send({ analyzed: true, notes: 'Must not change maintenance' });
+        const [rows] = await connection.query<RowDataPacket[]>(
+          'SELECT id, analyzed, notes FROM server_incidents WHERE id IN (1,3) ORDER BY id',
+        );
+        expect(rows).toEqual([
+          { id: 1, analyzed: 1, notes: 'Reviewed synthetic crash' },
+          { id: 3, analyzed: 0, notes: null },
+        ]);
+      } finally {
+        if (created) await connection.query(`DROP DATABASE ${database}`);
+        await connection.end();
+      }
+    }, 60000);
+  }
 
   it('protects delivery status and retry with authentication and manage_front_page permission', async () => {
     authenticated = false;
