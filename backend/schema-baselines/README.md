@@ -29,9 +29,10 @@ change Knex discovery, or certify an existing database.
   are populated. Installation timestamps use column defaults.
 - `manifest.json`: source checksums and covered filenames, excluded MUD DDL
   and one-off SQL repair, MUD baseline identity, artifact/table checksums, and
-  installed `SHOW CREATE TABLE` hashes for MySQL 8 and MariaDB 11. The mutable
-  auto-increment counter is excluded from installed-shape hashes; columns,
-  defaults, nullability, indexes, constraints, engine and collation remain.
+  installed `SHOW CREATE TABLE` hashes for MySQL 8 and MariaDB 11. These are
+  immutable derivation evidence. Runtime verification uses the stored metadata
+  contract described below because equivalent restored schemas can render
+  different `SHOW CREATE TABLE` text.
 
 The schema was derived in a new, empty synthetic MySQL database from the
 12 classified legacy web SQL artifacts followed by the 85 historical
@@ -132,3 +133,45 @@ concurrency, drift/trigger refusal and limited teardown. Their MUD fixtures are
 synthetic metadata/name sentinels. A full owner-verified MUD-schema rehearsal,
 restored-existing-environment qualification, feature readiness, and deployment
 acceptance remain separate requirements; these tests do not certify them.
+
+For full-schema qualification, additionally point at a read-only checkout of
+the MUD owner's published migration sources:
+
+```bash
+TEST_BASELINE_DB_PORTS=23336,23337 \
+TEST_BASELINE_MUD_SOURCE=/path/to/DurisMUD/migrations \
+pnpm --dir backend test --runInBand \
+  src/db/__tests__/webBaselineQualification.test.ts
+```
+
+The helper verifies the owner's baseline identity, immutable SQL checksums,
+runtime head and normalized metadata contract, then applies those SQL inputs
+only to newly created disposable databases. It never invokes MUD scripts or
+invents owner migration history. The fresh web path checks empty-feature refusal,
+synthetic feature publication, representative queries, and unchanged owner
+metadata. The existing-web path genuinely executes the original web sources in
+a synthetic derivation database, dumps only web tables and the real Knex ledger,
+restores them beside the full owner schema, and verifies adoption preserves the
+ledger, rows and owner metadata. It is not a production-data rehearsal.
+
+## Stored metadata verification
+
+`../schema-contracts/web-baseline-v1.json` pins native metadata signatures to this
+immutable baseline manifest. The reader compares table engine/collation/options,
+column order/type/default/nullability/text encoding/generated expressions,
+index columns/order/prefixes/uniqueness/visibility, foreign-key targets/rules,
+and exact CHECK clauses/enforcement. Engine-assigned CHECK names and mutable
+auto-increment counters do not affect behavior and are excluded. Knex's ASCII
+filename ledger accepts its three documented historical utf8mb4 collations;
+website text columns still require the canonical collation.
+
+Native qualification found matching column/index/FK metadata for canonical and
+historical schemas on both engines. The sole accepted clause variation is
+`forum_subscriptions`: ASCII `thread`/`category` literals carry different
+charset introducers after historical replay. Both explicitly pinned forms pass
+the complete subscription truth table; weakened CHECKs, changed nullability and
+extra uniqueness constraints are rejected. Redundant per-column charset
+rendering also no longer rejects a valid restored ledger. No schema repair or
+new migration is needed for these rendering differences. New application schema
+changes require forward migrations and versioned postconditions; never edit
+these accepted baseline signatures to hide drift.

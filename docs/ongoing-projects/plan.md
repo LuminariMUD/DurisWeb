@@ -75,7 +75,7 @@ outside this request. Keep this single evolving execution plan current.
 - **P2 delivery split:** publish the baseline inputs/checker as P2a first;
   stack the installer/adoption/migration transition as P2b. Each remains a
   focused reviewable chunk; #14 stays open until all P2 acceptance passes.
-- **Current chunk: P2a / #14. Outcome:** an explicit website-only baseline and
+- **Delivered P2a / #14. Outcome:** an explicit website-only baseline and
   checksummed input verification, with native DDL/seed proof on both supported
   database families. **Non-goals:** running historical MUD alterations,
   copying a production schema/data dump, deploying, or fabricating historical
@@ -119,7 +119,7 @@ outside this request. Keep this single evolving execution plan current.
 - **Published P2a:** [PR #37](https://github.com/LuminariMUD/DurisWeb/pull/37),
   open/non-draft, head `f80592b`, stacked on #36. Exact local/remote head,
   ahead/behind `0 0`, and a clean worktree were verified.
-- **Current chunk: P2b** on `branch/issue-14-web-schema-bootstrap`: guarded
+- **Delivered P2b** on `branch/issue-14-web-schema-bootstrap`: guarded
   bootstrap/adoption/verify/teardown, durable per-DDL progress, transactional
   seed/provenance acknowledgement, and migration/preflight coverage. Require
   an explicit target and owner-approved external-schema hash, fail on unknown
@@ -183,12 +183,103 @@ outside this request. Keep this single evolving execution plan current.
   open/non-draft, code head `d612723`, stacked on #37 → #36. Exact published
   head, ahead/behind `0 0`, and clean worktree verified. No merges requested.
 - **Continuation:** finish P2c's full-source/synthetic-schema qualification and
-  legacy collation repair before claiming #14 complete. P3 session changes
+  repair only evidenced legacy differences before claiming #14 complete. P3 session changes
   remain unstarted. Original checkout `.env` and `backend/.env` are absent,
   verified without reading any credentials; do not infer a configured local or
   production target from existing Docker container names. Continue with the
   dedicated disposable containers and explicit synthetic credentials. Owner
   policy/release questions remain deferred until genuinely necessary.
+- **Current chunk: P2c** on `branch/issue-14-baseline-qualification`, based on
+  #38 at `4c5b8c1`. PR #38's API and remote ref both matched that full published
+  head, with a clean worktree and `0 0` ahead/behind. #37's hosted checks passed;
+  #38's latest hosted checks were pending when read (local gates passed).
+  **Outcome:** qualify full source-owned MUD schema inputs plus existing web
+  layouts, repair evidenced web-only drift, and exercise representative queries
+  and readiness checks. **Non-goals:** operating the MUD repository/server,
+  shared DB changes, copied production dumps, or invented owner migration rows.
+  **Files:** focused qualification fixtures/tests, any demonstrated forward web
+  repair and its verification contract, appropriate guides, and this plan.
+  **Proof:** pinned owner SQL/metadata contracts as read-only fixture inputs,
+  two disposable engines, fresh and restored synthetic web paths, unchanged
+  owner metadata, and the required package gates. No MUD repository script has
+  been run; owner source files are being inspected only.
+- **P2c full owner inputs:** the owner-published
+  `bootstrap_multithread_safe.sql` plus 43 immutable apply files were read and
+  checksum-verified against the manifest, assembled privately, then loaded
+  only into the two dedicated disposable databases. No owner tool/script was
+  invoked and no owner ledger rows were invented. The pinned head is
+  `0043_news_acknowledgement`, with **198** runtime tables. Assembled SQL SHA-256
+  is `0eeafb7f255de210748b49336968bf19037d5b6601061d78e96bbd816dc75c59`;
+  input evidence is `/tmp/durisweb-owner-schema-inputs-20261016/inputs.json`.
+  The owner's published normalized metadata fingerprints matched exactly:
+  MySQL `403c2a9941ce5746491919b2cc8cd91bed55b959adc681a66f0fceef04b90d23`,
+  MariaDB `995f0c9f1a726dc25e3ce1104627ebff02e0414e7d2e48595f94de7ce3b0e8e2`.
+  Website bootstrap succeeded on each and preserved both fingerprints exactly.
+- **P2c native proof:** a source-only fixture helper and native tests reproduce
+  the full-owner check, validate real readiness readers, and build a genuinely
+  executed historical *synthetic fixture* for web-only dump/restore/adoption.
+  Historical replay is solely test-data derivation, never the supported
+  installer. All 85 original Knex ledger rows and synthetic application rows
+  survive restore/adoption unchanged. Both owner metadata hashes remain exact.
+  A new private Redis container on loopback port 23379 serves only these tests;
+  no existing development/production cache was touched. The two native suites
+  pass **28 tests** on MySQL 8.0.46 and MariaDB 11.8.9:
+  `TEST_BASELINE_DB_PORTS=23336,23337 TEST_BASELINE_MUD_SOURCE=
+  /home/aiwithapex/projects/duris/migrations pnpm --dir backend test --runInBand
+  src/db/__tests__/webBaseline.test.ts
+  src/db/__tests__/webBaselineQualification.test.ts`. Evidence:
+  `/tmp/durisweb-p2c-native-regressions.log`.
+- **P2c evidenced repairs:** historical replay/restore exposed false drift
+  refusals from raw `SHOW CREATE TABLE` formatting: redundant per-column
+  charset declarations in Knex metadata, and ASCII literal charset introducers
+  in the subscription CHECK. Native probes proved all table/column/index/FK
+  metadata identical; no collation or schema repair migration is justified.
+  Runtime verification now compares stored metadata using the versioned
+  `schema-contracts/web-baseline-v1.json`, pinned to the original immutable
+  manifest and checksum. Only the two source-equivalent subscription CHECK
+  signatures are accepted per engine; a complete eight-case truth table proves
+  behavior. Changed nullability, extra uniqueness, and weakened CHECK semantics
+  are refused. The original baseline artifacts and historical migrations stay
+  byte-for-byte unchanged. This is the single runtime verification path.
+- **P2c actual command regression:** `pnpm --dir backend migrate:latest` exposed
+  Knex discarding the custom migration source when `directory` was also set.
+  Removed the conflicting option; the source owns discovery. Native CLI tests
+  now prove an uninitialized database is refused, then a baseline succeeds with
+  an empty historical ledger. The two-engine focused regression passes:
+  `TEST_BASELINE_DB_PORTS=23336,23337 pnpm --dir backend test --runInBand
+  src/db/__tests__/webBaseline.test.ts --testNamePattern="actual operator CLI"`.
+  Evidence: `/tmp/durisweb-p2c-cli-regression.log`. Fixture databases and users
+  include process identities so simultaneous reviews cannot share/drop them.
+- **P2c broad qualification:** full configuration and dependency preflights
+  pass on both engines against new full-owner + website fixtures and private
+  Redis. Feature readiness uses explicitly synthetic forum/wiki/map publication;
+  an empty schema still fails readiness. The first complete backend run passed
+  114 suites but found one older account-service suite depended on a real
+  account and silently skipped character assertions without data. It now
+  creates/cleans its own unique synthetic account/character and always checks
+  the character behavior. The complete rerun passes **1,116 tests / 115 suites**.
+  No production
+  account or data is used. Private runner:
+  `/tmp/durisweb-run-p2c-suite.mts`; logs:
+  `/tmp/durisweb-p2c-full-suite-mysql.log`,
+  `/tmp/durisweb-p2c-preflight-mariadb.log`.
+- **P2c checks and limits:** `node --import
+  ./backend/node_modules/tsx/dist/loader.mjs /tmp/durisweb-run-p2c-suite.mts
+  23336` runs `pnpm --dir backend migrate:latest`, both preflight modes, and
+  `pnpm --dir backend test --runInBand` with explicit synthetic configuration;
+  the `23337 preflight-only` invocation repeats both preflights on MariaDB.
+  The full suite includes opt-in PvP fixtures on disposable port 23337; the
+  separately completed 28 baseline-native tests are not repeated by that run.
+  `pnpm --dir backend schema:check`, `format:check`, `lint`, `type-check`,
+  `verify:mud-writes --mud-manifest
+  /home/aiwithapex/projects/duris/migrations/migration_manifest.json` (53 writes),
+  `build`, and `git diff --check` pass. Changed TypeScript was formatted with
+  `pnpm --dir backend exec biome format --write` followed by full format checking.
+  No frontend/browser/live/provider check was run for this backend-only chunk.
+  P2 is source-complete with isolated fresh/upgrade evidence; release acceptance
+  remains P8. No visitor-visible change needs Website Changelog publication.
+  No dependency, DDL repair, release tag, merge, deployment or shared operation
+  was introduced. Next engineering stage: P3 sessions (#7/#8).
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
@@ -416,26 +507,26 @@ Design direction: an explicit, versioned **current web schema baseline**, with
 a checksummed provenance record and a reviewed migration-source
 transition. Do not globally enable SQL discovery or replay historical MUD DDL.
 
-- [ ] Derive a website-only schema artifact from all current migrations,
+- [x] Derive a website-only schema artifact from all current migrations,
   runtime queries, and preflight requirements. Record baseline version, artifact
   checksums, exact covered migration filenames/checksums/cutoff, expected web
   tables/columns/indexes/FKs/defaults/collations, required nonsecret seed settings,
   and the compatible MUD baseline identity/fingerprint. Archive legacy SQL as
   classified provenance; replace each pending classification only when its
   replacement is accounted for. Do not copy a production dump into Git.
-- [ ] Implement explicit bootstrap and verify commands under
+- [x] Implement explicit bootstrap and verify commands under
   `backend/src/scripts/`, with a new baseline module/manifest outside the
   historical migration discovery set. Refuse a wrong MUD fingerprint, unknown
   populated web schema, unexpected ledger, ambiguous ownership, or a target
   lacking an explicit approved identity. Installation is never automatic at
   application startup.
-- [ ] Bootstrap only after the owner-provided MUD schema is in place. Create
+- [x] Bootstrap only after the owner-provided MUD schema is in place. Create
   website objects in FK order without new incoming FKs to MUD tables. Treat
   MySQL/MariaDB DDL as nontransactional: persist progress and verify each step;
   interrupted/repeated runs may resume only exact expected partial shapes.
   Never accept an arbitrary existing object merely because `IF NOT EXISTS`
   would skip it.
-- [ ] Use a separate web-baseline provenance record to attest what was actually
+- [x] Use a separate web-baseline provenance record to attest what was actually
   installed. A verified baseline may supersede only its exact covered historical
   migrations for a fresh database. Adapt Knex migration discovery/status and
   production preflight together: keep already-applied historical names visible
@@ -444,27 +535,27 @@ transition. Do not globally enable SQL discovery or replay historical MUD DDL.
   manifest/file checksums and schema postconditions before accepting coverage.
   Never insert fictitious historical `knex_migrations` rows, clear a ledger, or
   change previously applied files to conceal drift.
-- [ ] Existing environments retain their original ledger. Verify their web
+- [x] Existing environments retain their original ledger. Verify their web
   schema/ledger, record adoption separately if needed, and apply only new
   forward migrations. Unsupported older/drifted shapes get an explicit
   diagnostic and a reviewed forward repair, not automatic reconciliation.
-- [ ] Make baseline teardown ownership-aware and limited to objects created by
+- [x] Make baseline teardown ownership-aware and limited to objects created by
   that install, refusing populated/adopted stores unless the approved recovery
   procedure permits it. Give every new migration a tested `down`; document
   irreversible data effects separately. Never use historical rollback across
   the MUD contract boundary.
-- [ ] Rehearse: approved empty MUD schema → baseline → forward changes;
+- [x] Rehearse: approved empty MUD schema → baseline → forward changes;
   synthetic restored existing web schema/ledger → same forward changes;
   interrupted bootstrap; rerun; changed checksum; missing/unknown objects;
   wrong MUD identity; forward/down/forward for each new migration. Exercise
   MySQL 8 and the supported MariaDB deployment family, documenting exact
   versions. Compare normalized web postconditions and MUD fingerprints before
   and after, not only migration exit codes.
-- [ ] Verify representative session, forum/profile/permissions, analytics,
+- [x] Verify representative session, forum/profile/permissions, analytics,
   settings/hook, notification, changelog, and wiki queries, plus configuration
   and dependency preflights. Feature readiness may still require explicit wiki
   publication/forum taxonomy; schema presence alone must not fabricate data.
-- [ ] Update README, backend guide, onboarding, development, architecture,
+- [x] Update README, backend guide, onboarding, development, architecture,
   deployment, and preflight tests to describe the supported paths and recovery.
 
 Exit: both clean setup and existing-ledger upgrade reach equivalent required

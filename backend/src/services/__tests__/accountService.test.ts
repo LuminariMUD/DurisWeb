@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import crypto from 'node:crypto';
 import { pool } from '../../db/connection.js';
 import redis from '../../db/redis.js';
 
@@ -16,23 +17,40 @@ import {
 } from '../accountService.js';
 
 describe('accountService', () => {
-  let testAccountName: string;
+  const identity = crypto.randomBytes(10).toString('hex');
+  const testAccountName = `acct_test_${identity}`;
+  const testCharName = `CharTest${identity}`;
+  let accountCreated = false;
+  let characterCreated = false;
 
   beforeAll(async () => {
-    // find a real account in the database for testing
-    const [rows] = (await pool.query('SELECT account_name FROM accounts LIMIT 1')) as any;
-
-    if (rows.length === 0) {
-      throw new Error('no accounts found in database for testing');
-    }
-
-    testAccountName = rows[0].account_name;
+    await pool.query('INSERT INTO accounts (account_name,email) VALUES (?,?)', [
+      testAccountName,
+      'synthetic@example.invalid',
+    ]);
+    accountCreated = true;
+    await pool.query(
+      'INSERT INTO account_characters (account_name,pid,char_name,login_count,racewar) VALUES (?,0,?,3,1)',
+      [testAccountName, testCharName],
+    );
+    characterCreated = true;
   });
 
   afterAll(async () => {
-    // close connections after tests
-    await pool.end();
-    await redis.quit();
+    try {
+      await clearAccountCache(testAccountName);
+      await redis.del(`mud:char:${testCharName.toLowerCase()}`);
+      if (characterCreated)
+        await pool.query('DELETE FROM account_characters WHERE account_name=? AND char_name=?', [
+          testAccountName,
+          testCharName,
+        ]);
+      if (accountCreated)
+        await pool.query('DELETE FROM accounts WHERE account_name=?', [testAccountName]);
+    } finally {
+      await pool.end();
+      await redis.quit();
+    }
   });
 
   describe('getAccount', () => {
@@ -119,31 +137,11 @@ describe('accountService', () => {
   });
 
   describe('findAccountByCharacter', () => {
-    let testCharName: string;
-    let expectedAccountName: string;
-
-    beforeAll(async () => {
-      // find a real character-account pair for testing
-      const [rows] = (await pool.query(
-        'SELECT char_name, account_name FROM account_characters LIMIT 1',
-      )) as any;
-
-      if (rows.length > 0) {
-        testCharName = rows[0].char_name;
-        expectedAccountName = rows[0].account_name;
-      }
-    });
-
     it('should find account by character name', async () => {
-      if (!testCharName) {
-        console.warn('no characters in database, skipping test');
-        return;
-      }
-
       const accountName = await findAccountByCharacter(testCharName);
 
       expect(accountName).not.toBeNull();
-      expect(accountName!.toLowerCase()).toBe(expectedAccountName.toLowerCase());
+      expect(accountName!.toLowerCase()).toBe(testAccountName.toLowerCase());
     });
 
     it('should return null for non-existent character', async () => {
@@ -152,11 +150,6 @@ describe('accountService', () => {
     });
 
     it('should be case-insensitive', async () => {
-      if (!testCharName) {
-        console.warn('no characters in database, skipping test');
-        return;
-      }
-
       const resultLower = await findAccountByCharacter(testCharName.toLowerCase());
       const resultUpper = await findAccountByCharacter(testCharName.toUpperCase());
 
@@ -253,15 +246,14 @@ describe('accountService', () => {
 
       expect(account).not.toBeNull();
 
-      if (account!.characters.length > 0) {
-        const char = account!.characters[0];
+      expect(account!.characters).toHaveLength(1);
+      const char = account!.characters[0];
 
-        expect(typeof char.name).toBe('string');
-        expect(typeof char.playCount).toBe('number');
-        expect(typeof char.lastLogin).toBe('number');
-        expect(typeof char.blocked).toBe('boolean');
-        expect(typeof char.racewarSide).toBe('number');
-      }
+      expect(char.name).toBe(testCharName);
+      expect(char.playCount).toBe(3);
+      expect(typeof char.lastLogin).toBe('number');
+      expect(typeof char.blocked).toBe('boolean');
+      expect(char.racewarSide).toBe(1);
     });
   });
 });

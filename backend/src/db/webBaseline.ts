@@ -4,7 +4,6 @@ import {
   type BaselineDatabaseFamily,
   type BaselineTable,
   type WebBaselineBundle,
-  installedTableSha256,
   loadWebBaselineBundle,
   normalizedTableDefinition,
   sha256,
@@ -12,11 +11,13 @@ import {
   webBaselineDirectory,
 } from './webBaselineBundle.js';
 import { loadMudWriteAllowlist } from './mudWriteInventory.js';
+import {
+  matchesSchemaPostcondition,
+  schemaRows as rows,
+  type SchemaDatabase,
+} from './schemaPostconditions.js';
 
-type Binding = string | number | boolean | null;
-export interface BaselineDatabase {
-  query(sql: string, bindings?: Binding[]): Promise<unknown>;
-}
+export type BaselineDatabase = SchemaDatabase;
 type BaselineState = 'installing' | 'complete' | 'adopted' | 'removing';
 interface Journal {
   completed: string[];
@@ -34,18 +35,6 @@ export class WebBaselineError extends Error {
   }
 }
 const PROVENANCE_TABLE = 'web_schema_baselines';
-const METADATA_SHAPES: Record<BaselineDatabaseFamily, string> = {
-  mysql8: 'fca1b7730eca3d83f9f8be3de682faeea736d007691091c1ed1dae386dcc75fe',
-  mariadb11: '2c3c0b7798b07f910246a79e1dccfeba174666b25bbadb289715386d173cc175',
-};
-const LEDGER_SHAPES: Record<BaselineDatabaseFamily, string> = {
-  mysql8: 'a75fc3fb9f40f3c1e965b9f81e1ab9cf3f2962dbbdc1f29bb2acddc348b4778e',
-  mariadb11: '25f30ee3b8ba30cf628acce972952b6a11f3cea71a7158c56459819d54d33c13',
-};
-const LOCK_SHAPES: Record<BaselineDatabaseFamily, string> = {
-  mysql8: 'a365d8776d42ff4f3877cfdb0f9da415a287cba73a26c56bbb5d6ad8679fadaa',
-  mariadb11: 'dea866fb533ccb297f885f9e2246a29ee91f88ec0bc66254aad30e6c24ce7ee7',
-};
 const METADATA_DDL = `CREATE TABLE web_schema_baselines (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   manifest_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
@@ -58,16 +47,6 @@ const METADATA_DDL = `CREATE TABLE web_schema_baselines (
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-async function rows(
-  database: BaselineDatabase,
-  sql: string,
-  bindings: Binding[] = [],
-): Promise<Record<string, unknown>[]> {
-  const result = await database.query(sql, bindings);
-  if (!Array.isArray(result) || !Array.isArray(result[0]) || !result[0].every(isRecord))
-    throw new WebBaselineError('invalid_database_response');
-  return result[0];
 }
 async function objectNames(database: BaselineDatabase): Promise<string[]> {
   const result = await rows(
@@ -132,9 +111,7 @@ async function verifyTable(
   table: BaselineTable,
   product: BaselineDatabaseFamily,
 ): Promise<void> {
-  if (
-    installedTableSha256(await createTable(database, table.name)) !== table.installedSha256[product]
-  )
+  if (!(await matchesSchemaPostcondition(database, table.name, product)))
     throw new WebBaselineError(`schema_drift_${table.name}`);
 }
 
@@ -167,18 +144,10 @@ export async function readWebMigrationLedger(
     return [];
   }
   const product = await family(database);
-  // Ledger names are matched to checked-in ASCII filenames. These historical
-  // utf8mb4 collations are equivalent for that allowlisted set, unlike user data.
-  const ledgerDDL = (await createTable(database, 'knex_migrations'))
-    .replaceAll('utf8mb4_0900_ai_ci', 'utf8mb4_unicode_ci')
-    .replaceAll('utf8mb4_general_ci', 'utf8mb4_unicode_ci');
-  if (installedTableSha256(ledgerDDL) !== LEDGER_SHAPES[product])
+  if (!(await matchesSchemaPostcondition(database, 'knex_migrations', product)))
     throw new WebBaselineError('unexpected_migration_ledger_shape');
   if (names.includes('knex_migrations_lock')) {
-    const lockDDL = (await createTable(database, 'knex_migrations_lock'))
-      .replaceAll('utf8mb4_0900_ai_ci', 'utf8mb4_unicode_ci')
-      .replaceAll('utf8mb4_general_ci', 'utf8mb4_unicode_ci');
-    if (installedTableSha256(lockDDL) !== LOCK_SHAPES[product])
+    if (!(await matchesSchemaPostcondition(database, 'knex_migrations_lock', product)))
       throw new WebBaselineError('unexpected_migration_lock_shape');
   }
   const ledger = (await rows(database, 'SELECT name FROM knex_migrations ORDER BY name')).map(
@@ -225,10 +194,7 @@ async function readProvenance(
   bundle: WebBaselineBundle,
 ): Promise<Provenance | null> {
   if (!(await objectNames(database)).includes(PROVENANCE_TABLE)) return null;
-  if (
-    installedTableSha256(await createTable(database, PROVENANCE_TABLE)) !==
-    METADATA_SHAPES[await family(database)]
-  )
+  if (!(await matchesSchemaPostcondition(database, PROVENANCE_TABLE, await family(database))))
     throw new WebBaselineError('provenance_schema_drift');
   const records = await rows(
     database,

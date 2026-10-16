@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { verifiedWebBaselineCoverage } from '../db/webBaseline.js';
+import { loadSchemaPostconditions } from '../db/schemaPostconditions.js';
 import { loadWebBaselineBundle, verifyWebBaselineSources } from '../db/webBaselineBundle.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -152,6 +153,7 @@ export function loadPreflightConfiguration(): PreflightConfiguration {
   verifySqlArtifactClassification();
   try {
     verifyWebBaselineSources(loadWebBaselineBundle(), migrationDirectory());
+    loadSchemaPostconditions();
   } catch {
     throw new ConfigurationError(['versioned website baseline inputs failed verification']);
   }

@@ -56,7 +56,7 @@ async function fixture(
     user: 'root',
     multipleStatements: false,
   });
-  const name = 'durisweb_baseline_engine_test';
+  const name = `durisweb_baseline_engine_${process.pid}`;
   let created = false;
   try {
     await database.query(
@@ -87,6 +87,40 @@ async function fixture(
 
 for (const port of ports) {
   describe(`guarded website baseline on disposable port ${port}`, () => {
+    it('rejects changed nullability, uniqueness and weakened CHECK semantics', async () => {
+      await fixture(port, async (database, expected) => {
+        await runWebBaseline(database, 'bootstrap', expected);
+        await database.query('ALTER TABLE web_settings MODIFY setting_value TEXT NULL');
+        await expect(verifiedWebBaselineCoverage(database)).rejects.toThrow(
+          /schema_drift_web_settings/,
+        );
+        await database.query('ALTER TABLE web_settings MODIFY setting_value TEXT NOT NULL');
+        await database.query(
+          'CREATE UNIQUE INDEX synthetic_extra_unique ON web_sessions (account_name)',
+        );
+        await expect(verifiedWebBaselineCoverage(database)).rejects.toThrow(
+          /schema_drift_web_sessions/,
+        );
+        await database.query('DROP INDEX synthetic_extra_unique ON web_sessions');
+        const [checks] = await database.query<RowDataPacket[]>(
+          "SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='forum_subscriptions' AND CONSTRAINT_TYPE='CHECK'",
+        );
+        const [versions] = await database.query<RowDataPacket[]>('SELECT VERSION() AS version');
+        const drop = String(versions[0].version).includes('MariaDB')
+          ? 'DROP CONSTRAINT'
+          : 'DROP CHECK';
+        await database.query(`ALTER TABLE forum_subscriptions ${drop} ??`, [
+          String(checks[0].CONSTRAINT_NAME),
+        ]);
+        await database.query(
+          'ALTER TABLE forum_subscriptions ADD CONSTRAINT synthetic_weakened CHECK (1=1)',
+        );
+        await expect(verifiedWebBaselineCoverage(database)).rejects.toThrow(
+          /schema_drift_forum_subscriptions/,
+        );
+      });
+    }, 60000);
+
     it('refuses an unrecorded matching object created after initial inspection', async () => {
       await fixture(port, async (database, expected) => {
         let injected = false;
@@ -145,7 +179,7 @@ for (const port of ports) {
 
     it('runs the actual operator CLI with isolated credentials and explicit target confirmation', async () => {
       await fixture(port, async (database, expected, name) => {
-        const user = 'durisweb_baseline_cli_fixture';
+        const user = `dw_baseline_cli_${process.pid}`;
         const password = 'synthetic-baseline-fixture-only';
         let userCreated = false;
         try {
@@ -161,6 +195,18 @@ for (const port of ports) {
             DB_PASSWORD: password,
             DOTENV_CONFIG_QUIET: 'true',
           };
+          const migrate = () =>
+            spawnSync('pnpm', ['migrate:latest'], {
+              cwd: path.resolve(webBaselineDirectory(), '../..'),
+              env: environment,
+              encoding: 'utf8',
+              timeout: 45000,
+            });
+          const uninitialized = migrate();
+          expect(uninitialized.status).toBe(1);
+          expect(uninitialized.stderr + uninitialized.stdout).toContain(
+            'fresh_database_requires_explicit_baseline',
+          );
           const run = (target: string) =>
             spawnSync(
               process.execPath,
@@ -191,6 +237,13 @@ for (const port of ports) {
           });
           expect(result.stdout).toContain('bootstrap verified');
           expect(result.stdout + result.stderr).not.toContain(password);
+          const initialized = migrate();
+          expect(initialized.status).toBe(0);
+          expect(initialized.stdout + initialized.stderr).not.toContain('resets migrationSource');
+          expect(initialized.stdout + initialized.stderr).not.toContain(password);
+          expect(initialized.stdout).toContain('Already up to date');
+          const [ledger] = await database.query('SELECT name FROM knex_migrations');
+          expect(ledger).toEqual([]);
           expect((await verifiedWebBaselineCoverage(database)).size).toBe(85);
         } finally {
           if (userCreated) await database.query('DROP USER ?@?', [user, '%']);

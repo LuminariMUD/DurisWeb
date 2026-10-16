@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadSchemaPostconditions } from '../db/schemaPostconditions.js';
 import {
   loadWebBaselineBundle,
   verifyWebBaselineSources,
@@ -8,6 +9,7 @@ import {
 
 export function checkWebBaseline(): void {
   const bundle = loadWebBaselineBundle();
+  loadSchemaPostconditions();
   verifyWebBaselineSources(bundle, path.resolve(webBaselineDirectory(), '../../migrations'));
   console.log(
     `Website baseline ${bundle.manifest.id}: ${bundle.tables.length} web tables, ${bundle.manifest.historicalMigrations.length} covered migration sources; artifacts verified. No database was inspected or changed.`,
