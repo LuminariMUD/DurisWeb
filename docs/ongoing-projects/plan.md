@@ -7,8 +7,10 @@ collection closure and browser storage-denial repair are published for review
 (#39, #41–#49). The browser choice state machine and draft notice are qualified
 and published for review. The image-removal recovery prerequisite is qualified
 and published as [PR #50](https://github.com/LuminariMUD/DurisWeb/pull/50) on
-`branch/post-image-deletion-recovery`, stacked on #49. Next: P6/P7 engineering
-and unresolved policy/provider decisions. P5's approved
+`branch/post-image-deletion-recovery`, stacked on #49. Active continuation:
+`branch/retention-readonly-preview`; P6a's bounded read-only CLI and private
+continuation are qualified, awaiting PR publication. Next: P6 holds/mutation/
+restore and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
 
@@ -1284,6 +1286,92 @@ outside this request. Keep this single evolving execution plan current.
   policy/provider/period decisions, complete P5 acceptance and all P8 live
   release steps remain open. Ask only when a necessary consequential decision
   actually blocks further independent work.
+
+- **Current P6a: read-only retention preview**, branch
+  `branch/retention-readonly-preview`, starts at #50 `45b6387`.
+  **Outcome:** an explicit-target/version CLI previews the inventory's proposed
+  30-day raw analytics-event and 90-day login-history cutoffs in bounded,
+  deterministic pages, can continue from a private checkpoint, and prints only
+  aggregate counts. Every result remains an unapproved age candidate, never an
+  assertion of deletability. **Non-goals:** destructive execution, invented
+  periods, holds/mutation/restore acceptance, a scheduler, new database tables,
+  provider calls or MUD operations. Those P6/P7 requirements remain open and
+  follow in dependent chunks. **Files:** fixed draft policy, preview service and
+  CLI/package command, focused unit/native tests, permanent operator/lifecycle
+  guidance and this plan. **Proof:** real MySQL/MariaDB CLI, before/exact/after
+  cutoff and offset cases, bounded continuation/restart, read-only credentials
+  and transaction proof, high-water/exclusion/query-plan checks, malformed input/
+  checkpoint and safe failure tests, plus required backend gates and a PR.
+- **P6a ablation:** use existing timestamp indexes and primary IDs, a dedicated
+  read-only connection/transaction and an optional private checkpoint file.
+  No new queue, schema, generic table inference, policy override or mutation
+  branch is needed to review proposed counts. Existing source-owned metadata
+  checks establish exact table/time/index shapes before scanning. The metrics
+  table's legacy naive `recorded_at DATETIME` has no proven UTC provenance;
+  exclude it rather than inventing conversion. Session physical-row delay,
+  visitor relationships, audit/choice/delivery evidence, held/request/protected
+  content, external copies and every unlisted class remain explicitly excluded.
+  Checkpoints fix policy/rule signature, target, cutoff and ID high water, and
+  contain no account, IP, URL, credential or row payload. A resumed preview has
+  a new read snapshot and is observational across concurrent changes; it can
+  never authorize a later deletion. No owner question is necessary for this
+  non-destructive engineering chunk.
+- **P6a implementation/proof:** the CLI defaults to a read-only preview and
+  refuses execution, unknown/protected classes, target/version mismatch and bad
+  limits before connecting. A fresh owned connection starts a repeatable-read,
+  consistent read-only transaction; the database supplies a fixed epoch and
+  per-class ID high water. Exact selected-table metadata is verified, only
+  cursor IDs/epochs are selected, and 5-second SQL timeouts plus a default
+  2-second monotonic scan budget bound pages. Optional new-only 0600 private
+  checkpoints support restart without printing cursors; they reject shared/
+  linked/oversized/invalid files and rule/target/clock mismatches. Reports say
+  `policyApproved: false`, `executionAvailable: false` and
+  `eligibilityChecks: not_evaluated`; held/exception records may appear among
+  age candidates, so these counts must never authorize deletion.
+- **P6a exact verification commands:**
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-retention-suite.mts 23436` provisions the full owner fixture,
+  website baseline/90 migrations and isolated cache, runs
+  `pnpm --dir backend test --runInBand`, then rechecks readiness and owner
+  fingerprints and removes only its created database/user. **1,233 tests /
+  124 suites pass**; 24 opt-in cases are deliberately skipped (14 image native
+  cases retain #50's two-engine proof; ten privacy native cases retain P5's
+  proof). The new retention cases run, not skip. Final focused runs with
+  `23436 retention-only` and `23437 retention-only` invoke
+  `pnpm --dir backend test --runInBand
+  src/services/__tests__/retentionPreview.test.ts
+  src/services/__tests__/retentionPreviewNative.test.ts`: **13 tests / 2 suites
+  pass on each engine**. Eight unit and five native cases cover cutoff -1/0/+1,
+  epoch 1/unknown time, +00/+03/-07 offsets, exact BIGINT paging, multi-process
+  continuation/high-water exclusion, two synthetic subjects, preserved rows,
+  malformed input/state/files, scan budget and safe failure. The actual CLI
+  works with SELECT on only the two preview tables. EXPLAIN over 1,000 rows per
+  class proves both existing time indexes and no filesort; no new index or
+  schema is needed. All 198 copied owner-table fingerprints remain unchanged.
+- **P6a gates/evidence:** backend `format:check`, `lint`, `type-check`,
+  `verify:mud-writes` (53 writes), `schema:check`, `build`, configuration/
+  dependency preflight, `./scripts/check-config-literals.sh`, lifecycle inventory
+  and `git diff --check` pass. `pnpm --dir backend retention:preview --help`
+  passes without opening dependencies. After extending both scale-index cases,
+  focused two-engine suites and backend format/lint/type checks pass again;
+  unchanged unrelated full-suite checks and build results are reused. Logs:
+  `/tmp/durisweb-retention-full-mysql.log`,
+  `/tmp/durisweb-retention-mysql.log`, `/tmp/durisweb-retention-maria.log`,
+  `/tmp/durisweb-retention-backend-gates.log`; runner and diagnostic probes stay
+  outside Git. No frontend/browser, live/provider or MUD runtime operation was
+  run for this backend CLI chunk. No dependency, runtime setting or migration
+  was added. No Website Changelog entry is needed: this is an operator-only
+  read tool; it changes no visitor feature or deployed retention behavior.
+- **P6a issues found/resolved:** initial native tests rejected schema metadata
+  because global large-number string options changed information-schema numeric
+  fields. Use explicit `CAST(id AS CHAR) AS cursor_id` only on selected IDs;
+  retain normal metadata representation and unchanged strict fingerprints.
+  MariaDB then exposed `FROM_UNIXTIME(0) = NULL`, producing false empty counts;
+  use epoch 1 and an ID-zero initial cursor, including valid epoch-1 rows.
+  Both defects are reproduced by private disposable probes and covered by the
+  final two-engine cases. No schema guard was weakened. Operator/lifecycle/
+  security guides record proposed counts, private indirectly linkable cursor
+  evidence, unresolved retention and the absence of destructive execution.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and

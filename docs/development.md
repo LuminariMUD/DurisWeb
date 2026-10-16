@@ -17,6 +17,7 @@ all three environment files, before running `./scripts/dev.sh`.
 | `pnpm --dir backend type-check` | Check TypeScript without output |
 | `pnpm --dir backend verify:mud-writes` | Fail when a DurisWeb write to a MUD-owned table is missing from `backend/mud-write-allowlist.json` |
 | `pnpm --dir backend migrate:status` | Inspect the selected Knex ledger |
+| `pnpm --dir backend retention:preview --help` | Read-only proposed-age counts, explicit target/version and private continuation; see the [runbook](runbooks/retention-preview.md) |
 
 ## Frontend commands
 
@@ -131,6 +132,13 @@ target; the suite refuses a different database or port. It exercises real
 transactions, HTTP/CSRF, concurrent publication, retry and migration recovery
 with a fake object-storage provider. It never contacts R2. Leave the setting
 absent for a unit-only run; report skipped native coverage explicitly.
+
+Retention-preview native tests use `TEST_RETENTION_DB_PORT` with the separately
+provisioned full-schema `durisweb_qualification_retention_suite` on loopback
+23436/23437. They exercise both database families, actual SELECT-only CLI
+processes, offset/cutoff boundaries, private continuation, scale query plans and
+unchanged rows. The opt-in is independent of image and privacy test databases;
+absent opt-in skips these native cases.
 
 Do not commit `.env` files, dumps, account data, generated deployment output,
 or backup archives. See [Configuration and Environments](environments.md) before
