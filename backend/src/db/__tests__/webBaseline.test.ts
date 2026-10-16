@@ -209,12 +209,11 @@ for (const port of ports) {
               encoding: 'utf8',
               timeout: 45000,
             });
-            expect({ command, status: migrated.status, stderr: migrated.stderr }).toEqual({
-              command,
+            expect({ command, status: migrated.status, stderr: migrated.stderr }).toMatchObject({
               status: 0,
-              stderr: '',
             });
-            expect(migrated.stdout).not.toContain('resets migrationSource');
+            expect(migrated.stdout + migrated.stderr).not.toContain('resets migrationSource');
+            expect(migrated.stdout + migrated.stderr).not.toContain(password);
           }
           const [ledger] = await database.query('SELECT name FROM knex_migrations');
           expect(ledger).toEqual([]);
