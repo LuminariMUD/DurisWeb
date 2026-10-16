@@ -171,6 +171,11 @@ require completion before optional collection can return. Deployment is unverifi
 
 ### Personal Data Inventory
 
+The [table-by-table lifecycle inventory](privacy-data-lifecycle.md) accounts for
+all 77 website baseline tables, current credential/audit overlays, indirect
+subject links, separately owned MUD records and non-SQL/provider copies. It is
+an engineering input; the proposed periods and public wording are unapproved.
+
 | Data | Package / Location | Purpose | Retention / Deletion |
 |------|--------------------|---------|----------------------|
 | Account and character names | `backend`; shared MUD `accounts` and related tables | Identity, login, authorization, game linkage | No general erasure path identified |
