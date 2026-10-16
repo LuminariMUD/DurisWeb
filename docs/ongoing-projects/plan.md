@@ -7,12 +7,12 @@ collection closure and browser storage-denial repair are published for review
 (#39, #41–#49). The browser choice state machine and draft notice are qualified
 and published for review. The image-removal recovery prerequisite is qualified
 and published as [PR #50](https://github.com/LuminariMUD/DurisWeb/pull/50) on
-`branch/post-image-deletion-recovery`, stacked on #49. Active continuation:
-`branch/retention-readonly-preview`; P6a's bounded read-only CLI and private
+`branch/post-image-deletion-recovery`, stacked on #49. P6a's bounded read-only CLI and private
 continuation are qualified and published as
 [PR #51](https://github.com/LuminariMUD/DurisWeb/pull/51), stacked on #50.
-Current P6b branch `branch/privacy-data-hold-records` has qualified hold intent
-storage/API, awaiting focused publication. Next: P6 hold enforcement/mutation/
+Active continuation `branch/privacy-data-hold-records` has qualified hold intent
+storage/API, published as [PR #52](https://github.com/LuminariMUD/DurisWeb/pull/52),
+stacked on #51. Next: P6 hold enforcement/mutation/
 restore and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
@@ -1489,6 +1489,29 @@ outside this request. Keep this single evolving execution plan current.
   overload assertion was corrected without weakening its log-sentinel check.
   Private probes `/tmp/durisweb-hold-concurrency-probe.mts` and
   `/tmp/durisweb-hold-drift-probe.mts` retain the reproductions outside Git.
+- **Published P6b:** [PR #52](https://github.com/LuminariMUD/DurisWeb/pull/52),
+  open/non-draft, code head `8751e6f2506760d3c733fce5ceeb3ba1765684ad`,
+  stacked on #51 `3bd3b2c`. The code push was read back: local/remote/API head
+  matched, ahead/behind `0 0`, and the worktree was clean. This final plan
+  closeout is documentation only. Hosted checks are queued/running at creation;
+  #51's backend/frontend hosted checks pass and its head is unchanged. Master
+  remains `8946860` at the latest refresh. No merge/tag/live operation is
+  warranted. Preserve the original checkout's independent work and the named
+  P3 recovery stash.
+- **Next continuation after #52:** continue from this published branch in
+  `/tmp/durisweb-security-privacy-plan-20261016`. P6c must connect holds to real
+  consumers: preview eligibility reporting/checkpoint invalidation, serialized
+  hold creation/release versus SQL mutation, and eligibility/hold rechecks at
+  commit. Introduce coordination only alongside those consumers and prove a hold
+  acquired after dry-run blocks mutation. Implement the explicitly gated
+  per-class mutation/continuation/ownership and restore/copy handling from P6;
+  unknown/unapproved classes and pending/invalid delivery/audit/request evidence
+  remain excluded. The current hold API still reports enforcement unavailable;
+  existing image/feature cleanup and restore need integration before that claim
+  changes. Retention/notice/provider approvals, P7 verified export/erasure and P8
+  live-release acceptance remain open. No new owner question is needed for
+  independent engineering; do not infer approval of periods or destructive
+  operation from the supplied contact details.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
