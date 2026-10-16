@@ -62,7 +62,13 @@ making defaults explicit across both database families. A legacy table still
 using another collation needs an inspected forward repair before adoption;
 do not silently normalize or accept its fingerprint. Retain the historical
 files and ledger. Unified `notifications` replaces the obsolete forum/builder
-notification stores. Explicit feature publication is still required for forum
+notification stores. The legacy admin crash endpoints read and update only
+`crash` rows in `server_incidents`, exposing `started_at` as `crash_timestamp`;
+they do not require the retired `crash_log` table. Forum subscription queries use
+`user_account_name`, and subscriber notifications store their destination in
+`link` and thread/post identifiers in JSON `data`. Native API/service regressions
+exercise those paths against the unchanged bundle on both database families.
+Explicit feature publication is still required for forum
 taxonomy and wiki/map content.
 
 ## Operator procedure
