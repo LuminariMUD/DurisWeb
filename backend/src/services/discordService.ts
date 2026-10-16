@@ -67,10 +67,19 @@ interface BattleParticipant {
   leader?: boolean;
 }
 
+function truncateText(value: string, limit: number): string {
+  if (value.length <= limit) return value;
+  // Do not leave a split UTF-16 surrogate at the truncation boundary.
+  return `${value.slice(0, limit - 1).replace(/[\uD800-\uDBFF]$/, '')}…`;
+}
+
 /**
  * format participant for discord display
  */
-function formatParticipant(participant: BattleParticipant, eventId: number): string {
+function formatParticipant(
+  participant: BattleParticipant,
+  eventId: number,
+): { text: string; omitted: boolean } {
   const clean = stripAnsiCodes(participant.description).trim();
   const name = participant.name || extractPlayerName(clean);
 
@@ -78,12 +87,15 @@ function formatParticipant(participant: BattleParticipant, eventId: number): str
   if (participant.leader) suffix += ' 👑';
   if (participant.pk_type === 'VICTIM') suffix += ' 🩸';
 
+  let text = `${clean}${suffix}`;
   if (name) {
     const logUrl = `${SITE_URL}/pvp/${eventId}?pov=${encodeURIComponent(name)}`;
-    return `[${clean}](${logUrl})${suffix}`;
+    text = `[${clean}](${logUrl})${suffix}`;
   }
 
-  return `${clean}${suffix}`;
+  const omitted = text.length > 1024;
+  // Dropping even just a POV link needs the same notice as an omitted participant.
+  return { text: omitted ? truncateText(`${clean}${suffix}`, 1024) : text, omitted };
 }
 
 /**
@@ -102,35 +114,62 @@ function buildBattleEmbed(
   const battleUrl = `${SITE_URL}/pvp/${eventId}`;
   const timestamp = stamp instanceof Date ? stamp.toISOString() : new Date(stamp).toISOString();
 
-  const killerLines = killers.map((k) => formatParticipant(k, eventId)).join('\n');
-  const victimLines = victims.map((v) => formatParticipant(v, eventId)).join('\n');
-
+  const title = truncateText(`⚔️ PvP Battle at ${cleanRoom}`, 256);
+  const footer = truncateText(`${SITE_URL.replace(/^https?:\/\//, '')}/pvp/${eventId}`, 2048);
   const fields: Array<{ name: string; value: string; inline?: boolean }> = [];
-
-  if (killerLines) {
-    fields.push({
-      name: '⚔️ Killers',
-      value: killerLines,
-      inline: true,
-    });
+  let remaining = 6000 - title.length - footer.length;
+  let omitted = false;
+  const append = (name: string, value: string): boolean => {
+    if (fields.length >= 25 || name.length + value.length > remaining) return false;
+    fields.push({ name, value, inline: true });
+    remaining -= name.length + value.length;
+    return true;
+  };
+  teams: for (const [label, team] of [
+    ['⚔️ Killers', killers],
+    ['💀 Victims', victims],
+  ] as const) {
+    let value = '';
+    for (const participant of team) {
+      const { text: line, omitted: participantOmitted } = formatParticipant(participant, eventId);
+      omitted ||= participantOmitted;
+      if (value && value.length + 1 + line.length > 1024) {
+        if (!append(label, value)) {
+          omitted = true;
+          break teams;
+        }
+        value = '';
+      }
+      value += `${value ? '\n' : ''}${line}`;
+    }
+    if (value && !append(label, value)) {
+      omitted = true;
+      break;
+    }
   }
-
-  if (victimLines) {
-    fields.push({
-      name: '💀 Victims',
-      value: victimLines,
-      inline: true,
-    });
+  if (omitted) {
+    const notice = {
+      name: 'Full roster',
+      value: 'Open the linked battle for all participants and POV logs.',
+    };
+    // Spend the full budget on complete rosters. Only make room for a notice
+    // after a real omission, including an individually shortened participant.
+    const noticeLength = notice.name.length + notice.value.length;
+    while (fields.length && (fields.length >= 25 || remaining < noticeLength)) {
+      const removed = fields.pop();
+      if (removed) remaining += removed.name.length + removed.value.length;
+    }
+    fields.push(notice);
   }
 
   return {
-    title: `⚔️ PvP Battle at ${cleanRoom}`,
+    title,
     color: EMBED_COLOR,
     timestamp,
     url: battleUrl,
     fields,
     footer: {
-      text: `${SITE_URL.replace(/^https?:\/\//, '')}/pvp/${eventId}`,
+      text: footer,
     },
   };
 }

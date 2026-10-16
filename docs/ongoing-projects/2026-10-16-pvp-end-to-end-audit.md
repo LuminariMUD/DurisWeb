@@ -50,7 +50,16 @@ verification. Tests must prove delivery through the worker/API, not only helpers
    success, pending/failed/uncertain work and sanitized errors, with an authorized
    retry action. Complete lifecycle tests, documentation, release draft and
    requirement-by-requirement audit. Implemented on `branch/issue-30-discord-status`;
-   SQL/route/UI and browser checks pass. PR publication follows this commit.
+   SQL/route/UI and browser checks pass. Published as
+   [PR #34](https://github.com/LuminariMUD/DurisWeb/pull/34), head `dfed2f5`,
+   based on PR #33.
+4. **Large announcement bounds** — final review reproduced HTTP 400 for a
+   normal 15-participant battle because the original renderer exceeded Discord's
+   field limit. A separate focused fix on `branch/issue-30-discord-payload-bounds`
+   preserves all participant POV links across fields and bounds oversized
+   legacy content with an explicit full-roster link notice. Published as
+   [PR #35](https://github.com/LuminariMUD/DurisWeb/pull/35), implementation
+   commit `2fd452d06bd3a497751ea707139b8a6f1947cb1d`, stacked on PR #34.
 
 ### Lifecycle policy to implement and prove
 
@@ -98,10 +107,14 @@ and [rate limits](https://docs.discord.com/developers/topics/rate-limits).
 Admin entry, title **Reliable PvP Discord announcements**:
 `<p>Automatic PvP announcements retain pending battles across website restarts
 and retry temporary Discord failures while respecting the battle visibility
-delay.</p><p>Web Settings shows delivery progress and problems requiring attention.
+delay.</p><p>Web Settings shows consistent delivery progress, retained work for
+other channels, and problems requiring attention. Delegated website managers
+can open these controls from Admin.
 Pausing retains a backlog; a new channel starts with future battles. Manual posts
 remain available. An interrupted delivery can occasionally be duplicated when
-retried.</p>`
+retried.</p><p>Large battle announcements keep participant links where they fit.
+When a participant's details or link cannot fit, a Full roster notice points
+readers to the complete battle record.</p>`
 
 This describes the full intended release, not chunk 1 alone. Reconcile the final
 claims and existing Website Changelog entries after an authorized deployment;
@@ -165,10 +178,97 @@ publish only once that exact release is verified live. No live entry was changed
   before retry/status completion and encountered the expected availability
   modal; waiting for the completed state and dismissing that modal corrected the
   harness. No application assertion was weakened.
-- Remaining before completion: final acceptance and focused code review,
-  publish/read back the last PR and current stack heads, then stop temporary
-  services. Full backend suite, real account/session/Discord delivery, shared
+- Final acceptance and focused code review are recorded below; all four PRs
+  were published, attached to the chat, and read back with the expected heads
+  and bases. Temporary Vite and MariaDB services were stopped and their ports
+  verified closed. Full backend suite, real account/session/Discord delivery, shared
   migrations, production release and changelog publication remain unperformed.
+
+### Final implementation acceptance audit
+
+Checked against every #30 acceptance item, rather than treating the historical
+#31 closure or passing helper tests as completion:
+
+1. **All newly eligible events, ties, multiple batches:** actual SQL discovery
+   and worker tests deliver 104 new same-timestamp events across passes. The
+   missing-record query also finds a lower-ID event committed after a higher ID.
+2. **Privacy delay and changes:** SQL tests cover exact release, hidden fresh
+   events, zero delay, raised delay on queued work, and a change between sends.
+   Both manual and automatic attempts query the shared visibility predicate.
+3. **Bounded cadence and no overlap:** startup schedules Discord and existing
+   PvP/frag work on the positive 30-second constant. Real concurrent SQL workers,
+   manual sends and toggle changes cannot share the database lock. The HTTP
+   transport separately refuses overlapping sends.
+4. **Rate limits, server errors, timeouts:** mocked transport classifies the
+   response and honors fractional retry instructions; real SQL retains pending
+   work, deadlines, uncertainty and the same nonce through later worker calls.
+5. **Authentication/permission failures:** persistent failed/event and blocked/
+   destination state prevents repeated calls, with actionable UI text and an
+   explicit authorized retry action.
+6. **Restart/crash recovery:** discovery has no memory cursor; persisted receipts
+   prevent repeat automatic sends. Trigger-injected receipt failure leaves
+   `sending`, recovery waits the attempt deadline and retains ambiguity, then
+   reuses the same nonce. Exactly-once delivery is explicitly not promised.
+7. **Lifecycle/manual interaction:** SQL tests and the permanent guide cover
+   first enable, pause/resume, destination switch/back, manual success, intentional
+   manual repost and failed repost preserving a prior receipt. Operator retry
+   preserves pause and cooldown. No automatic historical backfill is introduced.
+8. **Existing consumers:** Discord dispatch is removed from browser publication
+   and owns a separate timer. WebSocket/push publication and frag polling retain
+   their calls and cadence; existing poller, PvP route/view and regression tests
+   pass. Manual/test transport and rendered controls retain their workflows.
+9. **Safe proof:** all Discord requests were mocked, persistence tests used the
+   disposable MariaDB, and browser APIs were intercepted as synthetic fixtures.
+   No real channel traffic is required or claimed.
+
+The additional payload regression failed against the prior renderer with
+`status: failed` under a mock enforcing Discord's published embed limits. After
+the repair, all 15 POV links survive and oversized legacy data remains within
+the title/field/count/6,000-character bounds with an explicit full-roster notice.
+`pnpm --dir backend test --runInBand src/services/__tests__/discordService.test.ts`
+passes 27 tests; combined with the isolated delivery suite, **46 passed**.
+Backend format/lint/type/build/whitespace checks were rerun for this final patch.
+Other unchanged checks retain the chunk 3 evidence above.
+
+All implementation acceptance is satisfied locally. The deliverable is the
+focused PR stack for review, not a production release. Merge in order from the
+bottom, retarget each dependent PR after its parent lands, and refresh current
+base/head before merging. No release tag was created. Deployment still requires
+both delivery migrations documented in [Discord delivery](../discord-delivery.md),
+environment/configuration checks, normal release acceptance,
+and publication/read-back of the prepared Website Changelog entry. Full backend
+suite, live account/session/channel tests, and physical-device/other-engine
+browser acceptance are not claimed.
+
+### Git and takeover state before review follow-up
+
+The commit identities and check counts below are the original handoff snapshot.
+The review follow-up comments on PRs #32–#35 record the repaired heads and fresh
+validation; refresh live refs before integration.
+
+- All four PRs are open and mergeable, ordered **#32 → #33 → #34 → #35**.
+  The first targets `master`; each later PR targets its predecessor's branch.
+- `master` advanced only by `ade01dd` (adding the requested ablation skill).
+  That commit was merged into the first branch and carried forward through the
+  stack without rewriting any published history. All four branches contain it.
+- Published heads inspected: #32 `3a332501f54cace7d8d5d8617d21f12cff20f228`,
+  #33 `570256d3974e30caa215428642c1515a5a7dfcf8`,
+  #34 `dfed2f5b50151b808fb537fc7cdfb276735bd10d`, and #35's implementation
+  commit above. This documentation-only closeout follows on #35's branch.
+- Source HEAD matched its remote with ahead/behind `0 0`, clean porcelain,
+  `git diff --check`, and verified ancestry through every stack edge before
+  this documentation-only closeout. Refresh these checks before merging.
+- GitHub backend/frontend quality checks succeeded on #32–#34; #35's backend
+  checks succeeded and frontend checks were still running at inspection.
+  Fresh local checks above are the validation evidence, independent of hosted CI.
+- Temporary service cleanup verified the MariaDB data directory was this task's
+  `/tmp/durisweb-issue30-db-01a144e7`, shut it down through its private socket,
+  verified the Vite PID belonged to this frontend, and stopped it. Ports 34931
+  and 5176 no longer listen. A terminated Vite process returns 143 as expected.
+- Next authorized work is review/integration of this stack. There is no unfinished
+  implementation chunk. If deployment is requested separately, use the migration
+  and recovery notes in [Discord delivery](../discord-delivery.md), the normal
+  deployment guide, and the unpublished release-news draft above.
 
 ## Verdict
 
