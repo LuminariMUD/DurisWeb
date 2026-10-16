@@ -218,7 +218,7 @@ an engineering input; the proposed periods and public wording are unapproved.
 | Data minimization | PARTIAL | Private presence defaults off unless explicitly enabled; new optional page-view collection is removed in prepared source, while historical IP/device/geo/screen data and its retention remain open |
 | Subject access/export | GAP | No complete user data export path identified |
 | Deletion/erasure | GAP | No account-wide deletion/anonymization entry point identified |
-| Retention enforcement | GAP | Read-only proposed-age preview for analytics events/login history is prepared; approved holds, mutation, scheduling and restore handling remain unimplemented; see [runbook](runbooks/retention-preview.md) |
+| Retention enforcement | GAP | Read-only proposed-age preview and restricted hold intent records are prepared; enforced holds, approved mutation, scheduling and restore handling remain unimplemented; see [preview](runbooks/retention-preview.md) and [holds](runbooks/data-holds.md) |
 | PII excluded from logs | PARTIAL | Connection-sync IP logging was removed previously; #13 now sanitizes all GeoIP and reachable Redis diagnostics with sentinel-tested categories/references. Other log paths still need inventory; production deployment is unverified. |
 | Third-party transfers documented | GAP | Transfers above are inventoried only in this internal file |
 | Automated profiling disclosed/contestable | GAP | Gemini suspicion analysis has no subject notice or appeal path identified |

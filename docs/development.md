@@ -140,6 +140,13 @@ processes, offset/cutoff boundaries, private continuation, scale query plans and
 unchanged rows. The opt-in is independent of image and privacy test databases;
 absent opt-in skips these native cases.
 
+Hold-record/API tests independently opt in with `TEST_DATA_HOLD_DB_PORT` for
+`durisweb_qualification_hold_suite` on loopback 23436/23437. They use the full
+owner/baseline/forward fixture and actual session/JWT, Overlord gate, CSRF and
+hold transactions. Only the separate MUD account/role readers are stubbed;
+no MUD row, file or process is changed. See the [hold runbook](runbooks/data-holds.md)
+for the explicitly incomplete enforcement boundary.
+
 Do not commit `.env` files, dumps, account data, generated deployment output,
 or backup archives. See [Configuration and Environments](environments.md) before
 adding any new setting.

@@ -397,3 +397,21 @@ requires the recorded forward shape. Unknown drift requires reviewed repair.
 Source tests use a fake provider and real isolated MySQL/MariaDB; they do not
 prove live provider deletion, CDN invalidation, backup deletion or the future
 general retention/erasure workflow.
+
+## Website data hold records
+
+`20261017004000_web_data_holds.ts` creates one website-owned extension table
+outside the immutable 77-table baseline. It records UUID/scope, private reason,
+authenticated creation/release attribution, explicit review/optional expiry
+epochs and database timestamps. There is no foreign key to a MUD table or new
+permission seed. The Overlord-only [API/runbook](../../docs/runbooks/data-holds.md)
+explicitly reports that deletion/cleanup and restore enforcement are not ready.
+Do not claim that storing intent implements retention or live protection.
+
+Run the ordinary backup/clone forward rehearsal with website writers stopped
+before deploying the API. Both engines have exact metadata postconditions and
+idempotent adjacent DDL recovery if creation/drop succeeded without its ledger
+acknowledgement. Normal serving preflight still requires the correct ledger and
+shape. Unknown drift is refused. Down drops only an empty table; any history,
+including expired/released/invalid rows, refuses rollback. Preserve those rows
+through an authorized compatible forward repair instead of clearing evidence.
