@@ -4,9 +4,10 @@ Status: **implementation in progress**. Updated 2026-10-17.
 
 Current checkpoint: engineering through P4, the UTC correction, first P5
 collection closure and browser storage-denial repair are published for review
-(#39, #41–#48). The lifecycle registry and server-owned choice boundary are
-published. Active continuation branch: `branch/privacy-choice-receipts`.
-Next: P5 public notice and client choice state machine; P6–P7 remain open.
+(#39, #41–#48). The browser choice state machine and draft notice are qualified
+and being published. Active continuation branch: `branch/privacy-browser-choices`.
+Next: P6/P7 engineering and unresolved policy/provider decisions. P5's approved
+notice and release gates remain open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
 
 Single working plan for [#7](https://github.com/LuminariMUD/DurisWeb/issues/7),
@@ -1059,6 +1060,89 @@ outside this request. Keep this single evolving execution plan current.
   Backend gates remain false until approval, retention readiness and full client
   acceptance are actually satisfied. No source preparation closes #10 by itself.
 
+- **P5 browser/notice chunk:** `branch/privacy-browser-choices` starts at #48
+  `58c33a0`. **Outcome:** accessible pre-login privacy page and persistent desktop/
+  mobile access, explicit accept/refuse/withdraw controls, validated versioned
+  state, local/network silence before acknowledgement, cross-tab ordering,
+  expiry/storage/network/account-transition handling and synthetic browser proof.
+  **Non-goals:** policy approval, enabling server collection, legal completeness,
+  provider transfers, retention/erasure execution, new dependencies or redesign.
+  **Files:** privacy controller/content/view/control, existing shell/router/nav/
+  startup/auth watcher, shared CSRF getter, focused tests, guide/guard and this plan.
+  **Proof:** real rendered notice/control navigation at desktop/tablet/phone,
+  keyboard/focus/layout checks; fresh/refused/accepted/withdrawn/reaccepted and
+  delayed/in-flight/cross-tab/storage-denied/policy/failure/account cases; payload/
+  identifier/timer/network assertions; required frontend and affected backend gates.
+- **Browser ablation:** use Web Locks to serialize necessary preference reads and
+  explicit writes; BroadcastChannel/storage events stop peers before withdrawal.
+  Keep one local `off`/`accepted` safety preference, corroborated by the current
+  server receipt. Failed writes keep the browser off. No persistent analytics
+  identifier or title-delay timer is needed: a memory-only nonce and allowlisted
+  router name suffice. Track only after successful navigation and confirmed
+  acceptance; abort one active optional request and clear its nonce on stop.
+  Missing safe synchronization/necessary storage means no optional collection;
+  refusal/withdrawal can still attempt the authoritative server action.
+  Notice/contact content is source-owned and explicitly draft until reviewed.
+  The server's approval/collection/retention gates remain unchanged and false.
+- **Client/source proof:** `pnpm --dir frontend test:unit --run` passes
+  **274 tests / 55 files**. The focused privacy service/view/control/navigation
+  command covers accepted/refused/withdrawn transitions, failed saves and cookie
+  read-back, unsupported/denied storage and synchronization, obsolete/malformed/
+  expired metadata, account changes, nonce reset, stale in-flight responses and
+  idempotent coordinator cleanup and failed initial navigation. No grant/identifier is derived from login,
+  local storage alone, or a POST acknowledgement whose cookie was rejected.
+  Both equal-style choice buttons and saved/unsaved status announcements are
+  exercised. Test fixture contract checks were moved into explicit test assertions
+  (and strict mock responses) to satisfy the existing no-standalone-expect rule.
+- **Rendered proof:** `node /tmp/durisweb-privacy-client-browser.mjs` qualifies
+  the actual built frontend on `http://127.0.0.1:25474` with synthetic API replies,
+  real HttpOnly cookie handling, native Web Locks and BroadcastChannel. Browser
+  plugin not available; installed Playwright 1.63.0 is used. Twelve scenarios
+  include desktop 1440×1000, tablet 800×1000 and phone 390×844; anonymous Browse/
+  More navigation, page URL/title/content, no framework overlay or horizontal
+  overflow, keyboard check/refuse/accept, refusal → accept → withdrawal → reaccept,
+  private-route minimization/no referrer, refresh nonce changes, two-tab delayed
+  first-choice serialization, actual optional-fetch abort on withdrawal, storage
+  denial, missing synchronization, rejected cookies, failed withdrawal, obsolete
+  notice and login/logout. Failed preference requests have inline errors, no
+  general outage dialog and no replay. All denied/unknown cases send zero optional
+  events; completed pre-withdrawal work is accurately distinguished from later work.
+- **Browser evidence/limits:** log `/tmp/durisweb-privacy-client-browser.log`;
+  screenshots `/tmp/durisweb-privacy-notice-{1440,800,390}.png`, visually inspected.
+  Expected anonymous-auth 401, the existing Vue Router deprecation, the deliberate
+  failed-choice 503 and Chromium's local service-worker preload-hint mismatch
+  warning are classified separately; no unexpected app/page errors remain.
+  Modules render correctly despite the unused preload hint; no unrelated PWA
+  redesign is included. This is synthetic browser evidence with simulated policy
+  approval, not live provider, physical-device, real approved-policy or production
+  acceptance. Backend source is unchanged from #48's 1,217/full and 33/native
+  qualification; that proof is retained, not claimed as a fresh backend run here.
+- **Public copy and guards:** the page calls the notice draft and exposes the
+  supplied privacy contact, categories, separate security/optional purposes,
+  provider uncertainty, retention/request limits and human-review contact. It
+  describes what statistics store, without promising to suppress ordinary HTTP
+  transport information. The existing exact contact-line exception is extended
+  only to the source-owned email declaration; shell syntax/current guard and
+  `/tmp/durisweb-check-privacy-client-guard.py` prove other deployment literals,
+  including text appended to that declaration, still fail. The lifecycle guide
+  distinguishes the proposed server receipt lifetime from the browser safety bit.
+  No approval, compliance or all-copies erasure claim is made.
+- **Client quality commands:** frontend `format:check`, `lint`, `type-check`,
+  `config:check`, `build`, palette guard, configuration literal guard,
+  lifecycle-inventory coverage and `git diff --check` pass. Builds use explicit
+  synthetic public loopback values from `/tmp/durisweb-p5-frontend-env.sh`, not an
+  env file. Logs: `/tmp/durisweb-privacy-client-full-unit.log`,
+  `/tmp/durisweb-privacy-client-final-focused.log`,
+  `/tmp/durisweb-privacy-client-build.log`. No dependency, backend runtime, schema,
+  migration, shared database or MUD operation changed. No production, deployment,
+  tag or public news operation occurred.
+- **Privacy release draft:** after future authorized live verification, reconcile
+  Website Changelog entries and publish **Privacy information is easier to find**:
+  “Read current privacy information and contact details from Browse or More.
+  Optional visit statistics remain paused while privacy work continues.” Do not
+  announce an approved notice, active optional collection or completed subject
+  erasure. Keep the approval/retention gates false until their own proof exists.
+
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
 [design](../DESIGN.md). Preserve existing safety gates and the MUD's schema and
@@ -1465,31 +1549,36 @@ per accepted event identity after recovery.
 
 ## P5 — Public notice and enforceable analytics choice (#10)
 
+Checked items below record source and isolated synthetic verification. They do
+not approve policy, provider transfers or a live release. The public copy is
+explicitly draft; the first notice/approval item and purpose/provider gates remain
+open, and server approval/collection/retention-readiness flags remain false.
+
 - [ ] Publish an accessible pre-login privacy route using the existing shell,
   router, brand components, and desktop/mobile navigation. Include the approved
   owner/contact, purposes, categories, necessary security processing, optional
   analytics, providers/transfers, retention, user requests, and human review of
   profiling. Version the notice and choice policy. Do not claim disabled or
   unverified provider features are live.
-- [ ] Provide accept/refuse choices and a persistent way to withdraw. Unknown,
+- [x] Provide accept/refuse choices and a persistent way to withdraw. Unknown,
   refused, expired, unreadable, or obsolete-policy state means no optional
   collection. Do not create `analytics_session_id`, gather optional fields, or
   schedule/send events before acceptance. Store only the minimal necessary
   preference before optional collection, and disclose that preference storage.
-- [ ] Replace unconditional tracking with an explicit consent state machine.
+- [x] Replace unconditional tracking with an explicit consent state machine.
   Cover initial navigation, delayed route timers, page refresh, cross-tab
   changes, login/logout, and storage denial. Withdrawal cancels queued work,
   removes legacy/current optional identifiers, and prevents recreation. Login
   is not consent; logout must not accidentally accept or join another person's
   browsing history. Old cached clients must fail closed at the server.
-- [ ] Add a server-owned versioned choice receipt, issued only by an explicit
+- [x] Add a server-owned versioned choice receipt, issued only by an explicit
   same-origin, CSRF-protected choice action. Bind it to a browser choice with
   secure cookie handling and minimal identifiers; validate current policy,
   expiry/revocation, and server collection enablement before any enrichment,
   storage, or provider call. A client `consent: true` field alone is insufficient.
   Reuse existing CSRF plumbing; audit the present track exemption in
   [csrf.ts](../../backend/src/middleware/csrf.ts) and cover both router mounts.
-- [ ] Apply validation at the common collection boundary, including any direct
+- [x] Apply validation at the common collection boundary, including any direct
   service callers. Define consent-revision ordering for in-flight requests:
   recheck before enrichment/persistence, reject stale queued events, and
   document that an already completed transfer cannot be recalled by UI
@@ -1505,7 +1594,7 @@ per accepted event identity after recovery.
   approved transport/provider terms are configured; never guess that switching
   the current endpoint to HTTPS is supported. Keep provider outage nonfatal to
   the website and avoid fallback transfers to an unapproved service.
-- [ ] Test fresh visitor/refusal/acceptance/withdrawal/reacceptance, initial and
+- [x] Test fresh visitor/refusal/acceptance/withdrawal/reacceptance, initial and
   delayed routes, cross-tab/login/logout, stale policy, disabled storage,
   stale/forged receipt, direct API/alternate-mount bypass, CSRF, provider/DB
   failure, and in-flight withdrawal. With synthetic browser fixtures assert

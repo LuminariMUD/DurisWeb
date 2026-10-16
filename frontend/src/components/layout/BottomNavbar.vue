@@ -24,6 +24,7 @@ import {
   Newspaper,
   Globe,
   Monitor,
+  FileText,
 } from '@lucide/vue'
 import { projectSiteUrl } from '@/config/links'
 
@@ -51,6 +52,7 @@ const moreNavItems = computed(() => [
   { name: 'Leaderboard', path: '/frag-leaderboard', icon: Trophy },
   { name: 'Guide', path: '/guide', icon: BookOpen },
   { name: 'Mudlet GUI', path: '/mudlet-gui', icon: Monitor },
+  { name: 'Privacy & choices', path: '/privacy', icon: FileText },
   { name: 'Project Site', path: projectSiteUrl, icon: Globe, external: true },
   { name: 'Status', path: '/status', icon: Radio },
   ...(supportUrl.value

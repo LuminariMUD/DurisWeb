@@ -462,6 +462,14 @@ const router = createRouter({
       meta: { public: true },
     },
 
+    // Public privacy notice and choices
+    {
+      path: '/privacy',
+      name: 'privacy',
+      component: () => import('../views/PrivacyView.vue'),
+      meta: { public: true },
+    },
+
     // Public Guide (Help Files) Page
     {
       path: '/guide',

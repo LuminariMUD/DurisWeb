@@ -29,6 +29,27 @@ beforeEach(() => {
 })
 
 describe('BottomNavbar discoverability', () => {
+  it('exposes privacy choices to an anonymous visitor through More', async () => {
+    route.path = '/privacy'
+    const wrapper = mount(BottomNavbar, {
+      global: {
+        stubs: {
+          Sheet: passthrough,
+          SheetContent: passthrough,
+          SheetHeader: passthrough,
+          SheetTitle: passthrough,
+          SheetTrigger: passthrough,
+        },
+      },
+    })
+    const privacy = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Privacy & choices')
+    expect(privacy?.attributes('aria-current')).toBe('page')
+    await privacy?.trigger('click')
+    expect(router.push).toHaveBeenLastCalledWith('/privacy')
+    wrapper.unmount()
+  })
   it('exposes News & Updates in the More menu with named navigation', () => {
     const wrapper = mount(BottomNavbar, {
       global: {

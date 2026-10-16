@@ -182,8 +182,11 @@ revision, opaque visit nonce and allowlisted route family after all source gates
 are approved/ready. Its atomic page-view/session writes contain only a derived
 visit pseudonym, canonical route template and database time; the other legacy
 fields remain null. No optional enrichment/provider call occurs. Receipt
-issuance and collection remain inactive; this is not the complete client
-notice/accept/refuse/withdrawal implementation or an approval of the proposals.
+issuance and collection remain inactive. The prepared public draft and client
+controls validate the receipt, including actual-cookie read-back, cross-tab
+ordering, expiry and failures. A visit nonce exists only in page memory after
+confirmation, and is reset on stop or account changes. This does not approve the
+notice/period proposals or establish live collection acceptance.
 
 ## Shared publication metadata without an account selector
 
@@ -265,10 +268,13 @@ these decisions remain pending; destructive execution must remain unavailable.
   visit identity, no account/IP/user-agent/title/referrer/UTM/screen/geography
   collection, and a 30-day raw-event limit. Coarse aggregate reporting must not
   retain an individual visit identifier. No GeoIP/provider transfer is needed.
-- Propose a 180-day preference lifetime for an explicit analytics choice, with
+- Propose a 180-day server receipt lifetime for an explicit analytics choice, with
   policy-version expiry and immediate withdrawal. Choice receipt identity is
   necessary preference data, separate from a visit identifier. Approve its
-  retention and treatment of refused/withdrawn receipts before issuance.
+  retention and treatment of refused/withdrawn receipts before issuance. The
+  browser separately retains a minimal `off`/`accepted` safety setting until a
+  new confirmed choice or browser-data clearing; it has no visit/account ID and
+  cannot authorize collection without the current server receipt.
 - Propose 90 days for identifiable login/security history, 365 days for staff
   audit/operation evidence, and 30 days for ordinary operational metrics.
   Holds, active investigations, pending delivery and protected imports override

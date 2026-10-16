@@ -154,22 +154,23 @@ dependency-security guarantee.
 ### Overall: NON-COMPLIANT BASELINE
 
 The repository processes personal data for accounts, community features,
-analytics, donations, operations, and automated suspicion scoring. No privacy
+analytics, donations, operations, and automated suspicion scoring. At baseline, no privacy
 notice, pre-login analytics consent, general erasure workflow, or retention
 enforcement was identified. This is an engineering inventory, not legal advice;
 deployment jurisdiction and controller/processor roles still require owner
 review.
 
-The prepared #10 source now closes optional website collection: the browser
-removes its retired `analytics_session_id` when storage permits, installs no
-tracking timers or navigation handlers, and sends no page-view events. Both
-tracking API mounts refuse events, with CSRF protection restored, and the
-ungated service writer and optional GeoIP call path have been removed. Historical
-records and protected dashboard reads remain. Prepared server-owned choice
+The prepared #10 source closes unapproved optional website collection. The
+browser removes its retired `analytics_session_id` when storage permits, and
+requires a current server choice plus a confirmed cookie before creating a
+memory-only visit nonce. Draft privacy information and controls are public before
+login, with desktop/mobile access. Cross-tab ordering, expiry, failed writes and
+account transitions stop optional work. Historical records and protected
+dashboard reads remain. Prepared server-owned choice
 receipts now enforce versions/revisions, digest credentials, expiry and atomic
 collection/withdrawal ordering. The draft policy disables issuance and collection;
-an approved synthetic policy is used only in isolated tests. The notice, client
-choice/withdrawal flow, policy approval and retention readiness remain necessary
+an approved synthetic policy is used only in isolated tests. Final notice/provider/
+period approval, retention readiness and live verification remain necessary
 before optional collection can return. Deployment is unverified.
 
 ### Personal Data Inventory
@@ -212,7 +213,7 @@ an engineering input; the proposed periods and public wording are unapproved.
 
 | Requirement | Status | Evidence / Next action |
 |-------------|--------|------------------------|
-| Purpose and privacy notice | GAP | No public privacy notice or processing record found |
+| Purpose and privacy notice | PARTIAL | Source has a public draft, contact, full table inventory and tested choices; owner/provider/period approval and live verification remain open |
 | Consent before optional analytics storage | PARTIAL | Prepared source disables client collection and refuses both tracking mounts; approved notice/choice controls and live verification remain #10 |
 | Data minimization | PARTIAL | Private presence defaults off unless explicitly enabled; new optional page-view collection is removed in prepared source, while historical IP/device/geo/screen data and its retention remain open |
 | Subject access/export | GAP | No complete user data export path identified |

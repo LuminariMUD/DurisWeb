@@ -69,6 +69,40 @@ the relevant checks.
 See [Development](../docs/development.md) and
 [Architecture](../docs/ARCHITECTURE.md).
 
+## Privacy and visit-statistics choices
+
+`/privacy` is public, with desktop **Browse** and mobile **More** access. It
+contains source-owned draft privacy details and the owner-supplied contact;
+provider use, retention and public wording remain subject to review. The backend
+policy currently disables receipt issuance and collection. UI/source preparation
+does not approve that policy or announce a live release.
+
+The browser validates both notice and choice versions, the receipt, revision and
+expiry through `/api/privacy`. Explicit choices use the existing CSRF cookie and
+are serialized with [Web Locks](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API).
+[BroadcastChannel](https://developer.mozilla.org/en-US/docs/Web/API/Broadcast_Channel_API)
+and the fixed `duris_privacy_choice_v1` browser safety preference stop other tabs.
+That setting contains only `off` or `accepted`, never a visit/account identifier;
+a failed save leaves it off until a new confirmed choice or browser-data clearing.
+It is corroborated by the server and cannot grant consent by itself.
+
+Acceptance requires a separate receipt read-back, so rejected HttpOnly cookies
+cannot enable tracking. Unsupported synchronization or unreadable preferences
+keep optional collection off; refusal/withdrawal can still attempt a server save.
+The only visit nonce lives in page memory after confirmation. Event bodies contain
+only an allowlisted route family, nonce, choice version and revision, with no
+referrer header. Standard browser/network headers and necessary security records
+are separate; the collector does not use them to enrich statistics.
+Stop, expiry, withdrawal and account transitions abort optional
+work and discard that nonce. Login never grants consent. Completed server writes
+cannot be recalled by aborting a browser request.
+
+Preference checks have a bounded necessary timeout and their own error UI;
+optional failures do not open the site's general outage dialog or replay events.
+The frontend creates no persistent analytics identifier or title-delay timer.
+See the [lifecycle inventory](../docs/privacy-data-lifecycle.md) and
+[API contract](../docs/api/README_api.md#privacy-choice-contract).
+
 ## Mudlet GUI page
 
 `/mudlet-gui` is a public, lazy-loaded page available through desktop **Browse**

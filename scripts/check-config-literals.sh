@@ -42,13 +42,14 @@ report_matches 'Legacy configuration aliases remain outside the rejection bounda
   "${legacy_aliases}"
 
 # The owner-supplied policy contact is data, not deployment configuration. Match
-# only its complete inventory line; other content in that document remains checked.
+# only complete contact declarations; other content in those files remains checked.
 deployment_literals=$(rg -ni '(/home/(durissbs|duris)|static2\.zusuk\.com|duris\.com|\bduris\.sbs\b)' \
   README.md docs backend/src frontend/src frontend/public frontend/index.html deploy scripts podman-compose.yml \
   --glob '!scripts/check-config-literals.sh' \
   --glob '!backend/src/**/__tests__/**' \
   --glob '!frontend/src/**/__tests__/**' \
-  | rg -v '^docs/privacy-data-lifecycle\.md:[0-9]+:privacy policy\. Max \(Moshe\), contact `zusuk@duris\.sbs`, was supplied as the$' || true)
+  | rg -v -e '^docs/privacy-data-lifecycle\.md:[0-9]+:privacy policy\. Max \(Moshe\), contact `zusuk@duris\.sbs`, was supplied as the$' \
+    -e '^frontend/src/config/privacyNotice\.ts:[0-9]+:  email: [[:punct:]]zusuk@duris\.sbs[[:punct:]],$' || true)
 report_matches 'Known deployment-specific paths, domains, or branding remain active:' \
   "${deployment_literals}"
 
