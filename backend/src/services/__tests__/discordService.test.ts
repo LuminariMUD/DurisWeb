@@ -76,6 +76,41 @@ describe('Discord bot battle delivery', () => {
     for (const name of names) expect(payload).toContain(`/pvp/4?pov=${name}`);
   });
 
+  it.each([false, true])(
+    'uses the full embed budget unless a participant is shortened (%s)',
+    async (shortened) => {
+      const participants = Array.from({ length: 27 }, (_, index) => ({
+        name: `Player${String(index).padStart(2, '0')}`,
+        description: `Player ${index} `.padEnd(166, 'x'),
+        pk_type: 'KILLER',
+      }));
+      if (shortened) participants[26].name = 'x'.repeat(2000);
+      await service.postBattleToDiscord(4, '2026-10-16', 'Room', participants);
+      const payload = String(jest.mocked(fetch).mock.calls[0][1]?.body);
+      if (!shortened) {
+        for (const { name } of participants) expect(payload).toContain(`/pvp/4?pov=${name}`);
+      }
+      const embed = (
+        JSON.parse(payload) as {
+          embeds: Array<{
+            title: string;
+            footer: { text: string };
+            fields: Array<{ name: string; value: string }>;
+          }>;
+        }
+      ).embeds[0];
+      const size =
+        embed.title.length +
+        embed.footer.text.length +
+        embed.fields.reduce((sum, field) => sum + field.name.length + field.value.length, 0);
+      if (!shortened) expect(size).toBeGreaterThan(5900);
+      expect(size).toBeLessThanOrEqual(6000);
+      expect(embed.fields).toHaveLength(7);
+      expect(embed.fields.every((field) => field.value.length <= 1024)).toBe(true);
+      expect(payload.includes('Full roster')).toBe(shortened);
+    },
+  );
+
   it.each([1, 50])(
     'bounds %i oversized legacy participants and points explicitly to the complete roster',
     async (count) => {

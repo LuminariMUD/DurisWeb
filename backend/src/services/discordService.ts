@@ -120,8 +120,7 @@ function buildBattleEmbed(
   let remaining = 6000 - title.length - footer.length;
   let omitted = false;
   const append = (name: string, value: string): boolean => {
-    // Reserve a field and 100 characters for an explicit full-roster notice.
-    if (fields.length >= 24 || name.length + value.length > remaining - 100) return false;
+    if (fields.length >= 25 || name.length + value.length > remaining) return false;
     fields.push({ name, value, inline: true });
     remaining -= name.length + value.length;
     return true;
@@ -149,10 +148,18 @@ function buildBattleEmbed(
     }
   }
   if (omitted) {
-    fields.push({
+    const notice = {
       name: 'Full roster',
       value: 'Open the linked battle for all participants and POV logs.',
-    });
+    };
+    // Spend the full budget on complete rosters. Only make room for a notice
+    // after a real omission, including an individually shortened participant.
+    const noticeLength = notice.name.length + notice.value.length;
+    while (fields.length && (fields.length >= 25 || remaining < noticeLength)) {
+      const removed = fields.pop();
+      if (removed) remaining += removed.name.length + removed.value.length;
+    }
+    fields.push(notice);
   }
 
   return {
