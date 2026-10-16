@@ -289,3 +289,6 @@ are never guessed or backfilled. Never restore session rows from an archive or
 automatically restart old writers; keep authentication closed until the selected
 binary/schema pair passes its approved recovery checks. New website backup
 exports include session DDL without rows, including in shared-database mode.
+The qualified historical column is `TIMESTAMP`. Unknown shapes, including a
+naive `DATETIME` variant, are refused before mutation; inspect the deployed
+shape and prepare an explicitly reviewed empty-session repair if it differs.

@@ -758,17 +758,17 @@ conversion. Compare it with the database's current epoch (`UNIX_TIMESTAMP()`),
 with expiry exclusive at the boundary. Keep existing pool safeguards; this
 change need not change the timezone of unrelated MUD or website queries.
 
-- [ ] Add one session-credential helper using Node crypto SHA-256 over the exact
+- [x] Add one session-credential helper using Node crypto SHA-256 over the exact
   issued JWT bytes. Validate nonempty string input; missing/undefined refresh
   tokens must not fall through to access-only lookup. Digest at insert and
   refresh comparison. Keep raw JWTs only in the HTTP-only client cookie and
   transient processing; forbid tokens/digests in logs, exports, and diagnostics.
-- [ ] Keep signature/type checks before refresh lookup and retain session/account
+- [x] Keep signature/type checks before refresh lookup and retain session/account
   predicates, access revocation, logout, permission checks, password-change
   teardown, and terminal/WebSocket authorization. Do not silently add refresh
   rotation or extend the effective seven-day database lifetime. Document the
   current 30-day JWT/cookie versus seven-day session distinction accurately.
-- [ ] Add new forward migrations and update row types, fixtures, preflight,
+- [x] Add new forward migrations and update row types, fixtures, preflight,
   baseline postconditions, and incident/configuration documentation together.
   Keep a finalized baseline immutable; update baseline-plus-forward verification.
   Choose an explicit expand/cutover/contract sequence: add nullable new columns
@@ -777,17 +777,22 @@ change need not change the timezone of unrelated MUD or website queries.
   legacy session rows; deploy code that refuses incomplete/digestless rows;
   verify new writes; remove the replayable column and obsolete expiry column
   and enforce target nullability. No raw/digest dual-read fallback.
-- [ ] The invalidation intentionally also discards uncertain legacy expiry
+- [x] The invalidation intentionally also discards uncertain legacy expiry
   interpretations. Inspect and record the old column type in rehearsal; do not
   guess offsets or backfill still-valid sessions from naive historical values.
-  Make migrations reject unsupported shapes. The rollout needs the operator's
-  global-logout decision and advance user-facing wording.
-- [ ] Implement reversible **schema** changes, with empty sessions on rollback.
+  Make migrations reject unsupported shapes. Rehearsal records `TIMESTAMP`;
+  an unknown/naive `DATETIME` shape requires a separately reviewed empty-session
+  repair, never guessed offsets or backfilled credentials.
+- [ ] **Release gate:** obtain the operator's global-logout decision and advance
+  user-facing wording; inspect the actual deployed shape, stop/drain writers,
+  run the write checkpoint and cutover, and verify live auth before closing the
+  security findings. Source engineering does not satisfy this operational gate.
+- [x] Implement reversible **schema** changes, with empty sessions on rollback.
   A digest cannot reconstruct a raw token; do not restore bearer rows from a
   backup or restart old raw-token writers as an automatic rollback. If an old
   binary needs the old schema, keep authentication closed until the authorized
   empty-session rollback and preflight pass.
-- [ ] Extend existing
+- [x] Extend existing
   [session service](../../backend/src/services/__tests__/sessionService.test.ts),
   [lifecycle](../../backend/src/services/__tests__/sessionLifecycle.test.ts),
   [auth binding](../../backend/src/middleware/__tests__/authSessionBinding.test.ts),
@@ -795,7 +800,7 @@ change need not change the timezone of unrelated MUD or website queries.
   and [pool invariant](../../backend/src/db/__tests__/sessionInvariants.test.ts)
   coverage. Add route-level login/refresh tests proving database contents cannot
   be replayed and DB failure never issues/authorizes a session.
-- [ ] Test valid/wrong/empty/malformed token, wrong account/session, expiry,
+- [x] Test valid/wrong/empty/malformed token, wrong account/session, expiry,
   deletion/revocation, signature/type failure, and incomplete legacy rows.
   Exercise real isolated MySQL/MariaDB with application `TZ=UTC`,
   `Asia/Jerusalem`, and a negative-offset zone, database defaults `+00:00`,
@@ -803,7 +808,7 @@ change need not change the timezone of unrelated MUD or website queries.
   Run separate processes where necessary to test actual Date serialization
   behavior. A still-signed JWT with a database session expired by 60 seconds
   must fail **both HTTP access and refresh**, including equality boundaries.
-- [ ] Prove normal UTC acceptance, retention cutoff behavior, and no changes to
+- [x] Prove normal UTC acceptance, retention cutoff behavior, and no changes to
   SQL mode/isolation/FK/timezone safeguards or MUD fingerprints. Distinguish
   timezone independence from clock synchronization; monitor excessive system
   clock skew without claiming this work eliminates it.
