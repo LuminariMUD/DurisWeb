@@ -1,10 +1,7 @@
 import { Router, Request, Response } from 'express';
-import rateLimit from 'express-rate-limit';
 import { requireAuth, requireOverlord } from '../middleware/auth.js';
 import logger from '../utils/logger.js';
-import { validateAnalyticsTrackingPayload } from '../utils/analyticsValidation.js';
 import {
-  trackPageView,
   getWebOverviewStats,
   getTopPages,
   getReferrerStats,
@@ -20,76 +17,12 @@ import {
 
 const router: Router = Router();
 
-const analyticsTrackLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many analytics events; please try again later' },
-});
-
 /**
- * POST /api/analytics/track
- * Track a page view (public endpoint, rate-limited)
+ * Retire ungated collection for both router mounts and cached older clients.
+ * Optional analytics must remain closed until the versioned choice flow is ready.
  */
-router.post('/track', analyticsTrackLimiter, async (req: Request, res: Response) => {
-  try {
-    const validationError = validateAnalyticsTrackingPayload(req.body);
-    if (validationError) {
-      return res.status(400).json({ error: validationError });
-    }
-
-    const {
-      sessionId,
-      path,
-      pageTitle,
-      referrer,
-      utmSource,
-      utmMedium,
-      utmCampaign,
-      screenWidth,
-      screenHeight,
-      loadTimeMs,
-    } = req.body;
-
-    // Validate required fields
-    if (!sessionId || !path) {
-      return res.status(400).json({ error: 'sessionId and path are required' });
-    }
-
-    // Get IP address from request
-    const ipAddress = req.ip || req.socket.remoteAddress || null;
-
-    // Get user agent from headers
-    const userAgent = req.headers['user-agent'] || null;
-
-    // Get account name if user is authenticated (from cookie)
-    let accountName: string | null = null;
-    if ((req as any).user?.accountName) {
-      accountName = (req as any).user.accountName;
-    }
-
-    await trackPageView({
-      sessionId,
-      accountName,
-      path,
-      pageTitle,
-      referrer,
-      utmSource,
-      utmMedium,
-      utmCampaign,
-      userAgent,
-      screenWidth,
-      screenHeight,
-      ipAddress,
-      loadTimeMs,
-    });
-
-    return res.status(200).json({ success: true });
-  } catch (error) {
-    logger.error('Error tracking page view:', error);
-    return res.status(500).json({ error: 'Failed to track page view' });
-  }
+router.post('/track', (_req: Request, res: Response) => {
+  res.status(410).json({ error: 'Optional website analytics collection is unavailable' });
 });
 
 /**

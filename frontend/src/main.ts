@@ -13,7 +13,7 @@ import { createHead } from '@unhead/vue/client'
 
 import App from './App.vue'
 import router from './router'
-import { initAnalytics } from './services/analytics'
+import { clearLegacyAnalyticsSession } from './services/analytics'
 
 const app = createApp(App)
 const head = createHead()
@@ -35,7 +35,6 @@ app.use(VueQueryPlugin, {
   },
 })
 
-// Initialize web analytics tracking
-initAnalytics(router)
+clearLegacyAnalyticsSession()
 
 app.mount('#app')

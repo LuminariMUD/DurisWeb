@@ -764,6 +764,63 @@ outside this request. Keep this single evolving execution plan current.
   enforceable choice boundary. Keep optional providers disabled until approved;
   do not infer policy/retention approval from the supplied contact details.
 
+- **P5 first engineering chunk / #10:**
+  `branch/issue-10-stop-unconsented-analytics` starts at #43 `b0d8e0a`.
+  **Outcome:** stop optional website analytics before approved notice/choice
+  controls exist, including old clients and the alternate API mount. Remove
+  the ungated writer so a direct service call cannot bypass the closure. Remove
+  the browser identifier/timers/field collection and clear the known legacy
+  identifier on startup, without breaking storage-denied browsers.
+  **Non-goals:** declaring P5 complete, approving policy/retention/provider terms,
+  deleting historical analytics, changing security/MUD analytics, replacing the
+  read-only admin dashboard, or deployment. **Files:** browser analytics startup,
+  HTTP tracking route, obsolete backend writer/validator, CSRF exemption, focused
+  tests, API/security docs and this plan. **Proof:** old/forged/unknown payloads
+  denied through both mounts; CSRF enforced; no database/provider calls; client
+  storage cleanup and no tracking work; required gates in both packages and a
+  synthetic browser navigation/refresh/storage-denial check.
+- **P5 ablation:** removing the unapproved path is sufficient for this first
+  chunk; no new environment switch, cookie, database table, migration or
+  placeholder consent mechanism is justified yet. Keep P5's full notice/receipt/
+  withdrawal/minimization acceptance open. Follow with a versioned server-owned
+  choice boundary and accessible notice/preferences, using a concrete policy
+  proposal for the still-unapproved consequential details. A client-only banner
+  would leave the alternate mount and direct writer open.
+- **P5 closure source checks:** before-fix tests reproduced accepted legacy
+  events at both mounts, the public CSRF bypass and a retained browser ID.
+  `pnpm --dir backend test --runInBand
+  src/routes/__tests__/webAnalyticsValidation.test.ts
+  src/middleware/__tests__/canonicalHost.test.ts
+  src/utils/__tests__/geoip.test.ts` now passes **48 tests / 3 suites**.
+  Backend `format:check`, `lint`, `type-check`, `build` and `verify:mud-writes
+  --mud-manifest /home/aiwithapex/projects/duris/migrations/migration_manifest.json`
+  pass (53 classified writes). Frontend `test:unit --run` passes **241 tests /
+  50 files**, and `format:check`, `lint`, `type-check`, `config:check`, `build`
+  and `./frontend/scripts/check-palette-literals.sh` pass. The build uses
+  `/tmp/durisweb-p5-frontend-env.sh` with synthetic loopback URLs, no env file.
+  No schema, retained row or provider call is changed; previous native schema/
+  timezone evidence remains applicable. No new full backend/native run is claimed.
+- **Separate gate repair:** the actual `./scripts/check-config-literals.sh`
+  found a protected P3 test-probe classification issue. It is repaired separately
+  in [PR #44](https://github.com/LuminariMUD/DurisWeb/pull/44) (`49ba05f`),
+  with a negative production-source sentinel proving the guard remains enforced.
+  Integrate that focused parent before publishing this chunk.
+- **Browser qualification in progress:** Browser plugin not available; installed
+  Playwright 1.63.0 is used against `http://127.0.0.1:25474` built preview with
+  synthetic API replies and fresh browser contexts. Login → Back to Home →
+  refresh proves no tracking request and legacy-ID cleanup in fresh/legacy
+  profiles. Denying all browser storage reveals existing uncaught reads in
+  `ChangelogBanner` and `useNotifications`; keep that repair as a separate next
+  change, then repeat desktop/mobile qualification. First blocking service-worker
+  registration was a test-fixture error; use real isolated service workers for
+  this built preview, without claiming live acceptance. No new browser dependency
+  or provider is used. Full P5 choice/notice acceptance remains open.
+- **P5 first release draft:** after an authorized release verifies this source
+  live, reconcile existing Website Changelog entries and publish: “Optional
+  website visit tracking is paused while privacy choices are prepared.” This
+  describes the actual paused state; do not announce accept/withdraw controls
+  before they exist. No live publication, tag or release is claimed now.
+
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
 [design](../DESIGN.md). Preserve existing safety gates and the MUD's schema and

@@ -1,109 +1,102 @@
-import express from 'express';
+import express, { type RequestHandler } from 'express';
+import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-const trackPageView = jest.fn<(...args: unknown[]) => Promise<void>>();
+const databaseQuery = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const provider = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const passthrough: RequestHandler = (_req, _res, next) => next();
 
 jest.unstable_mockModule('../../middleware/auth.js', () => ({
-  requireAuth: (_req: any, _res: any, next: any) => next(),
-  requireOverlord: (_req: any, _res: any, next: any) => next(),
+  requireAuth: passthrough,
+  requireOverlord: passthrough,
 }));
-jest.unstable_mockModule('../../services/webAnalyticsService.js', () => ({
-  trackPageView,
-  getWebOverviewStats: jest.fn(),
-  getTopPages: jest.fn(),
-  getReferrerStats: jest.fn(),
-  getDeviceStats: jest.fn(),
-  getBrowserStats: jest.fn(),
-  getOSStats: jest.fn(),
-  getGeoStats: jest.fn(),
-  getTrafficOverTime: jest.fn(),
-  getRealtimeVisitors: jest.fn(),
-  getActiveVisitorCount: jest.fn(),
-  getRecentVisitors: jest.fn(),
+jest.unstable_mockModule('../../db/connection.js', () => ({ pool: { query: databaseQuery } }));
+jest.unstable_mockModule('../../db/redis.js', () => ({
+  getCache: jest.fn(),
+  setCache: jest.fn(),
 }));
+jest.unstable_mockModule('../../utils/geoip.js', () => ({ geolocateIP: provider }));
 jest.unstable_mockModule('../../utils/logger.js', () => ({
   default: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }));
 
-describe('web analytics tracking validation', () => {
+const mounts = ['/api/analytics', '/api/admin/analytics/web'];
+const legacyPayload = {
+  sessionId: 'a'.repeat(64),
+  path: '/account/private?token=private-sentinel',
+  pageTitle: 'Private title sentinel',
+  referrer: 'https://example.test/private-sentinel',
+  screenWidth: 390,
+  screenHeight: 844,
+  utmSource: 'private-sentinel',
+};
+
+describe('closed optional website analytics collection', () => {
   let app: express.Express;
+  let protectedApp: express.Express;
 
   beforeAll(async () => {
-    const { default: webAnalyticsRoutes } = await import('../webAnalytics.js');
+    const { default: routes } = await import('../webAnalytics.js');
+    const { verifyCsrfToken } = await import('../../middleware/csrf.js');
     app = express();
-    app.set('trust proxy', 1);
+    protectedApp = express();
     app.use(express.json());
-    app.use('/api/analytics', webAnalyticsRoutes);
+    protectedApp.use(express.json(), cookieParser(), verifyCsrfToken);
+    for (const mount of mounts) {
+      app.use(mount, routes);
+      protectedApp.use(mount, routes);
+    }
   });
 
   beforeEach(() => {
-    trackPageView.mockReset().mockResolvedValue(undefined);
+    databaseQuery.mockReset().mockResolvedValue([[], []]);
+    provider.mockReset().mockResolvedValue(null);
   });
 
-  it('rejects unknown tracking fields before persistence', async () => {
-    const response = await request(app)
-      .post('/api/analytics/track')
-      .set('X-Forwarded-For', '10.0.0.10')
-      .send({ sessionId: 'a'.repeat(64), path: '/', unexpected: 'nope' });
-
-    expect(response.status).toBe(400);
-    expect(trackPageView).not.toHaveBeenCalled();
-  });
-
-  it('rejects oversized and wrongly typed tracking fields before persistence', async () => {
-    const response = await request(app)
-      .post('/api/analytics/track')
-      .set('X-Forwarded-For', '10.0.0.11')
-      .send({
-        sessionId: 'a'.repeat(64),
-        path: `/${'x'.repeat(2048)}`,
-        screenWidth: 'wide',
+  it.each(mounts)(
+    'refuses legacy clients at %s without SQL or provider transfers',
+    async (mount) => {
+      const response = await request(app)
+        .post(`${mount}/track`)
+        .set('User-Agent', 'private-agent-sentinel')
+        .send(legacyPayload);
+      expect(response.status).toBe(410);
+      expect(response.body).toEqual({
+        error: 'Optional website analytics collection is unavailable',
       });
+      expect(databaseQuery).not.toHaveBeenCalled();
+      expect(provider).not.toHaveBeenCalled();
+    },
+  );
 
-    expect(response.status).toBe(400);
-    expect(trackPageView).not.toHaveBeenCalled();
+  it.each(mounts)('a client consent claim cannot enable collection at %s', async (mount) => {
+    const response = await request(app)
+      .post(`${mount}/track`)
+      .send({ ...legacyPayload, consent: true, policyVersion: 'forged' });
+    expect(response.status).toBe(410);
+    expect(databaseQuery).not.toHaveBeenCalled();
+    expect(provider).not.toHaveBeenCalled();
   });
 
-  it('accepts a bounded tracking event and passes server-derived request metadata', async () => {
-    const response = await request(app)
-      .post('/api/analytics/track')
-      .set('X-Forwarded-For', '10.0.0.12')
-      .set('User-Agent', 'T024-test-agent')
-      .send({
-        sessionId: 'a'.repeat(64),
-        path: '/news',
-        pageTitle: 'News',
-        referrer: 'https://example.test/start',
-        utmSource: 'test',
-        screenWidth: 390,
-        screenHeight: 844,
-        loadTimeMs: 120,
-      });
+  it.each(mounts)('has no tracking CSRF exemption at %s', async (mount) => {
+    const denied = await request(protectedApp).post(`${mount}/track`).send(legacyPayload);
+    expect(denied.status).toBe(403);
+    const unavailable = await request(protectedApp)
+      .post(`${mount}/track`)
+      .set('Cookie', 'csrf_token=matching-token')
+      .set('x-csrf-token', 'matching-token')
+      .send(legacyPayload);
+    expect(unavailable.status).toBe(410);
+    expect(databaseQuery).not.toHaveBeenCalled();
+    expect(provider).not.toHaveBeenCalled();
+  });
 
+  it('preserves the protected read-only dashboard', async () => {
+    const response = await request(app).get('/api/admin/analytics/web/admin/pages');
     expect(response.status).toBe(200);
-    expect(trackPageView).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sessionId: 'a'.repeat(64),
-        path: '/news',
-        userAgent: 'T024-test-agent',
-        ipAddress: '10.0.0.12',
-      }),
-    );
-  });
-
-  it('rate-limits repeated tracking events from one client', async () => {
-    const payload = { sessionId: 'b'.repeat(64), path: '/page' };
-    let lastResponse;
-
-    for (let attempt = 0; attempt < 61; attempt += 1) {
-      lastResponse = await request(app)
-        .post('/api/analytics/track')
-        .set('X-Forwarded-For', '10.0.0.13')
-        .send(payload);
-    }
-
-    expect(lastResponse!.status).toBe(429);
-    expect(trackPageView).toHaveBeenCalledTimes(60);
+    expect(response.body).toEqual({ data: [] });
+    expect(databaseQuery).toHaveBeenCalledTimes(1);
+    expect(provider).not.toHaveBeenCalled();
   });
 });

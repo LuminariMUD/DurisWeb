@@ -1,29 +1,12 @@
 import { pool } from '../db/connection.js';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import type { RowDataPacket } from 'mysql2';
 import { getCache, setCache } from '../db/redis.js';
-import { geolocateIP } from '../utils/geoip.js';
 
 // Cache TTL for analytics (in seconds)
 const ANALYTICS_CACHE_TTL = 5 * 60; // 5 minutes
 const REDIS_KEY_PREFIX = 'web_analytics:';
 
 // Types
-export interface PageViewData {
-  sessionId: string;
-  accountName?: string | null;
-  path: string;
-  pageTitle?: string | null;
-  referrer?: string | null;
-  utmSource?: string | null;
-  utmMedium?: string | null;
-  utmCampaign?: string | null;
-  userAgent?: string | null;
-  screenWidth?: number | null;
-  screenHeight?: number | null;
-  ipAddress?: string | null;
-  loadTimeMs?: number | null;
-}
-
 export interface WebOverviewStats {
   totalPageViews: number;
   uniqueVisitors: number;
@@ -81,138 +64,6 @@ export interface RealtimeVisitor {
   country: string | null;
   city: string | null;
   lastSeen: string;
-}
-
-/**
- * Parse user agent string to extract device, browser, and OS info
- */
-function parseUserAgent(userAgent: string | null | undefined): {
-  deviceType: string;
-  browser: string;
-  os: string;
-} {
-  if (!userAgent) {
-    return { deviceType: 'unknown', browser: 'unknown', os: 'unknown' };
-  }
-
-  const ua = userAgent.toLowerCase();
-
-  // Device type detection
-  let deviceType = 'desktop';
-  if (/mobile|android|iphone|ipad|ipod|blackberry|windows phone/i.test(ua)) {
-    deviceType = /ipad|tablet/i.test(ua) ? 'tablet' : 'mobile';
-  }
-
-  // Browser detection
-  let browser = 'other';
-  if (ua.includes('firefox')) browser = 'Firefox';
-  else if (ua.includes('edg/')) browser = 'Edge';
-  else if (ua.includes('chrome')) browser = 'Chrome';
-  else if (ua.includes('safari')) browser = 'Safari';
-  else if (ua.includes('opera') || ua.includes('opr/')) browser = 'Opera';
-
-  // OS detection
-  let os = 'other';
-  if (ua.includes('windows')) os = 'Windows';
-  else if (ua.includes('mac os') || ua.includes('macos')) os = 'macOS';
-  else if (ua.includes('linux')) os = 'Linux';
-  else if (ua.includes('android')) os = 'Android';
-  else if (ua.includes('iphone') || ua.includes('ipad')) os = 'iOS';
-
-  return { deviceType, browser, os };
-}
-
-/**
- * Extract domain from referrer URL
- */
-function extractDomain(referrer: string | null | undefined): string | null {
-  if (!referrer) return null;
-  try {
-    const url = new URL(referrer);
-    return url.hostname.replace(/^www\./, '');
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Track a page view
- */
-export async function trackPageView(data: PageViewData): Promise<void> {
-  const { deviceType, browser, os } = parseUserAgent(data.userAgent);
-  const referrerDomain = extractDomain(data.referrer);
-
-  // Geo lookup (async, cached)
-  let country: string | null = null;
-  let countryCode: string | null = null;
-  let city: string | null = null;
-  if (data.ipAddress) {
-    const geo = await geolocateIP(data.ipAddress);
-    if (geo) {
-      country = geo.country;
-      countryCode = geo.countryCode;
-      city = geo.city;
-    }
-  }
-
-  // Insert page view
-  await pool.query<ResultSetHeader>(
-    `INSERT INTO page_views (
-      session_id, account_name, path, page_title, referrer, referrer_domain,
-      utm_source, utm_medium, utm_campaign, user_agent, device_type, browser, os,
-      screen_width, screen_height, ip_address, country, country_code, city, load_time_ms
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      data.sessionId,
-      data.accountName || null,
-      data.path,
-      data.pageTitle || null,
-      data.referrer || null,
-      referrerDomain,
-      data.utmSource || null,
-      data.utmMedium || null,
-      data.utmCampaign || null,
-      data.userAgent || null,
-      deviceType,
-      browser,
-      os,
-      data.screenWidth || null,
-      data.screenHeight || null,
-      data.ipAddress || null,
-      country,
-      countryCode,
-      city,
-      data.loadTimeMs || null,
-    ],
-  );
-
-  // Update or create session
-  await pool.query<ResultSetHeader>(
-    `INSERT INTO visitor_sessions (
-      session_id, account_name, entry_page, exit_page, referrer, referrer_domain,
-      device_type, browser, os, country, country_code, city, page_views, is_bounce
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, TRUE)
-    ON DUPLICATE KEY UPDATE
-      account_name = COALESCE(VALUES(account_name), account_name),
-      last_seen = NOW(),
-      exit_page = VALUES(exit_page),
-      page_views = page_views + 1,
-      is_bounce = FALSE`,
-    [
-      data.sessionId,
-      data.accountName || null,
-      data.path,
-      data.path,
-      data.referrer || null,
-      referrerDomain,
-      deviceType,
-      browser,
-      os,
-      country,
-      countryCode,
-      city,
-    ],
-  );
 }
 
 /**
