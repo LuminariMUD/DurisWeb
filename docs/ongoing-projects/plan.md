@@ -533,7 +533,10 @@ exceptions, request handling, and provider commitments need a named owner's
 approval. These decisions are implementation/release prerequisites, not reasons
 to leave this planning deliverable incomplete.
 
-## Findings checked against source
+## Original findings checked against the pinned starting source
+
+These describe the starting revision. The execution record and phase checkboxes
+above/below distinguish current source implementation from pending live rollout.
 
 ### #7 — Replayable refresh tokens: confirmed
 
