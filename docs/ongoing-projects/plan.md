@@ -1,0 +1,684 @@
+# Website security, privacy, and schema implementation plan
+
+Status: **planned; implementation has not started**. Prepared 2026-10-16.
+
+Single working plan for [#7](https://github.com/LuminariMUD/DurisWeb/issues/7),
+[#8](https://github.com/LuminariMUD/DurisWeb/issues/8),
+[#9](https://github.com/LuminariMUD/DurisWeb/issues/9),
+[#10](https://github.com/LuminariMUD/DurisWeb/issues/10),
+[#11](https://github.com/LuminariMUD/DurisWeb/issues/11),
+[#12](https://github.com/LuminariMUD/DurisWeb/issues/12),
+[#13](https://github.com/LuminariMUD/DurisWeb/issues/13), and
+[#14](https://github.com/LuminariMUD/DurisWeb/issues/14).
+
+Implementation branch: `branch/issues-7-14-security-privacy-baseline`.
+Source reviewed: `master` at
+[`ade01ddcea70c0448825a0b4ab3e8ba77982aae4`](https://github.com/LuminariMUD/DurisWeb/commit/ade01ddcea70c0448825a0b4ab3e8ba77982aae4).
+All eight issues were open with no comments when read. Their older `3f0ddc9`
+references are context; the findings below come from the pinned checkout.
+
+## Scope and authority
+
+This publication contains this plan only. It does not implement the changes,
+close the issues, deploy, invalidate sessions, run migrations, purge records, or
+operate the separate DurisMUD repository. Future implementation follows the
+sequence and acceptance gates below. Keep one evolving plan here rather than
+creating a separate implementation plan for each issue.
+
+Follow [conventions](../CONVENTIONS.md), [development](../development.md),
+[architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
+[design](../DESIGN.md). Preserve existing safety gates and the MUD's schema and
+mutation authority. A copied MUD table fingerprint is a verification input,
+not permission to modify those tables. No production data, credentials,
+provider responses, dumps, or private operational evidence belong in this file.
+
+The source review establishes engineering gaps, not a legal determination or a
+claim about current production settings. Processing purposes, periods,
+exceptions, request handling, and provider commitments need a named owner's
+approval. These decisions are implementation/release prerequisites, not reasons
+to leave this planning deliverable incomplete.
+
+## Findings checked against source
+
+### #7 — Replayable refresh tokens: confirmed
+
+[Login](../../backend/src/routes/auth.ts) writes the raw refresh JWT into
+`web_sessions.refresh_token`.
+[Session validation](../../backend/src/services/sessionService.ts) compares it
+verbatim, with account, session ID, and database expiry predicates. Access
+middleware also checks the session row, so revoking the row affects access as
+well as refresh. Preserve that binding.
+
+The current [JWT constants](../../backend/src/middleware/auth.ts) and cookie
+lifetimes are **30 days**, whereas login creates a **7-day database session**.
+The security record's seven-day token wording is imprecise. Keep the effective
+seven-day session ceiling unless a separate product decision changes it.
+[Production preflight](../../backend/src/scripts/productionPreflight.ts) also
+requires the raw token column to hold at least 512 characters; changing only the
+login and comparison code would leave the deployment contract wrong.
+
+### #8 — Timezone-dependent expiry: source risk confirmed; schema qualified
+
+Login binds a JavaScript `Date`; validation uses `expires_at > NOW()`.
+[The mysql2 pool](../../backend/src/db/connection.ts) uses `dateStrings: true`
+without a serialization timezone. Its invariant check compares session/server
+timezones, not JavaScript serialization with database interpretation.
+
+However, [the checked-in legacy DDL](../../backend/migrations/006_create_forum_tables.sql)
+declares `expires_at TIMESTAMP`, not DATETIME. No live schema or historical
+exploit was inspected/reproduced in this planning task. A future migration must
+inspect `information_schema`, support explicitly tested existing shapes, and
+reject unknown drift. Simply substituting `UTC_TIMESTAMP()` for `NOW()` can
+still be wrong when comparing a session-converted TIMESTAMP.
+
+### #9 — Durable toggle history gap: confirmed, with existing attribution
+
+[setHookEnabled](../../backend/src/hooks/hookSettingsService.ts) persists the
+setting and its `updated_by`/`updated_at`, invalidates caches, then attempts the
+separate `admin_action_log` insert. Thus the latest actor already survives an
+audit failure, but complete old/new transitions and stable event identities do
+not. Its `previous` value also comes from the process cache, which is not a
+serialized previous value during concurrent requests. The
+[existing tests](../../backend/src/hooks/__tests__/hookSettingsService.test.ts)
+cover ordinary attribution, effective state, and terminal refusal, not durable
+recovery across audit outage/crash/retry.
+
+### #10 — Optional analytics has no consent boundary: confirmed
+
+[analytics.ts](../../frontend/src/services/analytics.ts) creates a persistent
+localStorage identifier before sending initial and delayed route events;
+[main.ts](../../frontend/src/main.ts) initializes it unconditionally.
+[The route](../../backend/src/routes/webAnalytics.ts) accepts anonymous events
+and adds IP/user-agent data; [the service](../../backend/src/services/webAnalyticsService.ts)
+calls GeoIP before inserting `page_views` and `visitor_sessions`.
+
+No processing-notice route or analytics consent implementation was found in the
+router, shell, tracking service, or backend collection path. The router is
+mounted at both `/api/analytics` and `/api/admin/analytics/web` in
+[index.ts](../../backend/src/index.ts): enforce collection policy inside the
+shared route/service so the second mount cannot bypass it. The account-name
+branch is conditional on `req.user`, but this route does not install optional
+authentication. Do not infer that present-day events reliably identify logged-in
+accounts, or join anonymous browsing to accounts by IP.
+
+### #11 — General retention is missing; some cleanup already exists
+
+No common policy inventory or general bounded retention runner was found.
+Existing behavior includes [backup count retention](../../backend/src/services/backupService.ts),
+[one-hour orphan-image cleanup](../../backend/src/services/postImageService.ts),
+[invalid push-endpoint removal](../../backend/src/services/pushNotificationService.ts),
+and [per-account notification deletion](../../backend/src/services/unifiedNotificationService.ts).
+These are useful components, not a comprehensive schedule. Orphan-image cleanup
+currently removes the database record even after an object-deletion failure;
+it must not be reused as proof of completed erasure without repairing that
+recovery behavior within this work.
+
+### #12 — Complete account export/erasure is absent in the website
+
+Profile/character administration, session revocation, push deletion, and feature
+CRUD exist, but the inspected routes/services contain no complete verified
+subject-request lifecycle. Authentication depends on MUD account flatfiles via
+[accountService](../../backend/src/services/accountService.ts), so deleting web
+rows alone neither erases the game account nor prevents website recreation.
+
+The copied [MUD ownership inventory](../../backend/mud-write-allowlist.json)
+already names `account_erasure_requests`, `account_erasure_stores`,
+`account_erasure_evidence`, and `account_erasure_tombstones`. This is evidence of
+an external ownership contract, **not** proof that a usable website integration
+or deployed MUD workflow exists. Confirm that contract with the MUD owner before
+planning its adapter; do not create competing web tables with those names.
+
+### #13 — Unsafe GeoIP logs: confirmed beyond the two IP branches
+
+[geoip.ts](../../backend/src/utils/geoip.ts) logs IP/provider messages on refusal,
+raw exceptions on catch, and untrusted `statusText` on HTTP failure. Its Redis
+keys contain IPs; [cache helpers](../../backend/src/db/redis.ts) also log raw
+errors, which need a sentinel test for command/key leakage on this call path.
+The helper is called by optional analytics and an administrative lookup in
+[admin.ts](../../backend/src/routes/admin.ts). Treat those purposes separately.
+The source uses an HTTP provider endpoint; transport/provider policy belongs
+with #10, rather than silently changing lookup/access behavior in #13.
+
+### #14 — Bootstrap gap: confirmed; historical replay is not the solution
+
+There are **83 TypeScript migration files** at the reviewed revision and **12**
+SQL artifacts classified `baseline-pending-conversion` in
+[sql-artifacts.json](../../backend/migrations/sql-artifacts.json).
+[Knex](../../backend/knexfile.ts) uses the TypeScript chain. The count describes
+source files, not a verified live ledger.
+
+The historical chain relies on absent web tables and includes MUD-touching
+compatibility migrations. Its later
+[contract repair](../../backend/migrations/20260902143000_preserve_mud_runtime_contract.ts)
+is not permission to repeat earlier alterations. A baseline must describe the
+final website schema, including unified `notifications` instead of recreating
+obsolete notification tables. Exclude MUD-owned `005_create_accounts_table.sql`
+and one-off `017_fix_emoji_icons.sql` repair. A database containing the approved
+MUD schema but no website schema is the bootstrap target; a completely blank
+SQL database is not a substitute for the MUD-owned baseline.
+
+## Delivery order and shared decisions
+
+Use small, reviewable implementation commits on the linked branch. Refresh
+`origin/master` and recheck affected findings before starting each stage.
+
+1. **P0: inventory and decisions** establishes ownership and policy inputs.
+2. **P1: GeoIP diagnostics (#13)** is independent and can be completed first.
+3. **P2: reproducible schema (#14)** creates the common fixture/upgrade path.
+4. **P3: sessions (#7 + #8)** shares one schema and logout rollout.
+5. **P4: toggle attribution (#9)** establishes durable audit recovery.
+6. **P5: notice and consent (#10)** uses the approved inventory; implementation
+   may proceed alongside P3/P4 after P2, but release needs the policy decision.
+7. **P6: retention (#11)** uses P0 policy, P2 schema, P4 pending-event rules,
+   and P5 consent/notice semantics.
+8. **P7: export and erasure (#12)** reuses P3 revocation, P6 lifecycle primitives,
+   and approved MUD/provider handoffs.
+9. **P8: integration/release qualification** reconciles all acceptance evidence.
+
+P1 need not wait for policy approval. P3/P4 need not wait for privacy-copy
+approval. No destructive job, public policy claim, or MUD adapter should guess
+missing owner decisions. No issue is complete merely because its plan or schema
+has landed.
+
+## P0 — Inventory and owner decisions
+
+- [ ] Name the processing-policy owner, operational approver, and MUD contact in
+  the implementation record. Approve controller/contact details, purposes,
+  relevant providers/transfers, optional versus necessary processing, human
+  review of suspicion scoring, request verification, and handling of objections.
+- [ ] Produce a source/schema-backed registry per data class: tables/columns and
+  non-SQL stores, authoritative owner, subject keys, purpose, timestamp/cutoff,
+  retention period, deletion versus anonymization, holds, access restrictions,
+  provider/cache/backup copies, and verification query. Periods remain explicitly
+  **unapproved** until signed off; never default an unknown class to purge.
+- [ ] Include sessions; `page_views`/`visitor_sessions`; login/connection/IP and
+  reverse-DNS projections; profiles/stats; all forum authorship, reactions,
+  subscriptions, mentions, polls/votes/history; unified notifications; PvP web
+  comments/reactions/quotes; push endpoints/keys; R2 profile and post media;
+  donations/outbox; bans; permission/moderation/admin/builder/terminal/deploy/
+  backup records; operational metrics/incidents; suspicion evidence and Gemini
+  `full_results`; consent, request, export, and pending-audit records introduced
+  here. Derive exact tables from migrations and current readers/writers.
+- [ ] Reconcile external authority against the pinned MUD manifest; table names
+  or the presence of a historical web migration do not establish web ownership.
+  Include read-only MUD export categories and separately coordinated mutations.
+- [ ] Inspect provider feature gates and operator attestations before declaring
+  a transfer active. Gemini is guarded by `GEMINI_ENABLED` and a key in
+  [its implementation](../../backend/src/services/geminiSuspicionAnalyzer.ts).
+  Do not enable Gemini or expand issue #18's rollout scope here.
+- [ ] Record treatment of backups, logs, CDN/browser copies, and restored data.
+  Privacy erasure cannot promise removal from an immutable backup immediately;
+  require bounded expiry/access rules and reapplication of completed removals
+  before a restored service accepts traffic.
+- [ ] Preserve the minimum **2027-03-03 review boundary**, with no automatic
+  deletion, for [quarantined items](../post-import/quarantined-item-disposition.md)
+  and [orphaned comments](../post-import/orphaned-pvp-comment-disposition.md).
+  Resolve current protected evidence locations privately; retired-host paths
+  are not evidence of present copies.
+
+Exit: every scoped data class has an owner and disposition, policy decisions
+have a named approver, and unknown/external classes remain excluded from
+mutation. Durable documentation is added to the appropriate guides during
+implementation, with this file remaining the single execution plan.
+
+## P1 — Safe GeoIP diagnostics (#13)
+
+- [ ] Replace all GeoIP failure logging with fixed categories such as
+  `provider_http_failure`, `provider_refusal`, `invalid_response`, and
+  `lookup_exception`. Only allow a validated numeric HTTP status and bounded
+  locally generated operation reference; never include IP, URL, statusText,
+  provider message/body, exception object/message/stack, or request headers.
+- [ ] Validate untrusted response data with strict types rather than adding new
+  `any`. Preserve cache TTL, cache hit/local-IP behavior, null-on-lookup-failure,
+  and the existing VPN/proxy fallback/access semantics.
+- [ ] Exercise failures through Redis helpers as well as the GeoIP logger. If
+  injected command errors leak the IP-bearing cache key, minimally sanitize
+  those helper diagnostics too; do not stop at the direct GeoIP call sites.
+- [ ] Add focused mocked tests for HTTP refusal including hostile statusText,
+  provider `status: fail`, network rejection, malformed JSON/response, cache
+  failure, successful/cache/local lookup, and batch behavior. Assert synthetic
+  IPv4/IPv6, URL, token, and payload sentinels are absent from **all** logger
+  arguments, while safe categories remain observable.
+- [ ] Update the GeoIP finding after verification; leave provider disclosure and
+  transport disposition to P5.
+
+Exit: failure behavior is preserved and sentinel tests cover every reachable
+GeoIP diagnostic branch without contacting the provider.
+
+## P2 — Versioned website baseline and honest provenance (#14)
+
+Design direction: an explicit, versioned **current web schema baseline**, with
+a checksummed provenance record and a reviewed migration-source
+transition. Do not globally enable SQL discovery or replay historical MUD DDL.
+
+- [ ] Derive a website-only schema artifact from all current migrations,
+  runtime queries, and preflight requirements. Record baseline version, artifact
+  checksums, exact covered migration filenames/checksums/cutoff, expected web
+  tables/columns/indexes/FKs/defaults/collations, required nonsecret seed settings,
+  and the compatible MUD baseline identity/fingerprint. Archive legacy SQL as
+  classified provenance; replace each pending classification only when its
+  replacement is accounted for. Do not copy a production dump into Git.
+- [ ] Implement explicit bootstrap and verify commands under
+  `backend/src/scripts/`, with a new baseline module/manifest outside the
+  historical migration discovery set. Refuse a wrong MUD fingerprint, unknown
+  populated web schema, unexpected ledger, ambiguous ownership, or a target
+  lacking an explicit approved identity. Installation is never automatic at
+  application startup.
+- [ ] Bootstrap only after the owner-provided MUD schema is in place. Create
+  website objects in FK order without new incoming FKs to MUD tables. Treat
+  MySQL/MariaDB DDL as nontransactional: persist progress and verify each step;
+  interrupted/repeated runs may resume only exact expected partial shapes.
+  Never accept an arbitrary existing object merely because `IF NOT EXISTS`
+  would skip it.
+- [ ] Use a separate web-baseline provenance record to attest what was actually
+  installed. A verified baseline may supersede only its exact covered historical
+  migrations for a fresh database. Adapt Knex migration discovery/status and
+  production preflight together: keep already-applied historical names visible
+  for existing ledgers, omit only explicitly covered **unapplied** history on
+  verified fresh installs, and execute all later migrations normally. Validate
+  manifest/file checksums and schema postconditions before accepting coverage.
+  Never insert fictitious historical `knex_migrations` rows, clear a ledger, or
+  change previously applied files to conceal drift.
+- [ ] Existing environments retain their original ledger. Verify their web
+  schema/ledger, record adoption separately if needed, and apply only new
+  forward migrations. Unsupported older/drifted shapes get an explicit
+  diagnostic and a reviewed forward repair, not automatic reconciliation.
+- [ ] Make baseline teardown ownership-aware and limited to objects created by
+  that install, refusing populated/adopted stores unless the approved recovery
+  procedure permits it. Give every new migration a tested `down`; document
+  irreversible data effects separately. Never use historical rollback across
+  the MUD contract boundary.
+- [ ] Rehearse: approved empty MUD schema → baseline → forward changes;
+  synthetic restored existing web schema/ledger → same forward changes;
+  interrupted bootstrap; rerun; changed checksum; missing/unknown objects;
+  wrong MUD identity; forward/down/forward for each new migration. Exercise
+  MySQL 8 and the supported MariaDB deployment family, documenting exact
+  versions. Compare normalized web postconditions and MUD fingerprints before
+  and after, not only migration exit codes.
+- [ ] Verify representative session, forum/profile/permissions, analytics,
+  settings/hook, notification, changelog, and wiki queries, plus configuration
+  and dependency preflights. Feature readiness may still require explicit wiki
+  publication/forum taxonomy; schema presence alone must not fabricate data.
+- [ ] Update README, backend guide, onboarding, development, architecture,
+  deployment, and preflight tests to describe the supported paths and recovery.
+
+Exit: both clean setup and existing-ledger upgrade reach equivalent required
+web schema; historical ledgers and MUD schema remain intact. The baseline
+becomes the synthetic fixture foundation for all later stages.
+
+## P3 — Session digests and timezone-independent expiry (#7, #8)
+
+Use a single coordinated session cutover. The proposed target row stores
+`refresh_token_digest BINARY(32)` and `expires_at_epoch BIGINT UNSIGNED` (UTC
+Unix seconds), retaining session ID/account binding and appropriate indexes.
+Integer expiry avoids both mysql2 Date serialization and TIMESTAMP/DATETIME
+conversion. Compare it with the database's current epoch (`UNIX_TIMESTAMP()`),
+with expiry exclusive at the boundary. Keep existing pool safeguards; this
+change need not change the timezone of unrelated MUD or website queries.
+
+- [ ] Add one session-credential helper using Node crypto SHA-256 over the exact
+  issued JWT bytes. Validate nonempty string input; missing/undefined refresh
+  tokens must not fall through to access-only lookup. Digest at insert and
+  refresh comparison. Keep raw JWTs only in the HTTP-only client cookie and
+  transient processing; forbid tokens/digests in logs, exports, and diagnostics.
+- [ ] Keep signature/type checks before refresh lookup and retain session/account
+  predicates, access revocation, logout, permission checks, password-change
+  teardown, and terminal/WebSocket authorization. Do not silently add refresh
+  rotation or extend the effective seven-day database lifetime. Document the
+  current 30-day JWT/cookie versus seven-day session distinction accurately.
+- [ ] Add new forward migrations and update row types, fixtures, preflight,
+  baseline postconditions, and incident/configuration documentation together.
+  Keep a finalized baseline immutable; update baseline-plus-forward verification.
+  Choose an explicit expand/cutover/contract sequence: add nullable new columns
+  and permit nulls in legacy credential/expiry columns during the transition;
+  stop/drain old website writers during an authorized release; invalidate all
+  legacy session rows; deploy code that refuses incomplete/digestless rows;
+  verify new writes; remove the replayable column and obsolete expiry column
+  and enforce target nullability. No raw/digest dual-read fallback.
+- [ ] The invalidation intentionally also discards uncertain legacy expiry
+  interpretations. Inspect and record the old column type in rehearsal; do not
+  guess offsets or backfill still-valid sessions from naive historical values.
+  Make migrations reject unsupported shapes. The rollout needs the operator's
+  global-logout decision and advance user-facing wording.
+- [ ] Implement reversible **schema** changes, with empty sessions on rollback.
+  A digest cannot reconstruct a raw token; do not restore bearer rows from a
+  backup or restart old raw-token writers as an automatic rollback. If an old
+  binary needs the old schema, keep authentication closed until the authorized
+  empty-session rollback and preflight pass.
+- [ ] Extend existing
+  [session service](../../backend/src/services/__tests__/sessionService.test.ts),
+  [lifecycle](../../backend/src/services/__tests__/sessionLifecycle.test.ts),
+  [auth binding](../../backend/src/middleware/__tests__/authSessionBinding.test.ts),
+  [password teardown](../../backend/src/routes/__tests__/passwordChangeSessionTeardown.test.ts),
+  and [pool invariant](../../backend/src/db/__tests__/sessionInvariants.test.ts)
+  coverage. Add route-level login/refresh tests proving database contents cannot
+  be replayed and DB failure never issues/authorizes a session.
+- [ ] Test valid/wrong/empty/malformed token, wrong account/session, expiry,
+  deletion/revocation, signature/type failure, and incomplete legacy rows.
+  Exercise real isolated MySQL/MariaDB with application `TZ=UTC`,
+  `Asia/Jerusalem`, and a negative-offset zone, database defaults `+00:00`,
+  `+03:00`, and a negative offset, plus dates on both sides of DST transitions.
+  Run separate processes where necessary to test actual Date serialization
+  behavior. A still-signed JWT with a database session expired by 60 seconds
+  must fail **both HTTP access and refresh**, including equality boundaries.
+- [ ] Prove normal UTC acceptance, retention cutoff behavior, and no changes to
+  SQL mode/isolation/FK/timezone safeguards or MUD fingerprints. Distinguish
+  timezone independence from clock synchronization; monitor excessive system
+  clock skew without claiming this work eliminates it.
+
+Exit: no new stored JWTs; old sessions are invalid by design; all session
+consumers honor the same binding and expiry across the timezone matrix. Close
+security findings only with the required implementation and rollout evidence.
+
+## P4 — Durable toggle journal and audit recovery (#9)
+
+Preferred design: persist a minimal immutable event in **the same `web_settings`
+storage domain as the toggle**, under a reserved journal-key namespace, in the
+same transaction. This avoids making the safety write depend on the availability
+of `admin_action_log` or a separately unavailable audit table. The existing
+[settings schema](../../backend/migrations/037_web_settings.ts) supports bounded
+JSON event values. Record this design and failure limits in the
+[hook-control ADR](../adr/0001-hook-control-ownership-and-state.md).
+
+- [ ] Lock/read the actual setting row, handling the absent-key/default-enabled
+  case deterministically. Persist actor, hook ID, previous/new boolean values,
+  UTC event time, unique event ID, and an idempotency/request identity. Commit
+  the setting and journal together, then invalidate both hook/settings caches
+  before returning the effective state. Do not derive old state from cache.
+- [ ] Keep the audit sink outside that transaction. A separate bounded worker
+  reads pending events and appends `property_change` entries. Add a nullable
+  uniquely indexed event identity to the web-owned audit table via a new
+  migration; publish/ack transactionally or recover by that identity after an
+  ambiguous commit. A retry must neither duplicate the audit entry nor erase a
+  newer toggle. Reuse the lifecycle/backoff ideas of the existing
+  [donation outbox](../../backend/src/services/donationOutboxService.ts), not its
+  unrelated delivery or raw-error handling.
+- [ ] Reserve journal keys from generic settings read/update endpoints, bulk
+  settings views, public configuration, and ordinary hook-key matching. Validate
+  every envelope; cap individual event size and worker batches. Pending events
+  cannot be dropped by a retention job or a full-queue trimming policy. Expose
+  safe aggregate backlog/age/health and retry controls to authorized operators.
+- [ ] An audit-table outage must leave the toggle effective and attribution
+  recoverable across process restart. If authoritative settings storage itself
+  cannot commit, return a failed control operation and retain the previous
+  durable state; do not claim success or fabricate durability. Document this
+  existing storage-availability limit and the always-on terminal recovery path.
+- [ ] Define duplicate request and same-state semantics explicitly: reuse the
+  recorded result for the same idempotency identity; conflicting reuse fails;
+  a separate repeated request follows the documented no-op/event policy.
+- [ ] Test audit sink failure before/after insert, ambiguous acknowledgement,
+  restart after toggle commit and after audit insert, duplicate/concurrent
+  requests, absent settings, queue backlog, worker retries, malformed journal,
+  settings commit failure, cache refresh, and MUD mismatch/unknown states.
+  Assert terminal and unknown-hook refusal still happen before mutation.
+- [ ] Use bounded safe error categories, never raw SQL/errors/IP/secrets.
+  Integrate pending/delivered event retention and subject-request holds with P6.
+
+Exit: a successful safety toggle has recoverable actor/old/new/event identity
+and remains effective through an audit outage, with exactly one audit event
+per accepted event identity after recovery.
+
+## P5 — Public notice and enforceable analytics choice (#10)
+
+- [ ] Publish an accessible pre-login privacy route using the existing shell,
+  router, brand components, and desktop/mobile navigation. Include the approved
+  owner/contact, purposes, categories, necessary security processing, optional
+  analytics, providers/transfers, retention, user requests, and human review of
+  profiling. Version the notice and choice policy. Do not claim disabled or
+  unverified provider features are live.
+- [ ] Provide accept/refuse choices and a persistent way to withdraw. Unknown,
+  refused, expired, unreadable, or obsolete-policy state means no optional
+  collection. Do not create `analytics_session_id`, gather optional fields, or
+  schedule/send events before acceptance. Store only the minimal necessary
+  preference before optional collection, and disclose that preference storage.
+- [ ] Replace unconditional tracking with an explicit consent state machine.
+  Cover initial navigation, delayed route timers, page refresh, cross-tab
+  changes, login/logout, and storage denial. Withdrawal cancels queued work,
+  removes legacy/current optional identifiers, and prevents recreation. Login
+  is not consent; logout must not accidentally accept or join another person's
+  browsing history. Old cached clients must fail closed at the server.
+- [ ] Add a server-owned versioned choice receipt, issued only by an explicit
+  same-origin, CSRF-protected choice action. Bind it to a browser choice with
+  secure cookie handling and minimal identifiers; validate current policy,
+  expiry/revocation, and server collection enablement before any enrichment,
+  storage, or provider call. A client `consent: true` field alone is insufficient.
+  Reuse existing CSRF plumbing; audit the present track exemption in
+  [csrf.ts](../../backend/src/middleware/csrf.ts) and cover both router mounts.
+- [ ] Apply validation at the common collection boundary, including any direct
+  service callers. Define consent-revision ordering for in-flight requests:
+  recheck before enrichment/persistence, reject stale queued events, and
+  document that an already completed transfer cannot be recalled by UI
+  cancellation. A failed preference write must not enable collection.
+- [ ] Minimize collection to approved fields. Prefer route templates without
+  query strings/fragments, coarse geography only when approved, and no account
+  linkage, raw IP storage, screen dimensions, full referrer, or UTM values unless
+  each has an approved purpose. Prevent secrets/private identifiers in URL/title
+  fields. The retention schedule follows what is actually kept.
+- [ ] Keep optional analytics and necessary security processing separate.
+  Administrative GeoIP lookup needs its own documented purpose and permissions.
+  Review the HTTP GeoIP transfer explicitly: disable optional enrichment until
+  approved transport/provider terms are configured; never guess that switching
+  the current endpoint to HTTPS is supported. Keep provider outage nonfatal to
+  the website and avoid fallback transfers to an unapproved service.
+- [ ] Test fresh visitor/refusal/acceptance/withdrawal/reacceptance, initial and
+  delayed routes, cross-tab/login/logout, stale policy, disabled storage,
+  stale/forged receipt, direct API/alternate-mount bypass, CSRF, provider/DB
+  failure, and in-flight withdrawal. With synthetic browser fixtures assert
+  both network silence and absence of optional storage before choice. Verify
+  notice/preferences by keyboard and at phone/tablet/desktop widths.
+
+Exit: published notice matches approved processing; rejected/no choice causes
+no optional storage or provider transfer on either frontend or backend path.
+
+## P6 — Retention enforcement and restore handling (#11)
+
+- [ ] Convert P0's approved registry into explicit allowlisted per-class
+  handlers. No generic `DELETE` over every table with `created_at`, no dynamic
+  ownership inference, and no MUD ledger/game evidence/protected archive purge.
+  Include new session/consent/request/export/audit-journal data in the registry.
+- [ ] Implement a backend CLI with dry-run as the initial/default operational
+  mode, explicit target/policy version, bounded batch size/time budget, and a
+  stable UTC cutoff captured once per run. A scheduled invocation uses the same
+  engine. Add indexes through new migrations for each real selection predicate;
+  verify query plans on synthetic scale fixtures.
+- [ ] Use keyset continuation, short transactions, restartable checkpoints,
+  deterministic ordering, and an expiring ownership lock to prevent duplicate
+  workers. Recheck eligibility and holds in the mutation transaction, including
+  holds acquired after dry-run. Delete dependent rows in FK-safe order or apply
+  the approved unlink/anonymization operation; do not disable FK checks.
+- [ ] Support explicit holds, reasons, approver, review/expiry, and restricted
+  access. Undelivered hook/donation events and unfinished subject requests are
+  ineligible until their approved lifecycle allows removal. Never erase the
+  evidence needed to finish or retry an operation.
+- [ ] Include caches, R2 objects, generated exports, log rotation, and provider
+  tasks. Persist external deletion work before unlinking the last durable
+  reference; retry failures and verify provider responses. Existing orphan
+  cleanup must retain failed object work instead of reporting it erased.
+- [ ] Keep run evidence aggregate: policy version, class, cutoff, counts,
+  duration, outcome categories, and operation ID. No row content, account/IP
+  list, object URL, or raw SQL/provider error in ordinary logs. Bound retention
+  of the lifecycle system's own records.
+- [ ] Integrate backup policy with existing count-based controls: document
+  maximum age, holds, protected copies, access and expiry, and test a restored
+  copy reapplying erasure/retention records before exposure. Do not rewrite MUD
+  backups through the unsafe website restore path. A retention operation has
+  no automatic data-restoration rollback; pause and diagnose failures, and use
+  separately authorized protected recovery when needed.
+- [ ] Test before/exactly-at/after cutoff, UTC/offset cases, multiple batches,
+  dry-run zero writes, restart/overlap, concurrent hold, FK ordering, external
+  deletion failure, stale cache, held/pending events, and attempted cross-owner
+  targets. Prove protected import classes remain excluded before and after
+  their review date. Use two accounts to detect collateral deletion.
+- [ ] Update the notice and operator runbook with actual periods, scheduler
+  cadence, dry-run review, lock recovery, monitoring, and restore procedures.
+  Start with an approved scoped dry run before enabling scheduled mutation.
+
+Exit: approved classes expire/anonymize predictably with bounded work, holds
+and ownership boundaries survive adversarial fixtures, and recovery does not
+silently resurrect erased data.
+
+## P7 — Verified export and erasure/anonymization (#12)
+
+- [ ] Implement a website-owned request lifecycle with opaque request IDs,
+  subject identity, type, policy version, verified-at evidence, authorized
+  operator where required, per-store progress, retry state, and final outcome.
+  Use distinct names from MUD-owned `account_erasure_*` tables. States distinguish
+  requested, verified, running, awaiting external owner, partial failure,
+  completed with declared exceptions, and rejected/cancelled.
+- [ ] Require authenticated ownership and recent verification using the existing
+  account authentication authority; a long-lived cookie alone is insufficient
+  for destructive action or an export. Provide the approved private assisted
+  path for a person unable to log in. Never accept account identity from an
+  arbitrary body parameter or authorize by matching an email/IP. Rate-limit,
+  enforce CSRF, audit safely, and test case/collation variations of account names.
+- [ ] Build explicit per-store export selectors/serializers from P0. Export only
+  this subject's authorized data, with a schema version, generation time,
+  categories, omissions/retention reasons, and ownership boundaries. Include
+  relevant MUD-owned records through an approved read-only/owner-provided path;
+  unresolved external categories prevent a claim of complete account export.
+- [ ] Exclude passwords/hashes, tokens/digests, push auth keys, signing secrets,
+  private staff evidence, and other accounts' personal data. Select/review mixed
+  notification, mention, moderation, vote, quote, and Gemini multi-account JSON
+  records deliberately; do not dump entire joined rows or infer anonymous
+  analytics identity by IP. Define the private review path for sensitive records.
+- [ ] Generate bounded streamed/paginated output with consistent snapshot or
+  documented cutoff semantics. Deliver through a subject-authorized expiring
+  download with `Cache-Control: no-store`, no public R2 URL, no payload logging,
+  and no service-worker/CDN cache. Bind download/retry to the verified subject;
+  expire and delete temporary output, including partial files after crashes.
+- [ ] For erasure, establish a website request fence before mutation so new
+  login/profile sync/notifications/uploads cannot recreate data mid-request.
+  Revoke all sessions and terminate affected active terminal/WebSocket sessions,
+  remove subscriptions, and clear relevant caches. Durable suppression and
+  account-name reuse must follow the MUD owner's identity policy; do not claim
+  full erasure while flatfile authentication can immediately recreate the user.
+- [ ] Apply per-category deletion/anonymization under the approved policy.
+  Retained forum/PvP/community material needs stable unattributed display and
+  intact relationships/counts; strip unnecessary author/IP/profile links and
+  handle quoted/embedded personal data. Financial, moderation, and audit
+  exceptions must be narrow, access-restricted, disclosed, and time-bounded.
+  An opaque pseudonym is still personal data when a mapping remains.
+- [ ] Use durable per-store tasks for R2/CDN/provider deletion and MUD handoff.
+  Confirm the external MUD erasure protocol/authority and its receipt/status
+  rather than writing those tables or calling player wipe/legacy restore.
+  Manual owner confirmation is an explicit pending step until verified. Do not
+  mark media/provider work done after an exception or an unverified request.
+- [ ] Make duplicate requests/idempotent retries safe across SQL commit,
+  external calls, process termination, and ambiguous responses. Keep enough
+  protected progress/tombstone information to prevent recreation and reapply
+  erasure after restore; give that information its own retention/access rules.
+- [ ] Finish with independent per-store verification queries, session/access
+  denial checks, object/provider outcomes, cache checks, and an exception ledger.
+  A zero-row primary delete is not proof of completion. Notify the requester
+  through the approved in-product/private process only once the actual outcome
+  can be explained, including retained and external-owner categories.
+- [ ] Test unauthenticated/cross-account/operator access, stale verification,
+  download expiry/replay, credential exclusion, mixed-subject rows, duplicate
+  requests, concurrent writes/holds, partial SQL/provider failure, restart,
+  referential integrity, active-session teardown, non-recreation, and restore
+  replay with two synthetic subjects. Verify public retained content remains
+  usable without exposing the erased subject's identity.
+- [ ] Add request/status UI and public instructions under the design contract.
+  Document user verification, staff handling, provider/MUD handoff, exceptions,
+  timeframes approved by the owner, and final verification evidence.
+
+Exit: a verified subject can obtain the defined protected export and complete
+website erasure/anonymization, with external ownership and retention exceptions
+accurately represented. Do not close #12 on a website-only success if required
+MUD/provider steps are still pending.
+
+## P8 — Integrated verification and release closure
+
+### Required checks during implementation
+
+Run commands from the repository root. Use the narrowest relevant new/existing
+tests per stage, followed by the affected package's format/lint/type checks.
+P2/P3/P4/P6/P7 require database/ownership verification. Cross-package changes
+require both packages. At integrated acceptance, run the full matrix below
+against isolated, synthetic, explicitly selected dependencies:
+
+```bash
+./scripts/check-config-literals.sh
+pnpm --dir backend config:check
+pnpm --dir backend format:check
+pnpm --dir backend lint
+pnpm --dir backend type-check
+pnpm --dir backend verify:mud-writes
+pnpm --dir backend test --runInBand
+pnpm --dir backend build
+pnpm --dir frontend config:check
+pnpm --dir frontend format:check
+pnpm --dir frontend lint
+./frontend/scripts/check-palette-literals.sh
+pnpm --dir frontend type-check
+pnpm --dir frontend test:unit --run
+pnpm --dir frontend build
+git diff --check
+```
+
+The MUD manifest path and supported test schema must be supplied deliberately;
+a minimal web-only fixture is insufficient for the backend suite. Database
+qualification must include the new bootstrap/upgrade/rollback harness, session
+timezone matrix, outbox crash injection, consent race/bypass tests, retention
+cutoff/hold/ownership tests, and export/erasure partial-failure tests. Add exact
+new command names here when implemented; these are not existing scripts yet.
+Use mocked providers and browser fixtures, never real visitor evidence.
+
+Record every command and its actual outcome/skips in the implementation
+handoff. Unit tests alone do not prove database schema, browser choice behavior,
+external deletion, or deployment. Hosted CI status does not replace local
+runtime/database evidence. Do not rerun unrelated suites after a docs-only
+change merely to imply implementation coverage.
+
+### Future authorized rollout
+
+- [ ] Approve policy/periods, supported schema adoption, global logout, and the
+  exact release SHA. Rehearse new migrations and recovery against approved
+  isolated targets before any shared-environment operation.
+- [ ] Follow [deployment](../deployment.md): protected recovery evidence,
+  detached build artifacts, preflight, controlled website cutover, session
+  invalidation, and verified backend/frontend identity. Keep Cloudflare tunnel
+  ingress intact. MUD operations remain separately owned/authorized.
+- [ ] Start optional analytics disabled until approved notice/choice behavior
+  is verified. Start retention in dry-run and subject-request workers with
+  reviewed synthetic/operator acceptance. Monitor safe aggregate failures,
+  pending audit events, overdue work, and partial provider/MUD outcomes.
+- [ ] On failure, stop the affected collection/destructive worker and preserve
+  its journal. Authentication rollback keeps old sessions invalid; retention
+  rollback never automatically restores personal data; baseline rollback never
+  weakens or deletes MUD schema.
+- [ ] Prepare user-facing release notes during implementation, including the
+  forced sign-in and where privacy choices/requests live. After live acceptance,
+  use [news-update](../../.agents/skills/news-update/SKILL.md), reconcile existing
+  entries, publish via `/admin/changelog` or `/api/changelog`, and verify both
+  saved content and public `/news?tab=changelog` rendering. Use Website Changelog,
+  not MUD News. A draft does not satisfy publication.
+- [ ] Update security findings, configuration, incident response, onboarding,
+  deployment, privacy notice, and lifecycle runbook to match verified behavior.
+  Link per-issue commits/tests/release evidence and close each issue only when
+  its own completion criteria are met. No compliance or complete-erasure claim
+  may exceed the verified scope.
+
+### Acceptance traceability
+
+- #7: P3 digest-only persistence, binding/failure tests, logout and rollback.
+- #8: P3 inspected legacy shapes, epoch contract, real timezone/DST HTTP tests.
+- #9: P4 durable event identity, toggle priority, crash/retry/concurrency proof.
+- #10: P0/P5 approved notice, frontend/server choice, withdrawal/provider proof.
+- #11: P0/P6 periods/holds, bounded enforcement, protected archives and restore.
+- #12: P0/P7 verified identity/export, per-store erasure and external completion.
+- #13: P1 safe logging of every GeoIP failure path and unchanged lookup behavior.
+- #14: P2 versioned bootstrap, existing-ledger upgrade, schema/MUD proof/recovery.
+
+## Planning-publication verification
+
+This task's checks are documentation-only: inspect the current issues and
+source contracts, validate this plan's relative links and issue/stage coverage,
+check whitespace and the one-file diff, then verify the committed remote blob,
+exact branch head, ahead/behind `0 0`, clean worktree, and issue links after push.
+No application, database, browser, migration, provider, build, or production
+acceptance test is claimed by this plan. The runtime checks above are future
+implementation work and were not run for this documentation-only publication.
+
+No Website Changelog entry is needed for this commit: it changes only the
+implementation plan and makes no reader-visible website change.
