@@ -6,7 +6,7 @@ import { loadWebBaselineBundle } from '../../db/webBaselineBundle.js';
 const query = jest.fn<(sql: string, values?: unknown[]) => Promise<unknown>>();
 const release = jest.fn();
 jest.unstable_mockModule('../../db/connection.js', () => ({
-  pool: { getConnection: async () => ({ query, release }) },
+  pool: { query, getConnection: async () => ({ query, release }) },
 }));
 jest.unstable_mockModule('../accountService.js', () => ({ searchAccounts: jest.fn() }));
 jest.unstable_mockModule('../permissionService.js', () => ({}));
@@ -36,7 +36,9 @@ jest.unstable_mockModule('../../utils/logger.js', () => ({
   default: { error: jest.fn() },
   isErrorWithCode: jest.fn(),
 }));
-const { getUserSubscriptions, createPostNotifications } = await import('../forumService.js');
+const { getUserSubscriptions, createPostNotifications, getPostsByThread } = await import(
+  '../forumService.js'
+);
 
 beforeEach(() => {
   query.mockReset();
@@ -61,7 +63,7 @@ for (const port of ports) {
   describe(`forum services on canonical baseline at disposable port ${port}`, () => {
     let connection: mysql.Connection;
     let created = false;
-    const database = 'durisweb_forum_baseline_test';
+    const database = `durisweb_forum_baseline_${process.pid}`;
     beforeAll(async () => {
       connection = await mysql.createConnection({ host: '127.0.0.1', port, user: 'root' });
       await connection.query(
@@ -108,6 +110,30 @@ for (const port of ports) {
         accountName: 'category-reader',
         categoryId: 1,
       });
+    });
+    it('locates linked posts beyond page one with stable ordering and active-post visibility', async () => {
+      await connection.query(
+        'CREATE TABLE frag_leaderboard (pid BIGINT PRIMARY KEY, char_name VARCHAR(50))',
+      );
+      for (let id = 1; id <= 55; id++) {
+        await connection.query(
+          "INSERT INTO forum_posts (id,thread_id,author_account_name,content,created_at,is_deleted) VALUES (?,1,'synthetic-author',?,'2026-10-16 10:00:00',?)",
+          [id, `Post ${id}`, id === 1 ? 1 : 0],
+        );
+      }
+      const result = await getPostsByThread(1, '', 1, 50, undefined, { targetPostId: 55 });
+      expect(result.page).toBe(2);
+      expect(result.total).toBe(54);
+      expect(result.posts.map(({ id }) => id)).toEqual([52, 53, 54, 55]);
+      expect((await getPostsByThread(1, '', 1, 50, undefined, { targetPostId: 51 })).page).toBe(1);
+      for (const targetPostId of [1, 99999]) {
+        const missing = await getPostsByThread(1, '', 1, 50, undefined, { targetPostId });
+        expect(missing.page).toBe(1);
+        expect(missing.posts.map(({ id }) => id)).not.toContain(1);
+      }
+      expect(
+        (await getPostsByThread(999, '', 1, 50, undefined, { targetPostId: 55 })).posts,
+      ).toEqual([]);
     });
     it('persists notifications for enabled subscribers with working links and structured post data', async () => {
       await createPostNotifications(7, 1, 1, 'synthetic-author', 'SyntheticCharacter');

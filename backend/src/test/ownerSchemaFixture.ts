@@ -1,19 +1,34 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import type { Connection, RowDataPacket } from 'mysql2/promise';
 import { loadMudWriteAllowlist } from '../db/mudWriteInventory.js';
 import { sha256 } from '../db/webBaselineBundle.js';
 
 interface OwnerFixtureInputs {
   sql: string;
-  inputSha256: string;
-  manifestSha256: string;
-  runtimeManifestSha256: string;
   headId: string;
   tableList: string;
   tableCount: number;
   expected: { mysql8: string; mariadb10_11: string };
+}
+
+// Owner-published inputs at Duris commit 6d4d71e56547c71898247e73ccca74da75e0a9f6.
+// Updating the qualification source requires an explicit review of these pins.
+const ownerInputDigests = {
+  'bootstrap_multithread_safe.sql':
+    'cf9b4d7dcbd099954de52e7dca5d0994c770e0582aca82b6c8d3b43a3cb6807c',
+  'migration_manifest.json': '8edb7c9bb7e32feeffb4741a4e571f92288c1bec9c4dc3d2d1fb22888f6e31b7',
+  'runtime_compatibility_manifest.json':
+    'ad6e56799d652e99f7c245f57e7e44dbc9eced1b9c94844bbdcb6930b3cccb51',
+} as const;
+
+function readPinnedInput(directory: string, name: keyof typeof ownerInputDigests): string {
+  const text = fs.readFileSync(path.join(directory, name), 'utf8');
+  if (sha256(text) !== ownerInputDigests[name])
+    throw new Error(`Owner fixture published checksum differs: ${name}`);
+  return text;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -25,11 +40,8 @@ function isDigest(value: unknown): value is string {
 
 /** Read owner-published SQL as test inputs. No MUD repository command or server is run. */
 export function readOwnerSchemaFixture(directory: string): OwnerFixtureInputs {
-  const manifestText = fs.readFileSync(path.join(directory, 'migration_manifest.json'), 'utf8');
-  const runtimeText = fs.readFileSync(
-    path.join(directory, 'runtime_compatibility_manifest.json'),
-    'utf8',
-  );
+  const manifestText = readPinnedInput(directory, 'migration_manifest.json');
+  const runtimeText = readPinnedInput(directory, 'runtime_compatibility_manifest.json');
   const manifest: unknown = JSON.parse(manifestText);
   const runtime: unknown = JSON.parse(runtimeText);
   const ownership = loadMudWriteAllowlist();
@@ -58,7 +70,7 @@ export function readOwnerSchemaFixture(directory: string): OwnerFixtureInputs {
     !isDigest(runtime.normalized_metadata_fingerprints.mariadb10_11)
   )
     throw new Error('Owner fixture runtime contract is invalid');
-  const parts = [fs.readFileSync(path.join(directory, 'bootstrap_multithread_safe.sql'), 'utf8')];
+  const parts = [readPinnedInput(directory, 'bootstrap_multithread_safe.sql')];
   let head = '';
   for (const item of manifest.migrations) {
     if (
@@ -91,9 +103,6 @@ export function readOwnerSchemaFixture(directory: string): OwnerFixtureInputs {
     throw new Error('Owner fixture contract changed while reading');
   return {
     sql,
-    inputSha256: sha256(sql),
-    manifestSha256: sha256(manifestText),
-    runtimeManifestSha256: sha256(runtimeText),
     headId: head,
     tableList: runtime.runtime_table_sql_list,
     tableCount: runtime.current_table_count,
@@ -116,7 +125,8 @@ export async function applyOwnerSchemaFixture(
     port < 1024 ||
     port > 65535 ||
     [3306, 3307, 13306].includes(port) ||
-    !/^durisweb_qualification_[a-z0-9_]+$/.test(name)
+    !/^durisweb_qualification_[a-z0-9_]+$/.test(name) ||
+    name.length > 64
   )
     throw new Error('Owner fixture target is not an isolated test target');
   const [identity] = await database.query<RowDataPacket[]>('SELECT DATABASE() AS name');
@@ -125,20 +135,42 @@ export async function applyOwnerSchemaFixture(
   );
   if (identity[0]?.name !== name || Number(existing[0]?.count) !== 0)
     throw new Error('Owner fixture requires a newly created empty target');
-  const result = spawnSync(
-    'mysql',
-    [
-      '--no-defaults',
-      '--protocol=TCP',
-      '--host=127.0.0.1',
-      `--port=${port}`,
-      '--user=root',
-      '--default-character-set=utf8mb4',
-      name,
-    ],
-    { input: inputs.sql, encoding: 'utf8', timeout: 45000, maxBuffer: 1024 * 1024 },
-  );
-  if (result.status !== 0) throw new Error('Owner fixture SQL application failed');
+  const user = `dw_fixture_${randomBytes(8).toString('hex')}`;
+  const password = randomBytes(32).toString('hex');
+  await database.query('CREATE USER ?@? IDENTIFIED BY ?', [user, '%', password]);
+  try {
+    // Database names in GRANT are patterns: escape underscores as well as
+    // quoting the identifier, otherwise an adjacent schema can match the grant.
+    await database.query('GRANT ALL PRIVILEGES ON ??.* TO ?@?', [
+      name.replaceAll('_', '\\_'),
+      user,
+      '%',
+    ]);
+    const result = spawnSync(
+      'mysql',
+      [
+        '--no-defaults',
+        '--protocol=TCP',
+        '--host=127.0.0.1',
+        `--port=${port}`,
+        `--user=${user}`,
+        '--default-character-set=utf8mb4',
+        '--local-infile=0',
+        '--binary-mode',
+        name,
+      ],
+      {
+        input: inputs.sql,
+        env: { ...process.env, MYSQL_PWD: password },
+        encoding: 'utf8',
+        timeout: 45000,
+        maxBuffer: 1024 * 1024,
+      },
+    );
+    if (result.status !== 0) throw new Error('Owner fixture SQL application failed');
+  } finally {
+    await database.query('DROP USER ?@?', [user, '%']);
+  }
 }
 
 /** The owner's normalized metadata contract includes incoming foreign keys too. */

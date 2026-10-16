@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { toast } from 'vue-sonner'
 import { forumApi } from '@/services/api'
@@ -47,6 +47,7 @@ const props = defineProps<{
 }>()
 
 const router = useRouter()
+const route = useRoute()
 const { isAuthenticated, accountName, selectedCharacter, permissions } = useAuth()
 const { onForumPost, offForumPost } = useWebSocket()
 
@@ -164,23 +165,40 @@ watch(
   { immediate: true },
 )
 
-async function loadThread(page: number = 1) {
+let loadSequence = 0
+async function loadThread(page: number = 1, postId?: number) {
+  const sequence = ++loadSequence
   isLoading.value = true
   error.value = null
 
   try {
-    const response = await forumApi.getThread(threadIdNum.value, page, 50)
+    const response = await forumApi.getThread(threadIdNum.value, page, 50, postId)
+    if (sequence !== loadSequence) return
     thread.value = response.thread
     category.value = response.category
     posts.value = response.posts
     currentPage.value = response.pagination.page
-    totalPages.value = response.pagination.totalPages
-  } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to load thread'
+    totalPages.value = response.pagination.pages
+  } catch {
+    if (sequence === loadSequence) error.value = 'Failed to load thread'
   } finally {
-    isLoading.value = false
+    if (sequence === loadSequence) isLoading.value = false
+  }
+  if (sequence === loadSequence && postId !== undefined) {
+    await nextTick()
+    document.getElementById(`post-${postId}`)?.scrollIntoView({ block: 'center' })
   }
 }
+
+watch(
+  () => [props.threadId, route.hash],
+  () => {
+    const match = /^#post-([1-9][0-9]*)$/.exec(route.hash)
+    const postId = match ? Number(match[1]) : undefined
+    void loadThread(1, Number.isSafeInteger(postId) ? postId : undefined)
+  },
+  { immediate: true },
+)
 
 // ============================================================================
 // Reply Functions
@@ -697,7 +715,6 @@ function handleNewForumPost(data: { threadId: number; post: any; authorAccount: 
 }
 
 onMounted(() => {
-  loadThread()
   setupImageClickHandlers()
   onForumPost(handleNewForumPost)
 })
@@ -1192,6 +1209,7 @@ onUnmounted(() => {
                   <div
                     class="prose prose-sm prose-invert max-w-none mb-4 overflow-x-auto"
                     :data-post-id="post.id"
+                    :id="`post-${post.id}`"
                   >
                     <!-- Parse and render quotes and mentions -->
                     <template v-for="(part, idx) in parseQuotes(post.content)" :key="idx">

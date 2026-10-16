@@ -252,7 +252,7 @@ describe('admin account permission ID validation', () => {
         user: 'root',
         dateStrings: true,
       });
-      const database = 'durisweb_admin_crash_baseline_test';
+      const database = `durisweb_admin_crash_baseline_${process.pid}`;
       let created = false;
       try {
         await connection.query(
