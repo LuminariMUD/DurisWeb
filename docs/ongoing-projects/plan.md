@@ -63,6 +63,12 @@ outside this request. Keep this single evolving execution plan current.
 - **P1 Website Changelog:** no entry needed: diagnostic minimization and
   malformed-provider rejection do not add reader-visible website behavior.
   No release, tag, deployment, or public news publication is claimed.
+- **Base refresh:** concurrent Discord PRs #32–#35 landed while P1 was being
+  verified. Merged `origin/master` at `fa7127e` without rewriting either history;
+  no P1 implementation file changed upstream. P2 must include its two new
+  migrations (`20261016150000_pvp_discord_delivery.ts` and
+  `20261016160000_pvp_discord_audit_columns.ts`); the initial 83-file count below
+  is historical. Revalidated P1 and backend gates on the combined tree.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
