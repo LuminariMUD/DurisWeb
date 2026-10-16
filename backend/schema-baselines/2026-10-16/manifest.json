@@ -1,0 +1,1038 @@
+{
+  "formatVersion": 1,
+  "id": "durisweb-2026-10-16",
+  "migrationCutoff": "20261016160000_pvp_discord_audit_columns.ts",
+  "mudBaseline": {
+    "id": "duris-schema-2026-08-27-session11",
+    "requiredTableFingerprint": "db13d7a42bf82bcbd32bac8d83224913c755fefd000ade6d4e798b1bd4f494dd"
+  },
+  "additionalMudOwnedTables": [
+    "server_reboots"
+  ],
+  "schemaSha256": "39a7ca9a7e7a30e4714514d1233bb51ab95e4e195d5a460a7e65a62129fc9b39",
+  "seedsSha256": "9a4104bec437409f6c8ff64284cddefb7c875e924345182f4e9df9c98f05126c",
+  "historicalMigrations": [
+    {
+      "name": "014_create_server_reboots.ts",
+      "sha256": "04374545f4e4bba27be30e18c81254497f65b3d5ca4221cc45eb335b301d8f77"
+    },
+    {
+      "name": "015_simplify_server_reboots.ts",
+      "sha256": "389b2d396e3c7d5ffdbd0a567aa10e258a7d3664ac5d5066eae8ebd94c7c6820"
+    },
+    {
+      "name": "016_create_terminal_sessions.ts",
+      "sha256": "7316508471c15df281c1d8b91c2de2e5c38f26a59b3e6270b00c860d6d690ab2"
+    },
+    {
+      "name": "016a_bootstrap_admin_permission_tables.ts",
+      "sha256": "f85ec9b74411c1d10def583fa948fb877d7581522da944fb9357f059d56a4357"
+    },
+    {
+      "name": "017_add_terminal_access_permission.ts",
+      "sha256": "13a8767a5ae9c424d76113153c287f4e81189b97e2297cf9c7e16042b4fadcb9"
+    },
+    {
+      "name": "018_create_backup_system.ts",
+      "sha256": "e13fd161ef934b422eb23dabdf0200b140212b80001af075a15846c6da18c066"
+    },
+    {
+      "name": "019_create_mud_control_system.ts",
+      "sha256": "db83ea05a5d33d453affa2212486d64810791ab9c0c700a097308e7858c8d7f5"
+    },
+    {
+      "name": "020_add_mud_control_output.ts",
+      "sha256": "34de0293db136dfc06b32da7d17e11d6981e9d08be459ebcab769ea3241a26d1"
+    },
+    {
+      "name": "021_add_manage_user_profiles_permission.ts",
+      "sha256": "7089a6348632e4bdc5c425e0a213558901584479e282dd16162b5006f1133c4c"
+    },
+    {
+      "name": "022_add_avatar_url_column.ts",
+      "sha256": "7c7ac29995fc19426c3221816fd7e44cf0fe3d8bd0889f565eeace382e4acb59"
+    },
+    {
+      "name": "023_forum_post_images.ts",
+      "sha256": "0a8c1d70a058d1ff8ef179181ac170c82e2805c3779ed139e8fff33d8da99469"
+    },
+    {
+      "name": "024_fix_forum_post_images.ts",
+      "sha256": "41a1febafdd22ed2a27c0ec9d6306f9881de06e1e1f9e6772284e0d5fb6b6fcb"
+    },
+    {
+      "name": "025_add_duris_prefix_to_urls.ts",
+      "sha256": "229a60c943f66c3949ce222d98b72927f048869e216ef4c50eccd663fceb04c0"
+    },
+    {
+      "name": "026_add_banner_url_to_user_profiles.ts",
+      "sha256": "30822ad254ffe3a4c716db8619fcd43ca392efb86c8478ac703b8d777e143da4"
+    },
+    {
+      "name": "027_drop_accounts_foreign_keys.ts",
+      "sha256": "d53462d83f4e3929eb0b7e3c802a66b61d52d64b7bcea92a01d97fb1d337759e"
+    },
+    {
+      "name": "028_zone_builder_info.ts",
+      "sha256": "824355786586e65dd173223512c71d1715f5c7f5423aa2829bad5ffdf3eb0160"
+    },
+    {
+      "name": "029_builder_activity_log.ts",
+      "sha256": "c626bd83fd3c9b879dda3a760a21021eaaeadb7bdb93708354e31725068538bf"
+    },
+    {
+      "name": "030_zone_info_permissions.ts",
+      "sha256": "bdfd54310f939934f6dd432a0f71767a57f92a0cbebc4fbe3b8617f31c3635d7"
+    },
+    {
+      "name": "031_proc_requests.ts",
+      "sha256": "4519c2c3e117c12c81e05105de00349729d9945bf46cf64ecade1e02ac0e12f6"
+    },
+    {
+      "name": "032_zone_comments.ts",
+      "sha256": "bd93d04287b794914130f9eb9638138a4102edb393e3d24e922e54280a617cd9"
+    },
+    {
+      "name": "033_zone_info_history.ts",
+      "sha256": "4ec2f829e3d69daeb23fcf0d27c5b4dace73c7d7bc64425c90d2a5885a242fe1"
+    },
+    {
+      "name": "034_builder_notifications.ts",
+      "sha256": "614e675c7cf954b6ed237f61eb9aaa063a6b21e40562cfb61d1aa9a2f7b890e5"
+    },
+    {
+      "name": "035_pvp_battle_interactions.ts",
+      "sha256": "6e9faa8bb81293c00454fccbf6fa8018684d1406f5eef6153dc2255ed826a42e"
+    },
+    {
+      "name": "036_web_analytics.ts",
+      "sha256": "ef11009ce9fc940906fc7359a7c00043f4b0f69859f97a379a628d99cefd8aff"
+    },
+    {
+      "name": "037_web_settings.ts",
+      "sha256": "b6b8d3d74329577d873a7639d955476b3cd1b22130c423791394a3ecd2a0e873"
+    },
+    {
+      "name": "038_fix_account_characters_collation.ts",
+      "sha256": "540cbeb430339be5366a55a2739ca40e302651a5a6637c48b8e2df42f80e9598"
+    },
+    {
+      "name": "039_standardize_all_collations.ts",
+      "sha256": "8f06f3b34d466fbb27d62b6e85e52ae150e7131022201ac9e8c49acbaa06ef1d"
+    },
+    {
+      "name": "040_front_page_settings.ts",
+      "sha256": "a53af7ab628fb92e6b12485772687f73d594df421fbf3c4b5ec4c4626f415d9f"
+    },
+    {
+      "name": "041_add_manage_front_page_permission.ts",
+      "sha256": "4615220815ec3471b3ca621acc14f654f90bdbd7e186ac709a0fb6678295c551"
+    },
+    {
+      "name": "042_add_max_hourly_backups_setting.ts",
+      "sha256": "52fd5ded8faaad227f0b734df3511405d00528d5400f89c6b4c68c2438047d67"
+    },
+    {
+      "name": "043_create_push_subscriptions.ts",
+      "sha256": "800dece1ffba72411ae557f3c60e161a37b3fb0755ae97e4b12df3aa40b12ef3"
+    },
+    {
+      "name": "044_pvp_comment_quotes.ts",
+      "sha256": "652c8c7898a1c930bd0c98b2f50fdf5e0f7d7f9fef61e04eafaba5ec454d3795"
+    },
+    {
+      "name": "045_add_client_to_login_history.ts",
+      "sha256": "053722590932ffd56c611361c43b5d19ef69d38e0cd0ab91cb17a0af563d839f"
+    },
+    {
+      "name": "046_wiki_objects_mobs_tables.ts",
+      "sha256": "ee29395bc39daf56ec1c7bfd8dc4890629e31f413818af82bfa920bb20941359"
+    },
+    {
+      "name": "047_wiki_object_restrictions.ts",
+      "sha256": "8a043762a156e14bc7fcf4b3a1fbff251361d7dd8ae1d2d903979ab87814ab31"
+    },
+    {
+      "name": "048_add_discord_webhook_settings.ts",
+      "sha256": "5c06b077ab7d48ab4260acd0a506b5021cf613eba9eb73593f73806312d3d5ec"
+    },
+    {
+      "name": "20250123100000_create_donations_table.ts",
+      "sha256": "0ff7c3d0f618a60f947311d89ca92aac653fdfe5748b73a5f28eaa3599ce8dcf"
+    },
+    {
+      "name": "20251111155405_fix_reactions_for_threads.ts",
+      "sha256": "a59889d319a307ba31b19268d2e8278b1975630ce9a10cfec98eb8576ba3d19d"
+    },
+    {
+      "name": "20251113102251_user_bans.ts",
+      "sha256": "09f020872b064a4abd6bcd427555a6ee7e87fde375c3e8fc55bf323da4609027"
+    },
+    {
+      "name": "20251113175859_add_excluded_players_to_wipe_history.ts",
+      "sha256": "8dedc7feeebce657e4b3d0fecf7f3d502c25cd5dab9b5615690657e992ca238a"
+    },
+    {
+      "name": "20251113202151_add_email_and_login_history.ts",
+      "sha256": "12fed2fa822a3e489919ec897497fcc20df17c58afeffd116f2d7bb044dba133"
+    },
+    {
+      "name": "20251113202554_add_last_ip.ts",
+      "sha256": "56c95adb20999f35a11255436f2f82a9be3da29d9fd10565048dac1a7796d100"
+    },
+    {
+      "name": "20251113210000_add_connection_tracking_fields.ts",
+      "sha256": "125ecbe5513daf64d525047798a5af5e26f6887a0eb015f3f8e2f3f1561a0671"
+    },
+    {
+      "name": "20251114074524_create_crash_log_table.ts",
+      "sha256": "3d7548ff674970928410953d5eb12d35142b2417b7b0ae8228dc34a8f9fd0f3e"
+    },
+    {
+      "name": "20251114074547_create_server_health_metrics.ts",
+      "sha256": "bea8b13f7d2df8e9b4c2416a11c9ad88aab560f139fbed5e835b6f8cbf0d326f"
+    },
+    {
+      "name": "20251114120000_add_unique_constraint_connection_logs.ts",
+      "sha256": "e238d0025ce76605c3d319f01fc0d6ae40106b8e13879e8f643363898285e541"
+    },
+    {
+      "name": "20251114130000_add_gemini_analysis_log.ts",
+      "sha256": "46080e1c89157c36eb3a58778dade63791e7f2282244c746655ce20093e05343"
+    },
+    {
+      "name": "20251114144642_merge_crash_and_incidents_proper.ts",
+      "sha256": "6b305c48890f5e0e86ad056989b2bf275e08580989311513ec68dd7f79335bf4"
+    },
+    {
+      "name": "20251114152057_add_crash_context_logs.ts",
+      "sha256": "99cd7e0a7c54cafbd13cb20c35ec71ba623927eac235b9c5b379f5f3ce0d6bf4"
+    },
+    {
+      "name": "20251114200000_add_public_visible_to_incidents.ts",
+      "sha256": "bef4d4f08fa8844a5b43f22cf19a00c5e628d51119dfb8f226b6e087ae4d233d"
+    },
+    {
+      "name": "20251115000000_admin_permissions_system.ts",
+      "sha256": "a4a080570850aa44d22c9116aaab136b0357903f529abe861484d559d50d1d08"
+    },
+    {
+      "name": "20251116000000_add_ai_audit_permissions.ts",
+      "sha256": "82d1713da89bd2415568f4c996f483ece9b8428845a008a103bbac5f2b21815c"
+    },
+    {
+      "name": "20251116052702_add_reboot_type_to_incidents.ts",
+      "sha256": "4f0674c7f6c3ed3d7a442a7ecade6c5d541cec9e5ce88990677d00fe7be8ea53"
+    },
+    {
+      "name": "20251116120000_admin_permission_audit.ts",
+      "sha256": "120491e685b9e95c60ff59d04d627a2e3834a5ad6880643b43350f21149e18ad"
+    },
+    {
+      "name": "20251116130000_expand_admin_action_log_types.ts",
+      "sha256": "09860ab3f33c444729cbdc527e0395dcf7744151c3c730997649a7ca0712f2dd"
+    },
+    {
+      "name": "20251116165334_change_detected_by_to_varchar.ts",
+      "sha256": "419cc7676ac7509c76995d08dc2cc4eb41e77ea6b8f20756b56ed08c9ef7b1bb"
+    },
+    {
+      "name": "20251118010300_fix_server_reboots_nullable.ts",
+      "sha256": "52a9b60eaa40e69da5a6d1a1fe7f9fd1f6fb40bdf3f4211a3c21922ee153db1a"
+    },
+    {
+      "name": "20251118010400_fix_server_reboots_uptime_nullable.ts",
+      "sha256": "d07aa3bb011a64e97258fa07124c469d39d47cf7ed3c4e673de67bcdc4671736"
+    },
+    {
+      "name": "20251118010500_fix_all_server_reboots_nullable.ts",
+      "sha256": "abbec9ec771abd6a1482639edfd4c36ede89d7a1f5282c414f6aab2a400d1281"
+    },
+    {
+      "name": "20251118015603_standardize_to_utf8mb4_unicode_ci.ts",
+      "sha256": "64ebbda46dd408f8984c4ab8a47295b8e57aba46c304f059a7eaf85b9ebb410e"
+    },
+    {
+      "name": "20251118021848_fix_remaining_collation_mismatches.ts",
+      "sha256": "b0467d21d9c6321be4113965c4fd6e73ddbc9b958734b39a2001742e72c82e14"
+    },
+    {
+      "name": "20251118023841_fix_user_bans_collation.ts",
+      "sha256": "57cbb8ed1b481c7dcd06065ca1c25e193ba0fd4a40a825a9b615244eab4e47fe"
+    },
+    {
+      "name": "20251128000000_deployment_system.ts",
+      "sha256": "d843a776e82ec950446f45709d336f7a9f52122f5c8ea177a62905d5a20b5890"
+    },
+    {
+      "name": "20251129000000_backup_restore_system.ts",
+      "sha256": "d44a8bc705ccd5d1f7448d9629a4a834d842ceca0a9741e9507e6c43ea654453"
+    },
+    {
+      "name": "20251130000000_create_builder_flags.ts",
+      "sha256": "756d68490c251979f36be7cbb4904bdec396d8cbc9d2ed8602350708beb71643"
+    },
+    {
+      "name": "20251204000000_create_wiki_tables.ts",
+      "sha256": "63b5635064a8a75e390eae53d8530390de021df26e50e9a6735c4af04985ec96"
+    },
+    {
+      "name": "20251206000000_add_country_code_to_analytics.ts",
+      "sha256": "31dc204e5f8b660c7a6993432fc846eeff948b27435478c32e8b51cd3bcf9be9"
+    },
+    {
+      "name": "20251224000000_add_mud_ws_port.ts",
+      "sha256": "046418514c4082cce551dbec9d5da8db07cbfabb9e1724346c12bbaf3cdb7297"
+    },
+    {
+      "name": "20251228000000_help_file_suggestions.ts",
+      "sha256": "2f9c8a5ec5ba8707e2a7ced893fdb4850c178137638a47a603c2633bf4c0217a"
+    },
+    {
+      "name": "20251229000000_unified_notifications.ts",
+      "sha256": "fc249d505f5f959239754e8a1c8870680f7dfaea7c084ea0719d27efef8a7325"
+    },
+    {
+      "name": "20260106000000_website_changelog.ts",
+      "sha256": "46909062199b782f3456fdff78670b4d2f09a63784338bfbf810e8cd95cd1de3"
+    },
+    {
+      "name": "20260123000000_update_restore_schema.ts",
+      "sha256": "70672a147655b0cac8103f404750faaa94e55cc46a8be8576490db37ae2bb495"
+    },
+    {
+      "name": "20260123034134_fix_mud_table_collations.ts",
+      "sha256": "90a07c4206463ac715f44750a7cff18cfdcd067d1eb240849c219901866c7669"
+    },
+    {
+      "name": "20260126101849_add_created_at_to_player_items.ts",
+      "sha256": "c298043e5fc15c4c122de16cd8f079c4ea40995ab6ab573cd87393e4f41e4c42"
+    },
+    {
+      "name": "20260415120000_widen_forum_category_guild_name.ts",
+      "sha256": "f123fbec25744687d765083ffb3c2e27451506c1337d6c2d9409039fa0b2e5ea"
+    },
+    {
+      "name": "20260828172744_expand_web_session_refresh_token.ts",
+      "sha256": "75b5fcb501e60a5419e8b77f60c025739408714ee120112310fc395951e8ab02"
+    },
+    {
+      "name": "20260828235000_add_manage_server_incidents_permission.ts",
+      "sha256": "d542a5d99d2fe4bf7cb4d03d653d8a04ed8af7c794e7e5fa625934e0d66274d2"
+    },
+    {
+      "name": "20260831120000_secure_donation_delivery.ts",
+      "sha256": "82939b374d0f7839c37f3e45633233980053bc4419dd0e88f6ca33f7646e2f79"
+    },
+    {
+      "name": "20260901000000_hook_toggles.ts",
+      "sha256": "20fc8ccf8d06e71f9af4ca2bbf0f437465a1184ff258a35bf2c10286ae2b2318"
+    },
+    {
+      "name": "20260902143000_preserve_mud_runtime_contract.ts",
+      "sha256": "abdb9831d71f049586478fea661ee4e4f1cdd09a26fc73f2a12c7ccaa850a805"
+    },
+    {
+      "name": "20260902144000_add_mud_ws_host.ts",
+      "sha256": "6bbe0e22a09d5454e108803e8d840fd3dbbfc29bf5d65d00f0791ac396c97f08"
+    },
+    {
+      "name": "20260902190000_backfill_required_web_settings.ts",
+      "sha256": "8d88d3616aa9a6776d6261deaee800204925498cfb5376d4a229350caf0bad69"
+    },
+    {
+      "name": "20260904010000_create_wiki_reference_generations.ts",
+      "sha256": "5c63d021ea747b1d9e31240bb4a26ba8bb49a994aad177714dcf3aebbb3ff954"
+    },
+    {
+      "name": "20261016150000_pvp_discord_delivery.ts",
+      "sha256": "38074ad1ad1c83ea16758d163a884f1639f3e3d0921965370c2b485cdf397175"
+    },
+    {
+      "name": "20261016160000_pvp_discord_audit_columns.ts",
+      "sha256": "8bf7bbb83fae20e49a50556db2cb2842ba8151fc13cac377ba72a36a7660e1e5"
+    }
+  ],
+  "legacySql": [
+    {
+      "name": "005_create_accounts_table.sql",
+      "sha256": "da3ffa980db5825798d7d87d70c5952c7b02dfcd052c58724c0d701c05a884ee",
+      "coverage": "excluded"
+    },
+    {
+      "name": "006_create_forum_tables.sql",
+      "sha256": "a8b3f4848561e05fd1ad28c237a0ccb5aac1485c94b195e284ba4082d1e0ab6f",
+      "coverage": "schema"
+    },
+    {
+      "name": "007_add_dynamic_permissions.sql",
+      "sha256": "a4bf88c7634c4d3c277900a787e496c85436ba7e7ea6df8c50fe1e51c71a89f1",
+      "coverage": "schema"
+    },
+    {
+      "name": "008_create_moderation_log.sql",
+      "sha256": "48d86b6f53906a2906f204e7cfade7925bed134fd0ee21287f95e43e20b1c69c",
+      "coverage": "schema"
+    },
+    {
+      "name": "009_create_subscriptions.sql",
+      "sha256": "6e5206968b3eb38f8f71b11873eef6f1ecc58c6e4f9465e53ec23adbe604fa2b",
+      "coverage": "schema"
+    },
+    {
+      "name": "010_update_notifications_schema.sql",
+      "sha256": "542418e499356168eb18b26bc754ed31d6713d36afa3ec76d973482fa25b674b",
+      "coverage": "schema"
+    },
+    {
+      "name": "011_create_user_profiles.sql",
+      "sha256": "264adb0a73b742a412d3a02e0b0e2674c8b485ccd9e664694d155993c148baca",
+      "coverage": "schema"
+    },
+    {
+      "name": "012_create_mentions.sql",
+      "sha256": "e7f06f2daa5486a62bf6f05aafe8397302ea7b013b7c889aec8f26d161181770",
+      "coverage": "schema"
+    },
+    {
+      "name": "013_create_forum_polls.sql",
+      "sha256": "574ae2b849001e23b4d94df9afc4d406aeb47321394541cf59dcc17717ff099f",
+      "coverage": "schema"
+    },
+    {
+      "name": "014_category_management.sql",
+      "sha256": "75f469685587b10c85c81d2a1ed254765a5fc0af4bdd39721ba5e949f7eb3957",
+      "coverage": "schema"
+    },
+    {
+      "name": "015_add_ip_tracking.sql",
+      "sha256": "df7c1394a2da8f10465f4740930b914c35bcd26c5b99c9ddea7bc4c7b6a259d3",
+      "coverage": "schema"
+    },
+    {
+      "name": "017_fix_emoji_icons.sql",
+      "sha256": "b3cc5d588f46b74f86a10ca702e12bdb9475249a74943e57ac74a70ea8dddcb4",
+      "coverage": "excluded"
+    },
+    {
+      "name": "018_add_admin_action_log.sql",
+      "sha256": "94eba42fbc8f2aeec434d0b4fa2212216ea5cb7dd9bd36f190e761b45f7199ec",
+      "coverage": "schema"
+    },
+    {
+      "name": "019_create_wipe_history.sql",
+      "sha256": "65285167add99cdfadf9524f278134a1029dd7e2210ca73c523ec268f9fe5d99",
+      "coverage": "schema"
+    }
+  ],
+  "tables": [
+    {
+      "name": "account_login_history",
+      "sha256": "8948ff0bab58e0f1874d6e3e211d9f7dc84375392a3d747ef1bfac8aeba13bf8",
+      "installedSha256": {
+        "mysql8": "dcc366a816a3a7d9424e405a36803d9223f22db96c0656367c7a9da298310ba1",
+        "mariadb11": "03994083164067bc5cfbed8c6cf6be6de988d4b51fd44fe47f528be3c29175e1"
+      }
+    },
+    {
+      "name": "admin_permissions",
+      "sha256": "992f8786adbffa9ebb1df416b5eef6ca12c516d3861d1f975a44ad5d615ae4a0",
+      "installedSha256": {
+        "mysql8": "661485c1497e0371acfd7dc8c3370e05120bab746661e774208694ca94ee9d48",
+        "mariadb11": "cc6d53eb51c3637e99057f54e84e759cab1de15ea891585567b32a5c623fa121"
+      }
+    },
+    {
+      "name": "admin_account_permissions",
+      "sha256": "bdc71f174c41f72eb450107f536b819ca1acaee044da87d44f5d4685f35cd9fa",
+      "installedSha256": {
+        "mysql8": "04512a67610a13954eb9d850901c665660b34714164054bc89cc11af066fc5e4",
+        "mariadb11": "a130a0c16b11fb0b8a3b225dff33f5fa5621e690eb57ef45cb9d19ef400f3aec"
+      }
+    },
+    {
+      "name": "admin_roles",
+      "sha256": "4ebad87be70e6fc6225880068624b715446faac0548262834f763408c733572e",
+      "installedSha256": {
+        "mysql8": "4d6e02c77d914e524d261a1831623506ff4c970dabfb6b0bedd90ffdf638cd96",
+        "mariadb11": "2547196d99c074a5895eebf84cb0c031b528f6ad7fe93ca1e4ec111c4a91e1c5"
+      }
+    },
+    {
+      "name": "admin_account_roles",
+      "sha256": "b7d53fb10cec41a60ef64c65bfa67c51017614442739ac4c24e4f8296da8f544",
+      "installedSha256": {
+        "mysql8": "bab7bf971f76e731a73b5683ffc2d583c6814627977ed7c99cb2ffb29293fe8f",
+        "mariadb11": "403ab80aebb11eac6f5e69ab432d3c642bb186d694b727bdcb2264b39f4f6399"
+      }
+    },
+    {
+      "name": "admin_action_log",
+      "sha256": "38dab0a1ac6b1f181e926613de6cacef3a3535a8a0090de51e09139f504643b7",
+      "installedSha256": {
+        "mysql8": "aac770431687cde67a54f89cc8b8f5cba650ed0f7ca45da41444a5a16767ef06",
+        "mariadb11": "bed6446e3a1bee629cf9bb6ea948b8c5ef56010fcf5df84d2b15be5dd54bbb25"
+      }
+    },
+    {
+      "name": "admin_permission_audit",
+      "sha256": "e725887c32ba8cfab2936aaf80e8225a78bd46ef6c04986cf7e13bde05595e57",
+      "installedSha256": {
+        "mysql8": "24065e55233aa2d2dbb2781d0918370247d5e3e040ee500b749e1f65f29f1693",
+        "mariadb11": "6fff5133558c7bc6bce1c04909f55e4ffd4ca133fec3a9021e3ea2f3eb9b7fc5"
+      }
+    },
+    {
+      "name": "admin_role_permissions",
+      "sha256": "149ff49079dffa61bd127961675f28d73332572c4aa5cc08f7906d900d524f2d",
+      "installedSha256": {
+        "mysql8": "149ff49079dffa61bd127961675f28d73332572c4aa5cc08f7906d900d524f2d",
+        "mariadb11": "63d61c8cee18ff1532149aaa31db4d28f80211020c277aa539000240a5283427"
+      }
+    },
+    {
+      "name": "builder_activity_log",
+      "sha256": "85659a137473583afcd2560aa29ff342cd5946c65b5f02677d14e168fa6b5ba8",
+      "installedSha256": {
+        "mysql8": "76f64ddbb4d3d6b5560a360cea2ec2fd01e932669bb5d49d5ec07d44ce47e08a",
+        "mariadb11": "f4dd5e1fd1471018b4e53c75431a2318a6a9400bb27fd6b42785ceffb77dcf57"
+      }
+    },
+    {
+      "name": "builder_flags",
+      "sha256": "e7242e7ad9254fc9f675e9c576d4250ccbe4ef05fc19ea4cb01f3f8e0e7ba9f8",
+      "installedSha256": {
+        "mysql8": "75b8f2c0a2c9224585ae8f01abc61a8c296a96fa0c194c412ef4a73950cfdcbf",
+        "mariadb11": "1e11b6db7558281812d9bd8c645445afacd78583e79f55fb7de9b0082e74f5a4"
+      }
+    },
+    {
+      "name": "builder_mentions",
+      "sha256": "82853b2dc445e94b655cd70c9a8109d16274f1e0ea8ac2f91d05c553523014d4",
+      "installedSha256": {
+        "mysql8": "c514dcf8ebd178f67ba929d8dd0b1222a588a3a7d3cc27e88a23c7a283e81490",
+        "mariadb11": "f4afc7e7368217f9cdb1240948ac6001224dc7f63e1b0f84d9690ee41857d8f1"
+      }
+    },
+    {
+      "name": "builder_proc_requests",
+      "sha256": "6fcac27a84efe39216c77feda1882fbccabb0e43b842fdcfef2bb359fd3da37d",
+      "installedSha256": {
+        "mysql8": "60267a6e5d346b828eb9ae41a1a11e45a738251d5dfb1548475156cf408dd834",
+        "mariadb11": "ab75376338f1ab12d8e436581a866433e501abffc00a3a3f3da4501671ff892b"
+      }
+    },
+    {
+      "name": "builder_zone_comments",
+      "sha256": "73607873af1caf58a6c95ce18e4ca80c687db4dba03ec667539ca455032679a2",
+      "installedSha256": {
+        "mysql8": "41179eb679f9d5c5ac095dacb829e217f5ba7a659f25ce466e729f0bf9657720",
+        "mariadb11": "46031521892ca3f2a567e829e10b69c9200a8b1244ecbad282337f43383f884a"
+      }
+    },
+    {
+      "name": "builder_zone_info",
+      "sha256": "6a7624c486684f48d7ebcbfe57a4c85d7331ad24bd66e30ba50b45b76852cb15",
+      "installedSha256": {
+        "mysql8": "97caef1c17d32207b7f1b7c38e57a0bbd55bdfe70f6001ac9462605d8678b94d",
+        "mariadb11": "a7831bc2a20b13ebbce287123b791c0ef7a5365c712b7761caf64e544d9b213e"
+      }
+    },
+    {
+      "name": "builder_zone_info_history",
+      "sha256": "758278dba4bd9d8220b6d28cef8b436079e15e12247a16c3e1ecc0bdc6401222",
+      "installedSha256": {
+        "mysql8": "1120fc884a960044604f8c08882df0c8b1c9d2d62a6a878b2ce6699a8477277e",
+        "mariadb11": "5df1c8625a90857849cd055312cf187fbfd6f5c28fa5ba6c93cddb8943506855"
+      }
+    },
+    {
+      "name": "builder_zone_permissions",
+      "sha256": "4a4e803682c1e3eccbc6debad0e28cd8fb54e46d8b8c21c7459198514b2df9a6",
+      "installedSha256": {
+        "mysql8": "4ca133123fe555bb7874238826d5b236a556abecc7ed32de1404e8bcf3a56340",
+        "mariadb11": "e1b383d9c0820ecab142080db53ca7ac5e2b2a806aa811839273824acdc7cf74"
+      }
+    },
+    {
+      "name": "deployment_log",
+      "sha256": "932b7d17f5f9193238075cd62a371604d85fb96339dfbfa7a1e4561009cbea24",
+      "installedSha256": {
+        "mysql8": "08cdfffbb044e015f3428d96b4c0960a9bcde3a28a45b1913df82709977a8998",
+        "mariadb11": "63acf600f9cf554d4b0d468560aada95e6373e5796dfd518ba69f709cbef0e69"
+      }
+    },
+    {
+      "name": "donations",
+      "sha256": "437845dda677f1d37bed470117180b2098b28d4589394964dfba3af44e2f96fb",
+      "installedSha256": {
+        "mysql8": "4b510e864788628a3c002b05562c0e045d64f4055fd8047a5425e050813ec0e1",
+        "mariadb11": "14ff5930381c363acf546f18bb6b237b3ce477ad5362de5b224233836af6f8db"
+      }
+    },
+    {
+      "name": "donation_outbox",
+      "sha256": "74f1fdb138fe2056020ed4ab6f96d13bf2ba6f39794d827d9974d1027087d87c",
+      "installedSha256": {
+        "mysql8": "0fd4a2fac534eebb1bea48f76e9db9b1f04ac3afb6529967fd43ff0ef428b61c",
+        "mariadb11": "84f510d81d974a853498f9d325ac03e2b75ab9ae9c6ae0957654de63b7411d72"
+      }
+    },
+    {
+      "name": "forum_categories",
+      "sha256": "cf87f619c0956c8acf9d3de80489e80f507acb9b2628fd75ff9bb035a601146f",
+      "installedSha256": {
+        "mysql8": "15cbb9b403ab14c451bf8a6872f69e4e4858e2583c84f0a905e10d97c0237567",
+        "mariadb11": "358f6149d200cb7069820a5c5b1e2cb76b291ee1ca316fd3dae63bd15d79520a"
+      }
+    },
+    {
+      "name": "forum_category_permissions",
+      "sha256": "b67708d1d784b202a234e49fec0de9f5a2980d73580f5420ba0ffc50db062255",
+      "installedSha256": {
+        "mysql8": "fd937269e97c8d0fb97692458fc67a0b52e1ae5cce2690c0745bbaa03b2c44e8",
+        "mariadb11": "f45f36f2d3c778fd316de92b1936ad6d7a20ab337ebaa3f2cec5d868b4795ae5"
+      }
+    },
+    {
+      "name": "forum_mentions",
+      "sha256": "988cd1d27a2175aa4a45d59e5c534ab08513c38c4a2af8c3f6c464f5676c13dd",
+      "installedSha256": {
+        "mysql8": "f96aa7f5b8f676a272362be7f6fee073227bb0794e331de6a6271929a2aae533",
+        "mariadb11": "94ab8aaac2ee3edea9dd14aa1c4ff9bd905700bb34e0abc663932b90de01bc1c"
+      }
+    },
+    {
+      "name": "forum_moderation_log",
+      "sha256": "7da67423d25669ff863176f9577a75ea61be4c83de0be2543bbcda6b054d2c26",
+      "installedSha256": {
+        "mysql8": "e1ee1957808041a1cdbf368ca5fabe25f8d94bf790a58d5474a5fd8888186f46",
+        "mariadb11": "ec60c5ad9077f7706c998041619a9c5fa6759d632e199dc350c984124a8c8bb5"
+      }
+    },
+    {
+      "name": "forum_permission_audit",
+      "sha256": "35054c7d9377c462c3937686b38ef4d7f9d3cc75a75edf7352f4706fdf1ba0c5",
+      "installedSha256": {
+        "mysql8": "7c11edb37f40e1ed59dd3f96e7f09df10ed3a16e1619f48809ce7a53ffe07bb3",
+        "mariadb11": "3571dad61fc2197aa0d1223d67de78d1cc6f79e859410e5cd8c7826de567f5ad"
+      }
+    },
+    {
+      "name": "forum_threads",
+      "sha256": "bc9a2ca279ce6e6e4dfe6ea575b5396c63a8fe92674db8ab82e42554b61f0478",
+      "installedSha256": {
+        "mysql8": "9e32c6aea861847c0c7f1a68628b6409ba7e0a04dcfe64164af858bd486a261b",
+        "mariadb11": "f2e2110c3d90300f9c0b06d723db33c3089c3eb544a63d3e4e1df9868e0f0feb"
+      }
+    },
+    {
+      "name": "forum_polls",
+      "sha256": "02555e232c34df53db81100b34a3d12ab9f7c753087ad5d3efdfbb501ad13c9c",
+      "installedSha256": {
+        "mysql8": "9c26c4b91161964abc299afdde0e05b9150a9150c63b21b07f4cec7e7759ff99",
+        "mariadb11": "c37dd20fcaed6993f20ba7761fb88741ae062b64723462f48f4c9dd4cf444131"
+      }
+    },
+    {
+      "name": "forum_poll_options",
+      "sha256": "134d0968f3ec9ee0a3306c1f3afdcdd28508a68d69102356157305385cb6e2dd",
+      "installedSha256": {
+        "mysql8": "1bb4c356e12234c97f0eba264f1fef620b6f41f927016eb3aaa51129f0766d13",
+        "mariadb11": "21379b0d0d8fcba749d8e4f7e4ae233606d628653da68cc8da45ffca93687a02"
+      }
+    },
+    {
+      "name": "forum_poll_vote_history",
+      "sha256": "f731fc61749df88983b90c7ce97f83dc3f1a8437152500825111b82ba044bddc",
+      "installedSha256": {
+        "mysql8": "84a9d3fafaaf9d79d1ef680339a721a6b80d963f93bea67f82b9e6e8c55ac6ec",
+        "mariadb11": "4c4d5ea5f40fd71cee0612b16d4d86cc067dbefafc79eac1d5c51ab2fd6682e2"
+      }
+    },
+    {
+      "name": "forum_poll_votes",
+      "sha256": "15e4a97a2197384989a0919b1be46e3e71de2f0d79ff4e1e91a25308deff1bf2",
+      "installedSha256": {
+        "mysql8": "96b3df156fcb87733c12d5fc4dc2210552dfdae569535ab536fed94ba049e14d",
+        "mariadb11": "0555b5e3412730df84739507e5ea5636075b5149670b17e7ad41d889e9b1307f"
+      }
+    },
+    {
+      "name": "forum_posts",
+      "sha256": "7312666b25ea4478efce2e1f2229b8aeced6073796bd95ae11684c980b191d93",
+      "installedSha256": {
+        "mysql8": "e74b59ea7ced43b10fc0aaf5a2bc9f63d6b80581a2f331de4da22b4e735a2dff",
+        "mariadb11": "df61195894a1b46e1d5f4549264e369fe0f5dbd20ff4ebbf51281f5ad6d71377"
+      }
+    },
+    {
+      "name": "forum_post_images",
+      "sha256": "fb134a00008c951d33f8cf296baaa722a6733cd1d6c369853230b77c91e6ba18",
+      "installedSha256": {
+        "mysql8": "711e87029624ee3fdbd4cea6b16649c2559dbbc425ac7a3248cfc23c3e86be47",
+        "mariadb11": "69d4ca8ab83e34b2265cfcd7214b42b299a38681043402e6f75bd8db9507e46a"
+      }
+    },
+    {
+      "name": "forum_reactions",
+      "sha256": "14ec227a36e7a69bc650339a5a22e745c51baf8234858aadfed547ceb20a823e",
+      "installedSha256": {
+        "mysql8": "dafefd56ff141e85dc8adc3b659a1f8961b14268ce35f49a9f9d47fb9e288bc4",
+        "mariadb11": "5e8150c7ea6a9ff2720afb37662839a589ba425f152ff500e0c74f6c38cd54af"
+      }
+    },
+    {
+      "name": "forum_settings",
+      "sha256": "f729dc67715c2abcecd54397a447b42701478bfb1ae601bd28f2be1644d826bc",
+      "installedSha256": {
+        "mysql8": "18aa7da19fa37be3f4fd537a310b2b00f5db62cb7052e51d00fb6e2443cb94ca",
+        "mariadb11": "2535e994d1fde781cf4c6357dabfd1033929edae7c8e3bfb5a564770fdaa6750"
+      }
+    },
+    {
+      "name": "forum_subscriptions",
+      "sha256": "58d9ab7ff2c3004e771ddf0e148f9b2030b72486bbf3cbe00ec3ad40817af3f1",
+      "installedSha256": {
+        "mysql8": "e95a5905b197a33bd905fd37500501b6c0bbdab51267444bbfa255c5c214c3a7",
+        "mariadb11": "689979b2bf0edf73ec2f9a5a96dff98d5eecee9ab7168eae193357692aec0cbd"
+      }
+    },
+    {
+      "name": "gemini_analysis_log",
+      "sha256": "d53791a527c07a53fd0164f544d46b4b71397c8ae4c0d40feee6f79885306c6d",
+      "installedSha256": {
+        "mysql8": "c5014e0fc8149e7b5303c8fd1a7112c0a3901aff995ac0f0f91d9e23f95cd283",
+        "mariadb11": "ef4457da169680770e83c52ef196c1e6da03e9bf29f0076ff8fdeb21364b65ad"
+      }
+    },
+    {
+      "name": "help_file_suggestions",
+      "sha256": "3ea314d2b47129184a63faa1a62a16e6414acdaaeef09a4b278943b26c6576a9",
+      "installedSha256": {
+        "mysql8": "f7155357351a8ea8fd1dfd888a5103006c400492e156d2c4e76a78e4963870c2",
+        "mariadb11": "41f814ab3362ec70a07c9c13276bd138cb4615c98ac2f914f5bc8a5e5c929372"
+      }
+    },
+    {
+      "name": "mud_backups",
+      "sha256": "0eb9dbc64b5ef47fef3b4345339e99169060691e0a1aafc63e420300548e706b",
+      "installedSha256": {
+        "mysql8": "cd04d88bdef1d843b9cb25aa176516c2d2202353149be9f75fca0a8ab21a33c6",
+        "mariadb11": "9cc9b2e245f1b57cb9d3338fad26922f9a5354d5f16c169f587405c0e81a5274"
+      }
+    },
+    {
+      "name": "mud_control_log",
+      "sha256": "900e98fe3e5c8fd7a04c9a6e9ffe81022951e2468759687969a8ba7b3973c557",
+      "installedSha256": {
+        "mysql8": "f327e08c8212ae2d26712b3036d284dfa3e87d84961db61ca319cf81d8a5a784",
+        "mariadb11": "57e835e6f6ebdb431ff516f2bc58fac72211bdc4bdd7b821fd8e0e240bdf78ec"
+      }
+    },
+    {
+      "name": "mud_process_state",
+      "sha256": "5d82b2ea6a95f92c355a3ebd48fd18c3c482955e060eef2dada72c8b1ac8c688",
+      "installedSha256": {
+        "mysql8": "275db27e5febfbe220c7b4ad7df0385cb6364d860d7d940bb951c945e46d8b6d",
+        "mariadb11": "76ecbc4a7938579819b7524e826cdded7dbd3c87dcb8e803af3ada5e3b360315"
+      }
+    },
+    {
+      "name": "mud_restores",
+      "sha256": "fa249174462431699c544e01d16c76794158822d909c00cd750269ff558ad179",
+      "installedSha256": {
+        "mysql8": "3431c082152aa0fa7745e3044184fc664049252363a507809798587955926ee7",
+        "mariadb11": "fb57ce14046785ac2800dfa53eef711b80c6ef17cb2286064c48362f933de5ac"
+      }
+    },
+    {
+      "name": "notifications",
+      "sha256": "25285924e6ae9c28d800ff4f1ed251616deeeae9860ae78ba1be10af358e3c42",
+      "installedSha256": {
+        "mysql8": "4d3623365aff5aaf73801b6396010a3eb83a9ba9efee1c8d5feede1aa88f9c23",
+        "mariadb11": "e7a2183d36ff9bf910687bcbe4ef6bae6f92bb79c29a2e273919eb8c78a2a962"
+      }
+    },
+    {
+      "name": "page_views",
+      "sha256": "5eaca845238745b10d6db1fc41ee8b68645484a66cdf86d8f31a4736d0b404f5",
+      "installedSha256": {
+        "mysql8": "4fb1b014e680e1103457b694c5bb469e5302b98f93607d4bb35d210a7b75d40b",
+        "mariadb11": "5cf3a965ec70493579081b32f9029473f0d6ac112cedc77a204c75fb10b4a14b"
+      }
+    },
+    {
+      "name": "push_subscriptions",
+      "sha256": "c4112e135b108f10b67f82c52a267255b3863d6d2848d3d040f7832d43fcb67b",
+      "installedSha256": {
+        "mysql8": "b0597d087543b1ed112b0c739ca787c534aad3d8cb3564c007bdc6f20eabd4fd",
+        "mariadb11": "2577ac95cec96ed566d2c0a29a660ce92dda05a08dbcf4d379770794892bf68b"
+      }
+    },
+    {
+      "name": "pvp_battle_comments",
+      "sha256": "e1ad0176dc9f7c8e73943f59314f2c37cfb44d299e733355d36ab1970986d9c4",
+      "installedSha256": {
+        "mysql8": "5fe0540f97c60ed1a3b80f6fb4e0288f2a15c687121757e1bd268d5b498e71dd",
+        "mariadb11": "9374a229257b6f96bf71ea41f753aaf8ddfba2f29b31f4983220a5058c425e1d"
+      }
+    },
+    {
+      "name": "pvp_battle_favorites",
+      "sha256": "76b6ff2312204e79fe693d02b8e96941e3b63e8d84b26c800c02e340ab8b326e",
+      "installedSha256": {
+        "mysql8": "a9294e0ae2e30189a9160b528394dc43fc1e3c9ac469a7665a103b0621684712",
+        "mariadb11": "26b086c7fe2b7f8f43d01a4ea34b3185bd3f542de913289470155eb1982b3fe1"
+      }
+    },
+    {
+      "name": "pvp_battle_likes",
+      "sha256": "f80364fe66d4ab098cc9c3fb24d005f371762cf3459540b7330e536338c1a392",
+      "installedSha256": {
+        "mysql8": "00874c8e48f41467efb2e3d724a603f0e0c96c1f9daa9eea560bd2f345457b70",
+        "mariadb11": "e4f74f4b6d17d3581e45fb3abb0cced6fe0c0e92696017f2f65670ee758ff5b9"
+      }
+    },
+    {
+      "name": "server_health_metrics",
+      "sha256": "d0bf9040bc2e4b67f642f668a7c4806623d18ae49796c576a1a6a6756f993478",
+      "installedSha256": {
+        "mysql8": "d0bf9040bc2e4b67f642f668a7c4806623d18ae49796c576a1a6a6756f993478",
+        "mariadb11": "05ef71fc7d85e960eb585db14a3b13566b5013e9b8594adbe03e71b89e76bd0f"
+      }
+    },
+    {
+      "name": "server_incidents",
+      "sha256": "393c96168ea163a2337727b1ae5406704131c9d26b684f00d7476745f5fcbd67",
+      "installedSha256": {
+        "mysql8": "4a24ce414112c42067b9fcabd719b3c74e9e6eeac1f4802920d58f6eab5542df",
+        "mariadb11": "0900c9e25304b914716545b5aba3ac56d21bb066287858ae6acd3a26b447571f"
+      }
+    },
+    {
+      "name": "suspicious_accounts",
+      "sha256": "f04dd86d3a7051df4f5c047156402620e8731746398afac1cb67951602895f69",
+      "installedSha256": {
+        "mysql8": "6944dae0e9804930f03003fb568670d9739432dddd3cdb28279d2f43f1f3224c",
+        "mariadb11": "3f623e5ed5a79f3c7c2695b88acb5b7a70b9e1ad73bc2a5462ce80cb3a94e1e3"
+      }
+    },
+    {
+      "name": "terminal_sessions",
+      "sha256": "c80aa501fa9ad1a2fb06cd28600e2826ff959d09d05d39a97ab417762d0bdadf",
+      "installedSha256": {
+        "mysql8": "61d081d62fbd13a12b07d5996034b37c905c9ab890431dc2b8367047c255a5cc",
+        "mariadb11": "d3364800df9d8f80bb705654acb57956eed1c0aeedb686a5e5366726a637e4ac"
+      }
+    },
+    {
+      "name": "terminal_logs",
+      "sha256": "8f6185da269557bd8781a9b45ed2965cc72e7761b5f9ceeeb4c8f4033c96fe44",
+      "installedSha256": {
+        "mysql8": "2dc12053147632f9aac3a300bb5540a75d1e570e3eb9692d0ed15f86b1f20584",
+        "mariadb11": "012e0e97c903ff0c1270985caef93129d17e6e761df4ed9f9867572b98734302"
+      }
+    },
+    {
+      "name": "user_profiles",
+      "sha256": "743215f464dbb0d5d435d7c6fc75d6927e744a285496c480301be376af96a6db",
+      "installedSha256": {
+        "mysql8": "6d241c4696a7fdc760bedd330552f147da366c73f829fead2389a4cd4482bbeb",
+        "mariadb11": "28776a3c74f2b508ea6d76a485a205bb87913c23be3f3584e0bd5d176b51d738"
+      }
+    },
+    {
+      "name": "user_bans",
+      "sha256": "ba6300ebc99cfde3833a64628c9c34e6ebdd8fb135a626559f61338b7d4c8b2e",
+      "installedSha256": {
+        "mysql8": "ba6300ebc99cfde3833a64628c9c34e6ebdd8fb135a626559f61338b7d4c8b2e",
+        "mariadb11": "c791f55bc6975b16b72cfbee08800c3218cf2ab41fca21fb716eab989062c21e"
+      }
+    },
+    {
+      "name": "user_profile_stats",
+      "sha256": "9af257b93dad23bcd47b57eaa8426cffa51eeca8533ae96f17201bc8010b26b2",
+      "installedSha256": {
+        "mysql8": "0ef314d3e6b242ba8a5aeb0b256beb3dc40d60eeffdf4c6b2c50569bacc7f528",
+        "mariadb11": "716df52a4732dd7d5e39fcafc55fd51f61888dd30b1fb2690a28924e14ddea69"
+      }
+    },
+    {
+      "name": "visitor_sessions",
+      "sha256": "1f1d3f1bc992c942bd7c12d027fa6a858c30f6b3de0b7e64385288a604834df4",
+      "installedSha256": {
+        "mysql8": "ccb33dbffa4fb896b99a26e560ef074cb824ff6f7a27dd3e8e483f85831e4efa",
+        "mariadb11": "b345f69b617bcec15cec700e1c291769ae1348bfd85a2894456b728b48b0a55f"
+      }
+    },
+    {
+      "name": "web_donation_totals",
+      "sha256": "fbff9f27674864ac37522eebf93eec1fbb3ca96eaa5ea917abfaf050727a378b",
+      "installedSha256": {
+        "mysql8": "94cfda760dd97f5cacb78c63b2734a934f2dabfd47c14b91c5328c2921ad9ff7",
+        "mariadb11": "d3c26205b33dc4462e87c3a4df8561e31869b35503a6f2f0c6d70e5541a3f979"
+      }
+    },
+    {
+      "name": "web_pvp_discord_deliveries",
+      "sha256": "e7ead01a335fa2109d880a499e79c07b4396877fd12f44c4301d9dde0e71acb1",
+      "installedSha256": {
+        "mysql8": "75ef75943154e6e9a918d02db8dd90a51992d311c8a9336afc7487bd867f5479",
+        "mariadb11": "d97970fff25fbf41f9bfd18e652ca62bf847dd1332a9622497f3c96985b9e9c6"
+      }
+    },
+    {
+      "name": "web_pvp_discord_destinations",
+      "sha256": "45bee79fe23d2ea75c070e52a32c42ce86225ef634a8ce9abe82af38b153e0a0",
+      "installedSha256": {
+        "mysql8": "dc506293dac341601dc0c2f06828e8af017663549b21c18ac4bd7986c90f69b5",
+        "mariadb11": "cab99522052dccbf03bb8f4e2c50839d2b3a30626e4315a1af5cd9efce1e21ed"
+      }
+    },
+    {
+      "name": "web_sessions",
+      "sha256": "3873b8916f26a8da5fa69c1b6cd2c74e0d7c888ebeb2f31f88d8281d74a63e23",
+      "installedSha256": {
+        "mysql8": "d56ddaff8603b857f7c3b513847b02fd15ab336ad76aeda6df4c7debe1876d9d",
+        "mariadb11": "5945c631f60f9c10000ef7790d327ae8995eb75f0d7d7588f2aff4d2b6bd0a97"
+      }
+    },
+    {
+      "name": "web_settings",
+      "sha256": "8a6061c17144eae37f6ff5a4fb988f9786e69e56e7873e80e2285ba8c5da32fc",
+      "installedSha256": {
+        "mysql8": "e2d5f4587a13f502a1272b35b41a077b3b7c169a2416a3693ec4831008e75dba",
+        "mariadb11": "6e77b301b3d37953e3e426ca714079b6cec38f0f3416ac300ac1f4a815b74f6c"
+      }
+    },
+    {
+      "name": "website_changelog",
+      "sha256": "5a151fb7eb00925a929b715523330ace06e8da0e15b4f1c18fdff20177df899a",
+      "installedSha256": {
+        "mysql8": "479f38d1a133217500c9ceaa58d550dd8d9dafef2ef04119f5155b407e1fdaf9",
+        "mariadb11": "0df5282010c253f05d725f6047f2cc795eceaf5201678e1e010019bdc553fc51"
+      }
+    },
+    {
+      "name": "website_changelog_reads",
+      "sha256": "f31f7fa28ded076f52b85af583ea040c10c9f96e6412dce746cd4dfc02c5664a",
+      "installedSha256": {
+        "mysql8": "db7052cd1cf5f40f43fa6ca97139119d697f278be441afcf688e992abdbffdf3",
+        "mariadb11": "151a21909b72b794d1655e9b7fe157002d215227c4b5f1c8fb660d97bb26c472"
+      }
+    },
+    {
+      "name": "wiki_continents",
+      "sha256": "a7b497ffc7e4fee2448104b29224007641542c393a54fa0b9dccb7336807d10a",
+      "installedSha256": {
+        "mysql8": "e0abf5e822b8bf454e7b2a712b64e6b917f4791711bc5751565931de5619738f",
+        "mariadb11": "8f19d53084f4fcad283d6dff93125f669ad8a1fff1bd6906163d4a2782c1cfd2"
+      }
+    },
+    {
+      "name": "wiki_map_positions",
+      "sha256": "315215fb3c0fcc0d01354e11849770402e58985ab23221a9d64726175709ee74",
+      "installedSha256": {
+        "mysql8": "c855a3476350c6bf2c35e7caf5444064511e1bef68a941d2a2bf2216113d0158",
+        "mariadb11": "852c9207ad87210d54d1992151fafe32c5527ead2ab1910f6a60aa32a1311489"
+      }
+    },
+    {
+      "name": "wiki_mobs",
+      "sha256": "129b90815c55fead179b17e74609b09edc37e75c87b39de0e224297770075334",
+      "installedSha256": {
+        "mysql8": "fb784457b65b1bda03019cb81465fd690400ed7981b8c38e803cfe0b919e71d9",
+        "mariadb11": "4b52b63d0af14a21d056891d5cfa2c76245d99a6c222f972652894d20d3a0247"
+      }
+    },
+    {
+      "name": "wiki_mob_flags",
+      "sha256": "387570846de73b2ca999b181f4bff1222363d1683b95bf994476376786043fae",
+      "installedSha256": {
+        "mysql8": "387570846de73b2ca999b181f4bff1222363d1683b95bf994476376786043fae",
+        "mariadb11": "ecb00ab5e4384c7026f589e66cf3b65e8208b89c990df7749bbd848b005676c5"
+      }
+    },
+    {
+      "name": "wiki_objects",
+      "sha256": "3349be283e305f2063169cd844cac35b9ae3188fd2a4d5a9bb003bfe0840a85e",
+      "installedSha256": {
+        "mysql8": "f090e80f9b5cb539114adcf5b48035483917e841e3a13beb3fd2d766733bfb86",
+        "mariadb11": "093e498bc6cd7f40aa7c58332fa5676ad45d7c3d628c4de16b21abbe16909c80"
+      }
+    },
+    {
+      "name": "wiki_object_affects",
+      "sha256": "ab47ab81667650c5db05088414bb2823d29f18d734a2d404cd38f05efa951909",
+      "installedSha256": {
+        "mysql8": "ab47ab81667650c5db05088414bb2823d29f18d734a2d404cd38f05efa951909",
+        "mariadb11": "04ad9aec30badb66cf7efc5d9fa2da9dc021c7c8eb8cf3bda517140e5f023253"
+      }
+    },
+    {
+      "name": "wiki_object_classes",
+      "sha256": "59e3715a8d797bafc8504f2207cfb28d649937a3f16a458e6ad645da0c820232",
+      "installedSha256": {
+        "mysql8": "59e3715a8d797bafc8504f2207cfb28d649937a3f16a458e6ad645da0c820232",
+        "mariadb11": "f3bc2850a983890304b31884656c1eafb578c2f0916fb2d4c601478deadcd72d"
+      }
+    },
+    {
+      "name": "wiki_object_races",
+      "sha256": "467813ad4a98a53755766b3de60b8936701168e55026b56a9a56d3b326e5e978",
+      "installedSha256": {
+        "mysql8": "467813ad4a98a53755766b3de60b8936701168e55026b56a9a56d3b326e5e978",
+        "mariadb11": "dacf55dda28721e6428d770efeab528d4458bd1e5ee9f171f2a1f5c4e8bd853c"
+      }
+    },
+    {
+      "name": "wiki_object_slots",
+      "sha256": "5323c580aa6ebe5ef7073a52e8b4c16e56d5f64a19ab6d02293eddc7c094c891",
+      "installedSha256": {
+        "mysql8": "5323c580aa6ebe5ef7073a52e8b4c16e56d5f64a19ab6d02293eddc7c094c891",
+        "mariadb11": "cf4f8332f8e283c84472ee524e7343d6a95cc13e6628c9b9d323a209199a8f40"
+      }
+    },
+    {
+      "name": "wiki_object_spell_effects",
+      "sha256": "565d3fa7762c9185cf6a4a3efc56fac67c1af2bbdaa313b214139d3f9cb7130b",
+      "installedSha256": {
+        "mysql8": "879b5e8d3955d4250ea62daf6ca0c23448648a77d02f7174f67c0283fdecbe8b",
+        "mariadb11": "d8fd36393c85aa644b4947e7b5a2ceb196e1bd1a8f6970116948eb2e8eedf95d"
+      }
+    },
+    {
+      "name": "wiki_reference_generations",
+      "sha256": "1caf117f5759c195a0937e1507780ed0ec4b58b1611d2a840136356da9791bd9",
+      "installedSha256": {
+        "mysql8": "fd79705ff2830496607a3fa20a45d9369f3315d586a9e19a10ad9852768ed7d8",
+        "mariadb11": "21c768b2789aee1d55cd85cc46c3ddb836ca573b8b63a70044f5d4016907ff03"
+      }
+    },
+    {
+      "name": "wiki_settings",
+      "sha256": "04f3efba42ff0b47d94e25933ff74b24f2350edd689febcab00b08a540f33d68",
+      "installedSha256": {
+        "mysql8": "df896e47571034a843c69407843db6f1d704e7d1011b08827726baf5ed7b6b7d",
+        "mariadb11": "1ba99551e50944c6bd79b43052258953205bfe54ce8d6347316075f689a51959"
+      }
+    },
+    {
+      "name": "wiki_zone_entrances",
+      "sha256": "af0ed7314ce83d5f8cbb84d7390827128aa22f78f1bcc314f665ac86c57551a4",
+      "installedSha256": {
+        "mysql8": "020113cd042308f92d727adec0b9dfdf94bfd11a6ea31511a5509de915672dbf",
+        "mariadb11": "3fd684467ef6fe2d4e3f0732ca3debd8390b9a2847bd41af9f558b0f32f0b219"
+      }
+    },
+    {
+      "name": "wipe_history",
+      "sha256": "a596983f9d533b4b37c742e40119880f075eb3ba2de7bb01aaa1c9004a10435d",
+      "installedSha256": {
+        "mysql8": "f3e178795aa3b45c41f6a8e1fb8e115ace51ddfc8930a98f283e2ffd35b3cedf",
+        "mariadb11": "06786dcf32fb935825b0af3d9c0806cdaacceb662a91983d25f67340abfae3fe"
+      }
+    }
+  ]
+}

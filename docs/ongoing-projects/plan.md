@@ -69,6 +69,53 @@ outside this request. Keep this single evolving execution plan current.
   migrations (`20261016150000_pvp_discord_delivery.ts` and
   `20261016160000_pvp_discord_audit_columns.ts`); the initial 83-file count below
   is historical. Revalidated P1 and backend gates on the combined tree.
+- **Published P1:** [PR #36](https://github.com/LuminariMUD/DurisWeb/pull/36),
+  open and ready for review, branch head `b299239`. The local and remote head
+  matched, ahead/behind was `0 0`, and the worktree was clean after publication.
+- **P2 delivery split:** publish the baseline inputs/checker as P2a first;
+  stack the installer/adoption/migration transition as P2b. Each remains a
+  focused reviewable chunk; #14 stays open until all P2 acceptance passes.
+- **Current chunk: P2a / #14. Outcome:** an explicit website-only baseline and
+  checksummed input verification, with native DDL/seed proof on both supported
+  database families. **Non-goals:** running historical MUD alterations,
+  copying a production schema/data dump, deploying, or fabricating historical
+  ledger rows. **Files:** baseline artifacts/module/scripts, Knex discovery,
+  tests, and development guides. **Proof:** isolated MySQL 8.0.46 and MariaDB
+  11.8.9, checksum/ownership tests, per-table installed schema fingerprints,
+  unchanged external sentinel objects/rows, and required backend gates.
+  Two newly created disposable containers use loopback ports 23336/23337;
+  the existing development databases and MUD services remain untouched.
+- **P2 ablation:** derive the final web schema from checked-in schema inputs
+  in an empty synthetic scratch database, then install that explicit snapshot.
+  Historical replay is derivation evidence only, never the supported bootstrap.
+  One manifest supplies checksums, ownership and covered names to both the CLI
+  and migration/preflight paths; do not add an alternate legacy bootstrap.
+- **P2a inputs:** 76 explicit website tables, 126 nonsecret seed rows, 85 pinned
+  historical TypeScript migrations, all 14 legacy SQL artifacts checksummed
+  (12 schema sources; MUD accounts DDL and one-off emoji repair excluded).
+  `server_reboots` is MUD-owned despite its absence from the old required-table
+  list; all MUD source DDL was cross-checked for collisions with web candidates.
+  The only collision was `server_reboots`, now explicitly excluded. Exact
+  derivation and collation choices are recorded in the bundle README.
+- **P2a native proof:** `TEST_BASELINE_DB_PORTS=23336,23337 pnpm --dir backend
+  test --runInBand src/db/__tests__/webBaselineBundle.test.ts`: 11 tests pass,
+  including both native engines, all 76 installed schema hashes and seed
+  inserts. These use external sentinels, not an approved full MUD schema.
+  The installer, authoritative MUD target check, interruption/retry, teardown,
+  existing-ledger adoption, preflight and Knex transition remain P2b work. No
+  fresh-install/upgrade/deployment acceptance claim is made by P2a.
+- **P2a release news:** no reader-visible change; no Website Changelog entry
+  needed for versioned contributor inputs and the database-free checker.
+- **P2a completion checks:** `pnpm --dir backend schema:check`,
+  `pnpm --dir backend format:check`, `pnpm --dir backend lint`,
+  `pnpm --dir backend type-check`, `pnpm --dir backend build`,
+  `pnpm --dir backend verify:mud-writes --mud-manifest
+  /home/aiwithapex/projects/duris/migrations/migration_manifest.json` (53
+  classified writes), and `git diff --check` pass. Changed TypeScript was
+  formatted with `pnpm --dir backend exec biome format --write` on the three
+  new source/test files and `package.json`. The full backend/frontend matrix,
+  runtime feature/preflight readiness, full MUD-schema rehearsal, and production
+  acceptance remain unperformed; no claim exceeds the checks above.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
