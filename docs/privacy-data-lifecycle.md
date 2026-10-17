@@ -10,6 +10,15 @@ as that approval.
 
 ## Authority and verification rules
 
+The prepared [selected website data download](runbooks/account-data-export.md)
+uses a fresh password and active session to return eleven explicit categories
+from one read-only snapshot. It excludes credentials, mixed/staff content and
+external stores, labels itself partial, and creates no server-side export file
+or new durable request record. Its field allowlist is
+`backend/src/services/accountExportService.ts`; full export/request tracking,
+assisted review and erasure remain unfinished. Browser-downloaded files are
+under the requester's control; this adds no automatic purge or approved period.
+
 The [immutable website baseline](../backend/schema-baselines/2026-10-16/manifest.json)
 contains 77 website tables. The rows below account for every one. Exact column
 definitions and relationships are in its [DDL](../backend/schema-baselines/2026-10-16/schema.sql).

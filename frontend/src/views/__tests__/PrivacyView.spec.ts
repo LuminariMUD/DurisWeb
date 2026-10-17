@@ -14,7 +14,12 @@ afterEach(() => wrapper?.unmount())
 describe('public privacy notice', () => {
   it('is readable before login, labels unapproved details and offers the supplied contact without starting choices', () => {
     wrapper = mount(PrivacyView, {
-      global: { stubs: { PrivacyControls: { template: '<div>Choice controls</div>' } } },
+      global: {
+        stubs: {
+          PrivacyControls: { template: '<div>Choice controls</div>' },
+          AccountDataExport: true,
+        },
+      },
     })
     expect(wrapper.get('h1').text()).toBe('Privacy & choices')
     expect(wrapper.text()).toContain('Draft privacy details')

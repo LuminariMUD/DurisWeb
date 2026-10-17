@@ -2,34 +2,41 @@
 
 ## Current handoff — read this first
 
-Updated **2026-10-17, 11:15 Asia/Jerusalem (08:15 UTC)** from the actual
-checkout, remote branch heads, GitHub PR/issue state and current source. This
-section supersedes every older “next”, “current chunk”, “continue” and “goal
-stays active” instruction in the historical execution record below.
+Updated **2026-10-17, 11:50 Asia/Jerusalem (08:50 UTC)**. The current
+timeboxed delivery is on `branch/account-data-export`, based on #65's published
+documentation head `a0ce5eead048880d51eff829bc97aeb8e2ded5b9`.
 
-**The original eight-issue project is unfinished.** Three project PRs are
-merged; 26 more are open for review. Source for the principal security fixes is
-implemented and tested. General retention and complete account export/erasure
-are not finished. No production deployment, global logout, shared migration,
-live deletion, MUD operation or release tag was performed by this work.
+**Delivered engineering:** a fresh-password-verified private download of eleven
+selected website-data categories, available from `/privacy`, with explicit
+omissions. Real API tests pass on both database families; desktop/phone browser
+downloads through the compiled real API pass; required package checks pass.
+Publication details and exact proof are in the recovery result below.
 
-**Latest request: update this handoff document.** No account-export code was
-written during the recovery discussion. The suggested export work below is a
-next implementation target, not an implemented feature or permission to restart
-the previous unbounded goal. The automated goal had been paused; the user then
-replaced its objective with this documentation update.
+**The original eight-issue project is still unfinished.** The export is labelled
+partial in the page and JSON. Complete request tracking, remaining export
+categories, erasure, broad retention, policy decisions and release acceptance
+remain open. Three earlier project PRs are merged and 26 are open; the new export
+branch is being published as the next focused PR. No production deployment,
+global logout, shared migration, live deletion, MUD operation or release tag was
+performed by this work.
+
+**Current goal:** get the most useful verified implementation delivered within
+the hour, using ablation. Keep the **12:12 Asia/Jerusalem (09:12 UTC)** recovery
+cutoff. This section supersedes the older documentation-only goal and every
+historical “next”, “continue” or “goal stays active” instruction. Do not restart
+the earlier unbounded backup/fencing chain.
 
 ### Exact checkout and recovery state
 
 - Work in `/tmp/durisweb-security-privacy-plan-20261016`. Its Windows path is
   `\\wsl.localhost\Ubuntu\tmp\durisweb-security-privacy-plan-20261016`.
   This is the authoritative current plan; the plan on `master` is older.
-- Current documentation branch: `branch/legacy-copy-preservation`, existing
-  [PR #65](https://github.com/LuminariMUD/DurisWeb/pull/65). This handoff is a
-  documentation-only follow-up in that PR; no additional implementation PR is
-  needed for it. The last published source checkpoint before this update is
-  `2774928e8638df24ac2f89c234f1ebe6a919cccf`; its runtime-code commit is
-  `7c3e92df29d36cb91bb7722959bb0566dc92f678`.
+- Current implementation branch: `branch/account-data-export`, starting at
+  `a0ce5eead048880d51eff829bc97aeb8e2ded5b9` on
+  [PR #65](https://github.com/LuminariMUD/DurisWeb/pull/65). The export is a
+  focused dependent PR; its publication reference belongs in the result below.
+  The earlier per-file preservation runtime checkpoint is still `2774928`, with
+  runtime-code commit `7c3e92df29d36cb91bb7722959bb0566dc92f678`.
 - `branch/legacy-owner-fence` is a **local-only, empty branch** at that same
   `2774928` checkpoint, with no implementation, upstream or PR. It was abandoned
   as the immediate next task. Do not mistake its name for a completed guard.
@@ -62,11 +69,12 @@ GitHub currently shows #13 closed; #7–#12 and #14 are still open.
 | #9 / P4 — safety-toggle attribution | Atomic setting/journal write, idempotent bounded audit recovery, protected journal namespace, safe diagnostics and outage/crash/retry/concurrency tests. #42 open. | Review/merge and future release verification. Approved retention and subject-request treatment of delivered journal/audit records remain part of P6/P7. |
 | #10 / P0/P5 — notice and optional analytics | Public draft `/privacy` page and contact, browser choice state machine, server-owned receipts, same-origin/CSRF checks, withdrawal/race/storage-denial handling, minimized optional events and synthetic browser proof. #45–#49 open. | Approved final notice, purposes/providers/transfers/periods and release acceptance. `approved`, `collectionEnabled` and `retentionReady` remain false in `backend/src/config/privacyPolicy.ts`; optional collection is unavailable. The proposed 180-day preference period is not approved. |
 | #11 / P6 — retention | Inventory; bounded preview; private hold records; hold-aware continuation; source-disabled executor for **`analytics_events` and `login_history` only**; durable progress and cache cleanup; managed archive hold/removal/upload recovery; legacy discovery and individual preservation tools. #50–#65 open. | Approved periods/rules; remaining per-class handlers and feature cleanup; own-ledger periods; subject-request coordination; provider/media/cache/log copies; whole legacy-copy ownership/adoption and pre-teardown preservation; independently protected removal evidence and restore replay; operational acceptance. General retention is not enabled. |
-| #12 / P7 — account export and erasure | Data-store inventory and supporting session/hold/media-recovery primitives exist. Contact instructions direct requests to Max. | **No complete request lifecycle, fresh identity-verification flow, account export/download, erasure/anonymization engine, request/status UI, MUD/provider completion protocol, or complete-request verification exists.** The privacy router currently supplies choice endpoints only. |
+| #12 / P7 — account export and erasure | Fresh current-password/session verification; bounded consistent download of eleven selected website categories; subject/collation isolation; explicit omitted categories; private JSON response and working privacy-page download control. | Complete durable request lifecycle, approved assisted verification, remaining/mixed/external export categories, erasure/anonymization and non-recreation, request/status UI, MUD/provider completion and complete-request verification. This partial download does not close #12. |
 | P8 — integration and release | Per-chunk tests/builds and draft release wording are retained. | Final complete-feature integration, reviewed release identity, required owner decisions, authorized rollout and live Website Changelog verification. Source checks do not close these gates. |
 
-Named decision contact: **Max (Moshe), `zusuk@duris.sbs`**. His supplied contact
-details are not approval of retention/destruction periods, controller wording,
+Named decision contact: **Max (Moshe)**; his email is recorded in the linked
+lifecycle inventory below. His supplied contact details are not approval of
+retention/destruction periods, controller wording,
 provider commitments, request verification rules or the global logout. The
 registry is [Website data lifecycle inventory](../privacy-data-lifecycle.md).
 It covers the immutable 77-table baseline plus two later website-owned tables
@@ -102,8 +110,10 @@ files, caches and external owners. Those stores still need approved disposition.
   root ownership blocked that cleanup while an existing writer drained. No
   production guard, service controller, adoption path or repository test was
   implemented. Stop expanding this experiment during the recovery hour.
-- No account-export implementation was started after the interruption. Reading
-  routes and proposing an export did not produce a new branch, commit or API.
+- The recovery now implements `POST /api/privacy/export` and its page control.
+  Read [selected website data download](../runbooks/account-data-export.md) for
+  exact fields, limitations and assisted handling. Earlier “no export exists”
+  statements below describe the pre-recovery snapshot, not this branch.
 
 ### All project branches and PRs
 
@@ -167,7 +177,8 @@ Other branches present, to avoid confusing unrelated work with this project:
 
 - Remote `master`: `89468603a61ab44d9e3be1651c9dd6fce5a17a12`.
 - Local-only `branch/legacy-owner-fence`: `2774928e8638df24ac2f89c234f1ebe6a919cccf`,
-  no changes or PR. No account-export branch or PR exists at this checkpoint.
+  no changes or PR. `branch/account-data-export` is the new recovery branch;
+  see the publication record below for its PR and code checkpoint.
 - The local review branch for #37 remains at `2ed1a2884b5283fdf0222ce1b550b363652ee142`
   while its current remote/merged PR head is `55aafe91748577b38ac24f8b38e5b8e6792ac2cc`.
   The local review branch for #38 is `f6ad133fc5bd255eecc1c4d874ebbbd866d057c1`,
@@ -294,16 +305,107 @@ These are retained results, **not tests rerun for this document update**:
   limit and reconstruct only the exact needed fixture from committed tests.
   Do not claim a historical result was rerun or fabricate its missing output.
 
-This handoff changes only `docs/ongoing-projects/plan.md`. Its checks are live
-PR/remote/branch reconciliation, source-status verification, Markdown/local-link
-review and `git diff --check`. No runtime suite, production operation or public
-changelog update is necessary for this contributor-document change.
+The preceding 08:15 handoff was documentation-only and published in #65 as
+`a0ce5ee`. The current export implementation has the additional source and
+runtime evidence below. Production release and public news remain separate.
+
+### Recovery result — selected account-data download
+
+- **Outcome and scope:** one authenticated `POST /api/privacy/export` performs
+  a fresh database-backed password check and active-session check, reads eleven
+  allowlisted categories in a read-only consistent snapshot, rechecks current
+  credentials/block/session state, then returns a private JSON attachment.
+  It excludes collation aliases, other subjects, stored credentials, push keys,
+  mixed payloads and unreviewed external/staff records. It refuses oversized
+  categories/output before responding. The page clears the password, blocks
+  duplicate submissions and discards a pending or mismatched-account response.
+- **Ablation:** reuse existing authentication, CSRF, rate limiting and privacy
+  page. No migration, dependency, provider call, durable export file, queue,
+  signed/replayable download URL, generic job framework or service controller
+  is added. Read-only retries start a fresh verification/snapshot. The response
+  explicitly says `completeAccountExport: false`; missing P7 outcomes stay open.
+- **Files:** `backend/src/services/accountExportService.ts`, the existing
+  `backend/src/routes/privacy.ts`, one native API/database test, privacy-test
+  cleanup, frontend request helper/control/tests and existing privacy page,
+  the [runbook](../runbooks/account-data-export.md), lifecycle/security records
+  and this plan. All changes belong to this download or its verification.
+- **Native proof:** `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-account-export-suite.mts 23436 export-only` and the same
+  command with `23437` each pass **16 real route/database tests** on MySQL
+  8.0.46 and MariaDB 11.8.9. The fixture installs the full owner schema,
+  metadata v2, baseline and current migrations; configuration/dependency/session
+  preflights pass. Owner metadata matches before/after on each engine. Two
+  synthetic accounts cover all categories, current versus cached credentials,
+  case/accent identity, CSRF/origin, anonymous/expired/revoked access,
+  password/block/revocation changes during generation, snapshot/pool invariants,
+  row limits, safe errors and attempt limits.
+- **Full backend regression:** `node --import
+  ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-archive-suite.mts 23436` runs
+  `pnpm --dir backend test --runInBand`: **1,361 passed / 141 suites**, **69
+  optional native skips / five whole suites**. The 16 export cases are among
+  those skips and were run separately on both engines above. This run does not
+  enable the optional two-engine backup-dump matrix; retain its earlier proof.
+  Post-test dependency preflight and owner metadata match.
+- **Privacy regression:** with explicitly selected local test ports,
+  `DB_PORT=23436 DB_NAME=durisweb_unit_no_connect CACHE_REDIS_PORT=23479
+  CACHE_REDIS_DB=13 pnpm --dir backend test --runInBand
+  src/services/__tests__/privacyChoiceService.test.ts
+  src/config/__tests__/privacyPolicy.test.ts` passes **7**, skips **10 native**
+  cases and exits cleanly. An earlier run exposed an open Redis handle caused
+  by the new authenticated route import. Its owned process was stopped after
+  identifying it; test teardown now closes that client, and native export tests
+  defer connection-bearing imports until their opt-in setup. The full run above
+  proves skipped suites do not leave that handle open.
+- **Package checks:** `python3 /tmp/durisweb-image-quality.py backend` passes
+  backend `format:check`, `lint`, `type-check`, `verify:mud-writes` (53 classified
+  writes), `schema:check` (unchanged 77-table/85-source baseline) and `build`.
+  `python3 /tmp/durisweb-image-quality.py frontend` passes frontend
+  `format:check`, `lint`, `type-check`, `config:check`, palette guard,
+  `test:unit --run` (**313 tests / 60 files**) and `build`.
+  Initial focused frontend tests passed 14; the full run includes the subsequent
+  malformed-response redaction case. Initial backend test typing issues were
+  fixed before the final native runs/gates.
+- **Rendered end-to-end proof:** `node --import
+  ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-account-export-suite.mts 23436 export-browser` serves the
+  fresh built frontend and compiled real privacy API against the owned SQL/Redis
+  fixture. Installed Playwright/Chromium is used because the Browser plugin is
+  unavailable. Desktop 1440×1000 and phone 390×844 both download and parse the
+  correct JSON, exclude the other subject/credentials, clear the input, reject
+  wrong passwords and render without overflow or page errors. A changed
+  authentication cookie yielding another account's otherwise valid response is
+  rejected by the client. Anonymous visitors get sign-in, no password form.
+  Five real export requests and zero optional analytics requests are observed.
+  Screenshots `/tmp/durisweb-account-export-{1440,390}.png` were visually checked.
+  This is synthetic local acceptance, not a physical-phone or production test.
+- **Source/docs checks:** `./scripts/check-config-literals.sh` and
+  `git diff --check` pass. A duplicated contact-email literal introduced by the
+  prior handoff was replaced with a link to the canonical inventory; no guard
+  was weakened. Affected files were formatted using package Biome commands.
+  No runtime source changed after the successful browser/full-suite checks;
+  final native reruns also qualify the adjusted test-import setup.
+- **Evidence:** `/tmp/durisweb-account-export-{mysql-final,maria-final,
+  backend-full,backend-final,frontend-quality,browser,privacy-regression-final}.log`,
+  the browser runner and screenshot paths above. Fixtures and browser server
+  are created/removed by their owning runners. Retain private proof outside Git.
+- **Remaining:** durable full request tracking, complete approved export and
+  assisted/mixed-data review, erasure/anonymization/non-recreation, MUD/provider
+  coordination, wider P6 coverage, policy and live-release gates. This source
+  increment does not close #12 or declare compliance.
+- **Future release news draft:** “You can download selected profile and
+  community activity data from Privacy & choices after verifying your password.
+  The download explains which information needs a separate assisted request.”
+  Use the news-update workflow only after an authorized verified live release.
+- **Publication:** pending in this pre-commit checkpoint; create a focused PR
+  from `branch/account-data-export` onto `branch/legacy-copy-preservation` (#65),
+  then record the actual PR/code SHA and verify local/remote/API equality.
 
 ## Scope and authority
 
 The bounds below describe the original implementation request. The current
-updated goal is this documentation handoff; this section does not restart
-implementation automatically.
+goal authorizes bounded recovery implementation within the cutoff above;
+it does not authorize production operations or an unbounded continuation.
 
 Implementation is authorized, including local isolated verification, commits,
 pushes, and focused review-ready PRs. Stack dependent PRs as each chunk is ready.
@@ -3888,6 +3990,12 @@ and ownership boundaries survive adversarial fixtures, and recovery does not
 silently resurrect erased data.
 
 ## P7 — Verified export and erasure/anonymization (#12)
+
+Recovery progress: the selected, synchronous website download and fresh
+verification path are implemented and qualified above. Phase-wide checkboxes
+remain open because they include complete request tracking, approved assisted
+handling, omitted categories and erasure. Do not treat the partial download as
+complete P7 acceptance.
 
 - [ ] Implement a website-owned request lifecycle with opaque request IDs,
   subject identity, type, policy version, verified-at evidence, authorized

@@ -2,6 +2,7 @@
 import { useHead } from '@unhead/vue'
 import { DisplayHeading, IndexLabel, SectionRule } from '@/components/brand'
 import PrivacyControls from '@/components/privacy/PrivacyControls.vue'
+import AccountDataExport from '@/components/privacy/AccountDataExport.vue'
 import { privacyContact, PRIVACY_NOTICE_VERSION } from '@/config/privacyNotice'
 import { useSiteConfig } from '@/composables/useSiteConfig'
 
@@ -22,6 +23,7 @@ useHead(() => ({
       </p>
     </header>
     <PrivacyControls />
+    <AccountDataExport />
     <section class="space-y-3" aria-labelledby="privacy-contact">
       <h2 id="privacy-contact" class="text-3xl">Contact about your data</h2>
       <p>Privacy contact: {{ privacyContact.name }}. Email <a :href="`mailto:${privacyContact.email}`" class="underline underline-offset-4">{{ privacyContact.email }}</a> to ask for a copy, correction, removal, or human review of an account decision.</p>
