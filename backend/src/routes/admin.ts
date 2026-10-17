@@ -3866,9 +3866,14 @@ function respondBackupDeletionFailure(res: Response, error: unknown): Response {
     reason: failure.reason,
     reference: failure.reference,
   });
-  const status = ['invalid_archive', 'archive_in_progress', 'shared_archive'].includes(
-    failure.reason,
-  )
+  const status = [
+    'invalid_archive',
+    'archive_in_progress',
+    'shared_archive',
+    'archive_held',
+    'removal_in_progress',
+    'recovery_unverified',
+  ].includes(failure.reason)
     ? 409
     : 503;
   return res.status(status).json({

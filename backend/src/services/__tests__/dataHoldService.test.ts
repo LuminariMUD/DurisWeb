@@ -45,6 +45,10 @@ jest.unstable_mockModule('../retentionControl.js', () => ({
 jest.unstable_mockModule('../../db/lifecycleMetadata.js', () => ({
   assertLifecycleMetadata: async () => undefined,
 }));
+jest.unstable_mockModule('../managedArchiveRemoval.js', () => ({
+  recoverManagedArchiveRemoval: async () => {},
+  assertArchiveAdmissionClear: async () => {},
+}));
 const service = await import('../dataHoldService.js');
 function request(scope: unknown = { kind: 'global' }) {
   return {

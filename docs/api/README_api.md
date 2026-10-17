@@ -97,9 +97,14 @@ deletion returns success only after unlink/confirmed absence and record removal;
 pending/in-progress/shared/unsafe targets are refused. The failed-backup batch
 stops on its first unconfirmed removal and returns no false success/count; prior
 items may already be removed. Deletion failures use static `reason`/`reference`
-with 409 for invalid/active/shared targets or 503 for unconfirmed storage/file
-work. Listings retain missing-file identities and do not infer writer death
-from age. Archive holds and general restore replay remain unimplemented.
+with 409 for invalid/active/shared/held or review-blocked targets, or 503 for
+unconfirmed storage/file work. Listings retain missing-file identities and do
+not infer writer death from age. Prepared [managed ZIP admission](../runbooks/managed-archive-holds.md)
+now orders holds with removal through a private durable journal and isolated
+worker. Hold writes can return a retryable 409 before confirmation while an
+earlier worker may still unlink; no error response claims a hold was recorded.
+Global readiness stays false because uploads/workspaces, other cleanup and
+general restore replay remain open.
 
 ## Forum image removal
 

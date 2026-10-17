@@ -424,21 +424,24 @@ async function hold(accountName = 'Alpha') {
       const selected = deferred(),
         resume = deferred();
       let paused = false,
-        thread = 0;
-      intercept = async (sql, run) => {
+        thread = 0,
+        deletionThread = 0;
+      intercept = async (sql, run, connection) => {
         if (sql.startsWith('DELETE FROM page_views') && !paused) {
+          deletionThread = connection.threadId;
           paused = true;
           selected.resolve();
           await resume.promise;
         }
+        // Hold admission first takes the same lock through its fresh recovery connection.
+        if (
+          paused &&
+          connection.threadId !== deletionThread &&
+          sql.startsWith('INSERT INTO web_settings')
+        )
+          thread = connection.threadId;
         return run();
       };
-      const checkout = pool.getConnection.bind(pool);
-      jest.spyOn(pool, 'getConnection').mockImplementation(async () => {
-        const connection = await checkout();
-        thread = connection.threadId;
-        return connection;
-      });
 
       const running = engine.executeRetention(options());
       await Promise.race([

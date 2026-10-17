@@ -36,6 +36,8 @@ type HoldFailure =
   | 'identity_conflict'
   | 'release_conflict'
   | 'invalid_record'
+  | 'archive_cleanup_in_progress'
+  | 'archive_recovery_unverified'
   | 'storage_unavailable';
 const failures = {
   invalid_request: [400, 'The hold request is invalid.'],
@@ -43,16 +45,28 @@ const failures = {
   identity_conflict: [409, 'This hold identity already belongs to a different request.'],
   release_conflict: [409, 'This hold already has a different release record.'],
   invalid_record: [503, 'Hold records require operator review.'],
+  archive_cleanup_in_progress: [
+    409,
+    'Archive cleanup is still being confirmed. Retry the same hold request after it settles.',
+  ],
+  archive_recovery_unverified: [
+    409,
+    'Archive recovery needs operator review before this hold can be confirmed.',
+  ],
   storage_unavailable: [503, 'Hold records are temporarily unavailable.'],
 } as const;
 /** Fixed messages only; no driver errors, subject data or reasons enter diagnostics. */
 export class DataHoldError extends Error {
-  readonly reference = randomUUID();
+  readonly reference: string;
   readonly status: number;
-  constructor(readonly reason: HoldFailure) {
+  constructor(
+    readonly reason: HoldFailure,
+    reference: string = randomUUID(),
+  ) {
     super(failures[reason][1]);
     this.name = 'DataHoldError';
     this.status = failures[reason][0];
+    this.reference = reference;
   }
 }
 function object(value: unknown): value is Record<string, unknown> {

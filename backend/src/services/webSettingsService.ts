@@ -9,6 +9,7 @@ import {
   HOOK_JOURNAL_PREFIX,
   PRIVACY_CHOICE_PREFIX,
   RETENTION_CONTROL_PREFIX,
+  ARCHIVE_REMOVAL_PREFIX,
   isInternalWebSettingKey,
 } from '../db/internalWebSettings.js';
 
@@ -256,8 +257,13 @@ export async function getWebSettings(): Promise<WebSettings> {
   const [rows] = await db.query<
     Array<RowDataPacket & { setting_key: string; setting_value: string }>
   >(
-    'SELECT setting_key, setting_value FROM web_settings WHERE setting_key NOT LIKE ? AND setting_key NOT LIKE ? AND setting_key NOT LIKE ?',
-    [HOOK_JOURNAL_PREFIX + '%', PRIVACY_CHOICE_PREFIX + '%', RETENTION_CONTROL_PREFIX + '%'],
+    'SELECT setting_key, setting_value FROM web_settings WHERE setting_key NOT LIKE ? AND setting_key NOT LIKE ? AND setting_key NOT LIKE ? AND setting_key NOT LIKE ?',
+    [
+      HOOK_JOURNAL_PREFIX + '%',
+      PRIVACY_CHOICE_PREFIX + '%',
+      RETENTION_CONTROL_PREFIX + '%',
+      ARCHIVE_REMOVAL_PREFIX + '%',
+    ],
   );
 
   const settings = parseWebSettingsRows(rows);
@@ -277,8 +283,14 @@ export async function getWebSettings(): Promise<WebSettings> {
 export async function getWebSetting(key: string): Promise<string | null> {
   if (isInternalWebSettingKey(key)) return null;
   const [rows] = await db.query<RowDataPacket[]>(
-    'SELECT setting_value FROM web_settings WHERE setting_key = ? AND setting_key NOT LIKE ? AND setting_key NOT LIKE ? AND setting_key NOT LIKE ?',
-    [key, HOOK_JOURNAL_PREFIX + '%', PRIVACY_CHOICE_PREFIX + '%', RETENTION_CONTROL_PREFIX + '%'],
+    'SELECT setting_value FROM web_settings WHERE setting_key = ? AND setting_key NOT LIKE ? AND setting_key NOT LIKE ? AND setting_key NOT LIKE ? AND setting_key NOT LIKE ?',
+    [
+      key,
+      HOOK_JOURNAL_PREFIX + '%',
+      PRIVACY_CHOICE_PREFIX + '%',
+      RETENTION_CONTROL_PREFIX + '%',
+      ARCHIVE_REMOVAL_PREFIX + '%',
+    ],
   );
 
   return rows.length > 0 ? rows[0].setting_value : null;
@@ -289,8 +301,13 @@ export async function getWebSetting(key: string): Promise<string | null> {
  */
 export async function getWebSettingsRaw(): Promise<WebSettingRow[]> {
   const [rows] = await db.query<RowDataPacket[]>(
-    "SELECT setting_key, setting_value, description, UNIX_TIMESTAMP(updated_at) AS updated_at_epoch, updated_by FROM web_settings WHERE setting_key != 'discord_webhook_url' AND setting_key NOT LIKE ? AND setting_key NOT LIKE ? AND setting_key NOT LIKE ? ORDER BY setting_key",
-    [HOOK_JOURNAL_PREFIX + '%', PRIVACY_CHOICE_PREFIX + '%', RETENTION_CONTROL_PREFIX + '%'],
+    "SELECT setting_key, setting_value, description, UNIX_TIMESTAMP(updated_at) AS updated_at_epoch, updated_by FROM web_settings WHERE setting_key != 'discord_webhook_url' AND setting_key NOT LIKE ? AND setting_key NOT LIKE ? AND setting_key NOT LIKE ? AND setting_key NOT LIKE ? ORDER BY setting_key",
+    [
+      HOOK_JOURNAL_PREFIX + '%',
+      PRIVACY_CHOICE_PREFIX + '%',
+      RETENTION_CONTROL_PREFIX + '%',
+      ARCHIVE_REMOVAL_PREFIX + '%',
+    ],
   );
 
   return rows.map((row) => ({

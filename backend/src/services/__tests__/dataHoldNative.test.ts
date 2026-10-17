@@ -260,15 +260,14 @@ function intercept(
         (await request(app).post('/api/admin/data-holds').set('Cookie', cookies()).send(value))
           .status,
       ).toBe(403);
-      expect(
-        (
-          await request(app)
-            .post('/api/admin/data-holds')
-            .set('Cookie', cookies())
-            .set('X-CSRF-Token', csrf)
-            .send({ ...value, createdBy: 'ForgedOperator' })
-        ).status,
-      ).toBe(400);
+      const refused = await request(app)
+        .post('/api/admin/data-holds')
+        .set('Cookie', cookies())
+        .set('X-CSRF-Token', csrf)
+        .send({ ...value, createdBy: 'ForgedOperator' });
+      expect(refused.status).toBe(400);
+      expect(refused.body).not.toHaveProperty('hold');
+      expect(refused.body.warning).not.toContain('intent is recorded');
       const created = await request(app)
         .post('/api/admin/data-holds')
         .set('Cookie', cookies())
@@ -468,8 +467,10 @@ function intercept(
           .set('Cookie', cookies())
           .set('X-CSRF-Token', csrf)
           .send(value);
-        expect(response.status).toBe(503);
-        expect(response.body.error).toBe('Hold records are temporarily unavailable.');
+        expect(response.status).toBe(409);
+        expect(response.body.error).toBe(
+          'Archive recovery needs operator review before this hold can be confirmed.',
+        );
         expect(response.body.hold).toBeUndefined();
         expect(response.body.warning).not.toMatch(/intent is recorded/i);
         const [rows] = await root!.query<RowDataPacket[]>(

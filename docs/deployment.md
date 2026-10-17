@@ -293,8 +293,13 @@ Unconfirmed unlink retains the archive record; a partial failed-backup batch
 stops and requires refreshed inspection. An older cleanup failure does not
 invalidate a newly completed backup. Missing-file records and possibly active
 writers are preserved rather than discarded by list-time age assumptions.
-These safeguards do not establish archive hold enforcement, approved age
-limits or protected restore replay.
+The prepared [managed ZIP admission protocol](runbooks/managed-archive-holds.md)
+now enforces holds for that registered path; it requires Linux identity and a
+reviewed local filesystem. Stop/drain every older writer/reader before using it,
+include the compiled worker and preserve its private journal through recovery.
+Unknown worker domains or state remain review-blocked, never cleared by age.
+Uploads/dump/staging copies, approved age limits and protected offline replay
+remain open; `PrivateTmp=true` is not durable upload protection.
 
 The rehearsal above uses an operator-created, transaction-consistent dump and
 restores it into an empty disposable target. It is distinct from the admin

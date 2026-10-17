@@ -33,10 +33,13 @@ Qualified prerequisite: `branch/lifecycle-metadata-visibility` repairs a reprodu
 metadata visibility gap before publishing managed-archive hold enforcement.
 Published for review as [PR #58](https://github.com/LuminariMUD/DurisWeb/pull/58),
 stacked on #57.
-The archive barrier is preserved in Git stash
+The archive barrier was restored onto #58 in
+`branch/managed-archive-hold-barrier`; integration and native qualification pass,
+with final publication pending.
+Its pre-prerequisite recovery copy remains in Git stash
 `1c8d1dd304401fe58de11758a2dd7330b699a770` on
-`branch/managed-archive-hold-barrier`; restore it onto the qualified prerequisite,
-replace its filtered metadata checks, and repeat its cross-schema regression.
+`branch/managed-archive-hold-barrier`. Filtered metadata checks have been replaced;
+the cross-schema regression and required package/native matrices now pass.
 Next: remaining P6 cleanup/copy/restore
 and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
@@ -2280,6 +2283,161 @@ outside this request. Keep this single evolving execution plan current.
   flags stay false pending the named decisions; no live operation is authorized.
   Continue autonomously and ask only for a consequential decision that cannot
   be resolved by independent engineering.
+
+- **Current P6d2b1: managed archive hold admission**, branch
+  `branch/managed-archive-hold-barrier`, started at #57 `5ffeb05` and now stacks
+  on #58 `8916de3` after metadata qualification.
+  **Outcome:** serialize managed archive removal with hold creation/release
+  through the existing retention control lock and a durable non-expiring
+  removal journal. Any active validated hold conservatively preserves an
+  indivisible archive. Commit admission before disk work, then use one isolated
+  unlink worker; do not release protection admission until that worker has
+  closed or its original process is proven gone. Preserve ambiguous work and
+  immutable receipts; retries/restarts cannot allow a late unlink after hold
+  acknowledgement. Keep failed partial ZIPs and their backup records for the
+  same managed-removal path. **Non-goals:** approved periods, enabling retention,
+  live operations, whole-backup/copy acceptance or all P6/P7 completion.
+  Uploaded archives and dump/staging workspaces are the dependent P6d2b2 scope;
+  they must not be represented as protected by this first consumer. **Files:**
+  one private settings journal, Linux process identity and one-shot worker,
+  managed-removal service, existing hold/backup/settings/error consumers,
+  focused/native/failure/concurrency tests and operator/lifecycle/plan docs.
+  **Proof:** actual SQL and filesystem on both engines, all hold scopes,
+  prepared/armed admission races, delayed/early worker replies, process exit/
+  namespace/PID reuse, unknown SQL acknowledgements, restart recovery and strict
+  private namespace/schema checks; required backend gates/full suite, then a
+  focused stacked PR.
+- **P6d2b1 ablation:** reuse `web_settings` for one active pointer plus retained
+  UUID receipts, rather than add a new table, queue or configurable purge layer.
+  A one-shot Node worker is needed because an async unlink cannot be cancelled
+  by expiring a SQL lease. It gets no application credentials, uses no shell,
+  and self-exits on timeout/IPC disconnect. The parent never sends a real signal
+  to a PID read from durable state; recovery uses only identity/existence checks.
+  Prepared work can be atomically abandoned before worker authorization; armed
+  work can clear only after close/proven original-worker exit, never elapsed
+  age. Unknown boot/PID namespace or inaccessible identity fails closed for
+  operator review. SQL transactions never span worker/disk waits. Keep global
+  enforcement unavailable while uploads, workspaces and other cleanup/restore
+  consumers remain open. Production's `PrivateTmp=true` is also why upload
+  persistence needs its own dependent change rather than a claim of protection
+  for current temporary uploads.
+- **P6d2b1 implementation checkpoint / prerequisite found:** managed admission,
+  isolated worker, private journal, hold integration and operator UI are
+  implemented but not yet published. Focused SQL/filesystem/race/recovery cases
+  pass on both engines (34 cases/four suites), full backend passed 1,299 cases
+  with 52 explicit native skips, and package gates/compiled-worker/browser
+  checks pass at the checkpoint below. A stronger external-schema FK probe
+  then reproduces a real blocker: `KEY_COLUMN_USAGE` is privilege-filtered, so
+  the application principal misses a referencing CASCADE from a separate
+  schema and incorrectly permits removal. Trigger metadata also requires
+  visibility privileges; an empty catalog query is not authoritative absence.
+  Retain the failing probe `/tmp/durisweb-archive-cross-schema.log` and do not
+  publish the barrier while this requirement is unproven.
+- **New required prerequisite:** prepare a focused shared lifecycle metadata
+  safety change from #57, then stack managed admission on it. A database-owner
+  installed read-only, definition-verified metadata function can return only
+  trigger/incoming-reference counts for the current schema while the website
+  retains ordinary credentials. Do not solve this by granting the website
+  global PROCESS/data visibility or treating filtered zero counts as proof.
+  Apply the authoritative check to the existing SQL retention/control consumers
+  as well as this barrier. Explicit administrative installation/verification
+  is source/rehearsal work only; no live grant or database operation is allowed.
+- **P6d2b1 integration resumed (2026-10-17):** #58 is published and the barrier
+  recovery stash has been applied without dropping it. Two textual conflicts
+  were resolved by retaining both metadata/admission mocks and both lifecycle
+  inventory paragraphs. The barrier now checks all locked settings/hold/backup
+  tables through #58's authoritative helper before worker admission and final
+  SQL removal. Missing authority reports review-required protection rather than
+  trusting filtered zero counts. Requalification, rendered error states, final
+  publication and the dependent upload/workspace work remain outstanding.
+- **P6d2b1 qualified result (2026-10-17):** the originally failing external-schema
+  CASCADE case now retains the file, parent and child, creates no removal receipt
+  and starts no worker. The test also proves the ordinary application query
+  still sees zero references; only #58's narrow helper establishes absence.
+  All four active hold scopes preserve the whole indivisible archive, including
+  holds created after a candidate was observed. The real producer retains a
+  completed new backup when count pruning is held, and failed partial ZIPs
+  use the same protected removal path. Expiry is database-clock based; invalid
+  or excessive protection is retained/refused, never trimmed.
+  Native fault cases cover prepared cancellation, delayed unlink/early success,
+  file replacement, absent-file SQL failure plus held retry/release, unknown
+  arm/final COMMIT acknowledgements, stopped/partially completed batches,
+  hold acknowledgement between entries, fresh-process recovery, unknown process
+  domain, strict schema/trigger/incoming-reference checks and private-prefix
+  SQL-collation aliases. The production-built worker separately confirms removal
+  without a TypeScript loader or application credentials.
+- **P6d2b1 final commands and evidence:**
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-archive-suite.mts <23436|23437> archive-only` passes
+  **35 tests / 4 suites per engine**, with the strengthened hidden-FK assertions
+  in the full MySQL run and final MariaDB run. The runner expands to
+  `pnpm --dir backend test --runInBand` with the archive native, real worker,
+  hold-unit and process-identity test files after full isolated owner/baseline/
+  92-migration fixture setup and explicit metadata-helper installation.
+  `TEST_BACKUP_DB_PORTS=23436,23437 TEST_LIFECYCLE_METADATA_DB_PORTS=23436,23437
+  node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-archive-suite.mts 23436` runs the full backend suite:
+  **1,320 pass / 134 suites**, **53 optional native skips / 4 entire suites**
+  (14 image, 10 privacy, 8 hold, 9 preview, 12 SQL executor). The full log is
+  `/tmp/durisweb-archive-authoritative-full.log`.
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-hold-suite.mts <23436|23437> holds-only` separately passes
+  **16 / 2 per engine**; missing authority now yields review-required HTTP 409
+  with no hold acknowledgement. `node --import
+  ./backend/node_modules/tsx/dist/loader.mjs /tmp/durisweb-run-execution-suite.mts
+  <23436|23437> execution-only` passes **15 / 2 per engine** after the integration.
+  One existing concurrency observer initially watched only the pooled hold
+  connection; admission now blocks earlier on its fresh recovery connection.
+  The observer follows that actual connection and still proves the real SQL
+  lock wait and completion order. One overlapping MySQL attempt correctly
+  refused a cache database owned by the still-running archive fixture; it was
+  rerun only after that exact process completed and cleaned its own cache.
+  No unrelated keys were removed. All runners pass pre/post dependency checks
+  and unchanged owner fingerprints recorded under #58 above.
+  `python3 /tmp/durisweb-image-quality.py backend` passes final backend
+  `format:check`, `lint`, `type-check`, `verify:mud-writes` (**53**), `schema:check`
+  (**77 / 85 historical**) and `build`. The same helper with `frontend` passes
+  `format:check`, `lint`, `type-check`, `config:check`, palette guard, full
+  **296 tests / 58 files**, and `build`; these final frontend gates were repeated
+  successfully after the last bulk-warning adjustment.
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-archive-worker-probe.mts compiled` reports ready/removed.
+  Config literals, lifecycle exact inventory/local references and whitespace
+  checks pass. Native baseline replay, remaining image/privacy/preview opt-ins,
+  providers, physical devices, non-ext4 filesystems and production were not
+  freshly qualified; source changes do not claim those acceptances.
+- **P6d2b1 rendered result:** browser plugin/`browser` skill is absent, so the
+  installed Playwright Chromium fallback runs
+  `node /tmp/durisweb-archive-held-browser.mjs` against the actual Vite app at
+  `http://127.0.0.1:25477/admin/mud/backup`, with synthetic authenticated API
+  responses only. Three states (held/busy/review) at **1440x1000 and 390x844**
+  pass actual manual and failed-batch flows (**12 attempted actions**): static
+  human-readable feedback, validated reference, no false success/raw server
+  detail/global outage/request replay, and visible in-bounds toolbar controls.
+  Batch failures all warn that earlier removals may already have completed.
+  Copy now describes automatic counts as targets because holds/unconfirmed
+  work may preserve older archives. The mobile toolbar wraps instead of
+  clipping controls. Six screenshots are retained; mobile held and desktop
+  review states were visually inspected. Expected synthetic 409 resource
+  messages and the existing router deprecation are recorded separately from
+  unexpected console/page errors. Final evidence is
+  `/tmp/durisweb-archive-authoritative-browser-final.log` and
+  `/tmp/durisweb-archive-{archive_held,removal_in_progress,recovery_unverified}-{1440,390}.png`.
+- **Release-news draft:** “Managed backup archives are kept while preservation
+  holds are active. Cleanup problems retain recovery records and show a clear
+  status so staff can investigate and retry.” Reconcile with the live Website
+  Changelog only during an authorized verified release; no entry is published
+  for these unshipped PRs. No source approval/collection/retention flag changed.
+- **P6d2b1 next:** publish the focused archive barrier on #58, then address the
+  already identified baseline/session trigger-visibility consumers as a focused
+  prerequisite before shared adoption. Continue P6d2b2's durable upload/SQL-dump/
+  staging workspace records and their real cancellation/validation/failure/
+  expiry removal paths. These require the same hold/fencing guarantee, not an
+  immediate unlink or a stale snapshot. Keep independently protected current
+  evidence, approved maximum age, compatible offline restore replay, remaining
+  classes, own-ledger periods and every P7 subject-request requirement open.
+  Keep all managed-barrier changes, fixtures and evidence intact while making
+  the prerequisite independently reviewable.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and

@@ -17,6 +17,7 @@ import { writeDatabaseBackupDump } from './databaseBackupDump.js';
 import { DatabaseRestoreUnavailableError } from '../utils/databaseRestoreGuard.js';
 import { BackupDeletionError } from '../utils/backupDeletionError.js';
 import { randomUUID } from 'node:crypto';
+import { removeManagedArchive } from './managedArchiveRemoval.js';
 
 const execAsync = promisify(exec);
 
@@ -562,8 +563,7 @@ async function runBackup(
       filename,
     });
 
-    // Cleanup partial files
-    await fs.promises.unlink(zipPath).catch(() => {});
+    // Retain partial ZIP identity; its removal must use the same hold-aware managed path.
     await fs.promises.unlink(tempSqlPath).catch(() => {});
   }
 }
@@ -680,44 +680,7 @@ export async function getBackupFilePath(id: number): Promise<string | null> {
  * Delete a backup by ID
  */
 export async function deleteBackup(id: number): Promise<boolean> {
-  if (!Number.isSafeInteger(id) || id <= 0) throw new BackupDeletionError('invalid_archive');
-  try {
-    const backup = await getBackupById(id);
-    if (!backup) return false;
-    if (backup.status !== 'completed' && backup.status !== 'failed')
-      throw new BackupDeletionError('archive_in_progress');
-    const [references] = await pool.execute<RowDataPacket[]>(
-      'SELECT COUNT(*) AS count FROM mud_backups WHERE filename=?',
-      [backup.filename],
-    );
-    if (Number(references[0]?.count) !== 1) throw new BackupDeletionError('shared_archive');
-    let filePath: string;
-    try {
-      filePath = resolveSafeBackupFilePath(BACKUP_DIR, backup.filename);
-    } catch {
-      throw new BackupDeletionError('invalid_archive');
-    }
-    try {
-      await fs.promises.unlink(filePath);
-    } catch (error) {
-      if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'ENOENT')
-        throw new BackupDeletionError('file_removal_unconfirmed');
-    }
-    // Only confirmed unlink/absence permits dropping identity; report SQL failure for retry.
-    const [removed] = await pool.execute<ResultSetHeader>(
-      "DELETE FROM mud_backups WHERE id=? AND filename=? AND status IN ('completed','failed')",
-      [id, backup.filename],
-    );
-    if (removed.affectedRows !== 1) {
-      if (removed.affectedRows !== 0 || (await getBackupById(id)) !== null)
-        throw new BackupDeletionError('storage_unavailable');
-    }
-    return true;
-  } catch (error) {
-    throw error instanceof BackupDeletionError
-      ? error
-      : new BackupDeletionError('storage_unavailable');
-  }
+  return removeManagedArchive(id);
 }
 
 /**

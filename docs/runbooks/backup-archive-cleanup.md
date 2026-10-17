@@ -2,10 +2,11 @@
 
 These are prepared source safeguards for the existing manual/hourly count
 limits and explicit administrative cleanup. They approve no new age period or
-actual archive operation. Archive hold enforcement, independently protected
-removal evidence and offline restore replay remain required P6 work. The hold
-API still reports global `enforcementReady: false`; do not enable retention or
-claim that recording a hold protects these archives yet.
+actual archive operation. The prepared [managed ZIP admission protocol](managed-archive-holds.md)
+now enforces validated holds and retains durable removal receipts. Uploads and
+dump/staging workspaces, independently protected evidence and offline replay
+remain required P6 work. The hold API still reports global
+`enforcementReady: false`; no complete copy/restore protection is claimed.
 
 ## Deletion acknowledgement
 
@@ -29,7 +30,8 @@ A failed-backup batch stops at its first unconfirmed removal. Earlier entries
 can already be gone; refresh the list and retry retained work after diagnosis.
 There is no all-or-nothing filesystem rollback. The HTTP response gives a safe
 category/reference instead of raw driver text or a false success/count. Invalid,
-active or shared targets return 409; unconfirmed file/storage work returns 503.
+active, shared, held or review-blocked targets return 409; unconfirmed
+file/storage work returns 503.
 The page awaits the actual deletion request and refreshes after either outcome.
 
 Backup creation also waits for an acknowledged positive operation ID; an
@@ -54,7 +56,8 @@ still report an absent file. A retained list entry does not certify recoverabili
 If pruning older archives fails after a new backup completes, the new backup
 keeps its completed result. Cleanup records only a safe category/reference and
 leaves older recovery identities available for retry. This does not certify
-that count/age targets, holds or protected physical recovery are satisfied.
+that count/age targets, every copy's hold handling or protected physical
+recovery are satisfied.
 
 Keep current hold/run/control and request evidence independent of old archives.
 The legacy website restore operation is unavailable even with its historical

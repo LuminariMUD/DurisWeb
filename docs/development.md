@@ -173,6 +173,21 @@ injection. The actual child CLI still proves refusal before I/O with the shipped
 source flags false. Unit-only runs skip this suite; no configuration variable
 approves or enables retention. Historical analytics reads are SQL-only.
 
+Managed-archive qualification independently uses
+`TEST_ARCHIVE_REMOVAL_DB_PORT=23436` or `23437`, database
+`durisweb_qualification_archive_removal_suite`, an owned
+`/tmp/durisweb-archive-qualification-*` directory/marker, and loopback cache
+23479 DB 13/14 with the runner's ownership marker. Provision the full verified
+owner/baseline/forward fixture. Native cases use real SQL, files, one-shot
+workers and a fresh recovery process, including holds during admission/worker
+activity and uncertain acknowledgements. Do not point them at a shared store.
+Unit runs skip the native suite; the worker/identity tests exercise Linux local
+filesystem semantics directly. The compiled worker has no TypeScript loader
+requirement or application credentials. See the
+[managed archive protocol](runbooks/managed-archive-holds.md) for platform and
+recovery limits; these tests do not establish protected uploads or all-copy
+restore acceptance.
+
 Do not commit `.env` files, dumps, account data, generated deployment output,
 or backup archives. See [Configuration and Environments](environments.md) before
 adding any new setting.
