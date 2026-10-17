@@ -34,10 +34,13 @@ quality-final,green-final}.log`. Frontend is unchanged from the access repair's
 The access chunk is published as `8fbfb01` with closure record `c123f78`, and
 carried through #63 `32191a7`, #64 `42f3b22`, #65 `8316719` and #66 `dce5986`.
 All three access/duplicate threads are verified resolved. Current branch is #62.
-Publish this inspection repair and resolve `PRRT_kwDOVA2-8c6tgzDk` only after
-remote-head verification. Known queue before that closure: **13 unresolved /
-45 verified closeouts**. Then #62 has the cancellation validate/unlink race;
-do not treat a second stat or file lease as an atomic conditional unlink.
+The inspection repair is published as `fecc543` and thread
+`PRRT_kwDOVA2-8c6tgzDk` has a verified reply/resolution. The ledger now contains
+**46 verified closeouts**, with **12 known unresolved threads** before a fresh
+scan: #62 (1), #63 (1), #64 (5), #65 (1), #66 (4). Carry this parent through
+#63–#66 next. #62's remaining finding is the cancellation validate/unlink race;
+a second stat, synchronous unlink or a file-content lease alone does not make
+pathname deletion conditional on the validated inode.
 
 Draft release note addition: “Generated backups remain inspectable when unrelated
 database tables make the SQL dump exceed the upload inspection limit.”
