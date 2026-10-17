@@ -12,8 +12,10 @@ function requireOperationAcknowledgement(result: { success: boolean; id: number 
 
 export function useBackups() {
   const queryClient = useQueryClient()
-  const { accountName } = useAuth()
-  const backupQueryKey = computed(() => ['backups', accountName.value] as const)
+  const { accountName, permissions } = useAuth()
+  const backupQueryKey = computed(
+    () => ['backups', accountName.value, permissions.value?.role ?? null] as const,
+  )
   const { onBackupProgress, offBackupProgress, onRestoreProgress, offRestoreProgress } =
     useWebSocket()
 

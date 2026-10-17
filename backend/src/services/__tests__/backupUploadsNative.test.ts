@@ -151,6 +151,10 @@ const post = async (bytes: Buffer) =>
       fs.closeSync(opened.fd);
     }
     actor = 'UploaderBeta';
+    const denied = await uploads.readBackupUpload(id, actor).catch((error: unknown) => error);
+    expect(denied).toBeInstanceOf(uploads.BackupUploadError);
+    expect(denied).toMatchObject({ reason: 'not_found', status: 404 });
+    expect((denied as uploads.BackupUploadError).reference).not.toBe(id);
     expect((await request(app).delete('/cancel').send({ tempPath: id })).status).toBe(404);
     expect(fs.existsSync(file)).toBe(true);
     actor = 'UploaderAlpha';
