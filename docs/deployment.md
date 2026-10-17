@@ -1,5 +1,11 @@
 # Deployment
 
+Before stopping/draining an older website unit for any step below, complete the
+[legacy temporary-copy preservation gate](#legacy-temporary-copy-preservation-gate).
+A service stop/restart, including one caused by a cache dependency, can remove
+its private temporary directory. This gate precedes the writer-stop instructions
+for metadata adoption, migrations, session cutover and recovery.
+
 Before enabling lifecycle hold/control or SQL-cleanup writes, an authorized DBA
 must install the [read-only metadata guard](runbooks/lifecycle-metadata.md), then
 check it with normal website credentials. Dependency preflight requires it.
@@ -302,8 +308,55 @@ now enforces holds for that registered path; it requires Linux identity and a
 reviewed local filesystem. Stop/drain every older writer/reader before using it,
 include the compiled worker and preserve its private journal through recovery.
 Unknown worker domains or state remain review-blocked, never cleared by age.
-Uploads/dump/staging copies, approved age limits and protected offline replay
-remain open; `PrivateTmp=true` is not durable upload protection.
+Registered uploads now use persistent private managed files; legacy temporary
+uploads/dump/staging copies, approved age limits and protected offline replay
+remain open. Complete the preservation gate below before stopping the old unit.
+
+### Legacy temporary-copy preservation gate
+
+The maintained unit uses `PrivateTmp=true`. systemd removes a service's private
+temporary files after the service stops; see its
+[execution reference](https://github.com/systemd/systemd/blob/main/man/systemd.exec.xml)
+and [temporary-directory guidance](https://github.com/systemd/systemd/blob/main/docs/TEMPORARY_DIRECTORIES.md).
+The old uploader wrote `backup-upload-<timestamp>-<random>.zip` under the service's
+`os.tmpdir()`, without durable ownership or writer receipts. Checking the host's
+ordinary `/tmp`, or finding no row in `mud_backups`, does not inventory that
+private namespace. New persistent uploads do not adopt those older files.
+
+During a separately authorized release, before **any** application stop/restart
+or restart of a dependency that stops it:
+
+1. Pause and verify the existing watchdog maintenance mechanism. Its pause
+   expires after four hours; preserve the gate through the entire approved
+   window. Keep Cloudflare ingress and the tunnel configured. Establish a
+   reviewed way to prevent new legacy upload/backup operations and to fence
+   their writers without first tearing down the old unit's temporary namespace.
+   No existing runtime flag or a successful `/health` check proves that fence.
+2. Identify the actual old service/process and its mount namespace privately.
+   Inventory its actual temporary-upload root and configured backup root,
+   including raw `temp_<id>.sql` and `temp_staging_<id>` copies. Preserve unknown,
+   active, shared or unregistered files. Names, ages and completed/failed SQL
+   statuses alone cannot prove that an old writer stopped.
+3. Before namespace teardown, preserve and independently verify required bytes,
+   physical identities and ownership/recovery evidence in a reviewed persistent
+   protected location. Establish consistency and writer closure with the
+   reviewed fencing procedure. A directory listing, file count, inspection
+   summary or unverified copy is insufficient. Do not extract or execute an
+   untrusted upload to establish preservation. Keep current hold/request/run
+   evidence independent of archived snapshots.
+4. Reconcile every discovered copy, active hold and unknown outcome with the
+   approved adoption/disposition procedure. A second copy does not itself
+   authorize deleting an original held copy. If preservation, writer fencing,
+   namespace coverage or hold-compatible teardown is unverified, **stop the
+   release before stopping/restarting the service**. Record the unresolved
+   category privately; do not mark these copies erased or protected by the
+   managed ZIP receipts.
+
+Only after this gate passes may the later stop/drain, migration and cutover
+steps proceed. Do not disable `PrivateTmp`, manually remove its backing directory,
+or treat systemd cleanup as the hold-aware remover. Discovery/adoption/fencing
+tooling and a rehearsed preservation procedure remain required P6 engineering;
+these instructions are a release gate, not evidence that it has been satisfied.
 
 The rehearsal above uses an operator-created, transaction-consistent dump and
 restores it into an empty disposable target. It is distinct from the admin

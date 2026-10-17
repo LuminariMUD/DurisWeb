@@ -79,8 +79,51 @@ pushes, and focused review-ready PRs. Stack dependent PRs as each chunk is ready
 Deployment, production session invalidation, shared-environment migrations,
 destructive retention, and operations in the separate DurisMUD repository remain
 outside this request. Keep this single evolving execution plan current.
+All older stop/drain release instructions are subject to the
+[legacy temporary-copy preservation gate](../deployment.md#legacy-temporary-copy-preservation-gate):
+inventory and satisfy preservation/hold/fencing requirements before stopping an
+old `PrivateTmp` unit. Namespace teardown is itself a copy-removal path.
 
 ## Execution record and continuation
+
+- **P6d2b2c preservation-order repair (2026-10-17):** branch
+  `branch/legacy-upload-preservation-gate` starts at #62 `3d68697`.
+  Outcome: prevent the prepared release sequence from stopping an old service
+  before legacy temporary uploads are preserved and holds reconciled. Non-goals:
+  actual rollout, namespace/process/file operations, disabling `PrivateTmp` or
+  claiming adoption/removal is already implemented. Files: deployment and the
+  two archive runbooks plus this plan. Proof: trace the pinned old uploader and
+  maintained systemd unit against upstream systemd lifecycle semantics, then
+  verify exact ordering, links and whitespace. This is a separate real defect
+  discovered before the inventory implementation, not a replacement for P6/P7.
+  `git show 220c991:backend/src/routes/admin.ts` shows OS-temp uploads with no
+  durable ownership; `git show 220c991:backend/src/services/backupService.ts`
+  shows `temp_<id>.sql`/`temp_staging_<id>` and unconditional unlink/rm. The
+  maintained unit sets `PrivateTmp=true` and depends on the cache. Upstream
+  [systemd execution docs](https://github.com/systemd/systemd/blob/main/man/systemd.exec.xml)
+  and [temporary-directory guide](https://github.com/systemd/systemd/blob/main/docs/TEMPORARY_DIRECTORIES.md)
+  confirm private temporary-directory teardown when the service stops. Thus
+  “stop all old writers, then inventory/adopt” can already lose evidence.
+  The gate now precedes every stop/drain instruction, requires the actual old
+  mount namespace, verified protected bytes/consistency/hold-compatible teardown
+  and a writer fence that does not first destroy that namespace. Existing
+  four-hour watchdog pause limits are explicit; the tunnel stays configured.
+  No guessed PID, current host `/tmp`, completed row, old age, healthy process
+  or second copy can substitute for the required proof. Until the remaining
+  discovery/adoption/fencing is implemented and rehearsed, release stays gated.
+  Ablation keeps this to ordering/documentation; no new flag, automatic service
+  action or speculative systemd workaround is added. Backend/frontend/runtime/
+  database/browser checks are not repeated for this documentation-only repair.
+  Verify with whitespace and the existing privacy registry/link checker; no
+  Website Changelog entry is needed for this contributor/operator instruction.
+- **Next implementation:** continue bounded private legacy-copy discovery from
+  this branch after publication, identifying raw SQL/staging/old-upload layouts
+  without reading contents, following links or inferring writer closure. Use
+  an explicitly selected actual old upload root, not an `os.tmpdir()` fallback.
+  A report must identify partial/changed/unknown scope and never admit deletion.
+  Then implement verified adoption/fencing with current protected evidence and
+  offline replay, plus remaining P6 handlers and all P7 requirements. No named
+  policy approval or user question is necessary for this independent engineering.
 
 - **P6d2b2b durable uploads (2026-10-17, qualified/published as #62):** branch
   `branch/backup-upload-records` starts at #61 `0bc2641`. Outcome: persist upload
