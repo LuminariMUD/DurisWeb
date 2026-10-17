@@ -244,6 +244,7 @@ function decode(
       !object(value.cache) ||
       !keys(value.cache, ['pending', 'cursor', 'serverId']) ||
       typeof value.cache.pending !== 'boolean' ||
+      (value.cache.pending && !options.classes.includes('analytics_events')) ||
       !cursor(value.cache.cursor) ||
       (!value.cache.pending && value.cache.cursor !== '0') ||
       (value.cache.serverId !== null &&
@@ -454,7 +455,11 @@ export async function executeRetention(
         workDurationMs: Math.round(performance.now() - invocationStarted),
         checkpoint,
         actions: options.classes.map((classId) => ({ classId, deleted: 0, skipped: 0 })),
-        cache: { pending: true, cursor: '0', serverId: null },
+        cache: {
+          pending: options.classes.includes('analytics_events'),
+          cursor: '0',
+          serverId: null,
+        },
         lastFailure: null,
       };
       await execute(
@@ -570,6 +575,7 @@ export async function executeRetention(
       if (!pageProcessed && !progress.complete) break;
     }
     if (state.cache.pending && performance.now() < deadline) {
+      requirePolicy(['analytics_events']);
       const cacheStarted = performance.now();
       let cleanup: { cursor: string; complete: boolean; serverId: string } | null = null;
       try {

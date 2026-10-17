@@ -56,6 +56,10 @@ export async function runRetentionCommand(args: string[]): Promise<number> {
       }),
     );
     return 1;
+  } finally {
+    // Importing the cleanup module does not open Redis if execution never used it.
+    const { closeRetentionCacheClient } = await import('../services/retentionCacheCleanup.js');
+    closeRetentionCacheClient();
   }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
