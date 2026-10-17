@@ -5,8 +5,11 @@ This API records a request to preserve website data and its eventual release.
 restore paths do not enforce these records.** The source-disabled
 [two-class SQL executor](retention-execution.md) consumes them transactionally;
 general retention and restore integration remain required before P6 or live
-protection can be accepted. Creating a record does not pause the existing image cleanup,
-remove data, enable a retention job or approve a policy.
+protection can be accepted. Creating a record does not pause existing image or
+backup archive cleanup, remove data, enable a retention job or approve a policy.
+The [archive recovery safeguards](backup-archive-cleanup.md) preserve retry
+identity and truthful acknowledgement; archive admission/hold ordering remains
+separate required work.
 
 ## Access and private handling
 

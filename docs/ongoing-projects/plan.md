@@ -23,6 +23,8 @@ below. Published for review as [PR #54](https://github.com/LuminariMUD/DurisWeb/
 stacked on #53. P6d1 branch `branch/restore-lifecycle-boundary` closes legacy
 restore bypasses; qualified and published for review as
 [PR #55](https://github.com/LuminariMUD/DurisWeb/pull/55), stacked on #54.
+Active P6d2a branch `branch/backup-deletion-recovery` repairs archive retry
+identity and deletion acknowledgement, with checks complete and publication next.
 Next: remaining P6 cleanup/copy/restore
 and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
@@ -1907,6 +1909,104 @@ outside this request. Keep this single evolving execution plan current.
   provider/live acceptance remain open. Source destructive/collection flags
   stay false. Continue independent engineering and ask only for a necessary
   consequential owner decision.
+
+- **Current P6d2a: truthful archive deletion prerequisite**, branch
+  `branch/backup-deletion-recovery`, starts at #55 `0736f4f`.
+  Source inspection found suppressed unlink failures followed by record deletion,
+  bulk bypass of the common path, list-time identity pruning, duplicate
+  second-resolution archive filenames and a frontend success toast before the
+  request settled. **Outcome:** retain retry identity on unconfirmed deletion,
+  share one deletion path, refuse unfinished/shared/unsafe targets, avoid new
+  name collisions, retain missing-file records for review, and await the actual
+  UI mutation. A completed backup must not become failed solely because older
+  archive cleanup failed. **Non-goals:** new approved periods, active hold
+  enforcement, physical expiry/restore replay or live archive operations; these
+  remain mandatory next work. **Files:** existing backup service/routes and
+  composable, a safe typed failure, focused filesystem/HTTP/UI tests, docs/plan.
+  **Proof:** real temporary files, unlink/SQL partial failures/retry, API errors,
+  actual asynchronous frontend mutation, full affected package gates and a
+  focused stacked PR.
+- **P6d2a ablation:** retain the existing backup record as recovery identity
+  rather than add a second deletion ledger before the hold barrier's real
+  contract is established. Fix lost identity and false acknowledgement first
+  as a separately reviewable prerequisite. A short pre-unlink hold snapshot
+  would race an acknowledged hold; an expiring SQL lease cannot fence a delayed
+  filesystem unlink. P6d2b must use durable admission/recovery ordering without
+  holding a long SQL transaction across filesystem work, and must not silently
+  clear an ambiguous in-flight deletion. Do not claim protection from this
+  prerequisite alone.
+- **P6d2a final source:** manual removal, failed-backup cleanup and existing
+  count pruning share one checked unlink/metadata-removal path. Eligible
+  completed/failed records require one reference to a canonical filename;
+  pending/in-progress/shared/unsafe targets are refused. Non-ENOENT filesystem
+  errors retain the record; only confirmed unlink/absence permits the exact
+  ID/filename/status-bound DELETE. SQL errors are safely reported for retry,
+  including an already absent file; an unconfirmed committed DELETE may later
+  appear as not found. Bulk cleanup stops on the first failure without a false
+  success/count, retaining later work. Listings neither prune missing files'
+  identities nor infer writer death from 30 minutes of age. A newly completed
+  backup remains completed if older cleanup fails. New timestamp-plus-UUID
+  filenames prevent concurrent new archives sharing a path. The frontend now
+  returns the actual deletion promise, propagates failure and invalidates the
+  list on both outcomes. No new migration/dependency/setting is needed.
+- **P6d2a focused proof:** `pnpm --dir backend test --runInBand
+  src/services/__tests__/backupDeletionRecovery.test.ts
+  src/routes/__tests__/adminAccountPermissionIdValidation.test.ts` passes
+  **24 tests / two suites**. Adding `TEST_BACKUP_DB_PORTS=23436,23437` passes
+  **26 tests / two suites** after the final test extensions. These exercise real
+  temporary files with canonical `mud_backups` DDL on MySQL 8.0.46 and MariaDB
+  11.8.9, injected unlink/SQL failures, missing-file retry, shared references,
+  exact metadata deletion, safe API/log errors and preserved writer/list
+  evidence. Both native cases also execute the actual asynchronous backup
+  writer, mysqldump and ZIP on their process-owned database and files: a new
+  archive remains completed while an older shared archive is retained and
+  cleanup is safely reported. Only disposable loopback databases
+  `durisweb_backup_removal_<process-id>` and owned temporary files are used.
+  No actual MUD, shared archive or provider is touched.
+- **P6d2a full backend proof:** `TEST_BACKUP_DB_PORTS=23436,23437 node --import
+  ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-execution-suite.mts 23436` passes **1,289 tests / 131 suites**,
+  with the same **40 separately opted-in native cases skipped** (14 image,
+  10 privacy, seven hold and nine preview). Their earlier P5/P6 qualification
+  is retained, not claimed as fresh. This full run includes the two session-free
+  backup snapshot/empty-target restore cases; the two new archive-removal/
+  publisher native cases were subsequently added and pass in the focused
+  26-test command above. No runtime behavior changed after the full run;
+  later changes extend tests and clarify comments/docs. Native-focused and
+  backend quality checks pass after those extensions. The full fixture's
+  actual 92-migration/session/configuration/dependency probes and post-test
+  dependency/owner checks pass; owner metadata remains
+  `403c2a9941ce5746491919b2cc8cd91bed55b959adc681a66f0fceef04b90d23`.
+- **P6d2a frontend/gates:** `pnpm --dir frontend test:unit --run
+  src/composables/__tests__/useBackups.spec.ts` passes both deferred success/
+  failure cases with the actual Vue Query client and a mounted Vue harness.
+  `python3 /tmp/durisweb-image-quality.py frontend` passes format/lint/type,
+  configuration/palette checks, **285 tests / 58 files** and build using its
+  explicit private loopback configuration. Backend's corresponding helper
+  passes format/lint/type, MUD-write verification (53 classified writes),
+  schema contract validation and build. Changed files were formatted with
+  each package's `pnpm exec biome format --write`; frozen dependencies remain
+  unchanged. Config literal, lifecycle registry/local-reference and
+  `git diff --check` pass. The first type check caught an unchecked optional
+  row in the test fixture; explicit narrowing fixes it and all final gates pass.
+  No fresh browser/visual/device acceptance is claimed for the composable-only
+  frontend change; no live acceptance or real archive operation is claimed.
+- **P6d2a evidence/news:** private logs
+  `/tmp/durisweb-backup-recovery-{focused,native,full-mysql}.log` and
+  `/tmp/durisweb-backup-recovery-{backend,frontend}-gates.log` retain exact
+  commands/results. After separately authorized live release, reconcile
+  [news-update](../../.agents/skills/news-update/SKILL.md) and prepare admin
+  news: “Backup removal now waits for confirmed cleanup and keeps failed work
+  available for retry. The page reports the actual result and refreshes the
+  list.” This is a future-release draft; no live changelog write occurred.
+- **P6d2a required continuation:** P6d2b must add durable archive-removal
+  admission/recovery ordering with hold creation/release. Do not replace it
+  with a stale snapshot check or an expiring worker lease around an uncancellable
+  filesystem operation. The current source still reports global protection
+  unavailable and does not enforce archive holds. Own-ledger periods,
+  maximum age, independently protected restore replay, other classes and P7
+  remain open. Preserve original checkout work and stash/private evidence;
+  continue independently without asking for a new approval of engineering.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and

@@ -280,6 +280,15 @@ accept the clone.
 
 ### Application restore boundary
 
+Before interpreting backup cleanup results, read the
+[archive cleanup and recovery runbook](runbooks/backup-archive-cleanup.md).
+Unconfirmed unlink retains the archive record; a partial failed-backup batch
+stops and requires refreshed inspection. An older cleanup failure does not
+invalidate a newly completed backup. Missing-file records and possibly active
+writers are preserved rather than discarded by list-time age assumptions.
+These safeguards do not establish archive hold enforcement, approved age
+limits or protected restore replay.
+
 The rehearsal above uses an operator-created, transaction-consistent dump and
 restores it into an empty disposable target. It is distinct from the admin
 backup service's legacy restore path. Both application restore endpoints and

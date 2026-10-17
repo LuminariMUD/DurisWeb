@@ -15,6 +15,8 @@ import {
 import { getBackendConfiguration } from '../config/environment.js';
 import { writeDatabaseBackupDump } from './databaseBackupDump.js';
 import { DatabaseRestoreUnavailableError } from '../utils/databaseRestoreGuard.js';
+import { BackupDeletionError } from '../utils/backupDeletionError.js';
+import { randomUUID } from 'node:crypto';
 
 const execAsync = promisify(exec);
 
@@ -407,7 +409,7 @@ export async function createBackup(
     .replace(/\..+/, '')
     .slice(0, 17);
   const prefix = backupType === 'hourly' ? 'duris-hourly' : 'duris-mud';
-  const filename = `${prefix}-${timestamp}.zip`;
+  const filename = `${prefix}-${timestamp}-${randomUUID()}.zip`;
 
   // Ensure backup directory exists
   await fs.promises.mkdir(BACKUP_DIR, { recursive: true });
@@ -528,7 +530,18 @@ async function runBackup(
     await fs.promises.unlink(tempSqlPath).catch(() => {});
 
     // Cleanup old backups
-    await cleanupOldBackups(backupType);
+    try {
+      await cleanupOldBackups(backupType);
+    } catch (error) {
+      const failure =
+        error instanceof BackupDeletionError
+          ? error
+          : new BackupDeletionError('storage_unavailable');
+      logger.error('[Backup] Earlier archive cleanup stopped', {
+        reason: failure.reason,
+        reference: failure.reference,
+      });
+    }
 
     logger.info(
       `Backup ${backupId} completed successfully: ${filename} (${formatBytes(fileSize)})`,
@@ -623,40 +636,10 @@ async function updateBackupStatus(
 }
 
 /**
- * Get list of all backups (also cleans up stale data)
+ * Get all backup records; missing files retain their recovery identity.
  */
 export async function getBackupList(): Promise<BackupInfo[]> {
-  // 1. Mark stuck backups as failed (in_progress/pending for more than 30 minutes)
-  await pool.execute(
-    `UPDATE mud_backups
-     SET status = 'failed',
-         error_message = 'Backup timed out (stuck for over 30 minutes)',
-         completed_at = NOW()
-     WHERE status IN ('in_progress', 'pending')
-       AND started_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)`,
-  );
-
-  // 2. Get all completed backups and check if files exist
-  const [completedRows] = await pool.execute<BackupRow[]>(
-    `SELECT id, filename FROM mud_backups WHERE status = 'completed'`,
-  );
-
-  // Remove records where backup file no longer exists
-  for (const row of completedRows) {
-    let filePath: string;
-    try {
-      filePath = resolveSafeBackupFilePath(BACKUP_DIR, row.filename);
-    } catch {
-      logger.warn(`[Backup] Skipping unsafe backup filename: ${row.filename}`);
-      continue;
-    }
-    if (!fs.existsSync(filePath)) {
-      await pool.execute(`DELETE FROM mud_backups WHERE id = ?`, [row.id]);
-      logger.info(`[Backup] Removed orphaned record: ${row.filename} (file not found)`);
-    }
-  }
-
-  // 3. Return the cleaned list
+  // Age alone cannot prove a writer stopped; a listing cannot authorize deleting its archive.
   const [rows] = await pool.execute<BackupRow[]>(
     `SELECT * FROM mud_backups ORDER BY started_at DESC`,
   );
@@ -697,51 +680,64 @@ export async function getBackupFilePath(id: number): Promise<string | null> {
  * Delete a backup by ID
  */
 export async function deleteBackup(id: number): Promise<boolean> {
-  const backup = await getBackupById(id);
-  if (!backup) {
-    return false;
-  }
-
-  // Delete the file if it exists
-  let filePath: string;
+  if (!Number.isSafeInteger(id) || id <= 0) throw new BackupDeletionError('invalid_archive');
   try {
-    filePath = resolveSafeBackupFilePath(BACKUP_DIR, backup.filename);
-  } catch {
-    logger.warn(`[Backup] Refusing to delete unsafe backup filename: ${backup.filename}`);
-    return false;
+    const backup = await getBackupById(id);
+    if (!backup) return false;
+    if (backup.status !== 'completed' && backup.status !== 'failed')
+      throw new BackupDeletionError('archive_in_progress');
+    const [references] = await pool.execute<RowDataPacket[]>(
+      'SELECT COUNT(*) AS count FROM mud_backups WHERE filename=?',
+      [backup.filename],
+    );
+    if (Number(references[0]?.count) !== 1) throw new BackupDeletionError('shared_archive');
+    let filePath: string;
+    try {
+      filePath = resolveSafeBackupFilePath(BACKUP_DIR, backup.filename);
+    } catch {
+      throw new BackupDeletionError('invalid_archive');
+    }
+    try {
+      await fs.promises.unlink(filePath);
+    } catch (error) {
+      if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'ENOENT')
+        throw new BackupDeletionError('file_removal_unconfirmed');
+    }
+    // Only confirmed unlink/absence permits dropping identity; report SQL failure for retry.
+    const [removed] = await pool.execute<ResultSetHeader>(
+      "DELETE FROM mud_backups WHERE id=? AND filename=? AND status IN ('completed','failed')",
+      [id, backup.filename],
+    );
+    if (removed.affectedRows !== 1) {
+      if (removed.affectedRows !== 0 || (await getBackupById(id)) !== null)
+        throw new BackupDeletionError('storage_unavailable');
+    }
+    return true;
+  } catch (error) {
+    throw error instanceof BackupDeletionError
+      ? error
+      : new BackupDeletionError('storage_unavailable');
   }
-  await fs.promises.unlink(filePath).catch(() => {});
-
-  // Delete the database record
-  await pool.execute(`DELETE FROM mud_backups WHERE id = ?`, [id]);
-
-  return true;
 }
 
 /**
  * Delete all failed backups
  */
 export async function deleteFailedBackups(): Promise<number> {
-  const [rows] = await pool.execute<BackupRow[]>(
-    `SELECT * FROM mud_backups WHERE status = 'failed'`,
-  );
-
-  let deletedCount = 0;
-  for (const backup of rows) {
-    // Delete the file if it exists
-    try {
-      const filePath = resolveSafeBackupFilePath(BACKUP_DIR, backup.filename);
-      await fs.promises.unlink(filePath).catch(() => {});
-    } catch {
-      logger.warn(`[Backup] Skipping unsafe failed-backup filename: ${backup.filename}`);
+  try {
+    const [rows] = await pool.execute<BackupRow[]>(
+      `SELECT id FROM mud_backups WHERE status = 'failed' ORDER BY id`,
+    );
+    let deletedCount = 0;
+    for (const backup of rows) {
+      if (await deleteBackup(backup.id)) deletedCount++;
     }
-
-    // Delete the database record
-    await pool.execute(`DELETE FROM mud_backups WHERE id = ?`, [backup.id]);
-    deletedCount++;
+    return deletedCount;
+  } catch (error) {
+    throw error instanceof BackupDeletionError
+      ? error
+      : new BackupDeletionError('storage_unavailable');
   }
-
-  return deletedCount;
 }
 
 /**
@@ -768,7 +764,6 @@ async function cleanupOldBackups(backupType: 'manual' | 'hourly'): Promise<void>
   // Delete excess backups (oldest first)
   const toDelete = rows.slice(maxBackups);
   for (const backup of toDelete) {
-    logger.info(`Cleaning up old ${backupType} backup: ${backup.filename}`);
     await deleteBackup(backup.id);
   }
 }
@@ -1657,8 +1652,7 @@ export async function getRestoreById(id: number): Promise<RestoreInfo | null> {
  */
 export async function getRestoreList(): Promise<RestoreInfo[]> {
   // mark stuck restores as failed (in_progress/pending for more than 30 minutes).
-  // mirrors the same cleanup in getBackupList. covers node-crash-mid-restore and
-  // mysql-cli-killed-by-timeout scenarios so the row doesn't sit at in_progress forever.
+  // Historical restore closeout only; the executable restore pipeline is removed.
   await pool.execute(
     `UPDATE mud_restores
      SET status = 'failed',
