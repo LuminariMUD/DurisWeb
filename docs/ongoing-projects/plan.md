@@ -2,7 +2,7 @@
 
 ## Current handoff — read this first
 
-**Latest continuation — PR #64 inventory fixes ready for publication:**
+**Latest continuation — PR #64 inventory fixes published:**
 current branch is `branch/legacy-backup-copy-inventory`, starting at `16e54bd`.
 #63's keeper correction is published/resolved as `a2947cc` / `1ce3854` and
 carried through #64 `16e54bd`, #65 `2dce32f` and #66 `c970e73`.
@@ -44,8 +44,10 @@ It added the current #64 acknowledgement finding plus two new #63 P1 findings:
 [all public hostnames](https://github.com/LuminariMUD/DurisWeb/pull/63#discussion_r4303270514)
 (`PRRT_kwDOVA2-8c6thjFP`) and
 [remaining direct restart paths](https://github.com/LuminariMUD/DurisWeb/pull/63#discussion_r4303374602)
-(`PRRT_kwDOVA2-8c6thyo3`). Publish/resolve #64's six threads, carry #65/#66, then
-return to those documentation gaps. #62's inode-conditional removal guarantee,
+(`PRRT_kwDOVA2-8c6thyo3`). #64 is now published as `5fa2ee8` and all six
+threads have verified replies/resolved state. The ledger contains **53 verified
+closeouts**, with **8 known remaining threads** before another scan: #62 (1),
+#63 (2), #65 (1), #66 (4). Carry #65/#66, then return to those documentation gaps. #62's inode-conditional removal guarantee,
 #65's payload fence through acknowledgement and #66's four export findings
 remain open. Reuse `legacyDirectoryAliases` from the inventory module when
 updating the preservation caller instead of retaining two mapping implementations.
