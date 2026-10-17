@@ -39,6 +39,13 @@ separate hold-aware operation after a new archive completes.
 
 ## Private legacy-copy inventory
 
+A shared-budget timeout retains completed/partial observations. An unstarted root
+is explicitly incomplete with `time_budget` and null physical/mount identity;
+the CLI still saves bounded private evidence and returns incomplete status.
+Before writing and acknowledging output, every physically observed root must
+still have its scanned path, device/inode and mount ID. Replacement or unmount
+refuses output rather than placing evidence inside a former scanned tree.
+
 The source includes a read-only discovery command for the layouts traced from
 the older uploader/producer. Run it only in the explicitly selected authorized
 environment and namespace, before the preservation gate's service teardown:
@@ -231,6 +238,12 @@ to hide an uncertain previous operation.
 Verification also rechecks the named bundle/payload before returning. The package
 script suppresses dotenv startup output; `--silent` suppresses pnpm's banner.
 
+Source leaf and staging descriptors must stay on the selected root's mount ID,
+including same-device bind mounts. Every visible alias of the protected root is
+checked against prohibited temporary/volatile prefixes. Bundle names and receipt
+contents are revalidated after the lease handshake and after worker reaping;
+a pending lease-break signal or changed payload on release refuses success.
+
 Read leases guard the source during copying and the payload during final
 verification/confirmation; this is
 not a whole-service fence and does not prevent rename/unlink or namespace
@@ -260,6 +273,22 @@ archive retained. Inspection executes no SQL and does not authorize restore.
 Uploaded archives keep their separate total SQL-size and shorter time limits.
 
 ## Deletion acknowledgement
+
+The one-shot worker opens and validates the authorized inode, then atomically
+moves the shared archive name into a new owner-only `.archive-removal-<hash>`
+directory. It compares the captured file with the still-open original descriptor
+before unlinking only the captured name. A replacement published at the original
+name is retained and prevents success. A different inode captured by the rename
+is also retained; it is never deleted or automatically restored over another file.
+
+Any retained removal directory blocks normal inspection and absence-based retries.
+After a crash or refusal, preserve that directory and the original archive row,
+stop competing writers, and investigate the journal reference before an operator
+restores or removes evidence. Do not recursively clean these directories or
+interpret a missing original name as proof of deletion. Directory syncs precede
+acknowledgement. The internal removal directory is exclusively owned by this
+worker; host processes must not modify its entries. This is not an isolation
+boundary against a compromised process with the website user's full privileges.
 
 Manual removal, failed-backup cleanup and automatic count pruning share the
 same file/record deletion function. It accepts only completed/failed records,

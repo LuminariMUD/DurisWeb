@@ -2,6 +2,73 @@
 
 ## Current handoff — read this first
 
+**#62 final cancellation race repair:** the worker pins the inspected inode,
+atomically captures the shared filename into an exclusive private removal
+directory, compares captured identity, and unlinks only the captured name.
+Replacement before capture is retained; replacement after capture stays at its
+original name and refuses success. Retained custody directories block inspection
+and absence-based retry after interruption. No SQL schema or provider changes.
+The private operation namespace remains trusted to the website service identity;
+this does not claim isolation against arbitrary same-UID hostile filesystem writes.
+
+Focused command `pnpm --dir backend test --runInBand archiveUnlinkProcess
+managedArchiveTarget` passes eight tests, including both replacement schedules
+and interrupted-custody refusal. Backend format/lint/type/MUD-write/schema/build
+pass via `python3 /tmp/durisweb-image-quality.py backend`. Native upload/removal
+qualification passes 63 tests/six suites on each engine with `/tmp/durisweb-run-archive-suite.mts
+<23436|23437> upload-archive` under the existing Node/tsx command. Both post-test dependency preflights pass;
+owner metadata remains unchanged and owned fixtures are cleaned. Logs: `pr62-custody-{tests,quality,mysql,maria}.log`.
+Release-note draft: “Backup cancellation preserves unexpected replacement files
+for review.” Publish only after a separately authorized verified release.
+
+### Historical checkpoints
+
+**Latest continuation — PR #62 generated inspection:** a valid 65 MiB
+
+
+
+**#65 final four review repairs:** source leaf/staging descriptors require the
+root mount ID; protected storage rejects volatile bind aliases. Named bundle,
+payload identity and receipts are checked after the asynchronous lease handshake
+and reaping. The Python release path rejects pending lease breaks/identity changes.
+`pnpm --dir backend test --runInBand legacyCopyPreservation legacyBackupInventory`
+passes **63 tests/four suites**, including actual CLI and nine native Python lease
+tests. The private-mount fixture passes three new same-device source boundaries,
+volatile-alias refusal and all prior alias/bundle/control cases. Backend gates/build
+pass. Commands: `python3 /tmp/durisweb-image-quality.py backend`; as root only in a
+fresh private namespace, `unshare --mount --propagation private node --import
+./backend/node_modules/tsx/dist/loader.mjs
+backend/src/services/__tests__/legacyCopyPreservationMounts.native.ts`.
+Logs: `pr65-final-{tests,quality,mounts}.log`. No production operations occurred.
+Carries #63 ordering and #64 timeout/root-identity fixes. #62's unlink race still
+needs disposition; #66's index is separately pushed as `339135b` and resolved.
+
+### Historical checkpoints
+
+**#64 final inventory repairs:** time exhaustion before the second selected root
+now retains the first observation and records an explicit unstarted timed-out
+root. Output validates scanned root identities/mount IDs before writing and
+acknowledgement. A renamed/replaced root cannot become an evidence destination.
+`pnpm --dir backend test --runInBand legacyBackupInventory`: 36 tests/two suites
+pass, including actual CLI coverage and both new regressions. Backend format,
+lint, type-check, MUD-write, schema and build gates pass via
+`python3 /tmp/durisweb-image-quality.py backend`. Logs:
+`pr64-final-{tests,quality}.log` in the private review directory. No SQL,
+frontend or production change. Carries #63 keeper ordering `a3cf203`.
+
+### Historical checkpoints
+
+
+**#63 final ordering repair:** establish and verify the independent private-directory
+keeper before Worker deployment or any ingress checks. The deployment checklist
+and maintenance guide now use the same sequence: keeper, all-host ingress fence,
+writer closure, inventory/preservation, then authorized service operations.
+Documentation checks: `git diff --check` and `./scripts/check-config-literals.sh`
+pass. Existing isolated systemd keeper rehearsal remains valid; no application
+source, production service or Cloudflare account was changed.
+
+### Historical checkpoints
+
 
 **Current review repair checkpoint — 17 October:** #66's configured database
 authority repair is published as `0a9477a` and its review thread is resolved.

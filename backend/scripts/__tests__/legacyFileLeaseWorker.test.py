@@ -37,6 +37,24 @@ class FileLeaseTests(unittest.TestCase):
         return worker.copyLeasedFile(self.source, self.destination, limit, budget,
                                        expected or self.expected)
 
+    def test_lease_only_rejects_writer_arriving_with_release(self):
+        os.chmod(self.sourcePath, 0o600)
+        expected = worker.physicalSha256(os.fstat(self.source))
+        commands = iter([b'confirm\n', b'release\n'])
+        def read(fd, size):
+            command = next(commands)
+            if command == b'release\n':
+                with self.assertRaises(OSError) as failure:
+                    os.open(self.sourcePath, os.O_WRONLY | os.O_NONBLOCK)
+                self.assertEqual(failure.exception.errno, errno.EAGAIN)
+            return command
+        with patch.object(worker.select, 'select', return_value=([0], [], [])), \
+                patch.object(worker.os, 'read', side_effect=read), patch('builtins.print'):
+            with self.assertRaises(worker.CopyRefused) as problem:
+                worker.holdReadLease(self.source, 1024 * 1024, 5000, expected)
+        self.assertEqual(problem.exception.reason, 'lease_interrupted')
+        self.assertEqual(fcntl.fcntl(self.source, fcntl.F_GETLEASE), fcntl.F_UNLCK)
+
     def test_real_closed_file_lease_and_independent_copied_byte_verification(self):
         result = self.copy()
         self.assertEqual(result['outcome'], 'copied')

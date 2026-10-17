@@ -84,6 +84,65 @@ try {
     }
     assert.equal(fs.readFileSync(file, 'utf8'), 'synthetic source bytes');
   }
+  for (const kind of ['leaf', 'staging', 'database']) {
+    const base = path.join(root, 'source-boundary-' + kind);
+    const source = path.join(base, 'source'),
+      target = path.join(base, 'protected'),
+      outside = path.join(base, 'outside');
+    for (const directory of [base, source, target, outside])
+      fs.mkdirSync(directory, { mode: 0o700 });
+    const relative = kind === 'leaf' ? 'temp_1.sql' : 'temp_staging_2/database/mud.sql';
+    const filename = path.join(source, relative);
+    fs.mkdirSync(path.dirname(filename), { recursive: true });
+    fs.writeFileSync(filename, 'source');
+    if (kind === 'leaf') {
+      const external = path.join(outside, 'external.sql');
+      fs.writeFileSync(external, 'external');
+      bind(external, filename);
+    } else {
+      const component = path.join(
+        source,
+        'temp_staging_2',
+        ...(kind === 'database' ? ['database'] : []),
+      );
+      bind(component, component);
+    }
+    await assert.rejects(
+      preserveLegacyCopy({
+        backupRoot: source,
+        protectedRoot: target,
+        sourceName: relative,
+        sourcePhysicalSha256: legacyCopyPhysicalSha256(fs.statSync(filename, { bigint: true })),
+        operationId: randomUUID(),
+        pythonBin: '/usr/bin/python3',
+        maxBytes: 1024,
+        timeBudgetMs: 5000,
+      }),
+      { reason: 'source_unverified' },
+    );
+    assert.deepEqual(fs.readdirSync(target), []);
+  }
+  const volatileAlias = fs.mkdtempSync('/tmp/durisweb-volatile-alias-');
+  try {
+    const target = path.join(root, 'volatile-protected');
+    fs.mkdirSync(target, { mode: 0o700 });
+    execFileSync('/usr/bin/mount', ['--bind', volatileAlias, target]);
+    try {
+      await assert.rejects(
+        verifyPreservedLegacyCopy({
+          protectedRoot: target,
+          operationId: randomUUID(),
+          pythonBin: '/usr/bin/python3',
+          timeBudgetMs: 5000,
+        }),
+        { reason: 'root_unverified' },
+      );
+    } finally {
+      execFileSync('/usr/bin/umount', [target]);
+    }
+  } finally {
+    fs.rmdirSync(volatileAlias);
+  }
   const base = path.join(root, 'bundle-substitution');
   fs.mkdirSync(base, { mode: 0o700 });
   const source = path.join(base, 'source'),
@@ -169,7 +228,7 @@ try {
     }
   }
   console.log(
-    'Passed six root aliases, independent control, bundle admission and both final mount checks.',
+    'Passed root aliases, three source mount boundaries, volatile alias, independent control and bundle checks.',
   );
 } finally {
   for (const target of mounts.reverse()) execFileSync('/usr/bin/umount', [target]);

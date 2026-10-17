@@ -188,6 +188,9 @@ def holdReadLease(source: int, maxBytes: int, timeBudgetMs: int,
             while b'\n' in pending:
                 command, pending = pending.split(b'\n', 1)
                 if command == b'release':
+                    check()
+                    if physicalSha256(os.fstat(source)) != expectedPhysicalSha256:
+                        raise CopyRefused('destination_unverified')
                     return
                 if command != b'confirm' or confirmed:
                     raise CopyRefused('invalid_arguments')
