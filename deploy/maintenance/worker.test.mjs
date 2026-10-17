@@ -71,6 +71,20 @@ test('maintenance blocks writes and upgrades without forwarding and API errors a
   }
 });
 
+test('maintenance refuses authenticated-looking API writes and upgrades on every routed hostname', async () => {
+  for (const host of ['website.example.invalid', 'www.website.example.invalid', 'api.website.example.invalid']) {
+    for (const init of [
+      { method: 'POST', headers: { Cookie: 'synthetic-session=present' }, body: '' },
+      { method: 'GET', headers: { Cookie: 'synthetic-session=present', Upgrade: 'websocket' } },
+    ]) {
+      const input = new Request('https://' + host + '/api/admin/backup/upload', init);
+      const response = await handleRequest(input, { MAINTENANCE_REASON: 'maintenance' }, neverFetch);
+      assert.equal(response.status, 503);
+      assert.equal((await response.json()).reason, 'maintenance');
+    }
+  }
+});
+
 test('HEAD responses have no body for both maintenance and status', async () => {
   for (const path of ['/', '/api/site-availability']) {
     const response = await handleRequest(request(path, { method: 'HEAD' }), { MAINTENANCE_REASON: 'maintenance' }, neverFetch);
