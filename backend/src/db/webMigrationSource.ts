@@ -37,7 +37,9 @@ export class WebMigrationSource implements Knex.MigrationSource<string> {
       multipleStatements: false,
     });
     try {
-      const coverage = await verifiedWebBaselineCoverage(database, available, this.directory);
+      // Retry only exact adjacent session DDL phases after a lost acknowledgement.
+      // Serving preflight and ordinary verification remain ledger-strict.
+      const coverage = await verifiedWebBaselineCoverage(database, available, this.directory, true);
       const applied = await readWebMigrationLedger(database, available);
       if (coverage.size === 0 && applied.length === 0)
         throw new WebBaselineError('fresh_database_requires_explicit_baseline');

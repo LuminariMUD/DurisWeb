@@ -476,6 +476,70 @@ outside this request. Keep this single evolving execution plan current.
   acceptance is now complete again. Shared deployment/production acceptance
   remains outside this work. No new public news is required for the source-owned
   installation/adoption tooling; no release tag or live change was made.
+- **Current chunk: P3 / #7 + #8**, branch
+  `branch/issues-7-8-session-credentials`, based on #39 at `21b7ed0`.
+  **Outcome:** SHA-256 refresh credentials, database-epoch expiry, and one
+  coordinated, explicitly destructive offline session cutover with reversible
+  empty-session schema rollback. **Non-goals:** refresh rotation, changing the
+  seven-day lifetime, changing unrelated pool timezones, production logout or
+  deployment. **Files:** session service/credential boundary, auth route,
+  two new forward migrations, session-specific postconditions, preflight,
+  existing tests plus native transition/timezone/route regressions, and guides.
+  **Proof:** real login/refresh/access and database failure; both native engines;
+  app/database timezone matrix and DST epochs; expand/cutover/contract and empty
+  rollback/retry; exact owner metadata and unchanged pool safeguards.
+- **P3 ablation:** reuse Node crypto, Knex and the existing session service.
+  Two explicit migrations separate expansion from cutover/contraction. Each
+  atomic DDL statement must recognize only its exact before/after signatures.
+  The migration source may recognize an adjacent exact phase to recover an
+  ambiguous nontransactional DDL acknowledgement; normal verification/preflight
+  stays strict to the ledger phase and refuses pending migrations. This avoids
+  a new migration journal/service or public configuration flag. Historical
+  baseline signatures stay immutable; session-specific forward signatures are
+  versioned separately. New writers never read or store raw refresh JWTs.
+- **P3 resumed after integration:** based on #39 at `c01c81f`; the named stash
+  remains as a backup until publication. Its changes are restored and adapted
+  to the shared per-migration `information_schema_v1` contracts. Removed the
+  redundant separate session-contract JSON and checksum reader. Native
+  fault injection now uses the actual Knex client query boundary. HTTP fixtures
+  use scoped synthetic users, avoiding test defaults replacing an empty root
+  password. Ordinary baseline/preflight verification remains strict; recovery
+  is confined to exact adjacent session phases, with no unrelated forward
+  session change already applied. Both rollback directions require an empty
+  store after a recovered acknowledgement.
+- **P3 proved boundaries:** native cutover/rollback and actual HTTP checks pass
+  on MySQL 8.0.46 and MariaDB 11.8.9. Each engine covers three database defaults
+  (`+00:00`, `+03:00`, `-07:00`), three application zones (`UTC`,
+  `Asia/Jerusalem`, `America/Los_Angeles`) and eight DST-adjacent epochs: **144
+  date/zone cases**. Signed, still-valid JWTs fail HTTP access and refresh at
+  equality and 60 seconds after database expiry. Wrong digest/token/account/SID,
+  deleted rows, nullable legacy fields and digest replay fail; new expanded
+  writes are digest-only. Every DDL direction recovers a lost acknowledgement;
+  rollback leaves an empty exact prior schema. A transaction-scoped corrupted
+  ledger is refused and rolled back without fabricating any historical record.
+  Owner-published metadata remains exact. Evidence:
+  `/tmp/durisweb-p3-native-cutover.log` (three tests).
+- **P3 export boundary:** ordinary backup downloads previously dumped every
+  shared-database session row. The backup writer now streams ordinary data plus
+  session DDL only, using structured process arguments and a private output
+  file; neither password arguments nor shell interpolation are needed. Both
+  engines prove restored ordinary rows survive and session rows are absent,
+  including a separate-MUD target without a session table. Source backup
+  filenames/archives and old historical backups were not operated on. Evidence:
+  `/tmp/durisweb-p3-backup-snapshot.log` (two tests). Existing pool sampling now
+  observes minimum clock skew over 60 seconds with bounded round-trip/precision
+  handling; it never changes safeguards or clocks.
+- **P3 maintenance proof:** `schema:sessions --target` runs the actual writer
+  with a random non-JWT and generated nonexistent account name, checks the
+  digest/epoch lifetime and deletes its exact transient row. Native tests prove
+  target refusal and expanded-schema success. This supplies the planned
+  pre-contraction write checkpoint without an HTTP maintenance server, MUD
+  account writes, new configuration, credential fallback, or extra service.
+  The release guide retains stopped/drained writers and the pending one-time
+  logout approval. Website Changelog draft for the eventual verified release:
+  **Safer website sign-ins** — “We strengthened website sign-in security. You
+  will be asked to sign in again after this update.” No publication is authorized
+  or claimed here; no new owner question is needed during engineering.
 - **Merged-parent closeout:** PR #38 landed on master at `8946860`. Refreshed
   #39 without rewriting history and retained the emitted-DDL ownership guard.
   Native fixtures now use the versioned metadata contract format, a complete
@@ -491,6 +555,54 @@ outside this request. Keep this single evolving execution plan current.
   `/tmp/durisweb-pr39-parent-refresh-20261016`. Retarget #39 to master now its
   prerequisite is merged. P3 remains a separate dependent implementation.
 
+- **P3 final source qualification:** refreshed the dependency to #39 at
+  `4b3677f`; its merge changed only this plan relative to the tested P3 tree.
+  The full P3 backend run passes **1,172 tests / 119 suites**. Both engines pass
+  contracted `schema:sessions` and configuration/dependency preflight through
+  `/tmp/durisweb-run-p3-suite.mts` (23436 full suite, 23437 preflight-only).
+  Logs: `/tmp/durisweb-p3-final-full-suite.log` and
+  `/tmp/durisweb-p3-maria-preflight.log`.
+- **P3 exact focused commands:**
+  `TEST_SESSION_DB_PORTS=23436,23437 TEST_BASELINE_MUD_SOURCE=
+  /home/aiwithapex/projects/duris/migrations pnpm --dir backend test --runInBand
+  src/db/__tests__/webSessionCutover.test.ts` passes three tests, including the
+  complete 144-case HTTP matrix, every DDL recovery direction and the actual
+  expanded write-probe CLI (`/tmp/durisweb-p3-final-native-cutover.log`).
+  `TEST_BASELINE_DB_PORTS=23336,23337 TEST_BASELINE_MUD_SOURCE=
+  /home/aiwithapex/projects/duris/migrations pnpm --dir backend test --runInBand
+  src/db/__tests__/webBaseline.test.ts
+  src/db/__tests__/webBaselineQualification.test.ts --testNamePattern=
+  "actual operator CLI|altered baseline tables|undeclared MUD DDL|full owner-schema|owner schema fixture"`
+  passes 15 tests; unchanged installer cases are deliberately not repeated.
+  Restored genuine legacy history reaches the same session forward schema with
+  its historical rows unchanged (`/tmp/durisweb-p3-final-baseline-native.log`).
+  `CACHE_REDIS_PORT=23479 CACHE_REDIS_DB=15 TEST_BACKUP_DB_PORTS=23436,23437
+  pnpm --dir backend test --runInBand src/services/__tests__/backupService.test.ts
+  --testNamePattern="backup snapshots omit"` passes both native dump/restore
+  tests. Focused auth/teardown/lifecycle/pool tests pass 23 tests in four suites
+  (`/tmp/durisweb-p3-unit.log`); the full run repeats these and all other backend
+  suites with opt-in PvP SQL fixtures on the private second engine.
+- **P3 gates/limits:** backend `schema:check`, `format:check`, `lint`,
+  `type-check`, `verify:mud-writes --mud-manifest
+  /home/aiwithapex/projects/duris/migrations/migration_manifest.json` (53 writes),
+  `build`, and whitespace checks pass. Both new migration files additionally
+  pass standalone `tsc --ignoreConfig --noEmit --module nodenext
+  --moduleResolution nodenext --target ES2022 --esModuleInterop --strict
+  --skipLibCheck`. No dependency was added. The baseline bytes are unchanged.
+  No frontend/browser, provider, shared database or production check was run.
+  No existing backup, MUD repository/process, shared service, live session or
+  release tag was changed. Engineering is ready for review; the explicit P3
+  release gate and P0/P5–P8 policy/operational requirements remain open.
+- **Published P3:** [PR #41](https://github.com/LuminariMUD/DurisWeb/pull/41),
+  open/non-draft, code head `5e66605`, stacked on #39 at `4b3677f`. Exact local,
+  remote and PR head matched; ahead/behind was `0 0` and the worktree clean.
+  The latest base refresh still showed master `8946860` and unchanged #39.
+  The named pre-integration stash remains private recovery evidence until review
+  closeout; current code and all replacements are committed and pushed.
+  Next independent engineering chunk: P4 / #9 durable toggle attribution.
+  Keep #7/#8 open for their explicitly pending release acceptance. No owner
+  interruption is needed to continue P4.
+
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
 [design](../DESIGN.md). Preserve existing safety gates and the MUD's schema and
@@ -504,7 +616,10 @@ exceptions, request handling, and provider commitments need a named owner's
 approval. These decisions are implementation/release prerequisites, not reasons
 to leave this planning deliverable incomplete.
 
-## Findings checked against source
+## Original findings checked against the pinned starting source
+
+These describe the starting revision. The execution record and phase checkboxes
+above/below distinguish current source implementation from pending live rollout.
 
 ### #7 — Replayable refresh tokens: confirmed
 
@@ -782,17 +897,17 @@ conversion. Compare it with the database's current epoch (`UNIX_TIMESTAMP()`),
 with expiry exclusive at the boundary. Keep existing pool safeguards; this
 change need not change the timezone of unrelated MUD or website queries.
 
-- [ ] Add one session-credential helper using Node crypto SHA-256 over the exact
+- [x] Add one session-credential helper using Node crypto SHA-256 over the exact
   issued JWT bytes. Validate nonempty string input; missing/undefined refresh
   tokens must not fall through to access-only lookup. Digest at insert and
   refresh comparison. Keep raw JWTs only in the HTTP-only client cookie and
   transient processing; forbid tokens/digests in logs, exports, and diagnostics.
-- [ ] Keep signature/type checks before refresh lookup and retain session/account
+- [x] Keep signature/type checks before refresh lookup and retain session/account
   predicates, access revocation, logout, permission checks, password-change
   teardown, and terminal/WebSocket authorization. Do not silently add refresh
   rotation or extend the effective seven-day database lifetime. Document the
   current 30-day JWT/cookie versus seven-day session distinction accurately.
-- [ ] Add new forward migrations and update row types, fixtures, preflight,
+- [x] Add new forward migrations and update row types, fixtures, preflight,
   baseline postconditions, and incident/configuration documentation together.
   Keep a finalized baseline immutable; update baseline-plus-forward verification.
   Choose an explicit expand/cutover/contract sequence: add nullable new columns
@@ -801,17 +916,22 @@ change need not change the timezone of unrelated MUD or website queries.
   legacy session rows; deploy code that refuses incomplete/digestless rows;
   verify new writes; remove the replayable column and obsolete expiry column
   and enforce target nullability. No raw/digest dual-read fallback.
-- [ ] The invalidation intentionally also discards uncertain legacy expiry
+- [x] The invalidation intentionally also discards uncertain legacy expiry
   interpretations. Inspect and record the old column type in rehearsal; do not
   guess offsets or backfill still-valid sessions from naive historical values.
-  Make migrations reject unsupported shapes. The rollout needs the operator's
-  global-logout decision and advance user-facing wording.
-- [ ] Implement reversible **schema** changes, with empty sessions on rollback.
+  Make migrations reject unsupported shapes. Rehearsal records `TIMESTAMP`;
+  an unknown/naive `DATETIME` shape requires a separately reviewed empty-session
+  repair, never guessed offsets or backfilled credentials.
+- [ ] **Release gate:** obtain the operator's global-logout decision and advance
+  user-facing wording; inspect the actual deployed shape, stop/drain writers,
+  run the write checkpoint and cutover, and verify live auth before closing the
+  security findings. Source engineering does not satisfy this operational gate.
+- [x] Implement reversible **schema** changes, with empty sessions on rollback.
   A digest cannot reconstruct a raw token; do not restore bearer rows from a
   backup or restart old raw-token writers as an automatic rollback. If an old
   binary needs the old schema, keep authentication closed until the authorized
   empty-session rollback and preflight pass.
-- [ ] Extend existing
+- [x] Extend existing
   [session service](../../backend/src/services/__tests__/sessionService.test.ts),
   [lifecycle](../../backend/src/services/__tests__/sessionLifecycle.test.ts),
   [auth binding](../../backend/src/middleware/__tests__/authSessionBinding.test.ts),
@@ -819,7 +939,7 @@ change need not change the timezone of unrelated MUD or website queries.
   and [pool invariant](../../backend/src/db/__tests__/sessionInvariants.test.ts)
   coverage. Add route-level login/refresh tests proving database contents cannot
   be replayed and DB failure never issues/authorizes a session.
-- [ ] Test valid/wrong/empty/malformed token, wrong account/session, expiry,
+- [x] Test valid/wrong/empty/malformed token, wrong account/session, expiry,
   deletion/revocation, signature/type failure, and incomplete legacy rows.
   Exercise real isolated MySQL/MariaDB with application `TZ=UTC`,
   `Asia/Jerusalem`, and a negative-offset zone, database defaults `+00:00`,
@@ -827,7 +947,7 @@ change need not change the timezone of unrelated MUD or website queries.
   Run separate processes where necessary to test actual Date serialization
   behavior. A still-signed JWT with a database session expired by 60 seconds
   must fail **both HTTP access and refresh**, including equality boundaries.
-- [ ] Prove normal UTC acceptance, retention cutoff behavior, and no changes to
+- [x] Prove normal UTC acceptance, retention cutoff behavior, and no changes to
   SQL mode/isolation/FK/timezone safeguards or MUD fingerprints. Distinguish
   timezone independence from clock synchronization; monitor excessive system
   clock skew without claiming this work eliminates it.

@@ -5,6 +5,7 @@ import { beforeAll, afterAll, describe, expect, it } from '@jest/globals';
 import crypto from 'node:crypto';
 import { pool } from '../../db/connection.js';
 import { hasActiveWebSession, hasMatchingRefreshSession } from '../sessionService.js';
+import { refreshTokenDigest } from '../sessionCredential.js';
 
 describe('web session revocation', () => {
   const accountName = `session_${crypto.randomBytes(10).toString('hex')}`;
@@ -19,18 +20,18 @@ describe('web session revocation', () => {
     await pool.query('INSERT INTO accounts (account_name) VALUES (?)', [accountName]);
 
     await pool.query(
-      'INSERT INTO web_sessions (id, account_name, refresh_token, expires_at) VALUES (?, ?, ?, ?)',
-      [sessionId, accountName, refreshToken, new Date(Date.now() + 5 * 60 * 1000)],
+      'INSERT INTO web_sessions (id, account_name, refresh_token_digest, expires_at_epoch) VALUES (?, ?, ?, UNIX_TIMESTAMP()+300)',
+      [sessionId, accountName, refreshTokenDigest(refreshToken)],
     );
 
     await pool.query(
-      'INSERT INTO web_sessions (id, account_name, refresh_token, expires_at) VALUES (?, ?, ?, ?)',
-      [otherSessionId, accountName, otherRefreshToken, new Date(Date.now() + 5 * 60 * 1000)],
+      'INSERT INTO web_sessions (id, account_name, refresh_token_digest, expires_at_epoch) VALUES (?, ?, ?, UNIX_TIMESTAMP()+300)',
+      [otherSessionId, accountName, refreshTokenDigest(otherRefreshToken)],
     );
 
     await pool.query(
-      'INSERT INTO web_sessions (id, account_name, refresh_token, expires_at) VALUES (?, ?, ?, ?)',
-      [expiredSessionId, accountName, expiredRefreshToken, new Date(Date.now() - 60 * 1000)],
+      'INSERT INTO web_sessions (id, account_name, refresh_token_digest, expires_at_epoch) VALUES (?, ?, ?, UNIX_TIMESTAMP()-60)',
+      [expiredSessionId, accountName, refreshTokenDigest(expiredRefreshToken)],
     );
   });
 
@@ -55,6 +56,17 @@ describe('web session revocation', () => {
     await expect(hasActiveWebSession(accountName, '')).resolves.toBe(false);
     await expect(hasActiveWebSession('different-account', sessionId)).resolves.toBe(false);
     await expect(hasMatchingRefreshSession(accountName, sessionId, '')).resolves.toBe(false);
+    await expect(hasMatchingRefreshSession(accountName, sessionId, undefined)).resolves.toBe(false);
+    await expect(
+      hasMatchingRefreshSession(
+        accountName,
+        sessionId,
+        refreshTokenDigest(refreshToken)!.toString('hex'),
+      ),
+    ).resolves.toBe(false);
+    await expect(
+      hasMatchingRefreshSession('different-account', sessionId, refreshToken),
+    ).resolves.toBe(false);
     await expect(
       hasMatchingRefreshSession(accountName, sessionId, otherRefreshToken),
     ).resolves.toBe(false);

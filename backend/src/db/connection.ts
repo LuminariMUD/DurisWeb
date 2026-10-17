@@ -154,10 +154,11 @@ function configuredPools(): [string, mysql.Pool][] {
  * Check out one connection from the pool and compare its session state
  * against the server defaults. Returns the drift descriptions, if any.
  */
-async function checkoutSessionInvariants(currentPool: mysql.Pool): Promise<string[]> {
+async function checkoutSessionInvariants(currentPool: mysql.Pool, name: string): Promise<string[]> {
   const connection = await currentPool.getConnection();
   try {
     const isolationVar = await detectIsolationVariableName(connection);
+    const startedAt = Date.now();
     const [rows] = await connection.query<mysql.RowDataPacket[]>(
       `SELECT @@SESSION.sql_mode AS sqlMode,
               @@GLOBAL.sql_mode AS globalSqlMode,
@@ -165,8 +166,27 @@ async function checkoutSessionInvariants(currentPool: mysql.Pool): Promise<strin
               @@GLOBAL.${isolationVar} AS globalIsolationLevel,
               @@SESSION.time_zone AS timeZone,
               @@GLOBAL.time_zone AS globalTimeZone,
-              @@SESSION.foreign_key_checks AS foreignKeyChecks`,
+              @@SESSION.foreign_key_checks AS foreignKeyChecks,
+              UNIX_TIMESTAMP() AS databaseEpoch`,
     );
+    const finishedAt = Date.now();
+    const databaseEpoch = Number(rows[0]?.databaseEpoch);
+    if (!Number.isFinite(databaseEpoch))
+      throw new Error('Database clock probe returned invalid epoch');
+    // Bound the observation by the round trip and one-second SQL precision;
+    // a slow query alone must not look like clock skew. This only alerts.
+    const earliest = databaseEpoch * 1000;
+    const latest = earliest + 1000;
+    const minimumSkewSeconds =
+      latest < startedAt
+        ? (latest - startedAt) / 1000
+        : earliest > finishedAt
+          ? (earliest - finishedAt) / 1000
+          : 0;
+    if (Math.abs(minimumSkewSeconds) > 60)
+      logger.warn(`${name} database/application clock skew exceeds 60 seconds`, {
+        minimumSkewSeconds: Math.round(minimumSkewSeconds),
+      });
     const observed: SessionInvariants = {
       sqlMode: String(rows[0].sqlMode),
       globalSqlMode: String(rows[0].globalSqlMode),
@@ -188,7 +208,7 @@ async function checkoutSessionInvariants(currentPool: mysql.Pool): Promise<strin
  */
 export async function verifyPoolSessionInvariants(): Promise<void> {
   for (const [name, currentPool] of configuredPools()) {
-    const drift = await checkoutSessionInvariants(currentPool);
+    const drift = await checkoutSessionInvariants(currentPool, name);
     if (drift.length > 0) {
       throw new Error(`${name} pool session invariants drifted: ${drift.join('; ')}`);
     }
@@ -205,7 +225,7 @@ export async function verifyPoolSessionInvariants(): Promise<void> {
 export async function samplePoolSessionInvariants(): Promise<void> {
   for (const [name, currentPool] of configuredPools()) {
     try {
-      const drift = await checkoutSessionInvariants(currentPool);
+      const drift = await checkoutSessionInvariants(currentPool, name);
       if (drift.length > 0) {
         logger.error(
           `${name} pool session invariants drifted on sampled checkout: ${drift.join('; ')}`,

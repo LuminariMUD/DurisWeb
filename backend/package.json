@@ -14,6 +14,7 @@
     "config:check": "NODE_OPTIONS='--import tsx' tsx src/scripts/checkEnvironment.ts",
     "schema:check": "NODE_OPTIONS='--import tsx' tsx src/scripts/checkWebBaseline.ts",
     "schema:baseline": "NODE_OPTIONS='--import tsx' tsx src/scripts/webBaseline.ts",
+    "schema:sessions": "NODE_OPTIONS='--import tsx' tsx src/scripts/checkSessionCutover.ts",
     "verify:mud-writes": "NODE_OPTIONS='--import tsx' tsx src/scripts/verifyMudWriteAllowlist.ts",
     "verify:imported-item-baselines": "NODE_OPTIONS='--import tsx' tsx src/scripts/verifyImportedItemBaselines.ts",
     "verify:combat-baselines": "NODE_OPTIONS='--import tsx' tsx src/scripts/verifyCombatFragBaselines.ts",

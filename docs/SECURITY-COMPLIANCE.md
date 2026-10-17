@@ -12,7 +12,7 @@
 | Metric | Value |
 |--------|-------|
 | Open Security Findings | 3 named: 2 High, 1 Low |
-| GDPR Baseline | 8 gaps, 2 partial controls (source status; deployment unverified) |
+| GDPR Baseline | 7 gaps, 3 partial controls (source status; deployment unverified) |
 | Phases Audited | 1 (Phase 00, 7/7 sessions validated) |
 | Last Clean Phase | None |
 
@@ -32,31 +32,41 @@ dependency-security guarantee.
 
 - **Introduced/confirmed**: [P00-S04], raised from the Session 01 survey.
 - **Affected package**: `backend`.
-- **Evidence**: `routes/auth.ts` inserts the refresh JWT verbatim into
+- **Original evidence**: `routes/auth.ts` inserted the refresh JWT verbatim into
   `web_sessions.refresh_token`; `sessionService.ts` compares the submitted raw
   token. DurisWeb and the MUD share this database.
 - **Impact**: Read access through either codebase, a MUD database backup, or SQL
   injection yields active bearer tokens for every logged-in user. Replays are
   indistinguishable from legitimate refresh requests and tokens last up to
   seven days.
-- **Remediation**: Store SHA-256 token digests and compare digests. Keep the raw
-  token only in the client cookie. Deployment invalidates all existing sessions
-  and therefore needs an explicit rollout/logout decision.
-- **Status**: Open; [issue #7](https://github.com/LuminariMUD/DurisWeb/issues/7).
+- **Source remediation**: `sessionService.ts` stores/compares exact-byte SHA-256
+  digests in `BINARY(32)`. Raw JWTs remain only in HTTP-only cookies and transient
+  verification; lookup/insert failures discard driver errors containing bindings.
+  Backup exports retain session DDL and omit all session rows. The coordinated
+  migration discards every old session rather than backfilling credentials.
+- **Status**: Open pending approved logout/deployment and live verification;
+  [issue #7](https://github.com/LuminariMUD/DurisWeb/issues/7). Isolated source
+  proof does not certify deployment or sanitize older retained backups.
 
 #### SEC-TZ-1: Session expiry can fail open when host timezones differ
 
 - **Introduced/confirmed**: [P00-S03].
 - **Affected package**: `backend`.
-- **Evidence**: The application writes `expires_at` from a JavaScript `Date`,
+- **Original evidence**: The application wrote `expires_at` from a JavaScript `Date`,
   while `sessionService.ts` compares it with database `NOW()`. With the app at
   UTC+3 and MySQL at UTC, a token already expired by 60 seconds continued to
   authenticate and would have remained valid for nearly three more hours.
 - **Impact**: Authenticated sessions silently outlive their intended expiry.
-- **Remediation**: Store and compare UTC explicitly (`UTC_TIMESTAMP()` and/or a
-  mysql2 `timezone: "Z"` policy), or fail startup when application and database
-  timezones disagree. Add an offset-mismatch regression test.
-- **Status**: Open; [issue #8](https://github.com/LuminariMUD/DurisWeb/issues/8).
+- **Source remediation**: `expires_at_epoch BIGINT UNSIGNED` is written as
+  database `UNIX_TIMESTAMP()+604800` and compared exclusively with that same
+  clock. No application Date serialization, timezone fallback, or old expiry
+  conversion participates. Both engines pass HTTP access/refresh rejection at
+  expiry and 60 seconds after expiry across three app zones, three database
+  offsets and eight DST-adjacent epochs. Pool safeguards remain intact; existing
+  sampling warns on observed application/database clock skew over 60 seconds.
+- **Status**: Open pending approved cutover/deployment and live verification;
+  [issue #8](https://github.com/LuminariMUD/DurisWeb/issues/8). Timezone independence
+  does not guarantee synchronized clocks.
 
 ### Medium / Low
 
@@ -153,7 +163,7 @@ review.
 |------|--------------------|---------|----------------------|
 | Account and character names | `backend`; shared MUD `accounts` and related tables | Identity, login, authorization, game linkage | No general erasure path identified |
 | Email addresses | `backend`; `accounts.email`, `user_profiles.email` | Recovery and account linkage | No documented retention |
-| Refresh JWTs | `backend`; `web_sessions.refresh_token` | Session persistence | Up to 7 days; raw storage is SEC-RT-1 |
+| Refresh credentials | `backend`; `web_sessions.refresh_token_digest` in the prepared source | Session persistence | 7-day database lifetime; digest source/backup omission verified, approved rollout remains SEC-RT-1 |
 | IP addresses and reverse DNS | `backend`; page views, login history, action/wipe/builder/deploy/backup records | Security, analytics, geolocation, audit | No purge schedule identified |
 | User agent, device, browser, OS, screen size | `frontend` collection, `backend` page-view storage | Analytics | Fingerprint-adjacent; no purge schedule |
 | Geolocation, referrer, and UTM data | `backend`; `page_views` | Analytics and attribution | Derived/collected before login; no purge schedule |
@@ -190,7 +200,7 @@ review.
 | PII excluded from logs | PARTIAL | Connection-sync IP logging was removed previously; #13 now sanitizes all GeoIP and reachable Redis diagnostics with sentinel-tested categories/references. Other log paths still need inventory; production deployment is unverified. |
 | Third-party transfers documented | GAP | Transfers above are inventoried only in this internal file |
 | Automated profiling disclosed/contestable | GAP | Gemini suspicion analysis has no subject notice or appeal path identified |
-| Credentials protected at rest | GAP | Raw refresh JWT storage remains SEC-RT-1 |
+| Credentials protected at rest | PARTIAL | SHA-256 session source and credential-free backup exports pass isolated tests; rollout and handling of older archives remain open under SEC-RT-1 |
 
 Implementation work is tracked separately:
 [notice and optional analytics consent (#10)](https://github.com/LuminariMUD/DurisWeb/issues/10),

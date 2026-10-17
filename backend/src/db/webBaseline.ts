@@ -21,6 +21,12 @@ import {
   schemaRows as rows,
   type SchemaDatabase,
 } from './schemaPostconditions.js';
+import {
+  assertSessionMigrationOrder,
+  matchesSessionSchemaPhase,
+  SESSION_EXPAND_MIGRATION,
+  SESSION_CUTOVER_MIGRATION,
+} from './webSessionSchema.js';
 
 export type BaselineDatabase = SchemaDatabase;
 type BaselineState = 'installing' | 'complete' | 'adopted' | 'removing';
@@ -244,7 +250,9 @@ async function verifyWebSchema(
   bundle: WebBaselineBundle,
   ledger: readonly string[],
   directory?: string,
+  recoverSessionDdl = false,
 ): Promise<void> {
+  assertSessionMigrationOrder(ledger);
   const forward = loadWebForwardSchemas(bundle, directory);
   const baseline = loadSchemaPostconditions();
   const expected = new Map<string, Record<BaselineDatabaseFamily, string[]> | null>(
@@ -272,8 +280,22 @@ async function verifyWebSchema(
           !shape[product].includes(
             tableMetadataSha256(await readTableMetadata(database, name, product)),
           )
-    )
+    ) {
+      const unsupportedSessionForward = forward.some(
+        (migration) =>
+          ledger.includes(migration.name) &&
+          Object.hasOwn(migration.tables, 'web_sessions') &&
+          ![SESSION_EXPAND_MIGRATION, SESSION_CUTOVER_MIGRATION].includes(migration.name),
+      );
+      if (
+        name === 'web_sessions' &&
+        recoverSessionDdl &&
+        !unsupportedSessionForward &&
+        (await matchesSessionSchemaPhase(database, product, new Set(ledger), true, directory))
+      )
+        continue;
       throw new WebBaselineError(`schema_drift_${name}`);
+    }
   }
 }
 
@@ -282,6 +304,7 @@ export async function verifiedWebBaselineCoverage(
   database: BaselineDatabase,
   availableNames?: readonly string[],
   migrationsDirectory?: string,
+  recoverSessionDdl = false,
 ): Promise<Set<string>> {
   const bundle = checkedBundle();
   await verifyNoWebTriggers(database, bundle);
@@ -307,7 +330,7 @@ export async function verifiedWebBaselineCoverage(
     provenance.journal.completed.length !== bundle.tables.length
   )
     throw new WebBaselineError('installation_incomplete');
-  await verifyWebSchema(database, bundle, applied, migrationsDirectory);
+  await verifyWebSchema(database, bundle, applied, migrationsDirectory, recoverSessionDdl);
   if (provenance.state === 'adopted') {
     if (bundle.manifest.historicalMigrations.some(({ name }) => !ledger.has(name)))
       throw new WebBaselineError('adopted_history_missing');

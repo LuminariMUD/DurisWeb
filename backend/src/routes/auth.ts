@@ -26,6 +26,7 @@ import {
 import {
   hasActiveWebSession,
   hasMatchingRefreshSession,
+  createWebSession,
   revokeAllWebSessions,
 } from '../services/sessionService.js';
 
@@ -120,14 +121,8 @@ router.post(
         sessionId,
       );
 
-      // Store refresh token in database
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-      await db.query(
-        `INSERT INTO web_sessions (id, account_name, refresh_token, expires_at)
-         VALUES (?, ?, ?, ?)`,
-        [sessionId, accountData.accountName, refreshToken, expiresAt],
-      );
+      // Store only a digest; issue cookies only after the database acknowledges it.
+      await createWebSession(accountData.accountName, sessionId, refreshToken);
 
       // Set tokens as HTTP-only cookies
       res.cookie('access_token', accessToken, {
@@ -193,7 +188,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
   try {
     const refreshToken = req.cookies?.refresh_token;
 
-    if (!refreshToken) {
+    if (typeof refreshToken !== 'string' || refreshToken.length === 0) {
       return res.status(401).json({ error: 'No refresh token provided' });
     }
 

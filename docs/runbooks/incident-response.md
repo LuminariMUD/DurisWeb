@@ -143,8 +143,10 @@ sanitized reason and retry time.
 
 ## Suspected Session-Token Exposure
 
-Raw refresh JWTs are currently stored in `web_sessions` (SEC-RT-1). A database
-read exposure can therefore be an active session compromise.
+Check the deployed revision and schema phase first. Older revisions store raw
+refresh JWTs (SEC-RT-1), so database or historical backup read exposure can be
+an active session compromise. The digest/epoch source repair is not a live
+deployment claim; a digest itself cannot be submitted as a refresh JWT.
 
 1. Restrict database/backup access and preserve sanitized evidence.
 2. Revoke affected/all web sessions using the existing authorized account/admin
@@ -154,6 +156,16 @@ read exposure can therefore be an active session compromise.
 4. Track the event against
    [Security and Compliance](../SECURITY-COMPLIANCE.md); do not mark SEC-RT-1
    resolved until digest-at-rest deployment is complete.
+5. Never include JWTs or digests in diagnostics or user-data exports. New backup
+   exports retain session DDL and omit session rows. Older archives require
+   separate access/retention handling; the source change cannot remove them.
+6. After any database restore, keep authentication closed and discard restored
+   web sessions under the authorized recovery procedure. Restoring a raw or
+   digest row can revive a previously revoked client token. Schema rollback
+   deliberately restores an empty session store, never reconstructed bearers.
+7. For premature/late expiry, inspect the database/application clock-skew
+   warning and synchronize clocks. Do not change pooled SQL mode or time zone
+   to compensate. Epoch-based expiry is independent of offsets, not clock drift.
 
 ## Backup or Restore Incident
 

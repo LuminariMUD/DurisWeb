@@ -5,6 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import mysql from 'mysql2/promise';
 import type { Connection, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { runFixtureWebMigrations } from '../../test/webMigrationFixture.js';
 import {
   applyOwnerSchemaFixture,
   ownerMetadataFingerprint,
@@ -494,6 +495,21 @@ if (inputs)
             expect(after).toEqual(before);
             await verifyRepresentativeQueries(restored);
             await verifySubscriptionConstraint(restored);
+            runFixtureWebMigrations(port, restoredName);
+            expect(await verifiedWebBaselineCoverage(restored)).toEqual(new Set());
+            const [forwardLedger] = await restored.query<RowDataPacket[]>(
+              'SELECT * FROM knex_migrations ORDER BY id',
+            );
+            const originalNames = new Set((after as RowDataPacket[]).map(({ name }) => name));
+            expect(forwardLedger.filter(({ name }) => originalNames.has(name))).toEqual(after);
+            expect(
+              forwardLedger.filter(({ name }) => !originalNames.has(name)).map(({ name }) => name),
+            ).toEqual([
+              '20261017000000_expand_web_session_credentials.ts',
+              '20261017001000_cutover_web_session_credentials.ts',
+            ]);
+            const [sessions] = await restored.query('SELECT id FROM web_sessions');
+            expect(sessions).toEqual([]); // Planned logout discards legacy expiry interpretations.
           });
         });
       }, 120000);

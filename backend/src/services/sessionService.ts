@@ -1,5 +1,6 @@
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../db/connection.js';
+import { refreshTokenDigest } from './sessionCredential.js';
 
 interface ActiveSessionRow extends RowDataPacket {
   id: string;
@@ -8,27 +9,51 @@ interface ActiveSessionRow extends RowDataPacket {
 async function hasSession(
   accountName: string,
   sessionId: string | undefined,
-  refreshToken?: string,
+  digest?: Buffer,
 ): Promise<boolean> {
-  if (!accountName || !sessionId || refreshToken === '') {
+  if (!accountName || !sessionId) {
     return false;
   }
 
-  const refreshPredicate = refreshToken === undefined ? '' : ' AND refresh_token = ?';
-  const params =
-    refreshToken === undefined ? [sessionId, accountName] : [sessionId, accountName, refreshToken];
+  const refreshPredicate = digest === undefined ? '' : ' AND refresh_token_digest = ?';
+  const params = digest === undefined ? [sessionId, accountName] : [sessionId, accountName, digest];
 
-  const [rows] = await pool.query<ActiveSessionRow[]>(
-    `SELECT id
+  try {
+    const [rows] = await pool.query<ActiveSessionRow[]>(
+      `SELECT id
      FROM web_sessions
      WHERE id = ?
        AND account_name = ?
-       AND expires_at > NOW()${refreshPredicate}
+       AND refresh_token_digest IS NOT NULL
+       AND expires_at_epoch > UNIX_TIMESTAMP()${refreshPredicate}
      LIMIT 1`,
-    params,
-  );
+      params,
+    );
 
-  return rows.length > 0;
+    return rows.length > 0;
+  } catch {
+    // mysql2 errors can include interpolated SQL and credential bindings.
+    throw new Error('Web session lookup failed');
+  }
+}
+
+/** The database clock owns the unchanged seven-day session lifetime. */
+export async function createWebSession(
+  accountName: string,
+  sessionId: string,
+  refreshToken: string,
+): Promise<void> {
+  const digest = refreshTokenDigest(refreshToken);
+  if (!accountName || !sessionId || !digest) throw new Error('Invalid web session input');
+  try {
+    await pool.query(
+      `INSERT INTO web_sessions (id, account_name, refresh_token_digest, expires_at_epoch)
+       VALUES (?, ?, ?, UNIX_TIMESTAMP() + 604800)`,
+      [sessionId, accountName, digest],
+    );
+  } catch {
+    throw new Error('Web session creation failed');
+  }
 }
 
 /**
@@ -49,7 +74,9 @@ export async function hasMatchingRefreshSession(
   sessionId: string | undefined,
   refreshToken: string | undefined,
 ): Promise<boolean> {
-  return hasSession(accountName, sessionId, refreshToken);
+  const digest = refreshTokenDigest(refreshToken);
+  if (!digest) return false;
+  return hasSession(accountName, sessionId, digest);
 }
 
 export async function revokeAllWebSessions(accountName: string): Promise<number> {
