@@ -1,5 +1,13 @@
 import { performance } from 'node:perf_hooks';
 
+let activeClient: typeof import('../db/redis.js')['default'] | undefined;
+
+/** The standalone CLI owns shutdown; application callers keep their shared client. */
+export function closeRetentionCacheClient(): void {
+  activeClient?.disconnect();
+  activeClient = undefined;
+}
+
 export class RetentionCacheError extends Error {
   constructor() {
     super('Analytics cache removal could not be confirmed');
@@ -36,6 +44,7 @@ export async function cleanupRetiredAnalyticsCache(
     removed = 0;
   try {
     const redis = (await import('../db/redis.js')).default;
+    activeClient = redis;
     const serverId = /^run_id:([a-f0-9]{40})\r?$/m.exec(await bounded(redis.info('server')))?.[1];
     if (!serverId || (priorServerId !== null && !/^[a-f0-9]{40}$/.test(priorServerId)))
       throw new RetentionCacheError();
