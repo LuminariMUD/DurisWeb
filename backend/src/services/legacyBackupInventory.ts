@@ -83,6 +83,7 @@ function physical(stat: BigIntStats): string {
     stat.ctimeNs.toString(),
   ]);
 }
+export { physical as legacyCopyPhysicalSha256 };
 export function isLegacySqlMemberFilename(name: string): boolean {
   return (
     name.length > 4 &&
@@ -105,6 +106,7 @@ function mountId(fd: number, deadline = Number.POSITIVE_INFINITY): string {
   if (!value) throw new LegacyBackupInventoryError('root_unverified');
   return value;
 }
+export { mountId as legacyMountId };
 function within(root: string, candidate: string) {
   const relative = path.relative(root, candidate);
   return (

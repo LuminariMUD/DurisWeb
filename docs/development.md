@@ -206,6 +206,18 @@ or shared namespace. `pnpm --dir backend backup:inventory --help` describes the
 explicit-root command; see [private inventory limits](runbooks/backup-archive-cleanup.md#private-legacy-copy-inventory).
 Discovery observations never authorize writer fencing, preservation or removal.
 
+The optional operator-only `backup:preserve-legacy` command uses a descriptor-only
+Linux Python 3 stdlib lease worker; website startup and ordinary HTTP paths do
+not use Python. Keep `scripts/legacyFileLeaseWorker.py` with the compiled CLI.
+The preservation service/CLI Jest suites exercise actual source descriptors and
+private bundles and invoke the Python native suite under
+`backend/scripts/__tests__/legacyFileLeaseWorker.test.py`. Tests use only owned
+home-directory and tmpfs fixtures, without a database. Native cases exercise
+existing/competing writers, writable mappings, lease release, failed output and
+fresh-process verification without source/environment. See
+[protected byte copies](runbooks/backup-archive-cleanup.md#protected-individual-byte-copies)
+for dependencies, explicit bounds, retained work and the remaining release gate.
+
 Do not commit `.env` files, dumps, account data, generated deployment output,
 or backup archives. See [Configuration and Environments](environments.md) before
 adding any new setting.

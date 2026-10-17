@@ -93,6 +93,8 @@ Unrecognized names within a legacy prefix are counted without exposing those
 names in the report. The package script silences dotenv's startup notice;
 `--silent` also suppresses pnpm's command banner when capturing aggregate JSON.
 
+Generator-shaped regular uploads remain untrusted byte copies, not validated ZIPs.
+
 Limits are 10,000 root entries and 1,000 recognized copies per root, a shared
 five-second cooperative budget checked through root and per-copy metadata
 traversal, and a 4 MiB output cap. Exactly 1,000 copies can complete, including
@@ -134,6 +136,129 @@ protected operator evidence, with its own unapproved retention/subject-review
 rules. This inventory supplies discovery input only. Verified writer fencing,
 protected-byte preservation, ownership/adoption, holds and compatible offline
 restore replay remain separate P6 requirements before any removal or rollout.
+
+## Protected individual byte copies
+
+`backup:preserve-legacy` prepares an individual private byte copy for later
+review. Use it only with authorization for the selected environment. It leaves
+the source in place and does not control services, adopt records or authorize
+cleanup. The whole-cohort/namespace preservation gate above still applies.
+
+```bash
+pnpm --dir backend --silent backup:preserve-legacy copy \
+  --backup-root /absolute/canonical/configured/backup-root \
+  --source-name temp_123.sql \
+  --source-physical-sha256 REVIEWED_INVENTORY_FILE_HASH \
+  --protected-root /absolute/persistent/owner-only-directory \
+  --operation-id UUID_V4_FOR_THIS_COPY \
+  --python-bin /absolute/python3 \
+  --max-bytes 536870912
+```
+
+For staging, select `temp_staging_<id>/database/<name>.sql` and its inventory
+`sqlMember.physicalSha256`, not the staging directory hash. For an old upload,
+also supply its explicitly selected `--legacy-upload-root` and use its generated
+relative filename, including the original suffix. Source root and components
+are descriptor-anchored, canonical and link-safe; supplied physical identity
+must still match. Numeric names do not establish a website account owner.
+
+Copying requires Linux, a reviewed Python 3 executable (qualified here with
+Python 3.12; use 3.9 or newer) and the shipped
+`backend/scripts/legacyFileLeaseWorker.py`. Node does not expose the required
+lease syscall; the one-shot stdlib worker receives only source/destination
+descriptors and bounded arguments, no application environment or credentials.
+The source owner or appropriate OS lease capability must permit the operation.
+An existing writer, writable mapping, unavailable lease or competing write-open
+prevents success. The helper checks lease/interruption state during copy and
+independent destination-hash verification. See the Linux
+[file-lease reference](https://man7.org/linux/man-pages/man2/F_SETLEASE.2const.html).
+
+The protected root must be canonical, owner-only, outside the selected source
+roots and volatile system paths, on the reviewed local filesystem types used
+by managed storage. Tests qualify ext4 destinations and ext4/tmpfs sources.
+Descriptor mount IDs and [mountinfo filesystem roots](https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html)
+reject bind aliases that place the destination inside a declared source root,
+or make it an ancestor of the selected source. The check is repeated before
+acknowledgement and includes aliases across nested mounts. Different canonical
+path strings alone do not establish separation.
+XFS/Btrfs are allowlisted but not qualified here. Path/type checks and fsync
+cannot certify independent storage, encryption or recovery; verify those with
+the operator's actual protected-storage design. Treat older bytes as sensitive,
+including possible session credentials. They remain private OS files, outside
+website history/download and count pruning, without sanitization or restore.
+
+Each explicit UUID creates `legacy-preserve-<UUID>/` exclusively, mode 0700.
+`prepared.json` is private and flushed before any bytes are copied into the
+exclusive 0600 `payload.bin`. The bounded helper copies with a kernel read
+lease, hashes and flushes output, then independently reads it back. Matching
+source/file identities, size, bytes and hashes permit immutable `complete.json`
+and directory sync. Source paths and payloads stay out of ordinary output.
+Before acknowledgement, the named bundle and `payload.bin` must still match
+the opened descriptors and expected payload identity; rename, replacement or
+observed late byte changes retain the operation for review instead of success.
+After the copy worker exits, the parent closes its writable payload descriptor
+and obtains a read-only descriptor for the same file object. A bounded lease-only
+mode of the existing Python helper excludes payload writers while the parent
+rehashes bytes, writes/syncs receipts, and performs the final named-bundle checks.
+The helper confirms the lease and unchanged payload identity after those checks;
+interruption, a competing writer, timeout or an unconfirmed helper exit refuses
+acknowledgement. The helper is reaped before the operation finishes.
+The parent independently rehashes payload bytes after the copy worker exits and
+binds that read to unchanged metadata. Final acknowledgement requires exactly
+`prepared.json`, `complete.json` and `payload.bin`, revalidates both receipt
+contents/identities, and keeps every opened/named entry on the qualified protected
+mount. An unqualified bundle is refused before writing receipts or copy bytes.
+Byte/time limits refuse work; they never truncate a source. The default worker
+budget is 30 seconds, selectable from 1 to 300,000 milliseconds, with a fresh
+owned-child kill request one second later. Stalled kernel I/O can still delay
+exit; the parent waits for actual worker termination before finalizing.
+The parent hashing pass uses the selected time budget too; it is a separate
+bounded pass, not a hard end-to-end deadline over all filesystem calls.
+
+Errors retain prepared/failed receipts and any partial payload. No source,
+partial copy or receipt is deleted, repaired or overwritten.
+If the worker verified bytes before a later failure, its bounded hash/size
+evidence is retained in the failed receipt for review, without completing the
+operation. Close-acknowledgement errors still close every other descriptor and
+retain the same reference; an earlier error does not skip later closes.
+Same-ID copy retries refuse an existing bundle; inspect it with the separate
+recovery mode:
+
+```bash
+pnpm --dir backend --silent backup:preserve-legacy verify \
+  --protected-root /absolute/same/protected-directory \
+  --operation-id SAME_UUID_V4 \
+  --python-bin /absolute/python3
+```
+
+Recovery verifies strict private receipt shapes, physical identity and actual
+payload hash under the same payload lease, then syncs and confirms the named
+bundle before acknowledging. It requires the explicit reviewed Python interpreter
+and shipped helper, but no source, application environment or SQL. It cannot
+promote incomplete/failed work to completed. The compiled entry is
+`backend/dist/scripts/legacyCopyPreservation.js`; retain its required application
+dependencies and the reviewed software with protected operational evidence.
+Unknown receipt/sync state remains review-required. No new UUID should be used
+to hide an uncertain previous operation.
+Verification also rechecks the named bundle/payload before returning. The package
+script suppresses dotenv startup output; `--silent` suppresses pnpm's banner.
+
+Source leaf and staging descriptors must stay on the selected root's mount ID,
+including same-device bind mounts. Every visible alias of the protected root is
+checked against prohibited temporary/volatile prefixes. Bundle names and receipt
+contents are revalidated after the lease handshake and after worker reaping;
+a pending lease-break signal or changed payload on release refuses success.
+
+Read leases guard the source during copying and the payload during final
+verification/confirmation; this is
+not a whole-service fence and does not prevent rename/unlink or namespace
+teardown. Rechecks refuse observed identity/path changes, while unexpected
+external cleanup can still remove an original. A verified byte copy does not
+establish a consistent database backup, provenance/ownership approval or
+recoverability of the whole declared scope. Every result keeps cohort fencing
+unverified and adoption/deletion admission unavailable. Preserve all private
+bundle states under their own unapproved lifecycle; complete independent
+evidence, hold-compatible adoption and offline restore replay before release.
 
 ## Generated archive inspection
 

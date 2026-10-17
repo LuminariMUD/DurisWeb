@@ -58,6 +58,25 @@ for review.” Publish only after a separately authorized verified release.
 **Latest continuation — PR #62 generated inspection:** a valid 65 MiB
 
 
+
+**#65 final four review repairs:** source leaf/staging descriptors require the
+root mount ID; protected storage rejects volatile bind aliases. Named bundle,
+payload identity and receipts are checked after the asynchronous lease handshake
+and reaping. The Python release path rejects pending lease breaks/identity changes.
+`pnpm --dir backend test --runInBand legacyCopyPreservation legacyBackupInventory`
+passes **63 tests/four suites**, including actual CLI and nine native Python lease
+tests. The private-mount fixture passes three new same-device source boundaries,
+volatile-alias refusal and all prior alias/bundle/control cases. Backend gates/build
+pass. Commands: `python3 /tmp/durisweb-image-quality.py backend`; as root only in a
+fresh private namespace, `unshare --mount --propagation private node --import
+./backend/node_modules/tsx/dist/loader.mjs
+backend/src/services/__tests__/legacyCopyPreservationMounts.native.ts`.
+Logs: `pr65-final-{tests,quality,mounts}.log`. No production operations occurred.
+Carries #63 ordering and #64 timeout/root-identity fixes. #62's unlink race still
+needs disposition; #66's index is separately pushed as `339135b` and resolved.
+
+### Historical checkpoints
+
 **#64 final inventory repairs:** time exhaustion before the second selected root
 now retains the first observation and records an explicit unstarted timed-out
 root. Output validates scanned root identities/mount IDs before writing and
@@ -81,6 +100,47 @@ pass. Existing isolated systemd keeper rehearsal remains valid; no application
 source, production service or Cloudflare account was changed.
 
 ### Historical checkpoints
+
+**Latest continuation — #65 payload acknowledgement fence published:** current
+branch `branch/legacy-copy-preservation` starts at `4e5679e`; the latest #63 docs
+closures are `c87c7ad` / `95fbd64` and are carried through #64 `208c0c6`,
+#65 `4e5679e` and #66 `09d401a`. The ledger has 55 verified closeouts; known
+remaining findings are #62 (1), #65 (1), #66 (4), pending a new scan.
+
+The #65 late-write regression was reproduced for both copy and verification:
+a separate same-UID writer changed equal-length payload bytes after final named
+file checks, while the old operation still returned `copyVerified: true`.
+Both cases now pass with the attempted write blocked and acknowledgement refused.
+The existing descriptor-only Python helper has a bounded lease-only mode;
+copy drops the writable payload descriptor, and copy/verification hold a payload
+read lease across hashing, receipt/directory sync and final named-bundle checks.
+A post-check helper confirmation and successful reaping are required before
+returning success. No new service, receipt format or storage mechanism is added.
+
+Verification is now asynchronous internally and explicitly requires
+`--python-bin /absolute/python3`, as copying already did. The CLI, service callers,
+native fixtures and operator command are updated together; verification still
+requires no original source, application environment or SQL. Named-entry and
+mount checks remain necessary because file leases do not prevent rename/unlink.
+
+Final focused run passes **59 tests / four suites**, including the real Python
+lease suite, both new late-writer cases, actual CLI copy/verify and existing
+timeout/retention/refusal cases. Backend format/lint/types/MUD-write/schema/build
+gates pass. Native preservation checks pass six aliases, independent copy/verify,
+bundle admission and both final mount checks. Logs:
+`pr65-payload-lease-{red,green,tests,quality,mounts}.log`. No broad backend,
+frontend, SQL/provider or production rerun is claimed.
+
+Published as `c6302a0`; `PRRT_kwDOVA2-8c6thWHl` has a verified reply/resolved
+state. The ledger contains **56 verified closeouts**, with **five known remaining
+findings** before another scan: #62's conditional removal and #66's four export
+findings. Carry into #66 and finish configured MUD authority, safe unexpected-
+failure diagnostics, user-facing timeout and the forward owner index, retaining
+#62's still-open inode-conditional removal guarantee. This fence protects payload bytes; do not
+reuse it as a claim that pathname unlink is atomic. No visitor news is needed
+for the operator preservation correction.
+
+### Earlier published repairs and inventory
 
 **Latest continuation — #63 remaining ingress/restart paths:** #64's six
 findings are published/resolved as `5fa2ee8` / `d0fe178`, carried through #65

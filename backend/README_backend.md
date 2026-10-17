@@ -25,6 +25,7 @@ is retained for existing ledgers, not replayed for a fresh installation.
 | `pnpm schema:lifecycle` | Explicit DBA setup or read-only verification of the versioned metadata helper; required before baseline bootstrap/migrations |
 | `pnpm schema:baseline` | Explicit target-confirmed baseline inspection, bootstrap, adoption, verification, or limited teardown |
 | `pnpm backup:inventory` | Bounded read-only legacy-copy metadata inventory; requires the configured backup root and a new private output file; never authorizes cleanup |
+| `pnpm backup:preserve-legacy` | Explicit Linux/Python operator copy and restart verification of private legacy-byte bundles; never removes sources or authorizes adoption |
 | `pnpm test --runInBand` | Run Jest serially |
 | `pnpm format:check` | Check Biome formatting without edits |
 | `pnpm lint` | Run non-mutating ESLint checks |
