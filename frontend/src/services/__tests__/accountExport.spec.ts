@@ -17,9 +17,85 @@ beforeEach(() => {
   fetchMock.mockReset().mockResolvedValue(Response.json(payload))
   vi.stubGlobal('fetch', fetchMock)
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+  vi.useRealTimers()
+})
 
 describe('private account export request', () => {
+  it.each(['any', 'timeout', 'both'])(
+    'downloads when AbortSignal.%s is unavailable',
+    async (missing) => {
+      const original = AbortSignal
+      vi.stubGlobal('AbortSignal', {
+        any: missing === 'timeout' ? original.any.bind(original) : undefined,
+        timeout: missing === 'any' ? original.timeout.bind(original) : undefined,
+      })
+      expect(
+        (await requestAccountExport('secret', 'Alice', new AbortController().signal)).size,
+      ).toBeGreaterThan(0)
+    },
+  )
+  it('forwards caller cancellation and removes its listener and timeout', async () => {
+    vi.useFakeTimers()
+    const caller = new AbortController()
+    const remove = vi.spyOn(caller.signal, 'removeEventListener')
+    fetchMock.mockImplementation(
+      (_url, options) =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('Cancelled', 'AbortError')),
+          )
+        }),
+    )
+    const pending = requestAccountExport('secret', 'Alice', caller.signal)
+    const rejected = pending.catch((error: unknown) => error)
+    caller.abort()
+    expect(await rejected).toMatchObject({ name: 'AbortError' })
+    expect(remove).toHaveBeenCalledWith('abort', expect.any(Function))
+    expect(vi.getTimerCount()).toBe(0)
+  })
+  it('keeps the timeout active through response body reading', async () => {
+    vi.useFakeTimers()
+    const caller = new AbortController()
+    const remove = vi.spyOn(caller.signal, 'removeEventListener')
+    fetchMock.mockImplementation(async (_url, options) => {
+      const response = Response.json(payload)
+      vi.spyOn(response, 'text').mockImplementation(
+        () =>
+          new Promise((_resolve, reject) => {
+            options?.signal?.addEventListener('abort', () =>
+              reject(new DOMException('Timed out', 'AbortError')),
+            )
+          }),
+      )
+      return response
+    })
+    const pending = requestAccountExport('secret', 'Alice', caller.signal)
+    const rejected = pending.catch((error: unknown) => error)
+    await Promise.resolve()
+    await vi.advanceTimersByTimeAsync(20000)
+    expect(await rejected).toMatchObject({ name: 'AbortError' })
+    expect(caller.signal.aborted).toBe(false)
+    expect(remove).toHaveBeenCalledWith('abort', expect.any(Function))
+    expect(vi.getTimerCount()).toBe(0)
+  })
+  it.each([false, true])('cleans up after a completed request (failure=%s)', async (fail) => {
+    vi.useFakeTimers()
+    const caller = new AbortController()
+    const remove = vi.spyOn(caller.signal, 'removeEventListener')
+    if (fail) fetchMock.mockResolvedValue(Response.json({}, { status: 503 }))
+    const result = await requestAccountExport('secret', 'Alice', caller.signal).catch(
+      (error: unknown) => error,
+    )
+    expect(result instanceof Error).toBe(fail)
+    expect(remove).toHaveBeenCalledWith('abort', expect.any(Function))
+    expect(vi.getTimerCount()).toBe(0)
+    const requestSignal = fetchMock.mock.calls[0]?.[1]?.signal
+    caller.abort()
+    expect(requestSignal?.aborted).toBe(false)
+  })
   it('posts only the password with CSRF, credentials and caching/redirect protections', async () => {
     const blob = await requestAccountExport(
       'synthetic-password',

@@ -6,9 +6,11 @@
 `d43f94c`, #49 follow-up `64d30b7` and #50 follow-up `ab40c42` are pushed;
 all eight corresponding threads are verified resolved. The three later #54
 findings are now fixed in `3e68def` and `89bea79`, pushed and verified resolved.
-**Five known findings remain on #65–#66.** #64 repair `10fe5bc` is pushed and
-all three threads are verified resolved. #65 contains parent merge `e9ba4c4`;
-its three findings are under final qualification. The restore availability and async cancellation paths
+**The latest complete scan has 11 unresolved findings:** #57 (1), #62 (2),
+#63 (3), #65 (3), #66 (2). The original #65 findings are fixed/pushed in
+`1cc5581` and resolved; nine later findings appeared across #57/#62/#63/#65.
+#66 contains parent merge `b7bc3cd`; its browser cancellation fix is being
+qualified before returning to the oldest new finding. The restore availability and async cancellation paths
 remain intact. No review completion, master merge or deployment is claimed.
 The dated inventory below is historical where
 these newer results supersede it; exact follow-up proof precedes the old records.
@@ -334,6 +336,60 @@ checkpoint and expired deadline as current instructions.
   do not replace it with an older snapshot that loses #56–#66 or this review queue.
 
 ## Follow-up review evidence — #48–#50
+
+**Fresh queue / #66 browser fix:** three missing AbortSignal static-method cases
+reproduce the download failure. The existing request now uses one local
+AbortController and a 20-second timer, forwards caller cancellation, and removes
+both timer/listener in `finally` after response-body processing. Focused service
+and actual AccountDataExport component tests pass 21 cases; full frontend gates
+are running after correcting test assertion style to satisfy ESLint. The first
+focused command named a nonexistent AccountExportControl test and ran only the
+17 service cases; the corrected command runs both actual files. No backend code
+has been changed for #66's separate-database finding yet.
+
+Before switching branches, publish the qualified browser-only repair. Then work
+oldest-first through these exact new findings:
+
+- #57 `PRRT_kwDOVA2-8c6tgIxc`: await backup-list reconciliation before allowing
+  an uncertain create-backup retry; return the query invalidation promise.
+- #62 `PRRT_kwDOVA2-8c6tgRI0`: download the opened, identity-validated upload
+  descriptor, not a pathname that can be replaced before streaming.
+- #62 `PRRT_kwDOVA2-8c6tgRI1`: exclude upload rows from generated-backup busy state.
+- #63 `PRRT_kwDOVA2-8c6tgQO0`: link the preservation gate from every remaining
+  direct writer-stop instruction, including retention and schema guides.
+- #63 `PRRT_kwDOVA2-8c6tgQO4`: remove the duplicated preservation-order journal block.
+- #63 `PRRT_kwDOVA2-8c6tgQO7`: activate/confirm the maintenance notice before the
+  preservation gate, while still requiring actual writer closure.
+- #65 `PRRT_kwDOVA2-8c6tgeC0`: revalidate both named receipts and exact bundle
+  contents at final acknowledgement, alongside bundle/payload checks.
+- #65 `PRRT_kwDOVA2-8c6tgeC3`: parent must hash payload bytes after worker exit
+  and bind that read to unchanged metadata before success.
+- #65 `PRRT_kwDOVA2-8c6tgeC6`: bundle/payload/receipt descriptors must remain on
+  the protected root's qualified mount, including replacement at bundle open.
+
+#66's remaining database-authority work must test the real authenticated route
+with separate owned web/MUD databases. `accountService` currently routes MUD
+account tables through the web pool; `permissionService.getCharacterInfo` joins
+MUD-owned player/leaderboard/association tables through that pool too (avatar
+reads remain web-owned). Existing password UPDATE is authorized by DB-10; do not
+add new MUD writes. Export must verify credentials via the MUD pool and session
+via web SQL, including the final check. Reuse the held web connection when both
+pools are identical to avoid nested pool-checkout deadlock. Existing native
+export tests exercise actual auth and must cover both topologies; a mocked
+credentials helper alone is insufficient. Current evidence/helper scripts are
+retained in the private review directory and this file's recovery record.
+
+**#66 browser-only final proof:** full frontend gates/build pass **339 tests /
+60 files**; the corrected focused pair passes 21. A fresh backend build followed
+by `node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-review-export-browser-suite.mts 23436 export-browser` passes actual
+compiled-API downloads at 1440/390 with both AbortSignal static methods removed
+in the browser. Wrong-password, changed-account, anonymous and no-analytics
+checks also pass (five export requests). This is shared-database proof only;
+the separate-database review remains open. Logs: `pr66-frontend-quality-final.log`,
+`pr66-frontend-focused-final.log`, `pr66-compat-{backend-build,browser}.log`.
+No backend source changed in this repair. Configuration/whitespace checks pass.
+Publish/resolve the browser finding, then return to #57 as listed above.
 
 **#65 repair:** filesystem locations are derived from held descriptor mount IDs
 and kernel mount roots, including aliases under a nested filesystem. Copying

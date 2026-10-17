@@ -74,8 +74,11 @@ attachment, rather than silently truncating data.
 SQL statements have a three-second client timeout, with a 15-second budget
 checked between category reads. Pool checkout, password verification and final
 authorization are outside that category budget; it is not a hard end-to-end
-deadline. The browser aborts after 20 seconds. A failed/unknown query discards
-the SQL connection and its read transaction. Errors never echo raw SQL,
+deadline. The browser aborts after 20 seconds using a local AbortController,
+caller abort listener and timer through response-body reading. It does not
+require AbortSignal.any/timeout, and removes the listener/timer on success or
+failure. A failed/unknown query discards the SQL connection, its read transaction
+and result. Errors never echo raw SQL,
 credentials or source payloads. Retries start a new fresh verification and
 snapshot; no mutation is performed and there is no reusable download URL.
 
