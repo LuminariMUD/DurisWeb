@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcrypt';
 import type { RowDataPacket } from 'mysql2';
 import type { PoolConnection } from 'mysql2/promise';
-import { pool } from '../db/connection.js';
+import { pool, mudPool } from '../db/connection.js';
 
 const MAX_ROWS = 1000;
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -145,16 +145,32 @@ function passwordFrom(input: unknown): string {
 }
 
 async function credentials(connection: PoolConnection, accountName: string, sessionId: string) {
-  // The additional binary comparison prevents accent/padding collation aliases
-  // from selecting another subject. The ordinary equality retains index use.
-  const [rows] = await connection.query<CredentialRow[]>(
+  // Reuse the held connection in shared mode: another checkout could deadlock a full pool.
+  const authority = mudPool === pool ? connection : await mudPool.getConnection();
+  let queried = false;
+  let rows: CredentialRow[];
+  try {
+    [rows] = await authority.query<CredentialRow[]>(
+      {
+        sql: `SELECT account_name, password, blocked FROM accounts
+          WHERE account_name = ? AND BINARY LOWER(account_name) = BINARY LOWER(?) LIMIT 2`,
+        timeout: QUERY_TIMEOUT_MS,
+      },
+      [accountName, accountName],
+    );
+    queried = true;
+  } finally {
+    if (authority !== connection) {
+      if (queried) authority.release();
+      else authority.destroy();
+    }
+  }
+  // Website sessions stay on the website connection, including the post-generation check.
+  const [sessions] = await connection.query<RowDataPacket[]>(
     {
-      sql: `SELECT a.account_name, a.password, a.blocked FROM accounts a
-      JOIN web_sessions s ON s.id = ? AND s.account_name = a.account_name
-        AND BINARY LOWER(s.account_name) = BINARY LOWER(a.account_name)
-      WHERE a.account_name = ? AND BINARY LOWER(a.account_name) = BINARY LOWER(?)
-        AND s.refresh_token_digest IS NOT NULL AND s.expires_at_epoch > UNIX_TIMESTAMP()
-      LIMIT 2`,
+      sql: `SELECT account_name FROM web_sessions WHERE id = ? AND account_name = ?
+        AND BINARY LOWER(account_name) = BINARY LOWER(?)
+        AND refresh_token_digest IS NOT NULL AND expires_at_epoch > UNIX_TIMESTAMP() LIMIT 2`,
       timeout: QUERY_TIMEOUT_MS,
     },
     [sessionId, accountName, accountName],
@@ -164,7 +180,10 @@ async function credentials(connection: PoolConnection, accountName: string, sess
     rows[0].blocked !== 0 ||
     typeof rows[0].password !== 'string' ||
     typeof rows[0].account_name !== 'string' ||
-    rows[0].account_name.toLowerCase() !== accountName.toLowerCase()
+    rows[0].account_name.toLowerCase() !== accountName.toLowerCase() ||
+    sessions.length !== 1 ||
+    typeof sessions[0].account_name !== 'string' ||
+    sessions[0].account_name.toLowerCase() !== accountName.toLowerCase()
   )
     throw new AccountExportError(401, 'Sign in again and verify your current password.');
   return rows[0];

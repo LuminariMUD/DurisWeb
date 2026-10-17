@@ -2,6 +2,60 @@
 
 ## Current handoff — read this first
 
+**Latest continuation — #66 configured database authority ready:** current
+branch is `branch/account-data-export`. The safe diagnostic/timeout fixes are
+published as `2ed43ab` and both threads have verified replies/resolved state.
+The ledger has **58 verified closeouts**; three known findings remain before a
+new scan: this authority path, the reaction owner index, and #62's conditional
+removal guarantee.
+
+The real separate-database fixture reproduced 16 failures out of 18 export
+cases, including authentication before the export handler. Account reads and
+the existing password update now use `mudPool`; character permission reads use
+that pool while profile avatar reads remain on the website pool. Export reads
+MUD credentials and web sessions separately at initial/final verification.
+Shared mode uses the already-held website connection, avoiding nested checkout.
+Separate credential connections are released only after a confirmed query and
+destroyed on failure. Existing SQL ownership classifications are unchanged.
+
+The actual route, account service and auth regressions pass **53 tests / five
+suites in all four combinations**: MySQL/MariaDB × shared/separate. Fixtures use
+two genuinely different databases in separate mode, include MUD characters and
+an intentionally wrong web shadow account, verify MUD-derived role plus web
+avatar, retain password/block/session rechecks, forbid nested web-pool queries
+and check failed-connection destruction/recovery. Both pools are closed.
+
+A related-caller run passed 30 suites / 284 tests, with two optional native suites
+(44 tests) disabled. One profile-stats mock lacked the existing `mudPool` export;
+its shared-pool alias was corrected and its two tests pass on the narrow rerun.
+No production fallback was added for that incomplete mock. Backend gates/build
+pass, with final format/lint/type checks after the test-fixture correction.
+Frontend is unchanged from the qualified 347-test run. No fresh browser, full
+application separate-mode burn-in or production acceptance is claimed.
+
+Runner: `/tmp/durisweb-run-export-authority-suite.mts <23436|23437>
+<export-auth|export-related> <shared|separate>`. It owns/drops the extra
+`durisweb_qualification_export_mud_suite` and its synthetic user only when created,
+in addition to the established web/cache fixture. Logs:
+`pr66-authority-red.log`,
+`pr66-authority-separate-{mysql,maria}-final.log`,
+`pr66-authority-shared-mysql-final.log`, `pr66-authority-shared-maria.log`,
+`pr66-authority-related-mysql.log`, `pr66-authority-profile-fixture-final.log`,
+`pr66-authority-{quality-final,final-static}.log`.
+An initial edit-script marker error left a partial implementation; those
+intermediate runs are not acceptance evidence. The final four-mode runs above
+use the completed implementation.
+
+A read-only schema observation plus reversible isolated ALTER probe also recorded
+the reaction-index before/after fingerprints in `reaction-index-23436.json` and
+`reaction-index-23437.json`; the probe restored the exact original shape and
+post-preflight passed. No migration source or production index is implemented by
+that probe. Publish/resolve `PRRT_kwDOVA2-8c6te2j5`, then implement the reversible
+forward reaction index and its ledger-recovery/native query-plan proof. Keep
+#62's remaining destructive race open.
+
+### Earlier published repairs and inventory
+
 **Latest continuation — #66 export failure handling ready:** current branch
 `branch/account-data-export` starts at `c05ed95`, carrying #65's published payload
 fence `c6302a0` / `93eba7a`. The ledger has 56 verified closeouts; five known

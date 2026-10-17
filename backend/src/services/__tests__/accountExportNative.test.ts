@@ -14,7 +14,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import type { ResultSetHeader } from 'mysql2';
-import { pool } from '../../db/connection.js';
+import { pool, mudPool } from '../../db/connection.js';
 import { getBackendConfiguration } from '../../config/environment.js';
 
 const port = Number(process.env.TEST_ACCOUNT_EXPORT_DB_PORT);
@@ -56,11 +56,10 @@ function download(body: Record<string, unknown> = { password }, account = subjec
 }
 
 async function seed(account: string, sid: string, category: number, marker: string) {
-  await pool.query('INSERT INTO accounts (account_name,password,email,blocked) VALUES (?,?,?,0)', [
-    account,
-    passwordHash,
-    `${marker}@example.invalid`,
-  ]);
+  await mudPool.query(
+    'INSERT INTO accounts (account_name,password,email,blocked) VALUES (?,?,?,0)',
+    [account, passwordHash, `${marker}@example.invalid`],
+  );
   await createWebSession(account, sid, `synthetic-refresh-${account}`);
   await pool.query('INSERT INTO user_profiles (account_name,bio,email,location) VALUES (?,?,?,?)', [
     account,
@@ -71,6 +70,15 @@ async function seed(account: string, sid: string, category: number, marker: stri
   await pool.query('INSERT INTO user_profile_stats (account_name,total_posts) VALUES (?,1)', [
     account,
   ]);
+  const character = 'E' + randomUUID().replaceAll('-', '').slice(0, 10);
+  const [player] = await mudPool.query<ResultSetHeader>(
+    'INSERT INTO player_data (name,account_name,level) VALUES (?,?,10)',
+    [character, account],
+  );
+  await mudPool.query(
+    'INSERT INTO account_characters (account_name,pid,char_name) VALUES (?,?,?)',
+    [account, player.insertId, character],
+  );
   const [thread] = await pool.query<ResultSetHeader>(
     'INSERT INTO forum_threads (category_id,author_account_name,title,content,ip_address) VALUES (?,?,?,?,?)',
     [category, account, forbidden, forbidden, '192.0.2.123'],
@@ -146,7 +154,11 @@ native('private account data export through the real route and database', () => 
   beforeAll(async () => {
     // A skipped native suite must not open Redis connections during import.
     redis = (await import('../../db/redis.js')).default;
-    ({ generateAccessToken } = await import('../../middleware/auth.js'));
+    const authentication = await import('../../middleware/auth.js');
+    ({ generateAccessToken } = authentication);
+    app.get('/fixture-auth', authentication.requireAuth, (req, res) => {
+      res.json({ role: req.user?.permissions.role });
+    });
     ({ createWebSession } = await import('../sessionService.js'));
     ({ parseAccountFile } = await import('../accountService.js'));
     ({ exportAccountData } = await import('../accountExportService.js'));
@@ -173,6 +185,7 @@ native('private account data export through the real route and database', () => 
   afterAll(async () => {
     // The owning runner drops its entire synthetic database and cache after this suite.
     await pool.end();
+    if (mudPool !== pool) await mudPool.end();
     redis?.disconnect();
   });
 
@@ -205,6 +218,69 @@ native('private account data export through the real route and database', () => 
     ])
       expect(response.text).not.toContain(value);
   });
+  it('uses MUD credentials and character permissions while keeping website profile data on the web database', async () => {
+    if (mudPool !== pool)
+      await pool.query('INSERT INTO accounts (account_name,password,blocked) VALUES (?,?,1)', [
+        subject,
+        'synthetic-wrong-web-authority',
+      ]);
+    await mudPool.query('UPDATE player_data SET level=62 WHERE account_name=?', [subject]);
+    await pool.query('UPDATE user_profiles SET avatar_url=? WHERE account_name=?', [
+      'https://assets.example.invalid/own-avatar.png',
+      subject,
+    ]);
+    const response = await request(app)
+      .get('/fixture-auth')
+      .set('Cookie', 'access_token=' + generateAccessToken(subject, '', session));
+    expect(response.status).toBe(200);
+    expect(response.body.role).toBe('overlord');
+    expect((await download()).status).toBe(200);
+    const account = await parseAccountFile(subject);
+    if (!account) throw new Error('Synthetic account authority was not found');
+    const { getFullUserContext } = await import('../permissionService.js');
+    const context = await getFullUserContext(subject, '', account.characters);
+    expect(context.characters).toHaveLength(1);
+    expect(context.permissions.role).toBe('overlord');
+    expect(context.avatarUrl).toBe('https://assets.example.invalid/own-avatar.png');
+  });
+  it('does not reenter the held website pool for fresh credential checks', async () => {
+    const nested = jest
+      .spyOn(pool, 'query')
+      .mockRejectedValue(new Error('Nested website pool query'));
+    await expect(exportAccountData(subject, session, { password })).resolves.toHaveProperty(
+      'payload',
+    );
+    expect(nested).not.toHaveBeenCalled();
+  });
+  it('destroys a failed credential connection instead of returning it to either pool', async () => {
+    const checkout = mudPool.getConnection.bind(mudPool);
+    const failure = new Error('Synthetic failed credential query');
+    let destroyed = false;
+    jest.spyOn(mudPool, 'getConnection').mockImplementation(async () => {
+      const connection = await checkout();
+      const destroy = connection.destroy.bind(connection);
+      connection.destroy = () => {
+        destroyed = true;
+        destroy();
+      };
+      return new Proxy(connection, {
+        get(target, key) {
+          if (key === 'query')
+            return async () => {
+              throw failure;
+            };
+          const value: unknown = Reflect.get(target, key, target);
+          return typeof value === 'function' ? value.bind(target) : value;
+        },
+      });
+    });
+    await expect(exportAccountData(subject, session, { password })).rejects.toBe(failure);
+    expect(destroyed).toBe(true);
+    jest.restoreAllMocks();
+    await expect(exportAccountData(subject, session, { password })).resolves.toHaveProperty(
+      'payload',
+    );
+  });
   it('accepts the same account with different letter case', async () => {
     expect((await download({ password }, subject.toUpperCase())).status).toBe(200);
   });
@@ -235,7 +311,10 @@ native('private account data export through the real route and database', () => 
   });
   it('uses current credentials even when normal account data was cached', async () => {
     await parseAccountFile(subject);
-    await pool.query('UPDATE accounts SET password=? WHERE account_name=?', [otherHash, subject]);
+    await mudPool.query('UPDATE accounts SET password=? WHERE account_name=?', [
+      otherHash,
+      subject,
+    ]);
     expect((await download()).status).toBe(401);
     expect((await download({ password: 'new-synthetic-password' })).status).toBe(200);
   });
@@ -254,11 +333,11 @@ native('private account data export through the real route and database', () => 
         if (change === 'revoked')
           await pool.query('DELETE FROM web_sessions WHERE id=?', [session]);
         else if (change === 'password-changed')
-          await pool.query('UPDATE accounts SET password=? WHERE account_name=?', [
+          await mudPool.query('UPDATE accounts SET password=? WHERE account_name=?', [
             otherHash,
             subject,
           ]);
-        else await pool.query('UPDATE accounts SET blocked=1 WHERE account_name=?', [subject]);
+        else await mudPool.query('UPDATE accounts SET blocked=1 WHERE account_name=?', [subject]);
       });
       const response = await download();
       expect(response.status).toBe(401);

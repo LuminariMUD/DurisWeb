@@ -32,8 +32,13 @@ The subject comes from authentication; a supplied account name or other extra
 field is rejected. Staff roles do not grant another subject's download. The
 limit is five attempts per account per 15 minutes per server process.
 
-Fresh verification reads current account credentials and session status directly
-from SQL, bypassing the ordinary account cache. Account comparisons preserve
+Fresh verification reads account credentials through the configured MUD database
+and session status through the website database, bypassing the ordinary account
+cache. Both shared and separate database modes are supported. Shared mode reuses
+the held website connection; separate mode borrows a MUD credential connection
+and destroys it after an uncertain query instead of returning it to the pool.
+Authentication's account/character lookups also use the MUD authority, while
+website profiles and sessions stay on the website pool. Account comparisons preserve
 case-insensitive identity while excluding accent/padding collation aliases.
 Blocked, expired, revoked, mismatched and legacy-password accounts are refused.
 After collecting the data, a fresh read checks that credentials, account state
