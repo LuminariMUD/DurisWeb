@@ -28,6 +28,32 @@ function staging(id = 2) {
   return directory;
 }
 describe('read-only legacy copy discovery', () => {
+  it('saves both full roots with worst-case escaped member names within a bounded output', async () => {
+    staging();
+    fs.writeFileSync(path.join(uploadRoot, 'backup-upload-123-456.zip'), 'synthetic');
+    const result = await inventoryLegacyBackupCopies(backupRoot, uploadRoot);
+    const staged = result.roots[0].copies[0],
+      upload = result.roots[1].copies[0];
+    result.roots[0].copies = Array.from({ length: 1000 }, (_, i) => ({
+      ...staged,
+      name: 'temp_staging_' + (i + 1),
+      sqlMember: { ...staged.sqlMember!, name: 'database/' + '\u0001'.repeat(251) + '.sql' },
+    }));
+    result.roots[1].copies = Array.from({ length: 1000 }, (_, i) => ({
+      ...upload,
+      name: 'backup-upload-123-' + i + '.' + '\u0001'.repeat(220),
+    }));
+    for (const root of result.roots) root.entriesSeen = 1000;
+    expect(Buffer.byteLength(JSON.stringify(result))).toBeGreaterThan(1024 * 1024);
+    const output = path.join(outputRoot, 'full.json');
+    writeLegacyBackupInventory(output, result, [backupRoot, uploadRoot]);
+    expect(
+      JSON.parse(fs.readFileSync(output, 'utf8')).roots.map(
+        (root: { copies: unknown[] }) => root.copies.length,
+      ),
+    ).toEqual([1000, 1000]);
+    expect(fs.statSync(output).size).toBeLessThan(4 * 1024 * 1024);
+  });
   it('writes partial evidence when the first root exhausts the shared budget', async () => {
     let clock = 0;
     jest.spyOn(performance, 'now').mockImplementation(() => clock);

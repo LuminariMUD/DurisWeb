@@ -39,6 +39,9 @@ separate hold-aware operation after a new archive completes.
 
 ## Private legacy-copy inventory
 
+Private evidence is bounded to 4 MiB, covering both 1,000-copy roots even with
+maximum-length filenames and worst-case JSON control-character escaping.
+
 All selected roots must pass canonical path, directory and physical/mount identity
 admission before the shared traversal budget starts. A timeout retains completed/
 partial observations; an unstarted admitted root records `time_budget` with its
@@ -92,7 +95,7 @@ names in the report. The package script silences dotenv's startup notice;
 
 Limits are 10,000 root entries and 1,000 recognized copies per root, a shared
 five-second cooperative budget checked through root and per-copy metadata
-traversal, and a 1 MiB output cap. Exactly 1,000 copies can complete, including
+traversal, and a 4 MiB output cap. Exactly 1,000 copies can complete, including
 trailing non-copy entries; a further recognized copy makes the scan incomplete.
 These are discovery limits, not a hard timeout on a stalled kernel I/O call.
 Selected roots can be tmpfs or other mounted storage; nested mount crossings
