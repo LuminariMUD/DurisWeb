@@ -31,6 +31,7 @@ const getConnection = jest.fn(async () => {
     query,
     execute: query,
     release: jest.fn(),
+    end: jest.fn(async () => {}),
     destroy: jest.fn(),
     beginTransaction: async () => {
       snapshot = new Map([...images].map(([id, row]) => [id, { ...row }]));
@@ -47,6 +48,8 @@ const getConnection = jest.fn(async () => {
     },
   };
 });
+const createConnection = jest.fn(getConnection.getMockImplementation()!);
+jest.unstable_mockModule('mysql2/promise', () => ({ default: { createConnection } }));
 jest.unstable_mockModule('../../db/connection.js', () => ({
   pool: { query, execute: query, getConnection },
 }));
@@ -83,6 +86,7 @@ beforeEach(() => {
   images.clear();
   warn.mockClear();
   getConnection.mockClear();
+  createConnection.mockClear();
   send.mockReset();
   query.mockReset();
   send.mockResolvedValue({ $metadata: { httpStatusCode: 204 } });

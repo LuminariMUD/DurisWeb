@@ -5,6 +5,7 @@ import { PRIVACY_CHOICE_PREFIX } from '../db/internalWebSettings.js';
 import { getBackendConfiguration } from '../config/environment.js';
 import { getPrivacyPolicy, privacyCollectionEnabled } from '../config/privacyPolicy.js';
 import logger from '../utils/logger.js';
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 
 const HEX = /^[a-f0-9]{64}$/;
 const DESCRIPTION = 'privacy choice v1';
@@ -18,9 +19,21 @@ export class PrivacyChoiceError extends Error {
   constructor(
     readonly status: 400 | 403 | 409 | 503,
     message: string,
+    readonly reference?: string,
   ) {
     super(message);
     this.name = 'PrivacyChoiceError';
+  }
+}
+class PrivacyStateError extends Error {
+  constructor(
+    readonly reason:
+      | 'invalid_choice'
+      | 'invalid_clock'
+      | 'nontransactional_privacy_storage'
+      | 'choice_missing',
+  ) {
+    super(reason);
   }
 }
 export interface PrivacyBrowserContext {
@@ -97,10 +110,15 @@ function parseChoice(row: RowDataPacket, key: string): Choice {
     Number(row.bytes) > LIMIT_BYTES ||
     Buffer.byteLength(row.value, 'utf8') > LIMIT_BYTES
   )
-    throw new Error('invalid_choice');
-  const parsed: unknown = JSON.parse(row.value);
+    throw new PrivacyStateError('invalid_choice');
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(row.value);
+  } catch {
+    throw new PrivacyStateError('invalid_choice');
+  }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
-    throw new Error('invalid_choice');
+    throw new PrivacyStateError('invalid_choice');
   const value = parsed as Record<string, unknown>;
   if (
     Object.keys(value).sort().join(',') !==
@@ -124,7 +142,7 @@ function parseChoice(row: RowDataPacket, key: string): Choice {
         value.credentialDigest === null ||
         value.expiresAtEpoch <= value.changedAtEpoch)
   )
-    throw new Error('invalid_choice');
+    throw new PrivacyStateError('invalid_choice');
   return value as unknown as Choice;
 }
 async function query<T extends RowDataPacket[] | ResultSetHeader = RowDataPacket[]>(
@@ -149,10 +167,31 @@ async function readChoice(
   );
   return rows.length ? parseChoice(rows[0], key) : null;
 }
+async function choiceIdentity(connection: PoolConnection, context: PrivacyBrowserContext) {
+  const key = browserKey(context);
+  const credential = parseCredential(context.receipt);
+  const choice = key ? await readChoice(connection, key, false) : null;
+  if (!credential || (choice && credentialMatches(choice, credential)))
+    return { key, choice, credential };
+  // A lost Set-Cookie must not strand a browser. An explicit later choice can
+  // use the same CSRF-bound identity already allowed when its receipt is absent.
+  // An invalid credential never authorizes the record it happens to name.
+  const fallbackKey = browserKey({ csrfToken: context.csrfToken, receipt: undefined });
+  return {
+    key: fallbackKey,
+    choice:
+      fallbackKey === key
+        ? choice
+        : fallbackKey
+          ? await readChoice(connection, fallbackKey, false)
+          : null,
+    credential: null,
+  };
+}
 async function databaseEpoch(connection: PoolConnection): Promise<number> {
   const [rows] = await query(connection, 'SELECT UNIX_TIMESTAMP() AS epoch');
   const epoch = Number(rows[0]?.epoch);
-  if (!integer(epoch)) throw new Error('invalid_clock');
+  if (!integer(epoch)) throw new PrivacyStateError('invalid_clock');
   return epoch;
 }
 async function checkTransactionalStorage(
@@ -174,7 +213,7 @@ async function checkTransactionalStorage(
   if (
     required.some((name) => !rows.some((row) => row.TABLE_NAME === name && row.ENGINE === 'InnoDB'))
   )
-    throw new Error('nontransactional_privacy_storage');
+    throw new PrivacyStateError('nontransactional_privacy_storage');
 }
 async function withConnection<T>(
   transactional: boolean,
@@ -183,26 +222,47 @@ async function withConnection<T>(
 ): Promise<T> {
   let connection: PoolConnection | undefined;
   let reusable = true;
+  const operation = !transactional ? 'status' : collection ? 'collect' : 'choice';
+  let stage = 'acquire';
   try {
     connection = await pool.getConnection();
     if (transactional) {
+      stage = 'begin';
       await connection.beginTransaction();
+      stage = 'validate_storage';
       await checkTransactionalStorage(connection, collection);
     }
+    stage = 'action';
     const result = await action(connection);
-    if (transactional) await connection.commit();
+    if (transactional) {
+      stage = 'commit';
+      await connection.commit();
+    }
     return result;
   } catch (error) {
+    let rollback = 'not_attempted';
+    let rollbackCode: string | undefined;
     if (connection && transactional) {
       try {
         await connection.rollback();
-      } catch {
+        rollback = 'completed';
+      } catch (rollbackError) {
         reusable = false;
+        rollback = 'failed';
+        rollbackCode = safeFailureCode(rollbackError);
       }
     }
-    if (error instanceof PrivacyChoiceError) throw error;
-    logger.warn('privacy_choice_storage_unavailable', { reference: crypto.randomUUID() });
-    throw new PrivacyChoiceError(503, 'Privacy choices are temporarily unavailable');
+    if (error instanceof PrivacyChoiceError && reusable) throw error;
+    const reference = crypto.randomUUID();
+    logger.warn('privacy_choice_storage_unavailable', {
+      reference,
+      operation,
+      stage,
+      code: error instanceof PrivacyStateError ? error.reason : safeFailureCode(error),
+      rollback,
+      ...(rollbackCode ? { rollbackCode } : {}),
+    });
+    throw new PrivacyChoiceError(503, 'Privacy choices are temporarily unavailable', reference);
   } finally {
     if (connection) {
       if (reusable) connection.release();
@@ -239,9 +299,17 @@ export async function getPrivacyChoice(
 ): Promise<PrivacyChoiceStatus> {
   const key = browserKey(context);
   if (!getPrivacyPolicy().approved || !key) return status(null, context, 0);
-  return withConnection(false, false, async (connection) =>
-    status(await readChoice(connection, key, false), context, await databaseEpoch(connection)),
-  );
+  return withConnection(false, false, async (connection) => {
+    const identity = await choiceIdentity(connection, context);
+    return status(
+      identity.choice,
+      {
+        ...context,
+        receipt: identity.credential ? context.receipt : undefined,
+      },
+      await databaseEpoch(connection),
+    );
+  });
 }
 
 /** Only an explicit same-origin CSRF action may call this mutation boundary. */
@@ -266,10 +334,12 @@ export async function recordPrivacyChoice(
     throw new PrivacyChoiceError(400, 'Invalid privacy choice');
   if (value.decision === 'accepted' && !privacyCollectionEnabled())
     throw new PrivacyChoiceError(409, 'Optional analytics is unavailable');
-  const key = browserKey(context);
-  if (!key || typeof context.csrfToken !== 'string' || !HEX.test(context.csrfToken))
+  if (typeof context.csrfToken !== 'string' || !HEX.test(context.csrfToken))
     throw new PrivacyChoiceError(403, 'Invalid privacy browser context');
   return withConnection(true, false, async (connection) => {
+    const identity = await choiceIdentity(connection, context);
+    const key = identity.key;
+    if (!key) throw new PrivacyChoiceError(403, 'Invalid privacy browser context');
     const now = await databaseEpoch(connection);
     const initial: Choice = {
       format: 1,
@@ -288,8 +358,8 @@ export async function recordPrivacyChoice(
       [PRIVACY_CHOICE_PREFIX + key, JSON.stringify(initial), DESCRIPTION],
     );
     const previous = await readChoice(connection, key, true);
-    if (!previous) throw new Error('choice_missing');
-    const credential = parseCredential(context.receipt);
+    if (!previous) throw new PrivacyStateError('choice_missing');
+    const credential = identity.credential;
     if (credential && !credentialMatches(previous, credential))
       throw new PrivacyChoiceError(403, 'Invalid privacy receipt');
     if (previous.revision !== value.revision)
