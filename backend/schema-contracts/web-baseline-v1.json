@@ -1,0 +1,648 @@
+{
+  "formatVersion": 1,
+  "baselineManifestSha256": "c09c88e4900209529d373f8173534e59203985c28fb554a09e0adde6a262181a",
+  "tables": {
+    "account_login_history": {
+      "mysql8": [
+        "a9999755fc213ccd46ebf5c5a550bbe7626ba1839e9abf3827bd4390d6995953"
+      ],
+      "mariadb11": [
+        "37abdca99151d97797d4cb07ff0a8d872bf1cc6b740c2edfc9a10b1fedd2efeb"
+      ]
+    },
+    "admin_permissions": {
+      "mysql8": [
+        "d4c5c1bf1df7e866b516f94f43b78a75e435d9001b8b684bf419409616e4d122"
+      ],
+      "mariadb11": [
+        "925cadedaf3ca892bd0759081201525199320cfbc87c52ad25a84881a79e503c"
+      ]
+    },
+    "admin_account_permissions": {
+      "mysql8": [
+        "91f8845eee016ca85ba0b6f97824c83273fdbe153e16a8800fa1e8b98ed1af0c"
+      ],
+      "mariadb11": [
+        "06225aa4955d1554b54fd5c0978cc0e30911a70f1b8fcb78e1267177c6f81a85"
+      ]
+    },
+    "admin_roles": {
+      "mysql8": [
+        "8fb769261b26db908c5d9db3df43d33ab72c51d4e022a51d6f4b99d36947736e"
+      ],
+      "mariadb11": [
+        "1e01d400cb304f7f9b69970afed1c16c17113a552c23debbb4d8aec12180e8c8"
+      ]
+    },
+    "admin_account_roles": {
+      "mysql8": [
+        "74a0633d2ed328823369c979a4a5a369bca1c27e272fe84ec9aa978dfe31bafd"
+      ],
+      "mariadb11": [
+        "2a72a0d9e09b4b8dca1963b0ddf48358ccf4df7b86e0850b1e8622f70ed7a2ad"
+      ]
+    },
+    "admin_action_log": {
+      "mysql8": [
+        "b293908c1b35af97731a73736886599574f2ddf89ecd36aab60b8c59748acf22"
+      ],
+      "mariadb11": [
+        "0e189a629a3737638583db775f6e75ba0d3fbdc6dac18c9b682659fbddda0224"
+      ]
+    },
+    "admin_permission_audit": {
+      "mysql8": [
+        "fb3666130f1615860a35a70a307adbc052960d0991d422ce6bd23b2f508da383"
+      ],
+      "mariadb11": [
+        "3bebd0494e4e29afbb45a6b0135c1e7054f2089014de7fec1c7c2c6e84106be9"
+      ]
+    },
+    "admin_role_permissions": {
+      "mysql8": [
+        "86044b1f43ba6c7ea11645b91cbd947efe4c943749fb5d7e637336b983675ce7"
+      ],
+      "mariadb11": [
+        "6ef2f4fe38633081eb0f2a1f7e1f8dee6b320c05631afd709d32472898c5e285"
+      ]
+    },
+    "builder_activity_log": {
+      "mysql8": [
+        "ffcfa0361989637041bd65f4058509f16dc0f766ce212dee4a055961724aad21"
+      ],
+      "mariadb11": [
+        "e933cfeb617d81f4506d3247ec8754079a6b9ae24f8ee55dd16a9a346bb05d3d"
+      ]
+    },
+    "builder_flags": {
+      "mysql8": [
+        "a17a6adcb84264a041daf92c50b1c7ed912abd739c8d664bab8deb18c336be97"
+      ],
+      "mariadb11": [
+        "a2dfd6969f5912b531abdbda994dd7bbd247e0d579b1e93112598d98cc24e85b"
+      ]
+    },
+    "builder_mentions": {
+      "mysql8": [
+        "255447b22ced2b25d783eb84705e6a0b06aec7fbd3324c1d553acfdfd01f25cf"
+      ],
+      "mariadb11": [
+        "90ec2571e2a7107ac363e8242a412fffb79601a4a65b168864b2dfbe5c7d77c4"
+      ]
+    },
+    "builder_proc_requests": {
+      "mysql8": [
+        "ff9ba102e8ff07f386c20e347f7752822b5de8654565ab25f8ca3477e2b81c00"
+      ],
+      "mariadb11": [
+        "831d96fc2c74afc3ccd625a0d5c311acbbdbaaa3262565a2b141cedaa6a3c409"
+      ]
+    },
+    "builder_settings": {
+      "mysql8": [
+        "44e5b669dc8c39a655c38b29ac8b09ff55107f73b5fcbff12301461f11d37e5e"
+      ],
+      "mariadb11": [
+        "c3dd63c26eced0dec0504acf77b0e40c8ae1b93d96776d90f22b1260ac28426b"
+      ]
+    },
+    "builder_zone_comments": {
+      "mysql8": [
+        "b8f2c5972a4afd6dc89156631a987c26f9b9f4ec048f501fe0e23833aa3aaba2"
+      ],
+      "mariadb11": [
+        "d7e0b1d50edb91db2e2515a5d809c2961d68d61e425189031b9a12de36269b2d"
+      ]
+    },
+    "builder_zone_info": {
+      "mysql8": [
+        "cace828bb041e0f98dfe9aa25227c82cb95dba8e8b8a8f6e47c25d0364342532"
+      ],
+      "mariadb11": [
+        "2afaa915dfd694c5d801b9d960a4a75fa26608cb9ece9c1175a5907a35d80334"
+      ]
+    },
+    "builder_zone_info_history": {
+      "mysql8": [
+        "96e9b34350de3c26b69456647085da6e4e75f72f4b5230c65c3a774dc6c95151"
+      ],
+      "mariadb11": [
+        "cfe59fde9dccc34270d010acbc4a7c8dcd960c948469b59a763181ef64aed986"
+      ]
+    },
+    "builder_zone_permissions": {
+      "mysql8": [
+        "8d293073a0ba4ecf97fb5953eaf7a8b55a0e91f939fd551ee845436ed217f77f"
+      ],
+      "mariadb11": [
+        "88109798cb24da635e2ea099770f7385fe774f5cfc34667509477aa62fadd28a"
+      ]
+    },
+    "deployment_log": {
+      "mysql8": [
+        "30541c495cff34364eccf81e2315ffeddf0886ee9bfa572784330f3d7862d1c7"
+      ],
+      "mariadb11": [
+        "9cbcd5237d8957ba62153a198c5394e83317301fa8b6f718ebf7ef0e463d644b"
+      ]
+    },
+    "donations": {
+      "mysql8": [
+        "5415945e508593e80c59a8f5fd9f274c6baa4480259847413f1677cc7299b18d"
+      ],
+      "mariadb11": [
+        "dcdce3d92471511fbfda064e39e80e0725aa77532b2eea2643e747303be0b543"
+      ]
+    },
+    "donation_outbox": {
+      "mysql8": [
+        "1d9e598a231a6407a680770f45d0cef87b456a9fae27a9408f84333aea603fed"
+      ],
+      "mariadb11": [
+        "d86592bf6bdd409c5431e525240caa33f406a4400bf36a20593504b4bfd47f25"
+      ]
+    },
+    "forum_categories": {
+      "mysql8": [
+        "4a4f49456957f0630fc0ffa1ba19a9e92585a107a559e6f5dbf346ce38b69d86"
+      ],
+      "mariadb11": [
+        "ba551a1beb97c098618cb2190926f4dd74a6e9e75a54c9c153d923b12738282e"
+      ]
+    },
+    "forum_category_permissions": {
+      "mysql8": [
+        "d977ca0ecb3e876660add03a001089ad25580d5c6409c582ba5fcece3d5c915d"
+      ],
+      "mariadb11": [
+        "4a1edc0bb7bb8f4a747df1867108a05ca7a0b54703bb958cbd11e826dfbe568b"
+      ]
+    },
+    "forum_mentions": {
+      "mysql8": [
+        "f2944fadacc35470cec4fc703f4324d6c46ba95766f1ddbb46837b6bcfaf89dc"
+      ],
+      "mariadb11": [
+        "73a1ac274e61bb1c9d894459887a00c3ff019cec2768a327644627855d48f329"
+      ]
+    },
+    "forum_moderation_log": {
+      "mysql8": [
+        "4f40bf89fd9bf5cadceb04f2327acf335a715d675c46c0d341b6790b2536ce40"
+      ],
+      "mariadb11": [
+        "700acb9684d6cfbd67226ac1e6800e32a1aec6569733eb2fec111a7722919541"
+      ]
+    },
+    "forum_permission_audit": {
+      "mysql8": [
+        "275672842e71d841ba9efcbc5cb8e923d4037936d0dee9154b0f12f42cdf7458"
+      ],
+      "mariadb11": [
+        "1bf3c33deb4fa0835a6758d1dd9ec3d036ea14f7cb11a1d27b7d42ed55e5f041"
+      ]
+    },
+    "forum_threads": {
+      "mysql8": [
+        "a7641b7233414a0460774d2054995ac290d8febe47b3c6b4b91a90b98cdf5a26"
+      ],
+      "mariadb11": [
+        "f7e436cfc12447daba4bf9b231ba6b02b93d2d80c380c1bbd9d1062329b53f06"
+      ]
+    },
+    "forum_polls": {
+      "mysql8": [
+        "c4c2914c9d90b2558487d0d017eac23b1e333a8fd168e854098ef00691c2f48f"
+      ],
+      "mariadb11": [
+        "9ea59eb3b0472f7fb834e922997e70bc90aff79c6d8d77ca8b6b1945882cb916"
+      ]
+    },
+    "forum_poll_options": {
+      "mysql8": [
+        "c91fd58b026cc74f449267baec640bac7360a35d119c35b4f9f5b8a0fa9f4835"
+      ],
+      "mariadb11": [
+        "8dd327c0049e20fac6afc3437cba73dbd5489932fedb384bc871297ed80440e4"
+      ]
+    },
+    "forum_poll_vote_history": {
+      "mysql8": [
+        "a1029b2657bf554ea0286b319d5cf4d682daaf6192865541f9a83ba4a0c1c239"
+      ],
+      "mariadb11": [
+        "340e374b7faf6b0cf9506c8b222347364a819e48a0b6382726c2f1c3df490101"
+      ]
+    },
+    "forum_poll_votes": {
+      "mysql8": [
+        "bc977de03b900ad932b17e1e45d944b69ce03349402302ebcc15980c2e5f3065"
+      ],
+      "mariadb11": [
+        "b6fdb340c0f8f71102cb664503e2cc94f7ab38b612d36d859e7898adfe5e4cfa"
+      ]
+    },
+    "forum_posts": {
+      "mysql8": [
+        "efc0d66b48040e5f19a35b560e244922824b455912169e298daba37296c0c8a3"
+      ],
+      "mariadb11": [
+        "45f64b8266acf38bbf28b753dc91698d38cc31aab07d562dfb370f368263528f"
+      ]
+    },
+    "forum_post_images": {
+      "mysql8": [
+        "857e9f0c3ff3c1b2052beffcce734ea3d9ce52a90a8639dbe7543a84344a95c2"
+      ],
+      "mariadb11": [
+        "a4389cd4ebb78d1008632a1a2e0a2c79efdd1fd4fc773f2aef2d50661a18d251"
+      ]
+    },
+    "forum_reactions": {
+      "mysql8": [
+        "8450538cd3bef068e39bf7e576c57e7dfb637581038970dcb0df387297968dc6"
+      ],
+      "mariadb11": [
+        "4249007b931af667727f0a76a81cdbccec59b1aa31702d228e75de65619c03e9"
+      ]
+    },
+    "forum_settings": {
+      "mysql8": [
+        "c298891777c06375c4941685d55ad69251ec22549e295d7203f6aafc7463ea41"
+      ],
+      "mariadb11": [
+        "f1eedef32db8b48c067c69edb9ce665a013672f171352d8bd531cb26bd28b913"
+      ]
+    },
+    "forum_subscriptions": {
+      "mysql8": [
+        "dfdef425b662775efa1f0348068334355d6205c2417b0102ab51d72122d5961e",
+        "cb1043f50347b955a40d4f45de6978d14f0068a77a1579f72a86e77b435ed880"
+      ],
+      "mariadb11": [
+        "33086cdeece839d65724d7756306c19ec0eb3e8dbcd54f1a3cd60d46b6b3f68a",
+        "424eb1a2182c6c77c009cdf345fe79dc89ac9c58c343e7780e1cc34e601d0f0d"
+      ]
+    },
+    "gemini_analysis_log": {
+      "mysql8": [
+        "f26bf3f55689bbed82eaf2dc9f473e1dee5a187dd967c6b6c5c66a8e4d46be9c"
+      ],
+      "mariadb11": [
+        "9d0ff701540ed02cfeed75cbe10da4fc37e5a47fc5cfe708c57ac97fe58d0ef0"
+      ]
+    },
+    "help_file_suggestions": {
+      "mysql8": [
+        "45884060fdb86ffa0c59595612a28a208dffd8544d94e91fe385bb668c953688"
+      ],
+      "mariadb11": [
+        "ae64faea6b1e0c72f2264b05152a92afa36f74c18281f65b5ab744f1f1427290"
+      ]
+    },
+    "mud_backups": {
+      "mysql8": [
+        "8f7ff3d91a3ffb8efd50f192b075b57008c2c0eed94503c11be127e75dc02585"
+      ],
+      "mariadb11": [
+        "737c33d135d0be20e0425837f5346a5c6026677ec1e5dd5f6348aa2da00371c7"
+      ]
+    },
+    "mud_control_log": {
+      "mysql8": [
+        "a6f5af90132e4ee53d988adea8c42e6f54343f1724e206f6b8d0fc8ec157fac9"
+      ],
+      "mariadb11": [
+        "fc0be3b5f6f48e76b0a54f9c45cfe8291a6da0ada0d2d26485edd1be19c0c257"
+      ]
+    },
+    "mud_process_state": {
+      "mysql8": [
+        "f683d2f7d09d608136dc2c744ec414446c9e837446890fe9182b304fc62c4ff1"
+      ],
+      "mariadb11": [
+        "4f16dac319adb438295cc396d2995910d9ebb48f33af5bf0fc74464b507b2e34"
+      ]
+    },
+    "mud_restores": {
+      "mysql8": [
+        "b7f2930ac1d92b3bd20f206864e1bf1cd395fbbbb747db1b49b6070e36663732"
+      ],
+      "mariadb11": [
+        "4d7f29c3d5e6d1d325cd10b65388f0ae297395183d2ac116eeada29768a7016a"
+      ]
+    },
+    "notifications": {
+      "mysql8": [
+        "7d55a1f16d13202b8c20ed2042ba70692ac5f088c6245e538ecf76a731368328"
+      ],
+      "mariadb11": [
+        "28c9bafd016b5b5adf09d25ad4e770f8f3c7aa405c1f637a99d1377fe91a7636"
+      ]
+    },
+    "page_views": {
+      "mysql8": [
+        "1c87cc13c7cc1950dc1bbbeb35b20ea08d8f01d6247979ee0138cd7530006792"
+      ],
+      "mariadb11": [
+        "e17107fa51d027c34b664fbc1199cd1f7827afee9ce74d7628e3222610a898f2"
+      ]
+    },
+    "push_subscriptions": {
+      "mysql8": [
+        "3925eac794e5d4c2105df722b45f1030e09ae20e286e29a0f668e240b297327c"
+      ],
+      "mariadb11": [
+        "654f3bba2897b732f7164374ebf6fa9ce42a32061958d696c1dfa9e416df003c"
+      ]
+    },
+    "pvp_battle_comments": {
+      "mysql8": [
+        "4e79864f8aeb471dc7018114fee44821f58fdb9d1376d09fd37c89745b7f49b0"
+      ],
+      "mariadb11": [
+        "8bed59b0f812f3fdf8438d647bf0e23ca11a75333f605e3814b1da0fab311f76"
+      ]
+    },
+    "pvp_battle_favorites": {
+      "mysql8": [
+        "3e7f448bcaa2a5a8f72101bcfe96b3aa740fc822e36d4dd825c276b5241e79a4"
+      ],
+      "mariadb11": [
+        "18f56f195054df89151ae225b0de7622560d8c3cf346d8102bed5519be379c21"
+      ]
+    },
+    "pvp_battle_likes": {
+      "mysql8": [
+        "93ce33a5642199a0e2d6c459b5d2cfce494fc5f3b7fe294e47933115c2c775ff"
+      ],
+      "mariadb11": [
+        "614a63f0ad80685d6198e1fa299eb7cc62e497064209176a221106f4fb54b1e7"
+      ]
+    },
+    "server_health_metrics": {
+      "mysql8": [
+        "47196d47a92883b454c1cd39629953d30528a2da4b992dda8cdf146528afbd02"
+      ],
+      "mariadb11": [
+        "82e7f354de55b994db05ab2d5eff73f7a62c6fface38e6df08d39858f88db3a9"
+      ]
+    },
+    "server_incidents": {
+      "mysql8": [
+        "236631a88c109fcb25265f5a93537529858eebf679266eb8263129048e43d130"
+      ],
+      "mariadb11": [
+        "9cfa86960a9044c507cf9e55c0a64b36f67b1f71ccaf3eec15e34a7933573262"
+      ]
+    },
+    "suspicious_accounts": {
+      "mysql8": [
+        "d8aff64c4e366fc1027100e3f569496c075bbfe184cc696e0f49be39662d5068"
+      ],
+      "mariadb11": [
+        "97df86affe500956e142cee5bc82fe1a1cf01cf7849209413ec2dc0575834eca"
+      ]
+    },
+    "terminal_sessions": {
+      "mysql8": [
+        "7169d93ee687b04de53014f8cededa85639d63d6e4318aed7064ac011c33d84a"
+      ],
+      "mariadb11": [
+        "fc4dcb4e62f3aa49a831f3a47aa2c9f9e0cc4c7baaad9a24c9d820d8d979e59a"
+      ]
+    },
+    "terminal_logs": {
+      "mysql8": [
+        "62c0c29af84b290e763fd3078cf5db2bfaf708522b16568479adb743310cee13"
+      ],
+      "mariadb11": [
+        "0a63b988e513d39e25d802b37e836ee31118feb601615317146269614dabbce0"
+      ]
+    },
+    "user_profiles": {
+      "mysql8": [
+        "2c03b61ebcb7d274e86fbb763e488d0f619f6ac7db4edd48982d283a139090ea"
+      ],
+      "mariadb11": [
+        "29c189793123f09256d2d489af9e7e18c5fbfad5c9a1410fe25aadb1753ef01e"
+      ]
+    },
+    "user_bans": {
+      "mysql8": [
+        "d174ada44e5106bcc62f4f6202a139073beb20e38ed0fc7acb7b0f9d4c5c0bf0"
+      ],
+      "mariadb11": [
+        "5e5310451cdb3b3b583cbae4bca4208908798c4c308de4f99b240b5b49547ed1"
+      ]
+    },
+    "user_profile_stats": {
+      "mysql8": [
+        "94e1cd9ac87f5905df5aa7f3f06a284eae24cb544fd2ca133525d56358f16365"
+      ],
+      "mariadb11": [
+        "b9f56731154208963eb450b5a1a0fcadf75572ea9a34a0535e42f09896cf4587"
+      ]
+    },
+    "visitor_sessions": {
+      "mysql8": [
+        "a67de48fe5f2afc076966f8677e969ca2edc75c63a3a75f45d12764bf2680339"
+      ],
+      "mariadb11": [
+        "2e6172a0339794987c90184d82fa1198469c956d96087ff75c82449ed52127a6"
+      ]
+    },
+    "web_donation_totals": {
+      "mysql8": [
+        "9c7b96e8680144105933a8097622b5cc635e04d484a496c1a064ea7c134d486d"
+      ],
+      "mariadb11": [
+        "1e2c9f7136f5fda7964fe1c6bcb17fbfc194d7158dad6d2eab41db78ca35a688"
+      ]
+    },
+    "web_pvp_discord_deliveries": {
+      "mysql8": [
+        "b66bb3abe0132dc87fde126b2845fa6fdc65fe5a8a703bf8524679023fd0c042"
+      ],
+      "mariadb11": [
+        "8b047f4d74d3817a2df1edf51039b20fb7dc9b8dc007ddc0d5408388a45762a6"
+      ]
+    },
+    "web_pvp_discord_destinations": {
+      "mysql8": [
+        "8d9b0190a40e432f0adbaad0ebee4700c967b73015a22ec519f5ec84890a126e"
+      ],
+      "mariadb11": [
+        "2648ac65e9d033f391a0e38a6f0b7ce11b1bc94f9afd452233287a4856e1a317"
+      ]
+    },
+    "web_sessions": {
+      "mysql8": [
+        "764bb84fbaf1dc1f983641ce3b35aa38f6a288c38c8d40f6696a8c2ac5b750e6"
+      ],
+      "mariadb11": [
+        "a8fb50167f6073e9b00d63f6f92038b1aae0b01e89587c0f5fa97d37a76c858a"
+      ]
+    },
+    "web_settings": {
+      "mysql8": [
+        "55a2ed2328ad672b80e0985e4543990d986e5045344737bb7efcf79ad5d2020d"
+      ],
+      "mariadb11": [
+        "04e0c6c32d553fbfccd34fd3c499d6513550738ae3823fccf3b612f398869540"
+      ]
+    },
+    "website_changelog": {
+      "mysql8": [
+        "a1c9eabbb17ccbf5f00884bc87a12fcb9de4531890781accd73bfa629776b941"
+      ],
+      "mariadb11": [
+        "270a43391f19d2d98ca3954a7ebf2b10da7caa33063a3ada89c89a28ce77b6a6"
+      ]
+    },
+    "website_changelog_reads": {
+      "mysql8": [
+        "1da8561a8c60a4d5c20520810de491c6c740ed842c0959739449dcd422245de6"
+      ],
+      "mariadb11": [
+        "d305c54c162c334a4006df68b77100e75f90dd25692d667dc0ab600ca590905b"
+      ]
+    },
+    "wiki_continents": {
+      "mysql8": [
+        "20f9696aceef1673d6cabdbdf407e811418e731be1496674f1d264a6a10354f4"
+      ],
+      "mariadb11": [
+        "c503058d6c37b1ac2b1e843cf02136b4ae531cfea3001ca1d106bd1162345b07"
+      ]
+    },
+    "wiki_map_positions": {
+      "mysql8": [
+        "4e18c6bc0ecac54fea8f1d7fb16aed81748540e204889b6d35314af6cbd9ca77"
+      ],
+      "mariadb11": [
+        "5640341b10d929bd8737ed56ce41f0d770feb13794d62b2fe9d8ea8639e609d7"
+      ]
+    },
+    "wiki_mobs": {
+      "mysql8": [
+        "56f18a0952e5bcc8bac127805903af2f473c81883861cb149f5d7578fd19a492"
+      ],
+      "mariadb11": [
+        "98385e7a9356fe82fa1048f3d276618358549fa77220e42a5578285bb10d2954"
+      ]
+    },
+    "wiki_mob_flags": {
+      "mysql8": [
+        "2224209572b7276177828685a0ddfa12ecbfea55a7384d9020bf010d6942bc2d"
+      ],
+      "mariadb11": [
+        "93d4d72f9634cc57a32c057fd4e8e4adac2bda128c1d285d195b12a4cb5c4226"
+      ]
+    },
+    "wiki_objects": {
+      "mysql8": [
+        "472ae56f754346367be9f6b7fb9b2b014d52bb5575539c7cbcb26f0935b41fdb"
+      ],
+      "mariadb11": [
+        "4af331fb2025ffb969754c0b7ae2eca21a7da688c1fec3efae9944c138fa33dd"
+      ]
+    },
+    "wiki_object_affects": {
+      "mysql8": [
+        "3d0aae3467ef5d689413079027e93c27b2fdc7129384d8724955a6398d26acbf"
+      ],
+      "mariadb11": [
+        "9b299da321a5d23ce48b8a28132727db21adbc32c13a5b34555c485104a7f453"
+      ]
+    },
+    "wiki_object_classes": {
+      "mysql8": [
+        "127971a9ee89b5330f1e33ce90001d5fc66c81b2c13e5f6e6f9ed2ccd462f0d7"
+      ],
+      "mariadb11": [
+        "5585fde5d1754a0127f778e87b7b3affd1ac2f4056fa90b14ed12b6cff669e18"
+      ]
+    },
+    "wiki_object_races": {
+      "mysql8": [
+        "edfc376d6696bdc38b5b9375dc2de25bc07c234652d51cc5c519e7e46e9cd2c8"
+      ],
+      "mariadb11": [
+        "5caca6d350e106e50a7dd37bd135f2fa6c6b922459a5fe9c7395ad89c8ef793f"
+      ]
+    },
+    "wiki_object_slots": {
+      "mysql8": [
+        "45eaa0875529bafdd613b5442f0876dbab48e765abd12a2fb27b3ae63e7fee31"
+      ],
+      "mariadb11": [
+        "3e80b6bdef1f9a132a9d81df8abb151aaef657757faacf455d90c8b77578bdf9"
+      ]
+    },
+    "wiki_object_spell_effects": {
+      "mysql8": [
+        "e1df5169e92fe41ba91a8da4fcb884c8fc37bd4d5736151b45b7d11cee30c15b"
+      ],
+      "mariadb11": [
+        "084dd6830058e60f1d7bfbc9d1dd56b7d281e62ff18e8fd6cb3ab09895c5d0ca"
+      ]
+    },
+    "wiki_reference_generations": {
+      "mysql8": [
+        "c135aef66f0a3dcc47915417cc8278f76926b8054ee62a1881917e31a51c8e13"
+      ],
+      "mariadb11": [
+        "81661ae279f1a0669b3aabb55901ce99b8b9af085ad390ad7aab1089a143eecf"
+      ]
+    },
+    "wiki_settings": {
+      "mysql8": [
+        "bf5a73cb7074784fc457bfc278f41a0973cab276b40f3b770610d56998699709"
+      ],
+      "mariadb11": [
+        "407515b363b3b30cd02d4b494949c290c517cc8a725c145dc29259594a70773d"
+      ]
+    },
+    "wiki_zone_entrances": {
+      "mysql8": [
+        "9b38620872a154b717aeb5ad69b2c33b18f16215d91bd2530f9dc406c4582e9c"
+      ],
+      "mariadb11": [
+        "6f1d58bd0a59529a47a552add996a60f475a155ad8b473c0dc5b3f5a2fbeb2ce"
+      ]
+    },
+    "wipe_history": {
+      "mysql8": [
+        "5157fe32133992662f6068df16d77f80eda5136cfe5ea5310a5fb29e84f3be6a"
+      ],
+      "mariadb11": [
+        "e1adf148cc4a58c6c17b1cc70b1c611a30968e7aa88162deeda18c0fb2d41bfa"
+      ]
+    },
+    "web_schema_baselines": {
+      "mysql8": [
+        "7830776590bf30d8aa19131bd74c6e11feef0d3efc64b1b3b737f4feff584823"
+      ],
+      "mariadb11": [
+        "27fa3f147f7a0c041a18c8e9d9efa7bc956035f7abb5d4d5914da8c031eb6c5d"
+      ]
+    },
+    "knex_migrations": {
+      "mysql8": [
+        "098791a2069f38638ecf3518ec14102255ab02ad7914dea17cca9bdd0aae1041"
+      ],
+      "mariadb11": [
+        "8f26187c41c3eef14e227f171bca63d1215b3784e4ee6c2128b14c4d6446f71d"
+      ]
+    },
+    "knex_migrations_lock": {
+      "mysql8": [
+        "519d22bce9f3d84cab44f87d73780b4ed4baf2b2e230a94cc562344ab8378a31"
+      ],
+      "mariadb11": [
+        "57c4441d9255e90f2538febd2ab79d2026a5e61b361fc72f88d6990b985a3e0a"
+      ]
+    }
+  }
+}

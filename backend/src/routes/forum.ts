@@ -535,6 +535,7 @@ router.get(
     param('id').isInt().withMessage('Thread ID must be an integer'),
     query('page').optional().isInt({ min: 1 }).withMessage('Page must be >= 1'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be 1-100'),
+    query('postId').optional().isInt({ min: 1, max: Number.MAX_SAFE_INTEGER }),
   ],
   async (req: Request, res: Response) => {
     try {
@@ -563,7 +564,9 @@ router.get(
 
       // Get posts
       const accountName = req.user?.accountName || '';
-      const postsResult = await getPostsByThread(threadId, accountName, page, limit, permissions);
+      const postsResult = await getPostsByThread(threadId, accountName, page, limit, permissions, {
+        targetPostId: req.query.postId === undefined ? undefined : Number(req.query.postId),
+      });
 
       // Check subscription status (anonymous users are never subscribed)
       const isSubscribed = req.user
@@ -582,7 +585,7 @@ router.get(
         posts: postsResult.posts,
         isSubscribed,
         pagination: {
-          page,
+          page: postsResult.page,
           limit,
           total: postsResult.total,
           pages: Math.ceil(postsResult.total / limit),

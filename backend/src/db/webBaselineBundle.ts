@@ -318,6 +318,8 @@ export function loadWebForwardSchemas(
     );
     if (
       !isRecord(contract) ||
+      contract.formatVersion !== 1 ||
+      contract.fingerprint !== 'information_schema_v1' ||
       !isDigest(contract.sha256) ||
       contract.sha256 !== sha256(fs.readFileSync(path.join(directory, name))) ||
       !isRecord(contract.tables)

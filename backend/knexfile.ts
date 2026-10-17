@@ -10,6 +10,8 @@ const connection: Knex.MySql2ConnectionConfig = {
 };
 
 const migrations: Knex.MigratorConfig = {
+  // Knex discards a custom migrationSource when directory/loadExtensions are
+  // supplied. WebMigrationSource owns discovery and baseline safety checks.
   tableName: 'knex_migrations',
   extension: 'ts',
   migrationSource: new WebMigrationSource(environment.database),

@@ -76,6 +76,8 @@ describe('immutable website schema inputs', () => {
         fs.writeFileSync(
           path.join(migrations, name.replace('.ts', '.schema.json')),
           JSON.stringify({
+            formatVersion: 1,
+            fingerprint: 'information_schema_v1',
             sha256: sha256(fs.readFileSync(path.join(migrations, name))),
             tables: {},
           }),
@@ -136,7 +138,7 @@ describe('immutable website schema inputs', () => {
       const { directory } = copyBundle();
       const root = path.join(directory, 'backend');
       fs.mkdirSync(root);
-      for (const name of ['src', 'migrations', 'schema-baselines']) {
+      for (const name of ['src', 'migrations', 'schema-baselines', 'schema-contracts']) {
         fs.cpSync(path.join(backendRoot, name), path.join(root, name), { recursive: true });
       }
       for (const name of ['package.json', 'mud-write-allowlist.json']) {
@@ -181,7 +183,15 @@ describe('immutable website schema inputs', () => {
     const bundle = loadWebBaselineBundle();
     expect(() => loadWebForwardSchemas(bundle, directory)).toThrow(/ENOENT/);
     const save = (tables: unknown, digest = sha256('// future migration')) =>
-      fs.writeFileSync(contract, JSON.stringify({ sha256: digest, tables }));
+      fs.writeFileSync(
+        contract,
+        JSON.stringify({
+          formatVersion: 1,
+          fingerprint: 'information_schema_v1',
+          sha256: digest,
+          tables,
+        }),
+      );
     save({}, 'a'.repeat(64));
     expect(() => loadWebForwardSchemas(bundle, directory)).toThrow(/source checksum/);
     for (const table of [
