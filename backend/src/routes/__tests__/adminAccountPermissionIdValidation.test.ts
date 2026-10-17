@@ -145,9 +145,7 @@ jest.unstable_mockModule('../../services/backupService.js', () =>
     'getRestoreById',
     'getRestoreList',
     'isMudRunning',
-    'validateUploadedBackup',
     'createRestoreFromUpload',
-    'deleteUploadedBackup',
   ]),
 );
 jest.unstable_mockModule('../../services/mudTimeService.js', () =>
@@ -507,29 +505,53 @@ describe('admin account permission ID validation', () => {
     },
   );
 
-  it.each(['/backup/restore', '/backup/upload/restore'])(
-    'retains authentication and backup permission checks for unavailable %s',
-    async (route) => {
-      authenticated = false;
-      expect(
-        (
-          await request(app)
-            .post('/api/admin' + route)
-            .send({})
-        ).status,
-      ).toBe(401);
-      expect(permissionChecks).toHaveLength(0);
-      authenticated = true;
-      authorized = false;
-      expect(
-        (
-          await request(app)
-            .post('/api/admin' + route)
-            .send({})
-        ).status,
-      ).toBe(403);
-      expect(permissionChecks).toEqual(['manage_mud_backup']);
-      expect(poolQuery).not.toHaveBeenCalled();
-    },
-  );
+  it.each([
+    '/backup/restore',
+    '/backup/upload/restore',
+    '/backup/upload',
+    '/backup/upload/recover',
+  ])('retains authentication and backup permission checks for unavailable %s', async (route) => {
+    authenticated = false;
+    expect(
+      (
+        await request(app)
+          .post('/api/admin' + route)
+          .send({})
+      ).status,
+    ).toBe(401);
+    expect(permissionChecks).toHaveLength(0);
+    authenticated = true;
+    authorized = false;
+    expect(
+      (
+        await request(app)
+          .post('/api/admin' + route)
+          .send({})
+      ).status,
+    ).toBe(403);
+    expect(permissionChecks).toEqual(['manage_mud_backup']);
+    expect(poolQuery).not.toHaveBeenCalled();
+  });
+  it('checks authentication and backup permission before upload cancellation', async () => {
+    authenticated = false;
+    expect(
+      (
+        await request(app)
+          .delete('/api/admin/backup/upload/cancel')
+          .send({ tempPath: '/private-sentinel' })
+      ).status,
+    ).toBe(401);
+    expect(permissionChecks).toHaveLength(0);
+    authenticated = true;
+    authorized = false;
+    expect(
+      (
+        await request(app)
+          .delete('/api/admin/backup/upload/cancel')
+          .send({ tempPath: '/private-sentinel' })
+      ).status,
+    ).toBe(403);
+    expect(permissionChecks).toEqual(['manage_mud_backup']);
+    expect(poolQuery).not.toHaveBeenCalled();
+  });
 });

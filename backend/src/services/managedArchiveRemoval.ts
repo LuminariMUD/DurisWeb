@@ -81,6 +81,21 @@ function contracts() {
     holds: loadDataHoldContract(),
   };
 }
+/** Reuse the same short storage/control/schema boundary for registered upload transitions. */
+export async function withManagedArchiveControl<T>(
+  action: (database: Connection) => Promise<T>,
+): Promise<T> {
+  const expected = contracts();
+  const database = await open();
+  try {
+    return await transaction(database, async () => {
+      await verifySchema(database, expected);
+      return action(database);
+    });
+  } finally {
+    database.destroy();
+  }
+}
 async function verifySchema(
   connection: Connection,
   expected: ReturnType<typeof contracts>,

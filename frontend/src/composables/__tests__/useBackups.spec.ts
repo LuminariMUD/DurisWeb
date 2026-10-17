@@ -13,6 +13,7 @@ vi.mock('@/services/api', () => ({
     createRestore: vi.fn(),
     createRestoreFromUpload: vi.fn(),
     getBackupDownloadUrl: vi.fn(),
+    uploadBackup: vi.fn(),
   },
 }))
 
@@ -45,6 +46,45 @@ vi.mock('../useWebSocket', () => ({
     offRestoreProgress: vi.fn(),
   }),
 }))
+
+describe('durable upload acknowledgement', () => {
+  it.each([false, true])('refreshes retained work after upload failure=%s', async (fail) => {
+    const { backups, client, wrapper } = mountBackups()
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+    const result = {
+      success: true,
+      tempPath: '82b972d4-285c-4664-b7e0-c46dfe015c92',
+      contents: { accounts: [], characters: [] },
+    }
+    try {
+      if (fail) vi.mocked(adminApi.uploadBackup).mockRejectedValueOnce(new Error('Retained upload'))
+      else vi.mocked(adminApi.uploadBackup).mockResolvedValueOnce(result)
+      const outcome = backups.uploadBackup(new File(['fixture'], 'fixture.zip'))
+      const settled = await outcome.catch((error: unknown) => error)
+      expect(settled).toEqual(fail ? new Error('Retained upload') : result)
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ['backups'] })
+    } finally {
+      wrapper.unmount()
+      client.clear()
+    }
+  })
+  it('refuses a filesystem path returned as an upload acknowledgement', async () => {
+    const { backups, client, wrapper } = mountBackups()
+    try {
+      vi.mocked(adminApi.uploadBackup).mockResolvedValueOnce({
+        success: true,
+        tempPath: '/tmp/obsolete-upload.zip',
+        contents: { accounts: [], characters: [] },
+      })
+      await expect(backups.uploadBackup(new File(['fixture'], 'fixture.zip'))).rejects.toThrow(
+        'Upload was not confirmed',
+      )
+    } finally {
+      wrapper.unmount()
+      client.clear()
+    }
+  })
+})
 
 describe('backup deletion acknowledgement', () => {
   it.each([false, true])(

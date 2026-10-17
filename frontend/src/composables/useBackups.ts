@@ -95,7 +95,18 @@ export function useBackups() {
   // Mutation for uploading backup
   const uploadBackupMutation = useMutation({
     mutationFn: async (file: File) => {
-      return await adminApi.uploadBackup(file)
+      const result = await adminApi.uploadBackup(file)
+      if (
+        result?.success !== true ||
+        !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(
+          result.tempPath,
+        )
+      )
+        throw new Error('Upload was not confirmed. Refresh retained work before retrying.')
+      return result
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['backups'] })
     },
   })
 

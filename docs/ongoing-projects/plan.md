@@ -45,8 +45,10 @@ Prerequisite `branch/schema-trigger-authority` starts at #59's final
 published for review as [PR #60](https://github.com/LuminariMUD/DurisWeb/pull/60),
 stacked on #59. New archive creation now streams without raw SQL/staging disk
 copies in [PR #61](https://github.com/LuminariMUD/DurisWeb/pull/61), on
-`branch/stream-backup-archives`, stacked on #60. Durable uploads and existing
-legacy temporary-file discovery/adoption remain next.
+`branch/stream-backup-archives`, stacked on #60. Durable upload ownership,
+writer recovery, bounded inspection and hold-aware cancellation are qualified
+on `branch/backup-upload-records`, awaiting focused PR publication. Existing
+legacy temporary-file discovery/adoption remains next.
 Install metadata function v2 before bootstrap/migrations;
 source does not accept v1 as an equivalent fallback.
 Next: remaining P6 cleanup/copy/restore
@@ -79,6 +81,122 @@ outside this request. Keep this single evolving execution plan current.
 
 ## Execution record and continuation
 
+- **P6d2b2b durable uploads (2026-10-17, qualified; publication pending):** branch
+  `branch/backup-upload-records` starts at #61 `0bc2641`. Outcome: persist upload
+  ownership and writer identity before accepting bytes, write exclusive private
+  ZIPs under the configured persistent backup root, close/fence writers before
+  cleanup, use the managed hold-aware remover for every cancellation/rejection,
+  keep unknown outcomes retryable after restart, and bound untrusted inspection
+  outside the website process. Actor checks apply to opaque references, never
+  client filesystem paths. Non-goals: enabling restore/global enforcement,
+  inventing retention periods, dropping legacy files, deployment or MUD writes.
+  Files: existing backup rows plus private settings receipt, controlled Multer
+  storage, managed-removal receipt lookup, isolated inspector/shared pure parser,
+  API/client recovery handling, focused/native/browser tests and docs/plan.
+  Proof: multipart success/truncation/abort/invalid/budget paths, wrong actor and
+  old path refusal, real file/SQL/hold/restart/unknown-ack cases on both engines,
+  bounded child failure, UI retained-work flows and affected package gates.
+- **P6d2b2b ablation:** uploads are managed ZIPs, so reuse `mud_backups`, the
+  existing root, private settings storage, retention-control lock and one-shot
+  remover instead of adding another queue/table/unlink protocol. An explicit
+  filename marker distinguishes uploads and excludes them from existing manual
+  count pruning; no age policy is inferred. Add only an O(1) per-backup receipt
+  link for truthful cancellation replay and a writer receipt for interrupted
+  receiving/inspection. Ordinary settings never expose those private receipts.
+  The existing restore refusal stays unconditional. Budget-exhausted inspection
+  means unconfirmed/review-required, not invalid or safe to discard.
+- **P6d2b2b implementation:** private `backup-upload-v1:` receipts and marked
+  existing backup rows are committed before bytes; the request holds no cleanup
+  authority in a client path. The compatibility `tempPath` response/body contains
+  only the upload UUID. Files are exclusive 0600 under persistent `BACKUP_DIR`.
+  Multer never unlinks; cancellation and known-invalid/oversized rejection use
+  the existing managed remover. An exact completed receipt link is required
+  for cancellation replay, not merely missing SQL/file state. A replaced index
+  must match a terminal failed prior receipt; dangling/invalid history refuses
+  admission. Generic settings hide both internal namespaces and collation aliases.
+  Marked uploads do not participate in ordinary manual/hourly count pruning.
+  Owner/overlord controls apply to list/status/contents/download/cancel/recover;
+  closed uploads can be downloaded or cancelled after reload. Restore is still
+  unavailable and no new expiry period is invented.
+- **Writer/inspection boundary:** close/flush/directory sync precede the
+  inspection checkpoint. Receiving recovery requires proven old writer exit;
+  inspection recovery can close the already fenced writer immediately. Neither
+  age nor missing bytes proves a live writer stopped. Phase comparisons prevent
+  a late inspector from overwriting recovery. File/root physical hashes must
+  still match. Untrusted ZIP/SQL inspection runs in a credential-free read-only
+  child with no extraction/SQL, 192 MiB V8 heap, 15-second own/16-second parent
+  deadlines, 10,000 entries, 64 MiB SQL, 5,000 account/character items each and
+  256 KiB summary limits. Budget/parser/storage uncertainty is review-required
+  and retained. This validates a supported format/summary, never restore safety.
+  Pure SQL parsing is moved once and shared with existing parser consumers;
+  obsolete OS-temp uploader/path/deletion APIs and their mocks are removed.
+- **Limit-race repair found during qualification:** actual small-limit Multer
+  truncation can occur while durable registration awaits SQL. The storage
+  listener now attaches synchronously before that await. Multer retains one
+  excess byte to distinguish exactly-at-limit from oversized; the bounded receipt
+  permits that byte and closes the truncated writer accurately. A 128-byte
+  native test threshold verifies the actual path with 129 retained bytes and
+  hold-aware refusal; it is not a claim of transferring a 500 MiB fixture.
+  Production keeps the existing 500 MiB limit and permits only one file/part,
+  without text fields. Real HTTP disconnect closes its writer and retains bytes.
+- **P6d2b2b exact qualification:** `TEST_BACKUP_DB_PORTS=23436,23437 node
+  --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-archive-suite.mts 23436` expands to
+  `pnpm --dir backend test --runInBand`: **1,330 pass / 137 suites**, 53 optional
+  native skips / 4 whole suites, on the full verified owner/baseline/92-migration/
+  metadata-v2 fixture. Final one-part limiting and the new dangling-link case
+  are covered by the subsequent final targeted matrices:
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-archive-suite.mts 23436 upload-only` passes **17 / 2**;
+  the same command with `23437 upload-archive` passes **52 / 6**, including the
+  existing actual removal/worker/identity/hold suite. The runners use only owned
+  MySQL 23436/MariaDB 23437 and Redis 23479 DB13/14, preserve MUD fingerprints
+  (`403c2a…d23`, `995f0c…e2e2`), and pass configuration/dependency preflights
+  before/after with all temporary SQL/users/files cleaned. SQL/retention flags
+  remain false. See the earlier fixture identity record for complete hashes.
+  Final `pnpm --dir backend test --runInBand
+  src/routes/__tests__/adminAccountPermissionIdValidation.test.ts
+  src/services/__tests__/backupUploadPath.test.ts` passes **24 / 2** after stale
+  mocks are removed. Native cases cover all four hold scopes, wrong owner,
+  receiving/restart/recovery, implicit multipart-error cleanup, truncation/abort,
+  malformed/budget outcomes, changed identity, count-pruning exclusion, unknown
+  registration COMMIT and missing/dangling receipt refusal. Request identity
+  alone is a fixture; native handlers do not establish real JWT/CSRF acceptance.
+- **Package and browser proof:** `python3 /tmp/durisweb-image-quality.py backend`
+  runs format:check/lint/type-check/verify:mud-writes/schema:check/build, all pass
+  (53 classified MUD writes; unchanged 77-table/85-source baseline). Frontend
+  equivalent runs format:check/lint/type-check/config:check/palette/unit/build,
+  all pass, **299 tests / 58 files**. Registry/link checks and whitespace pass.
+  `node /tmp/durisweb-upload-compiled-probe.mjs` exercises the built inspector/
+  worker against a real private ZIP without a TS loader/application environment.
+  Browser plugin is unavailable; existing Playwright Chromium at loopback
+  `127.0.0.1:25477`, desktop 1440x1000 and phone 390x844, verifies pending
+  acknowledgement, recovery after reload, held cancellation/no false success,
+  same-UUID retry, uncertain upload list refresh, CSRF header, page identity,
+  content/overlay/console and viewport. `node
+  /tmp/durisweb-upload-recovery-browser.mjs` passes both contexts. Screenshots
+  `/tmp/durisweb-upload-{held,retained}-{1440,390}.png` were visually checked;
+  the phone history uses its existing horizontal table scroll with wrapped
+  actions, not page overflow. Its owned Vite PID/cwd was verified and stopped.
+  Logs are `/tmp/durisweb-upload-{backend-full,backend-quality-final,
+  native-mysql-final,archive-maria-final,frontend-quality,route-unit-final,browser}.log`.
+  Initial fixture/lint failures and the discovered real limit race were repaired;
+  final qualification is green. Obsolete one-time AST editing scripts are removed;
+  keep qualification scripts/evidence and unrelated recovery stashes intact.
+- **Release news and next work:** prepare an admin changelog entry for the
+  future authorized verified release: “Uploaded backups remain visible after
+  interruptions. Staff can recover or cancel retained uploads, and preservation
+  holds prevent cleanup. Uncertain archive inspection keeps files for review.”
+  Publish only after deployment acceptance and reconcile existing entries then.
+  No dependency/migration, policy/collection flag, release tag, merge, deployment,
+  logout or shared/provider/MUD operation is introduced. Full baseline/session
+  replay, physical devices, provider and live acceptance are not repeated for
+  this chunk. Next from the published head: verified legacy OS-temp upload and
+  `temp_<id>.sql`/`temp_staging_<id>` discovery/adoption/fencing, preserving actual
+  writer uncertainty. Continue independent protected current evidence/offline
+  replay, other P6 handlers/own-ledger periods and all P7 requirements. Global
+  `enforcementReady` remains false; owner decisions remain unapproved but no
+  user question is needed for the next engineering step.
 - **P6d2b2a, stream new archives (2026-10-17, qualified/published as #61):** branch
   `branch/stream-backup-archives` starts at #60 `220c991`. Inspection finds a
   raw SQL file and a second staging-directory SQL copy for every new backup,

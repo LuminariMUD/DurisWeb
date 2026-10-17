@@ -90,7 +90,11 @@ immutable baseline change is introduced by this metadata journal.
 Keep current hold/control/removal receipts independent of archived snapshots.
 Application rollback must preserve compatible guards and private-prefix filters;
 do not use a down chain or restore an old journal over current evidence.
-Approved age/expiry, durable uploads/workspaces, protected offline restore replay
+New uploads reuse managed files and these receipts, with an O(1) per-backup
+receipt link for confirmed cancellation replay. A new attempt can replace that
+link only when its matching prior receipt is failed; dangling/invalid links
+refuse admission. The private upload lifecycle closes writers before removal.
+Approved age/expiry, legacy temporary uploads/workspaces, protected offline restore replay
 and complete P6/P7 acceptance remain open. See the
 [cleanup recovery guide](backup-archive-cleanup.md) and
 [operator restore boundary](../deployment.md#application-restore-boundary).

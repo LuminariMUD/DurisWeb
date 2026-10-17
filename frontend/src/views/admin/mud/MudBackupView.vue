@@ -101,6 +101,7 @@ const loadingContents = ref(false)
 const mudRunning = ref(false)
 const restoreError = ref<string | null>(null)
 const isCancellingUpload = ref(false)
+const pendingUploadReference = ref<string | null>(null)
 const selectedAccountNames = ref<string[]>([])
 const selectedCharacterPids = ref<number[]>([])
 const restoreCategories = ref<RestoreCategories>({ ...DEFAULT_RESTORE_CATEGORIES })
@@ -226,6 +227,40 @@ async function handleDeleteBackup(id: number) {
     success('Backup deleted')
   } catch (error) {
     showArchiveRemovalFailure(error)
+  }
+}
+
+async function handleRetainedUpload(backup: BackupInfo, action: 'recover' | 'cancel') {
+  const reference = backup.uploadReference
+  if (!reference || pendingUploadReference.value || isCancellingUpload.value) return
+  pendingUploadReference.value = reference
+  try {
+    const result = await (action === 'recover'
+      ? adminApi.recoverBackupUpload(reference)
+      : cancelBackupUpload(reference))
+    if (result?.success !== true) throw new Error('Upload action was not confirmed')
+    if (action === 'cancel' && uploadedTempPath.value === reference) {
+      uploadedTempPath.value = null
+      uploadedContents.value = null
+      uploadDialogOpen.value = false
+    }
+    success(action === 'recover' ? 'Upload recovered for review' : 'Upload cleanup confirmed')
+  } catch (error) {
+    const data = isAxiosError<{ reason?: unknown; error?: unknown }>(error)
+      ? error.response?.data
+      : undefined
+    showError(
+      data?.reason === 'preserved'
+        ? 'A data hold stopped cleanup. The upload was kept.'
+        : data?.reason === 'receiving'
+          ? 'The upload is still being received. Try again after it settles.'
+          : typeof data?.error === 'string'
+            ? data.error
+            : 'Upload action was not confirmed. Refresh and check retained work before retrying.',
+    )
+  } finally {
+    pendingUploadReference.value = null
+    await refetch()
   }
 }
 
@@ -419,6 +454,7 @@ async function closeUploadDialog() {
       'Upload cleanup was not confirmed. Keep this dialog open and try Cancel again after checking the server.'
   } finally {
     isCancellingUpload.value = false
+    await refetch()
   }
 }
 
@@ -609,7 +645,7 @@ async function executeUploadRestore() {
                   variant="outline"
                   :class="getBackupTypeBadge(backup.backupType || 'manual').class"
                 >
-                  {{ getBackupTypeBadge(backup.backupType || 'manual').label }}
+                  {{ backup.uploadReference ? 'Uploaded' : getBackupTypeBadge(backup.backupType || 'manual').label }}
                 </Badge>
               </TableCell>
               <TableCell>
@@ -664,10 +700,20 @@ async function executeUploadRestore() {
                 {{ formatRelativeTime(backup.startedAt) }}
               </TableCell>
               <TableCell class="text-right">
-                <div class="flex justify-end gap-2">
+                <div class="flex flex-wrap justify-end gap-2">
+                  <Button
+                    v-if="backup.uploadReference && (backup.status === 'in_progress' || backup.status === 'pending')"
+                    variant="outline"
+                    size="icon"
+                    title="Recover interrupted upload for review"
+                    :disabled="!!pendingUploadReference || isCancellingUpload"
+                    @click="handleRetainedUpload(backup, 'recover')"
+                  >
+                    <RefreshCw class="h-4 w-4" />
+                  </Button>
                   <!-- Restore Button -->
                   <Button
-                    v-if="backup.status === 'completed'"
+                    v-if="!backup.uploadReference && backup.status === 'completed'"
                     variant="outline"
                     size="icon"
                     title="Restore from this backup"
@@ -678,7 +724,7 @@ async function executeUploadRestore() {
                   </Button>
                   <!-- Download Button -->
                   <Button
-                    v-if="backup.status === 'completed'"
+                    v-if="backup.status === 'completed' || (backup.uploadReference && backup.status === 'failed')"
                     variant="outline"
                     size="icon"
                     title="Download backup"
@@ -687,14 +733,14 @@ async function executeUploadRestore() {
                     <Download class="h-4 w-4" />
                   </Button>
                   <!-- Delete Button -->
-                  <AlertDialog v-if="isOverlord">
+                  <AlertDialog v-if="isOverlord || backup.uploadReference">
                     <AlertDialogTrigger as-child>
                       <Button
                         variant="outline"
                         size="icon"
-                        title="Delete backup"
+                        :title="backup.uploadReference ? 'Cancel retained upload' : 'Delete backup'"
                         class="text-destructive hover:text-destructive"
-                        :disabled="backup.status === 'in_progress' || backup.status === 'pending'"
+                        :disabled="!!pendingUploadReference || isCancellingUpload || backup.status === 'in_progress' || backup.status === 'pending'"
                       >
                         <Trash2 class="h-4 w-4" />
                       </Button>
@@ -714,7 +760,7 @@ async function executeUploadRestore() {
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                           class="bg-danger-deep text-destructive-foreground hover:bg-danger-deep/90"
-                          @click="handleDeleteBackup(backup.id)"
+                          @click="backup.uploadReference ? handleRetainedUpload(backup, 'cancel') : handleDeleteBackup(backup.id)"
                         >
                           Delete
                         </AlertDialogAction>
@@ -792,6 +838,8 @@ async function executeUploadRestore() {
         <p class="text-xs text-muted-foreground mt-4">
           Automatic cleanup targets the latest 5 manual and {{ maxHourlyBackupsOriginal }} hourly backups.
           Preservation holds or unconfirmed cleanup can keep older archives.
+          Uploaded archives remain in this list until cleanup is confirmed. They do not count toward
+          automatic backup limits. Recover an interrupted upload before downloading or cancelling it.
         </p>
 
         <div class="border-t mt-6 pt-6">

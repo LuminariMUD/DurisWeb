@@ -1,8 +1,6 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
-const UPLOAD_FILENAME_PATTERN = /^backup-upload-[0-9]+-[0-9]+\.zip$/;
 const BACKUP_FILENAME_PATTERN = /^duris-(?:mud|hourly)-[A-Za-z0-9-]+\.zip$/;
 
 export class UnsafeBackupPathError extends Error {
@@ -60,13 +58,6 @@ function resolveSafeFile(
   }
 
   return candidate;
-}
-
-export function resolveSafeUploadedBackupPath(
-  filePath: unknown,
-  uploadDirectory: string = os.tmpdir(),
-): string {
-  return resolveSafeFile(uploadDirectory, filePath, UPLOAD_FILENAME_PATTERN);
 }
 
 export function resolveSafeBackupFilePath(backupDirectory: string, filename: unknown): string {

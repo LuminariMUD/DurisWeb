@@ -789,6 +789,7 @@ export interface GitCommitsResponse {
 
 // MUD Backup Types
 export interface BackupInfo {
+  uploadReference?: string | null
   id: number
   filename: string
   backupType: 'manual' | 'hourly'

@@ -29,7 +29,8 @@ unavailable. Preview reports held/unheld observations and binds continuation to
 active protection. The source-disabled [two-class SQL executor](runbooks/retention-execution.md)
 rechecks holds within deletion transactions. Prepared
 [managed ZIP admission](runbooks/managed-archive-holds.md) serializes recorded
-holds with file removal; other feature cleanup, uploads/workspaces and restore
+holds with file removal, including newly registered uploads; other feature cleanup,
+legacy temporary uploads/workspaces and restore
 remain unprotected. No table-wide subject export or purge is authorized, and no
 period for this ledger is approved. Retain expired/released/invalid records;
 operator evidence needs separate subject/privacy review before export.
@@ -62,6 +63,16 @@ records. Generic readers exclude the namespace and SQL-collation aliases.
 Its own period is unapproved: retain/restrict pending, completed and invalid
 evidence; subject exports require staff/third-party review rather than a raw
 settings dump. Ordinary diagnostics contain only category/reference.
+
+The private `backup-upload-v1:` settings namespace records the authenticated
+uploader, opaque UUID/backup ID, physical root/file hashes, writer identity,
+database epochs, receiving/inspection/closed phase and bounded verdict/failure.
+It contains no archive content or IP. The associated marked `mud_backups` row
+keeps persistent private files visible after a lost response; owner/overlord
+access is required. These records and the per-backup managed-removal receipt
+link are indirectly linkable operational evidence, hidden from generic settings.
+Retain them pending their own approved retention and subject-review rules.
+See [registered uploads](runbooks/backup-archive-cleanup.md#registered-uploads).
 
 Each row lists subject-selection fields or a necessary relationship, and a time
 field that could support an approved cutoff. A time field is **not** an approved
@@ -107,7 +118,8 @@ different decision. [Database backup exports](../backend/src/services/databaseBa
 omit session rows, including expanded pre-cutover shapes. Older archives remain
 an operational inventory item; no existing archive has been altered here.
 New exports stream directly to the managed ZIP without raw SQL/staging disk
-copies. Existing legacy temporary files and uploaded archives remain separate
+copies. Newly registered uploads use persistent private managed files and the
+hold barrier. Existing legacy temporary files/uploads remain separate
 inventory/recovery work; this source change does not delete or adopt them.
 
 The [Gemini analyzer](../backend/src/services/geminiSuspicionAnalyzer.ts) is gated
@@ -401,5 +413,6 @@ file identity on unconfirmed deletion, routes failed/manual/count cleanup throug
 one path, refuses unfinished/shared/unsafe targets, and preserves list-time
 evidence. New names avoid simultaneous archive collisions. This repairs retry
 and acknowledgement behavior. Managed ZIP removal now enforces holds through
-durable admission and process fencing, while transient/upload copies, approved
+durable admission and process fencing, including registered uploads, while legacy
+transient/upload copies, approved
 maximum age and offline restore-removal replay remain explicit P6 gaps.

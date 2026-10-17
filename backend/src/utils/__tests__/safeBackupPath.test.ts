@@ -2,11 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from '@jest/globals';
-import {
-  resolveSafeBackupFilePath,
-  resolveSafeUploadedBackupPath,
-  UnsafeBackupPathError,
-} from '../safeBackupPath.js';
+import { resolveSafeBackupFilePath, UnsafeBackupPathError } from '../safeBackupPath.js';
 
 const tempRoots: string[] = [];
 
@@ -20,25 +16,25 @@ describe('safe backup path resolution', () => {
   it('accepts only the expected upload filename beneath the upload root', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 't025-upload-'));
     tempRoots.push(root);
-    const filePath = path.join(root, 'backup-upload-123-456.zip');
+    const filename = 'duris-mud-upload-82b972d4-285c-4664-b7e0-c46dfe015c92.zip';
+    const filePath = path.join(root, filename);
     fs.writeFileSync(filePath, 'zip-fixture');
 
-    expect(resolveSafeUploadedBackupPath(filePath, root)).toBe(filePath);
-    expect(() =>
-      resolveSafeUploadedBackupPath(path.join(root, 'backup-upload-123-456.txt'), root),
-    ).toThrow(UnsafeBackupPathError);
-    expect(() =>
-      resolveSafeUploadedBackupPath(path.join(root, '..', 'backup-upload-123-456.zip'), root),
-    ).toThrow(UnsafeBackupPathError);
+    expect(resolveSafeBackupFilePath(root, filename)).toBe(filePath);
+    expect(() => resolveSafeBackupFilePath(root, filename.replace('.zip', '.txt'))).toThrow(
+      UnsafeBackupPathError,
+    );
+    expect(() => resolveSafeBackupFilePath(root, '../' + filename)).toThrow(UnsafeBackupPathError);
   });
 
   it('rejects symlinked uploads even when the link is inside the root', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 't025-upload-link-'));
     tempRoots.push(root);
-    const linkPath = path.join(root, 'backup-upload-123-456.zip');
+    const filename = 'duris-mud-upload-82b972d4-285c-4664-b7e0-c46dfe015c92.zip';
+    const linkPath = path.join(root, filename);
     fs.symlinkSync('/etc/passwd', linkPath);
 
-    expect(() => resolveSafeUploadedBackupPath(linkPath, root)).toThrow(UnsafeBackupPathError);
+    expect(() => resolveSafeBackupFilePath(root, filename)).toThrow(UnsafeBackupPathError);
   });
 
   it('contains database-derived backup filenames beneath the backup root', () => {
