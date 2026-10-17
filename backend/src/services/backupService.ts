@@ -757,7 +757,12 @@ export async function listBackupContents(
     if (!fs.existsSync(filePath)) return null;
   }
 
-  const inspected = await inspectBackupArchive(BACKUP_DIR, backup.filename, expected);
+  const inspected = await inspectBackupArchive(
+    BACKUP_DIR,
+    backup.filename,
+    expected,
+    backup.uploadReference ? 'upload' : 'generated',
+  );
   if (inspected.outcome !== 'valid' || !inspected.contents)
     throw new BackupUploadError('inspection_unconfirmed', backup.uploadReference ?? undefined);
   return inspected.contents;
