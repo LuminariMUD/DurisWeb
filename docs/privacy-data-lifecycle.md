@@ -193,8 +193,14 @@ fields remain null. No optional enrichment/provider call occurs. Receipt
 issuance and collection remain inactive. The prepared public draft and client
 controls validate the receipt, including actual-cookie read-back, cross-tab
 ordering, expiry and failures. A visit nonce exists only in page memory after
-confirmation, and is reset on stop or account changes. This does not approve the
-notice/period proposals or establish live collection acceptance.
+confirmation and is cleared on withdrawal, expiry, account changes or teardown.
+Temporary hiding aborts optional work; returning revalidates the receipt and
+preserves an unchanged accepted visit without repeating its page view. A
+navigation made while hidden is recorded once on return. Pending refusals cannot
+be replaced by a second click, while pending acceptance remains withdrawable.
+Compact confirmations remain mounted after their own action, with deliberate
+confirmation focus that does not repeat on passive status refreshes. This does
+not approve notice/period proposals or establish live collection acceptance.
 
 ## Shared publication metadata without an account selector
 

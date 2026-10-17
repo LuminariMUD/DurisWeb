@@ -1,5 +1,9 @@
 # Website security, privacy, and schema implementation plan
 
+Current task: address outstanding PR review findings from oldest to newest.
+Use the **PR review repair** record at the end for current progress; older
+phase and timebox instructions are historical.
+
 Status: **implementation in progress**. Updated 2026-10-17.
 
 Current checkpoint: engineering through P4, the UTC correction, first P5
@@ -1860,7 +1864,7 @@ Other PRs without findings still need inherited fixes carried forward.
 | --- | --- | --- |
 | #46 | 1: enable notifications after a first permission grant with blocked storage | Fixed; 7 focused and 253 full frontend tests pass |
 | #48 | 3: stale GET cookie clearing, actionable safe diagnostics, native fixture port binding | Fixed; 39 native cases pass on each database engine |
-| #49 | 3: pending refusal, temporary visibility changes, compact confirmation/focus | Pending |
+| #49 | 3: pending refusal, temporary visibility changes, compact confirmation/focus | Fixed; 30 focused, 285 full frontend tests and rendered checks pass |
 | #50 | 2: safe forum failure context, shared pool starvation during R2 deletion | Pending |
 | #54 | 1: DST-ambiguous retention cutoff comparisons | Pending |
 | #55 | 1: unavailable restore controls still offered by the UI | Pending |
@@ -1940,3 +1944,39 @@ checkout; its setup was corrected before both final green native runs.
 Evidence: `pr48-*` logs in the private review directory. Future privacy-release
 wording covers reliable saved choices; diagnostic/fixture repairs need no
 separate visitor announcement, and nothing is published live here.
+
+**#48 publication:** `e7cb0cf` is pushed, all three review threads have evidence
+replies and verified resolved state, and #49 now contains the repairs through
+an ordinary parent merge. No published commit was rewritten.
+
+**#49 outcome:** preserve an in-flight refusal and permit only cancellation of
+pending acceptance; revalidate consent on returning to a tab while preserving
+the same visit and avoiding duplicate route events; keep compact confirmations
+mounted and focusable after their own action. Files: existing privacy service,
+control component and their tests. Five pre-fix failures reproduce the reviewed
+behaviors. Proof also covers hidden navigation, first visibility, withdrawal
+during hiding, and preserving focus that moved to another control. Ablation
+adds only pending-decision/route state and local confirmation state; no new
+storage, event queue, endpoint or consent policy is introduced.
+
+**#49 proof:** `pnpm --dir frontend test:unit --run
+src/services/__tests__/privacy.spec.ts
+src/components/privacy/__tests__/PrivacyControls.spec.ts` passes 30 tests.
+`python3 /tmp/durisweb-image-quality.py frontend` passes format/lint/types,
+configuration/palette, full tests (285 / 55 files) and build. The backend tree
+is identical to qualified #48 and its evidence is reused. Configuration literal
+and whitespace checks pass. `node /tmp/durisweb-review-browser49.mjs` verifies
+the fresh build with isolated synthetic APIs/real HttpOnly cookie handling:
+desktop/phone keyboard refusal remains one refusal while pending, compact
+confirmation stays visible and focused, pending acceptance can still be
+withdrawn, returning to a tab revalidates without an extra view, hidden navigation
+adds one event under the same nonce, and server withdrawal blocks later events.
+Screenshots `pr49-confirmation-{1440,390}.png` were visually checked. The browser
+fixture's WebSocket interception was corrected after its first run exposed an
+unhandled local fixture connection; no error category was merely ignored.
+A further regression prevents passive refresh from moving confirmation focus
+again. This is rendered Chromium/phone-viewport evidence, not physical-device
+or live collection acceptance. Policy flags remain false. Private proof:
+`pr49-{red,focused-closeout,quality-final,browser-closeout,passive-focus-red}.log`.
+Future privacy-release wording includes stable choices and accessible
+confirmation; no live changelog publication occurs during this review repair.

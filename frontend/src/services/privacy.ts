@@ -30,11 +30,13 @@ interface PrivacyStatus {
 const phase = ref<Phase>('unknown')
 const server = ref<PrivacyStatus | null>(null)
 const busy = ref(0)
+const pendingDecision = ref<Decision | null>(null)
 const error = ref('')
 const storageReadable = ref(true)
 const synchronizationReady = ref(false)
 let generation = 0
 let visitNonce: string | null = null
+let pendingRoute = false
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
 let tracking: AbortController | undefined
 let channel: BroadcastChannel | undefined
@@ -105,6 +107,7 @@ function cancelTracking(): void {
   tracking?.abort()
   tracking = undefined
   visitNonce = null
+  pendingRoute = false
   clearLegacyAnalyticsSession()
 }
 function stop(next: Phase = 'unknown'): number {
@@ -236,6 +239,7 @@ async function trackCurrentRoute(): Promise<void> {
     tracking?.abort()
     controller = new AbortController()
     tracking = controller
+    pendingRoute = false
     const response = await fetch(`${frontendConfiguration.apiUrl}/api/analytics/track`, {
       method: 'POST',
       credentials: 'include',
@@ -259,7 +263,7 @@ async function trackCurrentRoute(): Promise<void> {
     if (tracking === controller) tracking = undefined
   }
 }
-function applyStatus(value: PrivacyStatus): void {
+function applyStatus(value: PrivacyStatus, trackRoute = true): void {
   server.value = value
   if (!versionsMatch(value)) {
     phase.value = 'obsolete'
@@ -289,20 +293,35 @@ function applyStatus(value: PrivacyStatus): void {
       synchronizationReady.value && readPreference() === 'accepted' ? 'accepted' : 'unknown'
     if (phase.value === 'accepted') {
       scheduleExpiry()
-      void trackCurrentRoute()
+      if (trackRoute) void trackCurrentRoute()
     }
   } else {
     phase.value = value.decision
   }
 }
-export async function refreshPrivacyChoice(): Promise<void> {
+export async function refreshPrivacyChoice(preserveVisit = false): Promise<void> {
   if (busy.value > 0) return
+  const previousVisit =
+    preserveVisit && grantCurrent()
+      ? { nonce: visitNonce, revision: server.value!.revision, pendingRoute }
+      : null
   const ticket = stop('loading')
   error.value = ''
   readPreference()
   try {
     const value = await withChoiceLock(() => requestStatus())
-    if (ticket === generation) applyStatus(value)
+    if (ticket === generation) {
+      const reuseVisit =
+        previousVisit &&
+        value.receiptValid &&
+        value.decision === 'accepted' &&
+        value.revision === previousVisit.revision
+      applyStatus(value, !reuseVisit)
+      if (reuseVisit && phase.value === 'accepted') {
+        visitNonce = previousVisit.nonce
+        if (pendingRoute || previousVisit.pendingRoute || !visitNonce) void trackCurrentRoute()
+      }
+    }
   } catch {
     if (ticket === generation) {
       phase.value = 'unavailable'
@@ -311,6 +330,7 @@ export async function refreshPrivacyChoice(): Promise<void> {
   }
 }
 export async function savePrivacyChoice(decision: Decision): Promise<void> {
+  if (busy.value > 0 && (pendingDecision.value !== 'accepted' || decision === 'accepted')) return
   const known = server.value
   if (
     !known ||
@@ -329,6 +349,7 @@ export async function savePrivacyChoice(decision: Decision): Promise<void> {
     return
   }
   busy.value += 1
+  pendingDecision.value = decision
   let unsuccessful = false
   try {
     await withChoiceLock(async () => {
@@ -375,6 +396,7 @@ export async function savePrivacyChoice(decision: Decision): Promise<void> {
     }
   } finally {
     busy.value -= 1
+    if (busy.value === 0) pendingDecision.value = null
     if (!unsuccessful && ticket !== generation && busy.value === 0) void refreshPrivacyChoice()
   }
 }
@@ -406,7 +428,10 @@ export function initializePrivacyChoices(
     synchronizationReady.value = false
   }
   const removeRouteHook = activeRouter.afterEach((_to, _from, failure) => {
-    if (!failure) void trackCurrentRoute()
+    if (!failure) {
+      pendingRoute = true
+      void trackCurrentRoute()
+    }
   })
   const stopAccountWatch = watch(
     accountName,
@@ -424,8 +449,10 @@ export function initializePrivacyChoices(
     }
   }
   const visibilityChanged = () => {
-    if (document.visibilityState === 'hidden') stop()
-    else void refreshPrivacyChoice()
+    if (document.visibilityState === 'hidden') {
+      tracking?.abort()
+      tracking = undefined
+    } else void refreshPrivacyChoice(true)
   }
   const pageHidden = () => {
     stop()
@@ -472,6 +499,7 @@ export function usePrivacyChoices() {
     server: readonly(server),
     error: readonly(error),
     busy: readonly(busy),
+    pendingDecision: readonly(pendingDecision),
     storageReadable: readonly(storageReadable),
     synchronizationReady: readonly(synchronizationReady),
     canAccept: computed(
@@ -485,7 +513,11 @@ export function usePrivacyChoices() {
         busy.value === 0,
     ),
     canRefuse: computed(
-      () => !!server.value && versionsMatch(server.value) && server.value.choicesAvailable,
+      () =>
+        !!server.value &&
+        versionsMatch(server.value) &&
+        server.value.choicesAvailable &&
+        (busy.value === 0 || pendingDecision.value === 'accepted'),
     ),
     refresh: refreshPrivacyChoice,
     choose: savePrivacyChoice,
