@@ -2,6 +2,34 @@
 
 ## Current handoff — read this first
 
+**#62 reader follow-up, ready to publish:** the old path-only reader was reproduced
+streaming replacement bytes. A shared opened-archive utility now checks the
+descriptor's physical identity and transfers that descriptor to the HTTP stream
+or isolated inspector. Generated reads use it too; registered reads add the
+durable root/file binding. The streaming helper is exercised over HTTP with
+fixture identity, including replacement, foreign-owner refusal, safe
+non-attachment failure and descriptor closure. Inspection receives inherited fd 3
+and uses positional ZIP streams rather than reopening a path. Its range-stream
+close callback leaves fd ownership with the worker; the first implementation
+exposed unzipper's explicit destroy closing the shared fd, fixed before final proof.
+The admin download retains its existing auth/permission middleware.
+
+Generated-backup busy selectors now exclude rows with an upload reference;
+a real pending generated backup still blocks creation. Two-engine
+`/tmp/durisweb-run-archive-suite.mts <23436|23437> upload-archive` runs pass
+**60 tests / six suites** each. Both package quality gates/builds pass; frontend
+has **322 tests / 58 files**, with 20 focused backup tests. The real stream helper
+and inherited inspector tests cover a replaced root/name, symlink at open,
+completion/abandonment/error closure and original-byte preservation.
+`node /tmp/durisweb-review-browser62.mjs` passes 1440/768/390, including Create
+Backup staying available for a receiving upload while recovery/cancellation
+behavior remains intact. Final logs: `pr62-reader-final-{mysql,maria}.log`,
+`pr62-reader-quality-closeout.log`, `pr62-reader-frontend-quality.log`,
+`pr62-reader-browser.log`. A binary HTTP fixture parser/type annotation was
+corrected before final validation; the unsafe-path red probe is `pr62-read-red.log`.
+No broad backend or production acceptance is claimed. Publish/resolve the two
+threads, carry to #63, then address the ten remaining known findings there/#65/#66.
+
 **Current verified continuation checkpoint — 2026-10-17:** 34 findings have
 verified reply/resolution records in `/tmp/durisweb-review-20261017/closed-findings.json`.
 The latest complete scan has **12 unresolved findings: #62 (2), #63 (3), #65 (3),

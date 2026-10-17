@@ -122,6 +122,17 @@ unlinked or falsely acknowledged by these endpoints. Website restore remains
 unavailable. Protect independent current evidence before any authorized offline
 restore; these upload safeguards do not establish all-copy enforcement.
 
+Download opens without following a replacement link, validates the opened file
+against the registered identity, and streams that descriptor with its actual
+size. Completion, error and client disconnect close the reader. A failure before
+attachment bytes are sent returns a safe JSON error/reference instead of an
+error body labelled as a ZIP. Archive inspection likewise inherits the validated
+descriptor in its bounded child; neither reader reopens the archive pathname.
+The child owns its descriptor across ZIP range streams and checks its identity
+before/after parsing. Registered identities are passed through initial upload
+inspection and later contents requests. Receiving/review-required upload rows
+remain visible but do not count as generated backups in the Create Backup guard.
+
 ## Preserve evidence
 
 Listing no longer deletes records because their files appear absent, or changes

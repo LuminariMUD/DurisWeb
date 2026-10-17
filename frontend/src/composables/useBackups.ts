@@ -246,12 +246,12 @@ export function useBackups() {
 
   // Computed properties
   const backups = computed(() => backupData.value || [])
-  const hasInProgressBackup = computed(() =>
-    backups.value.some((b) => b.status === 'in_progress' || b.status === 'pending'),
-  )
   const inProgressBackup = computed(() =>
-    backups.value.find((b) => b.status === 'in_progress' || b.status === 'pending'),
+    backups.value.find(
+      (b) => !b.uploadReference && (b.status === 'in_progress' || b.status === 'pending'),
+    ),
   )
+  const hasInProgressBackup = computed(() => !!inProgressBackup.value)
 
   return {
     backups,

@@ -70,6 +70,29 @@ function retainedUpload(owner: string, id: number): BackupInfo {
 }
 
 describe('account-scoped backup lists', () => {
+  it('keeps interrupted uploads out of generated-backup busy state', async () => {
+    const upload = {
+      ...retainedUpload('UploaderAlpha', 1),
+      status: 'in_progress' as const,
+      uploadReference: '82b972d4-285c-4664-b7e0-c46dfe015c92',
+    }
+    vi.mocked(adminApi.getBackupList).mockResolvedValueOnce({ backups: [upload] })
+    const { backups, client, wrapper } = mountBackups()
+    try {
+      await flushPromises()
+      expect(backups.backups.value).toHaveLength(1)
+      expect(backups.hasInProgressBackup.value).toBe(false)
+      expect(backups.inProgressBackup.value).toBeUndefined()
+      const generated = { ...retainedUpload('UploaderAlpha', 2), status: 'pending' as const }
+      vi.mocked(adminApi.getBackupList).mockResolvedValueOnce({ backups: [upload, generated] })
+      await backups.refetch()
+      expect(backups.hasInProgressBackup.value).toBe(true)
+      expect(backups.inProgressBackup.value?.id).toBe(2)
+    } finally {
+      wrapper.unmount()
+      client.clear()
+    }
+  })
   it('does not show a fresh previous-owner cache entry during logout/login', async () => {
     const alpha = retainedUpload('UploaderAlpha', 1)
     const beta = retainedUpload('UploaderBeta', 2)
