@@ -2,8 +2,49 @@
 
 ## Current handoff — read this first
 
-**Verified 2026-10-17 at 15:18 UTC. This is the authoritative status; the
-execution journals below are historical evidence, not instructions to repeat work.**
+**Latest continuation — PR #62 access fixes, 2026-10-17:** currently working
+on `branch/backup-upload-records` in the same plan worktree. Its published starting
+head is `3b81636`; #66 now includes the earlier parent carry and full handoff as
+`eebbcf3`, with no pending merge. This checkpoint supersedes the inventory's
+older checkout/publication instructions below.
+
+The foreign-upload reference leak and same-account role downgrade cache reuse
+are repaired and qualified. Numeric backup reads now give the same plain 404 for
+missing and foreign uploads; ownership errors no longer carry the stored UUID,
+and ordinary logs do not expose it. Vue Query keys include the role as well as
+account, so a downgrade discards the displayed privileged result and cancels its
+in-flight request. The duplicate contents-identity report is already addressed
+by `268b455`: recorded identity reaches the inspector, which reads the validated
+inherited descriptor.
+
+Three actual-route response regressions failed before repair; all **25** route
+tests now pass. Both new mounted Vue Query downgrade regressions pass, including
+a late privileged response; focused backup tests total **22**. Full frontend
+passes **324 tests / 58 files**, and both package gates/builds pass. Actual SQL/
+filesystem upload/archive suites pass **60 tests / six suites on each engine**,
+including foreign-owner non-disclosure and descriptor replacement. The first
+frontend red run also exposed a queued one-shot test mock leaking after an
+expected failure; reset that mock per case before final green verification.
+Logs: `pr62-role-{red,green}.log`, `pr62-access-{red,green,mysql,maria,
+backend-quality,frontend-quality}.log` under the private evidence directory.
+No full backend, fresh browser/provider or production run is claimed.
+
+**Published and verified:** `8fbfb01` contains this access-only repair. The three
+threads `PRRT_kwDOVA2-8c6tgzDj` (duplicate), `PRRT_kwDOVA2-8c6tgzDl`
+(404 privacy) and `PRRT_kwDOVA2-8c6thD7n` (role cache) have verified GitHub replies
+and resolved state. The closeout ledger now has **45** records; **13 known
+threads remain**: #62 (2), #63 (1), #64 (5), #65 (1), #66 (4), before a new scan.
+Next: carry this published parent repair through #63–#66, then return to #62's
+large generated-backup inspection and validate/unlink race. These two remaining
+safety/functionality gaps are not fixed by this access-only chunk.
+Draft release note, to publish only after verified release: “Backup lists refresh
+when staff permissions change, and inaccessible uploads no longer expose their
+private reference.”
+
+### Full inventory snapshot before this follow-up
+
+**Verified 2026-10-17 at 15:18 UTC. The latest continuation above takes precedence;
+the older execution journals are historical evidence, not instructions to repeat work.**
 
 **3 project PRs are merged, 27 are open, and 16 review threads remain unresolved
 on #62–#66.** The review repair ledger contains **42 distinct published and
