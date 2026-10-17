@@ -33,14 +33,11 @@ export function streamBackupDownload(response: Response, opened: OpenedManagedAr
     if (!response.headersSent && !response.destroyed) {
       response.removeHeader('Content-Disposition');
       response.removeHeader('Content-Length');
-      response
-        .type('application/json')
-        .status(problem.status)
-        .json({
-          error: 'Backup download could not be completed. Please try again.',
-          reason: problem.reason,
-          reference: problem.reference,
-        });
+      response.type('application/json').status(problem.status).json({
+        error: 'Backup download could not be completed. Please try again.',
+        reason: problem.reason,
+        reference: problem.reference,
+      });
     } else response.destroy();
   });
   response.once('close', () => stream.destroy());
