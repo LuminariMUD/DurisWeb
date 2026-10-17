@@ -2,7 +2,7 @@
  * database-backed account service
  * replaces flat-file parsing with mysql queries
  */
-import { pool } from '../db/connection.js';
+import { mudPool as pool } from '../db/connection.js';
 import { getCache, setCache, deleteCache } from '../db/redis.js';
 import logger from '../utils/logger.js';
 import type { RowDataPacket } from 'mysql2';

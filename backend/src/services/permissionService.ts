@@ -1,5 +1,5 @@
 import { RowDataPacket } from 'mysql2';
-import { pool as db } from '../db/connection.js';
+import { pool as db, mudPool } from '../db/connection.js';
 import type { MudAccountCharacter } from './accountService.js';
 import { getForumSettings } from './forumSettingsService.js';
 import { getUserPermissions as getAdminPermissions } from './adminPermissionService.js';
@@ -94,7 +94,7 @@ export async function getCharacterInfo(characterNames: string[]): Promise<Charac
   }
 
   try {
-    const [rows] = await db.query<RowDataPacket[]>(
+    const [rows] = await mudPool.query<RowDataPacket[]>(
       `SELECT pd.pid, pd.name, pd.level,
               COALESCE(a.name, '') as guild,
               COALESCE(fl.race, '') as race, COALESCE(fl.class, '') as classname,

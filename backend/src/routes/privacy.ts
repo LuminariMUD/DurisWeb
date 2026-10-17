@@ -1,8 +1,13 @@
 import { Router, type Request, type Response, type RequestHandler } from 'express';
 import rateLimit from 'express-rate-limit';
+import { randomUUID } from 'node:crypto';
+import logger from '../utils/logger.js';
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 import { getBackendConfiguration } from '../config/environment.js';
 import { getPrivacyPolicy } from '../config/privacyPolicy.js';
 import { verifyCsrfToken } from '../middleware/csrf.js';
+import { requireAuth } from '../middleware/auth.js';
+import { AccountExportError, exportAccountData } from '../services/accountExportService.js';
 import {
   getPrivacyChoice,
   recordPrivacyChoice,
@@ -24,6 +29,14 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many privacy requests; please try again later' },
+});
+const exportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => req.user!.accountName.toLowerCase(),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many data downloads. Please try again later.' },
 });
 
 const sameOrigin: RequestHandler = (req, res, next) => {
@@ -83,5 +96,35 @@ router.post('/choice', limiter, sameOrigin, verifyCsrfToken, async (req, res) =>
     failure(res, error);
   }
 });
+
+router.post(
+  '/export',
+  requireAuth,
+  exportLimiter,
+  sameOrigin,
+  verifyCsrfToken,
+  async (req, res) => {
+    try {
+      const result = await exportAccountData(req.user!.accountName, req.user!.sessionId, req.body);
+      res.set(
+        'Content-Disposition',
+        `attachment; filename="duris-website-data-${result.exportId}.json"`,
+      );
+      res.set('X-Content-Type-Options', 'nosniff');
+      res.type('application/json').send(result.payload);
+    } catch (error) {
+      const reference = error instanceof AccountExportError ? undefined : randomUUID();
+      if (reference)
+        logger.error('account_export_unconfirmed', { code: safeFailureCode(error), reference });
+      res.status(error instanceof AccountExportError ? error.status : 503).json({
+        error:
+          error instanceof AccountExportError
+            ? error.message
+            : 'Your data could not be prepared. Please try again later.',
+        ...(reference ? { reference } : {}),
+      });
+    }
+  },
+);
 
 export default router;

@@ -189,6 +189,13 @@ an approved synthetic policy is used only in isolated tests. Final notice/provid
 period approval, retention readiness and live verification remain necessary
 before optional collection can return. Deployment is unverified.
 
+Prepared #12 source now offers a [selected website data download](runbooks/account-data-export.md)
+with fresh database-backed password/session verification, subject-only selectors,
+bounded consistent reads and a private response. It explicitly omits mixed/staff,
+game/provider and other unreviewed categories. It creates no server-side export
+file and does not implement complete request tracking, complete account export
+or erasure. Those requirements and policy/release acceptance remain open.
+
 ### Personal Data Inventory
 
 The [table-by-table lifecycle inventory](privacy-data-lifecycle.md) accounts for

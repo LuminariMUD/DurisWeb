@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import crypto from 'node:crypto';
-import { pool } from '../../db/connection.js';
+import { mudPool as pool, pool as webPool } from '../../db/connection.js';
 import redis from '../../db/redis.js';
 
 import {
@@ -49,6 +49,7 @@ describe('accountService', () => {
         await pool.query('DELETE FROM accounts WHERE account_name=?', [testAccountName]);
     } finally {
       await pool.end();
+      if (webPool !== pool) await webPool.end();
       await redis.quit();
     }
   });

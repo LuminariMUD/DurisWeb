@@ -35,6 +35,10 @@ import {
 } from './postImageRemovalSchema.js';
 import { DATA_HOLD_MIGRATION, matchesDataHoldPhase } from './dataHoldSchema.js';
 import { RETENTION_RUN_MIGRATION, matchesRetentionRunPhase } from './retentionRunSchema.js';
+import {
+  REACTION_EXPORT_INDEX_MIGRATION,
+  matchesReactionExportIndexPhase,
+} from './reactionExportIndexSchema.js';
 
 export type BaselineDatabase = SchemaDatabase;
 type BaselineState = 'installing' | 'complete' | 'adopted' | 'removing';
@@ -353,6 +357,19 @@ async function verifyWebSchema(
         recoverSessionDdl &&
         !unsupportedRunForward &&
         (await matchesRetentionRunPhase(database, product, new Set(ledger), directory))
+      )
+        continue;
+      const unsupportedReactionForward = forward.some(
+        (migration) =>
+          ledger.includes(migration.name) &&
+          Object.hasOwn(migration.tables, 'forum_reactions') &&
+          migration.name !== REACTION_EXPORT_INDEX_MIGRATION,
+      );
+      if (
+        name === 'forum_reactions' &&
+        recoverSessionDdl &&
+        !unsupportedReactionForward &&
+        (await matchesReactionExportIndexPhase(database, product, new Set(ledger), directory))
       )
         continue;
       throw new WebBaselineError(`schema_drift_${name}`);

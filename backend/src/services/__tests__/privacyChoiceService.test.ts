@@ -168,7 +168,7 @@ afterEach(async () => {
 });
 afterAll(async () => {
   await observer?.end();
-  if (nativePort) (await import('../../db/redis.js')).default.disconnect();
+  (await import('../../db/redis.js')).default.disconnect();
   await pool.end();
 });
 

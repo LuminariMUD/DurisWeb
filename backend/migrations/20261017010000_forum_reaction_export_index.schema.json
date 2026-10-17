@@ -1,0 +1,11 @@
+{
+  "formatVersion": 1,
+  "fingerprint": "information_schema_v1",
+  "sha256": "7a80f3fb7d9e4a4c95d5162879695b326af4dc32ac2d55c0f3a699051448f98d",
+  "tables": {
+    "forum_reactions": {
+      "mysql8": "58ccc184cfac52bd2b3b71ab461e60c886fd47bafd82562b8fe0b54a34bd9090",
+      "mariadb11": "077ab8f9ca973403f331e466fbc61fb343d16710b8dafcee4946f5dcb59c4e2b"
+    }
+  }
+}

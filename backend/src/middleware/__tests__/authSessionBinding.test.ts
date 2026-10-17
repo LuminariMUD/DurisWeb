@@ -4,7 +4,7 @@
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
-import { pool } from '../../db/connection.js';
+import { pool, mudPool } from '../../db/connection.js';
 import redis from '../../db/redis.js';
 import { generateAccessToken, requireAuth, verifyToken } from '../auth.js';
 import { refreshTokenDigest } from '../../services/sessionCredential.js';
@@ -15,7 +15,7 @@ describe('session-bound access tokens', () => {
   const refreshToken = `binding-refresh-${crypto.randomBytes(24).toString('hex')}`;
 
   beforeAll(async () => {
-    await pool.query('INSERT INTO accounts (account_name) VALUES (?)', [accountName]);
+    await mudPool.query('INSERT INTO accounts (account_name) VALUES (?)', [accountName]);
 
     await pool.query(
       'INSERT INTO web_sessions (id, account_name, refresh_token_digest, expires_at_epoch) VALUES (?, ?, ?, UNIX_TIMESTAMP()+300)',
@@ -25,8 +25,9 @@ describe('session-bound access tokens', () => {
 
   afterAll(async () => {
     await pool.query('DELETE FROM web_sessions WHERE id = ?', [sessionId]);
-    await pool.query('DELETE FROM accounts WHERE account_name = ?', [accountName]);
+    await mudPool.query('DELETE FROM accounts WHERE account_name = ?', [accountName]);
     await pool.end();
+    if (mudPool !== pool) await mudPool.end();
     await redis.quit();
   });
 

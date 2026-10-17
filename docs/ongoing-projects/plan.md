@@ -101,6 +101,123 @@ source, production service or Cloudflare account was changed.
 
 ### Historical checkpoints
 
+
+**Current review repair checkpoint — 17 October:** #66's configured database
+authority repair is published as `0a9477a` and its review thread is resolved.
+The reaction-owner index is now implemented as the reversible forward migration
+`20261017010000_forum_reaction_export_index.ts`; it preserves rows, rejects
+unknown schema drift, and qualifies interrupted up/down ledger recovery on both
+supported database engines. The actual bounded export query selects
+`idx_forum_reactions_owner_id (user_account_name,id)` over 20,001 fixture rows.
+
+Validation: `node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-run-export-index-suite.mts 23436 export-index shared` and the same
+command with port `23437`: **22 tests / two suites pass on each engine**.
+`python3 /tmp/durisweb-image-quality.py backend` passes format, lint, type-check,
+MUD-write, schema and build checks. Post-test preflight passes 93 migrations;
+MUD owner metadata is unchanged and owned fixtures are cleaned. Logs are
+`/tmp/durisweb-review-20261017/pr66-index-{mysql,maria,quality}.log`.
+No frontend, browser, provider or production rerun was needed for this index.
+
+A fresh complete scan of all 27 open PRs finds nine unresolved review threads:
+#62 conditional archive removal (one), #63 keeper ordering (one), #64 partial
+time-budget evidence and scanned-root identity (two), #65 mount boundaries and
+final acknowledgement checks (four), and #66 this qualified index (one).
+The index is ready to publish; the remaining eight are the current repair queue.
+All previous continuation sections below are historical evidence, not current
+instructions or current counts. P6/P7's broader unfinished product acceptance
+and production gates remain explicitly open in their phase checklists.
+
+### Historical checkpoints
+
+**Latest continuation — #66 configured database authority ready:** current
+branch is `branch/account-data-export`. The safe diagnostic/timeout fixes are
+published as `2ed43ab` and both threads have verified replies/resolved state.
+The ledger has **58 verified closeouts**; three known findings remain before a
+new scan: this authority path, the reaction owner index, and #62's conditional
+removal guarantee.
+
+The real separate-database fixture reproduced 16 failures out of 18 export
+cases, including authentication before the export handler. Account reads and
+the existing password update now use `mudPool`; character permission reads use
+that pool while profile avatar reads remain on the website pool. Export reads
+MUD credentials and web sessions separately at initial/final verification.
+Shared mode uses the already-held website connection, avoiding nested checkout.
+Separate credential connections are released only after a confirmed query and
+destroyed on failure. Existing SQL ownership classifications are unchanged.
+
+The actual route, account service and auth regressions pass **53 tests / five
+suites in all four combinations**: MySQL/MariaDB × shared/separate. Fixtures use
+two genuinely different databases in separate mode, include MUD characters and
+an intentionally wrong web shadow account, verify MUD-derived role plus web
+avatar, retain password/block/session rechecks, forbid nested web-pool queries
+and check failed-connection destruction/recovery. Both pools are closed.
+
+A related-caller run passed 30 suites / 284 tests, with two optional native suites
+(44 tests) disabled. One profile-stats mock lacked the existing `mudPool` export;
+its shared-pool alias was corrected and its two tests pass on the narrow rerun.
+No production fallback was added for that incomplete mock. Backend gates/build
+pass, with final format/lint/type checks after the test-fixture correction.
+Frontend is unchanged from the qualified 347-test run. No fresh browser, full
+application separate-mode burn-in or production acceptance is claimed.
+
+Runner: `/tmp/durisweb-run-export-authority-suite.mts <23436|23437>
+<export-auth|export-related> <shared|separate>`. It owns/drops the extra
+`durisweb_qualification_export_mud_suite` and its synthetic user only when created,
+in addition to the established web/cache fixture. Logs:
+`pr66-authority-red.log`,
+`pr66-authority-separate-{mysql,maria}-final.log`,
+`pr66-authority-shared-mysql-final.log`, `pr66-authority-shared-maria.log`,
+`pr66-authority-related-mysql.log`, `pr66-authority-profile-fixture-final.log`,
+`pr66-authority-{quality-final,final-static}.log`.
+An initial edit-script marker error left a partial implementation; those
+intermediate runs are not acceptance evidence. The final four-mode runs above
+use the completed implementation.
+
+A read-only schema observation plus reversible isolated ALTER probe also recorded
+the reaction-index before/after fingerprints in `reaction-index-23436.json` and
+`reaction-index-23437.json`; the probe restored the exact original shape and
+post-preflight passed. No migration source or production index is implemented by
+that probe. Publish/resolve `PRRT_kwDOVA2-8c6te2j5`, then implement the reversible
+forward reaction index and its ledger-recovery/native query-plan proof. Keep
+#62's remaining destructive race open.
+
+### Earlier published repairs and inventory
+
+**Latest continuation — #66 export failure handling ready:** current branch
+`branch/account-data-export` starts at `c05ed95`, carrying #65's published payload
+fence `c6302a0` / `93eba7a`. The ledger has 56 verified closeouts; five known
+findings remain before a new scan (#62 one, #66 four).
+
+Unexpected export failures now emit a safe allowlisted driver code and generated
+reference, returning the same reference in the 503 response without SQL, password,
+bindings or payload. The frontend distinguishes its own 20-second deadline from
+caller cancellation and shows a stable retry message through body-read timeouts.
+Caller cancellation still takes precedence when both happen. Existing browser
+compatibility and timer/listener cleanup remain.
+
+One native logging/reference regression and two timeout regressions failed before
+repair. Final native export suites pass **16 tests on each engine**; focused
+client/component tests pass **23**, and the full frontend passes **347 / 60
+files**. Both package gates/builds pass. A typed Winston mock assertion was changed
+to an equivalent calls-array assertion after the native runs; final type checking
+passes. No new browser/provider/production acceptance is claimed. Logs:
+`pr66-diagnostics-red.log`, `pr66-timeout-{red,green}.log`,
+`pr66-errors-{mysql,maria,frontend-quality,backend-quality-final}.log`.
+The existing isolated export runner and package-quality commands were used;
+all native fixture resources were released.
+
+Publish and resolve `PRRT_kwDOVA2-8c6tglEp` (unexpected diagnostics) and
+`PRRT_kwDOVA2-8c6tglEr` (timeout wording). Then complete #66's real separate-
+database authority path and reversible forum-reaction owner index, followed by
+#62's still-open conditional removal guarantee. Do not treat this error-handling
+chunk as either of those remaining repairs.
+
+Draft release note: “Data downloads now show a clear retry message when they time
+out.” Publish only with a separately verified release.
+
+### Earlier published repairs and inventory
+
 **Latest continuation — #65 payload acknowledgement fence published:** current
 branch `branch/legacy-copy-preservation` starts at `4e5679e`; the latest #63 docs
 closures are `c87c7ad` / `95fbd64` and are carried through #64 `208c0c6`,

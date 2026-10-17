@@ -5,9 +5,10 @@ const release = jest.fn();
 const connection = { query, release };
 const getConnection = jest.fn<() => Promise<typeof connection>>().mockResolvedValue(connection);
 
-jest.unstable_mockModule('../../db/connection.js', () => ({
-  pool: { getConnection },
-}));
+jest.unstable_mockModule('../../db/connection.js', () => {
+  const database = { query, getConnection };
+  return { pool: database, mudPool: database };
+});
 jest.unstable_mockModule('../../db/redis.js', () => ({
   deleteCache: jest.fn(),
   getCache: jest.fn(),
