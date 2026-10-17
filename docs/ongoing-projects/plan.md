@@ -33,13 +33,13 @@ Qualified prerequisite: `branch/lifecycle-metadata-visibility` repairs a reprodu
 metadata visibility gap before publishing managed-archive hold enforcement.
 Published for review as [PR #58](https://github.com/LuminariMUD/DurisWeb/pull/58),
 stacked on #57.
-The archive barrier was restored onto #58 in
-`branch/managed-archive-hold-barrier`; integration and native qualification pass,
-with final publication pending.
-Its pre-prerequisite recovery copy remains in Git stash
+Managed archive hold admission is qualified and published as
+[PR #59](https://github.com/LuminariMUD/DurisWeb/pull/59) on
+`branch/managed-archive-hold-barrier`, stacked on #58.
+Its pre-fix red-reproduction/recovery copy remains in Git stash
 `1c8d1dd304401fe58de11758a2dd7330b699a770` on
-`branch/managed-archive-hold-barrier`. Filtered metadata checks have been replaced;
-the cross-schema regression and required package/native matrices now pass.
+`branch/managed-archive-hold-barrier`; do not reapply it over the published tree.
+Filtered metadata checks have been replaced and all scoped qualification passes.
 Next: remaining P6 cleanup/copy/restore
 and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
@@ -2428,7 +2428,21 @@ outside this request. Keep this single evolving execution plan current.
   status so staff can investigate and retry.” Reconcile with the live Website
   Changelog only during an authorized verified release; no entry is published
   for these unshipped PRs. No source approval/collection/retention flag changed.
-- **P6d2b1 next:** publish the focused archive barrier on #58, then address the
+- **P6d2b1 publication:** code head
+  `0edcdb08d92f75519eaa4c396dac7f10ce9bd153` is pushed as open/non-draft
+  [PR #59](https://github.com/LuminariMUD/DurisWeb/pull/59), base #58
+  (`branch/lifecycle-metadata-visibility`, final `8916de3`), and attached to this
+  chat. Initial readback verifies OPEN/MERGEABLE, exact local/remote/API heads,
+  ahead/behind `0 0`, clean worktree and whitespace. Hosted quality jobs were
+  running; local qualification above is complete. Master remains `8946860`
+  and is already an ancestor, so no history rewrite, merge or tag is needed.
+  The owned Vite fixture listener was verified by PID/cwd and stopped after
+  browser acceptance. Retain private runners, logs/screenshots, the compiled
+  worker probe, required pre-fix reproduction stash `1c8d1dd` and unrelated
+  recovery stash `bbda289`. The obsolete archive-runner generator was removed;
+  it must not overwrite the finalized qualification runner. This closeout edits
+  documentation only; do not repeat runtime suites for it.
+- **P6d2b1 next:** from #59's final published head, address the
   already identified baseline/session trigger-visibility consumers as a focused
   prerequisite before shared adoption. Continue P6d2b2's durable upload/SQL-dump/
   staging workspace records and their real cancellation/validation/failure/
