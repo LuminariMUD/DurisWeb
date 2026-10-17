@@ -652,7 +652,7 @@ export async function deleteBackup(id: number): Promise<boolean> {
 export async function deleteFailedBackups(): Promise<number> {
   try {
     const [rows] = await pool.execute<BackupRow[]>(
-      `SELECT id FROM mud_backups WHERE status = 'failed' ORDER BY id`,
+      `SELECT id FROM mud_backups WHERE status = 'failed' AND filename NOT LIKE 'duris-mud-upload-%' ORDER BY id`,
     );
     let deletedCount = 0;
     for (const backup of rows) {

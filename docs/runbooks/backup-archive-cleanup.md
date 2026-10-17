@@ -82,7 +82,9 @@ configured `BACKUP_DIR`, exclusive creation and mode 0600. The API's compatibili
 field `tempPath` now contains the opaque UUID; client filesystem paths are refused.
 No OS-temporary-file fallback or implicit Multer unlink remains. Uploaded filenames
 are marked `duris-mud-upload-<UUID>.zip` and excluded from manual/hourly count
-pruning. No automatic upload expiry period has been approved or implemented.
+pruning and **Clear Failed** bulk cleanup. Retained uploads require explicit
+cancellation; the bulk button counts only generated failed backups. No automatic
+upload expiry period has been approved or implemented.
 
 File close/flush and directory sync precede the inspection checkpoint. A separate
 read-only process receives no application environment or SQL credentials, executes
@@ -97,6 +99,11 @@ as confirmed invalid. Physical identity is rechecked before acknowledgement.
 Known format/size rejection requests the existing managed remover after the writer
 is closed. Every active hold scope preserves the entire archive. Cancellation,
 including retries, requires a matching completed removal receipt before success;
+any present file must match the registered identity both at cancellation's first
+check and when the managed remover admits the target. A replaced file is kept
+for review, including replacement during the intervening asynchronous work. The
+generic delete-by-backup-ID path refuses upload-marked files so it cannot bypass
+these registered cancellation checks;
 an absent row/file alone is insufficient. Retain the upload and removal receipts
 until their own approved lifecycle exists. Generic settings APIs hide both private
 namespaces, including SQL collation aliases.
@@ -109,6 +116,10 @@ does not suffice. Unknown registration commit acknowledgements can leave a recei
 row with no file until that proof is available. A different boot/PID namespace or
 changed file/root needs private operator investigation. Recovery never deletes or
 executes archive contents and a late inspector cannot overwrite its result.
+
+The browser scopes its backup-list cache to the signed-in account and cancels
+the previous account's pending list request when that identity changes. Signing
+out or into another account does not reuse the previous uploader's list.
 
 Closed retained uploads offer download and cancellation from the list after a
 page reload. Both require owner/overlord access; pending writers cannot be

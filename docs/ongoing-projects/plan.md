@@ -1,78 +1,954 @@
 # Website security, privacy, and schema implementation plan
 
-Status: **implementation in progress**. Updated 2026-10-17.
+## Current handoff — read this first
 
-Current checkpoint: engineering through P4, the UTC correction, first P5
-collection closure and browser storage-denial repair are published for review
-(#39, #41–#49). The browser choice state machine and draft notice are qualified
-and published for review. The image-removal recovery prerequisite is qualified
-and published as [PR #50](https://github.com/LuminariMUD/DurisWeb/pull/50) on
-`branch/post-image-deletion-recovery`, stacked on #49. P6a's bounded read-only CLI and private
-continuation are qualified and published as
-[PR #51](https://github.com/LuminariMUD/DurisWeb/pull/51), stacked on #50.
-Completed continuation `branch/privacy-data-hold-records` has qualified hold intent
-storage/API, published as [PR #52](https://github.com/LuminariMUD/DurisWeb/pull/52),
-stacked on #51. P6c1 branch `branch/retention-hold-aware-preview` is
-qualified for held/unheld preview and protected continuation, published as
-[PR #53](https://github.com/LuminariMUD/DurisWeb/pull/53), stacked on #52.
-P6c2 branch `branch/retention-sql-enforcement` prepares source-disabled
-two-class SQL execution, atomic durable progress, expiring worker ownership,
-transaction-time hold rechecks and legacy analytics-cache removal. Focused tests
-pass on both database families; full backend and regression evidence is recorded
-below. Published for review as [PR #54](https://github.com/LuminariMUD/DurisWeb/pull/54),
-stacked on #53. P6d1 branch `branch/restore-lifecycle-boundary` closes legacy
-restore bypasses; qualified and published for review as
-[PR #55](https://github.com/LuminariMUD/DurisWeb/pull/55), stacked on #54.
-P6d2a branch `branch/backup-deletion-recovery` repairs archive retry identity
-and deletion acknowledgement, qualified and published for review as
-[PR #56](https://github.com/LuminariMUD/DurisWeb/pull/56), stacked on #55.
-P6d2a2 branch `branch/backup-action-acknowledgement` repairs remaining backup
-start/restore/cancellation feedback, qualified and published as
-[PR #57](https://github.com/LuminariMUD/DurisWeb/pull/57), stacked on #56.
-Qualified prerequisite: `branch/lifecycle-metadata-visibility` repairs a reproduced
-metadata visibility gap before publishing managed-archive hold enforcement.
-Published for review as [PR #58](https://github.com/LuminariMUD/DurisWeb/pull/58),
-stacked on #57.
-Managed archive hold admission is qualified and published as
-[PR #59](https://github.com/LuminariMUD/DurisWeb/pull/59) on
-`branch/managed-archive-hold-barrier`, stacked on #58.
-Its pre-fix red-reproduction/recovery copy remains in Git stash
-`1c8d1dd304401fe58de11758a2dd7330b699a770` on
-`branch/managed-archive-hold-barrier`; do not reapply it over the published tree.
-Filtered metadata checks have been replaced and all scoped qualification passes.
-Prerequisite `branch/schema-trigger-authority` starts at #59's final
-`5c2cc1a` and fixes the remaining baseline/session catalog checks. Qualified and
-published for review as [PR #60](https://github.com/LuminariMUD/DurisWeb/pull/60),
-stacked on #59. New archive creation now streams without raw SQL/staging disk
-copies in [PR #61](https://github.com/LuminariMUD/DurisWeb/pull/61), on
-`branch/stream-backup-archives`, stacked on #60. Durable upload ownership,
-writer recovery, bounded inspection and hold-aware cancellation are qualified
-and published for review as [PR #62](https://github.com/LuminariMUD/DurisWeb/pull/62)
-on `branch/backup-upload-records`, stacked on #61. Existing
-legacy temporary-file discovery/adoption remains next.
-Install metadata function v2 before bootstrap/migrations;
-source does not accept v1 as an equivalent fallback.
-Next: remaining P6 cleanup/copy/restore
-and P7 engineering, plus unresolved policy/provider decisions. P5's approved
-notice and release gates remain open.
-Policy/approval and live-release gates remain open; no production rollout is implied.
+**Latest review continuation:** #55 UI fix `3446b1b`, #48 contract fix
+`d43f94c`, #49 follow-up `64d30b7` and #50 follow-up `ab40c42` are pushed;
+all eight corresponding threads are verified resolved. The three later #54
+findings are now fixed in `3e68def` and `89bea79`, pushed and verified resolved.
+**13 known findings remain on #62–#66.** Repairs are carried and pushed through
+#59 again; #60's combined retention/schema integration is qualified.
+Repairs are now pushed through #61 (`6a05af0`); #62 contains parent merge
+`0cbbce8` and is under repair. The restore availability and async cancellation paths
+remain intact. No review completion, master merge or deployment is claimed.
+The dated inventory below is historical where
+these newer results supersede it; exact follow-up proof precedes the old records.
 
-Single working plan for [#7](https://github.com/LuminariMUD/DurisWeb/issues/7),
-[#8](https://github.com/LuminariMUD/DurisWeb/issues/8),
-[#9](https://github.com/LuminariMUD/DurisWeb/issues/9),
-[#10](https://github.com/LuminariMUD/DurisWeb/issues/10),
-[#11](https://github.com/LuminariMUD/DurisWeb/issues/11),
-[#12](https://github.com/LuminariMUD/DurisWeb/issues/12),
-[#13](https://github.com/LuminariMUD/DurisWeb/issues/13), and
-[#14](https://github.com/LuminariMUD/DurisWeb/issues/14).
+Verified **2026-10-17 11:53 UTC** against fetched Git branches, GitHub PR heads, issues,
+all review-thread pages and retained local evidence. This section supersedes
+every older checkpoint, deadline and next-step instruction below. The current
+request is to record exact status and the critical work for an hour of recovery.
+The ongoing implementation goal is to address outstanding PR reviews oldest
+first. This documentation update does not implement the remaining findings.
 
-Implementation branch: `branch/issues-7-14-security-privacy-baseline`.
-Source reviewed: `master` at
-[`ade01ddcea70c0448825a0b4ab3e8ba77982aae4`](https://github.com/LuminariMUD/DurisWeb/commit/ade01ddcea70c0448825a0b4ab3e8ba77982aae4).
-All eight issues were open with no comments when read. Their older `3f0ddc9`
-references are context; the findings below come from the pinned checkout.
+**Actual state: 3 project PRs merged, 27 open; 10 original review findings
+resolved, 21 currently unresolved across 9 PRs.** Seven new findings appeared
+after the initial repairs. All 27 remote PR heads had four successful hosted
+checks at this snapshot; green checks are not review approval or complete
+acceptance. Issues #7–#12 and #14 remain open; only #13 is closed.
 
-## Scope and authority
+**The whole eight-issue project is unfinished.** The selected account-data
+download is implemented and explicitly partial. Complete erasure, complete
+export/request tracking, general retention, approved policy and live release
+acceptance remain unfinished. There is no evidence-based way to promise all
+of that will be finished in one hour. The priority schedule below identifies
+what to finish first and how to leave every completed repair reviewable.
+
+### Exact checkout and unpublished work
+
+- Authoritative working file: `/tmp/durisweb-security-privacy-plan-20261016/docs/ongoing-projects/plan.md`
+  (Windows: `\\wsl.localhost\Ubuntu\tmp\durisweb-security-privacy-plan-20261016\docs\ongoing-projects\plan.md`).
+  The original checkout's plan on `master` is older; it has not been overwritten.
+- Current branch: `branch/restore-lifecycle-boundary`, PR #55. Before this
+  document commit, local HEAD is `55e7292`, an ordinary parent merge containing
+  #54's published repairs; remote #55 is `0736f4fe1225`. The local branch is
+  ahead by 14 commits. Publishing this document also publishes that retained
+  parent merge; it does not include the uncommitted UI change described next.
+- **Uncommitted runtime work:** `frontend/src/views/admin/mud/MudBackupView.vue`
+  disables all unavailable restore actions, keeps inspection available, shows
+  the reason and suppresses advice to stop the MUD for an unavailable action.
+  The retained frontend run passes **294 tests / 57 files** plus required gates
+  and build. Desktop/phone browser checks pass for stored/uploaded inspection,
+  all disabled restore modes and zero restore/cancel requests. This UI repair
+  is **not committed, pushed or review-resolved** at this handoff. Preserve it;
+  finish its narrow publication before switching this dirty worktree.
+- Latest cumulative feature source remains #66 at `ff152f4001dbe6d6a5ad18d9eea39a07b5a4791b`.
+  It includes #56–#65 and the partial export, but **does not yet contain the
+  newer review repairs made on earlier PRs**. Do not mistake one branch for
+  the tested final integration of all work.
+- Original checkout `/home/aiwithapex/projects/durisweb` is clean on `master`,
+  matching `origin/master` at `89468603a61ab44d9e3be1651c9dd6fce5a17a12`.
+  Preserve its state and the existing review worktrees listed in the historical
+  record. No release tag, deployment, production logout/deletion, shared
+  migration, MUD operation or master merge was performed by this review work.
+- Preserve stashes `1c8d1dd304401fe58de11758a2dd7330b699a770` and
+  `bbda2896e1c515687d542f6d6e215de7ee364d63`; do not blindly apply them.
+- `branch/legacy-owner-fence` is local-only at `2774928`, with no new
+  implementation, upstream or PR. The isolated ownership experiment is not a
+  shipped guard. Do not restart that expansion as the default next task.
+
+### What is implemented and what is unfinished
+
+The following describes source and retained isolated proof across the stack,
+not production or final integration. Newly reported defects below qualify the
+earlier test claims; a historical pass does not resolve a later finding.
+
+| Issue / phase | Implemented and verified | Still unfinished |
+| --- | --- | --- |
+| #13 / P1 — safe diagnostics | GeoIP/cache errors use bounded categories and references, with identifying-value regression tests. PR #36 is merged and #13 is closed. | No further source work identified for this issue; no new live verification is claimed. |
+| #14 / P2 — reproducible schema | Versioned 77-table website baseline, immutable inputs, guarded installer/adoption/ledger transition, full owner-schema qualification, upgrade/recovery and two-engine tests. #37/#38 merged; #39 open. #58/#60 add authoritative metadata checks. | Review/merge remaining source; use the exact supported procedure and metadata v2 during any separately authorized installation. No production migration acceptance exists. |
+| #7 + #8 / P3 — refresh credentials and expiry | SHA-256 refresh digests, session/account binding, UTC epoch expiry, expand/cutover/contract migrations, empty-session rollback, preflight, access/refresh/DST/offset and revocation tests. #41 open; #43/#44 are related follow-ups. | Review/merge, explicit one-time logout decision, deployed-schema inspection and authorized cutover/live auth proof. Existing sessions have not been invalidated by this task. |
+| #9 / P4 — safety-toggle attribution | Atomic setting/journal write, idempotent bounded audit recovery, protected journal namespace, safe diagnostics and outage/crash/retry/concurrency tests. #42 open. | Review/merge and future release verification. Approved retention and subject-request treatment of delivered journal/audit records remain part of P6/P7. |
+| #10 / P0/P5 — notice and optional analytics | Public draft `/privacy` page and contact, browser choice state machine, server-owned receipts, same-origin/CSRF checks, withdrawal/race/storage-denial handling, minimized optional events and synthetic browser proof. #45–#49 open. | Approved final notice, purposes/providers/transfers/periods and release acceptance. `approved`, `collectionEnabled` and `retentionReady` remain false in `backend/src/config/privacyPolicy.ts`; optional collection is unavailable. The proposed 180-day preference period is not approved. |
+| #11 / P6 — retention | Inventory; bounded preview; private hold records; hold-aware continuation; source-disabled executor for **`analytics_events` and `login_history` only**; durable progress and cache cleanup; managed archive hold/removal/upload recovery; legacy discovery and individual preservation tools. #50–#65 open. | Approved periods/rules; remaining per-class handlers and feature cleanup; own-ledger periods; subject-request coordination; provider/media/cache/log copies; whole legacy-copy ownership/adoption and pre-teardown preservation; independently protected removal evidence and restore replay; operational acceptance. General retention is not enabled. |
+| #12 / P7 — account export and erasure | Fresh current-password/session verification; bounded consistent download of eleven selected website categories; subject/collation isolation; explicit omitted categories; private JSON response and working privacy-page download control. | Complete durable request lifecycle, approved assisted verification, remaining/mixed/external export categories, erasure/anonymization and non-recreation, request/status UI, MUD/provider completion and complete-request verification. This partial download does not close #12. |
+| P8 — integration and release | Per-chunk tests/builds and draft release wording are retained. | Final complete-feature integration, reviewed release identity, required owner decisions, authorized rollout and live Website Changelog verification. Source checks do not close these gates. |
+
+Named owner/operational/MUD contact supplied by the user: **Max (Moshe)**; his email is recorded in the linked
+lifecycle inventory below. His supplied contact details are not approval of
+retention/destruction periods, controller wording,
+provider commitments, request verification rules or the global logout. The
+registry is [Website data lifecycle inventory](../privacy-data-lifecycle.md).
+It covers the immutable 77-table baseline plus two later website-owned tables
+(`web_data_holds`, `web_retention_runs`) and the additional private journals,
+files, caches and external owners. Those stores still need approved disposition.
+
+### All branches and PRs
+
+These are fetched/API remote checkpoints **before this documentation commit**.
+The documentation commit advances #55 only; its committed runtime remains the
+existing parent merge. Every project branch is included. Earlier local review
+copies of #37/#38 lag their published heads; preserve those independent copies.
+No new PR or tag is needed for this handoff because #55 is already open.
+
+| PR | State / outstanding review threads | Branch | Base | Remote head | Delivered chunk |
+| --- | --- | --- | --- | --- | --- |
+| [#36](https://github.com/LuminariMUD/DurisWeb/pull/36) | Merged | `branch/issues-7-14-security-privacy-baseline` | `master` | `b299239449e9` | Remove identifying data from GeoIP and cache diagnostics |
+| [#37](https://github.com/LuminariMUD/DurisWeb/pull/37) | Merged | `branch/issue-14-web-schema-baseline` | `master` | `55aafe917485` | Define and verify versioned website schema inputs |
+| [#38](https://github.com/LuminariMUD/DurisWeb/pull/38) | Merged | `branch/issue-14-web-schema-bootstrap` | `master` | `303030a4077f` | Add guarded website baseline installation and migration coverage |
+| [#39](https://github.com/LuminariMUD/DurisWeb/pull/39) | Open; 0 unresolved | `branch/issue-14-baseline-qualification` | `master` | `b339562f3e9d` | Qualify fresh and restored website baselines on full owner schemas |
+| [#41](https://github.com/LuminariMUD/DurisWeb/pull/41) | Open; 0 unresolved | `branch/issues-7-8-session-credentials` | `branch/issue-14-baseline-qualification` | `7fd35baceac8` | Protect refresh credentials and make session expiry timezone independent |
+| [#42](https://github.com/LuminariMUD/DurisWeb/pull/42) | Open; 0 unresolved | `branch/issue-9-toggle-audit-journal` | `branch/issues-7-8-session-credentials` | `4b28587612a6` | Keep safety-toggle attribution durable through audit outages |
+| [#43](https://github.com/LuminariMUD/DurisWeb/pull/43) | Open; 0 unresolved | `branch/settings-utc-provenance` | `branch/issue-9-toggle-audit-journal` | `b0d8e0a0c885` | Report website-setting timestamps as UTC instants |
+| [#44](https://github.com/LuminariMUD/DurisWeb/pull/44) | Open; 0 unresolved | `branch/session-probe-config-guard` | `branch/settings-utc-provenance` | `49ba05fb0abd` | Recognize the session test probe in configuration checks |
+| [#45](https://github.com/LuminariMUD/DurisWeb/pull/45) | Open; 0 unresolved | `branch/issue-10-stop-unconsented-analytics` | `branch/session-probe-config-guard` | `069f7b50d42e` | Stop optional website analytics before privacy choices are ready |
+| [#46](https://github.com/LuminariMUD/DurisWeb/pull/46) | Open; 0 unresolved | `branch/browser-storage-preferences` | `branch/issue-10-stop-unconsented-analytics` | `5a820ac9086c` | Handle blocked storage in notification and changelog preferences |
+| [#47](https://github.com/LuminariMUD/DurisWeb/pull/47) | Open; 0 unresolved | `branch/privacy-processing-registry` | `branch/browser-storage-preferences` | `558544ee90e6` | Inventory data lifecycles for privacy and account requests |
+| [#48](https://github.com/LuminariMUD/DurisWeb/pull/48) | Open; 1 unresolved | `branch/privacy-choice-receipts` | `branch/privacy-processing-registry` | `e7cb0cf09bde` | Enforce server-owned privacy choices before optional collection |
+| [#49](https://github.com/LuminariMUD/DurisWeb/pull/49) | Open; 4 unresolved | `branch/privacy-browser-choices` | `branch/privacy-choice-receipts` | `39319e53e1a7` | Add public privacy information and safe browser choices |
+| [#50](https://github.com/LuminariMUD/DurisWeb/pull/50) | Open; 2 unresolved | `branch/post-image-deletion-recovery` | `branch/privacy-browser-choices` | `06dd14336695` | Preserve retry state for forum image removal |
+| [#51](https://github.com/LuminariMUD/DurisWeb/pull/51) | Open; 0 unresolved | `branch/retention-readonly-preview` | `branch/post-image-deletion-recovery` | `af51c060a97f` | Add bounded read-only retention previews |
+| [#52](https://github.com/LuminariMUD/DurisWeb/pull/52) | Open; 0 unresolved | `branch/privacy-data-hold-records` | `branch/retention-readonly-preview` | `2d689457f379` | Record private data hold intent and release history |
+| [#53](https://github.com/LuminariMUD/DurisWeb/pull/53) | Open; 0 unresolved | `branch/retention-hold-aware-preview` | `branch/privacy-data-hold-records` | `e56f8ee3fee8` | Account for holds in retention previews and continuation |
+| [#54](https://github.com/LuminariMUD/DurisWeb/pull/54) | Open; 0 unresolved | `branch/retention-sql-enforcement` | `branch/retention-hold-aware-preview` | `9ee08fad289d` | Prepare gated SQL retention with transactional holds |
+| [#55](https://github.com/LuminariMUD/DurisWeb/pull/55) | Open; 1 unresolved | `branch/restore-lifecycle-boundary` | `branch/retention-sql-enforcement` | `0736f4fe1225` | Close legacy restore bypasses until protected recovery exists |
+| [#56](https://github.com/LuminariMUD/DurisWeb/pull/56) | Open; 0 unresolved | `branch/backup-deletion-recovery` | `branch/restore-lifecycle-boundary` | `2fdfb3686231` | Keep backup deletion failures retryable and await UI outcomes |
+| [#57](https://github.com/LuminariMUD/DurisWeb/pull/57) | Open; 0 unresolved | `branch/backup-action-acknowledgement` | `branch/backup-deletion-recovery` | `5ffeb0505036` | Wait for confirmed backup actions and retain refused work |
+| [#58](https://github.com/LuminariMUD/DurisWeb/pull/58) | Open; 0 unresolved | `branch/lifecycle-metadata-visibility` | `branch/backup-action-acknowledgement` | `8916de3c5f89` | Require authoritative metadata before lifecycle writes |
+| [#59](https://github.com/LuminariMUD/DurisWeb/pull/59) | Open; 0 unresolved | `branch/managed-archive-hold-barrier` | `branch/lifecycle-metadata-visibility` | `5c2cc1a49da8` | Fence managed archive cleanup against preservation holds |
+| [#60](https://github.com/LuminariMUD/DurisWeb/pull/60) | Open; 0 unresolved | `branch/schema-trigger-authority` | `branch/managed-archive-hold-barrier` | `220c9918e71f` | Require authoritative schema and session side-effect checks |
+| [#61](https://github.com/LuminariMUD/DurisWeb/pull/61) | Open; 0 unresolved | `branch/stream-backup-archives` | `branch/schema-trigger-authority` | `0bc26417a93a` | Stream backups without temporary SQL copies |
+| [#62](https://github.com/LuminariMUD/DurisWeb/pull/62) | Open; 3 unresolved | `branch/backup-upload-records` | `branch/stream-backup-archives` | `3d68697bb080` | Track backup uploads durably and honor preservation holds |
+| [#63](https://github.com/LuminariMUD/DurisWeb/pull/63) | Open; 2 unresolved | `branch/legacy-upload-preservation-gate` | `branch/backup-upload-records` | `1b37db7132a9` | Preserve legacy temporary copies before old service shutdown |
+| [#64](https://github.com/LuminariMUD/DurisWeb/pull/64) | Open; 3 unresolved | `branch/legacy-backup-copy-inventory` | `branch/legacy-upload-preservation-gate` | `ab097795cf2a` | Inventory legacy backup copies privately before preservation |
+| [#65](https://github.com/LuminariMUD/DurisWeb/pull/65) | Open; 3 unresolved | `branch/legacy-copy-preservation` | `branch/legacy-backup-copy-inventory` | `a0ce5eead048` | Preserve legacy backup bytes with kernel file leases |
+| [#66](https://github.com/LuminariMUD/DurisWeb/pull/66) | Open; 2 unresolved | `branch/account-data-export` | `branch/legacy-copy-preservation` | `ff152f4001db` | Add password-verified partial website data downloads |
+
+#39 targets master, #41 targets #39, and #42–#66 each target the preceding
+listed PR. Carry each accepted repair through every intervening branch with
+ordinary merges; do not skip the no-findings branches. Repairs are carried and
+pushed through #54; #55 has the local parent merge; #56–#66 still need them.
+Future merges must preserve the #55 UI availability gate alongside #57's
+acknowledgement/error/cancellation handling and #58/#60's metadata authority.
+
+Other repository branches, included for complete checkout accounting:
+
+- `branch/issue-30-discord-payload-bounds` — local `a25f16b1f251`, remote `a25f16b1f251`; [#35](https://github.com/LuminariMUD/DurisWeb/pull/35) (merged).
+- `branch/issue-30-discord-status` — local `09ea84026073`, remote `09ea84026073`; [#34](https://github.com/LuminariMUD/DurisWeb/pull/34) (merged).
+- `branch/issue-30-discord-transport` — local `87dd4619828e`, remote `87dd4619828e`; [#32](https://github.com/LuminariMUD/DurisWeb/pull/32) (merged).
+- `branch/issue-30-durable-discord` — local `6e33525905b4`, remote `6e33525905b4`; [#33](https://github.com/LuminariMUD/DurisWeb/pull/33) (merged).
+- `branch/legacy-owner-fence` — local `2774928e8638`; no PR found in the current repository PR listing.
+- `feat/mudlet-gui-page` — remote `465b2dbf1218`; [#29](https://github.com/LuminariMUD/DurisWeb/pull/29) (merged).
+- `master` — local `89468603a61a`, remote `89468603a61a`; no PR found in the current repository PR listing.
+
+The four issue-30 Discord branches and `feat/mudlet-gui-page` are outside this
+project. The local-only owner-fence branch has no distinct implementation.
+Keep unrelated branches, worktrees, stashes and tags intact.
+
+### Exact outstanding review queue
+
+The initial queue contained 24 findings; 10 were resolved and seven new ones
+were added. **21 remain**. Each link below opens the exact unresolved thread.
+Reported findings require reproduction/inspection and a focused fix, not a
+blanket assertion that every hypothesis has already been proved.
+
+**PR #48: 1 outstanding.**
+
+- [P2: Document that status leaves invalid receipts intact](https://github.com/LuminariMUD/DurisWeb/pull/48#discussion_r4302270731).
+
+**PR #49: 4 outstanding.**
+
+- [P2: Wait for auth restoration before starting visit tracking](https://github.com/LuminariMUD/DurisWeb/pull/49#discussion_r4302315506).
+- [P2: Preserve the visit when checking the saved choice](https://github.com/LuminariMUD/DurisWeb/pull/49#discussion_r4302315509).
+- [P2: Do not abort page views on the next navigation](https://github.com/LuminariMUD/DurisWeb/pull/49#discussion_r4302315511).
+- [P2: Identify the privacy route by its route record](https://github.com/LuminariMUD/DurisWeb/pull/49#discussion_r4302315517).
+
+**PR #50: 2 outstanding.**
+
+- [P2: Return the matching batch failure reference](https://github.com/LuminariMUD/DurisWeb/pull/50#discussion_r4302372947).
+- [P2: Preserve unavailable URLs when the final count fails](https://github.com/LuminariMUD/DurisWeb/pull/50#discussion_r4302372951).
+
+**PR #55: 1 outstanding.**
+
+- [P2: Disable the now-dead restore controls](https://github.com/LuminariMUD/DurisWeb/pull/55#discussion_r4300737231).
+
+**PR #62: 3 outstanding.**
+
+- [P2: Verify the registered file identity before cancellation](https://github.com/LuminariMUD/DurisWeb/pull/62#discussion_r4301769759).
+- [P2: Exclude review-required uploads from bulk failed cleanup](https://github.com/LuminariMUD/DurisWeb/pull/62#discussion_r4301769761).
+- [P2: Scope the backup cache to the authenticated owner](https://github.com/LuminariMUD/DurisWeb/pull/62#discussion_r4301769762).
+
+**PR #63: 2 outstanding.**
+
+- [P1: Gate dependency restarts from the incident runbook](https://github.com/LuminariMUD/DurisWeb/pull/63#discussion_r4301774270).
+- [P2: Include every accepted suffix in the legacy upload layout](https://github.com/LuminariMUD/DurisWeb/pull/63#discussion_r4301774279).
+
+**PR #64: 3 outstanding.**
+
+- [P2: Silence dotenv in the inventory script](https://github.com/LuminariMUD/DurisWeb/pull/64#discussion_r4301818697).
+- [P2: Reject same-device mount crossings](https://github.com/LuminariMUD/DurisWeb/pull/64#discussion_r4301818702).
+- [P2: Accept filenames emitted from configured database names](https://github.com/LuminariMUD/DurisWeb/pull/64#discussion_r4301818705).
+
+**PR #65: 3 outstanding.**
+
+- [P2: Reject bind-mounted aliases of source roots](https://github.com/LuminariMUD/DurisWeb/pull/65#discussion_r4302045017).
+- [P2: Accept every filesystem-sized legacy upload suffix](https://github.com/LuminariMUD/DurisWeb/pull/65#discussion_r4302045020).
+- [P2: Revalidate bundle namespace entries before reporting success](https://github.com/LuminariMUD/DurisWeb/pull/65#discussion_r4302045022).
+
+**PR #66: 2 outstanding.**
+
+- [P2: Read credentials from the configured MUD database](https://github.com/LuminariMUD/DurisWeb/pull/66#discussion_r4302129789).
+- [P2: Fall back when abort-signal combinators are unavailable](https://github.com/LuminariMUD/DurisWeb/pull/66#discussion_r4302129793).
+
+The #48/#49/#50 entries are new findings after the original repairs; those
+PRs are not fully review-cleared. #55 has the tested but unpublished correction
+listed above. #63's filename documentation and #64's configured SQL filenames
+have partial later changes in #65; backport the relevant fix to the first
+affected PR and prove it there instead of duplicating mechanisms.
+
+For #66, trace actual route authentication as well as the export helper:
+MUD-owned credentials must use the configured authority in separate-database
+mode, web sessions their own database. In shared mode, avoid taking a second
+connection while all exports hold one. Prove the real endpoint in both modes.
+The older-browser fix must work when either AbortSignal static method is absent.
+
+### Critical work for one hour
+
+The old 11:12–12:12 Asia/Jerusalem recovery window is historical and has elapsed.
+This is a **relative 60-minute priority budget from the next implementation
+start**, not a newly confirmed external deadline or a promise of full project
+completion. Keep the existing oldest-first review objective, and reserve time
+for verification/publication. Do not silently expand the scope to a new feature.
+
+1. **Minutes 0–5: preserve the already-tested #55 repair.** Inspect the small UI
+   diff and retained desktop/phone output, commit/push that runtime change to
+   #55, verify the exact remote head, reply to/resolve its thread, and update this
+   plan. Reuse its valid 294-test/build evidence unless the runtime changes.
+   This closes ready work before the next branch switch.
+2. **Minutes 5–25: finish the newly discovered oldest findings.** Correct #48's
+   API contract, then #49's initial auth/visit race, saved-choice refresh,
+   navigation-request cancellation and trailing-slash route identity. Add
+   focused regressions for each actual behavior. Carry the #48 fix into #49;
+   publish each completed chunk immediately. Next, #50 must preserve the
+   matching failure reference and known removed-image URLs on final-count
+   failure, with a real failure-path test. If this runs past the allocation,
+   finish proof/publication of the current chunk rather than opening more work.
+3. **Minutes 25–40: carry verified parents forward and repair the next risks.**
+   Prioritize #62's cross-account cached upload metadata, wrong-file cancellation
+   and bulk deletion of review-required uploads; #63's missing restart/stop
+   preservation prerequisite is the remaining **P1 data-loss finding**. If time
+   is insufficient under oldest-first order, record the exact stopping point
+   and leave affected operations unreleased; do not call them safe. #64/#65's
+   mount/namespace integrity and filename/CLI fixes remain prerequisites to
+   declaring the preservation tools ready. #66's two download failures are
+   next in the requested order. These allocations are targets, not claims that
+   all listed fixes fit into fifteen minutes.
+4. **Minutes 40–50: finish relevant proof.** For touched packages, run narrow
+   regressions plus format/lint/type checks and builds for runtime changes;
+   backend database changes also need `verify:mud-writes`. Use the existing
+   owned two-engine fixtures for SQL/race behavior and isolated native mount
+   fixtures for filesystem claims. Reuse unchanged, previously qualified
+   evidence. Do not start a broad new burn-in or rerun unrelated green suites.
+5. **Minutes 50–60: publish and leave an exact handoff.** Push every finished
+   repair to its existing focused PR, verify local/remote/PR heads, resolve only
+   proved findings, and re-scan reviews for additions. Record uncommitted files,
+   unpropagated parents, failing/unrun checks and the next single action here.
+   Stop adding scope. Green CI alone is not completion; do not mark this project
+   complete while any required behavior or review finding remains open.
+
+**After the review queue, the remaining whole-project critical path is still:**
+
+- P0/P5: final notice, actual providers/purposes, request verification,
+  per-class periods/exceptions and the one-time logout decision. Prepare
+  concrete proposals for Max; ask only for decisions necessary to proceed.
+- P7: durable verified request/progress/status, remaining approved export
+  categories, erasure/anonymization, active-session teardown, prevention of
+  recreation, mixed-subject/staff handling, provider/MUD outcomes, retry and
+  independent completion verification. The existing partial download covers
+  eleven selected categories and does not close this requirement.
+- P6: approved handlers beyond analytics/login history, own-ledger retention,
+  media/cache/provider/log work, holds and request coordination, legacy-copy
+  ownership/adoption/preservation, independently protected deletion evidence
+  and replay before restored data becomes accessible. Maintain the protected
+  import review boundary of 2027-03-03; do not turn approval flags on to satisfy
+  a deadline. General retention and optional collection remain source-disabled.
+- P8: integration of the repaired stack, full remaining acceptance, separately
+  authorized release/cutover and live Website Changelog verification. Nothing
+  in this handoff authorizes a production operation or establishes deployment.
+
+### Proof, recovery and immediate next action
+
+Outcome: one accurate continuation document. Files: this plan only. Proof:
+fresh Git/PR/issue/thread checks, agreement of all 30 project PR rows with API
+data, all 21 unresolved thread links, relative-link and whitespace checks,
+doc-only staged diff and remote readback. Non-goals for this document update:
+new runtime changes, policy approvals, deployment or new test infrastructure.
+Ablation reuses the existing PRs, plan and evidence and drops the stale top-level
+checkpoint and expired deadline as current instructions.
+
+- Documentation validation: `python3 /tmp/durisweb-verify-handoff.py` passes
+  all 30 project PR rows, 37 branch names, 21 unresolved thread links, P0–P8
+  retention, 51 existing relative links and balanced Markdown fences/details.
+  `git diff --check` and `./scripts/check-config-literals.sh` pass. Fresh reads
+  used `git fetch origin`, `git status --short --branch`, `git worktree list`,
+  `git for-each-ref`, `git stash list`, `gh pr list --state open`,
+  `gh pr list --state all`, `gh issue list --state all` and the complete
+  GraphQL scan in `/tmp/durisweb-review-scan.py` with the refreshed PR list.
+  Package/runtime/native/browser tests were not rerun for this Markdown-only
+  change; their retained results below are labelled separately.
+- Original review fixes are committed/pushed: #46 `5a820ac`, #48 `e7cb0cf`,
+  #49 `39319e5`, #50 `06dd143`, #54 `9ee08fa`. No-findings parent carry-forward
+  commits: #47 `558544e`, #51 `af51c06`, #52 `2d68945`, #53 `e56f8ee`.
+  Their ten resolved threads were confirmed by the fresh scan.
+- #55 retained commands: `python3 /tmp/durisweb-image-quality.py frontend`
+  and `node /tmp/durisweb-review-availability55.mjs`. Output:
+  `/tmp/durisweb-review-20261017/pr55-quality.log` and
+  `pr55-browser-closeout.log`; four `pr55-unavailable-*.png` screenshots.
+  No runtime test was rerun for this documentation update.
+- Review evidence and verified reply ledger:
+  `/tmp/durisweb-review-20261017/` and its `closed-findings.json`.
+  Fresh inventory: `/tmp/durisweb-review-open-prs-current.json` and
+  `/tmp/durisweb-all-prs-current.json`. Private helpers/logs are temporary;
+  committed tests and PR history are the durable source if these disappear.
+- Owned native fixtures: MySQL 8.0.46 at 23436, MariaDB 11.8.9 at 23437,
+  Redis at 23479, runner-owned DBs 13/14. Read a runner before using it and
+  serialize shared-cache suites. Do not use dev 13306/16379, other review
+  fixtures or production. Older historical branches lack later metadata-v2
+  helpers; use their matching recorded runner, not a later incompatible setup.
+- `python3 /tmp/durisweb-image-quality.py backend|frontend` contains the
+  recorded package gates; backend mode includes schema/MUD-write/build checks,
+  frontend mode includes full unit tests and build. Native targeted runners
+  and individual test counts are retained in the review record below.
+- **Next single implementation action:** finish publishing the existing tested
+  #55 UI diff, then return to #48's new documentation finding and continue
+  oldest-first. Preserve this cumulative plan when merging earlier branches;
+  do not replace it with an older snapshot that loses #56–#66 or this review queue.
+
+## Follow-up review evidence — #48–#50
+
+**#62 review repair:** account-dependent backup queries now include the signed-in
+account in their key, disable anonymous reads, consume cancellation signals and
+apply progress updates to the same scoped key. Cancellation compares the present
+file against its durable registration and passes that identity to the managed
+remover for admission-time rechecking. Bulk failed cleanup excludes upload-marked
+filenames, and the UI counts only eligible generated backups. No new lifecycle,
+storage or query framework is introduced. Files: existing backup services,
+composable/API/view, focused tests, cleanup runbook and plan.
+
+Two Vue Query regressions and the pre-/post-inspection replacement cases failed
+before repair. The first bulk test had an incomplete synthetic row (missing the
+required `ip_address` field); after correcting it, a controlled old-query run
+reproduces deletion of two rows instead of only the generated failed backup.
+The fixed query was restored immediately afterward. Focused frontend tests pass
+16 and the current full suite passes 318 / 58 files; native final reruns and the
+small Clear Failed display correction are still being qualified. Evidence is
+under `pr62-*` in the private review directory. The earlier 54/55 archive-test
+result is incomplete and is not acceptance. Do not publish until final native,
+frontend and rendered checks pass. All three review threads remain open.
+
+The corrected native matrix subsequently passes 55 cases on each engine; final
+frontend gates/build pass 318 / 58 files, and recovery/cancellation browser checks
+pass at 1440/768/390 with Clear Failed excluding retained uploads. Following the
+other deletion caller exposed a reachable bypass through generic delete-by-ID;
+a native regression confirms it removed a registered upload without its
+cancellation identity. The remover now requires that identity for every upload-
+marked filename, preserving the explicit cancellation path. The final 56-case
+matrix and backend gates are being rerun for that small additional admission fix.
+
+**#62 final proof:** `node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-run-archive-suite.mts 23436 upload-archive` and the same with
+`23437` each pass **56 tests / six suites**, covering the reported cases, the
+generic deletion bypass, real multipart/filesystem handling, worker fencing,
+holds and recovery. Owner/schema preflights match and owned fixtures are cleaned.
+`python3 /tmp/durisweb-image-quality.py backend` and its frontend mode pass all
+required checks/builds; frontend has **318 tests / 58 files**. Focused Vue Query
+tests pass 16, proving visible-account isolation and cancellation of a stale
+response. `node /tmp/durisweb-review-browser62.mjs` passes at 1440/768/390 with
+recovery acknowledgement, hold refusal, explicit retry, retained failed uploads
+and the corrected Clear Failed count. Phone/tablet screenshots were inspected.
+Whitespace and configuration guards pass. Final logs: `pr62-closeout-{mysql,
+maria,backend-quality}.log`, `pr62-final-{frontend-quality,browser}.log` and
+`pr62-frontend-focused.log`. No full backend, physical-device, provider or live
+production acceptance is claimed. Future admin news: “Retained backup uploads
+stay private when switching accounts and remain available for review until
+explicit cancellation; bulk failed-backup cleanup leaves them in place.”
+Publish this repair and resolve all three threads, then carry it into #63's
+documentation repairs. Keep #64–#66 open for the remaining eight findings.
+
+**Final retention carry-forward:** #54's class/CLI and rollback repairs are
+integrated through #60 merge `f2422b6`. The actual metadata-v2 execution runner
+passes 26 tests / two suites on each of 23436/23437, including cache class
+approval, real CLI connection closure, rollback races and interruption recovery.
+Backend gates/build pass; frontend source is unchanged from the previously
+qualified integration. Logs: `pr60-final-retention-{mysql,maria,quality}.log`.
+No test process remains running. Continue to #61 and #62 without redoing these
+unchanged checks. The older 16-finding snapshot below is superseded by the
+verified closeout of all three #54 threads.
+
+**#60 integration / next review queue:** #58 final `1a61f1e` and #59 merge
+`a12acc3` are pushed. #60 merge `7867992` preserves inherited runtime; its
+metadata-v2 fixture is qualified by the original
+`/tmp/durisweb-run-execution-suite.mts` with `23436 execution-only` and
+`23437 execution-only` using the Node/tsx invocation recorded above: 20 tests /
+two suites per engine pass. Backend quality gates/build pass. Frontend and
+image/retention service sources match their qualified parents; logs are
+`pr60-integration-{mysql,maria,quality}.log`. No test process remains running.
+
+The fresh complete scan (`latest-scan.log` in the private review directory)
+confirms #48/#49/#50/#55 are resolved and adds these #54 findings:
+
+- [Gate analytics cache deletion on selected class approval](https://github.com/LuminariMUD/DurisWeb/pull/54#discussion_r4302619613)
+  (`PRRT_kwDOVA2-8c6tgBmR`).
+- [Serialize rollback with retention workers](https://github.com/LuminariMUD/DurisWeb/pull/54#discussion_r4302619615)
+  (`PRRT_kwDOVA2-8c6tgBmT`).
+- [Close Redis before the retention CLI returns](https://github.com/LuminariMUD/DurisWeb/pull/54#discussion_r4302619617)
+  (`PRRT_kwDOVA2-8c6tgBmV`).
+
+These are unaddressed; source policy remains disabled. Next inspect/reproduce
+them on #54, preserving rollback evidence and the existing worker control
+protocol. #61–#66 still lack the parent repairs; #62's three original findings
+and #63–#66's ten others remain open. Do not resume unrelated feature work.
+
+**#58 integration:** #57 final head `252f16a` is pushed. #58 merge `7d590f8`
+retains both the authoritative metadata check and the UTC retention import;
+no predicate/hold check was dropped. `node --import
+./backend/node_modules/tsx/dist/loader.mjs /tmp/durisweb-review-execution-v1-suite.mts
+23436 execution-only` and the same with `23437` each pass 20 tests / two suites.
+This runner retains #58's metadata-v1 installation and omits only the later v2
+fixture preparation unavailable on this historical branch. Backend quality gates
+and build pass; the frontend tree exactly matches qualified #57. Logs:
+`pr58-integration-{mysql,maria,quality}.log`. Continue the parent carry-forward.
+
+**Carry-forward through #57:** parent merges #51 `47c61d2`, #52 `2c0421c`,
+#53 `9096ace`, #54 `ade5bf2`, #55 `d1d8b9a`, #56 `536fa43` are pushed.
+The inherited image/privacy runtime matches its qualified parent. #57 merge
+`a0b9899` resolves the backup-view conflict by retaining its async acknowledgement,
+error and cancellation handling together with every #55 restore availability
+control. `python3 /tmp/durisweb-image-quality.py frontend` passes all gates/build
+and 313 tests / 58 files; `node /tmp/durisweb-review-availability55.mjs` passes
+stored/uploaded inspection and disabled modes at 1440/390 widths on the combined
+build. Logs: `pr57-integration-{quality,browser}.log`. Backend changes are inherited
+unchanged, with no new backend runtime or production claim. Plan-only conflicts
+retain the cumulative handoff plus the newer review evidence.
+
+Latest: #50's two follow-ups are pushed as `ab40c42` and verified resolved;
+parent integration is pushed through #60 (`9050fee`) with its two-engine
+retention proof. See the [complete latest carry-forward handoff](https://github.com/LuminariMUD/DurisWeb/blob/9050fee/docs/ongoing-projects/plan.md).
+A fresh scan found three new #54 findings, for 16 unresolved in total. Current
+branch is #54; first fix restricts analytics-cache work to the selected approved
+class and refuses old/inconsistent saved runs that request cache work outside
+that class. Files: execution service, existing native tests and this plan.
+Then finish rollback/worker serialization and standalone CLI Redis cleanup;
+carry these repairs through the stack before continuing #62–#66. No policy is
+enabled and no production operation is authorized.
+
+**#54 publication / rollback continuation:** class/CLI fixes are pushed as
+`3e68def`; both review threads are replied to and verified resolved. Fourteen
+findings remain from the last scan. The remaining rollback race reproduces:
+a worker starting immediately before DROP was allowed to finish after the
+empty-ledger check. The repair locks the existing control row, refuses history
+or active/unknown control state, and commits a worker-rejected rollback fence
+before DDL. It removes that fence only after confirming the ledger is absent;
+an interrupted rollback resumes through the same guarded down path. No applied
+migration file, schema definition, dependency or new worker lock is changed.
+The focused native race now passes. Final two-engine tests also exercise a
+failure after the fence commits but before DROP, plus the existing lost-DDL-
+acknowledgement recovery. Required backend checks are running; record their
+actual results before publication. Files: schema helper, native tests, runbook
+and plan. This does not authorize any shared migration or live deletion.
+
+**#54 rollback final proof:** the existing isolated execution runner with
+`23436 execution-only` and `23437 execution-only` each passes 26 tests / two
+suites, including both new race/interruption cases and real guarded migrations
+with lost DDL acknowledgements. Backend format/lint/types/MUD-write/schema/build
+checks pass via `/tmp/durisweb-image-quality.py backend`; whitespace/config
+guards pass. Logs: `pr54-rollback-{red,focused,mysql,maria,quality}.log`.
+The applied migration and immutable schema contract are untouched. No frontend,
+full-backend or production rerun is claimed. Next publish/resolve this final
+#54 thread, carry all three repairs forward, and resume #62's three findings.
+
+**#54 class/CLI repair proof:** four native regressions failed before repair:
+login-only approval erased analytics cache, an inconsistent saved cache task was
+accepted, and successful/failed CLI cleanup left the real Redis connection ready.
+Execution now initializes cache work only for selected analytics, rechecks its
+approval immediately before cleanup, and rejects out-of-class pending cache
+state. The CLI closes the cache client it used in `finally`; module import alone
+does not open Redis, and application-only execution retains shared-client use.
+`node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-review-execution-suite.mts 23436 execution-only` and the same with
+`23437` each pass 24 tests / two suites. Native CLI tests verify return codes and
+the actual Redis connection's `end` status before fixture reconnection.
+The focused approval/cache suites pass eight tests; backend quality gates,
+MUD-write/schema checks and build pass. Logs: `pr54-class-cli-{red,unit,mysql,
+maria,quality}.log` in the private review directory. No frontend/runtime-provider
+or production check is claimed. Publish these two findings separately; the
+rollback race remains open and is the next action. No visitor news is needed
+for this disabled operator path; the runbook records class and connection rules.
+
+The active work is oldest-first PR review repair. The complete project/branch
+inventory, unfinished P0–P8 scope and recovery priorities are preserved in the
+[cumulative handoff](https://github.com/LuminariMUD/DurisWeb/blob/562d1210b96de09f8003c6663c05291749c6e6a2/docs/ongoing-projects/plan.md).
+That snapshot found 21 unresolved findings; #55 is now committed/pushed as
+`3446b1b214ca2d0836ef03b111086ba9019f2ca5`, its thread is verified resolved, and
+20 remain from that scan. The restore UI used its unchanged retained 294-test
+and desktop/phone proof. No production operation occurred.
+
+Current #48 follow-up corrects only the API contract: status never clears a
+receipt, invalid receipts use the existing CSRF-bound recovery, and a credential
+rotated during a transaction can still return 403. The implementation and native
+tests already prove this behavior. Files: API reference and this plan. Proof:
+direct route/service/lifecycle inspection, `git diff --check`, and the config
+literal guard. No runtime tests are rerun for this documentation correction.
+Publish/reply/resolve this #48 thread, then carry it into #49 and repair its four
+new findings (initial authentication, status refresh, navigation events, route
+identity). Preserve #55's published UI fix when subsequently carrying the stack.
+No release-news entry is needed for correcting contributor API documentation.
+
+**#48 closeout / #49 continuation:** contract fix `d43f94c` is pushed and its
+thread verified resolved; 19 findings remain from the refreshed queue. #49 has
+the parent repair through ordinary merge `da7d422`. Four regressions reproduce:
+two unit failures for saved-choice visit splitting and aborted prior navigation
+requests; rendered failures for two visits after delayed signed-in hydration and
+two controls groups on `/privacy/`. Runtime changes move coordinator startup
+after the existing session restoration, preserve visits on status-only refresh,
+retain each in-flight navigation controller until completion/cancellation, and
+use the privacy route name in the shell. No queue, retry policy or dependency is
+added. Files: existing App/main/coordinator and tests, lifecycle guide and plan.
+Proof target: the two focused files, all frontend gates/build and rendered
+startup/trailing-slash/manual-refresh checks plus the existing privacy scenarios.
+Initial focused run passes 32 tests; final full/browser results follow below.
+
+**#49 final follow-up proof:** focused privacy/control tests pass 32; all frontend
+gates and build pass via `python3 /tmp/durisweb-image-quality.py frontend`, with
+287 tests / 55 files. `node /tmp/durisweb-review-browser49-new.mjs` proves real
+App startup with delayed signed-in restoration produces one initial event,
+manual refresh preserves the nonce, and `/privacy/` renders one controls group
+and the current-page marker. `node /tmp/durisweb-review-browser49.mjs` also passes
+the four retained desktop/phone refusal, withdrawal and visibility scenarios.
+The initial native-fetch unit fixture was corrected to reject on abort as the
+browser does; the corrected pre-fix run still fails both regressions. Logs:
+`pr49-new-{red-valid,focused,quality,browser}.log`, `pr49-{auth,route}-red.log`
+and `pr49-regression-browser.log` in the private review directory. Configuration
+and whitespace guards pass. No backend/native/provider/live test rerun is
+needed or claimed. Future privacy-release wording may include accurate visit
+counts and a single privacy controls group; live news stays unpublished.
+
+**#50 follow-up outcome:** preserve committed removal results even if the final
+pending-count lookup fails: return the known counts/URLs with `remaining: null`
+and a safe diagnostic reference. The client validates that explicit partial
+shape, drops only unavailable previews and keeps retry feedback visible.
+Whole-request batch errors and single-image errors share their service/route/
+response reference. Files: existing image service, forum route, API parser,
+carousel, their tests, API guide and plan. Ablation reuses the current partial
+result instead of adding an error-response parser or a new operation framework.
+Two native/API regressions and two frontend regressions failed before repair;
+13 focused frontend checks now pass, including invalid partial acknowledgements.
+Required two-engine and package verification is in progress; do not claim it
+completed until the result below is recorded.
+
+**#50 final follow-up proof:** `node --import
+./backend/node_modules/tsx/dist/loader.mjs /tmp/durisweb-review-image-suite.mts
+23436 image-only` and the same invocation with `23437` each pass 34 tests /
+two suites, including actual deletion, API response and log-reference checks.
+Owned fixture preflights/fingerprints match and cleanup completed. Both modes of
+`python3 /tmp/durisweb-image-quality.py backend|frontend` pass required gates
+and builds; the full frontend suite passes 300 tests / 57 files. The 13 focused
+frontend cases include mounted carousel feedback and selective preview removal.
+`git diff --check` and config-literal checks pass. Logs: `pr50-new-*` in the
+private review directory. No full backend suite, fresh visual-layout, live
+provider or production test is claimed; the existing rendered warning is reused.
+Future forum-release wording: “Image cleanup keeps confirmed removals out of
+your draft even if checking the remaining images fails, and offers retry.”
+Publish this source, close the two threads, then carry parents through #51–#61
+before #62; preserve #55's independently published UI fix.
+
+
+## Retained verification and historical execution
+
+The remaining records preserve original commands, results and limitations.
+All older words such as “current”, “next”, “ready” and “complete” refer to their
+dated checkpoint; the current handoff and outstanding queue above govern.
+Historical acceptance is not a fresh rerun or proof against newer findings.
+
+## Review repair evidence — original findings and completed repairs
+
+At the review-task kickoff, the user requested all outstanding code-review findings to be addressed,
+starting with the oldest open PR. The live queue at the top now also includes seven later findings. Preserve the published branches, repair each
+affected PR, and carry its changes forward through the dependent stack with
+ordinary merges. No merge to master, deployment, production data change or new
+feature is part of this review task.
+
+The complete GraphQL scan covered all 27 open PRs, all review-thread pages,
+review bodies and discussion comments. The initial queue has 24 unresolved
+findings across 11 PRs. PR #39's five old findings are resolved and its latest
+review reports no findings; #41–#45 have no outstanding review findings.
+Other PRs without findings still need inherited fixes carried forward.
+
+| PR | Initial findings | Review status |
+| --- | --- | --- |
+| #46 | 1: enable notifications after a first permission grant with blocked storage | Fixed; 7 focused and 253 full frontend tests pass |
+| #48 | 3: stale GET cookie clearing, actionable safe diagnostics, native fixture port binding | Fixed; 39 native cases pass on each database engine |
+| #49 | 3: pending refusal, temporary visibility changes, compact confirmation/focus | Fixed; 30 focused, 285 full frontend tests and rendered checks pass |
+| #50 | 2: safe forum failure context, shared pool starvation during R2 deletion | Fixed; 32 image/API cases per engine and both package gates pass |
+| #54 | 1: DST-ambiguous retention cutoff comparisons | Fixed; execution 20 and preview 26 cases pass on each engine |
+| #55 | 1: unavailable restore controls still offered by the UI | Implemented/tested locally; uncommitted, unpublished, thread unresolved |
+| #62 | 3: account-bound backup cache, cancellation file identity, failed-upload bulk cleanup | Pending |
+| #63 | 2: incident/maintenance preservation prerequisites, all legacy upload suffixes | Pending |
+| #64 | 3: quiet CLI, same-device mount boundaries, supported database filenames | Pending |
+| #65 | 3: protected-root mount aliases, suffix length, named bundle/payload revalidation | Pending |
+| #66 | 2: separate MUD database credentials, abort-signal compatibility | Pending |
+
+**#46 outcome:** one explicit granted notification-permission request enables
+the current-page preference even when storage reads/writes are unavailable.
+Files: the existing notification composable and its tests. Proof: a failing
+regression reproduces the disabled state after a successful grant; then verify
+actual notification construction, refusal/default behavior and frontend gates.
+Ablation keeps the existing permission/preference flow and adds no persistence
+adapter or retry mechanism. A future verified release may announce that enabling
+notifications works on the first attempt with blocked browser storage; existing
+release authorization and news-update rules still apply.
+
+**#46 proof:** the new first-grant regression failed before the fix.
+`pnpm --dir frontend test:unit --run
+src/composables/__tests__/useNotifications.spec.ts
+src/composables/__tests__/useChangelog.spec.ts` ran the matching notification
+file: seven pass (no file matched the second path). The full frontend run then
+passed 253 tests / 52 files. `python3 /tmp/durisweb-image-quality.py frontend`
+passes format, lint, types, configuration, palette, full unit tests and build.
+`git diff --check` passes. No backend/database/provider or new rendered-layout
+check is needed or claimed for this composable-only behavior correction.
+Evidence: `pr46-{red,focused,quality}.log` in the private review directory.
+
+Private review evidence: `/tmp/durisweb-review-20261017/`; the current worktree
+is `/tmp/durisweb-security-privacy-plan-20261016` and switches to each existing
+PR branch in sequence. Preserve unrelated review worktrees and recovery stashes.
+
+**#46 publication/carry-forward:** fix `5a820ac` is pushed and its review thread
+is replied to and resolved. #47 has no findings; parent merge `558544e` is pushed,
+and its entire frontend tree matches the tested #46 frontend. #48 now contains
+that repair through an ordinary parent merge, without rewriting history.
+
+**#48 outcome:** status GETs cannot remove a concurrently rotated cookie;
+storage failures carry a safe operation/stage, allowlisted error code, rollback
+outcome and a reference shared with the client; native tests refuse a pool port
+different from their explicit opt-in before importing the pool. Files: existing
+privacy service/routes/tests plus a small safe-code selector needed by this and
+the reviewed forum-error path. Proof: stale receipt and diagnostics regressions
+failed before repair; a mismatched-port import incorrectly succeeded before
+the guard change. Add native rotation, corrupt-record, commit/rollback and
+safe-code checks, then run the two-engine fixture and required backend gates.
+This retains the current protocol and diagnostic boundaries without a new
+storage/logging service or policy change.
+
+**#48 final proof:** `node --import
+./backend/node_modules/tsx/dist/loader.mjs /tmp/durisweb-review-p5-suite.mts
+23436 privacy-only` and the same command with `23437` each pass 39 tests / four
+suites, including actual routes, transactions, rollback, cookie rotation and
+concurrent choices. The runner uses owned empty Redis DBs 13/14 and cleans its
+database/user/cache; before/after owner fingerprints and preflights match.
+`pnpm --dir backend test --runInBand src/utils/__tests__/safeFailureCode.test.ts`
+passes three pure diagnostic cases. The explicit mismatch command with
+`TEST_PRIVACY_DB_PORT=23436 DB_PORT=23437 DB_HOST=127.0.0.1
+DB_NAME=durisweb_qualification_privacy_suite` and Jest's
+`--testNamePattern=__guard_only_no_cases__` now refuses module import with zero
+tests, before pool construction; it previously exited successfully.
+`python3 /tmp/durisweb-image-quality.py backend`, configuration literal and
+whitespace checks pass. Frontend source remains byte-identical to the already
+qualified #46/#47 tree; no additional frontend/browser or full-backend rerun is
+claimed for this correction. Source policy gates remain false.
+
+Removing the unsafe GET clear exposed a reproduced lost-Set-Cookie retry gap.
+Status and explicit retry now fall back to the current CSRF-bound identity,
+using the authority already available when a receipt is absent. Invalid cookies
+cannot authorize their named record. Native cases cover both stable/rotated CSRF
+and a forged cookie naming a different browser, preserving that browser's valid
+choice. This adds no new endpoint, credential format or account linkage.
+The added rollback regression initially recursed through an already mocked
+checkout; its setup was corrected before both final green native runs.
+Evidence: `pr48-*` logs in the private review directory. Future privacy-release
+wording covers reliable saved choices; diagnostic/fixture repairs need no
+separate visitor announcement, and nothing is published live here.
+
+**#48 publication:** `e7cb0cf` is pushed, all three review threads have evidence
+replies and verified resolved state, and #49 now contains the repairs through
+an ordinary parent merge. No published commit was rewritten.
+
+**#49 outcome:** preserve an in-flight refusal and permit only cancellation of
+pending acceptance; revalidate consent on returning to a tab while preserving
+the same visit and avoiding duplicate route events; keep compact confirmations
+mounted and focusable after their own action. Files: existing privacy service,
+control component and their tests. Five pre-fix failures reproduce the reviewed
+behaviors. Proof also covers hidden navigation, first visibility, withdrawal
+during hiding, and preserving focus that moved to another control. Ablation
+adds only pending-decision/route state and local confirmation state; no new
+storage, event queue, endpoint or consent policy is introduced.
+
+**#49 proof:** `pnpm --dir frontend test:unit --run
+src/services/__tests__/privacy.spec.ts
+src/components/privacy/__tests__/PrivacyControls.spec.ts` passes 30 tests.
+`python3 /tmp/durisweb-image-quality.py frontend` passes format/lint/types,
+configuration/palette, full tests (285 / 55 files) and build. The backend tree
+is identical to qualified #48 and its evidence is reused. Configuration literal
+and whitespace checks pass. `node /tmp/durisweb-review-browser49.mjs` verifies
+the fresh build with isolated synthetic APIs/real HttpOnly cookie handling:
+desktop/phone keyboard refusal remains one refusal while pending, compact
+confirmation stays visible and focused, pending acceptance can still be
+withdrawn, returning to a tab revalidates without an extra view, hidden navigation
+adds one event under the same nonce, and server withdrawal blocks later events.
+Screenshots `pr49-confirmation-{1440,390}.png` were visually checked. The browser
+fixture's WebSocket interception was corrected after its first run exposed an
+unhandled local fixture connection; no error category was merely ignored.
+A further regression prevents passive refresh from moving confirmation focus
+again. This is rendered Chromium/phone-viewport evidence, not physical-device
+or live collection acceptance. Policy flags remain false. Private proof:
+`pr49-{red,focused-closeout,quality-final,browser-closeout,passive-focus-red}.log`.
+Future privacy-release wording includes stable choices and accessible
+confirmation; no live changelog publication occurs during this review repair.
+
+**#49 publication:** `39319e5` is pushed and its three threads have evidence
+replies and verified resolved state. #50 contains the fixes through its parent
+merge. Seven of the initial 24 findings are closed at that checkpoint.
+
+**#50 outcome:** R2 removal retains its cross-process advisory lease on a
+dedicated database connection, capped at two operations per process. It no
+longer occupies the ten-slot application pool during provider waits. Existing
+intent, attachment guards, provider acknowledgement, retry and lock-release
+semantics are preserved. The four forum create/update failure paths now record
+a safe stage/allowlisted code and return the matching reference. Files: image
+service/tests, forum routes and lifecycle/plan documentation. Ablation reuses
+the #48 safe-code selector and existing database/R2 contracts; no queue, pool
+registry, migration or new configuration setting is introduced.
+
+**#50 proof:** five pre-fix native failures reproduce the pool dependency and
+missing reference/context on all four write routes. The new concurrency case
+occupies all ten application-pool connections, proves two removals still reach
+the held provider, rejects a third, then verifies lock release and retry.
+`node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-review-image-suite.mts 23436 image-only` and the same with `23437`
+each pass 32 tests / two suites (14 image unit cases and 18 native/API cases).
+Full-owner schema/bootstrap/migrations, session/configuration/dependency probes
+and before/after owner fingerprints pass on both engines. The private runner
+owns empty Redis DBs 13/14 and removes its SQL database/user/cache afterward.
+`pnpm --dir backend test --runInBand
+src/services/__tests__/postImageDeletion.test.ts
+src/utils/__tests__/safeFailureCode.test.ts` passes 17 tests.
+`python3 /tmp/durisweb-image-quality.py backend` and the frontend equivalent
+pass all required format/lint/types/build gates, MUD-write/schema checks and
+frontend configuration/palette/full tests (294 / 57 files). Configuration
+literal and whitespace checks pass. No broad backend rerun or new browser
+layout/provider acceptance is claimed; actual HTTP image/forum outcomes are
+covered by the native suite and frontend response tests.
+
+The image native guard had the same missing pool-port binding as #48. It now
+checks typed host/port/database against the opt-in. A mismatched
+`TEST_IMAGE_DB_PORT=23436 DB_PORT=23437` test import that previously succeeded
+now refuses before executing any tests. Fault injection covers pooled and
+dedicated connections so existing deletion/publication race tests remain real.
+Evidence: `pr50-{red,unit,mysql,maria,backend-quality,frontend-quality,
+port-before,port-after}.log`. Future forum-release wording can mention that
+slow image removal does not occupy the website query pool; no live operation
+or Website Changelog publication is performed in this review task.
+
+**#50 publication/carry-forward:** `06dd143` is pushed and both review threads
+have evidence replies and verified resolved state. Nine initial findings are
+closed. Parent repairs were carried through #51 (`af51c06`), #52 (`2d68945`)
+and #53 (`e56f8ee`), all pushed; their relevant runtime file blobs match the
+qualified parent repairs. #54 now includes them via local merge `0ff746b`.
+Its sole merge conflict was documentation: retain #54's corrected historical
+publication wording and append the complete current review ledger.
+
+**#54 outcome:** pin only dedicated retention preview/execution sessions to UTC
+before indexed timestamp queries. Keep row locks, epoch validation, indexes and
+application/global session settings intact. Include the timezone contract in
+rule signatures so earlier checkpoints/runs cannot silently resume with changed
+semantics. Files: candidate contract, preview/executor, their focused tests and
+operator/plan docs. MySQL reproduced a second-fold run reporting complete after
+deleting only one of two eligible rows in each class. Existing row locks prevented
+the first attempted concurrent-edit fixture; that invalid test was replaced
+with real repeated-hour/keyset cases rather than weakening the locks. Both
+occurrences, exclusive cutoff boundaries, one-row traversal, read-only snapshots
+and rejection of old signatures are covered. Native guard checks also bind the
+configured database port to their opt-in. No rule period, source approval flag,
+migration or production action changes.
+
+**#54 proof:** `node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-review-execution-suite.mts 23436 execution-only` and the same
+with `23437` each pass 20 cases / two suites. The corresponding
+`/tmp/durisweb-review-retention-suite.mts <port> retention-only` passes 26 cases /
+two suites on each engine. This covers both named-zone fall-back occurrences,
+strict cutoff boundaries, one-row traversal/continuation, old-signature refusal,
+holds, restart/ownership and actual read-only CLI behavior. The pure preview
+query contract explicitly permits only the fixed UTC session setter before its
+read-only transaction; its 12 cases also pass separately. Initial MariaDB preview
+qualification found that existing exact statement expectation needed this
+deliberate addition, after which the full command passed. Fixture state, owner
+fingerprints and configuration/dependency probes remain valid on both engines.
+The private runners target this pre-metadata-v2 PR's actual schema contract;
+later #58/#60 install requirements are not silently removed from newer source.
+
+Both native fixture guards reject mismatched database ports with zero tests
+executed (`TEST_RETENTION_DB_PORT` or `TEST_RETENTION_EXECUTION_DB_PORT` set to
+23436 with `DB_PORT=23437` and the corresponding private target names/cache).
+`python3 /tmp/durisweb-image-quality.py backend`, configuration literal and
+whitespace checks pass. Frontend source is identical to qualified #53/#50 and
+its evidence is reused; no additional broad backend/frontend/browser/provider
+or live-retention acceptance is claimed. Evidence: `pr54-*` logs. No visitor
+changelog entry is needed for a source-disabled operator retention correction;
+the runbooks now explain UTC sessions and preserving incompatible old evidence.
+
+**#54 publication:** `9ee08fa` is pushed, its thread has an evidence reply and
+verified resolved state, and #55 now contains the repairs through its parent
+merge. Ten of the initial findings are closed.
+
+**#55 outcome:** match the permanently closed server restore boundary in the
+admin interface. Keep stored/uploaded contents inspection available, label it
+as inspection, show the unavailable reason before action, disable every restore
+mode/confirmation and guard both submit handlers. Suppress advice to stop the
+MUD for this unavailable action. Files: the existing backup view and docs only.
+Ablation keeps this at the availability boundary; the later #57 acknowledgement
+and cancellation changes remain in their own PR. An initial broader promise-test
+experiment was removed from this chunk; it is not needed when the actions are
+unavailable. Preserve this explicit UI gate when carrying through #56/#57/#62.
+Proof: rendered tests with valid selections in all three restore modes must send
+zero restore requests while inspection/creation/download remain available, on
+desktop and phone layouts, followed by required frontend checks.
+
+**#55 retained proof at handoff:** `python3 /tmp/durisweb-image-quality.py
+frontend` passes 294 tests / 57 files and required frontend gates/build.
+`node /tmp/durisweb-review-availability55.mjs` passes stored/uploaded inspection
+and disabled restore modes at 1440 and 390 widths, with zero restore/cancel
+requests and no unexpected console/layout failures. The UI change remains
+uncommitted and its review thread remains open; publishing this document does
+not publish that runtime fix.
+
+**#55 runtime publication preparation:** source diff and retained browser output
+rechecked; desktop/phone screenshots show the unavailable notice and disabled
+controls. `git diff --check` and the configuration literal guard pass. No runtime
+byte changed after the 294-test/build/browser proof, so those checks are reused.
+The news-update draft for a future verified admin release is: “Backup contents
+remain available to inspect and download. The backup page now clearly explains
+that website restore is unavailable and disables its restore controls.” No live
+entry is published before an authorized verified release.
+
+### Recovery result — selected account-data download
+
+- **Outcome and scope:** one authenticated `POST /api/privacy/export` performs
+  a fresh database-backed password check and active-session check, reads eleven
+  allowlisted categories in a read-only consistent snapshot, rechecks current
+  credentials/block/session state, then returns a private JSON attachment.
+  It excludes collation aliases, other subjects, stored credentials, push keys,
+  mixed payloads and unreviewed external/staff records. It refuses oversized
+  categories/output before responding. The page clears the password, blocks
+  duplicate submissions and discards a pending or mismatched-account response.
+- **Ablation:** reuse existing authentication, CSRF, rate limiting and privacy
+  page. No migration, dependency, provider call, durable export file, queue,
+  signed/replayable download URL, generic job framework or service controller
+  is added. Read-only retries start a fresh verification/snapshot. The response
+  explicitly says `completeAccountExport: false`; missing P7 outcomes stay open.
+- **Files:** `backend/src/services/accountExportService.ts`, the existing
+  `backend/src/routes/privacy.ts`, one native API/database test, privacy-test
+  cleanup, frontend request helper/control/tests and existing privacy page,
+  the [runbook](https://github.com/LuminariMUD/DurisWeb/blob/ff152f4001dbe6d6a5ad18d9eea39a07b5a4791b/docs/runbooks/account-data-export.md), lifecycle/security records
+  and this plan. All changes belong to this download or its verification.
+- **Native proof:** `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-account-export-suite.mts 23436 export-only` and the same
+  command with `23437` each pass **16 real route/database tests** on MySQL
+  8.0.46 and MariaDB 11.8.9. The fixture installs the full owner schema,
+  metadata v2, baseline and current migrations; configuration/dependency/session
+  preflights pass. Owner metadata matches before/after on each engine. Two
+  synthetic accounts cover all categories, current versus cached credentials,
+  case/accent identity, CSRF/origin, anonymous/expired/revoked access,
+  password/block/revocation changes during generation, snapshot/pool invariants,
+  row limits, safe errors and attempt limits.
+- **Full backend regression:** `node --import
+  ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-archive-suite.mts 23436` runs
+  `pnpm --dir backend test --runInBand`: **1,361 passed / 141 suites**, **69
+  optional native skips / five whole suites**. The 16 export cases are among
+  those skips and were run separately on both engines above. This run does not
+  enable the optional two-engine backup-dump matrix; retain its earlier proof.
+  Post-test dependency preflight and owner metadata match.
+- **Privacy regression:** with explicitly selected local test ports,
+  `DB_PORT=23436 DB_NAME=durisweb_unit_no_connect CACHE_REDIS_PORT=23479
+  CACHE_REDIS_DB=13 pnpm --dir backend test --runInBand
+  src/services/__tests__/privacyChoiceService.test.ts
+  src/config/__tests__/privacyPolicy.test.ts` passes **7**, skips **10 native**
+  cases and exits cleanly. An earlier run exposed an open Redis handle caused
+  by the new authenticated route import. Its owned process was stopped after
+  identifying it; test teardown now closes that client, and native export tests
+  defer connection-bearing imports until their opt-in setup. The full run above
+  proves skipped suites do not leave that handle open.
+- **Package checks:** `python3 /tmp/durisweb-image-quality.py backend` passes
+  backend `format:check`, `lint`, `type-check`, `verify:mud-writes` (53 classified
+  writes), `schema:check` (unchanged 77-table/85-source baseline) and `build`.
+  `python3 /tmp/durisweb-image-quality.py frontend` passes frontend
+  `format:check`, `lint`, `type-check`, `config:check`, palette guard,
+  `test:unit --run` (**313 tests / 60 files**) and `build`.
+  Initial focused frontend tests passed 14; the full run includes the subsequent
+  malformed-response redaction case. Initial backend test typing issues were
+  fixed before the final native runs/gates.
+- **Rendered end-to-end proof:** `node --import
+  ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-account-export-suite.mts 23436 export-browser` serves the
+  fresh built frontend and compiled real privacy API against the owned SQL/Redis
+  fixture. Installed Playwright/Chromium is used because the Browser plugin is
+  unavailable. Desktop 1440×1000 and phone 390×844 both download and parse the
+  correct JSON, exclude the other subject/credentials, clear the input, reject
+  wrong passwords and render without overflow or page errors. A changed
+  authentication cookie yielding another account's otherwise valid response is
+  rejected by the client. Anonymous visitors get sign-in, no password form.
+  Five real export requests and zero optional analytics requests are observed.
+  Screenshots `/tmp/durisweb-account-export-{1440,390}.png` were visually checked.
+  This is synthetic local acceptance, not a physical-phone or production test.
+- **Source/docs checks:** `./scripts/check-config-literals.sh` and
+  `git diff --check` pass. A duplicated contact-email literal introduced by the
+  prior handoff was replaced with a link to the canonical inventory; no guard
+  was weakened. Affected files were formatted using package Biome commands.
+  No runtime source changed after the successful browser/full-suite checks;
+  final native reruns also qualify the adjusted test-import setup.
+- **Evidence:** `/tmp/durisweb-account-export-{mysql-final,maria-final,
+  backend-full,backend-final,frontend-quality,browser,privacy-regression-final}.log`,
+  the browser runner and screenshot paths above. Fixtures and browser server
+  are created/removed by their owning runners. Retain private proof outside Git.
+- **Remaining:** durable full request tracking, complete approved export and
+  assisted/mixed-data review, erasure/anonymization/non-recreation, MUD/provider
+  coordination, wider P6 coverage, policy and live-release gates. This source
+  increment does not close #12 or declare compliance.
+- **Future release news draft:** “You can download selected profile and
+  community activity data from Privacy & choices after verifying your password.
+  The download explains which information needs a separate assisted request.”
+  Use the news-update workflow only after an authorized verified live release.
+- **Publication:** [PR #66](https://github.com/LuminariMUD/DurisWeb/pull/66)
+  is OPEN/non-draft/MERGEABLE, from `branch/account-data-export` onto
+  `branch/legacy-copy-preservation` (#65 at `a0ce5ee`). Code checkpoint
+  `f0aa36161dbde464fd4494ef9df346c7114c24d2` matched local, remote branch and PR
+  API at initial publication; ahead/behind was `0 0` and the checkout was clean.
+  All four hosted checks on that code head passed by 08:55 UTC, alongside the
+  required local gates and real-path proof. This follow-up only records the
+  handoff; its final commit may advance the PR without changing runtime source.
+  No new implementation branch,
+  release tag, merge or deployment is created during closeout.
+- **Next session:** begin with #66's final published head in the same isolated
+  checkout. The current bounded download is ready for review. Prioritize the
+  remaining P7 request lifecycle/complete approved export and erasure, together
+  with necessary P6 copy/hold coordination; use the explicit full-scope list
+  above. Reuse this evidence and do not rerun unrelated green suites or resume
+  the standalone ownership-sealing experiment as the default next step.
+
+## Original scope and authority
+
+These are historical implementation bounds. Current priority and status are
+recorded at the top; no expired cutoff is renewed by this document.
 
 Implementation is authorized, including local isolated verification, commits,
 pushes, and focused review-ready PRs. Stack dependent PRs as each chunk is ready.
@@ -84,7 +960,304 @@ All older stop/drain release instructions are subject to the
 inventory and satisfy preservation/hold/fencing requirements before stopping an
 old `PrivateTmp` unit. Namespace teardown is itself a copy-removal path.
 
-## Execution record and continuation
+## Historical execution record and evidence
+
+The entries below preserve original commands, outcomes and limits. Their
+then-current branches, PR states and next-step directions are historical;
+use the current handoff above for present state and priority.
+
+<details>
+<summary>Earlier execution journal and per-chunk verification</summary>
+
+- **P6d2b2e protected per-copy preservation (2026-10-17, qualified/published as #65):** branch
+  `branch/legacy-copy-preservation` starts at #64 `ab09779`. Outcome: copy a
+  selected legacy file into an exclusive private protected bundle, using a Linux
+  kernel read lease to refuse existing/competing writers, verify actual payload
+  bytes and retain crash/unknown work with durable immutable receipts. Cover raw
+  SQL, staging SQL and old uploaded files without executing or restoring them.
+  Non-goals: automatic service freeze/stop, source deletion, inferred account
+  ownership, managed adoption, global writer closure/enforcement or production
+  operation. Files: one descriptor-only Python stdlib lease worker, Node CLI/
+  bundle lifecycle, shared legacy layout/identity helpers, native worker/CLI
+  tests and operator/plan docs. Proof: real leases, active/competing writer
+  refusal, copied-byte verification, private sync/partial/retry receipts,
+  source/root identity, compiled entry point and required backend checks.
+  Ablation avoids a service-control framework, native npm/FFI dependency or a
+  second metadata database. Python 3 is an explicit operator-tool prerequisite
+  because Node exposes no `F_SETLEASE` primitive; the HTTP app does not use it.
+- **Freezer investigation (owned local fixture only):** systemd 255 and cgroup
+  v2 are present. A unique transient user unit with `PrivateTmp=true` actually
+  pauses/resumes its writer via freeze/thaw without tearing down the temporary
+  directory. The first fixture placed its helper in host `/tmp`, which the
+  private namespace hides; the corrected helper uses an owned home-directory
+  fixture. All fixture units/files are stopped/removed and no live unit is
+  touched. Preserve `/tmp/durisweb-probe-private-tmp-freeze.py` and its two logs.
+  Upstream [systemd](https://github.com/systemd/systemd/blob/main/man/systemctl.xml)
+  documents automatic thaw before unit jobs, and the
+  [kernel freezer docs](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html)
+  permit process migration out of a frozen group. Thus an observed frozen flag
+  is not durable global fencing/adoption authority; do not manufacture one.
+  The per-file lease is a narrower, real byte-copy guard, while the required
+  whole-cohort shutdown/preservation gate and later adoption remain open.
+- **P6d2b2e implementation and ablation:** a standalone operator Node command
+  confirms the configured canonical backup root and explicit original upload
+  root/name/physical hash, selects one raw SQL/staging member/upload and opens
+  descriptors without following aliases/links. The destination is an exclusive
+  private UUID bundle outside sources and volatile paths, on reviewed local
+  storage. A synced `prepared.json` precedes any bytes in 0600 `payload.bin`.
+  The isolated Python stdlib worker receives only descriptors, byte/time bounds
+  and expected physical hash, no application environment/credentials or shell.
+  Its actual kernel read lease refuses an open writer or writable mapping and
+  observes competing write-open/truncate breaks. It copies and independently
+  reads back the destination under that guard, with a 128 MiB address-space cap.
+  Parent identity/source/size checks and private `complete.json`/directory sync
+  precede acknowledgement. Active/unavailable leases or unknown work retain
+  original/receipts/partial payload, without destructive cleanup. There is no
+  new queue, table, web/API exposure, automatic service-control mechanism or
+  source mutation. Read leases do not prevent unlink/rename/namespace teardown
+  and do not prove global old-writer closure; source provenance/ownership,
+  whole-cohort fencing, holds/adoption and complete recovery stay unapproved.
+  See the Linux [file-lease contract](https://man7.org/linux/man-pages/man2/F_SETLEASE.2const.html).
+- **Recovery and issues repaired:** every copy requires an explicit UUID; a
+  same-ID retry cannot overwrite or hide existing work. Separate `verify`
+  validates strict private receipt/payload shapes, actual hashes and sync
+  without the original namespace/file, application environment, SQL or Python.
+  Incomplete/failed work cannot self-promote. Root substitution, source changes,
+  unknown sync and close acknowledgements remain review-required with the same
+  UUID. All remaining descriptors close even when an earlier close fails, which
+  is required to release a lease duplicated into a killed worker. Failures also
+  keep bounded verified worker hash/size evidence when copying completed before
+  a later check failed; that evidence is not overall completion. These private
+  receipts and exact bytes are an additional operator store with no approved
+  period/erasure disposition; retain and protect every state. Persistence,
+  encryption, independent storage and ownership still need operator review.
+- **Legacy-layout compatibility:** inspection of `parseDatabase` confirms that
+  database names use required strings, not the initial ASCII filename subset.
+  Shared component predicates now cover legitimate spaces/Unicode SQL member
+  names and original MIME-accepted uppercase/non-ZIP/absent upload suffixes.
+  Separators/control characters, malformed generated prefixes and unsafe nodes
+  remain refused/unknown. Recognizing an uploaded filename never certifies ZIP
+  contents. Inventory still grants no snapshot, writer or deletion authority.
+- **P6d2b2e exact proof:** `pnpm --dir backend test --runInBand
+  src/services/__tests__/legacyBackupInventory.test.ts
+  src/scripts/__tests__/legacyBackupInventory.test.ts
+  src/services/__tests__/legacyCopyPreservation.test.ts
+  src/scripts/__tests__/legacyCopyPreservation.test.ts` passes **32 / 4**.
+  Its native wrapper also runs **8 real Python lease cases**, not eight extra
+  Jest tests. Direct `python3 -I -B
+  backend/scripts/__tests__/legacyFileLeaseWorker.test.py` passes those eight
+  cases independently. Actual ext4/tmpfs, binary byte preservation, existing
+  writers, competing kernel write opens, writable mappings, zero-byte files,
+  source/target identity, private modes, source disappearance, corrupted/linked
+  payloads, duplicate/incorrect IDs, traversal, unavailable interpreter, fresh
+  process/env-free verification, hung-worker kill/lease release and lost sync/
+  close acknowledgements are covered. Native fixtures contain synthetic bytes
+  only and all own home/tmpfs directories/processes are cleaned.
+  `TEST_BACKUP_DB_PORTS=23436,23437 node --import
+  ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-archive-suite.mts 23436` expands to full
+  `pnpm --dir backend test --runInBand`: **1,363 pass / 141 suites**, 53 optional
+  native skips / 4 whole suites. The final failed-receipt worker-evidence field
+  and Python repository naming cleanup were then checked with the final focused
+  32/4, native eight, required package gates and compiled probe; the global
+  suite was not repeated solely for those local changes. Full owned
+  owner/baseline/92-migration/metadata-v2 qualification and before/after
+  configuration/dependency preflights pass; owner metadata remains
+  `403c2a9941ce5746491919b2cc8cd91bed55b959adc681a66f0fceef04b90d23`.
+- **Final gates and evidence:** `python3 /tmp/durisweb-image-quality.py backend`
+  runs format:check/lint/type-check/verify:mud-writes/schema:check/build, all pass
+  (53 classified writes; unchanged 77-table/85-source immutable baseline).
+  `./scripts/check-config-literals.sh`, privacy registry/local-link checks and
+  whitespace pass. `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-legacy-preservation-compiled-probe.mts` runs the freshly built
+  Node CLI with the shipped Python worker, then verifies in a fresh Node process
+  with no environment, original source or TS loader; private binary bytes match.
+  `pnpm --dir backend backup:preserve-legacy --help` passes. Retain
+  `/tmp/durisweb-legacy-preservation-{final-focused,backend-final,quality,
+  compiled,help,close,final-paths}.log`,
+  `/tmp/durisweb-legacy-lease-worker-final.log`, the compiled probe and the
+  earlier freezer experiment as required evidence. Initial patch/fixture test
+  placement failures were repaired without weakening refusal/retention claims.
+  No dependency package, migration, policy/collection flag, tag, merge,
+  deployment/logout, selected production file/namespace or MUD operation is
+  introduced. Python 3 is an explicit optional operator-tool prerequisite;
+  actual selected-host installation remains a release check. Frontend/browser,
+  physical-device, provider and separate full schema/session replay were not
+  repeated for this operator-only filesystem command. Future verified-release
+  admin news draft: “Individual older backup files can be preserved privately
+  with verified bytes. Unconfirmed copies remain available for staff review.”
+  No Website Changelog publication occurs before authorized live acceptance.
+- **Next after per-copy publication:** refresh parent/PR/master state and
+  continue from the published head in the same isolated worktree. Finish
+  whole-cohort/namespace pre-teardown fencing/preservation and verified
+  ownership/adoption of every legacy copy, including unknown layouts and
+  active/interrupted writers. A verified individual payload is not #63 release
+  admission. Keep independently protected current hold/run/request evidence,
+  compatible offline restore-removal replay, other P6 handlers and own-ledger
+  periods, every P7 requirement and named policy/provider/release approval gates
+  intact. No user question is needed for continued independent engineering.
+- **P6d2b2e publication:** code head
+  `7c3e92df29d36cb91bb7722959bb0566dc92f678` is pushed in open/non-draft
+  [PR #65](https://github.com/LuminariMUD/DurisWeb/pull/65), base
+  `branch/legacy-backup-copy-inventory` (#64 final `ab09779`), and attached here.
+  Readback confirms OPEN/MERGEABLE, correct base/head, exact local/remote/API
+  SHA, ahead/behind `0 0`, clean worktree and whitespace. Hosted backend/frontend
+  quality jobs were running; required local proof above is complete. Master
+  remains `89468603a61ab44d9e3be1651c9dd6fce5a17a12` and an ancestor.
+  Authoritative cleanup checks find zero owned preservation fixture directories
+  and no remaining transient freezer fixture units. Retain required private
+  logs/probes and recovery stashes `1c8d1dd`/`bbda289`. Continue from the final
+  publication-doc commit in `/tmp/durisweb-security-privacy-plan-20261016` after
+  refreshing PR/parent/master. This closeout edits only the plan; do not repeat
+  runtime suites for it. No merge, tag, deployment, shared-file/process/namespace
+  or MUD operation is performed. Full P6/P7 and named policy/release gates remain
+  incomplete and the goal stays active.
+
+- **P6d2b2d private legacy-copy discovery (2026-10-17, qualified/published as #64):** branch
+  `branch/legacy-backup-copy-inventory` starts at #63 `1b37db7`. Outcome: an
+  explicit-root, bounded, read-only inventory of the traced legacy raw SQL,
+  staging and OS-temp upload layouts, saved exclusively as private physical
+  identity evidence. Distinguish completed selected-root enumeration from
+  partial/changed/unsafe observations and never infer ownership, writer closure
+  or deletion admission from names/status/age. Non-goals: namespace attachment,
+  content inspection/copying, SQL or provider access, adoption/removal, live
+  operations or declaring global enforcement ready. Files: one read-only
+  filesystem service/CLI, existing command index, focused filesystem/CLI tests,
+  operator/developer docs and this plan. Proof: actual synthetic layouts,
+  symlinks/hardlinks/unsafe nodes, bounded/changed/partial scope, private exclusive
+  output and no payload/ordinary-path disclosure, plus backend required gates.
+  Ablation drops speculative SQL correlation and another durable table/queue:
+  a numeric filename is only a hint and cannot supply missing writer/ownership
+  proof. Reuse existing filesystem/identity conventions, and explicitly select
+  the actual old upload root; never default to the current process's `/tmp`.
+- **P6d2b2d result and limits:** the CLI confirms canonical configured
+  `BACKUP_DIR` and an optional explicitly selected actual old upload root, with
+  a recorded mount-domain hash. It never resolves a user root through symlink,
+  `/proc/<pid>/root` or descriptor aliases, attaches to another namespace, reads
+  payloads or connects to SQL/Redis/providers. Anchored directory descriptors
+  prevent root/path replacement from redirecting enumeration. Exact regular
+  SQL/upload and one-member staging shapes receive bounded physical metadata;
+  unsafe links/hardlinks/special/cross-device nodes, malformed layouts and
+  detected changes remain unconfirmed. Other legacy-prefixed names, including
+  MIME-accepted uppercase/non-ZIP suffixes from the old uploader, are counted
+  as unknown without disclosing unrecognized names. Numeric IDs are only hints,
+  not inferred ownership. Directory/file observations cannot certify a snapshot:
+  concurrent writes and timestamp granularity can hide a change. Reports always
+  declare `snapshotConsistent: false`, `writerFenceVerified: false` and
+  `deletionAdmission: unavailable`, even with completed selected-root enumeration.
+- **Further ablation:** the managed unlink worker's local-filesystem allowlist
+  is not a read-only discovery requirement. Remove that copied restriction so
+  an actual old tmpfs upload root can be observed, while recording filesystem/
+  root identity and conferring none of the mutation protocol's guarantees.
+  Fixed 10,000-entry/1,000-copy per-root caps, a shared five-second cooperative
+  scan budget and 1 MiB output bound limit work without pretending to resume an
+  unstable directory. A stalled kernel call is not a hard-bounded operation.
+  Only a new exclusive owner-only output file outside scanned roots is written,
+  with file and parent sync and no overwrite. Destination persistence and
+  independent protection still need separate verification. Ordinary output is
+  UUID/scope/aggregate categories only. Exit 2 marks incomplete, unsafe or
+  unknown scope; exit 0 never authorizes admission or claims global coverage.
+- **P6d2b2d exact proof:** `pnpm --dir backend test --runInBand
+  src/services/__tests__/legacyBackupInventory.test.ts
+  src/scripts/__tests__/legacyBackupInventory.test.ts` passes **16 / 2**. Actual
+  ext4 and tmpfs fixtures cover traced layouts, no SQL-file access-time/content
+  changes, symlinks/hardlinks/FIFO, malformed/unknown suffixes, both real caps,
+  substituted-root anchoring, observed directory changes, private output/aliases/
+  overwrite refusal, wrong configured root and the actual source CLI. An initial
+  drift test assumed distinct filesystem clock ticks; it now forces observable
+  timestamp drift and the report explicitly disclaims snapshot consistency.
+  `python3 /tmp/durisweb-image-quality.py backend` runs
+  format:check/lint/type-check/verify:mud-writes/schema:check/build; all pass
+  (53 classified writes; unchanged 77-table/85-source immutable baseline).
+  `./scripts/check-config-literals.sh`, the privacy registry/local-link checker
+  and `git diff --check` pass. `node --import
+  ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-legacy-inventory-compiled-probe.mts` runs the freshly built CLI
+  in a separate Node process without a TS loader, verifying private aggregate
+  output and unchanged fixture bytes. `pnpm --dir backend backup:inventory
+  --help` also passes. Retain `/tmp/durisweb-legacy-inventory-{focused-final,
+  quality,compiled,help}.log` and the compiled probe as qualification evidence.
+  All fixture files are task-owned and removed; no selected live root or
+  namespace was scanned. Full DB/native/backend, frontend/browser, physical
+  device/provider/live tests are not repeated for this standalone filesystem
+  CLI, which the HTTP application does not import and which changes no
+  database/HTTP/UI behavior.
+  No dependency, migration, new policy/collection flag, release tag, merge,
+  deployment, logout or MUD operation is introduced. No Website Changelog entry
+  is needed for this operator-only discovery command.
+- **Next after discovery publication:** first refresh the current PR stack and
+  use its final published head in the existing isolated worktree. Implement and
+  prove actual legacy-writer fencing and pre-teardown preservation/adoption;
+  discovery is an input, never approval or substitute for those requirements.
+  Preserve all unknown roots/layouts and apply the #63 release gate before any
+  old-service shutdown. Continue independent protected current evidence and
+  offline restore-removal replay, remaining P6 handlers/own-ledger periods and
+  all P7 subject-request work. Global enforcement remains unavailable and named
+  policy/release decisions are still open; no user question is currently needed.
+- **P6d2b2d publication:** code head
+  `c58c833390bc66b6a63fb682eea586352b555af6` is pushed in open/non-draft
+  [PR #64](https://github.com/LuminariMUD/DurisWeb/pull/64), base
+  `branch/legacy-upload-preservation-gate` (#63 final `1b37db7`), and attached
+  here. Readback confirms OPEN/MERGEABLE, correct base/head, exact local/remote/
+  API SHA, ahead/behind `0 0`, clean worktree and whitespace. Hosted quality
+  jobs were running; required local checks above are complete. Master remains
+  `89468603a61ab44d9e3be1651c9dd6fce5a17a12` and an ancestor. Continue in
+  `/tmp/durisweb-security-privacy-plan-20261016` from the final publication-doc
+  commit after refreshing the stack. Retain required private qualification
+  evidence and stashes `1c8d1dd`/`bbda289`. This closeout edits only the plan;
+  do not repeat runtime suites for it. No merge/tag/deployment or selected live
+  root/namespace operation is performed. The full P6/P7 and policy/release scope
+  remains incomplete and the goal stays active.
+
+- **P6d2b2c preservation-order repair (2026-10-17):** branch
+  `branch/legacy-upload-preservation-gate` starts at #62 `3d68697`.
+  Outcome: prevent the prepared release sequence from stopping an old service
+  before legacy temporary uploads are preserved and holds reconciled. Non-goals:
+  actual rollout, namespace/process/file operations, disabling `PrivateTmp` or
+  claiming adoption/removal is already implemented. Files: deployment and the
+  two archive runbooks plus this plan. Proof: trace the pinned old uploader and
+  maintained systemd unit against upstream systemd lifecycle semantics, then
+  verify exact ordering, links and whitespace. This is a separate real defect
+  discovered before the inventory implementation, not a replacement for P6/P7.
+  `git show 220c991:backend/src/routes/admin.ts` shows OS-temp uploads with no
+  durable ownership; `git show 220c991:backend/src/services/backupService.ts`
+  shows `temp_<id>.sql`/`temp_staging_<id>` and unconditional unlink/rm. The
+  maintained unit sets `PrivateTmp=true` and depends on the cache. Upstream
+  [systemd execution docs](https://github.com/systemd/systemd/blob/main/man/systemd.exec.xml)
+  and [temporary-directory guide](https://github.com/systemd/systemd/blob/main/docs/TEMPORARY_DIRECTORIES.md)
+  confirm private temporary-directory teardown when the service stops. Thus
+  “stop all old writers, then inventory/adopt” can already lose evidence.
+  The gate now precedes every stop/drain instruction, requires the actual old
+  mount namespace, verified protected bytes/consistency/hold-compatible teardown
+  and a writer fence that does not first destroy that namespace. Existing
+  four-hour watchdog pause limits are explicit; the tunnel stays configured.
+  No guessed PID, current host `/tmp`, completed row, old age, healthy process
+  or second copy can substitute for the required proof. Until the remaining
+  discovery/adoption/fencing is implemented and rehearsed, release stays gated.
+  Ablation keeps this to ordering/documentation; no new flag, automatic service
+  action or speculative systemd workaround is added. Backend/frontend/runtime/
+  database/browser checks are not repeated for this documentation-only repair.
+  Verify with whitespace and the existing privacy registry/link checker; no
+  Website Changelog entry is needed for this contributor/operator instruction.
+- **Next implementation:** continue bounded private legacy-copy discovery from
+  this branch after publication, identifying raw SQL/staging/old-upload layouts
+  without reading contents, following links or inferring writer closure. Use
+  an explicitly selected actual old upload root, not an `os.tmpdir()` fallback.
+  A report must identify partial/changed/unknown scope and never admit deletion.
+  Then implement verified adoption/fencing with current protected evidence and
+  offline replay, plus remaining P6 handlers and all P7 requirements. No named
+  policy approval or user question is necessary for this independent engineering.
+- **Preservation-order publication:** documentation head
+  `0f08e6c6f74988b7a32e4c338f09ba9cc2f4aedc` is pushed in open/non-draft
+  [PR #63](https://github.com/LuminariMUD/DurisWeb/pull/63), base
+  `branch/backup-upload-records` (#62 final `3d68697`), and attached here.
+  Readback confirms OPEN/MERGEABLE, correct base/head, matching local/remote/API
+  SHA, ahead/behind `0 0`, clean worktree and whitespace. The existing registry
+  checker verifies exact 77-table coverage, local references and required gates.
+  No runtime tests are needed for this documentation-only correction. Continue
+  from the final publication-document commit in the same isolated worktree;
+  do not run the described release or alter live services/files. Source P6/P7
+  engineering remains available and the full goal stays active.
 
 - **P6d2b2c preservation-order repair (2026-10-17):** branch
   `branch/legacy-upload-preservation-gate` starts at #62 `3d68697`.
@@ -546,7 +1719,7 @@ old `PrivateTmp` unit. Namespace teardown is itself a copy-removal path.
   installation requires existing `NO_AUTO_CREATE_USER` to prevent an implicit
   account creation race; no server setting is changed. DBA trust and the
   self-inspected runtime digest's limits are explicit in the
-  [runbook](../runbooks/lifecycle-metadata.md).
+  [runbook](https://github.com/LuminariMUD/DurisWeb/blob/ff152f4001dbe6d6a5ad18d9eea39a07b5a4791b/docs/runbooks/lifecycle-metadata.md).
 - **Commands and actual results (2026-10-17):**
   `TEST_LIFECYCLE_METADATA_DB_PORTS=23436,23437 pnpm --dir backend test --runInBand
   src/db/__tests__/lifecycleMetadataNative.test.ts
@@ -2905,6 +4078,8 @@ exceptions, request handling, and provider commitments need a named owner's
 approval. These decisions are implementation/release prerequisites, not reasons
 to leave this planning deliverable incomplete.
 
+</details>
+
 ## Original findings checked against the pinned starting source
 
 These describe the starting revision. The execution record and phase checkboxes
@@ -3409,6 +4584,12 @@ silently resurrect erased data.
 
 ## P7 — Verified export and erasure/anonymization (#12)
 
+Recovery progress: the selected, synchronous website download and fresh
+verification path are implemented and qualified above. Phase-wide checkboxes
+remain open because they include complete request tracking, approved assisted
+handling, omitted categories and erasure. Do not treat the partial download as
+complete P7 acceptance.
+
 - [ ] Implement a website-owned request lifecycle with opaque request IDs,
   subject identity, type, policy version, verified-at evidence, authorized
   operator where required, per-store progress, retry state, and final outcome.
@@ -3441,7 +4622,7 @@ silently resurrect erased data.
   Revoke all sessions and terminate affected active terminal/WebSocket sessions,
   remove subscriptions, and clear relevant caches. Durable suppression and
   account-name reuse must follow the MUD owner's identity policy; do not claim
-  full erasure while flatfile authentication can immediately recreate the user.
+  full erasure while the external account authority or another writer can recreate the user.
 - [ ] Apply per-category deletion/anonymization under the approved policy.
   Retained forum/PvP/community material needs stable unattributed display and
   intact relationships/counts; strip unnecessary author/IP/profile links and
