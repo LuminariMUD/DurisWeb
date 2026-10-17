@@ -31,6 +31,8 @@ start/restore/cancellation feedback, qualified and published as
 [PR #57](https://github.com/LuminariMUD/DurisWeb/pull/57), stacked on #56.
 Qualified prerequisite: `branch/lifecycle-metadata-visibility` repairs a reproduced
 metadata visibility gap before publishing managed-archive hold enforcement.
+Published for review as [PR #58](https://github.com/LuminariMUD/DurisWeb/pull/58),
+stacked on #57.
 The archive barrier is preserved in Git stash
 `1c8d1dd304401fe58de11758a2dd7330b699a770` on
 `branch/managed-archive-hold-barrier`; restore it onto the qualified prerequisite,
@@ -65,7 +67,7 @@ outside this request. Keep this single evolving execution plan current.
 
 ## Execution record and continuation
 
-- **P6 metadata visibility prerequisite (2026-10-17, qualified; publication pending):** an actual
+- **P6 metadata visibility prerequisite (2026-10-17, qualified and published as #58):** an actual
   external-schema `ON DELETE CASCADE` fixture was invisible to the website
   account's `KEY_COLUMN_USAGE` query; managed archive deletion incorrectly
   succeeded. Direct `TRIGGERS` counts also hide rows without the relevant
@@ -143,8 +145,17 @@ outside this request. Keep this single evolving execution plan current.
   global logout was operated. No Website Changelog entry is published before
   an authorized verified release; include these preservation checks in the
   already planned security/privacy release news.
-- **Immediate continuation:** publish this focused prerequisite on #57, then
-  restore the archive-barrier stash onto it and use `assertLifecycleMetadata`
+- **Publication:** code/proof commit `de23f0ba0c5e72a9fbdf8bada198ebaa7f7fa93a`
+  is pushed in non-draft [PR #58](https://github.com/LuminariMUD/DurisWeb/pull/58)
+  on `branch/backup-action-acknowledgement` (#57), and attached to this chat.
+  Readback confirms the correct base/head, OPEN/MERGEABLE status, exact
+  HEAD/remote/API SHA equality, ahead/behind `0 0`, clean worktree and whitespace.
+  Hosted quality checks were running at first readback; the local evidence
+  above is complete. `origin/master` remains
+  `89468603a61ab44d9e3be1651c9dd6fce5a17a12` and is an ancestor of this stack.
+  This publication update changes documentation only; runtime tests are not
+  repeated for it. No PR was merged and no release tag was created.
+- **Immediate continuation:** restore the archive-barrier stash onto #58 and use `assertLifecycleMetadata`
   for all locked archive/journal/hold targets before repeating both engine
   matrices and the original hidden cross-schema regression. Inspect the other
   direct trigger-absence consumers in `webBaseline.ts` and `webSessionSchema.ts`
