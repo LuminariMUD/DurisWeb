@@ -23,8 +23,9 @@ below. Published for review as [PR #54](https://github.com/LuminariMUD/DurisWeb/
 stacked on #53. P6d1 branch `branch/restore-lifecycle-boundary` closes legacy
 restore bypasses; qualified and published for review as
 [PR #55](https://github.com/LuminariMUD/DurisWeb/pull/55), stacked on #54.
-Active P6d2a branch `branch/backup-deletion-recovery` repairs archive retry
-identity and deletion acknowledgement, with checks complete and publication next.
+P6d2a branch `branch/backup-deletion-recovery` repairs archive retry identity
+and deletion acknowledgement, qualified and published for review as
+[PR #56](https://github.com/LuminariMUD/DurisWeb/pull/56), stacked on #55.
 Next: remaining P6 cleanup/copy/restore
 and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
@@ -2007,6 +2008,37 @@ outside this request. Keep this single evolving execution plan current.
   maximum age, independently protected restore replay, other classes and P7
   remain open. Preserve original checkout work and stash/private evidence;
   continue independently without asking for a new approval of engineering.
+- **Published P6d2a:** [PR #56](https://github.com/LuminariMUD/DurisWeb/pull/56),
+  open/non-draft, code head `10b856e8c40e0e56c153b5a94ca18b4a993fc4ae`, base
+  `branch/restore-lifecycle-boundary` (#55 `0736f4f`). Latest #55 hosted backend/
+  frontend checks pass; master `8946860` is already an ancestor. Initial PR
+  read-back is OPEN/non-draft/MERGEABLE with matching local/remote/API code
+  heads, ahead/behind `0 0` and clean worktree. #56 hosted checks were running;
+  local verification is complete. Push this normal documentation closeout and
+  verify final heads/cleanliness again. No merge, tag, deployment, shared
+  migration, actual backup/MUD operation or live changelog write occurred.
+- **Next-session entry after P6d2a:** fetch and inspect #56/parents/master,
+  then continue from its final published head in the same isolated worktree.
+  Preserve original checkout changes, stash `bbda289` and private runners/logs.
+  First finish the related false-acknowledgement defect observed in
+  `useBackups.ts`: creation/restore methods still expose fire-and-forget
+  `mutate` despite awaited view handlers (only deletion is repaired in #56).
+  Trace all callers and fix those as a focused follow-up, including rejection
+  from the now-unavailable restore endpoint, without re-enabling that operation.
+  Then implement P6d2b's actual durable archive-removal/hold admission barrier.
+  Include writer-failure partial archive cleanup and uploaded-file cancellation/
+  validation cleanup in the store audit, not just manual/count/failed-record
+  deletion. Age alone cannot prove a writer died; preserve pending/in-progress
+  evidence until a verified recovery path fences old work. Do not acknowledge
+  protection while an earlier uncancellable unlink may still remove a copy,
+  clear ambiguous in-flight state merely on lease expiry, or hold a long SQL
+  transaction across filesystem work. The prior proposed snapshot-only guard
+  was deliberately not implemented because it would race hold acknowledgement.
+  Continue the full P6/P7 scope: archive holds/approved age, independently
+  protected current evidence and offline replay, remaining handlers, own-ledger
+  periods and verified subject requests/export/erasure. Source approvals remain
+  false; no live/MUD/provider/backup operation is authorized. No owner question
+  is currently necessary for the independent engineering work.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
