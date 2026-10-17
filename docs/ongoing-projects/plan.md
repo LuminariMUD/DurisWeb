@@ -2,6 +2,17 @@
 
 ## Current handoff — read this first
 
+**#64 output-bound follow-up:** private evidence now allows 4 MiB, covering both
+permitted 1,000-copy roots and worst-case escaping of filesystem-sized names.
+A two-root regression exceeds the former 1 MiB bound and saves both complete
+copy lists successfully. `pnpm --dir backend test --runInBand
+legacyBackupInventory`: 37 tests/two suites pass. Backend gates/build pass via
+`python3 /tmp/durisweb-image-quality.py backend`. Logs:
+`pr64-output-{tests,quality}.log`. No source files, SQL or production data changed
+through the inventory operation; evidence remains private and bounded.
+
+### Historical checkpoints
+
 **#64 final root-admission follow-up:** every selected root now passes canonical
 path/directory and physical/mount identity checks before the traversal deadline
 starts. A valid root not reached before timeout retains its verified identity;

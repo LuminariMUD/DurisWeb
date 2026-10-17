@@ -551,7 +551,8 @@ export function writeLegacyBackupInventory(
     };
     requireOutsideRoots();
     const data = JSON.stringify(inventory) + '\n';
-    if (Buffer.byteLength(data) > 1024 * 1024)
+    // Two roots x 1,000 copies, including worst-case JSON escaping of 255-byte names.
+    if (Buffer.byteLength(data) > 4 * 1024 * 1024)
       throw new LegacyBackupInventoryError('output_unconfirmed');
     fd = fs.openSync(
       `/proc/self/fd/${parentFd}/${path.basename(filename)}`,
