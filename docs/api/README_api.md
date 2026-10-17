@@ -256,15 +256,23 @@ is prepared for reviewed policy/client integration; it is not a live feature cla
   `choicesAvailable`, `collectionAvailable`, decision (`unknown`, `accepted`,
   `refused`, `withdrawn`), revision, nullable database expiry epoch and
   `receiptValid`. It never issues a receipt or optional visit identifier.
-  Invalid/obsolete/expired receipt cookies are cleared. Unapproved policy returns
-  unknown/unavailable without reading or writing a preference.
+  It never clears a receipt cookie, including an invalid, obsolete or expired
+  one: a delayed status response must not remove a concurrently rotated cookie.
+  An invalid receipt cannot authorize its named record. Status and explicit
+  retries use the current CSRF-bound identity when the receipt is invalid,
+  allowing recovery from a lost cookie update without changing another browser's
+  choice. Refresh status before an explicit choice retry; only an acknowledged
+  choice POST replaces the cookie. Unapproved policy returns unknown/unavailable
+  without reading or writing a preference.
 - `POST /api/privacy/choice` requires an explicit same-origin request (`Origin`
   equal to the configured website origin, no cross-site fetch metadata), the
   double-submit CSRF cookie/header, and body
   `{ noticeVersion, choiceVersion, decision, revision }`.
   Unknown fields, coerced decisions and invalid revisions are refused. Competing
-  changes use the current revision; an outdated revision is `409`, while a
-  rotated/invalid credential is `403`. Refresh before an explicit retry. Failure
+  changes use the current revision; an outdated revision is `409`. Invalid
+  browser context or a credential rotated during the transaction is `403`.
+  An already-invalid receipt uses the CSRF-bound recovery described above.
+  Refresh before an explicit retry. Failure
   must leave the client locally stopped and visibly unsaved. Both notice and
   choice versions must match, even if only the notice changed.
 - Only an acknowledged choice transaction issues/rotates the opaque HTTP-only,
