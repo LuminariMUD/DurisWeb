@@ -432,6 +432,19 @@ describe('admin account permission ID validation', () => {
     },
   );
 
+  it.each(['archive_held', 'removal_in_progress', 'recovery_unverified'] as const)(
+    'keeps a %s archive conflict truthful and reviewable',
+    async (reason) => {
+      const backups = await import('../../services/backupService.js');
+      jest.mocked(backups.deleteBackup).mockRejectedValueOnce(new BackupDeletionError(reason));
+      const response = await request(app).delete('/api/admin/backup/1');
+      expect(response.status).toBe(409);
+      expect(response.body).toMatchObject({ reason });
+      expect(response.body).not.toHaveProperty('success');
+      expect(response.body.reference).toMatch(/^[a-f0-9-]{36}$/);
+    },
+  );
+
   it('preserves bounded numeric role permission arrays', async () => {
     const response = await request(app)
       .post('/api/admin/roles')

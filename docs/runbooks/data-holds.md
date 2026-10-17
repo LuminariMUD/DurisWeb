@@ -1,15 +1,16 @@
 # Website data hold records
 
 This API records a request to preserve website data and its eventual release.
-**It currently reports `enforcementReady: false`: existing feature cleanup and
-restore paths do not enforce these records.** The source-disabled
+**It currently reports global `enforcementReady: false`: all cleanup/restore
+consumers are not yet protected.** The source-disabled
 [two-class SQL executor](retention-execution.md) consumes them transactionally;
 general retention and restore integration remain required before P6 or live
-protection can be accepted. Creating a record does not pause existing image or
-backup archive cleanup, remove data, enable a retention job or approve a policy.
-The [archive recovery safeguards](backup-archive-cleanup.md) preserve retry
-identity and truthful acknowledgement; archive admission/hold ordering remains
-separate required work.
+protection can be accepted. The prepared [managed ZIP removal path](managed-archive-holds.md)
+now uses durable admission with these records. Any active scope conservatively
+blocks managed archive removal; a pending worker blocks acknowledgement until
+fenced, with a retryable 409 rather than a false hold confirmation. Creating a
+record does not pause image, upload or workspace cleanup, remove data, enable
+retention or approve a policy. Complete copy/restore protection remains open.
 
 ## Access and private handling
 

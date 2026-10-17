@@ -201,12 +201,34 @@ function showRestoreFailure(error: unknown) {
 }
 
 // Delete backup handler
+function showArchiveRemovalFailure(error: unknown, bulk = false) {
+  const data = isAxiosError<{ reason?: unknown; reference?: unknown }>(error)
+    ? error.response?.data
+    : undefined
+  const message =
+    data?.reason === 'archive_held'
+      ? bulk
+        ? 'A data hold stopped cleanup.'
+        : 'A data hold blocks cleanup for this backup.'
+      : data?.reason === 'removal_in_progress'
+        ? 'Archive cleanup is still being confirmed. Refresh the list before retrying.'
+        : data?.reason === 'recovery_unverified'
+          ? 'Archive cleanup needs operator review. Its recovery record was kept.'
+          : 'Backup cleanup was not confirmed. Refresh the list and check retained work before retrying.'
+  const reference =
+    typeof data?.reference === 'string' &&
+    /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(data.reference)
+      ? ` Reference: ${data.reference}`
+      : ''
+  const batchNotice = bulk ? ' Earlier removals may already have completed.' : ''
+  showError(message + batchNotice + reference)
+}
 async function handleDeleteBackup(id: number) {
   try {
     await deleteBackup(id)
     success('Backup deleted')
-  } catch (err: any) {
-    showError(err.message || 'Failed to delete backup')
+  } catch (error) {
+    showArchiveRemovalFailure(error)
   }
 }
 
@@ -218,8 +240,8 @@ async function handleDeleteFailedBackups() {
   try {
     const result = await deleteFailedBackups()
     success(`Deleted ${result.deletedCount} failed backup(s)`)
-  } catch (err: any) {
-    showError(err.message || 'Failed to delete failed backups')
+  } catch (error) {
+    showArchiveRemovalFailure(error, true)
   }
 }
 
@@ -444,15 +466,15 @@ async function executeUploadRestore() {
 <template>
   <div>
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
       <div>
         <div class="flex items-center gap-2">
           <HardDrive class="h-8 w-8" />
           <h1 class="text-4xl md:text-5xl">MUD Backups</h1>
         </div>
-        <p class="text-muted-foreground mt-1">Backup database, player files, and accounts</p>
+        <p class="text-muted-foreground mt-1">Create and inspect database backups</p>
       </div>
-      <div class="flex gap-2">
+      <div class="flex flex-wrap gap-2">
         <Button variant="outline" @click="handleRefresh" :disabled="isLoading">
           <RefreshCw class="h-4 w-4 mr-2" :class="{ 'animate-spin': isLoading }" />
           Refresh
@@ -785,12 +807,16 @@ async function executeUploadRestore() {
           <li>MySQL database dump (player data, accounts, game state)</li>
         </ul>
         <p class="text-xs text-muted-foreground mt-4">
-          Backups are automatically cleaned up - manual backups keep last 5, hourly backups keep last
-          {{ maxHourlyBackupsOriginal }}.
+          Automatic cleanup targets the latest 5 manual and {{ maxHourlyBackupsOriginal }} hourly backups.
+          Preservation holds or unconfirmed cleanup can keep older archives.
         </p>
 
         <div class="border-t mt-6 pt-6">
           <h4 class="font-semibold mb-2">Restore Options</h4>
+          <p class="text-sm text-muted-foreground mb-3">
+            Website restoration is unavailable. Use the approved recovery process; inspecting an
+            archive does not prove it can be safely restored.
+          </p>
           <ul class="text-sm text-muted-foreground space-y-1 list-disc list-inside">
             <li><strong>Full Restore:</strong> Restore all game data tables</li>
             <li><strong>Account Restore:</strong> Restore an account and all its characters (for hacked/deleted accounts)</li>
@@ -799,9 +825,9 @@ async function executeUploadRestore() {
         </div>
 
         <div class="border-t mt-6 pt-6">
-          <h4 class="font-semibold mb-2">For Developers (Beta MUD Backup)</h4>
+          <h4 class="font-semibold mb-2">Uploaded Archive Inspection</h4>
           <p class="text-sm text-muted-foreground mb-3">
-            To create a compatible backup from your beta MUD for restoration here:
+            To prepare a database archive for inspection:
           </p>
           <ol class="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
             <li>

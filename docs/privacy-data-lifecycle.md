@@ -27,8 +27,10 @@ release epochs and `created_at`/`updated_at` preserve the hold's history.
 The [restricted API](runbooks/data-holds.md) still reports global enforcement
 unavailable. Preview reports held/unheld observations and binds continuation to
 active protection. The source-disabled [two-class SQL executor](runbooks/retention-execution.md)
-rechecks holds within deletion transactions; existing feature cleanup and
-restore paths remain unprotected. No table-wide subject export or purge is authorized, and no
+rechecks holds within deletion transactions. Prepared
+[managed ZIP admission](runbooks/managed-archive-holds.md) serializes recorded
+holds with file removal; other feature cleanup, uploads/workspaces and restore
+remain unprotected. No table-wide subject export or purge is authorized, and no
 period for this ledger is approved. Retain expired/released/invalid records;
 operator evidence needs separate subject/privacy review before export.
 
@@ -48,6 +50,16 @@ Restricted website privileges cannot establish absence of external-schema
 references or MySQL triggers through ordinary catalog counts; lifecycle writes
 require authoritative checks before mutating their targets. Installation and
 source qualification do not imply production adoption or retention approval.
+
+The reserved `archive-removal-v1:` settings namespace adds an active pointer
+and retained UUID receipts without a new table. Kind, backup ID/filename,
+root/file hashes, database epochs, phase/outcome and Linux worker identity
+preserve managed-removal evidence. There is no account/IP or archive-content
+payload; backup IDs/filenames remain indirectly linkable to historical operator
+records. Generic readers exclude the namespace and SQL-collation aliases.
+Its own period is unapproved: retain/restrict pending, completed and invalid
+evidence; subject exports require staff/third-party review rather than a raw
+settings dump. Ordinary diagnostics contain only category/reference.
 
 Each row lists subject-selection fields or a necessary relationship, and a time
 field that could support an approved cutoff. A time field is **not** an approved
@@ -324,7 +336,7 @@ that does not consult current lifecycle evidence. Its old allowlist did not
 include the two website SQL retention classes or the hold/run ledgers; closing
 this path does not implement replay for a full operator-restored website dump.
 Backup creation and inspection
-remain available. This closure does not implement archive expiry/holds or
+remain available. This closure does not implement approved archive expiry or
 offline restore-removal replay; retain independent current lifecycle evidence
 and follow the [operator recovery boundary](deployment.md#application-restore-boundary).
 
@@ -409,5 +421,6 @@ Prepared [archive cleanup recovery](runbooks/backup-archive-cleanup.md) retains
 file identity on unconfirmed deletion, routes failed/manual/count cleanup through
 one path, refuses unfinished/shared/unsafe targets, and preserves list-time
 evidence. New names avoid simultaneous archive collisions. This repairs retry
-and acknowledgement behavior; it does not implement archive holds, approved
-maximum age or offline restore-removal replay. Those remain explicit P6 gaps.
+and acknowledgement behavior. Managed ZIP removal now enforces holds through
+durable admission and process fencing, while transient/upload copies, approved
+maximum age and offline restore-removal replay remain explicit P6 gaps.

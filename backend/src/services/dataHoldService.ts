@@ -3,6 +3,11 @@ import { pool } from '../db/connection.js';
 import { assertLifecycleMetadata } from '../db/lifecycleMetadata.js';
 import { lockRetentionControl } from './retentionControl.js';
 import {
+  recoverManagedArchiveRemoval,
+  assertArchiveAdmissionClear,
+} from './managedArchiveRemoval.js';
+import { BackupDeletionError } from '../utils/backupDeletionError.js';
+import {
   DataHoldError,
   parseDataHoldCreate,
   validDataHoldId,
@@ -48,9 +53,12 @@ async function transaction<T>(action: (connection: PoolConnection) => Promise<T>
   let connection: PoolConnection | undefined,
     reusable = true;
   try {
+    // Recovery probes process identity between transactions, never while holding a SQL lock.
+    await recoverManagedArchiveRemoval();
     connection = await pool.getConnection();
     await connection.beginTransaction();
     await lockRetentionControl(connection);
+    await assertArchiveAdmissionClear(connection);
     const result = await action(connection);
     await connection.commit();
     return result;
@@ -61,7 +69,13 @@ async function transaction<T>(action: (connection: PoolConnection) => Promise<T>
       } catch {
         reusable = false;
       }
-    throw error instanceof DataHoldError ? error : new DataHoldError('storage_unavailable');
+    throw error instanceof DataHoldError
+      ? error
+      : error instanceof BackupDeletionError && error.reason === 'removal_in_progress'
+        ? new DataHoldError('archive_cleanup_in_progress', error.reference)
+        : error instanceof BackupDeletionError && error.reason === 'recovery_unverified'
+          ? new DataHoldError('archive_recovery_unverified', error.reference)
+          : new DataHoldError('storage_unavailable');
   } finally {
     if (connection) {
       if (reusable) connection.release();

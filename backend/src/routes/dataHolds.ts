@@ -24,7 +24,7 @@ router.use((_req, res, next) => {
 router.use(requireAuth, requireOverlord);
 function failure(res: Response, error: unknown) {
   const problem = error instanceof DataHoldError ? error : new DataHoldError('storage_unavailable');
-  if (problem.status >= 500)
+  if (problem.status >= 500 || problem.reason === 'archive_recovery_unverified')
     logger.warn('data_hold_operation_failed', {
       reason: problem.reason,
       reference: problem.reference,
