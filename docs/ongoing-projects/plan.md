@@ -15,11 +15,12 @@ storage/API, published as [PR #52](https://github.com/LuminariMUD/DurisWeb/pull/
 stacked on #51. P6c1 branch `branch/retention-hold-aware-preview` is
 qualified for held/unheld preview and protected continuation, published as
 [PR #53](https://github.com/LuminariMUD/DurisWeb/pull/53), stacked on #52.
-Active P6c2 branch `branch/retention-sql-enforcement` prepares source-disabled
+P6c2 branch `branch/retention-sql-enforcement` prepares source-disabled
 two-class SQL execution, atomic durable progress, expiring worker ownership,
 transaction-time hold rechecks and legacy analytics-cache removal. Focused tests
 pass on both database families; full backend and regression evidence is recorded
-below. Publication is the current step. Next: remaining P6 cleanup/copy/restore
+below. Published for review as [PR #54](https://github.com/LuminariMUD/DurisWeb/pull/54),
+stacked on #53. Next: remaining P6 cleanup/copy/restore
 and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
@@ -1751,6 +1752,31 @@ outside this request. Keep this single evolving execution plan current.
   `enforcementReady: false`. No merge, tag, release, shared migration or live
   operation occurred. Continue independent engineering; no owner question is
   currently necessary.
+- **Published P6c2:** [PR #54](https://github.com/LuminariMUD/DurisWeb/pull/54),
+  open/non-draft, code head `7ea3636bf6186af8d9ff6492baf681a598c5bf42`, base
+  `branch/retention-hold-aware-preview` (#53 `8c23534`). Remote master remains
+  `89468603a61ab44d9e3be1651c9dd6fce5a17a12` and is already an ancestor;
+  #53's latest backend/frontend CI checks pass. Preserve the published stack;
+  no history rewrite, merge or release tag is needed. Initial #54 read-back
+  confirms OPEN/non-draft/MERGEABLE, matching local/remote/API code heads,
+  ahead/behind `0 0` and a clean worktree. Hosted checks were queued/running;
+  local proof above is complete. This documentation closeout is pushed as a
+  normal follow-up commit and final head/cleanliness is reverified afterward.
+- **Next-session entry after P6c2:** fetch and read #54 plus the current stack
+  state before branching from its final published head. Continue in the
+  isolated `/tmp/durisweb-security-privacy-plan-20261016` checkout; preserve
+  original checkout changes, recovery stash `bbda289` and private fixture
+  evidence. Apply ablation before the next implementation. Inspect the actual
+  backup/restore and feature-cleanup consumers for P6d, then prepare the
+  smallest source change that prevents unprotected exposure and preserves
+  durable removal/hold evidence. Do not claim current SQL cleanup prevents
+  restore resurrection. Keep required restore replay, additional eligible
+  class handlers, own-ledger periods and P7 verified requests/export/erasure
+  explicit; do not reduce the project to these two classes. Source flags stay
+  false pending policy/period and operational approval. No actual backup
+  deletion/restore, shared migration, production/MUD/provider operation or
+  global logout is authorized. Continue independently; ask the owner only for
+  a consequential decision that engineering cannot resolve.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
