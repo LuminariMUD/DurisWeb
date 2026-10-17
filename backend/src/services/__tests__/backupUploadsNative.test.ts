@@ -19,7 +19,7 @@ import { request as httpRequest } from 'node:http';
 import { once } from 'node:events';
 import request from 'supertest';
 import { ZipArchive } from 'archiver';
-import mysql, { type Connection, type RowDataPacket } from 'mysql2/promise';
+import mysql, { type Connection, type RowDataPacket, type ResultSetHeader } from 'mysql2/promise';
 import {
   BACKUP_UPLOAD_PREFIX,
   ARCHIVE_REMOVAL_PREFIX,
@@ -238,6 +238,31 @@ const post = async (bytes: Buffer) =>
       expect(await count('mud_backups')).toBe(1);
     },
   );
+  it('inspects a generated dump over 64 MiB while retaining the upload-only size budget', async () => {
+    const bytes = await zip(
+      "INSERT INTO `unrelated` VALUES ('" + 'x'.repeat(65 * 1024 * 1024) + "');\n" + SQL,
+    );
+    const filename = 'duris-mud-large-' + randomUUID() + '.zip';
+    const file = path.join(rootPath, filename);
+    fs.writeFileSync(file, bytes, { flag: 'wx', mode: 0o600 });
+    try {
+      const [row] = await root.execute<ResultSetHeader>(
+        "INSERT INTO mud_backups(filename,backup_type,status,created_by,ip_address) VALUES(?,'manual','completed',?,'fixture')",
+        [filename, actor],
+      );
+      const { listBackupContents } = await import('../backupService.js');
+      await expect(listBackupContents(row.insertId)).resolves.toEqual({
+        accounts: ['Alpha'],
+        characters: [{ pid: 1, name: 'One' }],
+      });
+      const uploaded = await post(bytes);
+      expect(uploaded.status).toBe(409);
+      expect(uploaded.body.reason).toBe('inspection_unconfirmed');
+      expect(uploaded.body.cleanup).toBe('retained');
+    } finally {
+      fs.unlinkSync(file);
+    }
+  });
   it('clears ordinary failed backups while preserving review-required uploads for explicit cancellation', async () => {
     const uploaded = await post(Buffer.from('synthetic unconfirmed upload'));
     const record = await uploads.readBackupUpload(uploaded.body.reference, actor);

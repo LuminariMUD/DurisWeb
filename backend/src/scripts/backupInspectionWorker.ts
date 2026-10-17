@@ -1,10 +1,13 @@
 import unzipper from 'unzipper';
 import fs from 'node:fs';
-import { parseBackupContentsFromSql } from '../services/backupSqlParsing.js';
+import {
+  collectGeneratedBackupSummarySql,
+  parseBackupContentsFromSql,
+} from '../services/backupSqlParsing.js';
 import { managedArchiveFileSha256 } from '../utils/managedArchiveTarget.js';
 
 // Untrusted ZIP/SQL parsing has no application configuration, SQL credentials or ordinary output.
-setTimeout(() => process.exit(2), 15000);
+const startupTimer = setTimeout(() => process.exit(2), 15000);
 process.once('disconnect', () => process.exit(2));
 process.once('message', (value: unknown) => {
   void inspect(value).catch(() => reply('unconfirmed'));
@@ -21,6 +24,8 @@ async function inspect(value: unknown) {
   if (
     !value ||
     typeof value !== 'object' ||
+    !('kind' in value) ||
+    (value.kind !== 'upload' && value.kind !== 'generated') ||
     !('size' in value) ||
     typeof value.size !== 'number' ||
     !Number.isSafeInteger(value.size) ||
@@ -29,6 +34,10 @@ async function inspect(value: unknown) {
     typeof value.fileSha256 !== 'string'
   )
     process.exit(2);
+  if (value.kind === 'generated') {
+    clearTimeout(startupTimer);
+    setTimeout(() => process.exit(2), 120000);
+  }
   const size = value.size;
   const before = fs.fstatSync(3, { bigint: true });
   if (
@@ -55,18 +64,23 @@ async function inspect(value: unknown) {
     (file) => file.path === 'database.sql' || /^database\/[^/\\\0]+\.sql$/.test(file.path),
   );
   if (sql.length !== 1) return reply('invalid');
-  const limit = 64 * 1024 * 1024;
-  if (sql[0].uncompressedSize > limit) return reply('unconfirmed');
-  const chunks: Buffer[] = [];
-  let expandedBytes = 0;
-  for await (const chunk of sql[0].stream()) {
-    const block: unknown = chunk;
-    if (!Buffer.isBuffer(block)) return reply('unconfirmed');
-    expandedBytes += block.length;
-    if (expandedBytes > limit) return reply('unconfirmed');
-    chunks.push(block);
+  let text: string;
+  if (value.kind === 'generated') {
+    text = await collectGeneratedBackupSummarySql(sql[0].stream());
+  } else {
+    const limit = 64 * 1024 * 1024;
+    if (sql[0].uncompressedSize > limit) return reply('unconfirmed');
+    const chunks: Buffer[] = [];
+    let expandedBytes = 0;
+    for await (const chunk of sql[0].stream()) {
+      const block: unknown = chunk;
+      if (!Buffer.isBuffer(block)) return reply('unconfirmed');
+      expandedBytes += block.length;
+      if (expandedBytes > limit) return reply('unconfirmed');
+      chunks.push(block);
+    }
+    text = Buffer.concat(chunks, expandedBytes).toString('utf8');
   }
-  const text = Buffer.concat(chunks, expandedBytes).toString('utf8');
   if (
     !text.includes('CREATE TABLE `account_characters`') ||
     !text.includes('CREATE TABLE `player_data`')

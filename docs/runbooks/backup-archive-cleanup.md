@@ -114,6 +114,23 @@ rules. This inventory supplies discovery input only. Verified writer fencing,
 protected-byte preservation, ownership/adoption, holds and compatible offline
 restore replay remain separate P6 requirements before any removal or rollout.
 
+## Generated archive inspection
+
+Generated backups use the same validated, inherited descriptor as uploaded
+archives. Their inspector streams the SQL member, discarding unrelated
+mysqldump data lines as chunks arrive. It retains only the account-character
+definition/data and player-data definition needed for the existing summary.
+A large unrelated INSERT therefore does not consume a whole-line buffer or
+trigger the uploaded SQL member's 64 MiB ceiling. The generated mysqldump format
+escapes newlines inside data values; table definitions may span physical lines.
+
+Selected summary SQL remains bounded at 64 MiB; the existing 5,000-item and
+256 KiB result limits and 192 MiB heap limit still apply. Generated inspection
+has a 120-second child deadline and a 121-second parent deadline. A timeout,
+changed archive identity or excessive summary remains unconfirmed, with the
+archive retained. Inspection executes no SQL and does not authorize restore.
+Uploaded archives keep their separate total SQL-size and shorter time limits.
+
 ## Deletion acknowledgement
 
 Manual removal, failed-backup cleanup and automatic count pruning share the
@@ -165,7 +182,7 @@ upload expiry period has been approved or implemented.
 
 File close/flush and directory sync precede the inspection checkpoint. A separate
 read-only process receives no application environment or SQL credentials, executes
-no SQL and extracts no files. Inspection allows one SQL member, at most 10,000 ZIP
+no SQL and extracts no files. Uploaded-archive inspection allows one SQL member, at most 10,000 ZIP
 entries, 64 MiB decompressed SQL and 5,000 account/character summary items each,
 with a 256 KiB summary and 192 MiB V8 heap limit. Its own 15-second deadline and
 the parent's 16-second deadline bound work. This checks a supported format and

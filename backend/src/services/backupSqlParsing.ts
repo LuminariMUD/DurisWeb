@@ -1,3 +1,73 @@
+import { StringDecoder } from 'node:string_decoder';
+
+/**
+ * Generated mysqldump data statements occupy one physical line (newlines in
+ * values are escaped). Keep only summary tables; even a huge unrelated INSERT
+ * is discarded incrementally, without buffering its line or the whole dump.
+ */
+export async function collectGeneratedBackupSummarySql(
+  source: AsyncIterable<unknown>,
+): Promise<string> {
+  const decoder = new StringDecoder('utf8');
+  const kept: string[] = [];
+  const accountInsert = 'INSERT INTO `account_characters`';
+  let bytes = 0,
+    prefix = '',
+    tail = '',
+    definition = false;
+  let mode: 'prefix' | 'keep' | 'skip' = 'prefix';
+  const append = (value: string) => {
+    bytes += Buffer.byteLength(value);
+    if (bytes > 64 * 1024 * 1024) throw new Error('Backup summary SQL exceeds its budget');
+    kept.push(value);
+    tail = (tail + value).slice(-128);
+  };
+  const piece = (value: string, endOfLine: boolean) => {
+    if (mode === 'prefix') {
+      const length = Math.min(128 - prefix.length, value.length);
+      prefix += value.slice(0, length);
+      value = value.slice(length);
+      if (prefix.length < 128 && !endOfLine) return;
+      const start = prefix.trimStart();
+      definition = /^CREATE TABLE `(?:account_characters|player_data)`(?:\s|\()/.test(start);
+      mode =
+        definition ||
+        (start.startsWith(accountInsert) && /[\s(]/.test(start[accountInsert.length] ?? ''))
+          ? 'keep'
+          : 'skip';
+      if (mode === 'keep') append(prefix);
+      prefix = '';
+    }
+    if (mode === 'keep') {
+      append(value);
+      if (endOfLine) {
+        if (definition && tail.trimEnd().endsWith(';')) definition = false;
+        append('\n');
+      }
+    }
+    if (endOfLine) {
+      mode = definition ? 'keep' : 'prefix';
+      tail = '';
+    }
+  };
+  const consume = (value: string) => {
+    let start = 0;
+    for (let end = value.indexOf('\n', start); end !== -1; end = value.indexOf('\n', start)) {
+      piece(value.slice(start, end), true);
+      start = end + 1;
+    }
+    piece(value.slice(start), false);
+  };
+  for await (const block of source) {
+    if (!Buffer.isBuffer(block)) throw new Error('Backup SQL stream is not binary');
+    consume(decoder.write(block));
+  }
+  consume(decoder.end());
+  piece('', true);
+  if (definition) throw new Error('Backup table definition is incomplete');
+  return kept.join('');
+}
+
 export interface BackupContents {
   accounts: string[];
   characters: { pid: number; name: string }[];
