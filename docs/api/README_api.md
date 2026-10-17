@@ -270,6 +270,14 @@ an implementation of protected physical recovery or complete restore-removal
 replay; use the separately authorized
 [operator recovery procedure](../deployment.md#application-restore-boundary).
 
+The backup page waits for acknowledged operation starts and preserves restore
+selections/upload identity after refusal. Upload cancellation also waits for
+an acknowledged result; failure keeps its dialog and retry reference. Restore
+and cancellation failures render inside the open dialog. A declared HTTP 503
+`operation_gated` response is an operation refusal, so the shared client rejects
+it without showing a site-wide outage or replaying the request. Other server
+and connection failures retain the ordinary availability warning behavior.
+
 ## Authentication and CSRF
 
 - Login issues HTTP-only `access_token` and `refresh_token` cookies. Protected

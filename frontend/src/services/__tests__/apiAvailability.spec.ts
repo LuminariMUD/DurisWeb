@@ -5,6 +5,27 @@ import { apiClient } from '../api.js'
 afterEach(() => vi.restoreAllMocks())
 
 describe('API availability signals', () => {
+  it.each([
+    [503, false],
+    [500, true],
+  ] as const)(
+    'classifies a gated HTTP %s response without replay or false outage=%s',
+    async (status, signal) => {
+      const dispatch = vi.spyOn(window, 'dispatchEvent')
+      const adapter = vi.fn(async (config) => {
+        throw new AxiosError('operation refused', 'ERR_BAD_RESPONSE', config, undefined, {
+          status,
+          statusText: 'Refused',
+          headers: {},
+          config,
+          data: { error: 'operation_gated', gate: 'databaseRestore' },
+        })
+      })
+      await expect(apiClient.post('/api/admin/backup/restore', {}, { adapter })).rejects.toThrow()
+      expect(adapter).toHaveBeenCalledOnce()
+      expect(dispatch).toHaveBeenCalledTimes(signal ? 1 : 0)
+    },
+  )
   it.each([500, 502, 503, 504, 530])(
     'signals HTTP %s without replaying the request',
     async (status) => {

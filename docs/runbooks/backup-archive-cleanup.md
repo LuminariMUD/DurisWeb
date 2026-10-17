@@ -32,6 +32,16 @@ category/reference instead of raw driver text or a false success/count. Invalid,
 active or shared targets return 409; unconfirmed file/storage work returns 503.
 The page awaits the actual deletion request and refreshes after either outcome.
 
+Backup creation also waits for an acknowledged positive operation ID; an
+unconfirmed start refreshes the list before another attempt. Stored/uploaded
+restore requests retain their dialog, selections and upload reference when
+refused, with a persistent inline error. Pending operations block duplicate
+submission and cancellation. Cancelling an upload waits for success; refusal
+keeps the file reference and permits retry. A declared gated-operation response
+does not imply the whole website is offline. These are client acknowledgement
+safeguards, not independent proof of physical copy disposal or durable upload
+recovery after leaving the page.
+
 ## Preserve evidence
 
 Listing no longer deletes records because their files appear absent, or changes

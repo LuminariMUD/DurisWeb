@@ -107,10 +107,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error: unknown) => {
-    if (axios.isAxiosError(error) && !axios.isCancel(error)) {
+    if (axios.isAxiosError<{ error?: unknown }>(error) && !axios.isCancel(error)) {
       const status = error.response?.status
+      const operationGated = status === 503 && error.response?.data?.error === 'operation_gated'
       if (
-        (status !== undefined && status >= 500) ||
+        (status !== undefined && status >= 500 && !operationGated) ||
         ['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'].includes(error.code ?? '')
       ) {
         // No raw error details cross into the public notice, and no request is replayed.

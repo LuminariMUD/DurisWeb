@@ -4,6 +4,11 @@ import { adminApi } from '@/services/api'
 import { useWebSocket } from './useWebSocket'
 import type { BackupInfo, RestoreRequest } from '@/types'
 
+function requireOperationAcknowledgement(result: { success: boolean; id: number }): void {
+  if (result?.success !== true || !Number.isSafeInteger(result.id) || result.id <= 0)
+    throw new Error('Operation start was not confirmed')
+}
+
 export function useBackups() {
   const queryClient = useQueryClient()
   const { onBackupProgress, offBackupProgress, onRestoreProgress, offRestoreProgress } =
@@ -25,6 +30,7 @@ export function useBackups() {
   const {
     data: backupData,
     isLoading,
+    isFetching,
     error,
     refetch,
   } = useQuery({
@@ -39,11 +45,13 @@ export function useBackups() {
   // Mutation for creating backup
   const createBackupMutation = useMutation({
     mutationFn: async () => {
-      return await adminApi.createBackup()
+      const result = await adminApi.createBackup()
+      requireOperationAcknowledgement(result)
+      return result
     },
-    onSuccess: () => {
-      // Invalidate and refetch backup list
-      queryClient.invalidateQueries({ queryKey: ['backups'] })
+    onSettled: () => {
+      // An uncertain start may already be running; reconcile before allowing a retry.
+      return queryClient.invalidateQueries({ queryKey: ['backups'] })
     },
   })
 
@@ -70,7 +78,9 @@ export function useBackups() {
   // Mutation for creating restore
   const createRestoreMutation = useMutation({
     mutationFn: async (request: RestoreRequest) => {
-      return await adminApi.createRestore(request)
+      const result = await adminApi.createRestore(request)
+      requireOperationAcknowledgement(result)
+      return result
     },
     onSuccess: (data) => {
       // Set initial restore state
@@ -98,7 +108,9 @@ export function useBackups() {
     }: {
       tempPath: string
     } & Omit<RestoreRequest, 'backupId'>) => {
-      return await adminApi.createRestoreFromUpload(tempPath, request)
+      const result = await adminApi.createRestoreFromUpload(tempPath, request)
+      requireOperationAcknowledgement(result)
+      return result
     },
     onSuccess: (data) => {
       // Set initial restore state
@@ -228,11 +240,12 @@ export function useBackups() {
   return {
     backups,
     isLoading,
+    isFetching,
     error,
     refetch,
     hasInProgressBackup,
     inProgressBackup,
-    createBackup: createBackupMutation.mutate,
+    createBackup: createBackupMutation.mutateAsync,
     isCreating: computed(() => createBackupMutation.isPending.value),
     deleteBackup: deleteBackupMutation.mutateAsync,
     isDeleting: computed(() => deleteBackupMutation.isPending.value),
@@ -240,8 +253,10 @@ export function useBackups() {
     isDeletingFailed: computed(() => deleteFailedBackupsMutation.isPending.value),
     getDownloadUrl: adminApi.getBackupDownloadUrl,
     // Restore functionality
-    createRestore: createRestoreMutation.mutate,
-    isRestoring: computed(() => createRestoreMutation.isPending.value),
+    createRestore: createRestoreMutation.mutateAsync,
+    isRestoring: computed(
+      () => createRestoreMutation.isPending.value || restoreFromUploadMutation.isPending.value,
+    ),
     currentRestore,
     getBackupContents: adminApi.getBackupContents,
     getMudRunningStatus: adminApi.getMudRunningStatus,
@@ -249,7 +264,7 @@ export function useBackups() {
     uploadBackup: uploadBackupMutation.mutateAsync,
     isUploading: computed(() => uploadBackupMutation.isPending.value),
     uploadError: computed(() => uploadBackupMutation.error.value),
-    restoreFromUpload: restoreFromUploadMutation.mutate,
+    restoreFromUpload: restoreFromUploadMutation.mutateAsync,
     cancelBackupUpload: adminApi.cancelBackupUpload,
   }
 }
