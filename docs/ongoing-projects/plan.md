@@ -6,9 +6,9 @@
 `d43f94c`, #49 follow-up `64d30b7` and #50 follow-up `ab40c42` are pushed;
 all eight corresponding threads are verified resolved. The three later #54
 findings are now fixed in `3e68def` and `89bea79`, pushed and verified resolved.
-**10 known findings remain on #63–#66.** #62 repair `3062017` is pushed and all
-three threads are verified resolved. #63 contains the repaired parent and its
-two documentation findings are being closed. The restore availability and async cancellation paths
+**Eight known findings remain on #64–#66.** #62 repair `3062017` and #63 repair
+`949537e` are pushed and their five threads verified resolved. #64 contains parent
+merge `a58b8c4` and its three findings are being qualified. The restore availability and async cancellation paths
 remain intact. No review completion, master merge or deployment is claimed.
 The dated inventory below is historical where
 these newer results supersede it; exact follow-up proof precedes the old records.
@@ -335,6 +335,40 @@ checkpoint and expired deadline as current instructions.
 
 ## Follow-up review evidence — #48–#50
 
+**#64 repair:** the documented package script sets dotenv quiet mode itself;
+its CLI test invokes that script with no inherited quiet setting. Inventory
+validates mount IDs on opened directory/file descriptors, so same-device binds
+at the dump, staging root, database directory, SQL member or upload cannot be
+classified as an ordinary in-root copy. It accepts single-component SQL names
+with the configured punctuation/Unicode. The already-published #65 filename
+helpers are brought back to this first inventory consumer, including original
+upload suffixes/extensionless names; the arbitrary 200-character suffix cap is
+omitted while retaining the 255-byte component bound. This also prepares #65's
+later suffix finding for inherited closeout. No content read, writer fence,
+adoption, removal or new dependency is added.
+
+Five unit/CLI regressions failed before repair (dotenv stderr and four configured
+SQL names), then 21 tests pass across the two inventory files. A native fixture
+failed before repair on a same-device mounted dump; after repair it passes five
+bind boundaries plus an ordinary-file control, preserving source bytes. Run the
+committed `backend/src/services/__tests__/legacyBackupInventoryMounts.native.ts`
+only in a fresh private mount namespace: `unshare --mount --propagation private
+<node> --import <backend>/node_modules/tsx/dist/loader.mjs <fixture>`, as root.
+Actual local Node: `/home/aiwithapex/.nvm/versions/node/v24.15.0/bin/node`;
+actual backend: `/tmp/durisweb-security-privacy-plan-20261016/backend`.
+All mounts/files are synthetic beneath one owned temporary directory and are
+unmounted/removed in its `finally`. This is not a production mount operation.
+The check uses [Linux fdinfo mount IDs](https://man7.org/linux/man-pages/man5/proc_pid_fdinfo.5.html).
+Logs: `pr64-{red,focused,quality}.log`; native stdout is retained in tool output.
+Backend gates/build are running. Publish only after they pass, then resolve #64
+and carry into #65. The frontend remains unchanged from qualified #62.
+
+**#64 final checks:** backend format/lint/types/MUD-write/schema/build gates pass;
+configuration and whitespace guards pass. The 21 CLI/service tests and native
+five-bind/one-control result above are final for unchanged runtime. No broad
+backend, frontend, SQL/provider or production rerun is needed or claimed for
+this filesystem/command correction. Runbook links and the Linux mount-ID
+reference were checked. No visitor news is needed for this operator-only tool.
 **#63 documentation repair:** the incident Redis restart procedure and standalone
 maintenance stop procedure now explicitly require the existing legacy-copy gate
 before an operation can tear down the old application's private temporary files.

@@ -44,7 +44,7 @@ the older uploader/producer. Run it only in the explicitly selected authorized
 environment and namespace, before the preservation gate's service teardown:
 
 ```bash
-pnpm --dir backend backup:inventory \
+pnpm --dir backend --silent backup:inventory \
   --backup-root /absolute/configured/backup-root \
   --legacy-upload-root /absolute/actual/old/upload-root \
   --private-out /absolute/owner-only-persistent-directory/new-inventory.json
@@ -64,21 +64,28 @@ MUD operation is made.
 
 The private output identifies only `temp_<id>.sql`, the exact
 `temp_staging_<id>/database/<name>.sql` tree and
-`backup-upload-<timestamp>-<random>.zip` in their selected roots. Numeric IDs are
+`backup-upload-<timestamp>-<random><original-extension>` in their selected roots.
+The original upload suffix can be uppercase, non-ZIP or absent; its encoded
+filename is bounded by the filesystem component limit. A single staging SQL
+member can use spaces, dots, `@` and Unicode from the configured database name.
+Numeric IDs are
 filename hints, not established backup ownership. Physical hashes cover stat
 identity/size/timestamps, not file contents. Directory descriptors anchor the
-walk; symlinks, hardlinked/special files, cross-device members and unexpected
-staging layouts are retained as unsafe/unconfirmed observations. No copy content
-is opened, extracted, copied, changed or deleted. Unrecognized names within a
-legacy prefix are counted without exposing those names in the report.
-The old MIME-based acceptance could also create uppercase or other suffixes;
-those prefixed names remain unknown/review-required, never silently ignored or
-treated as ordinary managed archives.
+walk; symlinks, hardlinked/special files, cross-device members, nested mounts
+and unexpected staging layouts are retained as unsafe/unconfirmed observations.
+Opened entries must match the selected root's mount ID from
+[Linux descriptor metadata](https://man7.org/linux/man-pages/man5/proc_pid_fdinfo.5.html),
+including bind mounts on the same device. File descriptors are used only for
+metadata; no copy content is read, extracted, copied, changed or deleted.
+Unrecognized names within a legacy prefix are counted without exposing those
+names in the report. The package script silences dotenv's startup notice;
+`--silent` also suppresses pnpm's command banner when capturing aggregate JSON.
 
 Limits are 10,000 root entries and 1,000 copies per root, a shared five-second
 cooperative budget checked between filesystem calls and a 1 MiB output cap.
 These are discovery limits, not a hard timeout on a stalled kernel I/O call.
-Read-only observations can include tmpfs or other mounted storage; they confer
+Selected roots can be tmpfs or other mounted storage; nested mount crossings
+within those roots are refused. These read-only observations confer
 none of the managed unlink worker's local-filesystem or exit-fence guarantees.
 Bounds, unreadable state or detected directory changes prevent a complete
 observation. There is no invented continuation through an unstable directory;

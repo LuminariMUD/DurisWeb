@@ -69,6 +69,28 @@ function physical(stat: BigIntStats): string {
     stat.ctimeNs.toString(),
   ]);
 }
+export function isLegacySqlMemberFilename(name: string): boolean {
+  return (
+    name.length > 4 &&
+    Buffer.byteLength(name) <= 255 &&
+    name.endsWith('.sql') &&
+    !/[/\\\0\r\n]/.test(name)
+  );
+}
+/** The old MIME-based uploader kept the original extension, including non-ZIP suffixes. */
+export function isLegacyUploadFilename(name: string): boolean {
+  return (
+    Buffer.byteLength(name) <= 255 &&
+    /^backup-upload-[0-9]{1,16}-[0-9]{1,10}(?:\.[^/\\\0\r\n]*)?$/.test(name)
+  );
+}
+function mountId(fd: number): string {
+  const value = /^mnt_id:\s+([1-9][0-9]*)$/m.exec(
+    fs.readFileSync(`/proc/self/fdinfo/${fd}`, 'utf8'),
+  )?.[1];
+  if (!value) throw new LegacyBackupInventoryError('root_unverified');
+  return value;
+}
 function classify(scope: LegacyRootInventory['scope'], name: string) {
   const dump = scope === 'backup' ? /^temp_([1-9][0-9]{0,9})\.sql$/.exec(name) : null;
   const staging = scope === 'backup' ? /^temp_staging_([1-9][0-9]{0,9})$/.exec(name) : null;
@@ -77,7 +99,7 @@ function classify(scope: LegacyRootInventory['scope'], name: string) {
     if (id > 4294967295) return null;
     return { kind: dump ? ('sql_dump' as const) : ('staging' as const), backupIdHint: id };
   }
-  if (scope === 'legacy_upload' && /^backup-upload-[0-9]{1,16}-[0-9]{1,10}\.zip$/.test(name))
+  if (scope === 'legacy_upload' && isLegacyUploadFilename(name))
     return { kind: 'upload' as const, backupIdHint: null };
   return null;
 }
@@ -93,17 +115,15 @@ function directoryNames(fd: number): string[] {
     directory.closeSync();
   }
 }
-function openDirectory(filename: string, expected: BigIntStats): number {
+function openEntry(filename: string, expected: BigIntStats): number {
   const fd = fs.openSync(
     filename,
-    constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
+    constants.O_RDONLY |
+      constants.O_NOFOLLOW |
+      (expected.isDirectory() ? constants.O_DIRECTORY : constants.O_NONBLOCK),
   );
   const opened = fs.fstatSync(fd, { bigint: true });
-  if (
-    !opened.isDirectory() ||
-    opened.dev !== expected.dev ||
-    physical(opened) !== physical(expected)
-  ) {
+  if (opened.dev !== expected.dev || physical(opened) !== physical(expected)) {
     fs.closeSync(fd);
     throw new LegacyBackupInventoryError('root_unverified');
   }
@@ -112,6 +132,7 @@ function openDirectory(filename: string, expected: BigIntStats): number {
 function observe(
   fd: number,
   device: bigint,
+  rootMountId: string,
   scope: LegacyRootInventory['scope'],
   name: string,
 ): LegacyCopyObservation | null {
@@ -126,7 +147,7 @@ function observe(
     sqlMember: null,
   };
   const filename = `/proc/self/fd/${fd}/${name}`;
-  let stagingFd: number | undefined, databaseFd: number | undefined;
+  let stagingFd: number | undefined, databaseFd: number | undefined, fileFd: number | undefined;
   try {
     const stat = fs.lstatSync(filename, { bigint: true });
     item.physicalSha256 = physical(stat);
@@ -140,8 +161,11 @@ function observe(
       return item;
     }
     if (kind.kind === 'staging') {
-      stagingFd = openDirectory(filename, stat);
-      if (directoryNames(stagingFd).join(',') !== 'database') {
+      stagingFd = openEntry(filename, stat);
+      if (
+        mountId(stagingFd) !== rootMountId ||
+        directoryNames(stagingFd).join(',') !== 'database'
+      ) {
         item.outcome = 'unsafe_shape';
         return item;
       }
@@ -155,14 +179,23 @@ function observe(
         item.outcome = 'unsafe_shape';
         return item;
       }
-      databaseFd = openDirectory(databasePath, databaseStat);
+      databaseFd = openEntry(databasePath, databaseStat);
+      if (mountId(databaseFd) !== rootMountId) {
+        item.outcome = 'unsafe_shape';
+        return item;
+      }
       const names = directoryNames(databaseFd);
-      if (names.length !== 1 || !/^[A-Za-z0-9_$-]{1,128}\.sql$/.test(names[0])) {
+      if (names.length !== 1 || !isLegacySqlMemberFilename(names[0])) {
         item.outcome = 'unsafe_shape';
         return item;
       }
       const sql = fs.lstatSync(`/proc/self/fd/${databaseFd}/${names[0]}`, { bigint: true });
       if (!sql.isFile() || sql.isSymbolicLink() || sql.nlink !== 1n || sql.dev !== device) {
+        item.outcome = 'unsafe_shape';
+        return item;
+      }
+      fileFd = openEntry(`/proc/self/fd/${databaseFd}/${names[0]}`, sql);
+      if (mountId(fileFd) !== rootMountId) {
         item.outcome = 'unsafe_shape';
         return item;
       }
@@ -182,7 +215,14 @@ function observe(
         item.outcome = 'changed';
         return item;
       }
-    } else item.sizeBytes = stat.size.toString();
+    } else {
+      fileFd = openEntry(filename, stat);
+      if (mountId(fileFd) !== rootMountId) {
+        item.outcome = 'unsafe_shape';
+        return item;
+      }
+      item.sizeBytes = stat.size.toString();
+    }
     item.outcome =
       physical(fs.lstatSync(filename, { bigint: true })) === physical(stat)
         ? 'writer_unverified'
@@ -191,6 +231,7 @@ function observe(
   } catch {
     return item;
   } finally {
+    if (fileFd !== undefined) fs.closeSync(fileFd);
     if (databaseFd !== undefined) fs.closeSync(databaseFd);
     if (stagingFd !== undefined) fs.closeSync(stagingFd);
   }
@@ -207,7 +248,8 @@ function inspectRoot(
     const filesystem = fs.statfsSync(canonical, { bigint: true });
     if (path.resolve(root) !== canonical || !stat.isDirectory())
       throw new LegacyBackupInventoryError('root_unverified');
-    fd = openDirectory(canonical, stat);
+    fd = openEntry(canonical, stat);
+    const rootMountId = mountId(fd);
     const result: LegacyRootInventory = {
       scope,
       rootSha256: hash([
@@ -244,7 +286,7 @@ function inspectRoot(
           break;
         }
         result.entriesSeen++;
-        const item = observe(fd, stat.dev, scope, entry.name);
+        const item = observe(fd, stat.dev, rootMountId, scope, entry.name);
         if (item) result.copies.push(item);
         else if (
           (scope === 'backup' && entry.name.startsWith('temp_')) ||
@@ -341,7 +383,7 @@ export function writeLegacyBackupInventory(
     const stat = fs.lstatSync(parent, { bigint: true });
     if (!stat.isDirectory() || stat.uid !== BigInt(process.getuid()) || (stat.mode & 0o077n) !== 0n)
       throw new LegacyBackupInventoryError('private_output_required');
-    parentFd = openDirectory(parent, stat);
+    parentFd = openEntry(parent, stat);
     const data = JSON.stringify(inventory) + '\n';
     if (Buffer.byteLength(data) > 1024 * 1024)
       throw new LegacyBackupInventoryError('output_unconfirmed');
