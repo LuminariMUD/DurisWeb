@@ -2,7 +2,7 @@
 
 ## Current handoff — read this first
 
-**Latest continuation — #65 payload acknowledgement fence ready:** current
+**Latest continuation — #65 payload acknowledgement fence published:** current
 branch `branch/legacy-copy-preservation` starts at `4e5679e`; the latest #63 docs
 closures are `c87c7ad` / `95fbd64` and are carried through #64 `208c0c6`,
 #65 `4e5679e` and #66 `09d401a`. The ledger has 55 verified closeouts; known
@@ -32,10 +32,12 @@ bundle admission and both final mount checks. Logs:
 `pr65-payload-lease-{red,green,tests,quality,mounts}.log`. No broad backend,
 frontend, SQL/provider or production rerun is claimed.
 
-Publish/resolve `PRRT_kwDOVA2-8c6thWHl` and carry into #66. Then finish its four
-export findings (configured MUD authority, safe unexpected-failure diagnostics,
-user-facing timeout and forward owner index), retaining #62's still-open
-inode-conditional removal guarantee. This fence protects payload bytes; do not
+Published as `c6302a0`; `PRRT_kwDOVA2-8c6thWHl` has a verified reply/resolved
+state. The ledger contains **56 verified closeouts**, with **five known remaining
+findings** before another scan: #62's conditional removal and #66's four export
+findings. Carry into #66 and finish configured MUD authority, safe unexpected-
+failure diagnostics, user-facing timeout and the forward owner index, retaining
+#62's still-open inode-conditional removal guarantee. This fence protects payload bytes; do not
 reuse it as a claim that pathname unlink is atomic. No visitor news is needed
 for the operator preservation correction.
 
