@@ -2,6 +2,52 @@
 
 ## Current handoff — read this first
 
+**Latest continuation — #63 remaining ingress/restart paths:** #64's six
+findings are published/resolved as `5fa2ee8` / `d0fe178`, carried through #65
+`106783b` and #66 `3c10f0e`. The shared mapping integration passes 57 tests/four
+suites, backend gates/build and native preservation mount checks.
+
+Current branch is `branch/legacy-upload-preservation-gate`. The two P1 docs
+findings now require an explicit Worker Route and maintenance acceptance for
+every configured public website/API hostname, including aliases and separate
+API/web-socket hosts. Canonical redirects are explicitly insufficient. The
+example routes include canonical and alias hosts; the guide requires the
+actual complete deployed hostname inventory and cookie-free, empty refusal
+probes before inventory. It does not activate Cloudflare configuration.
+
+The incident runbook now gates all direct/dependency website restarts, including
+flatfile and credential recovery. Discord environment changes and the standalone
+data-hold migration procedure also link preservation before stopping writers.
+A repository-wide search distinguished operational restart instructions from
+descriptions of automatic restart and development-only process lifecycle.
+The existing writer fence and independent temporary-directory protection remain.
+
+Validation passed: inspected `canonicalHost.ts` and the Worker route behavior, parsed the
+example TOML, checked changed relative links/anchors and configuration literals,
+and ran `node --test deploy/maintenance/worker.test.mjs` (**10 passed**). The added case exercises
+routed canonical, alias and separate API URLs with synthetic session cookies,
+requiring refused POST/upgrades and zero origin calls. It does not prove real
+Cloudflare Routes are installed; the runbook requires per-host live acceptance
+during a separately authorized window. No application package or production
+operation is changed or claimed.
+
+Published as `c87c7ad`; `PRRT_kwDOVA2-8c6thjFP` and
+`PRRT_kwDOVA2-8c6thyo3` have verified replies/resolved state. The ledger now has
+**55 verified closeouts**, with **six known remaining findings** before a new
+scan: #62's conditional removal, #65's payload fence, and #66's four export
+findings. Carry through #64–#66 and continue #65 while #62's unresolved
+inode-conditional removal guarantee stays explicit. No visitor news is needed.
+
+### Earlier published repairs and inventory
+
+**Inventory integration into #65:** the parent carry preserves the exported
+`legacyMountId` used by preservation and shares `legacyDirectoryAliases` through
+its existing error translation, removing the duplicate mountinfo mapper.
+Combined inventory/preservation tests pass **57 / four suites**, backend gates/
+build pass, and the native preservation fixture passes six aliases, independent
+control, bundle admission and final mount checks. Evidence:
+`pr65-inventory-carry-{tests,quality,mounts}.log`. No payload-acknowledgement fence
+fix is claimed. Continue the carry into #66, then return to #63's two P1 docs gaps.
 **Latest continuation — PR #64 inventory fixes published:**
 current branch is `branch/legacy-backup-copy-inventory`, starting at `16e54bd`.
 #63's keeper correction is published/resolved as `a2947cc` / `1ce3854` and
