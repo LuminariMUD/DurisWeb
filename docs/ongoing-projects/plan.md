@@ -334,6 +334,16 @@ checkpoint and expired deadline as current instructions.
 
 ## Follow-up review evidence — #48–#50
 
+**#58 integration:** #57 final head `252f16a` is pushed. #58 merge `7d590f8`
+retains both the authoritative metadata check and the UTC retention import;
+no predicate/hold check was dropped. `node --import
+./backend/node_modules/tsx/dist/loader.mjs /tmp/durisweb-review-execution-v1-suite.mts
+23436 execution-only` and the same with `23437` each pass 20 tests / two suites.
+This runner retains #58's metadata-v1 installation and omits only the later v2
+fixture preparation unavailable on this historical branch. Backend quality gates
+and build pass; the frontend tree exactly matches qualified #57. Logs:
+`pr58-integration-{mysql,maria,quality}.log`. Continue the parent carry-forward.
+
 **Carry-forward through #57:** parent merges #51 `47c61d2`, #52 `2c0421c`,
 #53 `9096ace`, #54 `ade5bf2`, #55 `d1d8b9a`, #56 `536fa43` are pushed.
 The inherited image/privacy runtime matches its qualified parent. #57 merge
