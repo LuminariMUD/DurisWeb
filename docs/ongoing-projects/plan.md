@@ -5,10 +5,12 @@
 **Latest review continuation:** #55 UI fix `3446b1b`, #48 contract fix
 `d43f94c`, #49 follow-up `64d30b7` and #50 follow-up `ab40c42` are pushed;
 all eight corresponding threads are verified resolved. **13 findings remain
-from the refreshed 21-finding queue**, on #62–#66. No new scan is implied.
-Repairs are carried and pushed through #56. #57's integration is qualified and
-ready to push; the restore UI gate and async/error/cancellation handling are
-both preserved. Next: push #57, carry #58–#61, then repair #62's three findings.
+from the earlier 21-finding queue**, on #62–#66. A new complete scan now adds
+three #54 findings, so **16 currently remain across #54 and #62–#66**.
+Repairs are carried and pushed through #59; #60's integration is qualified.
+Next: push #60, return to #54's three new findings, then carry forward again
+and continue #62–#66. The restore availability and async cancellation paths
+remain intact. No review completion, master merge or deployment is claimed.
 The dated inventory below is historical where
 these newer results supersede it; exact follow-up proof precedes the old records.
 
@@ -333,6 +335,30 @@ checkpoint and expired deadline as current instructions.
   do not replace it with an older snapshot that loses #56–#66 or this review queue.
 
 ## Follow-up review evidence — #48–#50
+
+**#60 integration / next review queue:** #58 final `1a61f1e` and #59 merge
+`a12acc3` are pushed. #60 merge `7867992` preserves inherited runtime; its
+metadata-v2 fixture is qualified by the original
+`/tmp/durisweb-run-execution-suite.mts` with `23436 execution-only` and
+`23437 execution-only` using the Node/tsx invocation recorded above: 20 tests /
+two suites per engine pass. Backend quality gates/build pass. Frontend and
+image/retention service sources match their qualified parents; logs are
+`pr60-integration-{mysql,maria,quality}.log`. No test process remains running.
+
+The fresh complete scan (`latest-scan.log` in the private review directory)
+confirms #48/#49/#50/#55 are resolved and adds these #54 findings:
+
+- [Gate analytics cache deletion on selected class approval](https://github.com/LuminariMUD/DurisWeb/pull/54#discussion_r4302619613)
+  (`PRRT_kwDOVA2-8c6tgBmR`).
+- [Serialize rollback with retention workers](https://github.com/LuminariMUD/DurisWeb/pull/54#discussion_r4302619615)
+  (`PRRT_kwDOVA2-8c6tgBmT`).
+- [Close Redis before the retention CLI returns](https://github.com/LuminariMUD/DurisWeb/pull/54#discussion_r4302619617)
+  (`PRRT_kwDOVA2-8c6tgBmV`).
+
+These are unaddressed; source policy remains disabled. Next inspect/reproduce
+them on #54, preserving rollback evidence and the existing worker control
+protocol. #61–#66 still lack the parent repairs; #62's three original findings
+and #63–#66's ten others remain open. Do not resume unrelated feature work.
 
 **#58 integration:** #57 final head `252f16a` is pushed. #58 merge `7d590f8`
 retains both the authoritative metadata check and the UTC retention import;
