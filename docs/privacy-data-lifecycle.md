@@ -318,6 +318,13 @@ cutoff and copy handling before its lifecycle can be considered complete.
 
 Forum image removal records a durable intent before contacting R2 and retains
 the retry row on disabled storage, failure, timeout or an unconfirmed response.
+Removal holds its advisory lease on a dedicated SQL connection, with at most
+two active removals per application process. Provider waits do not occupy the
+shared query pool; excess work returns the existing retryable in-progress
+outcome. The connection and slot are released on completion/failure, while the
+durable retry reference and publication guards remain in force. Forum write
+failures expose a reference matching safe stage/driver-code diagnostics rather
+than raw SQL, bindings or provider text.
 Pending images cannot be attached; forum create/edit operations link managed
 images in the publication transaction. The existing hourly cleanup retries
 pending work and keeps the one-hour rule for newly abandoned uploads, with
