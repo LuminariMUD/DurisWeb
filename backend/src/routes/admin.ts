@@ -3876,6 +3876,9 @@ router.get(
 );
 
 function respondBackupReadFailure(res: Response, error: unknown): Response {
+  // Numeric IDs must not distinguish another owner's retained upload from an absent backup.
+  if (error instanceof BackupUploadError && error.reason === 'not_found')
+    return res.status(404).json({ error: 'Backup not found' });
   const failure =
     error instanceof BackupUploadError ? error : new BackupUploadError('storage_unconfirmed');
   logger.warn('backup_read_unconfirmed', {
@@ -3992,7 +3995,7 @@ router.get(
       }
       const contents = await listBackupContents(id, expected);
       if (!contents) {
-        return res.status(404).json({ error: 'Backup not found or not completed' });
+        return res.status(404).json({ error: 'Backup not found' });
       }
 
       res.setHeader('Cache-Control', 'private, no-store');

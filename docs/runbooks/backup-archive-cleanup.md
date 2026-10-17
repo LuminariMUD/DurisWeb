@@ -110,9 +110,11 @@ row with no file until that proof is available. A different boot/PID namespace o
 changed file/root needs private operator investigation. Recovery never deletes or
 executes archive contents and a late inspector cannot overwrite its result.
 
-The browser scopes its backup-list cache to the signed-in account and cancels
-the previous account's pending list request when that identity changes. Signing
-out or into another account does not reuse the previous uploader's list.
+The browser scopes its backup-list cache to the signed-in account and current
+role, cancelling pending list requests when either changes. Signing out, changing
+accounts or returning with lower privileges does not reuse an earlier privileged
+list. Numeric status/download/contents requests for another owner's upload return
+the same plain 404 as a missing backup, without the stored upload reference.
 
 Closed retained uploads offer download and cancellation from the list after a
 page reload. Both require owner/overlord access; pending writers cannot be

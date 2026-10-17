@@ -229,6 +229,31 @@ describe('admin account permission ID validation', () => {
     poolQuery.mockResolvedValue([[]]);
   });
 
+  it.each(['/backup/status/1', '/backup/download/1', '/backup/1/contents'])(
+    'makes foreign uploads indistinguishable from missing numeric IDs at %s',
+    async (route) => {
+      const backups = await import('../../services/backupService.js');
+      const { BackupUploadError } = await import('../../services/backupUploads.js');
+      const { default: logger } = await import('../../utils/logger.js');
+      jest.mocked(backups.getBackupById).mockResolvedValueOnce(null);
+      jest.mocked(backups.listBackupContents).mockResolvedValueOnce(null);
+      const missing = await request(app).get('/api/admin' + route);
+      jest
+        .mocked(backups.getBackupById)
+        .mockRejectedValueOnce(
+          new BackupUploadError('not_found', '9e40e116-1c8a-4d4f-82ae-4455f95b47d9'),
+        );
+      const foreign = await request(app).get('/api/admin' + route);
+      expect(missing.status).toBe(404);
+      expect(foreign.status).toBe(404);
+      expect(foreign.body).toEqual(missing.body);
+      expect(foreign.body).toEqual({ error: 'Backup not found' });
+      expect(JSON.stringify(jest.mocked(logger.warn).mock.calls)).not.toContain(
+        '9e40e116-1c8a-4d4f-82ae-4455f95b47d9',
+      );
+    },
+  );
+
   it('reports an unconfirmed backup start without raw SQL/IP bindings', async () => {
     const backups = await import('../../services/backupService.js');
     jest
