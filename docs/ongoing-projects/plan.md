@@ -2,10 +2,10 @@
 
 Status: **implementation in progress**. Updated 2026-10-16.
 
-Current checkpoint: engineering through P4 and the separate raw-settings UTC
-correction are published for review (#39, #41, #42, #43). Next is P5 notice and
-analytics choice, then P6–P7. Policy/approval and live-release gates remain open;
-no production rollout is implied.
+Current checkpoint: engineering through P4, the UTC correction, first P5
+collection closure and browser storage-denial repair are published for review
+(#39, #41–#46). Next is the remaining P5 notice/choice implementation, then P6–P7.
+Policy/approval and live-release gates remain open; no production rollout is implied.
 
 Single working plan for [#7](https://github.com/LuminariMUD/DurisWeb/issues/7),
 [#8](https://github.com/LuminariMUD/DurisWeb/issues/8),
@@ -836,6 +836,72 @@ outside this request. Keep this single evolving execution plan current.
   describes the actual paused state; do not announce accept/withdraw controls
   before they exist. No live publication, tag or release is claimed now.
 
+- **Published P5 collection closure:**
+  [PR #45](https://github.com/LuminariMUD/DurisWeb/pull/45), open/non-draft at
+  `069f7b5`, is stacked on #44. Local/remote/API heads match, ahead/behind `0 0`,
+  clean checkout verified. Its full browser qualification follows the separate
+  storage-denial repair below; the approved notice/choice outcome remains open.
+- **Observed browser-storage repair:** `branch/browser-storage-preferences`
+  starts at #45 `069f7b5`. **Outcome:** blocked preference storage must not throw
+  during notification initialization or changelog-banner account changes and
+  dismissal. Unknown notification preference fails closed; explicit actions can
+  work for the current page without falsely claiming they were saved.
+  **Non-goals:** a repository-wide storage framework, changing permission prompts,
+  analytics collection, server persistence, or broad unrelated cleanup.
+  **Files:** `useNotifications`, `ChangelogBanner`, focused existing-domain tests
+  and this plan. **Proof:** denied reads/writes through mounted components,
+  successful browser permission despite a failed preference write, ordinary
+  persisted behavior, frontend gates, and the same real built browser matrix.
+  Use local guarded accesses; no dependency or configuration is needed.
+- **Storage repair proof:** `pnpm --dir frontend test:unit --run
+  src/composables/__tests__/useNotifications.spec.ts
+  src/components/changelog/__tests__/ChangelogBanner.spec.ts` initially reproduced
+  four failures plus an unhandled write exception. After the repair, the full
+  `pnpm --dir frontend test:unit --run` passes **250 tests / 52 files**, including
+  account switches and new-update dismissal invalidation when storage is denied.
+  Frontend `format:check`, `lint`, `type-check`, `build`, palette literal guard,
+  configuration literal guard and `git diff --check` pass. Changed files were
+  formatted with `pnpm --dir frontend exec biome format --write <changed files>`.
+  Logs: `/tmp/durisweb-storage-preferences-before.log`,
+  `/tmp/durisweb-storage-preferences-frontend.log`,
+  `/tmp/durisweb-storage-preferences-build.log`. Backend source is unchanged
+  from the qualified P5 collection closure; no new backend/native run is claimed.
+- **Completed closure/browser proof:** `node /tmp/durisweb-p5-closure-browser.mjs`
+  passes all six cases: 1440×1000 and 390×844, each with fresh storage, the legacy
+  identifier and all storage reads/writes/removals denied. The real built app
+  loads the login route, uses Back to Home navigation, renders meaningful home
+  content and survives refresh. Zero tracking/provider requests and no unexpected
+  console/page errors occur; expected anonymous-auth 401 and existing router
+  deprecation messages are classified separately. The old ID is absent where
+  storage permits inspection. Page identity, title, no-overlay and desktop/mobile
+  screenshots are verified. Logs: `/tmp/durisweb-p5-closure-browser.log`; images
+  `/tmp/durisweb-p5-closure-{1440,390}-{fresh,legacy,denied}.png` stay outside Git.
+  Preview is local/synthetic, not production, device, full consent or legal
+  acceptance. No historical analytics are deleted. No deployment/tag/public
+  Changelog operation occurred. Additional future release wording: “Notification
+  and website-update controls handle browsers that cannot save preferences.”
+
+- **Published storage repair:** [PR #46](https://github.com/LuminariMUD/DurisWeb/pull/46),
+  open/non-draft at code head `266058e`, stacked on #45 `069f7b5`. Exact local,
+  remote and PR heads match; clean checkout and ahead/behind `0 0` verified.
+  #45's description now links the separately proven browser repair. Keep all
+  focused PRs open for review, with normal ancestry preserved; no tag/merge
+  is justified. Preview is stopped after qualification. Private reproduction
+  logs and generators remain outside Git; the one-time writer-removal script
+  was removed after its source change was committed.
+- **Next continuation:** worktree `/tmp/durisweb-security-privacy-plan-20261016`,
+  branch `branch/browser-storage-preferences`. Start a dependent branch from its
+  published head. P5 is deliberately incomplete: the current source has no
+  optional writer, client identifier, consent cookie or analytics enable switch.
+  Inspect existing shell/router/mobile navigation and same-origin CSRF plumbing,
+  prepare a truthful versioned public-notice draft and concrete minimized policy
+  proposal, and implement the choice receipt/state machine without silently
+  approving provider transfers or retention periods. Acceptance/refusal/expiry/
+  withdrawal/cross-tab/in-flight ordering must precede any future reintroduction
+  of collection. Do not mark #10 complete for the temporary closure alone.
+  P6/P7 still need their complete engineering and approved lifecycle decisions;
+  production rollout remains outside this request.
+
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
 [design](../DESIGN.md). Preserve existing safety gates and the MUD's schema and
@@ -1504,3 +1570,57 @@ implementation work and were not run for this documentation-only publication.
 
 No Website Changelog entry is needed for this commit: it changes only the
 implementation plan and makes no reader-visible website change.
+
+## PR review repair — 2026-10-17 current objective
+
+The user now requests all outstanding code-review findings to be addressed,
+starting with the oldest open PR. This supersedes the earlier implementation
+timebox and next-phase directions. Preserve the published branches, repair each
+affected PR, and carry its changes forward through the dependent stack with
+ordinary merges. No merge to master, deployment, production data change or new
+feature is part of this review task.
+
+The complete GraphQL scan covered all 27 open PRs, all review-thread pages,
+review bodies and discussion comments. The initial queue has 24 unresolved
+findings across 11 PRs. PR #39's five old findings are resolved and its latest
+review reports no findings; #41–#45 have no outstanding review findings.
+Other PRs without findings still need inherited fixes carried forward.
+
+| PR | Initial findings | Review status |
+| --- | --- | --- |
+| #46 | 1: enable notifications after a first permission grant with blocked storage | Fixed; 7 focused and 253 full frontend tests pass |
+| #48 | 3: stale GET cookie clearing, actionable safe diagnostics, native fixture port binding | Pending |
+| #49 | 3: pending refusal, temporary visibility changes, compact confirmation/focus | Pending |
+| #50 | 2: safe forum failure context, shared pool starvation during R2 deletion | Pending |
+| #54 | 1: DST-ambiguous retention cutoff comparisons | Pending |
+| #55 | 1: unavailable restore controls still offered by the UI | Pending |
+| #62 | 3: account-bound backup cache, cancellation file identity, failed-upload bulk cleanup | Pending |
+| #63 | 2: incident/maintenance preservation prerequisites, all legacy upload suffixes | Pending |
+| #64 | 3: quiet CLI, same-device mount boundaries, supported database filenames | Pending |
+| #65 | 3: protected-root mount aliases, suffix length, named bundle/payload revalidation | Pending |
+| #66 | 2: separate MUD database credentials, abort-signal compatibility | Pending |
+
+**#46 outcome:** one explicit granted notification-permission request enables
+the current-page preference even when storage reads/writes are unavailable.
+Files: the existing notification composable and its tests. Proof: a failing
+regression reproduces the disabled state after a successful grant; then verify
+actual notification construction, refusal/default behavior and frontend gates.
+Ablation keeps the existing permission/preference flow and adds no persistence
+adapter or retry mechanism. A future verified release may announce that enabling
+notifications works on the first attempt with blocked browser storage; existing
+release authorization and news-update rules still apply.
+
+**#46 proof:** the new first-grant regression failed before the fix.
+`pnpm --dir frontend test:unit --run
+src/composables/__tests__/useNotifications.spec.ts
+src/composables/__tests__/useChangelog.spec.ts` ran the matching notification
+file: seven pass (no file matched the second path). The full frontend run then
+passed 253 tests / 52 files. `python3 /tmp/durisweb-image-quality.py frontend`
+passes format, lint, types, configuration, palette, full unit tests and build.
+`git diff --check` passes. No backend/database/provider or new rendered-layout
+check is needed or claimed for this composable-only behavior correction.
+Evidence: `pr46-{red,focused,quality}.log` in the private review directory.
+
+Private review evidence: `/tmp/durisweb-review-20261017/`; the current worktree
+is `/tmp/durisweb-security-privacy-plan-20261016` and switches to each existing
+PR branch in sequence. Preserve unrelated review worktrees and recovery stashes.

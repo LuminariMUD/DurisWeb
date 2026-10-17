@@ -16,6 +16,14 @@ const permissionState = ref<NotificationPermission>('default')
 const isSupported = ref(false)
 const isEnabled = ref(true) // User preference to show/hide notifications
 
+function savePreference(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // The explicit choice still applies to this page when persistence is unavailable.
+  }
+}
+
 /** Manages browser notification permission, preferences, and site-branded messages. */
 export function useNotifications() {
   const { siteTitle } = useSiteConfig()
@@ -27,15 +35,19 @@ export function useNotifications() {
       hasPermission.value = Notification.permission === 'granted'
 
       // Load user preference from localStorage
-      const savedPreference = localStorage.getItem('notifications_enabled')
-      isEnabled.value = savedPreference !== 'false' // Default to true
+      try {
+        const savedPreference = localStorage.getItem('notifications_enabled')
+        isEnabled.value = savedPreference !== 'false' // Default to true
+      } catch {
+        isEnabled.value = false
+      }
     }
   }
 
   // Toggle notifications on/off
   const toggleNotifications = () => {
     isEnabled.value = !isEnabled.value
-    localStorage.setItem('notifications_enabled', String(isEnabled.value))
+    savePreference('notifications_enabled', String(isEnabled.value))
     return isEnabled.value
   }
 
@@ -45,17 +57,18 @@ export function useNotifications() {
       return 'denied'
     }
 
-    if (permissionState.value === 'granted') {
-      return 'granted'
-    }
-
     try {
-      const permission = await Notification.requestPermission()
+      const permission =
+        permissionState.value === 'granted' ? 'granted' : await Notification.requestPermission()
       permissionState.value = permission
       hasPermission.value = permission === 'granted'
+      if (hasPermission.value) {
+        isEnabled.value = true
+        savePreference('notifications_enabled', 'true')
+      }
 
       // Store permission preference
-      localStorage.setItem('notification_permission_requested', 'true')
+      savePreference('notification_permission_requested', 'true')
 
       return permission
     } catch {
@@ -227,7 +240,11 @@ export function useNotifications() {
 
   // Check if permission was previously requested
   const wasPermissionRequested = () => {
-    return localStorage.getItem('notification_permission_requested') === 'true'
+    try {
+      return localStorage.getItem('notification_permission_requested') === 'true'
+    } catch {
+      return false
+    }
   }
 
   // Initialize on mount
