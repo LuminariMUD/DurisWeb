@@ -517,6 +517,27 @@ async function hold(accountName = 'Alpha') {
 
     it('refuses incoming FK/trigger/schema or progress drift and keeps the real CLI source-gated', async () => {
       await page(now - 100 * 86400);
+      const external = `durisweb_retention_foreign_${port}`;
+      await root.query(`CREATE DATABASE ${external}`);
+      try {
+        await root.query(
+          `CREATE TABLE ${external}.child(id INT PRIMARY KEY,page_id INT UNSIGNED,FOREIGN KEY(page_id) REFERENCES ${database}.page_views(id) ON DELETE CASCADE) ENGINE=InnoDB`,
+        );
+        await root.query(`INSERT INTO ${external}.child SELECT 1,id FROM page_views LIMIT 1`);
+        const [filtered] = await pool.query<RowDataPacket[]>(
+          "SELECT COUNT(*) AS count FROM information_schema.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA=DATABASE() AND REFERENCED_TABLE_NAME='page_views'",
+        );
+        expect(Number(filtered[0].count)).toBe(0);
+        await expect(engine.executeRetention(options())).rejects.toMatchObject({
+          reason: 'schema_unverified',
+        });
+        expect(await count('page_views')).toBe(1);
+        expect(
+          (await root.query<RowDataPacket[]>(`SELECT * FROM ${external}.child`))[0],
+        ).toHaveLength(1);
+      } finally {
+        await root.query(`DROP DATABASE ${external}`);
+      }
       await root.query(
         'CREATE TABLE retention_fixture_child(id INT PRIMARY KEY,page_id INT UNSIGNED,FOREIGN KEY(page_id) REFERENCES page_views(id) ON DELETE CASCADE) ENGINE=InnoDB',
       );

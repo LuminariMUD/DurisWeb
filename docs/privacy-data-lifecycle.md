@@ -41,6 +41,14 @@ lease and serializes hold writes with deletion. Neither is exposed by generic
 settings or ordinary logs/results. IDs remain indirectly linkable; retain and
 restrict this operational evidence pending its own period/export decision.
 
+The DBA-installed [lifecycle metadata function](runbooks/lifecycle-metadata.md)
+is a read-only operational schema object, not another application-data table.
+It exposes only six fixed tables' side-effect counts and its source digest.
+Restricted website privileges cannot establish absence of external-schema
+references or MySQL triggers through ordinary catalog counts; lifecycle writes
+require authoritative checks before mutating their targets. Installation and
+source qualification do not imply production adoption or retention approval.
+
 Each row lists subject-selection fields or a necessary relationship, and a time
 field that could support an approved cutoff. A time field is **not** an approved
 retention period. Every general period/disposition is **unapproved**. Existing

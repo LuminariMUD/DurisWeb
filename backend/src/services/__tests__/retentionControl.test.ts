@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { randomUUID } from 'node:crypto';
-import {
+jest.unstable_mockModule('../../db/lifecycleMetadata.js', () => ({
+  assertLifecycleMetadata: async () => {
+    if (triggers !== 0) throw new Error('private-metadata-sentinel');
+  },
+}));
+const {
   lockRetentionControl,
   saveRetentionControl,
   RetentionControlError,
   EMPTY_RETENTION_CONTROL,
   RETENTION_CONTROL_DESCRIPTION,
-} from '../retentionControl.js';
+} = await import('../retentionControl.js');
 import { RETENTION_CONTROL_KEY, isInternalWebSettingKey } from '../../db/internalWebSettings.js';
 const query = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 let row: Record<string, unknown> | null = null,
@@ -23,7 +28,6 @@ beforeEach(() => {
       sql = spec && typeof spec === 'object' && 'sql' in spec ? String(spec.sql) : '';
     const values: unknown[] = Array.isArray(args[1]) ? args[1] : [];
     if (sql.includes('information_schema.TABLES')) return [[{ ENGINE: engine }], []];
-    if (sql.includes('information_schema.TRIGGERS')) return [[{ count: triggers }], []];
     if (sql.startsWith('INSERT'))
       row ??= {
         setting_key: values[0],

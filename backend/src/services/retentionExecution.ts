@@ -16,6 +16,7 @@ import {
 } from '../db/schemaPostconditions.js';
 import { loadDataHoldContract } from '../db/dataHoldSchema.js';
 import { loadRetentionRunContract } from '../db/retentionRunSchema.js';
+import { assertLifecycleMetadata } from '../db/lifecycleMetadata.js';
 import { retentionCandidateRules as rules } from './retentionCandidates.js';
 import { readDataHoldSnapshot } from './dataHoldSnapshot.js';
 import {
@@ -201,20 +202,7 @@ async function verifySchema(
       !/(?:^|,)STRICT_(?:TRANS|ALL)_TABLES(?:,|$)/.test(String(invariants[0]?.sql_mode))
     )
       throw new Error();
-    const tables = expected.map(([name]) => name),
-      placeholders = tables.map(() => '?').join(',');
-    const [triggers] = await execute(
-      connection,
-      `SELECT COUNT(*) AS count FROM information_schema.TRIGGERS WHERE EVENT_OBJECT_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE IN (${placeholders})`,
-      tables,
-    );
-    const targets = classes.map((id) => rules[id].table);
-    const [references] = await execute(
-      connection,
-      `SELECT COUNT(*) AS count FROM information_schema.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA=DATABASE() AND REFERENCED_TABLE_NAME IN (${targets.map(() => '?').join(',')})`,
-      targets,
-    );
-    if (Number(triggers[0]?.count) !== 0 || Number(references[0]?.count) !== 0) throw new Error();
+    for (const [name] of expected) await assertLifecycleMetadata(connection, name);
   } catch (error) {
     throw error instanceof RetentionExecutionError
       ? error
@@ -325,14 +313,11 @@ async function saveRun(
     throw new RetentionExecutionError('run_unverified');
   const [features] = await execute(
     connection,
-    "SELECT ENGINE,(SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE EVENT_OBJECT_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE='web_retention_runs') AS triggers_count FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='web_retention_runs'",
+    "SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='web_retention_runs'",
   );
-  if (
-    features.length !== 1 ||
-    features[0].ENGINE !== 'InnoDB' ||
-    Number(features[0].triggers_count) !== 0
-  )
+  if (features.length !== 1 || features[0].ENGINE !== 'InnoDB')
     throw new RetentionExecutionError('schema_unverified');
+  await assertLifecycleMetadata(connection, 'web_retention_runs');
   const [result] = await execute<ResultSetHeader>(
     connection,
     'UPDATE web_retention_runs SET progress=?,updated_at=NOW() WHERE id=?',

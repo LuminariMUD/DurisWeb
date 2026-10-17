@@ -29,6 +29,12 @@ and deletion acknowledgement, qualified and published for review as
 P6d2a2 branch `branch/backup-action-acknowledgement` repairs remaining backup
 start/restore/cancellation feedback, qualified and published as
 [PR #57](https://github.com/LuminariMUD/DurisWeb/pull/57), stacked on #56.
+Qualified prerequisite: `branch/lifecycle-metadata-visibility` repairs a reproduced
+metadata visibility gap before publishing managed-archive hold enforcement.
+The archive barrier is preserved in Git stash
+`1c8d1dd304401fe58de11758a2dd7330b699a770` on
+`branch/managed-archive-hold-barrier`; restore it onto the qualified prerequisite,
+replace its filtered metadata checks, and repeat its cross-schema regression.
 Next: remaining P6 cleanup/copy/restore
 and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
@@ -59,6 +65,92 @@ outside this request. Keep this single evolving execution plan current.
 
 ## Execution record and continuation
 
+- **P6 metadata visibility prerequisite (2026-10-17, qualified; publication pending):** an actual
+  external-schema `ON DELETE CASCADE` fixture was invisible to the website
+  account's `KEY_COLUMN_USAGE` query; managed archive deletion incorrectly
+  succeeded. Direct `TRIGGERS` counts also hide rows without the relevant
+  privilege. This affects the existing control and SQL-retention checks too.
+  Outcome: require authoritative metadata before lifecycle writes, including
+  hidden triggers and references from any schema. Non-goals: production changes,
+  broad website-account grants, new credentials/accounts, policy approval or
+  changing the immutable baseline. Files: one shared metadata guard and explicit
+  DBA installation/check command, existing lifecycle callers, focused native
+  regressions and operator docs. Proof: exercise the real restricted website
+  account on MySQL 8 and MariaDB 11, preserve rows on hidden relationships,
+  reject missing/changed guard or revoked authority, and rerun affected gates.
+- **Ablation after native investigation:** a definer view remains filtered on
+  MySQL, and scoped routine EXECUTE/ALTER does not expose the function body.
+  A definer function using the global InnoDB dictionary fails to load for an
+  unprivileged MySQL caller. Use one DBA-installed, read-only definer function
+  with the existing catalogs instead; its definer must have direct global
+  SELECT/TRIGGER and MySQL partial revokes must be disabled. The website receives
+  only EXECUTE on that function. Installation independently checks the body;
+  runtime validates attributes, its self-inspected body digest, bounded counts,
+  target and current authority. This detects accidental definition/privilege
+  drift; database administrators remain trusted, as they already control DDL
+  and data. No dynamic SQL, view, global website grant, metadata connection pool,
+  new secret, or automatic startup installation is needed.
+- **Result and proof:** the actual restricted account now sees the previously
+  hidden cross-schema cascade through the guarded result; the real SQL executor
+  refuses it with both parent and child retained. Normal invocation/CLI setup,
+  idempotent installation, unknown-function preservation, restricted target
+  names, hidden MySQL triggers, changed body/security, missing execution and
+  revoked global SELECT/TRIGGER are qualified on both engines. The hold HTTP
+  endpoint returns 503 with no row/acknowledgement when the helper is absent;
+  its general warning no longer falsely claims intent was recorded on errors.
+  Dependency preflight requires the helper, without installing it. MariaDB
+  installation requires existing `NO_AUTO_CREATE_USER` to prevent an implicit
+  account creation race; no server setting is changed. DBA trust and the
+  self-inspected runtime digest's limits are explicit in the
+  [runbook](../runbooks/lifecycle-metadata.md).
+- **Commands and actual results (2026-10-17):**
+  `TEST_LIFECYCLE_METADATA_DB_PORTS=23436,23437 pnpm --dir backend test --runInBand
+  src/db/__tests__/lifecycleMetadataNative.test.ts
+  src/services/__tests__/retentionControl.test.ts
+  src/services/__tests__/dataHoldService.test.ts` passes **30 tests / 3 suites**;
+  the final full run below also qualifies the later SELECT-revocation assertions
+  and final installer/CLI source. Initial fixture-only failures identified the
+  MySQL binary-log administrator requirement and benign dotenv stderr; those
+  were corrected without changing server settings or weakening the guard.
+  `TEST_BACKUP_DB_PORTS=23436,23437 TEST_LIFECYCLE_METADATA_DB_PORTS=23436,23437
+  node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-execution-suite.mts 23436` expands to
+  `pnpm --dir backend test --runInBand` after full owner/baseline/92-migration
+  fixture setup and explicit helper installation: **1,310 pass / 132 suites**,
+  **41 skipped tests / 3 entire suites** (14 native image, 10 native privacy,
+  8 native hold, 9 native preview). Session-free backup dump/restore tests use
+  both engine ports; hooks/native SQL execution and both restricted metadata
+  fixtures run. Full evidence is
+  `/tmp/durisweb-metadata-full-mysql-final.log`.
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-execution-suite.mts 23437 execution-only` passes **15 / 2**
+  on MariaDB (source-gate/native executor), including the new hidden external FK
+  case. `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-hold-suite.mts <23436|23437> holds-only` passes **16 / 2 per
+  engine**, including the later missing-helper HTTP case. Each runner verifies
+  configuration/dependencies, owner metadata before/after, and cleans only its
+  explicitly owned synthetic fixtures. MySQL owner hash remains
+  `403c2a9941ce5746491919b2cc8cd91bed55b959adc681a66f0fceef04b90d23`;
+  MariaDB remains `995f0c9f1a726dc25e3ce1104627ebff02e0414e7d2e48595f94de7ce3b0e8e2`.
+  `python3 /tmp/durisweb-image-quality.py backend` expands to
+  `pnpm --dir backend format:check`, `lint`, `type-check`, `verify:mud-writes`
+  (**53 classified**), `schema:check` (**77 tables / 85 historical sources**),
+  and `build`, all pass on final source. `./scripts/check-config-literals.sh`,
+  `python3 /tmp/durisweb-check-privacy-doc.py` and `git diff --check` pass.
+  Frontend gates/browser, native baseline replay, image/privacy/preview opt-ins,
+  provider, production and physical-device checks were not rerun for this
+  backend prerequisite. No shared environment, real backup, provider, MUD or
+  global logout was operated. No Website Changelog entry is published before
+  an authorized verified release; include these preservation checks in the
+  already planned security/privacy release news.
+- **Immediate continuation:** publish this focused prerequisite on #57, then
+  restore the archive-barrier stash onto it and use `assertLifecycleMetadata`
+  for all locked archive/journal/hold targets before repeating both engine
+  matrices and the original hidden cross-schema regression. Inspect the other
+  direct trigger-absence consumers in `webBaseline.ts` and `webSessionSchema.ts`
+  as a separate prerequisite: their bootstrap/cutover authority must also be
+  explicit before any approval or shared adoption. Do not silently expand this
+  six-target runtime helper or make baseline bootstrap depend on itself.
 - **PR #39 review closeout (2026-10-16):** all five findings are valid,
   including the two outdated inline locations inherited from merged parents.
   Outcome: reject table-option/partition drift, authenticate every owner

@@ -1,5 +1,6 @@
 import type { PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { pool } from '../db/connection.js';
+import { assertLifecycleMetadata } from '../db/lifecycleMetadata.js';
 import { lockRetentionControl } from './retentionControl.js';
 import {
   DataHoldError,
@@ -41,6 +42,7 @@ async function transactionalStorage(connection: PoolConnection): Promise<void> {
   });
   if (rows.length !== 1 || rows[0].ENGINE !== 'InnoDB')
     throw new DataHoldError('storage_unavailable');
+  await assertLifecycleMetadata(connection, 'web_data_holds');
 }
 async function transaction<T>(action: (connection: PoolConnection) => Promise<T>): Promise<T> {
   let connection: PoolConnection | undefined,

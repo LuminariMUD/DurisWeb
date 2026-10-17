@@ -1,5 +1,11 @@
 # Development Guide
 
+Lifecycle hold/control and SQL-cleanup writes require the explicit DBA-installed
+[metadata guard](runbooks/lifecycle-metadata.md). The website credential receives
+only EXECUTE on its read-only function; filtered catalog counts cannot prove
+absence of triggers or external-schema references. Install it in isolated native
+fixtures before dependency preflight. Startup never installs it or grants rights.
+
 DurisWeb contains independent `backend/` and `frontend/` pnpm projects. There
 is no root workspace manifest. Complete [Onboarding](onboarding.md), including
 all three environment files, before running `./scripts/dev.sh`.

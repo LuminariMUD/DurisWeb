@@ -1,5 +1,12 @@
 # Deployment
 
+Before enabling lifecycle hold/control or SQL-cleanup writes, an authorized DBA
+must install the [read-only metadata guard](runbooks/lifecycle-metadata.md), then
+check it with normal website credentials. Dependency preflight requires it.
+Its narrowly scoped EXECUTE grant replaces reliance on privilege-filtered
+catalog counts; ordinary startup and migrations never install it or grant global
+website permissions. Installation is a separately authorized shared DB operation.
+
 Deployment is operator-controlled and has no repository-owned hostname, home
 directory, port, service dependency, credential, or secret. The maintained
 artifacts are templates under `deploy/templates/`; historical machine-specific
