@@ -7,6 +7,15 @@
 
 ## Current Security Posture
 
+Lifecycle writes now require an explicitly DBA-installed
+[metadata authority](runbooks/lifecycle-metadata.md). A real cross-schema cascade
+was invisible to the ordinary website account's catalog query; direct zero
+counts therefore did not prove deletion safety. Restricted-account qualification
+covers hidden references/triggers and failure on missing or changed authority.
+The website receives only EXECUTE on the read-only function, with no global
+metadata/data privilege or extra credential. Source repair and isolated evidence
+do not establish a deployed control or policy approval.
+
 ### Overall: AT RISK
 
 | Metric | Value |

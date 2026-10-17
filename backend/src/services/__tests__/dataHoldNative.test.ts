@@ -17,6 +17,10 @@ import type { UserPermissions } from '../permissionService.js';
 import { DATA_HOLD_MIGRATION } from '../../db/dataHoldSchema.js';
 import { verifiedWebBaselineCoverage } from '../../db/webBaseline.js';
 import { runFixtureWebMigrations } from '../../test/webMigrationFixture.js';
+import {
+  installLifecycleMetadata,
+  LIFECYCLE_METADATA_FUNCTION,
+} from '../../db/lifecycleMetadata.js';
 
 const port = Number(process.env.TEST_DATA_HOLD_DB_PORT),
   database = process.env.DB_NAME ?? '';
@@ -453,6 +457,29 @@ function intercept(
       );
       expect(plan[0].key).toBe('idx_data_holds_unreleased');
       expect(String(plan[0].Extra)).not.toMatch(/filesort/i);
+    });
+
+    it('refuses a hold acknowledgement when authoritative metadata is unavailable', async () => {
+      const value = await input();
+      await root!.query(`DROP FUNCTION ${LIFECYCLE_METADATA_FUNCTION}`);
+      try {
+        const response = await request(app)
+          .post('/api/admin/data-holds')
+          .set('Cookie', cookies())
+          .set('X-CSRF-Token', csrf)
+          .send(value);
+        expect(response.status).toBe(503);
+        expect(response.body.error).toBe('Hold records are temporarily unavailable.');
+        expect(response.body.hold).toBeUndefined();
+        expect(response.body.warning).not.toMatch(/intent is recorded/i);
+        const [rows] = await root!.query<RowDataPacket[]>(
+          'SELECT id FROM web_data_holds WHERE id=?',
+          [value.id],
+        );
+        expect(rows).toHaveLength(0);
+      } finally {
+        await installLifecycleMetadata(root!, process.env.DB_USER!, '%');
+      }
     });
 
     it('refuses rollback with any history and recovers only the exact interrupted empty schema', async () => {

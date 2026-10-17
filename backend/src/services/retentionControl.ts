@@ -1,5 +1,6 @@
 import type { Connection, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { RETENTION_CONTROL_KEY } from '../db/internalWebSettings.js';
+import { assertLifecycleMetadata } from '../db/lifecycleMetadata.js';
 
 export const RETENTION_CONTROL_DESCRIPTION = 'retention control v1';
 export const EMPTY_RETENTION_CONTROL = '{"format":1,"lease":null}';
@@ -76,11 +77,7 @@ export async function lockRetentionControl(database: Database): Promise<Retentio
       timeout: 5000,
     });
     if (engines.length !== 1 || engines[0].ENGINE !== 'InnoDB') throw new Error();
-    const [triggers] = await database.query<RowDataPacket[]>({
-      sql: "SELECT COUNT(*) AS count FROM information_schema.TRIGGERS WHERE EVENT_OBJECT_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE='web_settings'",
-      timeout: 5000,
-    });
-    if (Number(triggers[0]?.count) !== 0) throw new Error();
+    await assertLifecycleMetadata(database, 'web_settings');
     await database.execute(
       {
         sql: `INSERT INTO web_settings(setting_key,setting_value,description,updated_by) VALUES (?,?,?,NULL)

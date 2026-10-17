@@ -15,6 +15,7 @@
     "schema:check": "NODE_OPTIONS='--import tsx' tsx src/scripts/checkWebBaseline.ts",
     "schema:baseline": "NODE_OPTIONS='--import tsx' tsx src/scripts/webBaseline.ts",
     "schema:sessions": "NODE_OPTIONS='--import tsx' tsx src/scripts/checkSessionCutover.ts",
+    "schema:lifecycle": "NODE_OPTIONS='--import tsx' tsx src/scripts/lifecycleMetadata.ts",
     "retention:preview": "NODE_OPTIONS='--import tsx' tsx src/scripts/retentionPreview.ts",
     "retention": "NODE_OPTIONS='--import tsx' tsx src/scripts/retention.ts",
     "verify:mud-writes": "NODE_OPTIONS='--import tsx' tsx src/scripts/verifyMudWriteAllowlist.ts",

@@ -6,6 +6,7 @@ import { loadHookAuditContract } from '../db/hookAuditSchema.js';
 import { loadPostImageRemovalContract } from '../db/postImageRemovalSchema.js';
 import { loadDataHoldContract } from '../db/dataHoldSchema.js';
 import { loadRetentionRunContract } from '../db/retentionRunSchema.js';
+import { readLifecycleMetadata } from '../db/lifecycleMetadata.js';
 import { loadWebBaselineBundle, verifyWebBaselineSources } from '../db/webBaselineBundle.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -344,6 +345,8 @@ async function verifyDependencies(configuration: PreflightConfiguration): Promis
         `database migration ledger has ${pendingMigrations.length} pending migration(s)`,
       ]);
     }
+
+    await readLifecycleMetadata(database, 'web_settings');
 
     await cache.connect();
     if ((await cache.ping()) !== 'PONG') {

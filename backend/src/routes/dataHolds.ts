@@ -14,7 +14,7 @@ const router: IRouter = Router();
 const readiness = {
   enforcementReady: false,
   warning:
-    'Hold intent is recorded. Existing deletion/cleanup and restore paths do not enforce these records yet.',
+    'General cleanup and restore enforcement remains incomplete; global protection is not ready.',
 } as const;
 router.use((_req, res, next) => {
   res.set('Cache-Control', 'no-store');
