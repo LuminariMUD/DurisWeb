@@ -1,5 +1,122 @@
 # Website security, privacy, and schema implementation plan
 
+## Current merge handoff — 17 October 2026
+
+**All 27 open PRs from the requested stack have been merged into `master`.**
+The user explicitly ended further revisions and requested immediate merges with
+only necessary conflict resolution. No merge conflicts occurred. The published
+code tree matches the tested final integration head `ad354bb`; the merge history
+and read-back receipts are listed below. This closeout changes documentation only.
+
+**Unfinished work is preserved, not claimed complete:** three review follow-ups
+were open when the user stopped revisions: #62 immutable download bytes
+(`PRRT_kwDOVA2-8c6tjQTj`), #62 final upload checkpoint identity
+(`PRRT_kwDOVA2-8c6tjQTl`), and #63 full Worker route-map rollback
+(`PRRT_kwDOVA2-8c6tjQNq`). The first two have unpublished local draft edits
+preserved in stash `d169cdeec2461611e51837b79b30008c1587b7cc` (message: preserve unfinished upload snapshot
+and checkpoint follow-ups before requested immediate merge). Their static
+backend gates/build passed; native behavioral qualification was not run. Do not
+restore the stash blindly across branches; inspect and apply only if work resumes.
+
+The broader privacy project is also unfinished: P0 policy/retention decisions,
+P6 remaining retention classes and restore-removal replay, and P7 complete
+export/request/erasure/provider-MUD completion remain open. Max/Moshe is the
+named contact; naming a contact did not approve retention periods, destruction
+or forced logout. Merging source does not establish deployment or live acceptance.
+
+**Latest completed proof:** `pnpm --dir backend test --runInBand
+archiveUnlinkProcess legacyBackupInventory legacyCopyPreservation` passed
+72 tests/five suites; `python3 /tmp/durisweb-image-quality.py backend` passed
+format, lint, type-check, MUD-write, schema and build checks. Archive/upload
+native suites passed 63 tests on each MySQL/MariaDB engine; reaction index/export
+qualification passed 22 tests on each. Frontend was unchanged by these repairs;
+its earlier 347-test qualification remains the recorded evidence. No fresh full
+backend suite, browser, provider, production migration or deployment was run.
+Exact commands and private log locations remain in the historical entries.
+
+**Continuation priority:** if engineering work resumes, finish the three retained
+follow-ups first, then use the P0/P6/P7 acceptance sections below. There is no
+claim that the entire remaining privacy project can be completed in one hour.
+No release tag or Website Changelog publication was created for this merge; those
+belong to a separately authorized, verified release.
+
+| PR | Merged head | Merge commit |
+|---|---|---|
+| [#39](https://github.com/LuminariMUD/DurisWeb/pull/39) | `b339562f3e9d` | `7b8094586ac2` |
+| [#41](https://github.com/LuminariMUD/DurisWeb/pull/41) | `7fd35baceac8` | `779634b2edaf` |
+| [#42](https://github.com/LuminariMUD/DurisWeb/pull/42) | `4b28587612a6` | `9a0e9e975f2c` |
+| [#43](https://github.com/LuminariMUD/DurisWeb/pull/43) | `b0d8e0a0c885` | `c6e3d48bac0c` |
+| [#44](https://github.com/LuminariMUD/DurisWeb/pull/44) | `49ba05fb0abd` | `ffa6272fca6f` |
+| [#45](https://github.com/LuminariMUD/DurisWeb/pull/45) | `069f7b50d42e` | `65feb1a8262e` |
+| [#46](https://github.com/LuminariMUD/DurisWeb/pull/46) | `5a820ac9086c` | `1ad0d15e3765` |
+| [#47](https://github.com/LuminariMUD/DurisWeb/pull/47) | `558544ee90e6` | `d5840f74d97e` |
+| [#48](https://github.com/LuminariMUD/DurisWeb/pull/48) | `d43f94cbfbb0` | `581b8f609377` |
+| [#49](https://github.com/LuminariMUD/DurisWeb/pull/49) | `64d30b7edaac` | `137677cf32dd` |
+| [#50](https://github.com/LuminariMUD/DurisWeb/pull/50) | `ab40c42a279b` | `8c9dec08749b` |
+| [#51](https://github.com/LuminariMUD/DurisWeb/pull/51) | `47c61d2a48bc` | `270b6a911c52` |
+| [#52](https://github.com/LuminariMUD/DurisWeb/pull/52) | `2c0421cd0ee7` | `32cd49dd6416` |
+| [#53](https://github.com/LuminariMUD/DurisWeb/pull/53) | `9096acec3c04` | `ca6175f9fe13` |
+| [#54](https://github.com/LuminariMUD/DurisWeb/pull/54) | `89bea792d543` | `552e475c3c22` |
+| [#55](https://github.com/LuminariMUD/DurisWeb/pull/55) | `0641201b72e1` | `3a640a97bcbf` |
+| [#56](https://github.com/LuminariMUD/DurisWeb/pull/56) | `c28d07772d47` | `cb03b45b3095` |
+| [#57](https://github.com/LuminariMUD/DurisWeb/pull/57) | `213b8030e3a5` | `b2766799ca01` |
+| [#58](https://github.com/LuminariMUD/DurisWeb/pull/58) | `ba9e1fcc2ea7` | `e755f0c05494` |
+| [#59](https://github.com/LuminariMUD/DurisWeb/pull/59) | `d678688a7fa7` | `689e23e6504f` |
+| [#60](https://github.com/LuminariMUD/DurisWeb/pull/60) | `ad1b7e98e980` | `09e67de7c629` |
+| [#61](https://github.com/LuminariMUD/DurisWeb/pull/61) | `cff99db4cebc` | `a166a320c9ad` |
+| [#62](https://github.com/LuminariMUD/DurisWeb/pull/62) | `520a45eb9fb9` | `237eb6528067` |
+| [#63](https://github.com/LuminariMUD/DurisWeb/pull/63) | `f6962698f57e` | `39e4eb7ae421` |
+| [#64](https://github.com/LuminariMUD/DurisWeb/pull/64) | `0cc71c51c4eb` | `f6dcbab378c3` |
+| [#65](https://github.com/LuminariMUD/DurisWeb/pull/65) | `d289b5f04610` | `b9f0fee76f0f` |
+| [#66](https://github.com/LuminariMUD/DurisWeb/pull/66) | `ad354bb39cba` | `1920380ef2a2` |
+
+All branches are retained; none was deleted or force-pushed. Current local branch
+heads at closeout (the closeout branch itself will receive this documentation commit):
+
+- `branch/account-data-export ad354bb`
+- `branch/backup-action-acknowledgement 213b803`
+- `branch/backup-deletion-recovery c28d077`
+- `branch/backup-upload-records 520a45e`
+- `branch/browser-storage-preferences 5a820ac`
+- `branch/issue-10-stop-unconsented-analytics 069f7b5`
+- `branch/issue-14-baseline-qualification b339562`
+- `branch/issue-14-web-schema-baseline 2ed1a28`
+- `branch/issue-14-web-schema-bootstrap f6ad133`
+- `branch/issue-30-discord-payload-bounds a25f16b`
+- `branch/issue-30-discord-status 09ea840`
+- `branch/issue-30-discord-transport 87dd461`
+- `branch/issue-30-durable-discord 6e33525`
+- `branch/issue-9-toggle-audit-journal 4b28587`
+- `branch/issues-7-14-security-privacy-baseline b299239`
+- `branch/issues-7-8-session-credentials 7fd35ba`
+- `branch/legacy-backup-copy-inventory 0cc71c5`
+- `branch/legacy-copy-preservation d289b5f`
+- `branch/legacy-owner-fence 2774928`
+- `branch/legacy-upload-preservation-gate f696269`
+- `branch/lifecycle-metadata-visibility ba9e1fc`
+- `branch/managed-archive-hold-barrier d678688`
+- `branch/post-image-deletion-recovery ab40c42`
+- `branch/privacy-browser-choices 64d30b7`
+- `branch/privacy-choice-receipts d43f94c`
+- `branch/privacy-data-hold-records 2c0421c`
+- `branch/privacy-processing-registry 558544e`
+- `branch/restore-lifecycle-boundary 0641201`
+- `branch/retention-hold-aware-preview 9096ace`
+- `branch/retention-readonly-preview 47c61d2`
+- `branch/retention-sql-enforcement 89bea79`
+- `branch/schema-trigger-authority ad1b7e9`
+- `branch/security-privacy-merge-handoff 1920380`
+- `branch/session-probe-config-guard 49ba05f`
+- `branch/settings-utc-provenance b0d8e0a`
+- `branch/stream-backup-archives cff99db`
+- `master 8946860`
+
+### Historical execution records
+
+All older “latest continuation” text and unresolved counts below are historical.
+This merge handoff supersedes their status and next-action instructions.
+
+
 ## Current handoff — read this first
 
 **#64 output-bound follow-up:** private evidence now allows 4 MiB, covering both
