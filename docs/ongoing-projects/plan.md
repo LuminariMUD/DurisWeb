@@ -92,11 +92,12 @@ collection closure and browser storage-denial repair are published for review
 (#39, #41–#49). The browser choice state machine and draft notice are qualified
 and published for review. The image-removal recovery prerequisite is qualified
 and published as [PR #50](https://github.com/LuminariMUD/DurisWeb/pull/50) on
-`branch/post-image-deletion-recovery`, stacked on #49. Active continuation:
-`branch/retention-readonly-preview`; P6a's bounded read-only CLI and private
+`branch/post-image-deletion-recovery`, stacked on #49. P6a's bounded read-only CLI and private
 continuation are qualified and published as
 [PR #51](https://github.com/LuminariMUD/DurisWeb/pull/51), stacked on #50.
-Next: P6 holds/mutation/
+Active continuation `branch/privacy-data-hold-records` has qualified hold intent
+storage/API, published as [PR #52](https://github.com/LuminariMUD/DurisWeb/pull/52),
+stacked on #51. Next: P6 hold enforcement/mutation/
 restore and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
@@ -1480,6 +1481,122 @@ outside this request. Keep this single evolving execution plan current.
   P7, P5 approval/provider readiness and P8 live release still remain open.
   Continue independent engineering without a new owner question unless a
   consequential necessary decision actually blocks that work.
+
+- **Current P6b: durable hold records**, branch
+  `branch/privacy-data-hold-records`, starts at #51 `3bd3b2c`.
+  **Outcome:** Overlord-only, no-store/CSRF-protected API records explicit
+  global/class/account/account-class hold scope, immutable creation reason and
+  approver, database UTC creation/review/optional expiry, and an attributed
+  explicit release without deleting history. Create retries reuse a caller UUID
+  and conflicting reuse refuses; expiry changes observed status, not the row.
+  The API explicitly reports `enforcementReady: false`. **Non-goals:** a new
+  permission framework, UI, general deletion engine, automatic pruning,
+  invented policy periods, current feature-cleanup interception or live
+  operations. Holds must be consumed/rechecked by the later mutation/restore
+  engine before P6 acceptance or live protection is claimed. **Files:** one
+  website-owned table with reversible guarded migration/forward contract and
+  exact interrupted-DDL recovery; hold service/router/server mount, focused
+  unit/native/HTTP tests, permanent lifecycle/operator/API docs and this plan.
+  **Proof:** two-engine actual migration/up/down/lost-ack refusal, durable
+  create/release/idempotency and failure preservation, scope/date validation,
+  real auth/Overlord/CSRF routing, bounded listing, safe diagnostics and required
+  backend gates, followed by a focused stacked PR.
+- **P6b ablation:** reuse `requireAuth`/`requireOverlord` and the current CSRF
+  boundary. No new permission seed/grants or delegated authority is needed.
+  Use one explicit hold table: `web_settings` has a 100-character key and a
+  generic settings purpose; scoped hold queries, private reasons, lifecycle
+  history and expiry need their own typed store. Preserve creation/release
+  attribution in that row rather than adding an outbox or event framework.
+  Class scopes initially name the two explicit preview classes; unknown classes
+  refuse until a reviewed handler extends the registry. Global/account intent
+  is recorded for the eventual website lifecycle engine, with enforcement
+  unavailable and existing feature cleanup unchanged at this checkpoint.
+  Add no unused concurrency adapter now: mutation/hold serialization and
+  read-only preview integration follow with their real consumers in P6c.
+- **P6b final implementation/proof:** one new `web_data_holds` table extends
+  the immutable 77-table baseline to 78 application tables, with no MUD foreign
+  key, permission seed or new dependency. Protected no-store routes reuse real
+  signed-session authentication, Overlord and CSRF checks. Create/release record
+  authenticated actors in the same transaction as the intent/outcome; exact UUID
+  retries preserve history, conflicting scope/reason/actor/date or release
+  identities refuse. Expiry/review status uses the database clock; expired,
+  released and invalid evidence remains stored. Listing is keyset-paged 1–100,
+  with an explicit unreleased-index scan over closed history. Every authorized
+  reply warns `enforcementReady: false`; no deletion/cleanup/preview/restore
+  consumer is claimed at this stage.
+- **P6b exact checks:**
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-hold-suite.mts 23436` provisions the pinned full owner,
+  website baseline/91 migrations and isolated cache, runs
+  `pnpm --dir backend test --runInBand`, then rechecks dependency readiness and
+  owner fingerprints and drops only its created database/user. **1,243 tests /
+  125 suites pass**; 29 unchanged opt-in cases are skipped (14 image, ten privacy
+  and five preview native cases retain their prior two-engine proof). The seven
+  new hold native cases run. With `23437 holds-only` the runner invokes
+  `pnpm --dir backend test --runInBand
+  src/services/__tests__/dataHoldService.test.ts
+  src/services/__tests__/dataHoldNative.test.ts`: **15 tests / 2 suites pass**.
+  Eight unit and seven native cases cover all scopes, review/expiry/UTC offsets,
+  twenty competing-create pairs, release conflicts, missing/forged/revoked
+  credentials, non-Overlord denial despite other admin grants, CSRF, malformed
+  bodies/cursors, retained invalid rows, SQL/log sentinels, actual lost commit
+  acknowledgements, 1,000 closed + 120 pending rows, captured actual query plans,
+  guarded down, lost-DDL-ack recovery, normal-preflight refusal during that gap
+  and unknown schema drift. Only the separate MUD account/role readers are
+  fixture stubs; JWT/session storage, middleware, router and hold SQL are real.
+- **P6b gates/evidence:** backend `format:check`, `lint`, `type-check`,
+  `verify:mud-writes` (53 classified writes), `schema:check`, `build` and both
+  configuration/dependency preflights pass. The new wrapper passes
+  `pnpm --dir backend exec tsc --ignoreConfig --noEmit --strict --skipLibCheck
+  --target ES2022 --module NodeNext --moduleResolution NodeNext
+  --esModuleInterop migrations/20261017004000_web_data_holds.ts`.
+  Configuration literal, exact baseline inventory/local-reference and whitespace
+  guards pass; the inventory separately describes the additional hold table.
+  Evidence: `/tmp/durisweb-holds-full-mysql.log`,
+  `/tmp/durisweb-holds-maria.log`, `/tmp/durisweb-holds-backend-gates.log` and
+  `/tmp/durisweb-run-hold-suite.mts`. All 198 copied owner-table fingerprints
+  are unchanged. No frontend/browser rerun is needed for this backend-only API;
+  no UI or visitor feature changed. No Website Changelog entry is needed until
+  an actual visible/released capability exists. No live/shared database,
+  provider, MUD process/file, migration or deployment operation was performed.
+- **P6b defects resolved before publication:** MariaDB's enabled snapshot
+  isolation reproduced `ER_CHECKREAD` in all twenty controlled competing-insert
+  pairs after an initial consistent read. Creation now uses a metadata-lock-only
+  empty locking read and an insert-first database date predicate, then reads
+  the winning row for update. An exact expired replay still resolves its stored
+  intent. The controlled probe and twenty native pairs pass without adding a
+  retry loop or weakening isolation. MySQL rewrote CHECK literal charsets after
+  ALTER; explicit ASCII literals in this new, unapplied hold DDL keep exact
+  before/after metadata stable on both engines. Profiles were re-derived; no
+  existing migration or generic schema normalization changed. MySQL could also
+  choose a primary history scan; the actual unreleased path now explicitly
+  uses its declared index, verified by captured-query EXPLAIN. A Winston/Jest
+  overload assertion was corrected without weakening its log-sentinel check.
+  Private probes `/tmp/durisweb-hold-concurrency-probe.mts` and
+  `/tmp/durisweb-hold-drift-probe.mts` retain the reproductions outside Git.
+- **Published P6b:** [PR #52](https://github.com/LuminariMUD/DurisWeb/pull/52),
+  open/non-draft, code head `8751e6f2506760d3c733fce5ceeb3ba1765684ad`,
+  stacked on #51 `3bd3b2c`. The code push was read back: local/remote/API head
+  matched, ahead/behind `0 0`, and the worktree was clean. This final plan
+  closeout is documentation only. Hosted checks are queued/running at creation;
+  #51's backend/frontend hosted checks pass and its head is unchanged. Master
+  remains `8946860` at the latest refresh. No merge/tag/live operation is
+  warranted. Preserve the original checkout's independent work and the named
+  P3 recovery stash.
+- **Next continuation after #52:** continue from this published branch in
+  `/tmp/durisweb-security-privacy-plan-20261016`. P6c must connect holds to real
+  consumers: preview eligibility reporting/checkpoint invalidation, serialized
+  hold creation/release versus SQL mutation, and eligibility/hold rechecks at
+  commit. Introduce coordination only alongside those consumers and prove a hold
+  acquired after dry-run blocks mutation. Implement the explicitly gated
+  per-class mutation/continuation/ownership and restore/copy handling from P6;
+  unknown/unapproved classes and pending/invalid delivery/audit/request evidence
+  remain excluded. The current hold API still reports enforcement unavailable;
+  existing image/feature cleanup and restore need integration before that claim
+  changes. Retention/notice/provider approvals, P7 verified export/erasure and P8
+  live-release acceptance remain open. No new owner question is needed for
+  independent engineering; do not infer approval of periods or destructive
+  operation from the supplied contact details.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and

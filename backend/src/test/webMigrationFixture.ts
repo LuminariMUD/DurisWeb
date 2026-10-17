@@ -9,7 +9,7 @@ export function runFixtureWebMigrations(
   options: {
     direction?: 'up' | 'down';
     name?: string;
-    loseDdlAcknowledgement?: boolean | 'image';
+    loseDdlAcknowledgement?: boolean | 'image' | 'holds';
   } = {},
 ): void {
   if (
@@ -28,12 +28,13 @@ export function runFixtureWebMigrations(
     const {WebMigrationSource}=await import(pathToFileURL(root+'/src/db/webMigrationSource.ts').href);
     const connection={host:'127.0.0.1',port:Number(port),database,user:'root',password:''};
     const knex=require('knex')({client:'mysql2',connection,pool:{min:0,max:1},migrations:{migrationSource:new WebMigrationSource(connection)},log:{warn:()=>{},error:()=>{}}});
-    const interruption=interrupted==='image'?'synthetic_after_image_ddl':'synthetic_after_audit_ddl';
+    const interruption=interrupted==='image'?'synthetic_after_image_ddl':interrupted==='holds'?'synthetic_after_hold_ddl':'synthetic_after_audit_ddl';
+    const ddl=interrupted==='image'?'ALTER TABLE forum_post_images':interrupted==='holds'?(direction==='down'?'DROP TABLE web_data_holds':'CREATE TABLE web_data_holds'):'ALTER TABLE admin_action_log';
     if(interrupted!=='false'){
       const query=knex.client.query.bind(knex.client);let injected=false;
       knex.client.query=async(connection,request)=>{
         const result=await query(connection,request);
-        if(!injected&&request.sql.startsWith(interrupted==='image'?'ALTER TABLE forum_post_images':'ALTER TABLE admin_action_log')){injected=true;throw new Error(interruption);}
+        if(!injected&&request.sql.startsWith(ddl)){injected=true;throw new Error(interruption);}
         return result;
       };
     }

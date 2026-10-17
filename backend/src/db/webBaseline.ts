@@ -32,6 +32,7 @@ import {
   POST_IMAGE_REMOVAL_MIGRATION,
   matchesPostImageRemovalPhase,
 } from './postImageRemovalSchema.js';
+import { DATA_HOLD_MIGRATION, matchesDataHoldPhase } from './dataHoldSchema.js';
 
 export type BaselineDatabase = SchemaDatabase;
 type BaselineState = 'installing' | 'complete' | 'adopted' | 'removing';
@@ -323,6 +324,19 @@ async function verifyWebSchema(
         recoverSessionDdl &&
         !unsupportedImageForward &&
         (await matchesPostImageRemovalPhase(database, product, new Set(ledger), directory))
+      )
+        continue;
+      const unsupportedHoldForward = forward.some(
+        (migration) =>
+          ledger.includes(migration.name) &&
+          Object.hasOwn(migration.tables, 'web_data_holds') &&
+          migration.name !== DATA_HOLD_MIGRATION,
+      );
+      if (
+        name === 'web_data_holds' &&
+        recoverSessionDdl &&
+        !unsupportedHoldForward &&
+        (await matchesDataHoldPhase(database, product, new Set(ledger), directory))
       )
         continue;
       throw new WebBaselineError(`schema_drift_${name}`);

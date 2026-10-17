@@ -17,6 +17,18 @@ The current session and hook-audit migrations supersede the baseline's old
 credential columns; they are called out below. Knex and baseline provenance are
 additional operational metadata, not missing application tables.
 
+The later `20261017004000_web_data_holds.ts` adds **one** website-owned extension
+table, for 78 application tables after that forward migration. The immutable
+77-table inventory below remains unchanged. `web_data_holds` selects a scoped
+account through `account_name`; `created_by`/`released_by` are separate operator
+roles. UUID, class/global scope, private reason/release reason, review/expiry/
+release epochs and `created_at`/`updated_at` preserve the hold's history.
+The [restricted API](runbooks/data-holds.md) records intent with enforcement
+explicitly unavailable; current deletion/cleanup, preview and restore paths do
+not consume it yet. No table-wide subject export or purge is authorized, and no
+period for this ledger is approved. Retain expired/released/invalid records;
+operator evidence needs separate subject/privacy review before export.
+
 Each row lists subject-selection fields or a necessary relationship, and a time
 field that could support an approved cutoff. A time field is **not** an approved
 retention period. Every general period/disposition is **unapproved**. Existing
@@ -322,8 +334,10 @@ The [read-only preview](runbooks/retention-preview.md) can inspect the proposed
 an explicit target/version and private continuation. It does not evaluate holds,
 exceptions or subject requests, and cannot delete data. Metrics with naive time
 provenance and every unlisted class remain excluded. No approved common
-retention mutation runner, subject hold, protected export, request/erasure
-journal or restore-removal replay is implemented. Any new
+retention mutation runner or enforced subject hold exists. Hold intent records
+are implemented with a restricted API and explicit `enforcementReady: false`;
+integration/rechecks in deletion/cleanup and restore paths remain open. Protected
+export, request/erasure journal and restore-removal replay are unimplemented. Any new
 consent/request/export store must be added here with exact ownership, selectors,
 cutoff and copy handling before its lifecycle can be considered complete.
 

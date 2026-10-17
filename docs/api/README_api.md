@@ -69,6 +69,16 @@ within the current thread; ordinary pagination still uses the requested page.
 Some route modules contain both public and protected handlers. Do not infer
 authorization from the prefix alone; inspect the handler middleware and tests.
 
+## Website data hold records
+
+The separate [website data hold API](../runbooks/data-holds.md) at
+`/api/admin/data-holds` is Overlord-only, signed-session authenticated and
+no-store; POST create/release retain CSRF checks. It records scoped intent,
+private reasons and immutable creation/release attribution with bounded history
+pages. It explicitly returns `enforcementReady: false`: existing deletion/
+cleanup and restore paths do not yet consume these records. A recorded hold is
+not an implemented deletion gate or a claim of live protection.
+
 ## Forum image removal
 
 All image status/list/removal routes require login. State changes retain the
