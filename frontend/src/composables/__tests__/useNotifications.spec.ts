@@ -36,6 +36,48 @@ afterEach(() => {
 })
 
 describe('notification preferences with blocked browser storage', () => {
+  it('enables notifications on the first explicit permission grant when storage is blocked', async () => {
+    const delivered = vi.fn()
+    vi.stubGlobal(
+      'Notification',
+      class {
+        static permission = 'default'
+        static requestPermission = permission
+        constructor(title: string, options: NotificationOptions) {
+          delivered(title, options)
+        }
+      },
+    )
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('Denied', 'SecurityError')
+    })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Denied', 'SecurityError')
+    })
+    const state = setupNotifications()
+    expect(state.isEnabled.value).toBe(false)
+    await expect(state.requestPermission()).resolves.toBe('granted')
+    expect(state.isEnabled.value).toBe(true)
+    expect(
+      state.showNotification({ title: 'First grant', body: 'Delivered', sound: false }),
+    ).not.toBeNull()
+    expect(delivered).toHaveBeenCalledOnce()
+  })
+
+  it.each(['denied', 'default'] as const)(
+    'does not enable an unreadable preference after a %s result',
+    async (result) => {
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new DOMException('Denied', 'SecurityError')
+      })
+      permission.mockResolvedValueOnce(result)
+      const state = setupNotifications()
+      await expect(state.requestPermission()).resolves.toBe(result)
+      expect(state.hasPermission.value).toBe(false)
+      expect(state.isEnabled.value).toBe(false)
+    },
+  )
+
   it('initializes safely and disables notifications when the saved preference is unreadable', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new DOMException('Denied', 'SecurityError')

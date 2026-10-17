@@ -141,6 +141,97 @@ afterEach(() => {
 })
 
 describe('privacy choices and optional browser collection', () => {
+  it('preserves the original refusal when another action arrives while its save is pending', async () => {
+    await boot()
+    const original = fetchMock.getMockImplementation()!
+    const gate = deferred<void>()
+    let posts = 0
+    fetchMock.mockImplementation(async (url, options) => {
+      if (String(url).endsWith('/api/privacy/choice')) {
+        posts++
+        if (posts === 1) await gate.promise
+      }
+      return original(url, options)
+    })
+    const first = privacy.savePrivacyChoice('refused')
+    await settle()
+    const canRefuseDuringSave = privacy.usePrivacyChoices().canRefuse.value
+    const second = privacy.savePrivacyChoice('withdrawn')
+    gate.resolve()
+    await Promise.all([first, second])
+    await settle()
+    expect(canRefuseDuringSave).toBe(false)
+    expect(posts).toBe(1)
+    expect(status.decision).toBe('refused')
+    expect(privacy.usePrivacyChoices().phase.value).toBe('refused')
+  })
+  it('keeps the visit and avoids another page view across temporary hiding', async () => {
+    await boot()
+    await privacy.savePrivacyChoice('accepted')
+    await settle()
+    const first = JSON.parse(String(events()[0]![1]?.body))
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    document.dispatchEvent(new Event('visibilitychange'))
+    await settle()
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    document.dispatchEvent(new Event('visibilitychange'))
+    await settle()
+    expect(events()).toHaveLength(1)
+    await router.push('/news')
+    await settle()
+    expect(events()).toHaveLength(2)
+    expect(JSON.parse(String(events()[1]![1]?.body)).visitNonce).toBe(first.visitNonce)
+  })
+  it('records a navigation made while hidden once on return, using the same visit', async () => {
+    await boot()
+    await privacy.savePrivacyChoice('accepted')
+    await settle()
+    const first = JSON.parse(String(events()[0]![1]?.body))
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    document.dispatchEvent(new Event('visibilitychange'))
+    await router.push('/news')
+    await settle()
+    const whileHidden = events().length
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    document.dispatchEvent(new Event('visibilitychange'))
+    await settle()
+    expect(whileHidden).toBe(1)
+    expect(events()).toHaveLength(2)
+    expect(JSON.parse(String(events()[1]![1]?.body)).visitNonce).toBe(first.visitNonce)
+  })
+  it('revalidates a withdrawn server choice before resuming after hiding', async () => {
+    await boot()
+    await privacy.savePrivacyChoice('accepted')
+    await settle()
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    document.dispatchEvent(new Event('visibilitychange'))
+    status = { ...status, decision: 'withdrawn', revision: status.revision + 1 }
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    document.dispatchEvent(new Event('visibilitychange'))
+    await settle()
+    expect(privacy.usePrivacyChoices().phase.value).toBe('withdrawn')
+    await router.push('/news')
+    await settle()
+    expect(events()).toHaveLength(1)
+  })
+  it('records the first visible view when an accepted page initialized while hidden', async () => {
+    status = {
+      ...status,
+      decision: 'accepted',
+      revision: 1,
+      receiptValid: true,
+      expiresAtEpoch: Math.floor(Date.now() / 1000) + 3600,
+    }
+    localStorage.setItem(PREFERENCE, 'accepted')
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    await boot()
+    const before = events().length
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    document.dispatchEvent(new Event('visibilitychange'))
+    await settle()
+    expect(before).toBe(0)
+    expect(events()).toHaveLength(1)
+  })
   it('is silent before choice and after refusal, without new identifiers or leftover timers', async () => {
     localStorage.setItem('analytics_session_id', 'legacy-sentinel')
     const random = vi.spyOn(crypto, 'getRandomValues')
