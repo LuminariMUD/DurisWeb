@@ -80,7 +80,10 @@ identity must remain stable; symlinks, shared legacy filenames and changed
 artifacts are refused. This proves the owned archive path, not every physical
 copy, recoverability of its contents or resistance to host-administrator action.
 
-Before an authorized release, stop/drain every older website writer and reader.
+Before an authorized release, first complete the
+[legacy temporary-copy preservation gate](../deployment.md#legacy-temporary-copy-preservation-gate),
+then stop/drain every older website writer and reader. An earlier unit's
+`PrivateTmp` teardown can delete unregistered uploads outside this protocol.
 Older cleanup can bypass admission and older generic settings readers do not
 exclude this namespace. Include the compiled `archiveUnlinkWorker.js` and its
 utilities; production execution needs no TypeScript loader. Rehearse on the

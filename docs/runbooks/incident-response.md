@@ -11,6 +11,13 @@ Do not paste secrets, JWTs, webhook payloads, IP addresses, player data, full
 paths, or database dumps into tickets or chat. Preserve timestamps, sanitized
 hook ids/states, health output, commit ids, and process/container status.
 
+Before any procedure below directly stops/restarts an existing website backend,
+or restarts a dependency that can stop it, complete the
+[legacy temporary-copy preservation gate](../deployment.md#legacy-temporary-copy-preservation-gate).
+This includes flatfile recovery and credential-related restarts, as well as
+Redis maintenance. Keep the original private temporary directories protected
+independently before inventory; a watchdog pause alone is insufficient.
+
 ## Initial Triage
 
 1. Record the active DurisWeb and DurisMUD commits/branches independently.
@@ -54,6 +61,12 @@ hook ids/states, health output, commit ids, and process/container status.
    and a MUD unit may require the shared Redis service; a Redis restart can
    therefore stop the website or become a player-visible MUD restart. Use a
    declared maintenance window when a shared dependency is involved.
+   Before any dependency restart that can stop the website, complete the
+   [legacy temporary-copy preservation gate](../deployment.md#legacy-temporary-copy-preservation-gate).
+   Stopping the old application's `PrivateTmp` namespace can remove retained
+   uploads and dump/staging copies; a maintenance notice or healthy dependency
+   does not establish their preservation. Keep the old unit running until the
+   gate is satisfied under the separately authorized recovery procedure.
 2. Keep the MUD producer and DurisWeb presence reader on separate ACL identities.
    The reader needs its exact `PING`, `SCAN`, `MGET`, `SUBSCRIBE`, and
    `UNSUBSCRIBE` operations. Redis key patterns limit value access but cannot
@@ -136,8 +149,11 @@ sanitized reason and retry time.
    incident record.
 3. Do not bypass canonical containment, symlink, file-type, size, UTF-8, NUL,
    or complete-record validation.
-4. Allow bounded recovery probes or restart only the responsible service after
-   fixing the resource. Other hook channels should remain available.
+4. Allow bounded recovery probes after fixing the resource. Before restarting
+   a responsible website backend, complete the
+   [legacy temporary-copy preservation gate](../deployment.md#legacy-temporary-copy-preservation-gate);
+   restarting only that service still tears down its old private temporary
+   namespace. Other hook channels should remain available.
 5. Guild parsing is database-backed despite its compatibility-era hook name;
    MUD filesystem loss should not mark it unavailable.
 

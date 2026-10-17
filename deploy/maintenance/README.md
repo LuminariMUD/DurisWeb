@@ -59,28 +59,42 @@ background polling. Older cached frontend versions need an update first.
    Do not build over the served `frontend/dist` directory.
 2. In the correct Cloudflare account, create a Worker with `worker.mjs` as its
    ES module entry point. Disable its `workers.dev` and preview URLs.
-3. Add a **Route** matching only the website hostname, e.g.
-   `website.example.invalid/*`. Keep the existing proxied tunnel DNS record.
-   Do not create a Custom Domain, replace DNS, use a whole-zone wildcard, or
-   include the MUD hostname. Ensure the hostname is served at `/`; the status
-   endpoint is rooted at `/api/site-availability`. If the API uses a separate
-   hostname, the frontend still reads operator status from the website hostname;
-   this Worker does not gate traffic to that separate API hostname.
+3. Inventory every configured public website/API hostname from the deployed
+   tunnel/DNS routes and website/API origin configuration (`SITE_URL`,
+   `ALLOWED_ORIGINS` and `VITE_API_URL`). Add an explicit **Route** to this Worker
+   for each canonical host, website alias and separately hosted API, for example
+   `website.example.invalid/*` and `www.website.example.invalid/*`. Keep every
+   existing proxied tunnel DNS record. Do not create Custom Domains, replace
+   DNS, use a whole-zone wildcard or include the MUD hostname.
+   The frontend reads operator status from its same-origin
+   `/api/site-availability`. A separate API hostname must be routed too.
+   Do not rely on canonical-host redirects: the
+   [backend middleware](../../backend/src/middleware/canonicalHost.ts)
+   deliberately passes API paths and mutations through without redirecting.
 4. Set the Worker text variable `MAINTENANCE_REASON` to `maintenance` for the
    controlled acceptance check, then deploy the Worker. This deliberately gates
    website traffic. Check account limits and route failure policy: this is not
    protection against a Cloudflare-wide outage or exhausted Worker quota.
-5. Check public `/` and a deep link: branded HTML, HTTP 503, Retry, no external
-   dependencies. Check `/api/site-availability`: JSON, HTTP 200, selected reason,
-   `Cache-Control: no-store`. Check an API GET: JSON 503, never HTML. Do not use a
-   live write or direct MUD login/socket as a probe.
+5. Verify **each inventoried hostname**, not just the canonical host: public
+   `/` and a deep link return the maintenance HTML/HTTP 503;
+   `/api/site-availability` returns the expected service identity, selected
+   reason, HTTP 200 and `Cache-Control: no-store`; an API GET returns JSON 503.
+   Confirm API mutation paths are gated with a cookie-free, empty POST to the
+   authenticated `/api/admin/backup/upload` route: require the Worker's
+   maintenance JSON/HTTP 503. A redirect, authentication/CSRF error, SPA page,
+   healthy API response or origin error is not proof of maintenance gating.
+   Send no session cookie, real upload or other write payload. Check denied web
+   WebSocket upgrades for each configured web socket host too; do not probe the
+   separate MUD login/socket. Record per-host results and stop if any host or
+   path is missing, ungated or uncertain.
 6. In a browser with the new app already loaded, verify the popup, Dismiss,
    Details, and Retry. Verify keyboard focus, mobile layout, and ordinary auth
    and web WebSocket behavior after reopening. Do not perform a MUD burn-in just
    to test the notice; the offline-origin behavior is simulated in unit tests.
 
 For CLI-managed deployment, copy `wrangler.example.toml` **outside the repo**,
-replace its entry-point path and route/zone placeholders, and use the approved
+replace its entry-point path and every route/zone placeholder, include the full
+reviewed hostname inventory, and use the approved
 Wrangler installation and account authentication. Do not commit credentials or
 generated configuration. `keep_vars = true` preserves the dashboard-owned
 maintenance variable across code deploys; do not add it to `[vars]` or a CLI
@@ -92,10 +106,34 @@ Cloudflare references: [Routes](https://developers.cloudflare.com/workers/config
 
 ## Each maintenance window
 
-Before stopping any website services, set `MAINTENANCE_REASON` to the approved
-reason in the Worker settings and deploy that variable change. Confirm the
-public notice and status endpoint first. The switch only gates website traffic;
-it does not operate the MUD or the application service group.
+First establish and verify the independent private-directory keeper required by
+the [legacy temporary-copy preservation gate](../../docs/deployment.md#legacy-temporary-copy-preservation-gate).
+Do this **before deploying the Worker change or checking ingress**: an unexpected
+exit during either step can trigger automatic restart and destroy unprotected
+private temporary files. A watchdog pause does not prevent that cleanup.
+
+Inventory the zone's existing Worker route patterns and script assignments for
+all selected hosts, including more-specific paths and routes with no script.
+The [most-specific route wins](https://developers.cloudflare.com/workers/configuration/routing/routes/),
+and no-script routes can bypass Workers. Reconcile every overlapping route or
+exclusion before accepting the maintenance fence; a catch-all plus representative
+HTTP probes alone does not prove coverage. Preserve the prior route map privately
+for rollback and verify the saved assignments plus paths from each overlap.
+If any writer route remains outside the fence, stop before inventory or copying.
+
+With the verified keeper still active, set `MAINTENANCE_REASON` to the approved
+reason in the Worker settings and deploy that variable change. Reconcile the
+current public hostname inventory and confirm the notice, status, API refusal
+and web-upgrade refusal on **every configured website/API hostname**, as above,
+before inventory or preservation. A notice on one host does not gate an alias
+host's existing session or a separately hosted API. Complete the preservation
+gate before stopping any website service or restarting a dependency that stops it.
+The Worker does not prove existing requests, background jobs or other writers
+have stopped; verify their closure/fencing separately as the gate requires.
+Required copies and recovery evidence must be preserved before the old unit's
+`PrivateTmp` namespace is torn down. The notice does not operate the MUD or the
+application service group, satisfy the whole preservation gate, or authorize
+service operations.
 
 After the separately authorized recovery, verify origin health, then set the
 variable to `off` and deploy the variable change. Verify public application

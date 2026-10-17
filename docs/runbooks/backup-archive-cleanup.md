@@ -9,6 +9,13 @@ independently protected evidence and offline replay
 remain required P6 work. The hold API still reports global
 `enforcementReady: false`; no complete copy/restore protection is claimed.
 
+Before stopping or restarting an old website service, complete the
+[legacy temporary-copy preservation gate](../deployment.md#legacy-temporary-copy-preservation-gate).
+Its `PrivateTmp` files can disappear on service stop, including a dependency or
+watchdog restart. Inventory/preserve the actual old namespace first; a scan of
+the host's ordinary temporary directory or the new persistent upload records
+does not cover those legacy copies. No live namespace or file is changed here.
+
 ## New archive creation
 
 New backups stream `mysqldump` output directly into the exclusive private managed

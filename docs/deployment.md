@@ -1,5 +1,11 @@
 # Deployment
 
+Before stopping/draining an older website unit for any step below, complete the
+[legacy temporary-copy preservation gate](#legacy-temporary-copy-preservation-gate).
+A service stop/restart, including one caused by a cache dependency, can remove
+its private temporary directory. This gate precedes the writer-stop instructions
+for metadata adoption, migrations, session cutover and recovery.
+
 Before enabling lifecycle hold/control or SQL-cleanup writes, an authorized DBA
 must install the [read-only metadata guard](runbooks/lifecycle-metadata.md), then
 check it with normal website credentials. Dependency preflight requires it.
@@ -302,8 +308,133 @@ now enforces holds for that registered path; it requires Linux identity and a
 reviewed local filesystem. Stop/drain every older writer/reader before using it,
 include the compiled worker and preserve its private journal through recovery.
 Unknown worker domains or state remain review-blocked, never cleared by age.
-Uploads/dump/staging copies, approved age limits and protected offline replay
-remain open; `PrivateTmp=true` is not durable upload protection.
+Registered uploads now use persistent private managed files; legacy temporary
+uploads/dump/staging copies, approved age limits and protected offline replay
+remain open. Complete the preservation gate below before stopping the old unit.
+
+### Legacy temporary-copy preservation gate
+
+The maintained unit uses `PrivateTmp=true`. systemd removes a service's private
+temporary files after the service stops; see its
+[execution reference](https://github.com/systemd/systemd/blob/main/man/systemd.exec.xml)
+and [temporary-directory guidance](https://github.com/systemd/systemd/blob/main/docs/TEMPORARY_DIRECTORIES.md).
+The old uploader wrote `backup-upload-<timestamp>-<random><original-extension>`
+under the service's `os.tmpdir()`, without durable ownership or writer receipts.
+It appended `path.extname(file.originalname)` and also accepted ZIP MIME type,
+so valid uploads can have `.dump`, `.ZIP`, another original suffix, or no suffix.
+Discover them by the stable `backup-upload-` prefix, not by a `.zip` filter.
+Checking the host's
+ordinary `/tmp`, or finding no row in `mud_backups`, does not inventory that
+private namespace. New persistent uploads do not adopt those older files.
+
+#### Protect private temporary files from an unexpected service exit
+
+The watchdog pause does **not** disable the application's `Restart=always` or
+prevent `PrivateTmp` cleanup after a crash. Before lengthy inventory/copy work,
+keep the existing private temporary directories alive independently of that
+unit. A bare namespace descriptor or `nsenter` process is not sufficient proof
+that systemd will retain its managed backing directories.
+
+Use a separately reviewed, temporary **keeper unit** in the same systemd manager:
+`PrivateTmp=true` and `JoinsNamespaceOf=` select exactly the already-running old
+application unit, and `After=` orders its start. systemd documents this sharing in
+[JoinsNamespaceOf](https://github.com/systemd/systemd/blob/v255/man/systemd.unit.xml)
+and [PrivateTmp](https://github.com/systemd/systemd/blob/v255/man/systemd.exec.xml).
+The keeper must remain active independently: no `Requires=`, `BindsTo=`, `PartOf=`
+or stop-propagation link from the old application, its dependencies or release
+target. Keep it outside the group stopped by release/rollback commands.
+
+For an authorized **user-manager** window, the reviewed command has this shape;
+replace both names with the exact old unit and a new unique keeper name:
+
+```bash
+legacy_unit='reviewed-old-unit.service'
+keeper_unit='reviewed-unique-keeper.service'
+systemd-run --user --unit="$keeper_unit" \
+  --property=Type=exec --property=PrivateTmp=yes \
+  --property="JoinsNamespaceOf=$legacy_unit" --property="After=$legacy_unit" \
+  --property=Restart=no /usr/bin/sleep infinity
+```
+
+For system-manager units, omit `--user` and explicitly select the reviewed
+website service identity with `User=`/`Group=` properties. Use the host's reviewed
+absolute sleep executable. Starting a keeper does not authorize a restart,
+copy, deletion or any change to the application unit's restart policy.
+
+Before accepting the keeper:
+
+- Record the original unit invocation/PID and verify it did not restart during
+  acquisition. A newly started application/keeper cannot prove that a retired
+  namespace's files survived.
+- Compare device/inode identities of the actual private `/tmp` and `/var/tmp`
+  directories, and the selected legacy upload root, through the live original
+  and keeper processes. Verify representative existing file identities/bytes
+  privately. Equal whole mount-namespace IDs are not required; actual shared
+  directories are the relevant identity.
+- Verify the keeper is active, has the intended service identity, shares the
+  exact old unit, and has no stop coupling. Retain its unit/invocation identity
+  in the private release evidence and keep it alive through the entire gate.
+- Rehearse an unexpected old-process exit, its automatic restart and an explicit
+  old-unit stop using **disposable fixture units on the target systemd version**.
+  The original temporary files must remain accessible with the same identities
+  through the keeper. Do not crash the live website to perform this rehearsal.
+
+A local systemd 255 rehearsal passes in both user and system managers: without
+a keeper, crash/restart unlinks the original temporary file; with a keeper it
+survives crash/restart and explicit source-unit stop. It is removed only after
+the keeper stops. These are local fixture results, not production qualification.
+
+This protects against cleanup caused by the old unit exiting. It does not fence
+application writers/cleanup, prove consistent bytes, or survive losing the
+keeper/host. Keep the existing writer-fence and protected-copy requirements
+below. If the keeper exits or its identity/sharing is uncertain, stop the release
+and treat protection as unconfirmed. Release the keeper only after independently
+verified persistent protected copies cover the declared scope and the approved
+teardown gate has passed. If this method is unavailable, require an independently
+verified crash-safe copy covering the old private directories before inventory;
+watchdog pause, a plain bind mount or a listing is not a substitute.
+
+During a separately authorized release, before **any** application stop/restart
+or restart of a dependency that stops it:
+
+1. After establishing and verifying the independent keeper above, confirm the approved [maintenance notice](../deploy/maintenance/README.md#each-maintenance-window)
+   is active and verified on every configured public website/API hostname,
+   including canonical-host aliases, before inventory or preservation.
+   Check the per-host status and API/write/upgrade refusals in that procedure;
+   a redirect or a notice on only one hostname does not close other ingress.
+   This does not close existing requests or background writers. Pause and verify
+   the existing watchdog maintenance mechanism. Its pause
+   expires after four hours; preserve the gate through the entire approved
+   window. Keep Cloudflare ingress and the tunnel configured. Establish a
+   reviewed way to prevent new legacy upload/backup operations and to fence
+   their writers without first tearing down the old unit's temporary namespace.
+   No existing runtime flag or a successful `/health` check proves that fence.
+2. Identify the actual old service/process and its mount namespace privately.
+   Establish and verify the independent private-directory lifetime protection
+   above **before inventory**. Inventory its actual temporary-upload root and configured backup root,
+   including raw `temp_<id>.sql` and `temp_staging_<id>` copies. Preserve unknown,
+   active, shared or unregistered files. Names, ages and completed/failed SQL
+   statuses alone cannot prove that an old writer stopped.
+3. Before namespace teardown, preserve and independently verify required bytes,
+   physical identities and ownership/recovery evidence in a reviewed persistent
+   protected location. Establish consistency and writer closure with the
+   reviewed fencing procedure. A directory listing, file count, inspection
+   summary or unverified copy is insufficient. Do not extract or execute an
+   untrusted upload to establish preservation. Keep current hold/request/run
+   evidence independent of archived snapshots.
+4. Reconcile every discovered copy, active hold and unknown outcome with the
+   approved adoption/disposition procedure. A second copy does not itself
+   authorize deleting an original held copy. If preservation, writer fencing,
+   namespace coverage or hold-compatible teardown is unverified, **stop the
+   release before stopping/restarting the service**. Record the unresolved
+   category privately; do not mark these copies erased or protected by the
+   managed ZIP receipts.
+
+Only after this gate passes may the later stop/drain, migration and cutover
+steps proceed. Do not disable `PrivateTmp`, manually remove its backing directory,
+or treat systemd cleanup as the hold-aware remover. Discovery/adoption/fencing
+tooling and a rehearsed preservation procedure remain required P6 engineering;
+these instructions are a release gate, not evidence that it has been satisfied.
 
 The rehearsal above uses an operator-created, transaction-consistent dump and
 restores it into an empty disposable target. It is distinct from the admin

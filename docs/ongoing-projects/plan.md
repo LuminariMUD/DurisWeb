@@ -2,6 +2,15 @@
 
 ## Current handoff — read this first
 
+**#63 route precedence follow-up:** maintenance admission now inventories and
+reconciles every overlapping zone Worker route and no-script exclusion, preserving
+the previous map for rollback and verifying saved assignments plus overlap paths.
+This closes a bypass not established by representative hostname probes alone.
+Official Cloudflare route documentation was checked; docs/config/whitespace checks
+pass. No deployed Worker or production route was changed.
+
+### Historical checkpoints
+
 **#62 final cancellation race repair:** the worker pins the inspected inode,
 atomically captures the shared filename into an exclusive private removal
 directory, compares captured identity, and unlinks only the captured name.
@@ -24,6 +33,154 @@ for review.” Publish only after a separately authorized verified release.
 ### Historical checkpoints
 
 **Latest continuation — PR #62 generated inspection:** a valid 65 MiB
+
+
+**#63 final ordering repair:** establish and verify the independent private-directory
+keeper before Worker deployment or any ingress checks. The deployment checklist
+and maintenance guide now use the same sequence: keeper, all-host ingress fence,
+writer closure, inventory/preservation, then authorized service operations.
+Documentation checks: `git diff --check` and `./scripts/check-config-literals.sh`
+pass. Existing isolated systemd keeper rehearsal remains valid; no application
+source, production service or Cloudflare account was changed.
+
+### Historical checkpoints
+
+**Latest continuation — #63 remaining ingress/restart paths:** #64's six
+findings are published/resolved as `5fa2ee8` / `d0fe178`, carried through #65
+`106783b` and #66 `3c10f0e`. The shared mapping integration passes 57 tests/four
+suites, backend gates/build and native preservation mount checks.
+
+Current branch is `branch/legacy-upload-preservation-gate`. The two P1 docs
+findings now require an explicit Worker Route and maintenance acceptance for
+every configured public website/API hostname, including aliases and separate
+API/web-socket hosts. Canonical redirects are explicitly insufficient. The
+example routes include canonical and alias hosts; the guide requires the
+actual complete deployed hostname inventory and cookie-free, empty refusal
+probes before inventory. It does not activate Cloudflare configuration.
+
+The incident runbook now gates all direct/dependency website restarts, including
+flatfile and credential recovery. Discord environment changes and the standalone
+data-hold migration procedure also link preservation before stopping writers.
+A repository-wide search distinguished operational restart instructions from
+descriptions of automatic restart and development-only process lifecycle.
+The existing writer fence and independent temporary-directory protection remain.
+
+Validation passed: inspected `canonicalHost.ts` and the Worker route behavior, parsed the
+example TOML, checked changed relative links/anchors and configuration literals,
+and ran `node --test deploy/maintenance/worker.test.mjs` (**10 passed**). The added case exercises
+routed canonical, alias and separate API URLs with synthetic session cookies,
+requiring refused POST/upgrades and zero origin calls. It does not prove real
+Cloudflare Routes are installed; the runbook requires per-host live acceptance
+during a separately authorized window. No application package or production
+operation is changed or claimed.
+
+Published as `c87c7ad`; `PRRT_kwDOVA2-8c6thjFP` and
+`PRRT_kwDOVA2-8c6thyo3` have verified replies/resolved state. The ledger now has
+**55 verified closeouts**, with **six known remaining findings** before a new
+scan: #62's conditional removal, #65's payload fence, and #66's four export
+findings. Carry through #64–#66 and continue #65 while #62's unresolved
+inode-conditional removal guarantee stays explicit. No visitor news is needed.
+
+### Earlier published repairs and inventory
+
+**Inventory integration into #65:** the parent carry preserves the exported
+`legacyMountId` used by preservation and shares `legacyDirectoryAliases` through
+its existing error translation, removing the duplicate mountinfo mapper.
+Combined inventory/preservation tests pass **57 / four suites**, backend gates/
+build pass, and the native preservation fixture passes six aliases, independent
+control, bundle admission and final mount checks. Evidence:
+`pr65-inventory-carry-{tests,quality,mounts}.log`. No payload-acknowledgement fence
+fix is claimed. Continue the carry into #66, then return to #63's two P1 docs gaps.
+**Latest continuation — PR #64 inventory fixes published:**
+current branch is `branch/legacy-backup-copy-inventory`, starting at `16e54bd`.
+#63's keeper correction is published/resolved as `a2947cc` / `1ce3854` and
+carried through #64 `16e54bd`, #65 `2dce32f` and #66 `c970e73`.
+
+All six current #64 findings have focused repairs/proof: private-output mount
+aliases are rejected using the same mountinfo mapping as the preservation tool;
+source/configured symlink and proc-root aliases are refused; owner read/write
+bits are set explicitly despite a restrictive umask; the cooperative deadline
+covers root/staging metadata calls with descriptor cleanup; and acknowledgement
+retains the output fd through directory sync, verifies its requested name/
+metadata, and reads back the bounded JSON. Every opened output descriptor is
+closed even if another close fails. No source bytes are read or modified.
+
+The review's exact 1,000-copy/no-extra-entry case already passed in current
+source. A related real boundary bug was reproduced and fixed: ordinary trailing
+entries were incorrectly treated as a 1,001st copy. Tests cover 999/1,000/1,001
+copies and that mixed-entry case. Five initial unit/CLI cases and the native
+output-alias case failed before repair; five additional evidence-acknowledgement
+cases reproduced false success, including mutation before the first metadata
+checkpoint. **34 tests / two suites now pass**, with backend format/lint/types/
+MUD-write/schema/build gates. A descriptor-capture typing error was corrected
+before the final green run.
+
+The native private-mount fixture passes five same-device traversal boundaries,
+four output aliases (both roots and descendants) and independent output control.
+It unmounts and removes only its own temporary fixture. Final logs:
+`pr64-all-{final,quality-final,mounts-final}.log`. Earlier red evidence:
+`pr64-boundaries-red.log`, `pr64-mounts-red.log`, `pr64-ack-red.log`.
+Commands: `pnpm --dir backend test --runInBand
+src/services/__tests__/legacyBackupInventory.test.ts
+src/scripts/__tests__/legacyBackupInventory.test.ts`;
+`python3 /tmp/durisweb-image-quality.py backend`; and the committed
+`legacyBackupInventoryMounts.native.ts` through Node/tsx inside
+`unshare --mount --propagation private`. No frontend, SQL/provider or production
+rerun is claimed for this filesystem/CLI chunk.
+
+Fresh scan before publication: **14 unresolved threads / 47 verified closeouts**.
+It added the current #64 acknowledgement finding plus two new #63 P1 findings:
+[all public hostnames](https://github.com/LuminariMUD/DurisWeb/pull/63#discussion_r4303270514)
+(`PRRT_kwDOVA2-8c6thjFP`) and
+[remaining direct restart paths](https://github.com/LuminariMUD/DurisWeb/pull/63#discussion_r4303374602)
+(`PRRT_kwDOVA2-8c6thyo3`). #64 is now published as `5fa2ee8` and all six
+threads have verified replies/resolved state. The ledger contains **53 verified
+closeouts**, with **8 known remaining threads** before another scan: #62 (1),
+#63 (2), #65 (1), #66 (4). Carry #65/#66, then return to those documentation gaps. #62's inode-conditional removal guarantee,
+#65's payload fence through acknowledgement and #66's four export findings
+remain open. Reuse `legacyDirectoryAliases` from the inventory module when
+updating the preservation caller instead of retaining two mapping implementations.
+No visitor release news is needed for these operator-tool corrections.
+
+### Earlier published repairs and inventory
+
+**Published PR #63 restart protection:** #62 inspection fix
+`fecc543` and closure `d6b1337` are published and carried through #63 `a48a576`,
+#64 `3574006`, #65 `1f5946a` and #66 `8771bd0`. The remaining #62 unlink race
+stays unresolved; a private renamed path is not by itself an atomic inode-
+conditional deletion against arbitrary same-UID namespace mutation. Do not
+claim it fixed by shrinking the check/unlink interval.
+
+Current branch is `branch/legacy-upload-preservation-gate`. Its P1 restart
+finding is addressed by requiring independently retained systemd private
+temporary directories before inventory. The guide specifies a separate active
+keeper using `PrivateTmp`/`JoinsNamespaceOf`, exact original identity and directory
+checks, no stop coupling, target-version rehearsal, continued writer fencing and
+persistent protected copies before keeper release. A watchdog pause alone is
+explicitly insufficient. No service template or production restart policy changes.
+
+Actual disposable local systemd 255 rehearsals passed for **user and system
+managers**, each with negative no-keeper and positive keeper cases. Source
+SIGKILL/automatic restart removes the original temporary file without a keeper;
+with a keeper, the original inode/bytes survive both crash/restart and an explicit
+source stop, and are cleaned only after keeper stop. Fixture copies were verified
+before cleanup; all owned transient units were stopped. An initial fixture PID
+polling typo was corrected before the successful runs. Logs:
+`pr63-private-tmp-{user,system}.log`; runner
+`/tmp/durisweb-private-tmp-rehearsal.py`. These are WSL-only fixture operations,
+not production or MUD service work. The runbook requires target-host rehearsal
+rather than treating local systemd behavior as universal acceptance.
+
+Published as `a2947cc`. Thread `PRRT_kwDOVA2-8c6thGOP` has a verified reply
+and resolved state. The ledger contains **47 verified closeouts**; **11 known
+threads remain** before a new scan: #62 (1), #64 (5), #65 (1), #66 (4).
+Carry #64–#66, then address #64's inventory findings. No package/runtime change
+or visitor changelog entry is needed. Preserve #62's still-open removal
+guarantee while fixing these independent findings.
+
+### Earlier published repairs and inventory
+
+**Published PR #62 generated inspection:** a valid 65 MiB
 mysqldump archive is refused by the old shared upload limit and accepted by the
 repaired generated path. The first standalone probe used a disallowed filename;
 it was discarded as evidence and rerun with an accepted filename against the
