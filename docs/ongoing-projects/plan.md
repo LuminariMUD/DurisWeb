@@ -2,6 +2,18 @@
 
 ## Current handoff — read this first
 
+**#64 final root-admission follow-up:** every selected root now passes canonical
+path/directory and physical/mount identity checks before the traversal deadline
+starts. A valid root not reached before timeout retains its verified identity;
+null observations no longer bypass output checks. Symlink and proc-root aliases
+are rejected before enumeration. `pnpm --dir backend test --runInBand
+legacyBackupInventory` passes 36 tests/two suites, and
+`python3 /tmp/durisweb-image-quality.py backend` passes all backend gates/build.
+Logs: `pr64-admission-{tests,quality}.log`. Earlier null-identity descriptions are
+historical and superseded. No database, frontend or production work was performed.
+
+### Historical checkpoints
+
 **#63 route precedence follow-up:** maintenance admission now inventories and
 reconciles every overlapping zone Worker route and no-script exclusion, preserving
 the previous map for rollback and verifying saved assignments plus overlap paths.

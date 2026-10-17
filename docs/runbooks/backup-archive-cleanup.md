@@ -39,8 +39,10 @@ separate hold-aware operation after a new archive completes.
 
 ## Private legacy-copy inventory
 
-A shared-budget timeout retains completed/partial observations. An unstarted root
-is explicitly incomplete with `time_budget` and null physical/mount identity;
+All selected roots must pass canonical path, directory and physical/mount identity
+admission before the shared traversal budget starts. A timeout retains completed/
+partial observations; an unstarted admitted root records `time_budget` with its
+validated identity;
 the CLI still saves bounded private evidence and returns incomplete status.
 Before writing and acknowledging output, every physically observed root must
 still have its scanned path, device/inode and mount ID. Replacement or unmount
