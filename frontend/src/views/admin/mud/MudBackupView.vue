@@ -267,7 +267,12 @@ async function handleRetainedUpload(backup: BackupInfo, action: 'recover' | 'can
 }
 
 // Count of failed backups
-const failedBackupsCount = computed(() => backups.value.filter((b) => b.status === 'failed').length)
+const failedBackupsCount = computed(
+  () =>
+    backups.value.filter(
+      (b) => b.status === 'failed' && !b.filename.startsWith('duris-mud-upload-'),
+    ).length,
+)
 
 // Delete all failed backups handler
 async function handleDeleteFailedBackups() {

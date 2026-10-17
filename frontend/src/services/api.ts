@@ -1259,8 +1259,8 @@ export const adminApi = {
   /**
    * Get list of all backups
    */
-  async getBackupList(): Promise<{ backups: import('@/types').BackupInfo[] }> {
-    const { data } = await api.get('/api/admin/backup/list')
+  async getBackupList(signal?: AbortSignal): Promise<{ backups: import('@/types').BackupInfo[] }> {
+    const { data } = await api.get('/api/admin/backup/list', { signal })
     return data
   },
 

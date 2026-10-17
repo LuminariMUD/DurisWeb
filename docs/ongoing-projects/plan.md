@@ -8,7 +8,8 @@ all eight corresponding threads are verified resolved. The three later #54
 findings are now fixed in `3e68def` and `89bea79`, pushed and verified resolved.
 **13 known findings remain on #62–#66.** Repairs are carried and pushed through
 #59 again; #60's combined retention/schema integration is qualified.
-Next: push #60, carry #61, then repair #62–#66. The restore availability and async cancellation paths
+Repairs are now pushed through #61 (`6a05af0`); #62 contains parent merge
+`0cbbce8` and is under repair. The restore availability and async cancellation paths
 remain intact. No review completion, master merge or deployment is claimed.
 The dated inventory below is historical where
 these newer results supersede it; exact follow-up proof precedes the old records.
@@ -334,6 +335,55 @@ checkpoint and expired deadline as current instructions.
   do not replace it with an older snapshot that loses #56–#66 or this review queue.
 
 ## Follow-up review evidence — #48–#50
+
+**#62 review repair:** account-dependent backup queries now include the signed-in
+account in their key, disable anonymous reads, consume cancellation signals and
+apply progress updates to the same scoped key. Cancellation compares the present
+file against its durable registration and passes that identity to the managed
+remover for admission-time rechecking. Bulk failed cleanup excludes upload-marked
+filenames, and the UI counts only eligible generated backups. No new lifecycle,
+storage or query framework is introduced. Files: existing backup services,
+composable/API/view, focused tests, cleanup runbook and plan.
+
+Two Vue Query regressions and the pre-/post-inspection replacement cases failed
+before repair. The first bulk test had an incomplete synthetic row (missing the
+required `ip_address` field); after correcting it, a controlled old-query run
+reproduces deletion of two rows instead of only the generated failed backup.
+The fixed query was restored immediately afterward. Focused frontend tests pass
+16 and the current full suite passes 318 / 58 files; native final reruns and the
+small Clear Failed display correction are still being qualified. Evidence is
+under `pr62-*` in the private review directory. The earlier 54/55 archive-test
+result is incomplete and is not acceptance. Do not publish until final native,
+frontend and rendered checks pass. All three review threads remain open.
+
+The corrected native matrix subsequently passes 55 cases on each engine; final
+frontend gates/build pass 318 / 58 files, and recovery/cancellation browser checks
+pass at 1440/768/390 with Clear Failed excluding retained uploads. Following the
+other deletion caller exposed a reachable bypass through generic delete-by-ID;
+a native regression confirms it removed a registered upload without its
+cancellation identity. The remover now requires that identity for every upload-
+marked filename, preserving the explicit cancellation path. The final 56-case
+matrix and backend gates are being rerun for that small additional admission fix.
+
+**#62 final proof:** `node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-run-archive-suite.mts 23436 upload-archive` and the same with
+`23437` each pass **56 tests / six suites**, covering the reported cases, the
+generic deletion bypass, real multipart/filesystem handling, worker fencing,
+holds and recovery. Owner/schema preflights match and owned fixtures are cleaned.
+`python3 /tmp/durisweb-image-quality.py backend` and its frontend mode pass all
+required checks/builds; frontend has **318 tests / 58 files**. Focused Vue Query
+tests pass 16, proving visible-account isolation and cancellation of a stale
+response. `node /tmp/durisweb-review-browser62.mjs` passes at 1440/768/390 with
+recovery acknowledgement, hold refusal, explicit retry, retained failed uploads
+and the corrected Clear Failed count. Phone/tablet screenshots were inspected.
+Whitespace and configuration guards pass. Final logs: `pr62-closeout-{mysql,
+maria,backend-quality}.log`, `pr62-final-{frontend-quality,browser}.log` and
+`pr62-frontend-focused.log`. No full backend, physical-device, provider or live
+production acceptance is claimed. Future admin news: “Retained backup uploads
+stay private when switching accounts and remain available for review until
+explicit cancellation; bulk failed-backup cleanup leaves them in place.”
+Publish this repair and resolve all three threads, then carry it into #63's
+documentation repairs. Keep #64–#66 open for the remaining eight findings.
 
 **Final retention carry-forward:** #54's class/CLI and rollback repairs are
 integrated through #60 merge `f2422b6`. The actual metadata-v2 execution runner

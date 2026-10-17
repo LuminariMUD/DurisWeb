@@ -494,11 +494,18 @@ export async function cancelBackupUpload(
       getBackendConfiguration().backupDirectory,
       uploadFilename(id),
     );
-    if (target.rootSha256 !== record.rootSha256)
+    if (
+      target.rootSha256 !== record.rootSha256 ||
+      (target.fileSha256 !== null && target.fileSha256 !== record.fileSha256)
+    )
       throw new BackupUploadError('recovery_unverified', id);
     const before = await withManagedArchiveControl((db) => read(db, id, record.owner));
     if (before.exists) {
-      await removeManagedArchive(record.backupId);
+      await removeManagedArchive(record.backupId, {
+        filename: uploadFilename(id),
+        rootSha256: record.rootSha256,
+        fileSha256: record.fileSha256,
+      });
     }
     const after = inspectManagedArchive(
       getBackendConfiguration().backupDirectory,
