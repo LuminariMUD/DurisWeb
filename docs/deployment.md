@@ -397,7 +397,7 @@ watchdog pause, a plain bind mount or a listing is not a substitute.
 During a separately authorized release, before **any** application stop/restart
 or restart of a dependency that stops it:
 
-1. Confirm the approved [maintenance notice](../deploy/maintenance/README.md#each-maintenance-window)
+1. After establishing and verifying the independent keeper above, confirm the approved [maintenance notice](../deploy/maintenance/README.md#each-maintenance-window)
    is active and verified on every configured public website/API hostname,
    including canonical-host aliases, before inventory or preservation.
    Check the per-host status and API/write/upgrade refusals in that procedure;

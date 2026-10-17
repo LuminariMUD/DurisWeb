@@ -106,18 +106,19 @@ Cloudflare references: [Routes](https://developers.cloudflare.com/workers/config
 
 ## Each maintenance window
 
-First, for the approved maintenance window, set `MAINTENANCE_REASON` to the approved
+First establish and verify the independent private-directory keeper required by
+the [legacy temporary-copy preservation gate](../../docs/deployment.md#legacy-temporary-copy-preservation-gate).
+Do this **before deploying the Worker change or checking ingress**: an unexpected
+exit during either step can trigger automatic restart and destroy unprotected
+private temporary files. A watchdog pause does not prevent that cleanup.
+
+With the verified keeper still active, set `MAINTENANCE_REASON` to the approved
 reason in the Worker settings and deploy that variable change. Reconcile the
 current public hostname inventory and confirm the notice, status, API refusal
 and web-upgrade refusal on **every configured website/API hostname**, as above,
 before inventory or preservation. A notice on one host does not gate an alias
-host's existing session or a separately hosted API.
-
-Then establish the independent private-directory keeper required by the
-[legacy temporary-copy preservation gate](../../docs/deployment.md#legacy-temporary-copy-preservation-gate)
-before inventory: a watchdog pause does not prevent the application's automatic
-restart from cleaning up its private temporary files. Complete that gate
-before stopping any website service or restarting a dependency that stops it.
+host's existing session or a separately hosted API. Complete the preservation
+gate before stopping any website service or restarting a dependency that stops it.
 The Worker does not prove existing requests, background jobs or other writers
 have stopped; verify their closure/fencing separately as the gate requires.
 Required copies and recovery evidence must be preserved before the old unit's
