@@ -69,6 +69,22 @@ function physical(stat: BigIntStats): string {
     stat.ctimeNs.toString(),
   ]);
 }
+export { physical as legacyCopyPhysicalSha256 };
+export function isLegacySqlMemberFilename(name: string): boolean {
+  return (
+    name.length > 4 &&
+    Buffer.byteLength(name) <= 255 &&
+    name.endsWith('.sql') &&
+    !/[/\\\0\r\n]/.test(name)
+  );
+}
+/** The old MIME-based uploader kept the original extension, including non-ZIP suffixes. */
+export function isLegacyUploadFilename(name: string): boolean {
+  return (
+    Buffer.byteLength(name) <= 255 &&
+    /^backup-upload-[0-9]{1,16}-[0-9]{1,10}(?:\.[^/\\\0\r\n]{0,200})?$/.test(name)
+  );
+}
 function classify(scope: LegacyRootInventory['scope'], name: string) {
   const dump = scope === 'backup' ? /^temp_([1-9][0-9]{0,9})\.sql$/.exec(name) : null;
   const staging = scope === 'backup' ? /^temp_staging_([1-9][0-9]{0,9})$/.exec(name) : null;
@@ -77,7 +93,7 @@ function classify(scope: LegacyRootInventory['scope'], name: string) {
     if (id > 4294967295) return null;
     return { kind: dump ? ('sql_dump' as const) : ('staging' as const), backupIdHint: id };
   }
-  if (scope === 'legacy_upload' && /^backup-upload-[0-9]{1,16}-[0-9]{1,10}\.zip$/.test(name))
+  if (scope === 'legacy_upload' && isLegacyUploadFilename(name))
     return { kind: 'upload' as const, backupIdHint: null };
   return null;
 }
@@ -157,7 +173,7 @@ function observe(
       }
       databaseFd = openDirectory(databasePath, databaseStat);
       const names = directoryNames(databaseFd);
-      if (names.length !== 1 || !/^[A-Za-z0-9_$-]{1,128}\.sql$/.test(names[0])) {
+      if (names.length !== 1 || !isLegacySqlMemberFilename(names[0])) {
         item.outcome = 'unsafe_shape';
         return item;
       }

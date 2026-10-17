@@ -83,6 +83,21 @@ Keep the exclusive owner-only file protected, with its own unapproved period and
 staff/third-party review before subject export. It proves neither writer closure
 nor a consistent snapshot, and is never deletion/preservation authority.
 
+[Protected per-file bundles](runbooks/backup-archive-cleanup.md#protected-individual-byte-copies)
+add private immutable prepared/complete/failed receipts and exact copied bytes
+outside the website database and public media. Receipts hold operation UUID,
+source kind/name/root hash, physical hash/size/OS owner UID, protected-root hash,
+epochs, algorithm and safe outcome; a completed record also holds payload
+physical/content hashes. A failed receipt can retain the worker's verified
+byte/hash evidence when a later step is unconfirmed, without approving the
+operation. Source content can include old credentials or mixed
+subjects, so preserve restricted access and review ownership separately. CLI
+output is aggregate and no website download route is added. Copy verification
+does not approve adoption, deletion, the original account owner or complete
+restoration. Retain complete, pending, failed and unknown states until their own
+approved lifecycle/subject and third-party review is implemented. The command
+never removes a source or a retained bundle.
+
 Each row lists subject-selection fields or a necessary relationship, and a time
 field that could support an approved cutoff. A time field is **not** an approved
 retention period. Every general period/disposition is **unapproved**. Existing

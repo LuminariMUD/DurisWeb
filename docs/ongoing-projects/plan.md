@@ -54,6 +54,8 @@ legacy temporary-file preservation order is corrected in
 Read-only private discovery is qualified and published as
 [PR #64](https://github.com/LuminariMUD/DurisWeb/pull/64) on
 `branch/legacy-backup-copy-inventory`, stacked on #63.
+Protected individual byte-copy/recovery tooling is qualified on
+`branch/legacy-copy-preservation`, awaiting focused publication.
 Verified legacy-copy adoption/fencing remains next.
 Install metadata function v2 before bootstrap/migrations;
 source does not accept v1 as an equivalent fallback.
@@ -90,6 +92,134 @@ inventory and satisfy preservation/hold/fencing requirements before stopping an
 old `PrivateTmp` unit. Namespace teardown is itself a copy-removal path.
 
 ## Execution record and continuation
+
+- **P6d2b2e protected per-copy preservation (2026-10-17, qualified; publication pending):** branch
+  `branch/legacy-copy-preservation` starts at #64 `ab09779`. Outcome: copy a
+  selected legacy file into an exclusive private protected bundle, using a Linux
+  kernel read lease to refuse existing/competing writers, verify actual payload
+  bytes and retain crash/unknown work with durable immutable receipts. Cover raw
+  SQL, staging SQL and old uploaded files without executing or restoring them.
+  Non-goals: automatic service freeze/stop, source deletion, inferred account
+  ownership, managed adoption, global writer closure/enforcement or production
+  operation. Files: one descriptor-only Python stdlib lease worker, Node CLI/
+  bundle lifecycle, shared legacy layout/identity helpers, native worker/CLI
+  tests and operator/plan docs. Proof: real leases, active/competing writer
+  refusal, copied-byte verification, private sync/partial/retry receipts,
+  source/root identity, compiled entry point and required backend checks.
+  Ablation avoids a service-control framework, native npm/FFI dependency or a
+  second metadata database. Python 3 is an explicit operator-tool prerequisite
+  because Node exposes no `F_SETLEASE` primitive; the HTTP app does not use it.
+- **Freezer investigation (owned local fixture only):** systemd 255 and cgroup
+  v2 are present. A unique transient user unit with `PrivateTmp=true` actually
+  pauses/resumes its writer via freeze/thaw without tearing down the temporary
+  directory. The first fixture placed its helper in host `/tmp`, which the
+  private namespace hides; the corrected helper uses an owned home-directory
+  fixture. All fixture units/files are stopped/removed and no live unit is
+  touched. Preserve `/tmp/durisweb-probe-private-tmp-freeze.py` and its two logs.
+  Upstream [systemd](https://github.com/systemd/systemd/blob/main/man/systemctl.xml)
+  documents automatic thaw before unit jobs, and the
+  [kernel freezer docs](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html)
+  permit process migration out of a frozen group. Thus an observed frozen flag
+  is not durable global fencing/adoption authority; do not manufacture one.
+  The per-file lease is a narrower, real byte-copy guard, while the required
+  whole-cohort shutdown/preservation gate and later adoption remain open.
+- **P6d2b2e implementation and ablation:** a standalone operator Node command
+  confirms the configured canonical backup root and explicit original upload
+  root/name/physical hash, selects one raw SQL/staging member/upload and opens
+  descriptors without following aliases/links. The destination is an exclusive
+  private UUID bundle outside sources and volatile paths, on reviewed local
+  storage. A synced `prepared.json` precedes any bytes in 0600 `payload.bin`.
+  The isolated Python stdlib worker receives only descriptors, byte/time bounds
+  and expected physical hash, no application environment/credentials or shell.
+  Its actual kernel read lease refuses an open writer or writable mapping and
+  observes competing write-open/truncate breaks. It copies and independently
+  reads back the destination under that guard, with a 128 MiB address-space cap.
+  Parent identity/source/size checks and private `complete.json`/directory sync
+  precede acknowledgement. Active/unavailable leases or unknown work retain
+  original/receipts/partial payload, without destructive cleanup. There is no
+  new queue, table, web/API exposure, automatic service-control mechanism or
+  source mutation. Read leases do not prevent unlink/rename/namespace teardown
+  and do not prove global old-writer closure; source provenance/ownership,
+  whole-cohort fencing, holds/adoption and complete recovery stay unapproved.
+  See the Linux [file-lease contract](https://man7.org/linux/man-pages/man2/F_SETLEASE.2const.html).
+- **Recovery and issues repaired:** every copy requires an explicit UUID; a
+  same-ID retry cannot overwrite or hide existing work. Separate `verify`
+  validates strict private receipt/payload shapes, actual hashes and sync
+  without the original namespace/file, application environment, SQL or Python.
+  Incomplete/failed work cannot self-promote. Root substitution, source changes,
+  unknown sync and close acknowledgements remain review-required with the same
+  UUID. All remaining descriptors close even when an earlier close fails, which
+  is required to release a lease duplicated into a killed worker. Failures also
+  keep bounded verified worker hash/size evidence when copying completed before
+  a later check failed; that evidence is not overall completion. These private
+  receipts and exact bytes are an additional operator store with no approved
+  period/erasure disposition; retain and protect every state. Persistence,
+  encryption, independent storage and ownership still need operator review.
+- **Legacy-layout compatibility:** inspection of `parseDatabase` confirms that
+  database names use required strings, not the initial ASCII filename subset.
+  Shared component predicates now cover legitimate spaces/Unicode SQL member
+  names and original MIME-accepted uppercase/non-ZIP/absent upload suffixes.
+  Separators/control characters, malformed generated prefixes and unsafe nodes
+  remain refused/unknown. Recognizing an uploaded filename never certifies ZIP
+  contents. Inventory still grants no snapshot, writer or deletion authority.
+- **P6d2b2e exact proof:** `pnpm --dir backend test --runInBand
+  src/services/__tests__/legacyBackupInventory.test.ts
+  src/scripts/__tests__/legacyBackupInventory.test.ts
+  src/services/__tests__/legacyCopyPreservation.test.ts
+  src/scripts/__tests__/legacyCopyPreservation.test.ts` passes **32 / 4**.
+  Its native wrapper also runs **8 real Python lease cases**, not eight extra
+  Jest tests. Direct `python3 -I -B
+  backend/scripts/__tests__/legacyFileLeaseWorker.test.py` passes those eight
+  cases independently. Actual ext4/tmpfs, binary byte preservation, existing
+  writers, competing kernel write opens, writable mappings, zero-byte files,
+  source/target identity, private modes, source disappearance, corrupted/linked
+  payloads, duplicate/incorrect IDs, traversal, unavailable interpreter, fresh
+  process/env-free verification, hung-worker kill/lease release and lost sync/
+  close acknowledgements are covered. Native fixtures contain synthetic bytes
+  only and all own home/tmpfs directories/processes are cleaned.
+  `TEST_BACKUP_DB_PORTS=23436,23437 node --import
+  ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-archive-suite.mts 23436` expands to full
+  `pnpm --dir backend test --runInBand`: **1,363 pass / 141 suites**, 53 optional
+  native skips / 4 whole suites. The final failed-receipt worker-evidence field
+  and Python repository naming cleanup were then checked with the final focused
+  32/4, native eight, required package gates and compiled probe; the global
+  suite was not repeated solely for those local changes. Full owned
+  owner/baseline/92-migration/metadata-v2 qualification and before/after
+  configuration/dependency preflights pass; owner metadata remains
+  `403c2a9941ce5746491919b2cc8cd91bed55b959adc681a66f0fceef04b90d23`.
+- **Final gates and evidence:** `python3 /tmp/durisweb-image-quality.py backend`
+  runs format:check/lint/type-check/verify:mud-writes/schema:check/build, all pass
+  (53 classified writes; unchanged 77-table/85-source immutable baseline).
+  `./scripts/check-config-literals.sh`, privacy registry/local-link checks and
+  whitespace pass. `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-legacy-preservation-compiled-probe.mts` runs the freshly built
+  Node CLI with the shipped Python worker, then verifies in a fresh Node process
+  with no environment, original source or TS loader; private binary bytes match.
+  `pnpm --dir backend backup:preserve-legacy --help` passes. Retain
+  `/tmp/durisweb-legacy-preservation-{final-focused,backend-final,quality,
+  compiled,help,close,final-paths}.log`,
+  `/tmp/durisweb-legacy-lease-worker-final.log`, the compiled probe and the
+  earlier freezer experiment as required evidence. Initial patch/fixture test
+  placement failures were repaired without weakening refusal/retention claims.
+  No dependency package, migration, policy/collection flag, tag, merge,
+  deployment/logout, selected production file/namespace or MUD operation is
+  introduced. Python 3 is an explicit optional operator-tool prerequisite;
+  actual selected-host installation remains a release check. Frontend/browser,
+  physical-device, provider and separate full schema/session replay were not
+  repeated for this operator-only filesystem command. Future verified-release
+  admin news draft: “Individual older backup files can be preserved privately
+  with verified bytes. Unconfirmed copies remain available for staff review.”
+  No Website Changelog publication occurs before authorized live acceptance.
+- **Next after per-copy publication:** refresh parent/PR/master state and
+  continue from the published head in the same isolated worktree. Finish
+  whole-cohort/namespace pre-teardown fencing/preservation and verified
+  ownership/adoption of every legacy copy, including unknown layouts and
+  active/interrupted writers. A verified individual payload is not #63 release
+  admission. Keep independently protected current hold/run/request evidence,
+  compatible offline restore-removal replay, other P6 handlers and own-ledger
+  periods, every P7 requirement and named policy/provider/release approval gates
+  intact. No user question is needed for continued independent engineering.
 
 - **P6d2b2d private legacy-copy discovery (2026-10-17, qualified/published as #64):** branch
   `branch/legacy-backup-copy-inventory` starts at #63 `1b37db7`. Outcome: an

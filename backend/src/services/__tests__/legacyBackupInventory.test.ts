@@ -80,6 +80,13 @@ describe('read-only legacy copy discovery', () => {
     expect(after.ctimeNs).toBe(before.ctimeNs);
     expect(after.atimeNs).toBe(before.atimeNs);
   });
+  it('retains legitimate one-component staging names from the configured database identifier', async () => {
+    const directory = staging();
+    fs.renameSync(path.join(directory, 'mud.sql'), path.join(directory, 'mud archive-数据.sql'));
+    const result = await inventoryLegacyBackupCopies(backupRoot);
+    expect(result.roots[0].copies[0].outcome).toBe('writer_unverified');
+    expect(result.roots[0].copies[0].sqlMember?.name).toBe('database/mud archive-数据.sql');
+  });
   it('marks an omitted old upload namespace as unselected', async () => {
     const result = await inventoryLegacyBackupCopies(backupRoot);
     expect(result.legacyUploadScope).toBe('not_selected');
@@ -111,10 +118,18 @@ describe('read-only legacy copy discovery', () => {
       path.join(uploadRoot, 'backup-upload-123-456.txt'),
       'old MIME-accepted suffix',
     );
+    fs.writeFileSync(
+      path.join(uploadRoot, 'backup-upload-private-name.zip'),
+      'unrecognized old prefix',
+    );
     const result = await inventoryLegacyBackupCopies(backupRoot, uploadRoot);
     expect(result.roots[0].copies[0].outcome).toBe('unsafe_shape');
     expect(result.roots[0].unknownLegacyEntries).toBe(1);
-    expect(result.roots[1].unknownLegacyEntries).toBe(2);
+    expect(result.roots[1].unknownLegacyEntries).toBe(1);
+    expect(result.roots[1].copies.map((copy) => copy.name)).toEqual([
+      'backup-upload-123-456.ZIP',
+      'backup-upload-123-456.txt',
+    ]);
     expect(JSON.stringify(result)).not.toContain('private-name-sentinel');
   });
   it('retains nested symlinks and never traverses outside the opened staging directory', async () => {
