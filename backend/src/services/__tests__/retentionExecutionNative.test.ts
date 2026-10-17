@@ -11,8 +11,9 @@ import {
 import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import mysql, { type Connection, type Pool, type RowDataPacket } from 'mysql2/promise';
+import knexFactory from 'knex';
 import { RETENTION_CONTROL_KEY } from '../../db/internalWebSettings.js';
-import { RETENTION_RUN_MIGRATION } from '../../db/retentionRunSchema.js';
+import { RETENTION_RUN_MIGRATION, migrateRetentionRunSchema } from '../../db/retentionRunSchema.js';
 import { runFixtureWebMigrations } from '../../test/webMigrationFixture.js';
 import { verifiedWebBaselineCoverage } from '../../db/webBaseline.js';
 import { retentionCandidateRules } from '../retentionCandidates.js';
@@ -763,6 +764,60 @@ async function hold(accountName = 'Alpha') {
       expect(await count('page_views')).toBe(1);
       expect(await count('web_retention_runs')).toBe(0);
     });
+
+    it.each([false, true])(
+      'serializes rollback with a worker before the ledger drop (interrupted: %s)',
+      async (interruptFirst) => {
+        await login(now - 100 * 86400);
+        const migration = knexFactory({
+          client: 'mysql2',
+          connection: { host: '127.0.0.1', port, database, user: 'root' },
+          pool: { min: 0, max: 1 },
+        });
+        let reachedDrop = false;
+        let workerFailure: unknown;
+        const racing = new Proxy(migration, {
+          get(target, key, receiver) {
+            const value: unknown = Reflect.get(target, key, receiver);
+            if (key === 'raw')
+              return async (sql: string, values: readonly unknown[] = []) => {
+                if (sql === 'DROP TABLE web_retention_runs') {
+                  if (!reachedDrop && interruptFirst) {
+                    reachedDrop = true;
+                    throw new Error('synthetic_before_retention_drop');
+                  }
+                  reachedDrop = true;
+                  try {
+                    await engine.executeRetention({ ...options(), classes: ['login_history'] });
+                  } catch (error) {
+                    workerFailure = error;
+                  }
+                }
+                return Reflect.apply(target.raw, target, [sql, values]);
+              };
+            return typeof value === 'function' ? value.bind(target) : value;
+          },
+        });
+        try {
+          if (interruptFirst) {
+            await expect(migrateRetentionRunSchema(racing, 'down')).rejects.toThrow(
+              'synthetic_before_retention_drop',
+            );
+            await expect(
+              engine.executeRetention({ ...options(), classes: ['login_history'] }),
+            ).rejects.toMatchObject({ reason: 'storage_unavailable' });
+            expect(await count('account_login_history')).toBe(1);
+          }
+          await migrateRetentionRunSchema(racing, 'down');
+          expect(reachedDrop).toBe(true);
+          expect(workerFailure).toMatchObject({ reason: 'storage_unavailable' });
+          expect(await count('account_login_history')).toBe(1);
+        } finally {
+          await migrateRetentionRunSchema(migration, 'up');
+          await migration.destroy();
+        }
+      },
+    );
 
     it('guards run history/control rollback and recovers exact interrupted DDL while ordinary preflight refuses', async () => {
       const request = options();

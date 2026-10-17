@@ -78,6 +78,14 @@ back its data changes. Committed removal has no automatic data-restoration
 rollback. An old/unknown policy, target, signature or malformed progress is
 refused without rewriting history.
 
+An authorized run-ledger rollback first locks the same control row used by
+workers, refuses any run history or nonempty lease, then commits a rollback
+fence before dropping the empty table. Workers reject that fence even across
+DDL's implicit commit. The fence is removed only after the absent-table
+postcondition is verified. If interrupted before/after the drop, preserve the
+fence and rerun the same targeted down migration to finish recovery; do not
+clear the control row by hand or start an up migration to bypass the fence.
+
 ## Holds, ownership and eligibility
 
 The reserved `retention-control-v1:state` settings row is not exposed through
