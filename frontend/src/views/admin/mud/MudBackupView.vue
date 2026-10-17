@@ -68,6 +68,7 @@ import { MultiSelect } from '@/components/ui/multi-select'
 const {
   backups,
   isLoading,
+  isFetching,
   error,
   refetch,
   hasInProgressBackup,
@@ -477,7 +478,7 @@ async function executeUploadRestore() {
           class="hidden"
           @change="handleFileSelect"
         />
-        <Button @click="handleCreateBackup" :disabled="hasInProgressBackup || isCreating">
+        <Button @click="handleCreateBackup" :disabled="hasInProgressBackup || isCreating || isFetching || !!error">
           <Plus class="h-4 w-4 mr-2" />
           Create Backup
         </Button>
@@ -536,6 +537,14 @@ async function executeUploadRestore() {
         </div>
       </CardContent>
     </Card>
+
+    <Alert v-if="error && backups.length > 0" variant="destructive" class="mb-6">
+      <AlertCircle class="h-4 w-4" />
+      <AlertTitle>Backup list could not be refreshed</AlertTitle>
+      <AlertDescription>
+        Use Refresh to check for a backup that may already be running before creating another.
+      </AlertDescription>
+    </Alert>
 
     <!-- Loading State -->
     <div v-if="isLoading && backups.length === 0" class="space-y-4">
