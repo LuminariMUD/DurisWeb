@@ -92,6 +92,18 @@ describe('read-only legacy copy discovery', () => {
     expect(result.legacyUploadScope).toBe('not_selected');
     expect(result.roots).toHaveLength(1);
   });
+  it.each(['mud.archive.sql', 'mud archive.sql', 'mud@archive.sql', '数据库.sql'])(
+    'recognizes a single SQL member from the configured name %s',
+    async (name) => {
+      const directory = staging();
+      fs.renameSync(path.join(directory, 'mud.sql'), path.join(directory, name));
+      const result = await inventoryLegacyBackupCopies(backupRoot);
+      expect(result.roots[0].copies[0]).toMatchObject({
+        outcome: 'writer_unverified',
+        sqlMember: { name: 'database/' + name },
+      });
+    },
+  );
   it('does not follow symlinked files/directories or accept hardlinked SQL/FIFO nodes', async () => {
     const outside = path.join(workspace, 'outside');
     fs.mkdirSync(outside);
@@ -131,6 +143,14 @@ describe('read-only legacy copy discovery', () => {
       'backup-upload-123-456.txt',
     ]);
     expect(JSON.stringify(result)).not.toContain('private-name-sentinel');
+  });
+  it('recognizes extensionless and filesystem-sized legacy MIME upload names', async () => {
+    const names = ['backup-upload-123-456', 'backup-upload-123-456.' + 'x'.repeat(214)];
+    for (const name of names) fs.writeFileSync(path.join(uploadRoot, name), 'synthetic bytes');
+    const result = await inventoryLegacyBackupCopies(backupRoot, uploadRoot);
+    expect(result.roots[1].unknownLegacyEntries).toBe(0);
+    expect(result.roots[1].copies.map((copy) => copy.name)).toEqual(names);
+    expect(result.roots[1].copies.every((copy) => copy.outcome === 'writer_unverified')).toBe(true);
   });
   it('retains nested symlinks and never traverses outside the opened staging directory', async () => {
     const directory = path.join(backupRoot, 'temp_staging_2');

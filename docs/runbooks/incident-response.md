@@ -54,6 +54,12 @@ hook ids/states, health output, commit ids, and process/container status.
    and a MUD unit may require the shared Redis service; a Redis restart can
    therefore stop the website or become a player-visible MUD restart. Use a
    declared maintenance window when a shared dependency is involved.
+   Before any dependency restart that can stop the website, complete the
+   [legacy temporary-copy preservation gate](../deployment.md#legacy-temporary-copy-preservation-gate).
+   Stopping the old application's `PrivateTmp` namespace can remove retained
+   uploads and dump/staging copies; a maintenance notice or healthy dependency
+   does not establish their preservation. Keep the old unit running until the
+   gate is satisfied under the separately authorized recovery procedure.
 2. Keep the MUD producer and DurisWeb presence reader on separate ACL identities.
    The reader needs its exact `PING`, `SCAN`, `MGET`, `SUBSCRIBE`, and
    `UNSUBSCRIBE` operations. Redis key patterns limit value access but cannot

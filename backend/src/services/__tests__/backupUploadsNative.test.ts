@@ -192,6 +192,66 @@ const post = async (bytes: Buffer) =>
     expect(record.verdict).toBe('unconfirmed');
     expect((await request(app).delete('/cancel').send({ tempPath: record.id })).status).toBe(200);
   });
+  it.each(['before', 'after-inspection'])(
+    'preserves a replacement upload file (%s cancellation inspection)',
+    async (timing) => {
+      const uploaded = await post(await zip(SQL));
+      const record = await uploads.readBackupUpload(uploaded.body.tempPath, actor);
+      const file = uploads.backupUploadPath(record);
+      const replacement = 'unrelated replacement bytes';
+      if (timing === 'before') fs.writeFileSync(file, replacement);
+      else {
+        const original = fs.lstatSync.bind(fs);
+        let replaced = false;
+        jest.spyOn(fs, 'lstatSync').mockImplementation((target, options) => {
+          const stat = original(target, options);
+          if (target === file && options?.bigint === true && !replaced) {
+            replaced = true;
+            fs.writeFileSync(file, replacement);
+          }
+          return stat;
+        });
+      }
+      const result = await request(app).delete('/cancel').send({ tempPath: record.id });
+      expect(result.status).toBe(409);
+      expect(result.body.reason).toBe('recovery_unverified');
+      expect(fs.readFileSync(file, 'utf8')).toBe(replacement);
+      expect(await count('mud_backups')).toBe(1);
+    },
+  );
+  it('clears ordinary failed backups while preserving review-required uploads for explicit cancellation', async () => {
+    const uploaded = await post(Buffer.from('synthetic unconfirmed upload'));
+    const record = await uploads.readBackupUpload(uploaded.body.reference, actor);
+    const filename = 'duris-mud-failed-' + randomUUID() + '.zip';
+    const file = path.join(rootPath, filename);
+    fs.writeFileSync(file, 'synthetic failed generated backup');
+    await root.execute(
+      "INSERT INTO mud_backups(filename,backup_type,status,created_by,ip_address) VALUES(?,'manual','failed',?,'fixture')",
+      [filename, actor],
+    );
+    const service = await import('../backupService.js');
+    try {
+      expect(await service.deleteFailedBackups()).toBe(1);
+      expect(await count('mud_backups')).toBe(1);
+      expect(fs.existsSync(file)).toBe(false);
+      expect(fs.existsSync(uploads.backupUploadPath(record))).toBe(true);
+      expect((await request(app).delete('/cancel').send({ tempPath: record.id })).status).toBe(200);
+    } finally {
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+    }
+  });
+  it('refuses generic backup deletion for a registered upload outside its cancellation path', async () => {
+    const uploaded = await post(await zip(SQL));
+    const record = await uploads.readBackupUpload(uploaded.body.tempPath, actor);
+    const file = uploads.backupUploadPath(record);
+    const service = await import('../backupService.js');
+    await expect(service.deleteBackup(record.backupId)).rejects.toMatchObject({
+      reason: 'recovery_unverified',
+    });
+    expect(fs.existsSync(file)).toBe(true);
+    expect(await count('mud_backups')).toBe(1);
+    expect((await request(app).delete('/cancel').send({ tempPath: record.id })).status).toBe(200);
+  });
   it('refuses old filesystem references before access and never acknowledges unregistered cleanup', async () => {
     const file = path.join(rootPath, 'backup-upload-123-456.zip');
     fs.writeFileSync(file, 'preserve legacy evidence');

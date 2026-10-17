@@ -8,13 +8,16 @@ import {
   it,
   jest,
 } from '@jest/globals';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import mysql, { type Connection, type Pool, type RowDataPacket } from 'mysql2/promise';
+import knexFactory from 'knex';
 import { RETENTION_CONTROL_KEY } from '../../db/internalWebSettings.js';
-import { RETENTION_RUN_MIGRATION } from '../../db/retentionRunSchema.js';
+import { RETENTION_RUN_MIGRATION, migrateRetentionRunSchema } from '../../db/retentionRunSchema.js';
 import { runFixtureWebMigrations } from '../../test/webMigrationFixture.js';
 import { verifiedWebBaselineCoverage } from '../../db/webBaseline.js';
+import { retentionCandidateRules } from '../retentionCandidates.js';
+import { getBackendConfiguration } from '../../config/environment.js';
 
 const port = Number(process.env.TEST_RETENTION_EXECUTION_DB_PORT),
   database = process.env.DB_NAME ?? '';
@@ -23,6 +26,7 @@ if (
   process.env.TEST_RETENTION_EXECUTION_DB_PORT &&
   (![23436, 23437].includes(port) ||
     process.env.DB_HOST !== '127.0.0.1' ||
+    getBackendConfiguration().database.port !== port ||
     database !== 'durisweb_qualification_retention_execution_suite' ||
     process.env.CACHE_REDIS_HOST !== '127.0.0.1' ||
     process.env.CACHE_REDIS_PORT !== '23479' ||
@@ -164,6 +168,7 @@ async function hold(accountName = 'Alpha') {
     afterEach(async () => {
       jest.restoreAllMocks();
       intercept = undefined;
+      await root.query('SET time_zone=DEFAULT');
       await redis.del(legacyKey, otherKey);
     });
     afterAll(async () => {
@@ -195,6 +200,90 @@ async function hold(accountName = 'Alpha') {
         expect(await count('account_login_history')).toBe(2);
         expect(JSON.stringify(result)).not.toMatch(/Alpha|private-fixture|cursorId|owner/);
       }
+    });
+
+    it.each(['analytics_events', 'login_history'] as const)(
+      'keeps the two fall-back hour occurrences distinct for %s',
+      async (classId) => {
+        const cutoff = Date.parse('2025-11-02T05:45:00Z') / 1000;
+        await root.query("SET time_zone='+00:00'");
+        zone = 'America/New_York';
+        executionNow = cutoff + fixturePolicy.classes[classId].proposedAgeSeconds;
+        for (const delta of [-900, 0, 2700]) {
+          if (classId === 'analytics_events') await page(cutoff + delta);
+          else await login(cutoff + delta);
+        }
+        const result = await engine.executeRetention({ ...options(), classes: [classId] });
+        expect(result).toMatchObject({
+          complete: true,
+          classes: [{ cutoffEpoch: cutoff, deleted: 1 }],
+        });
+        expect(
+          await count(classId === 'analytics_events' ? 'page_views' : 'account_login_history'),
+        ).toBe(2);
+      },
+    );
+
+    it.each(['analytics_events', 'login_history'] as const)(
+      'traverses both eligible fall-back occurrences for %s with one-row batches',
+      async (classId) => {
+        const cutoff = Date.parse('2025-11-02T06:45:00Z') / 1000;
+        await root.query("SET time_zone='+00:00'");
+        zone = 'America/New_York';
+        executionNow = cutoff + fixturePolicy.classes[classId].proposedAgeSeconds;
+        for (const delta of [-4500, -900, 0, 60]) {
+          if (classId === 'analytics_events') await page(cutoff + delta);
+          else await login(cutoff + delta);
+        }
+        const result = await engine.executeRetention({
+          ...options(),
+          classes: [classId],
+          batchSize: 1,
+        });
+        expect(result).toMatchObject({
+          complete: true,
+          classes: [{ cutoffEpoch: cutoff, deleted: 2 }],
+        });
+        expect(
+          await count(classId === 'analytics_events' ? 'page_views' : 'account_login_history'),
+        ).toBe(2);
+      },
+    );
+
+    it('refuses a saved run whose rules predate the explicit UTC execution contract', async () => {
+      await page(now - 100 * 86400);
+      await page(now - 100 * 86400);
+      const input = { ...options(), maxCandidates: 1, batchSize: 1 };
+      expect((await engine.executeRetention(input)).complete).toBe(false);
+      const previousSignature = createHash('sha256')
+        .update(
+          JSON.stringify({
+            format: 'retention-execution-v1',
+            policy: fixturePolicy,
+            rules: retentionCandidateRules,
+          }),
+        )
+        .digest('hex');
+      await root.execute(
+        "UPDATE web_retention_runs SET rules_sha256=?,progress=JSON_SET(progress,'$.checkpoint.signature',?) WHERE id=?",
+        [previousSignature, previousSignature, input.runId],
+      );
+      const before = (
+        await root.execute<RowDataPacket[]>(
+          'SELECT rules_sha256,CAST(progress AS CHAR) AS progress FROM web_retention_runs WHERE id=?',
+          [input.runId],
+        )
+      )[0];
+      await expect(engine.executeRetention(input)).rejects.toMatchObject({
+        reason: 'run_identity_conflict',
+      });
+      const after = (
+        await root.execute<RowDataPacket[]>(
+          'SELECT rules_sha256,CAST(progress AS CHAR) AS progress FROM web_retention_runs WHERE id=?',
+          [input.runId],
+        )
+      )[0];
+      expect(after).toEqual(before);
     });
 
     it('rechecks a hold acknowledged after dry run and applies account collation without collateral deletion', async () => {
@@ -487,6 +576,42 @@ async function hold(accountName = 'Alpha') {
       expect(await count('page_views')).toBe(0);
     });
 
+    it('keeps analytics cache intact when only login history is selected and approved', async () => {
+      await redis.set(legacyKey, 'unapproved analytics');
+      fixturePolicy.classes.analytics_events.approved = false;
+      const info = jest.spyOn(redis, 'info');
+      try {
+        const result = await engine.executeRetention({ ...options(), classes: ['login_history'] });
+        expect(result.complete).toBe(true);
+        expect(await redis.get(legacyKey)).toBe('unapproved analytics');
+        expect(info).not.toHaveBeenCalled();
+      } finally {
+        fixturePolicy.classes.analytics_events.approved = true;
+      }
+    });
+
+    it('refuses a persisted analytics-cache task outside the selected run classes', async () => {
+      const request = { ...options(), classes: ['login_history'] as const };
+      await engine.executeRetention(request);
+      const [rows] = await root.execute<RowDataPacket[]>(
+        'SELECT progress FROM web_retention_runs WHERE id=?',
+        [request.runId],
+      );
+      const progress = JSON.parse(String(rows[0].progress)) as {
+        cache: { pending: boolean; cursor: string; serverId: string | null };
+      };
+      progress.cache = { pending: true, cursor: '0', serverId: null };
+      await root.execute('UPDATE web_retention_runs SET progress=? WHERE id=?', [
+        JSON.stringify(progress),
+        request.runId,
+      ]);
+      await redis.set(legacyKey, 'preserve unselected class');
+      await expect(engine.executeRetention(request)).rejects.toMatchObject({
+        reason: 'run_unverified',
+      });
+      expect(await redis.get(legacyKey)).toBe('preserve unselected class');
+    });
+
     it('keeps cache cleanup pending on failure, serves fresh uncached reads, then confirms removal on retry', async () => {
       await page(now - 100 * 86400);
       await page(now - 86400);
@@ -517,6 +642,44 @@ async function hold(accountName = 'Alpha') {
       expect(await redis.exists(legacyKey)).toBe(0);
       expect(await redis.get(otherKey)).toBe('preserve unrelated cache');
     });
+
+    it.each([false, true])(
+      'closes the CLI cache connection after execution (cache failure: %s)',
+      async (failCache) => {
+        const cli = await import('../../scripts/retention.js');
+        const output = jest.spyOn(console, 'log').mockImplementation(() => {});
+        const scan = failCache
+          ? jest.spyOn(redis, 'scan').mockRejectedValue(new Error('private-cache-failure'))
+          : null;
+        const request = options();
+        try {
+          const code = await cli.runRetentionCommand([
+            'execute',
+            '--target',
+            request.target,
+            '--cache-target',
+            request.cacheTarget,
+            '--policy-version',
+            request.policyVersion,
+            '--run-id',
+            request.runId,
+            '--class',
+            'analytics_events',
+            '--time-budget-ms',
+            '10000',
+          ]);
+          expect(code).toBe(failCache ? 2 : 0);
+          for (let attempt = 0; redis.status !== 'end' && attempt < 100; attempt++)
+            await new Promise((resolve) => setTimeout(resolve, 5));
+          expect(redis.status).toBe('end');
+          expect(JSON.stringify(output.mock.calls)).not.toContain('private-cache-failure');
+        } finally {
+          scan?.mockRestore();
+          output.mockRestore();
+          if (redis.status === 'end') await redis.connect();
+        }
+      },
+    );
 
     it('refuses incoming FK/trigger/schema or progress drift and keeps the real CLI source-gated', async () => {
       await page(now - 100 * 86400);
@@ -625,6 +788,60 @@ async function hold(accountName = 'Alpha') {
       expect(await count('page_views')).toBe(1);
       expect(await count('web_retention_runs')).toBe(0);
     });
+
+    it.each([false, true])(
+      'serializes rollback with a worker before the ledger drop (interrupted: %s)',
+      async (interruptFirst) => {
+        await login(now - 100 * 86400);
+        const migration = knexFactory({
+          client: 'mysql2',
+          connection: { host: '127.0.0.1', port, database, user: 'root' },
+          pool: { min: 0, max: 1 },
+        });
+        let reachedDrop = false;
+        let workerFailure: unknown;
+        const racing = new Proxy(migration, {
+          get(target, key, receiver) {
+            const value: unknown = Reflect.get(target, key, receiver);
+            if (key === 'raw')
+              return async (sql: string, values: readonly unknown[] = []) => {
+                if (sql === 'DROP TABLE web_retention_runs') {
+                  if (!reachedDrop && interruptFirst) {
+                    reachedDrop = true;
+                    throw new Error('synthetic_before_retention_drop');
+                  }
+                  reachedDrop = true;
+                  try {
+                    await engine.executeRetention({ ...options(), classes: ['login_history'] });
+                  } catch (error) {
+                    workerFailure = error;
+                  }
+                }
+                return Reflect.apply(target.raw, target, [sql, values]);
+              };
+            return typeof value === 'function' ? value.bind(target) : value;
+          },
+        });
+        try {
+          if (interruptFirst) {
+            await expect(migrateRetentionRunSchema(racing, 'down')).rejects.toThrow(
+              'synthetic_before_retention_drop',
+            );
+            await expect(
+              engine.executeRetention({ ...options(), classes: ['login_history'] }),
+            ).rejects.toMatchObject({ reason: 'storage_unavailable' });
+            expect(await count('account_login_history')).toBe(1);
+          }
+          await migrateRetentionRunSchema(racing, 'down');
+          expect(reachedDrop).toBe(true);
+          expect(workerFailure).toMatchObject({ reason: 'storage_unavailable' });
+          expect(await count('account_login_history')).toBe(1);
+        } finally {
+          await migrateRetentionRunSchema(migration, 'up');
+          await migration.destroy();
+        }
+      },
+    );
 
     it('guards run history/control rollback and recovers exact interrupted DDL while ordinary preflight refuses', async () => {
       const request = options();

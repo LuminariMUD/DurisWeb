@@ -51,12 +51,18 @@ the default selects both, in that order. Unknown or duplicate flags/classes,
 missing target/version, stale versions and invalid limits fail closed. `--help`
 prints usage without connecting.
 
-Each dedicated connection verifies the selected tables' exact source-owned
+Each dedicated connection sets its own session timezone to UTC before querying,
+then verifies the selected tables' exact source-owned
 metadata, sets the next transaction to repeatable read and starts a consistent,
 read-only snapshot. The database supplies one epoch for the run. Proposed
 cutoffs use that epoch minus the proposed age; a timestamp exactly at the cutoff
 is retained. Null/zero timestamps are excluded. The existing time indexes and
 primary-key ordering support keyset pages; no OFFSET or unbounded COUNT is used.
+UTC makes repeated daylight-saving hours unambiguous without wrapping indexed
+timestamp columns in functions. No application-pool or global timezone changes.
+The rule signature includes this UTC contract: checkpoints from the earlier
+implicit-timezone implementation require a fresh preview. Retain their evidence;
+do not rewrite an old signature to force continuation.
 Candidate queries return only IDs, epochs and a hold flag, never account/IP/
 content/URL columns. Account holds match the candidate's account inside SQL with
 the reviewed database collation, including case/accent aliases; a null account
