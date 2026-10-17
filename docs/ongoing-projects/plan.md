@@ -1,8 +1,89 @@
 # Website security, privacy, and schema implementation plan
 
-Current task: address outstanding PR review findings from oldest to newest.
-Use the **PR review repair** record at the end for current progress; older
-phase and timebox instructions are historical.
+## Current review continuation — 2026-10-17
+
+Latest: #49 follow-up `64d30b7` is pushed and all four new threads are verified
+resolved. Fifteen findings remain from the refreshed queue. Active branch #50
+contains that parent repair; its two batch-removal findings are being qualified.
+
+The active work is oldest-first PR review repair. The complete project/branch
+inventory, unfinished P0–P8 scope and recovery priorities are preserved in the
+[cumulative handoff](https://github.com/LuminariMUD/DurisWeb/blob/562d1210b96de09f8003c6663c05291749c6e6a2/docs/ongoing-projects/plan.md).
+That snapshot found 21 unresolved findings; #55 is now committed/pushed as
+`3446b1b214ca2d0836ef03b111086ba9019f2ca5`, its thread is verified resolved, and
+20 remain from that scan. The restore UI used its unchanged retained 294-test
+and desktop/phone proof. No production operation occurred.
+
+Current #48 follow-up corrects only the API contract: status never clears a
+receipt, invalid receipts use the existing CSRF-bound recovery, and a credential
+rotated during a transaction can still return 403. The implementation and native
+tests already prove this behavior. Files: API reference and this plan. Proof:
+direct route/service/lifecycle inspection, `git diff --check`, and the config
+literal guard. No runtime tests are rerun for this documentation correction.
+Publish/reply/resolve this #48 thread, then carry it into #49 and repair its four
+new findings (initial authentication, status refresh, navigation events, route
+identity). Preserve #55's published UI fix when subsequently carrying the stack.
+No release-news entry is needed for correcting contributor API documentation.
+
+**#48 closeout / #49 continuation:** contract fix `d43f94c` is pushed and its
+thread verified resolved; 19 findings remain from the refreshed queue. #49 has
+the parent repair through ordinary merge `da7d422`. Four regressions reproduce:
+two unit failures for saved-choice visit splitting and aborted prior navigation
+requests; rendered failures for two visits after delayed signed-in hydration and
+two controls groups on `/privacy/`. Runtime changes move coordinator startup
+after the existing session restoration, preserve visits on status-only refresh,
+retain each in-flight navigation controller until completion/cancellation, and
+use the privacy route name in the shell. No queue, retry policy or dependency is
+added. Files: existing App/main/coordinator and tests, lifecycle guide and plan.
+Proof target: the two focused files, all frontend gates/build and rendered
+startup/trailing-slash/manual-refresh checks plus the existing privacy scenarios.
+Initial focused run passes 32 tests; final full/browser results follow below.
+
+**#49 final follow-up proof:** focused privacy/control tests pass 32; all frontend
+gates and build pass via `python3 /tmp/durisweb-image-quality.py frontend`, with
+287 tests / 55 files. `node /tmp/durisweb-review-browser49-new.mjs` proves real
+App startup with delayed signed-in restoration produces one initial event,
+manual refresh preserves the nonce, and `/privacy/` renders one controls group
+and the current-page marker. `node /tmp/durisweb-review-browser49.mjs` also passes
+the four retained desktop/phone refusal, withdrawal and visibility scenarios.
+The initial native-fetch unit fixture was corrected to reject on abort as the
+browser does; the corrected pre-fix run still fails both regressions. Logs:
+`pr49-new-{red-valid,focused,quality,browser}.log`, `pr49-{auth,route}-red.log`
+and `pr49-regression-browser.log` in the private review directory. Configuration
+and whitespace guards pass. No backend/native/provider/live test rerun is
+needed or claimed. Future privacy-release wording may include accurate visit
+counts and a single privacy controls group; live news stays unpublished.
+
+**#50 follow-up outcome:** preserve committed removal results even if the final
+pending-count lookup fails: return the known counts/URLs with `remaining: null`
+and a safe diagnostic reference. The client validates that explicit partial
+shape, drops only unavailable previews and keeps retry feedback visible.
+Whole-request batch errors and single-image errors share their service/route/
+response reference. Files: existing image service, forum route, API parser,
+carousel, their tests, API guide and plan. Ablation reuses the current partial
+result instead of adding an error-response parser or a new operation framework.
+Two native/API regressions and two frontend regressions failed before repair;
+13 focused frontend checks now pass, including invalid partial acknowledgements.
+Required two-engine and package verification is in progress; do not claim it
+completed until the result below is recorded.
+
+**#50 final follow-up proof:** `node --import
+./backend/node_modules/tsx/dist/loader.mjs /tmp/durisweb-review-image-suite.mts
+23436 image-only` and the same invocation with `23437` each pass 34 tests /
+two suites, including actual deletion, API response and log-reference checks.
+Owned fixture preflights/fingerprints match and cleanup completed. Both modes of
+`python3 /tmp/durisweb-image-quality.py backend|frontend` pass required gates
+and builds; the full frontend suite passes 300 tests / 57 files. The 13 focused
+frontend cases include mounted carousel feedback and selective preview removal.
+`git diff --check` and config-literal checks pass. Logs: `pr50-new-*` in the
+private review directory. No full backend suite, fresh visual-layout, live
+provider or production test is claimed; the existing rendered warning is reused.
+Future forum-release wording: “Image cleanup keeps confirmed removals out of
+your draft even if checking the remaining images fails, and offers retry.”
+Publish this source, close the two threads, then carry parents through #51–#61
+before #62; preserve #55's independently published UI fix.
+
+## Historical implementation checkpoint
 
 Status: **implementation in progress**. Updated 2026-10-17.
 

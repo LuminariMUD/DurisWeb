@@ -3267,12 +3267,14 @@ router.delete('/images/orphans', requireAuth, async (req: Request, res: Response
 
     return res.json(await clearOrphanImagesForAccount(accountName));
   } catch (error) {
-    logger.warn('post_image_batch_removal_incomplete', { reference: randomUUID() });
+    const reference = error instanceof PostImageDeletionError ? error.reference : randomUUID();
+    logger.warn('post_image_batch_removal_incomplete', { reference });
     return res.status(503).json({
       error:
         error instanceof PostImageDeletionError
           ? error.message
           : 'Image removal is temporarily unavailable',
+      reference,
     });
   }
 });
@@ -3305,10 +3307,11 @@ router.delete(
 
       return res.json({ success: true });
     } catch (error) {
-      logger.warn('post_image_removal_incomplete', { reference: randomUUID() });
+      const reference = error instanceof PostImageDeletionError ? error.reference : randomUUID();
+      logger.warn('post_image_removal_incomplete', { reference });
       if (error instanceof PostImageDeletionError)
-        return res.status(503).json({ error: error.message, reference: error.reference });
-      return res.status(503).json({ error: 'Image removal is temporarily unavailable' });
+        return res.status(503).json({ error: error.message, reference });
+      return res.status(503).json({ error: 'Image removal is temporarily unavailable', reference });
     }
   },
 );
