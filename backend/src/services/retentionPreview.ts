@@ -16,13 +16,23 @@ import {
 } from '../db/schemaPostconditions.js';
 import { loadDataHoldContract } from '../db/dataHoldSchema.js';
 import { readDataHoldSnapshot } from './dataHoldSnapshot.js';
-import { retentionCandidateRules as rules } from './retentionCandidates.js';
+import {
+  retentionCandidateRules as rules,
+  RETENTION_SQL_TIME_ZONE,
+} from './retentionCandidates.js';
 
 const QUERY_TIMEOUT_MS = 5000;
 const MAX_CHECKPOINT_BYTES = 16384;
 const maximumId = 18446744073709551615n;
 const signature = createHash('sha256')
-  .update(JSON.stringify({ format: 2, policy: retentionPreviewPolicy, rules }))
+  .update(
+    JSON.stringify({
+      format: 2,
+      policy: retentionPreviewPolicy,
+      rules,
+      timeZone: RETENTION_SQL_TIME_ZONE,
+    }),
+  )
   .digest('hex');
 
 type PreviewFailure =
@@ -462,6 +472,9 @@ export async function previewRetention(
       multipleStatements: false,
       dateStrings: true,
     });
+    await connection.query({ sql: 'SET SESSION time_zone = ?', timeout: QUERY_TIMEOUT_MS }, [
+      RETENTION_SQL_TIME_ZONE,
+    ]);
     return await scan(connection, options, checkpoint);
   } catch (error) {
     throw error instanceof RetentionPreviewError
