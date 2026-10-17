@@ -6,10 +6,9 @@
 `d43f94c`, #49 follow-up `64d30b7` and #50 follow-up `ab40c42` are pushed;
 all eight corresponding threads are verified resolved. The three later #54
 findings are now fixed in `3e68def` and `89bea79`, pushed and verified resolved.
-**13 known findings remain on #62–#66.** Repairs are carried and pushed through
-#59 again; #60's combined retention/schema integration is qualified.
-Repairs are now pushed through #61 (`6a05af0`); #62 contains parent merge
-`0cbbce8` and is under repair. The restore availability and async cancellation paths
+**10 known findings remain on #63–#66.** #62 repair `3062017` is pushed and all
+three threads are verified resolved. #63 contains the repaired parent and its
+two documentation findings are being closed. The restore availability and async cancellation paths
 remain intact. No review completion, master merge or deployment is claimed.
 The dated inventory below is historical where
 these newer results supersede it; exact follow-up proof precedes the old records.
@@ -335,6 +334,19 @@ checkpoint and expired deadline as current instructions.
   do not replace it with an older snapshot that loses #56–#66 or this review queue.
 
 ## Follow-up review evidence — #48–#50
+
+**#63 documentation repair:** the incident Redis restart procedure and standalone
+maintenance stop procedure now explicitly require the existing legacy-copy gate
+before an operation can tear down the old application's private temporary files.
+The deployment gate now covers the stable upload prefix with the original suffix
+or no suffix. Source verification: `220c991:backend/src/routes/admin.ts` appends
+`path.extname(file.originalname)` and accepts `application/zip`, so `.dump`, `.ZIP`
+and extensionless files were valid inputs. No new runtime behavior or approval
+flow is added. Files: the three existing operator guides and this plan. Verify
+their relative links/anchor, diff and config-literal guard; no application test
+rerun is needed for the text correction. The backend/frontend trees match the
+qualified #62 parent. No visitor changelog entry is needed for operator-doc fixes.
+Publish and resolve these two threads, then continue #64's three findings.
 
 **#62 review repair:** account-dependent backup queries now include the signed-in
 account in their key, disable anonymous reads, consume cancellation signals and
