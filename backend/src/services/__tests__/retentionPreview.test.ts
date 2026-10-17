@@ -227,9 +227,11 @@ describe('bounded read-only proposed retention preview', () => {
       /cursorId|upperId|9007199254740993|private-credential-sentinel/,
     );
     expect(query.mock.calls.map((call) => call[0])).toEqual([
+      { sql: 'SET SESSION time_zone = ?', timeout: 5000 },
       { sql: 'SET TRANSACTION ISOLATION LEVEL REPEATABLE READ', timeout: 5000 },
       { sql: 'START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY', timeout: 5000 },
     ]);
+    expect(query.mock.calls[0][1]).toEqual(['+00:00']);
     expect(
       execute.mock.calls.every((call) =>
         String((call[0] as { sql: string }).sql).startsWith('SELECT'),
