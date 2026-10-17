@@ -67,6 +67,24 @@ function run(
 (process.platform === 'linux' ? describe : describe.skip)(
   'explicit operator preservation command',
   () => {
+    it('keeps the documented package command quiet without an inherited dotenv setting', () => {
+      const environment: NodeJS.ProcessEnv = { ...process.env, BACKUP_DIR: backup };
+      delete environment.DOTENV_CONFIG_QUIET;
+      const copied = spawnSync(
+        'pnpm',
+        [
+          '--dir',
+          fileURLToPath(new URL('../../../', import.meta.url)),
+          '--silent',
+          'backup:preserve-legacy',
+          ...args(),
+        ],
+        { env: environment, encoding: 'utf8', timeout: 15000 },
+      );
+      expect(copied.status).toBe(0);
+      expect(copied.stderr).toBe('');
+      expect(JSON.parse(copied.stdout).copyVerified).toBe(true);
+    });
     it('copies through the actual CLI, rejects duplicate work, then verifies in a fresh process with no application environment or original', () => {
       const copied = run(args());
       expect({ status: copied.status, diagnostic: copied.stderr }).toEqual({

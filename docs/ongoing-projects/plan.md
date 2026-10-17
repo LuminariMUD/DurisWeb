@@ -6,9 +6,9 @@
 `d43f94c`, #49 follow-up `64d30b7` and #50 follow-up `ab40c42` are pushed;
 all eight corresponding threads are verified resolved. The three later #54
 findings are now fixed in `3e68def` and `89bea79`, pushed and verified resolved.
-**Eight known findings remain on #64–#66.** #62 repair `3062017` and #63 repair
-`949537e` are pushed and their five threads verified resolved. #64 contains parent
-merge `a58b8c4` and its three findings are being qualified. The restore availability and async cancellation paths
+**Five known findings remain on #65–#66.** #64 repair `10fe5bc` is pushed and
+all three threads are verified resolved. #65 contains parent merge `e9ba4c4`;
+its three findings are under final qualification. The restore availability and async cancellation paths
 remain intact. No review completion, master merge or deployment is claimed.
 The dated inventory below is historical where
 these newer results supersede it; exact follow-up proof precedes the old records.
@@ -335,6 +335,42 @@ checkpoint and expired deadline as current instructions.
 
 ## Follow-up review evidence — #48–#50
 
+**#65 repair:** filesystem locations are derived from held descriptor mount IDs
+and kernel mount roots, including aliases under a nested filesystem. Copying
+refuses a destination reachable inside either declared source root or above the
+selected source; it repeats that check before acknowledgement. Copy and offline
+verification re-resolve the named bundle/payload and compare their identities to
+the open descriptors immediately before success. Capturing the payload identity
+before final sync also catches observed late in-place changes. The inherited
+255-byte filename rule accepts a real 214-character upload extension; an actual
+copy and subsequent independent verification pass. The preservation package
+command had the same reproduced dotenv-output issue as inventory and now sets
+quiet mode itself, with a package-invocation test that removes inherited quiet.
+
+Before repair, copy/verify each accepted a renamed bundle and the package test
+reported dotenv stderr; a root-isolated native alias fixture also accepted an
+unsafe destination. An initial parser draft rejected unrelated namespace-handle
+mount roots such as `net:[...]`; validation now applies to the opened filesystem's
+records, preserving ordinary operation. Final focused tests pass **41 / four
+suites**, including six namespace/late-write scenarios, real per-file lease
+operations and the existing Python lease suite. The new
+`legacyCopyPreservationMounts.native.ts` fixture, run with the same private
+`unshare --mount --propagation private`/Node loader recipe as #64, passes six
+actual alias cases and an independent copy/verification control. It includes
+spaces in mount paths and a target reachable through a different-device child
+mount. Only its owned home-directory fixture is mounted and cleaned.
+Logs: `pr65-{red,focused,focused-final,quality}.log`; native output is in tool
+evidence. Backend quality gates/build are running. No receipt format, worker
+algorithm, storage service or whole-cohort authorization is added. No frontend,
+SQL/provider or production operation is claimed. Publish once the gates pass,
+resolve #65, then continue #66's database-authority and browser-cancellation fixes.
+
+**#65 final gates:** backend format/lint/types/MUD-write/schema/build and
+configuration/whitespace checks all pass. The 41 focused cases include the
+existing eight-case Python native lease suite; both committed native mount
+fixtures have passed in private namespaces. No runtime source changed after
+these results. Retain ordinary/incomplete bundles for review as documented;
+no visitor news is needed for these operator-tool corrections.
 **#64 repair:** the documented package script sets dotenv quiet mode itself;
 its CLI test invokes that script with no inherited quiet setting. Inventory
 validates mount IDs on opened directory/file descriptors, so same-device binds

@@ -8,6 +8,7 @@ import {
   isLegacyUploadFilename,
   isLegacySqlMemberFilename,
   legacyCopyPhysicalSha256 as physical,
+  legacyMountId,
 } from './legacyBackupInventory.js';
 
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
@@ -93,6 +94,41 @@ function within(root: string, candidate: string) {
     !relative || (relative !== '..' && !relative.startsWith('../') && !path.isAbsolute(relative))
   );
 }
+/** Map the opened directory's filesystem location through every visible bind alias. */
+function mountAliases(fd: number, filename: string): string[] {
+  const id = legacyMountId(fd);
+  const unescape = (value: string) =>
+    value.replace(/\\([0-7]{3})/g, (_match, octal: string) =>
+      String.fromCharCode(Number.parseInt(octal, 8)),
+    );
+  const mounts = fs
+    .readFileSync('/proc/self/mountinfo', 'utf8')
+    .trim()
+    .split('\n')
+    .map((line) => {
+      const fields = line.split(' ');
+      if (fields.length < 6 || !/^[0-9]+:[0-9]+$/.test(fields[2])) fail('destination_unverified');
+      const root = unescape(fields[3]),
+        point = unescape(fields[4]);
+      return { id: fields[0], device: fields[2], root, point };
+    });
+  const mounted = mounts.find((item) => item.id === id);
+  if (
+    !mounted ||
+    !path.isAbsolute(mounted.root) ||
+    !path.isAbsolute(mounted.point) ||
+    !within(mounted.point, filename)
+  )
+    fail('destination_unverified');
+  // Unrelated namespace-handle mounts use roots such as net:[123], not paths.
+  const related = mounts.filter((item) => item.device === mounted.device);
+  if (related.some((item) => !path.isAbsolute(item.root) || !path.isAbsolute(item.point)))
+    fail('destination_unverified');
+  const location = path.resolve(mounted.root, path.relative(mounted.point, filename));
+  return related
+    .filter((item) => within(item.root, location))
+    .map((item) => path.resolve(item.point, path.relative(item.root, location)));
+}
 function canonical(root: string): string {
   if (!path.isAbsolute(root) || /[\0\r\n]/.test(root)) fail('root_unverified');
   const resolved = fs.realpathSync.native(root);
@@ -143,6 +179,36 @@ function requireSameProtectedRoot(target: ReturnType<typeof protectedRoot>) {
     rootIdentity(canonical(target.root), current) !== target.sha256
   )
     fail('destination_unverified');
+}
+function requireNamedCopy(
+  target: ReturnType<typeof protectedRoot>,
+  bundle: number,
+  payload: number,
+  operationId: string,
+  payloadPhysicalSha256: string,
+) {
+  requireSameProtectedRoot(target);
+  const namedBundle = fs.lstatSync(`/proc/self/fd/${target.fd}/legacy-preserve-${operationId}`, {
+    bigint: true,
+  });
+  const openedBundle = fs.fstatSync(bundle, { bigint: true });
+  if (
+    !namedBundle.isDirectory() ||
+    namedBundle.dev !== openedBundle.dev ||
+    namedBundle.ino !== openedBundle.ino ||
+    namedBundle.uid !== target.stat.uid ||
+    (namedBundle.mode & 0o077n) !== 0n
+  )
+    fail('destination_unverified', operationId);
+  const namedPayload = fs.lstatSync(`/proc/self/fd/${bundle}/payload.bin`, { bigint: true });
+  requirePrivate(fs.fstatSync(payload));
+  if (
+    !namedPayload.isFile() ||
+    namedPayload.isSymbolicLink() ||
+    physical(namedPayload) !== payloadPhysicalSha256 ||
+    physical(fs.fstatSync(payload, { bigint: true })) !== payloadPhysicalSha256
+  )
+    fail('destination_unverified', operationId);
 }
 export function legacyPreservationSelection(name: string) {
   if (/^temp_[1-9][0-9]{0,9}\.sql$/.test(name) && Number(name.slice(5, -4)) <= 4294967295)
@@ -350,6 +416,20 @@ export async function preserveLegacyCopy(options: LegacyCopyPreservationOptions)
       (options.uploadRoot && within(canonical(options.uploadRoot), target.root))
     )
       fail('destination_unverified', options.operationId);
+    const sourceRoots = [
+      sourceRoot,
+      canonical(options.backupRoot),
+      ...(options.uploadRoot ? [canonical(options.uploadRoot)] : []),
+    ];
+    const requireSeparateStorage = () => {
+      const targets = mountAliases(target.fd, target.root);
+      if (
+        sourceRoots.some((root) => targets.some((alias) => within(root, alias))) ||
+        mountAliases(sourceRootFd, sourceRoot).some((alias) => within(target.root, alias))
+      )
+        fail('destination_unverified', options.operationId);
+    };
+    requireSeparateStorage();
     let parent = sourceRootFd;
     const parents: Array<{ fd: number; name: string; identity: BigIntStats }> = [];
     for (const part of selected.parts.slice(0, -1)) {
@@ -440,8 +520,9 @@ export async function preserveLegacyCopy(options: LegacyCopyPreservationOptions)
     const payload = fs.fstatSync(destination);
     requirePrivate(payload);
     if (payload.size !== copied.bytes) fail('copy_unconfirmed', options.operationId);
+    const payloadPhysicalSha256 = physical(fs.fstatSync(destination, { bigint: true }));
     fs.fsyncSync(destination);
-    requireSameProtectedRoot(target);
+    requireNamedCopy(target, bundle, destination, options.operationId, payloadPhysicalSha256);
     writeJson(bundle, 'complete.json', {
       format: 1,
       operationId: options.operationId,
@@ -449,13 +530,14 @@ export async function preserveLegacyCopy(options: LegacyCopyPreservationOptions)
       sourcePhysicalSha256: options.sourcePhysicalSha256,
       sourceSize: copied.bytes,
       copySha256: copied.sha256,
-      payloadPhysicalSha256: physical(fs.fstatSync(destination, { bigint: true })),
+      payloadPhysicalSha256,
       completedAtEpoch: Math.floor(Date.now() / 1000),
       fileWriteLeaseVerified: true,
     });
     fs.fsyncSync(bundle);
     fs.fsyncSync(target.fd);
-    requireSameProtectedRoot(target);
+    requireSeparateStorage();
+    requireNamedCopy(target, bundle, destination, options.operationId, payloadPhysicalSha256);
     return result(options.operationId, copied.bytes, selected.kind);
   } catch (error) {
     const problem = new LegacyCopyPreservationError(
@@ -604,7 +686,7 @@ export function verifyPreservedLegacyCopy(options: LegacyCopyVerificationOptions
     fs.fsyncSync(file);
     fs.fsyncSync(bundle);
     fs.fsyncSync(target.fd);
-    requireSameProtectedRoot(target);
+    requireNamedCopy(target, bundle, file, options.operationId, complete.payloadPhysicalSha256);
     return result(options.operationId, stat.size, String(prepared.sourceKind));
   } catch (error) {
     throw new LegacyCopyPreservationError(

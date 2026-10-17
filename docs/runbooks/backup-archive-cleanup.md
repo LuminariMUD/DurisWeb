@@ -124,7 +124,7 @@ the source in place and does not control services, adopt records or authorize
 cleanup. The whole-cohort/namespace preservation gate above still applies.
 
 ```bash
-pnpm --dir backend backup:preserve-legacy copy \
+pnpm --dir backend --silent backup:preserve-legacy copy \
   --backup-root /absolute/canonical/configured/backup-root \
   --source-name temp_123.sql \
   --source-physical-sha256 REVIEWED_INVENTORY_FILE_HASH \
@@ -154,7 +154,12 @@ independent destination-hash verification. See the Linux
 
 The protected root must be canonical, owner-only, outside the selected source
 roots and volatile system paths, on the reviewed local filesystem types used
-by managed storage. Tests qualify ext4 destinations and ext4/tmpfs sources;
+by managed storage. Tests qualify ext4 destinations and ext4/tmpfs sources.
+Descriptor mount IDs and [mountinfo filesystem roots](https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html)
+reject bind aliases that place the destination inside a declared source root,
+or make it an ancestor of the selected source. The check is repeated before
+acknowledgement and includes aliases across nested mounts. Different canonical
+path strings alone do not establish separation.
 XFS/Btrfs are allowlisted but not qualified here. Path/type checks and fsync
 cannot certify independent storage, encryption or recovery; verify those with
 the operator's actual protected-storage design. Treat older bytes as sensitive,
@@ -167,6 +172,9 @@ exclusive 0600 `payload.bin`. The bounded helper copies with a kernel read
 lease, hashes and flushes output, then independently reads it back. Matching
 source/file identities, size, bytes and hashes permit immutable `complete.json`
 and directory sync. Source paths and payloads stay out of ordinary output.
+Before acknowledgement, the named bundle and `payload.bin` must still match
+the opened descriptors and expected payload identity; rename, replacement or
+observed late byte changes retain the operation for review instead of success.
 Byte/time limits refuse work; they never truncate a source. The default worker
 budget is 30 seconds, selectable from 1 to 300,000 milliseconds, with a fresh
 owned-child kill request one second later. Stalled kernel I/O can still delay
@@ -182,7 +190,7 @@ Same-ID copy retries refuse an existing bundle; inspect it with the separate
 recovery mode:
 
 ```bash
-pnpm --dir backend backup:preserve-legacy verify \
+pnpm --dir backend --silent backup:preserve-legacy verify \
   --protected-root /absolute/same/protected-directory \
   --operation-id SAME_UUID_V4
 ```
@@ -195,6 +203,8 @@ work to completed. The compiled entry is
 dependencies and the reviewed software with protected operational evidence.
 Unknown receipt/sync state remains review-required. No new UUID should be used
 to hide an uncertain previous operation.
+Verification also rechecks the named bundle/payload before returning. The package
+script suppresses dotenv startup output; `--silent` suppresses pnpm's banner.
 
 A read lease guards writes to the selected file object during that copy; it is
 not a whole-service fence and does not prevent rename/unlink or namespace

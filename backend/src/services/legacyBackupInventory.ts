@@ -92,6 +92,7 @@ function mountId(fd: number): string {
   if (!value) throw new LegacyBackupInventoryError('root_unverified');
   return value;
 }
+export { mountId as legacyMountId };
 function classify(scope: LegacyRootInventory['scope'], name: string) {
   const dump = scope === 'backup' ? /^temp_([1-9][0-9]{0,9})\.sql$/.exec(name) : null;
   const staging = scope === 'backup' ? /^temp_staging_([1-9][0-9]{0,9})$/.exec(name) : null;

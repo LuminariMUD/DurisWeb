@@ -86,6 +86,45 @@ function bundle(id: string) {
       expect((await preserveLegacyCopy(options)).kind).toBe('upload');
       expect(fs.readFileSync(filename, 'utf8')).toBe('synthetic uninspected upload');
     });
+    it('preserves a filesystem-sized legacy extension beyond 200 characters', async () => {
+      const value = source('backup-upload-1234567890123-1234567890.' + 'x'.repeat(214));
+      const options = { ...value.options, uploadRoot: backupRoot };
+      expect((await preserveLegacyCopy(options)).copyVerified).toBe(true);
+      expect(verifyPreservedLegacyCopy(options).copyVerified).toBe(true);
+    });
+    it.each(['copy', 'verify'] as const)(
+      '%s refuses renamed bundles and substituted payload names before acknowledgement',
+      async (operation) => {
+        for (const change of ['bundle', 'payload', 'bytes'] as const) {
+          const value = source();
+          if (operation === 'verify') await preserveLegacyCopy(value.options);
+          const directory = bundle(value.options.operationId);
+          const payload = path.join(directory, 'payload.bin');
+          const sync = fs.fsyncSync.bind(fs);
+          let changed = false;
+          const sabotage = jest.spyOn(fs, 'fsyncSync').mockImplementation((fd) => {
+            if (!changed && fs.readlinkSync('/proc/self/fd/' + fd) === payload) {
+              changed = true;
+              if (change === 'bundle') fs.renameSync(directory, directory + '.retained');
+              else if (change === 'payload') {
+                fs.renameSync(payload, payload + '.retained');
+                fs.writeFileSync(payload, 'substituted bytes', { mode: 0o600 });
+              } else fs.writeFileSync(payload, 'changed payload bytes');
+            }
+            return sync(fd);
+          });
+          try {
+            if (operation === 'copy')
+              await expect(preserveLegacyCopy(value.options)).rejects.toBeInstanceOf(Error);
+            else expect(() => verifyPreservedLegacyCopy(value.options)).toThrow();
+            expect(changed).toBe(true);
+            expect(fs.existsSync(value.filename)).toBe(true);
+          } finally {
+            sabotage.mockRestore();
+          }
+        }
+      },
+    );
     it('refuses an active writer and keeps the registered incomplete bundle and original', async () => {
       const { filename, options } = source();
       const writing = fs.openSync(filename, 'r+');
