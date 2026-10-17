@@ -2,6 +2,17 @@
 
 ## Current handoff — read this first
 
+
+**#63 final ordering repair:** establish and verify the independent private-directory
+keeper before Worker deployment or any ingress checks. The deployment checklist
+and maintenance guide now use the same sequence: keeper, all-host ingress fence,
+writer closure, inventory/preservation, then authorized service operations.
+Documentation checks: `git diff --check` and `./scripts/check-config-literals.sh`
+pass. Existing isolated systemd keeper rehearsal remains valid; no application
+source, production service or Cloudflare account was changed.
+
+### Historical checkpoints
+
 **Latest continuation — #63 remaining ingress/restart paths:** #64's six
 findings are published/resolved as `5fa2ee8` / `d0fe178`, carried through #65
 `106783b` and #66 `3c10f0e`. The shared mapping integration passes 57 tests/four
