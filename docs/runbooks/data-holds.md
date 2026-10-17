@@ -1,10 +1,11 @@
 # Website data hold records
 
 This API records a request to preserve website data and its eventual release.
-**It currently reports `enforcementReady: false`: existing deletion/cleanup,
-retention and restore paths do not enforce these records yet.** General
-retention and restore integration remain required before P6 or live protection
-can be accepted. Creating a record does not pause the existing image cleanup,
+**It currently reports `enforcementReady: false`: existing feature cleanup and
+restore paths do not enforce these records.** The source-disabled
+[two-class SQL executor](retention-execution.md) consumes them transactionally;
+general retention and restore integration remain required before P6 or live
+protection can be accepted. Creating a record does not pause the existing image cleanup,
 remove data, enable a retention job or approve a policy.
 
 ## Access and private handling
@@ -77,8 +78,12 @@ state; it does not reactivate it. Use a new UUID for a new intent.
 
 `reviewDue` is true only for an active intent at/after its review epoch. Review
 and expiry never delete the record or its original reason/approver. A later
-engine must apply these semantics and recheck holds in its mutation transaction;
-the current API implements no such mutation gate.
+engine must apply these semantics and recheck holds in its mutation transaction.
+The prepared SQL executor does so for its two registered classes, with all source
+approval/enablement flags false. Hold create/release and SQL deletion acquire the
+same short transaction control lock before accessing hold/run records. An
+acknowledged hold orders before a later deletion; a request arriving after a
+deletion owns the lock waits for that transaction and cannot undo completed work.
 
 `POST /api/admin/data-holds/:id/release` accepts exactly
 `{ "reason": "Review completed; reference recorded privately" }`. It preserves
@@ -121,4 +126,8 @@ that source behavior is not proof of verified backup/restore protection. P6
 restore replay, request coordination, deletion/cleanup interception and approved
 periods remain open. The [preview](retention-preview.md) now evaluates these
 records in a read-only snapshot and refuses continuation after active protection
-changes. That observation does not implement or authorize deletion enforcement.
+changes. That observation does not authorize deletion. Gated execution is a
+separate operation with its own durable run identity and current-hold rechecks;
+preview files are never execution authority. Preserve the run/control evidence
+with hold history. Neither source qualification nor an API acknowledgement
+establishes protection for live backups, provider copies or other cleanup paths.

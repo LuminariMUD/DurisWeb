@@ -15,36 +15,24 @@ import {
   type SchemaDatabase,
 } from '../db/schemaPostconditions.js';
 import { loadDataHoldContract } from '../db/dataHoldSchema.js';
-import { readDataHoldSnapshot, DATA_HOLD_MATCH_SQL } from './dataHoldSnapshot.js';
-
-/** Literal targets only: no input can supply a table, column, predicate or SQL fragment. */
-const rules = {
-  analytics_events: {
-    table: 'page_views',
-    highWater: 'SELECT CAST(id AS CHAR) AS cursor_id FROM page_views ORDER BY id DESC LIMIT 1',
-    select: `SELECT CAST(candidate.id AS CHAR) AS cursor_id, UNIX_TIMESTAMP(candidate.created_at) AS epoch,
-      ${DATA_HOLD_MATCH_SQL} AS is_held FROM page_views candidate FORCE INDEX (idx_created_at)
-      WHERE candidate.created_at >= FROM_UNIXTIME(?) AND candidate.created_at < FROM_UNIXTIME(?) AND candidate.id <= ?
-        AND (candidate.created_at > FROM_UNIXTIME(?) OR (candidate.created_at = FROM_UNIXTIME(?) AND candidate.id > ?))
-      ORDER BY candidate.created_at,candidate.id LIMIT ?`,
-  },
-  login_history: {
-    table: 'account_login_history',
-    highWater:
-      'SELECT CAST(id AS CHAR) AS cursor_id FROM account_login_history ORDER BY id DESC LIMIT 1',
-    select: `SELECT CAST(candidate.id AS CHAR) AS cursor_id, UNIX_TIMESTAMP(candidate.timestamp) AS epoch,
-      ${DATA_HOLD_MATCH_SQL} AS is_held FROM account_login_history candidate FORCE INDEX (idx_timestamp)
-      WHERE candidate.timestamp >= FROM_UNIXTIME(?) AND candidate.timestamp < FROM_UNIXTIME(?) AND candidate.id <= ?
-        AND (candidate.timestamp > FROM_UNIXTIME(?) OR (candidate.timestamp = FROM_UNIXTIME(?) AND candidate.id > ?))
-      ORDER BY candidate.timestamp,candidate.id LIMIT ?`,
-  },
-} as const;
+import { readDataHoldSnapshot } from './dataHoldSnapshot.js';
+import {
+  retentionCandidateRules as rules,
+  RETENTION_SQL_TIME_ZONE,
+} from './retentionCandidates.js';
 
 const QUERY_TIMEOUT_MS = 5000;
 const MAX_CHECKPOINT_BYTES = 16384;
 const maximumId = 18446744073709551615n;
 const signature = createHash('sha256')
-  .update(JSON.stringify({ format: 2, policy: retentionPreviewPolicy, rules }))
+  .update(
+    JSON.stringify({
+      format: 2,
+      policy: retentionPreviewPolicy,
+      rules,
+      timeZone: RETENTION_SQL_TIME_ZONE,
+    }),
+  )
   .digest('hex');
 
 type PreviewFailure =
@@ -105,7 +93,7 @@ export interface RetentionPreviewResult {
   mode: 'dry-run';
   operationId: string;
   policyVersion: string;
-  policyApproved: false;
+  policyApproved: boolean;
   executionAvailable: false;
   eligibilityChecks: 'holds_only';
   holdsObservedAtEpoch: number;
@@ -484,6 +472,9 @@ export async function previewRetention(
       multipleStatements: false,
       dateStrings: true,
     });
+    await connection.query({ sql: 'SET SESSION time_zone = ?', timeout: QUERY_TIMEOUT_MS }, [
+      RETENTION_SQL_TIME_ZONE,
+    ]);
     return await scan(connection, options, checkpoint);
   } catch (error) {
     throw error instanceof RetentionPreviewError

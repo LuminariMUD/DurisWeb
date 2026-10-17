@@ -24,6 +24,11 @@ import {
 } from '../services/webAnalyticsService.js';
 
 const router: Router = Router();
+router.use((_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  res.vary('Cookie');
+  next();
+});
 const trackLimiter = rateLimit({
   windowMs: 60000,
   max: 60,

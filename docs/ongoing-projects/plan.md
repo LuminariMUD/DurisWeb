@@ -2,9 +2,59 @@
 
 ## Current review continuation — 2026-10-17
 
-Latest: #49 follow-up `64d30b7` is pushed and all four new threads are verified
-resolved. Fifteen findings remain from the refreshed queue. Active branch #50
-contains that parent repair; its two batch-removal findings are being qualified.
+Latest: #50's two follow-ups are pushed as `ab40c42` and verified resolved;
+parent integration is pushed through #60 (`9050fee`) with its two-engine
+retention proof. See the [complete latest carry-forward handoff](https://github.com/LuminariMUD/DurisWeb/blob/9050fee/docs/ongoing-projects/plan.md).
+A fresh scan found three new #54 findings, for 16 unresolved in total. Current
+branch is #54; first fix restricts analytics-cache work to the selected approved
+class and refuses old/inconsistent saved runs that request cache work outside
+that class. Files: execution service, existing native tests and this plan.
+Then finish rollback/worker serialization and standalone CLI Redis cleanup;
+carry these repairs through the stack before continuing #62–#66. No policy is
+enabled and no production operation is authorized.
+
+**#54 publication / rollback continuation:** class/CLI fixes are pushed as
+`3e68def`; both review threads are replied to and verified resolved. Fourteen
+findings remain from the last scan. The remaining rollback race reproduces:
+a worker starting immediately before DROP was allowed to finish after the
+empty-ledger check. The repair locks the existing control row, refuses history
+or active/unknown control state, and commits a worker-rejected rollback fence
+before DDL. It removes that fence only after confirming the ledger is absent;
+an interrupted rollback resumes through the same guarded down path. No applied
+migration file, schema definition, dependency or new worker lock is changed.
+The focused native race now passes. Final two-engine tests also exercise a
+failure after the fence commits but before DROP, plus the existing lost-DDL-
+acknowledgement recovery. Required backend checks are running; record their
+actual results before publication. Files: schema helper, native tests, runbook
+and plan. This does not authorize any shared migration or live deletion.
+
+**#54 rollback final proof:** the existing isolated execution runner with
+`23436 execution-only` and `23437 execution-only` each passes 26 tests / two
+suites, including both new race/interruption cases and real guarded migrations
+with lost DDL acknowledgements. Backend format/lint/types/MUD-write/schema/build
+checks pass via `/tmp/durisweb-image-quality.py backend`; whitespace/config
+guards pass. Logs: `pr54-rollback-{red,focused,mysql,maria,quality}.log`.
+The applied migration and immutable schema contract are untouched. No frontend,
+full-backend or production rerun is claimed. Next publish/resolve this final
+#54 thread, carry all three repairs forward, and resume #62's three findings.
+
+**#54 class/CLI repair proof:** four native regressions failed before repair:
+login-only approval erased analytics cache, an inconsistent saved cache task was
+accepted, and successful/failed CLI cleanup left the real Redis connection ready.
+Execution now initializes cache work only for selected analytics, rechecks its
+approval immediately before cleanup, and rejects out-of-class pending cache
+state. The CLI closes the cache client it used in `finally`; module import alone
+does not open Redis, and application-only execution retains shared-client use.
+`node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-review-execution-suite.mts 23436 execution-only` and the same with
+`23437` each pass 24 tests / two suites. Native CLI tests verify return codes and
+the actual Redis connection's `end` status before fixture reconnection.
+The focused approval/cache suites pass eight tests; backend quality gates,
+MUD-write/schema checks and build pass. Logs: `pr54-class-cli-{red,unit,mysql,
+maria,quality}.log` in the private review directory. No frontend/runtime-provider
+or production check is claimed. Publish these two findings separately; the
+rollback race remains open and is the next action. No visitor news is needed
+for this disabled operator path; the runbook records class and connection rules.
 
 The active work is oldest-first PR review repair. The complete project/branch
 inventory, unfinished P0–P8 scope and recovery priorities are preserved in the
@@ -95,13 +145,18 @@ and published as [PR #50](https://github.com/LuminariMUD/DurisWeb/pull/50) on
 `branch/post-image-deletion-recovery`, stacked on #49. P6a's bounded read-only CLI and private
 continuation are qualified and published as
 [PR #51](https://github.com/LuminariMUD/DurisWeb/pull/51), stacked on #50.
-Active continuation `branch/privacy-data-hold-records` has qualified hold intent
+Completed continuation `branch/privacy-data-hold-records` has qualified hold intent
 storage/API, published as [PR #52](https://github.com/LuminariMUD/DurisWeb/pull/52),
-stacked on #51. Active P6c1 branch `branch/retention-hold-aware-preview` is
+stacked on #51. P6c1 branch `branch/retention-hold-aware-preview` is
 qualified for held/unheld preview and protected continuation, published as
 [PR #53](https://github.com/LuminariMUD/DurisWeb/pull/53), stacked on #52.
-Next: P6 mutation-time hold enforcement/
-restore and P7 engineering, plus unresolved policy/provider decisions. P5's approved
+P6c2 branch `branch/retention-sql-enforcement` prepares source-disabled
+two-class SQL execution, atomic durable progress, expiring worker ownership,
+transaction-time hold rechecks and legacy analytics-cache removal. Focused tests
+pass on both database families; full backend and regression evidence is recorded
+below. Published for review as [PR #54](https://github.com/LuminariMUD/DurisWeb/pull/54),
+stacked on #53. Next: remaining P6 cleanup/copy/restore
+and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
 
@@ -1714,6 +1769,150 @@ outside this request. Keep this single evolving execution plan current.
   consume it. P0/P5 policy/provider/period and P8 live gates remain open. Continue
   independent engineering; ask only for a necessary consequential decision.
 
+- **Current P6c2: gated SQL retention**, branch
+  `branch/retention-sql-enforcement`, starts at #53 `8c23534`.
+  **Outcome:** explicit-target/version/run-ID execution for the two reviewed
+  SQL classes, gated by immutable source approval/enablement and per-class
+  approval; durable UTC/high-water/cursor/count evidence, expiring worker
+  ownership and transaction-time hold/eligibility rechecks. Hold writes share
+  the same short transaction control lock, so acknowledged protection orders
+  before deletion. Historical analytics reads stop using Redis caches, and a
+  bounded restartable cleanup confirms old `web_analytics:*` copies removed
+  before execution reports completion. Default preview remains read-only.
+  **Non-goals:** approving any period, scheduler/live mutation, other store
+  handlers, physical backups/restore replay, MUD/provider operations or P7.
+  Source approval and execution remain false. **Files:** one run ledger with
+  guarded migration/contract, a reserved existing settings control row, shared
+  selectors, execution/CLI/cache cleanup and hold transaction integration,
+  focused unit/native/HTTP evidence, permanent docs and this plan.
+  **Proof:** both database engines plus isolated Redis, holds acquired after
+  preview and concurrent hold ordering, exact cutoff/offset/restart/lease/unknown
+  acknowledgement/rollback cases, safe counts and errors, cache failure/retry
+  without stale repopulation, excluded/protected stores and required backend
+  checks, then a focused stacked PR.
+- **P6c2 ablation:** remove the optional eight-function analytics read cache
+  rather than add generations, Redis fencing scripts or a second cache path.
+  Old keys still require explicit bounded cleanup and durable pending state;
+  TTL alone is not acceptance. Add one run table for transactional progress and
+  use a reserved `web_settings` singleton for worker lease/control ordering;
+  no separate worker/control table, queue, adapter framework or new config is
+  needed. One current selector implementation serves preview and execution.
+  Keep all unapproved/unknown classes, pending journal/request evidence and
+  protected archives out of mutation. Restricted hold history remains retained.
+- **P6c2 final source:** `pnpm --dir backend retention` defaults to read-only
+  preview. Separate `execute` requires exact configured SQL **and Redis**
+  targets, policy version, lowercase UUID v4 run identity and bounded class/
+  batch/candidate/time inputs. The immutable shipped policy has global approval,
+  enablement and both class approvals false, with no approval reference; it
+  refuses before configuration/database/Redis I/O. There is no runtime override,
+  scheduler or HTTP executor. Synthetic approval is confined to Jest fixtures;
+  the real child CLI still refuses. Both classes use the existing age indexes
+  and a shared literal allowlist; all other classes are excluded.
+- **P6c2 durability and ordering:** one new `web_retention_runs` table records
+  UTC cutoff/high-water/cursor, safe action counts, cumulative work duration and
+  pending cache traversal atomically with each SQL batch. A reserved
+  `retention-control-v1:state` settings row holds a 30-second expiring owner/run
+  lease and orders hold create/release before later deletion. Dedicated
+  READ COMMITTED transactions lock control, revalidate current holds and the
+  actual DELETE predicate, and checkpoint only acknowledged affected rows.
+  Expired workers cannot overwrite a successor. Unknown COMMIT acknowledgement
+  remains retryable by the same run ID. Trigger/incoming-FK/schema drift refuses
+  mutation; FK/strict/autocommit checks remain enabled. Normal preflight is
+  ledger-strict; only exact adjacent migration DDL shapes recover lost acks.
+  Down refuses any run history or non-default/leased/invalid control state.
+- **P6c2 copy handling:** all eight analytics getters now read SQL directly,
+  and both administrative router mounts are no-store before authentication.
+  Bounded SCAN/DEL of only `web_analytics:*` is required before completion;
+  failures remain durably pending, with a server-identity-bound cursor that
+  restarts after Redis restart. Partial pages restart safely. Explicit target
+  binding includes the configured cache endpoint/database/username/transport;
+  a changed target cannot silently certify a different copy. All older cache
+  writers must be stopped/drained before any future enabled execution. No
+  other cache namespace, provider/CDN/browser/log/backup copy is certified.
+- **P6c2 exact verification:**
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-execution-suite.mts 23436` provisions its own full-owner/
+  baseline/92-migration database and empty-start owned Redis DB 13, runs actual
+  migration/session/configuration/dependency probes, then
+  `pnpm --dir backend test --runInBand`: **1,265 tests / 129 suites pass**,
+  with **40 native cases skipped** (14 image, 10 privacy, seven hold, nine
+  preview). Fresh hold/preview regressions below cover their skipped cases;
+  image/privacy retain the earlier qualified evidence, not a fresh rerun.
+  `/tmp/durisweb-run-execution-suite.mts 23436 execution-only` and the same
+  command with `23437` each pass **15 tests / two suites**. Both use real
+  MySQL 8.0.46 / MariaDB 11.8.9 and Redis 23479, isolated DBs 13/14. Their
+  runner refuses a nonempty cache before claiming ownership and cleans only
+  its own confirmed fixture. All dependencies/owner hashes pass again after
+  the tests; no actual MUD row/file/process or provider was changed.
+- **P6c2 regression commands:**
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-hold-suite.mts 23436 holds-only` and the same with `23437`
+  each pass **15 tests / two suites**, including actual signed-session,
+  Overlord/CSRF, hold storage/ordering and migration recovery. The corresponding
+  `/tmp/durisweb-run-retention-suite.mts 23436 retention-only` and the same
+  with `23437` each pass **21 tests / two suites**. No frontend source changed;
+  no fresh frontend/browser,
+  live data acceptance, provider or physical backup/restore test is claimed.
+- **P6c2 gates/evidence:** `python3 /tmp/durisweb-image-quality.py backend`
+  executes backend `format:check`, `lint`, `type-check`, `verify:mud-writes`
+  (53 classified writes), `schema:check` and `build`; all pass. Frozen lockfile
+  dependencies are reused. `./scripts/check-config-literals.sh`,
+  `python3 /tmp/durisweb-check-privacy-doc.py` (exact immutable 77-table coverage,
+  unique rows, local references and protected date) and `git diff --check`
+  pass. Configuration/dependency preflight, actual forward migration and
+  session write probes also pass inside each private fixture runner. Evidence:
+  `/tmp/durisweb-execution-{mysql,maria}.log`,
+  `/tmp/durisweb-execution-full-mysql.log`,
+  `/tmp/durisweb-execution-{hold,preview}-regression-{mysql,maria}.log` and
+  `/tmp/durisweb-execution-gates.log`. Keep these private runners/logs and the
+  contract derivation script outside Git for reproduction.
+- **P6c2 findings resolved:** require the explicit cache identity as well as
+  SQL target; bind SCAN continuation to Redis server identity; preserve legacy
+  cache keys containing raw interval control characters through safe Redis
+  arguments; retain pending state on unconfirmed cleanup; accept an unchanged
+  saved checkpoint only after exact read-back. Synthetic test setup was fixed
+  for accidental nested cases and actual engine-specific control-lock wait
+  observation, and paused workers are drained before fixture teardown. Final
+  two-engine suites and the full backend pass with all runtime guards enabled.
+- **P6c2 release news draft:** after a separately authorized and verified live
+  release, reconcile [news-update](../../.agents/skills/news-update/SKILL.md)
+  and publish: “Historical analytics now refresh directly from the database.”
+  Do not announce active retention or complete erasure. No live changelog entry
+  was written; this is prepared source awaiting review and release.
+- **P6c2 remaining scope:** all periods, destructive approval and deployment
+  remain unapproved. Full P6/P7 is open: existing feature cleanup and other
+  per-class handlers, pending subject-request fences, physical/provider copies,
+  the ledgers' own periods, protected backup/restore-removal replay and verified
+  export/erasure. The hold API deliberately retains global
+  `enforcementReady: false`. No merge, tag, release, shared migration or live
+  operation occurred. Continue independent engineering; no owner question is
+  currently necessary.
+- **Published P6c2:** [PR #54](https://github.com/LuminariMUD/DurisWeb/pull/54),
+  open/non-draft, code head `7ea3636bf6186af8d9ff6492baf681a598c5bf42`, base
+  `branch/retention-hold-aware-preview` (#53 `8c23534`). Remote master remains
+  `89468603a61ab44d9e3be1651c9dd6fce5a17a12` and is already an ancestor;
+  #53's latest backend/frontend CI checks pass. Preserve the published stack;
+  no history rewrite, merge or release tag is needed. Initial #54 read-back
+  confirms OPEN/non-draft/MERGEABLE, matching local/remote/API code heads,
+  ahead/behind `0 0` and a clean worktree. Hosted checks were queued/running;
+  local proof above is complete. This documentation closeout is pushed as a
+  normal follow-up commit and final head/cleanliness is reverified afterward.
+- **Next-session entry after P6c2:** fetch and read #54 plus the current stack
+  state before branching from its final published head. Continue in the
+  isolated `/tmp/durisweb-security-privacy-plan-20261016` checkout; preserve
+  original checkout changes, recovery stash `bbda289` and private fixture
+  evidence. Apply ablation before the next implementation. Inspect the actual
+  backup/restore and feature-cleanup consumers for P6d, then prepare the
+  smallest source change that prevents unprotected exposure and preserves
+  durable removal/hold evidence. Do not claim current SQL cleanup prevents
+  restore resurrection. Keep required restore replay, additional eligible
+  class handlers, own-ledger periods and P7 verified requests/export/erasure
+  explicit; do not reduce the project to these two classes. Source flags stay
+  false pending policy/period and operational approval. No actual backup
+  deletion/restore, shared migration, production/MUD/provider operation or
+  global logout is authorized. Continue independently; ask the owner only for
+  a consequential decision that engineering cannot resolve.
+
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
 [design](../DESIGN.md). Preserve existing safety gates and the MUD's schema and
@@ -2177,6 +2376,13 @@ no optional storage or provider transfer on either frontend or backend path.
 
 ## P6 — Retention enforcement and restore handling (#11)
 
+Source progress: P6a/P6b/P6c1 are published; P6c2's gated two-class executor
+prepares the CLI, ownership/checkpoints and transaction-time hold rechecks below.
+All execution/approval flags remain false. These phase-wide checkboxes remain
+open because other classes, request coordination, copy/restore handling and
+approved/live acceptance are still required; see the execution record for exact
+completed coverage and the next branch.
+
 - [ ] Convert P0's approved registry into explicit allowlisted per-class
   handlers. No generic `DELETE` over every table with `created_at`, no dynamic
   ownership inference, and no MUD ledger/game evidence/protected archive purge.
@@ -2375,18 +2581,20 @@ change merely to imply implementation coverage.
 - #13: P1 safe logging of every GeoIP failure path and unchanged lookup behavior.
 - #14: P2 versioned bootstrap, existing-ledger upgrade, schema/MUD proof/recovery.
 
-## Planning-publication verification
+## Original planning-publication verification
 
-This task's checks are documentation-only: inspect the current issues and
+The initial planning-only publication used documentation checks: inspect the current issues and
 source contracts, validate this plan's relative links and issue/stage coverage,
 check whitespace and the one-file diff, then verify the committed remote blob,
 exact branch head, ahead/behind `0 0`, clean worktree, and issue links after push.
-No application, database, browser, migration, provider, build, or production
-acceptance test is claimed by this plan. The runtime checks above are future
-implementation work and were not run for this documentation-only publication.
+That original publication claimed no application, database, browser, migration,
+provider, build or production acceptance. Subsequent implementation and its
+actual runtime checks are recorded in the execution record above; remaining
+phase checkboxes distinguish unfinished acceptance from qualified source.
 
-No Website Changelog entry is needed for this commit: it changes only the
-implementation plan and makes no reader-visible website change.
+No Website Changelog entry was needed for that original documentation-only
+commit. Later implementation entries record release-news drafts and the
+requirement to publish them only after an authorized verified live release.
 
 ## PR review repair — 2026-10-17 current objective
 
@@ -2409,7 +2617,7 @@ Other PRs without findings still need inherited fixes carried forward.
 | #48 | 3: stale GET cookie clearing, actionable safe diagnostics, native fixture port binding | Fixed; 39 native cases pass on each database engine |
 | #49 | 3: pending refusal, temporary visibility changes, compact confirmation/focus | Fixed; 30 focused, 285 full frontend tests and rendered checks pass |
 | #50 | 2: safe forum failure context, shared pool starvation during R2 deletion | Fixed; 32 image/API cases per engine and both package gates pass |
-| #54 | 1: DST-ambiguous retention cutoff comparisons | Pending |
+| #54 | 1: DST-ambiguous retention cutoff comparisons | Fixed; execution 20 and preview 26 cases pass on each engine |
 | #55 | 1: unavailable restore controls still offered by the UI | Pending |
 | #62 | 3: account-bound backup cache, cancellation file identity, failed-upload bulk cleanup | Pending |
 | #63 | 2: incident/maintenance preservation prerequisites, all legacy upload suffixes | Pending |
@@ -2567,3 +2775,50 @@ Evidence: `pr50-{red,unit,mysql,maria,backend-quality,frontend-quality,
 port-before,port-after}.log`. Future forum-release wording can mention that
 slow image removal does not occupy the website query pool; no live operation
 or Website Changelog publication is performed in this review task.
+
+**#50 publication/carry-forward:** `06dd143` is pushed and both review threads
+have evidence replies and verified resolved state. Nine initial findings are
+closed. Parent repairs were carried through #51 (`af51c06`), #52 (`2d68945`)
+and #53 (`e56f8ee`), all pushed; their relevant runtime file blobs match the
+qualified parent repairs. #54 now includes them via local merge `0ff746b`.
+Its sole merge conflict was documentation: retain #54's corrected historical
+publication wording and append the complete current review ledger.
+
+**#54 outcome:** pin only dedicated retention preview/execution sessions to UTC
+before indexed timestamp queries. Keep row locks, epoch validation, indexes and
+application/global session settings intact. Include the timezone contract in
+rule signatures so earlier checkpoints/runs cannot silently resume with changed
+semantics. Files: candidate contract, preview/executor, their focused tests and
+operator/plan docs. MySQL reproduced a second-fold run reporting complete after
+deleting only one of two eligible rows in each class. Existing row locks prevented
+the first attempted concurrent-edit fixture; that invalid test was replaced
+with real repeated-hour/keyset cases rather than weakening the locks. Both
+occurrences, exclusive cutoff boundaries, one-row traversal, read-only snapshots
+and rejection of old signatures are covered. Native guard checks also bind the
+configured database port to their opt-in. No rule period, source approval flag,
+migration or production action changes.
+
+**#54 proof:** `node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-review-execution-suite.mts 23436 execution-only` and the same
+with `23437` each pass 20 cases / two suites. The corresponding
+`/tmp/durisweb-review-retention-suite.mts <port> retention-only` passes 26 cases /
+two suites on each engine. This covers both named-zone fall-back occurrences,
+strict cutoff boundaries, one-row traversal/continuation, old-signature refusal,
+holds, restart/ownership and actual read-only CLI behavior. The pure preview
+query contract explicitly permits only the fixed UTC session setter before its
+read-only transaction; its 12 cases also pass separately. Initial MariaDB preview
+qualification found that existing exact statement expectation needed this
+deliberate addition, after which the full command passed. Fixture state, owner
+fingerprints and configuration/dependency probes remain valid on both engines.
+The private runners target this pre-metadata-v2 PR's actual schema contract;
+later #58/#60 install requirements are not silently removed from newer source.
+
+Both native fixture guards reject mismatched database ports with zero tests
+executed (`TEST_RETENTION_DB_PORT` or `TEST_RETENTION_EXECUTION_DB_PORT` set to
+23436 with `DB_PORT=23437` and the corresponding private target names/cache).
+`python3 /tmp/durisweb-image-quality.py backend`, configuration literal and
+whitespace checks pass. Frontend source is identical to qualified #53/#50 and
+its evidence is reused; no additional broad backend/frontend/browser/provider
+or live-retention acceptance is claimed. Evidence: `pr54-*` logs. No visitor
+changelog entry is needed for a source-disabled operator retention correction;
+the runbooks now explain UTC sessions and preserving incompatible old evidence.

@@ -5,6 +5,7 @@ import { loadSessionSchemaContract } from '../db/webSessionSchema.js';
 import { loadHookAuditContract } from '../db/hookAuditSchema.js';
 import { loadPostImageRemovalContract } from '../db/postImageRemovalSchema.js';
 import { loadDataHoldContract } from '../db/dataHoldSchema.js';
+import { loadRetentionRunContract } from '../db/retentionRunSchema.js';
 import {
   loadWebBaselineBundle,
   verifyWebBaselineSources,
@@ -18,6 +19,7 @@ export function checkWebBaseline(): void {
   loadHookAuditContract();
   loadPostImageRemovalContract();
   loadDataHoldContract();
+  loadRetentionRunContract();
   verifyWebBaselineSources(bundle, path.resolve(webBaselineDirectory(), '../../migrations'));
   console.log(
     `Website baseline ${bundle.manifest.id}: ${bundle.tables.length} web tables, ${bundle.manifest.historicalMigrations.length} covered migration sources; artifacts verified. No database was inspected or changed.`,

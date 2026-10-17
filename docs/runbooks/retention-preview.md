@@ -51,12 +51,18 @@ the default selects both, in that order. Unknown or duplicate flags/classes,
 missing target/version, stale versions and invalid limits fail closed. `--help`
 prints usage without connecting.
 
-Each dedicated connection verifies the selected tables' exact source-owned
+Each dedicated connection sets its own session timezone to UTC before querying,
+then verifies the selected tables' exact source-owned
 metadata, sets the next transaction to repeatable read and starts a consistent,
 read-only snapshot. The database supplies one epoch for the run. Proposed
 cutoffs use that epoch minus the proposed age; a timestamp exactly at the cutoff
 is retained. Null/zero timestamps are excluded. The existing time indexes and
 primary-key ordering support keyset pages; no OFFSET or unbounded COUNT is used.
+UTC makes repeated daylight-saving hours unambiguous without wrapping indexed
+timestamp columns in functions. No application-pool or global timezone changes.
+The rule signature includes this UTC contract: checkpoints from the earlier
+implicit-timezone implementation require a fresh preview. Retain their evidence;
+do not rewrite an old signature to force continuation.
 Candidate queries return only IDs, epochs and a hold flag, never account/IP/
 content/URL columns. Account holds match the candidate's account inside SQL with
 the reviewed database collation, including case/accent aliases; a null account
@@ -140,8 +146,15 @@ restricted operational evidence pending that decision.
 
 ## Remaining retention work
 
-Approved policies, protected holds and request coordination, a mutation engine
-with durable ownership/checkpoints and eligibility rechecks, FK-safe disposal,
-caches/objects/logs/provider handling, and protected backup/restore replay remain
+The canonical `pnpm --dir backend retention` also defaults to this preview.
+Its separate [gated SQL execution](retention-execution.md) prepares durable
+ownership/progress, current-hold/eligibility rechecks and retired analytics-cache
+cleanup for these two classes. Approval/enablement and both class approvals
+remain false; preview files cannot authorize execution. The shared selector
+signature has changed, so older version-2 checkpoints may also require a fresh
+preview (`checkpoint_rules_changed`); retain old evidence privately.
+
+Approved policies, other protected classes and request coordination,
+objects/logs/provider handling, and protected backup/restore replay remain
 separate required work in [P6/P7](../ongoing-projects/plan.md#p6--retention-enforcement-and-restore-handling-11).
 This command installs no scheduler and grants no permission to delete data.

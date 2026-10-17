@@ -415,3 +415,31 @@ acknowledgement. Normal serving preflight still requires the correct ledger and
 shape. Unknown drift is refused. Down drops only an empty table; any history,
 including expired/released/invalid rows, refuses rollback. Preserve those rows
 through an authorized compatible forward repair instead of clearing evidence.
+
+## Gated retention run ledger
+
+`20261017005000_web_retention_runs.ts` adds `web_retention_runs`, the second
+extension outside the immutable baseline (79 application tables after both
+extensions). An operation UUID binds policy/rule/SQL-and-cache target identities,
+captured database epoch and bounded private JSON progress. SQL deletion and
+cursor/action checkpoints commit together. The reserved `retention-control-v1:`
+settings namespace contains only the worker lease/control state, excluded from
+generic settings. Hold writes acquire that same control lock before hold rows.
+See the [execution runbook](../../docs/runbooks/retention-execution.md).
+
+All policy/class approvals and execution enablement remain false. No runtime
+override or scheduler is installed. Before a future approved cutover, stop/drain
+all old website writers and rehearse the exact forward path on a protected clone;
+the new analytics readers retire the old Redis cache writers. Schema validation
+and trigger/incoming-FK refusal remain strict on both database families.
+
+Migration-only recovery accepts the exact adjacent before/after shape after a
+lost DDL acknowledgement; normal preflight still requires the ledger. Down
+refuses any run history or non-default/leased/invalid control state. It locks
+the canonical empty control row and commits a rollback fence that workers reject
+across the table drop. Only that fence may be resumed after interruption; it is
+removed after verifying the table is absent. Rerun the targeted down migration,
+never clear the fence by hand. Retain
+progress and hold history through compatible forward recovery; never clear the
+ledger to make rollback pass. Its own retention period is unapproved, and these
+records do not establish protected backup/restore replay.
