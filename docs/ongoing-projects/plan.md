@@ -6,9 +6,10 @@
 `d43f94c`, #49 follow-up `64d30b7` and #50 follow-up `ab40c42` are pushed;
 all eight corresponding threads are verified resolved. **13 findings remain
 from the refreshed 21-finding queue**, on #62–#66. No new scan is implied.
-Repairs are carried through #54 and are being integrated into #55. Its
-restore UI gate is preserved. Next: push the parent integration, carry #56–#61,
-then repair #62's three findings. The dated inventory below is historical where
+Repairs are carried and pushed through #56. #57's integration is qualified and
+ready to push; the restore UI gate and async/error/cancellation handling are
+both preserved. Next: push #57, carry #58–#61, then repair #62's three findings.
+The dated inventory below is historical where
 these newer results supersede it; exact follow-up proof precedes the old records.
 
 Verified **2026-10-17 11:53 UTC** against fetched Git branches, GitHub PR heads, issues,
@@ -332,6 +333,18 @@ checkpoint and expired deadline as current instructions.
   do not replace it with an older snapshot that loses #56–#66 or this review queue.
 
 ## Follow-up review evidence — #48–#50
+
+**Carry-forward through #57:** parent merges #51 `47c61d2`, #52 `2c0421c`,
+#53 `9096ace`, #54 `ade5bf2`, #55 `d1d8b9a`, #56 `536fa43` are pushed.
+The inherited image/privacy runtime matches its qualified parent. #57 merge
+`a0b9899` resolves the backup-view conflict by retaining its async acknowledgement,
+error and cancellation handling together with every #55 restore availability
+control. `python3 /tmp/durisweb-image-quality.py frontend` passes all gates/build
+and 313 tests / 58 files; `node /tmp/durisweb-review-availability55.mjs` passes
+stored/uploaded inspection and disabled modes at 1440/390 widths on the combined
+build. Logs: `pr57-integration-{quality,browser}.log`. Backend changes are inherited
+unchanged, with no new backend runtime or production claim. Plan-only conflicts
+retain the cumulative handoff plus the newer review evidence.
 
 Latest: #49 follow-up `64d30b7` is pushed and all four new threads are verified
 resolved. Fifteen findings remain from the refreshed queue. Active branch #50
