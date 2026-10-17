@@ -16,10 +16,12 @@ report_matches() {
   fi
 }
 
+# The child-process timezone fixture reads its disposable-target opt-in before application imports.
 backend_environment_reads=$(rg -n 'process\.env(\.|\[)' backend/src backend/knexfile.ts \
   --glob '*.ts' \
   --glob '!backend/src/config/environment.ts' \
   --glob '!backend/src/test/setupEnvironment.ts' \
+  --glob '!backend/src/test/sessionTimezoneProbe.ts' \
   --glob '!**/__tests__/**' || true)
 report_matches 'Direct backend environment reads must use src/config/environment.ts:' \
   "${backend_environment_reads}"

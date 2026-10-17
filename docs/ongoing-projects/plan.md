@@ -723,6 +723,21 @@ outside this request. Keep this single evolving execution plan current.
   is claimed. Next: the recorded standalone raw-settings UTC correction, then
   notice/analytics choice and the remaining privacy lifecycle work.
 
+- **Configuration guard follow-up:** `branch/session-probe-config-guard` starts
+  at #43 `b0d8e0a`. **Outcome:** distinguish the existing protected child-process
+  session fixture from production configuration readers. **Non-goals:** relaxing
+  runtime configuration ownership or exempting the whole test-helper directory.
+  **Files:** literal-check script and this plan. **Proof:** the check previously
+  failed on `src/test/sessionTimezoneProbe.ts`; exclude only that exact fixture,
+  then prove a temporary production-source environment read still fails. The
+  fixture refuses execution before imports unless explicitly opted into a
+  disposable loopback target. No runtime/session behavior or dependency changes.
+  `bash -n scripts/check-config-literals.sh`, the real guard and
+  `git diff --check` pass. `/tmp/durisweb-verify-config-guard.py` confirms the
+  guard rejects a temporary production-source read, then removes that sentinel.
+  No runtime/build/database test or Website Changelog entry is needed for this
+  source-tool classification correction. Leave it review-ready without a tag.
+
 - **Current follow-up:** `branch/settings-utc-provenance` starts at #42
   `4b28587`. **Outcome:** generic raw-settings timestamps represent the stored
   instant as UTC, including a truthful unknown/null value. **Non-goals:** schema
