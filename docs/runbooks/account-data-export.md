@@ -77,9 +77,13 @@ authorization are outside that category budget; it is not a hard end-to-end
 deadline. The browser aborts after 20 seconds using a local AbortController,
 caller abort listener and timer through response-body reading. It does not
 require AbortSignal.any/timeout, and removes the listener/timer on success or
-failure. A failed/unknown query discards the SQL connection, its read transaction
-and result. Errors never echo raw SQL,
-credentials or source payloads. Retries start a new fresh verification and
+failure. An internal timeout shows a stable retry message; caller cancellation
+keeps its cancellation behavior even when it coincides with the timer. A
+failed/unknown query discards the SQL connection, its read transaction and result.
+Unexpected export failures log only an allowlisted driver category (or
+`unclassified`) and a generated reference. The 503 body returns that same
+reference for private diagnosis. Errors never echo raw SQL, credentials or
+source payloads. Retries start a new fresh verification and
 snapshot; no mutation is performed and there is no reusable download URL.
 
 The server creates no export file, public object, queue or durable request row.

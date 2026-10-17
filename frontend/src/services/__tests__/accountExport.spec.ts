@@ -76,11 +76,39 @@ describe('private account export request', () => {
     const rejected = pending.catch((error: unknown) => error)
     await Promise.resolve()
     await vi.advanceTimersByTimeAsync(20000)
-    expect(await rejected).toMatchObject({ name: 'AbortError' })
+    expect(await rejected).toMatchObject({
+      message: 'The download took too long. Please try again.',
+    })
     expect(caller.signal.aborted).toBe(false)
     expect(remove).toHaveBeenCalledWith('abort', expect.any(Function))
     expect(vi.getTimerCount()).toBe(0)
   })
+  it.each([false, true])(
+    'distinguishes a request timeout from concurrent caller cancellation (%s)',
+    async (callerCancels) => {
+      vi.useFakeTimers()
+      const caller = new AbortController()
+      fetchMock.mockImplementation(
+        (_url, options) =>
+          new Promise((_resolve, reject) => {
+            options?.signal?.addEventListener('abort', () => {
+              if (callerCancels) caller.abort()
+              reject(new DOMException('Browser-dependent abort wording', 'AbortError'))
+            })
+          }),
+      )
+      const failed = requestAccountExport('secret', 'Alice', caller.signal).catch(
+        (error: unknown) => error,
+      )
+      await vi.advanceTimersByTimeAsync(20000)
+      expect(await failed).toMatchObject(
+        callerCancels
+          ? { name: 'AbortError' }
+          : { message: 'The download took too long. Please try again.' },
+      )
+      expect(vi.getTimerCount()).toBe(0)
+    },
+  )
   it.each([false, true])('cleans up after a completed request (failure=%s)', async (fail) => {
     vi.useFakeTimers()
     const caller = new AbortController()

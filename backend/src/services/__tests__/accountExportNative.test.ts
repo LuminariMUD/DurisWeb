@@ -290,10 +290,22 @@ native('private account data export through the real route and database', () => 
     expect(response.headers['content-disposition']).toBeUndefined();
     expect(response.text).not.toContain('OWN-DATA');
   });
-  it('does not expose raw database errors or response payloads', async () => {
-    jest.spyOn(pool, 'getConnection').mockRejectedValue(new Error(forbidden));
+  it('links unexpected failures to safe diagnostics without exposing raw database errors or payloads', async () => {
+    const logger = (await import('../../utils/logger.js')).default;
+    const diagnostic = jest.spyOn(logger, 'error').mockImplementation(() => logger);
+    jest
+      .spyOn(pool, 'getConnection')
+      .mockRejectedValue(
+        Object.assign(new Error(forbidden), { code: 'ER_NO_SUCH_TABLE', sql: forbidden }),
+      );
     const response = await download();
     expect(response.status).toBe(503);
+    expect(response.body.reference).toMatch(/^[a-f0-9]{8}-[a-f0-9-]{27}$/);
+    expect(diagnostic.mock.calls).toContainEqual([
+      'account_export_unconfirmed',
+      { code: 'ER_NO_SUCH_TABLE', reference: response.body.reference },
+    ]);
+    expect(JSON.stringify(diagnostic.mock.calls)).not.toContain(forbidden);
     expect(response.text).not.toContain(forbidden);
     expect(response.headers['content-disposition']).toBeUndefined();
   });

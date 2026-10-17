@@ -14,7 +14,11 @@ export async function requestAccountExport(
   const cancel = () => controller.abort()
   signal.addEventListener('abort', cancel, { once: true })
   if (signal.aborted) cancel()
-  const timeout = setTimeout(cancel, 20000)
+  let timedOut = false
+  const timeout = setTimeout(() => {
+    timedOut = true
+    cancel()
+  }, 20000)
   try {
     const response = await fetch(`${frontendConfiguration.apiUrl}/api/privacy/export`, {
       method: 'POST',
@@ -67,6 +71,10 @@ export async function requestAccountExport(
     )
       throw new Error('The download does not match your signed-in account.')
     return blob
+  } catch (error) {
+    if (timedOut && !signal.aborted)
+      throw new Error('The download took too long. Please try again.')
+    throw error
   } finally {
     clearTimeout(timeout)
     signal.removeEventListener('abort', cancel)

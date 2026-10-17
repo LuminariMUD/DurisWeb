@@ -2,6 +2,40 @@
 
 ## Current handoff — read this first
 
+**Latest continuation — #66 export failure handling ready:** current branch
+`branch/account-data-export` starts at `c05ed95`, carrying #65's published payload
+fence `c6302a0` / `93eba7a`. The ledger has 56 verified closeouts; five known
+findings remain before a new scan (#62 one, #66 four).
+
+Unexpected export failures now emit a safe allowlisted driver code and generated
+reference, returning the same reference in the 503 response without SQL, password,
+bindings or payload. The frontend distinguishes its own 20-second deadline from
+caller cancellation and shows a stable retry message through body-read timeouts.
+Caller cancellation still takes precedence when both happen. Existing browser
+compatibility and timer/listener cleanup remain.
+
+One native logging/reference regression and two timeout regressions failed before
+repair. Final native export suites pass **16 tests on each engine**; focused
+client/component tests pass **23**, and the full frontend passes **347 / 60
+files**. Both package gates/builds pass. A typed Winston mock assertion was changed
+to an equivalent calls-array assertion after the native runs; final type checking
+passes. No new browser/provider/production acceptance is claimed. Logs:
+`pr66-diagnostics-red.log`, `pr66-timeout-{red,green}.log`,
+`pr66-errors-{mysql,maria,frontend-quality,backend-quality-final}.log`.
+The existing isolated export runner and package-quality commands were used;
+all native fixture resources were released.
+
+Publish and resolve `PRRT_kwDOVA2-8c6tglEp` (unexpected diagnostics) and
+`PRRT_kwDOVA2-8c6tglEr` (timeout wording). Then complete #66's real separate-
+database authority path and reversible forum-reaction owner index, followed by
+#62's still-open conditional removal guarantee. Do not treat this error-handling
+chunk as either of those remaining repairs.
+
+Draft release note: “Data downloads now show a clear retry message when they time
+out.” Publish only with a separately verified release.
+
+### Earlier published repairs and inventory
+
 **Latest continuation — #65 payload acknowledgement fence published:** current
 branch `branch/legacy-copy-preservation` starts at `4e5679e`; the latest #63 docs
 closures are `c87c7ad` / `95fbd64` and are carried through #64 `208c0c6`,
