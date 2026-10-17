@@ -5,8 +5,10 @@ by `mud_backups`. Manual deletion, failed-backup cleanup, and existing count
 pruning use it. Any active validated hold conservatively preserves an archive:
 the ZIP is indivisible and its subject/class contents are not inferred from
 names. This approves no new period, retention execution, deployment or live
-operation. Global `enforcementReady` remains false. Uploads, SQL dumps/staging
+operation. Global `enforcementReady` remains false. Uploads, legacy SQL/staging
 workspaces, other feature cleanup and restore replay remain separate work.
+New creation streams directly into its managed ZIP, so it creates no extra raw
+SQL/staging file to remove. Failed ZIPs retain the same protected identity.
 
 ## Admission and completion
 

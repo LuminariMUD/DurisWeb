@@ -189,6 +189,7 @@ process.send({format:1,type:'ready',worker:await captureArchiveWorker(process.pi
       });
     });
     afterEach(async () => {
+      backup?.setProgressBroadcaster(null);
       const pending = children.splice(0);
       for (const entry of pending) {
         if (entry.child.connected) entry.child.disconnect();
@@ -434,6 +435,12 @@ process.send({format:1,type:'ready',worker:await captureArchiveWorker(process.pi
       expect((await backup.getBackupById(fresh.id))?.status).toBe('completed');
       expect(await count('mud_backups')).toBe(7);
       expect(fs.existsSync(path.join(directory, fresh.filename))).toBe(true);
+      expect(fs.statSync(path.join(directory, fresh.filename)).mode & 0o777).toBe(0o600);
+      expect(
+        fs
+          .readdirSync(directory)
+          .some((name) => name.endsWith('.sql') || name.startsWith('temp_staging_')),
+      ).toBe(false);
       expect(errors.mock.calls).toContainEqual([
         '[Backup] Earlier archive cleanup stopped',
         expect.objectContaining({ reason: 'archive_held' }),
@@ -458,19 +465,19 @@ process.send({format:1,type:'ready',worker:await captureArchiveWorker(process.pi
       const cleanup = new Promise<void>((resolve) => {
         finished = resolve;
       });
-      const unlink = fs.promises.unlink.bind(fs.promises);
-      jest.spyOn(fs.promises, 'unlink').mockImplementation(async (file) => {
-        try {
-          return await unlink(file);
-        } finally {
-          if (String(file).endsWith(`temp_${backupId}.sql`)) finished();
-        }
+      backup.setProgressBroadcaster((event) => {
+        if (event.id === backupId && event.status === 'failed') finished();
       });
       const fresh = await backup.createBackup('SyntheticOperator', 'unused');
       backupId = fresh.id;
       await cleanup;
       expect((await backup.getBackupById(fresh.id))?.status).toBe('failed');
       expect(fs.existsSync(path.join(directory, fresh.filename))).toBe(true);
+      expect(
+        fs
+          .readdirSync(directory)
+          .some((name) => name.endsWith('.sql') || name.startsWith('temp_staging_')),
+      ).toBe(false);
       await expect(backup.deleteBackup(fresh.id)).rejects.toMatchObject({ reason: 'archive_held' });
       await holds.releaseDataHold('SyntheticOperator', kept.id, {
         reason: 'Synthetic partial review finished',

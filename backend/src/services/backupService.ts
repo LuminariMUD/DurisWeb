@@ -1,7 +1,5 @@
 import { mudPool, pool } from '../db/connection.js';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import unzipper from 'unzipper';
 import fs from 'fs';
 import path from 'path';
@@ -13,13 +11,11 @@ import {
   resolveSafeUploadedBackupPath,
 } from '../utils/safeBackupPath.js';
 import { getBackendConfiguration } from '../config/environment.js';
-import { writeDatabaseBackupDump } from './databaseBackupDump.js';
+import { writeDatabaseBackupArchive, BackupCreationError } from './databaseBackupArchive.js';
 import { DatabaseRestoreUnavailableError } from '../utils/databaseRestoreGuard.js';
 import { BackupDeletionError } from '../utils/backupDeletionError.js';
 import { randomUUID } from 'node:crypto';
 import { removeManagedArchive } from './managedArchiveRemoval.js';
-
-const execAsync = promisify(exec);
 
 const environment = getBackendConfiguration();
 const MUD_BASE = environment.mud.directory;
@@ -401,35 +397,46 @@ export async function createBackup(
   ipAddress: string,
   backupType: 'manual' | 'hourly' = 'manual',
 ): Promise<{ id: number; filename: string }> {
-  // Generate filename with timestamp
-  const now = new Date();
-  const timestamp = now
-    .toISOString()
-    .replace(/T/, '-')
-    .replace(/:/g, '')
-    .replace(/\..+/, '')
-    .slice(0, 17);
-  const prefix = backupType === 'hourly' ? 'duris-hourly' : 'duris-mud';
-  const filename = `${prefix}-${timestamp}-${randomUUID()}.zip`;
+  try {
+    // Generate filename with timestamp
+    const now = new Date();
+    const timestamp = now
+      .toISOString()
+      .replace(/T/, '-')
+      .replace(/:/g, '')
+      .replace(/\..+/, '')
+      .slice(0, 17);
+    const prefix = backupType === 'hourly' ? 'duris-hourly' : 'duris-mud';
+    const filename = `${prefix}-${timestamp}-${randomUUID()}.zip`;
 
-  // Ensure backup directory exists
-  await fs.promises.mkdir(BACKUP_DIR, { recursive: true });
+    // Ensure backup directory exists
+    await fs.promises.mkdir(BACKUP_DIR, { recursive: true });
 
-  // Insert pending backup record
-  const [result] = await pool.execute<ResultSetHeader>(
-    `INSERT INTO mud_backups (filename, backup_type, status, progress, current_step, created_by, ip_address, started_at)
+    // Insert pending backup record
+    const [result] = await pool.execute<ResultSetHeader>(
+      `INSERT INTO mud_backups (filename, backup_type, status, progress, current_step, created_by, ip_address, started_at)
      VALUES (?, ?, 'pending', 0, 'Initializing...', ?, ?, NOW())`,
-    [filename, backupType, accountName, ipAddress],
-  );
+      [filename, backupType, accountName, ipAddress],
+    );
 
-  const backupId = result.insertId;
+    const backupId = result.insertId;
+    if (!Number.isSafeInteger(backupId) || backupId <= 0 || backupId > 4294967295)
+      throw new BackupCreationError();
 
-  // Start the backup process asynchronously
-  runBackup(backupId, filename, backupType).catch((error) => {
-    logger.error(`Backup ${backupId} failed:`, error);
-  });
+    // Start the backup process asynchronously
+    runBackup(backupId, filename, backupType).catch((error) => {
+      const failure = error instanceof BackupCreationError ? error : new BackupCreationError();
+      logger.error(`Backup ${backupId} recovery state is unconfirmed`, {
+        reason: 'creation_state_unconfirmed',
+        reference: failure.reference,
+      });
+    });
 
-  return { id: backupId, filename };
+    return { id: backupId, filename };
+  } catch {
+    // Driver bindings may contain actor/IP values; never let them reach route diagnostics.
+    throw new BackupCreationError('registration_unconfirmed');
+  }
 }
 
 /**
@@ -441,7 +448,6 @@ async function runBackup(
   backupType: 'manual' | 'hourly' = 'manual',
 ): Promise<void> {
   const zipPath = path.join(BACKUP_DIR, filename);
-  const tempSqlPath = path.join(BACKUP_DIR, `temp_${backupId}.sql`);
 
   try {
     // Update status to in_progress
@@ -476,9 +482,17 @@ async function runBackup(
        WHERE TABLE_SCHEMA = ? AND (TABLE_TYPE = 'VIEW' OR TABLE_NAME = 'web_sessions')`,
       [dbName],
     );
-    await writeDatabaseBackupDump(
+    await updateBackupStatus(backupId, 'in_progress', 45, 'Streaming database into archive...');
+    broadcastProgress({
+      id: backupId,
+      progress: 45,
+      currentStep: 'Streaming database into archive...',
+      status: 'in_progress',
+      filename,
+    });
+    await writeDatabaseBackupArchive(
       environment.mudDatabase.connection,
-      tempSqlPath,
+      zipPath,
       viewRows
         .filter(({ TABLE_TYPE }) => TABLE_TYPE === 'VIEW')
         .map(({ TABLE_NAME }) => String(TABLE_NAME)),
@@ -488,26 +502,14 @@ async function runBackup(
       ),
     );
 
-    await updateBackupStatus(backupId, 'in_progress', 40, 'Database dump complete');
+    await updateBackupStatus(backupId, 'in_progress', 95, 'Finalizing...');
     broadcastProgress({
       id: backupId,
-      progress: 40,
-      currentStep: 'Database dump complete',
+      progress: 95,
+      currentStep: 'Finalizing...',
       status: 'in_progress',
       filename,
     });
-
-    // Step 2: Create zip archive (40-100%)
-    await updateBackupStatus(backupId, 'in_progress', 45, 'Creating zip archive...');
-    broadcastProgress({
-      id: backupId,
-      progress: 45,
-      currentStep: 'Creating zip archive...',
-      status: 'in_progress',
-      filename,
-    });
-
-    await createZipArchive(backupId, filename, zipPath, tempSqlPath);
 
     // Get final file size
     const stats = await fs.promises.stat(zipPath);
@@ -527,9 +529,6 @@ async function runBackup(
       filename,
     });
 
-    // Cleanup temp SQL file
-    await fs.promises.unlink(tempSqlPath).catch(() => {});
-
     // Cleanup old backups
     try {
       await cleanupOldBackups(backupType);
@@ -548,13 +547,21 @@ async function runBackup(
       `Backup ${backupId} completed successfully: ${filename} (${formatBytes(fileSize)})`,
     );
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(`Backup ${backupId} failed:`, errorMessage);
+    const failure = error instanceof BackupCreationError ? error : new BackupCreationError();
+    const errorMessage = failure.message;
+    logger.error(`Backup ${backupId} failed`, {
+      reason: failure.reason,
+      reference: failure.reference,
+    });
 
-    await pool.execute(
-      `UPDATE mud_backups SET status = 'failed', error_message = ?, completed_at = NOW() WHERE id = ?`,
-      [errorMessage, backupId],
-    );
+    try {
+      await pool.execute(
+        `UPDATE mud_backups SET status = 'failed', error_message = ?, completed_at = NOW() WHERE id = ?`,
+        [errorMessage, backupId],
+      );
+    } catch {
+      throw failure;
+    }
     broadcastProgress({
       id: backupId,
       progress: 0,
@@ -563,60 +570,7 @@ async function runBackup(
       filename,
     });
 
-    // Retain partial ZIP identity; its removal must use the same hold-aware managed path.
-    await fs.promises.unlink(tempSqlPath).catch(() => {});
-  }
-}
-
-/**
- * Create the zip archive with database dump and MUD folders
- * Uses system zip command instead of archiver library for reliability
- */
-async function createZipArchive(
-  backupId: number,
-  filename: string,
-  zipPath: string,
-  sqlPath: string,
-): Promise<void> {
-  const tempDir = path.join(BACKUP_DIR, `temp_staging_${backupId}`);
-
-  try {
-    // create temp staging directory with database subfolder
-    const dbDir = path.join(tempDir, 'database');
-    await fs.promises.mkdir(dbDir, { recursive: true });
-
-    // copy sql file to staging
-    const dbName = environment.mudDatabase.connection.database;
-    await fs.promises.copyFile(sqlPath, path.join(dbDir, `${dbName}.sql`));
-
-    await updateBackupStatus(backupId, 'in_progress', 50, 'Zipping database...');
-    broadcastProgress({
-      id: backupId,
-      progress: 50,
-      currentStep: 'Zipping database...',
-      status: 'in_progress',
-      filename,
-    });
-
-    // build zip command - database folder only (player data lives in db now)
-    const zipParts: string[] = [];
-    zipParts.push(`cd "${tempDir}" && zip -r "${zipPath}" database`);
-
-    for (const cmd of zipParts) {
-      await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 });
-    }
-
-    await updateBackupStatus(backupId, 'in_progress', 95, 'Finalizing...');
-    broadcastProgress({
-      id: backupId,
-      progress: 95,
-      currentStep: 'Finalizing...',
-      status: 'in_progress',
-      filename,
-    });
-  } finally {
-    // cleanup temp staging directory
-    await fs.promises.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    // The archive writer is closed; retain any partial ZIP for managed hold-aware removal.
   }
 }
 

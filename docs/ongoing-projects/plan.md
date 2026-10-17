@@ -76,6 +76,96 @@ outside this request. Keep this single evolving execution plan current.
 
 ## Execution record and continuation
 
+- **P6d2b2a, stream new archives (2026-10-17, in progress):** branch
+  `branch/stream-backup-archives` starts at #60 `220c991`. Inspection finds a
+  raw SQL file and a second staging-directory SQL copy for every new backup,
+  each removed outside hold admission, plus shell-based ZIP invocation.
+  Outcome: stream the session-free dump directly into one private managed ZIP;
+  close/reap writers before reporting the archive complete or failed, preserve
+  failed ZIPs for the existing hold-aware removal path, and use safe traceable
+  creation failures. Preserve actual SQL/ZIP compatibility and positive start
+  acknowledgement. Non-goals: pretending uploaded archives or pre-existing
+  legacy temporary copies are protected/erased, approving periods, enabling
+  restore/global enforcement, deployment or MUD/provider operations. Files:
+  existing producer/dump module, focused/native tests and operator/plan docs.
+  Proof: real MySQL/MariaDB session-free ZIP/restore, process/stream failure and
+  private-mode/no-temporary-copy cases, real producer/hold retries, affected
+  backend gates/full suite and a focused PR on #60.
+- **P6d2b2a ablation:** eliminate future SQL/staging files instead of building
+  removal journals for unnecessary new copies. Reuse the installed Archiver 8
+  named ZIP implementation already used by the builder; no new dependency,
+  settings or migration. Retain database rows through the existing managed
+  archive boundary. Legacy files need separately verified discovery/adoption/
+  fencing; uploads still need a durable ledger instead of OS temporary storage
+  and Multer's implicit cleanup. Keep those full P6d2b2/P7 requirements open.
+- **P6d2b2a qualified result (2026-10-17):** one exclusive mode-0600 ZIP now
+  contains `database/database.sql`, streamed through the installed Archiver 8
+  implementation. Both passes keep the existing session-row exclusion contract;
+  credentials remain in the dump child's environment, never shell/password
+  arguments. No new raw SQL/staging files or shell ZIP command remain. Completion
+  waits for child close, ZIP/output completion, file flush/close and directory
+  sync. Failure closes output/reaps the fresh owned child and retains the ZIP
+  for existing hold-aware removal; no PID from durable state is signalled.
+  Existing count-pruning ordering and completed-new/held-old behavior remain.
+  Registration, dump startup/exit, archive I/O/stream/sync and unconfirmed status
+  errors use static categories and UUID references; actor/IP bindings, paths,
+  stderr and credentials do not enter API or ordinary diagnostics.
+  The obsolete raw-dump file API and staging/zip implementation were removed,
+  including tests' stale source-slice contract. Its configured-MUD-database,
+  no-restore-executor and session-empty acceptance requirements remain intact.
+- **P6d2b2a exact proof:** `pnpm --dir backend test --runInBand
+  src/routes/__tests__/adminAccountPermissionIdValidation.test.ts
+  src/services/__tests__/databaseBackupArchive.test.ts
+  src/services/__tests__/backupDeletionRecovery.test.ts
+  src/services/__tests__/productionReviewRegression.test.ts` passes **43 / 4**.
+  Real owned child processes exercise both passes, no-session sources, nonzero
+  dump exits, startup failure, exclusive-open preservation, withheld completion,
+  mid-stream output failure and no extra SQL/staging files. Error assertions
+  inspect only synthetic selected values, never print an inherited environment.
+  `TEST_BACKUP_DB_PORTS=23436,23437 node --import
+  ./backend/node_modules/tsx/dist/loader.mjs /tmp/durisweb-run-archive-suite.mts
+  23436` expands to full `pnpm --dir backend test --runInBand` on the explicitly
+  owned full owner/baseline/92-migration/v2 fixture: **1,313 pass / 136 suites**,
+  **53 native skips / 4 entire suites** (14 image, 10 privacy, 8 hold, 9 preview,
+  12 SQL execution). The separate optional metadata/schema-native matrices were
+  not selected; their source is unchanged and #60's results are retained. Both
+  real database clients create ZIPs using a quote/dollar-containing synthetic
+  password, inspect the actual entry, and restore ordinary rows with empty
+  `web_sessions`; no raw SQL disk file is used by that round trip.
+  `/tmp/durisweb-run-archive-suite.mts 23437 archive-only` under the same Node
+  loader passes **35 / 4** on MariaDB; MySQL's corresponding matrix runs in the
+  full suite. The actual producer proves mode 0600/no extra workspace, completed
+  new archives despite held pruning, and a failed retained archive protected
+  until hold release. The prior partial-ZIP test now observes actual failed
+  progress rather than waiting for the removed SQL unlink. Owner fingerprints
+  remain the MySQL/MariaDB hashes recorded under #60; pre/post configuration/
+  dependency probes pass and only owned fixtures are removed.
+  `python3 /tmp/durisweb-image-quality.py backend` passes `pnpm --dir backend
+  format:check`, `lint`, `type-check`, `verify:mud-writes` (**53**), `schema:check`
+  (**77 / 85 historical**) and `build`. Config literals, exact privacy inventory/
+  local references and `git diff HEAD --check` pass. Evidence:
+  `/tmp/durisweb-stream-archive-{focused-final,full-final,maria-final,gates-final}.log`.
+  Initial failures were a typed mock overload and stale source-slice expectation;
+  these were corrected without weakening configured-source/restore boundaries.
+  A second Biome pass normalized a chained response; final formatting is clean.
+  Frontend/browser, full baseline/session replay, other native lifecycle/provider/
+  physical-device or live acceptance were not repeated for this producer change.
+  No dependency, migration, approval/collection flag, production operation,
+  merge or release tag is introduced. Release-news draft: “New database backups
+  are created without extra temporary SQL copies. Unconfirmed creation keeps
+  recovery work visible for staff investigation.” Publish only with authorized
+  verified release news; no live entry is written for this source PR.
+- **P6d2b2a continuation:** publish this focused producer change on #60, then
+  implement durable uploaded-archive ownership/admission and truthful validation,
+  cancellation and rejection cleanup. Multer currently owns OS-temp paths and
+  implicit limit/error removal; success for an invalid cancellation path and
+  raw upload/parser diagnostics must be repaired in that store boundary. Include
+  bounded inspection, unknown writer/restart outcomes and actor authorization.
+  Existing `temp_<id>.sql`/`temp_staging_<id>` artifacts still require verified
+  legacy discovery/adoption/fencing rather than age-based deletion. Preserve
+  independent current evidence/offline replay, all remaining P6/P7 handlers and
+  own-ledger periods. Global enforcement remains unavailable; this removes
+  unnecessary new copies, not those remaining requirements.
 - **Schema/session metadata authority (2026-10-17, qualified/published as #60):** both
   `webBaseline.verifyNoWebTriggers` and `migrateWebSessionSchema` accept an empty
   ordinary catalog query without establishing visibility. Outcome: prove absence

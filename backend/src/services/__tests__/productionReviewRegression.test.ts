@@ -118,16 +118,15 @@ describe('production review regression contracts', () => {
     const service = read('backend/src/services/backupService.ts');
     const backup = service.slice(
       service.indexOf('async function runBackup'),
-      service.indexOf('/**\n * Create the zip'),
-    );
-    const archive = service.slice(
-      service.indexOf('async function createZipArchive'),
       service.indexOf('/**\n * Update backup status'),
     );
+    const archive = read('backend/src/services/databaseBackupArchive.ts');
 
     expect(backup).toContain('environment.mudDatabase.connection');
     expect(backup).toContain('mudPool.execute');
-    expect(archive).toContain('environment.mudDatabase.connection.database');
+    expect(backup).toContain('writeDatabaseBackupArchive(');
+    expect(archive).toContain('const database = configuration.database');
+    expect(archive).toContain("name: 'database/database.sql'");
     expect(service).not.toContain('executeRestorePipeline');
     expect(service).not.toContain('runRestoreInternal');
     expect(service).not.toContain('INSERT INTO mud_restores');
