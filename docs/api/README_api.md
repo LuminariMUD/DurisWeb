@@ -269,10 +269,13 @@ is prepared for reviewed policy/client integration; it is not a live feature cla
   other tabs' old grants. An already completed write/transfer cannot be recalled
   by browser cancellation. There are no optional provider transfers in this path.
 
-The client state machine, accessible notice/preferences and cross-tab/browser
-acceptance remain separate implementation work. Owner policy approval and P6
-retention/hold handling remain release gates; do not enable the prepared collector
-just because isolated tests exercise a synthetic approved policy.
+The prepared browser state machine validates this contract and confirms the
+actual receipt cookie with a read-back before creating a memory-only visit nonce.
+Cross-tab actions are serialized; refusal/withdrawal, unreadable/expired/obsolete
+state and account transitions stop optional work. Its local safety setting never
+authorizes collection by itself. The public notice is explicitly draft. Owner
+policy approval and P6 retention/hold handling remain release gates; do not enable
+the prepared collector because isolated tests exercise a synthetic approved policy.
 
 ## Hook Control API
 

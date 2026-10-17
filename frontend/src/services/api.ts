@@ -75,14 +75,20 @@ const api = axios.create({
   withCredentials: true, // Enable cookies for auth
 })
 
+/** Read the existing necessary CSRF cookie without creating another identifier. */
+export function getCsrfToken(): string | undefined {
+  return document.cookie
+    .split(';')
+    .map((value) => value.trim())
+    .find((value) => value.startsWith('csrf_token='))
+    ?.slice('csrf_token='.length)
+}
+
 // Request interceptor to include CSRF token
 api.interceptors.request.use(
   (config) => {
     // Extract CSRF token from cookie
-    const csrfToken = document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('csrf_token='))
-      ?.split('=')[1]
+    const csrfToken = getCsrfToken()
 
     // Add CSRF token header for state-changing requests
     if (
