@@ -30,6 +30,7 @@ export function useBackups() {
   const {
     data: backupData,
     isLoading,
+    isFetching,
     error,
     refetch,
   } = useQuery({
@@ -49,8 +50,8 @@ export function useBackups() {
       return result
     },
     onSettled: () => {
-      // Invalidate and refetch backup list
-      queryClient.invalidateQueries({ queryKey: ['backups'] })
+      // An uncertain start may already be running; reconcile before allowing a retry.
+      return queryClient.invalidateQueries({ queryKey: ['backups'] })
     },
   })
 
@@ -239,6 +240,7 @@ export function useBackups() {
   return {
     backups,
     isLoading,
+    isFetching,
     error,
     refetch,
     hasInProgressBackup,
