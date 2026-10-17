@@ -333,9 +333,59 @@ checkpoint and expired deadline as current instructions.
 
 ## Follow-up review evidence — #48–#50
 
-Latest: #49 follow-up `64d30b7` is pushed and all four new threads are verified
-resolved. Fifteen findings remain from the refreshed queue. Active branch #50
-contains that parent repair; its two batch-removal findings are being qualified.
+Latest: #50's two follow-ups are pushed as `ab40c42` and verified resolved;
+parent integration is pushed through #60 (`9050fee`) with its two-engine
+retention proof. See the [complete latest carry-forward handoff](https://github.com/LuminariMUD/DurisWeb/blob/9050fee/docs/ongoing-projects/plan.md).
+A fresh scan found three new #54 findings, for 16 unresolved in total. Current
+branch is #54; first fix restricts analytics-cache work to the selected approved
+class and refuses old/inconsistent saved runs that request cache work outside
+that class. Files: execution service, existing native tests and this plan.
+Then finish rollback/worker serialization and standalone CLI Redis cleanup;
+carry these repairs through the stack before continuing #62–#66. No policy is
+enabled and no production operation is authorized.
+
+**#54 publication / rollback continuation:** class/CLI fixes are pushed as
+`3e68def`; both review threads are replied to and verified resolved. Fourteen
+findings remain from the last scan. The remaining rollback race reproduces:
+a worker starting immediately before DROP was allowed to finish after the
+empty-ledger check. The repair locks the existing control row, refuses history
+or active/unknown control state, and commits a worker-rejected rollback fence
+before DDL. It removes that fence only after confirming the ledger is absent;
+an interrupted rollback resumes through the same guarded down path. No applied
+migration file, schema definition, dependency or new worker lock is changed.
+The focused native race now passes. Final two-engine tests also exercise a
+failure after the fence commits but before DROP, plus the existing lost-DDL-
+acknowledgement recovery. Required backend checks are running; record their
+actual results before publication. Files: schema helper, native tests, runbook
+and plan. This does not authorize any shared migration or live deletion.
+
+**#54 rollback final proof:** the existing isolated execution runner with
+`23436 execution-only` and `23437 execution-only` each passes 26 tests / two
+suites, including both new race/interruption cases and real guarded migrations
+with lost DDL acknowledgements. Backend format/lint/types/MUD-write/schema/build
+checks pass via `/tmp/durisweb-image-quality.py backend`; whitespace/config
+guards pass. Logs: `pr54-rollback-{red,focused,mysql,maria,quality}.log`.
+The applied migration and immutable schema contract are untouched. No frontend,
+full-backend or production rerun is claimed. Next publish/resolve this final
+#54 thread, carry all three repairs forward, and resume #62's three findings.
+
+**#54 class/CLI repair proof:** four native regressions failed before repair:
+login-only approval erased analytics cache, an inconsistent saved cache task was
+accepted, and successful/failed CLI cleanup left the real Redis connection ready.
+Execution now initializes cache work only for selected analytics, rechecks its
+approval immediately before cleanup, and rejects out-of-class pending cache
+state. The CLI closes the cache client it used in `finally`; module import alone
+does not open Redis, and application-only execution retains shared-client use.
+`node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-review-execution-suite.mts 23436 execution-only` and the same with
+`23437` each pass 24 tests / two suites. Native CLI tests verify return codes and
+the actual Redis connection's `end` status before fixture reconnection.
+The focused approval/cache suites pass eight tests; backend quality gates,
+MUD-write/schema checks and build pass. Logs: `pr54-class-cli-{red,unit,mysql,
+maria,quality}.log` in the private review directory. No frontend/runtime-provider
+or production check is claimed. Publish these two findings separately; the
+rollback race remains open and is the next action. No visitor news is needed
+for this disabled operator path; the runbook records class and connection rules.
 
 The active work is oldest-first PR review repair. The complete project/branch
 inventory, unfinished P0–P8 scope and recovery priorities are preserved in the
