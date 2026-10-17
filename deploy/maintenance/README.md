@@ -97,7 +97,10 @@ reason in the Worker settings and deploy that variable change. Confirm the
 public notice and status endpoint before beginning inventory or preservation,
 so new website requests are gated while that work proceeds.
 
-Then complete the [legacy temporary-copy preservation gate](../../docs/deployment.md#legacy-temporary-copy-preservation-gate)
+Then establish the independent private-directory keeper required by the
+[legacy temporary-copy preservation gate](../../docs/deployment.md#legacy-temporary-copy-preservation-gate)
+before inventory: a watchdog pause does not prevent the application's automatic
+restart from cleaning up its private temporary files. Complete that gate
 before stopping any website service or restarting a dependency that stops it.
 The Worker does not prove existing requests, background jobs or other writers
 have stopped; verify their closure/fencing separately as the gate requires.
