@@ -3,6 +3,7 @@
  */
 
 import { Router, type Request, type Response, type IRouter } from 'express';
+import crypto from 'node:crypto';
 
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import logger from '../utils/logger.js';
@@ -11,8 +12,14 @@ import { isHookId } from '../hooks/registry.js';
 import { getMudReportReceivedAt } from '../hooks/mudHookStateClient.js';
 import { getMudTransportStatus } from '../services/mudTransportStatus.js';
 import { reconcileHook } from '../services/hookReconcileService.js';
+import { getHookAuditHealth, processHookAuditJournal } from '../hooks/hookToggleJournal.js';
 
 const router: IRouter = Router();
+function reportFailure(
+  reason: 'status_failed' | 'toggle_failed' | 'reconcile_failed' | 'audit_health_unavailable',
+): void {
+  logger.error('[hooks] Control operation failed', { reason, reference: crypto.randomUUID() });
+}
 
 function serialize(row: Awaited<ReturnType<typeof getHookStatuses>>[number]) {
   return {
@@ -22,6 +29,7 @@ function serialize(row: Awaited<ReturnType<typeof getHookStatuses>>[number]) {
     alwaysOn: row.hook.alwaysOn,
     description: row.hook.description,
     webEnabled: row.webEnabled,
+    change: row.change ?? null,
     mudState: row.mudState,
     provenance: {
       web: row.webProvenance,
@@ -62,10 +70,36 @@ router.get(
         transport,
         refreshedAt: new Date().toISOString(),
       });
-    } catch (error) {
-      logger.error('[hooks] Failed to read hook statuses', error);
+    } catch {
+      reportFailure('status_failed');
       return res.status(500).json({ error: 'Failed to read hook statuses' });
     }
+  },
+);
+
+/** Safe aggregates only; journal payloads are never a settings/debug response. */
+router.get(
+  '/audit',
+  requireAuth,
+  requirePermission('manage_mud_properties'),
+  async (_req: Request, res: Response) => {
+    try {
+      return res.json(await getHookAuditHealth());
+    } catch {
+      reportFailure('audit_health_unavailable');
+      return res.status(503).json({ error: 'Audit health is unavailable' });
+    }
+  },
+);
+router.post(
+  '/audit/retry',
+  requireAuth,
+  requirePermission('manage_mud_properties'),
+  async (req: Request, res: Response) => {
+    const size: unknown = (req.body as Record<string, unknown>)?.batchSize ?? 25;
+    if (typeof size !== 'number' || !Number.isInteger(size) || size < 1 || size > 100)
+      return res.status(400).json({ error: 'Batch size must be an integer from 1 to 100' });
+    return res.json(await processHookAuditJournal({ batchSize: size, force: true }));
   },
 );
 
@@ -97,14 +131,21 @@ router.patch(
     }
 
     try {
-      const status = await setHookEnabled(id, enabled, actor);
+      const status = await setHookEnabled(id, enabled, actor, req.get('Idempotency-Key'));
       return res.json({ hook: serialize(status) });
     } catch (error) {
       if (error instanceof HookToggleError) {
-        const code = error.code === 'unknown_hook' ? 404 : 409;
+        const code =
+          error.code === 'unknown_hook'
+            ? 404
+            : error.code === 'invalid_request'
+              ? 400
+              : error.code === 'storage_unavailable'
+                ? 503
+                : 409;
         return res.status(code).json({ error: error.message });
       }
-      logger.error(`[hooks] Failed to set toggle for ${id}`, error);
+      reportFailure('toggle_failed');
       return res.status(500).json({ error: 'Failed to update hook toggle' });
     }
   },
@@ -134,11 +175,21 @@ router.post(
       });
     } catch (error) {
       if (error instanceof HookToggleError) {
-        return res.status(error.code === 'unknown_hook' ? 404 : 409).json({
-          error: error.message,
-        });
+        return res
+          .status(
+            error.code === 'unknown_hook'
+              ? 404
+              : error.code === 'invalid_request'
+                ? 400
+                : error.code === 'storage_unavailable'
+                  ? 503
+                  : 409,
+          )
+          .json({
+            error: error.message,
+          });
       }
-      logger.error(`[hooks] Failed to reconcile ${id}`, error);
+      reportFailure('reconcile_failed');
       return res.status(500).json({ error: 'Failed to reconcile hook state' });
     }
   },

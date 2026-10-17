@@ -5,6 +5,7 @@ import sharp from 'sharp';
 import logger from '../utils/logger.js';
 import { extractImageUrls } from './postImageService.js';
 import { isR2Enabled, requireR2Storage } from './r2Client.js';
+import { HOOK_JOURNAL_PREFIX, isHookJournalKey } from '../db/internalWebSettings.js';
 
 export interface WebSettings {
   pvpDelayMinutes: number;
@@ -249,7 +250,9 @@ export async function getWebSettings(): Promise<WebSettings> {
 
   const [rows] = await db.query<
     Array<RowDataPacket & { setting_key: string; setting_value: string }>
-  >('SELECT setting_key, setting_value FROM web_settings');
+  >('SELECT setting_key, setting_value FROM web_settings WHERE setting_key NOT LIKE ?', [
+    HOOK_JOURNAL_PREFIX + '%',
+  ]);
 
   const settings = parseWebSettingsRows(rows);
 
@@ -266,9 +269,10 @@ export async function getWebSettings(): Promise<WebSettings> {
  * Get a single web setting value
  */
 export async function getWebSetting(key: string): Promise<string | null> {
+  if (isHookJournalKey(key)) return null;
   const [rows] = await db.query<RowDataPacket[]>(
-    'SELECT setting_value FROM web_settings WHERE setting_key = ?',
-    [key],
+    'SELECT setting_value FROM web_settings WHERE setting_key = ? AND setting_key NOT LIKE ?',
+    [key, HOOK_JOURNAL_PREFIX + '%'],
   );
 
   return rows.length > 0 ? rows[0].setting_value : null;
@@ -279,7 +283,8 @@ export async function getWebSetting(key: string): Promise<string | null> {
  */
 export async function getWebSettingsRaw(): Promise<WebSettingRow[]> {
   const [rows] = await db.query<RowDataPacket[]>(
-    "SELECT setting_key, setting_value, description, updated_at, updated_by FROM web_settings WHERE setting_key != 'discord_webhook_url' ORDER BY setting_key",
+    "SELECT setting_key, setting_value, description, updated_at, updated_by FROM web_settings WHERE setting_key != 'discord_webhook_url' AND setting_key NOT LIKE ? ORDER BY setting_key",
+    [HOOK_JOURNAL_PREFIX + '%'],
   );
 
   return rows.map((row) => ({
@@ -302,6 +307,7 @@ export async function updateWebSetting(
   value: string,
   updatedBy: string,
 ): Promise<void> {
+  if (isHookJournalKey(key)) throw new Error('Reserved internal setting');
   // Validate key exists
   const validKeys = [
     'pvp_delay_minutes',

@@ -27,6 +27,7 @@ import {
   SESSION_EXPAND_MIGRATION,
   SESSION_CUTOVER_MIGRATION,
 } from './webSessionSchema.js';
+import { HOOK_AUDIT_MIGRATION, matchesHookAuditPhase } from './hookAuditSchema.js';
 
 export type BaselineDatabase = SchemaDatabase;
 type BaselineState = 'installing' | 'complete' | 'adopted' | 'removing';
@@ -292,6 +293,19 @@ async function verifyWebSchema(
         recoverSessionDdl &&
         !unsupportedSessionForward &&
         (await matchesSessionSchemaPhase(database, product, new Set(ledger), true, directory))
+      )
+        continue;
+      const unsupportedAuditForward = forward.some(
+        (migration) =>
+          ledger.includes(migration.name) &&
+          Object.hasOwn(migration.tables, 'admin_action_log') &&
+          migration.name !== HOOK_AUDIT_MIGRATION,
+      );
+      if (
+        name === 'admin_action_log' &&
+        recoverSessionDdl &&
+        !unsupportedAuditForward &&
+        (await matchesHookAuditPhase(database, product, new Set(ledger), directory))
       )
         continue;
       throw new WebBaselineError(`schema_drift_${name}`);

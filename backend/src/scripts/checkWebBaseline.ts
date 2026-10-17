@@ -2,6 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadSchemaPostconditions } from '../db/schemaPostconditions.js';
 import { loadSessionSchemaContract } from '../db/webSessionSchema.js';
+import { loadHookAuditContract } from '../db/hookAuditSchema.js';
 import {
   loadWebBaselineBundle,
   verifyWebBaselineSources,
@@ -12,6 +13,7 @@ export function checkWebBaseline(): void {
   const bundle = loadWebBaselineBundle();
   loadSchemaPostconditions();
   loadSessionSchemaContract();
+  loadHookAuditContract();
   verifyWebBaselineSources(bundle, path.resolve(webBaselineDirectory(), '../../migrations'));
   console.log(
     `Website baseline ${bundle.manifest.id}: ${bundle.tables.length} web tables, ${bundle.manifest.historicalMigrations.length} covered migration sources; artifacts verified. No database was inspected or changed.`,

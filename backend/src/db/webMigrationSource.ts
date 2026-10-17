@@ -37,7 +37,7 @@ export class WebMigrationSource implements Knex.MigrationSource<string> {
       multipleStatements: false,
     });
     try {
-      // Retry only exact adjacent session DDL phases after a lost acknowledgement.
+      // Retry only exact adjacent session/audit DDL after a lost acknowledgement.
       // Serving preflight and ordinary verification remain ledger-strict.
       const coverage = await verifiedWebBaselineCoverage(database, available, this.directory, true);
       const applied = await readWebMigrationLedger(database, available);

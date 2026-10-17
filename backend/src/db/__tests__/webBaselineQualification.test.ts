@@ -194,6 +194,9 @@ function sqlClient(port: number, name: string, sql: string): void {
 
 async function populateSyntheticWebsite(database: Connection): Promise<void> {
   await database.query(
+    "INSERT INTO admin_action_log (account_name,action_type,target,old_value,new_value) VALUES ('FixtureAlice','property_change','fixture:legacy_audit','before-a','after-a'),('FixtureBob','property_change','fixture:legacy_audit','before-b','after-b')",
+  );
+  await database.query(
     "INSERT INTO builder_settings (account_name,setting_key,setting_value) VALUES ('FixtureAlice','editor_theme','synthetic-theme'),('FixtureBob','editor_theme','other-theme')",
   );
   await database.query(
@@ -507,9 +510,34 @@ if (inputs)
             ).toEqual([
               '20261017000000_expand_web_session_credentials.ts',
               '20261017001000_cutover_web_session_credentials.ts',
+              '20261017002000_hook_audit_identity.ts',
             ]);
             const [sessions] = await restored.query('SELECT id FROM web_sessions');
             expect(sessions).toEqual([]); // Planned logout discards legacy expiry interpretations.
+            const [legacyAudit] = await restored.query<RowDataPacket[]>(
+              "SELECT account_name,old_value,new_value,hook_event_id FROM admin_action_log WHERE target='fixture:legacy_audit' ORDER BY account_name",
+            );
+            expect(
+              legacyAudit.map(({ account_name, old_value, new_value, hook_event_id }) => ({
+                account_name,
+                old_value,
+                new_value,
+                hook_event_id,
+              })),
+            ).toEqual([
+              {
+                account_name: 'FixtureAlice',
+                old_value: 'before-a',
+                new_value: 'after-a',
+                hook_event_id: null,
+              },
+              {
+                account_name: 'FixtureBob',
+                old_value: 'before-b',
+                new_value: 'after-b',
+                hook_event_id: null,
+              },
+            ]);
           });
         });
       }, 120000);

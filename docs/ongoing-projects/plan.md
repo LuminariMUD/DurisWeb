@@ -2,6 +2,10 @@
 
 Status: **implementation in progress**. Updated 2026-10-16.
 
+Current checkpoint: engineering through P4 is published for review. Next is the
+separate raw-settings UTC display correction, then P5–P7. Policy/approval and
+live-release gates remain open; no production rollout is implied.
+
 Single working plan for [#7](https://github.com/LuminariMUD/DurisWeb/issues/7),
 [#8](https://github.com/LuminariMUD/DurisWeb/issues/8),
 [#9](https://github.com/LuminariMUD/DurisWeb/issues/9),
@@ -602,6 +606,121 @@ outside this request. Keep this single evolving execution plan current.
   Next independent engineering chunk: P4 / #9 durable toggle attribution.
   Keep #7/#8 open for their explicitly pending release acceptance. No owner
   interruption is needed to continue P4.
+- **Current chunk: P4 / #9**, branch `branch/issue-9-toggle-audit-journal`,
+  based on #41 at `5350529`. **Outcome:** every accepted website safety change
+  commits an immutable actor/old/new/UTC-event receipt in the same InnoDB
+  `web_settings` transaction. A separate bounded publisher converges to one
+  audit row after sink outages/restart/ambiguous acknowledgement. **Non-goals:**
+  new messaging infrastructure, MUD command idempotency, blanket log cleanup,
+  unapproved retention/deletion or production operations. **Files:** hook
+  settings/journal, generic settings boundaries, hooks routes, lifecycle,
+  one audit-event identity migration/forward contract, focused/native tests,
+  ADR/security/operator documentation and this plan. **Proof:** actual DB
+  failure/retry/concurrency/cache and route authorization, both engines,
+  immutable owner metadata, required backend gates and review-ready publication.
+- **P4 ablation and semantics:** reuse settings rows, transactions and the
+  existing polling lifecycle pattern; no separate outbox table, Redis queue,
+  lease service or queue trimming. The journal namespace is `hook-audit-v1:`.
+  A UUID is both request and event identity. Website-only PATCH accepts a caller
+  identity; repeated identity reuses its immutable change receipt and reports
+  current state without reverting a newer change. Conflicting reuse fails.
+  Distinct identities, including same-state requests and each reconciliation
+  website step, create distinct events. Reconcile remains a fresh observed
+  distributed operation, with no claim of remote-command deduplication. Pending
+  events retry indefinitely with bounded backoff; no retention runs in P4.
+- **P4 native findings and repairs:** the first native run exposed a reserved
+  SQL alias in audit lookup; the event stayed pending and was recoverable. Use
+  an unambiguous alias and quote the timestamp identifier. Concurrent duplicate
+  inserts then reproduced a lock-upgrade deadlock; roll back the failed INSERT
+  before reading the immutable receipt without a lock upgrade. The audit lookup
+  likewise needs no row lock because the journal row serializes publishers and
+  the audit event identity is unique. This permits a SELECT/INSERT-only sink.
+  Both engines subsequently pass real process-restart/write-permission recovery,
+  crash after audit insert, commit ambiguity, bounded malformed queues and newer
+  toggle preservation. New UTC provenance uses one database epoch without
+  changing session timezones. Required table/schema loss still refuses startup
+  under #14; the recovered outage qualification concerns audit-write availability,
+  while authoritative settings storage must remain transactional and available.
+- **P4 SQL-mode regression:** a real `NO_BACKSLASH_ESCAPES` session reproduced
+  an accepted setting with an unreadable escaped JSON value under ordinary
+  query interpolation. Journal parameters now use the driver's prepared binding
+  protocol; fixed transaction commands remain unchanged. No SQL safeguard is
+  relaxed. The new native regression checks durable JSON and audit delivery
+  under that mode, then restores the exact original session mode.
+- **Separate observed follow-up:** generic raw settings timestamps append `Z`
+  to naive database text. That is wrong when the database session offset differs
+  from UTC. Correct this as its own focused change after the journal chunk;
+  P4's hook event/provenance path already uses explicit epoch conversion.
+- **P4 qualified so far:** 52 focused/native tests pass on each engine through
+  `/tmp/durisweb-run-p4-suite.mts <23436|23437> hook-only`, including real
+  process death after insert, separate process restart under denied audit writes,
+  all commit uncertainty, distinct/duplicate concurrency, protected namespace,
+  cache races, nontransactional refusal, UTC provenance and no-backslash mode.
+  Both published 198-table MUD metadata fingerprints remain exact. The full
+  backend run passes **1,194 tests / 119 suites** before the final collation-
+  alias read guard; only that boundary needs a focused repeat. Genuine restored
+  web history plus all forwards passes five native qualification tests on both
+  engines, preserving two legacy null-identity audit rows and every old ledger
+  row. Logs: `/tmp/durisweb-p4-hook-native.log`,
+  `/tmp/durisweb-p4-hook-maria.log`, `/tmp/durisweb-p4-full-suite.log`, and
+  `/tmp/durisweb-p4-legacy-native.log`.
+- **P4 limits/news:** no retention or subject-request mutation is introduced;
+  pending/invalid receipts and attributed audit identities refuse schema down.
+  Operator APIs expose safe aggregates and bounded retries under the existing
+  MUD-properties permission. No frontend change is needed. Admin Website
+  Changelog draft: **Reliable safety-setting history** — “Safety-setting changes
+  now keep a durable record and recover their audit entries after temporary
+  failures.” Publish only after an authorized, verified live release. No live
+  control, MUD process, existing backup, shared database, tag or news publication
+  is part of this source qualification.
+
+- **P4 pending-queue regression:** a one-event batch failed to reach new pending
+  work behind completed receipts. Keep delivery state in the reserved row's
+  existing `description` and select pending/invalid records directly; JSON keeps
+  only event/retry data, with no duplicate status representation. Publication
+  still updates that row and audit together. This reuses storage and avoids
+  trimming, extra tables or a second scanner. A native backlog regression proves
+  completed history cannot consume the pending-work batch. The final envelope
+  and status encoding remain version 1, not yet deployed.
+
+- **P4 final refreshed verification:** merged #41 at `7fd35ba` without rewriting
+  history, including its reviewed forum repairs, owner-fixture pins/least-privilege
+  loader and table-option guards. The final backend run passes **1,196 tests /
+  119 suites** with 89 real source migrations; dependency/data-readiness preflight
+  passes before and after tests and the published owner metadata remains exact
+  (`/tmp/durisweb-p4-publication-full-suite.log`). Each engine's focused runner
+  passes 53 tests; the later safe-route-log sentinel case passes in the focused
+  boundary run and full suite. Eleven refreshed original/restored owner-schema
+  tests pass (`/tmp/durisweb-p4-refreshed-legacy-native.log`). Reused unaffected
+  installer/session matrix evidence instead of repeating it.
+- **P4 commands/gates:** `/tmp/durisweb-run-p4-suite.mts 23436` runs the full
+  backend suite, real schema write probe and configuration/dependency preflights;
+  `23437 hook-only` repeats the control/settings/API qualification on MariaDB.
+  Native legacy qualification uses `TEST_BASELINE_DB_PORTS=23336,23337
+  TEST_BASELINE_MUD_SOURCE=/home/aiwithapex/projects/duris/migrations pnpm --dir
+  backend test --runInBand src/db/__tests__/webBaselineQualification.test.ts`.
+  Backend `schema:check`, `format:check`, `lint`, `type-check`,
+  `verify:mud-writes --mud-manifest
+  /home/aiwithapex/projects/duris/migrations/migration_manifest.json` (53 writes),
+  `build`, standalone strict migration `tsc` with the P3 flags, and whitespace
+  checks pass. Frontend frozen install, format/lint/types, all unit tests (**239 /
+  49 files**) and build pass to cover the inherited forum dependency. Build uses
+  explicit public test-only API/WebSocket/static endpoints and Vite host/port
+  values; no `.env` or secret is written. Logs:
+  `/tmp/durisweb-p4-refreshed-frontend.log`,
+  `/tmp/durisweb-p4-refreshed-frontend-build.log`.
+  No dependency changed. Temporary private debug scripts were removed; synthetic
+  qualification logs/fixture generators remain as recovery evidence. No browser,
+  provider, production or shared-environment operation was run. P4 engineering
+  is ready for review; P6 policy/holds and live acceptance remain separate.
+
+- **Published P4:** [PR #42](https://github.com/LuminariMUD/DurisWeb/pull/42),
+  open/non-draft, code head `1ab23ac`, stacked on #41 at `7fd35ba`. Exact local,
+  remote and PR head matched; ahead/behind `0 0` and a clean worktree were
+  verified. Final checks include the source-safe hook-route log sentinel and
+  least-privilege fixture grants. No merge, tag, deployment or live verification
+  is claimed. Next: the recorded standalone raw-settings UTC correction, then
+  notice/analytics choice and the remaining privacy lifecycle work.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
@@ -966,12 +1085,12 @@ of `admin_action_log` or a separately unavailable audit table. The existing
 JSON event values. Record this design and failure limits in the
 [hook-control ADR](../adr/0001-hook-control-ownership-and-state.md).
 
-- [ ] Lock/read the actual setting row, handling the absent-key/default-enabled
+- [x] Lock/read the actual setting row, handling the absent-key/default-enabled
   case deterministically. Persist actor, hook ID, previous/new boolean values,
   UTC event time, unique event ID, and an idempotency/request identity. Commit
   the setting and journal together, then invalidate both hook/settings caches
   before returning the effective state. Do not derive old state from cache.
-- [ ] Keep the audit sink outside that transaction. A separate bounded worker
+- [x] Keep the audit sink outside that transaction. A separate bounded worker
   reads pending events and appends `property_change` entries. Add a nullable
   uniquely indexed event identity to the web-owned audit table via a new
   migration; publish/ack transactionally or recover by that identity after an
@@ -979,26 +1098,29 @@ JSON event values. Record this design and failure limits in the
   newer toggle. Reuse the lifecycle/backoff ideas of the existing
   [donation outbox](../../backend/src/services/donationOutboxService.ts), not its
   unrelated delivery or raw-error handling.
-- [ ] Reserve journal keys from generic settings read/update endpoints, bulk
+- [x] Reserve journal keys from generic settings read/update endpoints, bulk
   settings views, public configuration, and ordinary hook-key matching. Validate
   every envelope; cap individual event size and worker batches. Pending events
   cannot be dropped by a retention job or a full-queue trimming policy. Expose
   safe aggregate backlog/age/health and retry controls to authorized operators.
-- [ ] An audit-table outage must leave the toggle effective and attribution
+- [x] An audit-table outage must leave the toggle effective and attribution
   recoverable across process restart. If authoritative settings storage itself
   cannot commit, return a failed control operation and retain the previous
   durable state; do not claim success or fabricate durability. Document this
   existing storage-availability limit and the always-on terminal recovery path.
-- [ ] Define duplicate request and same-state semantics explicitly: reuse the
+- [x] Define duplicate request and same-state semantics explicitly: reuse the
   recorded result for the same idempotency identity; conflicting reuse fails;
   a separate repeated request follows the documented no-op/event policy.
-- [ ] Test audit sink failure before/after insert, ambiguous acknowledgement,
+- [x] Test audit sink failure before/after insert, ambiguous acknowledgement,
   restart after toggle commit and after audit insert, duplicate/concurrent
   requests, absent settings, queue backlog, worker retries, malformed journal,
   settings commit failure, cache refresh, and MUD mismatch/unknown states.
   Assert terminal and unknown-hook refusal still happen before mutation.
-- [ ] Use bounded safe error categories, never raw SQL/errors/IP/secrets.
-  Integrate pending/delivered event retention and subject-request holds with P6.
+- [x] Use bounded safe error categories, never raw SQL/errors/IP/secrets.
+  Define the P6 boundary: pending/invalid records cannot be trimmed; completed
+  receipts remain until approved retention/subject-hold handling is implemented.
+- [ ] **P6 dependency:** implement approved delivered retention and subject-request
+  holds before enabling any purge or erasure affecting journal/audit attribution.
 
 Exit: a successful safety toggle has recoverable actor/old/new/event identity
 and remains effective through an audit outage, with exactly one audit event
