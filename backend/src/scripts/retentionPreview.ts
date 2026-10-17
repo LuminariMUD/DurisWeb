@@ -91,7 +91,7 @@ Required: --target <configured-host:port/database> --policy-version ${retentionP
 Optional: dry-run, --class analytics_events,login_history, --batch-size 1..500,
 --max-candidates 1..10000, --time-budget-ms 1..10000,
 --checkpoint-out <new-absolute-private-file>, --resume <previous-private-file>.
-Results are unapproved age candidates. Holds and exceptions are not evaluated.`);
+Results are unapproved age observations with held/unheld counts. Other exceptions and requests are not evaluated.`);
     return 0;
   }
   try {

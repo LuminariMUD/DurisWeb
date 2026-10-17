@@ -10,9 +10,11 @@ const now = 1792192000;
 interface Candidate {
   id: string;
   epoch: number;
+  held?: number | string | null;
 }
 const pages: Candidate[] = [],
   logins: Candidate[] = [];
+const holds: Record<string, unknown>[] = [];
 const execute = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const query = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const rollback = jest.fn(async () => {}),
@@ -39,6 +41,9 @@ jest.unstable_mockModule('../../db/schemaPostconditions.js', () => ({
     tables: { page_views: { mysql8: ['shape'] }, account_login_history: { mysql8: ['shape'] } },
   }),
 }));
+jest.unstable_mockModule('../../db/dataHoldSchema.js', () => ({
+  loadDataHoldContract: () => ({ mysql8: 'shape' }),
+}));
 const service = await import('../retentionPreview.js');
 const files = await import('../retentionPreviewCheckpoint.js');
 const cli = await import('../../scripts/retentionPreview.js');
@@ -55,6 +60,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   pages.length = 0;
   logins.length = 0;
+  holds.length = 0;
   metadata.mockResolvedValue('shape');
   query.mockResolvedValue([[], []]);
   execute.mockImplementation(async (...args) => {
@@ -62,6 +68,8 @@ beforeEach(() => {
     const sql = spec && typeof spec === 'object' && 'sql' in spec ? String(spec.sql) : String(spec);
     const values = Array.isArray(args[1]) ? args[1] : [];
     if (sql === 'SELECT UNIX_TIMESTAMP() AS epoch') return [[{ epoch: now }], []];
+    if (sql.startsWith('SELECT id,scope_type'))
+      return [holds.map((row) => ({ ...row, observed_epoch: values[0] })), []];
     const rows = sql.includes('FROM page_views') ? pages : logins;
     if (sql.includes('ORDER BY id DESC')) {
       const high = rows.reduce(
@@ -70,7 +78,7 @@ beforeEach(() => {
       );
       return [high ? [{ cursor_id: high.toString() }] : [], []];
     }
-    const [, cutoff, high, cursor, , cursorId, limit] = values;
+    const [, cutoff, high, cursor, , cursorId, limit] = values.slice(3);
     return [
       rows
         .filter(
@@ -83,7 +91,11 @@ beforeEach(() => {
         )
         .sort((a, b) => a.epoch - b.epoch || (BigInt(a.id) < BigInt(b.id) ? -1 : 1))
         .slice(0, Number(limit))
-        .map((row) => ({ cursor_id: row.id, epoch: row.epoch })),
+        .map((row) => ({
+          cursor_id: row.id,
+          epoch: row.epoch,
+          is_held: 'held' in row ? row.held : 0,
+        })),
       [],
     ];
   });
@@ -102,8 +114,89 @@ function seed() {
   );
   logins.push({ id: '9007199254740993', epoch: now - 90 * 86400 - 1 });
 }
+function holdRow(): Record<string, unknown> {
+  return {
+    id: '550e8400-e29b-41d4-a716-446655440000',
+    scope_type: 'global',
+    class_id: null,
+    account_name: null,
+    reason: 'PrivateHoldReasonSentinel',
+    created_by: 'PrivateHoldOperator',
+    created_at_epoch: now - 100,
+    updated_at_epoch: now - 100,
+    review_at_epoch: now + 100,
+    expires_at_epoch: null,
+    released_by: null,
+    release_reason: null,
+    released_at_epoch: null,
+  };
+}
 
 describe('bounded read-only proposed retention preview', () => {
+  it('reports held/unheld observations without exposing hold subjects, reasons or fingerprints', async () => {
+    seed();
+    pages[0].held = '1';
+    holds.push({ ...holdRow(), scope_type: 'class', class_id: 'analytics_events' });
+    const { result } = await service.previewRetention(options);
+    expect(result).toMatchObject({
+      eligibilityChecks: 'holds_only',
+      activeHoldsObserved: 1,
+      classes: [
+        { ageCandidatesObserved: 1, heldAgeCandidatesObserved: 1, unheldAgeCandidatesObserved: 0 },
+        { ageCandidatesObserved: 1, heldAgeCandidatesObserved: 0, unheldAgeCandidatesObserved: 1 },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toMatch(/PrivateHold|holdFingerprint|550e8400/);
+  });
+  it('refuses saved counts after active protection is created, released or expires', async () => {
+    seed();
+    const empty = await service.previewRetention(options);
+    holds.push(holdRow());
+    await expect(service.previewRetention(options, empty.checkpoint)).rejects.toMatchObject({
+      reason: 'checkpoint_holds_changed',
+    });
+    const held = await service.previewRetention(options);
+    holds.length = 0;
+    await expect(service.previewRetention(options, held.checkpoint)).rejects.toMatchObject({
+      reason: 'checkpoint_holds_changed',
+    });
+    holds.push({ ...holdRow(), review_at_epoch: now - 1, expires_at_epoch: now + 1 });
+    const expiring = await service.previewRetention(options);
+    execute.mockResolvedValueOnce([[{ epoch: now + 2 }], []]);
+    await expect(service.previewRetention(options, expiring.checkpoint)).rejects.toMatchObject({
+      reason: 'checkpoint_holds_changed',
+    });
+    expect(() =>
+      service.parseRetentionCheckpoint(JSON.stringify({ ...empty.checkpoint, formatVersion: 1 })),
+    ).toThrow(service.RetentionPreviewError);
+  });
+  it('fails closed on malformed or excessive unreleased protection and keeps diagnostic payloads private', async () => {
+    seed();
+    holds.push({ ...holdRow(), class_id: 'unrecognized' });
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    expect(
+      await cli.runRetentionPreviewCommand([
+        '--target',
+        options.target,
+        '--policy-version',
+        options.policyVersion,
+      ]),
+    ).toBe(1);
+    expect(inspect(error.mock.calls)).toContain('hold_state_unverified');
+    expect(inspect(error.mock.calls)).not.toMatch(/PrivateHold|unrecognized/);
+    holds.length = 0;
+    holds.push(...Array.from({ length: 1001 }, holdRow));
+    await expect(service.previewRetention(options)).rejects.toMatchObject({
+      reason: 'hold_state_unverified',
+    });
+  });
+  it('refuses an unknown protection flag instead of reporting it unheld', async () => {
+    seed();
+    pages[0].held = null;
+    await expect(service.previewRetention(options)).rejects.toMatchObject({
+      reason: 'invalid_database_result',
+    });
+  });
   it('stops starting data pages when its monotonic scan budget has expired', async () => {
     seed();
     jest.spyOn(performance, 'now').mockReturnValueOnce(0).mockReturnValue(2);
@@ -111,7 +204,7 @@ describe('bounded read-only proposed retention preview', () => {
     expect(result).toMatchObject({ complete: false, candidatesObservedThisBatch: 0 });
     expect(
       execute.mock.calls.some((call) =>
-        String((call[0] as { sql: string }).sql).includes('FORCE INDEX'),
+        String((call[0] as { sql: string }).sql).includes('AS is_held'),
       ),
     ).toBe(false);
     expect(service.parseRetentionCheckpoint(JSON.stringify(checkpoint))).toEqual(checkpoint);

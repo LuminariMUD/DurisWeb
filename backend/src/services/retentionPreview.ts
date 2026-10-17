@@ -14,25 +14,29 @@ import {
   tableMetadataSha256,
   type SchemaDatabase,
 } from '../db/schemaPostconditions.js';
+import { loadDataHoldContract } from '../db/dataHoldSchema.js';
+import { readDataHoldSnapshot, DATA_HOLD_MATCH_SQL } from './dataHoldSnapshot.js';
 
 /** Literal targets only: no input can supply a table, column, predicate or SQL fragment. */
 const rules = {
   analytics_events: {
     table: 'page_views',
     highWater: 'SELECT CAST(id AS CHAR) AS cursor_id FROM page_views ORDER BY id DESC LIMIT 1',
-    select: `SELECT CAST(id AS CHAR) AS cursor_id, UNIX_TIMESTAMP(created_at) AS epoch FROM page_views FORCE INDEX (idx_created_at)
-      WHERE created_at >= FROM_UNIXTIME(?) AND created_at < FROM_UNIXTIME(?) AND id <= ?
-        AND (created_at > FROM_UNIXTIME(?) OR (created_at = FROM_UNIXTIME(?) AND id > ?))
-      ORDER BY created_at,id LIMIT ?`,
+    select: `SELECT CAST(candidate.id AS CHAR) AS cursor_id, UNIX_TIMESTAMP(candidate.created_at) AS epoch,
+      ${DATA_HOLD_MATCH_SQL} AS is_held FROM page_views candidate FORCE INDEX (idx_created_at)
+      WHERE candidate.created_at >= FROM_UNIXTIME(?) AND candidate.created_at < FROM_UNIXTIME(?) AND candidate.id <= ?
+        AND (candidate.created_at > FROM_UNIXTIME(?) OR (candidate.created_at = FROM_UNIXTIME(?) AND candidate.id > ?))
+      ORDER BY candidate.created_at,candidate.id LIMIT ?`,
   },
   login_history: {
     table: 'account_login_history',
     highWater:
       'SELECT CAST(id AS CHAR) AS cursor_id FROM account_login_history ORDER BY id DESC LIMIT 1',
-    select: `SELECT CAST(id AS CHAR) AS cursor_id, UNIX_TIMESTAMP(timestamp) AS epoch FROM account_login_history FORCE INDEX (idx_timestamp)
-      WHERE timestamp >= FROM_UNIXTIME(?) AND timestamp < FROM_UNIXTIME(?) AND id <= ?
-        AND (timestamp > FROM_UNIXTIME(?) OR (timestamp = FROM_UNIXTIME(?) AND id > ?))
-      ORDER BY timestamp,id LIMIT ?`,
+    select: `SELECT CAST(candidate.id AS CHAR) AS cursor_id, UNIX_TIMESTAMP(candidate.timestamp) AS epoch,
+      ${DATA_HOLD_MATCH_SQL} AS is_held FROM account_login_history candidate FORCE INDEX (idx_timestamp)
+      WHERE candidate.timestamp >= FROM_UNIXTIME(?) AND candidate.timestamp < FROM_UNIXTIME(?) AND candidate.id <= ?
+        AND (candidate.timestamp > FROM_UNIXTIME(?) OR (candidate.timestamp = FROM_UNIXTIME(?) AND candidate.id > ?))
+      ORDER BY candidate.timestamp,candidate.id LIMIT ?`,
   },
 } as const;
 
@@ -40,7 +44,7 @@ const QUERY_TIMEOUT_MS = 5000;
 const MAX_CHECKPOINT_BYTES = 16384;
 const maximumId = 18446744073709551615n;
 const signature = createHash('sha256')
-  .update(JSON.stringify({ format: 1, policy: retentionPreviewPolicy, rules }))
+  .update(JSON.stringify({ format: 2, policy: retentionPreviewPolicy, rules }))
   .digest('hex');
 
 type PreviewFailure =
@@ -52,6 +56,8 @@ type PreviewFailure =
   | 'checkpoint_target_mismatch'
   | 'checkpoint_rules_changed'
   | 'checkpoint_clock_mismatch'
+  | 'checkpoint_holds_changed'
+  | 'hold_state_unverified'
   | 'schema_unverified'
   | 'invalid_database_result'
   | 'database_unavailable'
@@ -82,10 +88,12 @@ interface ClassProgress {
   cursorEpoch: number;
   cursorId: string;
   candidates: number;
+  held: number;
   complete: boolean;
 }
 export interface RetentionPreviewCheckpoint {
-  formatVersion: 1;
+  formatVersion: 2;
+  holdFingerprint: string;
   signature: string;
   targetHash: string;
   operationId: string;
@@ -99,7 +107,9 @@ export interface RetentionPreviewResult {
   policyVersion: string;
   policyApproved: false;
   executionAvailable: false;
-  eligibilityChecks: 'not_evaluated';
+  eligibilityChecks: 'holds_only';
+  holdsObservedAtEpoch: number;
+  activeHoldsObserved: number;
   capturedAtEpoch: number;
   candidatesObservedThisBatch: number;
   complete: boolean;
@@ -108,6 +118,8 @@ export interface RetentionPreviewResult {
     proposedAgeSeconds: number;
     cutoffEpoch: number;
     ageCandidatesObserved: number;
+    heldAgeCandidatesObserved: number;
+    unheldAgeCandidatesObserved: number;
     complete: boolean;
   }>;
   exclusions: readonly string[];
@@ -147,6 +159,7 @@ export function parseRetentionCheckpoint(text: string): RetentionPreviewCheckpoi
       !record(value) ||
       !exactKeys(value, [
         'formatVersion',
+        'holdFingerprint',
         'signature',
         'targetHash',
         'operationId',
@@ -154,7 +167,9 @@ export function parseRetentionCheckpoint(text: string): RetentionPreviewCheckpoi
         'capturedAtEpoch',
         'classes',
       ]) ||
-      value.formatVersion !== 1 ||
+      value.formatVersion !== 2 ||
+      typeof value.holdFingerprint !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(value.holdFingerprint) ||
       typeof value.signature !== 'string' ||
       !/^[a-f0-9]{64}$/.test(value.signature) ||
       typeof value.targetHash !== 'string' ||
@@ -181,6 +196,7 @@ export function parseRetentionCheckpoint(text: string): RetentionPreviewCheckpoi
           'cursorEpoch',
           'cursorId',
           'candidates',
+          'held',
           'complete',
         ]) ||
         !classId(item.classId) ||
@@ -188,6 +204,7 @@ export function parseRetentionCheckpoint(text: string): RetentionPreviewCheckpoi
         !id(item.cursorId) ||
         !integer(item.cursorEpoch, 0, 2147483647) ||
         !integer(item.candidates, 0, Number.MAX_SAFE_INTEGER) ||
+        !integer(item.held, 0, item.candidates) ||
         typeof item.complete !== 'boolean' ||
         BigInt(item.cursorId) > BigInt(item.upperId) ||
         item.cursorEpoch >=
@@ -203,11 +220,13 @@ export function parseRetentionCheckpoint(text: string): RetentionPreviewCheckpoi
         cursorEpoch: item.cursorEpoch,
         cursorId: item.cursorId,
         candidates: item.candidates,
+        held: item.held,
         complete: item.complete,
       });
     }
     return {
-      formatVersion: 1,
+      formatVersion: 2,
+      holdFingerprint: value.holdFingerprint,
       signature: value.signature,
       targetHash: value.targetHash,
       operationId: value.operationId,
@@ -265,6 +284,11 @@ async function verifyPreviewSchema(
       const actual = tableMetadataSha256(await readTableMetadata(database, table, family));
       if (!expected.tables[table][family].includes(actual)) throw new Error();
     }
+    if (
+      tableMetadataSha256(await readTableMetadata(database, 'web_data_holds', family)) !==
+      loadDataHoldContract()[family]
+    )
+      throw new Error();
   } catch {
     throw new RetentionPreviewError('schema_unverified');
   }
@@ -290,8 +314,17 @@ async function scan(
     if (!epoch(now)) throw new RetentionPreviewError('invalid_database_result');
     if (prior && prior.capturedAtEpoch > now)
       throw new RetentionPreviewError('checkpoint_clock_mismatch');
+    let protection: Awaited<ReturnType<typeof readDataHoldSnapshot>>;
+    try {
+      protection = await readDataHoldSnapshot(connection, now);
+    } catch {
+      throw new RetentionPreviewError('hold_state_unverified');
+    }
+    if (prior && prior.holdFingerprint !== protection.fingerprint)
+      throw new RetentionPreviewError('checkpoint_holds_changed');
     const state: RetentionPreviewCheckpoint = prior ?? {
-      formatVersion: 1,
+      formatVersion: 2,
+      holdFingerprint: protection.fingerprint,
       signature,
       targetHash: hash(options.target),
       operationId: randomUUID(),
@@ -310,6 +343,7 @@ async function scan(
           cursorEpoch: 0,
           cursorId: '0',
           candidates: 0,
+          held: 0,
           complete: upperId === '0',
         });
       }
@@ -329,6 +363,9 @@ async function scan(
         // MariaDB can return NULL for FROM_UNIXTIME(0). Start at epoch 1;
         // an empty cursor's ID 0 still includes every row at that first epoch.
         const rows = await select(connection, rules[progress.classId].select, [
+          now,
+          progress.classId,
+          progress.classId,
           1,
           cutoff,
           progress.upperId,
@@ -340,6 +377,12 @@ async function scan(
         for (const row of rows.slice(0, take)) {
           const rowId = String(row.cursor_id),
             rowEpoch = Number(row.epoch);
+          const held =
+            row.is_held === 0 || row.is_held === '0'
+              ? 0
+              : row.is_held === 1 || row.is_held === '1'
+                ? 1
+                : null;
           if (
             !id(rowId) ||
             rowId === '0' ||
@@ -348,12 +391,14 @@ async function scan(
             rowEpoch >= cutoff ||
             rowEpoch < progress.cursorEpoch ||
             (rowEpoch === progress.cursorEpoch && BigInt(rowId) <= BigInt(progress.cursorId)) ||
-            progress.candidates === Number.MAX_SAFE_INTEGER
+            progress.candidates === Number.MAX_SAFE_INTEGER ||
+            held === null
           )
             throw new RetentionPreviewError('invalid_database_result');
           progress.cursorId = rowId;
           progress.cursorEpoch = rowEpoch;
           progress.candidates++;
+          progress.held += held;
           observed++;
         }
         progress.complete = rows.length <= take;
@@ -366,7 +411,9 @@ async function scan(
       policyVersion: state.policyVersion,
       policyApproved: retentionPreviewPolicy.approved,
       executionAvailable: false,
-      eligibilityChecks: 'not_evaluated',
+      eligibilityChecks: 'holds_only',
+      holdsObservedAtEpoch: now,
+      activeHoldsObserved: protection.activeHolds,
       capturedAtEpoch: state.capturedAtEpoch,
       candidatesObservedThisBatch: observed,
       complete: state.classes.every((item) => item.complete),
@@ -376,6 +423,8 @@ async function scan(
         cutoffEpoch:
           state.capturedAtEpoch - retentionPreviewPolicy.classes[item.classId].proposedAgeSeconds,
         ageCandidatesObserved: item.candidates,
+        heldAgeCandidatesObserved: item.held,
+        unheldAgeCandidatesObserved: item.candidates - item.held,
         complete: item.complete,
       })),
       exclusions: [
@@ -389,7 +438,7 @@ async function scan(
         'all_unlisted_classes',
       ],
       warning:
-        'Unapproved age candidates only. Holds and exceptions are not evaluated. A preview cannot authorize deletion. Resumes use a fresh snapshot; concurrent changes can affect observations.',
+        'Unapproved age observations only. Holds are evaluated in this read snapshot; other exceptions and subject requests are not. A preview cannot authorize deletion. Resumes use a fresh snapshot and refuse changed active protection. Concurrent data changes can affect observations.',
     };
     await connection.rollback();
     return { result, checkpoint: state };

@@ -118,5 +118,7 @@ additional website-owned table and has no MUD foreign key.
 No retention period for the hold system's own records is approved. Retain and
 restrict them pending that decision. Full database backups include this table;
 that source behavior is not proof of verified backup/restore protection. P6
-restore replay, request coordination, deletion/cleanup interception, approved
-periods and the existing [preview](retention-preview.md) integration remain open.
+restore replay, request coordination, deletion/cleanup interception and approved
+periods remain open. The [preview](retention-preview.md) now evaluates these
+records in a read-only snapshot and refuses continuation after active protection
+changes. That observation does not implement or authorize deletion enforcement.
