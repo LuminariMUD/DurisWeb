@@ -2,7 +2,7 @@ import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import { pool as db } from '../db/connection.js';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
-import type { PoolConnection } from 'mysql2/promise';
+import mysql, { type Connection, type PoolConnection } from 'mysql2/promise';
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { getBackendConfiguration } from '../config/environment.js';
@@ -345,6 +345,8 @@ export async function linkImagesToThread(
 }
 
 const DELETE_TIMEOUT_MS = 5000;
+const MAX_ACTIVE_REMOVALS = 2;
+let activeRemovals = 0;
 const CLEANUP_BATCH_LIMIT = 100;
 const CLEANUP_BUDGET_MS = 2000;
 let cleanupCursor = 0;
@@ -389,7 +391,7 @@ interface ImageRemovalRow extends RowDataPacket {
   created_epoch: number | string | null;
   removal_requested_at_epoch: number | string | null;
 }
-async function assertImageStorage(connection: PoolConnection): Promise<void> {
+async function assertImageStorage(connection: Connection): Promise<void> {
   const [engines] = await connection.query<RowDataPacket[]>({
     sql: "SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='forum_post_images'",
     timeout: 5000,
@@ -426,7 +428,7 @@ function removableImage(
   );
 }
 async function readRemovalImage(
-  connection: PoolConnection,
+  connection: Connection,
   imageId: number,
   lock = false,
 ): Promise<ImageRemovalRow | undefined> {
@@ -446,13 +448,24 @@ async function removeOrphanImage(
   cutoff?: number,
 ): Promise<boolean> {
   if (!Number.isSafeInteger(imageId) || imageId <= 0) return false;
-  let connection: PoolConnection | undefined;
+  if (activeRemovals >= MAX_ACTIVE_REMOVALS)
+    throw deletionFailure(new PostImageDeletionError('operation_in_progress'));
+  activeRemovals++;
+  let connection: Connection | undefined;
   let reusable = true,
     leased = false,
     leaseUncertain = false,
     inTransaction = false;
   try {
-    connection = await db.getConnection();
+    // GET_LOCK must survive the provider wait, but it must not occupy the
+    // application's ten-slot query pool. Bound these dedicated leases locally.
+    connection = await mysql.createConnection({
+      ...getBackendConfiguration().database,
+      dateStrings: true,
+      connectTimeout: 5000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 0,
+    });
     if (!removableImage(await readRemovalImage(connection, imageId), accountName, cutoff))
       return false;
     leaseUncertain = true;
@@ -543,23 +556,32 @@ async function removeOrphanImage(
     if (leaseUncertain) reusable = false;
     throw deletionFailure(error);
   } finally {
-    if (connection) {
-      if (leased) {
-        try {
-          const [released] = await connection.execute<RowDataPacket[]>(
-            {
-              sql: "SELECT RELEASE_LOCK(SHA2(CONCAT('post_image_removal:',DATABASE(),':',?),256)) AS released",
-              timeout: 5000,
-            },
-            [imageId],
-          );
-          if (Number(released[0]?.released) !== 1) reusable = false;
-        } catch {
-          reusable = false;
+    try {
+      if (connection) {
+        if (leased) {
+          try {
+            const [released] = await connection.execute<RowDataPacket[]>(
+              {
+                sql: "SELECT RELEASE_LOCK(SHA2(CONCAT('post_image_removal:',DATABASE(),':',?),256)) AS released",
+                timeout: 5000,
+              },
+              [imageId],
+            );
+            if (Number(released[0]?.released) !== 1) reusable = false;
+          } catch {
+            reusable = false;
+          }
         }
+        if (reusable) {
+          try {
+            await connection.end();
+          } catch {
+            connection.destroy();
+          }
+        } else connection.destroy();
       }
-      if (reusable) connection.release();
-      else connection.destroy();
+    } finally {
+      activeRemovals--;
     }
   }
 }
@@ -571,8 +593,9 @@ export async function deletePostImage(imageId: number, accountName: string): Pro
 export interface OrphanImageClearResult {
   deleted: number;
   failed: number;
-  remaining: number;
+  remaining: number | null;
   unavailableImageUrls: string[];
+  reference?: string;
 }
 /** Process a bounded explicit user batch; report remaining work instead of asserting all-copies erasure. */
 export async function clearOrphanImagesForAccount(
@@ -631,14 +654,21 @@ export async function clearOrphanImagesForAccount(
         result.failed++;
       }
     }
-    const [count] = await db.execute<RowDataPacket[]>(
-      {
-        sql: 'SELECT COUNT(*) AS count FROM forum_post_images WHERE account_name = ? AND (is_orphan = TRUE OR removal_requested_at_epoch IS NOT NULL)',
-        timeout: 5000,
-      },
-      [accountName],
-    );
-    result.remaining = Number(count[0].count);
+    try {
+      const [count] = await db.execute<RowDataPacket[]>(
+        {
+          sql: 'SELECT COUNT(*) AS count FROM forum_post_images WHERE account_name = ? AND (is_orphan = TRUE OR removal_requested_at_epoch IS NOT NULL)',
+          timeout: 5000,
+        },
+        [accountName],
+      );
+      result.remaining = Number(count[0].count);
+    } catch (error) {
+      // The durable intent and removals are already committed. Preserve their
+      // unavailable URLs so the editor cannot publish previews of removed objects.
+      result.remaining = null;
+      result.reference = deletionFailure(error).reference;
+    }
     return result;
   } catch (error) {
     throw deletionFailure(error);

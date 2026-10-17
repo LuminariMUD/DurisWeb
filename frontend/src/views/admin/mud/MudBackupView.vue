@@ -95,6 +95,8 @@ const { success, error: showError, info } = useToast()
 // Restore dialog state
 const restoreDialogOpen = ref(false)
 const restoreBackup = ref<BackupInfo | null>(null)
+// Matches the closed server databaseRestore boundary; inspection stays available.
+const isRestoreAvailable = false
 const restoreTab = ref<'full' | 'account' | 'character'>('character')
 const backupContents = ref<BackupContents | null>(null)
 const loadingContents = ref(false)
@@ -311,7 +313,7 @@ function closeRestoreDialog() {
 
 // Execute restore
 async function executeRestore() {
-  if (!restoreBackup.value || isRestoring.value) return
+  if (!isRestoreAvailable || !restoreBackup.value || isRestoring.value) return
   restoreError.value = null
   try {
     if (restoreTab.value === 'full') {
@@ -401,7 +403,13 @@ async function closeUploadDialog() {
 }
 
 async function executeUploadRestore() {
-  if (!uploadedTempPath.value || isRestoring.value || isCancellingUpload.value) return
+  if (
+    !isRestoreAvailable ||
+    !uploadedTempPath.value ||
+    isRestoring.value ||
+    isCancellingUpload.value
+  )
+    return
   restoreError.value = null
   try {
     if (restoreTab.value === 'full') {
@@ -648,7 +656,7 @@ async function executeUploadRestore() {
                     v-if="backup.status === 'completed'"
                     variant="outline"
                     size="icon"
-                    title="Restore from this backup"
+                    title="Inspect backup contents"
                     @click="openRestoreDialog(backup)"
                     :disabled="!!currentRestore"
                   >
@@ -817,7 +825,7 @@ async function executeUploadRestore() {
         <DialogHeader>
           <DialogTitle class="flex items-center gap-2">
             <RotateCcw class="h-5 w-5" />
-            Restore from Backup
+            Backup contents
           </DialogTitle>
           <DialogDescription>
             <code class="text-xs">{{ restoreBackup?.filename }}</code>
@@ -830,8 +838,16 @@ async function executeUploadRestore() {
           <AlertDescription>{{ restoreError }}</AlertDescription>
         </Alert>
 
+        <Alert v-if="!isRestoreAvailable" class="mb-4 border-warning/50 bg-warning/10">
+          <AlertCircle class="h-4 w-4" />
+          <AlertTitle>Website restore is currently unavailable</AlertTitle>
+          <AlertDescription>
+            You can still create, inspect, and download backups. Restore actions are disabled.
+          </AlertDescription>
+        </Alert>
+
         <!-- MUD Running Warning -->
-        <Alert v-if="mudRunning" variant="destructive" class="mb-4">
+        <Alert v-if="mudRunning && isRestoreAvailable" variant="destructive" class="mb-4">
           <AlertTriangle class="h-4 w-4" />
           <AlertTitle>MUD is Running</AlertTitle>
           <AlertDescription>
@@ -1012,7 +1028,7 @@ async function executeUploadRestore() {
           <Button
             v-if="restoreTab === 'character'"
             @click="executeRestore"
-            :disabled="selectedCharacterPids.length === 0 || isRestoring"
+            :disabled="!isRestoreAvailable || selectedCharacterPids.length === 0 || isRestoring"
           >
             <RotateCcw class="h-4 w-4 mr-2" />
             Restore {{ selectedCharacterPids.length }} Character(s)
@@ -1020,14 +1036,14 @@ async function executeUploadRestore() {
           <Button
             v-else-if="restoreTab === 'account'"
             @click="executeRestore"
-            :disabled="selectedAccountNames.length === 0 || isRestoring"
+            :disabled="!isRestoreAvailable || selectedAccountNames.length === 0 || isRestoring"
           >
             <RotateCcw class="h-4 w-4 mr-2" />
             Restore {{ selectedAccountNames.length }} Account(s)
           </Button>
           <AlertDialog v-else>
             <AlertDialogTrigger as-child>
-              <Button variant="destructive" :disabled="isRestoring || isCancellingUpload">
+              <Button variant="destructive" :disabled="!isRestoreAvailable || isRestoring || isCancellingUpload">
                 <RotateCcw class="h-4 w-4 mr-2" />
                 Full Restore
               </Button>
@@ -1044,7 +1060,7 @@ async function executeUploadRestore() {
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   class="bg-danger-deep text-destructive-foreground hover:bg-danger-deep/90"
-                  :disabled="isRestoring"
+                  :disabled="!isRestoreAvailable || isRestoring"
                   @click="executeRestore"
                 >
                   Yes, Restore Everything
@@ -1062,7 +1078,7 @@ async function executeUploadRestore() {
         <DialogHeader>
           <DialogTitle class="flex items-center gap-2">
             <Upload class="h-5 w-5" />
-            Restore from Uploaded Backup
+            Uploaded backup contents
           </DialogTitle>
           <DialogDescription>Uploaded backup contents for inspection</DialogDescription>
         </DialogHeader>
@@ -1073,8 +1089,16 @@ async function executeUploadRestore() {
           <AlertDescription>{{ restoreError }}</AlertDescription>
         </Alert>
 
+        <Alert v-if="!isRestoreAvailable" class="mb-4 border-warning/50 bg-warning/10">
+          <AlertCircle class="h-4 w-4" />
+          <AlertTitle>Website restore is currently unavailable</AlertTitle>
+          <AlertDescription>
+            You can still create, inspect, and download backups. Restore actions are disabled.
+          </AlertDescription>
+        </Alert>
+
         <!-- MUD Running Warning -->
-        <Alert v-if="mudRunning" variant="destructive" class="mb-4">
+        <Alert v-if="mudRunning && isRestoreAvailable" variant="destructive" class="mb-4">
           <AlertTriangle class="h-4 w-4" />
           <AlertTitle>MUD is Running</AlertTitle>
           <AlertDescription>
@@ -1245,7 +1269,7 @@ async function executeUploadRestore() {
           <Button
             v-if="restoreTab === 'character'"
             @click="executeUploadRestore"
-            :disabled="selectedCharacterPids.length === 0 || isRestoring || isCancellingUpload"
+            :disabled="!isRestoreAvailable || selectedCharacterPids.length === 0 || isRestoring || isCancellingUpload"
           >
             <RotateCcw class="h-4 w-4 mr-2" />
             Restore {{ selectedCharacterPids.length }} Character(s)
@@ -1253,14 +1277,14 @@ async function executeUploadRestore() {
           <Button
             v-else-if="restoreTab === 'account'"
             @click="executeUploadRestore"
-            :disabled="selectedAccountNames.length === 0 || isRestoring || isCancellingUpload"
+            :disabled="!isRestoreAvailable || selectedAccountNames.length === 0 || isRestoring || isCancellingUpload"
           >
             <RotateCcw class="h-4 w-4 mr-2" />
             Restore {{ selectedAccountNames.length }} Account(s)
           </Button>
           <AlertDialog v-else>
             <AlertDialogTrigger as-child>
-              <Button variant="destructive" :disabled="isRestoring || isCancellingUpload">
+              <Button variant="destructive" :disabled="!isRestoreAvailable || isRestoring || isCancellingUpload">
                 <RotateCcw class="h-4 w-4 mr-2" />
                 Full Restore
               </Button>
@@ -1277,7 +1301,7 @@ async function executeUploadRestore() {
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   class="bg-danger-deep text-destructive-foreground hover:bg-danger-deep/90"
-                  :disabled="isRestoring || isCancellingUpload"
+                  :disabled="!isRestoreAvailable || isRestoring || isCancellingUpload"
                   @click="executeUploadRestore"
                 >
                   Yes, Restore Everything

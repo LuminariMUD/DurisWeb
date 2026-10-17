@@ -22,16 +22,22 @@ import { POST_IMAGE_REMOVAL_MIGRATION } from '../../db/postImageRemovalSchema.js
 import express, { type RequestHandler } from 'express';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
+import { inspect } from 'node:util';
+import { getBackendConfiguration } from '../../config/environment.js';
 
 const port = Number(process.env.TEST_IMAGE_DB_PORT);
-const database = process.env.DB_NAME ?? '';
+const environment = getBackendConfiguration();
+const database = environment.database.database;
 if (
   process.env.TEST_IMAGE_DB_PORT &&
   (![23436, 23437].includes(port) ||
-    process.env.DB_HOST !== '127.0.0.1' ||
+    environment.database.host !== '127.0.0.1' ||
+    environment.database.port !== port ||
     database !== 'durisweb_qualification_image_suite')
 )
-  throw new Error('Image native tests require the dedicated disposable fixture');
+  throw new Error(
+    'Image native tests require the dedicated disposable fixture and matching DB_PORT',
+  );
 let enabled = true;
 const send =
   jest.fn<
@@ -144,31 +150,35 @@ function intercept(
   ) => Promise<unknown>,
 ) {
   const checkout = pool!.getConnection.bind(pool);
-  jest.spyOn(pool!, 'getConnection').mockImplementation(
-    async () =>
-      new Proxy(await checkout(), {
-        get(target, key) {
-          const value: unknown = Reflect.get(target, key, target);
-          if (['query', 'execute', 'commit'].includes(String(key)) && typeof value === 'function')
-            return (...args: unknown[]) => {
-              const first = args[0];
-              const sql =
-                typeof first === 'string'
-                  ? first
-                  : first && typeof first === 'object' && 'sql' in first
-                    ? String(first.sql)
-                    : '';
-              return interceptor(
-                sql,
-                async () => Reflect.apply(value, target, args),
-                target.threadId,
-                String(key),
-              );
-            };
-          return typeof value === 'function' ? value.bind(target) : value;
-        },
-      }),
-  );
+  const createConnection = mysql.createConnection.bind(mysql);
+  function wrap<T extends Connection>(connection: T): T {
+    return new Proxy(connection, {
+      get(target, key) {
+        const value: unknown = Reflect.get(target, key, target);
+        if (['query', 'execute', 'commit'].includes(String(key)) && typeof value === 'function')
+          return (...args: unknown[]) => {
+            const first = args[0];
+            const sql =
+              typeof first === 'string'
+                ? first
+                : first && typeof first === 'object' && 'sql' in first
+                  ? String(first.sql)
+                  : '';
+            return interceptor(
+              sql,
+              async () => Reflect.apply(value, target, args),
+              target.threadId,
+              String(key),
+            );
+          };
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+  }
+  jest.spyOn(pool!, 'getConnection').mockImplementation(async () => wrap(await checkout()));
+  jest
+    .spyOn(mysql, 'createConnection')
+    .mockImplementation(async (options) => wrap(await createConnection(options)));
 }
 async function assertLeaseFree(id: number) {
   const [rows] = await observer!.execute<RowDataPacket[]>(
@@ -472,6 +482,92 @@ async function waitForBlockedStatement(thread: number) {
       await assertLeaseFree(image.id);
     });
 
+    it('keeps provider waits outside the application pool and admits at most two removals', async () => {
+      const selected = [await seed(), await seed(), await seed()];
+      const borrowed = await Promise.all(Array.from({ length: 10 }, () => pool!.getConnection()));
+      const entered = deferred<void>();
+      const response = deferred<DeleteObjectCommandOutput>();
+      let providerCalls = 0;
+      send.mockImplementation(async () => {
+        if (++providerCalls === 2) entered.resolve();
+        return response.promise;
+      });
+      const pending = Promise.allSettled(
+        selected.map((image) => images.deletePostImage(image.id, actor)),
+      );
+      const timeout = setTimeout(() => entered.resolve(), 2000);
+      let callsWhileBorrowed = 0;
+      try {
+        await entered.promise;
+        callsWhileBorrowed = providerCalls;
+      } finally {
+        clearTimeout(timeout);
+        borrowed.forEach((connection) => connection.release());
+        response.resolve({ $metadata: { httpStatusCode: 204 } });
+      }
+      const results = await pending;
+      expect(callsWhileBorrowed).toBe(2);
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(2);
+      const rejected = results.find((result) => result.status === 'rejected');
+      expect(rejected && rejected.status === 'rejected' && rejected.reason).toMatchObject({
+        reason: 'operation_in_progress',
+      });
+      expect(send).toHaveBeenCalledTimes(2);
+      for (const image of selected) await assertLeaseFree(image.id);
+      expect(await row(selected[2].id)).toBeDefined();
+      expect(await images.deletePostImage(selected[2].id, actor)).toBe(true);
+    });
+
+    it.each(['create thread', 'update thread', 'create post', 'update post'] as const)(
+      'preserves safe diagnostic context for %s failures',
+      async (operation) => {
+        const parent = await thread();
+        const postId = await post(parent, '<p>Diagnostic fixture</p>');
+        await new Promise((resolve) => setImmediate(resolve));
+        const log = (await import('../../utils/logger.js')).default;
+        const errors = jest.spyOn(log, 'error').mockImplementation(() => log);
+        jest.spyOn(pool!, 'getConnection').mockRejectedValue(
+          Object.assign(new Error('private-write-sentinel'), {
+            code: 'ER_LOCK_DEADLOCK',
+            sql: 'private-bindings-sentinel',
+          }),
+        );
+        const endpoint =
+          operation === 'create thread'
+            ? '/api/forum/threads'
+            : operation === 'update thread'
+              ? '/api/forum/threads/' + parent
+              : operation === 'create post'
+                ? '/api/forum/threads/' + parent + '/posts'
+                : '/api/forum/posts/' + postId;
+        const action = operation.startsWith('create')
+          ? request(app).post(endpoint)
+          : request(app).patch(endpoint);
+        const response = await action
+          .set('X-Image-Fixture', 'authenticated')
+          .set('Cookie', 'csrf_token=' + 'f'.repeat(64))
+          .set('X-CSRF-Token', 'f'.repeat(64))
+          .send({
+            categoryId,
+            title: 'Diagnostic fixture',
+            content: '<p>Diagnostic fixture content</p>',
+          });
+        expect(response.status).toBe(500);
+        expect(response.body.reference).toMatch(/^[\da-f-]{36}$/);
+        expect(errors.mock.calls).toContainEqual([
+          operation[0].toUpperCase() + operation.slice(1) + ' failed',
+          expect.objectContaining({
+            reference: response.body.reference,
+            stage: 'publication',
+            code: 'ER_LOCK_DEADLOCK',
+          }),
+        ]);
+        expect(inspect(errors.mock.calls) + JSON.stringify(response.body)).not.toContain(
+          'private-',
+        );
+      },
+    );
+
     it('bounds provider timeout without losing or reopening the pending reference', async () => {
       const image = await seed();
       send.mockImplementationOnce(
@@ -515,6 +611,61 @@ async function waitForBlockedStatement(thread: number) {
         failed: 0,
         remaining: 0,
       });
+    });
+
+    it('returns the same safe failure reference from batch logs and HTTP errors', async () => {
+      const log = (await import('../../utils/logger.js')).default;
+      const warnings = jest.spyOn(log, 'warn').mockImplementation(() => log);
+      jest.spyOn(pool!, 'getConnection').mockRejectedValueOnce(new Error('private-batch-sentinel'));
+      const response = await request(app)
+        .delete('/api/forum/images/orphans')
+        .set('X-Image-Fixture', 'authenticated')
+        .set('Cookie', 'csrf_token=' + 'f'.repeat(64))
+        .set('X-CSRF-Token', 'f'.repeat(64));
+      expect(response.status).toBe(503);
+      expect(response.body.reference).toMatch(/^[\da-f-]{36}$/);
+      expect(warnings.mock.calls).toContainEqual([
+        'post_image_removal_incomplete',
+        expect.objectContaining({ reference: response.body.reference }),
+      ]);
+      expect(warnings.mock.calls).toContainEqual([
+        'post_image_batch_removal_incomplete',
+        { reference: response.body.reference },
+      ]);
+      expect(inspect(warnings.mock.calls) + JSON.stringify(response.body)).not.toContain(
+        'private-',
+      );
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it('keeps acknowledged removals and unavailable URLs when the final count fails', async () => {
+      const image = await seed();
+      const log = (await import('../../utils/logger.js')).default;
+      const warnings = jest.spyOn(log, 'warn').mockImplementation(() => log);
+      jest.spyOn(pool!, 'execute').mockRejectedValueOnce(new Error('private-count-sentinel'));
+      const response = await request(app)
+        .delete('/api/forum/images/orphans')
+        .set('X-Image-Fixture', 'authenticated')
+        .set('Cookie', 'csrf_token=' + 'f'.repeat(64))
+        .set('X-CSRF-Token', 'f'.repeat(64));
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        deleted: 1,
+        failed: 0,
+        remaining: null,
+        unavailableImageUrls: [image.url],
+      });
+      expect(response.body.reference).toMatch(/^[\da-f-]{36}$/);
+      expect(warnings.mock.calls).toContainEqual([
+        'post_image_removal_incomplete',
+        expect.objectContaining({ reference: response.body.reference }),
+      ]);
+      expect(await row(image.id)).toBeUndefined();
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(inspect(warnings.mock.calls) + JSON.stringify(response.body)).not.toContain(
+        'private-',
+      );
+      expect(inspect(warnings.mock.calls)).not.toContain(image.url);
     });
 
     it('enforces actual HTTP auth/CSRF and reports confirmed, failed and remaining batch work', async () => {

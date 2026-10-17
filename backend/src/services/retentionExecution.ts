@@ -17,7 +17,10 @@ import {
 import { loadDataHoldContract } from '../db/dataHoldSchema.js';
 import { loadRetentionRunContract } from '../db/retentionRunSchema.js';
 import { assertLifecycleMetadata } from '../db/lifecycleMetadata.js';
-import { retentionCandidateRules as rules } from './retentionCandidates.js';
+import {
+  retentionCandidateRules as rules,
+  RETENTION_SQL_TIME_ZONE,
+} from './retentionCandidates.js';
 import { readDataHoldSnapshot } from './dataHoldSnapshot.js';
 import {
   parseRetentionCheckpoint,
@@ -30,7 +33,14 @@ const TIMEOUT = 5000,
   LEASE_SECONDS = 30;
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const signature = createHash('sha256')
-  .update(JSON.stringify({ format: 'retention-execution-v1', policy, rules }))
+  .update(
+    JSON.stringify({
+      format: 'retention-execution-v1',
+      policy,
+      rules,
+      timeZone: RETENTION_SQL_TIME_ZONE,
+    }),
+  )
   .digest('hex');
 type Failure =
   | 'invalid_arguments'
@@ -401,6 +411,9 @@ export async function executeRetention(
       connectTimeout: TIMEOUT,
       multipleStatements: false,
     });
+    await connection.query({ sql: 'SET SESSION time_zone = ?', timeout: TIMEOUT }, [
+      RETENTION_SQL_TIME_ZONE,
+    ]);
     await begin(connection);
     inTransaction = true;
     await verifySchema(connection, options.classes, deadline);
