@@ -1,86 +1,309 @@
 # Website security, privacy, and schema implementation plan
 
-Status: **implementation in progress**. Updated 2026-10-17.
+## Current handoff — read this first
 
-Current checkpoint: engineering through P4, the UTC correction, first P5
-collection closure and browser storage-denial repair are published for review
-(#39, #41–#49). The browser choice state machine and draft notice are qualified
-and published for review. The image-removal recovery prerequisite is qualified
-and published as [PR #50](https://github.com/LuminariMUD/DurisWeb/pull/50) on
-`branch/post-image-deletion-recovery`, stacked on #49. P6a's bounded read-only CLI and private
-continuation are qualified and published as
-[PR #51](https://github.com/LuminariMUD/DurisWeb/pull/51), stacked on #50.
-Completed continuation `branch/privacy-data-hold-records` has qualified hold intent
-storage/API, published as [PR #52](https://github.com/LuminariMUD/DurisWeb/pull/52),
-stacked on #51. P6c1 branch `branch/retention-hold-aware-preview` is
-qualified for held/unheld preview and protected continuation, published as
-[PR #53](https://github.com/LuminariMUD/DurisWeb/pull/53), stacked on #52.
-P6c2 branch `branch/retention-sql-enforcement` prepares source-disabled
-two-class SQL execution, atomic durable progress, expiring worker ownership,
-transaction-time hold rechecks and legacy analytics-cache removal. Focused tests
-pass on both database families; full backend and regression evidence is recorded
-below. Published for review as [PR #54](https://github.com/LuminariMUD/DurisWeb/pull/54),
-stacked on #53. P6d1 branch `branch/restore-lifecycle-boundary` closes legacy
-restore bypasses; qualified and published for review as
-[PR #55](https://github.com/LuminariMUD/DurisWeb/pull/55), stacked on #54.
-P6d2a branch `branch/backup-deletion-recovery` repairs archive retry identity
-and deletion acknowledgement, qualified and published for review as
-[PR #56](https://github.com/LuminariMUD/DurisWeb/pull/56), stacked on #55.
-P6d2a2 branch `branch/backup-action-acknowledgement` repairs remaining backup
-start/restore/cancellation feedback, qualified and published as
-[PR #57](https://github.com/LuminariMUD/DurisWeb/pull/57), stacked on #56.
-Qualified prerequisite: `branch/lifecycle-metadata-visibility` repairs a reproduced
-metadata visibility gap before publishing managed-archive hold enforcement.
-Published for review as [PR #58](https://github.com/LuminariMUD/DurisWeb/pull/58),
-stacked on #57.
-Managed archive hold admission is qualified and published as
-[PR #59](https://github.com/LuminariMUD/DurisWeb/pull/59) on
-`branch/managed-archive-hold-barrier`, stacked on #58.
-Its pre-fix red-reproduction/recovery copy remains in Git stash
-`1c8d1dd304401fe58de11758a2dd7330b699a770` on
-`branch/managed-archive-hold-barrier`; do not reapply it over the published tree.
-Filtered metadata checks have been replaced and all scoped qualification passes.
-Prerequisite `branch/schema-trigger-authority` starts at #59's final
-`5c2cc1a` and fixes the remaining baseline/session catalog checks. Qualified and
-published for review as [PR #60](https://github.com/LuminariMUD/DurisWeb/pull/60),
-stacked on #59. New archive creation now streams without raw SQL/staging disk
-copies in [PR #61](https://github.com/LuminariMUD/DurisWeb/pull/61), on
-`branch/stream-backup-archives`, stacked on #60. Durable upload ownership,
-writer recovery, bounded inspection and hold-aware cancellation are qualified
-and published for review as [PR #62](https://github.com/LuminariMUD/DurisWeb/pull/62)
-on `branch/backup-upload-records`, stacked on #61. Existing
-legacy temporary-file preservation order is corrected in
-[PR #63](https://github.com/LuminariMUD/DurisWeb/pull/63), stacked on #62.
-Read-only private discovery is qualified and published as
-[PR #64](https://github.com/LuminariMUD/DurisWeb/pull/64) on
-`branch/legacy-backup-copy-inventory`, stacked on #63.
-Protected individual byte-copy/recovery tooling is qualified and published as
-[PR #65](https://github.com/LuminariMUD/DurisWeb/pull/65) on
-`branch/legacy-copy-preservation`, stacked on #64.
-Verified legacy-copy adoption/fencing remains next.
-Install metadata function v2 before bootstrap/migrations;
-source does not accept v1 as an equivalent fallback.
-Next: remaining P6 cleanup/copy/restore
-and P7 engineering, plus unresolved policy/provider decisions. P5's approved
-notice and release gates remain open.
-Policy/approval and live-release gates remain open; no production rollout is implied.
+Updated **2026-10-17, 11:15 Asia/Jerusalem (08:15 UTC)** from the actual
+checkout, remote branch heads, GitHub PR/issue state and current source. This
+section supersedes every older “next”, “current chunk”, “continue” and “goal
+stays active” instruction in the historical execution record below.
 
-Single working plan for [#7](https://github.com/LuminariMUD/DurisWeb/issues/7),
-[#8](https://github.com/LuminariMUD/DurisWeb/issues/8),
-[#9](https://github.com/LuminariMUD/DurisWeb/issues/9),
-[#10](https://github.com/LuminariMUD/DurisWeb/issues/10),
-[#11](https://github.com/LuminariMUD/DurisWeb/issues/11),
-[#12](https://github.com/LuminariMUD/DurisWeb/issues/12),
-[#13](https://github.com/LuminariMUD/DurisWeb/issues/13), and
-[#14](https://github.com/LuminariMUD/DurisWeb/issues/14).
+**The original eight-issue project is unfinished.** Three project PRs are
+merged; 26 more are open for review. Source for the principal security fixes is
+implemented and tested. General retention and complete account export/erasure
+are not finished. No production deployment, global logout, shared migration,
+live deletion, MUD operation or release tag was performed by this work.
 
-Implementation branch: `branch/issues-7-14-security-privacy-baseline`.
-Source reviewed: `master` at
-[`ade01ddcea70c0448825a0b4ab3e8ba77982aae4`](https://github.com/LuminariMUD/DurisWeb/commit/ade01ddcea70c0448825a0b4ab3e8ba77982aae4).
-All eight issues were open with no comments when read. Their older `3f0ddc9`
-references are context; the findings below come from the pinned checkout.
+**Latest request: update this handoff document.** No account-export code was
+written during the recovery discussion. The suggested export work below is a
+next implementation target, not an implemented feature or permission to restart
+the previous unbounded goal. The automated goal had been paused; the user then
+replaced its objective with this documentation update.
+
+### Exact checkout and recovery state
+
+- Work in `/tmp/durisweb-security-privacy-plan-20261016`. Its Windows path is
+  `\\wsl.localhost\Ubuntu\tmp\durisweb-security-privacy-plan-20261016`.
+  This is the authoritative current plan; the plan on `master` is older.
+- Current documentation branch: `branch/legacy-copy-preservation`, existing
+  [PR #65](https://github.com/LuminariMUD/DurisWeb/pull/65). This handoff is a
+  documentation-only follow-up in that PR; no additional implementation PR is
+  needed for it. The last published source checkpoint before this update is
+  `2774928e8638df24ac2f89c234f1ebe6a919cccf`; its runtime-code commit is
+  `7c3e92df29d36cb91bb7722959bb0566dc92f678`.
+- `branch/legacy-owner-fence` is a **local-only, empty branch** at that same
+  `2774928` checkpoint, with no implementation, upstream or PR. It was abandoned
+  as the immediate next task. Do not mistake its name for a completed guard.
+- The original checkout `/home/aiwithapex/projects/durisweb` is currently clean
+  on `master` at `89468603a61ab44d9e3be1651c9dd6fce5a17a12`; remote `master`
+  matches and is an ancestor of the working source. Preserve its independent
+  workflow; do not overwrite its plan with an uncommitted copy or change its
+  branch to make this work appear merged.
+- Existing review worktrees remain at `/tmp/durisweb-pr37-review-20261016`,
+  `/tmp/durisweb-pr38-review-20261016`,
+  `/tmp/durisweb-pr39-parent-refresh-20261016`,
+  `/tmp/durisweb-pr41-pr39-carryforward-20261016` and
+  `/tmp/durisweb-session-probe-guard-20261016`. An unrelated detached checkout
+  also exists under the Kilo worktree pool. Do not delete or reset them.
+- Preserve recovery stashes `1c8d1dd304401fe58de11758a2dd7330b699a770` and
+  `bbda2896e1c515687d542f6d6e215de7ee364d63`. They are older recovery evidence,
+  not unmerged features to apply blindly over the current branch.
+
+### What is done, and what each issue still needs
+
+“Implemented” below means committed source plus the isolated verification
+recorded later in this file. It does not mean reviewed, merged or deployed.
+GitHub currently shows #13 closed; #7–#12 and #14 are still open.
+
+| Issue / phase | Implemented and verified | Still unfinished |
+| --- | --- | --- |
+| #13 / P1 — safe diagnostics | GeoIP/cache errors use bounded categories and references, with identifying-value regression tests. PR #36 is merged and #13 is closed. | No further source work identified for this issue; no new live verification is claimed. |
+| #14 / P2 — reproducible schema | Versioned 77-table website baseline, immutable inputs, guarded installer/adoption/ledger transition, full owner-schema qualification, upgrade/recovery and two-engine tests. #37/#38 merged; #39 open. #58/#60 add authoritative metadata checks. | Review/merge remaining source; use the exact supported procedure and metadata v2 during any separately authorized installation. No production migration acceptance exists. |
+| #7 + #8 / P3 — refresh credentials and expiry | SHA-256 refresh digests, session/account binding, UTC epoch expiry, expand/cutover/contract migrations, empty-session rollback, preflight, access/refresh/DST/offset and revocation tests. #41 open; #43/#44 are related follow-ups. | Review/merge, explicit one-time logout decision, deployed-schema inspection and authorized cutover/live auth proof. Existing sessions have not been invalidated by this task. |
+| #9 / P4 — safety-toggle attribution | Atomic setting/journal write, idempotent bounded audit recovery, protected journal namespace, safe diagnostics and outage/crash/retry/concurrency tests. #42 open. | Review/merge and future release verification. Approved retention and subject-request treatment of delivered journal/audit records remain part of P6/P7. |
+| #10 / P0/P5 — notice and optional analytics | Public draft `/privacy` page and contact, browser choice state machine, server-owned receipts, same-origin/CSRF checks, withdrawal/race/storage-denial handling, minimized optional events and synthetic browser proof. #45–#49 open. | Approved final notice, purposes/providers/transfers/periods and release acceptance. `approved`, `collectionEnabled` and `retentionReady` remain false in `backend/src/config/privacyPolicy.ts`; optional collection is unavailable. The proposed 180-day preference period is not approved. |
+| #11 / P6 — retention | Inventory; bounded preview; private hold records; hold-aware continuation; source-disabled executor for **`analytics_events` and `login_history` only**; durable progress and cache cleanup; managed archive hold/removal/upload recovery; legacy discovery and individual preservation tools. #50–#65 open. | Approved periods/rules; remaining per-class handlers and feature cleanup; own-ledger periods; subject-request coordination; provider/media/cache/log copies; whole legacy-copy ownership/adoption and pre-teardown preservation; independently protected removal evidence and restore replay; operational acceptance. General retention is not enabled. |
+| #12 / P7 — account export and erasure | Data-store inventory and supporting session/hold/media-recovery primitives exist. Contact instructions direct requests to Max. | **No complete request lifecycle, fresh identity-verification flow, account export/download, erasure/anonymization engine, request/status UI, MUD/provider completion protocol, or complete-request verification exists.** The privacy router currently supplies choice endpoints only. |
+| P8 — integration and release | Per-chunk tests/builds and draft release wording are retained. | Final complete-feature integration, reviewed release identity, required owner decisions, authorized rollout and live Website Changelog verification. Source checks do not close these gates. |
+
+Named decision contact: **Max (Moshe), `zusuk@duris.sbs`**. His supplied contact
+details are not approval of retention/destruction periods, controller wording,
+provider commitments, request verification rules or the global logout. The
+registry is [Website data lifecycle inventory](../privacy-data-lifecycle.md).
+It covers the immutable 77-table baseline plus two later website-owned tables
+(`web_data_holds`, `web_retention_runs`) and the additional private journals,
+files, caches and external owners. Those stores still need approved disposition.
+
+### Corrections that prevent another detour
+
+- **Authentication is database-backed now.**
+  `backend/src/services/accountService.ts:getAccount` reads `accounts`,
+  `account_characters` and `account_ips`; `parseAccountFile` is a compatibility
+  name that delegates to it. Older text below describing current website
+  authentication as flat-file based is stale. Fresh password verification must
+  use authoritative current credentials, not the five-minute account cache.
+  MUD ownership and its independent writers still require coordination for
+  erasure; read the actual contract rather than assuming a file protocol.
+- **P6 has two prepared executor classes, not universal coverage.** The policy
+  proposes 30 days for `analytics_events` and 90 for `login_history`; both class
+  approvals, overall approval and `executionEnabled` are false in
+  `backend/src/config/retentionPolicy.ts`. The hold API intentionally reports
+  global `enforcementReady: false`. A successful preview is not deletion proof.
+- **Legacy restore is closed.** #55 deliberately refuses the unsafe website
+  restore paths until protected recovery exists. Restoring a ZIP or opening a
+  flag to make the project look finished would bypass unfinished requirements.
+- **The legacy-copy tooling is partial.** #64 inventories; #65 preserves and
+  verifies one selected file under a Linux read lease. Neither proves every
+  copy is inventoried, old writers/cleanup are fenced, ownership is established,
+  holds are globally enforced or a service namespace can safely be destroyed.
+- **The final ownership experiment is not product code.**
+  `/tmp/durisweb-probe-owner-fence.py` and
+  `/tmp/durisweb-owner-fence-probe-final.log` contain an isolated dummy-file
+  experiment: a read-only bind mount did not stop deletion through old handles;
+  root ownership blocked that cleanup while an existing writer drained. No
+  production guard, service controller, adoption path or repository test was
+  implemented. Stop expanding this experiment during the recovery hour.
+- No account-export implementation was started after the interruption. Reading
+  routes and proposing an export did not produce a new branch, commit or API.
+
+### All project branches and PRs
+
+This registry records **every remote project branch at the 08:15 UTC snapshot**.
+Commit links identify full SHAs. The #65 branch advances only for this handoff
+document; its source checkpoint below remains the runtime/test reference.
+The three merged PRs and all 26 open PRs each had four completed successful
+hosted backend/frontend checks at that snapshot. All open PRs were non-draft
+and GitHub reported `CLEAN`; no approving review decision was reported. These
+are mechanical status observations, not a claim that review or merge is done.
+
+Merged into `master`:
+
+| PR and delivered chunk | Branch | PR base | Verified remote checkpoint |
+| --- | --- | --- | --- |
+| [#36: Remove identifying data from GeoIP and cache diagnostics](https://github.com/LuminariMUD/DurisWeb/pull/36) | `branch/issues-7-14-security-privacy-baseline` | `master` | [b299239449e9](https://github.com/LuminariMUD/DurisWeb/commit/b299239449e9f4187c706d6c032715269d92d437) |
+| [#37: Define and verify versioned website schema inputs](https://github.com/LuminariMUD/DurisWeb/pull/37) | `branch/issue-14-web-schema-baseline` | `master` | [55aafe917485](https://github.com/LuminariMUD/DurisWeb/commit/55aafe91748577b38ac24f8b38e5b8e6792ac2cc) |
+| [#38: Add guarded website baseline installation and migration coverage](https://github.com/LuminariMUD/DurisWeb/pull/38) | `branch/issue-14-web-schema-bootstrap` | `master` | [303030a4077f](https://github.com/LuminariMUD/DurisWeb/commit/303030a4077f0b661b54397085499cfb665d0351) |
+
+Open, in dependency order. #39 targets `master`; #41 depends on #39; each PR
+from #42 through #65 depends on the immediately preceding listed PR:
+
+| PR and delivered chunk | Branch | PR base | Verified remote checkpoint |
+| --- | --- | --- | --- |
+| [#39: Qualify fresh and restored website baselines on full owner schemas](https://github.com/LuminariMUD/DurisWeb/pull/39) | `branch/issue-14-baseline-qualification` | `master` | [b339562f3e9d](https://github.com/LuminariMUD/DurisWeb/commit/b339562f3e9d61c4e9cb3713343906e94da014eb) |
+| [#41: Protect refresh credentials and make session expiry timezone independent](https://github.com/LuminariMUD/DurisWeb/pull/41) | `branch/issues-7-8-session-credentials` | `branch/issue-14-baseline-qualification` | [7fd35baceac8](https://github.com/LuminariMUD/DurisWeb/commit/7fd35baceac89579266e953b657f8cc69b05585d) |
+| [#42: Keep safety-toggle attribution durable through audit outages](https://github.com/LuminariMUD/DurisWeb/pull/42) | `branch/issue-9-toggle-audit-journal` | `branch/issues-7-8-session-credentials` | [4b28587612a6](https://github.com/LuminariMUD/DurisWeb/commit/4b28587612a6a9f9ad12cf316765daab2ff96f38) |
+| [#43: Report website-setting timestamps as UTC instants](https://github.com/LuminariMUD/DurisWeb/pull/43) | `branch/settings-utc-provenance` | `branch/issue-9-toggle-audit-journal` | [b0d8e0a0c885](https://github.com/LuminariMUD/DurisWeb/commit/b0d8e0a0c885360e98108e6576ac51ba0151c986) |
+| [#44: Recognize the session test probe in configuration checks](https://github.com/LuminariMUD/DurisWeb/pull/44) | `branch/session-probe-config-guard` | `branch/settings-utc-provenance` | [49ba05fb0abd](https://github.com/LuminariMUD/DurisWeb/commit/49ba05fb0abd1bd94c22e18448935997a129e0f1) |
+| [#45: Stop optional website analytics before privacy choices are ready](https://github.com/LuminariMUD/DurisWeb/pull/45) | `branch/issue-10-stop-unconsented-analytics` | `branch/session-probe-config-guard` | [069f7b50d42e](https://github.com/LuminariMUD/DurisWeb/commit/069f7b50d42e81073debfa3720e7074307d75ae3) |
+| [#46: Handle blocked storage in notification and changelog preferences](https://github.com/LuminariMUD/DurisWeb/pull/46) | `branch/browser-storage-preferences` | `branch/issue-10-stop-unconsented-analytics` | [1761613b94e4](https://github.com/LuminariMUD/DurisWeb/commit/1761613b94e4d5113d24a5f2ecb9810bebff7a9d) |
+| [#47: Inventory data lifecycles for privacy and account requests](https://github.com/LuminariMUD/DurisWeb/pull/47) | `branch/privacy-processing-registry` | `branch/browser-storage-preferences` | [ce3224b95d25](https://github.com/LuminariMUD/DurisWeb/commit/ce3224b95d25340c7ef1fbddfe160a10bac4e487) |
+| [#48: Enforce server-owned privacy choices before optional collection](https://github.com/LuminariMUD/DurisWeb/pull/48) | `branch/privacy-choice-receipts` | `branch/privacy-processing-registry` | [58c33a09b253](https://github.com/LuminariMUD/DurisWeb/commit/58c33a09b2530f46e7d9ed656eeee8d6ea41de70) |
+| [#49: Add public privacy information and safe browser choices](https://github.com/LuminariMUD/DurisWeb/pull/49) | `branch/privacy-browser-choices` | `branch/privacy-choice-receipts` | [7f07bc9fdee6](https://github.com/LuminariMUD/DurisWeb/commit/7f07bc9fdee62b94eb41adac8328664dcc216421) |
+| [#50: Preserve retry state for forum image removal](https://github.com/LuminariMUD/DurisWeb/pull/50) | `branch/post-image-deletion-recovery` | `branch/privacy-browser-choices` | [45b638710334](https://github.com/LuminariMUD/DurisWeb/commit/45b6387103345a1b7bd3ecfbfd72e48959c2d14a) |
+| [#51: Add bounded read-only retention previews](https://github.com/LuminariMUD/DurisWeb/pull/51) | `branch/retention-readonly-preview` | `branch/post-image-deletion-recovery` | [3bd3b2c65877](https://github.com/LuminariMUD/DurisWeb/commit/3bd3b2c65877e58d479a2dfda9b4c0ae3e407dfe) |
+| [#52: Record private data hold intent and release history](https://github.com/LuminariMUD/DurisWeb/pull/52) | `branch/privacy-data-hold-records` | `branch/retention-readonly-preview` | [8ed66d10087d](https://github.com/LuminariMUD/DurisWeb/commit/8ed66d10087d7d381475d326229c0a44ed055d8d) |
+| [#53: Account for holds in retention previews and continuation](https://github.com/LuminariMUD/DurisWeb/pull/53) | `branch/retention-hold-aware-preview` | `branch/privacy-data-hold-records` | [8c23534172a9](https://github.com/LuminariMUD/DurisWeb/commit/8c23534172a9532224ea5ae373f1660c7e0c9b63) |
+| [#54: Prepare gated SQL retention with transactional holds](https://github.com/LuminariMUD/DurisWeb/pull/54) | `branch/retention-sql-enforcement` | `branch/retention-hold-aware-preview` | [56508c00dbf3](https://github.com/LuminariMUD/DurisWeb/commit/56508c00dbf35d96be7970d09f382fd81c4ab9c7) |
+| [#55: Close legacy restore bypasses until protected recovery exists](https://github.com/LuminariMUD/DurisWeb/pull/55) | `branch/restore-lifecycle-boundary` | `branch/retention-sql-enforcement` | [0736f4fe1225](https://github.com/LuminariMUD/DurisWeb/commit/0736f4fe122581b45d132d2f0ad6784804870a1c) |
+| [#56: Keep backup deletion failures retryable and await UI outcomes](https://github.com/LuminariMUD/DurisWeb/pull/56) | `branch/backup-deletion-recovery` | `branch/restore-lifecycle-boundary` | [2fdfb3686231](https://github.com/LuminariMUD/DurisWeb/commit/2fdfb3686231ed6d115c4b7a41439f86e8df8d58) |
+| [#57: Wait for confirmed backup actions and retain refused work](https://github.com/LuminariMUD/DurisWeb/pull/57) | `branch/backup-action-acknowledgement` | `branch/backup-deletion-recovery` | [5ffeb0505036](https://github.com/LuminariMUD/DurisWeb/commit/5ffeb05050361cb7880299a53f56e3b51521087b) |
+| [#58: Require authoritative metadata before lifecycle writes](https://github.com/LuminariMUD/DurisWeb/pull/58) | `branch/lifecycle-metadata-visibility` | `branch/backup-action-acknowledgement` | [8916de3c5f89](https://github.com/LuminariMUD/DurisWeb/commit/8916de3c5f89939a50f3c5dfb8cfef55df3a0df8) |
+| [#59: Fence managed archive cleanup against preservation holds](https://github.com/LuminariMUD/DurisWeb/pull/59) | `branch/managed-archive-hold-barrier` | `branch/lifecycle-metadata-visibility` | [5c2cc1a49da8](https://github.com/LuminariMUD/DurisWeb/commit/5c2cc1a49da8ca10219c38ed892172f76cb0cff7) |
+| [#60: Require authoritative schema and session side-effect checks](https://github.com/LuminariMUD/DurisWeb/pull/60) | `branch/schema-trigger-authority` | `branch/managed-archive-hold-barrier` | [220c9918e71f](https://github.com/LuminariMUD/DurisWeb/commit/220c9918e71f5e0ce1403248ec65714ccc6d9195) |
+| [#61: Stream backups without temporary SQL copies](https://github.com/LuminariMUD/DurisWeb/pull/61) | `branch/stream-backup-archives` | `branch/schema-trigger-authority` | [0bc26417a93a](https://github.com/LuminariMUD/DurisWeb/commit/0bc26417a93a1ae380f09339f699291b37a38ef1) |
+| [#62: Track backup uploads durably and honor preservation holds](https://github.com/LuminariMUD/DurisWeb/pull/62) | `branch/backup-upload-records` | `branch/stream-backup-archives` | [3d68697bb080](https://github.com/LuminariMUD/DurisWeb/commit/3d68697bb0807ff9c54a513819fe151264f65f7c) |
+| [#63: Preserve legacy temporary copies before old service shutdown](https://github.com/LuminariMUD/DurisWeb/pull/63) | `branch/legacy-upload-preservation-gate` | `branch/backup-upload-records` | [1b37db7132a9](https://github.com/LuminariMUD/DurisWeb/commit/1b37db7132a9dd57d957098f7acce937f131eb1d) |
+| [#64: Inventory legacy backup copies privately before preservation](https://github.com/LuminariMUD/DurisWeb/pull/64) | `branch/legacy-backup-copy-inventory` | `branch/legacy-upload-preservation-gate` | [ab097795cf2a](https://github.com/LuminariMUD/DurisWeb/commit/ab097795cf2a62b7dfcbdb618b8cbdb1c6fb75e2) |
+| [#65: Preserve legacy backup bytes with kernel file leases](https://github.com/LuminariMUD/DurisWeb/pull/65) | `branch/legacy-copy-preservation` | `branch/legacy-backup-copy-inventory` | [2774928e8638](https://github.com/LuminariMUD/DurisWeb/commit/2774928e8638df24ac2f89c234f1ebe6a919cccf) |
+
+Other branches present, to avoid confusing unrelated work with this project:
+
+| PR and delivered chunk | Branch | PR base | Verified remote checkpoint |
+| --- | --- | --- | --- |
+| [#29: Add public Mudlet GUI page](https://github.com/LuminariMUD/DurisWeb/pull/29) | `feat/mudlet-gui-page` | `master` | [465b2dbf1218](https://github.com/LuminariMUD/DurisWeb/commit/465b2dbf12188fc6ac160cc572e52a4098f1c76d) |
+| [#32: Classify Discord delivery failures and retry deadlines](https://github.com/LuminariMUD/DurisWeb/pull/32) | `branch/issue-30-discord-transport` | `master` | [87dd4619828e](https://github.com/LuminariMUD/DurisWeb/commit/87dd4619828e80756ef02a55bddb9a091d3680de) |
+| [#33: Persist PvP Discord deliveries and recover pending work](https://github.com/LuminariMUD/DurisWeb/pull/33) | `branch/issue-30-durable-discord` | `master` | [6e33525905b4](https://github.com/LuminariMUD/DurisWeb/commit/6e33525905b468af97ac0207be791807d5d6342b) |
+| [#34: Show Discord delivery status and retry failed announcements](https://github.com/LuminariMUD/DurisWeb/pull/34) | `branch/issue-30-discord-status` | `master` | [09ea84026073](https://github.com/LuminariMUD/DurisWeb/commit/09ea84026073c9f52572be6bece38901bcd2c816) |
+| [#35: Keep large PvP announcements within Discord embed limits](https://github.com/LuminariMUD/DurisWeb/pull/35) | `branch/issue-30-discord-payload-bounds` | `master` | [a25f16b1f251](https://github.com/LuminariMUD/DurisWeb/commit/a25f16b1f251455a9f5c1854c799196be484c77e) |
+
+- Remote `master`: `89468603a61ab44d9e3be1651c9dd6fce5a17a12`.
+- Local-only `branch/legacy-owner-fence`: `2774928e8638df24ac2f89c234f1ebe6a919cccf`,
+  no changes or PR. No account-export branch or PR exists at this checkpoint.
+- The local review branch for #37 remains at `2ed1a2884b5283fdf0222ce1b550b363652ee142`
+  while its current remote/merged PR head is `55aafe91748577b38ac24f8b38e5b8e6792ac2cc`.
+  The local review branch for #38 is `f6ad133fc5bd255eecc1c4d874ebbbd866d057c1`,
+  while its remote/merged PR head is `303030a4077f0b661b54397085499cfb665d0351`.
+  Preserve these local review snapshots; do not force-push them over the remotes.
+- Other local project branch heads match the corresponding remote checkpoints.
+  The retained `feat/mudlet-gui-page` and four issue-30 branches above are merged,
+  outside issues #7–#14 and require no work in this recovery task.
+
+Preserve the published stack. Before any future merge, refresh base/head and
+repository gates, account for the actual tested tree and retarget/rebase
+descendants only when required by the chosen merge method. The request here is
+to leave reviewable PRs, not merge all open work or deploy it. Do not spend the
+recovery hour reorganizing 26 green PRs or inventing a release tag.
+
+### Critical path for the one-hour recovery window
+
+Working timebox: **11:12–12:12 Asia/Jerusalem (08:12–09:12 UTC), 2026-10-17**,
+anchored to the first recovery check. It is not reset by a new session or by this
+document update. Check the clock before starting. The exact external deadline
+was not independently confirmed.
+
+**There is no evidence-based promise that all remaining P0/P5/P6/P7/P8 acceptance
+can be completed in one hour.** P7 lacks the core workflow, P6 is partial, and
+owner/external/release decisions are unresolved. The hour can deliver a verified
+useful increment and an exact handoff; it cannot truthfully make those missing
+outcomes complete. The original requirements remain open until proven.
+
+Priority order for the next implementation session:
+
+1. **Finish this handoff and preserve the ready work (first five minutes).**
+   Commit/push this document on #65, verify the remote result and use the registry
+   above. Reuse the already passing source evidence. This documentation task
+   does not require rerunning all application tests or adding runtime code.
+2. **Direct the remaining coding time to P7, the largest missing user outcome.**
+   The smallest useful first slice is a fresh-password-verified download of the
+   authenticated user's explicitly selected website data. Inspect current
+   `accountService.ts`, `routes/auth.ts`, `routes/privacy.ts`, the lifecycle
+   inventory and existing account/profile/community readers. Reuse current
+   authentication, CSRF, rate limiting and the privacy page. Never accept the
+   subject account from request-body input or a staff role as self-service
+   ownership. Require a fresh authoritative credential check and active session.
+   Use explicit per-store columns/ownership predicates, a bounded consistent
+   read and a direct private `no-store` attachment where sufficient. Exclude
+   credentials, push keys, other subjects and staff-only evidence. Disclose the
+   exact included/omitted categories. A limited website export must be labelled
+   partial and does **not** close #12. Preserve the remaining P7 checklist.
+3. **At about minute 35, stop expanding the implementation and verify it.**
+   For an export slice, prove two-account isolation, anonymous/stale/wrong-password
+   refusal, account case handling, CSRF, credential exclusion, bounded output,
+   private download and safe DB failure on isolated synthetic data. Use the real
+   route and actual query path, not only mocked serializer tests. Run the required
+   affected-package format/lint/type/build gates; include `verify:mud-writes`
+   for backend database changes and frontend tests/gates if UI changes. Existing
+   disposable fixtures can be reused; avoid a new general testing framework.
+4. **Reserve the final ten minutes for publication and an honest acceptance check.**
+   Publish a focused dependent PR only if the new slice actually works and its
+   checks pass; update this document with exact commands, scope and omissions.
+   If it does not pass, preserve recoverable work and say it is unfinished.
+   Do not claim a partial export, a queue entry, a dry run or green CI completes
+   erasure/retention. No release, policy flag or destructive operation follows
+   merely from the time pressure.
+
+Remaining work required to finish the **whole** original scope, in dependency
+order after that bounded recovery slice:
+
+1. **P0/P5 policy completion:** approve the exact notice, active providers,
+   purposes, request verification, per-class periods/exceptions and the logout
+   decision. Prepare concrete proposals using the existing inventory; ask the
+   owner only for consequential decisions, in plain language. Do not treat the
+   supplied name/email or the deadline as approval.
+2. **P7 complete request workflow:** durable identity-bound request/progress/status,
+   fresh verification, protected complete approved export, per-store erasure or
+   anonymization, session/socket teardown and suppression against recreation,
+   mixed-subject/staff review, MUD/provider handoffs, retry/ambiguous-outcome
+   recovery, UI, independent verification and declared retained exceptions.
+   A read-only website export can proceed independently of legacy backup fencing;
+   destructive erasure cannot skip its copy/hold/restore requirements.
+3. **P6 full lifecycle coverage:** extend approved explicit handlers beyond the
+   two classes, cover existing cleanup/caches/media/providers/logs and the
+   lifecycle records' own periods; coordinate holds and pending requests;
+   complete verified ownership/adoption/preservation of legacy copies before
+   any namespace teardown; protect current evidence independently and replay
+   completed removals before restored data becomes accessible. Keep the
+   2027-03-03 protected-import review boundary and MUD authority intact.
+4. **P8 closure:** review/integrate the stack, run the outstanding real-path
+   acceptance matrix, secure separately required release decisions, rehearse
+   the exact cutover, deploy only when authorized, verify live behavior and
+   publish/verify Website Changelog entries. Until then, mark deployment and
+   compliance acceptance incomplete.
+
+### Verification already available and how to resume it
+
+These are retained results, **not tests rerun for this document update**:
+
+- Latest broad backend run during #65 qualification: **1,363 tests / 141
+  suites passed**, with **53 optional native skips / four whole suites**. Final
+  local receipt-field/naming changes were subsequently checked with the focused
+  32 tests/four suites, eight native Python lease cases and required backend
+  gates; the broad suite was not repeated solely for those final local changes.
+- #62 final upload proof: native MySQL **17 / two suites**, MariaDB **52 / six**;
+  frontend **299 / 58 files**, plus desktop/phone synthetic browser checks.
+- #49 privacy browser proof: 12 synthetic scenarios at desktop/tablet/phone
+  widths, including refusal/withdrawal, account changes, storage denial,
+  cross-tab ordering and cookie rejection. Simulated policy approval is not
+  actual policy approval. #41 has the retained 144-case HTTP timezone matrix.
+- Backend format/lint/type/schema/MUD-write/build gates and frontend gates were
+  run for their respective changed chunks. The full commands, versions, logs,
+  individual skips and scope limits remain in the historical record below.
+- Available owned fixtures: MySQL 8.0.46 on **23436**, MariaDB 11.8.9 on **23437**,
+  Redis **23479** with runner-owned test databases. Older baseline fixtures use
+  23336/23337. Do not target development 13306/16379, other review fixtures or
+  production. Confirm a runner's ownership/empty-cache requirements before use;
+  serialize runners sharing Redis databases. Read its script before execution.
+- Existing private runners include `/tmp/durisweb-run-archive-suite.mts`,
+  `/tmp/durisweb-run-execution-suite.mts`, `/tmp/durisweb-run-hold-suite.mts`,
+  `/tmp/durisweb-run-retention-suite.mts` and
+  `/tmp/durisweb-image-quality.py`. Use the Node/tsx invocation recorded below.
+  They prepare actual owner schema, metadata v2 and forward migrations; a tiny
+  web-only database is not equivalent evidence. Do not install or alter anything
+  in the separate MUD repository.
+- Reproduction evidence is private under `/tmp`, not durable Git content; tests
+  and operator commands are committed. If a helper/log is missing, state that
+  limit and reconstruct only the exact needed fixture from committed tests.
+  Do not claim a historical result was rerun or fabricate its missing output.
+
+This handoff changes only `docs/ongoing-projects/plan.md`. Its checks are live
+PR/remote/branch reconciliation, source-status verification, Markdown/local-link
+review and `git diff --check`. No runtime suite, production operation or public
+changelog update is necessary for this contributor-document change.
 
 ## Scope and authority
+
+The bounds below describe the original implementation request. The current
+updated goal is this documentation handoff; this section does not restart
+implementation automatically.
 
 Implementation is authorized, including local isolated verification, commits,
 pushes, and focused review-ready PRs. Stack dependent PRs as each chunk is ready.
@@ -92,7 +315,14 @@ All older stop/drain release instructions are subject to the
 inventory and satisfy preservation/hold/fencing requirements before stopping an
 old `PrivateTmp` unit. Namespace teardown is itself a copy-removal path.
 
-## Execution record and continuation
+## Historical execution record and evidence
+
+The entries below preserve original commands, outcomes and limits. Their
+then-current branches, PR states and next-step directions are historical;
+use the current handoff above for present state and priority.
+
+<details>
+<summary>Earlier execution journal and per-chunk verification</summary>
 
 - **P6d2b2e protected per-copy preservation (2026-10-17, qualified/published as #65):** branch
   `branch/legacy-copy-preservation` starts at #64 `ab09779`. Outcome: copy a
@@ -3153,6 +3383,8 @@ exceptions, request handling, and provider commitments need a named owner's
 approval. These decisions are implementation/release prerequisites, not reasons
 to leave this planning deliverable incomplete.
 
+</details>
+
 ## Original findings checked against the pinned starting source
 
 These describe the starting revision. The execution record and phase checkboxes
@@ -3689,7 +3921,7 @@ silently resurrect erased data.
   Revoke all sessions and terminate affected active terminal/WebSocket sessions,
   remove subscriptions, and clear relevant caches. Durable suppression and
   account-name reuse must follow the MUD owner's identity policy; do not claim
-  full erasure while flatfile authentication can immediately recreate the user.
+  full erasure while the external account authority or another writer can recreate the user.
 - [ ] Apply per-category deletion/anonymization under the approved policy.
   Retained forum/PvP/community material needs stable unattributed display and
   intact relationships/counts; strip unnecessary author/IP/profile links and
