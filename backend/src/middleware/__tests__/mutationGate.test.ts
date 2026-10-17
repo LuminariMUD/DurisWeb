@@ -10,7 +10,7 @@ jest.unstable_mockModule('../../config/environment.js', () => ({
   getBackendConfiguration,
 }));
 
-const { requireMutationGate } = await import('../mutationGate.js');
+const { requireMutationGate, isMutationGateOpen } = await import('../mutationGate.js');
 
 function respond(): { res: Response; status: jest.Mock; json: jest.Mock } {
   const json = jest.fn();
@@ -50,6 +50,23 @@ describe('requireMutationGate', () => {
         enableWith: 'ALLOW_UNSAFE_AUCTION_WRITES',
       }),
     );
+  });
+
+  it.each([false, true])('keeps restore unavailable with the historical override %s', (enabled) => {
+    getBackendConfiguration.mockReturnValue({ unsafeMutations: { databaseRestore: enabled } });
+    const next = jest.fn() as unknown as NextFunction;
+    const { res, status, json } = respond();
+
+    expect(isMutationGateOpen('databaseRestore')).toBe(false);
+    requireMutationGate('databaseRestore')({} as Request, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(status).toHaveBeenCalledWith(503);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: 'operation_gated', gate: 'databaseRestore' }),
+    );
+    expect(json.mock.calls[0][0]).not.toHaveProperty('enableWith');
+    expect(getBackendConfiguration).not.toHaveBeenCalled();
   });
 
   it('only opens the gate the operator explicitly enabled', () => {

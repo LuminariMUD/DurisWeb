@@ -309,6 +309,17 @@ references: [security inventory](SECURITY-COMPLIANCE.md#third-party-transfers),
 [logger](../backend/src/utils/logger.ts), and
 [incident response](runbooks/incident-response.md).
 
+Both legacy website restore endpoints and their service entry points now refuse
+regardless of the historical unsafe switch. The asynchronous row-merge executor
+is removed so it cannot reintroduce account/game rows through a website path
+that does not consult current lifecycle evidence. Its old allowlist did not
+include the two website SQL retention classes or the hold/run ledgers; closing
+this path does not implement replay for a full operator-restored website dump.
+Backup creation and inspection
+remain available. This closure does not implement archive expiry/holds or
+offline restore-removal replay; retain independent current lifecycle evidence
+and follow the [operator recovery boundary](deployment.md#application-restore-boundary).
+
 ## Concrete decisions still required
 
 The following is a proposal for owner review, not an approved schedule or legal

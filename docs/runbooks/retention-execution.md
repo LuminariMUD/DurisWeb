@@ -171,3 +171,11 @@ pending subject requests and verified export/erasure remain required follow-ups.
 The hold API still reports global enforcement unavailable. A website-only result
 does not establish MUD/provider/CDN/device/backup disposal or prevent restore
 resurrection; those acceptance gates remain open.
+
+The legacy stored/uploaded website restore routes and direct service entry
+points are source-disabled regardless of `ALLOW_UNSAFE_DATABASE_RESTORE`; their
+asynchronous row-merge executor is removed. This closes one bypass without
+implementing protected physical recovery. Keep current run/control/hold and
+future subject-request evidence independent of any archive, then replay and
+verify approved current dispositions offline before a separately authorized
+restored target is exposed.

@@ -70,12 +70,10 @@ import {
   deleteBackup,
   deleteFailedBackups,
   listBackupContents,
-  createRestore,
   getRestoreById,
   getRestoreList,
   isMudRunning,
   validateUploadedBackup,
-  createRestoreFromUpload,
   deleteUploadedBackup,
 } from '../services/backupService.js';
 import multer from 'multer';
@@ -3959,104 +3957,15 @@ router.get(
   },
 );
 
-// fast-fail guard: mud must be offline and no other restore recently active.
-// best-effort only; runRestoreInternal's atomic insert is the actual race-safe check.
-async function assertRestorePreconditions(): Promise<string | null> {
-  if (isMudRunning()) {
-    return 'Cannot restore while MUD is running.';
-  }
-  const [rows] = await db.execute<RowDataPacket[]>(
-    `SELECT id FROM mud_restores
-     WHERE status IN ('pending', 'in_progress')
-       AND started_at > DATE_SUB(NOW(), INTERVAL 30 MINUTE)
-     LIMIT 1`,
-  );
-  if (rows.length > 0) {
-    return 'Another restore is already in progress.';
-  }
-  return null;
-}
-
 /**
  * POST /api/admin/backup/restore
- * Create a new restore operation
- *
- * Request body:
- * - backupId: number (required)
- * - restoreType: 'full' | 'account' | 'character' (required)
- * - accounts: string[] (required for account restore)
- * - characters: { pid: number; name: string }[] (required for character restore)
- * - categories: RestoreCategories (optional for character restore, defaults applied)
+ * Compatibility route: permission checked, then unconditionally unavailable.
  */
 router.post(
   '/backup/restore',
   requireAuth,
   requirePermission('manage_mud_backup'),
   requireMutationGate('databaseRestore'),
-  async (req: Request, res: Response) => {
-    try {
-      const { backupId, restoreType, accounts, characters, categories } = req.body;
-
-      if (!backupId || !restoreType) {
-        return res.status(400).json({ error: 'backupId and restoreType are required' });
-      }
-
-      if (!['full', 'account', 'character'].includes(restoreType)) {
-        return res
-          .status(400)
-          .json({ error: 'restoreType must be "full", "account", or "character"' });
-      }
-
-      if (
-        restoreType === 'account' &&
-        (!accounts || !Array.isArray(accounts) || accounts.length === 0)
-      ) {
-        return res.status(400).json({ error: 'accounts array is required for account restore' });
-      }
-
-      if (
-        restoreType === 'character' &&
-        (!characters || !Array.isArray(characters) || characters.length === 0)
-      ) {
-        return res
-          .status(400)
-          .json({ error: 'characters array is required for character restore' });
-      }
-
-      // validate characters format
-      if (characters) {
-        for (const char of characters) {
-          if (typeof char.pid !== 'number' || typeof char.name !== 'string') {
-            return res
-              .status(400)
-              .json({ error: 'Each character must have pid (number) and name (string)' });
-          }
-        }
-      }
-
-      const pre = await assertRestorePreconditions();
-      if (pre) return res.status(409).json({ error: pre });
-
-      const accountName = req.user?.accountName || 'unknown';
-      const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
-
-      const result = await createRestore(
-        { backupId, restoreType, accounts, characters, categories },
-        accountName,
-        ipAddress,
-      );
-
-      return res.json({
-        success: true,
-        id: result.id,
-        message: 'Restore operation started',
-      });
-    } catch (error) {
-      logger.error('Create restore error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to start restore';
-      return res.status(500).json({ error: message });
-    }
-  },
 );
 
 /**
@@ -4192,86 +4101,13 @@ router.post(
 
 /**
  * POST /api/admin/backup/upload/restore
- * Restore from an uploaded backup file
- *
- * Request body:
- * - tempPath: string (required)
- * - restoreType: 'full' | 'account' | 'character' (required)
- * - accounts: string[] (required for account restore)
- * - characters: { pid: number; name: string }[] (required for character restore)
- * - categories: RestoreCategories (optional for character restore)
+ * Compatibility route: permission checked, then unconditionally unavailable.
  */
 router.post(
   '/backup/upload/restore',
   requireAuth,
   requirePermission('manage_mud_backup'),
   requireMutationGate('databaseRestore'),
-  async (req: Request, res: Response) => {
-    try {
-      const { tempPath, restoreType, accounts, characters, categories } = req.body;
-
-      if (!tempPath || !restoreType) {
-        return res.status(400).json({ error: 'tempPath and restoreType are required' });
-      }
-
-      if (!['full', 'account', 'character'].includes(restoreType)) {
-        return res
-          .status(400)
-          .json({ error: 'restoreType must be "full", "account", or "character"' });
-      }
-
-      if (
-        restoreType === 'account' &&
-        (!accounts || !Array.isArray(accounts) || accounts.length === 0)
-      ) {
-        return res.status(400).json({ error: 'accounts array is required for account restore' });
-      }
-
-      if (
-        restoreType === 'character' &&
-        (!characters || !Array.isArray(characters) || characters.length === 0)
-      ) {
-        return res
-          .status(400)
-          .json({ error: 'characters array is required for character restore' });
-      }
-
-      // validate characters format
-      if (characters) {
-        for (const char of characters) {
-          if (typeof char.pid !== 'number' || typeof char.name !== 'string') {
-            return res
-              .status(400)
-              .json({ error: 'Each character must have pid (number) and name (string)' });
-          }
-        }
-      }
-
-      const pre = await assertRestorePreconditions();
-      if (pre) return res.status(409).json({ error: pre });
-
-      const accountName = req.user?.accountName || 'unknown';
-      const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
-
-      const result = await createRestoreFromUpload(
-        tempPath,
-        { restoreType, accounts, characters, categories },
-        accountName,
-        ipAddress,
-      );
-
-      return res.json({
-        success: true,
-        id: result.id,
-        message: 'Restore from upload started',
-      });
-    } catch (error) {
-      logger.error('Restore from upload error:', error);
-      const message =
-        error instanceof Error ? error.message : 'Failed to start restore from upload';
-      return res.status(500).json({ error: message });
-    }
-  },
 );
 
 /**

@@ -129,10 +129,11 @@ default and return `503 operation_gated`:
 | `auctionWrites` | Direct web bid and buy-now wallet/auction writes | One MUD transaction with idempotency, custody, revision, refund, and ledger semantics. Administrative removal already uses the MUD critical command and is not gated. |
 | `itemDeletes` | Direct deletion from player or locker item tables | MUD reconciliation or quarantine with before/after ownership evidence. Read-only duplicate diagnostics remain available. |
 | `playerWipe` | Web-maintained table-list deletion | MUD-owned season reset with a durable fence/epoch, approval record, and resumable status. |
-| `databaseRestore` | Legacy SQL filtering and row-merge restore | Manifest-bound, byte-preserving disaster recovery or a MUD-owned selective recovery operation. |
+| `databaseRestore` | Stored/uploaded legacy restore, unavailable even with the historical override | Manifest-bound, byte-preserving disaster recovery with current privacy replay, or a MUD-owned selective recovery operation. The old asynchronous executor is removed. |
 
 The corresponding `ALLOW_UNSAFE_*` settings acknowledge risk only; opening a
 gate does not supply the missing transaction, ownership, or recovery contract.
+Database restore cannot be opened by those settings.
 See [Configuration and Environments](environments.md#unsafe-mutation-gates).
 
 ### Pooled session invariants
@@ -179,10 +180,13 @@ requires nonempty class, race, and flag metadata derived from the published rows
 ### Restore boundary
 
 The application's administrative backup creation and its restore feature have
-different assurance levels. The two legacy restore endpoints are default-gated:
-their filtered `REPLACE` merge is not a complete point-in-time restore, decodes
-SQL content as UTF-8 despite possible binary payloads, and has no archive
-manifest binding source, schema, table coverage, or target. An archive existing
+different assurance levels. The two legacy restore endpoints and direct service
+calls are unavailable regardless of the old unsafe-restore setting. The
+asynchronous executor has been removed: its filtered `REPLACE` merge was not a
+complete point-in-time restore, decoded SQL as UTF-8 despite possible binary
+payloads, had no archive manifest binding source/schema/table coverage/target,
+and did not reapply current holds or removal history. Pure parsing compatibility
+helpers do not constitute an executable recovery path. An archive existing
 or passing a compression check is not proof of recoverability.
 
 Release recovery instead uses an operator-protected, transaction-consistent dump
@@ -194,6 +198,12 @@ arguments, complete manifest checks, failure atomicity, and a dated drill with
 measured RPO/RTO. Selective account or character recovery must reconcile the
 MUD's ownership, custody, balance, revision, ledger, and cache state rather than
 merge a partial row list.
+
+Current hold/run/control and subject-request evidence must survive independently
+of the restored snapshot. A future supported path must replay approved current
+dispositions and holds offline, then independently verify protection and removal
+before exposing the target. Closing the legacy bypass does not implement that
+replay or establish physical archive expiry/protection.
 
 ### Legacy import boundaries
 

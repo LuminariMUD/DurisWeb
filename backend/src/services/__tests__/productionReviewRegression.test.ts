@@ -114,7 +114,7 @@ describe('production review regression contracts', () => {
     expect(userProfile).not.toContain('pc.balance');
   });
 
-  it('backs up and restores the same explicitly configured MUD database', () => {
+  it('backs up the explicitly configured MUD database and removes the unsafe restore executor', () => {
     const service = read('backend/src/services/backupService.ts');
     const backup = service.slice(
       service.indexOf('async function runBackup'),
@@ -124,16 +124,13 @@ describe('production review regression contracts', () => {
       service.indexOf('async function createZipArchive'),
       service.indexOf('/**\n * Update backup status'),
     );
-    const restore = service.slice(
-      service.indexOf('async function executeRestorePipeline'),
-      service.indexOf('export async function createRestore'),
-    );
 
     expect(backup).toContain('environment.mudDatabase.connection');
     expect(backup).toContain('mudPool.execute');
     expect(archive).toContain('environment.mudDatabase.connection.database');
-    expect(restore).toContain('environment.mudDatabase.connection');
-    expect(restore).toContain('-P ${dbPort}');
+    expect(service).not.toContain('executeRestorePipeline');
+    expect(service).not.toContain('runRestoreInternal');
+    expect(service).not.toContain('INSERT INTO mud_restores');
   });
 
   it('keeps shell-sensitive MySQL healthcheck values in single arguments', () => {
