@@ -2486,7 +2486,7 @@ Other PRs without findings still need inherited fixes carried forward.
 | #48 | 3: stale GET cookie clearing, actionable safe diagnostics, native fixture port binding | Fixed; 39 native cases pass on each database engine |
 | #49 | 3: pending refusal, temporary visibility changes, compact confirmation/focus | Fixed; 30 focused, 285 full frontend tests and rendered checks pass |
 | #50 | 2: safe forum failure context, shared pool starvation during R2 deletion | Fixed; 32 image/API cases per engine and both package gates pass |
-| #54 | 1: DST-ambiguous retention cutoff comparisons | Pending |
+| #54 | 1: DST-ambiguous retention cutoff comparisons | Fixed; execution 20 and preview 26 cases pass on each engine |
 | #55 | 1: unavailable restore controls still offered by the UI | Pending |
 | #62 | 3: account-bound backup cache, cancellation file identity, failed-upload bulk cleanup | Pending |
 | #63 | 2: incident/maintenance preservation prerequisites, all legacy upload suffixes | Pending |
@@ -2644,3 +2644,50 @@ Evidence: `pr50-{red,unit,mysql,maria,backend-quality,frontend-quality,
 port-before,port-after}.log`. Future forum-release wording can mention that
 slow image removal does not occupy the website query pool; no live operation
 or Website Changelog publication is performed in this review task.
+
+**#50 publication/carry-forward:** `06dd143` is pushed and both review threads
+have evidence replies and verified resolved state. Nine initial findings are
+closed. Parent repairs were carried through #51 (`af51c06`), #52 (`2d68945`)
+and #53 (`e56f8ee`), all pushed; their relevant runtime file blobs match the
+qualified parent repairs. #54 now includes them via local merge `0ff746b`.
+Its sole merge conflict was documentation: retain #54's corrected historical
+publication wording and append the complete current review ledger.
+
+**#54 outcome:** pin only dedicated retention preview/execution sessions to UTC
+before indexed timestamp queries. Keep row locks, epoch validation, indexes and
+application/global session settings intact. Include the timezone contract in
+rule signatures so earlier checkpoints/runs cannot silently resume with changed
+semantics. Files: candidate contract, preview/executor, their focused tests and
+operator/plan docs. MySQL reproduced a second-fold run reporting complete after
+deleting only one of two eligible rows in each class. Existing row locks prevented
+the first attempted concurrent-edit fixture; that invalid test was replaced
+with real repeated-hour/keyset cases rather than weakening the locks. Both
+occurrences, exclusive cutoff boundaries, one-row traversal, read-only snapshots
+and rejection of old signatures are covered. Native guard checks also bind the
+configured database port to their opt-in. No rule period, source approval flag,
+migration or production action changes.
+
+**#54 proof:** `node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-review-execution-suite.mts 23436 execution-only` and the same
+with `23437` each pass 20 cases / two suites. The corresponding
+`/tmp/durisweb-review-retention-suite.mts <port> retention-only` passes 26 cases /
+two suites on each engine. This covers both named-zone fall-back occurrences,
+strict cutoff boundaries, one-row traversal/continuation, old-signature refusal,
+holds, restart/ownership and actual read-only CLI behavior. The pure preview
+query contract explicitly permits only the fixed UTC session setter before its
+read-only transaction; its 12 cases also pass separately. Initial MariaDB preview
+qualification found that existing exact statement expectation needed this
+deliberate addition, after which the full command passed. Fixture state, owner
+fingerprints and configuration/dependency probes remain valid on both engines.
+The private runners target this pre-metadata-v2 PR's actual schema contract;
+later #58/#60 install requirements are not silently removed from newer source.
+
+Both native fixture guards reject mismatched database ports with zero tests
+executed (`TEST_RETENTION_DB_PORT` or `TEST_RETENTION_EXECUTION_DB_PORT` set to
+23436 with `DB_PORT=23437` and the corresponding private target names/cache).
+`python3 /tmp/durisweb-image-quality.py backend`, configuration literal and
+whitespace checks pass. Frontend source is identical to qualified #53/#50 and
+its evidence is reused; no additional broad backend/frontend/browser/provider
+or live-retention acceptance is claimed. Evidence: `pr54-*` logs. No visitor
+changelog entry is needed for a source-disabled operator retention correction;
+the runbooks now explain UTC sessions and preserving incompatible old evidence.

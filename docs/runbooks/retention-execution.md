@@ -60,6 +60,15 @@ soft monotonic time budget 1–10,000 ms. No preview-file resume/output flag is
 accepted for execution. A new operation captures a database epoch and per-class
 ID high water; subsequent invocations retain them and their UTC cutoffs.
 
+Every dedicated worker connection sets its own session timezone to UTC before
+reading or deleting candidates. Indexed timestamp predicates retain their range
+access while repeated daylight-saving hours become unambiguous. Application-pool
+and global timezone settings are untouched. This contract is part of the rule
+signature. A run recorded by the earlier implicit-timezone implementation is
+refused as `run_identity_conflict`; preserve its progress/evidence and review
+current data before starting a new operation ID. Never overwrite stored rule
+hashes or progress to bypass that refusal.
+
 `web_retention_runs` atomically records cursor and aggregate actions with every
 committed batch. It contains policy/rule/target identities and private cursor
 metadata, never row payloads, accounts, IPs, URLs or credentials. A lost commit
