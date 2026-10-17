@@ -71,6 +71,7 @@ export async function inspectBackupArchive(
   root: string,
   filename: string,
   expected?: ManagedArchiveIdentity,
+  kind: 'upload' | 'generated' = 'upload',
 ): Promise<BackupInspection> {
   let target: ReturnType<typeof openManagedArchive>;
   try {
@@ -112,12 +113,15 @@ export async function inspectBackupArchive(
       clearTimeout(timer);
       resolve(value);
     };
-    const timer = setTimeout(() => {
-      invalid = true;
-      // This fresh read-only child is owned by this request, never recovered from a stored PID.
-      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
-      finish({ outcome: 'unconfirmed', contents: null });
-    }, 16000);
+    const timer = setTimeout(
+      () => {
+        invalid = true;
+        // This fresh read-only child is owned by this request, never recovered from a stored PID.
+        if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+        finish({ outcome: 'unconfirmed', contents: null });
+      },
+      kind === 'generated' ? 121000 : 16000,
+    );
     child.on('message', (value: unknown) => {
       try {
         if (result !== null || Buffer.byteLength(JSON.stringify(value)) > 256 * 1024 + 256) {
@@ -143,6 +147,7 @@ export async function inspectBackupArchive(
       {
         fileSha256: target.fileSha256,
         size: target.size,
+        kind,
       },
       (error) => {
         if (error) {
