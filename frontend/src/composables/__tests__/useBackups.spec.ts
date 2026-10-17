@@ -70,6 +70,29 @@ function retainedUpload(owner: string, id: number): BackupInfo {
 }
 
 describe('account-scoped backup lists', () => {
+  it('keeps interrupted uploads out of generated-backup busy state', async () => {
+    const upload = {
+      ...retainedUpload('UploaderAlpha', 1),
+      status: 'in_progress' as const,
+      uploadReference: '82b972d4-285c-4664-b7e0-c46dfe015c92',
+    }
+    vi.mocked(adminApi.getBackupList).mockResolvedValueOnce({ backups: [upload] })
+    const { backups, client, wrapper } = mountBackups()
+    try {
+      await flushPromises()
+      expect(backups.backups.value).toHaveLength(1)
+      expect(backups.hasInProgressBackup.value).toBe(false)
+      expect(backups.inProgressBackup.value).toBeUndefined()
+      const generated = { ...retainedUpload('UploaderAlpha', 2), status: 'pending' as const }
+      vi.mocked(adminApi.getBackupList).mockResolvedValueOnce({ backups: [upload, generated] })
+      await backups.refetch()
+      expect(backups.hasInProgressBackup.value).toBe(true)
+      expect(backups.inProgressBackup.value?.id).toBe(2)
+    } finally {
+      wrapper.unmount()
+      client.clear()
+    }
+  })
   it('does not show a fresh previous-owner cache entry during logout/login', async () => {
     const alpha = retainedUpload('UploaderAlpha', 1)
     const beta = retainedUpload('UploaderBeta', 2)
@@ -217,6 +240,85 @@ describe('backup deletion acknowledgement', () => {
 })
 
 describe('backup and restore start acknowledgement', () => {
+  it.each(['lost', 'invalid'])(
+    'keeps an uncertain %s backup start pending until list reconciliation finishes',
+    async (reply) => {
+      const { backups, client, wrapper } = mountBackups()
+      let release!: (value: { backups: BackupInfo[] }) => void
+      try {
+        await flushPromises()
+        vi.mocked(adminApi.getBackupList).mockReturnValueOnce(
+          new Promise((resolve) => {
+            release = resolve
+          }),
+        )
+        if (reply === 'lost')
+          vi.mocked(adminApi.createBackup).mockRejectedValueOnce(
+            new Error('Synthetic lost response'),
+          )
+        else
+          vi.mocked(adminApi.createBackup).mockResolvedValueOnce({
+            success: false,
+            id: 0,
+            filename: '',
+          })
+        let settled = false
+        const pending = backups
+          .createBackup()
+          .catch((error: unknown) => error)
+          .finally(() => {
+            settled = true
+          })
+        await flushPromises()
+        expect(backups.isCreating.value).toBe(true)
+        expect(settled).toBe(false)
+        release({
+          backups: [
+            {
+              id: 7,
+              filename: 'duris-mud-running.zip',
+              backupType: 'manual',
+              status: 'in_progress',
+              progress: 1,
+              currentStep: 'Starting',
+              fileSize: null,
+              errorMessage: null,
+              createdBy: 'SyntheticOperator',
+              startedAt: '2026-10-17T12:00:00Z',
+              completedAt: null,
+            },
+          ],
+        })
+        expect(await pending).toBeInstanceOf(Error)
+        await flushPromises()
+        expect(backups.isCreating.value).toBe(false)
+        expect(backups.hasInProgressBackup.value).toBe(true)
+      } finally {
+        release?.({ backups: [] })
+        wrapper.unmount()
+        client.clear()
+      }
+    },
+  )
+  it('keeps a failed reconciliation visible until a successful explicit refresh', async () => {
+    const { backups, client, wrapper } = mountBackups()
+    try {
+      await flushPromises()
+      vi.mocked(adminApi.getBackupList).mockRejectedValueOnce(
+        new Error('Synthetic list unavailable'),
+      )
+      vi.mocked(adminApi.createBackup).mockRejectedValueOnce(new Error('Synthetic lost response'))
+      await backups.createBackup().catch(() => {})
+      await flushPromises()
+      expect(backups.error.value).toBeInstanceOf(Error)
+      await backups.refetch()
+      await flushPromises()
+      expect(backups.error.value).toBeNull()
+    } finally {
+      wrapper.unmount()
+      client.clear()
+    }
+  })
   const accepted = {
     success: true,
     id: 7,

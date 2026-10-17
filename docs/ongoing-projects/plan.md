@@ -2,6 +2,99 @@
 
 ## Current handoff — read this first
 
+**#62 reader follow-up, ready to publish:** the old path-only reader was reproduced
+streaming replacement bytes. A shared opened-archive utility now checks the
+descriptor's physical identity and transfers that descriptor to the HTTP stream
+or isolated inspector. Generated reads use it too; registered reads add the
+durable root/file binding. The streaming helper is exercised over HTTP with
+fixture identity, including replacement, foreign-owner refusal, safe
+non-attachment failure and descriptor closure. Inspection receives inherited fd 3
+and uses positional ZIP streams rather than reopening a path. Its range-stream
+close callback leaves fd ownership with the worker; the first implementation
+exposed unzipper's explicit destroy closing the shared fd, fixed before final proof.
+The admin download retains its existing auth/permission middleware.
+
+Generated-backup busy selectors now exclude rows with an upload reference;
+a real pending generated backup still blocks creation. Two-engine
+`/tmp/durisweb-run-archive-suite.mts <23436|23437> upload-archive` runs pass
+**60 tests / six suites** each. Both package quality gates/builds pass; frontend
+has **322 tests / 58 files**, with 20 focused backup tests. The real stream helper
+and inherited inspector tests cover a replaced root/name, symlink at open,
+completion/abandonment/error closure and original-byte preservation.
+`node /tmp/durisweb-review-browser62.mjs` passes 1440/768/390, including Create
+Backup staying available for a receiving upload while recovery/cancellation
+behavior remains intact. Final logs: `pr62-reader-final-{mysql,maria}.log`,
+`pr62-reader-quality-closeout.log`, `pr62-reader-frontend-quality.log`,
+`pr62-reader-browser.log`. A binary HTTP fixture parser/type annotation was
+corrected before final validation; the unsafe-path red probe is `pr62-read-red.log`.
+No broad backend or production acceptance is claimed. Publish/resolve the two
+threads, carry to #63, then address the ten remaining known findings there/#65/#66.
+
+**Current verified continuation checkpoint — 2026-10-17:** 34 findings have
+verified reply/resolution records in `/tmp/durisweb-review-20261017/closed-findings.json`.
+The latest complete scan has **12 unresolved findings: #62 (2), #63 (3), #65 (3),
+#66 (4)**. #57 fix `213b803` is pushed/resolved and carried through #58 `ba9e1fc`,
+#59 `d678688`, #60 `ad1b7e9`, #61 `cff99db`; #62 parent merge `406f55e` preserves
+its account-scoped cache and adds the awaited reconciliation/error guards.
+The combined backup composable passes 19 tests and frontend formatting; unchanged
+parent runtime proof is retained. This checkpoint publishes that parent carry,
+not a repair of #62's two new findings. No test/browser process remains running.
+
+Next: bind uploaded download/inspection reads to the validated open descriptor,
+then exclude upload references from both generated-backup busy selectors. The
+actual reader call chain is `registeredUploadFile` → admin download `createReadStream`
+and admin contents → `listBackupContents` → `inspectBackupArchive` →
+`backupInspectionWorker`. The inspection path also reopens a pathname; avoid
+fixing only download while leaving the same identity gap in its sibling reader.
+Reuse the existing file-identity utility and bounded inspector, with explicit
+descriptor ownership/closure. Test replacement before open, after validation,
+stream completion/failure and the retained foreign-owner/hold behavior.
+
+After #62, address the remaining #63 stop-link/order/deduplication findings and
+#65 receipt/payload/mount acknowledgement findings listed in the
+[detailed queue](https://github.com/LuminariMUD/DurisWeb/blob/8cf161f448aef15d2b13da923094a58a527fbbe5/docs/ongoing-projects/plan.md).
+For #65, validate the whole named bundle at acknowledgement (both strict receipt
+entries, exact contents, payload bytes/metadata and qualified mount), rather than
+only adding another payload-path check. Preserve failed/unknown work.
+
+#66 still needs `PRRT_kwDOVA2-8c6te2j5` (separate MUD/web authority). The latest
+scan adds:
+
+- `PRRT_kwDOVA2-8c6tglEp`: log unexpected export failures with safe category/code
+  and the same response reference, without input, credentials, SQL or payloads.
+- `PRRT_kwDOVA2-8c6tglEr`: distinguish the internal download timeout from caller
+  cancellation and show a stable retry-oriented message.
+- `PRRT_kwDOVA2-8c6tglEu`: add/qualify a reversible forward index for
+  `forum_reactions(user_account_name,id)` so bounded per-owner exports do not
+  scan all reactions. Preserve immutable baselines and forward-schema contracts.
+
+The #66 browser fallback is already pushed/resolved as `8cf161f`. Do not redo
+it or mark the broader export/erasure project complete. The review goal remains
+active; refresh the live queue before final closeout. Original master, other
+worktrees/stashes and production remain untouched.
+
+**Newest continuation:** the complete later review queue and export-authority
+investigation are retained in the [#66 handoff](https://github.com/LuminariMUD/DurisWeb/blob/8cf161f448aef15d2b13da923094a58a527fbbe5/docs/ongoing-projects/plan.md).
+#66 browser compatibility `8cf161f` is pushed and its thread verified resolved.
+Ten findings remain from that scan, including the current #57 reconciliation fix.
+This branch now awaits create-backup list invalidation before settling the
+mutation, disables creation during list fetch/error, and keeps a visible Refresh
+instruction for a failed refresh with cached data. This closes the retry gap
+without a new operation queue or state machine.
+
+Two lost/invalid-acknowledgement regressions failed before repair. Full frontend
+gates/build pass **316 tests / 58 files**. `node
+/tmp/durisweb-review-browser57-reconcile.mjs` passes at 1440/390: exactly one
+create request, disabled control during reconciliation, running-operation guard,
+and refusal to re-enable after a failed list until an explicit successful Refresh.
+The fixture dismisses the existing global availability notice before checking
+the underlying control. An initial test-only response field failed type checking
+and was corrected before the final green run. Logs:
+`pr57-reconcile-{red,quality-final,browser-final}.log`. No backend/runtime-provider
+test rerun or production operation is claimed. Publish/resolve #57, carry its
+parent fixes through #61, then address #62's descriptor-streaming and busy-state
+findings before #63/#65/#66. Older counts/checkpoints below are historical.
+
 **Latest review continuation:** #55 UI fix `3446b1b`, #48 contract fix
 `d43f94c`, #49 follow-up `64d30b7` and #50 follow-up `ab40c42` are pushed;
 all eight corresponding threads are verified resolved. The three later #54

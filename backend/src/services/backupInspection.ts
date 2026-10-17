@@ -1,7 +1,8 @@
 import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { inspectManagedArchive } from '../utils/managedArchiveTarget.js';
+import fs from 'node:fs';
+import { openManagedArchive, type ManagedArchiveIdentity } from '../utils/managedArchiveTarget.js';
 import type { BackupContents } from './backupSqlParsing.js';
 
 export interface BackupInspection {
@@ -69,33 +70,38 @@ function parse(value: unknown): BackupInspection | null {
 export async function inspectBackupArchive(
   root: string,
   filename: string,
+  expected?: ManagedArchiveIdentity,
 ): Promise<BackupInspection> {
-  let target: ReturnType<typeof inspectManagedArchive>;
+  let target: ReturnType<typeof openManagedArchive>;
   try {
-    target = inspectManagedArchive(root, filename);
-    if (target.fileSha256 === null) return { outcome: 'unconfirmed', contents: null };
+    target = openManagedArchive(root, filename, expected);
   } catch {
     return { outcome: 'unconfirmed', contents: null };
   }
   const extension = path.extname(fileURLToPath(import.meta.url));
-  const child = fork(
-    fileURLToPath(new URL(`../scripts/backupInspectionWorker${extension}`, import.meta.url)),
-    [],
-    {
-      execArgv: [
-        '--max-old-space-size=192',
-        ...(extension === '.ts'
-          ? [
-              '--import',
-              fileURLToPath(new URL('../../node_modules/tsx/dist/loader.mjs', import.meta.url)),
-            ]
-          : []),
-      ],
-      env: {},
-      stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-      windowsHide: true,
-    },
-  );
+  let child: ReturnType<typeof fork>;
+  try {
+    child = fork(
+      fileURLToPath(new URL(`../scripts/backupInspectionWorker${extension}`, import.meta.url)),
+      [],
+      {
+        execArgv: [
+          '--max-old-space-size=192',
+          ...(extension === '.ts'
+            ? [
+                '--import',
+                fileURLToPath(new URL('../../node_modules/tsx/dist/loader.mjs', import.meta.url)),
+              ]
+            : []),
+        ],
+        env: {},
+        stdio: ['ignore', 'ignore', 'ignore', target.fd, 'ipc'],
+        windowsHide: true,
+      },
+    );
+  } finally {
+    fs.closeSync(target.fd);
+  }
   return new Promise((resolve) => {
     let result: BackupInspection | null = null,
       invalid = false,
@@ -135,10 +141,8 @@ export async function inspectBackupArchive(
     });
     child.send(
       {
-        root: target.root,
-        filename: target.filename,
-        rootSha256: target.rootSha256,
         fileSha256: target.fileSha256,
+        size: target.size,
       },
       (error) => {
         if (error) {

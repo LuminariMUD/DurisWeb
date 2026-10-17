@@ -33,6 +33,7 @@ export function useBackups() {
   const {
     data: backupData,
     isLoading,
+    isFetching,
     error,
     refetch,
   } = useQuery({
@@ -53,8 +54,8 @@ export function useBackups() {
       return result
     },
     onSettled: () => {
-      // Invalidate and refetch backup list
-      queryClient.invalidateQueries({ queryKey: ['backups'] })
+      // An uncertain start may already be running; reconcile before allowing a retry.
+      return queryClient.invalidateQueries({ queryKey: ['backups'] })
     },
   })
 
@@ -245,16 +246,17 @@ export function useBackups() {
 
   // Computed properties
   const backups = computed(() => backupData.value || [])
-  const hasInProgressBackup = computed(() =>
-    backups.value.some((b) => b.status === 'in_progress' || b.status === 'pending'),
-  )
   const inProgressBackup = computed(() =>
-    backups.value.find((b) => b.status === 'in_progress' || b.status === 'pending'),
+    backups.value.find(
+      (b) => !b.uploadReference && (b.status === 'in_progress' || b.status === 'pending'),
+    ),
   )
+  const hasInProgressBackup = computed(() => !!inProgressBackup.value)
 
   return {
     backups,
     isLoading,
+    isFetching,
     error,
     refetch,
     hasInProgressBackup,

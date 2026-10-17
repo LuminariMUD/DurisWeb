@@ -31,8 +31,10 @@ import {
   receiveBackupUpload,
   cancelRegisteredBackupUpload,
   recoverRegisteredBackupUpload,
+  streamBackupDownload,
 } from '../backupUploadHandlers.js';
 import { createDataHold, releaseDataHold } from '../dataHoldService.js';
+import { inspectBackupArchive } from '../backupInspection.js';
 
 const port = Number(process.env.TEST_ARCHIVE_REMOVAL_DB_PORT),
   database = process.env.DB_NAME ?? '',
@@ -94,6 +96,14 @@ const post = async (bytes: Buffer) =>
     app.post('/upload', receiveBackupUpload);
     app.delete('/cancel', cancelRegisteredBackupUpload);
     app.post('/recover', recoverRegisteredBackupUpload);
+    app.get('/download/:id', async (req, res) => {
+      try {
+        streamBackupDownload(res, await uploads.registeredUploadFile(req.params.id, actor));
+      } catch (error) {
+        if (!(error instanceof uploads.BackupUploadError)) throw error;
+        res.status(error.status).json({ reason: error.reason });
+      }
+    });
     const limited = multer({ storage: backupUploadStorage, limits: { fileSize: 128 } });
     app.post('/limited-storage', (req, res) => {
       limited.single('backup')(req, res, (error) => {
@@ -133,8 +143,13 @@ const post = async (bytes: Buffer) =>
     const record = await uploads.readBackupUpload(id, actor);
     expect(record.phase).toBe('closed');
     expect(record.verdict).toBe('valid');
-    const file = await uploads.registeredUploadFile(id, actor);
-    expect(fs.statSync(file).mode & 0o777).toBe(0o600);
+    const opened = await uploads.registeredUploadFile(id, actor);
+    const file = opened.filePath;
+    try {
+      expect(fs.fstatSync(opened.fd).mode & 0o777).toBe(0o600);
+    } finally {
+      fs.closeSync(opened.fd);
+    }
     actor = 'UploaderBeta';
     expect((await request(app).delete('/cancel').send({ tempPath: id })).status).toBe(404);
     expect(fs.existsSync(file)).toBe(true);
@@ -252,6 +267,193 @@ const post = async (bytes: Buffer) =>
     expect(await count('mud_backups')).toBe(1);
     expect((await request(app).delete('/cancel').send({ tempPath: record.id })).status).toBe(200);
   });
+  it('streams the validated upload even when its pathname is replaced before consumption', async () => {
+    const bytes = await zip(SQL);
+    const uploaded = await post(bytes);
+    const opened = await uploads.registeredUploadFile(uploaded.body.tempPath, actor);
+    const file = opened.filePath;
+    const retained = file + '.retained';
+    const other = path.join(rootPath, 'unrelated-download-fixture');
+    fs.writeFileSync(other, 'unrelated private bytes');
+    fs.renameSync(file, retained);
+    fs.symlinkSync(other, file);
+    try {
+      const chunks: Buffer[] = [];
+      const stream = fs.createReadStream(file, { fd: opened.fd, autoClose: true });
+      const closed = once(stream, 'close');
+      for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+      await closed;
+      expect(Buffer.concat(chunks)).toEqual(bytes);
+      expect(() => fs.fstatSync(opened.fd)).toThrow();
+    } finally {
+      fs.unlinkSync(file);
+      fs.renameSync(retained, file);
+      fs.unlinkSync(other);
+    }
+  });
+  it('refuses a path replaced by a symlink at open and closes an abandoned validated reader', async () => {
+    const uploaded = await post(await zip(SQL));
+    const record = await uploads.readBackupUpload(uploaded.body.tempPath, actor);
+    const file = uploads.backupUploadPath(record),
+      retained = file + '.retained';
+    const other = path.join(rootPath, 'other-reader-fixture');
+    fs.writeFileSync(other, 'other private bytes');
+    const open = fs.openSync.bind(fs);
+    let replaced = false;
+    const substitution = jest
+      .spyOn(fs, 'openSync')
+      .mockImplementation((...args: Parameters<typeof fs.openSync>) => {
+        if (!replaced && args[0] === file) {
+          replaced = true;
+          fs.renameSync(file, retained);
+          fs.symlinkSync(other, file);
+        }
+        return open(...args);
+      });
+    try {
+      await expect(uploads.registeredUploadFile(record.id, actor)).rejects.toMatchObject({
+        reason: 'recovery_unverified',
+      });
+      expect(replaced).toBe(true);
+      expect(fs.readFileSync(other, 'utf8')).toBe('other private bytes');
+    } finally {
+      substitution.mockRestore();
+      if (replaced) {
+        fs.unlinkSync(file);
+        fs.renameSync(retained, file);
+      }
+      fs.unlinkSync(other);
+    }
+    const fresh = await post(await zip(SQL));
+    const opened = await uploads.registeredUploadFile(fresh.body.tempPath, actor);
+    const stream = fs.createReadStream(opened.filePath, { fd: opened.fd, autoClose: true });
+    const closed = once(stream, 'close');
+    stream.destroy();
+    await closed;
+    expect(() => fs.fstatSync(opened.fd)).toThrow();
+  });
+  it('inspects the inherited validated descriptor after the root pathname is replaced', async () => {
+    const bytes = await zip(SQL);
+    const uploaded = await post(bytes);
+    const record = await uploads.readBackupUpload(uploaded.body.tempPath, actor);
+    const filename = uploads.uploadFilename(record.id),
+      file = path.join(rootPath, filename);
+    const retainedRoot = rootPath + '.retained';
+    const replacement = await zip(
+      SQL.replaceAll('Alpha', 'OtherAccount').replaceAll('One', 'OtherCharacter'),
+    );
+    const close = fs.closeSync.bind(fs);
+    let changed = false;
+    const substitution = jest.spyOn(fs, 'closeSync').mockImplementation((fd) => {
+      if (!changed && fs.readlinkSync('/proc/self/fd/' + fd) === file) {
+        changed = true;
+        fs.renameSync(rootPath, retainedRoot);
+        fs.mkdirSync(rootPath, { mode: 0o700 });
+        fs.writeFileSync(file, replacement);
+      }
+      close(fd);
+    });
+    try {
+      const result = await inspectBackupArchive(rootPath, filename, {
+        filename,
+        rootSha256: record.rootSha256,
+        fileSha256: record.fileSha256,
+      });
+      expect(changed).toBe(true);
+      expect(result).toEqual({
+        outcome: 'valid',
+        contents: { accounts: ['Alpha'], characters: [{ pid: 1, name: 'One' }] },
+      });
+    } finally {
+      substitution.mockRestore();
+      if (changed) {
+        fs.unlinkSync(file);
+        fs.rmdirSync(rootPath);
+        fs.renameSync(retainedRoot, rootPath);
+      }
+    }
+  });
+  it('streams an HTTP attachment from the validated fd and reports stream failure without an attachment', async () => {
+    const bytes = await zip(SQL);
+    const uploaded = await post(bytes);
+    const id = String(uploaded.body.tempPath);
+    const record = await uploads.readBackupUpload(id, actor);
+    const file = uploads.backupUploadPath(record),
+      retained = file + '.retained';
+    const other = path.join(rootPath, 'http-unrelated-fixture');
+    fs.writeFileSync(other, 'unrelated bytes');
+    const create = fs.createReadStream.bind(fs);
+    let openedFd: number | undefined;
+    let readerClosed: Promise<void> | undefined;
+    const replace = jest.spyOn(fs, 'createReadStream').mockImplementation((filename, options) => {
+      if (filename === file) {
+        openedFd =
+          typeof options === 'object' && typeof options.fd === 'number' ? options.fd : undefined;
+        fs.renameSync(file, retained);
+        fs.symlinkSync(other, file);
+      }
+      const stream = create(filename, options);
+      readerClosed = new Promise<void>((resolve) => stream.once('close', resolve));
+      return stream;
+    });
+    try {
+      const result = await request(app)
+        .get('/download/' + id)
+        .buffer(true)
+        .parse((message: request.Response, done: (error: Error | null, body?: Buffer) => void) => {
+          const chunks: Buffer[] = [];
+          message.on('data', (chunk: Buffer) => chunks.push(chunk));
+          message.on('end', () => done(null, Buffer.concat(chunks)));
+          message.on('error', done);
+        })
+        .timeout(5000);
+      expect(result.status).toBe(200);
+      expect(result.headers['content-type']).toContain('application/zip');
+      expect(result.headers['content-length']).toBe(String(bytes.length));
+      expect(result.body).toEqual(bytes);
+      await readerClosed;
+      expect(openedFd).toBeDefined();
+      expect(() => fs.fstatSync(openedFd!)).toThrow();
+    } finally {
+      replace.mockRestore();
+      fs.unlinkSync(file);
+      fs.renameSync(retained, file);
+      fs.unlinkSync(other);
+    }
+    const fresh = await post(bytes);
+    const failingId = String(fresh.body.tempPath);
+    actor = 'UploaderBeta';
+    expect((await request(app).get('/download/' + failingId)).status).toBe(404);
+    actor = 'UploaderAlpha';
+    const log = (await import('../../utils/logger.js')).default;
+    const warnings = jest.spyOn(log, 'warn').mockImplementation(() => log);
+    jest.spyOn(fs, 'createReadStream').mockImplementation((filename, options) => {
+      const stream = create(filename, options);
+      readerClosed = new Promise<void>((resolve) => stream.once('close', resolve));
+      openedFd =
+        typeof options === 'object' && typeof options.fd === 'number' ? options.fd : undefined;
+      queueMicrotask(() => stream.destroy(new Error('private-stream-failure')));
+      return stream;
+    });
+    const failure = await request(app)
+      .get('/download/' + failingId)
+      .timeout(5000);
+    expect(failure.status).toBe(503);
+    expect(failure.headers['content-disposition']).toBeUndefined();
+    expect(failure.headers['content-type']).toContain('application/json');
+    expect(failure.body.reference).toMatch(/^[\da-f-]{36}$/);
+    expect(warnings.mock.calls).toContainEqual([
+      'backup_download_unconfirmed',
+      {
+        reason: 'storage_unconfirmed',
+        reference: failure.body.reference,
+      },
+    ]);
+    expect(failure.text).not.toContain('private-stream-failure');
+    await readerClosed;
+    expect(openedFd).toBeDefined();
+    expect(() => fs.fstatSync(openedFd!)).toThrow();
+  });
   it('refuses old filesystem references before access and never acknowledges unregistered cleanup', async () => {
     const file = path.join(rootPath, 'backup-upload-123-456.zip');
     fs.writeFileSync(file, 'preserve legacy evidence');
@@ -366,8 +568,14 @@ const post = async (bytes: Buffer) =>
     expect(await finished).toBe('completed');
     expect((await service.getBackupById(fresh.id))?.status).toBe('completed');
     expect(await count('mud_backups')).toBe(7);
-    for (const id of references)
-      expect(fs.existsSync(await uploads.registeredUploadFile(id, actor))).toBe(true);
+    for (const id of references) {
+      const opened = await uploads.registeredUploadFile(id, actor);
+      try {
+        expect(fs.fstatSync(opened.fd).isFile()).toBe(true);
+      } finally {
+        fs.closeSync(opened.fd);
+      }
+    }
   }, 60000);
   it('fences truncated multipart bytes and never lets Multer unlink them under a hold', async () => {
     const hold = await protection();

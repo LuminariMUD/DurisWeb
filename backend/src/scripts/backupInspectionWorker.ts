@@ -1,6 +1,7 @@
 import unzipper from 'unzipper';
+import fs from 'node:fs';
 import { parseBackupContentsFromSql } from '../services/backupSqlParsing.js';
-import { inspectManagedArchive } from '../utils/managedArchiveTarget.js';
+import { managedArchiveFileSha256 } from '../utils/managedArchiveTarget.js';
 
 // Untrusted ZIP/SQL parsing has no application configuration, SQL credentials or ordinary output.
 setTimeout(() => process.exit(2), 15000);
@@ -20,20 +21,35 @@ async function inspect(value: unknown) {
   if (
     !value ||
     typeof value !== 'object' ||
-    !('root' in value) ||
-    typeof value.root !== 'string' ||
-    !('filename' in value) ||
-    typeof value.filename !== 'string' ||
-    !('rootSha256' in value) ||
-    typeof value.rootSha256 !== 'string' ||
+    !('size' in value) ||
+    typeof value.size !== 'number' ||
+    !Number.isSafeInteger(value.size) ||
+    value.size < 0 ||
     !('fileSha256' in value) ||
     typeof value.fileSha256 !== 'string'
   )
     process.exit(2);
-  const target = inspectManagedArchive(value.root, value.filename);
-  if (target.rootSha256 !== value.rootSha256 || target.fileSha256 !== value.fileSha256)
+  const size = value.size;
+  const before = fs.fstatSync(3, { bigint: true });
+  if (
+    !before.isFile() ||
+    Number(before.size) !== value.size ||
+    managedArchiveFileSha256(before) !== value.fileSha256
+  )
     process.exit(2);
-  const directory = await unzipper.Open.file(target.filePath);
+  const directory = await unzipper.Open.custom({
+    size: async () => size,
+    // Positional readers share the inherited validated fd; they never reopen a path.
+    stream: (start, length) =>
+      fs.createReadStream('', {
+        fd: 3,
+        autoClose: false,
+        // unzipper destroys individual ranges; the worker, not a range, owns fd 3.
+        fs: { read: fs.read, close: (_fd, callback) => callback(null) },
+        start,
+        end: length ? start + length : undefined,
+      }),
+  });
   if (directory.files.length > 10000) return reply('unconfirmed');
   const sql = directory.files.filter(
     (file) => file.path === 'database.sql' || /^database\/[^/\\\0]+\.sql$/.test(file.path),
@@ -42,15 +58,15 @@ async function inspect(value: unknown) {
   const limit = 64 * 1024 * 1024;
   if (sql[0].uncompressedSize > limit) return reply('unconfirmed');
   const chunks: Buffer[] = [];
-  let size = 0;
+  let expandedBytes = 0;
   for await (const chunk of sql[0].stream()) {
     const block: unknown = chunk;
     if (!Buffer.isBuffer(block)) return reply('unconfirmed');
-    size += block.length;
-    if (size > limit) return reply('unconfirmed');
+    expandedBytes += block.length;
+    if (expandedBytes > limit) return reply('unconfirmed');
     chunks.push(block);
   }
-  const text = Buffer.concat(chunks, size).toString('utf8');
+  const text = Buffer.concat(chunks, expandedBytes).toString('utf8');
   if (
     !text.includes('CREATE TABLE `account_characters`') ||
     !text.includes('CREATE TABLE `player_data`')
@@ -75,8 +91,7 @@ async function inspect(value: unknown) {
     )
   )
     return reply('unconfirmed');
-  const after = inspectManagedArchive(value.root, value.filename);
-  if (after.rootSha256 !== target.rootSha256 || after.fileSha256 !== target.fileSha256)
+  if (managedArchiveFileSha256(fs.fstatSync(3, { bigint: true })) !== value.fileSha256)
     return reply('unconfirmed');
   reply('valid', contents);
 }

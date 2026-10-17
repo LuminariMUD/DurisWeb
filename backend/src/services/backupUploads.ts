@@ -9,7 +9,11 @@ import {
   validArchiveWorkerIdentity,
   type ArchiveWorkerIdentity,
 } from '../utils/archiveWorkerIdentity.js';
-import { inspectManagedArchive } from '../utils/managedArchiveTarget.js';
+import {
+  inspectManagedArchive,
+  openManagedArchive,
+  type OpenedManagedArchive,
+} from '../utils/managedArchiveTarget.js';
 import { BackupDeletionError } from '../utils/backupDeletionError.js';
 import { withManagedArchiveControl, removeManagedArchive } from './managedArchiveRemoval.js';
 import { completedArchiveRemoval } from './archiveRemovalJournal.js';
@@ -523,22 +527,21 @@ export async function cancelBackupUpload(
   });
 }
 
+/** Returns an owned descriptor; callers close it or transfer it to the download stream. */
 export async function registeredUploadFile(
   id: string,
   actor: string,
   mayManageAll = false,
-): Promise<string> {
+): Promise<OpenedManagedArchive> {
   const record = await readBackupUpload(id, actor, mayManageAll);
   if (record.phase !== 'closed') throw new BackupUploadError('receiving', id);
-  const target = inspectManagedArchive(
-    getBackendConfiguration().backupDirectory,
-    uploadFilename(id),
-  );
-  if (
-    target.rootSha256 !== record.rootSha256 ||
-    target.fileSha256 === null ||
-    target.fileSha256 !== record.fileSha256
-  )
+  try {
+    return openManagedArchive(getBackendConfiguration().backupDirectory, uploadFilename(id), {
+      filename: uploadFilename(id),
+      rootSha256: record.rootSha256,
+      fileSha256: record.fileSha256,
+    });
+  } catch {
     throw new BackupUploadError('recovery_unverified', id);
-  return target.filePath;
+  }
 }
