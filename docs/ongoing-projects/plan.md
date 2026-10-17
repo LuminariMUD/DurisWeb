@@ -31,10 +31,12 @@ Cloudflare Routes are installed; the runbook requires per-host live acceptance
 during a separately authorized window. No application package or production
 operation is changed or claimed.
 
-Publish/resolve `PRRT_kwDOVA2-8c6thjFP` and `PRRT_kwDOVA2-8c6thyo3`, then carry
-through #64–#66. Before those closures: 53 verified closeouts, eight known open
-threads. #62's conditional removal, #65's payload fence and #66's four export
-findings remain after this documentation repair. No visitor news is needed.
+Published as `c87c7ad`; `PRRT_kwDOVA2-8c6thjFP` and
+`PRRT_kwDOVA2-8c6thyo3` have verified replies/resolved state. The ledger now has
+**55 verified closeouts**, with **six known remaining findings** before a new
+scan: #62's conditional removal, #65's payload fence, and #66's four export
+findings. Carry through #64–#66 and continue #65 while #62's unresolved
+inode-conditional removal guarantee stays explicit. No visitor news is needed.
 
 ### Earlier published repairs and inventory
 
