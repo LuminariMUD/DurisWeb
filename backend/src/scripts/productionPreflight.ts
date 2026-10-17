@@ -6,6 +6,7 @@ import { loadHookAuditContract } from '../db/hookAuditSchema.js';
 import { loadPostImageRemovalContract } from '../db/postImageRemovalSchema.js';
 import { loadDataHoldContract } from '../db/dataHoldSchema.js';
 import { loadRetentionRunContract } from '../db/retentionRunSchema.js';
+import { loadReactionExportIndexContract } from '../db/reactionExportIndexSchema.js';
 import { readLifecycleMetadata } from '../db/lifecycleMetadata.js';
 import { loadWebBaselineBundle, verifyWebBaselineSources } from '../db/webBaselineBundle.js';
 import path from 'node:path';
@@ -165,6 +166,7 @@ export function loadPreflightConfiguration(): PreflightConfiguration {
     loadPostImageRemovalContract();
     loadDataHoldContract();
     loadRetentionRunContract();
+    loadReactionExportIndexContract();
   } catch {
     throw new ConfigurationError(['versioned website baseline inputs failed verification']);
   }

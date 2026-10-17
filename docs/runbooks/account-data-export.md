@@ -97,6 +97,16 @@ this POST. The browser's temporary object URL is revoked after starting the
 download. The user's saved file remains under their control. Durable request
 tracking, complete exports, approved erasure and restore replay remain P7/P6.
 
+## Reaction lookup migration
+
+Forward migration `20261017010000_forum_reaction_export_index.ts` adds
+`idx_forum_reactions_owner_id (user_account_name,id)` so bounded exports can
+seek the subject's reactions. Its down removes only that index; neither direction
+deletes rows. Exact MySQL/MariaDB schema contracts also qualify interrupted
+migration acknowledgement recovery and refuse unknown drift. Apply it through
+the existing deployment and legacy-copy preservation gate, never by editing the
+baseline or an applied migration. It has only been exercised on isolated fixtures.
+
 ## Verification
 
 `backend/src/services/__tests__/accountExportNative.test.ts` exercises the real

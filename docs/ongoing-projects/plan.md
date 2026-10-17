@@ -2,6 +2,35 @@
 
 ## Current handoff — read this first
 
+
+**Current review repair checkpoint — 17 October:** #66's configured database
+authority repair is published as `0a9477a` and its review thread is resolved.
+The reaction-owner index is now implemented as the reversible forward migration
+`20261017010000_forum_reaction_export_index.ts`; it preserves rows, rejects
+unknown schema drift, and qualifies interrupted up/down ledger recovery on both
+supported database engines. The actual bounded export query selects
+`idx_forum_reactions_owner_id (user_account_name,id)` over 20,001 fixture rows.
+
+Validation: `node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-run-export-index-suite.mts 23436 export-index shared` and the same
+command with port `23437`: **22 tests / two suites pass on each engine**.
+`python3 /tmp/durisweb-image-quality.py backend` passes format, lint, type-check,
+MUD-write, schema and build checks. Post-test preflight passes 93 migrations;
+MUD owner metadata is unchanged and owned fixtures are cleaned. Logs are
+`/tmp/durisweb-review-20261017/pr66-index-{mysql,maria,quality}.log`.
+No frontend, browser, provider or production rerun was needed for this index.
+
+A fresh complete scan of all 27 open PRs finds nine unresolved review threads:
+#62 conditional archive removal (one), #63 keeper ordering (one), #64 partial
+time-budget evidence and scanned-root identity (two), #65 mount boundaries and
+final acknowledgement checks (four), and #66 this qualified index (one).
+The index is ready to publish; the remaining eight are the current repair queue.
+All previous continuation sections below are historical evidence, not current
+instructions or current counts. P6/P7's broader unfinished product acceptance
+and production gates remain explicitly open in their phase checklists.
+
+### Historical checkpoints
+
 **Latest continuation — #66 configured database authority ready:** current
 branch is `branch/account-data-export`. The safe diagnostic/timeout fixes are
 published as `2ed43ab` and both threads have verified replies/resolved state.
