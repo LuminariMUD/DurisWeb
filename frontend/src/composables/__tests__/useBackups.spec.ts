@@ -1,9 +1,13 @@
-import { defineComponent } from 'vue'
+import { defineComponent, nextTick, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { adminApi } from '@/services/api'
 import { useBackups } from '../useBackups'
+import type { BackupInfo } from '@/types'
+
+const accountName = ref<string | null>('UploaderAlpha')
+vi.mock('../useAuth', () => ({ useAuth: () => ({ accountName }) }))
 
 vi.mock('@/services/api', () => ({
   adminApi: {
@@ -19,6 +23,8 @@ vi.mock('@/services/api', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  accountName.value = 'UploaderAlpha'
+  vi.mocked(adminApi.getBackupList).mockResolvedValue({ backups: [] })
 })
 
 function mountBackups() {
@@ -30,9 +36,9 @@ function mountBackups() {
     defineComponent({
       setup() {
         backups = useBackups()
-        return {}
+        return { items: backups.backups }
       },
-      template: '<div />',
+      template: '<div><span v-for="item in items" :key="item.id">{{ item.filename }}</span></div>',
     }),
     { global: { plugins: [[VueQueryPlugin, { queryClient: client }]] } },
   )
@@ -46,6 +52,83 @@ vi.mock('../useWebSocket', () => ({
     offRestoreProgress: vi.fn(),
   }),
 }))
+
+function retainedUpload(owner: string, id: number): BackupInfo {
+  return {
+    id,
+    filename: owner + '-private-upload.zip',
+    createdBy: owner,
+    backupType: 'manual',
+    status: 'failed',
+    progress: 100,
+    currentStep: 'Upload needs review',
+    fileSize: 10,
+    errorMessage: null,
+    startedAt: '2026-10-17T12:00:00Z',
+    completedAt: null,
+  }
+}
+
+describe('account-scoped backup lists', () => {
+  it('does not show a fresh previous-owner cache entry during logout/login', async () => {
+    const alpha = retainedUpload('UploaderAlpha', 1)
+    const beta = retainedUpload('UploaderBeta', 2)
+    vi.mocked(adminApi.getBackupList).mockResolvedValueOnce({ backups: [alpha] })
+    const { backups, client, wrapper } = mountBackups()
+    let finish!: (value: { backups: BackupInfo[] }) => void
+    try {
+      await flushPromises()
+      expect(wrapper.text()).toContain(alpha.filename)
+      vi.mocked(adminApi.getBackupList).mockReturnValueOnce(
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+      )
+      accountName.value = null
+      await nextTick()
+      expect(wrapper.text()).not.toContain(alpha.filename)
+      accountName.value = 'UploaderBeta'
+      await nextTick()
+      expect(backups.backups.value).toEqual([])
+      expect(wrapper.text()).not.toContain(alpha.filename)
+      finish({ backups: [beta] })
+      await flushPromises()
+      expect(wrapper.text()).toContain(beta.filename)
+      expect(wrapper.text()).not.toContain(alpha.filename)
+    } finally {
+      finish?.({ backups: [] })
+      wrapper.unmount()
+      client.clear()
+    }
+  })
+  it('cancels a previous-account response before it can populate a later session', async () => {
+    let finish!: (value: { backups: BackupInfo[] }) => void
+    let signal: AbortSignal | undefined
+    vi.mocked(adminApi.getBackupList).mockImplementationOnce((requestSignal?: AbortSignal) => {
+      signal = requestSignal
+      return new Promise((resolve) => {
+        finish = resolve
+      })
+    })
+    const { backups, client, wrapper } = mountBackups()
+    try {
+      await flushPromises()
+      const beta = retainedUpload('UploaderBeta', 2)
+      vi.mocked(adminApi.getBackupList).mockResolvedValueOnce({ backups: [beta] })
+      accountName.value = 'UploaderBeta'
+      await flushPromises()
+      expect(signal?.aborted).toBe(true)
+      finish({ backups: [retainedUpload('LateAlpha', 1)] })
+      await flushPromises()
+      expect(backups.backups.value).toEqual([beta])
+      expect(wrapper.text()).not.toContain('LateAlpha')
+    } finally {
+      finish?.({ backups: [] })
+      wrapper.unmount()
+      client.clear()
+    }
+  })
+})
 
 describe('durable upload acknowledgement', () => {
   it.each([false, true])('refreshes retained work after upload failure=%s', async (fail) => {

@@ -92,7 +92,13 @@ Cloudflare references: [Routes](https://developers.cloudflare.com/workers/config
 
 ## Each maintenance window
 
-Before stopping any website services, set `MAINTENANCE_REASON` to the approved
+Before stopping any website service, or restarting a dependency that stops it,
+complete the [legacy temporary-copy preservation gate](../../docs/deployment.md#legacy-temporary-copy-preservation-gate).
+Required copies and recovery evidence must be preserved before the old unit's
+`PrivateTmp` namespace is torn down. Enabling this notice does not satisfy that
+prerequisite or authorize service operations.
+
+For the approved maintenance window, set `MAINTENANCE_REASON` to the approved
 reason in the Worker settings and deploy that variable change. Confirm the
 public notice and status endpoint first. The switch only gates website traffic;
 it does not operate the MUD or the application service group.

@@ -14,6 +14,8 @@ import {
 import { RETENTION_CONTROL_KEY } from './internalWebSettings.js';
 
 export const RETENTION_RUN_MIGRATION = '20261017005000_web_retention_runs.ts';
+// Worker parsing deliberately rejects this durable fence across DDL's implicit commit.
+const ROLLBACK_FENCE = '{"format":1,"rollback":"web_retention_runs"}';
 export const RETENTION_RUN_UP_SQL = `CREATE TABLE web_retention_runs (
   id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   policy_version VARCHAR(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
@@ -88,30 +90,51 @@ export async function migrateRetentionRunSchema(
     throw new Error('unsafe_retention_migration_invariants');
   const actual = await stage(database, family);
   if (direction === 'down') {
-    if (actual === 'after') {
-      const [row] = await schemaRows(database, 'SELECT COUNT(*) AS count FROM web_retention_runs');
-      if (Number(row.count) !== 0) throw new Error('retention_rollback_refuses_run_history');
-    }
-    const controls = await schemaRows(
-      database,
-      'SELECT setting_key,setting_value,description,updated_by FROM web_settings WHERE setting_key=?',
-      [RETENTION_CONTROL_KEY],
-    );
-    if (
-      controls.length &&
-      (controls.length !== 1 ||
+    await knex.transaction(async (transaction) => {
+      const locked: SchemaDatabase = {
+        query: async (sql, values = []) => transaction.raw(sql, values),
+      };
+      // Share workers' insert-first row lock, then commit a fence they cannot
+      // accept. Keeping only the transaction open would not survive DROP TABLE.
+      await transaction.raw(
+        'INSERT INTO web_settings(setting_key,setting_value,description,updated_by) VALUES (?,?,?,NULL) ON DUPLICATE KEY UPDATE setting_key=setting_key',
+        [RETENTION_CONTROL_KEY, '{"format":1,"lease":null}', 'retention control v1'],
+      );
+      const controls = await schemaRows(
+        locked,
+        'SELECT setting_key,setting_value,description,updated_by FROM web_settings WHERE setting_key=? FOR UPDATE',
+        [RETENTION_CONTROL_KEY],
+      );
+      if (
+        controls.length !== 1 ||
         controls[0].setting_key !== RETENTION_CONTROL_KEY ||
-        controls[0].setting_value !== '{"format":1,"lease":null}' ||
+        !['{"format":1,"lease":null}', ROLLBACK_FENCE].includes(
+          String(controls[0].setting_value),
+        ) ||
         controls[0].description !== 'retention control v1' ||
-        controls[0].updated_by !== null)
-    )
-      throw new Error('retention_rollback_refuses_control_state');
-    if (controls.length)
-      await knex.raw('DELETE FROM web_settings WHERE setting_key=?', [RETENTION_CONTROL_KEY]);
+        controls[0].updated_by !== null
+      )
+        throw new Error('retention_rollback_refuses_control_state');
+      if (actual === 'after') {
+        const [row] = await schemaRows(locked, 'SELECT COUNT(*) AS count FROM web_retention_runs');
+        if (Number(row.count) !== 0) throw new Error('retention_rollback_refuses_run_history');
+      }
+      await transaction.raw('UPDATE web_settings SET setting_value=? WHERE setting_key=?', [
+        ROLLBACK_FENCE,
+        RETENTION_CONTROL_KEY,
+      ]);
+    });
   }
   const target = direction === 'up' ? 'after' : 'before';
-  if (actual === target) return;
-  await knex.raw(direction === 'up' ? RETENTION_RUN_UP_SQL : 'DROP TABLE web_retention_runs');
+  if (actual !== target)
+    await knex.raw(direction === 'up' ? RETENTION_RUN_UP_SQL : 'DROP TABLE web_retention_runs');
   if ((await stage(database, family)) !== target)
     throw new Error('retention_schema_postcondition_failed');
+  if (direction === 'down') {
+    const [removed] = await knex.raw(
+      'DELETE FROM web_settings WHERE setting_key=? AND setting_value=?',
+      [RETENTION_CONTROL_KEY, ROLLBACK_FENCE],
+    );
+    if (removed.affectedRows !== 1) throw new Error('retention_rollback_refuses_control_state');
+  }
 }
