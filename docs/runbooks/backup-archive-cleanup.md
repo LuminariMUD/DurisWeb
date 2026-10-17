@@ -184,8 +184,15 @@ and directory sync. Source paths and payloads stay out of ordinary output.
 Before acknowledgement, the named bundle and `payload.bin` must still match
 the opened descriptors and expected payload identity; rename, replacement or
 observed late byte changes retain the operation for review instead of success.
-The parent independently rehashes payload bytes after the worker exits and binds
-that read to unchanged metadata. Final acknowledgement requires exactly
+After the copy worker exits, the parent closes its writable payload descriptor
+and obtains a read-only descriptor for the same file object. A bounded lease-only
+mode of the existing Python helper excludes payload writers while the parent
+rehashes bytes, writes/syncs receipts, and performs the final named-bundle checks.
+The helper confirms the lease and unchanged payload identity after those checks;
+interruption, a competing writer, timeout or an unconfirmed helper exit refuses
+acknowledgement. The helper is reaped before the operation finishes.
+The parent independently rehashes payload bytes after the copy worker exits and
+binds that read to unchanged metadata. Final acknowledgement requires exactly
 `prepared.json`, `complete.json` and `payload.bin`, revalidates both receipt
 contents/identities, and keeps every opened/named entry on the qualified protected
 mount. An unqualified bundle is refused before writing receipts or copy bytes.
@@ -208,13 +215,15 @@ recovery mode:
 ```bash
 pnpm --dir backend --silent backup:preserve-legacy verify \
   --protected-root /absolute/same/protected-directory \
-  --operation-id SAME_UUID_V4
+  --operation-id SAME_UUID_V4 \
+  --python-bin /absolute/python3
 ```
 
 Recovery verifies strict private receipt shapes, physical identity and actual
-payload hash, then syncs confirmed work. It needs no source, application
-environment, SQL or Python interpreter, and cannot promote incomplete/failed
-work to completed. The compiled entry is
+payload hash under the same payload lease, then syncs and confirms the named
+bundle before acknowledging. It requires the explicit reviewed Python interpreter
+and shipped helper, but no source, application environment or SQL. It cannot
+promote incomplete/failed work to completed. The compiled entry is
 `backend/dist/scripts/legacyCopyPreservation.js`; retain its required application
 dependencies and the reviewed software with protected operational evidence.
 Unknown receipt/sync state remains review-required. No new UUID should be used
@@ -222,7 +231,8 @@ to hide an uncertain previous operation.
 Verification also rechecks the named bundle/payload before returning. The package
 script suppresses dotenv startup output; `--silent` suppresses pnpm's banner.
 
-A read lease guards writes to the selected file object during that copy; it is
+Read leases guard the source during copying and the payload during final
+verification/confirmation; this is
 not a whole-service fence and does not prevent rename/unlink or namespace
 teardown. Rechecks refuse observed identity/path changes, while unexpected
 external cleanup can still remove an original. A verified byte copy does not

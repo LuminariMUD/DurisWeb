@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
+import { createInterface } from 'node:readline';
 import {
   isLegacyUploadFilename,
   isLegacySqlMemberFilename,
@@ -55,6 +56,7 @@ export interface LegacyCopyPreservationOptions {
   timeBudgetMs: number;
 }
 export interface LegacyCopyVerificationOptions {
+  pythonBin: string;
   protectedRoot: string;
   operationId: string;
   timeBudgetMs: number;
@@ -335,11 +337,7 @@ function hashPayload(fd: number, size: number, budgetMs: number, expectedPhysica
   if (physical(fs.fstatSync(fd, { bigint: true })) !== physicalSha256) fail('copy_unconfirmed');
   return { sha256: digest.digest('hex'), physicalSha256 };
 }
-async function runWorker(
-  options: LegacyCopyPreservationOptions,
-  source: number,
-  destination: number,
-): Promise<CopyResult> {
+function interpreterPath(options: LegacyCopyVerificationOptions): string {
   let interpreter: string;
   try {
     interpreter = fs.realpathSync.native(options.pythonBin);
@@ -348,6 +346,14 @@ async function runWorker(
   } catch {
     fail('interpreter_unavailable', options.operationId);
   }
+  return interpreter;
+}
+async function runWorker(
+  options: LegacyCopyPreservationOptions,
+  source: number,
+  destination: number,
+): Promise<CopyResult> {
+  const interpreter = interpreterPath(options);
   const child = spawn(
     interpreter,
     [
@@ -426,9 +432,98 @@ async function runWorker(
     });
   });
 }
+async function withPayloadLease(
+  options: LegacyCopyVerificationOptions,
+  payload: number,
+  expectedPhysicalSha256: string,
+  maxBytes: number,
+  verify: () => ReturnType<typeof result>,
+): Promise<ReturnType<typeof result>> {
+  const started = performance.now();
+  const child = spawn(
+    interpreterPath(options),
+    [
+      '-I',
+      '-B',
+      fileURLToPath(new URL('../../scripts/legacyFileLeaseWorker.py', import.meta.url)),
+      '--lease-only',
+      '--max-bytes',
+      String(Math.max(1, maxBytes)),
+      '--time-budget-ms',
+      String(options.timeBudgetMs),
+      '--expected-physical-sha256',
+      expectedPhysicalSha256,
+    ],
+    { env: {}, stdio: ['pipe', 'pipe', 'ignore', payload], windowsHide: true },
+  );
+  let invalid = false,
+    confirmed = false,
+    outputBytes = 0;
+  child.on('error', () => {
+    invalid = true;
+  });
+  child.stdin?.on('error', () => {
+    invalid = true;
+  });
+  const exited = new Promise<number | null>((resolve) => child.once('close', resolve));
+  const timer = setTimeout(() => {
+    invalid = true;
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  }, options.timeBudgetMs + 1000);
+  const output = child.stdout;
+  if (!output || !child.stdin) {
+    child.kill('SIGKILL');
+    await exited;
+    clearTimeout(timer);
+    fail('interpreter_unavailable', options.operationId);
+  }
+  output.on('data', (data: Buffer) => {
+    outputBytes += data.length;
+    if (outputBytes > 4096) {
+      invalid = true;
+      child.kill('SIGKILL');
+    }
+  });
+  const reader = createInterface({ input: output, crlfDelay: Infinity });
+  const lines = reader[Symbol.asyncIterator]();
+  const message = async () => {
+    const line = await lines.next();
+    if (line.done || invalid) fail('lease_interrupted', options.operationId);
+    const value: unknown = JSON.parse(line.value);
+    if (!object(value) || value.format !== 1) fail('lease_interrupted', options.operationId);
+    if (value.outcome === 'refused' && keys(value, ['format', 'outcome', 'reason'])) {
+      const reason = reasons.find((item) => item === value.reason);
+      fail(reason ?? 'lease_interrupted', options.operationId);
+    }
+    return value;
+  };
+  try {
+    const ready = await message();
+    if (!keys(ready, ['format', 'outcome']) || ready.outcome !== 'leased')
+      fail('lease_interrupted', options.operationId);
+    const value = verify();
+    if (performance.now() - started >= options.timeBudgetMs)
+      fail('time_budget', options.operationId);
+    child.stdin.write('confirm\n');
+    const acknowledgement = await message();
+    if (!keys(acknowledgement, ['format', 'outcome']) || acknowledgement.outcome !== 'verified')
+      fail('lease_interrupted', options.operationId);
+    confirmed = true;
+    return value;
+  } finally {
+    child.stdin.end('release\n');
+    const code = await exited;
+    clearTimeout(timer);
+    reader.close();
+    if (confirmed && (invalid || code !== 0)) fail('lease_interrupted', options.operationId);
+  }
+}
+
 function checkCommon(options: LegacyCopyVerificationOptions) {
   if (
     process.platform !== 'linux' ||
+    typeof options.pythonBin !== 'string' ||
+    !path.isAbsolute(options.pythonBin) ||
     !UUID.test(options.operationId) ||
     !integer(options.timeBudgetMs, 300000) ||
     options.timeBudgetMs < 1
@@ -586,30 +681,57 @@ export async function preserveLegacyCopy(options: LegacyCopyPreservationOptions)
       !currentRoot.isDirectory()
     )
       fail('source_changed', options.operationId);
-    const verifiedPayload = hashPayload(destination, copied.bytes, options.timeBudgetMs);
-    if (verifiedPayload.sha256 !== copied.sha256) fail('copy_unconfirmed', options.operationId);
-    const payloadPhysicalSha256 = verifiedPayload.physicalSha256;
-    fs.fsyncSync(destination);
-    requireNamedCopy(target, bundle, destination, options.operationId, payloadPhysicalSha256);
-    const completeReceipt = writeJson(bundle, 'complete.json', {
-      format: 1,
-      operationId: options.operationId,
-      algorithm: ALGORITHM,
-      sourcePhysicalSha256: options.sourcePhysicalSha256,
-      sourceSize: copied.bytes,
-      copySha256: copied.sha256,
-      payloadPhysicalSha256,
-      completedAtEpoch: Math.floor(Date.now() / 1000),
-      fileWriteLeaseVerified: true,
+    // Close every writable description before requesting the payload read lease.
+    const leasedPayload = fs.openSync(
+      '/proc/self/fd/' + destination,
+      constants.O_RDONLY | constants.O_NONBLOCK,
+    );
+    const handle = handles.indexOf(destination);
+    if (handle < 0) fail('destination_unverified', options.operationId);
+    handles.splice(handle, 1, leasedPayload);
+    fs.closeSync(destination);
+    destination = leasedPayload;
+    const leasedBundle = bundle;
+    const expectedPayload = physical(fs.fstatSync(leasedPayload, { bigint: true }));
+    return await withPayloadLease(options, leasedPayload, expectedPayload, options.maxBytes, () => {
+      const verifiedPayload = hashPayload(leasedPayload, copied.bytes, options.timeBudgetMs);
+      if (verifiedPayload.sha256 !== copied.sha256) fail('copy_unconfirmed', options.operationId);
+      const payloadPhysicalSha256 = verifiedPayload.physicalSha256;
+      fs.fsyncSync(leasedPayload);
+      requireNamedCopy(
+        target,
+        leasedBundle,
+        leasedPayload,
+        options.operationId,
+        payloadPhysicalSha256,
+      );
+      const completeReceipt = writeJson(leasedBundle, 'complete.json', {
+        format: 1,
+        operationId: options.operationId,
+        algorithm: ALGORITHM,
+        sourcePhysicalSha256: options.sourcePhysicalSha256,
+        sourceSize: copied.bytes,
+        copySha256: copied.sha256,
+        payloadPhysicalSha256,
+        completedAtEpoch: Math.floor(Date.now() / 1000),
+        fileWriteLeaseVerified: true,
+      });
+      fs.fsyncSync(leasedBundle);
+      fs.fsyncSync(target.fd);
+      requireSeparateStorage();
+      requireCompleteBundle(
+        target,
+        leasedBundle,
+        leasedPayload,
+        options.operationId,
+        payloadPhysicalSha256,
+        {
+          'prepared.json': preparedReceipt,
+          'complete.json': completeReceipt,
+        },
+      );
+      return result(options.operationId, copied.bytes, selected.kind);
     });
-    fs.fsyncSync(bundle);
-    fs.fsyncSync(target.fd);
-    requireSeparateStorage();
-    requireCompleteBundle(target, bundle, destination, options.operationId, payloadPhysicalSha256, {
-      'prepared.json': preparedReceipt,
-      'complete.json': completeReceipt,
-    });
-    return result(options.operationId, copied.bytes, selected.kind);
   } catch (error) {
     const problem = new LegacyCopyPreservationError(
       error instanceof LegacyCopyPreservationError ? error.reason : 'copy_unconfirmed',
@@ -634,7 +756,7 @@ export async function preserveLegacyCopy(options: LegacyCopyPreservationOptions)
 }
 
 /** Restart verification never needs the original file or namespace and never promotes incomplete work. */
-export function verifyPreservedLegacyCopy(options: LegacyCopyVerificationOptions) {
+export async function verifyPreservedLegacyCopy(options: LegacyCopyVerificationOptions) {
   checkCommon(options);
   const handles: number[] = [];
   try {
@@ -731,26 +853,21 @@ export function verifyPreservedLegacyCopy(options: LegacyCopyVerificationOptions
     handles.push(file);
     if (legacyMountId(file) !== legacyMountId(target.fd))
       fail('destination_unverified', options.operationId);
-    const verifiedPayload = hashPayload(
-      file,
-      prepared.sourceSize,
-      options.timeBudgetMs,
-      complete.payloadPhysicalSha256,
-    );
-    if (verifiedPayload.sha256 !== complete.copySha256)
-      fail('recovery_review_required', options.operationId);
-    fs.fsyncSync(file);
-    fs.fsyncSync(bundle);
-    fs.fsyncSync(target.fd);
-    requireCompleteBundle(
-      target,
-      bundle,
-      file,
-      options.operationId,
-      complete.payloadPhysicalSha256,
-      { 'prepared.json': preparedReceipt.stamp, 'complete.json': completeReceipt.stamp },
-    );
-    return result(options.operationId, prepared.sourceSize, String(prepared.sourceKind));
+    const sourceSize = prepared.sourceSize;
+    const expectedPayload = complete.payloadPhysicalSha256;
+    return await withPayloadLease(options, file, expectedPayload, sourceSize, () => {
+      const verifiedPayload = hashPayload(file, sourceSize, options.timeBudgetMs, expectedPayload);
+      if (verifiedPayload.sha256 !== complete.copySha256)
+        fail('recovery_review_required', options.operationId);
+      fs.fsyncSync(file);
+      fs.fsyncSync(bundle);
+      fs.fsyncSync(target.fd);
+      requireCompleteBundle(target, bundle, file, options.operationId, expectedPayload, {
+        'prepared.json': preparedReceipt.stamp,
+        'complete.json': completeReceipt.stamp,
+      });
+      return result(options.operationId, sourceSize, String(prepared.sourceKind));
+    });
   } catch (error) {
     throw new LegacyCopyPreservationError(
       error instanceof LegacyCopyPreservationError ? error.reason : 'recovery_review_required',

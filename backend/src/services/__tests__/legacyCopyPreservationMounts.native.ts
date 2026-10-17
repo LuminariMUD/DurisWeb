@@ -74,7 +74,7 @@ try {
     };
     if (kind === 'independent') {
       assert.equal((await preserveLegacyCopy(options)).copyVerified, true);
-      assert.equal(verifyPreservedLegacyCopy(options).copyVerified, true);
+      assert.equal((await verifyPreservedLegacyCopy(options)).copyVerified, true);
     } else {
       await assert.rejects(preserveLegacyCopy(options), { reason: 'destination_unverified' });
       assert.equal(
@@ -161,7 +161,7 @@ try {
     };
     try {
       if (operation === 'copy') await assert.rejects(preserveLegacyCopy(options));
-      else assert.throws(() => verifyPreservedLegacyCopy(options));
+      else await assert.rejects(verifyPreservedLegacyCopy(options));
       assert.equal(mounted, true);
       assert.equal(fs.readFileSync(file, 'utf8'), 'late-mount source bytes');
     } finally {
