@@ -2,9 +2,34 @@
 
 ## Current review continuation — 2026-10-17
 
-Latest: #49 follow-up `64d30b7` is pushed and all four new threads are verified
-resolved. Fifteen findings remain from the refreshed queue. Active branch #50
-contains that parent repair; its two batch-removal findings are being qualified.
+Latest: #50's two follow-ups are pushed as `ab40c42` and verified resolved;
+parent integration is pushed through #60 (`9050fee`) with its two-engine
+retention proof. See the [complete latest carry-forward handoff](https://github.com/LuminariMUD/DurisWeb/blob/9050fee/docs/ongoing-projects/plan.md).
+A fresh scan found three new #54 findings, for 16 unresolved in total. Current
+branch is #54; first fix restricts analytics-cache work to the selected approved
+class and refuses old/inconsistent saved runs that request cache work outside
+that class. Files: execution service, existing native tests and this plan.
+Then finish rollback/worker serialization and standalone CLI Redis cleanup;
+carry these repairs through the stack before continuing #62–#66. No policy is
+enabled and no production operation is authorized.
+
+**#54 class/CLI repair proof:** four native regressions failed before repair:
+login-only approval erased analytics cache, an inconsistent saved cache task was
+accepted, and successful/failed CLI cleanup left the real Redis connection ready.
+Execution now initializes cache work only for selected analytics, rechecks its
+approval immediately before cleanup, and rejects out-of-class pending cache
+state. The CLI closes the cache client it used in `finally`; module import alone
+does not open Redis, and application-only execution retains shared-client use.
+`node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-review-execution-suite.mts 23436 execution-only` and the same with
+`23437` each pass 24 tests / two suites. Native CLI tests verify return codes and
+the actual Redis connection's `end` status before fixture reconnection.
+The focused approval/cache suites pass eight tests; backend quality gates,
+MUD-write/schema checks and build pass. Logs: `pr54-class-cli-{red,unit,mysql,
+maria,quality}.log` in the private review directory. No frontend/runtime-provider
+or production check is claimed. Publish these two findings separately; the
+rollback race remains open and is the next action. No visitor news is needed
+for this disabled operator path; the runbook records class and connection rules.
 
 The active work is oldest-first PR review repair. The complete project/branch
 inventory, unfinished P0–P8 scope and recovery priorities are preserved in the

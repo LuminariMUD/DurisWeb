@@ -107,6 +107,14 @@ not deleted. Prepared bindings preserve large IDs and SQL-mode independence.
 
 ## Retired cache cleanup and results
 
+Analytics cache cleanup requires `analytics_events` to be selected and approved;
+a login-history-only run does not inspect or remove that namespace. An older
+saved run that requests analytics-cache work outside its selected classes is
+refused as unverified. Preserve its evidence and use a new explicitly scoped
+run rather than editing saved progress. The standalone CLI disconnects Redis
+before returning after either confirmed cleanup or a recorded cache failure;
+unapproved execution does not open a cache connection.
+
 Historical analytics no longer reads or populates `web_analytics:*`. This removes
 the delayed-reader repopulation race. A bounded cleanup of old entries uses
 [SCAN](https://redis.io/docs/latest/commands/scan/) and DEL batches of at most 100;

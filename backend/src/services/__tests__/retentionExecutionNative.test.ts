@@ -572,6 +572,42 @@ async function hold(accountName = 'Alpha') {
       expect(await count('page_views')).toBe(0);
     });
 
+    it('keeps analytics cache intact when only login history is selected and approved', async () => {
+      await redis.set(legacyKey, 'unapproved analytics');
+      fixturePolicy.classes.analytics_events.approved = false;
+      const info = jest.spyOn(redis, 'info');
+      try {
+        const result = await engine.executeRetention({ ...options(), classes: ['login_history'] });
+        expect(result.complete).toBe(true);
+        expect(await redis.get(legacyKey)).toBe('unapproved analytics');
+        expect(info).not.toHaveBeenCalled();
+      } finally {
+        fixturePolicy.classes.analytics_events.approved = true;
+      }
+    });
+
+    it('refuses a persisted analytics-cache task outside the selected run classes', async () => {
+      const request = { ...options(), classes: ['login_history'] as const };
+      await engine.executeRetention(request);
+      const [rows] = await root.execute<RowDataPacket[]>(
+        'SELECT progress FROM web_retention_runs WHERE id=?',
+        [request.runId],
+      );
+      const progress = JSON.parse(String(rows[0].progress)) as {
+        cache: { pending: boolean; cursor: string; serverId: string | null };
+      };
+      progress.cache = { pending: true, cursor: '0', serverId: null };
+      await root.execute('UPDATE web_retention_runs SET progress=? WHERE id=?', [
+        JSON.stringify(progress),
+        request.runId,
+      ]);
+      await redis.set(legacyKey, 'preserve unselected class');
+      await expect(engine.executeRetention(request)).rejects.toMatchObject({
+        reason: 'run_unverified',
+      });
+      expect(await redis.get(legacyKey)).toBe('preserve unselected class');
+    });
+
     it('keeps cache cleanup pending on failure, serves fresh uncached reads, then confirms removal on retry', async () => {
       await page(now - 100 * 86400);
       await page(now - 86400);
@@ -602,6 +638,44 @@ async function hold(accountName = 'Alpha') {
       expect(await redis.exists(legacyKey)).toBe(0);
       expect(await redis.get(otherKey)).toBe('preserve unrelated cache');
     });
+
+    it.each([false, true])(
+      'closes the CLI cache connection after execution (cache failure: %s)',
+      async (failCache) => {
+        const cli = await import('../../scripts/retention.js');
+        const output = jest.spyOn(console, 'log').mockImplementation(() => {});
+        const scan = failCache
+          ? jest.spyOn(redis, 'scan').mockRejectedValue(new Error('private-cache-failure'))
+          : null;
+        const request = options();
+        try {
+          const code = await cli.runRetentionCommand([
+            'execute',
+            '--target',
+            request.target,
+            '--cache-target',
+            request.cacheTarget,
+            '--policy-version',
+            request.policyVersion,
+            '--run-id',
+            request.runId,
+            '--class',
+            'analytics_events',
+            '--time-budget-ms',
+            '10000',
+          ]);
+          expect(code).toBe(failCache ? 2 : 0);
+          for (let attempt = 0; redis.status !== 'end' && attempt < 100; attempt++)
+            await new Promise((resolve) => setTimeout(resolve, 5));
+          expect(redis.status).toBe('end');
+          expect(JSON.stringify(output.mock.calls)).not.toContain('private-cache-failure');
+        } finally {
+          scan?.mockRestore();
+          output.mockRestore();
+          if (redis.status === 'end') await redis.connect();
+        }
+      },
+    );
 
     it('refuses incoming FK/trigger/schema or progress drift and keeps the real CLI source-gated', async () => {
       await page(now - 100 * 86400);
