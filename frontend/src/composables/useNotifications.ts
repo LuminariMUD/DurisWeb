@@ -57,14 +57,15 @@ export function useNotifications() {
       return 'denied'
     }
 
-    if (permissionState.value === 'granted') {
-      return 'granted'
-    }
-
     try {
-      const permission = await Notification.requestPermission()
+      const permission =
+        permissionState.value === 'granted' ? 'granted' : await Notification.requestPermission()
       permissionState.value = permission
       hasPermission.value = permission === 'granted'
+      if (hasPermission.value) {
+        isEnabled.value = true
+        savePreference('notifications_enabled', 'true')
+      }
 
       // Store permission preference
       savePreference('notification_permission_requested', 'true')
