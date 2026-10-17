@@ -55,6 +55,9 @@ router.post('/track', trackLimiter, verifyCsrfToken, async (req: Request, res: R
         error instanceof PrivacyChoiceError
           ? error.message
           : 'Optional analytics is temporarily unavailable',
+      ...(error instanceof PrivacyChoiceError && error.reference
+        ? { reference: error.reference }
+        : {}),
     });
   }
 });

@@ -13,9 +13,11 @@ import { spawnSync } from 'node:child_process';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { retentionPreviewPolicy } from '../../config/retentionPolicy.js';
 import { previewRetention, type RetentionPreviewResult } from '../retentionPreview.js';
+import { retentionCandidateRules } from '../retentionCandidates.js';
+import { getBackendConfiguration } from '../../config/environment.js';
 
 const port = Number(process.env.TEST_RETENTION_DB_PORT);
 const database = process.env.DB_NAME ?? '';
@@ -23,6 +25,7 @@ if (
   process.env.TEST_RETENTION_DB_PORT &&
   (![23436, 23437].includes(port) ||
     process.env.DB_HOST !== '127.0.0.1' ||
+    getBackendConfiguration().database.port !== port ||
     database !== 'durisweb_qualification_retention_suite')
 )
   throw new Error('Retention native tests require the dedicated disposable fixture');
@@ -174,6 +177,7 @@ async function snapshot() {
   });
   afterEach(async () => {
     jest.restoreAllMocks();
+    await root.query('SET time_zone=DEFAULT');
     if (directory) await rm(directory, { recursive: true, force: true });
     directory = undefined;
   });
@@ -358,6 +362,72 @@ async function snapshot() {
       expect(await snapshot()).toBe(before);
       jest.restoreAllMocks();
     }
+  });
+
+  it.each(['analytics_events', 'login_history'] as const)(
+    'previews only the eligible first occurrence of a repeated hour for %s',
+    async (classId) => {
+      const cutoff = Date.parse('2025-11-02T05:45:00Z') / 1000;
+      await root.query("SET time_zone='+00:00'");
+      for (const delta of [-900, 0, 2700]) {
+        if (classId === 'analytics_events') await insertPage(cutoff + delta);
+        else await insertLogin(cutoff + delta);
+      }
+      freezeClock(
+        'America/New_York',
+        cutoff + retentionPreviewPolicy.classes[classId].proposedAgeSeconds,
+      );
+      const before = await snapshot();
+      const { result } = await previewRetention({ ...options, classes: [classId] });
+      expect(result).toMatchObject({
+        complete: true,
+        classes: [{ cutoffEpoch: cutoff, ageCandidatesObserved: 1 }],
+      });
+      expect(await snapshot()).toBe(before);
+    },
+  );
+
+  it.each(['analytics_events', 'login_history'] as const)(
+    'continues through both eligible repeated-hour occurrences for %s',
+    async (classId) => {
+      const cutoff = Date.parse('2025-11-02T06:45:00Z') / 1000;
+      await root.query("SET time_zone='+00:00'");
+      for (const delta of [-4500, -900, 0, 60]) {
+        if (classId === 'analytics_events') await insertPage(cutoff + delta);
+        else await insertLogin(cutoff + delta);
+      }
+      freezeClock(
+        'America/New_York',
+        cutoff + retentionPreviewPolicy.classes[classId].proposedAgeSeconds,
+      );
+      const before = await snapshot();
+      const input = { ...options, classes: [classId], batchSize: 1, maxCandidates: 1 };
+      let result = await previewRetention(input);
+      for (let pass = 0; pass < 5 && !result.result.complete; pass++)
+        result = await previewRetention(input, result.checkpoint);
+      expect(result.result).toMatchObject({
+        complete: true,
+        classes: [{ cutoffEpoch: cutoff, ageCandidatesObserved: 2 }],
+      });
+      expect(await snapshot()).toBe(before);
+    },
+  );
+
+  it('refuses checkpoints using the earlier implicit-timezone rule signature', async () => {
+    freezeClock();
+    const { checkpoint } = await previewRetention(options);
+    checkpoint.signature = createHash('sha256')
+      .update(
+        JSON.stringify({
+          format: 2,
+          policy: retentionPreviewPolicy,
+          rules: retentionCandidateRules,
+        }),
+      )
+      .digest('hex');
+    await expect(previewRetention(options, checkpoint)).rejects.toMatchObject({
+      reason: 'checkpoint_rules_changed',
+    });
   });
 
   it('continues across real CLI processes with private checkpoints and a fixed cutoff/high water', async () => {

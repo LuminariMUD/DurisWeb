@@ -8,13 +8,15 @@ import {
   it,
   jest,
 } from '@jest/globals';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import mysql, { type Connection, type Pool, type RowDataPacket } from 'mysql2/promise';
 import { RETENTION_CONTROL_KEY } from '../../db/internalWebSettings.js';
 import { RETENTION_RUN_MIGRATION } from '../../db/retentionRunSchema.js';
 import { runFixtureWebMigrations } from '../../test/webMigrationFixture.js';
 import { verifiedWebBaselineCoverage } from '../../db/webBaseline.js';
+import { retentionCandidateRules } from '../retentionCandidates.js';
+import { getBackendConfiguration } from '../../config/environment.js';
 
 const port = Number(process.env.TEST_RETENTION_EXECUTION_DB_PORT),
   database = process.env.DB_NAME ?? '';
@@ -23,6 +25,7 @@ if (
   process.env.TEST_RETENTION_EXECUTION_DB_PORT &&
   (![23436, 23437].includes(port) ||
     process.env.DB_HOST !== '127.0.0.1' ||
+    getBackendConfiguration().database.port !== port ||
     database !== 'durisweb_qualification_retention_execution_suite' ||
     process.env.CACHE_REDIS_HOST !== '127.0.0.1' ||
     process.env.CACHE_REDIS_PORT !== '23479' ||
@@ -164,6 +167,7 @@ async function hold(accountName = 'Alpha') {
     afterEach(async () => {
       jest.restoreAllMocks();
       intercept = undefined;
+      await root.query('SET time_zone=DEFAULT');
       await redis.del(legacyKey, otherKey);
     });
     afterAll(async () => {
@@ -195,6 +199,90 @@ async function hold(accountName = 'Alpha') {
         expect(await count('account_login_history')).toBe(2);
         expect(JSON.stringify(result)).not.toMatch(/Alpha|private-fixture|cursorId|owner/);
       }
+    });
+
+    it.each(['analytics_events', 'login_history'] as const)(
+      'keeps the two fall-back hour occurrences distinct for %s',
+      async (classId) => {
+        const cutoff = Date.parse('2025-11-02T05:45:00Z') / 1000;
+        await root.query("SET time_zone='+00:00'");
+        zone = 'America/New_York';
+        executionNow = cutoff + fixturePolicy.classes[classId].proposedAgeSeconds;
+        for (const delta of [-900, 0, 2700]) {
+          if (classId === 'analytics_events') await page(cutoff + delta);
+          else await login(cutoff + delta);
+        }
+        const result = await engine.executeRetention({ ...options(), classes: [classId] });
+        expect(result).toMatchObject({
+          complete: true,
+          classes: [{ cutoffEpoch: cutoff, deleted: 1 }],
+        });
+        expect(
+          await count(classId === 'analytics_events' ? 'page_views' : 'account_login_history'),
+        ).toBe(2);
+      },
+    );
+
+    it.each(['analytics_events', 'login_history'] as const)(
+      'traverses both eligible fall-back occurrences for %s with one-row batches',
+      async (classId) => {
+        const cutoff = Date.parse('2025-11-02T06:45:00Z') / 1000;
+        await root.query("SET time_zone='+00:00'");
+        zone = 'America/New_York';
+        executionNow = cutoff + fixturePolicy.classes[classId].proposedAgeSeconds;
+        for (const delta of [-4500, -900, 0, 60]) {
+          if (classId === 'analytics_events') await page(cutoff + delta);
+          else await login(cutoff + delta);
+        }
+        const result = await engine.executeRetention({
+          ...options(),
+          classes: [classId],
+          batchSize: 1,
+        });
+        expect(result).toMatchObject({
+          complete: true,
+          classes: [{ cutoffEpoch: cutoff, deleted: 2 }],
+        });
+        expect(
+          await count(classId === 'analytics_events' ? 'page_views' : 'account_login_history'),
+        ).toBe(2);
+      },
+    );
+
+    it('refuses a saved run whose rules predate the explicit UTC execution contract', async () => {
+      await page(now - 100 * 86400);
+      await page(now - 100 * 86400);
+      const input = { ...options(), maxCandidates: 1, batchSize: 1 };
+      expect((await engine.executeRetention(input)).complete).toBe(false);
+      const previousSignature = createHash('sha256')
+        .update(
+          JSON.stringify({
+            format: 'retention-execution-v1',
+            policy: fixturePolicy,
+            rules: retentionCandidateRules,
+          }),
+        )
+        .digest('hex');
+      await root.execute(
+        "UPDATE web_retention_runs SET rules_sha256=?,progress=JSON_SET(progress,'$.checkpoint.signature',?) WHERE id=?",
+        [previousSignature, previousSignature, input.runId],
+      );
+      const before = (
+        await root.execute<RowDataPacket[]>(
+          'SELECT rules_sha256,CAST(progress AS CHAR) AS progress FROM web_retention_runs WHERE id=?',
+          [input.runId],
+        )
+      )[0];
+      await expect(engine.executeRetention(input)).rejects.toMatchObject({
+        reason: 'run_identity_conflict',
+      });
+      const after = (
+        await root.execute<RowDataPacket[]>(
+          'SELECT rules_sha256,CAST(progress AS CHAR) AS progress FROM web_retention_runs WHERE id=?',
+          [input.runId],
+        )
+      )[0];
+      expect(after).toEqual(before);
     });
 
     it('rechecks a hold acknowledged after dry run and applies account collation without collateral deletion', async () => {

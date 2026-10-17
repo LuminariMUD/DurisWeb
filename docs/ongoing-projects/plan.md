@@ -1,5 +1,9 @@
 # Website security, privacy, and schema implementation plan
 
+Current task: address outstanding PR review findings from oldest to newest.
+Use the **PR review repair** record at the end for current progress; older
+phase and timebox instructions are historical.
+
 Status: **implementation in progress**. Updated 2026-10-17.
 
 Current checkpoint: engineering through P4, the UTC correction, first P5
@@ -2590,3 +2594,230 @@ phase checkboxes distinguish unfinished acceptance from qualified source.
 No Website Changelog entry was needed for that original documentation-only
 commit. Later implementation entries record release-news drafts and the
 requirement to publish them only after an authorized verified live release.
+
+## PR review repair — 2026-10-17 current objective
+
+The user now requests all outstanding code-review findings to be addressed,
+starting with the oldest open PR. This supersedes the earlier implementation
+timebox and next-phase directions. Preserve the published branches, repair each
+affected PR, and carry its changes forward through the dependent stack with
+ordinary merges. No merge to master, deployment, production data change or new
+feature is part of this review task.
+
+The complete GraphQL scan covered all 27 open PRs, all review-thread pages,
+review bodies and discussion comments. The initial queue has 24 unresolved
+findings across 11 PRs. PR #39's five old findings are resolved and its latest
+review reports no findings; #41–#45 have no outstanding review findings.
+Other PRs without findings still need inherited fixes carried forward.
+
+| PR | Initial findings | Review status |
+| --- | --- | --- |
+| #46 | 1: enable notifications after a first permission grant with blocked storage | Fixed; 7 focused and 253 full frontend tests pass |
+| #48 | 3: stale GET cookie clearing, actionable safe diagnostics, native fixture port binding | Fixed; 39 native cases pass on each database engine |
+| #49 | 3: pending refusal, temporary visibility changes, compact confirmation/focus | Fixed; 30 focused, 285 full frontend tests and rendered checks pass |
+| #50 | 2: safe forum failure context, shared pool starvation during R2 deletion | Fixed; 32 image/API cases per engine and both package gates pass |
+| #54 | 1: DST-ambiguous retention cutoff comparisons | Fixed; execution 20 and preview 26 cases pass on each engine |
+| #55 | 1: unavailable restore controls still offered by the UI | Pending |
+| #62 | 3: account-bound backup cache, cancellation file identity, failed-upload bulk cleanup | Pending |
+| #63 | 2: incident/maintenance preservation prerequisites, all legacy upload suffixes | Pending |
+| #64 | 3: quiet CLI, same-device mount boundaries, supported database filenames | Pending |
+| #65 | 3: protected-root mount aliases, suffix length, named bundle/payload revalidation | Pending |
+| #66 | 2: separate MUD database credentials, abort-signal compatibility | Pending |
+
+**#46 outcome:** one explicit granted notification-permission request enables
+the current-page preference even when storage reads/writes are unavailable.
+Files: the existing notification composable and its tests. Proof: a failing
+regression reproduces the disabled state after a successful grant; then verify
+actual notification construction, refusal/default behavior and frontend gates.
+Ablation keeps the existing permission/preference flow and adds no persistence
+adapter or retry mechanism. A future verified release may announce that enabling
+notifications works on the first attempt with blocked browser storage; existing
+release authorization and news-update rules still apply.
+
+**#46 proof:** the new first-grant regression failed before the fix.
+`pnpm --dir frontend test:unit --run
+src/composables/__tests__/useNotifications.spec.ts
+src/composables/__tests__/useChangelog.spec.ts` ran the matching notification
+file: seven pass (no file matched the second path). The full frontend run then
+passed 253 tests / 52 files. `python3 /tmp/durisweb-image-quality.py frontend`
+passes format, lint, types, configuration, palette, full unit tests and build.
+`git diff --check` passes. No backend/database/provider or new rendered-layout
+check is needed or claimed for this composable-only behavior correction.
+Evidence: `pr46-{red,focused,quality}.log` in the private review directory.
+
+Private review evidence: `/tmp/durisweb-review-20261017/`; the current worktree
+is `/tmp/durisweb-security-privacy-plan-20261016` and switches to each existing
+PR branch in sequence. Preserve unrelated review worktrees and recovery stashes.
+
+**#46 publication/carry-forward:** fix `5a820ac` is pushed and its review thread
+is replied to and resolved. #47 has no findings; parent merge `558544e` is pushed,
+and its entire frontend tree matches the tested #46 frontend. #48 now contains
+that repair through an ordinary parent merge, without rewriting history.
+
+**#48 outcome:** status GETs cannot remove a concurrently rotated cookie;
+storage failures carry a safe operation/stage, allowlisted error code, rollback
+outcome and a reference shared with the client; native tests refuse a pool port
+different from their explicit opt-in before importing the pool. Files: existing
+privacy service/routes/tests plus a small safe-code selector needed by this and
+the reviewed forum-error path. Proof: stale receipt and diagnostics regressions
+failed before repair; a mismatched-port import incorrectly succeeded before
+the guard change. Add native rotation, corrupt-record, commit/rollback and
+safe-code checks, then run the two-engine fixture and required backend gates.
+This retains the current protocol and diagnostic boundaries without a new
+storage/logging service or policy change.
+
+**#48 final proof:** `node --import
+./backend/node_modules/tsx/dist/loader.mjs /tmp/durisweb-review-p5-suite.mts
+23436 privacy-only` and the same command with `23437` each pass 39 tests / four
+suites, including actual routes, transactions, rollback, cookie rotation and
+concurrent choices. The runner uses owned empty Redis DBs 13/14 and cleans its
+database/user/cache; before/after owner fingerprints and preflights match.
+`pnpm --dir backend test --runInBand src/utils/__tests__/safeFailureCode.test.ts`
+passes three pure diagnostic cases. The explicit mismatch command with
+`TEST_PRIVACY_DB_PORT=23436 DB_PORT=23437 DB_HOST=127.0.0.1
+DB_NAME=durisweb_qualification_privacy_suite` and Jest's
+`--testNamePattern=__guard_only_no_cases__` now refuses module import with zero
+tests, before pool construction; it previously exited successfully.
+`python3 /tmp/durisweb-image-quality.py backend`, configuration literal and
+whitespace checks pass. Frontend source remains byte-identical to the already
+qualified #46/#47 tree; no additional frontend/browser or full-backend rerun is
+claimed for this correction. Source policy gates remain false.
+
+Removing the unsafe GET clear exposed a reproduced lost-Set-Cookie retry gap.
+Status and explicit retry now fall back to the current CSRF-bound identity,
+using the authority already available when a receipt is absent. Invalid cookies
+cannot authorize their named record. Native cases cover both stable/rotated CSRF
+and a forged cookie naming a different browser, preserving that browser's valid
+choice. This adds no new endpoint, credential format or account linkage.
+The added rollback regression initially recursed through an already mocked
+checkout; its setup was corrected before both final green native runs.
+Evidence: `pr48-*` logs in the private review directory. Future privacy-release
+wording covers reliable saved choices; diagnostic/fixture repairs need no
+separate visitor announcement, and nothing is published live here.
+
+**#48 publication:** `e7cb0cf` is pushed, all three review threads have evidence
+replies and verified resolved state, and #49 now contains the repairs through
+an ordinary parent merge. No published commit was rewritten.
+
+**#49 outcome:** preserve an in-flight refusal and permit only cancellation of
+pending acceptance; revalidate consent on returning to a tab while preserving
+the same visit and avoiding duplicate route events; keep compact confirmations
+mounted and focusable after their own action. Files: existing privacy service,
+control component and their tests. Five pre-fix failures reproduce the reviewed
+behaviors. Proof also covers hidden navigation, first visibility, withdrawal
+during hiding, and preserving focus that moved to another control. Ablation
+adds only pending-decision/route state and local confirmation state; no new
+storage, event queue, endpoint or consent policy is introduced.
+
+**#49 proof:** `pnpm --dir frontend test:unit --run
+src/services/__tests__/privacy.spec.ts
+src/components/privacy/__tests__/PrivacyControls.spec.ts` passes 30 tests.
+`python3 /tmp/durisweb-image-quality.py frontend` passes format/lint/types,
+configuration/palette, full tests (285 / 55 files) and build. The backend tree
+is identical to qualified #48 and its evidence is reused. Configuration literal
+and whitespace checks pass. `node /tmp/durisweb-review-browser49.mjs` verifies
+the fresh build with isolated synthetic APIs/real HttpOnly cookie handling:
+desktop/phone keyboard refusal remains one refusal while pending, compact
+confirmation stays visible and focused, pending acceptance can still be
+withdrawn, returning to a tab revalidates without an extra view, hidden navigation
+adds one event under the same nonce, and server withdrawal blocks later events.
+Screenshots `pr49-confirmation-{1440,390}.png` were visually checked. The browser
+fixture's WebSocket interception was corrected after its first run exposed an
+unhandled local fixture connection; no error category was merely ignored.
+A further regression prevents passive refresh from moving confirmation focus
+again. This is rendered Chromium/phone-viewport evidence, not physical-device
+or live collection acceptance. Policy flags remain false. Private proof:
+`pr49-{red,focused-closeout,quality-final,browser-closeout,passive-focus-red}.log`.
+Future privacy-release wording includes stable choices and accessible
+confirmation; no live changelog publication occurs during this review repair.
+
+**#49 publication:** `39319e5` is pushed and its three threads have evidence
+replies and verified resolved state. #50 contains the fixes through its parent
+merge. Seven of the initial 24 findings are closed at that checkpoint.
+
+**#50 outcome:** R2 removal retains its cross-process advisory lease on a
+dedicated database connection, capped at two operations per process. It no
+longer occupies the ten-slot application pool during provider waits. Existing
+intent, attachment guards, provider acknowledgement, retry and lock-release
+semantics are preserved. The four forum create/update failure paths now record
+a safe stage/allowlisted code and return the matching reference. Files: image
+service/tests, forum routes and lifecycle/plan documentation. Ablation reuses
+the #48 safe-code selector and existing database/R2 contracts; no queue, pool
+registry, migration or new configuration setting is introduced.
+
+**#50 proof:** five pre-fix native failures reproduce the pool dependency and
+missing reference/context on all four write routes. The new concurrency case
+occupies all ten application-pool connections, proves two removals still reach
+the held provider, rejects a third, then verifies lock release and retry.
+`node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-review-image-suite.mts 23436 image-only` and the same with `23437`
+each pass 32 tests / two suites (14 image unit cases and 18 native/API cases).
+Full-owner schema/bootstrap/migrations, session/configuration/dependency probes
+and before/after owner fingerprints pass on both engines. The private runner
+owns empty Redis DBs 13/14 and removes its SQL database/user/cache afterward.
+`pnpm --dir backend test --runInBand
+src/services/__tests__/postImageDeletion.test.ts
+src/utils/__tests__/safeFailureCode.test.ts` passes 17 tests.
+`python3 /tmp/durisweb-image-quality.py backend` and the frontend equivalent
+pass all required format/lint/types/build gates, MUD-write/schema checks and
+frontend configuration/palette/full tests (294 / 57 files). Configuration
+literal and whitespace checks pass. No broad backend rerun or new browser
+layout/provider acceptance is claimed; actual HTTP image/forum outcomes are
+covered by the native suite and frontend response tests.
+
+The image native guard had the same missing pool-port binding as #48. It now
+checks typed host/port/database against the opt-in. A mismatched
+`TEST_IMAGE_DB_PORT=23436 DB_PORT=23437` test import that previously succeeded
+now refuses before executing any tests. Fault injection covers pooled and
+dedicated connections so existing deletion/publication race tests remain real.
+Evidence: `pr50-{red,unit,mysql,maria,backend-quality,frontend-quality,
+port-before,port-after}.log`. Future forum-release wording can mention that
+slow image removal does not occupy the website query pool; no live operation
+or Website Changelog publication is performed in this review task.
+
+**#50 publication/carry-forward:** `06dd143` is pushed and both review threads
+have evidence replies and verified resolved state. Nine initial findings are
+closed. Parent repairs were carried through #51 (`af51c06`), #52 (`2d68945`)
+and #53 (`e56f8ee`), all pushed; their relevant runtime file blobs match the
+qualified parent repairs. #54 now includes them via local merge `0ff746b`.
+Its sole merge conflict was documentation: retain #54's corrected historical
+publication wording and append the complete current review ledger.
+
+**#54 outcome:** pin only dedicated retention preview/execution sessions to UTC
+before indexed timestamp queries. Keep row locks, epoch validation, indexes and
+application/global session settings intact. Include the timezone contract in
+rule signatures so earlier checkpoints/runs cannot silently resume with changed
+semantics. Files: candidate contract, preview/executor, their focused tests and
+operator/plan docs. MySQL reproduced a second-fold run reporting complete after
+deleting only one of two eligible rows in each class. Existing row locks prevented
+the first attempted concurrent-edit fixture; that invalid test was replaced
+with real repeated-hour/keyset cases rather than weakening the locks. Both
+occurrences, exclusive cutoff boundaries, one-row traversal, read-only snapshots
+and rejection of old signatures are covered. Native guard checks also bind the
+configured database port to their opt-in. No rule period, source approval flag,
+migration or production action changes.
+
+**#54 proof:** `node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-review-execution-suite.mts 23436 execution-only` and the same
+with `23437` each pass 20 cases / two suites. The corresponding
+`/tmp/durisweb-review-retention-suite.mts <port> retention-only` passes 26 cases /
+two suites on each engine. This covers both named-zone fall-back occurrences,
+strict cutoff boundaries, one-row traversal/continuation, old-signature refusal,
+holds, restart/ownership and actual read-only CLI behavior. The pure preview
+query contract explicitly permits only the fixed UTC session setter before its
+read-only transaction; its 12 cases also pass separately. Initial MariaDB preview
+qualification found that existing exact statement expectation needed this
+deliberate addition, after which the full command passed. Fixture state, owner
+fingerprints and configuration/dependency probes remain valid on both engines.
+The private runners target this pre-metadata-v2 PR's actual schema contract;
+later #58/#60 install requirements are not silently removed from newer source.
+
+Both native fixture guards reject mismatched database ports with zero tests
+executed (`TEST_RETENTION_DB_PORT` or `TEST_RETENTION_EXECUTION_DB_PORT` set to
+23436 with `DB_PORT=23437` and the corresponding private target names/cache).
+`python3 /tmp/durisweb-image-quality.py backend`, configuration literal and
+whitespace checks pass. Frontend source is identical to qualified #53/#50 and
+its evidence is reused; no additional broad backend/frontend/browser/provider
+or live-retention acceptance is claimed. Evidence: `pr54-*` logs. No visitor
+changelog entry is needed for a source-disabled operator retention correction;
+the runbooks now explain UTC sessions and preserving incompatible old evidence.
