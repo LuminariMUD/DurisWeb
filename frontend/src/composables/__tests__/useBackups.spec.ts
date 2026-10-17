@@ -1,10 +1,14 @@
-import { defineComponent } from 'vue'
+import { defineComponent, nextTick, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { adminApi } from '@/services/api'
 import { useBackups } from '../useBackups'
 import type { BackupInfo } from '@/types'
+
+const accountName = ref<string | null>('UploaderAlpha')
+const permissions = ref<{ role: string } | undefined>({ role: 'overlord' })
+vi.mock('../useAuth', () => ({ useAuth: () => ({ accountName, permissions }) }))
 
 vi.mock('@/services/api', () => ({
   adminApi: {
@@ -14,11 +18,15 @@ vi.mock('@/services/api', () => ({
     createRestore: vi.fn(),
     createRestoreFromUpload: vi.fn(),
     getBackupDownloadUrl: vi.fn(),
+    uploadBackup: vi.fn(),
   },
 }))
 
 beforeEach(() => {
   vi.clearAllMocks()
+  accountName.value = 'UploaderAlpha'
+  permissions.value = { role: 'overlord' }
+  vi.mocked(adminApi.getBackupList).mockReset().mockResolvedValue({ backups: [] })
 })
 
 function mountBackups() {
@@ -30,9 +38,9 @@ function mountBackups() {
     defineComponent({
       setup() {
         backups = useBackups()
-        return {}
+        return { items: backups.backups }
       },
-      template: '<div />',
+      template: '<div><span v-for="item in items" :key="item.id">{{ item.filename }}</span></div>',
     }),
     { global: { plugins: [[VueQueryPlugin, { queryClient: client }]] } },
   )
@@ -46,6 +54,202 @@ vi.mock('../useWebSocket', () => ({
     offRestoreProgress: vi.fn(),
   }),
 }))
+
+function retainedUpload(owner: string, id: number): BackupInfo {
+  return {
+    id,
+    filename: owner + '-private-upload.zip',
+    createdBy: owner,
+    backupType: 'manual',
+    status: 'failed',
+    progress: 100,
+    currentStep: 'Upload needs review',
+    fileSize: 10,
+    errorMessage: null,
+    startedAt: '2026-10-17T12:00:00Z',
+    completedAt: null,
+  }
+}
+
+describe('account-scoped backup lists', () => {
+  it('keeps interrupted uploads out of generated-backup busy state', async () => {
+    const upload = {
+      ...retainedUpload('UploaderAlpha', 1),
+      status: 'in_progress' as const,
+      uploadReference: '82b972d4-285c-4664-b7e0-c46dfe015c92',
+    }
+    vi.mocked(adminApi.getBackupList).mockResolvedValueOnce({ backups: [upload] })
+    const { backups, client, wrapper } = mountBackups()
+    try {
+      await flushPromises()
+      expect(backups.backups.value).toHaveLength(1)
+      expect(backups.hasInProgressBackup.value).toBe(false)
+      expect(backups.inProgressBackup.value).toBeUndefined()
+      const generated = { ...retainedUpload('UploaderAlpha', 2), status: 'pending' as const }
+      vi.mocked(adminApi.getBackupList).mockResolvedValueOnce({ backups: [upload, generated] })
+      await backups.refetch()
+      expect(backups.hasInProgressBackup.value).toBe(true)
+      expect(backups.inProgressBackup.value?.id).toBe(2)
+    } finally {
+      wrapper.unmount()
+      client.clear()
+    }
+  })
+  it('hides privileged cached uploads when the same account returns with a lower role', async () => {
+    const foreign = retainedUpload('OtherOwner', 1)
+    vi.mocked(adminApi.getBackupList).mockResolvedValueOnce({ backups: [foreign] })
+    const { backups, client, wrapper } = mountBackups()
+    let finish: ((value: { backups: BackupInfo[] }) => void) | undefined
+    try {
+      await flushPromises()
+      expect(wrapper.text()).toContain(foreign.filename)
+      accountName.value = null
+      permissions.value = undefined
+      await nextTick()
+      vi.mocked(adminApi.getBackupList).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve
+          }),
+      )
+      permissions.value = { role: 'player' }
+      accountName.value = 'UploaderAlpha'
+      await nextTick()
+      expect(backups.backups.value).toEqual([])
+      expect(wrapper.text()).not.toContain(foreign.filename)
+      finish?.({ backups: [] })
+      await flushPromises()
+      expect(adminApi.getBackupList).toHaveBeenCalledTimes(2)
+    } finally {
+      finish?.({ backups: [] })
+      wrapper.unmount()
+      client.clear()
+    }
+  })
+  it('cancels an in-flight privileged response on a same-account role downgrade', async () => {
+    let finish!: (value: { backups: BackupInfo[] }) => void
+    let signal: AbortSignal | undefined
+    vi.mocked(adminApi.getBackupList).mockImplementationOnce((requestSignal?: AbortSignal) => {
+      signal = requestSignal
+      return new Promise((resolve) => {
+        finish = resolve
+      })
+    })
+    const { backups, client, wrapper } = mountBackups()
+    try {
+      await flushPromises()
+      vi.mocked(adminApi.getBackupList).mockResolvedValueOnce({ backups: [] })
+      permissions.value = { role: 'player' }
+      await flushPromises()
+      expect(signal?.aborted).toBe(true)
+      finish({ backups: [retainedUpload('OtherOwner', 1)] })
+      await flushPromises()
+      expect(backups.backups.value).toEqual([])
+      expect(wrapper.text()).not.toContain('OtherOwner')
+    } finally {
+      finish?.({ backups: [] })
+      wrapper.unmount()
+      client.clear()
+    }
+  })
+  it('does not show a fresh previous-owner cache entry during logout/login', async () => {
+    const alpha = retainedUpload('UploaderAlpha', 1)
+    const beta = retainedUpload('UploaderBeta', 2)
+    vi.mocked(adminApi.getBackupList).mockResolvedValueOnce({ backups: [alpha] })
+    const { backups, client, wrapper } = mountBackups()
+    let finish!: (value: { backups: BackupInfo[] }) => void
+    try {
+      await flushPromises()
+      expect(wrapper.text()).toContain(alpha.filename)
+      vi.mocked(adminApi.getBackupList).mockReturnValueOnce(
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+      )
+      accountName.value = null
+      await nextTick()
+      expect(wrapper.text()).not.toContain(alpha.filename)
+      accountName.value = 'UploaderBeta'
+      await nextTick()
+      expect(backups.backups.value).toEqual([])
+      expect(wrapper.text()).not.toContain(alpha.filename)
+      finish({ backups: [beta] })
+      await flushPromises()
+      expect(wrapper.text()).toContain(beta.filename)
+      expect(wrapper.text()).not.toContain(alpha.filename)
+    } finally {
+      finish?.({ backups: [] })
+      wrapper.unmount()
+      client.clear()
+    }
+  })
+  it('cancels a previous-account response before it can populate a later session', async () => {
+    let finish!: (value: { backups: BackupInfo[] }) => void
+    let signal: AbortSignal | undefined
+    vi.mocked(adminApi.getBackupList).mockImplementationOnce((requestSignal?: AbortSignal) => {
+      signal = requestSignal
+      return new Promise((resolve) => {
+        finish = resolve
+      })
+    })
+    const { backups, client, wrapper } = mountBackups()
+    try {
+      await flushPromises()
+      const beta = retainedUpload('UploaderBeta', 2)
+      vi.mocked(adminApi.getBackupList).mockResolvedValueOnce({ backups: [beta] })
+      accountName.value = 'UploaderBeta'
+      await flushPromises()
+      expect(signal?.aborted).toBe(true)
+      finish({ backups: [retainedUpload('LateAlpha', 1)] })
+      await flushPromises()
+      expect(backups.backups.value).toEqual([beta])
+      expect(wrapper.text()).not.toContain('LateAlpha')
+    } finally {
+      finish?.({ backups: [] })
+      wrapper.unmount()
+      client.clear()
+    }
+  })
+})
+
+describe('durable upload acknowledgement', () => {
+  it.each([false, true])('refreshes retained work after upload failure=%s', async (fail) => {
+    const { backups, client, wrapper } = mountBackups()
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+    const result = {
+      success: true,
+      tempPath: '82b972d4-285c-4664-b7e0-c46dfe015c92',
+      contents: { accounts: [], characters: [] },
+    }
+    try {
+      if (fail) vi.mocked(adminApi.uploadBackup).mockRejectedValueOnce(new Error('Retained upload'))
+      else vi.mocked(adminApi.uploadBackup).mockResolvedValueOnce(result)
+      const outcome = backups.uploadBackup(new File(['fixture'], 'fixture.zip'))
+      const settled = await outcome.catch((error: unknown) => error)
+      expect(settled).toEqual(fail ? new Error('Retained upload') : result)
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ['backups'] })
+    } finally {
+      wrapper.unmount()
+      client.clear()
+    }
+  })
+  it('refuses a filesystem path returned as an upload acknowledgement', async () => {
+    const { backups, client, wrapper } = mountBackups()
+    try {
+      vi.mocked(adminApi.uploadBackup).mockResolvedValueOnce({
+        success: true,
+        tempPath: '/tmp/obsolete-upload.zip',
+        contents: { accounts: [], characters: [] },
+      })
+      await expect(backups.uploadBackup(new File(['fixture'], 'fixture.zip'))).rejects.toThrow(
+        'Upload was not confirmed',
+      )
+    } finally {
+      wrapper.unmount()
+      client.clear()
+    }
+  })
+})
 
 describe('backup deletion acknowledgement', () => {
   it.each([false, true])(

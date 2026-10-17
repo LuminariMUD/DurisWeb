@@ -95,8 +95,8 @@ function hold(scope: DataHoldScope = { kind: 'global' }, id = randomUUID()) {
 }
 async function receipts() {
   const [rows] = await root.execute<RowDataPacket[]>(
-    'SELECT setting_value FROM web_settings WHERE setting_key LIKE ? AND setting_key<>?',
-    [ARCHIVE_REMOVAL_PREFIX + '%', ARCHIVE_REMOVAL_STATE_KEY],
+    'SELECT setting_value FROM web_settings WHERE setting_key LIKE ? AND setting_key<>? AND setting_key NOT LIKE ?',
+    [ARCHIVE_REMOVAL_PREFIX + '%', ARCHIVE_REMOVAL_STATE_KEY, ARCHIVE_REMOVAL_PREFIX + 'backup:%'],
   );
   return rows.map((row) => parseArchiveRemovalRecord(JSON.parse(String(row.setting_value))));
 }

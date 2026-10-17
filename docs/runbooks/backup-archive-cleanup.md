@@ -3,8 +3,9 @@
 These are prepared source safeguards for the existing manual/hourly count
 limits and explicit administrative cleanup. They approve no new age period or
 actual archive operation. The prepared [managed ZIP admission protocol](managed-archive-holds.md)
-now enforces validated holds and retains durable removal receipts. Uploads and
-legacy dump/staging workspaces, independently protected evidence and offline replay
+now enforces validated holds and retains durable removal receipts. New uploads use
+the registered lifecycle below. Legacy temporary uploads/dump/staging workspaces,
+independently protected evidence and offline replay
 remain required P6 work. The hold API still reports global
 `enforcementReady: false`; no complete copy/restore protection is claimed.
 
@@ -29,7 +30,40 @@ filesystem paths, IP values or credentials. Investigate the reference against
 the backup ID and last known state before retrying. Count pruning remains a
 separate hold-aware operation after a new archive completes.
 
+## Generated archive inspection
+
+Generated backups use the same validated, inherited descriptor as uploaded
+archives. Their inspector streams the SQL member, discarding unrelated
+mysqldump data lines as chunks arrive. It retains only the account-character
+definition/data and player-data definition needed for the existing summary.
+A large unrelated INSERT therefore does not consume a whole-line buffer or
+trigger the uploaded SQL member's 64 MiB ceiling. The generated mysqldump format
+escapes newlines inside data values; table definitions may span physical lines.
+
+Selected summary SQL remains bounded at 64 MiB; the existing 5,000-item and
+256 KiB result limits and 192 MiB heap limit still apply. Generated inspection
+has a 120-second child deadline and a 121-second parent deadline. A timeout,
+changed archive identity or excessive summary remains unconfirmed, with the
+archive retained. Inspection executes no SQL and does not authorize restore.
+Uploaded archives keep their separate total SQL-size and shorter time limits.
+
 ## Deletion acknowledgement
+
+The one-shot worker opens and validates the authorized inode, then atomically
+moves the shared archive name into a new owner-only `.archive-removal-<hash>`
+directory. It compares the captured file with the still-open original descriptor
+before unlinking only the captured name. A replacement published at the original
+name is retained and prevents success. A different inode captured by the rename
+is also retained; it is never deleted or automatically restored over another file.
+
+Any retained removal directory blocks normal inspection and absence-based retries.
+After a crash or refusal, preserve that directory and the original archive row,
+stop competing writers, and investigate the journal reference before an operator
+restores or removes evidence. Do not recursively clean these directories or
+interpret a missing original name as proof of deletion. Directory syncs precede
+acknowledgement. The internal removal directory is exclusively owned by this
+worker; host processes must not modify its entries. This is not an isolation
+boundary against a compromised process with the website user's full privileges.
 
 Manual removal, failed-backup cleanup and automatic count pruning share the
 same file/record deletion function. It accepts only completed/failed records,
@@ -62,8 +96,77 @@ refused, with a persistent inline error. Pending operations block duplicate
 submission and cancellation. Cancelling an upload waits for success; refusal
 keeps the file reference and permits retry. A declared gated-operation response
 does not imply the whole website is offline. These are client acknowledgement
-safeguards, not independent proof of physical copy disposal or durable upload
-recovery after leaving the page.
+safeguards. Durable upload recovery and managed physical removal require the
+separate server protocol below.
+
+## Registered uploads
+
+Before receiving file bytes, the website commits a `mud_backups` row and a private
+`backup-upload-v1:` settings receipt containing the authenticated owner, opaque
+UUID, physical root identity and Linux writer identity. Files use the persistent
+configured `BACKUP_DIR`, exclusive creation and mode 0600. The API's compatibility
+field `tempPath` now contains the opaque UUID; client filesystem paths are refused.
+No OS-temporary-file fallback or implicit Multer unlink remains. Uploaded filenames
+are marked `duris-mud-upload-<UUID>.zip` and excluded from manual/hourly count
+pruning and **Clear Failed** bulk cleanup. Retained uploads require explicit
+cancellation; the bulk button counts only generated failed backups. No automatic
+upload expiry period has been approved or implemented.
+
+File close/flush and directory sync precede the inspection checkpoint. A separate
+read-only process receives no application environment or SQL credentials, executes
+no SQL and extracts no files. Uploaded-archive inspection allows one SQL member, at most 10,000 ZIP
+entries, 64 MiB decompressed SQL and 5,000 account/character summary items each,
+with a 256 KiB summary and 192 MiB V8 heap limit. Its own 15-second deadline and
+the parent's 16-second deadline bound work. This checks a supported format and
+summary; it does not approve or certify a restore. Budget exhaustion, malformed
+ZIP/parser failure and uncertain storage are retained for review, not discarded
+as confirmed invalid. Physical identity is rechecked before acknowledgement.
+
+Known format/size rejection requests the existing managed remover after the writer
+is closed. Every active hold scope preserves the entire archive. Cancellation,
+including retries, requires a matching completed removal receipt before success;
+any present file must match the registered identity both at cancellation's first
+check and when the managed remover admits the target. A replaced file is kept
+for review, including replacement during the intervening asynchronous work. The
+generic delete-by-backup-ID path refuses upload-marked files so it cannot bypass
+these registered cancellation checks;
+an absent row/file alone is insufficient. Retain the upload and removal receipts
+until their own approved lifecycle exists. Generic settings APIs hide both private
+namespaces, including SQL collation aliases.
+
+Refresh the backup page after a lost response. Uploaded rows remain visible to
+their uploader or an overlord. **Recover interrupted upload for review** can close
+an inspection checkpoint immediately because writing already stopped. A receiving
+checkpoint requires proof that the original process is gone; elapsed time alone
+does not suffice. Unknown registration commit acknowledgements can leave a receiving
+row with no file until that proof is available. A different boot/PID namespace or
+changed file/root needs private operator investigation. Recovery never deletes or
+executes archive contents and a late inspector cannot overwrite its result.
+
+The browser scopes its backup-list cache to the signed-in account and current
+role, cancelling pending list requests when either changes. Signing out, changing
+accounts or returning with lower privileges does not reuse an earlier privileged
+list. Numeric status/download/contents requests for another owner's upload return
+the same plain 404 as a missing backup, without the stored upload reference.
+
+Closed retained uploads offer download and cancellation from the list after a
+page reload. Both require owner/overlord access; pending writers cannot be
+downloaded or removed. Holds or uncertainty return a failed operation with a safe
+reference and retain work. Existing legacy OS-temporary uploads are not adopted,
+unlinked or falsely acknowledged by these endpoints. Website restore remains
+unavailable. Protect independent current evidence before any authorized offline
+restore; these upload safeguards do not establish all-copy enforcement.
+
+Download opens without following a replacement link, validates the opened file
+against the registered identity, and streams that descriptor with its actual
+size. Completion, error and client disconnect close the reader. A failure before
+attachment bytes are sent returns a safe JSON error/reference instead of an
+error body labelled as a ZIP. Archive inspection likewise inherits the validated
+descriptor in its bounded child; neither reader reopens the archive pathname.
+The child owns its descriptor across ZIP range streams and checks its identity
+before/after parsing. Registered identities are passed through initial upload
+inspection and later contents requests. Receiving/review-required upload rows
+remain visible but do not count as generated backups in the Create Backup guard.
 
 ## Preserve evidence
 

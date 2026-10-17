@@ -1,3 +1,9 @@
+import {
+  receiveBackupUpload,
+  cancelRegisteredBackupUpload,
+  recoverRegisteredBackupUpload,
+  streamBackupDownload,
+} from '../services/backupUploadHandlers.js';
 import { Router, Request, Response, type IRouter } from 'express';
 import logger, { getErrorMessage } from '../utils/logger.js';
 import { createNotification } from '../services/unifiedNotificationService.js';
@@ -40,6 +46,11 @@ import { requireMutationGate } from '../middleware/mutationGate.js';
 import { BackupDeletionError } from '../utils/backupDeletionError.js';
 import { BackupCreationError } from '../services/databaseBackupArchive.js';
 import {
+  BackupUploadError,
+  readBackupUpload,
+  registeredUploadFile,
+} from '../services/backupUploads.js';
+import {
   getOverviewStats,
   getForumStats,
   getPvPStats,
@@ -52,7 +63,9 @@ import { getPeakPlayerCount } from '../services/statisticsParser.js';
 import { getDmsProcessStats } from '../services/processMonitor.js';
 import { getMudState } from '../services/mudControlService.js';
 import { listLogs, readLogPaginated, tailLog, getLogFilePath } from '../services/logService.js';
+import { getBackendConfiguration } from '../config/environment.js';
 import { createReadStream } from 'fs';
+import { openManagedArchive, type ManagedArchiveIdentity } from '../utils/managedArchiveTarget.js';
 import { pool as db } from '../db/connection.js';
 import { requestWhoList, isMudConnected, getMudBootTime } from '../services/mudAuctionClient.js';
 import { getOnlinePlayers as getOnlinePlayersFromRedis } from '../services/onlinePlayersService.js';
@@ -75,12 +88,8 @@ import {
   getRestoreById,
   getRestoreList,
   isMudRunning,
-  validateUploadedBackup,
-  deleteUploadedBackup,
 } from '../services/backupService.js';
 import multer from 'multer';
-import path from 'path';
-import os from 'os';
 import {
   getCurrentMudTime,
   formatMudTime,
@@ -3734,7 +3743,13 @@ router.get(
   requirePermission('manage_mud_backup'),
   async (_req: Request, res: Response) => {
     try {
-      const backups = await getBackupList();
+      const listed = await getBackupList();
+      const backups = listed.filter(
+        (backup) =>
+          !backup.uploadReference ||
+          backup.createdBy === _req.user?.accountName ||
+          _req.user?.permissions.role === 'overlord',
+      );
       return res.json({ backups });
     } catch (error) {
       logger.error('List backups error:', error);
@@ -3798,11 +3813,15 @@ router.get(
         return res.status(404).json({ error: 'Backup not found' });
       }
 
+      if (backup.uploadReference)
+        await readBackupUpload(
+          backup.uploadReference,
+          req.user?.accountName ?? '',
+          req.user?.permissions.role === 'overlord',
+        );
       return res.json({ backup });
     } catch (error) {
-      logger.error('Get backup status error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to get backup status';
-      return res.status(500).json({ error: message });
+      return respondBackupReadFailure(res, error);
     }
   },
 );
@@ -3829,43 +3848,49 @@ router.get(
         return;
       }
 
-      if (backup.status !== 'completed') {
+      if (backup.status !== 'completed' && !backup.uploadReference) {
         res.status(400).json({ error: 'Backup is not ready for download' });
         return;
       }
 
-      const filePath = await getBackupFilePath(id);
-      if (!filePath) {
+      const opened = backup.uploadReference
+        ? await registeredUploadFile(
+            backup.uploadReference,
+            req.user?.accountName ?? '',
+            req.user?.permissions.role === 'overlord',
+          )
+        : (await getBackupFilePath(id))
+          ? openManagedArchive(getBackendConfiguration().backupDirectory, backup.filename)
+          : null;
+      if (!opened) {
         res.status(404).json({ error: 'Backup file not found' });
         return;
       }
-
-      // Set headers for file download
-      res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', `attachment; filename="${backup.filename}"`);
-      if (backup.fileSize) {
-        res.setHeader('Content-Length', backup.fileSize.toString());
-      }
-
-      // Stream the file
-      const fileStream = createReadStream(filePath);
-      fileStream.pipe(res);
-
-      fileStream.on('error', (error) => {
-        logger.error('Download backup error:', error);
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Failed to download backup file' });
-        }
-      });
+      streamBackupDownload(res, opened);
     } catch (error) {
-      logger.error('Download backup error:', error);
       if (!res.headersSent) {
-        const message = error instanceof Error ? error.message : 'Failed to download backup';
-        res.status(500).json({ error: message });
+        respondBackupReadFailure(res, error);
       }
     }
   },
 );
+
+function respondBackupReadFailure(res: Response, error: unknown): Response {
+  // Numeric IDs must not distinguish another owner's retained upload from an absent backup.
+  if (error instanceof BackupUploadError && error.reason === 'not_found')
+    return res.status(404).json({ error: 'Backup not found' });
+  const failure =
+    error instanceof BackupUploadError ? error : new BackupUploadError('storage_unconfirmed');
+  logger.warn('backup_read_unconfirmed', {
+    reason: failure.reason,
+    reference: failure.reference,
+  });
+  return res.status(failure.status).json({
+    error: failure.message,
+    reason: failure.reason,
+    reference: failure.reference,
+  });
+}
 
 function respondBackupDeletionFailure(res: Response, error: unknown): Response {
   const failure =
@@ -3953,16 +3978,30 @@ router.get(
         return res.status(400).json({ error: 'Invalid backup ID' });
       }
 
-      const contents = await listBackupContents(id);
+      const record = await getBackupById(id);
+      let expected: ManagedArchiveIdentity | undefined;
+      if (record?.uploadReference) {
+        const upload = await readBackupUpload(
+          record.uploadReference,
+          req.user?.accountName ?? '',
+          req.user?.permissions.role === 'overlord',
+        );
+        if (upload.phase !== 'closed') throw new BackupUploadError('receiving', upload.id);
+        expected = {
+          filename: record.filename,
+          rootSha256: upload.rootSha256,
+          fileSha256: upload.fileSha256,
+        };
+      }
+      const contents = await listBackupContents(id, expected);
       if (!contents) {
-        return res.status(404).json({ error: 'Backup not found or not completed' });
+        return res.status(404).json({ error: 'Backup not found' });
       }
 
+      res.setHeader('Cache-Control', 'private, no-store');
       return res.json(contents);
     } catch (error) {
-      logger.error('List backup contents error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to list backup contents';
-      return res.status(500).json({ error: message });
+      return respondBackupReadFailure(res, error);
     }
   },
 );
@@ -4050,120 +4089,30 @@ router.get(
 // BACKUP UPLOAD ENDPOINTS
 // ============================================================================
 
-// Multer configuration for backup uploads (disk storage in temp directory)
-const backupUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      cb(null, os.tmpdir());
-    },
-    filename: (_req, file, cb) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      cb(null, 'backup-upload-' + uniqueSuffix + path.extname(file.originalname));
-    },
-  }),
-  limits: {
-    fileSize: 500 * 1024 * 1024, // 500MB max
-    files: 1,
-  },
-  fileFilter: (_req, file, cb) => {
-    if (file.mimetype === 'application/zip' || file.originalname.endsWith('.zip')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only ZIP files are allowed'));
-    }
-  },
-});
-
-/**
- * POST /api/admin/backup/upload
- * Upload a backup file and validate it
- * Returns the backup contents if valid
- */
+// Registered persistent uploads; restore remains unconditionally gated.
 router.post(
   '/backup/upload',
   requireAuth,
   requirePermission('manage_mud_backup'),
-  backupUpload.single('backup'),
-  async (req: Request, res: Response) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: 'No file uploaded' });
-      }
-
-      const filePath = req.file.path;
-      const result = await validateUploadedBackup(filePath);
-
-      if (!result.isValid) {
-        // Cleanup invalid file
-        await deleteUploadedBackup(filePath);
-        return res.status(400).json({ error: result.errorMessage || 'Invalid backup file' });
-      }
-
-      return res.json({
-        success: true,
-        tempPath: result.tempPath,
-        contents: result.contents,
-      });
-    } catch (error) {
-      logger.error('Backup upload error:', error);
-
-      // Cleanup file on error
-      if (req.file) {
-        await deleteUploadedBackup(req.file.path);
-      }
-
-      // Handle multer errors
-      if (
-        error &&
-        typeof error === 'object' &&
-        'code' in error &&
-        error.code === 'LIMIT_FILE_SIZE'
-      ) {
-        return res.status(400).json({ error: 'File too large. Maximum size is 500MB.' });
-      }
-
-      const message = getErrorMessage(error) || 'Failed to upload backup';
-      return res.status(500).json({ error: message });
-    }
-  },
+  receiveBackupUpload,
 );
-
-/**
- * POST /api/admin/backup/upload/restore
- * Compatibility route: permission checked, then unconditionally unavailable.
- */
 router.post(
   '/backup/upload/restore',
   requireAuth,
   requirePermission('manage_mud_backup'),
   requireMutationGate('databaseRestore'),
 );
-
-/**
- * DELETE /api/admin/backup/upload/cancel
- * Cancel an upload and cleanup the temp file
- */
 router.delete(
   '/backup/upload/cancel',
   requireAuth,
   requirePermission('manage_mud_backup'),
-  async (req: Request, res: Response) => {
-    try {
-      const { tempPath } = req.body;
-
-      if (!tempPath) {
-        return res.status(400).json({ error: 'tempPath is required' });
-      }
-
-      await deleteUploadedBackup(tempPath);
-
-      return res.json({ success: true, message: 'Upload cancelled and file cleaned up' });
-    } catch (error) {
-      logger.error('Cancel upload error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to cancel upload';
-      return res.status(500).json({ error: message });
-    }
-  },
+  cancelRegisteredBackupUpload,
+);
+router.post(
+  '/backup/upload/recover',
+  requireAuth,
+  requirePermission('manage_mud_backup'),
+  recoverRegisteredBackupUpload,
 );
 
 // ============================================================================

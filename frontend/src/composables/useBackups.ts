@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { adminApi } from '@/services/api'
 import { useWebSocket } from './useWebSocket'
+import { useAuth } from './useAuth'
 import type { BackupInfo, RestoreRequest } from '@/types'
 
 function requireOperationAcknowledgement(result: { success: boolean; id: number }): void {
@@ -11,6 +12,10 @@ function requireOperationAcknowledgement(result: { success: boolean; id: number 
 
 export function useBackups() {
   const queryClient = useQueryClient()
+  const { accountName, permissions } = useAuth()
+  const backupQueryKey = computed(
+    () => ['backups', accountName.value, permissions.value?.role ?? null] as const,
+  )
   const { onBackupProgress, offBackupProgress, onRestoreProgress, offRestoreProgress } =
     useWebSocket()
 
@@ -34,9 +39,10 @@ export function useBackups() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['backups'],
-    queryFn: async () => {
-      const result = await adminApi.getBackupList()
+    queryKey: backupQueryKey,
+    enabled: computed(() => accountName.value !== null),
+    queryFn: async ({ signal }) => {
+      const result = await adminApi.getBackupList(signal)
       return result.backups
     },
     staleTime: 30000, // 30 seconds
@@ -96,7 +102,18 @@ export function useBackups() {
   // Mutation for uploading backup
   const uploadBackupMutation = useMutation({
     mutationFn: async (file: File) => {
-      return await adminApi.uploadBackup(file)
+      const result = await adminApi.uploadBackup(file)
+      if (
+        result?.success !== true ||
+        !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(
+          result.tempPath,
+        )
+      )
+        throw new Error('Upload was not confirmed. Refresh retained work before retrying.')
+      return result
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['backups'] })
     },
   })
 
@@ -131,11 +148,12 @@ export function useBackups() {
     status: string
     filename: string
   }) => {
+    if (!accountName.value) return
     // Update the backup in the cache. if the backup isn't in cache yet (fast
     // backups can finish before the post-mutation refetch lands), synthesize a
     // placeholder row so the progress still renders. the next refetch will fill
     // in the missing fields (createdBy, startedAt, fileSize, etc).
-    queryClient.setQueryData<BackupInfo[]>(['backups'], (oldData) => {
+    queryClient.setQueryData<BackupInfo[]>(backupQueryKey.value, (oldData) => {
       const existing = oldData?.find((b) => b.id === data.id)
       if (existing) {
         return oldData!.map((backup) =>
@@ -230,12 +248,12 @@ export function useBackups() {
 
   // Computed properties
   const backups = computed(() => backupData.value || [])
-  const hasInProgressBackup = computed(() =>
-    backups.value.some((b) => b.status === 'in_progress' || b.status === 'pending'),
-  )
   const inProgressBackup = computed(() =>
-    backups.value.find((b) => b.status === 'in_progress' || b.status === 'pending'),
+    backups.value.find(
+      (b) => !b.uploadReference && (b.status === 'in_progress' || b.status === 'pending'),
+    ),
   )
+  const hasInProgressBackup = computed(() => !!inProgressBackup.value)
 
   return {
     backups,

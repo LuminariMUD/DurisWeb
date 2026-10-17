@@ -192,8 +192,12 @@ Unit runs skip the native suite; the worker/identity tests exercise Linux local
 filesystem semantics directly. The compiled worker has no TypeScript loader
 requirement or application credentials. See the
 [managed archive protocol](runbooks/managed-archive-holds.md) for platform and
-recovery limits; these tests do not establish protected uploads or all-copy
-restore acceptance.
+recovery limits. `backupUploadsNative.test.ts` uses the same explicitly owned
+fixture for actual multipart receiving, private files, bounded inspection,
+owner/hold checks, interrupted-writer recovery and ambiguous acknowledgement.
+Only request identity is a fixture; it does not establish real login/CSRF proof.
+The upload lifecycle is described in [archive cleanup](runbooks/backup-archive-cleanup.md#registered-uploads).
+These tests do not establish legacy-copy protection or all-copy restore acceptance.
 
 Do not commit `.env` files, dumps, account data, generated deployment output,
 or backup archives. See [Configuration and Environments](environments.md) before

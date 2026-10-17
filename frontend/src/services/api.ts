@@ -1259,8 +1259,8 @@ export const adminApi = {
   /**
    * Get list of all backups
    */
-  async getBackupList(): Promise<{ backups: import('@/types').BackupInfo[] }> {
-    const { data } = await api.get('/api/admin/backup/list')
+  async getBackupList(signal?: AbortSignal): Promise<{ backups: import('@/types').BackupInfo[] }> {
+    const { data } = await api.get('/api/admin/backup/list', { signal })
     return data
   },
 
@@ -1377,12 +1377,17 @@ export const adminApi = {
   },
 
   /**
-   * Cancel an upload and cleanup temp file
+   * Cancel a registered upload using its opaque reference
    */
   async cancelBackupUpload(tempPath: string): Promise<{ success: boolean; message: string }> {
     const { data } = await api.delete('/api/admin/backup/upload/cancel', {
       data: { tempPath },
     })
+    return data
+  },
+
+  async recoverBackupUpload(tempPath: string): Promise<{ success: boolean }> {
+    const { data } = await api.post('/api/admin/backup/upload/recover', { tempPath })
     return data
   },
 

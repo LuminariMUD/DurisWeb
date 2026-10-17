@@ -81,6 +81,21 @@ function contracts() {
     holds: loadDataHoldContract(),
   };
 }
+/** Reuse the same short storage/control/schema boundary for registered upload transitions. */
+export async function withManagedArchiveControl<T>(
+  action: (database: Connection) => Promise<T>,
+): Promise<T> {
+  const expected = contracts();
+  const database = await open();
+  try {
+    return await transaction(database, async () => {
+      await verifySchema(database, expected);
+      return action(database);
+    });
+  } finally {
+    database.destroy();
+  }
+}
 async function verifySchema(
   connection: Connection,
   expected: ReturnType<typeof contracts>,
@@ -175,7 +190,10 @@ export async function assertArchiveAdmissionClear(
   const pending = await readPendingArchiveRemoval(connection);
   if (pending) throw new BackupDeletionError('removal_in_progress', pending.operationId);
 }
-export async function removeManagedArchive(id: number): Promise<boolean> {
+export async function removeManagedArchive(
+  id: number,
+  expectedTarget?: Pick<ManagedArchiveTarget, 'filename' | 'rootSha256' | 'fileSha256'>,
+): Promise<boolean> {
   if (!Number.isSafeInteger(id) || id <= 0 || id > 4294967295)
     throw new BackupDeletionError('invalid_archive');
   let connection: Connection | undefined,
@@ -205,6 +223,16 @@ export async function removeManagedArchive(id: number): Promise<boolean> {
       if (error instanceof UnsafeBackupPathError) throw new BackupDeletionError('invalid_archive');
       throw error;
     }
+    // An upload's durable identity must survive the caller's earlier inspection
+    // and all intervening async work, before this remover can admit its target.
+    if (
+      (target.filename.startsWith('duris-mud-upload-') && !expectedTarget) ||
+      (expectedTarget &&
+        (target.filename !== expectedTarget.filename ||
+          target.rootSha256 !== expectedTarget.rootSha256 ||
+          (target.fileSha256 !== null && target.fileSha256 !== expectedTarget.fileSha256)))
+    )
+      throw new BackupDeletionError('recovery_unverified');
     const prepared = await transaction(database, async () => {
       await verifySchema(database, expected);
       await assertArchiveAdmissionClear(database);

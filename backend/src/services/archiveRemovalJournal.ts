@@ -200,12 +200,73 @@ export async function beginArchiveRemoval(
   const valid = parseArchiveRemovalRecord(record);
   if (valid.phase !== 'prepared' || (await readPendingArchiveRemoval(database))) invalid();
   await write(database, ARCHIVE_REMOVAL_PREFIX + valid.operationId, valid, true);
+  const linkKey = ARCHIVE_REMOVAL_PREFIX + 'backup:' + valid.backupId;
+  const prior = await row(database, linkKey);
+  if (prior) {
+    const link = decodeRow(prior, linkKey);
+    if (
+      Object.keys(link).sort().join(',') !== 'filename,format,operationId' ||
+      link.format !== 1 ||
+      link.filename !== valid.filename ||
+      typeof link.operationId !== 'string' ||
+      !UUID.test(link.operationId)
+    )
+      invalid();
+    const previousKey = ARCHIVE_REMOVAL_PREFIX + link.operationId;
+    const previous = await row(database, previousKey);
+    if (!previous) invalid();
+    const receipt = parseArchiveRemovalRecord(decodeRow(previous, previousKey));
+    if (
+      receipt.operationId !== link.operationId ||
+      receipt.backupId !== valid.backupId ||
+      receipt.filename !== valid.filename ||
+      receipt.phase !== 'failed'
+    )
+      invalid();
+  }
+  await write(
+    database,
+    linkKey,
+    { format: 1, operationId: valid.operationId, filename: valid.filename },
+    !prior,
+  );
   await write(
     database,
     ARCHIVE_REMOVAL_STATE_KEY,
     { format: 1, activeOperation: valid.operationId },
     !(await row(database, ARCHIVE_REMOVAL_STATE_KEY)),
   );
+}
+
+/** O(1) exact replay proof, under the same retention-control transaction. */
+export async function completedArchiveRemoval(
+  database: Database,
+  backupId: number,
+  filename: string,
+): Promise<string | null> {
+  const key = ARCHIVE_REMOVAL_PREFIX + 'backup:' + backupId;
+  const stored = await row(database, key);
+  if (!stored) return null;
+  const link = decodeRow(stored, key);
+  if (
+    Object.keys(link).sort().join(',') !== 'filename,format,operationId' ||
+    link.format !== 1 ||
+    link.filename !== filename ||
+    typeof link.operationId !== 'string' ||
+    !UUID.test(link.operationId)
+  )
+    invalid();
+  const receiptKey = ARCHIVE_REMOVAL_PREFIX + link.operationId;
+  const receipt = await row(database, receiptKey);
+  if (!receipt) invalid();
+  const record = parseArchiveRemovalRecord(decodeRow(receipt, receiptKey));
+  if (
+    record.backupId !== backupId ||
+    record.filename !== filename ||
+    record.operationId !== link.operationId
+  )
+    invalid();
+  return record.phase === 'complete' ? record.operationId : null;
 }
 export async function saveArchiveRemoval(
   database: Database,

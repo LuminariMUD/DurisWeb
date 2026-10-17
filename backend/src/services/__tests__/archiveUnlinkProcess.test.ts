@@ -4,7 +4,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { inspectManagedArchive } from '../../utils/managedArchiveTarget.js';
+import {
+  inspectManagedArchive,
+  removeInspectedArchive,
+  managedArchiveRemovalDirectory,
+} from '../../utils/managedArchiveTarget.js';
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-archive-worker-'));
 const fixturePath = path.join(directory, 'early-result.mjs');
@@ -38,6 +42,7 @@ const { startArchiveUnlinkWorker } = await import('../archiveUnlinkProcess.js');
 afterEach(async () => {
   const pending = children.splice(0);
   early = false;
+  jest.restoreAllMocks();
   for (const entry of pending) {
     if (entry.child.connected) entry.child.disconnect();
     await entry.closed;
@@ -46,6 +51,40 @@ afterEach(async () => {
 afterAll(() => fs.rmSync(directory, { recursive: true }));
 
 describe('one-shot archive unlink worker', () => {
+  it('retains a replacement captured between validation and rename and blocks absence recovery', () => {
+    const filename = 'duris-mud-raced.zip';
+    const file = path.join(directory, filename);
+    fs.writeFileSync(file, 'validated original');
+    const target = inspectManagedArchive(directory, filename);
+    const rename = fs.renameSync.bind(fs);
+    jest.spyOn(fs, 'renameSync').mockImplementation((from, to) => {
+      rename(file, file + '.original');
+      fs.writeFileSync(file, 'replacement must survive');
+      rename(from, to);
+    });
+    expect(() => removeInspectedArchive(target)).toThrow();
+    expect(
+      fs.readFileSync(
+        path.join(managedArchiveRemovalDirectory(directory, filename), 'payload'),
+        'utf8',
+      ),
+    ).toBe('replacement must survive');
+    expect(fs.readFileSync(file + '.original', 'utf8')).toBe('validated original');
+    expect(() => inspectManagedArchive(directory, filename)).toThrow();
+  });
+  it('never unlinks a replacement published after custody transfer', () => {
+    const filename = 'duris-mud-republished.zip';
+    const file = path.join(directory, filename);
+    fs.writeFileSync(file, 'validated original');
+    const target = inspectManagedArchive(directory, filename);
+    const rename = fs.renameSync.bind(fs);
+    jest.spyOn(fs, 'renameSync').mockImplementation((from, to) => {
+      rename(from, to);
+      fs.writeFileSync(file, 'replacement survives');
+    });
+    expect(() => removeInspectedArchive(target)).toThrow();
+    expect(fs.readFileSync(file, 'utf8')).toBe('replacement survives');
+  });
   it('does nothing before authorization, then confirms unlink only after exit', async () => {
     const filename = 'duris-mud-worker.zip';
     fs.writeFileSync(path.join(directory, filename), 'synthetic archive');
