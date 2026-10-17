@@ -9,6 +9,7 @@ import {
   isLegacySqlMemberFilename,
   legacyCopyPhysicalSha256 as physical,
   legacyMountId,
+  legacyDirectoryAliases,
 } from './legacyBackupInventory.js';
 
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
@@ -94,40 +95,12 @@ function within(root: string, candidate: string) {
     !relative || (relative !== '..' && !relative.startsWith('../') && !path.isAbsolute(relative))
   );
 }
-/** Map the opened directory's filesystem location through every visible bind alias. */
 function mountAliases(fd: number, filename: string): string[] {
-  const id = legacyMountId(fd);
-  const unescape = (value: string) =>
-    value.replace(/\\([0-7]{3})/g, (_match, octal: string) =>
-      String.fromCharCode(Number.parseInt(octal, 8)),
-    );
-  const mounts = fs
-    .readFileSync('/proc/self/mountinfo', 'utf8')
-    .trim()
-    .split('\n')
-    .map((line) => {
-      const fields = line.split(' ');
-      if (fields.length < 6 || !/^[0-9]+:[0-9]+$/.test(fields[2])) fail('destination_unverified');
-      const root = unescape(fields[3]),
-        point = unescape(fields[4]);
-      return { id: fields[0], device: fields[2], root, point };
-    });
-  const mounted = mounts.find((item) => item.id === id);
-  if (
-    !mounted ||
-    !path.isAbsolute(mounted.root) ||
-    !path.isAbsolute(mounted.point) ||
-    !within(mounted.point, filename)
-  )
+  try {
+    return legacyDirectoryAliases(fd, filename);
+  } catch {
     fail('destination_unverified');
-  // Unrelated namespace-handle mounts use roots such as net:[123], not paths.
-  const related = mounts.filter((item) => item.device === mounted.device);
-  if (related.some((item) => !path.isAbsolute(item.root) || !path.isAbsolute(item.point)))
-    fail('destination_unverified');
-  const location = path.resolve(mounted.root, path.relative(mounted.point, filename));
-  return related
-    .filter((item) => within(item.root, location))
-    .map((item) => path.resolve(item.point, path.relative(item.root, location)));
+  }
 }
 function canonical(root: string): string {
   if (!path.isAbsolute(root) || /[\0\r\n]/.test(root)) fail('root_unverified');

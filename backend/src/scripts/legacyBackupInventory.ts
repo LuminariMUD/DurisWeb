@@ -38,9 +38,11 @@ export async function runLegacyBackupInventoryCommand(args: string[]): Promise<n
   }
   try {
     const options = parseLegacyInventoryArguments(args);
+    const configured = getBackendConfiguration().backupDirectory;
+    const canonical = fs.realpathSync.native(configured);
     if (
-      fs.realpathSync.native(options.backupRoot) !==
-      fs.realpathSync.native(getBackendConfiguration().backupDirectory)
+      path.resolve(configured) !== canonical ||
+      fs.realpathSync.native(options.backupRoot) !== canonical
     )
       throw new LegacyBackupInventoryError('invalid_arguments');
     const inventory = await inventoryLegacyBackupCopies(options.backupRoot, options.uploadRoot);

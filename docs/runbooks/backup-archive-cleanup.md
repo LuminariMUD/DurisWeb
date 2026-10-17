@@ -53,8 +53,8 @@ pnpm --dir backend --silent backup:inventory \
 Roots and the output parent must be canonical paths in the selected current
 mount namespace; symlink aliases and `/proc/<pid>/root` or descriptor aliases
 are refused. Resolving such an alias to an ordinary host path must not silently
-change the namespace being inventoried. The backup root must match canonical
-configured `BACKUP_DIR`. There is no default
+change the namespace being inventoried. The configured `BACKUP_DIR` itself must be canonical, and the selected backup
+root must match it. There is no default
 upload root; omission records `legacyUploadScope: not_selected`. The command
 does not attach to another namespace or discover its location automatically.
 An empty host `/tmp` scan cannot establish that an old `PrivateTmp` namespace
@@ -76,15 +76,17 @@ and unexpected staging layouts are retained as unsafe/unconfirmed observations.
 Opened entries must match the selected root's mount ID from
 [Linux descriptor metadata](https://man7.org/linux/man-pages/man5/proc_pid_fdinfo.5.html),
 including bind mounts on the same device. File descriptors are used only for
-metadata; no copy content is read, extracted, copied, changed or deleted.
+metadata; no source copy content is read, extracted, copied, changed or deleted.
 Unrecognized names within a legacy prefix are counted without exposing those
 names in the report. The package script silences dotenv's startup notice;
 `--silent` also suppresses pnpm's command banner when capturing aggregate JSON.
 
 Generator-shaped regular uploads remain untrusted byte copies, not validated ZIPs.
 
-Limits are 10,000 root entries and 1,000 copies per root, a shared five-second
-cooperative budget checked between filesystem calls and a 1 MiB output cap.
+Limits are 10,000 root entries and 1,000 recognized copies per root, a shared
+five-second cooperative budget checked through root and per-copy metadata
+traversal, and a 1 MiB output cap. Exactly 1,000 copies can complete, including
+trailing non-copy entries; a further recognized copy makes the scan incomplete.
 These are discovery limits, not a hard timeout on a stalled kernel I/O call.
 Selected roots can be tmpfs or other mounted storage; nested mount crossings
 within those roots are refused. These read-only observations confer
@@ -99,8 +101,15 @@ Every report explicitly sets `snapshotConsistent: false`,
 `writerFenceVerified: false` and `deletionAdmission: unavailable`.
 
 Only the new private evidence file is written. Its existing parent must be
-owner-only and outside all selected roots; the file is exclusive mode 0600,
-owner-checked and flushed with its directory. Existing files/links are never
+owner-only and outside all selected roots. Descriptor mount IDs and filesystem
+roots reject bind aliases into a selected root or descendant before writing,
+and separation is rechecked before acknowledgement. The file is exclusive,
+explicitly set to mode 0600 independently of umask, owner-checked and flushed
+with its directory. Its descriptor remains open through directory sync; final
+checks compare the named file with the written inode/metadata and independently
+read back the bounded JSON against the serialized evidence. Missing, renamed,
+replaced or modified evidence is not acknowledged as saved. This reads the
+command's own output, never source copy contents. Existing files/links are never
 overwritten. Failed or unknown write/sync may leave partial evidence; retain and
 review it rather than deleting or accepting it. Ordinary output has only UUID,
 scope flags, aggregate counts and safe categories, without paths, copy names or
