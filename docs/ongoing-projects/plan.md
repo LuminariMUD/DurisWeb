@@ -40,10 +40,11 @@ Its pre-fix red-reproduction/recovery copy remains in Git stash
 `1c8d1dd304401fe58de11758a2dd7330b699a770` on
 `branch/managed-archive-hold-barrier`; do not reapply it over the published tree.
 Filtered metadata checks have been replaced and all scoped qualification passes.
-Current prerequisite `branch/schema-trigger-authority` starts at #59's final
-`5c2cc1a` and fixes the remaining baseline/session catalog checks. Source and
-full qualification pass; publication is pending before uploaded/temporary copy
-protection continues. Install metadata function v2 before bootstrap/migrations;
+Prerequisite `branch/schema-trigger-authority` starts at #59's final
+`5c2cc1a` and fixes the remaining baseline/session catalog checks. Qualified and
+published for review as [PR #60](https://github.com/LuminariMUD/DurisWeb/pull/60),
+stacked on #59. Next is uploaded/temporary copy protection.
+Install metadata function v2 before bootstrap/migrations;
 source does not accept v1 as an equivalent fallback.
 Next: remaining P6 cleanup/copy/restore
 and P7 engineering, plus unresolved policy/provider decisions. P5's approved
@@ -75,7 +76,7 @@ outside this request. Keep this single evolving execution plan current.
 
 ## Execution record and continuation
 
-- **Schema/session metadata authority (2026-10-17, in progress):** both
+- **Schema/session metadata authority (2026-10-17, qualified/published as #60):** both
   `webBaseline.verifyNoWebTriggers` and `migrateWebSessionSchema` accept an empty
   ordinary catalog query without establishing visibility. Outcome: prove absence
   of triggers under the caller's actual permissions before schema adoption or
@@ -200,7 +201,18 @@ outside this request. Keep this single evolving execution plan current.
   or release tag is authorized or performed. No separate live changelog entry
   is published for this unshipped internal prerequisite; include its setup/safety
   changes in the planned security/privacy release after live acceptance.
-- **Next after publication:** continue P6d2b2's durable uploaded-archive and
+- **Schema/session publication:** code head
+  `4b5e797de8f6b18a02c41b55cf4a367017bbfe3b` is pushed in open/non-draft
+  [PR #60](https://github.com/LuminariMUD/DurisWeb/pull/60), base
+  `branch/managed-archive-hold-barrier` (#59 `5c2cc1a`), and attached to this chat.
+  Initial readback confirms OPEN/MERGEABLE, correct base/head, exact
+  local/remote/API SHA equality, ahead/behind `0 0`, clean worktree and whitespace.
+  Hosted quality jobs were running; local evidence above is complete. Master
+  remains `89468603a61ab44d9e3be1651c9dd6fce5a17a12` and is an ancestor of the
+  tested stack. No history rewrite, merge, release tag or production operation
+  is needed/performed. This publication closeout changes documentation only;
+  do not repeat runtime suites for it.
+- **Next-session entry after #60:** continue P6d2b2's durable uploaded-archive and
   dump/staging workspace admission/recovery with truthful cancellation,
   validation/failure/expiry cleanup. Update any older private fixture runner to
   install v2 before bootstrap and grant its existing SQL principal EXECUTE before
