@@ -2,7 +2,7 @@
 
 ## Current handoff — read this first
 
-Updated **2026-10-17, 11:50 Asia/Jerusalem (08:50 UTC)**. The current
+Updated **2026-10-17, 11:55 Asia/Jerusalem (08:55 UTC)**. The current
 timeboxed delivery is on `branch/account-data-export`, based on #65's published
 documentation head `a0ce5eead048880d51eff829bc97aeb8e2ded5b9`.
 
@@ -10,15 +10,15 @@ documentation head `a0ce5eead048880d51eff829bc97aeb8e2ded5b9`.
 selected website-data categories, available from `/privacy`, with explicit
 omissions. Real API tests pass on both database families; desktop/phone browser
 downloads through the compiled real API pass; required package checks pass.
-Publication details and exact proof are in the recovery result below.
+Published for review as [PR #66](https://github.com/LuminariMUD/DurisWeb/pull/66),
+code checkpoint `f0aa36161dbde464fd4494ef9df346c7114c24d2`. Exact proof is below.
 
 **The original eight-issue project is still unfinished.** The export is labelled
 partial in the page and JSON. Complete request tracking, remaining export
 categories, erasure, broad retention, policy decisions and release acceptance
-remain open. Three earlier project PRs are merged and 26 are open; the new export
-branch is being published as the next focused PR. No production deployment,
-global logout, shared migration, live deletion, MUD operation or release tag was
-performed by this work.
+remain open. Three project PRs are merged and **27 are open**, including #66.
+No production deployment, global logout, shared migration, live deletion,
+MUD operation or release tag was performed by this work.
 
 **Current goal:** get the most useful verified implementation delivered within
 the hour, using ablation. Keep the **12:12 Asia/Jerusalem (09:12 UTC)** recovery
@@ -34,7 +34,8 @@ the earlier unbounded backup/fencing chain.
 - Current implementation branch: `branch/account-data-export`, starting at
   `a0ce5eead048880d51eff829bc97aeb8e2ded5b9` on
   [PR #65](https://github.com/LuminariMUD/DurisWeb/pull/65). The export is a
-  focused dependent PR; its publication reference belongs in the result below.
+  focused dependent [PR #66](https://github.com/LuminariMUD/DurisWeb/pull/66),
+  with code checkpoint `f0aa36161dbde464fd4494ef9df346c7114c24d2`.
   The earlier per-file preservation runtime checkpoint is still `2774928`, with
   runtime-code commit `7c3e92df29d36cb91bb7722959bb0566dc92f678`.
 - `branch/legacy-owner-fence` is a **local-only, empty branch** at that same
@@ -117,13 +118,16 @@ files, caches and external owners. Those stores still need approved disposition.
 
 ### All project branches and PRs
 
-This registry records **every remote project branch at the 08:15 UTC snapshot**.
-Commit links identify full SHAs. The #65 branch advances only for this handoff
-document; its source checkpoint below remains the runtime/test reference.
-The three merged PRs and all 26 open PRs each had four completed successful
-hosted backend/frontend checks at that snapshot. All open PRs were non-draft
-and GitHub reported `CLEAN`; no approving review decision was reported. These
-are mechanical status observations, not a claim that review or merge is done.
+This registry covers every project branch, including the recovery export.
+The original 29 PRs were checked at 08:15 UTC; #65's documentation head and #66
+were refreshed at 08:53 UTC. Commit links identify full source checkpoints;
+#66 can advance for documentation closeout without changing its tested runtime.
+The three merged PRs and earlier 26 open PRs had four completed successful
+hosted backend/frontend checks. #65's newer `a0ce5ee` also has four successful
+checks. #66 is OPEN, non-draft and MERGEABLE. All four hosted checks at code
+checkpoint `f0aa361` passed, verified at 08:55 UTC; required local proof also
+passed. No approving review is claimed. These are status observations, not
+completed review/merge/deployment.
 
 Merged into `master`:
 
@@ -134,7 +138,7 @@ Merged into `master`:
 | [#38: Add guarded website baseline installation and migration coverage](https://github.com/LuminariMUD/DurisWeb/pull/38) | `branch/issue-14-web-schema-bootstrap` | `master` | [303030a4077f](https://github.com/LuminariMUD/DurisWeb/commit/303030a4077f0b661b54397085499cfb665d0351) |
 
 Open, in dependency order. #39 targets `master`; #41 depends on #39; each PR
-from #42 through #65 depends on the immediately preceding listed PR:
+from #42 through #66 depends on the immediately preceding listed PR:
 
 | PR and delivered chunk | Branch | PR base | Verified remote checkpoint |
 | --- | --- | --- | --- |
@@ -163,7 +167,8 @@ from #42 through #65 depends on the immediately preceding listed PR:
 | [#62: Track backup uploads durably and honor preservation holds](https://github.com/LuminariMUD/DurisWeb/pull/62) | `branch/backup-upload-records` | `branch/stream-backup-archives` | [3d68697bb080](https://github.com/LuminariMUD/DurisWeb/commit/3d68697bb0807ff9c54a513819fe151264f65f7c) |
 | [#63: Preserve legacy temporary copies before old service shutdown](https://github.com/LuminariMUD/DurisWeb/pull/63) | `branch/legacy-upload-preservation-gate` | `branch/backup-upload-records` | [1b37db7132a9](https://github.com/LuminariMUD/DurisWeb/commit/1b37db7132a9dd57d957098f7acce937f131eb1d) |
 | [#64: Inventory legacy backup copies privately before preservation](https://github.com/LuminariMUD/DurisWeb/pull/64) | `branch/legacy-backup-copy-inventory` | `branch/legacy-upload-preservation-gate` | [ab097795cf2a](https://github.com/LuminariMUD/DurisWeb/commit/ab097795cf2a62b7dfcbdb618b8cbdb1c6fb75e2) |
-| [#65: Preserve legacy backup bytes with kernel file leases](https://github.com/LuminariMUD/DurisWeb/pull/65) | `branch/legacy-copy-preservation` | `branch/legacy-backup-copy-inventory` | [2774928e8638](https://github.com/LuminariMUD/DurisWeb/commit/2774928e8638df24ac2f89c234f1ebe6a919cccf) |
+| [#65: Preserve legacy backup bytes with kernel file leases](https://github.com/LuminariMUD/DurisWeb/pull/65) | `branch/legacy-copy-preservation` | `branch/legacy-backup-copy-inventory` | [a0ce5eead048](https://github.com/LuminariMUD/DurisWeb/commit/a0ce5eead048880d51eff829bc97aeb8e2ded5b9) |
+| [#66: Add password-verified partial website data downloads](https://github.com/LuminariMUD/DurisWeb/pull/66) | `branch/account-data-export` | `branch/legacy-copy-preservation` | [f0aa36161dbd](https://github.com/LuminariMUD/DurisWeb/commit/f0aa36161dbde464fd4494ef9df346c7114c24d2) |
 
 Other branches present, to avoid confusing unrelated work with this project:
 
@@ -192,7 +197,7 @@ Preserve the published stack. Before any future merge, refresh base/head and
 repository gates, account for the actual tested tree and retarget/rebase
 descendants only when required by the chosen merge method. The request here is
 to leave reviewable PRs, not merge all open work or deploy it. Do not spend the
-recovery hour reorganizing 26 green PRs or inventing a release tag.
+recovery hour reorganizing the earlier green PR stack or inventing a release tag.
 
 ### Critical path for the one-hour recovery window
 
@@ -207,7 +212,12 @@ owner/external/release decisions are unresolved. The hour can deliver a verified
 useful increment and an exact handoff; it cannot truthfully make those missing
 outcomes complete. The original requirements remain open until proven.
 
-Priority order for the next implementation session:
+**Recovery status:** the bounded download described in steps 1–4 below is now
+implemented, verified and published as #66. These steps record this recovery
+window; do not implement the same download again. Subsequent work starts from
+the remaining whole-project requirements following them.
+
+Priority order used for this recovery window:
 
 1. **Finish this handoff and preserve the ready work (first five minutes).**
    Commit/push this document on #65, verify the remote result and use the registry
@@ -397,9 +407,22 @@ runtime evidence below. Production release and public news remain separate.
   community activity data from Privacy & choices after verifying your password.
   The download explains which information needs a separate assisted request.”
   Use the news-update workflow only after an authorized verified live release.
-- **Publication:** pending in this pre-commit checkpoint; create a focused PR
-  from `branch/account-data-export` onto `branch/legacy-copy-preservation` (#65),
-  then record the actual PR/code SHA and verify local/remote/API equality.
+- **Publication:** [PR #66](https://github.com/LuminariMUD/DurisWeb/pull/66)
+  is OPEN/non-draft/MERGEABLE, from `branch/account-data-export` onto
+  `branch/legacy-copy-preservation` (#65 at `a0ce5ee`). Code checkpoint
+  `f0aa36161dbde464fd4494ef9df346c7114c24d2` matched local, remote branch and PR
+  API at initial publication; ahead/behind was `0 0` and the checkout was clean.
+  All four hosted checks on that code head passed by 08:55 UTC, alongside the
+  required local gates and real-path proof. This follow-up only records the
+  handoff; its final commit may advance the PR without changing runtime source.
+  No new implementation branch,
+  release tag, merge or deployment is created during closeout.
+- **Next session:** begin with #66's final published head in the same isolated
+  checkout. The current bounded download is ready for review. Prioritize the
+  remaining P7 request lifecycle/complete approved export and erasure, together
+  with necessary P6 copy/hold coordination; use the explicit full-scope list
+  above. Reuse this evidence and do not rerun unrelated green suites or resume
+  the standalone ownership-sealing experiment as the default next step.
 
 ## Scope and authority
 
