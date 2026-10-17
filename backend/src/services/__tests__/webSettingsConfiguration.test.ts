@@ -1,10 +1,26 @@
-import { describe, expect, it } from '@jest/globals';
+import { afterAll, describe, expect, it, jest } from '@jest/globals';
+import crypto from 'node:crypto';
+import type { RowDataPacket } from 'mysql2';
+import { pool } from '../../db/connection.js';
 
 import {
   parseWebSettingsRows,
+  getWebSettingsRaw,
   updateWebSetting,
   WebSettingsConfigurationError,
 } from '../webSettingsService.js';
+
+const nativePort = Number(process.env.TEST_HOOK_AUDIT_DB_PORT);
+if (
+  nativePort &&
+  (![23436, 23437].includes(nativePort) ||
+    process.env.DB_HOST !== '127.0.0.1' ||
+    !process.env.DB_NAME?.startsWith('durisweb_qualification_'))
+)
+  throw new Error('Settings timestamp qualification requires the dedicated disposable fixture');
+afterAll(async () => {
+  await pool.end();
+});
 
 /** Builds the complete authoritative row set used by focused validation cases. */
 function validRows(): Array<{ setting_key: string; setting_value: string }> {
@@ -29,6 +45,38 @@ function validRows(): Array<{ setting_key: string; setting_value: string }> {
 }
 
 describe('database-backed site configuration', () => {
+  if (nativePort)
+    it('returns the stored instant in UTC across a database offset and preserves unknown timestamps', async () => {
+      const key = `timestamp_test_${crypto.randomBytes(8).toString('hex')}`;
+      const unknown = `${key}_unknown`;
+      const epoch = Date.UTC(2026, 2, 27, 1, 2, 3) / 1000;
+      await pool.query(
+        "INSERT INTO web_settings (setting_key,setting_value,updated_at) VALUES (?,'fixture',FROM_UNIXTIME(?)),(?,'fixture',NULL)",
+        [key, epoch, unknown],
+      );
+      const connection = await pool.getConnection();
+      const [before] = await connection.query<RowDataPacket[]>('SELECT @@time_zone AS zone');
+      const query = jest
+        .spyOn(pool, 'query')
+        .mockImplementation(connection.query.bind(connection) as typeof pool.query);
+      try {
+        await connection.query("SET time_zone='+03:00'");
+        const rows = await getWebSettingsRaw();
+        expect(rows.find(({ setting_key }) => setting_key === key)?.updated_at).toBe(
+          new Date(epoch * 1000).toISOString(),
+        );
+        expect(rows.find(({ setting_key }) => setting_key === unknown)?.updated_at).toBeNull();
+      } finally {
+        query.mockRestore();
+        try {
+          await connection.query('SET time_zone=?', [String(before[0].zone)]);
+          connection.release();
+        } catch {
+          connection.destroy();
+        }
+        await pool.query('DELETE FROM web_settings WHERE setting_key IN (?,?)', [key, unknown]);
+      }
+    });
   it('maps a complete row set without application defaults', () => {
     const settings = parseWebSettingsRows(validRows());
 

@@ -427,7 +427,7 @@ export interface WebSettingRow {
   setting_key: string
   setting_value: string
   description: string | null
-  updated_at: string
+  updated_at: string | null
   updated_by: string | null
 }
 

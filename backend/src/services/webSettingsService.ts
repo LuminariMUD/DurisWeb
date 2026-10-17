@@ -34,7 +34,7 @@ export interface WebSettingRow {
   setting_key: string;
   setting_value: string;
   description: string | null;
-  updated_at: string;
+  updated_at: string | null;
   updated_by: string | null;
 }
 
@@ -283,7 +283,7 @@ export async function getWebSetting(key: string): Promise<string | null> {
  */
 export async function getWebSettingsRaw(): Promise<WebSettingRow[]> {
   const [rows] = await db.query<RowDataPacket[]>(
-    "SELECT setting_key, setting_value, description, updated_at, updated_by FROM web_settings WHERE setting_key != 'discord_webhook_url' AND setting_key NOT LIKE ? ORDER BY setting_key",
+    "SELECT setting_key, setting_value, description, UNIX_TIMESTAMP(updated_at) AS updated_at_epoch, updated_by FROM web_settings WHERE setting_key != 'discord_webhook_url' AND setting_key NOT LIKE ? ORDER BY setting_key",
     [HOOK_JOURNAL_PREFIX + '%'],
   );
 
@@ -292,9 +292,11 @@ export async function getWebSettingsRaw(): Promise<WebSettingRow[]> {
     setting_value: row.setting_value,
     description: row.description,
     updated_at:
-      row.updated_at instanceof Date
-        ? row.updated_at.toISOString()
-        : `${String(row.updated_at).replace(' ', 'T')}Z`,
+      row.updated_at_epoch === null ||
+      !Number.isFinite(Number(row.updated_at_epoch)) ||
+      Number(row.updated_at_epoch) <= 0
+        ? null
+        : new Date(Number(row.updated_at_epoch) * 1000).toISOString(),
     updated_by: row.updated_by,
   }));
 }
