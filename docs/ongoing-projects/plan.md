@@ -29,14 +29,14 @@ Logs: `pr62-role-{red,green}.log`, `pr62-access-{red,green,mysql,maria,
 backend-quality,frontend-quality}.log` under the private evidence directory.
 No full backend, fresh browser/provider or production run is claimed.
 
-**Publication next:** commit/push this focused chunk, then reply/resolve
-`PRRT_kwDOVA2-8c6tgzDj` (duplicate), `PRRT_kwDOVA2-8c6tgzDl` (404 privacy)
-and `PRRT_kwDOVA2-8c6thD7n` (role cache). The pre-publication queue still has
-16 unresolved threads / 42 verified closeouts. Remaining #62 work after those
-closures is large generated-backup inspection and the validate/unlink race;
-then carry through #63–#66 and continue the listed findings. Do not mark those
-two safety/functionality gaps fixed by this access-only chunk.
-
+**Published and verified:** `8fbfb01` contains this access-only repair. The three
+threads `PRRT_kwDOVA2-8c6tgzDj` (duplicate), `PRRT_kwDOVA2-8c6tgzDl`
+(404 privacy) and `PRRT_kwDOVA2-8c6thD7n` (role cache) have verified GitHub replies
+and resolved state. The closeout ledger now has **45** records; **13 known
+threads remain**: #62 (2), #63 (1), #64 (5), #65 (1), #66 (4), before a new scan.
+Next: carry this published parent repair through #63–#66, then return to #62's
+large generated-backup inspection and validate/unlink race. These two remaining
+safety/functionality gaps are not fixed by this access-only chunk.
 Draft release note, to publish only after verified release: “Backup lists refresh
 when staff permissions change, and inaccessible uploads no longer expose their
 private reference.”
