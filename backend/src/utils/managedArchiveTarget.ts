@@ -43,6 +43,13 @@ export function inspectManagedArchive(root: string, filename: string): ManagedAr
   if (!directory.isDirectory() || !path.isAbsolute(canonical))
     throw new Error('Invalid archive root');
   const filePath = resolveSafeBackupFilePath(canonical, filename);
+  try {
+    fs.lstatSync(managedArchiveRemovalDirectory(canonical, filename));
+    throw new BackupDeletionError('recovery_unverified');
+  } catch (error) {
+    if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'ENOENT')
+      throw error;
+  }
   let fileSha256: string | null = null;
   try {
     const file = fs.lstatSync(filePath, { bigint: true });
@@ -101,5 +108,58 @@ export function openManagedArchive(
   } catch (error) {
     fs.closeSync(fd);
     throw error;
+  }
+}
+
+/** A retained custody directory blocks absence-based retry after an interrupted removal. */
+export function managedArchiveRemovalDirectory(root: string, filename: string): string {
+  return path.join(root, '.archive-removal-' + digest(filename));
+}
+/** Capture a shared pathname before deleting; never unlink the shared pathname itself. */
+export function removeInspectedArchive(target: ManagedArchiveTarget): 'removed' | 'absent' {
+  if (target.fileSha256 === null) return 'absent';
+  const source = openManagedArchive(target.root, target.filename, target);
+  const custody = managedArchiveRemovalDirectory(target.root, target.filename);
+  let rootFd: number | undefined, custodyFd: number | undefined;
+  try {
+    const before = fs.fstatSync(source.fd, { bigint: true });
+    rootFd = fs.openSync(
+      target.root,
+      constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
+    );
+    fs.mkdirSync(custody, { mode: 0o700 });
+    custodyFd = fs.openSync(
+      custody,
+      constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
+    );
+    fs.fsyncSync(rootFd);
+    const captured = '/proc/self/fd/' + custodyFd + '/payload';
+    fs.renameSync('/proc/self/fd/' + rootFd + '/' + target.filename, captured);
+    fs.fsyncSync(custodyFd);
+    fs.fsyncSync(rootFd);
+    const after = fs.lstatSync(captured, { bigint: true });
+    // Rename changes ctime; the pinned descriptor prevents inode reuse. Bytes/shape must agree.
+    if (
+      !after.isFile() ||
+      after.dev !== before.dev ||
+      after.ino !== before.ino ||
+      after.size !== before.size ||
+      after.mtimeNs !== before.mtimeNs ||
+      after.mode !== before.mode ||
+      after.nlink !== before.nlink
+    )
+      throw new BackupDeletionError('recovery_unverified');
+    fs.unlinkSync(captured);
+    fs.fsyncSync(custodyFd);
+    fs.rmdirSync(custody);
+    fs.fsyncSync(rootFd);
+    // A competing publisher may have created a new shared name; retain its metadata too.
+    if (inspectManagedArchive(target.root, target.filename).fileSha256 !== null)
+      throw new BackupDeletionError('recovery_unverified');
+    return 'removed';
+  } finally {
+    fs.closeSync(source.fd);
+    if (custodyFd !== undefined) fs.closeSync(custodyFd);
+    if (rootFd !== undefined) fs.closeSync(rootFd);
   }
 }

@@ -1,6 +1,6 @@
-import { unlink, open } from 'node:fs/promises';
+import { open } from 'node:fs/promises';
 import { constants } from 'node:fs';
-import { inspectManagedArchive } from '../utils/managedArchiveTarget.js';
+import { inspectManagedArchive, removeInspectedArchive } from '../utils/managedArchiveTarget.js';
 import { captureArchiveWorker } from '../utils/archiveWorkerIdentity.js';
 
 // No application configuration, database credentials, shell or ordinary output is used.
@@ -46,16 +46,7 @@ async function perform(message: unknown): Promise<void> {
   try {
     const target = inspectManagedArchive(value.root, value.filename);
     if (target.rootSha256 === value.rootSha256 && target.fileSha256 === value.fileSha256) {
-      if (target.fileSha256 === null) outcome = 'absent';
-      else {
-        try {
-          await unlink(target.filePath);
-          outcome = 'removed';
-        } catch (error) {
-          if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')
-            outcome = 'absent';
-        }
-      }
+      outcome = removeInspectedArchive(target);
     }
     if (outcome === 'removed' || outcome === 'absent') {
       const root = await open(
