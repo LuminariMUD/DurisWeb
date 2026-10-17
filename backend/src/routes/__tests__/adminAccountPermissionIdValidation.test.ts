@@ -4,6 +4,7 @@ import request from 'supertest';
 import mysql from 'mysql2/promise';
 import type { RowDataPacket } from 'mysql2/promise';
 import { loadWebBaselineBundle } from '../../db/webBaselineBundle.js';
+import { getBackendConfiguration } from '../../config/environment.js';
 import { beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const assignRole = jest.fn<(...args: unknown[]) => Promise<unknown>>();
@@ -402,4 +403,67 @@ describe('admin account permission ID validation', () => {
     expect(response.status).toBe(201);
     expect(createRole).toHaveBeenCalledWith('Editor', null, [1, 2], 'Operator');
   });
+
+  it.each(['/backup/restore', '/backup/upload/restore'])(
+    'refuses %s even with the old unsafe switch enabled before storage or restore services',
+    async (route) => {
+      const configuration = getBackendConfiguration();
+      const prior = configuration.unsafeMutations.databaseRestore;
+      configuration.unsafeMutations.databaseRestore = true;
+      try {
+        for (const restoreType of ['full', 'account', 'character']) {
+          const response = await request(app)
+            .post('/api/admin' + route)
+            .send({
+              backupId: 1,
+              tempPath: '/private-archive-sentinel',
+              restoreType,
+              accounts: ['SyntheticSubject'],
+              characters: [{ pid: 1, name: 'SyntheticCharacter' }],
+            });
+          expect(response.status).toBe(503);
+          expect(response.body).toMatchObject({
+            error: 'operation_gated',
+            gate: 'databaseRestore',
+          });
+          expect(response.body).not.toHaveProperty('enableWith');
+          expect(JSON.stringify(response.body)).not.toContain('private-archive-sentinel');
+        }
+        expect(permissionChecks).toEqual(Array(3).fill('manage_mud_backup'));
+        expect(poolQuery).not.toHaveBeenCalled();
+        const backups = await import('../../services/backupService.js');
+        expect(backups.createRestore).not.toHaveBeenCalled();
+        expect(backups.createRestoreFromUpload).not.toHaveBeenCalled();
+        expect(backups.isMudRunning).not.toHaveBeenCalled();
+      } finally {
+        configuration.unsafeMutations.databaseRestore = prior;
+      }
+    },
+  );
+
+  it.each(['/backup/restore', '/backup/upload/restore'])(
+    'retains authentication and backup permission checks for unavailable %s',
+    async (route) => {
+      authenticated = false;
+      expect(
+        (
+          await request(app)
+            .post('/api/admin' + route)
+            .send({})
+        ).status,
+      ).toBe(401);
+      expect(permissionChecks).toHaveLength(0);
+      authenticated = true;
+      authorized = false;
+      expect(
+        (
+          await request(app)
+            .post('/api/admin' + route)
+            .send({})
+        ).status,
+      ).toBe(403);
+      expect(permissionChecks).toEqual(['manage_mud_backup']);
+      expect(poolQuery).not.toHaveBeenCalled();
+    },
+  );
 });

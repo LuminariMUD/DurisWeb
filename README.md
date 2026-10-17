@@ -211,7 +211,8 @@ and release procedures.
 - **Health:** backend `/health` checks MySQL and Redis. The frontend health
   artifact is static; neither check validates every feature or imported dataset.
 - **Mutation boundaries:** direct auction bid/buy-now writes, item deletion,
-  player wipe, and legacy database restore remain closed by default. Read the
+  player wipe remain closed by default. Legacy database restore is unavailable
+  regardless of runtime configuration. Read the
   [mutation contracts](docs/ARCHITECTURE.md#mutation-authority-and-default-closed-gates)
   before operating these features.
 - **Security work remains:** the [security record](docs/SECURITY-COMPLIANCE.md)

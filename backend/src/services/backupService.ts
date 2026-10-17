@@ -5,7 +5,6 @@ import { promisify } from 'util';
 import unzipper from 'unzipper';
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
 import cron from 'node-cron';
 import { getWebSettings } from './webSettingsService.js';
 import logger from '../utils/logger.js';
@@ -15,6 +14,7 @@ import {
 } from '../utils/safeBackupPath.js';
 import { getBackendConfiguration } from '../config/environment.js';
 import { writeDatabaseBackupDump } from './databaseBackupDump.js';
+import { DatabaseRestoreUnavailableError } from '../utils/databaseRestoreGuard.js';
 
 const execAsync = promisify(exec);
 
@@ -885,26 +885,6 @@ export async function listBackupContents(backupId: number): Promise<BackupConten
 // RESTORE FUNCTIONS
 // ============================================================================
 
-// Restore progress broadcaster (separate from backup progress)
-let restoreProgressBroadcaster:
-  | ((data: { id: number; progress: number; currentStep: string; status: string }) => void)
-  | null = null;
-
-export function setRestoreProgressBroadcaster(fn: typeof restoreProgressBroadcaster) {
-  restoreProgressBroadcaster = fn;
-}
-
-function broadcastRestoreProgress(data: {
-  id: number;
-  progress: number;
-  currentStep: string;
-  status: string;
-}) {
-  if (restoreProgressBroadcaster) {
-    restoreProgressBroadcaster(data);
-  }
-}
-
 /**
  * Check if MUD is currently running
  */
@@ -927,175 +907,13 @@ export interface CreateRestoreRequest extends RestoreRequest {
   backupId: number;
 }
 
-/**
- * core restore pipeline shared by createRestore (backup id) and
- * createRestoreFromUpload (direct file path). atomically inserts the mud_restores
- * row only if no other pending/in_progress restore exists in the last 30 minutes —
- * the route-level guard is best-effort, this insert is the race-safe check.
- * kicks off the async pipeline, wires broadcasts. returns { id }.
- */
-async function runRestoreInternal(
-  req: RestoreRequest,
-  filePath: string,
-  backupId: number,
-  accountName: string,
-  ipAddress: string,
-): Promise<{ id: number }> {
-  // atomic: insert only if no active restore exists. closes the TOCTOU gap
-  // between route-level assertRestorePreconditions and the insert below.
-  const [result] = await pool.execute<ResultSetHeader>(
-    `INSERT INTO mud_restores
-      (backup_id, restore_type, accounts, characters, categories,
-       status, progress, current_step, created_by, ip_address, started_at)
-     SELECT ?, ?, ?, ?, ?, 'pending', 0, 'Initializing...', ?, ?, NOW()
-     FROM (SELECT 1) AS _
-     WHERE NOT EXISTS (
-       SELECT 1 FROM mud_restores
-       WHERE status IN ('pending', 'in_progress')
-         AND started_at > DATE_SUB(NOW(), INTERVAL 30 MINUTE)
-     )`,
-    [
-      backupId,
-      req.restoreType,
-      req.accounts ? JSON.stringify(req.accounts) : null,
-      req.characters ? JSON.stringify(req.characters) : null,
-      req.categories ? JSON.stringify(req.categories) : null,
-      accountName,
-      ipAddress,
-    ],
-  );
-  if (result.affectedRows === 0) {
-    throw new Error('Another restore is already in progress');
-  }
-  const restoreId = result.insertId;
-
-  executeRestorePipeline(restoreId, filePath, req).catch((err) => {
-    logger.error(`restore ${restoreId} failed:`, err);
-  });
-
-  return { id: restoreId };
-}
-
-/**
- * load dump, filter, write temp sql, execute via mysql CLI.
- */
-async function executeRestorePipeline(
-  restoreId: number,
-  filePath: string,
-  req: RestoreRequest,
-): Promise<void> {
-  const bump = async (progress: number, step: string, status = 'in_progress') => {
-    await updateRestoreStatus(restoreId, status, progress, step);
-    broadcastRestoreProgress({ id: restoreId, progress, currentStep: step, status });
-  };
-
-  const tempSqlPath = path.join(os.tmpdir(), `restore-${restoreId}-${Date.now()}.sql`);
-
-  try {
-    await bump(5, 'Loading backup...');
-    if (!fs.existsSync(filePath)) throw new Error('Backup file not found');
-    const directory = await unzipper.Open.file(filePath);
-    const sqlFile = directory.files.find(
-      (f) =>
-        f.path.endsWith('.sql') && (f.path.startsWith('database/') || f.path === 'database.sql'),
-    );
-    if (!sqlFile) throw new Error('No database/*.sql inside backup');
-
-    await bump(15, 'Reading SQL dump...');
-    const sqlContent = (await sqlFile.buffer()).toString('utf-8');
-
-    await bump(30, 'Filtering rows...');
-    let filtered: Record<string, string[]>;
-    if (req.restoreType === 'full') {
-      filtered = filterDumpForFullRestore(sqlContent);
-    } else if (req.restoreType === 'account') {
-      filtered = filterDumpForAccountRestore(sqlContent, new Set(req.accounts || []));
-    } else {
-      const pidSet = new Set((req.characters || []).map((c) => String(c.pid)));
-      const nameSet = new Set((req.characters || []).map((c) => c.name));
-      filtered = filterDumpForCharacterRestore(sqlContent, pidSet, req.categories || {}, nameSet);
-    }
-
-    await bump(60, 'Writing restore SQL...');
-    await fs.promises.writeFile(tempSqlPath, buildRestoreSql(filtered));
-
-    await bump(80, 'Executing restore...');
-    const {
-      host: dbHost,
-      user: dbUser,
-      password: dbPassword,
-      database: dbName,
-      port: dbPort,
-    } = environment.mudDatabase.connection;
-    // 30-minute hard timeout: matches the concurrency-guard window. if mysql cli
-    // hangs (deadlock, lost connection, oom-killed), the timeout kills the child
-    // process so the catch+finally below can mark the restore as failed and
-    // unlink the temp file.
-    await execAsync(
-      `mysql -h ${dbHost} -P ${dbPort} -u ${dbUser} -p'${dbPassword}' ${dbName} < "${tempSqlPath}"`,
-      {
-        maxBuffer: 100 * 1024 * 1024,
-        timeout: 30 * 60 * 1000,
-        killSignal: 'SIGKILL',
-      },
-    );
-
-    await pool.execute(
-      `UPDATE mud_restores SET status = 'completed', progress = 100,
-       current_step = 'Restore complete', completed_at = NOW() WHERE id = ?`,
-      [restoreId],
-    );
-    broadcastRestoreProgress({
-      id: restoreId,
-      progress: 100,
-      currentStep: 'Restore complete',
-      status: 'completed',
-    });
-    logger.info(`restore ${restoreId} completed`);
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(`restore ${restoreId} failed:`, msg);
-    await pool.execute(
-      `UPDATE mud_restores SET status = 'failed', error_message = ?, completed_at = NOW() WHERE id = ?`,
-      [msg, restoreId],
-    );
-    broadcastRestoreProgress({
-      id: restoreId,
-      progress: 0,
-      currentStep: `Failed: ${msg}`,
-      status: 'failed',
-    });
-  } finally {
-    await fs.promises.unlink(tempSqlPath).catch(() => {});
-  }
-}
-
+/** Direct callers share the HTTP refusal; no archive, SQL or child process is touched. */
 export async function createRestore(
-  req: CreateRestoreRequest,
-  accountName: string,
-  ipAddress: string,
+  _req: CreateRestoreRequest,
+  _accountName: string,
+  _ipAddress: string,
 ): Promise<{ id: number }> {
-  const backup = await getBackupById(req.backupId);
-  if (!backup || backup.status !== 'completed') {
-    throw new Error('Backup not found or not completed');
-  }
-  const filePath = resolveSafeBackupFilePath(BACKUP_DIR, backup.filename);
-  return runRestoreInternal(req, filePath, req.backupId, accountName, ipAddress);
-}
-
-/**
- * Update restore status in database
- */
-async function updateRestoreStatus(
-  restoreId: number,
-  status: string,
-  progress: number,
-  currentStep: string,
-): Promise<void> {
-  await pool.execute(
-    `UPDATE mud_restores SET status = ?, progress = ?, current_step = ? WHERE id = ?`,
-    [status, progress, currentStep, restoreId],
-  );
+  throw new DatabaseRestoreUnavailableError();
 }
 
 /**
@@ -1799,16 +1617,15 @@ export async function validateUploadedBackup(filePath: string): Promise<Uploaded
 }
 
 /**
- * Create a restore from an uploaded backup file
+ * Compatibility entry point; uploaded restores are unavailable without protected recovery.
  */
 export async function createRestoreFromUpload(
-  filePath: string,
-  req: RestoreRequest,
-  accountName: string,
-  ipAddress: string,
+  _filePath: string,
+  _req: RestoreRequest,
+  _accountName: string,
+  _ipAddress: string,
 ): Promise<{ id: number }> {
-  const safeFilePath = resolveSafeUploadedBackupPath(filePath);
-  return runRestoreInternal(req, safeFilePath, 0, accountName, ipAddress);
+  throw new DatabaseRestoreUnavailableError();
 }
 
 /**

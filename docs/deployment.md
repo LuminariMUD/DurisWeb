@@ -282,11 +282,22 @@ accept the clone.
 
 The rehearsal above uses an operator-created, transaction-consistent dump and
 restores it into an empty disposable target. It is distinct from the admin
-backup service's legacy restore path. Both application restore endpoints remain
-closed unless `ALLOW_UNSAFE_DATABASE_RESTORE=true`; do not open that gate as a
-release or incident-recovery shortcut. The current filtered `REPLACE` merge is
-not a complete point-in-time restore, is not byte-safe for arbitrary BLOB data,
-and has no source/schema/target manifest.
+backup service's legacy restore path. Both application restore endpoints and
+direct service calls are unavailable even with
+`ALLOW_UNSAFE_DATABASE_RESTORE=true`; no runtime switch enables them. The old
+asynchronous filtered `REPLACE` executor has been removed. It was not a complete
+point-in-time restore, was not byte-safe for arbitrary BLOB data, had no
+source/schema/target manifest and could not reapply current holds/removal
+history. Backup creation, archive inspection/download and historical restore
+status remain available under their existing permissions.
+
+This closure prevents that application bypass; it does not make physical backup
+expiry or restore-removal replay complete. Preserve current hold/run/control
+and future subject-request evidence independently from a recovered archive.
+Before any separately authorized restored target accepts traffic, reapply the
+approved current dispositions/holds offline and verify them independently. Never
+infer that an old archive's ledger is the latest authoritative evidence. No
+shared restore or MUD operation is authorized by this source change.
 
 A backup is recoverable only after a matching empty-target drill verifies the
 complete declared table scope, bytes, schema and migration identities, row

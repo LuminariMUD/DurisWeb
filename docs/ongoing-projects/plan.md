@@ -20,7 +20,9 @@ two-class SQL execution, atomic durable progress, expiring worker ownership,
 transaction-time hold rechecks and legacy analytics-cache removal. Focused tests
 pass on both database families; full backend and regression evidence is recorded
 below. Published for review as [PR #54](https://github.com/LuminariMUD/DurisWeb/pull/54),
-stacked on #53. Next: remaining P6 cleanup/copy/restore
+stacked on #53. Active P6d1 branch `branch/restore-lifecycle-boundary` closes
+legacy restore bypasses; final checks pass and publication is the current step.
+Next: remaining P6 cleanup/copy/restore
 and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
@@ -1777,6 +1779,105 @@ outside this request. Keep this single evolving execution plan current.
   deletion/restore, shared migration, production/MUD/provider operation or
   global logout is authorized. Continue independently; ask the owner only for
   a consequential decision that engineering cannot resolve.
+
+- **Current P6d1: close legacy restore bypasses**, branch
+  `branch/restore-lifecycle-boundary`, starts at #54 `56508c0`.
+  **Outcome:** both stored/upload restore endpoints remain authenticated and
+  permission checked, then refuse even if the old unsafe switch is true; direct
+  service calls also refuse before archive/SQL/process work. Remove the obsolete
+  asynchronous row-merge executor so no alternative service entry can launch
+  it. Preserve backup creation, inspection/download, historical restore records
+  and pure parsing compatibility. **Non-goals:** approving or implementing a
+  MUD restore protocol, actual restore/deletion, complete backup policy, archive
+  hold/expiry integration or restore-removal replay. Those remain P6d/P7 work.
+  **Files:** shared static refusal reason/type, existing gate/service/router and
+  unused progress wiring, focused regression tests, operator/API/privacy docs
+  and this plan. **Proof:** real admin router with unsafe configuration enabled,
+  direct service calls with SQL/file/process spies, existing backup/parsing and
+  session-free snapshot coverage, full backend and required package gates;
+  publish a focused PR stacked on #54.
+- **P6d1 ablation:** remove the unsafe executable pipeline and its only progress
+  producer rather than add another environment switch, readiness framework or
+  incomplete archive-replay adapter. Keep one static refusal contract shared by
+  HTTP and service callers. The historical override remains parseable for
+  configuration compatibility but cannot open this source-disabled operation.
+  A supported restore still needs independently protected current evidence,
+  offline replay/verification and MUD ownership; do not represent closure as
+  completed restore acceptance.
+- **P6d1 final behavior:** `databaseRestore` always resolves closed without
+  consulting configuration; the historical `ALLOW_UNSAFE_DATABASE_RESTORE`
+  setting remains parseable for compatibility but cannot enable it. Both
+  stored/uploaded admin POST routes retain authentication and
+  `manage_mud_backup`, then return static `503 operation_gated` without an
+  enabling instruction or echoed input. Both public service signatures remain
+  compatible and throw `DatabaseRestoreUnavailableError` before invocation
+  SQL, filesystem, archive or process work. The row-merge launcher, temporary
+  SQL execution, restore record creation, action handlers and unused progress
+  producer/wiring are removed. Backup creation, contents/download, upload
+  validation/cancellation, MUD-running observation and historical restore status
+  remain. No migration, dependency, new flag or frontend change is needed.
+- **P6d1 scope evidence:** the removed merge allowlist contains account/game
+  tables, not the two website retention classes or hold/run/control ledgers.
+  It could recreate account/game data without consulting current lifecycle
+  evidence and bypassed the MUD's recovery contract; it did not implement full
+  website recovery. Its closure must not be reported as tested offline replay
+  for an operator-restored website dump. That replay, independently protected
+  current evidence and physical archive holds/expiry remain required P6 work.
+- **P6d1 exact focused proof:** `pnpm --dir backend test --runInBand
+  src/middleware/__tests__/mutationGate.test.ts
+  src/services/__tests__/backupRestoreUnavailable.test.ts
+  src/services/__tests__/productionReviewRegression.test.ts
+  src/routes/__tests__/adminAccountPermissionIdValidation.test.ts` passes
+  **30 tests / four suites**. Actual Express admin routes refuse full/account/
+  character requests with the cached unsafe configuration true, retain 401/403
+  access checks, and touch neither storage nor restore services. These router
+  tests stub authentication/permission providers; they do not claim a new JWT/
+  CSRF integration drill. Separate service tests observe no SQL, filesystem,
+  archive-open or child-process calls for all three modes. Gate tests also
+  verify both historical setting values and unchanged other mutation gates.
+- **P6d1 full proof:** `TEST_BACKUP_DB_PORTS=23436,23437 node --import
+  ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-execution-suite.mts 23436` passes **1,276 tests / 130 suites**,
+  with **40 separately opted-in native cases skipped** (14 image, 10 privacy,
+  seven hold and nine preview). Hold/preview retain #54's fresh two-engine
+  evidence; image/privacy retain their earlier qualification. This run includes
+  both actual session-free backup dump/empty-target restore cases on MySQL
+  8.0.46 and MariaDB 11.8.9, preserving ordinary rows and omitting session
+  credentials, plus backup parsers and the current SQL execution fixture.
+  Native target databases/users/files are process-owned synthetic fixtures,
+  never actual MUD or shared backup data. The full fixture's actual forward
+  migration/session/configuration/dependency probes pass before tests and
+  dependency/owner verification pass afterward (92 migrations, owner hash
+  `403c2a9941ce5746491919b2cc8cd91bed55b959adc681a66f0fceef04b90d23`).
+- **P6d1 quality/evidence:** `python3 /tmp/durisweb-image-quality.py backend`
+  runs backend `format:check`, `lint`, `type-check`, `verify:mud-writes`
+  (53 classified writes), `schema:check` and `build`; all pass. Changed TS was
+  formatted with backend `pnpm exec biome format --write`. Configuration
+  literal regression, the exact 77-table lifecycle inventory/reference checker
+  and `git diff --check` pass. Logs:
+  `/tmp/durisweb-restore-boundary-focused.log`,
+  `/tmp/durisweb-restore-boundary-full-mysql.log` and
+  `/tmp/durisweb-restore-boundary-gates.log`. The initial service test's partial
+  child-process mock omitted node-cron's `fork` import; it now preserves the
+  other real exports and spies only the removed execution boundary. An unused
+  `os` import left by pipeline removal was removed after lint reported it.
+  Final focused/full/gate runs pass. Later edits are documentation/comments
+  only; no repeated runtime suite is needed. No fresh frontend/browser, live
+  acceptance, physical production-backup recovery or provider operation is
+  claimed.
+- **P6d1 release news draft:** prepare an admin-only Website Changelog entry
+  after separately authorized live acceptance: “Restoring account or game data
+  through the website is unavailable while protected recovery is completed.
+  Backup creation and viewing remain available.” Reconcile with
+  [news-update](../../.agents/skills/news-update/SKILL.md) at release; no live
+  entry has been written. This restriction is qualified source, not deployment.
+- **P6d1 next requirement:** preserve and enforce holds when existing automatic
+  count-based/manual/failed-backup cleanup removes archives, including failure
+  handling that retains durable file identity. Inventory actual source paths
+  before choosing a minimal implementation; do not introduce unapproved age
+  periods or silently claim aggregate restore/erasure acceptance. Then continue
+  independently protected restore-removal evidence/replay, remaining classes
+  and P7. Do not operate MUD backups or services in this engineering task.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and

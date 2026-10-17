@@ -131,14 +131,21 @@ the affected endpoint returns `503` with `error: "operation_gated"`.
 | `ALLOW_UNSAFE_AUCTION_WRITES` | Direct web auction bids and buy-now purchases; read-only auction access and MUD-authoritative administrative removal remain available. |
 | `ALLOW_UNSAFE_ITEM_DELETES` | Individual and bulk deletion from authoritative player/locker item tables; read-only duplicate diagnostics remain available. |
 | `ALLOW_UNSAFE_PLAYER_WIPE` | The web-owned direct SQL player-wipe implementation. |
-| `ALLOW_UNSAFE_DATABASE_RESTORE` | Both stored-archive and uploaded-archive legacy restore endpoints; backup creation remains available. |
+| `ALLOW_UNSAFE_DATABASE_RESTORE` | Historical compatibility setting only; both restore endpoints and direct service calls remain unavailable even if true. Backup creation and archive inspection remain available. |
 
-Keep all four unset or `false` in ordinary deployments. Setting one to `true`
+Keep all four unset or `false` in ordinary deployments. For the other three, setting one to `true`
 only acknowledges the documented risk; it does not make the operation atomic,
 MUD-authoritative, or recoverable. Any exceptional use requires explicit
 operator authorization, a protected and restore-tested backup, a maintenance
 fence, and a recorded recovery decision. See the
 [shared database contract](ARCHITECTURE.md#mutation-authority-and-default-closed-gates).
+
+No environment variable enables database restore. The obsolete asynchronous
+row-merge executor has been removed: it could reintroduce removed account/game
+data without consulting current lifecycle evidence, and did not preserve the MUD's ownership contract.
+Use the protected [operator recovery procedure](deployment.md#application-restore-boundary)
+with separate authorization. A future supported restore needs offline replay of
+current holds/removal records and independent verification before exposure.
 
 `DURISWEB_SECRET_PREVIOUS` and `DURISWEB_SECRET_ROTATED_AT` are an optional,
 bounded rotation pair. The complete key inventory and safe placeholders live in

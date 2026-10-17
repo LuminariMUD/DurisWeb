@@ -526,23 +526,6 @@ export function broadcastBackupProgress(data: {
   broadcastToPermission(message, 'manage_mud_backup');
 }
 
-// Broadcast restore progress to all connected WebSocket clients
-export function broadcastRestoreProgress(data: {
-  id: number;
-  progress: number;
-  currentStep: string;
-  status: string;
-}) {
-  if (!wss) return;
-
-  const message = JSON.stringify({
-    type: 'RESTORE_PROGRESS',
-    data,
-  });
-
-  broadcastToPermission(message, 'manage_mud_backup');
-}
-
 // Broadcast MUD state change to all connected WebSocket clients
 export function broadcastMudStateChange(data: {
   state: string;
@@ -1709,10 +1692,10 @@ async function startServer() {
     // mud connection log sync removed - now using websocket events from mudAuctionClient
 
     // Initialize backup service broadcaster and scheduler
-    const { setProgressBroadcaster, setRestoreProgressBroadcaster, startHourlyBackupScheduler } =
-      await import('./services/backupService.js');
+    const { setProgressBroadcaster, startHourlyBackupScheduler } = await import(
+      './services/backupService.js'
+    );
     setProgressBroadcaster(broadcastBackupProgress);
-    setRestoreProgressBroadcaster(broadcastRestoreProgress);
     startHourlyBackupScheduler();
     logger.info('Backup service initialized with hourly scheduler');
 

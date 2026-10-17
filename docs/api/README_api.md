@@ -224,20 +224,32 @@ artifacts before relying on the checked-in contract.
 
 Several legacy routes remain addressable for compatibility but return HTTP 503
 with `error: "operation_gated"` unless an operator explicitly opens their unsafe
-mutation gate:
+mutation gate. Database restore remains unavailable regardless of its old switch:
 
 | Route family | Gate |
 |---|---|
 | `POST /api/auction/listings/:auctionId/bid` and `/buy` | `auctionWrites` |
 | Player/locker duplicate-item delete and bulk-delete routes under `/api/admin/dupes` | `itemDeletes` |
 | `POST /api/admin/mud/wipe/execute` | `playerWipe` |
-| Stored and uploaded backup restore routes under `/api/admin` | `databaseRestore` |
+| `POST /api/admin/backup/restore` and `/api/admin/backup/upload/restore` | `databaseRestore` (source-disabled; no runtime override) |
 
 Read-only auction and duplicate diagnostics are unaffected. Administrative
 auction removal is also unaffected because it already delegates to the MUD's
 authoritative critical command. The `ALLOW_UNSAFE_*` settings do not supply the
 missing safety contracts and should remain closed in ordinary deployments; see
 [Configuration and Environments](../environments.md#unsafe-mutation-gates).
+
+Both restore routes still require authentication and `manage_mud_backup` before
+their static 503 refusal. The response gives a safe explanation and no
+`enableWith` instruction, new operation ID or echoed request payload. Direct
+`createRestore` / `createRestoreFromUpload` service calls throw
+`DatabaseRestoreUnavailableError` (`code: restore_unavailable`) before archive,
+SQL or process work; the obsolete asynchronous executor is removed. Backup
+creation, inspection/download, uploaded-archive validation/cancellation and
+historical restore status remain under their existing permissions. This is not
+an implementation of protected physical recovery or complete restore-removal
+replay; use the separately authorized
+[operator recovery procedure](../deployment.md#application-restore-boundary).
 
 ## Authentication and CSRF
 
