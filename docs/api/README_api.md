@@ -57,7 +57,7 @@ within the current thread; ordinary pagination still uses the requested page.
 | `/api/guide` | `routes/guide.ts` | Guide categories and help search |
 | `/api/guide/suggestions` | `routes/helpSuggestions.ts` | Authenticated guide suggestions/moderation |
 | `/api/notifications` | `routes/notifications.ts` | Authenticated notifications |
-| `/api/analytics` | `routes/webAnalytics.ts` | Public page-view tracking and protected analytics |
+| `/api/analytics` | `routes/webAnalytics.ts` | Retired tracking endpoint and protected analytics reads |
 | `/api/admin/analytics/web` | `routes/webAnalytics.ts` | Protected web analytics alias |
 | `/api/auction` | `routes/auction.ts` | Auction reads, default-gated bid/buy actions, and MUD-authoritative admin removal |
 | `/api/push` | `routes/push.ts` | VAPID key and authenticated subscriptions |
@@ -197,10 +197,16 @@ missing safety contracts and should remain closed in ordinary deployments; see
   Overlord role bypasses granular admin permissions.
 - State-changing requests use a double-submit `csrf_token`: send the cookie
   value as `x-csrf-token`. Safe methods are exempt.
-- `/api/analytics/track` and `/kofihook` are the explicit CSRF exemptions. The
+- `/kofihook` is the explicit CSRF exemption. The
   Ko-fi route independently requires a constant-time verification-token match,
   validates a bounded payload, rate limits requests, and acknowledges only
   durable recording.
+- Both `POST /api/analytics/track` and the alias
+  `POST /api/admin/analytics/web/track` return `410` for CSRF-valid requests.
+  Optional website collection is closed pending approved notice/choice controls;
+  no browser claim of consent enables it. Neither route writes analytics nor
+  calls a geolocation provider. Invalid CSRF still returns `403`. The protected
+  historical dashboard remains available; this does not delete earlier records.
 - Credentialed CORS accepts only `ALLOWED_ORIGINS` (plus requests with no
   browser Origin header).
 

@@ -160,6 +160,15 @@ enforcement was identified. This is an engineering inventory, not legal advice;
 deployment jurisdiction and controller/processor roles still require owner
 review.
 
+The prepared #10 source now closes optional website collection: the browser
+removes its retired `analytics_session_id` when storage permits, installs no
+tracking timers or navigation handlers, and sends no page-view events. Both
+tracking API mounts refuse events, with CSRF protection restored, and the
+ungated service writer and optional GeoIP call path have been removed. Historical
+records and protected dashboard reads remain. This is the first engineering
+step; notice, approved policy, server-owned choice receipts and withdrawal still
+require completion before optional collection can return. Deployment is unverified.
+
 ### Personal Data Inventory
 
 | Data | Package / Location | Purpose | Retention / Deletion |
@@ -196,8 +205,8 @@ review.
 | Requirement | Status | Evidence / Next action |
 |-------------|--------|------------------------|
 | Purpose and privacy notice | GAP | No public privacy notice or processing record found |
-| Consent before optional analytics storage | GAP | Page-view analytics includes pre-login visitors; no consent gate found |
-| Data minimization | PARTIAL | Private presence defaults off unless explicitly enabled; page views still combine IP, device, geo, and screen data |
+| Consent before optional analytics storage | PARTIAL | Prepared source disables client collection and refuses both tracking mounts; approved notice/choice controls and live verification remain #10 |
+| Data minimization | PARTIAL | Private presence defaults off unless explicitly enabled; new optional page-view collection is removed in prepared source, while historical IP/device/geo/screen data and its retention remain open |
 | Subject access/export | GAP | No complete user data export path identified |
 | Deletion/erasure | GAP | No account-wide deletion/anonymization entry point identified |
 | Retention enforcement | GAP | No purge job for analytics, login, or audit records identified |
