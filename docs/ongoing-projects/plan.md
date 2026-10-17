@@ -12,8 +12,9 @@ continuation are qualified and published as
 [PR #51](https://github.com/LuminariMUD/DurisWeb/pull/51), stacked on #50.
 Active continuation `branch/privacy-data-hold-records` has qualified hold intent
 storage/API, published as [PR #52](https://github.com/LuminariMUD/DurisWeb/pull/52),
-stacked on #51. Current P6c1 branch `branch/retention-hold-aware-preview` is
-qualified for held/unheld preview and protected continuation, awaiting publication.
+stacked on #51. Active P6c1 branch `branch/retention-hold-aware-preview` is
+qualified for held/unheld preview and protected continuation, published as
+[PR #53](https://github.com/LuminariMUD/DurisWeb/pull/53), stacked on #52.
 Next: P6 mutation-time hold enforcement/
 restore and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
@@ -1605,6 +1606,28 @@ outside this request. Keep this single evolving execution plan current.
   `/tmp/durisweb-hold-reader-metadata-probe.mts`. Permanent guides now describe
   version-2 private evidence, hold-only observations and the remaining mutation/
   cache/request/restore work.
+- **Published P6c1:** [PR #53](https://github.com/LuminariMUD/DurisWeb/pull/53),
+  open/non-draft, code head `a843c6ae763c4e17ada79c70b8865f8632b9f901`,
+  stacked on #52 `8ed66d1`. The published code was read back: local/remote/API
+  heads match, ahead/behind `0 0`, worktree clean. This final closeout changes
+  only the plan. Hosted checks were queued/running at creation; #52's hosted
+  backend/frontend checks pass and its head is unchanged. Latest master remains
+  `8946860`. No merge, tag, deployment or shared operation is justified.
+- **Next continuation after #53:** continue from this branch in the isolated
+  `/tmp/durisweb-security-privacy-plan-20261016` worktree. P6c2 must add the actual
+  explicitly policy-gated SQL mutation consumer, durable run/cursor/count
+  evidence and ownership/expiry, with hold creation/release serialized against
+  each mutation and fresh eligibility/hold checks at commit. Keep approved=false
+  in prepared source; no CLI/environment/body shortcut can approve destruction.
+  Use only explicit reviewed class handlers and preserve all unknown/held/
+  pending/protected classes. Read current `webAnalyticsService.ts`: historical
+  analytics reads cache `web_analytics:*` for five minutes. Deletion acceptance
+  needs cache fencing/invalidation with failure recovery and the concurrent
+  reader/write race addressed; TTL alone is not proof. Then finish restore/copy
+  handling and P7 verified requests/export/erasure. Global hold API enforcement
+  remains unavailable until the real relevant deletion/cleanup/restore paths
+  consume it. P0/P5 policy/provider/period and P8 live gates remain open. Continue
+  independent engineering; ask only for a necessary consequential decision.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
