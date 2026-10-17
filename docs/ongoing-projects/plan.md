@@ -1,8 +1,27 @@
 # Website security, privacy, and schema implementation plan
 
-Current task: address outstanding PR review findings from oldest to newest.
-Use the **PR review repair** record at the end for current progress; older
-phase and timebox instructions are historical.
+## Current review continuation — 2026-10-17
+
+The active work is oldest-first PR review repair. The complete project/branch
+inventory, unfinished P0–P8 scope and recovery priorities are preserved in the
+[cumulative handoff](https://github.com/LuminariMUD/DurisWeb/blob/562d1210b96de09f8003c6663c05291749c6e6a2/docs/ongoing-projects/plan.md).
+That snapshot found 21 unresolved findings; #55 is now committed/pushed as
+`3446b1b214ca2d0836ef03b111086ba9019f2ca5`, its thread is verified resolved, and
+20 remain from that scan. The restore UI used its unchanged retained 294-test
+and desktop/phone proof. No production operation occurred.
+
+Current #48 follow-up corrects only the API contract: status never clears a
+receipt, invalid receipts use the existing CSRF-bound recovery, and a credential
+rotated during a transaction can still return 403. The implementation and native
+tests already prove this behavior. Files: API reference and this plan. Proof:
+direct route/service/lifecycle inspection, `git diff --check`, and the config
+literal guard. No runtime tests are rerun for this documentation correction.
+Publish/reply/resolve this #48 thread, then carry it into #49 and repair its four
+new findings (initial authentication, status refresh, navigation events, route
+identity). Preserve #55's published UI fix when subsequently carrying the stack.
+No release-news entry is needed for correcting contributor API documentation.
+
+## Historical implementation checkpoint
 
 Status: **implementation in progress**. Updated 2026-10-17.
 
