@@ -50,6 +50,33 @@ function bundle(id: string) {
 (process.platform === 'linux' ? describe : describe.skip)(
   'protected legacy copies and actual descriptor-only lease worker',
   () => {
+    it.each(['copy', 'verify'] as const)(
+      '%s rechecks bundle names after the asynchronous handshake',
+      async (operation) => {
+        const value = source();
+        if (operation === 'verify') await preserveLegacyCopy(value.options);
+        const directory = bundle(value.options.operationId);
+        const close = fs.closeSync.bind(fs);
+        let receiptCloses = 0,
+          changed = false;
+        jest.spyOn(fs, 'closeSync').mockImplementation((fd) => {
+          const name = fs.readlinkSync('/proc/self/fd/' + fd);
+          close(fd);
+          if (name === path.join(directory, 'complete.json') && ++receiptCloses === 3)
+            queueMicrotask(() => {
+              fs.renameSync(directory, directory + '.retained');
+              changed = true;
+            });
+        });
+        await expect(
+          operation === 'copy'
+            ? preserveLegacyCopy(value.options)
+            : verifyPreservedLegacyCopy(value.options),
+        ).rejects.toBeInstanceOf(Error);
+        expect(changed).toBe(true);
+        expect(fs.existsSync(value.filename)).toBe(true);
+      },
+    );
     it('copies exact bytes privately and verifies after source removal without granting adoption', async () => {
       const { filename, options } = source();
       const bytes = fs.readFileSync(filename);

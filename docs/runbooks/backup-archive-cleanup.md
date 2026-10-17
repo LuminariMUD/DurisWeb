@@ -238,6 +238,12 @@ to hide an uncertain previous operation.
 Verification also rechecks the named bundle/payload before returning. The package
 script suppresses dotenv startup output; `--silent` suppresses pnpm's banner.
 
+Source leaf and staging descriptors must stay on the selected root's mount ID,
+including same-device bind mounts. Every visible alias of the protected root is
+checked against prohibited temporary/volatile prefixes. Bundle names and receipt
+contents are revalidated after the lease handshake and after worker reaping;
+a pending lease-break signal or changed payload on release refuses success.
+
 Read leases guard the source during copying and the payload during final
 verification/confirmation; this is
 not a whole-service fence and does not prevent rename/unlink or namespace

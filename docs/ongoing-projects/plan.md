@@ -2,6 +2,24 @@
 
 ## Current handoff — read this first
 
+**#65 final four review repairs:** source leaf/staging descriptors require the
+root mount ID; protected storage rejects volatile bind aliases. Named bundle,
+payload identity and receipts are checked after the asynchronous lease handshake
+and reaping. The Python release path rejects pending lease breaks/identity changes.
+`pnpm --dir backend test --runInBand legacyCopyPreservation legacyBackupInventory`
+passes **63 tests/four suites**, including actual CLI and nine native Python lease
+tests. The private-mount fixture passes three new same-device source boundaries,
+volatile-alias refusal and all prior alias/bundle/control cases. Backend gates/build
+pass. Commands: `python3 /tmp/durisweb-image-quality.py backend`; as root only in a
+fresh private namespace, `unshare --mount --propagation private node --import
+./backend/node_modules/tsx/dist/loader.mjs
+backend/src/services/__tests__/legacyCopyPreservationMounts.native.ts`.
+Logs: `pr65-final-{tests,quality,mounts}.log`. No production operations occurred.
+Carries #63 ordering and #64 timeout/root-identity fixes. #62's unlink race still
+needs disposition; #66's index is separately pushed as `339135b` and resolved.
+
+### Historical checkpoints
+
 **#64 final inventory repairs:** time exhaustion before the second selected root
 now retains the first observation and records an explicit unstarted timed-out
 root. Output validates scanned root identities/mount IDs before writing and

@@ -130,6 +130,7 @@ function directory(filename: string, expected?: BigIntStats): number {
   }
   return fd;
 }
+const volatilePrefixes = ['/tmp', '/var/tmp', '/run', '/dev', '/proc', '/sys'];
 function protectedRoot(root: string) {
   const value = canonical(root),
     stat = fs.lstatSync(value, { bigint: true }),
@@ -140,12 +141,30 @@ function protectedRoot(root: string) {
     (stat.mode & 0o077n) !== 0n ||
     !stat.isDirectory() ||
     ![0xef53n, 0x58465342n, 0x9123683en].includes(filesystem.type) ||
-    ['/tmp', '/var/tmp', '/run', '/dev', '/proc', '/sys'].some((prefix) => within(prefix, value))
+    volatilePrefixes.some((prefix) => within(prefix, value))
   )
     fail('root_unverified');
-  return { root: value, stat, sha256: rootIdentity(value, stat), fd: directory(value, stat) };
+  const fd = directory(value, stat);
+  try {
+    if (
+      mountAliases(fd, value).some((alias) =>
+        volatilePrefixes.some((prefix) => within(prefix, alias)),
+      )
+    )
+      fail('root_unverified');
+    return { root: value, stat, sha256: rootIdentity(value, stat), fd };
+  } catch (error) {
+    fs.closeSync(fd);
+    throw error;
+  }
 }
 function requireSameProtectedRoot(target: ReturnType<typeof protectedRoot>) {
+  if (
+    mountAliases(target.fd, target.root).some((alias) =>
+      volatilePrefixes.some((prefix) => within(prefix, alias)),
+    )
+  )
+    fail('destination_unverified');
   const current = fs.lstatSync(target.root, { bigint: true });
   if (
     !current.isDirectory() ||
@@ -438,6 +457,7 @@ async function withPayloadLease(
   expectedPhysicalSha256: string,
   maxBytes: number,
   verify: () => ReturnType<typeof result>,
+  finalCheck: () => void,
 ): Promise<ReturnType<typeof result>> {
   const started = performance.now();
   const child = spawn(
@@ -508,6 +528,7 @@ async function withPayloadLease(
     const acknowledgement = await message();
     if (!keys(acknowledgement, ['format', 'outcome']) || acknowledgement.outcome !== 'verified')
       fail('lease_interrupted', options.operationId);
+    finalCheck();
     confirmed = true;
     return value;
   } finally {
@@ -516,6 +537,7 @@ async function withPayloadLease(
     clearTimeout(timer);
     reader.close();
     if (confirmed && (invalid || code !== 0)) fail('lease_interrupted', options.operationId);
+    if (confirmed) finalCheck();
   }
 }
 
@@ -566,6 +588,7 @@ export async function preserveLegacyCopy(options: LegacyCopyPreservationOptions)
     const sourceRootStat = fs.lstatSync(sourceRoot, { bigint: true }),
       sourceRootFd = directory(sourceRoot, sourceRootStat);
     handles.push(sourceRootFd);
+    const sourceMount = legacyMountId(sourceRootFd);
     const target = protectedRoot(options.protectedRoot);
     handles.push(target.fd);
     if (
@@ -602,6 +625,7 @@ export async function preserveLegacyCopy(options: LegacyCopyPreservationOptions)
         fail('source_unverified', options.operationId);
       const child = directory(filename, identity);
       handles.push(child);
+      if (legacyMountId(child) !== sourceMount) fail('source_unverified', options.operationId);
       parents.push({ fd: parent, name: part, identity });
       parent = child;
     }
@@ -617,6 +641,7 @@ export async function preserveLegacyCopy(options: LegacyCopyPreservationOptions)
       !sourceStat.isFile() ||
       sourceStat.nlink !== 1n ||
       sourceStat.dev !== sourceRootStat.dev ||
+      legacyMountId(source) !== sourceMount ||
       physical(sourceStat) !== options.sourcePhysicalSha256
     )
       fail('source_unverified', options.operationId);
@@ -693,45 +718,68 @@ export async function preserveLegacyCopy(options: LegacyCopyPreservationOptions)
     destination = leasedPayload;
     const leasedBundle = bundle;
     const expectedPayload = physical(fs.fstatSync(leasedPayload, { bigint: true }));
-    return await withPayloadLease(options, leasedPayload, expectedPayload, options.maxBytes, () => {
-      const verifiedPayload = hashPayload(leasedPayload, copied.bytes, options.timeBudgetMs);
-      if (verifiedPayload.sha256 !== copied.sha256) fail('copy_unconfirmed', options.operationId);
-      const payloadPhysicalSha256 = verifiedPayload.physicalSha256;
-      fs.fsyncSync(leasedPayload);
-      requireNamedCopy(
-        target,
-        leasedBundle,
-        leasedPayload,
-        options.operationId,
-        payloadPhysicalSha256,
-      );
-      const completeReceipt = writeJson(leasedBundle, 'complete.json', {
-        format: 1,
-        operationId: options.operationId,
-        algorithm: ALGORITHM,
-        sourcePhysicalSha256: options.sourcePhysicalSha256,
-        sourceSize: copied.bytes,
-        copySha256: copied.sha256,
-        payloadPhysicalSha256,
-        completedAtEpoch: Math.floor(Date.now() / 1000),
-        fileWriteLeaseVerified: true,
-      });
-      fs.fsyncSync(leasedBundle);
-      fs.fsyncSync(target.fd);
-      requireSeparateStorage();
-      requireCompleteBundle(
-        target,
-        leasedBundle,
-        leasedPayload,
-        options.operationId,
-        payloadPhysicalSha256,
-        {
-          'prepared.json': preparedReceipt,
-          'complete.json': completeReceipt,
-        },
-      );
-      return result(options.operationId, copied.bytes, selected.kind);
-    });
+    let completeStamp: ReturnType<typeof writeJson> | undefined;
+    return await withPayloadLease(
+      options,
+      leasedPayload,
+      expectedPayload,
+      options.maxBytes,
+      () => {
+        const verifiedPayload = hashPayload(leasedPayload, copied.bytes, options.timeBudgetMs);
+        if (verifiedPayload.sha256 !== copied.sha256) fail('copy_unconfirmed', options.operationId);
+        const payloadPhysicalSha256 = verifiedPayload.physicalSha256;
+        fs.fsyncSync(leasedPayload);
+        requireNamedCopy(
+          target,
+          leasedBundle,
+          leasedPayload,
+          options.operationId,
+          payloadPhysicalSha256,
+        );
+        const completeReceipt = writeJson(leasedBundle, 'complete.json', {
+          format: 1,
+          operationId: options.operationId,
+          algorithm: ALGORITHM,
+          sourcePhysicalSha256: options.sourcePhysicalSha256,
+          sourceSize: copied.bytes,
+          copySha256: copied.sha256,
+          payloadPhysicalSha256,
+          completedAtEpoch: Math.floor(Date.now() / 1000),
+          fileWriteLeaseVerified: true,
+        });
+        completeStamp = completeReceipt;
+        fs.fsyncSync(leasedBundle);
+        fs.fsyncSync(target.fd);
+        requireSeparateStorage();
+        requireCompleteBundle(
+          target,
+          leasedBundle,
+          leasedPayload,
+          options.operationId,
+          payloadPhysicalSha256,
+          {
+            'prepared.json': preparedReceipt,
+            'complete.json': completeReceipt,
+          },
+        );
+        return result(options.operationId, copied.bytes, selected.kind);
+      },
+      () => {
+        if (!completeStamp) fail('copy_unconfirmed', options.operationId);
+        requireSeparateStorage();
+        requireCompleteBundle(
+          target,
+          leasedBundle,
+          leasedPayload,
+          options.operationId,
+          expectedPayload,
+          {
+            'prepared.json': preparedReceipt,
+            'complete.json': completeStamp,
+          },
+        );
+      },
+    );
   } catch (error) {
     const problem = new LegacyCopyPreservationError(
       error instanceof LegacyCopyPreservationError ? error.reason : 'copy_unconfirmed',
@@ -855,19 +903,35 @@ export async function verifyPreservedLegacyCopy(options: LegacyCopyVerificationO
       fail('destination_unverified', options.operationId);
     const sourceSize = prepared.sourceSize;
     const expectedPayload = complete.payloadPhysicalSha256;
-    return await withPayloadLease(options, file, expectedPayload, sourceSize, () => {
-      const verifiedPayload = hashPayload(file, sourceSize, options.timeBudgetMs, expectedPayload);
-      if (verifiedPayload.sha256 !== complete.copySha256)
-        fail('recovery_review_required', options.operationId);
-      fs.fsyncSync(file);
-      fs.fsyncSync(bundle);
-      fs.fsyncSync(target.fd);
-      requireCompleteBundle(target, bundle, file, options.operationId, expectedPayload, {
-        'prepared.json': preparedReceipt.stamp,
-        'complete.json': completeReceipt.stamp,
-      });
-      return result(options.operationId, sourceSize, String(prepared.sourceKind));
-    });
+    return await withPayloadLease(
+      options,
+      file,
+      expectedPayload,
+      sourceSize,
+      () => {
+        const verifiedPayload = hashPayload(
+          file,
+          sourceSize,
+          options.timeBudgetMs,
+          expectedPayload,
+        );
+        if (verifiedPayload.sha256 !== complete.copySha256)
+          fail('recovery_review_required', options.operationId);
+        fs.fsyncSync(file);
+        fs.fsyncSync(bundle);
+        fs.fsyncSync(target.fd);
+        requireCompleteBundle(target, bundle, file, options.operationId, expectedPayload, {
+          'prepared.json': preparedReceipt.stamp,
+          'complete.json': completeReceipt.stamp,
+        });
+        return result(options.operationId, sourceSize, String(prepared.sourceKind));
+      },
+      () =>
+        requireCompleteBundle(target, bundle, file, options.operationId, expectedPayload, {
+          'prepared.json': preparedReceipt.stamp,
+          'complete.json': completeReceipt.stamp,
+        }),
+    );
   } catch (error) {
     throw new LegacyCopyPreservationError(
       error instanceof LegacyCopyPreservationError ? error.reason : 'recovery_review_required',
