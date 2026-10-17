@@ -1,5 +1,8 @@
 import { DATA_HOLD_MATCH_SQL } from './dataHoldSnapshot.js';
 
+/** Required for unambiguous indexed TIMESTAMP bounds, including repeated DST hours. */
+export const RETENTION_SQL_TIME_ZONE = '+00:00';
+
 /** Literal targets only: no input can supply a table, column, predicate or SQL fragment. */
 export const retentionCandidateRules = {
   analytics_events: {
