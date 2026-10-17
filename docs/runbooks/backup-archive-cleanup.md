@@ -37,6 +37,76 @@ filesystem paths, IP values or credentials. Investigate the reference against
 the backup ID and last known state before retrying. Count pruning remains a
 separate hold-aware operation after a new archive completes.
 
+## Private legacy-copy inventory
+
+The source includes a read-only discovery command for the layouts traced from
+the older uploader/producer. Run it only in the explicitly selected authorized
+environment and namespace, before the preservation gate's service teardown:
+
+```bash
+pnpm --dir backend backup:inventory \
+  --backup-root /absolute/configured/backup-root \
+  --legacy-upload-root /absolute/actual/old/upload-root \
+  --private-out /absolute/owner-only-persistent-directory/new-inventory.json
+```
+
+Roots and the output parent must be canonical paths in the selected current
+mount namespace; symlink aliases and `/proc/<pid>/root` or descriptor aliases
+are refused. Resolving such an alias to an ordinary host path must not silently
+change the namespace being inventoried. The backup root must match canonical
+configured `BACKUP_DIR`. There is no default
+upload root; omission records `legacyUploadScope: not_selected`. The command
+does not attach to another namespace or discover its location automatically.
+An empty host `/tmp` scan cannot establish that an old `PrivateTmp` namespace
+has no uploads. Use the compiled `backend/dist/scripts/legacyBackupInventory.js`
+entry point for an already built release. No SQL/Redis/provider connection or
+MUD operation is made.
+
+The private output identifies only `temp_<id>.sql`, the exact
+`temp_staging_<id>/database/<name>.sql` tree and
+`backup-upload-<timestamp>-<random>.zip` in their selected roots. Numeric IDs are
+filename hints, not established backup ownership. Physical hashes cover stat
+identity/size/timestamps, not file contents. Directory descriptors anchor the
+walk; symlinks, hardlinked/special files, cross-device members and unexpected
+staging layouts are retained as unsafe/unconfirmed observations. No copy content
+is opened, extracted, copied, changed or deleted. Unrecognized names within a
+legacy prefix are counted without exposing those names in the report.
+The old MIME-based acceptance could also create uppercase or other suffixes;
+those prefixed names remain unknown/review-required, never silently ignored or
+treated as ordinary managed archives.
+
+Limits are 10,000 root entries and 1,000 copies per root, a shared five-second
+cooperative budget checked between filesystem calls and a 1 MiB output cap.
+These are discovery limits, not a hard timeout on a stalled kernel I/O call.
+Read-only observations can include tmpfs or other mounted storage; they confer
+none of the managed unlink worker's local-filesystem or exit-fence guarantees.
+Bounds, unreadable state or detected directory changes prevent a complete
+observation. There is no invented continuation through an unstable directory;
+an incomplete report requires separately reviewed discovery of the omitted
+scope and cannot authorize an adoption or release. `scanComplete` means the
+selected enumeration reached its end within bounds, not a consistent snapshot:
+concurrent changes and filesystem timestamp granularity can hide a change.
+Every report explicitly sets `snapshotConsistent: false`,
+`writerFenceVerified: false` and `deletionAdmission: unavailable`.
+
+Only the new private evidence file is written. Its existing parent must be
+owner-only and outside all selected roots; the file is exclusive mode 0600,
+owner-checked and flushed with its directory. Existing files/links are never
+overwritten. Failed or unknown write/sync may leave partial evidence; retain and
+review it rather than deleting or accepting it. Ordinary output has only UUID,
+scope flags, aggregate counts and safe categories, without paths, copy names or
+payloads. Exit 0 means the selected scan/output completed, 2 means partial or
+unsafe/unknown observations, and 1 means failure. Exit 0 never proves global
+namespace coverage, writer closure, ownership, preservation or cleanup safety.
+The operator must separately verify destination persistence and independent
+protection; the path and a successful flush do not certify either.
+
+Keep the selected command/build/root/namespace provenance and private report in
+protected operator evidence, with its own unapproved retention/subject-review
+rules. This inventory supplies discovery input only. Verified writer fencing,
+protected-byte preservation, ownership/adoption, holds and compatible offline
+restore replay remain separate P6 requirements before any removal or rollout.
+
 ## Deletion acknowledgement
 
 Manual removal, failed-backup cleanup and automatic count pruning share the

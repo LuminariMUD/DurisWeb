@@ -49,7 +49,11 @@ copies in [PR #61](https://github.com/LuminariMUD/DurisWeb/pull/61), on
 writer recovery, bounded inspection and hold-aware cancellation are qualified
 and published for review as [PR #62](https://github.com/LuminariMUD/DurisWeb/pull/62)
 on `branch/backup-upload-records`, stacked on #61. Existing
-legacy temporary-file discovery/adoption remains next.
+legacy temporary-file preservation order is corrected in
+[PR #63](https://github.com/LuminariMUD/DurisWeb/pull/63), stacked on #62.
+Read-only private discovery is qualified on
+`branch/legacy-backup-copy-inventory`, awaiting focused publication.
+Verified legacy-copy adoption/fencing remains next.
 Install metadata function v2 before bootstrap/migrations;
 source does not accept v1 as an equivalent fallback.
 Next: remaining P6 cleanup/copy/restore
@@ -85,6 +89,88 @@ inventory and satisfy preservation/hold/fencing requirements before stopping an
 old `PrivateTmp` unit. Namespace teardown is itself a copy-removal path.
 
 ## Execution record and continuation
+
+- **P6d2b2d private legacy-copy discovery (2026-10-17, qualified; publication pending):** branch
+  `branch/legacy-backup-copy-inventory` starts at #63 `1b37db7`. Outcome: an
+  explicit-root, bounded, read-only inventory of the traced legacy raw SQL,
+  staging and OS-temp upload layouts, saved exclusively as private physical
+  identity evidence. Distinguish completed selected-root enumeration from
+  partial/changed/unsafe observations and never infer ownership, writer closure
+  or deletion admission from names/status/age. Non-goals: namespace attachment,
+  content inspection/copying, SQL or provider access, adoption/removal, live
+  operations or declaring global enforcement ready. Files: one read-only
+  filesystem service/CLI, existing command index, focused filesystem/CLI tests,
+  operator/developer docs and this plan. Proof: actual synthetic layouts,
+  symlinks/hardlinks/unsafe nodes, bounded/changed/partial scope, private exclusive
+  output and no payload/ordinary-path disclosure, plus backend required gates.
+  Ablation drops speculative SQL correlation and another durable table/queue:
+  a numeric filename is only a hint and cannot supply missing writer/ownership
+  proof. Reuse existing filesystem/identity conventions, and explicitly select
+  the actual old upload root; never default to the current process's `/tmp`.
+- **P6d2b2d result and limits:** the CLI confirms canonical configured
+  `BACKUP_DIR` and an optional explicitly selected actual old upload root, with
+  a recorded mount-domain hash. It never resolves a user root through symlink,
+  `/proc/<pid>/root` or descriptor aliases, attaches to another namespace, reads
+  payloads or connects to SQL/Redis/providers. Anchored directory descriptors
+  prevent root/path replacement from redirecting enumeration. Exact regular
+  SQL/upload and one-member staging shapes receive bounded physical metadata;
+  unsafe links/hardlinks/special/cross-device nodes, malformed layouts and
+  detected changes remain unconfirmed. Other legacy-prefixed names, including
+  MIME-accepted uppercase/non-ZIP suffixes from the old uploader, are counted
+  as unknown without disclosing unrecognized names. Numeric IDs are only hints,
+  not inferred ownership. Directory/file observations cannot certify a snapshot:
+  concurrent writes and timestamp granularity can hide a change. Reports always
+  declare `snapshotConsistent: false`, `writerFenceVerified: false` and
+  `deletionAdmission: unavailable`, even with completed selected-root enumeration.
+- **Further ablation:** the managed unlink worker's local-filesystem allowlist
+  is not a read-only discovery requirement. Remove that copied restriction so
+  an actual old tmpfs upload root can be observed, while recording filesystem/
+  root identity and conferring none of the mutation protocol's guarantees.
+  Fixed 10,000-entry/1,000-copy per-root caps, a shared five-second cooperative
+  scan budget and 1 MiB output bound limit work without pretending to resume an
+  unstable directory. A stalled kernel call is not a hard-bounded operation.
+  Only a new exclusive owner-only output file outside scanned roots is written,
+  with file and parent sync and no overwrite. Destination persistence and
+  independent protection still need separate verification. Ordinary output is
+  UUID/scope/aggregate categories only. Exit 2 marks incomplete, unsafe or
+  unknown scope; exit 0 never authorizes admission or claims global coverage.
+- **P6d2b2d exact proof:** `pnpm --dir backend test --runInBand
+  src/services/__tests__/legacyBackupInventory.test.ts
+  src/scripts/__tests__/legacyBackupInventory.test.ts` passes **16 / 2**. Actual
+  ext4 and tmpfs fixtures cover traced layouts, no SQL-file access-time/content
+  changes, symlinks/hardlinks/FIFO, malformed/unknown suffixes, both real caps,
+  substituted-root anchoring, observed directory changes, private output/aliases/
+  overwrite refusal, wrong configured root and the actual source CLI. An initial
+  drift test assumed distinct filesystem clock ticks; it now forces observable
+  timestamp drift and the report explicitly disclaims snapshot consistency.
+  `python3 /tmp/durisweb-image-quality.py backend` runs
+  format:check/lint/type-check/verify:mud-writes/schema:check/build; all pass
+  (53 classified writes; unchanged 77-table/85-source immutable baseline).
+  `./scripts/check-config-literals.sh`, the privacy registry/local-link checker
+  and `git diff --check` pass. `node --import
+  ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-legacy-inventory-compiled-probe.mts` runs the freshly built CLI
+  in a separate Node process without a TS loader, verifying private aggregate
+  output and unchanged fixture bytes. `pnpm --dir backend backup:inventory
+  --help` also passes. Retain `/tmp/durisweb-legacy-inventory-{focused-final,
+  quality,compiled,help}.log` and the compiled probe as qualification evidence.
+  All fixture files are task-owned and removed; no selected live root or
+  namespace was scanned. Full DB/native/backend, frontend/browser, physical
+  device/provider/live tests are not repeated for this standalone filesystem
+  CLI, which the HTTP application does not import and which changes no
+  database/HTTP/UI behavior.
+  No dependency, migration, new policy/collection flag, release tag, merge,
+  deployment, logout or MUD operation is introduced. No Website Changelog entry
+  is needed for this operator-only discovery command.
+- **Next after discovery publication:** first refresh the current PR stack and
+  use its final published head in the existing isolated worktree. Implement and
+  prove actual legacy-writer fencing and pre-teardown preservation/adoption;
+  discovery is an input, never approval or substitute for those requirements.
+  Preserve all unknown roots/layouts and apply the #63 release gate before any
+  old-service shutdown. Continue independent protected current evidence and
+  offline restore-removal replay, remaining P6 handlers/own-ledger periods and
+  all P7 subject-request work. Global enforcement remains unavailable and named
+  policy/release decisions are still open; no user question is currently needed.
 
 - **P6d2b2c preservation-order repair (2026-10-17):** branch
   `branch/legacy-upload-preservation-gate` starts at #62 `3d68697`.

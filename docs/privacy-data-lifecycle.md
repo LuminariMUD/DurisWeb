@@ -74,6 +74,15 @@ link are indirectly linkable operational evidence, hidden from generic settings.
 Retain them pending their own approved retention and subject-review rules.
 See [registered uploads](runbooks/backup-archive-cleanup.md#registered-uploads).
 
+The [private legacy-copy inventory](runbooks/backup-archive-cleanup.md#private-legacy-copy-inventory)
+is operator evidence outside SQL: observation UUID/epoch, selected-root and
+mount-domain hashes, bounded physical metadata and traced copy names/ID hints,
+including a staging SQL member's name. It contains no payload or account/IP list,
+but IDs can indirectly link to operator history. Ordinary output is aggregate.
+Keep the exclusive owner-only file protected, with its own unapproved period and
+staff/third-party review before subject export. It proves neither writer closure
+nor a consistent snapshot, and is never deletion/preservation authority.
+
 Each row lists subject-selection fields or a necessary relationship, and a time
 field that could support an approved cutoff. A time field is **not** an approved
 retention period. Every general period/disposition is **unapproved**. Existing
