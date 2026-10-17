@@ -25,7 +25,7 @@ export function parseLegacyPreservationArguments(args: string[]): Arguments {
   const mode = args[0];
   if (mode !== 'copy' && mode !== 'verify')
     throw new LegacyCopyPreservationError('invalid_arguments');
-  const common = ['--protected-root', '--operation-id', '--time-budget-ms'];
+  const common = ['--protected-root', '--operation-id', '--time-budget-ms', '--python-bin'];
   const allowed =
     mode === 'verify'
       ? common
@@ -35,7 +35,6 @@ export function parseLegacyPreservationArguments(args: string[]): Arguments {
           '--legacy-upload-root',
           '--source-name',
           '--source-physical-sha256',
-          '--python-bin',
           '--max-bytes',
         ];
   const values = new Map<string, string>();
@@ -47,8 +46,11 @@ export function parseLegacyPreservationArguments(args: string[]): Arguments {
     values.set(name, value);
   }
   const protectedRoot = values.get('--protected-root'),
-    operationId = values.get('--operation-id');
+    operationId = values.get('--operation-id'),
+    pythonBin = values.get('--python-bin');
   if (
+    !pythonBin ||
+    !path.isAbsolute(pythonBin) ||
     !protectedRoot ||
     !path.isAbsolute(protectedRoot) ||
     !operationId ||
@@ -56,6 +58,7 @@ export function parseLegacyPreservationArguments(args: string[]): Arguments {
   )
     throw new LegacyCopyPreservationError('invalid_arguments');
   const base = {
+    pythonBin,
     protectedRoot,
     operationId,
     timeBudgetMs: positive(values.get('--time-budget-ms'), 30000, 300000),
@@ -65,7 +68,6 @@ export function parseLegacyPreservationArguments(args: string[]): Arguments {
     uploadRoot = values.get('--legacy-upload-root'),
     sourceName = values.get('--source-name'),
     sourcePhysicalSha256 = values.get('--source-physical-sha256'),
-    pythonBin = values.get('--python-bin'),
     maximum = values.get('--max-bytes');
   if (
     !backupRoot ||
@@ -98,14 +100,14 @@ export function parseLegacyPreservationArguments(args: string[]): Arguments {
 export async function runLegacyPreservationCommand(args: string[]): Promise<number> {
   if (args.length === 1 && args[0] === '--help') {
     console.log(
-      'Private per-file preservation; no source removal, service control or adoption. Linux and an explicit Python 3 interpreter are required for copying.\ncopy --backup-root <canonical-configured-root> [--legacy-upload-root <actual-old-root>] --source-name <legacy-relative-name> --source-physical-sha256 <inventory-file-hash> --protected-root <owner-only-persistent-local-directory> --operation-id <UUID-v4> --python-bin <absolute-python3> --max-bytes <1..1099511627776> [--time-budget-ms <1..300000>]\nverify --protected-root <same-directory> --operation-id <same-UUID> [--time-budget-ms <1..300000>]. Verification needs no original file, interpreter, application environment or SQL. Same-ID copy retries never overwrite an existing bundle. Unknown work remains review-required.',
+      'Private per-file preservation; no source removal, service control or adoption. Linux and an explicit Python 3 interpreter are required for copying and verification.\ncopy --backup-root <canonical-configured-root> [--legacy-upload-root <actual-old-root>] --source-name <legacy-relative-name> --source-physical-sha256 <inventory-file-hash> --protected-root <owner-only-persistent-local-directory> --operation-id <UUID-v4> --python-bin <absolute-python3> --max-bytes <1..1099511627776> [--time-budget-ms <1..300000>]\nverify --protected-root <same-directory> --operation-id <same-UUID> --python-bin <absolute-python3> [--time-budget-ms <1..300000>]. Verification needs no original file, application environment or SQL. Same-ID copy retries never overwrite an existing bundle. Unknown work remains review-required.',
     );
     return 0;
   }
   try {
     const parsed = parseLegacyPreservationArguments(args);
     if (parsed.mode === 'verify') {
-      console.log(JSON.stringify(verifyPreservedLegacyCopy(parsed.options)));
+      console.log(JSON.stringify(await verifyPreservedLegacyCopy(parsed.options)));
       return 0;
     }
     if (

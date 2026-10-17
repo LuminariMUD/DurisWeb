@@ -65,7 +65,7 @@ function bundle(id: string) {
       for (const name of ['payload.bin', 'prepared.json', 'complete.json'])
         expect(fs.statSync(path.join(bundle(options.operationId), name)).mode & 0o777).toBe(0o600);
       fs.unlinkSync(filename);
-      expect(verifyPreservedLegacyCopy(options)).toEqual(result);
+      await expect(verifyPreservedLegacyCopy(options)).resolves.toEqual(result);
       expect(JSON.stringify(result)).not.toContain(root);
       expect(JSON.stringify(result)).not.toContain('synthetic private SQL');
     });
@@ -90,7 +90,7 @@ function bundle(id: string) {
       const value = source('backup-upload-1234567890123-1234567890.' + 'x'.repeat(214));
       const options = { ...value.options, uploadRoot: backupRoot };
       expect((await preserveLegacyCopy(options)).copyVerified).toBe(true);
-      expect(verifyPreservedLegacyCopy(options).copyVerified).toBe(true);
+      expect((await verifyPreservedLegacyCopy(options)).copyVerified).toBe(true);
     });
     it.each(['copy', 'verify'] as const)(
       '%s refuses changed named receipts or extra entries at final sync',
@@ -124,7 +124,8 @@ function bundle(id: string) {
           try {
             if (operation === 'copy')
               await expect(preserveLegacyCopy(value.options)).rejects.toBeInstanceOf(Error);
-            else expect(() => verifyPreservedLegacyCopy(value.options)).toThrow();
+            else
+              await expect(verifyPreservedLegacyCopy(value.options)).rejects.toBeInstanceOf(Error);
             expect(changed).toBe(true);
             expect(fs.existsSync(value.filename)).toBe(true);
           } finally {
@@ -188,13 +189,55 @@ function bundle(id: string) {
           try {
             if (operation === 'copy')
               await expect(preserveLegacyCopy(value.options)).rejects.toBeInstanceOf(Error);
-            else expect(() => verifyPreservedLegacyCopy(value.options)).toThrow();
+            else
+              await expect(verifyPreservedLegacyCopy(value.options)).rejects.toBeInstanceOf(Error);
             expect(changed).toBe(true);
             expect(fs.existsSync(value.filename)).toBe(true);
           } finally {
             sabotage.mockRestore();
           }
         }
+      },
+    );
+    it.each(['copy', 'verify'] as const)(
+      '%s excludes late payload writes through the final acknowledgement',
+      async (operation) => {
+        const value = source();
+        if (operation === 'verify') await preserveLegacyCopy(value.options);
+        const directory = bundle(value.options.operationId);
+        const payload = path.join(directory, 'payload.bin');
+        const close = fs.closeSync.bind(fs);
+        let receiptCloses = 0,
+          attempts = 0,
+          writerOutcome = '';
+        jest.spyOn(fs, 'closeSync').mockImplementation((fd) => {
+          const name = fs.readlinkSync('/proc/self/fd/' + fd);
+          close(fd);
+          if (name === path.join(directory, 'complete.json') && ++receiptCloses === 3) {
+            attempts++;
+            const writer = spawnSync(
+              '/usr/bin/python3',
+              [
+                '-I',
+                '-B',
+                '-c',
+                "import os,sys\ntry:\n f=os.open(sys.argv[1],os.O_WRONLY|os.O_NONBLOCK)\n os.pwrite(f,b'x'*os.fstat(f).st_size,0)\n os.close(f)\n print('written')\nexcept BlockingIOError:\n print('blocked')",
+                payload,
+              ],
+              { encoding: 'utf8', timeout: 2000 },
+            );
+            expect(writer.status).toBe(0);
+            writerOutcome = writer.stdout.trim();
+          }
+        });
+        const pending =
+          operation === 'copy'
+            ? preserveLegacyCopy(value.options)
+            : Promise.resolve().then(() => verifyPreservedLegacyCopy(value.options));
+        await expect(pending).rejects.toBeInstanceOf(Error);
+        expect(attempts).toBe(1);
+        expect(writerOutcome).toBe('blocked');
+        expect(fs.readFileSync(payload)).toEqual(fs.readFileSync(value.filename));
       },
     );
     it('refuses an active writer and keeps the registered incomplete bundle and original', async () => {
@@ -212,7 +255,7 @@ function bundle(id: string) {
       expect(fs.existsSync(path.join(bundle(options.operationId), 'prepared.json'))).toBe(true);
       expect(fs.existsSync(path.join(bundle(options.operationId), 'failed.json'))).toBe(true);
       expect(fs.existsSync(path.join(bundle(options.operationId), 'complete.json'))).toBe(false);
-      expect(() => verifyPreservedLegacyCopy(options)).toThrow();
+      await expect(verifyPreservedLegacyCopy(options)).rejects.toBeInstanceOf(Error);
     });
     it('refuses overwrite/replay and corrupted or linked payloads without repairing or erasing evidence', async () => {
       const { filename, options } = source();
@@ -222,11 +265,11 @@ function bundle(id: string) {
       });
       const payload = path.join(bundle(options.operationId), 'payload.bin');
       fs.writeFileSync(payload, 'modified private copy');
-      expect(() => verifyPreservedLegacyCopy(options)).toThrow();
+      await expect(verifyPreservedLegacyCopy(options)).rejects.toBeInstanceOf(Error);
       expect(fs.readFileSync(filename, 'utf8')).toContain('synthetic private SQL');
       fs.unlinkSync(payload);
       fs.symlinkSync(filename, payload);
-      expect(() => verifyPreservedLegacyCopy(options)).toThrow();
+      await expect(verifyPreservedLegacyCopy(options)).rejects.toBeInstanceOf(Error);
       expect(fs.lstatSync(payload).isSymbolicLink()).toBe(true);
     });
     it('refuses unsafe roots, identity changes and byte limits before copying', async () => {
@@ -332,7 +375,7 @@ function bundle(id: string) {
         const writing = fs.openSync(filename, fs.constants.O_WRONLY | fs.constants.O_NONBLOCK);
         fs.closeSync(writing);
         expect(fs.existsSync(path.join(bundle(options.operationId), 'failed.json'))).toBe(true);
-        expect(() => verifyPreservedLegacyCopy(options)).toThrow();
+        await expect(verifyPreservedLegacyCopy(options)).rejects.toBeInstanceOf(Error);
       },
     );
     it('retains work and the same reference after a lost output-sync acknowledgement', async () => {
@@ -362,7 +405,7 @@ function bundle(id: string) {
         bytes: fs.statSync(filename).size,
         sourcePhysicalSha256: options.sourcePhysicalSha256,
       });
-      expect(() => verifyPreservedLegacyCopy(options)).toThrow();
+      await expect(verifyPreservedLegacyCopy(options)).rejects.toBeInstanceOf(Error);
     });
     it('keeps registration and incomplete payload when the explicit interpreter is unavailable', async () => {
       const { filename, options } = source();
@@ -375,7 +418,7 @@ function bundle(id: string) {
       expect(fs.existsSync(path.join(bundle(options.operationId), 'prepared.json'))).toBe(true);
       expect(fs.existsSync(path.join(bundle(options.operationId), 'failed.json'))).toBe(true);
       expect(fs.existsSync(filename)).toBe(true);
-      expect(() => verifyPreservedLegacyCopy(options)).toThrow();
+      await expect(verifyPreservedLegacyCopy(options)).rejects.toBeInstanceOf(Error);
     });
     (fs.existsSync('/dev/shm') ? it : it.skip)(
       'preserves an actual tmpfs upload into protected disk storage',
@@ -392,7 +435,7 @@ function bundle(id: string) {
             sourcePhysicalSha256: legacyCopyPhysicalSha256(fs.statSync(filename, { bigint: true })),
           };
           expect((await preserveLegacyCopy(options)).copyVerified).toBe(true);
-          expect(verifyPreservedLegacyCopy(options).copyVerified).toBe(true);
+          expect((await verifyPreservedLegacyCopy(options)).copyVerified).toBe(true);
           expect(fs.readFileSync(filename, 'utf8')).toBe('private tmpfs upload bytes');
         } finally {
           fs.rmSync(uploadRoot, { recursive: true });

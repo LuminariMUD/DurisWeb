@@ -10,6 +10,7 @@ import json
 import os
 import re
 import resource
+import select
 import signal
 import stat
 import sys
@@ -132,14 +133,88 @@ def copyLeasedFile(source: int, destination: int, maxBytes: int,
             signal.signal(number, handler)
 
 
+
+def holdReadLease(source: int, maxBytes: int, timeBudgetMs: int,
+                  expectedPhysicalSha256: str) -> None:
+    """Keep the payload write-excluded until the parent confirms its final checks."""
+    if (sys.platform != 'linux' or not 1 <= maxBytes <= 2**40
+            or not 1 <= timeBudgetMs <= 300000
+            or not re.fullmatch('[a-f0-9]{64}', expectedPhysicalSha256)):
+        raise CopyRefused('invalid_arguments')
+    started, parent = time.monotonic(), os.getppid()
+    interrupted, leased = False, False
+    def interrupt(_signum: int, _frame: object) -> None:
+        nonlocal interrupted
+        interrupted = True
+    previous = {number: signal.signal(number, interrupt)
+                for number in (signal.SIGIO, signal.SIGTERM, signal.SIGINT)}
+    def check() -> None:
+        if interrupted or parent <= 1 or os.getppid() != parent:
+            raise CopyRefused('lease_interrupted')
+        if (time.monotonic() - started) * 1000 >= timeBudgetMs:
+            raise CopyRefused('time_budget')
+        if leased and fcntl.fcntl(source, fcntl.F_GETLEASE) != fcntl.F_RDLCK:
+            raise CopyRefused('lease_interrupted')
+    try:
+        before = os.fstat(source)
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                or before.st_uid != os.geteuid() or before.st_size > maxBytes
+                or stat.S_IMODE(before.st_mode) & 0o077
+                or physicalSha256(before) != expectedPhysicalSha256
+                or (fcntl.fcntl(source, fcntl.F_GETFL) & os.O_ACCMODE) != os.O_RDONLY):
+            raise CopyRefused('destination_unverified')
+        fcntl.fcntl(source, fcntl.F_SETOWN, os.getpid())
+        try:
+            fcntl.fcntl(source, fcntl.F_SETLEASE, fcntl.F_RDLCK)
+        except OSError as failure:
+            raise CopyRefused('writer_active' if failure.errno in (errno.EAGAIN, errno.EACCES)
+                              else 'lease_unavailable') from None
+        leased = True
+        check()
+        print('{"format":1,"outcome":"leased"}', flush=True)
+        pending = b''
+        confirmed = False
+        while True:
+            check()
+            ready, _, _ = select.select([0], [], [], 0.05)
+            if not ready:
+                continue
+            block = os.read(0, 64)
+            if not block:
+                raise CopyRefused('lease_interrupted')
+            pending += block
+            if len(pending) > 64:
+                raise CopyRefused('invalid_arguments')
+            while b'\n' in pending:
+                command, pending = pending.split(b'\n', 1)
+                if command == b'release':
+                    return
+                if command != b'confirm' or confirmed:
+                    raise CopyRefused('invalid_arguments')
+                check()
+                if physicalSha256(os.fstat(source)) != expectedPhysicalSha256:
+                    raise CopyRefused('destination_unverified')
+                confirmed = True
+                print('{"format":1,"outcome":"verified"}', flush=True)
+    finally:
+        if leased:
+            fcntl.fcntl(source, fcntl.F_SETLEASE, fcntl.F_UNLCK)
+        for number, handler in previous.items():
+            signal.signal(number, handler)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    parser.add_argument('--lease-only', dest='leaseOnly', action='store_true')
     parser.add_argument('--max-bytes', dest='maxBytes', required=True, type=int)
     parser.add_argument('--time-budget-ms', dest='timeBudgetMs', required=True, type=int)
     parser.add_argument('--expected-physical-sha256', dest='expectedPhysicalSha256', required=True)
     options = parser.parse_args()
     try:
         resource.setrlimit(resource.RLIMIT_AS, (128 * 1024 * 1024, 128 * 1024 * 1024))
+        if options.leaseOnly:
+            holdReadLease(3, options.maxBytes, options.timeBudgetMs, options.expectedPhysicalSha256)
+            return 0
         result = copyLeasedFile(3, 4, options.maxBytes, options.timeBudgetMs,
                                   options.expectedPhysicalSha256)
         print(json.dumps(result, separators=(',', ':')), flush=True)

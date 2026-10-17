@@ -105,7 +105,18 @@ function run(
       expect(duplicate.status).toBe(1);
       expect(JSON.parse(duplicate.stderr).reason).toBe('operation_exists');
       fs.unlinkSync(file);
-      const verified = run(['verify', '--protected-root', protectedRoot, '--operation-id', id], {});
+      const verified = run(
+        [
+          'verify',
+          '--protected-root',
+          protectedRoot,
+          '--operation-id',
+          id,
+          '--python-bin',
+          '/usr/bin/python3',
+        ],
+        {},
+      );
       expect({ status: verified.status, diagnostic: verified.stderr }).toEqual({
         status: 0,
         diagnostic: '',
@@ -129,7 +140,18 @@ function run(
       });
       expect(response.stderr).not.toContain(root);
       expect(response.stderr).not.toContain('private fixture SQL bytes');
-      const verified = run(['verify', '--protected-root', protectedRoot, '--operation-id', id], {});
+      const verified = run(
+        [
+          'verify',
+          '--protected-root',
+          protectedRoot,
+          '--operation-id',
+          id,
+          '--python-bin',
+          '/usr/bin/python3',
+        ],
+        {},
+      );
       expect(verified.status).toBe(1);
       expect(JSON.parse(verified.stderr).reference).toBe(id);
       expect(fs.existsSync(path.join(protectedRoot, 'legacy-preserve-' + id, 'failed.json'))).toBe(
