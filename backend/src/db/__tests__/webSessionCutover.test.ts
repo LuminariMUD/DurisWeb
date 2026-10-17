@@ -9,6 +9,7 @@ import {
   readOwnerSchemaFixture,
 } from '../../test/ownerSchemaFixture.js';
 import { schemaDatabaseFamily } from '../schemaPostconditions.js';
+import { prepareFixtureMetadata } from '../../test/webMigrationFixture.js';
 import {
   externalSchemaSha256,
   runWebBaseline,
@@ -164,6 +165,7 @@ for (const port of ports)
         );
         created = true;
         await database.changeUser({ database: name });
+        await prepareFixtureMetadata(database);
         const inputs = readOwnerSchemaFixture(source!);
         await applyOwnerSchemaFixture(database, port, name, inputs);
         const ownerBefore = await ownerMetadataFingerprint(database, inputs);

@@ -86,6 +86,10 @@ literal `host:port/database` and the approved external-schema SHA-256:
 ```bash
 pnpm --dir backend schema:check
 pnpm --dir backend schema:baseline inspect --target '<host>:<port>/<database>'
+# With the DBA's protected configuration, before bootstrap:
+pnpm --dir backend schema:lifecycle install \
+  --target '<host>:<port>/<database>' \
+  --runtime-user '<existing-website-sql-user>' --runtime-host '<its-mysql-account-host>'
 pnpm --dir backend schema:baseline bootstrap \
   --target '<host>:<port>/<database>' --mud-schema-sha256 '<approved hash>'
 pnpm --dir backend migrate:latest
@@ -95,6 +99,12 @@ pnpm --dir backend schema:baseline verify \
 ```
 
 `inspect` is read-only and reports the current external table-definition hash.
+The [version 2 metadata helper](../../docs/runbooks/lifecycle-metadata.md) must
+be explicitly installed first, even for an owner-run bootstrap. It reads system
+metadata and needs no website table, so there is no circular dependency. Keep
+the normal source/target/hash and maintenance approval requirements; installer
+credentials come only from the protected backend configuration. Existing v1 is
+preserved and never accepted as a substitute for v2.
 The other actions require the explicit target/hash. Database credentials come
 only from backend configuration. Bootstrap refuses populated historical ledgers,
 unrecorded web objects, unsupported database families, wrong MUD names/hash,

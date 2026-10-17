@@ -1,6 +1,27 @@
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { webBaselineDirectory } from '../db/webBaselineBundle.js';
+import type { Connection, RowDataPacket } from 'mysql2/promise';
+import { installLifecycleMetadata } from '../db/lifecycleMetadata.js';
+
+/** Explicit fixture-only prerequisite, before any website table/bootstrap/migration. */
+export async function prepareFixtureMetadata(database: Connection): Promise<void> {
+  const [rows] = await database.query<RowDataPacket[]>(
+    'SELECT DATABASE() AS name,CURRENT_USER() AS principal',
+  );
+  const row = rows[0];
+  if (
+    typeof row?.name !== 'string' ||
+    !/^durisweb_(?:baseline_engine|qualification)_[A-Za-z0-9_]+$/.test(row.name) ||
+    typeof row.principal !== 'string' ||
+    !/^root@(?:%|localhost|127\.0\.0\.1)$/.test(row.principal)
+  )
+    throw new Error(
+      'Metadata setup requires an owned disposable database and its fixture administrator',
+    );
+  const [user, host] = row.principal.split('@');
+  await installLifecycleMetadata(database, user, host);
+}
 
 /** Run the real current source in a disposable fixture, outside Jest's module loader. */
 export function runFixtureWebMigrations(

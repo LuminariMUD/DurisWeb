@@ -292,10 +292,29 @@ for (const port of ports)
         ]);
       }
     });
-    it('limits direct invocation to known target names and scrubs raw driver context', async () => {
-      await expect(
-        app.query(`SELECT ${LIFECYCLE_METADATA_FUNCTION}(?)`, ['other-database/private-sentinel']),
-      ).rejects.toBeDefined();
+    it('supports canonical future tables while rejecting malformed or cross-schema selectors', async () => {
+      await root.query('CREATE TABLE metadata_future_fixture(id INT PRIMARY KEY) ENGINE=InnoDB');
+      try {
+        await expect(readLifecycleMetadata(app, 'metadata_future_fixture')).resolves.toEqual({
+          triggers: 0,
+          incoming: 0,
+        });
+        for (const target of [
+          '',
+          'PAGE_VIEWS',
+          'page_views\n',
+          'other_schema.page_views',
+          'other-database/private-sentinel',
+          "page_views'); DELETE FROM page_views; --",
+        ])
+          await expect(
+            app.query(`SELECT ${LIFECYCLE_METADATA_FUNCTION}(?)`, [target]),
+          ).rejects.toBeDefined();
+      } finally {
+        await root.query('DROP TABLE metadata_future_fixture');
+      }
+    });
+    it('scrubs raw driver context when the metadata helper is unavailable', async () => {
       await guard.query(`DROP FUNCTION ${LIFECYCLE_METADATA_FUNCTION}`);
       try {
         await expect(readLifecycleMetadata(app, 'page_views')).rejects.toThrow(

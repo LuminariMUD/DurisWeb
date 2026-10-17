@@ -40,6 +40,11 @@ Its pre-fix red-reproduction/recovery copy remains in Git stash
 `1c8d1dd304401fe58de11758a2dd7330b699a770` on
 `branch/managed-archive-hold-barrier`; do not reapply it over the published tree.
 Filtered metadata checks have been replaced and all scoped qualification passes.
+Current prerequisite `branch/schema-trigger-authority` starts at #59's final
+`5c2cc1a` and fixes the remaining baseline/session catalog checks. Source and
+full qualification pass; publication is pending before uploaded/temporary copy
+protection continues. Install metadata function v2 before bootstrap/migrations;
+source does not accept v1 as an equivalent fallback.
 Next: remaining P6 cleanup/copy/restore
 and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
@@ -70,6 +75,139 @@ outside this request. Keep this single evolving execution plan current.
 
 ## Execution record and continuation
 
+- **Schema/session metadata authority (2026-10-17, in progress):** both
+  `webBaseline.verifyNoWebTriggers` and `migrateWebSessionSchema` accept an empty
+  ordinary catalog query without establishing visibility. Outcome: prove absence
+  of triggers under the caller's actual permissions before schema adoption or
+  credential cutover; refuse incoming session references before its destructive
+  clearing too. Retain ordinary bootstrap and reduced-runtime verification,
+  without a circular dependency on a not-yet-installed schema/helper.
+  Non-goals: new website privileges, credential/policy approvals, applied
+  migration edits, deployment, real logout or MUD operations. Files: shared
+  metadata authority/guard, the two existing consumers, native qualification and
+  operator docs/plan. Proof: reproduce with a hidden synthetic trigger through
+  actual verifier/migration paths, then qualify both supported engines, positive
+  restricted-account paths, missing/revoked authority and unchanged owner schema.
+- **Reproduction and ablation:** the MySQL restricted account reports zero
+  triggers, accepts baseline coverage despite a real web-setting trigger, and
+  permits credential cutover while a hidden DELETE trigger captures a synthetic
+  session ID (1 captured / 0 retained). MariaDB exposes these particular triggers
+  and rejects them. Evidence: `/tmp/durisweb-schema-authority-red.log`.
+  Keep one metadata implementation and introduce explicit function version 2:
+  one canonical current-schema table selector (lowercase ASCII, max 64), used
+  only as a bound metadata-filter value. Callers choose owned names from the
+  verified baseline/forward contracts or fixed lifecycle rules. The six-target
+  v1 definition is not silently changed,
+  replaced or accepted as v2. Owners and restricted callers use the same helper;
+  install it first, since it reads system metadata and needs no website tables.
+  Session clearing checks authoritative incoming references too, so
+  a foreign-schema cascade cannot substitute for a hidden trigger. This avoids
+  circular bootstrap setup, global website privileges, another SQL credential,
+  duplicate function bodies, schema/column/data selectors or dynamic SQL.
+  The schema adapter shares the exact routine/body/output validation used by
+  runtime lifecycle calls. Stop writers/DDL during approved offline changes;
+  this metadata check does not make nontransactional DDL concurrent-safe.
+- **Further ablation from the working prototype:** remove the direct-grant
+  lookup branch entirely. The helper can be installed in an empty database
+  before owner schema or website bootstrap; it does not depend on the schema
+  it verifies. One proof for owners and reduced callers avoids separate privilege
+  inference rules. Native fixture setup and operator order now make that explicit.
+  A SELECT-only MariaDB probe also demonstrates filtered FK-rule metadata and
+  strict refusal; the normal website CRUD profile (no DDL/TRIGGER/global grant)
+  is separately qualified. No schema hash was weakened to accept missing rows.
+- **Forward-compatibility correction:** the existing real-Knex qualification
+  declares a new website table; a frozen 82-name helper would incorrectly block
+  that supported forward contract. Remove the frozen list and aggregate branch,
+  keeping the bounded, current-schema metadata-only selector above. It delegates
+  no row or DDL access; website ownership still comes from source contracts,
+  which the SQL guard and schema fingerprints enforce. Refresh the legacy
+  replay's stale expected ledger with the three already published image/hold/
+  retention migrations; preserve every original historical row.
+- **Qualified schema/session result (2026-10-17):** hidden triggers now stop
+  baseline verification and credential cutover, with the synthetic session
+  retained and the capture table empty. A foreign-schema CASCADE remains invisible
+  to the ordinary caller but is refused for both owner/restricted cutover paths,
+  retaining parent and child. Website CRUD without DDL/TRIGGER/global grants
+  verifies the full supported schema; MUD-owner triggers are not misclassified.
+  Missing v2 refuses even a caller with a schema TRIGGER grant. Installation
+  in an empty database proves no table dependency; old v1 is preserved, never
+  silently replaced or used as v2. New canonical forward tables remain supported
+  while malformed, uppercase, newline, injected and cross-schema selectors are
+  refused without granting row access or constructing SQL.
+- **Exact final proof:**
+  `TEST_SCHEMA_AUTHORITY_DB_PORTS=23436,23437
+  TEST_BASELINE_MUD_SOURCE=/home/aiwithapex/projects/duris/migrations
+  pnpm --dir backend test --runInBand
+  src/db/__tests__/schemaTriggerAuthorityNative.test.ts` passes **19 tests /
+  one suite**, including 18 native cases on MySQL 8.0.46/MariaDB 11.8.9.
+  `TEST_BASELINE_DB_PORTS=23336,23337 TEST_BASELINE_MUD_SOURCE=<same pinned source>
+  pnpm --dir backend test --runInBand src/db/__tests__/webBaselineQualification.test.ts
+  src/db/__tests__/webBaseline.test.ts` passes **48 / 2**, including actual
+  historical SQL/85-source replay, adopted data/ledger preservation, all current
+  forward entries, raw/schema/down MUD-DDL rejection, new declared forward
+  tables, interrupted bootstrap/teardown/seeds and exact schema drift checks.
+  `TEST_SESSION_DB_PORTS=23436,23437 TEST_BASELINE_MUD_SOURCE=<same pinned source>
+  pnpm --dir backend test --runInBand src/db/__tests__/webSessionCutover.test.ts`
+  passes **3 / 1**: full owner schema, actual lost-DDL acknowledgement recovery,
+  empty rollback, HTTP access/refresh expiry and binding across three app zones,
+  three database offsets and DST-adjacent epochs on both engines. These two
+  dedicated servers' global time zones are restored by the qualified fixture.
+  `TEST_BACKUP_DB_PORTS=23436,23437 TEST_LIFECYCLE_METADATA_DB_PORTS=23436,23437
+  node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-archive-suite.mts 23436` runs the full backend suite after
+  explicit v2-before-bootstrap setup: **1,323 pass / 135 suites**, **53 optional
+  native skips / 4 entire suites** (14 image, 10 privacy, 8 hold, 9 preview,
+  12 SQL executor). The v2 metadata/real CLI selector/authority cases run on both
+  engines inside that full suite; the 18 new schema-native cases use the separate
+  explicit opt-in above. Archive qualification on MariaDB via
+  `/tmp/durisweb-run-archive-suite.mts 23437 archive-only` passes **35 / 4**;
+  MySQL's same matrix is included in the full suite.
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-execution-suite.mts <23436|23437> execution-only` passes
+  **15 / 2 per engine**. The equivalent
+  `/tmp/durisweb-run-hold-suite.mts <23436|23437> holds-only` passes **16 / 2
+  per engine**, run sequentially for their shared qualification cache. Each
+  runner passes pre/post configuration/dependency checks and unchanged owner
+  fingerprints (`403c2a9941ce5746491919b2cc8cd91bed55b959adc681a66f0fceef04b90d23`
+  MySQL; `995f0c9f1a726dc25e3ce1104627ebff02e0414e7d2e48595f94de7ce3b0e8e2`
+  MariaDB). Final evidence lives under `/tmp/durisweb-schema-authority-`: red,
+  focused-final, baseline-final, session-final, full, archive-maria,
+  execution-{mysql,maria}, hold-{mysql,maria} and gates-final `.log` files.
+- **Qualification repairs and limits:** the first fixed-list prototype failed
+  legitimate new-table composition; canonical bound metadata queries preserve
+  that existing acceptance instead of weakening it. A fixture startup exceeded
+  the old 30-second hook while multiple fresh full schemas were being built.
+  Setup now has a bounded 90-second budget, unique per-process names, and cleanup
+  joins setup before reading ownership flags or closing connections. The one
+  leftover evidence database was inspected (only the expected empty capture
+  table, no active connections) and removed; old principals were checked without
+  reading credential hashes. Evidence is `/tmp/durisweb-schema-fixture-cleanup.log`.
+  The hold test's repeated offline whole-schema up/down/recovery cycle receives
+  a 120-second test budget; production query/worker/work limits stay unchanged.
+  All final cases pass. A format check raced a formatter during an initial
+  parallel qualification; subsequent formatting/gates are sequential and pass.
+  Temporary diagnostic wrappers/probes/cleanup scripts were removed. Preserve
+  required public tests, private actual runners and logs, not abandoned generators.
+  `python3 /tmp/durisweb-image-quality.py backend` passes final
+  `pnpm --dir backend format:check`, `lint`, `type-check`, `verify:mud-writes`
+  (**53 classified**), `schema:check` (**77 tables / 85 historical sources**) and
+  `build`, after the last fixture-only edits. `./scripts/check-config-literals.sh`,
+  `python3 /tmp/durisweb-check-privacy-doc.py` and `git diff HEAD --check` pass.
+  Frontend/browser, provider, physical-device, image/privacy/preview native
+  matrices and live acceptance were not rerun for this backend prerequisite.
+  Immutable baseline/migration bytes and source approval flags are unchanged.
+  No shared environment, real logout, real backup/MUD/provider operation, merge
+  or release tag is authorized or performed. No separate live changelog entry
+  is published for this unshipped internal prerequisite; include its setup/safety
+  changes in the planned security/privacy release after live acceptance.
+- **Next after publication:** continue P6d2b2's durable uploaded-archive and
+  dump/staging workspace admission/recovery with truthful cancellation,
+  validation/failure/expiry cleanup. Update any older private fixture runner to
+  install v2 before bootstrap and grant its existing SQL principal EXECUTE before
+  restricted migrations, as the current archive/hold/execution/preview runners do.
+  Preserve independent current evidence/offline replay, remaining class handlers,
+  own-ledger periods and all P7 requirements. Engineering is still available;
+  no owner question is currently necessary.
 - **P6 metadata visibility prerequisite (2026-10-17, qualified and published as #58):** an actual
   external-schema `ON DELETE CASCADE` fixture was invisible to the website
   account's `KEY_COLUMN_USAGE` query; managed archive deletion incorrectly
