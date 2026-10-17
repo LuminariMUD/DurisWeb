@@ -1,4 +1,6 @@
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 import { Router, Request, Response, type IRouter } from 'express';
+import { randomUUID } from 'node:crypto';
 import { pool as db } from '../db/connection.js';
 import type { RowDataPacket } from 'mysql2';
 import logger, { getErrorMessage, isErrorWithCode } from '../utils/logger.js';
@@ -97,6 +99,10 @@ import { broadcastForumPost } from '../index.js';
 import {
   uploadPostImage,
   deletePostImage,
+  clearOrphanImagesForAccount,
+  getPendingImageRemovalCount,
+  PostImageDeletionError,
+  PostImageAttachmentError,
   validatePostImage,
   canUploadMoreImages,
   getOrphanImageCount,
@@ -619,6 +625,7 @@ router.post(
       .withMessage('Content must be 10-50000 characters'),
   ],
   async (req: Request, res: Response) => {
+    let stage = 'authorization';
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -672,6 +679,7 @@ router.post(
       // Extract client IP address
       const ipAddress = extractClientIP(req);
 
+      stage = 'publication';
       // Create thread
       const threadId = await createThread(
         categoryId,
@@ -683,6 +691,7 @@ router.post(
         req.user.permissions,
       );
 
+      stage = 'subscription';
       // Auto-subscribe to own thread
       await subscribeToThread(req.user.accountName, threadId, 'all');
 
@@ -692,8 +701,11 @@ router.post(
         message: 'Thread created successfully',
       });
     } catch (error) {
-      logger.error('Create thread error:', error);
-      return res.status(500).json({ error: 'Failed to create thread' });
+      if (error instanceof PostImageAttachmentError)
+        return res.status(409).json({ error: error.message });
+      const reference = randomUUID();
+      logger.error('Create thread failed', { reference, stage, code: safeFailureCode(error) });
+      return res.status(500).json({ error: 'Failed to create thread', reference });
     }
   },
 );
@@ -720,6 +732,7 @@ router.patch(
       .withMessage('Content must be 10-50000 characters'),
   ],
   async (req: Request, res: Response) => {
+    let stage = 'authorization';
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -751,11 +764,13 @@ router.patch(
         return res.status(403).json({ error: 'You can only edit your own threads' });
       }
 
+      stage = 'publication';
       // Update thread
       const success = await updateThread(
         threadId,
         title || thread.title,
         content || thread.content,
+        req.user.accountName,
       );
 
       if (!success) {
@@ -764,8 +779,11 @@ router.patch(
 
       return res.json({ success: true, message: 'Thread updated successfully' });
     } catch (error) {
-      logger.error('Update thread error:', error);
-      return res.status(500).json({ error: 'Failed to update thread' });
+      if (error instanceof PostImageAttachmentError)
+        return res.status(409).json({ error: error.message });
+      const reference = randomUUID();
+      logger.error('Update thread failed', { reference, stage, code: safeFailureCode(error) });
+      return res.status(500).json({ error: 'Failed to update thread', reference });
     }
   },
 );
@@ -930,6 +948,7 @@ router.post(
     body('parentPostId').optional().isInt().withMessage('Parent post ID must be an integer'),
   ],
   async (req: Request, res: Response) => {
+    let stage = 'authorization';
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -998,6 +1017,7 @@ router.post(
       // Extract client IP address
       const ipAddress = extractClientIP(req);
 
+      stage = 'publication';
       // Create post
       const postId = await createPost(
         threadId,
@@ -1011,6 +1031,7 @@ router.post(
 
       // Notifications are now handled automatically within createPost
 
+      stage = 'read_result';
       // Fetch the full post to return to frontend
       const post = await getPostById(postId, req.user.accountName, req.user.permissions);
 
@@ -1026,8 +1047,11 @@ router.post(
         message: 'Post created successfully',
       });
     } catch (error) {
-      logger.error('Create post error:', error);
-      return res.status(500).json({ error: 'Failed to create post' });
+      if (error instanceof PostImageAttachmentError)
+        return res.status(409).json({ error: error.message });
+      const reference = randomUUID();
+      logger.error('Create post failed', { reference, stage, code: safeFailureCode(error) });
+      return res.status(500).json({ error: 'Failed to create post', reference });
     }
   },
 );
@@ -1048,6 +1072,7 @@ router.patch(
       .withMessage('Content must be 1-50000 characters'),
   ],
   async (req: Request, res: Response) => {
+    let stage = 'authorization';
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -1081,7 +1106,8 @@ router.patch(
         });
       }
 
-      const success = await updatePost(postId, content);
+      stage = 'publication';
+      const success = await updatePost(postId, content, req.user.accountName);
 
       if (!success) {
         return res.status(500).json({ error: 'Failed to update post' });
@@ -1089,8 +1115,11 @@ router.patch(
 
       return res.json({ success: true, message: 'Post updated successfully' });
     } catch (error) {
-      logger.error('Update post error:', error);
-      return res.status(500).json({ error: 'Failed to update post' });
+      if (error instanceof PostImageAttachmentError)
+        return res.status(409).json({ error: error.message });
+      const reference = randomUUID();
+      logger.error('Update post failed', { reference, stage, code: safeFailureCode(error) });
+      return res.status(500).json({ error: 'Failed to update post', reference });
     }
   },
 );
@@ -3194,14 +3223,16 @@ router.get('/images/status', requireAuth, async (req: Request, res: Response) =>
   try {
     const accountName = req.user!.accountName;
     const orphanCount = await getOrphanImageCount(accountName);
+    const pendingRemovals = await getPendingImageRemovalCount(accountName);
 
     return res.json({
       pendingImages: orphanCount,
+      pendingRemovals,
       maxImages: MAX_IMAGES_PER_POST,
       canUpload: orphanCount < MAX_IMAGES_PER_POST,
     });
-  } catch (error) {
-    logger.error('Get image status error:', error);
+  } catch {
+    logger.warn('post_image_status_unavailable', { reference: randomUUID() });
     return res.status(500).json({ error: 'Failed to get image status' });
   }
 });
@@ -3215,13 +3246,13 @@ router.get('/images/orphans', requireAuth, async (req: Request, res: Response) =
     const accountName = req.user!.accountName;
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT id, image_url, created_at FROM forum_post_images
-       WHERE account_name = ? AND is_orphan = TRUE
+       WHERE account_name = ? AND (is_orphan = TRUE OR removal_requested_at_epoch IS NOT NULL)
        ORDER BY created_at DESC`,
       [accountName],
     );
     return res.json({ orphans: rows });
-  } catch (error) {
-    logger.error('Get orphan images error:', error);
+  } catch {
+    logger.warn('post_image_list_unavailable', { reference: randomUUID() });
     return res.status(500).json({ error: 'Failed to get orphan images' });
   }
 });
@@ -3234,28 +3265,17 @@ router.delete('/images/orphans', requireAuth, async (req: Request, res: Response
   try {
     const accountName = req.user!.accountName;
 
-    // Get orphan images to delete
-    const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT id, image_url FROM forum_post_images
-       WHERE account_name = ? AND is_orphan = TRUE`,
-      [accountName],
-    );
-
-    // Delete each one (handles R2 + database)
-    let deleted = 0;
-    for (const row of rows) {
-      try {
-        await deletePostImage(row.id, accountName);
-        deleted++;
-      } catch (err) {
-        logger.error(`Failed to delete orphan image ${row.id}:`, err);
-      }
-    }
-
-    return res.json({ deleted });
+    return res.json(await clearOrphanImagesForAccount(accountName));
   } catch (error) {
-    logger.error('Clear orphan images error:', error);
-    return res.status(500).json({ error: 'Failed to clear orphan images' });
+    const reference = error instanceof PostImageDeletionError ? error.reference : randomUUID();
+    logger.warn('post_image_batch_removal_incomplete', { reference });
+    return res.status(503).json({
+      error:
+        error instanceof PostImageDeletionError
+          ? error.message
+          : 'Image removal is temporarily unavailable',
+      reference,
+    });
   }
 });
 
@@ -3287,8 +3307,11 @@ router.delete(
 
       return res.json({ success: true });
     } catch (error) {
-      logger.error('Delete post image error:', error);
-      return res.status(500).json({ error: 'Failed to delete image' });
+      const reference = error instanceof PostImageDeletionError ? error.reference : randomUUID();
+      logger.warn('post_image_removal_incomplete', { reference });
+      if (error instanceof PostImageDeletionError)
+        return res.status(503).json({ error: error.message, reference });
+      return res.status(503).json({ error: 'Image removal is temporarily unavailable', reference });
     }
   },
 );

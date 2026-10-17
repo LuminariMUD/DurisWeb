@@ -6,7 +6,11 @@ import { webBaselineDirectory } from '../db/webBaselineBundle.js';
 export function runFixtureWebMigrations(
   port: number,
   database: string,
-  options: { direction?: 'up' | 'down'; name?: string; loseDdlAcknowledgement?: boolean } = {},
+  options: {
+    direction?: 'up' | 'down';
+    name?: string;
+    loseDdlAcknowledgement?: boolean | 'image';
+  } = {},
 ): void {
   if (
     !Number.isInteger(port) ||
@@ -24,17 +28,18 @@ export function runFixtureWebMigrations(
     const {WebMigrationSource}=await import(pathToFileURL(root+'/src/db/webMigrationSource.ts').href);
     const connection={host:'127.0.0.1',port:Number(port),database,user:'root',password:''};
     const knex=require('knex')({client:'mysql2',connection,pool:{min:0,max:1},migrations:{migrationSource:new WebMigrationSource(connection)},log:{warn:()=>{},error:()=>{}}});
-    if(interrupted==='true'){
+    const interruption=interrupted==='image'?'synthetic_after_image_ddl':'synthetic_after_audit_ddl';
+    if(interrupted!=='false'){
       const query=knex.client.query.bind(knex.client);let injected=false;
       knex.client.query=async(connection,request)=>{
         const result=await query(connection,request);
-        if(!injected&&request.sql.startsWith('ALTER TABLE admin_action_log')){injected=true;throw new Error('synthetic_after_audit_ddl');}
+        if(!injected&&request.sql.startsWith(interrupted==='image'?'ALTER TABLE forum_post_images':'ALTER TABLE admin_action_log')){injected=true;throw new Error(interruption);}
         return result;
       };
     }
     try{
-      try{if(direction==='latest')await knex.migrate.latest();else await knex.migrate[direction]({name});if(interrupted==='true')throw new Error('DDL interruption was not exercised');}
-      catch(error){if(interrupted!=='true'||!error.message.includes('synthetic_after_audit_ddl'))throw error;}
+      try{if(direction==='latest')await knex.migrate.latest();else await knex.migrate[direction]({name});if(interrupted!=='false')throw new Error('DDL interruption was not exercised');}
+      catch(error){if(interrupted==='false'||!error.message.includes(interruption))throw error;}
       console.log('Current fixture migrations completed.');
     }
     finally{await knex.destroy();}

@@ -3,6 +3,7 @@ import { verifiedWebBaselineCoverage } from '../db/webBaseline.js';
 import { loadSchemaPostconditions } from '../db/schemaPostconditions.js';
 import { loadSessionSchemaContract } from '../db/webSessionSchema.js';
 import { loadHookAuditContract } from '../db/hookAuditSchema.js';
+import { loadPostImageRemovalContract } from '../db/postImageRemovalSchema.js';
 import { loadWebBaselineBundle, verifyWebBaselineSources } from '../db/webBaselineBundle.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -158,6 +159,7 @@ export function loadPreflightConfiguration(): PreflightConfiguration {
     loadSchemaPostconditions();
     loadSessionSchemaContract();
     loadHookAuditContract();
+    loadPostImageRemovalContract();
   } catch {
     throw new ConfigurationError(['versioned website baseline inputs failed verification']);
   }

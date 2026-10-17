@@ -2,6 +2,10 @@
 
 ## Current review continuation — 2026-10-17
 
+Latest: #49 follow-up `64d30b7` is pushed and all four new threads are verified
+resolved. Fifteen findings remain from the refreshed queue. Active branch #50
+contains that parent repair; its two batch-removal findings are being qualified.
+
 The active work is oldest-first PR review repair. The complete project/branch
 inventory, unfinished P0–P8 scope and recovery priorities are preserved in the
 [cumulative handoff](https://github.com/LuminariMUD/DurisWeb/blob/562d1210b96de09f8003c6663c05291749c6e6a2/docs/ongoing-projects/plan.md).
@@ -50,6 +54,35 @@ and whitespace guards pass. No backend/native/provider/live test rerun is
 needed or claimed. Future privacy-release wording may include accurate visit
 counts and a single privacy controls group; live news stays unpublished.
 
+**#50 follow-up outcome:** preserve committed removal results even if the final
+pending-count lookup fails: return the known counts/URLs with `remaining: null`
+and a safe diagnostic reference. The client validates that explicit partial
+shape, drops only unavailable previews and keeps retry feedback visible.
+Whole-request batch errors and single-image errors share their service/route/
+response reference. Files: existing image service, forum route, API parser,
+carousel, their tests, API guide and plan. Ablation reuses the current partial
+result instead of adding an error-response parser or a new operation framework.
+Two native/API regressions and two frontend regressions failed before repair;
+13 focused frontend checks now pass, including invalid partial acknowledgements.
+Required two-engine and package verification is in progress; do not claim it
+completed until the result below is recorded.
+
+**#50 final follow-up proof:** `node --import
+./backend/node_modules/tsx/dist/loader.mjs /tmp/durisweb-review-image-suite.mts
+23436 image-only` and the same invocation with `23437` each pass 34 tests /
+two suites, including actual deletion, API response and log-reference checks.
+Owned fixture preflights/fingerprints match and cleanup completed. Both modes of
+`python3 /tmp/durisweb-image-quality.py backend|frontend` pass required gates
+and builds; the full frontend suite passes 300 tests / 57 files. The 13 focused
+frontend cases include mounted carousel feedback and selective preview removal.
+`git diff --check` and config-literal checks pass. Logs: `pr50-new-*` in the
+private review directory. No full backend suite, fresh visual-layout, live
+provider or production test is claimed; the existing rendered warning is reused.
+Future forum-release wording: “Image cleanup keeps confirmed removals out of
+your draft even if checking the remaining images fails, and offers retry.”
+Publish this source, close the two threads, then carry parents through #51–#61
+before #62; preserve #55's independently published UI fix.
+
 ## Historical implementation checkpoint
 
 Status: **implementation in progress**. Updated 2026-10-17.
@@ -57,8 +90,10 @@ Status: **implementation in progress**. Updated 2026-10-17.
 Current checkpoint: engineering through P4, the UTC correction, first P5
 collection closure and browser storage-denial repair are published for review
 (#39, #41–#49). The browser choice state machine and draft notice are qualified
-and published for review. Active continuation branch: `branch/privacy-browser-choices`.
-Next: P6/P7 engineering and unresolved policy/provider decisions. P5's approved
+and published for review. The image-removal recovery prerequisite is qualified
+and published as [PR #50](https://github.com/LuminariMUD/DurisWeb/pull/50) on
+`branch/post-image-deletion-recovery`, stacked on #49. Next: P6/P7 engineering
+and unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
 
@@ -1219,6 +1254,122 @@ outside this request. Keep this single evolving execution plan current.
   P5 public/provider/period approval and P8 live release remain open; do not
   mistake isolated synthetic acceptance for those approvals.
 
+- **Image-removal recovery prerequisite:** `branch/post-image-deletion-recovery`
+  starts at #49 `7f07bc9`. **Outcome:** confirmed origin-object deletion precedes
+  removal of its retry row; disabled/failing/unacknowledged storage keeps that
+  row, durable deletion intent prevents reuse after uncertain provider outcomes,
+  and batch counts/UI report only confirmed removals. **Non-goals:** general P6/P7
+  jobs, approved retention periods, a new queue/table/service, upload-format or
+  content-policy changes, provider/CDN-wide erasure, or live operations. **Files:**
+  one nullable removal-intent column/index with reversible guarded migration/contract,
+  image deletion/linking and atomic forum publication, HTTP handlers, bulk consumer,
+  focused native/HTTP/component tests, API/lifecycle docs and this plan.
+  **Proof:** pre-fix provider failure/disabled regressions; real MySQL/MariaDB
+  retry/rollback/concurrent-link cases with a fake provider; partial batch/route/
+  UI counts and safe diagnostics; bounded cleanup/timeout behavior; both packages'
+  required gates and a focused stacked PR. No actual provider is contacted.
+- **Image ablation:** reuse `forum_post_images` as the durable retry reference
+  and the existing hourly job. A new worker/table/state framework is unnecessary.
+  One removal helper serves the API and cleanup, commits intent before the
+  provider request and deletes metadata only after its documented acknowledgement.
+  A connection-scoped lease prevents duplicate workers without holding a database
+  transaction across the network. Link/delete decisions use the same image row
+  lock; publishers link in their own transaction before committing content. Bounded
+  batches and an in-process cursor prevent retained failures from causing an
+  unbounded cleanup loop or permanently hiding later eligible rows; this is not
+  the future general retention engine. Keep the existing one-hour orphan age.
+  Bulk replies distinguish confirmed deletions from unconfirmed attempts; the
+  present carousel consumer must show that partial result and refresh its count.
+- **Evidence-driven scope correction:** the initial lock-only repair passed
+  disabled/failure acknowledgement cases, but cannot prevent reuse after a
+  timed-out external request or process crash. The current publisher also links
+  images after commit without awaiting the result; edits never link new images.
+  Both are concrete paths to cleanup deleting published media. Use the explicit
+  nullable `removal_requested_at_epoch` field, not an overloaded boolean/timestamp
+  or a generic task framework. Pending images remain unattachable until deletion
+  is confirmed. Create/edit publication must atomically validate/link managed
+  images, roll back on pending-removal conflicts, and keep other notification
+  work outside the transaction. Untracked external image URLs retain their
+  existing content semantics. The bulk UI drops only confirmed/unavailable
+  managed previews while retaining the durable retry record for failed removal.
+  Claiming intent also clears `is_orphan`, so older link/cleanup predicates cannot
+  adopt or discard the pending row. New status/cleanup paths explicitly include
+  marked rows; unmarked old non-orphans remain excluded. Already completed URL
+  removal does not add a new existence guarantee for arbitrary external HTML.
+- **Image source qualification:** the pre-fix regression run failed 12 cases,
+  demonstrating discarded retry references, unconfirmed provider results and
+  false cleanup counts. The final real-database fixtures pass on MySQL 8.0.46
+  and MariaDB 11.8.9: 14 native transaction/HTTP/migration cases plus 13 narrow
+  deletion/parser cases. They cover disabled/failing/timeout/uncertain storage,
+  failure after provider acknowledgement, retry after process restart, all four
+  atomic create/edit paths, concurrent publisher/remover ordering, connection
+  lease refusal/release, partial bulk/status/CSRF/409 behavior, bounded fair
+  cleanup and guarded down/exact lost-DDL-ack recovery. Both final dependency
+  preflights accept 90 migrations; all 198 copied owner tables retain their
+  original fingerprints. No provider is contacted.
+  HTTP cases mount the real forum router and CSRF middleware with a typed
+  synthetic authenticated identity; unchanged JWT/session authentication is
+  covered by P3 and the full suite, not re-created by this image fixture.
+- **Image exact verification commands:** with the dedicated synthetic fixture,
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-image-suite.mts 23436` provisions the full published owner
+  schema, website baseline and forwards, runs configuration/dependency preflight
+  and `pnpm --dir backend test --runInBand`, then rechecks readiness/ownership
+  and removes only its own database/user. **1,234 tests / 123 suites pass**;
+  ten unchanged P5 receipt native cases are deliberately not repeated (their
+  two-engine proof is recorded above), and no shared/live database is used.
+  The same runner with `23437 image-only` runs
+  `pnpm --dir backend test --runInBand
+  src/services/__tests__/postImageDeletion.test.ts
+  src/services/__tests__/postImageRemovalNative.test.ts`: **27 tests / 2 suites
+  pass**. Logs: `/tmp/durisweb-image-full-mysql.log` and
+  `/tmp/durisweb-image-removal-maria.log`.
+- **Image package/browser gates:** both packages' `format:check`, `lint`,
+  `type-check` and `build` pass; backend `verify:mud-writes` (53 classified
+  writes), `schema:check`, frontend `config:check`, palette guard, configuration
+  literal guard and `git diff --check` pass. The new migration additionally
+  passes `pnpm --dir backend exec tsc --ignoreConfig --noEmit --strict
+  --skipLibCheck --target ES2022 --module NodeNext --moduleResolution NodeNext
+  --esModuleInterop migrations/20261017003000_post_image_removal_intent.ts`.
+  `pnpm --dir frontend test:unit --run` passes **283 tests / 57 files**, including
+  three mounted editor and six API-result cases. Installed Playwright Chromium
+  (browser plugin unavailable) renders the real Tiptap carousel: four checks
+  pass at 1440px/390px for partial retry, successful retry and whole-request
+  failure, safe feedback, preserved linked previews and no horizontal overflow
+  or page errors. Screenshots were inspected; the temporary harness was removed.
+  Logs/runners remain outside the checkout at `/tmp/durisweb-image-*`.
+  Initial frontend config/dev checks correctly refused absent local settings;
+  explicit loopback fixture settings fixed the harness. Standalone TS6 needed
+  `--ignoreConfig`; its corrected check passed. An initial Maria fixture run
+  found accidentally nested test declarations; the declarations were repaired
+  and all 27 cases rerun successfully. No application gate was bypassed.
+- **Image lifecycle/news boundary:** permanent API, schema/recovery, deployment,
+  development and exact 77-table lifecycle inventory now describe the intent
+  and partial acknowledgement. Future verified-live Website Changelog draft:
+  **Image removal retries are clearer** — “Image removals that cannot finish
+  remain available to retry. The forum editor now shows pending removals and
+  keeps drafts from reusing images already awaiting removal.” Reconcile and
+  publish only after authorized live acceptance. No CDN/backup-wide erasure,
+  approved retention, general P6/P7 completion, merge, tag or release is claimed.
+- **Published image recovery:** [PR #50](https://github.com/LuminariMUD/DurisWeb/pull/50),
+  open/non-draft, code head `2596039cea900a6de83e58f05fc6402dd6ca0818`,
+  stacked on #49 `7f07bc9`. The code push was read back: local/remote/API head
+  matched, ahead/behind `0 0`, and the worktree was clean. The follow-up plan
+  closeout is documentation only. Latest fetched master remains `8946860`;
+  #49 is unchanged and open. Keep this PR ready for review; do not merge,
+  tag, deploy or use shared databases. The existing named P3 recovery stash
+  and unrelated original-checkout work remain preserved.
+- **Next continuation after #50:** continue in the isolated worktree
+  `/tmp/durisweb-security-privacy-plan-20261016` from the published image branch.
+  Re-read P6/P7 and the permanent lifecycle inventory, choose a bounded next
+  engineering chunk with ablation and start a dependent branch. P6 default
+  dry-run, explicit policy/target, holds and protected restore handling remain
+  unimplemented. Do not invent approved periods or allow destructive execution
+  for unapproved classes. Image recovery supplies a prerequisite only; owner
+  policy/provider/period decisions, complete P5 acceptance and all P8 live
+  release steps remain open. Ask only when a necessary consequential decision
+  actually blocks further independent work.
+
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
 [design](../DESIGN.md). Preserve existing safety gates and the MUD's schema and
@@ -1913,7 +2064,7 @@ Other PRs without findings still need inherited fixes carried forward.
 | #46 | 1: enable notifications after a first permission grant with blocked storage | Fixed; 7 focused and 253 full frontend tests pass |
 | #48 | 3: stale GET cookie clearing, actionable safe diagnostics, native fixture port binding | Fixed; 39 native cases pass on each database engine |
 | #49 | 3: pending refusal, temporary visibility changes, compact confirmation/focus | Fixed; 30 focused, 285 full frontend tests and rendered checks pass |
-| #50 | 2: safe forum failure context, shared pool starvation during R2 deletion | Pending |
+| #50 | 2: safe forum failure context, shared pool starvation during R2 deletion | Fixed; 32 image/API cases per engine and both package gates pass |
 | #54 | 1: DST-ambiguous retention cutoff comparisons | Pending |
 | #55 | 1: unavailable restore controls still offered by the UI | Pending |
 | #62 | 3: account-bound backup cache, cancellation file identity, failed-upload bulk cleanup | Pending |
@@ -2028,3 +2179,47 @@ or live collection acceptance. Policy flags remain false. Private proof:
 `pr49-{red,focused-closeout,quality-final,browser-closeout,passive-focus-red}.log`.
 Future privacy-release wording includes stable choices and accessible
 confirmation; no live changelog publication occurs during this review repair.
+
+**#49 publication:** `39319e5` is pushed and its three threads have evidence
+replies and verified resolved state. #50 contains the fixes through its parent
+merge. Seven of the initial 24 findings are closed at that checkpoint.
+
+**#50 outcome:** R2 removal retains its cross-process advisory lease on a
+dedicated database connection, capped at two operations per process. It no
+longer occupies the ten-slot application pool during provider waits. Existing
+intent, attachment guards, provider acknowledgement, retry and lock-release
+semantics are preserved. The four forum create/update failure paths now record
+a safe stage/allowlisted code and return the matching reference. Files: image
+service/tests, forum routes and lifecycle/plan documentation. Ablation reuses
+the #48 safe-code selector and existing database/R2 contracts; no queue, pool
+registry, migration or new configuration setting is introduced.
+
+**#50 proof:** five pre-fix native failures reproduce the pool dependency and
+missing reference/context on all four write routes. The new concurrency case
+occupies all ten application-pool connections, proves two removals still reach
+the held provider, rejects a third, then verifies lock release and retry.
+`node --import ./backend/node_modules/tsx/dist/loader.mjs
+/tmp/durisweb-review-image-suite.mts 23436 image-only` and the same with `23437`
+each pass 32 tests / two suites (14 image unit cases and 18 native/API cases).
+Full-owner schema/bootstrap/migrations, session/configuration/dependency probes
+and before/after owner fingerprints pass on both engines. The private runner
+owns empty Redis DBs 13/14 and removes its SQL database/user/cache afterward.
+`pnpm --dir backend test --runInBand
+src/services/__tests__/postImageDeletion.test.ts
+src/utils/__tests__/safeFailureCode.test.ts` passes 17 tests.
+`python3 /tmp/durisweb-image-quality.py backend` and the frontend equivalent
+pass all required format/lint/types/build gates, MUD-write/schema checks and
+frontend configuration/palette/full tests (294 / 57 files). Configuration
+literal and whitespace checks pass. No broad backend rerun or new browser
+layout/provider acceptance is claimed; actual HTTP image/forum outcomes are
+covered by the native suite and frontend response tests.
+
+The image native guard had the same missing pool-port binding as #48. It now
+checks typed host/port/database against the opt-in. A mismatched
+`TEST_IMAGE_DB_PORT=23436 DB_PORT=23437` test import that previously succeeded
+now refuses before executing any tests. Fault injection covers pooled and
+dedicated connections so existing deletion/publication race tests remain real.
+Evidence: `pr50-{red,unit,mysql,maria,backend-quality,frontend-quality,
+port-before,port-after}.log`. Future forum-release wording can mention that
+slow image removal does not occupy the website query pool; no live operation
+or Website Changelog publication is performed in this review task.

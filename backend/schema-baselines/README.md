@@ -353,3 +353,47 @@ Acknowledgement retains the receipt. P6 owns approved delivered retention and
 subject-request holds; pending/invalid events must never be deleted by age or
 queue size. Only new hook audit rows have explicit UTC event timestamps; do not
 reinterpret older naive audit timestamps or change pooled timezones.
+
+## Forum image removal
+
+`20261017003000_post_image_removal_intent.ts` adds nullable
+`removal_requested_at_epoch BIGINT UNSIGNED` and an intent/ID index to the
+website-owned `forum_post_images`. Apply it with website writers stopped,
+after the ordinary backup and isolated forward rehearsal, before starting the
+new image API, forum writers or hourly cleanup. The immutable baseline stays
+unchanged. Production preflight requires this forward contract.
+
+Removal commits the database clock's intent and clears `is_orphan` before
+contacting object storage. Post/thread references remain null. Pending rows
+cannot be adopted by a draft, including after a process restart or provider
+timeout. Forum create/edit paths claim uploads in their content transaction.
+A connection-scoped per-image lease prevents duplicate provider requests
+without holding a SQL transaction across the network. The existing row holds
+the account, object key/URL and intent needed for retry; no new queue is used.
+
+The API and hourly job remove the row only after the S3
+[DeleteObject 204 acknowledgement](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html#API_DeleteObject_ResponseSyntax)
+and a committed metadata deletion. Delete-marker/version responses stay
+pending. Disabled storage, provider failure, five-second request timeout,
+unconfirmed response or a database failure retains recovery state. Restoring
+storage permits retry through the existing clear action or hourly job; never
+clear the intent or mark a row reusable to resolve a backlog. If the provider
+succeeded before a database failure, the same unversioned key can be deleted
+again. Diagnostics expose a fixed category and local reference, not provider
+or SQL payloads.
+
+Each cleanup scans at most 100 eligible rows, stops starting additional
+deletions after a two-second monotonic budget, and bounds individual SQL and
+provider requests at five seconds. A cursor advances past failures and wraps;
+overlapping runs in the same process share one batch. New orphans keep the
+existing one-hour age requirement; explicit pending removals retry regardless
+of age. The budget is soft: an in-flight operation may finish after it.
+
+Down is reversible only while every intent is null. It refuses pending or
+uncertain work instead of discarding the retry record. The migration source
+can recover only the exact adjacent before/after schema if nontransactional
+DDL committed without a ledger acknowledgement; normal preflight still
+requires the recorded forward shape. Unknown drift requires reviewed repair.
+Source tests use a fake provider and real isolated MySQL/MariaDB; they do not
+prove live provider deletion, CDN invalidation, backup deletion or the future
+general retention/erasure workflow.

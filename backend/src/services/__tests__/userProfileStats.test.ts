@@ -23,6 +23,7 @@ jest.unstable_mockModule('../../utils/contentParser.js', () => ({
 }));
 jest.unstable_mockModule('../postImageService.js', () => ({
   extractImageUrls: jest.fn(),
+  extractForumImageSources: jest.fn(),
   linkImagesToPost: jest.fn(),
   linkImagesToThread: jest.fn(),
 }));

@@ -69,6 +69,41 @@ within the current thread; ordinary pagination still uses the requested page.
 Some route modules contain both public and protected handlers. Do not infer
 authorization from the prefix alone; inspect the handler middleware and tests.
 
+## Forum image removal
+
+All image status/list/removal routes require login. State changes retain the
+ordinary same-origin CSRF check. `GET /api/forum/images/status` reports
+`pendingImages` (unattached uploads plus requested removals), `pendingRemovals`,
+`maxImages` and `canUpload`. Requested removals still count against the upload
+limit until their origin-object deletion is confirmed.
+
+`DELETE /api/forum/images/orphans` returns `{ deleted, failed, remaining,
+unavailableImageUrls }`. `deleted` counts acknowledged origin removals whose
+metadata removal committed; `failed` counts attempted removals that could not
+be confirmed. `remaining` is the current pending count, including work beyond
+this bounded batch. It can exceed `failed`. `unavailableImageUrls` contains at
+most 100 owned uploads durably marked unavailable by this request, including
+unconfirmed removals; the editor drops those previews and preserves other
+images. A 200 reply can represent partial progress. If the final count query
+fails after committed work, `remaining` is `null` and `reference` matches the
+safe diagnostic; confirmed counts and unavailable URLs are retained. The editor
+still drops those previews and keeps retry feedback visible until the remaining
+work can be checked. A whole-request failure is 503 with a matching diagnostic
+`reference` and must not be displayed as successful clearing.
+
+`DELETE /api/forum/images/:id` returns success only for a confirmed owned,
+unattached origin removal. Missing, foreign or already attached rows return 404;
+storage failure, timeout, uncertain acknowledgement or a concurrent removal
+returns 503 with a fixed retry message and matching diagnostic `reference`.
+The database retains retry identity.
+These acknowledgements do not certify removal from CDN caches or backups.
+
+Thread/post create and edit link managed uploads before committing content.
+An owned image awaiting removal causes 409 and rolls back publication; remove
+that reference from the draft and retry. Existing external-image URL behavior
+is unchanged. See [migration and recovery](../../backend/schema-baselines/README.md#forum-image-removal)
+before deploying these writers.
+
 ## PvP pagination
 
 PvP event lists, advanced search, player/location autocomplete, and favorites

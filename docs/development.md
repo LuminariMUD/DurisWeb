@@ -124,6 +124,14 @@ They create and drop only `pvp_snapshot_test` and refuse ports 3306 and 3307.
 Leave the setting absent for a unit-only run; a full burn-in must provide the
 disposable instance and run these checks without skips.
 
+Image-removal integration tests use `TEST_IMAGE_DB_PORT`, loopback port 23436
+or 23437 and database `durisweb_qualification_image_suite`. Provision the full
+owner fixture plus the website baseline/forward migrations on that disposable
+target; the suite refuses a different database or port. It exercises real
+transactions, HTTP/CSRF, concurrent publication, retry and migration recovery
+with a fake object-storage provider. It never contacts R2. Leave the setting
+absent for a unit-only run; report skipped native coverage explicitly.
+
 Do not commit `.env` files, dumps, account data, generated deployment output,
 or backup archives. See [Configuration and Environments](environments.md) before
 adding any new setting.

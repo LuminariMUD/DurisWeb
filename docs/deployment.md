@@ -253,6 +253,14 @@ The historical down chain is not a production recovery mechanism. Never repair
 the shared ledger, replay pre-Knex SQL, or run a down migration merely to make a
 status command green.
 
+Image-removal releases must include the
+[intent migration and recovery contract](../backend/schema-baselines/README.md#forum-image-removal)
+before starting website writers. Keep pending image rows and their intent
+through recovery; an application rollback must not reopen those objects for
+reuse. The migration's guarded down deliberately refuses outstanding removal
+work. Provider acknowledgements cover origin objects only; assess caches and
+backups separately when verifying a real erasure request.
+
 MUD-owned tables are authoritative. A web migration must preserve their sealed
 column contract and must not add an incoming foreign key from a web extension
 table that changes the MUD's runtime fingerprint. A successful web migration is
