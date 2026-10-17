@@ -208,7 +208,12 @@ ordering, expiry and failures. A visit nonce exists only in page memory after
 confirmation and is cleared on withdrawal, expiry, account changes or teardown.
 Temporary hiding aborts optional work; returning revalidates the receipt and
 preserves an unchanged accepted visit without repeating its page view. A
-navigation made while hidden is recorded once on return. Pending refusals cannot
+navigation made while hidden is recorded once on return. Initial collection
+waits for session restoration. Checking an unchanged saved choice preserves the
+visit, and each visible navigation keeps its request alive across later route
+changes; withdrawal still aborts every pending request. The privacy route uses
+its router identity, including a trailing slash, to render one controls group.
+Pending refusals cannot
 be replaced by a second click, while pending acceptance remains withdrawable.
 Compact confirmations remain mounted after their own action, with deliberate
 confirmation focus that does not repeat on passive status refreshes. This does
