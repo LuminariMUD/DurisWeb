@@ -2,7 +2,52 @@
 
 ## Current handoff — read this first
 
-**Latest continuation — PR #62 access fixes, 2026-10-17:** currently working
+**Latest continuation — PR #62 generated inspection:** a valid 65 MiB
+mysqldump archive is refused by the old shared upload limit and accepted by the
+repaired generated path. The first standalone probe used a disallowed filename;
+it was discarded as evidence and rerun with an accepted filename against the
+original inspector and repaired source. The corrected red/green results are
+`pr62-large-{red,green-final}.log`.
+
+Generated inspection now streams past unrelated mysqldump data lines and keeps
+only the existing summary tables. It retains the validated inherited descriptor,
+selected-summary memory/result caps and child isolation. Only generated archives
+receive the 120/121-second child/parent budgets; uploads retain the 64 MiB total
+SQL and 15/16-second limits. No parser framework, temporary SQL file or new service
+was added. Actual `listBackupContents` returns the expected summary for the large
+generated archive on both engines, while uploading the same bytes remains retained
+and unconfirmed. Seven streaming tests cover chunk boundaries, UTF-8/escaping,
+a huge unrelated INSERT, selected-SQL bounds and incomplete definitions.
+
+Two-engine runs pass **136 tests / eight suites** each, including the native
+large-file case, existing upload/archive cases and backup parser regressions.
+An INSERT-recognition regex was falsely classified as a MUD write by the lexical
+scanner; it was replaced by explicit literal-prefix/next-character comparison,
+keeping the complete table prefix visible and leaving the verifier/allowlist
+unchanged. Final seven streaming tests, actual child large-file probe and backend
+format/lint/types/MUD-write/schema/build gates pass after that adjustment.
+The two-engine runs precede that equivalent recognition adjustment; no extra
+full native rerun is claimed. Logs: `pr62-large-{mysql,maria,unit-final,
+quality-final,green-final}.log`. Frontend is unchanged from the access repair's
+324-test/gates/build proof; no fresh browser, provider or production run.
+
+The access chunk is published as `8fbfb01` with closure record `c123f78`, and
+carried through #63 `32191a7`, #64 `42f3b22`, #65 `8316719` and #66 `dce5986`.
+All three access/duplicate threads are verified resolved. Current branch is #62.
+The inspection repair is published as `fecc543` and thread
+`PRRT_kwDOVA2-8c6tgzDk` has a verified reply/resolution. The ledger now contains
+**46 verified closeouts**, with **12 known unresolved threads** before a fresh
+scan: #62 (1), #63 (1), #64 (5), #65 (1), #66 (4). Carry this parent through
+#63–#66 next. #62's remaining finding is the cancellation validate/unlink race;
+a second stat, synchronous unlink or a file-content lease alone does not make
+pathname deletion conditional on the validated inode.
+
+Draft release note addition: “Generated backups remain inspectable when unrelated
+database tables make the SQL dump exceed the upload inspection limit.”
+
+### Earlier access repair and full inventory
+
+**Published access repair — PR #62, 2026-10-17:** currently working
 on `branch/backup-upload-records` in the same plan worktree. Its published starting
 head is `3b81636`; #66 now includes the earlier parent carry and full handoff as
 `eebbcf3`, with no pending merge. This checkpoint supersedes the inventory's
