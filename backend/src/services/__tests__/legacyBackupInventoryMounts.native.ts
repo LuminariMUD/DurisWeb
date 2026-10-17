@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { inventoryLegacyBackupCopies } from '../legacyBackupInventory.js';
+import {
+  inventoryLegacyBackupCopies,
+  writeLegacyBackupInventory,
+} from '../legacyBackupInventory.js';
 
 assert.equal(process.platform, 'linux');
 assert.equal(process.getuid?.(), 0);
@@ -60,7 +63,27 @@ try {
       copy.name,
     );
   assert.equal(fs.readFileSync(source, 'utf8'), 'outside synthetic bytes');
-  console.log('Passed five same-device bind boundaries and one ordinary-file control.');
+  for (const selected of [backup, upload]) {
+    const child = path.join(selected, 'private-child');
+    fs.mkdirSync(child, { mode: 0o700 });
+    for (const sourceRoot of [selected, child]) {
+      const alias = path.join(outside, 'output-alias-' + mounts.length);
+      fs.mkdirSync(alias, { mode: 0o700 });
+      bind(sourceRoot, alias);
+      assert.throws(
+        () =>
+          writeLegacyBackupInventory(path.join(alias, 'inventory.json'), result, [backup, upload]),
+        { reason: 'private_output_required' },
+      );
+      assert.equal(fs.existsSync(path.join(sourceRoot, 'inventory.json')), false);
+    }
+  }
+  const privateOutput = path.join(outside, 'inventory.json');
+  writeLegacyBackupInventory(privateOutput, result, [backup, upload]);
+  assert.deepEqual(JSON.parse(fs.readFileSync(privateOutput, 'utf8')), result);
+  console.log(
+    'Passed five same-device traversal boundaries, four output-root/descendant aliases and independent output control.',
+  );
 } finally {
   for (const target of mounts.reverse()) {
     within(target);

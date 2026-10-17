@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { performance } from 'node:perf_hooks';
 import { spawnSync } from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import {
@@ -161,6 +162,84 @@ describe('read-only legacy copy discovery', () => {
     expect(result.roots[0].copies[0].outcome).toBe('unsafe_shape');
     expect(fs.readFileSync(path.join(uploadRoot, 'private.sql'), 'utf8')).toBe('outside preserved');
   });
+  it.each([999, 1000])('completes a directory with exactly %i recognized copies', async (count) => {
+    for (let id = 1; id <= count; id++)
+      fs.writeFileSync(path.join(backupRoot, 'temp_' + id + '.sql'), 'synthetic');
+    const result = await inventoryLegacyBackupCopies(backupRoot);
+    expect(result.roots[0].scanComplete).toBe(true);
+    expect(result.roots[0].copies).toHaveLength(count);
+    expect(result.roots[0].stoppedBecause).toBeNull();
+  });
+  it('counts trailing non-copy entries without treating them as a 1,001st copy', async () => {
+    for (let id = 1; id <= 1000; id++)
+      fs.writeFileSync(path.join(backupRoot, 'temp_' + id + '.sql'), 'synthetic');
+    fs.writeFileSync(path.join(backupRoot, 'zz-other'), '');
+    const entries = fs
+      .readdirSync(backupRoot, { withFileTypes: true })
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const opendir = fs.opendirSync.bind(fs);
+    jest
+      .spyOn(fs, 'opendirSync')
+      .mockImplementation((...args: Parameters<typeof fs.opendirSync>) => {
+        const directory = opendir(...args);
+        jest.spyOn(directory, 'readSync').mockImplementation(() => entries.shift() ?? null);
+        return directory;
+      });
+    const result = await inventoryLegacyBackupCopies(backupRoot);
+    expect(result.roots[0].scanComplete).toBe(true);
+    expect(result.roots[0].copies).toHaveLength(1000);
+    expect(result.roots[0].otherEntries).toBe(1);
+  });
+  it('stops within staging traversal when individually slow metadata reads exhaust the budget', async () => {
+    staging();
+    let clock = 0;
+    jest.spyOn(performance, 'now').mockImplementation(() => clock);
+    const lstat = fs.lstatSync.bind(fs),
+      open = fs.openSync.bind(fs);
+    const lateOpens: string[] = [];
+    jest.spyOn(fs, 'lstatSync').mockImplementation((...args: Parameters<typeof fs.lstatSync>) => {
+      const result = lstat(...args);
+      if (String(args[0]).startsWith('/proc/self/fd/')) clock += 2500;
+      return result;
+    });
+    jest.spyOn(fs, 'openSync').mockImplementation((...args: Parameters<typeof fs.openSync>) => {
+      if (clock >= 5000) lateOpens.push(String(args[0]));
+      return open(...args);
+    });
+    const result = await inventoryLegacyBackupCopies(backupRoot);
+    expect(result.roots[0].scanComplete).toBe(false);
+    expect(result.roots[0].stoppedBecause).toBe('time_budget');
+    expect(lateOpens).toEqual([]);
+  });
+  it('stops root metadata discovery before another call after its budget expires', async () => {
+    let clock = 0;
+    jest.spyOn(performance, 'now').mockImplementation(() => clock);
+    const realpath = fs.realpathSync.native.bind(fs.realpathSync);
+    jest
+      .spyOn(fs.realpathSync, 'native')
+      .mockImplementation((...args: Parameters<typeof fs.realpathSync.native>) => {
+        const result = realpath(...args);
+        clock = 5000;
+        return result;
+      });
+    const lstat = jest.spyOn(fs, 'lstatSync');
+    await expect(inventoryLegacyBackupCopies(backupRoot)).rejects.toMatchObject({
+      reason: 'root_unverified',
+    });
+    expect(lstat).not.toHaveBeenCalled();
+  });
+  it('saves owner-readable evidence even with an owner-denying umask', async () => {
+    const inventory = await inventoryLegacyBackupCopies(backupRoot);
+    const file = path.join(outputRoot, 'restrictive-umask.json');
+    const previous = process.umask(0o777);
+    try {
+      writeLegacyBackupInventory(file, inventory, [backupRoot]);
+    } finally {
+      process.umask(previous);
+    }
+    expect(fs.statSync(file).mode & 0o777).toBe(0o600);
+    expect(JSON.parse(fs.readFileSync(file, 'utf8'))).toEqual(inventory);
+  });
   it('reports incomplete scope at the real copy cap without dropping or modifying copies', async () => {
     for (let id = 1; id <= 1001; id++)
       fs.writeFileSync(path.join(backupRoot, `temp_${id}.sql`), 'synthetic');
@@ -239,6 +318,46 @@ describe('read-only legacy copy discovery', () => {
       writeLegacyBackupInventory(path.join(outputRoot, 'shared.json'), result, [backupRoot]),
     ).toThrow();
     expect(JSON.parse(fs.readFileSync(file, 'utf8'))).toEqual(result);
+  });
+  it.each(['rename', 'unlink', 'replace', 'modify'])(
+    'does not acknowledge evidence changed by %s during directory sync',
+    async (change) => {
+      const inventory = await inventoryLegacyBackupCopies(backupRoot);
+      const file = path.join(outputRoot, 'acknowledgement.json');
+      const sync = fs.fsyncSync.bind(fs);
+      let changed = false;
+      jest.spyOn(fs, 'fsyncSync').mockImplementation((fd) => {
+        if (!changed && fs.fstatSync(fd).isDirectory()) {
+          changed = true;
+          const bytes = fs.readFileSync(file);
+          if (change === 'unlink') fs.unlinkSync(file);
+          else if (change === 'modify') fs.writeFileSync(file, Buffer.alloc(bytes.length, 'x'));
+          else {
+            fs.renameSync(file, file + '.retained');
+            if (change === 'replace') fs.writeFileSync(file, bytes, { mode: 0o600 });
+          }
+        }
+        sync(fd);
+      });
+      expect(() => writeLegacyBackupInventory(file, inventory, [backupRoot])).toThrow();
+      expect(changed).toBe(true);
+    },
+  );
+  it('checks written bytes instead of trusting metadata captured after a competing write', async () => {
+    const inventory = await inventoryLegacyBackupCopies(backupRoot);
+    const file = path.join(outputRoot, 'changed-before-checkpoint.json');
+    const sync = fs.fsyncSync.bind(fs);
+    let changed = false;
+    jest.spyOn(fs, 'fsyncSync').mockImplementation((fd) => {
+      if (!changed && fs.fstatSync(fd).isFile()) {
+        changed = true;
+        const bytes = fs.readFileSync(file);
+        fs.writeFileSync(file, Buffer.alloc(bytes.length, 'x'));
+      }
+      sync(fd);
+    });
+    expect(() => writeLegacyBackupInventory(file, inventory, [backupRoot])).toThrow();
+    expect(changed).toBe(true);
   });
   it('does not turn a missing root or relative path into an empty successful observation', async () => {
     await expect(

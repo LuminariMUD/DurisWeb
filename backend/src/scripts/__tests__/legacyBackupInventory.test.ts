@@ -15,8 +15,8 @@ beforeEach(() => {
   for (const directory of [backup, upload, privateRoot]) fs.mkdirSync(directory, { mode: 0o700 });
 });
 afterEach(() => fs.rmSync(root, { recursive: true }));
-function run(args: string[]) {
-  const environment: NodeJS.ProcessEnv = { ...process.env, BACKUP_DIR: backup };
+function run(args: string[], configuredRoot = backup) {
+  const environment: NodeJS.ProcessEnv = { ...process.env, BACKUP_DIR: configuredRoot };
   delete environment.DOTENV_CONFIG_QUIET;
   return spawnSync(
     'pnpm',
@@ -85,6 +85,19 @@ describe('legacy backup-copy inventory command', () => {
     expect(repeated.status).toBe(1);
     expect(fs.readFileSync(output, 'utf8')).toBe('preserve existing evidence');
   });
+  it.each(['symlink', 'proc-root'])(
+    'rejects a configured %s alias even when the selected root is canonical',
+    (kind) => {
+      const alias = path.join(root, 'configured-alias');
+      fs.symlinkSync(backup, alias);
+      const configured = kind === 'symlink' ? alias : '/proc/self/root' + backup;
+      const output = path.join(privateRoot, 'aliased.json');
+      const result = run(['--backup-root', backup, '--private-out', output], configured);
+      expect(result.status).toBe(1);
+      expect(fs.existsSync(output)).toBe(false);
+      expect(result.stderr).not.toContain(root);
+    },
+  );
   it('returns incomplete/review status for an unsafe observation without deleting it', () => {
     fs.symlinkSync('/etc/passwd', path.join(backup, 'temp_1.sql'));
     const result = run([
