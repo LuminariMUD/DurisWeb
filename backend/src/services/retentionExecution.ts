@@ -17,7 +17,10 @@ import {
 import { loadDataHoldContract } from '../db/dataHoldSchema.js';
 import { loadRetentionRunContract } from '../db/retentionRunSchema.js';
 import { assertLifecycleMetadata } from '../db/lifecycleMetadata.js';
-import { retentionCandidateRules as rules } from './retentionCandidates.js';
+import {
+  retentionCandidateRules as rules,
+  RETENTION_SQL_TIME_ZONE,
+} from './retentionCandidates.js';
 import { readDataHoldSnapshot } from './dataHoldSnapshot.js';
 import {
   parseRetentionCheckpoint,
@@ -30,7 +33,14 @@ const TIMEOUT = 5000,
   LEASE_SECONDS = 30;
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const signature = createHash('sha256')
-  .update(JSON.stringify({ format: 'retention-execution-v1', policy, rules }))
+  .update(
+    JSON.stringify({
+      format: 'retention-execution-v1',
+      policy,
+      rules,
+      timeZone: RETENTION_SQL_TIME_ZONE,
+    }),
+  )
   .digest('hex');
 type Failure =
   | 'invalid_arguments'
@@ -234,6 +244,7 @@ function decode(
       !object(value.cache) ||
       !keys(value.cache, ['pending', 'cursor', 'serverId']) ||
       typeof value.cache.pending !== 'boolean' ||
+      (value.cache.pending && !options.classes.includes('analytics_events')) ||
       !cursor(value.cache.cursor) ||
       (!value.cache.pending && value.cache.cursor !== '0') ||
       (value.cache.serverId !== null &&
@@ -401,6 +412,9 @@ export async function executeRetention(
       connectTimeout: TIMEOUT,
       multipleStatements: false,
     });
+    await connection.query({ sql: 'SET SESSION time_zone = ?', timeout: TIMEOUT }, [
+      RETENTION_SQL_TIME_ZONE,
+    ]);
     await begin(connection);
     inTransaction = true;
     await verifySchema(connection, options.classes, deadline);
@@ -441,7 +455,11 @@ export async function executeRetention(
         workDurationMs: Math.round(performance.now() - invocationStarted),
         checkpoint,
         actions: options.classes.map((classId) => ({ classId, deleted: 0, skipped: 0 })),
-        cache: { pending: true, cursor: '0', serverId: null },
+        cache: {
+          pending: options.classes.includes('analytics_events'),
+          cursor: '0',
+          serverId: null,
+        },
         lastFailure: null,
       };
       await execute(
@@ -557,6 +575,7 @@ export async function executeRetention(
       if (!pageProcessed && !progress.complete) break;
     }
     if (state.cache.pending && performance.now() < deadline) {
+      requirePolicy(['analytics_events']);
       const cacheStarted = performance.now();
       let cleanup: { cursor: string; complete: boolean; serverId: string } | null = null;
       try {
