@@ -2,6 +2,49 @@
 
 ## Current handoff — read this first
 
+**Current verified continuation checkpoint — 2026-10-17:** 34 findings have
+verified reply/resolution records in `/tmp/durisweb-review-20261017/closed-findings.json`.
+The latest complete scan has **12 unresolved findings: #62 (2), #63 (3), #65 (3),
+#66 (4)**. #57 fix `213b803` is pushed/resolved and carried through #58 `ba9e1fc`,
+#59 `d678688`, #60 `ad1b7e9`, #61 `cff99db`; #62 parent merge `406f55e` preserves
+its account-scoped cache and adds the awaited reconciliation/error guards.
+The combined backup composable passes 19 tests and frontend formatting; unchanged
+parent runtime proof is retained. This checkpoint publishes that parent carry,
+not a repair of #62's two new findings. No test/browser process remains running.
+
+Next: bind uploaded download/inspection reads to the validated open descriptor,
+then exclude upload references from both generated-backup busy selectors. The
+actual reader call chain is `registeredUploadFile` → admin download `createReadStream`
+and admin contents → `listBackupContents` → `inspectBackupArchive` →
+`backupInspectionWorker`. The inspection path also reopens a pathname; avoid
+fixing only download while leaving the same identity gap in its sibling reader.
+Reuse the existing file-identity utility and bounded inspector, with explicit
+descriptor ownership/closure. Test replacement before open, after validation,
+stream completion/failure and the retained foreign-owner/hold behavior.
+
+After #62, address the remaining #63 stop-link/order/deduplication findings and
+#65 receipt/payload/mount acknowledgement findings listed in the
+[detailed queue](https://github.com/LuminariMUD/DurisWeb/blob/8cf161f448aef15d2b13da923094a58a527fbbe5/docs/ongoing-projects/plan.md).
+For #65, validate the whole named bundle at acknowledgement (both strict receipt
+entries, exact contents, payload bytes/metadata and qualified mount), rather than
+only adding another payload-path check. Preserve failed/unknown work.
+
+#66 still needs `PRRT_kwDOVA2-8c6te2j5` (separate MUD/web authority). The latest
+scan adds:
+
+- `PRRT_kwDOVA2-8c6tglEp`: log unexpected export failures with safe category/code
+  and the same response reference, without input, credentials, SQL or payloads.
+- `PRRT_kwDOVA2-8c6tglEr`: distinguish the internal download timeout from caller
+  cancellation and show a stable retry-oriented message.
+- `PRRT_kwDOVA2-8c6tglEu`: add/qualify a reversible forward index for
+  `forum_reactions(user_account_name,id)` so bounded per-owner exports do not
+  scan all reactions. Preserve immutable baselines and forward-schema contracts.
+
+The #66 browser fallback is already pushed/resolved as `8cf161f`. Do not redo
+it or mark the broader export/erasure project complete. The review goal remains
+active; refresh the live queue before final closeout. Original master, other
+worktrees/stashes and production remain untouched.
+
 **Newest continuation:** the complete later review queue and export-authority
 investigation are retained in the [#66 handoff](https://github.com/LuminariMUD/DurisWeb/blob/8cf161f448aef15d2b13da923094a58a527fbbe5/docs/ongoing-projects/plan.md).
 #66 browser compatibility `8cf161f` is pushed and its thread verified resolved.
