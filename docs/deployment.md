@@ -327,6 +327,73 @@ Checking the host's
 ordinary `/tmp`, or finding no row in `mud_backups`, does not inventory that
 private namespace. New persistent uploads do not adopt those older files.
 
+#### Protect private temporary files from an unexpected service exit
+
+The watchdog pause does **not** disable the application's `Restart=always` or
+prevent `PrivateTmp` cleanup after a crash. Before lengthy inventory/copy work,
+keep the existing private temporary directories alive independently of that
+unit. A bare namespace descriptor or `nsenter` process is not sufficient proof
+that systemd will retain its managed backing directories.
+
+Use a separately reviewed, temporary **keeper unit** in the same systemd manager:
+`PrivateTmp=true` and `JoinsNamespaceOf=` select exactly the already-running old
+application unit, and `After=` orders its start. systemd documents this sharing in
+[JoinsNamespaceOf](https://github.com/systemd/systemd/blob/v255/man/systemd.unit.xml)
+and [PrivateTmp](https://github.com/systemd/systemd/blob/v255/man/systemd.exec.xml).
+The keeper must remain active independently: no `Requires=`, `BindsTo=`, `PartOf=`
+or stop-propagation link from the old application, its dependencies or release
+target. Keep it outside the group stopped by release/rollback commands.
+
+For an authorized **user-manager** window, the reviewed command has this shape;
+replace both names with the exact old unit and a new unique keeper name:
+
+```bash
+legacy_unit='reviewed-old-unit.service'
+keeper_unit='reviewed-unique-keeper.service'
+systemd-run --user --unit="$keeper_unit" \
+  --property=Type=exec --property=PrivateTmp=yes \
+  --property="JoinsNamespaceOf=$legacy_unit" --property="After=$legacy_unit" \
+  --property=Restart=no /usr/bin/sleep infinity
+```
+
+For system-manager units, omit `--user` and explicitly select the reviewed
+website service identity with `User=`/`Group=` properties. Use the host's reviewed
+absolute sleep executable. Starting a keeper does not authorize a restart,
+copy, deletion or any change to the application unit's restart policy.
+
+Before accepting the keeper:
+
+- Record the original unit invocation/PID and verify it did not restart during
+  acquisition. A newly started application/keeper cannot prove that a retired
+  namespace's files survived.
+- Compare device/inode identities of the actual private `/tmp` and `/var/tmp`
+  directories, and the selected legacy upload root, through the live original
+  and keeper processes. Verify representative existing file identities/bytes
+  privately. Equal whole mount-namespace IDs are not required; actual shared
+  directories are the relevant identity.
+- Verify the keeper is active, has the intended service identity, shares the
+  exact old unit, and has no stop coupling. Retain its unit/invocation identity
+  in the private release evidence and keep it alive through the entire gate.
+- Rehearse an unexpected old-process exit, its automatic restart and an explicit
+  old-unit stop using **disposable fixture units on the target systemd version**.
+  The original temporary files must remain accessible with the same identities
+  through the keeper. Do not crash the live website to perform this rehearsal.
+
+A local systemd 255 rehearsal passes in both user and system managers: without
+a keeper, crash/restart unlinks the original temporary file; with a keeper it
+survives crash/restart and explicit source-unit stop. It is removed only after
+the keeper stops. These are local fixture results, not production qualification.
+
+This protects against cleanup caused by the old unit exiting. It does not fence
+application writers/cleanup, prove consistent bytes, or survive losing the
+keeper/host. Keep the existing writer-fence and protected-copy requirements
+below. If the keeper exits or its identity/sharing is uncertain, stop the release
+and treat protection as unconfirmed. Release the keeper only after independently
+verified persistent protected copies cover the declared scope and the approved
+teardown gate has passed. If this method is unavailable, require an independently
+verified crash-safe copy covering the old private directories before inventory;
+watchdog pause, a plain bind mount or a listing is not a substitute.
+
 During a separately authorized release, before **any** application stop/restart
 or restart of a dependency that stops it:
 
@@ -340,7 +407,8 @@ or restart of a dependency that stops it:
    their writers without first tearing down the old unit's temporary namespace.
    No existing runtime flag or a successful `/health` check proves that fence.
 2. Identify the actual old service/process and its mount namespace privately.
-   Inventory its actual temporary-upload root and configured backup root,
+   Establish and verify the independent private-directory lifetime protection
+   above **before inventory**. Inventory its actual temporary-upload root and configured backup root,
    including raw `temp_<id>.sql` and `temp_staging_<id>` copies. Preserve unknown,
    active, shared or unregistered files. Names, ages and completed/failed SQL
    statuses alone cannot prove that an old writer stopped.

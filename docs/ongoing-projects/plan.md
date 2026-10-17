@@ -2,7 +2,43 @@
 
 ## Current handoff — read this first
 
-**Latest continuation — PR #62 generated inspection:** a valid 65 MiB
+**Latest continuation — PR #63 restart protection:** #62 inspection fix
+`fecc543` and closure `d6b1337` are published and carried through #63 `a48a576`,
+#64 `3574006`, #65 `1f5946a` and #66 `8771bd0`. The remaining #62 unlink race
+stays unresolved; a private renamed path is not by itself an atomic inode-
+conditional deletion against arbitrary same-UID namespace mutation. Do not
+claim it fixed by shrinking the check/unlink interval.
+
+Current branch is `branch/legacy-upload-preservation-gate`. Its P1 restart
+finding is addressed by requiring independently retained systemd private
+temporary directories before inventory. The guide specifies a separate active
+keeper using `PrivateTmp`/`JoinsNamespaceOf`, exact original identity and directory
+checks, no stop coupling, target-version rehearsal, continued writer fencing and
+persistent protected copies before keeper release. A watchdog pause alone is
+explicitly insufficient. No service template or production restart policy changes.
+
+Actual disposable local systemd 255 rehearsals passed for **user and system
+managers**, each with negative no-keeper and positive keeper cases. Source
+SIGKILL/automatic restart removes the original temporary file without a keeper;
+with a keeper, the original inode/bytes survive both crash/restart and an explicit
+source stop, and are cleaned only after keeper stop. Fixture copies were verified
+before cleanup; all owned transient units were stopped. An initial fixture PID
+polling typo was corrected before the successful runs. Logs:
+`pr63-private-tmp-{user,system}.log`; runner
+`/tmp/durisweb-private-tmp-rehearsal.py`. These are WSL-only fixture operations,
+not production or MUD service work. The runbook requires target-host rehearsal
+rather than treating local systemd behavior as universal acceptance.
+
+Published as `a2947cc`. Thread `PRRT_kwDOVA2-8c6thGOP` has a verified reply
+and resolved state. The ledger contains **47 verified closeouts**; **11 known
+threads remain** before a new scan: #62 (1), #64 (5), #65 (1), #66 (4).
+Carry #64–#66, then address #64's inventory findings. No package/runtime change
+or visitor changelog entry is needed. Preserve #62's still-open removal
+guarantee while fixing these independent findings.
+
+### Earlier published repairs and inventory
+
+**Published PR #62 generated inspection:** a valid 65 MiB
 mysqldump archive is refused by the old shared upload limit and accepted by the
 repaired generated path. The first standalone probe used a disallowed filename;
 it was discarded as evidence and rerun with an accepted filename against the
