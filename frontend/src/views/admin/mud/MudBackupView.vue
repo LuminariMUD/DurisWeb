@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { isAxiosError } from 'axios'
 import { useBackups, formatBytes, formatRelativeTime } from '@/composables/useBackups'
 import { useToast } from '@/composables/useToast'
 import { useAuth } from '@/composables/useAuth'
@@ -98,6 +99,8 @@ const restoreTab = ref<'full' | 'account' | 'character'>('character')
 const backupContents = ref<BackupContents | null>(null)
 const loadingContents = ref(false)
 const mudRunning = ref(false)
+const restoreError = ref<string | null>(null)
+const isCancellingUpload = ref(false)
 const selectedAccountNames = ref<string[]>([])
 const selectedCharacterPids = ref<number[]>([])
 const restoreCategories = ref<RestoreCategories>({ ...DEFAULT_RESTORE_CATEGORIES })
@@ -178,12 +181,20 @@ async function handleRefresh() {
 
 // Create backup handler
 async function handleCreateBackup() {
+  if (isCreating.value) return
   try {
     await createBackup()
     info('Backup started')
-  } catch (err: any) {
-    showError(err.message || 'Failed to start backup')
+  } catch {
+    showError('Backup start was not confirmed. Refresh the list before trying again.')
   }
+}
+
+function showRestoreFailure(error: unknown) {
+  restoreError.value =
+    isAxiosError<{ error?: unknown }>(error) && error.response?.data?.error === 'operation_gated'
+      ? 'Website restore is unavailable. Backup creation and viewing remain available.'
+      : 'Restore start was not confirmed. Check restore status before trying again.'
 }
 
 // Delete backup handler
@@ -266,6 +277,7 @@ function handleDownload(id: number) {
 
 // Open restore dialog
 async function openRestoreDialog(backup: BackupInfo) {
+  restoreError.value = null
   restoreBackup.value = backup
   restoreDialogOpen.value = true
   loadingContents.value = true
@@ -298,32 +310,32 @@ function closeRestoreDialog() {
 }
 
 // Execute restore
-function executeRestore() {
-  if (!restoreBackup.value) return
-
-  if (restoreTab.value === 'full') {
-    createRestore({
-      backupId: restoreBackup.value.id,
-      restoreType: 'full',
-    })
-  } else if (restoreTab.value === 'account') {
-    if (selectedAccountNames.value.length === 0) return
-    createRestore({
-      backupId: restoreBackup.value.id,
-      restoreType: 'account',
-      accounts: selectedAccountNames.value,
-    })
-  } else {
-    if (selectedCharacters.value.length === 0) return
-    createRestore({
-      backupId: restoreBackup.value.id,
-      restoreType: 'character',
-      characters: selectedCharacters.value,
-      categories: restoreCategories.value,
-    })
+async function executeRestore() {
+  if (!restoreBackup.value || isRestoring.value) return
+  restoreError.value = null
+  try {
+    if (restoreTab.value === 'full') {
+      await createRestore({ backupId: restoreBackup.value.id, restoreType: 'full' })
+    } else if (restoreTab.value === 'account') {
+      if (selectedAccountNames.value.length === 0) return
+      await createRestore({
+        backupId: restoreBackup.value.id,
+        restoreType: 'account',
+        accounts: selectedAccountNames.value,
+      })
+    } else {
+      if (selectedCharacters.value.length === 0) return
+      await createRestore({
+        backupId: restoreBackup.value.id,
+        restoreType: 'character',
+        characters: selectedCharacters.value,
+        categories: restoreCategories.value,
+      })
+    }
+    closeRestoreDialog()
+  } catch (error) {
+    showRestoreFailure(error)
   }
-
-  closeRestoreDialog()
 }
 
 // Upload handlers
@@ -351,6 +363,7 @@ async function handleFileSelect(event: Event) {
     mudRunning.value = mudStatus.running
 
     // Open dialog with restore options
+    restoreError.value = null
     uploadDialogOpen.value = true
     restoreTab.value = 'character'
     selectedAccountNames.value = []
@@ -367,46 +380,55 @@ async function handleFileSelect(event: Event) {
   input.value = ''
 }
 
-function closeUploadDialog() {
-  // Cleanup temp file if user cancels
-  if (uploadedTempPath.value) {
-    cancelBackupUpload(uploadedTempPath.value).catch(() => {})
+async function closeUploadDialog() {
+  if (isRestoring.value || isCancellingUpload.value) return
+  isCancellingUpload.value = true
+  try {
+    if (uploadedTempPath.value) {
+      const result = await cancelBackupUpload(uploadedTempPath.value)
+      if (result?.success !== true) throw new Error('Upload cleanup was not confirmed')
+    }
+    uploadDialogOpen.value = false
+    uploadedTempPath.value = null
+    uploadedContents.value = null
+    uploadError.value = null
+  } catch {
+    restoreError.value =
+      'Upload cleanup was not confirmed. Keep this dialog open and try Cancel again after checking the server.'
+  } finally {
+    isCancellingUpload.value = false
   }
-  uploadDialogOpen.value = false
-  uploadedTempPath.value = null
-  uploadedContents.value = null
-  uploadError.value = null
 }
 
-function executeUploadRestore() {
-  if (!uploadedTempPath.value) return
-
-  if (restoreTab.value === 'full') {
-    restoreFromUpload({
-      tempPath: uploadedTempPath.value,
-      restoreType: 'full',
-    })
-  } else if (restoreTab.value === 'account') {
-    if (selectedAccountNames.value.length === 0) return
-    restoreFromUpload({
-      tempPath: uploadedTempPath.value,
-      restoreType: 'account',
-      accounts: selectedAccountNames.value,
-    })
-  } else {
-    if (selectedCharacters.value.length === 0) return
-    restoreFromUpload({
-      tempPath: uploadedTempPath.value,
-      restoreType: 'character',
-      characters: selectedCharacters.value,
-      categories: restoreCategories.value,
-    })
+async function executeUploadRestore() {
+  if (!uploadedTempPath.value || isRestoring.value || isCancellingUpload.value) return
+  restoreError.value = null
+  try {
+    if (restoreTab.value === 'full') {
+      await restoreFromUpload({ tempPath: uploadedTempPath.value, restoreType: 'full' })
+    } else if (restoreTab.value === 'account') {
+      if (selectedAccountNames.value.length === 0) return
+      await restoreFromUpload({
+        tempPath: uploadedTempPath.value,
+        restoreType: 'account',
+        accounts: selectedAccountNames.value,
+      })
+    } else {
+      if (selectedCharacters.value.length === 0) return
+      await restoreFromUpload({
+        tempPath: uploadedTempPath.value,
+        restoreType: 'character',
+        characters: selectedCharacters.value,
+        categories: restoreCategories.value,
+      })
+    }
+    // Release UI identity only after acknowledged acceptance; refusal keeps cancellation available.
+    uploadDialogOpen.value = false
+    uploadedTempPath.value = null
+    uploadedContents.value = null
+  } catch (error) {
+    showRestoreFailure(error)
   }
-
-  // Don't cleanup temp file here - the backend will do it after restore
-  uploadDialogOpen.value = false
-  uploadedTempPath.value = null
-  uploadedContents.value = null
 }
 </script>
 
@@ -790,7 +812,7 @@ function executeUploadRestore() {
     </Card>
 
     <!-- Restore Dialog -->
-    <Dialog :open="restoreDialogOpen" @update:open="(val) => !val && closeRestoreDialog()">
+    <Dialog :open="restoreDialogOpen" @update:open="(val) => !val && !isRestoring && closeRestoreDialog()">
       <DialogContent class="max-w-2xl">
         <DialogHeader>
           <DialogTitle class="flex items-center gap-2">
@@ -801,6 +823,12 @@ function executeUploadRestore() {
             <code class="text-xs">{{ restoreBackup?.filename }}</code>
           </DialogDescription>
         </DialogHeader>
+
+        <Alert v-if="restoreError" variant="destructive" class="mb-4">
+          <AlertCircle class="h-4 w-4" />
+          <AlertTitle>Backup action not confirmed</AlertTitle>
+          <AlertDescription>{{ restoreError }}</AlertDescription>
+        </Alert>
 
         <!-- MUD Running Warning -->
         <Alert v-if="mudRunning" variant="destructive" class="mb-4">
@@ -980,7 +1008,7 @@ function executeUploadRestore() {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" @click="closeRestoreDialog">Cancel</Button>
+          <Button variant="outline" :disabled="isRestoring" @click="closeRestoreDialog">Cancel</Button>
           <Button
             v-if="restoreTab === 'character'"
             @click="executeRestore"
@@ -999,7 +1027,7 @@ function executeUploadRestore() {
           </Button>
           <AlertDialog v-else>
             <AlertDialogTrigger as-child>
-              <Button variant="destructive" :disabled="isRestoring">
+              <Button variant="destructive" :disabled="isRestoring || isCancellingUpload">
                 <RotateCcw class="h-4 w-4 mr-2" />
                 Full Restore
               </Button>
@@ -1016,6 +1044,7 @@ function executeUploadRestore() {
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   class="bg-danger-deep text-destructive-foreground hover:bg-danger-deep/90"
+                  :disabled="isRestoring"
                   @click="executeRestore"
                 >
                   Yes, Restore Everything
@@ -1028,15 +1057,21 @@ function executeUploadRestore() {
     </Dialog>
 
     <!-- Upload Restore Dialog -->
-    <Dialog :open="uploadDialogOpen" @update:open="(val) => !val && closeUploadDialog()">
+    <Dialog :open="uploadDialogOpen" @update:open="(val) => !val && !isRestoring && !isCancellingUpload && closeUploadDialog()">
       <DialogContent class="max-w-2xl">
         <DialogHeader>
           <DialogTitle class="flex items-center gap-2">
             <Upload class="h-5 w-5" />
             Restore from Uploaded Backup
           </DialogTitle>
-          <DialogDescription> Uploaded backup file ready for restoration </DialogDescription>
+          <DialogDescription>Uploaded backup contents for inspection</DialogDescription>
         </DialogHeader>
+
+        <Alert v-if="restoreError" variant="destructive" class="mb-4">
+          <AlertCircle class="h-4 w-4" />
+          <AlertTitle>Backup action not confirmed</AlertTitle>
+          <AlertDescription>{{ restoreError }}</AlertDescription>
+        </Alert>
 
         <!-- MUD Running Warning -->
         <Alert v-if="mudRunning" variant="destructive" class="mb-4">
@@ -1206,11 +1241,11 @@ function executeUploadRestore() {
         </template>
 
         <DialogFooter>
-          <Button variant="outline" @click="closeUploadDialog">Cancel</Button>
+          <Button variant="outline" :disabled="isRestoring || isCancellingUpload" @click="closeUploadDialog">{{ isCancellingUpload ? 'Removing upload...' : 'Cancel' }}</Button>
           <Button
             v-if="restoreTab === 'character'"
             @click="executeUploadRestore"
-            :disabled="selectedCharacterPids.length === 0 || isRestoring"
+            :disabled="selectedCharacterPids.length === 0 || isRestoring || isCancellingUpload"
           >
             <RotateCcw class="h-4 w-4 mr-2" />
             Restore {{ selectedCharacterPids.length }} Character(s)
@@ -1218,14 +1253,14 @@ function executeUploadRestore() {
           <Button
             v-else-if="restoreTab === 'account'"
             @click="executeUploadRestore"
-            :disabled="selectedAccountNames.length === 0 || isRestoring"
+            :disabled="selectedAccountNames.length === 0 || isRestoring || isCancellingUpload"
           >
             <RotateCcw class="h-4 w-4 mr-2" />
             Restore {{ selectedAccountNames.length }} Account(s)
           </Button>
           <AlertDialog v-else>
             <AlertDialogTrigger as-child>
-              <Button variant="destructive" :disabled="isRestoring">
+              <Button variant="destructive" :disabled="isRestoring || isCancellingUpload">
                 <RotateCcw class="h-4 w-4 mr-2" />
                 Full Restore
               </Button>
@@ -1242,6 +1277,7 @@ function executeUploadRestore() {
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   class="bg-danger-deep text-destructive-foreground hover:bg-danger-deep/90"
+                  :disabled="isRestoring || isCancellingUpload"
                   @click="executeUploadRestore"
                 >
                   Yes, Restore Everything

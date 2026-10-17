@@ -26,6 +26,8 @@ restore bypasses; qualified and published for review as
 P6d2a branch `branch/backup-deletion-recovery` repairs archive retry identity
 and deletion acknowledgement, qualified and published for review as
 [PR #56](https://github.com/LuminariMUD/DurisWeb/pull/56), stacked on #55.
+Active P6d2a2 branch `branch/backup-action-acknowledgement` repairs the remaining
+backup start/restore/cancellation feedback; qualification and publication follow.
 Next: remaining P6 cleanup/copy/restore
 and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
@@ -2039,6 +2041,111 @@ outside this request. Keep this single evolving execution plan current.
   periods and verified subject requests/export/erasure. Source approvals remain
   false; no live/MUD/provider/backup operation is authorized. No owner question
   is currently necessary for the independent engineering work.
+
+- **Current P6d2a2: backup action acknowledgement**, branch
+  `branch/backup-action-acknowledgement`, starts at #56 `2fdfb36`.
+  **Outcome:** expose actual promises for backup creation/stored/uploaded restore,
+  await all view callers, show failure without closing the dialog or losing
+  uploaded-file/selection identity, and block duplicate/cancel actions while
+  awaiting an outcome. Success needs a positive acknowledged operation ID;
+  failed backup starts refresh the list because an unknown response may follow
+  acceptance. **Non-goals:** enabling restore, new backend behavior, archive hold
+  admission or new data periods. **Files:** existing composable/view/tests,
+  operator docs and plan. **Proof:** deferred success/failure/invalid-ack cases
+  with real Vue Query; actual rendered pending/refusal and retained selection/
+  upload flows with synthetic API responses; frontend required checks/build,
+  then a focused PR stacked on #56.
+- **P6d2a2 ablation:** use existing Vue Query mutation promises and one combined
+  pending flag; no extra request queue, retry mechanism, settings or readiness
+  layer. Keep the existing selections and dialogs until acknowledged acceptance.
+  A small shared acknowledgement check serves three actual calls. Browser
+  plugin/`browser` skill is not listed, so use installed Playwright with recorded
+  fallback and private screenshots; no DurisWeb dependency is added.
+- **P6d2a2 final scope adjustment:** all three start methods now expose real
+  promises and require `success: true` with a positive safe integer operation
+  ID. Backup starts refetch on either outcome; stored/upload restore views
+  await, retain selection/upload identity on refusal and share actual pending
+  state. Upload cancellation now awaits `success: true`, blocks conflicting
+  restore/close actions and retains its path/dialog on unconfirmed cleanup.
+  One local cancellation-pending flag and one inline error serve these real
+  controller states. The rendered check found a toast-only error obscured by
+  earlier notifications; both dialogs now show the static error persistently.
+  Uploaded-file copy describes inspection rather than promising recovery.
+- **P6d2a2 refusal classification:** the shared client previously dispatched a
+  global outage for every HTTP 503, including the deliberate restore gate.
+  Exact `503 operation_gated` now rejects locally without an outage notice or
+  request replay. Unexpected 500/server/connection failures keep the ordinary
+  availability signal. This is necessary for the actual restore-refusal UI;
+  no backend gate or authority is changed.
+- **P6d2a2 exact unit/quality proof:** `pnpm --dir frontend test:unit --run
+  src/composables/__tests__/useBackups.spec.ts
+  src/services/__tests__/apiAvailability.spec.ts` passes **28 tests / two files**.
+  Deferred accepted/refused backup, stored restore and uploaded restore calls
+  use the real Vue Query client; false/invalid operation acknowledgements create
+  no pending restore. Availability tests prove deliberate 503 refusal is local,
+  unexpected HTTP 500 still signals, and no request is replayed.
+  `python3 /tmp/durisweb-image-quality.py frontend` passes frontend
+  `format:check`, `lint`, `type-check`, `config:check`, palette guard, full
+  **296 tests / 58 files**, and `build`, with the helper's explicit loopback
+  build configuration. Changed TS/Vue was formatted with frontend
+  `pnpm exec biome format --write`. A conditional-expect lint finding in the
+  new tests was corrected to unconditional outcome assertions; final checks
+  all pass. Config literal, lifecycle inventory/local-reference and whitespace
+  checks pass. No backend source/migration changed; no fresh backend/database/
+  provider/physical-device or live acceptance is claimed.
+- **P6d2a2 rendered QA:** flow under test is
+  `http://127.0.0.1:25477/admin/mud/backup` → start/restore/cancel → remain
+  pending until acknowledgement and preserve refused work with a visible result.
+  Browser plugin/`browser` skill is absent. Installed Playwright Chromium
+  (`node .../playwright/cli.js --version`: 1.63.0) runs
+  `node /tmp/durisweb-backup-ack-browser.mjs` against the actual Vite app,
+  actual view/router and synthetic authenticated/API responses at **1440x1000
+  and 390x844**. No actual backend operation is sent.
+  Identity (URL/title Duris), meaningful content, absent framework overlay,
+  console health, screenshots and interaction checks pass at both sizes.
+  Each case observes one backup start only after response; stored/uploaded
+  account restores remain open through delayed 503 refusal, keep both selected
+  accounts and show a persistent inline error without a site-wide outage.
+  Submit/Cancel/Escape cannot discard in-flight work. Uploaded cancellation is
+  delayed, then synthetically refused with 409; the dialog and path survive,
+  a second explicit Cancel sends the same path and closes only on success.
+  Raw server/cancellation sentinels are absent from the UI. No document
+  horizontal overflow or unexpected console/page error is observed; deliberate
+  503/409 resource messages and the existing Vue Router `next()` deprecation
+  are separately expected. Six screenshots are retained; desktop restore and
+  mobile upload/cancellation views were inspected, including the formerly
+  obscured error now readable inside the dialog. This is emulated
+  Chromium QA, not physical mobile or live authentication/recovery acceptance.
+- **P6d2a2 retained evidence and tooling:** logs
+  `/tmp/durisweb-backup-ack-{focused,browser,frontend-gates,vite}.log`, private
+  browser script and `/tmp/durisweb-backup-ack-{stored,uploaded,cancel}-{1440,390}.png`
+  remain outside Git. The frontend dev server was launched with explicit
+  `VITE_*` loopback URLs, host 127.0.0.1 and port 25477, then stopped after its
+  listener/PID/cwd were verified as this isolated checkout. No shared service
+  was stopped. A `pnpm --dir` browser-version check unexpectedly bootstrapped
+  the separate tooling checkout's declared dependencies and generated an
+  untracked lockfile. No tracked tooling source changed; that generated file
+  is preserved at `/tmp/durisweb-tooling-bootstrap-pnpm-lock-20261017.yaml`
+  and the tooling checkout's porcelain status is empty afterward. Subsequent
+  checks invoke the installed Node CLI directly. DurisWeb dependency files
+  are unchanged; no browser installation command or DurisWeb dependency change
+  was made.
+- **P6d2a2 release news draft:** after separately authorized verified live
+  release, reconcile [news-update](../../.agents/skills/news-update/SKILL.md)
+  and publish admin guidance: “Backup tools wait for the server's result.
+  Refused restore or upload cleanup keeps your selections and shows the problem
+  in the open dialog.” No live changelog entry was written. Website restore
+  remains source-disabled; no client change enables it or approves recovery.
+- **P6d2a2 next requirement:** resume the full P6d2b archive hold admission and
+  recovery barrier after this focused UI prerequisite. Client retention of an
+  uploaded path is not a durable server ledger. Audit stored and partial
+  archives, upload validation/cancellation/expiry, and all independent cleanup
+  consumers. The current cancellation service can acknowledge an invalid path
+  without deleting anything; repair truthful server outcomes and durable work
+  as part of that store boundary, with actual hold ordering. Keep protected
+  independent evidence/offline replay, other classes, own-ledger periods and
+  all P7 requirements open. Do not replace them with a UI-only or stale-snapshot
+  guard. Continue engineering autonomously; no owner question is currently needed.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
