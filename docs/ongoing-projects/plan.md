@@ -1570,3 +1570,57 @@ implementation work and were not run for this documentation-only publication.
 
 No Website Changelog entry is needed for this commit: it changes only the
 implementation plan and makes no reader-visible website change.
+
+## PR review repair — 2026-10-17 current objective
+
+The user now requests all outstanding code-review findings to be addressed,
+starting with the oldest open PR. This supersedes the earlier implementation
+timebox and next-phase directions. Preserve the published branches, repair each
+affected PR, and carry its changes forward through the dependent stack with
+ordinary merges. No merge to master, deployment, production data change or new
+feature is part of this review task.
+
+The complete GraphQL scan covered all 27 open PRs, all review-thread pages,
+review bodies and discussion comments. The initial queue has 24 unresolved
+findings across 11 PRs. PR #39's five old findings are resolved and its latest
+review reports no findings; #41–#45 have no outstanding review findings.
+Other PRs without findings still need inherited fixes carried forward.
+
+| PR | Initial findings | Review status |
+| --- | --- | --- |
+| #46 | 1: enable notifications after a first permission grant with blocked storage | Fixed; 7 focused and 253 full frontend tests pass |
+| #48 | 3: stale GET cookie clearing, actionable safe diagnostics, native fixture port binding | Pending |
+| #49 | 3: pending refusal, temporary visibility changes, compact confirmation/focus | Pending |
+| #50 | 2: safe forum failure context, shared pool starvation during R2 deletion | Pending |
+| #54 | 1: DST-ambiguous retention cutoff comparisons | Pending |
+| #55 | 1: unavailable restore controls still offered by the UI | Pending |
+| #62 | 3: account-bound backup cache, cancellation file identity, failed-upload bulk cleanup | Pending |
+| #63 | 2: incident/maintenance preservation prerequisites, all legacy upload suffixes | Pending |
+| #64 | 3: quiet CLI, same-device mount boundaries, supported database filenames | Pending |
+| #65 | 3: protected-root mount aliases, suffix length, named bundle/payload revalidation | Pending |
+| #66 | 2: separate MUD database credentials, abort-signal compatibility | Pending |
+
+**#46 outcome:** one explicit granted notification-permission request enables
+the current-page preference even when storage reads/writes are unavailable.
+Files: the existing notification composable and its tests. Proof: a failing
+regression reproduces the disabled state after a successful grant; then verify
+actual notification construction, refusal/default behavior and frontend gates.
+Ablation keeps the existing permission/preference flow and adds no persistence
+adapter or retry mechanism. A future verified release may announce that enabling
+notifications works on the first attempt with blocked browser storage; existing
+release authorization and news-update rules still apply.
+
+**#46 proof:** the new first-grant regression failed before the fix.
+`pnpm --dir frontend test:unit --run
+src/composables/__tests__/useNotifications.spec.ts
+src/composables/__tests__/useChangelog.spec.ts` ran the matching notification
+file: seven pass (no file matched the second path). The full frontend run then
+passed 253 tests / 52 files. `python3 /tmp/durisweb-image-quality.py frontend`
+passes format, lint, types, configuration, palette, full unit tests and build.
+`git diff --check` passes. No backend/database/provider or new rendered-layout
+check is needed or claimed for this composable-only behavior correction.
+Evidence: `pr46-{red,focused,quality}.log` in the private review directory.
+
+Private review evidence: `/tmp/durisweb-review-20261017/`; the current worktree
+is `/tmp/durisweb-security-privacy-plan-20261016` and switches to each existing
+PR branch in sequence. Preserve unrelated review worktrees and recovery stashes.
