@@ -20,8 +20,9 @@ two-class SQL execution, atomic durable progress, expiring worker ownership,
 transaction-time hold rechecks and legacy analytics-cache removal. Focused tests
 pass on both database families; full backend and regression evidence is recorded
 below. Published for review as [PR #54](https://github.com/LuminariMUD/DurisWeb/pull/54),
-stacked on #53. Active P6d1 branch `branch/restore-lifecycle-boundary` closes
-legacy restore bypasses; final checks pass and publication is the current step.
+stacked on #53. P6d1 branch `branch/restore-lifecycle-boundary` closes legacy
+restore bypasses; qualified and published for review as
+[PR #55](https://github.com/LuminariMUD/DurisWeb/pull/55), stacked on #54.
 Next: remaining P6 cleanup/copy/restore
 and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
@@ -1878,6 +1879,34 @@ outside this request. Keep this single evolving execution plan current.
   periods or silently claim aggregate restore/erasure acceptance. Then continue
   independently protected restore-removal evidence/replay, remaining classes
   and P7. Do not operate MUD backups or services in this engineering task.
+- **Published P6d1:** [PR #55](https://github.com/LuminariMUD/DurisWeb/pull/55),
+  open/non-draft, code head `8123679f5b2af6e0e378f7be04598ea62ce32b23`, base
+  `branch/retention-sql-enforcement` (#54 `56508c0`). Latest #54 hosted backend/
+  frontend checks pass. Master remains `8946860` and is already an ancestor;
+  preserve the published stack with ordinary commits. Initial read-back
+  confirms OPEN/non-draft/MERGEABLE, matching local/remote/API code heads,
+  ahead/behind `0 0` and clean worktree. #55 hosted checks were running; the
+  local proof is complete. This plan closeout is a normal follow-up commit,
+  with final head/cleanliness verified after push. No merge, tag, deployment,
+  shared migration, real restore, actual MUD operation or live changelog write
+  occurred.
+- **Next-session entry after P6d1:** fetch and inspect #55/parent/master before
+  branching from its final head. Continue in the same isolated worktree,
+  preserving original checkout changes, stash `bbda289`, all needed private
+  runners/logs and owner fixture evidence. For P6d2 inspect
+  `backupService.ts`'s `deleteBackup`, `deleteFailedBackups`, automatic
+  `cleanupOldBackups`, list-time record pruning and uploaded-file cancellation/
+  cleanup before editing. Current cleanup ignores active holds and suppresses
+  unlink failures while removing the database identity; resolve that actual
+  boundary with durable, retryable outcomes and truthful API results. Mixed
+  database/flatfile archives require conservative preservation unless scope
+  can be verified. Reuse the existing control lock/hold validation only where
+  their actual concurrency contract fits; do not hold a long SQL transaction
+  across unbounded filesystem/provider work or invent approved periods.
+  Full P6/P7, own-ledger retention, independent restore replay and named policy/
+  provider/live acceptance remain open. Source destructive/collection flags
+  stay false. Continue independent engineering and ask only for a necessary
+  consequential owner decision.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
