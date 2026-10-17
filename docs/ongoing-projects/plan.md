@@ -2,6 +2,10 @@
 
 ## Current review continuation — 2026-10-17
 
+Latest: #49 follow-up `64d30b7` is pushed and all four new threads are verified
+resolved. Fifteen findings remain from the refreshed queue. Active branch #50
+contains that parent repair; its two batch-removal findings are being qualified.
+
 The active work is oldest-first PR review repair. The complete project/branch
 inventory, unfinished P0–P8 scope and recovery priorities are preserved in the
 [cumulative handoff](https://github.com/LuminariMUD/DurisWeb/blob/562d1210b96de09f8003c6663c05291749c6e6a2/docs/ongoing-projects/plan.md).
@@ -49,6 +53,35 @@ and `pr49-regression-browser.log` in the private review directory. Configuration
 and whitespace guards pass. No backend/native/provider/live test rerun is
 needed or claimed. Future privacy-release wording may include accurate visit
 counts and a single privacy controls group; live news stays unpublished.
+
+**#50 follow-up outcome:** preserve committed removal results even if the final
+pending-count lookup fails: return the known counts/URLs with `remaining: null`
+and a safe diagnostic reference. The client validates that explicit partial
+shape, drops only unavailable previews and keeps retry feedback visible.
+Whole-request batch errors and single-image errors share their service/route/
+response reference. Files: existing image service, forum route, API parser,
+carousel, their tests, API guide and plan. Ablation reuses the current partial
+result instead of adding an error-response parser or a new operation framework.
+Two native/API regressions and two frontend regressions failed before repair;
+13 focused frontend checks now pass, including invalid partial acknowledgements.
+Required two-engine and package verification is in progress; do not claim it
+completed until the result below is recorded.
+
+**#50 final follow-up proof:** `node --import
+./backend/node_modules/tsx/dist/loader.mjs /tmp/durisweb-review-image-suite.mts
+23436 image-only` and the same invocation with `23437` each pass 34 tests /
+two suites, including actual deletion, API response and log-reference checks.
+Owned fixture preflights/fingerprints match and cleanup completed. Both modes of
+`python3 /tmp/durisweb-image-quality.py backend|frontend` pass required gates
+and builds; the full frontend suite passes 300 tests / 57 files. The 13 focused
+frontend cases include mounted carousel feedback and selective preview removal.
+`git diff --check` and config-literal checks pass. Logs: `pr50-new-*` in the
+private review directory. No full backend suite, fresh visual-layout, live
+provider or production test is claimed; the existing rendered warning is reused.
+Future forum-release wording: “Image cleanup keeps confirmed removals out of
+your draft even if checking the remaining images fails, and offers retry.”
+Publish this source, close the two threads, then carry parents through #51–#61
+before #62; preserve #55's independently published UI fix.
 
 ## Historical implementation checkpoint
 

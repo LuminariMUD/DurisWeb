@@ -613,6 +613,61 @@ async function waitForBlockedStatement(thread: number) {
       });
     });
 
+    it('returns the same safe failure reference from batch logs and HTTP errors', async () => {
+      const log = (await import('../../utils/logger.js')).default;
+      const warnings = jest.spyOn(log, 'warn').mockImplementation(() => log);
+      jest.spyOn(pool!, 'getConnection').mockRejectedValueOnce(new Error('private-batch-sentinel'));
+      const response = await request(app)
+        .delete('/api/forum/images/orphans')
+        .set('X-Image-Fixture', 'authenticated')
+        .set('Cookie', 'csrf_token=' + 'f'.repeat(64))
+        .set('X-CSRF-Token', 'f'.repeat(64));
+      expect(response.status).toBe(503);
+      expect(response.body.reference).toMatch(/^[\da-f-]{36}$/);
+      expect(warnings.mock.calls).toContainEqual([
+        'post_image_removal_incomplete',
+        expect.objectContaining({ reference: response.body.reference }),
+      ]);
+      expect(warnings.mock.calls).toContainEqual([
+        'post_image_batch_removal_incomplete',
+        { reference: response.body.reference },
+      ]);
+      expect(inspect(warnings.mock.calls) + JSON.stringify(response.body)).not.toContain(
+        'private-',
+      );
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it('keeps acknowledged removals and unavailable URLs when the final count fails', async () => {
+      const image = await seed();
+      const log = (await import('../../utils/logger.js')).default;
+      const warnings = jest.spyOn(log, 'warn').mockImplementation(() => log);
+      jest.spyOn(pool!, 'execute').mockRejectedValueOnce(new Error('private-count-sentinel'));
+      const response = await request(app)
+        .delete('/api/forum/images/orphans')
+        .set('X-Image-Fixture', 'authenticated')
+        .set('Cookie', 'csrf_token=' + 'f'.repeat(64))
+        .set('X-CSRF-Token', 'f'.repeat(64));
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        deleted: 1,
+        failed: 0,
+        remaining: null,
+        unavailableImageUrls: [image.url],
+      });
+      expect(response.body.reference).toMatch(/^[\da-f-]{36}$/);
+      expect(warnings.mock.calls).toContainEqual([
+        'post_image_removal_incomplete',
+        expect.objectContaining({ reference: response.body.reference }),
+      ]);
+      expect(await row(image.id)).toBeUndefined();
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(inspect(warnings.mock.calls) + JSON.stringify(response.body)).not.toContain(
+        'private-',
+      );
+      expect(inspect(warnings.mock.calls)).not.toContain(image.url);
+    });
+
     it('enforces actual HTTP auth/CSRF and reports confirmed, failed and remaining batch work', async () => {
       const image = await seed();
       const missingCsrf = await request(app)

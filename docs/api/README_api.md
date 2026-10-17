@@ -84,13 +84,18 @@ be confirmed. `remaining` is the current pending count, including work beyond
 this bounded batch. It can exceed `failed`. `unavailableImageUrls` contains at
 most 100 owned uploads durably marked unavailable by this request, including
 unconfirmed removals; the editor drops those previews and preserves other
-images. A 200 reply can represent partial progress. A whole-request failure is
-503 and must not be displayed as successful clearing.
+images. A 200 reply can represent partial progress. If the final count query
+fails after committed work, `remaining` is `null` and `reference` matches the
+safe diagnostic; confirmed counts and unavailable URLs are retained. The editor
+still drops those previews and keeps retry feedback visible until the remaining
+work can be checked. A whole-request failure is 503 with a matching diagnostic
+`reference` and must not be displayed as successful clearing.
 
 `DELETE /api/forum/images/:id` returns success only for a confirmed owned,
 unattached origin removal. Missing, foreign or already attached rows return 404;
 storage failure, timeout, uncertain acknowledgement or a concurrent removal
-returns 503 with a fixed retry message. The database retains retry identity.
+returns 503 with a fixed retry message and matching diagnostic `reference`.
+The database retains retry identity.
 These acknowledgements do not certify removal from CDN caches or backups.
 
 Thread/post create and edit link managed uploads before committing content.
