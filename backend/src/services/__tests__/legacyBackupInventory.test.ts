@@ -45,7 +45,8 @@ describe('read-only legacy copy discovery', () => {
       });
     const result = await inventoryLegacyBackupCopies(backupRoot, uploadRoot);
     expect(result.roots.map((root) => root.stoppedBecause)).toEqual(['time_budget', 'time_budget']);
-    expect(result.roots[1].rootSha256).toBeNull();
+    expect(result.roots[1].rootSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(result.roots[1].rootMountId).toMatch(/^[0-9]+$/);
     const output = path.join(outputRoot, 'partial.json');
     writeLegacyBackupInventory(output, result, [backupRoot, uploadRoot]);
     expect(JSON.parse(fs.readFileSync(output, 'utf8')).roots).toHaveLength(2);
@@ -243,25 +244,17 @@ describe('read-only legacy copy discovery', () => {
     expect(result.roots[0].stoppedBecause).toBe('time_budget');
     expect(lateOpens).toEqual([]);
   });
-  it('stops root metadata discovery before another call after its budget expires', async () => {
-    let clock = 0;
-    jest.spyOn(performance, 'now').mockImplementation(() => clock);
-    const realpath = fs.realpathSync.native.bind(fs.realpathSync);
-    jest
-      .spyOn(fs.realpathSync, 'native')
-      .mockImplementation((...args: Parameters<typeof fs.realpathSync.native>) => {
-        const result = realpath(...args);
-        clock = 5000;
-        return result;
-      });
-    const lstat = jest.spyOn(fs, 'lstatSync');
-    expect((await inventoryLegacyBackupCopies(backupRoot)).roots[0]).toMatchObject({
-      rootSha256: null,
-      rootMountId: null,
-      scanComplete: false,
-      stoppedBecause: 'time_budget',
+  it('validates all selected roots before traversal can exhaust its budget', async () => {
+    const alias = path.join(workspace, 'upload-alias');
+    fs.symlinkSync(uploadRoot, alias);
+    const directory = jest.spyOn(fs, 'opendirSync');
+    await expect(inventoryLegacyBackupCopies(backupRoot, alias)).rejects.toMatchObject({
+      reason: 'root_unverified',
     });
-    expect(lstat).not.toHaveBeenCalled();
+    expect(directory).not.toHaveBeenCalled();
+    await expect(
+      inventoryLegacyBackupCopies(backupRoot, '/proc/self/root' + uploadRoot),
+    ).rejects.toMatchObject({ reason: 'root_unverified' });
   });
   it('saves owner-readable evidence even with an owner-denying umask', async () => {
     const inventory = await inventoryLegacyBackupCopies(backupRoot);

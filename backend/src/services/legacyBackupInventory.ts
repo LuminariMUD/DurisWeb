@@ -28,8 +28,8 @@ export interface LegacyCopyObservation {
 }
 export interface LegacyRootInventory {
   scope: 'backup' | 'legacy_upload';
-  rootSha256: string | null;
-  rootMountId: string | null;
+  rootSha256: string;
+  rootMountId: string;
   scanComplete: boolean;
   stoppedBecause:
     | null
@@ -317,10 +317,33 @@ function observe(
     if (stagingFd !== undefined) fs.closeSync(stagingFd);
   }
 }
+function validateSelectedRoot(
+  root: string,
+): Pick<LegacyRootInventory, 'rootSha256' | 'rootMountId'> {
+  const canonical = fs.realpathSync.native(root);
+  const stat = fs.lstatSync(canonical, { bigint: true });
+  if (canonical !== path.resolve(root) || !stat.isDirectory())
+    throw new LegacyBackupInventoryError('root_unverified');
+  const fd = openEntry(canonical, stat);
+  try {
+    return {
+      rootSha256: hash([
+        canonical,
+        fs.statfsSync(canonical, { bigint: true }).type.toString(),
+        stat.dev.toString(),
+        stat.ino.toString(),
+      ]),
+      rootMountId: mountId(fd),
+    };
+  } finally {
+    fs.closeSync(fd);
+  }
+}
 function inspectRoot(
   root: string,
   scope: LegacyRootInventory['scope'],
   deadline: number,
+  initial: Pick<LegacyRootInventory, 'rootSha256' | 'rootMountId'>,
 ): LegacyRootInventory {
   let fd: number | undefined;
   try {
@@ -347,6 +370,8 @@ function inspectRoot(
       unknownLegacyEntries: 0,
       copies: [],
     };
+    if (result.rootSha256 !== initial.rootSha256 || result.rootMountId !== initial.rootMountId)
+      throw new LegacyBackupInventoryError('root_unverified');
     checkBudget(deadline);
     const directory = fs.opendirSync(`/proc/self/fd/${fd}`);
     try {
@@ -408,8 +433,7 @@ function inspectRoot(
     if (error instanceof InventoryBudgetExceeded)
       return {
         scope,
-        rootSha256: null,
-        rootMountId: null,
+        ...initial,
         scanComplete: false,
         stoppedBecause: 'time_budget',
         entriesSeen: 0,
@@ -439,9 +463,18 @@ export async function inventoryLegacyBackupCopies(
     const mountNamespace = fs.readlinkSync('/proc/self/ns/mnt');
     if (!/^mnt:\[[0-9]+\]$/.test(mountNamespace))
       throw new LegacyBackupInventoryError('root_unverified');
+    // Admission validates every selected root before the shared traversal budget starts.
+    const initial = [backupRoot, ...(uploadRoot === undefined ? [] : [uploadRoot])].map((root) => {
+      try {
+        return validateSelectedRoot(root);
+      } catch {
+        throw new LegacyBackupInventoryError('root_unverified');
+      }
+    });
     const deadline = performance.now() + TIME_BUDGET_MS;
-    const roots = [inspectRoot(backupRoot, 'backup', deadline)];
-    if (uploadRoot !== undefined) roots.push(inspectRoot(uploadRoot, 'legacy_upload', deadline));
+    const roots = [inspectRoot(backupRoot, 'backup', deadline, initial[0])];
+    if (uploadRoot !== undefined)
+      roots.push(inspectRoot(uploadRoot, 'legacy_upload', deadline, initial[1]));
     return {
       format: 1,
       observationId: randomUUID(),
@@ -483,8 +516,6 @@ export function writeLegacyBackupInventory(
     const requireScannedRoots = () => {
       for (const [index, root] of selectedRoots.entries()) {
         const observed = inventory.roots[index];
-        // An unstarted timed-out root has no physical observation to claim.
-        if (observed.rootSha256 === null) continue;
         const current = fs.lstatSync(root, { bigint: true });
         const rootFd = openEntry(root, current);
         try {
