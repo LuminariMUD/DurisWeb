@@ -175,6 +175,14 @@ remain fail-closed; physical-row retention/holds and verified browser-request
 handling still belong to P6/P7. The draft policy prevents issuance in prepared
 source, so the proposed preference lifetime remains unapproved and inactive.
 
+Status GETs never clear a cookie: an older request could otherwise delete a
+newer credential issued by a concurrent choice. An invalid receipt cannot
+authorize its named record. Status/retry instead use the current CSRF-bound
+identity, as when no receipt exists, so a lost cookie update can recover without
+modifying another browser's choice. Storage failures expose a shared random
+reference with safe operation/stage, allowlisted driver/state code and rollback
+outcome in logs; raw errors, SQL, bindings and credentials remain excluded.
+
 [Terminal](../backend/src/services/terminalService.ts),
 [operations](../backend/src/services/mudControlService.ts),
 [builder](../backend/src/services/zoneCommentService.ts),
@@ -209,8 +217,19 @@ fields remain null. No optional enrichment/provider call occurs. Receipt
 issuance and collection remain inactive. The prepared public draft and client
 controls validate the receipt, including actual-cookie read-back, cross-tab
 ordering, expiry and failures. A visit nonce exists only in page memory after
-confirmation, and is reset on stop or account changes. This does not approve the
-notice/period proposals or establish live collection acceptance.
+confirmation and is cleared on withdrawal, expiry, account changes or teardown.
+Temporary hiding aborts optional work; returning revalidates the receipt and
+preserves an unchanged accepted visit without repeating its page view. A
+navigation made while hidden is recorded once on return. Initial collection
+waits for session restoration. Checking an unchanged saved choice preserves the
+visit, and each visible navigation keeps its request alive across later route
+changes; withdrawal still aborts every pending request. The privacy route uses
+its router identity, including a trailing slash, to render one controls group.
+Pending refusals cannot
+be replaced by a second click, while pending acceptance remains withdrawable.
+Compact confirmations remain mounted after their own action, with deliberate
+confirmation focus that does not repeat on passive status refreshes. This does
+not approve notice/period proposals or establish live collection acceptance.
 
 Historical analytics readers now use SQL directly, and both administrative
 router mounts send `Cache-Control: no-store`. They no longer populate/read
@@ -359,6 +378,13 @@ cutoff and copy handling before its lifecycle can be considered complete.
 
 Forum image removal records a durable intent before contacting R2 and retains
 the retry row on disabled storage, failure, timeout or an unconfirmed response.
+Removal holds its advisory lease on a dedicated SQL connection, with at most
+two active removals per application process. Provider waits do not occupy the
+shared query pool; excess work returns the existing retryable in-progress
+outcome. The connection and slot are released on completion/failure, while the
+durable retry reference and publication guards remain in force. Forum write
+failures expose a reference matching safe stage/driver-code diagnostics rather
+than raw SQL, bindings or provider text.
 Pending images cannot be attached; forum create/edit operations link managed
 images in the publication transaction. The existing hourly cleanup retries
 pending work and keeps the one-hour rule for newly abandoned uploads, with

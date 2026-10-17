@@ -17,6 +17,18 @@ import request from 'supertest';
 import { getBackendConfiguration } from '../../config/environment.js';
 import type { PrivacyPolicy } from '../../config/privacyPolicy.js';
 
+const environment = getBackendConfiguration();
+const nativePort = Number(process.env.TEST_PRIVACY_DB_PORT);
+const database = environment.database.database;
+if (
+  process.env.TEST_PRIVACY_DB_PORT &&
+  (![23436, 23437].includes(nativePort) ||
+    environment.database.host !== '127.0.0.1' ||
+    environment.database.port !== nativePort ||
+    database !== 'durisweb_qualification_privacy_suite')
+)
+  throw new Error('Privacy tests require their dedicated disposable fixture and matching DB_PORT');
+
 let policy: PrivacyPolicy;
 jest.unstable_mockModule('../../config/privacyPolicy.js', () => ({
   getPrivacyPolicy: () => policy,
@@ -30,20 +42,9 @@ const { default: privacyRoutes } = await import('../../routes/privacy.js');
 const { getWebSetting, getWebSettingsRaw, updateWebSetting } = await import(
   '../webSettingsService.js'
 );
-const nativePort = Number(process.env.TEST_PRIVACY_DB_PORT);
-const database = process.env.DB_NAME ?? '';
-if (
-  process.env.TEST_PRIVACY_DB_PORT &&
-  (![23436, 23437].includes(nativePort) ||
-    process.env.DB_HOST !== '127.0.0.1' ||
-    database !== 'durisweb_qualification_privacy_suite')
-)
-  throw new Error('Privacy tests require their dedicated disposable fixture');
-
 const keys = new Set<string>();
 const sessions = new Set<string>();
 let observer: mysql.Connection | undefined;
-const environment = getBackendConfiguration();
 const approved: PrivacyPolicy = {
   noticeVersion: 'synthetic-1',
   choiceVersion: 'synthetic-1',
@@ -172,6 +173,34 @@ afterAll(async () => {
 });
 
 describe('privacy choice source gates', () => {
+  it('correlates an acquisition outage with a safe stage and code', async () => {
+    policy = { ...approved };
+    const context = browser();
+    const failure = Object.assign(new Error('private-diagnostic-sentinel'), {
+      code: 'ECONNREFUSED',
+      sql: 'private-sql-sentinel',
+    });
+    jest.spyOn(pool, 'getConnection').mockRejectedValue(failure);
+    const warning = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
+    const app = express();
+    app.use(cookieParser());
+    app.use('/api/privacy', privacyRoutes);
+    const response = await request(app)
+      .get('/api/privacy')
+      .set('Cookie', 'csrf_token=' + context.csrfToken);
+    expect(response.status).toBe(503);
+    expect(response.body.reference).toMatch(/^[\da-f-]{36}$/);
+    expect(warning.mock.calls).toContainEqual([
+      'privacy_choice_storage_unavailable',
+      expect.objectContaining({
+        reference: response.body.reference,
+        operation: 'status',
+        stage: 'acquire',
+        code: 'ECONNREFUSED',
+      }),
+    ]);
+    expect(inspect(warning.mock.calls) + JSON.stringify(response.body)).not.toContain('private-');
+  });
   it('does no storage work before policy approval', async () => {
     const checkout = jest.spyOn(pool, 'getConnection');
     const context = browser();
@@ -426,6 +455,7 @@ describe('privacy choice source gates', () => {
   });
 
   it('fails closed on unreadable or oversized receipts and preserves the invalid evidence', async () => {
+    const warning = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
     const context = browser();
     const accepted = await choose(context);
     context.receipt = accepted.receipt;
@@ -447,6 +477,15 @@ describe('privacy choice source gates', () => {
       expect(rows[0].setting_value).toBe(invalid);
       expect(sessions.size).toBe(0);
     }
+    expect(warning.mock.calls).toContainEqual([
+      'privacy_choice_storage_unavailable',
+      expect.objectContaining({
+        code: 'invalid_choice',
+        stage: 'action',
+        operation: 'status',
+      }),
+    ]);
+    expect(inspect(warning.mock.calls)).not.toContain('private-sentinel');
   });
 
   it('serializes competing first choices and rejects the losing revision without a second decision', async () => {
@@ -596,6 +635,84 @@ describe('privacy choice source gates', () => {
     }
   });
 
+  it('does not clear a newly rotated cookie when an older status request completes', async () => {
+    const context = browser();
+    const first = await choose(context);
+    context.receipt = first.receipt;
+    const current = await choose(context, 'refused', 1);
+    const app = express();
+    app.use(cookieParser());
+    app.use('/api/privacy', privacyRoutes);
+    const stale = await request(app)
+      .get('/api/privacy')
+      .set(
+        'Cookie',
+        'csrf_token=' + context.csrfToken + '; ' + service.PRIVACY_COOKIE + '=' + first.receipt,
+      );
+    expect(stale.status).toBe(200);
+    expect(stale.body.receiptValid).toBe(false);
+    expect(stale.headers['set-cookie']).toBeUndefined();
+    expect(await service.getPrivacyChoice({ ...context, receipt: current.receipt })).toMatchObject({
+      decision: 'refused',
+      revision: 2,
+      receiptValid: true,
+    });
+  });
+
+  it.each([false, true])(
+    'recovers a lost cookie rotation through the current CSRF binding (rotated=%s)',
+    async (rotated) => {
+      const original = browser();
+      const initial = await choose(original);
+      original.receipt = initial.receipt;
+      const current = rotated ? browser() : original;
+      current.receipt = initial.receipt;
+      const lost = await choose(current, 'refused', 1);
+      // The acknowledged update was not installed in the browser's cookie jar.
+      const metadata = await service.getPrivacyChoice(current);
+      expect(metadata).toMatchObject({
+        receiptValid: false,
+        decision: 'unknown',
+        revision: rotated ? 0 : 2,
+      });
+      const recovered = await choose(current, 'accepted', metadata.revision);
+      expect(
+        await service.getPrivacyChoice({ ...current, receipt: recovered.receipt }),
+      ).toMatchObject({
+        decision: 'accepted',
+        receiptValid: true,
+      });
+      if (rotated)
+        expect(
+          await service.getPrivacyChoice({ ...original, receipt: lost.receipt }),
+        ).toMatchObject({
+          decision: 'refused',
+          revision: 2,
+          receiptValid: true,
+        });
+      await expect(service.collectPrivacyPageView(initial.receipt, event(1))).rejects.toMatchObject(
+        { status: 403 },
+      );
+    },
+  );
+
+  it('recovers only the current CSRF identity when a forged cookie names another browser', async () => {
+    const victim = browser();
+    const granted = await choose(victim);
+    victim.receipt = granted.receipt;
+    const other = browser();
+    other.receipt = granted.receipt.split('.')[0] + '.' + '0'.repeat(64);
+    const metadata = await service.getPrivacyChoice(other);
+    expect(metadata).toMatchObject({ revision: 0, receiptValid: false });
+    const choice = await choose(other, 'refused', 0);
+    expect(choice.receipt.split('.')[0]).not.toBe(granted.receipt.split('.')[0]);
+    expect(await service.getPrivacyChoice(victim)).toMatchObject({
+      decision: 'accepted',
+      revision: 1,
+      receiptValid: true,
+    });
+  });
+
   it('does not issue a cookie after an ambiguous preference commit and never leaks the failure', async () => {
     const context = browser();
     jest.restoreAllMocks();
@@ -631,6 +748,15 @@ describe('privacy choice source gates', () => {
       });
     expect(response.status).toBe(503);
     expect(response.headers['set-cookie']).toBeUndefined();
+    expect(warning.mock.calls).toContainEqual([
+      'privacy_choice_storage_unavailable',
+      expect.objectContaining({
+        reference: response.body.reference,
+        stage: 'commit',
+        operation: 'choice',
+        rollback: 'completed',
+      }),
+    ]);
     expect(inspect(warning.mock.calls)).not.toContain('private-commit-sentinel');
     jest.restoreAllMocks();
     expect(await service.getPrivacyChoice(context)).toMatchObject({
@@ -638,6 +764,60 @@ describe('privacy choice source gates', () => {
       revision: 1,
       receiptValid: false,
     });
+  });
+
+  it('records rollback failures separately and discards the affected checkout', async () => {
+    jest.restoreAllMocks();
+    const warning = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
+    const checkout = pool.getConnection.bind(pool);
+    let destroyed = false;
+    jest.spyOn(pool, 'getConnection').mockImplementation(
+      async () =>
+        new Proxy(await checkout(), {
+          get(target, key) {
+            if (key === 'rollback')
+              return async () => {
+                throw Object.assign(new Error('private-rollback-sentinel'), { code: 'ECONNRESET' });
+              };
+            if (key === 'destroy')
+              return () => {
+                destroyed = true;
+                target.destroy();
+              };
+            const value: unknown = Reflect.get(target, key, target);
+            if (key === 'execute' && typeof value === 'function')
+              return (...args: unknown[]) => {
+                const first = args[0];
+                if (
+                  first &&
+                  typeof first === 'object' &&
+                  'sql' in first &&
+                  String(first.sql).startsWith('INSERT INTO web_settings')
+                )
+                  return Promise.reject(
+                    Object.assign(new Error('private-query-sentinel'), {
+                      code: 'ER_LOCK_DEADLOCK',
+                    }),
+                  );
+                return Reflect.apply(value, target, args);
+              };
+            return typeof value === 'function' ? value.bind(target) : value;
+          },
+        }),
+    );
+    await expect(choose(browser())).rejects.toMatchObject({ status: 503 });
+    expect(destroyed).toBe(true);
+    expect(warning.mock.calls).toContainEqual([
+      'privacy_choice_storage_unavailable',
+      expect.objectContaining({
+        operation: 'choice',
+        stage: 'action',
+        code: 'ER_LOCK_DEADLOCK',
+        rollback: 'failed',
+        rollbackCode: 'ECONNRESET',
+      }),
+    ]);
+    expect(inspect(warning.mock.calls)).not.toContain('private-');
   });
 
   it('rolls both optional writes back when visitor-session persistence fails, without disclosing bindings', async () => {
