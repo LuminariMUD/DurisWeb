@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 import { Router, Request, Response, type IRouter } from 'express';
 import { randomUUID } from 'node:crypto';
 import { pool as db } from '../db/connection.js';
@@ -624,6 +625,7 @@ router.post(
       .withMessage('Content must be 10-50000 characters'),
   ],
   async (req: Request, res: Response) => {
+    let stage = 'authorization';
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -677,6 +679,7 @@ router.post(
       // Extract client IP address
       const ipAddress = extractClientIP(req);
 
+      stage = 'publication';
       // Create thread
       const threadId = await createThread(
         categoryId,
@@ -688,6 +691,7 @@ router.post(
         req.user.permissions,
       );
 
+      stage = 'subscription';
       // Auto-subscribe to own thread
       await subscribeToThread(req.user.accountName, threadId, 'all');
 
@@ -699,8 +703,9 @@ router.post(
     } catch (error) {
       if (error instanceof PostImageAttachmentError)
         return res.status(409).json({ error: error.message });
-      logger.error('Create thread failed', { reference: randomUUID() });
-      return res.status(500).json({ error: 'Failed to create thread' });
+      const reference = randomUUID();
+      logger.error('Create thread failed', { reference, stage, code: safeFailureCode(error) });
+      return res.status(500).json({ error: 'Failed to create thread', reference });
     }
   },
 );
@@ -727,6 +732,7 @@ router.patch(
       .withMessage('Content must be 10-50000 characters'),
   ],
   async (req: Request, res: Response) => {
+    let stage = 'authorization';
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -758,6 +764,7 @@ router.patch(
         return res.status(403).json({ error: 'You can only edit your own threads' });
       }
 
+      stage = 'publication';
       // Update thread
       const success = await updateThread(
         threadId,
@@ -774,8 +781,9 @@ router.patch(
     } catch (error) {
       if (error instanceof PostImageAttachmentError)
         return res.status(409).json({ error: error.message });
-      logger.error('Update thread failed', { reference: randomUUID() });
-      return res.status(500).json({ error: 'Failed to update thread' });
+      const reference = randomUUID();
+      logger.error('Update thread failed', { reference, stage, code: safeFailureCode(error) });
+      return res.status(500).json({ error: 'Failed to update thread', reference });
     }
   },
 );
@@ -940,6 +948,7 @@ router.post(
     body('parentPostId').optional().isInt().withMessage('Parent post ID must be an integer'),
   ],
   async (req: Request, res: Response) => {
+    let stage = 'authorization';
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -1008,6 +1017,7 @@ router.post(
       // Extract client IP address
       const ipAddress = extractClientIP(req);
 
+      stage = 'publication';
       // Create post
       const postId = await createPost(
         threadId,
@@ -1021,6 +1031,7 @@ router.post(
 
       // Notifications are now handled automatically within createPost
 
+      stage = 'read_result';
       // Fetch the full post to return to frontend
       const post = await getPostById(postId, req.user.accountName, req.user.permissions);
 
@@ -1038,8 +1049,9 @@ router.post(
     } catch (error) {
       if (error instanceof PostImageAttachmentError)
         return res.status(409).json({ error: error.message });
-      logger.error('Create post failed', { reference: randomUUID() });
-      return res.status(500).json({ error: 'Failed to create post' });
+      const reference = randomUUID();
+      logger.error('Create post failed', { reference, stage, code: safeFailureCode(error) });
+      return res.status(500).json({ error: 'Failed to create post', reference });
     }
   },
 );
@@ -1060,6 +1072,7 @@ router.patch(
       .withMessage('Content must be 1-50000 characters'),
   ],
   async (req: Request, res: Response) => {
+    let stage = 'authorization';
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -1093,6 +1106,7 @@ router.patch(
         });
       }
 
+      stage = 'publication';
       const success = await updatePost(postId, content, req.user.accountName);
 
       if (!success) {
@@ -1103,8 +1117,9 @@ router.patch(
     } catch (error) {
       if (error instanceof PostImageAttachmentError)
         return res.status(409).json({ error: error.message });
-      logger.error('Update post failed', { reference: randomUUID() });
-      return res.status(500).json({ error: 'Failed to update post' });
+      const reference = randomUUID();
+      logger.error('Update post failed', { reference, stage, code: safeFailureCode(error) });
+      return res.status(500).json({ error: 'Failed to update post', reference });
     }
   },
 );
