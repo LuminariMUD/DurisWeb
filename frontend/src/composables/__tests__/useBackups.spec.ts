@@ -7,7 +7,8 @@ import { useBackups } from '../useBackups'
 import type { BackupInfo } from '@/types'
 
 const accountName = ref<string | null>('UploaderAlpha')
-vi.mock('../useAuth', () => ({ useAuth: () => ({ accountName }) }))
+const permissions = ref<{ role: string } | undefined>({ role: 'overlord' })
+vi.mock('../useAuth', () => ({ useAuth: () => ({ accountName, permissions }) }))
 
 vi.mock('@/services/api', () => ({
   adminApi: {
@@ -24,7 +25,8 @@ vi.mock('@/services/api', () => ({
 beforeEach(() => {
   vi.clearAllMocks()
   accountName.value = 'UploaderAlpha'
-  vi.mocked(adminApi.getBackupList).mockResolvedValue({ backups: [] })
+  permissions.value = { role: 'overlord' }
+  vi.mocked(adminApi.getBackupList).mockReset().mockResolvedValue({ backups: [] })
 })
 
 function mountBackups() {
@@ -89,6 +91,63 @@ describe('account-scoped backup lists', () => {
       expect(backups.hasInProgressBackup.value).toBe(true)
       expect(backups.inProgressBackup.value?.id).toBe(2)
     } finally {
+      wrapper.unmount()
+      client.clear()
+    }
+  })
+  it('hides privileged cached uploads when the same account returns with a lower role', async () => {
+    const foreign = retainedUpload('OtherOwner', 1)
+    vi.mocked(adminApi.getBackupList).mockResolvedValueOnce({ backups: [foreign] })
+    const { backups, client, wrapper } = mountBackups()
+    let finish: ((value: { backups: BackupInfo[] }) => void) | undefined
+    try {
+      await flushPromises()
+      expect(wrapper.text()).toContain(foreign.filename)
+      accountName.value = null
+      permissions.value = undefined
+      await nextTick()
+      vi.mocked(adminApi.getBackupList).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve
+          }),
+      )
+      permissions.value = { role: 'player' }
+      accountName.value = 'UploaderAlpha'
+      await nextTick()
+      expect(backups.backups.value).toEqual([])
+      expect(wrapper.text()).not.toContain(foreign.filename)
+      finish?.({ backups: [] })
+      await flushPromises()
+      expect(adminApi.getBackupList).toHaveBeenCalledTimes(2)
+    } finally {
+      finish?.({ backups: [] })
+      wrapper.unmount()
+      client.clear()
+    }
+  })
+  it('cancels an in-flight privileged response on a same-account role downgrade', async () => {
+    let finish!: (value: { backups: BackupInfo[] }) => void
+    let signal: AbortSignal | undefined
+    vi.mocked(adminApi.getBackupList).mockImplementationOnce((requestSignal?: AbortSignal) => {
+      signal = requestSignal
+      return new Promise((resolve) => {
+        finish = resolve
+      })
+    })
+    const { backups, client, wrapper } = mountBackups()
+    try {
+      await flushPromises()
+      vi.mocked(adminApi.getBackupList).mockResolvedValueOnce({ backups: [] })
+      permissions.value = { role: 'player' }
+      await flushPromises()
+      expect(signal?.aborted).toBe(true)
+      finish({ backups: [retainedUpload('OtherOwner', 1)] })
+      await flushPromises()
+      expect(backups.backups.value).toEqual([])
+      expect(wrapper.text()).not.toContain('OtherOwner')
+    } finally {
+      finish?.({ backups: [] })
       wrapper.unmount()
       client.clear()
     }

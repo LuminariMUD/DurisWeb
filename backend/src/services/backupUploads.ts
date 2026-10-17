@@ -229,7 +229,7 @@ async function read(
     },
     [BACKUP_UPLOAD_PREFIX + id],
   );
-  if (!rows.length) throw new BackupUploadError('not_found', id);
+  if (!rows.length) throw new BackupUploadError('not_found');
   const row = rows[0];
   if (
     rows.length !== 1 ||
@@ -248,7 +248,7 @@ async function read(
   }
   const record = parse(value);
   if (record.id !== id) throw new BackupUploadError('recovery_unverified', id);
-  if (!mayManageAll && record.owner !== actor) throw new BackupUploadError('not_found', id);
+  if (!mayManageAll && record.owner !== actor) throw new BackupUploadError('not_found');
   const [backups] = await db.execute<RowDataPacket[]>(
     {
       sql: 'SELECT id,filename,status,created_by FROM mud_backups WHERE id=? FOR UPDATE',
