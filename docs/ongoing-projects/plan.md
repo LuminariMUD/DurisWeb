@@ -124,6 +124,17 @@ old `PrivateTmp` unit. Namespace teardown is itself a copy-removal path.
   Then implement verified adoption/fencing with current protected evidence and
   offline replay, plus remaining P6 handlers and all P7 requirements. No named
   policy approval or user question is necessary for this independent engineering.
+- **Preservation-order publication:** documentation head
+  `0f08e6c6f74988b7a32e4c338f09ba9cc2f4aedc` is pushed in open/non-draft
+  [PR #63](https://github.com/LuminariMUD/DurisWeb/pull/63), base
+  `branch/backup-upload-records` (#62 final `3d68697`), and attached here.
+  Readback confirms OPEN/MERGEABLE, correct base/head, matching local/remote/API
+  SHA, ahead/behind `0 0`, clean worktree and whitespace. The existing registry
+  checker verifies exact 77-table coverage, local references and required gates.
+  No runtime tests are needed for this documentation-only correction. Continue
+  from the final publication-document commit in the same isolated worktree;
+  do not run the described release or alter live services/files. Source P6/P7
+  engineering remains available and the full goal stays active.
 
 - **P6d2b2b durable uploads (2026-10-17, qualified/published as #62):** branch
   `branch/backup-upload-records` starts at #61 `0bc2641`. Outcome: persist upload
