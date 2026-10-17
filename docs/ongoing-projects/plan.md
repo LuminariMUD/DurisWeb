@@ -51,8 +51,9 @@ and published for review as [PR #62](https://github.com/LuminariMUD/DurisWeb/pul
 on `branch/backup-upload-records`, stacked on #61. Existing
 legacy temporary-file preservation order is corrected in
 [PR #63](https://github.com/LuminariMUD/DurisWeb/pull/63), stacked on #62.
-Read-only private discovery is qualified on
-`branch/legacy-backup-copy-inventory`, awaiting focused publication.
+Read-only private discovery is qualified and published as
+[PR #64](https://github.com/LuminariMUD/DurisWeb/pull/64) on
+`branch/legacy-backup-copy-inventory`, stacked on #63.
 Verified legacy-copy adoption/fencing remains next.
 Install metadata function v2 before bootstrap/migrations;
 source does not accept v1 as an equivalent fallback.
@@ -90,7 +91,7 @@ old `PrivateTmp` unit. Namespace teardown is itself a copy-removal path.
 
 ## Execution record and continuation
 
-- **P6d2b2d private legacy-copy discovery (2026-10-17, qualified; publication pending):** branch
+- **P6d2b2d private legacy-copy discovery (2026-10-17, qualified/published as #64):** branch
   `branch/legacy-backup-copy-inventory` starts at #63 `1b37db7`. Outcome: an
   explicit-root, bounded, read-only inventory of the traced legacy raw SQL,
   staging and OS-temp upload layouts, saved exclusively as private physical
@@ -171,6 +172,20 @@ old `PrivateTmp` unit. Namespace teardown is itself a copy-removal path.
   offline restore-removal replay, remaining P6 handlers/own-ledger periods and
   all P7 subject-request work. Global enforcement remains unavailable and named
   policy/release decisions are still open; no user question is currently needed.
+- **P6d2b2d publication:** code head
+  `c58c833390bc66b6a63fb682eea586352b555af6` is pushed in open/non-draft
+  [PR #64](https://github.com/LuminariMUD/DurisWeb/pull/64), base
+  `branch/legacy-upload-preservation-gate` (#63 final `1b37db7`), and attached
+  here. Readback confirms OPEN/MERGEABLE, correct base/head, exact local/remote/
+  API SHA, ahead/behind `0 0`, clean worktree and whitespace. Hosted quality
+  jobs were running; required local checks above are complete. Master remains
+  `89468603a61ab44d9e3be1651c9dd6fce5a17a12` and an ancestor. Continue in
+  `/tmp/durisweb-security-privacy-plan-20261016` from the final publication-doc
+  commit after refreshing the stack. Retain required private qualification
+  evidence and stashes `1c8d1dd`/`bbda289`. This closeout edits only the plan;
+  do not repeat runtime suites for it. No merge/tag/deployment or selected live
+  root/namespace operation is performed. The full P6/P7 and policy/release scope
+  remains incomplete and the goal stays active.
 
 - **P6d2b2c preservation-order repair (2026-10-17):** branch
   `branch/legacy-upload-preservation-gate` starts at #62 `3d68697`.
