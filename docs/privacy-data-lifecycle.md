@@ -396,3 +396,10 @@ replay, approved retention periods or deletion of cached/backup copies.
 Existing backup count pruning, per-account notification deletion and invalid
 push-endpoint cleanup are feature mechanisms, not proof of the proposed periods
 above.
+
+Prepared [archive cleanup recovery](runbooks/backup-archive-cleanup.md) retains
+file identity on unconfirmed deletion, routes failed/manual/count cleanup through
+one path, refuses unfinished/shared/unsafe targets, and preserves list-time
+evidence. New names avoid simultaneous archive collisions. This repairs retry
+and acknowledgement behavior; it does not implement archive holds, approved
+maximum age or offline restore-removal replay. Those remain explicit P6 gaps.

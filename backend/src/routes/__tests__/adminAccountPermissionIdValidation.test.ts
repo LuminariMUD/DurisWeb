@@ -5,6 +5,7 @@ import mysql from 'mysql2/promise';
 import type { RowDataPacket } from 'mysql2/promise';
 import { loadWebBaselineBundle } from '../../db/webBaselineBundle.js';
 import { getBackendConfiguration } from '../../config/environment.js';
+import { BackupDeletionError } from '../../utils/backupDeletionError.js';
 import { beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const assignRole = jest.fn<(...args: unknown[]) => Promise<unknown>>();
@@ -394,6 +395,42 @@ describe('admin account permission ID validation', () => {
     expect(createRole).not.toHaveBeenCalled();
     expect(updateRole).not.toHaveBeenCalled();
   });
+
+  it.each(['/backup/1', '/backup/failed'])(
+    'reports a retained archive failure safely for %s',
+    async (route) => {
+      const backups = await import('../../services/backupService.js');
+      const remove =
+        route === '/backup/failed'
+          ? jest.mocked(backups.deleteFailedBackups)
+          : jest.mocked(backups.deleteBackup);
+      remove.mockRejectedValueOnce(new BackupDeletionError('file_removal_unconfirmed'));
+      const response = await request(app).delete('/api/admin' + route);
+      expect(response.status).toBe(503);
+      expect(response.body).toMatchObject({ reason: 'file_removal_unconfirmed' });
+      expect(response.body).not.toHaveProperty('success');
+      expect(response.body).not.toHaveProperty('deletedCount');
+      expect(JSON.stringify(response.body)).not.toContain('private-driver');
+    },
+  );
+
+  it.each(['/backup/1', '/backup/failed'])(
+    'does not expose unexpected deletion errors for %s',
+    async (route) => {
+      const backups = await import('../../services/backupService.js');
+      const remove =
+        route === '/backup/failed'
+          ? jest.mocked(backups.deleteFailedBackups)
+          : jest.mocked(backups.deleteBackup);
+      remove.mockRejectedValueOnce(new Error('private-driver-password-path-sentinel'));
+      const response = await request(app).delete('/api/admin' + route);
+      expect(response.status).toBe(503);
+      expect(response.body).toMatchObject({ reason: 'storage_unavailable' });
+      expect(JSON.stringify(response.body)).not.toContain('private-driver');
+      const { default: logger } = await import('../../utils/logger.js');
+      expect(JSON.stringify(jest.mocked(logger.error).mock.calls)).not.toContain('private-driver');
+    },
+  );
 
   it('preserves bounded numeric role permission arrays', async () => {
     const response = await request(app)

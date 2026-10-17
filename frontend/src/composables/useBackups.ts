@@ -52,7 +52,7 @@ export function useBackups() {
     mutationFn: async (id: number) => {
       await adminApi.deleteBackup(id)
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['backups'] })
     },
   })
@@ -62,7 +62,7 @@ export function useBackups() {
     mutationFn: async () => {
       return await adminApi.deleteFailedBackups()
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['backups'] })
     },
   })
@@ -234,7 +234,7 @@ export function useBackups() {
     inProgressBackup,
     createBackup: createBackupMutation.mutate,
     isCreating: computed(() => createBackupMutation.isPending.value),
-    deleteBackup: deleteBackupMutation.mutate,
+    deleteBackup: deleteBackupMutation.mutateAsync,
     isDeleting: computed(() => deleteBackupMutation.isPending.value),
     deleteFailedBackups: deleteFailedBackupsMutation.mutateAsync,
     isDeletingFailed: computed(() => deleteFailedBackupsMutation.isPending.value),

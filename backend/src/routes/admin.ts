@@ -37,6 +37,7 @@ import { getDeletedThreads, getDeletedPosts } from '../services/forumService.js'
 import { requireAuth, requireOverlord, requirePermission } from '../middleware/auth.js';
 import { requireWebSettingAuthorization } from '../middleware/webSettingsAuthorization.js';
 import { requireMutationGate } from '../middleware/mutationGate.js';
+import { BackupDeletionError } from '../utils/backupDeletionError.js';
 import {
   getOverviewStats,
   getForumStats,
@@ -3858,6 +3859,25 @@ router.get(
   },
 );
 
+function respondBackupDeletionFailure(res: Response, error: unknown): Response {
+  const failure =
+    error instanceof BackupDeletionError ? error : new BackupDeletionError('storage_unavailable');
+  logger.error('[Backup] Archive removal stopped', {
+    reason: failure.reason,
+    reference: failure.reference,
+  });
+  const status = ['invalid_archive', 'archive_in_progress', 'shared_archive'].includes(
+    failure.reason,
+  )
+    ? 409
+    : 503;
+  return res.status(status).json({
+    error: failure.message,
+    reason: failure.reason,
+    reference: failure.reference,
+  });
+}
+
 /**
  * DELETE /api/admin/backup/failed
  * Delete all failed backups (overlord only)
@@ -3875,9 +3895,7 @@ router.delete(
         message: `Deleted ${deletedCount} failed backup(s)`,
       });
     } catch (error) {
-      logger.error('Delete failed backups error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to delete failed backups';
-      return res.status(500).json({ error: message });
+      return respondBackupDeletionFailure(res, error);
     }
   },
 );
@@ -3903,9 +3921,7 @@ router.delete('/backup/:id', requireAuth, requireOverlord, async (req: Request, 
       message: 'Backup deleted successfully',
     });
   } catch (error) {
-    logger.error('Delete backup error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to delete backup';
-    return res.status(500).json({ error: message });
+    return respondBackupDeletionFailure(res, error);
   }
 });
 

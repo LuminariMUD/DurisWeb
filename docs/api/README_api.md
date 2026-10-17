@@ -89,6 +89,18 @@ they no longer read/populate legacy `web_analytics:*` Redis entries. This change
 no authorization or response shape. Bounded legacy-key removal belongs to the
 separate gated executor, not a dashboard request.
 
+## Backup archive cleanup
+
+Backup removal is described separately in the
+[archive cleanup runbook](../runbooks/backup-archive-cleanup.md). Individual
+deletion returns success only after unlink/confirmed absence and record removal;
+pending/in-progress/shared/unsafe targets are refused. The failed-backup batch
+stops on its first unconfirmed removal and returns no false success/count; prior
+items may already be removed. Deletion failures use static `reason`/`reference`
+with 409 for invalid/active/shared targets or 503 for unconfirmed storage/file
+work. Listings retain missing-file identities and do not infer writer death
+from age. Archive holds and general restore replay remain unimplemented.
+
 ## Forum image removal
 
 All image status/list/removal routes require login. State changes retain the
