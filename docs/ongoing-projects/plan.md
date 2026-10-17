@@ -4,7 +4,8 @@ Status: **implementation in progress**. Updated 2026-10-16.
 
 Current checkpoint: engineering through P4, the UTC correction, first P5
 collection closure and browser storage-denial repair are published for review
-(#39, #41–#46). Next is the remaining P5 notice/choice implementation, then P6–P7.
+(#39, #41–#47). The source-backed lifecycle registry is now published for review;
+remaining P5 notice/choice implementation and P6–P7 are still open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
 
 Single working plan for [#7](https://github.com/LuminariMUD/DurisWeb/issues/7),
@@ -901,6 +902,54 @@ outside this request. Keep this single evolving execution plan current.
   of collection. Do not mark #10 complete for the temporary closure alone.
   P6/P7 still need their complete engineering and approved lifecycle decisions;
   production rollout remains outside this request.
+
+- **P0 registry prerequisite for remaining P5–P7:**
+  `branch/privacy-processing-registry` starts at #46 `1761613`.
+  **Outcome:** a source-backed lifecycle inventory covering every website table,
+  post-baseline credential/audit overlays, mixed journal/settings data, indirect
+  subject links, externally owned records and non-SQL copies. **Non-goals:**
+  approving periods, legal/controller claims, enabling analytics, implementing
+  deletion/export from table names, or inspecting live personal data. **Files:**
+  permanent lifecycle guide, its security-record link and this plan. **Proof:**
+  exact 77-table baseline coverage, all listed columns/joins checked against the
+  pinned DDL and current migrations/callers, explicit approval gaps and source
+  references, relative links and whitespace. This documentation is required by
+  P0 and will drive the notice and P6/P7 allowlists; no generic registry framework
+  or production configuration is needed for discovery.
+- **Registry output:** [website data lifecycle inventory](../privacy-data-lifecycle.md)
+  records exact table coverage, personal fields/selectors, time candidates,
+  restricted evidence, indirect relationships, post-baseline session/audit
+  overlays, pending journals, external ownership, non-SQL copies and proposed
+  owner decisions. It distinguishes an authorization lifetime from physical-row
+  retention, capabilities from active provider transfers, and soft deletion from
+  verified erasure. No P0 approval checkbox or P5 completion claim is inferred.
+- **Registry verification:** `/tmp/durisweb-check-privacy-doc.py` confirms exact
+  **77 distinct baseline table rows**, no missing/extra/duplicate tables, existing
+  local links, session/audit overlays and the minimum import-evidence hold.
+  Listed fields were inspected against the full pinned DDL; current service
+  boundaries confirm the session replacement, backup omission, audit namespace,
+  mixed/indirect records, image-deletion recovery gap and permission-gated admin
+  GeoIP transfer. `pnpm --dir backend schema:check` verifies 77 tables and 85
+  pinned historical sources. No data source, provider or production was queried.
+- **Contact/guard boundary:** recording the owner's supplied email is required
+  for a useful handoff. The deployment-literal guard initially rejected that
+  legitimate contact. Exempt only its exact complete inventory line, with no
+  whole-document exception. `bash -n scripts/check-config-literals.sh`, the real
+  guard, `/tmp/durisweb-check-privacy-guard.py` and `git diff --check` pass.
+  Negative cases prove a real hostname elsewhere in the same inventory, or
+  appended to the allowed contact line, still fails. No backend/frontend runtime,
+  database, migration, browser or build rerun is needed or claimed for this
+  documentation plus shell-guard change. No Website Changelog entry is needed:
+  it does not add a public page or change live behavior.
+
+- **Published registry:** [PR #47](https://github.com/LuminariMUD/DurisWeb/pull/47),
+  open/non-draft at code/document head `65d756d`, stacked on #46 `1761613`.
+  Exact local, remote and PR heads match; ahead/behind `0 0` and a clean worktree
+  are verified. No tag, merge or production action is justified. Current branch:
+  `branch/privacy-processing-registry`; original checkout remains untouched.
+  Continue P5 from this published head, using the permanent lifecycle inventory
+  to draft the notice and a separate versioned server-owned choice contract.
+  Proposed periods remain unapproved; runtime collection remains absent.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
