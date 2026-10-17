@@ -4,9 +4,30 @@ These are prepared source safeguards for the existing manual/hourly count
 limits and explicit administrative cleanup. They approve no new age period or
 actual archive operation. The prepared [managed ZIP admission protocol](managed-archive-holds.md)
 now enforces validated holds and retains durable removal receipts. Uploads and
-dump/staging workspaces, independently protected evidence and offline replay
+legacy dump/staging workspaces, independently protected evidence and offline replay
 remain required P6 work. The hold API still reports global
 `enforcementReady: false`; no complete copy/restore protection is claimed.
+
+## New archive creation
+
+New backups stream `mysqldump` output directly into the exclusive private managed
+ZIP. Its sole entry is `database/database.sql`; inspection already accepts this
+layout. The first pass always excludes all `web_sessions` rows, and a second
+schema-only pass adds that table when present. No raw SQL or staging-directory
+disk copy is created, copied, unlinked or recursively removed. Existing legacy
+files are preserved for separately verified discovery/adoption and fenced cleanup.
+
+The ZIP is opened without overwrite, mode 0600. Completion waits for dump exit,
+stream/ZIP footer completion, file flush/close and directory sync before the
+backup row becomes completed. Failure stops/reaps the fresh owned dump process,
+closes output and retains any partial ZIP and row for managed removal. A timeout
+or unknown status alone never makes an older producer eligible for deletion.
+Dump credentials stay in the child environment, not shell/password arguments;
+no shell or system ZIP command is used. Progress describes streaming/finalizing.
+Errors use static categories and a UUID reference, not SQL bindings, stderr,
+filesystem paths, IP values or credentials. Investigate the reference against
+the backup ID and last known state before retrying. Count pruning remains a
+separate hold-aware operation after a new archive completes.
 
 ## Deletion acknowledgement
 

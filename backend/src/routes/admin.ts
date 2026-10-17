@@ -38,6 +38,7 @@ import { requireAuth, requireOverlord, requirePermission } from '../middleware/a
 import { requireWebSettingAuthorization } from '../middleware/webSettingsAuthorization.js';
 import { requireMutationGate } from '../middleware/mutationGate.js';
 import { BackupDeletionError } from '../utils/backupDeletionError.js';
+import { BackupCreationError } from '../services/databaseBackupArchive.js';
 import {
   getOverviewStats,
   getForumStats,
@@ -3763,9 +3764,16 @@ router.post(
         ...result,
       });
     } catch (error) {
-      logger.error('Create backup error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to start backup';
-      return res.status(500).json({ error: message });
+      const failure = error instanceof BackupCreationError ? error : new BackupCreationError();
+      logger.error('backup_creation_unconfirmed', {
+        reason: 'creation_unconfirmed',
+        reference: failure.reference,
+      });
+      return res.status(500).json({
+        error: failure.message,
+        reason: 'creation_unconfirmed',
+        reference: failure.reference,
+      });
     }
   },
 );

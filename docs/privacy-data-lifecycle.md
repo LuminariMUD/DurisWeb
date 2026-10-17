@@ -103,9 +103,12 @@ Never purge pending/invalid audit or external-delivery evidence to meet a size c
 `refresh_token_digest BINARY(32)` and `expires_at_epoch`; the historical
 `refresh_token`/`expires_at` columns are absent after cutover. Their seven-day
 authorization lifetime is implemented; physical expired-row retention is a
-different decision. [Database backup exports](../backend/src/services/databaseBackupDump.ts)
+different decision. [Database backup exports](../backend/src/services/databaseBackupArchive.ts)
 omit session rows, including expanded pre-cutover shapes. Older archives remain
 an operational inventory item; no existing archive has been altered here.
+New exports stream directly to the managed ZIP without raw SQL/staging disk
+copies. Existing legacy temporary files and uploaded archives remain separate
+inventory/recovery work; this source change does not delete or adopt them.
 
 The [Gemini analyzer](../backend/src/services/geminiSuspicionAnalyzer.ts) is gated
 by configuration and writes aggregate JSON plus per-account evidence. Source

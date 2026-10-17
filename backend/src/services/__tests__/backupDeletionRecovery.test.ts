@@ -27,6 +27,18 @@ afterEach(() => {
 afterAll(() => fs.rmdirSync(directory));
 
 describe('backup identity preservation', () => {
+  it('does not expose actor/IP driver bindings when registration is unconfirmed', async () => {
+    execute.mockRejectedValueOnce(new Error('private-registration-ip-password-sentinel'));
+    let failure: unknown;
+    try {
+      await service.createBackup('SyntheticOperator', 'private-registration-ip-password-sentinel');
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(Error);
+    expect(String(failure)).not.toContain('private-registration-ip-password-sentinel');
+    expect(String(failure)).toContain('Reference:');
+  });
   it('retains missing-file identities during listing', async () => {
     execute.mockResolvedValueOnce([
       [{ id: 1, filename: 'duris-mud-missing.zip', status: 'completed' }],

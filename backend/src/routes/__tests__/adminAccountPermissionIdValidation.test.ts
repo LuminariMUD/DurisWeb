@@ -231,6 +231,22 @@ describe('admin account permission ID validation', () => {
     poolQuery.mockResolvedValue([[]]);
   });
 
+  it('reports an unconfirmed backup start without raw SQL/IP bindings', async () => {
+    const backups = await import('../../services/backupService.js');
+    jest
+      .mocked(backups.createBackup)
+      .mockRejectedValueOnce(new Error('private-start-ip-sql-password-sentinel'));
+    const response = await request(app).post('/api/admin/backup/create').send({});
+    expect(response.status).toBe(500);
+    expect(response.body.reason).toBe('creation_unconfirmed');
+    expect(response.body.reference).toMatch(/^[a-f0-9-]{36}$/);
+    expect(JSON.stringify(response.body)).not.toContain('private-start-ip-sql-password-sentinel');
+    const { default: logger } = await import('../../utils/logger.js');
+    expect(JSON.stringify(jest.mocked(logger.error).mock.calls)).not.toContain(
+      'private-start-ip-sql-password-sentinel',
+    );
+  });
+
   const baselinePorts = (process.env.TEST_BASELINE_DB_PORTS ?? '')
     .split(',')
     .filter(Boolean)

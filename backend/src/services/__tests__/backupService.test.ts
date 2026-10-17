@@ -9,7 +9,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import mysql, { type RowDataPacket } from 'mysql2/promise';
-import { writeDatabaseBackupDump } from '../databaseBackupDump.js';
+import { writeDatabaseBackupArchive } from '../databaseBackupArchive.js';
+import unzipper from 'unzipper';
 import {
   ALL_RESTORE_TABLES,
   CATEGORY_TABLES,
@@ -67,10 +68,12 @@ describe('backupService', () => {
         await database.query('CREATE USER ?@? IDENTIFIED BY ?', [user, '%', password]);
         userCreated = true;
         await database.query('GRANT SELECT, SHOW VIEW ON ??.* TO ?@?', [name, user, '%']);
-        const target = path.join(directory, 'snapshot.sql');
+        const target = path.join(directory, 'snapshot.zip');
         const configuration = { host: '127.0.0.1', port, user, password, database: name };
-        await writeDatabaseBackupDump(configuration, target, ['ignored_fixture_view'], true);
-        const dump = fs.readFileSync(target, 'utf8');
+        await writeDatabaseBackupArchive(configuration, target, ['ignored_fixture_view'], true);
+        const archive = await unzipper.Open.file(target);
+        expect(archive.files.map(({ path }) => path)).toEqual(['database/database.sql']);
+        const dump = (await archive.files[0].buffer()).toString('utf8');
         expect(dump).toContain('ordinary fixture data');
         expect(dump).not.toContain('session-export-sentinel');
         expect(dump).not.toMatch(/INSERT INTO [`]?web_sessions/);
@@ -100,9 +103,13 @@ describe('backupService', () => {
         expect(ordinary.map(({ content }) => content)).toEqual(['ordinary fixture data']);
         await database.changeUser({ database: name });
         await database.query('DROP TABLE web_sessions');
-        const separate = path.join(directory, 'separate-mud.sql');
-        await writeDatabaseBackupDump(configuration, separate, ['ignored_fixture_view'], false);
-        expect(fs.readFileSync(separate, 'utf8')).toContain('ordinary fixture data');
+        const separate = path.join(directory, 'separate-mud.zip');
+        await writeDatabaseBackupArchive(configuration, separate, ['ignored_fixture_view'], false);
+        const separateArchive = await unzipper.Open.file(separate);
+        expect((await separateArchive.files[0].buffer()).toString('utf8')).toContain(
+          'ordinary fixture data',
+        );
+        expect(fs.readdirSync(directory).sort()).toEqual(['separate-mud.zip', 'snapshot.zip']);
       } finally {
         if (userCreated) await database.query('DROP USER ?@?', [user, '%']);
         if (restoreCreated) await database.query(`DROP DATABASE ${restored}`);

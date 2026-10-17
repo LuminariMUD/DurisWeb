@@ -14,6 +14,11 @@ all three environment files, before running `./scripts/dev.sh`.
 
 ## Backend commands
 
+New database backups stream into one mode-0600 managed ZIP via the installed
+Archiver implementation and argument-based `mysqldump`. They create no raw
+SQL/staging files and use no shell ZIP command. The two-pass session-row
+exclusion remains required. See [creation/recovery](runbooks/backup-archive-cleanup.md).
+
 | Command | Purpose |
 |---|---|
 | `pnpm --dir backend config:check` | Aggregate and report invalid backend configuration without connecting to dependencies |
