@@ -26,8 +26,9 @@ restore bypasses; qualified and published for review as
 P6d2a branch `branch/backup-deletion-recovery` repairs archive retry identity
 and deletion acknowledgement, qualified and published for review as
 [PR #56](https://github.com/LuminariMUD/DurisWeb/pull/56), stacked on #55.
-Active P6d2a2 branch `branch/backup-action-acknowledgement` repairs the remaining
-backup start/restore/cancellation feedback; qualification and publication follow.
+P6d2a2 branch `branch/backup-action-acknowledgement` repairs remaining backup
+start/restore/cancellation feedback, qualified and published as
+[PR #57](https://github.com/LuminariMUD/DurisWeb/pull/57), stacked on #56.
 Next: remaining P6 cleanup/copy/restore
 and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
@@ -2146,6 +2147,36 @@ outside this request. Keep this single evolving execution plan current.
   independent evidence/offline replay, other classes, own-ledger periods and
   all P7 requirements open. Do not replace them with a UI-only or stale-snapshot
   guard. Continue engineering autonomously; no owner question is currently needed.
+- **Published P6d2a2:** [PR #57](https://github.com/LuminariMUD/DurisWeb/pull/57),
+  open/non-draft, code head `3e4b0a28be2c7fce22568fdd50c50753bce2632f`, base
+  `branch/backup-deletion-recovery` (#56 `2fdfb36`). Latest #56 hosted backend/
+  frontend checks pass. Master remains `8946860` and is already an ancestor;
+  keep the stack without history rewrite. Initial #57 read-back confirms
+  OPEN/non-draft/MERGEABLE, matching local/remote/API code heads, ahead/behind
+  `0 0` and a clean checkout. Hosted checks were running; local QA is complete.
+  Push this normal plan closeout and reverify final heads/cleanliness. No merge,
+  tag, release, shared migration, live archive/restore/MUD/provider operation or
+  changelog publication occurred.
+- **Next-session entry after P6d2a2:** refresh #57/parents/master and continue
+  from its final published head in the same isolated worktree. Preserve original
+  checkout work, stash `bbda289`, private fixture runners/logs, six browser
+  screenshots and tooling-bootstrap recovery evidence. The backup UI
+  acknowledgement prerequisite is now qualified; proceed to the actual P6d2b
+  server-side archive hold admission/recovery barrier. Inspect every stored/
+  partial/uploaded copy removal path and its callers before selecting the
+  smallest complete ordering protocol. A hold acknowledged after an earlier
+  dry run must protect an unremoved archive; admission and hold writes need
+  shared durable ordering. Do not claim that a pre-unlink snapshot or expiring
+  SQL ownership alone fences a delayed filesystem operation. Crash/restart
+  recovery must not clear ambiguous deletion intent while an old worker can
+  still complete. Include real filesystem/SQL and concurrent hold/restart/
+  uncertain acknowledgement proof, safe aggregate results and protected history.
+  Keep the whole P6/P7 scope, including independent current evidence and offline
+  replay, other classes, own-ledger periods, verified requests/export/erasure
+  and truthful provider/MUD boundaries. All source approval/collection/execution
+  flags stay false pending the named decisions; no live operation is authorized.
+  Continue autonomously and ask only for a consequential decision that cannot
+  be resolved by independent engineering.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
