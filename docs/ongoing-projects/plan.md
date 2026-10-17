@@ -47,7 +47,8 @@ stacked on #59. New archive creation now streams without raw SQL/staging disk
 copies in [PR #61](https://github.com/LuminariMUD/DurisWeb/pull/61), on
 `branch/stream-backup-archives`, stacked on #60. Durable upload ownership,
 writer recovery, bounded inspection and hold-aware cancellation are qualified
-on `branch/backup-upload-records`, awaiting focused PR publication. Existing
+and published for review as [PR #62](https://github.com/LuminariMUD/DurisWeb/pull/62)
+on `branch/backup-upload-records`, stacked on #61. Existing
 legacy temporary-file discovery/adoption remains next.
 Install metadata function v2 before bootstrap/migrations;
 source does not accept v1 as an equivalent fallback.
@@ -81,7 +82,7 @@ outside this request. Keep this single evolving execution plan current.
 
 ## Execution record and continuation
 
-- **P6d2b2b durable uploads (2026-10-17, qualified; publication pending):** branch
+- **P6d2b2b durable uploads (2026-10-17, qualified/published as #62):** branch
   `branch/backup-upload-records` starts at #61 `0bc2641`. Outcome: persist upload
   ownership and writer identity before accepting bytes, write exclusive private
   ZIPs under the configured persistent backup root, close/fence writers before
@@ -197,6 +198,19 @@ outside this request. Keep this single evolving execution plan current.
   replay, other P6 handlers/own-ledger periods and all P7 requirements. Global
   `enforcementReady` remains false; owner decisions remain unapproved but no
   user question is needed for the next engineering step.
+- **P6d2b2b publication and takeover:** code head
+  `ba7869bf0ff37b08c6da2380bb37464a9803ef3c` is pushed in open/non-draft
+  [PR #62](https://github.com/LuminariMUD/DurisWeb/pull/62), base
+  `branch/stream-backup-archives` (#61 final `0bc2641`), and attached here.
+  Readback confirms OPEN/MERGEABLE, correct base/head, exact local/remote/API SHA,
+  ahead/behind `0 0`, clean worktree and whitespace. Hosted backend/frontend
+  quality jobs were running; required local proof above is complete. Master
+  remains `89468603a61ab44d9e3be1651c9dd6fce5a17a12` and an ancestor. Continue
+  in `/tmp/durisweb-security-privacy-plan-20261016` from this branch's final
+  publication-document commit, first refreshing PR/parent/master state. Keep
+  qualification evidence and stashes `1c8d1dd`/`bbda289` intact. The publication
+  closeout changes this plan only; do not repeat runtime suites for it. This is
+  one qualified copy boundary, not complete P6/P7 or release approval.
 - **P6d2b2a, stream new archives (2026-10-17, qualified/published as #61):** branch
   `branch/stream-backup-archives` starts at #60 `220c991`. Inspection finds a
   raw SQL file and a second staging-directory SQL copy for every new backup,
