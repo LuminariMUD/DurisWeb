@@ -43,7 +43,10 @@ Filtered metadata checks have been replaced and all scoped qualification passes.
 Prerequisite `branch/schema-trigger-authority` starts at #59's final
 `5c2cc1a` and fixes the remaining baseline/session catalog checks. Qualified and
 published for review as [PR #60](https://github.com/LuminariMUD/DurisWeb/pull/60),
-stacked on #59. Next is uploaded/temporary copy protection.
+stacked on #59. New archive creation now streams without raw SQL/staging disk
+copies in [PR #61](https://github.com/LuminariMUD/DurisWeb/pull/61), on
+`branch/stream-backup-archives`, stacked on #60. Durable uploads and existing
+legacy temporary-file discovery/adoption remain next.
 Install metadata function v2 before bootstrap/migrations;
 source does not accept v1 as an equivalent fallback.
 Next: remaining P6 cleanup/copy/restore
@@ -76,7 +79,7 @@ outside this request. Keep this single evolving execution plan current.
 
 ## Execution record and continuation
 
-- **P6d2b2a, stream new archives (2026-10-17, in progress):** branch
+- **P6d2b2a, stream new archives (2026-10-17, qualified/published as #61):** branch
   `branch/stream-backup-archives` starts at #60 `220c991`. Inspection finds a
   raw SQL file and a second staging-directory SQL copy for every new backup,
   each removed outside hold admission, plus shell-based ZIP invocation.
@@ -155,7 +158,17 @@ outside this request. Keep this single evolving execution plan current.
   are created without extra temporary SQL copies. Unconfirmed creation keeps
   recovery work visible for staff investigation.” Publish only with authorized
   verified release news; no live entry is written for this source PR.
-- **P6d2b2a continuation:** publish this focused producer change on #60, then
+- **P6d2b2a publication:** code head
+  `be48d7f463d808eb36439d095badcffad1b7edbc` is pushed in open/non-draft
+  [PR #61](https://github.com/LuminariMUD/DurisWeb/pull/61), base
+  `branch/schema-trigger-authority` (#60 final `220c991`), and attached here.
+  Initial readback verifies OPEN/MERGEABLE, correct base/head, exact local/remote/
+  API SHA equality, ahead/behind `0 0`, clean worktree and whitespace. Hosted
+  quality jobs were running; local qualification above is complete. Master
+  remains `8946860` and an ancestor. No history rewrite, merge, release tag,
+  deployment or live operation occurred. The publication closeout edits only
+  this plan; do not repeat runtime suites for it.
+- **P6d2b2a continuation:** from #61's final published head,
   implement durable uploaded-archive ownership/admission and truthful validation,
   cancellation and rejection cleanup. Multer currently owns OS-temp paths and
   implicit limit/error removal; success for an invalid cancellation path and
