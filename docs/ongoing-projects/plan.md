@@ -2,6 +2,27 @@
 
 ## Current handoff — read this first
 
+**#62 final cancellation race repair:** the worker pins the inspected inode,
+atomically captures the shared filename into an exclusive private removal
+directory, compares captured identity, and unlinks only the captured name.
+Replacement before capture is retained; replacement after capture stays at its
+original name and refuses success. Retained custody directories block inspection
+and absence-based retry after interruption. No SQL schema or provider changes.
+The private operation namespace remains trusted to the website service identity;
+this does not claim isolation against arbitrary same-UID hostile filesystem writes.
+
+Focused command `pnpm --dir backend test --runInBand archiveUnlinkProcess
+managedArchiveTarget` passes eight tests, including both replacement schedules
+and interrupted-custody refusal. Backend format/lint/type/MUD-write/schema/build
+pass via `python3 /tmp/durisweb-image-quality.py backend`. Native upload/removal
+qualification passes 63 tests/six suites on each engine with `/tmp/durisweb-run-archive-suite.mts
+<23436|23437> upload-archive` under the existing Node/tsx command. Both post-test dependency preflights pass;
+owner metadata remains unchanged and owned fixtures are cleaned. Logs: `pr62-custody-{tests,quality,mysql,maria}.log`.
+Release-note draft: “Backup cancellation preserves unexpected replacement files
+for review.” Publish only after a separately authorized verified release.
+
+### Historical checkpoints
+
 **Latest continuation — PR #62 generated inspection:** a valid 65 MiB
 mysqldump archive is refused by the old shared upload limit and accepted by the
 repaired generated path. The first standalone probe used a disallowed filename;

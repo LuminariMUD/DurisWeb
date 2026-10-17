@@ -49,6 +49,22 @@ Uploaded archives keep their separate total SQL-size and shorter time limits.
 
 ## Deletion acknowledgement
 
+The one-shot worker opens and validates the authorized inode, then atomically
+moves the shared archive name into a new owner-only `.archive-removal-<hash>`
+directory. It compares the captured file with the still-open original descriptor
+before unlinking only the captured name. A replacement published at the original
+name is retained and prevents success. A different inode captured by the rename
+is also retained; it is never deleted or automatically restored over another file.
+
+Any retained removal directory blocks normal inspection and absence-based retries.
+After a crash or refusal, preserve that directory and the original archive row,
+stop competing writers, and investigate the journal reference before an operator
+restores or removes evidence. Do not recursively clean these directories or
+interpret a missing original name as proof of deletion. Directory syncs precede
+acknowledgement. The internal removal directory is exclusively owned by this
+worker; host processes must not modify its entries. This is not an isolation
+boundary against a compromised process with the website user's full privileges.
+
 Manual removal, failed-backup cleanup and automatic count pruning share the
 same file/record deletion function. It accepts only completed/failed records,
 one database reference to the filename, and the existing canonical regular-file
