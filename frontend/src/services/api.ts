@@ -1001,17 +1001,24 @@ export const forumApi = {
   async clearOrphanImages(): Promise<{
     deleted: number
     failed: number
-    remaining: number
+    remaining: number | null
     unavailableImageUrls: string[]
+    reference?: string
   }> {
     const { data } = await api.delete<unknown>('/api/forum/images/orphans')
     if (!data || typeof data !== 'object' || Array.isArray(data))
       throw new Error('Invalid image removal response')
-    const { deleted, failed, remaining, unavailableImageUrls } = data as Record<string, unknown>
+    const { deleted, failed, remaining, unavailableImageUrls, reference } = data as Record<
+      string,
+      unknown
+    >
     if (
-      [deleted, failed, remaining].some(
+      [deleted, failed, ...(remaining === null ? [] : [remaining])].some(
         (value) => typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0,
       ) ||
+      ((remaining === null || reference !== undefined) &&
+        (typeof reference !== 'string' ||
+          !/^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i.test(reference))) ||
       !Array.isArray(unavailableImageUrls) ||
       unavailableImageUrls.length > 100 ||
       !unavailableImageUrls.every(
@@ -1023,8 +1030,9 @@ export const forumApi = {
     return {
       deleted: deleted as number,
       failed: failed as number,
-      remaining: remaining as number,
+      remaining: remaining as number | null,
       unavailableImageUrls,
+      ...(typeof reference === 'string' ? { reference } : {}),
     }
   },
 }

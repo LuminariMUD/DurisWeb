@@ -141,6 +141,58 @@ afterEach(() => {
 })
 
 describe('privacy choices and optional browser collection', () => {
+  it('checks an unchanged saved choice without splitting or recounting the visit', async () => {
+    await boot()
+    await privacy.savePrivacyChoice('accepted')
+    await settle()
+    const first = JSON.parse(String(events()[0]![1]?.body))
+    await privacy.refreshPrivacyChoice()
+    await settle()
+    expect(events()).toHaveLength(1)
+    await router.push('/privacy')
+    await privacy.refreshPrivacyChoice()
+    await router.push('/news')
+    await settle()
+    expect(events()).toHaveLength(2)
+    expect(JSON.parse(String(events()[1]![1]?.body)).visitNonce).toBe(first.visitNonce)
+  })
+  it('keeps each navigation request alive and aborts every pending request on withdrawal', async () => {
+    const original = fetchMock.getMockImplementation()!
+    const requests: { signal: AbortSignal; complete: () => void }[] = []
+    fetchMock.mockImplementation((url, options) => {
+      if (!String(url).endsWith('/api/analytics/track')) return original(url, options)
+      const pending = deferred<Response>()
+      const signal = options!.signal!
+      signal.addEventListener('abort', () =>
+        pending.resolve(Response.json({ error: 'Aborted' }, { status: 403 })),
+      )
+      requests.push({ signal, complete: () => pending.resolve(Response.json({ success: true })) })
+      return pending.promise.then((response) => {
+        if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
+        return response
+      })
+    })
+    await boot()
+    await privacy.savePrivacyChoice('accepted')
+    await router.push('/news')
+    await router.push('/pvp/12')
+    await settle()
+    expect(events().map(([, options]) => JSON.parse(String(options?.body)).route)).toEqual([
+      'home',
+      'news',
+      'battle',
+    ])
+    expect(requests.map(({ signal }) => signal.aborted)).toEqual([false, false, false])
+    requests[1]!.complete()
+    await settle()
+    await privacy.savePrivacyChoice('withdrawn')
+    await settle()
+    expect(requests.map(({ signal }) => signal.aborted)).toEqual([true, false, true])
+    expect(privacy.usePrivacyChoices().phase.value).toBe('withdrawn')
+    await router.push('/news')
+    await settle()
+    expect(events()).toHaveLength(3)
+  })
   it('preserves the original refusal when another action arrives while its save is pending', async () => {
     await boot()
     const original = fetchMock.getMockImplementation()!

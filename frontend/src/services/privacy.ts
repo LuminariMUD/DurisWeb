@@ -38,7 +38,7 @@ let generation = 0
 let visitNonce: string | null = null
 let pendingRoute = false
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
-let tracking: AbortController | undefined
+const tracking = new Set<AbortController>()
 let channel: BroadcastChannel | undefined
 let router: Router | undefined
 let disposeCurrent: (() => void) | undefined
@@ -101,11 +101,14 @@ function savePreference(value: 'off' | 'accepted'): boolean {
     return false
   }
 }
+function abortTrackingRequests(): void {
+  for (const controller of tracking) controller.abort()
+  tracking.clear()
+}
 function cancelTracking(): void {
   if (expiryTimer !== undefined) clearTimeout(expiryTimer)
   expiryTimer = undefined
-  tracking?.abort()
-  tracking = undefined
+  abortTrackingRequests()
   visitNonce = null
   pendingRoute = false
   clearLegacyAnalyticsSession()
@@ -236,9 +239,8 @@ async function trackCurrentRoute(): Promise<void> {
       const bytes = crypto.getRandomValues(new Uint8Array(32))
       visitNonce = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
     }
-    tracking?.abort()
     controller = new AbortController()
-    tracking = controller
+    tracking.add(controller)
     pendingRoute = false
     const response = await fetch(`${frontendConfiguration.apiUrl}/api/analytics/track`, {
       method: 'POST',
@@ -260,7 +262,7 @@ async function trackCurrentRoute(): Promise<void> {
     if (ticket !== generation || controller?.signal.aborted) return
     stop('unavailable')
   } finally {
-    if (tracking === controller) tracking = undefined
+    if (controller) tracking.delete(controller)
   }
 }
 function applyStatus(value: PrivacyStatus, trackRoute = true): void {
@@ -299,7 +301,7 @@ function applyStatus(value: PrivacyStatus, trackRoute = true): void {
     phase.value = value.decision
   }
 }
-export async function refreshPrivacyChoice(preserveVisit = false): Promise<void> {
+export async function refreshPrivacyChoice(preserveVisit = true): Promise<void> {
   if (busy.value > 0) return
   const previousVisit =
     preserveVisit && grantCurrent()
@@ -450,8 +452,7 @@ export function initializePrivacyChoices(
   }
   const visibilityChanged = () => {
     if (document.visibilityState === 'hidden') {
-      tracking?.abort()
-      tracking = undefined
+      abortTrackingRequests()
     } else void refreshPrivacyChoice(true)
   }
   const pageHidden = () => {
