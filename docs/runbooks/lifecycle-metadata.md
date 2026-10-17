@@ -9,12 +9,23 @@ See [MySQL trigger visibility](https://dev.mysql.com/doc/refman/8.0/en/informati
 
 ## Owner-installed read-only function
 
-`web_lifecycle_metadata_v1` is a SQL SECURITY DEFINER function in the configured
-website database. Its six literal targets are `web_settings`, `web_data_holds`,
-`web_retention_runs`, `page_views`, `account_login_history` and `mud_backups`.
+`web_lifecycle_metadata_v2` is a SQL SECURITY DEFINER function in the configured
+website database. It accepts one canonical lowercase ASCII table name of at most
+64 characters in its own database. The name is a bound metadata-filter value;
+no SQL identifier or statement is constructed from it. Website callers select
+targets from verified baseline/forward contracts or fixed lifecycle rules.
+The baseline verifier covers newly declared forward tables without classifying
+MUD-owned triggers as website triggers.
 It returns only the requested target, format/body digest and trigger/incoming
-reference counts. It accepts no SQL, database name, arbitrary table or data
-selector, and returns no external database names, rows, bindings or credentials.
+reference counts. A directly authorized SQL caller can inspect these topology
+counts for canonical names in this database; the function grants no ownership
+or row access. It accepts no SQL, schema-qualified name, column or data selector,
+and returns no external database names, rows, bindings or credentials.
+
+This explicitly versioned contract replaces v1's six-target source. The installer
+creates only absent v2, never changes/drops existing v1 or silently falls back
+to it. Old v1 may coexist during an upgrade with all writers stopped; new code
+requires v2 for schema verification, migration and lifecycle writes.
 
 The installing DBA remains the definer and must retain direct global SELECT and
 TRIGGER. These are existing administrator privileges; the command never grants
@@ -55,6 +66,14 @@ tool never changes logging/trust settings or elevates itself.
 MariaDB installation also requires its existing session SQL mode to include
 `NO_AUTO_CREATE_USER`, preventing GRANT from creating an account after a race.
 
+For a fresh installation, create/select the database and existing SQL account
+through the normal owner procedure, then install v2 **before website bootstrap**
+and forward migrations. No website table is required: this helper reads only
+system metadata. It is independent of the baseline/provenance tables, so the
+dependency is not circular. For an upgrade install v2 before preflight/new code.
+Keep writers and concurrent DDL/grant changes stopped throughout authorized
+offline adoption/cutover. The guard does not make nontransactional DDL concurrent-safe.
+
 Restore normal website credentials, then run:
 
 ```bash
@@ -69,6 +88,12 @@ targets under transaction metadata locks and refuses any trigger or incoming
 reference, including references from another schema. No result is cached.
 Missing rights/function, authority/parameter/security drift, unknown body digest,
 malformed output or unavailable metadata refuses the write.
+
+Baseline verification checks each source-owned target through v2; even
+schema owners must supply the same proof. Session migration checks triggers and
+incoming references before clearing credentials. Direct caller grants, roles,
+or an ordinary empty catalog result never substitute for this proof. The checks
+assign no additional website table, DDL, trigger or global privileges.
 
 Ordinary runtime credentials cannot inspect routine bodies on either qualified
 engine. The runtime digest comes from the function inspecting its actual stored
@@ -90,7 +115,18 @@ ports, removing only successfully created fixtures. It proves restricted access,
 hidden cascades, engine-specific trigger visibility, real CLI access, revoked
 authority/execution, changed security/body and missing-function refusal. Never
 use shared database services. Retention/hold fixtures also require the explicit
-owner-installed helper before dependency preflight.
+owner-installed helper before bootstrap, forward migrations and preflight.
+Schema authority qualification additionally runs with
+`TEST_SCHEMA_AUTHORITY_DB_PORTS=23436,23437` and
+`TEST_BASELINE_MUD_SOURCE=<pinned-owner-migrations-directory>` against
+`src/db/__tests__/schemaTriggerAuthorityNative.test.ts`. It covers real baseline/
+cutover paths, hidden triggers/cascades, website CRUD without DDL/TRIGGER/global
+grants, helper loss/version transition, owner triggers and unchanged owner schema.
+MariaDB can hide FK-rule metadata from a SELECT-only principal; verification
+refuses incomplete hashes rather than weakening the schema contract. Do not
+change the schema to address missing visibility. A pure SELECT-only auditor is
+not a portable full-schema verification profile; ordinary website CRUD is
+separately qualified.
 
 On failure preserve the routine and compare it as the DBA with
 `lifecycleMetadataBody` in `backend/src/db/lifecycleMetadata.ts`. Do not grant
@@ -100,9 +136,12 @@ omit raw driver details; the CLI prints a static category and UUID reference.
 For authorized rollback, stop lifecycle writers and retain their protected
 progress/holds. Revert only to application behavior that keeps those operations
 disabled. Once the DBA verifies the exact owned function and no remaining
-caller, `DROP FUNCTION web_lifecycle_metadata_v1` removes it and its routine
+caller, `DROP FUNCTION web_lifecycle_metadata_v2` removes it and its routine
 grants. No account removal, data restoration or automatic rollback is performed;
 new callers fail closed without the helper.
+Retain v1 while any compatible caller still needs it. Removing that exact owned
+routine is a separate verified DBA action after all old callers are drained;
+the installer does not remove it or restore application rows.
 
 This source prerequisite is not approved retention, complete archive protection,
 erasure, backup replay or production acceptance.

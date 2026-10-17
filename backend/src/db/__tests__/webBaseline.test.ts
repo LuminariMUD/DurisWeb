@@ -7,7 +7,7 @@ import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { loadMudWriteAllowlist } from '../../scripts/verifyMudWriteAllowlist.js';
 import { parseBaselineArguments } from '../../scripts/webBaseline.js';
-import { runFixtureWebMigrations } from '../../test/webMigrationFixture.js';
+import { runFixtureWebMigrations, prepareFixtureMetadata } from '../../test/webMigrationFixture.js';
 import {
   type BaselineDatabase,
   externalSchemaSha256,
@@ -66,6 +66,7 @@ async function fixture(
     );
     created = true;
     await database.changeUser({ database: name });
+    await prepareFixtureMetadata(database);
     // Synthetic names/metadata exercise the externally approved hash contract.
     // They do not stand in for a verified full MUD-owned schema.
     const inventory = loadMudWriteAllowlist(path.resolve(webBaselineDirectory(), '../..'));

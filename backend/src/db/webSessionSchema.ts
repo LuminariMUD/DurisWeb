@@ -1,4 +1,5 @@
 import type { Knex } from 'knex';
+import { assertNoSessionSideEffects } from './schemaMetadataAuthority.js';
 import {
   type BaselineDatabaseFamily,
   loadWebBaselineBundle,
@@ -122,11 +123,7 @@ export async function migrateWebSessionSchema(
     !/(?:^|,)STRICT_(?:TRANS|ALL)_TABLES(?:,|$)/.test(String(invariants.sql_mode))
   )
     throw new Error('unsafe_session_migration_invariants');
-  const triggers = await schemaRows(
-    database,
-    "SELECT COUNT(*) AS count FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE='web_sessions'",
-  );
-  if (Number(triggers[0]?.count) !== 0) throw new Error('unexpected_session_trigger');
+  await assertNoSessionSideEffects(database);
   loadSessionSchemaContract();
   if (
     phase === 'cutover' &&

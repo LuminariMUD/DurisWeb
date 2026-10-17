@@ -3,6 +3,10 @@
 Before enabling lifecycle hold/control or SQL-cleanup writes, an authorized DBA
 must install the [read-only metadata guard](runbooks/lifecycle-metadata.md), then
 check it with normal website credentials. Dependency preflight requires it.
+Use version 2 before baseline bootstrap, migrations or session cutover. Its
+installation requires no website table. Stop writers and concurrent DDL/grant
+changes during authorized offline adoption/cutover. Existing v1 is preserved;
+new callers require v2 and never treat v1 as an equivalent fallback.
 Its narrowly scoped EXECUTE grant replaces reliance on privilege-filtered
 catalog counts; ordinary startup and migrations never install it or grant global
 website permissions. Installation is a separately authorized shared DB operation.

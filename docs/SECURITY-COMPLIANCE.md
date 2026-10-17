@@ -16,6 +16,13 @@ The website receives only EXECUTE on the read-only function, with no global
 metadata/data privilege or extra credential. Source repair and isolated evidence
 do not establish a deployed control or policy approval.
 
+Version 2 also guards baseline verification and credential cutover against
+hidden triggers/references. Install it before website bootstrap/migrations;
+it needs only system metadata and adds no website row, DDL or global privilege.
+Existing v1 is preserved and never used as an equivalent fallback. Runtime
+schema checks keep their full fingerprints; missing visibility is a refusal,
+including MariaDB's SELECT-only FK metadata limitation.
+
 ### Overall: AT RISK
 
 | Metric | Value |

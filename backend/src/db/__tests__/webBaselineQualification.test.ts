@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import mysql from 'mysql2/promise';
 import type { Connection, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
-import { runFixtureWebMigrations } from '../../test/webMigrationFixture.js';
+import { runFixtureWebMigrations, prepareFixtureMetadata } from '../../test/webMigrationFixture.js';
 import {
   applyOwnerSchemaFixture,
   ownerMetadataFingerprint,
@@ -173,6 +173,7 @@ async function fixture(
     );
     created = true;
     await database.changeUser({ database: name });
+    await prepareFixtureMetadata(database);
     await applyOwnerSchemaFixture(database, port, name, inputs);
     const before = await ownerMetadataFingerprint(database, inputs);
     await work(database, name);
@@ -511,6 +512,9 @@ if (inputs)
               '20261017000000_expand_web_session_credentials.ts',
               '20261017001000_cutover_web_session_credentials.ts',
               '20261017002000_hook_audit_identity.ts',
+              '20261017003000_post_image_removal_intent.ts',
+              '20261017004000_web_data_holds.ts',
+              '20261017005000_web_retention_runs.ts',
             ]);
             const [sessions] = await restored.query('SELECT id FROM web_sessions');
             expect(sessions).toEqual([]); // Planned logout discards legacy expiry interpretations.

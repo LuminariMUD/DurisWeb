@@ -524,6 +524,6 @@ function intercept(
       await expect(service.createDataHold(actor, await input())).resolves.toMatchObject({
         status: 'active',
       });
-    });
+    }, 120000); // Replays several whole-schema migration/verification cycles offline.
   },
 );

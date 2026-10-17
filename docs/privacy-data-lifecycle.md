@@ -45,7 +45,9 @@ restrict this operational evidence pending its own period/export decision.
 
 The DBA-installed [lifecycle metadata function](runbooks/lifecycle-metadata.md)
 is a read-only operational schema object, not another application-data table.
-It exposes only six fixed tables' side-effect counts and its source digest.
+Version 2 exposes per-table trigger/reference counts and its source digest,
+without row access or dynamic SQL. Callers select source-owned website targets;
+the verifier covers provenance/ledger and declared forward tables too.
 Restricted website privileges cannot establish absence of external-schema
 references or MySQL triggers through ordinary catalog counts; lifecycle writes
 require authoritative checks before mutating their targets. Installation and

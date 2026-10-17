@@ -12,6 +12,7 @@ import {
   webBaselineDirectory,
 } from './webBaselineBundle.js';
 import { loadMudWriteAllowlist } from './mudWriteInventory.js';
+import { assertNoWebSchemaTriggers } from './schemaMetadataAuthority.js';
 import {
   matchesSchemaPostcondition,
   loadSchemaPostconditions,
@@ -132,10 +133,6 @@ async function verifyNoWebTriggers(
   bundle: WebBaselineBundle,
   forwardNames: string[] = [],
 ): Promise<void> {
-  const triggers = await rows(
-    database,
-    'SELECT EVENT_OBJECT_TABLE FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()',
-  );
   const webNames = new Set([
     ...bundle.tables.map(({ name }) => name),
     ...forwardNames,
@@ -143,8 +140,13 @@ async function verifyNoWebTriggers(
     'knex_migrations',
     'knex_migrations_lock',
   ]);
-  if (triggers.some((row) => webNames.has(String(row.EVENT_OBJECT_TABLE))))
-    throw new WebBaselineError('unexpected_web_trigger');
+  try {
+    await assertNoWebSchemaTriggers(database, webNames);
+  } catch (error) {
+    throw new WebBaselineError(
+      error instanceof Error ? error.message : 'schema_trigger_visibility_unverified',
+    );
+  }
 }
 
 export async function readWebMigrationLedger(
