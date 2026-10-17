@@ -84,13 +84,18 @@ be confirmed. `remaining` is the current pending count, including work beyond
 this bounded batch. It can exceed `failed`. `unavailableImageUrls` contains at
 most 100 owned uploads durably marked unavailable by this request, including
 unconfirmed removals; the editor drops those previews and preserves other
-images. A 200 reply can represent partial progress. A whole-request failure is
-503 and must not be displayed as successful clearing.
+images. A 200 reply can represent partial progress. If the final count query
+fails after committed work, `remaining` is `null` and `reference` matches the
+safe diagnostic; confirmed counts and unavailable URLs are retained. The editor
+still drops those previews and keeps retry feedback visible until the remaining
+work can be checked. A whole-request failure is 503 with a matching diagnostic
+`reference` and must not be displayed as successful clearing.
 
 `DELETE /api/forum/images/:id` returns success only for a confirmed owned,
 unattached origin removal. Missing, foreign or already attached rows return 404;
 storage failure, timeout, uncertain acknowledgement or a concurrent removal
-returns 503 with a fixed retry message. The database retains retry identity.
+returns 503 with a fixed retry message and matching diagnostic `reference`.
+The database retains retry identity.
 These acknowledgements do not certify removal from CDN caches or backups.
 
 Thread/post create and edit link managed uploads before committing content.
@@ -256,15 +261,23 @@ is prepared for reviewed policy/client integration; it is not a live feature cla
   `choicesAvailable`, `collectionAvailable`, decision (`unknown`, `accepted`,
   `refused`, `withdrawn`), revision, nullable database expiry epoch and
   `receiptValid`. It never issues a receipt or optional visit identifier.
-  Invalid/obsolete/expired receipt cookies are cleared. Unapproved policy returns
-  unknown/unavailable without reading or writing a preference.
+  It never clears a receipt cookie, including an invalid, obsolete or expired
+  one: a delayed status response must not remove a concurrently rotated cookie.
+  An invalid receipt cannot authorize its named record. Status and explicit
+  retries use the current CSRF-bound identity when the receipt is invalid,
+  allowing recovery from a lost cookie update without changing another browser's
+  choice. Refresh status before an explicit choice retry; only an acknowledged
+  choice POST replaces the cookie. Unapproved policy returns unknown/unavailable
+  without reading or writing a preference.
 - `POST /api/privacy/choice` requires an explicit same-origin request (`Origin`
   equal to the configured website origin, no cross-site fetch metadata), the
   double-submit CSRF cookie/header, and body
   `{ noticeVersion, choiceVersion, decision, revision }`.
   Unknown fields, coerced decisions and invalid revisions are refused. Competing
-  changes use the current revision; an outdated revision is `409`, while a
-  rotated/invalid credential is `403`. Refresh before an explicit retry. Failure
+  changes use the current revision; an outdated revision is `409`. Invalid
+  browser context or a credential rotated during the transaction is `403`.
+  An already-invalid receipt uses the CSRF-bound recovery described above.
+  Refresh before an explicit retry. Failure
   must leave the client locally stopped and visibly unsaved. Both notice and
   choice versions must match, even if only the notice changed.
 - Only an acknowledged choice transaction issues/rotates the opaque HTTP-only,
