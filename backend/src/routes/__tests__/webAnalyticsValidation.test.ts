@@ -41,7 +41,7 @@ describe('closed optional website analytics collection', () => {
     const { verifyCsrfToken } = await import('../../middleware/csrf.js');
     app = express();
     protectedApp = express();
-    app.use(express.json());
+    app.use(express.json(), cookieParser());
     protectedApp.use(express.json(), cookieParser(), verifyCsrfToken);
     for (const mount of mounts) {
       app.use(mount, routes);
@@ -59,6 +59,8 @@ describe('closed optional website analytics collection', () => {
     async (mount) => {
       const response = await request(app)
         .post(`${mount}/track`)
+        .set('Cookie', 'csrf_token=matching-token')
+        .set('x-csrf-token', 'matching-token')
         .set('User-Agent', 'private-agent-sentinel')
         .send(legacyPayload);
       expect(response.status).toBe(410);
@@ -73,6 +75,8 @@ describe('closed optional website analytics collection', () => {
   it.each(mounts)('a client consent claim cannot enable collection at %s', async (mount) => {
     const response = await request(app)
       .post(`${mount}/track`)
+      .set('Cookie', 'csrf_token=matching-token')
+      .set('x-csrf-token', 'matching-token')
       .send({ ...legacyPayload, consent: true, policyVersion: 'forged' });
     expect(response.status).toBe(410);
     expect(databaseQuery).not.toHaveBeenCalled();

@@ -1,11 +1,35 @@
 # Website security, privacy, and schema implementation plan
 
-Status: **implementation in progress**. Updated 2026-10-16.
+## Current review continuation — 2026-10-17
+
+The active work is oldest-first PR review repair. The complete project/branch
+inventory, unfinished P0–P8 scope and recovery priorities are preserved in the
+[cumulative handoff](https://github.com/LuminariMUD/DurisWeb/blob/562d1210b96de09f8003c6663c05291749c6e6a2/docs/ongoing-projects/plan.md).
+That snapshot found 21 unresolved findings; #55 is now committed/pushed as
+`3446b1b214ca2d0836ef03b111086ba9019f2ca5`, its thread is verified resolved, and
+20 remain from that scan. The restore UI used its unchanged retained 294-test
+and desktop/phone proof. No production operation occurred.
+
+Current #48 follow-up corrects only the API contract: status never clears a
+receipt, invalid receipts use the existing CSRF-bound recovery, and a credential
+rotated during a transaction can still return 403. The implementation and native
+tests already prove this behavior. Files: API reference and this plan. Proof:
+direct route/service/lifecycle inspection, `git diff --check`, and the config
+literal guard. No runtime tests are rerun for this documentation correction.
+Publish/reply/resolve this #48 thread, then carry it into #49 and repair its four
+new findings (initial authentication, status refresh, navigation events, route
+identity). Preserve #55's published UI fix when subsequently carrying the stack.
+No release-news entry is needed for correcting contributor API documentation.
+
+## Historical implementation checkpoint
+
+Status: **implementation in progress**. Updated 2026-10-17.
 
 Current checkpoint: engineering through P4, the UTC correction, first P5
 collection closure and browser storage-denial repair are published for review
-(#39, #41–#47). The source-backed lifecycle registry is now published for review;
-remaining P5 notice/choice implementation and P6–P7 are still open.
+(#39, #41–#48). The lifecycle registry and server-owned choice boundary are
+published. Active continuation branch: `branch/privacy-choice-receipts`.
+Next: P5 public notice and client choice state machine; P6–P7 remain open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
 
 Single working plan for [#7](https://github.com/LuminariMUD/DurisWeb/issues/7),
@@ -951,6 +975,113 @@ outside this request. Keep this single evolving execution plan current.
   to draft the notice and a separate versioned server-owned choice contract.
   Proposed periods remain unapproved; runtime collection remains absent.
 
+- **P5 server-owned choice chunk:** `branch/privacy-choice-receipts` starts at
+  #47 `ce3224b`. **Outcome:** versioned accept/refuse/withdraw receipts with
+  same-origin CSRF actions, digest-only credentials, revision ordering, expiry,
+  fail-closed direct collection and atomic minimized event/session writes.
+  **Non-goals:** owner approval, live collection, a new database/service/secret,
+  GeoIP enrichment, historical cleanup, full UI or P6/P7 completion. **Files:**
+  policy/choice service, privacy route, shared tracking route, reserved-setting
+  filters, isolated service/HTTP tests, API/inventory docs and this plan.
+  **Proof:** real MySQL/MariaDB receipt/event/withdraw transactions, CAS races,
+  stale/forged/expired policy/receipt denial, direct service calls, both tracking
+  mounts, same-origin/CSRF guards, rollback/failure diagnostics, generic-setting
+  exclusion, native owner/schema invariants and required backend gates.
+- **P5 ablation decision:** reuse the existing InnoDB `web_settings` storage
+  domain and a dedicated `privacy-choice-v1:` namespace, excluded from generic
+  readers/writers just like hook receipts. A new table/migration or separate
+  Redis revocation service is unnecessary. One bounded JSON receipt per browser
+  choice contains no account/IP and only a credential digest, versions/revision,
+  decision and database epochs. An existing necessary CSRF token binds first
+  choices via a domain-separated HMAC; no pre-choice analytics identifier is
+  created. Explicit actions issue/rotate an opaque HTTP-only receipt cookie.
+  Row locks linearize collection and withdrawal, with optimistic revisions for
+  competing actions. Optional visit nonces are accepted only behind a current
+  receipt; only allowlisted route families enter atomic event/session writes.
+  No enrichment/provider call, raw URL/title or account linkage is introduced.
+- **Policy gate:** source-owned draft policy remains unapproved and collection
+  disabled. No environment/admin shortcut may authorize it. Tests exercise an
+  explicitly approved synthetic policy through module mocks and real database
+  transactions; distinguish that qualification from the shipped disabled state.
+  Approval, P6 retention readiness and full client/notice acceptance must all be
+  resolved before a future source change can enable collection. The proposed
+  preference lifetime is not treated as an approved retention rule.
+- **P5 server proof:** the real private runner
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-p5-suite.mts 23436` passes the complete backend suite:
+  **1,217 tests / 121 suites**. The same runner with `23437 privacy-only` passes
+  **33 tests / 4 suites** on MariaDB 11.8.9, including all new native cases.
+  It provisions a full-owner synthetic database, verifies 89 migrations and
+  readiness before/after, uses private Redis, and removes only its own database/
+  account afterward. Both owner fingerprints are unchanged (198 tables).
+  Native privacy tests use independent `TEST_PRIVACY_DB_PORT`, exact database
+  `durisweb_qualification_privacy_suite`, and dedicated loopback ports 23436/23437;
+  a hook-only opt-in cannot accidentally activate this suite. The optional flag
+  is documented in `backend/.env.test.example`. No shared target is accepted.
+- **Covered behavior:** first and repeated choice revisions, explicit refusal /
+  withdrawal / reacceptance, persisted digest-only credentials, no pre-choice
+  row/identifier, expired/forged/obsolete/stale/invalid/oversized receipt denial,
+  direct collection bypass attempts, both HTTP mounts, same-origin/CSRF and
+  HTTP-only cookie behavior, unknown policy/disabled collection/retention gates,
+  generic-settings namespace/collation exclusion, minimal canonical rows and
+  atomic rollback, sanitized errors and an ambiguous preference commit that
+  never issues a credential. Both in-flight orderings are demonstrated with
+  real blocked database statements. Native test teardown closes its own Redis
+  connection and drains transactions even if an assertion fails.
+- **Verification repair:** initial race observation relied on InnoDB transaction
+  snapshots that did not reliably represent a locking read, and an actual-auth
+  import left a native test Redis connection open. MySQL now observes the
+  identified wait edge through performance-schema; MariaDB observes its specific
+  still-executing statement and server elapsed time while a barrier holds the
+  conflicting transaction. The final assertions check the actual accepted or
+  rejected event and retained row counts after release. No timing-only outcome
+  assertion or transaction/SQL safeguard relaxation substitutes for that proof.
+- **Notice binding repair:** a focused pre-fix check showed that a request without
+  a notice version reached storage even when the notice had changed. Require
+  exact notice **and** choice versions before storage. Evidence:
+  `/tmp/durisweb-p5-notice-binding-before.log`. Final full/native runs above
+  include the repaired contract. Native logs:
+  `/tmp/durisweb-p5-receipts-full-backend.log`,
+  `/tmp/durisweb-p5-receipts-maria.log`. The earlier MySQL focused qualification
+  log `/tmp/durisweb-p5-receipts-mysql.log` predates the additional notice-binding
+  test; use the final full run as current MySQL evidence.
+- **Quality checks:** backend `format:check`, `lint`, `type-check`, `build`,
+  `verify:mud-writes --mud-manifest
+  /home/aiwithapex/projects/duris/migrations/migration_manifest.json` (53 writes),
+  configuration-literal guard, lifecycle-inventory coverage and `git diff --check`
+  pass. Changed TypeScript was formatted with backend Biome. No dependency,
+  schema/migration, pool safeguard or MUD behavior changed. The frontend was
+  unchanged; its existing 250-test/browser evidence is retained, without a fresh
+  frontend/build/browser or full consent-flow claim. Public release news remains
+  the prior paused-analytics draft until the client/notice and approved release
+  exist; no new reader-visible feature is announced for this disabled server
+  preparation. No production/shared migration/provider/deployment/tag operation.
+
+- **Published server-owned choices:**
+  [PR #48](https://github.com/LuminariMUD/DurisWeb/pull/48), open/non-draft at code
+  head `56c94ae`, stacked on #47 `ce3224b`. Exact local, remote and PR heads
+  match; clean worktree, ahead/behind `0 0` and committed whitespace verified.
+  Keep review ancestry intact; no merge/tag/deployment is needed. One-time
+  observer-repair script removed after committing its result; private fixture
+  generators/runners and qualification logs remain outside Git.
+- **Next P5 client contract:** start a dependent branch from this published head.
+  Read `GET /api/privacy` as necessary preference state; unapproved/unavailable,
+  unreadable, expired or mismatched versions always stop optional storage and
+  requests. Render the accessible pre-login notice/preferences using the existing
+  shell/brand/navigation. The copy needs owner review; do not call it approved.
+  Bind explicit actions to both `noticeVersion` and `choiceVersion` plus revision.
+  Stop locally and broadcast withdrawal before submitting it; surface unsaved
+  writes without re-enabling from a failed response. Serialize competing actions
+  across tabs, including first grants, and refresh state before explicit retries.
+  Receipt cookies are opaque/shared; the client never reads or manufactures them.
+  A visit nonce may exist only after acknowledged current acceptance; discard it
+  and queued/in-flight work on withdrawal, unknown state or account transitions.
+  Reset visit identity on login/logout without treating login as consent. Prove
+  fresh/refused/accepted/withdrawn/reaccepted, cross-tab/storage-denied, delayed
+  navigation, policy changes and network silence using synthetic browser cases.
+  Backend gates remain false until approval, retention readiness and full client
+  acceptance are actually satisfied. No source preparation closes #10 by itself.
+
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and
 [design](../DESIGN.md). Preserve existing safety gates and the MUD's schema and
@@ -1638,7 +1769,7 @@ Other PRs without findings still need inherited fixes carried forward.
 | PR | Initial findings | Review status |
 | --- | --- | --- |
 | #46 | 1: enable notifications after a first permission grant with blocked storage | Fixed; 7 focused and 253 full frontend tests pass |
-| #48 | 3: stale GET cookie clearing, actionable safe diagnostics, native fixture port binding | Pending |
+| #48 | 3: stale GET cookie clearing, actionable safe diagnostics, native fixture port binding | Fixed; 39 native cases pass on each database engine |
 | #49 | 3: pending refusal, temporary visibility changes, compact confirmation/focus | Pending |
 | #50 | 2: safe forum failure context, shared pool starvation during R2 deletion | Pending |
 | #54 | 1: DST-ambiguous retention cutoff comparisons | Pending |
@@ -1673,3 +1804,49 @@ Evidence: `pr46-{red,focused,quality}.log` in the private review directory.
 Private review evidence: `/tmp/durisweb-review-20261017/`; the current worktree
 is `/tmp/durisweb-security-privacy-plan-20261016` and switches to each existing
 PR branch in sequence. Preserve unrelated review worktrees and recovery stashes.
+
+**#46 publication/carry-forward:** fix `5a820ac` is pushed and its review thread
+is replied to and resolved. #47 has no findings; parent merge `558544e` is pushed,
+and its entire frontend tree matches the tested #46 frontend. #48 now contains
+that repair through an ordinary parent merge, without rewriting history.
+
+**#48 outcome:** status GETs cannot remove a concurrently rotated cookie;
+storage failures carry a safe operation/stage, allowlisted error code, rollback
+outcome and a reference shared with the client; native tests refuse a pool port
+different from their explicit opt-in before importing the pool. Files: existing
+privacy service/routes/tests plus a small safe-code selector needed by this and
+the reviewed forum-error path. Proof: stale receipt and diagnostics regressions
+failed before repair; a mismatched-port import incorrectly succeeded before
+the guard change. Add native rotation, corrupt-record, commit/rollback and
+safe-code checks, then run the two-engine fixture and required backend gates.
+This retains the current protocol and diagnostic boundaries without a new
+storage/logging service or policy change.
+
+**#48 final proof:** `node --import
+./backend/node_modules/tsx/dist/loader.mjs /tmp/durisweb-review-p5-suite.mts
+23436 privacy-only` and the same command with `23437` each pass 39 tests / four
+suites, including actual routes, transactions, rollback, cookie rotation and
+concurrent choices. The runner uses owned empty Redis DBs 13/14 and cleans its
+database/user/cache; before/after owner fingerprints and preflights match.
+`pnpm --dir backend test --runInBand src/utils/__tests__/safeFailureCode.test.ts`
+passes three pure diagnostic cases. The explicit mismatch command with
+`TEST_PRIVACY_DB_PORT=23436 DB_PORT=23437 DB_HOST=127.0.0.1
+DB_NAME=durisweb_qualification_privacy_suite` and Jest's
+`--testNamePattern=__guard_only_no_cases__` now refuses module import with zero
+tests, before pool construction; it previously exited successfully.
+`python3 /tmp/durisweb-image-quality.py backend`, configuration literal and
+whitespace checks pass. Frontend source remains byte-identical to the already
+qualified #46/#47 tree; no additional frontend/browser or full-backend rerun is
+claimed for this correction. Source policy gates remain false.
+
+Removing the unsafe GET clear exposed a reproduced lost-Set-Cookie retry gap.
+Status and explicit retry now fall back to the current CSRF-bound identity,
+using the authority already available when a receipt is absent. Invalid cookies
+cannot authorize their named record. Native cases cover both stable/rotated CSRF
+and a forged cookie naming a different browser, preserving that browser's valid
+choice. This adds no new endpoint, credential format or account linkage.
+The added rollback regression initially recursed through an already mocked
+checkout; its setup was corrected before both final green native runs.
+Evidence: `pr48-*` logs in the private review directory. Future privacy-release
+wording covers reliable saved choices; diagnostic/fixture repairs need no
+separate visitor announcement, and nothing is published live here.
