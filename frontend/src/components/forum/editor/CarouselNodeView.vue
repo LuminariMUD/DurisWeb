@@ -219,8 +219,8 @@ async function clearOrphans() {
       props.updateAttributes({ images: retained })
       currentIndex.value = Math.max(0, Math.min(currentIndex.value, retained.length - 1))
     }
-    clearIncomplete.value = result.remaining > 0
-    if (result.failed > 0 || result.remaining > 0)
+    clearIncomplete.value = result.remaining !== 0
+    if (result.failed > 0 || result.remaining !== 0)
       errorMessage.value =
         'Some image removals could not be confirmed. Please retry the pending images.'
   } catch {

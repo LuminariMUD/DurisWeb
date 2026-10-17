@@ -13,8 +13,6 @@ import { createHead } from '@unhead/vue/client'
 
 import App from './App.vue'
 import router from './router'
-import { initializePrivacyChoices } from './services/privacy'
-import { useAuth } from './composables/useAuth'
 
 const app = createApp(App)
 const head = createHead()
@@ -35,8 +33,5 @@ app.use(VueQueryPlugin, {
     },
   },
 })
-
-const stopPrivacy = initializePrivacyChoices(router, useAuth().accountName)
-if (import.meta.hot) import.meta.hot.dispose(stopPrivacy)
 
 app.mount('#app')

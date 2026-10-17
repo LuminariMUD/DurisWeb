@@ -593,8 +593,9 @@ export async function deletePostImage(imageId: number, accountName: string): Pro
 export interface OrphanImageClearResult {
   deleted: number;
   failed: number;
-  remaining: number;
+  remaining: number | null;
   unavailableImageUrls: string[];
+  reference?: string;
 }
 /** Process a bounded explicit user batch; report remaining work instead of asserting all-copies erasure. */
 export async function clearOrphanImagesForAccount(
@@ -653,14 +654,21 @@ export async function clearOrphanImagesForAccount(
         result.failed++;
       }
     }
-    const [count] = await db.execute<RowDataPacket[]>(
-      {
-        sql: 'SELECT COUNT(*) AS count FROM forum_post_images WHERE account_name = ? AND (is_orphan = TRUE OR removal_requested_at_epoch IS NOT NULL)',
-        timeout: 5000,
-      },
-      [accountName],
-    );
-    result.remaining = Number(count[0].count);
+    try {
+      const [count] = await db.execute<RowDataPacket[]>(
+        {
+          sql: 'SELECT COUNT(*) AS count FROM forum_post_images WHERE account_name = ? AND (is_orphan = TRUE OR removal_requested_at_epoch IS NOT NULL)',
+          timeout: 5000,
+        },
+        [accountName],
+      );
+      result.remaining = Number(count[0].count);
+    } catch (error) {
+      // The durable intent and removals are already committed. Preserve their
+      // unavailable URLs so the editor cannot publish previews of removed objects.
+      result.remaining = null;
+      result.reference = deletionFailure(error).reference;
+    }
     return result;
   } catch (error) {
     throw deletionFailure(error);
