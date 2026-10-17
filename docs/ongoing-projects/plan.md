@@ -2,6 +2,29 @@
 
 ## Current handoff — read this first
 
+**#64 output-bound follow-up:** private evidence now allows 4 MiB, covering both
+permitted 1,000-copy roots and worst-case escaping of filesystem-sized names.
+A two-root regression exceeds the former 1 MiB bound and saves both complete
+copy lists successfully. `pnpm --dir backend test --runInBand
+legacyBackupInventory`: 37 tests/two suites pass. Backend gates/build pass via
+`python3 /tmp/durisweb-image-quality.py backend`. Logs:
+`pr64-output-{tests,quality}.log`. No source files, SQL or production data changed
+through the inventory operation; evidence remains private and bounded.
+
+### Historical checkpoints
+
+**#64 final root-admission follow-up:** every selected root now passes canonical
+path/directory and physical/mount identity checks before the traversal deadline
+starts. A valid root not reached before timeout retains its verified identity;
+null observations no longer bypass output checks. Symlink and proc-root aliases
+are rejected before enumeration. `pnpm --dir backend test --runInBand
+legacyBackupInventory` passes 36 tests/two suites, and
+`python3 /tmp/durisweb-image-quality.py backend` passes all backend gates/build.
+Logs: `pr64-admission-{tests,quality}.log`. Earlier null-identity descriptions are
+historical and superseded. No database, frontend or production work was performed.
+
+### Historical checkpoints
+
 **#63 route precedence follow-up:** maintenance admission now inventories and
 reconciles every overlapping zone Worker route and no-script exclusion, preserving
 the previous map for rollback and verifying saved assignments plus overlap paths.
@@ -33,6 +56,20 @@ for review.” Publish only after a separately authorized verified release.
 ### Historical checkpoints
 
 **Latest continuation — PR #62 generated inspection:** a valid 65 MiB
+
+
+**#64 final inventory repairs:** time exhaustion before the second selected root
+now retains the first observation and records an explicit unstarted timed-out
+root. Output validates scanned root identities/mount IDs before writing and
+acknowledgement. A renamed/replaced root cannot become an evidence destination.
+`pnpm --dir backend test --runInBand legacyBackupInventory`: 36 tests/two suites
+pass, including actual CLI coverage and both new regressions. Backend format,
+lint, type-check, MUD-write, schema and build gates pass via
+`python3 /tmp/durisweb-image-quality.py backend`. Logs:
+`pr64-final-{tests,quality}.log` in the private review directory. No SQL,
+frontend or production change. Carries #63 keeper ordering `a3cf203`.
+
+### Historical checkpoints
 
 
 **#63 final ordering repair:** establish and verify the independent private-directory

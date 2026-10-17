@@ -18,6 +18,7 @@
     "schema:lifecycle": "NODE_OPTIONS='--import tsx' tsx src/scripts/lifecycleMetadata.ts",
     "retention:preview": "NODE_OPTIONS='--import tsx' tsx src/scripts/retentionPreview.ts",
     "retention": "NODE_OPTIONS='--import tsx' tsx src/scripts/retention.ts",
+    "backup:inventory": "DOTENV_CONFIG_QUIET=true NODE_OPTIONS='--import tsx' tsx src/scripts/legacyBackupInventory.ts",
     "verify:mud-writes": "NODE_OPTIONS='--import tsx' tsx src/scripts/verifyMudWriteAllowlist.ts",
     "verify:imported-item-baselines": "NODE_OPTIONS='--import tsx' tsx src/scripts/verifyImportedItemBaselines.ts",
     "verify:combat-baselines": "NODE_OPTIONS='--import tsx' tsx src/scripts/verifyCombatFragBaselines.ts",

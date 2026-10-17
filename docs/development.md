@@ -199,6 +199,13 @@ Only request identity is a fixture; it does not establish real login/CSRF proof.
 The upload lifecycle is described in [archive cleanup](runbooks/backup-archive-cleanup.md#registered-uploads).
 These tests do not establish legacy-copy protection or all-copy restore acceptance.
 
+`legacyBackupInventory.test.ts` in services and scripts uses real isolated local
+filesystem trees and the actual CLI, including caps, descriptor-anchored traversal,
+unsafe nodes, changed roots and private exclusive output. It needs no database
+or shared namespace. `pnpm --dir backend backup:inventory --help` describes the
+explicit-root command; see [private inventory limits](runbooks/backup-archive-cleanup.md#private-legacy-copy-inventory).
+Discovery observations never authorize writer fencing, preservation or removal.
+
 Do not commit `.env` files, dumps, account data, generated deployment output,
 or backup archives. See [Configuration and Environments](environments.md) before
 adding any new setting.
