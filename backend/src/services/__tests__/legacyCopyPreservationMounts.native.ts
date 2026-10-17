@@ -84,7 +84,93 @@ try {
     }
     assert.equal(fs.readFileSync(file, 'utf8'), 'synthetic source bytes');
   }
-  console.log('Passed six backing-storage aliases and an independent copy/verification control.');
+  const base = path.join(root, 'bundle-substitution');
+  fs.mkdirSync(base, { mode: 0o700 });
+  const source = path.join(base, 'source'),
+    target = path.join(base, 'protected'),
+    volatile = path.join(base, 'volatile');
+  for (const directory of [source, target, volatile]) fs.mkdirSync(directory, { mode: 0o700 });
+  execFileSync('/usr/bin/mount', ['-t', 'tmpfs', '-o', 'mode=700,size=1m', 'synthetic', volatile]);
+  mounts.push(volatile);
+  const file = path.join(source, 'temp_1.sql');
+  fs.writeFileSync(file, 'source bytes');
+  const operationId = randomUUID();
+  const mkdir = fs.mkdirSync.bind(fs);
+  let substituted = false;
+  fs.mkdirSync = ((...args: Parameters<typeof fs.mkdirSync>) => {
+    const result = mkdir(...args);
+    if (!substituted && String(args[0]).endsWith('/legacy-preserve-' + operationId)) {
+      substituted = true;
+      bind(volatile, path.join(target, 'legacy-preserve-' + operationId));
+    }
+    return result;
+  }) as typeof fs.mkdirSync;
+  try {
+    await assert.rejects(
+      preserveLegacyCopy({
+        backupRoot: source,
+        protectedRoot: target,
+        sourceName: 'temp_1.sql',
+        operationId,
+        sourcePhysicalSha256: legacyCopyPhysicalSha256(fs.statSync(file, { bigint: true })),
+        pythonBin: '/usr/bin/python3',
+        maxBytes: 1024,
+        timeBudgetMs: 5000,
+      }),
+      { reason: 'destination_unverified' },
+    );
+    assert.equal(substituted, true);
+    assert.deepEqual(fs.readdirSync(volatile), []);
+    assert.equal(fs.readFileSync(file, 'utf8'), 'source bytes');
+  } finally {
+    fs.mkdirSync = mkdir;
+  }
+  for (const operation of ['copy', 'verify'] as const) {
+    const base = path.join(root, 'late-' + operation);
+    fs.mkdirSync(base, { mode: 0o700 });
+    const source = path.join(base, 'source'),
+      target = path.join(base, 'protected');
+    for (const directory of [source, target]) fs.mkdirSync(directory, { mode: 0o700 });
+    const file = path.join(source, 'temp_1.sql');
+    fs.writeFileSync(file, 'late-mount source bytes');
+    const operationId = randomUUID(),
+      namedBundle = path.join(target, 'legacy-preserve-' + operationId);
+    const options = {
+      backupRoot: source,
+      protectedRoot: target,
+      sourceName: 'temp_1.sql',
+      operationId,
+      sourcePhysicalSha256: legacyCopyPhysicalSha256(fs.statSync(file, { bigint: true })),
+      pythonBin: '/usr/bin/python3',
+      maxBytes: 1024,
+      timeBudgetMs: 5000,
+    };
+    if (operation === 'verify') await preserveLegacyCopy(options);
+    const sync = fs.fsyncSync.bind(fs);
+    let mounted = false;
+    fs.fsyncSync = (fd) => {
+      if (
+        !mounted &&
+        fs.readlinkSync('/proc/self/fd/' + fd) === target &&
+        fs.existsSync(path.join(namedBundle, 'complete.json'))
+      ) {
+        mounted = true;
+        bind(namedBundle, namedBundle);
+      }
+      return sync(fd);
+    };
+    try {
+      if (operation === 'copy') await assert.rejects(preserveLegacyCopy(options));
+      else assert.throws(() => verifyPreservedLegacyCopy(options));
+      assert.equal(mounted, true);
+      assert.equal(fs.readFileSync(file, 'utf8'), 'late-mount source bytes');
+    } finally {
+      fs.fsyncSync = sync;
+    }
+  }
+  console.log(
+    'Passed six root aliases, independent control, bundle admission and both final mount checks.',
+  );
 } finally {
   for (const target of mounts.reverse()) execFileSync('/usr/bin/umount', [target]);
   assert.equal(path.dirname(root), os.homedir());

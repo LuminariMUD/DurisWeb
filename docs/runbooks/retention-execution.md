@@ -24,8 +24,10 @@ and approves each selected class. Keep the current flags false until that work,
 the remaining P6/P7 integration and deployment acceptance are complete. An
 enabled class does not approve another class. No runtime override is provided.
 
-Rehearse the exact release against an isolated restored clone, preserve protected
-recovery evidence and stop/drain all old website writers before the authorized
+Rehearse the exact release against an isolated restored clone and preserve protected
+recovery evidence. Before any stop/drain that tears down an existing website unit,
+complete the [legacy temporary-copy preservation gate](../deployment.md#legacy-temporary-copy-preservation-gate).
+Then stop/drain all old website writers before the authorized
 forward migration/cutover. Deploy the cache retirement everywhere before any
 execution is enabled: historical analytics readers now use SQL directly, and
 both router mounts send `Cache-Control: no-store`. An old backend must not keep

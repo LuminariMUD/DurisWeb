@@ -92,16 +92,19 @@ Cloudflare references: [Routes](https://developers.cloudflare.com/workers/config
 
 ## Each maintenance window
 
-Before stopping any website service, or restarting a dependency that stops it,
-complete the [legacy temporary-copy preservation gate](../../docs/deployment.md#legacy-temporary-copy-preservation-gate).
-Required copies and recovery evidence must be preserved before the old unit's
-`PrivateTmp` namespace is torn down. Enabling this notice does not satisfy that
-prerequisite or authorize service operations.
-
-For the approved maintenance window, set `MAINTENANCE_REASON` to the approved
+First, for the approved maintenance window, set `MAINTENANCE_REASON` to the approved
 reason in the Worker settings and deploy that variable change. Confirm the
-public notice and status endpoint first. The switch only gates website traffic;
-it does not operate the MUD or the application service group.
+public notice and status endpoint before beginning inventory or preservation,
+so new website requests are gated while that work proceeds.
+
+Then complete the [legacy temporary-copy preservation gate](../../docs/deployment.md#legacy-temporary-copy-preservation-gate)
+before stopping any website service or restarting a dependency that stops it.
+The Worker does not prove existing requests, background jobs or other writers
+have stopped; verify their closure/fencing separately as the gate requires.
+Required copies and recovery evidence must be preserved before the old unit's
+`PrivateTmp` namespace is torn down. The notice does not operate the MUD or the
+application service group, satisfy the whole preservation gate, or authorize
+service operations.
 
 After the separately authorized recovery, verify origin health, then set the
 variable to `off` and deploy the variable change. Verify public application

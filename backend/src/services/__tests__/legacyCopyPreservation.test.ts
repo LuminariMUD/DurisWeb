@@ -93,6 +93,78 @@ function bundle(id: string) {
       expect(verifyPreservedLegacyCopy(options).copyVerified).toBe(true);
     });
     it.each(['copy', 'verify'] as const)(
+      '%s refuses changed named receipts or extra entries at final sync',
+      async (operation) => {
+        for (const change of ['unlink-prepared', 'replace-complete', 'extra'] as const) {
+          const value = source();
+          if (operation === 'verify') await preserveLegacyCopy(value.options);
+          const directory = bundle(value.options.operationId);
+          const sync = fs.fsyncSync.bind(fs);
+          let changed = false;
+          const sabotage = jest.spyOn(fs, 'fsyncSync').mockImplementation((fd) => {
+            if (
+              !changed &&
+              fs.readlinkSync('/proc/self/fd/' + fd) === protectedRoot &&
+              fs.existsSync(path.join(directory, 'complete.json'))
+            ) {
+              changed = true;
+              if (change === 'unlink-prepared')
+                fs.unlinkSync(path.join(directory, 'prepared.json'));
+              else if (change === 'replace-complete') {
+                const receipt = path.join(directory, 'complete.json');
+                const bytes = fs.readFileSync(receipt);
+                fs.renameSync(receipt, receipt + '.retained');
+                fs.writeFileSync(receipt, bytes, { mode: 0o600 });
+                fs.unlinkSync(receipt + '.retained');
+              } else
+                fs.writeFileSync(path.join(directory, 'unexpected.json'), '{}', { mode: 0o600 });
+            }
+            return sync(fd);
+          });
+          try {
+            if (operation === 'copy')
+              await expect(preserveLegacyCopy(value.options)).rejects.toBeInstanceOf(Error);
+            else expect(() => verifyPreservedLegacyCopy(value.options)).toThrow();
+            expect(changed).toBe(true);
+            expect(fs.existsSync(value.filename)).toBe(true);
+          } finally {
+            sabotage.mockRestore();
+          }
+        }
+      },
+    );
+    it('rehashes same-length payload changes after the worker finished its readback', async () => {
+      const value = source();
+      const payload = path.join(bundle(value.options.operationId), 'payload.bin');
+      const stat = fs.fstatSync.bind(fs);
+      let changed = false;
+      const sabotage = jest
+        .spyOn(fs, 'fstatSync')
+        .mockImplementation((...args: Parameters<typeof fs.fstatSync>) => {
+          const observed = stat(...args);
+          if (
+            !changed &&
+            fs.readlinkSync('/proc/self/fd/' + args[0]) === payload &&
+            Number(observed.size) > 0
+          ) {
+            changed = true;
+            fs.writeFileSync(payload, Buffer.alloc(Number(observed.size), 120));
+            return stat(...args);
+          }
+          return observed;
+        });
+      try {
+        await expect(preserveLegacyCopy(value.options)).rejects.toBeInstanceOf(Error);
+        expect(changed).toBe(true);
+        expect(fs.existsSync(path.join(bundle(value.options.operationId), 'failed.json'))).toBe(
+          true,
+        );
+        expect(fs.existsSync(value.filename)).toBe(true);
+      } finally {
+        sabotage.mockRestore();
+      }
+    });
+    it.each(['copy', 'verify'] as const)(
       '%s refuses renamed bundles and substituted payload names before acknowledgement',
       async (operation) => {
         for (const change of ['bundle', 'payload', 'bytes'] as const) {

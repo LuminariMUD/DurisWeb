@@ -175,10 +175,17 @@ and directory sync. Source paths and payloads stay out of ordinary output.
 Before acknowledgement, the named bundle and `payload.bin` must still match
 the opened descriptors and expected payload identity; rename, replacement or
 observed late byte changes retain the operation for review instead of success.
+The parent independently rehashes payload bytes after the worker exits and binds
+that read to unchanged metadata. Final acknowledgement requires exactly
+`prepared.json`, `complete.json` and `payload.bin`, revalidates both receipt
+contents/identities, and keeps every opened/named entry on the qualified protected
+mount. An unqualified bundle is refused before writing receipts or copy bytes.
 Byte/time limits refuse work; they never truncate a source. The default worker
 budget is 30 seconds, selectable from 1 to 300,000 milliseconds, with a fresh
 owned-child kill request one second later. Stalled kernel I/O can still delay
 exit; the parent waits for actual worker termination before finalizing.
+The parent hashing pass uses the selected time budget too; it is a separate
+bounded pass, not a hard end-to-end deadline over all filesystem calls.
 
 Errors retain prepared/failed receipts and any partial payload. No source,
 partial copy or receipt is deleted, repaired or overwritten.
@@ -307,6 +314,17 @@ reference and retain work. Existing legacy OS-temporary uploads are not adopted,
 unlinked or falsely acknowledged by these endpoints. Website restore remains
 unavailable. Protect independent current evidence before any authorized offline
 restore; these upload safeguards do not establish all-copy enforcement.
+
+Download opens without following a replacement link, validates the opened file
+against the registered identity, and streams that descriptor with its actual
+size. Completion, error and client disconnect close the reader. A failure before
+attachment bytes are sent returns a safe JSON error/reference instead of an
+error body labelled as a ZIP. Archive inspection likewise inherits the validated
+descriptor in its bounded child; neither reader reopens the archive pathname.
+The child owns its descriptor across ZIP range streams and checks its identity
+before/after parsing. Registered identities are passed through initial upload
+inspection and later contents requests. Receiving/review-required upload rows
+remain visible but do not count as generated backups in the Create Backup guard.
 
 ## Preserve evidence
 
