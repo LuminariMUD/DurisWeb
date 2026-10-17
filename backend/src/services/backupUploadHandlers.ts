@@ -1,4 +1,5 @@
 import multer from 'multer';
+import fs from 'node:fs';
 import type { Request, Response } from 'express';
 import logger from '../utils/logger.js';
 import { getBackendConfiguration } from '../config/environment.js';
@@ -12,6 +13,52 @@ import {
   recoverBackupUpload,
 } from './backupUploads.js';
 import { inspectBackupArchive } from './backupInspection.js';
+import type { OpenedManagedArchive } from '../utils/managedArchiveTarget.js';
+
+/** Consumes ownership of the validated fd, including disconnect and error paths. */
+export function streamBackupDownload(response: Response, opened: OpenedManagedArchive): void {
+  let stream: fs.ReadStream;
+  try {
+    stream = fs.createReadStream(opened.filePath, { fd: opened.fd, autoClose: true });
+  } catch (error) {
+    fs.closeSync(opened.fd);
+    throw error;
+  }
+  stream.on('error', () => {
+    const problem = new BackupUploadError('storage_unconfirmed');
+    logger.warn('backup_download_unconfirmed', {
+      reason: problem.reason,
+      reference: problem.reference,
+    });
+    if (!response.headersSent && !response.destroyed) {
+      response.removeHeader('Content-Disposition');
+      response.removeHeader('Content-Length');
+      response
+        .type('application/json')
+        .status(problem.status)
+        .json({
+          error: 'Backup download could not be completed. Please try again.',
+          reason: problem.reason,
+          reference: problem.reference,
+        });
+    } else response.destroy();
+  });
+  response.once('close', () => stream.destroy());
+  try {
+    if (response.destroyed) {
+      stream.destroy();
+      return;
+    }
+    response.setHeader('Cache-Control', 'private, no-store');
+    response.setHeader('Content-Type', 'application/zip');
+    response.setHeader('Content-Disposition', `attachment; filename="${opened.filename}"`);
+    response.setHeader('Content-Length', opened.size.toString());
+    stream.pipe(response);
+  } catch (error) {
+    stream.destroy();
+    throw error;
+  }
+}
 
 const upload = multer({
   storage: backupUploadStorage,
@@ -78,6 +125,11 @@ export async function receiveBackupUpload(request: Request, response: Response):
         const inspected = await inspectBackupArchive(
           getBackendConfiguration().backupDirectory,
           uploadFilename(reference),
+          {
+            filename: uploadFilename(reference),
+            rootSha256: record.rootSha256,
+            fileSha256: record.fileSha256,
+          },
         );
         record = await checkpointBackupUpload(
           reference,

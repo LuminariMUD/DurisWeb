@@ -2,6 +2,118 @@
 
 ## Current handoff — read this first
 
+**Current #63 follow-up:** #62 reader/busy fixes `268b455` are pushed and both
+threads verified resolved. Ten findings remain from the last scan. All five
+direct writer-stop procedures in the schema guide and the retention execution
+procedure now place/link preservation before stopping an existing unit. The
+maintenance procedure activates and verifies the Worker notice before inventory/
+preservation; the deployment gate confirms that ordering while still requiring
+separate closure/fencing of existing requests and background writers. The one
+duplicated preservation-order journal block was compared byte-for-byte (apart
+from surrounding whitespace) and its second copy removed. Its earlier blanket
+coverage claim was narrowed to the actual initial deployment gate.
+
+This is documentation only. Source inspection, exact block comparison, all
+writer-stop occurrences, relative link/heading checks, whitespace/configuration
+guards pass. Backend/frontend code matches the qualified #62 parent; no runtime
+test rerun or live maintenance action is claimed. Publish/resolve these three
+threads, carry through #64, then complete #65's three bundle-acknowledgement
+findings and #66's four export findings. No visitor news is needed for this
+operator guidance correction.
+
+**#62 reader follow-up, ready to publish:** the old path-only reader was reproduced
+streaming replacement bytes. A shared opened-archive utility now checks the
+descriptor's physical identity and transfers that descriptor to the HTTP stream
+or isolated inspector. Generated reads use it too; registered reads add the
+durable root/file binding. The streaming helper is exercised over HTTP with
+fixture identity, including replacement, foreign-owner refusal, safe
+non-attachment failure and descriptor closure. Inspection receives inherited fd 3
+and uses positional ZIP streams rather than reopening a path. Its range-stream
+close callback leaves fd ownership with the worker; the first implementation
+exposed unzipper's explicit destroy closing the shared fd, fixed before final proof.
+The admin download retains its existing auth/permission middleware.
+
+Generated-backup busy selectors now exclude rows with an upload reference;
+a real pending generated backup still blocks creation. Two-engine
+`/tmp/durisweb-run-archive-suite.mts <23436|23437> upload-archive` runs pass
+**60 tests / six suites** each. Both package quality gates/builds pass; frontend
+has **322 tests / 58 files**, with 20 focused backup tests. The real stream helper
+and inherited inspector tests cover a replaced root/name, symlink at open,
+completion/abandonment/error closure and original-byte preservation.
+`node /tmp/durisweb-review-browser62.mjs` passes 1440/768/390, including Create
+Backup staying available for a receiving upload while recovery/cancellation
+behavior remains intact. Final logs: `pr62-reader-final-{mysql,maria}.log`,
+`pr62-reader-quality-closeout.log`, `pr62-reader-frontend-quality.log`,
+`pr62-reader-browser.log`. A binary HTTP fixture parser/type annotation was
+corrected before final validation; the unsafe-path red probe is `pr62-read-red.log`.
+No broad backend or production acceptance is claimed. Publish/resolve the two
+threads, carry to #63, then address the ten remaining known findings there/#65/#66.
+
+**Current verified continuation checkpoint — 2026-10-17:** 34 findings have
+verified reply/resolution records in `/tmp/durisweb-review-20261017/closed-findings.json`.
+The latest complete scan has **12 unresolved findings: #62 (2), #63 (3), #65 (3),
+#66 (4)**. #57 fix `213b803` is pushed/resolved and carried through #58 `ba9e1fc`,
+#59 `d678688`, #60 `ad1b7e9`, #61 `cff99db`; #62 parent merge `406f55e` preserves
+its account-scoped cache and adds the awaited reconciliation/error guards.
+The combined backup composable passes 19 tests and frontend formatting; unchanged
+parent runtime proof is retained. This checkpoint publishes that parent carry,
+not a repair of #62's two new findings. No test/browser process remains running.
+
+Next: bind uploaded download/inspection reads to the validated open descriptor,
+then exclude upload references from both generated-backup busy selectors. The
+actual reader call chain is `registeredUploadFile` → admin download `createReadStream`
+and admin contents → `listBackupContents` → `inspectBackupArchive` →
+`backupInspectionWorker`. The inspection path also reopens a pathname; avoid
+fixing only download while leaving the same identity gap in its sibling reader.
+Reuse the existing file-identity utility and bounded inspector, with explicit
+descriptor ownership/closure. Test replacement before open, after validation,
+stream completion/failure and the retained foreign-owner/hold behavior.
+
+After #62, address the remaining #63 stop-link/order/deduplication findings and
+#65 receipt/payload/mount acknowledgement findings listed in the
+[detailed queue](https://github.com/LuminariMUD/DurisWeb/blob/8cf161f448aef15d2b13da923094a58a527fbbe5/docs/ongoing-projects/plan.md).
+For #65, validate the whole named bundle at acknowledgement (both strict receipt
+entries, exact contents, payload bytes/metadata and qualified mount), rather than
+only adding another payload-path check. Preserve failed/unknown work.
+
+#66 still needs `PRRT_kwDOVA2-8c6te2j5` (separate MUD/web authority). The latest
+scan adds:
+
+- `PRRT_kwDOVA2-8c6tglEp`: log unexpected export failures with safe category/code
+  and the same response reference, without input, credentials, SQL or payloads.
+- `PRRT_kwDOVA2-8c6tglEr`: distinguish the internal download timeout from caller
+  cancellation and show a stable retry-oriented message.
+- `PRRT_kwDOVA2-8c6tglEu`: add/qualify a reversible forward index for
+  `forum_reactions(user_account_name,id)` so bounded per-owner exports do not
+  scan all reactions. Preserve immutable baselines and forward-schema contracts.
+
+The #66 browser fallback is already pushed/resolved as `8cf161f`. Do not redo
+it or mark the broader export/erasure project complete. The review goal remains
+active; refresh the live queue before final closeout. Original master, other
+worktrees/stashes and production remain untouched.
+
+**Newest continuation:** the complete later review queue and export-authority
+investigation are retained in the [#66 handoff](https://github.com/LuminariMUD/DurisWeb/blob/8cf161f448aef15d2b13da923094a58a527fbbe5/docs/ongoing-projects/plan.md).
+#66 browser compatibility `8cf161f` is pushed and its thread verified resolved.
+Ten findings remain from that scan, including the current #57 reconciliation fix.
+This branch now awaits create-backup list invalidation before settling the
+mutation, disables creation during list fetch/error, and keeps a visible Refresh
+instruction for a failed refresh with cached data. This closes the retry gap
+without a new operation queue or state machine.
+
+Two lost/invalid-acknowledgement regressions failed before repair. Full frontend
+gates/build pass **316 tests / 58 files**. `node
+/tmp/durisweb-review-browser57-reconcile.mjs` passes at 1440/390: exactly one
+create request, disabled control during reconciliation, running-operation guard,
+and refusal to re-enable after a failed list until an explicit successful Refresh.
+The fixture dismisses the existing global availability notice before checking
+the underlying control. An initial test-only response field failed type checking
+and was corrected before the final green run. Logs:
+`pr57-reconcile-{red,quality-final,browser-final}.log`. No backend/runtime-provider
+test rerun or production operation is claimed. Publish/resolve #57, carry its
+parent fixes through #61, then address #62's descriptor-streaming and busy-state
+findings before #63/#65/#66. Older counts/checkpoints below are historical.
+
 **Latest review continuation:** #55 UI fix `3446b1b`, #48 contract fix
 `d43f94c`, #49 follow-up `64d30b7` and #50 follow-up `ab40c42` are pushed;
 all eight corresponding threads are verified resolved. The three later #54
@@ -1273,57 +1385,7 @@ use the current handoff above for present state and priority.
   and [temporary-directory guide](https://github.com/systemd/systemd/blob/main/docs/TEMPORARY_DIRECTORIES.md)
   confirm private temporary-directory teardown when the service stops. Thus
   “stop all old writers, then inventory/adopt” can already lose evidence.
-  The gate now precedes every stop/drain instruction, requires the actual old
-  mount namespace, verified protected bytes/consistency/hold-compatible teardown
-  and a writer fence that does not first destroy that namespace. Existing
-  four-hour watchdog pause limits are explicit; the tunnel stays configured.
-  No guessed PID, current host `/tmp`, completed row, old age, healthy process
-  or second copy can substitute for the required proof. Until the remaining
-  discovery/adoption/fencing is implemented and rehearsed, release stays gated.
-  Ablation keeps this to ordering/documentation; no new flag, automatic service
-  action or speculative systemd workaround is added. Backend/frontend/runtime/
-  database/browser checks are not repeated for this documentation-only repair.
-  Verify with whitespace and the existing privacy registry/link checker; no
-  Website Changelog entry is needed for this contributor/operator instruction.
-- **Next implementation:** continue bounded private legacy-copy discovery from
-  this branch after publication, identifying raw SQL/staging/old-upload layouts
-  without reading contents, following links or inferring writer closure. Use
-  an explicitly selected actual old upload root, not an `os.tmpdir()` fallback.
-  A report must identify partial/changed/unknown scope and never admit deletion.
-  Then implement verified adoption/fencing with current protected evidence and
-  offline replay, plus remaining P6 handlers and all P7 requirements. No named
-  policy approval or user question is necessary for this independent engineering.
-- **Preservation-order publication:** documentation head
-  `0f08e6c6f74988b7a32e4c338f09ba9cc2f4aedc` is pushed in open/non-draft
-  [PR #63](https://github.com/LuminariMUD/DurisWeb/pull/63), base
-  `branch/backup-upload-records` (#62 final `3d68697`), and attached here.
-  Readback confirms OPEN/MERGEABLE, correct base/head, matching local/remote/API
-  SHA, ahead/behind `0 0`, clean worktree and whitespace. The existing registry
-  checker verifies exact 77-table coverage, local references and required gates.
-  No runtime tests are needed for this documentation-only correction. Continue
-  from the final publication-document commit in the same isolated worktree;
-  do not run the described release or alter live services/files. Source P6/P7
-  engineering remains available and the full goal stays active.
-
-- **P6d2b2c preservation-order repair (2026-10-17):** branch
-  `branch/legacy-upload-preservation-gate` starts at #62 `3d68697`.
-  Outcome: prevent the prepared release sequence from stopping an old service
-  before legacy temporary uploads are preserved and holds reconciled. Non-goals:
-  actual rollout, namespace/process/file operations, disabling `PrivateTmp` or
-  claiming adoption/removal is already implemented. Files: deployment and the
-  two archive runbooks plus this plan. Proof: trace the pinned old uploader and
-  maintained systemd unit against upstream systemd lifecycle semantics, then
-  verify exact ordering, links and whitespace. This is a separate real defect
-  discovered before the inventory implementation, not a replacement for P6/P7.
-  `git show 220c991:backend/src/routes/admin.ts` shows OS-temp uploads with no
-  durable ownership; `git show 220c991:backend/src/services/backupService.ts`
-  shows `temp_<id>.sql`/`temp_staging_<id>` and unconditional unlink/rm. The
-  maintained unit sets `PrivateTmp=true` and depends on the cache. Upstream
-  [systemd execution docs](https://github.com/systemd/systemd/blob/main/man/systemd.exec.xml)
-  and [temporary-directory guide](https://github.com/systemd/systemd/blob/main/docs/TEMPORARY_DIRECTORIES.md)
-  confirm private temporary-directory teardown when the service stops. Thus
-  “stop all old writers, then inventory/adopt” can already lose evidence.
-  The gate now precedes every stop/drain instruction, requires the actual old
+  The initial deployment gate requires the actual old
   mount namespace, verified protected bytes/consistency/hold-compatible teardown
   and a writer fence that does not first destroy that namespace. Existing
   four-hour watchdog pause limits are explicit; the tunnel stays configured.

@@ -330,7 +330,10 @@ private namespace. New persistent uploads do not adopt those older files.
 During a separately authorized release, before **any** application stop/restart
 or restart of a dependency that stops it:
 
-1. Pause and verify the existing watchdog maintenance mechanism. Its pause
+1. Confirm the approved [maintenance notice](../deploy/maintenance/README.md#each-maintenance-window)
+   is active and gates new website requests before inventory or preservation.
+   This does not close existing requests or background writers. Pause and verify
+   the existing watchdog maintenance mechanism. Its pause
    expires after four hours; preserve the gate through the entire approved
    window. Keep Cloudflare ingress and the tunnel configured. Establish a
    reviewed way to prevent new legacy upload/backup operations and to fence

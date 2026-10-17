@@ -28,6 +28,7 @@ import { randomUUID } from 'node:crypto';
 import { removeManagedArchive } from './managedArchiveRemoval.js';
 import { uploadReference, BackupUploadError } from './backupUploads.js';
 import { inspectBackupArchive } from './backupInspection.js';
+import type { ManagedArchiveIdentity } from '../utils/managedArchiveTarget.js';
 
 const environment = getBackendConfiguration();
 const MUD_BASE = environment.mud.directory;
@@ -739,21 +740,26 @@ export function startHourlyBackupScheduler(): void {
 /**
  * list accounts and characters contained in a backup by reading its sql dump.
  */
-export async function listBackupContents(backupId: number): Promise<BackupContents | null> {
+export async function listBackupContents(
+  backupId: number,
+  expected?: ManagedArchiveIdentity,
+): Promise<BackupContents | null> {
   const backup = await getBackupById(backupId);
   if (!backup || backup.status !== 'completed') return null;
 
-  let filePath: string;
-  try {
-    filePath = resolveSafeBackupFilePath(BACKUP_DIR, backup.filename);
-  } catch {
-    return null;
+  if (!expected) {
+    let filePath: string;
+    try {
+      filePath = resolveSafeBackupFilePath(BACKUP_DIR, backup.filename);
+    } catch {
+      return null;
+    }
+    if (!fs.existsSync(filePath)) return null;
   }
-  if (!fs.existsSync(filePath)) return null;
 
-  const inspected = await inspectBackupArchive(BACKUP_DIR, backup.filename);
+  const inspected = await inspectBackupArchive(BACKUP_DIR, backup.filename, expected);
   if (inspected.outcome !== 'valid' || !inspected.contents)
-    throw new BackupUploadError('inspection_unconfirmed');
+    throw new BackupUploadError('inspection_unconfirmed', backup.uploadReference ?? undefined);
   return inspected.contents;
 }
 

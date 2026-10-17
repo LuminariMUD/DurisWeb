@@ -2,6 +2,7 @@ import {
   receiveBackupUpload,
   cancelRegisteredBackupUpload,
   recoverRegisteredBackupUpload,
+  streamBackupDownload,
 } from '../services/backupUploadHandlers.js';
 import { Router, Request, Response, type IRouter } from 'express';
 import logger, { getErrorMessage } from '../utils/logger.js';
@@ -62,7 +63,9 @@ import { getPeakPlayerCount } from '../services/statisticsParser.js';
 import { getDmsProcessStats } from '../services/processMonitor.js';
 import { getMudState } from '../services/mudControlService.js';
 import { listLogs, readLogPaginated, tailLog, getLogFilePath } from '../services/logService.js';
+import { getBackendConfiguration } from '../config/environment.js';
 import { createReadStream } from 'fs';
+import { openManagedArchive, type ManagedArchiveIdentity } from '../utils/managedArchiveTarget.js';
 import { pool as db } from '../db/connection.js';
 import { requestWhoList, isMudConnected, getMudBootTime } from '../services/mudAuctionClient.js';
 import { getOnlinePlayers as getOnlinePlayersFromRedis } from '../services/onlinePlayersService.js';
@@ -3850,36 +3853,20 @@ router.get(
         return;
       }
 
-      const filePath = backup.uploadReference
+      const opened = backup.uploadReference
         ? await registeredUploadFile(
             backup.uploadReference,
             req.user?.accountName ?? '',
             req.user?.permissions.role === 'overlord',
           )
-        : await getBackupFilePath(id);
-      if (!filePath) {
+        : (await getBackupFilePath(id))
+          ? openManagedArchive(getBackendConfiguration().backupDirectory, backup.filename)
+          : null;
+      if (!opened) {
         res.status(404).json({ error: 'Backup file not found' });
         return;
       }
-
-      // Set headers for file download
-      res.setHeader('Cache-Control', 'private, no-store');
-      res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', `attachment; filename="${backup.filename}"`);
-      if (backup.fileSize) {
-        res.setHeader('Content-Length', backup.fileSize.toString());
-      }
-
-      // Stream the file
-      const fileStream = createReadStream(filePath);
-      fileStream.pipe(res);
-
-      fileStream.on('error', () => {
-        logger.error('backup_download_unconfirmed');
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Failed to download backup file' });
-        } else res.destroy();
-      });
+      streamBackupDownload(res, opened);
     } catch (error) {
       if (!res.headersSent) {
         respondBackupReadFailure(res, error);
@@ -3989,13 +3976,21 @@ router.get(
       }
 
       const record = await getBackupById(id);
-      if (record?.uploadReference)
-        await registeredUploadFile(
+      let expected: ManagedArchiveIdentity | undefined;
+      if (record?.uploadReference) {
+        const upload = await readBackupUpload(
           record.uploadReference,
           req.user?.accountName ?? '',
           req.user?.permissions.role === 'overlord',
         );
-      const contents = await listBackupContents(id);
+        if (upload.phase !== 'closed') throw new BackupUploadError('receiving', upload.id);
+        expected = {
+          filename: record.filename,
+          rootSha256: upload.rootSha256,
+          fileSha256: upload.fileSha256,
+        };
+      }
+      const contents = await listBackupContents(id, expected);
       if (!contents) {
         return res.status(404).json({ error: 'Backup not found or not completed' });
       }

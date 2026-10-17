@@ -77,7 +77,9 @@ This installer targets a shared database on MySQL 8 or MariaDB 11.8, after
 the MUD owner has installed and verified its schema. It never supplies a game
 baseline. Obtain the approved hash from an owner-reviewed schema/restore record;
 an observed hash and matching table names alone do not prove game compatibility.
-Keep application writers stopped while installing or adopting. Use an isolated
+Before stopping an existing website unit to satisfy this condition, complete the
+[legacy temporary-copy preservation gate](../../docs/deployment.md#legacy-temporary-copy-preservation-gate).
+Then keep application writers stopped while installing or adopting. Use an isolated
 rehearsal first; shared-environment work requires its own release authorization.
 
 With the backend environment selecting the intended target, substitute its
@@ -270,7 +272,9 @@ these accepted baseline signatures to hide drift.
 
 This procedure is prepared for isolated rehearsal. Shared deployment requires
 the recorded owner decision for a one-time website logout and advance notice.
-Keep all website writers stopped/drained during the transition; do not restart
+Before a writer stop/drain tears down an existing website unit, complete the
+[legacy temporary-copy preservation gate](../../docs/deployment.md#legacy-temporary-copy-preservation-gate).
+Then keep all website writers stopped/drained during the transition; do not restart
 the separate MUD. The original baseline remains immutable.
 
 After baseline installation/adoption and the builder repair, apply the two
@@ -368,7 +372,9 @@ reinterpret older naive audit timestamps or change pooled timezones.
 
 `20261017003000_post_image_removal_intent.ts` adds nullable
 `removal_requested_at_epoch BIGINT UNSIGNED` and an intent/ID index to the
-website-owned `forum_post_images`. Apply it with website writers stopped,
+website-owned `forum_post_images`. An existing website unit must pass the
+[legacy temporary-copy preservation gate](../../docs/deployment.md#legacy-temporary-copy-preservation-gate)
+before being stopped for this migration. Apply it with website writers stopped,
 after the ordinary backup and isolated forward rehearsal, before starting the
 new image API, forum writers or hourly cleanup. The immutable baseline stays
 unchanged. Production preflight requires this forward contract.
@@ -418,8 +424,11 @@ permission seed. The Overlord-only [API/runbook](../../docs/runbooks/data-holds.
 explicitly reports that deletion/cleanup and restore enforcement are not ready.
 Do not claim that storing intent implements retention or live protection.
 
+Before stopping an existing website unit, complete the
+[legacy temporary-copy preservation gate](../../docs/deployment.md#legacy-temporary-copy-preservation-gate).
 Run the ordinary backup/clone forward rehearsal with website writers stopped
-before deploying the API. Both engines have exact metadata postconditions and
+before deploying the API.
+Both engines have exact metadata postconditions and
 idempotent adjacent DDL recovery if creation/drop succeeded without its ledger
 acknowledgement. Normal serving preflight still requires the correct ledger and
 shape. Unknown drift is refused. Down drops only an empty table; any history,
@@ -438,7 +447,9 @@ generic settings. Hold writes acquire that same control lock before hold rows.
 See the [execution runbook](../../docs/runbooks/retention-execution.md).
 
 All policy/class approvals and execution enablement remain false. No runtime
-override or scheduler is installed. Before a future approved cutover, stop/drain
+override or scheduler is installed. Before a future approved cutover, complete
+the [legacy temporary-copy preservation gate](../../docs/deployment.md#legacy-temporary-copy-preservation-gate)
+before any stop/drain of an existing website unit. Then stop/drain
 all old website writers and rehearse the exact forward path on a protected clone;
 the new analytics readers retire the old Redis cache writers. Schema validation
 and trigger/incoming-FK refusal remain strict on both database families.

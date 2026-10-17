@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+import fs, { constants, type BigIntStats } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { resolveSafeBackupFilePath } from './safeBackupPath.js';
@@ -13,6 +13,24 @@ export interface ManagedArchiveTarget {
 }
 function digest(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+export type ManagedArchiveIdentity = Pick<
+  ManagedArchiveTarget,
+  'filename' | 'rootSha256' | 'fileSha256'
+>;
+export interface OpenedManagedArchive extends ManagedArchiveTarget {
+  fd: number;
+  size: number;
+  fileSha256: string;
+}
+export function managedArchiveFileSha256(file: BigIntStats): string {
+  return digest([
+    file.dev.toString(),
+    file.ino.toString(),
+    file.size.toString(),
+    file.mtimeNs.toString(),
+    file.ctimeNs.toString(),
+  ]);
 }
 /** Inspect outside SQL transactions; no archive contents are read or logged. */
 export function inspectManagedArchive(root: string, filename: string): ManagedArchiveTarget {
@@ -30,13 +48,7 @@ export function inspectManagedArchive(root: string, filename: string): ManagedAr
     const file = fs.lstatSync(filePath, { bigint: true });
     if (!file.isFile() || file.isSymbolicLink() || file.dev !== directory.dev)
       throw new Error('Invalid archive file');
-    fileSha256 = digest([
-      file.dev.toString(),
-      file.ino.toString(),
-      file.size.toString(),
-      file.mtimeNs.toString(),
-      file.ctimeNs.toString(),
-    ]);
+    fileSha256 = managedArchiveFileSha256(file);
   } catch (error) {
     if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'ENOENT')
       throw error;
@@ -53,4 +65,41 @@ export function inspectManagedArchive(root: string, filename: string): ManagedAr
       directory.ino.toString(),
     ]),
   };
+}
+
+/** Caller owns fd: close it or transfer it to an auto-closing stream/child. */
+export function openManagedArchive(
+  root: string,
+  filename: string,
+  expected?: ManagedArchiveIdentity,
+): OpenedManagedArchive {
+  const target = inspectManagedArchive(root, filename);
+  const fileSha256 = target.fileSha256;
+  if (
+    fileSha256 === null ||
+    (expected &&
+      (target.filename !== expected.filename ||
+        target.rootSha256 !== expected.rootSha256 ||
+        fileSha256 !== expected.fileSha256))
+  )
+    throw new BackupDeletionError('recovery_unverified');
+  const fd = fs.openSync(
+    target.filePath,
+    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+  );
+  try {
+    const file = fs.fstatSync(fd, { bigint: true });
+    const size = Number(file.size);
+    if (
+      !file.isFile() ||
+      managedArchiveFileSha256(file) !== fileSha256 ||
+      !Number.isSafeInteger(size) ||
+      size < 0
+    )
+      throw new BackupDeletionError('recovery_unverified');
+    return { ...target, fileSha256, fd, size };
+  } catch (error) {
+    fs.closeSync(fd);
+    throw error;
+  }
 }
