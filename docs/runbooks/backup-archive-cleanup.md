@@ -39,6 +39,13 @@ separate hold-aware operation after a new archive completes.
 
 ## Private legacy-copy inventory
 
+A shared-budget timeout retains completed/partial observations. An unstarted root
+is explicitly incomplete with `time_budget` and null physical/mount identity;
+the CLI still saves bounded private evidence and returns incomplete status.
+Before writing and acknowledging output, every physically observed root must
+still have its scanned path, device/inode and mount ID. Replacement or unmount
+refuses output rather than placing evidence inside a former scanned tree.
+
 The source includes a read-only discovery command for the layouts traced from
 the older uploader/producer. Run it only in the explicitly selected authorized
 environment and namespace, before the preservation gate's service teardown:

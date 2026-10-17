@@ -28,6 +28,38 @@ function staging(id = 2) {
   return directory;
 }
 describe('read-only legacy copy discovery', () => {
+  it('writes partial evidence when the first root exhausts the shared budget', async () => {
+    let clock = 0;
+    jest.spyOn(performance, 'now').mockImplementation(() => clock);
+    const original = fs.opendirSync;
+    jest
+      .spyOn(fs, 'opendirSync')
+      .mockImplementation((...args: Parameters<typeof fs.opendirSync>) => {
+        const directory = original(...args);
+        const read = directory.readSync.bind(directory);
+        jest.spyOn(directory, 'readSync').mockImplementation(() => {
+          clock = 6000;
+          return read();
+        });
+        return directory;
+      });
+    const result = await inventoryLegacyBackupCopies(backupRoot, uploadRoot);
+    expect(result.roots.map((root) => root.stoppedBecause)).toEqual(['time_budget', 'time_budget']);
+    expect(result.roots[1].rootSha256).toBeNull();
+    const output = path.join(outputRoot, 'partial.json');
+    writeLegacyBackupInventory(output, result, [backupRoot, uploadRoot]);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8')).roots).toHaveLength(2);
+  });
+  it('refuses output after the scanned root is renamed and replaced', async () => {
+    const result = await inventoryLegacyBackupCopies(backupRoot);
+    const former = path.join(workspace, 'former-root');
+    fs.renameSync(backupRoot, former);
+    fs.mkdirSync(backupRoot, { mode: 0o700 });
+    const output = path.join(former, 'inventory.json');
+    expect(() => writeLegacyBackupInventory(output, result, [backupRoot])).toThrow();
+    expect(fs.existsSync(output)).toBe(false);
+  });
+
   (fs.existsSync('/dev/shm') ? it : it.skip)(
     'observes an actual tmpfs legacy root without granting unlink authority',
     async () => {
@@ -212,8 +244,11 @@ describe('read-only legacy copy discovery', () => {
         return result;
       });
     const lstat = jest.spyOn(fs, 'lstatSync');
-    await expect(inventoryLegacyBackupCopies(backupRoot)).rejects.toMatchObject({
-      reason: 'root_unverified',
+    expect((await inventoryLegacyBackupCopies(backupRoot)).roots[0]).toMatchObject({
+      rootSha256: null,
+      rootMountId: null,
+      scanComplete: false,
+      stoppedBecause: 'time_budget',
     });
     expect(lstat).not.toHaveBeenCalled();
   });

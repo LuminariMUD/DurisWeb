@@ -2,6 +2,19 @@
 
 ## Current handoff — read this first
 
+**#64 final inventory repairs:** time exhaustion before the second selected root
+now retains the first observation and records an explicit unstarted timed-out
+root. Output validates scanned root identities/mount IDs before writing and
+acknowledgement. A renamed/replaced root cannot become an evidence destination.
+`pnpm --dir backend test --runInBand legacyBackupInventory`: 36 tests/two suites
+pass, including actual CLI coverage and both new regressions. Backend format,
+lint, type-check, MUD-write, schema and build gates pass via
+`python3 /tmp/durisweb-image-quality.py backend`. Logs:
+`pr64-final-{tests,quality}.log` in the private review directory. No SQL,
+frontend or production change. Carries #63 keeper ordering `a3cf203`.
+
+### Historical checkpoints
+
 
 **#63 final ordering repair:** establish and verify the independent private-directory
 keeper before Worker deployment or any ingress checks. The deployment checklist

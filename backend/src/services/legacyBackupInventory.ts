@@ -28,7 +28,8 @@ export interface LegacyCopyObservation {
 }
 export interface LegacyRootInventory {
   scope: 'backup' | 'legacy_upload';
-  rootSha256: string;
+  rootSha256: string | null;
+  rootMountId: string | null;
   scanComplete: boolean;
   stoppedBecause:
     | null
@@ -330,6 +331,7 @@ function inspectRoot(
     const rootMountId = mountId(fd, deadline);
     const result: LegacyRootInventory = {
       scope,
+      rootMountId,
       rootSha256: hash([
         canonical,
         filesystem.type.toString(),
@@ -400,7 +402,19 @@ function inspectRoot(
       left.name < right.name ? -1 : left.name > right.name ? 1 : 0,
     );
     return result;
-  } catch {
+  } catch (error) {
+    if (error instanceof InventoryBudgetExceeded)
+      return {
+        scope,
+        rootSha256: null,
+        rootMountId: null,
+        scanComplete: false,
+        stoppedBecause: 'time_budget',
+        entriesSeen: 0,
+        otherEntries: 0,
+        unknownLegacyEntries: 0,
+        copies: [],
+      };
     throw new LegacyBackupInventoryError('root_unverified');
   } finally {
     if (fd !== undefined) fs.closeSync(fd);
@@ -461,7 +475,34 @@ export function writeLegacyBackupInventory(
     const parent = fs.realpathSync.native(path.dirname(filename));
     if (path.resolve(path.dirname(filename)) !== parent)
       throw new LegacyBackupInventoryError('private_output_required');
+    if (roots.length !== inventory.roots.length)
+      throw new LegacyBackupInventoryError('root_unverified');
     const selectedRoots = roots.map((root) => fs.realpathSync.native(root));
+    const requireScannedRoots = () => {
+      for (const [index, root] of selectedRoots.entries()) {
+        const observed = inventory.roots[index];
+        // An unstarted timed-out root has no physical observation to claim.
+        if (observed.rootSha256 === null) continue;
+        const current = fs.lstatSync(root, { bigint: true });
+        const rootFd = openEntry(root, current);
+        try {
+          const filesystem = fs.statfsSync(root, { bigint: true });
+          if (
+            hash([
+              root,
+              filesystem.type.toString(),
+              current.dev.toString(),
+              current.ino.toString(),
+            ]) !== observed.rootSha256 ||
+            mountId(rootFd) !== observed.rootMountId
+          )
+            throw new LegacyBackupInventoryError('root_unverified');
+        } finally {
+          fs.closeSync(rootFd);
+        }
+      }
+    };
+    requireScannedRoots();
     if (selectedRoots.some((root) => within(root, parent)))
       throw new LegacyBackupInventoryError('private_output_required');
     const stat = fs.lstatSync(parent, { bigint: true });
@@ -470,6 +511,7 @@ export function writeLegacyBackupInventory(
     const directoryFd = openEntry(parent, stat);
     parentFd = directoryFd;
     const requireOutsideRoots = () => {
+      requireScannedRoots();
       const aliases = legacyDirectoryAliases(directoryFd, parent);
       if (selectedRoots.some((root) => aliases.some((alias) => within(root, alias))))
         throw new LegacyBackupInventoryError('private_output_required');
