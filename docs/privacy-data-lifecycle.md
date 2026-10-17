@@ -261,6 +261,7 @@ Website-only success cannot mean complete account erasure.
 | Browser storage, cookies and service-worker cache | Login/CSRF cookies, MUD session credentials, client preferences/history, drafts, cached public API responses | Session revocation and browser cleanup differ; never promise clearing someone else's device remotely. Current source removes legacy analytics ID when storage permits |
 | R2 and CDN/browser media copies | Avatar/banner and forum image objects, URLs and filenames | Delete only verified owned object keys, retain retry identity on failure, define CDN expiry/invalidation; losing the DB row is not proof the object is gone |
 | Logs, terminal output, crash/core files and Git/compile output | May contain identifiers, paths, commands or secrets; restricted host/operator access | Inventory live locations privately; minimize/redact and protect evidence; console-only Winston transport is not evidence of host/journal retention |
+| Retention preview reports/checkpoints | Aggregate report; private checkpoint has target hash, operation/version/cutoff and class cursor/high-water IDs, which remain indirectly linkable | Optional local POSIX 0600 files outside Git, no row payload or credentials; period unapproved, restrict as operator evidence; never authorize deletion from these counts |
 | Ko-fi | Donor metadata received by webhook; provider's own records | Verify provider responsibilities/retention separately; website deletion does not remove provider records |
 | Discord | Published game/notification payload and message identifiers | Gated delivery/source contract; identify individual messages and owner-approved removal method, preserve pending/ambiguous outcome evidence |
 | Gemini | Account/character/IP/login evidence can be sent when feature enabled | Leave disabled pending purpose/provider/human-review approval; do not claim active transfer from source capability alone |
@@ -316,8 +317,13 @@ these decisions remain pending; destructive execution must remain unavailable.
 
 ## Open engineering dependencies
 
-No common retention runner, subject hold, protected export, request/erasure
-journal or restore-removal replay is implemented by this inventory. Any new
+The [read-only preview](runbooks/retention-preview.md) can inspect the proposed
+30-day analytics-event and 90-day login-history age ranges with bounded pages,
+an explicit target/version and private continuation. It does not evaluate holds,
+exceptions or subject requests, and cannot delete data. Metrics with naive time
+provenance and every unlisted class remain excluded. No approved common
+retention mutation runner, subject hold, protected export, request/erasure
+journal or restore-removal replay is implemented. Any new
 consent/request/export store must be added here with exact ownership, selectors,
 cutoff and copy handling before its lifecycle can be considered complete.
 
