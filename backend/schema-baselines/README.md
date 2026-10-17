@@ -435,8 +435,11 @@ and trigger/incoming-FK refusal remain strict on both database families.
 
 Migration-only recovery accepts the exact adjacent before/after shape after a
 lost DDL acknowledgement; normal preflight still requires the ledger. Down
-refuses any run history or non-default/leased/invalid control state. It removes
-only an unused canonical default control row with an empty run table. Retain
+refuses any run history or non-default/leased/invalid control state. It locks
+the canonical empty control row and commits a rollback fence that workers reject
+across the table drop. Only that fence may be resumed after interruption; it is
+removed after verifying the table is absent. Rerun the targeted down migration,
+never clear the fence by hand. Retain
 progress and hold history through compatible forward recovery; never clear the
 ledger to make rollback pass. Its own retention period is unapproved, and these
 records do not establish protected backup/restore replay.
