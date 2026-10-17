@@ -151,6 +151,14 @@ remain fail-closed; physical-row retention/holds and verified browser-request
 handling still belong to P6/P7. The draft policy prevents issuance in prepared
 source, so the proposed preference lifetime remains unapproved and inactive.
 
+Status GETs never clear a cookie: an older request could otherwise delete a
+newer credential issued by a concurrent choice. An invalid receipt cannot
+authorize its named record. Status/retry instead use the current CSRF-bound
+identity, as when no receipt exists, so a lost cookie update can recover without
+modifying another browser's choice. Storage failures expose a shared random
+reference with safe operation/stage, allowlisted driver/state code and rollback
+outcome in logs; raw errors, SQL, bindings and credentials remain excluded.
+
 [Terminal](../backend/src/services/terminalService.ts),
 [operations](../backend/src/services/mudControlService.ts),
 [builder](../backend/src/services/zoneCommentService.ts),
