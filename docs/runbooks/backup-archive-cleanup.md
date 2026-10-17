@@ -175,10 +175,17 @@ and directory sync. Source paths and payloads stay out of ordinary output.
 Before acknowledgement, the named bundle and `payload.bin` must still match
 the opened descriptors and expected payload identity; rename, replacement or
 observed late byte changes retain the operation for review instead of success.
+The parent independently rehashes payload bytes after the worker exits and binds
+that read to unchanged metadata. Final acknowledgement requires exactly
+`prepared.json`, `complete.json` and `payload.bin`, revalidates both receipt
+contents/identities, and keeps every opened/named entry on the qualified protected
+mount. An unqualified bundle is refused before writing receipts or copy bytes.
 Byte/time limits refuse work; they never truncate a source. The default worker
 budget is 30 seconds, selectable from 1 to 300,000 milliseconds, with a fresh
 owned-child kill request one second later. Stalled kernel I/O can still delay
 exit; the parent waits for actual worker termination before finalizing.
+The parent hashing pass uses the selected time budget too; it is a separate
+bounded pass, not a hard end-to-end deadline over all filesystem calls.
 
 Errors retain prepared/failed receipts and any partial payload. No source,
 partial copy or receipt is deleted, repaired or overwritten.

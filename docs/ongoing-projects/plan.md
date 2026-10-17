@@ -2,6 +2,37 @@
 
 ## Current handoff — read this first
 
+**#65 complete-bundle follow-up:** #63 corrections are pushed/resolved as `958e305`.
+Seven findings remain from the last scan (#65 three, #66 four). Copy and offline
+verification now validate the complete named bundle, including exact entry set,
+both receipt byte hashes and physical identities, payload bytes and the qualified
+mount. Receipts keep their existing on-disk format; only in-process comparison
+stamps are added. One shared bounded payload-hashing implementation serves copy
+and verification. The parent checks the worker's digest after worker exit, so
+same-length corruption before the first parent snapshot is refused. The bundle
+is mount-checked before assigning write authority and again at acknowledgement,
+including reopening named entries; no error receipt is written onto a rejected
+substituted mount.
+
+Three unit regressions and the native admission fixture reproduced false success
+before repair. Final four-file legacy inventory/preservation tests pass **44**,
+including both copy/verify receipt, extra-entry and payload mutation scenarios,
+real lease operations and the existing Python suite. The committed native mount
+fixture passes six root aliases, an independent copy/verify control, substitution
+at bundle open and same-inode remounts immediately before copy/verify success.
+Backend format/lint/types/MUD-write/schema/build gates pass. Final logs:
+`pr65-ack-{red,focused,full-focused,quality-final}.log`; native output is in tool
+evidence. No broad backend, frontend, SQL/provider or production rerun is claimed.
+
+A non-idempotent formatting result in the inherited download error response was
+corrected on #62 (`3b81636`) and carried through #63 `48c73d2` and #64 `9d502eb`.
+The three #65 work files were stashed/restored with exact comparison to
+`c468c969d46fac566c466734972f86ac483c3afe`; this is a recovery copy of the changes
+being published, not another feature to apply. Remove that task-owned stash after
+verified publication while preserving the two older recovery stashes.
+Publish/resolve these three threads and carry into #66's four export findings.
+No visitor news is needed for operator-tool acknowledgement corrections.
+
 **Current #63 follow-up:** #62 reader/busy fixes `268b455` are pushed and both
 threads verified resolved. Ten findings remain from the last scan. All five
 direct writer-stop procedures in the schema guide and the retention execution

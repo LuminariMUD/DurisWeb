@@ -188,27 +188,77 @@ function requireNamedCopy(
   payloadPhysicalSha256: string,
 ) {
   requireSameProtectedRoot(target);
-  const namedBundle = fs.lstatSync(`/proc/self/fd/${target.fd}/legacy-preserve-${operationId}`, {
-    bigint: true,
-  });
+  const mount = legacyMountId(target.fd);
+  if (legacyMountId(bundle) !== mount || legacyMountId(payload) !== mount)
+    fail('destination_unverified', operationId);
+  const named = directory(`/proc/self/fd/${target.fd}/legacy-preserve-${operationId}`);
   const openedBundle = fs.fstatSync(bundle, { bigint: true });
-  if (
-    !namedBundle.isDirectory() ||
-    namedBundle.dev !== openedBundle.dev ||
-    namedBundle.ino !== openedBundle.ino ||
-    namedBundle.uid !== target.stat.uid ||
-    (namedBundle.mode & 0o077n) !== 0n
-  )
-    fail('destination_unverified', operationId);
-  const namedPayload = fs.lstatSync(`/proc/self/fd/${bundle}/payload.bin`, { bigint: true });
-  requirePrivate(fs.fstatSync(payload));
-  if (
-    !namedPayload.isFile() ||
-    namedPayload.isSymbolicLink() ||
-    physical(namedPayload) !== payloadPhysicalSha256 ||
-    physical(fs.fstatSync(payload, { bigint: true })) !== payloadPhysicalSha256
-  )
-    fail('destination_unverified', operationId);
+  try {
+    const stat = fs.fstatSync(named, { bigint: true });
+    if (
+      legacyMountId(named) !== mount ||
+      stat.dev !== openedBundle.dev ||
+      stat.ino !== openedBundle.ino ||
+      stat.uid !== target.stat.uid ||
+      (stat.mode & 0o077n) !== 0n
+    )
+      fail('destination_unverified', operationId);
+  } finally {
+    fs.closeSync(named);
+  }
+  const payloadStat = fs.fstatSync(payload, { bigint: true });
+  requirePrivate(payloadStat);
+  if (physical(payloadStat) !== payloadPhysicalSha256) fail('destination_unverified', operationId);
+  requireNamedFile(bundle, 'payload.bin', payloadPhysicalSha256, mount);
+}
+function requireNamedFile(parent: number, name: string, expected: string, mount: string) {
+  const fd = fs.openSync(
+    `/proc/self/fd/${parent}/${name}`,
+    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+  );
+  try {
+    const stat = fs.fstatSync(fd, { bigint: true });
+    requirePrivate(stat);
+    if (legacyMountId(fd) !== mount || physical(stat) !== expected) fail('destination_unverified');
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+interface ReceiptStamp {
+  physicalSha256: string;
+  contentSha256: string;
+}
+function requireCompleteBundle(
+  target: ReturnType<typeof protectedRoot>,
+  bundle: number,
+  payload: number,
+  operationId: string,
+  payloadPhysicalSha256: string,
+  receipts: Record<'prepared.json' | 'complete.json', ReceiptStamp>,
+) {
+  const before = physical(fs.fstatSync(bundle, { bigint: true }));
+  for (const name of ['prepared.json', 'complete.json'] as const) {
+    const current = readJson(bundle, name).stamp;
+    if (
+      current.physicalSha256 !== receipts[name].physicalSha256 ||
+      current.contentSha256 !== receipts[name].contentSha256
+    )
+      fail('recovery_review_required', operationId);
+  }
+  const remaining = new Set(['prepared.json', 'complete.json', 'payload.bin']);
+  const entries = fs.opendirSync(`/proc/self/fd/${bundle}`);
+  try {
+    for (let entry = entries.readSync(); entry; entry = entries.readSync())
+      if (!remaining.delete(entry.name)) fail('recovery_review_required', operationId);
+  } finally {
+    entries.closeSync();
+  }
+  if (remaining.size) fail('recovery_review_required', operationId);
+  requireNamedCopy(target, bundle, payload, operationId, payloadPhysicalSha256);
+  for (const name of ['prepared.json', 'complete.json'] as const)
+    requireNamedFile(bundle, name, receipts[name].physicalSha256, legacyMountId(target.fd));
+  if (physical(fs.fstatSync(bundle, { bigint: true })) !== before)
+    fail('recovery_review_required', operationId);
 }
 export function legacyPreservationSelection(name: string) {
   if (/^temp_[1-9][0-9]{0,9}\.sql$/.test(name) && Number(name.slice(5, -4)) <= 4294967295)
@@ -224,17 +274,17 @@ export function legacyPreservationSelection(name: string) {
     return { kind: 'upload' as const, scope: 'legacy_upload' as const, parts: [name] };
   return null;
 }
-function requirePrivate(stat: fs.Stats) {
+function requirePrivate(stat: fs.Stats | BigIntStats) {
   if (
     !stat.isFile() ||
-    stat.nlink !== 1 ||
+    BigInt(stat.nlink) !== 1n ||
     typeof process.getuid !== 'function' ||
-    stat.uid !== process.getuid() ||
-    (stat.mode & 0o077) !== 0
+    BigInt(stat.uid) !== BigInt(process.getuid()) ||
+    (BigInt(stat.mode) & 0o077n) !== 0n
   )
     fail('destination_unverified');
 }
-function writeJson(fd: number, name: string, value: unknown) {
+function writeJson(fd: number, name: string, value: unknown): ReceiptStamp {
   const bytes = JSON.stringify(value) + '\n';
   if (Buffer.byteLength(bytes) > 16384) fail('copy_unconfirmed');
   const file = fs.openSync(
@@ -242,34 +292,75 @@ function writeJson(fd: number, name: string, value: unknown) {
     constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
     0o600,
   );
+  let stamp: ReceiptStamp;
   try {
-    requirePrivate(fs.fstatSync(file));
+    requirePrivate(fs.fstatSync(file, { bigint: true }));
+    if (legacyMountId(file) !== legacyMountId(fd)) fail('destination_unverified');
     fs.writeFileSync(file, bytes);
     fs.fsyncSync(file);
+    const current = fs.fstatSync(file, { bigint: true });
+    requirePrivate(current);
+    stamp = {
+      physicalSha256: physical(current),
+      contentSha256: createHash('sha256').update(bytes).digest('hex'),
+    };
   } finally {
     fs.closeSync(file);
   }
   fs.fsyncSync(fd);
+  return stamp;
 }
-function readJson(fd: number, name: string): Record<string, unknown> {
+function readJson(
+  fd: number,
+  name: string,
+): { value: Record<string, unknown>; stamp: ReceiptStamp } {
   const file = fs.openSync(
     `/proc/self/fd/${fd}/${name}`,
     constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
   );
   try {
-    const stat = fs.fstatSync(file);
+    const stat = fs.fstatSync(file, { bigint: true });
     requirePrivate(stat);
-    if (stat.size > 16384) fail('recovery_review_required');
+    if (stat.size > 16384n || legacyMountId(file) !== legacyMountId(fd))
+      fail('recovery_review_required');
     const buffer = Buffer.alloc(16385),
       count = fs.readSync(file, buffer, 0, buffer.length, 0);
-    if (count > 16384) fail('recovery_review_required');
+    if (count > 16384 || BigInt(count) !== stat.size) fail('recovery_review_required');
     const value: unknown = JSON.parse(buffer.subarray(0, count).toString('utf8'));
     if (!object(value)) fail('recovery_review_required');
     fs.fsyncSync(file);
-    return value;
+    if (physical(fs.fstatSync(file, { bigint: true })) !== physical(stat))
+      fail('recovery_review_required');
+    return {
+      value,
+      stamp: {
+        physicalSha256: physical(stat),
+        contentSha256: createHash('sha256').update(buffer.subarray(0, count)).digest('hex'),
+      },
+    };
   } finally {
     fs.closeSync(file);
   }
+}
+function hashPayload(fd: number, size: number, budgetMs: number, expectedPhysical?: string) {
+  const before = fs.fstatSync(fd, { bigint: true });
+  requirePrivate(before);
+  if (before.size !== BigInt(size)) fail('copy_unconfirmed');
+  if (expectedPhysical && physical(before) !== expectedPhysical) fail('recovery_review_required');
+  const digest = createHash('sha256'),
+    buffer = Buffer.alloc(65536),
+    deadline = performance.now() + budgetMs;
+  let offset = 0;
+  while (offset < size) {
+    if (performance.now() >= deadline) fail('time_budget');
+    const count = fs.readSync(fd, buffer, 0, Math.min(buffer.length, size - offset), offset);
+    if (!count) fail('copy_unconfirmed');
+    digest.update(buffer.subarray(0, count));
+    offset += count;
+  }
+  const physicalSha256 = physical(before);
+  if (physical(fs.fstatSync(fd, { bigint: true })) !== physicalSha256) fail('copy_unconfirmed');
+  return { sha256: digest.digest('hex'), physicalSha256 };
 }
 async function runWorker(
   options: LegacyCopyPreservationOptions,
@@ -470,9 +561,12 @@ export async function preserveLegacyCopy(options: LegacyCopyPreservationOptions)
       throw error;
     }
     fs.fsyncSync(target.fd);
-    bundle = directory(bundlePath);
-    handles.push(bundle);
-    writeJson(bundle, 'prepared.json', {
+    const openedBundle = directory(bundlePath);
+    handles.push(openedBundle);
+    if (legacyMountId(openedBundle) !== legacyMountId(target.fd))
+      fail('destination_unverified', options.operationId);
+    bundle = openedBundle;
+    const preparedReceipt = writeJson(bundle, 'prepared.json', {
       format: 1,
       operationId: options.operationId,
       algorithm: ALGORITHM,
@@ -494,6 +588,8 @@ export async function preserveLegacyCopy(options: LegacyCopyPreservationOptions)
       0o600,
     );
     handles.push(destination);
+    if (legacyMountId(destination) !== legacyMountId(target.fd))
+      fail('destination_unverified', options.operationId);
     requirePrivate(fs.fstatSync(destination));
     fs.fsyncSync(bundle);
     const copied = await runWorker(options, source, destination);
@@ -517,13 +613,12 @@ export async function preserveLegacyCopy(options: LegacyCopyPreservationOptions)
       !currentRoot.isDirectory()
     )
       fail('source_changed', options.operationId);
-    const payload = fs.fstatSync(destination);
-    requirePrivate(payload);
-    if (payload.size !== copied.bytes) fail('copy_unconfirmed', options.operationId);
-    const payloadPhysicalSha256 = physical(fs.fstatSync(destination, { bigint: true }));
+    const verifiedPayload = hashPayload(destination, copied.bytes, options.timeBudgetMs);
+    if (verifiedPayload.sha256 !== copied.sha256) fail('copy_unconfirmed', options.operationId);
+    const payloadPhysicalSha256 = verifiedPayload.physicalSha256;
     fs.fsyncSync(destination);
     requireNamedCopy(target, bundle, destination, options.operationId, payloadPhysicalSha256);
-    writeJson(bundle, 'complete.json', {
+    const completeReceipt = writeJson(bundle, 'complete.json', {
       format: 1,
       operationId: options.operationId,
       algorithm: ALGORITHM,
@@ -537,7 +632,10 @@ export async function preserveLegacyCopy(options: LegacyCopyPreservationOptions)
     fs.fsyncSync(bundle);
     fs.fsyncSync(target.fd);
     requireSeparateStorage();
-    requireNamedCopy(target, bundle, destination, options.operationId, payloadPhysicalSha256);
+    requireCompleteBundle(target, bundle, destination, options.operationId, payloadPhysicalSha256, {
+      'prepared.json': preparedReceipt,
+      'complete.json': completeReceipt,
+    });
     return result(options.operationId, copied.bytes, selected.kind);
   } catch (error) {
     const problem = new LegacyCopyPreservationError(
@@ -571,6 +669,8 @@ export function verifyPreservedLegacyCopy(options: LegacyCopyVerificationOptions
     handles.push(target.fd);
     const bundle = directory(`/proc/self/fd/${target.fd}/legacy-preserve-${options.operationId}`);
     handles.push(bundle);
+    if (legacyMountId(bundle) !== legacyMountId(target.fd))
+      fail('destination_unverified', options.operationId);
     const info = fs.fstatSync(bundle);
     if (
       typeof process.getuid !== 'function' ||
@@ -587,8 +687,10 @@ export function verifyPreservedLegacyCopy(options: LegacyCopyVerificationOptions
     } finally {
       entries.closeSync();
     }
-    const prepared = readJson(bundle, 'prepared.json'),
-      complete = readJson(bundle, 'complete.json');
+    const preparedReceipt = readJson(bundle, 'prepared.json'),
+      completeReceipt = readJson(bundle, 'complete.json');
+    const prepared = preparedReceipt.value,
+      complete = completeReceipt.value;
     if (
       !keys(prepared, [
         'format',
@@ -654,40 +756,28 @@ export function verifyPreservedLegacyCopy(options: LegacyCopyVerificationOptions
       constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
     );
     handles.push(file);
-    const stat = fs.fstatSync(file);
-    requirePrivate(stat);
-    if (
-      stat.size !== prepared.sourceSize ||
-      physical(fs.fstatSync(file, { bigint: true })) !== complete.payloadPhysicalSha256
-    )
-      fail('recovery_review_required', options.operationId);
-    const digest = createHash('sha256'),
-      buffer = Buffer.alloc(65536),
-      deadline = performance.now() + options.timeBudgetMs;
-    let offset = 0;
-    while (offset < stat.size) {
-      if (performance.now() >= deadline) fail('time_budget', options.operationId);
-      const count = fs.readSync(
-        file,
-        buffer,
-        0,
-        Math.min(buffer.length, stat.size - offset),
-        offset,
-      );
-      if (!count) fail('copy_unconfirmed', options.operationId);
-      digest.update(buffer.subarray(0, count));
-      offset += count;
-    }
-    if (
-      digest.digest('hex') !== complete.copySha256 ||
-      physical(fs.fstatSync(file, { bigint: true })) !== complete.payloadPhysicalSha256
-    )
+    if (legacyMountId(file) !== legacyMountId(target.fd))
+      fail('destination_unverified', options.operationId);
+    const verifiedPayload = hashPayload(
+      file,
+      prepared.sourceSize,
+      options.timeBudgetMs,
+      complete.payloadPhysicalSha256,
+    );
+    if (verifiedPayload.sha256 !== complete.copySha256)
       fail('recovery_review_required', options.operationId);
     fs.fsyncSync(file);
     fs.fsyncSync(bundle);
     fs.fsyncSync(target.fd);
-    requireNamedCopy(target, bundle, file, options.operationId, complete.payloadPhysicalSha256);
-    return result(options.operationId, stat.size, String(prepared.sourceKind));
+    requireCompleteBundle(
+      target,
+      bundle,
+      file,
+      options.operationId,
+      complete.payloadPhysicalSha256,
+      { 'prepared.json': preparedReceipt.stamp, 'complete.json': completeReceipt.stamp },
+    );
+    return result(options.operationId, prepared.sourceSize, String(prepared.sourceKind));
   } catch (error) {
     throw new LegacyCopyPreservationError(
       error instanceof LegacyCopyPreservationError ? error.reason : 'recovery_review_required',
