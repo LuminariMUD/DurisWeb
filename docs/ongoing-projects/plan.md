@@ -2,6 +2,15 @@
 
 ## Current handoff — read this first
 
+**#63 route precedence follow-up:** maintenance admission now inventories and
+reconciles every overlapping zone Worker route and no-script exclusion, preserving
+the previous map for rollback and verifying saved assignments plus overlap paths.
+This closes a bypass not established by representative hostname probes alone.
+Official Cloudflare route documentation was checked; docs/config/whitespace checks
+pass. No deployed Worker or production route was changed.
+
+### Historical checkpoints
+
 **#62 final cancellation race repair:** the worker pins the inspected inode,
 atomically captures the shared filename into an exclusive private removal
 directory, compares captured identity, and unlinks only the captured name.

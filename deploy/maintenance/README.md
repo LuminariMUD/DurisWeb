@@ -112,6 +112,15 @@ Do this **before deploying the Worker change or checking ingress**: an unexpecte
 exit during either step can trigger automatic restart and destroy unprotected
 private temporary files. A watchdog pause does not prevent that cleanup.
 
+Inventory the zone's existing Worker route patterns and script assignments for
+all selected hosts, including more-specific paths and routes with no script.
+The [most-specific route wins](https://developers.cloudflare.com/workers/configuration/routing/routes/),
+and no-script routes can bypass Workers. Reconcile every overlapping route or
+exclusion before accepting the maintenance fence; a catch-all plus representative
+HTTP probes alone does not prove coverage. Preserve the prior route map privately
+for rollback and verify the saved assignments plus paths from each overlap.
+If any writer route remains outside the fence, stop before inventory or copying.
+
 With the verified keeper still active, set `MAINTENANCE_REASON` to the approved
 reason in the Worker settings and deploy that variable change. Reconcile the
 current public hostname inventory and confirm the notice, status, API refusal
