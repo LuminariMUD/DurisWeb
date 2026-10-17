@@ -8,9 +8,10 @@ version `2026-10-17-draft-1`. The command has no deletion implementation, policy
 override or scheduled job. `execute` is refused. A preview cannot enable optional
 analytics or satisfy retention/erasure acceptance.
 
-Counts can include records that an eventual hold, request or exception would
-protect. Those checks are not implemented here. No record is declared eligible
-for deletion. Sessions, visitor-session relationships, audit/choice/delivery
+The preview evaluates recorded holds in its read snapshot and reports held and
+unheld age counts separately. Other exceptions and pending subject requests are
+not evaluated. An unheld age observation is not approval or eligibility for
+deletion. Sessions, visitor-session relationships, audit/choice/delivery
 evidence, archives/imports, MUD-owned data and all other classes are excluded.
 Legacy `server_health_metrics.recorded_at` is a naive DATETIME without proven
 UTC provenance, so it is excluded rather than converted by assumption.
@@ -23,7 +24,14 @@ Use the actual configured `host:port/database`; a mismatch fails before connecti
 This source was qualified only against disposable synthetic data. An operator
 must have authority to inspect the selected environment. Keep credentials in
 the existing backend configuration and use a dedicated SELECT-only identity
-for the two preview tables where available. No MUD/Redis/provider connection
+for the two preview tables and `web_data_holds` where available. Exact schema
+metadata must also be visible. In the qualified MariaDB 11.8.9 fixture,
+table-level SELECT hid CHECK clauses; database-level `SHOW VIEW` made them
+visible without granting data writes. MySQL's table-level reader needed no
+additional metadata privilege. See [MariaDB privilege levels](https://mariadb.com/docs/server/reference/sql-statements/account-management-sql-statements/grant).
+Do not skip schema checks or silently broaden permissions: the CLI grants
+nothing, and insufficient metadata visibility fails `schema_unverified`.
+No MUD/Redis/provider connection
 is needed by this command.
 
 From the repository root, replace the example target and evidence path:
@@ -49,7 +57,14 @@ read-only snapshot. The database supplies one epoch for the run. Proposed
 cutoffs use that epoch minus the proposed age; a timestamp exactly at the cutoff
 is retained. Null/zero timestamps are excluded. The existing time indexes and
 primary-key ordering support keyset pages; no OFFSET or unbounded COUNT is used.
-Only IDs and epochs enter process memory, never account/IP/content/URL columns.
+Candidate queries return only IDs, epochs and a hold flag, never account/IP/
+content/URL columns. Account holds match the candidate's account inside SQL with
+the reviewed database collation, including case/accent aliases; a null account
+does not match an account scope. Global/class holds still cover null-account
+rows. IPs and visitor identifiers are never used to infer account ownership.
+The shared hold validator reads at most 1,001 unreleased hold records privately;
+unknown/invalid state or more than 1,000 records (including expired intents still
+awaiting closeout) refuses the preview. It never trims the ledger to fit.
 The driver keeps its normal metadata representation; selected cursor IDs are
 explicit SQL strings so BIGINT precision is preserved without relaxing schema
 checks.
@@ -63,8 +78,12 @@ reused. Data is never written, and read transactions end with rollback.
 ## Continue and interpret a bounded result
 
 JSON output contains an operation ID, policy/version approval status, captured
-epoch, per-class proposed cutoff, cumulative age-candidate counts, this-batch
-count, scan completion and exclusions. It contains no cursor IDs or row data.
+epoch, hold observation epoch/count, per-class proposed cutoff, cumulative age,
+held and unheld counts, this-batch count, scan completion and exclusions.
+`activeHoldsObserved` counts active records in the validated ledger, not holds
+applicable to every candidate. `eligibilityChecks: holds_only` and
+`executionAvailable: false` preserve the incomplete enforcement boundary.
+Reasons, approvers, account scope, cursor IDs and fingerprints are not output.
 `complete: false` is a bounded partial observation, not a full count; inspect
 `checkpointSaved`. Without an output checkpoint a later invocation starts over.
 Even `complete: true` covers only the selected known-time age range within its
@@ -81,8 +100,10 @@ pnpm --dir backend retention:preview \
   --checkpoint-out '/operator-private-evidence/preview-2.json'
 ```
 
-The checkpoint fixes the run ID, target hash, policy/rule signature, database
-cutoff, per-class high-water IDs, cursors and cumulative counts. It is restricted
+The version-2 checkpoint fixes the run ID, target hash, policy/rule signature,
+database cutoff, active-protection fingerprint, per-class high-water IDs,
+cursors and cumulative age/held counts. Version-1 files are refused; start a
+fresh preview and retain old evidence privately. It is restricted
 operational metadata: IDs can be linked back to records by an authorized
 database user. Keep files outside Git in an operator-private directory. Files
 are new-only, mode 0600, bounded to 16 KiB, and fsynced before success. Existing
@@ -93,11 +114,21 @@ platforms without it can run a preview without saving/resuming a checkpoint.
 The checkpoint format is validation, not a cryptographic signature or deletion
 capability. Do not hand-edit a report to justify mutation.
 
-A resumed invocation opens a fresh snapshot. Inserts above the captured ID
+A resumed invocation opens a fresh snapshot and revalidates protection before
+scanning. A new active hold, release of an active hold, or changed scope/expiry
+invalidates continuation (`checkpoint_holds_changed`). Natural expiry also
+changes active protection. Start a fresh preview when this occurs.
+The fingerprint covers active protection, not an authorization to delete.
+Unreleased records are validated even when expired; private closeout preserves
+their history. Inserts above the captured ID
 high water are excluded; concurrent deletes or timestamp edits can change
 observations across invocations. The counts are an operator preview, not a
 long-lived database snapshot, deletion plan or promise about current records.
-Rule/target changes, future checkpoint clocks and schema drift refuse resume.
+Rule/target changes, future checkpoint clocks, unreadable/invalid/over-limit
+protection and schema drift refuse resume. Hold changes committed during an
+invocation are outside its existing read snapshot; the next invocation observes
+them. A mutation engine must recheck current protection at commit rather than
+trusting this preview or checkpoint.
 
 Failures print a static category and local reference, without raw database
 errors, bindings or input contents. An unsuccessful scan produces no replacement

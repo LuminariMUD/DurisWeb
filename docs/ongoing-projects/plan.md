@@ -12,7 +12,9 @@ continuation are qualified and published as
 [PR #51](https://github.com/LuminariMUD/DurisWeb/pull/51), stacked on #50.
 Active continuation `branch/privacy-data-hold-records` has qualified hold intent
 storage/API, published as [PR #52](https://github.com/LuminariMUD/DurisWeb/pull/52),
-stacked on #51. Next: P6 hold enforcement/mutation/
+stacked on #51. Current P6c1 branch `branch/retention-hold-aware-preview` is
+qualified for held/unheld preview and protected continuation, awaiting publication.
+Next: P6 mutation-time hold enforcement/
 restore and P7 engineering, plus unresolved policy/provider decisions. P5's approved
 notice and release gates remain open.
 Policy/approval and live-release gates remain open; no production rollout is implied.
@@ -1512,6 +1514,97 @@ outside this request. Keep this single evolving execution plan current.
   live-release acceptance remain open. No new owner question is needed for
   independent engineering; do not infer approval of periods or destructive
   operation from the supplied contact details.
+
+- **Current P6c1: hold-aware read-only preview**, branch
+  `branch/retention-hold-aware-preview`, starts at #52 `8ed66d1`.
+  **Outcome:** the existing explicit-target/version preview reports held and
+  unheld age counts using global/class/account/account-class holds in the same
+  read-only snapshot; a private continuation refuses changed active protection,
+  expired hold state or old checkpoint format. Unknown/malformed/unreadable or
+  excessive unreleased hold state fails closed before reporting counts.
+  **Non-goals:** deletion, mutation/hold serialization, new schema/dependencies,
+  policy approval, cache invalidation or restore acceptance. Those remain
+  required P6c2/P6d work; execution stays unavailable. **Files:** shared pure hold
+  parsing/snapshot reader, existing preview/CLI/checkpoint and focused tests,
+  permanent runbooks/lifecycle/API guidance and this plan. **Proof:** same-snapshot
+  global/class/account/collation/null/expiry behavior, changed-hold resume refusal,
+  malformed/unreadable/over-limit protection, SELECT-only actual CLI and unchanged
+  records on MySQL/MariaDB, existing pagination/offset regressions, backend gates
+  and a focused stacked PR.
+- **P6c1 ablation:** reuse the existing snapshot and keyset scan, and the hold
+  table's released/ID index. Share the existing validated hold parser without
+  importing the pooled/MUD connection layer into the standalone preview.
+  Correlated SQL evaluates account holds with the established database collation;
+  no account/IP/content field from candidate tables enters application output.
+  Bind private continuation to a fingerprint of active protection so earlier
+  counts cannot silently survive a new/released/expired hold. Keep age counts
+  distinct from deletion eligibility; other exceptions/requests are not yet
+  evaluated. Add no unused lock/lease/execution abstraction: the actual SQL
+  mutation consumer and Redis analytics-cache handling follow in their own PR.
+- **P6c1 proof:** the preview checks exact metadata for its two candidate tables
+  and `web_data_holds`, validates at most 1,000 unreleased records in the same
+  read-only connection, and counts active global/class/account/account-class
+  protection through SQL. Candidate account fields stay inside SQL; database
+  case/accent collation and null-account behavior are covered. Reports expose
+  age/held/unheld totals and aggregate hold observation time/count, with
+  `eligibilityChecks: holds_only` and execution unavailable. Private version-2
+  checkpoints bind counters to active-protection fingerprints; version 1,
+  changed/released/expired active protection and malformed/unreadable/over-limit
+  state refuse continuation. Other exceptions and requests remain unevaluated;
+  no result authorizes deletion. The shared pure parser preserves the hold API
+  without opening a pool or MUD/Redis connection in the standalone preview.
+- **P6c1 exact verification:**
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-retention-suite.mts 23436` runs
+  `pnpm --dir backend test --runInBand` on the full pinned owner/baseline/forward
+  fixture: **1,249 tests / 125 suites pass**. Its 31 opt-in skips are 14 image,
+  ten privacy and seven hold native cases. The seven hold cases were freshly
+  rerun below; unchanged image/privacy native proofs are retained above. With
+  `23437 retention-only`, the same runner executes
+  `pnpm --dir backend test --runInBand
+  src/services/__tests__/retentionPreview.test.ts
+  src/services/__tests__/retentionPreviewNative.test.ts`: **21 tests / 2 suites
+  pass** (12 unit, nine native). The MySQL focused run also passes all 21.
+  Both engines cover all scopes, collated aliases, null-account/global/class
+  behavior, exact expiry, a committed hold between validation and candidate
+  scanning, resume invalidation, private SELECT-only CLI restart, unreadable/
+  invalid/excessive protection, old cutoff/offset/big-ID/pagination regressions
+  and captured timestamp/hold-index query plans over 1,000 rows per class.
+- **P6c1 parser/API regression proof:**
+  `node --import ./backend/node_modules/tsx/dist/loader.mjs
+  /tmp/durisweb-run-hold-suite.mts 23436 holds-only` and the same command with
+  `23437 holds-only` run
+  `pnpm --dir backend test --runInBand
+  src/services/__tests__/dataHoldService.test.ts
+  src/services/__tests__/dataHoldNative.test.ts`: **15 tests / 2 suites pass on
+  each engine** after extraction. Actual signed-session/Overlord/CSRF and hold
+  SQL/recovery behavior is preserved. No MUD reader/process/file operation ran;
+  only the separate account/role readers are fixtures. All 198 owner table
+  fingerprints and the 91-migration readiness contract remain unchanged.
+- **P6c1 gates/evidence:** backend `format:check`, `lint`, `type-check`,
+  `verify:mud-writes` (53), `schema:check`, `build`, both dependency/configuration
+  preflights, configuration-literal/inventory/reference and whitespace guards
+  pass. `pnpm --dir backend retention:preview --help` passes without dependency
+  connections. Logs: `/tmp/durisweb-hold-preview-full-mysql.log`,
+  `/tmp/durisweb-hold-preview-mysql.log`, `/tmp/durisweb-hold-preview-maria.log`,
+  `/tmp/durisweb-hold-preview-gates.log`, `/tmp/durisweb-hold-parser-mysql.log`
+  and `/tmp/durisweb-hold-parser-maria.log`. New modules/tests have no dependency,
+  migration or runtime setting. No frontend/browser rerun or Website Changelog
+  entry is needed for this operator-only read enhancement. No live/shared
+  database, provider, deployment, tag or merge operation was performed.
+- **P6c1 issues resolved:** native assertions were corrected for the root
+  driver's string COUNT, both class results and the new hold-index query in
+  EXPLAIN capture. The strict null protection-flag case now refuses unverified
+  state. The shared pure parser extraction initially left one mapper reference;
+  type checking caught and corrected it. MariaDB 11.8.9 table-only SELECT hid
+  CHECK clauses; a disposable two-engine probe established that database-level
+  `SHOW VIEW` exposes the required metadata without data writes. The MariaDB
+  fixture adds only that metadata privilege while selecting data from three
+  tables. The CLI grants nothing; no schema fingerprint, safety check or source
+  privilege requirement was bypassed. Private reproduction:
+  `/tmp/durisweb-hold-reader-metadata-probe.mts`. Permanent guides now describe
+  version-2 private evidence, hold-only observations and the remaining mutation/
+  cache/request/restore work.
 
 Follow [conventions](../CONVENTIONS.md), [development](../development.md),
 [architecture](../ARCHITECTURE.md), [security](../SECURITY-COMPLIANCE.md), and

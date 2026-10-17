@@ -13,6 +13,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import { randomUUID } from 'node:crypto';
 import { retentionPreviewPolicy } from '../../config/retentionPolicy.js';
 import { previewRetention, type RetentionPreviewResult } from '../retentionPreview.js';
 
@@ -62,7 +63,10 @@ function command(extra: string[] = [], environment: Record<string, string> = {})
     },
   );
 }
-async function insertPage(epoch: number | null, subject = 'SyntheticPrivateAccount') {
+async function insertPage(
+  epoch: number | null,
+  subject: string | null = 'SyntheticPrivateAccount',
+) {
   await root.execute(
     'INSERT INTO page_views(session_id,account_name,path,ip_address,created_at) VALUES (?,?,?,?,FROM_UNIXTIME(?))',
     [
@@ -86,13 +90,37 @@ async function insertLogin(epoch: number, subject = 'SyntheticPrivateAccount', i
       [subject, 'login', epoch, '192.0.2.45'],
     );
 }
-function freezeClock(zone = '+00:00') {
+function freezeClock(zone = '+00:00', observed = fixedNow) {
   return jest.spyOn(mysql, 'createConnection').mockImplementation(async (configuration) => {
     const connection = await realConnect(configuration);
     await connection.query('SET time_zone=?', [zone]);
-    await connection.query('SET timestamp=?', [fixedNow]);
+    await connection.query('SET timestamp=?', [observed]);
     return connection;
   });
+}
+async function insertHold(
+  scope: { kind: string; classId?: string; accountName?: string },
+  expiresAt: number | null = null,
+) {
+  const id = randomUUID();
+  await root.execute(
+    `INSERT INTO web_data_holds
+    (id,scope_type,class_id,account_name,reason,created_by,review_at_epoch,expires_at_epoch,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?, ?,FROM_UNIXTIME(?),FROM_UNIXTIME(?))`,
+    [
+      id,
+      scope.kind,
+      scope.classId ?? null,
+      scope.accountName ?? null,
+      'PrivateHoldReasonSentinel',
+      'PrivateHoldOperator',
+      fixedNow - 10,
+      expiresAt,
+      fixedNow - 1000,
+      fixedNow - 1000,
+    ],
+  );
+  return id;
 }
 async function snapshot() {
   const [pages] = await root.query<RowDataPacket[]>('SELECT * FROM page_views ORDER BY id');
@@ -127,11 +155,22 @@ async function snapshot() {
       `GRANT SELECT ON durisweb_qualification_retention_suite.account_login_history TO ?@?`,
       [reader, '%'],
     );
+    await root.query(
+      'GRANT SELECT ON durisweb_qualification_retention_suite.web_data_holds TO ?@?',
+      [reader, '%'],
+    );
+    // MariaDB 11.8.9 hides CHECK metadata from table-only readers. This adds metadata visibility, not data writes.
+    if (port === 23437)
+      await root.query('GRANT SHOW VIEW ON durisweb_qualification_retention_suite.* TO ?@?', [
+        reader,
+        '%',
+      ]);
   });
   beforeEach(async () => {
     // This exact, disposable database is provisioned solely for these synthetic rows.
     await root.execute('DELETE FROM page_views');
     await root.execute('DELETE FROM account_login_history');
+    await root.execute('DELETE FROM web_data_holds');
   });
   afterEach(async () => {
     jest.restoreAllMocks();
@@ -142,6 +181,154 @@ async function snapshot() {
     if (root) {
       if (readerCreated) await root.query('DROP USER ?@?', [reader, '%']);
       await root.end();
+    }
+  });
+
+  it('matches all hold scopes with database collation and keeps null-account records separate', async () => {
+    freezeClock();
+    const old = fixedNow - 100 * 86400;
+    for (const subject of ['\u00c1lpha', 'alpha', 'Beta', null]) await insertPage(old, subject);
+    await insertLogin(old, '\u00c1lpha');
+    await insertLogin(old, 'Beta');
+    const before = await snapshot();
+    for (const [scope, expected] of [
+      [{ kind: 'global' }, [4, 2]],
+      [{ kind: 'class', classId: 'analytics_events' }, [4, 0]],
+      [{ kind: 'account', accountName: 'ALPHA' }, [2, 1]],
+      [{ kind: 'account_class', classId: 'login_history', accountName: 'ALPHA' }, [0, 1]],
+    ] as const) {
+      await root.execute('DELETE FROM web_data_holds');
+      await insertHold(scope);
+      const { result } = await previewRetention(options);
+      expect(result).toMatchObject({
+        activeHoldsObserved: 1,
+        eligibilityChecks: 'holds_only',
+        executionAvailable: false,
+      });
+      expect(result.classes.map((item) => item.heldAgeCandidatesObserved)).toEqual(expected);
+      expect(result.classes.map((item) => item.unheldAgeCandidatesObserved)).toEqual([
+        4 - expected[0],
+        2 - expected[1],
+      ]);
+      expect(JSON.stringify(result)).not.toMatch(/ALPHA|Alpha|PrivateHold|holdFingerprint/);
+      expect(await snapshot()).toBe(before);
+    }
+    await root.execute('DELETE FROM web_data_holds');
+    await insertHold({ kind: 'global' }, fixedNow);
+    const closed = await insertHold({ kind: 'global' });
+    await root.execute(
+      'UPDATE web_data_holds SET released_by=?,release_reason=?,released_at_epoch=?,updated_at=FROM_UNIXTIME(?) WHERE id=?',
+      ['PrivateHoldOperator', 'Reviewed', fixedNow - 1, fixedNow - 1, closed],
+    );
+    const { result } = await previewRetention(options);
+    expect(result.classes.map((item) => item.heldAgeCandidatesObserved)).toEqual([0, 0]);
+  });
+
+  it('refuses continuation after hold creation, release and expiry without changing source records', async () => {
+    let clock = freezeClock();
+    for (let index = 0; index < 4; index++) await insertPage(fixedNow - 100 * 86400);
+    const bounded = { ...options, maxCandidates: 1 };
+    const empty = await previewRetention(bounded);
+    const id = await insertHold({ kind: 'global' });
+    await expect(previewRetention(bounded, empty.checkpoint)).rejects.toMatchObject({
+      reason: 'checkpoint_holds_changed',
+    });
+    const held = await previewRetention(bounded);
+    await root.execute(
+      'UPDATE web_data_holds SET released_by=?,release_reason=?,released_at_epoch=?,updated_at=FROM_UNIXTIME(?) WHERE id=?',
+      ['PrivateHoldOperator', 'Reviewed', fixedNow, fixedNow, id],
+    );
+    await expect(previewRetention(bounded, held.checkpoint)).rejects.toMatchObject({
+      reason: 'checkpoint_holds_changed',
+    });
+    await insertHold({ kind: 'global' }, fixedNow + 1);
+    const expiring = await previewRetention(bounded);
+    clock.mockRestore();
+    clock = freezeClock('+00:00', fixedNow + 2);
+    await expect(previewRetention(bounded, expiring.checkpoint)).rejects.toMatchObject({
+      reason: 'checkpoint_holds_changed',
+    });
+    expect(
+      Number(
+        (await root.query<RowDataPacket[]>('SELECT COUNT(*) AS count FROM page_views'))[0][0].count,
+      ),
+    ).toBe(4);
+  });
+
+  it('uses one read snapshot when a hold commits after validation but before candidate scanning', async () => {
+    await insertPage(fixedNow - 100 * 86400);
+    let injected = false;
+    jest.spyOn(mysql, 'createConnection').mockImplementation(async (configuration) => {
+      const connection = await realConnect(configuration);
+      await connection.query('SET timestamp=?', [fixedNow]);
+      return new Proxy(connection, {
+        get(target, key) {
+          const value: unknown = Reflect.get(target, key, target);
+          if (key === 'execute' && typeof value === 'function')
+            return async (...args: unknown[]) => {
+              const first = args[0],
+                sql = first && typeof first === 'object' && 'sql' in first ? String(first.sql) : '';
+              const result: unknown = await Reflect.apply(value, target, args);
+              if (!injected && sql.startsWith('SELECT id,scope_type')) {
+                injected = true;
+                await insertHold({ kind: 'global' });
+              }
+              return result;
+            };
+          return typeof value === 'function' ? value.bind(target) : value;
+        },
+      });
+    });
+    const { result, checkpoint } = await previewRetention(options);
+    expect(injected).toBe(true);
+    expect(result).toMatchObject({
+      activeHoldsObserved: 0,
+      classes: [{ heldAgeCandidatesObserved: 0 }, { heldAgeCandidatesObserved: 0 }],
+    });
+    await expect(previewRetention(options, checkpoint)).rejects.toMatchObject({
+      reason: 'checkpoint_holds_changed',
+    });
+  });
+
+  it('refuses unreadable, invalid and over-limit protection instead of producing unheld counts', async () => {
+    freezeClock();
+    await insertPage(fixedNow - 100 * 86400);
+    const bad = await insertHold({ kind: 'class', classId: 'unrecognized' });
+    await expect(previewRetention(options)).rejects.toMatchObject({
+      reason: 'hold_state_unverified',
+    });
+    await root.execute('DELETE FROM web_data_holds WHERE id=?', [bad]);
+    const values = Array.from({ length: 1001 }, () => [
+      randomUUID(),
+      'global',
+      'Private reason',
+      'PrivateHoldOperator',
+      fixedNow + 100000,
+      new Date((fixedNow - 1000) * 1000),
+      new Date((fixedNow - 1000) * 1000),
+    ]);
+    await root.query(
+      'INSERT INTO web_data_holds(id,scope_type,reason,created_by,review_at_epoch,created_at,updated_at) VALUES ?',
+      [values],
+    );
+    await expect(previewRetention(options)).rejects.toMatchObject({
+      reason: 'hold_state_unverified',
+    });
+    await root.execute('DELETE FROM web_data_holds');
+    await root.query(
+      'REVOKE SELECT ON durisweb_qualification_retention_suite.web_data_holds FROM ?@?',
+      [reader, '%'],
+    );
+    try {
+      const denied = command([], { DB_USER: reader, DB_PASSWORD: 'synthetic-read-only-fixture' });
+      expect(denied.status).toBe(1);
+      expect(denied.stdout).not.toContain('"classes"');
+      expect(denied.stderr).not.toMatch(/PrivateHold|password-sentinel/);
+    } finally {
+      await root.query(
+        'GRANT SELECT ON durisweb_qualification_retention_suite.web_data_holds TO ?@?',
+        [reader, '%'],
+      );
     }
   });
 
@@ -187,7 +374,7 @@ async function snapshot() {
       ['--max-candidates', '2', '--batch-size', '1', '--checkpoint-out', firstFile],
       env,
     );
-    expect(first.status).toBe(0);
+    if (first.status !== 0) throw new Error('Synthetic retention CLI failed: ' + first.stderr);
     const firstReport = JSON.parse(first.stdout) as RetentionPreviewResult;
     expect(firstReport.complete).toBe(false);
     expect(firstReport.candidatesObservedThisBatch).toBe(2);
@@ -233,6 +420,7 @@ async function snapshot() {
   });
 
   it('uses the existing time/primary-key ordering indexes at scale without a filesort', async () => {
+    await insertHold({ kind: 'account', accountName: 'SyntheticScaleAccount' });
     const insert = Array.from({ length: 1000 }, (_, index) => [
       'synthetic-scale',
       '/forum',
@@ -263,6 +451,7 @@ async function snapshot() {
     const { result } = await previewRetention({ ...options, batchSize: 100, maxCandidates: 10000 });
     expect(result.classes[0].ageCandidatesObserved).toBe(1000);
     expect(result.classes[1].ageCandidatesObserved).toBe(1000);
+    expect(result.classes.map((item) => item.heldAgeCandidatesObserved)).toEqual([0, 1000]);
     expect(statements.length).toBeGreaterThan(1);
     const indexes = new Set<string>();
     for (const statement of statements) {
@@ -270,8 +459,11 @@ async function snapshot() {
         { sql: 'EXPLAIN ' + statement.sql, timeout: 5000 },
         statement.values,
       );
-      expect(['idx_created_at', 'idx_timestamp']).toContain(plan[0].key);
-      indexes.add(String(plan[0].key));
+      if (statement.sql.includes('AS is_held')) {
+        const candidate = plan.find((row) => row.table === 'candidate');
+        expect(['idx_created_at', 'idx_timestamp']).toContain(candidate?.key);
+        indexes.add(String(candidate?.key));
+      } else expect(plan[0].key).toBe('idx_data_holds_unreleased');
       expect(String(plan[0].Extra)).not.toMatch(/filesort/i);
     }
     expect([...indexes].sort()).toEqual(['idx_created_at', 'idx_timestamp']);

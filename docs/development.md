@@ -136,9 +136,15 @@ absent for a unit-only run; report skipped native coverage explicitly.
 Retention-preview native tests use `TEST_RETENTION_DB_PORT` with the separately
 provisioned full-schema `durisweb_qualification_retention_suite` on loopback
 23436/23437. They exercise both database families, actual SELECT-only CLI
-processes, offset/cutoff boundaries, private continuation, scale query plans and
+processes, hold scopes and same-snapshot ordering, changed-protection refusal,
+offset/cutoff boundaries, private continuation, scale query plans and
 unchanged rows. The opt-in is independent of image and privacy test databases;
 absent opt-in skips these native cases.
+
+The dedicated preview reader selects only `page_views`, `account_login_history`
+and `web_data_holds`. MariaDB 11.8.9 additionally needs database-level `SHOW VIEW`
+to expose CHECK metadata to the strict verifier; this is metadata visibility,
+not a data-write grant. The CLI does not grant privileges or relax fingerprints.
 
 Hold-record/API tests independently opt in with `TEST_DATA_HOLD_DB_PORT` for
 `durisweb_qualification_hold_suite` on loopback 23436/23437. They use the full

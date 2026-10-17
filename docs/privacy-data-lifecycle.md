@@ -24,8 +24,9 @@ account through `account_name`; `created_by`/`released_by` are separate operator
 roles. UUID, class/global scope, private reason/release reason, review/expiry/
 release epochs and `created_at`/`updated_at` preserve the hold's history.
 The [restricted API](runbooks/data-holds.md) records intent with enforcement
-explicitly unavailable; current deletion/cleanup, preview and restore paths do
-not consume it yet. No table-wide subject export or purge is authorized, and no
+explicitly unavailable; the preview now reports held/unheld observations and
+binds continuation to active protection. Current deletion/cleanup and restore
+paths do not enforce it yet. No table-wide subject export or purge is authorized, and no
 period for this ledger is approved. Retain expired/released/invalid records;
 operator evidence needs separate subject/privacy review before export.
 
@@ -254,7 +255,7 @@ Website-only success cannot mean complete account erasure.
 | Browser storage, cookies and service-worker cache | Login/CSRF cookies, MUD session credentials, client preferences/history, drafts, cached public API responses | Session revocation and browser cleanup differ; never promise clearing someone else's device remotely. Current source removes legacy analytics ID when storage permits |
 | R2 and CDN/browser media copies | Avatar/banner and forum image objects, URLs and filenames | Delete only verified owned object keys, retain retry identity on failure, define CDN expiry/invalidation; losing the DB row is not proof the object is gone |
 | Logs, terminal output, crash/core files and Git/compile output | May contain identifiers, paths, commands or secrets; restricted host/operator access | Inventory live locations privately; minimize/redact and protect evidence; console-only Winston transport is not evidence of host/journal retention |
-| Retention preview reports/checkpoints | Aggregate report; private checkpoint has target hash, operation/version/cutoff and class cursor/high-water IDs, which remain indirectly linkable | Optional local POSIX 0600 files outside Git, no row payload or credentials; period unapproved, restrict as operator evidence; never authorize deletion from these counts |
+| Retention preview reports/checkpoints | Aggregate age/held/unheld report; private version-2 checkpoint has target hash, operation/version/cutoff, active-protection fingerprint and class cursor/high-water IDs, which remain indirectly linkable | Optional local POSIX 0600 files outside Git, no row payload or credentials; period unapproved, restrict as operator evidence; changed active protection invalidates continuation, never authorize deletion from these counts |
 | Ko-fi | Donor metadata received by webhook; provider's own records | Verify provider responsibilities/retention separately; website deletion does not remove provider records |
 | Discord | Published game/notification payload and message identifiers | Gated delivery/source contract; identify individual messages and owner-approved removal method, preserve pending/ambiguous outcome evidence |
 | Gemini | Account/character/IP/login evidence can be sent when feature enabled | Leave disabled pending purpose/provider/human-review approval; do not claim active transfer from source capability alone |
@@ -312,8 +313,9 @@ these decisions remain pending; destructive execution must remain unavailable.
 
 The [read-only preview](runbooks/retention-preview.md) can inspect the proposed
 30-day analytics-event and 90-day login-history age ranges with bounded pages,
-an explicit target/version and private continuation. It does not evaluate holds,
-exceptions or subject requests, and cannot delete data. Metrics with naive time
+an explicit target/version and private continuation. It evaluates validated hold
+scope/expiry in the same read snapshot, and refuses changed protection on resume.
+Other exceptions and subject requests remain unevaluated; it cannot delete data. Metrics with naive time
 provenance and every unlisted class remain excluded. No approved common
 retention mutation runner or enforced subject hold exists. Hold intent records
 are implemented with a restricted API and explicit `enforcementReady: false`;
