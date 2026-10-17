@@ -398,7 +398,10 @@ During a separately authorized release, before **any** application stop/restart
 or restart of a dependency that stops it:
 
 1. Confirm the approved [maintenance notice](../deploy/maintenance/README.md#each-maintenance-window)
-   is active and gates new website requests before inventory or preservation.
+   is active and verified on every configured public website/API hostname,
+   including canonical-host aliases, before inventory or preservation.
+   Check the per-host status and API/write/upgrade refusals in that procedure;
+   a redirect or a notice on only one hostname does not close other ingress.
    This does not close existing requests or background writers. Pause and verify
    the existing watchdog maintenance mechanism. Its pause
    expires after four hours; preserve the gate through the entire approved

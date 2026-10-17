@@ -115,8 +115,11 @@ the identical create/release. Do not create unrelated replacement IDs merely to
 hide an unknown outcome. Failure preserves durable evidence; malformed records
 require private operator investigation, not a forced release or purge.
 
-Apply `20261017004000_web_data_holds.ts` with stopped website writers after the
-[authorized backup/clone rehearsal](../deployment.md#rehearse-database-changes),
+Before stopping existing website writers, complete the
+[legacy temporary-copy preservation gate](../deployment.md#legacy-temporary-copy-preservation-gate).
+Apply `20261017004000_web_data_holds.ts` after the
+[authorized backup/clone rehearsal](../deployment.md#rehearse-database-changes)
+with those writers stopped,
 before starting this API. The exact adjacent DDL shape can recover a lost Knex
 acknowledgement; normal preflight remains ledger-strict. Down is allowed only
 for an empty table and refuses active, expired, released or invalid history.
