@@ -18,6 +18,7 @@ import NewsAnnouncementModal from './components/NewsAnnouncementModal.vue'
 import SiteAvailabilityNotice from './components/SiteAvailabilityNotice.vue'
 import ChangelogBanner from './components/changelog/ChangelogBanner.vue'
 import PrivacyControls from './components/privacy/PrivacyControls.vue'
+import { initializePrivacyChoices } from './services/privacy'
 import { Toaster } from 'vue-sonner'
 import { parseAnsiForVue } from './utils/ansiParser'
 import BuilderNotificationBell from './components/builder/BuilderNotificationBell.vue'
@@ -131,7 +132,10 @@ const {
   showCrashNotification,
 } = useNotifications()
 
-// Restore session on mount
+let stopPrivacy: (() => void) | undefined
+let appUnmounted = false
+
+// Restore the initial identity before tracking so hydration is not a second visit.
 onMounted(async () => {
   // Initialize WebSocket connection (singleton - only creates one connection)
   connect()
@@ -141,10 +145,13 @@ onMounted(async () => {
 
   // Restore user session from cookies
   await loadUser()
+  if (!appUnmounted) stopPrivacy = initializePrivacyChoices(router, accountName)
 })
 
 // Clean up WebSocket on unmount
 onUnmounted(() => {
+  appUnmounted = true
+  stopPrivacy?.()
   disconnect()
 })
 
@@ -410,7 +417,7 @@ const isPlayPage = computed(() => route.path === '/play')
                     $route.path === '/frag-leaderboard' ||
                     $route.path.startsWith('/auction') ||
                     $route.path === '/mudlet-gui' ||
-                    $route.path === '/privacy' ||
+                    $route.name === 'privacy' ||
                     $route.path === '/status',
                 )
               "
@@ -447,7 +454,7 @@ const isPlayPage = computed(() => route.path === '/play')
                 <span>Server Status</span>
               </DropdownMenuItem>
               <DropdownMenuItem as-child class="cursor-pointer">
-                <RouterLink to="/privacy" :aria-current="$route.path === '/privacy' ? 'page' : undefined">
+                <RouterLink to="/privacy" :aria-current="$route.name === 'privacy' ? 'page' : undefined">
                   <FileText class="mr-2 h-4 w-4" aria-hidden="true" />
                   <span>Privacy &amp; choices</span>
                 </RouterLink>
@@ -610,7 +617,7 @@ const isPlayPage = computed(() => route.path === '/play')
           class="flex-1 overflow-hidden"
           :class="isFullscreen ? '' : hasContentGutter ? 'overflow-y-auto px-4 py-4 pb-20 scroll-pb-20 lg:px-[clamp(1rem,2vw,2rem)] lg:pb-4 lg:scroll-pb-4' : 'overflow-y-auto pb-16 lg:pb-0'"
         >
-          <PrivacyControls v-if="$route.path !== '/privacy' && !$route.meta.fullscreen" compact class="mb-6" />
+          <PrivacyControls v-if="$route.name !== 'privacy' && !$route.meta.fullscreen" compact class="mb-6" />
           <RouterView />
         </main>
       </div>

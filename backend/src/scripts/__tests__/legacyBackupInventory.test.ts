@@ -16,16 +16,19 @@ beforeEach(() => {
 });
 afterEach(() => fs.rmSync(root, { recursive: true }));
 function run(args: string[]) {
+  const environment: NodeJS.ProcessEnv = { ...process.env, BACKUP_DIR: backup };
+  delete environment.DOTENV_CONFIG_QUIET;
   return spawnSync(
-    process.execPath,
+    'pnpm',
     [
-      '--import',
-      fileURLToPath(new URL('../../../node_modules/tsx/dist/loader.mjs', import.meta.url)),
-      fileURLToPath(new URL('../legacyBackupInventory.ts', import.meta.url)),
+      '--dir',
+      fileURLToPath(new URL('../../../', import.meta.url)),
+      '--silent',
+      'backup:inventory',
       ...args,
     ],
     {
-      env: { ...process.env, BACKUP_DIR: backup, DOTENV_CONFIG_QUIET: 'true' },
+      env: environment,
       encoding: 'utf8',
       timeout: 15000,
     },

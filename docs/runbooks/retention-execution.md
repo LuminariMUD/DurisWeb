@@ -60,6 +60,15 @@ soft monotonic time budget 1–10,000 ms. No preview-file resume/output flag is
 accepted for execution. A new operation captures a database epoch and per-class
 ID high water; subsequent invocations retain them and their UTC cutoffs.
 
+Every dedicated worker connection sets its own session timezone to UTC before
+reading or deleting candidates. Indexed timestamp predicates retain their range
+access while repeated daylight-saving hours become unambiguous. Application-pool
+and global timezone settings are untouched. This contract is part of the rule
+signature. A run recorded by the earlier implicit-timezone implementation is
+refused as `run_identity_conflict`; preserve its progress/evidence and review
+current data before starting a new operation ID. Never overwrite stored rule
+hashes or progress to bypass that refusal.
+
 `web_retention_runs` atomically records cursor and aggregate actions with every
 committed batch. It contains policy/rule/target identities and private cursor
 metadata, never row payloads, accounts, IPs, URLs or credentials. A lost commit
@@ -68,6 +77,14 @@ same operation rather than creating unrelated work. A failed checkpoint rolls
 back its data changes. Committed removal has no automatic data-restoration
 rollback. An old/unknown policy, target, signature or malformed progress is
 refused without rewriting history.
+
+An authorized run-ledger rollback first locks the same control row used by
+workers, refuses any run history or nonempty lease, then commits a rollback
+fence before dropping the empty table. Workers reject that fence even across
+DDL's implicit commit. The fence is removed only after the absent-table
+postcondition is verified. If interrupted before/after the drop, preserve the
+fence and rerun the same targeted down migration to finish recovery; do not
+clear the control row by hand or start an up migration to bypass the fence.
 
 ## Holds, ownership and eligibility
 
@@ -97,6 +114,14 @@ retained. Held or newly ineligible records advance the scan as retained/skipped,
 not deleted. Prepared bindings preserve large IDs and SQL-mode independence.
 
 ## Retired cache cleanup and results
+
+Analytics cache cleanup requires `analytics_events` to be selected and approved;
+a login-history-only run does not inspect or remove that namespace. An older
+saved run that requests analytics-cache work outside its selected classes is
+refused as unverified. Preserve its evidence and use a new explicitly scoped
+run rather than editing saved progress. The standalone CLI disconnects Redis
+before returning after either confirmed cleanup or a recorded cache failure;
+unapproved execution does not open a cache connection.
 
 Historical analytics no longer reads or populates `web_analytics:*`. This removes
 the delayed-reader repopulation race. A bounded cleanup of old entries uses

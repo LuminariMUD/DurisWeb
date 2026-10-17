@@ -318,8 +318,12 @@ The maintained unit uses `PrivateTmp=true`. systemd removes a service's private
 temporary files after the service stops; see its
 [execution reference](https://github.com/systemd/systemd/blob/main/man/systemd.exec.xml)
 and [temporary-directory guidance](https://github.com/systemd/systemd/blob/main/docs/TEMPORARY_DIRECTORIES.md).
-The old uploader wrote `backup-upload-<timestamp>-<random>.zip` under the service's
-`os.tmpdir()`, without durable ownership or writer receipts. Checking the host's
+The old uploader wrote `backup-upload-<timestamp>-<random><original-extension>`
+under the service's `os.tmpdir()`, without durable ownership or writer receipts.
+It appended `path.extname(file.originalname)` and also accepted ZIP MIME type,
+so valid uploads can have `.dump`, `.ZIP`, another original suffix, or no suffix.
+Discover them by the stable `backup-upload-` prefix, not by a `.zip` filter.
+Checking the host's
 ordinary `/tmp`, or finding no row in `mud_backups`, does not inventory that
 private namespace. New persistent uploads do not adopt those older files.
 

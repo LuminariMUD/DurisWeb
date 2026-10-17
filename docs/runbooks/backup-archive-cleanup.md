@@ -44,7 +44,7 @@ the older uploader/producer. Run it only in the explicitly selected authorized
 environment and namespace, before the preservation gate's service teardown:
 
 ```bash
-pnpm --dir backend backup:inventory \
+pnpm --dir backend --silent backup:inventory \
   --backup-root /absolute/configured/backup-root \
   --legacy-upload-root /absolute/actual/old/upload-root \
   --private-out /absolute/owner-only-persistent-directory/new-inventory.json
@@ -64,22 +64,30 @@ MUD operation is made.
 
 The private output identifies only `temp_<id>.sql`, the exact
 `temp_staging_<id>/database/<name>.sql` tree and
-`backup-upload-<timestamp>-<random>.zip` in their selected roots. Numeric IDs are
+`backup-upload-<timestamp>-<random><original-extension>` in their selected roots.
+The original upload suffix can be uppercase, non-ZIP or absent; its encoded
+filename is bounded by the filesystem component limit. A single staging SQL
+member can use spaces, dots, `@` and Unicode from the configured database name.
+Numeric IDs are
 filename hints, not established backup ownership. Physical hashes cover stat
 identity/size/timestamps, not file contents. Directory descriptors anchor the
-walk; symlinks, hardlinked/special files, cross-device members and unexpected
-staging layouts are retained as unsafe/unconfirmed observations. No copy content
-is opened, extracted, copied, changed or deleted. Unrecognized names within a
-legacy prefix are counted without exposing those names in the report.
-The old MIME-based acceptance could also create uppercase, other or absent
-suffixes. Generator-shaped regular files are observed as untrusted uploads
-regardless of suffix, not declared valid ZIPs. Malformed legacy-prefix names
-remain unknown/review-required and are never silently ignored.
+walk; symlinks, hardlinked/special files, cross-device members, nested mounts
+and unexpected staging layouts are retained as unsafe/unconfirmed observations.
+Opened entries must match the selected root's mount ID from
+[Linux descriptor metadata](https://man7.org/linux/man-pages/man5/proc_pid_fdinfo.5.html),
+including bind mounts on the same device. File descriptors are used only for
+metadata; no copy content is read, extracted, copied, changed or deleted.
+Unrecognized names within a legacy prefix are counted without exposing those
+names in the report. The package script silences dotenv's startup notice;
+`--silent` also suppresses pnpm's command banner when capturing aggregate JSON.
+
+Generator-shaped regular uploads remain untrusted byte copies, not validated ZIPs.
 
 Limits are 10,000 root entries and 1,000 copies per root, a shared five-second
 cooperative budget checked between filesystem calls and a 1 MiB output cap.
 These are discovery limits, not a hard timeout on a stalled kernel I/O call.
-Read-only observations can include tmpfs or other mounted storage; they confer
+Selected roots can be tmpfs or other mounted storage; nested mount crossings
+within those roots are refused. These read-only observations confer
 none of the managed unlink worker's local-filesystem or exit-fence guarantees.
 Bounds, unreadable state or detected directory changes prevent a complete
 observation. There is no invented continuation through an unstable directory;
@@ -116,7 +124,7 @@ the source in place and does not control services, adopt records or authorize
 cleanup. The whole-cohort/namespace preservation gate above still applies.
 
 ```bash
-pnpm --dir backend backup:preserve-legacy copy \
+pnpm --dir backend --silent backup:preserve-legacy copy \
   --backup-root /absolute/canonical/configured/backup-root \
   --source-name temp_123.sql \
   --source-physical-sha256 REVIEWED_INVENTORY_FILE_HASH \
@@ -146,7 +154,12 @@ independent destination-hash verification. See the Linux
 
 The protected root must be canonical, owner-only, outside the selected source
 roots and volatile system paths, on the reviewed local filesystem types used
-by managed storage. Tests qualify ext4 destinations and ext4/tmpfs sources;
+by managed storage. Tests qualify ext4 destinations and ext4/tmpfs sources.
+Descriptor mount IDs and [mountinfo filesystem roots](https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html)
+reject bind aliases that place the destination inside a declared source root,
+or make it an ancestor of the selected source. The check is repeated before
+acknowledgement and includes aliases across nested mounts. Different canonical
+path strings alone do not establish separation.
 XFS/Btrfs are allowlisted but not qualified here. Path/type checks and fsync
 cannot certify independent storage, encryption or recovery; verify those with
 the operator's actual protected-storage design. Treat older bytes as sensitive,
@@ -159,6 +172,9 @@ exclusive 0600 `payload.bin`. The bounded helper copies with a kernel read
 lease, hashes and flushes output, then independently reads it back. Matching
 source/file identities, size, bytes and hashes permit immutable `complete.json`
 and directory sync. Source paths and payloads stay out of ordinary output.
+Before acknowledgement, the named bundle and `payload.bin` must still match
+the opened descriptors and expected payload identity; rename, replacement or
+observed late byte changes retain the operation for review instead of success.
 Byte/time limits refuse work; they never truncate a source. The default worker
 budget is 30 seconds, selectable from 1 to 300,000 milliseconds, with a fresh
 owned-child kill request one second later. Stalled kernel I/O can still delay
@@ -174,7 +190,7 @@ Same-ID copy retries refuse an existing bundle; inspect it with the separate
 recovery mode:
 
 ```bash
-pnpm --dir backend backup:preserve-legacy verify \
+pnpm --dir backend --silent backup:preserve-legacy verify \
   --protected-root /absolute/same/protected-directory \
   --operation-id SAME_UUID_V4
 ```
@@ -187,6 +203,8 @@ work to completed. The compiled entry is
 dependencies and the reviewed software with protected operational evidence.
 Unknown receipt/sync state remains review-required. No new UUID should be used
 to hide an uncertain previous operation.
+Verification also rechecks the named bundle/payload before returning. The package
+script suppresses dotenv startup output; `--silent` suppresses pnpm's banner.
 
 A read lease guards writes to the selected file object during that copy; it is
 not a whole-service fence and does not prevent rename/unlink or namespace
@@ -243,7 +261,9 @@ configured `BACKUP_DIR`, exclusive creation and mode 0600. The API's compatibili
 field `tempPath` now contains the opaque UUID; client filesystem paths are refused.
 No OS-temporary-file fallback or implicit Multer unlink remains. Uploaded filenames
 are marked `duris-mud-upload-<UUID>.zip` and excluded from manual/hourly count
-pruning. No automatic upload expiry period has been approved or implemented.
+pruning and **Clear Failed** bulk cleanup. Retained uploads require explicit
+cancellation; the bulk button counts only generated failed backups. No automatic
+upload expiry period has been approved or implemented.
 
 File close/flush and directory sync precede the inspection checkpoint. A separate
 read-only process receives no application environment or SQL credentials, executes
@@ -258,6 +278,11 @@ as confirmed invalid. Physical identity is rechecked before acknowledgement.
 Known format/size rejection requests the existing managed remover after the writer
 is closed. Every active hold scope preserves the entire archive. Cancellation,
 including retries, requires a matching completed removal receipt before success;
+any present file must match the registered identity both at cancellation's first
+check and when the managed remover admits the target. A replaced file is kept
+for review, including replacement during the intervening asynchronous work. The
+generic delete-by-backup-ID path refuses upload-marked files so it cannot bypass
+these registered cancellation checks;
 an absent row/file alone is insufficient. Retain the upload and removal receipts
 until their own approved lifecycle exists. Generic settings APIs hide both private
 namespaces, including SQL collation aliases.
@@ -270,6 +295,10 @@ does not suffice. Unknown registration commit acknowledgements can leave a recei
 row with no file until that proof is available. A different boot/PID namespace or
 changed file/root needs private operator investigation. Recovery never deletes or
 executes archive contents and a late inspector cannot overwrite its result.
+
+The browser scopes its backup-list cache to the signed-in account and cancels
+the previous account's pending list request when that identity changes. Signing
+out or into another account does not reuse the previous uploader's list.
 
 Closed retained uploads offer download and cancellation from the list after a
 page reload. Both require owner/overlord access; pending writers cannot be

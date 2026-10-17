@@ -58,7 +58,12 @@ function failure(res: Response, error: unknown) {
     error instanceof PrivacyChoiceError
       ? error.message
       : 'Privacy choices are temporarily unavailable';
-  res.status(status).json({ error: message });
+  res.status(status).json({
+    error: message,
+    ...(error instanceof PrivacyChoiceError && error.reference
+      ? { reference: error.reference }
+      : {}),
+  });
 }
 
 router.use((_req, res, next) => {
@@ -68,8 +73,8 @@ router.use((_req, res, next) => {
 router.get('/', limiter, async (req, res) => {
   try {
     const choice = await getPrivacyChoice(context(req));
-    if (req.cookies?.[PRIVACY_COOKIE] && !choice.receiptValid)
-      res.clearCookie(PRIVACY_COOKIE, cookieOptions);
+    // A concurrent choice may have rotated the browser cookie after this GET
+    // began. Status reads cannot safely delete the credential currently stored.
     res.json(choice);
   } catch (error) {
     failure(res, error);

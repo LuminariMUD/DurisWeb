@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { adminApi } from '@/services/api'
 import { useWebSocket } from './useWebSocket'
+import { useAuth } from './useAuth'
 import type { BackupInfo, RestoreRequest } from '@/types'
 
 function requireOperationAcknowledgement(result: { success: boolean; id: number }): void {
@@ -11,6 +12,8 @@ function requireOperationAcknowledgement(result: { success: boolean; id: number 
 
 export function useBackups() {
   const queryClient = useQueryClient()
+  const { accountName } = useAuth()
+  const backupQueryKey = computed(() => ['backups', accountName.value] as const)
   const { onBackupProgress, offBackupProgress, onRestoreProgress, offRestoreProgress } =
     useWebSocket()
 
@@ -33,9 +36,10 @@ export function useBackups() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['backups'],
-    queryFn: async () => {
-      const result = await adminApi.getBackupList()
+    queryKey: backupQueryKey,
+    enabled: computed(() => accountName.value !== null),
+    queryFn: async ({ signal }) => {
+      const result = await adminApi.getBackupList(signal)
       return result.backups
     },
     staleTime: 30000, // 30 seconds
@@ -141,11 +145,12 @@ export function useBackups() {
     status: string
     filename: string
   }) => {
+    if (!accountName.value) return
     // Update the backup in the cache. if the backup isn't in cache yet (fast
     // backups can finish before the post-mutation refetch lands), synthesize a
     // placeholder row so the progress still renders. the next refetch will fill
     // in the missing fields (createdBy, startedAt, fileSize, etc).
-    queryClient.setQueryData<BackupInfo[]>(['backups'], (oldData) => {
+    queryClient.setQueryData<BackupInfo[]>(backupQueryKey.value, (oldData) => {
       const existing = oldData?.find((b) => b.id === data.id)
       if (existing) {
         return oldData!.map((backup) =>
