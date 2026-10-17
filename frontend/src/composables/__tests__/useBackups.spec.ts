@@ -217,6 +217,85 @@ describe('backup deletion acknowledgement', () => {
 })
 
 describe('backup and restore start acknowledgement', () => {
+  it.each(['lost', 'invalid'])(
+    'keeps an uncertain %s backup start pending until list reconciliation finishes',
+    async (reply) => {
+      const { backups, client, wrapper } = mountBackups()
+      let release!: (value: { backups: BackupInfo[] }) => void
+      try {
+        await flushPromises()
+        vi.mocked(adminApi.getBackupList).mockReturnValueOnce(
+          new Promise((resolve) => {
+            release = resolve
+          }),
+        )
+        if (reply === 'lost')
+          vi.mocked(adminApi.createBackup).mockRejectedValueOnce(
+            new Error('Synthetic lost response'),
+          )
+        else
+          vi.mocked(adminApi.createBackup).mockResolvedValueOnce({
+            success: false,
+            id: 0,
+            filename: '',
+          })
+        let settled = false
+        const pending = backups
+          .createBackup()
+          .catch((error: unknown) => error)
+          .finally(() => {
+            settled = true
+          })
+        await flushPromises()
+        expect(backups.isCreating.value).toBe(true)
+        expect(settled).toBe(false)
+        release({
+          backups: [
+            {
+              id: 7,
+              filename: 'duris-mud-running.zip',
+              backupType: 'manual',
+              status: 'in_progress',
+              progress: 1,
+              currentStep: 'Starting',
+              fileSize: null,
+              errorMessage: null,
+              createdBy: 'SyntheticOperator',
+              startedAt: '2026-10-17T12:00:00Z',
+              completedAt: null,
+            },
+          ],
+        })
+        expect(await pending).toBeInstanceOf(Error)
+        await flushPromises()
+        expect(backups.isCreating.value).toBe(false)
+        expect(backups.hasInProgressBackup.value).toBe(true)
+      } finally {
+        release?.({ backups: [] })
+        wrapper.unmount()
+        client.clear()
+      }
+    },
+  )
+  it('keeps a failed reconciliation visible until a successful explicit refresh', async () => {
+    const { backups, client, wrapper } = mountBackups()
+    try {
+      await flushPromises()
+      vi.mocked(adminApi.getBackupList).mockRejectedValueOnce(
+        new Error('Synthetic list unavailable'),
+      )
+      vi.mocked(adminApi.createBackup).mockRejectedValueOnce(new Error('Synthetic lost response'))
+      await backups.createBackup().catch(() => {})
+      await flushPromises()
+      expect(backups.error.value).toBeInstanceOf(Error)
+      await backups.refetch()
+      await flushPromises()
+      expect(backups.error.value).toBeNull()
+    } finally {
+      wrapper.unmount()
+      client.clear()
+    }
+  })
   const accepted = {
     success: true,
     id: 7,

@@ -2,6 +2,28 @@
 
 ## Current handoff — read this first
 
+**Newest continuation:** the complete later review queue and export-authority
+investigation are retained in the [#66 handoff](https://github.com/LuminariMUD/DurisWeb/blob/8cf161f448aef15d2b13da923094a58a527fbbe5/docs/ongoing-projects/plan.md).
+#66 browser compatibility `8cf161f` is pushed and its thread verified resolved.
+Ten findings remain from that scan, including the current #57 reconciliation fix.
+This branch now awaits create-backup list invalidation before settling the
+mutation, disables creation during list fetch/error, and keeps a visible Refresh
+instruction for a failed refresh with cached data. This closes the retry gap
+without a new operation queue or state machine.
+
+Two lost/invalid-acknowledgement regressions failed before repair. Full frontend
+gates/build pass **316 tests / 58 files**. `node
+/tmp/durisweb-review-browser57-reconcile.mjs` passes at 1440/390: exactly one
+create request, disabled control during reconciliation, running-operation guard,
+and refusal to re-enable after a failed list until an explicit successful Refresh.
+The fixture dismisses the existing global availability notice before checking
+the underlying control. An initial test-only response field failed type checking
+and was corrected before the final green run. Logs:
+`pr57-reconcile-{red,quality-final,browser-final}.log`. No backend/runtime-provider
+test rerun or production operation is claimed. Publish/resolve #57, carry its
+parent fixes through #61, then address #62's descriptor-streaming and busy-state
+findings before #63/#65/#66. Older counts/checkpoints below are historical.
+
 **Latest review continuation:** #55 UI fix `3446b1b`, #48 contract fix
 `d43f94c`, #49 follow-up `64d30b7` and #50 follow-up `ab40c42` are pushed;
 all eight corresponding threads are verified resolved. The three later #54
