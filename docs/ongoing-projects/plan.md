@@ -54,8 +54,9 @@ legacy temporary-file preservation order is corrected in
 Read-only private discovery is qualified and published as
 [PR #64](https://github.com/LuminariMUD/DurisWeb/pull/64) on
 `branch/legacy-backup-copy-inventory`, stacked on #63.
-Protected individual byte-copy/recovery tooling is qualified on
-`branch/legacy-copy-preservation`, awaiting focused publication.
+Protected individual byte-copy/recovery tooling is qualified and published as
+[PR #65](https://github.com/LuminariMUD/DurisWeb/pull/65) on
+`branch/legacy-copy-preservation`, stacked on #64.
 Verified legacy-copy adoption/fencing remains next.
 Install metadata function v2 before bootstrap/migrations;
 source does not accept v1 as an equivalent fallback.
@@ -93,7 +94,7 @@ old `PrivateTmp` unit. Namespace teardown is itself a copy-removal path.
 
 ## Execution record and continuation
 
-- **P6d2b2e protected per-copy preservation (2026-10-17, qualified; publication pending):** branch
+- **P6d2b2e protected per-copy preservation (2026-10-17, qualified/published as #65):** branch
   `branch/legacy-copy-preservation` starts at #64 `ab09779`. Outcome: copy a
   selected legacy file into an exclusive private protected bundle, using a Linux
   kernel read lease to refuse existing/competing writers, verify actual payload
@@ -220,6 +221,22 @@ old `PrivateTmp` unit. Namespace teardown is itself a copy-removal path.
   compatible offline restore-removal replay, other P6 handlers and own-ledger
   periods, every P7 requirement and named policy/provider/release approval gates
   intact. No user question is needed for continued independent engineering.
+- **P6d2b2e publication:** code head
+  `7c3e92df29d36cb91bb7722959bb0566dc92f678` is pushed in open/non-draft
+  [PR #65](https://github.com/LuminariMUD/DurisWeb/pull/65), base
+  `branch/legacy-backup-copy-inventory` (#64 final `ab09779`), and attached here.
+  Readback confirms OPEN/MERGEABLE, correct base/head, exact local/remote/API
+  SHA, ahead/behind `0 0`, clean worktree and whitespace. Hosted backend/frontend
+  quality jobs were running; required local proof above is complete. Master
+  remains `89468603a61ab44d9e3be1651c9dd6fce5a17a12` and an ancestor.
+  Authoritative cleanup checks find zero owned preservation fixture directories
+  and no remaining transient freezer fixture units. Retain required private
+  logs/probes and recovery stashes `1c8d1dd`/`bbda289`. Continue from the final
+  publication-doc commit in `/tmp/durisweb-security-privacy-plan-20261016` after
+  refreshing PR/parent/master. This closeout edits only the plan; do not repeat
+  runtime suites for it. No merge, tag, deployment, shared-file/process/namespace
+  or MUD operation is performed. Full P6/P7 and named policy/release gates remain
+  incomplete and the goal stays active.
 
 - **P6d2b2d private legacy-copy discovery (2026-10-17, qualified/published as #64):** branch
   `branch/legacy-backup-copy-inventory` starts at #63 `1b37db7`. Outcome: an
