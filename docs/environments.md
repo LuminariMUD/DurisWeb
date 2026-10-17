@@ -190,7 +190,10 @@ unset to disable delivery. The bot needs View Channel, Send Messages, and Embed
 Links in the destination channel. No additional bot connection or bridge listener
 is needed: the website sends embeds through Discord's authenticated REST API.
 The token is server-only and never enters frontend configuration or settings.
-Restart the website backend after changing these environment values.
+After changing these environment values, complete the
+[legacy temporary-copy preservation gate](deployment.md#legacy-temporary-copy-preservation-gate)
+before restarting an existing website backend. Changing only Discord settings
+does not make its old private uploads or staging files safe to discard.
 
 See [Discord delivery](discord-delivery.md) for transport outcomes and recovery limits.
 
