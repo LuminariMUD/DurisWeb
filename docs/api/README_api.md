@@ -239,6 +239,8 @@ authoritative critical command. The `ALLOW_UNSAFE_*` settings do not supply the
 missing safety contracts and should remain closed in ordinary deployments; see
 [Configuration and Environments](../environments.md#unsafe-mutation-gates).
 
+The backup page keeps stored/uploaded content inspection available and explains
+that restore is unavailable; all restore modes and confirmations are disabled.
 Both restore routes still require authentication and `manage_mud_backup` before
 their static 503 refusal. The response gives a safe explanation and no
 `enableWith` instruction, new operation ID or echoed request payload. Direct

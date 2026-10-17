@@ -2,6 +2,14 @@
 
 ## Current handoff — read this first
 
+Review continuation: #55's previously uncommitted restore-availability UI is now
+included in this source commit, with its API contract updated. Retained proof
+still applies to identical runtime bytes (`d91fdfe` Git blob); the phone stored
+and desktop uploaded screenshots were visually inspected. Publish this commit,
+verify its remote head, and resolve the existing #55 thread, then return to
+#48's new documentation finding. The following inventory is the pre-publication
+snapshot; the subsequent review record tracks closeout.
+
 Verified **2026-10-17 11:53 UTC** against fetched Git branches, GitHub PR heads, issues,
 all review-thread pages and retained local evidence. This section supersedes
 every older checkpoint, deadline and next-step instruction below. The current
@@ -579,6 +587,15 @@ and disabled restore modes at 1440 and 390 widths, with zero restore/cancel
 requests and no unexpected console/layout failures. The UI change remains
 uncommitted and its review thread remains open; publishing this document does
 not publish that runtime fix.
+
+**#55 runtime publication preparation:** source diff and retained browser output
+rechecked; desktop/phone screenshots show the unavailable notice and disabled
+controls. `git diff --check` and the configuration literal guard pass. No runtime
+byte changed after the 294-test/build/browser proof, so those checks are reused.
+The news-update draft for a future verified admin release is: “Backup contents
+remain available to inspect and download. The backup page now clearly explains
+that website restore is unavailable and disables its restore controls.” No live
+entry is published before an authorized verified release.
 
 ### Recovery result — selected account-data download
 
