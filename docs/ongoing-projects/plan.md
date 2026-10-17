@@ -1746,7 +1746,7 @@ Other PRs without findings still need inherited fixes carried forward.
 | PR | Initial findings | Review status |
 | --- | --- | --- |
 | #46 | 1: enable notifications after a first permission grant with blocked storage | Fixed; 7 focused and 253 full frontend tests pass |
-| #48 | 3: stale GET cookie clearing, actionable safe diagnostics, native fixture port binding | Pending |
+| #48 | 3: stale GET cookie clearing, actionable safe diagnostics, native fixture port binding | Fixed; 39 native cases pass on each database engine |
 | #49 | 3: pending refusal, temporary visibility changes, compact confirmation/focus | Pending |
 | #50 | 2: safe forum failure context, shared pool starvation during R2 deletion | Pending |
 | #54 | 1: DST-ambiguous retention cutoff comparisons | Pending |
@@ -1781,3 +1781,49 @@ Evidence: `pr46-{red,focused,quality}.log` in the private review directory.
 Private review evidence: `/tmp/durisweb-review-20261017/`; the current worktree
 is `/tmp/durisweb-security-privacy-plan-20261016` and switches to each existing
 PR branch in sequence. Preserve unrelated review worktrees and recovery stashes.
+
+**#46 publication/carry-forward:** fix `5a820ac` is pushed and its review thread
+is replied to and resolved. #47 has no findings; parent merge `558544e` is pushed,
+and its entire frontend tree matches the tested #46 frontend. #48 now contains
+that repair through an ordinary parent merge, without rewriting history.
+
+**#48 outcome:** status GETs cannot remove a concurrently rotated cookie;
+storage failures carry a safe operation/stage, allowlisted error code, rollback
+outcome and a reference shared with the client; native tests refuse a pool port
+different from their explicit opt-in before importing the pool. Files: existing
+privacy service/routes/tests plus a small safe-code selector needed by this and
+the reviewed forum-error path. Proof: stale receipt and diagnostics regressions
+failed before repair; a mismatched-port import incorrectly succeeded before
+the guard change. Add native rotation, corrupt-record, commit/rollback and
+safe-code checks, then run the two-engine fixture and required backend gates.
+This retains the current protocol and diagnostic boundaries without a new
+storage/logging service or policy change.
+
+**#48 final proof:** `node --import
+./backend/node_modules/tsx/dist/loader.mjs /tmp/durisweb-review-p5-suite.mts
+23436 privacy-only` and the same command with `23437` each pass 39 tests / four
+suites, including actual routes, transactions, rollback, cookie rotation and
+concurrent choices. The runner uses owned empty Redis DBs 13/14 and cleans its
+database/user/cache; before/after owner fingerprints and preflights match.
+`pnpm --dir backend test --runInBand src/utils/__tests__/safeFailureCode.test.ts`
+passes three pure diagnostic cases. The explicit mismatch command with
+`TEST_PRIVACY_DB_PORT=23436 DB_PORT=23437 DB_HOST=127.0.0.1
+DB_NAME=durisweb_qualification_privacy_suite` and Jest's
+`--testNamePattern=__guard_only_no_cases__` now refuses module import with zero
+tests, before pool construction; it previously exited successfully.
+`python3 /tmp/durisweb-image-quality.py backend`, configuration literal and
+whitespace checks pass. Frontend source remains byte-identical to the already
+qualified #46/#47 tree; no additional frontend/browser or full-backend rerun is
+claimed for this correction. Source policy gates remain false.
+
+Removing the unsafe GET clear exposed a reproduced lost-Set-Cookie retry gap.
+Status and explicit retry now fall back to the current CSRF-bound identity,
+using the authority already available when a receipt is absent. Invalid cookies
+cannot authorize their named record. Native cases cover both stable/rotated CSRF
+and a forged cookie naming a different browser, preserving that browser's valid
+choice. This adds no new endpoint, credential format or account linkage.
+The added rollback regression initially recursed through an already mocked
+checkout; its setup was corrected before both final green native runs.
+Evidence: `pr48-*` logs in the private review directory. Future privacy-release
+wording covers reliable saved choices; diagnostic/fixture repairs need no
+separate visitor announcement, and nothing is published live here.
