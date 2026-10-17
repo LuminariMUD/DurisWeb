@@ -1,5 +1,6 @@
 import type { PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { pool } from '../db/connection.js';
+import { lockRetentionControl } from './retentionControl.js';
 import {
   DataHoldError,
   parseDataHoldCreate,
@@ -47,6 +48,7 @@ async function transaction<T>(action: (connection: PoolConnection) => Promise<T>
   try {
     connection = await pool.getConnection();
     await connection.beginTransaction();
+    await lockRetentionControl(connection);
     const result = await action(connection);
     await connection.commit();
     return result;

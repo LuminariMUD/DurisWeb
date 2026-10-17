@@ -75,9 +75,19 @@ The separate [website data hold API](../runbooks/data-holds.md) at
 `/api/admin/data-holds` is Overlord-only, signed-session authenticated and
 no-store; POST create/release retain CSRF checks. It records scoped intent,
 private reasons and immutable creation/release attribution with bounded history
-pages. It explicitly returns `enforcementReady: false`: existing deletion/
-cleanup and restore paths do not yet consume these records. A recorded hold is
-not an implemented deletion gate or a claim of live protection.
+pages. It explicitly returns global `enforcementReady: false`: existing feature
+cleanup and restore paths do not consume these records. The separately
+[gated SQL executor](../runbooks/retention-execution.md) rechecks them within
+two-class deletion transactions and shares a control lock with hold writes;
+all source approvals/enablement remain false. A recorded hold is not a claim
+of live protection. Generic settings exclude the reserved
+`retention-control-v1:` namespace, including SQL-collation aliases.
+
+Both historical web-analytics router mounts send `Cache-Control: no-store` and
+vary by Cookie before authentication. Their eight readers use SQL directly;
+they no longer read/populate legacy `web_analytics:*` Redis entries. This changes
+no authorization or response shape. Bounded legacy-key removal belongs to the
+separate gated executor, not a dashboard request.
 
 ## Forum image removal
 

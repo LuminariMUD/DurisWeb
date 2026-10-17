@@ -1,10 +1,7 @@
 import { pool } from '../db/connection.js';
 import type { RowDataPacket } from 'mysql2';
-import { getCache, setCache } from '../db/redis.js';
 
-// Cache TTL for analytics (in seconds)
-const ANALYTICS_CACHE_TTL = 5 * 60; // 5 minutes
-const REDIS_KEY_PREFIX = 'web_analytics:';
+// Historical analytics reads stay uncached so retention cannot leave a stale writer or cached copy.
 
 // Types
 export interface WebOverviewStats {
@@ -70,10 +67,6 @@ export interface RealtimeVisitor {
  * Get overview statistics for the web analytics dashboard
  */
 export async function getWebOverviewStats(days: number = 30): Promise<WebOverviewStats> {
-  const cacheKey = `${REDIS_KEY_PREFIX}overview:${days}d`;
-  const cached = await getCache<WebOverviewStats>(cacheKey);
-  if (cached) return cached;
-
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
@@ -124,7 +117,6 @@ export async function getWebOverviewStats(days: number = 30): Promise<WebOvervie
     todayUniqueVisitors: todayVisitorsResult[0][0]?.count || 0,
   };
 
-  await setCache(cacheKey, stats, ANALYTICS_CACHE_TTL);
   return stats;
 }
 
@@ -132,10 +124,6 @@ export async function getWebOverviewStats(days: number = 30): Promise<WebOvervie
  * Get top pages by views
  */
 export async function getTopPages(days: number = 30, limit: number = 20): Promise<TopPage[]> {
-  const cacheKey = `${REDIS_KEY_PREFIX}top_pages:${days}d:${limit}`;
-  const cached = await getCache<TopPage[]>(cacheKey);
-  if (cached) return cached;
-
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
@@ -164,7 +152,6 @@ export async function getTopPages(days: number = 30, limit: number = 20): Promis
     bounceRate: row.bounceRate || 0,
   }));
 
-  await setCache(cacheKey, pages, ANALYTICS_CACHE_TTL);
   return pages;
 }
 
@@ -172,10 +159,6 @@ export async function getTopPages(days: number = 30, limit: number = 20): Promis
  * Get traffic source (referrer) statistics
  */
 export async function getReferrerStats(days: number = 30): Promise<ReferrerStats[]> {
-  const cacheKey = `${REDIS_KEY_PREFIX}referrers:${days}d`;
-  const cached = await getCache<ReferrerStats[]>(cacheKey);
-  if (cached) return cached;
-
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
@@ -199,7 +182,6 @@ export async function getReferrerStats(days: number = 30): Promise<ReferrerStats
     percentage: total > 0 ? Math.round((row.visits / total) * 1000) / 10 : 0,
   }));
 
-  await setCache(cacheKey, stats, ANALYTICS_CACHE_TTL);
   return stats;
 }
 
@@ -207,10 +189,6 @@ export async function getReferrerStats(days: number = 30): Promise<ReferrerStats
  * Get device type statistics
  */
 export async function getDeviceStats(days: number = 30): Promise<DeviceStats[]> {
-  const cacheKey = `${REDIS_KEY_PREFIX}devices:${days}d`;
-  const cached = await getCache<DeviceStats[]>(cacheKey);
-  if (cached) return cached;
-
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
@@ -233,7 +211,6 @@ export async function getDeviceStats(days: number = 30): Promise<DeviceStats[]> 
     percentage: total > 0 ? Math.round((row.count / total) * 1000) / 10 : 0,
   }));
 
-  await setCache(cacheKey, stats, ANALYTICS_CACHE_TTL);
   return stats;
 }
 
@@ -241,10 +218,6 @@ export async function getDeviceStats(days: number = 30): Promise<DeviceStats[]> 
  * Get browser statistics
  */
 export async function getBrowserStats(days: number = 30): Promise<BrowserStats[]> {
-  const cacheKey = `${REDIS_KEY_PREFIX}browsers:${days}d`;
-  const cached = await getCache<BrowserStats[]>(cacheKey);
-  if (cached) return cached;
-
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
@@ -268,7 +241,6 @@ export async function getBrowserStats(days: number = 30): Promise<BrowserStats[]
     percentage: total > 0 ? Math.round((row.count / total) * 1000) / 10 : 0,
   }));
 
-  await setCache(cacheKey, stats, ANALYTICS_CACHE_TTL);
   return stats;
 }
 
@@ -278,10 +250,6 @@ export async function getBrowserStats(days: number = 30): Promise<BrowserStats[]
 export async function getOSStats(
   days: number = 30,
 ): Promise<{ os: string; count: number; percentage: number }[]> {
-  const cacheKey = `${REDIS_KEY_PREFIX}os:${days}d`;
-  const cached = await getCache<{ os: string; count: number; percentage: number }[]>(cacheKey);
-  if (cached) return cached;
-
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
@@ -305,7 +273,6 @@ export async function getOSStats(
     percentage: total > 0 ? Math.round((row.count / total) * 1000) / 10 : 0,
   }));
 
-  await setCache(cacheKey, stats, ANALYTICS_CACHE_TTL);
   return stats;
 }
 
@@ -313,10 +280,6 @@ export async function getOSStats(
  * Get geographic statistics
  */
 export async function getGeoStats(days: number = 30): Promise<GeoStats[]> {
-  const cacheKey = `${REDIS_KEY_PREFIX}geo:${days}d`;
-  const cached = await getCache<GeoStats[]>(cacheKey);
-  if (cached) return cached;
-
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
@@ -342,7 +305,6 @@ export async function getGeoStats(days: number = 30): Promise<GeoStats[]> {
     percentage: total > 0 ? Math.round((row.count / total) * 1000) / 10 : 0,
   }));
 
-  await setCache(cacheKey, stats, ANALYTICS_CACHE_TTL);
   return stats;
 }
 
@@ -353,10 +315,6 @@ export async function getTrafficOverTime(
   days: number = 30,
   interval: 'hour' | 'day' = 'day',
 ): Promise<TrafficDataPoint[]> {
-  const cacheKey = `${REDIS_KEY_PREFIX}traffic:${days}d:${interval}`;
-  const cached = await getCache<TrafficDataPoint[]>(cacheKey);
-  if (cached) return cached;
-
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
@@ -381,7 +339,6 @@ export async function getTrafficOverTime(
     visitors: row.visitors,
   }));
 
-  await setCache(cacheKey, data, ANALYTICS_CACHE_TTL);
   return data;
 }
 

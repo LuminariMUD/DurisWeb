@@ -18,6 +18,7 @@ all three environment files, before running `./scripts/dev.sh`.
 | `pnpm --dir backend verify:mud-writes` | Fail when a DurisWeb write to a MUD-owned table is missing from `backend/mud-write-allowlist.json` |
 | `pnpm --dir backend migrate:status` | Inspect the selected Knex ledger |
 | `pnpm --dir backend retention:preview --help` | Read-only proposed-age counts, explicit target/version and private continuation; see the [runbook](runbooks/retention-preview.md) |
+| `pnpm --dir backend retention --help` | Defaults to read-only preview; separate SQL execution requires reviewed source approval and explicit SQL/cache targets; see the [runbook](runbooks/retention-execution.md) |
 
 ## Frontend commands
 
@@ -152,6 +153,19 @@ owner/baseline/forward fixture and actual session/JWT, Overlord gate, CSRF and
 hold transactions. Only the separate MUD account/role readers are stubbed;
 no MUD row, file or process is changed. See the [hold runbook](runbooks/data-holds.md)
 for the explicitly incomplete enforcement boundary.
+
+Retention-execution tests independently opt in with
+`TEST_RETENTION_EXECUTION_DB_PORT` (23436/23437), exact database
+`durisweb_qualification_retention_execution_suite`, loopback
+`CACHE_REDIS_PORT=23479` and `CACHE_REDIS_DB=13` (MySQL) or `14` (MariaDB). Provision a
+disposable full owner/baseline/forward fixture. The private runner first confirms
+that its cache database is empty and marks ownership with
+`retention-execution-fixture-owner`; the suite refuses an unmarked target.
+Never point it at a shared cache/database. These cases use a synthetic approved
+policy inside Jest only, actual SQL/Redis, worker/hold concurrency and failure
+injection. The actual child CLI still proves refusal before I/O with the shipped
+source flags false. Unit-only runs skip this suite; no configuration variable
+approves or enables retention. Historical analytics reads are SQL-only.
 
 Do not commit `.env` files, dumps, account data, generated deployment output,
 or backup archives. See [Configuration and Environments](environments.md) before

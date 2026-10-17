@@ -9,7 +9,7 @@ export function runFixtureWebMigrations(
   options: {
     direction?: 'up' | 'down';
     name?: string;
-    loseDdlAcknowledgement?: boolean | 'image' | 'holds';
+    loseDdlAcknowledgement?: boolean | 'image' | 'holds' | 'retention';
   } = {},
 ): void {
   if (
@@ -28,8 +28,8 @@ export function runFixtureWebMigrations(
     const {WebMigrationSource}=await import(pathToFileURL(root+'/src/db/webMigrationSource.ts').href);
     const connection={host:'127.0.0.1',port:Number(port),database,user:'root',password:''};
     const knex=require('knex')({client:'mysql2',connection,pool:{min:0,max:1},migrations:{migrationSource:new WebMigrationSource(connection)},log:{warn:()=>{},error:()=>{}}});
-    const interruption=interrupted==='image'?'synthetic_after_image_ddl':interrupted==='holds'?'synthetic_after_hold_ddl':'synthetic_after_audit_ddl';
-    const ddl=interrupted==='image'?'ALTER TABLE forum_post_images':interrupted==='holds'?(direction==='down'?'DROP TABLE web_data_holds':'CREATE TABLE web_data_holds'):'ALTER TABLE admin_action_log';
+    const interruption=interrupted==='image'?'synthetic_after_image_ddl':interrupted==='holds'?'synthetic_after_hold_ddl':interrupted==='retention'?'synthetic_after_retention_ddl':'synthetic_after_audit_ddl';
+    const ddl=interrupted==='image'?'ALTER TABLE forum_post_images':interrupted==='holds'?(direction==='down'?'DROP TABLE web_data_holds':'CREATE TABLE web_data_holds'):interrupted==='retention'?(direction==='down'?'DROP TABLE web_retention_runs':'CREATE TABLE web_retention_runs'):'ALTER TABLE admin_action_log';
     if(interrupted!=='false'){
       const query=knex.client.query.bind(knex.client);let injected=false;
       knex.client.query=async(connection,request)=>{

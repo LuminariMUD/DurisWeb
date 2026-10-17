@@ -140,8 +140,15 @@ restricted operational evidence pending that decision.
 
 ## Remaining retention work
 
-Approved policies, protected holds and request coordination, a mutation engine
-with durable ownership/checkpoints and eligibility rechecks, FK-safe disposal,
-caches/objects/logs/provider handling, and protected backup/restore replay remain
+The canonical `pnpm --dir backend retention` also defaults to this preview.
+Its separate [gated SQL execution](retention-execution.md) prepares durable
+ownership/progress, current-hold/eligibility rechecks and retired analytics-cache
+cleanup for these two classes. Approval/enablement and both class approvals
+remain false; preview files cannot authorize execution. The shared selector
+signature has changed, so older version-2 checkpoints may also require a fresh
+preview (`checkpoint_rules_changed`); retain old evidence privately.
+
+Approved policies, other protected classes and request coordination,
+objects/logs/provider handling, and protected backup/restore replay remain
 separate required work in [P6/P7](../ongoing-projects/plan.md#p6--retention-enforcement-and-restore-handling-11).
 This command installs no scheduler and grants no permission to delete data.

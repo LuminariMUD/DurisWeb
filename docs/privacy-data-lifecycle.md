@@ -17,18 +17,29 @@ The current session and hook-audit migrations supersede the baseline's old
 credential columns; they are called out below. Knex and baseline provenance are
 additional operational metadata, not missing application tables.
 
-The later `20261017004000_web_data_holds.ts` adds **one** website-owned extension
-table, for 78 application tables after that forward migration. The immutable
+The later `20261017004000_web_data_holds.ts` and
+`20261017005000_web_retention_runs.ts` add two website-owned extension tables,
+for 79 application tables after both forward migrations. The immutable
 77-table inventory below remains unchanged. `web_data_holds` selects a scoped
 account through `account_name`; `created_by`/`released_by` are separate operator
 roles. UUID, class/global scope, private reason/release reason, review/expiry/
 release epochs and `created_at`/`updated_at` preserve the hold's history.
-The [restricted API](runbooks/data-holds.md) records intent with enforcement
-explicitly unavailable; the preview now reports held/unheld observations and
-binds continuation to active protection. Current deletion/cleanup and restore
-paths do not enforce it yet. No table-wide subject export or purge is authorized, and no
+The [restricted API](runbooks/data-holds.md) still reports global enforcement
+unavailable. Preview reports held/unheld observations and binds continuation to
+active protection. The source-disabled [two-class SQL executor](runbooks/retention-execution.md)
+rechecks holds within deletion transactions; existing feature cleanup and
+restore paths remain unprotected. No table-wide subject export or purge is authorized, and no
 period for this ledger is approved. Retain expired/released/invalid records;
 operator evidence needs separate subject/privacy review before export.
+
+`web_retention_runs` has no account selector. Its operation UUID, policy/rule/
+target hashes, captured epoch and private progress JSON preserve bounded scan
+cutoffs/high-water/cursors, aggregate held/deleted/skipped counts, cumulative
+work duration and pending legacy-cache traversal, including Redis server identity.
+The reserved `retention-control-v1:state` settings row holds the expiring worker
+lease and serializes hold writes with deletion. Neither is exposed by generic
+settings or ordinary logs/results. IDs remain indirectly linkable; retain and
+restrict this operational evidence pending its own period/export decision.
 
 Each row lists subject-selection fields or a necessary relationship, and a time
 field that could support an approved cutoff. A time field is **not** an approved
@@ -201,6 +212,13 @@ ordering, expiry and failures. A visit nonce exists only in page memory after
 confirmation, and is reset on stop or account changes. This does not approve the
 notice/period proposals or establish live collection acceptance.
 
+Historical analytics readers now use SQL directly, and both administrative
+router mounts send `Cache-Control: no-store`. They no longer populate/read
+`web_analytics:*`; gated SQL retention includes bounded removal of legacy keys
+from the explicitly confirmed cache target. All old cache-writing website
+processes must be stopped/drained before any authorized execution is enabled.
+Other Redis namespaces and provider/browser/backup copies remain separate.
+
 ## Shared publication metadata without an account selector
 
 These 13 website tables hold shared reference/publication data. Their absence
@@ -256,6 +274,7 @@ Website-only success cannot mean complete account erasure.
 | R2 and CDN/browser media copies | Avatar/banner and forum image objects, URLs and filenames | Delete only verified owned object keys, retain retry identity on failure, define CDN expiry/invalidation; losing the DB row is not proof the object is gone |
 | Logs, terminal output, crash/core files and Git/compile output | May contain identifiers, paths, commands or secrets; restricted host/operator access | Inventory live locations privately; minimize/redact and protect evidence; console-only Winston transport is not evidence of host/journal retention |
 | Retention preview reports/checkpoints | Aggregate age/held/unheld report; private version-2 checkpoint has target hash, operation/version/cutoff, active-protection fingerprint and class cursor/high-water IDs, which remain indirectly linkable | Optional local POSIX 0600 files outside Git, no row payload or credentials; period unapproved, restrict as operator evidence; changed active protection invalidates continuation, never authorize deletion from these counts |
+| Retention run/control evidence | Private SQL run ledger and reserved settings lease; cursors/high-water IDs, target/rule hashes and cache-server traversal identity, no row payload | Retain/restrict pending approved period; SQL batches record actions atomically, incomplete cache removal stays pending; source execution remains disabled and backup/restore protection is not established |
 | Ko-fi | Donor metadata received by webhook; provider's own records | Verify provider responsibilities/retention separately; website deletion does not remove provider records |
 | Discord | Published game/notification payload and message identifiers | Gated delivery/source contract; identify individual messages and owner-approved removal method, preserve pending/ambiguous outcome evidence |
 | Gemini | Account/character/IP/login evidence can be sent when feature enabled | Leave disabled pending purpose/provider/human-review approval; do not claim active transfer from source capability alone |
@@ -316,10 +335,13 @@ The [read-only preview](runbooks/retention-preview.md) can inspect the proposed
 an explicit target/version and private continuation. It evaluates validated hold
 scope/expiry in the same read snapshot, and refuses changed protection on resume.
 Other exceptions and subject requests remain unevaluated; it cannot delete data. Metrics with naive time
-provenance and every unlisted class remain excluded. No approved common
-retention mutation runner or enforced subject hold exists. Hold intent records
-are implemented with a restricted API and explicit `enforcementReady: false`;
-integration/rechecks in deletion/cleanup and restore paths remain open. Protected
+provenance and every unlisted class remain excluded. The prepared
+[SQL executor](runbooks/retention-execution.md) has durable bounded progress,
+expiring ownership, transaction-time hold/eligibility rechecks and retired-cache
+cleanup for only those two classes. All source approvals and enablement remain
+false; no scheduler or live deletion is approved. Hold intent records retain
+the restricted API and global `enforcementReady: false` because other deletion/
+cleanup and restore paths remain open. Protected
 export, request/erasure journal and restore-removal replay are unimplemented. Any new
 consent/request/export store must be added here with exact ownership, selectors,
 cutoff and copy handling before its lifecycle can be considered complete.

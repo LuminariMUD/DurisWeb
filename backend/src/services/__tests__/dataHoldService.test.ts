@@ -39,6 +39,9 @@ const getConnection = jest.fn(async () => ({
 jest.unstable_mockModule('../../db/connection.js', () => ({
   pool: { execute, query: execute, getConnection },
 }));
+jest.unstable_mockModule('../retentionControl.js', () => ({
+  lockRetentionControl: async () => ({ format: 1, lease: null }),
+}));
 const service = await import('../dataHoldService.js');
 function request(scope: unknown = { kind: 'global' }) {
   return {

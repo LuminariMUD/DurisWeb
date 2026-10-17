@@ -261,6 +261,17 @@ reuse. The migration's guarded down deliberately refuses outstanding removal
 work. Provider acknowledgements cover origin objects only; assess caches and
 backups separately when verifying a real erasure request.
 
+The prepared [two-class SQL retention](runbooks/retention-execution.md) remains
+source-disabled. A future authorized release must stop/drain every old website
+writer, include `20261017005000_web_retention_runs.ts` in the protected clone
+rehearsal and retire legacy analytics-cache writers everywhere before enabling
+execution. Preserve `web_data_holds`, `web_retention_runs` and reserved retention
+control state through recovery. Never clear history or restore deleted personal
+data merely to roll back application code. General restore/removal replay is
+still an open P6 requirement; do not enable execution before its acceptance and
+named policy/class approval. The CLI explicitly confirms both SQL and Redis
+targets, and neither deployment configuration nor a preview file approves it.
+
 MUD-owned tables are authoritative. A web migration must preserve their sealed
 column contract and must not add an incoming foreign key from a web extension
 table that changes the MUD's runtime fingerprint. A successful web migration is
