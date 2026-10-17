@@ -29,11 +29,12 @@ polling typo was corrected before the successful runs. Logs:
 not production or MUD service work. The runbook requires target-host rehearsal
 rather than treating local systemd behavior as universal acceptance.
 
-Publish this documentation repair, then resolve `PRRT_kwDOVA2-8c6thGOP` with
-the native evidence and carry #64–#66. No package/runtime change or visitor
-changelog entry is needed. The 12-thread/46-closeout snapshot below is before
-this P1 closure; preserve #62's still-open removal guarantee while fixing the
-independent #64–#66 findings.
+Published as `a2947cc`. Thread `PRRT_kwDOVA2-8c6thGOP` has a verified reply
+and resolved state. The ledger contains **47 verified closeouts**; **11 known
+threads remain** before a new scan: #62 (1), #64 (5), #65 (1), #66 (4).
+Carry #64–#66, then address #64's inventory findings. No package/runtime change
+or visitor changelog entry is needed. Preserve #62's still-open removal
+guarantee while fixing these independent findings.
 
 ### Earlier published repairs and inventory
 
