@@ -2,13 +2,16 @@ import { describe, expect, it } from '@jest/globals';
 import { safeFailureCode } from '../safeFailureCode.js';
 
 describe('safe failure diagnostics', () => {
-  it('retains an allowlisted driver code without its identifying payload', () => {
-    const error = Object.assign(new Error('private-message'), {
-      code: 'ER_LOCK_DEADLOCK',
-      sql: 'private-bindings',
-    });
-    expect(safeFailureCode(error)).toBe('ER_LOCK_DEADLOCK');
-  });
+  it.each(['ER_LOCK_DEADLOCK', 'ER_CHECKREAD'])(
+    'retains allowlisted driver code %s without its identifying payload',
+    (code) => {
+      const error = Object.assign(new Error('private-message'), {
+        code,
+        sql: 'private-bindings',
+      });
+      expect(safeFailureCode(error)).toBe(code);
+    },
+  );
   it('does not treat arbitrary strings or raw driver messages as safe codes', () => {
     for (const error of [
       new Error('ECONNREFUSED private-message'),

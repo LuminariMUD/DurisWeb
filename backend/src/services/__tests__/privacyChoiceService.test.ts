@@ -713,112 +713,120 @@ describe('privacy choice source gates', () => {
     });
   });
 
-  it('does not issue a cookie after an ambiguous preference commit and never leaks the failure', async () => {
-    const context = browser();
-    jest.restoreAllMocks();
-    const warning = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
-    const checkout = pool.getConnection.bind(pool);
-    jest.spyOn(pool, 'getConnection').mockImplementation(
-      async () =>
-        new Proxy(await checkout(), {
-          get(target, key) {
-            if (key === 'commit')
-              return async () => {
-                await target.commit();
-                throw new Error('private-commit-sentinel');
-              };
-            const value: unknown = Reflect.get(target, key, target);
-            return typeof value === 'function' ? value.bind(target) : value;
-          },
+  it.each([undefined, 'ER_CHECKREAD'])(
+    'does not issue a cookie after an ambiguous preference commit (%s) and never leaks the failure',
+    async (code) => {
+      const context = browser();
+      jest.restoreAllMocks();
+      const warning = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
+      const checkout = pool.getConnection.bind(pool);
+      jest.spyOn(pool, 'getConnection').mockImplementation(
+        async () =>
+          new Proxy(await checkout(), {
+            get(target, key) {
+              if (key === 'commit')
+                return async () => {
+                  await target.commit();
+                  throw Object.assign(new Error('private-commit-sentinel'), { code });
+                };
+              const value: unknown = Reflect.get(target, key, target);
+              return typeof value === 'function' ? value.bind(target) : value;
+            },
+          }),
+      );
+      const app = express();
+      app.use(express.json(), cookieParser());
+      app.use('/api/privacy', privacyRoutes);
+      const response = await request(app)
+        .post('/api/privacy/choice')
+        .set('Origin', environment.siteUrl)
+        .set('Cookie', 'csrf_token=' + context.csrfToken)
+        .set('x-csrf-token', context.csrfToken)
+        .send({
+          decision: 'accepted',
+          revision: 0,
+          choiceVersion: policy.choiceVersion,
+          noticeVersion: policy.noticeVersion,
+        });
+      expect(response.status).toBe(503);
+      expect(response.headers['set-cookie']).toBeUndefined();
+      expect(warning.mock.calls).toContainEqual([
+        'privacy_choice_storage_unavailable',
+        expect.objectContaining({
+          reference: response.body.reference,
+          stage: 'commit',
+          operation: 'choice',
+          rollback: 'completed',
         }),
-    );
-    const app = express();
-    app.use(express.json(), cookieParser());
-    app.use('/api/privacy', privacyRoutes);
-    const response = await request(app)
-      .post('/api/privacy/choice')
-      .set('Origin', environment.siteUrl)
-      .set('Cookie', 'csrf_token=' + context.csrfToken)
-      .set('x-csrf-token', context.csrfToken)
-      .send({
-        decision: 'accepted',
-        revision: 0,
-        choiceVersion: policy.choiceVersion,
-        noticeVersion: policy.noticeVersion,
+      ]);
+      expect(inspect(warning.mock.calls)).not.toContain('private-commit-sentinel');
+      jest.restoreAllMocks();
+      expect(await service.getPrivacyChoice(context)).toMatchObject({
+        decision: 'unknown',
+        revision: 1,
+        receiptValid: false,
       });
-    expect(response.status).toBe(503);
-    expect(response.headers['set-cookie']).toBeUndefined();
-    expect(warning.mock.calls).toContainEqual([
-      'privacy_choice_storage_unavailable',
-      expect.objectContaining({
-        reference: response.body.reference,
-        stage: 'commit',
-        operation: 'choice',
-        rollback: 'completed',
-      }),
-    ]);
-    expect(inspect(warning.mock.calls)).not.toContain('private-commit-sentinel');
-    jest.restoreAllMocks();
-    expect(await service.getPrivacyChoice(context)).toMatchObject({
-      decision: 'unknown',
-      revision: 1,
-      receiptValid: false,
-    });
-  });
+    },
+  );
 
-  it('records rollback failures separately and discards the affected checkout', async () => {
-    jest.restoreAllMocks();
-    const warning = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
-    const checkout = pool.getConnection.bind(pool);
-    let destroyed = false;
-    jest.spyOn(pool, 'getConnection').mockImplementation(
-      async () =>
-        new Proxy(await checkout(), {
-          get(target, key) {
-            if (key === 'rollback')
-              return async () => {
-                throw Object.assign(new Error('private-rollback-sentinel'), { code: 'ECONNRESET' });
-              };
-            if (key === 'destroy')
-              return () => {
-                destroyed = true;
-                target.destroy();
-              };
-            const value: unknown = Reflect.get(target, key, target);
-            if (key === 'execute' && typeof value === 'function')
-              return (...args: unknown[]) => {
-                const first = args[0];
-                if (
-                  first &&
-                  typeof first === 'object' &&
-                  'sql' in first &&
-                  String(first.sql).startsWith('INSERT INTO web_settings')
-                )
-                  return Promise.reject(
-                    Object.assign(new Error('private-query-sentinel'), {
-                      code: 'ER_LOCK_DEADLOCK',
-                    }),
-                  );
-                return Reflect.apply(value, target, args);
-              };
-            return typeof value === 'function' ? value.bind(target) : value;
-          },
+  it.each(['ER_LOCK_DEADLOCK', 'ER_CHECKREAD'])(
+    'records rollback failures separately and discards the affected checkout (%s)',
+    async (code) => {
+      jest.restoreAllMocks();
+      const warning = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
+      const checkout = pool.getConnection.bind(pool);
+      let destroyed = false;
+      jest.spyOn(pool, 'getConnection').mockImplementation(
+        async () =>
+          new Proxy(await checkout(), {
+            get(target, key) {
+              if (key === 'rollback')
+                return async () => {
+                  throw Object.assign(new Error('private-rollback-sentinel'), {
+                    code: 'ECONNRESET',
+                  });
+                };
+              if (key === 'destroy')
+                return () => {
+                  destroyed = true;
+                  target.destroy();
+                };
+              const value: unknown = Reflect.get(target, key, target);
+              if (key === 'execute' && typeof value === 'function')
+                return (...args: unknown[]) => {
+                  const first = args[0];
+                  if (
+                    first &&
+                    typeof first === 'object' &&
+                    'sql' in first &&
+                    String(first.sql).startsWith('INSERT INTO web_settings')
+                  )
+                    return Promise.reject(
+                      Object.assign(new Error('private-query-sentinel'), {
+                        code,
+                      }),
+                    );
+                  return Reflect.apply(value, target, args);
+                };
+              return typeof value === 'function' ? value.bind(target) : value;
+            },
+          }),
+      );
+      await expect(choose(browser())).rejects.toMatchObject({ status: 503 });
+      expect(destroyed).toBe(true);
+      expect(warning.mock.calls).toContainEqual([
+        'privacy_choice_storage_unavailable',
+        expect.objectContaining({
+          operation: 'choice',
+          stage: 'action',
+          code,
+          rollback: 'failed',
+          rollbackCode: 'ECONNRESET',
         }),
-    );
-    await expect(choose(browser())).rejects.toMatchObject({ status: 503 });
-    expect(destroyed).toBe(true);
-    expect(warning.mock.calls).toContainEqual([
-      'privacy_choice_storage_unavailable',
-      expect.objectContaining({
-        operation: 'choice',
-        stage: 'action',
-        code: 'ER_LOCK_DEADLOCK',
-        rollback: 'failed',
-        rollbackCode: 'ECONNRESET',
-      }),
-    ]);
-    expect(inspect(warning.mock.calls)).not.toContain('private-');
-  });
+      ]);
+      expect(inspect(warning.mock.calls)).not.toContain('private-');
+    },
+  );
 
   it('rolls both optional writes back when visitor-session persistence fails, without disclosing bindings', async () => {
     const context = browser();

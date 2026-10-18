@@ -182,6 +182,10 @@ long headings, narrow screens, zoom, and fixed navigation without clipped
 controls or unintended horizontal page scrolling. Dense tables and maps may
 need an explicit local scroll region.
 
+Shared forum pagination places page numbers above navigation buttons below
+the `sm` breakpoint, retaining its stable single row on wider screens. Result
+counts and pagination may wrap onto separate rows when their container is narrow.
+
 ## Content and imagery
 
 ### Copy and public settings

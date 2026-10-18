@@ -252,6 +252,10 @@ identity, as when no receipt exists, so a lost cookie update can recover without
 modifying another browser's choice. Storage failures expose a shared random
 reference with safe operation/stage, allowlisted driver/state code and rollback
 outcome in logs; raw errors, SQL, bindings and credentials remain excluded.
+A concurrent choice rejected by MariaDB snapshot isolation returns the existing
+409 refresh-and-retry response only after a successful rollback during the
+choice action. Commit errors and failed rollbacks remain storage failures and
+never issue a new receipt.
 
 [Terminal](../backend/src/services/terminalService.ts),
 [operations](../backend/src/services/mudControlService.ts),

@@ -408,10 +408,60 @@ if (inputs)
   for (const port of ports) {
     describe(`full owner-schema qualification on disposable port ${port}`, () => {
       it('installs the web baseline without changing the published full owner metadata and keeps readiness honest', async () => {
-        await fixture(port, 'fresh', async (database) => {
+        await fixture(port, 'fresh', async (database, name) => {
           const expected = await externalSchemaSha256(database, bundle);
           await runWebBaseline(database, 'bootstrap', expected);
           expect((await verifiedWebBaselineCoverage(database)).size).toBe(85);
+          const user = `dw_status_${process.pid}`;
+          const password = 'synthetic-status-qualification-only';
+          await database.query('CREATE USER ?@? IDENTIFIED BY ?', [user, '%', password]);
+          try {
+            await database.query('GRANT ALL PRIVILEGES ON ??.* TO ?@?', [
+              name.replaceAll('_', '\\_'),
+              user,
+              '%',
+            ]);
+            const status = spawnSync(
+              process.execPath,
+              [
+                '--import',
+                'tsx',
+                'node_modules/knex/bin/cli.js',
+                'migrate:status',
+                '--knexfile',
+                'knexfile.ts',
+              ],
+              {
+                cwd: backendRoot,
+                env: {
+                  ...process.env,
+                  NODE_ENV: 'test',
+                  DB_HOST: '127.0.0.1',
+                  DB_PORT: String(port),
+                  DB_NAME: name,
+                  DB_USER: user,
+                  DB_PASSWORD: password,
+                },
+                encoding: 'utf8',
+                timeout: 30000,
+              },
+            );
+            expect({ status: status.status, stderr: status.stderr }).toEqual({
+              status: 0,
+              stderr: '',
+            });
+            const covered = new Set(bundle.manifest.historicalMigrations.map(({ name }) => name));
+            const pending = fs
+              .readdirSync(path.join(backendRoot, 'migrations'))
+              .filter((name) => name.endsWith('.ts') && !covered.has(name));
+            expect(status.stdout).toContain(
+              `Found ${pending.length} Pending Migration file/files.`,
+            );
+            for (const name of pending) expect(status.stdout).toContain(name);
+            expect(status.stdout).not.toContain('undefined');
+          } finally {
+            await database.query('DROP USER ?@?', [user, '%']);
+          }
           expect(validateForumReadiness(await readForumReadiness(database))).not.toEqual([]);
           expect(validateWikiMapReadiness(await readWikiMapReadiness(database))).not.toEqual([]);
           expect(
@@ -515,6 +565,7 @@ if (inputs)
               '20261017003000_post_image_removal_intent.ts',
               '20261017004000_web_data_holds.ts',
               '20261017005000_web_retention_runs.ts',
+              '20261017010000_forum_reaction_export_index.ts',
             ]);
             const [sessions] = await restored.query('SELECT id FROM web_sessions');
             expect(sessions).toEqual([]); // Planned logout discards legacy expiry interpretations.

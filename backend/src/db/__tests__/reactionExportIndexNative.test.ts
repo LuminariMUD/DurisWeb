@@ -123,7 +123,7 @@ native('forward reaction owner index on actual database metadata and query plans
     });
     await migration.migrate.up({ name: REACTION_EXPORT_INDEX_MIGRATION });
     await expect(verifiedWebBaselineCoverage(database)).resolves.toBeInstanceOf(Set);
-    const implementation = await source.getMigration(REACTION_EXPORT_INDEX_MIGRATION);
+    const implementation = await source.getMigration({ file: REACTION_EXPORT_INDEX_MIGRATION });
     if (!implementation.down) throw new Error('Required index down is absent');
     await implementation.down(migration);
     await expect(verifiedWebBaselineCoverage(database)).rejects.toMatchObject({
@@ -141,7 +141,7 @@ native('forward reaction owner index on actual database metadata and query plans
       'ALTER TABLE forum_reactions ADD INDEX idx_reaction_export_unreviewed (emoji)',
     );
     try {
-      const implementation = await source.getMigration(REACTION_EXPORT_INDEX_MIGRATION);
+      const implementation = await source.getMigration({ file: REACTION_EXPORT_INDEX_MIGRATION });
       if (!implementation.down) throw new Error('Required index down is absent');
       await expect(implementation.down(migration)).rejects.toThrow('schema_drift_forum_reactions');
       const [indexes] = await database.query<RowDataPacket[]>(

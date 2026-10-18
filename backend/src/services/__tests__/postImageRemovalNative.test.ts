@@ -213,10 +213,11 @@ async function waitForBlockedStatement(thread: number) {
       images = await import('../postImageService.js');
       forum = await import('../forumService.js');
       observer = await mysql.createConnection({ host: '127.0.0.1', port, user: 'root', database });
-      const [categories] = await pool.execute<RowDataPacket[]>(
-        'SELECT id FROM forum_categories ORDER BY id LIMIT 1',
+      const [category] = await pool.execute<ResultSetHeader>(
+        "INSERT INTO forum_categories (name,access_type) VALUES (?,'public')",
+        [actor],
       );
-      categoryId = Number(categories[0].id);
+      categoryId = category.insertId;
       app = express();
       app.use(
         express.json(),
@@ -249,6 +250,7 @@ async function waitForBlockedStatement(thread: number) {
     afterAll(async () => {
       await observer?.end();
       if (pool) {
+        if (categoryId) await pool.execute('DELETE FROM forum_categories WHERE id=?', [categoryId]);
         (await import('../../db/redis.js')).default.disconnect();
         await pool.end();
       }

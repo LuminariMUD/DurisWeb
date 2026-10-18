@@ -253,6 +253,14 @@ async function withConnection<T>(
       }
     }
     if (error instanceof PrivacyChoiceError && reusable) throw error;
+    // MariaDB snapshot conflicts abort a competing choice before it can commit.
+    if (
+      operation === 'choice' &&
+      stage === 'action' &&
+      rollback === 'completed' &&
+      safeFailureCode(error) === 'ER_CHECKREAD'
+    )
+      throw new PrivacyChoiceError(409, 'Privacy choice changed; refresh and try again');
     const reference = crypto.randomUUID();
     logger.warn('privacy_choice_storage_unavailable', {
       reference,

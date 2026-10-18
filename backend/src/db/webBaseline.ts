@@ -385,7 +385,6 @@ export async function verifiedWebBaselineCoverage(
   recoverSessionDdl = false,
 ): Promise<Set<string>> {
   const bundle = checkedBundle();
-  await verifyNoWebTriggers(database, bundle);
   const applied = await readWebMigrationLedger(
     database,
     availableNames ??
@@ -396,6 +395,7 @@ export async function verifiedWebBaselineCoverage(
   const ledger = new Set(applied);
   const provenance = await readProvenance(database, bundle);
   if (!provenance) {
+    await verifyNoWebTriggers(database, bundle);
     if ((await objectNames(database)).includes(PROVENANCE_TABLE))
       throw new WebBaselineError('installation_incomplete');
     return new Set();
@@ -408,6 +408,8 @@ export async function verifiedWebBaselineCoverage(
     provenance.journal.completed.length !== bundle.tables.length
   )
     throw new WebBaselineError('installation_incomplete');
+  // The ledger/provenance reads above do not mutate state. This complete check
+  // includes baseline and forward-table triggers, so do not repeat the baseline pass.
   await verifyWebSchema(database, bundle, applied, migrationsDirectory, recoverSessionDdl);
   if (provenance.state === 'adopted') {
     if (bundle.manifest.historicalMigrations.some(({ name }) => !ledger.has(name)))

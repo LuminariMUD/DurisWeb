@@ -118,6 +118,9 @@ The verifier discovers standard CI and sibling-checkout layouts. For another
 layout, pass its manifest explicitly as `--mud-manifest <path>`; this is a
 tooling argument, not an application environment variable.
 
+`migrate:status` lists the exact pending TypeScript filenames, including when
+the verified website baseline covers historical migrations.
+
 Knex loads only TypeScript migrations. Every excluded `.sql` artifact is
 classified in `backend/migrations/sql-artifacts.json`, and production
 configuration preflight rejects missing or stale classifications. Do not enable

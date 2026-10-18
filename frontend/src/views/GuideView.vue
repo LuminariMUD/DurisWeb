@@ -421,7 +421,7 @@ onMounted(() => {
             </div>
 
             <!-- Pagination -->
-            <div v-if="!initialLoading && helpFiles.length > 0" class="border-t px-3 lg:px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+            <div v-if="!initialLoading && helpFiles.length > 0" class="border-t px-3 lg:px-4 py-3 flex flex-col flex-wrap sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
               <p class="text-xs lg:text-sm text-muted-foreground whitespace-nowrap">
                 <span class="hidden sm:inline">Showing {{ (currentPage - 1) * limit + 1 }}-{{ Math.min(currentPage * limit, total) }} of {{ total }} help files</span>
                 <span class="sm:hidden">{{ total }} results</span>

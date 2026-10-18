@@ -17,14 +17,18 @@ import {
   webBaselineDirectory,
 } from './webBaselineBundle.js';
 
+interface WebMigrationFile {
+  file: string;
+}
+
 /** Knex sees real applied history; only verified fresh-baseline coverage can omit unapplied names. */
-export class WebMigrationSource implements Knex.MigrationSource<string> {
+export class WebMigrationSource implements Knex.MigrationSource<WebMigrationFile> {
   constructor(
     private readonly configuration: DatabaseConfiguration,
     private readonly directory = path.resolve(webBaselineDirectory(), '../../migrations'),
   ) {}
 
-  async getMigrations(): Promise<string[]> {
+  async getMigrations(): Promise<WebMigrationFile[]> {
     const bundle = loadWebBaselineBundle();
     verifyWebBaselineSources(bundle, this.directory);
     const available = fs
@@ -43,17 +47,18 @@ export class WebMigrationSource implements Knex.MigrationSource<string> {
       const applied = await readWebMigrationLedger(database, available);
       if (coverage.size === 0 && applied.length === 0)
         throw new WebBaselineError('fresh_database_requires_explicit_baseline');
-      return available.filter((name) => !coverage.has(name));
+      // The Knex CLI reads `file` when displaying pending migrations.
+      return available.filter((name) => !coverage.has(name)).map((file) => ({ file }));
     } finally {
       await database.end();
     }
   }
 
-  getMigrationName(name: string): string {
-    return name;
+  getMigrationName(migration: WebMigrationFile): string {
+    return migration.file;
   }
 
-  async getMigration(name: string): Promise<Knex.Migration> {
+  async getMigration({ file: name }: WebMigrationFile): Promise<Knex.Migration> {
     if (!/^[a-zA-Z0-9_]+\.ts$/.test(name)) throw new WebBaselineError('invalid_migration_name');
     const migration: Knex.Migration = await import(
       pathToFileURL(path.join(this.directory, name)).href

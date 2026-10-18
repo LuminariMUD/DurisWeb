@@ -12,6 +12,7 @@ const allowedCodes = new Set([
   'ER_BAD_FIELD_ERROR',
   'ER_PARSE_ERROR',
   'ER_LOCK_DEADLOCK',
+  'ER_CHECKREAD',
   'ER_LOCK_WAIT_TIMEOUT',
   'ER_DUP_ENTRY',
   'ER_NO_REFERENCED_ROW_2',

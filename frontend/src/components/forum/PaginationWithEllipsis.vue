@@ -85,7 +85,7 @@ function goToPage(page: number) {
     :sibling-count="siblingCount"
     :default-page="currentPage"
   >
-    <PaginationContent class="gap-1">
+    <PaginationContent class="flex-wrap justify-center gap-1 sm:flex-nowrap">
       <!-- First Page Button -->
       <PaginationFirst
         as-child
@@ -108,8 +108,8 @@ function goToPage(page: number) {
         </Button>
       </PaginationPrevious>
 
-      <!-- Page Numbers with Ellipsis - fixed width container to prevent jumping -->
-      <div class="flex items-center justify-center gap-1 w-[252px]">
+      <!-- Numbers get their own row on phones; wider screens reserve a stable width. -->
+      <div class="order-first flex w-full flex-wrap items-center justify-center gap-1 sm:order-none sm:w-[252px] sm:flex-nowrap">
         <template v-for="(page, index) in pages" :key="index">
           <PaginationEllipsis v-if="page === 'ellipsis'" />
           <PaginationItem v-else :value="typeof page === 'number' ? page : 0">
