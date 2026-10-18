@@ -35,8 +35,15 @@ then complete the [publication step](#publish-website-changelog) after acceptanc
 ## Build and validate
 
 A pull changes source only; it does not prove that the running process or static
-assets use that commit. Record `git status`, the exact commit, and the currently
-served generated asset before changing anything. Run the complete non-mutating
+assets use that commit. The installed startup preflights must use the same
+release's migration files as its compiled artifacts. If the source checkout has
+advanced, pin the preflight path to the retained, verified release workspace and
+record that host override in the operator inventory. Qualify the actual installed
+commands before restarting: newer, unapplied migrations in a mutable checkout
+can otherwise prevent both the release and its rollback from starting. Update
+the pin with each release; do not apply unrelated migrations to clear this gate.
+
+Record `git status`, the exact commit, and the currently served generated asset before changing anything. Run the complete non-mutating
 quality matrix against isolated test dependencies:
 
 ```bash

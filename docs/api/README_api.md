@@ -463,3 +463,22 @@ A complete OpenAPI contract, schema examples, and generated-client workflow do
 not exist. Adding them requires a dedicated inventory/reconciliation of the
 large route surface; this page must not be treated as an exhaustive endpoint
 schema.
+
+### Public faction activity
+
+`GET /api/public/statistics/available-dates` lists the newest 30 recorded UTC
+calendar days. `GET /api/public/statistics/faction-activity?date=YYYY-MM-DD`
+returns the MUD's recorded samples for that UTC day. Both use the same cutoff:
+only complete days ending at least 24 hours ago are published. For example,
+on October 18 the newest eligible day is October 16. Yesterday, today and
+future days return an empty data array. Invalid calendar dates return 400;
+database failures return 500, rather than an empty success.
+
+The authoritative source is the MUD-owned `statistics` table, read through
+`mudPool`. The MUD's operational statistics job already writes these samples;
+no website importer or migration is required. `illithids_count` supplies the
+existing `neutrals` series; staff counts are not included. The separate daily
+account-login export from Duris PR #41 contains no faction breakdown and is
+not this page's data source. Historical responses are cached for ten minutes;
+the date-list cache changes at UTC midnight. The page selects the newest
+published date, displays UTC times, and offers retry on load failure.

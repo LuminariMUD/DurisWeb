@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import type { Router as RouterType } from 'express';
 import { getFactionActivity, getAvailableDates } from '../services/publicStatisticsService.js';
 import logger from '../utils/logger.js';
+import { validateDateString } from '../utils/validation.js';
 
 const router: RouterType = Router();
 
@@ -18,7 +19,7 @@ router.get('/faction-activity', async (req: Request, res: Response) => {
     }
 
     // validate date format
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    if (!validateDateString(date) || new Date(date).toISOString().slice(0, 10) !== date) {
       return res.status(400).json({ error: 'invalid date format, use YYYY-MM-DD' });
     }
 
