@@ -66,6 +66,7 @@ export interface ParticipantInfo {
   level: number;
   pk_type: string;
   player_description: string;
+  pov_status: 'public' | 'private' | 'unavailable';
   equip: string | null;
   log: string | null;
   inroom: number;

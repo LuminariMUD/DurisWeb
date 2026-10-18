@@ -3,6 +3,14 @@
 Tracking issue: [#31 — Fix remaining PvP log correctness gaps](https://github.com/LuminariMUD/DurisWeb/issues/31).
 Notification delivery/polling work also overlaps [#30](https://github.com/LuminariMUD/DurisWeb/issues/30).
 
+**2026-10-18 privacy correction:** the [three-battle webinfo investigation](2026-10-18-pvp-webinfo-privacy-investigation.md)
+supersedes this report's broad privacy assurance. The checks below verified
+current-flag filtering of the separate equipment field, not suppression of a
+private player's whole POV. The follow-up confirms unconditional combat-log
+publication, whisper text in a public snapshot, equipment disclosure inside a
+log, and missing battle-time privacy state. The older observations remain a
+record of what was tested, not proof of the owner's intended privacy contract.
+
 ## Implementation handoff — issue #30 (2026-10-16)
 
 The audit below is retained as dated evidence, not a description of current

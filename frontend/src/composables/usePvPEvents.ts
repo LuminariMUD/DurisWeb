@@ -17,6 +17,8 @@ export function useBattleDetail(eventId: MaybeRef<number>) {
     queryKey: ['battle-detail', eventId] as const,
     queryFn: () => pvpApi.getBattleDetail(unref(eventId)),
     enabled: () => !!unref(eventId),
+    staleTime: 0,
+    gcTime: 0,
   })
 }
 

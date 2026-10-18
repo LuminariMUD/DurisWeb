@@ -34,6 +34,7 @@ export interface PvPParticipant {
   level: number
   pk_type: 'KILLER' | 'VICTIM' | 'KILLER-GROUP' | 'VICTIM-GROUP'
   player_description: string // e.g., "[56 Crusader] Juts (Githzerai)"
+  pov_status: 'public' | 'private' | 'unavailable'
   equip: string | null
   log: string | null
   inroom: boolean
