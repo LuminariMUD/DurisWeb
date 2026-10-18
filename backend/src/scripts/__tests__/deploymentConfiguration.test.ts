@@ -131,6 +131,26 @@ printf '%s\\n' "$*"
       const content = fs.readFileSync(path.join(outputPath, relativePath), 'utf8');
       expect(content).not.toMatch(/@[A-Z][A-Z0-9_]*@/);
     }
+    const application = fs.readFileSync(
+      path.join(outputPath, 'systemd/durisweb-production.service'),
+      'utf8',
+    );
+    expect(application).toContain('ProtectSystem=no\n');
+    for (const property of ['PrivateTmp', 'ProtectKernelTunables', 'ProtectControlGroups']) {
+      expect(application).toContain(`${property}=false\n`);
+    }
+    expect(application).toContain('NoNewPrivileges=true\n');
+    expect(application).toContain('RestrictNamespaces=mnt user ipc uts cgroup\n');
+    for (const name of ['redis', 'cloudflared']) {
+      const unit = fs.readFileSync(
+        path.join(outputPath, `systemd/durisweb-${name}.service`),
+        'utf8',
+      );
+      expect(unit).toContain('ProtectSystem=full\n');
+      for (const property of ['PrivateTmp', 'ProtectKernelTunables', 'ProtectControlGroups']) {
+        expect(unit).toContain(`${property}=true\n`);
+      }
+    }
     const selection = fs.readFileSync(path.join(outputPath, 'deployment-selection.env'), 'utf8');
     expect(selection).toContain('INGRESS_SERVICE=durisweb-cloudflared.service\n');
     expect(selection).toContain('INGRESS_SERVICE_SCOPE=user\n');
@@ -234,6 +254,10 @@ printf '%s\\n' "$*"
       expect(unit).toContain('WantedBy=multi-user.target\n');
       expect(unit).toContain('RemoveIPC=false\n');
       expect(unit).toContain('NoNewPrivileges=true\n');
+      expect(unit).toContain('ProtectSystem=full\n');
+      for (const property of ['PrivateTmp', 'ProtectKernelTunables', 'ProtectControlGroups']) {
+        expect(unit).toContain(`${property}=true\n`);
+      }
       expect(unit).not.toMatch(/@[A-Z][A-Z0-9_]*@/);
     }
     const selection = fs.readFileSync(path.join(outputPath, 'deployment-selection.env'), 'utf8');

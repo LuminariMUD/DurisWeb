@@ -40,6 +40,11 @@ done <"${render_input}"
 SERVICE_IDENTITY=''
 SERVICE_INSTALL_TARGET=default.target
 SERVICE_REMOVE_IPC=true
+# User-manager filesystem protections create a user namespace that prevents
+# authoritative /proc identity checks of the paired MUD in the host namespace.
+# Apply this exception only to the application; keep every other unit hardened.
+APPLICATION_NAMESPACE_HARDENING=false
+APPLICATION_PROTECT_SYSTEM=no
 case "${DEPLOY_SERVICE_SCOPE}" in
   user) ;;
   system)
@@ -53,6 +58,8 @@ case "${DEPLOY_SERVICE_SCOPE}" in
     SERVICE_INSTALL_TARGET=multi-user.target
     # The deployment user may also own the MUD's IPC; do not remove shared IPC.
     SERVICE_REMOVE_IPC=false
+    APPLICATION_NAMESPACE_HARDENING=true
+    APPLICATION_PROTECT_SYSTEM=full
     ;;
   *)
     printf 'DEPLOY_SERVICE_SCOPE must be user or system.\n' >&2
@@ -176,6 +183,7 @@ fi
 render_output_marker="${RENDER_OUTPUT_DIR}/.durisweb-render-output"
 render_variables+=(
   SERVICE_IDENTITY SERVICE_INSTALL_TARGET SERVICE_REMOVE_IPC DEPLOY_SERVICE_SCOPE
+  APPLICATION_NAMESPACE_HARDENING APPLICATION_PROTECT_SYSTEM
   WATCHDOG_EXECUTABLE WATCHDOG_INGRESS_SERVICE WATCHDOG_INGRESS_SCOPE
   WATCHDOG_INGRESS_READY_URL WATCHDOG_PROXY_SERVICE WATCHDOG_PUBLIC_HEALTH_URL
 )

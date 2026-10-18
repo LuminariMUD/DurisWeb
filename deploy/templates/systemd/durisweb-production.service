@@ -27,10 +27,11 @@ TimeoutStopSec=30s
 UMask=0077
 LimitNOFILE=65535
 NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=full
-ProtectKernelTunables=true
-ProtectControlGroups=true
+# Scope-specific process-monitor policy; see docs/deployment.md.
+PrivateTmp=@APPLICATION_NAMESPACE_HARDENING@
+ProtectSystem=@APPLICATION_PROTECT_SYSTEM@
+ProtectKernelTunables=@APPLICATION_NAMESPACE_HARDENING@
+ProtectControlGroups=@APPLICATION_NAMESPACE_HARDENING@
 RemoveIPC=@SERVICE_REMOVE_IPC@
 RestrictSUIDSGID=true
 # The administrative terminal uses bubblewrap's mount/user/IPC/UTS/cgroup namespaces.

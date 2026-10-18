@@ -531,12 +531,24 @@ inherited restriction. Validate the exact sandbox flags under the chosen
 manager. System mode can preserve the same unit restrictions while running as
 the unprivileged account; do not disable host-wide user-namespace protection.
 
-User-service filesystem namespaces can also prevent the process monitor from
-reading the paired MUD process's `exe` and `cwd` links under `/proc`. Check the
-actual loaded unit and process-monitor result on the target host. A supported
-scope-specific rendering policy is proposed in
-[issue #3](https://github.com/LuminariMUD/DurisWeb/issues/3); copying a host's
-local protection overrides into every deployment is not the solution.
+The renderer selects the application's process-monitor policy from service scope.
+User scope disables `ProtectSystem`, `PrivateTmp`, `ProtectKernelTunables`, and
+`ProtectControlGroups`: their user-service filesystem namespaces prevent reading
+the paired MUD process's `exe` and `cwd` links under `/proc`. This trades those
+four sandbox protections for authoritative process identity checks. System scope
+keeps `ProtectSystem=full` and the other three enabled. Other restrictions and
+the cache/tunnel units are unchanged; missing, unrelated, or ambiguous MUD
+processes still report stopped.
+
+When replacing a host-local process-monitor override, first render and review
+the exact unit, verify it with the selected systemd manager, and qualify its
+process-monitor result on the host. Preserve the old unit and override in private
+recovery storage. Install the rendered application unit, remove only the now
+redundant four-property override, reload, and restart only the website application.
+Preserve unrelated drop-ins (including any deployed-release preflight pin).
+Verify the loaded properties, actual MUD identity/status, and public health;
+restore the previous unit/override if acceptance fails. Do not restart the MUD,
+database, cache, or required tunnel for this change.
 
 The application unit permits the mount, user, IPC, UTS, and cgroup namespaces used
 by its bubblewrap terminal; PID and network namespace creation remain denied.
