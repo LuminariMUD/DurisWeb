@@ -118,7 +118,7 @@ function getSettingDescription(key: string): string {
     site_logo_url: 'The logo image displayed before the site title in the navbar.',
     support_url: 'Optional public HTTP or HTTPS support/donation page.',
     respect_webinfo_toggle:
-      'When enabled, hides extended character info (equipment, money, playtime, etc.) for players who have "tog web info" set to OFF. When disabled, all info is shown regardless of player preference. Note: existing pages need to be refreshed to see changes.',
+      'When enabled, a saved "toggle webinfo off" hides extended character details and previously permitted PvP logs, equipment, and quotes. "toggle webinfo on" enables sharing. PvP snapshots recorded as private or with unknown permission stay hidden even when this setting is disabled. This does not restrict which public battles a player can view. Refresh open pages after changes.',
   }
   return descriptions[key] || ''
 }
@@ -390,7 +390,7 @@ onMounted(async () => {
                     <TooltipContent side="right" class="max-w-xs">
                       <p class="font-semibold mb-2">fields hidden when enabled:</p>
                       <p class="text-sm mb-1"><span class="font-medium">character profile:</span> money, balance, playtime, epics, forum posts, pvp k/d stats</p>
-                      <p class="text-sm"><span class="font-medium">pvp battle detail:</span> equipment</p>
+                      <p class="text-sm"><span class="font-medium">pvp battle detail:</span> combat log, equipment, and linked quotes</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

@@ -17,7 +17,8 @@ import {
   PvPBattleStats,
   PvPFavorite,
 } from '../types/index.js';
-import { extractPlayerName } from '../utils/stringUtils.js';
+import { extractPlayerName, stripAnsiCodes } from '../utils/stringUtils.js';
+import { AppError } from '../middleware/errorHandler.js';
 import { getWebSettings } from './webSettingsService.js';
 import {
   getPvpDelayMinutes,
@@ -283,26 +284,51 @@ async function readEventSummaries(
   return events;
 }
 
-/**
- * Get detailed information for a single PvP event
- */
+/** Shared by snapshots and stored quotes. A legacy schema never grants publication. */
+async function pvpPublicationSql(respectWebinfo: boolean): Promise<string> {
+  const [columns] = await pool.query<RowDataPacket[]>(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pkill_info'
+       AND COLUMN_NAME = 'webinfo_at_capture'`,
+  );
+  if (columns.length === 0) return "'unavailable'";
+
+  return `CASE
+    WHEN p.webinfo_at_capture = 0 THEN 'private'
+    WHEN p.webinfo_at_capture IS NULL OR p.webinfo_at_capture != 1 THEN 'unavailable'
+    ${
+      respectWebinfo
+        ? `WHEN pd.act2 IS NULL THEN 'unavailable'
+    WHEN (pd.act2 & 134217728) = 0 THEN 'private'`
+        : ''
+    }
+    ELSE 'public' END`;
+}
+
+async function pvpQuoteSelectSql(): Promise<string> {
+  const settings = await getWebSettings();
+  const publication = await pvpPublicationSql(settings.respectWebinfoToggle);
+  const permitted = `c.is_deleted = 0 AND EXISTS (
+    SELECT 1 FROM pkill_info p LEFT JOIN player_data pd ON pd.pid = p.pid
+    WHERE p.event_id = c.event_id AND p.pid = c.participant_id AND p.inroom = 1
+      AND (${publication}) = 'public'
+  )`;
+  return ['quoted_text', 'line_number', 'participant_id']
+    .map((field) => `CASE WHEN ${permitted} THEN c.${field} ELSE NULL END AS ${field}`)
+    .join(', ');
+}
+
+/** Get battle metadata and only those snapshots eligible for publication. */
 export async function getPvPEventDetail(eventId: number): Promise<PvPEventDetail | null> {
   // Get settings
   const webSettings = await getWebSettings();
   const pvpDelayMinutes = webSettings.pvpDelayMinutes || 0;
-  const respectWebinfo = webSettings.respectWebinfoToggle;
+  const publication = await pvpPublicationSql(webSettings.respectWebinfoToggle);
 
   // Build WHERE clause with delay filter
   const whereConditions = ['e.id = ?'];
   const queryParams = [eventId, pvpDelayMinutes];
   whereConditions.push(pvpVisibilitySql());
-
-  // If respectWebinfoToggle is enabled, hide equipment when player's webinfo is off
-  // webinfo is stored as bit 28 (134217728) in act2 column
-  const PLR2_WEBINFO = 134217728;
-  const equipSelect = respectWebinfo
-    ? `CASE WHEN (pd.act2 & ${PLR2_WEBINFO}) != 0 THEN p.equip ELSE NULL END as equip`
-    : 'p.equip';
 
   const query = `
     SELECT
@@ -314,8 +340,9 @@ export async function getPvPEventDetail(eventId: number): Promise<PvPEventDetail
       p.player_description,
       p.pk_type,
       p.level,
-      ${equipSelect},
-      p.log,
+      ${publication} AS pov_status,
+      CASE WHEN (${publication}) = 'public' THEN p.equip ELSE NULL END AS equip,
+      CASE WHEN (${publication}) = 'public' THEN p.log ELSE NULL END AS log,
       p.inroom,
       p.leader,
       p.pid
@@ -350,6 +377,7 @@ export async function getPvPEventDetail(eventId: number): Promise<PvPEventDetail
       level: row.level,
       pk_type: row.pk_type,
       player_description: row.player_description,
+      pov_status: row.pov_status,
       equip: row.equip,
       log: row.log,
       inroom: row.inroom,
@@ -1358,6 +1386,7 @@ export async function getUserFavorites(
  */
 export async function getBattleComments(eventId: number): Promise<PvPBattleComment[]> {
   await requireVisiblePvpEvent(eventId);
+  const quoteSelect = await pvpQuoteSelectSql();
   const query = `
     SELECT
       c.id,
@@ -1369,9 +1398,7 @@ export async function getBattleComments(eventId: number): Promise<PvPBattleComme
       c.is_deleted,
       c.created_at,
       c.updated_at,
-      c.quoted_text,
-      c.line_number,
-      c.participant_id,
+      ${quoteSelect},
       fl.char_name as character_name,
       fl.race as character_race,
       fl.class as character_class,
@@ -1450,6 +1477,21 @@ export async function createBattleComment(
   participantId?: number,
 ): Promise<PvPBattleComment> {
   await requireVisiblePvpEvent(eventId);
+  if (quotedText !== undefined || lineNumber !== undefined || participantId !== undefined) {
+    const battle = await getPvPEventDetail(eventId);
+    const participant = battle?.participants.find((p) => p.id === participantId);
+    if (participant?.pov_status !== 'public' || !participant.log) {
+      throw new AppError('This point of view is not available for quoting', 400);
+    }
+    const line =
+      typeof lineNumber === 'number' && Number.isSafeInteger(lineNumber) && lineNumber > 0
+        ? participant.log.replace(/\r/g, '').split('\n')[lineNumber - 1]
+        : undefined;
+    if (line === undefined) throw new AppError('Invalid quoted line', 400);
+    // The client supplies a location, never authoritative log text.
+    quotedText = stripAnsiCodes(line).slice(0, 500);
+  }
+  const quoteSelect = await pvpQuoteSelectSql();
   return withRelaxedSqlMode(async (connection) => {
     let committed = false;
     try {
@@ -1486,7 +1528,7 @@ export async function createBattleComment(
       const [rows] = await connection.query<RowDataPacket[]>(
         `SELECT
             c.id, c.event_id, c.account_name, c.character_pid, c.content, c.parent_id,
-            c.is_deleted, c.created_at, c.updated_at, c.quoted_text, c.line_number, c.participant_id,
+            c.is_deleted, c.created_at, c.updated_at, ${quoteSelect},
             fl.char_name as character_name, fl.race as character_race,
             fl.class as character_class, fl.level as character_level
           FROM pvp_battle_comments c

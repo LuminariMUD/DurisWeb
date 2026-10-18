@@ -172,14 +172,27 @@ const MAX_PREVIEW_LINES = 1000
 
 // Get selected participant
 const selectedParticipant = computed(() => {
-  if (!data.value || !data.value.participants || !selectedPovId.value) return null
+  if (!data.value || !data.value.participants || selectedPovId.value === null) return null
   return data.value.participants.find((p) => p.id === selectedPovId.value)
 })
 
-const equipmentMessage = computed(() =>
-  selectedParticipant.value?.equip === null
-    ? 'Equipment is hidden by player privacy settings.'
-    : 'No equipment snapshot was captured for this participant.',
+const selectedLog = computed(() =>
+  selectedParticipant.value?.pov_status === 'public' ? selectedParticipant.value.log : null,
+)
+const selectedEquipment = computed(() =>
+  selectedParticipant.value?.pov_status === 'public' ? selectedParticipant.value.equip : null,
+)
+const privacyMessage = computed(() => {
+  if (selectedParticipant.value?.pov_status === 'public') return ''
+  return selectedParticipant.value?.pov_status === 'private'
+    ? "This participant's point of view is private. Their combat log and equipment are not shared."
+    : 'This point of view is unavailable because permission to share it could not be verified.'
+})
+const logMessage = computed(
+  () => privacyMessage.value || 'No combat log was captured for this participant.',
+)
+const equipmentMessage = computed(
+  () => privacyMessage.value || 'No equipment snapshot was captured for this participant.',
 )
 
 // Get limited combat log for preview
@@ -201,8 +214,8 @@ const getLineCount = (log: string | null) => {
 
 // Check if log is truncated
 const isLogTruncated = computed(() => {
-  if (!selectedParticipant.value?.log) return false
-  return getLineCount(selectedParticipant.value.log) > MAX_PREVIEW_LINES && !showFullLog.value
+  if (!selectedLog.value) return false
+  return getLineCount(selectedLog.value) > MAX_PREVIEW_LINES && !showFullLog.value
 })
 
 // Prefer a log when available, but allow every participant's details to be viewed.
@@ -225,8 +238,11 @@ const autoSelectPov = () => {
     // Fallback to first killer with a log if no POV selected yet
     if (!participants.some((p) => p.id === selectedPovId.value)) {
       const preferred =
-        participants.find((p) => p.log && p.pk_type.includes('KILLER')) ??
-        participants.find((p) => p.log) ??
+        participants.find(
+          (p) => p.pov_status === 'public' && p.log && p.pk_type.includes('KILLER'),
+        ) ??
+        participants.find((p) => p.pov_status === 'public' && p.log) ??
+        participants.find((p) => p.pov_status === 'public') ??
         participants[0]
       selectedPovId.value = preferred?.id ?? null
     }
@@ -248,12 +264,14 @@ watch(
   { immediate: true },
 )
 
+watch(() => route.query.pov, autoSelectPov)
+
 // Reset showFullLog and update URL when POV changes
 watch(selectedPovId, (newId) => {
   showFullLog.value = false
 
   // update url with pov param
-  if (newId && data.value?.participants) {
+  if (newId !== null && data.value?.participants) {
     const participant = data.value.participants.find((p) => p.id === newId)
     if (participant) {
       const playerName = extractPlayerName(participant.player_description)
@@ -373,10 +391,8 @@ function onCommentsLoaded(comments: PvPBattleComment[]) {
 
 // Split log into lines for rendering
 const logLines = computed(() => {
-  if (!selectedParticipant.value?.log) return []
-  const log = showFullLog.value
-    ? selectedParticipant.value.log
-    : getLimitedLog(selectedParticipant.value.log)
+  if (!selectedLog.value) return []
+  const log = showFullLog.value ? selectedLog.value : getLimitedLog(selectedLog.value)
   return log.replace(/\r/g, '').split('\n')
 })
 
@@ -710,7 +726,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
 
               <div class="p-3">
                 <div class="rounded-md bg-black font-mono text-xs text-foreground overflow-x-auto max-h-[400px] overflow-y-auto">
-                  <div v-if="selectedParticipant.log" class="relative">
+                  <div v-if="selectedLog" class="relative">
                     <div
                       v-for="(line, index) in logLines"
                       :id="`mobile-log-line-${index + 1}`"
@@ -733,7 +749,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                       <div class="flex-1 whitespace-pre-wrap px-2 leading-4" v-html="parseAnsiForVue(line, true)"></div>
                     </div>
                   </div>
-                  <p v-else class="text-muted-foreground p-3">No combat log was captured for this participant.</p>
+                  <p v-else class="text-muted-foreground p-3">{{ logMessage }}</p>
                 </div>
               </div>
             </div>
@@ -751,9 +767,9 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                 placeholder="Select POV"
               />
             </div>
-            <div v-if="selectedParticipant?.equip" class="p-3">
+            <div v-if="selectedEquipment" class="p-3">
               <div class="rounded-md bg-black p-3 font-mono text-xs text-foreground overflow-x-auto max-h-[500px] overflow-y-auto">
-                <pre class="whitespace-pre-wrap leading-relaxed" v-html="parseAnsiForVue(selectedParticipant.equip)"></pre>
+                <pre class="whitespace-pre-wrap leading-relaxed" v-html="parseAnsiForVue(selectedEquipment)"></pre>
               </div>
             </div>
             <div v-else class="p-8 text-center text-faint text-sm">
@@ -820,17 +836,17 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
           <!-- Combat Log Viewer -->
           <div v-if="selectedParticipant" class="p-4">
             <!-- Log Line Count Info -->
-            <div v-if="selectedParticipant.log && getLineCount(selectedParticipant.log) > 100" class="mb-2 flex items-center justify-between">
+            <div v-if="selectedLog && getLineCount(selectedLog) > 100" class="mb-2 flex items-center justify-between">
               <p class="text-xs text-muted-foreground">
                 <span v-if="isLogTruncated">
-                  Showing {{ MAX_PREVIEW_LINES }} of {{ getLineCount(selectedParticipant.log).toLocaleString() }} lines
+                  Showing {{ MAX_PREVIEW_LINES }} of {{ getLineCount(selectedLog).toLocaleString() }} lines
                 </span>
                 <span v-else>
-                  {{ getLineCount(selectedParticipant.log).toLocaleString() }} lines
+                  {{ getLineCount(selectedLog).toLocaleString() }} lines
                 </span>
               </p>
               <button
-                v-if="getLineCount(selectedParticipant.log) > MAX_PREVIEW_LINES"
+                v-if="getLineCount(selectedLog) > MAX_PREVIEW_LINES"
                 @click="showFullLog = !showFullLog"
                 class="text-xs text-vermilion hover:text-vermilion-light transition-colors"
               >
@@ -839,7 +855,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
             </div>
 
             <div ref="logContainerRef" class="rounded-md bg-black font-mono text-sm text-foreground overflow-x-auto max-h-[800px] overflow-y-auto">
-              <div v-if="selectedParticipant.log" class="relative">
+              <div v-if="selectedLog" class="relative">
                 <div
                   v-for="(line, index) in logLines"
                   :id="`log-line-${index + 1}`"
@@ -866,7 +882,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                   <div class="flex-1 whitespace-pre-wrap px-2 leading-5" v-html="parseAnsiForVue(line, true)"></div>
                 </div>
               </div>
-              <p v-else class="text-muted-foreground p-4">No combat log was captured for this participant.</p>
+              <p v-else class="text-muted-foreground p-4">{{ logMessage }}</p>
             </div>
 
             <!-- Truncation Notice -->
@@ -874,7 +890,7 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
               <p class="text-sm text-muted-foreground">
                 Log truncated for performance.
                 <button @click="showFullLog = true" class="text-vermilion hover:text-vermilion-light underline ml-1">
-                  Click here to show all {{ getLineCount(selectedParticipant.log).toLocaleString() }} lines
+                  Click here to show all {{ getLineCount(selectedLog).toLocaleString() }} lines
                 </button>
               </p>
             </div>
@@ -904,17 +920,17 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
       <div v-if="selectedParticipant" class="h-full">
         <!-- Combat Log Only -->
         <div class="bg-black font-mono text-xs lg:text-sm text-foreground overflow-x-auto h-full overflow-y-auto">
-          <pre v-if="selectedParticipant.log" class="whitespace-pre-wrap px-2 py-1" v-html="parseAnsiForVue(selectedParticipant.log, true)"></pre>
-          <p v-else class="text-muted-foreground p-4">No combat log was captured for this participant.</p>
+          <pre v-if="selectedLog" class="whitespace-pre-wrap px-2 py-1" v-html="parseAnsiForVue(selectedLog, true)"></pre>
+          <p v-else class="text-muted-foreground p-4">{{ logMessage }}</p>
         </div>
       </div>
     </Dialog>
 
     <!-- Equipment Dialog -->
     <Dialog v-model:open="isEquipmentOpen" size="compact" :title-html="`Equipment - ${selectedParticipant ? parseAnsiForVue(selectedParticipant.player_description) : ''}`">
-      <div v-if="selectedParticipant?.equip">
+      <div v-if="selectedEquipment">
         <div class="rounded-md bg-black p-3 font-mono text-xs text-foreground overflow-x-auto max-h-[70vh] overflow-y-auto">
-          <pre class="whitespace-pre-wrap leading-tight" v-html="parseAnsiForVue(selectedParticipant.equip)"></pre>
+          <pre class="whitespace-pre-wrap leading-tight" v-html="parseAnsiForVue(selectedEquipment)"></pre>
         </div>
       </div>
       <div v-else class="text-center text-muted-foreground py-4">

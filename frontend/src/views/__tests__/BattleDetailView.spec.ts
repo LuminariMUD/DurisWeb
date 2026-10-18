@@ -48,6 +48,7 @@ function participant(
     level: 56,
     pk_type: 'KILLER',
     player_description: description,
+    pov_status: 'public',
     log: '',
     equip: '',
     inroom: true,
@@ -109,7 +110,7 @@ describe('battle participants with incomplete historical snapshots', () => {
     expect(accounts).toHaveBeenCalledWith(['Fixture', 'Other'])
     expect(view.findAllComponents(Select)[0]!.get('button').text()).toContain('Fixture')
     await view.get('button[title="View equipment"]').trigger('click')
-    expect(view.text()).toContain('Equipment is hidden by player privacy settings.')
+    expect(view.text()).toContain('No equipment snapshot was captured for this participant.')
     expect(view.text()).not.toContain('a shield')
   })
 
@@ -152,5 +153,101 @@ describe('battle participants with incomplete historical snapshots', () => {
     expect(view.text()).toContain('[56 Cleric] Other (Orc)')
     await view.get('button[title="View equipment"]').trigger('click')
     expect(view.text()).toContain('No equipment snapshot was captured for this participant.')
+  })
+})
+
+describe('participant POV publication', () => {
+  const privateMessage = "This participant's point of view is private."
+
+  it.each(['private', 'unavailable'] as const)(
+    'honors deep links to a %s POV on every surface',
+    async (status) => {
+      route.query = { pov: 'fixture' }
+      // Even an inconsistent response must not render a private payload.
+      data.value!.participants[0] = participant(1, 'Fixture', {
+        pov_status: status,
+        log: 'PRIVATE_LOG_MARKER',
+        equip: 'PRIVATE_GEAR_MARKER',
+      })
+      const view = render()
+      await flushPromises()
+      const message =
+        status === 'private' ? privateMessage : 'permission to share it could not be verified'
+      expect(view.text()).toContain(message)
+      expect(view.findAllComponents(Select)[0]!.get('button').text()).toContain('Fixture')
+      await view.get('button[title="Maximize combat log"]').trigger('click')
+      await view.get('button[title="View equipment"]').trigger('click')
+      const equipmentTab = view
+        .findAll('button')
+        .find((button) => button.text() === 'Equipment' && !button.attributes('title'))!
+      await equipmentTab.trigger('click')
+      expect(view.text()).toContain(message)
+      expect(view.html()).not.toContain('PRIVATE_LOG_MARKER')
+      expect(view.html()).not.toContain('PRIVATE_GEAR_MARKER')
+      expect(view.text()).not.toContain('No combat log was captured')
+    },
+  )
+
+  it('defaults to a permitted opponent and allows switching to an explanatory private POV', async () => {
+    data.value!.participants[0]!.pov_status = 'private'
+    data.value!.participants[0]!.log = null
+    data.value!.participants[1]!.log = 'PUBLIC_OPPONENT_LOG'
+    const view = render()
+    await flushPromises()
+    expect(view.text()).toContain('PUBLIC_OPPONENT_LOG')
+    expect(view.findAllComponents(Select)[0]!.get('button').text()).toContain('Other')
+    const select = view.findAllComponents(Select)[0]!
+    select.vm.$emit('update:modelValue', 1)
+    await flushPromises()
+    expect(view.text()).toContain(privateMessage)
+    expect(view.text()).not.toContain('PUBLIC_OPPONENT_LOG')
+    select.vm.$emit('update:modelValue', 2)
+    await flushPromises()
+    expect(view.text()).toContain('PUBLIC_OPPONENT_LOG')
+  })
+
+  it('keeps metadata and participant selection when both POVs are private', async () => {
+    data.value!.participants.forEach((p) => {
+      p.pov_status = 'private'
+      p.log = null
+      p.equip = null
+    })
+    const view = render()
+    await flushPromises()
+    expect(view.text()).toContain('Fixture room')
+    expect(view.text()).toContain('Fixture')
+    expect(view.text()).toContain('Other')
+    expect(view.text()).toContain(privateMessage)
+    expect(view.text()).not.toContain('No participants were recorded')
+  })
+
+  it('explains a legacy participant with the zero fallback ID', async () => {
+    data.value!.participants = [
+      participant(0, 'Legacy', { pov_status: 'unavailable', log: null, equip: null }),
+    ]
+    const view = render()
+    await flushPromises()
+    expect(view.text()).toContain('permission to share it could not be verified')
+    expect(view.text()).not.toContain('No participants were recorded')
+  })
+
+  it('removes a formerly permitted log from an open maximized view after refetch', async () => {
+    data.value!.participants[0]!.log = 'FORMER_PUBLIC_LOG'
+    const view = render()
+    await flushPromises()
+    await view.get('button[title="Maximize combat log"]').trigger('click')
+    expect(view.text()).toContain('FORMER_PUBLIC_LOG')
+    data.value = {
+      ...data.value!,
+      participants: data.value!.participants.map((p) => ({
+        ...p,
+        pov_status: 'private',
+        log: null,
+        equip: null,
+      })),
+    }
+    await flushPromises()
+    expect(view.html()).not.toContain('FORMER_PUBLIC_LOG')
+    expect(view.text()).toContain(privateMessage)
   })
 })

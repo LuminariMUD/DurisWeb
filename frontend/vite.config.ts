@@ -56,6 +56,11 @@ export default defineConfig(({ mode }) => {
           globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
           runtimeCaching: [
             {
+              // Never replay a POV or stored quote whose publication may have changed.
+              urlPattern: /\/api\/pvp(?:\/|$)/,
+              handler: 'NetworkOnly',
+            },
+            {
               // cache static assets
               urlPattern: /\.(?:js|css|woff|woff2)$/,
               handler: 'CacheFirst',
@@ -80,8 +85,8 @@ export default defineConfig(({ mode }) => {
               },
             },
             {
-              // api requests - stale while revalidate for news/pvp/forum
-              urlPattern: /\/api\/(news|pvp|forum)/,
+              // api requests - stale while revalidate for news/forum
+              urlPattern: /\/api\/(news|forum)/,
               handler: 'StaleWhileRevalidate',
               options: {
                 cacheName: 'api-cache',

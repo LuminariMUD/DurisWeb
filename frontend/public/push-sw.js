@@ -1,3 +1,19 @@
+self.addEventListener('activate', (event) => {
+  // Retire POVs and quotes saved by the previous stale-while-revalidate policy.
+  event.waitUntil(
+    (async () => {
+      if (!(await caches.has('api-cache'))) return
+      const cache = await caches.open('api-cache')
+      const requests = await cache.keys()
+      await Promise.all(
+        requests
+          .filter((request) => /^\/api\/pvp(?:\/|$)/.test(new URL(request.url).pathname))
+          .map((request) => cache.delete(request)),
+      )
+    })(),
+  )
+})
+
 self.addEventListener('push', (event) => {
   let payload = {}
   try {

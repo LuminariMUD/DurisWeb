@@ -37,6 +37,12 @@ import { requireAuth, optionalAuth } from '../middleware/auth.js';
 
 const router: IRouter = Router();
 
+// POV eligibility can change. Intermediaries must not reuse an earlier disclosure.
+router.use((_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 function requirePvpId(value: string | undefined, label: string): number {
   const id = validateIdParam(value);
   if (id === null) {
