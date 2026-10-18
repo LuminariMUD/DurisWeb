@@ -42,9 +42,13 @@ afterEach(() => {
 });
 
 describe('deployment configuration renderer', () => {
-  it.each([0o700, 0o777])(
-    'uses a private systemd runtime directory for tunnel credentials (mode %s)',
-    (mode) => {
+  it.each([
+    [0o700, '2026.8.3'],
+    [0o777, '2026.8.3'],
+    [0o700, '2024.10.0'],
+  ] as const)(
+    'runs from a connector token without API access (mode %s, cloudflared %s)',
+    (mode, version) => {
       const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-tunnel-'));
       temporaryDirectories.push(temporaryRoot);
       const runtime = path.join(temporaryRoot, 'runtime');
@@ -58,16 +62,19 @@ describe('deployment configuration renderer', () => {
       fs.writeFileSync(
         cloudflared,
         `#!/bin/sh
-if [ "$1" = version ]; then echo 'cloudflared version 2026.8.3'; exit 0; fi
+if [ "$1" = version ]; then echo 'cloudflared version ${version}'; exit 0; fi
 test -z "\${CLOUDFLARE_API_TOKEN:-}" || exit 9
+test -z "\${CLOUDFLARE_TUNNEL_TOKEN:-}" || exit 9
+if [ '${version}' = '2024.10.0' ]; then
+  test "$TUNNEL_TOKEN" = stub-token || exit 9
+else
+  test -z "\${TUNNEL_TOKEN:-}" || exit 9
+fi
 printf '%s\\n' "$*"
 `,
         { mode: 0o700 },
       );
-      fs.writeFileSync(path.join(binaries, 'curl'), '#!/bin/sh\necho stub-response\n', {
-        mode: 0o700,
-      });
-      fs.writeFileSync(path.join(binaries, 'jq'), '#!/bin/sh\ncat >/dev/null\necho stub-token\n', {
+      fs.writeFileSync(path.join(binaries, 'curl'), '#!/bin/sh\nexit 99\n', {
         mode: 0o700,
       });
       const result = spawnSync(
@@ -83,17 +90,22 @@ printf '%s\\n' "$*"
             SERVICE_HOME: temporaryRoot,
             SERVICE_PATH: '/usr/bin:/bin',
             CLOUDFLARE_API_TOKEN: 'stub-api-key',
-            CLOUDFLARE_ACCOUNT_ID: 'stub-account',
-            CLOUDFLARE_WEB_TUNNEL_ID: 'stub-tunnel',
+            CLOUDFLARE_TUNNEL_TOKEN: 'stub-token',
             RUNTIME_DIRECTORY: runtime,
           },
         },
       );
       if (mode === 0o700) {
         expect(result.status).toBe(0);
-        expect(result.stdout).toContain(`--token-file ${runtime}/token`);
-        expect(fs.readFileSync(path.join(runtime, 'token'), 'utf8')).toBe('stub-token');
-        expect(fs.statSync(path.join(runtime, 'token')).mode & 0o777).toBe(0o600);
+        expect(result.stdout).not.toContain('stub-token');
+        if (version === '2024.10.0') {
+          expect(result.stdout).not.toContain('--token');
+          expect(fs.existsSync(path.join(runtime, 'token'))).toBe(false);
+        } else {
+          expect(result.stdout).toContain(`--token-file ${runtime}/token`);
+          expect(fs.readFileSync(path.join(runtime, 'token'), 'utf8')).toBe('stub-token');
+          expect(fs.statSync(path.join(runtime, 'token')).mode & 0o777).toBe(0o600);
+        }
       } else {
         expect(result.status).toBe(78);
         expect(result.stderr).toContain('owner-only');
@@ -101,6 +113,29 @@ printf '%s\\n' "$*"
       }
     },
   );
+
+  it('refuses a shared API credential without a separately provisioned connector token', () => {
+    const result = spawnSync(
+      'bash',
+      [path.join(PROJECT_ROOT, 'deploy/scripts/run-durisweb-cloudflared')],
+      {
+        encoding: 'utf8',
+        env: {
+          PATH: '/usr/bin:/bin',
+          DEPLOYMENT_ENV_FILE: '/unused',
+          CLOUDFLARED_BIN: '/unused',
+          CLOUDFLARED_METRICS_ADDRESS: '127.0.0.1:20243',
+          SERVICE_HOME: '/unused',
+          SERVICE_PATH: '/usr/bin:/bin',
+          RUNTIME_DIRECTORY: '/unused',
+          CLOUDFLARE_API_TOKEN: 'stub-api-key',
+        },
+      },
+    );
+    expect(result.status).toBe(78);
+    expect(result.stderr).toContain('CLOUDFLARE_TUNNEL_TOKEN is required');
+    expect(result.stderr).not.toContain('stub-api-key');
+  });
 
   it('renders every maintained artifact without unresolved placeholders', () => {
     const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-deploy-'));
