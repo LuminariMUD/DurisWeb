@@ -531,12 +531,24 @@ inherited restriction. Validate the exact sandbox flags under the chosen
 manager. System mode can preserve the same unit restrictions while running as
 the unprivileged account; do not disable host-wide user-namespace protection.
 
-User-service filesystem namespaces can also prevent the process monitor from
-reading the paired MUD process's `exe` and `cwd` links under `/proc`. Check the
-actual loaded unit and process-monitor result on the target host. A supported
-scope-specific rendering policy is proposed in
-[issue #3](https://github.com/LuminariMUD/DurisWeb/issues/3); copying a host's
-local protection overrides into every deployment is not the solution.
+The renderer selects the application's process-monitor policy from service scope.
+User scope disables `ProtectSystem`, `PrivateTmp`, `ProtectKernelTunables`, and
+`ProtectControlGroups`: their user-service filesystem namespaces prevent reading
+the paired MUD process's `exe` and `cwd` links under `/proc`. This trades those
+four sandbox protections for authoritative process identity checks. System scope
+keeps `ProtectSystem=full` and the other three enabled. Other restrictions and
+the cache/tunnel units are unchanged; missing, unrelated, or ambiguous MUD
+processes still report stopped.
+
+When replacing a host-local process-monitor override, first render and review
+the exact unit, verify it with the selected systemd manager, and qualify its
+process-monitor result on the host. Preserve the old unit and override in private
+recovery storage. Install the rendered application unit, remove only the now
+redundant four-property override, reload, and restart only the website application.
+Preserve unrelated drop-ins (including any deployed-release preflight pin).
+Verify the loaded properties, actual MUD identity/status, and public health;
+restore the previous unit/override if acceptance fails. Do not restart the MUD,
+database, cache, or required tunnel for this change.
 
 The application unit permits the mount, user, IPC, UTS, and cgroup namespaces used
 by its bubblewrap terminal; PID and network namespace creation remain denied.
@@ -544,10 +556,38 @@ On hosts restricting unprivileged user namespaces through AppArmor, install a
 profile for the configured bubblewrap executable that permits `userns`, and
 verify the terminal sandbox under the application unit's restrictions.
 
-The cloudflared launcher validates the deployment file ownership/mode, obtains
-a short-lived tunnel token from the configured account/tunnel, and restricts
-the child environment. It selects token-file handling only for compatible
-cloudflared versions.
+The cloudflared launcher uses only the selected tunnel's connector token from
+`CLOUDFLARE_TUNNEL_TOKEN` in the owner-controlled mode-0600 deployment input.
+It makes no Cloudflare API request at startup and needs no account-management or
+DNS-edit credential. It validates the deployment file and runtime directory,
+writes a mode-0600 token file for cloudflared 2025.4.0 or newer, and strips the
+child environment. Older versions receive only `TUNNEL_TOKEN` plus the configured
+home and PATH. A missing connector token refuses startup with exit 78.
+
+Before migrating an existing shared API credential, inventory its permissions,
+resource scope, and consumers with the account owner. Obtain the connector token
+through the owner's Cloudflare dashboard or an authorized provisioning API call;
+see [Cloudflare tunnel tokens](https://developers.cloudflare.com/tunnel/reference/tunnel-tokens/).
+This token permits running that tunnel; it is not a general Cloudflare API key.
+Store it in the protected input, remove the old `CLOUDFLARE_API_TOKEN`,
+`CLOUDFLARE_ACCOUNT_ID`, and `CLOUDFLARE_WEB_TUNNEL_ID` runtime entries, and render.
+Never display a token, put it in a command argument, or commit it. Preserve the
+ACME credential and renewal configuration while certificate renewal needs them.
+
+Qualify the actual launcher with the replacement input and verify tunnel readiness
+and every required public health hostname before retiring the old runtime setup.
+For a tunnel carrying other services, preserve its routes and use a temporary
+replica during the connector handover. Keep protected recovery instructions and
+the prior working configuration outside Git. Record credential scopes, consumers,
+and checks without token values; do not assume credentials from a retired host
+were rotated on this installation.
+
+To rotate the connector token, rotate it in Cloudflare, provision the new value in
+the protected input, and restart/verify connectors in batches. Existing connected
+replicas stay connected after rotation, but the old token cannot reconnect; an
+old configuration is therefore not a valid credential rollback. Recovery must
+use the current token. API/DNS key rotation is separate and must account for all
+its consumers, including ACME renewal.
 
 ### Install rendered artifacts
 

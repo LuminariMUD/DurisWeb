@@ -6,10 +6,11 @@ set -euo pipefail
 : "${CLOUDFLARED_METRICS_ADDRESS:?cloudflared metrics address is required}"
 : "${SERVICE_HOME:?Service home is required}"
 : "${SERVICE_PATH:?Service PATH is required}"
-: "${CLOUDFLARE_API_TOKEN:?Cloudflare API token is required}"
-: "${CLOUDFLARE_ACCOUNT_ID:?Cloudflare account ID is required}"
-: "${CLOUDFLARE_WEB_TUNNEL_ID:?Cloudflare website tunnel ID is required}"
 : "${RUNTIME_DIRECTORY:?RUNTIME_DIRECTORY is required}"
+if [ -z "${CLOUDFLARE_TUNNEL_TOKEN:-}" ]; then
+  echo 'CLOUDFLARE_TUNNEL_TOKEN is required; provision the tunnel connector token before starting' >&2
+  exit 78
+fi
 
 cloudflared_bin=${CLOUDFLARED_BIN}
 cloudflared_version_output="$("${cloudflared_bin}" version)"
@@ -49,16 +50,9 @@ if [[ "${runtime_dir}" != /* || -L "${runtime_dir}" || ! -d "${runtime_dir}" ]] 
 fi
 token_file="${runtime_dir}/token"
 
-token_response="$({
-  curl -fsS --connect-timeout 10 --max-time 30 \
-    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-    -H 'Content-Type: application/json' \
-    "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/cfd_tunnel/${CLOUDFLARE_WEB_TUNNEL_ID}/token"
-})"
-tunnel_token="$(jq -er 'select(.success == true) | .result' <<<"$token_response")"
-
-unset CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_WEB_TUNNEL_ID
-unset token_response
+# Runtime needs only this tunnel's connector token, never an API/DNS credential.
+tunnel_token=${CLOUDFLARE_TUNNEL_TOKEN}
+unset CLOUDFLARE_TUNNEL_TOKEN
 
 cloudflared_args=(
   tunnel
