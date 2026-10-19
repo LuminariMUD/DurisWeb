@@ -1,6 +1,7 @@
 import { Router, Request, Response, type IRouter } from 'express';
 import { pool as db } from '../db/connection.js';
 import logger from '../utils/logger.js';
+import { getPublicPopulation, unavailablePopulation } from '../services/publicStatisticsService.js';
 
 const router: IRouter = Router();
 
@@ -9,10 +10,11 @@ const router: IRouter = Router();
  * Public endpoint for server status (no auth required)
  */
 router.get('/', async (_req: Request, res: Response) => {
+  res.set('Cache-Control', 'no-store');
   try {
     const { getServerHealth, getHealthStatus } = await import('../services/serverHealthService.js');
 
-    const health = await getServerHealth();
+    const [health, population] = await Promise.all([getServerHealth(), getPublicPopulation()]);
     const status = getHealthStatus(health);
 
     // Return limited public information
@@ -20,7 +22,7 @@ router.get('/', async (_req: Request, res: Response) => {
       status: status.status,
       message: status.message,
       mudIsRunning: health.mudIsRunning,
-      onlinePlayers: health.onlinePlayers,
+      population,
       uptimeSeconds: health.mudUptimeSeconds,
       lastUpdated: new Date(),
     });
@@ -30,7 +32,7 @@ router.get('/', async (_req: Request, res: Response) => {
       status: 'offline',
       message: 'Unable to determine server status',
       mudIsRunning: false,
-      onlinePlayers: 0,
+      population: unavailablePopulation(),
       uptimeSeconds: 0,
       lastUpdated: new Date(),
     });

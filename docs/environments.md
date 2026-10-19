@@ -237,3 +237,37 @@ and inspect the resolved non-secret environment name, host, port, and database
 name. Treat a production namespace or endpoint in test mode as a hard refusal,
 not something to work around. `config:check` validates the configuration
 contract but does not prove that the selected services are disposable.
+
+## Public population publication
+
+`PUBLIC_POPULATION_DELAY_HOURS` belongs to the backend, defaults to `6`, and
+accepts only `3` or `6`. Invalid settings fail configuration validation.
+`pnpm --dir backend config:check` reports the active delay; restart the backend
+to apply a configuration change.
+
+`GET /api/status` no longer returns the live `onlinePlayers` field. Its
+`population` object contains an approximate integer `estimate`, ISO UTC
+`windowStart`/`windowEnd`, `delayHours`, and a historical `label`.
+The estimate averages recorded non-trusted playing-character faction totals
+(goods, evils, undeads and illithids) in the last completed UTC hour whose end
+is at least the configured delay old. It is neither a socket count nor MSSP's
+mortal/original-character definition. `lastUpdated` remains the health response
+time, not the population sample time. No current presence field is serialized.
+
+Missing, invalid or inaccessible history yields null estimate/window timestamps,
+including on health failure; measured zero remains zero. There is no live
+fallback. Existing SQL history survives website/MUD restart and copyover. Cache
+keys include the policy and UTC hour, and cached windows are validated before
+use, so a policy increase or backwards clock cannot reuse a too-fresh window.
+HTTP status responses use `Cache-Control: no-store`. No schema migration or
+new collector is needed. Faction charts and available-date indexes retain their
+stronger completed-day, minimum-24-hour restriction.
+
+Staff health, the authenticated level-57 presence subscriptions/broadcasts and
+Overlord `/api/admin/who` remain live. New public consumers must use the public
+population serializer, never the staff health/presence object.
+
+Paired MUD change: [Duris PR #219](https://github.com/LuminariMUD/Duris/pull/219).
+It omits ordinary `who` global peaks/opponent booleans and report peaks, and
+refuses MSSP because its required current count conflicts with the policy.
+Both repositories need deployment before the public exposure is resolved.

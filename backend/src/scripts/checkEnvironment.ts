@@ -1,4 +1,6 @@
 import { getBackendConfiguration } from '../config/environment.js';
 
-getBackendConfiguration();
-console.log('Backend configuration is valid.');
+const configuration = getBackendConfiguration();
+console.log(
+  `Backend configuration is valid. Public population delay: ${configuration.publicPopulationDelayHours} hours.`,
+);
