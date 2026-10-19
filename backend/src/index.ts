@@ -134,6 +134,7 @@ import { pollDiscordDeliveries } from './services/pvpDiscordDelivery.js';
 import { pool } from './db/connection.js';
 import { getBackendConfiguration } from './config/environment.js';
 import { escapeHtml } from './utils/contentParser.js';
+import { closeWebServer } from './utils/serverShutdown.js';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -803,28 +804,8 @@ const gracefulShutdown = async () => {
   // Cleanup log watchers
   cleanupLogWatchers();
 
-  // Close HTTP server
-  if (server) {
-    await new Promise<void>((resolve) => {
-      server!.close(() => {
-        logger.info('HTTP server closed');
-        resolve();
-      });
-    });
-  }
-
-  // Close WebSocket connections
-  if (wss) {
-    wss.clients.forEach((client) => {
-      client.close(1000, 'Server shutting down');
-    });
-    await new Promise<void>((resolve) => {
-      wss.close(() => {
-        logger.info('WebSocket server closed');
-        resolve();
-      });
-    });
-  }
+  await closeWebServer(server, wss);
+  logger.info('HTTP and WebSocket servers closed');
 
   await stopDonationOutboxPublisher();
   await stopHookAuditWorker();

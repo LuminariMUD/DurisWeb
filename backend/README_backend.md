@@ -39,6 +39,11 @@ is retained for existing ledgers, not replayed for a fresh installation.
 The listener has no default host or port. `GET /health` returns 200 only when
 both MySQL and Redis respond; it returns 503 with a degraded snapshot otherwise.
 
+On shutdown, the service stops accepting HTTP connections while closing existing
+WebSocket clients normally. Peers that do not acknowledge the close frame are
+terminated after five seconds, so upgraded connections cannot hold shutdown open
+until the service manager's stop timeout.
+
 ## Main Areas
 
 | Path | Purpose |
