@@ -7,6 +7,26 @@ import logger from '../utils/logger.js';
 const CACHE_TTL = 10 * 60; // 10 minutes
 const CACHE_KEY_PREFIX = 'public_stats:v2:';
 const DAY_SECONDS = 24 * 60 * 60;
+const UNAVAILABLE_POPULATION_TTL = 60;
+const POPULATION_TIMEOUT_MS = 2000;
+const populationClock = { wall: Date.now(), monotonic: process.hrtime.bigint() };
+let pendingPopulation: Promise<PublicPopulation> | undefined;
+
+// Never re-anchor to a jumped wall clock. Startup requires synchronized time;
+// after a forward step, withhold history until wall time agrees again.
+function populationTime(): number | null {
+  const wall = Date.now();
+  const elapsed = Number(process.hrtime.bigint() - populationClock.monotonic) / 1_000_000;
+  const expected = populationClock.wall + elapsed;
+  if (wall > expected + 1000) return null;
+  // Even tolerated sub-second drift must not advance a publication boundary.
+  return Math.min(wall, expected);
+}
+
+function eligiblePopulationWindow(end: number, delayHours: number): boolean {
+  const now = populationTime();
+  return now !== null && end <= now / 1000 - delayHours * 3600;
+}
 
 export interface PublicPopulation {
   estimate: number | null;
@@ -27,10 +47,44 @@ export function unavailablePopulation(): PublicPopulation {
   };
 }
 
-/** Reuse recorded faction totals without publishing the individual factions. */
+/** Recheck at serialization, including time spent waiting for current health. */
+export function publicPopulationForResponse(population: PublicPopulation): PublicPopulation {
+  if (
+    population.estimate === null ||
+    population.delayHours !== getBackendConfiguration().publicPopulationDelayHours ||
+    !eligiblePopulationWindow(Date.parse(population.windowEnd ?? '') / 1000, population.delayHours)
+  ) {
+    return unavailablePopulation();
+  }
+  return population;
+}
+
+/** Bound optional history I/O without queuing more work behind a stalled read. */
 export async function getPublicPopulation(): Promise<PublicPopulation> {
+  if (!pendingPopulation) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const read = readPublicPopulation().finally(() => {
+      clearTimeout(timer);
+      pendingPopulation = undefined;
+    });
+    // Keep the settled timeout shared until the underlying I/O finishes. New
+    // polls return null immediately without accumulating waiters on a hung read.
+    pendingPopulation = Promise.race([
+      read,
+      new Promise<PublicPopulation>((resolve) => {
+        timer = setTimeout(() => resolve(unavailablePopulation()), POPULATION_TIMEOUT_MS);
+      }),
+    ]);
+  }
+  return publicPopulationForResponse(await pendingPopulation);
+}
+
+/** Reuse recorded faction totals without publishing the individual factions. */
+async function readPublicPopulation(): Promise<PublicPopulation> {
   const population = unavailablePopulation();
-  const end = (Math.floor(Date.now() / 3_600_000) - population.delayHours) * 3600;
+  const now = populationTime();
+  if (now === null) return population;
+  const end = (Math.floor(now / 3_600_000) - population.delayHours) * 3600;
   const start = end - 3600;
   const windowStart = new Date(start * 1000).toISOString();
   const windowEnd = new Date(end * 1000).toISOString();
@@ -39,17 +93,20 @@ export async function getPublicPopulation(): Promise<PublicPopulation> {
   const key = `public_population:v1:${population.delayHours}:${end}`;
   try {
     const cached = await getCache<PublicPopulation>(key);
-    if (end > Date.now() / 1000 - population.delayHours * 3600) return population;
+    if (!eligiblePopulationWindow(end, population.delayHours)) return population;
     if (
       cached &&
       cached.delayHours === population.delayHours &&
       cached.windowStart === windowStart &&
       cached.windowEnd === windowEnd &&
-      typeof cached.estimate === 'number' &&
-      Number.isSafeInteger(cached.estimate) &&
-      cached.estimate >= 0
+      (cached.estimate === null ||
+        (typeof cached.estimate === 'number' &&
+          Number.isSafeInteger(cached.estimate) &&
+          cached.estimate >= 0))
     ) {
-      return { ...population, estimate: cached.estimate, windowStart, windowEnd };
+      return cached.estimate === null
+        ? population
+        : { ...population, estimate: cached.estimate, windowStart, windowEnd };
     }
 
     const [rows] = await mudPool.query<RowDataPacket[]>(
@@ -63,24 +120,24 @@ export async function getPublicPopulation(): Promise<PublicPopulation> {
       [start, end],
     );
     const row = rows[0];
-    if (
-      !row ||
-      !Number.isSafeInteger(Number(row.samples)) ||
-      Number(row.samples) <= 0 ||
-      Number(row.invalid_samples) !== 0 ||
-      row.average == null
-    ) {
-      return population;
-    }
-    const average = Number(row.average);
-    if (!Number.isFinite(average) || average < 0 || !Number.isSafeInteger(Math.round(average))) {
-      return population;
-    }
-    // Recheck after I/O in case the clock moved backwards while awaiting the data.
-    if (end > Date.now() / 1000 - population.delayHours * 3600) return population;
-    const result = { ...population, estimate: Math.round(average), windowStart, windowEnd };
-    await setCache(key, result, CACHE_TTL);
-    if (end > Date.now() / 1000 - population.delayHours * 3600) return population;
+    const average = Number(row?.average);
+    const estimate =
+      row &&
+      Number.isSafeInteger(Number(row.samples)) &&
+      Number(row.samples) > 0 &&
+      Number(row.invalid_samples) === 0 &&
+      row.average != null &&
+      Number.isFinite(average) &&
+      average >= 0 &&
+      Number.isSafeInteger(Math.round(average))
+        ? Math.round(average)
+        : null;
+    if (!eligiblePopulationWindow(end, population.delayHours)) return population;
+    // Keep the queried window on the private sentinel, but return null public
+    // timestamps for unavailable history. Retry soon enough to see late backfills.
+    const result = { ...population, estimate, windowStart, windowEnd };
+    await setCache(key, result, estimate === null ? UNAVAILABLE_POPULATION_TTL : CACHE_TTL);
+    if (!eligiblePopulationWindow(end, population.delayHours)) return population;
     return result;
   } catch {
     logger.warn('Public population history unavailable');

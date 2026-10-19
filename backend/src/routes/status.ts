@@ -1,7 +1,11 @@
 import { Router, Request, Response, type IRouter } from 'express';
 import { pool as db } from '../db/connection.js';
 import logger from '../utils/logger.js';
-import { getPublicPopulation, unavailablePopulation } from '../services/publicStatisticsService.js';
+import {
+  getPublicPopulation,
+  publicPopulationForResponse,
+  unavailablePopulation,
+} from '../services/publicStatisticsService.js';
 
 const router: IRouter = Router();
 
@@ -22,7 +26,7 @@ router.get('/', async (_req: Request, res: Response) => {
       status: status.status,
       message: status.message,
       mudIsRunning: health.mudIsRunning,
-      population,
+      population: publicPopulationForResponse(population),
       uptimeSeconds: health.mudUptimeSeconds,
       lastUpdated: new Date(),
     });

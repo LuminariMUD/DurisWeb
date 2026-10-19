@@ -259,6 +259,21 @@ including on health failure; measured zero remains zero. There is no live
 fallback. Existing SQL history survives website/MUD restart and copyover. Cache
 keys include the policy and UTC hour, and cached windows are validated before
 use, so a policy increase or backwards clock cannot reuse a too-fresh window.
+Unavailable windows are cached for 60 seconds with the same policy/hour validation;
+late backfills are retried after that TTL. Valid estimates keep the ten-minute TTL.
+The optional history lookup has a two-second deadline, including cache I/O and
+pool waits, then returns null while current health can still succeed. Requests
+share one pending history read per process until it settles, including after a
+timeout; subsequent polls return null immediately until that read settles. The
+deadline does not cancel the shared database connection.
+
+Population publication compares wall time with elapsed monotonic time anchored
+when the service loads. A forward discrepancy over one second withholds the
+estimate until the clocks agree again; smaller drift cannot advance the cutoff.
+Checks run after I/O and again when the status response is serialized. A backwards
+step uses the earlier wall time. This requires a synchronized host clock at
+backend startup; it is not an external time authority and does not detect skew
+that predates startup. Correct host time before starting/restarting the backend.
 HTTP status responses use `Cache-Control: no-store`. No schema migration or
 new collector is needed. Faction charts and available-date indexes retain their
 stronger completed-day, minimum-24-hour restriction.
