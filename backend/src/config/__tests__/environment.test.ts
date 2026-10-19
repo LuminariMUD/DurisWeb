@@ -71,6 +71,23 @@ function validProductionEnvironment(): Record<string, string> {
 }
 
 describe('backend environment configuration', () => {
+  it('defaults population publication to six hours with an explicit three-hour alternative', () => {
+    expect(parseBackendEnvironment(validEnvironment()).publicPopulationDelayHours).toBe(6);
+    expect(
+      parseBackendEnvironment({ ...validEnvironment(), PUBLIC_POPULATION_DELAY_HOURS: '3' })
+        .publicPopulationDelayHours,
+    ).toBe(3);
+  });
+
+  it.each(['', '0', '1', '4', '-3', '3junk', '6.0'])(
+    'rejects invalid population delay %s',
+    (value) => {
+      expect(() =>
+        parseBackendEnvironment({ ...validEnvironment(), PUBLIC_POPULATION_DELAY_HOURS: value }),
+      ).toThrow('PUBLIC_POPULATION_DELAY_HOURS');
+    },
+  );
+
   it('accepts an optional complete Discord bot configuration', () => {
     expect(parseBackendEnvironment(validEnvironment()).discordBot).toBeUndefined();
     expect(

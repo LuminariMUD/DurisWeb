@@ -1,4 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
+import { readFileSync } from 'node:fs';
 import {
   WebSocketStreamLimiter,
   canReceiveAccountEvent,
@@ -28,6 +29,40 @@ const principal: WebSocketPrincipal = {
 };
 
 describe('WebSocket access policy', () => {
+  it('denies raw global presence to anonymous and ordinary players at subscription and delivery', () => {
+    const ordinary = {
+      ...principal,
+      permissions: { ...principal.permissions, adminPermissions: [] },
+    };
+    expect(hasWebSocketPermission(undefined, 'view_server_health', 57)).toBe(false);
+    expect(hasWebSocketPermission(ordinary, 'view_server_health', 57)).toBe(false);
+    expect(
+      hasWebSocketPermission(
+        { ...ordinary, permissions: { ...ordinary.permissions, maxLevel: 57 } },
+        'view_server_health',
+        57,
+      ),
+    ).toBe(true);
+
+    // Pin the real entry points to the tested authorization policy as well.
+    const server = readFileSync(new URL('../../index.ts', import.meta.url), 'utf8');
+    for (const subscription of ['SUBSCRIBE_PLAYER_EVENTS', 'SUBSCRIBE_WHOLIST']) {
+      const block = server.slice(server.indexOf(`if (data.type === '${subscription}')`));
+      expect(block.slice(0, block.indexOf('Subscribed = true'))).toContain(
+        'await verifyWebSocketAuth(data.token, 57)',
+      );
+      expect(block.slice(0, block.indexOf('Subscribed = true'))).toContain('if (!principal)');
+    }
+    for (const broadcast of ['broadcastPlayerEvent', 'broadcastWholist']) {
+      const block = server.slice(server.indexOf(`export function ${broadcast}(`));
+      expect(block.slice(0, block.indexOf('client.send(message)'))).toContain(
+        "hasWebSocketPermission(getWebSocketPrincipal(client), 'view_server_health', 57)",
+      );
+    }
+    const admin = readFileSync(new URL('../../routes/admin.ts', import.meta.url), 'utf8');
+    expect(admin).toContain("router.get('/who', requireAuth, requireOverlord,");
+  });
+
   it('fails closed for privileged broadcasts without a principal', () => {
     expect(hasWebSocketPermission(undefined, 'view_server_health')).toBe(false);
     expect(hasWebSocketPermission(principal, 'manage_mud_backup')).toBe(false);

@@ -77,6 +77,7 @@ export interface BackendConfiguration {
     previousBridgeSecret?: string;
     bridgeSecretRotatedAt?: string;
   };
+  publicPopulationDelayHours: 3 | 6;
   backupDirectory: string;
   siteUrl: string;
   jwtSecret: string;
@@ -570,6 +571,11 @@ export function parseBackendEnvironment(source: EnvironmentSource): BackendConfi
       }
     : undefined;
 
+  const populationDelay = source.PUBLIC_POPULATION_DELAY_HOURS ?? '6';
+  if (populationDelay !== '3' && populationDelay !== '6') {
+    issues.push('PUBLIC_POPULATION_DELAY_HOURS must be 3 or 6');
+  }
+
   const configuration: BackendConfiguration = {
     environment,
     server: {
@@ -599,6 +605,7 @@ export function parseBackendEnvironment(source: EnvironmentSource): BackendConfi
       previousBridgeSecret,
       bridgeSecretRotatedAt: rotatedAt ? new Date(rotatedAt).toISOString() : undefined,
     },
+    publicPopulationDelayHours: populationDelay === '3' ? 3 : 6,
     backupDirectory: requiredAbsolutePath(source, 'BACKUP_DIR', issues),
     siteUrl: requiredUrl(source, 'SITE_URL', ['http:', 'https:'], issues).replace(/\/$/, ''),
     jwtSecret: requiredString(source, 'JWT_SECRET', issues, 32),

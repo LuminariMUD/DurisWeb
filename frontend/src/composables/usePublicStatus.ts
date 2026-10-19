@@ -12,7 +12,13 @@ export interface PublicStatus {
   status: 'operational' | 'degraded' | 'offline' | 'maintenance'
   message: string
   mudIsRunning: boolean
-  onlinePlayers: number
+  population: {
+    estimate: number | null
+    windowStart: string | null
+    windowEnd: string | null
+    delayHours: 3 | 6
+    label: string
+  }
   uptimeSeconds: number
   lastUpdated: string
 }
