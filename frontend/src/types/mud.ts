@@ -44,10 +44,34 @@ export interface MudChargenOptionsCommand extends MudCommandBase {
   cmd: 'chargen_options'
 }
 
+export type MudStatMethod = 'default' | 'advanced'
+export type MudChargenPhase = 'rolling' | 'bonuses' | 'ready'
+export type MudChargenMutation =
+  | 'roll_stats'
+  | 'accept_stats'
+  | 'add_bonus'
+  | 'swap_stats'
+  | 'reset_chargen'
+  | 'create_character'
+export interface MudChargenState {
+  stats: MudStatLabels
+  bonusRemaining: number
+  method?: MudStatMethod
+  phase?: MudChargenPhase
+}
+
+export interface MudAcceptStatsCommand extends MudCommandBase {
+  cmd: 'accept_stats'
+}
+export interface MudResetChargenCommand extends MudCommandBase {
+  cmd: 'reset_chargen'
+}
+
 export interface MudRollStatsCommand extends MudCommandBase {
   cmd: 'roll_stats'
   data: {
     race: number
+    method?: MudStatMethod
   }
 }
 
@@ -66,6 +90,9 @@ export interface MudCreateCharacterCommand extends MudCommandBase {
     class: number
     sex: number
     alignment: string
+    hometown?: number
+    hardcore?: boolean
+    newbie?: boolean
     // Stats are stored server-side in the descriptor
   }
 }
@@ -145,6 +172,8 @@ export type MudClientCommand =
   | MudRegisterCommand
   | MudChargenOptionsCommand
   | MudRollStatsCommand
+  | MudAcceptStatsCommand
+  | MudResetChargenCommand
   | MudAddBonusCommand
   | MudSwapStatsCommand
   | MudCreateCharacterCommand
@@ -300,6 +329,8 @@ export type MudAccountMessage =
 export interface MudChargenOptionsMessage {
   type: 'chargen_options'
   races: MudRace[]
+  statMethods?: unknown
+  bonusCount?: unknown
 }
 
 // Stats as quality labels (not numbers - to prevent cheating via GMCP inspection)
@@ -317,13 +348,15 @@ export interface MudStatLabels {
   kar: string // Karma/Unused - not swappable
 }
 
-export interface MudChargenStatsMessage {
-  type: 'roll_stats'
-  stats: MudStatLabels
-  bonusRemaining: number
+export interface MudChargenStatsMessage extends MudChargenState {
+  type: 'roll_stats' | 'stats_accepted'
 }
 
-export interface MudChargenBonusMessage {
+export interface MudChargenResetMessage {
+  type: 'chargen_reset'
+}
+
+export interface MudChargenBonusMessage extends MudChargenState {
   type: 'bonus_added'
   stats: MudStatLabels
   bonusRemaining: number
@@ -331,6 +364,8 @@ export interface MudChargenBonusMessage {
 }
 
 export interface MudChargenSwappedMessage {
+  method?: MudStatMethod
+  phase?: MudChargenPhase
   type: 'stats_swapped'
   stats: MudStatLabels
   swapped1: string
@@ -371,6 +406,7 @@ export interface MudValidateNameMessage {
 export type MudChargenMessage =
   | MudChargenOptionsMessage
   | MudChargenStatsMessage
+  | MudChargenResetMessage
   | MudChargenBonusMessage
   | MudChargenSwappedMessage
   | MudChargenCompleteMessage

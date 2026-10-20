@@ -14,6 +14,10 @@ import type {
   MudClass,
   MudQuest,
   MudStatLabels,
+  MudStatMethod,
+  MudChargenPhase,
+  MudChargenState,
+  MudChargenMutation,
   MudAccountInfo,
   MudRestedBonus,
   MudGroupStatus,
@@ -148,10 +152,11 @@ export const useMudStore = defineStore('mud', () => {
   // ==========================================================================
   const chargenRaces = ref<MudRace[]>([])
   const chargenClasses = ref<MudClass[]>([])
-  const chargenStats = ref<{
-    stats: MudStatLabels // Quality labels only (e.g., "excellent", "good")
-    bonusRemaining: number
-  } | null>(null)
+  const chargenStats = ref<MudChargenState | null>(null)
+  const chargenStatMethods = ref<MudStatMethod[]>([])
+  const chargenBonusCount = ref(5) // Older servers advertise no method choice.
+  const chargenPending = ref<MudChargenMutation | null>(null)
+  const chargenResetSequence = ref(0)
   const chargenLoading = ref(false)
   const chargenError = ref<string | null>(null)
   const chargenHometowns = ref<{ id: number; name: string }[]>([])
@@ -202,6 +207,7 @@ export const useMudStore = defineStore('mud', () => {
   function setConnectionState(state: MudConnectionState, error?: string) {
     connectionState.value = state
     connectionError.value = error ?? null
+    if (state === 'disconnected') clearChargenState()
     // Clear auto-login flag when auth succeeds or fails
     if (state === 'authenticated' || state === 'error' || state === 'disconnected') {
       autoLoginInProgress.value = false
@@ -495,21 +501,51 @@ export const useMudStore = defineStore('mud', () => {
     }
   }
 
-  function setChargenOptions(races: MudRace[]) {
+  function setChargenOptions(races: MudRace[], methods?: unknown, bonusCount?: unknown) {
+    const supported =
+      Array.isArray(methods) &&
+      methods.includes('default') &&
+      methods.includes('advanced') &&
+      bonusCount === 4
+    chargenStatMethods.value = supported ? ['default', 'advanced'] : []
+    chargenBonusCount.value = supported ? 4 : 5
     chargenRaces.value = races
     chargenLoading.value = false
     chargenError.value = null
   }
 
-  function setChargenStats(stats: MudStatLabels, bonusRemaining: number) {
-    chargenStats.value = { stats, bonusRemaining }
+  function setChargenStats(
+    stats: MudStatLabels,
+    bonusRemaining: number,
+    method?: MudStatMethod,
+    phase?: MudChargenPhase,
+  ) {
+    chargenStats.value = { stats, bonusRemaining, method, phase }
+    chargenPending.value = null
+    chargenError.value = null
     chargenLoading.value = false
   }
 
-  function updateChargenBonus(stats: MudStatLabels, bonusRemaining: number) {
-    if (chargenStats.value) {
-      chargenStats.value = { stats, bonusRemaining }
-    }
+  function updateChargenBonus(
+    stats: MudStatLabels,
+    bonusRemaining: number,
+    method?: MudStatMethod,
+    phase?: MudChargenPhase,
+  ) {
+    setChargenStats(stats, bonusRemaining, method, phase)
+  }
+
+  function setChargenPending(command: MudChargenMutation | null) {
+    chargenPending.value = command
+    chargenLoading.value = command !== null
+  }
+
+  function resetChargenAttempt() {
+    chargenStats.value = null
+    chargenPending.value = null
+    chargenLoading.value = false
+    chargenError.value = null
+    chargenResetSequence.value++
   }
 
   function setChargenLoading(loading: boolean) {
@@ -518,7 +554,10 @@ export const useMudStore = defineStore('mud', () => {
 
   function setChargenError(error: string | null) {
     chargenError.value = error
-    chargenLoading.value = false
+    if (error !== null) {
+      chargenPending.value = null
+      chargenLoading.value = false
+    }
   }
 
   function setChargenHometowns(options: { id: number; name: string }[], hasChoice: boolean) {
@@ -536,6 +575,9 @@ export const useMudStore = defineStore('mud', () => {
     chargenRaces.value = []
     chargenClasses.value = []
     chargenStats.value = null
+    chargenStatMethods.value = []
+    chargenBonusCount.value = 5
+    chargenPending.value = null
     chargenLoading.value = false
     chargenError.value = null
     chargenHometowns.value = []
@@ -705,6 +747,10 @@ export const useMudStore = defineStore('mud', () => {
     chargenRaces,
     chargenClasses,
     chargenStats,
+    chargenStatMethods,
+    chargenBonusCount,
+    chargenPending,
+    chargenResetSequence,
     chargenLoading,
     chargenError,
     chargenHometowns,
@@ -775,6 +821,8 @@ export const useMudStore = defineStore('mud', () => {
     clearChatChannel,
     setChargenOptions,
     setChargenStats,
+    setChargenPending,
+    resetChargenAttempt,
     updateChargenBonus,
     setChargenLoading,
     setChargenError,
