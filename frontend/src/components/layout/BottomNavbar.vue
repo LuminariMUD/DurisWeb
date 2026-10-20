@@ -26,7 +26,7 @@ import {
   Monitor,
   FileText,
 } from '@lucide/vue'
-import { projectSiteUrl } from '@/config/links'
+import { alternateMapUrl, projectSiteUrl } from '@/config/links'
 
 const route = useRoute()
 const router = useRouter()
@@ -47,6 +47,7 @@ const moreNavItems = computed(() => [
   { name: 'News & Updates', path: '/news', icon: Newspaper },
   { name: 'Auction', path: '/auction', icon: Gavel },
   { name: 'Map', path: '/wiki/map', icon: Map },
+  { name: 'Alt Map', path: alternateMapUrl, icon: Map, external: true },
   { name: 'Stats', path: '/pvp/stats', icon: BarChart3 },
   { name: 'Faction', path: '/statistics/faction-activity', icon: Activity },
   { name: 'Leaderboard', path: '/frag-leaderboard', icon: Trophy },

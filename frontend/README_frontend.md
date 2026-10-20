@@ -69,6 +69,10 @@ the relevant checks.
 See [Development](../docs/development.md) and
 [Architecture](../docs/ARCHITECTURE.md).
 
+The desktop Wiki menu lists **Alt Map** below **Map**; mobile More offers the same
+destination after Map. It opens Drevarr's external surface map in a new tab.
+The shared URL lives in `src/config/links.ts`.
+
 ## Privacy and visit-statistics choices
 
 `/privacy` is public, with desktop **Browse** and mobile **More** access. It
