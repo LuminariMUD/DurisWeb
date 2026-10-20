@@ -12,6 +12,8 @@ import type {
   MudAuthMessage,
   MudAuthReconnectedMessage,
   MudChargenMessage,
+  MudChargenMutation,
+  MudStatMethod,
   MudGmcpMessage,
   MudTextMessage,
   MudSystemMessage,
@@ -334,6 +336,8 @@ export function useMudConnection() {
         break
       case 'chargen_options':
       case 'roll_stats':
+      case 'stats_accepted':
+      case 'chargen_reset':
       case 'bonus_added':
       case 'stats_swapped':
       case 'create_character':
@@ -516,29 +520,70 @@ export function useMudConnection() {
   }
 
   const handleChargenMessage = (message: MudChargenMessage) => {
+    if (store.chargenStatMethods.length > 0 && 'stats' in message) {
+      const validMethod = message.method === 'default' || message.method === 'advanced'
+      const validPhase =
+        message.phase === 'rolling' || message.phase === 'bonuses' || message.phase === 'ready'
+      if (
+        !validMethod ||
+        !validPhase ||
+        !message.stats ||
+        typeof message.stats !== 'object' ||
+        ['str', 'dex', 'agi', 'con', 'pow', 'int', 'wis', 'cha', 'luk', 'kar'].some(
+          (stat) => typeof message.stats[stat] !== 'string',
+        ) ||
+        ('bonusRemaining' in message &&
+          (!Number.isInteger(message.bonusRemaining) ||
+            message.bonusRemaining < 0 ||
+            message.bonusRemaining > 4))
+      ) {
+        store.setChargenError('Invalid stat selection response. Reconnect and try again.')
+        return
+      }
+    }
     switch (message.type) {
       case 'chargen_options':
-        store.setChargenOptions(message.races)
+        store.setChargenOptions(message.races, message.statMethods, message.bonusCount)
         store.setChargenLoading(false)
         break
+      case 'stats_accepted':
       case 'roll_stats':
         // Stats are now quality labels, not numbers
         if (message.stats && message.bonusRemaining !== undefined) {
-          store.setChargenStats(message.stats, message.bonusRemaining)
+          store.setChargenStats(
+            message.stats,
+            message.bonusRemaining,
+            message.method,
+            message.phase,
+          )
         }
         store.setChargenLoading(false)
         break
       case 'bonus_added':
         // Update stats after bonus allocation
-        store.updateChargenBonus(message.stats, message.bonusRemaining)
+        store.updateChargenBonus(
+          message.stats,
+          message.bonusRemaining,
+          message.method,
+          message.phase,
+        )
         break
       case 'stats_swapped':
         // Update stats after swap
         if (message.stats) {
-          store.setChargenStats(message.stats, store.chargenStats?.bonusRemaining ?? 0)
+          store.setChargenStats(
+            message.stats,
+            store.chargenStats?.bonusRemaining ?? 0,
+            message.method,
+            message.phase,
+          )
         }
         break
+      case 'chargen_reset':
+        store.resetChargenAttempt()
+        break
       case 'create_character':
+        store.setChargenPending(null)
         console.log('[MUD] create_character response:', message)
         store.setChargenLoading(false)
         if (message.status === 'error') {
@@ -951,31 +996,27 @@ export function useMudConnection() {
     })
   }
 
-  const rollStats = (raceId: number) => {
-    store.setChargenLoading(true)
+  const sendChargenMutation = (command: Extract<MudClientCommand, { cmd: MudChargenMutation }>) => {
+    if (store.chargenPending) return false
     store.setChargenError(null)
-    return sendCommand({
+    store.setChargenPending(command.cmd)
+    const sent = sendCommand(command)
+    if (!sent) store.setChargenError('Connection unavailable. Reconnect and try again.')
+    return sent
+  }
+
+  const rollStats = (raceId: number, method?: MudStatMethod) =>
+    sendChargenMutation({
       type: 'cmd',
       cmd: 'roll_stats',
-      data: { race: raceId },
+      data: { race: raceId, ...(method ? { method } : {}) },
     })
-  }
-
-  const addBonus = (stat: string) => {
-    return sendCommand({
-      type: 'cmd',
-      cmd: 'add_bonus',
-      data: { stat },
-    })
-  }
-
-  const swapStats = (stat1: string, stat2: string) => {
-    return sendCommand({
-      type: 'cmd',
-      cmd: 'swap_stats',
-      data: { stat1, stat2 },
-    })
-  }
+  const acceptStats = () => sendChargenMutation({ type: 'cmd', cmd: 'accept_stats' })
+  const resetChargen = () => sendChargenMutation({ type: 'cmd', cmd: 'reset_chargen' })
+  const addBonus = (stat: string) =>
+    sendChargenMutation({ type: 'cmd', cmd: 'add_bonus', data: { stat } })
+  const swapStats = (stat1: string, stat2: string) =>
+    sendChargenMutation({ type: 'cmd', cmd: 'swap_stats', data: { stat1, stat2 } })
 
   const getHometowns = (raceId: number) => {
     return sendCommand({
@@ -1004,7 +1045,7 @@ export function useMudConnection() {
     hardcore?: boolean,
     newbie?: boolean,
   ) => {
-    const cmd = {
+    const cmd: MudClientCommand = {
       type: 'cmd',
       cmd: 'create_character',
       data: {
@@ -1019,9 +1060,7 @@ export function useMudConnection() {
       },
     }
     console.log('[MUD] Sending create_character:', JSON.stringify(cmd))
-    store.setChargenLoading(true)
-    store.setChargenError(null)
-    return sendCommand(cmd as any)
+    return sendChargenMutation(cmd)
   }
 
   const enterWorld = (characterName: string) => {
@@ -1117,6 +1156,8 @@ export function useMudConnection() {
     register,
     requestChargenOptions,
     rollStats,
+    acceptStats,
+    resetChargen,
     addBonus,
     swapStats,
     getHometowns,

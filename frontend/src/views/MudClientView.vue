@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import MudLoginPanel from '@/components/mud/MudLoginPanel.vue'
 import MudCharacterSelect from '@/components/mud/MudCharacterSelect.vue'
+import type { MudStatMethod } from '@/types/mud'
 import MudCharacterCreate from '@/components/mud/chargen/MudCharacterCreate.vue'
 import MudGameClient from '@/components/mud/MudGameClient.vue'
 import MudReturnToMenuDialog from '@/components/mud/MudReturnToMenuDialog.vue'
@@ -32,6 +33,8 @@ const {
   disconnect,
   requestChargenOptions,
   rollStats,
+  acceptStats,
+  resetChargen,
   addBonus,
   swapStats,
   getHometowns,
@@ -129,8 +132,8 @@ const handleChargenRequestOptions = () => {
   requestChargenOptions()
 }
 
-const handleChargenRollStats = (raceId: number) => {
-  rollStats(raceId)
+const handleChargenRollStats = (raceId: number, method?: MudStatMethod) => {
+  rollStats(raceId, method)
 }
 
 const handleChargenAddBonus = (stat: string) => {
@@ -327,12 +330,16 @@ onUnmounted(() => {
     <!-- Character Creation State -->
     <div
       v-else-if="clientState === 'character_create'"
-      class="flex-1 flex items-center justify-center p-4"
+      class="flex-1 min-h-0 flex flex-col overflow-y-auto p-4"
     >
       <MudCharacterCreate
+        class="my-auto shrink-0"
         :races="store.chargenRaces"
         :stats="store.chargenStats"
-        :loading="store.chargenLoading"
+        :stat-methods="store.chargenStatMethods"
+        :bonus-count="store.chargenBonusCount"
+        :reset-sequence="store.chargenResetSequence"
+        :loading="store.chargenLoading || store.chargenPending !== null"
         :error="store.chargenError"
         :hometowns="store.chargenHometowns"
         :has-hometown-choice="store.chargenHasHometownChoice"
@@ -340,6 +347,8 @@ onUnmounted(() => {
         :name-message="store.chargenNameMessage"
         @request-options="handleChargenRequestOptions"
         @roll-stats="handleChargenRollStats"
+        @accept-stats="acceptStats"
+        @reset-chargen="resetChargen"
         @add-bonus="handleChargenAddBonus"
         @swap-stats="handleChargenSwapStats"
         @get-hometowns="handleChargenGetHometowns"

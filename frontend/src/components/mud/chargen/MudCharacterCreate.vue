@@ -19,13 +19,21 @@ import {
   RefreshCw,
   AlertCircle,
 } from '@lucide/vue'
-import type { MudRace, MudChargenClass, MudStatLabels, MudHometown } from '@/types/mud'
+import type {
+  MudRace,
+  MudChargenClass,
+  MudChargenState,
+  MudStatMethod,
+  MudHometown,
+} from '@/types/mud'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import HelpModal from './HelpModal.vue'
 
 const emit = defineEmits<{
   (e: 'request-options'): void
-  (e: 'roll-stats', race: number): void
+  (e: 'roll-stats', race: number, method?: MudStatMethod): void
+  (e: 'accept-stats'): void
+  (e: 'reset-chargen'): void
   (e: 'add-bonus', stat: string): void
   (e: 'swap-stats', stat1: string, stat2: string): void
   (e: 'get-hometowns', race: number): void
@@ -48,7 +56,10 @@ const emit = defineEmits<{
 
 const props = defineProps<{
   races: MudRace[]
-  stats: { stats: MudStatLabels; bonusRemaining: number } | null
+  stats: MudChargenState | null
+  statMethods?: MudStatMethod[]
+  bonusCount?: number
+  resetSequence?: number
   loading: boolean
   error: string | null
   hometowns: MudHometown[]
@@ -66,12 +77,51 @@ type Step =
   | 'class'
   | 'alignment'
   | 'hometown'
+  | 'method'
   | 'stats'
   | 'bonus'
   | 'swap'
   | 'name'
   | 'review'
 const currentStep = ref<Step>('newbie')
+const selectedMethod = ref<MudStatMethod>('default')
+const supportsMethods = computed(
+  () => props.statMethods?.includes('advanced') && props.bonusCount === 4,
+)
+const pendingReset = ref<Step | 'cancel' | null>(null)
+const acceptingStats = ref(false)
+const isBusy = computed(() => props.loading || pendingReset.value !== null || acceptingStats.value)
+
+watch(
+  () => props.resetSequence,
+  () => {
+    const destination = pendingReset.value
+    pendingReset.value = null
+    acceptingStats.value = false
+    cancelSwap()
+    if (destination === 'cancel') emit('cancel')
+    else if (destination) currentStep.value = destination
+  },
+)
+watch(
+  () => props.stats,
+  (stats) => {
+    if (stats && currentStep.value === 'method') currentStep.value = 'stats'
+    if (acceptingStats.value && stats?.phase === 'bonuses') {
+      acceptingStats.value = false
+      currentStep.value = 'bonus'
+    }
+  },
+)
+watch(
+  () => props.error,
+  (error) => {
+    if (error) {
+      pendingReset.value = null
+      acceptingStats.value = false
+    }
+  },
+)
 
 // Character data
 const isNewbie = ref<boolean | null>(null)
@@ -125,12 +175,12 @@ const STAT_NAMES: Record<string, string> = {
   wis: 'Wis',
   cha: 'Cha',
   luk: 'Luck',
-  kar: 'Unused',
+  kar: 'Karma',
 }
 
 // Add bonus to a stat (server handles the logic)
 function handleAddBonus(stat: string) {
-  if (props.stats && (props.stats.bonusRemaining ?? 0) > 0) {
+  if (!isBusy.value && props.stats && (props.stats.bonusRemaining ?? 0) > 0) {
     emit('add-bonus', stat)
   }
 }
@@ -167,6 +217,7 @@ const requiredSteps = computed(() => {
   if (needsHometownChoice.value) {
     steps.push('hometown')
   }
+  if (supportsMethods.value) steps.push('method')
   steps.push('stats', 'bonus', 'swap', 'name', 'review')
   return steps
 })
@@ -205,7 +256,7 @@ watch(
 
 // Auto-roll stats when entering the stats step
 watch(currentStep, (newStep) => {
-  if (newStep === 'stats' && selectedRace.value && !props.stats) {
+  if (!supportsMethods.value && newStep === 'stats' && selectedRace.value && !props.stats) {
     emit('roll-stats', selectedRace.value.id)
   }
 })
@@ -245,6 +296,7 @@ function getPrevStep(): Step | undefined {
 }
 
 function nextStep() {
+  if (isBusy.value) return
   const next = getNextStep()
   if (!next) return
 
@@ -270,7 +322,15 @@ function nextStep() {
     case 'hometown':
       if (selectedHometown.value !== null) currentStep.value = next
       break
+    case 'method':
+      if (selectedRace.value) emit('roll-stats', selectedRace.value.id, selectedMethod.value)
+      break
     case 'stats':
+      if (supportsMethods.value && props.stats?.phase === 'rolling') {
+        acceptingStats.value = true
+        emit('accept-stats')
+        return
+      }
       currentStep.value = next
       break
     case 'bonus':
@@ -287,7 +347,24 @@ function nextStep() {
   }
 }
 
+function requestReset(destination: Step | 'cancel') {
+  if (isBusy.value) return
+  pendingReset.value = destination
+  emit('reset-chargen')
+}
+
+function cancelCreation() {
+  if (isBusy.value) return
+  if (supportsMethods.value) requestReset('cancel')
+  else emit('cancel')
+}
+
 function prevStep() {
+  if (isBusy.value) return
+  if (supportsMethods.value && ['stats', 'bonus', 'swap'].includes(currentStep.value)) {
+    requestReset('method')
+    return
+  }
   const prev = getPrevStep()
   if (prev) {
     currentStep.value = prev
@@ -343,8 +420,12 @@ function handleNameInput() {
 }
 
 function rerollStats() {
-  if (selectedRace.value) {
-    emit('roll-stats', selectedRace.value.id)
+  if (!isBusy.value && selectedRace.value) {
+    if (supportsMethods.value) {
+      if (props.stats && (props.stats.method !== 'advanced' || props.stats.phase !== 'rolling'))
+        return
+      emit('roll-stats', selectedRace.value.id, selectedMethod.value)
+    } else emit('roll-stats', selectedRace.value.id)
   }
 }
 
@@ -362,6 +443,7 @@ function cancelSwap() {
 }
 
 function selectSwapStat(stat: string) {
+  if (isBusy.value) return
   if (swapMode.value === 'selecting-first') {
     swapFirst.value = stat
     swapMode.value = 'selecting-second'
@@ -376,6 +458,7 @@ function selectSwapStat(stat: string) {
 }
 
 function createCharacter() {
+  if (isBusy.value) return
   console.log('[Chargen] createCharacter called', {
     race: selectedRace.value,
     class: selectedClass.value,
@@ -444,7 +527,7 @@ function formatAlignment(alignment: string): string {
           <CardTitle class="text-xl">Create Character</CardTitle>
           <CardDescription>Step {{ stepNumber }} of {{ totalSteps }}</CardDescription>
         </div>
-        <Button variant="ghost" size="sm" @click="emit('cancel')">Cancel</Button>
+        <Button variant="ghost" size="sm" @click="cancelCreation" :disabled="isBusy">Cancel</Button>
       </div>
       <!-- Progress bar -->
       <div class="w-full bg-muted rounded-full h-2 mt-4">
@@ -456,18 +539,15 @@ function formatAlignment(alignment: string): string {
     </CardHeader>
 
     <CardContent class="min-h-[400px]">
-      <!-- Loading state -->
-      <div v-if="loading" class="flex items-center justify-center h-64">
-        <Loader2 class="w-8 h-8 animate-spin text-muted-foreground" />
+      <Alert v-if="error" variant="destructive" role="alert" class="mb-4">
+        <AlertDescription>{{ error }}</AlertDescription>
+      </Alert>
+      <div v-if="loading" role="status" class="flex items-center gap-2 text-muted-foreground mb-4">
+        <Loader2 class="w-4 h-4 animate-spin" /> Waiting for the game...
       </div>
-
-      <!-- Error state -->
-      <div v-else-if="error" class="text-center text-destructive py-8">
-        {{ error }}
-      </div>
-
+      <fieldset :disabled="isBusy" class="min-w-0">
       <!-- Step: Newbie Check -->
-      <div v-else-if="currentStep === 'newbie'" class="space-y-6">
+      <div v-if="currentStep === 'newbie'" class="space-y-6">
         <h3 class="text-lg font-semibold text-center">Welcome to the World of Duris</h3>
         <p class="text-muted-foreground text-center max-w-md mx-auto">
           Before we begin, we'd like to know your experience level.
@@ -701,17 +781,36 @@ function formatAlignment(alignment: string): string {
         </div>
       </div>
 
+      <div v-else-if="currentStep === 'method'" class="space-y-4">
+        <h3 class="text-lg font-semibold">Choose Your Stat Rolling System</h3>
+        <p class="text-muted-foreground">
+          Default gives consistently strong starting stats, a higher average per roll, and a faster start.
+          Advanced gives a wider range and lets you reroll for a potentially stronger set, which may take time.
+          Both choices receive four +5 bonuses and allow stat swaps.
+        </p>
+        <RadioGroup v-model="selectedMethod" class="space-y-3">
+          <div class="flex items-center gap-2">
+            <RadioGroupItem id="stat-default" value="default" />
+            <Label for="stat-default">Default / quick start</Label>
+          </div>
+          <div class="flex items-center gap-2">
+            <RadioGroupItem id="stat-advanced" value="advanced" />
+            <Label for="stat-advanced">Advanced / rerolling</Label>
+          </div>
+        </RadioGroup>
+      </div>
+
       <!-- Step: Stats -->
       <div v-else-if="currentStep === 'stats'" class="space-y-4">
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-semibold">Your Statistics</h3>
-          <Button variant="outline" size="sm" @click="rerollStats" :disabled="loading">
+          <Button v-if="!supportsMethods || !stats || (stats.method === 'advanced' && stats.phase === 'rolling')" variant="outline" size="sm" @click="rerollStats" :disabled="isBusy">
             <Dices class="w-4 h-4 mr-2" />
-            Reroll
+            {{ stats ? 'Reroll' : 'Retry Roll' }}
           </Button>
         </div>
 
-        <div v-if="stats?.stats" class="grid grid-cols-5 gap-3">
+        <div v-if="stats?.stats" class="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div v-for="stat in STAT_ORDER" :key="stat" class="text-center p-3 bg-muted rounded-lg">
             <div class="text-xs text-muted-foreground uppercase">{{ STAT_NAMES[stat] }}</div>
             <div :class="getStatColor(stats.stats[stat])" class="text-lg font-medium mt-1">
@@ -721,7 +820,9 @@ function formatAlignment(alignment: string): string {
         </div>
 
         <p class="text-sm text-muted-foreground">
-          Your rolled statistics. Click Reroll to try again. Next step: allocate bonus points.
+          Your rolled statistics.
+          <span v-if="!supportsMethods || stats?.phase === 'rolling'">Click Reroll to try again.</span>
+          Next step: allocate bonus points.
         </p>
       </div>
 
@@ -735,15 +836,15 @@ function formatAlignment(alignment: string): string {
         </div>
 
         <p class="text-sm text-muted-foreground">
-          Click a stat to add +5 bonus points. You have 5 bonus points to allocate.
+          Click a stat to add +5 bonus points. You have {{ bonusCount ?? 5 }} selections to allocate, capped at 100. Karma cannot receive bonuses.
         </p>
 
-        <div v-if="stats?.stats" class="grid grid-cols-5 gap-3">
+        <div v-if="stats?.stats" class="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <button
             v-for="stat in BONUS_STATS"
             :key="stat"
             class="text-center p-3 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 hover:ring-2 hover:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            :disabled="(stats.bonusRemaining ?? 0) === 0 || stats.stats[stat] === 'quite excellent'"
+            :disabled="isBusy || (stats.bonusRemaining ?? 0) === 0"
             @click="handleAddBonus(stat)"
           >
             <div class="text-xs text-muted-foreground uppercase">{{ STAT_NAMES[stat] }}</div>
@@ -761,7 +862,7 @@ function formatAlignment(alignment: string): string {
           You may swap the values of two stats if you wish. This is optional.
         </p>
 
-        <div v-if="stats?.stats" class="grid grid-cols-5 gap-3">
+        <div v-if="stats?.stats" class="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <button
             v-for="stat in SWAP_STATS"
             :key="stat"
@@ -771,7 +872,7 @@ function formatAlignment(alignment: string): string {
               swapFirst === stat && 'ring-2 ring-yellow-500',
               swapSecond === stat && 'ring-2 ring-green-500',
             ]"
-            :disabled="swapMode === 'none'"
+            :disabled="isBusy || swapMode === 'none'"
             @click="selectSwapStat(stat)"
           >
             <div class="text-xs text-muted-foreground uppercase">{{ STAT_NAMES[stat] }}</div>
@@ -892,7 +993,7 @@ function formatAlignment(alignment: string): string {
         <Button
           variant="outline"
           @click="prevStep"
-          :disabled="currentStep === 'newbie'"
+          :disabled="isBusy || currentStep === 'newbie'"
         >
           <ArrowLeft class="w-4 h-4 mr-2" />
           Back
@@ -902,6 +1003,7 @@ function formatAlignment(alignment: string): string {
           v-if="currentStep !== 'review'"
           @click="nextStep"
           :disabled="
+            isBusy ||
             (currentStep === 'newbie' && isNewbie === null) ||
             (currentStep === 'race' && !selectedRace) ||
             (currentStep === 'class' && !selectedClass) ||
@@ -920,12 +1022,13 @@ function formatAlignment(alignment: string): string {
         <Button
           v-else
           @click="createCharacter"
-          :disabled="loading"
+          :disabled="isBusy"
         >
           <Check class="w-4 h-4 mr-2" />
           Create Character
         </Button>
       </div>
+      </fieldset>
     </CardContent>
   </Card>
 </template>
