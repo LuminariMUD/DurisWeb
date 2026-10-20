@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { wikiApi } from '@/services/api'
@@ -47,115 +47,208 @@ let entranceLayer: L.LayerGroup | null = null
 const showMarkers = ref(props.initialShowMarkers)
 const showZoneNames = ref(props.initialShowZoneNames)
 
-// Entrance cache
-const entranceCache = new Map<string, WikiZoneEntrance[]>()
+// Room coordinates use 2^zoom screen pixels per room. Never shrink names at overview.
+const READING_ZOOM = 3
+const CLOSE_ZOOM = 4
+let requestVersion = 0
+let refreshTimer: ReturnType<typeof setTimeout> | null = null
+let resizeObserver: ResizeObserver | null = null
+let finePointer: MediaQueryList | null = null
+let reducedMotion = false
+let refreshingEntrances = false
+let openEntrance: { key: string; focusedZone: number | null } | null = null
+const entranceCache = new Map<string, Promise<WikiZoneEntrance[]>>()
 
-// Convert MUD Y to Leaflet lat (negate because MUD Y increases south, Leaflet lat increases north)
 function mudYToLat(mudY: number): number {
   return -mudY
 }
 
-// Convert Leaflet lat to MUD Y
 function latToMudY(lat: number): number {
   return -lat
 }
 
-/** Resolves the layer background from the validated public origins. */
 function getMapImageUrl(layer: number): string {
   return resolveMapLayerImageUrl(frontendConfiguration, layer)
 }
 
-// Load entrances for a region
 async function loadEntrances(bounds: L.LatLngBounds): Promise<WikiZoneEntrance[]> {
-  const validMinX = props.bounds?.minX ?? 0
-  const validMaxX = props.bounds?.maxX ?? 399
-  const validMinY = props.bounds?.minY ?? 0
-  const validMaxY = props.bounds?.maxY ?? 399
+  const minX = Math.max(props.bounds?.minX ?? 0, Math.floor(bounds.getWest()))
+  const maxX = Math.min(props.bounds?.maxX ?? 399, Math.ceil(bounds.getEast()))
+  const minY = Math.max(props.bounds?.minY ?? 0, Math.floor(latToMudY(bounds.getNorth())))
+  const maxY = Math.min(props.bounds?.maxY ?? 399, Math.ceil(latToMudY(bounds.getSouth())))
+  if (minX > maxX || minY > maxY) return []
 
-  const minX = Math.max(validMinX, Math.floor(bounds.getWest()))
-  const maxX = Math.min(validMaxX, Math.ceil(bounds.getEast()))
-  const minY = Math.max(validMinY, Math.floor(latToMudY(bounds.getNorth())))
-  const maxY = Math.min(validMaxY, Math.ceil(latToMudY(bounds.getSouth())))
-
-  if (minX > maxX || minY > maxY) {
-    return []
+  const layer = props.layer
+  const cacheKey = `${minX}:${maxX}:${minY}:${maxY}:${layer}`
+  let pending = entranceCache.get(cacheKey)
+  if (!pending) {
+    pending = wikiApi.getZoneEntrances({ minX, maxX, minY, maxY }, layer).catch(() => {
+      entranceCache.delete(cacheKey)
+      console.error('Failed to load map entrances')
+      return []
+    })
+    entranceCache.set(cacheKey, pending)
   }
-
-  const cacheKey = `${minX}:${maxX}:${minY}:${maxY}:${props.layer}`
-
-  if (entranceCache.has(cacheKey)) {
-    return entranceCache.get(cacheKey)!
-  }
-
-  try {
-    const entrances = await wikiApi.getZoneEntrances({ minX, maxX, minY, maxY }, props.layer)
-    entranceCache.set(cacheKey, entrances)
-    return entrances
-  } catch (error) {
-    console.error('Failed to load entrances:', error)
-    entranceCache.set(cacheKey, [])
-    return []
-  }
+  return pending
 }
 
-// Create a custom icon for zone entrances
-const entranceIcon = L.divIcon({
-  className: 'zone-entrance-marker',
-  iconSize: [12, 12],
-  iconAnchor: [6, 6],
-})
+function zoneName(entrance: WikiZoneEntrance): string {
+  return stripAnsiCodes(entrance.toZoneName || `Zone ${entrance.toZoneNumber}`)
+}
 
-const hiddenIcon = L.divIcon({
-  className: 'zone-entrance-hidden',
-  iconSize: [1, 1],
-  iconAnchor: [0, 0],
-})
+function labelElement(text: string): HTMLSpanElement {
+  const label = document.createElement('span')
+  label.className = 'zone-name'
+  label.textContent = text
+  return label
+}
 
-// Update entrance markers
+// Keep complete names inside the viewport without moving the entrance itself.
+function containLabel(label: HTMLElement, marker: L.Marker) {
+  if (!mapContainer.value) return
+  label.style.transform = ''
+  const viewport = mapContainer.value.getBoundingClientRect()
+  let box = label.getBoundingClientRect()
+  const tooltip = marker.getTooltip()
+  if (tooltip && box.top < viewport.top + 6) {
+    tooltip.options.direction = 'bottom'
+    tooltip.options.offset = L.point(0, 8)
+    tooltip.update()
+    box = label.getBoundingClientRect()
+  }
+  const dx = Math.max(viewport.left + 6 - box.left, Math.min(0, viewport.right - 6 - box.right))
+  const dy = Math.max(viewport.top + 6 - box.top, Math.min(0, viewport.bottom - 6 - box.bottom))
+  label.style.transform = `translate(${dx}px, ${dy}px)`
+}
+
+// Keep every coordinate. Only destinations at the exact same coordinate share a disclosure.
 async function updateEntrances() {
+  const version = ++requestVersion
   if (!map || !entranceLayer) return
+  if (!showMarkers.value && !showZoneNames.value) {
+    entranceLayer.clearLayers()
+    return
+  }
 
+  const entrances = await loadEntrances(map.getBounds())
+  if (version !== requestVersion || !map || !entranceLayer) return
+  refreshingEntrances = true
   entranceLayer.clearLayers()
+  refreshingEntrances = false
+  let restoredPopup = false
+  mapContainer.value?.classList.toggle('wiki-map-close', map.getZoom() >= CLOSE_ZOOM)
 
-  if (!showMarkers.value && !showZoneNames.value) return
-
-  const bounds = map.getBounds()
-  const entrances = await loadEntrances(bounds)
-
+  const coordinates = new Map<string, WikiZoneEntrance[]>()
   for (const entrance of entrances) {
     if (entrance.x === null || entrance.y === null) continue
+    const key = `${entrance.x}:${entrance.y}`
+    const group = coordinates.get(key) ?? []
+    group.push(entrance)
+    coordinates.set(key, group)
+  }
 
-    const icon = showMarkers.value ? entranceIcon : hiddenIcon
-    const marker = L.marker([mudYToLat(entrance.y), entrance.x], { icon })
-
-    const rawZoneName = entrance.toZoneName || `Zone ${entrance.toZoneNumber}`
-    const zoneName = stripAnsiCodes(rawZoneName)
-
-    if (showZoneNames.value) {
-      marker.bindTooltip(zoneName, {
-        permanent: true,
-        direction: 'right',
-        offset: showMarkers.value ? [8, 0] : [0, 0],
-        className: 'zone-label',
-      })
-    }
+  for (const group of coordinates.values()) {
+    const first = group[0]!
+    const coordinateKey = `${first.x}:${first.y}`
+    const destinations = [...new Map(group.map((row) => [row.toZoneNumber, row])).values()]
+    const text = destinations.length === 1 ? zoneName(first) : `${destinations.length} destinations`
+    const content = document.createElement('span')
+    content.className = 'zone-dot'
+    content.setAttribute('aria-hidden', 'true')
+    const icon = L.divIcon({
+      className: showMarkers.value ? 'zone-entrance-marker' : 'zone-entrance-name',
+      html: showMarkers.value ? content : labelElement(text),
+      iconSize: showMarkers.value ? [24, 24] : [160, 24],
+      iconAnchor: showMarkers.value ? [12, 12] : [80, -8],
+    })
+    const marker = L.marker([mudYToLat(first.y!), first.x!], {
+      icon,
+      title: text,
+      alt: text,
+      keyboard: true,
+    })
 
     if (showMarkers.value) {
-      marker.bindPopup(
-        `<div class="zone-popup"><strong>${zoneName}</strong><br/>Zone #${entrance.toZoneNumber}</div>`,
-        {
-          closeButton: false,
-          className: 'zone-popup-container',
-        },
-      )
-
-      marker.on('mouseover', () => marker.openPopup())
-      marker.on('mouseout', () => marker.closePopup())
-      marker.on('click', () => emit('zoneClick', entrance.toZoneNumber, zoneName))
+      const label = labelElement(text)
+      marker.bindTooltip(label, {
+        permanent: showZoneNames.value && (!finePointer?.matches || map.getZoom() >= READING_ZOOM),
+        direction: 'top',
+        offset: [0, -8],
+        opacity: 1,
+        className: 'zone-label',
+      })
+      marker.on('tooltipopen', () => containLabel(label, marker))
     }
 
+    if (destinations.length > 1) {
+      const popup = document.createElement('div')
+      popup.className = 'zone-popup'
+      const heading = document.createElement('p')
+      heading.textContent = 'Choose a destination'
+      popup.append(heading)
+      for (const destination of destinations) {
+        const button = document.createElement('button')
+        button.type = 'button'
+        button.dataset.zone = String(destination.toZoneNumber)
+        button.addEventListener('focus', () => {
+          if (openEntrance?.key === coordinateKey)
+            openEntrance.focusedZone = destination.toZoneNumber
+        })
+        button.textContent = zoneName(destination)
+        button.addEventListener('click', () =>
+          emit('zoneClick', destination.toZoneNumber, zoneName(destination)),
+        )
+        popup.append(button)
+      }
+      marker.bindPopup(popup, { className: 'zone-popup-container', maxWidth: 280 })
+      marker.on('popupopen', () => {
+        const focusedZone = openEntrance?.key === coordinateKey ? openEntrance.focusedZone : null
+        openEntrance = { key: coordinateKey, focusedZone }
+        const target =
+          focusedZone === null
+            ? popup.querySelector('button')
+            : popup.querySelector<HTMLButtonElement>(`[data-zone="${focusedZone}"]`)
+        target?.focus({ preventScroll: true })
+      })
+      marker.on('popupclose', () => {
+        if (refreshingEntrances) return
+        openEntrance = null
+        if (popup.contains(document.activeElement))
+          marker.getElement()?.focus({ preventScroll: true })
+      })
+    } else {
+      marker.on('click', () => emit('zoneClick', first.toZoneNumber, zoneName(first)))
+    }
     entranceLayer.addLayer(marker)
+    if (openEntrance?.key === coordinateKey && destinations.length > 1) {
+      marker.openPopup()
+      restoredPopup = true
+    }
+    const element = marker.getElement()
+    if (!showMarkers.value) {
+      const label = element?.querySelector<HTMLElement>('.zone-name')
+      if (label) containLabel(label, marker)
+    }
+    element?.setAttribute('aria-label', text)
+    if (destinations.length > 1) element?.setAttribute('aria-haspopup', 'dialog')
+    element?.addEventListener('keydown', (event) => {
+      if (event.key === ' ') {
+        event.preventDefault()
+        marker.fire('click')
+      }
+    })
   }
+  if (!restoredPopup) openEntrance = null
+}
+
+function scheduleRefresh() {
+  ++requestVersion
+  if (refreshTimer) clearTimeout(refreshTimer)
+  refreshTimer = setTimeout(() => {
+    refreshTimer = null
+    void updateEntrances()
+    emitPositionChange()
+  }, 100)
 }
 
 // Initialize map
@@ -175,7 +268,13 @@ function initMap() {
     [mudYToLat(props.bounds.minY), props.bounds.maxX],
   )
 
+  finePointer = window.matchMedia('(hover: hover) and (pointer: fine)')
+  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  finePointer.addEventListener('change', scheduleRefresh)
   map = L.map(mapContainer.value, {
+    zoomAnimation: !reducedMotion,
+    fadeAnimation: false,
+    markerZoomAnimation: !reducedMotion,
     crs: L.CRS.Simple,
     center: [mudYToLat(centerY), centerX],
     zoom: 0,
@@ -200,19 +299,13 @@ function initMap() {
   entranceLayer = L.layerGroup()
   entranceLayer.addTo(map)
 
-  // Event handlers
-  let moveEndTimeout: ReturnType<typeof setTimeout> | null = null
-  map.on('moveend', () => {
-    if (moveEndTimeout) clearTimeout(moveEndTimeout)
-    moveEndTimeout = setTimeout(() => {
-      updateEntrances()
-      emitPositionChange()
-    }, 100)
-  })
-
+  map.on('moveend', scheduleRefresh)
   map.on('zoomend', () => {
     emit('zoomChange', map!.getZoom())
+    scheduleRefresh()
   })
+  resizeObserver = new ResizeObserver(() => map?.invalidateSize({ animate: false }))
+  resizeObserver.observe(mapContainer.value)
 
   map.on('mousemove', (e: L.LeafletMouseEvent) => {
     const x = Math.round(e.latlng.lng)
@@ -234,7 +327,7 @@ function emitPositionChange() {
 // Public methods
 function panTo(x: number, y: number) {
   if (!map) return
-  map.panTo([mudYToLat(y), x])
+  map.panTo([mudYToLat(y), x], { animate: !reducedMotion })
 }
 
 function setZoom(zoom: number) {
@@ -259,160 +352,185 @@ function fitBounds() {
     [mudYToLat(props.bounds.maxY), props.bounds.minX],
     [mudYToLat(props.bounds.minY), props.bounds.maxX],
   )
-  map.fitBounds(bounds)
+  map.fitBounds(bounds, { animate: !reducedMotion })
 }
 
 defineExpose({ panTo, setZoom, zoomIn, zoomOut, fitBounds })
 
-// Watch for layer changes
+// A layer and its bounds arrive together from the view. Invalidate old work immediately.
 watch(
-  () => props.layer,
+  [() => props.layer, () => props.bounds],
   () => {
-    if (!map || !imageOverlay || !props.bounds) return
-
-    // Update image URL
+    ++requestVersion
+    entranceLayer?.clearLayers()
+    if (!map) {
+      initMap()
+      return
+    }
+    if (!imageOverlay || !props.bounds) return
     imageOverlay.setUrl(getMapImageUrl(props.layer))
-
-    // Clear entrance cache
-    entranceCache.clear()
-    updateEntrances()
-  },
-)
-
-// Watch for bounds changes
-watch(
-  () => props.bounds,
-  (newBounds) => {
-    if (!map || !imageOverlay || !newBounds) return
-
-    const maxBounds = L.latLngBounds(
-      [mudYToLat(newBounds.maxY + 50), newBounds.minX - 50],
-      [mudYToLat(newBounds.minY - 50), newBounds.maxX + 50],
+    const bounds = props.bounds
+    map.setMaxBounds(
+      L.latLngBounds(
+        [mudYToLat(bounds.maxY) - 50, bounds.minX - 50],
+        [mudYToLat(bounds.minY) + 50, bounds.maxX + 50],
+      ),
     )
-    map.setMaxBounds(maxBounds)
-
-    const imageBounds = L.latLngBounds(
-      [mudYToLat(newBounds.maxY), newBounds.minX],
-      [mudYToLat(newBounds.minY), newBounds.maxX],
+    imageOverlay.setBounds(
+      L.latLngBounds([mudYToLat(bounds.maxY), bounds.minX], [mudYToLat(bounds.minY), bounds.maxX]),
     )
-    imageOverlay.setBounds(imageBounds)
-    map.fitBounds(imageBounds)
+    fitBounds()
+    void updateEntrances()
   },
   { deep: true },
 )
 
-// Watch for toggle changes
 watch([showMarkers, showZoneNames], () => {
-  updateEntrances()
+  entranceLayer?.clearLayers()
+  void updateEntrances()
 })
 
-onMounted(() => {
-  nextTick(() => {
-    initMap()
-  })
-})
-
+onMounted(initMap)
 onUnmounted(() => {
-  if (map) {
-    map.remove()
-    map = null
-  }
+  ++requestVersion
+  if (refreshTimer) clearTimeout(refreshTimer)
+  finePointer?.removeEventListener('change', scheduleRefresh)
+  resizeObserver?.disconnect()
+  entranceCache.clear()
+  map?.remove()
+  map = null
+  entranceLayer = null
 })
 </script>
 
 <template>
-  <div class="w-full h-full relative">
-    <div ref="mapContainer" class="w-full h-full" />
-    <!-- toggle controls -->
-    <div v-if="!hideControls" class="absolute top-2 right-2 bg-ink-high/90 rounded px-2 py-1.5 text-xs text-foreground flex flex-col gap-1 z-[1000]">
-      <label class="flex items-center gap-1.5 cursor-pointer hover:text-white">
-        <input
-          v-model="showMarkers"
-          type="checkbox"
-          class="w-3 h-3 rounded border-faint bg-ink-top text-warning focus:ring-warning focus:ring-offset-0"
-        />
-        markers
+  <div class="wiki-leaflet-map w-full h-full relative">
+    <div ref="mapContainer" class="w-full h-full" aria-label="World map" />
+    <fieldset v-if="!hideControls" class="absolute top-3 right-3 border border-border bg-background px-3 py-2 text-sm text-foreground flex flex-col gap-1 z-[1000]">
+      <legend class="sr-only">Map visibility</legend>
+      <label class="flex min-h-7 items-center gap-2 cursor-pointer">
+        <input v-model="showMarkers" type="checkbox" class="h-4 w-4 accent-vermilion" />
+        Markers
       </label>
-      <label class="flex items-center gap-1.5 cursor-pointer hover:text-white">
-        <input
-          v-model="showZoneNames"
-          type="checkbox"
-          class="w-3 h-3 rounded border-faint bg-ink-top text-warning focus:ring-warning focus:ring-offset-0"
-        />
-        zone names
+      <label class="flex min-h-7 items-center gap-2 cursor-pointer">
+        <input v-model="showZoneNames" type="checkbox" class="h-4 w-4 accent-vermilion" />
+        Zone names
       </label>
-    </div>
+    </fieldset>
   </div>
 </template>
 
-<style>
-.leaflet-container {
+<style scoped>
+.wiki-leaflet-map :deep(.leaflet-container) {
   background: var(--color-ink-raised);
-  font-family: inherit;
+  font-family: var(--font-sans);
   z-index: 0;
 }
 
-.leaflet-tooltip {
-  background: var(--color-ink-raised);
-  border: 1px solid var(--color-rule);
-  color: var(--color-bone);
-  padding: 4px 8px;
-  font-size: 12px;
-  border-radius: 0;
-}
-
-.zone-entrance-marker {
-  width: 12px !important;
-  height: 12px !important;
-  background-color: var(--color-vermilion);
-  border: 2px solid var(--color-bone);
-  border-radius: 50%;
+.wiki-leaflet-map :deep(.zone-entrance-marker) {
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
   cursor: pointer;
 }
 
-.zone-entrance-marker:hover {
-  background-color: var(--color-ember);
-  transform: scale(1.2);
+.wiki-leaflet-map :deep(.zone-dot) {
+  display: block;
+  width: 12px;
+  height: 12px;
+  background: var(--color-vermilion);
+  border: 2px solid var(--color-bone);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--color-ink);
 }
 
-.zone-entrance-hidden {
-  width: 1px !important;
-  height: 1px !important;
-  background: transparent;
-  border: none;
+.wiki-leaflet-map :deep(.zone-entrance-marker:hover .zone-dot),
+.wiki-leaflet-map :deep(.zone-entrance-marker:focus .zone-dot) {
+  background: var(--color-ember);
 }
 
-.zone-label {
+.wiki-leaflet-map :deep(.zone-label),
+.wiki-leaflet-map :deep(.zone-entrance-name) {
   background: transparent;
   border: none;
+  border-radius: 0;
   box-shadow: none;
-  color: var(--color-bone);
-  font-size: 11px;
-  font-weight: 500;
-  text-shadow: 1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000;
-  white-space: nowrap;
   padding: 0;
+  white-space: normal;
+  text-align: center;
 }
 
-.zone-label::before {
+.wiki-leaflet-map :deep(.zone-entrance-name) {
+  height: auto !important;
+  cursor: pointer;
+}
+
+.wiki-leaflet-map :deep(.zone-name) {
+  display: block;
+  width: 10rem;
+  color: var(--color-bone);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+  /* A compact solid outline separates complete glyphs from snow and sand. */
+  text-shadow: -1px -1px 0 var(--color-ink), 0 -1px 0 var(--color-ink),
+    1px -1px 0 var(--color-ink), 1px 0 0 var(--color-ink),
+    1px 1px 0 var(--color-ink), 0 1px 0 var(--color-ink),
+    -1px 1px 0 var(--color-ink), -1px 0 0 var(--color-ink),
+    0 2px 0 var(--color-ink);
+}
+
+.wiki-leaflet-map :deep(.wiki-map-close .zone-name) {
+  font-size: 1rem;
+}
+
+.wiki-leaflet-map :deep(.zone-label::before) {
   display: none;
 }
 
-.zone-popup-container .leaflet-popup-content-wrapper {
-  background: var(--color-ink-raised);
+.wiki-leaflet-map :deep(.zone-entrance-marker:focus-visible),
+.wiki-leaflet-map :deep(.zone-entrance-name:focus-visible .zone-name) {
+  outline: 2px solid var(--color-bone);
+  outline-offset: 3px;
+  background: var(--color-ink);
+  z-index: 10000 !important;
+}
+
+.wiki-leaflet-map :deep(.zone-entrance-name:focus-visible) {
+  z-index: 10000 !important;
+}
+
+.wiki-leaflet-map :deep(.zone-popup-container .leaflet-popup-content-wrapper),
+.wiki-leaflet-map :deep(.zone-popup-container .leaflet-popup-tip) {
+  background: var(--color-ink);
   border: 1px solid var(--color-rule);
   border-radius: 0;
   color: var(--color-bone);
 }
 
-.zone-popup-container .leaflet-popup-tip {
-  background: var(--color-ink-raised);
-  border: 1px solid var(--color-rule);
+.wiki-leaflet-map :deep(.zone-popup) {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
 }
 
-.zone-popup {
-  font-size: 12px;
-  padding: 4px;
-  text-align: center;
+.wiki-leaflet-map :deep(.zone-popup p) {
+  margin: 0 0 0.25rem;
+}
+
+.wiki-leaflet-map :deep(.zone-popup button) {
+  border: 1px solid var(--color-rule);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.wiki-leaflet-map :deep(.zone-popup button:hover) {
+  background: var(--color-ink-high);
 }
 </style>

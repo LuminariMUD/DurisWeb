@@ -308,6 +308,41 @@ named `--mud-*` variables, and history contracts remain together in
 [Recipient colors in web chat](CHAT-COLORIZATION.md). Do not infer those IDs
 from ANSI SGR order or assume that all legacy ANSI animation shares that policy.
 
+### Wiki world map
+
+[`LeafletMap.vue`](../frontend/src/components/wiki/LeafletMap.vue) gives names the
+first visual emphasis: system sans, bone on a compact solid ink outline, weight
+600, 1.25 line height, centered natural wrapping within 10rem, with emergency
+word breaking and no truncation. Names are 0.875rem, increasing to 1rem at
+Leaflet zoom 4. Tooltip opacity is 1. A consistent edge rule puts a name below
+its entrance when space above is insufficient and keeps its text inside the map.
+The entrance coordinates never move.
+
+With a fine pointer and markers visible, zooms below 3 use hover/focus name
+disclosure; zoom 3 and above show permanent names. In this room-coordinate CRS,
+zoom 3 means eight screen pixels per room. Touch and names-only views retain
+permanent names at every zoom. Explicit Names off suppresses permanent names;
+both toggles off produce terrain only with no entrance tab stops. Co-located
+destinations share a keyboard-operable chooser; separate coordinates remain
+separate entrances. A names-only entrance has a visible text focus target.
+Zooming further separates nearby entrances; no name-based deduplication or
+manual positioning is used.
+
+The generated terrain uses muted greens, earth tones, and blue water, with
+recognizable snow, desert, volcanic, and Underdark sectors. Its explicit RGB
+table in [`wikiService.ts`](../backend/src/services/wikiService.ts) and the
+sector-labelled key in [`WikiMapView.vue`](../frontend/src/views/wiki/WikiMapView.vue)
+cover sectors 0–39 and are compared against decoded image pixels in tests.
+Unknown sectors retain the layer background. Palette changes must preserve
+geometry and all consumers, including terrain-only previews and the ship radar.
+Use a coordinated image/cache revision when a palette release must bypass older
+API, static-image, or persistent radar caches.
+
+Keep controls rectangular and on ink, markers vermilion with bone borders, and
+help outside the terrain on an ink footer. The terrain key is a compact native
+disclosure at every viewport, with a bounded scrollable body. Keep map controls
+and the key above the mobile navigation; global chrome and tokens remain shared.
+
 ### Charts and third-party UI
 
 [`chartTheme.ts`](../frontend/src/utils/chartTheme.ts) supplies resolved color

@@ -1,5 +1,8 @@
 import type { PublicFrontendConfiguration } from '../../config/environment'
 
+/** Palette revision shared by map-image requests and the radar's persistent cache. */
+export const MAP_IMAGE_REVISION = '20261020'
+
 /** Object path used by the static-origin upload of pre-rendered layer images. */
 const STATIC_LAYER_PATH = '/duris/maps/layer-'
 
@@ -26,7 +29,7 @@ export function resolveMapLayerImageUrl(
   const apiUrl = configuration.apiUrl.replace(/\/$/, '')
   const staticUrl = configuration.staticUrl.replace(/\/$/, '')
   if (staticUrl === apiUrl) {
-    return `${apiUrl}${API_LAYER_PATH}?layer=${layer}`
+    return `${apiUrl}${API_LAYER_PATH}?layer=${layer}&revision=${MAP_IMAGE_REVISION}`
   }
-  return `${staticUrl}${STATIC_LAYER_PATH}${layer}.png`
+  return `${staticUrl}${STATIC_LAYER_PATH}${layer}.png?revision=${MAP_IMAGE_REVISION}`
 }

@@ -1,3 +1,5 @@
+import { MAP_IMAGE_REVISION } from './mapLayerImageUrl.js'
+
 /**
  * IndexedDB cache for world map images
  * Persists the PNG blob across browser sessions for instant map loading
@@ -73,7 +75,7 @@ export async function getCachedWorldMap(layer: number = 0): Promise<Blob | null>
       return null
     }
 
-    const key = `worldmap:${layer}`
+    const key = `worldmap:${MAP_IMAGE_REVISION}:${layer}`
 
     return new Promise((resolve) => {
       const transaction = database.transaction(IMAGE_STORE, 'readonly')
@@ -115,7 +117,7 @@ export async function setCachedWorldMap(layer: number, blob: Blob): Promise<void
     const database = await openDB()
     if (!database) return
 
-    const key = `worldmap:${layer}`
+    const key = `worldmap:${MAP_IMAGE_REVISION}:${layer}`
 
     return new Promise((resolve) => {
       const transaction = database.transaction(IMAGE_STORE, 'readwrite')

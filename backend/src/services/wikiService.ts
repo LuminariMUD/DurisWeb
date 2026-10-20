@@ -2701,43 +2701,53 @@ export async function getZoneSpawns(zoneNumber: number): Promise<WikiZoneSpawns>
 // World Map Image Generation
 // =============================================================================
 
-// Sector type colors as RGB values (from MUD defines.h)
+// Muted game terrain, separate from application chrome. Keep the explicit legend
+// in WikiMapView.vue aligned; the image test compares it with decoded pixels.
 const SECTOR_COLORS_RGB: Record<number, [number, number, number]> = {
-  0: [120, 113, 108], // SECT_INSIDE - stone gray
-  1: [255, 255, 255], // SECT_CITY - white
-  2: [74, 222, 128], // SECT_FIELD - green
-  3: [22, 163, 74], // SECT_FOREST - darker green
-  4: [234, 179, 8], // SECT_HILLS - yellow
-  5: [161, 98, 7], // SECT_MOUNTAIN - brown
-  6: [34, 211, 238], // SECT_WATER_SWIM - cyan
-  7: [59, 130, 246], // SECT_WATER_NOSWIM - blue
-  8: [125, 211, 252], // SECT_NO_GROUND - sky blue (air)
-  9: [29, 78, 216], // SECT_UNDERWATER - dark blue
-  10: [30, 64, 175], // SECT_UNDERWATER_GR - darker blue
-  11: [239, 68, 68], // SECT_FIREPLANE - red/orange
-  12: [30, 58, 138], // SECT_OCEAN - deep blue
-  13: [126, 34, 206], // SECT_UNDRWLD_WILD - dark purple
-  14: [216, 180, 254], // SECT_UNDRWLD_CITY - light purple
-  15: [68, 64, 60], // SECT_UNDRWLD_INSIDE - dark stone
-  16: [99, 102, 241], // SECT_UNDRWLD_WATER - indigo
-  17: [79, 70, 229], // SECT_UNDRWLD_NOSWIM - indigo darker
-  18: [28, 25, 23], // SECT_UNDRWLD_NOGROUND - near black
-  19: [125, 211, 252], // SECT_AIR_PLANE - sky blue
-  20: [6, 182, 212], // SECT_WATER_PLANE - cyan
-  21: [120, 113, 108], // SECT_EARTH_PLANE - stone
-  22: [196, 181, 253], // SECT_ETHEREAL - light violet
-  23: [167, 139, 250], // SECT_ASTRAL - violet
-  24: [254, 240, 138], // SECT_DESERT - light yellow
-  25: [241, 245, 249], // SECT_ARCTIC - white/light gray
-  26: [168, 85, 247], // SECT_SWAMP - purple
-  27: [88, 28, 135], // SECT_UNDRWLD_MOUNTAIN - dark purple
-  28: [132, 204, 22], // SECT_UNDRWLD_SLIME - lime
-  29: [88, 28, 135], // SECT_UNDRWLD_LOWCEIL - dark purple
+  0: [119, 112, 102], // Stone / earth
+  1: [206, 193, 166], // City
+  2: [99, 115, 76], // Field
+  3: [52, 86, 61], // Forest
+  4: [140, 121, 82], // Hills
+  5: [105, 94, 82], // Mountain
+  6: [78, 123, 134], // Shallows / water plane
+  7: [54, 92, 112], // Deep water
+  8: [151, 181, 187], // Air
+  9: [44, 75, 96], // Underwater
+  10: [44, 75, 96], // Underwater
+  11: [157, 81, 64], // Fire / Avernus
+  12: [38, 63, 75], // Ocean
+  13: [81, 71, 93], // Underdark wilds
+  14: [177, 160, 184], // Underdark city
+  15: [71, 65, 74], // Underdark stone
+  16: [82, 99, 127], // Underdark water
+  17: [57, 73, 97], // Underdark deep water
+  18: [39, 35, 47], // Void / negative plane
+  19: [151, 181, 187], // Air
+  20: [78, 123, 134], // Shallows / water plane
+  21: [119, 112, 102], // Stone / earth
+  22: [164, 160, 183], // Ethereal
+  23: [126, 114, 155], // Astral
+  24: [185, 160, 120], // Desert
+  25: [198, 206, 202], // Arctic
+  26: [83, 99, 75], // Swamp
+  27: [96, 81, 107], // Underdark mountain
+  28: [120, 131, 70], // Slime
+  29: [61, 53, 70], // Low ceiling
+  30: [103, 147, 139], // Liquid mithril
+  31: [150, 112, 79], // Mushrooms
+  32: [170, 162, 142], // Castle / gate / wall
+  33: [170, 162, 142], // Castle / gate / wall
+  34: [170, 162, 142], // Castle / gate / wall
+  35: [39, 35, 47], // Void / negative plane
+  36: [157, 81, 64], // Fire / Avernus
+  37: [140, 138, 123], // Road
+  38: [145, 167, 152], // Snowy forest
+  39: [181, 107, 69], // Lava
 };
 
-// Background colors
-const SURFACE_BG_RGB: [number, number, number] = [30, 58, 138]; // ocean blue
-const UNDERDARK_BG_RGB: [number, number, number] = [0, 0, 0]; // black
+const SURFACE_BG_RGB: [number, number, number] = [38, 63, 75]; // ocean
+const UNDERDARK_BG_RGB: [number, number, number] = [25, 23, 30]; // uncharted depths
 
 /**
  * Generate a PNG image of the world map from tile data
@@ -2745,7 +2755,8 @@ const UNDERDARK_BG_RGB: [number, number, number] = [0, 0, 0]; // black
  * @returns PNG buffer
  */
 export async function generateMapImage(layer: number = 0, scale: number = 4): Promise<Buffer> {
-  const cacheKey = `wiki:mapImage:${layer}:${scale}`;
+  // Keep older cached palettes out of the revised image, without clearing other caches.
+  const cacheKey = `wiki:mapImage:20261020:${layer}:${scale}`;
 
   // Try cache first (store as base64 in Redis)
   const cached = await getCache<string>(cacheKey);

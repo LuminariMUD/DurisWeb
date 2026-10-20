@@ -1,6 +1,6 @@
 # Wiki world map readability plan
 
-Prepared 2026-10-19. **Status: planned; implementation and deployment have not started.**
+Prepared 2026-10-19. **Status: implementation in progress; preview deployment authorized on 2026-10-20.**
 Source rechecked: `49cc119d7394587104ba3726e7e1b2f5babc6b57`.
 
 ## Outcome and scope
@@ -19,8 +19,8 @@ panning, zoom/reset, marker/name toggles, and clicks through to zone details.
 
 **Non-goals:** a new map engine, imported artwork, manually positioned labels,
 search/sidebar features, dragon/ferry data, live positions, new dependencies,
-API or schema changes, MUD changes, and changes to other map renderers. This
-document authorizes planning only; it does not publish website changes.
+API or schema changes, MUD changes, and changes to other map renderers. The owner authorized implementation and a quick preview deployment on 2026-10-20;
+a full deployment qualification will follow separately.
 
 Prioritize **easy reading, then neat composition, then decoration**. Names are
 the first visual layer, entrance dots the second, and terrain the supporting
@@ -292,3 +292,133 @@ Reconcile it with existing Website Changelog coverage; publish through the admin
 UI/API only after the described release is verified live, then verify saved
 content and its public rendering. This planning-only change needs no public
 changelog entry because website behavior has not changed.
+
+## Implementation record — 2026-10-20
+
+- Outcome: readable complete zone names, calmer generated terrain, and usable
+  responsive controls, following DESIGN.md. The scope and non-goals above remain.
+- Work starts from `65c7ad9` in an isolated `feat/wiki-map-readability` worktree;
+  no build is run into the live checkout. Keep source, screenshots, command logs,
+  and recovery evidence identified in the final verification record.
+- Ablation review: the existing Leaflet/events and explicit palette tables are
+  sufficient. No new engine, dependencies, shared package, or collision system.
+  Required async-response protection and coordinate grouping stay in scope.
+- Browser plugin not available; using existing Playwright and its already
+  installed Chromium runtime/libraries. Flow: `/wiki/map` → layers, zoom,
+  entrance/name toggles and destinations → readable, correctly placed content.
+- Pending: baseline captures, implementation, focused tests/package gates,
+  matched visual/interaction checks, preview deployment/cache verification,
+  and published Website Changelog verification.
+
+### Baseline and first implementation
+
+- Captured anonymous public-map geography (no player data) on all three layers
+  at 1440×1000 and 390×844, overview/reading/close; retained PNGs, entrances,
+  bounds and capture metadata outside the checkout. Synthetic names are used
+  for markup, extreme lengths, shared coordinates, and delayed-response checks.
+- Surface has 370 rows at 366 coordinates; two coordinates lead to multiple
+  distinct destinations. These now use a coordinate-anchored destination chooser.
+  Distinct coordinates and all source rows remain intact. Underdark has 101
+  entrances; Alatorin has 75. Initial surface fitted zoom is 0.9 desktop and
+  -0.2 phone. Alatorin has different bounds (0–99 × 0–38).
+- Implemented 14px/1.25/600 bone names with a solid ink outline; 16px at zoom 4.
+  A first screenshot pass rejected permanent labels at zoom 2 as too crowded.
+  Fine-pointer overview now uses hover/focus disclosure below zoom 3 (8px per
+  room), with permanent names at/above 3. Touch and names-only retain names at
+  every zoom; explicit Names off still wins. Continent jumps use zoom 3.
+- Added request-generation checks, pending-request reuse, unified layer/bounds
+  updates, resize handling, and timer/listener cleanup. Literal DOM text replaces
+  HTML name sinks. Shared preview remains terrain-only.
+- Muted terrain covers all known sectors 0–39. The compact keyboard/touch terrain
+  key uses explicit matching sector IDs; help sits on an ink footer outside
+  the map, clear of the visibility controls.
+- First focused run: 14 frontend and 9 backend tests pass. Image tests decode
+  actual renderer output and compare every known sector with the view's legend,
+  plus unknown-sector/background, scale, placement, layer filters and cache.
+  Final checks will be repeated after visual tuning.
+
+### Verification and release preparation
+
+- Matched before/after captures use the same 1382×748 map viewport, center,
+  layer and exact zoom: Surface/Underdark at 0.9, 3 and 4; Alatorin at 3.8,
+  4.5 and 6. Full screenshots and JSON metadata are retained privately. Dense
+  distinct entrances separate at closer zoom; all entrances remain represented.
+- Responsive browser checks passed at 390×844, 639×900, 640×900, 768×1024,
+  1023×900, 1024×900 and 1440×1000: all visibility combinations, controls,
+  continent jumps, keyboard terrain disclosure, no horizontal overflow, and
+  no clipped visible names at reading zoom. Reduced-motion checks passed.
+- Actual Chromium browser zoom at 200% was exercised in an isolated Xvfb
+  display using native keyboard shortcuts (1440px window → 720 CSS pixels,
+  devicePixelRatio 2). The map key remains keyboard-reachable above navigation.
+- Measured label styles: 14px / 17.5px / 600 at zoom 3, 16px / 20px at zoom 4,
+  opacity 1, foreground `#ece8dd`, solid outline `#111310`; contrast 15.3:1.
+  Reviewed on bright/desert/snow and dark terrain; names wrap completely,
+  including synthetic long unbroken and markup-bearing strings.
+- Shared preview renders no entrances or controls. The real ship radar with
+  synthetic contacts uses the revised PNG and preserves coordinate alignment:
+  world (200,200) → (50.1253%,50.1253%), contact (205,200) →
+  (51.3784%,50.1253%). A seeded old IndexedDB image was bypassed.
+- Late layer-bounds responses cannot replace the selected layer. An edge-popup
+  browser test found that automatic panning closed a destination chooser; fixed
+  by preserving its open coordinate and focused destination through refresh.
+  The regression now passes in both component and rendered browser checks.
+- The only added scope is coordinated image revision `20261020` in Redis, API/
+  static image URLs, and the radar IndexedDB key. Existing bytes expire naturally;
+  no unrelated cache is flushed. Production has no separate static origin
+  (`R2_ENABLED=false`); both URL-selection branches remain covered by tests.
+- Deployment preflight passes against the real production configuration and
+  dependencies (93 existing migrations). No migration or extraction is needed.
+  Previous compiled artifacts match the retained deployed release byte-for-byte;
+  previous runtime source matches `9b6196a`. The application has PrivateTmp off,
+  so its restart does not remove a systemd private temporary directory.
+- Changelog review covers all 23 saved entries, including drafts: no matching
+  map-readability entry exists. The previous release is covered by entry 37.
+  Prepared “A clearer view of the world”, version `2026.10.20`; publication
+  waits for live preview acceptance.
+- Quick preview deployment is the authorized scope. Full repository suites,
+  native database rehearsals, long burn-in, backup/restore qualification, and
+  `verify:mud-writes` are not run here: there are no database/MUD-write changes,
+  and the owner will perform the full proper deployment separately.
+
+### Commands and results
+
+Commands below run from the isolated checkout. Installed dependencies were
+reused without changing either lockfile. `--config.verify-deps-before-run=false`
+prevents pnpm from attempting an unnecessary install through the dependency
+links. Initial test-fixture path/zoom mocks and a test-only readonly assignment
+were corrected; the final runs below pass. No dependency was added.
+
+```bash
+pnpm --config.verify-deps-before-run=false --dir frontend test:unit --run src/components/wiki/__tests__/LeafletMap.spec.ts src/utils/__tests__/mapLayerImageUrl.spec.ts src/utils/__tests__/shipCoordinates.spec.ts
+# PASS: 3 files, 22 tests
+pnpm --config.verify-deps-before-run=false --dir backend test --runInBand wikiMapImage wikiMapReadiness
+# PASS: 2 suites, 9 tests
+pnpm --config.verify-deps-before-run=false --dir frontend format:check
+pnpm --config.verify-deps-before-run=false --dir frontend lint
+pnpm --config.verify-deps-before-run=false --dir frontend type-check
+pnpm --config.verify-deps-before-run=false --dir frontend build
+pnpm --config.verify-deps-before-run=false --dir backend format:check
+pnpm --config.verify-deps-before-run=false --dir backend lint
+pnpm --config.verify-deps-before-run=false --dir backend type-check
+pnpm --config.verify-deps-before-run=false --dir backend build
+./frontend/scripts/check-palette-literals.sh
+./scripts/check-config-literals.sh
+pnpm --config.verify-deps-before-run=false --dir frontend config:check
+# All PASS
+```
+
+The freshly compiled `productionPreflight.js --configuration` and
+`productionPreflight.js --dependencies` also pass using the actual production
+backend working directory/environment and isolated release's migration bundle.
+No production build, migration, database test, or map re-extraction was run.
+
+Supporting commands: `git status/log/worktree/diff/archive`, `rg`, `cat`/`sed`,
+Python source/manifest checks, targeted `biome format --write`, Node fixture
+rendering (mock database/cache; public map rows), and Playwright scripts
+`baseline.mjs`, `candidate-visual.mjs`, `matched-browser.mjs`, `qa-browser.mjs`,
+`shared-browser.mjs`, `edge-popup.mjs`, and `zoom-headed.mjs`. Read-only
+`systemctl --user show/list-units` establishes the deployment target.
+Screenshot evidence includes normal and reduced motion, all three layers,
+synthetic long names, keyboard chooser, mobile key, shared preview, radar,
+and native 200% browser zoom. Headless preference/shortcut attempts did not
+change browser zoom; the headed Xvfb/native-key check is the actual zoom proof.
