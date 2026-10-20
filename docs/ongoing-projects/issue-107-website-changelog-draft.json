@@ -1,7 +1,7 @@
 {
   "version": "2026.10.20-draft",
   "title": "Choose how your character starts",
-  "content": "<h3>Character creation</h3><ul><li><strong>Choose your stat rolling system.</strong> Default offers consistently strong starting stats and a quick start. Advanced offers a wider range and lets you reroll before accepting a set.</li><li><strong>The same four bonuses.</strong> Both choices give four +5 selections, followed by optional stat swaps. A stat already at its maximum does not use up a selection.</li><li><strong>Smoother creation on phones.</strong> Creation steps scroll on short screens, errors leave the controls available, and restarting or cancelling clears the unfinished stat selection.</li></ul><p>These choices apply to new characters. Existing characters keep their stats.</p>",
+  "content": "<h3>Character creation</h3><ul><li><strong>Choose your stat rolling system.</strong> Default offers consistently strong starting stats and a quick start. Advanced offers a wider range and lets you reroll before accepting a set.</li><li><strong>The same four bonuses.</strong> Both choices give four +5 selections, followed by optional stat swaps. A stat already at its maximum does not use up a selection.</li><li><strong>Smoother creation on phones.</strong> Creation steps scroll on short screens, and the final review adapts its stats and navigation to narrow displays. A waiting message stays visible while the game processes your choice. Errors appear once and leave the controls available; restarting or cancelling clears the unfinished stat selection.</li></ul><p>These choices apply to new characters. Existing characters keep their stats.</p>",
   "category": "public",
   "isPublished": false
 }

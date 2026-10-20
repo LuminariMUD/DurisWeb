@@ -8,17 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import {
-  ArrowLeft,
-  ArrowRight,
-  Dices,
-  Check,
-  Loader2,
-  Skull,
-  Shield,
-  RefreshCw,
-  AlertCircle,
-} from '@lucide/vue'
+import { ArrowLeft, ArrowRight, Dices, Check, Loader2, Skull, Shield, RefreshCw } from '@lucide/vue'
 import type {
   MudRace,
   MudChargenClass,
@@ -547,7 +537,7 @@ function formatAlignment(alignment: string): string {
       <Alert v-if="error" variant="destructive" role="alert" class="mb-4">
         <AlertDescription>{{ error }}</AlertDescription>
       </Alert>
-      <div v-if="loading" role="status" class="flex items-center gap-2 text-muted-foreground mb-4">
+      <div v-if="isBusy" role="status" class="flex items-center gap-2 text-muted-foreground mb-4">
         <Loader2 class="w-4 h-4 animate-spin" /> Waiting for the game...
       </div>
       <fieldset :disabled="isBusy" class="min-w-0">
@@ -942,7 +932,7 @@ function formatAlignment(alignment: string): string {
       <div v-else-if="currentStep === 'review'" class="space-y-4">
         <h3 class="text-lg font-semibold">Review Your Character</h3>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div class="space-y-2">
             <div class="flex justify-between py-2 border-b">
               <span class="text-muted-foreground">Name</span>
@@ -976,7 +966,7 @@ function formatAlignment(alignment: string): string {
             </div>
           </div>
 
-          <div v-if="stats?.stats" class="grid grid-cols-5 gap-2">
+          <div v-if="stats?.stats" class="grid grid-cols-2 sm:grid-cols-5 gap-2">
             <div v-for="stat in STAT_ORDER" :key="stat" class="text-center p-2 bg-muted rounded">
               <div class="text-xs text-muted-foreground uppercase">{{ STAT_NAMES[stat] }}</div>
               <div :class="getStatColor(stats.stats[stat])" class="text-sm font-medium">
@@ -985,16 +975,10 @@ function formatAlignment(alignment: string): string {
             </div>
           </div>
         </div>
-
-        <!-- Error display for create_character failures -->
-        <Alert v-if="error" variant="destructive" class="mt-4">
-          <AlertCircle class="h-4 w-4" />
-          <AlertDescription>{{ error }}</AlertDescription>
-        </Alert>
       </div>
 
       <!-- Navigation -->
-      <div class="flex justify-between mt-8 pt-4 border-t">
+      <div class="flex flex-wrap justify-between gap-2 mt-8 pt-4 border-t">
         <Button
           variant="outline"
           @click="prevStep"

@@ -84,7 +84,7 @@ vi.mock('@/utils/duriswebAuth', () => ({
   buildDurisWebClientInfo: vi.fn(() => ({ client: 'DurisWeb', version: '1.0.0' })),
 }))
 
-import { useMudConnection } from '../useMudConnection'
+import { useMudConnection } from '../useMudConnection.js'
 import { createPinia, setActivePinia } from 'pinia'
 import { useMudStore } from '@/stores/mudStore'
 import type { MudStatLabels } from '@/types/mud'
@@ -328,10 +328,13 @@ describe('creation socket lifecycle', () => {
       ['missing stats', { stats: undefined }],
       ['null stats', { stats: null }],
       ['incomplete labels', { stats: { str: 'good' } }],
+      ['numeric label', { stats: { ...labels, luk: 85 } }],
       ...(modern
         ? ([
             ['missing method', { method: undefined }],
             ['missing phase', { phase: undefined }],
+            ['unknown method', { method: 'unknown' }],
+            ['unknown phase', { phase: 'unknown' }],
           ] satisfies [string, Record<string, unknown>][])
         : []),
       ...(type === 'stats_accepted'
@@ -481,4 +484,76 @@ describe('creation socket lifecycle', () => {
       expect(connection.rollStats(1, 'default')).toBe(true)
     },
   )
+
+  it('uses four awards, preserves a failed creation for retry and clears a completed attempt', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const socket = sockets[0]!
+    socket.onopen?.()
+    const receive = (message: unknown) => socket.onmessage?.({ data: JSON.stringify(message) })
+    const store = useMudStore()
+    receive({
+      type: 'chargen_options',
+      races: [],
+      statMethods: ['default', 'advanced'],
+      bonusCount: 4,
+    })
+    expect(connection.rollStats(1, 'default')).toBe(true)
+    receive({
+      type: 'roll_stats',
+      stats: labels,
+      bonusRemaining: 4,
+      method: 'default',
+      phase: 'bonuses',
+    })
+    for (let remaining = 3; remaining >= 0; remaining--) {
+      expect(connection.addBonus('dex')).toBe(true)
+      receive({
+        type: 'bonus_added',
+        stats: labels,
+        bonusRemaining: remaining,
+        method: 'default',
+        phase: remaining === 0 ? 'ready' : 'bonuses',
+      })
+      expect(store.chargenStats?.bonusRemaining).toBe(remaining)
+    }
+    expect(connection.swapStats('str', 'luk')).toBe(true)
+    receive({
+      type: 'stats_swapped',
+      stats: { ...labels, str: labels.luk, luk: labels.str },
+      method: 'default',
+      phase: 'ready',
+    })
+    expect(store.chargenStats?.stats.luk).toBe(labels.str)
+    expect(store.chargenStats?.bonusRemaining).toBe(0)
+    const before = store.chargenStats
+    expect(connection.createCharacter('Testhero', 1, 1, 1, 'good')).toBe(true)
+    expect(connection.createCharacter('Testhero', 1, 1, 1, 'good')).toBe(false)
+    receive({ type: 'create_character', status: 'error', message: 'Name already taken' })
+    expect(store.chargenStats).toBe(before)
+    expect(store.chargenError).toBe('Name already taken')
+    expect(connection.createCharacter('Newhero', 1, 1, 1, 'good')).toBe(true)
+    receive({
+      type: 'create_character',
+      status: 'created',
+      message: 'Welcome',
+      name: 'Newhero',
+      race: 'Human',
+      class: 'Warrior',
+      faction: 'good',
+    })
+    expect(store.connectionState).toBe('in_game')
+    expect(store.chargenStats).toBeNull()
+    expect(store.chargenStatMethods).toEqual([])
+    expect(store.chargenPending).toBeNull()
+  })
+
+  it('releases pending state when the socket cannot send', () => {
+    const connection = createConnection()
+    expect(connection.rollStats(1, 'default')).toBe(false)
+    const store = useMudStore()
+    expect(store.chargenPending).toBeNull()
+    expect(store.chargenLoading).toBe(false)
+    expect(store.chargenError).toContain('Connection unavailable')
+  })
 })
