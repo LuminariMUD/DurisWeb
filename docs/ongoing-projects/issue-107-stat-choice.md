@@ -183,3 +183,52 @@ action or MUD change is part of this handoff. The primary checkout is untouched.
 Website Changelog: the existing adjacent unpublished draft already covers the
 error/cancellation improvements. Retain it for the future release; reconcile
 saved drafts/entries and publish only after authorized deployment acceptance.
+
+## Merge qualification, 20 October 2026
+
+The merge request's latest review (`4327802720`) identified the same invalid-response
+lock on legacy servers. All stat-response types now validate labels and required
+counters before changing state. Only modern responses require method/phase;
+counter bounds follow the existing four/legacy-five capability setting. Swaps
+retain their previous counter. Errors preserve prior stats and release the pending
+mutation so a valid retry succeeds. The existing validation matrix now covers both
+protocols; no second validator, new dependency or server change was needed.
+
+Outcome: merge the complete website companion with recoverable modern and legacy
+stat responses. Non-goals: server PR integration, deployment or database operations.
+Files: the existing socket handler/test and this handoff. Proof: 21 new legacy
+cases failed before the handler repair; all 87 focused tests and all 460 frontend
+tests (64 files) passed afterward on Node 24.15.0 / pnpm 12.10.1.
+
+Commands run from this worktree root:
+
+- `pnpm --dir frontend exec biome format --write src/composables/__tests__/useMudConnectionChargen.spec.ts`
+  and `pnpm --dir frontend exec biome format --write src/composables/useMudConnection.ts`: passed.
+- `pnpm --dir frontend test:unit --run src/composables/__tests__/useMudConnectionChargen.spec.ts`:
+  reproduced 21 legacy failures before repair (49 existing tests passed).
+- `pnpm --dir frontend test:unit --run src/composables/__tests__/useMudConnectionChargen.spec.ts src/components/mud/chargen/__tests__/MudCharacterCreate.spec.ts src/composables/__tests__/useMudConnectionCredentials.spec.ts`:
+  passed, 87 tests.
+- `pnpm --dir frontend test:unit --run`: passed, 64 files / 460 tests.
+- `pnpm --dir frontend format:check`, `pnpm --dir frontend lint`,
+  `./frontend/scripts/check-palette-literals.sh`, `pnpm --dir frontend type-check`: passed.
+- `./scripts/check-config-literals.sh`, `pnpm --dir backend format:check`,
+  `pnpm --dir backend lint`, `pnpm --dir backend type-check`,
+  `pnpm --dir backend verify:mud-writes`, `pnpm --dir backend schema:check`: passed.
+  The schema check opened no database.
+- `pnpm --dir frontend config:check`, `pnpm --dir frontend build`: passed, using
+  the same process-only local configuration listed in the review-repair section.
+- `git diff --check`: passed. Exact base/head/merge-tree verification is required
+  again immediately before the guarded GitHub squash merge.
+
+Backend tests/build/config:check, native database tests, browser/game journeys,
+MUD operations and production operations were not repeated for this socket-only
+repair. Earlier browser/full-world evidence remains historical, as recorded above.
+The existing local changelog draft already covers recovery from creation errors;
+it remains unpublished because this task merges source without deploying it.
+
+Current master is an ancestor and no dependent website PR exists. Use one normal
+repair push and a guarded squash merge; no rebase, force-push or release tag is
+needed. The linked Duris issue cannot yet be completed because server PRs
+#236, #237, #238 and #239 are still open. Record website integration on that issue;
+unfinished server implementation, rather than production acceptance, is its
+remaining work. The separately maintained MUD checkout is outside this task.

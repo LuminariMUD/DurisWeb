@@ -523,18 +523,17 @@ export function useMudConnection() {
 
   const handleChargenMessage = (message: MudChargenMessage) => {
     if (
-      store.chargenStatMethods.length > 0 &&
-      (message.type === 'roll_stats' ||
-        message.type === 'stats_accepted' ||
-        message.type === 'bonus_added' ||
-        message.type === 'stats_swapped')
+      message.type === 'roll_stats' ||
+      message.type === 'stats_accepted' ||
+      message.type === 'bonus_added' ||
+      message.type === 'stats_swapped'
     ) {
+      const modern = store.chargenStatMethods.length > 0
       const validMethod = message.method === 'default' || message.method === 'advanced'
       const validPhase =
         message.phase === 'rolling' || message.phase === 'bonuses' || message.phase === 'ready'
       if (
-        !validMethod ||
-        !validPhase ||
+        (modern && (!validMethod || !validPhase)) ||
         !message.stats ||
         typeof message.stats !== 'object' ||
         ['str', 'dex', 'agi', 'con', 'pow', 'int', 'wis', 'cha', 'luk', 'kar'].some(
@@ -543,7 +542,7 @@ export function useMudConnection() {
         (message.type !== 'stats_swapped' &&
           (!Number.isInteger(message.bonusRemaining) ||
             message.bonusRemaining < 0 ||
-            message.bonusRemaining > 4))
+            message.bonusRemaining > store.chargenBonusCount))
       ) {
         store.setChargenError('Invalid stat selection response. Reconnect and try again.')
         return

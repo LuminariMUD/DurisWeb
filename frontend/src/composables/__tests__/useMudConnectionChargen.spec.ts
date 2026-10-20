@@ -314,76 +314,93 @@ describe('creation socket lifecycle', () => {
     },
   )
 
-  describe.each(['roll_stats', 'stats_accepted', 'bonus_added', 'stats_swapped'])(
-    '%s validation',
-    (type) => {
-      it.each<[string, Record<string, unknown>]>([
-        ['missing stats', { stats: undefined }],
-        ['null stats', { stats: null }],
-        ['incomplete labels', { stats: { str: 'good' } }],
-        ['missing method', { method: undefined }],
-        ['missing phase', { phase: undefined }],
-        ...(type === 'stats_swapped'
-          ? []
-          : ([
-              ['missing counter', { bonusRemaining: undefined }],
-              ['null counter', { bonusRemaining: null }],
-              ['string counter', { bonusRemaining: '4' }],
-              ['fractional counter', { bonusRemaining: 1.5 }],
-              ['negative counter', { bonusRemaining: -1 }],
-              ['excess counter', { bonusRemaining: 5 }],
-            ] satisfies [string, Record<string, unknown>][])),
-      ])('rejects %s and allows retry without changing stats', async (_name, invalid) => {
-        const connection = createConnection()
-        await connection.connect()
-        const socket = sockets[0]!
-        const store = useMudStore()
-        store.setChargenOptions([], ['default', 'advanced'], 4)
-        store.setChargenStats(labels, 3, 'advanced', 'bonuses')
-        const previous = store.chargenStats
-        const send = () => {
-          switch (type) {
-            case 'roll_stats':
-              return connection.rollStats(1, 'advanced')
-            case 'stats_accepted':
-              return connection.acceptStats()
-            case 'bonus_added':
-              return connection.addBonus('dex')
-            default:
-              return connection.swapStats('str', 'dex')
-          }
+  describe.each([
+    ['modern', 'roll_stats'],
+    ['modern', 'stats_accepted'],
+    ['modern', 'bonus_added'],
+    ['modern', 'stats_swapped'],
+    ['legacy', 'roll_stats'],
+    ['legacy', 'bonus_added'],
+    ['legacy', 'stats_swapped'],
+  ])('%s %s validation', (server, type) => {
+    const modern = server === 'modern'
+    it.each<[string, Record<string, unknown>]>([
+      ['missing stats', { stats: undefined }],
+      ['null stats', { stats: null }],
+      ['incomplete labels', { stats: { str: 'good' } }],
+      ...(modern
+        ? ([
+            ['missing method', { method: undefined }],
+            ['missing phase', { phase: undefined }],
+          ] satisfies [string, Record<string, unknown>][])
+        : []),
+      ...(type === 'stats_swapped'
+        ? []
+        : ([
+            ['missing counter', { bonusRemaining: undefined }],
+            ['null counter', { bonusRemaining: null }],
+            ['string counter', { bonusRemaining: '4' }],
+            ['fractional counter', { bonusRemaining: 1.5 }],
+            ['negative counter', { bonusRemaining: -1 }],
+            ['excess counter', { bonusRemaining: modern ? 5 : 6 }],
+          ] satisfies [string, Record<string, unknown>][])),
+    ])('rejects %s and allows retry without changing stats', async (_name, invalid) => {
+      const connection = createConnection()
+      await connection.connect()
+      const socket = sockets[0]!
+      const store = useMudStore()
+      store.setChargenOptions(
+        [],
+        modern ? ['default', 'advanced'] : undefined,
+        modern ? 4 : undefined,
+      )
+      store.setChargenStats(
+        labels,
+        3,
+        modern ? 'advanced' : undefined,
+        modern ? 'bonuses' : undefined,
+      )
+      const previous = store.chargenStats
+      const send = () => {
+        switch (type) {
+          case 'roll_stats':
+            return connection.rollStats(1, modern ? 'advanced' : undefined)
+          case 'stats_accepted':
+            return connection.acceptStats()
+          case 'bonus_added':
+            return connection.addBonus('dex')
+          default:
+            return connection.swapStats('str', 'dex')
         }
-        expect(send()).toBe(true)
-        socket.onmessage?.({
-          data: JSON.stringify({
-            type,
-            stats: labels,
-            method: 'advanced',
-            phase: 'bonuses',
-            bonusRemaining: 3,
-            ...invalid,
-          }),
-        })
-        expect(store.chargenError).toContain('Invalid stat selection response')
-        expect(store.chargenStats).toBe(previous)
-        expect(store.chargenPending).toBeNull()
-        expect(store.chargenLoading).toBe(false)
-        expect(send()).toBe(true)
-        socket.onmessage?.({
-          data: JSON.stringify({
-            type,
-            stats: labels,
-            method: 'advanced',
-            phase: 'bonuses',
-            ...(type === 'stats_swapped' ? {} : { bonusRemaining: 2 }),
-          }),
-        })
-        expect(store.chargenError).toBeNull()
-        expect(store.chargenPending).toBeNull()
-        expect(store.chargenStats?.bonusRemaining).toBe(type === 'stats_swapped' ? 3 : 2)
+      }
+      expect(send()).toBe(true)
+      socket.onmessage?.({
+        data: JSON.stringify({
+          type,
+          stats: labels,
+          ...(modern ? { method: 'advanced', phase: 'bonuses' } : {}),
+          bonusRemaining: 3,
+          ...invalid,
+        }),
       })
-    },
-  )
+      expect(store.chargenError).toContain('Invalid stat selection response')
+      expect(store.chargenStats).toBe(previous)
+      expect(store.chargenPending).toBeNull()
+      expect(store.chargenLoading).toBe(false)
+      expect(send()).toBe(true)
+      socket.onmessage?.({
+        data: JSON.stringify({
+          type,
+          stats: labels,
+          ...(modern ? { method: 'advanced', phase: 'bonuses' } : {}),
+          ...(type === 'stats_swapped' ? {} : { bonusRemaining: 2 }),
+        }),
+      })
+      expect(store.chargenError).toBeNull()
+      expect(store.chargenPending).toBeNull()
+      expect(store.chargenStats?.bonusRemaining).toBe(type === 'stats_swapped' ? 3 : 2)
+    })
+  })
 
   it.each([
     'roll_stats',
