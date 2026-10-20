@@ -209,6 +209,42 @@ describe('wiki entrance visibility and navigation', () => {
     expect(document.querySelectorAll('.leaflet-marker-icon')).toHaveLength(0)
   })
 
+  it.each(['hidden', 'unmounted'])(
+    'ignores a delayed entrance response after the map is %s',
+    async (state) => {
+      let finish!: (rows: WikiZoneEntrance[]) => void
+      vi.mocked(wikiApi.getZoneEntrances).mockReturnValue(
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+      )
+      await render()
+      if (state === 'hidden') {
+        await wrapper!.findAll('input')[0]!.setValue(false)
+        await wrapper!.findAll('input')[1]!.setValue(false)
+      } else {
+        wrapper!.unmount()
+        wrapper = undefined
+      }
+      finish([entrance(99)])
+      await settle()
+      expect(
+        document.querySelectorAll('.leaflet-marker-icon, .zone-name, .zone-popup'),
+      ).toHaveLength(0)
+    },
+  )
+
+  it.each([true, false])(
+    'preserves entrance keyboard focus through a viewport refresh with markers=%s',
+    async (markers) => {
+      await render({ initialShowMarkers: markers })
+      document.querySelector<HTMLElement>('.leaflet-marker-icon')!.focus()
+      map.fire('moveend')
+      await settle()
+      expect(document.activeElement?.getAttribute('aria-label')).toBe('Destination 1')
+    },
+  )
+
   it('does not duplicate overlays after rapid moves and cancels pending work on unmount', async () => {
     await render()
     await zoom(3)

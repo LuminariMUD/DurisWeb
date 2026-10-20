@@ -390,7 +390,7 @@ were corrected; the final runs below pass. No dependency was added.
 
 ```bash
 pnpm --config.verify-deps-before-run=false --dir frontend test:unit --run src/components/wiki/__tests__/LeafletMap.spec.ts src/utils/__tests__/mapLayerImageUrl.spec.ts src/utils/__tests__/shipCoordinates.spec.ts
-# PASS: 3 files, 22 tests
+# PASS: 3 files, 26 tests
 pnpm --config.verify-deps-before-run=false --dir backend test --runInBand wikiMapImage wikiMapReadiness
 # PASS: 2 suites, 9 tests
 pnpm --config.verify-deps-before-run=false --dir frontend format:check
@@ -410,7 +410,7 @@ pnpm --config.verify-deps-before-run=false --dir frontend config:check
 The freshly compiled `productionPreflight.js --configuration` and
 `productionPreflight.js --dependencies` also pass using the actual production
 backend working directory/environment and isolated release's migration bundle.
-No production build, migration, database test, or map re-extraction was run.
+No build into the served checkout, migration, database test, or map re-extraction was run.
 
 Supporting commands: `git status/log/worktree/diff/archive`, `rg`, `cat`/`sed`,
 Python source/manifest checks, targeted `biome format --write`, Node fixture
@@ -422,3 +422,26 @@ Screenshot evidence includes normal and reduced motion, all three layers,
 synthetic long names, keyboard chooser, mobile key, shared preview, radar,
 and native 200% browser zoom. Headless preference/shortcut attempts did not
 change browser zoom; the headed Xvfb/native-key check is the actual zoom proof.
+
+### Live preview verification
+
+- First cutover's generic Python health probe received edge HTTP 403 and
+  triggered artifact rollback. Named release probes showed that both the local
+  backend and public site were healthy. Corrected the probe user agent and
+  retried the same build; this was a verification-script issue, not an app fix.
+- Release `32e260f72906cfb6b12511406a3a3665b8b0e174` was verified live at
+  12:36 UTC on 2026-10-20, with 1,751 exact matching artifacts and healthy
+  local/canonical/www endpoints. Cloudflare tunnel and private cache service
+  identities were preserved. Recovery artifacts and the previous preflight pin
+  are retained outside the checkout.
+- Returning-profile check used an already registered service worker and old
+  map URL. The existing “update now” UI activates the new application; its map
+  requests include the new revision. An initial test raced the built-in reload;
+  it now waits for the application's reload instead of issuing a second one.
+- Live keyboard review found a focus-loss case when Leaflet automatically panned
+  to a names-only entrance at the viewport edge. The final follow-up preserves
+  the focused coordinate through refresh, with real-browser and component
+  regression coverage for both markers and names. Pending response tests also
+  prove that hiding entrances or unmounting cannot restore obsolete overlays.
+- Final publication and complete fresh/returning browser readback remain pending
+  until the focus follow-up is served and verified.

@@ -132,6 +132,10 @@ async function updateEntrances() {
 
   const entrances = await loadEntrances(map.getBounds())
   if (version !== requestVersion || !map || !entranceLayer) return
+  const focusedCoordinate =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement.dataset.entranceCoordinate
+      : undefined
   refreshingEntrances = true
   entranceLayer.clearLayers()
   refreshingEntrances = false
@@ -230,6 +234,10 @@ async function updateEntrances() {
       if (label) containLabel(label, marker)
     }
     element?.setAttribute('aria-label', text)
+    if (element) {
+      element.dataset.entranceCoordinate = coordinateKey
+      if (focusedCoordinate === coordinateKey) element.focus({ preventScroll: true })
+    }
     if (destinations.length > 1) element?.setAttribute('aria-haspopup', 'dialog')
     element?.addEventListener('keydown', (event) => {
       if (event.key === ' ') {
