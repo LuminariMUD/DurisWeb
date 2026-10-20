@@ -1,0 +1,3 @@
+interface:
+  display_name: "Deploy Production"
+  short_description: "Quick DurisWeb production deploy and online checks"
