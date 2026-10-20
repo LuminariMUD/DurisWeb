@@ -531,7 +531,11 @@ export function useMudConnection() {
       const modern = store.chargenStatMethods.length > 0
       const validMethod = message.method === 'default' || message.method === 'advanced'
       const validPhase =
-        message.phase === 'rolling' || message.phase === 'bonuses' || message.phase === 'ready'
+        message.type === 'stats_accepted'
+          ? message.phase === 'bonuses' ||
+            // The server preserves ready state for duplicate acceptance acknowledgements.
+            (message.phase === 'ready' && store.chargenPending !== 'accept_stats')
+          : message.phase === 'rolling' || message.phase === 'bonuses' || message.phase === 'ready'
       if (
         (modern && (!validMethod || !validPhase)) ||
         !message.stats ||

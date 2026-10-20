@@ -1,6 +1,6 @@
 # Duris #107: browser stat method choice
 
-Status: implementation, paired local acceptance and PR #73 review repairs complete; ready to merge. Worktree `/home/aiwithapex/projects/durisweb-issue107`, branch
+Status: implementation, paired local acceptance and PR #73 review repairs complete; merge-qualified. Worktree `/home/aiwithapex/projects/durisweb-issue107`, branch
 `branch/issue-107-stat-choice`, based on master `70288bf4583b`.
 
 Parent: https://github.com/LuminariMUD/Duris/issues/107
@@ -232,3 +232,28 @@ needed. The linked Duris issue cannot yet be completed because server PRs
 #236, #237, #238 and #239 are still open. Record website integration on that issue;
 unfinished server implementation, rather than production acceptance, is its
 remaining work. The separately maintained MUD checkout is outside this task.
+
+### Final acceptance-response review
+
+The pre-merge review-thread check stopped the merge when new comment `4327908643`
+arrived. Its invalid-phase lock reproduced for `stats_accepted` with both `rolling`
+and `ready` while acceptance was pending. The boundary now requires `bonuses` for
+that pending acknowledgement, preserving stats and releasing the error path for
+retry. The wizard regression also checks that its local acceptance flag releases
+Cancel/Next after an error and can successfully retry.
+
+Read-only inspection of Duris #237's `ws_cmd_accept_stats` confirmed that duplicate
+acknowledgements deliberately preserve the current phase, including `ready`.
+The browser retains those valid ready duplicates outside a pending acceptance;
+an unconditional bonuses-only restriction would incorrectly reject them. No
+server checkout or source was changed.
+
+`pnpm --dir frontend test:unit --run src/composables/__tests__/useMudConnectionChargen.spec.ts src/components/mud/chargen/__tests__/MudCharacterCreate.spec.ts`
+reproduced two failures before the repair. The same three-suite focused command
+listed above then passed 90 tests, and `pnpm --dir frontend test:unit --run` passed
+all 463 tests in 64 files. The formatter command was repeated for the handler and
+both listed test files. Frontend `format:check`, `lint`, palette check, `type-check`,
+`config:check` and `build` were repeated successfully with the same local process
+configuration. The unchanged backend quality results and stated verification
+limits above still apply. The existing unpublished changelog draft covers this
+additional creation-error recovery as well.

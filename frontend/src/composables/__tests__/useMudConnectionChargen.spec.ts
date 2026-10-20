@@ -334,6 +334,12 @@ describe('creation socket lifecycle', () => {
             ['missing phase', { phase: undefined }],
           ] satisfies [string, Record<string, unknown>][])
         : []),
+      ...(type === 'stats_accepted'
+        ? ([
+            ['rolling acceptance', { phase: 'rolling' }],
+            ['ready acceptance while pending', { phase: 'ready' }],
+          ] satisfies [string, Record<string, unknown>][])
+        : []),
       ...(type === 'stats_swapped'
         ? []
         : ([
@@ -400,6 +406,27 @@ describe('creation socket lifecycle', () => {
       expect(store.chargenPending).toBeNull()
       expect(store.chargenStats?.bonusRemaining).toBe(type === 'stats_swapped' ? 3 : 2)
     })
+  })
+
+  it('retains ready duplicate acceptance acknowledgements outside pending acceptance', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const store = useMudStore()
+    store.setChargenOptions([], ['default', 'advanced'], 4)
+    store.setChargenStats(labels, 0, 'advanced', 'ready')
+    sockets[0]!.onmessage?.({
+      data: JSON.stringify({
+        type: 'stats_accepted',
+        stats: labels,
+        bonusRemaining: 0,
+        method: 'advanced',
+        phase: 'ready',
+      }),
+    })
+    expect(store.chargenError).toBeNull()
+    expect(store.chargenPending).toBeNull()
+    expect(store.chargenStats?.phase).toBe('ready')
+    expect(store.chargenStats?.bonusRemaining).toBe(0)
   })
 
   it.each([
