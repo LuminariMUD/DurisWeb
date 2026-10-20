@@ -310,6 +310,12 @@ from ANSI SGR order or assume that all legacy ANSI animation shares that policy.
 
 ### Wiki world map
 
+The initial map data load retries interrupted requests, timeouts, and temporary
+server failures twice with a short delay. A persistent failure shows an actionable
+error and a Retry button that fetches the data again without reloading the page.
+Login, permission, and rate-limit refusals explain the problem without automatic
+retries. Navigating away prevents further recovery requests.
+
 [`LeafletMap.vue`](../frontend/src/components/wiki/LeafletMap.vue) gives names the
 first visual emphasis: system sans, bone on a compact solid ink outline, weight
 600, 1.25 line height, centered natural wrapping within 10rem, with emergency

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -35,30 +36,56 @@ const selectedLayer = ref<string>('0')
 const currentZoom = ref(1)
 const currentPosition = ref({ x: 0, y: 0 })
 const hoveredRoom = ref<{ vnum: number | null; x: number; y: number }>({ vnum: null, x: 0, y: 0 })
+let mapDataRequest = 0
 
-// Load initial data
-onMounted(async () => {
-  try {
-    loading.value = true
-    error.value = null
+async function loadMapData() {
+  const request = ++mapDataRequest
+  loading.value = true
+  error.value = null
 
-    // Load continents, map bounds (for default layer 0), and layers in parallel
-    const [continentsData, boundsData, layersData] = await Promise.all([
-      wikiApi.getContinents(),
-      wikiApi.getMapBounds(0), // Load bounds for Surface layer initially
-      wikiApi.getMapLayers(),
-    ])
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (request !== mapDataRequest) return
+    try {
+      const [continentsData, boundsData, layersData] = await Promise.all([
+        wikiApi.getContinents(),
+        wikiApi.getMapBounds(0),
+        wikiApi.getMapLayers(),
+      ])
+      if (request !== mapDataRequest) return
 
-    continents.value = continentsData
-    mapBounds.value = boundsData
-    mapLayers.value = layersData
-  } catch (e) {
-    error.value = 'Failed to load map data'
-    console.error('Failed to load wiki map data:', e)
-  } finally {
-    loading.value = false
+      continents.value = continentsData
+      mapBounds.value = boundsData
+      mapLayers.value = layersData
+      loading.value = false
+      return
+    } catch (e) {
+      if (request !== mapDataRequest) return
+      const status = axios.isAxiosError(e) ? e.response?.status : undefined
+      const temporary =
+        axios.isAxiosError(e) &&
+        !axios.isCancel(e) &&
+        (['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'].includes(e.code ?? '') ||
+          (status !== undefined && status >= 500 && status < 600))
+      if (temporary && attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)))
+        continue
+      }
+      error.value =
+        status === 401
+          ? 'Sign in to view the map, then try again.'
+          : status === 403
+            ? 'You do not have permission to view the map.'
+            : status === 429
+              ? 'Too many map requests. Wait a moment, then try again.'
+              : temporary
+                ? 'The map service is temporarily unavailable. Please try again.'
+                : 'Failed to load map data. Please try again.'
+      loading.value = false
+      return
+    }
   }
-})
+}
+onMounted(loadMapData)
 
 // Commit a layer and its bounds together; a slow earlier request cannot replace them.
 watch(selectedLayer, async (newLayer) => {
@@ -80,6 +107,7 @@ watch(selectedLayer, async (newLayer) => {
   }
 })
 onUnmounted(() => {
+  ++mapDataRequest
   ++layerRequest
 })
 
@@ -179,8 +207,8 @@ const legendItems = [
     <div v-else-if="error" class="flex-1 flex items-center justify-center">
       <Card class="max-w-md">
         <CardContent class="pt-6">
-          <p class="text-destructive text-center">{{ error }}</p>
-          <Button class="mt-4 w-full" @click="$router.go(0)">Retry</Button>
+          <p role="alert" class="text-destructive text-center">{{ error }}</p>
+          <Button class="mt-4 w-full" @click="loadMapData">Retry</Button>
         </CardContent>
       </Card>
     </div>
