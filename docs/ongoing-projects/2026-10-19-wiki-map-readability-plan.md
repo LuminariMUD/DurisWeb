@@ -1,7 +1,8 @@
 # Wiki world map readability plan
 
-Prepared 2026-10-19. **Status: implementation in progress; preview deployment authorized on 2026-10-20.**
-Source rechecked: `49cc119d7394587104ba3726e7e1b2f5babc6b57`.
+Prepared 2026-10-19. **Status: implemented and quick preview verified live on 2026-10-20.**
+Deployed application: `77794d5fa9430526a98884f536bd82c6056ed358`.
+Full deployment qualification remains a separate owner-run step.
 
 ## Outcome and scope
 
@@ -11,6 +12,12 @@ Keep DurisWeb's existing extraction, database projections, generated terrain
 images, automatic entrance placement, and Leaflet rendering. The reference is
 visual evidence; its HTML, PNG, hardcoded locations, and icons are not inputs to
 our map.
+
+The newer `20261028_Wipe_Duris_Surface_Map.html` reference does not change this
+approach: its location/geography differences are not inputs to this work.
+Our extractor populates the database coordinates and destinations. The existing
+download already supplies the useful appearance cues; replacing it adds no
+practical benefit to this readability plan.
 
 Work is limited to label presentation, zoom-dependent label density, a quieter
 generated terrain palette, and the matching legend and map controls. Preserve
@@ -54,7 +61,11 @@ Chromium runtime lacked `libXdamage.so.1`; no rendered interaction or visual
 acceptance is claimed. The implementation baseline and browser checks below
 remain required.
 
-## Current implementation and constraints
+## Implementation baseline and constraints
+
+This section describes the pre-change source, rechecked at
+`49cc119d7394587104ba3726e7e1b2f5babc6b57`. The completed behavior and proof are
+recorded below.
 
 - [WikiMapView.vue](../../frontend/src/views/wiki/WikiMapView.vue) owns the page,
   toolbar, layer/continent selection, legend, and zone navigation.
@@ -290,8 +301,8 @@ implementation and release. Draft reader-facing wording: “Wiki map zone names
 are easier to read, with clearer text, wrapping, and calmer terrain colors.”
 Reconcile it with existing Website Changelog coverage; publish through the admin
 UI/API only after the described release is verified live, then verify saved
-content and its public rendering. This planning-only change needs no public
-changelog entry because website behavior has not changed.
+content and its public rendering. The original planning-only commits needed no
+public entry; the implementation is now covered by published entry 38.
 
 ## Implementation record — 2026-10-20
 
@@ -306,9 +317,10 @@ changelog entry because website behavior has not changed.
 - Browser plugin not available; using existing Playwright and its already
   installed Chromium runtime/libraries. Flow: `/wiki/map` → layers, zoom,
   entrance/name toggles and destinations → readable, correctly placed content.
-- Pending: baseline captures, implementation, focused tests/package gates,
+- Completed: baseline captures, implementation, focused tests/package gates,
   matched visual/interaction checks, preview deployment/cache verification,
-  and published Website Changelog verification.
+  and published Website Changelog verification. Evidence remains outside the
+  checkout under `~/.local/share/durisweb/releases/20261020-wiki-readability/`.
 
 ### Baseline and first implementation
 
@@ -371,10 +383,10 @@ changelog entry because website behavior has not changed.
   Previous compiled artifacts match the retained deployed release byte-for-byte;
   previous runtime source matches `9b6196a`. The application has PrivateTmp off,
   so its restart does not remove a systemd private temporary directory.
-- Changelog review covers all 23 saved entries, including drafts: no matching
-  map-readability entry exists. The previous release is covered by entry 37.
-  Prepared “A clearer view of the world”, version `2026.10.20`; publication
-  waits for live preview acceptance.
+- Changelog review covered all 23 existing saved entries, including drafts:
+  no matching map-readability entry existed. The previous release is covered
+  by entry 37. “A clearer view of the world”, version `2026.10.20`, is now
+  published as entry 38 after live preview acceptance.
 - Quick preview deployment is the authorized scope. Full repository suites,
   native database rehearsals, long burn-in, backup/restore qualification, and
   `verify:mud-writes` are not run here: there are no database/MUD-write changes,
@@ -416,7 +428,8 @@ Supporting commands: `git status/log/worktree/diff/archive`, `rg`, `cat`/`sed`,
 Python source/manifest checks, targeted `biome format --write`, Node fixture
 rendering (mock database/cache; public map rows), and Playwright scripts
 `baseline.mjs`, `candidate-visual.mjs`, `matched-browser.mjs`, `qa-browser.mjs`,
-`shared-browser.mjs`, `edge-popup.mjs`, and `zoom-headed.mjs`. Read-only
+`shared-browser.mjs`, `edge-popup.mjs`, `focus-refresh.mjs`, `zoom-headed.mjs`,
+`live-browser.mjs`, and `returning-browser.mjs`. Read-only
 `systemctl --user show/list-units` establishes the deployment target.
 Screenshot evidence includes normal and reduced motion, all three layers,
 synthetic long names, keyboard chooser, mobile key, shared preview, radar,
@@ -443,5 +456,39 @@ change browser zoom; the headed Xvfb/native-key check is the actual zoom proof.
   the focused coordinate through refresh, with real-browser and component
   regression coverage for both markers and names. Pending response tests also
   prove that hiding entrances or unmounting cannot restore obsolete overlays.
-- Final publication and complete fresh/returning browser readback remain pending
-  until the focus follow-up is served and verified.
+- The focus follow-up, `77794d5fa9430526a98884f536bd82c6056ed358`, was
+  deployed at 12:48 UTC using an atomic frontend artifact exchange. The backend,
+  tunnel and cache processes did not restart. All 1,751 installed artifacts
+  match the isolated candidate; the backend remains the identical build from
+  `32e260f72906cfb6b12511406a3a3665b8b0e174`.
+- Fresh anonymous Chromium checks pass on canonical desktop/mobile and www
+  desktop: layer images, all visibility states, overview/reading behavior,
+  keyboard focus through automatic panning, terrain disclosure, no horizontal
+  overflow, and no console errors/warnings. A returning service-worker profile
+  activates the final application asset and revised map image.
+- Both public hostnames serve the candidate's exact main JavaScript bytes.
+  Cloudflare injects its scripts into HTML, so whole-response HTML equality
+  is not the artifact-identity check. Local and public health checks pass;
+  the application has no automatic restarts since the successful cutover.
+- Public Underdark and Alatorin PNGs match the fixtures byte-for-byte. Surface
+  matches except 64 pixels representing four existing duplicate coordinates
+  `(0,0)` through `(3,0)`, each with sectors 0 and 12. The API fixture and image
+  query return those rows in different orders; both colors are valid source
+  values. Geometry, dimensions and every other pixel match. The existing
+  duplicate-row ordering remains outside this styling change.
+- Dense distinct entrances still require closer zoom; there is no label
+  collision engine or manual coordinate adjustment. Browser evidence covers
+  Chromium, not a cross-browser certification.
+- Published Website Changelog entry **38**, version `2026.10.20`, through the
+  authenticated application API. Its anonymous public list/detail, complete
+  expanded HTML, and working Wiki map link were verified at
+  `/news?tab=changelog`. Source review accounts for all four commits after
+  deployed baseline `9b6196a`: two planning-only commits need no news; the
+  implementation and focus fix are covered by entry 38.
+- Release commands additionally include `deploy-preview.py` (application-only
+  stop/start, artifact swap and preflight pin), `deploy-focus.py` (atomic
+  frontend exchange), named HTTP health/asset probes, artifact SHA-256 checks,
+  `journalctl --user`, `node changelog.mjs --publish`, and
+  `node verify-changelog.mjs`. Source is fast-forwarded into the main checkout;
+  compilation was isolated. Recovery copies, verification scripts, logs and
+  screenshots remain private outside the repository.
