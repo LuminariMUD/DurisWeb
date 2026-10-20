@@ -163,6 +163,92 @@ describe('wiki entrance visibility and navigation', () => {
     expect(wrapper!.emitted('zoneClick')?.[0]).toEqual([2, '<b>Second</b>'])
   })
 
+  it.each([true, false])(
+    'labels a zone once while retaining every entrance with a fine pointer=%s',
+    async (finePointer) => {
+      fine = finePointer
+      vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([
+        entrance(2, { x: 200, toZoneNumber: 1, toZoneName: 'Destination 1' }),
+        entrance(1),
+      ])
+      await render()
+      await zoom(finePointer ? 3 : 2)
+      expect(document.querySelectorAll('.zone-dot')).toHaveLength(2)
+      expect(document.querySelectorAll('.zone-name')).toHaveLength(1)
+      expect(document.querySelector('.zone-name')?.textContent).toBe('Destination 1')
+      const other = document.querySelector<HTMLElement>('[data-entrance-coordinate="200:190"]')!
+      other.dispatchEvent(new FocusEvent('focus'))
+      expect(document.querySelectorAll('.zone-name')).toHaveLength(2)
+      other.dispatchEvent(new FocusEvent('blur'))
+      expect(document.querySelectorAll('.zone-name')).toHaveLength(1)
+      other.click()
+      expect(wrapper!.emitted('zoneClick')?.[0]).toEqual([1, 'Destination 1'])
+      other.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }))
+      map.fire('resize')
+      await settle()
+      expect(document.querySelectorAll('.zone-name')).toHaveLength(1)
+    },
+  )
+
+  it('deduplicates names-only links by zone number and preserves visibility toggles', async () => {
+    vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([
+      entrance(1),
+      entrance(2, { x: 200, toZoneNumber: 1, toZoneName: 'Destination 1' }),
+      entrance(3, { x: 210, toZoneName: 'Destination 1' }),
+    ])
+    await render({ initialShowMarkers: false })
+    expect(document.querySelectorAll('.zone-entrance-name')).toHaveLength(2)
+    expect(document.querySelectorAll('.zone-name')).toHaveLength(2)
+    document.querySelector<HTMLElement>('[data-entrance-coordinate="210:190"]')!.click()
+    expect(wrapper!.emitted('zoneClick')?.[0]).toEqual([3, 'Destination 1'])
+    await wrapper!.findAll('input')[0]!.setValue(true)
+    await zoom(3)
+    expect(document.querySelectorAll('.zone-dot')).toHaveLength(3)
+    expect(document.querySelectorAll('.zone-name')).toHaveLength(2)
+    await wrapper!.findAll('input')[1]!.setValue(false)
+    await settle()
+    expect(document.querySelectorAll('.zone-name')).toHaveLength(0)
+    expect(document.querySelectorAll('.zone-dot')).toHaveLength(3)
+  })
+
+  it('labels co-located destinations once and retains the complete chooser at every entrance', async () => {
+    vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([
+      entrance(1),
+      entrance(2),
+      entrance(3, { x: 200, toZoneNumber: 1, toZoneName: 'Destination 1' }),
+      entrance(4, { x: 200, toZoneNumber: 2, toZoneName: 'Destination 2' }),
+    ])
+    await render()
+    await zoom(3)
+    expect(document.querySelectorAll('.zone-dot')).toHaveLength(2)
+    expect(document.querySelectorAll('.zone-name')).toHaveLength(1)
+    expect(document.querySelector('.zone-name')?.textContent).toBe('Destination 1 / Destination 2')
+    document.querySelector<HTMLElement>('[data-entrance-coordinate="200:190"]')!.click()
+    expect(
+      [...document.querySelectorAll('.zone-popup button')].map((button) => button.textContent),
+    ).toEqual(['Destination 1', 'Destination 2'])
+  })
+
+  it('labels a remaining visible entrance after panning and resets labels for a new layer', async () => {
+    vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([
+      entrance(1),
+      entrance(2, { x: 200, toZoneNumber: 1, toZoneName: 'Destination 1' }),
+    ])
+    await render()
+    await zoom(4)
+    vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([
+      entrance(2, { x: 200, toZoneNumber: 1, toZoneName: 'Destination 1' }),
+    ])
+    map.panTo([-190, 220], { animate: false })
+    await settle()
+    expect(document.querySelectorAll('.zone-dot')).toHaveLength(1)
+    expect(document.querySelector('.zone-name')?.textContent).toBe('Destination 1')
+    await wrapper!.setProps({ layer: -1 })
+    await settle()
+    await zoom(4)
+    expect(document.querySelector('.zone-name')?.textContent).toBe('Destination 1')
+  })
+
   it('keeps the destination chooser and focus through its automatic pan refresh', async () => {
     vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([entrance(1), entrance(2)])
     await render()

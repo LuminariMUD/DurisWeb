@@ -322,11 +322,18 @@ With a fine pointer and markers visible, zooms below 3 use hover/focus name
 disclosure; zoom 3 and above show permanent names. In this room-coordinate CRS,
 zoom 3 means eight screen pixels per room. Touch and names-only views retain
 permanent names at every zoom. Explicit Names off suppresses permanent names;
-both toggles off produce terrain only with no entrance tab stops. Co-located
-destinations share a keyboard-operable chooser; separate coordinates remain
-separate entrances. A names-only entrance has a visible text focus target.
-Zooming further separates nearby entrances; no name-based deduplication or
-manual positioning is used.
+both toggles off produce terrain only with no entrance tab stops. Each zone
+number receives one permanent name among its visible entrances, chosen in stable
+top-to-bottom, left-to-right coordinate order. Panning can move the name to
+another entrance when the labelled one leaves view. Other entrances retain
+their markers, hover/focus disclosure, and navigation. Distinct zones with the
+same name remain distinct.
+
+Co-located destinations share a keyboard-operable chooser; their permanent
+label contains only zone names not already shown elsewhere. Separate coordinates
+remain separate entrances. Names-only mode shows one visible text focus target
+per labelled entrance and omits duplicate-only entrances. Zooming further
+separates nearby entrances; no manual positioning is used.
 
 The generated terrain uses muted greens, earth tones, and blue water, with
 recognizable snow, desert, volcanic, and Underdark sectors. Its explicit RGB

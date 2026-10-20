@@ -121,7 +121,7 @@ function containLabel(label: HTMLElement, marker: L.Marker) {
   label.style.transform = `translate(${dx}px, ${dy}px)`
 }
 
-// Keep every coordinate. Only destinations at the exact same coordinate share a disclosure.
+// Keep every entrance, but label each destination once within the visible map.
 async function updateEntrances() {
   const version = ++requestVersion
   if (!map || !entranceLayer) return
@@ -151,17 +151,30 @@ async function updateEntrances() {
     coordinates.set(key, group)
   }
 
-  for (const group of coordinates.values()) {
+  // Coordinate order keeps the chosen label stable when API row order changes.
+  const groups = [...coordinates.values()].sort(
+    (a, b) => a[0]!.y! - b[0]!.y! || a[0]!.x! - b[0]!.x!,
+  )
+  const labelledZones = new Set<number>()
+  for (const group of groups) {
     const first = group[0]!
     const coordinateKey = `${first.x}:${first.y}`
     const destinations = [...new Map(group.map((row) => [row.toZoneNumber, row])).values()]
+    const labelledDestinations = destinations.filter((destination) => {
+      if (labelledZones.has(destination.toZoneNumber)) return false
+      labelledZones.add(destination.toZoneNumber)
+      return true
+    })
+    if (!showMarkers.value && labelledDestinations.length === 0) continue
+
+    const labelText = labelledDestinations.map(zoneName).join(' / ')
     const text = destinations.length === 1 ? zoneName(first) : `${destinations.length} destinations`
     const content = document.createElement('span')
     content.className = 'zone-dot'
     content.setAttribute('aria-hidden', 'true')
     const icon = L.divIcon({
       className: showMarkers.value ? 'zone-entrance-marker' : 'zone-entrance-name',
-      html: showMarkers.value ? content : labelElement(text),
+      html: showMarkers.value ? content : labelElement(labelText),
       iconSize: showMarkers.value ? [24, 24] : [160, 24],
       iconAnchor: showMarkers.value ? [12, 12] : [80, -8],
     })
@@ -173,9 +186,13 @@ async function updateEntrances() {
     })
 
     if (showMarkers.value) {
-      const label = labelElement(text)
+      const permanent =
+        showZoneNames.value &&
+        labelledDestinations.length > 0 &&
+        (!finePointer?.matches || map.getZoom() >= READING_ZOOM)
+      const label = labelElement(permanent ? labelText : text)
       marker.bindTooltip(label, {
-        permanent: showZoneNames.value && (!finePointer?.matches || map.getZoom() >= READING_ZOOM),
+        permanent,
         direction: 'top',
         offset: [0, -8],
         opacity: 1,
