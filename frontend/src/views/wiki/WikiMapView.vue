@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -27,6 +27,10 @@ const continents = ref<WikiContinent[]>([])
 const mapBounds = ref<WikiMapBounds | null>(null)
 const mapLayers = ref<{ id: number; name: string; description: string }[]>([])
 const selectedContinent = ref<string>('')
+const displayedLayer = ref(0)
+const layerLoading = ref(false)
+const layerError = ref('')
+let layerRequest = 0
 const selectedLayer = ref<string>('0')
 const currentZoom = ref(1)
 const currentPosition = ref({ x: 0, y: 0 })
@@ -56,26 +60,30 @@ onMounted(async () => {
   }
 })
 
-// Watch for layer changes and update bounds
+// Commit a layer and its bounds together; a slow earlier request cannot replace them.
 watch(selectedLayer, async (newLayer) => {
+  const request = ++layerRequest
+  layerLoading.value = true
+  layerError.value = ''
   try {
     const layerNum = Number(newLayer)
     const newBounds = await wikiApi.getMapBounds(layerNum)
+    if (request !== layerRequest) return
     mapBounds.value = newBounds
-
-    // Fit the map to the new layer's bounds
-    if (leafletMapRef.value) {
-      leafletMapRef.value.fitBounds()
-    }
-
-    // Clear continent selection when switching layers
+    displayedLayer.value = layerNum
     selectedContinent.value = ''
-  } catch (e) {
-    console.error('Failed to load layer bounds:', e)
+  } catch {
+    if (request === layerRequest)
+      layerError.value = 'Could not load this layer. Choose another layer and try again.'
+  } finally {
+    if (request === layerRequest) layerLoading.value = false
   }
 })
+onUnmounted(() => {
+  ++layerRequest
+})
 
-// Jump to continent - AcceptableValue = string | number | bigint | Record<string, any> | null
+// Jump to the selected continent using its published center.
 function jumpToContinent(continentId: string | number | bigint | Record<string, unknown> | null) {
   if (continentId === null || typeof continentId === 'object') return
   const continent = continents.value.find((c) => c.id.toString() === String(continentId))
@@ -86,7 +94,7 @@ function jumpToContinent(continentId: string | number | bigint | Record<string, 
     leafletMapRef.value
   ) {
     leafletMapRef.value.panTo(continent.centerX, continent.centerY)
-    leafletMapRef.value.setZoom(2)
+    leafletMapRef.value.setZoom(3)
   }
 }
 
@@ -123,25 +131,45 @@ function handlePositionChange(x: number, y: number) {
   currentPosition.value = { x, y }
 }
 
-// Legend colors matching the map (from MUD defines.h sector types)
+// Explicit sector IDs match the generated image, including roads and planar terrain.
 const legendItems = [
-  { color: '#ffffff', label: 'City' },
-  { color: '#6b7280', label: 'Road' },
-  { color: '#4ade80', label: 'Field' },
-  { color: '#16a34a', label: 'Forest' },
-  { color: '#eab308', label: 'Hills' },
-  { color: '#a16207', label: 'Mountain' },
-  { color: '#22d3ee', label: 'Water' },
-  { color: '#1e3a8a', label: 'Ocean' },
-  { color: '#fef08a', label: 'Desert' },
-  { color: '#f1f5f9', label: 'Arctic' },
-  { color: '#a855f7', label: 'Swamp' },
-  { color: '#7e22ce', label: 'Underdark' },
+  { sectors: [0, 21], color: '#777066', label: 'Stone / earth' },
+  { sectors: [1], color: '#cec1a6', label: 'City' },
+  { sectors: [2], color: '#63734c', label: 'Field' },
+  { sectors: [3], color: '#34563d', label: 'Forest' },
+  { sectors: [4], color: '#8c7952', label: 'Hills' },
+  { sectors: [5], color: '#695e52', label: 'Mountain' },
+  { sectors: [6, 20], color: '#4e7b86', label: 'Shallows / water plane' },
+  { sectors: [7], color: '#365c70', label: 'Deep water' },
+  { sectors: [8, 19], color: '#97b5bb', label: 'Air' },
+  { sectors: [9, 10], color: '#2c4b60', label: 'Underwater' },
+  { sectors: [11, 36], color: '#9d5140', label: 'Fire / Avernus' },
+  { sectors: [12], color: '#263f4b', label: 'Ocean' },
+  { sectors: [13], color: '#51475d', label: 'Underdark wilds' },
+  { sectors: [14], color: '#b1a0b8', label: 'Underdark city' },
+  { sectors: [15], color: '#47414a', label: 'Underdark stone' },
+  { sectors: [16], color: '#52637f', label: 'Underdark water' },
+  { sectors: [17], color: '#394961', label: 'Underdark deep water' },
+  { sectors: [18, 35], color: '#27232f', label: 'Void / negative plane' },
+  { sectors: [22], color: '#a4a0b7', label: 'Ethereal' },
+  { sectors: [23], color: '#7e729b', label: 'Astral' },
+  { sectors: [24], color: '#b9a078', label: 'Desert' },
+  { sectors: [25], color: '#c6ceca', label: 'Arctic' },
+  { sectors: [26], color: '#53634b', label: 'Swamp' },
+  { sectors: [27], color: '#60516b', label: 'Underdark mountain' },
+  { sectors: [28], color: '#788346', label: 'Slime' },
+  { sectors: [29], color: '#3d3546', label: 'Low ceiling' },
+  { sectors: [30], color: '#67938b', label: 'Liquid mithril' },
+  { sectors: [31], color: '#96704f', label: 'Mushrooms' },
+  { sectors: [32, 33, 34], color: '#aaa28e', label: 'Castle / gate / wall' },
+  { sectors: [37], color: '#8c8a7b', label: 'Road' },
+  { sectors: [38], color: '#91a798', label: 'Snowy forest' },
+  { sectors: [39], color: '#b56b45', label: 'Lava' },
 ]
 </script>
 
 <template>
-  <div class="h-full flex flex-col">
+  <div class="h-full min-h-0 flex flex-col">
     <!-- Loading State -->
     <div v-if="loading" class="flex-1 flex items-center justify-center">
       <Loader2 class="h-8 w-8 animate-spin text-muted-foreground" />
@@ -158,14 +186,14 @@ const legendItems = [
     </div>
 
     <!-- Map View -->
-    <div v-else class="flex-1 flex flex-col">
+    <div v-else class="flex-1 min-h-0 flex flex-col">
       <!-- Toolbar -->
-      <div class="border-b bg-muted/50 px-2 sm:px-4 py-2 flex flex-wrap items-center gap-2 sm:gap-4">
+      <div class="border-b border-border bg-background px-3 py-3 flex flex-wrap items-center gap-3">
         <!-- Layer Selector -->
         <div class="flex items-center gap-1.5 sm:gap-2">
           <Layers class="h-4 w-4 text-muted-foreground shrink-0" />
           <Select v-model="selectedLayer">
-            <SelectTrigger class="w-[100px] sm:w-[140px] h-8">
+            <SelectTrigger aria-label="Map layer" class="w-[112px] sm:w-[140px] h-9">
               <SelectValue placeholder="Layer..." />
             </SelectTrigger>
             <SelectContent>
@@ -184,7 +212,7 @@ const legendItems = [
         <div class="flex items-center gap-1.5 sm:gap-2">
           <Crosshair class="h-4 w-4 text-muted-foreground shrink-0" />
           <Select v-model="selectedContinent" @update:model-value="jumpToContinent">
-            <SelectTrigger class="w-[120px] sm:w-[200px] h-8">
+            <SelectTrigger aria-label="Jump to continent" class="w-[136px] sm:w-[200px] h-9">
               <SelectValue placeholder="Jump to..." />
             </SelectTrigger>
             <SelectContent>
@@ -205,6 +233,8 @@ const legendItems = [
         </div>
 
         <div class="flex-1" />
+        <span v-if="layerLoading" role="status" class="text-sm text-muted-foreground">Loading layer…</span>
+        <span v-if="layerError" role="alert" class="basis-full text-sm text-destructive">{{ layerError }}</span>
 
         <!-- Zoom display -->
         <div class="text-xs sm:text-sm text-muted-foreground">
@@ -213,58 +243,47 @@ const legendItems = [
 
         <!-- Zoom Controls -->
         <div class="flex items-center gap-0.5 sm:gap-1">
-          <Button variant="outline" size="icon" class="h-7 w-7 sm:h-8 sm:w-8" @click="handleZoomIn" title="Zoom In">
+          <Button variant="outline" size="icon" class="h-9 w-9" @click="handleZoomIn" title="Zoom in" aria-label="Zoom in">
             <ZoomIn class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </Button>
-          <Button variant="outline" size="icon" class="h-7 w-7 sm:h-8 sm:w-8" @click="handleZoomOut" title="Zoom Out">
+          <Button variant="outline" size="icon" class="h-9 w-9" @click="handleZoomOut" title="Zoom out" aria-label="Zoom out">
             <ZoomOut class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </Button>
-          <Button variant="outline" size="icon" class="h-7 w-7 sm:h-8 sm:w-8" @click="handleResetView" title="Reset View">
+          <Button variant="outline" size="icon" class="h-9 w-9" @click="handleResetView" title="Reset view" aria-label="Reset view">
             <Home class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </Button>
         </div>
       </div>
 
       <!-- Map Area -->
-      <div class="flex-1 relative bg-card overflow-hidden">
+      <div class="flex-1 min-h-64 relative bg-card overflow-hidden" :aria-busy="layerLoading">
         <LeafletMap
           ref="leafletMapRef"
           :bounds="mapBounds"
           :initial-zoom="1"
-          :layer="Number(selectedLayer)"
+          :layer="displayedLayer"
           @zone-click="handleZoneClick"
           @room-hover="handleRoomHover"
           @zoom-change="handleZoomChange"
           @position-change="handlePositionChange"
         />
 
-        <!-- Legend (bottom right) - hidden on small mobile -->
-        <div class="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 hidden sm:block">
-          <Card class="bg-background/90 backdrop-blur">
-            <CardContent class="p-2 sm:p-3">
-              <p class="text-xs font-medium mb-2">Terrain Types</p>
-              <div class="grid grid-cols-2 gap-x-3 sm:gap-x-4 gap-y-1 text-xs">
-                <div
-                  v-for="item in legendItems"
-                  :key="item.label"
-                  class="flex items-center gap-1.5 sm:gap-2"
-                >
-                  <span
-                    class="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-sm border border-white/20 shrink-0"
-                    :style="{ backgroundColor: item.color }"
-                  ></span>
-                  <span>{{ item.label }}</span>
-                </div>
+        <!-- A compact key remains available at every screen size. -->
+        <details class="absolute bottom-3 right-3 z-[1000] max-w-[calc(100%-1.5rem)] border border-border bg-background text-sm">
+          <summary class="cursor-pointer px-3 py-2 font-medium select-none">Terrain key</summary>
+          <div class="max-h-[40vh] overflow-y-auto border-t border-border p-3">
+            <div class="mb-3 flex items-center gap-2 border-b border-border pb-3">
+              <span class="h-3 w-3 shrink-0 rounded-full border-2 border-bone bg-vermilion" />
+              <span>Zone entrance</span>
+            </div>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+              <div v-for="item in legendItems" :key="item.label" class="flex items-center gap-2">
+                <span class="h-3 w-3 shrink-0 border border-rule" :style="{ backgroundColor: item.color }" :data-sectors="item.sectors.join(',')" />
+                <span>{{ item.label }}</span>
               </div>
-              <div class="mt-2 pt-2 border-t text-xs">
-                <div class="flex items-center gap-1.5 sm:gap-2">
-                  <span class="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-danger shrink-0"></span>
-                  <span>Zone Entrance</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </div>
+        </details>
 
         <!-- Hovered room info (bottom left) - hidden on mobile -->
         <div v-if="hoveredRoom.vnum" class="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 hidden sm:block">
@@ -276,12 +295,10 @@ const legendItems = [
           </Card>
         </div>
 
-        <!-- Help text (top left) -->
-        <div class="absolute top-2 left-2 sm:top-4 sm:left-4 text-[10px] sm:text-xs text-white/60 pointer-events-none">
-          <span class="hidden sm:inline">Drag to pan | Scroll to zoom | Click zone markers to view details</span>
-          <span class="sm:hidden">Tap zones to view details</span>
-        </div>
       </div>
+      <p class="border-t border-border bg-background px-3 py-2 text-sm text-muted-foreground">
+        <span class="hidden sm:inline">Drag to pan · Scroll to zoom · </span>Zoom in to read names. Select an entrance for zone details.
+      </p>
     </div>
   </div>
 </template>

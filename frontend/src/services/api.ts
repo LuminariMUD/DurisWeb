@@ -1,3 +1,4 @@
+import { MAP_IMAGE_REVISION } from '@/utils/mapLayerImageUrl'
 import axios from 'axios'
 import { frontendConfiguration } from '@/config/environment'
 import type {
@@ -2807,7 +2808,7 @@ export const wikiApi = {
    */
   async getWorldMapImage(layer: number = 0): Promise<Blob> {
     const response = await api.get(`/api/wiki/map/image`, {
-      params: { layer },
+      params: { layer, revision: MAP_IMAGE_REVISION },
       responseType: 'blob',
     })
     return response.data
