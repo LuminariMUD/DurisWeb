@@ -132,6 +132,7 @@ describe('creation socket lifecycle', () => {
     activeWrapper = null
     window.__mudWebSocket = null
     vi.unstubAllGlobals()
+    vi.useRealTimers()
   })
   it('serializes mutations, preserves state on errors and waits for reset acknowledgement', async () => {
     const connection = createConnection()
@@ -284,4 +285,156 @@ describe('creation socket lifecycle', () => {
     expect(store.chargenStats?.bonusRemaining).toBe(5)
     expect(store.chargenPending).toBeNull()
   })
+
+  it.each(['chargen_options', 'hometowns'])(
+    'handles mutation errors after %s metadata',
+    async (type) => {
+      const connection = createConnection()
+      await connection.connect()
+      const socket = sockets[0]!
+      const store = useMudStore()
+      store.setChargenStats(labels, 3, 'advanced', 'bonuses')
+      const previous = store.chargenStats
+      expect(connection.addBonus('dex')).toBe(true)
+      socket.onmessage?.({
+        data: JSON.stringify({ type, races: [], options: [], hasChoice: false }),
+      })
+      expect(store.chargenLoading).toBe(false)
+      expect(store.chargenPending).toBe('add_bonus')
+      socket.onmessage?.({
+        data: JSON.stringify({
+          type: 'system',
+          data: { status: 'error', message: 'Bonus refused' },
+        }),
+      })
+      expect(store.chargenError).toBe('Bonus refused')
+      expect(store.chargenPending).toBeNull()
+      expect(store.chargenStats).toBe(previous)
+      expect(connection.addBonus('str')).toBe(true)
+    },
+  )
+
+  describe.each(['roll_stats', 'stats_accepted', 'bonus_added', 'stats_swapped'])(
+    '%s validation',
+    (type) => {
+      it.each<[string, Record<string, unknown>]>([
+        ['missing stats', { stats: undefined }],
+        ['null stats', { stats: null }],
+        ['incomplete labels', { stats: { str: 'good' } }],
+        ['missing method', { method: undefined }],
+        ['missing phase', { phase: undefined }],
+        ...(type === 'stats_swapped'
+          ? []
+          : ([
+              ['missing counter', { bonusRemaining: undefined }],
+              ['null counter', { bonusRemaining: null }],
+              ['string counter', { bonusRemaining: '4' }],
+              ['fractional counter', { bonusRemaining: 1.5 }],
+              ['negative counter', { bonusRemaining: -1 }],
+              ['excess counter', { bonusRemaining: 5 }],
+            ] satisfies [string, Record<string, unknown>][])),
+      ])('rejects %s and allows retry without changing stats', async (_name, invalid) => {
+        const connection = createConnection()
+        await connection.connect()
+        const socket = sockets[0]!
+        const store = useMudStore()
+        store.setChargenOptions([], ['default', 'advanced'], 4)
+        store.setChargenStats(labels, 3, 'advanced', 'bonuses')
+        const previous = store.chargenStats
+        const send = () => {
+          switch (type) {
+            case 'roll_stats':
+              return connection.rollStats(1, 'advanced')
+            case 'stats_accepted':
+              return connection.acceptStats()
+            case 'bonus_added':
+              return connection.addBonus('dex')
+            default:
+              return connection.swapStats('str', 'dex')
+          }
+        }
+        expect(send()).toBe(true)
+        socket.onmessage?.({
+          data: JSON.stringify({
+            type,
+            stats: labels,
+            method: 'advanced',
+            phase: 'bonuses',
+            bonusRemaining: 3,
+            ...invalid,
+          }),
+        })
+        expect(store.chargenError).toContain('Invalid stat selection response')
+        expect(store.chargenStats).toBe(previous)
+        expect(store.chargenPending).toBeNull()
+        expect(store.chargenLoading).toBe(false)
+        expect(send()).toBe(true)
+        socket.onmessage?.({
+          data: JSON.stringify({
+            type,
+            stats: labels,
+            method: 'advanced',
+            phase: 'bonuses',
+            ...(type === 'stats_swapped' ? {} : { bonusRemaining: 2 }),
+          }),
+        })
+        expect(store.chargenError).toBeNull()
+        expect(store.chargenPending).toBeNull()
+        expect(store.chargenStats?.bonusRemaining).toBe(type === 'stats_swapped' ? 3 : 2)
+      })
+    },
+  )
+
+  it.each([
+    'roll_stats',
+    'accept_stats',
+    'add_bonus',
+    'swap_stats',
+    'reset_chargen',
+    'create_character',
+  ] as const)(
+    'clears %s on copyover close and permits a fresh attempt after authentication',
+    async (command) => {
+      vi.useFakeTimers()
+      const connection = createConnection()
+      await connection.connect()
+      const socket = sockets[0]!
+      const store = useMudStore()
+      store.setChargenOptions([], ['default', 'advanced'], 4)
+      store.setChargenStats(labels, 3, 'advanced', 'bonuses')
+      store.setChargenPending(command)
+      socket.onmessage?.({
+        data: JSON.stringify({
+          type: 'system',
+          data: { status: 'copyover', message: 'Server updating' },
+        }),
+      })
+      socket.close()
+      expect(store.copyoverInProgress).toBe(true)
+      expect(store.chargenPending).toBeNull()
+      expect(store.chargenStats).toBeNull()
+      expect(store.chargenStatMethods).toEqual([])
+      expect(store.chargenLoading).toBe(false)
+      await vi.advanceTimersByTimeAsync(100)
+      const reconnected = sockets[1]!
+      reconnected.onmessage?.({
+        data: JSON.stringify({
+          type: 'auth',
+          status: 'success',
+          data: { account: 'test-account', characters: [] },
+        }),
+      })
+      expect(store.connectionState).toBe('authenticated')
+      expect(connection.requestChargenOptions()).toBe(true)
+      reconnected.onmessage?.({
+        data: JSON.stringify({
+          type: 'chargen_options',
+          races: [],
+          statMethods: ['default', 'advanced'],
+          bonusCount: 4,
+        }),
+      })
+      expect(connection.rollStats(1, 'default')).toBe(true)
+    },
+  )
 })

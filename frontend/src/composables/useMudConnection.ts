@@ -224,6 +224,8 @@ export function useMudConnection() {
 
         // Check if this is a copyover disconnect
         if (store.copyoverInProgress) {
+          // The closed socket cannot acknowledge an unfinished creation attempt.
+          store.clearChargenState()
           // don't change connection state to disconnected - keep showing copyover banner
           console.log('[MUD] Copyover in progress, starting fast reconnect...')
           copyoverReconnectAttempts = 0
@@ -520,7 +522,13 @@ export function useMudConnection() {
   }
 
   const handleChargenMessage = (message: MudChargenMessage) => {
-    if (store.chargenStatMethods.length > 0 && 'stats' in message) {
+    if (
+      store.chargenStatMethods.length > 0 &&
+      (message.type === 'roll_stats' ||
+        message.type === 'stats_accepted' ||
+        message.type === 'bonus_added' ||
+        message.type === 'stats_swapped')
+    ) {
       const validMethod = message.method === 'default' || message.method === 'advanced'
       const validPhase =
         message.phase === 'rolling' || message.phase === 'bonuses' || message.phase === 'ready'
@@ -532,7 +540,7 @@ export function useMudConnection() {
         ['str', 'dex', 'agi', 'con', 'pow', 'int', 'wis', 'cha', 'luk', 'kar'].some(
           (stat) => typeof message.stats[stat] !== 'string',
         ) ||
-        ('bonusRemaining' in message &&
+        (message.type !== 'stats_swapped' &&
           (!Number.isInteger(message.bonusRemaining) ||
             message.bonusRemaining < 0 ||
             message.bonusRemaining > 4))

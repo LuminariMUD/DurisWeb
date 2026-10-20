@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import MudCharacterCreate from '../MudCharacterCreate.vue'
-import type { MudChargenState, MudRace, MudStatMethod } from '@/types/mud'
+import type { MudChargenMutation, MudChargenState, MudRace, MudStatMethod } from '@/types/mud'
 
 vi.mock('../HelpModal.vue', () => ({ default: { template: '<span />' } }))
 const race: MudRace = {
@@ -70,6 +70,40 @@ async function reachStatsChoice(wrapper: VueWrapper) {
 }
 
 describe('stat method wizard', () => {
+  it('allows Cancel while initial options are loading', async () => {
+    const wrapper = wizard(false)
+    await wrapper.setProps({ races: [], loading: true })
+    expect(button(wrapper, 'Cancel').attributes('disabled')).toBeUndefined()
+    await button(wrapper, 'Cancel').trigger('click')
+    expect(wrapper.emitted('cancel')).toHaveLength(1)
+    expect(wrapper.emitted('reset-chargen')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it.each<MudChargenMutation>([
+    'roll_stats',
+    'accept_stats',
+    'add_bonus',
+    'swap_stats',
+    'reset_chargen',
+    'create_character',
+  ])('blocks Cancel during %s even when metadata cleared loading', async (pending) => {
+    const wrapper = wizard()
+    await wrapper.setProps({ pending, loading: false })
+    expect(button(wrapper, 'Cancel').attributes('disabled')).toBeDefined()
+    await button(wrapper, 'Cancel').trigger('click')
+    expect(wrapper.emitted('cancel')).toBeUndefined()
+    expect(wrapper.emitted('reset-chargen')).toBeUndefined()
+    await wrapper.setProps({ pending: null, error: 'Request failed' })
+    expect(button(wrapper, 'Cancel').attributes('disabled')).toBeUndefined()
+    await button(wrapper, 'Cancel').trigger('click')
+    expect(wrapper.emitted('reset-chargen')).toHaveLength(1)
+    expect(button(wrapper, 'Cancel').attributes('disabled')).toBeDefined()
+    await wrapper.setProps({ resetSequence: 1 })
+    expect(wrapper.emitted('cancel')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
   it('waits for the preselected Default choice and displays four bonuses without reroll', async () => {
     const wrapper = wizard()
     await reachStatsChoice(wrapper)

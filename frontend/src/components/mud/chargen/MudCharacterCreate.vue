@@ -23,6 +23,7 @@ import type {
   MudRace,
   MudChargenClass,
   MudChargenState,
+  MudChargenMutation,
   MudStatMethod,
   MudHometown,
 } from '@/types/mud'
@@ -61,6 +62,7 @@ const props = defineProps<{
   bonusCount?: number
   resetSequence?: number
   loading: boolean
+  pending?: MudChargenMutation | null
   error: string | null
   hometowns: MudHometown[]
   hasHometownChoice: boolean
@@ -90,7 +92,10 @@ const supportsMethods = computed(
 )
 const pendingReset = ref<Step | 'cancel' | null>(null)
 const acceptingStats = ref(false)
-const isBusy = computed(() => props.loading || pendingReset.value !== null || acceptingStats.value)
+const isMutating = computed(
+  () => !!props.pending || pendingReset.value !== null || acceptingStats.value,
+)
+const isBusy = computed(() => props.loading || isMutating.value)
 
 watch(
   () => props.resetSequence,
@@ -348,13 +353,13 @@ function nextStep() {
 }
 
 function requestReset(destination: Step | 'cancel') {
-  if (isBusy.value) return
+  if (isMutating.value) return
   pendingReset.value = destination
   emit('reset-chargen')
 }
 
 function cancelCreation() {
-  if (isBusy.value) return
+  if (isMutating.value) return
   if (supportsMethods.value) requestReset('cancel')
   else emit('cancel')
 }
@@ -527,7 +532,7 @@ function formatAlignment(alignment: string): string {
           <CardTitle class="text-xl">Create Character</CardTitle>
           <CardDescription>Step {{ stepNumber }} of {{ totalSteps }}</CardDescription>
         </div>
-        <Button variant="ghost" size="sm" @click="cancelCreation" :disabled="isBusy">Cancel</Button>
+        <Button variant="ghost" size="sm" @click="cancelCreation" :disabled="isMutating">Cancel</Button>
       </div>
       <!-- Progress bar -->
       <div class="w-full bg-muted rounded-full h-2 mt-4">

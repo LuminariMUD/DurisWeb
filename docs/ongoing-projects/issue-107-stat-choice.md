@@ -1,6 +1,6 @@
 # Duris #107: browser stat method choice
 
-Status: implementation and paired local acceptance complete; ready for review. Worktree `/home/aiwithapex/projects/durisweb-issue107`, branch
+Status: implementation, paired local acceptance and PR #73 review repairs complete; ready to merge. Worktree `/home/aiwithapex/projects/durisweb-issue107`, branch
 `branch/issue-107-stat-choice`, based on master `70288bf4583b`.
 
 Parent: https://github.com/LuminariMUD/Duris/issues/107
@@ -112,3 +112,74 @@ wizard loading until acknowledgement; failures retain the race step for retry.
 The parent/child options request is deduplicated, so a late duplicate options
 response cannot release that wait. Focused component and actual-store/socket
 regressions cover the pending/error/retry path.
+
+## PR #73 review repair, 20 October 2026
+
+All five inline comments were checked against head `461ca507ea8e` and current
+master `70288bf4583b94710c981fe35609de0e2b26ad71` before editing:
+
+- `4327249020`: already fixed in that head. System errors consult both loading
+  and pending state. Added real-store/socket tests for both options and hometown
+  metadata arriving before a pending mutation's error.
+- `4327249029` and `4327551557`: reproduced. Validate all four modern stat
+  response types even when stats are absent. Roll, acceptance and bonus responses
+  require an integer counter from zero through four; swaps retain the existing
+  counter. Invalid responses preserve stats and release pending/loading for retry.
+- `4327249036`: reproduced. Pass mutation state separately to the wizard. Cancel
+  stays available during initial metadata loading, but pending mutations, reset
+  and acceptance still block it. Modern cancellation retains reset acknowledgement.
+- `4327551570`: reproduced for all six mutation types. The copyover close path
+  clears the lost creation attempt while retaining the reconnect banner/flow.
+  Socket tests reauthenticate, reload capabilities and start a new attempt.
+
+Fourteen new cases failed against the previous code. After repair, the focused
+wizard/socket/credential run passes 66 tests; the full frontend run passes 64
+files and 439 tests. No framework, dependency, backend, database or server changes
+were needed. Existing helpers and suites provide the complete repair/proof path.
+
+Commands and results for this repair (run from this worktree root):
+
+- `pnpm --dir backend install --frozen-lockfile`: passed.
+- `pnpm --dir frontend install --frozen-lockfile`: passed.
+- `pnpm --dir frontend exec biome format --write src/composables/__tests__/useMudConnectionChargen.spec.ts src/components/mud/chargen/__tests__/MudCharacterCreate.spec.ts src/components/mud/chargen/MudCharacterCreate.vue src/composables/useMudConnection.ts src/views/MudClientView.vue`: passed.
+- `pnpm --dir frontend test:unit --run src/composables/__tests__/useMudConnectionChargen.spec.ts src/components/mud/chargen/__tests__/MudCharacterCreate.spec.ts`: reproduced 14 failures before repair.
+- `pnpm --dir frontend test:unit --run src/composables/__tests__/useMudConnectionChargen.spec.ts src/components/mud/chargen/__tests__/MudCharacterCreate.spec.ts src/composables/__tests__/useMudConnectionCredentials.spec.ts`: passed, 66 tests.
+- `pnpm --dir frontend test:unit --run`: passed, 439 tests on Node 26.11.1.
+- `pnpm --dir frontend format:check`, `pnpm --dir frontend lint`,
+  `pnpm --dir frontend type-check`, `./frontend/scripts/check-palette-literals.sh`: passed.
+- `./scripts/check-config-literals.sh`, `pnpm --dir backend format:check`,
+  `pnpm --dir backend lint`, `pnpm --dir backend type-check`,
+  `pnpm --dir backend verify:mud-writes`, `pnpm --dir backend schema:check`: passed
+  on Node 26.11.1. Schema verification inspected no database.
+- `pnpm --dir frontend config:check` and `pnpm --dir frontend build`: passed
+  on supported Node 24.15.0 with explicit process-only local configuration:
+  `VITE_BASE_URL=/`, `VITE_API_URL=http://127.0.0.1:7770`,
+  `VITE_WS_URL=ws://127.0.0.1:7770/ws`, `VITE_STATIC_URL=http://127.0.0.1:5183`,
+  `FRONTEND_DEV_HOST=127.0.0.1`, `FRONTEND_DEV_PORT=5183`,
+  `FRONTEND_PREVIEW_HOST=127.0.0.1`, `FRONTEND_PREVIEW_PORT=4183`,
+  `FRONTEND_ALLOWED_HOSTS=localhost,127.0.0.1`. No environment files were added.
+- `pnpm --dir frontend dev` with the same local configuration and
+  `node C:/Users/apexw/.codex/visualizations/2026/10/20/01a15a36-6cfd-7b71-b1f0-492e1f12ac26/pr73-browser.cjs`: passed.
+  Chrome 155 at `/play`, 1280x900, 768x1024 and 320x568: actual view/store/wizard,
+  keyboard cancellation, loading cancellation, pending/error control state and
+  no horizontal overflow. No page/runtime errors or Vite overlay; existing
+  Router deprecation warning only. HTTP and notification transport were fixtures;
+  no MUD was contacted. Browser plugin unavailable; used bundled Playwright.
+  Screenshots and JSON evidence stay beside that temporary script outside Git.
+- `git diff --check`, ancestry checks and `git merge-tree --write-tree origin/master HEAD`: passed.
+
+The earlier real full-world game journeys above were not repeated; this run
+qualifies the review repairs with actual socket handlers and rendered UI.
+Backend tests/build, shared database checks, migrations, production and server
+operations were not run: no backend/schema change or deployment is in scope.
+Hosted CI completion is not a gate; its source-owned checks passed locally.
+
+Git: master is already an ancestor of this branch; PR #73 is the only open
+website PR, with no dependent website branch to carry forward. Preserve the two
+implementation commits and add one focused repair commit, then use a normal
+push. Squash is suitable when the owner merges. No release tag, merge, production
+action or MUD change is part of this handoff. The primary checkout is untouched.
+
+Website Changelog: the existing adjacent unpublished draft already covers the
+error/cancellation improvements. Retain it for the future release; reconcile
+saved drafts/entries and publish only after authorized deployment acceptance.
