@@ -100,6 +100,23 @@ describe('stat method wizard', () => {
     wrapper.unmount()
   })
 
+  it('keeps the race step pending until hometown metadata succeeds', async () => {
+    const wrapper = wizard()
+    await button(wrapper, 'New Player').trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    await button(wrapper, 'Human').trigger('click')
+    await wrapper.setProps({ loading: true })
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
+    await wrapper.setProps({ loading: false, error: 'Hometown lookup failed' })
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
+    await button(wrapper, 'Human').trigger('click')
+    expect(wrapper.emitted('get-hometowns')).toEqual([[1], [1]])
+    await wrapper.setProps({ error: null })
+    await button(wrapper, 'Next').trigger('click')
+    expect(wrapper.text()).toContain('Choose Your Sex')
+    wrapper.unmount()
+  })
+
   it('rerolls only Advanced and waits for acceptance before showing bonuses', async () => {
     const wrapper = wizard()
     await reachStatsChoice(wrapper)

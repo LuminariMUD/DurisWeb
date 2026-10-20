@@ -404,7 +404,7 @@ export function useMudConnection() {
     }
 
     // If this is an error during chargen, set the error state
-    if (message.data?.status === 'error' && store.chargenLoading) {
+    if (message.data?.status === 'error' && (store.chargenLoading || store.chargenPending)) {
       store.setChargenError(message.data.message)
     }
   }
@@ -988,6 +988,7 @@ export function useMudConnection() {
   }
 
   const requestChargenOptions = () => {
+    if (store.chargenLoading || store.chargenPending) return false
     store.setChargenLoading(true)
     store.setChargenError(null)
     return sendCommand({
@@ -1019,11 +1020,18 @@ export function useMudConnection() {
     sendChargenMutation({ type: 'cmd', cmd: 'swap_stats', data: { stat1, stat2 } })
 
   const getHometowns = (raceId: number) => {
-    return sendCommand({
+    if (store.chargenLoading || store.chargenPending) return false
+    store.setChargenHometowns([], false)
+    store.setChargenError(null)
+    store.setChargenLoading(true)
+    const sent = sendCommand({
       type: 'cmd',
       cmd: 'get_hometowns',
       data: { race: raceId },
     })
+    if (!sent)
+      store.setChargenError('Connection unavailable. Reconnect and select your race again.')
+    return sent
   }
 
   const validateName = (name: string) => {

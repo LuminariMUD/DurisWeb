@@ -234,7 +234,7 @@ const totalSteps = computed(() => {
 watch(
   () => props.races,
   (newRaces) => {
-    if (newRaces.length === 0) {
+    if (newRaces.length === 0 && !props.loading) {
       emit('request-options')
     }
   },
@@ -296,7 +296,7 @@ function getPrevStep(): Step | undefined {
 }
 
 function nextStep() {
-  if (isBusy.value) return
+  if (isBusy.value || (currentStep.value === 'race' && props.error)) return
   const next = getNextStep()
   if (!next) return
 
@@ -1005,7 +1005,7 @@ function formatAlignment(alignment: string): string {
           :disabled="
             isBusy ||
             (currentStep === 'newbie' && isNewbie === null) ||
-            (currentStep === 'race' && !selectedRace) ||
+            (currentStep === 'race' && (!selectedRace || !!error)) ||
             (currentStep === 'class' && !selectedClass) ||
             (currentStep === 'alignment' && !selectedAlignment) ||
             (currentStep === 'sex' && !selectedSex) ||

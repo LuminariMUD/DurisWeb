@@ -199,6 +199,10 @@ describe('creation socket lifecycle', () => {
       bonusCount: 4,
     })
     expect(connection.rollStats(1, 'default')).toBe(false)
+    receive({ type: 'system', data: { status: 'error', message: 'Reset could not complete' } })
+    expect(store.chargenPending).toBeNull()
+    expect(store.chargenStats?.bonusRemaining).toBe(3)
+    expect(connection.resetChargen()).toBe(true)
     receive({ type: 'chargen_reset' })
     expect(store.chargenStats).toBeNull()
     expect(store.chargenResetSequence).toBe(1)
@@ -214,6 +218,40 @@ describe('creation socket lifecycle', () => {
     expect(store.chargenStats).toBeNull()
     expect(store.chargenStatMethods).toEqual([])
     expect(store.chargenPending).toBeNull()
+  })
+
+  it('waits for race hometown metadata and does not duplicate options requests', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const socket = sockets[0]!
+    socket.onopen?.()
+    const receive = (message: unknown) => socket.onmessage?.({ data: JSON.stringify(message) })
+    const store = useMudStore()
+    expect(connection.requestChargenOptions()).toBe(true)
+    expect(connection.requestChargenOptions()).toBe(false)
+    receive({
+      type: 'chargen_options',
+      races: [],
+      statMethods: ['default', 'advanced'],
+      bonusCount: 4,
+    })
+    store.setChargenHometowns([{ id: 1, name: 'Old hometown' }], true)
+    expect(connection.getHometowns(1)).toBe(true)
+    expect(store.chargenLoading).toBe(true)
+    expect(store.chargenHometowns).toEqual([])
+    expect(connection.getHometowns(5)).toBe(false)
+    receive({ type: 'system', data: { status: 'error', message: 'Hometown lookup failed' } })
+    expect(store.chargenLoading).toBe(false)
+    expect(connection.getHometowns(1)).toBe(true)
+    receive({
+      type: 'hometowns',
+      race: 1,
+      options: [{ id: 1, name: 'New hometown' }],
+      hasChoice: false,
+    })
+    expect(store.chargenLoading).toBe(false)
+    expect(store.chargenHometowns).toEqual([{ id: 1, name: 'New hometown' }])
+    expect(store.chargenHasHometownChoice).toBe(false)
   })
 
   it('retains legacy wire commands and rejects malformed authoritative metadata', async () => {
