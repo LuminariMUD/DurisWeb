@@ -44,6 +44,7 @@ import {
   RefreshCw,
   X,
   Activity,
+  Clock,
   Heart,
   Radio,
   Globe,
@@ -433,6 +434,10 @@ const isPlayPage = computed(() => route.path === '/play')
               <DropdownMenuItem @click="router.push('/statistics/faction-activity')" class="cursor-pointer">
                 <Activity class="mr-2 h-4 w-4" />
                 <span>Faction Activity</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="router.push('/statistics/faction-overlap')" class="cursor-pointer">
+                <Clock class="mr-2 h-4 w-4" />
+                <span>Faction Overlap</span>
               </DropdownMenuItem>
               <DropdownMenuItem @click="router.push('/frag-leaderboard')" class="cursor-pointer">
                 <Trophy class="mr-2 h-4 w-4" />

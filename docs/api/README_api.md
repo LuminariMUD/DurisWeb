@@ -63,7 +63,7 @@ within the current thread; ordinary pagination still uses the requested page.
 | `/api/auction` | `routes/auction.ts` | Auction reads, default-gated bid/buy actions, and MUD-authoritative admin removal |
 | `/api/push` | `routes/push.ts` | VAPID key and authenticated subscriptions |
 | `/api/changelog` | `routes/changelog.ts` | Changelog reads and permissioned management |
-| `/api/public/statistics` | `routes/publicStatistics.ts` | Public faction/date statistics |
+| `/api/public/statistics` | `routes/publicStatistics.ts` | Public faction activity, date, and overlap statistics |
 | `/api/hooks` | `routes/hooks.ts` | Permissioned hook state, website toggle, and reconciliation |
 
 Some route modules contain both public and protected handlers. Do not infer
@@ -482,3 +482,21 @@ account-login export from Duris PR #41 contains no faction breakdown and is
 not this page's data source. Historical responses are cached for ten minutes;
 the date-list cache changes at UTC midnight. The page selects the newest
 published date, displays UTC times, and offers retry on load failure.
+
+### Public faction overlap
+
+`GET /api/public/statistics/faction-overlap?days=7|14|30` (default 14)
+summarizes when goods and evils are online together over the newest published
+days, by UTC hour of day. The window is `[cutoff - days, cutoff)` with the
+same cutoff as faction activity, so it never includes anything fresher than
+that page. Each of the 24 `hours` entries carries `samples`, `bothSamples`
+(at least one goods and one evils player online), goods/evils peak and
+average, and goods/evils averages over only the overlapping samples; hours
+without samples are zero-filled. `firstDate`/`lastDate` are the UTC days that
+actually had samples (null when none). Any other `days` value returns 400;
+database failures or out-of-range rows return 500 without caching. Results
+are cached for ten minutes under a key that changes at UTC midnight.
+
+The `/statistics/faction-overlap` page relabels the UTC buckets in the
+viewer's timezone at its current offset (half-hour zones start at `:30`),
+ranks the top five overlap hours, and draws peak goods and evils per hour.

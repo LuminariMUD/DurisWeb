@@ -193,6 +193,137 @@ export async function getFactionActivity(date: string): Promise<FactionActivityP
   return data;
 }
 
+/** Allowed overlap windows, in published UTC days. */
+export const FACTION_OVERLAP_DAYS = [7, 14, 30] as const;
+export type FactionOverlapDays = (typeof FACTION_OVERLAP_DAYS)[number];
+
+export interface FactionOverlapHour {
+  /** UTC hour of day (0-23) the bucket starts at. */
+  utcHour: number;
+  samples: number;
+  /** Samples with at least one goods and one evils player online. */
+  bothSamples: number;
+  goodsPeak: number;
+  goodsAverage: number;
+  evilsPeak: number;
+  evilsAverage: number;
+  /** Averages over only the samples where both sides were online; 0 when none. */
+  goodsAverageWhileBoth: number;
+  evilsAverageWhileBoth: number;
+}
+
+export interface FactionOverlap {
+  days: FactionOverlapDays;
+  /** First and last UTC day with samples in the window, or null when empty. */
+  firstDate: string | null;
+  lastDate: string | null;
+  samples: number;
+  hours: FactionOverlapHour[];
+}
+
+function toCount(value: unknown, column: string): number {
+  const number = Number(value ?? 0);
+  if (!Number.isSafeInteger(number) || number < 0) {
+    throw new Error(`invalid faction overlap ${column}`);
+  }
+  return number;
+}
+
+function toAverage(value: unknown, column: string): number {
+  if (value == null) return 0;
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) {
+    throw new Error(`invalid faction overlap ${column}`);
+  }
+  return Math.round(number * 100) / 100;
+}
+
+function utcDate(epochSeconds: number): string {
+  return new Date(epochSeconds * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * Summarize when goods and evils are online together, by UTC hour of day,
+ * over the newest published days. Uses the same publication cutoff as the
+ * daily activity, so it never reveals anything fresher than that page.
+ */
+export async function getFactionOverlap(days: FactionOverlapDays): Promise<FactionOverlap> {
+  const cutoff = publicationCutoff();
+  const start = cutoff - days * DAY_SECONDS;
+  const cacheKey = `${CACHE_KEY_PREFIX}faction_overlap:${days}:${cutoff}`;
+  const cached = await getCache<FactionOverlap>(cacheKey);
+  if (cached) return cached;
+
+  // Epoch arithmetic keeps buckets independent of the database session timezone.
+  const [rows] = await mudPool.query<RowDataPacket[]>(
+    `SELECT
+       FLOOR(MOD(date, 86400) / 3600) AS utc_hour,
+       COUNT(*) AS samples,
+       SUM(COALESCE(goods_count, 0) > 0 AND COALESCE(evils_count, 0) > 0) AS both_samples,
+       MAX(COALESCE(goods_count, 0)) AS goods_peak,
+       AVG(COALESCE(goods_count, 0)) AS goods_average,
+       MAX(COALESCE(evils_count, 0)) AS evils_peak,
+       AVG(COALESCE(evils_count, 0)) AS evils_average,
+       AVG(CASE WHEN goods_count > 0 AND evils_count > 0 THEN goods_count END) AS goods_average_while_both,
+       AVG(CASE WHEN goods_count > 0 AND evils_count > 0 THEN evils_count END) AS evils_average_while_both,
+       MIN(date) AS first_sample,
+       MAX(date) AS last_sample
+     FROM statistics
+     WHERE date >= ? AND date < ?
+     GROUP BY utc_hour
+     ORDER BY utc_hour ASC`,
+    [start, cutoff],
+  );
+
+  const hours: FactionOverlapHour[] = Array.from({ length: 24 }, (_, utcHour) => ({
+    utcHour,
+    samples: 0,
+    bothSamples: 0,
+    goodsPeak: 0,
+    goodsAverage: 0,
+    evilsPeak: 0,
+    evilsAverage: 0,
+    goodsAverageWhileBoth: 0,
+    evilsAverageWhileBoth: 0,
+  }));
+  let samples = 0;
+  let firstSample: number | null = null;
+  let lastSample: number | null = null;
+
+  for (const row of rows) {
+    const utcHour = toCount(row.utc_hour, 'utc_hour');
+    if (utcHour > 23) throw new Error('invalid faction overlap utc_hour');
+    const hour: FactionOverlapHour = {
+      utcHour,
+      samples: toCount(row.samples, 'samples'),
+      bothSamples: toCount(row.both_samples, 'both_samples'),
+      goodsPeak: toCount(row.goods_peak, 'goods_peak'),
+      goodsAverage: toAverage(row.goods_average, 'goods_average'),
+      evilsPeak: toCount(row.evils_peak, 'evils_peak'),
+      evilsAverage: toAverage(row.evils_average, 'evils_average'),
+      goodsAverageWhileBoth: toAverage(row.goods_average_while_both, 'goods_average_while_both'),
+      evilsAverageWhileBoth: toAverage(row.evils_average_while_both, 'evils_average_while_both'),
+    };
+    if (hour.bothSamples > hour.samples) throw new Error('invalid faction overlap both_samples');
+    hours[utcHour] = hour;
+    samples += hour.samples;
+    const first = toCount(row.first_sample, 'first_sample');
+    const last = toCount(row.last_sample, 'last_sample');
+    firstSample = firstSample === null ? first : Math.min(firstSample, first);
+    lastSample = lastSample === null ? last : Math.max(lastSample, last);
+  }
+
+  const result: FactionOverlap = {
+    days,
+    firstDate: firstSample === null ? null : utcDate(firstSample),
+    lastDate: lastSample === null ? null : utcDate(lastSample),
+    samples,
+    hours,
+  };
+  await setCache(cacheKey, result, CACHE_TTL);
+  return result;
+}
+
 /** List the newest 30 recorded days using the same publication boundary. */
 export async function getAvailableDates(): Promise<string[]> {
   const cutoff = publicationCutoff();
