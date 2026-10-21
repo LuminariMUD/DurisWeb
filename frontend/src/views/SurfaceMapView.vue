@@ -11,8 +11,14 @@ import { buildIllustratedSurfaceMap } from '@/utils/surfaceMapIllustration'
 
 type MapStyle = 'classic' | 'illustrated'
 type Labels = 'auto' | 'all' | 'none'
-interface Zone { vnum: number; name: string }
-interface TravelStop { start: number; name: string }
+interface Zone {
+  vnum: number
+  name: string
+}
+interface TravelStop {
+  start: number
+  name: string
+}
 interface SurfaceData {
   zones: Zone[]
   dragonRoutes: TravelStop[]
@@ -20,7 +26,10 @@ interface SurfaceData {
 }
 
 const classicUrl = '/surface-map/20261028_Duris_Surface_Map1600x1600.wld.png'
-const bounds: L.LatLngBoundsExpression = [[0, 0], [SURFACE_IMAGE_SIZE, SURFACE_IMAGE_SIZE]]
+const bounds: L.LatLngBoundsExpression = [
+  [0, 0],
+  [SURFACE_IMAGE_SIZE, SURFACE_IMAGE_SIZE],
+]
 const mapRoot = ref<HTMLDivElement | null>(null)
 const mapStyle = ref<MapStyle>('classic')
 const rendering = ref(false)
@@ -51,8 +60,12 @@ let fitZoom = 0
 let disposed = false
 
 function htmlEscape(value: string): string {
-  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;').replaceAll("'", '&#39;')
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
 }
 
 function popupText(value: string): HTMLElement {
@@ -128,16 +141,21 @@ function renderZones() {
         iconSize: [32, 32],
         iconAnchor: [16, 16],
       })
-      L.marker(centre, { icon }).on('click', () => {
-        if (!map) return
-        map.fitBounds(L.latLngBounds(positions).pad(0.7), {
-          maxZoom: Math.min(map.getMaxZoom(), map.getZoom() + 1.5),
+      L.marker(centre, { icon })
+        .on('click', () => {
+          if (!map) return
+          map.fitBounds(L.latLngBounds(positions).pad(0.7), {
+            maxZoom: Math.min(map.getMaxZoom(), map.getZoom() + 1.5),
+          })
         })
-      }).bindTooltip(group.length + ' nearby zone entries. Click to zoom.').addTo(layer)
+        .bindTooltip(group.length + ' nearby zone entries. Click to zoom.')
+        .addTo(layer)
       continue
     }
     const zone = group[0]!
-    const label = namesVisible ? '<span class="atlas-name">' + htmlEscape(zone.name) + '</span>' : ''
+    const label = namesVisible
+      ? '<span class="atlas-name">' + htmlEscape(zone.name) + '</span>'
+      : ''
     const icon = L.divIcon({
       className: 'atlas-zone',
       html: '<span class="atlas-zone-dot"></span>' + label,
@@ -198,7 +216,8 @@ async function loadData() {
     syncTravelLayers()
     renderZones()
   } catch {
-    if (!request.signal.aborted) loadError.value = 'The original zone and travel data could not be loaded.'
+    if (!request.signal.aborted)
+      loadError.value = 'The original zone and travel data could not be loaded.'
   }
 }
 
@@ -227,7 +246,8 @@ async function changeStyle(next: MapStyle) {
     mapStyle.value = 'illustrated'
     basemap.setUrl(url)
   } catch (error) {
-    loadError.value = error instanceof Error ? error.message : 'The illustrated artwork could not be prepared.'
+    loadError.value =
+      error instanceof Error ? error.message : 'The illustrated artwork could not be prepared.'
   } finally {
     rendering.value = false
   }
@@ -246,9 +266,11 @@ onMounted(() => {
     wheelPxPerZoomLevel: 75,
   })
   map = leaflet
-  basemap = L.imageOverlay(classicUrl, bounds).on('error', () => {
-    loadError.value = 'The original map image could not be loaded.'
-  }).addTo(leaflet)
+  basemap = L.imageOverlay(classicUrl, bounds)
+    .on('error', () => {
+      loadError.value = 'The original map image could not be loaded.'
+    })
+    .addTo(leaflet)
   leaflet.fitBounds(bounds)
   fitZoom = leaflet.getBoundsZoom(bounds)
   leaflet.setMinZoom(fitZoom - 1)
@@ -258,8 +280,10 @@ onMounted(() => {
     const vnum = surfacePositionToVnum(event.latlng.lat, event.latlng.lng)
     if (vnum === null) return
     selectedVnum.value = vnum
-    L.popup().setLatLng(event.latlng)
-      .setContent(popupText('World VNUM: ' + vnum)).openOn(leaflet)
+    L.popup()
+      .setLatLng(event.latlng)
+      .setContent(popupText('World VNUM: ' + vnum))
+      .openOn(leaflet)
   })
   resizeObserver = new ResizeObserver(() => map?.invalidateSize())
   resizeObserver.observe(mapRoot.value)

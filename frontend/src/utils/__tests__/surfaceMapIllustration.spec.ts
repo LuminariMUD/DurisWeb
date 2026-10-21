@@ -11,7 +11,7 @@ describe('the coordinate-aligned atlas treatment', () => {
     expect(terrainAt(167, 52, 44)).toBe(5)
   })
 
-  it('uses Drevarr\'s pinned real-world marker dataset unchanged', () => {
+  it("uses Drevarr's pinned real-world marker dataset unchanged", () => {
     const source = new URL('../../../public/surface-map/data.json', import.meta.url)
     const data = JSON.parse(readFileSync(source, 'utf8')) as {
       zones: { name: string; vnum: number }[]
@@ -21,7 +21,11 @@ describe('the coordinate-aligned atlas treatment', () => {
     expect(data.zones).toHaveLength(267)
     expect(data.ferryRoutes).toHaveLength(11)
     expect(data.dragonRoutes).toHaveLength(16)
-    for (const point of [...data.zones.map((zone) => zone.vnum), ...data.ferryRoutes.map((stop) => stop.start), ...data.dragonRoutes.map((stop) => stop.start)]) {
+    for (const point of [
+      ...data.zones.map((zone) => zone.vnum),
+      ...data.ferryRoutes.map((stop) => stop.start),
+      ...data.dragonRoutes.map((stop) => stop.start),
+    ]) {
       expect(point).toBeGreaterThanOrEqual(500000)
       expect(point).toBeLessThan(660000)
     }
