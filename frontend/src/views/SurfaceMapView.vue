@@ -115,9 +115,7 @@ function searchZones() {
     focusZone(filteredZones.value[0]!)
     return
   }
-  const bounds = L.latLngBounds(
-    filteredZones.value.map((zone) => surfaceVnumToPosition(zone.vnum)),
-  )
+  const bounds = L.latLngBounds(filteredZones.value.map((zone) => surfaceVnumToPosition(zone.vnum)))
   if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50] })
 }
 
