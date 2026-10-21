@@ -7,7 +7,7 @@ import { useNotifications } from './composables/useNotifications'
 import { useAuth } from './composables/useAuth'
 import { useMudConnection } from './composables/useMudConnection'
 import { useSiteConfig } from './composables/useSiteConfig'
-import { alternateMapUrl, projectSiteUrl } from './config/links'
+import { projectSiteUrl } from './config/links'
 import { useOfflineStatus } from './composables/useOfflineStatus'
 import { usePwaUpdate } from './composables/usePwaUpdate'
 import { SidebarProvider } from './components/ui/sidebar'
@@ -472,11 +472,9 @@ const isPlayPage = computed(() => route.path === '/play')
                 <Map class="mr-2 h-4 w-4" />
                 <span>Map</span>
               </DropdownMenuItem>
-              <DropdownMenuItem as-child class="cursor-pointer">
-                <a :href="alternateMapUrl" target="_blank" rel="noopener noreferrer">
-                  <Map class="mr-2 h-4 w-4" aria-hidden="true" />
-                  <span>Alt Map</span>
-                </a>
+              <DropdownMenuItem @click="router.push('/surface-map')" class="cursor-pointer">
+                <Map class="mr-2 h-4 w-4" aria-hidden="true" />
+                <span>Surface Map</span>
               </DropdownMenuItem>
               <DropdownMenuItem @click="router.push('/wiki/zones')" class="cursor-pointer">
                 <Layers class="mr-2 h-4 w-4" />

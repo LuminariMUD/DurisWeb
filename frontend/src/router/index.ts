@@ -404,6 +404,14 @@ const router = createRouter({
       meta: { requiresAuth: true, requiredPermission: 'manage_zones' },
     },
 
+    // Locally hosted 2026 wipe surface map (separate from the live Wiki map)
+    {
+      path: '/surface-map',
+      name: 'surface-map',
+      component: () => import('../views/SurfaceMapView.vue'),
+      meta: { public: true, contentGutter: false },
+    },
+
     // Wiki Routes
     {
       path: '/wiki',
