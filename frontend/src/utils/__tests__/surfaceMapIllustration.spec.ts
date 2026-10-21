@@ -12,7 +12,7 @@ describe('the coordinate-aligned atlas treatment', () => {
   })
 
   it("uses Drevarr's pinned real-world marker dataset unchanged", () => {
-    const source = new URL('../../../public/surface-map/data.json', import.meta.url)
+    const source = 'public/surface-map/data.json'
     const data = JSON.parse(readFileSync(source, 'utf8')) as {
       zones: { name: string; vnum: number }[]
       ferryRoutes: { name: string; start: number }[]
