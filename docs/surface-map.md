@@ -31,3 +31,32 @@ Validation:
 - `cd frontend && pnpm test:unit -- --run src/utils/__tests__/surfaceMapCoordinates.spec.ts`
 - Manually confirm map image, marker popups, search, duplicate zone names, VNUM
   coordinates, zooming and responsive layout at desktop and mobile widths.
+
+
+## Illustrated atlas and local testing
+
+The **Classic** view retains Drevarr's original image without edits. The **Illustrated**
+view paints a separate PNG from the original bitmap in the browser. The transform is
+deterministic, uses original source pixel positions, and clips decorative terrain
+illustrations to the original terrain mask. The room-to-map conversion never changes.
+The visual effect is an artistic interpretation of existing colour categories, not a
+new surveyed map.
+
+The illustrated view is algorithmic drawing with trees, mountains, dunes, coastline
+shallows and ocean engravings. It is **not** the previously generated concept art,
+which contained inaccurate coastlines and invented locations. Review its actual
+artistic quality in a browser before merging. The renderer lives in
+frontend/src/utils/surfaceMapIllustration.ts, loads only when Illustrated is chosen,
+caches the first rendered PNG, and releases the object URL on unmount.
+
+**All** zone names, ferry departures and dragon-flight markers come from the
+manually pinned frontend/public/surface-map/data.json. No text from illustration
+previews is rendered. Duplicate zone names remain separate by VNUM. Auto groups
+nearby zone entries, All permits crowding, and None hides zone names while keeping
+dots. Ferries and dragons have independent controls. Travel connection lines are
+not invented: the pinned source identifies stops rather than verified full paths.
+
+Verify all 267 zone entries, 11 ferry departures and 16 dragon-flight markers on
+both backgrounds. Room/VNUM positions must remain aligned during switching,
+panning, and zooming. Run the documented checks plus
+pnpm test:unit --run src/utils/__tests__/surfaceMapIllustration.spec.ts.
