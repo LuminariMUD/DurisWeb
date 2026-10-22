@@ -205,9 +205,13 @@ function hourLabel(hour: LocalOverlapHour): string {
             </span>
           </div>
         </div>
+        <p v-if="hours.length > 24" class="mb-3 text-sm text-muted-foreground">
+          The timezone's minute offset changed during this range. Each bar covers an hour starting at
+          its label; shifted start times stay separate.
+        </p>
         <div class="rounded-lg border border-border bg-ink-high/50 p-4 sm:p-6">
           <div class="overflow-x-auto">
-            <ul class="grid grid-cols-24 gap-1 min-w-[640px]" aria-label="Peak players and overlap by hour">
+            <ul class="grid grid-flow-col auto-cols-[minmax(2.5rem,1fr)] gap-1 min-w-[640px]" aria-label="Peak players and overlap by hour">
               <li v-for="hour in hours" :key="hour.localMinutes">
                 <button
                   type="button"

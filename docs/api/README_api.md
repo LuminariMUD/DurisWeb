@@ -501,9 +501,12 @@ under a versioned key that changes at UTC midnight. Concurrent misses share one
 read per window/cutoff. SQL has a two-second server statement limit on MySQL and
 MariaDB, a 2.5-second client timeout, and its dedicated connection is destroyed
 on failure. No pooled session setting is changed. The route allows 30 requests per minute per client,
-then returns 429. A detected forward clock jump or a rollback making an in-flight
+then returns 429. The first detected forward clock jump or a rollback making an in-flight
 window ineligible returns 503 without publishing data. The shared publication
 clock is guarded by elapsed monotonic time and eligibility is rechecked after I/O.
+After detecting a forward correction, later requests recover using the conservative
+monotonic timeline, capped by wall time. The clock never re-anchors to the advanced
+wall time, so a permanent correction cannot release history early or disable it indefinitely.
 
 The `/statistics/faction-overlap` page converts each dated bucket to the viewer's
 historical local hour before combining counts, peaks and sample-weighted averages.
@@ -512,3 +515,7 @@ half-hour zones start at `:30`. It ranks the top five overlap hours using
 unrounded shares and draws peak goods and evils per hour. Missing hours are
 zero-filled in the browser and have a distinct no-data color; measured zero
 overlap uses the heat scale's zero color. Percentages are rounded only for text.
+One day's missing start times are filled at the newest observed minute offset.
+Across a half-hour DST change, additional observed start times remain separate
+and are explained above the single-row, horizontally scrollable daily chart;
+they do not create a second day of empty placeholders or claim identical windows.

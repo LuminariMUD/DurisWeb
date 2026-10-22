@@ -12,6 +12,7 @@ const overlap = {
 const requestedDays = vi.hoisted(() => ({
   current: undefined as Ref<FactionOverlapDays> | undefined,
 }))
+const viewer = vi.hoisted(() => ({ timeZone: 'Australia/Sydney' }))
 vi.mock('@/composables/usePublicStatistics', () => ({
   useFactionOverlap: (days: Ref<FactionOverlapDays>) => {
     requestedDays.current = days
@@ -23,9 +24,9 @@ vi.mock('@/utils/factionOverlap', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/factionOverlap')>()
   return {
     ...actual,
-    timeZoneLabel: () => 'Australia/Sydney',
+    timeZoneLabel: () => viewer.timeZone,
     toLocalOverlapHours: (hours: FactionOverlapHour[]) =>
-      actual.toLocalOverlapHours(hours, 'Australia/Sydney'),
+      actual.toLocalOverlapHours(hours, viewer.timeZone),
   }
 })
 import FactionOverlapView from '../FactionOverlapView.vue'
@@ -62,6 +63,7 @@ const mountView = () =>
 
 beforeEach(() => {
   vi.clearAllMocks()
+  viewer.timeZone = 'Australia/Sydney'
   overlap.isLoading.value = false
   overlap.isError.value = false
   overlap.data.value = summary(
@@ -148,6 +150,20 @@ describe('Faction Overlap', () => {
     expect((missing.get('span[style*="background"]').element as HTMLElement).style.background).toBe(
       color(chartTheme.noData),
     )
+  })
+
+  it('explains shifted hour starts across a half-hour clock change without inventing empty rows', () => {
+    viewer.timeZone = 'Australia/Lord_Howe'
+    overlap.data.value = summary([
+      hour(0, { timestamp: Date.parse('2026-10-02T00:00:00Z') / 1000, bothSamples: 10 }),
+      hour(0, { timestamp: Date.parse('2026-10-05T00:00:00Z') / 1000, bothSamples: 20 }),
+    ])
+    wrapper = mountView()
+    expect(wrapper.text()).toContain("The timezone's minute offset changed")
+    const hours = wrapper.findAll('ul[aria-label="Peak players and overlap by hour"] button')
+    expect(hours).toHaveLength(25)
+    expect(hours.some((button) => button.attributes('aria-label')?.startsWith('10:30 '))).toBe(true)
+    expect(hours.some((button) => button.attributes('aria-label')?.startsWith('11:00 '))).toBe(true)
   })
 
   it('shows the empty state before any day is published', () => {

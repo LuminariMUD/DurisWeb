@@ -222,6 +222,32 @@ describe('public faction overlap', () => {
     expect((await request(app).get('/statistics/faction-overlap')).status).toBe(200);
   });
 
+  it('recovers on conservative monotonic time after a permanent forward clock correction', async () => {
+    query.mockResolvedValue([[]]);
+    jest.setSystemTime(new Date('2026-10-19T11:00:00Z'));
+    expect((await request(app).get('/statistics/faction-overlap')).status).toBe(503);
+    expect((await request(app).get('/statistics/faction-overlap')).status).toBe(200);
+    expect(query).toHaveBeenLastCalledWith(
+      expect.objectContaining({ values: [cutoff - 14 * 86400, cutoff] }),
+    );
+    expect((await request(app).get('/statistics/available-dates')).status).toBe(200);
+    expect(query).toHaveBeenLastCalledWith(expect.any(String), [cutoff]);
+    jest.advanceTimersByTime(13 * 3600_000);
+    expect((await request(app).get('/statistics/faction-overlap')).status).toBe(200);
+    expect(query).toHaveBeenLastCalledWith(
+      expect.objectContaining({ values: [cutoff - 13 * 86400, cutoff + 86400] }),
+    );
+    expect((await request(app).get('/statistics/faction-activity?date=2026-10-17')).status).toBe(
+      200,
+    );
+    expect(query).toHaveBeenLastCalledWith(expect.any(String), [cutoff, cutoff + 86400]);
+    query.mockClear();
+    expect(
+      (await request(app).get('/statistics/faction-activity?date=2026-10-18')).body.data,
+    ).toEqual([]);
+    expect(query).not.toHaveBeenCalled();
+  });
+
   it.each(['cache read', 'SQL read', 'cache write'])(
     'withholds a clock jump during %s',
     async (stage) => {

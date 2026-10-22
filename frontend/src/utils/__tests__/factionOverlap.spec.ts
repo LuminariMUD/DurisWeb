@@ -79,6 +79,23 @@ describe('toLocalOverlapHours', () => {
     expect(local.find((entry) => entry.label === '03:00')?.samples).toBe(100)
   })
 
+  it('adds only observed shifted starts across half-hour DST changes, preserving both sets of samples', () => {
+    const before = { ...hour(0, 10, 20), timestamp: Date.parse('2026-10-02T00:00:00Z') / 1000 }
+    const after = { ...hour(0, 15, 30), timestamp: Date.parse('2026-10-05T00:00:00Z') / 1000 }
+    const local = toLocalOverlapHours([after, before], 'Australia/Lord_Howe')
+    expect(local).toHaveLength(25)
+    expect(local.find((entry) => entry.label === '10:30')).toMatchObject({
+      samples: 20,
+      bothSamples: 10,
+    })
+    expect(local.find((entry) => entry.label === '11:00')).toMatchObject({
+      samples: 30,
+      bothSamples: 15,
+    })
+    expect(local.filter((entry) => entry.label.endsWith(':30'))).toHaveLength(1)
+    expect(local.reduce((total, entry) => total + entry.samples, 0)).toBe(50)
+  })
+
   it('reports the share of samples with both sides online and handles empty hours', () => {
     const local = toLocalOverlapHours([hour(0, 88, 672), hour(1, 0, 0)], 'UTC')
     expect(local[0]?.bothShare).toBeCloseTo((88 / 672) * 100)

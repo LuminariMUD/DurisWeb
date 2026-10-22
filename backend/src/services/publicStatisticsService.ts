@@ -9,16 +9,24 @@ const CACHE_KEY_PREFIX = 'public_stats:v2:';
 const DAY_SECONDS = 24 * 60 * 60;
 const UNAVAILABLE_POPULATION_TTL = 60;
 const POPULATION_TIMEOUT_MS = 2000;
-const populationClock = { wall: Date.now(), monotonic: process.hrtime.bigint() };
+const populationClock = {
+  wall: Date.now(),
+  monotonic: process.hrtime.bigint(),
+  forwardJumpObserved: false,
+};
 let pendingPopulation: Promise<PublicPopulation> | undefined;
 
-// Never re-anchor to a jumped wall clock. Startup requires synchronized time;
-// after a forward step, withhold history until wall time agrees again.
+// Never re-anchor to a jumped wall clock. Startup requires synchronized time.
+// Refuse the first detected forward step, then recover on the conservative
+// monotonic timeline; a permanent wall correction must not disable history.
 function populationTime(): number | null {
   const wall = Date.now();
   const elapsed = Number(process.hrtime.bigint() - populationClock.monotonic) / 1_000_000;
   const expected = populationClock.wall + elapsed;
-  if (wall > expected + 1000) return null;
+  if (wall > expected + 1000 && !populationClock.forwardJumpObserved) {
+    populationClock.forwardJumpObserved = true;
+    return null;
+  }
   // Even tolerated sub-second drift must not advance a publication boundary.
   return Math.min(wall, expected);
 }

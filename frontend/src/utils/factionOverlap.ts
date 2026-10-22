@@ -24,6 +24,8 @@ export function toLocalOverlapHours(
     timeZone,
   })
   const local = new Map<number, LocalOverlapHour>()
+  let latestTimestamp = -Infinity
+  let placeholderMinute = 0
   function bucket(localMinutes: number): LocalOverlapHour {
     let result = local.get(localMinutes)
     if (!result) {
@@ -48,8 +50,10 @@ export function toLocalOverlapHours(
     const parts = formatter.formatToParts(new Date(hour.timestamp * 1000))
     const localHour = Number(parts.find((part) => part.type === 'hour')?.value ?? 0)
     const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? 0)
-    // Keep missing hours visible at the observed minute offset, including half-hour zones.
-    for (let h = 0; h < 24; h++) bucket(h * 60 + minute)
+    if (hour.timestamp > latestTimestamp) {
+      latestTimestamp = hour.timestamp
+      placeholderMinute = minute
+    }
     const result = bucket(localHour * 60 + minute)
     result.samples += hour.samples
     result.bothSamples += hour.bothSamples
@@ -59,6 +63,11 @@ export function toLocalOverlapHours(
     result.evilsAverage += hour.evilsAverage * hour.samples
     result.goodsAverageWhileBoth += hour.goodsAverageWhileBoth * hour.bothSamples
     result.evilsAverageWhileBoth += hour.evilsAverageWhileBoth * hour.bothSamples
+  }
+  // Fill one day's missing starts at the newest offset. Historical minute-offset
+  // changes add only their observed starts, never another day of empty slots.
+  if (hours.length) {
+    for (let h = 0; h < 24; h++) bucket(h * 60 + placeholderMinute)
   }
   return [...local.values()]
     .map((hour) => ({
