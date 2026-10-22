@@ -25,9 +25,24 @@ to host this copy, as confirmed by the site administrator.
 
 The site serves this map at `/surface-map`, while the existing backend-driven
 `/wiki/map` is deliberately unchanged. No MUD server or database changes are needed.
+All snapshot assets use the configured `VITE_BASE_URL` prefix, including on
+deployments under a path such as `/duris/`.
+
+Zone labels appear one zoom level above the fitted overview, within the available
+range on both desktop and phones. Resizing recalculates that range; **Reset view**
+fits the whole image to the current container. Focus the map and use arrow keys
+to pan, then tab to **Look up center room** and activate it for the center square's
+coordinates and room VNUM. Pointer clicks use the same lookup. Dragon and ferry
+markers have accessible route names and can be activated with the keyboard.
+
+The page validates every zone and travel marker before installing the snapshot.
+If the data request fails or the payload is invalid, **Retry map data** sends a
+fresh request without reloading the page. Requests stop when the page unmounts.
 
 Validation:
-- `cd frontend && pnpm format:check && pnpm lint && pnpm type-check`
-- `cd frontend && pnpm test:unit -- --run src/utils/__tests__/surfaceMapCoordinates.spec.ts`
+- `pnpm --dir frontend format:check`
+- `pnpm --dir frontend lint`
+- `pnpm --dir frontend type-check`
+- `pnpm --dir frontend test:unit --run src/utils/__tests__/surfaceMapCoordinates.spec.ts src/views/__tests__/SurfaceMapView.spec.ts`
 - Manually confirm map image, marker popups, search, duplicate zone names, VNUM
   coordinates, zooming and responsive layout at desktop and mobile widths.
