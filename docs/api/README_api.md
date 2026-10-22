@@ -496,11 +496,18 @@ average, and goods/evils averages over only the overlapping samples. Hours
 without samples are omitted. `firstDate`/`lastDate` are the UTC days that
 actually had samples (null when none). Any other `days` value returns 400;
 database failures, invalid source counts (null, negative or fractional), or
-out-of-range rows return 500 without caching. Results are cached for ten minutes
-under a versioned key that changes at UTC midnight. Concurrent misses share one
-read per window/cutoff. SQL has a two-second server statement limit on MySQL and
-MariaDB, a 2.5-second client timeout, and its dedicated connection is destroyed
-on failure. No pooled session setting is changed. The route allows 30 requests per minute per client,
+out-of-range rows return 500 without caching a successful summary. Results are
+cached in Redis and in the process for ten minutes, with at most one process
+entry per allowed window. Entries change at UTC midnight; publication eligibility
+is still checked before returning a local result. Concurrent misses share one
+read per window. Failed reads are shared for a 60-second retry cooldown, preventing
+repeated aggregate queries when Redis or SQL is degraded. SQL has a two-second
+server statement limit on MySQL and MariaDB and a 2.5-second client timeout.
+The entire read, including cache access and pool acquisition, has a four-second
+response deadline; expiry returns 503 and destroys an active query connection.
+An unfinished read stays shared until its underlying I/O settles, even after
+the deadline or a UTC-day change. A connection acquired after expiry is released
+without querying. No pooled session setting is changed. The route allows 30 requests per minute per client,
 then returns 429. The first detected forward clock jump or a rollback making an in-flight
 window ineligible returns 503 without publishing data. The shared publication
 clock is guarded by elapsed monotonic time and eligibility is rechecked after I/O.
