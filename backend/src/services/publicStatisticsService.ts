@@ -270,31 +270,82 @@ function utcDate(epochSeconds: number): string {
 export async function getFactionOverlap(days: FactionOverlapDays): Promise<FactionOverlap> {
   const cutoff = publicationCutoff();
   if (cutoff === null) throw new PublicStatisticsUnavailableError();
-  const key = `${days}:${cutoff}`;
-  let pending = pendingOverlap.get(key);
-  if (!pending) {
-    pending = readFactionOverlap(days, cutoff).finally(() => pendingOverlap.delete(key));
-    pendingOverlap.set(key, pending);
+  const now = process.hrtime.bigint();
+  let entry = overlapReads.get(days);
+  if (entry && entry.cutoff !== cutoff && entry.expiresAt === undefined) {
+    // A changed publication day must not queue another read behind stalled I/O.
+    throw new PublicStatisticsUnavailableError();
   }
-  const result = await pending;
+  if (
+    !entry ||
+    entry.cutoff !== cutoff ||
+    (entry.expiresAt !== undefined && now >= entry.expiresAt)
+  ) {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const read = readFactionOverlap(days, cutoff, controller.signal);
+    const result = Promise.race([
+      read,
+      new Promise<FactionOverlap>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          const error = new PublicStatisticsUnavailableError();
+          controller.abort(error);
+          reject(error);
+        }, 4000);
+        timer.unref();
+      }),
+    ]);
+    const current: OverlapRead = { cutoff, result };
+    overlapReads.set(days, current);
+    // Retain successes without Redis and failures for a retry cooldown. A read
+    // that times out stays shared until its underlying I/O actually settles.
+    void read.then(
+      () => {
+        clearTimeout(timer);
+        current.expiresAt = process.hrtime.bigint() + BigInt(CACHE_TTL) * 1_000_000_000n;
+      },
+      () => {
+        clearTimeout(timer);
+        current.expiresAt = process.hrtime.bigint() + 60_000_000_000n;
+      },
+    );
+    entry = current;
+  }
+  const result = await entry.result;
   assertPublicationEligible(cutoff);
   return result;
 }
 
-const pendingOverlap = new Map<string, Promise<FactionOverlap>>();
+interface OverlapRead {
+  cutoff: number;
+  result: Promise<FactionOverlap>;
+  /** Undefined until the underlying read settles, including after a timeout. */
+  expiresAt?: bigint;
+}
+
+// One slot for each allowed window, including across publication-day changes.
+const overlapReads = new Map<FactionOverlapDays, OverlapRead>();
 
 async function readFactionOverlap(
   days: FactionOverlapDays,
   cutoff: number,
+  signal: AbortSignal,
 ): Promise<FactionOverlap> {
   const start = cutoff - days * DAY_SECONDS;
   const cacheKey = `${CACHE_KEY_PREFIX}faction_overlap:v2:${days}:${cutoff}`;
   const cached = await getCache<FactionOverlap>(cacheKey);
+  signal.throwIfAborted();
   assertPublicationEligible(cutoff);
   if (cached) return cached;
 
   // Epoch arithmetic keeps buckets independent of the database session timezone.
   const connection = await mudPool.getConnection();
+  if (signal.aborted) {
+    connection.release();
+    signal.throwIfAborted();
+  }
+  const abortQuery = () => connection.destroy();
+  signal.addEventListener('abort', abortQuery, { once: true });
   let rows: RowDataPacket[];
   try {
     // Each engine executes its own statement limit and ignores the other's
@@ -323,11 +374,14 @@ async function readFactionOverlap(
      ORDER BY hour_start ASC`,
       values: [start, cutoff],
     });
+    signal.throwIfAborted();
   } catch (error) {
     // Discard a failed or timed-out connection rather than returning unfinished
     // protocol work to another request.
-    connection.destroy();
+    if (!signal.aborted) connection.destroy();
     throw error;
+  } finally {
+    signal.removeEventListener('abort', abortQuery);
   }
   connection.release();
   assertPublicationEligible(cutoff);
@@ -374,6 +428,7 @@ async function readFactionOverlap(
   };
   assertPublicationEligible(cutoff);
   await setCache(cacheKey, result, CACHE_TTL);
+  signal.throwIfAborted();
   assertPublicationEligible(cutoff);
   return result;
 }
