@@ -25,7 +25,7 @@
     "@tanstack/vue-query": "^5.104.2",
     "@tanstack/vue-table": "^9.2.8",
     "@tiptap/core": "^3.31.4",
-    "@tiptap/extension-character-count": "^3.31.4",
+    "@tiptap/extension-character-count": "^3.32.0",
     "@tiptap/extension-code-block-lowlight": "^3.31.4",
     "@tiptap/extension-color": "^3.31.4",
     "@tiptap/extension-horizontal-rule": "^3.31.4",
