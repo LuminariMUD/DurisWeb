@@ -40,6 +40,7 @@ const filteredZones = computed(() => {
 })
 
 let map: L.Map | null = null
+let imageLayer: L.ImageOverlay | null = null
 let zoneLayer: L.LayerGroup | null = null
 let resizeObserver: ResizeObserver | null = null
 let dataRequest: AbortController | null = null
@@ -131,6 +132,19 @@ function resetView() {
   map?.fitBounds(imageBounds)
 }
 
+function loadMapImage() {
+  if (!map) return
+  imageLayer?.off().remove()
+  imageLayer = L.imageOverlay(imageUrl, imageBounds)
+    .on('load', () => {
+      imageError.value = ''
+    })
+    .on('error', () => {
+      imageError.value = 'The surface map image could not be loaded.'
+    })
+    .addTo(map)
+}
+
 function updateZoomLimits() {
   if (!map) return
   const size = map.getSize()
@@ -148,7 +162,7 @@ function lookupRoom(position: L.LatLng) {
   const vnum = surfacePositionToVnum(lat, lng)
   if (vnum === null) return
   const tileX = Math.floor(lng / 4)
-  const tileY = Math.floor(lat / 4)
+  const tileY = SURFACE_IMAGE_SIZE / 4 - 1 - Math.floor(lat / 4)
   const details = document.createElement('div')
   details.setAttribute('role', 'status')
   details.textContent = 'Pixel: (' + Math.floor(lng) + ', ' + Math.floor(lat) + ')'
@@ -249,11 +263,7 @@ onMounted(() => {
     wheelPxPerZoomLevel: 75,
   })
   map = leafletMap
-  L.imageOverlay(imageUrl, imageBounds)
-    .on('error', () => {
-      imageError.value = 'The surface map image could not be loaded.'
-    })
-    .addTo(leafletMap)
+  loadMapImage()
   updateZoomLimits()
   resetView()
   leafletMap.on('click', (event: L.LeafletMouseEvent) => {
@@ -271,15 +281,17 @@ onMounted(() => {
 onUnmounted(() => {
   dataRequest?.abort()
   resizeObserver?.disconnect()
+  imageLayer?.off()
   map?.remove()
   map = null
+  imageLayer = null
   zoneLayer = null
 })
 </script>
 
 <template>
-  <div class="surface-map flex h-full min-h-0 flex-col bg-background">
-    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+  <div class="surface-map flex h-full min-h-0 flex-col overflow-y-auto bg-background">
+    <div class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
       <div>
         <h1 class="text-xl font-semibold">Surface Map — October 28, 2026 Wipe</h1>
         <p class="text-xs text-muted-foreground">
@@ -332,7 +344,14 @@ onUnmounted(() => {
           <input v-model="showZoneLabels" type="checkbox" />
           Show zone labels
         </label>
-        <p v-if="imageError" role="alert" class="text-xs text-destructive">{{ imageError }}</p>
+        <div v-if="imageError">
+          <p role="alert" class="text-xs text-destructive">{{ imageError }}</p>
+          <button
+            type="button"
+            class="border border-border px-3 py-1 text-sm hover:bg-muted"
+            @click="loadMapImage"
+          >Retry map image</button>
+        </div>
         <div v-if="loadError">
           <p role="alert" class="text-xs text-destructive">{{ loadError }}</p>
           <button
@@ -350,7 +369,8 @@ onUnmounted(() => {
               class="w-full px-1 py-1 text-left hover:bg-muted"
               @click="focusZone(zone)"
             >
-              {{ zone.name }}
+              <span class="block">{{ zone.name }}</span>
+              <span class="block text-xs text-muted-foreground">Room {{ zone.vnum }}</span>
             </button>
           </li>
         </ul>
@@ -359,7 +379,7 @@ onUnmounted(() => {
           <p>Dragon icon: Icongeek26 · Ferry icon: Freepik (Flaticon).</p>
         </div>
       </aside>
-      <div class="relative min-h-0 flex-1 bg-black">
+      <div class="relative min-h-64 flex-1 bg-black md:min-h-0">
         <div
           ref="mapRoot"
           class="absolute inset-0 z-0"

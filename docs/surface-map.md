@@ -34,10 +34,16 @@ fits the whole image to the current container. Focus the map and use arrow keys
 to pan, then tab to **Look up center room** and activate it for the center square's
 coordinates and room VNUM. Pointer clicks use the same lookup. Dragon and ferry
 markers have accessible route names and can be activated with the keyboard.
+Search results include each entrance's room VNUM so same-named entrances can be
+selected individually. Lookup tile coordinates use the world grid: room 500000
+is `(0, 0)` and room 659999 is `(399, 399)`; pixel coordinates refer to the image.
+On short phone screens the page scrolls vertically to retain a usable map pane.
 
 The page validates every zone and travel marker before installing the snapshot.
 If the data request fails or the payload is invalid, **Retry map data** sends a
 fresh request without reloading the page. Requests stop when the page unmounts.
+If the image fails, **Retry map image** requests a new image overlay independently
+without reloading zone data or adding duplicate markers.
 
 Validation:
 - `pnpm --dir frontend format:check`

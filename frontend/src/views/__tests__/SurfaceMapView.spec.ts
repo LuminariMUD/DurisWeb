@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import L from 'leaflet'
 import snapshot from '../../../public/surface-map/data.json'
+import { surfacePositionToVnum } from '@/utils/surfaceMapCoordinates'
 import SurfaceMapView from '../SurfaceMapView.vue'
 
 vi.mock('@/config/environment', () => ({ frontendConfiguration: { baseUrl: '/duris/' } }))
@@ -135,13 +136,53 @@ describe('hosted surface map', () => {
     map.setView([1596, 0], map.getMaxZoom(), { animate: false })
     await button('Look up center room').trigger('click')
     expect(view.get('.leaflet-popup-content').text()).toContain('World VNUM: 500000')
+    expect(view.get('.leaflet-popup-content').text()).toContain('Tile: (0, 0)')
     map.fire('click', { latlng: L.latLng(0, 1596) })
     await vi.advanceTimersByTimeAsync(250)
     expect(view.get('.leaflet-popup-content').text()).toContain('World VNUM: 659999')
+    expect(view.get('.leaflet-popup-content').text()).toContain('Tile: (399, 399)')
     map.closePopup()
     await vi.advanceTimersByTimeAsync(250)
     map.fire('click', { latlng: L.latLng(-1, 1596) })
     expect(view.find('.leaflet-popup-content').exists()).toBe(false)
+  })
+
+  it('distinguishes each entrance of a same-named zone and selects its room', async () => {
+    const view = await render()
+    await view.get('input[type="search"]').setValue('Bloodstone Keep')
+    const entrances = snapshot.zones.filter((zone) => zone.name === 'Bloodstone Keep')
+    const results = view.findAll('li button')
+    expect(results).toHaveLength(4)
+    for (const [index, entrance] of entrances.entries()) {
+      expect(results[index]!.text()).toContain(String(entrance.vnum))
+      await results[index]!.trigger('click')
+      const positions: L.LatLng[] = []
+      map.eachLayer((layer) => {
+        const position = layer instanceof L.Popup ? layer.getLatLng() : undefined
+        if (position) positions.push(position)
+      })
+      expect(positions).toHaveLength(1)
+      expect(surfacePositionToVnum(positions[0]!.lat, positions[0]!.lng)).toBe(entrance.vnum)
+      map.closePopup()
+      await vi.advanceTimersByTimeAsync(250)
+    }
+  })
+
+  it('retries a failed image independently without duplicating zones or travel markers', async () => {
+    const view = await render()
+    const image = view.get('.leaflet-image-layer').element
+    await view.get('.leaflet-image-layer').trigger('error')
+    expect(view.get('[role="alert"]').text()).toContain('image could not be loaded')
+    await button('Retry map image').trigger('click')
+    expect(view.get('.leaflet-image-layer').element).not.toBe(image)
+    await view.get('.leaflet-image-layer').trigger('error')
+    expect(view.get('[role="alert"]').text()).toContain('image could not be loaded')
+    await button('Retry map image').trigger('click')
+    await view.get('.leaflet-image-layer').trigger('load')
+    expect(view.find('[role="alert"]').exists()).toBe(false)
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(view.findAll('img.leaflet-marker-icon')).toHaveLength(27)
+    expect(view.text()).toContain('267 zones listed')
   })
 
   it.each([
