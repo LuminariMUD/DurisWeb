@@ -23,16 +23,17 @@ vi.mock('@/utils/factionOverlap', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/factionOverlap')>()
   return {
     ...actual,
-    timeZoneLabel: () => 'AEDT',
+    timeZoneLabel: () => 'Australia/Sydney',
     toLocalOverlapHours: (hours: FactionOverlapHour[]) =>
-      actual.toLocalOverlapHours(hours, new Date('2026-10-21T03:00:00Z'), 'Australia/Sydney'),
+      actual.toLocalOverlapHours(hours, 'Australia/Sydney'),
   }
 })
 import FactionOverlapView from '../FactionOverlapView.vue'
+import { chartTheme, heatColor } from '@/utils/chartTheme'
 
 function hour(utcHour: number, overrides: Partial<FactionOverlapHour> = {}): FactionOverlapHour {
   return {
-    utcHour,
+    timestamp: Date.parse('2026-10-21T00:00:00Z') / 1000 + utcHour * 3600,
     samples: 672,
     bothSamples: 0,
     goodsPeak: 0,
@@ -91,7 +92,7 @@ describe('Faction Overlap', () => {
     expect(best).toContain('13.1% of samples')
     expect(best).toContain('3')
     expect(best).toContain('6')
-    expect(wrapper.text()).toContain('timezone (AEDT)')
+    expect(wrapper.text()).toContain('timezone (Australia/Sydney)')
     expect(wrapper.text()).toContain('minimum 24-hour delay')
   })
 
@@ -108,9 +109,9 @@ describe('Faction Overlap', () => {
     wrapper = mountView()
     const hours = wrapper.findAll('ul[aria-label="Peak players and overlap by hour"] button')
     expect(hours).toHaveLength(24)
-    expect(hours[0]?.attributes('aria-label')).toContain('00:00 AEDT')
+    expect(hours[0]?.attributes('aria-label')).toContain('00:00 Australia/Sydney')
     await hours[0]?.trigger('focus')
-    expect(wrapper.get('[aria-live="polite"]').text()).toContain('00:00 AEDT')
+    expect(wrapper.get('[aria-live="polite"]').text()).toContain('00:00 Australia/Sydney')
   })
 
   it('requests a different window when the range changes', async () => {
@@ -128,6 +129,25 @@ describe('Faction Overlap', () => {
     wrapper = mountView()
     expect(wrapper.get('[aria-label="Best hour"]').text()).toContain('not online together')
     expect(wrapper.find('tbody').exists()).toBe(false)
+  })
+
+  it('colors measured zero overlap separately from missing samples, including an all-zero period', () => {
+    overlap.data.value = summary([hour(0), hour(1, { samples: 0 })])
+    wrapper = mountView()
+    const buttons = wrapper.findAll('ul[aria-label="Peak players and overlap by hour"] button')
+    const zero = buttons.find((button) => button.attributes('aria-label')?.startsWith('11:00 '))!
+    const missing = buttons.find((button) => button.attributes('aria-label')?.startsWith('12:00 '))!
+    const color = (value: string) => {
+      const element = document.createElement('span')
+      element.style.background = value
+      return element.style.background
+    }
+    expect((zero.get('span[style*="background"]').element as HTMLElement).style.background).toBe(
+      color(heatColor(0)),
+    )
+    expect((missing.get('span[style*="background"]').element as HTMLElement).style.background).toBe(
+      color(chartTheme.noData),
+    )
   })
 
   it('shows the empty state before any day is published', () => {

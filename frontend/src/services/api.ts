@@ -3569,8 +3569,8 @@ export const publicStatsApi = {
 export type FactionOverlapDays = 7 | 14 | 30
 
 export interface FactionOverlapHour {
-  /** UTC hour of day (0-23) the bucket starts at. */
-  utcHour: number
+  /** Start of this dated UTC hour, in epoch seconds. */
+  timestamp: number
   samples: number
   /** Samples with at least one goods and one evils player online. */
   bothSamples: number

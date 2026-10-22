@@ -489,14 +489,26 @@ published date, displays UTC times, and offers retry on load failure.
 summarizes when goods and evils are online together over the newest published
 days, by UTC hour of day. The window is `[cutoff - days, cutoff)` with the
 same cutoff as faction activity, so it never includes anything fresher than
-that page. Each of the 24 `hours` entries carries `samples`, `bothSamples`
+that page. Each populated dated UTC-hour entry in `hours` carries its epoch-second
+`timestamp`, `samples`, `bothSamples`
 (at least one goods and one evils player online), goods/evils peak and
-average, and goods/evils averages over only the overlapping samples; hours
-without samples are zero-filled. `firstDate`/`lastDate` are the UTC days that
+average, and goods/evils averages over only the overlapping samples. Hours
+without samples are omitted. `firstDate`/`lastDate` are the UTC days that
 actually had samples (null when none). Any other `days` value returns 400;
-database failures or out-of-range rows return 500 without caching. Results
-are cached for ten minutes under a key that changes at UTC midnight.
+database failures, invalid source counts (null, negative or fractional), or
+out-of-range rows return 500 without caching. Results are cached for ten minutes
+under a versioned key that changes at UTC midnight. Concurrent misses share one
+read per window/cutoff. SQL has a two-second server statement limit on MySQL and
+MariaDB, a 2.5-second client timeout, and its dedicated connection is destroyed
+on failure. No pooled session setting is changed. The route allows 30 requests per minute per client,
+then returns 429. A detected forward clock jump or a rollback making an in-flight
+window ineligible returns 503 without publishing data. The shared publication
+clock is guarded by elapsed monotonic time and eligibility is rechecked after I/O.
 
-The `/statistics/faction-overlap` page relabels the UTC buckets in the
-viewer's timezone at its current offset (half-hour zones start at `:30`),
-ranks the top five overlap hours, and draws peak goods and evils per hour.
+The `/statistics/faction-overlap` page converts each dated bucket to the viewer's
+historical local hour before combining counts, peaks and sample-weighted averages.
+Daylight-saving transitions therefore use the offset at each sample date;
+half-hour zones start at `:30`. It ranks the top five overlap hours using
+unrounded shares and draws peak goods and evils per hour. Missing hours are
+zero-filled in the browser and have a distinct no-data color; measured zero
+overlap uses the heat scale's zero color. Percentages are rounded only for text.

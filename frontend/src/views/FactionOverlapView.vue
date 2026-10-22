@@ -27,15 +27,16 @@ const hasSamples = computed(() => (data.value?.samples ?? 0) > 0)
 const goodsAxis = computed(() => Math.max(3, ...hours.value.map((hour) => hour.goodsPeak)))
 const evilsAxis = computed(() => Math.max(3, ...hours.value.map((hour) => hour.evilsPeak)))
 const maxShare = computed(() => Math.max(0, ...hours.value.map((hour) => hour.bothShare)))
-const topHours = computed(() => new Set(top.value.map((hour) => hour.utcHour)))
+const topHours = computed(() => new Set(top.value.map((hour) => hour.localMinutes)))
 
 const focusedHour = ref<number | null>(null)
 const detail = computed(
-  () => hours.value.find((hour) => hour.utcHour === focusedHour.value) ?? best.value,
+  () => hours.value.find((hour) => hour.localMinutes === focusedHour.value) ?? best.value,
 )
 
-function heat(share: number): string {
-  return share > 0 && maxShare.value > 0 ? heatColor(share / maxShare.value) : chartTheme.noData
+function heat(hour: LocalOverlapHour): string {
+  if (hour.samples === 0) return chartTheme.noData
+  return heatColor(maxShare.value > 0 ? hour.bothShare / maxShare.value : 0)
 }
 
 function formatDate(date: string | null | undefined): string {
@@ -54,7 +55,7 @@ const coverage = computed(() =>
 )
 
 function hourLabel(hour: LocalOverlapHour): string {
-  return `${hour.label} ${zone}: goods peak ${hour.goodsPeak}, evils peak ${hour.evilsPeak}, both online ${hour.bothShare}% of samples`
+  return `${hour.label} ${zone}: goods peak ${hour.goodsPeak}, evils peak ${hour.evilsPeak}, both online ${hour.bothShare.toFixed(1)}% of samples`
 }
 </script>
 
@@ -119,7 +120,7 @@ function hourLabel(hour: LocalOverlapHour): string {
           <p class="index-label">Best hour</p>
           <p class="font-display text-6xl leading-none mt-2">{{ best ? best.label : '—' }}</p>
           <p class="text-sm text-muted-foreground mt-2">
-            {{ best ? `Both sides online in ${best.bothShare}% of samples` : 'Goods and evils were not online together in this period' }}
+            {{ best ? `Both sides online in ${best.bothShare.toFixed(1)}% of samples` : 'Goods and evils were not online together in this period' }}
           </p>
         </div>
         <div class="p-6 border-b sm:border-b-0 sm:border-r border-border">
@@ -157,7 +158,7 @@ function hourLabel(hour: LocalOverlapHour): string {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(window, index) in top" :key="window.utcHour" class="border-b border-border last:border-b-0">
+              <tr v-for="(window, index) in top" :key="window.localMinutes" class="border-b border-border last:border-b-0">
                 <td class="px-4 py-3 font-display text-2xl text-ember">{{ index + 1 }}</td>
                 <td class="px-4 py-3 font-display text-2xl">{{ window.label }}</td>
                 <td class="px-4 py-3">
@@ -207,23 +208,23 @@ function hourLabel(hour: LocalOverlapHour): string {
         <div class="rounded-lg border border-border bg-ink-high/50 p-4 sm:p-6">
           <div class="overflow-x-auto">
             <ul class="grid grid-cols-24 gap-1 min-w-[640px]" aria-label="Peak players and overlap by hour">
-              <li v-for="hour in hours" :key="hour.utcHour">
+              <li v-for="hour in hours" :key="hour.localMinutes">
                 <button
                   type="button"
                   :aria-label="hourLabel(hour)"
-                  :aria-pressed="detail?.utcHour === hour.utcHour"
+                  :aria-pressed="detail?.localMinutes === hour.localMinutes"
                   :class="[
                     'flex w-full flex-col items-center rounded-sm border py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    topHours.has(hour.utcHour) ? 'border-ember/60' : 'border-transparent',
+                    topHours.has(hour.localMinutes) ? 'border-ember/60' : 'border-transparent',
                   ]"
-                  @mouseenter="focusedHour = hour.utcHour"
-                  @focus="focusedHour = hour.utcHour"
-                  @click="focusedHour = hour.utcHour"
+                  @mouseenter="focusedHour = hour.localMinutes"
+                  @focus="focusedHour = hour.localMinutes"
+                  @click="focusedHour = hour.localMinutes"
                 >
                   <span class="flex h-24 w-full items-end justify-center">
                     <span
                       class="block w-3/5 bg-success"
-                      :class="topHours.has(hour.utcHour) ? '' : 'opacity-60'"
+                      :class="topHours.has(hour.localMinutes) ? '' : 'opacity-60'"
                       :style="{ height: `${(hour.goodsPeak / goodsAxis) * 100}%` }"
                     />
                   </span>
@@ -231,14 +232,14 @@ function hourLabel(hour: LocalOverlapHour): string {
                   <span class="flex h-32 w-full items-start justify-center">
                     <span
                       class="block w-3/5 bg-danger"
-                      :class="topHours.has(hour.utcHour) ? '' : 'opacity-60'"
+                      :class="topHours.has(hour.localMinutes) ? '' : 'opacity-60'"
                       :style="{ height: `${(hour.evilsPeak / evilsAxis) * 100}%` }"
                     />
                   </span>
-                  <span class="mt-2 block h-3.5 w-5/6" :style="{ background: heat(hour.bothShare) }" />
+                  <span class="mt-2 block h-3.5 w-5/6" :style="{ background: heat(hour) }" />
                   <span
                     class="mt-2 font-label text-[11px] tabular-nums"
-                    :class="topHours.has(hour.utcHour) ? 'text-foreground font-semibold' : 'text-muted-foreground'"
+                    :class="topHours.has(hour.localMinutes) ? 'text-foreground font-semibold' : 'text-muted-foreground'"
                   >
                     {{ hour.label.endsWith(':00') ? hour.label.slice(0, 2) : hour.label }}
                   </span>

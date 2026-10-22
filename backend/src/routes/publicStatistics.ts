@@ -1,16 +1,25 @@
 import { Router, Request, Response } from 'express';
 import type { Router as RouterType } from 'express';
+import rateLimit from 'express-rate-limit';
 import {
   FACTION_OVERLAP_DAYS,
   type FactionOverlapDays,
   getFactionActivity,
   getAvailableDates,
   getFactionOverlap,
+  PublicStatisticsUnavailableError,
 } from '../services/publicStatisticsService.js';
 import logger from '../utils/logger.js';
 import { validateDateString } from '../utils/validation.js';
 
 const router: RouterType = Router();
+const overlapLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many overlap requests, please slow down' },
+});
 
 /**
  * GET /api/public/statistics/faction-activity
@@ -41,7 +50,7 @@ router.get('/faction-activity', async (req: Request, res: Response) => {
  * GET /api/public/statistics/faction-overlap
  * when goods and evils are online together, by UTC hour, over published days
  */
-router.get('/faction-overlap', async (req: Request, res: Response) => {
+router.get('/faction-overlap', overlapLimiter, async (req: Request, res: Response) => {
   try {
     const { days } = req.query;
     let windowDays: FactionOverlapDays = 14;
@@ -61,7 +70,10 @@ router.get('/faction-overlap', async (req: Request, res: Response) => {
     const overlap = await getFactionOverlap(windowDays);
     return res.json(overlap);
   } catch (error) {
-    logger.error('get faction overlap error:', error);
+    if (error instanceof PublicStatisticsUnavailableError) {
+      return res.status(503).json({ error: 'faction overlap temporarily unavailable' });
+    }
+    logger.error('Faction overlap unavailable');
     return res.status(500).json({ error: 'failed to get faction overlap' });
   }
 });

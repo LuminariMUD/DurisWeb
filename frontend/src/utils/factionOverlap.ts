@@ -1,53 +1,74 @@
 import type { FactionOverlapHour } from '@/services/api'
 
 /** One hour-long bucket, labelled in the viewer's timezone. */
-export interface LocalOverlapHour extends FactionOverlapHour {
+export interface LocalOverlapHour extends Omit<FactionOverlapHour, 'timestamp'> {
   /** Local start time, `HH:mm` (half-hour zones start at `:30`). */
   label: string
   /** Minutes after local midnight the bucket starts at, for ordering. */
   localMinutes: number
-  /** Percentage of samples with both sides online, one decimal place. */
+  /** Unrounded percentage; round only when displaying text. */
   bothShare: number
 }
 
-function timeParts(date: Date, timeZone?: string) {
-  const parts = new Intl.DateTimeFormat('en-GB', {
+/**
+ * Convert dated buckets before combining them, preserving historical DST offsets.
+ */
+export function toLocalOverlapHours(
+  hours: FactionOverlapHour[],
+  timeZone?: string,
+): LocalOverlapHour[] {
+  const formatter = new Intl.DateTimeFormat('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
     timeZone,
-  }).formatToParts(date)
-  const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? 0)
-  const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? 0)
-  return { hour, minute }
-}
-
-/**
- * Relabel UTC hour buckets in the viewer's timezone and order them from local
- * midnight. Uses the offset in effect at `now`, so a window spanning a
- * daylight-saving change is shown at the current offset.
- */
-export function toLocalOverlapHours(
-  hours: FactionOverlapHour[],
-  now: Date = new Date(),
-  timeZone?: string,
-): LocalOverlapHour[] {
-  const day = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-  return hours
-    .map((hour) => {
-      const { hour: localHour, minute } = timeParts(
-        new Date(day + hour.utcHour * 3_600_000),
-        timeZone,
-      )
-      const bothShare =
-        hour.samples > 0 ? Math.round((hour.bothSamples / hour.samples) * 1000) / 10 : 0
-      return {
-        ...hour,
-        label: `${String(localHour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
-        localMinutes: localHour * 60 + minute,
-        bothShare,
+  })
+  const local = new Map<number, LocalOverlapHour>()
+  function bucket(localMinutes: number): LocalOverlapHour {
+    let result = local.get(localMinutes)
+    if (!result) {
+      result = {
+        label: `${String(Math.floor(localMinutes / 60)).padStart(2, '0')}:${String(localMinutes % 60).padStart(2, '0')}`,
+        localMinutes,
+        samples: 0,
+        bothSamples: 0,
+        bothShare: 0,
+        goodsPeak: 0,
+        goodsAverage: 0,
+        evilsPeak: 0,
+        evilsAverage: 0,
+        goodsAverageWhileBoth: 0,
+        evilsAverageWhileBoth: 0,
       }
-    })
+      local.set(localMinutes, result)
+    }
+    return result
+  }
+  for (const hour of hours) {
+    const parts = formatter.formatToParts(new Date(hour.timestamp * 1000))
+    const localHour = Number(parts.find((part) => part.type === 'hour')?.value ?? 0)
+    const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? 0)
+    // Keep missing hours visible at the observed minute offset, including half-hour zones.
+    for (let h = 0; h < 24; h++) bucket(h * 60 + minute)
+    const result = bucket(localHour * 60 + minute)
+    result.samples += hour.samples
+    result.bothSamples += hour.bothSamples
+    result.goodsPeak = Math.max(result.goodsPeak, hour.goodsPeak)
+    result.evilsPeak = Math.max(result.evilsPeak, hour.evilsPeak)
+    result.goodsAverage += hour.goodsAverage * hour.samples
+    result.evilsAverage += hour.evilsAverage * hour.samples
+    result.goodsAverageWhileBoth += hour.goodsAverageWhileBoth * hour.bothSamples
+    result.evilsAverageWhileBoth += hour.evilsAverageWhileBoth * hour.bothSamples
+  }
+  return [...local.values()]
+    .map((hour) => ({
+      ...hour,
+      bothShare: hour.samples ? (hour.bothSamples / hour.samples) * 100 : 0,
+      goodsAverage: hour.samples ? hour.goodsAverage / hour.samples : 0,
+      evilsAverage: hour.samples ? hour.evilsAverage / hour.samples : 0,
+      goodsAverageWhileBoth: hour.bothSamples ? hour.goodsAverageWhileBoth / hour.bothSamples : 0,
+      evilsAverageWhileBoth: hour.bothSamples ? hour.evilsAverageWhileBoth / hour.bothSamples : 0,
+    }))
     .sort((a, b) => a.localMinutes - b.localMinutes)
 }
 
@@ -64,10 +85,7 @@ export function topOverlapWindows(hours: LocalOverlapHour[], count = 5): LocalOv
     .slice(0, count)
 }
 
-/** Short timezone name for the viewer, such as `AEDT` or `GMT+11`. */
-export function timeZoneLabel(now: Date = new Date(), timeZone?: string): string {
-  const part = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short', timeZone })
-    .formatToParts(now)
-    .find((piece) => piece.type === 'timeZoneName')
-  return part?.value ?? 'local time'
+/** Name the zone rather than one offset that may not apply to all samples. */
+export function timeZoneLabel(timeZone?: string): string {
+  return new Intl.DateTimeFormat(undefined, { timeZone }).resolvedOptions().timeZone
 }
