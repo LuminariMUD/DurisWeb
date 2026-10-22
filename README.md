@@ -37,7 +37,7 @@ Express API and integrates with the separately maintained DurisMUD C server.
 | Area | In the application |
 |---|---|
 | **Play & explore** | Browser MUD client, map views, and a wiki of zones, objects, and mobs, alongside guides and help content. |
-| **Follow the fight** | PvP battle records, battle details, frag leaderboards, and faction activity statistics. |
+| **Follow the fight** | PvP battle records, battle details, frag leaderboards, and faction activity and overlap statistics. |
 | **Stay connected** | Forums, search, notifications, news, and account and guild profiles. |
 | **Watch the market** | Current auctions, item details, and auction history. Direct web bid/buy-now mutations are gated off by default. |
 | **Build the world** | Builder dashboard, zone editor, and builder settings for authorized users. |

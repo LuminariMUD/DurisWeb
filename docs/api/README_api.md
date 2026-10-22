@@ -63,7 +63,7 @@ within the current thread; ordinary pagination still uses the requested page.
 | `/api/auction` | `routes/auction.ts` | Auction reads, default-gated bid/buy actions, and MUD-authoritative admin removal |
 | `/api/push` | `routes/push.ts` | VAPID key and authenticated subscriptions |
 | `/api/changelog` | `routes/changelog.ts` | Changelog reads and permissioned management |
-| `/api/public/statistics` | `routes/publicStatistics.ts` | Public faction/date statistics |
+| `/api/public/statistics` | `routes/publicStatistics.ts` | Public faction activity, date, and overlap statistics |
 | `/api/hooks` | `routes/hooks.ts` | Permissioned hook state, website toggle, and reconciliation |
 
 Some route modules contain both public and protected handlers. Do not infer
@@ -482,3 +482,40 @@ account-login export from Duris PR #41 contains no faction breakdown and is
 not this page's data source. Historical responses are cached for ten minutes;
 the date-list cache changes at UTC midnight. The page selects the newest
 published date, displays UTC times, and offers retry on load failure.
+
+### Public faction overlap
+
+`GET /api/public/statistics/faction-overlap?days=7|14|30` (default 14)
+summarizes when goods and evils are online together over the newest published
+days, by UTC hour of day. The window is `[cutoff - days, cutoff)` with the
+same cutoff as faction activity, so it never includes anything fresher than
+that page. Each populated dated UTC-hour entry in `hours` carries its epoch-second
+`timestamp`, `samples`, `bothSamples`
+(at least one goods and one evils player online), goods/evils peak and
+average, and goods/evils averages over only the overlapping samples. Hours
+without samples are omitted. `firstDate`/`lastDate` are the UTC days that
+actually had samples (null when none). Any other `days` value returns 400;
+database failures, invalid source counts (null, negative or fractional), or
+out-of-range rows return 500 without caching. Results are cached for ten minutes
+under a versioned key that changes at UTC midnight. Concurrent misses share one
+read per window/cutoff. SQL has a two-second server statement limit on MySQL and
+MariaDB, a 2.5-second client timeout, and its dedicated connection is destroyed
+on failure. No pooled session setting is changed. The route allows 30 requests per minute per client,
+then returns 429. The first detected forward clock jump or a rollback making an in-flight
+window ineligible returns 503 without publishing data. The shared publication
+clock is guarded by elapsed monotonic time and eligibility is rechecked after I/O.
+After detecting a forward correction, later requests recover using the conservative
+monotonic timeline, capped by wall time. The clock never re-anchors to the advanced
+wall time, so a permanent correction cannot release history early or disable it indefinitely.
+
+The `/statistics/faction-overlap` page converts each dated bucket to the viewer's
+historical local hour before combining counts, peaks and sample-weighted averages.
+Daylight-saving transitions therefore use the offset at each sample date;
+half-hour zones start at `:30`. It ranks the top five overlap hours using
+unrounded shares and draws peak goods and evils per hour. Missing hours are
+zero-filled in the browser and have a distinct no-data color; measured zero
+overlap uses the heat scale's zero color. Percentages are rounded only for text.
+One day's missing start times are filled at the newest observed minute offset.
+Across a half-hour DST change, additional observed start times remain separate
+and are explained above the single-row, horizontally scrollable daily chart;
+they do not create a second day of empty placeholders or claim identical windows.

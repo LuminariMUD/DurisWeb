@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/vue-query'
 import { computed, type MaybeRef, unref } from 'vue'
-import { publicStatsApi } from '@/services/api'
+import { publicStatsApi, type FactionOverlapDays } from '@/services/api'
 
 export function useFactionActivity(date: MaybeRef<string>) {
   return useQuery({
@@ -8,6 +8,14 @@ export function useFactionActivity(date: MaybeRef<string>) {
     queryFn: () => publicStatsApi.getFactionActivity(unref(date)),
     staleTime: 1000 * 60 * 10, // 10 minutes
     enabled: computed(() => !!unref(date)),
+  })
+}
+
+export function useFactionOverlap(days: MaybeRef<FactionOverlapDays>) {
+  return useQuery({
+    queryKey: computed(() => ['faction-overlap', unref(days)]),
+    queryFn: () => publicStatsApi.getFactionOverlap(unref(days)),
+    staleTime: 1000 * 60 * 10, // 10 minutes
   })
 }
 

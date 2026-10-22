@@ -49,6 +49,11 @@ const router = createRouter({
       component: () => import('../views/FactionActivityView.vue'),
     },
     {
+      path: '/statistics/faction-overlap',
+      name: 'faction-overlap',
+      component: () => import('../views/FactionOverlapView.vue'),
+    },
+    {
       path: '/frag-leaderboard',
       name: 'frag-leaderboard',
       component: () => import('../views/FragLeaderboardView.vue'),

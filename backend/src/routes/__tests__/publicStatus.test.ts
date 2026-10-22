@@ -46,6 +46,14 @@ afterEach(() => {
 const status = () => request(app).get('/api/status');
 
 describe('public population boundary', () => {
+  it('recovers a permanent forward correction without publishing the advanced wall-clock window', async () => {
+    jest.setSystemTime(new Date('2026-10-20T12:30:00Z'));
+    expect((await status()).body.population.estimate).toBeNull();
+    expect((await status()).body.population.windowEnd).toBe('2026-10-19T06:00:00.000Z');
+    jest.advanceTimersByTime(30 * 60 * 1000);
+    expect((await status()).body.population.windowEnd).toBe('2026-10-19T07:00:00.000Z');
+  });
+
   it('publishes a rounded historical hour independently of live staff health', async () => {
     const response = await status();
     expect(response.status).toBe(200);
@@ -167,13 +175,13 @@ describe('public population boundary', () => {
     expect(response.body).not.toHaveProperty('onlinePlayers');
   });
 
-  it('withholds a forward clock jump before the first request until the clock is corrected', async () => {
+  it('withholds the first forward jump and recovers without requiring another wall correction', async () => {
     jest.setSystemTime(new Date('2026-10-19T15:30:00Z'));
     expect((await status()).body.population.estimate).toBeNull();
     expect(getCache).not.toHaveBeenCalled();
     expect(query).not.toHaveBeenCalled();
     jest.advanceTimersByTime(60_000);
-    expect((await status()).body.population.estimate).toBeNull();
+    expect((await status()).body.population.windowEnd).toBe('2026-10-19T06:00:00.000Z');
     jest.setSystemTime(new Date('2026-10-19T12:31:00Z'));
     expect((await status()).body.population.estimate).toBe(4);
   });

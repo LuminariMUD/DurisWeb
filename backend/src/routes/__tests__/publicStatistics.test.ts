@@ -1,26 +1,29 @@
 import express from 'express';
 import request from 'supertest';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const query = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const getCache = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const setCache = jest.fn<(...args: unknown[]) => Promise<void>>();
-jest.unstable_mockModule('../../db/connection.js', () => ({ mudPool: { query } }));
+const release = jest.fn();
+const destroy = jest.fn();
+const getConnection = jest.fn<() => Promise<unknown>>();
+jest.unstable_mockModule('../../db/connection.js', () => ({ mudPool: { query, getConnection } }));
 jest.unstable_mockModule('../../db/redis.js', () => ({ getCache, setCache }));
 jest.unstable_mockModule('../../utils/logger.js', () => ({ default: { error: jest.fn() } }));
 
 let app: express.Express;
-beforeAll(async () => {
-  const { default: routes } = await import('../publicStatistics.js');
-  app = express();
-  app.use('/statistics', routes);
-});
-beforeEach(() => {
+beforeEach(async () => {
+  jest.resetModules();
   jest.resetAllMocks();
   jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
   jest.setSystemTime(new Date('2026-10-18T11:00:00Z'));
+  const { default: routes } = await import('../publicStatistics.js');
+  app = express();
+  app.use('/statistics', routes);
   getCache.mockResolvedValue(null);
   setCache.mockResolvedValue(undefined);
+  getConnection.mockResolvedValue({ query, release, destroy });
 });
 afterEach(() => {
   jest.useRealTimers();
@@ -62,10 +65,10 @@ describe('public faction activity', () => {
 
   it('releases the next day at UTC midnight without reusing the previous date-list cache', async () => {
     query.mockResolvedValue([[]]);
-    jest.setSystemTime(new Date('2026-10-18T23:59:59Z'));
+    jest.advanceTimersByTime(13 * 3600_000 - 1000);
     await request(app).get('/statistics/available-dates');
     const oldKey = getCache.mock.calls[0]?.[0];
-    jest.setSystemTime(new Date('2026-10-19T00:00:00Z'));
+    jest.advanceTimersByTime(1000);
     await request(app).get('/statistics/available-dates');
     expect(getCache.mock.calls[1]?.[0]).not.toBe(oldKey);
     expect(query).toHaveBeenLastCalledWith(expect.any(String), [1792281600]);
@@ -98,5 +101,239 @@ describe('public faction activity', () => {
     const response = await request(app).get('/statistics/faction-activity?date=2026-10-16');
     expect(response.body.data).toEqual(points);
     expect(query).not.toHaveBeenCalled();
+  });
+});
+
+describe('public faction overlap', () => {
+  const cutoff = 1792195200; // 2026-10-17T00:00:00Z, the publication cutoff on October 18
+  const hourRow = {
+    hour_start: 1790985600,
+    invalid_samples: 0,
+    samples: 672,
+    both_samples: '88',
+    goods_peak: 3,
+    goods_average: '0.3125',
+    evils_peak: 6,
+    evils_average: '0.9702',
+    goods_average_while_both: '1.5000',
+    evils_average_while_both: '2.2727',
+    first_sample: 1790985629,
+    last_sample: 1792112400,
+  };
+
+  it('preserves dated UTC hours over the newest 14 published days by default', async () => {
+    query.mockResolvedValueOnce([
+      [
+        hourRow,
+        {
+          ...hourRow,
+          hour_start: 1792184400,
+          both_samples: 0,
+          goods_average_while_both: null,
+          evils_average_while_both: null,
+          first_sample: 1791061200,
+          last_sample: 1792184400,
+        },
+      ],
+    ]);
+    const response = await request(app).get('/statistics/faction-overlap');
+    expect(response.status).toBe(200);
+    expect(query).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sql: expect.stringContaining('date >= ? AND date < ?'),
+        values: [cutoff - 14 * 86400, cutoff],
+        timeout: 2500,
+      }),
+    );
+    expect(response.body).toMatchObject({
+      days: 14,
+      firstDate: '2026-10-03',
+      lastDate: '2026-10-16',
+      samples: 1344,
+    });
+    expect(response.body.hours).toHaveLength(2);
+    expect(response.body.hours[0]).toEqual({
+      timestamp: 1790985600,
+      samples: 672,
+      bothSamples: 88,
+      goodsPeak: 3,
+      goodsAverage: 0.3125,
+      evilsPeak: 6,
+      evilsAverage: 0.9702,
+      goodsAverageWhileBoth: 1.5,
+      evilsAverageWhileBoth: 2.2727,
+    });
+    expect(response.body.hours[1]).toMatchObject({ bothSamples: 0, goodsAverageWhileBoth: 0 });
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(setCache).toHaveBeenCalledWith(
+      `public_stats:v2:faction_overlap:v2:14:${cutoff}`,
+      response.body,
+      600,
+    );
+  });
+
+  it.each([7, 30])('accepts a %i day window ending at the publication cutoff', async (days) => {
+    query.mockResolvedValueOnce([[]]);
+    const response = await request(app).get(`/statistics/faction-overlap?days=${days}`);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ days, firstDate: null, lastDate: null, samples: 0 });
+    expect(query).toHaveBeenLastCalledWith(
+      expect.objectContaining({ values: [cutoff - days * 86400, cutoff] }),
+    );
+  });
+
+  it.each(['15', '0', '-7', '007', 'abc', '7.5', '7&days=14'])(
+    'rejects unsupported window %s',
+    async (days) => {
+      const response = await request(app).get(`/statistics/faction-overlap?days=${days}`);
+      expect(response.status).toBe(400);
+      expect(query).not.toHaveBeenCalled();
+    },
+  );
+
+  it('moves to a new cache entry and window at UTC midnight', async () => {
+    query.mockResolvedValue([[]]);
+    jest.advanceTimersByTime(13 * 3600_000 - 1000);
+    await request(app).get('/statistics/faction-overlap?days=7');
+    jest.advanceTimersByTime(1000);
+    await request(app).get('/statistics/faction-overlap?days=7');
+    expect(getCache.mock.calls[1]?.[0]).not.toBe(getCache.mock.calls[0]?.[0]);
+    expect(query).toHaveBeenLastCalledWith(
+      expect.objectContaining({ values: [cutoff + 86400 - 7 * 86400, cutoff + 86400] }),
+    );
+  });
+
+  it('reuses a cached summary without querying', async () => {
+    const cached = { days: 14, firstDate: null, lastDate: null, samples: 0, hours: [] };
+    getCache.mockResolvedValueOnce(cached);
+    const response = await request(app).get('/statistics/faction-overlap');
+    expect(response.body).toEqual(cached);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('withholds a forward clock jump before reading even an existing cache', async () => {
+    jest.setSystemTime(new Date('2026-10-19T11:00:00Z'));
+    const response = await request(app).get('/statistics/faction-overlap');
+    expect(response.status).toBe(503);
+    expect(getCache).not.toHaveBeenCalled();
+    expect(query).not.toHaveBeenCalled();
+    jest.setSystemTime(new Date('2026-10-18T11:00:00Z'));
+    query.mockResolvedValueOnce([[]]);
+    expect((await request(app).get('/statistics/faction-overlap')).status).toBe(200);
+  });
+
+  it('recovers on conservative monotonic time after a permanent forward clock correction', async () => {
+    query.mockResolvedValue([[]]);
+    jest.setSystemTime(new Date('2026-10-19T11:00:00Z'));
+    expect((await request(app).get('/statistics/faction-overlap')).status).toBe(503);
+    expect((await request(app).get('/statistics/faction-overlap')).status).toBe(200);
+    expect(query).toHaveBeenLastCalledWith(
+      expect.objectContaining({ values: [cutoff - 14 * 86400, cutoff] }),
+    );
+    expect((await request(app).get('/statistics/available-dates')).status).toBe(200);
+    expect(query).toHaveBeenLastCalledWith(expect.any(String), [cutoff]);
+    jest.advanceTimersByTime(13 * 3600_000);
+    expect((await request(app).get('/statistics/faction-overlap')).status).toBe(200);
+    expect(query).toHaveBeenLastCalledWith(
+      expect.objectContaining({ values: [cutoff - 13 * 86400, cutoff + 86400] }),
+    );
+    expect((await request(app).get('/statistics/faction-activity?date=2026-10-17')).status).toBe(
+      200,
+    );
+    expect(query).toHaveBeenLastCalledWith(expect.any(String), [cutoff, cutoff + 86400]);
+    query.mockClear();
+    expect(
+      (await request(app).get('/statistics/faction-activity?date=2026-10-18')).body.data,
+    ).toEqual([]);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it.each(['cache read', 'SQL read', 'cache write'])(
+    'withholds a clock jump during %s',
+    async (stage) => {
+      const jump = () => jest.setSystemTime(new Date('2026-10-19T11:00:00Z'));
+      query.mockResolvedValue([[]]);
+      if (stage === 'cache read')
+        getCache.mockImplementationOnce(async () => {
+          jump();
+          return { days: 14, samples: 999, hours: [] };
+        });
+      if (stage === 'SQL read')
+        query.mockImplementationOnce(async () => {
+          jump();
+          return [[]];
+        });
+      if (stage === 'cache write')
+        setCache.mockImplementationOnce(async () => {
+          jump();
+        });
+      const response = await request(app).get('/statistics/faction-overlap');
+      expect(response.status).toBe(503);
+      expect(response.body).not.toHaveProperty('hours');
+      if (stage !== 'cache write') expect(setCache).not.toHaveBeenCalled();
+    },
+  );
+
+  it('withholds a result that became too fresh during a clock rollback', async () => {
+    query.mockImplementationOnce(async () => {
+      jest.setSystemTime(new Date('2026-10-17T23:00:00Z'));
+      return [[hourRow]];
+    });
+    expect((await request(app).get('/statistics/faction-overlap')).status).toBe(503);
+    expect(setCache).not.toHaveBeenCalled();
+  });
+
+  it('shares concurrent cache misses by window and recovers after failed SQL', async () => {
+    const { getFactionOverlap } = await import('../../services/publicStatisticsService.js');
+    let finish: (value: unknown) => void = () => {};
+    query.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const reads = Array.from({ length: 20 }, () => getFactionOverlap(30));
+    await new Promise(setImmediate);
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(getCache).toHaveBeenCalledTimes(1);
+    finish([[]]);
+    expect(await Promise.all(reads)).toHaveLength(20);
+    query.mockRejectedValueOnce(new Error('Query inactivity timeout'));
+    await expect(getFactionOverlap(30)).rejects.toThrow('Query inactivity timeout');
+    expect(destroy).toHaveBeenCalledTimes(1);
+    query.mockResolvedValueOnce([[]]);
+    await expect(getFactionOverlap(30)).resolves.toMatchObject({ samples: 0 });
+    expect(query).toHaveBeenCalledTimes(3);
+  });
+
+  it('rate limits the public route before another cache or SQL read', async () => {
+    query.mockResolvedValue([[]]);
+    for (let index = 0; index < 30; index++) {
+      expect((await request(app).get('/statistics/faction-overlap')).status).toBe(200);
+    }
+    expect((await request(app).get('/statistics/faction-overlap')).status).toBe(429);
+    expect(getCache).toHaveBeenCalledTimes(30);
+  });
+
+  it.each([
+    ['database failure', () => query.mockRejectedValueOnce(new Error('database unavailable'))],
+    [
+      'an unpublished hour',
+      () => query.mockResolvedValueOnce([[{ ...hourRow, hour_start: cutoff }]]),
+    ],
+    [
+      'a malformed source sample',
+      () => query.mockResolvedValueOnce([[{ ...hourRow, invalid_samples: 1 }]]),
+    ],
+    ['a negative count', () => query.mockResolvedValueOnce([[{ ...hourRow, goods_peak: -1 }]])],
+    [
+      'more overlap than samples',
+      () => query.mockResolvedValueOnce([[{ ...hourRow, both_samples: 700 }]]),
+    ],
+  ])('reports %s instead of caching a summary', async (_label, arrange) => {
+    arrange();
+    const response = await request(app).get('/statistics/faction-overlap');
+    expect(response.status).toBe(500);
+    expect(setCache).not.toHaveBeenCalled();
   });
 });
