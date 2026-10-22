@@ -69,9 +69,13 @@ the relevant checks.
 See [Development](../docs/development.md) and
 [Architecture](../docs/ARCHITECTURE.md).
 
-The desktop Wiki menu lists **Alt Map** below **Map**; mobile More offers the same
-destination after Map. It opens Drevarr's external surface map in a new tab.
-The shared URL lives in `src/config/links.ts`.
+The desktop Wiki menu lists **Surface Map** below **Map**; mobile More offers the
+same destination after Map. It opens the public internal `/surface-map` route,
+hosting a manually maintained local snapshot of Drevarr's October 2026 map.
+Its image, icons and validated zone/travel data live in `public/surface-map/`;
+requests respect `VITE_BASE_URL`. See the [snapshot guide](../docs/surface-map.md)
+for credits, refresh instructions and keyboard room lookup. The existing
+backend-driven `/wiki/map` remains separate.
 
 ## Privacy and visit-statistics choices
 
