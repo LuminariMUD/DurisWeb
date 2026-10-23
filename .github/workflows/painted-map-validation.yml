@@ -37,6 +37,16 @@ jobs:
           src/utils/paintedMap/__tests__/worldFeatures.spec.ts
           src/views/__tests__/SurfaceMapView.spec.ts
       - name: Production build (including module worker)
+        env:
+          VITE_BASE_URL: /
+          VITE_API_URL: https://api.example.test
+          VITE_WS_URL: wss://ws.example.test/ws
+          VITE_STATIC_URL: https://static.example.test
+          FRONTEND_DEV_HOST: 127.0.0.1
+          FRONTEND_DEV_PORT: '5173'
+          FRONTEND_PREVIEW_HOST: 127.0.0.1
+          FRONTEND_PREVIEW_PORT: '4173'
+          FRONTEND_ALLOWED_HOSTS: localhost
         run: pnpm --dir frontend build
 
   backend:
