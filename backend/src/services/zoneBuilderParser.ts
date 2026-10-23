@@ -3,6 +3,7 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { setImmediate } from 'node:timers/promises';
 import logger from '../utils/logger.js';
 import { pool } from '../db/connection.js';
 import type { RowDataPacket } from 'mysql2';
@@ -716,9 +717,11 @@ export async function listZones(params: ListZonesParams = {}): Promise<ListZones
 }
 
 // Parse a single room from .wld content
-function parseRoom(content: string, startIndex: number): { room: Room; nextIndex: number } | null {
-  const lines = content.slice(startIndex).split('\n');
-  let i = 0;
+function parseRoom(
+  lines: readonly string[],
+  startIndex: number,
+): { room: Room; nextIndex: number } | null {
+  let i = startIndex;
 
   // Find room number
   while (i < lines.length && !lines[i].match(/^#\d+$/)) {
@@ -876,9 +879,6 @@ function parseRoom(content: string, startIndex: number): { room: Room; nextIndex
     i++;
   }
 
-  // Calculate consumed characters
-  const consumedLines = lines.slice(0, i).join('\n').length + 1;
-
   return {
     room: {
       vnum,
@@ -893,8 +893,23 @@ function parseRoom(content: string, startIndex: number): { room: Room; nextIndex
       currentSpeed,
       currentDirection,
     },
-    nextIndex: startIndex + consumedLines,
+    nextIndex: i,
   };
+}
+
+/** Split once and yield between batches so large maps cannot monopolize the HTTP loop. */
+async function parseWorldRooms(content: string): Promise<Room[]> {
+  const lines = content.split('\n');
+  const rooms: Room[] = [];
+  let index = 0;
+  while (index < lines.length) {
+    const result = parseRoom(lines, index);
+    if (!result) break;
+    rooms.push(result.room);
+    index = result.nextIndex;
+    if (rooms.length % 256 === 0) await setImmediate();
+  }
+  return rooms;
 }
 
 // Parse entire .wld file
@@ -906,17 +921,7 @@ export async function parseWldFile(zoneNumber: number): Promise<Room[]> {
 
   const filePath = resolveSafeZoneFilePath(getAreasDir(), baseName, 'wld');
   const content = await readFile(filePath);
-  const rooms: Room[] = [];
-
-  let index = 0;
-  while (index < content.length) {
-    const result = parseRoom(content, index);
-    if (!result) break;
-    rooms.push(result.room);
-    index = result.nextIndex;
-  }
-
-  return rooms;
+  return parseWorldRooms(content);
 }
 
 // Parse .wld file by zone ID (filename without extension)
@@ -928,17 +933,7 @@ async function parseWldFileById(zoneId: string): Promise<Room[]> {
   }
 
   const content = await readFile(filePath);
-  const rooms: Room[] = [];
-
-  let index = 0;
-  while (index < content.length) {
-    const result = parseRoom(content, index);
-    if (!result) break;
-    rooms.push(result.room);
-    index = result.nextIndex;
-  }
-
-  return rooms;
+  return parseWorldRooms(content);
 }
 
 // Get zone map data (Tier 1 - minimal data for map rendering and sidebar listing)

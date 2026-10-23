@@ -195,6 +195,102 @@ afterEach(async () => {
 });
 
 describe('successful parser integration', () => {
+  it('preserves room boundaries and optional fields when advancing a shared line cursor', async () => {
+    await write(
+      'areas/wld/fixture.wld',
+      [
+        '#100',
+        'A café~',
+        'First line.',
+        'Second line.',
+        '~',
+        '1 4 2',
+        'D0',
+        'An exit.',
+        '~',
+        'gate~',
+        '1 7 101',
+        'E',
+        'wall~',
+        'A wall.',
+        '~',
+        'F',
+        '5',
+        'C',
+        '2 1',
+        'S',
+        '#101',
+        'Second room~',
+        'Another room.',
+        '~',
+        '1 0 3',
+        'S',
+        '#9999999',
+        '$~',
+        '',
+      ].join('\r\n'),
+    );
+
+    const rooms = await parseWldFile(1);
+    expect(rooms).toHaveLength(2);
+    expect(rooms[0]).toMatchObject({
+      vnum: 100,
+      name: 'A café',
+      description: 'First line.\nSecond line.',
+      exits: [
+        {
+          direction: 'north',
+          description: 'An exit.',
+          keywords: 'gate',
+          doorFlag: 1,
+          keyVnum: 7,
+          toRoom: 101,
+        },
+      ],
+      extras: [{ keywords: 'wall', description: 'A wall.' }],
+      fallChance: 5,
+      currentSpeed: 2,
+      currentDirection: 1,
+    });
+    expect(rooms[1]).toMatchObject({ vnum: 101, name: 'Second room', sectorType: 3 });
+  });
+
+  it('keeps timers responsive while parsing a large world through both zone lookups', async () => {
+    const roomCount = 12_000;
+    const content =
+      Array.from(
+        { length: roomCount },
+        (_, index) =>
+          `#${100 + index}\nRoom ${index}~\n${'A synthetic room. '.repeat(16)}\n~\n1 0 0\nS\n`,
+      ).join('') + '#9999999\n$~\n';
+    await write('areas/wld/fixture.wld', content);
+
+    let previousBeat = performance.now();
+    let longestPauseMs = 0;
+    const observePause = () => {
+      const current = performance.now();
+      longestPauseMs = Math.max(longestPauseMs, current - previousBeat);
+      previousBeat = current;
+    };
+    const heartbeat = setInterval(observePause, 10);
+    try {
+      const rooms = await parseWldFile(1);
+      observePause();
+      expect(rooms).toHaveLength(roomCount);
+      expect(rooms.at(-1)).toMatchObject({
+        vnum: 100 + roomCount - 1,
+        name: `Room ${roomCount - 1}`,
+      });
+      const map = await getZoneMapData('fixture');
+      observePause();
+      expect(map.rooms).toHaveLength(roomCount);
+      // Generous scheduling allowance; the old quadratic scan blocks for several seconds.
+      expect(longestPauseMs).toBeLessThan(1_000);
+    } finally {
+      clearInterval(heartbeat);
+    }
+  });
+
   it('parses a complete synthetic flag source as one aggregate', async () => {
     const results = await new MudFlagParser().parseAllFlags();
 

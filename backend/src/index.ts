@@ -135,6 +135,7 @@ import { pool } from './db/connection.js';
 import { getBackendConfiguration } from './config/environment.js';
 import { escapeHtml } from './utils/contentParser.js';
 import { closeWebServer } from './utils/serverShutdown.js';
+import { startEventLoopWatchdog } from './utils/eventLoopWatchdog.js';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -769,6 +770,7 @@ async function publishReleasedEvent(latestEvent: import('./types/index.js').PvPE
 
 // Graceful shutdown
 let isShuttingDown = false;
+let stopEventLoopWatchdog: (() => Promise<void>) | undefined;
 const gracefulShutdown = async () => {
   if (isShuttingDown) {
     return;
@@ -776,6 +778,7 @@ const gracefulShutdown = async () => {
   isShuttingDown = true;
 
   logger.info('\nReceived shutdown signal, closing server gracefully...');
+  await stopEventLoopWatchdog?.();
 
   // Clear all interval timers
   if (eventCheckInterval) clearInterval(eventCheckInterval);
@@ -925,6 +928,12 @@ async function authorizeZoneStream(
 /** Starts dependencies and listeners only after required runtime checks succeed. */
 async function startServer() {
   try {
+    try {
+      stopEventLoopWatchdog = await startEventLoopWatchdog();
+    } catch {
+      logger.warn('[EventLoopWatchdog] Could not start stall diagnostics');
+    }
+
     // Filesystem-backed hooks are optional in split-host deployments. Probe
     // them independently and keep the bridge, Redis, and database paths alive
     // when MUD_DIR is absent or unreachable.
