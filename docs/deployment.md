@@ -757,9 +757,11 @@ verify:
 
 - the configured local and public health endpoints;
 - `/api/ping`, `/api/site-config`, the SPA shell, and a generated asset;
-- `/api/wiki/map/bounds?layer=0` with non-zero extents and
-  `/api/wiki/map/image?layer=0` returning a full-size `image/png`, then the
-  `/wiki/map` page showing terrain and entrance markers in a browser;
+- `/api/wiki/map/bounds?layer=0` with non-zero extents,
+  `/api/wiki/map/image?layer=0` returning a full-size `image/png` and
+  `/api/wiki/map/sectors?layer=0` returning the layer's sector grid, then the
+  `/wiki/map` page showing terrain and entrance markers in a browser, with the
+  painted view filling in;
 - allowed-origin CORS and rejection of an untrusted origin;
 - browser application WebSocket ping/pong, plus fresh authenticated MUD bridge
   state. If a direct MUD WebSocket handshake must be tested, do it before the

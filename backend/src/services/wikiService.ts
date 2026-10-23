@@ -2845,6 +2845,82 @@ export async function generateMapImage(layer: number = 0, scale: number = 4): Pr
   return pngBuffer;
 }
 
+/** Sector grid for one map layer, as the painted world map consumes it. */
+export interface MapSectorGrid {
+  layer: number;
+  minX: number;
+  minY: number;
+  width: number;
+  height: number;
+  /** Base64 of one byte per room, row by row from (minX, minY); 255 marks no room. */
+  sectors: string;
+}
+
+/** Marks a grid cell that has no room. */
+export const NO_ROOM_SECTOR = 255;
+
+/**
+ * Get the sector type of every room on a map layer as a compact grid.
+ *
+ * The browser paints the decorative map view from this grid, so one small
+ * download (about 160 KB for the surface) replaces a server-rendered image per
+ * zoom level. Sectors outside 0-254 are stored as "no room".
+ */
+export async function getMapSectorGrid(layer: number = 0): Promise<MapSectorGrid> {
+  const cacheKey = `wiki:mapSectors:v1:${layer}`;
+  const cached = await getCache<MapSectorGrid>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const bounds = await getMapBounds(layer);
+  const width = bounds.maxX - bounds.minX + 1;
+  const height = bounds.maxY - bounds.minY + 1;
+  if (
+    !Number.isSafeInteger(width) ||
+    !Number.isSafeInteger(height) ||
+    width <= 0 ||
+    height <= 0 ||
+    width > 4096 ||
+    height > 4096 ||
+    width * height > 1_000_000
+  ) {
+    throw new Error('Invalid map bounds');
+  }
+
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT x_coord, y_coord, sector_type
+     FROM wiki_map_positions
+     WHERE z_coord = ?`,
+    [layer],
+  );
+  if (rows.length === 0) {
+    throw new Error('No map rooms on this layer');
+  }
+
+  const grid = Buffer.alloc(width * height, NO_ROOM_SECTOR);
+  for (const row of rows) {
+    const x = Number(row.x_coord) - bounds.minX;
+    const y = Number(row.y_coord) - bounds.minY;
+    const sector = Number(row.sector_type);
+    if (x < 0 || x >= width || y < 0 || y >= height) continue;
+    if (!Number.isInteger(sector) || sector < 0 || sector >= NO_ROOM_SECTOR) continue;
+    grid[y * width + x] = sector;
+  }
+
+  const result: MapSectorGrid = {
+    layer,
+    minX: bounds.minX,
+    minY: bounds.minY,
+    width,
+    height,
+    sectors: grid.toString('base64'),
+  };
+  // Same lifetime as the flat map image, so both views refresh together.
+  await setCache(cacheKey, result, 60 * 60);
+  return result;
+}
+
 /**
  * Generate and save static map images to disk for all layers
  */

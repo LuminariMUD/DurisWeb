@@ -193,6 +193,32 @@ router.get(
   },
 );
 
+// GET /api/wiki/map/sectors - Sector of every room on a layer, for the painted map view
+router.get(
+  '/map/sectors',
+  checkWikiAccess,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const layerNum = req.query.layer !== undefined ? Number(req.query.layer) : 0;
+      if (!Number.isSafeInteger(layerNum) || layerNum < -16 || layerNum > 16) {
+        res.status(400).json({ error: 'Invalid layer' });
+        return;
+      }
+
+      const grid = await wikiService.getMapSectorGrid(layerNum);
+      // Matches the server-side cache, like the map image.
+      res.set('Cache-Control', 'public, max-age=3600');
+      res.json(grid);
+    } catch (error) {
+      if (getErrorMessage(error) === 'No map rooms on this layer') {
+        res.status(404).json({ error: 'This map layer has no rooms' });
+        return;
+      }
+      next(error);
+    }
+  },
+);
+
 // GET /api/wiki/map/tiles - Get map tiles for viewport
 router.get(
   '/map/tiles',

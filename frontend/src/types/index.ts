@@ -1443,6 +1443,17 @@ export interface WikiMapBounds {
   maxY: number
 }
 
+/** Sector of every room on a map layer, for the painted map view. */
+export interface WikiMapSectors {
+  layer: number
+  minX: number
+  minY: number
+  width: number
+  height: number
+  /** Base64 of one byte per room, row by row from (minX, minY); 255 marks no room. */
+  sectors: string
+}
+
 export interface WikiZone {
   number: number
   name: string
