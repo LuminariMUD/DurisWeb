@@ -67,6 +67,6 @@ describe('painted map sector grid', () => {
       .mockResolvedValueOnce([[{ minX: null, maxX: null, minY: null, maxY: null }], []])
       .mockResolvedValueOnce([[], []]);
     await expect(getMapSectorGrid(-2)).rejects.toThrow('No map rooms on this layer');
-    expect(setCache).not.toHaveBeenCalledWith('wiki:mapSectors:v1:-2', expect.anything(), 3600);
+    expect(setCache).not.toHaveBeenCalled();
   });
 });
