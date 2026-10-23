@@ -34,6 +34,13 @@ describe('wiki map HTTP cache and access transitions', () => {
     authenticated = false;
     getWikiAccessLevel.mockResolvedValue('public');
   });
+  it('returns a stable unavailable response when sector I/O is bounded out', async () => {
+    getMapSectorGrid.mockRejectedValueOnce(new MapSectorUnavailableError());
+    const response = await request(app).get('/api/wiki/map/sectors?layer=0');
+    expect(response.status).toBe(503);
+    expect(response.body).toEqual({ error: 'Map sectors are temporarily unavailable' });
+    expect(response.headers['cache-control']).toBe('no-store');
+  });
   it.each(['image', 'sectors'])(
     'never caches /map/%s across visibility or login changes',
     async (endpoint) => {

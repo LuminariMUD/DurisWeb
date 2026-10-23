@@ -114,4 +114,52 @@ describe('painted map sector grid', () => {
     await Promise.resolve();
     jest.useRealTimers();
   });
+
+  it('releases a connection that arrives after its checkout deadline', async () => {
+    jest.useFakeTimers();
+    let finish!: (connection: {
+      query: typeof query;
+      release: typeof release;
+      destroy: typeof destroy;
+    }) => void;
+    getConnection.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const response = expect(getMapSectorGrid(11)).rejects.toThrow(
+      'Map sectors are temporarily unavailable',
+    );
+    await jest.advanceTimersByTimeAsync(4001);
+    await response;
+    finish({ query, release, destroy });
+    await jest.advanceTimersByTimeAsync(0);
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(query).not.toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it('destroys timed-out SQL without starting duplicate work', async () => {
+    jest.useFakeTimers();
+    let finish!: (value: unknown) => void;
+    query.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const response = expect(getMapSectorGrid(12)).rejects.toThrow(
+      'Map sectors are temporarily unavailable',
+    );
+    await jest.advanceTimersByTimeAsync(4001);
+    await response;
+    await expect(getMapSectorGrid(12)).rejects.toThrow('Map sectors are temporarily unavailable');
+    expect(destroy).toHaveBeenCalledTimes(1);
+    expect(getConnection).toHaveBeenCalledTimes(1);
+    finish([[{ minX: 0, maxX: 1, minY: 0, maxY: 1 }], []]);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(query).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
 });
