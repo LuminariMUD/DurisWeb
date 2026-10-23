@@ -217,7 +217,8 @@ router.get(
 
       const grid = await wikiService.getMapSectorGrid(layerNum);
       // Matches the server-side cache, like the map image.
-      res.set('Cache-Control', 'public, max-age=3600');
+      // Wiki access can require login: never expose the sector grid to shared caches.
+      res.set('Cache-Control', 'private, max-age=3600');
       res.json(grid);
     } catch (error) {
       if (getErrorMessage(error) === 'No map rooms on this layer') {
