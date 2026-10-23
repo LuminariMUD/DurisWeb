@@ -7,6 +7,7 @@ Server's full handoff: `Duris/docs/ongoing-projects/plan-issue-213.md`.
 
 Worktree `/home/aiwithapex/projects/durisweb-issue213`, branch
 `branch/issue-213-hometown-parity`, from fetched master `7147e6b`.
+Review: https://github.com/LuminariMUD/DurisWeb/pull/91, commit `9eb92e3`.
 The primary DurisWeb checkout was clean and left unchanged. No deployment,
 database publication, environment-file edit or dependency-graph change is part
 of this work. Dependencies were installed offline from the frozen lockfile.
@@ -61,8 +62,11 @@ The browser fixture initially omitted `DURIS_WEBSOCKET=TRUE`; enabling the
 listener fixed its connection refusal. Repeated synthetic registrations also
 hit the normal registration throttle, so the fixture now reuses its account.
 An independent pre-existing registration bug was reproduced: the browser
-accepts digits in an account name, while the MUD accepts only letters and
-underscores (3-14 characters). Fix that as a separate focused review change.
+accepted digits in an account name, while the MUD accepts only letters and
+underscores (3-14 characters). It was repaired separately in
+https://github.com/LuminariMUD/DurisWeb/pull/92, commit `aeeab8a`, with six
+focused tests, normal frontend checks/build and a Chromium rejection check.
+It is independent of this branch and has no server protocol dependency.
 
 ## Prepared Website Changelog text
 
