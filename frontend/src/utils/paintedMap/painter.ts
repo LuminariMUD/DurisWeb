@@ -802,7 +802,8 @@ export function paintMap(
             g += ((cyan ? 230 : 110) - g) * k
             b += ((cyan ? 210 : 230) - b) * k
           }
-        }+        if (!surface && s === 13) {
+        }
+        if (!surface && s === 13) {
           const moss = smooth(0.5, 0.7, fbm(u * 2.4, v * 2.4, 221, 3)) * 0.6
           r += (60 - r) * moss
           g += (110 - g) * moss

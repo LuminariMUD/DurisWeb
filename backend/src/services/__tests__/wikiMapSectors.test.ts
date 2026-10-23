@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 const query = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const cache = new Map<string, unknown>();
 const getCache = jest.fn(async (key: string) => cache.get(key));
-const setCache = jest.fn(async (key: string, value: unknown) => {
+const setCache = jest.fn(async (key: string, value: unknown, _ttlSeconds?: number) => {
   cache.set(key, value);
 });
 jest.unstable_mockModule('../../db/connection.js', () => ({ pool: { query } }));

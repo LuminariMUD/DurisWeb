@@ -20,6 +20,15 @@ const mapTilesLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// A full sector grid can be much more expensive than a single map tile.
+const mapSectorsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: 'Too many map requests, please slow down' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Zone/Object lists - lighter, more lenient
 const listLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -197,6 +206,7 @@ router.get(
 router.get(
   '/map/sectors',
   checkWikiAccess,
+  mapSectorsLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const layerNum = req.query.layer !== undefined ? Number(req.query.layer) : 0;

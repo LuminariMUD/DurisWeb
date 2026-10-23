@@ -126,11 +126,14 @@ export class PaintedMapLayer {
         pending: true,
       }
       this.rock.set(key, rock)
-      this.paint(source, ROCK_SCALE, rock).then((url) => {
-        rock.url = url
-        rock.pending = false
-        if (url && source === this.source && !this.destroyed) this.addBase(rock, source)
-      }, () => this.rock.delete(key))
+      this.paint(source, ROCK_SCALE, rock).then(
+        (url) => {
+          rock.url = url
+          rock.pending = false
+          if (url && source === this.source && !this.destroyed) this.addBase(rock, source)
+        },
+        () => this.rock.delete(key),
+      )
     } else {
       const rock = this.rock.get(key)
       if (rock?.url) this.addBase(rock, source)
@@ -386,17 +389,14 @@ export class PaintedMapLayer {
           job.reject(new Error(error ?? 'Painting failed'))
           return
         }
-        pixelsToUrl(new Uint8ClampedArray(pixels), width, height).then(
-          (url) => {
-            if (this.destroyed) {
-              URL.revokeObjectURL(url)
-              job.resolve(null)
-              return
-            }
-            job.resolve(url)
-          },
-          job.reject,
-        )
+        pixelsToUrl(new Uint8ClampedArray(pixels), width, height).then((url) => {
+          if (this.destroyed) {
+            URL.revokeObjectURL(url)
+            job.resolve(null)
+            return
+          }
+          job.resolve(url)
+        }, job.reject)
       }
       worker.onerror = () => {
         const job = slot.job
@@ -438,5 +438,6 @@ export class PaintedMapLayer {
         }
       }
       slot.worker.postMessage(request)
-    }+  }
+    }
+  }
 }
