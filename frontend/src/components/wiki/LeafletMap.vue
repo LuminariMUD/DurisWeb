@@ -7,6 +7,13 @@ import type { WikiZoneEntrance, WikiMapBounds } from '@/types'
 import { stripAnsiCodes } from '@/utils/ansiParser'
 import { frontendConfiguration } from '@/config/environment'
 import { resolveMapLayerImageUrl } from '@/utils/mapLayerImageUrl'
+import { SURFACE_PORTS, surfaceContinents } from '@/utils/paintedMap/worldFeatures'
+import {
+  PaintedMapLayer,
+  canPaintMap,
+  type PaintProgress,
+  type PaintedLayerSource,
+} from './paintedMapLayer'
 
 const props = withDefaults(
   defineProps<{
@@ -15,6 +22,10 @@ const props = withDefaults(
     layer?: number
     initialShowMarkers?: boolean
     initialShowZoneNames?: boolean
+    /** Start with the painted terrain view (when the browser can paint it). */
+    initialPainted?: boolean
+    /** Start with port anchors shown on the surface. */
+    initialShowDocks?: boolean
     hideControls?: boolean
     minZoom?: number
     zoomSnap?: number
@@ -24,6 +35,8 @@ const props = withDefaults(
     layer: 0,
     initialShowMarkers: true,
     initialShowZoneNames: true,
+    initialPainted: false,
+    initialShowDocks: false,
     hideControls: false,
     minZoom: -2,
     zoomSnap: 0.1,
@@ -46,6 +59,15 @@ let entranceLayer: L.LayerGroup | null = null
 // Toggle state for visibility
 const showMarkers = ref(props.initialShowMarkers)
 const showZoneNames = ref(props.initialShowZoneNames)
+const paintingAvailable = canPaintMap()
+const painted = ref(props.initialPainted && paintingAvailable)
+const showDocks = ref(props.initialShowDocks)
+const paintProgress = ref<PaintProgress | null>(null)
+const paintError = ref('')
+let paintedLayer: PaintedMapLayer | null = null
+let dockLayer: L.LayerGroup | null = null
+let paintVersion = 0
+const paintSources = new Map<number, Promise<PaintedLayerSource>>()
 
 // Room coordinates use 2^zoom screen pixels per room. Never shrink names at overview.
 const READING_ZOOM = 3
@@ -266,11 +288,102 @@ async function updateEntrances() {
   if (!restoredPopup) openEntrance = null
 }
 
+// Decode a layer's sector grid and add the world features the painter draws.
+async function loadPaintSource(layer: number): Promise<PaintedLayerSource> {
+  const data = await wikiApi.getMapSectors(layer)
+  if (
+    !Number.isSafeInteger(data.width) ||
+    !Number.isSafeInteger(data.height) ||
+    data.width <= 0 ||
+    data.height <= 0 ||
+    data.width * data.height > 1_048_576 ||
+    data.sectors.length > 1_400_000
+  )
+    throw new Error('Invalid sector grid dimensions')
+  const binary = atob(data.sectors)
+  const sectors = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) sectors[i] = binary.charCodeAt(i)
+  if (sectors.length !== data.width * data.height) throw new Error('Malformed sector grid')
+  const surface = layer >= 0
+  const ports =
+    layer === 0
+      ? SURFACE_PORTS.map((port) => ({ x: port.x - data.minX, y: port.y - data.minY })).filter(
+          (port) => port.x >= 0 && port.y >= 0 && port.x < data.width && port.y < data.height,
+        )
+      : []
+  return {
+    layer,
+    minX: data.minX,
+    minY: data.minY,
+    width: data.width,
+    height: data.height,
+    surface,
+    sectors,
+    continents:
+      layer === 0
+        ? surfaceContinents(sectors, data.width, data.height, data.minX, data.minY)
+        : null,
+    ports,
+  }
+}
+
+async function updatePainted() {
+  const version = ++paintVersion
+  if (!map) return
+  if (!painted.value) {
+    paintedLayer?.hide()
+    return
+  }
+  paintError.value = ''
+  paintedLayer ??= new PaintedMapLayer(map, (progress) => (paintProgress.value = progress))
+  const layer = props.layer
+  let pending = paintSources.get(layer)
+  if (!pending) {
+    pending = loadPaintSource(layer)
+    paintSources.set(layer, pending)
+  }
+  try {
+    const source = await pending
+    if (version !== paintVersion || !painted.value || !paintedLayer) return
+    paintedLayer.show(source)
+  } catch {
+    paintSources.delete(layer)
+    if (version !== paintVersion) return
+    paintedLayer?.hide()
+    paintError.value = 'The painted map could not be loaded. Showing the original map.'
+  }
+}
+
+const ANCHOR_ICON =
+  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="5" r="2.2"/><path d="M12 7.2V21M7.5 11h9M4.5 14.5c0 3.6 3.4 6.5 7.5 6.5s7.5-2.9 7.5-6.5M3 15.5l1.5-1.5 1.5 1.5M18 15.5l1.5-1.5 1.5 1.5"/></svg>'
+
+// Port anchors: labels only, so they add no tab stops beside the entrances.
+function updateDocks() {
+  if (!dockLayer) return
+  dockLayer.clearLayers()
+  if (!showDocks.value || props.layer !== 0) return
+  for (const port of SURFACE_PORTS) {
+    const label = document.createElement('span')
+    label.className = 'port-name'
+    label.innerHTML = `<span class="port-anchor">${ANCHOR_ICON}</span>`
+    label.append(port.name)
+    dockLayer.addLayer(
+      L.marker([mudYToLat(port.y), port.x], {
+        icon: L.divIcon({ className: 'dock-marker', html: label, iconAnchor: [11, 11] }),
+        pane: 'dockMarkers',
+        interactive: false,
+        keyboard: false,
+      }),
+    )
+  }
+}
+
 function scheduleRefresh() {
   ++requestVersion
   if (refreshTimer) clearTimeout(refreshTimer)
   refreshTimer = setTimeout(() => {
     refreshTimer = null
+    paintedLayer?.refresh()
     void updateEntrances()
     emitPositionChange()
   }, 100)
@@ -323,6 +436,11 @@ function initMap() {
   // Add entrance layer
   entranceLayer = L.layerGroup()
   entranceLayer.addTo(map)
+
+  map.createPane('dockMarkers').style.zIndex = '590'
+  dockLayer = L.layerGroup().addTo(map)
+  updateDocks()
+  void updatePainted()
 
   map.on('moveend', scheduleRefresh)
   map.on('zoomend', () => {
@@ -406,9 +524,14 @@ watch(
     )
     fitBounds()
     void updateEntrances()
+    updateDocks()
+    void updatePainted()
   },
   { deep: true },
 )
+
+watch(painted, () => void updatePainted())
+watch(showDocks, updateDocks)
 
 watch([showMarkers, showZoneNames], () => {
   entranceLayer?.clearLayers()
@@ -422,6 +545,9 @@ onUnmounted(() => {
   finePointer?.removeEventListener('change', scheduleRefresh)
   resizeObserver?.disconnect()
   entranceCache.clear()
+  ++paintVersion
+  paintedLayer?.destroy()
+  paintedLayer = null
   map?.remove()
   map = null
   entranceLayer = null
@@ -441,6 +567,20 @@ onUnmounted(() => {
         <input v-model="showZoneNames" type="checkbox" class="h-4 w-4 accent-vermilion" />
         Zone names
       </label>
+      <label v-if="layer === 0" class="flex min-h-7 items-center gap-2 cursor-pointer">
+        <input v-model="showDocks" type="checkbox" class="h-4 w-4 accent-vermilion" />
+        Docks
+      </label>
+      <label v-if="paintingAvailable" class="flex min-h-7 items-center gap-2 cursor-pointer">
+        <input v-model="painted" type="checkbox" class="h-4 w-4 accent-vermilion" />
+        Painted map
+      </label>
+      <p v-if="painted && paintProgress" role="status" class="m-0 text-xs text-muted-foreground">
+        Painting map… {{ Math.round((paintProgress.done / paintProgress.total) * 100) }}%
+      </p>
+      <p v-if="paintError" role="alert" class="m-0 max-w-48 text-xs text-destructive">
+        {{ paintError }}
+      </p>
     </fieldset>
   </div>
 </template>
@@ -557,5 +697,35 @@ onUnmounted(() => {
 
 .wiki-leaflet-map :deep(.zone-popup button:hover) {
   background: var(--color-ink-high);
+}
+
+.wiki-leaflet-map :deep(.dock-marker) {
+  background: none;
+  border: none;
+  width: auto !important;
+  height: auto !important;
+}
+
+.wiki-leaflet-map :deep(.port-name) {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+  padding: 0.125rem 0.5rem 0.125rem 0.125rem;
+  border: 1px solid var(--color-rule);
+  background: var(--color-ink);
+  color: var(--color-bone);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.wiki-leaflet-map :deep(.port-anchor) {
+  display: grid;
+  place-items: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+  background: var(--color-bone);
+  color: var(--color-ink);
 }
 </style>

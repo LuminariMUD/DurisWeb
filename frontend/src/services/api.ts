@@ -37,6 +37,7 @@ import type {
   WikiMapTile,
   WikiZoneEntrance,
   WikiMapBounds,
+  WikiMapSectors,
   WikiZone,
   WikiZoneDetail,
   WikiZoneMapData,
@@ -2812,6 +2813,14 @@ export const wikiApi = {
       responseType: 'blob',
     })
     return response.data
+  },
+
+  /**
+   * Get the sector of every room on a layer, for the painted map view
+   */
+  async getMapSectors(layer: number = 0): Promise<WikiMapSectors> {
+    const { data } = await api.get<WikiMapSectors>('/api/wiki/map/sectors', { params: { layer } })
+    return data
   },
 
   /**

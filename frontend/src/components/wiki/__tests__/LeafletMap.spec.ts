@@ -348,3 +348,31 @@ describe('wiki entrance visibility and navigation', () => {
     expect(removeListener).toHaveBeenCalled()
   })
 })
+
+describe('port anchors', () => {
+  it('labels the cargo ports on the surface only while docks are shown', async () => {
+    await render({ initialShowDocks: true, hideControls: true })
+    const ports = document.querySelectorAll('.port-name')
+    expect(ports).toHaveLength(10)
+    expect(ports[0]!.textContent).toBe('Flann')
+    // Anchors are labels, not extra entrance tab stops.
+    expect(document.querySelectorAll('.zone-dot')).toHaveLength(1)
+    expect(document.querySelectorAll('.dock-marker[tabindex]')).toHaveLength(0)
+    await wrapper!.setProps({ layer: -1 })
+    await settle()
+    expect(document.querySelectorAll('.port-name')).toHaveLength(0)
+  })
+
+  it('adds a Docks toggle after the entrance toggles', async () => {
+    await render()
+    const labels = [...document.querySelectorAll('fieldset label')].map((label) =>
+      label.textContent?.trim(),
+    )
+    // The painted view needs workers, which this test environment lacks.
+    expect(labels).toEqual(['Markers', 'Zone names', 'Docks'])
+    expect(document.querySelectorAll('.port-name')).toHaveLength(0)
+    await wrapper!.findAll('input')[2]!.setValue(true)
+    await settle()
+    expect(document.querySelectorAll('.port-name')).toHaveLength(10)
+  })
+})
