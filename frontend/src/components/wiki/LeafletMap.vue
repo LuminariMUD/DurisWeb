@@ -333,12 +333,19 @@ async function loadPaintSource(layer: number): Promise<PaintedLayerSource> {
 async function updatePainted() {
   const version = ++paintVersion
   if (!map) return
+  paintedLayer?.hide()
   if (!painted.value) {
     paintedLayer?.hide()
     return
   }
   paintError.value = ''
-  paintedLayer ??= new PaintedMapLayer(map, (progress) => (paintProgress.value = progress))
+  paintedLayer ??= new PaintedMapLayer(
+    map,
+    (progress) => (paintProgress.value = progress),
+    () => {
+      paintError.value = 'The painted map could not be loaded. Showing the original map.'
+    },
+  )
   const layer = props.layer
   let pending = paintSources.get(layer)
   if (!pending) {

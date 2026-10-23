@@ -9,6 +9,7 @@ on:
       - 'backend/src/routes/wiki.ts'
       - 'backend/src/services/wikiService.ts'
       - 'backend/src/services/__tests__/wikiMapSectors.test.ts'
+      - 'backend/src/routes/__tests__/wikiMapAccess.test.ts'
       - '.github/workflows/painted-map-validation.yml'
 
 permissions:
@@ -33,6 +34,7 @@ jobs:
         run: >-
           pnpm --dir frontend test:unit --run
           src/components/wiki/__tests__/LeafletMap.spec.ts
+          src/components/wiki/__tests__/paintedMapLayer.spec.ts
           src/utils/paintedMap/__tests__/painter.spec.ts
           src/utils/paintedMap/__tests__/worldFeatures.spec.ts
           src/views/__tests__/SurfaceMapView.spec.ts
@@ -68,5 +70,6 @@ jobs:
           pnpm --dir backend test --runInBand
           src/services/__tests__/wikiMapSectors.test.ts
           src/services/__tests__/wikiMapImage.test.ts
+          src/routes/__tests__/wikiMapAccess.test.ts
       - name: Production build
         run: pnpm --dir backend build

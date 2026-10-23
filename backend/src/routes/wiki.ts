@@ -7,6 +7,12 @@ import type { WikiSourceIdentity } from '../services/wikiGeneration.js';
 
 const router: Router = express.Router();
 
+// Re-run wiki authorization on every map request, including after logout.
+router.use('/map', (_req: Request, res: Response, next: NextFunction) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 // =============================================================================
 // Rate Limiting
 // =============================================================================
@@ -187,12 +193,11 @@ router.get(
 
       const pngBuffer = await wikiService.generateMapImage(layerNum);
 
-      // Browser lifetime matches the server-side image cache, so a map
-      // re-extraction is visible within the hour instead of a week later.
+      // Access can change on logout or when wiki visibility changes.
       res.set({
         'Content-Type': 'image/png',
         'Content-Length': pngBuffer.length.toString(),
-        'Cache-Control': 'public, max-age=3600',
+        'Cache-Control': 'no-store',
       });
 
       res.send(pngBuffer);
@@ -216,9 +221,8 @@ router.get(
       }
 
       const grid = await wikiService.getMapSectorGrid(layerNum);
-      // Matches the server-side cache, like the map image.
-      // Wiki access can require login: never expose the sector grid to shared caches.
-      res.set('Cache-Control', 'private, max-age=3600');
+      // Keep Redis reuse, but never bypass access checks through an HTTP cache.
+      res.set('Cache-Control', 'no-store');
       res.json(grid);
     } catch (error) {
       if (getErrorMessage(error) === 'No map rooms on this layer') {
