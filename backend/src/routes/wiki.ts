@@ -7,6 +7,12 @@ import type { WikiSourceIdentity } from '../services/wikiGeneration.js';
 
 const router: Router = express.Router();
 
+// Re-run wiki authorization on every map request, including after logout.
+router.use('/map', (_req: Request, res: Response, next: NextFunction) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 // =============================================================================
 // Rate Limiting
 // =============================================================================
@@ -15,6 +21,15 @@ const router: Router = express.Router();
 const mapTilesLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 300, // Allow many requests for smooth map experience (cached anyway)
+  message: { error: 'Too many map requests, please slow down' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// A full sector grid can be much more expensive than a single map tile.
+const mapSectorsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
   message: { error: 'Too many map requests, please slow down' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -178,12 +193,11 @@ router.get(
 
       const pngBuffer = await wikiService.generateMapImage(layerNum);
 
-      // Browser lifetime matches the server-side image cache, so a map
-      // re-extraction is visible within the hour instead of a week later.
+      // Access can change on logout or when wiki visibility changes.
       res.set({
         'Content-Type': 'image/png',
         'Content-Length': pngBuffer.length.toString(),
-        'Cache-Control': 'public, max-age=3600',
+        'Cache-Control': 'no-store',
       });
 
       res.send(pngBuffer);
@@ -197,6 +211,7 @@ router.get(
 router.get(
   '/map/sectors',
   checkWikiAccess,
+  mapSectorsLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const layerNum = req.query.layer !== undefined ? Number(req.query.layer) : 0;
@@ -206,8 +221,8 @@ router.get(
       }
 
       const grid = await wikiService.getMapSectorGrid(layerNum);
-      // Matches the server-side cache, like the map image.
-      res.set('Cache-Control', 'private, max-age=3600');
+      // Keep Redis reuse, but never bypass access checks through an HTTP cache.
+      res.set('Cache-Control', 'no-store');
       res.json(grid);
     } catch (error) {
       if (getErrorMessage(error) === 'No map rooms on this layer') {

@@ -60,9 +60,11 @@ export const CONTINENT_SEEDS: readonly { id: number; vnum: number }[] = [
 const OCEAN = 12
 
 /**
- * Continent id of every surface room, flood-filled from each seed the way
- * set_continent() in src/world/map.c spreads: across neighbouring rooms, never
- * through ocean. Rooms no seed reaches stay 0.
+ * Decorative continent ids approximated from MUD seed rooms using adjacent
+ * non-ocean cells. The MUD's set_continent() also requires reciprocal exits
+ * and same-zone links, which a sector-only grid cannot encode. These map
+ * colours are not authoritative continent assignments for gameplay.
+ * Rooms no seed reaches stay 0.
  *
  * `grid` holds sectors row by row from the layer's (minX, minY) corner.
  */

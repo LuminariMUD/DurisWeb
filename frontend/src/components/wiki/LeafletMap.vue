@@ -294,12 +294,15 @@ async function loadPaintSource(layer: number): Promise<PaintedLayerSource> {
   if (
     !Number.isSafeInteger(data.width) ||
     !Number.isSafeInteger(data.height) ||
-    data.width <= 0 ||
-    data.height <= 0 ||
-    data.width * data.height > 1_048_576 ||
-    data.sectors.length > 1_400_000
-  )
-    throw new Error('Invalid sector grid dimensions')
+    !Number.isSafeInteger(data.minX) ||
+    !Number.isSafeInteger(data.minY) ||
+    data.width < 1 ||
+    data.height < 1 ||
+    data.width * data.height > 1_000_000 ||
+    typeof data.sectors !== 'string'
+  ) {
+    throw new Error('Malformed sector grid')
+  }
   const binary = atob(data.sectors)
   const sectors = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i++) sectors[i] = binary.charCodeAt(i)
@@ -330,12 +333,19 @@ async function loadPaintSource(layer: number): Promise<PaintedLayerSource> {
 async function updatePainted() {
   const version = ++paintVersion
   if (!map) return
+  paintedLayer?.hide()
   if (!painted.value) {
     paintedLayer?.hide()
     return
   }
   paintError.value = ''
-  paintedLayer ??= new PaintedMapLayer(map, (progress) => (paintProgress.value = progress))
+  paintedLayer ??= new PaintedMapLayer(
+    map,
+    (progress) => (paintProgress.value = progress),
+    () => {
+      paintError.value = 'The painted map could not be loaded. Showing the original map.'
+    },
+  )
   const layer = props.layer
   let pending = paintSources.get(layer)
   if (!pending) {

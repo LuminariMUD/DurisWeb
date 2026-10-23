@@ -2883,7 +2883,7 @@ export async function getMapSectorGrid(layer: number = 0): Promise<MapSectorGrid
     height <= 0 ||
     width > 4096 ||
     height > 4096 ||
-    width * height > 1_048_576
+    width * height > 1_000_000
   ) {
     throw new Error('Invalid map bounds');
   }

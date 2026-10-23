@@ -39,6 +39,13 @@ is retained for existing ledgers, not replayed for a fresh installation.
 The listener has no default host or port. `GET /health` returns 200 only when
 both MySQL and Redis respond; it returns 503 with a degraded snapshot otherwise.
 
+Large zone world files are parsed in one pass with periodic event-loop yields,
+so wiki and builder map reads can continue servicing other requests. An independent
+worker observes the backend heartbeat and writes a warning directly to stderr if
+the main loop stops responding for five seconds. It attempts one short CPU sample
+per stall and logs only relative application code locations, then records recovery
+if the loop resumes. See [stall diagnostics](../docs/runbooks/incident-response.md#backend-event-loop-stall).
+
 On shutdown, the service stops accepting HTTP connections while closing existing
 WebSocket clients normally. Peers that do not acknowledge the close frame are
 terminated after five seconds, so upgraded connections cannot hold shutdown open

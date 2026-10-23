@@ -29,6 +29,9 @@ interface Tile extends PaintRegion {
 
 interface Job {
   id: number
+  version: number
+  attempts: number
+  urgent: boolean
   source: PaintedLayerSource
   scale: number
   region: PaintRegion
@@ -85,6 +88,7 @@ export class PaintedMapLayer {
   private readonly map: L.Map
   private readonly onProgress: (progress: PaintProgress | null) => void
   private readonly baseGroup = L.layerGroup()
+  private readonly rockGroup = L.layerGroup()
   private readonly detailGroup = L.layerGroup()
   private readonly slots: Slot[] = []
   private readonly queue: Job[] = []
@@ -98,24 +102,34 @@ export class PaintedMapLayer {
   private nextJobId = 0
   private destroyed = false
 
-  constructor(map: L.Map, onProgress: (progress: PaintProgress | null) => void) {
+  constructor(
+    map: L.Map,
+    onProgress: (progress: PaintProgress | null) => void,
+    private readonly onError: () => void = () => {},
+  ) {
     this.map = map
     this.onProgress = onProgress
+    if (!map.getPane('paintedRock')) map.createPane('paintedRock').style.zIndex = '405'
     if (!map.getPane('paintedBase')) map.createPane('paintedBase').style.zIndex = '410'
     if (!map.getPane('paintedDetail')) map.createPane('paintedDetail').style.zIndex = '420'
     this.baseGroup.addTo(map)
+    this.rockGroup.addTo(map)
     this.detailGroup.addTo(map)
   }
 
   /** Paint and show a layer, reusing tiles already painted for it. */
   show(source: PaintedLayerSource): void {
-    const version = ++this.version
+    this.hide()
+    const version = this.version
+    // Keep only the active grid, including the painter's prepared worker arrays.
+    if (this.cachedSource !== source) this.releaseTiles()
+    this.cachedSource = source
     this.source = source
     this.baseGroup.clearLayers()
     this.clearDetail()
     const key = layerKey(source)
 
-    if (!source.surface && !this.rock.has(key)) {
+    if (!source.surface && !this.rock.get(key)?.url) {
       const rock: Tile = {
         key: `${key}:rock`,
         x0: 0,
@@ -128,15 +142,18 @@ export class PaintedMapLayer {
       this.rock.set(key, rock)
       this.paint(source, ROCK_SCALE, rock).then(
         (url) => {
+          if (version !== this.version) return
           rock.url = url
           rock.pending = false
-          if (url && !this.destroyed && this.source === source) this.addBase(rock, source)
+          if (url && source === this.source && !this.destroyed) this.addBase(rock, source, true)
         },
-        () => this.rock.delete(key),
+        () => {
+          if (version === this.version) this.fail()
+        },
       )
     } else {
       const rock = this.rock.get(key)
-      if (rock?.url) this.addBase(rock, source)
+      if (rock?.url) this.addBase(rock, source, true)
     }
 
     let tiles = this.baseTiles.get(key)
@@ -145,9 +162,10 @@ export class PaintedMapLayer {
       this.baseTiles.set(key, tiles)
     }
     const total = tiles.length
-    let done = tiles.filter((t) => t.url).length
     const report = () => {
-      if (version === this.version) this.onProgress(done < total ? { done, total } : null)
+      if (version !== this.version || source !== this.source || this.destroyed) return
+      const done = tiles.filter((tile) => tile.url).length
+      this.onProgress(done < total ? { done, total } : null)
     }
     report()
     for (const tile of tiles) {
@@ -159,15 +177,14 @@ export class PaintedMapLayer {
       tile.pending = true
       this.paint(source, BASE_SCALE, tile).then(
         (url) => {
+          if (version !== this.version) return
           tile.url = url
           tile.pending = false
-          done++
-          if (url && !this.destroyed && this.source === source) this.addBase(tile, source)
+          if (url && source === this.source && !this.destroyed) this.addBase(tile, source)
           report()
         },
         () => {
-          tile.pending = false
-          report()
+          if (version === this.version) this.fail()
         },
       )
     }
@@ -177,8 +194,10 @@ export class PaintedMapLayer {
   /** Remove the painted view; painted tiles are kept for when it returns. */
   hide(): void {
     this.version++
+    this.stopWorkers()
     this.source = null
     this.baseGroup.clearLayers()
+    this.rockGroup.clearLayers()
     this.clearDetail()
     this.onProgress(null)
   }
@@ -186,6 +205,7 @@ export class PaintedMapLayer {
   /** Paint sharp tiles for the area in view; call after the map moves or zooms. */
   refresh(): void {
     const source = this.source
+    const version = this.version
     if (!source || this.map.getZoom() < DETAIL_ZOOM) {
       this.clearDetail()
       return
@@ -243,6 +263,7 @@ export class PaintedMapLayer {
       tile.pending = true
       this.paint(source, DETAIL_SCALE, tile, true, () => !this.wantedDetail.has(tile.key)).then(
         (url) => {
+          if (version !== this.version) return
           tile.pending = false
           if (!url) return
           tile.url = url
@@ -250,7 +271,7 @@ export class PaintedMapLayer {
           this.trimDetailCache()
         },
         () => {
-          tile.pending = false
+          if (version === this.version) this.fail()
         },
       )
     }
@@ -259,12 +280,36 @@ export class PaintedMapLayer {
   /** Stop all painting and release workers and images. */
   destroy(): void {
     this.destroyed = true
-    this.version++
-    for (const slot of this.slots) slot.worker.terminate()
+    this.hide()
+    this.baseGroup.remove()
+    this.rockGroup.remove()
+    this.detailGroup.remove()
+    this.releaseTiles()
+  }
+
+  private cachedSource: PaintedLayerSource | null = null
+
+  private stopWorkers() {
+    for (const slot of this.slots) {
+      slot.worker.terminate()
+      slot.job?.resolve(null)
+      slot.job = null
+    }
     for (const job of this.queue) job.resolve(null)
     this.queue.length = 0
-    this.baseGroup.remove()
-    this.detailGroup.remove()
+    this.slots.length = 0
+    for (const tile of this.allTiles()) tile.pending = false
+  }
+
+  private allTiles() {
+    return [
+      ...[...this.baseTiles.values()].flat(),
+      ...this.rock.values(),
+      ...this.detailTiles.values(),
+    ]
+  }
+
+  private releaseTiles() {
     const urls = [
       ...[...this.baseTiles.values()].flat(),
       ...this.rock.values(),
@@ -274,6 +319,12 @@ export class PaintedMapLayer {
     this.baseTiles.clear()
     this.rock.clear()
     this.detailTiles.clear()
+    this.cachedSource = null
+  }
+
+  private fail() {
+    this.hide()
+    this.onError()
   }
 
   private planBaseTiles(source: PaintedLayerSource): Tile[] {
@@ -313,11 +364,12 @@ export class PaintedMapLayer {
     )
   }
 
-  private addBase(tile: Tile, source: PaintedLayerSource) {
+  private addBase(tile: Tile, source: PaintedLayerSource, rock = false) {
     if (!tile.url) return
-    this.baseGroup.addLayer(
+    const group = rock ? this.rockGroup : this.baseGroup
+    group.addLayer(
       L.imageOverlay(tile.url, this.bounds(source, tile), {
-        pane: 'paintedBase',
+        pane: rock ? 'paintedRock' : 'paintedBase',
         className: 'painted-map-tile',
       }),
     )
@@ -360,9 +412,22 @@ export class PaintedMapLayer {
     if (this.destroyed) return Promise.resolve(null)
     if (!this.slots.length) this.startWorkers()
     return new Promise((resolve, reject) => {
-      const job: Job = { id: ++this.nextJobId, source, scale, region, stale, resolve, reject }
-      if (urgent) this.queue.unshift(job)
-      else this.queue.push(job)
+      const job: Job = {
+        id: ++this.nextJobId,
+        version: this.version,
+        attempts: 0,
+        urgent,
+        source,
+        scale,
+        region,
+        stale,
+        resolve,
+        reject,
+      }
+      // Insert after existing urgent jobs, preserving centre-first FIFO order.
+      const index = urgent ? this.queue.findIndex((queued) => !queued.urgent) : -1
+      if (index < 0) this.queue.push(job)
+      else this.queue.splice(index, 0, job)
       this.pump()
     })
   }
@@ -377,28 +442,30 @@ export class PaintedMapLayer {
       const slot: Slot = { worker, job: null, layers: new Set() }
       worker.onmessage = (event: MessageEvent<PaintResponse>) => {
         const job = slot.job
+        if (!job || event.data.id !== job.id) return
         slot.job = null
         this.pump()
-        if (!job) return
         const { pixels, width, height, error } = event.data
         if (error || !pixels || !width || !height) {
-          job.reject(new Error(error ?? 'Painting failed'))
+          if (job.version === this.version && job.attempts++ === 0) {
+            this.queue.push(job)
+            this.pump()
+          } else job.reject(new Error('Painting failed'))
           return
         }
         pixelsToUrl(new Uint8ClampedArray(pixels), width, height).then((url) => {
-          if (this.destroyed) {
+          if (this.destroyed || job.version !== this.version || job.stale?.()) {
             URL.revokeObjectURL(url)
             job.resolve(null)
-          } else {
-            job.resolve(url)
+            return
           }
+          job.resolve(url)
         }, job.reject)
       }
       worker.onerror = () => {
-        const job = slot.job
-        slot.job = null
-        job?.reject(new Error('Painting failed'))
-        this.pump()
+        // A failed worker must never receive another job. The toggle retries
+        // with a fresh pool while the original terrain remains available.
+        if (this.slots.includes(slot)) this.fail()
       }
       this.slots.push(slot)
     }
@@ -409,7 +476,7 @@ export class PaintedMapLayer {
       if (slot.job) continue
       let job = this.queue.shift()
       // Skip sharp tiles the viewer has already panned away from.
-      while (job?.stale?.()) {
+      while (job && (job.version !== this.version || job.stale?.())) {
         job.resolve(null)
         job = this.queue.shift()
       }

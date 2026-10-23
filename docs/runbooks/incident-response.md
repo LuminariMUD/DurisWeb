@@ -86,6 +86,41 @@ independently before inventory; a watchdog pause alone is insufficient.
    authenticated readiness with the same Node/ioredis operations used by the
    production preflight, not only a bare CLI ping.
 
+## Backend Event-Loop Stall
+
+**Symptoms:** HTTP requests (including `/health` and `/api/ping`) stop answering,
+the process remains alive, and the service manager eventually has to force-kill it.
+A final authentication log entry identifies the last completed operation, not
+necessarily the request that blocked the loop.
+
+The backend starts an independent heartbeat worker. A five-second gap produces
+an `event_loop_stall` JSON record on stderr, followed by one `event_loop_profile`
+record with up to five sampled application code locations. Those writes bypass
+the main thread's logging queue, so they can reach the service journal even if
+the main thread never recovers. Sampling uses an in-process inspector session;
+it does not open a network inspector port. A stalled native call may not provide
+a sample before the 1.5-second sampling deadline; `event_loop_profile_unavailable`
+records this limit. A successful sample can also have no application frames.
+No arguments, request values, credentials, environment, heap contents or full
+filesystem paths are included. Compiled locations refer to the deployed JavaScript;
+use its matching source maps when investigating.
+
+Correlate those records with watchdog failures and the exact deployed artifacts.
+`event_loop_recovered` means the heartbeat resumed; `observedBlockedMs` is a
+sampled lower bound on the longest observed gap. Each stall emits only one warning
+and one sampling result. A plain dependency timeout that leaves the loop running
+does not trigger these diagnostics. If the diagnostic worker fails, the backend
+logs `event_loop_watchdog_failed`; application startup remains available if the
+worker cannot be started.
+
+Wiki zone links load room detail, map data and spawns concurrently. Room parsing
+must split each world file once and advance a line cursor, yielding between
+batches. Re-splitting the remaining file per room causes quadratic work on large
+world maps and can block health checks for minutes. Reproduce suspicious zone
+reads in a separate, bounded process; do not stress the live backend to test its
+watchdog. Capture the diagnostic records before a restart and follow the
+preservation gate above for any service stop.
+
 ## Privileged MUD Bridge Is Unknown or Blocked
 
 **Symptoms:** hooks with MUD owners show unknown/inactive; transport reports a

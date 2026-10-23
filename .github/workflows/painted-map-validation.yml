@@ -1,0 +1,75 @@
+name: Painted Map Validation
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/src/components/wiki/**'
+      - 'frontend/src/utils/paintedMap/**'
+      - 'frontend/src/views/wiki/WikiMapView.vue'
+      - 'backend/src/routes/wiki.ts'
+      - 'backend/src/services/wikiService.ts'
+      - 'backend/src/services/__tests__/wikiMapSectors.test.ts'
+      - 'backend/src/routes/__tests__/wikiMapAccess.test.ts'
+      - '.github/workflows/painted-map-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.10.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm --dir frontend install --frozen-lockfile
+      - name: Run painted map and existing map regression tests
+        run: >-
+          pnpm --dir frontend test:unit --run
+          src/components/wiki/__tests__/LeafletMap.spec.ts
+          src/components/wiki/__tests__/paintedMapLayer.spec.ts
+          src/utils/paintedMap/__tests__/painter.spec.ts
+          src/utils/paintedMap/__tests__/worldFeatures.spec.ts
+          src/views/__tests__/SurfaceMapView.spec.ts
+      - name: Production build (including module worker)
+        env:
+          VITE_BASE_URL: /
+          VITE_API_URL: https://api.example.test
+          VITE_WS_URL: wss://ws.example.test/ws
+          VITE_STATIC_URL: https://static.example.test
+          FRONTEND_DEV_HOST: 127.0.0.1
+          FRONTEND_DEV_PORT: '5173'
+          FRONTEND_PREVIEW_HOST: 127.0.0.1
+          FRONTEND_PREVIEW_PORT: '4173'
+          FRONTEND_ALLOWED_HOSTS: localhost
+        run: pnpm --dir frontend build
+
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.10.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
+      - run: pnpm --dir backend install --frozen-lockfile
+      - name: Test read-only map sector and image services
+        run: >-
+          pnpm --dir backend test --runInBand
+          src/services/__tests__/wikiMapSectors.test.ts
+          src/services/__tests__/wikiMapImage.test.ts
+          src/routes/__tests__/wikiMapAccess.test.ts
+      - name: Production build
+        run: pnpm --dir backend build

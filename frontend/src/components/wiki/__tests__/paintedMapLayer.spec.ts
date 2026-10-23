@@ -1,0 +1,155 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises } from '@vue/test-utils'
+import L from 'leaflet'
+import { PaintedMapLayer, type PaintedLayerSource } from '../paintedMapLayer'
+import type { PaintRequest, PaintResponse } from '@/utils/paintedMap/painter.worker'
+
+class TestWorker {
+  static instances: TestWorker[] = []
+  onmessage: ((event: MessageEvent<PaintResponse>) => void) | null = null
+  onerror: (() => void) | null = null
+  requests: PaintRequest[] = []
+  terminate = vi.fn()
+  constructor() {
+    TestWorker.instances.push(this)
+  }
+  postMessage(request: PaintRequest) {
+    this.requests.push(request)
+  }
+  reply(error?: string) {
+    const request = this.requests.at(-1)!
+    this.onmessage?.({
+      data: {
+        id: request.id,
+        width: 1,
+        height: 1,
+        pixels: new ArrayBuffer(4),
+        error,
+      },
+    } as MessageEvent<PaintResponse>)
+  }
+}
+
+function source(layer = 0): PaintedLayerSource {
+  return {
+    layer,
+    minX: 0,
+    minY: 0,
+    width: 100,
+    height: 100,
+    surface: layer === 0,
+    sectors: new Uint8Array(10000),
+    continents: null,
+    ports: [],
+  }
+}
+let map: L.Map
+let painted: PaintedMapLayer
+let failure: ReturnType<typeof vi.fn<() => void>>
+let urlId = 0
+beforeEach(() => {
+  TestWorker.instances = []
+  vi.stubGlobal('Worker', TestWorker)
+  vi.stubGlobal('ImageData', class {})
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+    putImageData() {},
+  } as unknown as CanvasRenderingContext2D)
+  vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) =>
+    callback(new Blob(['tile'])),
+  )
+  vi.stubGlobal(
+    'URL',
+    class extends URL {
+      static createObjectURL = vi.fn(() => `blob:tile-${++urlId}`)
+      static revokeObjectURL = vi.fn()
+    },
+  )
+  const element = document.createElement('div')
+  document.body.append(element)
+  map = L.map(element, { crs: L.CRS.Simple, zoomAnimation: false }).setView([-50, 50], 0)
+  failure = vi.fn()
+  painted = new PaintedMapLayer(map, vi.fn(), failure)
+})
+afterEach(() => {
+  painted.destroy()
+  map.remove()
+  document.body.innerHTML = ''
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
+
+describe('painted map worker lifecycle', () => {
+  it('keeps late underground rock below cave tiles', async () => {
+    painted.show(source(-1))
+    const [rock, cave] = TestWorker.instances
+    cave!.reply()
+    await flushPromises()
+    rock!.reply()
+    await flushPromises()
+    expect(map.getPane('paintedBase')!.querySelectorAll('img')).toHaveLength(1)
+    expect(map.getPane('paintedRock')!.querySelectorAll('img')).toHaveLength(1)
+    expect(Number(map.getPane('paintedRock')!.style.zIndex)).toBeLessThan(
+      Number(map.getPane('paintedBase')!.style.zIndex),
+    )
+  })
+
+  it('cancels all old-layer jobs and drops prepared grids on every switch', async () => {
+    for (const layer of [0, -1, -2, 0]) {
+      const oldWorkers = [...TestWorker.instances]
+      painted.show(source(layer))
+      for (const worker of oldWorkers) expect(worker.terminate).toHaveBeenCalledOnce()
+      const current = TestWorker.instances.slice(oldWorkers.length)
+      expect(current.length).toBeGreaterThan(0)
+      for (const worker of current)
+        for (const request of worker.requests) expect(request.layerKey).toBe(`layer:${layer}`)
+      await flushPromises()
+    }
+  })
+
+  it('terminates a failed pool, reports fallback, and retries with fresh workers', () => {
+    painted.show(source())
+    const old = [...TestWorker.instances]
+    old[0]!.onerror!()
+    expect(failure).toHaveBeenCalledOnce()
+    for (const worker of old) expect(worker.terminate).toHaveBeenCalledOnce()
+    painted.show(source())
+    expect(TestWorker.instances.length).toBeGreaterThan(old.length)
+  })
+
+  it('retries one tile error, then exposes permanent failure', async () => {
+    const one = { ...source(), width: 2, height: 2, sectors: new Uint8Array(4) }
+    painted.show(one)
+    const worker = TestWorker.instances[0]!
+    worker.reply('failed')
+    expect(worker.requests).toHaveLength(2)
+    expect(failure).not.toHaveBeenCalled()
+    worker.reply('failed again')
+    await flushPromises()
+    expect(failure).toHaveBeenCalledOnce()
+  })
+
+  it('recovers a transient error and revokes generated images at teardown', async () => {
+    painted.show({ ...source(), width: 2, height: 2, sectors: new Uint8Array(4) })
+    const worker = TestWorker.instances[0]!
+    worker.reply('failed')
+    worker.reply()
+    await flushPromises()
+    expect(failure).not.toHaveBeenCalled()
+    expect(map.getPane('paintedBase')!.querySelectorAll('img')).toHaveLength(1)
+    painted.destroy()
+    expect(URL.revokeObjectURL).toHaveBeenCalled()
+  })
+
+  it('queues viewport detail from centre outward while all workers are busy', () => {
+    painted.show({ ...source(), width: 400, height: 400, sectors: new Uint8Array(160000) })
+    map.setView([-200, 200], 4, { animate: false })
+    vi.spyOn(map, 'getBounds').mockReturnValue(L.latLngBounds([-230, 170], [-170, 230]))
+    painted.refresh()
+    const worker = TestWorker.instances[0]!
+    worker.reply()
+    expect(worker.requests.at(-1)!.scale).toBe(32)
+    const { x0, y0 } = worker.requests.at(-1)!.region
+    expect(Math.abs(x0 + 5 - 200)).toBeLessThanOrEqual(5)
+    expect(Math.abs(y0 + 5 - 200)).toBeLessThanOrEqual(5)
+  })
+})
