@@ -225,6 +225,10 @@ router.get(
       res.set('Cache-Control', 'no-store');
       res.json(grid);
     } catch (error) {
+      if (error instanceof wikiService.MapSectorUnavailableError) {
+        res.status(503).json({ error: 'Map sectors are temporarily unavailable' });
+        return;
+      }
       if (getErrorMessage(error) === 'No map rooms on this layer') {
         res.status(404).json({ error: 'This map layer has no rooms' });
         return;

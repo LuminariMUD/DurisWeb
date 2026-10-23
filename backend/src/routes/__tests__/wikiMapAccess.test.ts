@@ -5,11 +5,13 @@ import request from 'supertest';
 const getWikiAccessLevel = jest.fn<() => Promise<string>>();
 const generateMapImage = jest.fn(async () => Buffer.from('png'));
 const getMapSectorGrid = jest.fn(async () => ({ layer: 0, sectors: 'AA==' }));
+class MapSectorUnavailableError extends Error {}
 let authenticated = false;
 jest.unstable_mockModule('../../services/wikiService.js', () => ({
   getWikiAccessLevel,
   generateMapImage,
   getMapSectorGrid,
+  MapSectorUnavailableError,
 }));
 jest.unstable_mockModule('../../middleware/auth.js', () => ({
   optionalAuth: (req: Request, _res: Response, next: NextFunction) => {
@@ -31,6 +33,13 @@ describe('wiki map HTTP cache and access transitions', () => {
     jest.clearAllMocks();
     authenticated = false;
     getWikiAccessLevel.mockResolvedValue('public');
+  });
+  it('returns a stable unavailable response when sector I/O is bounded out', async () => {
+    getMapSectorGrid.mockRejectedValueOnce(new MapSectorUnavailableError());
+    const response = await request(app).get('/api/wiki/map/sectors?layer=0');
+    expect(response.status).toBe(503);
+    expect(response.body).toEqual({ error: 'Map sectors are temporarily unavailable' });
+    expect(response.headers['cache-control']).toBe('no-store');
   });
   it.each(['image', 'sectors'])(
     'never caches /map/%s across visibility or login changes',

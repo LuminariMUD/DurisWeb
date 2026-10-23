@@ -37,15 +37,15 @@ export const SURFACE_PORTS: readonly Port[] = [
 ].map(({ name, vnum }) => ({ name, ...surfaceRoomCoordinates(vnum) }))
 
 /**
- * Continent seed rooms from continents[] in src/world/map.c, in id order
- * (also seeded into wiki_continents).
+ * Decorative tint seeds from continents[] in src/world/map.c, using the
+ * canonical constants in src/world/map.h, independently of wiki_continents IDs.
  */
 export const CONTINENT_SEEDS: readonly { id: number; vnum: number }[] = [
   { id: 1, vnum: 546926 }, // Good Continent
   { id: 2, vnum: 607066 }, // Evil Continent
-  { id: 3, vnum: 521504 }, // Ice Crag
-  { id: 4, vnum: 608451 }, // Khomani-Khan
-  { id: 5, vnum: 567408 }, // Undead Continent
+  { id: 3, vnum: 567408 }, // Undead Continent
+  { id: 4, vnum: 521504 }, // Ice Crag
+  { id: 5, vnum: 608451 }, // Khomani-Khan
   { id: 6, vnum: 644892 }, // Jade Empire
   { id: 7, vnum: 643968 }, // Island of Dragons
   { id: 8, vnum: 628685 }, // Ceothia

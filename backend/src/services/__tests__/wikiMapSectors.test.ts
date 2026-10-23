@@ -6,7 +6,10 @@ const getCache = jest.fn(async (key: string) => cache.get(key));
 const setCache = jest.fn(async (key: string, value: unknown, _ttlSeconds?: number) => {
   cache.set(key, value);
 });
-jest.unstable_mockModule('../../db/connection.js', () => ({ pool: { query } }));
+const release = jest.fn();
+const destroy = jest.fn();
+const getConnection = jest.fn(async () => ({ query, release, destroy }));
+jest.unstable_mockModule('../../db/connection.js', () => ({ pool: { query, getConnection } }));
 jest.unstable_mockModule('../../db/redis.js', () => ({
   getCache,
   setCache,
@@ -29,6 +32,7 @@ describe('painted map sector grid', () => {
   beforeEach(() => {
     cache.clear();
     jest.clearAllMocks();
+    query.mockReset();
   });
 
   it.each([0, -1])('packs every room of layer %i into a grid', async (layer) => {
@@ -48,8 +52,7 @@ describe('painted map sector grid', () => {
     const cells = [...Buffer.from(grid.sectors, 'base64')];
     const N = NO_ROOM_SECTOR;
     expect(cells).toEqual([12, N, N, 5, N, 37, N, N, N, N, N, 0]);
-    expect(query.mock.calls[1]?.[1]).toEqual([layer]);
-    expect(String(query.mock.calls[1]?.[0])).toContain('WHERE z_coord = ?');
+    expect(query.mock.calls[1]?.[0]).toMatchObject({ values: [layer], timeout: 2500 });
 
     // The second request is served from the cache.
     expect(await getMapSectorGrid(layer)).toEqual(grid);
@@ -61,12 +64,102 @@ describe('painted map sector grid', () => {
       .mockResolvedValueOnce([[{ minX: null, maxX: null, minY: null, maxY: null }], []])
       .mockResolvedValueOnce([[], []]);
     await expect(getMapSectorGrid(-2)).rejects.toThrow('No map rooms on this layer');
-    expect(setCache).not.toHaveBeenCalledWith('wiki:mapSectors:v1:-2', expect.anything(), 3600);
+    expect(setCache).not.toHaveBeenCalledWith('wiki:mapSectors:v2:-2', expect.anything(), 3600);
   });
 
   it('rejects grids large enough to exhaust memory', async () => {
     query.mockResolvedValueOnce([[{ minX: 0, maxX: 4095, minY: 0, maxY: 4095 }], []]);
     await expect(getMapSectorGrid(5)).rejects.toThrow('Invalid map bounds');
     expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it('coalesces fifty simultaneous misses into one bounded SQL read', async () => {
+    query
+      .mockResolvedValueOnce([[{ minX: 0, maxX: 1, minY: 0, maxY: 1 }], []])
+      .mockResolvedValueOnce([[{ x_coord: 0, y_coord: 0, sector_type: 3 }], []]);
+    const results = await Promise.all(Array.from({ length: 50 }, () => getMapSectorGrid(6)));
+    expect(new Set(results).size).toBe(1);
+    expect(getConnection).toHaveBeenCalledTimes(1);
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it('cools down failed SQL and never leaks a driver error', async () => {
+    query.mockRejectedValueOnce(new Error('private database details'));
+    await expect(getMapSectorGrid(7)).rejects.toThrow('Map sectors are temporarily unavailable');
+    await expect(getMapSectorGrid(7)).rejects.toThrow('Map sectors are temporarily unavailable');
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('bounds hung cache reads and refuses additional layers until I/O settles', async () => {
+    jest.useFakeTimers();
+    const finish: Array<(value: undefined) => void> = [];
+    getCache
+      .mockImplementationOnce(() => new Promise((resolve) => finish.push(resolve)))
+      .mockImplementationOnce(() => new Promise((resolve) => finish.push(resolve)));
+    const first = expect(getMapSectorGrid(8)).rejects.toThrow(
+      'Map sectors are temporarily unavailable',
+    );
+    const second = expect(getMapSectorGrid(9)).rejects.toThrow(
+      'Map sectors are temporarily unavailable',
+    );
+    await expect(getMapSectorGrid(10)).rejects.toThrow('Map sectors are temporarily unavailable');
+    await jest.advanceTimersByTimeAsync(4001);
+    await Promise.all([first, second]);
+    await expect(getMapSectorGrid(8)).rejects.toThrow('Map sectors are temporarily unavailable');
+    expect(getCache).toHaveBeenCalledTimes(2);
+    expect(getConnection).not.toHaveBeenCalled();
+    for (const resolve of finish) resolve(undefined);
+    await Promise.resolve();
+    jest.useRealTimers();
+  });
+
+  it('releases a connection that arrives after its checkout deadline', async () => {
+    jest.useFakeTimers();
+    let finish!: (connection: {
+      query: typeof query;
+      release: typeof release;
+      destroy: typeof destroy;
+    }) => void;
+    getConnection.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const response = expect(getMapSectorGrid(11)).rejects.toThrow(
+      'Map sectors are temporarily unavailable',
+    );
+    await jest.advanceTimersByTimeAsync(4001);
+    await response;
+    finish({ query, release, destroy });
+    await jest.advanceTimersByTimeAsync(0);
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(query).not.toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it('destroys timed-out SQL without starting duplicate work', async () => {
+    jest.useFakeTimers();
+    let finish!: (value: unknown) => void;
+    query.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const response = expect(getMapSectorGrid(12)).rejects.toThrow(
+      'Map sectors are temporarily unavailable',
+    );
+    await jest.advanceTimersByTimeAsync(4001);
+    await response;
+    await expect(getMapSectorGrid(12)).rejects.toThrow('Map sectors are temporarily unavailable');
+    expect(destroy).toHaveBeenCalledTimes(1);
+    expect(getConnection).toHaveBeenCalledTimes(1);
+    finish([[{ minX: 0, maxX: 1, minY: 0, maxY: 1 }], []]);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(query).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
   });
 });

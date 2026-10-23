@@ -79,6 +79,46 @@ afterEach(() => {
 })
 
 describe('painted map worker lifecycle', () => {
+  it('caps retained and queued detail through large-view pans', async () => {
+    painted.show({ ...source(), width: 400, height: 400, sectors: new Uint8Array(160000) })
+    map.setView([-200, 200], 3, { animate: false })
+    const bounds = vi.spyOn(map, 'getBounds')
+    const completed = new Set<number>()
+    for (let pan = 0; pan < 5; pan++) {
+      bounds.mockReturnValue(L.latLngBounds([-350, pan * 30], [-50, 400 + pan * 30]))
+      painted.refresh()
+      for (let step = 0; step < 150; step++) {
+        let busy = false
+        for (const worker of TestWorker.instances) {
+          const id = worker.requests.at(-1)?.id
+          if (id === undefined || completed.has(id)) continue
+          completed.add(id)
+          worker.reply()
+          busy = true
+        }
+        await flushPromises()
+        if (!busy) break
+      }
+      expect(map.getPane('paintedDetail')!.querySelectorAll('img').length).toBeLessThanOrEqual(64)
+      expect(map.getPane('paintedDetail')!.querySelectorAll('img').length).toBeGreaterThan(0)
+    }
+    expect(TestWorker.instances.length).toBeLessThanOrEqual(2)
+    expect(URL.revokeObjectURL).toHaveBeenCalled()
+  })
+
+  it('discards all old tiles when a fresh source replaces the same layer', async () => {
+    const initial = { ...source(), width: 2, height: 2, sectors: new Uint8Array(4) }
+    painted.show(initial)
+    TestWorker.instances[0]!.reply()
+    await flushPromises()
+    painted.show({ ...initial, sectors: new Uint8Array(4).fill(3) })
+    expect(map.getPane('paintedBase')!.querySelectorAll('img')).toHaveLength(0)
+    expect(URL.revokeObjectURL).toHaveBeenCalled()
+    expect(TestWorker.instances.at(-2)!.requests[0]!.layer?.sectors).toEqual(
+      new Uint8Array(4).fill(3).buffer,
+    )
+  })
+
   it('keeps late underground rock below cave tiles', async () => {
     painted.show(source(-1))
     const [rock, cave] = TestWorker.instances
