@@ -351,6 +351,35 @@ geometry and all consumers, including terrain-only previews and the ship radar.
 Use a coordinated image/cache revision when a palette release must bypass older
 API, static-image, or persistent radar caches.
 
+#### Painted view and docks
+
+The main map page starts in a painted view: the browser paints the terrain from
+the sector grid served by `/api/wiki/map/sectors`, in web workers, with
+[`painter.ts`](../frontend/src/utils/paintedMap/painter.ts). The original
+generated image stays underneath, so it shows while painting runs and whenever
+**Painted map** is off; browsers without workers keep the original only.
+Painting is deterministic and tiled: whole layers at 8 pixels per room, and from
+zoom 3 sharper 32-pixel tiles for just the area in view, centre first. Tiles
+overlap by one room so no seams show.
+
+Layer changes cancel old work and recycle workers to release prepared grids.
+Rock has a separate lower pane, independent of worker completion order. A tile
+failure retries once; a repeated tile failure or worker crash returns to the
+original map with a visible error. Toggle the painted view to retry with fresh
+workers. Access-gated map APIs use `no-store`; the server-side cache still applies.
+
+The painting keeps the sector meanings of the generated image and adds shaded
+relief, coasts with surf, tree canopies, roads drawn from one-room lines of city
+rooms, reefs from shallows at sea, and bedrock with lit caverns below ground.
+Continents are estimated from the seed rooms in the MUD's `src/world/map.c`
+using neighbouring land connectivity, colouring Evil violet and Undead with
+sere land, grave-glow and red lava. This visual approximation is not the MUD's
+authoritative continent assignment, which follows actual room exits and zones. The ten cargo
+ports from `src/ships/ship_variables.c` get a pier with a moored ship and, with
+**Docks** on, a labelled anchor that adds no tab stop. Keep
+[`worldFeatures.ts`](../frontend/src/utils/paintedMap/worldFeatures.ts) in step
+with those MUD files.
+
 Keep controls rectangular and on ink, markers vermilion with bone borders, and
 help outside the terrain on an ink footer. The terrain key is a compact native
 disclosure at every viewport, with a bounded scrollable body. Keep map controls
