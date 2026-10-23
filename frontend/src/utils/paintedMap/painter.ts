@@ -292,8 +292,7 @@ function prepare(
 
   // Thin lines of city rooms are roads; only 2x2 clumps are towns.
   const isRoad = new Uint8Array(n)
-  const town = (x: number, y: number) =>
-    x >= 0 && y >= 0 && x < w && y < h && grid[y * w + x] === 1
+  const town = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && grid[y * w + x] === 1
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++) {
       const s = grid[y * w + x]

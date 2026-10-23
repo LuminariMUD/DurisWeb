@@ -126,11 +126,14 @@ export class PaintedMapLayer {
         pending: true,
       }
       this.rock.set(key, rock)
-      this.paint(source, ROCK_SCALE, rock).then((url) => {
-        rock.url = url
-        rock.pending = false
-        if (url && !this.destroyed && this.source === source) this.addBase(rock, source)
-      }, () => this.rock.delete(key))
+      this.paint(source, ROCK_SCALE, rock).then(
+        (url) => {
+          rock.url = url
+          rock.pending = false
+          if (url && !this.destroyed && this.source === source) this.addBase(rock, source)
+        },
+        () => this.rock.delete(key),
+      )
     } else {
       const rock = this.rock.get(key)
       if (rock?.url) this.addBase(rock, source)
