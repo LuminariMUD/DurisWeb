@@ -4,8 +4,11 @@ import L from 'leaflet'
 import LeafletMap from '../LeafletMap.vue'
 import { wikiApi } from '@/services/api'
 import type { WikiZoneEntrance } from '@/types'
+import { PaintedMapLayer } from '../paintedMapLayer'
 
-vi.mock('@/services/api', () => ({ wikiApi: { getZoneEntrances: vi.fn() } }))
+vi.mock('@/services/api', () => ({
+  wikiApi: { getZoneEntrances: vi.fn(), getMapSectors: vi.fn() },
+}))
 const bounds = { minX: 0, maxX: 399, minY: 0, maxY: 399 }
 function entrance(id = 1, overrides: Partial<WikiZoneEntrance> = {}): WikiZoneEntrance {
   return {
@@ -350,6 +353,37 @@ describe('wiki entrance visibility and navigation', () => {
 })
 
 describe('port anchors', () => {
+  it('refreshes changed sectors while mounted and rejects oversized base64 before decoding', async () => {
+    vi.stubGlobal('Worker', class {})
+    const show = vi.spyOn(PaintedMapLayer.prototype, 'show').mockImplementation(() => {})
+    const data = {
+      layer: 0,
+      minX: 0,
+      minY: 0,
+      width: 2,
+      height: 2,
+      sectors: btoa('\x03\x03\x03\x03'),
+    }
+    vi.mocked(wikiApi.getMapSectors).mockResolvedValue(data)
+    await render({ initialPainted: true })
+    const firstSource = show.mock.calls[0]![0]
+    expect([...firstSource.sectors]).toEqual([3, 3, 3, 3])
+    vi.mocked(wikiApi.getMapSectors).mockResolvedValue({
+      ...data,
+      sectors: btoa('\x04\x04\x04\x04'),
+    })
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+    await flushPromises()
+    expect(show.mock.calls.at(-1)![0]).not.toBe(firstSource)
+    expect([...show.mock.calls.at(-1)![0].sectors]).toEqual([4, 4, 4, 4])
+    const decode = vi.spyOn(window, 'atob')
+    vi.mocked(wikiApi.getMapSectors).mockResolvedValue({ ...data, sectors: 'A'.repeat(10000) })
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+    await flushPromises()
+    expect(decode).not.toHaveBeenCalled()
+    expect(wrapper!.text()).toContain('Showing the original map')
+  })
+
   it('labels the cargo ports on the surface only while docks are shown', async () => {
     await render({ initialShowDocks: true, hideControls: true })
     const ports = document.querySelectorAll('.port-name')

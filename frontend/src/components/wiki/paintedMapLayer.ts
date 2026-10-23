@@ -54,7 +54,7 @@ const DETAIL_TILE = 10
 /** Leaflet zoom from which detail tiles are painted (8 screen pixels per room). */
 const DETAIL_ZOOM = 3
 /** Detail tiles kept for panning back before the oldest are released. */
-const DETAIL_CACHE_LIMIT = 300
+const DETAIL_CACHE_LIMIT = 64
 /** Cave layers get a low-detail painting of the surrounding rock underneath. */
 const ROCK_SCALE = 2
 
@@ -218,12 +218,10 @@ export class PaintedMapLayer {
     const gy0 = Math.max(0, Math.floor((-view.getNorth() - source.minY) / ky) - 2)
     const gy1 = Math.min(source.height, Math.ceil((-view.getSouth() - source.minY) / ky) + 2)
     const key = layerKey(source)
-    const wanted = new Set<string>()
     const tiles: Tile[] = []
     for (let y0 = Math.floor(gy0 / DETAIL_TILE) * DETAIL_TILE; y0 < gy1; y0 += DETAIL_TILE)
       for (let x0 = Math.floor(gx0 / DETAIL_TILE) * DETAIL_TILE; x0 < gx1; x0 += DETAIL_TILE) {
         const tileKey = `${key}:${x0}:${y0}`
-        wanted.add(tileKey)
         let tile = this.detailTiles.get(tileKey)
         if (!tile) {
           // Overlap the next tile by one room so no hairline gaps show.
@@ -237,24 +235,34 @@ export class PaintedMapLayer {
             pending: false,
           }
           if (!source.surface && !this.hasRooms(source, tile)) continue
-          this.detailTiles.set(tileKey, tile)
         }
         tiles.push(tile)
       }
-    this.wantedDetail = wanted
-    for (const [tileKey, overlay] of this.shownDetail)
-      if (!wanted.has(tileKey)) {
-        this.detailGroup.removeLayer(overlay)
-        this.shownDetail.delete(tileKey)
-      }
-
     // Paint from the centre of the view outwards.
     const cx = (gx0 + gx1) / 2
     const cy = (gy0 + gy1) / 2
     const half = DETAIL_TILE / 2
     const distance = (t: Tile) => Math.hypot(t.x0 + half - cx, t.y0 + half - cy)
     tiles.sort((a, b) => distance(a) - distance(b))
-    for (const tile of tiles) {
+    // At most ~31 MiB decoded at 32 px/room, including queued/in-flight tiles.
+    // The overview remains visible outside this centre-first detail budget.
+    const visible = tiles.slice(0, DETAIL_CACHE_LIMIT)
+    this.wantedDetail = new Set(visible.map((tile) => tile.key))
+    for (const [tileKey, overlay] of this.shownDetail)
+      if (!this.wantedDetail.has(tileKey)) {
+        this.detailGroup.removeLayer(overlay)
+        this.shownDetail.delete(tileKey)
+      }
+    // Drop stale queued work immediately instead of letting old pans build up.
+    for (let i = this.queue.length - 1; i >= 0; i--) {
+      const job = this.queue[i]!
+      if (job.stale?.()) {
+        this.queue.splice(i, 1)
+        job.resolve(null)
+      }
+    }
+    for (const tile of visible) {
+      this.detailTiles.set(tile.key, tile)
       if (tile.url) {
         this.showDetail(tile, source)
         continue
@@ -275,6 +283,7 @@ export class PaintedMapLayer {
         },
       )
     }
+    this.trimDetailCache()
   }
 
   /** Stop all painting and release workers and images. */
@@ -433,7 +442,7 @@ export class PaintedMapLayer {
   }
 
   private startWorkers() {
-    const count = Math.max(2, Math.min(6, (navigator.hardwareConcurrency || 4) - 1))
+    const count = Math.max(1, Math.min(2, (navigator.hardwareConcurrency || 4) - 1))
     for (let i = 0; i < count; i++) {
       const worker = new Worker(
         new URL('../../utils/paintedMap/painter.worker.ts', import.meta.url),

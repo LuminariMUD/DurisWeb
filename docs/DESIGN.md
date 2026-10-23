@@ -368,6 +368,16 @@ failure retries once; a repeated tile failure or worker crash returns to the
 original map with a visible error. Toggle the painted view to retry with fresh
 workers. Access-gated map APIs use `no-store`; the server-side cache still applies.
 
+The retained detail budget is 64 tiles (about 31 MiB decoded at 32 pixels per room),
+centre first, with overview terrain outside that budget. Stale queued detail is
+dropped after pans and the worker pool has at most two workers. Showing a layer
+always refetches its sectors; an hourly refresh also replaces the whole source,
+invalidating old terrain tiles and prepared worker grids together. Payload size
+is checked before base64 decoding. Sector reads coalesce by layer, admit at most
+two unfinished reads, have a four-second response deadline and ten-second failure
+cooldown. A timed-out read remains shared until its actual I/O settles; SQL has
+client and engine statement limits and aborted connections are destroyed.
+
 The painting keeps the sector meanings of the generated image and adds shaded
 relief, coasts with surf, tree canopies, roads drawn from one-room lines of city
 rooms, reefs from shallows at sea, and bedrock with lit caverns below ground.

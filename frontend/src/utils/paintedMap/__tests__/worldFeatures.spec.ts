@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NO_ROOM } from '../painter'
+import { NO_ROOM, UNDEAD_CONTINENT } from '../painter'
 import {
   CONTINENT_SEEDS,
   SURFACE_PORTS,
@@ -8,6 +8,12 @@ import {
 } from '../worldFeatures'
 
 describe('painted map world features', () => {
+  it('uses canonical MUD tint IDs independently of database continent rows', () => {
+    expect(CONTINENT_SEEDS.find((seed) => seed.id === 3)?.vnum).toBe(567408)
+    expect(CONTINENT_SEEDS.find((seed) => seed.id === 4)?.vnum).toBe(521504)
+    expect(CONTINENT_SEEDS.find((seed) => seed.id === 5)?.vnum).toBe(608451)
+    expect(UNDEAD_CONTINENT).toBe(3)
+  })
   it('places surface rooms on the 400-room-wide map grid', () => {
     expect(surfaceRoomCoordinates(500000)).toEqual({ x: 0, y: 0 })
     expect(surfaceRoomCoordinates(500401)).toEqual({ x: 1, y: 1 })

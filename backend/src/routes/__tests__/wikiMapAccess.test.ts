@@ -5,11 +5,13 @@ import request from 'supertest';
 const getWikiAccessLevel = jest.fn<() => Promise<string>>();
 const generateMapImage = jest.fn(async () => Buffer.from('png'));
 const getMapSectorGrid = jest.fn(async () => ({ layer: 0, sectors: 'AA==' }));
+class MapSectorUnavailableError extends Error {}
 let authenticated = false;
 jest.unstable_mockModule('../../services/wikiService.js', () => ({
   getWikiAccessLevel,
   generateMapImage,
   getMapSectorGrid,
+  MapSectorUnavailableError,
 }));
 jest.unstable_mockModule('../../middleware/auth.js', () => ({
   optionalAuth: (req: Request, _res: Response, next: NextFunction) => {

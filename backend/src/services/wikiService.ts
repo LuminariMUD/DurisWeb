@@ -2859,6 +2859,18 @@ export interface MapSectorGrid {
 /** Marks a grid cell that has no room. */
 export const NO_ROOM_SECTOR = 255;
 
+export class MapSectorUnavailableError extends Error {
+  constructor() {
+    super('Map sectors are temporarily unavailable');
+  }
+}
+
+interface SectorRead {
+  result: Promise<MapSectorGrid>;
+  expiresAt?: bigint;
+}
+const sectorReads = new Map<number, SectorRead>();
+
 /**
  * Get the sector type of every room on a map layer as a compact grid.
  *
@@ -2867,13 +2879,123 @@ export const NO_ROOM_SECTOR = 255;
  * zoom level. Sectors outside 0-254 are stored as "no room".
  */
 export async function getMapSectorGrid(layer: number = 0): Promise<MapSectorGrid> {
-  const cacheKey = `wiki:mapSectors:v1:${layer}`;
+  if (!Number.isSafeInteger(layer) || layer < -16 || layer > 16) {
+    throw new MapSectorUnavailableError();
+  }
+  const now = process.hrtime.bigint();
+  let entry = sectorReads.get(layer);
+  if (!entry || (entry.expiresAt !== undefined && now >= entry.expiresAt)) {
+    // Bound total unfinished I/O even when Redis or pool checkout never settles.
+    if ([...sectorReads.values()].filter((read) => read.expiresAt === undefined).length >= 2) {
+      throw new MapSectorUnavailableError();
+    }
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const read = readMapSectorGrid(layer, controller.signal).catch((error: unknown) => {
+      if (
+        error instanceof Error &&
+        ['No map rooms on this layer', 'Invalid map bounds'].includes(error.message)
+      )
+        throw error;
+      throw new MapSectorUnavailableError();
+    });
+    const current: SectorRead = {
+      result: Promise.race([
+        read,
+        new Promise<MapSectorGrid>((_resolve, reject) => {
+          timer = setTimeout(() => {
+            controller.abort();
+            reject(new MapSectorUnavailableError());
+          }, 4000);
+          timer.unref();
+        }),
+      ]),
+    };
+    sectorReads.set(layer, current);
+    // Keep timed-out work shared until the actual I/O settles, then cool down.
+    void read.then(
+      () => {
+        clearTimeout(timer);
+        current.expiresAt = process.hrtime.bigint() + 60_000_000_000n;
+      },
+      () => {
+        clearTimeout(timer);
+        current.expiresAt = process.hrtime.bigint() + 10_000_000_000n;
+      },
+    );
+    entry = current;
+  }
+  return entry.result;
+}
+
+async function readMapSectorGrid(layer: number, signal: AbortSignal): Promise<MapSectorGrid> {
+  const cacheKey = `wiki:mapSectors:v2:${layer}`;
   const cached = await getCache<MapSectorGrid>(cacheKey);
+  signal.throwIfAborted();
   if (cached) {
     return cached;
   }
 
-  const bounds = await getMapBounds(layer);
+  const connection = await pool.getConnection();
+  if (signal.aborted) {
+    connection.release();
+    signal.throwIfAborted();
+  }
+  const abortQuery = () => connection.destroy();
+  signal.addEventListener('abort', abortQuery, { once: true });
+  let bounds: { minX: number; maxX: number; minY: number; maxY: number };
+  let rows: RowDataPacket[];
+  try {
+    const [extents] = await connection.query<RowDataPacket[]>({
+      timeout: 2500,
+      sql: `/*M!100100 SET STATEMENT max_statement_time=2 FOR */
+        SELECT /*+ MAX_EXECUTION_TIME(2000) */ MIN(x_coord) AS minX, MAX(x_coord) AS maxX,
+        MIN(y_coord) AS minY, MAX(y_coord) AS maxY FROM wiki_map_positions WHERE z_coord = ?`,
+      values: [layer],
+    });
+    signal.throwIfAborted();
+    if (!extents[0] || extents[0].minX === null) throw new Error('No map rooms on this layer');
+    bounds = {
+      minX: Number(extents[0].minX),
+      maxX: Number(extents[0].maxX),
+      minY: Number(extents[0].minY),
+      maxY: Number(extents[0].maxY),
+    };
+    const gridWidth = bounds.maxX - bounds.minX + 1;
+    const gridHeight = bounds.maxY - bounds.minY + 1;
+    const area = gridWidth * gridHeight;
+    if (
+      !Object.values(bounds).every(Number.isSafeInteger) ||
+      gridWidth < 1 ||
+      gridWidth > 4096 ||
+      gridHeight < 1 ||
+      gridHeight > 4096 ||
+      !Number.isSafeInteger(area) ||
+      area < 1 ||
+      area > 1_000_000
+    )
+      throw new Error('Invalid map bounds');
+    [rows] = await connection.query<RowDataPacket[]>({
+      timeout: 2500,
+      sql: `/*M!100100 SET STATEMENT max_statement_time=2 FOR */
+        SELECT /*+ MAX_EXECUTION_TIME(2000) */ x_coord, y_coord, sector_type
+        FROM wiki_map_positions WHERE z_coord = ? LIMIT 1000001`,
+      values: [layer],
+    });
+    signal.throwIfAborted();
+    if (rows.length > 1_000_000) throw new Error('Invalid map bounds');
+  } catch (error) {
+    if (!signal.aborted) connection.destroy();
+    if (
+      error instanceof Error &&
+      ['No map rooms on this layer', 'Invalid map bounds'].includes(error.message)
+    )
+      throw error;
+    throw new MapSectorUnavailableError();
+  } finally {
+    signal.removeEventListener('abort', abortQuery);
+  }
+  connection.release();
   const width = bounds.maxX - bounds.minX + 1;
   const height = bounds.maxY - bounds.minY + 1;
   if (
@@ -2888,12 +3010,6 @@ export async function getMapSectorGrid(layer: number = 0): Promise<MapSectorGrid
     throw new Error('Invalid map bounds');
   }
 
-  const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT x_coord, y_coord, sector_type
-     FROM wiki_map_positions
-     WHERE z_coord = ?`,
-    [layer],
-  );
   if (rows.length === 0) {
     throw new Error('No map rooms on this layer');
   }
@@ -2903,7 +3019,8 @@ export async function getMapSectorGrid(layer: number = 0): Promise<MapSectorGrid
     const x = Number(row.x_coord) - bounds.minX;
     const y = Number(row.y_coord) - bounds.minY;
     const sector = Number(row.sector_type);
-    if (x < 0 || x >= width || y < 0 || y >= height) continue;
+    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x >= width || y < 0 || y >= height)
+      continue;
     if (!Number.isInteger(sector) || sector < 0 || sector >= NO_ROOM_SECTOR) continue;
     grid[y * width + x] = sector;
   }
@@ -2918,6 +3035,7 @@ export async function getMapSectorGrid(layer: number = 0): Promise<MapSectorGrid
   };
   // Same lifetime as the flat map image, so both views refresh together.
   await setCache(cacheKey, result, 60 * 60);
+  signal.throwIfAborted();
   return result;
 }
 

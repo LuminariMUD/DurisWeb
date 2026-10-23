@@ -67,7 +67,7 @@ const paintError = ref('')
 let paintedLayer: PaintedMapLayer | null = null
 let dockLayer: L.LayerGroup | null = null
 let paintVersion = 0
-const paintSources = new Map<number, Promise<PaintedLayerSource>>()
+let paintRefreshTimer: ReturnType<typeof setInterval> | null = null
 
 // Room coordinates use 2^zoom screen pixels per room. Never shrink names at overview.
 const READING_ZOOM = 3
@@ -298,8 +298,11 @@ async function loadPaintSource(layer: number): Promise<PaintedLayerSource> {
     !Number.isSafeInteger(data.minY) ||
     data.width < 1 ||
     data.height < 1 ||
+    data.width > 4096 ||
+    data.height > 4096 ||
     data.width * data.height > 1_000_000 ||
-    typeof data.sectors !== 'string'
+    typeof data.sectors !== 'string' ||
+    data.sectors.length !== 4 * Math.ceil((data.width * data.height) / 3)
   ) {
     throw new Error('Malformed sector grid')
   }
@@ -347,17 +350,13 @@ async function updatePainted() {
     },
   )
   const layer = props.layer
-  let pending = paintSources.get(layer)
-  if (!pending) {
-    pending = loadPaintSource(layer)
-    paintSources.set(layer, pending)
-  }
   try {
-    const source = await pending
+    // Reauthorize and fetch on every show. A new source identity invalidates
+    // every tile and worker grid together, even when the layer number is unchanged.
+    const source = await loadPaintSource(layer)
     if (version !== paintVersion || !painted.value || !paintedLayer) return
     paintedLayer.show(source)
   } catch {
-    paintSources.delete(layer)
     if (version !== paintVersion) return
     paintedLayer?.hide()
     paintError.value = 'The painted map could not be loaded. Showing the original map.'
@@ -548,10 +547,21 @@ watch([showMarkers, showZoneNames], () => {
   void updateEntrances()
 })
 
-onMounted(initMap)
+onMounted(() => {
+  initMap()
+  paintRefreshTimer = setInterval(
+    () => {
+      if (!painted.value) return
+      imageOverlay?.setUrl(getMapImageUrl(props.layer))
+      void updatePainted()
+    },
+    60 * 60 * 1000,
+  )
+})
 onUnmounted(() => {
   ++requestVersion
   if (refreshTimer) clearTimeout(refreshTimer)
+  if (paintRefreshTimer) clearInterval(paintRefreshTimer)
   finePointer?.removeEventListener('change', scheduleRefresh)
   resizeObserver?.disconnect()
   entranceCache.clear()

@@ -15,7 +15,7 @@ export const NO_ROOM = 255
 
 /** Continent ids from continents[] in the MUD's src/world/map.c. */
 export const EVIL_CONTINENT = 2
-export const UNDEAD_CONTINENT = 5
+export const UNDEAD_CONTINENT = 3
 
 export interface GridPoint {
   x: number
