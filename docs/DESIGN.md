@@ -365,9 +365,10 @@ overlap by one room so no seams show.
 The painting keeps the sector meanings of the generated image and adds shaded
 relief, coasts with surf, tree canopies, roads drawn from one-room lines of city
 rooms, reefs from shallows at sea, and bedrock with lit caverns below ground.
-Continents are found from the seed rooms in the MUD's `src/world/map.c`, the way
-the game assigns them: the Evil Continent takes violet bogs and heather, and the
-Undead Continent sere land, grave-glow and red lava under a gloom. The ten cargo
+Continents are estimated from the seed rooms in the MUD's `src/world/map.c`
+using neighbouring land connectivity, colouring Evil violet and Undead with
+sere land, grave-glow and red lava. This visual approximation is not the MUD's
+authoritative continent assignment, which follows actual room exits and zones. The ten cargo
 ports from `src/ships/ship_variables.c` get a pier with a moored ship and, with
 **Docks** on, a labelled anchor that adds no tab stop. Keep
 [`worldFeatures.ts`](../frontend/src/utils/paintedMap/worldFeatures.ts) in step
