@@ -2986,29 +2986,13 @@ async function readMapSectorGrid(layer: number, signal: AbortSignal): Promise<Ma
     if (rows.length > 1_000_000) throw new Error('Invalid map bounds');
   } catch (error) {
     if (!signal.aborted) connection.destroy();
-    if (
-      error instanceof Error &&
-      ['No map rooms on this layer', 'Invalid map bounds'].includes(error.message)
-    )
-      throw error;
-    throw new MapSectorUnavailableError();
+    throw error;
   } finally {
     signal.removeEventListener('abort', abortQuery);
   }
   connection.release();
   const width = bounds.maxX - bounds.minX + 1;
   const height = bounds.maxY - bounds.minY + 1;
-  if (
-    !Number.isSafeInteger(width) ||
-    !Number.isSafeInteger(height) ||
-    width <= 0 ||
-    height <= 0 ||
-    width > 4096 ||
-    height > 4096 ||
-    width * height > 1_000_000
-  ) {
-    throw new Error('Invalid map bounds');
-  }
 
   if (rows.length === 0) {
     throw new Error('No map rooms on this layer');
