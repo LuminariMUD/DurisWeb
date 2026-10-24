@@ -17,7 +17,7 @@ points and security boundaries rather than duplicating every handler.
 | `GET` | `/api/ping` | Public | Plain-text latency probe (`pong`) |
 | `GET` | `/api/site-config` | Public | Browser-safe site configuration |
 | `POST` | `/kofihook` | Ko-fi verification token; CSRF-exempt | Bounded, rate-limited donation webhook |
-| `GET` | `/api/status` | Public | Limited MUD runtime status |
+| `GET` | `/api/status` | Public | Limited MUD runtime status; five-second diagnostic sample, per-response delayed population, `no-store` |
 
 ## Route Groups
 
