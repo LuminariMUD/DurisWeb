@@ -152,6 +152,13 @@ Run the focused file on disposable MariaDB and MySQL; it does not contact the
 configured application database/Redis. The in-memory cache deliberately retains
 legacy arrays/mappings across the native SQL transition. This is a consumer
 regression, not a complete website/MUD wipe journey.
+The same native fixture also exercises real JWT/Express authentication and the
+staff gate: one token changes from HTTP 200 to 403 after level-61 retirement,
+while the recreated level-62 body remains allowed. A legacy derived-role cache is
+retained deliberately; inactive character rows cannot supply privileges. Explicit
+website-admin grants remain independent. Session validity is stubbed as an active
+synthetic session here; existing session-persistence tests cover that boundary.
+
 
 `playerEventSubscriber.test.ts` has an opt-in native locking case.
 `TEST_PRESENCE_DB_PORT` must match an owned disposable server's `TEST_DB_PORT`,
