@@ -142,7 +142,8 @@ They create and drop only `pvp_snapshot_test` and refuse ports 3306 and 3307.
 Leave the setting absent for a unit-only run; a full burn-in must provide the
 disposable instance and run these checks without skips.
 
-The MUD-owned `run_pwipe_runtime_journey.py --redis --website <checkout>` uses
+The MUD-owned [runtime journey](https://github.com/LuminariMUD/Duris/pull/347)
+(`run_pwipe_runtime_journey.py --redis --website <checkout>`) uses
 `backend/src/test/pwipeWebsiteProbe.ts` with the normal built backend. The probe
 refuses anything except the parent's owned loopback `pwipe_journey_*` SQL target;
 the parent rejects checkout runtime environment files. It installs the source-
