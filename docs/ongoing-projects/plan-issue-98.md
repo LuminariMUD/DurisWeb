@@ -66,15 +66,19 @@ Redis keys, configuration or background polling are needed.
   static/SPA fallback. Files: routes/services, existing validation/error boundary,
   focused HTTP/service tests and API/qualification docs. Preserve authorization
   and ordinary history URLs; no general API/error-framework redesign is needed.
-- A9: isolated qualification complete for representative data/accounts/forum/
+- A9: historical isolated qualification covers representative data/accounts/forum/
   PvP/socket/browser workloads, with the explicit measurement limits below.
+  The corrected soak tool needs a full observation before claiming final HTTP
+  drainage and timely application replies from every socket.
   Include disconnect during terminal creation (SQL/PTY binding) and cleanup with
   delayed output writes; A5's terminal fixture covers established sessions, not
   that asynchronous creation race or a real privileged host terminal.
   Also qualify dense participant battles against aggregate-size limits; a small
   four-snapshot fixture alone does not prove complete large-team publication.
-- A10: exact PR/commit/test handoff, deployment/rollback instructions and
-  unpublished visitor-facing release wording for the qualified changes.
+- A10: complete in [the release handoff](issue-98-release-handoff.md): exact
+  PR/commit/test evidence, deployment/recovery steps, remaining operator work and
+  combined unpublished visitor-facing wording. The final source-tool repair and
+  publication/check status are recorded with its PR in #98.
 
 ## Commands and evidence
 
@@ -765,6 +769,28 @@ update/PvP NetworkOnly tests and A6's real 100-client reconnect burst remain val
 Source CLI `node --check`, root Biome formatting and `git diff --check` pass.
 No application code/schema/dependency change occurs in this qualification chunk;
 the exact backend/frontend package gates and native tests are recorded above.
+
+## Review follow-up and handoff
+
+The #101 review correctly identifies a non-root `VITE_BASE_URL` measurement bug.
+The final follow-up infers the deployment prefix from the generated module entry
+before mapping declared URLs to local assets. It does not change the Vite build
+or runtime base policy. Native Node HTML fixtures for `/`, `/community/` and
+`/community/deep/` show two parent failures and all three candidate cases passing.
+`node --test scripts/qualification/initial-download.test.mjs`, the real built-output
+command and root Biome/diff checks pass. Final actual built totals are 42 assets,
+39 JS, one CSS, two fonts, 1,003,442 raw and 322,439 gzip bytes. No app rebuild or
+repeated package suite is needed for this CLI/docs-only repair; all changed app
+package gates/builds and focused/native evidence above remain applicable.
+
+Integration updated 2026-10-25: #99–#112 are merged, with #106/#108 integrated
+between their chronological neighbors. #101's repair is in `1aec6d9`, #111's
+pending-dispatch repair is `05b364d`, and #112's request-drain/per-socket heartbeat
+repair is `c11fca9`; their four review threads are resolved. #113's final addressing
+comment records its reviewed head/checks. Master before #113 is
+`cfbcc61c789a19056fd791b2eeaefb669cdfc411`; this is not a deployment claim.
+Detailed release/recovery instructions, historical source/artifact identities,
+measurement limits and combined unpublished HTML are in the linked handoff.
 
 ## Unpublished release news
 
