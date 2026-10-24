@@ -4,6 +4,21 @@ The frontend is a Vue 3 and Vite single-page application for the public DurisMUD
 site, forums, PvP and auction data, guide/wiki content, builder tools, and
 operator administration.
 
+## Initial download boundaries
+
+The Vite build groups shared Vue/chart runtimes explicitly and leaves editor and
+icon modules to the bundler's route-based splitting. Grouping every editor/icon
+dependency together can pull editing code and complete dynamic icon catalogs
+into the initial shared shell through their common dependencies. Forum category
+icons and the game hotbar retain their full name-selected catalogs on those
+routes; no catalog entries are removed.
+
+After a build, `node scripts/qualification/initial-download.mjs` from the repository
+root counts the complete HTML-declared JS/CSS/font set and its raw/gzip bytes.
+This excludes dynamically imported route assets, images, API calls and
+service-worker installation; measure those with a fresh browser waterfall too.
+See [issue 98's qualification record](../docs/ongoing-projects/plan-issue-98.md).
+
 ## Setup
 
 Copy `frontend/.env.example` to `frontend/.env` and set every public URL, host,

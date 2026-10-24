@@ -27,7 +27,11 @@ Redis keys, configuration or background polling are needed.
   APIs/authenticated pages/maps, or deploying. Files: static middleware, backend
   wiring, HTTP tests and backend/deployment documentation. Proof: actual Express
   static/conditional/CSRF requests plus startup-order source coverage.
-- A3: initial import graph and complete mobile download measurements.
+- A3: implemented/isolated-tested on `branch/issue-98-initial-download`, stacked
+  on A2 PR #100. Files: Vite chunk groups, initial-download source tool and
+  frontend/qualification documentation. Outcome: editor and full icon catalogs
+  remain on consuming routes, with measured complete initial transfer. No new
+  lazy-component wrappers, catalogs, dependencies or configuration are needed.
 - A4: fresh-browser service-worker waterfall and bounded precaching.
 - A5: transport payload, heartbeat, admission and backpressure bounds.
 - A6: jittered reconnect delay with stable-connection reset.
@@ -123,6 +127,65 @@ No frontend source/build, database/MUD write or schema changes; frontend, full
 backend/database suites and `verify:mud-writes` are not run for A2. Cloudflare
 `HIT`/`Age`, installed artifacts, public hostnames and live acceptance remain B3.
 
+A2 PR: [#100](https://github.com/LuminariMUD/DurisWeb/pull/100), source commit
+`1986f72adadd804b3a5b243606764e989f136b41`. Merge #99 first, then retarget #100 to
+master. Both were open, unmerged and mergeable when checked.
+
+A3 source tracing found shared `PopperContent` importing floating-positioning
+functions from the forced editor chunk. Rolldown groups recursively include
+dependencies by default; the editor group consequently entered the shared
+shell. The forced icon group also combined initial named imports with complete
+catalogs used only by dynamic routes. Removing those two groups lets the existing
+route imports determine their boundaries; full namespace imports remain intact.
+
+A3 commands/results:
+
+- Baseline and candidate `pnpm --dir frontend build` pass with this isolated
+  public configuration (no credentials): `VITE_BASE_URL=/`,
+  `VITE_API_URL=http://127.0.0.1:8138`, `VITE_WS_URL=ws://127.0.0.1:8138/ws`,
+  `VITE_STATIC_URL=http://127.0.0.1:8138`, `FRONTEND_DEV_HOST=127.0.0.1`,
+  `FRONTEND_DEV_PORT=5173`, `FRONTEND_PREVIEW_HOST=127.0.0.1`,
+  `FRONTEND_PREVIEW_PORT=8138`, `FRONTEND_ALLOWED_HOSTS=localhost`.
+- `node scripts/qualification/initial-download.mjs`: baseline/candidate
+  **50/42** HTML-declared files (**47/39 JS**, one CSS and two fonts each),
+  **2,254,248/1,003,266 raw bytes**, **672,375/322,332 gzip bytes**. The initial
+  editor chunk (160,689 gzip bytes) and complete grouped icon catalogs disappear
+  from HTML preloads. Home-route imports/images/APIs remain separately measured.
+- `pnpm --dir frontend format:check`, `pnpm --dir frontend lint`,
+  `pnpm --dir frontend type-check`, `pnpm --dir frontend test:unit --run`:
+  pass; **556 tests / 72 files**. Build also runs type-check. Palette and
+  configuration literal guards pass with `bash frontend/scripts/check-palette-literals.sh`
+  and `bash scripts/check-config-literals.sh`.
+- `backend/node_modules/.bin/biome format --write
+  scripts/qualification/initial-download.mjs`, `node --check
+  scripts/qualification/initial-download.mjs`, `git diff --check`: pass.
+- Browser plugin not available; existing Python Playwright 1.58.0 with installed
+  Chromium **153.0.8010.12** was used. Its default browser revision was absent;
+  the explicit installed executable avoids any dependency/browser installation.
+  Local fixture: `node /tmp/durisweb-issue98/browser-fixture.mjs`, loopback 8138,
+  actual built assets and synthetic API/socket responses, no real account/data.
+- `python3 /tmp/durisweb-issue98/browser-download.py baseline mobile`, then
+  `candidate mobile`, then `candidate desktop`: pass. Viewports **390×844** and
+  **1440×1000**. Mobile has 4× CPU, 100 ms latency and 200 KiB/s download limits.
+  Baseline/candidate foreground encoded resources: **923,109/580,538 bytes**;
+  transfer including resource headers: **944,409/601,538 bytes**; LCP:
+  **5,992/3,980 ms**, CLS **0.022685/0.022685**. Candidate desktop LCP **224 ms**,
+  CLS **0**. These are single local observations, not performance guarantees.
+- Page identity, meaningful homepage, no framework overlay, clean console and
+  network, pause/resume motion, named `dna` forum icon and actual rich-text input
+  passed. Screenshots of desktop/mobile home/forum/editor were inspected. Private
+  logs, resource lists and PNGs are under `/tmp/durisweb-issue98/`.
+
+Initial browser attempts exposed fixture-only category wrappers/hidden duplicate
+locators; matching the source API shapes and selecting visible content corrected
+them. Blocking service-worker registration produced fixture-induced Workbox
+errors. Final A3 contexts instead expose the supported no-service-worker browser
+state and pass with no errors/warnings; A4 must separately test normal installation.
+The optional editor chunk now exceeds Vite's 600 kB warning threshold (722 kB
+raw), but is absent from the initial set and its real route works. The threshold
+is not raised or the warning suppressed. Current precaching still includes
+optional routes (**304 entries**); reducing that is A4, not an A3 claim.
+
 ## Unpublished release news
 
 Prepare the combined payload as reader-visible changes are proven. Reconcile it
@@ -144,4 +207,11 @@ A2 candidate public wording (unpublished):
 <h3>Website loading</h3>
 <ul><li>Versioned website files can stay cached between visits, while pages
 and update checks continue to pick up new releases.</li></ul>
+```
+
+A3 candidate public wording (unpublished):
+
+```html
+<ul><li>Opening the website downloads less shared code. Rich-text editing and
+the full forum/game icon selections remain available where they are used.</li></ul>
 ```
