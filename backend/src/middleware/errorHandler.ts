@@ -65,6 +65,11 @@ export function notFoundHandler(req: Request, _res: Response, next: NextFunction
   next(error);
 }
 
+/** Reserve the API namespace before static files and the Vue history fallback. */
+export function apiNotFound(_req: Request, res: Response): void {
+  res.set('Cache-Control', 'no-store').status(404).json({ error: 'API route not found' });
+}
+
 /**
  * Async error wrapper - catches errors in async route handlers
  */

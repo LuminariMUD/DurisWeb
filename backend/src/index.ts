@@ -44,7 +44,7 @@ import {
 } from './hooks/flatfileHookState.js';
 import { probeAllFlatfileHooks, recoverFlatfileHook } from './services/flatfileAccess.js';
 import kofiRoutes from './routes/kofi.js';
-import { AppError, errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { AppError, apiNotFound, errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { generateCsrfToken, verifyCsrfToken } from './middleware/csrf.js';
 import { fingerprintedFrontendAssets } from './middleware/frontendAssets.js';
 import { canonicalHost } from './middleware/canonicalHost.js';
@@ -271,6 +271,7 @@ app.use('/api/push', pushRoutes);
 app.use('/api/changelog', changelogRoutes);
 app.use('/api/public/statistics', publicStatisticsRoutes);
 app.use('/api/hooks', hookRoutes);
+app.use('/api', apiNotFound);
 
 // Hook state: MUD-reported state comes from the bridge; website toggles are
 // loaded once here so the event-path gate never awaits a database read.

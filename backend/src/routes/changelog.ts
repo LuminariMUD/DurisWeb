@@ -4,6 +4,7 @@ import { getErrorMessage } from '../utils/logger.js';
 import * as changelogService from '../services/changelogService.js';
 import { processContentForWrite } from '../utils/contentParser.js';
 import {
+  parsePagination,
   validateBooleanField,
   validateIdParam,
   validateObjectFields,
@@ -13,6 +14,22 @@ import {
 const router: ExpressRouter = Router();
 
 const CHANGELOG_WRITE_FIELDS = ['version', 'title', 'content', 'category', 'isPublished'] as const;
+
+function listPagination(page: unknown, limit: unknown) {
+  if (
+    [page, limit].some(
+      (value) => value !== undefined && (typeof value !== 'string' || !/^\d+$/.test(value)),
+    )
+  ) {
+    return null;
+  }
+  return parsePagination(
+    typeof page === 'string' ? page : undefined,
+    typeof limit === 'string' ? limit : undefined,
+    20,
+    100,
+  );
+}
 
 function validateChangelogWriteBody(body: unknown, requireCoreFields: boolean): string | null {
   const structureError = validateObjectFields(body, CHANGELOG_WRITE_FIELDS);
@@ -60,9 +77,11 @@ function validateChangelogWriteBody(body: unknown, requireCoreFields: boolean): 
  * public route, but filters by user level
  */
 router.get('/', optionalAuth, async (req, res) => {
+  const pagination = listPagination(req.query.page, req.query.limit);
+  if (!pagination)
+    return res.status(400).json({ error: 'page and limit must be decimal integers' });
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const { page, limit } = pagination;
 
     // check if user is admin (level 57+) to include admin entries
     const includeAdmin =
@@ -76,9 +95,9 @@ router.get('/', optionalAuth, async (req, res) => {
       limit,
     });
 
-    res.json(result);
+    return res.json(result);
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    return res.status(500).json({ error: getErrorMessage(error) });
   }
 });
 
@@ -86,14 +105,16 @@ router.get('/', optionalAuth, async (req, res) => {
  * GET /api/changelog/admin - list all changelog entries for admin
  */
 router.get('/admin', requireAuth, requirePermission('manage_news'), async (req, res) => {
+  const pagination = listPagination(req.query.page, req.query.limit);
+  if (!pagination)
+    return res.status(400).json({ error: 'page and limit must be decimal integers' });
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const { page, limit } = pagination;
 
     const result = await changelogService.getAllChangelogEntriesForAdmin(page, limit);
-    res.json(result);
+    return res.json(result);
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    return res.status(500).json({ error: getErrorMessage(error) });
   }
 });
 
