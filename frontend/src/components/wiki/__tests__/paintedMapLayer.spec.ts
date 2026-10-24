@@ -235,6 +235,11 @@ describe('painted map worker lifecycle', () => {
     worker.reply()
     expect(worker.requests.at(-1)!.scale).toBe(16)
 
+    map.setZoom(3.9, { animate: false })
+    painted.refresh()
+    worker.reply()
+    expect(worker.requests.at(-1)!.scale).toBe(32)
+
     map.setZoom(4, { animate: false })
     painted.refresh()
     worker.reply()

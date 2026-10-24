@@ -252,6 +252,31 @@ describe('wiki entrance visibility and navigation', () => {
     expect(document.querySelector('.zone-name')?.textContent).toBe('Destination 1')
   })
 
+  it('reclamps a reused permanent zone tooltip after moving towards the viewport edge', async () => {
+    await render()
+    await zoom(3)
+    const marker = document.querySelector('.leaflet-marker-icon')
+    const label = document.querySelector<HTMLElement>('.zone-label .zone-name')!
+    const viewport = document.querySelector<HTMLElement>('.leaflet-container')!
+    expect(label).not.toBeNull()
+    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      right: 800,
+      top: 0,
+      bottom: 600,
+    } as DOMRect)
+    vi.spyOn(label, 'getBoundingClientRect').mockReturnValue({
+      left: -50,
+      right: 150,
+      top: 40,
+      bottom: 60,
+    } as DOMRect)
+    map.fire('moveend')
+    await settle()
+    expect(document.querySelector('.leaflet-marker-icon')).toBe(marker)
+    expect(label.style.transform).toBe('translate(56px, 0px)')
+  })
+
   it('reuses DOM markers across zooms and pans that do not change labels', async () => {
     await render()
     await zoom(3.25)
