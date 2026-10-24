@@ -49,6 +49,15 @@ and `pagination.pages`. Missing, deleted or other-thread posts do not resolve a
 destination. The view scrolls to the rendered post and handles fragment changes
 within the current thread; ordinary pagination still uses the requested page.
 
+Authenticated `GET /api/forum/search` applies author/date/category filters to the
+matching document: a thread in `titles` scope, a post in `content`, or both in
+`both`. Thread scope retains its existing title-and-content matching. Private,
+archived and deleted-content gates apply to both rows and totals. The total
+counts all accessible matches independently of the selected page; relevance ties
+use creation time, kind and ID for stable paging. Known query values must be
+single strings. Existing ISO date/timestamp bounds remain inclusive instants;
+the default page size is 50, with limit 1–100 and pages capped at 10,000.
+
 | Prefix | Route Module | Surface |
 |--------|--------------|---------|
 | `/api/auth` | `routes/auth.ts` | Login, logout, refresh, current user, password/session actions |

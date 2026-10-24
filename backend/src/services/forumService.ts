@@ -15,6 +15,7 @@ import * as notificationService from './unifiedNotificationService.js';
 import { sendForumReplyNotification } from './pushNotificationService.js';
 import { getWebSettings } from './webSettingsService.js';
 import { getPvpDelayMinutes, pvpVisibilitySql, pvpTimestamp } from './pvpVisibility.js';
+import { parsePagination } from '../utils/validation.js';
 
 /** Content and managed image claims share one commit; notifications remain outside. */
 async function forumContentTransaction<T>(
@@ -1207,121 +1208,69 @@ export interface SearchResult {
 export async function searchForum(
   filters: SearchFilters,
   permissions: UserPermissions,
-  page: number = 1,
-  limit: number = 50,
+  requestedPage: number = 1,
+  requestedLimit: number = 50,
 ): Promise<{ results: SearchResult[]; total: number }> {
+  const { page, limit } = parsePagination(
+    requestedPage.toString(),
+    requestedLimit.toString(),
+    50,
+    100,
+  );
   const offset = (page - 1) * limit;
   const { query, scope = 'both', author, categoryId, dateFrom, dateTo } = filters;
-
-  // Build WHERE clauses for filters
-  const whereClauses: string[] = [];
-  const queryParams: any[] = [];
-
-  // Get accessible categories
   const accessibleCategories = await getAccessibleCategoryIds(permissions);
-  if (accessibleCategories.length === 0) {
-    return { results: [], total: 0 };
+  if (accessibleCategories.length === 0) return { results: [], total: 0 };
+  type Binding = string | number | number[];
+  const projections: string[] = [];
+  const counts: string[] = [];
+  const projectionValues: Binding[] = [];
+  const countValues: Binding[] = [];
+  const kinds = scope === 'both' ? ['thread', 'post'] : scope === 'titles' ? ['thread'] : ['post'];
+  for (const kind of kinds) {
+    const post = kind === 'post';
+    const owner = post ? 'p' : 't';
+    const match = `MATCH(${post ? 'p.content' : 't.title, t.content'}) AGAINST(? IN NATURAL LANGUAGE MODE)`;
+    const from = `${post ? 'FROM forum_posts p JOIN forum_threads t ON p.thread_id=t.id' : 'FROM forum_threads t'} JOIN forum_categories c ON t.category_id=c.id`;
+    const conditions = ['c.id IN (?)', 't.is_deleted=0'];
+    const values: Binding[] = [accessibleCategories];
+    if (post) conditions.push('p.is_deleted=0');
+    if (author) {
+      conditions.push(`${owner}.author_account_name=?`);
+      values.push(author);
+    }
+    if (categoryId) {
+      conditions.push('c.id=?');
+      values.push(categoryId);
+    }
+    if (dateFrom) {
+      conditions.push(`${owner}.created_at>=?`);
+      values.push(dateFrom);
+    }
+    if (dateTo) {
+      conditions.push(`${owner}.created_at<=?`);
+      values.push(dateTo);
+    }
+    conditions.push(match);
+    values.push(query);
+    const where = `WHERE ${conditions.join(' AND ')}`;
+    projections.push(`SELECT ${owner}.id, '${kind}' AS type,
+      ${post ? 'p.thread_id' : 't.id'} AS thread_id, t.title AS thread_title,
+      t.category_id, c.name AS category_name, ${owner}.author_account_name AS author,
+      pc.char_name AS character_name, ${owner}.content, ${owner}.created_at,
+      ${match} AS relevance_score ${from}
+      LEFT JOIN frag_leaderboard pc ON ${owner}.author_character_pid=pc.pid ${where}`);
+    projectionValues.push(query, ...values);
+    counts.push(`SELECT COUNT(*) AS total ${from} ${where}`);
+    countValues.push(...values);
   }
-
-  whereClauses.push(`c.id IN (${accessibleCategories.join(',')})`);
-
-  // Author filter
-  if (author) {
-    whereClauses.push('(t.author_account_name = ? OR p.author_account_name = ?)');
-    queryParams.push(author, author);
-  }
-
-  // Category filter
-  if (categoryId) {
-    whereClauses.push('c.id = ?');
-    queryParams.push(categoryId);
-  }
-
-  // Date range filters
-  if (dateFrom) {
-    whereClauses.push('(t.created_at >= ? OR p.created_at >= ?)');
-    queryParams.push(dateFrom, dateFrom);
-  }
-  if (dateTo) {
-    whereClauses.push('(t.created_at <= ? OR p.created_at <= ?)');
-    queryParams.push(dateTo, dateTo);
-  }
-
-  const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-
-  let searchQuery = '';
-
-  if (scope === 'titles' || scope === 'both') {
-    // Search in thread titles and content
-    searchQuery += `
-      SELECT
-        t.id,
-        'thread' as type,
-        t.id as thread_id,
-        t.title as thread_title,
-        t.category_id,
-        c.name as category_name,
-        t.author_account_name as author,
-        pc.char_name as character_name,
-        t.content,
-        t.created_at,
-        MATCH(t.title, t.content) AGAINST(? IN NATURAL LANGUAGE MODE) as relevance_score
-      FROM forum_threads t
-      JOIN forum_categories c ON t.category_id = c.id
-      LEFT JOIN frag_leaderboard pc ON t.author_character_pid = pc.pid
-      ${whereClause}
-        AND t.is_deleted = 0
-        AND MATCH(t.title, t.content) AGAINST(? IN NATURAL LANGUAGE MODE)
-    `;
-    queryParams.unshift(query, query);
-  }
-
-  if (scope === 'content' || scope === 'both') {
-    // Search in post content
-    if (searchQuery) searchQuery += ' UNION ALL ';
-
-    searchQuery += `
-      SELECT
-        p.id,
-        'post' as type,
-        p.thread_id,
-        t.title as thread_title,
-        t.category_id,
-        c.name as category_name,
-        p.author_account_name as author,
-        pc.char_name as character_name,
-        p.content,
-        p.created_at,
-        MATCH(p.content) AGAINST(? IN NATURAL LANGUAGE MODE) as relevance_score
-      FROM forum_posts p
-      JOIN forum_threads t ON p.thread_id = t.id
-      JOIN forum_categories c ON t.category_id = c.id
-      LEFT JOIN frag_leaderboard pc ON p.author_character_pid = pc.pid
-      ${whereClause}
-        AND p.is_deleted = 0
-        AND t.is_deleted = 0
-        AND MATCH(p.content) AGAINST(? IN NATURAL LANGUAGE MODE)
-    `;
-    queryParams.push(query, query);
-  }
-
-  // Add ordering and pagination
-  searchQuery += `
-    ORDER BY relevance_score DESC
-    LIMIT ? OFFSET ?
-  `;
-  queryParams.push(limit, offset);
-
-  // Get results
-  const [rows] = await db.query<RowDataPacket[]>(searchQuery, queryParams);
-
-  // Get total count (simplified - just count returned results for now)
-  const total = rows.length;
-
-  return {
-    results: rows as SearchResult[],
-    total,
-  };
+  const [totals] = await db.query<RowDataPacket[]>(counts.join(' UNION ALL '), countValues);
+  const [rows] = await db.query<(RowDataPacket & SearchResult)[]>(
+    projections.join(' UNION ALL ') +
+      ' ORDER BY relevance_score DESC, created_at DESC, type ASC, id DESC LIMIT ? OFFSET ?',
+    [...projectionValues, limit, offset],
+  );
+  return { results: rows, total: totals.reduce((sum, row) => sum + Number(row.total), 0) };
 }
 
 /**

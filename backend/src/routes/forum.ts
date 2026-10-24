@@ -1,4 +1,5 @@
 import { safeFailureCode } from '../utils/safeFailureCode.js';
+import { parsePagination } from '../utils/validation.js';
 import { Router, Request, Response, type IRouter } from 'express';
 import { randomUUID } from 'node:crypto';
 import { pool as db } from '../db/connection.js';
@@ -68,6 +69,7 @@ import {
   // Activity functions
   getLatestThreads,
   getPopularThreads,
+  type SearchFilters,
 } from '../services/forumService.js';
 import {
   createPoll,
@@ -1843,16 +1845,43 @@ router.get(
 
   [
     query('query')
+      .isString()
+      .bail()
       .trim()
       .isLength({ min: 2 })
       .withMessage('Search query must be at least 2 characters'),
-    query('scope').optional().isIn(['titles', 'content', 'both']).withMessage('Invalid scope'),
-    query('author').optional().trim(),
-    query('categoryId').optional().isInt().withMessage('Category ID must be an integer'),
-    query('dateFrom').optional().isISO8601().withMessage('Invalid date format for dateFrom'),
-    query('dateTo').optional().isISO8601().withMessage('Invalid date format for dateTo'),
-    query('page').optional().isInt({ min: 1 }).withMessage('Page must be >= 1'),
-    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be 1-100'),
+    query('scope')
+      .optional()
+      .isString()
+      .bail()
+      .isIn(['titles', 'content', 'both'])
+      .withMessage('Invalid scope'),
+    query('author').optional().isString().bail().trim(),
+    query('categoryId')
+      .optional()
+      .isString()
+      .bail()
+      .isInt()
+      .withMessage('Category ID must be an integer'),
+    query('dateFrom')
+      .optional()
+      .isString()
+      .bail()
+      .isISO8601()
+      .withMessage('Invalid date format for dateFrom'),
+    query('dateTo')
+      .optional()
+      .isString()
+      .bail()
+      .isISO8601()
+      .withMessage('Invalid date format for dateTo'),
+    query('page').optional().isString().bail().isInt({ min: 1 }).withMessage('Page must be >= 1'),
+    query('limit')
+      .optional()
+      .isString()
+      .bail()
+      .isInt({ min: 1, max: 100 })
+      .withMessage('Limit must be 1-100'),
   ],
   async (req: Request, res: Response) => {
     try {
@@ -1865,16 +1894,22 @@ router.get(
         return res.status(401).json({ error: 'Not authenticated' });
       }
 
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 50;
-
-      const filters = {
-        query: req.query.query as string,
-        scope: req.query.scope as 'titles' | 'content' | 'both' | undefined,
-        author: req.query.author as string | undefined,
-        categoryId: req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined,
-        dateFrom: req.query.dateFrom as string | undefined,
-        dateTo: req.query.dateTo as string | undefined,
+      const text = (key: string): string | undefined => {
+        const value = req.query[key];
+        return typeof value === 'string' ? value : undefined;
+      };
+      const term = text('query');
+      if (term === undefined) return res.status(400).json({ error: 'Invalid search query' });
+      const { page, limit } = parsePagination(text('page'), text('limit'), 50, 100);
+      const scope = text('scope');
+      const category = text('categoryId');
+      const filters: SearchFilters = {
+        query: term.trim(),
+        scope: scope === 'titles' || scope === 'content' || scope === 'both' ? scope : undefined,
+        author: text('author')?.trim(),
+        categoryId: category ? Number(category) : undefined,
+        dateFrom: text('dateFrom'),
+        dateTo: text('dateTo'),
       };
 
       const { results, total } = await searchForum(filters, req.user.permissions, page, limit);

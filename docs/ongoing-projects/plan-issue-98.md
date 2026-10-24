@@ -69,6 +69,8 @@ Redis keys, configuration or background polling are needed.
   Include disconnect during terminal creation (SQL/PTY binding) and cleanup with
   delayed output writes; A5's terminal fixture covers established sessions, not
   that asynchronous creation race or a real privileged host terminal.
+  Also qualify dense participant battles against aggregate-size limits; a small
+  four-snapshot fixture alone does not prove complete large-team publication.
 - A10: exact PR/commit/test handoff, deployment/rollback instructions and
   unpublished visitor-facing release wording for the qualified changes.
 
@@ -518,6 +520,50 @@ PvP query commands/results:
   was introduced. `git diff --check` passes. No frontend change or full backend
   suite is included in this focused SQL chunk.
 
+## Forum search qualification repair
+
+Implemented/isolated-tested on `branch/issue-98-forum-search-filters`, stacked on PvP query PR
+#107 (`c46c5d793dd61dca3ad676eee1c66b02cec74d32`). Outcome: bind author/date/category
+filters independently for thread/post branches, preserve accessible-category and
+deleted-content gates, and return real totals with deterministic paging. Files:
+the search function, matching route pagination, native regression and API/plan
+documentation. Proof: actual SQL on both owned database families, all scopes and
+combined filters, visibility, totals and disjoint pages. The API accepts ISO date
+or timestamp bounds; their existing inclusive instant semantics remain. No new
+search engine, cache, index or frontend redesign is needed.
+
+The parent reuses one binding array across UNION branches and references post
+columns in the thread branch. A single branch loop now pairs each projection and
+count with its own filters/values, parameterizes accessible IDs, and orders ties
+deterministically. Counts include every accessible hit, enabling the existing UI
+pagination beyond its former first-page total. Request values are scalar-checked
+and parsed without new external-input casts; explicit term/author trimming avoids
+relying on query-getter mutation. Date bounds retain existing instant semantics.
+
+Commands/results:
+
+- `node /tmp/durisweb-issue98/run-test.mjs 23436
+  src/services/__tests__/forumSearchNative.test.ts`: **five of six initial native
+  regressions fail on parent**, demonstrating unknown post aliases, misbound
+  parameters, wrong author results and page-length totals. The private large-data
+  profile independently fails with `ER_PARSE_ERROR` on both engines.
+- The final source-owned fixture's **eight SQL/HTTP cases pass on each of MySQL
+  8.0.46 and MariaDB 11.8.9**, including all scopes, combined author/date/category
+  filters, document timestamps, private/deleted gates, real totals, disjoint
+  pages, actual controller metadata/bounds, whitespace, structured input and
+  anonymous refusal. It creates/drops only its new PID-qualified database from
+  pinned owner/baseline/forward inputs. Cache/settings/identity dependencies are
+  fixtures, not a full JWT/browser acceptance claim.
+- Actual 500-thread/20,000-post profiling now reports **13,694** accessible
+  combined hits instead of the former page-length total of 50; author-filtered
+  search returns **21** actual hits without an SQL error. Extra counting work
+  is included; unfiltered search is not claimed uniformly faster.
+- `pnpm --dir backend exec biome format --write src/services/forumService.ts
+  src/routes/forum.ts src/services/__tests__/forumSearchNative.test.ts`, backend
+  format/lint/types/build, `verify:mud-writes` (**53 classified writes**) and
+  `git diff --check`: pass. A final added HTTP test needed line wrapping, corrected
+  by the formatter before commit. No frontend, real provider or MUD operation.
+
 ## Unpublished release news
 
 Prepare the combined payload as reader-visible changes are proven. Reconcile it
@@ -586,4 +632,13 @@ PvP query candidate public wording (unpublished):
 <h3>PvP history</h3>
 <ul><li>Battle lists do less work when browsing a long history, while retaining
 the same event order, complete teams and privacy rules.</li></ul>
+```
+
+Forum search candidate public wording (unpublished):
+
+```html
+<h3>Forums</h3>
+<ul><li>Author and date filters now work together across thread and reply
+searches. Result totals and page navigation include the accessible matches
+beyond the first page, while private and deleted content stays protected.</li></ul>
 ```

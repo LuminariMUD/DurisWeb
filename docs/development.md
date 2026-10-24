@@ -155,6 +155,13 @@ teams, hidden future events, release cursors and a bounded outer aggregation
 in the actual optimizer plan. Default unit runs skip these native cases. It is
 not a production capacity or cold-database-cache measurement.
 
+`src/services/__tests__/forumSearchNative.test.ts` uses the same explicit traffic
+port/owner-input opt-in and its own PID-qualified full-schema database. Its
+small deterministic SQL/HTTP fixtures exercise all scopes, combined author/date/
+category filters, private/deleted content, real totals, stable pages, scalar query
+validation and anonymous refusal. Identity/settings/providers are test fixtures;
+real SQL and the actual search controller run without a MUD process.
+
 Image-removal integration tests use `TEST_IMAGE_DB_PORT`, loopback port 23436
 or 23437 and database `durisweb_qualification_image_suite`. Provision the full
 owner fixture plus the website baseline/forward migrations on that disposable
