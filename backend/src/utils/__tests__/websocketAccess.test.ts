@@ -55,7 +55,9 @@ describe('WebSocket access policy', () => {
     }
     for (const broadcast of ['broadcastPlayerEvent', 'broadcastWholist']) {
       const block = server.slice(server.indexOf(`export function ${broadcast}(`));
-      expect(block.slice(0, block.indexOf('client.send(message)'))).toContain(
+      const delivery = block.indexOf('sendApplicationMessage(client, message)');
+      expect(delivery).toBeGreaterThan(0);
+      expect(block.slice(0, delivery)).toContain(
         "hasWebSocketPermission(getWebSocketPrincipal(client), 'view_server_health', 57)",
       );
     }

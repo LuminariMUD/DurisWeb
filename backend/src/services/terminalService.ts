@@ -1,5 +1,6 @@
 import * as pty from 'node-pty';
 import { WebSocket } from 'ws';
+import { sendApplicationMessage } from '../utils/applicationWebSocket.js';
 import { unlink } from 'node:fs/promises';
 import { pool } from '../db/connection.js';
 import { hasActiveWebSession } from './sessionService.js';
@@ -225,7 +226,8 @@ function handleOutput(sessionId: number, data: string): void {
 
   // Send to WebSocket immediately
   if (session.ws.readyState === WebSocket.OPEN) {
-    session.ws.send(
+    sendApplicationMessage(
+      session.ws,
       JSON.stringify({
         type: 'TERMINAL_OUTPUT',
         data,
@@ -389,7 +391,8 @@ async function cleanupSession(sessionId: number, status: 'ended' | 'error'): Pro
 
   // Notify client
   if (session.ws.readyState === WebSocket.OPEN) {
-    session.ws.send(
+    sendApplicationMessage(
+      session.ws,
       JSON.stringify({
         type: 'TERMINAL_CLOSED',
       }),

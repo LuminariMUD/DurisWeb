@@ -68,6 +68,17 @@ WebSocket clients normally. Peers that do not acknowledge the close frame are
 terminated after five seconds, so upgraded connections cannot hold shutdown open
 until the service manager's stop timeout.
 
+The application `/ws` transport accepts at most 256 simultaneous connections;
+excess upgrades receive HTTP 503 with `Retry-After: 5`. Its 10 KiB inbound limit
+applies to the complete uncompressed message, including fragmented and UTF-8
+payloads, before the application handler runs (oversize close code 1009).
+Thirty-second protocol heartbeats terminate a peer that has not answered by the
+next tick. Application producers, including terminal/deployment output, share a
+1 MiB per-peer queued-output budget; slow consumers are terminated rather than
+accumulating output. Normal close cleanup releases subscriptions, streams and
+established terminal sessions. These are transport safety bounds, not a capacity
+forecast; the separate game/MUD bridge transport retains its own policy.
+
 ## Main Areas
 
 | Path | Purpose |

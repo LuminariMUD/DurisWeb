@@ -40,11 +40,17 @@ jest.unstable_mockModule('../../config/environment.js', () => ({
 }));
 
 const terminalService = await import('../terminalService.js');
+const { APPLICATION_MAX_BUFFERED_BYTES } = await import('../../utils/applicationWebSocket.js');
 
-type FakeWebSocket = { readyState: number; send: jest.Mock };
+type FakeWebSocket = {
+  readyState: number;
+  bufferedAmount: number;
+  send: jest.Mock;
+  terminate: jest.Mock;
+};
 
 function fakeWebSocket(): FakeWebSocket {
-  return { readyState: 1, send: jest.fn() };
+  return { readyState: 1, bufferedAmount: 0, send: jest.fn(), terminate: jest.fn() };
 }
 
 describe('terminal WebSocket session authorization', () => {
@@ -144,5 +150,25 @@ describe('terminal WebSocket session authorization', () => {
     expect(terminalService.getTerminalSessionName('name with spaces', 9)).toMatch(
       /^duris-name_with_spaces-9$/,
     );
+  });
+
+  it('delivers normal terminal output through the shared bound and refuses a stalled consumer', async () => {
+    execute.mockResolvedValueOnce([{ insertId: 14 }]).mockResolvedValue([]);
+    const ws = fakeWebSocket();
+    await terminalService.createSession('Cwial', ws as never);
+    const onData = pty.onData.mock.calls[0][0] as (data: string) => void;
+    onData('ordinary terminal output');
+    expect(ws.send).toHaveBeenCalledWith(
+      JSON.stringify({
+        type: 'TERMINAL_OUTPUT',
+        data: 'ordinary terminal output',
+      }),
+      expect.any(Function),
+    );
+    const sent = ws.send.mock.calls.length;
+    ws.bufferedAmount = APPLICATION_MAX_BUFFERED_BYTES;
+    onData('slow consumer');
+    expect(ws.terminate).toHaveBeenCalledTimes(1);
+    expect(ws.send).toHaveBeenCalledTimes(sent);
   });
 });

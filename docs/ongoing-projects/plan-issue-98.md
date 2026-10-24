@@ -37,11 +37,21 @@ Redis keys, configuration or background polling are needed.
   assets; preserve offline shell, optional route use, updates and PvP NetworkOnly.
   Files: Vite precache graph/filter, update composable, focused regression and
   its virtual-module test plugin, frontend/qualification documentation.
-- A5: transport payload, heartbeat, admission and backpressure bounds.
+- A5: implemented/isolated-tested on `branch/issue-98-websocket-bounds`, stacked on A4.
+  Outcome: 10 KiB transport input, 256 admitted application peers, 30-second
+  heartbeat with one missed reply allowed until the next tick, and a 1 MiB
+  application output budget per peer. Files: application WebSocket factory/send
+  guard, entry point, terminal/deployment output paths, focused native socket and
+  authorization tests, backend/qualification docs. Proof: real isolated TCP
+  payload/fragment/admission/dead-peer/slow-consumer/normal-traffic and shutdown
+  checks. Separate MUD transport and production operations are non-goals.
 - A6: jittered reconnect delay with stable-connection reset.
 - A7: representative isolated query/pool overload qualification before tuning.
 - A8: bounded changelog pagination and JSON API 404s.
 - A9: representative data/accounts/forum/PvP/socket/browser qualification.
+  Include disconnect during terminal creation (SQL/PTY binding) and cleanup with
+  delayed output writes; A5's terminal fixture covers established sessions, not
+  that asynchronous creation race or a real privileged host terminal.
 - A10: exact PR/commit/test handoff, deployment/rollback instructions and
   unpublished visitor-facing release wording for the qualified changes.
 
@@ -246,6 +256,52 @@ browser scripts, generated copies, JSON/waterfalls and screenshots remain outsid
 Git under `/tmp/durisweb-issue98/`. No production, native mobile device, live API,
 backend or database qualification is claimed for A4.
 
+A4 PR: [#102](https://github.com/LuminariMUD/DurisWeb/pull/102), source commit
+`0de77161e62200bd0a205b576cc66cda96061f2b`. Stack: #99 → #100 → #101 → #102.
+
+A5 keeps one application socket factory and one send guard. All entry-point,
+terminal and deployment producers use that guard, including control-frame pong
+responses. No per-IP inventory, new environment setting or write-queue subsystem
+is introduced. The existing two close handlers are consolidated so established
+terminal cleanup runs once; subscriptions/stream reservations clear before its
+asynchronous work. Authorization predicates stay ahead of delivery. The separate
+MUD client and transport are unchanged. New transport errors log a fixed category.
+
+A5 commands/results:
+
+- `pnpm --dir backend exec biome format --write
+  src/utils/applicationWebSocket.ts src/utils/__tests__/applicationWebSocket.test.ts
+  src/utils/__tests__/websocketAccess.test.ts src/index.ts
+  src/services/terminalService.ts src/services/deploymentService.ts` and formatting
+  of the extended terminal authorization fixture: pass.
+- `pnpm --dir backend test --runInBand
+  src/utils/__tests__/applicationWebSocket.test.ts
+  src/utils/__tests__/websocketAccess.test.ts
+  src/utils/__tests__/serverShutdown.test.ts
+  src/services/__tests__/terminalSessionAuthorization.test.ts
+  src/middleware/__tests__/terminalToken.test.ts
+  src/services/__tests__/integrationSecurityContract.test.ts`: **39 tests pass**.
+  Real loopback TCP verifies exact 10 KiB multibyte input, single/fragmented/UTF-8
+  oversize rejection before application delivery, normal protocol ping/pong,
+  256 accepted peers plus HTTP 503 rejection, released-slot reuse, responsive/dead
+  heartbeats, paused slow consumers, excessive output and shutdown timer cleanup.
+  Existing shutdown checks include a non-reading peer. Focused capability,
+  permission/source-wiring and PTY-mocked terminal fixtures preserve access rules
+  and verify normal output through the guard and refusal at its output bound.
+- The initial admission fixture incorrectly assumed concurrent client-open order
+  matched server Set order; waiting for the actually released peer corrected its
+  timeout. Type-check found a circular inferred cleanup-fixture type; an explicit
+  minimal cleanup shape fixed it. Neither correction relaxes the limits.
+- Backend `format:check`, `lint`, `type-check`, `build` and `git diff --check`:
+  pass. No frontend/runtime database or real MUD/terminal operation runs in A5.
+- `pnpm --dir backend verify:mud-writes`: pass, **53 classified writes**;
+  source/manifest inspection only, with no MUD operation or new SQL write.
+
+The native socket suite exercises the actual factory/transport; it does not boot
+the full application listener or prove a live JWT/database/PTY journey. Those
+combined-data/application checks remain A9, and all deployment/live evidence
+remains section B. No production flood or oversized-payload demonstration occurs.
+
 ## Unpublished release news
 
 Prepare the combined payload as reader-visible changes are proven. Reconcile it
@@ -282,4 +338,13 @@ A4 candidate public wording (unpublished):
 <ul><li>Installing the website downloads its core pages first, with optional
 tools loaded when opened. The offline notice and update controls remain
 available, and dismissing an update notice now works.</li></ul>
+```
+
+A5 candidate public wording (unpublished):
+
+```html
+<h3>Live connections</h3>
+<ul><li>Website live connections now limit oversized messages and stop stalled
+connections from building up output. Busy servers can ask new connections to
+retry; normal notification and administration permissions are unchanged.</li></ul>
 ```
