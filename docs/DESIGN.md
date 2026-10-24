@@ -358,9 +358,10 @@ the sector grid served by `/api/wiki/map/sectors`, in web workers, with
 [`painter.ts`](../frontend/src/utils/paintedMap/painter.ts). The original
 generated image stays underneath, so it shows while painting runs and whenever
 **Painted map** is off; browsers without workers keep the original only.
-Painting is deterministic and tiled: whole layers at 8 pixels per room, and from
-zoom 3 sharper 32-pixel tiles for just the area in view, centre first. Tiles
-overlap by one room so no seams show.
+Painting is deterministic and tiled: overview tiles use 8 pixels per room and
+are requested and mounted for the viewport plus a 25% margin. From zoom 3,
+centre-first detail uses 16 or 32 pixels per room, selected from the zoom and
+device pixel ratio (capped at 2). Tiles overlap by one room so no seams show.
 
 Layer changes cancel old work and recycle workers to release prepared grids.
 Rock has a separate lower pane, independent of worker completion order. A tile
@@ -368,9 +369,11 @@ failure retries once; a repeated tile failure or worker crash returns to the
 original map with a visible error. Toggle the painted view to retry with fresh
 workers. Access-gated map APIs use `no-store`; the server-side cache still applies.
 
-The retained detail budget is 64 tiles (about 31 MiB decoded at 32 pixels per room),
-centre first, with overview terrain outside that budget. Stale queued detail is
-dropped after pans and the worker pool has at most two workers. Showing a layer
+The current detail request budget is 64 tiles (about 31 MiB decoded at 32 pixels
+per room). Both resolutions share a 48 MiB / 128-entry LRU retention budget;
+previous-resolution imagery remains visible while its replacement paints.
+Stale queued detail is dropped after pans and the worker pool has at most two
+workers. Showing a layer
 always refetches its sectors; an hourly refresh also replaces the whole source,
 invalidating old terrain tiles and prepared worker grids together. Payload size
 is checked before base64 decoding. Sector reads coalesce by layer, admit at most
