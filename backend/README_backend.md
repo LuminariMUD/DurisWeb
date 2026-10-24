@@ -47,6 +47,15 @@ replacement work until its underlying read settles. Population is read and its
 delayed-publication eligibility rechecked on every response. HTTP responses stay
 `no-store`; dependency `/health` checks remain independent and uncached.
 
+In production, Vite's fingerprinted `/assets/name-<eight-character-hash>.ext`
+files are served before CSRF cookie issuance with `public, max-age=31536000,
+immutable`. Canonical-host routing, compression and CORS still run first.
+Unversioned assets, HTML, service-worker entry points and application/API routes
+retain their normal middleware and cache policies. Never replace the contents
+of an existing fingerprinted URL; a release must publish its new hashed files
+alongside the HTML that references them. Verify origin headers and Cloudflare
+cache behavior separately during release acceptance.
+
 Large zone world files are parsed in one pass with periodic event-loop yields,
 so wiki and builder map reads can continue servicing other requests. An independent
 worker observes the backend heartbeat and writes a warning directly to stderr if

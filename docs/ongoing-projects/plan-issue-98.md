@@ -21,7 +21,12 @@ Redis keys, configuration or background polling are needed.
   Proof: real Express route concurrency/expiry/failure/privacy tests, isolated
   before/after status traffic with child-process/resource observations, backend
   format/lint/type/build checks. No database writes or schema changes.
-- A2: fingerprinted static asset caching and middleware-order/HTTP proof.
+- A2: implemented/isolated-tested on `branch/issue-98-immutable-assets`, stacked on A1 PR #99.
+  Outcome: fingerprinted frontend files get immutable origin caching without
+  issuing an anonymous CSRF cookie. Non-goals: changing CDN settings, caching
+  APIs/authenticated pages/maps, or deploying. Files: static middleware, backend
+  wiring, HTTP tests and backend/deployment documentation. Proof: actual Express
+  static/conditional/CSRF requests plus startup-order source coverage.
 - A3: initial import graph and complete mobile download measurements.
 - A4: fresh-browser service-worker waterfall and bounded precaching.
 - A5: transport payload, heartbeat, admission and backpressure bounds.
@@ -87,6 +92,37 @@ through the initialized login shell. No full backend suite, frontend checks,
 database/migration tests or `verify:mud-writes` run for A1: it changes no frontend,
 SQL write or schema. Section B remains unverified.
 
+A1 PR: [#99](https://github.com/LuminariMUD/DurisWeb/pull/99), source commit
+`47e6fc5e62f83bdc3f8cd375082d5fcc6e6691e2`; open/unmerged at handoff. The tracker
+marks A1's off-server work complete, with deployment/live verification pending.
+
+A2 uses the existing static server, narrowed to Vite's actual eight-character
+fingerprint naming. A filename guard is sufficient; no manifest loader, cache
+service, configuration toggle or frontend build change is needed. The ordinary
+static/application path continues handling all other requests.
+
+A2 commands/results:
+
+- `pnpm --dir backend exec biome format --write src/index.ts
+  src/middleware/frontendAssets.ts src/middleware/__tests__/frontendAssets.test.ts`:
+  changed-file formatting.
+- `pnpm --dir backend test --runInBand
+  src/middleware/__tests__/frontendAssets.test.ts
+  src/middleware/__tests__/canonicalHost.test.ts
+  src/services/__tests__/integrationSecurityContract.test.ts`: **41 tests pass**,
+  including 14 new tests using actual Express static responses, anonymous
+  cookies, ETag/304/HEAD, unversioned HTML/workers, encoded traversal/missing
+  assets, API/mutation CSRF, new release HTML/assets and production startup order.
+  The initial two-suite run found invalid synthetic webmanifest JSON; using a
+  valid fixture fixed that test without a runtime change.
+- `pnpm --dir backend format:check`, `pnpm --dir backend lint`,
+  `pnpm --dir backend type-check`, `pnpm --dir backend build`,
+  `git diff --check`: pass.
+
+No frontend source/build, database/MUD write or schema changes; frontend, full
+backend/database suites and `verify:mud-writes` are not run for A2. Cloudflare
+`HIT`/`Age`, installed artifacts, public hostnames and live acceptance remain B3.
+
 ## Unpublished release news
 
 Prepare the combined payload as reader-visible changes are proven. Reconcile it
@@ -100,4 +136,12 @@ A1 candidate public wording (unpublished):
 <ul><li>The status page reuses a recent status sample during repeated visits,
 while showing when that sample was last updated. Unavailable status stays
 explicit, and the delayed population estimate keeps its existing privacy rules.</li></ul>
+```
+
+A2 candidate public wording (unpublished):
+
+```html
+<h3>Website loading</h3>
+<ul><li>Versioned website files can stay cached between visits, while pages
+and update checks continue to pick up new releases.</li></ul>
 ```
