@@ -73,8 +73,10 @@ Redis keys, configuration or background polling are needed.
   that asynchronous creation race or a real privileged host terminal.
   Also qualify dense participant battles against aggregate-size limits; a small
   four-snapshot fixture alone does not prove complete large-team publication.
-- A10: exact PR/commit/test handoff, deployment/rollback instructions and
-  unpublished visitor-facing release wording for the qualified changes.
+- A10: complete in [the release handoff](issue-98-release-handoff.md): exact
+  PR/commit/test evidence, deployment/recovery steps, remaining operator work and
+  combined unpublished visitor-facing wording. The final source-tool repair and
+  publication/check status are recorded with its PR in #98.
 
 ## Commands and evidence
 
@@ -755,6 +757,25 @@ update/PvP NetworkOnly tests and A6's real 100-client reconnect burst remain val
 Source CLI `node --check`, root Biome formatting and `git diff --check` pass.
 No application code/schema/dependency change occurs in this qualification chunk;
 the exact backend/frontend package gates and native tests are recorded above.
+
+## Review follow-up and handoff
+
+The #101 review correctly identifies a non-root `VITE_BASE_URL` measurement bug.
+The final follow-up infers the deployment prefix from the generated module entry
+before mapping declared URLs to local assets. It does not change the Vite build
+or runtime base policy. Native Node HTML fixtures for `/`, `/community/` and
+`/community/deep/` show two parent failures and all three candidate cases passing.
+`node --test scripts/qualification/initial-download.test.mjs`, the real built-output
+command and root Biome/diff checks pass. Final actual built totals are 42 assets,
+39 JS, one CSS, two fonts, 1,003,442 raw and 322,439 gzip bytes. No app rebuild or
+repeated package suite is needed for this CLI/docs-only repair; all changed app
+package gates/builds and focused/native evidence above remain applicable.
+
+`git fetch origin` confirms master is still the original baseline. GitHub checks
+for #99–#110 are green, with mergeable PRs; #111/#112 are mergeable and queued at
+handoff preparation. The final PR and exact head/check state are added to #98.
+No PR is merged. Detailed release/recovery instructions, source/artifact identities,
+measurement limits and combined unpublished HTML are in the linked handoff.
 
 ## Unpublished release news
 
