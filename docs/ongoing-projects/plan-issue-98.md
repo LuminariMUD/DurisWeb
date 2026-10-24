@@ -395,6 +395,9 @@ A8 commands/results:
   an invalid ordinary-player immortal-level value in the new fixture; using the
   actual `null` domain value corrected the fixture. No query/schema/MUD write is
   added; frontend and native database suites are not run for this focused change.
+- The final format check caught indentation introduced by that fixture correction
+  after the feature commit was pushed. A formatting-only follow-up and rerun of
+  backend format/lint/diff checks pass before PR creation; history is preserved.
 
 The isolated route tests use synthetic identity/service data; full application
 and representative native-data proof remains A7/A9. No deployment, changelog

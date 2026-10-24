@@ -16,8 +16,8 @@ const identify: RequestHandler = (req, _res, next) => {
           permissions: {
             accountName: 'FixtureReader',
             role: 'player',
-          immortalLevel: mode === 'staff' ? 57 : null,
-          maxLevel: mode === 'staff' ? 57 : 1,
+            immortalLevel: mode === 'staff' ? 57 : null,
+            maxLevel: mode === 'staff' ? 57 : 1,
             canAccessImmortalForum: false,
             canAccessGodForum: false,
             guilds: [],
