@@ -158,6 +158,15 @@ That fixture uses one pooled connection to change and restore only its own
 session aggregate limit. Default unit runs skip these native cases. It is
 not a production capacity or cold-database-cache measurement.
 
+The issue-98 full-runtime journey, fifteen-minute socket/read observation and
+read-only overload experiments are in `scripts/qualification/runtime-journey.mjs`,
+`runtime-soak.mjs` and `database-overload.mjs`. They require the explicitly owned
+loopback fixtures, mature synthetic seed and private generated configuration
+described in `docs/ongoing-projects/plan-issue-98.md`; they reject ordinary database
+names/ports. The overload HTTP policy is a prototype only. Its client deadline
+experiment demonstrates why a timed-out query cannot be assumed cancelled.
+Keep all reports, configuration, screenshots and fixture credentials outside Git.
+
 `src/services/__tests__/forumSearchNative.test.ts` uses the same explicit traffic
 port/owner-input opt-in and its own PID-qualified full-schema database. Its
 small deterministic SQL/HTTP fixtures exercise all scopes, combined author/date/

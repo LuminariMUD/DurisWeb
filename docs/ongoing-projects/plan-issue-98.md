@@ -52,7 +52,8 @@ Redis keys, configuration or background polling are needed.
   tests and frontend/qualification docs. Proof: observable retry timing and
   generation races plus an isolated native-browser reconnect burst. The game
   transport is unchanged; no extra timer/configuration/backoff framework is needed.
-- A7: in progress on `branch/issue-98-database-qualification`, stacked on A8
+- A7: implemented/isolated-qualified through the page-first query and final
+  overload experiments, starting on `branch/issue-98-database-qualification`, stacked on A8
   PR #105. Outcome: representative native query plans/acquisition/query timing,
   bounded admission/deadline/overload experiments, and an evidence-based choice
   before changing the pool. Preserve strict pooled-session safeguards and pool
@@ -65,7 +66,8 @@ Redis keys, configuration or background polling are needed.
   static/SPA fallback. Files: routes/services, existing validation/error boundary,
   focused HTTP/service tests and API/qualification docs. Preserve authorization
   and ordinary history URLs; no general API/error-framework redesign is needed.
-- A9: representative data/accounts/forum/PvP/socket/browser qualification.
+- A9: isolated qualification complete for representative data/accounts/forum/
+  PvP/socket/browser workloads, with the explicit measurement limits below.
   Include disconnect during terminal creation (SQL/PTY binding) and cleanup with
   delayed output writes; A5's terminal fixture covers established sessions, not
   that asynchronous creation race or a real privileged host terminal.
@@ -653,6 +655,106 @@ attempting an external-root path from `pnpm --dir backend exec biome` triggered
 Biome's root-path assertion, so it was rerun correctly. No frontend runtime
 change or full local backend suite in this focused repair. Existing stack CI
 checks are green; the new PR's checks are verified separately in the handoff.
+
+## Final database overload experiments
+
+Qualified on `branch/issue-98-qualification-handoff`, after terminal PR #111
+(`1d1b01985e0c46ac231d425eee9ab3a728fd9303`). Outcome: measure the actual pool's
+acquisition/query timing on the mature synthetic data, compare bounded admission
+and deadlines through native HTTP, and choose a proportionate pool policy.
+Files: two source qualification commands and the existing development/plan docs.
+No production pool, SQL mode, index or write deadline change is needed.
+
+`node scripts/qualification/database-overload.mjs /tmp/durisweb-issue98
+<23436|23437>` passes on both engines. The actual source services use the actual
+size-10 pool; instrumentation separates acquisition wait from query execution.
+At 10 concurrent service calls, acquisition p95 is **7.64 / 6.08 ms** and query
+p95 **137.25 / 170.46 ms** (MySQL/MariaDB). At 50 concurrent calls, acquisition
+p95 is **389.47 / 206.51 ms**, query p95 **1008.04 / 515.36 ms**, and forum-search
+call p95 **3344.86 / 1922.99 ms**. These are finite descriptive samples (51/251
+statements, 3–17 calls per route), not stable production percentiles. The full
+visibility/participant plans and correctness cases are in #107/#110.
+
+With all 10 leases held for 250 ms, the current unlimited queue eventually
+executes all 40 reads (HTTP p95 **271.30 / 260.60 ms**). The isolated prototype's
+queue of 20 plus a 100 ms acquisition deadline returns **40 JSON 503s**, each
+with `Retry-After: 1` and no-store; **zero expired queries execute**, including
+late leases released after their requests expire. Prototype p95 is **106.13 /
+110.06 ms**. This response policy exists only in the experiment, not the app.
+
+A real 500 ms SQL sleep, 100 ms client deadline and destroyed connection returns
+at **100.00 / 101.01 ms**, while server work remains observable until about
+**512.66 / 508.85 ms**. Client timeout is not SQL cancellation and cannot safely
+establish a failed write outcome. Therefore retain pool size 10, current admission
+and pooled-session safeguards, ship the measured page-first query repair, and
+use B6 route-attributed live evidence before a separate runtime admission change.
+The existing unlimited checkout queue remains an explicit operational limitation.
+This satisfies A7's qualification-before-tuning scope; it does not claim overload
+protection was deployed or added to every application route.
+
+Reports: `database-overload-23436.json`/`23437.json`. An earlier run overlapped the
+socket workloads; its reports were preserved as `database-overload-during-soak-*`
+before the final independent runs. The single-lease release helper was corrected
+to prevent duplicate teardown release, then both commands passed again. Session
+invariant checks pass before and after each command.
+
+## Full workload and browser qualification
+
+`node scripts/qualification/runtime-soak.mjs /tmp/durisweb-issue98
+<23436|23437>` runs each actual built application for **901 seconds**: 48 distinct
+authenticated users, 100 native application sockets, 10 scheduled mixed reads/s,
+and application/protocol heartbeat traffic. Stop rules are a failed socket,
+material HTTP errors, 20 in-flight requests or 512 MiB backend RSS. Both runs pass:
+**8,972 / 8,973 requests, zero HTTP errors, zero unexpected closures, 8,900
+application pongs each**. No client-IP rotation or rate-limit bypass is used.
+The workloads include public/members forum pages, a 40-reply thread, full search,
+50-event PvP pages, changelog, actual session introspection, status and health.
+
+MySQL/MariaDB route p95 (ms): PvP **47.30 / 23.51**, forum thread **294.66 /
+237.73**, search **222.01 / 180.53**, status **11.68 / 11.16**, health **4.47 /
+4.74**. Reports include every route's p99 and status counts. Backend RSS grows
+from **206,528 to 313,112 KiB / 281,916 to 304,628 KiB**; descriptors change
+**144 to 142 / 144 to 138**. The final five minutes still include RSS growth;
+this is an observation, not a leak-free or indefinite plateau claim. Brief native
+overload experiments, browser work and the separate cold-cache startup overlap
+parts of these runs; the final A7 measurements above run independently afterward.
+
+The runtime artifacts were frozen during the soak; their private sorted checksum
+manifest is `qualified-soak-artifacts.sha256` (SHA-256
+`4bfabe3040a7cfdafd55b2717e0375a4d13ae127beb29fbc51c3c78d84fcfe09`).
+The terminal creation/cleanup runtime is the repaired version. The final shutdown
+await was added after this build; both engines' full native journey and locked-SQL
+SIGTERM case were rerun against the final build. No served build was overwritten.
+
+Cold-cache proof: a separate actual app starts against a verified empty, owned
+Redis database 15, then first/warm reads of site config, PvP, changelog, forum and
+status all return 200. Startup is **837 ms**; PvP first/warm **31.03 / 27.46 ms**,
+status **11.75 / 1.60 ms**. Only that marked-owned Redis database is cleared after
+the process exits. SQL buffer/OS caches remain warm and are not claimed cold.
+Private helpers/reports are `cold-cache.mjs`, `cold-cache.json`, `cold-app.log`.
+
+`python3 /tmp/durisweb-issue98/browser-runtime.py` uses existing Playwright and
+Chromium **153.0.8010.12**, normal service workers and fresh browser storage,
+390×844 touch viewport, CPU 4×, 100 ms latency and 200 KiB/s download. The Browser
+plugin is unavailable; the existing Playwright fallback is retained. Real backend
+first-visit/render/install metrics: **LCP 3192 ms, CLS 0.006912**, sampled INP
+**32 ms across four motion-control taps**. These are local laboratory samples,
+not physical-device or field INP. Installation makes **75 worker requests /
+181,880 worker response-body bytes**, with **593,910 bytes** across captured
+foreground and worker bodies. The source A3 before/after comparison uses its own
+controlled fixture; these different workloads must not be mixed into that ratio.
+
+Actual UI login, forum visibility, `dna` icon, the busy thread and editor input
+pass. Online console errors are empty. Two requests abort on route navigation
+(privacy/categories); they are separate from HTTP/server failures. Homepage and
+thread screenshots were visually inspected. Private `runtime-mobile.json` retains
+request timings/sizes, cache keys and all metrics; `browser-runtime-final.log` and
+`runtime-mobile-*.png` retain the supporting evidence. A4's earlier real offline/
+update/PvP NetworkOnly tests and A6's real 100-client reconnect burst remain valid.
+
+Source CLI `node --check`, root Biome formatting and `git diff --check` pass.
+No application code/schema/dependency change occurs in this qualification chunk;
+the exact backend/frontend package gates and native tests are recorded above.
 
 ## Unpublished release news
 
