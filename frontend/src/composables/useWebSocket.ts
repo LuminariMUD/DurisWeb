@@ -17,7 +17,10 @@ const isConnected = ref(false)
 const lastMessage = ref<WebSocketMessage | null>(null)
 const latency = ref<number | null>(null)
 let pingSentAt: number | null = null
-let intentionalClose = false
+let connectionWanted = false
+let socketGeneration = 0
+let reconnectAttempt = 0
+let openedAt: number | null = null
 let reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null
 const newEventCallbacks = ref<Array<(event: any) => void>>([])
 const statsUpdateCallbacks = ref<Array<(stats: any) => void>>([])
@@ -63,8 +66,21 @@ async function getAuthToken(): Promise<string | null> {
 
 /** Shares the application WebSocket and its typed subscription callbacks. */
 export function useWebSocket() {
+  const scheduleReconnect = (): void => {
+    if (!connectionWanted || reconnectTimeoutId !== null) return
+    const ceiling = Math.min(30_000, 5000 * 2 ** reconnectAttempt)
+    reconnectAttempt = Math.min(reconnectAttempt + 1, 3)
+    // Equal jitter keeps a positive minimum and spreads a shared interruption.
+    const delay = ceiling / 2 + (Math.random() * ceiling) / 2
+    reconnectTimeoutId = setTimeout(() => {
+      reconnectTimeoutId = null
+      connect()
+    }, delay)
+  }
+
   /** Opens the shared application socket unless one is already active or pending. */
-  const connect = () => {
+  const connect = (): void => {
+    connectionWanted = true
     // Clear any pending reconnect
     if (reconnectTimeoutId) {
       clearTimeout(reconnectTimeoutId)
@@ -79,9 +95,9 @@ export function useWebSocket() {
       return
     }
 
-    // Force close any existing connection first (handles HMR and stale connections)
+    // Retire old callbacks before closing/replacing their socket.
+    const generation = ++socketGeneration
     if (ws.value) {
-      intentionalClose = true
       try {
         ws.value.close()
       } catch {
@@ -90,17 +106,25 @@ export function useWebSocket() {
       ws.value = null
       isConnected.value = false
     }
+    openedAt = null
 
     const wsUrl = frontendConfiguration.websocketUrl
 
     try {
-      ws.value = new WebSocket(wsUrl)
+      const socket = new WebSocket(wsUrl)
+      ws.value = socket
 
-      ws.value.onopen = () => {
+      socket.onopen = () => {
+        if (generation !== socketGeneration || !connectionWanted) {
+          socket.close()
+          return
+        }
         isConnected.value = true
+        openedAt = performance.now()
       }
 
-      ws.value.onmessage = (event) => {
+      socket.onmessage = (event) => {
+        if (generation !== socketGeneration) return
         try {
           const message: WebSocketMessage = JSON.parse(event.data)
           lastMessage.value = message
@@ -275,37 +299,39 @@ export function useWebSocket() {
         } catch {}
       }
 
-      ws.value.onerror = () => {}
+      socket.onerror = () => {}
 
-      ws.value.onclose = () => {
+      socket.onclose = () => {
+        if (generation !== socketGeneration) return
+        socketGeneration++
         isConnected.value = false
-
-        // Don't reconnect if intentionally closed
-        if (intentionalClose) {
-          intentionalClose = false
-          return
-        }
-
-        // Attempt to reconnect after 5 seconds
-        reconnectTimeoutId = setTimeout(() => {
-          reconnectTimeoutId = null
-          connect()
-        }, 5000)
+        ws.value = null
+        if (openedAt !== null && performance.now() - openedAt >= 30_000) reconnectAttempt = 0
+        openedAt = null
+        scheduleReconnect()
       }
-    } catch {}
+    } catch {
+      if (generation === socketGeneration) {
+        ws.value = null
+        scheduleReconnect()
+      }
+    }
   }
 
   const disconnect = () => {
+    connectionWanted = false
+    socketGeneration++
+    reconnectAttempt = 0
+    openedAt = null
     if (reconnectTimeoutId) {
       clearTimeout(reconnectTimeoutId)
       reconnectTimeoutId = null
     }
     if (ws.value) {
-      intentionalClose = true
       ws.value.close()
       ws.value = null
-      isConnected.value = false
     }
+    isConnected.value = false
   }
 
   const onNewEvent = (callback: (event: any) => void) => {

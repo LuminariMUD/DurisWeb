@@ -29,6 +29,13 @@ account/configuration/API operations can still be unavailable offline. PvP
 responses remain `NetworkOnly`. Updates retain the prompt/apply workflow, and
 dismissing the update notice leaves the waiting worker for a later visit.
 
+The shared application live connection retries with exponential equal jitter:
+initially 2.5–5 seconds, then 5–10, 10–20 and at most 15–30 seconds during repeated
+failures. Thirty seconds of stable connection resets that window. Explicit
+disconnect cancels retry work, and callbacks from retired sockets cannot change
+the current connection or deliver stale messages. The separate game connection
+keeps its own reconnect behavior.
+
 ## Setup
 
 Copy `frontend/.env.example` to `frontend/.env` and set every public URL, host,
