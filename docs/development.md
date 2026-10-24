@@ -142,6 +142,17 @@ They create and drop only `pvp_snapshot_test` and refuse ports 3306 and 3307.
 Leave the setting absent for a unit-only run; a full burn-in must provide the
 disposable instance and run these checks without skips.
 
+`accountServiceRetirement.test.ts` covers legacy warm-cache retirement, name
+reuse and database-failure refusal. Its opt-in native case uses the same owned
+loopback credentials below with `TEST_ACCOUNT_DB_PORT=TEST_DB_PORT` (the selected
+port value); ports 3306/3307 are refused. It creates/removes only a generated
+`durisweb_accounts_*` database, executes the actual service queries, retires old
+links and inserts a recreated Overlord plus a reused name on another account.
+Run the focused file on disposable MariaDB and MySQL; it does not contact the
+configured application database/Redis. The in-memory cache deliberately retains
+legacy arrays/mappings across the native SQL transition. This is a consumer
+regression, not a complete website/MUD wipe journey.
+
 `playerEventSubscriber.test.ts` has an opt-in native locking case.
 `TEST_PRESENCE_DB_PORT` must match an owned disposable server's `TEST_DB_PORT`,
 with `TEST_DB_HOST=127.0.0.1` and its `TEST_DB_USER`/`TEST_DB_PASSWORD`; ports 3306
