@@ -120,6 +120,7 @@ describe('painted map worker lifecycle', () => {
   })
 
   it('keeps late underground rock below cave tiles', async () => {
+    vi.spyOn(map, 'getBounds').mockReturnValue(L.latLngBounds([-150, -50], [50, 150]))
     painted.show(source(-1))
     const [rock, cave] = TestWorker.instances
     cave!.reply()
@@ -169,6 +170,7 @@ describe('painted map worker lifecycle', () => {
   })
 
   it('recovers a transient error and revokes generated images at teardown', async () => {
+    vi.spyOn(map, 'getBounds').mockReturnValue(L.latLngBounds([-150, -50], [50, 150]))
     painted.show({ ...source(), width: 2, height: 2, sectors: new Uint8Array(4) })
     const worker = TestWorker.instances[0]!
     worker.reply('failed')
@@ -197,6 +199,7 @@ describe('painted map worker lifecycle', () => {
   })
 
   it('accepts worker-encoded PNG without using the main-thread canvas', async () => {
+    vi.spyOn(map, 'getBounds').mockReturnValue(L.latLngBounds([-150, -50], [50, 150]))
     painted.show({ ...source(), width: 2, height: 2, sectors: new Uint8Array(4) })
     TestWorker.instances[0]!.reply(undefined, true)
     await flushPromises()

@@ -272,8 +272,9 @@ describe('wiki entrance visibility and navigation', () => {
     vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([
       entrance(1, { toZoneName: 'Revised zone' }),
     ])
-    // A fresh bounds query must not reuse the previous cached entrance response.
-    map.panTo([-190, 220], { animate: false })
+    // A different requested viewport must bypass the cached entrance response.
+    vi.spyOn(map, 'getBounds').mockReturnValue(L.latLngBounds([-210, 180], [-180, 220]))
+    map.fire('moveend')
     await settle()
     expect(document.querySelector('.leaflet-marker-icon')).not.toBe(before)
     expect(document.querySelector('.leaflet-marker-icon')?.getAttribute('aria-label')).toBe(
