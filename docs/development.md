@@ -282,3 +282,12 @@ Regression fixtures and other checkouts are excluded. Missing, malformed, exited
 or ambiguous candidates report stopped. Uptime comes from the same process
 snapshot as the PID, so process exit cannot turn an empty second lookup into an
 invalid boot timestamp during WebSocket reconnection.
+
+### Issue #264 runtime probe review repair
+
+The disposable pwipe probe accepts the literal loopback root principal as well as
+the existing wildcard/local forms. After Redis delivery it polls the existing
+bounded waiter for the durable outbox publication acknowledgement: Redis receipt
+can precede the separate SQL update. This changes only qualification code; existing
+HTTP/Redis/MUD integration evidence remains valid. No new player-facing release
+news is needed for this probe repair, and no deployment is performed.

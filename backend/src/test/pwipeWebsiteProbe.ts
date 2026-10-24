@@ -331,9 +331,13 @@ async function probeWebsite(phase: 'old' | 'new', directory: string): Promise<vo
       );
       assert.equal(donations[0].amount_cents, 123);
       assert.equal(donations[0].message, 'season-queued-fixture');
-      const [outbox] = await database.query<RowDataPacket[]>('SELECT status FROM donation_outbox');
-      assert.equal(outbox.length, 1);
-      assert.equal(outbox[0].status, 'published');
+      await waitFor(async () => {
+        const [outbox] = await database.query<RowDataPacket[]>(
+          'SELECT status FROM donation_outbox',
+        );
+        assert.equal(outbox.length, 1);
+        return outbox[0].status === 'published';
+      }, 'queued donation was not durably acknowledged');
       const retried = await fetch(process.env.SITE_URL + '/kofihook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
