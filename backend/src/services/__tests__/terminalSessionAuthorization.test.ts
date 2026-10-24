@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { EventEmitter } from 'node:events';
 
 const hasActiveWebSession = jest.fn<(...args: unknown[]) => Promise<boolean>>();
 const execute = jest.fn<(...args: unknown[]) => Promise<unknown>>();
@@ -17,6 +18,7 @@ const spawn = jest.fn(() => pty);
 jest.unstable_mockModule('node-pty', () => ({
   spawn,
 }));
+jest.unstable_mockModule('node:fs/promises', () => ({ unlink: jest.fn(async () => {}) }));
 jest.unstable_mockModule('../../db/connection.js', () => ({
   pool: { execute },
 }));
@@ -42,7 +44,7 @@ jest.unstable_mockModule('../../config/environment.js', () => ({
 const terminalService = await import('../terminalService.js');
 const { APPLICATION_MAX_BUFFERED_BYTES } = await import('../../utils/applicationWebSocket.js');
 
-type FakeWebSocket = {
+type FakeWebSocket = EventEmitter & {
   readyState: number;
   bufferedAmount: number;
   send: jest.Mock;
@@ -50,7 +52,20 @@ type FakeWebSocket = {
 };
 
 function fakeWebSocket(): FakeWebSocket {
-  return { readyState: 1, bufferedAmount: 0, send: jest.fn(), terminate: jest.fn() };
+  return Object.assign(new EventEmitter(), {
+    readyState: 1,
+    bufferedAmount: 0,
+    send: jest.fn(),
+    terminate: jest.fn(),
+  });
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
 }
 
 describe('terminal WebSocket session authorization', () => {
@@ -170,5 +185,143 @@ describe('terminal WebSocket session authorization', () => {
     onData('slow consumer');
     expect(ws.terminate).toHaveBeenCalledTimes(1);
     expect(ws.send).toHaveBeenCalledTimes(sent);
+  });
+
+  it('does not create a PTY after its socket closes during the initial database insert', async () => {
+    const insert = deferred<unknown>();
+    execute.mockReturnValueOnce(insert.promise).mockResolvedValue([]);
+    const ws = fakeWebSocket();
+    const creating = terminalService.createSession('Cwial', ws as never);
+    ws.readyState = 3;
+    ws.emit('close');
+    insert.resolve([{ insertId: 900001 }]);
+    expect((await creating).sessionId).toBe(-1);
+    expect(spawn).not.toHaveBeenCalled();
+    expect(terminalService.getActiveSessionCount()).toBe(0);
+  });
+
+  it('serializes concurrent creation for the same account', async () => {
+    const insert = deferred<unknown>();
+    execute.mockReturnValueOnce(insert.promise).mockResolvedValue([{ insertId: 900002 }]);
+    const ws = fakeWebSocket();
+    const first = terminalService.createSession('Cwial', ws as never);
+    const second = terminalService.createSession('Cwial', ws as never);
+    insert.resolve([{ insertId: 900002 }]);
+    const results = await Promise.all([first, second]);
+    expect(results[1].sessionId).toBe(results[0].sessionId);
+    expect(spawn).toHaveBeenCalledTimes(1);
+    expect(
+      execute.mock.calls.filter(([sql]) => String(sql).startsWith('INSERT INTO terminal_sessions')),
+    ).toHaveLength(1);
+  });
+
+  it('cancels pending creation when account-wide terminal cleanup happens before the insert completes', async () => {
+    const insert = deferred<unknown>();
+    execute.mockReturnValueOnce(insert.promise).mockResolvedValue([]);
+    const creating = terminalService.createSession('Cwial', fakeWebSocket() as never);
+    const logout = terminalService.cleanupAccountSessions('Cwial');
+    insert.resolve([{ insertId: 900003 }]);
+    await Promise.all([creating, logout]);
+    expect(spawn).not.toHaveBeenCalled();
+    expect(terminalService.getActiveSessionCount()).toBe(0);
+  });
+
+  it('kills and removes a spawned PTY when its PID update fails', async () => {
+    execute
+      .mockResolvedValueOnce([{ insertId: 900004 }])
+      .mockRejectedValueOnce(new Error('fixture PID update failed'))
+      .mockResolvedValue([]);
+    expect((await terminalService.createSession('Cwial', fakeWebSocket() as never)).sessionId).toBe(
+      -1,
+    );
+    expect(pty.kill).toHaveBeenCalledTimes(1);
+    expect(terminalService.getActiveSessionCount()).toBe(0);
+  });
+
+  it('kills the PTY immediately while final output logging is blocked', async () => {
+    execute.mockResolvedValueOnce([{ insertId: 900005 }]).mockResolvedValue([]);
+    const ws = fakeWebSocket();
+    const created = await terminalService.createSession('Cwial', ws as never);
+    const onData = pty.onData.mock.calls[0][0] as (data: string) => void;
+    onData('final fixture output');
+    const log = deferred<unknown>();
+    execute.mockReturnValueOnce(log.promise).mockResolvedValue([]);
+    const closing = terminalService.destroySession(created.sessionId);
+    try {
+      expect(pty.kill).toHaveBeenCalledTimes(1);
+      expect(terminalService.getSessionByWebSocket(ws as never)).toBeUndefined();
+    } finally {
+      log.resolve([]);
+      await closing;
+    }
+  });
+
+  it('cleans up a socket that closes while its PID update is pending', async () => {
+    const update = deferred<unknown>();
+    execute
+      .mockResolvedValueOnce([{ insertId: 900006 }])
+      .mockReturnValueOnce(update.promise)
+      .mockResolvedValue([]);
+    const ws = fakeWebSocket();
+    const creating = terminalService.createSession('Cwial', ws as never);
+    await Promise.resolve();
+    expect(spawn).toHaveBeenCalledTimes(1);
+    ws.readyState = 3;
+    ws.emit('close');
+    try {
+      expect(pty.kill).toHaveBeenCalledTimes(1);
+      expect(terminalService.getActiveSessionCount()).toBe(0);
+    } finally {
+      update.resolve([]);
+      expect((await creating).sessionId).toBe(-1);
+    }
+  });
+
+  it('hides pending PID updates from operation dispatch without destroying the terminal', async () => {
+    const update = deferred<unknown>();
+    execute
+      .mockResolvedValueOnce([{ insertId: 900008 }])
+      .mockReturnValueOnce(update.promise)
+      .mockResolvedValue([]);
+    hasActiveWebSession.mockResolvedValue(true);
+    const ws = fakeWebSocket();
+    const creating = terminalService.createSession('Cwial', ws as never);
+    await Promise.resolve();
+    try {
+      expect(terminalService.getActiveSessionCount()).toBe(1);
+      expect(terminalService.getSessionByWebSocket(ws as never)).toBeUndefined();
+      expect(pty.kill).not.toHaveBeenCalled();
+    } finally {
+      update.resolve([]);
+      await creating;
+    }
+    expect(terminalService.getSessionByWebSocket(ws as never)).toBe(900008);
+    await expect(
+      terminalService.isTerminalOperationAuthorized(900008, ws as never, 'Cwial', 'web-session-8'),
+    ).resolves.toBe(true);
+    await expect(terminalService.writeInput(900008, 'ready input')).resolves.toBe(true);
+    expect(terminalService.resizeTerminal(900008, 100, 30)).toBe(true);
+    expect(pty.write).toHaveBeenCalledWith('ready input');
+    expect(pty.resize).toHaveBeenCalledWith(100, 30);
+    expect(pty.kill).not.toHaveBeenCalled();
+  });
+
+  it('handles PTY exit before its PID update completes without resurrecting the session', async () => {
+    const update = deferred<unknown>();
+    execute
+      .mockResolvedValueOnce([{ insertId: 900007 }])
+      .mockReturnValueOnce(update.promise)
+      .mockResolvedValue([]);
+    const creating = terminalService.createSession('Cwial', fakeWebSocket() as never);
+    await Promise.resolve();
+    const onExit = pty.onExit.mock.calls[0][0] as (event: {
+      exitCode: number;
+      signal: number;
+    }) => void;
+    onExit({ exitCode: 0, signal: 0 });
+    update.resolve([]);
+    expect((await creating).sessionId).toBe(-1);
+    expect(terminalService.getActiveSessionCount()).toBe(0);
+    expect(pty.kill).toHaveBeenCalledTimes(1);
   });
 });

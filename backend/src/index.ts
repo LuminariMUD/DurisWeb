@@ -79,6 +79,7 @@ import {
   destroySession as destroyTerminalSession,
   getSessionByWebSocket,
   isTerminalOperationAuthorized,
+  cleanupAllSessions as cleanupTerminalSessions,
 } from './services/terminalService.js';
 import {
   verifyToken,
@@ -818,6 +819,7 @@ const gracefulShutdown = async () => {
   cleanupLogWatchers();
 
   await closeWebServer(server, wss);
+  await cleanupTerminalSessions();
   logger.info('HTTP and WebSocket servers closed');
 
   await stopDonationOutboxPublisher();
