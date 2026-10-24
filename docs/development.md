@@ -142,6 +142,14 @@ They create and drop only `pvp_snapshot_test` and refuse ports 3306 and 3307.
 Leave the setting absent for a unit-only run; a full burn-in must provide the
 disposable instance and run these checks without skips.
 
+`playerEventSubscriber.test.ts` has an opt-in native locking case.
+`TEST_PRESENCE_DB_PORT` must match an owned disposable server's `TEST_DB_PORT`,
+with `TEST_DB_HOST=127.0.0.1` and its `TEST_DB_USER`/`TEST_DB_PASSWORD`; ports 3306
+and 3307 are refused. It creates and removes generated `durisweb_presence_*`
+databases and SELECT-only `presence_*` readers, then exercises the actual handler
+against the MUD's exclusive boundary query. Run that focused Jest file with each
+maintained engine; ordinary unit runs skip this native case.
+
 Image-removal integration tests use `TEST_IMAGE_DB_PORT`, loopback port 23436
 or 23437 and database `durisweb_qualification_image_suite`. Provision the full
 owner fixture plus the website baseline/forward migrations on that disposable
