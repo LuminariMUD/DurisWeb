@@ -38,6 +38,7 @@ function preloadDisplayFonts(base: string): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const environment = parseViteEnvironment(env)
+  const shellAssets = new Set<string>(['index.html', 'favicon.ico', 'push-sw.js'])
 
   return {
     base: environment.baseUrl,
@@ -45,6 +46,32 @@ export default defineConfig(({ mode }) => {
       vue(),
       vueDevTools(),
       preloadDisplayFonts(environment.baseUrl),
+      {
+        name: 'duris-shell-precache',
+        enforce: 'post',
+        generateBundle(_options, bundle) {
+          const include = (fileName: string) => {
+            if (shellAssets.has(fileName)) return
+            shellAssets.add(fileName)
+            const output = bundle[fileName]
+            if (output?.type !== 'chunk') return
+            for (const imported of output.imports) include(imported)
+            // Vite supplies the CSS/asset graph on generated chunks.
+            const { viteMetadata } = output as typeof output & {
+              viteMetadata?: { importedCss: Set<string>; importedAssets: Set<string> }
+            }
+            for (const css of viteMetadata?.importedCss ?? []) include(css)
+            for (const asset of viteMetadata?.importedAssets ?? []) include(asset)
+          }
+          for (const output of Object.values(bundle)) {
+            if (
+              output.type === 'chunk' &&
+              (output.isEntry || output.facadeModuleId?.endsWith('/src/views/FrontPageView.vue'))
+            )
+              include(output.fileName)
+          }
+        },
+      },
       VitePWA({
         // /sw.js retires old registrations whose cached API URL used another host.
         filename: 'service-worker.js',
@@ -53,7 +80,15 @@ export default defineConfig(({ mode }) => {
         manifest: false, // use manifest.json from public folder
         workbox: {
           importScripts: ['/push-sw.js'],
-          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+          globPatterns: ['**/*.{js,css,html,svg,png,webp,ico,woff,woff2}'],
+          manifestTransforms: [
+            async (entries) => ({
+              manifest: entries.filter(
+                ({ url }) => shellAssets.has(url) || url.startsWith('icons/'),
+              ),
+              warnings: [],
+            }),
+          ],
           runtimeCaching: [
             {
               // Never replay a POV or stored quote whose publication may have changed.

@@ -32,7 +32,11 @@ Redis keys, configuration or background polling are needed.
   frontend/qualification documentation. Outcome: editor and full icon catalogs
   remain on consuming routes, with measured complete initial transfer. No new
   lazy-component wrappers, catalogs, dependencies or configuration are needed.
-- A4: fresh-browser service-worker waterfall and bounded precaching.
+- A4: implemented/isolated-tested on `branch/issue-98-shell-precache`, stacked on
+  A3 PR #101. Outcome: precache only the shell/home graph and required static
+  assets; preserve offline shell, optional route use, updates and PvP NetworkOnly.
+  Files: Vite precache graph/filter, update composable, focused regression and
+  its virtual-module test plugin, frontend/qualification documentation.
 - A5: transport payload, heartbeat, admission and backpressure bounds.
 - A6: jittered reconnect delay with stable-connection reset.
 - A7: representative isolated query/pool overload qualification before tuning.
@@ -186,6 +190,62 @@ raw), but is absent from the initial set and its real route works. The threshold
 is not raised or the warning suppressed. Current precaching still includes
 optional routes (**304 entries**); reducing that is A4, not an A3 claim.
 
+A3 PR: [#101](https://github.com/LuminariMUD/DurisWeb/pull/101), source commit
+`b0347181fe25391935ce5792e89fd3795a1bdc50`. Stack: #99 → #100 → #101.
+
+A4 records a normal fresh-browser installation **before changing precaching**,
+using the A3 build as its baseline. The generated chunk graph supplies shell and
+homepage imports, CSS and asset references; the existing Workbox manifest is
+filtered to that graph and install icons. Runtime cache policies and immediate
+registration stay intact. No manually maintained chunk list, new cache manager
+or registration timer is needed. Source tracing also found `dismissUpdate`
+changing a local ref while the UI returned the registration ref; the fix uses
+the actual ref and removes its unused local copies/copy helper (no callers).
+
+A4 commands/results:
+
+- `pnpm --dir frontend test:unit --run
+  src/composables/__tests__/usePwaUpdate.spec.ts`: the dismissal regression fails
+  before repair and all three tests pass afterward. The existing VitePWA plugin
+  in Vitest supplies virtual-module resolution; before adding it, the test could
+  not resolve `virtual:pwa-register/vue`.
+- `pnpm --dir frontend exec biome format --write vite.config.ts vitest.config.ts
+  src/composables/usePwaUpdate.ts src/composables/__tests__/usePwaUpdate.spec.ts`;
+  frontend `format:check`, `lint`, `type-check`, `test:unit --run`, and `build`
+  with the A3 synthetic environment: pass, **559 tests / 73 files**. The existing
+  optional-editor size warning remains. Configuration-literal and diff checks pass.
+- Generated precache: **304 → 77 entries**, **6489.47 → 1413.85 KiB raw**.
+  Those are manifest measurements, distinct from the actual browser below.
+- `python3 /tmp/durisweb-issue98/browser-install.py a4baseline` and `candidate`:
+  normal Chromium 153 with service workers allowed, fresh contexts, viewport
+  390×844, real built files/synthetic APIs on loopback 8138. Full request timing,
+  status/size records and cache URL lists are saved as `a4-*-install.json` in the
+  private evidence directory. Actual cached entries: **299 → 72**; worker-owned
+  requests: **302 → 75**; worker response-body bytes: **2,032,518 → 10,180**.
+  The new install reuses shell files already fetched by the page. These counts
+  include browser HTTP-cache reuse, not just manifest sizes or a production CDN.
+- All HTML-declared initial JS/CSS/font files are present in the real precache.
+  Optional editor/forum/game entry chunks are absent from installation. The
+  optional editor loads and accepts input when visited, then its actual JS is
+  available from the runtime cache offline. Offline reload renders the same
+  explicit unavailable/offline shell as the baseline; live API data remains
+  unavailable. A previously successful PvP request fails offline rather than
+  replaying a cached response. Online consoles are clean; deliberate offline
+  API/socket failures are retained separately as expected network errors.
+- `python3 /tmp/durisweb-issue98/browser-update.py`: actual A3 worker → candidate
+  upgrade passes, including the existing update-now action and new shell.
+  The old large precache is cleaned (74 total entries including runtime cache).
+  A private next-worker copy changes only a comment to trigger another real
+  waiting-worker event. The new client shows the notice, dismisses it without
+  activating that worker, rediscovers it on reload and applies it through the UI.
+  No console errors. Actual offline/prompt screenshots were inspected.
+
+The first offline locator used a straight-space phrase rather than the actual
+apostrophe-containing UI text; correcting the fixture locator resolved it. All
+browser scripts, generated copies, JSON/waterfalls and screenshots remain outside
+Git under `/tmp/durisweb-issue98/`. No production, native mobile device, live API,
+backend or database qualification is claimed for A4.
+
 ## Unpublished release news
 
 Prepare the combined payload as reader-visible changes are proven. Reconcile it
@@ -214,4 +274,12 @@ A3 candidate public wording (unpublished):
 ```html
 <ul><li>Opening the website downloads less shared code. Rich-text editing and
 the full forum/game icon selections remain available where they are used.</li></ul>
+```
+
+A4 candidate public wording (unpublished):
+
+```html
+<ul><li>Installing the website downloads its core pages first, with optional
+tools loaded when opened. The offline notice and update controls remain
+available, and dismissing an update notice now works.</li></ul>
 ```

@@ -1,10 +1,6 @@
-import { ref, onMounted } from 'vue'
 import { useRegisterSW } from 'virtual:pwa-register/vue'
 
 export function usePwaUpdate() {
-  const offlineReady = ref(false)
-  const needRefresh = ref(false)
-
   const {
     offlineReady: swOfflineReady,
     needRefresh: swNeedRefresh,
@@ -29,23 +25,12 @@ export function usePwaUpdate() {
     },
   })
 
-  onMounted(() => {
-    offlineReady.value = swOfflineReady.value
-    needRefresh.value = swNeedRefresh.value
-  })
-
-  // watch for changes
-  const checkForUpdates = () => {
-    offlineReady.value = swOfflineReady.value
-    needRefresh.value = swNeedRefresh.value
-  }
-
   const updateApp = async () => {
     await updateServiceWorker(true)
   }
 
   const dismissUpdate = () => {
-    needRefresh.value = false
+    swNeedRefresh.value = false
   }
 
   return {
@@ -53,6 +38,5 @@ export function usePwaUpdate() {
     needRefresh: swNeedRefresh,
     updateApp,
     dismissUpdate,
-    checkForUpdates,
   }
 }
