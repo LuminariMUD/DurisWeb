@@ -9,6 +9,19 @@ There is no OpenAPI document or generated client. Route modules and their
 tests remain the executable source of truth; this page documents stable entry
 points and security boundaries rather than duplicating every handler.
 
+Unmatched `/api` paths return JSON 404 with `Cache-Control: no-store` before
+static serving or the Vue history fallback. Registered route authentication,
+permissions and mutation CSRF checks retain precedence. Ordinary website history
+URLs continue receiving the frontend HTML.
+
+Public and admin Website Changelog lists accept complete decimal `page`/`limit`
+query values. Missing values default to page 1 and 20 entries; bounds clamp to
+pages 1–10,000 and limits 1–100 (including zero at the lower bound). Negative,
+fractional, empty, repeated or malformed values return 400. The service applies
+the same numeric bounds before calculating SQL offsets. Admin-list access still
+requires authentication and `manage_news`; public-list admin visibility keeps
+its existing reader-level decision. Read every page when reconciling history.
+
 ## Common Endpoints
 
 | Method | Path | Authentication | Purpose |

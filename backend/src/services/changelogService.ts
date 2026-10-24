@@ -2,6 +2,7 @@ import { pool as db } from '../db/connection.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { createNotification } from './unifiedNotificationService.js';
 import { processContentForWrite } from '../utils/contentParser.js';
+import { parsePagination } from '../utils/validation.js';
 
 export interface ChangelogEntry {
   id: number;
@@ -38,7 +39,13 @@ export async function getChangelogEntries(options: ChangelogListOptions = {}): P
   entries: ChangelogEntry[];
   total: number;
 }> {
-  const { includeAdmin = false, accountName, page = 1, limit = 20 } = options;
+  const { includeAdmin = false, accountName } = options;
+  const { page, limit } = parsePagination(
+    options.page?.toString(),
+    options.limit?.toString(),
+    20,
+    100,
+  );
   const offset = (page - 1) * limit;
 
   let whereClause = 'WHERE is_published = TRUE';
@@ -104,12 +111,18 @@ export async function getChangelogEntries(options: ChangelogListOptions = {}): P
  * get all changelog entries for admin (including unpublished)
  */
 export async function getAllChangelogEntriesForAdmin(
-  page = 1,
-  limit = 20,
+  requestedPage = 1,
+  requestedLimit = 20,
 ): Promise<{
   entries: ChangelogEntry[];
   total: number;
 }> {
+  const { page, limit } = parsePagination(
+    requestedPage.toString(),
+    requestedLimit.toString(),
+    20,
+    100,
+  );
   const offset = (page - 1) * limit;
 
   const [countRows] = await db.query<RowDataPacket[]>(

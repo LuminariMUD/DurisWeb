@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-const query = jest.fn((..._args: unknown[]): Promise<any> => Promise.resolve([[]]));
+const query = jest.fn((..._args: unknown[]): Promise<unknown> => Promise.resolve([[]]));
 
 jest.unstable_mockModule('../../db/connection.js', () => ({
   pool: { query },
@@ -35,5 +35,26 @@ describe('changelog detail visibility', () => {
     const sql = String(query.mock.calls[0][0]);
     expect(sql).not.toContain('is_published = TRUE');
     expect(sql).not.toContain("category = 'public'");
+  });
+
+  it('bounds service-level public/admin list calls before computing SQL offsets', async () => {
+    query.mockResolvedValue([[{ total: 0 }]]);
+    await changelogService.getChangelogEntries({
+      page: Number.MAX_SAFE_INTEGER,
+      limit: Number.MAX_SAFE_INTEGER,
+    });
+    expect(query).toHaveBeenLastCalledWith(
+      expect.stringContaining('LIMIT ? OFFSET ?'),
+      [100, 999900],
+    );
+    query.mockClear();
+    await changelogService.getAllChangelogEntriesForAdmin(
+      Number.MAX_SAFE_INTEGER,
+      Number.MAX_SAFE_INTEGER,
+    );
+    expect(query).toHaveBeenLastCalledWith(
+      expect.stringContaining('LIMIT ? OFFSET ?'),
+      [100, 999900],
+    );
   });
 });

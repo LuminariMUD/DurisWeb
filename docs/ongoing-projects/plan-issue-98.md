@@ -53,7 +53,13 @@ Redis keys, configuration or background polling are needed.
   generation races plus an isolated native-browser reconnect burst. The game
   transport is unchanged; no extra timer/configuration/backoff framework is needed.
 - A7: representative isolated query/pool overload qualification before tuning.
-- A8: bounded changelog pagination and JSON API 404s.
+- A8: implemented/isolated-tested on `branch/issue-98-api-pagination`, stacked on A6 PR #104.
+  Outcome: public/admin changelog pagination uses established bounds (page
+  1–10,000, limit 1–100, default 20), with complete decimal query values and
+  service-level bounds; unmatched API paths return noncached JSON 404 ahead of
+  static/SPA fallback. Files: routes/services, existing validation/error boundary,
+  focused HTTP/service tests and API/qualification docs. Preserve authorization
+  and ordinary history URLs; no general API/error-framework redesign is needed.
 - A9: representative data/accounts/forum/PvP/socket/browser qualification.
   Include disconnect during terminal creation (SQL/PTY binding) and cleanup with
   delayed output writes; A5's terminal fixture covers established sessions, not
@@ -353,6 +359,47 @@ All private fixture scripts/results remain in `/tmp/durisweb-issue98/`. Normal
 subscription callback delivery and stale-event refusal are covered by the
 composable fixture; full combined backend/auth/browser proof remains A9.
 
+A6 PR: [#104](https://github.com/LuminariMUD/DurisWeb/pull/104), source commit
+`6649edb0cc32b714963b2119bbd23e521caf58d6`. Stack: #99 → #100 → #101 → #102 →
+#103 → #104. A8 is implemented next so the combined fixture includes correct API
+fallback behavior before the shared A7/A9 database/application qualification.
+
+A8 reuses `parsePagination` without changing other route contracts. A small
+changelog-only query validator rejects partial/negative/array values before list
+work; the service also bounds internal numeric callers before offset arithmetic.
+The API not-found handler belongs beside the existing error boundary and sends a
+fixed no-store JSON reply, avoiding request/query reflection and the SPA fallback.
+
+A8 commands/results:
+
+- `pnpm --dir backend test --runInBand
+  src/routes/__tests__/changelogPagination.test.ts
+  src/services/__tests__/changelogVisibility.test.ts`: **12 regressions fail on
+  parent** (unbounded list/offset, accepted malformed inputs and zero fallback).
+- `pnpm --dir backend exec biome format --write src/routes/changelog.ts
+  src/services/changelogService.ts src/middleware/errorHandler.ts src/index.ts
+  src/routes/__tests__/changelogPagination.test.ts
+  src/services/__tests__/changelogVisibility.test.ts
+  src/middleware/__tests__/apiNotFound.test.ts`: changed-file formatting.
+- `pnpm --dir backend test --runInBand` with the two pagination/visibility files
+  above plus `src/routes/__tests__/changelogVisibility.test.ts`,
+  `changelogFields.test.ts`, `changelogValidation.test.ts`,
+  `src/services/__tests__/changelogContent.test.ts` and
+  `src/middleware/__tests__/apiNotFound.test.ts`: **35 tests pass**. Actual Express
+  requests cover both list paths, visibility/auth/permission ordering, malformed
+  and excessive values, API prefixes/case/HEAD, CSRF precedence, static files
+  hidden behind `/api`, normal history URLs and startup placement. Service SQL
+  parameters cap at limit 100/offset 999900 for extreme internal callers.
+- Backend `format:check`, `lint`, `type-check`, `build`, `verify:mud-writes`
+  (**53 classified writes**) and `git diff --check`: pass. Type-check first found
+  an invalid ordinary-player immortal-level value in the new fixture; using the
+  actual `null` domain value corrected the fixture. No query/schema/MUD write is
+  added; frontend and native database suites are not run for this focused change.
+
+The isolated route tests use synthetic identity/service data; full application
+and representative native-data proof remains A7/A9. No deployment, changelog
+publication or production access occurs.
+
 ## Unpublished release news
 
 Prepare the combined payload as reader-visible changes are proven. Reconcile it
@@ -406,4 +453,11 @@ A6 candidate public wording (unpublished):
 <ul><li>Website live connections spread retry attempts after an interruption
 and back off during repeated failures. Closing a connection explicitly cancels
 its retries.</li></ul>
+```
+
+A8 candidate public wording (unpublished):
+
+```html
+<ul><li>Website Changelog lists now enforce bounded page sizes. Invalid API
+addresses return a clear API error while ordinary website links keep working.</li></ul>
 ```
