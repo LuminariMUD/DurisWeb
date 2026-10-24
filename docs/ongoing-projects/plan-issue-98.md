@@ -52,7 +52,12 @@ Redis keys, configuration or background polling are needed.
   tests and frontend/qualification docs. Proof: observable retry timing and
   generation races plus an isolated native-browser reconnect burst. The game
   transport is unchanged; no extra timer/configuration/backoff framework is needed.
-- A7: representative isolated query/pool overload qualification before tuning.
+- A7: in progress on `branch/issue-98-database-qualification`, stacked on A8
+  PR #105. Outcome: representative native query plans/acquisition/query timing,
+  bounded admission/deadline/overload experiments, and an evidence-based choice
+  before changing the pool. Preserve strict pooled-session safeguards and pool
+  size 10; no speculative index, hardware or pool increase. Use owned synthetic
+  databases only. A7 and A9 reuse the source-owned owner/baseline fixture workflow.
 - A8: implemented/isolated-tested on `branch/issue-98-api-pagination`, stacked on A6 PR #104.
   Outcome: public/admin changelog pagination uses established bounds (page
   1–10,000, limit 1–100, default 20), with complete decimal query values and
@@ -403,6 +408,116 @@ The isolated route tests use synthetic identity/service data; full application
 and representative native-data proof remains A7/A9. No deployment, changelog
 publication or production access occurs.
 
+A8 PR: [#105](https://github.com/LuminariMUD/DurisWeb/pull/105), source commits
+`464cbc9` and formatting follow-up `4cfcc0aea354b072060998e40f2ce35bea5357b4`.
+Stack: #99 → #100 → #101 → #102 → #103 → #104 → #105.
+
+## A7/A9 isolated fixture preparation
+
+New task-owned Docker resources (label `durisweb.issue=98`) use dedicated network
+`durisweb-issue98`, with loopback-only published ports: MySQL 8.0.46 on 23436,
+MariaDB 11.8 on 23437 and Redis 7.4.7 on 23479. Existing dev/other containers and
+ports 3306/3307/13306/16379 are untouched. SQL fixtures have 1 GiB/two-CPU limits;
+Redis has 256 MiB. Only these synthetic, anonymous-volume fixtures are disposable.
+
+The first dedicated network was internal and Docker did not publish its requested
+ports. Inspecting HostConfig versus NetworkSettings proved that state; only the
+three newly created empty task containers/network were recreated on a dedicated
+bridge. A direct CLI diagnostic also misparsed an attached host option; its
+verified task process was terminated. All schema writes use explicit Node
+connection objects restricted to the owned port/name pairs.
+
+The metadata guard correctly refused an initial MariaDB 10.11 fixture: the actual
+website schema-family source accepts MySQL 8 and MariaDB 11.8. Only the new empty
+MariaDB fixture was replaced with the already-installed 11.8 image; no metadata
+check or source pin was weakened. MySQL's completed fixture was preserved.
+
+Owner inputs were fetched read-only from Duris commit
+`6d4d71e56547c71898247e73ccca74da75e0a9f6` into the private
+`/tmp/durisweb-issue98/owner/` directory. The existing source helper verifies its
+three pinned digests plus all 43 immutable apply-file checksums before execution.
+No MUD repository command, source change, server or player data is used.
+
+`pnpm --dir backend exec node --import tsx
+/tmp/durisweb-issue98/provision.mjs` initially provisioned MySQL and stopped on
+the unsupported MariaDB family. The explicit `... provision.mjs 23437` continuation
+provisioned the supported replacement. Both databases have **280 tables** after
+the owner schema, explicit lifecycle metadata, website baseline and real forward
+migrations. Their owner metadata remains unchanged before/after website setup:
+
+- 23436: `durisweb_qualification_issue98_23436`, owner head
+  `0043_news_acknowledgement`, fingerprint
+  `403c2a9941ce5746491919b2cc8cd91bed55b959adc681a66f0fceef04b90d23`.
+- 23437: `durisweb_qualification_issue98_23437`, same owner head, fingerprint
+  `995f0c9f1a726dc25e3ce1104627ebff02e0414e7d2e48595f94de7ce3b0e8e2`.
+
+Preparation commands include read-only `docker image ls`, `docker ps`, selected
+`docker inspect`/network properties, `free -m`, readiness SELECT/version checks,
+Redis PING, and pinned-file `sha256sum`; owned network/container create/stop
+commands are retained in the execution transcript. New resource ownership was
+verified before replacing failed empty fixtures. No production mutation occurs.
+
+The larger synthetic dataset now contains **1,000 accounts/characters**, **50,001
+PvP events** (one future-hidden), **200,000 participant snapshots**, **500 forum
+threads**, **20,000 posts** and **500 changelog entries** on each engine. The
+private `seed.mjs` refuses nonempty target stores and commits synthetic rows in a
+transaction. Database-scoped fixture app users have private mode-0600 config
+files outside Git; the normal application receives no fixture-root credential.
+Installed bcrypt and native PTY modules import successfully. No real account,
+credential or player data is copied.
+
+## A7 PvP query work
+
+Initial profiling of the actual full visibility/participant statement measured
+recent reads at **475.58/466.50 ms** first/warm on MySQL 8.0.46 and
+**316.58/316.47 ms** on MariaDB 11.8.9. MySQL EXPLAIN estimates about 50,000 outer
+events, plus participant joins, temporary work and filesort before LIMIT. The new
+native optimizer regression fails on parent with **50,001** outer estimated
+events for a 50-row page. The fix selects the fully filtered/ordered event page
+inside a derived table before joining/grouping its complete snapshots. Counts
+and release predicates remain separate/unchanged; no new index, cache or pool
+limit is introduced.
+
+The same private profiler afterward observes **38.34/24.37 ms** first/warm MySQL
+and **13.13/10.20 ms** MariaDB for recent lists; likes ordering is
+**24.64/11.54 ms** respectively. Participant-filter reads remain about
+**145/125 ms** and are not claimed uniformly faster. These are individual local
+observations on capped fixture containers. The script's initial `cold` label
+means a first application/settings-cache call, not a proved cold InnoDB buffer
+pool. Baseline captures were preserved as `a7-baseline-profile-*.json`; candidate
+results/full plans are `a7-profile-*.json`, outside Git.
+
+The representative forum search with an author filter fails with
+`ER_PARSE_ERROR` on both engines. That is a demonstrated existing defect to repair
+as a separate focused change before the combined A9 search qualification; it is
+not omitted from the result. A7 acquisition/overload experiments and A9's
+auth/terminal/cold-cache/longer observation still remain open.
+
+PvP query commands/results:
+
+- `pnpm --dir backend exec node --import tsx
+  /tmp/durisweb-issue98/profile.mjs 23436` and `23437`: actual source service
+  calls, real SQL/cache, full statement EXPLAIN and unchanged pooled invariants.
+- `node /tmp/durisweb-issue98/run-test.mjs <23436|23437>
+  src/services/__tests__/pvpTrafficNative.test.ts`: **four native cases pass
+  on each engine**. The source-owned fixture installs the verified full owner,
+  baseline/forward schema, seeds/analyzes 50,001/200,000 rows, checks unchanged
+  owner metadata and removes only its new PID-qualified database. It proves
+  page/participant/likes/release semantics, ascending/newest cursors and outer
+  optimizer cardinality bounded to the selected page. Default unit runs skip
+  these cases; selected ports/input checks fail closed.
+- The same private runner with `src/services/__tests__/pvpService.test.ts`
+  explicitly sets its existing `TEST_PVP_DB_PORT` opt-in: **43 tests pass on each
+  engine**, including capture/privacy, complete-team filters, date/level/race/
+  class/alignment behavior, hidden-event refusal, cursor ordering and full-history
+  counts. The normal three-file PvP service/poller/route run passes **66 tests**,
+  with 33 native cases skipped there and separately run above.
+- Backend format/lint/types/build and `verify:mud-writes` (**53 classified
+  writes**) pass. Type-check required treating overloaded spy calls as unknown
+  and validating captured SQL/bindings before EXPLAIN; no unsafe cast or `any`
+  was introduced. `git diff --check` passes. No frontend change or full backend
+  suite is included in this focused SQL chunk.
+
 ## Unpublished release news
 
 Prepare the combined payload as reader-visible changes are proven. Reconcile it
@@ -463,4 +578,12 @@ A8 candidate public wording (unpublished):
 ```html
 <ul><li>Website Changelog lists now enforce bounded page sizes. Invalid API
 addresses return a clear API error while ordinary website links keep working.</li></ul>
+```
+
+PvP query candidate public wording (unpublished):
+
+```html
+<h3>PvP history</h3>
+<ul><li>Battle lists do less work when browsing a long history, while retaining
+the same event order, complete teams and privacy rules.</li></ul>
 ```

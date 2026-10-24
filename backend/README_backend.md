@@ -79,6 +79,13 @@ accumulating output. Normal close cleanup releases subscriptions, streams and
 established terminal sessions. These are transport safety bounds, not a capacity
 forecast; the separate game/MUD bridge transport retains its own policy.
 
+PvP list and release-cursor summaries select the eligible, ordered event page
+before aggregating participant snapshots. Participant filters still choose
+events, and each selected event retains both complete teams. Counts, release
+cutoffs, capture-privacy rules and cursor order are unchanged. The mature-history
+native qualification uses the pinned full owner schema; see
+[development](../docs/development.md) for its explicit disposable-target opt-in.
+
 Account metadata remains cached for five minutes, but character lists and
 character-name ownership are read from current non-deleted MUD account links on
 every call. Legacy cached rosters/name mappings are ignored; a retired character

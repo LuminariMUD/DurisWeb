@@ -142,6 +142,19 @@ They create and drop only `pvp_snapshot_test` and refuse ports 3306 and 3307.
 Leave the setting absent for a unit-only run; a full burn-in must provide the
 disposable instance and run these checks without skips.
 
+Mature-history PvP qualification additionally opts in with
+`TEST_TRAFFIC_DB_PORT=23436` or `23437` and `TEST_BASELINE_MUD_SOURCE` pointing to
+the pinned owner inputs described by `src/test/ownerSchemaFixture.ts`. Run
+`pnpm --dir backend test --runInBand src/services/__tests__/pvpTrafficNative.test.ts`
+with those variables and an explicitly owned, passwordless-root disposable SQL
+server. The suite creates/drops only its new PID-qualified
+`durisweb_qualification_traffic_pvp_*` database, installs the verified full owner
+schema, website baseline and forward migrations, and seeds 50,001 events with
+200,000 snapshots. It proves ordered pages, participant selection, complete
+teams, hidden future events, release cursors and a bounded outer aggregation
+in the actual optimizer plan. Default unit runs skip these native cases. It is
+not a production capacity or cold-database-cache measurement.
+
 The MUD-owned [runtime journey](https://github.com/LuminariMUD/Duris/pull/347)
 (`run_pwipe_runtime_journey.py --redis --website <checkout>`) uses
 `backend/src/test/pwipeWebsiteProbe.ts` with the normal built backend. The probe
