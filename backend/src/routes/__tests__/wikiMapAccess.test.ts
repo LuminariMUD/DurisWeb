@@ -5,7 +5,9 @@ import request from 'supertest';
 const getWikiAccessLevel = jest.fn<() => Promise<string>>();
 const generateMapImage = jest.fn(async () => Buffer.from('png'));
 const getMapSectorGrid = jest.fn(async () => ({ layer: 0, sectors: 'AA==' }));
-const getZoneEntrances = jest.fn(async () => [] as unknown[]);
+const getZoneEntrances = jest.fn<
+  (bounds: { minX: number; maxX: number; minY: number; maxY: number }, layer: number) => Promise<unknown[]>
+>(async () => []);
 class MapSectorUnavailableError extends Error {}
 let authenticated = false;
 jest.unstable_mockModule('../../services/wikiService.js', () => ({
@@ -73,10 +75,7 @@ describe('wiki map HTTP cache and access transitions', () => {
       '/api/wiki/map/entrances?minX=00&maxX=0399&minY=0&maxY=399&layer=-1',
     );
     expect(response.status).toBe(200);
-    expect(getZoneEntrances).toHaveBeenCalledWith(
-      { minX: 0, maxX: 399, minY: 0, maxY: 399 },
-      -1,
-    );
+    expect(getZoneEntrances).toHaveBeenCalledWith({ minX: 0, maxX: 399, minY: 0, maxY: 399 }, -1);
   });
   it.each(['image', 'sectors'])(
     'never caches /map/%s across visibility or login changes',
