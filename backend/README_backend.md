@@ -82,7 +82,9 @@ forecast; the separate game/MUD bridge transport retains its own policy.
 Terminal creation is serialized per account and cancelled if its socket closes
 or account-wide terminal cleanup runs while SQL is pending. A spawned PTY is
 registered for cleanup before its PID write; a failed write or early process
-exit cannot leave it untracked. Cleanup revokes mappings and kills the PTY before
+exit cannot leave it untracked. Pending sessions remain available to cleanup but
+are hidden from operation dispatch until creation finishes. Cleanup revokes
+mappings and kills the PTY before
 awaiting final SQL logging, and shutdown drains pending terminal cleanup before
 closing database pools. Normal logout still revokes the web session; subsequent
 terminal operations recheck it.
@@ -96,6 +98,18 @@ reject truncated aggregates rather than publishing partial teams; server/session
 aggregate limits are unchanged. The mature-history
 native qualification uses the pinned full owner schema; see
 [development](../docs/development.md) for its explicit disposable-target opt-in.
+
+Account metadata remains cached for five minutes, but character lists and
+character-name ownership are read from current non-deleted MUD account links on
+every call. Legacy cached rosters/name mappings are ignored; a retired character
+or reused name must not inherit the prior link through Redis. If the character
+query fails, account lookup refuses rather than returning an old roster.
+
+MUD-derived staff/forum/guild permissions are recalculated from current active
+characters at every authorization check. Old derived-role cache entries are
+ignored. Separately assigned website-admin permissions still follow their own
+account-based service; retiring a MUD character does not delete those assignments.
+Existing websocket peers must still be disconnected during the website cutover.
 
 ## Main Areas
 

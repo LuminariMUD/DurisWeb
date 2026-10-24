@@ -232,7 +232,7 @@ describe('creation socket lifecycle', () => {
     expect(connection.requestChargenOptions()).toBe(false)
     receive({
       type: 'chargen_options',
-      races: [],
+      races: [{ id: 1, name: 'Human', ansi: 'Human', faction: 'good', classes: [] }],
       statMethods: ['default', 'advanced'],
       bonusCount: 4,
     })
@@ -240,13 +240,14 @@ describe('creation socket lifecycle', () => {
     expect(connection.getHometowns(1)).toBe(true)
     expect(store.chargenLoading).toBe(true)
     expect(store.chargenHometowns).toEqual([])
-    expect(connection.getHometowns(5)).toBe(false)
+    expect(connection.getHometowns(1)).toBe(false)
     receive({ type: 'system', data: { status: 'error', message: 'Hometown lookup failed' } })
     expect(store.chargenLoading).toBe(false)
     expect(connection.getHometowns(1)).toBe(true)
     receive({
       type: 'hometowns',
       race: 1,
+      alignment: 'good',
       options: [{ id: 1, name: 'New hometown' }],
       hasChoice: false,
     })
@@ -286,6 +287,95 @@ describe('creation socket lifecycle', () => {
     expect(store.chargenPending).toBeNull()
   })
 
+  it('refreshes side-dependent hometowns and ignores previous race or alignment replies', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const socket = sockets[0]!
+    const receive = (message: unknown) => socket.onmessage?.({ data: JSON.stringify(message) })
+    const store = useMudStore()
+    receive({
+      type: 'chargen_options',
+      races: [
+        { id: 14, name: 'Thri-kreen', ansi: 'Thri-kreen', faction: 'neutral', classes: [] },
+        { id: 36, name: 'Firbolg', ansi: 'Firbolg', faction: 'good', classes: [] },
+      ],
+    })
+    expect(connection.getHometowns(14, 'evil')).toBe(true)
+    expect(JSON.parse(socket.sent.at(-1)!)).toEqual({
+      type: 'cmd',
+      cmd: 'get_hometowns',
+      data: { race: 14, alignment: 'evil' },
+    })
+    expect(connection.getHometowns(14, 'good')).toBe(true)
+    receive({
+      type: 'hometowns',
+      race: 14,
+      alignment: 'evil',
+      options: [{ id: 25, name: 'Wutvr' }],
+      hasChoice: true,
+    })
+    expect(store.chargenHometowns).toEqual([])
+    expect(store.chargenHometownsReady).toBe(false)
+    expect(store.chargenLoading).toBe(true)
+    receive({
+      type: 'hometowns',
+      race: 14,
+      alignment: 'good',
+      options: [
+        { id: 22, name: 'Ailvio' },
+        { id: 18, name: 'Payang' },
+      ],
+      hasChoice: true,
+    })
+    expect(store.chargenHometownsReady).toBe(true)
+    expect(store.chargenHometowns.map((home) => home.id)).toEqual([22, 18])
+    expect(connection.getHometowns(36)).toBe(true)
+    receive({
+      type: 'hometowns',
+      race: 14,
+      alignment: 'good',
+      options: [{ id: 18, name: 'Payang' }],
+      hasChoice: false,
+    })
+    expect(store.chargenLoading).toBe(true)
+    receive({
+      type: 'hometowns',
+      race: 36,
+      alignment: 'good',
+      options: [
+        { id: 11, name: 'Ugta' },
+        { id: 22, name: 'Ailvio' },
+        { id: 23, name: 'Plane of Life' },
+      ],
+      hasChoice: true,
+    })
+    expect(store.chargenHometowns.map((home) => home.id)).toEqual([11, 22, 23])
+    expect(store.chargenLoading).toBe(false)
+    expect(connection.getHometowns(14)).toBe(true)
+    receive({
+      type: 'hometowns',
+      race: 14,
+      alignment: null,
+      options: [{ id: 18, name: 'Payang' }],
+      hasChoice: false,
+    })
+    expect(store.chargenHometowns.map((home) => home.id)).toEqual([18])
+    store.clearChargenState()
+    expect(store.chargenHometownRequest).toBeNull()
+    expect(store.chargenHometownsReady).toBe(false)
+  })
+
+  it('omits an unspecified hometown and sends an explicit valid selection unchanged', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const socket = sockets[0]!
+    expect(connection.createCharacter('Pupil', 1, 1, 1, 'good')).toBe(true)
+    expect(JSON.parse(socket.sent.at(-1)!).data).not.toHaveProperty('hometown')
+    useMudStore().setChargenPending(null)
+    expect(connection.createCharacter('Pupil', 1, 1, 1, 'good', 22)).toBe(true)
+    expect(JSON.parse(socket.sent.at(-1)!).data.hometown).toBe(22)
+  })
+
   it.each(['chargen_options', 'hometowns'])(
     'handles mutation errors after %s metadata',
     async (type) => {
@@ -299,7 +389,7 @@ describe('creation socket lifecycle', () => {
       socket.onmessage?.({
         data: JSON.stringify({ type, races: [], options: [], hasChoice: false }),
       })
-      expect(store.chargenLoading).toBe(false)
+      expect(store.chargenLoading).toBe(type === 'hometowns')
       expect(store.chargenPending).toBe('add_bonus')
       socket.onmessage?.({
         data: JSON.stringify({

@@ -25,6 +25,8 @@ export interface PaintRequest {
 export interface PaintResponse {
   id: number
   pixels?: ArrayBuffer
+  /** PNG encoded off the main thread, when OffscreenCanvas is supported. */
+  blob?: Blob
   width?: number
   height?: number
   error?: string
@@ -48,7 +50,7 @@ interface WorkerScope {
 }
 const scope = self as unknown as WorkerScope
 
-scope.onmessage = (event: MessageEvent<PaintRequest>) => {
+scope.onmessage = async (event: MessageEvent<PaintRequest>) => {
   const { id, layerKey, layer, scale, region } = event.data
   try {
     if (layer) {
@@ -69,11 +71,29 @@ scope.onmessage = (event: MessageEvent<PaintRequest>) => {
       ports: state.ports,
       region,
     })
+    const width = (region.x1 - region.x0) * scale
+    const height = (region.y1 - region.y0) * scale
+    // Chrome (including macOS) can encode PNG off-thread. Other browsers
+    // retain the proven pixel-buffer path without losing the map.
+    if (typeof OffscreenCanvas !== 'undefined') {
+      try {
+        const canvas = new OffscreenCanvas(width, height)
+        const context = canvas.getContext('2d')
+        if (context) {
+          context.putImageData(new ImageData(new Uint8ClampedArray(pixels), width, height), 0, 0)
+          const blob = await canvas.convertToBlob({ type: 'image/png' })
+          scope.postMessage({ id, blob, width, height })
+          return
+        }
+      } catch {
+        // Unsupported/failed encoding is not a painting failure.
+      }
+    }
     const response: PaintResponse = {
       id,
       pixels: pixels.buffer as ArrayBuffer,
-      width: (region.x1 - region.x0) * scale,
-      height: (region.y1 - region.y0) * scale,
+      width,
+      height,
     }
     scope.postMessage(response, [pixels.buffer as ArrayBuffer])
   } catch (error) {

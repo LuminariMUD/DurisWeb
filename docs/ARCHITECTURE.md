@@ -255,6 +255,17 @@ lifecycle contract and must not be added to an independent web purge job.
 Controls are channel-specific. Securing the bridge does not authenticate files
 or make the terminal a complete sandbox.
 
+Player-event publication rechecks the active SQL season under a shared lock on
+`season_reset_state`. The lock spans synchronous broadcast and commits afterward,
+so the MUD's existing `FOR UPDATE` reset boundary waits for an accepted old-season
+event. Messages whose channel is stale or whose season is resetting are discarded.
+Subscriber identity, channel and the in-memory hook gate are rechecked after the
+lookup, so stop/reconnect/refresh and hook changes cannot publish a delayed event.
+The minute-long subscription refresh reconciles channels; it is not the authority
+for admitting each event. The website needs SELECT access only for this read fence. Subscription setup,
+refresh, Redis error events and shutdown diagnostics use fixed categories and omit
+raw driver messages.
+
 ## Hook Ownership and State
 
 The immutable registry contains 13 website-toggleable hooks and one always-on

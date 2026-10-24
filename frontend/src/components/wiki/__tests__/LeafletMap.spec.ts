@@ -252,6 +252,106 @@ describe('wiki entrance visibility and navigation', () => {
     expect(document.querySelector('.zone-name')?.textContent).toBe('Destination 1')
   })
 
+  it('reclamps a reused permanent zone tooltip after moving towards the viewport edge', async () => {
+    await render()
+    await zoom(3)
+    const marker = document.querySelector('.leaflet-marker-icon')
+    const label = document.querySelector<HTMLElement>('.zone-label .zone-name')!
+    const viewport = document.querySelector<HTMLElement>('.leaflet-container')!
+    expect(label).not.toBeNull()
+    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      right: 800,
+      top: 0,
+      bottom: 600,
+    } as DOMRect)
+    vi.spyOn(label, 'getBoundingClientRect').mockReturnValue({
+      left: -50,
+      right: 150,
+      top: 40,
+      bottom: 60,
+    } as DOMRect)
+    map.fire('moveend')
+    await settle()
+    expect(document.querySelector('.leaflet-marker-icon')).toBe(marker)
+    expect(label.style.transform).toBe('translate(56px, 0px)')
+  })
+
+  it('reuses DOM markers across zooms and pans that do not change labels', async () => {
+    await render()
+    await zoom(3.25)
+    const before = document.querySelector('.leaflet-marker-icon')
+    expect(before).not.toBeNull()
+    map.fire('moveend')
+    await settle()
+    expect(document.querySelector('.leaflet-marker-icon')).toBe(before)
+    await zoom(3.75)
+    expect(document.querySelector('.leaflet-marker-icon')).toBe(before)
+    expect(map.options.wheelPxPerZoomLevel).toBe(75)
+    expect(map.options.zoomDelta).toBe(0.5)
+  })
+
+  it('updates retained markers when a destination changes at the same coordinate', async () => {
+    await render()
+    const before = document.querySelector('.leaflet-marker-icon')
+    vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([
+      entrance(1, { toZoneName: 'Revised zone' }),
+    ])
+    // A different requested viewport must bypass the cached entrance response.
+    vi.spyOn(map, 'getBounds').mockReturnValue(L.latLngBounds([-210, 180], [-180, 220]))
+    map.fire('moveend')
+    await settle()
+    expect(document.querySelector('.leaflet-marker-icon')).not.toBe(before)
+    expect(document.querySelector('.leaflet-marker-icon')?.getAttribute('aria-label')).toBe(
+      'Revised zone',
+    )
+  })
+
+  it('restores entrance markers after visibility toggles while a viewport fetch is pending', async () => {
+    await render()
+    await zoom(3)
+    const initial = document.querySelector('.leaflet-marker-icon')
+    expect(initial).not.toBeNull()
+    let finish!: (rows: WikiZoneEntrance[]) => void
+    vi.mocked(wikiApi.getZoneEntrances).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    vi.spyOn(map, 'getBounds').mockReturnValue(L.latLngBounds([-210, 180], [-180, 220]))
+    map.fire('moveend')
+    await vi.advanceTimersByTimeAsync(150)
+    await wrapper!.findAll('input')[1]!.setValue(false)
+    await wrapper!.findAll('input')[1]!.setValue(true)
+    finish([entrance()])
+    await settle()
+    expect(document.querySelectorAll('.zone-dot')).toHaveLength(1)
+    expect(document.querySelectorAll('.zone-name')).toHaveLength(1)
+  })
+
+  it('revalidates unchanged viewport data after frontend cache expiry', async () => {
+    await render()
+    const previousBounds = vi
+      .spyOn(map, 'getBounds')
+      .mockReturnValue(L.latLngBounds([-210, 180], [-180, 220]))
+    vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([entrance()])
+    map.fire('moveend')
+    await settle()
+    const first = document.querySelector('.leaflet-marker-icon')
+    vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([
+      entrance(1, { toZoneName: 'Updated destination' }),
+    ])
+    await vi.advanceTimersByTimeAsync(10 * 60 * 1000 + 1)
+    map.fire('moveend')
+    await settle()
+    expect(document.querySelector('.leaflet-marker-icon')).not.toBe(first)
+    expect(document.querySelector('.leaflet-marker-icon')?.getAttribute('aria-label')).toBe(
+      'Updated destination',
+    )
+    previousBounds.mockRestore()
+  })
+
   it('keeps the destination chooser and focus through its automatic pan refresh', async () => {
     vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([entrance(1), entrance(2)])
     await render()

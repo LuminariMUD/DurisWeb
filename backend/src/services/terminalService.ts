@@ -386,10 +386,14 @@ export function resizeTerminal(sessionId: number, cols: number, rows: number): b
 }
 
 /**
- * Get session by WebSocket
+ * Get a session ready for WebSocket operation dispatch.
  */
 export function getSessionByWebSocket(ws: WebSocket): number | undefined {
-  return sessionsByWebSocket.get(ws);
+  const sessionId = sessionsByWebSocket.get(ws);
+  const session = sessionId === undefined ? undefined : activeSessions.get(sessionId);
+  // Pending children stay in the internal maps for immediate cancellation, but
+  // input/resize must wait until creation returns and the caller binds auth.
+  return session && !pendingSessions.has(session.accountName) ? sessionId : undefined;
 }
 
 /**
