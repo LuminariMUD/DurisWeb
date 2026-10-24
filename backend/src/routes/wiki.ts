@@ -35,6 +35,15 @@ const mapSectorsLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Map entrance queries also join several large tables on a cold cache key.
+const mapEntrancesLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: 'Too many map requests, please slow down' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Zone/Object lists - lighter, more lenient
 const listLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -285,32 +294,38 @@ router.get(
 router.get(
   '/map/entrances',
   checkWikiAccess,
-  mapTilesLimiter,
+  mapEntrancesLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { minX, maxX, minY, maxY, layer } = req.query;
-
-      // Validate required parameters
       if (minX === undefined || maxX === undefined || minY === undefined || maxY === undefined) {
         res.status(400).json({ error: 'Missing required parameters: minX, maxX, minY, maxY' });
         return;
       }
 
-      const bounds: wikiService.MapBounds = {
-        minX: Number(minX),
-        maxX: Number(maxX),
-        minY: Number(minY),
-        maxY: Number(maxY),
+      // Only integer room coordinates are useful. Reject fractional/non-finite
+      // keys rather than permitting unique, expensive DB/cache misses.
+      const parseCoordinate = (value: unknown): number | null => {
+        if (typeof value !== 'string' || !/^-?\d{1,5}$/.test(value)) return null;
+        const parsed = Number(value);
+        return Number.isSafeInteger(parsed) && Math.abs(parsed) <= 4096 ? parsed : null;
       };
-
-      // Validate numeric values
-      if (isNaN(bounds.minX) || isNaN(bounds.maxX) || isNaN(bounds.minY) || isNaN(bounds.maxY)) {
-        res.status(400).json({ error: 'Invalid bounds: all values must be numbers' });
+      const parsed = [minX, maxX, minY, maxY].map(parseCoordinate);
+      if (parsed.some((value) => value === null)) {
+        res.status(400).json({ error: 'Invalid map entrance bounds' });
         return;
       }
-
-      // Layer: 0 = Surface, -1 = Underdark, -2 = Depths, 1 = Newbie
-      const zLevel = layer !== undefined ? Number(layer) : 0;
+      const [x0, x1, y0, y1] = parsed as [number, number, number, number];
+      if (x0 > x1 || y0 > y1 || x1 - x0 >= 512 || y1 - y0 >= 512) {
+        res.status(400).json({ error: 'Invalid map entrance bounds' });
+        return;
+      }
+      const zLevel = layer === undefined ? 0 : parseCoordinate(layer);
+      if (zLevel === null || ![0, -1, -2, 1].includes(zLevel)) {
+        res.status(400).json({ error: 'Invalid map entrance layer' });
+        return;
+      }
+      const bounds: wikiService.MapBounds = { minX: x0, maxX: x1, minY: y0, maxY: y1 };
       const entrances = await wikiService.getZoneEntrances(bounds, zLevel);
       res.json(entrances);
     } catch (error) {

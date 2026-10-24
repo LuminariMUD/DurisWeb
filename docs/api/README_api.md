@@ -32,6 +32,16 @@ its existing reader-level decision. Read every page when reconciling history.
 | `POST` | `/kofihook` | Ko-fi verification token; CSRF-exempt | Bounded, rate-limited donation webhook |
 | `GET` | `/api/status` | Public | Limited MUD runtime status; five-second diagnostic sample, per-response delayed population, `no-store` |
 
+## Wiki map entrances
+
+`GET /api/wiki/map/entrances` requires `minX`, `maxX`, `minY`, and `maxY` as
+integer strings between -4096 and 4096. Bounds must be ordered and span at most
+512 rooms on each axis. Optional `layer` defaults to 0 and accepts 0, -1, -2, or
+1. Equivalent integer strings share normalized cache keys. Invalid input returns
+400 before the entrance query. The endpoint permits 30 requests per IP per
+minute, returns 429 on excess requests, and retains wiki access checks and
+`Cache-Control: no-store`.
+
 ## Route Groups
 
 `GET /api/admin/web/settings` requires the existing front-page management
