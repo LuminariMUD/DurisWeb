@@ -144,8 +144,8 @@ const handleChargenSwapStats = (stat1: string, stat2: string) => {
   swapStats(stat1, stat2)
 }
 
-const handleChargenGetHometowns = (raceId: number) => {
-  getHometowns(raceId)
+const handleChargenGetHometowns = (raceId: number, alignment?: 'good' | 'evil') => {
+  getHometowns(raceId, alignment)
 }
 
 const handleChargenValidateName = (name: string) => {
@@ -344,6 +344,7 @@ onUnmounted(() => {
         :error="store.chargenError"
         :hometowns="store.chargenHometowns"
         :has-hometown-choice="store.chargenHasHometownChoice"
+        :hometowns-ready="store.chargenHometownsReady"
         :name-valid="store.chargenNameValid"
         :name-message="store.chargenNameMessage"
         @request-options="handleChargenRequestOptions"

@@ -27,7 +27,7 @@ const emit = defineEmits<{
   (e: 'reset-chargen'): void
   (e: 'add-bonus', stat: string): void
   (e: 'swap-stats', stat1: string, stat2: string): void
-  (e: 'get-hometowns', race: number): void
+  (e: 'get-hometowns', race: number, alignment?: 'good' | 'evil'): void
   (e: 'validate-name', name: string): void
   (
     e: 'create-character',
@@ -56,6 +56,7 @@ const props = defineProps<{
   error: string | null
   hometowns: MudHometown[]
   hasHometownChoice: boolean
+  hometownsReady: boolean
   nameValid: boolean | null
   nameMessage: string | null
 }>()
@@ -195,8 +196,20 @@ const needsAlignmentChoice = computed(() => {
 })
 
 const needsHometownChoice = computed(() => {
-  return props.hasHometownChoice && props.hometowns.length > 1
+  return props.hometownsReady === false || (props.hasHometownChoice && props.hometowns.length > 1)
 })
+
+watch(selectedAlignment, (alignment) => {
+  selectedHometown.value = null
+  if (alignment && selectedRace.value) emit('get-hometowns', selectedRace.value.id, alignment)
+})
+watch(
+  () => props.hometowns,
+  (hometowns) => {
+    if (!hometowns.some((town) => town.id === selectedHometown.value))
+      selectedHometown.value = hometowns.length === 1 ? hometowns[0]!.id : null
+  },
+)
 
 // Calculate which steps are needed for this character
 const requiredSteps = computed(() => {
@@ -271,6 +284,7 @@ function selectClass(cls: MudChargenClass) {
 }
 
 function selectHometown(id: number) {
+  if (props.hometownsReady === false || !props.hometowns.some((town) => town.id === id)) return
   selectedHometown.value = id
 }
 
@@ -292,6 +306,7 @@ function getPrevStep(): Step | undefined {
 
 function nextStep() {
   if (isBusy.value || (currentStep.value === 'race' && props.error)) return
+  if (props.hometownsReady === false && currentStep.value !== 'newbie') return
   const next = getNextStep()
   if (!next) return
 
@@ -453,7 +468,12 @@ function selectSwapStat(stat: string) {
 }
 
 function createCharacter() {
-  if (isBusy.value) return
+  if (
+    isBusy.value ||
+    props.hometownsReady === false ||
+    (needsHometownChoice.value && selectedHometown.value === null)
+  )
+    return
   console.log('[Chargen] createCharacter called', {
     race: selectedRace.value,
     class: selectedClass.value,
@@ -760,13 +780,13 @@ function formatAlignment(alignment: string): string {
           Your hometown determines where you begin your adventure.
         </p>
 
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <Button
             v-for="town in hometowns"
             :key="town.id"
             variant="outline"
             :class="[
-              'justify-start h-auto py-3',
+              'justify-start h-auto py-3 whitespace-normal text-left',
               selectedHometown === town.id && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
             ]"
             @click="selectHometown(town.id)"
@@ -993,6 +1013,7 @@ function formatAlignment(alignment: string): string {
           @click="nextStep"
           :disabled="
             isBusy ||
+            (hometownsReady === false && currentStep !== 'newbie') ||
             (currentStep === 'newbie' && isNewbie === null) ||
             (currentStep === 'race' && (!selectedRace || !!error)) ||
             (currentStep === 'class' && !selectedClass) ||
@@ -1011,7 +1032,7 @@ function formatAlignment(alignment: string): string {
         <Button
           v-else
           @click="createCharacter"
-          :disabled="isBusy"
+          :disabled="isBusy || !hometownsReady || (needsHometownChoice && selectedHometown === null)"
         >
           <Check class="w-4 h-4 mr-2" />
           Create Character

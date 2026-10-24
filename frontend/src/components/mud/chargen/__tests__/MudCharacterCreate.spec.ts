@@ -37,15 +37,16 @@ function button(wrapper: VueWrapper, name: string) {
   if (!result) throw new Error(`Missing button ${name}: ${wrapper.text()}`)
   return result
 }
-function wizard(modern = true) {
+function wizard(modern = true, races = [race]) {
   return mount(MudCharacterCreate, {
     props: {
-      races: [race],
+      races,
       stats: null,
       loading: false,
       error: null,
       hometowns: [],
       hasHometownChoice: false,
+      hometownsReady: true,
       nameValid: null,
       nameMessage: null,
       statMethods: modern ? ['default', 'advanced'] : [],
@@ -70,6 +71,94 @@ async function reachStatsChoice(wrapper: VueWrapper) {
 }
 
 describe('stat method wizard', () => {
+  it('keeps Firbolg tutorial choices visible and waits for a hometown selection', async () => {
+    const wrapper = wizard(true, [{ ...race, id: 36, name: 'Firbolg', ansi: 'Firbolg' }])
+    await wrapper.setProps({
+      hometowns: [
+        { id: 11, name: 'Ugta' },
+        { id: 22, name: 'Outpost of Ailvio' },
+        { id: 23, name: 'Plane of Life' },
+      ],
+      hasHometownChoice: true,
+    })
+    await button(wrapper, 'New Player').trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    await button(wrapper, 'Firbolg').trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    await wrapper.get('#male').trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text().startsWith('Warrior'))!
+      .trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    expect(wrapper.text()).toContain('Choose Your Hometown')
+    expect(wrapper.text()).toContain('Outpost of Ailvio')
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
+    await button(wrapper, 'Plane of Life').trigger('click')
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeUndefined()
+    await wrapper.setProps({ hometowns: [], hometownsReady: false, hasHometownChoice: false })
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
+    await wrapper.setProps({
+      hometowns: [
+        { id: 11, name: 'Ugta' },
+        { id: 22, name: 'Outpost of Ailvio' },
+      ],
+      hometownsReady: true,
+      hasHometownChoice: true,
+    })
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
+    wrapper.unmount()
+  })
+
+  it('refreshes neutral alignment choices and drops a selection after back navigation', async () => {
+    const wrapper = wizard(true, [
+      { ...race, id: 14, name: 'Thri-kreen', ansi: 'Thri-kreen', faction: 'neutral' },
+    ])
+    await button(wrapper, 'New Player').trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    await wrapper.get('[id$="trigger-neutral"]').trigger('mousedown', { button: 0, ctrlKey: false })
+    await button(wrapper, 'Thri-kreen').trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    await wrapper.get('#male').trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text().startsWith('Warrior'))!
+      .trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    await wrapper.get('#evil').trigger('click')
+    expect(wrapper.emitted('get-hometowns')?.at(-1)).toEqual([14, 'evil'])
+    await wrapper.setProps({ hometownsReady: false, hometowns: [], hasHometownChoice: false })
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
+    await button(wrapper, 'Next').trigger('click')
+    expect(wrapper.text()).toContain('Choose Your Alignment')
+    await wrapper.setProps({
+      hometownsReady: true,
+      hometowns: [
+        { id: 18, name: 'Payang' },
+        { id: 25, name: 'Wutvr' },
+      ],
+      hasHometownChoice: true,
+    })
+    await button(wrapper, 'Next').trigger('click')
+    await button(wrapper, 'Wutvr').trigger('click')
+    await button(wrapper, 'Back').trigger('click')
+    await wrapper.get('#good').trigger('click')
+    expect(wrapper.emitted('get-hometowns')?.at(-1)).toEqual([14, 'good'])
+    await wrapper.setProps({
+      hometownsReady: true,
+      hometowns: [
+        { id: 18, name: 'Payang' },
+        { id: 22, name: 'Outpost of Ailvio' },
+      ],
+      hasHometownChoice: true,
+    })
+    await button(wrapper, 'Next').trigger('click')
+    expect(wrapper.text()).not.toContain('Wutvr')
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
+    wrapper.unmount()
+  })
   it('allows Cancel while initial options are loading', async () => {
     const wrapper = wizard(false)
     await wrapper.setProps({ races: [], loading: true })
