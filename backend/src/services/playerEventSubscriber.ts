@@ -1,5 +1,6 @@
 import Redis from 'ioredis';
 import type { RowDataPacket } from 'mysql2';
+import type { PoolConnection } from 'mysql2/promise';
 import { mudPool } from '../db/connection.js';
 import logger from '../utils/logger.js';
 import { getScopedRedisConfiguration } from '../utils/scopedRedis.js';
@@ -12,31 +13,30 @@ const CHANNEL_REFRESH_INTERVAL_MS = 60_000;
 let subscriber: Redis | null = null;
 let subscribedChannel: string | null = null;
 let channelRefreshTimer: NodeJS.Timeout | null = null;
-let broadcaster: ((type: string, data: any) => void) | null = null;
+type PlayerEventBroadcaster = (
+  type: 'PLAYER_LOGIN' | 'PLAYER_LOGOUT',
+  data: { pid: number },
+) => void;
+let broadcaster: PlayerEventBroadcaster | null = null;
 
 interface SeasonRow extends RowDataPacket {
   season_epoch: number | string;
 }
 
-interface PlayerEvent {
-  event: 'login' | 'logout';
-  pid: number;
-}
-
 /**
  * set the broadcaster function (called from index.ts with websocket broadcast)
  */
-export function setPlayerEventBroadcaster(fn: (type: string, data: any) => void): void {
+export function setPlayerEventBroadcaster(fn: PlayerEventBroadcaster): void {
   broadcaster = fn;
 }
 
-async function getActivePlayerEventChannel(): Promise<string> {
+async function getActivePlayerEventChannel(connection?: PoolConnection): Promise<string> {
   const configuration = getScopedRedisConfiguration('presence');
-  const [rows] = await mudPool.query<SeasonRow[]>(
+  const [rows] = await (connection ?? mudPool).query<SeasonRow[]>(
     `SELECT season_epoch
      FROM season_reset_state
      WHERE state_id = 1 AND reset_status = 'active'
-     LIMIT 1`,
+     LIMIT 1 ${connection ? 'LOCK IN SHARE MODE' : ''}`,
   );
   if (rows.length !== 1) {
     throw new Error('No active MUD season epoch is available for player events');
@@ -100,13 +100,14 @@ async function refreshPlayerEventChannel(): Promise<void> {
   if (!currentSubscriber) return;
 
   const nextChannel = await getActivePlayerEventChannel();
-  if (nextChannel === subscribedChannel) return;
+  if (subscriber !== currentSubscriber || nextChannel === subscribedChannel) return;
 
   const previousChannel = subscribedChannel;
   await waitForRedisReady(currentSubscriber);
   if (previousChannel) {
     await withSubscribeTimeout(currentSubscriber.unsubscribe(previousChannel));
   }
+  if (subscriber !== currentSubscriber) return;
   await withSubscribeTimeout(currentSubscriber.subscribe(nextChannel));
   if (subscriber !== currentSubscriber) return;
   subscribedChannel = nextChannel;
@@ -133,21 +134,28 @@ export async function startPlayerEventSubscriber(): Promise<void> {
       logger.info('[PlayerEventSubscriber] redis connected');
     });
 
-    client.on('error', (err) => {
-      logger.error('[PlayerEventSubscriber] redis error:', err.message);
+    client.on('error', () => {
+      logger.error('[PlayerEventSubscriber] Redis connection error');
     });
 
-    client.on('message', (receivedChannel, message) => {
-      if (receivedChannel !== subscribedChannel) return;
-
+    client.on('message', async (receivedChannel, message) => {
+      if (subscriber !== client || receivedChannel !== subscribedChannel) return;
+      let connection: PoolConnection | undefined;
       try {
         const parsed: unknown = JSON.parse(message);
-        if (parsed === null || typeof parsed !== 'object') return;
-        const event = parsed as Partial<PlayerEvent>;
         if (
-          (event.event !== 'login' && event.event !== 'logout') ||
-          !Number.isInteger(event.pid) ||
-          (event.pid as number) <= 0
+          parsed === null ||
+          typeof parsed !== 'object' ||
+          !('event' in parsed) ||
+          !('pid' in parsed)
+        )
+          return;
+        const { event, pid } = parsed;
+        if (
+          (event !== 'login' && event !== 'logout') ||
+          typeof pid !== 'number' ||
+          !Number.isInteger(pid) ||
+          pid <= 0
         ) {
           logger.warn('[PlayerEventSubscriber] rejected malformed player event');
           return;
@@ -158,33 +166,54 @@ export async function startPlayerEventSubscriber(): Promise<void> {
         }
         if (!isHookEnabledSync('player_presence')) return;
 
-        if (event.event === 'login') {
-          broadcaster('PLAYER_LOGIN', { pid: event.pid });
+        // Hold the season row through publication. Pwipe's FOR UPDATE boundary
+        // waits for an accepted old-season event; a later lookup sees the fence.
+        connection = await mudPool.getConnection();
+        await connection.beginTransaction();
+        const activeChannel = await getActivePlayerEventChannel(connection);
+        if (
+          subscriber !== client ||
+          receivedChannel !== subscribedChannel ||
+          receivedChannel !== activeChannel ||
+          !isHookEnabledSync('player_presence')
+        ) {
+          await connection.rollback();
+          return;
+        }
+        if (event === 'login') {
+          broadcaster('PLAYER_LOGIN', { pid });
         } else {
-          broadcaster('PLAYER_LOGOUT', { pid: event.pid });
+          broadcaster('PLAYER_LOGOUT', { pid });
         }
         recordHookActivity('player_presence');
 
-        logger.info(`[PlayerEventSubscriber] ${event.event} pid=${event.pid}`);
+        await connection.commit();
+        logger.info(`[PlayerEventSubscriber] ${event} pid=${pid}`);
       } catch {
-        logger.error('[PlayerEventSubscriber] failed to parse player event');
+        if (connection) {
+          try {
+            await connection.rollback();
+          } catch {
+            connection.destroy();
+            connection = undefined;
+          }
+        }
+        logger.error('[PlayerEventSubscriber] player event processing failed');
+      } finally {
+        connection?.release();
       }
     });
 
     await waitForRedisReady(client);
     await withSubscribeTimeout(client.subscribe(channel));
     channelRefreshTimer = setInterval(() => {
-      void refreshPlayerEventChannel().catch((error) => {
-        logger.warn(
-          '[PlayerEventSubscriber] season channel refresh failed:',
-          error instanceof Error ? error.message : String(error),
-        );
+      void refreshPlayerEventChannel().catch(() => {
+        logger.warn('[PlayerEventSubscriber] season channel refresh failed');
       });
     }, CHANNEL_REFRESH_INTERVAL_MS);
     logger.info(`[PlayerEventSubscriber] subscribed to ${channel}`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.warn(`[PlayerEventSubscriber] disabled: ${message}`);
+  } catch {
+    logger.warn('[PlayerEventSubscriber] disabled: subscription setup failed');
     if (channelRefreshTimer) {
       clearInterval(channelRefreshTimer);
       channelRefreshTimer = null;
@@ -213,11 +242,8 @@ export async function stopPlayerEventSubscriber(): Promise<void> {
     try {
       if (channel) await current.unsubscribe(channel);
       await current.quit();
-    } catch (error) {
-      logger.error(
-        '[PlayerEventSubscriber] close failed:',
-        error instanceof Error ? error.message : String(error),
-      );
+    } catch {
+      logger.error('[PlayerEventSubscriber] close failed');
       current.disconnect();
     }
     logger.info('[PlayerEventSubscriber] stopped');

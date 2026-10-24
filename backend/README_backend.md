@@ -86,6 +86,18 @@ cutoffs, capture-privacy rules and cursor order are unchanged. The mature-histor
 native qualification uses the pinned full owner schema; see
 [development](../docs/development.md) for its explicit disposable-target opt-in.
 
+Account metadata remains cached for five minutes, but character lists and
+character-name ownership are read from current non-deleted MUD account links on
+every call. Legacy cached rosters/name mappings are ignored; a retired character
+or reused name must not inherit the prior link through Redis. If the character
+query fails, account lookup refuses rather than returning an old roster.
+
+MUD-derived staff/forum/guild permissions are recalculated from current active
+characters at every authorization check. Old derived-role cache entries are
+ignored. Separately assigned website-admin permissions still follow their own
+account-based service; retiring a MUD character does not delete those assignments.
+Existing websocket peers must still be disconnected during the website cutover.
+
 ## Main Areas
 
 | Path | Purpose |
