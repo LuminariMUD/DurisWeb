@@ -1,4 +1,5 @@
 import * as pty from 'node-pty';
+import type { ResultSetHeader } from 'mysql2';
 import { WebSocket } from 'ws';
 import { sendApplicationMessage } from '../utils/applicationWebSocket.js';
 import { unlink } from 'node:fs/promises';
@@ -26,6 +27,15 @@ interface TerminalSession {
 const activeSessions = new Map<number, TerminalSession>();
 const sessionsByAccount = new Map<string, Set<number>>();
 const sessionsByWebSocket = new Map<WebSocket, number>();
+const pendingSessions = new Map<
+  string,
+  {
+    ws: WebSocket;
+    cancel: () => void;
+    promise: Promise<{ sessionId: number; error?: string }>;
+  }
+>();
+const closingSessions = new Map<number, Promise<void>>();
 
 // Output buffer settings (batch writes to reduce DB load)
 const OUTPUT_BUFFER_INTERVAL = 500; // ms
@@ -51,6 +61,38 @@ export async function createSession(
   cols: number = 80,
   rows: number = 24,
 ): Promise<{ sessionId: number; error?: string }> {
+  if (ws.readyState !== WebSocket.OPEN) return { sessionId: -1, error: 'Connection closed' };
+  const pending = pendingSessions.get(accountName);
+  if (pending) {
+    return pending.ws === ws
+      ? pending.promise
+      : { sessionId: -1, error: 'Terminal connection in progress' };
+  }
+  let cancelled = false;
+  const cancel = () => {
+    cancelled = true;
+    const id = sessionsByWebSocket.get(ws);
+    if (id !== undefined) void cleanupSession(id, 'ended');
+  };
+  ws.once('close', cancel);
+  const promise = createSessionInternal(accountName, ws, cols, rows, () => cancelled).finally(
+    () => {
+      ws.removeListener('close', cancel);
+      pendingSessions.delete(accountName);
+    },
+  );
+  pendingSessions.set(accountName, { ws, cancel, promise });
+  return promise;
+}
+
+async function createSessionInternal(
+  accountName: string,
+  ws: WebSocket,
+  cols: number,
+  rows: number,
+  cancelled: () => boolean,
+): Promise<{ sessionId: number; error?: string }> {
+  let createdId: number | undefined;
   try {
     // Check if user already has an active session
     const existingSessions = sessionsByAccount.get(accountName);
@@ -74,11 +116,15 @@ export async function createSession(
     }
 
     // Create database record
-    const [result] = await pool.execute(
+    const [result] = await pool.execute<ResultSetHeader>(
       'INSERT INTO terminal_sessions (account_name, status) VALUES (?, ?)',
       [accountName, 'active'],
     );
-    const sessionId = (result as any).insertId;
+    const sessionId = result.insertId;
+    if (!Number.isSafeInteger(sessionId) || sessionId < 1)
+      throw new Error('Invalid terminal session id');
+    createdId = sessionId;
+    if (cancelled() || ws.readyState !== WebSocket.OPEN) throw new Error('Connection closed');
     const tmuxSessionName = getTerminalSessionName(accountName, sessionId);
     const bashrcPath = `/tmp/.duris_bashrc-${sessionId}`;
     const tmuxShellCommand = `${shellQuote(environment.mud.processShell)} --rcfile ${shellQuote(bashrcPath)}`;
@@ -174,9 +220,6 @@ BASHRC
       },
     );
 
-    // Update database with PID
-    await pool.execute('UPDATE terminal_sessions SET pid = ? WHERE id = ?', [shell.pid, sessionId]);
-
     // Create session object
     const session: TerminalSession = {
       pty: shell,
@@ -208,12 +251,33 @@ BASHRC
       cleanupSession(sessionId, 'ended');
     });
 
+    // Register cleanup before the next await: close/exit can race the PID write.
+    await pool.execute('UPDATE terminal_sessions SET pid = ? WHERE id = ?', [shell.pid, sessionId]);
+    if (cancelled() || ws.readyState !== WebSocket.OPEN || !activeSessions.has(sessionId)) {
+      await cleanupSession(sessionId, 'ended');
+      return { sessionId: -1, error: 'Connection closed' };
+    }
+
     logger.info(`Terminal session ${sessionId} created for ${accountName} (PID: ${shell.pid})`);
     recordHookActivity('terminal');
     return { sessionId };
   } catch (error) {
+    if (createdId !== undefined) {
+      if (activeSessions.has(createdId) || closingSessions.has(createdId)) {
+        await cleanupSession(createdId, 'error');
+      } else {
+        try {
+          await pool.execute(
+            'UPDATE terminal_sessions SET ended_at = NOW(), status = ? WHERE id = ?',
+            ['error', createdId],
+          );
+        } catch {
+          logger.error('Failed to record terminal creation failure');
+        }
+      }
+    }
     logger.error('Error creating terminal session:', error);
-    return { sessionId: -1, error: (error as Error).message };
+    return { sessionId: -1, error: 'Failed to create terminal session' };
   }
 }
 
@@ -240,11 +304,11 @@ function handleOutput(sessionId: number, data: string): void {
 
   // Flush buffer if it exceeds max size
   if (session.outputBuffer.length >= OUTPUT_BUFFER_MAX_SIZE) {
-    flushOutputBuffer(sessionId);
+    void flushOutputBuffer(session);
   } else if (!session.outputTimer) {
     // Set timer to flush buffer
     session.outputTimer = setTimeout(() => {
-      flushOutputBuffer(sessionId);
+      void flushOutputBuffer(session);
     }, OUTPUT_BUFFER_INTERVAL);
   }
 }
@@ -252,9 +316,8 @@ function handleOutput(sessionId: number, data: string): void {
 /**
  * Flush output buffer to database
  */
-async function flushOutputBuffer(sessionId: number): Promise<void> {
-  const session = activeSessions.get(sessionId);
-  if (!session || !session.outputBuffer) return;
+async function flushOutputBuffer(session: TerminalSession): Promise<void> {
+  if (!session.outputBuffer) return;
 
   const data = session.outputBuffer;
   session.outputBuffer = '';
@@ -266,7 +329,7 @@ async function flushOutputBuffer(sessionId: number): Promise<void> {
 
   try {
     await pool.execute('INSERT INTO terminal_logs (session_id, direction, data) VALUES (?, ?, ?)', [
-      sessionId,
+      session.sessionId,
       'output',
       data,
     ]);
@@ -358,12 +421,18 @@ export async function destroySession(sessionId: number): Promise<void> {
 /**
  * Cleanup session (internal)
  */
-async function cleanupSession(sessionId: number, status: 'ended' | 'error'): Promise<void> {
+function cleanupSession(sessionId: number, status: 'ended' | 'error'): Promise<void> {
+  const closing = closingSessions.get(sessionId);
+  if (closing) return closing;
   const session = activeSessions.get(sessionId);
-  if (!session) return;
+  if (!session) return Promise.resolve();
 
-  // Flush any remaining output
-  await flushOutputBuffer(sessionId);
+  // Revoke ownership and stop the child before waiting on any database I/O.
+  activeSessions.delete(sessionId);
+  if (sessionsByWebSocket.get(session.ws) === sessionId) sessionsByWebSocket.delete(session.ws);
+  const accountSessions = sessionsByAccount.get(session.accountName);
+  accountSessions?.delete(sessionId);
+  if (accountSessions?.size === 0) sessionsByAccount.delete(session.accountName);
 
   // Kill PTY process
   try {
@@ -371,6 +440,17 @@ async function cleanupSession(sessionId: number, status: 'ended' | 'error'): Pro
   } catch {
     // Process may already be dead
   }
+
+  const completion = finishCleanup(session, status).finally(() =>
+    closingSessions.delete(sessionId),
+  );
+  closingSessions.set(sessionId, completion);
+  return completion;
+}
+
+async function finishCleanup(session: TerminalSession, status: 'ended' | 'error'): Promise<void> {
+  const { sessionId } = session;
+  await flushOutputBuffer(session);
 
   // Remove the session-specific shell configuration after the PTY exits.
   try {
@@ -399,18 +479,6 @@ async function cleanupSession(sessionId: number, status: 'ended' | 'error'): Pro
     );
   }
 
-  // Remove from maps
-  activeSessions.delete(sessionId);
-  sessionsByWebSocket.delete(session.ws);
-
-  const accountSessions = sessionsByAccount.get(session.accountName);
-  if (accountSessions) {
-    accountSessions.delete(sessionId);
-    if (accountSessions.size === 0) {
-      sessionsByAccount.delete(session.accountName);
-    }
-  }
-
   logger.info(`Terminal session ${sessionId} cleaned up`);
 }
 
@@ -418,15 +486,22 @@ async function cleanupSession(sessionId: number, status: 'ended' | 'error'): Pro
  * Cleanup all sessions (for server shutdown)
  */
 export async function cleanupAllSessions(): Promise<void> {
+  const pending = [...pendingSessions.values()];
+  pending.forEach((creation) => creation.cancel());
+  await Promise.all(pending.map((creation) => creation.promise));
   for (const sessionId of activeSessions.keys()) {
     await cleanupSession(sessionId, 'ended');
   }
+  await Promise.all(closingSessions.values());
 }
 
 /**
  * Destroy every active terminal session owned by an account.
  */
 export async function cleanupAccountSessions(accountName: string): Promise<void> {
+  const pending = pendingSessions.get(accountName);
+  pending?.cancel();
+  await pending?.promise;
   for (const sessionId of getAccountSessions(accountName)) {
     await cleanupSession(sessionId, 'ended');
   }

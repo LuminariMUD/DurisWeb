@@ -603,6 +603,57 @@ Commands/results:
   `dense-cast-23436.log`/`dense-cast-23437.log` in the task evidence directory.
 A7 overload and A9 full runtime/long-observation work still remain open.
 
+## Terminal lifecycle qualification repair
+
+In progress on `branch/issue-98-terminal-lifecycle`, stacked on dense-team PR
+#110 (`31b13b1308399016c8d702b30f0813c7404671a3`). Outcome: cancellation and
+single account creation across SQL waits; PTY ownership before asynchronous PID
+registration; immediate child termination and idempotent cleanup before waiting
+on final SQL logs. Files: terminal service, shutdown wiring, existing regression,
+source-owned full runtime journey and backend/qualification docs. Proof: deferred
+insert/PID/log writes and early exit, plus real HTTP/cookie/JWT/WebSocket/SQL/PTY
+fixtures on both database engines. Production sandbox/MUD commands are non-goals.
+
+Five new regressions fail on the parent (closed socket, concurrent creation,
+account-wide cleanup, PID failure and delayed logging). Candidate token/service
+tests pass **17 cases**, including two further PID-wait/early-exit cases. Unit
+tests now mock shell-file deletion rather than touching real `/tmp` paths.
+
+`node scripts/qualification/runtime-journey.mjs /tmp/durisweb-issue98
+<23436|23437>` passes against the actual compiled application on each engine:
+48 distinct accounts in five-request login waves, cookie/session introspection,
+busy forum thread/search and mature PvP reads, player terminal denial, privileged
+capability acceptance, concurrent requests sharing one session, a socket closed
+during an actual locked-table INSERT, real `node-pty` echo, and termination while
+the owned log table is locked. Child termination is observed within **20.33 ms
+MySQL / 20.48 ms MariaDB**. SQL/session data is synthetic, with high terminal IDs
+and absence checks for unrelated shell files. The echo executable ignores sandbox
+arguments and accepts no shell commands; this proves the website/PTY pipeline,
+not production bubblewrap/tmux or MUD operation. Normal logout's next-operation
+recheck and old-capability refusal both pass; it does not globally terminate other
+web sessions. Account-wide terminal cleanup is exercised separately by the unit
+races. Private reports: `runtime-journey-23436.json` and `23437.json`.
+
+The ordinary backend startup is used in development mode on loopback (8139/8142),
+with optional integrations disabled, an empty private MUD folder and a deliberately
+unserved bridge endpoint 8148. Bridge-refusal/presence-disabled diagnostics are
+expected fixture limitations and are separate from application HTTP errors. The
+full runtime does not use mocks for bcrypt, session SQL, tokens, WebSockets or PTY.
+The same source-owned journey with `--shutdown` passes on both engines after
+rebuilding the final shutdown wiring. With final logs held by an owned SQL lock,
+SIGTERM stops the real PTY immediately, keeps the application alive to drain its
+cleanup, then persists the ended row and exits successfully after unlock.
+
+Final commands/results: backend `format:check`, `lint`, `type-check`, `build`,
+`verify:mud-writes` (53), `git diff --check`, and the focused five-file terminal/
+capability/application-socket/permission/shutdown run (**35 pass**). Source CLI
+formatting runs from the repository root with
+`backend/node_modules/.bin/biome format --write scripts/qualification/...`;
+attempting an external-root path from `pnpm --dir backend exec biome` triggered
+Biome's root-path assertion, so it was rerun correctly. No frontend runtime
+change or full local backend suite in this focused repair. Existing stack CI
+checks are green; the new PR's checks are verified separately in the handoff.
+
 ## Unpublished release news
 
 Prepare the combined payload as reader-visible changes are proven. Reconcile it
@@ -688,4 +739,11 @@ Dense-team candidate public wording (unpublished):
 <ul><li>Battle lists preserve large teams and descriptions containing punctuation
 that previously split participant records. Incomplete summaries fail explicitly
 instead of showing a partial team.</li></ul>
+```
+
+Terminal candidate public wording (unpublished):
+
+```html
+<ul><li>Administration terminals clean up interrupted connection attempts and
+stop their process promptly when disconnected, even if final logging is slow.</li></ul>
 ```

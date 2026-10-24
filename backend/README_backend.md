@@ -79,6 +79,14 @@ accumulating output. Normal close cleanup releases subscriptions, streams and
 established terminal sessions. These are transport safety bounds, not a capacity
 forecast; the separate game/MUD bridge transport retains its own policy.
 
+Terminal creation is serialized per account and cancelled if its socket closes
+or account-wide terminal cleanup runs while SQL is pending. A spawned PTY is
+registered for cleanup before its PID write; a failed write or early process
+exit cannot leave it untracked. Cleanup revokes mappings and kills the PTY before
+awaiting final SQL logging, and shutdown drains pending terminal cleanup before
+closing database pools. Normal logout still revokes the web session; subsequent
+terminal operations recheck it.
+
 PvP list and release-cursor summaries select the eligible, ordered event page
 before aggregating participant snapshots. Participant filters still choose
 events, and each selected event retains both complete teams. Counts, release
