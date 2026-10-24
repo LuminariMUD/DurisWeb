@@ -66,8 +66,13 @@ const validateRegister = () => {
     return false
   }
 
-  if (!/^[a-zA-Z0-9_]+$/.test(registerAccount.value)) {
-    registerError.value = 'Account name can only contain letters, numbers, and underscores'
+  if (registerAccount.value.length > 14) {
+    registerError.value = 'Account name must be 14 characters or less'
+    return false
+  }
+
+  if (!/^[a-zA-Z_]+$/.test(registerAccount.value)) {
+    registerError.value = 'Account name can only contain letters and underscores'
     return false
   }
 

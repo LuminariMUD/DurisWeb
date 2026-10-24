@@ -117,4 +117,35 @@ describe('MudLoginPanel credential lifecycle', () => {
     expect(registerMock).toHaveBeenCalledWith('NewAccount', 'new-password', 'new@example.invalid')
     expect(storeCredentialsMock).not.toHaveBeenCalled()
   })
+
+  it.each([
+    ['New123', 'Account name can only contain letters and underscores'],
+    ['New Account', 'Account name can only contain letters and underscores'],
+    ['a'.repeat(15), 'Account name must be 14 characters or less'],
+  ])('rejects %s before opening a registration connection', async (account, message) => {
+    const wrapper = mount(MudLoginPanel, { global: { stubs: globalStubs } })
+    await wrapper.find('#register-account').setValue(account)
+    await wrapper.find('#register-password').setValue('new-password')
+    await wrapper.find('#register-confirm').setValue('new-password')
+    await wrapper.find('#register-email').setValue('new@example.invalid')
+    await wrapper.findAll('form')[1]!.trigger('submit')
+    expect(wrapper.text()).toContain(message)
+    expect(registerMock).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('accepts a 14-character account name containing underscores', async () => {
+    const wrapper = mount(MudLoginPanel, { global: { stubs: globalStubs } })
+    await wrapper.find('#register-account').setValue('Account_Name_A')
+    await wrapper.find('#register-password').setValue('new-password')
+    await wrapper.find('#register-confirm').setValue('new-password')
+    await wrapper.find('#register-email').setValue('new@example.invalid')
+    await wrapper.findAll('form')[1]!.trigger('submit')
+    expect(registerMock).toHaveBeenCalledWith(
+      'Account_Name_A',
+      'new-password',
+      'new@example.invalid',
+    )
+    wrapper.unmount()
+  })
 })

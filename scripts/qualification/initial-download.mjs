@@ -10,6 +10,7 @@ const root = fileURLToPath(new URL("../../", import.meta.url));
 const dist = path.resolve(process.argv[2] ?? path.join(root, "frontend/dist"));
 const html = await readFile(path.join(dist, "index.html"), "utf8");
 const urls = new Set();
+let deploymentBase = "/";
 for (const tag of html.matchAll(/<(?:script|link)\b[^>]*>/g)) {
 	if (
 		tag[0].startsWith("<link") &&
@@ -17,12 +18,28 @@ for (const tag of html.matchAll(/<(?:script|link)\b[^>]*>/g)) {
 	)
 		continue;
 	const url = /(?:src|href)="([^"]+)"/.exec(tag[0])?.[1];
+	if (url && tag[0].startsWith("<script") && /type="module"/.test(tag[0])) {
+		const entryPath = new URL(url, "http://fixture.invalid").pathname;
+		const assetsStart = entryPath.lastIndexOf("/assets/");
+		if (assetsStart >= 0) deploymentBase = entryPath.slice(0, assetsStart + 1);
+	}
 	if (url) urls.add(url);
 }
 const files = await Promise.all(
 	[...urls].map(async (url) => {
-		const pathname = new URL(url, "http://fixture.invalid").pathname;
-		const name = pathname.slice(1);
+		const resolved = new URL(url, `http://fixture.invalid${deploymentBase}`);
+		assert.equal(
+			resolved.origin,
+			"http://fixture.invalid",
+			"Expected a local build asset",
+		);
+		assert(
+			resolved.pathname.startsWith(deploymentBase),
+			"Asset must use the deployment base",
+		);
+		const name = decodeURIComponent(
+			resolved.pathname.slice(deploymentBase.length),
+		);
 		const file = path.resolve(dist, name);
 		assert(
 			!path.relative(dist, file).startsWith(".."),

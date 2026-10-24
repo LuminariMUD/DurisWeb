@@ -36,11 +36,9 @@ export interface MudAccountData {
 
 // cache ttl values
 const ACCOUNT_CACHE_TTL = 5 * 60; // 5 minutes
-const CHAR_CACHE_TTL = 60 * 60; // 1 hour
 
 // redis key prefixes
 const REDIS_KEY_ACCOUNT = 'mud:account:';
-const REDIS_KEY_CHAR = 'mud:char:';
 
 // db row interfaces
 interface AccountRow extends RowDataPacket {
@@ -100,34 +98,55 @@ export async function getAccount(accountName: string): Promise<MudAccountData | 
   const lowerName = accountName.toLowerCase();
   const cacheKey = `${REDIS_KEY_ACCOUNT}${lowerName}`;
 
-  // check redis cache first
-  const cached = await getCache<MudAccountData>(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
   try {
-    // fetch account row
-    const [accountRows] = await pool.query<AccountRow[]>(
-      'SELECT * FROM accounts WHERE LOWER(account_name) = ?',
-      [lowerName],
-    );
+    let accountData = await getCache<Omit<MudAccountData, 'characters'>>(cacheKey);
+    if (!accountData) {
+      // fetch account row
+      const [accountRows] = await pool.query<AccountRow[]>(
+        'SELECT * FROM accounts WHERE LOWER(account_name) = ?',
+        [lowerName],
+      );
 
-    if (accountRows.length === 0) {
-      return null;
+      if (accountRows.length === 0) {
+        return null;
+      }
+
+      const account = accountRows[0];
+
+      // fetch ips for this account
+      const [ipRows] = await pool.query<IpRow[]>(
+        'SELECT ip_address FROM account_ips WHERE LOWER(account_name) = ? ORDER BY id ASC',
+        [lowerName],
+      );
+
+      // collect unique ips
+      const uniqueIPs = ipRows.map((row) => row.ip_address);
+
+      // build account data matching the interface
+      accountData = {
+        serialNumber: 0, // not stored in db, use 0
+        accountName: account.account_name,
+        email: account.email || '',
+        passwordHash: account.password || '',
+        confirmationString: account.confirmation_code || '',
+        uniqueIPs,
+        lastIp: uniqueIPs.length > 0 ? uniqueIPs[uniqueIPs.length - 1] : null,
+        isBlocked: account.blocked === 1,
+        isConfirmed: account.confirmed === 1,
+        confirmationSent: account.confirmation_sent === 1,
+        lastLogin: toUnixTimestamp(account.last_login),
+        lastGoodAlign: toUnixTimestamp(account.last_good_char),
+        lastEvilAlign: toUnixTimestamp(account.last_evil_char),
+        flags: [account.flags1 || 0, account.flags2 || 0, account.flags3 || 0, account.flags4 || 0],
+      };
+
+      // cache the result
+      await setCache(cacheKey, accountData, ACCOUNT_CACHE_TTL);
     }
-
-    const account = accountRows[0];
 
     // fetch characters for this account
     const [charRows] = await pool.query<CharacterRow[]>(
-      'SELECT char_name, pid, login_count, last_login, blocked, racewar FROM account_characters WHERE LOWER(account_name) = ?',
-      [lowerName],
-    );
-
-    // fetch ips for this account
-    const [ipRows] = await pool.query<IpRow[]>(
-      'SELECT ip_address FROM account_ips WHERE LOWER(account_name) = ? ORDER BY id ASC',
+      'SELECT char_name, pid, login_count, last_login, blocked, racewar FROM account_characters WHERE LOWER(account_name) = ? AND deleted_at IS NULL',
       [lowerName],
     );
 
@@ -140,32 +159,8 @@ export async function getAccount(accountName: string): Promise<MudAccountData | 
       racewarSide: row.racewar,
     }));
 
-    // collect unique ips
-    const uniqueIPs = ipRows.map((row) => row.ip_address);
-
-    // build account data matching the interface
-    const accountData: MudAccountData = {
-      serialNumber: 0, // not stored in db, use 0
-      accountName: account.account_name,
-      email: account.email || '',
-      passwordHash: account.password || '',
-      confirmationString: account.confirmation_code || '',
-      uniqueIPs,
-      lastIp: uniqueIPs.length > 0 ? uniqueIPs[uniqueIPs.length - 1] : null,
-      characters,
-      isBlocked: account.blocked === 1,
-      isConfirmed: account.confirmed === 1,
-      confirmationSent: account.confirmation_sent === 1,
-      lastLogin: toUnixTimestamp(account.last_login),
-      lastGoodAlign: toUnixTimestamp(account.last_good_char),
-      lastEvilAlign: toUnixTimestamp(account.last_evil_char),
-      flags: [account.flags1 || 0, account.flags2 || 0, account.flags3 || 0, account.flags4 || 0],
-    };
-
-    // cache the result
-    await setCache(cacheKey, accountData, ACCOUNT_CACHE_TTL);
-
-    return accountData;
+    // Retired links and reused names must not survive through cached account metadata.
+    return { ...accountData, characters };
   } catch (error) {
     logger.error(`error fetching account '${accountName}':`, error);
     return null;
@@ -217,17 +212,9 @@ export function isBcryptHash(hash: string): boolean {
  */
 export async function findAccountByCharacter(characterName: string): Promise<string | null> {
   const lowerCharName = characterName.toLowerCase();
-  const cacheKey = `${REDIS_KEY_CHAR}${lowerCharName}`;
-
-  // check redis cache first
-  const cached = await getCache<string>(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
   try {
     const [rows] = await pool.query<AccountNameRow[]>(
-      'SELECT account_name FROM account_characters WHERE LOWER(char_name) = ?',
+      'SELECT account_name FROM account_characters WHERE LOWER(char_name) = ? AND deleted_at IS NULL',
       [lowerCharName],
     );
 
@@ -235,12 +222,7 @@ export async function findAccountByCharacter(characterName: string): Promise<str
       return null;
     }
 
-    const accountName = rows[0].account_name;
-
-    // cache the result
-    await setCache(cacheKey, accountName, CHAR_CACHE_TTL);
-
-    return accountName;
+    return rows[0].account_name;
   } catch (error) {
     logger.error(`error finding account by character '${characterName}':`, error);
     return null;
