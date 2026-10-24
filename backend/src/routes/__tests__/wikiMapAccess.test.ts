@@ -6,7 +6,10 @@ const getWikiAccessLevel = jest.fn<() => Promise<string>>();
 const generateMapImage = jest.fn(async () => Buffer.from('png'));
 const getMapSectorGrid = jest.fn(async () => ({ layer: 0, sectors: 'AA==' }));
 const getZoneEntrances = jest.fn<
-  (bounds: { minX: number; maxX: number; minY: number; maxY: number }, layer: number) => Promise<unknown[]>
+  (
+    bounds: { minX: number; maxX: number; minY: number; maxY: number },
+    layer: number,
+  ) => Promise<unknown[]>
 >(async () => []);
 class MapSectorUnavailableError extends Error {}
 let authenticated = false;
