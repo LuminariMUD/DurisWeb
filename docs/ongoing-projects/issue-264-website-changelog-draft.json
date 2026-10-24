@@ -1,0 +1,7 @@
+{
+  "version": "2026.10.24-draft",
+  "title": "Current-season live player updates",
+  "content": "<h3>Server dashboard</h3><ul><li><strong>Reliable live activity during a wipe.</strong> Live player updates ignore outdated login and logout messages while the game resets or after a new season starts. Turning off player presence or stopping its connection also stops delayed updates.</li></ul>",
+  "category": "admin",
+  "isPublished": false
+}
