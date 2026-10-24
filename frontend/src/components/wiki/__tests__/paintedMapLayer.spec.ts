@@ -103,6 +103,11 @@ describe('painted map worker lifecycle', () => {
       expect(map.getPane('paintedDetail')!.querySelectorAll('img').length).toBeGreaterThan(0)
     }
     expect(TestWorker.instances.length).toBeLessThanOrEqual(2)
+    const cache = (
+      painted as unknown as { detailTiles: Map<string, unknown> }
+    ).detailTiles
+    expect(cache.size).toBeLessThanOrEqual(128)
+    painted.destroy()
     expect(URL.revokeObjectURL).toHaveBeenCalled()
   })
 
@@ -261,25 +266,34 @@ describe('painted map worker lifecycle', () => {
     map.setZoom(3, { animate: false })
     painted.refresh()
     await drain()
-    const initial16 = TestWorker.instances.flatMap((w) => w.requests).filter((r) => r.scale === 16).length
+    const initial16 = TestWorker.instances
+      .flatMap((w) => w.requests)
+      .filter((r) => r.scale === 16).length
     expect(initial16).toBeGreaterThan(0)
     map.setZoom(3.5, { animate: false })
     painted.refresh()
     await drain()
-    const initial32 = TestWorker.instances.flatMap((w) => w.requests).filter((r) => r.scale === 32).length
+    const initial32 = TestWorker.instances
+      .flatMap((w) => w.requests)
+      .filter((r) => r.scale === 32).length
     expect(initial32).toBeGreaterThan(0)
     map.setZoom(3, { animate: false })
     painted.refresh()
     await drain()
-    expect(TestWorker.instances.flatMap((w) => w.requests).filter((r) => r.scale === 16)).toHaveLength(initial16)
+    expect(
+      TestWorker.instances.flatMap((w) => w.requests).filter((r) => r.scale === 16),
+    ).toHaveLength(initial16)
     map.setZoom(3.5, { animate: false })
     painted.refresh()
     await drain()
-    expect(TestWorker.instances.flatMap((w) => w.requests).filter((r) => r.scale === 32)).toHaveLength(initial32)
+    expect(
+      TestWorker.instances.flatMap((w) => w.requests).filter((r) => r.scale === 32),
+    ).toHaveLength(initial32)
     expect(map.getPane('paintedDetail')!.querySelectorAll('img').length).toBeLessThanOrEqual(64)
   })
 
   it('queues viewport detail from centre outward while all workers are busy', () => {
+    vi.stubGlobal('devicePixelRatio', 2)
     painted.show({ ...source(), width: 400, height: 400, sectors: new Uint8Array(160000) })
     map.setView([-200, 200], 4, { animate: false })
     vi.spyOn(map, 'getBounds').mockReturnValue(L.latLngBounds([-230, 170], [-170, 230]))

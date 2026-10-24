@@ -284,11 +284,15 @@ describe('wiki entrance visibility and navigation', () => {
 
   it('restores entrance markers after visibility toggles while a viewport fetch is pending', async () => {
     await render()
+    await zoom(3)
     const initial = document.querySelector('.leaflet-marker-icon')
     expect(initial).not.toBeNull()
     let finish!: (rows: WikiZoneEntrance[]) => void
     vi.mocked(wikiApi.getZoneEntrances).mockImplementation(
-      () => new Promise((resolve) => { finish = resolve }),
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
     )
     vi.spyOn(map, 'getBounds').mockReturnValue(L.latLngBounds([-210, 180], [-180, 220]))
     map.fire('moveend')
@@ -303,9 +307,9 @@ describe('wiki entrance visibility and navigation', () => {
 
   it('revalidates unchanged viewport data after frontend cache expiry', async () => {
     await render()
-    const previousBounds = vi.spyOn(map, 'getBounds').mockReturnValue(
-      L.latLngBounds([-210, 180], [-180, 220]),
-    )
+    const previousBounds = vi
+      .spyOn(map, 'getBounds')
+      .mockReturnValue(L.latLngBounds([-210, 180], [-180, 220]))
     vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([entrance()])
     map.fire('moveend')
     await settle()
