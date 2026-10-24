@@ -82,7 +82,10 @@ forecast; the separate game/MUD bridge transport retains its own policy.
 PvP list and release-cursor summaries select the eligible, ordered event page
 before aggregating participant snapshots. Participant filters still choose
 events, and each selected event retains both complete teams. Counts, release
-cutoffs, capture-privacy rules and cursor order are unchanged. The mature-history
+cutoffs, capture-privacy rules and cursor order are unchanged. Structured JSON
+snapshots preserve description delimiters and dense teams. Independent row counts
+reject truncated aggregates rather than publishing partial teams; server/session
+aggregate limits are unchanged. The mature-history
 native qualification uses the pinned full owner schema; see
 [development](../docs/development.md) for its explicit disposable-target opt-in.
 

@@ -51,29 +51,36 @@ describe('historical PvP records', () => {
     expect(extractPlayerName(description)).toBe(expected);
   });
 
-  it('filters on captured levels and includes levels in list summaries', async () => {
-    query.mockResolvedValueOnce([[{ total: 1 }]]).mockResolvedValueOnce([
-      [
-        {
-          id: 1,
-          stamp_epoch: 1577836800,
-          killers: 'Fixture<<>>1<<>>56',
-          victims: 'Other<<>>0<<>>1<<>>52',
-        },
-      ],
-    ]);
-    const filters: SearchFilters = { level_min: 50, level_max: 55 };
-    const result = await service.getPvPEvents(filters);
-    expect(
-      query.mock.calls.every(
-        ([sql]) => sql.includes('matched.level >= ?') && sql.includes('matched.level <= ?'),
-      ),
-    ).toBe(true);
-    expect(result.events[0].killers).toEqual([
-      { description: 'Fixture', isLeader: true, level: 56 },
-    ]);
-    expect(result.events[0].victims[0]).toMatchObject({ level: 52, died: true });
-  });
+  it.each(['native', 'text'])(
+    'filters captured levels and decodes %s structured summaries',
+    async (format) => {
+      const participants = [
+        { kind: 'killer', description: 'Fixture', leader: 1, level: 56, died: 0 },
+        { kind: 'victim', description: 'Other', leader: 0, level: 52, died: 1 },
+      ];
+      query.mockResolvedValueOnce([[{ total: 1 }]]).mockResolvedValueOnce([
+        [
+          {
+            id: 1,
+            stamp_epoch: 1577836800,
+            participants: format === 'native' ? participants : JSON.stringify(participants),
+            participant_rows: participants.length,
+          },
+        ],
+      ]);
+      const filters: SearchFilters = { level_min: 50, level_max: 55 };
+      const result = await service.getPvPEvents(filters);
+      expect(
+        query.mock.calls.every(
+          ([sql]) => sql.includes('matched.level >= ?') && sql.includes('matched.level <= ?'),
+        ),
+      ).toBe(true);
+      expect(result.events[0].killers).toEqual([
+        { description: 'Fixture', isLeader: true, level: 56 },
+      ]);
+      expect(result.events[0].victims[0]).toMatchObject({ level: 52, died: true });
+    },
+  );
 
   it('keeps name-only players in leaderboards and autocomplete with their captured level', async () => {
     const row = { player_description: 'Fixture', level: 56, kills: 1, deaths: 0, kd_ratio: 1 };
@@ -93,6 +100,64 @@ describe('historical PvP records', () => {
         race: '',
       },
     ]);
+  });
+
+  it('withholds malformed or truncated structured aggregates without returning partial teams', async () => {
+    query.mockResolvedValueOnce([[{ total: 1 }]]).mockResolvedValueOnce([
+      [
+        {
+          id: 1,
+          stamp_epoch: 1577836800,
+          participants: '[{"description":"private-sentinel"',
+          participant_rows: 1,
+        },
+      ],
+    ]);
+    await expect(service.getPvPEvents({})).rejects.toThrow('PvP participant summary unavailable');
+  });
+
+  it('retains empty historical events and coalesces identical structured snapshots', async () => {
+    const empty = { kind: null, description: null, leader: 0, level: null, died: 0 };
+    const killer = {
+      kind: 'killer',
+      description: 'Fixture ||| <<>>',
+      leader: 1,
+      level: 56,
+      died: 0,
+    };
+    query.mockResolvedValueOnce([[{ total: 2 }]]).mockResolvedValueOnce([
+      [
+        { id: 1, stamp_epoch: 1577836800, participants: [empty], participant_rows: 1 },
+        { id: 2, stamp_epoch: 1577836800, participants: [killer, killer], participant_rows: 2 },
+      ],
+    ]);
+    const result = await service.getPvPEvents({});
+    expect(result.events[0]).toMatchObject({
+      killers: [],
+      victims: [],
+      killer_count: 0,
+      victim_count: 0,
+    });
+    expect(result.events[1].killers).toEqual([
+      { description: 'Fixture ||| <<>>', isLeader: true, level: 56 },
+    ]);
+    expect(result.events[1].killer_count).toBe(1);
+  });
+
+  it('withholds syntactically valid JSON that lost aggregate rows', async () => {
+    query.mockResolvedValueOnce([[{ total: 1 }]]).mockResolvedValueOnce([
+      [
+        {
+          id: 1,
+          stamp_epoch: 1577836800,
+          participant_rows: 2,
+          participants: JSON.stringify([
+            { kind: 'killer', description: 'Fixture', leader: 0, level: 56, died: 0 },
+          ]),
+        },
+      ],
+    ]);
+    await expect(service.getPvPEvents({})).rejects.toThrow('PvP participant summary unavailable');
   });
 
   it('looks up name-only player statistics and their opponents', async () => {
@@ -592,7 +657,8 @@ databaseTests('PvP SQL contract on a disposable database', () => {
     expect(
       (await service.getReleasedEventsAfter({ ...cursor, id: 3 }, 100)).map((e) => e.id),
     ).toEqual([4]);
-    expect(query.mock.calls.every(([sql]) => !sql.includes('COUNT('))).toBe(true);
+    // Cursor reads count only their joined snapshots, never the entire event history.
+    expect(query.mock.calls.every(([sql]) => !sql.includes('COUNT(DISTINCT e.id)'))).toBe(true);
   });
 
   it('counts complete matchup history beyond the former 1,000-row sample', async () => {
