@@ -136,6 +136,10 @@ import { pool } from './db/connection.js';
 import { getBackendConfiguration } from './config/environment.js';
 import { escapeHtml } from './utils/contentParser.js';
 import { closeWebServer } from './utils/serverShutdown.js';
+import {
+  createApplicationWebSocketServer,
+  sendApplicationMessage,
+} from './utils/applicationWebSocket.js';
 import { startEventLoopWatchdog } from './utils/eventLoopWatchdog.js';
 
 // Get __dirname equivalent in ES modules
@@ -441,7 +445,7 @@ function broadcastToPermission(
       client.readyState === WebSocket.OPEN &&
       hasWebSocketPermission(getWebSocketPrincipal(client), permissionKey, minimumLevel)
     ) {
-      client.send(message);
+      sendApplicationMessage(client, message);
     }
   });
 }
@@ -472,7 +476,7 @@ export function broadcastNewEvent(event: any) {
 
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
+      sendApplicationMessage(client, message);
     }
   });
 }
@@ -492,8 +496,7 @@ async function broadcastFragUpdate() {
     let sentCount = 0;
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
-        client.send(message);
-        sentCount++;
+        if (sendApplicationMessage(client, message)) sentCount++;
       }
     });
 
@@ -568,7 +571,7 @@ export function broadcastAuctionEvent(type: string, data: any) {
 
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
+      sendApplicationMessage(client, message);
     }
   });
 }
@@ -586,8 +589,7 @@ export function broadcastPlayerEvent(type: string, data: any) {
       (client as any).playerEventsSubscribed &&
       hasWebSocketPermission(getWebSocketPrincipal(client), 'view_server_health', 57)
     ) {
-      client.send(message);
-      sent++;
+      if (sendApplicationMessage(client, message)) sent++;
     }
   });
 
@@ -606,7 +608,7 @@ export function broadcastWholist(type: string, data: any) {
       (client as any).wholistSubscribed &&
       hasWebSocketPermission(getWebSocketPrincipal(client), 'view_server_health', 57)
     ) {
-      client.send(message);
+      sendApplicationMessage(client, message);
     }
   });
 }
@@ -653,7 +655,7 @@ export async function broadcastForumPost(
           categoryId,
           principal?.permissions || ANONYMOUS_WS_PERMISSIONS,
         );
-        if (access.canView) client.send(message);
+        if (access.canView) sendApplicationMessage(client, message);
       } catch (error) {
         logger.error('Error checking forum broadcast access:', error);
       }
@@ -698,7 +700,7 @@ export function broadcastNotification(accountName: string, notification: any) {
       client.readyState === WebSocket.OPEN &&
       canReceiveAccountEvent(getWebSocketPrincipal(client), accountName)
     ) {
-      client.send(message);
+      sendApplicationMessage(client, message);
     }
   });
 }
@@ -714,7 +716,7 @@ export function broadcastNewsUpdate(data: { date: string; items: string[] }) {
 
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
+      sendApplicationMessage(client, message);
     }
   });
 
@@ -985,7 +987,7 @@ async function startServer() {
     server = http.createServer(app);
 
     // Create WebSocket server
-    wss = new WebSocketServer({ server, path: '/ws' });
+    wss = createApplicationWebSocketServer(server);
 
     wss.on('connection', (ws: WebSocket, request) => {
       (ws as any).messageCount = 0;
@@ -994,15 +996,6 @@ async function startServer() {
       (ws as any).playerEventsSubscribed = false;
       (ws as any).wholistSubscribed = false;
       void hydrateWebSocketPrincipal(ws, request.headers.cookie);
-
-      ws.on('close', async () => {
-        const sessionId = getSessionByWebSocket(ws);
-        if (sessionId !== undefined) {
-          await destroyTerminalSession(sessionId);
-        }
-        delete (ws as any).terminalAuth;
-        wsStreamLimiter.clear(ws);
-      });
 
       const ensureTerminalOperation = async (sessionId: number): Promise<boolean> => {
         const terminalAuth = (ws as any).terminalAuth as
@@ -1025,7 +1018,8 @@ async function startServer() {
 
         await destroyTerminalSession(sessionId);
         if (ws.readyState === WebSocket.OPEN) {
-          ws.send(
+          sendApplicationMessage(
+            ws,
             JSON.stringify({
               type: 'TERMINAL_ERROR',
               message: 'Terminal session is no longer active',
@@ -1038,13 +1032,6 @@ async function startServer() {
 
       // Handle incoming messages
       ws.on('message', async (message: string | Buffer) => {
-        // Security: Message size limit (10KB max)
-        const MAX_MESSAGE_SIZE = 10 * 1024;
-        if (message.length > MAX_MESSAGE_SIZE) {
-          ws.send(JSON.stringify({ type: 'ERROR', message: 'Message too large' }));
-          return;
-        }
-
         // Security: Rate limiting (20 messages per second burst)
         const now = Date.now();
         if (now - (ws as any).lastReset > 1000) {
@@ -1054,7 +1041,10 @@ async function startServer() {
         (ws as any).messageCount++;
 
         if ((ws as any).messageCount > 20) {
-          ws.send(JSON.stringify({ type: 'ERROR', message: 'Rate limit exceeded' }));
+          sendApplicationMessage(
+            ws,
+            JSON.stringify({ type: 'ERROR', message: 'Rate limit exceeded' }),
+          );
           return;
         }
 
@@ -1063,14 +1053,14 @@ async function startServer() {
         try {
           data = JSON.parse(message.toString());
         } catch {
-          ws.send(JSON.stringify({ type: 'ERROR', message: 'Invalid JSON' }));
+          sendApplicationMessage(ws, JSON.stringify({ type: 'ERROR', message: 'Invalid JSON' }));
           return;
         }
 
         try {
           // Fast ping/pong for latency measurement
           if (data.type === 'ping') {
-            ws.send('{"type":"pong"}');
+            sendApplicationMessage(ws, '{"type":"pong"}');
             return;
           }
 
@@ -1078,7 +1068,10 @@ async function startServer() {
           if (data.type === 'SUBSCRIBE_LOG') {
             const principal = await verifyWebSocketAuth(data.token, 0);
             if (!principal || !hasWebSocketPermission(principal, 'view_server_logs')) {
-              ws.send(JSON.stringify({ type: 'ERROR', message: 'Server log permission required' }));
+              sendApplicationMessage(
+                ws,
+                JSON.stringify({ type: 'ERROR', message: 'Server log permission required' }),
+              );
               return;
             }
             (ws as any).wsPrincipal = principal;
@@ -1095,7 +1088,8 @@ async function startServer() {
             const callback = (newLines: string[]) => {
               // Only send if still subscribed and connection open
               if ((ws as any).logSubscriptions.has(subscriptionKey) && ws.readyState === ws.OPEN) {
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'LOG_UPDATE',
                     category,
@@ -1113,7 +1107,8 @@ async function startServer() {
             watchLog(category, logName, callback);
 
             // Confirm subscription
-            ws.send(
+            sendApplicationMessage(
+              ws,
               JSON.stringify({
                 type: 'LOG_SUBSCRIBED',
                 category,
@@ -1139,7 +1134,8 @@ async function startServer() {
             }
 
             // Confirm unsubscription
-            ws.send(
+            sendApplicationMessage(
+              ws,
               JSON.stringify({
                 type: 'LOG_UNSUBSCRIBED',
                 category,
@@ -1185,7 +1181,8 @@ async function startServer() {
               // Verify the short-lived terminal capability
               const payload = verifyTerminalToken(token);
               if (!payload) {
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'TERMINAL_ERROR',
                     message: 'Invalid or expired token',
@@ -1195,7 +1192,8 @@ async function startServer() {
               }
 
               if (!payload.sid || !(await hasActiveWebSession(payload.accountName, payload.sid))) {
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'TERMINAL_ERROR',
                     message: 'Session is no longer active',
@@ -1207,7 +1205,8 @@ async function startServer() {
               // Parse account and check permissions
               const accountData = await parseAccountFile(payload.accountName);
               if (!accountData) {
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'TERMINAL_ERROR',
                     message: 'Account not found',
@@ -1227,7 +1226,8 @@ async function startServer() {
                 permissions.adminPermissions?.includes('terminal_access');
 
               if (!hasTerminalAccess) {
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'TERMINAL_ERROR',
                     message: 'Terminal access permission required',
@@ -1245,7 +1245,8 @@ async function startServer() {
               );
 
               if (result.error) {
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'TERMINAL_ERROR',
                     message: result.error,
@@ -1259,7 +1260,8 @@ async function startServer() {
                 webSessionId: payload.sid,
               };
 
-              ws.send(
+              sendApplicationMessage(
+                ws,
                 JSON.stringify({
                   type: 'TERMINAL_CONNECTED',
                   sessionId: result.sessionId,
@@ -1267,7 +1269,8 @@ async function startServer() {
               );
             } catch (error) {
               logger.error('Terminal connect error:', error);
-              ws.send(
+              sendApplicationMessage(
+                ws,
                 JSON.stringify({
                   type: 'TERMINAL_ERROR',
                   message: 'Failed to create terminal session',
@@ -1305,7 +1308,8 @@ async function startServer() {
             const { zoneId, streamType } = data;
 
             if (!zoneId || !['rooms', 'mobs', 'objects'].includes(streamType)) {
-              ws.send(
+              sendApplicationMessage(
+                ws,
                 JSON.stringify({
                   type: 'ZONE_STREAM_ERROR',
                   zoneId,
@@ -1318,7 +1322,8 @@ async function startServer() {
 
             const principal = await authorizeZoneStream(ws, data.token, zoneId);
             if (!principal) {
-              ws.send(
+              sendApplicationMessage(
+                ws,
                 JSON.stringify({
                   type: 'ZONE_STREAM_ERROR',
                   zoneId,
@@ -1331,7 +1336,8 @@ async function startServer() {
 
             const streamKey = `zone:${zoneId}:${streamType}`;
             if (!wsStreamLimiter.acquire(ws, streamKey)) {
-              ws.send(
+              sendApplicationMessage(
+                ws,
                 JSON.stringify({
                   type: 'ZONE_STREAM_ERROR',
                   zoneId,
@@ -1348,7 +1354,8 @@ async function startServer() {
               const total = counts[streamType as 'rooms' | 'mobs' | 'objects'];
 
               // Send start event
-              ws.send(
+              sendApplicationMessage(
+                ws,
                 JSON.stringify({
                   type: 'ZONE_STREAM_START',
                   zoneId,
@@ -1375,7 +1382,8 @@ async function startServer() {
                 }
 
                 loaded += chunk.length;
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'ZONE_STREAM_PROGRESS',
                     zoneId,
@@ -1389,7 +1397,8 @@ async function startServer() {
 
               // Send complete event
               if (ws.readyState === WebSocket.OPEN) {
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'ZONE_STREAM_COMPLETE',
                     zoneId,
@@ -1401,7 +1410,8 @@ async function startServer() {
             } catch (error) {
               logger.error(`Error streaming ${streamType} for zone ${zoneId}:`, error);
               if (ws.readyState === WebSocket.OPEN) {
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'ZONE_STREAM_ERROR',
                     zoneId,
@@ -1420,7 +1430,8 @@ async function startServer() {
             const { zoneId } = data;
 
             if (!zoneId) {
-              ws.send(
+              sendApplicationMessage(
+                ws,
                 JSON.stringify({
                   type: 'ZONE_RESETS_STREAM_ERROR',
                   zoneId,
@@ -1432,7 +1443,8 @@ async function startServer() {
 
             const principal = await authorizeZoneStream(ws, data.token, zoneId);
             if (!principal) {
-              ws.send(
+              sendApplicationMessage(
+                ws,
                 JSON.stringify({
                   type: 'ZONE_RESETS_STREAM_ERROR',
                   zoneId,
@@ -1444,7 +1456,8 @@ async function startServer() {
 
             const streamKey = `resets:${zoneId}`;
             if (!wsStreamLimiter.acquire(ws, streamKey)) {
-              ws.send(
+              sendApplicationMessage(
+                ws,
                 JSON.stringify({
                   type: 'ZONE_RESETS_STREAM_ERROR',
                   zoneId,
@@ -1459,7 +1472,8 @@ async function startServer() {
               const total = await countResets(zoneId);
 
               // Send start event
-              ws.send(
+              sendApplicationMessage(
+                ws,
                 JSON.stringify({
                   type: 'ZONE_RESETS_STREAM_START',
                   zoneId,
@@ -1477,7 +1491,8 @@ async function startServer() {
                 }
 
                 loaded += chunk.length;
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'ZONE_RESETS_STREAM_PROGRESS',
                     zoneId,
@@ -1490,7 +1505,8 @@ async function startServer() {
 
               // Send complete event
               if (ws.readyState === WebSocket.OPEN) {
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'ZONE_RESETS_STREAM_COMPLETE',
                     zoneId,
@@ -1501,7 +1517,8 @@ async function startServer() {
             } catch (error) {
               logger.error(`Error streaming resets for zone ${zoneId}:`, error);
               if (ws.readyState === WebSocket.OPEN) {
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'ZONE_RESETS_STREAM_ERROR',
                     zoneId,
@@ -1521,7 +1538,8 @@ async function startServer() {
 
               // Validate hash format
               if (!targetHash || !/^[a-f0-9]{40}$/.test(targetHash)) {
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'DEPLOY_ERROR',
                     message: 'Invalid commit hash format',
@@ -1533,7 +1551,8 @@ async function startServer() {
               // Verify the short-lived application WebSocket capability.
               const payload = verifyWebSocketToken(token);
               if (!payload) {
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'DEPLOY_ERROR',
                     message: 'Invalid or expired token',
@@ -1543,7 +1562,8 @@ async function startServer() {
               }
 
               if (!payload.sid || !(await hasActiveWebSession(payload.accountName, payload.sid))) {
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'DEPLOY_ERROR',
                     message: 'Session is no longer active',
@@ -1555,7 +1575,8 @@ async function startServer() {
               // Parse account and check permissions
               const accountData = await parseAccountFile(payload.accountName);
               if (!accountData) {
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'DEPLOY_ERROR',
                     message: 'Account not found',
@@ -1571,7 +1592,8 @@ async function startServer() {
 
               // Require Overlord role for deployment
               if (permissions.role !== 'overlord') {
-                ws.send(
+                sendApplicationMessage(
+                  ws,
                   JSON.stringify({
                     type: 'DEPLOY_ERROR',
                     message: 'Overlord access required for deployment',
@@ -1596,7 +1618,8 @@ async function startServer() {
               };
 
               // Confirm deployment started
-              ws.send(
+              sendApplicationMessage(
+                ws,
                 JSON.stringify({
                   type: 'DEPLOY_STARTED',
                   action,
@@ -1609,7 +1632,8 @@ async function startServer() {
               await deployToCommit(ctx);
             } catch (error) {
               logger.error('Deployment WebSocket error:', error);
-              ws.send(
+              sendApplicationMessage(
+                ws,
                 JSON.stringify({
                   type: 'DEPLOY_ERROR',
                   message: getErrorMessage(error) || 'Deployment failed',
@@ -1623,6 +1647,8 @@ async function startServer() {
       });
 
       ws.on('close', async () => {
+        delete (ws as any).terminalAuth;
+        wsStreamLimiter.clear(ws);
         // Unsubscribe from all logs on disconnect with proper callback cleanup
         (ws as any).logSubscriptions.forEach(
           (callback: (newLines: string[]) => void, subscriptionKey: string) => {
@@ -1639,12 +1665,13 @@ async function startServer() {
         }
       });
 
-      ws.on('error', (error) => {
-        logger.error('WebSocket error:', error);
+      ws.on('error', () => {
+        logger.warn('Application WebSocket transport error');
       });
 
       // Send welcome message
-      ws.send(
+      sendApplicationMessage(
+        ws,
         JSON.stringify({
           type: 'CONNECTED',
           message: 'Connected to DurisMUD PvP WebSocket',

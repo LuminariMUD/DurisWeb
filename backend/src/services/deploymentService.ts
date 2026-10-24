@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import { WebSocket } from 'ws';
+import { sendApplicationMessage } from '../utils/applicationWebSocket.js';
 import { pool } from '../db/connection.js';
 import { refreshGitCache, getCurrentCommitHash } from './gitService.js';
 import logger, { getErrorMessage } from '../utils/logger.js';
@@ -35,7 +36,8 @@ export interface DeploymentContext {
  */
 function sendProgress(ws: WebSocket, progressType: string, message: string): void {
   if (ws.readyState === WebSocket.OPEN) {
-    ws.send(
+    sendApplicationMessage(
+      ws,
       JSON.stringify({
         type: 'DEPLOY_PROGRESS',
         progressType,
@@ -115,7 +117,8 @@ export async function deployToCommit(ctx: DeploymentContext): Promise<void> {
   // Defense-in-depth: validate hash format even though entry point already did
   if (!validateCommitHash(targetHash)) {
     sendProgress(ws, 'error', 'Invalid commit hash format');
-    ws.send(
+    sendApplicationMessage(
+      ws,
       JSON.stringify({
         type: 'DEPLOY_COMPLETE',
         success: false,
@@ -146,7 +149,8 @@ export async function deployToCommit(ctx: DeploymentContext): Promise<void> {
 
     if (fetchResult.exitCode !== 0) {
       sendProgress(ws, 'error', `Git fetch failed with exit code ${fetchResult.exitCode}`);
-      ws.send(
+      sendApplicationMessage(
+        ws,
         JSON.stringify({
           type: 'DEPLOY_COMPLETE',
           success: false,
@@ -172,7 +176,8 @@ export async function deployToCommit(ctx: DeploymentContext): Promise<void> {
 
     if (checkoutResult.exitCode !== 0) {
       sendProgress(ws, 'error', `Git checkout failed with exit code ${checkoutResult.exitCode}`);
-      ws.send(
+      sendApplicationMessage(
+        ws,
         JSON.stringify({
           type: 'DEPLOY_COMPLETE',
           success: false,
@@ -231,7 +236,8 @@ export async function deployToCommit(ctx: DeploymentContext): Promise<void> {
       );
     }
 
-    ws.send(
+    sendApplicationMessage(
+      ws,
       JSON.stringify({
         type: 'DEPLOY_COMPLETE',
         success: makeResult.exitCode === 0,
@@ -242,7 +248,8 @@ export async function deployToCommit(ctx: DeploymentContext): Promise<void> {
   } catch (error) {
     logger.error('Deployment error:', error);
     sendProgress(ws, 'error', `>>> Deployment failed: ${getErrorMessage(error)}`);
-    ws.send(
+    sendApplicationMessage(
+      ws,
       JSON.stringify({
         type: 'DEPLOY_COMPLETE',
         success: false,
