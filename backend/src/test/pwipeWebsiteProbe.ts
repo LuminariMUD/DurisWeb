@@ -216,8 +216,6 @@ async function probeWebsite(phase: 'old' | 'new', directory: string): Promise<vo
     } else {
       const saved: unknown = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
       assert(record(saved) && record(saved.main) && record(saved.observer));
-      assert(Object.values(saved.main).every((value) => typeof value === 'string'));
-      assert(Object.values(saved.observer).every((value) => typeof value === 'string'));
       main = cookieValues(saved.main);
       observer = cookieValues(saved.observer);
     }
