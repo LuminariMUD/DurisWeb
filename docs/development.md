@@ -142,6 +142,28 @@ They create and drop only `pvp_snapshot_test` and refuse ports 3306 and 3307.
 Leave the setting absent for a unit-only run; a full burn-in must provide the
 disposable instance and run these checks without skips.
 
+The MUD-owned [runtime journey](https://github.com/LuminariMUD/Duris/pull/347)
+(`run_pwipe_runtime_journey.py --redis --website <checkout>`) uses
+`backend/src/test/pwipeWebsiteProbe.ts` with the normal built backend. The probe
+refuses anything except the parent's owned loopback `pwipe_journey_*` SQL target;
+the parent rejects checkout runtime environment files. It installs the source-
+owned baseline/forward migrations in that private DB, keeps old authenticated WS
+peers across graceful backend stop, and checks real HTTP/session/WHO/ranking,
+MUD login events, scoped cached lists, a queued synthetic webhook and duplicate
+credit protection after the real reset. Cookies stay in a mode-0600 private test
+file, never the report. All mail/Discord/PostHog/cloud features remain disabled.
+This is a runtime qualification fixture, not a deployment or payment-provider test.
+
+`legacyCopyPreservationSystemd.native.ts` is an explicit root-only rehearsal in a
+fresh private mount namespace with systemd as PID 1 and
+`TEST_PWIPE_WEBSITE_SYSTEMD=1`. Use a supported Node runtime explicitly when root's
+PATH differs. It starts only uniquely named disposable PrivateTmp source/keeper
+units, invokes the real preservation service before source stop, proves namespace
+retention after source stop and verifies the protected bundle after both stop.
+It removes its own units/files. Pair it with the existing mount/alias native
+fixture; neither may operate an existing website unit or real legacy files.
+The operator procedure remains [deployment's preservation gate](deployment.md#legacy-temporary-copy-preservation-gate).
+
 `accountServiceRetirement.test.ts` covers legacy warm-cache retirement, name
 reuse and database-failure refusal. Its opt-in native case uses the same owned
 loopback credentials below with `TEST_ACCOUNT_DB_PORT=TEST_DB_PORT` (the selected
@@ -260,3 +282,12 @@ Regression fixtures and other checkouts are excluded. Missing, malformed, exited
 or ambiguous candidates report stopped. Uptime comes from the same process
 snapshot as the PID, so process exit cannot turn an empty second lookup into an
 invalid boot timestamp during WebSocket reconnection.
+
+### Issue #264 runtime probe review repair
+
+The disposable pwipe probe accepts the literal loopback root principal as well as
+the existing wildcard/local forms. After Redis delivery it polls the existing
+bounded waiter for the durable outbox publication acknowledgement: Redis receipt
+can precede the separate SQL update. This changes only qualification code; existing
+HTTP/Redis/MUD integration evidence remains valid. No new player-facing release
+news is needed for this probe repair, and no deployment is performed.
