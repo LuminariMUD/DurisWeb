@@ -262,7 +262,9 @@ event. Messages whose channel is stale or whose season is resetting are discarde
 Subscriber identity, channel and the in-memory hook gate are rechecked after the
 lookup, so stop/reconnect/refresh and hook changes cannot publish a delayed event.
 The minute-long subscription refresh reconciles channels; it is not the authority
-for admitting each event. The website needs SELECT access only for this read fence.
+for admitting each event. The website needs SELECT access only for this read fence. Subscription setup,
+refresh, Redis error events and shutdown diagnostics use fixed categories and omit
+raw driver messages.
 
 ## Hook Ownership and State
 
