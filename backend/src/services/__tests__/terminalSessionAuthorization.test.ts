@@ -277,6 +277,35 @@ describe('terminal WebSocket session authorization', () => {
     }
   });
 
+  it('hides pending PID updates from operation dispatch without destroying the terminal', async () => {
+    const update = deferred<unknown>();
+    execute
+      .mockResolvedValueOnce([{ insertId: 900008 }])
+      .mockReturnValueOnce(update.promise)
+      .mockResolvedValue([]);
+    hasActiveWebSession.mockResolvedValue(true);
+    const ws = fakeWebSocket();
+    const creating = terminalService.createSession('Cwial', ws as never);
+    await Promise.resolve();
+    try {
+      expect(terminalService.getActiveSessionCount()).toBe(1);
+      expect(terminalService.getSessionByWebSocket(ws as never)).toBeUndefined();
+      expect(pty.kill).not.toHaveBeenCalled();
+    } finally {
+      update.resolve([]);
+      await creating;
+    }
+    expect(terminalService.getSessionByWebSocket(ws as never)).toBe(900008);
+    await expect(
+      terminalService.isTerminalOperationAuthorized(900008, ws as never, 'Cwial', 'web-session-8'),
+    ).resolves.toBe(true);
+    await expect(terminalService.writeInput(900008, 'ready input')).resolves.toBe(true);
+    expect(terminalService.resizeTerminal(900008, 100, 30)).toBe(true);
+    expect(pty.write).toHaveBeenCalledWith('ready input');
+    expect(pty.resize).toHaveBeenCalledWith(100, 30);
+    expect(pty.kill).not.toHaveBeenCalled();
+  });
+
   it('handles PTY exit before its PID update completes without resurrecting the session', async () => {
     const update = deferred<unknown>();
     execute
