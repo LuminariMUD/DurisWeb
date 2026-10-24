@@ -134,8 +134,8 @@ export async function startPlayerEventSubscriber(): Promise<void> {
       logger.info('[PlayerEventSubscriber] redis connected');
     });
 
-    client.on('error', (err) => {
-      logger.error('[PlayerEventSubscriber] redis error:', err.message);
+    client.on('error', () => {
+      logger.error('[PlayerEventSubscriber] Redis connection error');
     });
 
     client.on('message', async (receivedChannel, message) => {
@@ -207,17 +207,13 @@ export async function startPlayerEventSubscriber(): Promise<void> {
     await waitForRedisReady(client);
     await withSubscribeTimeout(client.subscribe(channel));
     channelRefreshTimer = setInterval(() => {
-      void refreshPlayerEventChannel().catch((error) => {
-        logger.warn(
-          '[PlayerEventSubscriber] season channel refresh failed:',
-          error instanceof Error ? error.message : String(error),
-        );
+      void refreshPlayerEventChannel().catch(() => {
+        logger.warn('[PlayerEventSubscriber] season channel refresh failed');
       });
     }, CHANNEL_REFRESH_INTERVAL_MS);
     logger.info(`[PlayerEventSubscriber] subscribed to ${channel}`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.warn(`[PlayerEventSubscriber] disabled: ${message}`);
+  } catch {
+    logger.warn('[PlayerEventSubscriber] disabled: subscription setup failed');
     if (channelRefreshTimer) {
       clearInterval(channelRefreshTimer);
       channelRefreshTimer = null;
@@ -246,11 +242,8 @@ export async function stopPlayerEventSubscriber(): Promise<void> {
     try {
       if (channel) await current.unsubscribe(channel);
       await current.quit();
-    } catch (error) {
-      logger.error(
-        '[PlayerEventSubscriber] close failed:',
-        error instanceof Error ? error.message : String(error),
-      );
+    } catch {
+      logger.error('[PlayerEventSubscriber] close failed');
       current.disconnect();
     }
     logger.info('[PlayerEventSubscriber] stopped');

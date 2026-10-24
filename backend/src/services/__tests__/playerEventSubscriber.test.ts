@@ -146,6 +146,26 @@ describe('season-fenced player events', () => {
     expect(getConnection).not.toHaveBeenCalled();
     expect(broadcast).not.toHaveBeenCalled();
   });
+  it.each(['redis', 'refresh', 'startup', 'close'])(
+    'keeps raw driver details out of %s diagnostics',
+    async (scenario) => {
+      const detail = '203.0.113.29 token=private-driver-sentinel';
+      if (scenario === 'startup') poolQuery.mockRejectedValueOnce(new Error(detail));
+      await startPlayerEventSubscriber();
+      if (scenario === 'redis') clients[0].emit('error', new Error(detail));
+      if (scenario === 'refresh') {
+        poolQuery.mockRejectedValueOnce(new Error(detail));
+        await jest.advanceTimersByTimeAsync(60_000);
+      }
+      if (scenario === 'close') {
+        clients[0].quit.mockRejectedValueOnce(new Error(detail));
+        await stopPlayerEventSubscriber();
+      }
+      const errors = [...logger.error.mock.calls, ...logger.warn.mock.calls];
+      expect(errors.length).toBeGreaterThan(0);
+      expect(JSON.stringify(errors)).not.toContain(detail);
+    },
+  );
   it('fails closed and discards driver details when event lookup fails', async () => {
     await startPlayerEventSubscriber();
     connection.query.mockRejectedValueOnce(new Error('private-driver-sentinel'));
