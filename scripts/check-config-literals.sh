@@ -16,12 +16,14 @@ report_matches() {
   fi
 }
 
-# The child-process timezone fixture reads its disposable-target opt-in before application imports.
+# The child-process fixtures read their owned disposable-target opt-ins before
+# application imports. Keep these exceptions limited to the two explicit CLIs.
 backend_environment_reads=$(rg -n 'process\.env(\.|\[)' backend/src backend/knexfile.ts \
   --glob '*.ts' \
   --glob '!backend/src/config/environment.ts' \
   --glob '!backend/src/test/setupEnvironment.ts' \
   --glob '!backend/src/test/sessionTimezoneProbe.ts' \
+  --glob '!backend/src/test/pwipeWebsiteProbe.ts' \
   --glob '!**/__tests__/**' || true)
 report_matches 'Direct backend environment reads must use src/config/environment.ts:' \
   "${backend_environment_reads}"

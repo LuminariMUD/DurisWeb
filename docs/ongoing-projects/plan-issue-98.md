@@ -66,8 +66,10 @@ Redis keys, configuration or background polling are needed.
   static/SPA fallback. Files: routes/services, existing validation/error boundary,
   focused HTTP/service tests and API/qualification docs. Preserve authorization
   and ordinary history URLs; no general API/error-framework redesign is needed.
-- A9: isolated qualification complete for representative data/accounts/forum/
+- A9: historical isolated qualification covers representative data/accounts/forum/
   PvP/socket/browser workloads, with the explicit measurement limits below.
+  The corrected soak tool needs a full observation before claiming final HTTP
+  drainage and timely application replies from every socket.
   Include disconnect during terminal creation (SQL/PTY binding) and cleanup with
   delayed output writes; A5's terminal fixture covers established sessions, not
   that asynchronous creation race or a real privileged host terminal.
@@ -781,10 +783,13 @@ command and root Biome/diff checks pass. Final actual built totals are 42 assets
 repeated package suite is needed for this CLI/docs-only repair; all changed app
 package gates/builds and focused/native evidence above remain applicable.
 
-`git fetch origin` confirms master is still the original baseline. GitHub checks
-for #99–#110 are green, with mergeable PRs; #111/#112 are mergeable and queued at
-handoff preparation. The final PR and exact head/check state are added to #98.
-No PR is merged. Detailed release/recovery instructions, source/artifact identities,
+Integration updated 2026-10-25: #99–#112 are merged, with #106/#108 integrated
+between their chronological neighbors. #101's repair is in `1aec6d9`, #111's
+pending-dispatch repair is `05b364d`, and #112's request-drain/per-socket heartbeat
+repair is `c11fca9`; their four review threads are resolved. #113's final addressing
+comment records its reviewed head/checks. Master before #113 is
+`cfbcc61c789a19056fd791b2eeaefb669cdfc411`; this is not a deployment claim.
+Detailed release/recovery instructions, historical source/artifact identities,
 measurement limits and combined unpublished HTML are in the linked handoff.
 
 ## Unpublished release news

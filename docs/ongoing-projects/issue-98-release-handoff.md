@@ -1,18 +1,24 @@
 # Issue 98 — off-server release handoff
 
 Prepared 2026-10-24 for [#98](https://github.com/LuminariMUD/DurisWeb/issues/98).
-Source implementation and isolated qualification are complete. All PRs remain
-open; nothing here authorizes merge, production access, deployment, migration,
-MUD operation or news publication. Section B stays open for operator acceptance.
+Integration updated 2026-10-25: the implementation PRs through #112 have merged
+into master, and #113 supplies this handoff. Review repairs are recorded below.
+Historical qualification retains its stated limits; the corrected soak tool
+still needs a full observation for its stronger completion checks. Production
+access, deployment, migration, MUD operation and news publication remain outside
+this merge task. Section B stays open for operator acceptance.
 The [working record](plan-issue-98.md) contains exact commands, per-change
 before/after evidence, failed regressions, fixture provenance and limitations.
 
 ## Candidate and review order
 
-The baseline is `592a2b60bbaaa0c8c811b95d00b262763f37bf47`. A fresh fetch on
-October 24 still identifies this as `origin/master`. The stack is ordered below;
-each PR after #99 targets the preceding feature branch. Other open work,
-including #106/#108, is outside this stack.
+The historical qualification baseline is
+`592a2b60bbaaa0c8c811b95d00b262763f37bf47`. Before #113, integrated master is
+`cfbcc61c789a19056fd791b2eeaefb669cdfc411`. The original implementation heads
+below provide provenance; they are not a current deployment pin. The oldest-first
+integration also includes #91–#97 and #106/#108, whose release requirements and
+drafts must be reconciled separately. Children were retargeted to master after
+their predecessors merged, with merge commits and no history rewriting.
 
 1. [#99](https://github.com/LuminariMUD/DurisWeb/pull/99), status snapshots:
    `47e6fc5e62f83bdc3f8cd375082d5fcc6e6691e2`.
@@ -38,14 +44,16 @@ including #106/#108, is outside this stack.
     `1d1b01985e0c46ac231d425eee9ab3a728fd9303`.
 12. [#112](https://github.com/LuminariMUD/DurisWeb/pull/112), qualification:
     `76dffbae214acd52b690a9a7cdeb12b584f5c8f0`.
-13. This handoff/download-tool follow-up: the current PR head and exact final
-    commit are recorded in #98's completion comment. It changes no app runtime.
+13. [#113](https://github.com/LuminariMUD/DurisWeb/pull/113): this handoff. Its final
+    reviewed head and exact checks are recorded in the PR's addressing comment.
 
-Review/merge ancestors in order. Preserve branch ancestry when integrating the
-stack; squash integration requires explicit retarget/rebase and fresh checks for
-the children. Do not delete an unmerged child or assume the final PR alone can
-be merged into master. The non-root-base review finding on #101 is repaired by
-this final follow-up; its root/nested-base regression cases pass.
+Review integration corrections: #101's non-root-base repair moved into #101 as
+`1aec6d9`; #111's pending-terminal dispatch repair is `05b364d`; #112's HTTP drain
+and per-socket heartbeat repairs are `c11fca9`. All four associated review threads
+are answered/resolved. #103, #107 and #109 integrated master with documentation
+conflicts resolved by retaining both contracts. #106/#108 now document their map
+resolution/cache/query limits. No branch was deleted. The final master SHA must
+be pinned afresh for any later authorized deployment.
 
 ## Evidence and decisions
 
@@ -68,8 +76,10 @@ this final follow-up; its root/nested-base regression cases pass.
   1,000 synthetic accounts, 500 threads and 20,000 posts on MySQL 8.0.46 and
   MariaDB 11.8.9. Reproduced forum binding/count and dense-team loss defects are
   repaired. Each engine passes 52 PvP unit/native cases and eight forum native
-  SQL/HTTP cases. The final terminal/transport/permission run passes 35 tests;
+  SQL/HTTP cases. The terminal/transport/permission run after review repair passes 36 tests;
   full cookie/session/JWT/real-PTY and locked-SQL SIGTERM journeys pass on both.
+  Those historical native journeys predate the pending-dispatch correction;
+  its delayed-PID regression proves refusal during creation and operation after it.
 - A7 measures acquisition and query timing separately, including 10/50-call
   bursts and complete plans. The bounded HTTP prototype returns retryable 503s
   without executing expired reads. A client query timeout leaves server work
@@ -80,6 +90,10 @@ this final follow-up; its root/nested-base regression cases pass.
   zero HTTP errors and no unexpected closures. All route p95/p99, descriptor,
   CPU and RSS samples are retained. RSS grows during these finite runs; there is
   no long-term plateau/leak-free or production-capacity claim.
+  These reports predate #112's corrected final request drain and ten-second
+  per-socket application-reply checks. The actual-CLI synthetic regressions pass;
+  the 901-second observations were not repeated and cannot establish those
+  stronger completion guarantees.
 - Cold browser storage and a separate empty-owned-Redis app startup are tested.
   SQL/OS caches remain warm. The real-backend 390×844 mobile lab run measures
   **LCP 3192 ms, CLS 0.006912 and sampled INP 32 ms** over four taps, with the
@@ -94,12 +108,14 @@ No MUD command or server is run. The deterministic echo PTY does not qualify the
 production bubblewrap/tmux sandbox. Missing bridge/presence diagnostics are
 expected isolated-fixture limits, separate from successful HTTP/session tests.
 
-Frozen soak artifact-manifest SHA-256:
+Historical frozen soak artifact-manifest SHA-256:
 `4bfabe3040a7cfdafd55b2717e0375a4d13ae127beb29fbc51c3c78d84fcfe09`.
-Final rebuilt artifact-manifest SHA-256:
+Historical rebuilt artifact-manifest SHA-256:
 `5141288b533401cea298bf9567ea5dee2d9e1369056f46a97be0e5cb7593ebd7`.
 The final shutdown await was validated by rerunning both native shutdown journeys
 after the soak; served artifacts were never overwritten during observation.
+These identities predate the merge-review repairs and do not identify a new
+release build of current master.
 
 ## Checks
 
@@ -111,10 +127,38 @@ backend suite, production tests, live host checks and field-device tests were
 not run. CLI-only changes use `node --check`, Node fixture tests, root Biome and
 `git diff --check`; they do not require another application build.
 
-At handoff preparation, #99–#110 backend/frontend GitHub checks are successful;
-#111/#112 are mergeable with queued checks. Recheck current heads/checks before
-integration. No CI success is inferred from local checks or a queued run. Final
-PR/check status is recorded in #98 after opening this handoff PR.
+The original PR heads had successful backend/frontend GitHub checks. Merge-review
+repairs additionally ran their relevant regressions and required package gates;
+exact commands, reused evidence and skipped native/full suites are recorded in
+each PR's addressing comment. The final integration checks are recorded on #113.
+No CI success is inferred from a queued run. #98 remains open for operator work.
+
+Final integrated verification, 2026-10-25:
+
+- Both packages pass `pnpm --dir <package> format:check`, `lint` and `type-check`.
+  `pnpm --dir backend build` passes. After the frontend type check,
+  `pnpm --dir frontend build-only` passes with explicit synthetic loopback URLs
+  and Vite host/port settings; no environment file or served artifact is changed.
+- `pnpm --dir frontend test:unit --run`: 583 pass in 74 files.
+- The focused backend terminal/account/presence/socket/map/security run passes
+  90 cases; two native opt-ins remain skipped. Its complete selectors are in
+  #113's addressing comment. `pnpm --dir backend verify:mud-writes` passes with
+  53 classified writes; `pnpm --dir backend schema:check` verifies the 77-table
+  baseline and 85 migration sources without inspecting/changing a database.
+- `node --test scripts/qualification/initial-download.test.mjs
+  scripts/qualification/runtime-soak.test.mjs`: all six cases pass. The four
+  qualification CLIs pass `node --check`; root Biome and `git diff --check` pass.
+- Palette and configuration guards pass. The configuration guard initially
+  flagged the owned `pwipeWebsiteProbe.ts` child-process CLI; its file-specific
+  exception now matches the existing timezone-probe pattern. Ordinary backend
+  environment reads remain subject to the same central ownership rule.
+- `node scripts/qualification/initial-download.mjs` on this synthetic build:
+  42 assets, 39 JS, one CSS, two fonts; 1,004,137 raw / 322,664 gzip bytes. The
+  service-worker manifest has 77 entries. These are local build measurements.
+
+The full backend/database/native suites, 901-second soaks, browser acceptance,
+physical-device profiling and production checks were not repeated. Earlier
+evidence is reused only within its documented source and fixture limits.
 
 ## Operator release and recovery, when authorized
 
