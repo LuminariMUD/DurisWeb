@@ -254,6 +254,15 @@ async function probeWebsite(phase: 'old' | 'new', directory: string): Promise<vo
         who.players.some((player: unknown) => record(player) && player.char_name === expectedName)
       );
     }, 'real visible MUD player did not reach the WHO endpoint');
+    // Rankings omit zero-frag players; seed a derived ranking canary for the real body.
+    await database.query(
+      `INSERT INTO frag_leaderboard(pid,account_name,char_name,total_frags,racewar,level)
+       SELECT pd.pid,ac.account_name,pd.name,32100,pd.racewar,pd.level
+       FROM player_data pd JOIN account_characters ac ON ac.pid=pd.pid AND ac.deleted_at IS NULL
+       WHERE pd.pid=? AND pd.active=1
+       ON DUPLICATE KEY UPDATE total_frags=VALUES(total_frags)`,
+      [visiblePid],
+    );
     const leaderboard = await api(
       '/api/frag/leaderboard?char_name=' + encodeURIComponent(expectedName),
       {},
@@ -261,7 +270,7 @@ async function probeWebsite(phase: 'old' | 'new', directory: string): Promise<vo
     assert(
       Array.isArray(leaderboard.data) &&
         leaderboard.data.some(
-          (entry: unknown) => record(entry) && Number(entry.pid) === visiblePid,
+          (entry: unknown) => record(entry) && entry.char_name === expectedName,
         ),
     );
     const { getAccount } = await import('../services/accountService.js');
