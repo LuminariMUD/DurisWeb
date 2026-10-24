@@ -15,6 +15,8 @@ routes; no catalog entries are removed.
 
 After a build, `node scripts/qualification/initial-download.mjs` from the repository
 root counts the complete HTML-declared JS/CSS/font set and its raw/gzip bytes.
+The command derives the deployment base from Vite's module entry, so a build
+served under `/community/` still resolves its local `dist/assets/` files correctly.
 This excludes dynamically imported route assets, images, API calls and
 service-worker installation; measure those with a fresh browser waterfall too.
 See [issue 98's qualification record](../docs/ongoing-projects/plan-issue-98.md).
