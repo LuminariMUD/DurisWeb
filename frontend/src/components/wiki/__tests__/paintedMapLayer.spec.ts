@@ -103,9 +103,7 @@ describe('painted map worker lifecycle', () => {
       expect(map.getPane('paintedDetail')!.querySelectorAll('img').length).toBeGreaterThan(0)
     }
     expect(TestWorker.instances.length).toBeLessThanOrEqual(2)
-    const cache = (
-      painted as unknown as { detailTiles: Map<string, unknown> }
-    ).detailTiles
+    const cache = (painted as unknown as { detailTiles: Map<string, unknown> }).detailTiles
     expect(cache.size).toBeLessThanOrEqual(128)
     painted.destroy()
     expect(URL.revokeObjectURL).toHaveBeenCalled()
