@@ -80,7 +80,7 @@ scope.onmessage = async (event: MessageEvent<PaintRequest>) => {
         const canvas = new OffscreenCanvas(width, height)
         const context = canvas.getContext('2d')
         if (context) {
-          context.putImageData(new ImageData(pixels, width, height), 0, 0)
+          context.putImageData(new ImageData(new Uint8ClampedArray(pixels), width, height), 0, 0)
           const blob = await canvas.convertToBlob({ type: 'image/png' })
           scope.postMessage({ id, blob, width, height })
           return
