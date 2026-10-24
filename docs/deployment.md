@@ -77,6 +77,17 @@ output instead of changing the live tree underneath the old backend. Verify the
 staged `index.html` and every referenced generated asset before cutover; do not
 assume extra package-script arguments changed Vite's output directory.
 
+Fingerprinted frontend `/assets/` files have a one-year immutable origin lifetime
+and do not issue CSRF cookies. Only filenames with Vite's eight-character content
+hash receive that early static policy. Publish new content under new hashed URLs
+and retain the prior release/recovery artifacts; do not overwrite a hashed file
+with different bytes. HTML and service-worker entry points remain revalidatable.
+During acceptance, check first anonymous asset responses, origin cache headers,
+ETag/conditional responses, newly served HTML and referenced assets, and repeated
+Cloudflare `HIT`/`Age` behavior. Origin headers alone do not establish edge
+freshness. Dynamic APIs, authenticated pages, PvP and permission-sensitive maps
+must retain their own privacy/cache policies.
+
 From `backend/`, run the freshly compiled static and live gates with the selected
 production environment installed:
 

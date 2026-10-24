@@ -46,6 +46,7 @@ import { probeAllFlatfileHooks, recoverFlatfileHook } from './services/flatfileA
 import kofiRoutes from './routes/kofi.js';
 import { AppError, errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { generateCsrfToken, verifyCsrfToken } from './middleware/csrf.js';
+import { fingerprintedFrontendAssets } from './middleware/frontendAssets.js';
 import { canonicalHost } from './middleware/canonicalHost.js';
 import { configureRequestBodyParsers } from './middleware/requestLimits.js';
 import {
@@ -145,6 +146,7 @@ const environment = getBackendConfiguration();
 const app: Application = express();
 const PORT = environment.server.port;
 const HOST = environment.server.host;
+const frontendDistPath = path.join(__dirname, '../../frontend/dist');
 
 // Trust proxy - required when running behind nginx/reverse proxy
 // This allows express-rate-limit to correctly identify users via X-Forwarded-For
@@ -181,6 +183,12 @@ app.use(
     credentials: true,
   }),
 );
+
+// Public content-addressed files need no CSRF cookie. Keep canonical routing,
+// compression and CORS ahead of them, and all application routes behind CSRF.
+if (environment.environment === 'production') {
+  app.use('/assets', fingerprintedFrontendAssets(frontendDistPath));
+}
 
 // CSRF protection middleware
 app.use(generateCsrfToken);
@@ -273,7 +281,6 @@ app.use(express.static(publicPath, { maxAge: '7d' }));
 
 // Serve frontend static files in production
 if (environment.environment === 'production') {
-  const frontendDistPath = path.join(__dirname, '../../frontend/dist');
   const indexHtmlPath = path.join(frontendDistPath, 'index.html');
 
   // Serve frontend static files
