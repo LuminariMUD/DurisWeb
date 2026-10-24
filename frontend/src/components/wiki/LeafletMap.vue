@@ -80,7 +80,10 @@ let finePointer: MediaQueryList | null = null
 let reducedMotion = false
 let refreshingEntrances = false
 let openEntrance: { key: string; focusedZone: number | null } | null = null
-const entranceCache = new Map<string, Promise<WikiZoneEntrance[]>>()
+// Refresh resolved entrance data while retaining in-flight coalescing.
+const ENTRANCE_CACHE_MS = 10 * 60 * 1000
+const ENTRANCE_CACHE_LIMIT = 128
+const entranceCache = new Map<string, { promise: Promise<WikiZoneEntrance[]>; expiresAt: number }>()
 
 function mudYToLat(mudY: number): number {
   return -mudY
@@ -103,16 +106,19 @@ async function loadEntrances(bounds: L.LatLngBounds): Promise<WikiZoneEntrance[]
 
   const layer = props.layer
   const cacheKey = `${minX}:${maxX}:${minY}:${maxY}:${layer}`
-  let pending = entranceCache.get(cacheKey)
-  if (!pending) {
-    pending = wikiApi.getZoneEntrances({ minX, maxX, minY, maxY }, layer).catch(() => {
-      entranceCache.delete(cacheKey)
-      console.error('Failed to load map entrances')
-      return []
-    })
-    entranceCache.set(cacheKey, pending)
-  }
-  return pending
+  const now = Date.now()
+  const cached = entranceCache.get(cacheKey)
+  if (cached && cached.expiresAt > now) return cached.promise
+  entranceCache.delete(cacheKey)
+  const promise = wikiApi.getZoneEntrances({ minX, maxX, minY, maxY }, layer).catch(() => {
+    if (entranceCache.get(cacheKey)?.promise === promise) entranceCache.delete(cacheKey)
+    console.error('Failed to load map entrances')
+    return []
+  })
+  entranceCache.set(cacheKey, { promise, expiresAt: now + ENTRANCE_CACHE_MS })
+  if (entranceCache.size > ENTRANCE_CACHE_LIMIT)
+    entranceCache.delete(entranceCache.keys().next().value!)
+  return promise
 }
 
 function zoneName(entrance: WikiZoneEntrance): string {
@@ -213,7 +219,12 @@ async function updateEntrances() {
     if (previous?.signature === signature) {
       nextMarkers.set(coordinateKey, previous)
       if (openEntrance?.key === coordinateKey && previous.marker.isPopupOpen()) restoredPopup = true
-      if (!showMarkers.value) {
+      if (showMarkers.value) {
+        const tooltip = previous.marker.getTooltip()
+        const label = tooltip?.getContent()
+        if (previous.marker.isTooltipOpen() && label instanceof HTMLElement)
+          containLabel(label, previous.marker)
+      } else {
         const label = previous.marker.getElement()?.querySelector<HTMLElement>('.zone-name')
         if (label) containLabel(label, previous.marker)
       }
@@ -575,7 +586,9 @@ watch(painted, () => void updatePainted())
 watch(showDocks, updateDocks)
 
 watch([showMarkers, showZoneNames], () => {
+  // The diff must not reuse markers that this watcher has just unmounted.
   entranceLayer?.clearLayers()
+  entranceMarkers.clear()
   void updateEntrances()
 })
 
@@ -585,6 +598,8 @@ onMounted(() => {
     () => {
       if (!painted.value) return
       imageOverlay?.setUrl(getMapImageUrl(props.layer))
+      entranceCache.clear()
+      void updateEntrances()
       void updatePainted()
     },
     60 * 60 * 1000,

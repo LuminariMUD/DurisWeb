@@ -107,6 +107,7 @@ describe('painted map worker lifecycle', () => {
   })
 
   it('discards all old tiles when a fresh source replaces the same layer', async () => {
+    vi.spyOn(map, 'getBounds').mockReturnValue(L.latLngBounds([-150, -50], [50, 150]))
     const initial = { ...source(), width: 2, height: 2, sectors: new Uint8Array(4) }
     painted.show(initial)
     TestWorker.instances[0]!.reply()
@@ -158,6 +159,7 @@ describe('painted map worker lifecycle', () => {
   })
 
   it('retries one tile error, then exposes permanent failure', async () => {
+    vi.spyOn(map, 'getBounds').mockReturnValue(L.latLngBounds([-150, -50], [50, 150]))
     const one = { ...source(), width: 2, height: 2, sectors: new Uint8Array(4) }
     painted.show(one)
     const worker = TestWorker.instances[0]!
@@ -182,20 +184,32 @@ describe('painted map worker lifecycle', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalled()
   })
 
-  it('mounts only viewport overview tiles and restores them from cache after panning', async () => {
+  it('only paints visible overview tiles and restores cached imagery when returning', async () => {
     const bounds = vi.spyOn(map, 'getBounds')
     bounds.mockReturnValue(L.latLngBounds([-90, 80], [-80, 90]))
     painted.show(source())
-    TestWorker.instances[0]!.reply()
+    expect(TestWorker.instances.flatMap((worker) => worker.requests)).toHaveLength(1)
+    const first = TestWorker.instances[0]!
+    first.reply()
     await flushPromises()
-    expect(map.getPane('paintedBase')!.querySelectorAll('img')).toHaveLength(0)
+    expect(map.getPane('paintedBase')!.querySelectorAll('img')).toHaveLength(1)
 
     bounds.mockReturnValue(L.latLngBounds([-30, 10], [-10, 30]))
     painted.refresh()
+    expect(map.getPane('paintedBase')!.querySelectorAll('img')).toHaveLength(0)
+    const second = TestWorker.instances.flatMap((worker) => worker.requests).at(-1)!
+    expect(second.region.x0).toBe(0)
+    expect(second.region.y0).toBe(0)
+    for (const worker of TestWorker.instances)
+      if (worker.requests.at(-1)?.id === second.id) worker.reply()
+    await flushPromises()
     expect(map.getPane('paintedBase')!.querySelectorAll('img')).toHaveLength(1)
+
+    const count = TestWorker.instances.flatMap((worker) => worker.requests).length
     bounds.mockReturnValue(L.latLngBounds([-90, 80], [-80, 90]))
     painted.refresh()
-    expect(map.getPane('paintedBase')!.querySelectorAll('img')).toHaveLength(0)
+    expect(map.getPane('paintedBase')!.querySelectorAll('img')).toHaveLength(1)
+    expect(TestWorker.instances.flatMap((worker) => worker.requests)).toHaveLength(count)
   })
 
   it('accepts worker-encoded PNG without using the main-thread canvas', async () => {
@@ -208,6 +222,7 @@ describe('painted map worker lifecycle', () => {
   })
 
   it('uses Retina-appropriate detail at zoom 3 and full detail at zoom 4', () => {
+    vi.stubGlobal('devicePixelRatio', 2)
     painted.show({ ...source(), width: 400, height: 400, sectors: new Uint8Array(160000) })
     const bounds = vi.spyOn(map, 'getBounds')
     bounds.mockReturnValue(L.latLngBounds([-230, 170], [-170, 230]))
@@ -221,6 +236,47 @@ describe('painted map worker lifecycle', () => {
     painted.refresh()
     worker.reply()
     expect(worker.requests.at(-1)!.scale).toBe(32)
+  })
+
+  it('keeps both resolution caches warm through repeated zoom threshold transitions', async () => {
+    vi.stubGlobal('devicePixelRatio', 2)
+    const bounds = vi.spyOn(map, 'getBounds')
+    bounds.mockReturnValue(L.latLngBounds([-230, 170], [-170, 230]))
+    painted.show({ ...source(), width: 400, height: 400, sectors: new Uint8Array(160000) })
+    const completed = new Set<number>()
+    const drain = async () => {
+      for (let step = 0; step < 180; step++) {
+        let busy = false
+        for (const worker of TestWorker.instances) {
+          const id = worker.requests.at(-1)?.id
+          if (id === undefined || completed.has(id)) continue
+          completed.add(id)
+          worker.reply()
+          busy = true
+        }
+        await flushPromises()
+        if (!busy) break
+      }
+    }
+    map.setZoom(3, { animate: false })
+    painted.refresh()
+    await drain()
+    const initial16 = TestWorker.instances.flatMap((w) => w.requests).filter((r) => r.scale === 16).length
+    expect(initial16).toBeGreaterThan(0)
+    map.setZoom(3.5, { animate: false })
+    painted.refresh()
+    await drain()
+    const initial32 = TestWorker.instances.flatMap((w) => w.requests).filter((r) => r.scale === 32).length
+    expect(initial32).toBeGreaterThan(0)
+    map.setZoom(3, { animate: false })
+    painted.refresh()
+    await drain()
+    expect(TestWorker.instances.flatMap((w) => w.requests).filter((r) => r.scale === 16)).toHaveLength(initial16)
+    map.setZoom(3.5, { animate: false })
+    painted.refresh()
+    await drain()
+    expect(TestWorker.instances.flatMap((w) => w.requests).filter((r) => r.scale === 32)).toHaveLength(initial32)
+    expect(map.getPane('paintedDetail')!.querySelectorAll('img').length).toBeLessThanOrEqual(64)
   })
 
   it('queues viewport detail from centre outward while all workers are busy', () => {

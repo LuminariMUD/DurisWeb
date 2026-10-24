@@ -282,6 +282,47 @@ describe('wiki entrance visibility and navigation', () => {
     )
   })
 
+  it('restores entrance markers after visibility toggles while a viewport fetch is pending', async () => {
+    await render()
+    const initial = document.querySelector('.leaflet-marker-icon')
+    expect(initial).not.toBeNull()
+    let finish!: (rows: WikiZoneEntrance[]) => void
+    vi.mocked(wikiApi.getZoneEntrances).mockImplementation(
+      () => new Promise((resolve) => { finish = resolve }),
+    )
+    vi.spyOn(map, 'getBounds').mockReturnValue(L.latLngBounds([-210, 180], [-180, 220]))
+    map.fire('moveend')
+    await vi.advanceTimersByTimeAsync(150)
+    await wrapper!.findAll('input')[1]!.setValue(false)
+    await wrapper!.findAll('input')[1]!.setValue(true)
+    finish([entrance()])
+    await settle()
+    expect(document.querySelectorAll('.zone-dot')).toHaveLength(1)
+    expect(document.querySelectorAll('.zone-name')).toHaveLength(1)
+  })
+
+  it('revalidates unchanged viewport data after frontend cache expiry', async () => {
+    await render()
+    const previousBounds = vi.spyOn(map, 'getBounds').mockReturnValue(
+      L.latLngBounds([-210, 180], [-180, 220]),
+    )
+    vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([entrance()])
+    map.fire('moveend')
+    await settle()
+    const first = document.querySelector('.leaflet-marker-icon')
+    vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([
+      entrance(1, { toZoneName: 'Updated destination' }),
+    ])
+    await vi.advanceTimersByTimeAsync(10 * 60 * 1000 + 1)
+    map.fire('moveend')
+    await settle()
+    expect(document.querySelector('.leaflet-marker-icon')).not.toBe(first)
+    expect(document.querySelector('.leaflet-marker-icon')?.getAttribute('aria-label')).toBe(
+      'Updated destination',
+    )
+    previousBounds.mockRestore()
+  })
+
   it('keeps the destination chooser and focus through its automatic pan refresh', async () => {
     vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([entrance(1), entrance(2)])
     await render()

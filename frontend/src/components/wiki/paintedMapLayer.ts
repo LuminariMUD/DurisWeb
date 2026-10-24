@@ -50,8 +50,10 @@ interface Slot {
 const BASE_SCALE = 8
 /** Sharp tiles painted only for the area in view once zoomed in. */
 const DETAIL_SCALE = 32
-/** 16 source pixels per room is Retina-sharp at Leaflet zoom 3 (8 CSS pixels). */
 const MID_DETAIL_SCALE = 16
+/** Covers both resolutions for a typical viewport without unbounded old-image retention. */
+const DETAIL_CACHE_BYTES = 48 * 1024 * 1024
+const DETAIL_CACHE_ENTRIES = 128
 const DETAIL_TILE = 10
 /** Leaflet zoom from which detail tiles are painted (8 screen pixels per room). */
 const DETAIL_ZOOM = 3
@@ -165,33 +167,8 @@ export class PaintedMapLayer {
       tiles = this.planBaseTiles(source)
       this.baseTiles.set(key, tiles)
     }
-    const total = tiles.length
-    const report = () => {
-      if (version !== this.version || source !== this.source || this.destroyed) return
-      const done = tiles.filter((tile) => tile.url).length
-      this.onProgress(done < total ? { done, total } : null)
-    }
-    report()
-    for (const tile of tiles) {
-      if (tile.url) {
-        this.addBase(tile, source)
-        continue
-      }
-      if (tile.pending) continue
-      tile.pending = true
-      this.paint(source, BASE_SCALE, tile).then(
-        (url) => {
-          if (version !== this.version) return
-          tile.url = url
-          tile.pending = false
-          if (url && source === this.source && !this.destroyed) this.addBase(tile, source)
-          report()
-        },
-        () => {
-          if (version === this.version) this.fail()
-        },
-      )
-    }
+    // Base tiles are prepared on demand as the viewport moves; painting
+    // off-screen squares would compete with high-detail zoom work.
     this.refresh()
   }
 
@@ -224,7 +201,9 @@ export class PaintedMapLayer {
     const gy0 = Math.max(0, Math.floor((-view.getNorth() - source.minY) / ky) - 2)
     const gy1 = Math.min(source.height, Math.ceil((-view.getSouth() - source.minY) / ky) + 2)
     const key = layerKey(source)
-    const detailScale = this.map.getZoom() >= 4 ? DETAIL_SCALE : MID_DETAIL_SCALE
+    const dpr = Math.min(2, Math.max(1, globalThis.devicePixelRatio || 1))
+    const detailScale =
+      2 ** this.map.getZoom() * dpr <= MID_DETAIL_SCALE ? MID_DETAIL_SCALE : DETAIL_SCALE
     const tiles: Tile[] = []
     for (let y0 = Math.floor(gy0 / DETAIL_TILE) * DETAIL_TILE; y0 < gy1; y0 += DETAIL_TILE)
       for (let x0 = Math.floor(gx0 / DETAIL_TILE) * DETAIL_TILE; x0 < gx1; x0 += DETAIL_TILE) {
@@ -255,8 +234,15 @@ export class PaintedMapLayer {
     // The overview remains visible outside this centre-first detail budget.
     const visible = tiles.slice(0, DETAIL_CACHE_LIMIT)
     this.wantedDetail = new Set(visible.map((tile) => tile.key))
+    const fallbackKeys = new Set<string>()
+    const otherScale = detailScale === DETAIL_SCALE ? MID_DETAIL_SCALE : DETAIL_SCALE
+    for (const tile of visible) {
+      if (tile.url) continue
+      const olderKey = `${key}:${otherScale}:${tile.x0}:${tile.y0}`
+      if (this.shownDetail.has(olderKey)) fallbackKeys.add(olderKey)
+    }
     for (const [tileKey, overlay] of this.shownDetail)
-      if (!this.wantedDetail.has(tileKey)) {
+      if (!this.wantedDetail.has(tileKey) && !fallbackKeys.has(tileKey)) {
         this.detailGroup.removeLayer(overlay)
         this.shownDetail.delete(tileKey)
       }
@@ -269,6 +255,8 @@ export class PaintedMapLayer {
       }
     }
     for (const tile of visible) {
+      // Map insertion order supplies LRU eviction across both resolutions.
+      this.detailTiles.delete(tile.key)
       this.detailTiles.set(tile.key, tile)
       if (tile.url) {
         this.showDetail(tile, source)
@@ -380,20 +368,65 @@ export class PaintedMapLayer {
     )
   }
 
-  /** Keep overview imagery cached but avoid animating off-screen Leaflet overlays. */
+  /** Mount cached base images and only paint missing tiles near the viewport. */
   private syncBaseTiles() {
     const source = this.source
     if (!source) return
+    const version = this.version
     const visible = this.map.getBounds().pad(0.25)
+    const needed: Tile[] = []
     for (const tile of this.baseTiles.get(layerKey(source)) ?? []) {
       const mounted = this.baseOverlays.get(tile.key)
-      if (tile.url && visible.intersects(this.bounds(source, tile))) {
-        if (!mounted) this.addBase(tile, source)
+      if (visible.intersects(this.bounds(source, tile))) {
+        needed.push(tile)
+        if (tile.url && !mounted) this.addBase(tile, source)
       } else if (mounted) {
         this.baseGroup.removeLayer(mounted)
         this.baseOverlays.delete(tile.key)
       }
     }
+    const report = () => {
+      if (version !== this.version || source !== this.source || this.destroyed) return
+      const done = needed.filter((tile) => tile.url).length
+      this.onProgress(done < needed.length ? { done, total: needed.length } : null)
+    }
+    report()
+    for (const tile of needed) {
+      if (tile.url || tile.pending) continue
+      tile.pending = true
+      this.paint(
+        source,
+        BASE_SCALE,
+        tile,
+        false,
+        () => !this.map.getBounds().pad(0.25).intersects(this.bounds(source, tile)),
+      ).then(
+        (url) => {
+          if (version !== this.version) return
+          tile.pending = false
+          if (url) {
+            tile.url = url
+            if (source === this.source && !this.destroyed) this.addBase(tile, source)
+          }
+          // Report the current viewport, not an obsolete pre-pan selection.
+          if (source === this.source) this.reportBaseProgress()
+        },
+        () => {
+          if (version === this.version) this.fail()
+        },
+      )
+    }
+  }
+
+  private reportBaseProgress() {
+    const source = this.source
+    if (!source) return
+    const visible = this.map.getBounds().pad(0.25)
+    const needed = (this.baseTiles.get(layerKey(source)) ?? []).filter((tile) =>
+      visible.intersects(this.bounds(source, tile)),
+    )
+    const done = needed.filter((tile) => tile.url).length
+    this.onProgress(done < needed.length ? { done, total: needed.length } : null)
   }
 
   private addBase(tile: Tile, source: PaintedLayerSource, rock = false) {
@@ -422,6 +455,14 @@ export class PaintedMapLayer {
     })
     this.shownDetail.set(tile.key, overlay)
     this.detailGroup.addLayer(overlay)
+    const otherScale = tile.key.includes(`:${DETAIL_SCALE}:`) ? MID_DETAIL_SCALE : DETAIL_SCALE
+    const prefix = `layer:${source.layer}`
+    const olderKey = `${prefix}:${otherScale}:${tile.x0}:${tile.y0}`
+    const older = this.shownDetail.get(olderKey)
+    if (older) {
+      this.detailGroup.removeLayer(older)
+      this.shownDetail.delete(olderKey)
+    }
   }
 
   private clearDetail() {
@@ -431,12 +472,18 @@ export class PaintedMapLayer {
   }
 
   private trimDetailCache() {
-    if (this.detailTiles.size <= DETAIL_CACHE_LIMIT) return
+    const bytes = (tile: Tile) => {
+      const scale = tile.key.includes(`:${DETAIL_SCALE}:`) ? DETAIL_SCALE : MID_DETAIL_SCALE
+      return (tile.x1 - tile.x0) * (tile.y1 - tile.y0) * scale * scale * 4
+    }
+    let used = 0
+    for (const tile of this.detailTiles.values()) used += bytes(tile)
     for (const [tileKey, tile] of this.detailTiles) {
-      if (this.detailTiles.size <= DETAIL_CACHE_LIMIT) break
-      if (this.wantedDetail.has(tileKey) || tile.pending) continue
+      if (used <= DETAIL_CACHE_BYTES && this.detailTiles.size <= DETAIL_CACHE_ENTRIES) break
+      if (this.wantedDetail.has(tileKey) || this.shownDetail.has(tileKey) || tile.pending) continue
       if (tile.url) URL.revokeObjectURL(tile.url)
       this.detailTiles.delete(tileKey)
+      used -= bytes(tile)
     }
   }
 
