@@ -24,6 +24,10 @@ const duration = 900000,
 	users = [],
 	samples = [],
 	routes = new Map();
+const pendingRequests = new Set();
+const pendingPings = new Map();
+const repliedSockets = new Set();
+const pongTimeoutMs = 10000;
 let inFlight = 0,
 	requests = 0,
 	errors = 0,
@@ -139,7 +143,14 @@ try {
 		});
 		sockets.push(ws);
 		ws.on("message", (data) => {
-			if (JSON.parse(data.toString()).type === "pong") pongs++;
+			if (JSON.parse(data.toString()).type !== "pong") return;
+			const sent = pendingPings.get(ws);
+			if (sent === undefined) return;
+			if (performance.now() - sent >= pongTimeoutMs)
+				stopReason = "application heartbeat timeout";
+			pendingPings.delete(ws);
+			repliedSockets.add(ws);
+			pongs++;
 		});
 		ws.on("close", () => closed++);
 		await new Promise((resolve, reject) => {
@@ -170,7 +181,7 @@ try {
 		requests++;
 		inFlight++;
 		const before = performance.now();
-		void user
+		const pending = user
 			.request(path)
 			.then(async (response) => {
 				await response.arrayBuffer();
@@ -182,12 +193,25 @@ try {
 				if (response.status !== 200) errors++;
 			})
 			.catch(() => errors++)
-			.finally(() => inFlight--);
+			.finally(() => {
+				inFlight--;
+				pendingRequests.delete(pending);
+			});
+		pendingRequests.add(pending);
 	}, 100);
-	const ping = setInterval(() => {
+	const sendPings = () => {
 		for (const ws of sockets)
-			if (ws.readyState === WebSocket.OPEN) ws.send('{"type":"ping"}');
-	}, 10000);
+			if (ws.readyState === WebSocket.OPEN) {
+				if (pendingPings.has(ws)) {
+					stopReason = "application heartbeat timeout";
+					continue;
+				}
+				pendingPings.set(ws, performance.now());
+				ws.send('{"type":"ping"}');
+			}
+	};
+	sendPings();
+	const ping = setInterval(sendPings, pongTimeoutMs);
 	try {
 		while (
 			performance.now() - started < duration &&
@@ -204,12 +228,23 @@ try {
 		clearInterval(traffic);
 		clearInterval(ping);
 	}
-	await delay(1000);
+	// Every scheduled request must contribute its status or timeout to the report.
+	await Promise.all(pendingRequests);
+	while (pendingPings.size && stopReason === "completed") {
+		if (
+			[...pendingPings.values()].some(
+				(sent) => performance.now() - sent >= pongTimeoutMs,
+			)
+		)
+			stopReason = "application heartbeat timeout";
+		else await delay(25);
+	}
 	await observe();
 	assert.equal(stopReason, "completed");
 	assert.equal(errors, 0);
 	assert.equal(opened, 100);
 	assert.equal(closed, 0);
+	assert.equal(repliedSockets.size, sockets.length);
 	console.log(
 		JSON.stringify({
 			port,

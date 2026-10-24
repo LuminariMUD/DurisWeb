@@ -704,11 +704,21 @@ invariant checks pass before and after each command.
 <23436|23437>` runs each actual built application for **901 seconds**: 48 distinct
 authenticated users, 100 native application sockets, 10 scheduled mixed reads/s,
 and application/protocol heartbeat traffic. Stop rules are a failed socket,
-material HTTP errors, 20 in-flight requests or 512 MiB backend RSS. Both runs pass:
+material HTTP errors, 20 in-flight requests or 512 MiB backend RSS. Historical reports record:
 **8,972 / 8,973 requests, zero HTTP errors, zero unexpected closures, 8,900
 application pongs each**. No client-IP rotation or rate-limit bypass is used.
 The workloads include public/members forum pages, a 40-reply thread, full search,
 50-event PvP pages, changelog, actual session introspection, status and health.
+
+Merge review corrected two qualification gaps: the tool now drains every scheduled
+HTTP request before its final report/assertions and requires each socket to answer
+application pings within ten seconds, including the final outstanding replies.
+`node --test scripts/qualification/runtime-soak.test.mjs` exercises the actual CLI
+with synthetic I/O and an accelerated observation: healthy completion, late HTTP
+failure, and one silent socket. The old CLI fails these regressions; the repair
+passes. The recorded 901-second runs predate these stricter checks and were not
+repeated; their aggregate counters do not prove final request drainage or timely
+replies from every socket. Re-run the corrected tool for that stronger claim.
 
 MySQL/MariaDB route p95 (ms): PvP **47.30 / 23.51**, forum thread **294.66 /
 237.73**, search **222.01 / 180.53**, status **11.68 / 11.16**, health **4.47 /
