@@ -161,6 +161,8 @@ export const useMudStore = defineStore('mud', () => {
   const chargenError = ref<string | null>(null)
   const chargenHometowns = ref<{ id: number; name: string }[]>([])
   const chargenHasHometownChoice = ref(false)
+  const chargenHometownRequest = ref<{ race: number; alignment: string | null } | null>(null)
+  const chargenHometownsReady = ref(false)
   const chargenNameValid = ref<boolean | null>(null)
   const chargenNameMessage = ref<string | null>(null)
 
@@ -563,7 +565,17 @@ export const useMudStore = defineStore('mud', () => {
   function setChargenHometowns(options: { id: number; name: string }[], hasChoice: boolean) {
     chargenHometowns.value = options
     chargenHasHometownChoice.value = hasChoice
+    chargenHometownsReady.value = true
     chargenLoading.value = false
+  }
+
+  function requestChargenHometowns(race: number, alignment: string | null) {
+    chargenHometownRequest.value = { race, alignment }
+    chargenHometowns.value = []
+    chargenHasHometownChoice.value = false
+    chargenHometownsReady.value = false
+    chargenError.value = null
+    chargenLoading.value = true
   }
 
   function setChargenNameValidation(valid: boolean | null, message: string | null) {
@@ -582,6 +594,8 @@ export const useMudStore = defineStore('mud', () => {
     chargenError.value = null
     chargenHometowns.value = []
     chargenHasHometownChoice.value = false
+    chargenHometownRequest.value = null
+    chargenHometownsReady.value = false
     chargenNameValid.value = null
     chargenNameMessage.value = null
   }
@@ -755,6 +769,8 @@ export const useMudStore = defineStore('mud', () => {
     chargenError,
     chargenHometowns,
     chargenHasHometownChoice,
+    chargenHometownRequest,
+    chargenHometownsReady,
     chargenNameValid,
     chargenNameMessage,
     // Account menu state
@@ -827,6 +843,7 @@ export const useMudStore = defineStore('mud', () => {
     setChargenLoading,
     setChargenError,
     setChargenHometowns,
+    requestChargenHometowns,
     setChargenNameValidation,
     clearChargenState,
     // Account menu actions

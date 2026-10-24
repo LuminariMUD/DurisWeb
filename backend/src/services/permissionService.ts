@@ -3,10 +3,7 @@ import { pool as db, mudPool } from '../db/connection.js';
 import type { MudAccountCharacter } from './accountService.js';
 import { getForumSettings } from './forumSettingsService.js';
 import { getUserPermissions as getAdminPermissions } from './adminPermissionService.js';
-import { getCache, setCache, deleteCache } from '../db/redis.js';
 import logger from '../utils/logger.js';
-
-const PERMISSIONS_CACHE_TTL = 300; // 5 minutes
 
 export interface CharacterInfo {
   pid: number;
@@ -82,9 +79,6 @@ export function getGodLevelFromCharacterLevel(maxLevel: number): {
   return { role: 'player', immortalLevel: null };
 }
 
-// Redis key prefix for permission cache invalidation
-const REDIS_KEY_PREFIX = 'perm:user:';
-
 /**
  * Get character details from database
  */
@@ -103,7 +97,7 @@ export async function getCharacterInfo(characterNames: string[]): Promise<Charac
        FROM player_data pd
        LEFT JOIN frag_leaderboard fl ON pd.pid = fl.pid
        LEFT JOIN associations a ON pd.assoc_id = a.id
-       WHERE pd.name IN (?)`,
+       WHERE pd.name IN (?) AND pd.active = 1`,
       [characterNames],
     );
 
@@ -186,40 +180,19 @@ export async function calculatePermissions(
 }
 
 /**
- * Get full user permissions (cached for 5 minutes)
+ * Derive MUD permissions from current active characters at each authorization check.
  */
 export async function getUserPermissions(
   accountName: string,
   mudCharacters: MudAccountCharacter[],
 ): Promise<UserPermissions> {
-  const cacheKey = `perms:${accountName}`;
-
-  // check cache first
-  const cached = await getCache<UserPermissions>(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
   // Get character names from MUD account
   const characterNames = mudCharacters.map((c) => c.name);
 
   // Query database for character details
   const characters = await getCharacterInfo(characterNames);
 
-  // Calculate permissions (reads from database settings)
-  const permissions = await calculatePermissions(accountName, characters);
-
-  // cache for 5 minutes
-  await setCache(cacheKey, permissions, PERMISSIONS_CACHE_TTL);
-
-  return permissions;
-}
-
-/**
- * Invalidate permissions cache for an account
- */
-export async function invalidatePermissionsCache(accountName: string): Promise<void> {
-  await deleteCache(`perms:${accountName}`);
+  return calculatePermissions(accountName, characters);
 }
 
 /**
@@ -260,17 +233,6 @@ export async function getFullUserContext(
     characters,
     permissions,
   };
-}
-
-/**
- * Clear cached permissions (useful when character data changes)
- */
-export async function clearPermissionCache(accountName?: string): Promise<void> {
-  if (accountName) {
-    await deleteCache(`${REDIS_KEY_PREFIX}${accountName.toLowerCase()}`);
-  } else {
-    await deleteCache(`${REDIS_KEY_PREFIX}*`);
-  }
 }
 
 /**

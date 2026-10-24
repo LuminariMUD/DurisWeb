@@ -26,7 +26,6 @@ const { default: routes } = await import('../routes/auth.js');
 const { createWebSession } = await import('../services/sessionService.js');
 const { refreshTokenDigest } = await import('../services/sessionCredential.js');
 const { clearAccountCache } = await import('../services/accountService.js');
-const { clearPermissionCache } = await import('../services/permissionService.js');
 
 const connection = await pool.getConnection();
 const query = pool.query;
@@ -179,7 +178,6 @@ try {
   await connection.query('DELETE FROM web_sessions WHERE account_name=?', [account]);
   await connection.query('DELETE FROM accounts WHERE account_name=?', [account]);
   await clearAccountCache(account);
-  await clearPermissionCache(account);
   await connection.query('SET timestamp=DEFAULT');
   pool.query = query;
   connection.release();

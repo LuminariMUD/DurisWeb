@@ -113,6 +113,7 @@ export interface MudGetHometownsCommand extends MudCommandBase {
   cmd: 'get_hometowns'
   data: {
     race: number
+    alignment?: 'good' | 'evil'
   }
 }
 
@@ -393,6 +394,8 @@ export interface MudHometown {
 
 export interface MudHometownsMessage {
   type: 'hometowns'
+  race: number
+  alignment: string | null
   options: MudHometown[]
   hasChoice: boolean
 }

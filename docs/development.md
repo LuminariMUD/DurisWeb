@@ -162,6 +162,54 @@ category filters, private/deleted content, real totals, stable pages, scalar que
 validation and anonymous refusal. Identity/settings/providers are test fixtures;
 real SQL and the actual search controller run without a MUD process.
 
+The MUD-owned [runtime journey](https://github.com/LuminariMUD/Duris/pull/347)
+(`run_pwipe_runtime_journey.py --redis --website <checkout>`) uses
+`backend/src/test/pwipeWebsiteProbe.ts` with the normal built backend. The probe
+refuses anything except the parent's owned loopback `pwipe_journey_*` SQL target;
+the parent rejects checkout runtime environment files. It installs the source-
+owned baseline/forward migrations in that private DB, keeps old authenticated WS
+peers across graceful backend stop, and checks real HTTP/session/WHO/ranking,
+MUD login events, scoped cached lists, a queued synthetic webhook and duplicate
+credit protection after the real reset. Cookies stay in a mode-0600 private test
+file, never the report. All mail/Discord/PostHog/cloud features remain disabled.
+This is a runtime qualification fixture, not a deployment or payment-provider test.
+
+`legacyCopyPreservationSystemd.native.ts` is an explicit root-only rehearsal in a
+fresh private mount namespace with systemd as PID 1 and
+`TEST_PWIPE_WEBSITE_SYSTEMD=1`. Use a supported Node runtime explicitly when root's
+PATH differs. It starts only uniquely named disposable PrivateTmp source/keeper
+units, invokes the real preservation service before source stop, proves namespace
+retention after source stop and verifies the protected bundle after both stop.
+It removes its own units/files. Pair it with the existing mount/alias native
+fixture; neither may operate an existing website unit or real legacy files.
+The operator procedure remains [deployment's preservation gate](deployment.md#legacy-temporary-copy-preservation-gate).
+
+`accountServiceRetirement.test.ts` covers legacy warm-cache retirement, name
+reuse and database-failure refusal. Its opt-in native case uses the same owned
+loopback credentials below with `TEST_ACCOUNT_DB_PORT=TEST_DB_PORT` (the selected
+port value); ports 3306/3307 are refused. It creates/removes only a generated
+`durisweb_accounts_*` database, executes the actual service queries, retires old
+links and inserts a recreated Overlord plus a reused name on another account.
+Run the focused file on disposable MariaDB and MySQL; it does not contact the
+configured application database/Redis. The in-memory cache deliberately retains
+legacy arrays/mappings across the native SQL transition. This is a consumer
+regression, not a complete website/MUD wipe journey.
+The same native fixture also exercises real JWT/Express authentication and the
+staff gate: one token changes from HTTP 200 to 403 after level-61 retirement,
+while the recreated level-62 body remains allowed. A legacy derived-role cache is
+retained deliberately; inactive character rows cannot supply privileges. Explicit
+website-admin grants remain independent. Session validity is stubbed as an active
+synthetic session here; existing session-persistence tests cover that boundary.
+
+
+`playerEventSubscriber.test.ts` has an opt-in native locking case.
+`TEST_PRESENCE_DB_PORT` must match an owned disposable server's `TEST_DB_PORT`,
+with `TEST_DB_HOST=127.0.0.1` and its `TEST_DB_USER`/`TEST_DB_PASSWORD`; ports 3306
+and 3307 are refused. It creates and removes generated `durisweb_presence_*`
+databases and SELECT-only `presence_*` readers, then exercises the actual handler
+against the MUD's exclusive boundary query. Run that focused Jest file with each
+maintained engine; ordinary unit runs skip this native case.
+
 Image-removal integration tests use `TEST_IMAGE_DB_PORT`, loopback port 23436
 or 23437 and database `durisweb_qualification_image_suite`. Provision the full
 owner fixture plus the website baseline/forward migrations on that disposable
@@ -254,3 +302,12 @@ Regression fixtures and other checkouts are excluded. Missing, malformed, exited
 or ambiguous candidates report stopped. Uptime comes from the same process
 snapshot as the PID, so process exit cannot turn an empty second lookup into an
 invalid boot timestamp during WebSocket reconnection.
+
+### Issue #264 runtime probe review repair
+
+The disposable pwipe probe accepts the literal loopback root principal as well as
+the existing wildcard/local forms. After Redis delivery it polls the existing
+bounded waiter for the durable outbox publication acknowledgement: Redis receipt
+can precede the separate SQL update. This changes only qualification code; existing
+HTTP/Redis/MUD integration evidence remains valid. No new player-facing release
+news is needed for this probe repair, and no deployment is performed.
