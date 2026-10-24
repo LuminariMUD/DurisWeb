@@ -50,6 +50,8 @@ interface Slot {
 const BASE_SCALE = 8
 /** Sharp tiles painted only for the area in view once zoomed in. */
 const DETAIL_SCALE = 32
+/** 16 source pixels per room is Retina-sharp at Leaflet zoom 3 (8 CSS pixels). */
+const MID_DETAIL_SCALE = 16
 const DETAIL_TILE = 10
 /** Leaflet zoom from which detail tiles are painted (8 screen pixels per room). */
 const DETAIL_ZOOM = 3
@@ -93,6 +95,7 @@ export class PaintedMapLayer {
   private readonly slots: Slot[] = []
   private readonly queue: Job[] = []
   private readonly baseTiles = new Map<string, Tile[]>()
+  private readonly baseOverlays = new Map<string, L.ImageOverlay>()
   private readonly rock = new Map<string, Tile>()
   private readonly detailTiles = new Map<string, Tile>()
   private readonly shownDetail = new Map<string, L.ImageOverlay>()
@@ -126,6 +129,7 @@ export class PaintedMapLayer {
     this.cachedSource = source
     this.source = source
     this.baseGroup.clearLayers()
+    this.baseOverlays.clear()
     this.clearDetail()
     const key = layerKey(source)
 
@@ -197,6 +201,7 @@ export class PaintedMapLayer {
     this.stopWorkers()
     this.source = null
     this.baseGroup.clearLayers()
+    this.baseOverlays.clear()
     this.rockGroup.clearLayers()
     this.clearDetail()
     this.onProgress(null)
@@ -206,6 +211,7 @@ export class PaintedMapLayer {
   refresh(): void {
     const source = this.source
     const version = this.version
+    if (source) this.syncBaseTiles()
     if (!source || this.map.getZoom() < DETAIL_ZOOM) {
       this.clearDetail()
       return
@@ -218,10 +224,11 @@ export class PaintedMapLayer {
     const gy0 = Math.max(0, Math.floor((-view.getNorth() - source.minY) / ky) - 2)
     const gy1 = Math.min(source.height, Math.ceil((-view.getSouth() - source.minY) / ky) + 2)
     const key = layerKey(source)
+    const detailScale = this.map.getZoom() >= 4 ? DETAIL_SCALE : MID_DETAIL_SCALE
     const tiles: Tile[] = []
     for (let y0 = Math.floor(gy0 / DETAIL_TILE) * DETAIL_TILE; y0 < gy1; y0 += DETAIL_TILE)
       for (let x0 = Math.floor(gx0 / DETAIL_TILE) * DETAIL_TILE; x0 < gx1; x0 += DETAIL_TILE) {
-        const tileKey = `${key}:${x0}:${y0}`
+        const tileKey = `${key}:${detailScale}:${x0}:${y0}`
         let tile = this.detailTiles.get(tileKey)
         if (!tile) {
           // Overlap the next tile by one room so no hairline gaps show.
@@ -269,7 +276,7 @@ export class PaintedMapLayer {
       }
       if (tile.pending) continue
       tile.pending = true
-      this.paint(source, DETAIL_SCALE, tile, true, () => !this.wantedDetail.has(tile.key)).then(
+      this.paint(source, detailScale, tile, true, () => !this.wantedDetail.has(tile.key)).then(
         (url) => {
           if (version !== this.version) return
           tile.pending = false
@@ -373,15 +380,37 @@ export class PaintedMapLayer {
     )
   }
 
+  /** Keep overview imagery cached but avoid animating off-screen Leaflet overlays. */
+  private syncBaseTiles() {
+    const source = this.source
+    if (!source) return
+    const visible = this.map.getBounds().pad(0.25)
+    for (const tile of this.baseTiles.get(layerKey(source)) ?? []) {
+      const mounted = this.baseOverlays.get(tile.key)
+      if (tile.url && visible.intersects(this.bounds(source, tile))) {
+        if (!mounted) this.addBase(tile, source)
+      } else if (mounted) {
+        this.baseGroup.removeLayer(mounted)
+        this.baseOverlays.delete(tile.key)
+      }
+    }
+  }
+
   private addBase(tile: Tile, source: PaintedLayerSource, rock = false) {
     if (!tile.url) return
-    const group = rock ? this.rockGroup : this.baseGroup
-    group.addLayer(
-      L.imageOverlay(tile.url, this.bounds(source, tile), {
-        pane: rock ? 'paintedRock' : 'paintedBase',
-        className: 'painted-map-tile',
-      }),
-    )
+    if (!rock) {
+      if (this.baseOverlays.has(tile.key)) return
+      if (!this.map.getBounds().pad(0.25).intersects(this.bounds(source, tile))) return
+    }
+    const overlay = L.imageOverlay(tile.url, this.bounds(source, tile), {
+      pane: rock ? 'paintedRock' : 'paintedBase',
+      className: 'painted-map-tile',
+    })
+    if (rock) this.rockGroup.addLayer(overlay)
+    else {
+      this.baseOverlays.set(tile.key, overlay)
+      this.baseGroup.addLayer(overlay)
+    }
   }
 
   private showDetail(tile: Tile, source: PaintedLayerSource) {
@@ -454,22 +483,26 @@ export class PaintedMapLayer {
         if (!job || event.data.id !== job.id) return
         slot.job = null
         this.pump()
-        const { pixels, width, height, error } = event.data
-        if (error || !pixels || !width || !height) {
+        const { pixels, blob, width, height, error } = event.data
+        if (error || (!pixels && !blob) || !width || !height) {
           if (job.version === this.version && job.attempts++ === 0) {
             this.queue.push(job)
             this.pump()
           } else job.reject(new Error('Painting failed'))
           return
         }
-        pixelsToUrl(new Uint8ClampedArray(pixels), width, height).then((url) => {
+        Promise.resolve()
+          .then(() =>
+            blob ? URL.createObjectURL(blob) : pixelsToUrl(new Uint8ClampedArray(pixels!), width, height),
+          )
+          .then((url) => {
           if (this.destroyed || job.version !== this.version || job.stale?.()) {
             URL.revokeObjectURL(url)
             job.resolve(null)
             return
           }
           job.resolve(url)
-        }, job.reject)
+          }, job.reject)
       }
       worker.onerror = () => {
         // A failed worker must never receive another job. The toggle retries

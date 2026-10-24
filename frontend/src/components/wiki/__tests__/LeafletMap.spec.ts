@@ -252,6 +252,35 @@ describe('wiki entrance visibility and navigation', () => {
     expect(document.querySelector('.zone-name')?.textContent).toBe('Destination 1')
   })
 
+  it('reuses DOM markers across zooms and pans that do not change labels', async () => {
+    await render()
+    await zoom(3.25)
+    const before = document.querySelector('.leaflet-marker-icon')
+    expect(before).not.toBeNull()
+    map.fire('moveend')
+    await settle()
+    expect(document.querySelector('.leaflet-marker-icon')).toBe(before)
+    await zoom(3.75)
+    expect(document.querySelector('.leaflet-marker-icon')).toBe(before)
+    expect(map.options.wheelPxPerZoomLevel).toBe(75)
+    expect(map.options.zoomDelta).toBe(0.5)
+  })
+
+  it('updates retained markers when a destination changes at the same coordinate', async () => {
+    await render()
+    const before = document.querySelector('.leaflet-marker-icon')
+    vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([
+      entrance(1, { toZoneName: 'Revised zone' }),
+    ])
+    // A fresh bounds query must not reuse the previous cached entrance response.
+    map.panTo([-190, 220], { animate: false })
+    await settle()
+    expect(document.querySelector('.leaflet-marker-icon')).not.toBe(before)
+    expect(document.querySelector('.leaflet-marker-icon')?.getAttribute('aria-label')).toBe(
+      'Revised zone',
+    )
+  })
+
   it('keeps the destination chooser and focus through its automatic pan refresh', async () => {
     vi.mocked(wikiApi.getZoneEntrances).mockResolvedValue([entrance(1), entrance(2)])
     await render()

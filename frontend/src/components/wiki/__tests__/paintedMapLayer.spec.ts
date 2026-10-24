@@ -16,14 +16,14 @@ class TestWorker {
   postMessage(request: PaintRequest) {
     this.requests.push(request)
   }
-  reply(error?: string) {
+  reply(error?: string, useBlob = false) {
     const request = this.requests.at(-1)!
     this.onmessage?.({
       data: {
         id: request.id,
         width: 1,
         height: 1,
-        pixels: new ArrayBuffer(4),
+        ...(useBlob ? { blob: new Blob(['tile']) } : { pixels: new ArrayBuffer(4) }),
         error,
       },
     } as MessageEvent<PaintResponse>)
@@ -178,6 +178,46 @@ describe('painted map worker lifecycle', () => {
     expect(map.getPane('paintedBase')!.querySelectorAll('img')).toHaveLength(1)
     painted.destroy()
     expect(URL.revokeObjectURL).toHaveBeenCalled()
+  })
+
+  it('mounts only viewport overview tiles and restores them from cache after panning', async () => {
+    const bounds = vi.spyOn(map, 'getBounds')
+    bounds.mockReturnValue(L.latLngBounds([-90, 80], [-80, 90]))
+    painted.show(source())
+    TestWorker.instances[0]!.reply()
+    await flushPromises()
+    expect(map.getPane('paintedBase')!.querySelectorAll('img')).toHaveLength(0)
+
+    bounds.mockReturnValue(L.latLngBounds([-30, 10], [-10, 30]))
+    painted.refresh()
+    expect(map.getPane('paintedBase')!.querySelectorAll('img')).toHaveLength(1)
+    bounds.mockReturnValue(L.latLngBounds([-90, 80], [-80, 90]))
+    painted.refresh()
+    expect(map.getPane('paintedBase')!.querySelectorAll('img')).toHaveLength(0)
+  })
+
+  it('accepts worker-encoded PNG without using the main-thread canvas', async () => {
+    painted.show({ ...source(), width: 2, height: 2, sectors: new Uint8Array(4) })
+    TestWorker.instances[0]!.reply(undefined, true)
+    await flushPromises()
+    expect(HTMLCanvasElement.prototype.getContext).not.toHaveBeenCalled()
+    expect(map.getPane('paintedBase')!.querySelectorAll('img')).toHaveLength(1)
+  })
+
+  it('uses Retina-appropriate detail at zoom 3 and full detail at zoom 4', () => {
+    painted.show({ ...source(), width: 400, height: 400, sectors: new Uint8Array(160000) })
+    const bounds = vi.spyOn(map, 'getBounds')
+    bounds.mockReturnValue(L.latLngBounds([-230, 170], [-170, 230]))
+    map.setZoom(3, { animate: false })
+    painted.refresh()
+    const worker = TestWorker.instances[0]!
+    worker.reply()
+    expect(worker.requests.at(-1)!.scale).toBe(16)
+
+    map.setZoom(4, { animate: false })
+    painted.refresh()
+    worker.reply()
+    expect(worker.requests.at(-1)!.scale).toBe(32)
   })
 
   it('queues viewport detail from centre outward while all workers are busy', () => {
