@@ -45,7 +45,13 @@ Redis keys, configuration or background polling are needed.
   authorization tests, backend/qualification docs. Proof: real isolated TCP
   payload/fragment/admission/dead-peer/slow-consumer/normal-traffic and shutdown
   checks. Separate MUD transport and production operations are non-goals.
-- A6: jittered reconnect delay with stable-connection reset.
+- A6: implemented/isolated-tested on `branch/issue-98-reconnect-jitter`, stacked on A5 PR #103.
+  Outcome: bounded exponential reconnect delay with jitter, reset after a stable
+  connection; manual disconnect cancels retries and retired socket events cannot
+  alter a newer connection. Files: application composable, focused timer/event
+  tests and frontend/qualification docs. Proof: observable retry timing and
+  generation races plus an isolated native-browser reconnect burst. The game
+  transport is unchanged; no extra timer/configuration/backoff framework is needed.
 - A7: representative isolated query/pool overload qualification before tuning.
 - A8: bounded changelog pagination and JSON API 404s.
 - A9: representative data/accounts/forum/PvP/socket/browser qualification.
@@ -302,6 +308,51 @@ the full application listener or prove a live JWT/database/PTY journey. Those
 combined-data/application checks remain A9, and all deployment/live evidence
 remains section B. No production flood or oversized-payload demonstration occurs.
 
+A5 PR: [#103](https://github.com/LuminariMUD/DurisWeb/pull/103), source commit
+`b2bf32254f35cd954ddad9482a782735c4a5a381`. Its tracker checkbox remains open for
+combined application/auth/terminal proof under A9, while the transport/source PR
+is ready for review. Stack: #99 → #100 → #101 → #102 → #103.
+
+A6 replaces the shared intentional-close flag with explicit desired state and a
+socket generation. Only the current generation can update connection/message
+state. One retry timer uses equal jitter with 5/10/20/30-second ceilings and a
+bounded attempt counter. A monotonic open timestamp supplies the stable reset
+when the next retry is needed; no second timer or backoff service is introduced.
+
+A6 commands/results:
+
+- `pnpm --dir frontend test:unit --run
+  src/composables/__tests__/useWebSocket.spec.ts`: all **seven regressions fail
+  on the parent** and pass after repair. Coverage includes growing/capped jitter,
+  stable reset, manual cancellation/reset, late close/message events, repeated
+  closes/single pending connection, and synchronous-construction retry.
+- `pnpm --dir frontend exec biome format --write
+  src/composables/useWebSocket.ts src/composables/__tests__/useWebSocket.spec.ts`;
+  frontend `format:check`, `lint`, `type-check`, `test:unit --run`, and `build`
+  with the A3 synthetic environment: pass, **566 tests / 74 files**. Generated
+  shell precaching remains 77 entries; optional editor warning remains. The
+  configuration literal guard and `git diff --check` pass.
+- `node /tmp/durisweb-issue98/reconnect-fixture.mjs` and
+  `python3 /tmp/durisweb-issue98/browser-reconnect.py baseline`, then `candidate`:
+  actual Chromium 153 and the built A5 application socket factory on isolated
+  loopback 8140. Each run imports 100 independent copies of the actual application
+  composable (only Vue/config import locations adapted), then closes those 100
+  sockets together and observes all 100 reconnecting. No API/account or MUD work.
+- Instrumented, unchanged native timeout calls show the baseline scheduling all
+  100 retries at **5000 ms** (one 250-ms bucket). The candidate schedules
+  **2533.28–4993.74 ms**, spanning **ten** 250-ms buckets. Native server arrival
+  ranges are **5006.02–9969.60 ms** baseline and **2545.33–5006.99 ms** candidate.
+  Browser connection throttling makes arrival spread alone an unsuitable proof
+  of the timer policy; both scheduling and actual connections are retained in
+  `a6-*-burst.json`. No console errors. These are single local observations, not
+  production connection-rate or visitor-capacity guarantees.
+
+The first burst fixture used an asynchronous wait predicate that returned before
+the actual arrival condition; explicit bounded stats polling fixed that test.
+All private fixture scripts/results remain in `/tmp/durisweb-issue98/`. Normal
+subscription callback delivery and stale-event refusal are covered by the
+composable fixture; full combined backend/auth/browser proof remains A9.
+
 ## Unpublished release news
 
 Prepare the combined payload as reader-visible changes are proven. Reconcile it
@@ -347,4 +398,12 @@ A5 candidate public wording (unpublished):
 <ul><li>Website live connections now limit oversized messages and stop stalled
 connections from building up output. Busy servers can ask new connections to
 retry; normal notification and administration permissions are unchanged.</li></ul>
+```
+
+A6 candidate public wording (unpublished):
+
+```html
+<ul><li>Website live connections spread retry attempts after an interruption
+and back off during repeated failures. Closing a connection explicitly cancels
+its retries.</li></ul>
 ```
