@@ -8,11 +8,18 @@ https://github.com/LuminariMUD/Duris/pull/331, with dummy-dispatch dependency
 https://github.com/LuminariMUD/Duris/pull/328. Browser acceptance is ready in
 https://github.com/LuminariMUD/Duris/pull/333; zero-loss resurrection is repaired
 independently in https://github.com/LuminariMUD/Duris/pull/332.
+The full service journeys also depend on the original Druid spell-up binding
+repair https://github.com/LuminariMUD/Duris/pull/335 and new flat-file shop
+initialization https://github.com/LuminariMUD/Duris/pull/338. The runtime racial
+combat review finding on #331 is fixed in `436b77652`, with configured racial
+spell-damage factors corrected in `dcdb151fa`; #333 caught up at `9f5bdc9f4`.
+These changes preserve the original encounters and services. Full native
+acceptance is open in https://github.com/LuminariMUD/Duris/pull/342.
 Server's full handoff: `Duris/docs/ongoing-projects/plan-issue-213.md`.
 
 Worktree `/home/aiwithapex/projects/durisweb-issue213`, branch
 `branch/issue-213-hometown-parity`, from fetched master `7147e6b`.
-Review: https://github.com/LuminariMUD/DurisWeb/pull/91, commit `9eb92e3`.
+Review: https://github.com/LuminariMUD/DurisWeb/pull/91; frontend code `9eb92e3`.
 The primary DurisWeb checkout was clean and left unchanged. No deployment,
 database publication, environment-file edit or dependency-graph change is part
 of this work. Dependencies were installed offline from the frozen lockfile.
@@ -76,13 +83,23 @@ and accompanying logs/screenshots, including binary/world/frontend IDs and saved
 home/render checks. The runner creates a fresh authority per invocation; no
 external scratch script or existing account is required.
 
-Remaining #213 acceptance is the expanded native service/quest and protected/
-unprotected death/restart matrix. Content/procedure integration, exhaustive
-eligibility, authored/generated equality and all loaded NPC mechanical pairs
-are qualified in the server handoff. Native Ogre/Firbolg basic routes already
-passed on both backends; the expanded matrix is still in progress.
-Keep server and client protocol changes coordinated before release. Neither
-this review chunk nor the menu proof closes the parent issue.
+Local #213 implementation and acceptance are complete and ready for review.
+The full unfiltered native runs passed on both backends: seven representative
+routes, four direct starts and 28 acceptance records each. Ogre/Firbolg passed
+search/potion, bandaging, item/coin/XP quests, all eight shops, actual one-copper
+purchases, both pets, four caster families, rent/relogin, reset, racial departure,
+protected death/resurrection at 1/29, bold crossing, normal level-30 loss and
+final cold XP/home recovery. Content/reference parity, all 216 loaded NPC pairs
+per backend and focused runtime racial combat/casting controls also pass.
+Final coverage and handoff: https://github.com/LuminariMUD/Duris/pull/342.
+The last racial spell-factor selector correction is numerically neutral under
+the journey configuration; non-unit-factor executable controls and both builds
+qualify that correction without repeating the complete matrix.
+
+Server and client PRs remain open for review and coordinated integration; the
+parent issue remains open. No deployment or production acceptance is claimed.
+The task-owned temporary Vite listener was stopped after qualification. Retain
+the server's ignored evidence; recreate the loopback frontend for browser reruns.
 
 The early browser fixture initially omitted `DURIS_WEBSOCKET=TRUE`; enabling the
 listener fixed its connection refusal. Repeated registrations in that old
@@ -117,5 +134,5 @@ Title: **Hometown choices follow your character's side**
 </ul>
 ```
 
-Publication must wait for matching server/client release acceptance, including
-the remaining native qualification and review of the linked server stack.
+Publication requires an authorized matching server/client release after review
+and integration of the linked stack. Local native qualification is complete.
