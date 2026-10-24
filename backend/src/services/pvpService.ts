@@ -199,6 +199,73 @@ export async function getPvPEvents(
   };
 }
 
+function summaryTeams(
+  data: unknown,
+  count: unknown,
+): Pick<PvPEventListItem, 'killers' | 'victims'> {
+  let parsed: unknown = data;
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      throw new Error('PvP participant summary unavailable');
+    }
+  }
+  if (!Array.isArray(parsed)) throw new Error('PvP participant summary unavailable');
+  const entries: unknown[] = parsed;
+  const expected =
+    typeof count === 'number'
+      ? count
+      : typeof count === 'string' && /^\d+$/.test(count)
+        ? Number(count)
+        : NaN;
+  // MariaDB may close a truncated JSON aggregate into syntactically valid JSON.
+  if (!Number.isSafeInteger(expected) || expected < 1 || entries.length !== expected) {
+    throw new Error('PvP participant summary unavailable');
+  }
+  const killers: PvPEventListItem['killers'] = [];
+  const victims: PvPEventListItem['victims'] = [];
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object' || !('kind' in entry) || !('description' in entry)) {
+      throw new Error('PvP participant summary unavailable');
+    }
+    // LEFT JOIN's empty row and historical null descriptions are not participants.
+    if (entry.kind === null || entry.description === null) continue;
+    if (
+      (entry.kind !== 'killer' && entry.kind !== 'victim') ||
+      typeof entry.description !== 'string' ||
+      !('level' in entry) ||
+      typeof entry.level !== 'number' ||
+      !Number.isSafeInteger(entry.level) ||
+      entry.level < 0 ||
+      !('leader' in entry) ||
+      (entry.leader !== 0 && entry.leader !== 1) ||
+      !('died' in entry) ||
+      (entry.died !== 0 && entry.died !== 1)
+    ) {
+      throw new Error('PvP participant summary unavailable');
+    }
+    const key = JSON.stringify([
+      entry.kind,
+      entry.description,
+      entry.leader,
+      entry.level,
+      entry.kind === 'victim' ? entry.died : null,
+    ]);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const participant = {
+      description: entry.description,
+      isLeader: entry.leader === 1,
+      level: entry.level,
+    };
+    if (entry.kind === 'killer') killers.push(participant);
+    else victims.push({ ...participant, died: entry.died === 1 });
+  }
+  return { killers, victims };
+}
+
 /** Shared projection without the public pagination count query. */
 async function readEventSummaries(
   whereClause: string,
@@ -221,16 +288,12 @@ async function readEventSummaries(
       e.room_vnum,
       e.like_count,
       e.comment_count,
-      GROUP_CONCAT(
-        DISTINCT CASE WHEN p.pk_type LIKE 'KILLER%'
-        THEN CONCAT(p.player_description, '<<>>', IF(p.leader, '1', '0'), '<<>>', p.level) END
-        SEPARATOR '|||'
-      ) as killers,
-      GROUP_CONCAT(
-        DISTINCT CASE WHEN p.pk_type LIKE 'VICTIM%'
-        THEN CONCAT(p.player_description, '<<>>', IF(p.leader, '1', '0'), '<<>>', IF(p.pk_type = 'VICTIM', '1', '0'), '<<>>', p.level) END
-        SEPARATOR '|||'
-      ) as victims
+      COUNT(*) AS participant_rows,
+      CAST(JSON_ARRAYAGG(JSON_OBJECT(
+        'kind', CASE WHEN p.pk_type LIKE 'KILLER%' THEN 'killer' WHEN p.pk_type LIKE 'VICTIM%' THEN 'victim' ELSE NULL END,
+        'description', p.player_description, 'leader', IF(p.leader,1,0),
+        'level', p.level, 'died', IF(p.pk_type='VICTIM',1,0)
+      )) AS CHAR) AS participants
     FROM (
       SELECT e.id, e.stamp, e.room_name, e.room_vnum, e.like_count, e.comment_count
       FROM pkill_event e
@@ -246,45 +309,21 @@ async function readEventSummaries(
   queryParams.push(limit, offset);
   const [rows] = await pool.query<RowDataPacket[]>(query, queryParams);
 
-  const parseKillers = (data: string | null) => {
-    if (!data) return [];
-    return data
-      .split('|||')
-      .filter(Boolean)
-      .map((entry) => {
-        const [description, leaderFlag, level] = entry.split('<<>>');
-        return { description, isLeader: leaderFlag === '1', level: Number(level) || 0 };
-      });
-  };
-
-  const parseVictims = (data: string | null) => {
-    if (!data) return [];
-    return data
-      .split('|||')
-      .filter(Boolean)
-      .map((entry) => {
-        const [description, leaderFlag, diedFlag, level] = entry.split('<<>>');
-        return {
-          description,
-          isLeader: leaderFlag === '1',
-          died: diedFlag === '1',
-          level: Number(level) || 0,
-        };
-      });
-  };
-
-  const events: PvPEventListItem[] = rows.map((row) => ({
-    id: row.id,
-    stamp: pvpTimestamp(row.stamp_epoch),
-    room_name: row.room_name,
-    room_vnum: row.room_vnum,
-    killers: parseKillers(row.killers),
-    victims: parseVictims(row.victims),
-    killer_count: row.killers ? row.killers.split('|||').filter(Boolean).length : 0,
-    victim_count: row.victims ? row.victims.split('|||').filter(Boolean).length : 0,
-    like_count: row.like_count || 0,
-    comment_count: row.comment_count || 0,
-  }));
+  const events: PvPEventListItem[] = rows.map((row) => {
+    const { killers, victims } = summaryTeams(row.participants, row.participant_rows);
+    return {
+      id: row.id,
+      stamp: pvpTimestamp(row.stamp_epoch),
+      room_name: row.room_name,
+      room_vnum: row.room_vnum,
+      killers,
+      victims,
+      killer_count: killers.length,
+      victim_count: victims.length,
+      like_count: row.like_count || 0,
+      comment_count: row.comment_count || 0,
+    };
+  });
 
   return events;
 }

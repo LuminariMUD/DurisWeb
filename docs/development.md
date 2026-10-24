@@ -152,7 +152,10 @@ server. The suite creates/drops only its new PID-qualified
 schema, website baseline and forward migrations, and seeds 50,001 events with
 200,000 snapshots. It proves ordered pages, participant selection, complete
 teams, hidden future events, release cursors and a bounded outer aggregation
-in the actual optimizer plan. Default unit runs skip these native cases. It is
+in the actual optimizer plan. A dense 120-snapshot case preserves descriptions
+containing the former delimiters and checks bounded-aggregate failure handling.
+That fixture uses one pooled connection to change and restore only its own
+session aggregate limit. Default unit runs skip these native cases. It is
 not a production capacity or cold-database-cache measurement.
 
 `src/services/__tests__/forumSearchNative.test.ts` uses the same explicit traffic

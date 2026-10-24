@@ -564,6 +564,45 @@ Commands/results:
   `git diff --check`: pass. A final added HTTP test needed line wrapping, corrected
   by the formatter before commit. No frontend, real provider or MUD operation.
 
+## Dense participant qualification
+
+Implemented/isolated-tested on `branch/issue-98-complete-pvp-teams`, stacked on forum PR #109
+(`6e73bbca12330c5f026c5aacf8b74c7f40ee2b64`). Outcome: qualify complete dense
+teams and arbitrary stored descriptions against aggregate-size/delimiter limits;
+repair a reproduced data-loss boundary with structured snapshots if needed.
+Files: summary projection/parser, native and focused regression fixtures, backend/
+qualification docs. Proof: dense teams on both SQL families plus existing privacy,
+filter/cursor and optimizer checks. No global SQL-mode/aggregate-limit change,
+index, cache or game operation is part of this work.
+
+The parent fails the 120-snapshot native case on MySQL: only 11 of 60 killers
+survive, and literal `|||`/`<<>>` corrupt descriptions/levels. JSON objects now
+replace delimiter concatenation. A separate joined-row count detects even
+syntactically valid truncation on MariaDB. Casting the aggregate to text lets
+the service own malformed-JSON handling instead of leaking a driver parser
+error. The public DTO, page-first plan and privacy boundaries remain unchanged.
+No partial teams are returned when a configured SQL aggregate limit is exceeded.
+
+Commands/results:
+
+- The two native commands `node /tmp/durisweb-issue98/run-test.mjs <23436|23437>
+  src/services/__tests__/pvpTrafficNative.test.ts
+  src/services/__tests__/pvpService.test.ts` each pass **52 tests**. They include
+  50,001-event plans/cursors, the dense 60/60 teams, literal descriptions,
+  historical empty/duplicate snapshots, capture/interaction privacy and filters.
+  The owned single-connection probe lowers/restores only its session aggregate
+  limit: MySQL JSON remains complete; MariaDB refuses the truncated result.
+- `pnpm --dir backend test --runInBand
+  src/services/__tests__/pvpService.test.ts
+  src/services/__tests__/pvpPolling.test.ts`: **16 pass**, 33 native cases skipped
+  there and explicitly qualified above. The cursor test now distinguishes a
+  joined-snapshot integrity count from the forbidden full-history count.
+- Backend `format:check`, `lint`, `type-check`, `build`, `verify:mud-writes`
+  (**53 classified writes**) and `git diff --check` pass. No frontend change or
+  full backend suite in this focused chunk. Private final logs are
+  `dense-cast-23436.log`/`dense-cast-23437.log` in the task evidence directory.
+A7 overload and A9 full runtime/long-observation work still remain open.
+
 ## Unpublished release news
 
 Prepare the combined payload as reader-visible changes are proven. Reconcile it
@@ -641,4 +680,12 @@ Forum search candidate public wording (unpublished):
 <ul><li>Author and date filters now work together across thread and reply
 searches. Result totals and page navigation include the accessible matches
 beyond the first page, while private and deleted content stays protected.</li></ul>
+```
+
+Dense-team candidate public wording (unpublished):
+
+```html
+<ul><li>Battle lists preserve large teams and descriptions containing punctuation
+that previously split participant records. Incomplete summaries fail explicitly
+instead of showing a partial team.</li></ul>
 ```

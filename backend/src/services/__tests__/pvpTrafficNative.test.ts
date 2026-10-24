@@ -54,7 +54,7 @@ native('mature PvP query qualification on the owner schema', () => {
       user: 'root',
       password: '',
       database: name,
-      connectionLimit: 10,
+      connectionLimit: 1,
       dateStrings: true,
     });
     jest.unstable_mockModule('../../db/connection.js', () => ({ pool, mudPool: pool }));
@@ -111,7 +111,7 @@ native('mature PvP query qualification on the owner schema', () => {
       expect((await service.getPvPEvents({ page: 1, limit: 50 })).events).toHaveLength(50);
       const calls: readonly (readonly unknown[])[] = query.mock.calls;
       const summary = calls.find(
-        ([sql]) => typeof sql === 'string' && sql.includes('GROUP_CONCAT('),
+        ([sql]) => typeof sql === 'string' && sql.includes('GROUP BY e.id'),
       );
       if (!summary || typeof summary[0] !== 'string')
         throw new Error('Actual summary statement was not captured');
@@ -147,5 +147,65 @@ native('mature PvP query qualification on the owner schema', () => {
     const rest = await service.getReleasedEventsAfter({ id: 2, stamp: batch[1].stamp }, 10);
     expect(rest.map((event) => event.id)).toEqual([1]);
     expect((await service.getLatestReleasedEvent())?.id).toBe(1);
+  });
+
+  it('keeps complete dense teams and delimiter-containing descriptions without aggregate truncation', async () => {
+    if (!pool) throw new Error('Missing native query pool');
+    const descriptions = Array.from(
+      { length: 120 },
+      (_, i) => `[56 Warrior] Dense${i} (Human) ${'x'.repeat(150)} ||| <<>>`,
+    );
+    await pool.query(
+      'INSERT INTO pkill_event(id,stamp,room_name) VALUES(60000,DATE_SUB(NOW(),INTERVAL 30 MINUTE),?)',
+      ['Dense fixture'],
+    );
+    try {
+      await pool.query(
+        'INSERT INTO pkill_info(event_id,pid,level,pk_type,equip,log,inroom,leader,player_description) VALUES ?',
+        [
+          descriptions.map((description, i) => [
+            60000,
+            i + 1,
+            56,
+            i < 60 ? 'KILLER' : 'VICTIM',
+            '',
+            '',
+            1,
+            i % 2,
+            description,
+          ]),
+        ],
+      );
+      const event = (await service.getPvPEvents({ page: 1, limit: 1 })).events[0];
+      expect(event.id).toBe(60000);
+      expect(event.killers).toHaveLength(60);
+      expect(event.victims).toHaveLength(60);
+      expect(new Set([...event.killers, ...event.victims].map((p) => p.description))).toEqual(
+        new Set(descriptions),
+      );
+      expect(event.victims.every((p) => p.died)).toBe(true);
+      const [variables] = await pool.query<RowDataPacket[]>(
+        'SELECT @@session.group_concat_max_len AS maximum,VERSION() AS version',
+      );
+      const original = Number(variables[0].maximum);
+      if (!Number.isSafeInteger(original)) throw new Error('Invalid fixture aggregate limit');
+      try {
+        await pool.query('SET SESSION group_concat_max_len=1024');
+        if (String(variables[0].version).includes('MariaDB')) {
+          await expect(service.getPvPEvents({ page: 1, limit: 1 })).rejects.toThrow(
+            'PvP participant summary unavailable',
+          );
+        } else {
+          expect(
+            (await service.getPvPEvents({ page: 1, limit: 1 })).events[0].killers,
+          ).toHaveLength(60);
+        }
+      } finally {
+        await pool.query('SET SESSION group_concat_max_len=?', [original]);
+      }
+    } finally {
+      await pool.query('DELETE FROM pkill_info WHERE event_id=60000');
+      await pool.query('DELETE FROM pkill_event WHERE id=60000');
+    }
   });
 });
