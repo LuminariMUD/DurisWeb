@@ -151,8 +151,9 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 600,
       rolldownOptions: {
         output: {
-          // Split large deps into separate chunks. Rolldown (Vite 8) replaced
-          // manualChunks with codeSplitting groups matched against module ids.
+          // Group shared UI/chart runtimes only. Explicit editor/icon groups
+          // pull optional code into the shell through shared dependencies.
+          // Let dynamic route consumers determine those chunks instead.
           codeSplitting: {
             groups: [
               {
@@ -162,17 +163,6 @@ export default defineConfig(({ mode }) => {
               {
                 name: 'vendor-charts',
                 test: /[\\/]node_modules[\\/](?:.*[\\/]node_modules[\\/])?(?:chart\.js|vue-chartjs)[\\/]/,
-              },
-              {
-                name: 'vendor-editor',
-                test: /[\\/]node_modules[\\/](?:.*[\\/]node_modules[\\/])?(?:@tiptap|prosemirror-[^\\/]+)[\\/]/,
-              },
-              {
-                // Category and hotbar icons are selected by name at runtime.
-                // Keep that complete catalog in bounded, cacheable chunks.
-                name: 'vendor-icons',
-                test: /[\\/]node_modules[\\/](?:.*[\\/]node_modules[\\/])?@lucide[\\/]vue[\\/]/,
-                maxSize: 400_000,
               },
             ],
           },
