@@ -51,6 +51,12 @@ WebSocket clients normally. Peers that do not acknowledge the close frame are
 terminated after five seconds, so upgraded connections cannot hold shutdown open
 until the service manager's stop timeout.
 
+Account metadata remains cached for five minutes, but character lists and
+character-name ownership are read from current non-deleted MUD account links on
+every call. Legacy cached rosters/name mappings are ignored; a retired character
+or reused name must not inherit the prior link through Redis. If the character
+query fails, account lookup refuses rather than returning an old roster.
+
 ## Main Areas
 
 | Path | Purpose |
