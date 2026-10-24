@@ -19,6 +19,14 @@ This excludes dynamically imported route assets, images, API calls and
 service-worker installation; measure those with a fresh browser waterfall too.
 See [issue 98's qualification record](../docs/ongoing-projects/plan-issue-98.md).
 
+The service worker precaches the generated shell and homepage dependency graph,
+their CSS/assets, and the existing install icons. Optional routes and editors
+download on use and retain the bounded runtime static cache; they are not all
+downloaded during installation. The offline shell remains available, while live
+account/configuration/API operations can still be unavailable offline. PvP
+responses remain `NetworkOnly`. Updates retain the prompt/apply workflow, and
+dismissing the update notice leaves the waiting worker for a later visit.
+
 ## Setup
 
 Copy `frontend/.env.example` to `frontend/.env` and set every public URL, host,

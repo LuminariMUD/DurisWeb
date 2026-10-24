@@ -1,9 +1,10 @@
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig, configDefaults } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), VitePWA({ manifest: false })],
   define: {
     'import.meta.env.VITE_BASE_URL': JSON.stringify('/'),
     'import.meta.env.VITE_API_URL': JSON.stringify('http://api.test.invalid'),
