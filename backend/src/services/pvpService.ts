@@ -210,7 +210,8 @@ async function readEventSummaries(
   limit: number,
   offset = 0,
 ): Promise<PvPEventListItem[]> {
-  // Get paginated events
+  // Select eligible events before aggregating all participants for that page.
+  // This bounds snapshot work without changing either team or the release cursor.
   const query = `
     SELECT
       e.id,
@@ -230,12 +231,16 @@ async function readEventSummaries(
         THEN CONCAT(p.player_description, '<<>>', IF(p.leader, '1', '0'), '<<>>', IF(p.pk_type = 'VICTIM', '1', '0'), '<<>>', p.level) END
         SEPARATOR '|||'
       ) as victims
-    FROM pkill_event e
+    FROM (
+      SELECT e.id, e.stamp, e.room_name, e.room_vnum, e.like_count, e.comment_count
+      FROM pkill_event e
+      ${whereClause}
+      ORDER BY ${orderBy}
+      LIMIT ? OFFSET ?
+    ) e
     LEFT JOIN pkill_info p ON e.id = p.event_id AND p.inroom = 1
-    ${whereClause}
     GROUP BY e.id, e.stamp, e.room_name, e.room_vnum, e.like_count, e.comment_count
     ORDER BY ${orderBy}
-    LIMIT ? OFFSET ?
   `;
 
   queryParams.push(limit, offset);
