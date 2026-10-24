@@ -45,6 +45,113 @@ afterEach(() => {
 
 const status = () => request(app).get('/api/status');
 
+describe('public status snapshot', () => {
+  it('shares one diagnostic refresh across concurrent public requests', async () => {
+    let finish: (value: unknown) => void = () => {};
+    let started: () => void = () => {};
+    const entered = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    getServerHealth.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          started();
+          finish = resolve;
+        }),
+    );
+    const responses = Array.from({ length: 20 }, () => status().then((response) => response));
+    await entered;
+    finish({ mudIsRunning: true, mudUptimeSeconds: 123, onlinePlayers: 999 });
+    for (const response of await Promise.all(responses)) {
+      expect(response.status).toBe(200);
+      expect(response.body.uptimeSeconds).toBe(123);
+      expect(response.body).not.toHaveProperty('onlinePlayers');
+    }
+    expect(getServerHealth).toHaveBeenCalledTimes(1);
+  });
+
+  it('reuses the original sample time for five seconds, then refreshes at expiry', async () => {
+    const first = await status();
+    getServerHealth.mockResolvedValue({ mudIsRunning: true, mudUptimeSeconds: 456 });
+    jest.advanceTimersByTime(4999);
+    const cached = await status();
+    expect(cached.body.lastUpdated).toBe(first.body.lastUpdated);
+    expect(cached.body.uptimeSeconds).toBe(123);
+    expect(getServerHealth).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(1);
+    const fresh = await status();
+    expect(fresh.body.uptimeSeconds).toBe(456);
+    expect(fresh.body.lastUpdated).not.toBe(first.body.lastUpdated);
+    expect(getServerHealth).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not extend a sample lifetime when the wall clock moves backwards', async () => {
+    await status();
+    jest.setSystemTime(new Date('2026-10-19T11:30:00Z'));
+    jest.advanceTimersByTime(5000);
+    getServerHealth.mockResolvedValue({ mudIsRunning: false, mudUptimeSeconds: 0 });
+    expect((await status()).body.mudIsRunning).toBe(false);
+    expect(getServerHealth).toHaveBeenCalledTimes(2);
+  });
+
+  it('rechecks population policy on every response while status stays cached', async () => {
+    delayHours = 3;
+    expect((await status()).body.population.windowEnd).toBe('2026-10-19T09:00:00.000Z');
+    delayHours = 6;
+    expect((await status()).body.population.windowEnd).toBe('2026-10-19T06:00:00.000Z');
+    expect(getServerHealth).toHaveBeenCalledTimes(1);
+  });
+
+  it('replaces an expired successful sample with explicit unavailable status after failure', async () => {
+    await status();
+    jest.advanceTimersByTime(5000);
+    getServerHealth.mockRejectedValueOnce(new Error('private diagnostic failure'));
+    const failed = await status();
+    expect(failed.status).toBe(500);
+    expect(failed.body).toMatchObject({
+      status: 'offline',
+      message: 'Unable to determine server status',
+      mudIsRunning: false,
+      uptimeSeconds: 0,
+      population: { estimate: null },
+    });
+    expect(JSON.stringify(failed.body)).not.toContain('private diagnostic failure');
+    expect((await status()).status).toBe(500);
+    expect(getServerHealth).toHaveBeenCalledTimes(2);
+    jest.advanceTimersByTime(5000);
+    expect((await status()).status).toBe(200);
+    expect(getServerHealth).toHaveBeenCalledTimes(3);
+  });
+
+  it('bounds a hung diagnostic refresh without starting replacement work or serving stale health', async () => {
+    await status();
+    jest.advanceTimersByTime(5000);
+    let finish: (value: unknown) => void = () => {};
+    let started: () => void = () => {};
+    const entered = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    getServerHealth.mockImplementationOnce(() => {
+      started();
+      return new Promise((resolve) => {
+        finish = resolve;
+      });
+    });
+    const waiting = status().then((response) => response);
+    await entered;
+    await jest.advanceTimersByTimeAsync(2000);
+    expect((await waiting).status).toBe(500);
+    jest.advanceTimersByTime(6000);
+    for (let index = 0; index < 10; index++) expect((await status()).status).toBe(500);
+    expect(getServerHealth).toHaveBeenCalledTimes(2);
+    finish({ mudIsRunning: true, mudUptimeSeconds: 456 });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect((await status()).body.uptimeSeconds).toBe(123);
+    expect(getServerHealth).toHaveBeenCalledTimes(3);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+});
+
 describe('public population boundary', () => {
   it('recovers a permanent forward correction without publishing the advanced wall-clock window', async () => {
     jest.setSystemTime(new Date('2026-10-20T12:30:00Z'));
@@ -274,6 +381,9 @@ describe('public population boundary', () => {
         uptimeSeconds: 123,
         population: { estimate: null },
       });
+      // The public diagnostic sample refreshes at its five-second boundary;
+      // delayed population remains separately unavailable while its I/O stalls.
+      await jest.advanceTimersByTimeAsync(3000);
       const healthEntered = new Promise<void>((resolve) => {
         getServerHealth.mockImplementationOnce(async () => {
           resolve();
@@ -282,12 +392,12 @@ describe('public population boundary', () => {
       });
       const second = status().then((response) => response);
       await healthEntered;
-      expect(jest.getTimerCount()).toBe(0);
       expect((await second).body).toMatchObject({
         mudIsRunning: true,
         uptimeSeconds: 456,
         population: { estimate: null },
       });
+      expect(jest.getTimerCount()).toBe(0);
       expect(dependency).toHaveBeenCalledTimes(1);
       // Resolve the original read and prove subsequent requests recover.
       finish(

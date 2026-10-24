@@ -1,6 +1,7 @@
 import { Router, Request, Response, type IRouter } from 'express';
 import { pool as db } from '../db/connection.js';
 import logger from '../utils/logger.js';
+import { getPublicStatusSnapshot } from '../services/publicStatusService.js';
 import {
   getPublicPopulation,
   publicPopulationForResponse,
@@ -16,19 +17,22 @@ const router: IRouter = Router();
 router.get('/', async (_req: Request, res: Response) => {
   res.set('Cache-Control', 'no-store');
   try {
-    const { getServerHealth, getHealthStatus } = await import('../services/serverHealthService.js');
-
-    const [health, population] = await Promise.all([getServerHealth(), getPublicPopulation()]);
-    const status = getHealthStatus(health);
+    const [snapshot, population] = await Promise.all([
+      getPublicStatusSnapshot(),
+      getPublicPopulation(),
+    ]);
 
     // Return limited public information
-    return res.json({
-      status: status.status,
-      message: status.message,
-      mudIsRunning: health.mudIsRunning,
-      population: publicPopulationForResponse(population),
-      uptimeSeconds: health.mudUptimeSeconds,
-      lastUpdated: new Date(),
+    return res.status(snapshot.httpStatus).json({
+      status: snapshot.status,
+      message: snapshot.message,
+      mudIsRunning: snapshot.mudIsRunning,
+      population:
+        snapshot.httpStatus === 200
+          ? publicPopulationForResponse(population)
+          : unavailablePopulation(),
+      uptimeSeconds: snapshot.uptimeSeconds,
+      lastUpdated: snapshot.lastUpdated,
     });
   } catch (error) {
     logger.error('Get public status error:', error);

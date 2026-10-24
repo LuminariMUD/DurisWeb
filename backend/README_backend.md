@@ -39,6 +39,14 @@ is retained for existing ledgers, not replayed for a fresh installation.
 The listener has no default host or port. `GET /health` returns 200 only when
 both MySQL and Redis respond; it returns 503 with a degraded snapshot otherwise.
 
+Public `/api/status` shares one diagnostic refresh and reuses its projected
+sample for five seconds. `lastUpdated` is the sample time, not each request's
+time. A refresh failure or two-second timeout returns explicit unavailable
+status (HTTP 500), never the expired healthy sample. A stalled refresh admits no
+replacement work until its underlying read settles. Population is read and its
+delayed-publication eligibility rechecked on every response. HTTP responses stay
+`no-store`; dependency `/health` checks remain independent and uncached.
+
 Large zone world files are parsed in one pass with periodic event-loop yields,
 so wiki and builder map reads can continue servicing other requests. An independent
 worker observes the backend heartbeat and writes a warning directly to stderr if
