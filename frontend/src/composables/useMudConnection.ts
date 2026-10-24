@@ -627,7 +627,23 @@ export function useMudConnection() {
   }
 
   const handleHometownsMessage = (message: MudHometownsMessage) => {
-    console.log('[MUD] hometowns response:', message)
+    const request = store.chargenHometownRequest
+    if (!request || message.race !== request.race || message.alignment !== request.alignment) return
+    if (
+      !Array.isArray(message.options) ||
+      message.options.length === 0 ||
+      !message.options.every(
+        (option) =>
+          option !== null &&
+          Number.isInteger(option.id) &&
+          option.id > 0 &&
+          typeof option.name === 'string',
+      ) ||
+      typeof message.hasChoice !== 'boolean'
+    ) {
+      store.setChargenError('Invalid hometown response. Select your race or alignment again.')
+      return
+    }
     store.setChargenHometowns(message.options, message.hasChoice)
   }
 
@@ -1030,15 +1046,23 @@ export function useMudConnection() {
   const swapStats = (stat1: string, stat2: string) =>
     sendChargenMutation({ type: 'cmd', cmd: 'swap_stats', data: { stat1, stat2 } })
 
-  const getHometowns = (raceId: number) => {
-    if (store.chargenLoading || store.chargenPending) return false
-    store.setChargenHometowns([], false)
-    store.setChargenError(null)
-    store.setChargenLoading(true)
+  const getHometowns = (raceId: number, alignment?: 'good' | 'evil') => {
+    if (store.chargenPending) return false
+    const race = store.chargenRaces.find((candidate) => candidate.id === raceId)
+    const expectedAlignment =
+      race?.faction === 'neutral' ? (alignment ?? null) : (race?.faction ?? null)
+    const previous = store.chargenHometownRequest
+    if (
+      store.chargenLoading &&
+      previous?.race === raceId &&
+      previous.alignment === expectedAlignment
+    )
+      return false
+    store.requestChargenHometowns(raceId, expectedAlignment)
     const sent = sendCommand({
       type: 'cmd',
       cmd: 'get_hometowns',
-      data: { race: raceId },
+      data: { race: raceId, ...(alignment ? { alignment } : {}) },
     })
     if (!sent)
       store.setChargenError('Connection unavailable. Reconnect and select your race again.')
@@ -1073,7 +1097,7 @@ export function useMudConnection() {
         class: charClass,
         sex,
         alignment,
-        hometown: hometown ?? -1,
+        ...(hometown === undefined ? {} : { hometown }),
         hardcore: hardcore ?? false,
         newbie: newbie ?? true,
       },
