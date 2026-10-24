@@ -493,15 +493,17 @@ export class PaintedMapLayer {
         }
         Promise.resolve()
           .then(() =>
-            blob ? URL.createObjectURL(blob) : pixelsToUrl(new Uint8ClampedArray(pixels!), width, height),
+            blob
+              ? URL.createObjectURL(blob)
+              : pixelsToUrl(new Uint8ClampedArray(pixels!), width, height),
           )
           .then((url) => {
-          if (this.destroyed || job.version !== this.version || job.stale?.()) {
-            URL.revokeObjectURL(url)
-            job.resolve(null)
-            return
-          }
-          job.resolve(url)
+            if (this.destroyed || job.version !== this.version || job.stale?.()) {
+              URL.revokeObjectURL(url)
+              job.resolve(null)
+              return
+            }
+            job.resolve(url)
           }, job.reject)
       }
       worker.onerror = () => {
