@@ -198,7 +198,7 @@ async function probeWebsite(phase: 'old' | 'new', directory: string): Promise<vo
         assert(record(event));
         donations.push(event);
       });
-      await donationReader.subscribe(`${namespace}:season:2:donation`);
+      await donationReader.subscribe(`${namespace}:season:2:nchat`);
       fs.writeFileSync(path.join(directory, 'new-subscribed'), 'ready');
       await waitFor(async () => {
         try {
