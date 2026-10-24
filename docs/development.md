@@ -155,6 +155,13 @@ teams, hidden future events, release cursors and a bounded outer aggregation
 in the actual optimizer plan. Default unit runs skip these native cases. It is
 not a production capacity or cold-database-cache measurement.
 
+`src/services/__tests__/forumSearchNative.test.ts` uses the same explicit traffic
+port/owner-input opt-in and its own PID-qualified full-schema database. Its
+small deterministic SQL/HTTP fixtures exercise all scopes, combined author/date/
+category filters, private/deleted content, real totals, stable pages, scalar query
+validation and anonymous refusal. Identity/settings/providers are test fixtures;
+real SQL and the actual search controller run without a MUD process.
+
 The MUD-owned [runtime journey](https://github.com/LuminariMUD/Duris/pull/347)
 (`run_pwipe_runtime_journey.py --redis --website <checkout>`) uses
 `backend/src/test/pwipeWebsiteProbe.ts` with the normal built backend. The probe
