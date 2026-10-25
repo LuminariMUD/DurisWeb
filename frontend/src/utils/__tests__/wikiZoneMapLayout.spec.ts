@@ -89,6 +89,55 @@ describe('zone-room layout', () => {
     expect(layoutZoneRooms([room(1)], Number.NaN)).toEqual(new Map([[1, { x: 0, y: 0 }]]))
     expect(layoutZoneRooms([room(1)], Number.POSITIVE_INFINITY)).toEqual(layoutZoneRooms([room(1)]))
   })
+
+  it('keeps a small branching cave with vertical connections free of route crossings', () => {
+    // Regression topology from the smaller comparison zone, with synthetic room identities.
+    const rooms = [
+      room(0, { south: 1 }),
+      room(1, { north: 0, west: 2 }),
+      room(2, { east: 1, down: 3 }),
+      room(3, { north: 4, up: 2 }),
+      room(4, { east: 5, south: 3 }),
+      room(5, { north: 6, west: 4 }),
+      room(6, { south: 5, down: 7 }),
+      room(7, { north: 8, east: 9, south: 11, west: 10, up: 6 }),
+      room(8, { south: 7 }),
+      room(9, { west: 7, down: 17 }),
+      room(10, { east: 7, down: 12 }),
+      room(11, { north: 7 }),
+      room(12, { north: 14, east: 13, south: 15, west: 16, up: 10 }),
+      room(13, { west: 12 }),
+      room(14, { south: 12 }),
+      room(15, { north: 12 }),
+      room(16, { east: 12 }),
+      room(17, { east: 18, up: 9 }),
+      room(18, { east: 19, west: 17 }),
+      room(19, { north: 20, east: 21, south: 22, west: 18 }),
+      room(20, { south: 19 }),
+      room(21, { west: 19 }),
+      room(22, { north: 19 }),
+    ]
+    const positions = layoutZoneRooms(rooms)
+    const connections = getZoneMapConnections(rooms)
+    const cross = (
+      a: { x: number; y: number },
+      b: { x: number; y: number },
+      c: { x: number; y: number },
+    ) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
+    for (const first of connections) {
+      for (const second of connections) {
+        if ([first.source, first.target].some((id) => id === second.source || id === second.target))
+          continue
+        const a = positions.get(Number(first.source))!
+        const b = positions.get(Number(first.target))!
+        const c = positions.get(Number(second.source))!
+        const d = positions.get(Number(second.target))!
+        expect(cross(a, b, c) * cross(a, b, d) < 0 && cross(c, d, a) * cross(c, d, b) < 0).toBe(
+          false,
+        )
+      }
+    }
+  })
 })
 
 describe('zone-room connections', () => {

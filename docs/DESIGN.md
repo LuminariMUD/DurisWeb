@@ -398,6 +398,34 @@ help outside the terrain on an ink footer. The terrain key is a compact native
 disclosure at every viewport, with a bounded scrollable body. Keep map controls
 and the key above the mobile navigation; global chrome and tokens remain shared.
 
+### Wiki zone-room map
+
+[`WikiZoneMap.vue`](../frontend/src/components/wiki/WikiZoneMap.vue) renders the
+individual zone's room graph, separately from the world map. Its deterministic
+[layout helper](../frontend/src/utils/wikiZoneMapLayout.ts) places every weakly
+connected component using exits, resolves occupied grid cells, and packs the
+components to the panel's proportions. Positions are schematic: conflicting
+compass constraints and vertical exits do not establish geographic coordinates
+or authoritative floors. Up/down connections are dashed; highlighted endpoint
+labels use U/D and compass abbreviations. Arrows preserve each direction of
+travel, including one-way links, and combined room-pair connections retain all
+of their exits. Sector colors continue to represent terrain.
+
+The selected room uses a diamond, bone border and vermilion screen-size marker,
+with a persistent VNUM/name button. **Find** centers that room at reading zoom;
+ordinary selection preserves the user's camera. Selected connections become
+brighter and display endpoint directions at reading zoom. The legend explains
+vertical links and remains a disclosure in fullscreen so it does not obscure
+the graph. Room-list buttons and existing exit controls provide keyboard room
+navigation alongside pointer/touch map selection.
+
+Initial layout, **Fit to View**, and **Auto-Layout** fit the complete graph,
+including large zones below 25% zoom. Canvas resizing refits an overview and
+preserves a custom camera without moving rooms. Auto-Layout explicitly repacks
+for the current panel. Fullscreen entry fits the graph; exit or Escape restores
+the previous custom camera or refits the previous overview. Hidden desktop and
+mobile panels initialize when visible and release their observers on unmount.
+
 ### Charts and third-party UI
 
 [`chartTheme.ts`](../frontend/src/utils/chartTheme.ts) supplies resolved color

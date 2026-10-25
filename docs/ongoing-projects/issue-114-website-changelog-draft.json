@@ -1,0 +1,7 @@
+{
+  "version": "2026.10.25-draft",
+  "title": "Find your way through larger zone maps",
+  "content": "<h3>Wiki zone maps</h3><ul><li><strong>A clearer view of large zones.</strong> Zone maps arrange connected groups of rooms together and use the available panel space. Fit to View shows the complete zone, including large maps such as Alatorin.</li><li><strong>Keep track of your room.</strong> The selected room has a distinct marker and a name button. Choose Find to center it at a closer zoom, then follow the brighter connections or the room's exit buttons. Arrows show travel direction, and dashed connections identify up/down exits.</li><li><strong>Maps adapt as you browse.</strong> The map resizes with the desktop panels and phone tabs. Fullscreen shows the whole zone and restores your previous view when you leave it. Room-list buttons also support keyboard selection.</li></ul>",
+  "category": "public",
+  "isPublished": false
+}

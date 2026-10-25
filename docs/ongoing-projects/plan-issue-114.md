@@ -1,266 +1,214 @@
 # Issue #114: zone-room map readability
 
-Prepared 2026-10-25. **Status: implementation in progress; layout chunk readying for review.**
+Updated 2026-10-25. **Status: implemented, locally accepted, and open for review in a two-PR stack.**
 
-- Issue: [Improve zone-room map layout and connection readability in large zones](https://github.com/LuminariMUD/DurisWeb/issues/114).
-- Branch: `branch/issue-114-zone-map-readability`.
-- Source baseline: `d2f38e291abdcf5ab35a9c703ee101271a6b841d`, matching local
-  `master` and remote `master` when this plan was prepared.
-- Implementation is authorized through review-ready PRs. Deployment and live
-  publication remain separate; no database or MUD operations are needed.
+- Issue: [#114](https://github.com/LuminariMUD/DurisWeb/issues/114).
+- Source baseline: `d2f38e291abdcf5ab35a9c703ee101271a6b841d`; remote `master`
+  still matches this baseline at final verification.
+- Layout branch: `branch/issue-114-zone-map-readability`, commit
+  `553f22cfc318886cdd968fa597cac6f3f44a179b`, [PR #115](https://github.com/LuminariMUD/DurisWeb/pull/115).
+  Its frontend/backend CI checks pass.
+- Follow-up branch: `branch/issue-114-zone-map-interactions`, based on #115,
+  [PR #116](https://github.com/LuminariMUD/DurisWeb/pull/116). Its runtime-code
+  commit is `c689d05b230de334085bf3a46de5c07a517b74d6`; the subsequent commit
+  records only this review metadata. Review/merge #115 first, then #116.
+  Check each PR's live Checks tab before merging; no merge is performed here.
+- Scope ends at review-ready PRs. Deployment, live acceptance and changelog
+  publication require the eventual authorized release; no release tag is needed.
 
-## Current handoff
+## Outcome and implemented design
 
-The first chunk replaces the single-component traversal/orphan grid with a
-deterministic traversal of every weak component, collision-free placement, and
-component packing based on the panel proportions. One visual connection retains
-all original directed exits between its rooms, with arrows matching those exits.
-The minimum zoom is lowered so Fit can actually show the entire large graph.
-No dependency or API change is needed.
+The wiki zone-detail map now lays out each connected group of rooms using its
+exits, then packs those groups to the panel proportions. All rooms are retained,
+occupied grid cells are resolved without an overlapping fallback, and placement
+is deterministic under room/exit enumeration changes. Incoming-only adjacency
+is used to discover component membership without inventing an exit.
 
-Confirmed using read-only `.wld`/`.zon` projections from MUD source
-`571bb08d9ea22642b76e48a3eee250f4b1b1a9b1`. No MUD process or data store was used.
-Alatorin has 952 rooms: the old outgoing traversal reaches just 4, leaving 948
-in the orphan grid. Weak component sizes start 288, 114, 92, 68, 51, 50. The
-comparison cases are Goblin Caves (#190, 23 rooms) and The Outcasts Tower
-(#113, 51 rooms, 16 vertical exits). Tower has one overlapping node pair in
-the old layout. The new layout has none in these cases.
+One visual room-pair connection retains all directed exits, with arrows for the
+actual directions of travel. Vertical links are dashed; selected connections
+show endpoint compass/U/D labels. Up/down offsets remain schematic and do not
+claim geographic coordinates or authoritative floors. Out-of-zone destinations
+retain the previous graph omission and existing room-detail behavior.
 
-Public website/API requests returned HTTP 403; live reproduction is unverified.
-Browser evidence instead uses the actual local application route and components,
-with fixture HTTP responses for zone data and peripheral bootstrap APIs. This
-proves the frontend path against real zone topology, not the deployed revision.
-Browser plugin is not available; regular Playwright uses installed Chrome
-155.0.8059.41. Node 24.15.0's preview crashed with `ECONNRESET`; the replacement
-preview runs on Node 26.11.1. The app's existing router `next()` deprecation
-warning is baseline noise. The initial fixture used anonymous 401 responses;
-subsequent captures use an anonymous user response to avoid that expected noise.
+The selected room has a diamond, bone border and constant-screen-size vermilion
+marker. Its persistent VNUM/name **Find** button centers it at reading zoom.
+Ordinary selection preserves the user's camera. Fit can zoom below the old
+25% floor and its padding clears the toolbar and marker. Zoom, pan, Fit,
+Auto-Layout, fullscreen and the sector legend remain available with named controls.
+The room list uses native keyboard-operable buttons.
 
-Six baseline captures (1440×900 and 390×844 for all three zones) and JSON
-measurements are outside Git under
+A resize observer initializes hidden desktop/mobile instances when they become
+visible, updates canvas dimensions, refits an overview, and preserves a custom
+camera. Resizing does not move rooms; explicit Auto-Layout repacks for the new
+panel. Fullscreen fits on entry and restores the prior custom camera or overview
+on exit/Escape. Observers, frames, listeners and renderers are released on unmount.
+
+The ablation review kept Cytoscape and one small pure layout helper. It removed
+unbounded initialization polling, the orphan grid and occupied-position fallback,
+and the fullscreen legend's permanently covering panel. A redundant selection
+glow was removed because it covered direction labels; the diamond/border/marker
+already identify selection. No layout chooser, new engine, worker pipeline,
+dependency, persistence service, API, schema, backend or MUD change was needed.
+World maps (`/wiki/map`, `/surface-map`), Mudlet and the game client are outside scope.
+
+## Source-grounded findings and comparisons
+
+The old outgoing traversal reached only **4 of Alatorin's 952 rooms**; it put
+948 rooms into an eleven-column grid without following their connections.
+Weak component sizes start 288, 114, 92, 68, 51 and 50. The old 528×4778-unit
+shape was clamped at 25% zoom, leaving only 506 room centers visible on desktop
+and 374 on narrow screens. Collision fallback also reproduced an overlapping
+room pair in the multi-level comparison zone.
+
+The final production-build browser matrix retains every room and exactly every
+in-zone `(source, direction, destination)` tuple, with zero node overlaps and
+no rooms covered by the zoom toolbar at Fit:
+
+- **Alatorin (#831):** 952 rooms, 2043 directed exits, 1037 visual connections.
+  The straight-segment crossing proxy falls from 12,455 to **169** (98.6% fewer).
+  All 952 rooms fit at 9.30% desktop / 5.12% narrow. Overview is for orientation;
+  Find and zoom provide individual-room reading and selection.
+- **The Gagga'Jobo Cave System (#190, `goblincave`):** 23 rooms, 44 directed
+  exits, 22 visual connections; crossing proxy remains **0 → 0**.
+- **The Outcasts Tower (#113, `otower`):** 51 rooms, 102 directed exits,
+  51 visual connections, including 16 vertical exits. Overlaps improve **1 → 0**;
+  the crossing proxy is **6 → 7**. The schematic still contains crossings and is
+  not claimed to be a minimum-crossing or geographic embedding.
+
+Crossings are strict intersections of center-to-center segments, excluding
+shared endpoints and collinear/endpoint contacts. This is a repeatable layout
+proxy, not a pixel count of rendered Bezier curves or a claim that every remaining
+crossing is unavoidable. Route checks and reading-zoom screenshots supplement it.
+
+Comparison caught a smaller-zone regression in the first layout chunk (five
+crossings). Preferring outgoing compass order and nearest clockwise collision
+cells restored zero. The synthetic-identity cave regression uses that topology;
+`measure-pr115.mjs` reproduces 191/5/6 crossings at #115, compared with final
+169/0/7. This refinement is included in the dependent PR.
+
+A direct Node 26.11.1 sample measured final layout at **6.80 ms** for #831,
+0.12 ms for #190 and 0.14 ms for #113. These are local observations, not production
+capacity or an enforced performance budget.
+
+## Browser acceptance and evidence
+
+Browser plugin was unavailable; regular Playwright used installed **Chrome
+155.0.8059.41 on Windows**. The actual application route, view, map component,
+Cytoscape renderer and controls ran from local production bundles. Zone and
+peripheral bootstrap HTTP responses plus the unrelated site WebSocket were
+fixtures. No MUD process, database, credential, or player data was used.
+
+The fixture is a read-only `.wld`/`.zon` projection matching the wiki room fields,
+from the local MUD checkout with HEAD
+`571bb08d9ea22642b76e48a3eee250f4b1b1a9b1` (Alatorin `.wld` SHA-256 prefix
+`a1085d540c245bba`). Public website/API requests returned 403; live reproduction
+and the deployed website identity remain unverified. Saved map-data positions
+were not adopted: the existing view uses zone-detail rooms, and the map-data
+endpoint has different exit-visibility semantics.
+
+- [x] Matched initial-fit, fixed 100% reading-zoom, selected-room and fullscreen
+  captures for all three zones at **1440×900** and **390×844**; additional #831
+  captures at **29%**, plus the actual dense-route selection.
+- [x] Tablet **768×1024**, and **1023×844 / 1024×844** breakpoint checks: complete
+  fit, retained selection on Details/Map tab reveal, no horizontal page overflow.
+- [x] Real canvas click selects #83101 without resetting camera; actual exit
+  buttons and existing keyboard exit navigation update details/map selection.
+- [x] Native room-list keyboard Space selection, visible **2px solid focus**,
+  and Find on a distant room. Traced actual routes
+  `83238:north:83234`, `83234:north:83230`, `83230:east:83231`.
+- [x] Pointer drag, wheel and toolbar zoom; resized desktop split updates actual
+  canvas dimensions while preserving a custom camera; Auto-Layout refits the
+  resized panel and keeps selection.
+- [x] Repeated fullscreen entry, Escape and button exit restore custom camera;
+  the fullscreen legend is operable. Fit shows all nodes clear of the toolbar.
+- [x] Mobile Chrome emulation with actual dispatched touch events: tap selects
+  #83101, one-finger drag pans, two-finger pinch zooms. Physical devices and
+  other browser engines are not qualified.
+- [x] Meaningful page content, expected route/title, no framework overlay and
+  clean console in the final serial acceptance sessions.
+
+Evidence is outside Git:
 `C:/Users/apexw/.codex/visualizations/2026/10/25/01a17354-e3cb-7c01-b502-67f0a0cde0f2/issue114/`.
-Alatorin's baseline graph is 528×4778 model units; its 25% zoom floor clips it
-inside the 691×587 desktop and 358×417 narrow map canvases. Fixture JSON and
-source provenance are in `/tmp/durisweb-issue114/`; recreate them from the
-recorded source if needed, keeping raw world data outside Git.
+It contains `before-*` / `after-*` PNGs, `before-metrics.json`, `after-metrics.json`,
+`matrix-checks.json` (including final source SHA-256 values), `browser-checks.json`,
+`touch-checks.json`, `extra-checks.json`, and the reusable `browser.cjs`,
+`matrix.cjs`, `acceptance.cjs`, `touch.cjs`, `extra.cjs` scripts.
 
-Next chunk: distinguish vertical and selected connections, persistent selection
-identity/recentering, resize/fullscreen/mobile lifecycle, component/view tests,
-matched final captures and interaction checks, design contract and changelog draft.
-Publish the first focused PR when its required checks finish, then stack the
-remaining interaction work. Keep this section and the validation ledger current.
+Fixtures/provenance and the temporary baseline build live in
+`/tmp/durisweb-issue114/`. `serve.py` serves the changed `frontend/dist` on 5179
+and the baseline build on 5180. The baseline build injects the exact original
+`WikiZoneMap.vue` from `d2f38e2` into the same application shell; the room-list
+button change does not affect its captured map. Raw fixtures remain outside Git.
+If temporary data is lost, recreate it by projecting the recorded `.wld` inputs
+through the fields in `wikiService.getZoneByNumber` and the direction table in
+`zoneBuilderParser`; do not start or modify the MUD.
 
-### Validation ledger
+Dev previews on Node 24.15.0 and 26.11.1 crashed with a devtools socket
+`ECONNRESET`; static bundles removed that dependency from acceptance. A blocked
+service-worker experiment produced expected registration errors, so final checks
+use fresh normal contexts with a stable build. Parallel Chrome runs exceeded
+an aggressive startup timeout; the same final checks pass serially without
+source changes. These harness attempts do not qualify the devtools or PWA flow.
 
-- `pnpm --dir frontend exec biome format --write src/utils/wikiZoneMapLayout.ts src/utils/__tests__/wikiZoneMapLayout.spec.ts src/components/wiki/WikiZoneMap.vue`: passed.
-- `pnpm --dir frontend test:unit --run src/utils/__tests__/wikiZoneMapLayout.spec.ts`: passed, 7 tests; 952-isolated-room packing included, 11 ms total test time.
-- `pnpm --dir frontend format:check`: passed (687 files).
-- `pnpm --dir frontend lint`, `pnpm --dir frontend type-check`, and
-  `./frontend/scripts/check-palette-literals.sh`: passed.
-- `pnpm --dir frontend build`: passed on Node 26.11.1 with explicit loopback
-  Vite settings (dev 5179, preview 4179). Existing editor/icon chunk-size warnings
-  remain. Initial type-check/build attempts rejected data-mapped arrow shapes;
-  replaced them with typed selector styles, then both checks passed.
-- Direct Node 26.11.1 layout measurement on the captured zone projections:
-  #831 4.53 ms / 2043 directed exits / 1037 visual connections; #190 0.10 ms;
-  #113 0.18 ms. These are local observations, not a production performance budget.
-- Browser desktop #831: all 952 nodes fit at 12.16% with zero overlapping pairs
-  and unchanged 1037 visual connections. Selection retains #83100. More readable
-  selection and connection presentation remain for the next chunk.
-- `git diff --check`: passed.
-- Backend checks are not run because no backend/configuration/database/MUD-write
-  code changes. Full frontend regression is deferred unless integration evidence
-  justifies it; focused new tests and required package checks cover each chunk.
+## Validation commands and results
 
-## Outcome and boundaries
+All package commands ran from the repository root. Source inspection used
+read-only Git, `rg`, `cat`, `sed`, `wc`, directory and process/socket probes.
+No package installation, migration, shared service or MUD operation was run.
 
-Make the **Zone Map on Wiki → Zones → zone detail** easier to understand:
-distinct rooms, traceable connections, useful panel coverage, and an identifiable
-selected room. Use Alatorin – the Forge City (#831), with room #83100 selected,
-as the main regression case. The report shows 952 rooms at 29% zoom; confirm
-those values against the reproduction data rather than assuming they are current.
+- Formatting writes, all passed: `pnpm --dir frontend exec biome format --write`
+  on the helper/spec/component; on component/view; and separately on each new
+  component/view spec. These were scoped file lists, not repository rewrites.
+- `pnpm --dir frontend format:check`: passed, final 689 files.
+- `pnpm --dir frontend lint`: passed.
+- `pnpm --dir frontend type-check`: passed. Initial attempts rejected data-mapped
+  arrow enums; typed selector styles fixed that before #115 was committed.
+- `./frontend/scripts/check-palette-literals.sh`: passed.
+- `pnpm --dir frontend test:unit --run src/utils/__tests__/wikiZoneMapLayout.spec.ts`:
+  passed, final 8 tests (including empty/single-room, 952-room packing, collision,
+  deterministic ordering, directed-exit semantics and small-cave crossing cases).
+- `pnpm --dir frontend test:unit --run src/components/wiki/__tests__/WikiZoneMap.spec.ts src/utils/__tests__/wikiZoneMapLayout.spec.ts src/views/wiki/__tests__/WikiZoneDetailView.spec.ts`:
+  passed, **15 tests** across three files. Component cases use actual headless
+  Cytoscape, with view tests covering query selection and navigation.
+- After removing only three redundant optional glow style properties, reran
+  `pnpm --dir frontend test:unit --run src/components/wiki/__tests__/WikiZoneMap.spec.ts`
+  (5 passed), format/lint, `pnpm --dir frontend build-only`, and the browser matrix,
+  touch and fullscreen/focus comparisons. Other valid test/type evidence is reused.
+- `pnpm --dir frontend build`: passed on Node 26.11.1; final style-only
+  `pnpm --dir frontend build-only` also passed. Existing editor/icon chunk-size
+  warnings remain. Builds used explicit loopback public endpoints:
+  `VITE_BASE_URL=/`, API/static `http://127.0.0.1:5179`, WS
+  `ws://127.0.0.1:5179/ws`, dev host `0.0.0.0`, dev port `5179`, preview host
+  `127.0.0.1`, preview port `4179`, allowed hosts `localhost`.
+- `pnpm --dir frontend build-only --config /tmp/durisweb-issue114/baseline.config.ts`:
+  passed, with the analogous baseline endpoints/ports 5180/4180 and private output.
+- Node 26.11.1: `/tmp/durisweb-issue114/measure-final.mjs` and
+  `/tmp/durisweb-issue114/measure-pr115.mjs`: passed, measured results above.
+- Bundled Windows Node ran `matrix.cjs`, `acceptance.cjs`, `touch.cjs`, and
+  `extra.cjs` from the evidence directory: passed serially. Matrix checks exact
+  topology, all-node fit, overlap and toolbar clearance; other scripts cover
+  the actual interactions, device emulation, fullscreen and focus listed above.
+- `git diff --check` and relative Markdown-link/JSON validation: passed before commit.
+  Runtime-source SHA-256 values match the final browser matrix exactly.
 
-Preserve room identities and actual exit topology, including one-way and
-vertical exits. Keep room-list/detail navigation, zoom, pan, Fit to View,
-Auto-Layout, fullscreen, and desktop/mobile access usable. An overview need
-not show every room label, but zooming in must make individual rooms selectable
-and their connections understandable.
+Full frontend regression and local backend checks/build/MUD-write verification
+are not run: no shared UI primitive, dependency, backend, configuration, database
+or MUD-write code changed. Required frontend gates, focused tests, browser
+acceptance and #115's CI are the applicable evidence; this is not a full burn-in.
 
-Non-goals: the world map at `/wiki/map` (issue #71), `/surface-map`, Mudlet or
-the browser game client, manual per-zone coordinates, new map engines, new
-dependencies, schema/API changes, and changes to the separate MUD repository.
-Do not add a layout chooser, persistence service, worker pipeline, or general
-graph framework without reproduction evidence that the requested outcome needs it.
+## Review and release handoff
 
-## Source findings and open questions
+Source changes are confined to
+[WikiZoneMap.vue](../../frontend/src/components/wiki/WikiZoneMap.vue),
+[wikiZoneMapLayout.ts](../../frontend/src/utils/wikiZoneMapLayout.ts), the room-list
+markup in [WikiZoneDetailView.vue](../../frontend/src/views/wiki/WikiZoneDetailView.vue),
+and their three focused test files. The durable contract is in
+[DESIGN.md](../DESIGN.md#wiki-zone-room-map).
 
-These are source observations, not a confirmed explanation of the screenshot.
-
-1. [WikiZoneMap.vue](../../frontend/src/components/wiki/WikiZoneMap.vue) owns
-   graph construction, layout, styling, selection, and viewport controls.
-   `runAutoLayout()` traverses outgoing exits from the first room with exits;
-   it does not restart traversal for each remaining connected component.
-   Unreached rooms are placed in rows of **11** starting at a fixed Y offset,
-   without preserving their connections in placement. This can create a tall
-   block even when those rooms form their own connected subgraphs. Measure
-   the unreached count for #831 before identifying this as its cause.
-2. Placement uses 50-unit grid spacing and 24-unit nodes. Collision resolution
-   tries 13 offsets, then returns the requested position even if occupied.
-   Cycles and contradictory direction constraints are not reconciled after
-   first placement. `up` shares the northeast offset and `down` the southeast
-   offset. These are concrete overlap and multi-level readability risks.
-3. `buildElements()` collapses all exits between an unordered room pair to
-   one edge, keeping only the first direction, while drawing one target arrow.
-   Check reciprocal exits, multiple directions to one destination, and
-   self-loops before changing routing; cleaner geometry must not imply an
-   incorrect route or lose exit semantics. Out-of-zone destinations are
-   currently omitted from the graph.
-4. Initial layout, Fit, and fullscreen use `cy.fit(undefined, 50)`; zoom is
-   constrained to 0.25–2. There is no explicit component resize observer.
-   Check whether fit is clamped for large graphs and whether resizing the
-   desktop split or revealing the mobile tab leaves stale canvas dimensions.
-   At the reported 29%, a 24-unit node is only about seven CSS pixels wide.
-5. [WikiZoneDetailView.vue](../../frontend/src/views/wiki/WikiZoneDetailView.vue)
-   builds the graph's `rooms` prop from zone-detail rooms/exits. It fetches and
-   stores `mapData` but does not pass those coordinates or edges to this map.
-   Desktop uses two resizable panels; mobile has separate Details and Map tabs.
-   Selection changes the highlight without intentionally changing the viewport.
-6. The existing [API types](../../frontend/src/types/index.ts) and
-   [wiki service](../../backend/src/services/wikiService.ts) expose optional
-   saved positions through map-data. That service also filters secret exits,
-   whereas the detail projection has a different exit representation. Switching
-   data sources is not a layout shortcut: first reconcile topology and visibility
-   contracts. Keep this plan frontend-focused; record a separate follow-up if
-   investigation establishes an independent API/visibility defect.
-7. No dedicated `WikiZoneMap` or `WikiZoneDetailView` test was found in the
-   current frontend tests. Existing
-   [LeafletMap tests](../../frontend/src/components/wiki/__tests__/LeafletMap.spec.ts)
-   illustrate the repository's Vue/Vitest patterns but cover another renderer.
-
-The reporter did not supply browser/OS, deployed revision, or exact viewport.
-The current live layout, #831 component counts, saved-position availability,
-and representative small/multi-level zone IDs remain unverified.
-
-## Implementation sequence
-
-### 1. Reproduce and establish the graph contract
-
-- [ ] Capture #831 with #83100 selected at initial fit, approximately 29%,
-  and a usable reading zoom. Record website SHA, browser/version, viewport,
-  actual map-panel dimensions, zoom/pan, room/exit counts, and fixture provenance.
-  Use approved public/demo data; keep raw captures and private evidence outside Git.
-- [ ] Record directed exit tuples, reciprocal/multi-exit pairs, weakly connected
-  components, rooms missed by the initial outgoing traversal, node overlaps,
-  graph bounds/aspect ratio, and visible panel occupancy. Trace several actual
-  routes through the dense lower section. Distinguish placement defects from
-  crossings inherent in the source graph.
-- [ ] Choose and record one representative smaller zone and one multi-level
-  zone. Add synthetic fixtures for disconnected components, incoming-only
-  reachability, cycles, directional conflicts, vertical exits, and isolated rooms.
-- [ ] Compare identical data and camera conditions before/after; do not claim
-  improvement from a different viewport, filtered graph, or missing rooms.
-
-### 2. Correct placement with the smallest sufficient layout
-
-- [ ] Keep Cytoscape and one deterministic layout path. Extract a typed pure
-  helper only for graph construction/placement that needs independent tests;
-  keep component lifecycle and camera state in the component.
-- [ ] If confirmed by the baseline, traverse every connected component instead
-  of flattening all unreached rooms into the orphan grid. Use undirected
-  adjacency only to discover membership; retain original directed exits for
-  navigation/rendering. Preserve useful compass relationships within components.
-- [ ] Replace the occupied-position fallback with collision-free placement for
-  finite inputs. Use stable room/exit ordering and indexed lookup/occupancy
-  structures where needed; do not add a second fallback layout engine.
-- [ ] Pack disconnected components to suit the available panel, with clear
-  separation, without inventing links or distorting coordinates independently
-  on X/Y. Evaluate vertical separation and conflicting constraints explicitly;
-  do not present up/down as ordinary compass exits. A floor selector is not
-  required unless simpler placement/routing fails the multi-level example.
-- [ ] Compare the resulting shape and route tracing with the baseline. If #831
-  is largely connected and this does not explain the problem, revisit its
-  actual constraint/crossing hotspots before choosing a different algorithm.
-
-### 3. Make connections and camera behavior readable
-
-- [ ] Represent one-way, reciprocal, parallel-direction, and vertical exits
-  faithfully. Combine a reciprocal pair visually only when both directions
-  remain explicit; use the existing exit controls as the navigation authority.
-  Tune edge routing/contrast/arrowheads against actual congested paths, avoiding
-  avoidable node intersections. Do not hide exits to improve a screenshot.
-- [ ] Make the selected node and its immediate connections distinguishable at
-  overview and reading zoom, without relying on color alone or permanently
-  labelling every node. Preserve room VNUM/name access and sector meanings.
-- [ ] Make initial fit and explicit Fit show the whole graph with useful
-  padding; reconcile fit with zoom limits. Keep normal selection from resetting
-  a user's pan/zoom. Handle split-panel resize, mobile tab reveal, and fullscreen
-  entry/exit without stale sizing, clipped controls, or unintended relayout.
-- [ ] Follow [DESIGN.md](../DESIGN.md) for tokens, control names, keyboard focus,
-  touch access, overlays, and motion. Scope accessibility repairs to changed
-  controls and the room-selection/navigation workflow.
-
-### 4. Prove acceptance and prepare the release handoff
-
-- [ ] Add focused tests for deterministic finite positions, zero node overlap,
-  every input room retained exactly once, and exact exit semantics. Include
-  empty/single-room cases and a synthetic graph comparable to the reported
-  952-room size; record layout time without inventing an unsupported performance
-  budget. Small fixtures must fail against the relevant old behavior.
-- [ ] Add component/view coverage for map-click selection, room-list selection,
-  exit-button navigation, initial `?room=83100` selection, highlight updates,
-  Fit/Auto-Layout controls, data replacement, resize, and teardown where changed.
-  Use rendered browser checks for canvas geometry and hit targets; mocks alone
-  do not establish readability or successful pointer interaction.
-- [ ] Capture matched before/after screenshots for all three real zones at
-  **1440×900 desktop** and **390×844 narrow**; also exercise **768×1024 tablet**
-  and both sides of the `lg` breakpoint. Record actual panel sizes. Include
-  initial fit, reading zoom, #831 near 29%, fullscreen, and selected-room states.
-- [ ] In the browser, pan and zoom with supported mouse/touch input, resize the
-  desktop split, switch mobile tabs, enter/exit fullscreen repeatedly, rerun
-  Auto-Layout, select neighboring rooms, and follow real connected-room exits.
-  Verify room identity/details/highlight agree, selected rooms remain findable,
-  controls stay accessible, and there are no new console errors.
-- [ ] Review the evidence against every issue criterion: spacing and shape,
-  fewer avoidable crossings/crowding, selectable rooms and visible selection,
-  all requested controls/navigation, and comparisons across zone types and sizes.
-  Record unavoidable crossings or incomplete evidence explicitly.
-- [ ] Update this plan with final decisions/results and the changed zone-map
-  contract in `DESIGN.md` if needed. Prepare visitor-facing Website Changelog
-  text during implementation using the
-  [news-update skill](../../.agents/skills/news-update/SKILL.md). Reconcile and
-  publish only after an authorized deployment is verified live, then verify
-  the saved entry and public rendering. This planning-only change needs no
-  public entry because it changes no website behavior.
-
-## Expected files and validation
-
-Expected implementation touches are `WikiZoneMap.vue`, its focused tests, and,
-only where integration/resize requires it, `WikiZoneDetailView.vue` and its tests.
-A small `frontend/src/utils/wikiZoneMapLayout.ts` plus colocated tests is
-appropriate if pure placement is extracted. No dependency, backend, or migration
-changes are planned. Keep unrelated unused-data cleanup out of the patch.
-
-Run from the repository root after implementation (new test paths are proposed):
-
-```bash
-pnpm --dir frontend test:unit --run src/components/wiki/__tests__/WikiZoneMap.spec.ts src/views/wiki/__tests__/WikiZoneDetailView.spec.ts
-# If the layout helper is extracted:
-pnpm --dir frontend test:unit --run src/utils/__tests__/wikiZoneMapLayout.spec.ts
-pnpm --dir frontend format:check
-pnpm --dir frontend lint
-pnpm --dir frontend type-check
-./frontend/scripts/check-palette-literals.sh
-pnpm --dir frontend build
-git diff --check
-```
-
-Use the final actual test paths in the handoff. Build only in a verified
-development/isolated checkout; production `frontend/dist` is served immediately.
-If evidence expands the change into backend/data contracts, revise this scope,
-read [SECURITY-COMPLIANCE.md](../SECURITY-COMPLIANCE.md), and run both packages'
-required checks plus applicable backend tests/build and `verify:mud-writes`.
-
-The validation ledger above records executed checks. Browser acceptance beyond
-the recorded baseline and first-layout preview, live reproduction, and release
-verification remain incomplete. The issue remains open until implementation
-and the acceptance evidence are complete.
+[issue-114-website-changelog-draft.json](issue-114-website-changelog-draft.json)
+is a complete **unpublished** public payload. At eventual authorized deployment,
+use the [news-update skill](../../.agents/skills/news-update/SKILL.md), reconcile
+existing entries/drafts, replace the draft version with the verified release
+version, publish after live acceptance, and verify saved fields/public rendering.
+There is no live changelog write or deployment in this task. Issue #114 should
+remain open until the reviewed stack is merged; the final PR can close it then.

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, shallowRef, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import cytoscape, { type Core, type NodeSingular, type ElementDefinition } from 'cytoscape'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { ZoomIn, ZoomOut, Maximize2, LayoutGrid, Info, Fullscreen, X } from '@lucide/vue'
+import { ZoomIn, ZoomOut, Maximize2, LayoutGrid, Info, Fullscreen, X, MapPin } from '@lucide/vue'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
+import { chartTheme } from '@/utils/chartTheme'
 
 import {
   getZoneMapConnections,
@@ -28,7 +29,16 @@ const NODE_SIZE = ZONE_MAP_NODE_SIZE
 
 // Container refs
 const containerRef = ref<HTMLElement | null>(null)
-const cyRef = ref<Core | null>(null)
+const cyRef = shallowRef<Core | null>(null)
+let resizeObserver: ResizeObserver | undefined
+let resizeFrame = 0
+let fitted = true
+let adjustingViewport = false
+let fullscreenCamera: { zoom: number; pan: { x: number; y: number }; fitted: boolean } | null = null
+const selectedRoom = computed(() =>
+  props.rooms.find((room) => room.vnum === props.selectedRoomVnum),
+)
+const selectedPosition = ref<{ x: number; y: number } | null>(null)
 
 // State
 const zoom = ref(100)
@@ -94,6 +104,19 @@ function getSectorColor(sectorType?: number): { bg: string; border: string } {
   return SECTOR_COLORS[key] ?? DEFAULT_SECTOR_COLOR
 }
 
+const directionLabels: Record<string, string> = {
+  north: 'N',
+  east: 'E',
+  south: 'S',
+  west: 'W',
+  up: 'U',
+  down: 'D',
+  northeast: 'NE',
+  northwest: 'NW',
+  southeast: 'SE',
+  southwest: 'SW',
+}
+
 // Build Cytoscape elements from rooms
 function buildElements(): ElementDefinition[] {
   const elements: ElementDefinition[] = []
@@ -120,8 +143,12 @@ function buildElements(): ElementDefinition[] {
       group: 'edges',
       data: {
         ...connection,
-        sourceLabel: connection.sourceDirections.join(', '),
-        targetLabel: connection.targetDirections.join(', '),
+        sourceLabel: connection.sourceDirections
+          .map((direction) => directionLabels[direction] ?? direction)
+          .join('/'),
+        targetLabel: connection.targetDirections
+          .map((direction) => directionLabels[direction] ?? direction)
+          .join('/'),
       },
       classes: [
         connection.vertical ? 'vertical' : '',
@@ -149,36 +176,51 @@ const stylesheet: cytoscape.StylesheetStyle[] = [
     },
   },
   {
-    selector: 'node:selected',
-    style: {
-      'background-color': '#16a34a', // green-600
-      'border-color': '#4ade80', // green-400
-      'border-width': 2,
-    },
-  },
-  {
     selector: 'node.highlighted',
     style: {
-      'background-color': '#16a34a', // green-600
-      'border-color': '#4ade80', // green-400
-      'border-width': 2,
+      'border-color': chartTheme.text,
+      'border-width': 4,
+      shape: 'diamond',
+      'z-index': 3,
     },
   },
   {
     selector: 'edge',
     style: {
       width: 2,
-      'line-color': '#52525b', // zinc-600
-      'target-arrow-color': '#52525b',
+      'line-color': chartTheme.neutralSeries,
+      'target-arrow-color': chartTheme.neutralSeries,
       'target-arrow-shape': 'none',
       'source-arrow-shape': 'none',
-      'source-arrow-color': '#52525b',
+      'source-arrow-color': chartTheme.neutralSeries,
       'curve-style': 'bezier',
+      'control-point-step-size': 36,
       'arrow-scale': 0.8,
     },
   },
   { selector: 'edge.to-target', style: { 'target-arrow-shape': 'triangle' } },
   { selector: 'edge.to-source', style: { 'source-arrow-shape': 'triangle' } },
+  { selector: 'edge.vertical', style: { 'line-style': 'dashed' } },
+  {
+    selector: 'edge.highlighted',
+    style: {
+      width: 3,
+      'line-color': chartTheme.text,
+      'source-arrow-color': chartTheme.text,
+      'target-arrow-color': chartTheme.text,
+      'source-label': 'data(sourceLabel)',
+      'target-label': 'data(targetLabel)',
+      'source-text-offset': 8,
+      'target-text-offset': 8,
+      'font-size': 12,
+      color: chartTheme.text,
+      'text-background-color': chartTheme.tooltip.backgroundColor,
+      'text-background-opacity': 1,
+      'text-background-padding': '2px',
+      'min-zoomed-font-size': 8,
+      'z-index': 2,
+    },
+  },
 ]
 
 // Initialize Cytoscape
@@ -188,10 +230,7 @@ function initCytoscape() {
 
   // Ensure container has dimensions
   const container = containerRef.value
-  if (container.clientWidth === 0 || container.clientHeight === 0) {
-    setTimeout(() => initCytoscape(), 100)
-    return
-  }
+  if (container.clientWidth === 0 || container.clientHeight === 0) return
 
   const elements = buildElements()
 
@@ -200,7 +239,9 @@ function initCytoscape() {
       container: container,
       elements,
       style: stylesheet,
-      layout: { name: 'grid', rows: 1 },
+      layout: { name: 'preset' },
+      autounselectify: true,
+      autoungrabify: true,
       minZoom: 0.02,
       maxZoom: 2,
     })
@@ -228,8 +269,8 @@ function initCytoscape() {
 
     tooltipVnum.value = vnum
     tooltipContent.value = name
-    tooltipX.value = renderedPos.x
-    tooltipY.value = renderedPos.y - NODE_SIZE - 8
+    tooltipX.value = Math.max(100, Math.min(container.clientWidth - 100, renderedPos.x))
+    tooltipY.value = Math.max(48, renderedPos.y - NODE_SIZE - 8)
     tooltipVisible.value = true
   })
 
@@ -237,21 +278,40 @@ function initCytoscape() {
     tooltipVisible.value = false
   })
 
-  // Event: zoom change
-  cy.on('zoom', () => {
+  cy.on('zoom pan', () => {
     zoom.value = Math.round(cy.zoom() * 100)
     tooltipVisible.value = false
+    if (!adjustingViewport) fitted = false
+    updateSelectedPosition()
   })
 
-  // Event: pan
-  cy.on('pan', () => {
-    tooltipVisible.value = false
-  })
+  runAutoLayout()
+  updateSelectedRoom(props.selectedRoomVnum)
+}
 
-  // Run auto-layout
-  nextTick(() => {
-    runAutoLayout()
-  })
+function updateSelectedPosition() {
+  const cy = cyRef.value
+  const node = cy?.getElementById(String(props.selectedRoomVnum))
+  if (!cy || !node?.length) {
+    selectedPosition.value = null
+    return
+  }
+  const position = node.renderedPosition()
+  selectedPosition.value =
+    position.x >= 0 && position.x <= cy.width() && position.y >= 0 && position.y <= cy.height()
+      ? { x: position.x, y: position.y }
+      : null
+}
+
+function handleFitToView() {
+  const cy = cyRef.value
+  if (!cy) return
+  fitted = true
+  adjustingViewport = true
+  // Clear the 46px toolbar, its 16px inset, and the screen-size selection marker.
+  cy.fit(undefined, 70)
+  adjustingViewport = false
+  updateSelectedPosition()
 }
 
 // Layout all components before fitting; the panel controls packing, not room scale.
@@ -265,8 +325,7 @@ function runAutoLayout() {
       cy.getElementById(String(vnum)).position(position)
     }
   })
-  cy.fit(undefined, 50)
-  zoom.value = Math.round(cy.zoom() * 100)
+  handleFitToView()
 }
 
 // Update selected room highlight
@@ -275,15 +334,17 @@ function updateSelectedRoom(vnum: number | null) {
   if (!cy) return
 
   // Remove highlight from all nodes
-  cy.nodes().removeClass('highlighted')
+  cy.elements().removeClass('highlighted')
 
   // Add highlight to selected node (without changing map position)
   if (vnum !== null) {
     const node = cy.getElementById(String(vnum))
     if (node.length) {
       node.addClass('highlighted')
+      node.connectedEdges().addClass('highlighted')
     }
   }
+  updateSelectedPosition()
 }
 
 // Control handlers
@@ -311,28 +372,51 @@ function handleZoomOut() {
   })
 }
 
-function handleFitToView() {
+function focusSelectedRoom() {
   const cy = cyRef.value
-  if (!cy) return
-  cy.fit(undefined, 50)
-  zoom.value = Math.round(cy.zoom() * 100)
+  const node = cy?.getElementById(String(props.selectedRoomVnum))
+  if (!cy || !node?.length) return
+  cy.zoom(Math.max(1, cy.zoom()))
+  cy.center(node)
 }
 
 function handleAutoLayout() {
   runAutoLayout()
 }
 
-// Fullscreen handlers
-function toggleFullscreen() {
+function resizeMap() {
+  const container = containerRef.value
+  if (!container?.clientWidth || !container.clientHeight) return
+  if (!cyRef.value) {
+    initCytoscape()
+    return
+  }
+  cyRef.value.resize()
+  if (fitted) handleFitToView()
+  else updateSelectedPosition()
+}
+
+async function toggleFullscreen() {
+  const cy = cyRef.value
+  if (!cy) return
+  if (!isFullscreen.value) fullscreenCamera = { zoom: cy.zoom(), pan: { ...cy.pan() }, fitted }
   isFullscreen.value = !isFullscreen.value
-  nextTick(() => {
-    const cy = cyRef.value
-    if (cy) {
-      cy.resize()
-      cy.fit(undefined, 50)
-      zoom.value = Math.round(cy.zoom() * 100)
-    }
-  })
+  await nextTick()
+  cy.resize()
+  if (isFullscreen.value || !fullscreenCamera || fullscreenCamera.fitted) {
+    handleFitToView()
+  } else if (fullscreenCamera) {
+    fitted = false
+    cy.viewport({ zoom: fullscreenCamera.zoom, pan: fullscreenCamera.pan })
+    updateSelectedPosition()
+  }
+}
+
+function handleEscape(event: KeyboardEvent) {
+  if (event.key === 'Escape' && isFullscreen.value) {
+    event.preventDefault()
+    void toggleFullscreen()
+  }
 }
 
 // Watch for selected room changes
@@ -343,44 +427,43 @@ watch(
   },
 )
 
-// Watch for room changes
+// Hidden desktop/mobile instances initialize only when their container becomes visible.
 watch(
   () => props.rooms,
-  () => {
-    const cy = cyRef.value
-    if (cy) {
-      cy.destroy()
-    }
-    nextTick(() => {
-      initCytoscape()
-      if (props.selectedRoomVnum !== null) {
-        updateSelectedRoom(props.selectedRoomVnum)
-      }
-    })
+  async () => {
+    cyRef.value?.destroy()
+    cyRef.value = null
+    selectedPosition.value = null
+    fullscreenCamera = null
+    await nextTick()
+    resizeMap()
   },
   { deep: true },
 )
 
-// Lifecycle
 onMounted(() => {
-  initCytoscape()
-  if (props.selectedRoomVnum !== null) {
-    nextTick(() => {
-      updateSelectedRoom(props.selectedRoomVnum)
-    })
-  }
+  resizeObserver = new ResizeObserver(() => {
+    cancelAnimationFrame(resizeFrame)
+    resizeFrame = requestAnimationFrame(resizeMap)
+  })
+  if (containerRef.value) resizeObserver.observe(containerRef.value)
+  resizeMap()
+  window.addEventListener('keydown', handleEscape)
 })
 
 onUnmounted(() => {
-  const cy = cyRef.value
-  if (cy) {
-    cy.destroy()
-  }
+  resizeObserver?.disconnect()
+  cancelAnimationFrame(resizeFrame)
+  window.removeEventListener('keydown', handleEscape)
+  cyRef.value?.destroy()
+  cyRef.value = null
 })
 </script>
 
 <template>
   <div
+    role="region"
+    aria-label="Zone room map"
     :class="[
       'flex flex-col bg-background',
       isFullscreen ? 'fixed inset-0 z-50' : 'h-full'
@@ -400,20 +483,22 @@ onUnmounted(() => {
           size="icon"
           :class="isFullscreen ? 'h-8 w-8' : 'h-5 w-5'"
           :title="isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'"
+          :aria-label="isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'"
           @click="toggleFullscreen"
           :disabled="rooms.length === 0"
         >
           <X v-if="isFullscreen" class="h-5 w-5" />
           <Fullscreen v-else class="h-3.5 w-3.5 text-faint" />
         </Button>
-        <Popover v-if="!isFullscreen">
+        <Popover>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" class="h-5 w-5" title="Sector Legend">
+            <Button variant="ghost" size="icon" class="h-8 w-8" title="Sector Legend" aria-label="Sector Legend">
               <Info class="h-3.5 w-3.5 text-faint" />
             </Button>
           </PopoverTrigger>
           <PopoverContent class="w-48 p-2" align="end">
             <div class="text-xs font-medium mb-2 text-muted-foreground">Sector Types</div>
+            <p class="text-xs text-muted-foreground mb-2">Dashed connections have up/down exits. U means up; D means down.</p>
             <div class="space-y-1">
               <div
                 v-for="(name, sectorId) in SECTOR_NAMES"
@@ -443,10 +528,30 @@ onUnmounted(() => {
         class="absolute inset-0 w-full h-full"
       />
 
+      <div
+        v-if="selectedPosition"
+        data-selected-marker
+        class="absolute pointer-events-none h-4 w-4 border-2 border-vermilion"
+        :style="{ left: `${selectedPosition.x}px`, top: `${selectedPosition.y}px`, transform: 'translate(-50%, -50%) rotate(45deg)' }"
+      />
+
+      <Button
+        v-if="selectedRoom"
+        variant="outline"
+        class="absolute top-2 left-2 right-2 h-auto py-2 justify-start bg-card gap-2 text-xs"
+        :aria-label="`Find selected room #${selectedRoom.vnum}`"
+        @click="focusSelectedRoom"
+      >
+        <MapPin class="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span class="font-mono shrink-0">#{{ selectedRoom.vnum }}</span>
+        <span class="truncate text-left" v-html="parseAnsiToHtml(selectedRoom.name)" />
+        <span class="ml-auto shrink-0 text-muted-foreground">Find</span>
+      </Button>
+
       <!-- Custom Tooltip -->
       <div
         v-if="tooltipVisible"
-        class="absolute pointer-events-none z-50 px-2 py-1 bg-ink-high border border-border rounded text-sm shadow-lg"
+        class="absolute pointer-events-none z-50 max-w-[calc(100%-1rem)] px-2 py-1 bg-ink-high border border-border rounded text-sm shadow-lg"
         :style="{
           left: `${tooltipX}px`,
           top: `${tooltipY}px`,
@@ -460,11 +565,11 @@ onUnmounted(() => {
 
       <!-- Zoom Controls -->
       <div class="absolute bottom-4 left-4 flex items-center gap-2 bg-card border border-border rounded-lg p-2">
-        <Button variant="ghost" size="icon" class="h-7 w-7" @click="handleZoomOut">
+        <Button variant="ghost" size="icon" class="h-7 w-7" aria-label="Zoom out" :disabled="rooms.length === 0" @click="handleZoomOut">
           <ZoomOut class="h-4 w-4" />
         </Button>
         <span class="text-xs text-muted-foreground w-10 text-center">{{ zoom }}%</span>
-        <Button variant="ghost" size="icon" class="h-7 w-7" @click="handleZoomIn">
+        <Button variant="ghost" size="icon" class="h-7 w-7" aria-label="Zoom in" :disabled="rooms.length === 0" @click="handleZoomIn">
           <ZoomIn class="h-4 w-4" />
         </Button>
         <div class="border-l border-border ml-1 pl-2 flex gap-1">
@@ -473,6 +578,8 @@ onUnmounted(() => {
             size="icon"
             class="h-7 w-7"
             title="Fit to View"
+            aria-label="Fit to View"
+            :disabled="rooms.length === 0"
             @click="handleFitToView"
           >
             <Maximize2 class="h-4 w-4" />
@@ -482,34 +589,12 @@ onUnmounted(() => {
             size="icon"
             class="h-7 w-7"
             title="Auto-Layout"
+            aria-label="Auto-Layout"
+            :disabled="rooms.length === 0"
             @click="handleAutoLayout"
           >
             <LayoutGrid class="h-4 w-4" />
           </Button>
-        </div>
-      </div>
-
-      <!-- Fullscreen Legend (bottom-right) -->
-      <div
-        v-if="isFullscreen"
-        class="absolute bottom-20 right-4 bg-card border border-border rounded-lg p-3 z-10"
-      >
-        <div class="text-xs font-medium mb-2 text-muted-foreground">Sector Types</div>
-        <div class="space-y-1.5">
-          <div
-            v-for="(name, sectorId) in SECTOR_NAMES"
-            :key="sectorId"
-            class="flex items-center gap-2"
-          >
-            <div
-              class="w-4 h-4 rounded border-2"
-              :style="{
-                backgroundColor: SECTOR_COLORS[Number(sectorId)]?.bg || DEFAULT_SECTOR_COLOR.bg,
-                borderColor: SECTOR_COLORS[Number(sectorId)]?.border || DEFAULT_SECTOR_COLOR.border,
-              }"
-            />
-            <span class="text-xs text-bone-muted">{{ name }}</span>
-          </div>
         </div>
       </div>
 
