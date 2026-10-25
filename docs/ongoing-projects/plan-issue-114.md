@@ -1,6 +1,6 @@
 # Issue #114: zone-room map readability
 
-Updated 2026-10-25. **Status: implemented and locally accepted; publishing the dependent PR.**
+Updated 2026-10-25. **Status: implemented, locally accepted, and open for review in a two-PR stack.**
 
 - Issue: [#114](https://github.com/LuminariMUD/DurisWeb/issues/114).
 - Source baseline: `d2f38e291abdcf5ab35a9c703ee101271a6b841d`; remote `master`
@@ -8,8 +8,11 @@ Updated 2026-10-25. **Status: implemented and locally accepted; publishing the d
 - Layout branch: `branch/issue-114-zone-map-readability`, commit
   `553f22cfc318886cdd968fa597cac6f3f44a179b`, [PR #115](https://github.com/LuminariMUD/DurisWeb/pull/115).
   Its frontend/backend CI checks pass.
-- Follow-up branch: `branch/issue-114-zone-map-interactions`, based on #115.
-  Merge/review the layout chunk first, then this dependent interaction chunk.
+- Follow-up branch: `branch/issue-114-zone-map-interactions`, based on #115,
+  [PR #116](https://github.com/LuminariMUD/DurisWeb/pull/116). Its runtime-code
+  commit is `c689d05b230de334085bf3a46de5c07a517b74d6`; the subsequent commit
+  records only this review metadata. Review/merge #115 first, then #116.
+  Check each PR's live Checks tab before merging; no merge is performed here.
 - Scope ends at review-ready PRs. Deployment, live acceptance and changelog
   publication require the eventual authorized release; no release tag is needed.
 
