@@ -393,10 +393,11 @@ watch(
       <div v-if="showRoomList" class="border-b bg-muted/30 max-h-64 overflow-hidden">
         <ScrollArea class="h-full max-h-64">
           <div class="divide-y">
-            <div
+            <button
               v-for="room in zone.rooms"
               :key="room.vnum"
-              class="px-4 py-2 cursor-pointer hover:bg-muted/50 transition-colors flex items-center gap-3"
+              type="button"
+              class="w-full text-left px-4 py-2 cursor-pointer hover:bg-muted/50 transition-colors flex items-center gap-3"
               :class="{ 'bg-muted': selectedRoom?.vnum === room.vnum }"
               @click="selectRoom(room)"
             >
@@ -408,7 +409,7 @@ watch(
               <span class="truncate">
                 <AnsiText :text="room.name" />
               </span>
-            </div>
+            </button>
           </div>
         </ScrollArea>
       </div>

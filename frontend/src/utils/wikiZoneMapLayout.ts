@@ -29,7 +29,7 @@ const directionOffsets: Record<string, RoomPosition> = {
   south: { x: 0, y: 1 },
   west: { x: -1, y: 0 },
   up: { x: 1, y: -1 },
-  down: { x: -1, y: 1 },
+  down: { x: 1, y: 1 },
   northeast: { x: 1, y: -1 },
   northwest: { x: -1, y: -1 },
   southeast: { x: 1, y: 1 },
@@ -69,6 +69,8 @@ export function getZoneMapConnections(rooms: readonly WikiMapRoom[]): ZoneMapCon
 
 interface Neighbor extends RoomPosition {
   vnum: number
+  incoming: boolean
+  directionOrder: number
 }
 
 interface Component {
@@ -89,13 +91,29 @@ export function layoutZoneRooms(
     for (const [direction, destination] of Object.entries(room.exits ?? {})) {
       if (!neighbors.has(destination) || destination === room.vnum) continue
       const offset = directionOffsets[direction] ?? { x: 1, y: 0 }
-      neighbors.get(room.vnum)?.push({ vnum: destination, ...offset })
+      const directionOrder = Object.keys(directionOffsets).indexOf(direction)
+      neighbors
+        .get(room.vnum)
+        ?.push({ vnum: destination, ...offset, incoming: false, directionOrder })
       // Incoming-only rooms belong to the same component, without inventing an exit.
-      neighbors.get(destination)?.push({ vnum: room.vnum, x: -offset.x, y: -offset.y })
+      neighbors.get(destination)?.push({
+        vnum: room.vnum,
+        x: -offset.x,
+        y: -offset.y,
+        incoming: true,
+        directionOrder,
+      })
     }
   }
   for (const adjacent of neighbors.values()) {
-    adjacent.sort((a, b) => a.vnum - b.vnum || a.x - b.x || a.y - b.y)
+    adjacent.sort(
+      (a, b) =>
+        Number(a.incoming) - Number(b.incoming) ||
+        a.directionOrder - b.directionOrder ||
+        a.vnum - b.vnum ||
+        a.x - b.x ||
+        a.y - b.y,
+    )
   }
 
   const visited = new Set<number>()
@@ -124,6 +142,13 @@ export function layoutZoneRooms(
             { x: current.x + radius, y: current.y + offset },
           )
         }
+        // Prefer the nearest cell, starting east and proceeding clockwise.
+        // This keeps uncomplicated existing corridors stable when a branch collides.
+        const distance = (point: RoomPosition) =>
+          (point.x - current.x) ** 2 + (point.y - current.y) ** 2
+        const angle = (point: RoomPosition) =>
+          (Math.atan2(point.y - current.y, point.x - current.x) + Math.PI * 2) % (Math.PI * 2)
+        candidates.sort((a, b) => distance(a) - distance(b) || angle(a) - angle(b))
         position = candidates.find((point) => !occupied.has(`${point.x},${point.y}`)) ?? position
       }
       positions.set(current.vnum, position)
