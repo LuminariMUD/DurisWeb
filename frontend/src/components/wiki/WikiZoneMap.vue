@@ -6,12 +6,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ZoomIn, ZoomOut, Maximize2, LayoutGrid, Info, Fullscreen, X } from '@lucide/vue'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 
-interface WikiMapRoom {
-  vnum: number
-  name: string
-  sectorType: number
-  exits?: Record<string, number>
-}
+import {
+  getZoneMapConnections,
+  layoutZoneRooms,
+  ZONE_MAP_NODE_SIZE,
+  type WikiMapRoom,
+} from '@/utils/wikiZoneMapLayout'
 
 const props = defineProps<{
   rooms: WikiMapRoom[]
@@ -24,8 +24,7 @@ const emit = defineEmits<{
 }>()
 
 // Constants
-const GRID_SIZE = 50
-const NODE_SIZE = 24
+const NODE_SIZE = ZONE_MAP_NODE_SIZE
 
 // Container refs
 const containerRef = ref<HTMLElement | null>(null)
@@ -95,20 +94,6 @@ function getSectorColor(sectorType?: number): { bg: string; border: string } {
   return SECTOR_COLORS[key] ?? DEFAULT_SECTOR_COLOR
 }
 
-// Direction offsets for auto-layout
-const DIRECTION_OFFSETS: Record<string, { x: number; y: number }> = {
-  north: { x: 0, y: -GRID_SIZE },
-  south: { x: 0, y: GRID_SIZE },
-  east: { x: GRID_SIZE, y: 0 },
-  west: { x: -GRID_SIZE, y: 0 },
-  northeast: { x: GRID_SIZE, y: -GRID_SIZE },
-  northwest: { x: -GRID_SIZE, y: -GRID_SIZE },
-  southeast: { x: GRID_SIZE, y: GRID_SIZE },
-  southwest: { x: -GRID_SIZE, y: GRID_SIZE },
-  up: { x: GRID_SIZE, y: -GRID_SIZE },
-  down: { x: GRID_SIZE, y: GRID_SIZE },
-}
-
 // Build Cytoscape elements from rooms
 function buildElements(): ElementDefinition[] {
   const elements: ElementDefinition[] = []
@@ -130,33 +115,20 @@ function buildElements(): ElementDefinition[] {
     })
   }
 
-  // Add edges
-  const addedEdges = new Set<string>()
-  for (const room of props.rooms) {
-    if (!room.exits) continue
-
-    for (const [dir, toVnum] of Object.entries(room.exits)) {
-      if (toVnum === undefined || toVnum === -1) continue
-
-      // Check if destination exists in our zone
-      const destRoom = props.rooms.find((r) => r.vnum === toVnum)
-      if (!destRoom) continue
-
-      // Avoid duplicate edges (sort to ensure consistent key)
-      const edgeKey = [room.vnum, toVnum].sort().join('-')
-      if (addedEdges.has(edgeKey)) continue
-      addedEdges.add(edgeKey)
-
-      elements.push({
-        group: 'edges',
-        data: {
-          id: `edge-${room.vnum}-${toVnum}`,
-          source: String(room.vnum),
-          target: String(toVnum),
-          direction: dir,
-        },
-      })
-    }
+  for (const connection of getZoneMapConnections(props.rooms)) {
+    elements.push({
+      group: 'edges',
+      data: {
+        ...connection,
+        sourceLabel: connection.sourceDirections.join(', '),
+        targetLabel: connection.targetDirections.join(', '),
+      },
+      classes: [
+        connection.vertical ? 'vertical' : '',
+        connection.sourceDirections.length ? 'to-target' : '',
+        connection.targetDirections.length ? 'to-source' : '',
+      ].join(' '),
+    })
   }
 
   return elements
@@ -198,11 +170,15 @@ const stylesheet: cytoscape.StylesheetStyle[] = [
       width: 2,
       'line-color': '#52525b', // zinc-600
       'target-arrow-color': '#52525b',
-      'target-arrow-shape': 'triangle',
+      'target-arrow-shape': 'none',
+      'source-arrow-shape': 'none',
+      'source-arrow-color': '#52525b',
       'curve-style': 'bezier',
       'arrow-scale': 0.8,
     },
   },
+  { selector: 'edge.to-target', style: { 'target-arrow-shape': 'triangle' } },
+  { selector: 'edge.to-source', style: { 'source-arrow-shape': 'triangle' } },
 ]
 
 // Initialize Cytoscape
@@ -225,7 +201,7 @@ function initCytoscape() {
       elements,
       style: stylesheet,
       layout: { name: 'grid', rows: 1 },
-      minZoom: 0.25,
+      minZoom: 0.02,
       maxZoom: 2,
     })
   } catch (error) {
@@ -278,116 +254,17 @@ function initCytoscape() {
   })
 }
 
-// Run BFS-based auto-layout respecting exit directions
+// Layout all components before fitting; the panel controls packing, not room scale.
 function runAutoLayout() {
   const cy = cyRef.value
-  if (!cy) return
-
-  const positions = new Map<number, { x: number; y: number }>()
-  const visited = new Set<number>()
-  const queue: Array<{ vnum: number; x: number; y: number }> = []
-
-  // Find starting room
-  let startRoom = props.rooms.find((r) => r.exits && Object.keys(r.exits).length > 0)
-  if (!startRoom) startRoom = props.rooms[0]
-  if (!startRoom) return
-
-  queue.push({ vnum: startRoom.vnum, x: 0, y: 0 })
-  visited.add(startRoom.vnum)
-
-  // Spiral offsets for collision resolution
-  const spiralOffsets = [
-    { x: 0, y: 0 },
-    { x: 1, y: 0 },
-    { x: 0, y: 1 },
-    { x: -1, y: 0 },
-    { x: 0, y: -1 },
-    { x: 1, y: 1 },
-    { x: -1, y: 1 },
-    { x: -1, y: -1 },
-    { x: 1, y: -1 },
-    { x: 2, y: 0 },
-    { x: 0, y: 2 },
-    { x: -2, y: 0 },
-    { x: 0, y: -2 },
-  ]
-
-  // Check if position is occupied
-  function isOccupied(x: number, y: number): boolean {
-    const threshold = NODE_SIZE + 5
-    for (const pos of positions.values()) {
-      if (Math.abs(pos.x - x) < threshold && Math.abs(pos.y - y) < threshold) {
-        return true
-      }
-    }
-    return false
-  }
-
-  // Find available position
-  function findAvailable(targetX: number, targetY: number): { x: number; y: number } {
-    for (const offset of spiralOffsets) {
-      const x = Math.round((targetX + offset.x * GRID_SIZE) / GRID_SIZE) * GRID_SIZE
-      const y = Math.round((targetY + offset.y * GRID_SIZE) / GRID_SIZE) * GRID_SIZE
-      if (!isOccupied(x, y)) {
-        return { x, y }
-      }
-    }
-    return { x: targetX, y: targetY }
-  }
-
-  // BFS layout
-  while (queue.length > 0) {
-    const current = queue.shift()!
-    const pos = findAvailable(current.x, current.y)
-    positions.set(current.vnum, pos)
-
-    const room = props.rooms.find((r) => r.vnum === current.vnum)
-    if (!room?.exits) continue
-
-    for (const [dir, toVnum] of Object.entries(room.exits)) {
-      if (toVnum === undefined || toVnum === -1) continue
-      if (visited.has(toVnum)) continue
-
-      const destRoom = props.rooms.find((r) => r.vnum === toVnum)
-      if (!destRoom) continue
-
-      visited.add(toVnum)
-
-      const offset = DIRECTION_OFFSETS[dir] || { x: GRID_SIZE, y: 0 }
-      queue.push({
-        vnum: toVnum,
-        x: pos.x + offset.x,
-        y: pos.y + offset.y,
-      })
-    }
-  }
-
-  // Handle orphan rooms
-  let orphanX = 0
-  let orphanY = GRID_SIZE * 8
-  for (const room of props.rooms) {
-    if (!positions.has(room.vnum)) {
-      const pos = findAvailable(orphanX, orphanY)
-      positions.set(room.vnum, pos)
-      orphanX += GRID_SIZE
-      if (orphanX > GRID_SIZE * 10) {
-        orphanX = 0
-        orphanY += GRID_SIZE
-      }
-    }
-  }
-
-  // Apply positions to Cytoscape
+  const container = containerRef.value
+  if (!cy || !container) return
+  const positions = layoutZoneRooms(props.rooms, container.clientWidth / container.clientHeight)
   cy.batch(() => {
-    for (const [vnum, pos] of positions) {
-      const node = cy.getElementById(String(vnum))
-      if (node.length) {
-        node.position(pos)
-      }
+    for (const [vnum, position] of positions) {
+      cy.getElementById(String(vnum)).position(position)
     }
   })
-
-  // Fit view
   cy.fit(undefined, 50)
   zoom.value = Math.round(cy.zoom() * 100)
 }
