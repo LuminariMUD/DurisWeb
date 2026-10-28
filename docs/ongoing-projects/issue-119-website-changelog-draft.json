@@ -1,0 +1,7 @@
+{
+  "version": "2026.10.28-draft",
+  "title": "Continue help pages with Enter",
+  "content": "<h3>Browser client</h3><ul><li><strong>Continue paged text.</strong> When help or another long output asks you to press Return, press Enter with the command field empty, or click Send, to continue one page.</li><li><strong>Repeat commands deliberately.</strong> The command field now clears after sending. Press Up then Enter to repeat your previous command; Up and Down browse command history. Blank continuations stay out of history.</li></ul>",
+  "category": "public",
+  "isPublished": false
+}

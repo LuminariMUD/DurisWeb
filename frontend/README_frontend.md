@@ -40,6 +40,23 @@ The game reconnect dialog retains a server-supplied authentication refusal after
 the socket closes, including a season launch notice and its UTC opening time.
 Without a supplied reason it shows the ordinary disconnected message.
 
+### Game commands and paging
+
+Submitting a command clears the input. Press **Up**, then **Enter**, to recall
+and repeat it; **Up/Down** browse history and **Escape** clears the field.
+**Enter** or **Send** with an empty or whitespace-only field sends one blank
+game command, allowing the MUD pager to continue. Held Enter and IME confirmation
+do not submit from the command field. Page numbers and `q`, `r`, and `b` use the
+same input.
+
+Blank submissions bypass aliases, command echo, and history. Empty segments in
+semicolon chains (including alias expansions) remain ignored; `look;;scan`
+sends only `look` and `scan`. The transport preserves the blank as
+`{"type":"cmd","cmd":"game","data":""}` without queueing it for reconnect.
+The paired MUD must accept that frame through its normal playing-session input
+queue; the companion fix is tracked in
+[Duris #443](https://github.com/LuminariMUD/Duris/issues/443).
+
 ## Setup
 
 Copy `frontend/.env.example` to `frontend/.env` and set every public URL, host,
