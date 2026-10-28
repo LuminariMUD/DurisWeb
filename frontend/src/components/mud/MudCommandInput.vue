@@ -20,6 +20,17 @@ const maxHistory = 100
 const sendCommand = () => {
   const cmd = command.value.trim()
 
+  // Leave Enter ready for the pager. Up then Enter explicitly repeats a command.
+  command.value = ''
+  historyIndex.value = -1
+  nextTick(focusInput)
+
+  // A deliberately blank submission is one pager continuation, never an alias.
+  if (!cmd) {
+    sendGameCommand('')
+    return
+  }
+
   // Split by semicolons first (supports "drink fountain;look;scan")
   const inputParts = cmd
     .split(';')
@@ -46,30 +57,21 @@ const sendCommand = () => {
     }
   }
 
-  // Add ORIGINAL command to history (not expanded) - avoid duplicates and empty commands
-  if (cmd && commandHistory.value[commandHistory.value.length - 1] !== cmd) {
+  // Keep the original command in history, without consecutive duplicates.
+  if (commandHistory.value[commandHistory.value.length - 1] !== cmd) {
     commandHistory.value.push(cmd)
     if (commandHistory.value.length > maxHistory) {
       commandHistory.value.shift()
     }
   }
-
-  // Select all text for easy re-send (Mudlet-style spam support)
-  historyIndex.value = -1
-  nextTick(() => {
-    const inputEl = (inputRef.value?.$el?.querySelector('input') ||
-      inputRef.value?.$el) as HTMLInputElement | null
-    if (inputEl) {
-      inputEl.focus()
-      inputEl.select()
-    }
-  })
 }
 
 const handleKeyDown = (event: KeyboardEvent) => {
   switch (event.key) {
     case 'Enter':
-      sendCommand()
+      event.preventDefault()
+      // Holding Enter or confirming IME text must not skip through pages.
+      if (!event.repeat && !event.isComposing) sendCommand()
       break
 
     case 'ArrowUp':
@@ -110,7 +112,11 @@ const navigateHistory = (direction: number) => {
 // Focus input when pressing any key (if not already focused on an input)
 const handleGlobalKeyDown = (event: KeyboardEvent) => {
   // Ignore if user is typing in another input
-  if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+  if (
+    event.target instanceof HTMLInputElement ||
+    event.target instanceof HTMLTextAreaElement ||
+    event.target instanceof HTMLButtonElement
+  ) {
     return
   }
 
@@ -176,12 +182,14 @@ defineExpose({
 </script>
 
 <template>
-  <div class="flex items-center gap-2 p-2 border-t bg-background">
+  <form class="flex items-center gap-2 p-2 border-t bg-background" @submit.prevent="sendCommand">
     <Input
       ref="inputRef"
       v-model="command"
       type="text"
-      placeholder="Enter command..."
+      aria-label="Game command"
+      placeholder="Command (↑ to repeat)"
+      title="Enter or Send submits once. Leave blank to continue a page. Up recalls previous commands."
       class="flex-1 font-mono"
       autocomplete="off"
       autocapitalize="off"
@@ -189,8 +197,8 @@ defineExpose({
       spellcheck="false"
       @keydown="handleKeyDown"
     />
-    <Button size="icon" @click="sendCommand">
-      <Send class="h-4 w-4" />
+    <Button type="submit" size="icon" aria-label="Send command" title="Send command or continue page">
+      <Send class="h-4 w-4" aria-hidden="true" />
     </Button>
-  </div>
+  </form>
 </template>

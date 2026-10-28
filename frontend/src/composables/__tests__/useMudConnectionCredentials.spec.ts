@@ -193,6 +193,27 @@ describe('useMudConnection credential lifecycle', () => {
     expect(sockets).toHaveLength(1)
   })
 
+  it('preserves each blank continuation and pager control as exactly one game frame', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const commands = ['help combat', '', '', '2', 'r', 'b', 'q', 'look']
+
+    for (const command of commands) {
+      expect(connection.sendGameCommand(command)).toBe(true)
+    }
+
+    expect(sockets[0]!.sent.map((frame) => JSON.parse(frame))).toEqual(
+      commands.map((data) => ({ type: 'cmd', cmd: 'game', data })),
+    )
+  })
+
+  it('does not queue a disconnected continuation for replay after reconnect', async () => {
+    const connection = createConnection()
+    expect(connection.sendGameCommand('')).toBe(false)
+    await connection.connect()
+    expect(sockets[0]!.sent).toEqual([])
+  })
+
   it('stores pending credentials only after a successful auth response', async () => {
     const connection = createConnection()
     await connection.login('Cwial', 'temporary-password')
