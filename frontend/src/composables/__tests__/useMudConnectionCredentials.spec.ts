@@ -11,6 +11,7 @@ const {
   siteConfiguration,
 } = vi.hoisted(() => ({
   store: {
+    connectionError: null as string | null,
     copyoverInProgress: false,
     copyoverCharacterName: null,
     chargenLoading: false,
@@ -131,6 +132,10 @@ describe('useMudConnection credential lifecycle', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.clearAllMocks()
+    store.connectionError = null
+    store.setConnectionState.mockImplementation((_state: string, error?: string) => {
+      store.connectionError = error ?? null
+    })
     sockets.length = 0
     siteConfiguration.mudWsUrl.value = 'wss://mud.test'
     siteConfiguration.isLoaded.value = true
@@ -221,6 +226,31 @@ describe('useMudConnection credential lifecycle', () => {
 
     expect(storeMudCredentials).not.toHaveBeenCalled()
     expect(clearMudCredentials).toHaveBeenCalledTimes(1)
+  })
+
+  it('retains the launch refusal when the server closes after authentication failure', async () => {
+    const connection = createConnection()
+    await connection.login('Cwial', 'temporary-password')
+    const reason = 'The new season is being prepared. Reconnect at 2026-10-28 18:00:00 UTC.'
+    sockets[0]!.onmessage?.({
+      data: JSON.stringify({ type: 'auth', status: 'failed', error: reason }),
+    })
+    sockets[0]!.close()
+
+    expect(store.setConnectionState).toHaveBeenLastCalledWith('disconnected', reason)
+    expect(store.connectionError).toBe(reason)
+    expect(store.openReconnectDialog).toHaveBeenCalledTimes(1)
+    expect(storeMudCredentials).not.toHaveBeenCalled()
+  })
+
+  it('keeps the generic reconnect message when the server supplies no error', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    sockets[0]!.close()
+
+    expect(store.setConnectionState).toHaveBeenLastCalledWith('disconnected', undefined)
+    expect(store.connectionError).toBeNull()
+    expect(store.openReconnectDialog).toHaveBeenCalledTimes(1)
   })
   it('delivers one presentation snapshot per packet through reconnect and default reset', async () => {
     const connection = createConnection()

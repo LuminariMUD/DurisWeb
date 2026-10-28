@@ -36,6 +36,10 @@ disconnect cancels retry work, and callbacks from retired sockets cannot change
 the current connection or deliver stale messages. The separate game connection
 keeps its own reconnect behavior.
 
+The game reconnect dialog retains a server-supplied authentication refusal after
+the socket closes, including a season launch notice and its UTC opening time.
+Without a supplied reason it shows the ordinary disconnected message.
+
 ## Setup
 
 Copy `frontend/.env.example` to `frontend/.env` and set every public URL, host,
