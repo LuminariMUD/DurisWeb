@@ -56,7 +56,9 @@ const handleClose = () => {
         <AlertDialogDescription>
           <div class="mt-4 text-center">
             <WifiOff class="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-            <p class="text-lg mb-2">You have been disconnected from the server.</p>
+            <p class="text-lg mb-2">
+              {{ store.connectionError || 'You have been disconnected from the server.' }}
+            </p>
             <p class="text-muted-foreground">
               Would you like to reconnect or return to the home page?
             </p>

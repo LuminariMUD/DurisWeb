@@ -234,7 +234,8 @@ export function useMudConnection() {
           return
         }
 
-        store.setConnectionState('disconnected')
+        // Keep a server refusal (including the launch time) through its final close.
+        store.setConnectionState('disconnected', store.connectionError ?? undefined)
 
         // show reconnect dialog on any disconnect (clean or not)
         // this prevents auto-login from triggering when kicked by another session
