@@ -167,7 +167,15 @@ describe('user profile schema integration', () => {
     expect(characters.characters.find((c) => c.pid === firstPid)?.stats.deaths).toBe(1);
   });
 
-  it('returns a successful aggregate response without multiplying duplicate PID mappings', async () => {
+  it('keeps independent aggregates while hiding character totals from public profiles', async () => {
+    const { getUserProfile } = await import('../../services/forumService.js');
+    const profile = await getUserProfile(accountName);
+    expect(profile?.stats).toMatchObject({
+      characterCount: 2,
+      totalDeaths: 1,
+      totalFrags: 17,
+      totalWealth: 18645,
+    });
     const app = express();
     app.use('/api/forum', forumRoutes);
 
@@ -177,12 +185,12 @@ describe('user profile schema integration', () => {
     expect(response.body).toMatchObject({
       accountName,
       stats: {
-        characterCount: 2,
-        totalDeaths: 1,
-        totalFrags: 17,
+        characterCount: null,
+        totalDeaths: null,
+        totalFrags: null,
         totalThreads: 0,
         totalPosts: 0,
-        totalWealth: 18645,
+        totalWealth: null,
       },
     });
   });

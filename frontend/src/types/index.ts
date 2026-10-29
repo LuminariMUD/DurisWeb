@@ -567,10 +567,10 @@ export interface UserProfileStats {
   reputationScore: number
   firstPostAt: string | null
   lastPostAt: string | null
-  characterCount: number
-  totalFrags: number
-  totalDeaths: number
-  totalWealth: number
+  characterCount: number | null // Only returned to the account owner
+  totalFrags: number | null // Only returned to the account owner
+  totalDeaths: number | null // Only returned to the account owner
+  totalWealth: number | null // Only returned to the account owner
 }
 
 export interface UserProfileWithStats extends UserProfile {
@@ -588,9 +588,9 @@ export interface CharacterWithStats {
   guild: string | null // With ANSI codes
   guildRank: string | null
   active: boolean
-  money: number // Copper on hand
-  balance: number // Copper in bank
-  playtime: number // Seconds
+  money: number // Owner-only copper on hand
+  balance: number // Owner-only copper in bank
+  playtime: number // Owner-only seconds
   epics: number
   stats: {
     frags: number
@@ -608,7 +608,7 @@ export interface AccountCharactersResponse {
     characterCount: number
     totalFrags: number
     totalDeaths: number
-    totalWealth: number // Sum of all money + balance
+    totalWealth: number // Owner-only sum of all money + balance
   }
 }
 

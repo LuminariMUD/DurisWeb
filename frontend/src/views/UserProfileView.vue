@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { profileApi, pvpApi } from '@/services/api'
 import { useAuth } from '@/composables/useAuth'
@@ -42,6 +42,9 @@ const props = defineProps<{
 
 const router = useRouter()
 const { accountName: currentUserAccount, hasPermission } = useAuth()
+const isOwnProfile = computed(
+  () => currentUserAccount.value?.toLowerCase() === props.accountName.toLowerCase(),
+)
 
 const profile = ref<UserProfileWithStats | null>(null)
 const characters = ref<CharacterWithStats[]>([])
@@ -53,6 +56,7 @@ const isLoading = ref(true)
 const isLoadingCharacters = ref(false)
 const isLoadingFavorites = ref(false)
 const error = ref<string | null>(null)
+let viewRevision = 0
 
 // Pagination
 const postsPage = ref(1)
@@ -70,12 +74,11 @@ const editLocation = ref('')
 const isSaving = ref(false)
 
 // Active tab
-const activeTab = ref('characters')
+const activeTab = ref(isOwnProfile.value ? 'characters' : 'threads')
 
 // Expanded characters - all expanded or all collapsed
 const areCharactersExpanded = ref(false)
 
-const isOwnProfile = computed(() => currentUserAccount.value === props.accountName)
 const canEditProfile = computed(() => {
   return isOwnProfile.value || hasPermission('manage_user_profiles')
 })
@@ -86,22 +89,29 @@ function toggleCharacters() {
 }
 
 async function loadProfile() {
+  const requestRevision = viewRevision
   isLoading.value = true
   error.value = null
 
   try {
-    profile.value = await profileApi.getUserProfile(props.accountName)
+    const response = await profileApi.getUserProfile(props.accountName)
+    if (requestRevision !== viewRevision) return
+    profile.value = response
   } catch (err: any) {
+    if (requestRevision !== viewRevision) return
     error.value = err.response?.data?.error || 'Failed to load profile'
   } finally {
-    isLoading.value = false
+    if (requestRevision === viewRevision) isLoading.value = false
   }
 }
 
 async function loadCharacters() {
+  if (!isOwnProfile.value) return
+  const requestRevision = viewRevision
   isLoadingCharacters.value = true
   try {
     const response = await profileApi.getAccountCharacters(props.accountName)
+    if (requestRevision !== viewRevision || !isOwnProfile.value) return
     characters.value = response.characters
     characterTotals.value = response.totals
     // Auto-expand if there's only one character
@@ -109,17 +119,20 @@ async function loadCharacters() {
       areCharactersExpanded.value = true
     }
   } catch {
+    if (requestRevision !== viewRevision) return
     // Silently fail - characters tab will show empty state
     characters.value = []
     characterTotals.value = null
   } finally {
-    isLoadingCharacters.value = false
+    if (requestRevision === viewRevision) isLoadingCharacters.value = false
   }
 }
 
 async function loadPosts(page: number = 1) {
+  const requestRevision = viewRevision
   try {
     const response = await profileApi.getUserPosts(props.accountName, page, 20)
+    if (requestRevision !== viewRevision) return
     posts.value = response.posts
     postsPage.value = response.pagination.page
     postsTotalPages.value = response.pagination.totalPages
@@ -129,8 +142,10 @@ async function loadPosts(page: number = 1) {
 }
 
 async function loadThreads(page: number = 1) {
+  const requestRevision = viewRevision
   try {
     const response = await profileApi.getUserThreads(props.accountName, page, 20)
+    if (requestRevision !== viewRevision) return
     threads.value = response.threads
     threadsPage.value = response.pagination.page
     threadsTotalPages.value = response.pagination.totalPages
@@ -140,17 +155,20 @@ async function loadThreads(page: number = 1) {
 }
 
 async function loadFavorites(page: number = 1) {
+  const requestRevision = viewRevision
   isLoadingFavorites.value = true
   try {
     const response = await pvpApi.getUserFavorites(props.accountName, page, 20)
+    if (requestRevision !== viewRevision) return
     favorites.value = response.data
     favoritesPage.value = response.pagination.page
     favoritesTotalPages.value = response.pagination.totalPages
   } catch {
+    if (requestRevision !== viewRevision) return
     // Silently fail - favorites tab will show empty state
     favorites.value = []
   } finally {
-    isLoadingFavorites.value = false
+    if (requestRevision === viewRevision) isLoadingFavorites.value = false
   }
 }
 
@@ -213,6 +231,7 @@ function truncateContent(content: string, maxLength: number = 150): string {
 
 // Watch for tab changes to load data lazily
 watch(activeTab, (newTab) => {
+  if (isLoading.value) return
   if (newTab === 'threads' && threads.value.length === 0) {
     loadThreads()
   } else if (newTab === 'posts' && posts.value.length === 0) {
@@ -222,10 +241,30 @@ watch(activeTab, (newTab) => {
   }
 })
 
-onMounted(async () => {
-  await loadProfile()
-  await loadCharacters()
-})
+watch(
+  [() => props.accountName, isOwnProfile],
+  async () => {
+    const requestRevision = ++viewRevision
+    isLoading.value = true
+    profile.value = null
+    characters.value = []
+    characterTotals.value = null
+    posts.value = []
+    threads.value = []
+    favorites.value = []
+    postsPage.value = threadsPage.value = favoritesPage.value = 1
+    postsTotalPages.value = threadsTotalPages.value = favoritesTotalPages.value = 1
+    areCharactersExpanded.value = false
+    isLoadingCharacters.value = false
+    isLoadingFavorites.value = false
+    activeTab.value = isOwnProfile.value ? 'characters' : 'threads'
+    await loadProfile()
+    if (requestRevision !== viewRevision) return
+    if (isOwnProfile.value) await loadCharacters()
+    else await loadThreads()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -271,9 +310,9 @@ onMounted(async () => {
 
       <!-- Stats Summary Bar -->
       <StatsSummaryBar
-        :character-count="characterTotals?.characterCount || profile.stats.characterCount || 0"
-        :total-frags="characterTotals?.totalFrags || profile.stats.totalFrags || 0"
-        :total-deaths="characterTotals?.totalDeaths || profile.stats.totalDeaths || 0"
+        :character-count="characterTotals?.characterCount ?? profile.stats.characterCount"
+        :total-frags="characterTotals?.totalFrags ?? profile.stats.totalFrags"
+        :total-deaths="characterTotals?.totalDeaths ?? profile.stats.totalDeaths"
         :total-wealth="characterTotals?.totalWealth || profile.stats.totalWealth || 0"
         :total-threads="profile.stats.totalThreads"
         :total-posts="profile.stats.totalPosts"
@@ -282,8 +321,8 @@ onMounted(async () => {
 
       <!-- Tabs -->
       <Tabs v-model="activeTab" default-value="characters">
-        <TabsList class="grid w-full grid-cols-4">
-          <TabsTrigger value="characters" class="text-xs lg:text-sm px-1 lg:px-3">
+        <TabsList class="grid w-full" :class="isOwnProfile ? 'grid-cols-4' : 'grid-cols-3'">
+          <TabsTrigger v-if="isOwnProfile" value="characters" class="text-xs lg:text-sm px-1 lg:px-3">
             <span class="hidden sm:inline">Characters</span>
             <span class="sm:hidden">Chars</span>
             <span v-if="characters.length" class="ml-1 text-[10px] lg:text-xs text-muted-foreground">({{ characters.length }})</span>
@@ -303,7 +342,7 @@ onMounted(async () => {
         </TabsList>
 
         <!-- Characters Tab -->
-        <TabsContent value="characters" class="space-y-4 mt-4">
+        <TabsContent v-if="isOwnProfile" value="characters" class="space-y-4 mt-4">
           <!-- Loading state -->
           <div v-if="isLoadingCharacters" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Skeleton v-for="i in 3" :key="i" class="h-32" />
@@ -346,7 +385,7 @@ onMounted(async () => {
                 </div>
                 <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs lg:text-sm text-muted-foreground">
                   <span>in <span class="font-medium">{{ thread.categoryName }}</span></span>
-                  <span v-if="thread.characterName">as {{ thread.characterName }}</span>
+                  <span v-if="isOwnProfile && thread.characterName">as {{ thread.characterName }}</span>
                   <span>{{ formatRelativeDate(thread.createdAt) }}</span>
                   <span class="ml-auto flex gap-2 text-[10px] lg:text-xs">
                     <span>{{ (thread.viewCount || 0).toLocaleString() }} views</span>
@@ -390,7 +429,7 @@ onMounted(async () => {
                     <span class="mx-1">-</span>
                     {{ post.categoryName }}
                   </span>
-                  <span v-if="post.characterName" class="hidden sm:inline ml-2">as {{ post.characterName }}</span>
+                  <span v-if="isOwnProfile && post.characterName" class="hidden sm:inline ml-2">as {{ post.characterName }}</span>
                 </div>
                 <p class="text-xs lg:text-sm line-clamp-2">{{ truncateContent(post.content) }}</p>
                 <div class="text-[10px] lg:text-xs text-muted-foreground mt-2">
