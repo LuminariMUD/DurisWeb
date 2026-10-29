@@ -2,6 +2,8 @@
 
 Website for DurisMUD - usually hosted on same server as DurisMUD
 
+**On production environment, please be careful about running heavy parallel processes/jobs together!  We have to be careful about server load!**
+
 ## Repository
 
 - This is a logical monorepo with independent `backend/` and `frontend/` pnpm projects; there is no root package manifest.
