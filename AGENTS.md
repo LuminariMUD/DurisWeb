@@ -41,6 +41,7 @@ Website for DurisMUD - usually hosted on same server as DurisMUD
 - Prepare release news during implementation; publish it through `/admin/changelog` or `/api/changelog` after the described release is verified live. Include this step in an authorized website deployment, reusing the session's authorization.
 - Before declaring the release complete, verify the saved entry and its public rendering, or record why no new entry is needed (already covered or no reader-visible change). A draft is not a published update.
 - Website Changelog uses `website_changelog`; it is separate from MUD News and the MUD repository's news file/import workflow.
+- Mudlet Client Changelog (`/news?tab=client`) uses the reviewed frontend snapshot of `LuminariMUD/duris-client` history. The same news-update skill refreshes it; client notes become live with a website deployment, not an `/api/changelog` write.
 
 ## Verification
 

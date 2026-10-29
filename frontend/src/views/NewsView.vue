@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { useQuery } from '@tanstack/vue-query'
@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import ChangelogList from '@/components/changelog/ChangelogList.vue'
+import ClientChangelog from '@/components/changelog/ClientChangelog.vue'
 
 useHead({
   title: 'DurisMUD | News',
@@ -21,7 +22,10 @@ const router = useRouter()
 const { isAuthenticated, accountName } = useAuth()
 
 // Tab state from URL query param
-const activeTab = ref((route.query.tab as string) || 'mud')
+const activeTab = computed(() => {
+  const tab = route.query.tab
+  return tab === 'changelog' || tab === 'client' ? tab : 'mud'
+})
 
 // Fetch unread count for badge
 const unreadQueryKey = computed(
@@ -36,18 +40,9 @@ const { data: unreadData } = useQuery({
 
 const unreadCount = computed(() => unreadData.value?.count ?? 0)
 
-// Watch for URL changes
-watch(
-  () => route.query.tab,
-  (newTab) => {
-    activeTab.value = (newTab as string) || 'mud'
-  },
-)
-
 // Update URL when tab changes
 function onTabChange(value: string | number) {
   const tab = String(value)
-  activeTab.value = tab
   router.replace({ query: { ...route.query, tab } })
 }
 
@@ -70,9 +65,9 @@ const parsedContent = computed(() => {
 
     <!-- Tabs -->
     <Tabs :model-value="activeTab" @update:model-value="onTabChange" class="w-full">
-      <TabsList class="grid w-full grid-cols-2">
-        <TabsTrigger value="mud">MUD News</TabsTrigger>
-        <TabsTrigger value="changelog" class="relative">
+      <TabsList aria-label="News categories" class="grid h-auto w-full grid-cols-3">
+        <TabsTrigger value="mud" class="h-auto min-w-0 whitespace-normal text-xs sm:text-sm">MUD News</TabsTrigger>
+        <TabsTrigger value="changelog" class="relative h-auto min-w-0 whitespace-normal text-xs sm:text-sm">
           Website Changelog
           <Badge
             v-if="unreadCount > 0"
@@ -82,6 +77,7 @@ const parsedContent = computed(() => {
             {{ unreadCount }}
           </Badge>
         </TabsTrigger>
+        <TabsTrigger value="client" class="h-auto min-w-0 whitespace-normal text-xs sm:text-sm">Mudlet Client</TabsTrigger>
       </TabsList>
 
       <!-- MUD News Tab -->
@@ -119,6 +115,10 @@ const parsedContent = computed(() => {
       <!-- Website Changelog Tab -->
       <TabsContent value="changelog" class="mt-6">
         <ChangelogList />
+      </TabsContent>
+
+      <TabsContent value="client" class="mt-6">
+        <ClientChangelog />
       </TabsContent>
     </Tabs>
   </div>
