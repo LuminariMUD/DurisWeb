@@ -53,6 +53,7 @@ const characterName = computed(() => {
 
 <template>
   <Card
+    v-if="isOwnProfile"
     class="transition-all duration-200 cursor-pointer hover:border-primary/50"
     :class="{ 'border-primary': isExpanded }"
     @click="emit('toggle')"

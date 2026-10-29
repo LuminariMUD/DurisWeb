@@ -88,6 +88,7 @@ import {
   requirePermission,
 } from '../middleware/auth.js';
 import { getCharacterInfo, type UserPermissions } from '../services/permissionService.js';
+import { isAccountOwner, privateProfileResponse } from '../middleware/profilePrivacy.js';
 import { getCategoryAccessForAccount } from '../services/categoryService.js';
 import { parseAccountFile, findAccountByCharacter } from '../services/accountService.js';
 import { extractClientIP } from '../utils/ipExtractor.js';
@@ -2204,21 +2205,35 @@ router.get(
 // ============================================================================
 
 // Get user profile with stats
-router.get('/users/:accountName/profile', async (req: Request, res: Response) => {
-  try {
-    const { accountName } = req.params;
-    const profile = await getUserProfile(accountName);
+router.get(
+  '/users/:accountName/profile',
+  privateProfileResponse,
+  async (req: Request, res: Response) => {
+    try {
+      const { accountName } = req.params;
+      const profile = await getUserProfile(accountName);
 
-    if (!profile) {
-      return res.status(404).json({ error: 'User not found' });
+      if (!profile) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const isOwner = isAccountOwner(req, accountName);
+      return res.json({
+        ...profile,
+        stats: {
+          ...profile.stats,
+          characterCount: isOwner ? profile.stats.characterCount : null,
+          totalFrags: isOwner ? profile.stats.totalFrags : null,
+          totalDeaths: isOwner ? profile.stats.totalDeaths : null,
+          totalWealth: isOwner ? profile.stats.totalWealth : null,
+        },
+      });
+    } catch (error) {
+      logger.error('Get user profile error:', error);
+      return res.status(500).json({ error: 'Failed to get user profile' });
     }
-
-    return res.json(profile);
-  } catch (error) {
-    logger.error('Get user profile error:', error);
-    return res.status(500).json({ error: 'Failed to get user profile' });
-  }
-});
+  },
+);
 
 // Update own profile
 router.patch(
@@ -2250,99 +2265,116 @@ router.patch(
 );
 
 // Get user's posts
-router.get('/users/:accountName/posts', async (req: Request, res: Response) => {
-  try {
-    const { accountName } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+router.get(
+  '/users/:accountName/posts',
+  privateProfileResponse,
+  async (req: Request, res: Response) => {
+    try {
+      const { accountName } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
 
-    const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
-    const { posts: rawPosts, total } = await getUserPosts(accountName, page, limit, permissions);
+      const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
+      const { posts: rawPosts, total } = await getUserPosts(accountName, page, limit, permissions);
+      const isOwner = isAccountOwner(req, accountName);
 
-    // Map snake_case from database to camelCase for frontend
-    const posts = rawPosts.map((post: any) => ({
-      id: post.id,
-      threadId: post.thread_id,
-      threadTitle: post.thread_title,
-      categoryId: post.category_id,
-      categoryName: post.category_name,
-      characterName: post.character_name,
-      content: post.content,
-      createdAt: post.created_at,
-      editedAt: post.edited_at,
-    }));
+      // Map snake_case from database to camelCase for frontend
+      const posts = rawPosts.map((post: any) => ({
+        id: post.id,
+        threadId: post.thread_id,
+        threadTitle: post.thread_title,
+        categoryId: post.category_id,
+        categoryName: post.category_name,
+        characterName: isOwner ? post.character_name : null,
+        content: post.content,
+        createdAt: post.created_at,
+        editedAt: post.edited_at,
+      }));
 
-    return res.json({
-      posts,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    logger.error('Get user posts error:', error);
-    return res.status(500).json({ error: 'Failed to get user posts' });
-  }
-});
+      return res.json({
+        posts,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      logger.error('Get user posts error:', error);
+      return res.status(500).json({ error: 'Failed to get user posts' });
+    }
+  },
+);
 
 // Get user's threads
-router.get('/users/:accountName/threads', async (req: Request, res: Response) => {
-  try {
-    const { accountName } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+router.get(
+  '/users/:accountName/threads',
+  privateProfileResponse,
+  async (req: Request, res: Response) => {
+    try {
+      const { accountName } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
 
-    const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
-    const { threads: rawThreads, total } = await getUserThreads(
-      accountName,
-      page,
-      limit,
-      permissions,
-    );
-
-    // Map snake_case from database to camelCase for frontend
-    const threads = rawThreads.map((thread: any) => ({
-      id: thread.id,
-      categoryId: thread.category_id,
-      categoryName: thread.category_name,
-      title: thread.title,
-      content: thread.content,
-      characterName: thread.character_name,
-      createdAt: thread.created_at,
-      viewCount: thread.view_count || 0,
-      replyCount: thread.reply_count || 0,
-      isPinned: !!thread.is_pinned,
-      isLocked: !!thread.is_locked,
-    }));
-
-    return res.json({
-      threads,
-      pagination: {
+      const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
+      const { threads: rawThreads, total } = await getUserThreads(
+        accountName,
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    logger.error('Get user threads error:', error);
-    return res.status(500).json({ error: 'Failed to get user threads' });
-  }
-});
+        permissions,
+      );
+      const isOwner = isAccountOwner(req, accountName);
+
+      // Map snake_case from database to camelCase for frontend
+      const threads = rawThreads.map((thread: any) => ({
+        id: thread.id,
+        categoryId: thread.category_id,
+        categoryName: thread.category_name,
+        title: thread.title,
+        content: thread.content,
+        characterName: isOwner ? thread.character_name : null,
+        createdAt: thread.created_at,
+        viewCount: thread.view_count || 0,
+        replyCount: thread.reply_count || 0,
+        isPinned: !!thread.is_pinned,
+        isLocked: !!thread.is_locked,
+      }));
+
+      return res.json({
+        threads,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      logger.error('Get user threads error:', error);
+      return res.status(500).json({ error: 'Failed to get user threads' });
+    }
+  },
+);
 
 // Get user's characters with stats
-router.get('/users/:accountName/characters', async (req: Request, res: Response) => {
-  try {
-    const { accountName } = req.params;
-    const result = await getAccountCharacters(accountName);
-    return res.json(result);
-  } catch (error) {
-    logger.error('Get account characters error:', error);
-    return res.status(500).json({ error: 'Failed to get account characters' });
-  }
-});
+router.get(
+  '/users/:accountName/characters',
+  privateProfileResponse,
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const { accountName } = req.params;
+      const isOwner = isAccountOwner(req, accountName);
+      if (!isOwner) return res.status(403).json({ error: 'Character roster is private' });
+      const result = await getAccountCharacters(accountName);
+      return res.json(result);
+    } catch (error) {
+      logger.error('Get account characters error:', error);
+      return res.status(500).json({ error: 'Failed to get account characters' });
+    }
+  },
+);
 
 // Get account name for a character
 router.get('/characters/:characterName/account', async (req: Request, res: Response) => {
@@ -2694,29 +2726,17 @@ router.delete(
 // Get character profile with stats
 router.get(
   '/characters/:characterName/profile',
-  optionalAuth,
+  privateProfileResponse,
+  requireAuth,
   async (req: Request, res: Response) => {
     try {
       const { characterName } = req.params;
-      const profile = await getCharacterProfile(characterName);
-
-      if (!profile) {
-        return res.status(404).json({ error: 'Character not found' });
-      }
-
-      // Check if the viewer owns this character
       const ownerAccount = await findAccountByCharacter(characterName);
-      const isOwner =
-        req.user?.accountName &&
-        ownerAccount &&
-        req.user.accountName.toLowerCase() === ownerAccount.toLowerCase();
+      const isOwner = isAccountOwner(req, ownerAccount);
 
-      // Hide money/balance/playtime from non-owners
-      if (!isOwner) {
-        profile.money = null;
-        profile.balance = null;
-        profile.playtime = null;
-      }
+      if (!isOwner) return res.status(404).json({ error: 'Character not found' });
+      const profile = await getCharacterProfile(characterName);
+      if (!profile) return res.status(404).json({ error: 'Character not found' });
 
       return res.json({
         ...profile,

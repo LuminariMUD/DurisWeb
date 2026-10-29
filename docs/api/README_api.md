@@ -101,6 +101,38 @@ the default page size is 50, with limit 1–100 and pages capped at 10,000.
 Some route modules contain both public and protected handlers. Do not infer
 authorization from the prefix alone; inspect the handler middleware and tests.
 
+## Profile privacy
+
+Account profiles retain their public header and accessible community activity.
+Only an active, authenticated session for the requested account
+(case-insensitive) receives `stats.characterCount`, `stats.totalFrags`,
+`stats.totalDeaths` and `stats.totalWealth` from
+`GET /api/forum/users/:accountName/profile`. Anonymous visitors, other accounts
+and staff viewing another account receive `null` for those character totals.
+
+`GET /api/forum/users/:accountName/characters` is owner-only: anonymous or
+inactive sessions receive 401, and other authenticated accounts receive 403
+before any roster data is read. The roster's names, levels, races, classes,
+guilds/ranks, specializations, epics, PvP/forum statistics, money, balances and
+playtime remain available to the owner. The profile page neither requests nor
+renders that roster for anyone else; its Characters tab and character-summary
+cards are owner-only, and pending owner responses are ignored after an account
+or authentication change.
+
+`GET /api/forum/characters/:characterName/profile` also requires the owner;
+anonymous or inactive sessions receive 401 and other accounts receive 404.
+All three profile responses, including refusals, use
+`Cache-Control: private, no-store` and vary by Cookie.
+
+The account's profile Posts and Threads lists retain their existing category
+access checks and content, but return `characterName: null` to non-owners. Their
+"as character" labels are also owner-only in the profile UI. These two
+viewer-dependent responses use the same private/no-store/Cookie cache policy.
+
+This restriction applies to profile disclosure. Existing public frag
+leaderboards, published PvP battles and character-to-account navigation retain
+their existing behavior; it is not a global character anonymity policy.
+
 ## Website data hold records
 
 The separate [website data hold API](../runbooks/data-holds.md) at
