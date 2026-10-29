@@ -1,33 +1,54 @@
 ---
 name: news-update
 description: >-
-  Maintain DurisWeb's Website Changelog when updating or deploying the website,
-  preparing release notes, or catching up missing website announcements. Reconcile
-  deployed changes with existing entries and publish through the changelog admin
-  UI/API. For website release news, not the separate MUD News stream.
+  Maintain DurisWeb's Website Changelog and Mudlet Client Changelog when updating
+  or deploying the website, preparing release notes, or catching up announcements.
+  Reconcile deployed website changes through the changelog admin UI/API and refresh
+  client history from LuminariMUD/duris-client. Not the separate MUD News stream.
 ---
 
 # News Update
 
-Keep **News → Website Changelog** (`/news?tab=changelog`) accurate and complete
-for the website release. A normal `$news-update` request includes publishing
-missing news for the verified current deployment. Honor draft/review-only scope.
+Keep **News → Website Changelog** (`/news?tab=changelog`) and
+**News → Mudlet Client** (`/news?tab=client`) accurate and complete.
+A normal `$news-update` request includes publishing missing website news for the
+verified current deployment and checking the client history for missing changes.
+Honor client-only, website-only, and draft/review-only scope.
 When implementing a future release, prepare its entry; publish after that release
 passes deployment acceptance. Reuse publication authority already given in the
 session, including an authorized website deployment's changelog step.
 
 Paths in backticks are relative to this repository unless stated otherwise.
-Read `AGENTS.md` and `docs/deployment.md`. Confirm the intended environment using
+Read `AGENTS.md`. Before website publication or deployment, also read
+`docs/deployment.md` and confirm the intended environment using
 the checkout's `.env` `ENVIRONMENT`, the effective backend `NODE_ENV`/`SITE_URL`,
 and the selected release's deployment configuration. Inspect only needed values;
 never print whole environment files or credentials. The directory name `staging`
 and a loopback API address do not make this a staging system. Resolve conflicting
-target evidence before writing, while continuing independent preparation.
+target evidence before a remote write, while continuing independent preparation.
 
-The source of truth is `website_changelog`, served by `/api/changelog` and edited
+Website news uses `website_changelog`, served by `/api/changelog` and edited
 at `/admin/changelog`. Editing Markdown, building the website, or importing the
 MUD's `lib/information/news` does not update it. Do not touch `mud_info`,
 `/admin/news`, `/api/news`, or the separate MUD repository for this task.
+
+## Refresh the Mudlet client history
+
+Read [the client history reference](references/client-changelog.md) when checking
+or updating the client tab. Its source is the separate public
+`LuminariMUD/duris-client` repository, not the browser client or MUD server.
+The tab uses reviewed frontend content, not `website_changelog`; it needs a
+website release to become live. Fetch the complete pinned changelog and published
+release inventory with `scripts/sync_client_changelog.py`, review the snapshot
+diff, and account for client changes since its previous `sourceSha`. A version
+heading alone does not establish a published package. Keep all historical notes
+and their recorded dates, and exclude unreleased claims from release announcements.
+
+For a PR-only request, include the refreshed snapshot and any website-news draft;
+do not publish future website behavior to the live changelog. For a standalone
+news update, report any client snapshot update that still needs deployment rather
+than treating a local content edit as published. The website workflow below
+applies to database-backed website entries; skip it for a client-only request.
 
 ## Establish the release and coverage
 

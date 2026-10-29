@@ -1,0 +1,7 @@
+{
+  "version": "2026.10.29-draft",
+  "title": "Follow the Mudlet client's history in News",
+  "content": "<h3>Mudlet Client</h3><ul><li><strong>Client changes in one place.</strong> Open <a href=\"/news?tab=client\">News → Mudlet Client</a> to browse the Duris Mudlet package's version history, from the original Arjinius Client to the latest recorded changes. Expand a version for its notes and follow links to published releases or historical source notes.</li><li><strong>Install or update.</strong> The client tab links to package downloads and the installation guide. MUD News and Website Changelog remain available in their own tabs.</li></ul>",
+  "category": "public",
+  "isPublished": false
+}

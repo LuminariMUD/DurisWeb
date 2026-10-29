@@ -66,6 +66,17 @@ and [interaction and accessibility](DESIGN.md#interaction-and-accessibility)
 in the Design guide. This heading remains so existing documentation links keep
 working.
 
+## Client changelog content
+
+News has separate MUD News, Website Changelog, and Mudlet Client tabs. The client
+tab at `/news?tab=client` bundles the complete reviewed client version history in
+`frontend/src/content/clientChangelog.json`, with a pinned upstream commit and
+links to published packages where available. It makes no runtime GitHub requests.
+Refresh and review it with the local
+[news-update skill's client workflow](../.agents/skills/news-update/references/client-changelog.md).
+Snapshot changes require a normal frontend release; website changelog publishing
+and MUD news importing do not update this tab.
+
 ## Temporary planning workspace
 
 `docs/ongoing-projects/` is a temporary human workspace. Before deleting a

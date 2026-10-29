@@ -1,0 +1,150 @@
+{
+  "sourceSha": "09924db4f2c9a5ffe47c44ebbed7977cc432eecb",
+  "sourceUrl": "https://github.com/LuminariMUD/duris-client/blob/09924db4f2c9a5ffe47c44ebbed7977cc432eecb/CHANGELOG.md",
+  "entries": [
+    {
+      "version": "2.4.1",
+      "date": "2026-10-28",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.4.1",
+      "content": "<ul>\n<li>Restore visible <code>time</code> output after the silent login query by recognizing the server&#x27;s current reply format.</li>\n<li>Stop suppressing time output after three seconds or another outgoing command, so missing or incomplete replies cannot hide later manual requests or time-display clicks.</li>\n<li>Cancel the delayed login query when a manual time request or time-display click already supplies the HUD data.</li>\n<li>Preserve character state and pending actions when ordinary text mentions the account menu; reset only at its actual bordered header.</li>\n<li>Accept loot-split dice only from the local character with the requested sides and roll index, and use uniform weighted odds above 100 tickets.</li>\n<li>Match Duris dawn/dusk announcements and query hours to the server clock.</li>\n</ul>"
+    },
+    {
+      "version": "2.4.0",
+      "date": "2026-10-25",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.4.0",
+      "content": "<ul>\n<li>Replace the tall Duris banner with a slim bronze/obsidian perimeter and an original Stormwatch panorama, cropped without stretching.</li>\n<li>Let panels use the recovered upper workspace in both presentation modes, with protected Panels/Reset clearance. Existing saved layouts remain compatible.</li>\n<li>Keep <code>ui set compactHeader on</code> as the quiet gradient option; both settings retain the same frame and panel bounds. Missing or corrupt artwork falls back independently.</li>\n</ul>"
+    },
+    {
+      "version": "2.3.0",
+      "date": "2026-10-23",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.3.0",
+      "content": "<ul>\n<li>Add the responsive Captain&#x27;s Table Bridge with spatial armor/internal gauges, actual/ordered helm, arc badges, complete manifest, crew watch and contact bearing glass.</li>\n<li>Retain selectable Details and a local Copy details action; persist the view preference and coalesce visible ship paints while hidden panels accept state.</li>\n<li>SHIP refresh requests <code>look ship</code>; explicit Look ship, Look crew and Contacts actions send their named reference command once.</li>\n<li>Clear entire ambiguous contact selections, preserve explicit weapon destruction state, and show both helm glyphs on a steady course.</li>\n</ul>"
+    },
+    {
+      "version": "2.2.0",
+      "date": "2026-10-23",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.2.0",
+      "content": "<ul>\n<li>Show bridge weight/load, ordered navigation, display/raw stamina, explicit target, slot condition/timers/destruction, contact coordinates and both arc meanings when supplied by the server.</li>\n<li>Associate ship snapshots by runtime vessel key, preserve safe legacy fallback, handle duplicate docked designations and keep server names literal.</li>\n</ul>\n<p>Notable changes to the Duris Client Mudlet package. Versions follow <a href=\"https://semver.org\">Semantic Versioning</a> (<code>MAJOR.MINOR.PATCH</code>); see <a href=\"https://github.com/LuminariMUD/duris-client/blob/09924db4f2c9a5ffe47c44ebbed7977cc432eecb/docs/RELEASING.md\">docs/RELEASING.md</a> for what each part means here. Each version heading must match <code>VERSION</code>; the release workflow copies that section into the GitHub Release notes.</p>"
+    },
+    {
+      "version": "2.1.2",
+      "date": "2026-10-23",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.1.2",
+      "content": "<ul>\n<li>Give private tell windows shared move, resize, minimize, maximize and recovery actions while retaining history and drafts.</li>\n<li>Redraw stationary zone/wilderness maps from accepted data, including maximized maps with saved hidden/minimized state.</li>\n<li>Preserve unread tells behind covered panels and acknowledge them, including the contact indicator, only on reveal.</li>\n<li>Keep deferred map paints beneath covered output and clean up owned menus/callback references.</li>\n<li>Carry portable layout replacement/rollback/recovery through the complete private-panel stack.</li>\n</ul>"
+    },
+    {
+      "version": "2.1.1",
+      "date": "2026-10-23",
+      "releaseUrl": null,
+      "content": "<ul>\n<li>Preserve unread tells behind a different maximized panel and acknowledge them only on reveal.</li>\n<li>Redraw maximized maps using effective visibility, retaining saved hidden/minimized state.</li>\n<li>Keep deferred map refreshes below covered output and carry forward compact-header/SHIP fixes.</li>\n</ul>"
+    },
+    {
+      "version": "2.1.0",
+      "date": "2026-10-22",
+      "releaseUrl": null,
+      "content": "<ul>\n<li>Give private tell windows the shared move, resize, minimize, maximize and recovery actions while retaining session history and drafts.</li>\n<li>Redraw stationary zone and wilderness maps after panel/viewport changes without new network requests.</li>\n<li>Clean up owned frame menus and old-Mudlet callback references on teardown.</li>\n</ul>"
+    },
+    {
+      "version": "2.0.2",
+      "date": "2026-10-23",
+      "releaseUrl": null,
+      "content": "<ul>\n<li>Organize SHIP into readable condition, weapon, crew, equipment, cargo and contact sections with labeled values, condition colors and separate ammunition, damage and timer status.</li>\n<li>Preserve navigation, target controls, text fallback and empty-state clearing while handling older or partial ship payloads.</li>\n<li>Restore the absolute SHIP scroll position after updates, including the adjustable dashboard viewport.</li>\n</ul>"
+    },
+    {
+      "version": "2.0.1",
+      "date": "2026-10-23",
+      "releaseUrl": null,
+      "content": "<ul>\n<li>Rebuild the dashboard as ten adjustable panels with title/border gestures, named home docking, locking, minimize, hide and maximize actions.</li>\n<li>Add <code>ui layout</code>, <code>ui panel</code>, fixed Panels and Reset layout controls, and profile-local normalized layout persistence.</li>\n<li>Keep game output visible and preserve scrollback and selected views during layout changes.</li>\n<li>Keep event-driven map paints below a different maximized panel and reveal the latest accepted room on restore.</li>\n<li>Replace existing saved layouts on Windows while retaining the previous file on failure.</li>\n<li>Repaint stationary wilderness maps from accepted data after dashboard geometry changes.</li>\n<li>Remove the inactive private-panel recovery placeholder; private frame controls arrive in the dependent integration PR.</li>\n</ul>"
+    },
+    {
+      "version": "2.0.0",
+      "date": "2026-10-22",
+      "releaseUrl": null,
+      "content": "<ul>\n<li>Rebuild the dashboard as ten adjustable panels with title/border gestures, named home docking, locking, minimize, hide and maximize actions.</li>\n<li>Add <code>ui layout</code>, <code>ui panel</code>, fixed Panels and Reset layout controls, and profile-local normalized layout persistence.</li>\n<li>Keep game output visible and preserve scrollback and selected views during layout changes.</li>\n<li>Keep event-driven map paints below a different maximized panel and reveal the latest accepted room on restore.</li>\n</ul>"
+    },
+    {
+      "version": "1.4.1",
+      "date": "2026-10-23",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v1.4.1",
+      "content": "<ul>\n<li>Add <code>ui set compactHeader on|off</code>, a saved option that collapses the illustrated header into a dark gradient and gives the recovered height to gameplay panels. Full artwork remains the default.</li>\n<li>Recenter populated zone and wilderness maps when the header or window size changes, preserving map mode, cache and zoom.</li>\n<li>Keep a paused mapper&#x27;s display frozen during header changes, resize, and UI hide/show.</li>\n<li>Preserve unread private tells received while the UI is hidden; opening the conversation reveals and marks them read.</li>\n</ul>"
+    },
+    {
+      "version": "1.4.0",
+      "date": "2026-10-22",
+      "releaseUrl": null,
+      "content": "<ul>\n<li>Add <code>ui set compactHeader on|off</code>, a saved option that collapses the illustrated header into a dark gradient and gives the recovered height to gameplay panels. Full artwork remains the default.</li>\n<li>Recenter populated zone and wilderness maps when the header or window size changes, preserving map mode, cache and zoom.</li>\n<li>Keep a paused mapper&#x27;s display frozen during header changes, resize, and UI hide/show.</li>\n</ul>"
+    },
+    {
+      "version": "1.3.6",
+      "date": "2026-10-22",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v1.3.6",
+      "content": "<ul>\n<li>Fix wilderness map background bleeding by reading Duris combined colors in background/foreground order and clearing old backgrounds on foreground-only terrain.</li>\n<li>Handle background-only map colors, distinguish black from bright black, and reset colors at line and map boundaries.</li>\n</ul>"
+    },
+    {
+      "version": "1.3.5",
+      "date": "2026-10-15",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v1.3.5",
+      "content": "<ul>\n<li>Replace the old border artwork with a custom obsidian-and-bronze atlas frame, engraved compass details, and a compact DURIS wordmark.</li>\n<li>Remove the &quot;New Duris&quot; heading and keep the frame&#x27;s interior black for readable game output.</li>\n</ul>"
+    },
+    {
+      "version": "1.3.4",
+      "date": "2026-10-15",
+      "releaseUrl": null,
+      "content": "<ul>\n<li>Use a solid black background for the primary MUD text feed and its surrounding panel so incoming text blends with the console.</li>\n</ul>"
+    },
+    {
+      "version": "1.3.3",
+      "date": "2026-10-14",
+      "releaseUrl": null,
+      "content": "<ul>\n<li>Advertise all consumed GMCP packages, including maps, quests and ships.</li>\n<li>Clear character, combat, ship and map state and cancel pending actions on logout or disconnect.</li>\n<li>Consume ship navigation and targeting from the server&#x27;s actual payload fields; keep empty contact lists authoritative.</li>\n<li>Display nested ship armor, hull, weapons, equipment and cargo data.</li>\n<li>Read mapper door state from Room.Info.doors.</li>\n<li>Finish inventory and equipment captures on Telnet prompts, including custom prompts.</li>\n<li>Show complete server quest descriptions without duplicate Ask/Kill prefixes.</li>\n<li>Clear combat on the server&#x27;s end notification, including bleeding targets.</li>\n<li>Avoid counting buffered text damage again after a GMCP fight ends.</li>\n</ul>"
+    },
+    {
+      "version": "1.3.2",
+      "date": "2026-10-14",
+      "releaseUrl": null,
+      "content": "<ul>\n<li>Load the decorative background using platform-compatible asset paths.</li>\n<li>Use Mudlet&#x27;s native command line as the single input and give the reclaimed space to the output console.</li>\n<li>Display the built package version in the footer.</li>\n<li>Preserve character state and widgets when hiding and showing the UI.</li>\n<li>Remove package aliases, triggers, event handlers and delayed actions on uninstall; clean up map download handlers and bound their waits.</li>\n<li>Keep delayed zone downloads from replacing a newer wilderness map, and report malformed map responses.</li>\n<li>Clear stale maps when a zone cannot load; refresh using wall time and validate nested map fields.</li>\n<li>Let room tooltips work through the player marker and keep them inside narrow maps.</li>\n<li>Show a compact map placeholder until room data arrives.</li>\n<li>Keep large groups readable in a scrolling panel and retain NPC markers on long names.</li>\n<li>Recompute group scrolling when members leave so remaining members stay visible.</li>\n<li>Reset the damage source between fights so text damage works after a GMCP-tracked fight.</li>\n<li>Accept the server&#x27;s JSON-null combat target when disengaging without raising a Lua error.</li>\n<li>Render a numeric zone ID safely when optional room area text is absent.</li>\n<li>Wrap console text to the available width when resizing.</li>\n<li>Capture inventory items with capitalized names, bare names and grouped counts; finish empty captures at the prompt.</li>\n<li>Clear equipment when the server reports nothing worn, remove Duris color codes from identity text, and refresh STATS on room changes using the player <code>score</code> command.</li>\n</ul>"
+    },
+    {
+      "version": "1.3.1",
+      "date": "2026-10-12",
+      "releaseUrl": null,
+      "content": "<ul>\n<li>Use Duris naming in the package metadata, UI messages, documentation, and issue forms.</li>\n<li>Point zone-map downloads and world-map/wiki links to <code>https://duris.sbs</code>.</li>\n<li>Rename the packaged background to <code>duris-v1.png</code> and update the UI&#x27;s asset paths.</li>\n<li>Point repository and publishing instructions to <code>LuminariMUD/duris-client</code> with <code>origin</code> as the only remote.</li>\n</ul>"
+    },
+    {
+      "version": "1.3.0",
+      "date": "2026-09-20",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v1.3.0",
+      "content": "<p>New <strong>ArjAuto</strong> script: the automation and utility side of the &quot;lielz scripts&quot; archive, reworked so nothing is hardcoded to one character. Every automatic behaviour is off until <code>auto &lt;name&gt; on</code>; toggles, variables, the rescue list, bidscores and login commands persist in <code>arjauto.json</code>. Type <code>auto</code> for help.</p>\n<ul>\n<li><strong>Toggles</strong>: autoStand, autoGroup, autoRescue, autoAssist, autoRage, autoWield, autoLoot, autoOre, autoFollow, autoPlay, trapKill, scanReport, eventReport, shipKeys, roller.</li>\n<li><strong>Variables</strong> (<code>vars</code>): target, container, food, weapon, held, door, tank, song, cargo, contra, idscroll, spam, report channel, intervals, roll threshold.</li>\n<li><strong>Rescue list</strong>: <code>rescue add|del|group|list|clear</code>; rescue lag handled with the archive&#x27;s response lines plus a safety timeout.</li>\n<li><strong>Combat</strong>: <code>kt</code>, <code>bsh</code>, <code>bsht</code>, bash-by-race shortcuts, <code>rbsh</code>/<code>rbsht</code>/<code>bof</code> rebash after the 14 s bash lag, <code>fls</code> flee-stab, <code>bac</code> backstab, <code>uw &lt;item&gt; [target]</code> hold-and-use.</li>\n<li><strong>Containers and corpses</strong>: <code>pcb gcb pab gab lib pi gi grep rrep eat qf rq</code>, <code>lc lcb lic dc nlc slc elc wlc</code>.</li>\n<li><strong>Movement</strong>: door helpers with the <code>dd</code> variable, <code>ep egh emw ewh enl env</code>, <code>sw &lt;dirs&gt;</code>, <code>lall</code>, <code>sfle</code>, <code>fc</code>, <code>of</code>, <code>rm</code>.</li>\n<li><strong>Group</strong>: <code>castall &lt;spell&gt;</code>, <code>vitall</code>, <code>virtueall</code>, <code>weakest</code>.</li>\n<li><strong>Timers</strong>: <code>spam &lt;cmd&gt;</code> with <code>spamon</code>/<code>spamoff</code>, <code>scan timer on|off</code>; both only fire while idle and standing.</li>\n<li><strong>Ship</strong>: <code>oh os fff ffp ffs ffr ffall</code>, orders relative to the locked contact (<code>otf otp ots otr oth otsp</code>), <code>jet disem</code>, farsee <code>le ln lne lnw ls lse lsw lw</code>, <code>ship poll on|off</code>, <code>lout on|off</code>, <code>shipf/shipn</code>, <code>qkcargo</code>, <code>qkreload</code>, Ctrl and Ctrl+Shift hotkeys behind <code>auto shipKeys on</code>.</li>\n<li><strong>Loot split</strong>: <code>split start|roll|free|scores|set|flush</code> with persisted bidscores and multi-die rolls.</li>\n<li><strong>Identify</strong>: <code>id &lt;item&gt;</code> recites your <code>idscroll</code> and compacts the readout to one line.</li>\n<li><strong>Epic zones</strong>: <code>epic report</code> lists zones seen completed this boot.</li>\n<li><strong>Login commands</strong>: <code>login add|list|clear</code> sent when you enter the game.</li>\n<li><strong>Plane direction notes</strong>: <code>dirs eth|astral|air|fire|water|neg</code>.</li>\n<li>ArjUI&#x27;s scan summary hands off to ArjAuto for channel reporting; <code>ui help</code> mentions <code>auto</code>.</li>\n</ul>"
+    },
+    {
+      "version": "1.2.1",
+      "date": "2026-09-20",
+      "releaseUrl": null,
+      "content": "<ul>\n<li>Removed the &quot;client-side UI only, no automation&quot; scope statements from the package description, README, and contributor guide. No code changes.</li>\n</ul>"
+    },
+    {
+      "version": "1.2.0",
+      "date": "2026-09-20",
+      "releaseUrl": null,
+      "content": "<p>Display helpers ported from the community &quot;lielz scripts&quot; collection (<code>docs/archive/lielz_scripts_04-2024.mpackage</code>). Everything is client-side display; no gameplay automation was carried over. Details in <code>docs/ongoing-projects/lielz-port.md</code>.</p>\n<ul>\n<li><strong>SHIP tab</strong>: contacts sorted by range and colored by side, heading and speed, captain, max speed, lock-on target, and sailing skill gains. Reads GMCP <code>Ship.Info</code>/<code>Ship.Contacts</code> when present and the <code>look contacts</code> text otherwise. First step toward the ship radar noted in the server study.</li>\n<li><strong>Damage counter</strong> in the target panel: per-fight total that resets when a kill or experience share arrives, plus a session report with damage per second (<code>ui damage</code>, <code>ui damage reset</code>, or click the counter). Uses <code>Combat.Update.round</code> or <code>[Damage: N]</code> lines, never both.</li>\n<li><strong>Experience notices</strong>: <code>[+N exp] M to level, about K more like that</code> from GMCP <code>exp</code>/<code>tnl</code>. The TNL bar shows the last gain.</li>\n<li><strong>Scan formatter</strong>: <code>scan</code> lines become <code>[E ] 2  A Drow Elf</code> with distance and direction colored, followed by a per-direction summary.</li>\n<li><strong>Alert banners</strong> for sanctuary, hellfire, stone skin, heroism, rage, and war cry dropping; being disarmed, dropping your weapon, disarm results; being scryed; skill improvements; song finished or failed; frost beacons; and tracks.</li>\n<li><strong>Group panel</strong>: moves percentage per member colored by how spent it is, HP as <code>cur/max -missing</code>, and the most hurt player in the room highlighted.</li>\n<li><strong>Chat timestamps</strong> (<code>hh:mm</code>) on every chat line.</li>\n<li><strong>Numpad movement keys</strong>: 8/2/4/6, 7/9/1/3, <code>-</code> up, <code>+</code> down, 5 look, <code>/</code> scan, 0 flee.</li>\n<li><strong>Settings</strong>: <code>ui set</code> lists six toggles, all on by default and persisted to <code>arjui_settings.json</code>. <code>ui help</code> lists commands.</li>\n<li><code>ui debug</code> also reports <code>Ship.Info</code> and <code>Ship.Contacts</code>.</li>\n</ul>"
+    },
+    {
+      "version": "1.1.0",
+      "date": "2026-09-20",
+      "releaseUrl": null,
+      "content": "<p>Same package as 1.1, re-released to adopt semantic versioning.</p>\n<ul>\n<li>Versions are now <code>MAJOR.MINOR.PATCH</code>. The build and the release workflow reject anything else.</li>\n<li><code>build.py</code> creates the output directory when it is missing.</li>\n</ul>"
+    },
+    {
+      "version": "1.1",
+      "date": "2026-09-20",
+      "releaseUrl": null,
+      "content": "<p>First tagged release.</p>\n<ul>\n<li>Aligned ArjUI with the Duris server&#x27;s GMCP output (<code>Char.Status</code>, <code>Char.Vitals</code>, room, group, and combat fields).</li>\n<li>Split the package into editable sources under <code>src/</code> with a stdlib-only <code>build.py</code> assembler.</li>\n<li>Renamed the build output to <code>duris-client.mpackage</code>.</li>\n<li>Added GitHub Actions: CI syntax-checks and builds on every push; pushing a <code>v*</code> tag publishes a release with the package attached.</li>\n<li>Refreshed the README with install steps, an architecture overview, and troubleshooting.</li>\n</ul>"
+    },
+    {
+      "version": "1.0",
+      "date": null,
+      "releaseUrl": null,
+      "content": "<p>Original Arjinius Client package by Arjinius, as uploaded to the repository.</p>"
+    }
+  ]
+}
