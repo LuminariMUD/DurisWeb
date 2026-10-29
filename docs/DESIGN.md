@@ -247,6 +247,12 @@ data, release identity, image checksums, and reproduction steps. The original
 [planning captures](ongoing-projects/assets/mudlet-gui/README.md) remain available
 with their separate source revision and provenance.
 
+The [NEWBIE artwork record](../frontend/src/assets/newbie/README.md) documents the
+original threshold and camp illustrations, their generation prompts, dimensions,
+and WebP assets. They are decorative fantasy illustrations, not gameplay captures
+or maps. The [course maintenance guide](newbie-guide.md) owns gameplay verification
+and the page-specific reading and navigation behavior.
+
 ## Interaction and accessibility
 
 For new and changed UI, review the complete interaction, not just its resting

@@ -483,6 +483,14 @@ const router = createRouter({
       meta: { public: true },
     },
 
+    // Public first-session crash course, independent of Wiki data access.
+    {
+      path: '/newbie',
+      name: 'newbie',
+      component: () => import('../views/NewbieView.vue'),
+      meta: { public: true, contentGutter: false },
+    },
+
     // Public Guide (Help Files) Page
     {
       path: '/guide',

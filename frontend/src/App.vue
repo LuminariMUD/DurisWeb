@@ -35,6 +35,7 @@ import {
   Package,
   Skull,
   BookOpen,
+  Compass,
   FileText,
   ChevronDown,
   BarChart3,
@@ -468,7 +469,7 @@ const isPlayPage = computed(() => route.path === '/play')
           </DropdownMenu>
           <!-- Wiki Dropdown -->
           <DropdownMenu>
-            <DropdownMenuTrigger :class="navClass($route.path.startsWith('/wiki') || $route.path.startsWith('/guide'))">
+            <DropdownMenuTrigger :class="navClass($route.path.startsWith('/wiki') || $route.path.startsWith('/guide') || $route.name === 'newbie')">
               Wiki
               <ChevronDown class="h-3 w-3" aria-hidden="true" />
             </DropdownMenuTrigger>
@@ -494,6 +495,12 @@ const isPlayPage = computed(() => route.path === '/play')
                 <span>Mobs</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem as-child class="cursor-pointer">
+                <RouterLink to="/newbie" :aria-current="$route.name === 'newbie' ? 'page' : undefined">
+                  <Compass class="mr-2 h-4 w-4" aria-hidden="true" />
+                  <span>NEWBIE</span>
+                </RouterLink>
+              </DropdownMenuItem>
               <DropdownMenuItem @click="router.push('/guide')" class="cursor-pointer">
                 <BookOpen class="mr-2 h-4 w-4" />
                 <span>Guide</span>

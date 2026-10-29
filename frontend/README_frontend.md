@@ -164,6 +164,15 @@ The frontend creates no persistent analytics identifier or title-delay timer.
 See the [lifecycle inventory](../docs/privacy-data-lifecycle.md) and
 [API contract](../docs/api/README_api.md#privacy-choice-contract).
 
+## NEWBIE crash course
+
+`/newbie` is the public first-session guide, available immediately above **Guide**
+in desktop **Wiki** and mobile **More**. It includes six short lessons, original
+fantasy artwork, keyboard-accessible chapter jumps, and a local command search.
+It does not require Wiki data access or a game connection. The
+[course maintenance guide](../docs/newbie-guide.md) records the inspected MUD
+revision, gameplay sources, asset provenance, and the draft Website Changelog.
+
 ## Mudlet GUI page
 
 `/mudlet-gui` is a public, lazy-loaded page available through desktop **Browse**
