@@ -29,6 +29,29 @@ beforeEach(() => {
 })
 
 describe('BottomNavbar discoverability', () => {
+  it('places NEWBIE immediately before Guide and opens the public course', async () => {
+    route.path = '/newbie'
+    const wrapper = mount(BottomNavbar, {
+      global: {
+        stubs: {
+          Sheet: passthrough,
+          SheetContent: passthrough,
+          SheetHeader: passthrough,
+          SheetTitle: passthrough,
+          SheetTrigger: passthrough,
+        },
+      },
+    })
+    const buttons = wrapper.findAll('button')
+    const guideIndex = buttons.findIndex((button) => button.text() === 'Guide')
+    const newbie = buttons[guideIndex - 1]
+    expect(newbie?.text()).toBe('NEWBIE')
+    expect(newbie?.attributes('aria-current')).toBe('page')
+    await newbie?.trigger('click')
+    expect(router.push).toHaveBeenLastCalledWith('/newbie')
+    wrapper.unmount()
+  })
+
   it('exposes privacy choices to an anonymous visitor through More', async () => {
     route.path = '/privacy'
     const wrapper = mount(BottomNavbar, {
