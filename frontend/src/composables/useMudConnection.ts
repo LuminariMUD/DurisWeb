@@ -1,4 +1,5 @@
 import { validChatContent } from '../utils/chatPresentation.js'
+import { parseRoomInfo } from '../utils/playMap.js'
 import { ref, onUnmounted } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
 import { useTriggers } from '@/composables/useTriggers'
@@ -158,6 +159,7 @@ export function useMudConnection() {
       setWsRef(newWs)
 
       newWs.onopen = async () => {
+        if (getWsRef() !== newWs) return
         setConnecting(false)
         // Don't set 'connected' yet - wait for welcome message from MUD
         reconnectAttempts.value = 0
@@ -191,6 +193,7 @@ export function useMudConnection() {
       }
 
       newWs.onmessage = (event) => {
+        if (getWsRef() !== newWs) return
         try {
           const message: MudServerMessage = JSON.parse(event.data)
           handleMessage(message)
@@ -200,6 +203,7 @@ export function useMudConnection() {
       }
 
       newWs.onerror = (error) => {
+        if (getWsRef() !== newWs) return
         console.error('MUD WebSocket error:', error)
         pendingAuthCredentials = null
         setConnecting(false)
@@ -207,6 +211,7 @@ export function useMudConnection() {
       }
 
       newWs.onclose = (event) => {
+        if (getWsRef() !== newWs) return
         console.log('[MUD] WebSocket closed', event.code, event.reason)
         pendingAuthCredentials = null
         setConnecting(false)
@@ -224,6 +229,7 @@ export function useMudConnection() {
 
         // Check if this is a copyover disconnect
         if (store.copyoverInProgress) {
+          store.retireMap()
           // The closed socket cannot acknowledge an unfinished creation attempt.
           store.clearChargenState()
           // don't change connection state to disconnected - keep showing copyover banner
@@ -653,86 +659,14 @@ export function useMudConnection() {
     store.setChargenNameValidation(message.valid, message.message)
   }
 
-  // Transform server Room.Info format to frontend MudRoom format
-  const transformRoomInfo = (data: Record<string, unknown>) => {
-    // Direction abbreviation to full name mapping
-    const dirMap: Record<string, string> = {
-      n: 'north',
-      e: 'east',
-      s: 'south',
-      w: 'west',
-      u: 'up',
-      d: 'down',
-      ne: 'northeast',
-      nw: 'northwest',
-      se: 'southeast',
-      sw: 'southwest',
-    }
-
-    // Transform exits from {n: 12345} to {north: {vnum: 12345}}
-    const exits: Record<
-      string,
-      { vnum: number; name?: string; door?: string; closed?: boolean; locked?: boolean }
-    > = {}
-    const serverExits = data.exits as Record<string, number> | undefined
-    const serverDoors = data.doors as
-      | Record<string, { name?: string; closed?: boolean; locked?: boolean }>
-      | undefined
-
-    if (serverExits) {
-      for (const [abbrev, vnum] of Object.entries(serverExits)) {
-        const fullDir = dirMap[abbrev] || abbrev
-        exits[fullDir] = { vnum }
-        // Add door info if present
-        if (serverDoors?.[abbrev]) {
-          exits[fullDir].door = serverDoors[abbrev].name
-          exits[fullDir].closed = serverDoors[abbrev].closed
-          exits[fullDir].locked = serverDoors[abbrev].locked
-        }
-      }
-    }
-
-    // Extract coords from nested object
-    const coords = data.coords as { x?: number; y?: number; z?: number } | undefined
-
-    return {
-      vnum: data.num as number,
-      name: data.name as string,
-      colored_name: data.colored_name as string | undefined,
-      description: (data.description as string) || '',
-      area: data.area as string,
-      colored_area: data.colored_area as string | undefined,
-      zoneNumber: data.zone as number,
-      terrain: data.environment as string,
-      x: coords?.x ?? 0,
-      y: coords?.y ?? 0,
-      z: coords?.z ?? 0,
-      section: (data.section as number) || 0,
-      exits,
-      players: (data.players as { name: string }[]) || [],
-      npcs: (data.npcs as { name: string; colored_name?: string; vnum: number }[]) || [],
-      items: (data.items as { name: string; colored_name?: string; vnum: number }[]) || [],
-    }
-  }
-
-  // Check if zone is a wilderness zone (too large to render with Cytoscape)
-  const isWildernessZone = (zoneNumber: number): boolean => {
-    return (
-      (zoneNumber >= 5000 && zoneNumber <= 6599) || // Surface
-      (zoneNumber >= 6600 && zoneNumber <= 6999) || // Newbie Maps
-      (zoneNumber >= 7000 && zoneNumber <= 8599) || // Underdark
-      (zoneNumber >= 1200 && zoneNumber <= 1238) // Alatorin
-    )
-  }
-
   const handleGmcpMessage = (message: MudGmcpMessage) => {
     switch (message.package) {
       case 'Room.Info': {
-        const roomData = transformRoomInfo(message.data as Record<string, unknown>)
-        store.setRoom(roomData)
-        // Clear wilderness map when entering a non-wilderness zone
-        if (!isWildernessZone(roomData.zoneNumber)) {
-          store.setWildernessMap(null)
+        const roomData = parseRoomInfo(message.data)
+        if (roomData) store.setRoom(roomData)
+        else {
+          store.retireMap()
+          store.addLogEntry('system', 'Invalid room update; map position unavailable.')
         }
         break
       }
@@ -818,7 +752,8 @@ export function useMudConnection() {
         break
       case 'Room.Map':
         // ASCII map for wilderness zones
-        store.setWildernessMap(message.data.map)
+        if (typeof message.data.map === 'string' && message.data.map.length <= 2000000)
+          store.setWildernessMap(message.data.map)
         break
       case 'Group.Status':
         // Group member status update
@@ -1115,7 +1050,8 @@ export function useMudConnection() {
     })
   }
 
-  const sendGameCommand = (command: string) => {
+  const sendGameCommand = (command: string, origin: 'manual' | 'map' = 'manual') => {
+    if (origin === 'manual' && store.isSpeedwalking) store.stopSpeedwalk()
     // Track when command sent for latency measurement
     lastCommandSentAt = performance.now()
     return sendCommand({

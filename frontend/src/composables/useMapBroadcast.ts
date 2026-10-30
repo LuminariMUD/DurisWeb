@@ -1,142 +1,143 @@
-/**
- * BroadcastChannel composable for sharing map data between main client and pop-out windows
- * Simpler implementation - each window manages its own channel instance
- */
-import { ref, onUnmounted, toRaw } from 'vue'
-import type { MudRoom } from '@/types/mud'
+import { ref, onUnmounted, watch, type Ref } from 'vue'
+import {
+  emptyMapSnapshot,
+  isRecord,
+  isVnum,
+  parseMapSnapshot,
+  type PlayMapSnapshot,
+} from '../utils/playMap.js'
 
-const CHANNEL_NAME = 'duris-map-sync'
-
-export interface MapSyncData {
-  room: MudRoom | null
-  visitedRooms: [number, MudRoom][]
-  wildernessMap: string | null
-  zoneNumber: number | null
+export type MapAction = 'walk' | 'stop' | 'pause' | 'resume' | 'reload'
+export interface MapRequest {
+  action: MapAction
+  target?: number
+  roomRevision: number
 }
+const actions: MapAction[] = ['walk', 'stop', 'pause', 'resume', 'reload']
+const validSession = (value: string) => /^[a-zA-Z0-9-]{16,80}$/.test(value)
 
-/**
- * Used by the main game window to broadcast map data to pop-out windows
- */
 export function useMapBroadcastSender(
-  getRoom: () => MudRoom | null,
-  getVisitedRooms: () => Map<number, MudRoom>,
-  getWildernessMap: () => string | null,
-  getZoneNumber: () => number | null,
+  snapshot: Ref<PlayMapSnapshot>,
+  request: (value: MapRequest) => void,
+  epoch: () => number,
 ) {
-  const channel = new BroadcastChannel(CHANNEL_NAME)
-
+  let session = crypto.randomUUID()
+  const supported = typeof BroadcastChannel !== 'undefined'
+  let channel = supported ? new BroadcastChannel(`duris-map-${session}`) : null
   function sendSync() {
-    // Convert reactive objects to plain objects for structured clone
-    const room = getRoom()
-    const visitedRooms = getVisitedRooms()
-
-    // Deep clone to remove Vue reactivity
-    const data: MapSyncData = {
-      room: room ? JSON.parse(JSON.stringify(toRaw(room))) : null,
-      visitedRooms: Array.from(visitedRooms.entries()).map(([k, v]) => [
-        k,
-        JSON.parse(JSON.stringify(toRaw(v))),
-      ]),
-      wildernessMap: getWildernessMap(),
-      zoneNumber: getZoneNumber(),
-    }
-    channel.postMessage({ type: 'sync', data })
+    channel?.postMessage({ type: 'sync', data: JSON.parse(JSON.stringify(snapshot.value)) })
   }
-
-  // Callback for speedwalk requests from pop-out
-  let onSpeedwalkRequest: ((targetVnum: number) => void) | null = null
-
-  // Listen for messages from pop-out windows
-  channel.onmessage = (event) => {
-    if (event.data?.type === 'request_sync') {
+  function receive(event: MessageEvent<unknown>) {
+    const message = event.data
+    if (!isRecord(message)) return
+    if (message.type === 'request_sync') {
       sendSync()
-    } else if (event.data?.type === 'speedwalk_request' && onSpeedwalkRequest) {
-      onSpeedwalkRequest(event.data.targetVnum)
+      return
     }
-  }
-
-  function setSpeedwalkHandler(handler: (targetVnum: number) => void) {
-    onSpeedwalkRequest = handler
-  }
-
-  function openPopOutWindow() {
-    const width = 600
-    const height = 700
-    const left = window.screen.width - width - 50
-    const top = 50
-
-    window.open(
-      '/play/map',
-      'duris-map-popout',
-      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=no`,
+    if (message.type !== 'action' || !isRecord(message.data)) return
+    const data = message.data
+    const action = actions.find((entry) => entry === data.action)
+    if (
+      !action ||
+      !isVnum(data.roomRevision) ||
+      (action === 'walk' && data.roomRevision !== snapshot.value.roomRevision) ||
+      (data.target !== undefined && !isVnum(data.target))
     )
+      return
+    request({ action, roomRevision: data.roomRevision, target: data.target })
   }
-
+  function listen() {
+    const owner = channel
+    if (owner)
+      owner.onmessage = (event) => {
+        if (channel === owner) receive(event)
+      }
+  }
+  listen()
+  watch(
+    epoch,
+    () => {
+      channel?.postMessage({ type: 'closed' })
+      channel?.close()
+      session = crypto.randomUUID()
+      channel = supported ? new BroadcastChannel(`duris-map-${session}`) : null
+      listen()
+    },
+    { flush: 'sync' },
+  )
+  watch(snapshot, sendSync)
+  const heartbeat = setInterval(sendSync, 2000)
+  function openPopOutWindow() {
+    if (!supported) return
+    window.open(
+      `/play/map#${session}`,
+      `duris-map-${session}`,
+      'width=600,height=700,resizable=yes,scrollbars=no',
+    )
+    sendSync()
+  }
   onUnmounted(() => {
-    channel.close()
+    clearInterval(heartbeat)
+    channel?.postMessage({ type: 'closed' })
+    channel?.close()
   })
-
-  return {
-    sendSync,
-    openPopOutWindow,
-    setSpeedwalkHandler,
-  }
+  return { openPopOutWindow, supported }
 }
 
-/**
- * Used by the pop-out window to receive map data from main window
- */
 export function useMapBroadcastReceiver() {
-  const channel = new BroadcastChannel(CHANNEL_NAME)
-
-  const room = ref<MudRoom | null>(null)
-  const visitedRooms = ref<Map<number, MudRoom>>(new Map())
-  const wildernessMap = ref<string | null>(null)
-  const zoneNumber = ref<number | null>(null)
+  const snapshot = ref<PlayMapSnapshot>(emptyMapSnapshot())
   const isConnected = ref(false)
   const hasData = ref(false)
-
-  channel.onmessage = (event) => {
-    if (event.data?.type === 'sync') {
-      const data = event.data.data as MapSyncData
-      room.value = data.room
-      visitedRooms.value = new Map(data.visitedRooms)
-      wildernessMap.value = data.wildernessMap
-      zoneNumber.value = data.zoneNumber
-      isConnected.value = true
+  const session = window.location.hash.slice(1)
+  const channel =
+    validSession(session) && typeof BroadcastChannel !== 'undefined'
+      ? new BroadcastChannel(`duris-map-${session}`)
+      : null
+  let lastMessage = 0
+  function retire() {
+    isConnected.value = false
+    snapshot.value = emptyMapSnapshot()
+  }
+  if (channel)
+    channel.onmessage = (event: MessageEvent<unknown>) => {
+      if (!isRecord(event.data)) return
+      if (event.data.type === 'closed') {
+        retire()
+        return
+      }
+      if (event.data.type !== 'sync') return
+      const parsed = parseMapSnapshot(event.data.data)
+      if (!parsed) return
+      if (
+        parsed.graph !== null &&
+        snapshot.value.graph !== null &&
+        parsed.graphRevision === snapshot.value.graphRevision &&
+        parsed.zoneNumber === snapshot.value.zoneNumber
+      )
+        parsed.graph = snapshot.value.graph
+      snapshot.value = parsed
+      lastMessage = Date.now()
       hasData.value = true
+      isConnected.value = parsed.room !== null
     }
-  }
-
   function requestSync() {
-    channel.postMessage({ type: 'request_sync' })
+    channel?.postMessage({ type: 'request_sync' })
   }
-
-  function requestSpeedwalk(targetVnum: number) {
-    channel.postMessage({ type: 'speedwalk_request', targetVnum })
+  function requestAction(action: MapAction, target?: number) {
+    if (!isConnected.value) return
+    channel?.postMessage({
+      type: 'action',
+      data: { action, target, roomRevision: snapshot.value.roomRevision },
+    })
   }
-
-  // Request sync periodically
   const interval = setInterval(() => {
+    if (lastMessage && Date.now() - lastMessage > 6500) retire()
     requestSync()
   }, 2000)
-
-  // Initial request
   requestSync()
-
   onUnmounted(() => {
     clearInterval(interval)
-    channel.close()
+    channel?.close()
   })
-
-  return {
-    room,
-    visitedRooms,
-    wildernessMap,
-    zoneNumber,
-    isConnected,
-    hasData,
-    requestSync,
-    requestSpeedwalk,
-  }
+  return { snapshot, isConnected, hasData, requestSync, requestAction }
 }

@@ -432,6 +432,58 @@ for the current panel. Fullscreen entry fits the graph; exit or Escape restores
 the previous custom camera or refits the previous overview. Hidden desktop and
 mobile panels initialize when visible and release their observers on unmount.
 
+### Browser game maps
+
+`/play` uses one `usePlayMap` controller per game session. Docked, floating and
+mobile maps share its accepted data, preferences and navigation owner. The
+session-specific `/play/map` pop-out receives validated snapshots; it never
+opens another game socket. It expires after the owner disconnects or stops
+responding, and cannot attach to the next character's session.
+
+The default Local view adapts ArjMapper's bronze room tiles and passages,
+vermilion player marker, diagonal links, up/down indicators and five-cell
+viewport. Its grid and levels are inferred from directed exits. Contradictory
+levels are identified; Overview and All levels remain available. Disconnected
+sections, distant exits and destinations outside the zone remain distinguishable.
+The overview retains terrain, visited/unexplored rooms, directional links and
+saved author positions; generated fallback rooms avoid those reserved positions.
+Vertical self-loops also flag ambiguous inferred levels. Resize and movement retain the chosen scale; floating
+and restoring retain map preferences. Hidden surfaces wait for a usable size.
+
+Room clicks inspect by default. Keyboard focus, Enter/Space and the room list
+provide the same inspection without moving the character. Walk here is explicit;
+Click rooms to walk enables the previous direct movement interaction. Map
+inspection keys do not reach the game's global keypad bindings. Inspect details
+and the legend open over the map so short panels retain their controls and links.
+
+Navigation sends at most one movement command before a destination Room.Info
+acknowledgement. A closed unlocked door is opened before that move; the current
+server does not send a door-only acknowledgement. Fresh room exits override
+cached topology and locked doors are avoided. Timeout, wrong position, commands
+outside map walking (including timers/triggers), stop, combat, copyover or
+session departure stop the route. A stopped
+in-flight move cannot be replaced by another route until position changes or
+the session is retired. A stop request from the owning pop-out remains usable
+even if its displayed room revision is old.
+
+Wilderness and quest text use a separate map parser: combined Duris attributes
+are background-first; foreground-only/background-only codes replace the other
+attribute. Explicit resets, real/legacy newlines and each new map reset colors.
+Text and spaces render literally, with independent text zoom. Oversized maps
+scroll from their first row/column. Console, editor and chat palettes remain
+separate. Quest caches are scoped to account and character, retained for that
+character's reconnect, and never inherited by a different character's display.
+
+Zone downloads are same-origin, validated, bounded to 20,000 nodes/200,000
+exits and have a 15-second timeout. Only the current request/session can accept
+a response. The twelve-zone memory cache does not authorize access: zone entry,
+explicit reload, website-account transitions and return of focus recheck the
+endpoint, even while paused. Failure retires its graph. Pause freezes game
+position updates until Resume; website-access rechecks can refresh its frozen
+zone's layout without accepting a newer position. Wilderness Reload sends one
+look. Existing wiki access and secret-exit
+filtering remain owned by the backend.
+
 ### Charts and third-party UI
 
 [`chartTheme.ts`](../frontend/src/utils/chartTheme.ts) supplies resolved color

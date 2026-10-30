@@ -5,6 +5,7 @@ import { useMudConnection } from '@/composables/useMudConnection'
 import { useKeypadBindings } from '@/composables/useKeypadBindings'
 import { useTimers } from '@/composables/useTimers'
 import { useFloatingPanels } from '@/composables/useFloatingPanels'
+import { usePlayMap } from '../../composables/usePlayMap.js'
 import MudStatusBar from './MudStatusBar.vue'
 import MudRoomDisplay from './MudRoomDisplay.vue'
 import MudActivityLog from './MudActivityLog.vue'
@@ -20,7 +21,13 @@ import FloatingMapWindow from './FloatingMapWindow.vue'
 import GodCommandFab from './GodCommandFab.vue'
 import GmcpDebugModal from './GmcpDebugModal.vue'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useRouter } from 'vue-router'
 import {
@@ -54,6 +61,7 @@ const router = useRouter()
 const { accountName } = useAuth()
 const { disconnect } = useMudConnection()
 const mudStore = useMudStore()
+usePlayMap()
 const { startAllTimers } = useTimers()
 
 // Refs for keypad bindings
@@ -591,7 +599,7 @@ onUnmounted(() => {
           ]"
           :style="isMapMinimized || isAffectsMinimized || isRoomMinimized || floatingPanels.affects || floatingPanels.room ? {} : { height: `${mapPercent}%` }"
         >
-          <MudMap v-model:minimized="isMapMinimized" class="h-full" @detach="handleMapDetach" />
+          <MudMap v-model:minimized="isMapMinimized" detachable class="h-full" @detach="handleMapDetach" />
         </div>
         <!-- Resize Handle (Map) - hidden when map or affects is floating -->
         <div
@@ -646,7 +654,7 @@ onUnmounted(() => {
 
     <!-- Floating Map Window (when detached) -->
     <FloatingMapWindow v-model="isMapDetached">
-      <MudMap class="h-full" @detach="handleMapDock" />
+      <MudMap detachable class="h-full" @detach="handleMapDock" />
     </FloatingMapWindow>
 
     <!-- Floating Chat Window -->
@@ -718,6 +726,7 @@ onUnmounted(() => {
       <SheetContent side="bottom" class="h-[70vh] p-0">
         <SheetHeader class="sr-only">
           <SheetTitle>Game Panels</SheetTitle>
+          <SheetDescription>Map, room details, affects and game controls.</SheetDescription>
         </SheetHeader>
         <Tabs v-model="mobileActiveTab" class="h-full flex flex-col">
           <TabsList class="grid w-full grid-cols-5 rounded-none border-b">

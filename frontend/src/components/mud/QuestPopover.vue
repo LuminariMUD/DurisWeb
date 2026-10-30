@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import type { MudQuest } from '@/types/mud'
+import MapText from './MapText.vue'
 
 defineProps<{
   quest: MudQuest
@@ -18,7 +19,7 @@ const isOpen = ref(false)
 
 // Map zoom controls
 const mapZoom = ref(1.0)
-const mapFontSize = computed(() => `${12 * mapZoom.value}px`)
+const mapFontSize = computed(() => 12 * mapZoom.value)
 
 function zoomIn() {
   mapZoom.value = Math.min(2.0, mapZoom.value + 0.25)
@@ -129,10 +130,10 @@ function preventClose(event: Event) {
           </div>
         </div>
         <div class="bg-black rounded overflow-auto max-h-[300px] scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
-          <pre
+          <MapText
             class="font-mono leading-tight whitespace-pre p-2"
-            :style="{ fontSize: mapFontSize }"
-            v-html="parseAnsiToHtml(questMap)"
+            :font-size="mapFontSize"
+            :text="questMap"
           />
         </div>
       </div>

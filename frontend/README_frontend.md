@@ -57,6 +57,33 @@ The paired MUD must accept that frame through its normal playing-session input
 queue; the companion fix is tracked in
 [Duris #443](https://github.com/LuminariMUD/Duris/issues/443).
 
+## Maps in `/play`
+
+The map starts in **Local**, a player-centered room/passage view. **Overview**
+retains the full room graph, terrain colors and visited rooms; **All levels**
+includes inferred floors and other sections. Up/down exits infer levels rather
+than geographic height, and conflicting exits are labeled. **Follow** keeps
+the player in view without resetting zoom. Dock, float, resize, minimize and
+the mobile Map tab reuse the same map session and preferences.
+
+Select a room to inspect its name and exits, then choose **Walk here**. Enable
+**Click rooms to walk** to use direct click movement. The room list and keyboard
+inspection do not send movement. **Stop**, other commands (including timers and
+triggers), combat and connection changes cancel a walk. Each move waits for the
+destination room; blocked or
+unconfirmed moves stop instead of sending the rest of the route.
+
+**Pause/Resume** freezes/catches up the displayed position. Website access is
+still checked when returning to a paused map. **Reload** refreshes zone
+data, or sends one `look` for wilderness text. The zoom buttons resize wilderness
+text independently, including in a pop-out. A pop-out belongs to the game window
+that opened it and expires when that session ends; open a new one for a new
+session. Quest maps and the World map / Zone wiki links remain available.
+
+Maps can require a separate website login when wiki access is restricted.
+Cached layouts cannot grant access. See the [map contract](../docs/DESIGN.md#browser-game-maps)
+for lifecycle, parser and navigation details.
+
 ## Setup
 
 Copy `frontend/.env.example` to `frontend/.env` and set every public URL, host,
