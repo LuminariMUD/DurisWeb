@@ -108,6 +108,47 @@ untracked investigation document was preserved and extended; no unrelated dirty
 work was present at implementation start. A final status check found concurrent
 documentation edits in the sibling durisclient checkout; they were left untouched.
 
+### PR #138 review follow-up
+
+Both submitted findings were valid on `6311636`. Zone downloads now use the
+validated frontend API base URL and include website cookies while retaining
+`no-store`, aborts, timeouts and stale-response refusal. Pop-out support checks
+both BroadcastChannel and `crypto.randomUUID()` before generating session IDs,
+including on session retirement; unsupported browsers keep the embedded map.
+No new helper, fallback, dependency or backend change was needed.
+
+The new regressions failed before the fixes (five failures across the two
+composable suites). After the fixes, these commands passed:
+
+```bash
+pnpm --dir frontend exec biome format --write src/composables/usePlayMap.ts src/composables/useMapBroadcast.ts src/composables/__tests__/usePlayMap.spec.ts src/composables/__tests__/useMapBroadcast.spec.ts
+pnpm --dir frontend test:unit --run src/composables/__tests__/usePlayMap.spec.ts src/composables/__tests__/useMapBroadcast.spec.ts src/utils/__tests__/playMap.spec.ts src/utils/__tests__/mapNavigation.spec.ts
+# 4 suites, 27 tests passed.
+pnpm --dir frontend format:check
+pnpm --dir frontend lint
+./frontend/scripts/check-palette-literals.sh
+pnpm --dir frontend type-check
+pnpm --dir frontend build
+python3 .agents/skills/news-update/scripts/sync_client_changelog.py
+git diff --exit-code -- frontend/src/content/clientChangelog.json
+./scripts/check-config-literals.sh
+git diff --check
+```
+
+The build again used explicit local public configuration: base `/`, API/static
+`http://127.0.0.1:7770`, WebSocket `ws://127.0.0.1:4050`, Vite hosts
+`127.0.0.1`, development/preview ports `5173`/`4173`, allowed host `localhost`.
+The client-history refresh was unchanged: 24 versions through 2.4.1 at
+`09924db4f2c9a5ffe47c44ebbed7977cc432eecb`. The earlier full frontend and browser
+evidence above is reused; these focused transport/capability fixes did not
+change layout, navigation algorithms, backend or MUD behavior. Full suites,
+backend checks, live gameplay and cross-browser/device qualification were not
+repeated. No deployment or changelog publication was performed; the existing
+release draft below includes the unsupported-browser behavior.
+The configuration-ownership check initially rejected two production-host URLs
+in this investigation; the endpoint description and reproduction command now
+use the configured site URL, and the check passes without a new exception.
+
 ### Prepared website changelog
 
 - Title: Explore Duris with a clearer live map
@@ -120,7 +161,7 @@ documentation edits in the sibling durisclient checkout; they were left untouche
 <ul>
   <li><strong>A new Local map.</strong> Follow your position through connected rooms and passages, with stairs, terrain, doors and room details. Switch to Overview for the wider area and inferred levels.</li>
   <li><strong>Inspect before moving.</strong> Select a room to inspect it, then choose Walk here. Enable Click rooms to walk for direct movement. Walking waits for each destination and stops on an unconfirmed move, combat, a manual command or disconnection.</li>
-  <li><strong>Maps that stay with your session.</strong> Zoom and preferences survive movement, floating and restoring. Pop-out maps follow their own game window and expire when that session ends. Wilderness and quest maps preserve their terrain colors and text spacing.</li>
+  <li><strong>Maps that stay with your session.</strong> Zoom and preferences survive movement, floating and restoring. Pop-out maps follow their own game window and expire when that session ends. When your browser cannot open a synchronized pop-out, keep using the map in the game window. Wilderness and quest maps preserve their terrain colors and text spacing.</li>
   <li><strong>Clear recovery controls.</strong> Pause and Resume control map updates; Reload refreshes unavailable or changed maps. World map and Zone wiki links remain nearby.</li>
 </ul>
 ```
@@ -201,8 +242,8 @@ door state. Reuse that boundary rather than adding another GMCP subscription
 inside a renderer. Strengthen its validation for wilderness exits, which can
 be booleans rather than destination VNUMs.
 
-A bounded read-only production check of the
-[same zone endpoint](https://duris.sbs/api/wiki/zones/344/map-data) returned
+A bounded read-only production check of
+`/api/wiki/zones/344/map-data` on the configured public site returned
 HTTP 200: 89 nodes, 196 directed edges, all ten direction names, and **zero
 nodes with saved x/y coordinates**. This demonstrates the API's practical fit
 and the need for automatic layout. It does not identify the deployed commit,
@@ -376,7 +417,7 @@ Use only the modules required by that separation:
 
 - A typed map-data loader: shared pending requests, bounded memory cache,
   response validation, explicit reload/error states, timeout and stale-session
-  refusal. Stay with same-origin requests and cookie-based website auth.
+  refusal. Use the configured API origin and cookie-based website auth.
 - Pure layout/connection helpers: normalized directions, stable placement,
   collision resolution, inferred levels/components, directed exits and far-link
   markers. Keep topology independent of pixel positions.
@@ -485,12 +526,13 @@ compass/up/diagonal placement, unique cells and a disconnected component,
 wilderness detection, and LF/reset/legacy-newline/black parsing. It passed.
 It is not a rerun of the real-Mudlet UI suite.
 
-The successful live read command was:
+The successful live read command is reproduced below using `SITE_URL` from the
+intended deployment's operator-owned configuration:
 
 ```bash
 curl -A DurisWeb-map-investigation/1.0 --max-time 15 -sS \
   -o /tmp/duris-map-investigation-live.json -w '%{http_code}' \
-  https://duris.sbs/api/wiki/zones/344/map-data
+  "${SITE_URL:?Set SITE_URL to the intended deployment}/api/wiki/zones/344/map-data"
 ```
 
 Python inspected only the response shape, counts, directions, coordinate

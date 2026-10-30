@@ -62,6 +62,34 @@ function makeSender() {
   return { snapshot, epoch, request, sender, href }
 }
 describe('map pop-out session synchronization', () => {
+  it.each([{}, undefined])(
+    'disables pop-outs when secure UUID generation is unavailable (%s)',
+    (browserCrypto) => {
+      vi.stubGlobal('crypto', browserCrypto)
+      const snapshot = ref(emptyMapSnapshot())
+      const epoch = ref(0)
+      const sender = use(() => useMapBroadcastSender(snapshot, vi.fn(), () => epoch.value))
+      expect(sender.supported).toBe(false)
+      sender.openPopOutWindow()
+      epoch.value++
+      sender.openPopOutWindow()
+      expect(Channel.channels).toHaveLength(0)
+      expect(window.open).not.toHaveBeenCalled()
+    },
+  )
+  it('disables pop-outs without BroadcastChannel before generating a session ID', () => {
+    vi.stubGlobal('BroadcastChannel', undefined)
+    const randomUUID = vi.spyOn(crypto, 'randomUUID')
+    const epoch = ref(0)
+    const sender = use(() =>
+      useMapBroadcastSender(ref(emptyMapSnapshot()), vi.fn(), () => epoch.value),
+    )
+    expect(sender.supported).toBe(false)
+    epoch.value++
+    sender.openPopOutWindow()
+    expect(randomUUID).not.toHaveBeenCalled()
+    expect(window.open).not.toHaveBeenCalled()
+  })
   it('isolates simultaneous game tabs, validates requests and never opens a game connection', async () => {
     const first = makeSender(),
       second = makeSender()

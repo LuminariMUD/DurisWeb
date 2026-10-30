@@ -21,8 +21,9 @@ export function useMapBroadcastSender(
   request: (value: MapRequest) => void,
   epoch: () => number,
 ) {
-  let session = crypto.randomUUID()
-  const supported = typeof BroadcastChannel !== 'undefined'
+  const supported =
+    typeof BroadcastChannel !== 'undefined' && typeof globalThis.crypto?.randomUUID === 'function'
+  let session = supported ? crypto.randomUUID() : ''
   let channel = supported ? new BroadcastChannel(`duris-map-${session}`) : null
   function sendSync() {
     channel?.postMessage({ type: 'sync', data: JSON.parse(JSON.stringify(snapshot.value)) })
@@ -59,7 +60,7 @@ export function useMapBroadcastSender(
     () => {
       channel?.postMessage({ type: 'closed' })
       channel?.close()
-      session = crypto.randomUUID()
+      session = supported ? crypto.randomUUID() : ''
       channel = supported ? new BroadcastChannel(`duris-map-${session}`) : null
       listen()
     },

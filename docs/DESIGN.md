@@ -439,6 +439,8 @@ mobile maps share its accepted data, preferences and navigation owner. The
 session-specific `/play/map` pop-out receives validated snapshots; it never
 opens another game socket. It expires after the owner disconnects or stops
 responding, and cannot attach to the next character's session.
+Pop-outs require both BroadcastChannel and secure UUID generation; when either
+is unavailable, Pop out is disabled and the embedded game map remains usable.
 
 The default Local view adapts ArjMapper's bronze room tiles and passages,
 vermilion player marker, diagonal links, up/down indicators and five-cell
@@ -474,8 +476,9 @@ scroll from their first row/column. Console, editor and chat palettes remain
 separate. Quest caches are scoped to account and character, retained for that
 character's reconnect, and never inherited by a different character's display.
 
-Zone downloads are same-origin, validated, bounded to 20,000 nodes/200,000
-exits and have a 15-second timeout. Only the current request/session can accept
+Zone downloads use the configured API base URL with website cookies and
+`no-store`, are validated, bounded to 20,000 nodes/200,000 exits and have a
+15-second timeout. Only the current request/session can accept
 a response. The twelve-zone memory cache does not authorize access: zone entry,
 explicit reload, website-account transitions and return of focus recheck the
 endpoint, even while paused. Failure retires its graph. Pause freezes game

@@ -74,6 +74,31 @@ afterEach(() => {
   vi.useRealTimers()
 })
 describe('one map controller per play session', () => {
+  it('downloads maps from the configured API origin with credentials and no browser cache', async () => {
+    const store = start()
+    store.setRoom(room(10))
+    expect(fetch).toHaveBeenCalledWith('http://api.test.invalid/api/wiki/zones/1/map-data', {
+      signal: pending[0]!.signal,
+      cache: 'no-store',
+      credentials: 'include',
+    })
+    await respond(0, graph(10))
+    expect(context.snapshot.value.graph?.nodes[0]?.id).toBe(10)
+    expect(context.snapshot.value.error).toBeNull()
+  })
+  it('keeps the game map usable without secure UUID generation, including session changes', async () => {
+    vi.stubGlobal('crypto', {})
+    const store = start(true)
+    expect(context.canPopOut).toBe(false)
+    store.setRoom(room(10))
+    await respond(0, graph(10))
+    expect(wrapper!.text()).toContain('Room 10')
+    store.retireMap()
+    store.setRoom(room(20))
+    await respond(1, graph(20))
+    expect(context.snapshot.value.graph?.nodes[0]?.id).toBe(20)
+    expect(context.canPopOut).toBe(false)
+  })
   it('keeps quest cache on reconnect but separates its display and cache by character', () => {
     const store = start()
     store.setAccount('CacheFixture', [])

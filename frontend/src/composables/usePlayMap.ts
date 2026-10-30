@@ -11,6 +11,7 @@ import {
 import { useMudStore } from '../stores/mudStore.js'
 import { useMudConnection } from './useMudConnection.js'
 import { useAuth } from './useAuth.js'
+import { frontendConfiguration } from '../config/environment.js'
 import { useMapBroadcastSender, type MapAction, type MapRequest } from './useMapBroadcast.js'
 import { createMapNavigator } from '../utils/mapNavigation.js'
 import { parseMapGraph, type PlayMapGraph, type PlayMapSnapshot } from '../utils/playMap.js'
@@ -88,11 +89,14 @@ export function usePlayMap() {
     const timeout = setTimeout(() => controller.abort(), 15000)
     try {
       // Warm entries are still reauthorized before becoming visible on zone entry.
-      const response = await fetch(`/api/wiki/zones/${zone}/map-data`, {
-        signal: controller.signal,
-        cache: 'no-store',
-        credentials: 'same-origin',
-      })
+      const response = await fetch(
+        `${frontendConfiguration.apiUrl}/api/wiki/zones/${zone}/map-data`,
+        {
+          signal: controller.signal,
+          cache: 'no-store',
+          credentials: 'include',
+        },
+      )
       if (!response.ok)
         throw new Error(
           response.status === 401 || response.status === 403

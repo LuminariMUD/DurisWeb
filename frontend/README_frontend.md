@@ -79,8 +79,12 @@ data, or sends one `look` for wilderness text. The zoom buttons resize wildernes
 text independently, including in a pop-out. A pop-out belongs to the game window
 that opened it and expires when that session ends; open a new one for a new
 session. Quest maps and the World map / Zone wiki links remain available.
+Pop-outs require BroadcastChannel and `crypto.randomUUID()`; if either is
+unavailable, **Pop out** is disabled while the embedded map remains available.
 
 Maps can require a separate website login when wiki access is restricted.
+Zone downloads use `VITE_API_URL` and include website cookies, including when
+the frontend and backend have different origins.
 Cached layouts cannot grant access. See the [map contract](../docs/DESIGN.md#browser-game-maps)
 for lifecycle, parser and navigation details.
 
