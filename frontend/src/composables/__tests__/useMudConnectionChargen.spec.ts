@@ -646,4 +646,51 @@ describe('creation socket lifecycle', () => {
     expect(store.chargenLoading).toBe(false)
     expect(store.chargenError).toContain('Connection unavailable')
   })
+  it('normalizes live room packets, retires maps and cancels manual overrides without cancelling map sends', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const socket = sockets[0]!
+    socket.onopen?.()
+    const receive = (data: unknown) => socket.onmessage?.({ data: JSON.stringify(data) })
+    const store = useMudStore()
+    receive({
+      type: 'gmcp',
+      package: 'Room.Info',
+      data: {
+        num: 101,
+        zone: 1,
+        name: 'Gate',
+        exits: { e: 102 },
+        doors: { e: { name: 'gate', closed: false, locked: false } },
+      },
+    })
+    expect(store.room?.exits.east).toEqual({
+      vnum: 102,
+      door: 'gate',
+      closed: false,
+      locked: false,
+    })
+    const stop = vi.fn()
+    store.startSpeedwalk('Room 102', 1, stop)
+    connection.sendGameCommand('east', 'map')
+    expect(stop).not.toHaveBeenCalled()
+    connection.sendGameCommand('north')
+    expect(stop).toHaveBeenCalledOnce()
+    receive({ type: 'gmcp', package: 'Room.Map', data: { map: '~@~' } })
+    receive({
+      type: 'gmcp',
+      package: 'Room.Info',
+      data: { num: 0, zone: 600, name: 'Sea', exits: { n: true } },
+    })
+    expect(store.room?.mapKind).toBe('wilderness')
+    expect(store.wildernessMap).toBe('~@~')
+    receive({ type: 'gmcp', package: 'Room.Info', data: { num: true, zone: 1, name: 'Invalid' } })
+    expect(store.room).toBeNull()
+    expect(store.wildernessMap).toBeNull()
+    const epoch = store.mapEpoch
+    socket.close()
+    expect(store.mapEpoch).toBeGreaterThan(epoch)
+    receive({ type: 'gmcp', package: 'Room.Info', data: { num: 101, zone: 1, name: 'Stale' } })
+    expect(store.room).toBeNull()
+  })
 })

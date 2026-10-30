@@ -82,6 +82,8 @@ export const useMudStore = defineStore('mud', () => {
   // Current Room
   // ==========================================================================
   const room = ref<MudRoom | null>(null)
+  const roomRevision = ref(0)
+  const mapEpoch = ref(0)
 
   // ==========================================================================
   // Map Data
@@ -209,7 +211,10 @@ export const useMudStore = defineStore('mud', () => {
   function setConnectionState(state: MudConnectionState, error?: string) {
     connectionState.value = state
     connectionError.value = error ?? null
-    if (state === 'disconnected') clearChargenState()
+    if (state === 'disconnected' || state === 'error') {
+      clearChargenState()
+      retireMap()
+    }
     // Clear auto-login flag when auth succeeds or fails
     if (state === 'authenticated' || state === 'error' || state === 'disconnected') {
       autoLoginInProgress.value = false
@@ -240,6 +245,7 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   function setAccount(accountName: string, chars: MudCharacterInfo[]) {
+    if (account.value && account.value !== accountName) retireMap()
     account.value = accountName
     characters.value = chars
     connectionState.value = 'authenticated'
@@ -247,6 +253,7 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   function clearAccount() {
+    retireMap()
     account.value = null
     characters.value = []
     selectedCharacter.value = null
@@ -256,6 +263,7 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   function setCharacter(char: MudCharacter) {
+    if (selectedCharacter.value && selectedCharacter.value !== char.name) retireMap()
     character.value = char
     selectedCharacter.value = char.name
     connectionState.value = 'in_game'
@@ -272,6 +280,21 @@ export const useMudStore = defineStore('mud', () => {
     visitedRooms.value.set(newRoom.vnum, newRoom)
     currentZoneNumber.value = newRoom.zoneNumber
     currentSection.value = newRoom.section
+    if (newRoom.mapKind !== 'wilderness') wildernessMap.value = null
+    roomRevision.value++
+  }
+
+  function retireMap() {
+    stopSpeedwalk()
+    room.value = null
+    visitedRooms.value.clear()
+    currentZoneNumber.value = null
+    currentSection.value = 0
+    wildernessMap.value = null
+    // Keep this character's persisted quest map for reconnect; never carry its display forward.
+    questMap.value = null
+    roomRevision.value++
+    mapEpoch.value++
   }
 
   function setWildernessMap(map: string | null) {
@@ -330,41 +353,63 @@ export const useMudStore = defineStore('mud', () => {
     }
   }
 
+  function questMapCacheKey(): string | null {
+    return account.value && selectedCharacter.value
+      ? `${QUEST_MAP_CACHE_KEY}:${account.value}:${selectedCharacter.value}`
+      : null
+  }
+
   function setQuestMap(map: string | null, zoneNumber?: number) {
     questMap.value = map
-    // Cache to localStorage with zone identifier
-    if (map && zoneNumber) {
-      localStorage.setItem(
-        QUEST_MAP_CACHE_KEY,
-        JSON.stringify({
-          map,
-          zoneNumber,
-          timestamp: Date.now(),
-        }),
-      )
+    const key = questMapCacheKey()
+    if (map && zoneNumber && key) {
+      try {
+        localStorage.setItem(key, JSON.stringify({ map, zoneNumber }))
+      } catch {
+        addLogEntry(
+          'system',
+          'Quest map is available in this session; browser cache is unavailable.',
+        )
+      }
     }
   }
 
   function loadCachedQuestMap(zoneNumber: number): boolean {
-    const cached = localStorage.getItem(QUEST_MAP_CACHE_KEY)
-    if (cached) {
-      try {
-        const data = JSON.parse(cached)
-        // Only use cache if same zone
-        if (data.zoneNumber === zoneNumber) {
-          questMap.value = data.map
-          return true
-        }
-      } catch {
-        // Invalid cache, ignore
+    const key = questMapCacheKey()
+    if (!key) return false
+    try {
+      const cached = localStorage.getItem(key)
+      if (!cached) return false
+      const data: unknown = JSON.parse(cached)
+      if (
+        typeof data === 'object' &&
+        data !== null &&
+        'zoneNumber' in data &&
+        data.zoneNumber === zoneNumber &&
+        'map' in data &&
+        typeof data.map === 'string'
+      ) {
+        questMap.value = data.map
+        return true
       }
+    } catch {
+      addLogEntry('system', 'Cached quest map is unavailable; waiting for the server map.')
     }
     return false
   }
 
   function clearQuestMapCache() {
     questMap.value = null
-    localStorage.removeItem(QUEST_MAP_CACHE_KEY)
+    const key = questMapCacheKey()
+    if (!key) return
+    try {
+      localStorage.removeItem(key)
+    } catch {
+      addLogEntry(
+        'system',
+        'Quest map was cleared from this session; browser cache is unavailable.',
+      )
+    }
   }
 
   function setGroup(groupData: MudGroupStatus | null) {
@@ -617,11 +662,13 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   function openReturnDialog(reason: 'rent' | 'death' | 'quit' | 'suicide') {
+    retireMap()
     showReturnDialog.value = true
     accountMenuReason.value = reason
   }
 
   function confirmReturnToMenu() {
+    retireMap()
     // User confirmed - transition to character select
     showReturnDialog.value = false
     connectionState.value = 'authenticated'
@@ -685,6 +732,7 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   function reset() {
+    retireMap()
     connectionState.value = 'disconnected'
     connectionError.value = null
     autoLoginInProgress.value = false
@@ -733,6 +781,9 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   return {
+    roomRevision,
+    mapEpoch,
+    retireMap,
     // State
     connectionState,
     connectionError,

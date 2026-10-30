@@ -440,17 +440,18 @@ export interface MudGmcpRoomInfo {
   type: 'gmcp'
   package: 'Room.Info'
   data: {
-    vnum: number
+    num: number
     name: string
-    description: string
+    colored_name?: string
+    description?: string
     area: string
-    zoneNumber: number
-    terrain: string
-    x: number
-    y: number
-    z: number
-    section: number
-    exits: Record<string, MudExit>
+    colored_area?: string
+    zone: number
+    environment: string
+    coords?: { x?: number; y?: number; z?: number }
+    section?: number
+    exits: Record<string, number | boolean>
+    doors?: Record<string, { name?: string; closed?: boolean; locked?: boolean }>
     players: RoomPlayer[]
     npcs: RoomNpc[]
     items: RoomItem[]
@@ -817,6 +818,7 @@ export interface MudAffect {
 // =============================================================================
 
 export interface MudRoom {
+  mapKind?: 'zone' | 'wilderness'
   vnum: number
   name: string
   colored_name?: string
