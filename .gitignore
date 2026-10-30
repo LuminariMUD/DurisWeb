@@ -16,9 +16,6 @@ build/
 **/dist/
 **/build/
 
-# Temporary files
-tmp/
-
 # Logs
 logs/
 *.log
