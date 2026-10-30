@@ -14,6 +14,30 @@ new API, dependency, storage, or analytics behavior. Site branding in the page
 title uses the existing site-config composable; the static lesson remains readable
 when that configuration is unavailable.
 
+## Watch Duris
+
+The video showcase sits between the chapter navigation and the first lesson.
+Both the hero and chapter navigation link to `#watch`, using the same focus and
+reduced-motion behavior as the lessons. Three portrait cards use the eclipse
+tokens, shared display typography and existing Button; they form a three-column
+grid above 760px and a centered single column on narrower screens.
+
+The owner supplied these Luminari MUD YouTube Shorts. Titles and publisher were
+verified with YouTube's oEmbed metadata on **2026-10-30**:
+
+- [New player creation](https://www.youtube.com/shorts/B0z2x4ngaeo)
+- [Player vs. player](https://www.youtube.com/shorts/hrpmW41xkKo)
+- [Exploring a dragon lair](https://www.youtube.com/shorts/BTr7aWM80ts)
+
+Preview images load lazily from `i.ytimg.com`; no video media is copied into
+the repository. A click creates a titled `youtube-nocookie.com` iframe and moves
+focus into it. Only one player mounts at a time; selecting another removes the
+previous player. Closing restores focus to that video's play button. The iframe
+uses `strict-origin-when-cross-origin` so YouTube receives the origin referrer it
+requires for embedded playback. Each card retains a direct YouTube link if
+embedding or playback is unavailable. The page identifies YouTube as the player
+provider; click-to-load does not claim that third-party playback is tracking-free.
+
 ## Gameplay evidence
 
 Reviewed against the locally available DurisMUD source on **2026-10-29**, commit
@@ -91,12 +115,29 @@ No changelog database write is required for this review-only PR.
 </ul>
 ```
 
+### Video showcase release draft
+
+Reconcile this separate future-release update at deployment; it has **not been
+published**. Use the verified release date/version and category `public`.
+
+- Title: **See Duris in action**
+- HTML:
+
+```html
+<h3>NEWBIE</h3>
+<ul>
+  <li><strong>A world of words, in action.</strong> The <a href="/newbie">NEWBIE crash course</a> now features three YouTube Shorts from Luminari MUD: character creation, player combat, and exploring a dragon lair.</li>
+  <li>Choose a portrait preview to open its player, or watch directly on YouTube. Use Watch Duris near the top of the page to jump to the videos.</li>
+</ul>
+```
+
 ## Verification
 
 The page tests cover command search and reset, section navigation/focus, and
 reduced-motion behavior. Mobile-navigation coverage checks the uppercase label,
 placement before Guide, current-page state, and internal navigation. Browser
 checks should cover anonymous desktop Wiki and mobile More entry, chapter jumps,
-command search, image loading, narrow layouts, zoom, keyboard focus, and the
+command search, preview loading, video selection/replacement/closing, direct
+YouTube links, narrow layouts, zoom, keyboard focus, and the
 Guide/Play destinations. Use the frontend checks from [Development](development.md).
 These checks do not establish live deployment or exercise in-game commands.

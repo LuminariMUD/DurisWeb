@@ -59,7 +59,7 @@ describe('NEWBIE crash course', () => {
     expect(wrapper.findAll('.reference-entry')).toHaveLength(0)
     expect(wrapper.text()).toContain('No commands match')
     expect(wrapper.get('[role="status"]').text()).toBe('0 commands')
-    await wrapper.get('button').trigger('click')
+    await wrapper.get('.command-search button').trigger('click')
     expect(wrapper.get('input').element.value).toBe('')
     expect(document.activeElement).toBe(wrapper.get('input').element)
     expect(wrapper.findAll('.reference-entry')).toHaveLength(initialCount)
@@ -76,5 +76,45 @@ describe('NEWBIE crash course', () => {
     await wrapper.get('nav a[href="#commands"]').trigger('click')
     expect(document.activeElement).toBe(wrapper.get('#commands').element)
     expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'start', behavior: 'auto' })
+  })
+
+  it('offers all three shorts without loading a player before a visitor chooses one', () => {
+    expect(wrapper.findAll('#watch .short-card')).toHaveLength(3)
+    expect(wrapper.find('iframe').exists()).toBe(false)
+    for (const id of ['hrpmW41xkKo', 'B0z2x4ngaeo', 'BTr7aWM80ts']) {
+      const link = wrapper.get(`#watch a[href="https://www.youtube.com/shorts/${id}"]`)
+      expect(link.attributes('target')).toBe('_blank')
+      expect(link.attributes('rel')).toBe('noopener noreferrer')
+      expect(wrapper.get(`#video-play-${id}`).attributes('aria-label')).toMatch(/^Play /)
+    }
+  })
+
+  it('opens the chosen player, replaces it when another short is selected, and restores focus on close', async () => {
+    await wrapper.get('#video-play-B0z2x4ngaeo').trigger('click')
+    expect(wrapper.findAll('iframe')).toHaveLength(1)
+    expect(wrapper.get('iframe').attributes('src')).toBe(
+      'https://www.youtube-nocookie.com/embed/B0z2x4ngaeo?autoplay=1&playsinline=1&rel=0',
+    )
+    expect(wrapper.get('iframe').attributes('title')).toBe(
+      'DurisMUD - New Player Creation - Text Game',
+    )
+    expect(wrapper.get('iframe').attributes('referrerpolicy')).toBe(
+      'strict-origin-when-cross-origin',
+    )
+    expect(document.activeElement).toBe(wrapper.get('iframe').element)
+
+    await wrapper.get('#video-play-hrpmW41xkKo').trigger('click')
+    expect(wrapper.findAll('iframe')).toHaveLength(1)
+    expect(wrapper.get('iframe').attributes('src')).toContain('/embed/hrpmW41xkKo?')
+    expect(wrapper.find('#video-play-B0z2x4ngaeo').exists()).toBe(true)
+    await wrapper.get('button[aria-label="Close video: Player vs. player"]').trigger('click')
+    expect(wrapper.find('iframe').exists()).toBe(false)
+    expect(document.activeElement).toBe(wrapper.get('#video-play-hrpmW41xkKo').element)
+  })
+
+  it('makes the video showcase reachable through the chapter navigation', async () => {
+    await wrapper.get('nav a[href="#watch"]').trigger('click')
+    expect(document.activeElement).toBe(wrapper.get('#watch').element)
+    expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'start', behavior: 'smooth' })
   })
 })

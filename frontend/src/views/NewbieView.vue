@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useHead } from '@unhead/vue'
-import { ArrowDown, ArrowUpRight, Compass, Search } from '@lucide/vue'
+import { ArrowDown, ArrowUpRight, Compass, Film, Play, Search, X } from '@lucide/vue'
 import {
   BrandActionLink,
   BrandTextLink,
@@ -37,6 +37,44 @@ const chapters = [
   { id: 'company', label: 'Find company' },
   { id: 'leave', label: 'Leave safely' },
 ]
+
+// Titles and publisher verified through YouTube's oEmbed metadata; see docs/newbie-guide.md.
+const videos = [
+  {
+    id: 'B0z2x4ngaeo',
+    label: 'First steps',
+    title: 'New player creation',
+    youtubeTitle: 'DurisMUD - New Player Creation - Text Game',
+    description: 'Every adventure starts with a character. See how yours begins.',
+  },
+  {
+    id: 'hrpmW41xkKo',
+    label: 'High stakes',
+    title: 'Player vs. player',
+    youtubeTitle: 'DurisMUD - Player vs Player PKILL - Text Game',
+    description: 'The world has teeth. Sometimes, they belong to another player.',
+  },
+  {
+    id: 'BTr7aWM80ts',
+    label: 'Into the unknown',
+    title: 'Exploring a dragon lair',
+    youtubeTitle: 'DurisMUD - Exploring into a Dragon Lair - Text Game',
+    description: 'Beyond the familiar rooms, something much bigger is waiting.',
+  },
+]
+const activeVideo = ref<string | null>(null)
+
+async function openVideo(id: string) {
+  activeVideo.value = id
+  await nextTick()
+  document.getElementById(`video-player-${id}`)?.focus()
+}
+
+async function closeVideo(id: string) {
+  activeVideo.value = null
+  await nextTick()
+  document.getElementById(`video-play-${id}`)?.focus()
+}
 
 const firstCommands = [
   { command: 'look', purpose: 'Read the room: its description, creatures, and objects.' },
@@ -231,6 +269,12 @@ function clearSearch() {
           /></a>
           <BrandTextLink to="/play">Ready? Play now</BrandTextLink>
         </div>
+        <a
+          href="#watch"
+          class="text-link inline-flex items-center gap-2"
+          @click.prevent="jumpTo('watch')"
+          ><Play class="size-3" aria-hidden="true" /> Watch Duris in action</a
+        >
         <p class="index-label hero-footnote">Six short lessons. A whole world ahead.</p>
       </div>
       <figure class="hero-art">
@@ -263,6 +307,11 @@ function clearSearch() {
         >{{ chapter.label }}
       </a>
       <a
+        href="#watch"
+        @click.prevent="jumpTo('watch')"
+        ><Play class="size-3 text-vermilion" aria-hidden="true" /> Watch Duris</a
+      >
+      <a
         href="#commands"
         class="command-jump"
         @click.prevent="jumpTo('commands')"
@@ -272,6 +321,102 @@ function clearSearch() {
           aria-hidden="true"
       /></a>
     </nav>
+
+    <section
+      id="watch"
+      tabindex="-1"
+      aria-labelledby="watch-heading"
+      class="watch-section course-gutter"
+    >
+      <div class="watch-heading">
+        <div>
+          <IndexLabel as="p" class="flex items-center gap-3">
+            <Film class="size-4" aria-hidden="true" /> Field footage / Three short adventures
+          </IndexLabel>
+          <DisplayHeading id="watch-heading" :level="2">
+            A world of words.<br /><em>See it in action.</em>
+          </DisplayHeading>
+        </div>
+        <div class="watch-intro">
+          <p>Create a character. Face a rival. Venture into a dragon’s lair.</p>
+          <p>Three glimpses of Duris, from Luminari MUD. Pick a short and step inside.</p>
+        </div>
+      </div>
+
+      <div class="shorts-grid">
+        <article v-for="(video, index) in videos" :key="video.id" class="short-card">
+          <div class="short-media">
+            <iframe
+              v-if="activeVideo === video.id"
+              :id="`video-player-${video.id}`"
+              :src="`https://www.youtube-nocookie.com/embed/${video.id}?autoplay=1&playsinline=1&rel=0`"
+              :title="video.youtubeTitle"
+              allow="autoplay; encrypted-media; picture-in-picture"
+              allowfullscreen
+              referrerpolicy="strict-origin-when-cross-origin"
+              tabindex="0"
+            ></iframe>
+            <template v-else>
+              <img
+                :src="`https://i.ytimg.com/vi/${video.id}/maxresdefault.jpg`"
+                alt=""
+                width="1280"
+                height="720"
+                loading="lazy"
+                decoding="async"
+                class="short-poster"
+              />
+              <div class="short-scrim" aria-hidden="true"></div>
+              <span class="short-number" aria-hidden="true">0{{ index + 1 }}</span>
+              <Button
+                :id="`video-play-${video.id}`"
+                type="button"
+                variant="brand"
+                size="lg"
+                class="short-play"
+                :aria-label="`Play ${video.title}`"
+                @click="openVideo(video.id)"
+              >
+                <Play aria-hidden="true" /> Play short
+              </Button>
+              <span class="short-format index-label" aria-hidden="true">Duris / YouTube Shorts</span>
+            </template>
+          </div>
+          <div class="short-caption">
+            <IndexLabel as="p">0{{ index + 1 }} / {{ video.label }}</IndexLabel>
+            <h3>{{ video.title }}</h3>
+            <p class="short-description">{{ video.description }}</p>
+            <div class="short-actions">
+              <a
+                :href="`https://www.youtube.com/shorts/${video.id}`"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-link"
+                :aria-label="`Watch ${video.title} on YouTube (opens in a new tab)`"
+              >
+                Watch on YouTube <ArrowUpRight class="inline size-3" aria-hidden="true" />
+              </a>
+              <Button
+                v-if="activeVideo === video.id"
+                type="button"
+                variant="ghost"
+                size="sm"
+                :aria-label="`Close video: ${video.title}`"
+                @click="closeVideo(video.id)"
+              >
+                <X aria-hidden="true" /> Close player
+              </Button>
+            </div>
+          </div>
+        </article>
+      </div>
+      <p class="watch-footnote">
+        Players load when you press play. Playback is provided by YouTube; you can also open each
+        short there.
+      </p>
+    </section>
+
+    <SectionRule />
 
     <div class="course-gutter course-body">
       <section
@@ -840,6 +985,125 @@ function clearSearch() {
   max-width: 90rem;
   margin-inline: auto;
 }
+.watch-section {
+  max-width: 90rem;
+  margin-inline: auto;
+  padding-block: clamp(3rem, 6vw, 5rem);
+}
+.watch-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+}
+.watch-heading h2 {
+  margin-top: 1.5rem;
+  font-size: clamp(2.5rem, 3.7vw, 3.75rem);
+  line-height: 1.03;
+}
+.watch-intro {
+  max-width: 35ch;
+  color: var(--color-bone-muted);
+  line-height: 1.8;
+}
+.watch-intro p + p {
+  margin-top: 0.75rem;
+}
+.shorts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1rem, 2.5vw, 2rem);
+  max-width: 64rem;
+  margin-inline: auto;
+}
+.short-card {
+  min-width: 0;
+  border-top: 2px solid var(--color-vermilion);
+}
+.short-media {
+  position: relative;
+  aspect-ratio: 9 / 16;
+  background: var(--color-ink-sunken);
+  isolation: isolate;
+}
+.short-poster,
+.short-media iframe,
+.short-scrim {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.short-poster {
+  object-fit: cover;
+}
+.short-scrim {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-ink) 65%, transparent),
+    transparent 35%,
+    color-mix(in srgb, var(--color-ink) 30%, transparent) 65%,
+    var(--color-ink-sunken)
+  );
+  pointer-events: none;
+}
+.short-number {
+  position: absolute;
+  top: 1rem;
+  left: 1.25rem;
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  line-height: 1;
+  color: var(--color-bone);
+}
+.short-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.short-format {
+  position: absolute;
+  bottom: 1.5rem;
+  inset-inline: 1rem;
+  text-align: center;
+  color: var(--color-bone);
+  font-size: 0.6rem;
+}
+.short-caption {
+  padding-block: 1.5rem 0.5rem;
+}
+.newbie-guide .short-caption h3 {
+  margin-block: 0.75rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.65rem, 2.5vw, 2rem);
+  line-height: 1.1;
+}
+.short-description,
+.watch-footnote {
+  color: var(--color-bone-muted);
+  font-size: 0.875rem;
+  line-height: 1.8;
+}
+.short-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  margin-top: 1rem;
+  font-size: 0.75rem;
+}
+.watch-footnote {
+  border-top: 1px solid var(--color-rule);
+  padding-top: 1.25rem;
+  margin-top: 2rem;
+  font-size: 0.75rem;
+}
 .lesson {
   display: grid;
   grid-template-columns: 1fr 1.65fr;
@@ -1163,6 +1427,11 @@ function clearSearch() {
   }
 }
 @media (max-width: 760px) {
+  .shorts-grid {
+    grid-template-columns: 1fr;
+    max-width: 20rem;
+    gap: 2.5rem;
+  }
   .newbie-hero {
     grid-template-columns: 1fr;
     padding-top: 1.5rem;
