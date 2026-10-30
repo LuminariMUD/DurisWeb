@@ -45,11 +45,16 @@ report_matches 'Legacy configuration aliases remain outside the rejection bounda
 
 # The owner-supplied policy contact is data, not deployment configuration. Match
 # only complete contact declarations; other content in those files remains checked.
-deployment_literals=$(rg -ni '(/home/(durissbs|duris)|static2\.zusuk\.com|duris\.com|\bduris\.sbs\b)' \
+# The imported client history quotes its former public origin. Mask only that
+# exact HTML link in content strings, then recheck the rest of the same line.
+deployment_literal_pattern='(/home/(durissbs|duris)|static2\.zusuk\.com|duris\.com|\bduris\.sbs\b)'
+deployment_literals=$(rg -ni "${deployment_literal_pattern}" \
   README.md docs backend/src frontend/src frontend/public frontend/index.html deploy scripts podman-compose.yml \
   --glob '!scripts/check-config-literals.sh' \
   --glob '!backend/src/**/__tests__/**' \
   --glob '!frontend/src/**/__tests__/**' \
+  | sed '/^frontend\/src\/content\/clientChangelog\.json:[0-9][0-9]*: *"content": /s@<code>https://duris\.sbs</code>@<code>reviewed-client-origin</code>@g' \
+  | rg -i "${deployment_literal_pattern}" \
   | rg -v -e '^docs/privacy-data-lifecycle\.md:[0-9]+:privacy policy\. Max \(Moshe\), contact `zusuk@duris\.sbs`, was supplied as the$' \
     -e '^frontend/src/config/privacyNotice\.ts:[0-9]+:  email: [[:punct:]]zusuk@duris\.sbs[[:punct:]],$' || true)
 report_matches 'Known deployment-specific paths, domains, or branding remain active:' \
