@@ -41,6 +41,50 @@ afterEach(() => {
   }
 });
 
+describe('configuration literal guard and historical client notes', () => {
+  it.each([
+    ['frontend/src/content/clientChangelog.json', '"content": "<code>https://duris.sbs</code>"', 0],
+    [
+      'frontend/src/content/clientChangelog.json',
+      '"content": "<code>https://duris.sbs</code> /home/duris/private"',
+      1,
+    ],
+    [
+      'frontend/src/content/clientChangelog.json',
+      '"content": "<code>https://static2.zusuk.com</code>"',
+      1,
+    ],
+    ['frontend/src/runtime.ts', '"content": "<code>https://duris.sbs</code>"', 1],
+  ] as const)('checks remaining literals in %s (%s)', (sourcePath, content, expectedStatus) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'durisweb-literal-'));
+    temporaryDirectories.push(root);
+    for (const directory of [
+      'scripts',
+      'docs',
+      'backend/src',
+      'frontend/src/content',
+      'frontend/public',
+      'deploy',
+    ]) {
+      fs.mkdirSync(path.join(root, directory), { recursive: true });
+    }
+    for (const name of [
+      'README.md',
+      'backend/knexfile.ts',
+      'frontend/index.html',
+      'podman-compose.yml',
+    ]) {
+      fs.writeFileSync(path.join(root, name), '');
+    }
+    const script = path.join(root, 'scripts/check-config-literals.sh');
+    fs.copyFileSync(path.join(PROJECT_ROOT, 'scripts/check-config-literals.sh'), script);
+    fs.writeFileSync(path.join(root, sourcePath), `      ${content}\n`);
+    const result = spawnSync('bash', [script], { encoding: 'utf8' });
+    expect(result.status).toBe(expectedStatus);
+    if (expectedStatus === 1) expect(result.stderr).toContain(sourcePath);
+  });
+});
+
 describe('deployment configuration renderer', () => {
   it.each([
     [0o700, '2026.8.3'],

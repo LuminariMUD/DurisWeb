@@ -1,3 +1,383 @@
+# Issue #136: resolve numeric zone maps from the active AREA manifest
+
+Issue: [DurisWeb #136](https://github.com/LuminariMUD/DurisWeb/issues/136)
+
+Branch: `branch/issue-136-active-area-resolution`
+
+Prepared: 30 October 2026 against DurisWeb `19cac13bb6e7df5451c643f0ba4567e0d9c5138e`.
+
+**Status: implementation complete locally; release acceptance is pending.**
+The source changes, regressions and documentation are prepared for review on this
+branch. Deployment and live-player verification remain separate release steps.
+The pre-existing security/privacy/schema plan is preserved below, with its anchors
+and content intact. Its status statements belong to that separate project.
+
+## Implementation handoff — 30 October 2026
+
+- Numeric lookup now reads only active `AREA` members, preserving compiler comment
+  semantics and rejecting known duplicate numeric claims independently of order.
+  A malformed reset record cannot hide a conflicting readable header. Unrelated
+  malformed files remain isolated; filename-based builder access is unchanged.
+- Cache ownership includes the resolved root and manifest text. Membership changes
+  refresh on the next lookup; invalidation generations prevent an older build
+  from republishing stale mappings. External header edits still require explicit
+  invalidation or a website backend restart, as documented.
+- A new failing regression exposed a necessary addition to the initial file list:
+  `wikiService.getZoneMapData` resolved the number twice, allowing old rooms and
+  new positions in one response after a manifest change. It now selects once and
+  reuses the existing `parseWldFileById` path, exported for this caller. Six wiki
+  test-module mocks include that export; no new parsing abstraction was needed.
+- Compact fixtures retain the original Longhollow/Temple2 graph fields. Full graph
+  digests independently derived from pinned MUD source match the actual parser:
+  Longhollow has 100 nodes and 251 visible edges, Temple2 89 and 196. Regression
+  tests cover real HTTP assembly, positions, both directory orders, active
+  collisions, manifest failure, cache transitions, scoped roots and builder reads.
+- CI parity exposed a pre-existing false positive from the imported client
+  changelog's historical origin link. A separate guard correction masks only that
+  exact HTML link in that content field; four regressions keep runtime literals,
+  other hosts and another literal on the same content line rejected. The initial
+  plan's live-origin reference now describes the issue's origin portably.
+- Ablation retained one resolver, the existing flatfile boundary and filename
+  parser. No watcher, refresh endpoint, dependency, schema change, MUD change,
+  client source change or Redis flush was added. The release checks are documented
+  in the deployment guide, and the reader-facing news draft is below.
+
+## Prepared Website Changelog entry
+
+Draft only; publish after verified deployment and both client acceptance checks.
+Title: **Active zone maps show the correct area**. Category: `public`. Set the
+version to the verified release date using the normal changelog convention.
+
+```html
+<h3>Play and Wiki</h3>
+<ul>
+  <li><strong>Correct zone maps.</strong> Zone maps now use the active area when unused builder sources share a zone number. This corrects Longhollow displaying the Home of the Enlightened map.</li>
+  <li><strong>Refresh an already loaded map.</strong> In Mudlet, run <code>/mapreload</code>, then move or use <code>look</code>. Reload the browser MUD client to refresh its loaded map.</li>
+</ul>
+```
+
+The news-update importer checked all 24 client versions through 2.4.1 at
+`09924db4f2c9a5ffe47c44ebbed7977cc432eecb`; the reviewed frontend snapshot was
+unchanged. No changelog entry was published and no frontend release was built.
+
+## Outcome
+
+Numeric active-world lookups must select the source listed in `areas/AREA`.
+With the inspected sources, zone 344 must resolve to `long`, returning Longhollow's
+rooms and connections even when inactive `temple2` files reuse those room numbers.
+Distinct active files sharing a numeric header must produce an explicit ambiguity
+failure. Filename-based builder access must continue to support inactive sources.
+Cache refresh and verification in both map clients are part of completion.
+
+## Evidence checked independently
+
+- [The resolver](../../backend/src/services/zoneBuilderParser.ts) currently scans
+  every `.zon` file, reads the first-line numeric header, and uses `map.set` without
+  checking membership or collisions. `zoneFileMap` is a process-global cache with
+  no root identity or expiry. `invalidateZoneFileMap()` clears it; builder creation,
+  deletion and cloning call that invalidator. Sorting filenames cannot establish
+  active membership.
+- `parseWldFile(number)` uses that resolver. The actual
+  [wiki map service](../../backend/src/services/wikiService.ts) builds nodes and
+  visible exit edges from those rooms and loads saved positions by the selected
+  basename. Its zone-map function does not read a Redis map-response cache or a
+  published wiki generation. The
+  [HTTP route](../../backend/src/routes/wiki.ts) applies wiki access and rate
+  limiting, then calls this service. Numeric resolution also feeds zone details,
+  object/mob detail parsing and zone-shop reads; inspect these consumers when
+  changing error handling. Scoped wiki source reads use `withMudRoot`, so cache
+  entries cannot be shared blindly between MUD roots.
+- Read-only inspection of Duris at
+  [`bc1537d9eb996db126ab20835201909baa91349c`](https://github.com/LuminariMUD/Duris/tree/bc1537d9eb996db126ab20835201909baa91349c)
+  confirms both `long.zon` and `temple2.zon` declare `#344`, while
+  [`areas/AREA`](https://github.com/LuminariMUD/Duris/blob/bc1537d9eb996db126ab20835201909baa91349c/areas/AREA)
+  lists only `long`. A header/membership audit found 354 active entries, no missing
+  `.zon` files and no duplicate readable active numeric headers. `mist_chasm.zon`
+  is empty: making every unrelated malformed active file fatal would introduce
+  a compatibility regression. This audit checked headers, not every reset record.
+- The MUD's
+  [`make_wld.c`](https://github.com/LuminariMUD/Duris/blob/bc1537d9eb996db126ab20835201909baa91349c/areas/src/wld/make_wld.c)
+  skips a comment only when the **first character** is `*`, skips blank input,
+  and uses the first whitespace-delimited token as the basename. Trailing
+  annotations such as `*344` or `*1-12` are not numeric authority. Leading spaces
+  before a real basename are accepted; a whitespace-prefixed `*` is not a comment
+  under this compiler rule. Do not introduce alternate `#`/`;` comment syntax.
+- Independent room/exit inspection found 100 Longhollow rooms, including room
+  34400 named `&+YThe Chieftain's Chamber`, sector 1, with a north exit to 34499.
+  A separate small source inspection counted 251 non-secret Longhollow exits;
+  confirm this total through the actual parser during implementation before
+  pinning the complete API expectation. Temple2 has 89 rooms, sector 3 at 34400,
+  and different exits. Shared room IDs therefore cannot establish correctness.
+- A fresh read-only `GET /api/wiki/zones/344/map-data` on the public origin
+  identified in #136 on 30 October returned HTTP 200, 89 nodes, 196 edges and room 34400 named
+  `&+yA muddy trail&N`, sector 3. A first request received an HTTP error; repeating
+  with an explicit user agent returned that JSON. The deployed MUD revision,
+  filesystem and running website artifact were not inspected.
+- [The browser mapper](../../frontend/src/components/mud/MudMap.vue) fetches the
+  same endpoint and retains its loaded zone in component state. Mudlet at
+  [`09924db4f2c9a5ffe47c44ebbed7977cc432eecb`](https://github.com/LuminariMUD/duris-client/blob/09924db4f2c9a5ffe47c44ebbed7977cc432eecb/src/scripts/ArjMapper.lua)
+  caches accepted data by GMCP zone number. Its `/mapreload` clears the cache;
+  movement or `look` triggers the next request. Neither client was exercised live
+  in this planning pass.
+- Baseline checks passed **29 tests in two suites** on the unchanged base:
+  `pnpm --dir backend test --runInBand src/services/__tests__/flatfileParsers.test.ts src/routes/__tests__/wikiMapAccess.test.ts`.
+  These prove existing behavior only; the current route suite does not cover the
+  zone-map endpoint with the real filesystem parser. No root `.env` exists in
+  this local checkout; no application, database or MUD process was started.
+
+## Non-goals and ablation decisions
+
+- Keep the repair in the existing numeric resolver and its cache. Reuse
+  `readMudTextFile`, the `zone_builder_parsing` gate, source validation and safe
+  zone-path helpers. A second active-world registry or manifest framework adds
+  no required behavior.
+- Preserve the directory-based builder index, filename-based room/map reads,
+  optional sidecars, map positions, secret-exit filtering, access checks and
+  public response shape. Making the builder index active-only would remove
+  intentional access to inactive work.
+- Drop a zone-344 exception, directory-order tie breakers, changes to MUD files,
+  client source changes, database migrations/reimports and Redis-wide flushing.
+  None fixes the traced selection boundary. Builder creation's existing `#1`
+  header behavior is separate work; inactive builder files must not enter this
+  numeric active-world map merely because they were created.
+- Keep cache refresh and real HTTP/client proof: omitting them can leave a correct
+  resolver hidden behind already accepted maps. Drop filesystem watchers, a new
+  refresh API, a new dependency and a general cache service; existing invalidation
+  plus a small source-aware cache can meet this requirement.
+- Preserve malformed-source isolation for unrelated entries. Do not weaken path,
+  content-size, UTF-8, hook or symlink protections to read the manifest.
+
+## Implementation sequence
+
+### 1. Establish a failing regression through the real read path
+
+- Add compact committed fixtures derived from the pinned `long` and `temple2`
+  sources: minimal valid `.zon` records and `.wld` records retaining room names,
+  sectors, flags and exits, with narrative descriptions omitted. Record provenance
+  and independent expected counts; do not copy player data or production files.
+- Use temporary MUD roots and the existing filesystem/test reset helpers. Exercise
+  the actual `getZoneBaseName`, `parseWldFile` and wiki map service, not a mocked
+  numeric resolver. Put the HTTP/service integration in a focused
+  `wikiZoneMapData.test.ts` suite; mock only SQL/Redis, identity and settings
+  boundaries. Mount the real wiki router and error handler for HTTP assertions.
+- With only `long` active, provide both duplicate files in both directory listing
+  orders and both manifest orderings where comments are involved. Assert basename
+  `long`, 100 nodes, the Chieftain's Chamber and its sector, distinguishing
+  connections, expected visible topology, and absence of Temple2's alternative
+  rooms/connections. Pin the verified complete edge count. Repeat with a warm
+  cache and an inactive file added after the first build.
+- Add conflicting position sidecars to prove selected rooms use `long` positions,
+  rather than merely changing the nodes while retaining `temple2` layout data.
+
+### 2. Resolve membership, then numeric identity
+
+- Read `path.join(areasRoot, 'AREA')` through `readMudTextFile` using the existing
+  hook and bounded reader. Keep the existing default text-size limit; the inspected
+  manifest is only 13,768 bytes. Normalize line endings through that reader.
+- Ignore first-column `*` comments and whitespace-only lines; take the first token
+  of each remaining line and validate it with the existing safe zone-file resolver.
+  Resolve each distinct member's `.zon` header. Use the header as the numeric key,
+  preserving current numeric-header semantics; do not infer IDs or expand ranges
+  from the manifest's annotations, top-vnum values or room IDs.
+- Stop using the all-files directory scan as the candidate set for numeric lookup.
+  Missing/unreadable/unsafe `AREA` must refuse numeric resolution, including after
+  a previously successful cache fill. An empty/comment-only manifest means no
+  active zones. Never fall back to inactive directory contents or an old selection.
+- Maintain unique mappings and an explicit set of ambiguous numbers. Two distinct
+  active basenames declaring one number make that number unusable, independent of
+  either order; repeated membership of the same basename is not a distinct-source
+  collision. Return `null` for an unknown number as today, but throw a fixed,
+  actionable ambiguity error for a conflicted number. The existing HTTP error path
+  returns HTTP 500, with no map payload; unrelated unique numbers remain usable.
+  Do not add route-specific response machinery unless implementation evidence
+  requires it.
+- Preserve existing malformed `.zon` isolation and safe diagnostics. A malformed
+  neighboring source must not collapse every valid lookup. Detect known conflicting
+  headers before choosing a winner; validation order must not hide an active
+  collision. Never put raw manifest lines or absolute paths in public errors.
+
+### 3. Make cache ownership and refresh explicit
+
+- Key the cached result by resolved areas root and the bounded manifest text.
+  Re-read `AREA` before accepting a cache hit so membership/comment changes take
+  effect on the next numeric lookup, without rescanning all active files on every
+  request. An unavailable manifest must not serve a stale successful mapping.
+- Retain `invalidateZoneFileMap()` and its writer callers. Explicit invalidation
+  or a website backend restart rebuilds `.zon` header changes when membership has
+  not changed. Document that external header edits require that refresh; this is
+  not an automatic file-watching contract.
+- Build locally and publish only a complete result for its source identity.
+  Ensure a build started before invalidation cannot repopulate the invalidated
+  cache as current; use a small invalidation generation if needed. Keep returned
+  results tied to the root/manifest used to build them. Test root switches and an
+  invalidation during an asynchronous build rather than adding a new cache layer.
+- Verify the hook still refuses before filesystem work even when the cache is
+  warm. Deployment must restart the website backend process(es), clearing the
+  old algorithm's module cache. No MUD restart or broad Redis operation is needed.
+
+### 4. Prove compatibility and failure behavior
+
+- Cover blank lines, CRLF, first-column comments, leading whitespace on valid
+  entries, trailing numeric/range annotations and whitespace-prefixed invalid
+  comment tokens. Cover absent, unreadable and unsafe manifests, bounded-reader
+  rejection, and an inactive-only numeric zone. Reuse existing boundary tests;
+  add manifest-specific cases only where the new path needs proof.
+- Cover two active `#344` sources in both orders: the direct resolver and HTTP
+  endpoint refuse without a map, while a different unique active zone still works.
+- Cover manifest changes with a warm cache (`long` to `temple2`, then removal),
+  explicit invalidation after a header change, separate roots with the same zone
+  number, and disabled-hook behavior. A missing manifest after warm-up must fail.
+- Add `areas/AREA` to existing numeric-parser test fixtures, including alternate
+  root and recovery fixtures. Preserve tests for malformed neighboring sources.
+  Add a named read of inactive `temple2` through the existing builder entry point;
+  listing and filename access must remain usable without active membership.
+- Keep SQL/Redis mocked for these filesystem/HTTP regressions and assert the
+  zone-map service performs no map-data SQL or Redis cache writes. Access/settings
+  fixture calls are separate from map-data I/O. Avoid new database infrastructure.
+
+## Files
+
+- `backend/src/services/zoneBuilderParser.ts`: active membership, ambiguity and
+  cache behavior; the primary runtime change.
+- `backend/src/services/__tests__/flatfileParsers.test.ts`: manifest fixtures,
+  parser/cache and inactive-builder compatibility cases.
+- `backend/src/services/__tests__/wikiZoneMapData.test.ts` and compact colocated
+  fixture data: real filesystem-to-HTTP regression and source provenance.
+- `backend/README_backend.md`: numeric versus filename resolution and refresh
+  contract. Update `docs/deployment.md` with the focused release checks if no
+  existing procedure covers them.
+- This plan: implementation progress and release acceptance evidence. Preserve
+  the unrelated plan below. Touch `wikiService.ts`, route code, writer code or
+  frontend files only if a demonstrated acceptance gap requires it; they already
+  delegate selection or expose the necessary refresh behavior.
+
+## Proof and release acceptance
+
+For implementation, run from the repository root, serially:
+
+```bash
+pnpm --dir backend test --runInBand flatfileParsers wikiZoneMapData wikiMapAccess flatfileAccess zonePathContainment safeZonePath
+pnpm --dir backend format:check
+pnpm --dir backend lint
+pnpm --dir backend type-check
+pnpm --dir backend build
+git diff --check
+```
+
+There are no planned database/MUD-owned writes, so `verify:mud-writes` is not
+required by this change's scope. Run it if implementation expands into that
+boundary. Frontend remains source-unchanged; if it changes, run its relevant unit
+tests, format, lint, type-check and build too. Report commands and skipped checks.
+
+On a subsequently authorized website release:
+
+1. Follow the existing deployment skill/runbook, verify the deployed website
+   revision and configured MUD source identity, and read the deployed manifest and
+   selected source. Do not assume the local MUD snapshot equals production. Build
+   in isolation and restart only the website backend as the release requires.
+   Keep the configured Cloudflare ingress and paired MUD services running.
+2. Fetch the public `/api/wiki/zones/344/map-data` through normal ingress. Verify
+   Longhollow names, sector types, room count and visible topology against the
+   inspected deployed source, plus selected saved positions. Repeat once warm and
+   check another active zone. If the deployed source differs from the pinned
+   fixture, investigate the difference rather than blindly accepting 100/251.
+3. In Mudlet with an available authorized test session in Longhollow, issue
+   `/mapreload`, then move or `look`. Verify GMCP zone 344, the fresh endpoint
+   request, Longhollow's rendered connections/current-room placement and absence
+   of the muddy-trail map. An HTTP check alone does not complete this acceptance.
+4. Reload the browser MUD client to clear component-held zone data, reconnect with
+   an authorized test session and enter/observe Longhollow. Verify the network
+   response and rendered mapper, sector styling and current-room placement.
+5. Use `.agents/skills/news-update` during implementation/release. Prepare the
+   reader-facing note that active-zone maps now select the active area when
+   inactive sources reuse a number. Publish Website Changelog only after verified
+   live behavior, then verify the saved entry and public rendering. Do not publish
+   a fix announcement before the release is verified live.
+
+Keep any unavailable deployment, browser or Mudlet proof explicitly pending and
+the issue open. If the release fails, follow the existing website rollback
+procedure and record that reverting the resolver restores the known bad selection;
+never remove or renumber MUD files as a workaround. No production host access or
+live player session was used to prepare this plan.
+
+## Estimate for me to implement
+
+Allow **90–150 minutes of my active work** for the resolver/cache repair, focused
+fixtures and regressions, required backend checks/build, documentation and review.
+Allow a further **30–60 minutes** for an authorized website rollout, endpoint
+checks, both live clients and changelog verification when suitable access/sessions
+are available: **about 2–3.5 hours total**. Waiting for deployment authorization or
+a usable Mudlet session is additional elapsed time. This is an estimate, not a
+claim of live qualification. The implementation handoff above supersedes the
+original planning status.
+
+## Implementation verification
+
+Final result: **133 tests passed in 13 suites, with no skips**, including the new
+real-filesystem/HTTP regressions and the literal-guard compatibility cases. The
+Longhollow regression failed against the original resolver in the forward listing
+order; the mixed-position regression also failed before the single-selection
+repair. Both pass now. Intermediate test-mock export and Jest interlock typing
+errors were corrected before the final gates.
+
+Commands run during implementation (from the repository root):
+
+```bash
+pnpm --dir backend install --offline --frozen-lockfile
+pnpm --dir backend test --runInBand wikiZoneMapData -t "selects active Longhollow"
+pnpm --dir backend test --runInBand wikiZoneMapData flatfileParsers
+pnpm --dir backend test --runInBand wikiZoneMapData -t "one selected source"
+pnpm --dir backend test --runInBand wikiZoneMapData flatfileParsers wikiObjectDetailGeneration wikiMobDetailGeneration wikiMapImage wikiMapSectors
+pnpm --dir backend exec biome format --write src/services/zoneBuilderParser.ts src/services/wikiService.ts src/services/__tests__/wikiZoneMapData.test.ts src/services/__tests__/flatfileParsers.test.ts src/services/__tests__/wikiMapSectors.test.ts src/services/__tests__/wikiMapImage.test.ts src/services/__tests__/wikiObjectDetailGeneration.test.ts src/services/__tests__/wikiMobDetailGeneration.test.ts
+pnpm --dir backend test --runInBand flatfileParsers wikiZoneMapData wikiMapAccess flatfileAccess zonePathContainment safeZonePath wikiObjectDetailGeneration wikiMobDetailGeneration wikiMapImage wikiMapSectors
+pnpm --dir backend test --runInBand wikiObjectMetadata wikiMobMetadata
+pnpm --dir backend exec biome format --write src/scripts/__tests__/deploymentConfiguration.test.ts
+pnpm --dir backend test --runInBand deploymentConfiguration -t "configuration literal guard"
+pnpm --dir backend test --runInBand --silent --json --outputFile=/tmp/durisweb-issue-136-tests.json flatfileParsers wikiZoneMapData wikiMapAccess flatfileAccess zonePathContainment safeZonePath wikiObjectDetailGeneration wikiMobDetailGeneration wikiMapImage wikiMapSectors wikiObjectMetadata wikiMobMetadata deploymentConfiguration
+./scripts/check-config-literals.sh
+pnpm --dir backend format:check
+pnpm --dir backend lint
+pnpm --dir backend type-check
+pnpm --dir backend build
+pnpm --dir backend verify:mud-writes
+pnpm --dir backend schema:check
+python3 .agents/skills/news-update/scripts/sync_client_changelog.py
+git diff --check
+```
+
+All final commands passed. The original literal guard failed on the historical
+client link and the plan's public-origin URL before the focused correction.
+Formatting/type-check/build were repeated after relevant source/test edits. The
+test command was also run without JSON output while developing; a log-display
+wrapper initially returned a shell status error after all 133 tests passed, so
+the final direct invocation above records a clean exit and structured results.
+Fixture projection and document-preservation inspection used inline `python3 -`.
+The existing Biome schema-version advisory and Node VM-module warning were
+non-fatal. No dependency manifests or lockfiles changed.
+
+The full backend suite, frontend package checks/build, deployment, public fixed
+endpoint, live Mudlet and browser rendering checks were not run. Frontend source
+and its client snapshot are unchanged; the focused backend suite uses isolated
+filesystem fixtures and mocked SQL/Redis/identity/settings boundaries. The
+real HTTP route and error handler execute in those tests. No application database,
+production host, MUD process or live player data was changed. Release acceptance
+and changelog publication remain pending; keep #136 open for that evidence.
+
+## Planning-only validation
+
+The baseline Jest command above passed 29/29 tests. `git diff --check` passed
+after removing Markdown hard-break trailing spaces. An inline `python3 -` check
+verified that the full pre-existing plan remains a byte-for-byte suffix, all
+four new relative source links resolve, and Outcome, Non-goals, Files, Proof and
+the four implementation steps are present. The read-only manifest and room/exit
+audits also used inline `python3 -`; they are source inspection, not fix tests.
+Backend/frontend format, lint, type-check and builds were not run for this
+documentation-only change; their required implementation commands are above.
+
+---
+
+<!-- The pre-existing plan below is retained verbatim for its separate project. -->
+
 # Website security, privacy, and schema implementation plan
 
 ## Current merge handoff — 17 October 2026

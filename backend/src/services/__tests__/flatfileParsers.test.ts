@@ -132,6 +132,7 @@ async function writeFlagFixture(): Promise<void> {
 
 async function writeZoneFixture(): Promise<void> {
   await Promise.all([
+    write('areas/AREA', 'fixture *1\n'),
     write(
       'areas/zon/fixture.zon',
       '#1\nFixture Zone~\n199 0 50 30 2 0\n' + 'M 0 101 1 100 0 0 0 0\nS\n',
@@ -426,6 +427,7 @@ describe('all-or-nothing malformed source rejection', () => {
   });
 
   it('keeps valid zone-number lookups usable when another reset file is malformed', async () => {
+    await write('areas/AREA', 'fixture\nbroken\n');
     await write('areas/zon/broken.zon', '#2\nBroken Zone~\n299 0 50 30 2 0\n');
     invalidateZoneFileMap();
 

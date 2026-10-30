@@ -4,6 +4,7 @@ import { getCache, setCache, mapToObject, objectToMapNumeric, objectToMap } from
 import sharp from 'sharp';
 import {
   parseWldFile,
+  parseWldFileById,
   parseObjFile,
   getZonePositions,
   getZoneBaseName,
@@ -746,23 +747,22 @@ export async function getZoneMapData(zoneNumber: number): Promise<{
   nodes: { id: number; name: string; sectorType: number; x?: number; y?: number }[];
   edges: { from: number; to: number; direction: string }[];
 }> {
-  // Parse rooms from the .wld flatfile
-  const rooms = await parseWldFile(zoneNumber);
-
-  // Get the zone base name (file name without extension)
+  // Select once so a manifest change cannot mix one world's rooms with another's positions.
   const zoneBaseName = await getZoneBaseName(zoneNumber);
+  if (!zoneBaseName) {
+    throw new Error(`Zone ${zoneNumber} not found`);
+  }
+  const rooms = await parseWldFileById(zoneBaseName);
 
   // Try to get saved positions from the map file
   let positions: Record<number, { x: number; y: number }> = {};
-  if (zoneBaseName) {
-    try {
-      const zonePositions = await getZonePositions(zoneBaseName);
-      if (zonePositions) {
-        positions = zonePositions.positions;
-      }
-    } catch {
-      // No positions saved, will use auto-layout
+  try {
+    const zonePositions = await getZonePositions(zoneBaseName);
+    if (zonePositions) {
+      positions = zonePositions.positions;
     }
+  } catch {
+    // No positions saved, will use auto-layout
   }
 
   // Build nodes with positions

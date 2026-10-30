@@ -38,6 +38,7 @@ jest.unstable_mockModule('../flatfileAccess.js', () => ({
 jest.unstable_mockModule('../wikiSourceSnapshot.js', () => ({ withWikiRevisionSnapshot }));
 jest.unstable_mockModule('../zoneBuilderParser.js', () => ({
   parseWldFile,
+  parseWldFileById: jest.fn(),
   parseObjFile,
   getZonePositions: jest.fn(),
   getZoneBaseName,

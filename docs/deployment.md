@@ -863,6 +863,31 @@ boundaries, including the 15-minute service-descriptor timeout in DurisMUD #116,
 as untested by this window. Longer observation is a separate targeted check when
 explicitly requested, rather than an automatic extension of the release soak.
 
+### Numeric zone-map release checks
+
+The `/api/wiki/zones/<number>/map-data` endpoint reads the active manifest and
+flatfiles directly; world-map projection extraction and Redis flushing do not
+repair its source selection. Restart the website backend when promoting a
+resolver change, and verify the configured deployed MUD source and `areas/AREA`.
+External `.zon` header edits without a manifest change also require cache
+invalidation or a website backend restart. No MUD file rewrite or restart is
+needed for this resolver repair.
+
+For the duplicate zone-344 regression, verify the public endpoint selects active
+Longhollow instead of inactive Temple2. Check room names, sector types, full visible
+topology, counts and saved positions, then repeat with a warm cache and check a
+second active zone. The reviewed source fixture has 100 nodes and 251 non-secret
+edges; deployed source changes must be reconciled rather than ignored. Room 34400
+is the Chieftain's Chamber, sector 1, with a north exit to 34499 in that fixture.
+Repeated room IDs alone do not prove the correct world was selected.
+
+Mudlet retains accepted zone maps: issue `/mapreload`, then move or `look` in
+Longhollow and verify the fresh request, rendered connections and current room.
+Reload the browser MUD client to clear its component-held map, reconnect with an
+authorized test session and verify its response and rendered mapper too. Record
+either live-client check as pending if no suitable session is available. Publish
+the prepared Website Changelog entry only after verified live release acceptance.
+
 Prove release identity by extracting a generated asset name from the staged
 build and requiring that exact asset (and expected size or digest) locally and
 through every public hostname. A healthy old process or cached old SPA is not a
