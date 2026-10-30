@@ -12,6 +12,7 @@ jest.unstable_mockModule('../../db/redis.js', () => ({
 }));
 jest.unstable_mockModule('../zoneBuilderParser.js', () => ({
   parseWldFile: jest.fn(),
+  parseWldFileById: jest.fn(),
   parseObjFile: jest.fn(),
   getZonePositions: jest.fn(),
   getZoneBaseName: jest.fn(),

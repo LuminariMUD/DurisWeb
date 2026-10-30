@@ -63,6 +63,22 @@ the main loop stops responding for five seconds. It attempts one short CPU sampl
 per stall and logs only relative application code locations, then records recovery
 if the loop resumes. See [stall diagnostics](../docs/runbooks/incident-response.md#backend-event-loop-stall).
 
+Numeric zone reads use the active `areas/AREA` manifest under `MUD_DIR`, taking
+each entry's first token and its `.zon` numeric header. Only a first-column `*`
+starts a comment; trailing zone/range annotations do not assign numbers. Inactive
+files remain available through filename-based builder reads and the builder index.
+Distinct active files claiming the same number refuse that numeric lookup with an
+ambiguity error, without blocking other unique numbers. A missing or invalid
+manifest refuses numeric reads rather than falling back to inactive files.
+
+The numeric mapping cache is scoped to the resolved areas root and manifest
+contents. Manifest membership changes take effect on the next lookup. External
+`.zon` header changes with unchanged membership require `invalidateZoneFileMap()`
+or a website backend restart; writer creation/deletion/cloning already invalidates
+the cache. Deployment restarts the backend to discard the old process cache.
+The zone-map API selects once per response so rooms and saved positions use the
+same basename. See [zone-map release checks](../docs/deployment.md#numeric-zone-map-release-checks).
+
 On shutdown, the service stops accepting HTTP connections while closing existing
 WebSocket clients normally. Peers that do not acknowledge the close frame are
 terminated after five seconds, so upgraded connections cannot hold shutdown open

@@ -6,11 +6,59 @@ Branch: `branch/issue-136-active-area-resolution`
 
 Prepared: 30 October 2026 against DurisWeb `19cac13bb6e7df5451c643f0ba4567e0d9c5138e`.
 
-**Status: planning complete; implementation and release acceptance are pending.**
-This request produces a committed plan. The steps below describe subsequent work;
-they do not authorize or claim a production deployment or a MUD operation.
+**Status: implementation complete locally; release acceptance is pending.**
+The source changes, regressions and documentation are prepared for review on this
+branch. Deployment and live-player verification remain separate release steps.
 The pre-existing security/privacy/schema plan is preserved below, with its anchors
 and content intact. Its status statements belong to that separate project.
+
+## Implementation handoff — 30 October 2026
+
+- Numeric lookup now reads only active `AREA` members, preserving compiler comment
+  semantics and rejecting known duplicate numeric claims independently of order.
+  A malformed reset record cannot hide a conflicting readable header. Unrelated
+  malformed files remain isolated; filename-based builder access is unchanged.
+- Cache ownership includes the resolved root and manifest text. Membership changes
+  refresh on the next lookup; invalidation generations prevent an older build
+  from republishing stale mappings. External header edits still require explicit
+  invalidation or a website backend restart, as documented.
+- A new failing regression exposed a necessary addition to the initial file list:
+  `wikiService.getZoneMapData` resolved the number twice, allowing old rooms and
+  new positions in one response after a manifest change. It now selects once and
+  reuses the existing `parseWldFileById` path, exported for this caller. Six wiki
+  test-module mocks include that export; no new parsing abstraction was needed.
+- Compact fixtures retain the original Longhollow/Temple2 graph fields. Full graph
+  digests independently derived from pinned MUD source match the actual parser:
+  Longhollow has 100 nodes and 251 visible edges, Temple2 89 and 196. Regression
+  tests cover real HTTP assembly, positions, both directory orders, active
+  collisions, manifest failure, cache transitions, scoped roots and builder reads.
+- CI parity exposed a pre-existing false positive from the imported client
+  changelog's historical origin link. A separate guard correction masks only that
+  exact HTML link in that content field; four regressions keep runtime literals,
+  other hosts and another literal on the same content line rejected. The initial
+  plan's live-origin reference now describes the issue's origin portably.
+- Ablation retained one resolver, the existing flatfile boundary and filename
+  parser. No watcher, refresh endpoint, dependency, schema change, MUD change,
+  client source change or Redis flush was added. The release checks are documented
+  in the deployment guide, and the reader-facing news draft is below.
+
+## Prepared Website Changelog entry
+
+Draft only; publish after verified deployment and both client acceptance checks.
+Title: **Active zone maps show the correct area**. Category: `public`. Set the
+version to the verified release date using the normal changelog convention.
+
+```html
+<h3>Play and Wiki</h3>
+<ul>
+  <li><strong>Correct zone maps.</strong> Zone maps now use the active area when unused builder sources share a zone number. This corrects Longhollow displaying the Home of the Enlightened map.</li>
+  <li><strong>Refresh an already loaded map.</strong> In Mudlet, run <code>/mapreload</code>, then move or use <code>look</code>. Reload the browser MUD client to refresh its loaded map.</li>
+</ul>
+```
+
+The news-update importer checked all 24 client versions through 2.4.1 at
+`09924db4f2c9a5ffe47c44ebbed7977cc432eecb`; the reviewed frontend snapshot was
+unchanged. No changelog entry was published and no frontend release was built.
 
 ## Outcome
 
@@ -60,8 +108,8 @@ Cache refresh and verification in both map clients are part of completion.
   confirm this total through the actual parser during implementation before
   pinning the complete API expectation. Temple2 has 89 rooms, sector 3 at 34400,
   and different exits. Shared room IDs therefore cannot establish correctness.
-- A fresh read-only [live map request](https://duris.sbs/api/wiki/zones/344/map-data)
-  on 30 October returned HTTP 200, 89 nodes, 196 edges and room 34400 named
+- A fresh read-only `GET /api/wiki/zones/344/map-data` on the public origin
+  identified in #136 on 30 October returned HTTP 200, 89 nodes, 196 edges and room 34400 named
   `&+yA muddy trail&N`, sector 3. A first request received an HTTP error; repeating
   with an explicit user agent returned that JSON. The deployed MUD revision,
   filesystem and running website artifact were not inspected.
@@ -244,7 +292,7 @@ On a subsequently authorized website release:
    reader-facing note that active-zone maps now select the active area when
    inactive sources reuse a number. Publish Website Changelog only after verified
    live behavior, then verify the saved entry and public rendering. Do not publish
-   a fix announcement for this planning-only commit.
+   a fix announcement before the release is verified live.
 
 Keep any unavailable deployment, browser or Mudlet proof explicitly pending and
 the issue open. If the release fails, follow the existing website rollback
@@ -260,7 +308,60 @@ Allow a further **30–60 minutes** for an authorized website rollout, endpoint
 checks, both live clients and changelog verification when suitable access/sessions
 are available: **about 2–3.5 hours total**. Waiting for deployment authorization or
 a usable Mudlet session is additional elapsed time. This is an estimate, not a
-claim that any implementation or live qualification has occurred.
+claim of live qualification. The implementation handoff above supersedes the
+original planning status.
+
+## Implementation verification
+
+Final result: **133 tests passed in 13 suites, with no skips**, including the new
+real-filesystem/HTTP regressions and the literal-guard compatibility cases. The
+Longhollow regression failed against the original resolver in the forward listing
+order; the mixed-position regression also failed before the single-selection
+repair. Both pass now. Intermediate test-mock export and Jest interlock typing
+errors were corrected before the final gates.
+
+Commands run during implementation (from the repository root):
+
+```bash
+pnpm --dir backend install --offline --frozen-lockfile
+pnpm --dir backend test --runInBand wikiZoneMapData -t "selects active Longhollow"
+pnpm --dir backend test --runInBand wikiZoneMapData flatfileParsers
+pnpm --dir backend test --runInBand wikiZoneMapData -t "one selected source"
+pnpm --dir backend test --runInBand wikiZoneMapData flatfileParsers wikiObjectDetailGeneration wikiMobDetailGeneration wikiMapImage wikiMapSectors
+pnpm --dir backend exec biome format --write src/services/zoneBuilderParser.ts src/services/wikiService.ts src/services/__tests__/wikiZoneMapData.test.ts src/services/__tests__/flatfileParsers.test.ts src/services/__tests__/wikiMapSectors.test.ts src/services/__tests__/wikiMapImage.test.ts src/services/__tests__/wikiObjectDetailGeneration.test.ts src/services/__tests__/wikiMobDetailGeneration.test.ts
+pnpm --dir backend test --runInBand flatfileParsers wikiZoneMapData wikiMapAccess flatfileAccess zonePathContainment safeZonePath wikiObjectDetailGeneration wikiMobDetailGeneration wikiMapImage wikiMapSectors
+pnpm --dir backend test --runInBand wikiObjectMetadata wikiMobMetadata
+pnpm --dir backend exec biome format --write src/scripts/__tests__/deploymentConfiguration.test.ts
+pnpm --dir backend test --runInBand deploymentConfiguration -t "configuration literal guard"
+pnpm --dir backend test --runInBand --silent --json --outputFile=/tmp/durisweb-issue-136-tests.json flatfileParsers wikiZoneMapData wikiMapAccess flatfileAccess zonePathContainment safeZonePath wikiObjectDetailGeneration wikiMobDetailGeneration wikiMapImage wikiMapSectors wikiObjectMetadata wikiMobMetadata deploymentConfiguration
+./scripts/check-config-literals.sh
+pnpm --dir backend format:check
+pnpm --dir backend lint
+pnpm --dir backend type-check
+pnpm --dir backend build
+pnpm --dir backend verify:mud-writes
+pnpm --dir backend schema:check
+python3 .agents/skills/news-update/scripts/sync_client_changelog.py
+git diff --check
+```
+
+All final commands passed. The original literal guard failed on the historical
+client link and the plan's public-origin URL before the focused correction.
+Formatting/type-check/build were repeated after relevant source/test edits. The
+test command was also run without JSON output while developing; a log-display
+wrapper initially returned a shell status error after all 133 tests passed, so
+the final direct invocation above records a clean exit and structured results.
+Fixture projection and document-preservation inspection used inline `python3 -`.
+The existing Biome schema-version advisory and Node VM-module warning were
+non-fatal. No dependency manifests or lockfiles changed.
+
+The full backend suite, frontend package checks/build, deployment, public fixed
+endpoint, live Mudlet and browser rendering checks were not run. Frontend source
+and its client snapshot are unchanged; the focused backend suite uses isolated
+filesystem fixtures and mocked SQL/Redis/identity/settings boundaries. The
+real HTTP route and error handler execute in those tests. No application database,
+production host, MUD process or live player data was changed. Release acceptance
+and changelog publication remain pending; keep #136 open for that evidence.
 
 ## Planning-only validation
 

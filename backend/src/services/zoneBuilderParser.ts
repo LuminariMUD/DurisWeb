@@ -375,8 +375,15 @@ function validateAreaSource(filePath: string, content: string): void {
   }
 }
 
-// Cache for zone number to filename mapping
-let zoneFileMap: Map<number, string> | null = null;
+interface ZoneFileMapCache {
+  readonly areasRoot: string;
+  readonly manifest: string;
+  readonly files: Map<number, string>;
+  readonly ambiguous: Set<number>;
+}
+
+let zoneFileMap: ZoneFileMapCache | null = null;
+let zoneFileMapGeneration = 0;
 
 // Cache for species short code to numeric index mapping (e.g., "PH" -> 1 for Human)
 let speciesCodeMap: Map<string, number> | null = null;
@@ -428,67 +435,85 @@ async function speciesCodeToIndex(code: string): Promise<number> {
   return 0;
 }
 
-// Build mapping of zone number -> base filename (without extension)
-// Zone number comes from line 1 of .zon file (#<number>)
-async function buildZoneFileMap(): Promise<Map<number, string>> {
-  assertZoneBuilderParsingEnabled();
-  if (zoneFileMap) return zoneFileMap;
+// Numeric world reads follow AREA membership; builder filename reads remain independent.
+async function buildZoneFileMap(): Promise<ZoneFileMapCache> {
+  const areasRoot = getAreasDir();
+  const generation = zoneFileMapGeneration;
+  // Check membership even on a cache hit: missing or changed AREA must not serve old data.
+  const manifest = await readMudTextFile('zone_builder_parsing', path.join(areasRoot, 'AREA'));
+  if (zoneFileMap?.areasRoot === areasRoot && zoneFileMap.manifest === manifest) {
+    return zoneFileMap;
+  }
 
-  const map = new Map<number, string>();
-  const zonDir = resolveSafeZoneDirectoryPath(getAreasDir(), 'zon');
+  const files = new Map<number, string>();
+  const ambiguous = new Set<number>();
+  const claimed = new Set<number>();
+  const members = new Set<string>();
 
   try {
-    const files = await listMudDirectory('zone_builder_parsing', zonDir);
-    const zonFiles = files.filter((f) => f.endsWith('.zon'));
-
-    for (const file of zonFiles) {
+    for (const line of manifest.split('\n')) {
+      // Match the MUD compiler: only first-column '*' starts a comment.
+      if (line.startsWith('*') || !line.trim()) continue;
+      const baseName = line.trim().split(/\s+/, 1)[0];
+      if (members.has(baseName)) continue;
+      members.add(baseName);
+      const zonPath = resolveSafeZoneFilePath(areasRoot, baseName, 'zon');
       try {
-        const baseName = file.replace('.zon', '');
-        const zonPath = resolveSafeZoneFilePath(getAreasDir(), baseName, 'zon');
-        const content = await readFile(zonPath);
-
-        // Zone format: Line 1 = #<zone_number>, Line 2 = name~, Line 3 = <top_vnum> <flags...>
-        // Zone number comes from line 1 (e.g., #831 means zone 831)
-        const lines = content.split('\n');
-        if (lines.length < 1) continue;
-
-        const zoneNumberMatch = lines[0].match(/^#(\d+)/);
-        if (zoneNumberMatch) {
-          const zoneNumber = parseInt(zoneNumberMatch[1], 10);
-          map.set(zoneNumber, baseName);
+        assertZoneBuilderParsingEnabled();
+        const content = await readMudTextFile('zone_builder_parsing', zonPath, {
+          maxBytes: 64 * 1024 * 1024,
+        });
+        const header = content.split('\n', 1)[0].match(/^#(\d+)$/);
+        const number = header ? Number(header[1]) : null;
+        // A broken reset record cannot erase a known conflicting numeric claim.
+        if (number !== null) {
+          if (claimed.has(number)) {
+            ambiguous.add(number);
+            files.delete(number);
+          }
+          claimed.add(number);
+        }
+        validateAreaSource(zonPath, content);
+        if (number !== null && !ambiguous.has(number)) {
+          files.set(number, baseName);
         }
       } catch (error) {
         const rejectedInput =
-          error instanceof UnsafeZonePathError ||
           error instanceof ZoneSourceParseError ||
           (error instanceof FlatfileAccessError &&
             ['invalid_content', 'invalid_path', 'too_large'].includes(error.code));
         if (!rejectedInput) {
           throw error;
         }
-        if (error instanceof UnsafeZonePathError) {
-          recordDroppedFlatfileInput('zone_builder_parsing');
-        }
-        logger.warn(`Skipped malformed zone source for ${safeSourceName(file)}.`);
+        logger.warn(`Skipped malformed zone source for ${safeSourceName(zonPath)}.`);
       }
     }
   } catch (error) {
+    if (error instanceof UnsafeZonePathError) {
+      recordDroppedFlatfileInput('zone_builder_parsing');
+    }
     logger.error('Error building zone file map:', error);
     throw error;
   }
 
-  zoneFileMap = map;
-  return map;
+  const result = { areasRoot, manifest, files, ambiguous };
+  // An asynchronous build must not undo a writer's invalidation.
+  if (generation === zoneFileMapGeneration) zoneFileMap = result;
+  return result;
 }
 
 // Get base filename for a zone number
 export async function getZoneBaseName(zoneNumber: number): Promise<string | null> {
   const map = await buildZoneFileMap();
-  return map.get(zoneNumber) || null;
+  if (map.ambiguous.has(zoneNumber)) {
+    throw new Error(`Active zone number ${zoneNumber} is ambiguous.`);
+  }
+  return map.files.get(zoneNumber) ?? null;
 }
 
 // Invalidate zone file map cache (call when zones are created/deleted)
 export function invalidateZoneFileMap(): void {
+  zoneFileMapGeneration += 1;
   zoneFileMap = null;
 }
 
@@ -925,7 +950,7 @@ export async function parseWldFile(zoneNumber: number): Promise<Room[]> {
 }
 
 // Parse .wld file by zone ID (filename without extension)
-async function parseWldFileById(zoneId: string): Promise<Room[]> {
+export async function parseWldFileById(zoneId: string): Promise<Room[]> {
   const filePath = resolveSafeZoneFilePath(getAreasDir(), zoneId, 'wld');
 
   if (!(await fileExists(filePath))) {
