@@ -51,6 +51,7 @@ const activeTab = ref('overview')
 // Data
 const overview = ref<any>(null)
 const topPages = ref<any[]>([])
+const pagesError = ref(false)
 const referrers = ref<any[]>([])
 const deviceStats = ref<any>(null)
 const geoStats = ref<any[]>([])
@@ -78,6 +79,7 @@ async function fetchOverview() {
 
 // Fetch top pages
 async function fetchTopPages() {
+  pagesError.value = false
   try {
     const response = await axios.get(`${API_URL}/api/admin/analytics/web/admin/pages`, {
       params: { days: selectedDays.value, limit: 20 },
@@ -85,6 +87,7 @@ async function fetchTopPages() {
     })
     topPages.value = response.data.data
   } catch (error) {
+    pagesError.value = true
     console.error('Error fetching top pages:', error)
   }
 }
@@ -606,7 +609,11 @@ onMounted(() => {
             <CardDescription>Most visited pages on your site</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
+            <div v-if="pagesError" role="alert" class="space-y-3 py-4">
+              <p class="text-danger">Unable to load page statistics. Please try again.</p>
+              <Button variant="outline" @click="fetchTopPages">Retry page statistics</Button>
+            </div>
+            <Table v-else>
               <TableHeader>
                 <TableRow>
                   <TableHead>Page</TableHead>

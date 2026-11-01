@@ -124,7 +124,11 @@ export async function getUserList(filters: UserManagementFilters): Promise<UserM
       a.email,
       ii.last_ip,
       ii.last_connect as last_login,
-      ws.web_last_login,
+      (
+        SELECT MAX(ws.created_at)
+        FROM web_sessions ws
+        WHERE ws.account_name = ac.account_name
+      ) as web_last_login,
       CASE WHEN ub.is_active = TRUE THEN 1 ELSE 0 END as is_banned,
       ub.reason as ban_reason,
       ub.banned_at,
@@ -138,13 +142,6 @@ export async function getUserList(filters: UserManagementFilters): Promise<UserM
     LEFT JOIN classes c ON pd.m_class = c.id
     LEFT JOIN ip_info ii ON ac.pid = ii.pid
     LEFT JOIN user_bans ub ON ac.account_name = ub.account_name AND ub.is_active = TRUE
-    LEFT JOIN LATERAL (
-      SELECT created_at as web_last_login
-      FROM web_sessions
-      WHERE web_sessions.account_name = ac.account_name
-      ORDER BY created_at DESC
-      LIMIT 1
-    ) ws ON TRUE
     ${whereSQL}
     ORDER BY ${sortColumn} ${sortDirection}, ac.char_name
     LIMIT ? OFFSET ?

@@ -130,7 +130,7 @@ export async function getTopPages(days: number = 30, limit: number = 20): Promis
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT
       path,
-      ANY_VALUE(page_title) as pageTitle,
+      MIN(page_title) as pageTitle,
       COUNT(*) as views,
       COUNT(DISTINCT session_id) as uniqueVisitors,
       0 as avgTimeOnPage,

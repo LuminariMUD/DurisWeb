@@ -14,6 +14,14 @@ all three environment files, before running `./scripts/dev.sh`.
 
 ## Backend commands
 
+The admin-query and help-save regression suite uses a disposable native MySQL/MariaDB
+server with passwordless root access on loopback port 23436 or 23437. Explicitly
+set `TEST_TRAFFIC_DB_PORT` and run
+`pnpm --dir backend test --runInBand src/services/__tests__/adminReadQueriesNative.test.ts`.
+It creates and drops only its PID-qualified `durisweb_qualification_admin_reads_*`
+database with minimal synthetic tables; no application migrations or shared data
+are used. Normal test runs skip this opt-in suite.
+
 New database backups stream into one mode-0600 managed ZIP via the installed
 Archiver implementation and argument-based `mysqldump`. They create no raw
 SQL/staging files and use no shell ZIP command. The two-pass session-row

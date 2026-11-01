@@ -38,7 +38,7 @@ const levelDistribution = computed(() => stats.value?.levelDistribution || [])
         :value="stats?.maxLevel ?? 0"
         :icon="TrendingUp"
         :is-loading="isLoading"
-        subtitle="Highest character"
+        subtitle="Highest mortal character"
       />
 
       <StatCard
@@ -46,7 +46,7 @@ const levelDistribution = computed(() => stats.value?.levelDistribution || [])
         :value="stats?.avgLevel ?? 0"
         :icon="BarChart3"
         :is-loading="isLoading"
-        subtitle="Across all characters"
+        subtitle="Across mortal characters"
       />
 
       <StatCard

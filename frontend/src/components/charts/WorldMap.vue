@@ -311,6 +311,9 @@ function createChart() {
     showOutline: true,
     showGraticule: false,
     plugins: {
+      datalabels: {
+        display: false,
+      },
       legend: {
         display: false,
       },
