@@ -1,7 +1,25 @@
 {
-  "sourceSha": "09924db4f2c9a5ffe47c44ebbed7977cc432eecb",
-  "sourceUrl": "https://github.com/LuminariMUD/duris-client/blob/09924db4f2c9a5ffe47c44ebbed7977cc432eecb/CHANGELOG.md",
+  "sourceSha": "e141619c1802186011d2032c8f4280290531e7a6",
+  "sourceUrl": "https://github.com/LuminariMUD/duris-client/blob/e141619c1802186011d2032c8f4280290531e7a6/CHANGELOG.md",
   "entries": [
+    {
+      "version": "2.4.4",
+      "date": "2026-11-01",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.4.4",
+      "content": "<ul>\n<li>Render wilderness foregrounds and backgrounds with the profile&#x27;s ANSI colors, preserving the server&#x27;s white zone-marker backgrounds and terrain contrast instead of dimming them with a separate map palette.</li>\n<li>Keep custom marker colors, grey city/road symbols and the player marker consistent with ordinary game text after movement, refresh and zoom.</li>\n</ul>"
+    },
+    {
+      "version": "2.4.3",
+      "date": "2026-11-01",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.4.3",
+      "content": "<ul>\n<li>Mark your own health as <code>YOU HP</code> and identify the owner of tank and target bars explicitly, so a wounded pet or enemy cannot be mistaken for your character.</li>\n<li>Correct the self-tank display when character identity arrives after the combat prompt, and keep health data with the correct combatant when tanks or assisted group members change.</li>\n<li>Keep combat prompt fields separate when names contain prompt-like text or conditions contain a capital <code>E</code>; show unknown tank health when no current health data is available.</li>\n</ul>"
+    },
+    {
+      "version": "2.4.2",
+      "date": "2026-10-31",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.4.2",
+      "content": "<ul>\n<li>Keep player, tank, target, and group HP bars within their panels when vamp healing exceeds maximum HP, while preserving actual HP values and percentages in their labels.</li>\n</ul>"
+    },
     {
       "version": "2.4.1",
       "date": "2026-10-28",
@@ -24,7 +42,7 @@
       "version": "2.2.0",
       "date": "2026-10-23",
       "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.2.0",
-      "content": "<ul>\n<li>Show bridge weight/load, ordered navigation, display/raw stamina, explicit target, slot condition/timers/destruction, contact coordinates and both arc meanings when supplied by the server.</li>\n<li>Associate ship snapshots by runtime vessel key, preserve safe legacy fallback, handle duplicate docked designations and keep server names literal.</li>\n</ul>\n<p>Notable changes to the Duris Client Mudlet package. Versions follow <a href=\"https://semver.org\">Semantic Versioning</a> (<code>MAJOR.MINOR.PATCH</code>); see <a href=\"https://github.com/LuminariMUD/duris-client/blob/09924db4f2c9a5ffe47c44ebbed7977cc432eecb/docs/RELEASING.md\">docs/RELEASING.md</a> for what each part means here. Each version heading must match <code>VERSION</code>; the release workflow copies that section into the GitHub Release notes.</p>"
+      "content": "<ul>\n<li>Show bridge weight/load, ordered navigation, display/raw stamina, explicit target, slot condition/timers/destruction, contact coordinates and both arc meanings when supplied by the server.</li>\n<li>Associate ship snapshots by runtime vessel key, preserve safe legacy fallback, handle duplicate docked designations and keep server names literal.</li>\n</ul>\n<p>Notable changes to the Duris Client Mudlet package. Versions follow <a href=\"https://semver.org\">Semantic Versioning</a> (<code>MAJOR.MINOR.PATCH</code>); see <a href=\"https://github.com/LuminariMUD/duris-client/blob/e141619c1802186011d2032c8f4280290531e7a6/docs/RELEASING.md\">docs/RELEASING.md</a> for what each part means here. Each version heading must match <code>VERSION</code>; the release workflow copies that section into the GitHub Release notes.</p>"
     },
     {
       "version": "2.1.2",
