@@ -337,10 +337,10 @@ export async function getPlayerStats(): Promise<PlayerStats> {
       'SELECT COUNT(DISTINCT pid) as count FROM frag_leaderboard WHERE deleted_at IS NULL',
     ),
     pool.query<RowDataPacket[]>(
-      'SELECT MAX(level) as maxLevel FROM frag_leaderboard WHERE deleted_at IS NULL',
+      'SELECT MAX(level) as maxLevel FROM frag_leaderboard WHERE deleted_at IS NULL AND level < 57',
     ),
     pool.query<RowDataPacket[]>(
-      'SELECT AVG(level) as avgLevel FROM frag_leaderboard WHERE deleted_at IS NULL',
+      'SELECT AVG(level) as avgLevel FROM frag_leaderboard WHERE deleted_at IS NULL AND level < 57',
     ),
     pool.query<RowDataPacket[]>(
       `SELECT

@@ -137,6 +137,22 @@ maintenance reasons and an independent page for complete origin/tunnel outages.
 See [availability notices](../deploy/maintenance/README.md) for activation and
 operator controls. Neither feature starts or stops the MUD.
 
+### Admin statistics and content
+
+The Players dashboard's Max Level and Average Level use active mortal characters
+(below level 57). Other demographics retain their existing population. Web
+Analytics keeps historical page statistics available; Pages distinguishes a
+failed request from an empty result and offers a read-only retry. Geography
+uses country colors and hover tooltips without per-country chart data labels.
+
+Help Files saves directly to the shared `pages` table and refreshes its admin
+list after saving. The paired MUD source refreshes its help catalog about every
+60 seconds, so in-game changes depend on that refresh succeeding. Legacy Rules
+edits `mud_info.rules`, a separate entry; the game's `rules` command uses the
+`rules` help file. Use Help Files for player-facing rules. Builder reads and
+writes area files under the configured `MUD_DIR`; its saves are file edits,
+not an automatic reload of the running game world.
+
 ## Design
 
 The [Design guide](../docs/DESIGN.md) is the starting point for UI work. It

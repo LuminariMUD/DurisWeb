@@ -90,9 +90,9 @@ onMounted(() => {
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
       <div>
-        <h1 class="text-4xl md:text-5xl text-foreground">rules Management</h1>
+        <h1 class="text-4xl md:text-5xl text-foreground">Legacy Rules</h1>
         <p class="text-muted-foreground mt-1">
-          Manage the MUD Rules shown to players on login
+          Edit the legacy rules entry. In-game rules are managed through Help Files.
         </p>
         <p v-if="lastUpdate" class="text-xs text-muted-foreground mt-1">
           Last updated: {{ formatDate(lastUpdate) }}
@@ -108,7 +108,7 @@ onMounted(() => {
     <div class="space-y-2">
       <div class="flex justify-between items-center">
         <label class="text-sm font-medium text-foreground">
-          rules Content
+          Rules Content
         </label>
         <span class="text-xs text-muted-foreground">
           Use the color picker for MUD ANSI colors
@@ -124,11 +124,11 @@ onMounted(() => {
 
     <!-- Info Box -->
     <div class="mt-6 border border-info/30 bg-info/10 rounded-lg p-4">
-      <h3 class="font-medium text-info mb-2">About rules</h3>
+      <h3 class="font-medium text-info mb-2">About this editor</h3>
       <p class="text-sm text-bone-muted">
-        The MUD Rules (rules) is displayed to all players detailing allowed and prohibited behaviors.
-        Use this to communicate important server announcements, upcoming events, maintenance
-        schedules, or welcome new players. Use the color picker in the editor to apply MUD ANSI colors.
+        This editor saves a separate legacy rules entry. To change what players see when they
+        enter rules or help rules in the game, edit the rules help file in
+        <RouterLink to="/admin/help-files" class="underline">Help Files</RouterLink>.
       </p>
     </div>
   </div>
