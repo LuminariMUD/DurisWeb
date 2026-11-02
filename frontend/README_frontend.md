@@ -42,12 +42,19 @@ Without a supplied reason it shows the ordinary disconnected message.
 
 ### Game commands and paging
 
-Submitting a command clears the input. Press **Up**, then **Enter**, to recall
+By default, submitting a command clears the input. Press **Up**, then **Enter**, to recall
 and repeat it; **Up/Down** browse history and **Escape** clears the field.
 **Enter** or **Send** with an empty or whitespace-only field sends one blank
 game command, allowing the MUD pager to continue. Held Enter and IME confirmation
 do not submit from the command field. Page numbers and `q`, `r`, and `b` use the
 same input.
+
+For repeated movement, enable **Settings → Display → Keep command after sending**.
+The submitted command stays selected: **Enter** or **Send** repeats it, and typing
+replaces it. Press **Escape** to clear it before using blank **Enter** for paging.
+This preference is saved in this browser for the current MUD account and defaults
+to off. **Echo Commands** separately controls whether typed commands appear in
+the scrolling game output.
 
 Blank submissions bypass aliases, command echo, and history. Empty segments in
 semicolon chains (including alias expansions) remain ignored; `look;;scan`

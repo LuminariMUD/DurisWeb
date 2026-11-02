@@ -23,6 +23,7 @@ const aliases = ref<Alias[]>([])
 const isLoaded = ref(false)
 const echoExpansion = ref(false)
 const echoCommands = ref(true)
+const keepCommandAfterSend = ref(false)
 const storageError = ref<string | null>(null)
 let accountWatcherInitialized = false
 
@@ -55,6 +56,7 @@ export function useAliases() {
       aliases.value = []
       echoExpansion.value = false
       echoCommands.value = true
+      keepCommandAfterSend.value = false
       isLoaded.value = false
       return
     }
@@ -65,6 +67,7 @@ export function useAliases() {
         aliases.value = []
         echoExpansion.value = false
         echoCommands.value = true
+        keepCommandAfterSend.value = false
         isLoaded.value = true
         return
       }
@@ -84,6 +87,7 @@ export function useAliases() {
       }
       echoExpansion.value = data.echoExpansion ?? false
       echoCommands.value = data.echoCommands ?? true
+      keepCommandAfterSend.value = data.keepCommandAfterSend === true
       isLoaded.value = true
       storageError.value = null
       if (data.version < STORAGE_VERSION) {
@@ -94,6 +98,7 @@ export function useAliases() {
       aliases.value = []
       echoExpansion.value = false
       echoCommands.value = true
+      keepCommandAfterSend.value = false
       isLoaded.value = true
       storageError.value = 'Saved aliases could not be loaded. The stored data may be invalid.'
     }
@@ -114,6 +119,7 @@ export function useAliases() {
         aliases: aliases.value,
         echoExpansion: echoExpansion.value,
         echoCommands: echoCommands.value,
+        keepCommandAfterSend: keepCommandAfterSend.value,
       }
       writeClientSettings(storageKey.value, data)
       storageError.value = null
@@ -172,6 +178,16 @@ export function useAliases() {
     echoCommands.value = value
     if (saveAliases()) return true
     echoCommands.value = previous
+    return false
+  }
+
+  /** Saves the command input preference for the active MUD account. */
+  function setKeepCommandAfterSend(value: boolean): boolean {
+    if (!canMutate()) return false
+    const previous = keepCommandAfterSend.value
+    keepCommandAfterSend.value = value
+    if (saveAliases()) return true
+    keepCommandAfterSend.value = previous
     return false
   }
 
@@ -585,10 +601,12 @@ export function useAliases() {
     storageError,
     echoExpansion,
     echoCommands,
+    keepCommandAfterSend,
 
     // Settings
     setEchoExpansion,
     setEchoCommands,
+    setKeepCommandAfterSend,
 
     // Computed
     effectiveAliases,

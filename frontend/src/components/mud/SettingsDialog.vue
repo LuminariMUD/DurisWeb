@@ -115,7 +115,8 @@ const {
   setButtonSize,
   resetPosition,
 } = useHotbarSettings()
-const { echoCommands, setEchoCommands } = useAliases()
+const { echoCommands, setEchoCommands, keepCommandAfterSend, setKeepCommandAfterSend } =
+  useAliases()
 // Proxy settings (per-user, stored in localStorage)
 const PROXY_STORAGE_KEY = 'duris-ws-proxy'
 
@@ -414,10 +415,33 @@ async function handleImportFile(event: Event) {
         <TabsContent value="display" class="space-y-3 mt-4">
           <!-- Echo Commands -->
           <div class="flex items-center justify-between">
-            <Label class="text-sm">Echo Commands</Label>
+            <div class="space-y-1">
+              <Label for="echo-commands" class="text-sm">Echo Commands</Label>
+              <p id="echo-commands-description" class="text-xs text-muted-foreground">
+                Show typed commands in the game output.
+              </p>
+            </div>
             <Switch
+              id="echo-commands"
+              aria-describedby="echo-commands-description"
               :model-value="echoCommands"
               @update:model-value="(val: boolean) => setEchoCommands(val)"
+            />
+          </div>
+
+          <div class="flex items-center justify-between gap-3">
+            <div class="space-y-1">
+              <Label for="keep-command-after-send" class="text-sm">Keep command after sending</Label>
+              <p id="keep-command-description" class="text-xs text-muted-foreground">
+                Enter repeats the selected command. Typing replaces it; Escape clears it
+                so blank Enter can continue a page.
+              </p>
+            </div>
+            <Switch
+              id="keep-command-after-send"
+              aria-describedby="keep-command-description"
+              :model-value="keepCommandAfterSend"
+              @update:model-value="(val: boolean) => setKeepCommandAfterSend(val)"
             />
           </div>
 

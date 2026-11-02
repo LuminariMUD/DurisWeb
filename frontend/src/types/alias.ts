@@ -69,6 +69,8 @@ export interface AliasStorage {
   echoExpansion?: boolean
   /** If true, echo all entered commands to the activity log */
   echoCommands?: boolean
+  /** If true, keep the submitted command selected so Enter can repeat it */
+  keepCommandAfterSend?: boolean
 }
 
 /**

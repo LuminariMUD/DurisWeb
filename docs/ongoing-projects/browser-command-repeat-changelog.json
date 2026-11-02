@@ -1,0 +1,6 @@
+{
+  "title": "Repeat browser commands with Enter",
+  "category": "public",
+  "is_published": false,
+  "content": "<h3>Browser play</h3><ul><li>For easier travel, enable <strong>Settings → Display → Keep command after sending</strong>. Your command stays selected so Enter or Send repeats it, and typing replaces it. The preference is saved in your browser for your MUD account.</li><li>Press Escape to clear a retained command before using blank Enter to continue a page. Commands still clear after sending by default. Echo Commands has its own setting for showing typed commands in the game output.</li></ul>"
+}

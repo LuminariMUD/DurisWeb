@@ -48,6 +48,79 @@ function sentCommands() {
 }
 
 describe('game command input and pager continuation', () => {
+  it('keeps movement selected for Enter or Send to repeat when enabled', async () => {
+    expect(aliases.setKeepCommandAfterSend(true)).toBe(true)
+    const input = wrapper.get('input')
+    await input.setValue('north')
+    await input.trigger('keydown', { key: 'Enter' })
+    await input.trigger('keydown', { key: 'Enter' })
+    await wrapper.get('button').trigger('click')
+
+    expect(sentCommands()).toEqual(['north', 'north', 'north'])
+    expect(input.element.value).toBe('north')
+    expect(document.activeElement).toBe(input.element)
+    expect(input.element.selectionStart).toBe(0)
+    expect(input.element.selectionEnd).toBe(5)
+
+    await input.setValue('east')
+    await input.trigger('keydown', { key: 'Enter' })
+    expect(sentCommands()).toEqual(['north', 'north', 'north', 'east'])
+    await input.trigger('keydown', { key: 'ArrowUp' })
+    await input.trigger('keydown', { key: 'ArrowUp' })
+    expect(input.element.value).toBe('north')
+  })
+
+  it('keeps repetition independent of command echo and can return to clear-after-send', async () => {
+    aliases.setKeepCommandAfterSend(true)
+    aliases.setEchoCommands(false)
+    const input = wrapper.get('input')
+    await input.setValue('n')
+    await input.trigger('keydown', { key: 'Enter' })
+    await input.trigger('keydown', { key: 'Enter' })
+    expect(sentCommands()).toEqual(['n', 'n'])
+    expect(store.activityLog).toHaveLength(0)
+
+    aliases.setKeepCommandAfterSend(false)
+    await input.trigger('keydown', { key: 'Enter' })
+    expect(input.element.value).toBe('')
+    await input.trigger('keydown', { key: 'Enter' })
+    expect(sentCommands()).toEqual(['n', 'n', 'n', ''])
+  })
+
+  it('allows Escape then blank Enter to continue pages while keeping commands is enabled', async () => {
+    aliases.setKeepCommandAfterSend(true)
+    const input = wrapper.get('input')
+    await input.setValue('help combat')
+    await input.trigger('keydown', { key: 'Enter' })
+    expect(input.element.value).toBe('help combat')
+    await input.trigger('keydown', { key: 'Escape' })
+    await input.trigger('keydown', { key: 'Enter' })
+    await input.trigger('keydown', { key: 'Enter' })
+    expect(sentCommands()).toEqual(['help combat', '', ''])
+    expect(input.element.value).toBe('')
+  })
+
+  it('retains the original alias chain for repetition and ignores held Enter', async () => {
+    aliases.setKeepCommandAfterSend(true)
+    aliases.addAlias({
+      trigger: 'travel',
+      expansion: 'north;east',
+      enabled: true,
+      scope: 'global',
+      characterName: null,
+      groupId: null,
+    })
+    const input = wrapper.get('input')
+    await input.setValue('travel;look')
+    await input.trigger('keydown', { key: 'Enter' })
+    await input.trigger('keydown', { key: 'Enter', repeat: true })
+    await input.trigger('keydown', { key: 'Enter', isComposing: true })
+    expect(sentCommands()).toEqual(['north', 'east', 'look'])
+    expect(input.element.value).toBe('travel;look')
+    await input.trigger('keydown', { key: 'Enter' })
+    expect(sentCommands()).toEqual(['north', 'east', 'look', 'north', 'east', 'look'])
+  })
+
   it.each(['', '   '])('sends one blank Enter for %j without echo or history', async (value) => {
     const input = wrapper.get('input')
     await input.setValue(value)

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Send } from '@lucide/vue'
 
 const { sendGameCommand } = useMudConnection()
-const { expandCommand, echoExpansion, echoCommands } = useAliases()
+const { expandCommand, echoExpansion, echoCommands, keepCommandAfterSend } = useAliases()
 const store = useMudStore()
 
 const command = ref('')
@@ -20,10 +20,11 @@ const maxHistory = 100
 const sendCommand = () => {
   const cmd = command.value.trim()
 
-  // Leave Enter ready for the pager. Up then Enter explicitly repeats a command.
-  command.value = ''
+  // Default to blank Enter for paging; optionally retain selected text for repetition.
+  const keepCommand = keepCommandAfterSend.value && cmd.length > 0
+  command.value = keepCommand ? cmd : ''
   historyIndex.value = -1
-  nextTick(focusInput)
+  nextTick(() => focusInput(keepCommand))
 
   // A deliberately blank submission is one pager continuation, never an alias.
   if (!cmd) {
@@ -156,10 +157,11 @@ const handleGlobalKeyDown = (event: KeyboardEvent) => {
   focusInput()
 }
 
-const focusInput = () => {
+const focusInput = (selectCommand = false) => {
   const inputEl = inputRef.value?.$el?.querySelector('input') || inputRef.value?.$el
   if (inputEl?.focus) {
     inputEl.focus()
+    if (selectCommand) inputEl.select()
   }
 }
 
@@ -189,7 +191,9 @@ defineExpose({
       type="text"
       aria-label="Game command"
       placeholder="Command (↑ to repeat)"
-      title="Enter or Send submits once. Leave blank to continue a page. Up recalls previous commands."
+      :title="keepCommandAfterSend
+        ? 'Enter or Send repeats the selected command. Escape clears it for blank Enter to continue a page.'
+        : 'Enter or Send submits once. Leave blank to continue a page. Up recalls previous commands.'"
       class="flex-1 font-mono"
       autocomplete="off"
       autocapitalize="off"

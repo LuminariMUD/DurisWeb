@@ -94,6 +94,35 @@ describe('useAliases local persistence', () => {
     expect(aliasesApi.aliases.value.map((alias) => alias.trigger)).toEqual(['heal'])
   })
 
+  it('saves the keep-command preference per account and defaults older settings to off', async () => {
+    localStorage.setItem('duris_aliases_cwial', JSON.stringify({ version: 2, aliases: [] }))
+    await selectAccount('Cwial')
+    expect(aliasesApi.keepCommandAfterSend.value).toBe(false)
+    expect(aliasesApi.setKeepCommandAfterSend(true)).toBe(true)
+
+    expect(JSON.parse(localStorage.getItem('duris_aliases_cwial') || '{}')).toMatchObject({
+      keepCommandAfterSend: true,
+    })
+    await selectAccount('OtherAccount')
+    expect(aliasesApi.keepCommandAfterSend.value).toBe(false)
+    await selectAccount('Cwial')
+    expect(aliasesApi.keepCommandAfterSend.value).toBe(true)
+    await selectAccount(null)
+    expect(aliasesApi.keepCommandAfterSend.value).toBe(false)
+    expect(aliasesApi.setKeepCommandAfterSend(true)).toBe(false)
+  })
+
+  it('rolls back the keep-command preference when browser storage rejects the write', async () => {
+    await selectAccount('Cwial')
+    vi.spyOn(localStorageMock, 'setItem').mockImplementation(() => {
+      throw new Error('quota exceeded')
+    })
+
+    expect(aliasesApi.setKeepCommandAfterSend(true)).toBe(false)
+    expect(aliasesApi.keepCommandAfterSend.value).toBe(false)
+    expect(aliasesApi.storageError.value).toContain('could not be saved')
+  })
+
   it('rolls back an alias when browser storage rejects the write', async () => {
     await selectAccount('Cwial')
     vi.spyOn(localStorageMock, 'setItem').mockImplementation(() => {
