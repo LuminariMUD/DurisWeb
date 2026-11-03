@@ -383,7 +383,7 @@ export interface MudChargenCompleteMessage {
   race?: string
   class?: string
   alignment?: MudAlignment
-  faction?: 'good' | 'evil' | 'undead' | 'neutral'
+  faction?: 'good' | 'evil' | 'undead' | 'neutral' | 'none'
   hardcore?: boolean
   newbie?: boolean
   hometown?: string
