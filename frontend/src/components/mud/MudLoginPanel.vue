@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, AlertCircle } from '@lucide/vue'
+import RecoverPasswordForm from './account/RecoverPasswordForm.vue'
 
 const emit = defineEmits<{
   (e: 'authenticated'): void
@@ -25,6 +26,7 @@ const { siteTitle } = useSiteConfig()
 const loginAccount = ref('')
 const loginPassword = ref('')
 const loginError = ref('')
+const showRecovery = computed(() => store.recoveryState !== 'idle')
 
 // Register form
 const registerAccount = ref('')
@@ -127,6 +129,7 @@ watch(
 
 // Auto-login if we have stored credentials
 onMounted(async () => {
+  if (showRecovery.value) return
   const { getMudCredentials } = useAuth()
   const creds = getMudCredentials()
 
@@ -172,7 +175,8 @@ onMounted(async () => {
         </TabsList>
 
         <TabsContent value="login" class="space-y-4">
-          <form @submit.prevent="handleLogin" class="space-y-4">
+          <RecoverPasswordForm v-if="showRecovery" @close="store.recoveryState = 'idle'; store.setAccountError(null)" />
+          <form v-else @submit.prevent="handleLogin" class="space-y-4">
             <div class="space-y-2">
               <Label for="login-account">Account Name</Label>
               <Input
@@ -205,6 +209,9 @@ onMounted(async () => {
             <Button type="submit" variant="brand" class="h-11 w-full font-display text-xl font-normal" :disabled="isLoading">
               <Loader2 v-if="isLoading" class="mr-2 h-4 w-4 animate-spin" />
               {{ isLoading ? 'Logging in...' : 'Login' }}
+            </Button>
+            <Button type="button" variant="ghost" class="w-full" @click="store.recoveryState = 'ready'; store.setAccountError(null)">
+              Forgot password?
             </Button>
           </form>
         </TabsContent>

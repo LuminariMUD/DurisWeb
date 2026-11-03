@@ -120,6 +120,20 @@ export function useMudConnection() {
     if (!isAvailable.value) throw new Error('Site configuration is unavailable')
   }
 
+  const interruptAccountRequest = () => {
+    const interrupted =
+      ['requesting', 'completing'].includes(store.recoveryState) ||
+      ['requesting', 'confirming'].includes(store.emailVerificationState)
+    if (store.recoveryState === 'requesting') store.recoveryState = 'ready'
+    if (store.recoveryState === 'completing') store.recoveryState = 'requested'
+    if (store.emailVerificationState === 'requesting') store.emailVerificationState = 'idle'
+    if (store.emailVerificationState === 'confirming') store.emailVerificationState = 'requested'
+    if (interrupted)
+      store.setAccountError(
+        'Connection interrupted. Reconnect and retry; changes are confirmed only by the server.',
+      )
+  }
+
   // ==========================================================================
   // Connection Management
   // ==========================================================================
@@ -200,7 +214,10 @@ export function useMudConnection() {
           const message: MudServerMessage = JSON.parse(event.data)
           handleMessage(message)
         } catch (error) {
-          console.error('Failed to parse MUD message:', error, 'Raw:', event.data)
+          console.error(
+            'Failed to parse MUD message:',
+            error instanceof Error ? error.name : 'invalid payload',
+          )
         }
       }
 
@@ -209,6 +226,7 @@ export function useMudConnection() {
         console.error('MUD WebSocket error:', error)
         pendingAuthCredentials = null
         setConnecting(false)
+        interruptAccountRequest()
         store.setConnectionState('error', 'Connection error')
       }
 
@@ -219,6 +237,7 @@ export function useMudConnection() {
         setConnecting(false)
         setLoggingIn(false) // Clear login in progress flag
         setWsRef(null)
+        interruptAccountRequest()
 
         // Stop all timers when disconnected
         stopAllTimers()
@@ -490,7 +509,22 @@ export function useMudConnection() {
       case 'info':
         store.setAccountInfo(message.data)
         break
+      case 'email_verification_requested':
+        store.emailVerificationState = 'requested'
+        store.setAccountError(null)
+        break
+      case 'reset_requested':
+        store.recoveryState = 'requested'
+        store.setAccountError(null)
+        break
+      case 'reset_completed':
+        store.recoveryState = 'completed'
+        store.setAccountError(null)
+        clearMudCredentials()
+        break
       case 'email_changed':
+        store.emailVerificationState = 'verified'
+        store.setAccountError(null)
         // Update email in account info if we have it
         if (store.accountInfo) {
           store.setAccountInfo({
@@ -525,6 +559,11 @@ export function useMudConnection() {
         store.clearAccount()
         break
       case 'error':
+        if (store.emailVerificationState === 'requesting') store.emailVerificationState = 'idle'
+        if (store.emailVerificationState === 'confirming')
+          store.emailVerificationState = 'requested'
+        if (store.recoveryState === 'requesting') store.recoveryState = 'ready'
+        if (store.recoveryState === 'completing') store.recoveryState = 'requested'
         store.setAccountError(message.error)
         break
     }
@@ -901,6 +940,51 @@ export function useMudConnection() {
   // Command Sending
   // ==========================================================================
 
+  const sendAccountCommand = (command: MudClientCommand) => {
+    store.setAccountError(null)
+    if (sendCommand(command)) return true
+    store.setAccountError('Connection unavailable. Reconnect and try again.')
+    store.emailVerificationState = 'idle'
+    if (store.recoveryState !== 'idle') store.recoveryState = 'ready'
+    return false
+  }
+
+  const sendRecoveryCommand = async (command: MudClientCommand) => {
+    try {
+      const expectedState = store.recoveryState
+      await connect()
+      const socket = getWsRef()
+      const deadline = Date.now() + 10000
+      while (
+        getWsRef() === socket &&
+        socket?.readyState !== WebSocket.OPEN &&
+        Date.now() < deadline
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      if (store.recoveryState !== expectedState || getWsRef() !== socket) return false
+      return sendAccountCommand(command)
+    } catch {
+      store.recoveryState = 'ready'
+      store.setAccountError('Password recovery is unavailable. Try again later or contact staff.')
+      return false
+    }
+  }
+
+  const requestReset = (account: string) => {
+    store.recoveryState = 'requesting'
+    return sendRecoveryCommand({ type: 'cmd', cmd: 'request_reset', data: { account } })
+  }
+
+  const completeReset = (account: string, code: string, newPassword: string) => {
+    store.recoveryState = 'completing'
+    return sendRecoveryCommand({
+      type: 'cmd',
+      cmd: 'complete_reset',
+      data: { account, code, newPassword },
+    })
+  }
+
   const sendCommand = (command: MudClientCommand) => {
     const ws = getWsRef()
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -1118,11 +1202,17 @@ export function useMudConnection() {
   }
 
   const changeEmail = (newEmail: string) => {
-    return sendCommand({
+    store.emailVerificationState = 'requesting'
+    return sendAccountCommand({
       type: 'cmd',
       cmd: 'change_email',
       data: { newEmail },
     })
+  }
+
+  const confirmEmail = (code: string) => {
+    store.emailVerificationState = 'confirming'
+    return sendAccountCommand({ type: 'cmd', cmd: 'confirm_email', data: { code } })
   }
 
   const changePassword = (currentPassword: string, newPassword: string) => {
@@ -1190,6 +1280,9 @@ export function useMudConnection() {
     // Account menu commands
     getAccountInfo,
     changeEmail,
+    confirmEmail,
+    requestReset,
+    completeReset,
     changePassword,
     deleteCharacter,
     getRestedBonus,

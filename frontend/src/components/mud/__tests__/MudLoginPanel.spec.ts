@@ -9,6 +9,7 @@ const { loginMock, registerMock, storeCredentialsMock, getCredentialsMock, mudSt
     getCredentialsMock: vi.fn(() => null),
     mudStore: {
       connectionState: 'connected',
+      recoveryState: 'idle',
       connectionError: null,
       isAuthenticated: false,
       autoLoginInProgress: false,
@@ -88,6 +89,7 @@ describe('MudLoginPanel credential lifecycle', () => {
     vi.clearAllMocks()
     getCredentialsMock.mockReturnValue(null)
     mudStore.connectionState = 'connected'
+    mudStore.recoveryState = 'idle'
     mudStore.connectionError = null
     mudStore.isAuthenticated = false
     mudStore.autoLoginInProgress = false

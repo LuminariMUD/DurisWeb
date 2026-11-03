@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useMudConnection } from '@/composables/useMudConnection'
 import { useMudStore } from '@/stores/mudStore'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
@@ -39,6 +39,13 @@ const { enterWorld, disconnect, getAccountInfo, getRestedBonus } = useMudConnect
 const store = useMudStore()
 
 const activeTab = ref('characters')
+watch(
+  () => store.emailVerificationState,
+  (state) => {
+    if (state === 'requested') activeTab.value = 'email'
+  },
+  { immediate: true },
+)
 const characterToDelete = ref<MudCharacterInfo | null>(null)
 const showDeleteDialog = ref(false)
 

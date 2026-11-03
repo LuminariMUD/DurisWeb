@@ -40,6 +40,17 @@ The game reconnect dialog retains a server-supplied authentication refusal after
 the socket closes, including a season launch notice and its UTC opening time.
 Without a supplied reason it shows the ordinary disconnected message.
 
+### Account email and password recovery
+
+The browser client's **Forgot password?** form requests an inbox code by MUD
+account name and accepts that code with a new password. **Account → Email**
+requests and confirms an inbox code before replacing the registered address.
+Both flows wait for server acknowledgements before reporting success; the
+paired MUD must support `request_reset`, `complete_reset`, and `confirm_email`.
+Recovery codes and new passwords are cleared from the form after submission
+and are not stored as remembered login credentials. Without access to the
+registered inbox, contact staff for a manual identity check.
+
 ### Game commands and paging
 
 By default, submitting a command clears the input. Press **Up**, then **Enter**, to recall
