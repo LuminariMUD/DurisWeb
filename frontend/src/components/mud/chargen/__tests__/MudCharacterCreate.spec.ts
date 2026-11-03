@@ -210,6 +210,15 @@ describe('race/class alignment selection', () => {
     wrapper.unmount()
   })
 
+  it('does not repeat options requests when the server has no available races', async () => {
+    const wrapper = wizard(true, [])
+    expect(wrapper.emitted('request-options')).toHaveLength(1)
+    await wrapper.setProps({ races: [], loading: false })
+    expect(wrapper.emitted('request-options')).toHaveLength(1)
+    expect(wrapper.get('[role="alert"]').text()).toContain('No races are available')
+    wrapper.unmount()
+  })
+
   it('returns to the class step when refreshed metadata removes the alignment step', async () => {
     const wrapper = wizard(true, [
       { ...race, classes: [{ ...race.classes[0]!, alignment: 'any' }] },
@@ -224,6 +233,57 @@ describe('race/class alignment selection', () => {
     expect(wrapper.emitted('get-hometowns')).toEqual([[1, 'evil']])
     await button(wrapper, 'Next').trigger('click')
     expect(wrapper.text()).toContain('Choose Your Stat Rolling System')
+    wrapper.unmount()
+  })
+
+  it('reuses accepted stats after refreshed alignment choices require a new selection', async () => {
+    const wrapper = wizard(true, [
+      { ...race, classes: [{ ...race.classes[0]!, alignment: 'any' }] },
+    ])
+    await reachStatsChoice(wrapper)
+    await wrapper.get('#good').trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    await reachReview(wrapper)
+    await wrapper.setProps({
+      races: [{ ...race, classes: [{ ...race.classes[0]!, alignment: 'neutral_evil' }] }],
+    })
+    expect(wrapper.text()).toContain('Choose Your Alignment')
+    await wrapper.get('#neutral').trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    expect(wrapper.text()).toContain('Your Statistics')
+    expect(wrapper.emitted('roll-stats')).toEqual([[1, 'default']])
+    expect(wrapper.emitted('reset-chargen')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('waits for a reset before rolling a new race after metadata withdraws the old race', async () => {
+    const wrapper = wizard()
+    await reachStatsChoice(wrapper)
+    await reachReview(wrapper)
+    await wrapper.setProps({ races: [{ ...race, id: 36, name: 'Firbolg', ansi: 'Firbolg' }] })
+    await button(wrapper, 'Back').trigger('click')
+    await button(wrapper, 'Back').trigger('click')
+    await button(wrapper, 'Firbolg').trigger('click')
+    expect(wrapper.emitted('reset-chargen')).toHaveLength(1)
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
+    await wrapper.setProps({ error: 'Reset failed' })
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
+    expect(wrapper.emitted('roll-stats')).toEqual([[1, 'default']])
+    await button(wrapper, 'Firbolg').trigger('click')
+    expect(wrapper.emitted('reset-chargen')).toHaveLength(2)
+    await wrapper.setProps({ stats: null, resetSequence: 1, error: null })
+    await button(wrapper, 'Next').trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text().startsWith('Warrior'))!
+      .trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    expect(wrapper.emitted('roll-stats')).toEqual([
+      [1, 'default'],
+      [36, 'default'],
+    ])
     wrapper.unmount()
   })
 })

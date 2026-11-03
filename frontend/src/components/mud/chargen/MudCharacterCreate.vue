@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -84,6 +84,7 @@ const supportsMethods = computed(
   () => props.statMethods?.includes('advanced') && props.bonusCount === 4,
 )
 const pendingReset = ref<Step | 'cancel' | null>(null)
+const pendingRaceId = ref<number | null>(null)
 const acceptingStats = ref(false)
 const isMutating = computed(
   () => !!props.pending || pendingReset.value !== null || acceptingStats.value,
@@ -97,6 +98,12 @@ watch(
     pendingReset.value = null
     acceptingStats.value = false
     cancelSwap()
+    const raceId = pendingRaceId.value
+    pendingRaceId.value = null
+    if (destination === 'race' && raceId !== null) {
+      const race = props.races.find((candidate) => candidate.id === raceId)
+      if (race) selectRace(race)
+    }
     if (destination === 'cancel') emit('cancel')
     else if (destination) currentStep.value = destination
   },
@@ -116,6 +123,7 @@ watch(
   (error) => {
     if (error) {
       pendingReset.value = null
+      pendingRaceId.value = null
       acceptingStats.value = false
     }
   },
@@ -266,15 +274,9 @@ const totalSteps = computed(() => {
 })
 
 // Request chargen options on mount
-watch(
-  () => props.races,
-  (newRaces) => {
-    if (newRaces.length === 0 && !props.loading && !props.error) {
-      emit('request-options')
-    }
-  },
-  { immediate: true },
-)
+onMounted(() => {
+  if (props.races.length === 0 && !props.loading && !props.error) emit('request-options')
+})
 
 // Watch for name validation response
 watch(
@@ -298,6 +300,12 @@ watch(currentStep, (newStep) => {
 
 // Functions
 function selectRace(race: MudRace) {
+  if (isBusy.value) return
+  if (supportsMethods.value && props.stats && selectedRaceId.value !== race.id) {
+    pendingRaceId.value = race.id
+    requestReset('race')
+    return
+  }
   selectedRaceId.value = race.id
   selectedClassId.value = null
   selectedAlignment.value = null
@@ -325,7 +333,9 @@ function selectHometown(id: number) {
 function getNextStep(): Step | undefined {
   const idx = requiredSteps.value.indexOf(currentStep.value)
   if (idx < requiredSteps.value.length - 1) {
-    return requiredSteps.value[idx + 1]
+    const next = requiredSteps.value[idx + 1]
+    // Class/alignment metadata can change while the race's accepted stats remain valid.
+    return next === 'method' && props.stats ? 'stats' : next
   }
   return undefined
 }
@@ -339,7 +349,7 @@ function getPrevStep(): Step | undefined {
 }
 
 function nextStep() {
-  if (isBusy.value || waitingForHometowns.value) return
+  if (isBusy.value || props.races.length === 0 || waitingForHometowns.value) return
   const next = getNextStep()
   if (!next) return
 
@@ -595,6 +605,9 @@ function formatAlignment(alignment: string): string {
     <CardContent class="min-h-[400px]">
       <Alert v-if="error" variant="destructive" role="alert" class="mb-4">
         <AlertDescription>{{ error }}</AlertDescription>
+      </Alert>
+      <Alert v-else-if="!loading && races.length === 0" role="alert" class="mb-4">
+        <AlertDescription>No races are available. Cancel character creation and try again later.</AlertDescription>
       </Alert>
       <div v-if="isBusy" role="status" class="flex items-center gap-2 text-muted-foreground mb-4">
         <Loader2 class="w-4 h-4 animate-spin" /> Waiting for the game...
@@ -1046,6 +1059,7 @@ function formatAlignment(alignment: string): string {
           @click="nextStep"
           :disabled="
             isBusy ||
+            races.length === 0 ||
             waitingForHometowns ||
             (currentStep === 'newbie' && isNewbie === null) ||
             (currentStep === 'race' && !selectedRace) ||

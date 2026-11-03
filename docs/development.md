@@ -93,6 +93,11 @@ cells are selected automatically; multi-choice cells show only their permitted
 choices. Race/class changes clear incompatible alignment and hometown selections.
 Missing, unknown, or withdrawn choices cannot be submitted. The website decodes
 these cell values, not a separate copy of the gameplay matrix or creation overrides.
+An empty roster shows an unavailable state without repeatedly requesting options.
+If refreshed options require class/alignment reselection, the same race retains
+its existing stats. Selecting another race waits for the MUD's reset acknowledgement
+before applying the selection and allowing a fresh roll; a failed reset retains
+the prior race and stats.
 
 Every creation request carries the chosen `good`, `neutral`, or `evil` alignment.
 Hometown lookup waits for that choice and sends it for every race. The MUD echoes
