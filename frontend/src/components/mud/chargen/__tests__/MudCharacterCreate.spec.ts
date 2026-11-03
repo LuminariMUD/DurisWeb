@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import MudCharacterCreate from '../MudCharacterCreate.vue'
-import type { MudChargenMutation, MudChargenState, MudRace, MudStatMethod } from '@/types/mud'
+import type {
+  MudAlignment,
+  MudChargenClass,
+  MudChargenMutation,
+  MudChargenState,
+  MudRace,
+  MudStatMethod,
+} from '@/types/mud'
 
 vi.mock('../HelpModal.vue', () => ({ default: { template: '<span />' } }))
 const race: MudRace = {
@@ -9,7 +16,7 @@ const race: MudRace = {
   name: 'Human',
   ansi: 'Human',
   faction: 'good',
-  classes: [{ id: 1, name: 'Warrior', ansi: 'Warrior', alignment: 'any' }],
+  classes: [{ id: 1, name: 'Warrior', ansi: 'Warrior', alignment: 'good' }],
 }
 const labels = {
   str: 'quite excellent',
@@ -55,13 +62,16 @@ function wizard(modern = true, races = [race]) {
     },
   })
 }
-async function reachStatsChoice(wrapper: VueWrapper) {
+async function reachClass(wrapper: VueWrapper) {
   await button(wrapper, 'New Player').trigger('click')
   await button(wrapper, 'Next').trigger('click')
   await button(wrapper, 'Human').trigger('click')
   await button(wrapper, 'Next').trigger('click')
   await wrapper.get('#male').trigger('click')
   await button(wrapper, 'Next').trigger('click')
+}
+async function reachStatsChoice(wrapper: VueWrapper) {
+  await reachClass(wrapper)
   // Class buttons also contain their alignment badge.
   await wrapper
     .findAll('button')
@@ -69,6 +79,154 @@ async function reachStatsChoice(wrapper: VueWrapper) {
     .trigger('click')
   await button(wrapper, 'Next').trigger('click')
 }
+
+async function reachReview(wrapper: VueWrapper) {
+  await button(wrapper, 'Next').trigger('click')
+  await wrapper.setProps({ stats: state('default', 'ready', 0) })
+  await button(wrapper, 'Next').trigger('click')
+  await button(wrapper, 'Next').trigger('click')
+  await button(wrapper, 'Next').trigger('click')
+  await wrapper.get('#name').setValue('Testhero')
+  await wrapper.setProps({ nameValid: true })
+  await button(wrapper, 'Next').trigger('click')
+}
+
+describe('race/class alignment selection', () => {
+  const cells: {
+    alignment: MudChargenClass['alignment']
+    choices: MudAlignment[]
+    name: string
+  }[] = [
+    { alignment: 'good', choices: ['good'], name: 'Paladin' },
+    { alignment: 'neutral', choices: ['neutral'], name: 'Druid' },
+    { alignment: 'evil', choices: ['evil'], name: 'Necromancer' },
+    { alignment: 'any', choices: ['good', 'neutral', 'evil'], name: 'Warrior' },
+    { alignment: 'good_neutral', choices: ['good', 'neutral'], name: 'Ranger' },
+    { alignment: 'neutral_evil', choices: ['neutral', 'evil'], name: 'Reaver' },
+  ]
+  it.each(cells)(
+    'offers only $alignment choices, reviews and submits the selected alignment',
+    async ({ alignment, choices, name }) => {
+      const wrapper = wizard(true, [{ ...race, classes: [{ id: 1, name, ansi: name, alignment }] }])
+      await wrapper.setProps({ hometownsReady: false })
+      await reachClass(wrapper)
+      await wrapper
+        .findAll('button')
+        .find((b) => b.text().startsWith(name))!
+        .trigger('click')
+      const chosen = choices.includes('neutral') ? 'neutral' : choices[0]!
+      if (choices.length > 1) {
+        await button(wrapper, 'Next').trigger('click')
+      }
+      expect(wrapper.findAll('[role="radio"]').map((radio) => radio.attributes('id'))).toEqual(
+        choices.length > 1 ? choices : [],
+      )
+      expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
+      if (choices.length > 1) await wrapper.get(`#${chosen}`).trigger('click')
+      expect(wrapper.emitted('get-hometowns')?.at(-1)).toEqual([1, chosen])
+      await wrapper.setProps({ hometownsReady: true })
+      await button(wrapper, 'Next').trigger('click')
+      expect(wrapper.text()).toContain('Choose Your Stat Rolling System')
+      await reachReview(wrapper)
+      expect(wrapper.text()).toContain('Alignment')
+      expect(wrapper.text()).not.toContain('Faction')
+      expect(wrapper.text()).toContain(chosen[0]!.toUpperCase() + chosen.slice(1))
+      await button(wrapper, 'Create Character').trigger('click')
+      expect(wrapper.emitted('create-character')?.[0]?.[0]).toMatchObject({
+        race: 1,
+        class: 1,
+        alignment: chosen,
+      })
+      wrapper.unmount()
+    },
+  )
+
+  it('clears a previous choice when class changes and rejects an injected incompatible choice', async () => {
+    const wrapper = wizard(true, [
+      {
+        ...race,
+        classes: [
+          { id: 1, name: 'Warrior', ansi: 'Warrior', alignment: 'any' },
+          { id: 2, name: 'Ranger', ansi: 'Ranger', alignment: 'good_neutral' },
+        ],
+      },
+    ])
+    await reachStatsChoice(wrapper)
+    await wrapper.get('#evil').trigger('click')
+    await button(wrapper, 'Back').trigger('click')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text().startsWith('Ranger'))!
+      .trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    expect(wrapper.find('#evil').exists()).toBe(false)
+    expect(wrapper.find('[aria-checked="true"]').exists()).toBe(false)
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
+    // A malformed model update must not bypass the visible allowed choices.
+    wrapper.findComponent({ name: 'RadioGroup' }).vm.$emit('update:modelValue', 'evil')
+    await wrapper.vm.$nextTick()
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
+    await button(wrapper, 'Next').trigger('click')
+    expect(wrapper.text()).toContain('Choose Your Alignment')
+    expect(wrapper.emitted('get-hometowns')).toEqual([[1, 'evil']])
+    await wrapper.get('#neutral').trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    await reachReview(wrapper)
+    // Refreshed server options withdraw this combination while the review is open.
+    await wrapper.setProps({ races: [{ ...race, classes: [] }] })
+    expect(wrapper.text()).toContain('Choose Your Class')
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
+    expect(wrapper.emitted('create-character')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('drops the class and alignment after changing race', async () => {
+    const wrapper = wizard(true, [
+      race,
+      { ...race, id: 36, name: 'Firbolg', ansi: 'Firbolg', classes: [] },
+    ])
+    await reachStatsChoice(wrapper)
+    await button(wrapper, 'Back').trigger('click')
+    await button(wrapper, 'Back').trigger('click')
+    await button(wrapper, 'Back').trigger('click')
+    await button(wrapper, 'Firbolg').trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    expect(wrapper.text()).toContain('Choose Your Class')
+    expect(wrapper.text()).not.toContain('Warrior')
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
+    wrapper.unmount()
+  })
+
+  it('keeps invalid metadata errors visible without automatically retrying', async () => {
+    const wrapper = wizard()
+    await wrapper.setProps({
+      races: [],
+      loading: false,
+      error: 'Invalid character creation options. Reconnect and try again.',
+    })
+    expect(wrapper.get('[role="alert"]').text()).toContain('Invalid character creation options')
+    expect(wrapper.emitted('request-options')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('returns to the class step when refreshed metadata removes the alignment step', async () => {
+    const wrapper = wizard(true, [
+      { ...race, classes: [{ ...race.classes[0]!, alignment: 'any' }] },
+    ])
+    await reachStatsChoice(wrapper)
+    expect(wrapper.text()).toContain('Choose Your Alignment')
+    await wrapper.setProps({
+      races: [{ ...race, classes: [{ ...race.classes[0]!, alignment: 'evil' }] }],
+    })
+    expect(wrapper.text()).toContain('Choose Your Class')
+    expect(wrapper.text()).not.toContain('Step 0')
+    expect(wrapper.emitted('get-hometowns')).toEqual([[1, 'evil']])
+    await button(wrapper, 'Next').trigger('click')
+    expect(wrapper.text()).toContain('Choose Your Stat Rolling System')
+    wrapper.unmount()
+  })
+})
 
 describe('stat method wizard', () => {
   it('keeps Firbolg tutorial choices visible and waits for a hometown selection', async () => {
@@ -113,7 +271,14 @@ describe('stat method wizard', () => {
 
   it('refreshes neutral alignment choices and drops a selection after back navigation', async () => {
     const wrapper = wizard(true, [
-      { ...race, id: 14, name: 'Thri-kreen', ansi: 'Thri-kreen', faction: 'neutral' },
+      {
+        ...race,
+        id: 14,
+        name: 'Thri-kreen',
+        ansi: 'Thri-kreen',
+        faction: 'neutral',
+        classes: [{ ...race.classes[0]!, alignment: 'any' }],
+      },
     ])
     await button(wrapper, 'New Player').trigger('click')
     await button(wrapper, 'Next').trigger('click')
@@ -225,20 +390,34 @@ describe('stat method wizard', () => {
     wrapper.unmount()
   })
 
-  it('keeps the race step pending until hometown metadata succeeds', async () => {
+  it('waits to request hometowns until the class supplies an alignment', async () => {
     const wrapper = wizard()
+    await wrapper.setProps({ hometownsReady: false })
     await button(wrapper, 'New Player').trigger('click')
     await button(wrapper, 'Next').trigger('click')
     await button(wrapper, 'Human').trigger('click')
-    await wrapper.setProps({ loading: true })
-    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
-    await wrapper.setProps({ loading: false, error: 'Hometown lookup failed' })
-    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
-    await button(wrapper, 'Human').trigger('click')
-    expect(wrapper.emitted('get-hometowns')).toEqual([[1], [1]])
-    await wrapper.setProps({ error: null })
+    expect(wrapper.emitted('get-hometowns')).toBeUndefined()
     await button(wrapper, 'Next').trigger('click')
     expect(wrapper.text()).toContain('Choose Your Sex')
+    await wrapper.get('#male').trigger('click')
+    await button(wrapper, 'Next').trigger('click')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text().startsWith('Warrior'))!
+      .trigger('click')
+    expect(wrapper.emitted('get-hometowns')).toEqual([[1, 'good']])
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeDefined()
+    await wrapper.setProps({ error: 'Hometown lookup failed' })
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text().startsWith('Warrior'))!
+      .trigger('click')
+    expect(wrapper.emitted('get-hometowns')).toEqual([
+      [1, 'good'],
+      [1, 'good'],
+    ])
+    await wrapper.setProps({ hometownsReady: true })
+    expect(button(wrapper, 'Next').attributes('disabled')).toBeUndefined()
     wrapper.unmount()
   })
 
