@@ -87,7 +87,17 @@ vi.mock('@/utils/duriswebAuth', () => ({
 import { useMudConnection } from '../useMudConnection.js'
 import { createPinia, setActivePinia } from 'pinia'
 import { useMudStore } from '@/stores/mudStore'
-import type { MudStatLabels } from '@/types/mud'
+import type { MudAlignment, MudRace, MudStatLabels } from '@/types/mud'
+
+const creationRaces: MudRace[] = [
+  {
+    id: 1,
+    name: 'Human',
+    ansi: 'Human',
+    faction: 'good',
+    classes: [{ id: 1, name: 'Warrior', ansi: 'Warrior', alignment: 'any' }],
+  },
+]
 
 let activeWrapper: VueWrapper | null = null
 function createConnection() {
@@ -134,6 +144,134 @@ describe('creation socket lifecycle', () => {
     vi.unstubAllGlobals()
     vi.useRealTimers()
   })
+
+  it.each(['good', 'neutral', 'evil'] as const)(
+    'keeps %s alignment independent of race faction in hometown requests and creation',
+    async (alignment) => {
+      const connection = createConnection()
+      await connection.connect()
+      const socket = sockets[0]!
+      const store = useMudStore()
+      store.setChargenOptions(creationRaces)
+      expect(connection.getHometowns(1, alignment)).toBe(true)
+      expect(JSON.parse(socket.sent.at(-1)!).data).toEqual({ race: 1, alignment })
+      socket.onmessage?.({
+        data: JSON.stringify({
+          type: 'hometowns',
+          race: 1,
+          alignment: alignment === 'good' ? 'evil' : 'good',
+          options: [{ id: 11, name: 'Stale' }],
+          hasChoice: false,
+        }),
+      })
+      expect(store.chargenHometownsReady).toBe(false)
+      socket.onmessage?.({
+        data: JSON.stringify({
+          type: 'hometowns',
+          race: 1,
+          alignment,
+          options: [{ id: 22, name: 'Ailvio' }],
+          hasChoice: false,
+        }),
+      })
+      expect(store.chargenHometownsReady).toBe(true)
+      expect(connection.createCharacter('Pupil', 1, 1, 1, alignment, 22)).toBe(true)
+      expect(JSON.parse(socket.sent.at(-1)!).data).toMatchObject({
+        race: 1,
+        class: 1,
+        alignment,
+        hometown: 22,
+      })
+      socket.onmessage?.({
+        data: JSON.stringify({
+          type: 'create_character',
+          status: 'created',
+          message: 'Welcome',
+          name: 'Pupil',
+          race: 'Human',
+          class: 'Warrior',
+          alignment,
+          faction: 'good',
+        }),
+      })
+      expect(store.character?.alignment).toBe(alignment)
+    },
+  )
+
+  it.each([undefined, null, '', 'any', 'Good', 0, false, 'evil'])(
+    'refuses invalid/stale alignment %s without losing accepted stats',
+    async (alignment) => {
+      const connection = createConnection()
+      await connection.connect()
+      const socket = sockets[0]!
+      const store = useMudStore()
+      store.setChargenOptions([
+        {
+          ...creationRaces[0]!,
+          classes: [{ ...creationRaces[0]!.classes[0]!, alignment: 'good_neutral' }],
+        },
+      ])
+      store.setChargenStats(labels, 0, 'default', 'ready')
+      const stats = store.chargenStats
+      const count = socket.sent.length
+      expect(connection.createCharacter('Pupil', 1, 1, 1, alignment as MudAlignment)).toBe(false)
+      expect(socket.sent).toHaveLength(count)
+      expect(store.chargenStats).toBe(stats)
+      expect(store.chargenPending).toBeNull()
+      expect(store.chargenError).toContain('allowed for your race and class')
+      expect(connection.createCharacter('Pupil', 1, 1, 1, 'neutral')).toBe(true)
+    },
+  )
+
+  it('refuses withdrawn classes and unavailable races at the socket boundary', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const store = useMudStore()
+    store.setChargenOptions(creationRaces)
+    expect(connection.createCharacter('Pupil', 99, 1, 1, 'good')).toBe(false)
+    expect(connection.createCharacter('Pupil', 1, 99, 1, 'good')).toBe(false)
+    expect(sockets[0]!.sent).toHaveLength(0)
+  })
+
+  it.each([
+    null,
+    {},
+    [null],
+    [{ ...creationRaces[0], classes: null }],
+    [
+      {
+        ...creationRaces[0],
+        classes: [{ id: 1, name: 'Forbidden', ansi: 'Forbidden', alignment: 'forbidden' }],
+      },
+    ],
+  ])('fails closed on malformed creation metadata %j', async (races) => {
+    const connection = createConnection()
+    await connection.connect()
+    const store = useMudStore()
+    store.setChargenOptions(creationRaces)
+    sockets[0]!.onmessage?.({ data: JSON.stringify({ type: 'chargen_options', races }) })
+    expect(store.chargenRaces).toEqual([])
+    expect(store.chargenLoading).toBe(false)
+    expect(store.chargenError).toContain('Invalid character creation options')
+  })
+
+  it('does not infer character alignment from a legacy success faction', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    sockets[0]!.onmessage?.({
+      data: JSON.stringify({
+        type: 'create_character',
+        status: 'created',
+        message: 'Welcome',
+        name: 'Pupil',
+        race: 'Human',
+        class: 'Warrior',
+        faction: 'good',
+      }),
+    })
+    expect(useMudStore().character?.alignment).toBe('')
+  })
+
   it('serializes mutations, preserves state on errors and waits for reset acknowledgement', async () => {
     const connection = createConnection()
     await connection.connect()
@@ -369,6 +507,7 @@ describe('creation socket lifecycle', () => {
     const connection = createConnection()
     await connection.connect()
     const socket = sockets[0]!
+    useMudStore().setChargenOptions(creationRaces)
     expect(connection.createCharacter('Pupil', 1, 1, 1, 'good')).toBe(true)
     expect(JSON.parse(socket.sent.at(-1)!).data).not.toHaveProperty('hometown')
     useMudStore().setChargenPending(null)
@@ -584,7 +723,7 @@ describe('creation socket lifecycle', () => {
     const store = useMudStore()
     receive({
       type: 'chargen_options',
-      races: [],
+      races: creationRaces,
       statMethods: ['default', 'advanced'],
       bonusCount: 4,
     })

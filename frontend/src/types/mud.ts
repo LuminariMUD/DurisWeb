@@ -82,6 +82,8 @@ export interface MudAddBonusCommand extends MudCommandBase {
   }
 }
 
+export type MudAlignment = 'good' | 'neutral' | 'evil'
+
 export interface MudCreateCharacterCommand extends MudCommandBase {
   cmd: 'create_character'
   data: {
@@ -89,7 +91,7 @@ export interface MudCreateCharacterCommand extends MudCommandBase {
     race: number
     class: number
     sex: number
-    alignment: string
+    alignment: MudAlignment
     hometown?: number
     hardcore?: boolean
     newbie?: boolean
@@ -113,7 +115,7 @@ export interface MudGetHometownsCommand extends MudCommandBase {
   cmd: 'get_hometowns'
   data: {
     race: number
-    alignment?: 'good' | 'evil'
+    alignment?: MudAlignment
   }
 }
 
@@ -380,7 +382,8 @@ export interface MudChargenCompleteMessage {
   name?: string
   race?: string
   class?: string
-  faction?: 'good' | 'evil'
+  alignment?: MudAlignment
+  faction?: 'good' | 'evil' | 'undead' | 'neutral' | 'none'
   hardcore?: boolean
   newbie?: boolean
   hometown?: string
