@@ -1,5 +1,6 @@
 import { validChatContent } from '../utils/chatPresentation.js'
-import { parseRoomInfo } from '../utils/playMap.js'
+import { isRecord, parseRoomInfo } from '../utils/playMap.js'
+import { chargenAlignments } from '../utils/chargenAlignment.js'
 import { ref, onUnmounted } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
 import { useTriggers } from '@/composables/useTriggers'
@@ -15,6 +16,7 @@ import type {
   MudChargenMessage,
   MudChargenMutation,
   MudStatMethod,
+  MudAlignment,
   MudGmcpMessage,
   MudTextMessage,
   MudSystemMessage,
@@ -600,6 +602,33 @@ export function useMudConnection() {
     }
     switch (message.type) {
       case 'chargen_options':
+        if (
+          !Array.isArray(message.races) ||
+          !message.races.every(
+            (race) =>
+              isRecord(race) &&
+              Number.isInteger(race.id) &&
+              race.id >= 0 &&
+              typeof race.name === 'string' &&
+              typeof race.ansi === 'string' &&
+              typeof race.faction === 'string' &&
+              Array.isArray(race.classes) &&
+              race.classes.every(
+                (cls: unknown) =>
+                  isRecord(cls) &&
+                  typeof cls.id === 'number' &&
+                  Number.isInteger(cls.id) &&
+                  cls.id > 0 &&
+                  typeof cls.name === 'string' &&
+                  typeof cls.ansi === 'string' &&
+                  chargenAlignments(cls.alignment).length > 0,
+              ),
+          )
+        ) {
+          store.setChargenOptions([])
+          store.setChargenError('Invalid character creation options. Reconnect and try again.')
+          return
+        }
         store.setChargenOptions(message.races, message.statMethods, message.bonusCount)
         store.setChargenLoading(false)
         break
@@ -656,7 +685,7 @@ export function useMudConnection() {
               level: 1,
               race: message.race,
               class: message.class,
-              alignment: message.faction === 'good' ? 'good' : 'evil',
+              alignment: message.alignment ?? '',
               guild: '',
               title: '',
             })
@@ -1066,11 +1095,15 @@ export function useMudConnection() {
   const swapStats = (stat1: string, stat2: string) =>
     sendChargenMutation({ type: 'cmd', cmd: 'swap_stats', data: { stat1, stat2 } })
 
-  const getHometowns = (raceId: number, alignment?: 'good' | 'evil') => {
+  const getHometowns = (raceId: number, alignment?: MudAlignment) => {
     if (store.chargenPending) return false
+    if (alignment !== undefined && !['good', 'neutral', 'evil'].includes(alignment)) {
+      store.setChargenError('Select a valid character alignment.')
+      return false
+    }
     const race = store.chargenRaces.find((candidate) => candidate.id === raceId)
     const expectedAlignment =
-      race?.faction === 'neutral' ? (alignment ?? null) : (race?.faction ?? null)
+      alignment ?? (race?.faction === 'neutral' ? null : (race?.faction ?? null))
     const previous = store.chargenHometownRequest
     if (
       store.chargenLoading &&
@@ -1103,11 +1136,18 @@ export function useMudConnection() {
     race: number,
     charClass: number,
     sex: number,
-    alignment: string,
+    alignment: MudAlignment,
     hometown?: number,
     hardcore?: boolean,
     newbie?: boolean,
   ) => {
+    if (store.chargenPending) return false
+    const selectedRace = store.chargenRaces.find((candidate) => candidate.id === race)
+    const selectedClass = selectedRace?.classes.find((candidate) => candidate.id === charClass)
+    if (!chargenAlignments(selectedClass?.alignment).includes(alignment)) {
+      store.setChargenError('Select an alignment allowed for your race and class.')
+      return false
+    }
     const cmd: MudClientCommand = {
       type: 'cmd',
       cmd: 'create_character',

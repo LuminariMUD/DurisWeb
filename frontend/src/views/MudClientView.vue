@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import MudLoginPanel from '@/components/mud/MudLoginPanel.vue'
 import MudCharacterSelect from '@/components/mud/MudCharacterSelect.vue'
-import type { MudStatMethod } from '@/types/mud'
+import type { MudAlignment, MudStatMethod } from '@/types/mud'
 import MudCharacterCreate from '@/components/mud/chargen/MudCharacterCreate.vue'
 import MudGameClient from '@/components/mud/MudGameClient.vue'
 import MudReturnToMenuDialog from '@/components/mud/MudReturnToMenuDialog.vue'
@@ -145,7 +145,7 @@ const handleChargenSwapStats = (stat1: string, stat2: string) => {
   swapStats(stat1, stat2)
 }
 
-const handleChargenGetHometowns = (raceId: number, alignment?: 'good' | 'evil') => {
+const handleChargenGetHometowns = (raceId: number, alignment?: MudAlignment) => {
   getHometowns(raceId, alignment)
 }
 
@@ -158,7 +158,7 @@ const handleChargenCreate = (data: {
   race: number
   class: number
   sex: number
-  alignment?: string
+  alignment: MudAlignment
   hometown?: number
   hardcore?: boolean
   newbie?: boolean
@@ -172,7 +172,7 @@ const handleChargenCreate = (data: {
       data.race, // Send ID, not name
       data.class, // Send ID, not name
       data.sex,
-      data.alignment || (race.faction === 'good' ? 'good' : 'evil'),
+      data.alignment,
       data.hometown,
       data.hardcore,
       data.newbie,

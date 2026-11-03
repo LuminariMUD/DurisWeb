@@ -85,6 +85,33 @@ Refresh and review it with the local
 Snapshot changes require a normal frontend release; website changelog publishing
 and MUD news importing do not update this tab.
 
+## Browser character creation alignment
+
+The Play wizard uses each server-advertised race/class cell's `alignment`:
+`good`, `neutral`, `evil`, `any`, `good_neutral`, or `neutral_evil`. Fixed
+cells are selected automatically; multi-choice cells show only their permitted
+choices. Race/class changes clear incompatible alignment and hometown selections.
+Missing, unknown, or withdrawn choices cannot be submitted. The website decodes
+these cell values, not a separate copy of the gameplay matrix or creation overrides.
+An empty roster shows an unavailable state without repeatedly requesting options.
+If refreshed options require class/alignment reselection, the same race retains
+its existing stats. Selecting another race waits for the MUD's reset acknowledgement
+before applying the selection and allowing a fresh roll; a failed reset retains
+the prior race and stats.
+
+Every creation request carries the chosen `good`, `neutral`, or `evil` alignment.
+Hometown lookup waits for that choice and sends it for every race. The MUD echoes
+the race and requested alignment; the browser ignores replies for another context.
+The creation success `alignment` describes the character, while `faction` describes
+the server-resolved racewar side. Neither the review nor the Play view derives
+character alignment from race faction.
+
+This requires the paired [Duris #577](https://github.com/LuminariMUD/Duris/issues/577)
+server repair before rollout. An older server can reject neutral choices or silently
+ignore a submitted alignment. Frontend tests alone do not qualify paired creation,
+hometown/admission, or save/relogin behavior; verify those journeys against the
+matching server revision on isolated persistence backends before release.
+
 ## Temporary planning workspace
 
 `docs/ongoing-projects/` is a temporary human workspace. Before deleting a

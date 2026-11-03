@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,7 +16,9 @@ import type {
   MudChargenMutation,
   MudStatMethod,
   MudHometown,
+  MudAlignment,
 } from '@/types/mud'
+import { chargenAlignments } from '../../../utils/chargenAlignment.js'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import HelpModal from './HelpModal.vue'
 
@@ -27,7 +29,7 @@ const emit = defineEmits<{
   (e: 'reset-chargen'): void
   (e: 'add-bonus', stat: string): void
   (e: 'swap-stats', stat1: string, stat2: string): void
-  (e: 'get-hometowns', race: number, alignment?: 'good' | 'evil'): void
+  (e: 'get-hometowns', race: number, alignment?: MudAlignment): void
   (e: 'validate-name', name: string): void
   (
     e: 'create-character',
@@ -36,7 +38,7 @@ const emit = defineEmits<{
       race: number
       class: number
       sex: number
-      alignment?: string
+      alignment: MudAlignment
       hometown?: number
       hardcore?: boolean
       newbie?: boolean
@@ -82,6 +84,7 @@ const supportsMethods = computed(
   () => props.statMethods?.includes('advanced') && props.bonusCount === 4,
 )
 const pendingReset = ref<Step | 'cancel' | null>(null)
+const pendingRaceId = ref<number | null>(null)
 const acceptingStats = ref(false)
 const isMutating = computed(
   () => !!props.pending || pendingReset.value !== null || acceptingStats.value,
@@ -95,6 +98,12 @@ watch(
     pendingReset.value = null
     acceptingStats.value = false
     cancelSwap()
+    const raceId = pendingRaceId.value
+    pendingRaceId.value = null
+    if (destination === 'race' && raceId !== null) {
+      const race = props.races.find((candidate) => candidate.id === raceId)
+      if (race) selectRace(race)
+    }
     if (destination === 'cancel') emit('cancel')
     else if (destination) currentStep.value = destination
   },
@@ -114,6 +123,7 @@ watch(
   (error) => {
     if (error) {
       pendingReset.value = null
+      pendingRaceId.value = null
       acceptingStats.value = false
     }
   },
@@ -122,9 +132,13 @@ watch(
 // Character data
 const isNewbie = ref<boolean | null>(null)
 const isHardcore = ref(false)
-const selectedRace = ref<MudRace | null>(null)
-const selectedClass = ref<MudChargenClass | null>(null)
-const selectedAlignment = ref<'good' | 'evil' | null>(null)
+const selectedRaceId = ref<number | null>(null)
+const selectedRace = computed(() => props.races.find((race) => race.id === selectedRaceId.value))
+const selectedClassId = ref<number | null>(null)
+const selectedClass = computed(() =>
+  availableClasses.value.find((cls) => cls.id === selectedClassId.value),
+)
+const selectedAlignment = ref<MudAlignment | null>(null)
 const selectedSex = ref<1 | 2 | null>(null)
 const selectedHometown = ref<number | null>(null)
 const characterName = ref('')
@@ -188,20 +202,41 @@ const neutralRaces = computed(() => props.races.filter((r) => r.faction === 'neu
 
 const availableClasses = computed(() => {
   if (!selectedRace.value) return []
-  return selectedRace.value.classes
+  return selectedRace.value.classes.filter((cls) => chargenAlignments(cls.alignment).length > 0)
 })
 
-const needsAlignmentChoice = computed(() => {
-  return selectedRace.value?.faction === 'neutral'
+const availableAlignments = computed(() => chargenAlignments(selectedClass.value?.alignment))
+const needsAlignmentChoice = computed(() => availableAlignments.value.length > 1)
+const hasValidAlignment = computed(
+  () =>
+    selectedAlignment.value !== null && availableAlignments.value.includes(selectedAlignment.value),
+)
+
+watch([selectedRace, selectedClass, availableAlignments], () => {
+  selectedAlignment.value =
+    availableAlignments.value.length === 1 ? availableAlignments.value[0]! : null
+  selectedHometown.value = null
+  if (!['newbie', 'race', 'sex', 'hardcore', 'class'].includes(currentStep.value)) {
+    if (!selectedClass.value || (currentStep.value === 'alignment' && !needsAlignmentChoice.value))
+      currentStep.value = 'class'
+    else if (!hasValidAlignment.value) currentStep.value = 'alignment'
+  }
 })
 
 const needsHometownChoice = computed(() => {
   return props.hometownsReady === false || (props.hasHometownChoice && props.hometowns.length > 1)
 })
+const waitingForHometowns = computed(
+  () =>
+    !props.hometownsReady &&
+    !['newbie', 'race', 'sex', 'hardcore'].includes(currentStep.value) &&
+    !(currentStep.value === 'class' && needsAlignmentChoice.value),
+)
 
 watch(selectedAlignment, (alignment) => {
   selectedHometown.value = null
-  if (alignment && selectedRace.value) emit('get-hometowns', selectedRace.value.id, alignment)
+  if (hasValidAlignment.value && alignment && selectedRace.value)
+    emit('get-hometowns', selectedRace.value.id, alignment)
 })
 watch(
   () => props.hometowns,
@@ -239,15 +274,9 @@ const totalSteps = computed(() => {
 })
 
 // Request chargen options on mount
-watch(
-  () => props.races,
-  (newRaces) => {
-    if (newRaces.length === 0 && !props.loading) {
-      emit('request-options')
-    }
-  },
-  { immediate: true },
-)
+onMounted(() => {
+  if (props.races.length === 0 && !props.loading && !props.error) emit('request-options')
+})
 
 // Watch for name validation response
 watch(
@@ -271,16 +300,29 @@ watch(currentStep, (newStep) => {
 
 // Functions
 function selectRace(race: MudRace) {
-  selectedRace.value = race
-  selectedClass.value = null
+  if (isBusy.value) return
+  if (supportsMethods.value && props.stats && selectedRaceId.value !== race.id) {
+    pendingRaceId.value = race.id
+    requestReset('race')
+    return
+  }
+  selectedRaceId.value = race.id
+  selectedClassId.value = null
   selectedAlignment.value = null
   selectedHometown.value = null
-  // Request hometowns when race is selected
-  emit('get-hometowns', race.id)
+  // Hometowns depend on character alignment; request them after class/choice selection.
 }
 
 function selectClass(cls: MudChargenClass) {
-  selectedClass.value = cls
+  if (
+    !props.hometownsReady &&
+    selectedClassId.value === cls.id &&
+    hasValidAlignment.value &&
+    selectedRace.value &&
+    selectedAlignment.value
+  )
+    emit('get-hometowns', selectedRace.value.id, selectedAlignment.value)
+  selectedClassId.value = cls.id
 }
 
 function selectHometown(id: number) {
@@ -291,7 +333,9 @@ function selectHometown(id: number) {
 function getNextStep(): Step | undefined {
   const idx = requiredSteps.value.indexOf(currentStep.value)
   if (idx < requiredSteps.value.length - 1) {
-    return requiredSteps.value[idx + 1]
+    const next = requiredSteps.value[idx + 1]
+    // Class/alignment metadata can change while the race's accepted stats remain valid.
+    return next === 'method' && props.stats ? 'stats' : next
   }
   return undefined
 }
@@ -305,8 +349,7 @@ function getPrevStep(): Step | undefined {
 }
 
 function nextStep() {
-  if (isBusy.value || (currentStep.value === 'race' && props.error)) return
-  if (props.hometownsReady === false && currentStep.value !== 'newbie') return
+  if (isBusy.value || props.races.length === 0 || waitingForHometowns.value) return
   const next = getNextStep()
   if (!next) return
 
@@ -324,10 +367,10 @@ function nextStep() {
       currentStep.value = next
       break
     case 'class':
-      if (selectedClass.value) currentStep.value = next
+      if (selectedClass.value && availableAlignments.value.length) currentStep.value = next
       break
     case 'alignment':
-      if (selectedAlignment.value) currentStep.value = next
+      if (hasValidAlignment.value) currentStep.value = next
       break
     case 'hometown':
       if (selectedHometown.value !== null) currentStep.value = next
@@ -470,6 +513,7 @@ function selectSwapStat(stat: string) {
 function createCharacter() {
   if (
     isBusy.value ||
+    !hasValidAlignment.value ||
     props.hometownsReady === false ||
     (needsHometownChoice.value && selectedHometown.value === null)
   )
@@ -480,7 +524,12 @@ function createCharacter() {
     sex: selectedSex.value,
     name: characterName.value,
   })
-  if (!selectedRace.value || !selectedClass.value || !selectedSex.value) {
+  if (
+    !selectedRace.value ||
+    !selectedClass.value ||
+    !selectedSex.value ||
+    !selectedAlignment.value
+  ) {
     console.log('[Chargen] Missing required fields')
     return
   }
@@ -490,7 +539,7 @@ function createCharacter() {
     race: selectedRace.value.id,
     class: selectedClass.value.id,
     sex: selectedSex.value,
-    alignment: needsAlignmentChoice.value ? (selectedAlignment.value ?? undefined) : undefined,
+    alignment: selectedAlignment.value,
     hometown: selectedHometown.value ?? undefined,
     hardcore: isHardcore.value,
     newbie: isNewbie.value ?? true,
@@ -556,6 +605,9 @@ function formatAlignment(alignment: string): string {
     <CardContent class="min-h-[400px]">
       <Alert v-if="error" variant="destructive" role="alert" class="mb-4">
         <AlertDescription>{{ error }}</AlertDescription>
+      </Alert>
+      <Alert v-else-if="!loading && races.length === 0" role="alert" class="mb-4">
+        <AlertDescription>No races are available. Cancel character creation and try again later.</AlertDescription>
       </Alert>
       <div v-if="isBusy" role="status" class="flex items-center gap-2 text-muted-foreground mb-4">
         <Loader2 class="w-4 h-4 animate-spin" /> Waiting for the game...
@@ -750,24 +802,18 @@ function formatAlignment(alignment: string): string {
         </div>
       </div>
 
-      <!-- Step: Alignment Selection (for neutral races) -->
+      <!-- Step: Alignment Selection (from the selected race/class cell) -->
       <div v-else-if="currentStep === 'alignment'" class="space-y-4">
         <h3 class="text-lg font-semibold">Choose Your Alignment</h3>
         <p class="text-muted-foreground">
-          As a <span v-html="parseAnsiToHtml(selectedRace?.ansi ?? '')" />, you may choose your faction.
+          Choose an alignment allowed for your race and class. Your racewar side and available hometowns are determined by the game.
         </p>
 
         <RadioGroup v-model="selectedAlignment" class="space-y-2">
-          <div class="flex items-center space-x-2">
-            <RadioGroupItem id="good" value="good" />
-            <Label for="good" class="cursor-pointer">
-              <span class="text-green-500 font-semibold">Good</span> - Fight for the forces of light
-            </Label>
-          </div>
-          <div class="flex items-center space-x-2">
-            <RadioGroupItem id="evil" value="evil" />
-            <Label for="evil" class="cursor-pointer">
-              <span class="text-red-500 font-semibold">Evil</span> - Embrace the darkness
+          <div v-for="alignment in availableAlignments" :key="alignment" class="flex items-center space-x-2">
+            <RadioGroupItem :id="alignment" :value="alignment" />
+            <Label :for="alignment" class="cursor-pointer font-semibold">
+              {{ formatAlignment(alignment) }}
             </Label>
           </div>
         </RadioGroup>
@@ -971,9 +1017,9 @@ function formatAlignment(alignment: string): string {
               <span>{{ selectedSex === 1 ? 'Male' : 'Female' }}</span>
             </div>
             <div class="flex justify-between py-2 border-b">
-              <span class="text-muted-foreground">Faction</span>
-              <Badge :variant="(needsAlignmentChoice ? selectedAlignment : selectedRace?.faction) === 'good' ? 'default' : 'destructive'">
-                {{ needsAlignmentChoice ? (selectedAlignment === 'good' ? 'Good' : 'Evil') : (selectedRace?.faction === 'good' ? 'Good' : 'Evil') }}
+              <span class="text-muted-foreground">Alignment</span>
+              <Badge :variant="getAlignmentBadgeVariant(selectedAlignment ?? '')">
+                {{ selectedAlignment ? formatAlignment(selectedAlignment) : 'Select an alignment' }}
               </Badge>
             </div>
             <div v-if="isHardcore" class="flex justify-between py-2 border-b">
@@ -1013,11 +1059,12 @@ function formatAlignment(alignment: string): string {
           @click="nextStep"
           :disabled="
             isBusy ||
-            (hometownsReady === false && currentStep !== 'newbie') ||
+            races.length === 0 ||
+            waitingForHometowns ||
             (currentStep === 'newbie' && isNewbie === null) ||
-            (currentStep === 'race' && (!selectedRace || !!error)) ||
+            (currentStep === 'race' && !selectedRace) ||
             (currentStep === 'class' && !selectedClass) ||
-            (currentStep === 'alignment' && !selectedAlignment) ||
+            (currentStep === 'alignment' && !hasValidAlignment) ||
             (currentStep === 'sex' && !selectedSex) ||
             (currentStep === 'hometown' && selectedHometown === null) ||
             (currentStep === 'stats' && !stats) ||
@@ -1032,7 +1079,7 @@ function formatAlignment(alignment: string): string {
         <Button
           v-else
           @click="createCharacter"
-          :disabled="isBusy || !hometownsReady || (needsHometownChoice && selectedHometown === null)"
+          :disabled="isBusy || !hasValidAlignment || !hometownsReady || (needsHometownChoice && selectedHometown === null)"
         >
           <Check class="w-4 h-4 mr-2" />
           Create Character
