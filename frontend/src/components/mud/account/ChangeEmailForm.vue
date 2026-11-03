@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useMudConnection } from '@/composables/useMudConnection'
 import { useMudStore } from '@/stores/mudStore'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,119 +7,71 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Mail, Check, AlertTriangle } from '@lucide/vue'
 
-const { changeEmail } = useMudConnection()
+const { changeEmail, confirmEmail } = useMudConnection()
 const store = useMudStore()
-
 const newEmail = ref('')
-const confirmEmail = ref('')
-const isLoading = ref(false)
-const successMessage = ref('')
-const errorMessage = ref('')
+const code = ref('')
+const busy = computed(() => ['requesting', 'confirming'].includes(store.emailVerificationState))
+const validEmail = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.value))
 
-const currentEmail = computed(() => store.accountInfo?.email || 'Not set')
+watch(
+  () => store.emailVerificationState,
+  (state) => {
+    if (state === 'verified') {
+      code.value = ''
+      newEmail.value = ''
+    }
+  },
+)
 
-const isValid = computed(() => {
-  if (!newEmail.value || !confirmEmail.value) return false
-  if (newEmail.value !== confirmEmail.value) return false
-  // Basic email validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(newEmail.value)
-})
-
-const handleSubmit = async () => {
-  if (!isValid.value) return
-
-  errorMessage.value = ''
-  successMessage.value = ''
-  isLoading.value = true
-
-  try {
-    changeEmail(newEmail.value)
-    // Success will be handled by the store when server responds
-    successMessage.value = 'Email change request sent...'
-    // Reset form after successful submission
-    setTimeout(() => {
-      if (!store.accountError) {
-        newEmail.value = ''
-        confirmEmail.value = ''
-        successMessage.value = 'Email updated successfully!'
-      }
-    }, 1000)
-  } catch {
-    errorMessage.value = 'Failed to send email change request'
-  } finally {
-    isLoading.value = false
-  }
+const requestCode = () => {
+  if (validEmail.value && !busy.value) changeEmail(newEmail.value.trim())
+}
+const verifyCode = () => {
+  if (!code.value.trim() || busy.value) return
+  confirmEmail(code.value.trim())
+  code.value = ''
 }
 </script>
 
 <template>
   <Card>
     <CardHeader>
-      <CardTitle class="flex items-center gap-2">
-        <Mail class="h-5 w-5" />
-        Change Email Address
-      </CardTitle>
+      <CardTitle>Verify Email Address</CardTitle>
       <CardDescription>
-        Update your registered email address
+        Add an address, replace an outdated one, or verify your current inbox for password recovery.
+        Your registered address changes only after you enter the emailed code.
       </CardDescription>
     </CardHeader>
-    <CardContent>
-      <form @submit.prevent="handleSubmit" class="space-y-4">
-        <div>
-          <Label class="text-muted-foreground">Current Email</Label>
-          <p class="font-medium">{{ currentEmail }}</p>
-        </div>
-
-        <div class="space-y-2">
-          <Label for="new-email">New Email Address</Label>
-          <Input
-            id="new-email"
-            v-model="newEmail"
-            type="email"
-            placeholder="Enter new email address"
-            :disabled="isLoading"
-          />
-        </div>
-
-        <div class="space-y-2">
-          <Label for="confirm-email">Confirm Email Address</Label>
-          <Input
-            id="confirm-email"
-            v-model="confirmEmail"
-            type="email"
-            placeholder="Confirm new email address"
-            :disabled="isLoading"
-          />
-          <p
-            v-if="confirmEmail && newEmail !== confirmEmail"
-            class="text-sm text-destructive"
-          >
-            Email addresses do not match
-          </p>
-        </div>
-
-        <Alert v-if="successMessage" class="bg-green-500/10 border-green-500">
-          <Check class="h-4 w-4 text-green-500" />
-          <AlertDescription class="text-green-500">{{ successMessage }}</AlertDescription>
-        </Alert>
-
-        <Alert v-if="errorMessage" variant="destructive">
-          <AlertTriangle class="h-4 w-4" />
-          <AlertDescription>{{ errorMessage }}</AlertDescription>
-        </Alert>
-
-        <Button
-          type="submit"
-          :disabled="!isValid || isLoading"
-          class="w-full"
-        >
-          <Mail class="h-4 w-4 mr-2" />
-          {{ isLoading ? 'Updating...' : 'Update Email' }}
-        </Button>
+    <CardContent class="space-y-4">
+      <p>Registered email: {{ store.accountInfo?.email || 'Not set' }}</p>
+      <Alert v-if="store.emailVerificationState === 'requested'" role="status">
+        <AlertDescription>
+          Check your inbox and spam folder. The code works once, expires in 15 minutes, and is
+          lost if the game restarts. You can request another after 10 minutes.
+        </AlertDescription>
+      </Alert>
+      <Alert v-if="store.emailVerificationState === 'verified'" role="status">
+        <AlertDescription>Email verified and saved. Password recovery can now use this inbox.</AlertDescription>
+      </Alert>
+      <Alert v-if="store.accountError" variant="destructive" role="alert">
+        <AlertDescription>{{ store.accountError }}</AlertDescription>
+      </Alert>
+      <form class="space-y-3" @submit.prevent="requestCode">
+        <Label for="new-email">Email address</Label>
+        <Input id="new-email" v-model="newEmail" type="email" autocomplete="email" :disabled="busy" />
+        <Button type="submit" :disabled="!validEmail || busy">Send verification code</Button>
       </form>
+      <form class="space-y-3" @submit.prevent="verifyCode">
+        <Label for="email-code">Code from your inbox</Label>
+        <Input id="email-code" v-model="code" autocomplete="one-time-code" :spellcheck="false" :disabled="busy" />
+        <Button type="submit" :disabled="!code.trim() || busy">Verify and save email</Button>
+      </form>
+      <p class="text-sm text-muted-foreground">
+        If a code does not arrive, check spam and try again after 10 minutes. If you cannot access
+        the registered inbox and cannot log in, contact staff for a manual identity check.
+      </p>
     </CardContent>
   </Card>
 </template>

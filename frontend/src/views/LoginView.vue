@@ -95,6 +95,10 @@ async function handleLogin() {
             />
           </div>
 
+          <RouterLink to="/play" class="text-sm text-primary underline">
+            Forgot password? Open the game client and choose “Forgot password”.
+          </RouterLink>
+
           <!-- Info Text -->
           <p class="text-sm text-muted-foreground">
             Use the same credentials you use to connect to the MUD game server.

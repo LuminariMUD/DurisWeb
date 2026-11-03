@@ -54,6 +54,12 @@ export const useMudStore = defineStore('mud', () => {
   const restedBonus = ref<MudRestedBonus | null>(null)
   const showReconnectDialog = ref(false)
   const accountError = ref<string | null>(null)
+  const emailVerificationState = ref<
+    'idle' | 'requesting' | 'requested' | 'confirming' | 'verified'
+  >('idle')
+  const recoveryState = ref<
+    'idle' | 'ready' | 'requesting' | 'requested' | 'completing' | 'completed'
+  >('idle')
 
   // ==========================================================================
   // Active Character Data
@@ -777,6 +783,8 @@ export const useMudStore = defineStore('mud', () => {
     restedBonus.value = null
     showReconnectDialog.value = false
     accountError.value = null
+    emailVerificationState.value = 'idle'
+    recoveryState.value = 'idle'
     clearChargenState()
   }
 
@@ -832,6 +840,8 @@ export const useMudStore = defineStore('mud', () => {
     restedBonus,
     showReconnectDialog,
     accountError,
+    emailVerificationState,
+    recoveryState,
 
     // Computed
     isConnected,
