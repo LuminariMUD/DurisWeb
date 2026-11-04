@@ -1,7 +1,19 @@
 {
-  "sourceSha": "e141619c1802186011d2032c8f4280290531e7a6",
-  "sourceUrl": "https://github.com/LuminariMUD/duris-client/blob/e141619c1802186011d2032c8f4280290531e7a6/CHANGELOG.md",
+  "sourceSha": "d9ef96dcf39386b8ed4812178384504ab305aac7",
+  "sourceUrl": "https://github.com/LuminariMUD/duris-client/blob/d9ef96dcf39386b8ed4812178384504ab305aac7/CHANGELOG.md",
   "entries": [
+    {
+      "version": "2.5.1",
+      "date": "2026-11-04",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.5.1",
+      "content": "<ul>\n<li>Keep spell replies intact while other commands are in flight and require a primary click to start preparation.</li>\n<li>Recover preparation estimates after rate-limited negotiation or reinstall, while retaining other add-ons’ subscriptions.</li>\n<li>Preserve the original layout for rollback, remember the ROOM subtab, and keep CHAT clear of PLAYERS in short windows.</li>\n<li>Preserve settings, custom commands and bid scores when saving fails.</li>\n</ul>"
+    },
+    {
+      "version": "2.5.0",
+      "date": "2026-11-04",
+      "releaseUrl": null,
+      "content": "<ul>\n<li>Combine MOBS and ITEMS in ROOM and give ROOM and PLAYERS the same default height.</li>\n<li>Move inventory and equipment under GEAR. Open SPELLS for your spell list and the preparation command Duris reports for your character.</li>\n<li>Show the server’s spell preparation estimate beside your position, with distinct paused and complete states.</li>\n</ul>"
+    },
     {
       "version": "2.4.4",
       "date": "2026-11-01",
@@ -42,7 +54,7 @@
       "version": "2.2.0",
       "date": "2026-10-23",
       "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.2.0",
-      "content": "<ul>\n<li>Show bridge weight/load, ordered navigation, display/raw stamina, explicit target, slot condition/timers/destruction, contact coordinates and both arc meanings when supplied by the server.</li>\n<li>Associate ship snapshots by runtime vessel key, preserve safe legacy fallback, handle duplicate docked designations and keep server names literal.</li>\n</ul>\n<p>Notable changes to the Duris Client Mudlet package. Versions follow <a href=\"https://semver.org\">Semantic Versioning</a> (<code>MAJOR.MINOR.PATCH</code>); see <a href=\"https://github.com/LuminariMUD/duris-client/blob/e141619c1802186011d2032c8f4280290531e7a6/docs/RELEASING.md\">docs/RELEASING.md</a> for what each part means here. Each version heading must match <code>VERSION</code>; the release workflow copies that section into the GitHub Release notes.</p>"
+      "content": "<ul>\n<li>Show bridge weight/load, ordered navigation, display/raw stamina, explicit target, slot condition/timers/destruction, contact coordinates and both arc meanings when supplied by the server.</li>\n<li>Associate ship snapshots by runtime vessel key, preserve safe legacy fallback, handle duplicate docked designations and keep server names literal.</li>\n</ul>\n<p>Notable changes to the Duris Client Mudlet package. Versions follow <a href=\"https://semver.org\">Semantic Versioning</a> (<code>MAJOR.MINOR.PATCH</code>); see <a href=\"https://github.com/LuminariMUD/duris-client/blob/d9ef96dcf39386b8ed4812178384504ab305aac7/docs/RELEASING.md\">docs/RELEASING.md</a> for what each part means here. Each version heading must match <code>VERSION</code>; the release workflow copies that section into the GitHub Release notes.</p>"
     },
     {
       "version": "2.1.2",
