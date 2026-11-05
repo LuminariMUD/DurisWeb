@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import MudLoginPanel from '@/components/mud/MudLoginPanel.vue'
 import MudCharacterSelect from '@/components/mud/MudCharacterSelect.vue'
+import MudApprovalMessages from '@/components/mud/MudApprovalMessages.vue'
 import type { MudAlignment, MudStatMethod } from '@/types/mud'
 import MudCharacterCreate from '@/components/mud/chargen/MudCharacterCreate.vue'
 import MudGameClient from '@/components/mud/MudGameClient.vue'
@@ -110,6 +111,7 @@ const handleEntered = () => {
 }
 
 const handleCreateNew = () => {
+  store.clearApprovalMessages()
   store.creatingCharacter = true
   requestChargenOptions()
 }
@@ -307,13 +309,14 @@ onUnmounted(() => {
 
     <div
       v-else-if="clientState === 'approval_wait'"
-      class="flex-1 flex items-center justify-center p-4"
+      class="flex-1 min-h-0 flex flex-col items-center overflow-y-auto p-4"
     >
-      <Card class="w-full max-w-md">
+      <Card class="my-auto w-full max-w-md shrink-0">
         <CardContent class="space-y-4 pt-6" role="status">
           <h2 class="text-xl font-semibold">Waiting for staff approval</h2>
           <p>Your character is saved. You can safely disconnect and select it later to resume waiting.</p>
           <p>Your full starting well-rested bonus is available when you first enter the game.</p>
+          <MudApprovalMessages />
           <Button variant="outline" @click="disconnect">Disconnect</Button>
         </CardContent>
       </Card>
@@ -322,13 +325,16 @@ onUnmounted(() => {
     <!-- Character Select State -->
     <div
       v-else-if="clientState === 'character_select'"
-      class="flex-1 flex items-center justify-center p-4"
+      class="flex-1 min-h-0 flex flex-col overflow-y-auto p-4"
     >
-      <MudCharacterSelect
-        @entered="handleEntered"
-        @create-new="handleCreateNew"
-        @logout="handleLogout"
-      />
+      <div class="my-auto w-full shrink-0 space-y-4">
+        <MudApprovalMessages class="w-full max-w-4xl mx-auto" />
+        <MudCharacterSelect
+          @entered="handleEntered"
+          @create-new="handleCreateNew"
+          @logout="handleLogout"
+        />
+      </div>
     </div>
 
     <!-- Character Creation State -->

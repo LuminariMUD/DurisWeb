@@ -96,7 +96,12 @@ presented as accumulated offline hours.
 Pending applications show an approval waiting screen, including on selection
 of a saved applicant (`system.data.status: waiting_for_approval`). A disconnect
 is safe; selecting the character later resumes the queue. Committed approval
-returns to the account menu before the user enters the game.
+returns to the account menu before the user enters the game. Server text and
+system notices remain visible in Application updates while waiting and after
+returning to the menu, including queued text arriving after the menu response.
+This transient feedback can be dismissed at the menu and is cleared on a new
+creation/selection, game entry, account change, logout, or disconnect. It does
+not depend on game-trigger visibility and never starts game timers.
 
 Coordinate rollout with [Duris PR #711](https://github.com/LuminariMUD/Duris/pull/711).
 The server and browser must agree on creation completion. The changelog payload

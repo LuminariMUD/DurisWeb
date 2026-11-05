@@ -45,6 +45,8 @@ export const useMudStore = defineStore('mud', () => {
   const selectedCharacter = ref<string | null>(null)
   const creatingCharacter = ref(false)
   const waitingForApproval = ref(false)
+  // Keep collecting queued server text after the same-account menu response.
+  const approvalMessages = ref<string[] | null>(null)
 
   // ==========================================================================
   // Account Menu State
@@ -221,6 +223,7 @@ export const useMudStore = defineStore('mud', () => {
     connectionError.value = error ?? null
     if (state === 'disconnected' || state === 'error') {
       waitingForApproval.value = false
+      clearApprovalMessages()
       clearChargenState()
       retireMap()
     }
@@ -254,6 +257,7 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   function setAccount(accountName: string, chars: MudCharacterInfo[]) {
+    if (account.value !== accountName) clearApprovalMessages()
     if (account.value && account.value !== accountName) retireMap()
     account.value = accountName
     characters.value = chars
@@ -266,6 +270,7 @@ export const useMudStore = defineStore('mud', () => {
     retireMap()
     account.value = null
     waitingForApproval.value = false
+    clearApprovalMessages()
     characters.value = []
     selectedCharacter.value = null
     character.value = null
@@ -274,6 +279,7 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   function setCharacter(char: MudCharacter) {
+    clearApprovalMessages()
     creatingCharacter.value = false
     waitingForApproval.value = false
     if (selectedCharacter.value && selectedCharacter.value !== char.name) retireMap()
@@ -281,6 +287,21 @@ export const useMudStore = defineStore('mud', () => {
     selectedCharacter.value = char.name
     connectionState.value = 'in_game'
     autoLoginInProgress.value = false
+  }
+
+  function startApprovalWait() {
+    if (!waitingForApproval.value) approvalMessages.value = []
+    waitingForApproval.value = true
+  }
+
+  function addApprovalMessage(message: unknown) {
+    if (approvalMessages.value === null || typeof message !== 'string' || !message.trim()) return
+    approvalMessages.value.push(message)
+    if (approvalMessages.value.length > 50) approvalMessages.value.splice(0, 1)
+  }
+
+  function clearApprovalMessages() {
+    approvalMessages.value = null
   }
 
   function updateVitals(newVitals: Partial<MudVitals>) {
@@ -753,6 +774,7 @@ export const useMudStore = defineStore('mud', () => {
     copyoverInProgress.value = false
     copyoverMessage.value = null
     copyoverCharacterName.value = null
+    clearApprovalMessages()
     account.value = null
     waitingForApproval.value = false
     characters.value = []
@@ -814,6 +836,10 @@ export const useMudStore = defineStore('mud', () => {
     selectedCharacter,
     creatingCharacter,
     waitingForApproval,
+    approvalMessages,
+    startApprovalWait,
+    addApprovalMessage,
+    clearApprovalMessages,
     character,
     vitals,
     affects,

@@ -239,6 +239,8 @@ export function useMudConnection() {
         setWsRef(null)
         interruptAccountRequest()
 
+        store.clearApprovalMessages()
+
         // Stop all timers when disconnected
         stopAllTimers()
 
@@ -395,13 +397,11 @@ export function useMudConnection() {
   }
 
   const handleSystemMessage = (message: MudSystemMessage) => {
+    if (message.data?.status === 'waiting_for_approval') store.startApprovalWait()
+    store.addApprovalMessage(message.data?.message)
     // Add system messages to the activity log
     if (message.data?.message) {
       store.addLogEntry('system', message.data.message)
-    }
-
-    if (message.data?.status === 'waiting_for_approval') {
-      store.waitingForApproval = true
     }
 
     // Welcome message - MUD is ready for login
@@ -681,7 +681,12 @@ export function useMudConnection() {
         } else if (message.status === 'created') {
           store.clearChargenState()
           store.addLogEntry('system', message.message)
-          store.waitingForApproval = message.waitingForApproval === true
+          if (message.waitingForApproval === true) {
+            store.startApprovalWait()
+            store.addApprovalMessage(message.message)
+          } else {
+            store.waitingForApproval = false
+          }
         } else if (message.status === 'validated') {
           // Name validated, ready for next step
           store.addLogEntry('system', message.message)
@@ -832,6 +837,8 @@ export function useMudConnection() {
   }
 
   const handleTextMessage = (message: MudTextMessage) => {
+    // Staff feedback must remain visible even if a game trigger gags this text.
+    store.addApprovalMessage(message.data)
     // Calculate latency from command send to response receive
     if (lastCommandSentAt !== null) {
       const latency = Math.round(performance.now() - lastCommandSentAt)
@@ -1159,11 +1166,13 @@ export function useMudConnection() {
   }
 
   const enterWorld = (characterName: string) => {
-    return sendCommand({
+    const sent = sendCommand({
       type: 'cmd',
       cmd: 'enter',
       data: { character: characterName },
     })
+    if (sent) store.clearApprovalMessages()
+    return sent
   }
 
   const sendGameCommand = (command: string, origin: 'manual' | 'map' = 'manual') => {
