@@ -144,7 +144,7 @@ function isEndSentinel(record: readonly string[]): boolean {
 
 function validateWorldSource(content: string): void {
   const sourceType = '.wld';
-  for (const record of getSourceRecords(content, sourceType)) {
+  for (const record of getSourceRecords(content, sourceType, true)) {
     if (isEndSentinel(record)) {
       continue;
     }
@@ -255,6 +255,29 @@ function validateMobileSource(content: string): void {
   }
 }
 
+/** The MUD reads optional affect masks with fscanf, so they may span lines. */
+function readObjectWeightValues(
+  lines: readonly string[],
+  startIndex: number,
+): { values: string[]; nextIndex: number } {
+  assertIntegerLine(lines[startIndex], 3, '.obj');
+  const values = lines[startIndex].trim().split(/\s+/);
+  let nextIndex = startIndex + 1;
+  while (nextIndex < lines.length) {
+    const line = lines[nextIndex].trim();
+    if (!line) {
+      nextIndex += 1;
+      continue;
+    }
+    const continuation = line.split(/\s+/);
+    if (!continuation.every(isInteger)) break;
+    if (values.length + continuation.length > 7) rejectZoneSource('.obj');
+    values.push(...continuation);
+    nextIndex += 1;
+  }
+  return { values, nextIndex };
+}
+
 function validateObjectSource(content: string): void {
   const sourceType = '.obj';
   for (const record of getSourceRecords(content, sourceType, true)) {
@@ -269,8 +292,7 @@ function validateObjectSource(content: string): void {
     index += 1;
     assertIntegerLine(record[index], 8, sourceType);
     index += 1;
-    assertIntegerLine(record[index], 3, sourceType);
-    index += 1;
+    index = readObjectWeightValues(record, index).nextIndex;
 
     while (index < record.length) {
       const line = record[index].trim();
@@ -1331,14 +1353,15 @@ export async function parseObjFile(zoneId: string): Promise<ZoneObject[]> {
     while (values.length < 8) values.push(0);
     i++;
 
-    // Weight, cost, condition, and optional bitvectors (all on same line)
+    // Weight, cost, condition, and optional bitvectors (possibly on following lines)
     // Format: weight cost condition [bitvector1] [bitvector2] [bitvector3] [bitvector4]
-    const weightLine = lines[i]?.trim().split(/\s+/) || [];
+    const weightData = readObjectWeightValues(lines, i);
+    const weightLine = weightData.values;
     const weight = parseInt(weightLine[0], 10) || 0;
     const cost = parseInt(weightLine[1], 10) || 0;
     const condition = parseInt(weightLine[2], 10) || 0;
 
-    // Bitvectors are optional values 3-6 on the same line
+    // Bitvectors are optional values 3-6 after weight/cost/condition.
     let bitvector: number | undefined;
     let bitvector2: number | undefined;
     let bitvector3: number | undefined;
@@ -1366,7 +1389,7 @@ export async function parseObjFile(zoneId: string): Promise<ZoneObject[]> {
     if (weightLine.length > 6 && weightLine[6] !== '0') {
       bitvector4 = parseInt(weightLine[6], 10) || undefined;
     }
-    i++;
+    i = weightData.nextIndex;
 
     // Parse applies and extras
     // Note: extraFlags2, antiFlags, antiFlags2 already parsed from type line
@@ -1746,14 +1769,15 @@ export async function getObjectData(zoneId: string, vnum: number): Promise<ZoneO
     while (values.length < 8) values.push(0);
     i++;
 
-    // Weight, cost, condition, and optional bitvectors (all on same line)
+    // Weight, cost, condition, and optional bitvectors (possibly on following lines)
     // Format: weight cost condition [bitvector1] [bitvector2] [bitvector3] [bitvector4]
-    const weightLine = lines[i]?.trim().split(/\s+/) || [];
+    const weightData = readObjectWeightValues(lines, i);
+    const weightLine = weightData.values;
     const weight = parseInt(weightLine[0], 10) || 0;
     const cost = parseInt(weightLine[1], 10) || 0;
     const condition = parseInt(weightLine[2], 10) || 0;
 
-    // Bitvectors are optional values 3-6 on the same line
+    // Bitvectors are optional values 3-6 after weight/cost/condition.
     let bitvector: number | undefined;
     let bitvector2: number | undefined;
     let bitvector3: number | undefined;
@@ -1781,7 +1805,7 @@ export async function getObjectData(zoneId: string, vnum: number): Promise<ZoneO
     if (weightLine.length > 6 && weightLine[6] !== '0') {
       bitvector4 = parseInt(weightLine[6], 10) || undefined;
     }
-    i++;
+    i = weightData.nextIndex;
 
     // Parse applies and extras (X, T, U can override type line values)
     const applies: { location: number; modifier: number }[] = [];

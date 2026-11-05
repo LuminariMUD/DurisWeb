@@ -34,6 +34,7 @@ const { MudFlagParser, MudFlagParseError } = await import('../mudFlagParser.js')
 const guildParser = await import('../mudGuildParser.js');
 const {
   getZoneMapData,
+  getObjectData,
   globalSearch,
   invalidateShopCache,
   invalidateZoneFileMap,
@@ -317,6 +318,55 @@ describe('successful parser integration', () => {
     expect(zone.resets).toHaveLength(1);
   });
 
+  it('keeps retired prototypes indexed with an empty world and an inert zone header', async () => {
+    await write('areas/wld/fixture.wld', '');
+    await write('areas/zon/fixture.zon', '#1\nRetired prototypes~\n199 0 0 0 0 0\nS\n');
+
+    await expect(listZones({ limit: 10 })).resolves.toMatchObject({
+      total: 1,
+      zones: [{ id: 'fixture', number: 1, roomCount: 0, mobCount: 1, objCount: 1, resetCount: 0 }],
+    });
+    await expect(parseWldFile(1)).resolves.toEqual([]);
+    await expect(parseZonFile('fixture')).resolves.toMatchObject({ resets: [] });
+    await expect(parseObjFile('fixture')).resolves.toMatchObject([{ vnum: 102 }]);
+    await expect(parseMobFile('fixture')).resolves.toMatchObject([{ vnum: 101 }]);
+    expect(getFlatfileHookHealth('zone_builder_parsing')?.droppedInputs ?? 0).toBe(0);
+  });
+
+  it.each([
+    '1 7 100 67143680 0 0 4096\n',
+    '1 7 100\n67143680 0 0 4096\n',
+    '1 7 100 67143680\n0\n0 4096\n',
+  ])('preserves affect masks across MUD-supported line layouts (%j)', async (weightData) => {
+    await write(
+      'areas/obj/fixture.obj',
+      '#102\nfixture object~\nshort~\nlong~\n~\n' +
+        '1 1 0 0 1 0 0 1 0 0 0\n0 0 0 0 0 0 0 0\n' +
+        weightData +
+        'E\nfixture~\nAn extra description.\n~\nA\n26 5\n' +
+        '#103\nsecond~\na second object~\nA second object lies here.~\n~\n' +
+        '1 1 0 0 1 0 0 1 0 0 0\n0 0 0 0 0 0 0 0\n2 3 100\n',
+    );
+    const expected = {
+      vnum: 102,
+      weight: 1,
+      cost: 7,
+      condition: 100,
+      bitvector: 67143680,
+      bitvector2: 0,
+      bitvector3: 0,
+      bitvector4: 4096,
+      applies: [{ location: 26, modifier: 5 }],
+      extras: [{ keywords: 'fixture', description: 'An extra description.' }],
+    };
+    const objects = await parseObjFile('fixture');
+    expect(objects).toHaveLength(2);
+    expect(objects[0]).toMatchObject(expected);
+    expect(objects[1]).toMatchObject({ vnum: 103, weight: 2, cost: 3, condition: 100 });
+    await expect(getObjectData('fixture', 102)).resolves.toMatchObject(expected);
+    expect(getFlatfileHookHealth('zone_builder_parsing')?.droppedInputs ?? 0).toBe(0);
+  });
+
   it('preserves global-search results through the bounded source prefilter', async () => {
     await expect(globalSearch('fixture room', 'room')).resolves.toMatchObject({
       total: 1,
@@ -385,6 +435,19 @@ describe('unavailable root and recovery', () => {
 });
 
 describe('all-or-nothing malformed source rejection', () => {
+  it.each(['1 7 100 1 2 3 4\n5\n', '1 7 100\n1 2 3 4 5\n'])(
+    'rejects extra numeric object fields rather than silently dropping them (%j)',
+    async (weightData) => {
+      await write(
+        'areas/obj/fixture.obj',
+        '#102\nfixture~\nshort~\nlong~\n~\n' +
+          '1 1 0 0 1 0 0 1 0 0 0\n0 0 0 0 0 0 0 0\n' +
+          weightData,
+      );
+      await expect(parseObjFile('fixture')).rejects.toBeInstanceOf(ZoneSourceParseError);
+      await expect(getObjectData('fixture', 102)).rejects.toBeInstanceOf(ZoneSourceParseError);
+    },
+  );
   it('rejects the complete flag aggregate when one category is missing', async () => {
     await write('src/combat/fight.c', 'struct unrelated { int value; };\n');
 

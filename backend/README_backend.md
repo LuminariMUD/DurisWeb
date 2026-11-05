@@ -79,6 +79,16 @@ the cache. Deployment restarts the backend to discard the old process cache.
 The zone-map API selects once per response so rooms and saved positions use the
 same basename. See [zone-map release checks](../docs/deployment.md#numeric-zone-map-release-checks).
 
+Object parsing accepts the MUD's optional four affect masks after weight, cost,
+and condition, either on the same line or continued on subsequent numeric lines.
+Both wiki publication and object details preserve these masks; a continuation
+exceeding the four optional masks is rejected.
+
+Empty world files are valid for retired areas that retain mobile/object
+prototypes. Their zone header still supplies the canonical owner number; an
+inert header and no resets keep those prototypes searchable without restoring
+playable rooms. Nonempty malformed world records remain rejected.
+
 On shutdown, the service stops accepting HTTP connections while closing existing
 WebSocket clients normally. Peers that do not acknowledge the close frame are
 terminated after five seconds, so upgraded connections cannot hold shutdown open

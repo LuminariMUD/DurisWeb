@@ -159,10 +159,11 @@ in memory, refuses an empty generation, and replaces `wiki_zone_entrances` and
 assignments and recomputing `wiki_continents` centers. It writes only
 website-owned tables and is idempotent; rerun it whenever the MUD area files
 change. After a re-extraction, remove the private cache's `wiki:mapBounds*`,
-`wiki:mapImage*`, `wiki:tiles:*`, `wiki:entrances:*`, and `wiki:continents`
+`wiki:mapImage*`, `wiki:mapSectors:*`, `wiki:tiles:*`, `wiki:entrances:*`, and `wiki:continents`
 keys with `SCAN` plus `UNLINK` (the rendered Redis disables `FLUSHALL`), or
 accept their TTLs of up to 24 hours. The dependency preflight rejects an empty
-map projection.
+map projection. Sector reads can also reuse a process-local result for up to
+60 seconds; let that result expire before verifying the refreshed terrain.
 
 ### Publish MUD news
 
