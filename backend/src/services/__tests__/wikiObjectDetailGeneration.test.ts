@@ -83,7 +83,11 @@ describe('wiki object detail generation binding', () => {
         values: [12, 1, 2, 3],
         weight: 4,
         wearFlags: 8 + 8388608,
-        applies: [],
+        applies: [
+          { location: 26, modifier: 5 },
+          { location: 0, modifier: 2 },
+          { location: 18, modifier: 0 },
+        ],
         bitvector: 67143680,
         bitvector2: 0,
         bitvector3: 0,
@@ -113,6 +117,7 @@ describe('wiki object detail generation binding', () => {
       vnum: 101,
       typeName: 'Weapon',
       slots: ['body', 'belt'],
+      affects: [{ location: 26, locationName: 'AGI', modifier: 5 }],
       spellEffects: ['Waterbreath', 'Slow Poison', 'Levitate', 'No Fear'],
       roomLoads: [{ roomVnum: 700, roomName: 'Test Room', zoneNumber: 7 }],
     });
