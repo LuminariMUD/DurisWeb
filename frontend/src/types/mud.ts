@@ -271,6 +271,7 @@ export interface MudAccountInfo {
 // Rested bonus for a character
 export interface MudRestedBonusCharacter {
   name: string
+  availableOnFirstEntry?: boolean
   restedPercent: number
   restedHours: number
   maxHours: number
@@ -400,6 +401,7 @@ export interface MudChargenSwappedMessage {
 }
 
 export interface MudChargenCompleteMessage {
+  waitingForApproval?: boolean
   type: 'create_character'
   status: 'validated' | 'created' | 'error'
   message: string

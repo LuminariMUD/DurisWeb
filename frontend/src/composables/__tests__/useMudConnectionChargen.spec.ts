@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
-import { mount, type VueWrapper } from '@vue/test-utils'
+import { defineComponent, h, nextTick } from 'vue'
+import { mount, shallowMount, type VueWrapper } from '@vue/test-utils'
 
 const { storeMudCredentials, clearMudCredentials, getMudCredentials, sockets, siteConfiguration } =
   vi.hoisted(() => ({
@@ -10,6 +10,7 @@ const { storeMudCredentials, clearMudCredentials, getMudCredentials, sockets, si
     sockets: [] as FakeSocket[],
     siteConfiguration: {
       mudWsUrl: { value: 'wss://mud.test' as string | null },
+      siteTitle: { value: 'Test MUD' },
       loadConfig: vi.fn<() => Promise<void>>(),
       isLoaded: { value: true },
       isAvailable: { value: true },
@@ -44,6 +45,7 @@ vi.mock('@/composables/useAuth', () => ({
     storeMudCredentials,
     clearMudCredentials,
     getMudCredentials,
+    accountName: { value: 'Owner' },
   }),
 }))
 
@@ -51,9 +53,12 @@ vi.mock('@/composables/useSiteConfig', () => {
   return { useSiteConfig: () => siteConfiguration }
 })
 
+const startGameTimers = vi.hoisted(() => vi.fn())
+const triggerGagsText = vi.hoisted(() => ({ enabled: false }))
+
 vi.mock('@/composables/useTimers', () => ({
   useTimers: () => ({
-    startAllTimers: vi.fn(),
+    startAllTimers: startGameTimers,
     stopAllTimers: vi.fn(),
     setSendCommand: vi.fn(),
     setAddLogEntry: vi.fn(),
@@ -63,7 +68,7 @@ vi.mock('@/composables/useTimers', () => ({
 vi.mock('@/composables/useTriggers', () => ({
   useTriggers: () => ({
     processLine: vi.fn(() => ({
-      gagged: false,
+      gagged: triggerGagsText.enabled,
       highlightClass: undefined,
       soundsToPlay: [],
       commandsToSend: [],
@@ -84,6 +89,7 @@ vi.mock('@/utils/duriswebAuth', () => ({
   buildDurisWebClientInfo: vi.fn(() => ({ client: 'DurisWeb', version: '1.0.0' })),
 }))
 
+import MudClientView from '@/views/MudClientView.vue'
 import { useMudConnection } from '../useMudConnection.js'
 import { createPinia, setActivePinia } from 'pinia'
 import { useMudStore } from '@/stores/mudStore'
@@ -98,6 +104,17 @@ const creationRaces: MudRace[] = [
     classes: [{ id: 1, name: 'Warrior', ansi: 'Warrior', alignment: 'any' }],
   },
 ]
+
+let activeView: VueWrapper | null = null
+function mountApprovalView() {
+  activeView = shallowMount(MudClientView, {
+    global: {
+      renderStubDefaultSlot: true,
+      stubs: { MudApprovalMessages: false, Button: false, Primitive: false },
+    },
+  })
+  return activeView
+}
 
 let activeWrapper: VueWrapper | null = null
 function createConnection() {
@@ -131,6 +148,7 @@ describe('creation socket lifecycle', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    triggerGagsText.enabled = false
     sockets.length = 0
     window.__mudWebSocket = null
     window.__mudConnecting = false
@@ -138,6 +156,8 @@ describe('creation socket lifecycle', () => {
     vi.stubGlobal('WebSocket', FakeSocket)
   })
   afterEach(() => {
+    activeView?.unmount()
+    activeView = null
     activeWrapper?.unmount()
     activeWrapper = null
     window.__mudWebSocket = null
@@ -192,6 +212,22 @@ describe('creation socket lifecycle', () => {
           class: 'Warrior',
           alignment,
           faction: 'good',
+        }),
+      })
+      expect(store.character).toBeNull()
+      socket.onmessage?.({
+        data: JSON.stringify({
+          type: 'gmcp',
+          package: 'Char.Status',
+          data: {
+            name: 'Pupil',
+            level: 1,
+            race: 'Human',
+            class: 'Warrior',
+            alignment,
+            guild: '',
+            title: '',
+          },
         }),
       })
       expect(store.character?.alignment).toBe(alignment)
@@ -269,7 +305,7 @@ describe('creation socket lifecycle', () => {
         faction: 'good',
       }),
     })
-    expect(useMudStore().character?.alignment).toBe('')
+    expect(useMudStore().character).toBeNull()
   })
 
   it('serializes mutations, preserves state on errors and waits for reset acknowledgement', async () => {
@@ -771,10 +807,249 @@ describe('creation socket lifecycle', () => {
       class: 'Warrior',
       faction: 'good',
     })
-    expect(store.connectionState).toBe('in_game')
+    expect(store.connectionState).not.toBe('in_game')
+    expect(store.character).toBeNull()
+    expect(store.creatingCharacter).toBe(false)
     expect(store.chargenStats).toBeNull()
     expect(store.chargenStatMethods).toEqual([])
     expect(store.chargenPending).toBeNull()
+    expect(startGameTimers).not.toHaveBeenCalled()
+    const status = {
+      type: 'gmcp',
+      package: 'Char.Status',
+      data: {
+        name: 'Newhero',
+        level: 1,
+        race: 'Human',
+        class: 'Warrior',
+        alignment: 'good',
+        guild: '',
+        title: '',
+      },
+    }
+    receive(status)
+    receive(status)
+    expect(store.connectionState).toBe('in_game')
+    expect(startGameTimers).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows resumed approval waiting and clears it on the menu response or disconnect', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const socket = sockets[0]!
+    const store = useMudStore()
+    store.setAccount('Owner', [])
+    const receive = (message: unknown) => socket.onmessage?.({ data: JSON.stringify(message) })
+    receive({ type: 'system', data: { status: 'waiting_for_approval', message: 'Waiting' } })
+    expect(store.waitingForApproval).toBe(true)
+    expect(store.character).toBeNull()
+    expect(store.connectionState).toBe('authenticated')
+    receive({ type: 'auth', status: 'success', data: { account: 'Owner', characters: [] } })
+    expect(store.waitingForApproval).toBe(false)
+    receive({ type: 'system', data: { status: 'waiting_for_approval', message: 'Waiting' } })
+    socket.close()
+    expect(store.waitingForApproval).toBe(false)
+  })
+
+  it('renders text and system approval failures while waiting without starting play', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const socket = sockets[0]!
+    const receive = (message: unknown) => socket.onmessage?.({ data: JSON.stringify(message) })
+    const store = useMudStore()
+    store.setAccount('Owner', [])
+    store.addLogEntry('system', 'Unrelated previous game output')
+    const view = mountApprovalView()
+    receive({ type: 'system', data: { status: 'waiting_for_approval', message: 'Waiting' } })
+    receive({
+      type: 'create_character',
+      status: 'created',
+      message: 'Character saved; waiting for staff approval.',
+      waitingForApproval: true,
+    })
+    receive({ type: 'text', category: 'system', data: 'Your character could not be saved.' })
+    receive({ type: 'system', data: { status: 'error', message: 'Please contact staff.' } })
+    await nextTick()
+    expect(view.text()).toContain('Waiting for staff approval')
+    expect(view.text()).toContain('Your character could not be saved.')
+    expect(view.text()).toContain('Please contact staff.')
+    expect(view.text()).not.toContain('Unrelated previous game output')
+    expect(store.character).toBeNull()
+    expect(store.connectionState).toBe('authenticated')
+    expect(startGameTimers).not.toHaveBeenCalled()
+  })
+
+  it.each(['before', 'after'] as const)(
+    'retains a declined application and safe staff explanation arriving %s the menu response',
+    async (order) => {
+      const connection = createConnection()
+      await connection.connect()
+      const socket = sockets[0]!
+      const receive = (message: unknown) => socket.onmessage?.({ data: JSON.stringify(message) })
+      const store = useMudStore()
+      store.setAccount('Owner', [])
+      const view = mountApprovalView()
+      receive({ type: 'system', data: { status: 'waiting_for_approval', message: 'Waiting' } })
+      const outcome = {
+        type: 'text',
+        category: 'system',
+        data: 'Your character application was declined.\r\n&+RChoose a fantasy name.&n <img src=x onerror="alert(1)">',
+      }
+      if (order === 'before') receive(outcome)
+      receive({ type: 'auth', status: 'success', data: { account: 'Owner', characters: [] } })
+      if (order === 'after') receive(outcome)
+      await nextTick()
+      expect(store.waitingForApproval).toBe(false)
+      expect(view.findComponent({ name: 'MudCharacterSelect' }).exists()).toBe(true)
+      expect(view.text()).toContain('Your character application was declined.')
+      expect(view.text()).toContain('Choose a fantasy name.')
+      expect(view.text()).not.toContain('&+R')
+      expect(view.find('img').exists()).toBe(false)
+      expect(startGameTimers).not.toHaveBeenCalled()
+    },
+  )
+
+  it('retains committed approval at the menu until explicit Enter', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const socket = sockets[0]!
+    const receive = (message: unknown) => socket.onmessage?.({ data: JSON.stringify(message) })
+    const store = useMudStore()
+    store.setAccount('Owner', [])
+    const view = mountApprovalView()
+    receive({ type: 'system', data: { status: 'waiting_for_approval', message: 'Waiting' } })
+    receive({
+      type: 'auth',
+      status: 'success',
+      data: { account: 'Owner', characters: [{ name: 'Pupil', level: 0 }] },
+    })
+    receive({ type: 'text', category: 'system', data: 'Your character has been approved.' })
+    await nextTick()
+    expect(view.text()).toContain('Your character has been approved.')
+    expect(store.characters).toEqual([{ name: 'Pupil', level: 0 }])
+    expect(store.connectionState).toBe('authenticated')
+    expect(store.character).toBeNull()
+    expect(startGameTimers).not.toHaveBeenCalled()
+    expect(connection.enterWorld('Pupil')).toBe(true)
+    expect(JSON.parse(socket.sent.at(-1)!)).toEqual({
+      type: 'cmd',
+      cmd: 'enter',
+      data: { character: 'Pupil' },
+    })
+    await nextTick()
+    expect(view.text()).not.toContain('Your character has been approved.')
+    expect(startGameTimers).not.toHaveBeenCalled()
+    receive({ type: 'gmcp', package: 'Char.Status', data: { name: 'Pupil', level: 1 } })
+    expect(store.connectionState).toBe('in_game')
+    expect(startGameTimers).toHaveBeenCalledTimes(1)
+  })
+
+  it('dismisses completed feedback and starts the next application with fresh notices', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const socket = sockets[0]!
+    const receive = (message: unknown) => socket.onmessage?.({ data: JSON.stringify(message) })
+    const store = useMudStore()
+    store.setAccount('Owner', [])
+    const view = mountApprovalView()
+    receive({
+      type: 'system',
+      data: { status: 'waiting_for_approval', message: 'First application' },
+    })
+    receive({ type: 'auth', status: 'success', data: { account: 'Owner', characters: [] } })
+    await nextTick()
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Dismiss updates')!
+      .trigger('click')
+    expect(view.text()).not.toContain('First application')
+    receive({
+      type: 'system',
+      data: { status: 'waiting_for_approval', message: 'Second application' },
+    })
+    receive({ type: 'text', category: 'system', data: 'Please wait for another staff attempt.' })
+    await nextTick()
+    expect(view.text()).not.toContain('First application')
+    expect(view.text()).toContain('Second application')
+    expect(view.text()).toContain('Please wait for another staff attempt.')
+    expect(view.findAll('button').some((button) => button.text() === 'Dismiss updates')).toBe(false)
+  })
+
+  it.each([
+    'disconnect',
+    'error',
+    'logout',
+    'account change',
+    'game entry',
+    'new creation',
+  ] as const)('clears approval feedback on %s', async (boundary) => {
+    const connection = createConnection()
+    await connection.connect()
+    const socket = sockets[0]!
+    const receive = (message: unknown) => socket.onmessage?.({ data: JSON.stringify(message) })
+    const store = useMudStore()
+    store.setAccount('Owner', [])
+    const view = mountApprovalView()
+    receive({
+      type: 'system',
+      data: { status: 'waiting_for_approval', message: 'Private staff feedback' },
+    })
+    if (boundary === 'disconnect') socket.close()
+    if (boundary === 'error') store.setConnectionState('error')
+    if (boundary === 'logout') receive({ type: 'account', action: 'logged_out' })
+    if (boundary === 'account change') {
+      receive({ type: 'auth', status: 'success', data: { account: 'Other', characters: [] } })
+    }
+    if (boundary === 'game entry') {
+      receive({ type: 'gmcp', package: 'Char.Status', data: { name: 'Pupil', level: 1 } })
+    }
+    if (boundary === 'new creation') {
+      receive({ type: 'auth', status: 'success', data: { account: 'Owner', characters: [] } })
+      await nextTick()
+      view.findComponent({ name: 'MudCharacterSelect' }).vm.$emit('create-new')
+    }
+    await nextTick()
+    expect(store.approvalMessages).toBeNull()
+    expect(view.text()).not.toContain('Private staff feedback')
+  })
+
+  it('keeps staff text visible when a game trigger gags activity-log output', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const socket = sockets[0]!
+    const receive = (message: unknown) => socket.onmessage?.({ data: JSON.stringify(message) })
+    const store = useMudStore()
+    store.setAccount('Owner', [])
+    const view = mountApprovalView()
+    receive({ type: 'system', data: { status: 'waiting_for_approval', message: 'Waiting' } })
+    triggerGagsText.enabled = true
+    receive({ type: 'text', category: 'system', data: 'Staff must retry the approval save.' })
+    await nextTick()
+    expect(store.activityLog.some((entry) => entry.text.includes('Staff must retry'))).toBe(false)
+    expect(view.text()).toContain('Staff must retry the approval save.')
+  })
+
+  it('bounds retained approval output and clears it on a copyover socket close', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const socket = sockets[0]!
+    const receive = (message: unknown) => socket.onmessage?.({ data: JSON.stringify(message) })
+    const store = useMudStore()
+    store.setAccount('Owner', [])
+    receive({ type: 'system', data: { status: 'waiting_for_approval', message: 'Waiting' } })
+    for (let index = 0; index < 55; index++) {
+      receive({ type: 'text', category: 'system', data: `Notice ${index}` })
+    }
+    expect(store.approvalMessages).toHaveLength(50)
+    expect(store.approvalMessages?.[0]).toBe('Notice 5')
+    expect(store.approvalMessages?.at(-1)).toBe('Notice 54')
+    // End the test through the real close handler without starting copyover polling.
+    store.setCopyoverInProgress(true)
+    vi.useFakeTimers()
+    socket.close()
+    expect(store.approvalMessages).toBeNull()
+    connection.disconnect()
+    vi.clearAllTimers()
   })
 
   it('releases pending state when the socket cannot send', () => {
