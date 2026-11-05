@@ -71,7 +71,10 @@ const _getProgressColor = (percent: number): string => {
               </div>
               <div>
                 <h3 class="font-semibold">{{ char.name }}</h3>
-                <p class="text-sm text-muted-foreground">
+                <p v-if="char.availableOnFirstEntry" class="text-sm text-muted-foreground">
+                  Available on first entry
+                </p>
+                <p v-else class="text-sm text-muted-foreground">
                   {{ char.restedHours }} / {{ char.maxHours }} hours
                 </p>
               </div>
@@ -96,7 +99,11 @@ const _getProgressColor = (percent: number): string => {
               class="h-2"
             />
             <p class="text-xs text-muted-foreground">
-              <template v-if="char.restedPercent >= 100">
+              <template v-if="char.availableOnFirstEntry">
+                Your full starting well-rested bonus begins when you first enter the game.
+                After that, it counts down while playing and while logged out.
+              </template>
+              <template v-else-if="char.restedPercent >= 100">
                 Fully rested! Maximum experience bonus available.
               </template>
               <template v-else-if="char.restedPercent >= 50">

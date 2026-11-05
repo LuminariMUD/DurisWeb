@@ -1,0 +1,7 @@
+{
+  "version": "2026.11.05-hardcore-draft",
+  "title": "Clearer Hardcore mode choice",
+  "content": "<h3>Browser character creation</h3><ul><li><strong>Clearer Hardcore mode choice.</strong> The veteran character-creation flow describes limited lives with bonuses and permanent death when all lives are exhausted. The Hardcore option now says <strong>Accept limited lives</strong> instead of displaying a fixed death count.</li></ul>",
+  "category": "public",
+  "isPublished": false
+}

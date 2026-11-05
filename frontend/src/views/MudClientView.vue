@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useMudConnection } from '@/composables/useMudConnection'
 import { useMudStore } from '@/stores/mudStore'
 import { useAuth } from '@/composables/useAuth'
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import MudLoginPanel from '@/components/mud/MudLoginPanel.vue'
 import MudCharacterSelect from '@/components/mud/MudCharacterSelect.vue'
+import MudApprovalMessages from '@/components/mud/MudApprovalMessages.vue'
 import type { MudAlignment, MudStatMethod } from '@/types/mud'
 import MudCharacterCreate from '@/components/mud/chargen/MudCharacterCreate.vue'
 import MudGameClient from '@/components/mud/MudGameClient.vue'
@@ -24,6 +25,7 @@ type ClientState =
   | 'login'
   | 'character_select'
   | 'character_create'
+  | 'approval_wait'
   | 'in_game'
   | 'disconnected'
   | 'error'
@@ -53,19 +55,6 @@ onOnline(() => {
   }
 })
 
-// Local state for character creation mode
-const isCreatingCharacter = ref(false)
-
-// Reset character creation mode when entering the game
-watch(
-  () => store.connectionState,
-  (newState) => {
-    if (newState === 'in_game') {
-      isCreatingCharacter.value = false
-    }
-  },
-)
-
 const clientState = computed<ClientState>(() => {
   if (store.recoveryState !== 'idle' && !store.isAuthenticated) return 'login'
   // During copyover, maintain the current view (don't switch to login)
@@ -78,8 +67,10 @@ const clientState = computed<ClientState>(() => {
     return 'connecting'
   }
 
+  if (store.waitingForApproval) return 'approval_wait'
+
   // Check for character creation mode first
-  if (isCreatingCharacter.value && store.connectionState === 'authenticated') {
+  if (store.creatingCharacter && store.connectionState === 'authenticated') {
     return 'character_create'
   }
 
@@ -120,12 +111,12 @@ const handleEntered = () => {
 }
 
 const handleCreateNew = () => {
-  isCreatingCharacter.value = true
+  store.clearApprovalMessages()
+  store.creatingCharacter = true
   requestChargenOptions()
 }
 
 const handleChargenCancel = () => {
-  isCreatingCharacter.value = false
   store.clearChargenState()
 }
 
@@ -316,16 +307,34 @@ onUnmounted(() => {
       <MudLoginPanel @authenticated="handleAuthenticated" />
     </div>
 
+    <div
+      v-else-if="clientState === 'approval_wait'"
+      class="flex-1 min-h-0 flex flex-col items-center overflow-y-auto p-4"
+    >
+      <Card class="my-auto w-full max-w-md shrink-0">
+        <CardContent class="space-y-4 pt-6" role="status">
+          <h2 class="text-xl font-semibold">Waiting for staff approval</h2>
+          <p>Your character is saved. You can safely disconnect and select it later to resume waiting.</p>
+          <p>Your full starting well-rested bonus is available when you first enter the game.</p>
+          <MudApprovalMessages />
+          <Button variant="outline" @click="disconnect">Disconnect</Button>
+        </CardContent>
+      </Card>
+    </div>
+
     <!-- Character Select State -->
     <div
       v-else-if="clientState === 'character_select'"
-      class="flex-1 flex items-center justify-center p-4"
+      class="flex-1 min-h-0 flex flex-col overflow-y-auto p-4"
     >
-      <MudCharacterSelect
-        @entered="handleEntered"
-        @create-new="handleCreateNew"
-        @logout="handleLogout"
-      />
+      <div class="my-auto w-full shrink-0 space-y-4">
+        <MudApprovalMessages class="w-full max-w-4xl mx-auto" />
+        <MudCharacterSelect
+          @entered="handleEntered"
+          @create-new="handleCreateNew"
+          @logout="handleLogout"
+        />
+      </div>
     </div>
 
     <!-- Character Creation State -->
