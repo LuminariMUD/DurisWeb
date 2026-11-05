@@ -400,6 +400,10 @@ export function useMudConnection() {
       store.addLogEntry('system', message.data.message)
     }
 
+    if (message.data?.status === 'waiting_for_approval') {
+      store.waitingForApproval = true
+    }
+
     // Welcome message - MUD is ready for login
     if (message.data?.status === 'connected') {
       store.setConnectionState('connected')
@@ -675,24 +679,9 @@ export function useMudConnection() {
         if (message.status === 'error') {
           store.setChargenError(message.message)
         } else if (message.status === 'created') {
-          // Character created successfully - enter the game
           store.clearChargenState()
           store.addLogEntry('system', message.message)
-          // Set initial character data from response
-          if (message.name && message.race && message.class) {
-            store.setCharacter({
-              name: message.name,
-              level: 1,
-              race: message.race,
-              class: message.class,
-              alignment: message.alignment ?? '',
-              guild: '',
-              title: '',
-            })
-          }
-          // Transition to in_game state
-          store.setConnectionState('in_game')
-          initializeTimers()
+          store.waitingForApproval = message.waitingForApproval === true
         } else if (message.status === 'validated') {
           // Name validated, ready for next step
           store.addLogEntry('system', message.message)
@@ -761,9 +750,12 @@ export function useMudConnection() {
         }
         break
       }
-      case 'Char.Status':
+      case 'Char.Status': {
+        const entering = store.connectionState !== 'in_game'
         store.setCharacter(message.data)
+        if (entering) initializeTimers()
         break
+      }
       case 'Char.Affects':
         store.setAffects(message.data)
         break

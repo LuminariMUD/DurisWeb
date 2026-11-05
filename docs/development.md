@@ -85,6 +85,24 @@ Refresh and review it with the local
 Snapshot changes require a normal frontend release; website changelog publishing
 and MUD news importing do not update this tab.
 
+## Browser creation and first Play
+
+Creation success means the character is saved at level 0. Close the wizard and
+use the refreshed account menu; only the user's **Enter** action starts play.
+`Char.Status` establishes the playing character and starts game timers once.
+The first-entry well-rested indicator is derived from level 0 and must not be
+presented as accumulated offline hours.
+
+Pending applications show an approval waiting screen, including on selection
+of a saved applicant (`system.data.status: waiting_for_approval`). A disconnect
+is safe; selecting the character later resumes the queue. Committed approval
+returns to the account menu before the user enters the game.
+
+Coordinate rollout with [Duris PR #711](https://github.com/LuminariMUD/Duris/pull/711).
+The server and browser must agree on creation completion. The changelog payload
+in `docs/ongoing-projects/creation-account-menu-changelog-draft.json` is a release
+draft; publication follows deployment acceptance.
+
 ## Browser character creation alignment
 
 The Play wizard uses each server-advertised race/class cell's `alignment`:

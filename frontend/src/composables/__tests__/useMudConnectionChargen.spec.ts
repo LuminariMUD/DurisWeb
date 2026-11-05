@@ -51,9 +51,11 @@ vi.mock('@/composables/useSiteConfig', () => {
   return { useSiteConfig: () => siteConfiguration }
 })
 
+const startGameTimers = vi.hoisted(() => vi.fn())
+
 vi.mock('@/composables/useTimers', () => ({
   useTimers: () => ({
-    startAllTimers: vi.fn(),
+    startAllTimers: startGameTimers,
     stopAllTimers: vi.fn(),
     setSendCommand: vi.fn(),
     setAddLogEntry: vi.fn(),
@@ -194,6 +196,22 @@ describe('creation socket lifecycle', () => {
           faction: 'good',
         }),
       })
+      expect(store.character).toBeNull()
+      socket.onmessage?.({
+        data: JSON.stringify({
+          type: 'gmcp',
+          package: 'Char.Status',
+          data: {
+            name: 'Pupil',
+            level: 1,
+            race: 'Human',
+            class: 'Warrior',
+            alignment,
+            guild: '',
+            title: '',
+          },
+        }),
+      })
       expect(store.character?.alignment).toBe(alignment)
     },
   )
@@ -269,7 +287,7 @@ describe('creation socket lifecycle', () => {
         faction: 'good',
       }),
     })
-    expect(useMudStore().character?.alignment).toBe('')
+    expect(useMudStore().character).toBeNull()
   })
 
   it('serializes mutations, preserves state on errors and waits for reset acknowledgement', async () => {
@@ -771,10 +789,48 @@ describe('creation socket lifecycle', () => {
       class: 'Warrior',
       faction: 'good',
     })
-    expect(store.connectionState).toBe('in_game')
+    expect(store.connectionState).not.toBe('in_game')
+    expect(store.character).toBeNull()
+    expect(store.creatingCharacter).toBe(false)
     expect(store.chargenStats).toBeNull()
     expect(store.chargenStatMethods).toEqual([])
     expect(store.chargenPending).toBeNull()
+    expect(startGameTimers).not.toHaveBeenCalled()
+    const status = {
+      type: 'gmcp',
+      package: 'Char.Status',
+      data: {
+        name: 'Newhero',
+        level: 1,
+        race: 'Human',
+        class: 'Warrior',
+        alignment: 'good',
+        guild: '',
+        title: '',
+      },
+    }
+    receive(status)
+    receive(status)
+    expect(store.connectionState).toBe('in_game')
+    expect(startGameTimers).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows resumed approval waiting and clears it on the menu response or disconnect', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const socket = sockets[0]!
+    const store = useMudStore()
+    store.setAccount('Owner', [])
+    const receive = (message: unknown) => socket.onmessage?.({ data: JSON.stringify(message) })
+    receive({ type: 'system', data: { status: 'waiting_for_approval', message: 'Waiting' } })
+    expect(store.waitingForApproval).toBe(true)
+    expect(store.character).toBeNull()
+    expect(store.connectionState).toBe('authenticated')
+    receive({ type: 'auth', status: 'success', data: { account: 'Owner', characters: [] } })
+    expect(store.waitingForApproval).toBe(false)
+    receive({ type: 'system', data: { status: 'waiting_for_approval', message: 'Waiting' } })
+    socket.close()
+    expect(store.waitingForApproval).toBe(false)
   })
 
   it('releases pending state when the socket cannot send', () => {

@@ -43,6 +43,8 @@ export const useMudStore = defineStore('mud', () => {
   const account = ref<string | null>(null)
   const characters = ref<MudCharacterInfo[]>([])
   const selectedCharacter = ref<string | null>(null)
+  const creatingCharacter = ref(false)
+  const waitingForApproval = ref(false)
 
   // ==========================================================================
   // Account Menu State
@@ -218,6 +220,7 @@ export const useMudStore = defineStore('mud', () => {
     connectionState.value = state
     connectionError.value = error ?? null
     if (state === 'disconnected' || state === 'error') {
+      waitingForApproval.value = false
       clearChargenState()
       retireMap()
     }
@@ -254,6 +257,7 @@ export const useMudStore = defineStore('mud', () => {
     if (account.value && account.value !== accountName) retireMap()
     account.value = accountName
     characters.value = chars
+    waitingForApproval.value = false
     connectionState.value = 'authenticated'
     autoLoginInProgress.value = false // Clear auto-login flag
   }
@@ -261,6 +265,7 @@ export const useMudStore = defineStore('mud', () => {
   function clearAccount() {
     retireMap()
     account.value = null
+    waitingForApproval.value = false
     characters.value = []
     selectedCharacter.value = null
     character.value = null
@@ -269,6 +274,8 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   function setCharacter(char: MudCharacter) {
+    creatingCharacter.value = false
+    waitingForApproval.value = false
     if (selectedCharacter.value && selectedCharacter.value !== char.name) retireMap()
     character.value = char
     selectedCharacter.value = char.name
@@ -635,6 +642,7 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   function clearChargenState() {
+    creatingCharacter.value = false
     chargenRaces.value = []
     chargenClasses.value = []
     chargenStats.value = null
@@ -746,6 +754,7 @@ export const useMudStore = defineStore('mud', () => {
     copyoverMessage.value = null
     copyoverCharacterName.value = null
     account.value = null
+    waitingForApproval.value = false
     characters.value = []
     selectedCharacter.value = null
     character.value = null
@@ -803,6 +812,8 @@ export const useMudStore = defineStore('mud', () => {
     account,
     characters,
     selectedCharacter,
+    creatingCharacter,
+    waitingForApproval,
     character,
     vitals,
     affects,
