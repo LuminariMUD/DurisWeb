@@ -110,6 +110,31 @@ describe('wiki mob detail generation binding', () => {
     });
   });
 
+  it('keeps the first zone/vnum record selected by publication when a later source repeats it', async () => {
+    const first = await parseMobFile('test-zone');
+    if (!Array.isArray(first) || typeof first[0] !== 'object' || first[0] === null) {
+      throw new Error('Invalid test mobile fixture');
+    }
+    listZones.mockResolvedValue({
+      zones: [
+        { id: 'first-zone', number: 7, name: 'First Zone' },
+        { id: 'later-zone', number: 7, name: 'Later Zone' },
+      ],
+    });
+    parseMobFile
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce([
+        { ...first[0], shortDesc: 'Later duplicate', mobClass: 2, species: 44 },
+      ]);
+
+    await expect(getMobByZoneAndVnum(7, 201, SOURCE_IDENTITY)).resolves.toMatchObject({
+      name: 'Test guardian',
+      mobClass: 1,
+      species: 1,
+      zoneName: 'First Zone',
+    });
+  });
+
   it('uses generation-keyed caches and the exact published source snapshot', async () => {
     await expect(getMobByZoneAndVnum(7, 201, SOURCE_IDENTITY)).resolves.toMatchObject({
       vnum: 201,

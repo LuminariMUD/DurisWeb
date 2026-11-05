@@ -93,6 +93,8 @@ Publication, list filters, and immutable-source details share the current MUD
 affect and wear-slot definitions. Affect decoding preserves masks above 32 bits;
 race restrictions use only the 32 bits present in `anti2_flags`, so higher race
 IDs never inherit a lower race's restriction. Class metadata includes Dragoon.
+Detail caches keep publication's first record when sources repeat a zone/vnum,
+and omit no-op object applies consistently with the published filter rows.
 
 On shutdown, the service stops accepting HTTP connections while closing existing
 WebSocket clients normally. Peers that do not acknowledge the close frame are

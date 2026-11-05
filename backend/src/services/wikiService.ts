@@ -1034,11 +1034,13 @@ async function buildObjectDetailsCacheFromSource(
           level,
           weight: obj.weight,
           slots: getWearSlots(obj.wearFlags),
-          affects: obj.applies.map((a) => ({
-            location: a.location,
-            locationName: AFFECT_LOCATION_NAMES[a.location] || `Unknown (${a.location})`,
-            modifier: a.modifier,
-          })),
+          affects: obj.applies
+            .filter((a) => a.location > 0 && a.modifier !== 0)
+            .map((a) => ({
+              location: a.location,
+              locationName: AFFECT_LOCATION_NAMES[a.location] || `Unknown (${a.location})`,
+              modifier: a.modifier,
+            })),
           spellEffects,
           zoneNumber: zone.number,
         };
@@ -1825,6 +1827,8 @@ async function buildMobDetailsCacheFromSource(
       const zoneMobs = await parseMobFile(zone.id);
       for (const mob of zoneMobs) {
         const compositeKey = `${zone.number}:${mob.vnum}`;
+        // Publication keeps the first record for a zone/vnum pair.
+        if (detailsCache.has(compositeKey)) continue;
         const classname = MOB_CLASS_NAMES[mob.mobClass] || `Unknown (${mob.mobClass})`;
         const raceName = getRaceName(mob.species);
         const flags = getActFlagNames(mob.actFlags);
