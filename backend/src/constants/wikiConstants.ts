@@ -128,21 +128,33 @@ export const AFF_NAMES: Record<number, string> = {
   32: 'Sense Life',
   64: 'Minor Globe',
   128: 'Stone Skin',
-  256: 'Ultravision',
+  256: 'Underdark Vision',
   512: 'Armor',
   1024: 'Wraithform',
   2048: 'Waterbreath',
+  4096: 'Knocked Out',
   8192: 'Protect Evil',
+  16384: 'Bound',
   32768: 'Slow Poison',
   65536: 'Protect Good',
+  131072: 'Sleep',
+  262144: 'Skill Aware',
   524288: 'Sneak',
   1048576: 'Hide',
+  2097152: 'Fear',
+  4194304: 'Charm',
+  8388608: 'Meditate',
   16777216: 'Barkskin',
   33554432: 'Infravision',
   67108864: 'Levitate',
   134217728: 'Fly',
   268435456: 'Aware',
   536870912: 'Prot Fire',
+  1073741824: 'Camping',
+  2147483648: 'Biofeedback',
+  4294967296: 'Infernal Fury',
+  8589934592: 'Freedom of Movement',
+  17179869184: 'Sanctum Draconis',
 };
 
 export const AFF2_NAMES: Record<number, string> = {
@@ -152,43 +164,103 @@ export const AFF2_NAMES: Record<number, string> = {
   8: 'Detect Good',
   16: 'Detect Magic',
   32: 'Major Physical',
-  64: 'Major Mental',
-  128: 'Iceshield',
-  256: 'Major Globe',
-  512: 'Prot Cold',
-  1024: 'Prot Elec',
-  2048: 'Prot Gas',
+  64: 'Prot Cold',
+  128: 'Prot Lightning',
+  256: 'Minor Paralysis',
+  512: 'Major Paralysis',
+  1024: 'Slow',
+  2048: 'Globe',
+  4096: 'Prot Gas',
   8192: 'Prot Acid',
-  131072: 'Passdoor',
-  262144: 'Regenerate',
-  524288: 'Camouflage',
-  1048576: 'Breathwater',
-  4194304: 'True Sight',
-  8388608: 'Solidity',
-  536870912: 'Hover',
+  16384: 'Poisoned',
+  32768: 'Soulshield',
+  65536: 'Silenced',
+  131072: 'Concealment',
+  262144: 'Vampiric Touch',
+  524288: 'Stunned',
+  1048576: 'Earth Aura',
+  2097152: 'Water Aura',
+  4194304: 'Fire Aura',
+  8388608: 'Air Aura',
+  16777216: 'Holding Breath',
+  33554432: 'Memorizing',
+  67108864: 'Is Drowning',
+  134217728: 'Passdoor',
+  268435456: 'Flurry',
+  536870912: 'Casting',
+  1073741824: 'Scribing',
+  2147483648: 'Hunter',
 };
 
 export const AFF3_NAMES: Record<number, string> = {
-  2: 'Protection',
-  4: 'Faerie Fire',
-  1024: 'Curse',
-  8192: 'Sanctuary',
-  16384: 'Prot From Undead',
-  262144: 'Warding',
-  8388608: 'Anti-Magic',
-  33554432: 'Blink',
-  268435456: 'Water Walk',
-  536870912: 'Clarity',
+  1: 'Tensors Disc',
+  2: 'Tracking',
+  4: 'Singing',
+  8: 'Ectoplasmic Form',
+  16: 'Absorbing',
+  32: 'Prot Animal',
+  64: 'Spirit Ward',
+  128: 'Greater Spirit Ward',
+  256: 'Non Detection',
+  512: 'Silver',
+  1024: 'Plus One',
+  2048: 'Plus Two',
+  4096: 'Plus Three',
+  8192: 'Plus Four',
+  16384: 'Plus Five',
+  32768: 'Enlarge',
+  65536: 'Reduce',
+  131072: 'Cover',
+  262144: 'Four Arms',
+  524288: 'Inertial Barrier',
+  1048576: 'Lightning Shield',
+  2097152: 'Cold Shield',
+  4194304: 'Cannibalize',
+  8388608: 'Swimming',
+  16777216: 'Tower of Iron Will',
+  33554432: 'Underwater',
+  67108864: 'Blur',
+  134217728: 'Enhance Healing',
+  268435456: 'Elemental Form',
+  536870912: 'Pass Without Trace',
+  1073741824: 'Paladin Aura',
+  2147483648: 'Famine',
+  4294967296: 'Vivernae Concordia',
 };
 
 export const AFF4_NAMES: Record<number, string> = {
-  1: 'Thornshield',
-  2: 'Cloak of Fear',
-  4: 'Dancing Shield',
-  32: 'Free Action',
-  64: 'Enlightenment',
-  65536: 'Prot Lightning',
-  262144: 'Absorb',
+  1: 'Looter',
+  2: 'Carry Plague',
+  4: 'Sacking',
+  8: 'Sense Follower',
+  16: 'Stornogs Spheres',
+  32: 'Stornogs Greater Spheres',
+  64: 'Vampire Form',
+  128: 'No Unmorph',
+  256: 'Holy Sacrifice',
+  512: 'Battle Ecstasy',
+  1024: 'Dazzler',
+  2048: 'Phantasmal Form',
+  4096: 'No Fear',
+  8192: 'Regeneration',
+  16384: 'Deaf',
+  32768: 'Battletide',
+  65536: 'Epic Increase',
+  131072: 'Mage Flame',
+  262144: 'Globe Of Darkness',
+  524288: 'Deflect',
+  1048576: 'Hawk Vision',
+  2097152: 'Multi Class',
+  4194304: 'Sanctuary',
+  8388608: 'Hellfire',
+  16777216: 'Sense Holiness',
+  33554432: 'Prot Living',
+  67108864: 'Detect Illusion',
+  134217728: 'Ice Aura',
+  268435456: 'Reverse Polarity',
+  536870912: 'Negative Shield',
+  1073741824: 'Tupor',
+  2147483648: 'Wildmagic',
 };
 
 // act flags for mobs - bitvector to flag_id mapping
@@ -231,15 +303,44 @@ export const ACT_FLAGS: Record<number, number> = {
 export const ITEM_ALLOWED_RACES = 512; // BIT_10
 export const ITEM_ALLOWED_CLASSES = 1024; // BIT_11
 
-// class bit values (used in anti_flags field)
-export const CLASS_BITS: number[] = [
-  1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072,
-  262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432, 67108864, 134217728,
-  268435456,
-];
+// Class bits and names follow the MUD class_names_table.
+export const OBJECT_CLASS_NAMES: Record<number, string> = {
+  1: 'Warrior',
+  2: 'Ranger',
+  4: 'Psionicist',
+  8: 'Paladin',
+  16: 'Anti-Paladin',
+  32: 'Cleric',
+  64: 'Monk',
+  128: 'Druid',
+  256: 'Shaman',
+  512: 'Sorcerer',
+  1024: 'Necromancer',
+  2048: 'Conjurer',
+  4096: 'Rogue',
+  8192: 'Assassin',
+  16384: 'Mercenary',
+  32768: 'Bard',
+  65536: 'Thief',
+  131072: 'Warlock',
+  262144: 'Mindflayer',
+  524288: 'Alchemist',
+  1048576: 'Berserker',
+  2097152: 'Reaver',
+  4194304: 'Illusionist',
+  8388608: 'Blighter',
+  16777216: 'Dreadlord',
+  33554432: 'Ethermancer',
+  67108864: 'Avenger',
+  134217728: 'Theurgist',
+  268435456: 'Summoner',
+  536870912: 'Dragoon',
+};
 
-// race ids (sequential, anti_flags2 stores race bitvector)
-export const RACE_IDS: number[] = Array.from({ length: 50 }, (_, i) => i + 1);
+export const CLASS_BITS: number[] = Object.keys(OBJECT_CLASS_NAMES).map(Number);
+
+// anti2_flags has one bit for each of races 1-32; larger IDs have no bit.
+export const RACE_IDS: number[] = Array.from({ length: 32 }, (_, i) => i + 1);
 
 // helper: get spell effects from bitvectors
 export function getSpellEffects(
@@ -249,17 +350,17 @@ export function getSpellEffects(
   bitvector4: number = 0,
 ): string[] {
   const effects: string[] = [];
-  for (const [flag, name] of Object.entries(AFF_NAMES)) {
-    if (bitvector & parseInt(flag)) effects.push(name);
-  }
-  for (const [flag, name] of Object.entries(AFF2_NAMES)) {
-    if (bitvector2 & parseInt(flag)) effects.push(name);
-  }
-  for (const [flag, name] of Object.entries(AFF3_NAMES)) {
-    if (bitvector3 & parseInt(flag)) effects.push(name);
-  }
-  for (const [flag, name] of Object.entries(AFF4_NAMES)) {
-    if (bitvector4 & parseInt(flag)) effects.push(name);
+  for (const [value, names] of [
+    [bitvector, AFF_NAMES],
+    [bitvector2, AFF2_NAMES],
+    [bitvector3, AFF3_NAMES],
+    [bitvector4, AFF4_NAMES],
+  ] as const) {
+    if (!Number.isSafeInteger(value)) throw new Error('Invalid wiki affect mask');
+    const mask = BigInt.asUintN(64, BigInt(value));
+    for (const [flag, name] of Object.entries(names)) {
+      if ((mask & BigInt(flag)) !== 0n) effects.push(name);
+    }
   }
   return effects;
 }

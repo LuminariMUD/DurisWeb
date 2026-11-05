@@ -57,4 +57,20 @@ describe('wiki mob filter metadata', () => {
     ]);
     expect(String(query.mock.calls[0]?.[0])).toContain('FROM wiki_mob_flags');
   });
+
+  it('uses current MUD class and race identities', async () => {
+    query.mockResolvedValueOnce([[{ mob_class: '536870912' }], []]);
+    await expect(getMobClasses()).resolves.toEqual([{ id: 536870912, name: 'Dragoon' }]);
+
+    query.mockResolvedValueOnce([
+      [{ species: 24 }, { species: 25 }, { species: 33 }, { species: 62 }],
+      [],
+    ]);
+    await expect(getMobRaces()).resolves.toEqual([
+      { id: 24, name: 'Shadow Beast' },
+      { id: 25, name: 'Storm Giant' },
+      { id: 33, name: 'Planetbound Illithid' },
+      { id: 62, name: 'Winged Animal' },
+    ]);
+  });
 });
