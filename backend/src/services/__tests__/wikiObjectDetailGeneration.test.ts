@@ -82,12 +82,12 @@ describe('wiki object detail generation binding', () => {
         itemType: 5,
         values: [12, 1, 2, 3],
         weight: 4,
-        wearFlags: 0,
+        wearFlags: 8 + 8388608,
         applies: [],
-        bitvector: 0,
+        bitvector: 67143680,
         bitvector2: 0,
         bitvector3: 0,
-        bitvector4: 0,
+        bitvector4: 4096,
         longDesc: 'A test sword lies here.',
         extraFlags: 0,
         extraFlags2: 0,
@@ -112,6 +112,8 @@ describe('wiki object detail generation binding', () => {
     await expect(getObjectByVnum(101, SOURCE_IDENTITY)).resolves.toMatchObject({
       vnum: 101,
       typeName: 'Weapon',
+      slots: ['body', 'belt'],
+      spellEffects: ['Waterbreath', 'Slow Poison', 'Levitate', 'No Fear'],
       roomLoads: [{ roomVnum: 700, roomName: 'Test Room', zoneNumber: 7 }],
     });
 

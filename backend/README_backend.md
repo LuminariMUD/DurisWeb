@@ -89,6 +89,11 @@ prototypes. Their zone header still supplies the canonical owner number; an
 inert header and no resets keep those prototypes searchable without restoring
 playable rooms. Nonempty malformed world records remain rejected.
 
+Publication, list filters, and immutable-source details share the current MUD
+affect and wear-slot definitions. Affect decoding preserves masks above 32 bits;
+race restrictions use only the 32 bits present in `anti2_flags`, so higher race
+IDs never inherit a lower race's restriction. Class metadata includes Dragoon.
+
 On shutdown, the service stops accepting HTTP connections while closing existing
 WebSocket clients normally. Peers that do not acknowledge the close frame are
 terminated after five seconds, so upgraded connections cannot hold shutdown open

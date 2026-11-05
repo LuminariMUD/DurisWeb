@@ -3,6 +3,12 @@ import { RowDataPacket } from 'mysql2';
 import { getCache, setCache, mapToObject, objectToMapNumeric, objectToMap } from '../db/redis.js';
 import sharp from 'sharp';
 import {
+  getSpellEffects,
+  getSlotIds,
+  SLOT_ID_NAMES,
+  OBJECT_CLASS_NAMES,
+} from '../constants/wikiConstants.js';
+import {
   parseWldFile,
   parseWldFileById,
   parseObjFile,
@@ -907,64 +913,6 @@ function parseExtraFlags(extraFlags: number, extraFlags2: number = 0): string[] 
   return names;
 }
 
-// Wear slot names mapping (from DurisMUD defines.h BIT_X values)
-// Note: BIT_1 = 1 (ITEM_TAKE), not a wear slot
-const WEAR_SLOT_NAMES: Record<number, string> = {
-  // 1: ITEM_TAKE - not a wear slot
-  2: 'finger', // BIT_2 = ITEM_WEAR_FINGER
-  4: 'neck', // BIT_3 = ITEM_WEAR_NECK
-  8: 'body', // BIT_4 = ITEM_WEAR_BODY
-  16: 'head', // BIT_5 = ITEM_WEAR_HEAD
-  32: 'legs', // BIT_6 = ITEM_WEAR_LEGS
-  64: 'feet', // BIT_7 = ITEM_WEAR_FEET
-  128: 'hands', // BIT_8 = ITEM_WEAR_HANDS
-  256: 'arms', // BIT_9 = ITEM_WEAR_ARMS
-  512: 'shield', // BIT_10 = ITEM_WEAR_SHIELD
-  1024: 'about', // BIT_11 = ITEM_WEAR_ABOUT
-  2048: 'waist', // BIT_12 = ITEM_WEAR_WAIST
-  4096: 'wrist', // BIT_13 = ITEM_WEAR_WRIST
-  8192: 'wield', // BIT_14 = ITEM_WIELD
-  16384: 'hold', // BIT_15 = ITEM_HOLD
-  32768: 'throw', // BIT_16 = ITEM_THROW
-  65536: 'light', // BIT_17 = ITEM_LIGHT_SOURCE
-  131072: 'eyes', // BIT_18 = ITEM_WEAR_EYES
-  262144: 'face', // BIT_19 = ITEM_WEAR_FACE
-  524288: 'ear', // BIT_20 = ITEM_WEAR_EARRING
-};
-
-// slot_id (sequential) to name - matches import script mapping
-const SLOT_ID_NAMES: Record<number, string> = {
-  1: 'finger',
-  2: 'neck',
-  3: 'body',
-  4: 'head',
-  5: 'legs',
-  6: 'feet',
-  7: 'hands',
-  8: 'arms',
-  9: 'shield',
-  10: 'about',
-  11: 'waist',
-  12: 'wrist',
-  13: 'wield',
-  14: 'hold',
-  15: 'throw',
-  16: 'light',
-  17: 'eyes',
-  18: 'face',
-  19: 'ear',
-  20: 'quiver',
-  21: 'insignia',
-  22: 'back',
-  23: 'belt',
-  24: 'horse body',
-  25: 'tail',
-  26: 'nose',
-  27: 'horn',
-  28: 'ioun',
-  29: 'spider body',
-};
-
 // Affect location names (APPLY_* from MUD)
 const AFFECT_LOCATION_NAMES: Record<number, string> = {
   0: 'None',
@@ -1028,137 +976,8 @@ const AFFECT_LOCATION_NAMES: Record<number, string> = {
   58: 'Combat Pulse',
 };
 
-// Bitvector (AFF_) spell effect names - BIT_X where BIT_1=1, BIT_2=2, etc.
-const AFF_NAMES: Record<number, string> = {
-  1: 'Blind',
-  2: 'Invisible',
-  4: 'Farsee',
-  8: 'Detect Invisible',
-  16: 'Haste',
-  32: 'Sense Life',
-  64: 'Minor Globe',
-  128: 'Stone Skin',
-  256: 'Ultravision',
-  512: 'Armor',
-  1024: 'Wraithform',
-  2048: 'Waterbreath',
-  8192: 'Protect Evil',
-  32768: 'Slow Poison',
-  65536: 'Protect Good',
-  524288: 'Sneak',
-  1048576: 'Hide',
-  16777216: 'Barkskin',
-  33554432: 'Infravision',
-  67108864: 'Levitate',
-  134217728: 'Fly',
-  268435456: 'Aware',
-  536870912: 'Prot Fire',
-};
-
-// Bitvector2 (AFF2_) spell effect names
-const AFF2_NAMES: Record<number, string> = {
-  1: 'Fireshield',
-  2: 'Ultravision',
-  4: 'Detect Evil',
-  8: 'Detect Good',
-  16: 'Detect Magic',
-  32: 'Major Physical',
-  64: 'Prot Cold',
-  128: 'Prot Lightning',
-  2048: 'Globe',
-  4096: 'Prot Gas',
-  8192: 'Prot Acid',
-  32768: 'Soulshield',
-  1048576: 'Earth Aura',
-  2097152: 'Water Aura',
-  4194304: 'Fire Aura',
-  8388608: 'Air Aura',
-  134217728: 'Passdoor',
-};
-
-// Bitvector3 (AFF3_) spell effect names
-const AFF3_NAMES: Record<number, string> = {
-  1: 'Tensors Disc',
-  8: 'Ectoplasmic Form',
-  32: 'Prot Animal',
-  64: 'Spirit Ward',
-  128: 'Greater Spirit Ward',
-  256: 'Non Detection',
-  32768: 'Enlarge',
-  65536: 'Reduce',
-  524288: 'Inertial Barrier',
-  1048576: 'Lightning Shield',
-  2097152: 'Cold Shield',
-  33554432: 'Blur',
-  67108864: 'Enhance Healing',
-  134217728: 'Elemental Form',
-  268435456: 'Pass Without Trace',
-  536870912: 'Paladin Aura',
-};
-
-// Bitvector4 (AFF4_) spell effect names
-const AFF4_NAMES: Record<number, string> = {
-  8: 'Sense Follower',
-  16: 'Stornogs Spheres',
-  32: 'Stornogs Greater Spheres',
-  256: 'Holy Sacrifice',
-  512: 'Battle Ecstasy',
-  4096: 'No Fear',
-  8192: 'Regeneration',
-  32768: 'Battletide',
-  262144: 'Mage Flame',
-  524288: 'Globe of Darkness',
-  1048576: 'Deflect',
-  2097152: 'Hawk Vision',
-  4194304: 'Sanctuary',
-  8388608: 'Hellfire',
-  16777216: 'Sense Holiness',
-  33554432: 'Prot Living',
-  67108864: 'Detect Illusion',
-  134217728: 'Ice Aura',
-};
-
-// Get spell effects from bitvectors
-function getSpellEffects(
-  bitvector: number,
-  bitvector2: number,
-  bitvector3: number,
-  bitvector4: number,
-): string[] {
-  const effects: string[] = [];
-
-  for (const [flag, name] of Object.entries(AFF_NAMES)) {
-    if (bitvector & parseInt(flag)) {
-      effects.push(name);
-    }
-  }
-  for (const [flag, name] of Object.entries(AFF2_NAMES)) {
-    if (bitvector2 & parseInt(flag)) {
-      effects.push(name);
-    }
-  }
-  for (const [flag, name] of Object.entries(AFF3_NAMES)) {
-    if (bitvector3 & parseInt(flag)) {
-      effects.push(name);
-    }
-  }
-  for (const [flag, name] of Object.entries(AFF4_NAMES)) {
-    if (bitvector4 & parseInt(flag)) {
-      effects.push(name);
-    }
-  }
-
-  return effects;
-}
-
 function getWearSlots(wearFlags: number): string[] {
-  const slots: string[] = [];
-  for (const [flag, name] of Object.entries(WEAR_SLOT_NAMES)) {
-    if (wearFlags & parseInt(flag)) {
-      slots.push(name);
-    }
-  }
-  return slots;
+  return getSlotIds(wearFlags).map((id) => SLOT_ID_NAMES[id]);
 }
 
 // Cache TTL for objects (in seconds for Redis)
@@ -1735,37 +1554,6 @@ export async function getSpellEffectTypes(): Promise<string[]> {
 }
 
 // class bit values for object restrictions (same as mob classes)
-const OBJECT_CLASS_NAMES: Record<number, string> = {
-  1: 'Warrior',
-  2: 'Ranger',
-  4: 'Psionicist',
-  8: 'Paladin',
-  16: 'Anti-Paladin',
-  32: 'Cleric',
-  64: 'Monk',
-  128: 'Druid',
-  256: 'Shaman',
-  512: 'Sorcerer',
-  1024: 'Necromancer',
-  2048: 'Conjurer',
-  4096: 'Rogue',
-  8192: 'Assassin',
-  16384: 'Mercenary',
-  32768: 'Bard',
-  65536: 'Thief',
-  131072: 'Warlock',
-  262144: 'Mindflayer',
-  524288: 'Alchemist',
-  1048576: 'Berserker',
-  2097152: 'Reaver',
-  4194304: 'Illusionist',
-  8388608: 'Blighter',
-  16777216: 'Dreadlord',
-  33554432: 'Ethermancer',
-  67108864: 'Avenger',
-  134217728: 'Theurgist',
-  268435456: 'Summoner',
-};
 
 // classes that have items with restrictions in the database
 export async function getObjectClasses(): Promise<{ id: number; name: string }[]> {
@@ -1795,38 +1583,7 @@ export async function getObjectRaces(): Promise<{ id: number; name: string }[]> 
 
 // Mob class names mapping (based on DurisMUD defines.h CLASS_* BIT values)
 // These are BIT flags: BIT_1=1, BIT_2=2, BIT_3=4, etc.
-const MOB_CLASS_NAMES: Record<number, string> = {
-  0: 'None',
-  1: 'Warrior',
-  2: 'Ranger',
-  4: 'Psionicist',
-  8: 'Paladin',
-  16: 'Anti-Paladin',
-  32: 'Cleric',
-  64: 'Monk',
-  128: 'Druid',
-  256: 'Shaman',
-  512: 'Sorcerer',
-  1024: 'Necromancer',
-  2048: 'Conjurer',
-  4096: 'Rogue',
-  8192: 'Assassin',
-  16384: 'Mercenary',
-  32768: 'Bard',
-  65536: 'Thief',
-  131072: 'Warlock',
-  262144: 'Mindflayer',
-  524288: 'Alchemist',
-  1048576: 'Berserker',
-  2097152: 'Reaver',
-  4194304: 'Illusionist',
-  8388608: 'Blighter',
-  16777216: 'Dreadlord',
-  33554432: 'Ethermancer',
-  67108864: 'Avenger',
-  134217728: 'Theurgist',
-  268435456: 'Summoner',
-};
+const MOB_CLASS_NAMES: Record<number, string> = { 0: 'None', ...OBJECT_CLASS_NAMES };
 
 // Race names mapping (from DurisMUD defines.h)
 const RACE_NAMES: Record<number, string> = {
@@ -1854,8 +1611,8 @@ const RACE_NAMES: Record<number, string> = {
   21: 'Lich',
   22: 'Vampire',
   23: 'Death Knight',
-  24: 'Spectral Beast',
-  25: 'Stone Giant',
+  24: 'Shadow Beast',
+  25: 'Storm Giant',
   26: 'Wight',
   27: 'Phantom',
   28: 'Harpy',
@@ -1863,7 +1620,7 @@ const RACE_NAMES: Record<number, string> = {
   30: 'Githzerai',
   31: 'Drider',
   32: 'Kobold',
-  33: 'Psionic Illithid',
+  33: 'Planetbound Illithid',
   34: 'Kuo-Toa',
   35: 'Wood Elf',
   36: 'Firbolg',
@@ -1892,7 +1649,7 @@ const RACE_NAMES: Record<number, string> = {
   59: 'Insect',
   60: 'Arachnid',
   61: 'Aquatic Animal',
-  62: 'Flying Animal',
+  62: 'Winged Animal',
   63: 'Quadruped',
   64: 'Primate',
   65: 'Humanoid',
