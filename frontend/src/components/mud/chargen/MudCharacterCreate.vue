@@ -740,8 +740,8 @@ function formatAlignment(alignment: string): string {
       <div v-else-if="currentStep === 'hardcore'" class="space-y-6">
         <h3 class="text-lg font-semibold text-center">Choose Your Mode</h3>
         <p class="text-muted-foreground text-center max-w-md mx-auto">
-          Hardcore mode provides a more challenging experience.
-          Characters who die 5 times are permanently deleted.
+          Limited lives with bonuses.
+          Your character dies permanently when all lives are exhausted.
         </p>
 
         <div class="grid grid-cols-2 gap-4 max-w-lg mx-auto pt-4">
@@ -768,7 +768,7 @@ function formatAlignment(alignment: string): string {
           >
             <Skull class="w-8 h-8 text-red-500" />
             <span class="font-semibold text-red-500">Hardcore</span>
-            <span class="text-xs text-muted-foreground">5 deaths = deleted</span>
+            <span class="text-xs text-muted-foreground">Accept limited lives</span>
           </Button>
         </div>
       </div>
