@@ -1,13 +1,10 @@
-/** Version 1 snapshots describe one already rendered, recipient-approved line. */
-export interface ChatPresentation {
-  version: 1
+import { parseOutputPresentation, type OutputPresentation } from './outputPresentation.js'
+
+/** A full recipient-approved terminal line for the existing adopted channels. */
+export interface ChatPresentation extends OutputPresentation {
   channelId: number
   channel: string
   policy: 'preserve' | 'static' | 'animated'
-  text: string
-  underline: boolean
-  /** Half-open Unicode code point offsets, foreground and background IDs. */
-  runs: [number, number, number, number][]
 }
 
 const channels: Record<string, readonly [number, string]> = {
@@ -20,15 +17,6 @@ function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function color(value: unknown): value is number {
-  return (
-    typeof value === 'number' &&
-    Number.isInteger(value) &&
-    (value === 0 || (value >= 16 && value <= 31))
-  )
-}
-
-/** Validate again at rendering so persisted browser history is not trusted. */
 export function parseChatPresentation(
   value: unknown,
   legacyChannel: string,
@@ -39,50 +27,14 @@ export function parseChatPresentation(
   if (
     !expected ||
     !record(value) ||
-    value.version !== 1 ||
     value.channelId !== expected[0] ||
     value.channel !== expected[1] ||
-    (value.policy !== 'preserve' && value.policy !== 'static' && value.policy !== 'animated') ||
-    typeof value.text !== 'string' ||
-    value.text.length > 32768 ||
-    /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value.text) ||
-    typeof value.underline !== 'boolean' ||
-    !Array.isArray(value.runs) ||
-    value.runs.length > 4096
+    (value.policy !== 'preserve' && value.policy !== 'static' && value.policy !== 'animated')
   )
     return undefined
-
-  const length = Array.from(value.text).length
-  if (length > 16384) return undefined
-  const runs: ChatPresentation['runs'] = []
-  let offset = 0
-  for (const run of value.runs) {
-    if (
-      !Array.isArray(run) ||
-      run.length !== 4 ||
-      run[0] !== offset ||
-      !Number.isInteger(run[1]) ||
-      run[1] <= offset ||
-      run[1] > length ||
-      !color(run[2]) ||
-      !color(run[3])
-    )
-      return undefined
-    runs.push([offset, run[1], run[2], run[3]])
-    offset = run[1]
-  }
-  if (offset !== length) return undefined
-  // Reconstruct validated fields; never copy arbitrary server properties/styles.
-  return {
-    version: 1,
-    channelId: expected[0],
-    channel: expected[1],
-    policy:
-      value.policy === 'animated' ? 'animated' : value.policy === 'static' ? 'static' : 'preserve',
-    text: value.text,
-    underline: value.underline,
-    runs,
-  }
+  const parsed = parseOutputPresentation(value, 16384)
+  if (!parsed || parsed.links?.some((link) => link.kind === 'command')) return undefined
+  return { ...parsed, channelId: expected[0], channel: expected[1], policy: value.policy }
 }
 
 /** Reject malformed legacy chat fields before triggers or rendering see them. */

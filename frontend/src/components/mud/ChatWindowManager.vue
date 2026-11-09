@@ -84,6 +84,7 @@ watch(
             direction: 'sent',
             text: msg.text,
             presentation: msg.presentation,
+            bodyPresentation: msg.bodyPresentation,
             type: 'tell',
           })
         }
@@ -99,6 +100,7 @@ watch(
         direction: 'received',
         text: msg.text,
         presentation: msg.presentation,
+        bodyPresentation: msg.bodyPresentation,
         type: 'tell',
       })
 
@@ -145,6 +147,7 @@ watch(
             direction: 'sent',
             text: msg.text,
             presentation: msg.presentation,
+            bodyPresentation: msg.bodyPresentation,
             type: 'ptell',
           })
         }
@@ -160,6 +163,7 @@ watch(
         direction: 'received',
         text: msg.text,
         presentation: msg.presentation,
+        bodyPresentation: msg.bodyPresentation,
         type: 'ptell',
       })
 
@@ -205,6 +209,7 @@ watch(
             direction: 'sent',
             text: msg.text,
             presentation: msg.presentation,
+            bodyPresentation: msg.bodyPresentation,
             type: 'gsay',
           })
         }
@@ -218,6 +223,7 @@ watch(
         sender: sender,
         text: msg.text,
         presentation: msg.presentation,
+        bodyPresentation: msg.bodyPresentation,
         type: 'gsay',
       })
 
@@ -261,6 +267,7 @@ watch(
             direction: 'sent',
             text: msg.text,
             presentation: msg.presentation,
+            bodyPresentation: msg.bodyPresentation,
             type: 'gcc',
           })
         }
@@ -274,6 +281,7 @@ watch(
         sender: sender,
         text: msg.text,
         presentation: msg.presentation,
+        bodyPresentation: msg.bodyPresentation,
         type: 'gcc',
       })
 

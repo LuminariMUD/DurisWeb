@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { parseChatPresentation } from '../../utils/chatPresentation.js'
 import { chatColor } from '../../utils/chatPalette.js'
+import OutputPresentation from './OutputPresentation.vue'
 
 const props = defineProps<{ presentation?: unknown; channel: string; sender?: string }>()
 const emit = defineEmits<{ activate: [] }>()
@@ -28,7 +29,8 @@ const segments = computed(() => {
     :role="sender ? 'button' : undefined" :tabindex="sender ? 0 : undefined"
     :aria-label="sender ? `Open chat with ${sender}` : undefined"
     @click="sender && emit('activate')" @keydown.enter="sender && emit('activate')">
-    <span v-for="segment in segments" :key="segment.start" :style="segment.style">{{ segment.text }}</span>
+    <OutputPresentation v-if="snapshot?.links?.length" :presentation="snapshot" palette="chat" />
+    <template v-else><span v-for="segment in segments" :key="segment.start" :style="segment.style">{{ segment.text }}</span></template>
   </span>
   <slot v-else />
 </template>

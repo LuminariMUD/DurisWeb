@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import ChatPresentation from './ChatPresentation.vue'
+import OutputPresentation from './OutputPresentation.vue'
+import { parseBodyPresentation } from '../../utils/outputPresentation.js'
 import { ref, computed, watch, nextTick } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
 import { parseAnsiToHtml, stripAnsiCodes } from '@/utils/ansiParser'
@@ -77,6 +79,7 @@ type ChatMessageWithChannel = {
   channel: string
   alignment?: string
   presentation?: unknown
+  bodyPresentation?: unknown
 }
 
 // Get current channel messages
@@ -384,7 +387,9 @@ const openDirectChat = (senderName: string) => {
           @click="openDirectChat(message.sender)"
         />
         <span class="text-muted-foreground">:</span>
-        <span class="text-foreground/90" v-html="parseAnsiToHtml(message.text)" />
+        <OutputPresentation :presentation="parseBodyPresentation(message.bodyPresentation)" palette="authored">
+          <span class="text-foreground/90" v-html="parseAnsiToHtml(message.text)" />
+        </OutputPresentation>
         </ChatPresentation>
       </div>
     </div>

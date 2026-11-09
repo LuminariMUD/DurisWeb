@@ -59,7 +59,7 @@ import { useAuth } from '@/composables/useAuth'
 
 const router = useRouter()
 const { accountName } = useAuth()
-const { disconnect } = useMudConnection()
+const { disconnect, sendGameCommand } = useMudConnection()
 const mudStore = useMudStore()
 usePlayMap()
 const { startAllTimers } = useTimers()
@@ -566,7 +566,7 @@ onUnmounted(() => {
 
         <!-- Activity Log -->
         <div class="flex-1 m-2 border rounded-lg overflow-hidden flex flex-col min-h-0">
-          <MudActivityLog ref="activityLogRef" filter="all" max-height="100%" class="flex-1" />
+          <MudActivityLog ref="activityLogRef" filter="all" max-height="100%" class="flex-1" @command="sendGameCommand" />
         </div>
 
         <!-- Status Bar (above command input) -->

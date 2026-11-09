@@ -43,3 +43,59 @@ window manager and persisted-history reload. The floating window's input referen
 element so opening or expanding the window can focus the input without a runtime error.
 
 Run frontend `format:check`, `lint`, `type-check`, `test:unit --run` and `build`. No backend behavior changes.
+
+## Clickable help and web links
+
+The browser advertises `Duris.Links 1` through `Core.Supports.Set` after each
+connection opens. This capability adds presentation to existing messages; it
+requires no periodic subscription. Its server implementation is
+[Duris PR #942](https://github.com/LuminariMUD/Duris/pull/942), including the
+preceding help/MXP/output PR stack. Either peer remains usable with the older
+peer, with ordinary readable text and no added links.
+
+An ordinary text envelope retains `type`, `category` and terminal `data`, and can
+carry `presentation: {version: 1, text, underline, runs, links?}`. Runs retain the
+palette IDs and code-point offsets above. Each link is
+`{start, end, kind: 'command' | 'url', target}` with half-open code-point bounds.
+Only explicit `help <topic>` targets can become command buttons. HTTP/HTTPS
+targets become external anchors with `noopener noreferrer`. No label, help-like
+chat text or browser regex creates a command. Receipt never activates a link.
+
+`outputPresentationLines()` validates the bounded snapshot and checks that its
+literal text matches the terminal data after removing SGR codes and carriage
+returns. It clips and rebases the snapshot alongside the existing line split.
+Triggers still see their original terminal line; gagging discards its snapshot.
+The store retains snapshots for live output and both split-history panes.
+Buttons use the existing game command sender. One link remains one keyboard
+target across color changes and normal visual wrapping.
+
+All existing `Comm.Channel` channels can carry `bodyPresentation` using the same
+schema, with URL links only. It supplies the normal sender/body layout, including
+the preserve color policy; adopted full-line snapshots can also contain URLs.
+Floating chat histories retain both optional fields and revalidate on rendering.
+The history storage version stays 1, and older records remain readable. Console,
+authored-body and full-line chat palettes retain their existing mappings.
+
+The decoder bounds text, runs, links and target bytes, rejects overlapping or
+out-of-range spans, controls, unsupported versions and schemes, and accepts only
+numeric palette IDs. The shared `OutputPresentation.vue` uses Vue text nodes.
+Invalid or absent metadata falls back to ordinary text. Terminal fallback strips
+ANSI colors safely without treating literal URL ampersands as authored Duris
+markup; local authored messages keep their existing renderer.
+
+The synthetic `output-presentation-v1.json` fixture comes from the server's actual
+output/GMCP harness. Tests cover receipt, Unicode line rebasing, gagging, split
+history, saved chat reload, literal HTML-like labels, target rejection and click
+dispatch. Playwright qualification of `/play` uses those payloads through the
+normal WebSocket handler and command sender: help click/Enter each send once,
+URLs in text/full-line/body chat open the exact destination, and receipt sends
+no game command. Chromium desktop (1440×1000), tablet (820×1180) and phone
+(390×844) passed. This synthetic browser fixture is separate from a live MUD
+session and native-client qualification. The existing Vue Router `next()`
+deprecation warning remains; no page errors or framework overlay occurred.
+
+Release news is prepared in
+[`clickable-links-changelog-draft.json`](ongoing-projects/clickable-links-changelog-draft.json).
+Choose the release date/version and reconcile existing entries at deployment;
+publish only after the paired server/browser release passes live acceptance.
+No news was published and no deployment is part of this PR.

@@ -153,6 +153,32 @@ const ANSI_SGR_CLASSES: Record<string, string> = {
   '97': 'text-white', // Bright White
 }
 
+/** Palette IDs from server snapshots; preserve console and authored-body colors. */
+export function outputColorClasses(
+  foreground: number,
+  background: number,
+  underline: boolean,
+  terminal: boolean,
+): string {
+  const letters = 'lbgcrmywLBGCRMYW'
+  const foregroundClass = terminal
+    ? foreground
+      ? ANSI_SGR_CLASSES[String(30 + Number('04261537'[foreground & 7]))]
+      : 'text-gray-300'
+    : (fgColors[letters[foreground - 16] ?? ''] ?? 'text-gray-300')
+  const backgroundClass = background
+    ? bgColors[letters[terminal ? background & 7 : background - 16] ?? '']
+    : ''
+  return [
+    foregroundClass,
+    foreground >= 24 ? 'font-bold' : '',
+    backgroundClass,
+    background >= 24 && underline ? 'underline' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
 /**
  * Parse standard ANSI escape sequences to CSS classes
  * Format: ESC[<code>m or ESC[<code>;<code>m
@@ -190,10 +216,13 @@ function parseStandardAnsi(text: string): string {
   return html
 }
 
-/**
- * Parse ANSI color codes to HTML with Tailwind CSS classes
- * Supports both DurisMUD codes (&+G) and standard ANSI escape sequences (\x1B[32m)
- */
+/** Server text is already terminal encoded: literal &n must not become markup. */
+export function parseTerminalToHtml(text: string): string {
+  if (!text) return ''
+  return `<span class="text-gray-300">${parseStandardAnsi(_escapeHtml(text)).replace(/\r/gu, '')}</span>`
+}
+
+/** Parse authored Duris color codes and standard ANSI to escaped HTML. */
 export function parseAnsiToHtml(text: string): string {
   if (!text) return ''
   if (typeof text !== 'string') {

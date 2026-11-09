@@ -1,4 +1,5 @@
 import { parseChatPresentation } from '../utils/chatPresentation.js'
+import { parseOutputPresentation, parseBodyPresentation } from '../utils/outputPresentation.js'
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type {
@@ -515,13 +516,21 @@ export const useMudStore = defineStore('mud', () => {
     speedwalkAbortFn = null
   }
 
-  function addLogEntry(category: MudLogEntry['category'], text: string, highlightClass?: string) {
+  function addLogEntry(
+    category: MudLogEntry['category'],
+    text: string,
+    highlightClass?: string,
+    presentation?: unknown,
+    terminalText = false,
+  ) {
     const entry: MudLogEntry = {
       id: ++logIdCounter,
       timestamp: new Date(),
       category,
       text,
       highlightClass,
+      presentation: parseOutputPresentation(presentation),
+      terminalText,
     }
     activityLog.value.push(entry)
 
@@ -542,9 +551,11 @@ export const useMudStore = defineStore('mud', () => {
     highlightClass?: string,
     alignment?: 'good' | 'evil' | 'undead' | 'neutral',
     presentation?: unknown,
+    bodyPresentation?: unknown,
   ) {
     const message: MudChatMessage = {
       presentation: parseChatPresentation(presentation, channel),
+      bodyPresentation: parseBodyPresentation(bodyPresentation),
       id: ++chatIdCounter,
       timestamp: new Date(),
       channel,
