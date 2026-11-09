@@ -94,6 +94,15 @@ no game command. Chromium desktop (1440×1000), tablet (820×1180) and phone
 session and native-client qualification. The existing Vue Router `next()`
 deprecation warning remains; no page errors or framework overlay occurred.
 
+The paired implementation also passed `/play` against a real disposable
+MariaDB MUD: normal login and character entry, help references while paging,
+keyboard activation of retained links, help search results, exact external query
+strings and say-channel URLs. Native qualification and the official Duris
+Mudlet package's copied-console links/hotboot are recorded in
+[Duris PR #951](https://github.com/LuminariMUD/Duris/pull/951) and its handoff
+document. The native compatibility repair is isolated to the server serializer;
+the browser snapshot contract is unchanged. No production session was used.
+
 Release news is prepared in
 [`clickable-links-changelog-draft.json`](ongoing-projects/clickable-links-changelog-draft.json).
 Choose the release date/version and reconcile existing entries at deployment;
