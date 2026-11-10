@@ -696,4 +696,56 @@ a native MySQL test DB this checkout lacks). Jest also does not exit after the
 run on `master` either (open handles); pre-existing, not investigated here.
 format:check, lint, type-check, build passed.
 
-Next: step 3.3 (`runtime/` startup, jobs, shutdown), branch `refactor/runtime-lifecycle`.
+### Step 3.3 — runtime lifetime (branch `refactor/runtime-lifecycle`)
+
+Stacked on `refactor/application-socket`. Done:
+
+- `index.ts` (now ~50 lines) composes the app, sets up hook state, installs
+  signals once, launches once and decides exit. No routes, SQL, broadcasts or
+  socket handlers remain in it.
+- `runtime/startServer.ts`: watchdog, flatfile probe/monitor, DB/MUD DB checks,
+  schema and session invariants, pool sampling, HTTP + application WebSocket
+  server, background jobs, `listen`. It records each acquired resource in a
+  `RuntimeResources` object as it goes and **throws** on failed dependency
+  checks instead of calling `process.exit(1)`.
+- `runtime/backgroundJobs.ts`: PvP poller (initial cursor = latest released
+  battle), frag/Discord/socket-count/orphan-image intervals, guild sync, health
+  monitoring, GeoIP, backup scheduler, MUD control/auction/player-event
+  integrations, donation outbox, hook audit worker, notification/news
+  broadcasters — cadences and feature gates unchanged; modules the old code
+  loaded with `await import` still are. A second start throws; stop handles are
+  registered before anything starts so a partial start stops only what started.
+- `runtime/shutdown.ts`: `createShutdown(resources)` keeps the former order
+  (watchdog → producers → log watchers → web server + broadcast detach →
+  terminals → workers → flatfile monitor → pool sampling → presence Redis → DB
+  → Redis), is memoized (repeat calls do nothing) and skips unacquired
+  resources. `installSignalHandlers` registers SIGTERM/SIGINT/SIGUSR2 once.
+- Backup scheduler now keeps its cron task: `stopHourlyBackupScheduler()`;
+  schedule and work unchanged.
+- Behavior changes, deliberate per this step: a failed start now releases what
+  it acquired before `exit(1)` (bounded by a 2 s exit timer); the dead
+  force-exit timer that followed `process.exit(0)` was removed; the pool
+  session-sampling timer (already `unref`'d) is now cleared on shutdown.
+- Tests: `runtime/__tests__/runtimeLifecycle.test.ts` (order + idempotence with
+  a connected WebSocket peer closed 1000, unacquired resources skipped, signals
+  installed once, DB-check failure stops before listening and shutdown
+  releases only watchdog/flatfile), `runtime/__tests__/backgroundJobs.test.ts`
+  (five intervals with unchanged cadences, duplicate start refused, every
+  interval cleared, producers/workers stopped once, restart after stop),
+  `services/__tests__/backupScheduler.test.ts` (scheduled once, synthetic cron
+  stopped without any DB call). `applicationWebSocket` wiring assertion now
+  reads `runtime/startServer.ts`.
+- Docs: `docs/ARCHITECTURE.md`, `docs/api/README_api.md`, `docs/docs-audit.md`.
+
+Verification: `pnpm --dir backend test --runInBand backgroundJobs
+runtimeLifecycle backupScheduler createApp applicationSocket
+applicationWebSocket websocketAccess serverShutdown
+terminalSessionAuthorization pvpPolling apiNotFound frontendAssets errorHandler
+integrationSecurityContract hookDeliveryContract productionReviewRegression
+broadcasts changelog` — 24 suites / 178 tests passed; format:check, lint,
+type-check, build passed. Not run: launching `node dist/index.js` (no local
+`.env`/database), so real startup/shutdown against live dependencies is
+unqualified here.
+
+Next: step 4 — admin route groups first (settings/uploads + Discord), branch
+`refactor/admin-settings-routes`.

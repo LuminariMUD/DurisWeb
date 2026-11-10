@@ -710,20 +710,20 @@ function formatBytes(bytes: number): string {
 // HOURLY BACKUP SCHEDULER
 // ============================================================================
 
-let schedulerStarted = false;
+let hourlyBackupTask: ReturnType<typeof cron.schedule> | null = null;
 
 /**
  * Start the hourly backup scheduler
  * Runs at minute 0 of every hour
  */
 export function startHourlyBackupScheduler(): void {
-  if (schedulerStarted) {
+  if (hourlyBackupTask) {
     logger.info('Hourly backup scheduler already running');
     return;
   }
 
   // Run at minute 0 of every hour: '0 * * * *'
-  cron.schedule('0 * * * *', async () => {
+  hourlyBackupTask = cron.schedule('0 * * * *', async () => {
     logger.info('Starting scheduled hourly backup...');
     try {
       await createBackup('SYSTEM', '127.0.0.1', 'hourly');
@@ -733,8 +733,13 @@ export function startHourlyBackupScheduler(): void {
     }
   });
 
-  schedulerStarted = true;
   logger.info('Hourly backup scheduler started (runs at minute 0 of every hour)');
+}
+
+/** Stop the hourly schedule; a backup already running is not interrupted. */
+export function stopHourlyBackupScheduler(): void {
+  void hourlyBackupTask?.stop();
+  hourlyBackupTask = null;
 }
 
 /**

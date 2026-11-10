@@ -1,7 +1,7 @@
 # DurisWeb HTTP API
 
 The Express application is assembled by `createApp` in `backend/src/app.ts`;
-`backend/src/index.ts` starts it. Its listener,
+`backend/src/runtime/startServer.ts` starts it from `backend/src/index.ts`. Its listener,
 public site URL, and ingress origin are required environment/deployment values.
 The configured ingress forwards the SPA, `/api`, `/ws`, and `/kofihook` to the
 Express origin.

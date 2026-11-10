@@ -174,8 +174,8 @@ describe('application WebSocket transport bounds', () => {
   });
 
   it('wires all application producers through the guard without changing the MUD transport', () => {
-    const source = readFileSync(new URL('../../index.ts', import.meta.url), 'utf8');
-    expect(source).toContain('wss = createApplicationWebSocketServer(server)');
+    const source = readFileSync(new URL('../../runtime/startServer.ts', import.meta.url), 'utf8');
+    expect(source).toContain('const wss = createApplicationWebSocketServer(server)');
     expect(source).toContain("wss.on('connection', handleApplicationConnection)");
     for (const url of [
       '../../realtime/applicationSocket.ts',
