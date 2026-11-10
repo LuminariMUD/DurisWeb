@@ -17,7 +17,7 @@ it('keeps links in live and split history, dispatches once, and safely renders i
   store.addLogEntry('info', packet.data!.split('\r\n')[1]!, undefined, snapshot, true)
   store.addLogEntry(
     'info',
-    'literal &name=two <script>text</script>',
+    'literal &name=two &lt;literal&gt; &copy=two &amp; &n &+R <script>text</script>',
     undefined,
     { version: 2 },
     true,
@@ -38,7 +38,9 @@ it('keeps links in live and split history, dispatches once, and safely renders i
       },
     },
   })
-  expect(wrapper.text()).toContain('literal &name=two <script>text</script>')
+  const literalText =
+    'literal &name=two &lt;literal&gt; &copy=two &amp; &n &+R <script>text</script>'
+  expect(wrapper.text()).toContain(literalText)
   expect(wrapper.find('script').exists()).toBe(false)
   await wrapper.get('button[title="help weather"]').trigger('click')
   expect(wrapper.emitted('command')).toEqual([['help weather']])
@@ -46,6 +48,7 @@ it('keeps links in live and split history, dispatches once, and safely renders i
   await flushPromises()
   expect(wrapper.findAll('button[title="help weather"]')).toHaveLength(2)
   expect(wrapper.findAll('a[target="_blank"]')).toHaveLength(2)
+  expect(wrapper.text().split(literalText)).toHaveLength(3)
   await wrapper.findAll('button[title="help weather"]')[0]!.trigger('click')
   expect(wrapper.emitted('command')).toHaveLength(2)
   wrapper.unmount()

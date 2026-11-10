@@ -118,17 +118,7 @@ function _escapeHtml(text: string): string {
     '"': '&quot;',
     "'": '&#039;',
   }
-  // Only escape HTML chars, not our ANSI codes
-  return text.replace(/[&<>"']/g, (char) => {
-    // Don't escape & if it's part of an ANSI code
-    if (
-      char === '&' &&
-      /&\+?[a-zA-Z*]/.test(text.substring(text.indexOf(char), text.indexOf(char) + 3))
-    ) {
-      return char
-    }
-    return map[char] || char
-  })
+  return text.replace(/[&<>"']/g, (char) => map[char] || char)
 }
 
 // Standard ANSI SGR (Select Graphic Rendition) code mappings

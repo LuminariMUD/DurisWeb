@@ -2,5 +2,5 @@
   "title": "Clickable help and web links in browser play",
   "category": "public",
   "is_published": false,
-  "content": "<h3>Browser play</h3><ul><li>Click a help reference or help search result to open that topic. You can follow another help link while reading a paged help entry, just as you can type a new help command.</li><li>Web addresses beginning with http:// or https:// open in a separate browser tab, including links in chat and saved chat history. Links keep their complete destination when their text wraps.</li><li>Help links work with the keyboard, too. Game output never opens a link or sends a help command until you activate it.</li></ul>"
+  "content": "<h3>Browser play</h3><ul><li>Click a help reference or help search result to open that topic. You can follow another help link while reading a paged help entry, just as you can type a new help command.</li><li>Web addresses beginning with http:// or https:// open in a separate browser tab, including links in chat and saved chat history. Links keep their complete destination when their text wraps.</li><li>Help links work with the keyboard, too. Game output never opens a link or sends a help command until you activate it.</li><li>Literal ampersands and URL parameters remain readable in game output.</li></ul>"
 }
