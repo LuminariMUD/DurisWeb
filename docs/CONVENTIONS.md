@@ -26,6 +26,8 @@
 - File names reflect their primary export or purpose
 - Group by feature/domain, not by type (prefer `/orders/api.ts` over `/api/orders.ts`)
 - Keep nesting shallow--if you're 4+ levels deep, reconsider
+- Feature code lives under `backend/src/features/<feature>/` and
+  `frontend/src/features/<domain>/api.ts`; see [where code goes](ARCHITECTURE.md#where-code-goes)
 
 ## Functions & Modules
 

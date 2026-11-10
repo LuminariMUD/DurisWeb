@@ -5276,7 +5276,7 @@ raw exceptions on catch, and untrusted `statusText` on HTTP failure. Its Redis
 keys contain IPs; [cache helpers](../../backend/src/db/redis.ts) also log raw
 errors, which need a sentinel test for command/key leakage on this call path.
 The helper is called by optional analytics and an administrative lookup in
-[admin.ts](../../backend/src/routes/admin.ts). Treat those purposes separately.
+[connectionRoutes.ts](../../backend/src/features/admin/connectionRoutes.ts). Treat those purposes separately.
 The source uses an HTTP provider endpoint; transport/provider policy belongs
 with #10, rather than silently changing lookup/access behavior in #13.
 

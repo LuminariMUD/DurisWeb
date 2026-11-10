@@ -135,7 +135,8 @@ variable; Vite exposes those values to browsers.
 | `src/components/` | Product and shared UI components |
 | `src/composables/` | Reusable application state and server interactions |
 | `src/router/` | Route definitions and auth/permission metadata |
-| `src/services/` | Browser-side API services |
+| `src/features/` | Browser API modules by domain (`features/<domain>/api.ts`) |
+| `src/services/` | Shared Axios client (`httpClient.ts`) and specialized fetch services |
 | `src/stores/` | Pinia state stores |
 | `public/` | Static assets copied to the build output |
 

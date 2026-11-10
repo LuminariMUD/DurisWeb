@@ -1,6 +1,6 @@
 # Backend and API structure cleanup
 
-Prepared 2026-11-10. **Status: in progress — see [Progress log](#progress-log).**
+Prepared 2026-11-10. **Status: steps 0–6 implemented as stacked PRs LuminariMUD/DurisWeb#165–#175, awaiting review; native, browser and live-startup qualification outstanding — see [Progress log](#progress-log) and [Closure](#step-6--closure-branch-refactorstructure-closure).**
 Source baseline: `8a1986b`. Recheck the affected source and working-tree changes
 before each implementation step; the measurements below describe this revision.
 
@@ -895,7 +895,67 @@ Verification: `pnpm --dir frontend test:unit --run` — 94 files / 757 tests
 passed (one new file, four new tests); format:check, lint, type-check passed;
 build passed with the CI placeholder env.
 
-Next: step 6 — closure: permanent docs (`docs/ARCHITECTURE.md`,
-`docs/CONVENTIONS.md`, package READMEs) on where to add a route, job,
-WebSocket handler, browser API call and tests; final full suites;
-browser-journey status. Branch `refactor/structure-closure`.
+### Step 6 — closure (branch `refactor/structure-closure`)
+
+Stacked on `refactor/frontend-feature-apis`. Done:
+
+- No temporary forwarding module remains: the changelog forward was never
+  needed, `routes/admin|forum|builder|changelog.ts`, `services/changelogService.ts`
+  and `frontend/src/services/api.ts` are deleted, and the `pvpApi` default
+  export is gone. Lint: the backend entry-point import restriction (step 2);
+  the retired frontend path needs none because the module no longer exists.
+- Permanent guidance: `docs/ARCHITECTURE.md` "Where code goes" (route, job,
+  WebSocket message, broadcast, browser API call, their tests, import
+  direction, allowlist keys); `docs/CONVENTIONS.md` pointer;
+  `backend/README_backend.md` and `frontend/README_frontend.md` area tables.
+- Retired-path search outside this plan: live relative links in
+  `2026-10-23-production-traffic-readiness.md`, `plan.md` and
+  `rich-text-blog-proposal.md` were repointed. Remaining matches are pinned
+  historical records (`plan-issue-98.md` command logs, `plan.md`
+  `git show 220c991:…`) and the method-count comment in `featureApis.spec.ts`.
+
+Final verification on this revision:
+
+| Command | Result |
+|---------|--------|
+| `pnpm --dir backend test --runInBand --forceExit` | 159 suites passed, 12 skipped; 7 suites / 89 tests failed, all `Access denied for user 'durisweb_test'` — the same 7 suites / 89 tests fail on `master` (no native test DB here) |
+| `pnpm --dir frontend test:unit --run` | 94 files / 757 tests passed |
+| backend + frontend `format:check`, `lint`, `type-check` | passed |
+| `pnpm --dir backend build`, `pnpm --dir frontend build` (CI placeholder env) | passed |
+| `pnpm --dir backend verify:mud-writes` | 53 classified writes verified |
+| `git diff --check` | passed |
+
+`--forceExit` was used because Jest does not exit after the full run on this
+checkout, on `master` as well (open handles; not investigated here).
+
+**Not qualified (remaining work):**
+
+1. Native suites (`*Native`, schema-integration and the 7 DB suites above)
+   need the isolated MySQL/Redis fixtures from `docs/development.md`.
+2. Browser journeys from "Verification and acceptance" (news/changelog,
+   sign-in/out, forum read/post/search, admin reads/denials, builder reads,
+   WebSocket connect/reconnect/stop) were not run: this checkout has no
+   `.env` files, database or MUD.
+3. A real `node dist/index.js` boot and SIGTERM against live dependencies
+   (step 3.3 changed startup/shutdown ownership).
+4. Review and merge of the stack, bottom first (#165 → #175). After a base
+   merges, retarget the next PR to `master` and rebase if needed.
+5. Release: none authorized. If released, follow the deployment skill; the
+   change is internal restructuring with no reader-visible behavior, so no
+   new Website Changelog entry is expected (record that at release).
+
+Complexity review: no runtime dependency, framework, container, event bus or
+generic CRUD layer was added; one broadcast implementation, one Axios
+instance, one interceptor set. New shared pieces each have several real
+callers: `realtime/clientState.ts`, `src/test/stubModule.ts` (5 tests),
+`features/forum/shared.ts`, `features/builder/shared.ts`. Representative
+follow-up edit — a new admin backup endpoint now touches
+`features/admin/backupRoutes.ts` (428 lines) and
+`frontend/src/features/admin/backupApi.ts` (140), with
+`adminComposition.test.ts` checking its guard automatically and `stubModule`
+for dependency setup; before, it touched `routes/admin.ts` (4,682) and
+`services/api.ts` (3,605). No time-saving or performance claim is made.
+
+Retire this plan (per `docs/development.md` → temporary planning workspace)
+once items 1–4 are done: move any still-open gap to the issue tracker; the
+lasting guidance is already in the permanent docs listed above.

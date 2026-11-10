@@ -148,7 +148,12 @@ Existing websocket peers must still be disconnected during the website cutover.
 
 | Path | Purpose |
 |------|---------|
-| `src/routes/` | HTTP route modules |
+| `src/index.ts` | Executable entry: composes the app, installs signals, launches, exits |
+| `src/app.ts` | `createApp()`: middleware, route mounts, metadata and static fallback, in order |
+| `src/runtime/` | Startup checks, background jobs with stop handles, ordered shutdown |
+| `src/realtime/` | Application WebSocket connection, message handlers, broadcasts |
+| `src/features/` | Feature route groups (`admin`, `forum`, `builder`, `changelog`) and their tests |
+| `src/routes/` | Remaining single-file HTTP route modules |
 | `src/services/` | Domain and integration services |
 | `src/hooks/` | Hook registry, state, resolution, and delivery gates |
 | `src/middleware/` | Auth, CSRF, errors, and request limits |

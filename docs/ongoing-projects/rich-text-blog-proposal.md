@@ -316,9 +316,9 @@ would need a revised estimate after their ownership design is agreed.
 
 Expected new code lives under `backend/src/routes/`, `backend/src/services/`,
 `backend/migrations/`, and `frontend/src/views/` with colocated tests. Existing
-integration points are [index.ts](../../backend/src/index.ts),
+integration points are [app.ts](../../backend/src/app.ts),
 [main.ts](../../frontend/src/main.ts), [router](../../frontend/src/router/index.ts),
-[API client](../../frontend/src/services/api.ts), [App.vue](../../frontend/src/App.vue),
+[news API](../../frontend/src/features/news/api.ts), [HTTP client](../../frontend/src/services/httpClient.ts), [App.vue](../../frontend/src/App.vue),
 [BottomNavbar](../../frontend/src/components/layout/BottomNavbar.vue),
 [AdminMenu](../../frontend/src/components/layout/AdminMenu.vue),
 [breadcrumbs](../../frontend/src/components/layout/BreadcrumbsNav.vue), the editor,
