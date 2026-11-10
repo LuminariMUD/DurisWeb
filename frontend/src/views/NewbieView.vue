@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import { useSiteConfig } from '@/composables/useSiteConfig'
 import firstSteps from '@/assets/newbie/first-steps.webp'
 import camp from '@/assets/newbie/camp.webp'
+import levelingRoute from '@/assets/newbie/good-side-leveling.webp'
 
 const { siteTitle } = useSiteConfig()
 useHead(() => ({
@@ -310,6 +311,11 @@ function clearSearch() {
         href="#watch"
         @click.prevent="jumpTo('watch')"
         ><Play class="size-3 text-vermilion" aria-hidden="true" /> Watch Duris</a
+      >
+      <a
+        href="#leveling"
+        @click.prevent="jumpTo('leveling')"
+        ><Compass class="size-3 text-vermilion" aria-hidden="true" /> Leveling route</a
       >
       <a
         href="#commands"
@@ -728,6 +734,179 @@ function clearSearch() {
             </p>
           </aside>
         </div>
+      </section>
+
+      <SectionRule />
+
+      <section
+        id="leveling"
+        tabindex="-1"
+        aria-labelledby="leveling-heading"
+        class="leveling-section"
+      >
+        <div class="lesson">
+          <div class="lesson-heading">
+            <IndexLabel as="p">Good side / Levels 1–36</IndexLabel>
+            <DisplayHeading id="leveling-heading" :level="2">
+              Find your next <br /><em>adventure.</em>
+            </DisplayHeading>
+            <p>A suggested leveling route for a new good-side player.</p>
+          </div>
+          <div class="lesson-body">
+            <p class="lesson-lead">Start close to home. Grow into the wider world.</p>
+            <p>
+              <strong>“Goodie”</strong> means a character on the good side of the racewar.
+              <strong>“GC”</strong> means the Good Continent.
+            </p>
+            <p>
+              The level ranges below are approximate. Your class, equipment, and whether you have a
+              group will affect when you’re ready to move on.
+            </p>
+          </div>
+        </div>
+
+        <figure class="leveling-art">
+          <img
+            :src="levelingRoute"
+            alt=""
+            width="1774"
+            height="887"
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption class="index-label">
+            A wider world awaits · Original fantasy illustration, not a map
+          </figcaption>
+        </figure>
+
+        <ol class="leveling-stages">
+          <li>
+            <IndexLabel as="p">01 / Levels 1–6</IndexLabel>
+            <div class="lesson-body">
+              <h3>Begin near Tharn or Woodseer</h3>
+              <p>
+                Start at the northern beach outside <strong>Tharnadia — City of Humans</strong>,
+                usually shortened to <strong>“Tharn,”</strong> or in the forest around
+                <strong>Woodseer</strong>, the halfling hometown. <strong>“WS”</strong> means Woodseer.
+              </p>
+            </div>
+          </li>
+          <li>
+            <IndexLabel as="p">02 / Around levels 6–15</IndexLabel>
+            <div class="lesson-body">
+              <h3>Vella or the bullywug village</h3>
+              <p>
+                Try <strong>Vella’s Bordello</strong>, usually called <strong>“Vella,”</strong> or
+                the bullywug village in the <strong>Rift Valley Jungle</strong> near Woodseer,
+                usually called <strong>“wugs.”</strong> Bullywugs are frog-like humanoids.
+              </p>
+              <p>
+                Start with the easier creatures. Not everything in an area will be suitable for your
+                level.
+              </p>
+            </div>
+          </li>
+          <li>
+            <IndexLabel as="p">03 / Around level 15 into your early twenties</IndexLabel>
+            <div class="lesson-body">
+              <h3>Bandit Camp or Harrow</h3>
+              <p>Try <strong>Bandit Camp</strong> or <strong>Harrow — The Gnome Village.</strong></p>
+              <p>
+                <strong>The City of Newhaven</strong> and <strong>The Ruins of Turolopolis</strong>,
+                often shortened to <strong>“Newhaven”</strong> and <strong>“Turo,”</strong> are
+                additional possibilities around this stage.
+              </p>
+              <aside class="field-note">
+                <span class="index-label">Take someone who knows the area</span>
+                <p>
+                  Newhaven and Turo contain aggressive creatures, often called
+                  <strong>“aggro,”</strong> which may attack automatically when you enter their room.
+                  For a new player, it’s best to explore them with someone who knows the area.
+                </p>
+              </aside>
+            </div>
+          </li>
+          <li>
+            <IndexLabel as="p">04 / After the early twenties</IndexLabel>
+            <div class="lesson-body">
+              <h3>Broken Trust, su-monsters, and huggers</h3>
+              <p>The next suggestions are:</p>
+              <ul class="leveling-targets">
+                <li>
+                  <strong>The Savannah of Broken Trusts</strong>, usually called
+                  <strong>“Broken Trust.”</strong>
+                </li>
+                <li>
+                  <strong>Darkfall Forest</strong>, hunting su-monsters. This is the likely meaning of
+                  <strong>“su”</strong> in the original advice.
+                </li>
+                <li>
+                  <strong>Abandoned Elven Homestead</strong>, hunting the red-breasted tree-huggers,
+                  usually called <strong>“huggers.”</strong>
+                </li>
+              </ul>
+              <p>
+                These nicknames sometimes refer to particular creatures within a zone. They do not
+                mean that every creature in the zone is suitable to fight.
+              </p>
+            </div>
+          </li>
+          <li>
+            <IndexLabel as="p">05 / Later levels, working toward level 36</IndexLabel>
+            <div class="lesson-body">
+              <h3>Find a group. Look beyond GC.</h3>
+              <p>
+                At this point, consider finding a group and traveling to other continents. If you
+                stay on the Good Continent, the more dangerous suggestions are:
+              </p>
+              <ul class="leveling-targets">
+                <li><strong>City of Torrhan.</strong></li>
+                <li><strong>Cloud Giant Kingdom.</strong></li>
+                <li>
+                  <strong>The Mountain Village of Tentro</strong>, hunting troglodytes, often called
+                  <strong>“trogs.”</strong> The original advice specifically meant the troglodytes in
+                  Tentro.
+                </li>
+              </ul>
+              <p>
+                Ask an experienced player to show you suitable targets and the route out before
+                tackling these areas.
+              </p>
+            </div>
+          </li>
+        </ol>
+
+        <aside class="leveling-stakes field-note" aria-labelledby="leveling-stakes-heading">
+          <IndexLabel as="p">Know the stakes</IndexLabel>
+          <h3 id="leveling-stakes-heading">Experience loss and player-kill rewards</h3>
+          <div class="leveling-stakes-grid">
+            <div>
+              <h4>Experience loss starts at level 30</h4>
+              <p>
+                For ordinary characters, death does not cost experience below level 30 under the
+                current rules. Starting at level 30, death can cost experience and levels. Hardcore
+                characters have separate death rules.
+              </p>
+            </div>
+            <div>
+              <h4>Frag eligibility starts at level 20</h4>
+              <p>
+                Below level 20, your death awards an enemy no frag points. Starting at level 20, you
+                can be worth frag points. <strong>“Frags”</strong> are points earned from eligible
+                enemy-player kills; being worth no frag points does not mean you are immune to
+                attacks.
+              </p>
+              <p>
+                For a new character, an enemy generally cannot earn frag points from killing you if
+                they are more than 10 levels higher than you.
+              </p>
+            </div>
+          </div>
+        </aside>
+        <p class="leveling-outro">
+          Use your early levels to explore the Good Continent, learn the routes, recognize dangerous
+          creatures, and find people to adventure with.
+        </p>
       </section>
 
       <SectionRule />
@@ -1299,6 +1478,69 @@ function clearSearch() {
   color: var(--color-label);
   font-family: var(--font-label);
 }
+.leveling-section {
+  padding-bottom: clamp(3rem, 6vw, 6rem);
+}
+.leveling-art img {
+  width: 100%;
+  height: auto;
+}
+.leveling-art figcaption {
+  margin-top: 1rem;
+  line-height: 1.8;
+}
+.leveling-stages {
+  margin-top: 2.5rem;
+  list-style: none;
+}
+.leveling-stages > li {
+  display: grid;
+  grid-template-columns: 1fr 1.65fr;
+  gap: clamp(2rem, 5vw, 6rem);
+  padding-block: 2.5rem;
+  border-top: 1px solid var(--color-rule);
+}
+.leveling-stages > li > .index-label {
+  line-height: 1.8;
+  max-width: 28ch;
+}
+.leveling-stages h3 {
+  margin-bottom: 0;
+}
+.leveling-targets {
+  list-style: disc;
+  padding-left: 1.25rem;
+  color: var(--color-bone-muted);
+  line-height: 1.8;
+}
+.leveling-targets li + li {
+  margin-top: 0.75rem;
+}
+.leveling-stakes {
+  margin-top: 1rem;
+}
+.leveling-stakes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+.leveling-stakes h4 {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+.leveling-stakes p,
+.leveling-outro {
+  color: var(--color-bone-muted);
+  line-height: 1.8;
+}
+.leveling-stakes p + p {
+  margin-top: 1rem;
+}
+.leveling-outro {
+  max-width: 65ch;
+  margin-top: 2rem;
+}
 .leave-section {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1414,7 +1656,8 @@ function clearSearch() {
   .chapter-nav .command-jump {
     margin-left: 0;
   }
-  .lesson {
+  .lesson,
+  .leveling-stages > li {
     grid-template-columns: 1fr 1.7fr;
     gap: 2.5rem;
   }
@@ -1464,12 +1707,18 @@ function clearSearch() {
     border-top: 1px solid var(--color-rule);
   }
   .lesson,
+  .leveling-stages > li,
+  .leveling-stakes-grid,
   .leave-section,
   .recovery-grid {
     grid-template-columns: 1fr;
   }
   .lesson {
     gap: 2rem;
+  }
+  .leveling-stages > li {
+    gap: 1rem;
+    padding-block: 2rem;
   }
   .lesson-heading h2 br {
     display: none;

@@ -1,17 +1,23 @@
 # NEWBIE artwork
 
-Created on 2026-10-29 with the **built-in image_gen tool** (not the CLI/API fallback)
+Created with the **built-in image_gen tool** (not the CLI/API fallback)
 for the [NEWBIE crash course](../../views/NewbieView.vue), following the
 [Design guide](../../../../docs/DESIGN.md).
 
-- `first-steps.webp`: 1672 × 941, original threshold/first-adventure illustration.
-- `camp.webp`: 1536 × 1024, original woodland respite illustration.
+- `first-steps.webp`: 1672 × 941, original threshold/first-adventure illustration,
+  created on 2026-10-29.
+- `camp.webp`: 1536 × 1024, original woodland respite illustration, created on
+  2026-10-29.
+- `good-side-leveling.webp`: 1774 × 887, original coastal journey illustration,
+  added on 2026-11-10 with the built-in image_gen tool. Encoded at WebP quality 84
+  without resizing or cropping (295,592 bytes); lazy-loaded with reserved
+  dimensions. Its caption explicitly says it is not a map.
 
-Both are original decorative fantasy artwork, not game screenshots, geographical
+These are original decorative fantasy artwork, not game screenshots, geographical
 references, or claims about specific locations/equipment. No source image was
 provided. Empty alt text avoids repeating nearby prose; captions identify them
 as illustrations. The hero reserves its dimensions and has high fetch priority;
-the camp is lazy-loaded. Vite fingerprints both assets and loads them with the
+the camp and leveling art are lazy-loaded. Vite fingerprints these assets and loads them with the
 lazy page chunk. No remote image dependency is introduced.
 
 The generated PNG masters remain in the generation tool's local output. The
@@ -44,4 +50,17 @@ Composition/framing: landscape 3:2; intimate ground-level view; pack and small f
 Lighting/mood: quiet respite, ember and lantern glow on weathered leather, cool bone-colored mist, muted olive-black shadows. Beautiful without gloss.
 Color palette: near-black ink #111310, warm bone #ece8dd, muted olive, copper and vermilion #df583d.
 Constraints: atmospheric illustration, not a game screenshot or exact named location. No people, no text, lettering, logos, UI, watermark or glowing magical equipment.
+```
+
+## Exact good-side leveling prompt
+
+```text
+Use case: stylized-concept
+Asset type: original wide companion illustration for the good-side leveling route section of DurisMUD's NEWBIE field guide.
+Primary request: A small party of novice medieval adventurers, a human and a halfling seen from behind with simple travel packs and practical equipment, pauses where a northern beach footpath enters an old woodland. Across the coastal valley, a modest fortified human city and tiny woodland village give way to savannah, deep forest, and distant formidable mountains. Evoke the journey from first steps to greater adventures and the value of traveling together.
+Style/medium: richly detailed painterly dark-fantasy concept art, hand-painted oil texture, grounded medieval materials, restrained editorial art direction, cinematic atmospheric depth.
+Composition/framing: wide landscape around 2:1; winding path leads the eye from the small adventurers in the foreground into layered terrain, readable silhouettes and a strong middle composition that survives mobile crops. This illustration sits above HTML route text.
+Lighting/mood: inviting dawn over a dangerous world, warm copper sunlight through bone-colored mist and muted olive-black trees, subtle vermilion highlights.
+Color palette: near-black ink #111310, warm bone #ece8dd, muted olive, copper, restrained vermilion #df583d.
+Constraints: original decorative fantasy artwork, not a game screenshot, map, or geographically accurate depiction of named game locations. No lettering, text, labels, numbers, logos, UI, watermark, neon colors, glossy armor, or excessive particles.
 ```

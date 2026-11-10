@@ -248,8 +248,8 @@ data, release identity, image checksums, and reproduction steps. The original
 with their separate source revision and provenance.
 
 The [NEWBIE artwork record](../frontend/src/assets/newbie/README.md) documents the
-original threshold and camp illustrations, their generation prompts, dimensions,
-and WebP assets. They are decorative fantasy illustrations, not gameplay captures
+original threshold, camp, and leveling route illustrations, their generation
+prompts, dimensions, and WebP assets. They are decorative fantasy illustrations, not gameplay captures
 or maps. The [course maintenance guide](newbie-guide.md) owns gameplay verification
 and the page-specific reading and navigation behavior.
 
