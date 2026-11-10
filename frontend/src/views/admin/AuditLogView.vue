@@ -305,7 +305,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { apiClient as api } from '@/services/api'
+import { apiClient as api } from '@/services/httpClient'
 import { Eye } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

@@ -15,7 +15,7 @@ const wikiApi = vi.hoisted(() => ({
 }))
 const routerPush = vi.hoisted(() => vi.fn())
 
-vi.mock('@/services/api', () => ({ wikiApi }))
+vi.mock('@/features/wiki/api', () => ({ wikiApi }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: routerPush }) }))
 vi.mock('@vueuse/core', () => ({
   useDebounceFn: (callback: (...args: unknown[]) => unknown) => callback,

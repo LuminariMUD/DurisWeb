@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { forumApi } from '@/services/api'
+import { forumApi } from '@/features/forum/api'
 import { useAuth } from '@/composables/useAuth'
 import { useDraftAutosave } from '@/composables/useDraftAutosave'
 import { useMentionAutocomplete } from '@/composables/useMentionAutocomplete'

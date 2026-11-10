@@ -11,7 +11,8 @@ const { get, put, post, show } = vi.hoisted(() => ({
   post: vi.fn(),
   show: vi.fn(),
 }))
-vi.mock('@/services/api', () => ({ apiClient: { get, put, post }, forumApi: {} }))
+vi.mock('@/services/httpClient', () => ({ apiClient: { get, put, post } }))
+vi.mock('@/features/forum/api', () => ({ forumApi: {} }))
 vi.mock('@/composables/useToast', () => ({ useToast: () => ({ show }) }))
 
 const sample =

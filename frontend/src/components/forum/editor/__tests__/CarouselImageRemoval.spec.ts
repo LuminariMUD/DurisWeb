@@ -4,7 +4,7 @@ import type { Component } from 'vue'
 import CarouselNodeView from '../CarouselNodeView.vue'
 
 const api = vi.hoisted(() => ({ clearOrphanImages: vi.fn(), getImageUploadStatus: vi.fn() }))
-vi.mock('@/services/api', () => ({ forumApi: api }))
+vi.mock('@/features/forum/api', () => ({ forumApi: api }))
 vi.mock('@tiptap/vue-3', () => ({
   NodeViewWrapper: { template: '<div><slot /></div>' },
   nodeViewProps: {

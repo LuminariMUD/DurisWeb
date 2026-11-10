@@ -41,10 +41,8 @@ vi.mock('@/composables/useCategories', async () => {
 vi.mock('@/composables/useToast', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn() }),
 }))
-vi.mock('@/services/api', () => ({
-  adminApi: {},
-  forumApi: {},
-}))
+vi.mock('@/features/admin/api', () => ({ adminApi: {} }))
+vi.mock('@/features/forum/api', () => ({ forumApi: {} }))
 vi.mock('@tanstack/vue-query', () => ({
   useQueryClient: () => ({ invalidateQueries, setQueryData: vi.fn() }),
 }))

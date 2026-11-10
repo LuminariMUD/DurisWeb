@@ -165,7 +165,7 @@ import {
   Loader2,
   AlertCircle,
 } from '@lucide/vue'
-import { forumApi } from '@/services/api'
+import { forumApi } from '@/features/forum/api'
 
 const props = defineProps(nodeViewProps)
 

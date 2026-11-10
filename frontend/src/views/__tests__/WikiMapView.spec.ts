@@ -9,7 +9,7 @@ const wikiApi = vi.hoisted(() => ({
   getMapLayers: vi.fn(),
 }))
 const reload = vi.hoisted(() => vi.fn())
-vi.mock('@/services/api', () => ({ wikiApi }))
+vi.mock('@/features/wiki/api', () => ({ wikiApi }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn(), go: reload }) }))
 
 const SlotStub = defineComponent({ template: '<div><slot /></div>' })

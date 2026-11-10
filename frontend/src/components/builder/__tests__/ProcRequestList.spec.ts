@@ -30,7 +30,7 @@ vi.mock('@tanstack/vue-query', () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }))
 
-vi.mock('@/services/api', () => ({
+vi.mock('@/features/builder/api', () => ({
   builderApi: {
     getProcRequests: vi.fn(),
     deleteProcRequest: vi.fn(),

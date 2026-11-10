@@ -273,7 +273,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { apiClient as api } from '@/services/api'
+import { apiClient as api } from '@/services/httpClient'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { useAuth } from '@/composables/useAuth'
 import {

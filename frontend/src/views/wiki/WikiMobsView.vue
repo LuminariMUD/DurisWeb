@@ -33,7 +33,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
 import AnsiText from '@/components/ui/AnsiText.vue'
-import { wikiApi } from '@/services/api'
+import { wikiApi } from '@/features/wiki/api'
 import { hasApiErrorCode } from '@/utils/apiError'
 import type { WikiMob, WikiMobFilters, WikiMobClass, WikiMobRace, WikiActFlag } from '@/types'
 import {

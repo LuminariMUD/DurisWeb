@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { useFactionOverlap } from '@/composables/usePublicStatistics'
-import type { FactionOverlapDays } from '@/services/api'
+import type { FactionOverlapDays } from '@/features/publicStats/api'
 import { chartTheme, heatColor } from '@/utils/chartTheme'
 import {
   type LocalOverlapHour,

@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
 import HelpFileDialog from '@/components/guide/HelpFileDialog.vue'
-import { guideApi } from '@/services/api'
+import { guideApi } from '@/features/guide/api'
 import { stripAnsiCodes } from '@/utils/ansiParser'
 import type { PublicHelpFile, GuideCategoryWithCount } from '@/types'
 import { Search, BookOpen, X, ArrowUp, ArrowDown } from '@lucide/vue'

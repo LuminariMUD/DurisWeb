@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { forumApi } from '@/services/api'
+import { forumApi } from '@/features/forum/api'
 import type { ForumCategory } from '@/types'
 import {
   Dialog,

@@ -26,7 +26,7 @@ import {
 } from 'chart.js'
 import { format } from 'date-fns'
 import { parseAnsiForVue, stripAnsiCodes } from '@/utils/ansiParser'
-import { profileApi } from '@/services/api'
+import { profileApi } from '@/features/profile/api'
 import { Trophy, Medal, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { forumApi } from '@/services/api'
+import { forumApi } from '@/features/forum/api'
 import { Bell, BellOff } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import {

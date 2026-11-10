@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
-import { wikiApi } from '@/services/api'
+import { wikiApi } from '@/features/wiki/api'
 import type { WikiMapTile, WikiZoneEntrance, WikiMapBounds } from '@/types'
 
 const props = withDefaults(

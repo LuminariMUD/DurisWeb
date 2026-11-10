@@ -131,7 +131,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { forumApi } from '@/services/api'
+import { forumApi } from '@/features/forum/api'
 import { useAuth } from '@/composables/useAuth'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

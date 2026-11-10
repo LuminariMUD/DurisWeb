@@ -27,7 +27,7 @@ import { Check, ChevronsUpDown, Loader2, AlertTriangle, Eye, EyeOff } from '@luc
 import { cn } from '@/lib/utils'
 import { useQuery } from '@tanstack/vue-query'
 import { useDebounceFn } from '@vueuse/core'
-import { apiClient } from '@/services/api'
+import { apiClient } from '@/services/httpClient'
 import type { UseGodCommandsReturn } from './god-commands/useGodCommands'
 import type { GodCommandParam } from './god-commands/types'
 import { useBuilderFlags } from './god-commands/useBuilderFlags'

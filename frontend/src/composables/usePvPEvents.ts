@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/vue-query'
 import type { MaybeRef } from 'vue'
 import { unref } from 'vue'
-import pvpApi from '@/services/api'
+import { pvpApi } from '@/features/pvp/api'
 import type { PvPFilters } from '@/types'
 
 export function usePvPEvents(filters: MaybeRef<PvPFilters> = {}) {

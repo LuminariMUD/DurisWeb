@@ -11,7 +11,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { parseAnsiForVue, stripAnsiCodes } from '@/utils/ansiParser'
-import { guideApi } from '@/services/api'
+import { guideApi } from '@/features/guide/api'
 import { useAuth } from '@/composables/useAuth'
 import type { PublicHelpFile } from '@/types'
 import { BookOpen, Calendar, User, ArrowLeft, Pencil } from '@lucide/vue'

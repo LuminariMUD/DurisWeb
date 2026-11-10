@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
-import { gitApi } from '@/services/api'
+import { gitApi } from '@/features/git/api'
 import { useAuth } from '@/composables/useAuth'
 import type { GitCommit } from '@/types'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'

@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { getSiteConfig } from '@/services/api'
+import { getSiteConfig } from '@/features/site/api'
 import type { SiteConfig } from '@/types'
 
 // Global site config state (shared across all components)

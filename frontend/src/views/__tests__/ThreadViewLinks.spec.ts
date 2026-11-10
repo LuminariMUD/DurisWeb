@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const getThread = vi.hoisted(() => vi.fn())
-vi.mock('@/services/api', () => ({ forumApi: { getThread } }))
+vi.mock('@/features/forum/api', () => ({ forumApi: { getThread } }))
 vi.mock('@unhead/vue', () => ({ useHead: vi.fn() }))
 vi.mock('vue-router', async () => {
   const { reactive } = await import('vue')

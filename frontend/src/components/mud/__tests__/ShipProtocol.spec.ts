@@ -9,7 +9,7 @@ import MudShipPanel from '../MudShipPanel.vue'
 vi.mock('@/composables/useMudConnection', () => ({
   useMudConnection: () => ({ sendGameCommand: vi.fn() }),
 }))
-vi.mock('@/services/api', () => ({
+vi.mock('@/features/wiki/api', () => ({
   wikiApi: {
     getWorldMapImage: vi.fn(async () => new Blob()),
     getMapBounds: vi.fn(async () => ({ minX: 0, maxX: 199, minY: 0, maxY: 99 })),

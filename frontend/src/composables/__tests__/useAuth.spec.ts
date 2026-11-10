@@ -4,7 +4,7 @@ const { mockGetMe } = vi.hoisted(() => ({
   mockGetMe: vi.fn(),
 }))
 
-vi.mock('@/services/api', () => ({
+vi.mock('@/features/auth/api', () => ({
   authApi: {
     getMe: mockGetMe,
     login: vi.fn(),

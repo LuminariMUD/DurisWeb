@@ -858,7 +858,7 @@ import {
   Map,
 } from '@lucide/vue'
 import { htmlToAnsi, ansiToHtmlWithStyles } from '@/utils/ansiParser'
-import { forumApi } from '@/services/api'
+import { forumApi } from '@/features/forum/api'
 
 const props = withDefaults(
   defineProps<{

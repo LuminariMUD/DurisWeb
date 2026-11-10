@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
-import { forumApi } from '@/services/api'
+import { forumApi } from '@/features/forum/api'
 import { useAuth } from '@/composables/useAuth'
 import { stripAnsiCodes, parseAnsiToHtml } from '@/utils/ansiParser'
 import type { ForumCategory, ForumThread } from '@/types'

@@ -24,7 +24,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
 import AnsiText from '@/components/ui/AnsiText.vue'
-import { wikiApi } from '@/services/api'
+import { wikiApi } from '@/features/wiki/api'
 import type { WikiZone, WikiZoneFilters } from '@/types'
 import { Search, SortAsc, SortDesc, X, Filter, ChevronDown, ChevronUp } from '@lucide/vue'
 

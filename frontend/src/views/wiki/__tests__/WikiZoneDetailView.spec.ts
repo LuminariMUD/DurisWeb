@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import WikiZoneDetailView from '../WikiZoneDetailView.vue'
-import { wikiApi } from '@/services/api'
+import { wikiApi } from '@/features/wiki/api'
 
-vi.mock('@/services/api', () => ({
+vi.mock('@/features/wiki/api', () => ({
   wikiApi: { getZoneDetail: vi.fn(), getZoneMapData: vi.fn(), getZoneSpawns: vi.fn() },
 }))
 vi.mock('vue-router', () => ({

@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { frontendConfiguration } from '@/config/environment'
 import { useAuth } from '@/composables/useAuth'
-import { profileApi, wikiApi } from '@/services/api'
+import { profileApi } from '@/features/profile/api'
+import { wikiApi } from '@/features/wiki/api'
 
 declare module 'vue-router' {
   interface RouteMeta {

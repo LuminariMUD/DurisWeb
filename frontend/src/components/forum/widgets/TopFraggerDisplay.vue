@@ -53,7 +53,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { fragApi } from '@/services/api'
+import { fragApi } from '@/features/frag/api'
 import { parseAnsiForVue } from '@/utils/ansiParser'
 import type { FragLeaderboardEntry } from '@/types'
 

@@ -207,7 +207,7 @@ import {
   AlertTriangle,
   Clock,
 } from '@lucide/vue'
-import { apiClient as api } from '@/services/api'
+import { apiClient as api } from '@/services/httpClient'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import HookHealthCard from '@/components/admin/hooks/HookHealthCard.vue'
 

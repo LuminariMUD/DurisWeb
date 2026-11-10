@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/vue-query'
-import { notificationApi } from '@/services/api'
+import { notificationApi } from '@/features/notifications/api'
 import { formatDistanceToNow } from 'date-fns'
 import {
   Bell,

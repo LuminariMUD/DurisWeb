@@ -8,7 +8,8 @@ const hasPermission = vi.fn()
 vi.mock('@/composables/useAuth', () => ({
   useAuth: () => ({ isAuthenticated, isOverlord, permissions, hasPermission, loadUser: vi.fn() }),
 }))
-vi.mock('@/services/api', () => ({ profileApi: {}, wikiApi: {} }))
+vi.mock('@/features/profile/api', () => ({ profileApi: {} }))
+vi.mock('@/features/wiki/api', () => ({ wikiApi: {} }))
 const { default: router } = await import('../index')
 // Exercise the real navigation guards without mounting unrelated route views.
 for (const route of router.getRoutes()) {

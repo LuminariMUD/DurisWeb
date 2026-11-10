@@ -4,9 +4,7 @@ const mocks = vi.hoisted(() => ({
   getSiteConfig: vi.fn(),
 }))
 
-vi.mock('@/services/api', () => ({
-  getSiteConfig: mocks.getSiteConfig,
-}))
+vi.mock('@/features/site/api', () => ({ getSiteConfig: mocks.getSiteConfig }))
 
 import { parseSiteConfig, resetSiteConfigForTests, useSiteConfig } from '../useSiteConfig'
 

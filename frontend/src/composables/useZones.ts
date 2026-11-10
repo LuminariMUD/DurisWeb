@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
-import { apiClient } from '@/services/api'
+import { apiClient } from '@/services/httpClient'
 
 export interface Zone {
   id: number

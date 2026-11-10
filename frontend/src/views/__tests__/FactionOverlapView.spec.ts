@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref, type Ref } from 'vue'
 import { mount } from '@vue/test-utils'
-import type { FactionOverlap, FactionOverlapDays, FactionOverlapHour } from '@/services/api'
+import type {
+  FactionOverlap,
+  FactionOverlapDays,
+  FactionOverlapHour,
+} from '@/features/publicStats/api'
 
 const overlap = {
   data: ref<FactionOverlap>(),

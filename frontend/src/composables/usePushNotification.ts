@@ -1,5 +1,5 @@
 import { ref, computed, onMounted } from 'vue'
-import { apiClient } from '@/services/api'
+import { apiClient } from '@/services/httpClient'
 
 const PUSH_ENABLED_KEY = 'push_notifications_enabled'
 

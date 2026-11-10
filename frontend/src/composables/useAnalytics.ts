@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/vue-query'
 import { computed, unref, type MaybeRef } from 'vue'
-import pvpApi from '@/services/api'
+import { pvpApi } from '@/features/pvp/api'
 import type { AnalyticsPeriod } from '@/types'
 
 export function useKillTimeline(period: MaybeRef<AnalyticsPeriod> = '30d') {

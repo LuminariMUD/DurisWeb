@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { profileApi, pvpApi } from '@/services/api'
+import { profileApi } from '@/features/profile/api'
+import { pvpApi } from '@/features/pvp/api'
 import { useAuth } from '@/composables/useAuth'
 import { ThumbsUp, MessageSquare, Star, Clock } from '@lucide/vue'
 import type {

@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
-import pvpApi from '@/services/api'
+import { pvpApi } from '@/features/pvp/api'
 import { useLocations, usePlayers } from '@/composables/usePvPEvents'
 import { format } from 'date-fns'
 import { parseAnsiForVue } from '@/utils/ansiParser'

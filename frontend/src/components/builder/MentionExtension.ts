@@ -3,7 +3,7 @@ import tippy, { type Instance as TippyInstance } from 'tippy.js'
 import Mention from '@tiptap/extension-mention'
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
 import MentionList from './MentionList.vue'
-import { builderApi } from '@/services/api'
+import { builderApi } from '@/features/builder/api'
 
 export interface MentionItem {
   id: string

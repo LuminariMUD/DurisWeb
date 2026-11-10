@@ -15,7 +15,7 @@ const isOverlord = ref(true)
 const isGreaterGod = ref(true)
 const hasPermission = vi.fn(() => false)
 const routerPush = vi.fn()
-vi.mock('@/services/api', () => ({ adminApi: api }))
+vi.mock('@/features/admin/api', () => ({ adminApi: api }))
 vi.mock('@/composables/useToast', () => ({ useToast: () => toast }))
 vi.mock('@/composables/useAuth', () => ({
   useAuth: () => ({ isOverlord, isGreaterGod, hasPermission }),

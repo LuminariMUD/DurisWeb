@@ -28,7 +28,7 @@ import {
 
 import type { MudShipContact } from '@/types/mud'
 import type { WikiMapBounds } from '@/types'
-import { wikiApi } from '@/services/api'
+import { wikiApi } from '@/features/wiki/api'
 import { getCachedWorldMap, setCachedWorldMap } from '@/utils/worldMapCache'
 import { parseAnsiToHtml, stripAnsiCodes } from '@/utils/ansiParser'
 import {

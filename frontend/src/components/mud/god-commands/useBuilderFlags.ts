@@ -5,7 +5,7 @@
 
 import { computed } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
-import { apiClient } from '@/services/api'
+import { apiClient } from '@/services/httpClient'
 import type { GodCommandOption } from './types'
 
 // ============================================

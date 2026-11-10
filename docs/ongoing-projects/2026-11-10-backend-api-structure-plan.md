@@ -861,5 +861,41 @@ builderChildIdValidation zone builder` — 11 suites / 57 tests passed;
 `verify:mud-writes` 53 verified; format:check, lint, type-check, build passed.
 No game file or MUD process was touched.
 
-Next: step 5 — frontend API split (`frontend/src/features/*/api.ts`), branch
-`refactor/frontend-feature-apis`.
+### Step 5 — frontend feature APIs (branch `refactor/frontend-feature-apis`)
+
+Stacked on `refactor/builder-routes` (independent of it in code; stacked to
+keep this log linear). Done:
+
+- `frontend/src/services/api.ts` is deleted. Each export moved verbatim to
+  `frontend/src/features/<domain>/api.ts`: `site` (getSiteConfig), `pvp`,
+  `news`, `auth`, `forum`, `admin` (adminApi, dupeApi + Dupe* types,
+  userManagementApi, analyticsApi), `profile` (profile/character/guild), `frag`,
+  `git`, `builder`, `wiki`, `guide` (guide + help suggestions), `notifications`,
+  `auction`, `publicStats` (+ Faction* types); `changelog` moved in step 1.
+- `adminApi` and `builderApi` are split by backend route group into
+  `features/admin/{community,backup,settings,discord,mudControl}Api.ts` and
+  `features/builder/{zone,room,mob,object,resetFlag,validation,git,settings,
+  access,collaboration}Api.ts`, then recomposed by spread into the same
+  `adminApi` / `builderApi` objects, so every caller and `adminApi.x(...)` call
+  is unchanged. No method uses `this`; a spec pins the 53/58 method counts so
+  a key collision cannot silently drop one.
+- All ~130 consumers and 21 spec mocks were rewritten mechanically: each
+  `@/services/api` import now names the owning module; each
+  `vi.mock('@/services/api', …)` factory was split into one `vi.mock` per
+  owning module with the same properties. The four default `pvpApi` imports
+  are named imports; the default export is gone. Raw-client users import
+  `apiClient` from `services/httpClient` (their endpoint calls were not moved:
+  they are outside the slices touched here).
+- No narrow lint rule was added for the retired path: the file no longer
+  exists, so any import fails type-check.
+- New `features/__tests__/featureApis.spec.ts`: method counts, PvP query
+  encoding, axios `params`, multipart admin upload with CSRF.
+
+Verification: `pnpm --dir frontend test:unit --run` — 94 files / 757 tests
+passed (one new file, four new tests); format:check, lint, type-check passed;
+build passed with the CI placeholder env.
+
+Next: step 6 — closure: permanent docs (`docs/ARCHITECTURE.md`,
+`docs/CONVENTIONS.md`, package READMEs) on where to add a route, job,
+WebSocket handler, browser API call and tests; final full suites;
+browser-journey status. Branch `refactor/structure-closure`.

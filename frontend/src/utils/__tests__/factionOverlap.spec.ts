@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { FactionOverlapHour } from '@/services/api'
+import type { FactionOverlapHour } from '@/features/publicStats/api'
 import { timeZoneLabel, toLocalOverlapHours, topOverlapWindows } from '../factionOverlap'
 
 function hour(utcHour: number, bothSamples = 0, samples = 100): FactionOverlapHour {

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/vue-query'
-import { auctionApi } from '@/services/api'
+import { auctionApi } from '@/features/auction/api'
 import type {
   AuctionFilters,
   AuctionHistoryFilters,

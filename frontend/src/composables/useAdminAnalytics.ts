@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/vue-query'
-import { analyticsApi } from '@/services/api'
+import { analyticsApi } from '@/features/admin/api'
 
 export interface OverviewStats {
   currentOnlinePlayers: number

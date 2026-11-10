@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AxiosHeaders } from 'axios'
-import { apiClient, forumApi } from '../api'
+import { apiClient } from '@/services/httpClient'
+import { forumApi } from '@/features/forum/api'
 
 afterEach(() => vi.restoreAllMocks())
 function response(data: unknown) {

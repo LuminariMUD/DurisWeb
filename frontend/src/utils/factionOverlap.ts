@@ -1,4 +1,4 @@
-import type { FactionOverlapHour } from '@/services/api'
+import type { FactionOverlapHour } from '@/features/publicStats/api'
 
 /** One hour-long bucket, labelled in the viewer's timezone. */
 export interface LocalOverlapHour extends Omit<FactionOverlapHour, 'timestamp'> {

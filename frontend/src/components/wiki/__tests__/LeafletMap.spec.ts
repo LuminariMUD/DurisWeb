@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import L from 'leaflet'
 import LeafletMap from '../LeafletMap.vue'
-import { wikiApi } from '@/services/api'
+import { wikiApi } from '@/features/wiki/api'
 import type { WikiZoneEntrance } from '@/types'
 import { PaintedMapLayer } from '../paintedMapLayer'
 
-vi.mock('@/services/api', () => ({
+vi.mock('@/features/wiki/api', () => ({
   wikiApi: { getZoneEntrances: vi.fn(), getMapSectors: vi.fn() },
 }))
 const bounds = { minX: 0, maxX: 399, minY: 0, maxY: 399 }

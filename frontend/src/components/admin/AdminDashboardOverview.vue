@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button'
 import { AlertCircle } from '@lucide/vue'
 import { parseAnsiForVue } from '@/utils/ansiParser'
 import { useToast } from '@/composables/useToast'
-import { analyticsApi } from '@/services/api'
+import { analyticsApi } from '@/features/admin/api'
 import { useWebSocket } from '@/composables/useWebSocket'
 import type { ChartData } from 'chart.js'
 

@@ -174,7 +174,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { RefreshCw, RotateCcw, Info } from '@lucide/vue'
-import { apiClient as api } from '@/services/api'
+import { apiClient as api } from '@/services/httpClient'
 import { toast } from 'vue-sonner'
 import TimerResetDialog from '@/components/admin/TimerResetDialog.vue'
 

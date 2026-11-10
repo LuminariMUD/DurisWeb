@@ -380,7 +380,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { dupeApi, type DupedItem, type DupeDetail, type DupeSummary } from '@/services/api'
+import { dupeApi, type DupedItem, type DupeDetail, type DupeSummary } from '@/features/admin/api'
 import { stripAnsiCodes } from '@/utils/ansiParser'
 import { useToast } from '@/composables/useToast'
 import {

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/vue-query'
 import { computed, type MaybeRef, unref } from 'vue'
-import { publicStatsApi, type FactionOverlapDays } from '@/services/api'
+import { publicStatsApi, type FactionOverlapDays } from '@/features/publicStats/api'
 
 export function useFactionActivity(date: MaybeRef<string>) {
   return useQuery({

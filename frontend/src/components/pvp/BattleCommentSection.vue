@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import AnsiText from '@/components/ui/AnsiText.vue'
-import { pvpApi } from '@/services/api'
+import { pvpApi } from '@/features/pvp/api'
 import { useAuth } from '@/composables/useAuth'
 import type { PvPBattleComment } from '@/types'
 import { formatDistanceToNow } from 'date-fns'

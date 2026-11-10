@@ -2,7 +2,7 @@ import { defineComponent, nextTick, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { adminApi } from '@/services/api'
+import { adminApi } from '@/features/admin/api'
 import { useBackups } from '../useBackups'
 import type { BackupInfo } from '@/types'
 
@@ -10,7 +10,7 @@ const accountName = ref<string | null>('UploaderAlpha')
 const permissions = ref<{ role: string } | undefined>({ role: 'overlord' })
 vi.mock('../useAuth', () => ({ useAuth: () => ({ accountName, permissions }) }))
 
-vi.mock('@/services/api', () => ({
+vi.mock('@/features/admin/api', () => ({
   adminApi: {
     getBackupList: vi.fn(async () => ({ backups: [] })),
     deleteBackup: vi.fn(),

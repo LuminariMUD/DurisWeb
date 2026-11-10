@@ -21,13 +21,15 @@ vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 vi.mock('@/composables/useAuth', () => ({
   useAuth: () => ({ accountName, hasPermission }),
 }))
-vi.mock('@/services/api', () => ({
+vi.mock('@/features/profile/api', () => ({
   profileApi: {
     getUserProfile: (name: string) => getProfile(name),
     getAccountCharacters: (name: string) => getCharacters(name),
     getUserThreads: () => getThreads(),
     getUserPosts: () => getPosts(),
   },
+}))
+vi.mock('@/features/pvp/api', () => ({
   pvpApi: {
     getUserFavorites: async () => ({
       data: [],

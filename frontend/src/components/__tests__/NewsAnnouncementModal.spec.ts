@@ -7,7 +7,7 @@ import { useNews } from '@/composables/useNews'
 import { useWebSocket } from '@/composables/useWebSocket'
 
 const { getNews } = vi.hoisted(() => ({ getNews: vi.fn() }))
-vi.mock('@/services/api', () => ({ newsApi: { getNews } }))
+vi.mock('@/features/news/api', () => ({ newsApi: { getNews } }))
 vi.mock('@/composables/useAuth', () => ({ useAuth: () => ({ accountName: ref('Reader') }) }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 

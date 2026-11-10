@@ -38,7 +38,8 @@ import {
 } from '@lucide/vue'
 import { useAuth } from '@/composables/useAuth'
 import { useToast } from '@/composables/useToast'
-import { helpSuggestionApi, dupeApi, type DupedItem } from '@/services/api'
+import { helpSuggestionApi } from '@/features/guide/api'
+import { dupeApi, type DupedItem } from '@/features/admin/api'
 import { Badge } from '@/components/ui/badge'
 import { CollapsibleRoot, CollapsibleTrigger, CollapsibleContent } from 'radix-vue'
 import {

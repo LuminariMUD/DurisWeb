@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/vue-query'
 import { ref, computed, onScopeDispose } from 'vue'
-import { apiClient } from '@/services/api'
+import { apiClient } from '@/services/httpClient'
 
 interface CurrentReboot {
   bootTime: number

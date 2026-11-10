@@ -194,7 +194,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { TrendingUp, Settings, Info, RefreshCw } from '@lucide/vue'
-import { apiClient as api } from '@/services/api'
+import { apiClient as api } from '@/services/httpClient'
 import { toast } from 'vue-sonner'
 import LevelCapConfirmDialog from '@/components/admin/LevelCapConfirmDialog.vue'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'

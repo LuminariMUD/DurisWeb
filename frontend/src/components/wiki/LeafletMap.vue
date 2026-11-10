@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { wikiApi } from '@/services/api'
+import { wikiApi } from '@/features/wiki/api'
 import type { WikiZoneEntrance, WikiMapBounds } from '@/types'
 import { stripAnsiCodes } from '@/utils/ansiParser'
 import { frontendConfiguration } from '@/config/environment'

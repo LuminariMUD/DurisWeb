@@ -414,7 +414,7 @@ import {
   XCircle,
   Loader2,
 } from '@lucide/vue'
-import { apiClient as api } from '@/services/api'
+import { apiClient as api } from '@/services/httpClient'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

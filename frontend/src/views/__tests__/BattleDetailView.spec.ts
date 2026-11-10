@@ -22,8 +22,10 @@ vi.mock('@/composables/useToast', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn() }),
 }))
 vi.mock('@/composables/useAuth', () => ({ useAuth: () => ({ permissions: ref(null) }) }))
-vi.mock('@/services/api', () => ({
+vi.mock('@/features/profile/api', () => ({
   profileApi: { getCharacterAccountsBatch: (names: string[]) => accounts(names) },
+}))
+vi.mock('@/features/pvp/api', () => ({
   pvpApi: {
     getBattleStats: async () => ({
       likeCount: 0,
@@ -32,8 +34,8 @@ vi.mock('@/services/api', () => ({
       userFavorited: false,
     }),
   },
-  adminApi: {},
 }))
+vi.mock('@/features/admin/api', () => ({ adminApi: {} }))
 import BattleDetailView from '../BattleDetailView.vue'
 
 function participant(

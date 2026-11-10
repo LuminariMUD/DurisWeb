@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
-import { builderApi } from '@/services/api'
+import { builderApi } from '@/features/builder/api'
 import { useAuth } from '@/composables/useAuth'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import { formatDistanceToNow } from 'date-fns'

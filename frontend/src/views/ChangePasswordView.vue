@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useToast } from '@/composables/useToast'
 import { useAuth } from '@/composables/useAuth'
-import { authApi } from '@/services/api'
+import { authApi } from '@/features/auth/api'
 import { Loader2, KeyRound, AlertCircle } from '@lucide/vue'
 
 const router = useRouter()

@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
-import { helpSuggestionApi } from '@/services/api'
+import { helpSuggestionApi } from '@/features/guide/api'
 import { useToast } from '@/composables/useToast'
 import { parseAnsiForVue, stripAnsiCodes } from '@/utils/ansiParser'
 import type { HelpSuggestion, SuggestionStatus } from '@/types'

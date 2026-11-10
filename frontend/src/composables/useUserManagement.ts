@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import { userManagementApi } from '@/services/api'
+import { userManagementApi } from '@/features/admin/api'
 import type { Ref } from 'vue'
 
 export interface UserManagementFilters {

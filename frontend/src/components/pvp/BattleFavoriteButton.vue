@@ -2,7 +2,7 @@
 import { ref, watch } from 'vue'
 import { Star } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
-import { pvpApi } from '@/services/api'
+import { pvpApi } from '@/features/pvp/api'
 import { useAuth } from '@/composables/useAuth'
 
 interface Props {

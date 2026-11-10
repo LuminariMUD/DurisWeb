@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { authApi } from '@/services/api'
+import { authApi } from '@/features/auth/api'
 import type { UserContext, CharacterInfo } from '@/types'
 
 // Global auth state (shared across all components)

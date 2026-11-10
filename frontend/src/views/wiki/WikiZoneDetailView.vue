@@ -9,7 +9,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import AnsiText from '@/components/ui/AnsiText.vue'
 import WikiZoneMap from '@/components/wiki/WikiZoneMap.vue'
-import { wikiApi } from '@/services/api'
+import { wikiApi } from '@/features/wiki/api'
 import type {
   WikiZoneDetail,
   WikiRoom,

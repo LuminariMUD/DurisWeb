@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { isAxiosError } from 'axios'
-import { apiClient as api } from '@/services/api'
+import { apiClient as api } from '@/services/httpClient'
 import { Button } from '@/components/ui/button'
 import { Save } from '@lucide/vue'
 import { useToast } from '@/composables/useToast'

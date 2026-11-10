@@ -54,7 +54,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { pvpApi } from '@/services/api'
+import { pvpApi } from '@/features/pvp/api'
 import { parseAnsiForVue } from '@/utils/ansiParser'
 import type { PvPEvent } from '@/types'
 

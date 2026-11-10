@@ -1,5 +1,5 @@
 import { ref, computed, type Ref } from 'vue'
-import { forumApi } from '@/services/api'
+import { forumApi } from '@/features/forum/api'
 
 export interface MentionSuggestion {
   username: string

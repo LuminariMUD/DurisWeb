@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { notificationApi } from '@/services/api'
+import { notificationApi } from '@/features/notifications/api'
 import { useAuth } from '@/composables/useAuth'
 import type { UnifiedNotification } from '@/types'
 import { Button } from '@/components/ui/button'

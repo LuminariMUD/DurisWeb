@@ -8,7 +8,7 @@ const apiClient = vi.hoisted(() => ({
   delete: vi.fn(),
 }))
 
-vi.mock('@/services/api', () => ({ apiClient }))
+vi.mock('@/services/httpClient', () => ({ apiClient }))
 vi.mock('@tanstack/vue-query', () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
   useQuery: () => ({

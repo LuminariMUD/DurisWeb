@@ -30,7 +30,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { helpSuggestionApi } from '@/services/api'
+import { helpSuggestionApi } from '@/features/guide/api'
 import { useAuth } from '@/composables/useAuth'
 import { useToast } from '@/composables/useToast'
 import { parseAnsiForVue, stripAnsiCodes } from '@/utils/ansiParser'

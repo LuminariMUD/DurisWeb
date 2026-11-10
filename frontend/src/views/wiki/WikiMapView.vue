@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import LeafletMap from '@/components/wiki/LeafletMap.vue'
-import { wikiApi } from '@/services/api'
+import { wikiApi } from '@/features/wiki/api'
 import type { WikiContinent, WikiMapBounds } from '@/types'
 import { Loader2, ZoomIn, ZoomOut, Crosshair, Home, Layers } from '@lucide/vue'
 

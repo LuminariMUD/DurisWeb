@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { adminApi } from '@/services/api'
+import { adminApi } from '@/features/admin/api'
 import { useWebSocket } from './useWebSocket'
 
 export interface MudStatus {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { forumApi } from '@/services/api'
+import { forumApi } from '@/features/forum/api'
 import { useAuth } from '@/composables/useAuth'
 import { useCategories } from '@/composables/useCategories'
 import {

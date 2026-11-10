@@ -1,5 +1,5 @@
 import { useQuery, keepPreviousData } from '@tanstack/vue-query'
-import { fragApi } from '@/services/api'
+import { fragApi } from '@/features/frag/api'
 import type {
   FragLeaderboardFilters,
   FragLeaderboardResponse,

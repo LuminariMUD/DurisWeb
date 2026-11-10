@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
-import { apiClient } from '../services/api'
+import { apiClient } from '@/services/httpClient'
 
 export interface LogFile {
   name: string

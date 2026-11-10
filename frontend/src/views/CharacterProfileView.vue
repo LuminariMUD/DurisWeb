@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import BreadcrumbsNav from '@/components/layout/BreadcrumbsNav.vue'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
-import { characterApi } from '@/services/api'
+import { characterApi } from '@/features/profile/api'
 import { parseAnsiToHtml, slugify } from '@/utils/ansiParser'
 import { formatDistanceToNow } from 'date-fns'
 

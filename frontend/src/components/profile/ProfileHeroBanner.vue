@@ -12,7 +12,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Camera, Trash2, Loader2, ImagePlus } from '@lucide/vue'
-import { profileApi } from '@/services/api'
+import { profileApi } from '@/features/profile/api'
 import { useToast } from '@/composables/useToast'
 import defaultBannerImage from '@/assets/eclipse/duris-eclipse.webp'
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { notificationApi } from '@/services/api'
+import { notificationApi } from '@/features/notifications/api'
 import { Bell } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import AnsiText from '@/components/ui/AnsiText.vue'

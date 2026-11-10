@@ -80,7 +80,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { forumApi } from '@/services/api'
+import { forumApi } from '@/features/forum/api'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/vue-query'
-import { newsApi } from '@/services/api'
+import { newsApi } from '@/features/news/api'
 
 /**
  * Fetch news content from mud_info table

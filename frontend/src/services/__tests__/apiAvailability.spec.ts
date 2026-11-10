@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AxiosError, CanceledError } from 'axios'
 import { apiClient } from '../httpClient.js'
-import { apiClient as legacyApiClient } from '../api.js'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -96,8 +95,7 @@ describe('API availability signals', () => {
     expect(dispatch).not.toHaveBeenCalled()
   })
 
-  it('shares one instance and adds CSRF only to mutations', async () => {
-    expect(legacyApiClient).toBe(apiClient)
+  it('keeps credentials, timeout, and CSRF only on mutations', async () => {
     expect(apiClient.defaults.withCredentials).toBe(true)
     expect(apiClient.defaults.timeout).toBe(10000)
     document.cookie = 'csrf_token=synthetic-token'

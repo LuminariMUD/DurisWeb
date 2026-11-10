@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { adminApi } from '@/services/api'
+import { adminApi } from '@/features/admin/api'
 import { useAuth } from '@/composables/useAuth'
 import { useToast } from '@/composables/useToast'
 import type { WebSettingRow, DiscordDeliveryStatus } from '@/types'

@@ -249,7 +249,7 @@ import {
   X,
   History,
 } from '@lucide/vue'
-import { apiClient as api } from '@/services/api'
+import { apiClient as api } from '@/services/httpClient'
 import { useDebounceFn } from '@vueuse/core'
 import { toast } from 'vue-sonner'
 import PropertyEditDialog from '@/components/admin/PropertyEditDialog.vue'

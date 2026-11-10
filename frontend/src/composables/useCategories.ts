@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/vue-query'
-import { forumApi, adminApi } from '@/services/api'
+import { forumApi } from '@/features/forum/api'
+import { adminApi } from '@/features/admin/api'
 import type { ForumCategory } from '@/types'
 import type { Ref } from 'vue'
 import { computed, unref } from 'vue'

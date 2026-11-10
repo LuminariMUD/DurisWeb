@@ -35,7 +35,7 @@ import {
   AlertTriangle,
   Loader2,
 } from '@lucide/vue'
-import { builderApi } from '@/services/api'
+import { builderApi } from '@/features/builder/api'
 import type { RoomExit, FlagDefinition, Direction } from '@/types'
 
 const props = defineProps<{

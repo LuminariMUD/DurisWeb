@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
-import { adminApi } from '@/services/api'
+import { adminApi } from '@/features/admin/api'
 import { useToast } from '@/composables/useToast'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

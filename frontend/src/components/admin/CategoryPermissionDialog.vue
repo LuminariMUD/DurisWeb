@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { adminApi, forumApi } from '@/services/api'
+import { adminApi } from '@/features/admin/api'
+import { forumApi } from '@/features/forum/api'
 import type { ForumCategory, CategoryPermissionRule, AddPermissionRequest } from '@/types'
 import {
   Dialog,
