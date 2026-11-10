@@ -1,7 +1,8 @@
 # Rich-text blog with search visibility and link previews
 
 Prepared 2026-11-10. **Status: proposal; implementation and deployment have not started.**
-Source inspected at checkout HEAD `8a1986b`.
+Source inspected at checkout HEAD `8a1986b`; rechecked against source at `460edf8`
+and anonymous production responses on 2026-11-10 (observations marked below).
 This document proposes a website-owned blog with admin publishing, complete
 article HTML in the initial response, social metadata, a sitemap, and RSS.
 
@@ -33,16 +34,40 @@ No changes to the separate DurisMUD repository or game-owned tables are required
   [changelog display sanitization](../../frontend/src/utils/sanitizeChangelogContent.ts)
   provide existing safety boundaries. Blog preview, persistence, server HTML, and
   browser rendering must preserve the same supported content subset.
+  `processContentForWrite` is the changelog's write boundary, but it is not a
+  complete blog policy: it caps HTML at 50,000 characters, keeps `h1`, `div`,
+  `class`, and the MUD-colour/column attributes, and accepts any `http(s)` or
+  relative image `src`. Blog writes need their own explicit size bound plus the
+  heading, HTTPS-image, and forum-image rules below, layered on that sanitizer.
+- The editor's only feature switches are `enableMentions` and `enableWidgets`.
+  File upload, carousel, columns, MUD colours, font size, and alignment are
+  always shown, and the sanitizer strips `style`. Blog mode therefore needs a
+  switch that hides whatever the blog contract does not keep.
 - [The design guide](../DESIGN.md) and
   [main.css](../../frontend/src/assets/main.css) supply the eclipse palette,
   display typography, reading surfaces, and rich-text styling.
 - [The server](../../backend/src/index.ts) serves the production Vue shell and
   adds crawler-specific metadata for PvP links. It does not currently render
-  blog articles or provide a general article-rendering pipeline.
+  blog articles or provide a general article-rendering pipeline. The shell and
+  its catch-all exist only when the backend runs in production mode, and the
+  catch-all answers every unmatched path with the shell and HTTP 200: on
+  2026-11-10 production returned the shell as `text/html` for both `/blog` and
+  `/sitemap.xml`. In development the Vite server owns page routes and proxies
+  only `/api` and `/maps`, so new document and XML handlers are unreachable
+  there unless the proxy is extended or they are exercised against a build.
+- [CSRF middleware](../../backend/src/middleware/csrf.ts) runs before every route
+  and sets a `csrf_token` cookie on any response to a client without one. Only
+  fingerprinted assets are registered ahead of it.
 - [Frontend startup](../../frontend/src/main.ts) uses `createApp().mount()`, not
-  SSR hydration. [The service worker configuration](../../frontend/vite.config.ts)
-  currently falls back to `index.html` for non-API navigations. Both facts matter
-  when adding readable initial HTML and publication freshness.
+  SSR hydration, and installs `@unhead/vue`; views already set titles and
+  descriptions with `useHead`. [The service worker configuration](../../frontend/vite.config.ts)
+  currently falls back to `index.html` for non-API navigations and uses
+  `registerType: 'prompt'`, so an installed client keeps its previous worker
+  until the user accepts the update. These facts matter when adding readable
+  initial HTML and publication freshness.
+- The repository has no `robots.txt`. On 2026-11-10 production served one made
+  only of a Cloudflare managed block (content signals and AI-crawler rules) with
+  no `Sitemap` line; it is edge configuration, not something this checkout owns.
 
 ### Image handling needs an explicit boundary
 
@@ -123,6 +148,17 @@ explicit UTC contract and serialize them consistently. Use parameterized queries
 and an atomic revision check for writes. Do not edit historical migrations or
 the pinned historical schema baseline; follow the existing forward-migration path.
 
+That path has concrete requirements. A post-cutoff migration needs a reviewed
+`NAME.schema.json` beside it, recording the migration checksum and the table's
+metadata hashes after `up` on both MySQL 8 and MariaDB 11, with `up` and `down`
+rehearsed on both families; `pnpm --dir backend schema:check` enforces it. Size
+`content_html` for the validated maximum in bytes: `TEXT` holds 65,535 bytes,
+which multi-byte content can exceed well before a 50,000-character limit. Restrict
+slugs to lowercase letters, digits, and hyphens so none can shadow `/blog/rss.xml`.
+Because `created_by`/`updated_by` hold account identity, add `blog_posts` to the
+[data lifecycle inventory](../privacy-data-lifecycle.md) with its retention and
+subject-request handling, as `website_changelog` is recorded today.
+
 Proposed routes, with specific routes registered before parameterized routes:
 
 - `GET /api/blog/posts` and `GET /api/blog/posts/:slug`: published-only data.
@@ -165,7 +201,21 @@ the existing viewport-height shell styles so a long article is not clipped.
 Unknown, draft, and unpublished article requests return real HTTP 404 responses,
 without article metadata. Dependency failures return an actionable 503 rather
 than a successful empty shell. Support HEAD consistently with GET. Canonical
-URLs use configured site origin/base settings, never the request Host header.
+URLs use configured site origin/base settings, never the request Host header;
+the backend value is `environment.siteUrl`, which the PvP metadata already uses.
+
+The blog handlers must own their whole path space, because anything that falls
+through reaches the catch-all and becomes a 200 shell. That includes malformed
+slugs, out-of-range listing pages, and `/sitemap.xml` or `/blog/rss.xml` when a
+query fails. Register the two XML handlers ahead of the CSRF middleware, as the
+fingerprinted assets are, so feed readers and crawlers receive no cookie. The
+document renderer reads the built template, so give it an injectable template
+for tests and decide how the handlers are reached in development.
+
+On the client, manage title, description, canonical, and social tags with the
+existing `useHead` pattern. Tags written into the server document are not owned
+by that head manager, so the handoff must adopt or remove them; otherwise the
+first internal navigation leaves the previous article's tags beside the new ones.
 
 ### Metadata and discovery
 
@@ -186,9 +236,16 @@ guarantee indexing, ranking, or a particular platform's preview.
 `/sitemap.xml` initially covers the blog listing and all published article URLs;
 this is not a site-wide sitemap project. Generate it from current publication
 state, use real content modification dates, escape XML, and send the correct
-content type. Add its absolute URL to `robots.txt`, preserving any existing
-deployment-owned directives discovered during implementation. Follow the
-[Sitemap protocol](https://www.sitemaps.org/protocol.html).
+content type. Follow the [Sitemap protocol](https://www.sitemaps.org/protocol.html).
+
+Advertise the sitemap with an absolute `Sitemap:` line in a `text/plain`
+`robots.txt` served by the origin, which has none today. The public file is
+currently Cloudflare's managed block, so the line counts as delivered only when
+it appears in the response fetched through `duris.sbs` alongside that block.
+Do not weaken or duplicate the edge-managed crawler rules from the origin. If
+the edge does not merge the origin file, changing that is a Cloudflare
+configuration step needing its own authorization; record it rather than
+assuming the origin file is what crawlers see.
 
 `/blog/rss.xml` supplies the newest 50 published articles with channel metadata,
 title, canonical link, stable GUID, publication date, and plain-text summary.
@@ -209,6 +266,11 @@ SPA fallback and article-response caches; use network-only handling for those
 resources and blog APIs. Ensure internal Vue navigation refetches publication
 state and successful admin writes invalidate affected queries. Verify the
 service-worker update path for an already installed client, not only a fresh browser.
+The concrete change is to `navigateFallbackDenylist`, which today lists only
+`/api`: add the blog paths, `/sitemap.xml`, and `/robots.txt`. Because updates
+are prompted, a client that has not yet accepted the new worker still receives
+the previous precached shell for `/blog` navigations; state that expected
+interim behavior in the release notes instead of treating it as a defect.
 
 Acceptance is that the next network request reflects a successful publish,
 edit, or unpublish operation across all representations. An already open page,
@@ -277,6 +339,9 @@ implementation choice; this is not a request to refactor every listed file.
   correct metadata, navigation, and styles. With JavaScript enabled, direct and
   internal navigation converge without duplicate content or stale head tags.
 - Invalid/missing/unpublished URLs return HTTP 404; backend failures return 503.
+  No blog, sitemap, or feed path returns the generic 200 shell, and the sitemap
+  and feed responses set no cookie. The `Sitemap` line is present in `robots.txt`
+  as fetched through the public hostname.
   A successful publication change is reflected in the next network read of every
   public representation, including with an installed service worker.
 - Validate sitemap and RSS with XML parsers; check canonical host, escaping,
@@ -297,6 +362,7 @@ pnpm --dir frontend test:unit --run <affected-test-paths>
 pnpm --dir backend format:check
 pnpm --dir backend lint
 pnpm --dir backend type-check
+pnpm --dir backend schema:check
 pnpm --dir backend verify:mud-writes
 pnpm --dir backend build
 pnpm --dir frontend format:check
@@ -306,7 +372,8 @@ pnpm --dir frontend type-check
 pnpm --dir frontend build
 ```
 
-Also run configuration/schema checks if their owning inputs change, following
+`schema:check` is required here because the release adds a migration and its
+`.schema.json` contract. Also run configuration checks if their owning inputs change, following
 [development](../development.md) and [schema baseline guidance](../../backend/schema-baselines/README.md).
 Report actual commands and results; this proposal records no passing runtime tests.
 Build outside the live served directory and avoid concurrent heavy jobs on production.
