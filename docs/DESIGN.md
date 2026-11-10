@@ -434,6 +434,12 @@ mobile panels initialize when visible and release their observers on unmount.
 
 ### Browser game maps
 
+Ship radar uses server range/bearing even when a contact cannot be placed on the
+world image. Unavailable-position notices sit below the coordinate/zoom labels;
+image bounds never establish wrapped-zone geometry. See the
+[/play protocol follow-up](ongoing-projects/play-protocol-support.md) for the
+ship snapshot lifetime, fallback and qualification evidence.
+
 `/play` uses one `usePlayMap` controller per game session. Docked, floating and
 mobile maps share its accepted data, preferences and navigation owner. The
 session-specific `/play/map` pop-out receives validated snapshots; it never

@@ -7,6 +7,60 @@ import {
 import fixtures from '../../components/mud/__tests__/fixtures/output-presentation-v1.json'
 
 describe('output snapshots from the production server harness', () => {
+  it.each([
+    'https://example.test/?x=1&name=two&n=x&no-cache',
+    'http://[::1]:8080/a?x=[one]#two',
+    'https://example.test/café?q=雪',
+    'https://example.test/a(b)?#',
+  ])('retains the server-frozen target exactly: %s', (target) => {
+    const value = {
+      version: 1,
+      text: '🧭 label',
+      underline: false,
+      runs: [[0, 7, 0, 0]],
+      links: [{ start: 2, end: 7, kind: 'url', target }],
+    }
+    expect(parseOutputPresentation(value)?.links?.[0]?.target).toBe(target)
+  })
+
+  it('enforces text, run, link and UTF-8 target budgets', () => {
+    const value = { version: 1, text: 'a'.repeat(129), underline: false, runs: [[0, 129, 0, 0]] }
+    const links = Array.from({ length: 129 }, (_, start) => ({
+      start,
+      end: start + 1,
+      kind: 'url',
+      target: 'https://example.test/',
+    }))
+    expect(parseOutputPresentation({ ...value, links: links.slice(0, 128) })).toBeDefined()
+    expect(parseOutputPresentation({ ...value, links })).toBeUndefined()
+    expect(parseOutputPresentation(value, 128)).toBeUndefined()
+    expect(
+      parseOutputPresentation({ ...value, runs: Array(4097).fill([0, 1, 0, 0]) }),
+    ).toBeUndefined()
+    const maximumUrl = 'https://example.test/' + 'a'.repeat(2027)
+    expect(new TextEncoder().encode(maximumUrl)).toHaveLength(2048)
+    expect(
+      parseOutputPresentation({
+        ...value,
+        links: links.slice(0, 16).map((link) => ({ ...link, target: maximumUrl })),
+      }),
+    ).toBeDefined()
+    expect(
+      parseOutputPresentation({
+        ...value,
+        links: links.slice(0, 17).map((link) => ({ ...link, target: maximumUrl })),
+      }),
+    ).toBeUndefined()
+    expect(
+      parseOutputPresentation({ ...value, links: [{ ...links[0], target: maximumUrl + 'é' }] }),
+    ).toBeUndefined()
+    expect(
+      parseOutputPresentation({
+        ...value,
+        links: [{ ...links[0], kind: 'command', target: 'help ' + 'a'.repeat(1019) }],
+      }),
+    ).toBeUndefined()
+  })
   it('validates real text/chat payloads and rebases Unicode positions per line', () => {
     const packet = fixtures[0]!
     const parsed = parseOutputPresentation(packet.presentation)
