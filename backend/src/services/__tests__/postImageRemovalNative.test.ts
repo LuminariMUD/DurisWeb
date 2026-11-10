@@ -224,7 +224,7 @@ async function waitForBlockedStatement(thread: number) {
         cookieParser(),
         (await import('../../middleware/csrf.js')).verifyCsrfToken,
       );
-      app.use('/api/forum', (await import('../../routes/forum.js')).default);
+      app.use('/api/forum', (await import('../../features/forum/routes.js')).forumRouter);
     });
     beforeEach(() => {
       enabled = true;

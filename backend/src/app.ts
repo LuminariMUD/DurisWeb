@@ -9,7 +9,7 @@ import logger from './utils/logger.js';
 import pvpRoutes from './routes/pvp.js';
 import newsRoutes from './routes/news.js';
 import authRoutes from './routes/auth.js';
-import forumRoutes from './routes/forum.js';
+import { forumRouter } from './features/forum/routes.js';
 import { adminRouter } from './features/admin/routes.js';
 import dataHoldRoutes from './routes/dataHolds.js';
 import contentRoutes from './routes/content.js';
@@ -152,7 +152,7 @@ export function createApp(): Application {
   app.use('/api/pvp', pvpRoutes);
   app.use('/api/news', newsRoutes);
   app.use('/api/auth', authRoutes);
-  app.use('/api/forum', forumRoutes);
+  app.use('/api/forum', forumRouter);
   app.use('/api/admin/data-holds', dataHoldRoutes);
   app.use('/api/admin', adminRouter);
   app.use('/api/admin/users', userManagementRoutes);

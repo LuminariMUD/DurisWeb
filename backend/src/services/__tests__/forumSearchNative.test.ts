@@ -131,7 +131,7 @@ native('forum search SQL and pagination', () => {
       broadcastForumPost: () => {},
     }));
     app = express();
-    app.use('/api/forum', (await import('../../routes/forum.js')).default);
+    app.use('/api/forum', (await import('../../features/forum/routes.js')).forumRouter);
   }, 120_000);
   afterAll(async () => {
     await pool?.end();

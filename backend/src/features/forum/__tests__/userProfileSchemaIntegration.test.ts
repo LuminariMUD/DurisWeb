@@ -6,11 +6,11 @@ import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import request from 'supertest';
 
 const settings = { pvpDelayMinutes: 15, respectWebinfoToggle: false };
-jest.unstable_mockModule('../../services/webSettingsService.js', () => ({
+jest.unstable_mockModule('../../../services/webSettingsService.js', () => ({
   getWebSettings: async () => settings,
 }));
 
-jest.unstable_mockModule('../../db/redis.js', () => ({
+jest.unstable_mockModule('../../../db/redis.js', () => ({
   default: {},
   checkRedisConnection: jest.fn<() => Promise<boolean>>().mockResolvedValue(true),
   closeRedisConnection: jest.fn<() => Promise<void>>().mockResolvedValue(),
@@ -22,10 +22,10 @@ jest.unstable_mockModule('../../db/redis.js', () => ({
   objectToMapNumeric: jest.fn(),
   setCache: jest.fn<() => Promise<void>>().mockResolvedValue(),
 }));
-jest.unstable_mockModule('../../realtime/broadcasts.js', () => ({
+jest.unstable_mockModule('../../../realtime/broadcasts.js', () => ({
   broadcastForumPost: jest.fn(),
 }));
-jest.unstable_mockModule('../../services/pushNotificationService.js', () => ({
+jest.unstable_mockModule('../../../services/pushNotificationService.js', () => ({
   broadcastPush: jest.fn(),
   sendAuctionOutbidNotification: jest.fn(),
   sendAuctionWonNotification: jest.fn(),
@@ -33,8 +33,8 @@ jest.unstable_mockModule('../../services/pushNotificationService.js', () => ({
   sendItemSoldNotification: jest.fn(),
 }));
 
-const { pool } = await import('../../db/connection.js');
-const { default: forumRoutes } = await import('../forum.js');
+const { pool } = await import('../../../db/connection.js');
+const { forumRouter: forumRoutes } = await import('../routes.js');
 
 interface SchemaColumnRow extends RowDataPacket {
   TABLE_NAME: string;
@@ -154,7 +154,7 @@ describe('user profile schema integration', () => {
 
   it('filters character history and statistics until the delay expires', async () => {
     const { getCharacterPvPEvents, getCharacterProfile, getAccountCharacters } = await import(
-      '../../services/forumService.js'
+      '../../../services/forumService.js'
     );
     const history = await getCharacterPvPEvents(firstCharacterName);
     expect(history.total).toBe(1);
@@ -168,7 +168,7 @@ describe('user profile schema integration', () => {
   });
 
   it('keeps independent aggregates while hiding character totals from public profiles', async () => {
-    const { getUserProfile } = await import('../../services/forumService.js');
+    const { getUserProfile } = await import('../../../services/forumService.js');
     const profile = await getUserProfile(accountName);
     expect(profile?.stats).toMatchObject({
       characterCount: 2,

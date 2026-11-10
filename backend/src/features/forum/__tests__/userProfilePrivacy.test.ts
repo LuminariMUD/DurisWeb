@@ -2,30 +2,30 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import request from 'supertest';
-import type { UserPermissions } from '../../services/permissionService.js';
+import type { UserPermissions } from '../../../services/permissionService.js';
 
 const query = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const release = jest.fn();
 const hasActiveWebSession = jest.fn<() => Promise<boolean>>();
 let staff = false;
 
-jest.unstable_mockModule('../../db/connection.js', () => {
+jest.unstable_mockModule('../../../db/connection.js', () => {
   const database = { query, getConnection: async () => ({ query, release }) };
   return { pool: database, mudPool: database };
 });
-jest.unstable_mockModule('../../db/redis.js', () => ({
+jest.unstable_mockModule('../../../db/redis.js', () => ({
   default: {},
   getCache: async () => null,
   setCache: jest.fn(),
   deleteCache: jest.fn(),
 }));
-jest.unstable_mockModule('../../services/sessionService.js', () => ({ hasActiveWebSession }));
-jest.unstable_mockModule('../../services/accountService.js', () => ({
+jest.unstable_mockModule('../../../services/sessionService.js', () => ({ hasActiveWebSession }));
+jest.unstable_mockModule('../../../services/accountService.js', () => ({
   parseAccountFile: async (accountName: string) => ({ accountName, characters: [] }),
   findAccountByCharacter: async () => 'Player',
   searchAccounts: jest.fn(),
 }));
-jest.unstable_mockModule('../../services/permissionService.js', () => ({
+jest.unstable_mockModule('../../../services/permissionService.js', () => ({
   getCharacterInfo: jest.fn(),
   getUserPermissions: async (accountName: string): Promise<UserPermissions> => ({
     accountName,
@@ -44,17 +44,19 @@ jest.unstable_mockModule('../../services/permissionService.js', () => ({
     adminPermissions: staff ? ['manage_user_profiles'] : [],
   }),
 }));
-jest.unstable_mockModule('../../services/adminPermissionService.js', () => ({
+jest.unstable_mockModule('../../../services/adminPermissionService.js', () => ({
   getUserPermissions: async () => new Set(staff ? ['manage_user_profiles'] : []),
 }));
-jest.unstable_mockModule('../../services/categoryService.js', () => ({
+jest.unstable_mockModule('../../../services/categoryService.js', () => ({
   getCategoryAccessForAccount: async () => ({ canView: true }),
 }));
-jest.unstable_mockModule('../../services/webSettingsService.js', () => ({
+jest.unstable_mockModule('../../../services/webSettingsService.js', () => ({
   getWebSettings: async () => ({ pvpDelayMinutes: 15, respectWebinfoToggle: false }),
 }));
-jest.unstable_mockModule('../../realtime/broadcasts.js', () => ({ broadcastForumPost: jest.fn() }));
-jest.unstable_mockModule('../../services/pushNotificationService.js', () => ({
+jest.unstable_mockModule('../../../realtime/broadcasts.js', () => ({
+  broadcastForumPost: jest.fn(),
+}));
+jest.unstable_mockModule('../../../services/pushNotificationService.js', () => ({
   broadcastPush: jest.fn(),
   sendAuctionOutbidNotification: jest.fn(),
   sendAuctionWonNotification: jest.fn(),
@@ -62,8 +64,8 @@ jest.unstable_mockModule('../../services/pushNotificationService.js', () => ({
   sendItemSoldNotification: jest.fn(),
 }));
 
-const { generateAccessToken, generateRefreshToken } = await import('../../middleware/auth.js');
-const { default: forumRoutes } = await import('../forum.js');
+const { generateAccessToken, generateRefreshToken } = await import('../../../middleware/auth.js');
+const { forumRouter: forumRoutes } = await import('../routes.js');
 const app = express();
 app.use(cookieParser());
 app.use(express.json());

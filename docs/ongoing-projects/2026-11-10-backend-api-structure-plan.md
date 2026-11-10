@@ -794,5 +794,42 @@ webAnalyticsValidation dataHoldNative` — 7 suites passed, 2 native suites
 skipped (no isolated DB: `adminReadQueriesNative`, `dataHoldNative` are
 **not qualified**); format:check, lint, type-check, build passed.
 
-Next: step 4b — forum route groups, branch `refactor/forum-routes`; then 4c
-builder (`refactor/builder-routes`).
+### Step 4b — forum route groups (branch `refactor/forum-routes`)
+
+Stacked on `refactor/admin-settings-routes`. Done:
+
+- `routes/forum.ts` is deleted; blocks moved verbatim into
+  `backend/src/features/forum/`: `contentRoutes` (categories, threads, posts,
+  latest/popular activity), `reactionPollRoutes`, `subscriptionRoutes`
+  (subscriptions + notifications, including the pre-existing duplicate
+  thread subscribe/unsubscribe pair, kept in order), `searchRoutes`,
+  `moderationRoutes`, `profileRoutes` (user/character/guild profiles, avatar
+  and banner uploads with their limiter, mentions), `imageRoutes` (post images
+  with their limiter/upload config).
+- `shared.ts` holds what several groups use: `ANONYMOUS_PERMISSIONS`,
+  `getAuthorizedThread`, and the single `postLimiter` instance (threads, posts
+  and poll votes still share one rate-limit budget).
+- `features/forum/routes.ts` applies `optionalAuth` first, then mounts the
+  groups. Cross-group paths are disjoint; order-sensitive pairs
+  (`/users/me/*` vs `/users/:accountName/*`) stay within one group.
+- `forumService.ts` was not split: no route group exposed a separate service
+  responsibility during the move. No forum MUD-write keys exist.
+- Tests: `userProfilePrivacy` / `userProfileSchemaIntegration` moved to
+  `features/forum/__tests__/`; the two native service tests mount
+  `forumRouter`. New `forumComposition.test.ts`: every forum write (40+) gives
+  401 to anonymous callers (only the public `POST /characters/batch/accounts`
+  lookup is exempt, as before) and `/users/me/avatar` still wins over
+  `/users/:accountName/avatar`.
+- The mover script also had to strip comments inside import lists; a historical
+  command log in `docs/ongoing-projects/plan-issue-98.md` still names
+  `src/routes/forum.ts` and is left as a record of what ran then.
+- Docs: `docs/api/README_api.md` route-owner row.
+
+Verification: `pnpm --dir backend test --runInBand forumComposition
+userProfilePrivacy userProfileSchemaIntegration forumSearchNative
+postImageRemovalNative forum poll imageRemoval broadcasts createApp` — 9 suites
+passed, 2 native skipped; `userProfileSchemaIntegration` fails with the known
+native-DB `Access denied` (same as `master`) — **not qualified**.
+`verify:mud-writes` 53 verified; format:check, lint, type-check, build passed.
+
+Next: step 4c — builder route groups, branch `refactor/builder-routes`.
