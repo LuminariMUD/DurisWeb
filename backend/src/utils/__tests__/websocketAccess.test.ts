@@ -44,10 +44,13 @@ describe('WebSocket access policy', () => {
       ),
     ).toBe(true);
 
-    // Pin the real entry points to the tested authorization policy as well.
-    const server = readFileSync(new URL('../../index.ts', import.meta.url), 'utf8');
+    // Pin the real subscription handlers to the tested authorization policy as well.
+    const handlers = readFileSync(
+      new URL('../../realtime/subscriptionHandlers.ts', import.meta.url),
+      'utf8',
+    );
     for (const subscription of ['SUBSCRIBE_PLAYER_EVENTS', 'SUBSCRIBE_WHOLIST']) {
-      const block = server.slice(server.indexOf(`if (data.type === '${subscription}')`));
+      const block = handlers.slice(handlers.indexOf(`  ${subscription}: async (ws, data) => {`));
       expect(block.slice(0, block.indexOf('Subscribed = true'))).toContain(
         'await verifyWebSocketAuth(data.token, 57)',
       );

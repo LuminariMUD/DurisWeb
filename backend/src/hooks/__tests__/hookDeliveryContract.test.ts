@@ -230,11 +230,11 @@ describe('registered owner enforcement sites', () => {
 
   it('keeps the always-on terminal behind permission and live-session checks', () => {
     const terminal = requireHook('terminal');
-    const entrypoint = readProject('backend/src/index.ts');
+    const handlers = readProject('backend/src/realtime/terminalHandlers.ts');
     const service = readProject(terminal.owner);
 
     expect(terminal).toMatchObject({ alwaysOn: true, webSettingKey: null });
-    expect(entrypoint).toContain("includes('terminal_access')");
+    expect(handlers).toContain("includes('terminal_access')");
     expect(service).toContain('isTerminalOperationAuthorized');
     expect(service).not.toContain("isHookEnabledSync('terminal')");
   });

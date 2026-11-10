@@ -36,7 +36,7 @@ No machine-specific service or nginx artifact is authoritative in the checkout.
 
 | Component | Location | Technology | Responsibility |
 |-----------|----------|------------|----------------|
-| Backend API | `backend/src/app.ts` (HTTP composition), `backend/src/index.ts` (startup, browser WebSockets), `backend/src/realtime/`, `backend/src/routes/`, `backend/src/features/` | Express 5, TypeScript | HTTP routes, browser WebSockets, middleware, static fallback |
+| Backend API | `backend/src/app.ts` (HTTP composition), `backend/src/index.ts` (startup), `backend/src/realtime/` (browser WebSockets and broadcasts), `backend/src/routes/`, `backend/src/features/` | Express 5, TypeScript | HTTP routes, browser WebSockets, middleware, static fallback |
 | Domain services | `backend/src/services/` | TypeScript | Game data, community features, admin operations, MUD integrations |
 | Hook control | `backend/src/hooks/` | TypeScript | Registry, cached settings, foreign state, resolution, activity and resource health |
 | Data layer | `backend/src/db/`, `backend/migrations/` | mysql2, Knex, MySQL 8 | Shared database access and web schema evolution |

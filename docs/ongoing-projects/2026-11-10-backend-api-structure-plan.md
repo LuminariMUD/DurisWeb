@@ -651,4 +651,49 @@ productionReviewRegression applicationWebSocket websocketAccess serverShutdown
 changelog` — 17 suites / 144 tests passed; format:check, lint, type-check,
 build passed. Note: use `pnpm exec biome`, matching `format:check`.
 
-Next: step 3.2 (`realtime/applicationSocket.ts`), branch `refactor/application-socket`.
+### Step 3.2 — application socket (branch `refactor/application-socket`)
+
+Stacked on `refactor/create-app`. Done:
+
+- `realtime/applicationSocket.ts` exports `handleApplicationConnection`
+  (`wss.on('connection', handleApplicationConnection)` in `index.ts`): per-socket
+  state init, cookie principal hydration, 20-msg/s burst limit, JSON parse,
+  ping, dispatch, close cleanup, welcome message. The former `if` chain became a
+  lookup table; message types are disjoint and the lookup requires a string
+  `type`, so `===` semantics are unchanged.
+- Handler families, bodies moved verbatim: `subscriptionHandlers.ts`
+  (player events / WHO list), `logStreamHandlers.ts` (+ `clearLogSubscriptions`),
+  `terminalHandlers.ts` (+ `ensureTerminalOperation`, `closeTerminal`),
+  `zoneStreamHandlers.ts` (owns the per-connection stream limiter,
+  `clearZoneStreams`), `deployHandler.ts`. Shared verification lives in
+  `socketAuth.ts` (`verifyWebSocketAuth`, `hydrateWebSocketPrincipal`,
+  `authorizeZoneStream`).
+- `clientState.ts` now types every per-socket field (`messageCount`,
+  `lastReset`, `logSubscriptions`, `terminalAuth` too); no `as any` socket access
+  remains. `ClientMessage` documents the parsed JSON shape and states that it
+  validates nothing (same assumptions as the former implicit `any`).
+- Source assertions repointed: `websocketAccess` → `subscriptionHandlers.ts`,
+  `hookDeliveryContract` terminal check → `terminalHandlers.ts`,
+  `applicationWebSocket` producer list → the realtime files (and asserts the
+  connection wiring in `index.ts`).
+- New `realtime/__tests__/applicationSocket.test.ts` drives synthetic sockets
+  with real token verification and stubbed services: welcome/ping/bad JSON/
+  non-string type, rate limit, level-57 subscription, `terminal_access` before
+  terminal creation, overlord-only deploy (no deploy call), close releasing log
+  watchers, terminal ownership and session. No terminal/deploy action is real.
+- `src/test/stubModule.ts`: shared helper (now used by `createApp` and this
+  test) that stubs every runtime export from a module's source and rejects
+  unexpected calls.
+
+Verification: `pnpm --dir backend test --runInBand applicationSocket createApp
+websocketAccess applicationWebSocket hookDeliveryContract
+terminalSessionAuthorization broadcasts serverShutdown` passed (6 suites/84
+tests plus 9 new). Full `pnpm --dir backend test --runInBand`: 153 suites
+passed, 12 skipped; 7 suites / 89 tests failed — `userProfileSchemaIntegration`,
+`backupService`, `hookSettingsService`, `accountService`, `sessionService`,
+`authSessionBinding`, `webSessionSchema` — **identical on `master`** (they need
+a native MySQL test DB this checkout lacks). Jest also does not exit after the
+run on `master` either (open handles); pre-existing, not investigated here.
+format:check, lint, type-check, build passed.
+
+Next: step 3.3 (`runtime/` startup, jobs, shutdown), branch `refactor/runtime-lifecycle`.

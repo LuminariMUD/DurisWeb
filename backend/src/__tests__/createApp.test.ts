@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { readFileSync } from 'node:fs';
 import request from 'supertest';
 import type { UserPermissions } from '../services/permissionService.js';
+import { stubModule } from '../test/stubModule.js';
 
 // The real composition with every router mounted. Database/cache modules connect on
 // import, so they and the session/account lookups are replaced with synthetic state.
@@ -12,13 +12,8 @@ const unavailable = async () => {
 };
 const database = { query: unavailable, execute: unavailable, getConnection: unavailable };
 
-/** Stub every runtime export of a module, then apply the overrides this test relies on. */
-function stub(specifier: string, overrides: Record<string, unknown> = {}) {
-  const source = readFileSync(new URL(specifier.replace(/\.js$/, '.ts'), import.meta.url), 'utf8');
-  const names = [...source.matchAll(/^export (?:async )?(?:function|const|let|class) (\w+)/gm)];
-  const stubs = Object.fromEntries(names.map(([, name]) => [name, jest.fn(unavailable)]));
-  return () => ({ default: {}, ...stubs, ...overrides });
-}
+const stub = (specifier: string, overrides?: Record<string, unknown>) =>
+  stubModule(new URL(specifier, import.meta.url), overrides);
 
 jest.unstable_mockModule(
   '../db/connection.js',
