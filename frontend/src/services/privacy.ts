@@ -2,7 +2,7 @@ import { computed, readonly, ref, watch, type Ref } from 'vue'
 import type { Router } from 'vue-router'
 import { frontendConfiguration } from '@/config/environment'
 import { PRIVACY_NOTICE_VERSION, PRIVACY_CHOICE_VERSION } from '@/config/privacyNotice'
-import { getCsrfToken } from './api'
+import { getCsrfToken } from './httpClient'
 import { clearLegacyAnalyticsSession } from './analytics'
 
 const PREFERENCE_KEY = 'duris_privacy_choice_v1'

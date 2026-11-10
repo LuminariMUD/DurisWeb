@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
-vi.mock('../api', () => ({ getCsrfToken: () => 'f'.repeat(64) }))
+vi.mock('../httpClient', () => ({ getCsrfToken: () => 'f'.repeat(64) }))
 const VERSION = '2026-10-16-draft-1'
 const PREFERENCE = 'duris_privacy_choice_v1'
 type Status = {

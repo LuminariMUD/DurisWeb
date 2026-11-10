@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AxiosError, CanceledError } from 'axios'
-import { apiClient } from '../api.js'
+import { apiClient } from '../httpClient.js'
+import { apiClient as legacyApiClient } from '../api.js'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -93,5 +94,26 @@ describe('API availability signals', () => {
       }),
     ).rejects.toThrow()
     expect(dispatch).not.toHaveBeenCalled()
+  })
+
+  it('shares one instance and adds CSRF only to mutations', async () => {
+    expect(legacyApiClient).toBe(apiClient)
+    expect(apiClient.defaults.withCredentials).toBe(true)
+    expect(apiClient.defaults.timeout).toBe(10000)
+    document.cookie = 'csrf_token=synthetic-token'
+    const seen: Array<[string | undefined, unknown]> = []
+    const adapter = vi.fn(async (config) => {
+      seen.push([config.method, config.headers['X-CSRF-Token']])
+      return { data: {}, status: 200, statusText: 'OK', headers: {}, config }
+    })
+    await apiClient.get('/read', { adapter })
+    await apiClient.post('/write', {}, { adapter })
+    await apiClient.delete('/remove', { adapter })
+    expect(seen).toEqual([
+      ['get', undefined],
+      ['post', 'synthetic-token'],
+      ['delete', 'synthetic-token'],
+    ])
+    document.cookie = 'csrf_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
   })
 })

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { requestAccountExport } from '../accountExport'
 
 let csrf: string | undefined = 'synthetic-csrf'
-vi.mock('@/services/api', () => ({ getCsrfToken: () => csrf }))
+vi.mock('@/services/httpClient', () => ({ getCsrfToken: () => csrf }))
 const fetchMock = vi.fn<typeof fetch>()
 const payload = {
   accountName: 'Alice',

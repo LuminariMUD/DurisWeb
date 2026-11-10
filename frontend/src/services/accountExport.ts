@@ -1,5 +1,5 @@
 import { frontendConfiguration } from '@/config/environment'
-import { getCsrfToken } from './api'
+import { getCsrfToken } from './httpClient'
 
 const MAX_BYTES = 4 * 1024 * 1024
 

@@ -1,4 +1,4 @@
-import { apiClient } from '@/services/api'
+import { apiClient } from '@/services/httpClient'
 import type { HooksResponse, ReconcileResponse } from '@/types/hooks'
 
 export const hooksApi = {
