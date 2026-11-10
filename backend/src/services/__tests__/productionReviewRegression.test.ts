@@ -84,10 +84,10 @@ describe('production review regression contracts', () => {
   });
 
   it('encodes every dynamic battle metadata value before HTML interpolation', () => {
-    const entrypoint = read('backend/src/index.ts');
-    const metadata = entrypoint.slice(
-      entrypoint.indexOf('const generateBattleOgTags'),
-      entrypoint.indexOf('// Vue Router history mode support'),
+    const composition = read('backend/src/app.ts');
+    const metadata = composition.slice(
+      composition.indexOf('const generateBattleOgTags'),
+      composition.indexOf('// Vue Router history mode support'),
     );
 
     expect(metadata).toContain('const title = escapeHtml(');

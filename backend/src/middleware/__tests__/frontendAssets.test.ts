@@ -125,10 +125,7 @@ describe('fingerprinted frontend files before CSRF issuance', () => {
   });
 
   it('wires only production assets before CSRF and leaves canonical/CORS handling ahead of them', async () => {
-    const source = await readFile(
-      fileURLToPath(new URL('../../index.ts', import.meta.url)),
-      'utf8',
-    );
+    const source = await readFile(fileURLToPath(new URL('../../app.ts', import.meta.url)), 'utf8');
     const earlyAssets = source.indexOf(
       "app.use('/assets', fingerprintedFrontendAssets(frontendDistPath))",
     );

@@ -622,4 +622,33 @@ test database and fails with `Access denied` both before and after this change
 (no `backend/.env.test` in this checkout) — **not qualified**. format:check,
 lint, type-check, build passed.
 
-Next: step 3.1 (`app.ts` / `createApp`), branch `refactor/create-app`.
+### Step 3.1 — `createApp` (branch `refactor/create-app`)
+
+Stacked on `refactor/realtime-broadcasts`. Done:
+
+- `backend/src/app.ts` exports `createApp()`: the former `index.ts` block from
+  `trust proxy` through `errorHandler`, moved verbatim (same middleware, mount,
+  OG-metadata and static-fallback order). It reads configuration when called and
+  installs no listener, job, integration or signal handler.
+- `index.ts` calls `createApp()` and then performs the hook-state setup
+  (`setMudHookStateProvider` + initial `refreshHookState`) at the same point in
+  module evaluation as before; that is startup work, so it stayed out of
+  `app.ts`. Package entry is still `node dist/index.js`.
+- Source-reading assertions moved deliberately: `apiNotFound`, `frontendAssets`
+  and the battle-metadata case in `productionReviewRegression` now read
+  `app.ts`; WebSocket/terminal assertions still read `index.ts`.
+- New `src/__tests__/createApp.test.ts` imports the real composition (DB, Redis,
+  session/account/permission lookups and changelog persistence stubbed from
+  their own export lists) and proves: no SIGINT/SIGTERM handler added, ping,
+  JSON API 404, and the mounted changelog path through CSRF and real auth
+  (CSRF 403, 401, 403, then 201 for `manage_news`). This closes the step 1
+  "full app mount" gap.
+- Docs: `docs/api/README_api.md`, `docs/ARCHITECTURE.md`, `docs/docs-audit.md`.
+
+Verification: `pnpm --dir backend test --runInBand createApp apiNotFound
+frontendAssets errorHandler integrationSecurityContract hookDeliveryContract
+productionReviewRegression applicationWebSocket websocketAccess serverShutdown
+changelog` — 17 suites / 144 tests passed; format:check, lint, type-check,
+build passed. Note: use `pnpm exec biome`, matching `format:check`.
+
+Next: step 3.2 (`realtime/applicationSocket.ts`), branch `refactor/application-socket`.

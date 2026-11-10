@@ -72,7 +72,7 @@ describe('API namespace before static/SPA fallback', () => {
   });
 
   it('wires the production boundary after registered routers and before static serving', async () => {
-    const source = await readFile(new URL('../../index.ts', import.meta.url), 'utf8');
+    const source = await readFile(new URL('../../app.ts', import.meta.url), 'utf8');
     const boundary = source.indexOf("app.use('/api', apiNotFound)");
     expect(boundary).toBeGreaterThan(source.indexOf("app.use('/api/hooks', hookRoutes)"));
     expect(boundary).toBeLessThan(source.indexOf('app.use(express.static(publicPath'));

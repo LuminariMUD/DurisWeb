@@ -138,8 +138,8 @@ for this documentation pass.
 | Package coverage | Package READMEs | Analyzer `packages`: `backend`, `frontend`; both package manifests and source trees inspected | 2/2 created |
 | Tool versions and commands | Onboarding, development | CI Node/pnpm setup plus both manifest script tables | Commands and versions verified |
 | Database warning | Onboarding, architecture, deployment | Audit migration up/down evidence, retired known-issues ledger in Git history, Knex config, shared-schema Session 03 evidence | Limitation documented without unsafe bootstrap claim |
-| Architecture | `docs/ARCHITECTURE.md`, ADR 0001 | `backend/src/index.ts`, hook registry/state/reconcile modules, frontend router/console, MUD handoff, security record | Current component/channel/state model documented |
-| API | `docs/api/README_api.md` | Every `app.use`/top-level route mount in `backend/src/index.ts`; auth, CSRF, Ko-fi, hook route modules | Mounts and security boundaries verified |
+| Architecture | `docs/ARCHITECTURE.md`, ADR 0001 | `backend/src/index.ts`, `backend/src/app.ts`, hook registry/state/reconcile modules, frontend router/console, MUD handoff, security record | Current component/channel/state model documented |
+| API | `docs/api/README_api.md` | Every `app.use`/top-level route mount in `backend/src/app.ts`; auth, CSRF, Ko-fi, hook route modules | Mounts and security boundaries verified |
 | Environment | `docs/environments.md` | All three env examples; connection, auth, transport-policy, Redis, Vite source inspection | Required/optional/public boundaries verified |
 | CI/CD | `docs/deployment.md` | `.github/workflows/quality.yml`; successful run 33515161295; manifests | Current quality-only coverage documented |
 | Deployment gaps | Deployment, environments | PM2/systemd/nginx files, retired project-state evidence in Git history, current conventions | Conflicting paths and absent platform/probes recorded |
