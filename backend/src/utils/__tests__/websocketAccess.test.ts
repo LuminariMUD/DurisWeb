@@ -57,8 +57,14 @@ describe('WebSocket access policy', () => {
       expect(block.slice(0, block.indexOf('Subscribed = true'))).toContain('if (!principal)');
     }
     // Broadcast recipient filtering is exercised in realtime/__tests__/broadcasts.test.ts.
-    const admin = readFileSync(new URL('../../routes/admin.ts', import.meta.url), 'utf8');
-    expect(admin).toContain("router.get('/who', requireAuth, requireOverlord,");
+    const admin = readFileSync(
+      new URL('../../features/admin/analyticsRoutes.ts', import.meta.url),
+      'utf8',
+    );
+    const who = admin.slice(admin.indexOf("adminAnalyticsRoutes.get(\n  '/who',"));
+    expect(who.slice(0, who.indexOf('async'))).toMatch(
+      /'\/who',\s*requireAuth,\s*requireOverlord,/,
+    );
   });
 
   it('fails closed for privileged broadcasts without a principal', () => {

@@ -747,5 +747,52 @@ type-check, build passed. Not run: launching `node dist/index.js` (no local
 `.env`/database), so real startup/shutdown against live dependencies is
 unqualified here.
 
-Next: step 4 — admin route groups first (settings/uploads + Discord), branch
-`refactor/admin-settings-routes`.
+### Step 4a — admin route groups (branch `refactor/admin-settings-routes`)
+
+Stacked on `refactor/runtime-lifecycle`. Done:
+
+- `routes/admin.ts` is deleted. Its route blocks moved verbatim (only
+  `router.` → the group's router name, import paths, and removal of unused
+  imports) into 13 groups under `backend/src/features/admin/`:
+  `communityRoutes` (forum settings/permissions/audit, category CRUD, ACL,
+  archives), `analyticsRoutes` (analytics, boot time, WHO, connection cleanup),
+  `logRoutes`, `connectionRoutes`, `mudRoutes` (dashboard, time, properties,
+  level cap, timers), `wipeRoutes`, `healthRoutes` (AI analysis, crashes, server
+  health, incidents + `INCIDENT_UPDATE_COLUMNS`), `accessRoutes` (permissions,
+  roles, accounts), `backupRoutes` (backup, restore, uploads), `settingsRoutes`
+  (web settings, logo/hero uploads), `discordRoutes`, `godRoutes`,
+  `dupeRoutes` (god commands and duplicate-item actions stay separately
+  identifiable with their gates).
+- `features/admin/routes.ts` composes them in the former registration order
+  with `adminRouter.use(group)` — path-less child routers, no router-level
+  middleware or catch-all. Paths are disjoint across groups; specific-before-
+  dynamic pairs (`/backup/failed` vs `/backup/:id`, `/ai-analysis/history`
+  vs `/:id`) are inside one group in their original order.
+- The 28 `routes/admin.ts` keys in `backend/mud-write-allowlist.json` now name
+  `features/admin/wipeRoutes.ts` (25 DELETEs), `mudRoutes.ts` (level_cap,
+  timers) and `analyticsRoutes.ts` (UPDATE ip_info, the connection cleanup);
+  classification and SQL unchanged.
+- Tests: `adminAccountPermissionIdValidation` moved to
+  `features/admin/__tests__/` and mounts the composed router; source checks in
+  `websocketAccess` (WHO route guard, now whitespace-insensitive) and
+  `productionReviewRegression` (web-settings update route) read the owning
+  group files. New `adminComposition.test.ts` (real auth, synthetic overlord):
+  enumerates all 100+ registered admin routes and requires 401 for anonymous
+  callers on each (only `GET /mud/time` was public and stays so), proves
+  `/users`, `/git/*` and `/analytics/web/*` still pass through to later
+  mounts, and that `DELETE /backup/failed` wins over `/backup/:id`.
+- Deviation from "one group per commit": the groups were extracted from the
+  original line ranges in one mechanical commit, because the old file could not
+  be left half-composed without a temporary second admin mount.
+- Docs: `docs/api/README_api.md` route-owner row.
+
+Verification: `pnpm --dir backend verify:mud-writes` — 53 classified writes
+verified; `pnpm --dir backend test --runInBand adminComposition
+adminAccountPermissionIdValidation adminReadQueriesNative websocketAccess
+productionReviewRegression createApp integrationSecurityContract
+webAnalyticsValidation dataHoldNative` — 7 suites passed, 2 native suites
+skipped (no isolated DB: `adminReadQueriesNative`, `dataHoldNative` are
+**not qualified**); format:check, lint, type-check, build passed.
+
+Next: step 4b — forum route groups, branch `refactor/forum-routes`; then 4c
+builder (`refactor/builder-routes`).

@@ -75,7 +75,7 @@ the default page size is 50, with limit 1–100 and pages capped at 10,000.
 | `/api/pvp` | `routes/pvp.ts` | PvP battles, comments, reactions, reports |
 | `/api/news` | `routes/news.ts` | Public news |
 | `/api/forum` | `routes/forum.ts` | Forums, profiles, images, subscriptions, polls |
-| `/api/admin` | `routes/admin.ts` | Permissioned administration, operations, backups, settings |
+| `/api/admin` | `features/admin/routes.ts` (groups in `features/admin/*Routes.ts`) | Permissioned administration, operations, backups, settings |
 | `/api/admin/users` | `routes/userManagement.ts` | Permissioned account/character management |
 | `/api/admin/git` | `routes/git.ts` | Permissioned MUD repository status/actions |
 | `/api/content` | `routes/content.ts` | Managed MUD help/news/MOTD/information content |

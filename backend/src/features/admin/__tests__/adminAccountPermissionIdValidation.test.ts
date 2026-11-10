@@ -3,9 +3,9 @@ import type { Request, Response, NextFunction } from 'express';
 import request from 'supertest';
 import mysql from 'mysql2/promise';
 import type { RowDataPacket } from 'mysql2/promise';
-import { loadWebBaselineBundle } from '../../db/webBaselineBundle.js';
-import { getBackendConfiguration } from '../../config/environment.js';
-import { BackupDeletionError } from '../../utils/backupDeletionError.js';
+import { loadWebBaselineBundle } from '../../../db/webBaselineBundle.js';
+import { getBackendConfiguration } from '../../../config/environment.js';
+import { BackupDeletionError } from '../../../utils/backupDeletionError.js';
 import { beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const assignRole = jest.fn<(...args: unknown[]) => Promise<unknown>>();
@@ -25,7 +25,7 @@ const asyncMock = () => jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const namedService = (names: string[]): Record<string, unknown> =>
   Object.fromEntries(names.map((name) => [name, asyncMock()]));
 
-jest.unstable_mockModule('../../middleware/auth.js', () => ({
+jest.unstable_mockModule('../../../middleware/auth.js', () => ({
   requireAuth: (req: any, _res: any, next: any) => {
     if (!authenticated) return _res.status(401).json({ error: 'Not authenticated' });
     req.user = {
@@ -42,14 +42,14 @@ jest.unstable_mockModule('../../middleware/auth.js', () => ({
     return next();
   },
 }));
-jest.unstable_mockModule('../../utils/logger.js', () => ({
+jest.unstable_mockModule('../../../utils/logger.js', () => ({
   default: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
   getErrorMessage: (error: unknown) => String(error),
 }));
-jest.unstable_mockModule('../../services/unifiedNotificationService.js', () => ({
+jest.unstable_mockModule('../../../services/unifiedNotificationService.js', () => ({
   createNotification: asyncMock(),
 }));
-jest.unstable_mockModule('../../services/forumSettingsService.js', () =>
+jest.unstable_mockModule('../../../services/forumSettingsService.js', () =>
   namedService([
     'getForumSettings',
     'updateForumSetting',
@@ -58,7 +58,7 @@ jest.unstable_mockModule('../../services/forumSettingsService.js', () =>
     'getPermissionAuditLog',
   ]),
 );
-jest.unstable_mockModule('../../services/webSettingsService.js', () =>
+jest.unstable_mockModule('../../../services/webSettingsService.js', () =>
   namedService([
     'getWebSettingsRaw',
     'updateWebSetting',
@@ -70,7 +70,7 @@ jest.unstable_mockModule('../../services/webSettingsService.js', () =>
     'validateHeroFile',
   ]),
 );
-jest.unstable_mockModule('../../services/categoryService.js', () =>
+jest.unstable_mockModule('../../../services/categoryService.js', () =>
   namedService([
     'getAllCategoriesAdmin',
     'getCategoryByIdAdmin',
@@ -86,10 +86,10 @@ jest.unstable_mockModule('../../services/categoryService.js', () =>
     'getArchivedCategories',
   ]),
 );
-jest.unstable_mockModule('../../services/forumService.js', () =>
+jest.unstable_mockModule('../../../services/forumService.js', () =>
   namedService(['getDeletedThreads', 'getDeletedPosts']),
 );
-jest.unstable_mockModule('../../services/analyticsService.js', () =>
+jest.unstable_mockModule('../../../services/analyticsService.js', () =>
   namedService([
     'getOverviewStats',
     'getForumStats',
@@ -99,31 +99,31 @@ jest.unstable_mockModule('../../services/analyticsService.js', () =>
     'getWhoList',
   ]),
 );
-jest.unstable_mockModule('../../services/serverMonitor.js', () => ({
+jest.unstable_mockModule('../../../services/serverMonitor.js', () => ({
   getServerHealth: asyncMock(),
 }));
-jest.unstable_mockModule('../../services/statisticsParser.js', () => ({
+jest.unstable_mockModule('../../../services/statisticsParser.js', () => ({
   getPeakPlayerCount: asyncMock(),
 }));
-jest.unstable_mockModule('../../services/processMonitor.js', () => ({
+jest.unstable_mockModule('../../../services/processMonitor.js', () => ({
   getDmsProcessStats: asyncMock(),
 }));
-jest.unstable_mockModule('../../services/mudControlService.js', () => ({
+jest.unstable_mockModule('../../../services/mudControlService.js', () => ({
   getMudState: asyncMock(),
 }));
-jest.unstable_mockModule('../../services/logService.js', () =>
+jest.unstable_mockModule('../../../services/logService.js', () =>
   namedService(['listLogs', 'readLogPaginated', 'tailLog', 'getLogFilePath']),
 );
-jest.unstable_mockModule('../../db/connection.js', () => ({
+jest.unstable_mockModule('../../../db/connection.js', () => ({
   pool: { query: poolQuery, execute: poolQuery },
 }));
-jest.unstable_mockModule('../../services/mudAuctionClient.js', () =>
+jest.unstable_mockModule('../../../services/mudAuctionClient.js', () =>
   namedService(['requestWhoList', 'isMudConnected', 'getMudBootTime']),
 );
-jest.unstable_mockModule('../../services/onlinePlayersService.js', () => ({
+jest.unstable_mockModule('../../../services/onlinePlayersService.js', () => ({
   getOnlinePlayers: asyncMock(),
 }));
-jest.unstable_mockModule('../../services/propertiesParser.js', () =>
+jest.unstable_mockModule('../../../services/propertiesParser.js', () =>
   namedService([
     'getCategorizedProperties',
     'searchProperties',
@@ -132,7 +132,7 @@ jest.unstable_mockModule('../../services/propertiesParser.js', () =>
     'getPropertyHistory',
   ]),
 );
-jest.unstable_mockModule('../../services/backupService.js', () =>
+jest.unstable_mockModule('../../../services/backupService.js', () =>
   namedService([
     'createBackup',
     'getBackupList',
@@ -148,10 +148,10 @@ jest.unstable_mockModule('../../services/backupService.js', () =>
     'createRestoreFromUpload',
   ]),
 );
-jest.unstable_mockModule('../../services/mudTimeService.js', () =>
+jest.unstable_mockModule('../../../services/mudTimeService.js', () =>
   namedService(['getCurrentMudTime', 'formatMudTime', 'getMudTimeDescription']),
 );
-jest.unstable_mockModule('../../services/adminPermissionService.js', () => ({
+jest.unstable_mockModule('../../../services/adminPermissionService.js', () => ({
   ...namedService([
     'getAllPermissions',
     'getAllRoles',
@@ -167,7 +167,7 @@ jest.unstable_mockModule('../../services/adminPermissionService.js', () => ({
   grantPermission,
   revokePermission,
 }));
-jest.unstable_mockModule('../../services/accountService.js', () => ({
+jest.unstable_mockModule('../../../services/accountService.js', () => ({
   searchAccounts: asyncMock(),
   accountExists: asyncMock(),
   updateAccountPassword: asyncMock(),
@@ -175,15 +175,15 @@ jest.unstable_mockModule('../../services/accountService.js', () => ({
 jest.unstable_mockModule('bcrypt', () => ({
   default: { hash: asyncMock(), compare: asyncMock() },
 }));
-jest.unstable_mockModule('../../services/permissionService.js', () => ({
+jest.unstable_mockModule('../../../services/permissionService.js', () => ({
   getGodLevelFromCharacterLevel: jest.fn(),
 }));
-jest.unstable_mockModule('../../utils/incidentValidation.js', () => ({
+jest.unstable_mockModule('../../../utils/incidentValidation.js', () => ({
   INCIDENT_UPDATE_FIELDS: [],
   validateCreateIncidentBody: jest.fn(),
   validateUpdateIncidentBody: jest.fn(),
 }));
-jest.unstable_mockModule('../../services/dupeDetectionService.js', () =>
+jest.unstable_mockModule('../../../services/dupeDetectionService.js', () =>
   namedService([
     'getDupedItems',
     'getDupeDetails',
@@ -194,10 +194,10 @@ jest.unstable_mockModule('../../services/dupeDetectionService.js', () =>
     'deleteAllDupesForUid',
   ]),
 );
-jest.unstable_mockModule('../../services/discordService.js', () => ({
+jest.unstable_mockModule('../../../services/discordService.js', () => ({
   testDiscordBot: asyncMock(),
 }));
-jest.unstable_mockModule('../../services/pvpDiscordDelivery.js', () => ({
+jest.unstable_mockModule('../../../services/pvpDiscordDelivery.js', () => ({
   manualPostBattle: asyncMock(),
   getDiscordDeliveryStatus: getDeliveryStatus,
   retryFailedDiscordDeliveries: retryDeliveries,
@@ -207,7 +207,7 @@ describe('admin account permission ID validation', () => {
   let app: express.Express;
 
   beforeAll(async () => {
-    const { default: adminRoutes } = await import('../admin.js');
+    const { adminRouter: adminRoutes } = await import('../routes.js');
     app = express();
     app.use(express.json());
     app.use('/api/admin', adminRoutes);
@@ -232,9 +232,9 @@ describe('admin account permission ID validation', () => {
   it.each(['/backup/status/1', '/backup/download/1', '/backup/1/contents'])(
     'makes foreign uploads indistinguishable from missing numeric IDs at %s',
     async (route) => {
-      const backups = await import('../../services/backupService.js');
-      const { BackupUploadError } = await import('../../services/backupUploads.js');
-      const { default: logger } = await import('../../utils/logger.js');
+      const backups = await import('../../../services/backupService.js');
+      const { BackupUploadError } = await import('../../../services/backupUploads.js');
+      const { default: logger } = await import('../../../utils/logger.js');
       jest.mocked(backups.getBackupById).mockResolvedValueOnce(null);
       jest.mocked(backups.listBackupContents).mockResolvedValueOnce(null);
       const missing = await request(app).get('/api/admin' + route);
@@ -255,7 +255,7 @@ describe('admin account permission ID validation', () => {
   );
 
   it('reports an unconfirmed backup start without raw SQL/IP bindings', async () => {
-    const backups = await import('../../services/backupService.js');
+    const backups = await import('../../../services/backupService.js');
     jest
       .mocked(backups.createBackup)
       .mockRejectedValueOnce(new Error('private-start-ip-sql-password-sentinel'));
@@ -264,7 +264,7 @@ describe('admin account permission ID validation', () => {
     expect(response.body.reason).toBe('creation_unconfirmed');
     expect(response.body.reference).toMatch(/^[a-f0-9-]{36}$/);
     expect(JSON.stringify(response.body)).not.toContain('private-start-ip-sql-password-sentinel');
-    const { default: logger } = await import('../../utils/logger.js');
+    const { default: logger } = await import('../../../utils/logger.js');
     expect(JSON.stringify(jest.mocked(logger.error).mock.calls)).not.toContain(
       'private-start-ip-sql-password-sentinel',
     );
@@ -438,7 +438,7 @@ describe('admin account permission ID validation', () => {
   it.each(['/backup/1', '/backup/failed'])(
     'reports a retained archive failure safely for %s',
     async (route) => {
-      const backups = await import('../../services/backupService.js');
+      const backups = await import('../../../services/backupService.js');
       const remove =
         route === '/backup/failed'
           ? jest.mocked(backups.deleteFailedBackups)
@@ -456,7 +456,7 @@ describe('admin account permission ID validation', () => {
   it.each(['/backup/1', '/backup/failed'])(
     'does not expose unexpected deletion errors for %s',
     async (route) => {
-      const backups = await import('../../services/backupService.js');
+      const backups = await import('../../../services/backupService.js');
       const remove =
         route === '/backup/failed'
           ? jest.mocked(backups.deleteFailedBackups)
@@ -466,7 +466,7 @@ describe('admin account permission ID validation', () => {
       expect(response.status).toBe(503);
       expect(response.body).toMatchObject({ reason: 'storage_unavailable' });
       expect(JSON.stringify(response.body)).not.toContain('private-driver');
-      const { default: logger } = await import('../../utils/logger.js');
+      const { default: logger } = await import('../../../utils/logger.js');
       expect(JSON.stringify(jest.mocked(logger.error).mock.calls)).not.toContain('private-driver');
     },
   );
@@ -474,7 +474,7 @@ describe('admin account permission ID validation', () => {
   it.each(['archive_held', 'removal_in_progress', 'recovery_unverified'] as const)(
     'keeps a %s archive conflict truthful and reviewable',
     async (reason) => {
-      const backups = await import('../../services/backupService.js');
+      const backups = await import('../../../services/backupService.js');
       jest.mocked(backups.deleteBackup).mockRejectedValueOnce(new BackupDeletionError(reason));
       const response = await request(app).delete('/api/admin/backup/1');
       expect(response.status).toBe(409);
@@ -520,7 +520,7 @@ describe('admin account permission ID validation', () => {
         }
         expect(permissionChecks).toEqual(Array(3).fill('manage_mud_backup'));
         expect(poolQuery).not.toHaveBeenCalled();
-        const backups = await import('../../services/backupService.js');
+        const backups = await import('../../../services/backupService.js');
         expect(backups.createRestore).not.toHaveBeenCalled();
         expect(backups.createRestoreFromUpload).not.toHaveBeenCalled();
         expect(backups.isMudRunning).not.toHaveBeenCalled();

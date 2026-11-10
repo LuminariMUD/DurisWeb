@@ -73,7 +73,7 @@ describe('production review regression contracts', () => {
   });
 
   it('wires the protected MUD endpoint middleware into the admin update route', () => {
-    const adminRoutes = read('backend/src/routes/admin.ts');
+    const adminRoutes = read('backend/src/features/admin/settingsRoutes.ts');
     const updateRoute = adminRoutes.slice(
       adminRoutes.indexOf("'/web/settings/:key'"),
       adminRoutes.indexOf("'/web/logo'"),

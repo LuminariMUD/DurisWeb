@@ -179,175 +179,175 @@
     "zones"
   ],
   "writes": {
-    "routes/admin.ts|DELETE FROM|account_characters": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|account_characters": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|artifact_bind": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|artifact_bind": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|auction_item_pickups": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|auction_item_pickups": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|auction_money_pickups": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|auction_money_pickups": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|boons": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|boons": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|boons_progress": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|boons_progress": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|boons_shop": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|boons_shop": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|corpses": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|corpses": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|ctf_data": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|ctf_data": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|epic_bonus": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|epic_bonus": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|epic_gain": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|epic_gain": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|frag_leaderboard": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|frag_leaderboard": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|guild_members": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|guild_members": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|ip_info": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|ip_info": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|locker_items": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|locker_items": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|lockers": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|lockers": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|log_entries": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|log_entries": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|offline_messages": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|offline_messages": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|pkill_info": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|pkill_info": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|player_data": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|player_data": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|player_recipes": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|player_recipes": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|player_shapechanges": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|player_shapechanges": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|progress": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|progress": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|world_quest_accomplished": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|world_quest_accomplished": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
       "gate": "playerWipe",
       "ticket": "DB-03"
     },
-    "routes/admin.ts|DELETE FROM|zone_trophy": {
+    "features/admin/wipeRoutes.ts|DELETE FROM|zone_trophy": {
       "authoritativeWriter": "MUD season reset (`sql_pwipe()`), which owns the reset manifest, durable season epoch, Redis invalidation, and account-bound reward policy.",
       "concurrency": "None. Unreachable unless an operator opens the gate; the route holds a second, stale table manifest and a process-state check that is not a durable fence.",
       "status": "gated",
@@ -403,19 +403,19 @@
       "gate": "itemDeletes",
       "ticket": "DB-02"
     },
-    "routes/admin.ts|UPDATE|ip_info": {
+    "features/admin/analyticsRoutes.ts|UPDATE|ip_info": {
       "authoritativeWriter": "MUD connection logging writes the rows; DurisWeb only closes rows the MUD abandoned.",
       "concurrency": "Bounded to sessions connected over an hour ago with no recorded disconnect, so it cannot race a live session row.",
       "status": "allowed",
       "ticket": "DB-10"
     },
-    "routes/admin.ts|UPDATE|level_cap": {
+    "features/admin/mudRoutes.ts|UPDATE|level_cap": {
       "authoritativeWriter": "DurisWeb administration owns this single-row global configuration; the MUD reads it.",
       "concurrency": "Single row, Overlord-only, last write wins. No ledger or per-player state depends on the previous value.",
       "status": "allowed",
       "ticket": "DB-10"
     },
-    "routes/admin.ts|UPDATE|timers": {
+    "features/admin/mudRoutes.ts|UPDATE|timers": {
       "authoritativeWriter": "DurisWeb administration resets named global event timers; the MUD reads and advances them.",
       "concurrency": "Idempotent reset to `UNIX_TIMESTAMP()` on named rows, Overlord-only. A concurrent MUD advance is superseded, which is the intended operator action.",
       "status": "allowed",
