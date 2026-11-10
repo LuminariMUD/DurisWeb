@@ -65,11 +65,14 @@ describe('NEWBIE crash course', () => {
     expect(wrapper.findAll('.reference-entry')).toHaveLength(initialCount)
   })
 
-  it('moves keyboard focus to the selected chapter in the application scroll container', async () => {
-    await wrapper.get('nav a[href="#explore"]').trigger('click')
-    expect(document.activeElement).toBe(wrapper.get('#explore').element)
-    expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'start', behavior: 'smooth' })
-  })
+  it.each(['explore', 'leveling'])(
+    'moves keyboard focus to %s in the application scroll container',
+    async (id) => {
+      await wrapper.get(`nav a[href="#${id}"]`).trigger('click')
+      expect(document.activeElement).toBe(wrapper.get(`#${id}`).element)
+      expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'start', behavior: 'smooth' })
+    },
+  )
 
   it('avoids animated chapter scrolling when reduced motion is requested', async () => {
     vi.mocked(window.matchMedia).mockReturnValue({ matches: true } as MediaQueryList)

@@ -77,8 +77,10 @@ not just legacy help text, when changing gameplay guidance:
 - **Death:** `src/combat/fight.c` calls `death_exp_loss_level_threshold()` from
   `src/world/limits.c`. The universal cutoff defaults to 30 but comes from
   `exp.goodieDeathExpLossLevelThreshold`; the level-up warning uses its effective
-  value. The course deliberately does not state a fixed live cutoff or guarantee
-  gear recovery, replacement equipment, immunity from PvP, or hardcore survival.
+  value. The recovery lesson points players to the level-up warning. The leveling
+  route below records the owner's current-rule guidance; server settings and
+  in-game messages take precedence. Neither section guarantees gear recovery,
+  replacement equipment, immunity from PvP, or hardcore survival.
 - **Logout:** `src/cmd/interp.c` maps `CMD_QUIT` to `do_camp` in
   `src/cmd/actoth.c`. Camping has terrain, state, town, and timing restrictions.
   The inn handler in `src/specs/specs.room.c` handles `rent`, restrictions, and
@@ -94,6 +96,30 @@ artwork, maps, or passages are reproduced. The course does not inherit historica
 server addresses, race statistics, town directions, bank fees, or level caps.
 Artwork is decorative and does not depict an authoritative in-game location.
 See the [image record and exact prompts](../frontend/src/assets/newbie/README.md).
+
+## Good-side leveling route
+
+The `#leveling` section sits after Find company and before Leave safely. Its
+navigation link uses the existing chapter focus/scroll behavior. It presents
+the owner's supplied **2026-11-10** route for levels 1–36 in five approximate
+stages, with full zone names, player nicknames, target-specific cautions, and
+advice to learn dangerous areas with experienced players. The identification of
+“su” as Darkfall Forest's su-monsters remains explicitly tentative. The Tentro
+recommendation specifically names its troglodytes.
+
+The experience/frag guidance was supplied by the owner with this route: ordinary
+death experience loss begins at level 30, frag eligibility at level 20, and an
+enemy generally earns no frags from a new character more than ten levels below
+them. The route preserves the hardcore exception and explains that no-frag
+status does not prevent attacks. This content addition did not inspect or change
+the separate MUD, verify its live configuration, or playtest the suggested areas.
+Recheck the owning rules and runtime settings when updating these claims.
+
+The original landscape illustration is decorative, explicitly captioned as
+not a map, and lazy-loaded with reserved dimensions. The route remains ordinary
+HTML text. The stage rows and death/frag notes stack on narrow screens; no new
+API, storage, or state is involved. See the [artwork record](../frontend/src/assets/newbie/README.md)
+for the exact generation prompt.
 
 ## Website Changelog draft
 
@@ -131,13 +157,30 @@ published**. Use the verified release date/version and category `public`.
 </ul>
 ```
 
+### Good-side leveling route release draft
+
+This future-release update is **not published**. Reconcile it at deployment
+using the news-update skill, category `public`, and the verified release date/version.
+
+- Title: **Your next adventure, from level 1 to 36**
+- HTML:
+
+```html
+<h3>NEWBIE</h3>
+<ul>
+  <li><strong>Find your next leveling area.</strong> The <a href="/newbie">NEWBIE field guide</a> now includes an illustrated good-side route from level 1 toward level 36, with full area names, common nicknames, and advice on choosing suitable targets.</li>
+  <li>Use Leveling route near the top of the page to jump to the suggestions, group advice, and explanations of experience loss and frag eligibility.</li>
+</ul>
+```
+
 ## Verification
 
 The page tests cover command search and reset, section navigation/focus, and
 reduced-motion behavior. Mobile-navigation coverage checks the uppercase label,
 placement before Guide, current-page state, and internal navigation. Browser
 checks should cover anonymous desktop Wiki and mobile More entry, chapter jumps,
-command search, preview loading, video selection/replacement/closing, direct
+command search, the Leveling route jump and illustration, route text and death/frag
+cautions, preview loading, video selection/replacement/closing, direct
 YouTube links, narrow layouts, zoom, keyboard focus, and the
 Guide/Play destinations. Use the frontend checks from [Development](development.md).
 These checks do not establish live deployment or exercise in-game commands.
