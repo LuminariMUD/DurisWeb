@@ -118,17 +118,7 @@ function _escapeHtml(text: string): string {
     '"': '&quot;',
     "'": '&#039;',
   }
-  // Only escape HTML chars, not our ANSI codes
-  return text.replace(/[&<>"']/g, (char) => {
-    // Don't escape & if it's part of an ANSI code
-    if (
-      char === '&' &&
-      /&\+?[a-zA-Z*]/.test(text.substring(text.indexOf(char), text.indexOf(char) + 3))
-    ) {
-      return char
-    }
-    return map[char] || char
-  })
+  return text.replace(/[&<>"']/g, (char) => map[char] || char)
 }
 
 // Standard ANSI SGR (Select Graphic Rendition) code mappings
@@ -151,6 +141,32 @@ const ANSI_SGR_CLASSES: Record<string, string> = {
   '95': 'text-purple-400', // Bright Magenta
   '96': 'text-cyan-300', // Bright Cyan
   '97': 'text-white', // Bright White
+}
+
+/** Palette IDs from server snapshots; preserve console and authored-body colors. */
+export function outputColorClasses(
+  foreground: number,
+  background: number,
+  underline: boolean,
+  terminal: boolean,
+): string {
+  const letters = 'lbgcrmywLBGCRMYW'
+  const foregroundClass = terminal
+    ? foreground
+      ? ANSI_SGR_CLASSES[String(30 + Number('04261537'[foreground & 7]))]
+      : 'text-gray-300'
+    : (fgColors[letters[foreground - 16] ?? ''] ?? 'text-gray-300')
+  const backgroundClass = background
+    ? bgColors[letters[terminal ? background & 7 : background - 16] ?? '']
+    : ''
+  return [
+    foregroundClass,
+    foreground >= 24 ? 'font-bold' : '',
+    backgroundClass,
+    background >= 24 && underline ? 'underline' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 
 /**
@@ -190,10 +206,13 @@ function parseStandardAnsi(text: string): string {
   return html
 }
 
-/**
- * Parse ANSI color codes to HTML with Tailwind CSS classes
- * Supports both DurisMUD codes (&+G) and standard ANSI escape sequences (\x1B[32m)
- */
+/** Server text is already terminal encoded: literal &n must not become markup. */
+export function parseTerminalToHtml(text: string): string {
+  if (!text) return ''
+  return `<span class="text-gray-300">${parseStandardAnsi(_escapeHtml(text)).replace(/\r/gu, '')}</span>`
+}
+
+/** Parse authored Duris color codes and standard ANSI to escaped HTML. */
 export function parseAnsiToHtml(text: string): string {
   if (!text) return ''
   if (typeof text !== 'string') {

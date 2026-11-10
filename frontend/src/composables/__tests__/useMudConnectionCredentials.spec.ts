@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { mount, type VueWrapper } from '@vue/test-utils'
 
+const textGag = vi.hoisted(() => ({ active: false }))
+
 const {
   store,
   storeMudCredentials,
@@ -95,8 +97,8 @@ vi.mock('@/composables/useTimers', () => ({
 
 vi.mock('@/composables/useTriggers', () => ({
   useTriggers: () => ({
-    processLine: vi.fn(() => ({
-      gagged: false,
+    processLine: vi.fn((line: string) => ({
+      gagged: textGag.active && line.includes('weather'),
       highlightClass: undefined,
       soundsToPlay: [],
       commandsToSend: [],
@@ -118,6 +120,7 @@ vi.mock('@/utils/duriswebAuth', () => ({
 }))
 
 import { useMudConnection } from '../useMudConnection'
+import outputFixtures from '../../components/mud/__tests__/fixtures/output-presentation-v1.json'
 import chatFixtures from '../../components/mud/__tests__/fixtures/chat-presentation-v1.json'
 
 let activeWrapper: VueWrapper | null = null
@@ -140,6 +143,7 @@ describe('useMudConnection credential lifecycle', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.clearAllMocks()
+    textGag.active = false
     store.connectionError = null
     store.setConnectionState.mockImplementation((_state: string, error?: string) => {
       store.connectionError = error ?? null
@@ -372,6 +376,7 @@ describe('useMudConnection credential lifecycle', () => {
         undefined,
         undefined,
         fixture.packet.presentation,
+        undefined,
       )
       if (fixture.case === 'selected') {
         connection.disconnect()
@@ -403,6 +408,34 @@ describe('useMudConnection credential lifecycle', () => {
       undefined,
       undefined,
       undefined,
+      undefined,
+    )
+  })
+  it('negotiates the link decoder and pairs per-line metadata without automatic commands', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    sockets[0]!.onopen?.()
+    expect(JSON.parse(sockets[0]!.sent[1]!)).toEqual({
+      type: 'gmcp',
+      package: 'Core.Supports.Set',
+      data: ['Duris.Capabilities 1', 'Duris.Links 1'],
+    })
+    sockets[0]!.onmessage?.({ data: JSON.stringify(outputFixtures[0]) })
+    const entries = store.addLogEntry.mock.calls
+    const linked = entries.find((entry) => String(entry[1]).includes('weather'))
+    expect(linked?.[3]).toMatchObject({
+      links: [{ start: 2, end: 9, kind: 'command', target: 'help weather' }, { kind: 'url' }],
+    })
+    expect(linked?.[4]).toBe(true)
+    expect(sockets[0]!.sent.filter((packet) => JSON.parse(packet).type === 'cmd')).toHaveLength(0)
+    store.addLogEntry.mockClear()
+    textGag.active = true
+    sockets[0]!.onmessage?.({ data: JSON.stringify(outputFixtures[0]) })
+    expect(store.addLogEntry.mock.calls.some((entry) => String(entry[1]).includes('weather'))).toBe(
+      false,
+    )
+    expect(store.addLogEntry.mock.calls.some((entry) => String(entry[1]).startsWith('xxxxx'))).toBe(
+      true,
     )
   })
 })

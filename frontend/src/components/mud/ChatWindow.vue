@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import ChatPresentation from './ChatPresentation.vue'
+import OutputPresentation from './OutputPresentation.vue'
+import { parseBodyPresentation } from '../../utils/outputPresentation.js'
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useMudStore } from '@/stores/mudStore'
 import { useMudConnection } from '@/composables/useMudConnection'
@@ -278,7 +280,7 @@ const formatTime = (timestamp: number): string => {
                     ]
               ]"
             >
-              <p :class="msg.direction === 'sent' ? 'text-white' : 'text-foreground/90'"><ChatPresentation :presentation="msg.presentation" :channel="msg.type">{{ msg.text }}</ChatPresentation></p>
+              <p :class="msg.direction === 'sent' ? 'text-white' : 'text-foreground/90'"><ChatPresentation :presentation="msg.presentation" :channel="msg.type"><OutputPresentation :presentation="parseBodyPresentation(msg.bodyPresentation)" palette="authored">{{ msg.text }}</OutputPresentation></ChatPresentation></p>
             </div>
             <!-- timestamp -->
             <span class="text-[9px] text-muted-foreground/50 mt-0.5 px-1">

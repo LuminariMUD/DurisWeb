@@ -1,4 +1,5 @@
 import type { ChatPresentation } from '../utils/chatPresentation.js'
+import type { OutputPresentation } from '../utils/outputPresentation.js'
 // storage version for future migrations
 export const CHAT_STORAGE_VERSION = 1
 
@@ -15,6 +16,7 @@ export interface ChatHistoryMessage {
   direction: 'sent' | 'received'
   sender?: string // sender name for group/guild chats
   presentation?: ChatPresentation
+  bodyPresentation?: OutputPresentation
   text: string
   type: ChatMessageType
 }

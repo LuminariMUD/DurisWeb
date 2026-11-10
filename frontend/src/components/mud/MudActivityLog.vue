@@ -5,7 +5,8 @@ import { useMudChatNotifications } from '@/composables/useMudChatNotifications'
 import { useFontSettings } from '@/composables/useFontSettings'
 import { Button } from '@/components/ui/button'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
-import { parseAnsiToHtml } from '@/utils/ansiParser'
+import { parseAnsiToHtml, parseTerminalToHtml } from '@/utils/ansiParser'
+import OutputPresentation from './OutputPresentation.vue'
 import {
   Trash2,
   ArrowDown,
@@ -43,6 +44,7 @@ const props = withDefaults(
     showControls: true,
   },
 )
+const emit = defineEmits<{ command: [target: string] }>()
 
 const store = useMudStore()
 const scrollContainerRef = ref<HTMLElement | null>(null)
@@ -330,11 +332,9 @@ defineExpose({
             class="px-1 rounded-sm min-h-[1.25em]"
             :class="entry.highlightClass"
           >
-            <span
-              v-if="entry.text"
-              class="break-words whitespace-pre-wrap"
-              v-html="parseAnsiToHtml(entry.text)"
-            />
+            <OutputPresentation v-if="entry.text" :presentation="entry.presentation" @command="emit('command', $event)">
+                <span class="break-words whitespace-pre-wrap" v-html="entry.terminalText ? parseTerminalToHtml(entry.text) : parseAnsiToHtml(entry.text)" />
+              </OutputPresentation>
             <span v-else>&nbsp;</span>
           </div>
         </div>
@@ -359,11 +359,9 @@ defineExpose({
               class="px-1 rounded-sm min-h-[1.25em]"
               :class="entry.highlightClass"
             >
-              <span
-                v-if="entry.text"
-                class="break-words whitespace-pre-wrap"
-                v-html="parseAnsiToHtml(entry.text)"
-              />
+              <OutputPresentation v-if="entry.text" :presentation="entry.presentation" @command="emit('command', $event)">
+                <span class="break-words whitespace-pre-wrap" v-html="entry.terminalText ? parseTerminalToHtml(entry.text) : parseAnsiToHtml(entry.text)" />
+              </OutputPresentation>
               <span v-else>&nbsp;</span>
             </div>
           </div>
@@ -397,11 +395,9 @@ defineExpose({
               class="px-1 rounded-sm min-h-[1.25em]"
               :class="entry.highlightClass"
             >
-              <span
-                v-if="entry.text"
-                class="break-words whitespace-pre-wrap"
-                v-html="parseAnsiToHtml(entry.text)"
-              />
+              <OutputPresentation v-if="entry.text" :presentation="entry.presentation" @command="emit('command', $event)">
+                <span class="break-words whitespace-pre-wrap" v-html="entry.terminalText ? parseTerminalToHtml(entry.text) : parseAnsiToHtml(entry.text)" />
+              </OutputPresentation>
               <span v-else>&nbsp;</span>
             </div>
           </div>

@@ -7,6 +7,7 @@ import ChatWindow from '../ChatWindow.vue'
 import { useMudStore } from '../../../stores/mudStore.js'
 import { useChatHistory } from '../../../composables/useChatHistory.js'
 import fixtures from './fixtures/chat-presentation-v1.json'
+import linkFixtures from './fixtures/output-presentation-v1.json'
 
 vi.mock('@/composables/useMudConnection', () => ({
   useMudConnection: () => ({ sendGameCommand: vi.fn() }),
@@ -24,6 +25,46 @@ beforeEach(() => {
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
   }))
+})
+
+it('retains generic body links once through a group window and saved history reload', async () => {
+  const store = useMudStore()
+  store.setAccount('LinkFixtureAccount', [])
+  const history = useChatHistory()
+  history.clearAllHistory()
+  const manager = mount(ChatWindowManager, { global: { stubs: { ChatWindow: true } } })
+  const body = linkFixtures[2]!.bodyPresentation
+  store.addChatMessage(
+    'gsay',
+    'Alice',
+    '[[Weather]] https://example.test/?x=1&name=two',
+    undefined,
+    undefined,
+    undefined,
+    body,
+  )
+  await nextTick()
+  expect(history.getMessages('__group__')).toHaveLength(1)
+  history.loadHistory()
+  expect(history.getMessages('__group__')[0]?.bodyPresentation?.links?.[0]?.target).toBe(
+    'https://example.test/?x=1&name=two',
+  )
+  manager.unmount()
+  const window = mount(ChatWindow, {
+    global: { stubs: { Teleport: true } },
+    props: {
+      playerName: '__group__',
+      windowType: 'group',
+      position: { bottom: 8, right: 8 },
+      isMinimized: false,
+      unreadCount: 0,
+    },
+  })
+  expect(window.findAll('a')).toHaveLength(1)
+  expect(window.get('a').attributes('href')).toBe('https://example.test/?x=1&name=two')
+  expect(window.text()).toContain('[[Weather]]')
+  expect(window.find('button[title="help Weather"]').exists()).toBe(false)
+  window.unmount()
 })
 afterEach(() => {
   vi.unstubAllGlobals()

@@ -1,4 +1,5 @@
 import { validChatContent } from '../utils/chatPresentation.js'
+import { outputPresentationLines } from '../utils/outputPresentation.js'
 import { isRecord, parseRoomInfo } from '../utils/playMap.js'
 import { chargenAlignments } from '../utils/chargenAlignment.js'
 import { ref, onUnmounted } from 'vue'
@@ -188,6 +189,13 @@ export function useMudConnection() {
               type: 'gmcp',
               package: 'Client.Info',
               data: buildDurisWebClientInfo(),
+            }),
+          )
+          newWs.send(
+            JSON.stringify({
+              type: 'gmcp',
+              package: 'Core.Supports.Set',
+              data: ['Duris.Capabilities 1', 'Duris.Links 1'],
             }),
           )
         } catch (e) {
@@ -786,6 +794,7 @@ export function useMudConnection() {
             result.highlightClass,
             message.data.alignment,
             message.data.presentation,
+            message.data.bodyPresentation,
           )
         }
 
@@ -837,6 +846,9 @@ export function useMudConnection() {
   }
 
   const handleTextMessage = (message: MudTextMessage) => {
+    if (typeof message.data !== 'string' || message.data.length > 4 * 1024 * 1024) return
+    const presentations = outputPresentationLines(message.presentation, message.data)
+    let presentationIndex = 0
     // Staff feedback must remain visible even if a game trigger gags this text.
     store.addApprovalMessage(message.data)
     // Calculate latency from command send to response receive
@@ -864,10 +876,11 @@ export function useMudConnection() {
       if (/^[\r\n]+$/.test(line)) {
         continue
       }
+      const presentation = presentations?.[presentationIndex++]
 
       // Preserve empty lines for spacing
       if (!line) {
-        store.addLogEntry(message.category, '')
+        store.addLogEntry(message.category, '', undefined, presentation, true)
         continue
       }
 
@@ -890,7 +903,7 @@ export function useMudConnection() {
         }
       } else {
         // Add log entry with highlight info for this specific line
-        store.addLogEntry(message.category, line, result.highlightClass)
+        store.addLogEntry(message.category, line, result.highlightClass, presentation, true)
       }
 
       // Parse ship status from text output (strip ANSI escape sequences first)

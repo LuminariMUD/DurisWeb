@@ -1,4 +1,5 @@
 import type { ChatPresentation } from '../utils/chatPresentation.js'
+import type { OutputPresentation } from '../utils/outputPresentation.js'
 // MUD Client TypeScript Types
 // Based on WebSocket PRD Protocol Specification
 
@@ -562,6 +563,7 @@ export interface MudGmcpCommChannel {
     sender: string
     text: string
     presentation?: unknown
+    bodyPresentation?: unknown
     timestamp: number
     /** Racewar alignment for nchat (good, evil, undead, neutral) */
     alignment?: 'good' | 'evil' | 'undead' | 'neutral'
@@ -752,6 +754,7 @@ export interface MudTextMessage {
   type: 'text'
   category: 'combat' | 'movement' | 'info' | 'system' | 'channel'
   data: string
+  presentation?: unknown
 }
 
 // System Messages (connection status, welcome, etc.)
@@ -907,6 +910,8 @@ export interface MudQuest {
 }
 
 export interface MudLogEntry {
+  terminalText?: boolean
+  presentation?: OutputPresentation
   id: number
   timestamp: Date
   category: 'combat' | 'movement' | 'info' | 'system' | 'channel'
@@ -916,6 +921,7 @@ export interface MudLogEntry {
 }
 
 export interface MudChatMessage {
+  bodyPresentation?: OutputPresentation
   id: number
   timestamp: Date
   channel: string
