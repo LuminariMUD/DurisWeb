@@ -1,7 +1,25 @@
 {
-  "sourceSha": "d9ef96dcf39386b8ed4812178384504ab305aac7",
-  "sourceUrl": "https://github.com/LuminariMUD/duris-client/blob/d9ef96dcf39386b8ed4812178384504ab305aac7/CHANGELOG.md",
+  "sourceSha": "ee8d9a2518b24eae029274282475f99bd43421bd",
+  "sourceUrl": "https://github.com/LuminariMUD/duris-client/blob/ee8d9a2518b24eae029274282475f99bd43421bd/CHANGELOG.md",
   "entries": [
+    {
+      "version": "2.6.0",
+      "date": "2026-11-10",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.6.0",
+      "content": "<ul>\n<li>Keep clickable server-provided web links and recipient colors in chat tabs and private conversation history.</li>\n<li>Use the server clock and explicit session/body transitions, with text fallback on older servers.</li>\n<li>Count outgoing applied damage, including secondary targets, once per scoped event and mark interrupted history incomplete.</li>\n<li>Show paged owner inventory/equipment in GEAR, with safe snapshot-scoped item actions and requested direct-container contents.</li>\n<li>Keep the HUD, room and map when the package starts or reloads while a character is already playing.</li>\n<li>Show player chat text literally when the server sends no chat snapshot, and keep each message&#x27;s own time when a private conversation is reopened.</li>\n</ul>"
+    },
+    {
+      "version": "2.5.3",
+      "date": "2026-11-08",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.5.3",
+      "content": "<ul>\n<li>Show the latest ship information in SHIP as soon as another maximized panel is restored, instead of waiting for the next ship update.</li>\n<li>Refit SHIP cards and buttons after transferring maximization between panels, even without new ship data.</li>\n<li>Restore critical, damaged and sound text colors in the ship bridge.</li>\n</ul>"
+    },
+    {
+      "version": "2.5.2",
+      "date": "2026-11-08",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.5.2",
+      "content": "<ul>\n<li>Keep game text moving during busy group updates: the GROUP panel now updates only what changed, once per burst of server updates, and waits until it is visible.</li>\n<li>Keep your scroll position in GROUP when members&#x27; health or position changes.</li>\n<li>Restore GROUP text colors for the weakest member, absent members, low movement and alert postures.</li>\n</ul>"
+    },
     {
       "version": "2.5.1",
       "date": "2026-11-04",
@@ -54,7 +72,7 @@
       "version": "2.2.0",
       "date": "2026-10-23",
       "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.2.0",
-      "content": "<ul>\n<li>Show bridge weight/load, ordered navigation, display/raw stamina, explicit target, slot condition/timers/destruction, contact coordinates and both arc meanings when supplied by the server.</li>\n<li>Associate ship snapshots by runtime vessel key, preserve safe legacy fallback, handle duplicate docked designations and keep server names literal.</li>\n</ul>\n<p>Notable changes to the Duris Client Mudlet package. Versions follow <a href=\"https://semver.org\">Semantic Versioning</a> (<code>MAJOR.MINOR.PATCH</code>); see <a href=\"https://github.com/LuminariMUD/duris-client/blob/d9ef96dcf39386b8ed4812178384504ab305aac7/docs/RELEASING.md\">docs/RELEASING.md</a> for what each part means here. Each version heading must match <code>VERSION</code>; the release workflow copies that section into the GitHub Release notes.</p>"
+      "content": "<ul>\n<li>Show bridge weight/load, ordered navigation, display/raw stamina, explicit target, slot condition/timers/destruction, contact coordinates and both arc meanings when supplied by the server.</li>\n<li>Associate ship snapshots by runtime vessel key, preserve safe legacy fallback, handle duplicate docked designations and keep server names literal.</li>\n</ul>\n<p>Notable changes to the Duris Client Mudlet package. Versions follow <a href=\"https://semver.org\">Semantic Versioning</a> (<code>MAJOR.MINOR.PATCH</code>); see <a href=\"https://github.com/LuminariMUD/duris-client/blob/ee8d9a2518b24eae029274282475f99bd43421bd/docs/RELEASING.md\">docs/RELEASING.md</a> for what each part means here. Each version heading must match <code>VERSION</code>; the release workflow copies that section into the GitHub Release notes.</p>"
     },
     {
       "version": "2.1.2",
