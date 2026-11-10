@@ -42,9 +42,28 @@ The focused source review found these concrete seams:
   Axios instance and its CSRF/availability interceptors share a file with many
   feature APIs, some wire types, named exports, and a default `pvpApi` export.
 - `routes/forum.ts`, `routes/auction.ts`, `services/crashDetectionService.ts`,
-  and `services/mudConnectionLogSync.ts` import broadcasts from `index.ts`.
-  Tests also mock those imports. Some legacy services are not started by the
-  current entry point; removing an import cycle must not activate them.
+  and `services/mudConnectionLogSync.ts` import broadcasts from `index.ts`;
+  these four are the only production imports of the entry point. Five test files
+  mock `../../index.js` (`forumSearchNative`, `postImageRemovalNative`,
+  `mudConnectionLogSync`, `userProfilePrivacy`, `userProfileSchemaIntegration`).
+  The cycle is reachable from live code: `routes/admin.ts` and
+  `routes/mudControl.ts` import `mudControlService.ts`, which imports
+  `createWebShutdownIncident` from `crashDetectionService.ts`, which imports
+  `index.ts`. Crash monitoring itself (`startCrashMonitoring`) is not started by
+  the entry point, and `mudConnectionLogSync.ts` has no production importer;
+  removing the import cycle must not activate either.
+- Mount order carries behavior. `/api/admin/data-holds` is mounted before the
+  `/api/admin` router; `/api/admin/users`, `/api/admin/git`, and
+  `/api/admin/analytics/web` are mounted after it and are reached only because
+  `routes/admin.ts` has no router-level `use` and its routes do not match them.
+  `routes/forum.ts` applies `optionalAuth` and `routes/builder.ts` applies
+  `requireAuth` plus `requirePermission('manage_zones')` at router level.
+- `backend/mud-write-allowlist.json` keys each classified write as
+  `<path under src>|<operation>|<table>`. 28 of its 53 keys start with
+  `routes/admin.ts`; none name the forum, builder, changelog, or auction route
+  files. `verify:mud-writes` fails on an unclassified write and on an entry
+  that no longer matches a statement, so a moved statement and its key must
+  change in the same commit.
 - [changelog routes](../../backend/src/routes/changelog.ts) already have a
   separate [service](../../backend/src/services/changelogService.ts), reusable
   validation helpers, route tests, and visible frontend consumers. This is a
@@ -53,8 +72,19 @@ The focused source review found these concrete seams:
   while many routes return an `error` string; some responses also carry `code`.
   A file move must not silently change these contracts.
 - Several contract tests inspect specific source files and statement order.
+  `apiNotFound`, `frontendAssets`, `applicationWebSocket`, `websocketAccess`,
+  `hookDeliveryContract`, and `productionReviewRegression` read
+  `backend/src/index.ts` as text; `websocketAccess` and
+  `productionReviewRegression` also read `routes/admin.ts`.
   Moving code requires relocating assertions deliberately, not deleting them
   or leaving unused old code so a string test passes.
+- About 130 frontend files import `services/api`, and 24 spec files mock
+  `@/services/api`. The default `pvpApi` export has four callers:
+  `PvPListView.vue`, `SearchView.vue`, `usePvPEvents.ts`, and `useAnalytics.ts`.
+- Paths this plan moves are cited outside the source tree:
+  `docs/api/README_api.md`, `docs/ARCHITECTURE.md`, `docs/docs-audit.md`, a
+  relative link to `changelogService.ts` in `docs/privacy-data-lifecycle.md`,
+  and `.agents/skills/news-update/references/publishing.md`.
 - Database modules have import-time work: MySQL pools are constructed and the
   cache Redis client connects on import. Separating `createApp` from startup
   alone will not make the entire dependency graph free of external effects.
@@ -197,7 +227,11 @@ Use two small commits, independently reviewable:
    `changelogApi` into `frontend/src/features/changelog/api.ts`. Update the
    backend mount, frontend consumers, imports and test mocks. Keep the old
    frontend export as an explicit forwarding export until step 5; remove the
-   old backend files once all their callers have moved.
+   old backend files once all their callers have moved. In the same commit,
+   repoint the changelog paths in `docs/api/README_api.md`, the
+   `changelogService.ts` link in `docs/privacy-data-lifecycle.md`, and the
+   owner table in `.agents/skills/news-update/references/publishing.md`, so no
+   link breaks and the release workflow does not cite removed files.
 
 Keep the existing validation and sanitization behavior. A typed parser can
 replace a local cast only with the same accepted inputs and errors; reuse
@@ -224,7 +258,8 @@ WebSocket server and clears that binding on stop. Preserve the existing
 no-server behavior and recipient checks; do not introduce a general event bus.
 
 Update the forum/auction route imports, crash-detection and connection-log
-service imports, and all corresponding test mocks. Reuse the callback setters
+service imports, and the five test files that mock `../../index.js`; a mock
+left on the old specifier silently stops applying. Reuse the callback setters
 already used by notification, backup, MUD-control and player-event services.
 Introduce `clientState.ts` only for connection fields actually read by the
 broadcasters and handlers; replace moved socket `any` accesses with explicit
@@ -274,8 +309,11 @@ dependent work before closing shared database/cache clients.
 
 **Proof:** composed-app HTTP checks plus existing asset/API-404/error-handler
 contracts; `applicationWebSocket`, `websocketAccess`, `serverShutdown`,
-`terminalSessionAuthorization`, `pvpPolling`, and relevant hook delivery tests.
-Extend fixtures for signal registration, startup failure, stop ordering,
+`terminalSessionAuthorization`, `pvpPolling`, `hookDeliveryContract`, and
+`productionReviewRegression`. The last two, with `apiNotFound`,
+`frontendAssets`, `applicationWebSocket`, and `websocketAccess`, read
+`index.ts` as text and must be repointed at the file that now executes each
+asserted statement. Extend fixtures for signal registration, startup failure, stop ordering,
 duplicate job prevention, and a connected peer during shutdown. A synthetic
 cron job must stop without creating a backup. Keep source-contract assertions
 attached to the actual registration/dispatch path after the move.
@@ -291,6 +329,11 @@ Preserve the root mount prefixes and ordered composition. Choose simple child
 routers or explicit registration functions based on the existing parameter and
 middleware behavior; do not blindly nest routers and lose params or guards.
 Move one group and its tests at a time, removing its old implementation.
+Keep the forum and builder router-level middleware ahead of every moved group.
+Do not add router-level `use` middleware or a catch-all to the admin
+composition: `/api/admin/users`, `/api/admin/git`, and
+`/api/admin/analytics/web` requests pass through that router before reaching
+their own mounts.
 
 - **Admin:** move settings/uploads and Discord configuration first; then
   permissions/roles/accounts, analytics/health/WHO/incidents, community
@@ -313,10 +356,15 @@ Move one group and its tests at a time, removing its old implementation.
 Keep SQL behavior unchanged when moving a route-local query to a feature-owned
 service function, with row types beside the query. Do not add generic CRUD or
 repository wrappers. For every moved MUD-owned write, update only the path part
-of the operation inventory if required; preserve its classification, gate,
-authoritative writer and SQL semantics. Run `verify:mud-writes` for these moves.
+of its `backend/mud-write-allowlist.json` key, in the commit that moves the
+statement; preserve its classification, gate, authoritative writer and SQL
+semantics. All 28 route-file keys belong to `routes/admin.ts`, so every admin
+group that carries one needs this; the forum and builder route files have none.
+Run `verify:mud-writes` for these moves.
 
-**Proof:** existing admin permission-ID and native admin-read suites; forum
+**Proof:** existing admin permission-ID and native admin-read suites, plus the
+`websocketAccess` and `productionReviewRegression` assertions that read
+`routes/admin.ts` as text, repointed at the group that now owns them; forum
 access, search, profile privacy/schema, polls and image-removal suites; builder
 child-ID and relevant zone mutation/containment/streaming suites. Add composed
 HTTP cases for any moved group not covered, especially specific-vs-dynamic route
@@ -347,7 +395,9 @@ Move each feature's callers and mocks in the same change. Raw `apiClient`
 consumers import `services/httpClient.ts`; move their endpoint-specific calls
 into a feature API when that endpoint belongs to the slice. Specialized fetch
 clients retain their policies. Preserve the default `pvpApi` export only until
-its last caller is migrated. New feature files must never import the old facade.
+its four default-import callers are migrated to the named export. A
+`vi.mock('@/services/api')` left in a spec whose subject now imports a feature
+module no longer intercepts anything; move each mock with its caller. New feature files must never import the old facade.
 
 **Proof:** API availability and affected consumer tests, adapter-level assertions
 for representative reads/writes/uploads/query encoding, and both package
@@ -369,6 +419,10 @@ covered. Do not add a dependency-analysis platform or arbitrary file-size gate.
 
 Update `docs/ARCHITECTURE.md`, `docs/api/README_api.md`, package READMEs, and
 `docs/CONVENTIONS.md` only where their ownership/import/testing guidance changed.
+Repoint the remaining moved-path citations listed under Evidence, including the
+route-owner table in `docs/api/README_api.md` and the verification sources in
+`docs/docs-audit.md`; a search for the retired paths outside this plan should
+return nothing.
 The resulting guides should identify where to add a route, a job, a WebSocket
 handler, a browser API call, and the matching tests.
 
@@ -394,7 +448,7 @@ Initial focused checks for steps 1–3:
 ```bash
 pnpm --dir backend test --runInBand changelog
 pnpm --dir frontend test:unit --run apiAvailability ChangelogList ChangelogBanner NewsAdminView accountExport privacy
-pnpm --dir backend test --runInBand websocketAccess applicationWebSocket serverShutdown terminalSessionAuthorization pvpPolling apiNotFound frontendAssets errorHandler integrationSecurityContract
+pnpm --dir backend test --runInBand websocketAccess applicationWebSocket serverShutdown terminalSessionAuthorization pvpPolling apiNotFound frontendAssets errorHandler integrationSecurityContract hookDeliveryContract productionReviewRegression
 ```
 
 These existing suites are starting points, not substitutes for the new composed
@@ -482,5 +536,13 @@ package test/build, or deployment was run while preparing it. Completed checks:
   passed for this new, untracked document.
 - PowerShell relative-link and Markdown-fence inspection: all 12 relative links
   resolve; all six code blocks have balanced fences.
+
+A follow-up read-only review at `460edf8` rechecked the plan against the source
+with `git grep`, `wc -l`, and a key count of `backend/mud-write-allowlist.json`.
+The five file lengths were unchanged; the only non-plan change since the
+baseline is `frontend/src/content/clientChangelog.json`. That review added the
+import-chain, mount-order, allowlist-key, source-reading-test, frontend-caller,
+and moved-path-citation evidence and the step instructions that depend on it.
+No test, build, or application was run.
 
 Implementation acceptance remains entirely outstanding.
