@@ -20,7 +20,7 @@ import statusRoutes from './routes/status.js';
 import serverRebootRoutes from './routes/serverReboot.js';
 import gitRoutes from './routes/git.js';
 import mudControlRoutes from './routes/mudControl.js';
-import builderRoutes from './routes/builder.js';
+import { builderRouter } from './features/builder/routes.js';
 import wikiRoutes from './routes/wiki.js';
 import webAnalyticsRoutes from './routes/webAnalytics.js';
 import privacyRoutes from './routes/privacy.js';
@@ -163,7 +163,7 @@ export function createApp(): Application {
   app.use('/api/server/reboot', serverRebootRoutes);
   app.use('/api/admin/git', gitRoutes);
   app.use('/api/mud', mudControlRoutes);
-  app.use('/api/builder', builderRoutes);
+  app.use('/api/builder', builderRouter);
   app.use('/api/wiki', wikiRoutes);
   app.use('/api/help', helpRoutes);
   app.use('/api/guide', guideRoutes);

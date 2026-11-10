@@ -28,7 +28,7 @@ const builderNotificationService = {
 const asyncMock = () => jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const canAccessZone = jest.fn<(...args: unknown[]) => Promise<boolean>>();
 
-jest.unstable_mockModule('../../middleware/auth.js', () => ({
+jest.unstable_mockModule('../../../middleware/auth.js', () => ({
   requireAuth: (req: any, _res: any, next: any) => {
     req.user = {
       accountName: 'Cwial',
@@ -39,21 +39,21 @@ jest.unstable_mockModule('../../middleware/auth.js', () => ({
   },
   requirePermission: () => (_req: any, _res: any, next: any) => next(),
 }));
-jest.unstable_mockModule('../../db/connection.js', () => ({
+jest.unstable_mockModule('../../../db/connection.js', () => ({
   pool: { query: poolQuery },
 }));
-jest.unstable_mockModule('../../utils/logger.js', () => ({
+jest.unstable_mockModule('../../../utils/logger.js', () => ({
   default: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
   getErrorMessage: (error: unknown) => String(error),
 }));
-jest.unstable_mockModule('../../utils/contentParser.js', () => ({
+jest.unstable_mockModule('../../../utils/contentParser.js', () => ({
   processContentForWrite: (content: string) => ({ content }),
 }));
-jest.unstable_mockModule('../../utils/safeZonePath.js', () => ({
+jest.unstable_mockModule('../../../utils/safeZonePath.js', () => ({
   UnsafeZonePathError: class UnsafeZonePathError extends Error {},
   resolveSafeZoneFilePath: jest.fn(),
 }));
-jest.unstable_mockModule('../../services/zoneBuilderParser.js', () => ({
+jest.unstable_mockModule('../../../services/zoneBuilderParser.js', () => ({
   listZones: asyncMock(),
   getZoneMapData: asyncMock(),
   getRoomData: asyncMock(),
@@ -65,13 +65,13 @@ jest.unstable_mockModule('../../services/zoneBuilderParser.js', () => ({
   globalSearch: asyncMock(),
   getZoneName,
 }));
-jest.unstable_mockModule('../../services/zoneBuilderStreamer.js', () => ({
+jest.unstable_mockModule('../../../services/zoneBuilderStreamer.js', () => ({
   countZoneItems: asyncMock(),
   streamRooms: async function* () {},
   streamMobs: async function* () {},
   streamObjects: async function* () {},
 }));
-jest.unstable_mockModule('../../services/zoneBuilderWriter.js', () => ({
+jest.unstable_mockModule('../../../services/zoneBuilderWriter.js', () => ({
   updateRoom: asyncMock(),
   createRoom: asyncMock(),
   deleteRoom: asyncMock(),
@@ -88,20 +88,20 @@ jest.unstable_mockModule('../../services/zoneBuilderWriter.js', () => ({
   cloneRoom: asyncMock(),
   writeZoneResets: asyncMock(),
 }));
-jest.unstable_mockModule('../../services/mudFlagParser.js', () => ({
+jest.unstable_mockModule('../../../services/mudFlagParser.js', () => ({
   MudFlagParser: class MudFlagParser {},
 }));
-jest.unstable_mockModule('../../services/zoneBuilderValidator.js', () => ({
+jest.unstable_mockModule('../../../services/zoneBuilderValidator.js', () => ({
   validateRoom: asyncMock(),
   validateObject: asyncMock(),
   quickValidate: asyncMock(),
   clearValidationCache: jest.fn(),
 }));
-jest.unstable_mockModule('../../services/gitService.js', () => ({
+jest.unstable_mockModule('../../../services/gitService.js', () => ({
   getZoneGitStatus: asyncMock(),
   commitZoneFiles: asyncMock(),
 }));
-jest.unstable_mockModule('../../services/zoneInfoService.js', () => ({
+jest.unstable_mockModule('../../../services/zoneInfoService.js', () => ({
   default: {
     getAccessibleZoneIds: asyncMock(),
     canAccessZone,
@@ -114,16 +114,16 @@ jest.unstable_mockModule('../../services/zoneInfoService.js', () => ({
     getZoneInfoHistory: asyncMock(),
   },
 }));
-jest.unstable_mockModule('../../services/procRequestService.js', () => ({
+jest.unstable_mockModule('../../../services/procRequestService.js', () => ({
   default: procRequestService,
 }));
-jest.unstable_mockModule('../../services/zoneCommentService.js', () => ({
+jest.unstable_mockModule('../../../services/zoneCommentService.js', () => ({
   default: zoneCommentService,
 }));
-jest.unstable_mockModule('../../services/builderNotificationService.js', () => ({
+jest.unstable_mockModule('../../../services/builderNotificationService.js', () => ({
   default: builderNotificationService,
 }));
-jest.unstable_mockModule('../../services/accountService.js', () => ({
+jest.unstable_mockModule('../../../services/accountService.js', () => ({
   searchAccounts: asyncMock(),
 }));
 
@@ -131,7 +131,7 @@ describe('builder child-resource ID validation', () => {
   let app: express.Express;
 
   beforeAll(async () => {
-    const { default: builderRoutes } = await import('../builder.js');
+    const { builderRouter: builderRoutes } = await import('../routes.js');
     app = express();
     app.use(express.json());
     app.use('/api/builder', builderRoutes);

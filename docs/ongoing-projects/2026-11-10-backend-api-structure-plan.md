@@ -832,4 +832,34 @@ passed, 2 native skipped; `userProfileSchemaIntegration` fails with the known
 native-DB `Access denied` (same as `master`) — **not qualified**.
 `verify:mud-writes` 53 verified; format:check, lint, type-check, build passed.
 
-Next: step 4c — builder route groups, branch `refactor/builder-routes`.
+### Step 4c — builder route groups (branch `refactor/builder-routes`)
+
+Stacked on `refactor/forum-routes`. Done:
+
+- `routes/builder.ts` is deleted; blocks moved verbatim into
+  `backend/src/features/builder/`: `zoneRoutes` (list/search/activity, zone
+  map/header, next vnum, zone create/delete/clone, map positions — positions
+  are zone map data, so no separate map file), `roomRoutes`, `mobRoutes`,
+  `objectRoutes`, `resetFlagRoutes`, `streamExportRoutes` (counts, SSE stream,
+  download; owns the `MUD_DIR`/`AREAS_DIR` constants), `validationRoutes`,
+  `gitRoutes`, `settingsRoutes`, `accessRoutes` (zone access, info,
+  permissions, account search), `collaborationRoutes` (builder notifications,
+  proc requests, comments).
+- `shared.ts`: `validateOptionalHtml`, `logBuilderActivity`, and the local
+  `canAccessZone` / `canManagePermissions` helpers.
+- `features/builder/routes.ts` applies `requireAuth` then
+  `requirePermission('manage_zones')` before every group. All builder paths are
+  pairwise disjoint, so group order cannot change matching. No builder
+  MUD-write keys moved (the zone-metadata entry is not keyed to the route file).
+- Tests: `builderChildIdValidation` moved to `features/builder/__tests__/`; new
+  `builderComposition.test.ts` enumerates every builder route (50+) and
+  requires 401 anonymous / 403 without `manage_zones`.
+- Docs: `docs/api/README_api.md` route-owner row.
+
+Verification: `pnpm --dir backend test --runInBand builderComposition
+builderChildIdValidation zone builder` — 11 suites / 57 tests passed;
+`verify:mud-writes` 53 verified; format:check, lint, type-check, build passed.
+No game file or MUD process was touched.
+
+Next: step 5 — frontend API split (`frontend/src/features/*/api.ts`), branch
+`refactor/frontend-feature-apis`.

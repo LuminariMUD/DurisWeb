@@ -84,7 +84,7 @@ the default page size is 50, with limit 1–100 and pages capped at 10,000.
 | `/api/status` | `routes/status.ts` | Public health history/incidents |
 | `/api/server/reboot` | `routes/serverReboot.ts` | Reboot history/statistics |
 | `/api/mud` | `routes/mudControl.ts` | Permissioned MUD process status/control |
-| `/api/builder` | `routes/builder.ts` | Builder data, editing, validation, access, comments |
+| `/api/builder` | `features/builder/routes.ts` (groups in `features/builder/*Routes.ts`) | Builder data, editing, validation, access, comments |
 | `/api/wiki` | `routes/wiki.ts` | Wiki/game reference data and updates |
 | `/api/help` | `routes/help.ts` | MUD help-file lookups |
 | `/api/guide` | `routes/guide.ts` | Guide categories and help search |
