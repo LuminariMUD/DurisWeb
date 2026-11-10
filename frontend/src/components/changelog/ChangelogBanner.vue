@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
-import { changelogApi } from '@/services/api'
+import { changelogApi } from '@/features/changelog/api'
 import { useAuth } from '@/composables/useAuth'
 import { Button } from '@/components/ui/button'
 import { X, History } from '@lucide/vue'

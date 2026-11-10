@@ -42,7 +42,7 @@ const authenticated: RequestHandler = (req, res, next) => {
     next();
   });
 };
-jest.unstable_mockModule('../../middleware/auth.js', () => ({
+jest.unstable_mockModule('../../../middleware/auth.js', () => ({
   optionalAuth: identify,
   requireAuth: authenticated,
   requirePermission:
@@ -55,16 +55,16 @@ jest.unstable_mockModule('../../middleware/auth.js', () => ({
       next();
     },
 }));
-jest.unstable_mockModule('../../services/changelogService.js', () => ({
+jest.unstable_mockModule('../service.js', () => ({
   getChangelogEntries: list,
   getAllChangelogEntriesForAdmin: adminList,
 }));
-jest.unstable_mockModule('../../utils/logger.js', () => ({
+jest.unstable_mockModule('../../../utils/logger.js', () => ({
   getErrorMessage: () => 'Unexpected fixture failure',
 }));
 let app: express.Express;
 beforeAll(async () => {
-  const { default: routes } = await import('../changelog.js');
+  const { changelogRouter: routes } = await import('../routes.js');
   app = express();
   app.use('/api/changelog', routes);
 });

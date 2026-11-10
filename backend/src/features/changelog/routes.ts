@@ -1,82 +1,18 @@
 import { Router, type Router as ExpressRouter } from 'express';
-import { requireAuth, requirePermission, optionalAuth } from '../middleware/auth.js';
-import { getErrorMessage } from '../utils/logger.js';
-import * as changelogService from '../services/changelogService.js';
-import { processContentForWrite } from '../utils/contentParser.js';
-import {
-  parsePagination,
-  validateBooleanField,
-  validateIdParam,
-  validateObjectFields,
-  validateStringField,
-} from '../utils/validation.js';
+import { requireAuth, requirePermission, optionalAuth } from '../../middleware/auth.js';
+import { getErrorMessage } from '../../utils/logger.js';
+import * as changelogService from './service.js';
+import { processContentForWrite } from '../../utils/contentParser.js';
+import { validateIdParam } from '../../utils/validation.js';
+import { listPagination, validateChangelogWriteBody } from './validation.js';
 
-const router: ExpressRouter = Router();
-
-const CHANGELOG_WRITE_FIELDS = ['version', 'title', 'content', 'category', 'isPublished'] as const;
-
-function listPagination(page: unknown, limit: unknown) {
-  if (
-    [page, limit].some(
-      (value) => value !== undefined && (typeof value !== 'string' || !/^\d+$/.test(value)),
-    )
-  ) {
-    return null;
-  }
-  return parsePagination(
-    typeof page === 'string' ? page : undefined,
-    typeof limit === 'string' ? limit : undefined,
-    20,
-    100,
-  );
-}
-
-function validateChangelogWriteBody(body: unknown, requireCoreFields: boolean): string | null {
-  const structureError = validateObjectFields(body, CHANGELOG_WRITE_FIELDS);
-  if (structureError) {
-    return structureError;
-  }
-
-  const values = body as Record<string, unknown>;
-  const versionError = validateStringField(values.version, 'version', 50, requireCoreFields);
-  if (versionError) {
-    return versionError;
-  }
-
-  const titleError = validateStringField(values.title, 'title', 255, requireCoreFields);
-  if (titleError) {
-    return titleError;
-  }
-
-  const contentError = validateStringField(values.content, 'content', 50_000, requireCoreFields);
-  if (contentError) {
-    return contentError;
-  }
-
-  if (
-    values.category !== undefined &&
-    (typeof values.category !== 'string' || !['public', 'admin'].includes(values.category))
-  ) {
-    return 'category must be "public" or "admin"';
-  }
-
-  const publishedError = validateBooleanField(values.isPublished, 'isPublished');
-  if (publishedError) {
-    return publishedError;
-  }
-
-  if (!requireCoreFields && Object.keys(values).length === 0) {
-    return 'At least one changelog field is required';
-  }
-
-  return null;
-}
+export const changelogRouter: ExpressRouter = Router();
 
 /**
  * GET /api/changelog - list published changelog entries
  * public route, but filters by user level
  */
-router.get('/', optionalAuth, async (req, res) => {
+changelogRouter.get('/', optionalAuth, async (req, res) => {
   const pagination = listPagination(req.query.page, req.query.limit);
   if (!pagination)
     return res.status(400).json({ error: 'page and limit must be decimal integers' });
@@ -104,7 +40,7 @@ router.get('/', optionalAuth, async (req, res) => {
 /**
  * GET /api/changelog/admin - list all changelog entries for admin
  */
-router.get('/admin', requireAuth, requirePermission('manage_news'), async (req, res) => {
+changelogRouter.get('/admin', requireAuth, requirePermission('manage_news'), async (req, res) => {
   const pagination = listPagination(req.query.page, req.query.limit);
   if (!pagination)
     return res.status(400).json({ error: 'page and limit must be decimal integers' });
@@ -121,7 +57,7 @@ router.get('/admin', requireAuth, requirePermission('manage_news'), async (req, 
 /**
  * GET /api/changelog/unread-count - get unread count for banner
  */
-router.get('/unread-count', requireAuth, async (req, res) => {
+changelogRouter.get('/unread-count', requireAuth, async (req, res) => {
   try {
     const accountName = req.user!.accountName;
     const includeAdmin =
@@ -137,7 +73,7 @@ router.get('/unread-count', requireAuth, async (req, res) => {
 /**
  * GET /api/changelog/:id - get single changelog entry
  */
-router.get('/:id', optionalAuth, async (req, res) => {
+changelogRouter.get('/:id', optionalAuth, async (req, res) => {
   try {
     const id = validateIdParam(req.params.id);
     if (id === null) {
@@ -168,7 +104,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
 /**
  * POST /api/changelog - create new changelog entry
  */
-router.post('/', requireAuth, requirePermission('manage_news'), async (req, res) => {
+changelogRouter.post('/', requireAuth, requirePermission('manage_news'), async (req, res) => {
   try {
     const validationError = validateChangelogWriteBody(req.body, true);
     if (validationError) {
@@ -207,7 +143,7 @@ router.post('/', requireAuth, requirePermission('manage_news'), async (req, res)
 /**
  * PUT /api/changelog/:id - update changelog entry
  */
-router.put('/:id', requireAuth, requirePermission('manage_news'), async (req, res) => {
+changelogRouter.put('/:id', requireAuth, requirePermission('manage_news'), async (req, res) => {
   try {
     const validationError = validateChangelogWriteBody(req.body, false);
     if (validationError) {
@@ -266,7 +202,7 @@ router.put('/:id', requireAuth, requirePermission('manage_news'), async (req, re
 /**
  * DELETE /api/changelog/:id - delete changelog entry
  */
-router.delete('/:id', requireAuth, requirePermission('manage_news'), async (req, res) => {
+changelogRouter.delete('/:id', requireAuth, requirePermission('manage_news'), async (req, res) => {
   try {
     const id = validateIdParam(req.params.id);
     if (id === null) {
@@ -288,7 +224,7 @@ router.delete('/:id', requireAuth, requirePermission('manage_news'), async (req,
 /**
  * POST /api/changelog/:id/read - mark entry as read
  */
-router.post('/:id/read', requireAuth, async (req, res) => {
+changelogRouter.post('/:id/read', requireAuth, async (req, res) => {
   try {
     const id = validateIdParam(req.params.id);
     if (id === null) {
@@ -306,7 +242,7 @@ router.post('/:id/read', requireAuth, async (req, res) => {
 /**
  * POST /api/changelog/read-all - mark all entries as read
  */
-router.post('/read-all', requireAuth, async (req, res) => {
+changelogRouter.post('/read-all', requireAuth, async (req, res) => {
   try {
     const accountName = req.user!.accountName;
 
@@ -316,5 +252,3 @@ router.post('/read-all', requireAuth, async (req, res) => {
     res.status(500).json({ error: getErrorMessage(error) });
   }
 });
-
-export default router;

@@ -94,7 +94,7 @@ the default page size is 50, with limit 1–100 and pages capped at 10,000.
 | `/api/admin/analytics/web` | `routes/webAnalytics.ts` | Protected web analytics alias |
 | `/api/auction` | `routes/auction.ts` | Auction reads, default-gated bid/buy actions, and MUD-authoritative admin removal |
 | `/api/push` | `routes/push.ts` | VAPID key and authenticated subscriptions |
-| `/api/changelog` | `routes/changelog.ts` | Changelog reads and permissioned management |
+| `/api/changelog` | `features/changelog/routes.ts` | Changelog reads and permissioned management |
 | `/api/public/statistics` | `routes/publicStatistics.ts` | Public faction activity, date, and overlap statistics |
 | `/api/hooks` | `routes/hooks.ts` | Permissioned hook state, website toggle, and reconciliation |
 

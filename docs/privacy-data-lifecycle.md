@@ -192,7 +192,7 @@ Current readers/writers: [forum service](../backend/src/services/forumService.ts
 [notifications](../backend/src/services/unifiedNotificationService.ts),
 [PvP routes](../backend/src/routes/pvp.ts),
 [help suggestions](../backend/src/services/helpSuggestionService.ts), and
-[changelog](../backend/src/services/changelogService.ts).
+[changelog](../backend/src/features/changelog/service.ts).
 Soft deletion alone is not erasure: original text, moderation copies, quotes,
 images and backup/provider copies need their own outcomes.
 

@@ -7,7 +7,7 @@ const updateChangelogEntry = jest.fn();
 const getChangelogEntry = jest.fn();
 const notifyChangelogPublished = jest.fn();
 
-jest.unstable_mockModule('../../middleware/auth.js', () => ({
+jest.unstable_mockModule('../../../middleware/auth.js', () => ({
   requireAuth: (req: any, _res: any, next: any) => {
     req.user = {
       accountName: 'Cwial',
@@ -25,13 +25,13 @@ jest.unstable_mockModule('../../middleware/auth.js', () => ({
   },
 }));
 
-jest.unstable_mockModule('../../services/changelogService.js', () => ({
+jest.unstable_mockModule('../service.js', () => ({
   createChangelogEntry,
   updateChangelogEntry,
   getChangelogEntry,
   notifyChangelogPublished,
 }));
-jest.unstable_mockModule('../../utils/logger.js', () => ({
+jest.unstable_mockModule('../../../utils/logger.js', () => ({
   getErrorMessage: (error: unknown) => String(error),
 }));
 
@@ -39,7 +39,7 @@ describe('changelog route write validation', () => {
   let app: express.Express;
 
   beforeAll(async () => {
-    const { default: changelogRoutes } = await import('../changelog.js');
+    const { changelogRouter: changelogRoutes } = await import('../routes.js');
     app = express();
     app.use(express.json());
     app.use('/api/changelog', changelogRoutes);

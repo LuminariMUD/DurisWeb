@@ -1,6 +1,6 @@
 # Backend and API structure cleanup
 
-Prepared 2026-11-10. **Status: proposed; implementation has not started.**
+Prepared 2026-11-10. **Status: in progress — see [Progress log](#progress-log).**
 Source baseline: `8a1986b`. Recheck the affected source and working-tree changes
 before each implementation step; the measurements below describe this revision.
 
@@ -545,4 +545,42 @@ import-chain, mount-order, allowlist-key, source-reading-test, frontend-caller,
 and moved-path-citation evidence and the step instructions that depend on it.
 No test, build, or application was run.
 
-Implementation acceptance remains entirely outstanding.
+Implementation acceptance is tracked per slice in the progress log below.
+
+## Progress log
+
+Each slice is one branch/PR, stacked on the previous one until merged. A new
+session continues from the last row: check its PR state, rebase the stack if a
+base merged, then start the next step. Branch names follow `refactor/<slice>`.
+
+### Step 1 — shared client and changelog pilot (branch `refactor/changelog-feature`)
+
+Stacked on `refactor/frontend-http-client` (step 1.1). Done:
+
+- 1.1 `frontend/src/services/httpClient.ts` owns the one Axios instance,
+  `getCsrfToken`, and both interceptors; `api.ts` imports it and re-exports
+  `apiClient`/`getCsrfToken` for the ~25 remaining raw-client callers (step 5).
+  `hooksApi`, `privacy`, `accountExport` and their spec mocks use it directly.
+  New test in `apiAvailability.spec.ts`: same instance via both paths,
+  credentials/timeout defaults, CSRF only on mutations.
+- 1.2 Backend changelog is `backend/src/features/changelog/{routes,service,
+  validation}.ts` with named export `changelogRouter`; old route/service files
+  are deleted. Tests moved to `features/changelog/__tests__/` and renamed
+  `changelogRoute*`/`changelogService*` to keep both scopes. New
+  `changelogRouteAuth.test.ts` runs the real auth middleware with synthetic
+  sessions (anonymous read, 401/403 writes with no mutation, authorized create).
+  `frontend/src/features/changelog/api.ts` owns `changelogApi`; its four callers
+  and two spec mocks moved, so **no forwarding export was kept** (no caller
+  needed one). Adapter test `features/changelog/__tests__/api.spec.ts` pins all
+  eight endpoints, bodies and CSRF. Docs repointed: `docs/api/README_api.md`,
+  `docs/privacy-data-lifecycle.md`, news-update `publishing.md`.
+
+Verification (local, no `.env` files; frontend build used the CI placeholder
+`VITE_*`/`FRONTEND_*` values from `.github/workflows/painted-map-validation.yml`):
+baseline `pnpm --dir backend test --runInBand changelog` 6 suites/27 tests
+passed before the move, 7/30 after; frontend full unit suite 93 files/753
+tests passed; format:check, lint, type-check and build passed for both packages.
+Not covered: the full app mount (no `createApp` until step 3) and a browser
+journey; the composed auth test mounts only the changelog router.
+
+Next: step 2 (`realtime/broadcasts.ts`), branch `refactor/realtime-broadcasts`.

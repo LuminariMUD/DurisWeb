@@ -5,7 +5,7 @@ import { beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals
 let userMode: 'anonymous' | 'regular' | 'admin' = 'regular';
 const getChangelogEntry = jest.fn((..._args: unknown[]): Promise<any> => Promise.resolve(null));
 
-jest.unstable_mockModule('../../middleware/auth.js', () => ({
+jest.unstable_mockModule('../../../middleware/auth.js', () => ({
   requireAuth: (req: any, _res: any, next: any) => {
     req.user = {
       accountName: 'Cwial',
@@ -33,10 +33,10 @@ jest.unstable_mockModule('../../middleware/auth.js', () => ({
   },
 }));
 
-jest.unstable_mockModule('../../services/changelogService.js', () => ({
+jest.unstable_mockModule('../service.js', () => ({
   getChangelogEntry,
 }));
-jest.unstable_mockModule('../../utils/logger.js', () => ({
+jest.unstable_mockModule('../../../utils/logger.js', () => ({
   getErrorMessage: (error: unknown) => String(error),
 }));
 
@@ -44,7 +44,7 @@ describe('changelog detail visibility route', () => {
   let app: express.Express;
 
   beforeAll(async () => {
-    const { default: changelogRoutes } = await import('../changelog.js');
+    const { changelogRouter: changelogRoutes } = await import('../routes.js');
     app = express();
     app.use(express.json());
     app.use('/api/changelog', changelogRoutes);

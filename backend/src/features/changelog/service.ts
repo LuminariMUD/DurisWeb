@@ -1,8 +1,8 @@
-import { pool as db } from '../db/connection.js';
+import { pool as db } from '../../db/connection.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
-import { createNotification } from './unifiedNotificationService.js';
-import { processContentForWrite } from '../utils/contentParser.js';
-import { parsePagination } from '../utils/validation.js';
+import { createNotification } from '../../services/unifiedNotificationService.js';
+import { processContentForWrite } from '../../utils/contentParser.js';
+import { parsePagination } from '../../utils/validation.js';
 
 export interface ChangelogEntry {
   id: number;

@@ -2,19 +2,19 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const query = jest.fn((..._args: unknown[]): Promise<any> => Promise.resolve([]));
 
-jest.unstable_mockModule('../../db/connection.js', () => ({
+jest.unstable_mockModule('../../../db/connection.js', () => ({
   pool: { query },
 }));
-jest.unstable_mockModule('../unifiedNotificationService.js', () => ({
+jest.unstable_mockModule('../../../services/unifiedNotificationService.js', () => ({
   createNotification: jest.fn(),
 }));
 
 describe('changelog content persistence boundary', () => {
-  let changelogService: typeof import('../changelogService.js');
+  let changelogService: typeof import('../service.js');
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    changelogService = await import('../changelogService.js');
+    changelogService = await import('../service.js');
   });
 
   it('sanitizes executable markup before create reaches SQL', async () => {

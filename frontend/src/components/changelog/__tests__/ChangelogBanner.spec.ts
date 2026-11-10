@@ -8,7 +8,7 @@ const unreadData = ref({ count: 3 })
 vi.mock('@/composables/useAuth', () => ({
   useAuth: () => ({ isAuthenticated: ref(true), accountName }),
 }))
-vi.mock('@/services/api', () => ({ changelogApi: {} }))
+vi.mock('@/features/changelog/api', () => ({ changelogApi: {} }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 vi.mock('@tanstack/vue-query', () => ({
   useQuery: () => ({ data: unreadData }),

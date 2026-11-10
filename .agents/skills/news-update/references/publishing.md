@@ -8,12 +8,13 @@ change; this is the existing application workflow, not a separate publisher.
 
 | Contract | Source |
 | --- | --- |
-| Routes, permissions, write validation, publish transition | `backend/src/routes/changelog.ts` |
-| Persistence, ordering, visibility, read receipts, notifications | `backend/src/services/changelogService.ts` |
+| Routes, permissions, publish transition | `backend/src/features/changelog/routes.ts` |
+| Write and pagination validation | `backend/src/features/changelog/validation.ts` |
+| Persistence, ordering, visibility, read receipts, notifications | `backend/src/features/changelog/service.ts` |
 | Schema and field sizes | `backend/migrations/20260106000000_website_changelog.ts` |
 | Server HTML sanitization | `backend/src/utils/contentParser.ts` |
 | Admin editor | `frontend/src/views/admin/ChangelogAdminView.vue` |
-| Browser API client and CSRF header | `frontend/src/services/api.ts` (`changelogApi`) |
+| Browser API client and CSRF header | `frontend/src/features/changelog/api.ts` (`changelogApi`), `frontend/src/services/httpClient.ts` |
 | Public display and browser sanitization | `frontend/src/components/changelog/ChangelogList.vue`, `frontend/src/utils/sanitizeChangelogContent.ts` |
 | Session/CSRF contract | `docs/api/README_api.md`, “Authentication and CSRF” |
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
-import { changelogApi } from '@/services/api'
+import { changelogApi } from '@/features/changelog/api'
 import { useAuth } from '@/composables/useAuth'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'

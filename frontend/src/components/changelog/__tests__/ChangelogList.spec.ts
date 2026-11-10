@@ -41,7 +41,7 @@ vi.mock('@/composables/useAuth', () => ({
   }),
 }))
 
-vi.mock('@/services/api', () => ({
+vi.mock('@/features/changelog/api', () => ({
   changelogApi: {
     getEntries: vi.fn(),
     markAsRead: vi.fn(),
