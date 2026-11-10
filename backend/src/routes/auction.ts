@@ -25,7 +25,7 @@ import {
   AuctionListItem,
   AuctionHistoryItem,
 } from '../types/index.js';
-import { broadcastAuctionEvent } from '../index.js';
+import { broadcastAuctionEvent } from '../realtime/broadcasts.js';
 
 const router: IRouter = Router();
 

@@ -4,7 +4,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { pool as db } from '../db/connection.js';
 import { getDmsProcessStats } from './processMonitor.js';
-import { broadcastCrashAlert } from '../index.js';
+import { broadcastCrashAlert } from '../realtime/broadcasts.js';
 import { getOnlinePlayerCount } from './serverHealthService.js';
 import logger from '../utils/logger.js';
 import { sendCrashNotification } from './pushNotificationService.js';

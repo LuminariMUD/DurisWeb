@@ -57,7 +57,7 @@ jest.unstable_mockModule('../../utils/logger.js', () => ({
 jest.unstable_mockModule('../multiAccountDetectionService.js', () => ({
   analyzeAndFlagAccount,
 }));
-jest.unstable_mockModule('../../index.js', () => ({
+jest.unstable_mockModule('../../realtime/broadcasts.js', () => ({
   broadcastConnectionEvent,
 }));
 jest.unstable_mockModule('../flatfileAccess.js', () => ({

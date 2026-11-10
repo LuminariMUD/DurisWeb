@@ -127,7 +127,9 @@ native('forum search SQL and pagination', () => {
       requireModerator: identify,
       requirePermission: () => identify,
     }));
-    jest.unstable_mockModule('../../index.js', () => ({ broadcastForumPost: () => {} }));
+    jest.unstable_mockModule('../../realtime/broadcasts.js', () => ({
+      broadcastForumPost: () => {},
+    }));
     app = express();
     app.use('/api/forum', (await import('../../routes/forum.js')).default);
   }, 120_000);

@@ -92,7 +92,7 @@ jest.unstable_mockModule('../../middleware/auth.js', () => ({
   requireModerator: authenticate,
   requirePermission: () => authenticate,
 }));
-jest.unstable_mockModule('../../index.js', () => ({ broadcastForumPost: jest.fn() }));
+jest.unstable_mockModule('../../realtime/broadcasts.js', () => ({ broadcastForumPost: jest.fn() }));
 const imageIds = new Set<number>(),
   threadIds = new Set<number>(),
   postIds = new Set<number>();

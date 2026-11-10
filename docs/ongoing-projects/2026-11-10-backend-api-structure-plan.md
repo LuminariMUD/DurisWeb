@@ -583,4 +583,43 @@ tests passed; format:check, lint, type-check and build passed for both packages.
 Not covered: the full app mount (no `createApp` until step 3) and a browser
 journey; the composed auth test mounts only the changelog router.
 
-Next: step 2 (`realtime/broadcasts.ts`), branch `refactor/realtime-broadcasts`.
+### Step 2 — broadcasts out of the entry point (branch `refactor/realtime-broadcasts`)
+
+Stacked on `refactor/changelog-feature`. Done:
+
+- `backend/src/realtime/broadcasts.ts` owns every former `index.ts` broadcast
+  (bodies unchanged), `broadcastToPermission`, the anonymous forum principal,
+  and the single server binding. `index.ts` calls `attachBroadcastServer(wss)`
+  after creating the server and `detachBroadcastServer()` after
+  `closeWebServer`, so delivery during close is unchanged.
+  `broadcastFragUpdate` is now exported (its only caller is still `index.ts`).
+  `broadcastWholist` still has no production caller; it moved as-is.
+- `realtime/clientState.ts` types the three fields broadcasters read
+  (`wsPrincipal`, `playerEventsSubscribed`, `wholistSubscribed`); every `as any`
+  access to those fields in `index.ts` now uses `clientState(ws)`. Other socket
+  fields (`terminalAuth`, rate-limit counters, log subscriptions) are step 3.2.
+- forum/auction routes, `crashDetectionService`, `mudConnectionLogSync` and the
+  five test mocks now target `realtime/broadcasts.js`. No production module
+  imports `index.ts`; crash monitoring and connection-log sync remain unstarted.
+- `eslint.config.js` restricts `../index.js` / `../../index.js` imports below
+  `src/` (hooks/types excluded, they have their own `index.ts`). Dynamic imports
+  and `jest.unstable_mockModule` strings are not covered by the rule.
+- Tests: new `realtime/__tests__/broadcasts.test.ts` drives synthetic sockets
+  (no-server/detached no-op, open-only delivery, permission broadcasts,
+  subscription + permission-or-level-57 for player events/wholist, account
+  targeting, forum category access with the anonymous principal). It replaces
+  the `websocketAccess` source-string assertion on the broadcast bodies; the
+  subscription-handler assertions still read `index.ts`.
+  `applicationWebSocket` now also checks `realtime/broadcasts.ts` uses
+  `sendApplicationMessage`.
+
+Verification: `pnpm --dir backend test --runInBand broadcasts websocketAccess
+applicationWebSocket mudConnectionLogSync userProfilePrivacy forumSearchNative
+postImageRemovalNative auction forum crashDetection serverShutdown
+hookDeliveryContract productionReviewRegression` — 13 suites passed, 2 native
+suites skipped (no isolated DB). `userProfileSchemaIntegration` needs a native
+test database and fails with `Access denied` both before and after this change
+(no `backend/.env.test` in this checkout) — **not qualified**. format:check,
+lint, type-check, build passed.
+
+Next: step 3.1 (`app.ts` / `createApp`), branch `refactor/create-app`.

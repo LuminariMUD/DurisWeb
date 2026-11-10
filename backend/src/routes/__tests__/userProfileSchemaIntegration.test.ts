@@ -22,7 +22,7 @@ jest.unstable_mockModule('../../db/redis.js', () => ({
   objectToMapNumeric: jest.fn(),
   setCache: jest.fn<() => Promise<void>>().mockResolvedValue(),
 }));
-jest.unstable_mockModule('../../index.js', () => ({
+jest.unstable_mockModule('../../realtime/broadcasts.js', () => ({
   broadcastForumPost: jest.fn(),
 }));
 jest.unstable_mockModule('../../services/pushNotificationService.js', () => ({

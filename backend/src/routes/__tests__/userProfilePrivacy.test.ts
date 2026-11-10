@@ -53,7 +53,7 @@ jest.unstable_mockModule('../../services/categoryService.js', () => ({
 jest.unstable_mockModule('../../services/webSettingsService.js', () => ({
   getWebSettings: async () => ({ pvpDelayMinutes: 15, respectWebinfoToggle: false }),
 }));
-jest.unstable_mockModule('../../index.js', () => ({ broadcastForumPost: jest.fn() }));
+jest.unstable_mockModule('../../realtime/broadcasts.js', () => ({ broadcastForumPost: jest.fn() }));
 jest.unstable_mockModule('../../services/pushNotificationService.js', () => ({
   broadcastPush: jest.fn(),
   sendAuctionOutbidNotification: jest.fn(),

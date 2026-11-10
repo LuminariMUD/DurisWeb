@@ -178,6 +178,7 @@ describe('application WebSocket transport bounds', () => {
     expect(source).toContain('wss = createApplicationWebSocketServer(server)');
     for (const url of [
       '../../index.ts',
+      '../../realtime/broadcasts.ts',
       '../../services/terminalService.ts',
       '../../services/deploymentService.ts',
     ]) {

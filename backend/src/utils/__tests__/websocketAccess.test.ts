@@ -53,14 +53,7 @@ describe('WebSocket access policy', () => {
       );
       expect(block.slice(0, block.indexOf('Subscribed = true'))).toContain('if (!principal)');
     }
-    for (const broadcast of ['broadcastPlayerEvent', 'broadcastWholist']) {
-      const block = server.slice(server.indexOf(`export function ${broadcast}(`));
-      const delivery = block.indexOf('sendApplicationMessage(client, message)');
-      expect(delivery).toBeGreaterThan(0);
-      expect(block.slice(0, delivery)).toContain(
-        "hasWebSocketPermission(getWebSocketPrincipal(client), 'view_server_health', 57)",
-      );
-    }
+    // Broadcast recipient filtering is exercised in realtime/__tests__/broadcasts.test.ts.
     const admin = readFileSync(new URL('../../routes/admin.ts', import.meta.url), 'utf8');
     expect(admin).toContain("router.get('/who', requireAuth, requireOverlord,");
   });

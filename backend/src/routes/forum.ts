@@ -98,7 +98,7 @@ import {
   validateAvatarFile,
   isR2Configured,
 } from '../services/r2Service.js';
-import { broadcastForumPost } from '../index.js';
+import { broadcastForumPost } from '../realtime/broadcasts.js';
 import {
   uploadPostImage,
   deletePostImage,

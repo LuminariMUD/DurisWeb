@@ -6,7 +6,7 @@ import { isHookEnabledSync } from '../hooks/hookGate.js';
 import { markFlatfileUnavailable, recordDroppedFlatfileInput } from '../hooks/flatfileHookState.js';
 import logger from '../utils/logger.js';
 import { analyzeAndFlagAccount } from './multiAccountDetectionService.js';
-import { broadcastConnectionEvent } from '../index.js';
+import { broadcastConnectionEvent } from '../realtime/broadcasts.js';
 import {
   FlatfileAccessError,
   getReadableMudPath,

@@ -49,4 +49,23 @@ export default [
       'no-var': 'error',
     },
   },
+  {
+    // Code below the entry point must not import the executable entry (src/index.ts).
+    files: ['src/*/*.ts', 'src/*/__tests__/*.ts', 'src/*/*/*.ts', 'src/*/*/__tests__/*.ts'],
+    ignores: ['src/hooks/**', 'src/types/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            { name: '../index.js', message: 'Import realtime/broadcasts.ts, not the entry point.' },
+            {
+              name: '../../index.js',
+              message: 'Import realtime/broadcasts.ts, not the entry point.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
