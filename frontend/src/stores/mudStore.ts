@@ -223,6 +223,8 @@ export const useMudStore = defineStore('mud', () => {
     connectionState.value = state
     connectionError.value = error ?? null
     if (state === 'disconnected' || state === 'error') {
+      clearShipContacts()
+      clearShipInfo()
       waitingForApproval.value = false
       clearApprovalMessages()
       clearChargenState()
@@ -258,6 +260,8 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   function setAccount(accountName: string, chars: MudCharacterInfo[]) {
+    clearShipContacts()
+    clearShipInfo()
     if (account.value !== accountName) clearApprovalMessages()
     if (account.value && account.value !== accountName) retireMap()
     account.value = accountName
@@ -268,6 +272,8 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   function clearAccount() {
+    clearShipContacts()
+    clearShipInfo()
     retireMap()
     account.value = null
     waitingForApproval.value = false
@@ -283,7 +289,11 @@ export const useMudStore = defineStore('mud', () => {
     clearApprovalMessages()
     creatingCharacter.value = false
     waitingForApproval.value = false
-    if (selectedCharacter.value && selectedCharacter.value !== char.name) retireMap()
+    if (selectedCharacter.value && selectedCharacter.value !== char.name) {
+      retireMap()
+      clearShipContacts()
+      clearShipInfo()
+    }
     character.value = char
     selectedCharacter.value = char.name
     connectionState.value = 'in_game'
@@ -714,6 +724,8 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   function confirmReturnToMenu() {
+    clearShipContacts()
+    clearShipInfo()
     retireMap()
     // User confirmed - transition to character select
     showReturnDialog.value = false
@@ -778,6 +790,8 @@ export const useMudStore = defineStore('mud', () => {
   }
 
   function reset() {
+    clearShipContacts()
+    clearShipInfo()
     retireMap()
     connectionState.value = 'disconnected'
     connectionError.value = null

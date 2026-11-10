@@ -435,8 +435,25 @@ function getContactWorldPosition(contact: MudShipContact): WorldPoint | null {
 function getContactMapPosition(contact: MudShipContact): WorldPoint | null {
   const worldPosition = getContactWorldPosition(contact)
   if (!worldPosition || !worldMapBounds.value) return null
+  // Contact offsets can cross a wrapped zone edge. Image bounds do not describe
+  // that zone's topology, so do not invent a wrapped global position.
+  const { minX, maxX, minY, maxY } = worldMapBounds.value
+  if (
+    worldPosition.x < minX ||
+    worldPosition.x > maxX ||
+    worldPosition.y < minY ||
+    worldPosition.y > maxY
+  )
+    return null
   return worldPointToMapPercent(worldPosition, worldMapBounds.value)
 }
+
+const hasUnplacedContacts = computed(
+  () =>
+    canShowMapPosition.value &&
+    worldMapBounds.value !== null &&
+    otherContacts.value.some((contact) => getContactMapPosition(contact) === null),
+)
 
 function getContactTitle(contact: MudShipContact): string {
   const worldPosition = getContactWorldPosition(contact)
@@ -874,9 +891,13 @@ onMounted(() => {
             <!-- World-map coordinates are required for global marker placement. -->
             <div
               v-if="!canShowMapPosition"
-              class="absolute inset-x-2 top-2 rounded bg-background/90 px-3 py-2 text-center text-xs text-muted-foreground z-20"
+              class="absolute inset-x-2 top-10 rounded bg-background/90 px-3 py-2 text-center text-xs text-muted-foreground z-20"
             >
               World coordinates are unavailable. Switch to Radar view for relative contacts.
+            </div>
+            <div v-else-if="hasUnplacedContacts"
+              class="absolute inset-x-2 top-10 rounded bg-background/90 px-3 py-2 text-center text-xs text-muted-foreground z-20">
+              Some contacts cannot be placed on this map. Radar shows their current range and bearing.
             </div>
 
             <!-- Contact radius circle (percentage-based, scales with map) -->

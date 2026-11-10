@@ -108,3 +108,10 @@ Release news is prepared in
 Choose the release date/version and reconcile existing entries at deployment;
 publish only after the paired server/browser release passes live acceptance.
 No news was published and no deployment is part of this PR.
+
+The November 10 follow-up qualification and ship-state fixes are recorded in
+[/play protocol support](ongoing-projects/play-protocol-support.md). Fresh server
+fixtures match the existing browser fixtures except timestamps, including the
+server's later color-boundary and truncation repairs. The receipt tests cover
+missing/mismatched snapshots, renegotiation, blank lines and gagging before a
+Unicode link. The browser retains its ordinary-text fallback for older peers.

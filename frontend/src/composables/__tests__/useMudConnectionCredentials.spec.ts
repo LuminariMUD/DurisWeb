@@ -438,4 +438,80 @@ describe('useMudConnection credential lifecycle', () => {
       true,
     )
   })
+
+  it('renegotiates only decoder support on each fresh socket', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    sockets.at(-1)!.onopen?.()
+    connection.disconnect()
+    await connection.connect()
+    sockets.at(-1)!.onopen?.()
+    for (const socket of sockets.slice(-2)) {
+      const sent = socket.sent.map((packet) => JSON.parse(packet))
+      expect(sent.filter((packet) => packet.package === 'Core.Supports.Set')).toEqual([
+        {
+          type: 'gmcp',
+          package: 'Core.Supports.Set',
+          data: ['Duris.Capabilities 1', 'Duris.Links 1'],
+        },
+      ])
+      expect(sent.some((packet) => packet.package === 'Duris.Subscribe')).toBe(false)
+    }
+  })
+
+  it('keeps Unicode metadata aligned after a preceding gag and a blank line', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    textGag.active = true
+    sockets.at(-1)!.onmessage?.({
+      data: JSON.stringify({
+        type: 'text',
+        category: 'info',
+        data: 'weather hidden\r\n\r\n🧭 visible\r\n',
+        presentation: {
+          version: 1,
+          text: 'weather hidden\n\n🧭 visible\n',
+          underline: false,
+          runs: [[0, 26, 19, 0]],
+          links: [{ start: 18, end: 25, kind: 'command', target: 'help visible' }],
+        },
+      }),
+    })
+    expect(store.addLogEntry.mock.calls.some((entry) => String(entry[1]).includes('hidden'))).toBe(
+      false,
+    )
+    expect(store.addLogEntry).toHaveBeenCalledWith(
+      'info',
+      '🧭 visible',
+      undefined,
+      {
+        version: 1,
+        text: '🧭 visible',
+        underline: false,
+        runs: [[0, 9, 19, 0]],
+        links: [{ start: 2, end: 9, kind: 'command', target: 'help visible' }],
+      },
+      true,
+    )
+  })
+
+  it('displays truncated and undecorated packets once without reconstructing links', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const socket = sockets.at(-1)!
+    const original = outputFixtures[0]!
+    socket.onmessage?.({ data: JSON.stringify({ ...original, data: 'kept prefix' }) })
+    socket.onmessage?.({
+      data: JSON.stringify({
+        type: 'text',
+        category: 'info',
+        data: 'https://example.test/?x=1&no-cache',
+      }),
+    })
+    expect(store.addLogEntry.mock.calls).toEqual([
+      ['info', 'kept prefix', undefined, undefined, true],
+      ['info', 'https://example.test/?x=1&no-cache', undefined, undefined, true],
+    ])
+    expect(socket.sent.some((packet) => JSON.parse(packet).cmd === 'game')).toBe(false)
+  })
 })
