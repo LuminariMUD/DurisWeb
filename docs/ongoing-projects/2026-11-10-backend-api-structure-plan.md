@@ -33,12 +33,12 @@ The focused source review found these concrete seams:
 - [backend/src/index.ts](../../backend/src/index.ts) is 1,825 lines. It assembles
   HTTP middleware, exposes broadcast functions, handles application WebSockets,
   starts jobs and integrations, and owns signal handling and shutdown.
-- [admin.ts](../../backend/src/routes/admin.ts) is 4,682 lines;
-  [forum.ts](../../backend/src/routes/forum.ts) is 3,374;
-  [builder.ts](../../backend/src/routes/builder.ts) is 2,702. They collect many
+- `routes/admin.ts` is 4,682 lines;
+  `routes/forum.ts` is 3,374;
+  `routes/builder.ts` is 2,702. They collect many
   distinct operations, although substantial domain logic already lives in
   `backend/src/services/`. Reuse those services rather than adding parallel ones.
-- [frontend API module](../../frontend/src/services/api.ts) is 3,605 lines. One
+- The former `frontend/src/services/api.ts` was 3,605 lines. One
   Axios instance and its CSRF/availability interceptors share a file with many
   feature APIs, some wire types, named exports, and a default `pvpApi` export.
 - `routes/forum.ts`, `routes/auction.ts`, `services/crashDetectionService.ts`,
@@ -64,8 +64,8 @@ The focused source review found these concrete seams:
   files. `verify:mud-writes` fails on an unclassified write and on an entry
   that no longer matches a statement, so a moved statement and its key must
   change in the same commit.
-- [changelog routes](../../backend/src/routes/changelog.ts) already have a
-  separate [service](../../backend/src/services/changelogService.ts), reusable
+- changelog routes (then `routes/changelog.ts`, now [features/changelog/routes.ts](../../backend/src/features/changelog/routes.ts)) already have a
+  separate service (now [features/changelog/service.ts](../../backend/src/features/changelog/service.ts)), reusable
   validation helpers, route tests, and visible frontend consumers. This is a
   bounded pilot for the feature layout.
 - Error formats are not uniform: the global handler returns an `error` object,
