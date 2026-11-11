@@ -1,9 +1,9 @@
 import { apiClient as api } from '@/services/httpClient'
-import { adminCommunityApi } from './communityApi'
-import { adminBackupApi } from './backupApi'
-import { adminMudControlApi } from './mudControlApi'
-import { adminSettingsApi } from './settingsApi'
-import { adminDiscordApi } from './discordApi'
+import { adminCommunityApi } from './communityApi.js'
+import { adminBackupApi } from './backupApi.js'
+import { adminMudControlApi } from './mudControlApi.js'
+import { adminSettingsApi } from './settingsApi.js'
+import { adminDiscordApi } from './discordApi.js'
 
 /**
  * Admin API endpoints (Overlord only)
