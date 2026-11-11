@@ -76,9 +76,14 @@ export function handleApplicationConnection(ws: WebSocket, request: IncomingMess
   ws.on('message', (message: string | Buffer) => handleMessage(ws, message));
 
   ws.on('close', async () => {
-    clearZoneStreams(ws);
-    clearLogSubscriptions(ws);
-    await closeTerminal(ws);
+    // A rejected close listener would be an unhandled rejection, which ends the process.
+    try {
+      clearZoneStreams(ws);
+      clearLogSubscriptions(ws);
+      await closeTerminal(ws);
+    } catch (error) {
+      logger.error('Application WebSocket close cleanup failed:', error);
+    }
   });
 
   ws.on('error', () => {

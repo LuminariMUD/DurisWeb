@@ -10,7 +10,7 @@ let role: UserPermissions['role'] = 'player';
 let maxLevel = 50;
 let grants: string[] = [];
 let terminalSession: number | undefined;
-const watchLog = jest.fn();
+const watchLog = jest.fn((..._args: unknown[]) => true);
 const unwatchLog = jest.fn();
 const createSession = jest.fn(async (..._args: unknown[]) => ({ sessionId: 5 }));
 const destroySession = jest.fn(async (_sessionId: number) => undefined);
@@ -178,5 +178,35 @@ describe('application socket dispatch', () => {
     expect(state(ws).logSubscriptions?.size).toBe(0);
     expect(state(ws).terminalAuth).toBeUndefined();
     expect(destroySession).toHaveBeenCalledWith(9);
+  });
+
+  it('does not report or keep a subscription for a log that cannot be watched', async () => {
+    const ws = connect();
+    grants = ['view_server_logs'];
+    watchLog.mockReturnValueOnce(false);
+    await send(ws, {
+      type: 'SUBSCRIBE_LOG',
+      token: wsToken(),
+      category: 'runtime',
+      logName: 'missing.log',
+    });
+    expect(replies(ws).at(-1)).toEqual({ type: 'ERROR', message: 'Log unavailable' });
+    expect(state(ws).logSubscriptions?.size).toBe(0);
+  });
+
+  it('contains a failed terminal teardown on close', async () => {
+    const ws = connect();
+    terminalSession = 9;
+    destroySession.mockRejectedValueOnce(new Error('pty already gone'));
+    const unhandled = jest.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      ws.emit('close');
+      await flush();
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
+    expect(destroySession).toHaveBeenCalledWith(9);
+    expect(unhandled).not.toHaveBeenCalled();
   });
 });

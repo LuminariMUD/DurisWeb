@@ -54,11 +54,14 @@ export const logStreamHandlers: Record<string, MessageHandler> = {
       }
     };
 
+    // Start watching the log file; an unknown or unreadable log is not a subscription.
+    if (!watchLog(category, logName, callback)) {
+      sendApplicationMessage(ws, JSON.stringify({ type: 'ERROR', message: 'Log unavailable' }));
+      return;
+    }
+
     // Store callback in Map for cleanup
     clientState(ws).logSubscriptions!.set(subscriptionKey, callback);
-
-    // Start watching the log file
-    watchLog(category, logName, callback);
 
     // Confirm subscription
     sendApplicationMessage(

@@ -20,14 +20,14 @@ export function watchLog(
   category: 'runtime' | 'player',
   logName: string,
   callback: (newLines: string[]) => void,
-): void {
+): boolean {
   const key = `${category}:${logName}`;
 
   // If already watching, just add the callback
   if (activeWatchers.has(key)) {
     const watcher = activeWatchers.get(key)!;
     watcher.callbacks.add(callback);
-    return;
+    return true;
   }
 
   try {
@@ -56,8 +56,10 @@ export function watchLog(
     };
 
     activeWatchers.set(key, logWatcher);
+    return true;
   } catch (error) {
     logger.error(`Error starting log watcher for ${key}:`, error);
+    return false;
   }
 }
 
