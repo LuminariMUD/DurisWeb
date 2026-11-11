@@ -1,7 +1,31 @@
 {
-  "sourceSha": "ee8d9a2518b24eae029274282475f99bd43421bd",
-  "sourceUrl": "https://github.com/LuminariMUD/duris-client/blob/ee8d9a2518b24eae029274282475f99bd43421bd/CHANGELOG.md",
+  "sourceSha": "73c58abbc4c04a699fe62206b7cf9a3faee14885",
+  "sourceUrl": "https://github.com/LuminariMUD/duris-client/blob/73c58abbc4c04a699fe62206b7cf9a3faee14885/CHANGELOG.md",
   "entries": [
+    {
+      "version": "2.7.0",
+      "date": "2026-11-11",
+      "releaseUrl": null,
+      "content": "<ul>\n<li>Panels now reach the decorated frame on the left and right, as they already did at the top and bottom. The side columns keep their width and GAME OUTPUT, TANK and TARGET take the extra space.</li>\n<li>GAME OUTPUT has a scrollbar. Scrolling up opens Mudlet&#x27;s split view, with new text still arriving below.</li>\n<li>Commands you type now appear in GAME OUTPUT, in Mudlet&#x27;s command color and following the profile&#x27;s command-echo setting. Text that scripts or Mudlet itself write to the main window is shown there too. Previously it went to the hidden main window.</li>\n<li>Mudlet&#x27;s log button records the game again. Previously server text was removed from the hidden main window as it was shown in GAME OUTPUT, so logs held only your commands. <code>ui off</code> now also shows the full session.</li>\n<li>Long commands and messages wrap at the GAME OUTPUT width instead of breaking at Mudlet&#x27;s wrap column, and links in them stay clickable. Script messages appear even when no game text follows them.</li>\n<li>New <code>ui set timestamps on</code> shows the time each GAME OUTPUT line arrived, like the main window&#x27;s clock button. Off by default.</li>\n<li>GAME OUTPUT has its own search box next to the room name, replacing Mudlet&#x27;s search box and F3, which only search the hidden main window. Press Enter or ▲ (Shift+F3) for the next older match and ▼ (F3) for the next newer one; the match is highlighted and scrolled into view. If Mudlet&#x27;s F3 search option is on, it is paused while the UI is shown, and restored even if Mudlet was closed while the UI was showing.</li>\n<li>New <code>ui find &lt;text&gt;</code> lists the latest GAME OUTPUT lines containing the text. Click one to scroll back to it.</li>\n</ul>"
+    },
+    {
+      "version": "2.6.3",
+      "date": "2026-11-11",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.6.3",
+      "content": "<ul>\n<li>CHARACTER &gt; SPELLS now opens on INTERFACE, which shows your class&#x27;s preparation list (memorize, pray, commune, ...). The old LIST subtab is renamed SPELLS and comes second.</li>\n<li>The spell master list loads for casters whose list spans more than one server page. Previously the pager stopped the capture and the panel stayed empty.</li>\n<li>Typing your preparation command, or an abbreviation such as <code>mem</code>, refreshes INTERFACE. If you page through a typed list yourself, the panel waits for you, however long you read each page.</li>\n<li>Clicking INTERFACE while the client is still learning your preparation command runs it as soon as the command is known.</li>\n<li>Spell panels highlight titles and circles and dim future circles; INTERFACE explains when a character has no preparation command.</li>\n</ul>"
+    },
+    {
+      "version": "2.6.2",
+      "date": "2026-11-11",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.6.2",
+      "content": "<ul>\n<li>GROUP, the SHIP bridge and context menus keep the dark panel background on every desktop theme. Previously the system palette could show through as light grey, making the green GROUP header hard to read.</li>\n</ul>"
+    },
+    {
+      "version": "2.6.1",
+      "date": "2026-11-11",
+      "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.6.1",
+      "content": "<ul>\n<li>Keep the other GEAR list visible while inventory or equipment updates, and switch between them without requesting a new snapshot.</li>\n<li>Skip a single unreadable item instead of hiding the whole list.</li>\n<li>Clicking GEAR again retries an item subscription the server never answered.</li>\n<li>Turning the damage tracker off and quickly back on no longer marks combat events as stopped by the server.</li>\n</ul>"
+    },
     {
       "version": "2.6.0",
       "date": "2026-11-10",
@@ -72,7 +96,7 @@
       "version": "2.2.0",
       "date": "2026-10-23",
       "releaseUrl": "https://github.com/LuminariMUD/duris-client/releases/tag/v2.2.0",
-      "content": "<ul>\n<li>Show bridge weight/load, ordered navigation, display/raw stamina, explicit target, slot condition/timers/destruction, contact coordinates and both arc meanings when supplied by the server.</li>\n<li>Associate ship snapshots by runtime vessel key, preserve safe legacy fallback, handle duplicate docked designations and keep server names literal.</li>\n</ul>\n<p>Notable changes to the Duris Client Mudlet package. Versions follow <a href=\"https://semver.org\">Semantic Versioning</a> (<code>MAJOR.MINOR.PATCH</code>); see <a href=\"https://github.com/LuminariMUD/duris-client/blob/ee8d9a2518b24eae029274282475f99bd43421bd/docs/RELEASING.md\">docs/RELEASING.md</a> for what each part means here. Each version heading must match <code>VERSION</code>; the release workflow copies that section into the GitHub Release notes.</p>"
+      "content": "<ul>\n<li>Show bridge weight/load, ordered navigation, display/raw stamina, explicit target, slot condition/timers/destruction, contact coordinates and both arc meanings when supplied by the server.</li>\n<li>Associate ship snapshots by runtime vessel key, preserve safe legacy fallback, handle duplicate docked designations and keep server names literal.</li>\n</ul>\n<p>Notable changes to the Duris Client Mudlet package. Versions follow <a href=\"https://semver.org\">Semantic Versioning</a> (<code>MAJOR.MINOR.PATCH</code>); see <a href=\"https://github.com/LuminariMUD/duris-client/blob/73c58abbc4c04a699fe62206b7cf9a3faee14885/docs/RELEASING.md\">docs/RELEASING.md</a> for what each part means here. Each version heading must match <code>VERSION</code>; the release workflow copies that section into the GitHub Release notes.</p>"
     },
     {
       "version": "2.1.2",
