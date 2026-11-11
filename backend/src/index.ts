@@ -6,6 +6,7 @@ import { createApp } from './app.js';
 import { startServer } from './runtime/startServer.js';
 import {
   createShutdown,
+  exitAfterShutdown,
   installSignalHandlers,
   type RuntimeResources,
 } from './runtime/shutdown.js';
@@ -24,25 +25,22 @@ void refreshHookState().catch((error) => {
 const resources: RuntimeResources = {};
 const shutdown = createShutdown(resources);
 
-async function exitAfterShutdown(code: number): Promise<void> {
-  await shutdown();
-  process.exit(code);
-}
-
+// One exit decision per process: a signal during failed-start cleanup cannot turn it into exit 0.
 let shuttingDown = false;
 installSignalHandlers(() => {
   if (shuttingDown) return;
   shuttingDown = true;
   logger.info('\nReceived shutdown signal, closing server gracefully...');
-  void exitAfterShutdown(0);
+  void exitAfterShutdown(shutdown, 0);
 });
 
 // Only start server if not in test mode
 if (environment.environment !== 'test') {
   startServer(app, resources).catch((error) => {
     logger.error('Failed to start server:', error);
+    if (shuttingDown) return;
+    shuttingDown = true;
     // Release only what this startup acquired, but never let a failed start hang in cleanup.
-    setTimeout(() => process.exit(1), 2000);
-    void exitAfterShutdown(1);
+    void exitAfterShutdown(shutdown, 1, { deadlineMs: 2000 });
   });
 }

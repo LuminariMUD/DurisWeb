@@ -45,7 +45,7 @@ stub('../backgroundJobs.js', {
   },
 });
 
-const { createShutdown, installSignalHandlers } = await import('../shutdown.js');
+const { createShutdown, exitAfterShutdown, installSignalHandlers } = await import('../shutdown.js');
 const { startServer } = await import('../startServer.js');
 type Resources = import('../shutdown.js').RuntimeResources;
 
@@ -134,5 +134,41 @@ describe('startup failure', () => {
       'database',
       'redis',
     ]);
+  });
+});
+
+describe('exit after shutdown', () => {
+  it('exits with the requested code once shutdown completes', async () => {
+    const exit = jest.fn();
+    await exitAfterShutdown(async () => undefined, 0, { exit, deadlineMs: 1000 });
+    expect(exit.mock.calls).toEqual([[0]]);
+  });
+
+  it('exits 1 instead of rejecting when a shutdown step fails', async () => {
+    const exit = jest.fn();
+    await expect(
+      exitAfterShutdown(
+        async () => {
+          throw new Error('redis quit failed');
+        },
+        0,
+        { exit, deadlineMs: 1000 },
+      ),
+    ).resolves.toBeUndefined();
+    expect(exit.mock.calls).toEqual([[1]]);
+  });
+
+  it('forces exit 1 when a shutdown step never settles', async () => {
+    jest.useFakeTimers();
+    try {
+      const exit = jest.fn();
+      void exitAfterShutdown(() => new Promise<void>(() => undefined), 0, { exit, deadlineMs: 50 });
+      await jest.advanceTimersByTimeAsync(49);
+      expect(exit).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(1);
+      expect(exit.mock.calls).toEqual([[1]]);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

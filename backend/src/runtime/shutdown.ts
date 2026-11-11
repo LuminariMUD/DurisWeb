@@ -53,6 +53,37 @@ export function createShutdown(resources: RuntimeResources): () => Promise<void>
   };
 }
 
+/** Longest a signal-initiated shutdown may take before the process is forced out. */
+export const SHUTDOWN_DEADLINE_MS = 10_000;
+
+/**
+ * Run shutdown, then exit with `code`. A failed step exits 1 instead of surfacing as an
+ * unhandled rejection, and a step that never settles cannot hold the process past the deadline.
+ */
+export async function exitAfterShutdown(
+  shutdown: () => Promise<void>,
+  code: number,
+  {
+    deadlineMs = SHUTDOWN_DEADLINE_MS,
+    exit = (status: number): void => process.exit(status),
+  }: { deadlineMs?: number; exit?: (status: number) => void } = {},
+): Promise<void> {
+  const deadline = setTimeout(() => {
+    logger.error(`Shutdown did not finish within ${deadlineMs} ms; exiting`);
+    exit(1);
+  }, deadlineMs);
+  let status = code;
+  try {
+    await shutdown();
+  } catch (error) {
+    logger.error('Shutdown failed:', error);
+    status = 1;
+  } finally {
+    clearTimeout(deadline);
+  }
+  exit(status);
+}
+
 const SHUTDOWN_SIGNALS = ['SIGTERM', 'SIGINT', 'SIGUSR2'] as const; // Nodemon sends SIGUSR2
 let signalsInstalled = false;
 
