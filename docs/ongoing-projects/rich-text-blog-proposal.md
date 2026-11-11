@@ -241,7 +241,7 @@ content type. Follow the [Sitemap protocol](https://www.sitemaps.org/protocol.ht
 Advertise the sitemap with an absolute `Sitemap:` line in a `text/plain`
 `robots.txt` served by the origin, which has none today. The public file is
 currently Cloudflare's managed block, so the line counts as delivered only when
-it appears in the response fetched through `duris.sbs` alongside that block.
+it appears in the response fetched through the public site hostname alongside that block.
 Do not weaken or duplicate the edge-managed crawler rules from the origin. If
 the edge does not merge the origin file, changing that is a Cloudflare
 configuration step needing its own authorization; record it rather than
