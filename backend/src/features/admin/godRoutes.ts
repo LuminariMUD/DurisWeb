@@ -5,9 +5,16 @@ import { requireAuth } from '../../middleware/auth.js';
 import {
   searchAccounts,
   accountExists,
+  parseAccountFile,
   updateAccountPassword,
 } from '../../services/accountService.js';
+import { getUserPermissions } from '../../services/permissionService.js';
+import { revokeAllWebSessions } from '../../services/sessionService.js';
+import { cleanupAccountSessions } from '../../services/terminalService.js';
+import { pool as db } from '../../db/connection.js';
 import bcrypt from 'bcrypt';
+
+const MAX_ACCOUNT_SEARCH_RESULTS = 50;
 
 export const adminGodRoutes: IRouter = Router();
 
@@ -32,7 +39,8 @@ adminGodRoutes.get('/god/accounts/search', requireAuth, async (req: Request, res
     }
 
     const query = (req.query.query as string) || '';
-    const limit = parseInt(req.query.limit as string) || 15;
+    const requested = parseInt(req.query.limit as string) || 15;
+    const limit = Math.min(Math.max(requested, 1), MAX_ACCOUNT_SEARCH_RESULTS);
 
     const accounts = await searchAccounts(query, limit);
     return res.json(accounts);
@@ -75,18 +83,39 @@ adminGodRoutes.post(
       const { accountName, newPassword } = req.body;
       const targetAccount = accountName.toLowerCase();
 
+      if (targetAccount === req.user.accountName.toLowerCase()) {
+        return res.status(403).json({ error: 'Use account settings to change your own password.' });
+      }
+
       // Check if target account exists
       const exists = await accountExists(targetAccount);
       if (!exists) {
         return res.status(404).json({ error: `Account '${targetAccount}' not found` });
       }
 
+      // A god may only reset accounts ranked strictly below their own highest character.
+      const target = await parseAccountFile(targetAccount);
+      const { maxLevel: targetLevel } = await getUserPermissions(targetAccount, target.characters);
+      if (targetLevel >= userLevel) {
+        return res
+          .status(403)
+          .json({ error: 'You can only reset passwords for accounts below your level.' });
+      }
+
       // Hash the new password
       const saltRounds = 10;
       const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
-      // Update the account file
+      // Update the account file, then end every session that used the old password.
       await updateAccountPassword(targetAccount, newPasswordHash);
+      await revokeAllWebSessions(targetAccount);
+      await cleanupAccountSessions(targetAccount);
+
+      await db.query(
+        `INSERT INTO admin_action_log (account_name, action_type, target, notes)
+         VALUES (?, 'god_password_reset', ?, ?)`,
+        [req.user.accountName, targetAccount, `L${userLevel} reset L${targetLevel} account`],
+      );
 
       // Log the action (never log the password)
       logger.info(
@@ -99,8 +128,7 @@ adminGodRoutes.post(
       });
     } catch (error) {
       logger.error('Admin password reset error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to reset password';
-      return res.status(500).json({ error: message });
+      return res.status(500).json({ error: 'Failed to reset password' });
     }
   },
 );
