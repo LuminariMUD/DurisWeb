@@ -34,6 +34,14 @@ stub('../../../services/permissionService.js', {
   }),
 });
 stub('../../../services/adminPermissionService.js', { getUserPermissions: async () => new Set() });
+const subscribeToThread = jest.fn(async (..._args: unknown[]) => undefined);
+stub('../../../services/forumService.js', {
+  subscribeToThread,
+  getThreadById: async (id: number) => ({ id, category_id: 1 }),
+});
+stub('../../../services/categoryService.js', {
+  getCategoryAccessForAccount: async () => ({ canView: true, canPost: true }),
+});
 
 const { forumRouter } = await import('../routes.js');
 const { generateAccessToken } = await import('../../../middleware/auth.js');
@@ -85,5 +93,28 @@ describe('composed forum router', () => {
     expect([own.status, own.body]).toEqual([503, { error: 'Avatar upload is not available' }]);
     const other = await request(app).post('/api/forum/users/Someone/avatar').set('Cookie', cookie);
     expect(other.status).toBe(403);
+  });
+
+  it('registers thread subscribe once and stores only known preferences', async () => {
+    const subscribe = routes(forumRouter).filter(([, path]) => path === '/threads/:id/subscribe');
+    expect(subscribe.sort()).toEqual([
+      ['delete', '/threads/:id/subscribe'],
+      ['post', '/threads/:id/subscribe'],
+    ]);
+
+    const cookie = `access_token=${generateAccessToken('Player', 'p@example.invalid', 'sid')}`;
+    const post = (body: object) =>
+      request(app).post('/api/forum/threads/7/subscribe').set('Cookie', cookie).send(body);
+
+    expect((await post({ notificationPreference: 'everything' })).status).toBe(400);
+    expect((await post({ notifyOnReply: 'yes' })).status).toBe(400);
+    expect(subscribeToThread).not.toHaveBeenCalled();
+
+    expect((await post({ notificationPreference: 'mentions' })).status).toBe(200);
+    expect((await post({ notifyOnReply: true })).status).toBe(200);
+    expect(subscribeToThread.mock.calls).toEqual([
+      ['Player', 7, 'mentions'],
+      ['Player', 7, 'all'],
+    ]);
   });
 });

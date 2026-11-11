@@ -26,80 +26,6 @@ export const forumSubscriptionRoutes: IRouter = Router();
 // ============================================================================
 
 /**
- * POST /api/forum/threads/:id/subscribe
- * Subscribe to thread notifications
- */
-forumSubscriptionRoutes.post(
-  '/threads/:id/subscribe',
-  requireAuth,
-  [
-    param('id').isInt().withMessage('Thread ID must be an integer'),
-    body('notifyOnReply').optional().isBoolean().withMessage('notifyOnReply must be boolean'),
-  ],
-  async (req: Request, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      if (!req.user) {
-        return res.status(401).json({ error: 'Not authenticated' });
-      }
-
-      const threadId = parseInt(req.params.id);
-      const authorizedThread = await getAuthorizedThread(threadId, req.user.permissions, 'view');
-      if (!authorizedThread) {
-        return res.status(403).json({ error: 'Access denied to this thread' });
-      }
-      const notificationPreference = req.body.notificationPreference || 'all';
-
-      await subscribeToThread(req.user.accountName, threadId, notificationPreference);
-
-      return res.json({ success: true, message: 'Subscribed to thread' });
-    } catch (error) {
-      logger.error('Subscribe error:', error);
-      return res.status(500).json({ error: 'Failed to subscribe' });
-    }
-  },
-);
-
-/**
- * DELETE /api/forum/threads/:id/subscribe
- * Unsubscribe from thread notifications
- */
-forumSubscriptionRoutes.delete(
-  '/threads/:id/subscribe',
-  requireAuth,
-  [param('id').isInt().withMessage('Thread ID must be an integer')],
-  async (req: Request, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      if (!req.user) {
-        return res.status(401).json({ error: 'Not authenticated' });
-      }
-
-      const threadId = parseInt(req.params.id);
-      const authorizedThread = await getAuthorizedThread(threadId, req.user.permissions, 'view');
-      if (!authorizedThread) {
-        return res.status(403).json({ error: 'Access denied to this thread' });
-      }
-
-      await unsubscribeFromThread(req.user.accountName, threadId);
-
-      return res.json({ success: true, message: 'Unsubscribed from thread' });
-    } catch (error) {
-      logger.error('Unsubscribe error:', error);
-      return res.status(500).json({ error: 'Failed to unsubscribe' });
-    }
-  },
-);
-
-/**
  * GET /api/forum/subscriptions
  * Get user's thread and category subscriptions
  */
@@ -127,6 +53,7 @@ forumSubscriptionRoutes.post(
   requireAuth,
   [
     param('id').isInt().withMessage('Thread ID must be an integer'),
+    body('notifyOnReply').optional().isBoolean().withMessage('notifyOnReply must be boolean'),
     body('notificationPreference').optional().isIn(['all', 'mentions', 'none']),
   ],
   async (req: Request, res: Response) => {
