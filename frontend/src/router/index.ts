@@ -59,6 +59,12 @@ const router = createRouter({
       name: 'frag-leaderboard',
       component: () => import('../views/FragLeaderboardView.vue'),
     },
+    {
+      path: '/named-sets',
+      name: 'named-sets',
+      component: () => import('../views/NamedSetsView.vue'),
+      meta: { public: true },
+    },
 
     // Auction House
     {

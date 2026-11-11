@@ -5,6 +5,7 @@ import { pvpApi } from '@/features/pvp/api'
 import { adminApi } from '@/features/admin/api'
 import { builderApi } from '@/features/builder/api'
 import { publicStatsApi } from '@/features/publicStats/api'
+import { namedSetsApi } from '@/features/namedSets/api'
 
 const seen: InternalAxiosRequestConfig[] = []
 
@@ -43,6 +44,12 @@ describe('feature API modules on the shared client', () => {
       '/api/public/statistics/faction-overlap',
       { days: 7 },
     ])
+  })
+
+  it('reads the public named set report', async () => {
+    respond({ notes: '', zones: [], fetchedAt: '2026-11-11T00:00:00.000Z' })
+    await expect(namedSetsApi.getReport()).resolves.toMatchObject({ zones: [] })
+    expect([seen[0]?.method, seen[0]?.url]).toEqual(['get', '/api/named-sets'])
   })
 
   it('uploads multipart admin files with the CSRF header', async () => {

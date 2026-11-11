@@ -40,6 +40,7 @@ import {
   ChevronDown,
   BarChart3,
   Trophy,
+  Shield,
   Gavel,
   WifiOff,
   RefreshCw,
@@ -417,6 +418,7 @@ const isPlayPage = computed(() => route.path === '/play')
                   $route.path === '/pvp/stats' ||
                     $route.path.startsWith('/statistics/') ||
                     $route.path === '/frag-leaderboard' ||
+                    $route.path === '/named-sets' ||
                     $route.path.startsWith('/auction') ||
                     $route.path === '/mudlet-gui' ||
                     $route.name === 'privacy' ||
@@ -443,6 +445,10 @@ const isPlayPage = computed(() => route.path === '/play')
               <DropdownMenuItem @click="router.push('/frag-leaderboard')" class="cursor-pointer">
                 <Trophy class="mr-2 h-4 w-4" />
                 <span>Frag Leaderboard</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="router.push('/named-sets')" class="cursor-pointer">
+                <Shield class="mr-2 h-4 w-4" />
+                <span>Named Sets</span>
               </DropdownMenuItem>
               <DropdownMenuItem @click="router.push('/auction')" class="cursor-pointer">
                 <Gavel class="mr-2 h-4 w-4" />

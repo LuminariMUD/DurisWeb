@@ -97,6 +97,7 @@ the default page size is 50, with limit 1–100 and pages capped at 10,000.
 | `/api/push` | `routes/push.ts` | VAPID key and authenticated subscriptions |
 | `/api/changelog` | `features/changelog/routes.ts` | Changelog reads and permissioned management |
 | `/api/public/statistics` | `routes/publicStatistics.ts` | Public faction activity, date, and overlap statistics |
+| `/api/named-sets` | `features/namedSets/routes.ts` | Public named-set spell report (the in-game `namedreport`) |
 | `/api/hooks` | `routes/hooks.ts` | Permissioned hook state, website toggle, and reconciliation |
 
 Some route modules contain both public and protected handlers. Do not infer
@@ -547,6 +548,31 @@ account-login export from Duris PR #41 contains no faction breakdown and is
 not this page's data source. Historical responses are cached for ten minutes;
 the date-list cache changes at UTC midnight. The page selects the newest
 published date, displays UTC times, and offers retry on load failure.
+
+### Public named-set report
+
+`GET /api/named-sets` returns the spells each zone's named equipment set
+grants, matching the in-game `namedreport` command. The source is the MUD's
+season-scoped Redis cache `<namespace>:season:<epoch>:cache:named`, read
+through the existing cache-scope client. The MUD rebuilds that key at boot
+with a 24-hour expiry and again whenever a player runs `namedreport` after it
+expires; the website never writes it.
+
+The cached text is untrusted MUD output. `features/namedSets/parser.ts`
+accepts only the report shape written by `generate_named_report()`: at most
+256 KiB, a `ZONE ID / NAME` header, and zone rows whose spell entries parse
+completely. The response is `{ notes, zones, fetchedAt }`. Each zone has
+`zone`, plain `name`, `coloredName` (MUD color codes, for rendering on ink),
+and `spells` of `{ name, pieces, cooldown }`. `cooldown` is `one_minute` or
+`five_minutes` from the report's green/yellow spell colors, otherwise `null`.
+A zone with no spells grants hit points only. `notes` is the report's notes
+block with its color codes.
+
+A successful read is shared in the process for five minutes and served with
+`Cache-Control: public, max-age=300`. A missing, malformed, or unreadable cache
+returns 503 `{ error }` with `no-store`; that result is retained for 15 seconds
+so a cache miss does not cause repeated Redis and season lookups. Concurrent
+misses share one read. The page is `/named-sets`.
 
 ### Public faction overlap
 

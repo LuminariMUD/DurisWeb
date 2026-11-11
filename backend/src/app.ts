@@ -31,6 +31,7 @@ import notificationsRoutes from './routes/notifications.js';
 import auctionRoutes from './routes/auction.js';
 import pushRoutes from './routes/push.js';
 import { changelogRouter } from './features/changelog/routes.js';
+import { namedSetsRouter } from './features/namedSets/routes.js';
 import publicStatisticsRoutes from './routes/publicStatistics.js';
 import hookRoutes from './routes/hooks.js';
 import kofiRoutes from './routes/kofi.js';
@@ -175,6 +176,7 @@ export function createApp(): Application {
   app.use('/api/auction', auctionRoutes);
   app.use('/api/push', pushRoutes);
   app.use('/api/changelog', changelogRouter);
+  app.use('/api/named-sets', namedSetsRouter);
   app.use('/api/public/statistics', publicStatisticsRoutes);
   app.use('/api/hooks', hookRoutes);
   app.use('/api', apiNotFound);
