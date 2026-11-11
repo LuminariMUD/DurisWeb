@@ -170,6 +170,7 @@ jest.unstable_mockModule('../../../services/adminPermissionService.js', () => ({
 jest.unstable_mockModule('../../../services/accountService.js', () => ({
   searchAccounts: asyncMock(),
   accountExists: asyncMock(),
+  parseAccountFile: asyncMock(),
   updateAccountPassword: asyncMock(),
 }));
 jest.unstable_mockModule('bcrypt', () => ({
@@ -177,6 +178,7 @@ jest.unstable_mockModule('bcrypt', () => ({
 }));
 jest.unstable_mockModule('../../../services/permissionService.js', () => ({
   getGodLevelFromCharacterLevel: jest.fn(),
+  getUserPermissions: jest.fn(),
 }));
 jest.unstable_mockModule('../../../utils/incidentValidation.js', () => ({
   INCIDENT_UPDATE_FIELDS: [],
