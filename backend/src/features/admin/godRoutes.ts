@@ -94,8 +94,10 @@ adminGodRoutes.post(
       }
 
       // A god may only reset accounts ranked strictly below their own highest character.
+      // Terminal sessions are keyed by the stored account name, so act on its exact casing.
       const target = await parseAccountFile(targetAccount);
-      const { maxLevel: targetLevel } = await getUserPermissions(targetAccount, target.characters);
+      const canonicalName = target.accountName;
+      const { maxLevel: targetLevel } = await getUserPermissions(canonicalName, target.characters);
       if (targetLevel >= userLevel) {
         return res
           .status(403)
@@ -107,24 +109,24 @@ adminGodRoutes.post(
       const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
       // Update the account file, then end every session that used the old password.
-      await updateAccountPassword(targetAccount, newPasswordHash);
-      await revokeAllWebSessions(targetAccount);
-      await cleanupAccountSessions(targetAccount);
+      await updateAccountPassword(canonicalName, newPasswordHash);
+      await revokeAllWebSessions(canonicalName);
+      await cleanupAccountSessions(canonicalName);
 
       await db.query(
         `INSERT INTO admin_action_log (account_name, action_type, target, notes)
          VALUES (?, 'god_password_reset', ?, ?)`,
-        [req.user.accountName, targetAccount, `L${userLevel} reset L${targetLevel} account`],
+        [req.user.accountName, canonicalName, `L${userLevel} reset L${targetLevel} account`],
       );
 
       // Log the action (never log the password)
       logger.info(
-        `[ADMIN] Password reset: ${req.user.accountName} (L${userLevel}) changed password for account '${targetAccount}'`,
+        `[ADMIN] Password reset: ${req.user.accountName} (L${userLevel}) changed password for account '${canonicalName}'`,
       );
 
       return res.json({
         success: true,
-        message: `Password changed for account '${targetAccount}'`,
+        message: `Password changed for account '${canonicalName}'`,
       });
     } catch (error) {
       logger.error('Admin password reset error:', error);

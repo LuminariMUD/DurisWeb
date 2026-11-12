@@ -13,6 +13,10 @@ const LEVELS: Record<string, number> = {
   overlord: 62,
   mortal: 50,
 };
+// Stored account names keep their original casing; lookups ignore case.
+const STORED_NAMES: Record<string, string> = { mortal: 'Mortal' };
+const storedName = (accountName: string) =>
+  STORED_NAMES[accountName.toLowerCase()] ?? accountName.toLowerCase();
 const updateAccountPassword = jest.fn(async (_account: string, _hash: string) => undefined);
 const revokeAllWebSessions = jest.fn(async (_account: string) => 1);
 const cleanupAccountSessions = jest.fn(async (_account: string) => undefined);
@@ -49,7 +53,10 @@ stub('../../../services/sessionService.js', {
 });
 stub('../../../services/terminalService.js', { cleanupAccountSessions });
 stub('../../../services/accountService.js', {
-  parseAccountFile: async (accountName: string) => ({ accountName, characters: [] }),
+  parseAccountFile: async (accountName: string) => ({
+    accountName: storedName(accountName),
+    characters: [],
+  }),
   accountExists: async (accountName: string) => accountName in LEVELS,
   updateAccountPassword,
   searchAccounts,
@@ -79,18 +86,22 @@ beforeEach(() => {
 });
 
 describe('god password reset', () => {
-  it('resets a lower-ranked account, ends its sessions and records the action', async () => {
-    const response = await reset('greater', 'Mortal');
-    expect(response.status).toBe(200);
-    expect(updateAccountPassword).toHaveBeenCalledWith('mortal', expect.stringMatching(/^\$2/));
-    expect(revokeAllWebSessions).toHaveBeenCalledWith('mortal');
-    expect(cleanupAccountSessions).toHaveBeenCalledWith('mortal');
-    expect(poolQuery).toHaveBeenCalledWith(expect.stringContaining('admin_action_log'), [
-      'greater',
-      'mortal',
-      'L60 reset L50 account',
-    ]);
-  });
+  it.each(['mortal', 'MORTAL'])(
+    'resets a lower-ranked account requested as %s under its stored name',
+    async (requested) => {
+      const response = await reset('greater', requested);
+      expect(response.status).toBe(200);
+      expect(updateAccountPassword).toHaveBeenCalledWith('Mortal', expect.stringMatching(/^\$2/));
+      expect(revokeAllWebSessions).toHaveBeenCalledWith('Mortal');
+      // Terminal session maps are keyed by the exact stored name.
+      expect(cleanupAccountSessions).toHaveBeenCalledWith('Mortal');
+      expect(poolQuery).toHaveBeenCalledWith(expect.stringContaining('admin_action_log'), [
+        'greater',
+        'Mortal',
+        'L60 reset L50 account',
+      ]);
+    },
+  );
 
   it.each([
     ['greater', 'overlord'],
