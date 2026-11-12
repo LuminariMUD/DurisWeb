@@ -6,7 +6,7 @@ Branch: `branch/issue-181-character-link-privacy` (linked to the issue)
 
 Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d5573c156`.
 
-**Status: PR A (steps 5–11) ready for review; PR B (steps 1–4, 12–13) next.**
+**Status: implementation complete. PR A (#197) and PR B are ready for review; release acceptance is pending.**
 Owner decision on the issue: "ADOPT OPTION # 4". The earlier plans in this file are
 preserved unchanged below the `Previous plans` divider.
 
@@ -18,7 +18,7 @@ live site:
 | PR | Branch | Scope | State |
 |---|---|---|---|
 | A | `branch/issue-181-character-link-privacy` → `master` | Live-character flags (steps 5–6), public `/character/:name` page, every link switched to it, lookup client methods and dead guard removed (steps 7–11) | ready for review |
-| B | `branch/issue-181-remove-account-lookups` → A | Remove the two forum lookups, `/api/frag/account` and frag `account_name` (steps 1–4), docs and changelog draft (12–13) | in progress |
+| B | `branch/issue-181-remove-account-lookups` → A | Remove the two forum lookups, `/api/frag/account` and frag `account_name` (steps 1–4), docs and changelog draft (12–13) | ready for review |
 
 PR A no longer calls any lookup, so PR B's removals cannot break a deployed PR A
 frontend. Deploy and merge A before B.
@@ -59,8 +59,61 @@ PR A verification (worktree `/home/aiwithapex/projects/durisweb-issue-181`):
   `components/frag/__tests__/FragLeaderboardTable.spec.ts`.
 - `pnpm --dir frontend format:check`, `lint`, `type-check`,
   `./frontend/scripts/check-palette-literals.sh`, `build` → clean or passed.
-- Not run yet: the rendered browser check, and the backend build and full suite
-  (both planned for PR B).
+- Not run for PR A: the backend build and full suite. Both ran on PR B, which
+  contains PR A.
+
+What PR B did:
+
+- **Forum lookups removed.** `GET /characters/:name/account` and
+  `POST /characters/batch/accounts` are deleted from `profileRoutes.ts`. Both now
+  fall through to the API 404. `findAccountByCharacter` stays because the owner-only
+  character profile still uses it.
+- **Frag account data removed.** `GET /api/frag/account/:account_name` and
+  `getAccountFragStats` are deleted. Leaderboard, top-gainer and player rows drop
+  `account_name`. The leaderboard's `account_characters` join (which existed only to
+  supply the account, and could duplicate rows) is gone, and so is the
+  `account_name` filter.
+  - The frontend `getAccountStats` client, the `account_name` filter and the frag
+    type fields are removed.
+- **Tests.**
+  - `userProfilePrivacy.test.ts` now asserts that both lookups return 404 with no
+    account in the body.
+  - `forumComposition.test.ts` has no public-write exemption left.
+  - New `routes/__tests__/fragPrivacy.test.ts` asserts that the roster route is 404,
+    that no account appears in leaderboard, top-gainer or player responses or in
+    their SQL, and that the account filter is ignored.
+- **Docs.** `docs/api/README_api.md` gains "Characters are public; their owning
+  account is not", and its `/api/frag` row is reworded. The changelog draft is
+  `docs/ongoing-projects/issue-181-website-changelog-draft.json`
+  (`isPublished: false`).
+
+PR B verification (it contains PR A):
+
+- `NODE_ENV=test TEST_PVP_DB_PORT=47181 pnpm --dir backend test --runInBand` → 173
+  suites and 1758 tests pass. 11 suites and 165 tests are skipped: the existing
+  native opt-ins that need other databases (`TEST_TRAFFIC_DB_PORT`, owner fixtures).
+- `pnpm --dir backend format:check`, `lint`, `type-check`, `build`,
+  `verify:mud-writes` (53 classified writes) → pass.
+- `pnpm --dir frontend format:check`, `lint`, `type-check`,
+  `test:unit --run` (98 files, 770 tests) and `build` → pass.
+- **Real-schema check.** A throwaway `tsx` script called the changed service
+  functions read-only against the local dev database (`backend/.env`).
+  - Leaderboard (58 rows) and player rows had no `account_name`.
+  - Battles 613–615 returned boolean `character_exists`.
+  - A guild profile returned 83 members with boolean `characterExists`.
+- **Not run: the rendered browser check.** Starting the backend has no switch for
+  its background jobs (PvP polling and Discord delivery against the dev database),
+  so a browser pass needs a deliberate dev run. The view behavior is covered by the
+  component specs above.
+
+Remaining after merge:
+
+1. Fix the separate `GuildProfileView` `thread` route-name defect (own PR).
+2. Release acceptance: deploy A, then B. Signed out on `duris.sbs`, confirm that
+   the three removed URLs return 404, that frag JSON has no `account_name`, and that
+   names open `/character/:name`. Then publish the changelog draft via
+   `/admin/changelog` per `$news-update`.
+3. Owner answers to the open questions below.
 
 ## Outcome
 

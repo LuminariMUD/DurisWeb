@@ -64,12 +64,6 @@ export async function getFragLeaderboard(
     queryParams.push(filters.level_max);
   }
 
-  // Account name filter
-  if (filters.account_name) {
-    whereConditions.push('account_name = ?');
-    queryParams.push(filters.account_name);
-  }
-
   // Character name search (partial match)
   if (filters.char_name) {
     whereConditions.push('char_name LIKE ?');
@@ -94,11 +88,10 @@ export async function getFragLeaderboard(
   const [countRows] = await pool.query<RowDataPacket[]>(countQuery, queryParams);
   const total = countRows[0].total;
 
-  // Main data query - join with account_characters for account
+  // Main data query. Rows never name the owning account (issue #181).
   const query = `
     SELECT
       fl.char_name,
-      COALESCE(ac.account_name, fl.account_name) AS account_name,
       fl.total_frags / 100.0 AS total_frags,
       fl.racewar,
       fl.race,
@@ -106,7 +99,6 @@ export async function getFragLeaderboard(
       fl.level,
       fl.last_updated
     FROM frag_leaderboard fl
-    LEFT JOIN account_characters ac ON fl.char_name COLLATE utf8mb4_unicode_ci = ac.char_name AND ac.deleted_at IS NULL
     ${whereClause
       .replace(/race =/g, 'fl.race =')
       .replace(/class =/g, 'fl.class =')
@@ -114,7 +106,6 @@ export async function getFragLeaderboard(
       .replace(/level/g, 'fl.level')
       .replace(/deleted_at/g, 'fl.deleted_at')
       .replace(/total_frags/g, 'fl.total_frags')
-      .replace(/account_name/g, 'fl.account_name')
       .replace(/char_name/g, 'fl.char_name')}
     ORDER BY fl.total_frags DESC
     LIMIT ? OFFSET ?
@@ -126,7 +117,6 @@ export async function getFragLeaderboard(
   const entries: FragLeaderboardEntry[] = rows.map((row, index) => ({
     rank: offset + index + 1,
     char_name: row.char_name,
-    account_name: row.account_name,
     total_frags: Number(row.total_frags),
     racewar: row.racewar,
     race: row.race || '',
@@ -152,7 +142,6 @@ export async function getTopGainers(
   const query = `
     SELECT
       fl.char_name,
-      fl.account_name,
       SUM(p.delta) / 100.0 AS frags_gained,
       fl.race,
       fl.class,
@@ -162,7 +151,7 @@ export async function getTopGainers(
     WHERE p.var_type = 'FRAGS'
       AND p.stamp >= DATE_SUB(NOW(), INTERVAL ? DAY)
       AND fl.deleted_at IS NULL
-    GROUP BY p.pid, fl.char_name, fl.account_name, fl.race, fl.class, fl.level
+    GROUP BY p.pid, fl.char_name, fl.race, fl.class, fl.level
     HAVING frags_gained > 0
     ORDER BY frags_gained DESC
     LIMIT ?
@@ -173,7 +162,6 @@ export async function getTopGainers(
   const gainers: TopGainer[] = rows.map((row: RowDataPacket, index: number) => ({
     rank: index + 1,
     char_name: row.char_name as string,
-    account_name: row.account_name as string,
     frags_gained: Number(row.frags_gained),
     race: (row.race as string) || '',
     class: (row.class as string) || '',
@@ -248,7 +236,6 @@ export async function getCharacterFragStats(
   const query = `
     SELECT
       char_name,
-      account_name,
       total_frags / 100.0 AS total_frags,
       racewar,
       race,
@@ -259,7 +246,6 @@ export async function getCharacterFragStats(
     FROM (
       SELECT
         fl.char_name,
-        fl.account_name,
         fl.total_frags,
         fl.racewar,
         fl.race,
@@ -284,7 +270,6 @@ export async function getCharacterFragStats(
   return {
     rank: row.global_rank,
     char_name: row.char_name,
-    account_name: row.account_name,
     total_frags: Number(row.total_frags),
     racewar: row.racewar,
     race: row.race || '',
@@ -292,59 +277,4 @@ export async function getCharacterFragStats(
     level: row.level,
     last_updated: row.last_updated,
   };
-}
-
-/**
- * Get all characters for an account (sorted by frags)
- * Uses RANK() window function to calculate ranks in a single query
- */
-export async function getAccountFragStats(accountName: string): Promise<FragLeaderboardEntry[]> {
-  // Single query using RANK() window function to calculate all ranks at once
-  const query = `
-    SELECT
-      char_name,
-      account_name,
-      total_frags / 100.0 AS total_frags,
-      racewar,
-      race,
-      class,
-      level,
-      last_updated,
-      deleted_at,
-      global_rank
-    FROM (
-      SELECT
-        fl.char_name,
-        fl.account_name,
-        fl.total_frags,
-        fl.racewar,
-        fl.race,
-        fl.class,
-        fl.level,
-        fl.last_updated,
-        fl.deleted_at,
-        CASE
-          WHEN fl.deleted_at IS NULL THEN RANK() OVER (ORDER BY fl.total_frags DESC)
-          ELSE 0
-        END AS global_rank
-      FROM frag_leaderboard fl
-      WHERE fl.deleted_at IS NULL OR fl.account_name = ?
-    ) ranked
-    WHERE account_name = ?
-    ORDER BY total_frags DESC
-  `;
-
-  const [rows] = await pool.query<RowDataPacket[]>(query, [accountName, accountName]);
-
-  return rows.map((row: RowDataPacket) => ({
-    rank: row.global_rank,
-    char_name: row.char_name,
-    account_name: row.account_name,
-    total_frags: Number(row.total_frags),
-    racewar: row.racewar,
-    race: row.race || '',
-    class: row.class || '',
-    level: row.level,
-    last_updated: row.last_updated,
-  }));
 }
