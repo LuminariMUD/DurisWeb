@@ -68,9 +68,8 @@ export async function getNotifications(
   limit: number = 50,
   offset: number = 0,
 ): Promise<{ notifications: BuilderNotification[]; total: number; hasMore: boolean }> {
-  const unreadOnly = isRead === false;
   const result = await notificationService.getNotifications(accountName, {
-    unreadOnly,
+    isRead,
     limit,
     offset,
   });
