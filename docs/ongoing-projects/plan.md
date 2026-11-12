@@ -20,7 +20,7 @@ fast-forward per PR, as the master ruleset requires linear history.
 
 | Item | Branch | PR | Status |
 |------|--------|----|--------|
-| plan + (b) | `branch/issue-183-structure-stack-followups` | (opening) | done, verified |
+| plan + (b) | `branch/issue-183-structure-stack-followups` | #196 | done, verified |
 | (c) | `branch/issue-183-c-wholist-removal` | — | next |
 | (a) | `branch/issue-183-a-startup-abort` | — | pending |
 | (f) | `branch/issue-183-f-api-client-reads` | — | pending |
@@ -36,8 +36,8 @@ Working notes for a new session:
 - The backend formats with **Biome**: run `npx biome format --write <files>`, never
   a bare `npx prettier`, which downloads an unrelated Prettier and reformats whole
   files.
-- Baseline on `3734492`: `pnpm --dir backend test --runInBand` passes 171 suites
-  (12 skipped) and 1,696 tests.
+- With (b) applied, `pnpm --dir backend test --runInBand` passes 171 suites
+  (12 skipped) and 1,696 tests. Later items compare against this count.
 
 The six items were each checked against the code, not taken from the issue or from
 the earlier investigation comment. All six are real. Corrections to the issue and to
