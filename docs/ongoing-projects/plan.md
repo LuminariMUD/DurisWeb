@@ -15,7 +15,7 @@ section 7 follow-ups, each branched from `master` because neither depends on the
 
 | PR | Branch | Scope | State |
 |---|---|---|---|
-| #180 fix | `branch/issue-180-socket-principal-revalidation` | Sections 3 to 6 of this plan | Ready for review |
+| [#216](https://github.com/LuminariMUD/DurisWeb/pull/216) (#180 fix) | `branch/issue-180-socket-principal-revalidation` | Sections 3 to 6 of this plan | Ready for review |
 | [#202](https://github.com/LuminariMUD/DurisWeb/pull/202) | `branch/connection-event-no-ip` | Drop `ip` from `CONNECTION_EVENT` | Ready for review |
 | [#201](https://github.com/LuminariMUD/DurisWeb/pull/201) | `branch/log-tail-websocket-token` | Send the websocket token with `SUBSCRIBE_LOG` | Ready for review |
 
