@@ -97,15 +97,17 @@ export async function createNotification(params: {
  */
 export async function getNotifications(
   accountName: string,
-  options: { unreadOnly?: boolean; limit?: number; offset?: number } = {},
+  options: { unreadOnly?: boolean; isRead?: boolean; limit?: number; offset?: number } = {},
 ): Promise<{ notifications: Notification[]; total: number }> {
   const { unreadOnly = false, limit = 50, offset = 0 } = options;
+  const isRead = options.isRead ?? (unreadOnly ? false : undefined);
 
   let whereClause = 'WHERE account_name = ?';
   const params: (string | number)[] = [accountName];
 
-  if (unreadOnly) {
-    whereClause += ' AND is_read = FALSE';
+  if (isRead !== undefined) {
+    whereClause += ' AND is_read = ?';
+    params.push(Number(isRead));
   }
 
   const [countRows] = await db.query<RowDataPacket[]>(

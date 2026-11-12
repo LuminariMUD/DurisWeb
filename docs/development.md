@@ -374,6 +374,13 @@ Do not commit `.env` files, dumps, account data, generated deployment output,
 or backup archives. See [Configuration and Environments](environments.md) before
 adding any new setting.
 
+Builder notification filter qualification opts in with
+`TEST_BUILDER_NOTIFICATION_DB_PORT=23436` or `23437`. Use a disposable
+`durisweb_qualification_*` database with the verified owner/website schema and
+matching loopback `DB_*` settings. The suite inserts only synthetic notifications
+and removes its rows; it verifies read/unread/all filters, pagination totals,
+account isolation, and existing unified-notification callers.
+
 ## Local MUD process monitoring
 
 Process monitoring selects one `dms` or `dms_new` process whose working directory
