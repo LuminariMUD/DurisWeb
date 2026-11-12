@@ -1,7 +1,7 @@
 {
   "version": "2026.11.12-draft",
-  "title": "Character creation help fixes",
-  "content": "<h3>Character creation</h3><ul><li><strong>Reliable race and class help.</strong> Help opens through the configured website API, including when the frontend and API use different addresses. Missing or unavailable help keeps a clear message.</li><li><strong>Contained help formatting.</strong> Help headings display as text and MUD colors, so stored heading markup cannot change the rest of the page.</li></ul>",
+  "title": "Website help and battle-preview fixes",
+  "content": "<h3>Character creation</h3><ul><li><strong>Reliable race and class help.</strong> Help opens through the configured website API, including when the frontend and API use different addresses. Missing or unavailable help keeps a clear message.</li><li><strong>Contained help formatting.</strong> Help headings display as text and MUD colors, so stored heading markup cannot change the rest of the page.</li></ul><h3>Battle previews</h3><ul><li><strong>Keep shared battle text intact.</strong> Battle link previews preserve literal room-name characters, including dollar sequences, without inserting page fragments into the preview metadata.</li></ul>",
   "category": "public",
   "isPublished": false
 }

@@ -293,7 +293,7 @@ export function createApp({
 
             // Replace the existing <title> and inject OG tags before </head>
             html = html.replace(/<title>.*?<\/title>/, '');
-            html = html.replace('</head>', `${ogTags}\n</head>`);
+            html = html.replace('</head>', () => `${ogTags}\n</head>`);
 
             res.send(html);
             return;

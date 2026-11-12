@@ -123,4 +123,19 @@ describe('createApp in production', () => {
     expect((await request(app).get('/pvp/7')).text).toBe(INDEX);
     expect((await request(app).get('/pvp/8').set('User-Agent', 'Discordbot/2.0')).text).toBe(INDEX);
   });
+
+  it('preserves dollar replacement sequences as literal encoded metadata', async () => {
+    const original = battle.event.room_name;
+    battle.event.room_name = "Literal $& $' $`";
+    try {
+      const page = await request(app).get('/pvp/7').set('User-Agent', 'Discordbot/2.0');
+      expect(page.status).toBe(200);
+      expect(page.text).toContain(
+        'content="PvP battle at Literal $&amp; $&#39; $` - Juts defeated Vex"',
+      );
+      expect(page.text.match(/<\/head>/g)).toHaveLength(1);
+    } finally {
+      battle.event.room_name = original;
+    }
+  });
 });
