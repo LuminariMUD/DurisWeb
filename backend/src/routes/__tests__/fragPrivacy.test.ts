@@ -30,6 +30,13 @@ beforeEach(async () => {
 });
 
 describe('public frag API never names the owning account', () => {
+  it.each([1, 2, 3, 4])('preserves supported faction %s in database filters', async (racewar) => {
+    query.mockResolvedValueOnce([[{ total: 0 }]]).mockResolvedValueOnce([[]]);
+    const response = await request(app).get(`/api/frag/leaderboard?racewar=${racewar}`);
+    expect(response.status).toBe(200);
+    expect(query.mock.calls.map(([, params]) => params)).toEqual([[racewar], [racewar, 50, 0]]);
+  });
+
   it('no longer serves an account roster', async () => {
     const response = await request(app).get('/api/frag/account/Secretaccount');
     expect(response.status).toBe(404);

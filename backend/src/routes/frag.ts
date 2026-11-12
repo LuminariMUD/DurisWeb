@@ -39,7 +39,7 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
 
     const filters: FragLeaderboardFilters = {
       racewar: req.query.racewar
-        ? parseIntSafe(req.query.racewar as string, 0, 1, 2) || undefined
+        ? parseIntSafe(req.query.racewar as string, 0, 1, 4) || undefined
         : undefined,
       race: sanitizeSearchString(req.query.race as string, 50) || undefined,
       class: sanitizeSearchString(req.query.class as string, 50) || undefined,
