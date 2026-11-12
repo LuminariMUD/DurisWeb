@@ -1,5 +1,6 @@
 import type { Server } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
+import logger from './logger.js';
 
 export const APPLICATION_MAX_PAYLOAD_BYTES = 10 * 1024;
 export const APPLICATION_MAX_CONNECTIONS = 256;
@@ -41,6 +42,10 @@ export function createApplicationWebSocketServer(server: Server): WebSocketServe
       });
     },
   });
+
+  // ws re-emits the HTTP server's errors (EADDRINUSE on listen, for example); without a
+  // listener that re-emit is an uncaught exception instead of a handled startup failure.
+  sockets.on('error', (error) => logger.error('Application WebSocket server error:', error));
 
   sockets.on('connection', (socket) => {
     alive.add(socket);

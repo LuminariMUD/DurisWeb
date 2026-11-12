@@ -93,39 +93,55 @@ export async function startServer(app: Application, resources: RuntimeResources)
     resources.jobs = jobs;
   });
 
-  // Start listening
-  server.listen(PORT, HOST, () => {
-    logger.info(`\n${'='.repeat(50)}`);
-    logger.info(`DurisMUD PvP API Server`);
-    logger.info(`${'='.repeat(50)}`);
-    logger.info(`Environment: ${environment.environment}`);
-    logger.info(`Server running on: http://${HOST}:${PORT}`);
-    logger.info(`WebSocket: ws://${HOST}:${PORT}/ws`);
-    logger.info(`Health check: http://${HOST}:${PORT}/health`);
-    logger.info(`\nAvailable endpoints:`);
-    logger.info(`  GET  /api/pvp/events`);
-    logger.info(`  GET  /api/pvp/events/:event_id`);
-    logger.info(`  GET  /api/pvp/stats/leaderboard`);
-    logger.info(`  GET  /api/pvp/stats/player/:name`);
-    logger.info(`  GET  /api/pvp/search`);
-    logger.info(`  GET  /api/pvp/locations`);
-    logger.info(`  GET  /api/pvp/players`);
-    logger.info(`  GET  /api/news`);
-    logger.info(`  POST /api/auth/login`);
-    logger.info(`  POST /api/auth/logout`);
-    logger.info(`  POST /api/auth/refresh`);
-    logger.info(`  GET  /api/auth/me`);
-    logger.info(`  GET  /api/auth/check`);
-    logger.info(`  GET  /api/forum/categories`);
-    logger.info(`  GET  /api/forum/threads/:id`);
-    logger.info(`  POST /api/forum/threads`);
-    logger.info(`  POST /api/forum/threads/:threadId/posts`);
-    logger.info(`  GET  /api/forum/notifications`);
-    logger.info(`  GET  /api/frag/leaderboard`);
-    logger.info(`  GET  /api/frag/top-gainers`);
-    logger.info(`  GET  /api/frag/races`);
-    logger.info(`  GET  /api/frag/classes`);
-    logger.info(`  WS   /ws (Real-time updates)`);
-    logger.info(`${'='.repeat(50)}\n`);
+  // Start listening; a bind failure rejects into the failed-start cleanup.
+  await listenOn(server, PORT, HOST);
+  logger.info(`\n${'='.repeat(50)}`);
+  logger.info(`DurisMUD PvP API Server`);
+  logger.info(`${'='.repeat(50)}`);
+  logger.info(`Environment: ${environment.environment}`);
+  logger.info(`Server running on: http://${HOST}:${PORT}`);
+  logger.info(`WebSocket: ws://${HOST}:${PORT}/ws`);
+  logger.info(`Health check: http://${HOST}:${PORT}/health`);
+  logger.info(`\nAvailable endpoints:`);
+  logger.info(`  GET  /api/pvp/events`);
+  logger.info(`  GET  /api/pvp/events/:event_id`);
+  logger.info(`  GET  /api/pvp/stats/leaderboard`);
+  logger.info(`  GET  /api/pvp/stats/player/:name`);
+  logger.info(`  GET  /api/pvp/search`);
+  logger.info(`  GET  /api/pvp/locations`);
+  logger.info(`  GET  /api/pvp/players`);
+  logger.info(`  GET  /api/news`);
+  logger.info(`  POST /api/auth/login`);
+  logger.info(`  POST /api/auth/logout`);
+  logger.info(`  POST /api/auth/refresh`);
+  logger.info(`  GET  /api/auth/me`);
+  logger.info(`  GET  /api/auth/check`);
+  logger.info(`  GET  /api/forum/categories`);
+  logger.info(`  GET  /api/forum/threads/:id`);
+  logger.info(`  POST /api/forum/threads`);
+  logger.info(`  POST /api/forum/threads/:threadId/posts`);
+  logger.info(`  GET  /api/forum/notifications`);
+  logger.info(`  GET  /api/frag/leaderboard`);
+  logger.info(`  GET  /api/frag/top-gainers`);
+  logger.info(`  GET  /api/frag/races`);
+  logger.info(`  GET  /api/frag/classes`);
+  logger.info(`  WS   /ws (Real-time updates)`);
+  logger.info(`${'='.repeat(50)}\n`);
+}
+
+/** Resolve once `server` is listening, or reject with the bind error (EADDRINUSE, EACCES). */
+export function listenOn(server: http.Server, port: number, host: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onError = (error: Error) => {
+      server.off('listening', onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.off('error', onError);
+      resolve();
+    };
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(port, host);
   });
 }

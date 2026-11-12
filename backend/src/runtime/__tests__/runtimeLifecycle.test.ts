@@ -46,7 +46,8 @@ stub('../backgroundJobs.js', {
 });
 
 const { createShutdown, exitAfterShutdown, installSignalHandlers } = await import('../shutdown.js');
-const { startServer } = await import('../startServer.js');
+const { listenOn, startServer } = await import('../startServer.js');
+const { createApplicationWebSocketServer } = await import('../../utils/applicationWebSocket.js');
 type Resources = import('../shutdown.js').RuntimeResources;
 
 afterEach(() => {
@@ -93,6 +94,26 @@ describe('runtime shutdown', () => {
     expect([code, String(reason)]).toEqual([1000, 'Server shutting down']);
   });
 
+  it('keeps releasing later resources when a step fails, then reports the failure', async () => {
+    const shutdown = createShutdown({
+      jobs: {
+        stopProducers: async () => {
+          throw new Error('producer stop failed');
+        },
+        stopWorkers: record('workers'),
+      },
+    });
+    await expect(shutdown()).rejects.toThrow('producer stop failed');
+    expect(events).toEqual([
+      'log watchers',
+      'terminals',
+      'workers',
+      'presence redis',
+      'database',
+      'redis',
+    ]);
+  });
+
   it('skips resources a startup never acquired', async () => {
     await createShutdown({})();
     expect(events).toEqual(['log watchers', 'terminals', 'presence redis', 'database', 'redis']);
@@ -134,6 +155,28 @@ describe('startup failure', () => {
       'database',
       'redis',
     ]);
+  });
+});
+
+describe('listening', () => {
+  it('rejects a port that is already bound instead of raising an uncaught error', async () => {
+    const holder = createServer();
+    holder.listen(0, '127.0.0.1');
+    await once(holder, 'listening');
+    const address = holder.address();
+    if (!address || typeof address === 'string') throw new Error('missing listener');
+
+    const server = createServer();
+    const wss = createApplicationWebSocketServer(server);
+    try {
+      await expect(listenOn(server, address.port, '127.0.0.1')).rejects.toMatchObject({
+        code: 'EADDRINUSE',
+      });
+      expect(server.listening).toBe(false);
+    } finally {
+      await new Promise<void>((resolve) => wss.close(() => resolve()));
+      await new Promise<void>((resolve) => holder.close(() => resolve()));
+    }
   });
 });
 

@@ -29,25 +29,41 @@ export function createShutdown(resources: RuntimeResources): () => Promise<void>
   let shutdown: Promise<void> | undefined;
   return () => {
     shutdown ??= (async () => {
-      await resources.stopEventLoopWatchdog?.();
-      await resources.jobs?.stopProducers();
+      // Every step runs even if an earlier one fails, so pools and clients still close;
+      // the first failure is rethrown at the end so the process exits 1.
+      const failures: unknown[] = [];
+      const step = async (run: () => unknown): Promise<void> => {
+        try {
+          await run();
+        } catch (error) {
+          failures.push(error);
+        }
+      };
+
+      await step(() => resources.stopEventLoopWatchdog?.());
+      await step(() => resources.jobs?.stopProducers());
 
       // Cleanup log watchers
-      cleanupLogWatchers();
+      await step(() => cleanupLogWatchers());
 
-      if (resources.server && resources.wss) {
-        await closeWebServer(resources.server, resources.wss);
-        detachBroadcastServer();
-      }
-      await cleanupTerminalSessions();
+      await step(async () => {
+        if (resources.server && resources.wss) {
+          await closeWebServer(resources.server, resources.wss);
+          detachBroadcastServer();
+        }
+      });
+      await step(() => cleanupTerminalSessions());
       logger.info('HTTP and WebSocket servers closed');
 
-      await resources.jobs?.stopWorkers();
-      if (resources.flatfileRecoveryMonitor) stopFlatfileRecoveryMonitor();
-      if (resources.poolSessionSampling) clearInterval(resources.poolSessionSampling);
-      await closeOnlinePlayersRedisConnections();
-      await closeDatabaseConnection();
-      await closeRedisConnection();
+      await step(() => resources.jobs?.stopWorkers());
+      await step(() => {
+        if (resources.flatfileRecoveryMonitor) stopFlatfileRecoveryMonitor();
+        if (resources.poolSessionSampling) clearInterval(resources.poolSessionSampling);
+      });
+      await step(() => closeOnlinePlayersRedisConnections());
+      await step(() => closeDatabaseConnection());
+      await step(() => closeRedisConnection());
+      if (failures.length > 0) throw failures[0];
     })();
     return shutdown;
   };
