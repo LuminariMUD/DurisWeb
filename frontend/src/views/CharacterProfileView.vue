@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
+import { isAxiosError } from 'axios'
 import { useRoute, useRouter } from 'vue-router'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -47,6 +48,9 @@ const pvpPagination = ref<any>(null)
 const loadingPvP = ref(false)
 
 const activeTab = ref('pvp')
+let profileVersion = 0
+let postsVersion = 0
+let pvpVersion = 0
 
 function characterName(): string {
   return route.params.characterName as string
@@ -54,64 +58,99 @@ function characterName(): string {
 
 async function loadProfile() {
   const name = characterName()
+  const version = ++profileVersion
+  const isCurrent = () => version === profileVersion && name === characterName()
+  postsVersion++
+  pvpVersion++
   isLoading.value = true
   error.value = null
   summary.value = null
   pvpStats.value = null
   posts.value = []
   pvpEvents.value = []
+  postsPagination.value = null
+  pvpPagination.value = null
+  postsPage.value = 1
+  pvpPage.value = 1
+  loadingPosts.value = false
+  loadingPvP.value = false
   activeTab.value = 'pvp'
 
   try {
-    summary.value = await fragApi.getCharacterStats(name)
-  } catch (err: any) {
-    error.value = err.response?.status === 404 ? 'Character not found' : 'Failed to load character'
+    const result = await fragApi.getCharacterStats(name)
+    if (!isCurrent()) return
+    summary.value = result
+  } catch (cause: unknown) {
+    if (!isCurrent()) return
+    error.value =
+      isAxiosError(cause) && cause.response?.status === 404
+        ? 'Character not found'
+        : 'Failed to load character'
     isLoading.value = false
     return
   }
   // A character without published battles has no PvP summary.
-  pvpStats.value = await pvpApi.getPlayerStats(name).catch(() => null)
+  const stats = await pvpApi.getPlayerStats(name).catch(() => null)
+  if (!isCurrent()) return
+  pvpStats.value = stats
   isLoading.value = false
-  loadPvPEvents(1)
+  void loadPvPEvents(1)
 }
 
 async function loadPosts(page: number = 1) {
+  const name = characterName()
+  const owner = profileVersion
+  const version = ++postsVersion
+  const isCurrent = () =>
+    owner === profileVersion && version === postsVersion && name === characterName()
   loadingPosts.value = true
   try {
-    const result = await characterApi.getCharacterPosts(characterName(), page, 20)
+    const result = await characterApi.getCharacterPosts(name, page, 20)
+    if (!isCurrent()) return
     posts.value = result.posts
     postsPagination.value = result.pagination
     postsPage.value = page
   } catch {
   } finally {
-    loadingPosts.value = false
+    if (isCurrent()) loadingPosts.value = false
   }
 }
 
 async function loadPvPEvents(page: number = 1) {
+  const name = characterName()
+  const owner = profileVersion
+  const version = ++pvpVersion
+  const isCurrent = () =>
+    owner === profileVersion && version === pvpVersion && name === characterName()
   loadingPvP.value = true
   try {
-    const result = await characterApi.getCharacterPvPEvents(characterName(), page, 20)
+    const result = await characterApi.getCharacterPvPEvents(name, page, 20)
+    if (!isCurrent()) return
     pvpEvents.value = result.events
     pvpPagination.value = result.pagination
     pvpPage.value = page
   } catch {
   } finally {
-    loadingPvP.value = false
+    if (isCurrent()) loadingPvP.value = false
   }
 }
 
-function alignmentLabel(racewar: number): string {
+function factionLabel(racewar: number): string {
   if (racewar === 1) return 'Good'
   if (racewar === 2) return 'Evil'
-  return 'Neutral'
+  if (racewar === 3) return 'Undead'
+  if (racewar === 4) return 'Neutral'
+  return 'Unknown'
 }
 
 watch(activeTab, (tab) => {
-  if (tab === 'posts' && posts.value.length === 0) loadPosts(1)
+  if (tab === 'posts' && posts.value.length === 0) void loadPosts(1)
 })
 
 watch(() => route.params.characterName, loadProfile, { immediate: true })
+onBeforeUnmount(() => {
+  profileVersion++
+})
 </script>
 
 <template>
@@ -144,7 +183,7 @@ watch(() => route.params.characterName, loadProfile, { immediate: true })
           <div class="space-y-2">
             <div class="flex items-center gap-2 flex-wrap">
               <CardTitle class="text-xl lg:text-3xl">{{ summary.char_name }}</CardTitle>
-              <Badge variant="outline" class="text-xs">{{ alignmentLabel(summary.racewar) }}</Badge>
+              <Badge variant="outline" class="text-xs">{{ factionLabel(summary.racewar) }}</Badge>
             </div>
             <div class="flex items-center gap-2 text-xs lg:text-sm text-muted-foreground flex-wrap">
               <span>Level {{ summary.level }}</span>
