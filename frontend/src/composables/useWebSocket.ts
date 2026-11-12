@@ -577,6 +577,7 @@ export function useWebSocket() {
   }
 
   return {
+    getSubscriptionToken: getAuthToken,
     socket: ws,
     isConnected,
     lastMessage,
