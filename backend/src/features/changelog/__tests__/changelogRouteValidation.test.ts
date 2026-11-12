@@ -72,4 +72,38 @@ describe('changelog route write validation', () => {
     expect(getChangelogEntry).not.toHaveBeenCalled();
     expect(updateChangelogEntry).not.toHaveBeenCalled();
   });
+
+  it('notifies once, with the saved fields, only when this request published', async () => {
+    const saved = {
+      version: '2.0.0',
+      title: 'Saved title',
+      category: 'public',
+    };
+    getChangelogEntry.mockImplementation(async () => saved);
+    updateChangelogEntry
+      .mockImplementationOnce(async () => ({ found: true, published: true }))
+      .mockImplementationOnce(async () => ({ found: true, published: false }));
+
+    const [first, second] = await Promise.all([
+      request(app).put('/api/changelog/42').send({ isPublished: true }),
+      request(app).put('/api/changelog/42').send({ isPublished: true }),
+    ]);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect([first.status, second.status]).toEqual([200, 200]);
+    expect(notifyChangelogPublished).toHaveBeenCalledTimes(1);
+    expect(notifyChangelogPublished).toHaveBeenCalledWith(42, '2.0.0', 'Saved title', 'public');
+  });
+
+  it('returns 404 without notifying when the entry does not exist', async () => {
+    updateChangelogEntry.mockImplementationOnce(async () => ({
+      found: false,
+      published: false,
+    }));
+
+    const response = await request(app).put('/api/changelog/9').send({ isPublished: true });
+
+    expect(response.status).toBe(404);
+    expect(notifyChangelogPublished).not.toHaveBeenCalled();
+  });
 });

@@ -165,11 +165,7 @@ changelogRouter.put('/:id', requireAuth, requirePermission('manage_news'), async
       processedContent = result.content;
     }
 
-    // check if entry was previously unpublished (for notification)
-    const existingEntry = await changelogService.getChangelogEntry(id, undefined, true);
-    const wasUnpublished = existingEntry && !existingEntry.isPublished;
-
-    const updated = await changelogService.updateChangelogEntry(id, {
+    const { found, published } = await changelogService.updateChangelogEntry(id, {
       version,
       title,
       content: processedContent,
@@ -177,18 +173,23 @@ changelogRouter.put('/:id', requireAuth, requirePermission('manage_news'), async
       isPublished,
     });
 
-    if (!updated) {
+    if (!found) {
       return res.status(404).json({ error: 'Changelog entry not found' });
     }
 
-    // send notifications if just published
-    if (isPublished && wasUnpublished && existingEntry) {
+    // Only the request whose conditional update published the entry notifies players.
+    if (published) {
       changelogService
-        .notifyChangelogPublished(
-          id,
-          version || existingEntry.version,
-          title || existingEntry.title,
-          category || existingEntry.category,
+        .getChangelogEntry(id, undefined, true)
+        .then((entry) =>
+          entry
+            ? changelogService.notifyChangelogPublished(
+                id,
+                entry.version,
+                entry.title,
+                entry.category,
+              )
+            : undefined,
         )
         .catch(() => {}); // fire and forget
     }

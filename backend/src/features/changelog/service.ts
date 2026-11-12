@@ -233,7 +233,7 @@ export async function updateChangelogEntry(
     category: 'public' | 'admin';
     isPublished: boolean;
   }>,
-): Promise<boolean> {
+): Promise<{ found: boolean; published: boolean }> {
   const updates: string[] = [];
   const params: (string | number | boolean)[] = [];
 
@@ -253,13 +253,14 @@ export async function updateChangelogEntry(
     updates.push('category = ?');
     params.push(data.category);
   }
-  if (data.isPublished !== undefined) {
+  // Publishing is a separate conditional statement below, so only one request can publish.
+  if (data.isPublished === false) {
     updates.push('is_published = ?');
-    params.push(data.isPublished);
+    params.push(false);
   }
 
-  if (updates.length === 0) {
-    return false;
+  if (updates.length === 0 && data.isPublished === undefined) {
+    return { found: false, published: false };
   }
 
   updates.push('updated_at = NOW()');
@@ -269,8 +270,15 @@ export async function updateChangelogEntry(
     `UPDATE website_changelog SET ${updates.join(', ')} WHERE id = ?`,
     params,
   );
+  if (result.affectedRows === 0) return { found: false, published: false };
+  if (data.isPublished !== true) return { found: true, published: false };
 
-  return result.affectedRows > 0;
+  // The row lock makes a concurrent publisher re-check is_published and match nothing.
+  const [publish] = await db.query<ResultSetHeader>(
+    'UPDATE website_changelog SET is_published = TRUE, updated_at = NOW() WHERE id = ? AND is_published = FALSE',
+    [id],
+  );
+  return { found: true, published: publish.affectedRows === 1 };
 }
 
 /**
