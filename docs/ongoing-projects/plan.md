@@ -8,8 +8,36 @@ Prepared: 12 November 2026 against DurisWeb `3734492` (`master`). Only Dependabo
 bumps have landed since the issue's reference commit `ab3e03c`, and none of them
 touch the files below.
 
-**Status: plan only. Implementation has not started.** The owner answered the
-open questions on 12 November 2026; see [Decisions](#decisions).
+**Status: implementation in progress.** The owner answered the open questions on
+12 November 2026; see [Decisions](#decisions). For item 4, removal was chosen on the
+owner's instruction to resolve open points autonomously.
+
+## Progress and handoff
+
+There is one stacked PR per item. Each branch starts from the previous one, and each
+PR's base is the previous branch (the first targets `master`). Merge in order with a
+fast-forward per PR, as the master ruleset requires linear history.
+
+| Item | Branch | PR | Status |
+|------|--------|----|--------|
+| plan + (b) | `branch/issue-183-structure-stack-followups` | (opening) | done, verified |
+| (c) | `branch/issue-183-c-wholist-removal` | — | next |
+| (a) | `branch/issue-183-a-startup-abort` | — | pending |
+| (f) | `branch/issue-183-f-api-client-reads` | — | pending |
+| (e) | `branch/issue-183-e-import-rules` | — | pending |
+| (d) | `branch/issue-183-d-production-app-tests` | — | pending |
+
+Working notes for a new session:
+
+- Worktree `../durisweb-issue-183`. It needs `pnpm --dir backend install` and
+  `pnpm --dir frontend install`, plus copies of the gitignored `.env`,
+  `backend/.env`, `backend/.env.test` and `frontend/.env` from the main checkout.
+  Never commit them.
+- The backend formats with **Biome**: run `npx biome format --write <files>`, never
+  a bare `npx prettier`, which downloads an unrelated Prettier and reformats whole
+  files.
+- Baseline on `3734492`: `pnpm --dir backend test --runInBand` passes 171 suites
+  (12 skipped) and 1,696 tests.
 
 The six items were each checked against the code, not taken from the issue or from
 the earlier investigation comment. All six are real. Corrections to the issue and to
