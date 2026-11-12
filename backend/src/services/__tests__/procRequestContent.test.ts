@@ -186,8 +186,12 @@ describe('proc request zone scoping', () => {
     expect(connection.commit).not.toHaveBeenCalled();
     expect(connection.release).toHaveBeenCalledTimes(1);
 
-    query.mockResolvedValueOnce([{ affectedRows: 1 }]);
+    query.mockResolvedValueOnce([{ affectedRows: 1 }]).mockResolvedValueOnce([{ affectedRows: 2 }]);
     await expect(procRequestService.deleteProcRequest('zone-a', 7)).resolves.toBe(true);
+    expect(String(query.mock.calls[2][0])).toMatch(
+      /UPDATE builder_zone_comments SET proc_request_id = NULL\s+WHERE proc_request_id = \? AND zone_id = \?/,
+    );
+    expect(query.mock.calls[2][1]).toEqual([7, 'zone-a']);
     expect(deleteMentions).toHaveBeenCalledWith('proc_request', 7, connection);
     expect(connection.commit).toHaveBeenCalledTimes(1);
     expect(connection.release).toHaveBeenCalledTimes(2);
@@ -200,6 +204,19 @@ describe('proc request zone scoping', () => {
     await expect(procRequestService.deleteProcRequest('zone-a', 7)).rejects.toThrow(
       'cleanup failed',
     );
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+    expect(connection.commit).not.toHaveBeenCalled();
+    expect(connection.release).toHaveBeenCalledTimes(1);
+  });
+
+  it('rolls deletion back before mention cleanup if preserving comments fails', async () => {
+    query
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockRejectedValueOnce(new Error('comment preservation failed'));
+    await expect(procRequestService.deleteProcRequest('zone-a', 7)).rejects.toThrow(
+      'comment preservation failed',
+    );
+    expect(deleteMentions).not.toHaveBeenCalled();
     expect(connection.rollback).toHaveBeenCalledTimes(1);
     expect(connection.commit).not.toHaveBeenCalled();
     expect(connection.release).toHaveBeenCalledTimes(1);

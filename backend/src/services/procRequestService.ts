@@ -325,6 +325,12 @@ export async function deleteProcRequest(zoneId: string, id: number): Promise<boo
       return false;
     }
 
+    // Preserve discussion history as general zone comments in the same transaction.
+    await connection.query(
+      `UPDATE builder_zone_comments SET proc_request_id = NULL
+       WHERE proc_request_id = ? AND zone_id = ?`,
+      [id, zoneId],
+    );
     await deleteMentions('proc_request', id, connection);
     await connection.commit();
     return true;
