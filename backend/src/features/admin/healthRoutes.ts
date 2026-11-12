@@ -1,7 +1,7 @@
 import { Router, Request, Response, type IRouter } from 'express';
 import logger, { getErrorMessage } from '../../utils/logger.js';
 import { createNotification } from '../../services/unifiedNotificationService.js';
-import { param, validationResult } from 'express-validator';
+import { body, param, validationResult } from 'express-validator';
 import { requireAuth, requirePermission } from '../../middleware/auth.js';
 import { pool as db } from '../../db/connection.js';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
@@ -295,10 +295,21 @@ adminHealthRoutes.get(
 adminHealthRoutes.patch(
   '/crashes/:id',
   requireAuth,
-  requirePermission('view_server_health'),
+  // A write: the sibling PATCH /incidents/:id needs the same permission.
+  requirePermission('manage_server_incidents'),
+  [
+    param('id').isInt({ min: 1 }).withMessage('Crash ID must be a positive integer'),
+    body('analyzed').optional().isBoolean({ strict: true }),
+    body('notes').optional({ values: 'null' }).isString().isLength({ max: 10_000 }),
+  ],
   async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const id = parseInt(req.params.id as string, 10);
       const { analyzed, notes } = req.body;
 
       const updates: string[] = [];
