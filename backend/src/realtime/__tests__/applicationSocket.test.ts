@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import type { IncomingMessage } from 'node:http';
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterAll, afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { WebSocket } from 'ws';
 import type { UserPermissions } from '../../services/permissionService.js';
 import { stubModule } from '../../test/stubModule.js';
@@ -15,19 +15,19 @@ const unwatchLog = jest.fn();
 const createSession = jest.fn(async (..._args: unknown[]) => ({ sessionId: 5 }));
 const destroySession = jest.fn(async (_sessionId: number) => undefined);
 const deployToCommit = jest.fn(async () => undefined);
-const countZoneItems =
-  jest.fn<typeof import('../../services/zoneBuilderStreamer.js').countZoneItems>();
-
-const stub = (specifier: string, overrides?: Record<string, unknown>) =>
-  jest.unstable_mockModule(specifier, stubModule(new URL(specifier, import.meta.url), overrides));
-stub('../../db/connection.js', { pool: {}, mudPool: {} });
-stub('../../db/redis.js');
-stub('../../services/sessionService.js', { hasActiveWebSession: async () => true });
-stub('../../services/accountService.js', {
-  parseAccountFile: async (accountName: string) => ({ accountName, characters: [] }),
+const countZoneItems = jest.fn<typeof import('../../services/zoneBuilderStreamer.js').countZoneItems>();
+// Web sessions that are still active; revoking one simulates logout, reset or expiry.
+let activeSessions = new Set(['sid', 'sid2']);
+let sessionLookupFails = false;
+const hasActiveWebSession = jest.fn(async (_account: string, sid?: string) =>
+  activeSessions.has(sid ?? ''),
+);
+const getActiveWebSessionIds = jest.fn(async (_sessions: unknown) => {
+  if (sessionLookupFails) throw new Error('Web session lookup failed');
+  return new Set(activeSessions);
 });
-stub('../../services/permissionService.js', {
-  getUserPermissions: async (accountName: string): Promise<UserPermissions> => ({
+const getUserPermissions = jest.fn(
+  async (accountName: string, _characters: unknown): Promise<UserPermissions> => ({
     accountName,
     role,
     immortalLevel: null,
@@ -43,7 +43,17 @@ stub('../../services/permissionService.js', {
     canLockThreads: false,
     adminPermissions: grants,
   }),
+);
+
+const stub = (specifier: string, overrides?: Record<string, unknown>) =>
+  jest.unstable_mockModule(specifier, stubModule(new URL(specifier, import.meta.url), overrides));
+stub('../../db/connection.js', { pool: {}, mudPool: {} });
+stub('../../db/redis.js');
+stub('../../services/sessionService.js', { hasActiveWebSession, getActiveWebSessionIds });
+stub('../../services/accountService.js', {
+  parseAccountFile: async (accountName: string) => ({ accountName, characters: [] }),
 });
+stub('../../services/permissionService.js', { getUserPermissions });
 stub('../../services/logWatchService.js', { watchLog, unwatchLog });
 stub('../../services/terminalService.js', {
   createSession,
@@ -62,7 +72,16 @@ stub('../../services/zoneInfoService.js', { canAccessZone: async () => true });
 
 const { handleApplicationConnection } = await import('../applicationSocket.js');
 const { clientState } = await import('../clientState.js');
-const { generateTerminalToken, generateWebSocketToken } = await import('../../middleware/auth.js');
+const { generateAccessToken, generateTerminalToken, generateWebSocketToken } = await import(
+  '../../middleware/auth.js'
+);
+const {
+  attachBroadcastServer,
+  broadcastConnectionEvent,
+  broadcastCrashAlert,
+  detachBroadcastServer,
+} = await import('../broadcasts.js');
+const { revalidateSockets, revokeSocketSessions } = await import('../socketAuth.js');
 const { default: logger } = await import('../../utils/logger.js');
 
 type SyntheticSocket = EventEmitter & {
@@ -70,16 +89,24 @@ type SyntheticSocket = EventEmitter & {
   bufferedAmount: number;
   send: jest.Mock;
   terminate: jest.Mock;
+  close: jest.Mock;
 };
 
-function connect(): SyntheticSocket {
-  const ws = Object.assign(new EventEmitter(), {
+const clients = new Set<SyntheticSocket>();
+
+function connect(headers: IncomingMessage['headers'] = {}): SyntheticSocket {
+  const ws: SyntheticSocket = Object.assign(new EventEmitter(), {
     readyState: WebSocket.OPEN,
     bufferedAmount: 0,
     send: jest.fn(),
     terminate: jest.fn(),
+    close: jest.fn(() => {
+      ws.readyState = WebSocket.CLOSED;
+      ws.emit('close');
+    }),
   });
-  handleApplicationConnection(ws as unknown as WebSocket, { headers: {} } as IncomingMessage);
+  clients.add(ws);
+  handleApplicationConnection(ws as unknown as WebSocket, { headers } as IncomingMessage);
   return ws;
 }
 
@@ -93,7 +120,7 @@ async function send(ws: SyntheticSocket, message: unknown) {
 const replies = (ws: SyntheticSocket) =>
   ws.send.mock.calls.map(([message]) => JSON.parse(message as string));
 const state = (ws: SyntheticSocket) => clientState(ws as unknown as WebSocket);
-const wsToken = () => generateWebSocketToken('Fixture', 'f@example.invalid', 'sid');
+const wsToken = (sid = 'sid') => generateWebSocketToken('Fixture', 'f@example.invalid', sid);
 
 describe('application socket dispatch', () => {
   afterEach(() => {
@@ -104,6 +131,9 @@ describe('application socket dispatch', () => {
     maxLevel = 50;
     grants = [];
     terminalSession = undefined;
+    activeSessions = new Set(['sid', 'sid2']);
+    sessionLookupFails = false;
+    clients.clear();
     jest.clearAllMocks();
   });
 
@@ -436,5 +466,164 @@ describe('application socket dispatch', () => {
     }
     expect(destroySession).toHaveBeenCalledWith(9);
     expect(unhandled).not.toHaveBeenCalled();
+  });
+});
+
+describe('application socket principal revalidation', () => {
+  const crash = { id: 1 };
+  const connection = {
+    characterName: 'Someone',
+    status: 'connected',
+    ipAddress: '192.0.2.1',
+    timestamp: new Date(0),
+  };
+  const subscribeLog = (ws: SyntheticSocket, sid = 'sid') =>
+    send(ws, {
+      type: 'SUBSCRIBE_LOG',
+      token: wsToken(sid),
+      category: 'runtime',
+      logName: 'syslog',
+    });
+  const pushedTypes = (ws: SyntheticSocket) => replies(ws).map((reply) => reply.type);
+
+  beforeEach(() => {
+    role = 'player';
+    maxLevel = 50;
+    grants = ['view_server_logs', 'view_server_health', 'view_connection_logs'];
+    terminalSession = undefined;
+    activeSessions = new Set(['sid', 'sid2']);
+    sessionLookupFails = false;
+    clients.clear();
+    jest.clearAllMocks();
+    attachBroadcastServer({ clients } as never);
+  });
+  afterAll(() => detachBroadcastServer());
+
+  it('stops log lines and privileged broadcasts once the subscribed session is revoked', async () => {
+    const ws = connect();
+    await subscribeLog(ws);
+    const callback = watchLog.mock.calls[0]?.[2] as (lines: string[]) => void;
+    activeSessions.delete('sid');
+
+    revokeSocketSessions({ accountName: 'Fixture', sessionId: 'sid' });
+    await flush();
+    ws.send.mockClear();
+    callback(['secret line']);
+    broadcastCrashAlert(crash);
+    broadcastConnectionEvent(connection);
+
+    expect(ws.close).toHaveBeenCalledWith(4401, 'Session ended');
+    expect(unwatchLog).toHaveBeenCalledWith('runtime', 'syslog', callback);
+    expect(ws.send).not.toHaveBeenCalled();
+  });
+
+  it('revokes only the logged-out session, or every session of the account case-insensitively', async () => {
+    const first = connect();
+    const second = connect();
+    await subscribeLog(first, 'sid');
+    await subscribeLog(second, 'sid2');
+
+    revokeSocketSessions({ accountName: 'Fixture', sessionId: 'sid' });
+    expect(first.close).toHaveBeenCalled();
+    expect(second.close).not.toHaveBeenCalled();
+
+    revokeSocketSessions({ accountName: 'fixture' });
+    expect(second.close).toHaveBeenCalled();
+  });
+
+  it('applies permission loss on revalidation without closing a live session', async () => {
+    const ws = connect();
+    maxLevel = 57;
+    await subscribeLog(ws);
+    await send(ws, { type: 'SUBSCRIBE_PLAYER_EVENTS', token: wsToken() });
+    const callback = watchLog.mock.calls[0]?.[2] as (lines: string[]) => void;
+
+    grants = [];
+    maxLevel = 50;
+    await revalidateSockets();
+    ws.send.mockClear();
+    callback(['secret line']);
+    broadcastCrashAlert(crash);
+    broadcastConnectionEvent(connection);
+    const { broadcastPlayerEvent } = await import('../broadcasts.js');
+    broadcastPlayerEvent('PLAYER_LOGIN', {});
+
+    expect(ws.close).not.toHaveBeenCalled();
+    expect(ws.send).not.toHaveBeenCalled();
+    expect(state(ws).wsPrincipal?.permissions.adminPermissions).toEqual([]);
+  });
+
+  it('closes sockets whose session expired or could not be checked', async () => {
+    const expired = connect();
+    await subscribeLog(expired, 'sid');
+    activeSessions.delete('sid');
+    await revalidateSockets();
+    expect(expired.close).toHaveBeenCalledWith(4401, 'Session ended');
+
+    const unverifiable = connect();
+    await subscribeLog(unverifiable, 'sid2');
+    sessionLookupFails = true;
+    await revalidateSockets();
+    expect(unverifiable.close).toHaveBeenCalledWith(4401, 'Session ended');
+  });
+
+  it('ends a terminal whose owner lost terminal_access', async () => {
+    const ws = connect();
+    grants = ['terminal_access'];
+    const token = generateTerminalToken('Fixture', 'f@example.invalid', 'sid');
+    await send(ws, { type: 'TERMINAL_CONNECT', token, cols: 80, rows: 24 });
+    terminalSession = 5;
+
+    await revalidateSockets();
+    expect(destroySession).not.toHaveBeenCalled();
+
+    grants = [];
+    await revalidateSockets();
+    expect(destroySession).toHaveBeenCalledWith(5);
+    expect(state(ws).terminalAuth).toBeUndefined();
+  });
+
+  it('computes permissions once per account and coalesces concurrent passes', async () => {
+    for (let i = 0; i < 3; i++) await subscribeLog(connect());
+    getUserPermissions.mockClear();
+    getActiveWebSessionIds.mockClear();
+
+    await Promise.all([revalidateSockets(), revalidateSockets(), revalidateSockets()]);
+    // The first pass plus one queued follow-up, however many callers arrived meanwhile.
+    expect(getActiveWebSessionIds).toHaveBeenCalledTimes(2);
+    expect(getUserPermissions).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves anonymous sockets alone and still sends them public events', async () => {
+    const ws = connect();
+    await revalidateSockets();
+    const { broadcastNewEvent } = await import('../broadcasts.js');
+    broadcastNewEvent({ id: 1 });
+    expect(getActiveWebSessionIds).not.toHaveBeenCalled();
+    expect(pushedTypes(ws)).toContain('NEW_PVP_EVENT');
+    expect(ws.close).not.toHaveBeenCalled();
+  });
+
+  it('does not let a late cookie hydration replace a token principal or revive a closed socket', async () => {
+    let release!: () => void;
+    hasActiveWebSession.mockImplementationOnce(
+      () => new Promise<boolean>((resolve) => (release = () => resolve(true))),
+    );
+    const cookie = `access_token=${generateAccessToken('Cookie', 'c@example.invalid', 'sid')}`;
+    const ws = connect({ cookie });
+    await subscribeLog(ws);
+    expect(state(ws).wsPrincipal?.accountName).toBe('Fixture');
+    release();
+    await flush();
+    expect(state(ws).wsPrincipal?.accountName).toBe('Fixture');
+
+    hasActiveWebSession.mockImplementationOnce(
+      () => new Promise<boolean>((resolve) => (release = () => resolve(true))),
+    );
+    const closed = connect({ cookie });
+    closed.close();
+    release();
+    await flush();
+    expect(state(closed).wsPrincipal).toBeUndefined();
   });
 });

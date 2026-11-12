@@ -12,6 +12,7 @@ const assignRole = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const revokeRole = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const grantPermission = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const revokePermission = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const revalidateSockets = jest.fn<() => Promise<void>>(async () => undefined);
 const createRole = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const updateRole = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const poolQuery = jest.fn<(...args: unknown[]) => Promise<unknown>>();
@@ -41,6 +42,10 @@ jest.unstable_mockModule('../../../middleware/auth.js', () => ({
     if (!authorized) return res.status(403).json({ error: 'Forbidden' });
     return next();
   },
+}));
+jest.unstable_mockModule('../../../realtime/socketAuth.js', () => ({
+  revalidateSockets,
+  revokeSocketSessions: jest.fn(),
 }));
 jest.unstable_mockModule('../../../utils/logger.js', () => ({
   default: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
@@ -474,6 +479,20 @@ describe('admin account permission ID validation', () => {
     expect(revokeRole).not.toHaveBeenCalled();
     expect(grantPermission).not.toHaveBeenCalled();
     expect(revokePermission).not.toHaveBeenCalled();
+    expect(revalidateSockets).not.toHaveBeenCalled();
+  });
+
+  it('re-checks open sockets after each role or permission change', async () => {
+    await request(app).post('/api/admin/accounts/Target/roles').send({ roleId: 12 });
+    await request(app).delete('/api/admin/accounts/Target/roles/12');
+    await request(app).post('/api/admin/accounts/Target/permissions').send({ permissionId: 3 });
+    await request(app).delete('/api/admin/accounts/Target/permissions/3');
+    await request(app)
+      .put('/api/admin/roles/1')
+      .send({ name: 'Editor', permissionIds: [3] });
+
+    expect(revokePermission).toHaveBeenCalled();
+    expect(revalidateSockets).toHaveBeenCalledTimes(5);
   });
 
   it('preserves numeric JSON role IDs for assignment', async () => {

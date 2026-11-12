@@ -32,6 +32,7 @@ import {
 } from '../services/sessionService.js';
 
 import { cleanupAccountSessions } from '../services/terminalService.js';
+import { revokeSocketSessions } from '../realtime/socketAuth.js';
 import { getBackendConfiguration } from '../config/environment.js';
 import { sendRouteError } from '../utils/routeError.js';
 
@@ -170,6 +171,7 @@ router.post('/logout', requireAuth, async (req: Request, res: Response) => {
       req.user!.sessionId,
       req.user!.accountName,
     ]);
+    revokeSocketSessions({ accountName: req.user!.accountName, sessionId: req.user!.sessionId });
 
     // Clear cookies
     res.clearCookie('access_token');
@@ -375,6 +377,7 @@ router.post(
       await updateAccountPassword(accountName, newPasswordHash);
       await revokeAllWebSessions(accountName);
       await cleanupAccountSessions(accountName);
+      revokeSocketSessions({ accountName });
       res.clearCookie('access_token');
       res.clearCookie('refresh_token');
 

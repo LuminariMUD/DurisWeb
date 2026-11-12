@@ -63,6 +63,7 @@ stub('../../services/unifiedNotificationService.js', {
 });
 stub('../../services/postImageService.js');
 stub('../../realtime/broadcasts.js');
+stub('../../realtime/socketAuth.js');
 
 const { startBackgroundJobs } = await import('../backgroundJobs.js');
 type Jobs = import('../backgroundJobs.js').BackgroundJobs;
@@ -85,7 +86,7 @@ describe('background jobs', () => {
       );
       // PvP events, frags, Discord delivery, socket count, orphan-image cleanup.
       expect(created.mock.calls.map(([, delay]) => delay)).toEqual([
-        15_000, 15_000, 15_000, 10_000, 3_600_000,
+        15_000, 15_000, 15_000, 10_000, 60_000, 3_600_000,
       ]);
       await expect(
         startBackgroundJobs(
@@ -94,7 +95,7 @@ describe('background jobs', () => {
           () => undefined,
         ),
       ).rejects.toThrow('Background jobs are already started');
-      expect(created).toHaveBeenCalledTimes(5);
+      expect(created).toHaveBeenCalledTimes(6);
       expect(calls.filter((call) => call === 'start health')).toHaveLength(1);
 
       calls.length = 0;

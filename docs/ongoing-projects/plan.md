@@ -6,7 +6,58 @@ Branch: `branch/issue-180-socket-principal-revalidation` (linked to the issue)
 
 Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d5573c156`.
 
-**Status: plan only. No source changes yet.**
+**Status: implemented on this branch; ready for review (see the handoff below).**
+
+## Implementation handoff (12 November 2026)
+
+Work is split into three focused PRs. Only the first resolves #180; the other two are the
+section 7 follow-ups, each branched from `master` because neither depends on the first.
+
+| PR | Branch | Scope | State |
+|---|---|---|---|
+| #180 fix | `branch/issue-180-socket-principal-revalidation` | Sections 3 to 6 of this plan | Ready for review |
+| [#202](https://github.com/LuminariMUD/DurisWeb/pull/202) | `branch/connection-event-no-ip` | Drop `ip` from `CONNECTION_EVENT` | Ready for review |
+| [#201](https://github.com/LuminariMUD/DurisWeb/pull/201) | `branch/log-tail-websocket-token` | Send the websocket token with `SUBSCRIBE_LOG` | Ready for review |
+
+**As built, and where it differs from the plan:**
+
+- `resolvePrincipal` was **not** extracted. Revalidation uses the batched session query plus
+  one permission computation per account, so the helper would have had one caller.
+  `verifyWebSocketAuth` is unchanged, including its dead `if (!accountData)`.
+- The 4401 close code is a private constant in `socketAuth.ts`. No frontend change: the
+  client reconnects on any close.
+- The open questions in section 8 were settled with the plan's defaults: fail-closed, a
+  60 s interval, follow-ups as separate PRs, and the release note decided at release.
+- Test files changed: `realtime/__tests__/applicationSocket.test.ts` (8 new cases),
+  `services/__tests__/sessionService.test.ts` (batched query against the test DB),
+  `routes/__tests__/passwordChangeSessionTeardown.test.ts` (logout case),
+  `features/admin/__tests__/godPasswordReset.test.ts`, and
+  `features/admin/__tests__/adminAccountPermissionIdValidation.test.ts` (revalidation
+  after each role or permission change), `routes/__tests__/authCredentials.test.ts` and
+  `runtime/__tests__/backgroundJobs.test.ts` (module stub; the new 60 s interval). Test modules that load `routes/auth.ts`,
+  `godRoutes.ts` or `accessRoutes.ts` must mock `realtime/socketAuth.js`, or stub
+  `getActiveWebSessionIds` in their `sessionService` mock.
+- Follow-up #201 found that resubscribing on reconnect already worked: the composable's
+  `isConnected` watch calls `subscribe()` again. Only the missing token needed fixing.
+- The DB-backed session test needs the gitignored `backend/.env.test`. Copy it from the
+  main checkout into a new worktree.
+
+**Verification (12 November 2026):**
+
+- Full `pnpm --dir backend test --runInBand`: 169 suites passed, 12 skipped (DB-gated) and
+  2 failed, both test-module stubs missing the new import. They were fixed, and the
+  affected suites were rerun: 8 suites and 74 tests passed (`src/realtime`,
+  `sessionService`, `passwordChangeSessionTeardown`, `godPasswordReset`,
+  `adminAccountPermissionIdValidation`, `authCredentials`, `backgroundJobs`).
+- `format:check`, `lint`, `type-check` and `build` for the backend all passed.
+- `verify:mud-writes` was not run. The change adds one read-only `web_sessions` query and
+  no MUD writes.
+- Not verified: behavior against a live browser session.
+- Another session's jest run in the `durisweb-issue-176` worktree shared the test DB,
+  which made the full run slow (over 25 minutes).
+
+**To continue in a new session:** check the PR's review comments and CI first. The
+release still needs the `$news-update` decision in section 5, step 8.
 
 The plan was built from the current code, not from the issue text. Section 2 records
 each claim and what the code actually shows. Section 4 is the ablation review: what

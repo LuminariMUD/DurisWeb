@@ -24,6 +24,11 @@ export function detachBroadcastServer(): void {
   wss = null;
 }
 
+/** The bound server's open and closing sockets; empty when no server is bound. */
+export function applicationClients(): Iterable<WebSocket> {
+  return wss?.clients ?? [];
+}
+
 const ANONYMOUS_WS_PERMISSIONS: UserPermissions = {
   accountName: '',
   role: 'player',

@@ -19,6 +19,7 @@ import {
   revokePermission,
 } from '../../services/adminPermissionService.js';
 import { searchAccounts } from '../../services/accountService.js';
+import { revalidateSockets } from '../../realtime/socketAuth.js';
 import { getGodLevelFromCharacterLevel } from '../../services/permissionService.js';
 import {
   parseStrictPositiveId,
@@ -182,6 +183,7 @@ adminAccessRoutes.put(
       }
 
       await updateRole(roleId, name, description || null, parsedPermissionIds);
+      await revalidateSockets();
 
       return res.json({
         success: true,
@@ -210,6 +212,7 @@ adminAccessRoutes.delete(
       }
 
       await deleteRole(roleId);
+      await revalidateSockets();
 
       return res.json({
         success: true,
@@ -383,6 +386,7 @@ adminAccessRoutes.post(
 
       const ipAddress = req.ip || req.socket.remoteAddress;
       await assignRole(accountName, parsedRoleId, grantedBy, ipAddress);
+      await revalidateSockets();
 
       return res.json({
         success: true,
@@ -414,6 +418,7 @@ adminAccessRoutes.delete(
       const revokedBy = req.user?.accountName || 'system';
       const ipAddress = req.ip || req.socket.remoteAddress;
       await revokeRole(accountName, parsedRoleId, revokedBy, ipAddress);
+      await revalidateSockets();
 
       return res.json({
         success: true,
@@ -450,6 +455,7 @@ adminAccessRoutes.post(
 
       const ipAddress = req.ip || req.socket.remoteAddress;
       await grantPermission(accountName, parsedPermissionId, grantedBy, ipAddress);
+      await revalidateSockets();
 
       return res.json({
         success: true,
@@ -481,6 +487,7 @@ adminAccessRoutes.delete(
       const revokedBy = req.user?.accountName || 'system';
       const ipAddress = req.ip || req.socket.remoteAddress;
       await revokePermission(accountName, parsedPermissionId, revokedBy, ipAddress);
+      await revalidateSockets();
 
       return res.json({
         success: true,

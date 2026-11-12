@@ -9,6 +9,8 @@ const updateAccountPassword = jest.fn<(...args: unknown[]) => Promise<unknown>>(
 const isBcryptHash = jest.fn<(...args: unknown[]) => boolean>();
 const revokeAllWebSessions = jest.fn<(...args: unknown[]) => Promise<number>>();
 const cleanupAccountSessions = jest.fn<(...args: unknown[]) => Promise<void>>();
+const revokeSocketSessions = jest.fn<(...args: unknown[]) => void>();
+const query = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 
 jest.unstable_mockModule('bcrypt', () => ({
   default: { compare, hash },
@@ -31,8 +33,9 @@ jest.unstable_mockModule('../../services/sessionService.js', () => ({
 jest.unstable_mockModule('../../services/terminalService.js', () => ({
   cleanupAccountSessions,
 }));
+jest.unstable_mockModule('../../realtime/socketAuth.js', () => ({ revokeSocketSessions }));
 jest.unstable_mockModule('../../db/connection.js', () => ({
-  pool: { query: jest.fn() },
+  pool: { query },
 }));
 jest.unstable_mockModule('../../middleware/auth.js', () => ({
   generateAccessToken: jest.fn(),
@@ -83,6 +86,8 @@ describe('password-change session teardown', () => {
     isBcryptHash.mockReset().mockReturnValue(true);
     revokeAllWebSessions.mockReset().mockResolvedValue(3);
     cleanupAccountSessions.mockReset().mockResolvedValue(undefined);
+    revokeSocketSessions.mockReset();
+    query.mockReset().mockResolvedValue([{ affectedRows: 1 }]);
   });
 
   it('revokes web sessions, destroys terminals, and clears cookies after success', async () => {
@@ -94,11 +99,27 @@ describe('password-change session teardown', () => {
     expect(updateAccountPassword).toHaveBeenCalledWith('Cwial', 'new-bcrypt-hash');
     expect(revokeAllWebSessions).toHaveBeenCalledWith('Cwial');
     expect(cleanupAccountSessions).toHaveBeenCalledWith('Cwial');
+    expect(revokeSocketSessions).toHaveBeenCalledWith({ accountName: 'Cwial' });
     expect(response.headers['set-cookie']).toEqual(
       expect.arrayContaining([
         expect.stringContaining('access_token=;'),
         expect.stringContaining('refresh_token=;'),
       ]),
     );
+  });
+
+  it('logout ends only the current session and its open sockets', async () => {
+    const response = await request(app).post('/api/auth/logout');
+
+    expect(response.status).toBe(200);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('DELETE FROM web_sessions'), [
+      'session-current',
+      'Cwial',
+    ]);
+    expect(revokeSocketSessions).toHaveBeenCalledWith({
+      accountName: 'Cwial',
+      sessionId: 'session-current',
+    });
+    expect(revokeAllWebSessions).not.toHaveBeenCalled();
   });
 });

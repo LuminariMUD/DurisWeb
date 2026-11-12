@@ -29,6 +29,9 @@ import {
 } from '../services/unifiedNotificationService.js';
 import { cleanupOrphanImages } from '../services/postImageService.js';
 import type { PvPEventListItem } from '../types/index.js';
+import { revalidateSockets } from '../realtime/socketAuth.js';
+
+const SOCKET_REVALIDATION_MS = 60_000;
 import {
   broadcastAuctionEvent,
   broadcastBackupProgress,
@@ -187,6 +190,10 @@ export async function startBackgroundJobs(
 
   // Update WebSocket connection count every 10 seconds
   intervals.push(setInterval(() => updateWebSocketCount(wss.clients.size), 10000));
+
+  // Re-check socket principals for changes the website is never told about (session expiry,
+  // MUD-side level changes, direct database edits).
+  intervals.push(setInterval(() => void revalidateSockets(), SOCKET_REVALIDATION_MS));
 
   // Initialize GeoIP database
   const { initializeGeoIP } = await import('../utils/geoip.js');

@@ -582,10 +582,23 @@ state rather than applying an optimistic result.
 The browser-facing WebSocket uses `/ws` on the DurisWeb server for terminal,
 streaming, and application events. Authenticated clients obtain a five-minute,
 session-bound capability from `GET /api/auth/websocket-token` for subscriptions,
-builder streams, and deployment requests. Every operation retains its session,
-level, and permission checks. `GET /api/auth/terminal-token` issues a separate
+builder streams, and deployment requests. Every request re-checks its session,
+level, and permission. `GET /api/auth/terminal-token` issues a separate
 terminal-only capability; neither capability authenticates ordinary HTTP
-requests. Initial socket identity is hydrated from the HTTP-only access cookie.
+requests. Initial socket identity is hydrated from the HTTP-only access cookie;
+a token-authenticated subscription takes precedence over a later hydration.
+
+Pushed events (staff broadcasts, log lines, notifications, forum posts) use the
+socket's stored identity, which is kept current. Logout closes that session's
+sockets, and a password change or god password reset closes all of the
+account's sockets, with close code `4401`; the client reconnects with whatever
+identity its cookie still holds. A role or permission change on the website
+re-checks open sockets at once. Every 60 seconds the backend also re-checks
+each socket that holds an identity or a terminal, so session expiry and
+MUD-side level changes take effect within a minute. A socket whose session is
+gone, or cannot be checked, is closed; one that lost a permission stops
+receiving the matching events, and a terminal whose owner lost
+`terminal_access` is ended.
 
 The application WebSocket is distinct from the backend's outbound
 privileged MUD bridge, whose endpoint is required through `MUD_WS_URL`. A

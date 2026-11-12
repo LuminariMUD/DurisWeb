@@ -4,7 +4,11 @@
 import { beforeAll, afterAll, describe, expect, it } from '@jest/globals';
 import crypto from 'node:crypto';
 import { pool } from '../../db/connection.js';
-import { hasActiveWebSession, hasMatchingRefreshSession } from '../sessionService.js';
+import {
+  getActiveWebSessionIds,
+  hasActiveWebSession,
+  hasMatchingRefreshSession,
+} from '../sessionService.js';
 import { refreshTokenDigest } from '../sessionCredential.js';
 
 describe('web session revocation', () => {
@@ -73,6 +77,20 @@ describe('web session revocation', () => {
     await expect(
       hasMatchingRefreshSession(accountName, otherSessionId, refreshToken),
     ).resolves.toBe(false);
+  });
+
+  it('batches the same session predicates for socket revalidation', async () => {
+    await expect(getActiveWebSessionIds([])).resolves.toEqual(new Set());
+    await expect(
+      getActiveWebSessionIds([
+        { accountName, sessionId },
+        { accountName, sessionId: otherSessionId },
+        { accountName, sessionId: expiredSessionId },
+      ]),
+    ).resolves.toEqual(new Set([sessionId, otherSessionId]));
+    await expect(
+      getActiveWebSessionIds([{ accountName: 'different-account', sessionId }]),
+    ).resolves.toEqual(new Set());
   });
 
   it('rejects a session after its database row is revoked', async () => {
