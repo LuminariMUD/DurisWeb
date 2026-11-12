@@ -2,6 +2,7 @@ import { parseChatPresentation } from '../utils/chatPresentation.js'
 import { parseOutputPresentation, parseBodyPresentation } from '../utils/outputPresentation.js'
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
+import type { MudCloseDiagnostic } from '../utils/mudCloseDiagnostics.js'
 import type {
   MudConnectionState,
   MudCharacterInfo,
@@ -58,6 +59,7 @@ export const useMudStore = defineStore('mud', () => {
   const accountInfo = ref<MudAccountInfo | null>(null)
   const restedBonus = ref<MudRestedBonus | null>(null)
   const showReconnectDialog = ref(false)
+  const closeDiagnostic = ref<MudCloseDiagnostic | null>(null)
   const accountError = ref<string | null>(null)
   const emailVerificationState = ref<
     'idle' | 'requesting' | 'requested' | 'confirming' | 'verified'
@@ -789,6 +791,10 @@ export const useMudStore = defineStore('mud', () => {
     showReconnectDialog.value = false
   }
 
+  function setCloseDiagnostic(diagnostic: MudCloseDiagnostic | null) {
+    closeDiagnostic.value = diagnostic
+  }
+
   function reset() {
     clearShipContacts()
     clearShipInfo()
@@ -838,6 +844,7 @@ export const useMudStore = defineStore('mud', () => {
     accountInfo.value = null
     restedBonus.value = null
     showReconnectDialog.value = false
+    closeDiagnostic.value = null
     accountError.value = null
     emailVerificationState.value = 'idle'
     recoveryState.value = 'idle'
@@ -901,6 +908,7 @@ export const useMudStore = defineStore('mud', () => {
     accountInfo,
     restedBonus,
     showReconnectDialog,
+    closeDiagnostic,
     accountError,
     emailVerificationState,
     recoveryState,
@@ -982,6 +990,7 @@ export const useMudStore = defineStore('mud', () => {
     updateCharacters,
     openReconnectDialog,
     closeReconnectDialog,
+    setCloseDiagnostic,
     reset,
   }
 })

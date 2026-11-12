@@ -14,6 +14,10 @@ const {
 } = vi.hoisted(() => ({
   store: {
     connectionError: null as string | null,
+    connectionState: 'disconnected',
+    setCloseDiagnostic: vi.fn(),
+    retireMap: vi.fn(),
+    clearChargenState: vi.fn(),
     recoveryState: 'idle',
     emailVerificationState: 'idle',
     accountInfo: { email: 'old@example.test' },
@@ -52,7 +56,7 @@ class FakeSocket {
   readyState = FakeSocket.OPEN
   onopen: (() => void) | null = null
   onmessage: ((event: { data: string }) => void) | null = null
-  onclose: ((event: { code: number; reason: string }) => void) | null = null
+  onclose: ((event: { code: number; reason: string; wasClean?: boolean }) => void) | null = null
   onerror: ((error: unknown) => void) | null = null
   sent: string[] = []
 
@@ -359,6 +363,72 @@ describe('useMudConnection credential lifecycle', () => {
     expect(store.connectionError).toBeNull()
     expect(store.openReconnectDialog).toHaveBeenCalledTimes(1)
   })
+
+  it('summarizes an abrupt 1006 close with activity ages and no peer text', async () => {
+    vi.setSystemTime(new Date('2026-11-12T18:00:00Z'))
+    const connection = createConnection()
+    await connection.connect()
+    const socket = sockets[0]!
+    socket.onopen?.()
+    vi.advanceTimersByTime(30_000) // JSON keepalive send
+    socket.onmessage?.({ data: JSON.stringify({ type: 'pong' }) })
+    vi.advanceTimersByTime(5_000)
+    socket.onclose?.({ code: 1006, reason: 'secret peer text', wasClean: false })
+
+    const diagnostic = store.setCloseDiagnostic.mock.lastCall?.[0]
+    expect(diagnostic).toMatchObject({
+      closedAt: '2026-11-12T18:00:35.000Z',
+      code: 1006,
+      wasClean: false,
+      category: 'abnormal',
+      connectedForMs: 35_000,
+      lastSentAgoMs: 5_000,
+      lastReceivedAgoMs: 5_000,
+    })
+    expect(JSON.stringify(diagnostic)).not.toContain('secret')
+    expect(store.openReconnectDialog).toHaveBeenCalledTimes(1)
+  })
+
+  it('classifies the server heartbeat timeout and session replacement closes', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    sockets[0]!.onclose?.({ code: 1001, reason: 'Ping timeout', wasClean: true })
+    expect(store.setCloseDiagnostic.mock.lastCall?.[0]).toMatchObject({
+      category: 'heartbeat_timeout',
+    })
+
+    await connection.connect()
+    sockets[1]!.onclose?.({ code: 1000, reason: 'Duplicate session', wasClean: true })
+    expect(store.setCloseDiagnostic.mock.lastCall?.[0]).toMatchObject({
+      category: 'session_replaced',
+    })
+  })
+
+  it('records no diagnostic for a copyover close or a stale socket callback', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    const stale = sockets[0]!
+    stale.onopen?.()
+    stale.readyState = 3
+    await connection.connect()
+    // The fake fires onclose synchronously during replacement; browsers fire it later.
+    store.setCloseDiagnostic.mockClear()
+    store.openReconnectDialog.mockClear()
+    stale.onclose?.({ code: 1006, reason: '', wasClean: false })
+    expect(store.setCloseDiagnostic).not.toHaveBeenCalled()
+
+    store.copyoverInProgress = true
+    try {
+      expect(sockets).toHaveLength(2)
+      sockets[1]!.onclose?.({ code: 1006, reason: '', wasClean: false })
+      expect(store.setCloseDiagnostic).not.toHaveBeenCalled()
+      expect(store.openReconnectDialog).not.toHaveBeenCalled()
+    } finally {
+      store.copyoverInProgress = false
+      connection.disconnect()
+    }
+  })
+
   it('delivers one presentation snapshot per packet through reconnect and default reset', async () => {
     const connection = createConnection()
     await connection.connect()
