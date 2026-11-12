@@ -945,8 +945,9 @@ checkout, on `master` as well (open handles; not investigated here).
    new Website Changelog entry is expected (record that at release).
 
 Complexity review: no runtime dependency, framework, container, event bus or
-generic CRUD layer was added; one broadcast implementation, one Axios
-instance, one interceptor set. New shared pieces each have several real
+generic CRUD layer was added; one broadcast implementation, and one Axios
+instance and interceptor set for the feature API modules (older direct `axios`
+reads in a few admin views and composables were outside this plan). New shared pieces each have several real
 callers: `realtime/clientState.ts`, `src/test/stubModule.ts` (5 tests),
 `features/forum/shared.ts`, `features/builder/shared.ts`. Representative
 follow-up edit — a new admin backup endpoint now touches

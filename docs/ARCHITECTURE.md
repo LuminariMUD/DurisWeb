@@ -54,12 +54,15 @@ No machine-specific service or nginx artifact is authoritative in the checkout.
 | A background job or integration | `backend/src/runtime/backgroundJobs.ts`, registering its stop in `stopProducers` or `stopWorkers` | `backend/src/runtime/__tests__/` |
 | A browser WebSocket message | A handler in the matching `backend/src/realtime/*Handlers.ts` family (it joins the dispatch table in `applicationSocket.ts`); per-socket fields belong in `clientState.ts` | `backend/src/realtime/__tests__/applicationSocket.test.ts` |
 | A broadcast | `backend/src/realtime/broadcasts.ts`; services receive it through their existing setter or import it there | `backend/src/realtime/__tests__/broadcasts.test.ts` |
-| A browser API call | `frontend/src/features/<domain>/api.ts` (admin and builder calls go in the group file matching the backend route group) | Component/composable specs mock `@/features/<domain>/api`; adapter checks use `apiClient.defaults.adapter` |
+| A browser API call | `frontend/src/features/<domain>/api.ts`; admin and builder calls go in that feature's closest `*Api.ts` group file (for example `features/admin/backupApi.ts`), else its `api.ts` | Component/composable specs mock `@/features/<domain>/api`; adapter checks use `apiClient.defaults.adapter` |
 
 Import direction: features and services never import `index.ts`, `app.ts` or
-`runtime/` (ESLint blocks entry-point imports); browser feature modules import
-the one Axios instance from `frontend/src/services/httpClient.ts`, which imports
-no features. MUD-owned writes keep their `backend/mud-write-allowlist.json`
+`runtime/` (ESLint blocks only `../index.js` and `../../index.js`; the rest is
+convention). Browser feature modules share the `apiClient` instance from
+`frontend/src/services/httpClient.ts`, which imports no features and adds the
+CSRF header to writes. A few older admin views and composables, plus
+`usePublicStatus` and `useServerHealth`, still call `axios` directly for reads;
+new code, and any state-changing request, uses `apiClient`. MUD-owned writes keep their `backend/mud-write-allowlist.json`
 key in step with the file that holds the statement.
 
 ## Data and Dependency Flow
