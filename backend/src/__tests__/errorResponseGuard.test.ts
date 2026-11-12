@@ -9,14 +9,16 @@ const eslint = new ESLint({ cwd: backendRoot });
 async function restrictedSyntaxMessages(code: string): Promise<string[]> {
   const [result] = await eslint.lintText(code, { filePath: 'src/routes/guardFixture.ts' });
   return result.messages
-    .filter((message) => message.ruleId === 'no-restricted-syntax')
+    .filter((message) =>
+      ['no-restricted-syntax', 'local/no-raw-error-response'].includes(message.ruleId ?? ''),
+    )
     .map((message) => message.message);
 }
 
 describe('error response lint guard', () => {
   it('rejects error text sent to a client', async () => {
     const messages = await restrictedSyntaxMessages(
-      'export const f = (res: any, error: unknown) => res.status(500).json({ error: getErrorMessage(error) });\ndeclare function getErrorMessage(e: unknown): string;\n',
+      "import type { Response } from 'express'; export const f = (res: Response, error: unknown) => res.status(500).json({ error: getErrorMessage(error) });\ndeclare function getErrorMessage(e: unknown): string;\n",
     );
     expect(messages).toEqual([
       'Do not send error text to clients; use sendRouteError or AppError.',
@@ -32,8 +34,30 @@ describe('error response lint guard', () => {
 
   it('accepts the helper', async () => {
     const messages = await restrictedSyntaxMessages(
-      "export const f = (res: any, error: unknown) => sendRouteError(res, error, 'Failed', 'Failed');\ndeclare function sendRouteError(...args: unknown[]): unknown;\n",
+      "import type { Response } from 'express'; export const f = (res: Response, error: unknown) => sendRouteError(res, error, 'Failed', 'Failed');\ndeclare function sendRouteError(...args: unknown[]): unknown;\n",
     );
     expect(messages).toEqual([]);
+  });
+  it.each(['message', 'stack'])(
+    'rejects a caught %s property without a public-error guard',
+    async (property) => {
+      const messages = await restrictedSyntaxMessages(
+        `import type { Response } from 'express'; export function f(res: Response) { try { throw new Error(); } catch (error) { if (error instanceof Error) res.json({ error: error.${property} }); } }`,
+      );
+      expect(messages).toEqual([
+        'Do not send caught error properties; use a typed public error or sendRouteError.',
+      ]);
+    },
+  );
+  it.each([
+    'if (isPublicError(error)) res.json({ error: error.message });',
+    'if (error instanceof AppError) res.json({ error: error.message });',
+    "res.json({ error: isPublicError(error) ? error.message : 'Failed' });",
+  ])('accepts typed public text in %s', async (statement) => {
+    expect(
+      await restrictedSyntaxMessages(
+        `import type { Response } from 'express'; import { AppError } from '../middleware/errorHandler.js'; import { isPublicError } from '../utils/routeError.js'; export function f(res: Response) { try { throw new Error(); } catch (error) { ${statement} } }`,
+      ),
+    ).toEqual([]);
   });
 });
