@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../../utils/safeFailureCode.js';
 import { Router, Request, Response, type IRouter } from 'express';
 import logger from '../../utils/logger.js';
 import { body, validationResult } from 'express-validator';
@@ -94,7 +95,7 @@ forumProfileRoutes.get(
         },
       });
     } catch (error) {
-      logger.error('Get user profile error:', error);
+      logger.error('Get user profile error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get user profile' });
     }
   },
@@ -123,7 +124,7 @@ forumProfileRoutes.patch(
 
       return res.json({ success: true });
     } catch (error) {
-      logger.error('Update user profile error:', error);
+      logger.error('Update user profile error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to update profile' });
     }
   },
@@ -168,7 +169,7 @@ forumProfileRoutes.get(
         },
       });
     } catch (error) {
-      logger.error('Get user posts error:', error);
+      logger.error('Get user posts error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get user posts' });
     }
   },
@@ -220,7 +221,7 @@ forumProfileRoutes.get(
         },
       });
     } catch (error) {
-      logger.error('Get user threads error:', error);
+      logger.error('Get user threads error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get user threads' });
     }
   },
@@ -239,7 +240,7 @@ forumProfileRoutes.get(
       const result = await getAccountCharacters(accountName);
       return res.json(result);
     } catch (error) {
-      logger.error('Get account characters error:', error);
+      logger.error('Get account characters error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get account characters' });
     }
   },
@@ -286,7 +287,7 @@ forumProfileRoutes.post(
 
       return res.json({ avatarUrl });
     } catch (error) {
-      logger.error('Upload avatar error:', error);
+      logger.error('Upload avatar error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to upload avatar' });
     }
   },
@@ -330,7 +331,7 @@ forumProfileRoutes.post(
 
       return res.json({ avatarUrl });
     } catch (error) {
-      logger.error('Upload avatar error:', error);
+      logger.error('Upload avatar error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to upload avatar' });
     }
   },
@@ -357,7 +358,7 @@ forumProfileRoutes.delete('/users/me/avatar', requireAuth, async (req: Request, 
 
     return res.json({ success: true });
   } catch (error) {
-    logger.error('Delete avatar error:', error);
+    logger.error('Delete avatar error:', { code: safeFailureCode(error) });
     return res.status(500).json({ error: 'Failed to delete avatar' });
   }
 });
@@ -387,7 +388,7 @@ forumProfileRoutes.delete(
 
       return res.json({ success: true });
     } catch (error) {
-      logger.error('Delete avatar error:', error);
+      logger.error('Delete avatar error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to delete avatar' });
     }
   },
@@ -436,7 +437,7 @@ forumProfileRoutes.post(
 
       return res.json({ bannerUrl });
     } catch (error) {
-      logger.error('Upload banner error:', error);
+      logger.error('Upload banner error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to upload banner' });
     }
   },
@@ -481,7 +482,7 @@ forumProfileRoutes.post(
 
       return res.json({ bannerUrl });
     } catch (error) {
-      logger.error('Upload user banner error:', error);
+      logger.error('Upload user banner error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to upload banner' });
     }
   },
@@ -504,7 +505,7 @@ forumProfileRoutes.delete('/users/me/banner', requireAuth, async (req: Request, 
 
     return res.json({ success: true });
   } catch (error) {
-    logger.error('Delete banner error:', error);
+    logger.error('Delete banner error:', { code: safeFailureCode(error) });
     return res.status(500).json({ error: 'Failed to delete banner' });
   }
 });
@@ -529,7 +530,7 @@ forumProfileRoutes.delete(
 
       return res.json({ success: true });
     } catch (error) {
-      logger.error('Delete user banner error:', error);
+      logger.error('Delete user banner error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to delete banner' });
     }
   },
@@ -559,7 +560,7 @@ forumProfileRoutes.get(
         isOwner,
       });
     } catch (error) {
-      logger.error('Get character profile error:', error);
+      logger.error('Get character profile error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get character profile' });
     }
   },
@@ -588,7 +589,7 @@ forumProfileRoutes.get('/characters/:characterName/posts', async (req: Request, 
       },
     });
   } catch (error) {
-    logger.error('Get character posts error:', error);
+    logger.error('Get character posts error:', { code: safeFailureCode(error) });
     return res.status(500).json({ error: 'Failed to get character posts' });
   }
 });
@@ -615,7 +616,7 @@ forumProfileRoutes.get('/characters/:characterName/pvp', async (req: Request, re
       },
     });
   } catch (error) {
-    logger.error('Get character PvP events error:', error);
+    logger.error('Get character PvP events error:', { code: safeFailureCode(error) });
     return res.status(500).json({ error: 'Failed to get character PvP events' });
   }
 });
@@ -636,7 +637,7 @@ forumProfileRoutes.get('/guilds/:guildName/profile', async (req: Request, res: R
 
     return res.json(profile);
   } catch (error) {
-    logger.error('Get guild profile error:', error);
+    logger.error('Get guild profile error:', { code: safeFailureCode(error) });
     return res.status(500).json({ error: 'Failed to get guild profile' });
   }
 });
@@ -669,7 +670,7 @@ forumProfileRoutes.get('/guilds/:guildName/activity', async (req: Request, res: 
       },
     });
   } catch (error) {
-    logger.error('Get guild forum activity error:', error);
+    logger.error('Get guild forum activity error:', { code: safeFailureCode(error) });
     return res.status(500).json({ error: 'Failed to get guild forum activity' });
   }
 });
@@ -695,7 +696,7 @@ forumProfileRoutes.get(
       const accounts = await searchAccounts(query, 10);
       return res.json({ accounts });
     } catch (error) {
-      logger.error('Search accounts error:', error);
+      logger.error('Search accounts error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to search accounts' });
     }
   },
@@ -710,7 +711,7 @@ forumProfileRoutes.get('/guilds/search', async (req: Request, res: Response) => 
     const guilds = await searchGuilds(query, 20);
     return res.json({ guilds });
   } catch (error) {
-    logger.error('Search guilds error:', error);
+    logger.error('Search guilds error:', { code: safeFailureCode(error) });
     return res.status(500).json({ error: 'Failed to search guilds' });
   }
 });

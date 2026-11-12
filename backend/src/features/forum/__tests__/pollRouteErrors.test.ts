@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
@@ -50,6 +50,7 @@ stub('../../../services/pollService.js', { getPollById, castVote, createPoll });
 const { forumReactionPollRoutes } = await import('../reactionPollRoutes.js');
 const { generateAccessToken } = await import('../../../middleware/auth.js');
 const { AppError } = await import('../../../middleware/errorHandler.js');
+const { default: logger } = await import('../../../utils/logger.js');
 const app = express();
 app.use(cookieParser());
 app.use(express.json());
@@ -72,6 +73,9 @@ const newPoll = {
 };
 
 describe('poll route error responses', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -84,6 +88,7 @@ describe('poll route error responses', () => {
   });
 
   it('keeps driver text out of a failed vote', async () => {
+    const log = jest.spyOn(logger, 'error').mockImplementation(() => logger);
     castVote.mockRejectedValueOnce(
       Object.assign(new Error("SENTINEL Table 'duris.poll_votes' doesn't exist"), {
         code: 'ER_NO_SUCH_TABLE',
@@ -93,6 +98,14 @@ describe('poll route error responses', () => {
     expect(response.status).toBe(500);
     expect(JSON.stringify(response.body)).not.toContain('SENTINEL');
     expect(response.body).toEqual({ error: 'Failed to vote', reference: expect.any(String) });
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log.mock.calls[0]).toEqual([
+      'Vote failed',
+      { reference: response.body.reference, code: 'ER_NO_SUCH_TABLE' },
+    ]);
+    expect(JSON.stringify(log.mock.calls)).not.toContain('SENTINEL');
+    expect(JSON.stringify(log.mock.calls)).toContain(response.body.reference);
+    log.mockRestore();
   });
 
   it('reports a duplicate poll from the driver code, not its message', async () => {

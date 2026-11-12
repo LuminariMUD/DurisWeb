@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../../utils/safeFailureCode.js';
 import { Router, Request, Response, type IRouter } from 'express';
 import logger from '../../utils/logger.js';
 import { body, param, query, validationResult } from 'express-validator';
@@ -59,7 +60,6 @@ forumModerationRoutes.delete(
 
       return res.json({ message: 'Post deleted successfully' });
     } catch (error) {
-      logger.error('Moderator delete post error:', error);
       return sendRouteError(res, error, 'Failed to delete post', 'Failed to delete post');
     }
   },
@@ -106,7 +106,6 @@ forumModerationRoutes.post(
 
       return res.json({ message: 'Post restored successfully' });
     } catch (error) {
-      logger.error('Restore post error:', error);
       return sendRouteError(res, error, 'Failed to restore post', 'Failed to restore post');
     }
   },
@@ -142,7 +141,6 @@ forumModerationRoutes.delete(
 
       return res.json({ message: 'Thread deleted successfully' });
     } catch (error) {
-      logger.error('Moderator delete thread error:', error);
       return sendRouteError(res, error, 'Failed to delete thread', 'Failed to delete thread');
     }
   },
@@ -183,7 +181,6 @@ forumModerationRoutes.post(
 
       return res.json({ message: 'Thread restored successfully' });
     } catch (error) {
-      logger.error('Restore thread error:', error);
       return sendRouteError(res, error, 'Failed to restore thread', 'Failed to restore thread');
     }
   },
@@ -230,7 +227,6 @@ forumModerationRoutes.post(
 
       return res.json({ message: 'Thread moved successfully' });
     } catch (error) {
-      logger.error('Move thread error:', error);
       return sendRouteError(res, error, 'Failed to move thread', 'Failed to move thread');
     }
   },
@@ -280,7 +276,7 @@ forumModerationRoutes.get(
         },
       });
     } catch (error) {
-      logger.error('Get moderation log error:', error);
+      logger.error('Get moderation log error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get moderation log' });
     }
   },
