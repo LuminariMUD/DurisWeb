@@ -81,7 +81,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.4",
-    "@tailwindcss/postcss": "^4.3.3",
+    "@tailwindcss/postcss": "^4.3.5",
     "@tsconfig/node26": "^26.0.1",
     "@types/geojson": "^7946.0.16",
     "@types/jsdom": "^30.0.0",
