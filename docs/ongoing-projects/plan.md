@@ -11,7 +11,7 @@ Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d557
 | Chunk | Plan steps | Branch | State |
 | --- | --- | --- | --- |
 | PR 1: proc-request scoping | 1, the proc-request part of 3, proc-request tests in 5 | `branch/issue-182-builder-zone-scoping` → `master` | Done: LuminariMUD/DurisWeb#195 |
-| PR 2: comment scoping and moderator helper | 2, the comment part of 3, 4, comment tests in 5 | `branch/issue-182-comment-scoping` → PR 1 branch | Done: PR 2 (stacked on #195) |
+| PR 2: comment scoping and moderator helper | 2, the comment part of 3, 4, comment tests in 5 | `branch/issue-182-comment-scoping` → PR 1 branch | Done: LuminariMUD/DurisWeb#198 (stacked on #195) |
 
 To continue in a new session: work in the worktree `../durisweb-issue-182` (it has its own
 `backend/node_modules`; copy the gitignored `.env` files from the main checkout if they are
