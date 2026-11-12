@@ -41,7 +41,11 @@ jest.unstable_mockModule('../../config/environment.js', () => ({
   }),
 }));
 
+jest.unstable_mockModule('../../middleware/auth.js', () => ({ verifyTerminalToken: jest.fn() }));
+jest.unstable_mockModule('../accountService.js', () => ({ parseAccountFile: jest.fn() }));
+jest.unstable_mockModule('../permissionService.js', () => ({ getUserPermissions: jest.fn() }));
 const terminalService = await import('../terminalService.js');
+const { closeTerminal } = await import('../../realtime/terminalHandlers.js');
 const { APPLICATION_MAX_BUFFERED_BYTES } = await import('../../utils/applicationWebSocket.js');
 
 type FakeWebSocket = EventEmitter & {
@@ -262,6 +266,46 @@ describe('terminal WebSocket session authorization', () => {
     await Promise.all([creating, logout]);
     expect(spawn).not.toHaveBeenCalled();
     expect(terminalService.getActiveSessionCount()).toBe(0);
+  });
+
+  it('cancels an open socket terminal before its pending insert can spawn a child', async () => {
+    const insert = deferred<unknown>();
+    execute.mockReturnValueOnce(insert.promise).mockResolvedValue([]);
+    const ws = fakeWebSocket();
+    const creating = terminalService.createSession('Cwial', ws as never);
+    await closeTerminal(ws as never);
+    expect(ws.readyState).toBe(1);
+    insert.resolve([{ insertId: 900020 }]);
+    await creating;
+    expect(spawn).not.toHaveBeenCalled();
+    expect(terminalService.getActiveSessionCount()).toBe(0);
+  });
+
+  it('stops an open socket pending PID-update child immediately and ignores other sockets', async () => {
+    const update = deferred<unknown>();
+    execute
+      .mockResolvedValueOnce([{ insertId: 900021 }])
+      .mockReturnValueOnce(update.promise)
+      .mockResolvedValue([]);
+    const ws = fakeWebSocket();
+    const creating = terminalService.createSession('Cwial', ws as never);
+    await Promise.resolve();
+    try {
+      expect(terminalService.getSessionByWebSocket(ws as never)).toBeUndefined();
+      await closeTerminal(fakeWebSocket() as never);
+      expect(pty.kill).not.toHaveBeenCalled();
+      await closeTerminal(ws as never);
+      expect(pty.kill).toHaveBeenCalledTimes(1);
+      expect(terminalService.getActiveSessionCount()).toBe(0);
+      ws.send.mockClear();
+      const onData = pty.onData.mock.calls[0][0] as (data: string) => void;
+      onData('REVOKED_TERMINAL_SENTINEL');
+      expect(ws.send).not.toHaveBeenCalled();
+      expect(ws.readyState).toBe(1);
+    } finally {
+      update.resolve([]);
+      await creating;
+    }
   });
 
   it('kills and removes a spawned PTY when its PID update fails', async () => {
