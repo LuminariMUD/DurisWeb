@@ -1,3 +1,301 @@
+# Issue #181: make characters, not accounts, the public link target
+
+Issue: [DurisWeb #181](https://github.com/LuminariMUD/DurisWeb/issues/181)
+
+Branch: `branch/issue-181-character-link-privacy` (linked to the issue)
+
+Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d5573c156`.
+
+**Status: plan only; implementation has not started.** Owner decision on the issue:
+"ADOPT OPTION # 4". The earlier plans in this file are preserved unchanged below the
+`Previous plans` divider.
+
+## Outcome
+
+Anonymous and non-owner callers can no longer get a character's account, or an account's
+character roster, from any website surface the player did not opt into. That makes the
+LuminariMUD/DurisWeb#131 promise true ("linked character names, levels, races, classes …
+only available while signed in to your own account"). Public navigation still works:
+character names on Battle Detail, PvP Stats, Guild Profile, Frag Leaderboard and Top
+Gainers open a public **character** page instead of the owner's account profile, and
+retired characters keep their struck-through, non-clickable styling.
+
+Per-post opt-in pairings stay as they are: forum threads and posts show the author's account
+and chosen character, and battle comments show the commenter's account and chosen character.
+
+## Evidence checked independently
+
+Every claim from the issue and its investigation comments was rechecked against the code at
+the commit above. Corrections and additions are marked **new**.
+
+| Surface | Code | Anonymous result today |
+|---|---|---|
+| `GET /api/forum/characters/:characterName/account` | `backend/src/features/forum/profileRoutes.ts:235-251` | `{ accountName }` (live `account_characters` link, `accountService.ts:213-230`) |
+| `POST /api/forum/characters/batch/accounts` | `profileRoutes.ts:255-282` | `{ [name]: accountName }`, 50 names, one query per name, a non-string element throws (500) |
+| `GET /api/frag/account/:account_name` | `backend/src/routes/frag.ts:160-170`, `fragService.ts:301-357` | the whole roster, retired characters included; no frontend caller (`features/frag/api.ts:68` is unused) |
+| `GET /api/frag/leaderboard` | `frag.ts:32-84`, `fragService.ts:20-136` | `account_name` per row; `?account_name=` filter (no frontend caller) |
+| `GET /api/frag/top-gainers` | `frag.ts:88-106`, `fragService.ts:144-181` | `account_name` per row |
+| **new:** `GET /api/frag/player/:char_name` | `frag.ts:140-155`, `fragService.ts:244-293` | `account_name` for any named character; the investigation missed it |
+| `GET /api/forum/accounts/search` | `profileRoutes.ts:715-727` | up to 10 account names; harmless once no endpoint maps an account to characters |
+
+Other findings that shape the plan:
+
+- **No global rate limiter** exists in `backend/src/app.ts` (confirmed). It no longer matters,
+  because the lookups are removed, not limited.
+- **The router guard is dead code** (`frontend/src/router/index.ts:561-573`). No route sets
+  `meta.redirectToUserProfile`.
+- **new: a character page already exists but is orphaned.** `frontend/src/views/CharacterProfileView.vue`
+  (395 lines, tabs for stats, posts and PvP) is not referenced by the router. It loads
+  `GET /api/forum/characters/:name/profile`, which #131 made owner-only
+  (`profileRoutes.ts:585-608`: 401 for anonymous callers, 404 for non-owners). That endpoint's
+  only frontend caller is this orphan (`features/profile/api.ts:174`). As written, the view
+  cannot serve the public.
+- **new: public per-character data already exists, without account fields:**
+  `/api/frag/player/:name` (race, class, level, frags, rank, once `account_name` is dropped),
+  `/api/pvp/stats/player/:name` (`routes/pvp.ts:218`; kills, deaths, K/D),
+  `/api/forum/characters/:name/pvp` and `/api/forum/characters/:name/posts`
+  (`profileRoutes.ts:611-660`). The public page is composed from these four calls, so it needs
+  no new backend endpoint. Each post object carries its author account, but that pairing is
+  already public on the thread by the author's choice.
+- **Existence checks.** Battle Detail (`BattleDetailView.vue:90-111`) and Guild Profile
+  (`GuildProfileView.vue:98-121`, one sequential request per member) call the lookups only to
+  decide between "live" and "struck through". Both payloads already carry each character's
+  `pid` (`pvpService.ts:366-430` selects `p.pid`; `forumService.ts:2779-2788` selects `pd.pid`).
+  `account_characters.pid` is the established join key (`analyticsService.ts:451`,
+  `categoryService.ts:789`, `unifiedNotificationService.ts:188`). The flag can therefore be
+  computed in the existing queries, with no new endpoint. It is also more correct than the
+  current name lookup: after name reuse (#95), a retired battle participant whose name was
+  later reused currently shows as live and links to the **new** owner's account. A pid check
+  strikes it through.
+- **No cache risk.** PvP routes send `no-store` (`routes/pvp.ts:41-44`). The guild profile and
+  frag responses do not vary by viewer.
+- **Tests that pin the current behavior:** `userProfilePrivacy.test.ts:271-285` and
+  `forumComposition.test.ts:75` (`PUBLIC_WRITES`). `BattleDetailView.spec.ts:26` mocks the
+  batch call. `backend/src/test/pwipeWebsiteProbe.ts` reads only `char_name` from the
+  leaderboard, so it is unaffected.
+- **Docs:** `docs/api/README_api.md:106-136` ("Profile privacy") says character-to-account
+  navigation stays public, which must be reversed. `PrivacyView.vue` makes no promise either
+  way and needs no change.
+
+## Non-goals and ablation decisions
+
+| Item from Option 4 or the investigation | Decision | Reason |
+|---|---|---|
+| Existence-only batch endpoint `POST /characters/batch/exists` | **Drop** | Both callers already hold the `pid`. A boolean in the existing payloads removes the endpoint, its limiter and validation, the 50-name cap and Guild Profile's N requests. |
+| Rate limiter on the lookup routes | **Drop** | The routes are removed. |
+| Limiter on `/api/forum/accounts/search` | **Drop** (open question 1) | Account names alone are already public (forum authors, mentions). Once no endpoint maps an account to characters, listing accounts no longer leads to rosters. |
+| Opaque link tokens (Option 1) | **Drop** | The link target becomes the character page, so there is nothing to hide behind a token. |
+| Keep `account_name` on frag rows for owners or staff | **Drop** | No owner or staff UI reads it; staff have User Management. |
+| Remove `GET /characters/:name/profile` (owner-only) | **Not in scope** (open question 2) | Not a leak. Its last caller, the orphan view, is rewritten, but the endpoint is documented and tested owner-only behavior. |
+| Webinfo toggle on the public character page | **Not in scope** (open question 3) | The four data sources are public today regardless of webinfo, so the page adds no new disclosure. |
+| Turning click-handler `div`s into `RouterLink`s | **Not in scope** | Accessibility cleanup unrelated to the privacy outcome. Only the target changes. |
+| `PrivacyView.vue` wording | **Drop** | It makes no claim about character-to-account linking. |
+
+## Implementation sequence
+
+### 1. Backend: remove every anonymous account-from-character path
+
+1. `backend/src/features/forum/profileRoutes.ts`: delete `GET /characters/:characterName/account`
+   and `POST /characters/batch/accounts`. If `findAccountByCharacter` is still used elsewhere
+   in the file (it is, by `/characters/:name/profile`), keep the import.
+2. `backend/src/routes/frag.ts`: delete `GET /account/:account_name` and the
+   `getAccountFragStats` import. Remove the `account_name` filter parsing.
+3. `backend/src/services/fragService.ts`:
+   - delete `getAccountFragStats`;
+   - `getFragLeaderboard`: drop `account_name` from the SELECT and the mapping, the
+     `account_characters` join that existed only to `COALESCE` it (confirm nothing else
+     uses `ac`), the `account_name` filter clause, and its `.replace(/account_name/…)`
+     rewrite;
+   - `getTopGainers` and `getCharacterFragStats`: drop `account_name` from the SELECT,
+     `GROUP BY` and mapping.
+4. `backend/src/types/index.ts`: remove `account_name` from `FragLeaderboardEntry`,
+   `FragLeaderboardFilters` and `TopGainer`.
+
+### 2. Backend: server-side live-character flag
+
+5. `pvpService.getPvPEventDetail`: select
+   `EXISTS(SELECT 1 FROM account_characters ac WHERE ac.pid = p.pid AND ac.deleted_at IS NULL) AS character_exists`
+   and map it to a boolean `character_exists` on each participant. Add it to
+   `ParticipantInfo`. A participant with a null `pid` evaluates to false.
+6. `forumService.getGuildProfile`: add the same `EXISTS` against `pd.pid` in the
+   active-member query, and return `characterExists` on each member, following that object's
+   camelCase style.
+
+### 3. Frontend: public character page and link targets
+
+7. `frontend/src/router/index.ts`: add `/character/:characterName`, named `character-profile`,
+   public (`requiresAuth: false`), lazy-loading `CharacterProfileView.vue`. Delete the dead
+   `redirectToUserProfile` guard and, if it becomes unused, the `profileApi` import. Add a
+   `Characters` breadcrumb branch in `BreadcrumbsNav.vue` only if the default breadcrumb
+   reads badly.
+8. `frontend/src/views/CharacterProfileView.vue`: rewrite the data layer to use the four
+   public calls (`fragApi.getCharacterStats`, `pvpApi.getPlayerStats`,
+   `characterApi.getCharacterPosts`, `characterApi.getCharacterPvPEvents`). Keep the existing
+   layout, tabs and pagination. Remove the owner-only fields (money, balance, playtime, epics,
+   spec, guild rank, `isOwner`, webinfo notice) that the public sources do not provide.
+   - Not-found state: the frag stats call returns 404 (non-retired characters only).
+   - Never render an account name.
+   - Follow DESIGN.md for the loading, empty and error states.
+9. Link targets switch to `router.push({ name: 'character-profile', params: { characterName } })`:
+   - `BattleDetailView.vue`: delete `checkCharacterAccounts`, the `characterExists` map and
+     the account lookup. `isCharacterDeleted` and `isCharacterVerified` read
+     `participant.character_exists`. The templates pass the participant, not its description.
+   - `GuildProfileView.vue`: delete `checkMemberAccounts`, its watch and the map. Use
+     `member.characterExists`.
+   - `StatsView.vue` `navigateToPlayer`: navigate directly with no lookup. A retired name lands
+     on the page's not-found state, where it previously did nothing.
+   - `FragLeaderboardTable.vue` and `TopGainersCard.vue`: link by `char_name`, delete both
+     `account_name` renders (lines 94 and 175) and the "clickable only with an account"
+     conditions.
+10. `frontend/src/features/profile/api.ts`: delete `getCharacterAccount`,
+    `getCharacterAccountsBatch` and, now that nothing calls it, `getCharacterProfile`.
+    `frontend/src/features/frag/api.ts`: delete `getAccountStats` and the `account_name`
+    filter.
+11. `frontend/src/types/index.ts`: drop `account_name` from the frag types. Add
+    `character_exists: boolean` to `PvPParticipant`, and add the member flag to the guild
+    profile type if one is declared; the view currently types the profile as `any`.
+
+### 4. Documentation and release news
+
+12. `docs/api/README_api.md` "Profile privacy": replace the "character-to-account navigation
+    retain their existing behavior" paragraph with the new contract.
+    - No public endpoint returns the account that owns a character or an account's roster.
+    - Frag rows carry no account.
+    - Public navigation targets `/character/:name`.
+    - Forum and battle-comment authorship remains public by the author's choice.
+    - The route table needs no change, because the prefixes stay.
+13. Prepare `docs/ongoing-projects/issue-181-website-changelog-draft.json`
+    (`isPublished: false`, same shape as the issue-119 draft). Its player-facing text: names
+    on battles, stats, guilds and the frag leaderboard now open the character's page; the
+    leaderboard no longer shows account names; and the October promise that your character
+    list is private now holds everywhere. Publish it through `/admin/changelog` only after the
+    release is verified live, per `$news-update`.
+
+## Files
+
+Backend:
+- `src/features/forum/profileRoutes.ts`
+- `src/routes/frag.ts`
+- `src/services/fragService.ts`
+- `src/services/pvpService.ts`
+- `src/services/forumService.ts`
+- `src/types/index.ts`
+- tests: `src/features/forum/__tests__/userProfilePrivacy.test.ts`,
+  `src/features/forum/__tests__/forumComposition.test.ts`,
+  `src/services/__tests__/pvpService.test.ts`, and one new frag route test (below)
+
+Frontend:
+- `src/router/index.ts`
+- `src/views/CharacterProfileView.vue`
+- `src/views/BattleDetailView.vue`
+- `src/views/GuildProfileView.vue`
+- `src/views/StatsView.vue`
+- `src/components/frag/FragLeaderboardTable.vue`
+- `src/components/frag/TopGainersCard.vue`
+- `src/features/profile/api.ts`
+- `src/features/frag/api.ts`
+- `src/types/index.ts`
+- possibly `src/components/layout/BreadcrumbsNav.vue`
+- tests: `src/views/__tests__/BattleDetailView.spec.ts`, plus new specs for
+  `CharacterProfileView` and `FragLeaderboardTable`
+
+Docs:
+- `docs/api/README_api.md`
+- `docs/ongoing-projects/issue-181-website-changelog-draft.json`
+- this plan's handoff section
+
+## Proof
+
+Backend (`pnpm --dir backend test --runInBand <files>`):
+
+- `userProfilePrivacy.test.ts`: replace "public character-to-account navigation" with
+  anonymous `GET /api/forum/characters/Hero/account` → 404, and anonymous
+  `POST /api/forum/characters/batch/accounts` → 404 (or 401 if the forum router rejects
+  unmatched writes first). Assert that neither body contains `Player` or `accountName`.
+- `forumComposition.test.ts`: `PUBLIC_WRITES` becomes empty, so every forum write requires
+  auth.
+- New `backend/src/routes/__tests__/fragPrivacy.test.ts` (supertest, mocked `pool.query`,
+  following the existing `routes/__tests__` style):
+  - `GET /api/frag/account/Player` → 404;
+  - leaderboard, top-gainers and player responses have no `account_name` key even when the
+    mocked row contains one;
+  - `?account_name=` adds no SQL condition or parameter.
+- `pvpService.test.ts` (native block, which already creates `pkill_info` and `player_data`):
+  add `account_characters` rows and assert `character_exists`. A live pid → true. A retired
+  pid whose name was reused by a new live pid → false for the old participant. A null pid →
+  false.
+- Guild flag: extend the closest existing guild/profile test. If `getGuildProfile` cannot be
+  reached without MUD guild files, mock `mudGuildParser` and assert both the flag mapping and
+  that the member query includes the `EXISTS`. Investigate the cheaper route first.
+
+Frontend (`pnpm --dir frontend test:unit --run <files>`):
+
+- `BattleDetailView.spec.ts`: no profile API call, struck-through styling from
+  `character_exists: false`, and clicking a live participant pushes `character-profile`.
+- New `CharacterProfileView.spec.ts`: renders from the four public calls, shows not-found on
+  a frag 404, and never renders an account string present in a post fixture's author field
+  outside the post list.
+- New `FragLeaderboardTable.spec.ts`: no account text, and a row click pushes
+  `character-profile` with `char_name`.
+- Guild, Stats and Top Gainers changes are one-line target swaps covered by `type-check`, plus
+  a source check:
+  `grep -rn "getCharacterAccount\|account_name" frontend/src/components/frag frontend/src/views/{BattleDetail,GuildProfile,Stats}View.vue`
+  must return nothing.
+
+Gates (CLAUDE.md):
+- `format:check`, `lint` and `type-check` for both packages;
+- both builds;
+- `./frontend/scripts/check-palette-literals.sh`;
+- `pnpm --dir backend verify:mud-writes` (only SELECTs change, so no new MUD writes are
+  expected).
+
+Rendered check: run the dev site, open a battle, a guild, `/pvp/stats`, `/frag-leaderboard`
+and `/character/<name>` signed out at phone and desktop widths. Confirm that no account name
+appears and that links and struck-through styling behave as described.
+
+Release acceptance (separate from implementation, needs deployment authorization):
+- on `duris.sbs`, signed out, the two forum lookup URLs and `/api/frag/account/<name>` return
+  404;
+- frag JSON has no `account_name`;
+- character links open `/character/:name`;
+- then publish the changelog draft.
+
+## Estimate for me to implement
+
+About **4–6 hours** of agent working time, one PR:
+
+| Part | Time |
+|---|---|
+| Backend removals and flags | ~1 h |
+| Character page rewrite and the five consumers | ~1.5–2 h |
+| Backend and frontend tests | ~1–1.5 h |
+| Docs, changelog draft, full gates, both builds and the rendered check | ~1 h |
+
+The main uncertainty is how easily the guild profile test can be reached (open question
+handling in Proof) and the rendered-check setup on the dev MUD database.
+
+## Open questions
+
+1. **Account search limiter.** Option 4 mentioned rate-limiting `/api/forum/accounts/search`.
+   The plan drops it because account names alone reveal no rosters once the mapping endpoints
+   are gone. Should a limiter still be added anyway, as hygiene?
+2. **Owner-only `GET /api/forum/characters/:name/profile`.** After this change nothing in the
+   UI calls it. Remove it in a follow-up, or keep it and later add an owner "full details"
+   section to the public character page?
+3. **Webinfo toggle.** Should the public character page hide its PvP or forum tabs when the
+   player has turned `webinfo` off? Today the underlying endpoints ignore that toggle, so the
+   plan does not change it.
+4. **Pid reuse across a pwipe.** If a pwipe resets `player_data` pids while keeping old
+   `pkill_info` rows, an old battle participant could match a new character's pid. Name
+   matching already has this problem today, and worse. Does a pwipe preserve PvP history and
+   reset pids? If so, the flag should also compare `ac.char_name`.
+5. **Changelog wording.** Should the release note say plainly that the October promise was not
+   fully true until now, or just describe the new behavior?
+
+---
+
+# Previous plans
+
 # Issue #183: structure stack follow-ups
 
 Issue: [DurisWeb #183](https://github.com/LuminariMUD/DurisWeb/issues/183)
