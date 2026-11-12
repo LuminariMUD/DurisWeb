@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { randomUUID } from 'node:crypto';
 import mysql, { type Connection } from 'mysql2/promise';
 import express from 'express';
 import request from 'supertest';
@@ -200,6 +201,8 @@ const fixturePort = Number(process.env.TEST_PVP_DB_PORT);
 const databaseTests = fixturePort ? describe : describe.skip;
 databaseTests('PvP SQL contract on a disposable database', () => {
   let connection: Connection;
+  const fixtureDatabase = `durisweb_pvp_snapshot_${randomUUID().replaceAll('-', '')}`;
+  let fixtureCreated = false;
   beforeAll(async () => {
     if (
       !Number.isInteger(fixturePort) ||
@@ -214,8 +217,9 @@ databaseTests('PvP SQL contract on a disposable database', () => {
       user: 'root',
       dateStrings: true,
     });
-    await connection.query('CREATE DATABASE pvp_snapshot_test');
-    await connection.changeUser({ database: 'pvp_snapshot_test' });
+    await connection.query('CREATE DATABASE ??', [fixtureDatabase]);
+    fixtureCreated = true;
+    await connection.changeUser({ database: fixtureDatabase });
     // changeUser resets session variables; set the fixture timezone afterward.
     await connection.query("SET time_zone = '+00:00'");
     await connection.query(
@@ -242,7 +246,7 @@ databaseTests('PvP SQL contract on a disposable database', () => {
     );
     // Pid 1 is live; pid 2 is retired and its name now belongs to pid 9; pid 3 has no link.
     await connection.query(
-      "INSERT INTO account_characters VALUES ('Owner','Fixture',1,NULL),('Former','Other',2,'2020-02-01'),('Current','Other',9,NULL)",
+      "INSERT INTO account_characters VALUES ('Owner','Fixture',1,NULL),('Former','Other',2,'2020-02-01'),('Current','Other',9,NULL),('WrongOwner','Replacement',4,NULL),('Unassigned','Unrelated',0,NULL)",
     );
     await connection.query(
       "INSERT INTO pkill_event(id,stamp,room_name,room_vnum) VALUES(1,'2020-01-01','Fixture room',1)",
@@ -291,8 +295,11 @@ databaseTests('PvP SQL contract on a disposable database', () => {
   });
   afterAll(async () => {
     if (connection) {
-      await connection.query('DROP DATABASE pvp_snapshot_test');
-      await connection.end();
+      try {
+        if (fixtureCreated) await connection.query('DROP DATABASE ??', [fixtureDatabase]);
+      } finally {
+        await connection.end();
+      }
     }
   });
 
@@ -312,6 +319,22 @@ databaseTests('PvP SQL contract on a disposable database', () => {
     const flags = Object.fromEntries(participants.map((p) => [p.pid, p.character_exists]));
     expect(flags).toEqual({ 1: true, 2: false, 3: false });
     expect(JSON.stringify(participants)).not.toMatch(/Owner|Former|Current/);
+  });
+
+  it('does not link a zero or reused pid to a different current character', async () => {
+    await connection.query(
+      "INSERT INTO pkill_event(id,stamp,room_name) VALUES(2,'2020-01-01','Historical room')",
+    );
+    await connection.query(
+      `INSERT INTO pkill_info(id,event_id,pid,level,pk_type,player_description,inroom,webinfo_at_capture)
+       VALUES (100,2,4,56,'KILLER','[56 Warrior] Retired (Human)',1,1),
+              (101,2,0,40,'VICTIM','Legacy',1,1)`,
+    );
+    const participants = (await service.getPvPEventDetail(2))?.participants ?? [];
+    expect(Object.fromEntries(participants.map((p) => [p.pid, p.character_exists]))).toEqual({
+      0: false,
+      4: false,
+    });
   });
 
   it('keeps raw snapshots behind the privacy gate and exposes public snapshots intact', async () => {

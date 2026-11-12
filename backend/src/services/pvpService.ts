@@ -391,7 +391,9 @@ export async function getPvPEventDetail(eventId: number): Promise<PvPEventDetail
       p.leader,
       p.pid,
       EXISTS(
-        SELECT 1 FROM account_characters ac WHERE ac.pid = p.pid AND ac.deleted_at IS NULL
+        SELECT 1 FROM account_characters ac
+        WHERE p.pid > 0 AND ac.pid = p.pid AND ac.deleted_at IS NULL
+          AND LOWER(ac.char_name) = LOWER(${playerNameSql('p')})
       ) AS character_exists
     FROM pkill_event e
     LEFT JOIN pkill_info p ON e.id = p.event_id AND p.inroom = 1

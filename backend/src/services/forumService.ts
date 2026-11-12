@@ -2779,7 +2779,9 @@ export async function getGuildProfile(guildNameOrSlug: string): Promise<any | nu
     // Get active member list with character data
     const [activeMembers] = await connection.query<RowDataPacket[]>(
       `SELECT pd.pid, pd.name, pd.level, COALESCE(fl.race, '') as race, COALESCE(fl.class, '') as classname, pd.active,
-              EXISTS(SELECT 1 FROM account_characters ac WHERE ac.pid = pd.pid AND ac.deleted_at IS NULL) as character_exists
+              EXISTS(SELECT 1 FROM account_characters ac
+                     WHERE pd.pid > 0 AND ac.pid = pd.pid AND ac.deleted_at IS NULL
+                       AND LOWER(ac.char_name) = LOWER(pd.name)) as character_exists
        FROM player_data pd
        JOIN associations a ON pd.assoc_id = a.id
        LEFT JOIN frag_leaderboard fl ON pd.pid = fl.pid
