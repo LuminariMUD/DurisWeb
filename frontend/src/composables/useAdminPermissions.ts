@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { type Ref, type ComputedRef, unref, computed } from 'vue'
-import axios from 'axios'
+import { apiClient } from '@/services/httpClient'
 import { frontendConfiguration } from '@/config/environment'
 
 const API_URL = frontendConfiguration.apiUrl
@@ -46,14 +46,14 @@ export interface AccountPermissions {
 
 // API Functions
 async function fetchPermissions(): Promise<Permission[]> {
-  const response = await axios.get(`${API_URL}/api/admin/permissions`, {
+  const response = await apiClient.get(`${API_URL}/api/admin/permissions`, {
     withCredentials: true,
   })
   return response.data
 }
 
 async function fetchRoles(): Promise<Role[]> {
-  const response = await axios.get(`${API_URL}/api/admin/roles`, {
+  const response = await apiClient.get(`${API_URL}/api/admin/roles`, {
     withCredentials: true,
   })
   // Transform snake_case to camelCase
@@ -69,7 +69,7 @@ async function fetchRoles(): Promise<Role[]> {
 }
 
 async function fetchRole(roleId: number): Promise<Role> {
-  const response = await axios.get(`${API_URL}/api/admin/roles/${roleId}`, {
+  const response = await apiClient.get(`${API_URL}/api/admin/roles/${roleId}`, {
     withCredentials: true,
   })
   const role = response.data
@@ -95,7 +95,7 @@ async function createRole(data: {
   description?: string
   permissionIds: number[]
 }): Promise<{ success: boolean; roleId: number }> {
-  const response = await axios.post(`${API_URL}/api/admin/roles`, data, {
+  const response = await apiClient.post(`${API_URL}/api/admin/roles`, data, {
     withCredentials: true,
   })
   return response.data
@@ -109,21 +109,21 @@ async function updateRole(
     permissionIds: number[]
   },
 ): Promise<{ success: boolean }> {
-  const response = await axios.put(`${API_URL}/api/admin/roles/${roleId}`, data, {
+  const response = await apiClient.put(`${API_URL}/api/admin/roles/${roleId}`, data, {
     withCredentials: true,
   })
   return response.data
 }
 
 async function deleteRole(roleId: number): Promise<{ success: boolean }> {
-  const response = await axios.delete(`${API_URL}/api/admin/roles/${roleId}`, {
+  const response = await apiClient.delete(`${API_URL}/api/admin/roles/${roleId}`, {
     withCredentials: true,
   })
   return response.data
 }
 
 async function fetchAccountPermissions(accountName: string): Promise<AccountPermissions> {
-  const response = await axios.get(`${API_URL}/api/admin/accounts/${accountName}/permissions`, {
+  const response = await apiClient.get(`${API_URL}/api/admin/accounts/${accountName}/permissions`, {
     withCredentials: true,
   })
   const data = response.data
@@ -152,7 +152,7 @@ async function assignRoleToAccount(
   accountName: string,
   roleId: number,
 ): Promise<{ success: boolean }> {
-  const response = await axios.post(
+  const response = await apiClient.post(
     `${API_URL}/api/admin/accounts/${accountName}/roles`,
     { roleId },
     { withCredentials: true },
@@ -164,7 +164,7 @@ async function revokeRoleFromAccount(
   accountName: string,
   roleId: number,
 ): Promise<{ success: boolean }> {
-  const response = await axios.delete(
+  const response = await apiClient.delete(
     `${API_URL}/api/admin/accounts/${accountName}/roles/${roleId}`,
     { withCredentials: true },
   )
@@ -175,7 +175,7 @@ async function grantPermissionToAccount(
   accountName: string,
   permissionId: number,
 ): Promise<{ success: boolean }> {
-  const response = await axios.post(
+  const response = await apiClient.post(
     `${API_URL}/api/admin/accounts/${accountName}/permissions`,
     { permissionId },
     { withCredentials: true },
@@ -187,7 +187,7 @@ async function revokePermissionFromAccount(
   accountName: string,
   permissionId: number,
 ): Promise<{ success: boolean }> {
-  const response = await axios.delete(
+  const response = await apiClient.delete(
     `${API_URL}/api/admin/accounts/${accountName}/permissions/${permissionId}`,
     { withCredentials: true },
   )

@@ -545,7 +545,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import { apiClient } from '@/services/httpClient'
 import {
   Activity,
   AlertTriangle,
@@ -621,7 +621,7 @@ const fetchSuspiciousAccounts = async () => {
   error.value = null
 
   try {
-    const response = await axios.get(
+    const response = await apiClient.get(
       `${API_URL}/api/admin/connections/suspicious?includeResolved=${showResolved.value}`,
       { withCredentials: true },
     )
@@ -650,7 +650,7 @@ const loadTimeline = async () => {
 
   timelineLoading.value = true
   try {
-    const response = await axios.get(
+    const response = await apiClient.get(
       `${API_URL}/api/admin/connections/account/${selectedAccount.value}`,
       { withCredentials: true },
     )
@@ -675,7 +675,7 @@ const resolveAccount = async () => {
 
   isResolving.value = true
   try {
-    await axios.post(
+    await apiClient.post(
       `${API_URL}/api/admin/connections/resolve/${selectedAccount.value}`,
       { notes: reviewNotes.value || undefined },
       { withCredentials: true },
