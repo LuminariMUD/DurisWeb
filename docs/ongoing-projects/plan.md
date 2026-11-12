@@ -1,3 +1,235 @@
+# Issue #176: stop returning raw error text in API responses
+
+Issue: [DurisWeb #176](https://github.com/LuminariMUD/DurisWeb/issues/176)
+
+Branch: `branch/issue-176-safe-error-responses` (linked to the issue)
+
+Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d5573c156`.
+
+**Status: planned; implementation not started.**
+
+This plan was built from the code, not from the issue text. Every count below comes from
+an AST pass over `backend/src` (non-test `.ts`), which finds wrapped call sites that a line
+grep misses. Where the issue or its investigation comments are wrong or incomplete, that is
+stated under "Verified against the code".
+
+## Outcome
+
+1. No HTTP, SSE or WebSocket response sends the text of an unexpected error (driver,
+   filesystem, network or library message, SQL, path) to a client. Unexpected failures
+   return a fixed per-route message plus a generated `reference`, and the server log keeps
+   that reference with an allowlisted failure code.
+2. Messages that are meant for users (validation, not found, not allowed) still reach them,
+   through one typed path (`AppError`) instead of by forwarding `error.message` or matching
+   message text.
+3. The global `errorHandler` follows the same rule, which covers the public `asyncHandler` /
+   `next(error)` routes.
+4. A lint rule stops the pattern from coming back, and regression tests prove the rule at
+   each exposure level.
+5. `docs/CONVENTIONS.md` states the rule and `docs/SECURITY-COMPLIANCE.md` records the
+   finding.
+
+## Non-goals
+
+- Changing what the server logs. Existing `logger.error('...', error)` lines stay as they
+  are (see open question 1). This issue is about response bodies.
+- Unifying the two existing error body shapes (`{ error }` from routes and
+  `{ success: false, error: { message, statusCode } }` from `errorHandler`). Both are kept;
+  the frontend reads both.
+- Rewriting the feature error classes that already work (`PostImageAttachmentError`,
+  `HookToggleError`, `PrivacyChoiceError`, `AccountExportError`, the wiki `*UnavailableError`
+  classes). They already send only their own fixed messages.
+- Frontend changes. No view reads the builder `message` field from an error, and views read
+  `data.error` / `data.error.message`, which keep their meaning.
+- The MUD repository.
+
+## Verified against the code
+
+| Claim (issue or investigation comment) | What the code shows |
+|---|---|
+| 70 sites match `status(500).json({ error: getErrorMessage` | Correct: 70 in 11 files. |
+| That is the whole problem | No. The AST pass finds **146** `getErrorMessage(...)` values inside a status-500 `.json(...)`, in 25 files (wrapped lines, and the builder `message: getErrorMessage(error)` field). |
+| Other leak forms | 11 status-400 and 2 status-403 `getErrorMessage` responses; 15 `error instanceof Error ? error.message : '…'` values sent as 500 or 400 (`features/admin/accessRoutes.ts` 6, `settingsRoutes.ts` 5, `backupRoutes.ts` 3, `dupeRoutes.ts` 1); 1 SSE write (`features/builder/streamExportRoutes.ts:97`); 5 WebSocket/service-result sites (`realtime/deployHandler.ts:118`, `realtime/zoneStreamHandlers.ts:133,237`, `services/deploymentService.ts:250,256`); service results `services/gitService.ts:422,465` and `services/mudControlService.ts:384,477,621`; an admin notification body (`features/admin/healthRoutes.ts:96`); and the `wipe_history.error_message` column (`features/admin/wipeRoutes.ts:433`). |
+| Fix by routing user-facing messages through `AppError` / `errorHandler` | `AppError(message, statusCode)` exists (`middleware/errorHandler.ts:15`) but only `routes/auction.ts`, `routes/pvp.ts` and two pvp services use it (57 throws). `errorHandler` itself sends `err.message` for **every** error (`errorHandler.ts:38,49-51`) and also writes it into the log line (`:41`). |
+| A generic 500 is enough | **No, and this is the biggest gap in the issue.** Services throw about 280 plain `new Error('…')` that the affected routes forward on purpose: for example `pollService.ts` ("Please select at least N option(s)", "This poll is no longer accepting votes") and `webSettingsService.ts` ("Support URL must be a valid HTTP or HTTPS URL"). Making every catch generic would break these messages for players and admins. The user-facing throws must become `AppError` first. Largest feeders: `reactionPollRoutes` 51, `moderationRoutes` 31, `communityRoutes` 31, `settingsRoutes` 19, builder zone/collaboration/room/object/mob 14-17 each, `content.ts` 15. |
+| Message-text matching should become typed errors | Confirmed at `routes/wiki.ts:241` (`=== 'No map rooms on this layer'`), `:283` (`includes('too large' / 'Invalid bounds')`, forwards the text), `features/forum/reactionPollRoutes.ts:282` (`includes('Duplicate entry')`, a MySQL message), `profileRoutes.ts:326,373` (`includes('Only JPG')`), `subscriptionRoutes.ts:82,194` (`=== 'Thread not found'`), `collaborationRoutes.ts:552,611` (exact match, forwards as 403), `features/admin/dupeRoutes.ts:136` (`includes('distinct VNUMs')`). |
+| Public routes through `errorHandler` | Confirmed: `routes/pvp.ts`, `news.ts`, `auction.ts`, `wiki.ts` (29 `next(error)`), `serverReboot.ts`; `zones.ts` is permission-gated. Only `AppError` and body-parser errors carry a `statusCode` here, so gating on those is safe. |
+| Frontend depends on the leaked text | No. `frontend/src/utils/apiError.ts` matches `data.code` only. `data.message` reads (12) are success messages. `AuctionDetailView.vue:184` reads `data.error.message` for `AppError` 4xx bid errors, which stays. |
+| A lint or script guard should be added | The backend already uses `no-restricted-imports` in `backend/eslint.config.js` for the same file globs; extending ESLint is smaller than a new shell script. |
+
+## Design
+
+### 1. One route helper — `backend/src/utils/routeError.ts`
+
+```ts
+/** Send a typed public error as-is; hide anything else behind a fixed message and a reference. */
+export function sendRouteError(
+  res: Response, error: unknown, publicMessage: string, context: string,
+): Response {
+  if (error instanceof AppError && error.statusCode < 500)
+    return res.status(error.statusCode).json({ error: error.message });
+  const reference = randomUUID();
+  logger.error(context, { reference, code: safeFailureCode(error) });
+  return res.status(500).json({ error: publicMessage, reference });
+}
+```
+
+- Reuses `AppError`, `safeFailureCode` and the `randomUUID` reference pattern already in
+  `features/forum/contentRoutes.ts:527-531`. No new error class.
+- An `AppError` with status ≥ 500 is treated as internal, so a 5xx can never carry text.
+- A route keeps its own `logger.error(..., error)` line if it has one (non-goal above).
+
+### 2. Global handler — `backend/src/middleware/errorHandler.ts`
+
+Send `err.message` only when the error is an `AppError` with status < 500, or an
+http-errors client error (`expose === true` and status < 500: body-parser 400/413). Anything
+else becomes `{ success: false, error: { message: 'Internal Server Error', statusCode: 500,
+reference } }`. Keep the stack-in-development behavior. Add the reference and
+`safeFailureCode(err)` to the log line.
+
+### 3. Typed public errors at the source
+
+For each service whose plain `Error` text reaches a client through a converted route,
+classify every `throw new Error(...)`:
+
+- **User-facing** (fixed literal or literal + user input such as a count, describing a
+  condition the caller can act on: validation, not found, not allowed, conflict) → `throw new
+  AppError(message, 400 | 403 | 404 | 409)`.
+- **Internal** (invariants, "Failed to …", anything built from a caught error) → unchanged;
+  it becomes the generic 500.
+
+Replace the message-text matches listed above with typed checks: `AppError` status, the
+existing wiki error classes, or `safeFailureCode(error) === 'ER_DUP_ENTRY'` for the poll
+duplicate. Where a route used to send a user-facing message as 500 or 400, the new status is
+the semantically correct 4xx; check the matching frontend call for status-specific handling
+while converting it.
+
+### 4. Convert every response site
+
+Replace each site with `return sendRouteError(res, error, '<current fallback text>', '<route
+context>')`, keeping the route's existing fallback wording as the public message. Builder
+`{ error, message: getErrorMessage(error) }` bodies lose `message`. Non-JSON sinks get fixed
+text plus a logged reference:
+
+- SSE `streamExportRoutes.ts:97`, WebSocket `deployHandler.ts:118`,
+  `zoneStreamHandlers.ts:133,237`, `deploymentService.ts:250,256`.
+- `gitService.ts:422,465` and `mudControlService.ts:384,477,621` return a fixed failure
+  string in their result object (see open question 3 for the operator console stream).
+- `healthRoutes.ts:96` notification body: fixed text plus reference.
+- `wipeRoutes.ts:433`: store `safeFailureCode(error)` in `wipe_history.error_message`
+  instead of raw text (no schema change).
+
+### 5. Guard — `backend/eslint.config.js`
+
+For `src/routes/**`, `src/features/**` and `src/realtime/**` (non-test):
+
+- Forbid importing `getErrorMessage` from `utils/logger.js` (`no-restricted-imports` with
+  `importNames`, merged into the existing entry-point rule because flat config replaces, not
+  merges, a rule's options). After step 4, only `realtime/socketAuth.ts:63,85` still use it,
+  for logging; those switch to `safeFailureCode` or to passing the error object.
+- `no-restricted-syntax` for `.message` on `err|error|e` inside a `.json/.send/.write/.end/
+  .emit` call argument. The existing typed-error sites (`contentRoutes.ts:529,607,875,943`,
+  `imageRoutes.ts:178,216`, `hooks.ts:146,189`, `privacy.ts:122`, `webAnalytics.ts:56`) get a
+  one-line `eslint-disable-next-line` with the reason, or are rewritten through the helper if
+  that is smaller.
+
+### 6. Docs
+
+- `docs/CONVENTIONS.md` → Error Handling: "Responses never carry the text of an unexpected
+  error. Throw `AppError` for messages meant for users; send everything else through
+  `sendRouteError`, which returns a fixed message and a logged reference."
+- `docs/SECURITY-COMPLIANCE.md`: a remediation row for #176 in the same style as the #13 row
+  (line 290).
+
+## Ablation
+
+| Item | Decision | Why |
+|---|---|---|
+| Global `errorHandler` fix | Keep | Only control for the public `asyncHandler` routes. |
+| `sendRouteError` helper | Keep, simplified | One helper handles both the typed-message branch and the generic branch. The investigation proposed a helper plus per-feature error classes; `AppError` already exists and is enough. |
+| Converting user-facing service throws to `AppError` | Keep | Without it, step 4 breaks validation messages players and admins see today. Not optional. |
+| `reference` in the body | Keep | Precedent in `contentRoutes.ts`; it is the only link from a user report to the log once the text is gone. Costs one field. |
+| New per-feature error classes | Drop | No second requirement beyond what `AppError` covers. |
+| Unifying response shapes / changing logging | Drop | Not required by the issue; the frontend reads both shapes; logging policy is open question 1. |
+| Separate shell guard script | Drop | ESLint already runs in CI and has the config pattern. |
+| A regression test per converted site (~180) | Simplify | Lint guard covers the pattern; tests prove each mechanism and each exposure level (below). |
+| Four PRs by exposure (investigation comment) | Simplify | One branch, one PR, one commit per group in the same order, so the stack stays reviewable without four rebases. See open question 4. |
+| Frontend changes | Drop | Verified no consumer of the removed fields. |
+
+## Files
+
+- New: `backend/src/utils/routeError.ts`, `backend/src/utils/__tests__/routeError.test.ts`,
+  `backend/src/__tests__/errorResponseGuard.test.ts` (or next to the existing lint-adjacent
+  tests).
+- Changed: `middleware/errorHandler.ts` and its test; the 25 route files in the 500 table,
+  plus `features/admin/communityRoutes.ts`, `settingsRoutes.ts`, `accessRoutes.ts`,
+  `backupRoutes.ts`, `dupeRoutes.ts`, `features/forum/profileRoutes.ts`,
+  `subscriptionRoutes.ts`, `routes/wiki.ts`, `realtime/deployHandler.ts`,
+  `realtime/zoneStreamHandlers.ts`, `realtime/socketAuth.ts`; services whose throws are
+  reclassified (poll, moderation, community, web settings, builder zone/room/mob/object/
+  reset/collaboration/access, content, auth) plus `gitService.ts`, `mudControlService.ts`,
+  `deploymentService.ts`; `backend/eslint.config.js`; `docs/CONVENTIONS.md`;
+  `docs/SECURITY-COMPLIANCE.md`.
+
+## Order of work (one commit each)
+
+1. Helper + `errorHandler` + their tests + lint rule (rule initially reports; it passes only
+   once all groups are done, so it lands enabled in the last commit).
+2. Anonymous: `features/changelog/routes.ts`, `routes/guide.ts`, `routes/content.ts` `GET /news`.
+3. Players: `notifications.ts`, `helpSuggestions.ts`, `auth.ts`, forum moderation, reaction/poll,
+   profile, subscription, `wiki.ts` text matches; their service throws.
+4. Admin/staff: rest of `content.ts`, `features/admin/*`, health notification, wipe history.
+5. Builder: `features/builder/*`, `routes/git.ts`, SSE/WebSocket, git/mud/deployment results.
+6. Enable the guard, docs, full verification.
+
+## Proof
+
+- `middleware/__tests__/errorHandler.test.ts`: a route throwing
+  `Object.assign(new Error("Table 'x.secret_table' doesn't exist"), { code: 'ER_NO_SUCH_TABLE' })`
+  gets 500, a `reference`, and no `secret_table` in the serialized body; `AppError('Bid too
+  low', 400)` keeps its message; `AppError('x', 500)` is hidden; the existing 413/400 cases pass.
+- `utils/__tests__/routeError.test.ts`: generic body is exactly `{ error, reference }`; the
+  logger gets `reference` and an allowlisted `code` only; `AppError` 4xx passes through.
+- Router regressions in the `godPasswordReset.test.ts` style (real router, stubbed service
+  rejecting with `SENTINEL_/abs/path ER_ACCESS_DENIED`, assert the body does not contain
+  `SENTINEL` and equals the generic body):
+  - anonymous: extend `features/changelog/__tests__/changelogRoute*.test.ts`;
+  - public `asyncHandler`: one `routes/pvp` case;
+  - player: poll vote — an `AppError` validation message still arrives with its 4xx, a driver
+    error does not; poll create duplicate → 409 via `ER_DUP_ENTRY` code;
+  - admin: web setting validation message preserved, driver error hidden;
+  - builder: one route, asserting `message` is absent.
+- Guard test: ESLint `lintText` on `res.status(500).json({ error: getErrorMessage(e) })` and on
+  `res.json({ error: error.message })` under a route path reports the rule.
+- Commands (from the repository root):
+  `pnpm --dir backend format:check`, `pnpm --dir backend lint`, `pnpm --dir backend type-check`,
+  `pnpm --dir backend test --runInBand`, `pnpm --dir backend build`,
+  `pnpm --dir backend verify:mud-writes` (the wipe-history value changes).
+  Frontend is not changed; its checks are not required unless a status-specific handler is
+  touched in step 3.
+- Release: per `CLAUDE.md`, use `$news-update` after live verification. Expected outcome is a
+  short "error messages no longer expose server details" entry, or a recorded "no
+  reader-visible change" decision.
+
+## Open questions
+
+1. **Logging.** Many routes already log the whole error object, which includes mysql2 `sql`
+   and values. The investigation suggested logging only the allowlisted code. This plan leaves
+   existing log lines alone (the issue is about responses). Should that be a follow-up issue?
+2. **Status codes.** Some user-facing messages are sent as 500 or 400 today. The plan moves
+   them to the correct 4xx (for example 404 for "Poll not found"). Acceptable, or keep the old
+   status codes exactly?
+3. **Operator console.** `mudControlService` also streams the raw error into the admin MUD
+   control console (`output(...)`). The plan sanitizes the returned result but leaves the live
+   operator console stream unchanged, because it is a deliberate diagnostic channel for
+   trusted operators. Agree?
+4. **PR shape.** One PR with one commit per exposure group (about 45 files), or split into
+   separate PRs as the investigation comment proposed?
+
+---
+
+*Earlier plans in this file are preserved unchanged below.*
+
 # Issue #181: make characters, not accounts, the public link target
 
 Issue: [DurisWeb #181](https://github.com/LuminariMUD/DurisWeb/issues/181)
