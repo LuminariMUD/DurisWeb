@@ -44,6 +44,10 @@ function getAlignmentLabel(racewar: number) {
       return 'Good'
     case 2:
       return 'Evil'
+    case 3:
+      return 'Undead'
+    case 4:
+      return 'Neutral'
     default:
       return 'Unknown'
   }
@@ -120,7 +124,7 @@ function getAlignmentColor(racewar: number) {
             <TableHead class="w-16">Rank</TableHead>
             <TableHead>Character</TableHead>
             <TableHead>Frags</TableHead>
-            <TableHead>Alignment</TableHead>
+            <TableHead>Faction</TableHead>
             <TableHead>Race</TableHead>
             <TableHead>Class</TableHead>
             <TableHead>Level</TableHead>
@@ -178,7 +182,7 @@ function getAlignmentColor(racewar: number) {
                 </Badge>
               </TableCell>
 
-              <!-- Alignment -->
+              <!-- Faction -->
               <TableCell>
                 <Badge
                   variant="outline"
