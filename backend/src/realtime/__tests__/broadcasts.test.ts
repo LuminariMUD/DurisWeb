@@ -99,13 +99,16 @@ describe('application broadcasts', () => {
     const operator = socket('Operator', 57, ['view_server_health', 'view_connection_logs']);
     attach(anonymous, player, operator);
     broadcasts.broadcastCrashAlert({ id: 1 });
-    broadcasts.broadcastConnectionEvent({
+    const event = {
       characterName: 'Synthetic',
       status: 'connect',
       ipAddress: '192.0.2.1',
       timestamp: new Date(0),
-    });
+    };
+    broadcasts.broadcastConnectionEvent(event);
     expect(operator.send).toHaveBeenCalledTimes(2);
+    // The address never leaves the server, even for an entitled operator.
+    expect(String(operator.send.mock.calls[1]?.[0])).not.toContain('192.0.2.1');
     expect(delivered(anonymous) || delivered(player)).toBe(false);
   });
 
