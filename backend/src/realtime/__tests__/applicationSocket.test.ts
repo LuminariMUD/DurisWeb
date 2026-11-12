@@ -14,6 +14,7 @@ const watchLog = jest.fn((..._args: unknown[]) => true);
 const unwatchLog = jest.fn();
 const createSession = jest.fn(async (..._args: unknown[]) => ({ sessionId: 5 }));
 const destroySession = jest.fn(async (_sessionId: number) => undefined);
+const cancelPendingSessionsForWebSocket = jest.fn((_ws: unknown) => undefined);
 const isTerminalOperationAuthorized = jest.fn<(...args: unknown[]) => Promise<boolean>>(
   async () => false,
 );
@@ -65,6 +66,7 @@ stub('../../services/logWatchService.js', { watchLog, unwatchLog });
 stub('../../services/terminalService.js', {
   createSession,
   destroySession,
+  cancelPendingSessionsForWebSocket,
   isTerminalOperationAuthorized,
   getSessionByWebSocket: () => terminalSession,
 });
@@ -281,6 +283,7 @@ describe('application socket dispatch', () => {
     expect(state(ws).logSubscriptions?.size).toBe(0);
     expect(state(ws).terminalAuth).toBeUndefined();
     expect(destroySession).toHaveBeenCalledWith(9);
+    expect(cancelPendingSessionsForWebSocket).toHaveBeenCalledWith(ws);
   });
 
   it('does not report or keep a subscription for a log that cannot be watched', async () => {

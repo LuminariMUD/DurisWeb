@@ -7,6 +7,7 @@ import { hasActiveWebSession } from '../services/sessionService.js';
 import { getUserPermissions } from '../services/permissionService.js';
 import {
   createSession as createTerminalSession,
+  cancelPendingSessionsForWebSocket,
   writeInput as writeTerminalInput,
   resizeTerminal,
   destroySession as destroyTerminalSession,
@@ -50,6 +51,7 @@ async function ensureTerminalOperation(ws: WebSocket, sessionId: number): Promis
 
 /** Forget terminal ownership and destroy any terminal session held by this connection. */
 export async function closeTerminal(ws: WebSocket): Promise<void> {
+  cancelPendingSessionsForWebSocket(ws);
   delete clientState(ws).terminalAuth;
   // Cleanup terminal session if exists
   const sessionId = getSessionByWebSocket(ws);

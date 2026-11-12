@@ -53,6 +53,13 @@ export function getTerminalSessionName(accountName: string, sessionId: number): 
   return `duris-${safeAccountName}-${sessionId}`;
 }
 
+/** Cancel only this socket's pending creations, stopping any spawned child before I/O settles. */
+export function cancelPendingSessionsForWebSocket(ws: WebSocket): void {
+  for (const creation of pendingSessions.values()) {
+    if (creation.ws === ws) creation.cancel();
+  }
+}
+
 /**
  * Create a new terminal session with bwrap sandboxing
  */
