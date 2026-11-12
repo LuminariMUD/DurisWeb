@@ -1,5 +1,8 @@
-import { ref, onUnmounted, watch, type Ref } from 'vue'
+import { ref, onScopeDispose, watch, type Ref } from 'vue'
 import { useWebSocket } from './useWebSocket'
+
+export const LIVE_LOG_LINE_LIMIT = 500
+const LIVE_LOG_CHARACTER_LIMIT = 256 * 1024
 
 export interface LogUpdateEvent {
   type: 'LOG_UPDATE'
@@ -8,9 +11,7 @@ export interface LogUpdateEvent {
   newLines: string[]
 }
 
-/**
- * Composable for real-time log updates via WebSocket
- */
+/** Own one live log subscription on the shared application socket. */
 export function useLogWebSocket(
   category: Ref<'runtime' | 'player' | null>,
   logName: Ref<string | null>,
@@ -19,137 +20,127 @@ export function useLogWebSocket(
   const { socket, isConnected, sendMessage, getSubscriptionToken } = useWebSocket()
   const newLines = ref<string[]>([])
   const isSubscribed = ref(false)
+  let generation = 0
+  let disposed = false
+  let active: { socket: WebSocket; category: 'runtime' | 'player'; logName: string } | null = null
 
-  // Store cleanup function for proper unmount handling
-  let messageCleanup: (() => void) | null = null
-
-  // Subscribe to log updates; the server requires a short-lived websocket capability.
-  async function subscribe() {
-    const cat = category.value
-    const log = logName.value
-    if (!isConnected.value || !cat || !log) {
-      console.warn('Cannot subscribe: not connected or missing log info')
-      return
-    }
-
-    isSubscribed.value = true
-    const token = await getSubscriptionToken()
-    // The selection may have changed, or been unsubscribed, while the token was fetched.
-    if (!isSubscribed.value || cat !== category.value || log !== logName.value) return
-    if (!token) {
-      isSubscribed.value = false
-      return
-    }
-
-    sendMessage({ type: 'SUBSCRIBE_LOG', token, category: cat, logName: log })
-    console.log(`📡 Subscribed to log: ${cat}/${log}`)
-  }
-
-  // Unsubscribe from log updates
   function unsubscribe() {
-    if (!isConnected.value || !category.value || !logName.value) {
-      return
-    }
-
-    sendMessage({
-      type: 'UNSUBSCRIBE_LOG',
-      category: category.value,
-      logName: logName.value,
-    })
-
+    generation++
+    const previous = active
+    active = null
     isSubscribed.value = false
     newLines.value = []
-    console.log(`📡 Unsubscribed from log: ${category.value}/${logName.value}`)
+    if (
+      previous &&
+      previous.socket === socket.value &&
+      isConnected.value &&
+      previous.socket.readyState === WebSocket.OPEN
+    ) {
+      sendMessage({
+        type: 'UNSUBSCRIBE_LOG',
+        category: previous.category,
+        logName: previous.logName,
+      })
+    }
   }
 
-  // Listen for log updates
-  watch(socket, (ws, _oldWs, onCleanup) => {
-    // Clean up previous listener if any
-    if (messageCleanup) {
-      messageCleanup()
-      messageCleanup = null
-    }
+  async function subscribe() {
+    unsubscribe()
+    const target = socket.value
+    const cat = category.value
+    const log = logName.value
+    if (disposed || !enabled.value || !isConnected.value || !target || !cat || !log) return
+    const request = generation
+    const token = await getSubscriptionToken()
+    if (
+      disposed ||
+      request !== generation ||
+      target !== socket.value ||
+      target.readyState !== WebSocket.OPEN ||
+      !isConnected.value ||
+      !enabled.value ||
+      cat !== category.value ||
+      log !== logName.value ||
+      !token
+    )
+      return
+    active = { socket: target, category: cat, logName: log }
+    sendMessage({ type: 'SUBSCRIBE_LOG', token, category: cat, logName: log })
+  }
 
-    if (!ws) return
-
-    const handleMessage = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data)
-
-        // Handle log update
-        if (data.type === 'LOG_UPDATE') {
-          const logUpdate = data as LogUpdateEvent
-
-          // Only process if it's for our subscribed log
-          if (logUpdate.category === category.value && logUpdate.logName === logName.value) {
-            newLines.value = logUpdate.newLines
-            console.log(`📰 Received ${logUpdate.newLines.length} new log lines`)
-          }
-        }
-
-        // Handle subscription confirmation
-        if (data.type === 'LOG_SUBSCRIBED') {
-          if (data.category === category.value && data.logName === logName.value) {
-            console.log(`✅ Log subscription confirmed: ${data.category}/${data.logName}`)
-          }
-        }
-
-        // Handle unsubscription confirmation
-        if (data.type === 'LOG_UNSUBSCRIBED') {
-          if (data.category === category.value && data.logName === logName.value) {
-            console.log(`✅ Log unsubscription confirmed: ${data.category}/${data.logName}`)
-          }
-        }
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error)
-      }
-    }
-
-    ws.addEventListener('message', handleMessage)
-
-    // Store cleanup function for unmount
-    messageCleanup = () => {
-      ws.removeEventListener('message', handleMessage)
-    }
-
-    // Use Vue's onCleanup for watch invalidation
-    onCleanup(() => {
-      if (messageCleanup) {
-        messageCleanup()
-        messageCleanup = null
-      }
-    })
-  })
-
-  // Watch for changes in subscription state
   watch(
-    [isConnected, category, logName, enabled],
-    ([connected, cat, log, shouldSubscribe]) => {
-      if (connected && cat && log && shouldSubscribe) {
-        void subscribe()
-      } else if (isSubscribed.value) {
-        unsubscribe()
+    socket,
+    (ws, _previous, onCleanup) => {
+      if (!ws) return
+      const handleMessage = (event: MessageEvent) => {
+        let data: unknown
+        try {
+          data = JSON.parse(event.data)
+        } catch {
+          return
+        }
+        if (
+          !data ||
+          typeof data !== 'object' ||
+          !('type' in data) ||
+          !('category' in data) ||
+          !('logName' in data) ||
+          !active ||
+          active.socket !== ws ||
+          ws !== socket.value ||
+          !enabled.value ||
+          !isConnected.value ||
+          data.category !== active.category ||
+          data.logName !== active.logName
+        )
+          return
+        if (data.type === 'LOG_SUBSCRIBED') {
+          isSubscribed.value = true
+        } else if (data.type === 'ERROR') {
+          // Keep ownership until local cancellation: an older same-log error can precede
+          // the acknowledgement of a newer request on this ordered socket.
+          isSubscribed.value = false
+          newLines.value = []
+        } else if (
+          data.type === 'LOG_UPDATE' &&
+          isSubscribed.value &&
+          'newLines' in data &&
+          Array.isArray(data.newLines) &&
+          data.newLines.every((line: unknown) => typeof line === 'string')
+        ) {
+          const combined = [...newLines.value, ...data.newLines]
+          let start = Math.max(0, combined.length - LIVE_LOG_LINE_LIMIT)
+          let characters = 0
+          for (let index = combined.length - 1; index >= start; index--) {
+            characters += combined[index].length
+            if (characters > LIVE_LOG_CHARACTER_LIMIT) {
+              start = index + 1
+              break
+            }
+          }
+          newLines.value = combined.slice(start)
+        }
       }
+      ws.addEventListener('message', handleMessage)
+      onCleanup(() => ws.removeEventListener('message', handleMessage))
     },
     { immediate: true },
   )
 
-  // Cleanup on unmount
-  onUnmounted(() => {
-    if (isSubscribed.value) {
-      unsubscribe()
-    }
-    // Clean up message listener
-    if (messageCleanup) {
-      messageCleanup()
-      messageCleanup = null
-    }
+  watch(
+    [isConnected, socket, category, logName, enabled],
+    () => {
+      if (isConnected.value && enabled.value && category.value && logName.value && socket.value)
+        void subscribe()
+      else unsubscribe()
+    },
+    { immediate: true },
+  )
+
+  onScopeDispose(() => {
+    disposed = true
+    unsubscribe()
   })
 
-  return {
-    newLines,
-    isSubscribed,
-    subscribe,
-    unsubscribe,
-  }
+  return { newLines, isSubscribed, subscribe, unsubscribe }
 }

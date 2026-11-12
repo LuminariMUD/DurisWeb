@@ -6,7 +6,7 @@ import {
   getLogDownloadUrl,
   type LogFilters,
 } from '@/composables/useServerLogs'
-import { useLogWebSocket } from '@/composables/useLogWebSocket'
+import { LIVE_LOG_LINE_LIMIT, useLogWebSocket } from '@/composables/useLogWebSocket'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -392,7 +392,9 @@ function formatFileSize(bytes: number): string {
 
             <!-- Real-time new lines indicator -->
             <div v-if="newLines.length > 0 && currentPage === logContent.totalPages" class="mt-4 pt-4 border-t border-success/30">
-              <div class="text-success text-xs mb-2">New lines (real-time):</div>
+              <div class="text-success text-xs mb-2">
+                Recent live lines (up to {{ LIVE_LOG_LINE_LIMIT }}). Download the log for complete history.
+              </div>
               <div
                 v-for="(newLine, idx) in newLines"
                 :key="`new-${idx}`"
