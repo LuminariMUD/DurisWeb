@@ -1,4 +1,4 @@
-import type { WebSocket } from 'ws';
+import { WebSocket } from 'ws';
 import { watchLog, unwatchLog } from '../services/logWatchService.js';
 import { hasWebSocketPermission } from '../utils/websocketAccess.js';
 import { sendApplicationMessage } from '../utils/applicationWebSocket.js';
@@ -28,6 +28,9 @@ export const logStreamHandlers: Record<string, MessageHandler> = {
       );
       return;
     }
+    // The socket can close while auth is checked; its close cleanup has already run, so a
+    // watcher registered now would never be removed.
+    if (ws.readyState !== WebSocket.OPEN) return;
     clientState(ws).wsPrincipal = principal;
 
     const { category, logName } = data;

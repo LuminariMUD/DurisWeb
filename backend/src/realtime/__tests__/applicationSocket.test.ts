@@ -194,6 +194,46 @@ describe('application socket dispatch', () => {
     expect(state(ws).logSubscriptions?.size).toBe(0);
   });
 
+  it('does not watch a log for a socket that closed while its subscription was checked', async () => {
+    const ws = connect();
+    grants = ['view_server_logs'];
+    ws.emit(
+      'message',
+      Buffer.from(
+        JSON.stringify({
+          type: 'SUBSCRIBE_LOG',
+          token: wsToken(),
+          category: 'runtime',
+          logName: 'game.log',
+        }),
+      ),
+    );
+    ws.readyState = WebSocket.CLOSED;
+    ws.emit('close');
+    await flush();
+    expect(watchLog).not.toHaveBeenCalled();
+    expect(state(ws).logSubscriptions?.size).toBe(0);
+  });
+
+  it('still tears down the terminal when an earlier close step fails', async () => {
+    const ws = connect();
+    grants = ['view_server_logs'];
+    await send(ws, {
+      type: 'SUBSCRIBE_LOG',
+      token: wsToken(),
+      category: 'runtime',
+      logName: 'game.log',
+    });
+    terminalSession = 9;
+    unwatchLog.mockImplementationOnce(() => {
+      throw new Error('watcher already closed');
+    });
+    ws.emit('close');
+    await flush();
+    expect(unwatchLog).toHaveBeenCalled();
+    expect(destroySession).toHaveBeenCalledWith(9);
+  });
+
   it('contains a failed terminal teardown on close', async () => {
     const ws = connect();
     terminalSession = 9;
