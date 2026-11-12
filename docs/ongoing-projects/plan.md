@@ -23,9 +23,9 @@ fast-forward per PR, as the master ruleset requires linear history.
 | plan + (b) | `branch/issue-183-structure-stack-followups` | #196 | done, verified |
 | (c) | `branch/issue-183-c-wholist-removal` | #199 | done, verified (backend 1,695 tests, frontend 765) |
 | (a) | `branch/issue-183-a-startup-abort` | #208 | done, verified (backend 1,697 tests) |
-| (f) | `branch/issue-183-f-api-client-reads` | (opening) | done, verified (frontend 765 tests) |
-| (e) | `branch/issue-183-e-import-rules` | — | next |
-| (d) | `branch/issue-183-d-production-app-tests` | — | pending |
+| (f) | `branch/issue-183-f-api-client-reads` | #209 | done, verified (frontend 765 tests) |
+| (e) | `branch/issue-183-e-import-rules` | (opening) | done, verified (21/21 lint probes, real tree clean) |
+| (d) | `branch/issue-183-d-production-app-tests` | — | next |
 
 Working notes for a new session:
 
@@ -443,6 +443,15 @@ indirectly.
 - Record the probe commands in the PR, not as a test file.
 - Update the `docs/ARCHITECTURE.md:59-61` parenthesis. The whole stated direction
   is now lint-enforced, not "the rest is convention".
+- **As built:** `local/no-forbidden-imports` in `backend/eslint.config.js`.
+  - It has two config blocks: all of `src/**` and `scripts/**` → `[ENTRY]`; non-test
+    `src/features/**` and `src/services/**` → `[ENTRY, APP, RUNTIME]`.
+  - Flat config lets the later block's options replace the earlier ones, so it
+    repeats `ENTRY`.
+  - It also catches a directory specifier (`'..'` loads `src/index.ts`).
+  - The planned `src/index.ts` exclusion was unnecessary and dropped.
+  - 21 of 21 stdin probes give the intended result (12 flagged entry imports, 3
+    flagged direction imports, 6 allowed cases), and `eslint . --no-cache` is clean.
 
 ## (d) Prove the production half of `createApp` by behaviour
 
