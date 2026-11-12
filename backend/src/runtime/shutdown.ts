@@ -13,6 +13,8 @@ import type { BackgroundJobs } from './backgroundJobs.js';
 
 /** Resources a startup has acquired so far; shutdown releases only what is present. */
 export interface RuntimeResources {
+  /** Set as soon as shutdown begins; startup must acquire nothing after that. */
+  aborted?: boolean;
   stopEventLoopWatchdog?: () => Promise<void>;
   flatfileRecoveryMonitor?: boolean;
   poolSessionSampling?: NodeJS.Timeout;
@@ -28,6 +30,7 @@ export interface RuntimeResources {
 export function createShutdown(resources: RuntimeResources): () => Promise<void> {
   let shutdown: Promise<void> | undefined;
   return () => {
+    resources.aborted = true;
     shutdown ??= (async () => {
       // Every step runs even if an earlier one fails, so pools and clients still close;
       // the first failure is rethrown at the end so the process exits 1.
@@ -67,6 +70,11 @@ export function createShutdown(resources: RuntimeResources): () => Promise<void>
     })();
     return shutdown;
   };
+}
+
+/** Throw if shutdown has begun, so a startup still in progress stops acquiring resources. */
+export function throwIfAborted(resources: RuntimeResources): void {
+  if (resources.aborted) throw new Error('Startup stopped by shutdown');
 }
 
 /** Longest a signal-initiated shutdown may take before the process is forced out. */

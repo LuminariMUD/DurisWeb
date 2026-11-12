@@ -21,9 +21,9 @@ fast-forward per PR, as the master ruleset requires linear history.
 | Item | Branch | PR | Status |
 |------|--------|----|--------|
 | plan + (b) | `branch/issue-183-structure-stack-followups` | #196 | done, verified |
-| (c) | `branch/issue-183-c-wholist-removal` | (opening) | done, verified (backend 1,695 tests, frontend 765) |
-| (a) | `branch/issue-183-a-startup-abort` | — | next |
-| (f) | `branch/issue-183-f-api-client-reads` | — | pending |
+| (c) | `branch/issue-183-c-wholist-removal` | #199 | done, verified (backend 1,695 tests, frontend 765) |
+| (a) | `branch/issue-183-a-startup-abort` | (opening) | done, verified (backend 1,697 tests) |
+| (f) | `branch/issue-183-f-api-client-reads` | — | next |
 | (e) | `branch/issue-183-e-import-rules` | — | pending |
 | (d) | `branch/issue-183-d-production-app-tests` | — | pending |
 
@@ -38,6 +38,11 @@ Working notes for a new session:
   files.
 - With (b) applied, `pnpm --dir backend test --runInBand` passes 171 suites
   (12 skipped) and 1,696 tests. Later items compare against this count.
+- To prove that a test exercises a fix, run it against the unfixed source with
+  `timeout 120 … jest --forceExit`. The unfixed runtime code leaves real intervals
+  open, so a plain run never exits. Restore the source through a shell `trap`.
+- Other sessions run Jest in the sibling worktrees (`durisweb-issue-180` and
+  `-182`). Never `pkill jest`.
 
 The six items were each checked against the code, not taken from the issue or from
 the earlier investigation comment. All six are real. Corrections to the issue and to
@@ -265,6 +270,24 @@ returns nothing. Both packages pass lint, type-check and the affected suites.
 4. In the `index.ts` catch, when the error is a `StartupAbortedError`, log
    "startup stopped by shutdown" at info level and return. Every other error keeps
    today's path.
+
+**As built (simplified from the design above).** There is no `StartupAbortedError`
+class:
+
+- `shutdown.ts` exports `throwIfAborted(resources)`, which throws
+  `Error('Startup stopped by shutdown')`.
+- `index.ts` already knows that a signal owns the exit (`shuttingDown`). Its catch
+  now logs any startup error raised after a signal at info level and returns. That
+  also covers errors thrown by pools that shutdown has already closed, which a
+  sentinel class would have missed.
+- `startServer` checks:
+  - after the watchdog await, stopping a late watchdog first;
+  - after `verifyPoolSessionInvariants`, which also covers server creation;
+  - after `startBackgroundJobs`, before `listenOn`.
+- `startBackgroundJobs` takes a required `checkAborted` callback, which runs before
+  each start that follows an await (5 sites).
+- Both new tests were confirmed to **fail** against the unfixed code: 2 failed out
+  of 12.
 
 **Proof.** Extend `runtimeLifecycle.test.ts`:
 

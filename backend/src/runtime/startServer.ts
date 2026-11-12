@@ -19,7 +19,7 @@ import { startEventLoopWatchdog } from '../utils/eventLoopWatchdog.js';
 import { attachBroadcastServer } from '../realtime/broadcasts.js';
 import { handleApplicationConnection } from '../realtime/applicationSocket.js';
 import { startBackgroundJobs } from './backgroundJobs.js';
-import type { RuntimeResources } from './shutdown.js';
+import { throwIfAborted, type RuntimeResources } from './shutdown.js';
 
 async function initializeFlatfileHealth(resources: RuntimeResources): Promise<void> {
   startFlatfileRecoveryMonitor(recoverFlatfileHook);
@@ -38,6 +38,7 @@ async function initializeFlatfileHealth(resources: RuntimeResources): Promise<vo
 /**
  * Start dependencies and listeners only after required runtime checks succeed. Each acquired
  * resource is recorded in `resources` as it starts, so a failure can release exactly those.
+ * A shutdown that begins mid-startup is checked before each acquisition that follows an await.
  */
 export async function startServer(app: Application, resources: RuntimeResources): Promise<void> {
   const environment = getBackendConfiguration();
@@ -48,6 +49,11 @@ export async function startServer(app: Application, resources: RuntimeResources)
     resources.stopEventLoopWatchdog = await startEventLoopWatchdog();
   } catch {
     logger.warn('[EventLoopWatchdog] Could not start stall diagnostics');
+  }
+  if (resources.aborted) {
+    // Shutdown already ran its watchdog step while this start was pending.
+    await resources.stopEventLoopWatchdog?.();
+    throwIfAborted(resources);
   }
 
   // Filesystem-backed hooks are optional in split-host deployments. Probe
@@ -76,6 +82,7 @@ export async function startServer(app: Application, resources: RuntimeResources)
 
   // A pooled connection must still carry the server's strict session state.
   await verifyPoolSessionInvariants();
+  throwIfAborted(resources);
   // Keep sampling checkouts so post-boot session drift is alerted, not silent.
   resources.poolSessionSampling = startPoolSessionInvariantSampling();
 
@@ -89,11 +96,16 @@ export async function startServer(app: Application, resources: RuntimeResources)
   attachBroadcastServer(wss);
   wss.on('connection', handleApplicationConnection);
 
-  await startBackgroundJobs(wss, (jobs) => {
-    resources.jobs = jobs;
-  });
+  await startBackgroundJobs(
+    wss,
+    (jobs) => {
+      resources.jobs = jobs;
+    },
+    () => throwIfAborted(resources),
+  );
 
   // Start listening; a bind failure rejects into the failed-start cleanup.
+  throwIfAborted(resources);
   await listenOn(server, PORT, HOST);
   logger.info(`\n${'='.repeat(50)}`);
   logger.info(`DurisMUD PvP API Server`);

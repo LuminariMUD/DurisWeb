@@ -37,8 +37,12 @@ installSignalHandlers(() => {
 // Only start server if not in test mode
 if (environment.environment !== 'test') {
   startServer(app, resources).catch((error) => {
+    // A signal already owns the exit; startup errors after it are expected, not failures.
+    if (shuttingDown) {
+      logger.info('Startup stopped: shutdown already in progress');
+      return;
+    }
     logger.error('Failed to start server:', error);
-    if (shuttingDown) return;
     shuttingDown = true;
     // Release only what this startup acquired, but never let a failed start hang in cleanup.
     void exitAfterShutdown(shutdown, 1, { deadlineMs: 2000 });

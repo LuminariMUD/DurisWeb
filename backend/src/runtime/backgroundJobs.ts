@@ -68,10 +68,13 @@ async function publishReleasedEvent(latestEvent: PvPEventListItem) {
 /**
  * Start the existing jobs once, with their cadences unchanged. `register` receives the stop
  * handles before anything starts, so a failure part-way stops only what already started.
+ * `checkAborted` throws once shutdown has begun; it runs before each start that follows an
+ * await, because shutdown may already have run `stopProducers` during that await.
  */
 export async function startBackgroundJobs(
   wss: WebSocketServer,
   register: (jobs: BackgroundJobs) => void,
+  checkAborted: () => void,
 ): Promise<void> {
   if (started) throw new Error('Background jobs are already started');
   started = true;
@@ -115,6 +118,7 @@ export async function startBackgroundJobs(
     id: 0,
     stamp: '1970-01-01T00:00:00.000Z',
   };
+  checkAborted();
   const pollReleasedEvents = createPvpPoller(
     initialCursor,
     getReleasedEventsAfter,
@@ -176,6 +180,7 @@ export async function startBackgroundJobs(
 
   // Start server health monitoring (records metrics every 5 minutes)
   const { startHealthMonitoring } = await import('../services/serverHealthService.js');
+  checkAborted();
   startHealthMonitoring();
   healthMonitoring = true;
   logger.info('Server health monitoring started');
@@ -191,6 +196,7 @@ export async function startBackgroundJobs(
   const { setProgressBroadcaster, startHourlyBackupScheduler } = await import(
     '../services/backupService.js'
   );
+  checkAborted();
   setProgressBroadcaster(broadcastBackupProgress);
   startHourlyBackupScheduler();
   backupScheduler = true;
@@ -205,6 +211,7 @@ export async function startBackgroundJobs(
   logger.info('MUD control service initialized');
 
   // Initialize MUD auction websocket client
+  checkAborted();
   setAuctionBroadcaster(broadcastAuctionEvent);
   startMudAuctionClient();
   auctionClient = true;
@@ -217,6 +224,7 @@ export async function startBackgroundJobs(
     await startPlayerEventSubscriber();
     logger.info('Player event subscriber initialized');
   }
+  checkAborted();
 
   // Initialize the durable donation outbox. It remains disabled until its
   // production delivery settings and independent HMAC secret are present.
