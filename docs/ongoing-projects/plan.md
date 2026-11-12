@@ -6,7 +6,13 @@ Branch: `branch/issue-181-character-link-privacy` (linked to the issue)
 
 Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d5573c156`.
 
-**Status: implementation complete. PR A (#197) and PR B (#203, stacked on A) are ready for review; release acceptance is pending.**
+**Status: PR A (#197) merged; PR B (#203) is restacked onto current master and under final maintenance qualification.**
+
+Maintenance review corrected request races, live identity matching, fixture ownership,
+account-search limiting, profile pagination and four-faction filtering. Native guild
+and frag HTTP checks now run on the isolated schema fixture. Responsive browser
+checks for PR A passed with synthetic API responses. These completion checks do
+not depend on a production deployment; publication awaits an authorized deployment.
 Owner decision on the issue: "ADOPT OPTION # 4". The earlier plans in this file are
 preserved unchanged below the `Previous plans` divider.
 
@@ -85,7 +91,7 @@ What PR B did:
     their SQL, and that the account filter is ignored.
 - **Docs.** `docs/api/README_api.md` gains "Characters are public; their owning
   account is not", and its `/api/frag` row is reworded. The changelog draft is
-  `docs/ongoing-projects/issue-181-website-changelog-draft.json`
+  `docs/ongoing-projects/pr-maintenance-public-changelog-draft.json`
   (`isPublished: false`).
 
 PR B verification (it contains PR A):
@@ -110,11 +116,11 @@ PR B verification (it contains PR A):
 Remaining after merge:
 
 1. The separate `GuildProfileView` `thread` route-name defect is fixed in its own PR, LuminariMUD/DurisWeb#207 (`branch/fix-guild-thread-link`, independent of this stack).
-2. Release acceptance: deploy A, then B. Signed out on `duris.sbs`, confirm that
+2. Release acceptance: deploy A, then B. Signed out on the configured public website origin, confirm that
    the three removed URLs return 404, that frag JSON has no `account_name`, and that
    names open `/character/:name`. Then publish the changelog draft via
    `/admin/changelog` per `$news-update`.
-3. Owner answers to the open questions below.
+3. The remaining design questions below describe optional follow-ups and do not block issue completion.
 
 ## Outcome
 
@@ -269,7 +275,7 @@ Other findings that shape the plan:
     - Public navigation targets `/character/:name`.
     - Forum and battle-comment authorship remains public by the author's choice.
     - The route table needs no change, because the prefixes stay.
-13. Prepare `docs/ongoing-projects/issue-181-website-changelog-draft.json`
+13. Prepare `docs/ongoing-projects/pr-maintenance-public-changelog-draft.json`
     (`isPublished: false`, same shape as the issue-119 draft). Its player-facing text: names
     on battles, stats, guilds and the frag leaderboard now open the character's page; the
     leaderboard no longer shows account names; and the October promise that your character
@@ -306,7 +312,7 @@ Frontend:
 
 Docs:
 - `docs/api/README_api.md`
-- `docs/ongoing-projects/issue-181-website-changelog-draft.json`
+- `docs/ongoing-projects/pr-maintenance-public-changelog-draft.json`
 - this plan's handoff section
 
 ## Proof
@@ -381,19 +387,16 @@ handling in Proof) and the rendered-check setup on the dev MUD database.
 
 ## Open questions
 
-1. **Account search limiter.** Option 4 mentioned rate-limiting `/api/forum/accounts/search`.
-   The plan drops it because account names alone reveal no rosters once the mapping endpoints
-   are gone. Should a limiter still be added anyway, as hygiene?
+1. **Account search limiter — addressed.** The owner adopted Option 4, including this
+   limiter. PR #203 adds 60 requests per minute per client using the existing middleware.
 2. **Owner-only `GET /api/forum/characters/:name/profile`.** After this change nothing in the
    UI calls it. Remove it in a follow-up, or keep it and later add an owner "full details"
    section to the public character page?
 3. **Webinfo toggle.** Should the public character page hide its PvP or forum tabs when the
    player has turned `webinfo` off? Today the underlying endpoints ignore that toggle, so the
    plan does not change it.
-4. **Pid reuse across a pwipe.** If a pwipe resets `player_data` pids while keeping old
-   `pkill_info` rows, an old battle participant could match a new character's pid. Name
-   matching already has this problem today, and worse. Does a pwipe preserve PvP history and
-   reset pids? If so, the flag should also compare `ac.char_name`.
+4. **Pid reuse — addressed.** PR #197 now requires a positive pid and matching
+   character name for live links; native regressions cover zero and mismatched identities.
 5. **Changelog wording.** Should the release note say plainly that the October promise was not
    fully true until now, or just describe the new behavior?
 

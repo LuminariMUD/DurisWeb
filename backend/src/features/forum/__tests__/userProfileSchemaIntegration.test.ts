@@ -286,4 +286,30 @@ describe('user profile schema integration', () => {
       },
     });
   });
+
+  it('serves frag summaries from real SQL without revealing an owner or duplicating links', async () => {
+    const { default: fragRoutes } = await import('../../../routes/frag.js');
+    const app = express();
+    app.use('/api/frag', fragRoutes);
+    const leaderboard = await request(app)
+      .get('/api/frag/leaderboard')
+      .query({ char_name: firstCharacterName, account_name: 'Differentaccount' });
+    expect(leaderboard.status).toBe(200);
+    expect(leaderboard.body.data).toHaveLength(1);
+    expect(leaderboard.body.pagination.total).toBe(1);
+    expect(leaderboard.body.data[0]).toMatchObject({
+      char_name: firstCharacterName,
+      total_frags: 12.34,
+    });
+    const player = await request(app).get(`/api/frag/player/${firstCharacterName}`);
+    expect(player.status).toBe(200);
+    expect(player.body).toMatchObject({ char_name: firstCharacterName, total_frags: 12.34 });
+    const gainers = await request(app).get('/api/frag/top-gainers');
+    expect(gainers.status).toBe(200);
+    for (const response of [leaderboard, player, gainers]) {
+      expect(JSON.stringify(response.body)).not.toContain(accountName);
+      expect(JSON.stringify(response.body)).not.toContain('account_name');
+    }
+    expect((await request(app).get(`/api/frag/account/${accountName}`)).status).toBe(404);
+  });
 });

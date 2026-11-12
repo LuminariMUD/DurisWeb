@@ -1,7 +1,0 @@
-{
-  "version": "2026.11.12-draft",
-  "title": "Character pages keep your alts private",
-  "content": "<h3>Profiles and leaderboards</h3><ul><li><strong>New character pages.</strong> Clicking a character name on a battle, the PvP stats page, a guild roster, the frag leaderboard or top gainers now opens that character's own page, with level, race, class, frags, K/D, PvP history and forum activity.</li><li><strong>Your character list now stays private everywhere.</strong> In October we made your Characters tab private, but other parts of the site could still reveal which account a character belonged to. Character links no longer lead to account profiles, the frag leaderboard no longer shows account names, and those lookups have been removed.</li><li><strong>Your posts are unchanged.</strong> Forum posts and battle comments still show your account and the character you chose to post as.</li></ul>",
-  "category": "public",
-  "isPublished": false
-}

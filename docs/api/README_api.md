@@ -133,7 +133,7 @@ viewer-dependent responses use the same private/no-store/Cookie cache policy.
 
 ### Characters are public; their owning account is not
 
-No public endpoint links a character to the account that owns it, or lists an
+Public lookup endpoints do not link a character to its owning account or list an
 account's characters ([#181](https://github.com/LuminariMUD/DurisWeb/issues/181)).
 
 - The former `GET /api/forum/characters/:characterName/account`,
@@ -147,12 +147,18 @@ account's characters ([#181](https://github.com/LuminariMUD/DurisWeb/issues/181)
   `/api/forum/characters/:characterName/{pvp,posts}`.
 - Battle detail participants carry `character_exists`, and guild profile members
   carry `characterExists`. Both are true while a live `account_characters` link
-  exists for that pid, and neither names the account.
+  matches a positive pid and the current character name, and neither names the account.
 
 Per-character data (name, level, race, class, guild membership, frags and PvP
 history) stays public. A pairing that the player publishes stays public too:
 forum posts and threads show their author's account and chosen character, and
 battle comments show the commenter's account and chosen character.
+
+Mention autocomplete at /api/forum/accounts/search remains public, returns at
+most ten accounts for a 2–50 character prefix, and allows 60 requests per minute
+per client. Malformed queries return 400; exceeding the limit returns 429 with
+Retry-After. Profile history pages clamp page to 1–10,000 and limit to 1–100.
+The frag leaderboard supports all four factions: Good, Evil, Undead and Neutral.
 
 ## Website data hold records
 
