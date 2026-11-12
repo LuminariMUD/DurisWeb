@@ -1,12 +1,14 @@
-import { exec } from 'child_process';
+import { safeFailureCode } from '../utils/safeFailureCode.js';
+import { randomUUID } from 'node:crypto';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
-import logger, { getErrorMessage } from '../utils/logger.js';
+import logger from '../utils/logger.js';
 import { resolveSafeZoneFilePath } from '../utils/safeZonePath.js';
 import { getBackendConfiguration } from '../config/environment.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 // Get MUD_DIR from environment
 const MUD_DIR = getBackendConfiguration().mud.directory;
@@ -46,13 +48,12 @@ export interface GitStatus {
 /**
  * Execute a git command in the MUD directory
  */
-async function gitExec(command: string): Promise<string> {
+async function gitExec(command: string[]): Promise<string> {
   try {
-    const { stdout } = await execAsync(`git -C "${MUD_DIR}" ${command}`);
+    const { stdout } = await execFileAsync('git', ['-C', MUD_DIR, ...command]);
     return stdout.trim();
   } catch (error) {
-    logger.error(`Git command failed: git -C "${MUD_DIR}" ${command}`);
-    logger.error(getErrorMessage(error));
+    logger.error('Git command failed', { code: safeFailureCode(error) });
     throw error;
   }
 }
@@ -61,8 +62,8 @@ async function gitExec(command: string): Promise<string> {
  * Get the current HEAD commit hash (local deployed version)
  */
 export async function getCurrentCommitHash(): Promise<{ full: string; short: string }> {
-  const full = await gitExec('rev-parse HEAD');
-  const short = await gitExec('rev-parse --short HEAD');
+  const full = await gitExec(['rev-parse', 'HEAD']);
+  const short = await gitExec(['rev-parse', '--short', 'HEAD']);
   return { full, short };
 }
 
@@ -71,8 +72,8 @@ export async function getCurrentCommitHash(): Promise<{ full: string; short: str
  */
 export async function getLatestRemoteHash(): Promise<{ full: string; short: string }> {
   const branch = await getCurrentBranch();
-  const full = await gitExec(`rev-parse origin/${branch}`);
-  const short = await gitExec(`rev-parse --short origin/${branch}`);
+  const full = await gitExec(['rev-parse', `origin/${branch}`]);
+  const short = await gitExec(['rev-parse', '--short', `origin/${branch}`]);
   return { full, short };
 }
 
@@ -80,7 +81,7 @@ export async function getLatestRemoteHash(): Promise<{ full: string; short: stri
  * Get the current branch name
  */
 export async function getCurrentBranch(): Promise<string> {
-  return await gitExec('rev-parse --abbrev-ref HEAD');
+  return await gitExec(['rev-parse', '--abbrev-ref', 'HEAD']);
 }
 
 /**
@@ -88,7 +89,7 @@ export async function getCurrentBranch(): Promise<string> {
  */
 export async function getCommitsAhead(): Promise<number> {
   const branch = await getCurrentBranch();
-  const count = await gitExec(`rev-list HEAD..origin/${branch} --count`);
+  const count = await gitExec(['rev-list', `HEAD..origin/${branch}`, '--count']);
   return parseInt(count, 10) || 0;
 }
 
@@ -143,7 +144,9 @@ async function saveCacheToFile(cache: CacheFile): Promise<void> {
     await fs.writeFile(COMMITS_CACHE_FILE, JSON.stringify(cache, null, 2));
     logger.info(`Cache saved to ${COMMITS_CACHE_FILE}`);
   } catch (error) {
-    logger.error(`Failed to save git cache to ${COMMITS_CACHE_FILE}:`, error);
+    logger.error(`Failed to save git cache to ${COMMITS_CACHE_FILE}:`, {
+      code: safeFailureCode(error),
+    });
   }
 }
 
@@ -159,9 +162,14 @@ async function fetchAllCommits(): Promise<GitCommit[]> {
   const format = 'COMMIT_START|%H|%h|%an|%ae|%aI|%s';
 
   // Limit commits to keep cache generation fast (~5 seconds for 500 commits)
-  const logOutput = await gitExec(
-    `log origin/${branch} -n ${MAX_COMMITS_TO_CACHE} --pretty=format:'${format}' --shortstat`,
-  );
+  const logOutput = await gitExec([
+    'log',
+    `origin/${branch}`,
+    '-n',
+    String(MAX_COMMITS_TO_CACHE),
+    `--pretty=format:${format}`,
+    '--shortstat',
+  ]);
   return parseGitLogWithStats(logOutput);
 }
 
@@ -180,13 +188,13 @@ async function getCachedCommits(forceRefresh: boolean = false): Promise<GitCommi
 
   // Fetch from remote and rebuild cache
   try {
-    await gitExec('fetch origin --quiet');
+    await gitExec(['fetch', 'origin', '--quiet']);
   } catch {
     logger.warn('Failed to fetch from remote');
   }
 
   const branch = await getCurrentBranch();
-  const remoteHash = await gitExec(`rev-parse origin/${branch}`);
+  const remoteHash = await gitExec(['rev-parse', `origin/${branch}`]);
 
   // Fetch all commits
   logger.info('Refreshing git commits cache...');
@@ -350,33 +358,37 @@ export async function getZoneGitStatus(zoneBasename: string): Promise<ZoneGitSta
 
   const files: ZoneGitStatus['files'] = [];
 
-  // Get git status for the areas directory
-  try {
-    const statusOutput = await execAsync(`git -C "${areasDir}" status --porcelain`);
-    const lines = statusOutput.stdout
-      .trim()
-      .split('\n')
-      .filter((l) => l);
+  // Limit discovery to this zone; porcelain paths are relative to the repository root.
+  const statusOutput = await execFileAsync('git', [
+    '-C',
+    areasDir,
+    'status',
+    '--porcelain',
+    '--untracked-files=all',
+    '--no-renames',
+    '--',
+    ...zoneFiles,
+  ]);
+  const lines = statusOutput.stdout
+    .trimEnd()
+    .split('\n')
+    .filter((l) => l);
 
-    for (const line of lines) {
-      const statusCode = line.substring(0, 2);
-      const filePath = line.substring(3).trim();
+  for (const line of lines) {
+    const statusCode = line.substring(0, 2);
+    const filePath = line.substring(3).trim();
 
-      // Check if this file belongs to the zone
-      if (zoneFiles.some((zf) => filePath === zf || filePath.endsWith(zf))) {
-        let status: 'modified' | 'new' | 'deleted' = 'modified';
-        if (statusCode.includes('A') || statusCode.includes('?')) {
-          status = 'new';
-        } else if (statusCode.includes('D')) {
-          status = 'deleted';
-        }
-        files.push({ path: filePath, status });
+    // Check if this file belongs to the zone
+    if (zoneFiles.some((zf) => filePath === zf || filePath.endsWith(zf))) {
+      let status: 'modified' | 'new' | 'deleted' = 'modified';
+      if (statusCode.includes('A') || statusCode.includes('?')) {
+        status = 'new';
+      } else if (statusCode.includes('D')) {
+        status = 'deleted';
       }
+      files.push({ path: filePath, status });
     }
-  } catch {
-    // No changes or git not initialized
   }
-
   return {
     modified: files.length > 0,
     files,
@@ -402,26 +414,25 @@ export async function commitZoneFiles(
   const zoneFiles = getZoneGitFiles(areasDir, zoneBasename);
 
   try {
-    // Check if git is initialized in the areas directory
+    let directory = areasDir;
+    let files = zoneFiles;
     try {
-      await execAsync(`git -C "${areasDir}" rev-parse --git-dir`);
+      await execFileAsync('git', ['-C', areasDir, 'rev-parse', '--git-dir']);
     } catch {
-      // Try parent MUD_DIR
       try {
-        await execAsync(`git -C "${MUD_DIR}" rev-parse --git-dir`);
-        // Use MUD_DIR as git root, adjust paths
-        const adjustedFiles = zoneFiles.map((f) => `areas/${f}`);
-        return await commitFilesInDir(MUD_DIR, adjustedFiles, message);
+        await execFileAsync('git', ['-C', MUD_DIR, 'rev-parse', '--git-dir']);
       } catch {
         return { success: false, error: 'Git is not initialized in the MUD directory' };
       }
+      directory = MUD_DIR;
+      files = zoneFiles.map((file) => 'areas/' + file);
     }
-
-    return await commitFilesInDir(areasDir, zoneFiles, message);
+    return await commitFilesInDir(directory, files, message);
   } catch (error: unknown) {
-    // Builders see the result; git output can carry absolute paths, so it stays in the log (#176).
-    logger.error('Commit zone files failed', { message: getErrorMessage(error) });
-    return { success: false, error: 'Failed to commit zone files' };
+    // Builders see only fixed failure text; diagnostics keep an allowlisted code (#176).
+    const reference = randomUUID();
+    logger.error('Commit zone files failed', { reference, code: safeFailureCode(error) });
+    return { success: false, error: `Failed to commit zone files (reference ${reference})` };
   }
 }
 
@@ -433,45 +444,39 @@ async function commitFilesInDir(
   files: string[],
   message: string,
 ): Promise<ZoneCommitResult> {
-  // Add the files
+  const selected: string[] = [];
   for (const file of files) {
-    const fullPath = path.join(dir, file);
-    // Check if file exists before trying to add it
     try {
-      await fs.access(fullPath);
-      await execAsync(`git -C "${dir}" add "${file}"`);
-    } catch {
-      // File doesn't exist, skip it
+      await fs.access(path.join(dir, file));
+    } catch (error) {
+      if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'ENOENT')
+        throw error;
+      // Include tracked deletions, but ignore paths this zone has never owned.
+      try {
+        await execFileAsync('git', ['-C', dir, 'ls-files', '--error-unmatch', '--', file]);
+      } catch (lookupError) {
+        if (
+          lookupError &&
+          typeof lookupError === 'object' &&
+          'code' in lookupError &&
+          lookupError.code === 1
+        )
+          continue;
+        throw lookupError;
+      }
     }
+    await execFileAsync('git', ['-C', dir, 'add', '--all', '--', file]);
+    selected.push(file);
   }
-
-  // Check if there are staged changes
+  if (!selected.length) return { success: false, error: 'No changes to commit' };
   try {
-    const diffResult = await execAsync(`git -C "${dir}" diff --cached --quiet`);
-    // Exit code 0 means no changes
-    if (diffResult.stdout === '' && !diffResult.stderr) {
-      return { success: false, error: 'No changes to commit' };
-    }
-  } catch {
-    // Exit code 1 means there are changes (this is what we want)
+    await execFileAsync('git', ['-C', dir, 'diff', '--cached', '--quiet', '--', ...selected]);
+    return { success: false, error: 'No changes to commit' };
+  } catch (error) {
+    if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 1) throw error;
   }
-
-  // Escape single quotes in message for shell
-  const escapedMessage = message.replace(/'/g, "'\\''");
-
-  // Commit
-  try {
-    await execAsync(`git -C "${dir}" commit -m '${escapedMessage}'`);
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    if (errorMessage.includes('nothing to commit')) {
-      return { success: false, error: 'No changes to commit' };
-    }
-    throw error;
-  }
-
-  // Get the commit hash
-  const { stdout: hash } = await execAsync(`git -C "${dir}" rev-parse --short HEAD`);
-
+  // --only preserves unrelated staged work, including when the areas directory shares a repo.
+  await execFileAsync('git', ['-C', dir, 'commit', '--only', '-m', message, '--', ...selected]);
+  const { stdout: hash } = await execFileAsync('git', ['-C', dir, 'rev-parse', '--short', 'HEAD']);
   return { success: true, commitHash: hash.trim() };
 }
