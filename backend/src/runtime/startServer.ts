@@ -25,6 +25,7 @@ async function initializeFlatfileHealth(resources: RuntimeResources): Promise<vo
   startFlatfileRecoveryMonitor(recoverFlatfileHook);
   resources.flatfileRecoveryMonitor = true;
   await probeAllFlatfileHooks();
+  throwIfAborted(resources);
 
   for (const health of getFlatfileHookHealthSnapshot()) {
     if (health.availability === 'unavailable') {
@@ -41,6 +42,7 @@ async function initializeFlatfileHealth(resources: RuntimeResources): Promise<vo
  * A shutdown that begins mid-startup is checked before each acquisition that follows an await.
  */
 export async function startServer(app: Application, resources: RuntimeResources): Promise<void> {
+  throwIfAborted(resources);
   const environment = getBackendConfiguration();
   const PORT = environment.server.port;
   const HOST = environment.server.host;
@@ -60,10 +62,12 @@ export async function startServer(app: Application, resources: RuntimeResources)
   // them independently and keep the bridge, Redis, and database paths alive
   // when MUD_DIR is absent or unreachable.
   await initializeFlatfileHealth(resources);
+  throwIfAborted(resources);
 
   // Check database connection
   logger.info('Checking database connection...');
   const isConnected = await checkDatabaseConnection();
+  throwIfAborted(resources);
 
   if (!isConnected) {
     logger.error('Failed to connect to WebService database. Exiting...');
@@ -71,6 +75,7 @@ export async function startServer(app: Application, resources: RuntimeResources)
   }
 
   const isMudDatabaseConnected = await checkMudDatabaseConnection();
+  throwIfAborted(resources);
   if (!isMudDatabaseConnected) {
     logger.error('Failed to connect to authoritative MUD database. Exiting...');
     throw new Error('Authoritative MUD database unavailable');
@@ -79,6 +84,7 @@ export async function startServer(app: Application, resources: RuntimeResources)
   // Verify database schema
   logger.info('\nVerifying database schema...');
   await verifyDatabaseSchema();
+  throwIfAborted(resources);
 
   // A pooled connection must still carry the server's strict session state.
   await verifyPoolSessionInvariants();
@@ -107,6 +113,7 @@ export async function startServer(app: Application, resources: RuntimeResources)
   // Start listening; a bind failure rejects into the failed-start cleanup.
   throwIfAborted(resources);
   await listenOn(server, PORT, HOST);
+  throwIfAborted(resources);
   logger.info(`\n${'='.repeat(50)}`);
   logger.info(`DurisMUD PvP API Server`);
   logger.info(`${'='.repeat(50)}`);

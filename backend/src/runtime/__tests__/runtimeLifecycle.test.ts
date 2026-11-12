@@ -13,13 +13,21 @@ const record =
     events.push(name);
   };
 let databaseReachable = false;
+const checkWebDatabase = jest.fn(async () => databaseReachable);
+const checkMudDatabase = jest.fn(async () => true);
+const verifySchema = jest.fn<() => Promise<void>>();
+const verifySession = jest.fn<() => Promise<void>>();
+const probeFlatfiles = jest.fn<() => Promise<void>>();
 
 const stub = (specifier: string, overrides?: Record<string, unknown>) =>
   jest.unstable_mockModule(specifier, stubModule(new URL(specifier, import.meta.url), overrides));
 stub('../../db/connection.js', {
   pool: {},
   mudPool: {},
-  checkDatabaseConnection: async () => databaseReachable,
+  checkDatabaseConnection: checkWebDatabase,
+  checkMudDatabaseConnection: checkMudDatabase,
+  verifyDatabaseSchema: verifySchema,
+  verifyPoolSessionInvariants: verifySession,
   closeDatabaseConnection: record('database'),
 });
 stub('../../db/redis.js', { closeRedisConnection: record('redis') });
@@ -28,7 +36,7 @@ stub('../../hooks/flatfileHookState.js', {
   stopFlatfileRecoveryMonitor: () => events.push('flatfile monitor'),
   getFlatfileHookHealthSnapshot: () => [],
 });
-stub('../../services/flatfileAccess.js', { probeAllFlatfileHooks: async () => undefined });
+stub('../../services/flatfileAccess.js', { probeAllFlatfileHooks: probeFlatfiles });
 stub('../../services/logWatchService.js', {
   cleanupLogWatchers: () => events.push('log watchers'),
 });
@@ -57,6 +65,7 @@ type Resources = import('../shutdown.js').RuntimeResources;
 afterEach(() => {
   events.length = 0;
   databaseReachable = false;
+  jest.clearAllMocks();
 });
 
 describe('runtime shutdown', () => {
@@ -163,6 +172,41 @@ describe('startup failure', () => {
 });
 
 describe('shutdown during startup', () => {
+  it.each(['flatfiles', 'web database', 'schema'] as const)(
+    'does no later dependency work after stopping during %s',
+    async (stage) => {
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      if (stage === 'flatfiles') probeFlatfiles.mockImplementationOnce(() => gate);
+      if (stage === 'web database')
+        checkWebDatabase.mockImplementationOnce(async () => {
+          await gate;
+          return true;
+        });
+      if (stage === 'schema') {
+        databaseReachable = true;
+        verifySchema.mockImplementationOnce(() => gate);
+      }
+      const resources: Resources = {};
+      const starting = startServer(express(), resources);
+      try {
+        await new Promise((resolve) => setImmediate(resolve));
+        await createShutdown(resources)();
+        release();
+        await expect(starting).rejects.toThrow('Startup stopped by shutdown');
+        if (stage === 'flatfiles') expect(checkWebDatabase).not.toHaveBeenCalled();
+        if (stage === 'web database') expect(checkMudDatabase).not.toHaveBeenCalled();
+        if (stage === 'schema') expect(verifySession).not.toHaveBeenCalled();
+        expect(resources.server).toBeUndefined();
+      } finally {
+        release();
+        await starting.catch(() => undefined);
+      }
+    },
+  );
+
   it('releases a late watchdog and acquires nothing else', async () => {
     let release = () => {};
     watchdogGate = new Promise((resolve) => {
