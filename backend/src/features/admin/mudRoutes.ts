@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../../utils/safeFailureCode.js';
 import { Router, Request, Response, type IRouter } from 'express';
 import logger from '../../utils/logger.js';
 import { body, param, validationResult } from 'express-validator';
@@ -96,7 +97,7 @@ adminMudRoutes.get(
         keySettings,
       });
     } catch (error) {
-      logger.error('Error fetching MUD dashboard data:', error);
+      logger.error('Error fetching MUD dashboard data:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to fetch MUD dashboard data' });
     }
   },
@@ -117,7 +118,7 @@ adminMudRoutes.get('/mud/time', async (_req: Request, res: Response) => {
       description: getMudTimeDescription(mudTime),
     });
   } catch (error) {
-    logger.error('Error calculating MUD time:', error);
+    logger.error('Error calculating MUD time:', { code: safeFailureCode(error) });
     return res.status(500).json({ error: 'Failed to calculate MUD time' });
   }
 });
@@ -147,7 +148,7 @@ adminMudRoutes.get(
         return res.json({ categories });
       }
     } catch (error) {
-      logger.error('Error fetching properties:', error);
+      logger.error('Error fetching properties:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to fetch properties' });
     }
   },
@@ -177,7 +178,7 @@ adminMudRoutes.get(
         nextUpdate: row.next_update,
       });
     } catch (error) {
-      logger.error('Error fetching level cap:', error);
+      logger.error('Error fetching level cap:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to fetch level cap data' });
     }
   },
@@ -203,7 +204,7 @@ adminMudRoutes.get(
         })),
       });
     } catch (error) {
-      logger.error('Error fetching timers:', error);
+      logger.error('Error fetching timers:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to fetch timers' });
     }
   },
@@ -267,7 +268,6 @@ adminMudRoutes.put(
         newValue: numericValue,
       });
     } catch (error) {
-      logger.error('Error updating property:', error);
       return sendRouteError(res, error, 'Failed to update property', 'Failed to update property');
     }
   },
@@ -296,7 +296,6 @@ adminMudRoutes.get(
 
       return res.json({ history });
     } catch (error) {
-      logger.error('Error fetching property history:', error);
       return sendRouteError(
         res,
         error,
@@ -384,7 +383,6 @@ adminMudRoutes.put(
         racewarLeader: racewarLeader !== undefined ? racewarLeader : oldRacewar,
       });
     } catch (error) {
-      logger.error('Error updating level cap:', error);
       return sendRouteError(res, error, 'Failed to update level cap', 'Failed to update level cap');
     }
   },
@@ -444,7 +442,6 @@ adminMudRoutes.post(
         message: 'Level cap reset to defaults: Level 25, 0 frags, neutral racewar.',
       });
     } catch (error) {
-      logger.error('Error resetting level cap:', error);
       return sendRouteError(res, error, 'Failed to reset level cap', 'Failed to reset level cap');
     }
   },
@@ -511,7 +508,6 @@ adminMudRoutes.post(
         count: timerNames.length,
       });
     } catch (error) {
-      logger.error('Error resetting timers:', error);
       return sendRouteError(res, error, 'Failed to reset timers', 'Failed to reset timers');
     }
   },
@@ -569,7 +565,6 @@ adminMudRoutes.post(
         count: timerCount,
       });
     } catch (error) {
-      logger.error('Error resetting all timers:', error);
       return sendRouteError(res, error, 'Failed to reset all timers', 'Failed to reset all timers');
     }
   },

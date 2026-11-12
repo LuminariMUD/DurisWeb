@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../../utils/safeFailureCode.js';
 import { Router, Request, Response, type IRouter } from 'express';
 import logger from '../../utils/logger.js';
 import { body, param, validationResult } from 'express-validator';
@@ -42,7 +43,7 @@ adminCommunityRoutes.get(
       const settings = await getForumSettings();
       return res.json({ settings });
     } catch (error) {
-      logger.error('Get forum settings error:', error);
+      logger.error('Get forum settings error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get forum settings' });
     }
   },
@@ -119,7 +120,7 @@ adminCommunityRoutes.put(
         message: `Setting '${key}' updated to '${value}'`,
       });
     } catch (error) {
-      logger.error('Update forum setting error:', error);
+      logger.error('Update forum setting error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to update setting' });
     }
   },
@@ -146,7 +147,7 @@ adminCommunityRoutes.get(
 
       return res.json({ permissions });
     } catch (error) {
-      logger.error('Get category permissions error:', error);
+      logger.error('Get category permissions error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get category permissions' });
     }
   },
@@ -200,7 +201,7 @@ adminCommunityRoutes.patch(
         message: 'Category permissions updated',
       });
     } catch (error) {
-      logger.error('Update category permissions error:', error);
+      logger.error('Update category permissions error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to update category permissions' });
     }
   },
@@ -238,7 +239,7 @@ adminCommunityRoutes.get(
 
       return res.json(result);
     } catch (error) {
-      logger.error('Get audit log error:', error);
+      logger.error('Get audit log error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get audit log' });
     }
   },
@@ -262,7 +263,7 @@ adminCommunityRoutes.get(
       const categories = await getAllCategoriesAdmin(includeArchived);
       return res.json({ categories });
     } catch (error) {
-      logger.error('Get all categories error:', error);
+      logger.error('Get all categories error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get categories' });
     }
   },
@@ -293,7 +294,7 @@ adminCommunityRoutes.get(
 
       return res.json({ category });
     } catch (error) {
-      logger.error('Get category details error:', error);
+      logger.error('Get category details error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get category details' });
     }
   },
@@ -347,7 +348,6 @@ adminCommunityRoutes.post(
         categoryId,
       });
     } catch (error) {
-      logger.error('Create category error:', error);
       return sendRouteError(res, error, 'Failed to create category', 'Failed to create category');
     }
   },
@@ -412,7 +412,6 @@ adminCommunityRoutes.patch(
         message: 'Category updated successfully',
       });
     } catch (error) {
-      logger.error('Update category error:', error);
       return sendRouteError(res, error, 'Failed to update category', 'Failed to update category');
     }
   },
@@ -446,7 +445,6 @@ adminCommunityRoutes.post(
         message: 'Category archived successfully',
       });
     } catch (error) {
-      logger.error('Archive category error:', error);
       return sendRouteError(res, error, 'Failed to archive category', 'Failed to archive category');
     }
   },
@@ -480,7 +478,6 @@ adminCommunityRoutes.post(
         message: 'Category restored successfully',
       });
     } catch (error) {
-      logger.error('Restore category error:', error);
       return sendRouteError(res, error, 'Failed to restore category', 'Failed to restore category');
     }
   },
@@ -514,7 +511,6 @@ adminCommunityRoutes.delete(
         message: 'Category permanently deleted',
       });
     } catch (error) {
-      logger.error('Delete category error:', error);
       return sendRouteError(res, error, 'Failed to delete category', 'Failed to delete category');
     }
   },
@@ -557,7 +553,6 @@ adminCommunityRoutes.post(
         message: 'Categories reordered successfully',
       });
     } catch (error) {
-      logger.error('Reorder categories error:', error);
       return sendRouteError(
         res,
         error,
@@ -593,7 +588,7 @@ adminCommunityRoutes.get(
 
       return res.json({ permissions });
     } catch (error) {
-      logger.error('Get ACL permissions error:', error);
+      logger.error('Get ACL permissions error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get ACL permissions' });
     }
   },
@@ -661,7 +656,6 @@ adminCommunityRoutes.post(
         permissionId,
       });
     } catch (error) {
-      logger.error('Add ACL permission error:', error);
       return sendRouteError(
         res,
         error,
@@ -706,7 +700,7 @@ adminCommunityRoutes.delete(
         message: 'ACL permission removed successfully',
       });
     } catch (error) {
-      logger.error('Remove ACL permission error:', error);
+      logger.error('Remove ACL permission error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to remove ACL permission' });
     }
   },
@@ -729,7 +723,7 @@ adminCommunityRoutes.get(
       const categories = await getArchivedCategories();
       return res.json({ categories });
     } catch (error) {
-      logger.error('Get archived categories error:', error);
+      logger.error('Get archived categories error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get archived categories' });
     }
   },
@@ -755,7 +749,7 @@ adminCommunityRoutes.get(
       const result = await getDeletedThreads({ page, limit, categoryId });
       return res.json(result);
     } catch (error) {
-      logger.error('Get deleted threads error:', error);
+      logger.error('Get deleted threads error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get deleted threads' });
     }
   },
@@ -779,7 +773,7 @@ adminCommunityRoutes.get(
       const result = await getDeletedPosts({ page, limit, threadId });
       return res.json(result);
     } catch (error) {
-      logger.error('Get deleted posts error:', error);
+      logger.error('Get deleted posts error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get deleted posts' });
     }
   },

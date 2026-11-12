@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../../utils/safeFailureCode.js';
 import { Router, Request, Response, type IRouter } from 'express';
 import logger from '../../utils/logger.js';
 import { body, param, validationResult } from 'express-validator';
@@ -68,7 +69,7 @@ adminSettingsRoutes.get(
       const settings = await getWebSettingsRaw();
       return res.json({ settings });
     } catch (error) {
-      logger.error('Get web settings error:', error);
+      logger.error('Get web settings error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get web settings' });
     }
   },
@@ -108,7 +109,6 @@ adminSettingsRoutes.put(
         message: `Setting '${key}' updated`,
       });
     } catch (error) {
-      logger.error('Update web setting error:', error);
       return sendRouteError(res, error, 'Failed to update setting', 'Failed to update setting');
     }
   },
@@ -150,7 +150,6 @@ adminSettingsRoutes.post(
         message: 'Site logo uploaded successfully',
       });
     } catch (error) {
-      logger.error('Upload logo error:', error);
       return sendRouteError(res, error, 'Failed to upload logo', 'Failed to upload logo');
     }
   },
@@ -177,7 +176,6 @@ adminSettingsRoutes.delete(
         message: 'Site logo deleted',
       });
     } catch (error) {
-      logger.error('Delete logo error:', error);
       return sendRouteError(res, error, 'Failed to delete logo', 'Failed to delete logo');
     }
   },
@@ -219,7 +217,6 @@ adminSettingsRoutes.post(
         message: 'Hero image uploaded successfully',
       });
     } catch (error) {
-      logger.error('Upload hero image error:', error);
       return sendRouteError(
         res,
         error,
@@ -251,7 +248,6 @@ adminSettingsRoutes.delete(
         message: 'Hero image deleted',
       });
     } catch (error) {
-      logger.error('Delete hero image error:', error);
       return sendRouteError(
         res,
         error,

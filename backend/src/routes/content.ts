@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 import { Router, type Router as ExpressRouter } from 'express';
 import logger from '../utils/logger.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
@@ -134,7 +135,7 @@ async function logAdminAction(
       ],
     );
   } catch (error) {
-    logger.error('Failed to log admin action:', error);
+    logger.error('Failed to log admin action:', { code: safeFailureCode(error) });
   }
 }
 
@@ -589,7 +590,6 @@ router.post('/news/announce', requireAuth, requirePermission('manage_news'), asy
       itemCount: latestEntry.items.length,
     });
   } catch (error) {
-    logger.error('Error announcing news:', error);
     return sendRouteError(res, error, 'Failed to announce news', 'Announce news failed');
   }
 });
