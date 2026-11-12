@@ -48,6 +48,15 @@ describe('mudCloseDiagnostics', () => {
     expect(text.length).toBeLessThan(400)
   })
 
+  it.each(['__proto__', 'constructor', 'toString'])(
+    'rejects inherited reason property %s',
+    (reason) => {
+      const diagnostic = buildMudCloseDiagnostic({ ...base, code: 4000, reason })
+      expect(diagnostic.category).toBe('other')
+      expect(explainMudClose(diagnostic)).toBe('The connection was closed.')
+    },
+  )
+
   it('handles a socket that never opened while visible', () => {
     const diagnostic = buildMudCloseDiagnostic({
       ...base,

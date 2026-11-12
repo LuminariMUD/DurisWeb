@@ -106,6 +106,7 @@ let socketLastSentAt: number | null = null
 let socketLastReceivedAt: number | null = null
 let pageHiddenSince: number | null = null
 let visibilityTracked = false
+let serverRefusal: string | undefined
 
 const trackPageVisibility = () => {
   if (visibilityTracked || typeof document === 'undefined') return
@@ -184,6 +185,8 @@ export function useMudConnection() {
 
     setConnecting(true)
     store.setConnectionState('connecting')
+    serverRefusal = undefined
+    store.setCloseDiagnostic(null)
     trackPageVisibility()
     socketOpenedAt = null
     socketLastSentAt = null
@@ -253,18 +256,17 @@ export function useMudConnection() {
         }
       }
 
-      newWs.onerror = (error) => {
+      newWs.onerror = () => {
         if (getWsRef() !== newWs) return
-        console.error('MUD WebSocket error:', error)
+        console.error('MUD WebSocket transport error')
         pendingAuthCredentials = null
         setConnecting(false)
         interruptAccountRequest()
-        store.setConnectionState('error', 'Connection error')
+        store.setConnectionState('error', serverRefusal ?? 'Connection error')
       }
 
       newWs.onclose = (event) => {
         if (getWsRef() !== newWs) return
-        console.log('[MUD] WebSocket closed', event.code, event.reason)
         const closeDiagnostic = buildMudCloseDiagnostic({
           code: event.code,
           reason: event.reason,
@@ -277,6 +279,7 @@ export function useMudConnection() {
           hiddenSince: pageHiddenSince,
           online: typeof navigator === 'undefined' || navigator.onLine,
         })
+        console.log('[MUD] WebSocket closed', closeDiagnostic.code, closeDiagnostic.category)
         pendingAuthCredentials = null
         setConnecting(false)
         setLoggingIn(false) // Clear login in progress flag
@@ -308,19 +311,43 @@ export function useMudConnection() {
         }
 
         // Keep a server refusal (including the launch time) through its final close.
-        store.setConnectionState('disconnected', store.connectionError ?? undefined)
+        store.setConnectionState('disconnected', serverRefusal)
         store.setCloseDiagnostic(closeDiagnostic)
 
         // show reconnect dialog on any disconnect (clean or not)
         // this prevents auto-login from triggering when kicked by another session
         store.openReconnectDialog()
       }
-    } catch (error) {
-      console.error('Failed to create MUD WebSocket:', error)
+    } catch {
+      console.error('Failed to create MUD WebSocket')
       pendingAuthCredentials = null
       setConnecting(false)
       store.setConnectionState('error', 'Failed to connect')
     }
+  }
+
+  const waitForOpenConnection = async (): Promise<boolean> => {
+    await connect()
+    const candidate = getWsRef()
+    if (!candidate) return false
+    return new Promise((resolve) => {
+      const deadline = performance.now() + 10_000
+      const check = () => {
+        if (getWsRef() !== candidate || candidate.readyState > WebSocket.OPEN) {
+          resolve(false)
+        } else if (candidate.readyState === WebSocket.OPEN) {
+          resolve(true)
+        } else if (performance.now() >= deadline) {
+          candidate.close()
+          if (getWsRef() === candidate) setWsRef(null)
+          setConnecting(false)
+          resolve(false)
+        } else {
+          setTimeout(check, 50)
+        }
+      }
+      check()
+    })
   }
 
   const disconnect = () => {
@@ -501,6 +528,7 @@ export function useMudConnection() {
 
   const handleAuthMessage = (message: MudAuthMessage) => {
     if (message.status === 'success' || message.status === 'registered') {
+      serverRefusal = undefined
       if (pendingAuthCredentials) {
         storeMudCredentials(
           message.data.account || pendingAuthCredentials.account,
@@ -528,6 +556,7 @@ export function useMudConnection() {
         store.clearCopyoverState()
       }
     } else if (message.status === 'reconnected') {
+      serverRefusal = undefined
       pendingAuthCredentials = null
       // Reconnected to existing character - go directly to in_game state
       const reconnectMsg = message as MudAuthReconnectedMessage
@@ -548,6 +577,7 @@ export function useMudConnection() {
     } else if (message.status === 'failed') {
       pendingAuthCredentials = null
       clearMudCredentials()
+      serverRefusal = message.error
       store.setConnectionState('error', message.error)
       store.clearCopyoverState() // clear copyover on auth failure
     }
@@ -1060,19 +1090,10 @@ export function useMudConnection() {
       // connect first if not already connected
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         store.setConnectionState('connecting')
-        await connect()
-        // wait for connection to be ready
-        await new Promise<void>((resolve) => {
-          const checkConnection = () => {
-            const currentWs = getWsRef()
-            if (currentWs && currentWs.readyState === WebSocket.OPEN) {
-              resolve()
-            } else {
-              setTimeout(checkConnection, 50)
-            }
-          }
-          checkConnection()
-        })
+        if (!(await waitForOpenConnection())) {
+          pendingAuthCredentials = null
+          return false
+        }
       }
       store.setConnectionState('authenticating')
       return sendCommand({
@@ -1092,19 +1113,10 @@ export function useMudConnection() {
     // connect first if not already connected
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       store.setConnectionState('connecting')
-      await connect()
-      // wait for connection to be ready
-      await new Promise<void>((resolve) => {
-        const checkConnection = () => {
-          const currentWs = getWsRef()
-          if (currentWs && currentWs.readyState === WebSocket.OPEN) {
-            resolve()
-          } else {
-            setTimeout(checkConnection, 50)
-          }
-        }
-        checkConnection()
-      })
+      if (!(await waitForOpenConnection())) {
+        pendingAuthCredentials = null
+        return false
+      }
     }
     store.setConnectionState('authenticating')
     return sendCommand({
