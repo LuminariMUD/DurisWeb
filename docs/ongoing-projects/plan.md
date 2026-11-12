@@ -38,6 +38,12 @@ rechecks closure inside the transaction, removes raw diagnostic bypasses in the
 touched player routes, and validates inclusive wiki tile bounds. Native SQL races
 and boundary/HTTP regressions qualify these repairs.
 
+Maintenance review of PR #214 also fixes pre-publication deletion for site and
+profile images, uses unique object keys and exact prior-object ownership, sanitizes
+admin diagnostic bypasses, rejects malformed numeric setting writes, and terminates
+failed log downloads. Storage and persistence proofs are synthetic; no live objects
+or player data are touched.
+
 Implementation notes for whoever continues:
 
 - Codemod used for the mechanical rewrite (not committed; recreate if needed): it replaces
