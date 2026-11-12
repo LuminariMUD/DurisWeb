@@ -374,6 +374,12 @@ Do not commit `.env` files, dumps, account data, generated deployment output,
 or backup archives. See [Configuration and Environments](environments.md) before
 adding any new setting.
 
+Changelog publication concurrency qualification opts in with
+`TEST_CHANGELOG_DB_PORT=23436` or `23437`, a disposable
+`durisweb_qualification_*` database and matching loopback `DB_*` settings. It
+uses synthetic entries and the real service to verify concurrent publishing,
+competing private draft saves, publication snapshots and rollback.
+
 Builder notification filter qualification opts in with
 `TEST_BUILDER_NOTIFICATION_DB_PORT=23436` or `23437`. Use a disposable
 `durisweb_qualification_*` database with the verified owner/website schema and
