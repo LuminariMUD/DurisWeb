@@ -1,4 +1,4 @@
-import type { Request } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import logger from '../../utils/logger.js';
 import { pool } from '../../db/connection.js';
 import { processContentForWrite } from '../../utils/contentParser.js';
@@ -71,6 +71,33 @@ export async function canAccessZone(
  */
 export function canModerateZoneComments(req: Request, zoneId: string): Promise<boolean> {
   return canAccessZone(req, zoneId, 'manage');
+}
+
+/**
+ * Mounted on `/zones/:id`: every per-zone builder route needs zone access. Reads need
+ * `view`, writes need `edit`, and deleting the zone needs `manage`. `GET /zones/:id/access`
+ * is exempt because it reports the caller's own access level.
+ */
+export async function requireZoneAccess(
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  if (req.method === 'GET' && req.path === '/access') {
+    next();
+    return;
+  }
+  const level =
+    req.method === 'GET' || req.method === 'HEAD'
+      ? 'view'
+      : req.method === 'DELETE' && req.path === '/'
+        ? 'manage'
+        : 'edit';
+  if (!(await canAccessZone(req, req.params.id, level))) {
+    res.status(403).json({ error: 'Access denied to this zone' });
+    return;
+  }
+  next();
 }
 
 // Helper: Check if user can manage zone permissions

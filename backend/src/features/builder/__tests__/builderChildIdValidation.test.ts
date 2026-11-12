@@ -321,6 +321,37 @@ describe('builder child-resource ID validation', () => {
     expect(zoneCommentService.deleteComment).toHaveBeenLastCalledWith('zone-a', 9, 'Builder', true);
   });
 
+  it('requires view, edit or manage on the URL zone for every per-zone route', async () => {
+    testUser = { accountName: 'Builder', permissions: {}, adminPermissions: new Set() };
+    const levels: unknown[] = [];
+    canAccessZone.mockImplementation(async (...args) => {
+      levels.push(args.slice(1));
+      return false;
+    });
+
+    const responses = await Promise.all([
+      request(app).get('/api/builder/zones/zone-b/rooms/100'),
+      request(app).put('/api/builder/zones/zone-b/rooms/100').send({}),
+      request(app).post('/api/builder/zones/zone-b/git/commit').send({}),
+      request(app).delete('/api/builder/zones/zone-b'),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([403, 403, 403, 403]);
+    expect(levels).toEqual(
+      expect.arrayContaining([
+        ['zone-b', 'view'],
+        ['zone-b', 'edit'],
+        ['zone-b', 'manage'],
+      ]),
+    );
+    expect(levels).toHaveLength(4);
+
+    levels.length = 0;
+    const access = await request(app).get('/api/builder/zones/zone-b/access');
+    expect(access.status).toBe(200);
+    expect(access.body).toMatchObject({ canView: false, canEdit: false, canManage: false });
+  });
+
   it('rejects malformed or foreign comment references on create with 400', async () => {
     const malformed = await request(app)
       .post('/api/builder/zones/zone-a/comments')
