@@ -74,7 +74,7 @@ forumReactionPollRoutes.post(
 
       return res.json({ success: true, message: 'Reaction added' });
     } catch (error) {
-      logger.error('Add reaction error:', error);
+      logger.error('Add reaction error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to add reaction' });
     }
   },
@@ -125,7 +125,7 @@ forumReactionPollRoutes.delete(
 
       return res.json({ success: true, message: 'Reaction removed' });
     } catch (error) {
-      logger.error('Remove reaction error:', error);
+      logger.error('Remove reaction error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to remove reaction' });
     }
   },
@@ -168,7 +168,7 @@ forumReactionPollRoutes.post(
 
       return res.json({ success: true, message: 'Reaction added' });
     } catch (error) {
-      logger.error('Add thread reaction error:', error);
+      logger.error('Add thread reaction error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to add reaction' });
     }
   },
@@ -211,7 +211,7 @@ forumReactionPollRoutes.delete(
 
       return res.json({ success: true, message: 'Reaction removed' });
     } catch (error) {
-      logger.error('Remove thread reaction error:', error);
+      logger.error('Remove thread reaction error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to remove reaction' });
     }
   },
@@ -280,7 +280,7 @@ forumReactionPollRoutes.post(
         pollId,
       });
     } catch (error) {
-      logger.error('Create poll error:', error);
+      logger.error('Create poll error:', { code: safeFailureCode(error) });
       if (safeFailureCode(error) === 'ER_DUP_ENTRY') {
         return res.status(409).json({ error: 'This thread already has a poll' });
       }
@@ -309,7 +309,7 @@ forumReactionPollRoutes.get('/threads/:threadId/poll', async (req: Request, res:
 
     return res.json(pollData);
   } catch (error) {
-    logger.error('Get poll error:', error);
+    logger.error('Get poll error:', { code: safeFailureCode(error) });
     return res.status(500).json({ error: 'Failed to get poll' });
   }
 });
@@ -328,7 +328,7 @@ forumReactionPollRoutes.get('/threads/:threadId/has-poll', async (req: Request, 
 
     return res.json({ hasPoll: pollData !== null });
   } catch (error) {
-    logger.error('Check poll error:', error);
+    logger.error('Check poll error:', { code: safeFailureCode(error) });
     return res.status(500).json({ error: 'Failed to check poll' });
   }
 });
@@ -366,7 +366,6 @@ forumReactionPollRoutes.post(
 
       return res.json({ message: 'Vote recorded successfully' });
     } catch (error) {
-      logger.error('Vote error:', error);
       return sendRouteError(res, error, 'Failed to vote', 'Vote failed');
     }
   },
@@ -399,7 +398,6 @@ forumReactionPollRoutes.delete(
 
       return res.json({ message: 'Vote removed successfully' });
     } catch (error) {
-      logger.error('Remove vote error:', error);
       return sendRouteError(res, error, 'Failed to remove vote', 'Remove vote failed');
     }
   },
@@ -443,7 +441,6 @@ forumReactionPollRoutes.patch(
 
       return res.json({ message: 'Poll closed successfully' });
     } catch (error) {
-      logger.error('Close poll error:', error);
       return sendRouteError(res, error, 'Failed to close poll', 'Close poll failed');
     }
   },
@@ -487,7 +484,6 @@ forumReactionPollRoutes.delete(
 
       return res.json({ message: 'Poll deleted successfully' });
     } catch (error) {
-      logger.error('Delete poll error:', error);
       return sendRouteError(res, error, 'Failed to delete poll', 'Delete poll failed');
     }
   },

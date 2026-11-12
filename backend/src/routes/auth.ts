@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 import { Router, Request, Response, type IRouter } from 'express';
 import bcrypt from 'bcrypt';
 import { body, validationResult } from 'express-validator';
@@ -152,7 +153,7 @@ router.post(
         },
       });
     } catch (error) {
-      logger.error('Login error:', error);
+      logger.error('Login error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Login failed' });
     }
   },
@@ -176,7 +177,7 @@ router.post('/logout', requireAuth, async (req: Request, res: Response) => {
 
     return res.json({ success: true, message: 'Logged out successfully' });
   } catch (error) {
-    logger.error('Logout error:', error);
+    logger.error('Logout error:', { code: safeFailureCode(error) });
     return res.status(500).json({ error: 'Logout failed' });
   }
 });
@@ -217,7 +218,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
 
     return res.json({ success: true, message: 'Token refreshed successfully' });
   } catch (error) {
-    logger.error('Token refresh error:', error);
+    logger.error('Token refresh error:', { code: safeFailureCode(error) });
     return res.status(500).json({ error: 'Token refresh failed' });
   }
 });
@@ -260,7 +261,7 @@ router.get('/me', optionalAuth, async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    logger.error('Get user error:', error);
+    logger.error('Get user error:', { code: safeFailureCode(error) });
     return res.status(500).json({ error: 'Failed to get user info' });
   }
 });
@@ -292,7 +293,7 @@ router.get('/check', async (req: Request, res: Response) => {
       accountName: payload.accountName,
     });
   } catch (error) {
-    logger.error('Auth check error:', error);
+    logger.error('Auth check error:', { code: safeFailureCode(error) });
     return res.json({ authenticated: false });
   }
 });
@@ -379,7 +380,6 @@ router.post(
 
       return res.json({ success: true, message: 'Password changed successfully' });
     } catch (error) {
-      logger.error('Change password error:', error);
       return sendRouteError(res, error, 'Failed to change password', 'Failed to change password');
     }
   },
