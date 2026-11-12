@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 import { WebSocket } from 'ws';
 import logger from '../utils/logger.js';
 import { verifyTerminalToken } from '../middleware/auth.js';
@@ -28,8 +29,12 @@ async function ensureTerminalOperation(ws: WebSocket, sessionId: number): Promis
         )
       : false;
 
+  // A reconnect can transfer the terminal while its session query is pending.
+  if (clientState(ws).terminalAuth !== terminalAuth || getSessionByWebSocket(ws) !== sessionId)
+    return false;
   if (authorized) return true;
 
+  delete clientState(ws).terminalAuth;
   await destroyTerminalSession(sessionId);
   if (ws.readyState === WebSocket.OPEN) {
     sendApplicationMessage(
@@ -40,7 +45,6 @@ async function ensureTerminalOperation(ws: WebSocket, sessionId: number): Promis
       }),
     );
   }
-  delete clientState(ws).terminalAuth;
   return false;
 }
 
@@ -54,9 +58,20 @@ export async function closeTerminal(ws: WebSocket): Promise<void> {
   }
 }
 
+const connectingTerminals = new WeakSet<WebSocket>();
+
 /** Interactive terminal (requires `terminal_access` or overlord and a live web session). */
 export const terminalHandlers: Record<string, MessageHandler> = {
   TERMINAL_CONNECT: async (ws, data) => {
+    if (connectingTerminals.has(ws)) {
+      sendApplicationMessage(
+        ws,
+        JSON.stringify({ type: 'TERMINAL_ERROR', message: 'Terminal connection in progress' }),
+      );
+      return;
+    }
+    connectingTerminals.add(ws);
+    let binding: ReturnType<typeof clientState>['terminalAuth'];
     try {
       const { token, cols, rows } = data;
 
@@ -115,10 +130,26 @@ export const terminalHandlers: Record<string, MessageHandler> = {
         return;
       }
 
-      // Create terminal session
+      // Check again after permission I/O and bind ownership before asynchronous creation.
+      // Logout can now close the socket and cancel a pending child in terminalService.
+      if (
+        ws.readyState !== WebSocket.OPEN ||
+        !(await hasActiveWebSession(payload.accountName, payload.sid))
+      ) {
+        sendApplicationMessage(
+          ws,
+          JSON.stringify({ type: 'TERMINAL_ERROR', message: 'Session is no longer active' }),
+        );
+        return;
+      }
+      await closeTerminal(ws);
+      if (ws.readyState !== WebSocket.OPEN) return;
+      binding = { accountName: payload.accountName, webSessionId: payload.sid };
+      clientState(ws).terminalAuth = binding;
       const result = await createTerminalSession(payload.accountName, ws, cols || 80, rows || 24);
 
       if (result.error) {
+        if (clientState(ws).terminalAuth === binding) delete clientState(ws).terminalAuth;
         sendApplicationMessage(
           ws,
           JSON.stringify({
@@ -129,10 +160,17 @@ export const terminalHandlers: Record<string, MessageHandler> = {
         return;
       }
 
-      clientState(ws).terminalAuth = {
-        accountName: payload.accountName,
-        webSessionId: payload.sid,
-      };
+      const sessionActive = await hasActiveWebSession(payload.accountName, payload.sid);
+      if (
+        !sessionActive ||
+        ws.readyState !== WebSocket.OPEN ||
+        clientState(ws).terminalAuth !== binding
+      ) {
+        if (clientState(ws).terminalAuth === binding) delete clientState(ws).terminalAuth;
+        if (getSessionByWebSocket(ws) === result.sessionId)
+          await destroyTerminalSession(result.sessionId);
+        return;
+      }
 
       sendApplicationMessage(
         ws,
@@ -142,7 +180,9 @@ export const terminalHandlers: Record<string, MessageHandler> = {
         }),
       );
     } catch (error) {
-      logger.error('Terminal connect error:', error);
+      if (binding && clientState(ws).terminalAuth === binding) delete clientState(ws).terminalAuth;
+      await closeTerminal(ws);
+      logger.error('Terminal connect error:', { code: safeFailureCode(error) });
       sendApplicationMessage(
         ws,
         JSON.stringify({
@@ -150,6 +190,8 @@ export const terminalHandlers: Record<string, MessageHandler> = {
           message: 'Failed to create terminal session',
         }),
       );
+    } finally {
+      connectingTerminals.delete(ws);
     }
   },
   TERMINAL_INPUT: async (ws, data) => {

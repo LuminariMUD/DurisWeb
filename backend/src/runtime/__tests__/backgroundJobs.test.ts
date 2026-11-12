@@ -155,7 +155,7 @@ describe('background jobs', () => {
       // A signal arrives while GeoIP is still loading.
       aborted = true;
       await jobs?.stopProducers();
-      expect(cleared).toHaveBeenCalledTimes(4);
+      expect(cleared).toHaveBeenCalledTimes(5);
       release();
 
       await expect(starting).rejects.toThrow('Startup stopped by shutdown');

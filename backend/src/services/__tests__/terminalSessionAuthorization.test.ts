@@ -124,6 +124,44 @@ describe('terminal WebSocket session authorization', () => {
     expect(terminalService.getSessionByWebSocket(secondSocket as never)).toBe(first.sessionId);
   });
 
+  it('rejects an operation if its terminal moved to another socket during session validation', async () => {
+    execute.mockResolvedValueOnce([{ insertId: 18 }]).mockResolvedValue([]);
+    const first = fakeWebSocket();
+    const second = fakeWebSocket();
+    await terminalService.createSession('Cwial', first as never);
+    const gate = deferred<boolean>();
+    hasActiveWebSession.mockReturnValueOnce(gate.promise);
+    const authorized = terminalService.isTerminalOperationAuthorized(
+      18,
+      first as never,
+      'Cwial',
+      'sid',
+    );
+    await terminalService.createSession('Cwial', second as never);
+    gate.resolve(true);
+    await expect(authorized).resolves.toBe(false);
+    expect(terminalService.getSessionByWebSocket(second as never)).toBe(18);
+  });
+
+  it('keeps failed terminal persistence diagnostics out of logs', async () => {
+    const { default: logger } = await import('../../utils/logger.js');
+    const error = Object.assign(new Error('private SQL /account/path 192.0.2.1'), {
+      code: 'ER_ACCESS_DENIED_ERROR',
+    });
+    execute.mockRejectedValueOnce(error);
+    const result = await terminalService.createSession('Cwial', fakeWebSocket() as never);
+    expect(result.error).toBeDefined();
+    expect(logger.error).toHaveBeenCalledWith('Error creating terminal session:', {
+      code: 'ER_ACCESS_DENIED_ERROR',
+    });
+    expect(JSON.stringify(jest.mocked(logger.error).mock.calls)).not.toMatch(
+      /private SQL|account\/path|192\.0\.2\.1/,
+    );
+    expect(JSON.stringify(jest.mocked(logger.error).mock.calls)).toContain(
+      'ER_ACCESS_DENIED_ERROR',
+    );
+  });
+
   it('passes an isolated tmux namespace and bashrc path to the PTY', async () => {
     execute.mockResolvedValueOnce([{ insertId: 12 }]).mockResolvedValue([]);
 

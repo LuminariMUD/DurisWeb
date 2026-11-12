@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../../utils/safeFailureCode.js';
 import { Router, Request, Response, type IRouter } from 'express';
 import logger from '../../utils/logger.js';
 import { body, validationResult } from 'express-validator';
@@ -112,8 +113,8 @@ adminGodRoutes.post(
       // Update the account file, then end every session that used the old password.
       await updateAccountPassword(canonicalName, newPasswordHash);
       await revokeAllWebSessions(canonicalName);
-      await cleanupAccountSessions(canonicalName);
       revokeSocketSessions({ accountName: canonicalName });
+      await cleanupAccountSessions(canonicalName);
 
       await db.query(
         `INSERT INTO admin_action_log (account_name, action_type, target, notes)
@@ -131,7 +132,7 @@ adminGodRoutes.post(
         message: `Password changed for account '${canonicalName}'`,
       });
     } catch (error) {
-      logger.error('Admin password reset error:', error);
+      logger.error('Admin password reset error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to reset password' });
     }
   },

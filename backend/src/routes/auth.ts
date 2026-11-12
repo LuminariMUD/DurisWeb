@@ -376,8 +376,8 @@ router.post(
       // Update the account file
       await updateAccountPassword(accountName, newPasswordHash);
       await revokeAllWebSessions(accountName);
-      await cleanupAccountSessions(accountName);
       revokeSocketSessions({ accountName });
+      await cleanupAccountSessions(accountName);
       res.clearCookie('access_token');
       res.clearCookie('refresh_token');
 

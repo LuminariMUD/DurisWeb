@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 import * as pty from 'node-pty';
 import type { ResultSetHeader } from 'mysql2';
 import { WebSocket } from 'ws';
@@ -276,7 +277,7 @@ BASHRC
         }
       }
     }
-    logger.error('Error creating terminal session:', error);
+    logger.error('Error creating terminal session:', { code: safeFailureCode(error) });
     return { sessionId: -1, error: 'Failed to create terminal session' };
   }
 }
@@ -334,7 +335,7 @@ async function flushOutputBuffer(session: TerminalSession): Promise<void> {
       data,
     ]);
   } catch (error) {
-    logger.error('Error logging terminal output:', error);
+    logger.error('Error logging terminal output:', { code: safeFailureCode(error) });
   }
 }
 
@@ -361,7 +362,7 @@ export async function writeInput(sessionId: number, data: string): Promise<boole
 
     return true;
   } catch (error) {
-    logger.error('Error writing to terminal:', error);
+    logger.error('Error writing to terminal:', { code: safeFailureCode(error) });
     return false;
   }
 }
@@ -380,7 +381,7 @@ export function resizeTerminal(sessionId: number, cols: number, rows: number): b
     session.pty.resize(cols, rows);
     return true;
   } catch (error) {
-    logger.error('Error resizing terminal:', error);
+    logger.error('Error resizing terminal:', { code: safeFailureCode(error) });
     return false;
   }
 }
@@ -412,7 +413,13 @@ export async function isTerminalOperationAuthorized(
     return false;
   }
 
-  return hasActiveWebSession(accountName, webSessionId);
+  const active = await hasActiveWebSession(accountName, webSessionId);
+  return (
+    active &&
+    activeSessions.get(sessionId) === session &&
+    session.ws === ws &&
+    sessionsByWebSocket.get(ws) === sessionId
+  );
 }
 
 /**
@@ -470,7 +477,7 @@ async function finishCleanup(session: TerminalSession, status: 'ended' | 'error'
       sessionId,
     ]);
   } catch (error) {
-    logger.error('Error updating terminal session status:', error);
+    logger.error('Error updating terminal session status:', { code: safeFailureCode(error) });
   }
 
   // Notify client

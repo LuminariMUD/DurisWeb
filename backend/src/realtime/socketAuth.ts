@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws';
-import logger, { getErrorMessage } from '../utils/logger.js';
+import logger from '../utils/logger.js';
 import { verifyToken, verifyWebSocketToken, isAccessToken } from '../middleware/auth.js';
 import { parseAccountFile } from '../services/accountService.js';
 import { getActiveWebSessionIds, hasActiveWebSession } from '../services/sessionService.js';
@@ -9,9 +9,12 @@ import { hasWebSocketPermission, type WebSocketPrincipal } from '../utils/websoc
 import { applicationClients } from './broadcasts.js';
 import { clientState } from './clientState.js';
 import { closeTerminal } from './terminalHandlers.js';
+import { revokeLogSubscriptions } from './logStreamHandlers.js';
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 
 /** Close code for a socket whose web session ended or could not be revalidated. */
 const SESSION_ENDED_CLOSE_CODE = 4401;
+const REVALIDATION_TIMEOUT_MS = 10_000;
 
 /** Verify a WebSocket capability (or access cookie) and require a minimum character level. */
 export async function verifyWebSocketAuth(
@@ -42,6 +45,8 @@ export async function verifyWebSocketAuth(
     `[verifyWebSocketAuth] ${payload.accountName} maxLevel=${permissions.maxLevel} minLevel=${minLevel}`,
   );
   if (permissions.maxLevel < minLevel) return null;
+  // Permissions and account reads may outlive a logout or session expiry.
+  if (!(await hasActiveWebSession(payload.accountName, payload.sid))) return null;
 
   return {
     accountName: payload.accountName,
@@ -70,7 +75,7 @@ export async function hydrateWebSocketPrincipal(
       state.wsPrincipal = principal;
     }
   } catch (error) {
-    logger.warn('[WebSocket] cookie principal hydration failed:', getErrorMessage(error));
+    logger.warn('[WebSocket] cookie principal hydration failed:', { code: safeFailureCode(error) });
   }
 }
 
@@ -112,75 +117,133 @@ export function revokeSocketSessions(target: { accountName: string; sessionId?: 
 
 let revalidation: Promise<void> | undefined;
 let revalidationQueued: Promise<void> | undefined;
+let revalidationWork: Promise<void> | undefined;
 
 async function revalidateOnce(): Promise<void> {
-  const sockets = Array.from(applicationClients()).filter(
-    (ws) => ws.readyState === WebSocket.OPEN && socketSessions(ws).length > 0,
-  );
-  if (sockets.length === 0) return;
+  // Capture identities before any I/O. A later login owns its own permissions and session.
+  const snapshots = Array.from(applicationClients())
+    .filter((ws) => ws.readyState === WebSocket.OPEN && socketSessions(ws).length > 0)
+    .map((ws) => ({
+      ws,
+      principal: clientState(ws).wsPrincipal,
+      terminal: clientState(ws).terminalAuth,
+    }));
+  if (snapshots.length === 0) return;
 
-  const sessions = new Map<string, { accountName: string; sessionId: string }>();
-  for (const ws of sockets) {
-    for (const session of socketSessions(ws)) {
-      sessions.set(`${session.accountName}\0${session.sessionId}`, session);
-    }
-  }
+  let cancelled = false;
+  const ownsPrincipal = (snapshot: (typeof snapshots)[number]) =>
+    !cancelled &&
+    snapshot.ws.readyState === WebSocket.OPEN &&
+    snapshot.principal !== undefined &&
+    clientState(snapshot.ws).wsPrincipal === snapshot.principal;
+  const ownsTerminal = (snapshot: (typeof snapshots)[number]) =>
+    !cancelled &&
+    snapshot.ws.readyState === WebSocket.OPEN &&
+    snapshot.terminal !== undefined &&
+    clientState(snapshot.ws).terminalAuth === snapshot.terminal;
+  const endOwnedSession = (snapshot: (typeof snapshots)[number]) => {
+    if (ownsPrincipal(snapshot) || ownsTerminal(snapshot)) endSocketSession(snapshot.ws);
+  };
 
-  let active: Set<string>;
-  try {
-    active = await getActiveWebSessionIds([...sessions.values()]);
-  } catch (error) {
-    // Fail closed: an unverifiable session ends; the client reconnects and rehydrates.
-    logger.warn('[WebSocket] principal revalidation failed:', getErrorMessage(error));
-    sockets.forEach(endSocketSession);
+  // Keep unfinished I/O shared after its deadline; repeated ticks must not queue more SQL.
+  if (revalidationWork) {
+    snapshots.forEach(endOwnedSession);
     return;
   }
 
-  // One permission computation per account, shared by all of its sockets.
-  const permissionsByAccount = new Map<string, Promise<UserPermissions>>();
-  const permissionsFor = (accountName: string) => {
-    let permissions = permissionsByAccount.get(accountName);
-    if (!permissions) {
-      permissions = parseAccountFile(accountName).then((account) =>
-        getUserPermissions(accountName, account.characters),
-      );
-      permissionsByAccount.set(accountName, permissions);
+  const check = async () => {
+    const sessions = new Map<string, { accountName: string; sessionId: string }>();
+    for (const { principal, terminal } of snapshots) {
+      for (const session of [
+        principal && { accountName: principal.accountName, sessionId: principal.sessionId },
+        terminal?.accountName &&
+          terminal.webSessionId && {
+            accountName: terminal.accountName,
+            sessionId: terminal.webSessionId,
+          },
+      ]) {
+        if (session) sessions.set(`${session.accountName}\0${session.sessionId}`, session);
+      }
     }
-    return permissions;
+    const active = await getActiveWebSessionIds([...sessions.values()]);
+    if (cancelled) return;
+
+    // One permission computation per account, shared by all of its sockets.
+    const permissionsByAccount = new Map<string, Promise<UserPermissions>>();
+    const permissionsFor = (accountName: string) => {
+      let permissions = permissionsByAccount.get(accountName);
+      if (!permissions) {
+        permissions = parseAccountFile(accountName).then((account) =>
+          getUserPermissions(accountName, account.characters),
+        );
+        permissionsByAccount.set(accountName, permissions);
+      }
+      return permissions;
+    };
+
+    await Promise.all(
+      snapshots.map(async (snapshot) => {
+        const { ws, principal, terminal } = snapshot;
+        if (
+          (ownsPrincipal(snapshot) && !active.has(principal!.sessionId)) ||
+          (ownsTerminal(snapshot) && !active.has(terminal!.webSessionId!))
+        ) {
+          endOwnedSession(snapshot);
+          return;
+        }
+        try {
+          if (principal && ownsPrincipal(snapshot)) {
+            const permissions = await permissionsFor(principal.accountName);
+            if (ownsPrincipal(snapshot)) {
+              principal.permissions = permissions;
+              if (!hasWebSocketPermission(principal, 'view_server_logs')) {
+                revokeLogSubscriptions(ws);
+              }
+            }
+          }
+          if (terminal?.accountName && ownsTerminal(snapshot)) {
+            const permissions = await permissionsFor(terminal.accountName);
+            if (
+              ownsTerminal(snapshot) &&
+              permissions.role !== 'overlord' &&
+              !permissions.adminPermissions.includes('terminal_access')
+            ) {
+              await closeTerminal(ws);
+            }
+          }
+        } catch (error) {
+          logger.warn('[WebSocket] principal revalidation failed:', {
+            code: safeFailureCode(error),
+          });
+          endOwnedSession(snapshot);
+        }
+      }),
+    );
   };
 
-  await Promise.all(
-    sockets.map(async (ws) => {
-      const state = clientState(ws);
-      if (socketSessions(ws).some(({ sessionId }) => !active.has(sessionId))) {
-        endSocketSession(ws);
-        return;
-      }
-      try {
-        if (state.wsPrincipal) {
-          const { accountName, sessionId } = state.wsPrincipal;
-          state.wsPrincipal = {
-            accountName,
-            sessionId,
-            permissions: await permissionsFor(accountName),
-          };
-        }
-        const terminalOwner = state.terminalAuth?.accountName;
-        if (terminalOwner) {
-          const permissions = await permissionsFor(terminalOwner);
-          if (
-            permissions.role !== 'overlord' &&
-            !permissions.adminPermissions.includes('terminal_access')
-          ) {
-            await closeTerminal(ws);
-          }
-        }
-      } catch (error) {
-        logger.warn('[WebSocket] principal revalidation failed:', getErrorMessage(error));
-        endSocketSession(ws);
-      }
-    }),
-  );
+  const work = check().finally(() => {
+    if (revalidationWork === work) revalidationWork = undefined;
+  });
+  revalidationWork = work;
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    await Promise.race([
+      work,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error('Revalidation timed out')),
+          REVALIDATION_TIMEOUT_MS,
+        );
+        timer.unref();
+      }),
+    ]);
+  } catch (error) {
+    logger.warn('[WebSocket] principal revalidation failed:', { code: safeFailureCode(error) });
+    snapshots.forEach(endOwnedSession);
+  } finally {
+    cancelled = true; // A timed-out lookup must never apply a late result.
+    clearTimeout(timer);
+  }
 }
 
 /**
@@ -192,7 +255,7 @@ export function revalidateSockets(): Promise<void> {
   if (!revalidation) {
     revalidation = revalidateOnce()
       .catch((error) => {
-        logger.warn('[WebSocket] principal revalidation failed:', getErrorMessage(error));
+        logger.warn('[WebSocket] principal revalidation failed:', { code: safeFailureCode(error) });
       })
       .finally(() => {
         revalidation = undefined;
@@ -224,10 +287,11 @@ export async function authorizeZoneStream(
       return null;
     }
   } catch (error) {
-    logger.warn('[WebSocket] zone access lookup failed:', getErrorMessage(error));
+    logger.warn('[WebSocket] zone access lookup failed:', { code: safeFailureCode(error) });
     return null;
   }
 
+  if (ws.readyState !== WebSocket.OPEN) return null;
   clientState(ws).wsPrincipal = principal;
   return principal;
 }

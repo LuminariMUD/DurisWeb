@@ -30,6 +30,24 @@ export function clearLogSubscriptions(ws: WebSocket): void {
   clientState(ws).logSubscriptions!.clear();
 }
 
+/** Release denied subscriptions and tell the client its Live acknowledgement no longer holds. */
+export function revokeLogSubscriptions(ws: WebSocket): void {
+  const keys = [...(clientState(ws).logSubscriptions?.keys() ?? [])];
+  clearLogSubscriptions(ws);
+  for (const key of keys) {
+    const separator = key.indexOf(':');
+    sendApplicationMessage(
+      ws,
+      JSON.stringify({
+        type: 'ERROR',
+        category: key.slice(0, separator),
+        logName: key.slice(separator + 1),
+        message: 'Server log permission required',
+      }),
+    );
+  }
+}
+
 /** Server log tail subscriptions (requires `view_server_logs`). */
 export const logStreamHandlers: Record<string, MessageHandler> = {
   SUBSCRIBE_LOG: async (ws, data) => {
