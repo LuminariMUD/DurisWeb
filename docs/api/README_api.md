@@ -190,6 +190,20 @@ tracked deletions. Unrelated staged work remains staged. Git refs and commit
 messages are passed as argument values, and a failed status read is not reported
 as a clean zone. Read/archive errors terminate partial downloads safely.
 
+### Live log subscriptions
+
+Live log subscriptions require a short-lived WebSocket capability and server
+confirmation. Selection changes, reconnects and disposal cancel pending ownership;
+an unsubscribe also cancels authentication still in progress on the server. Error
+replies identify the requested category and filename so the live indicator remains
+accurate. Repeating a valid subscribe confirms it without adding a second watcher.
+
+Readers process appends serially in 64 KiB chunks, publish only actual bytes read,
+preserve UTF-8 across chunks and close file handles in finally blocks. Reader or
+watcher failure reports the log unavailable and retires its callbacks; the viewer
+can resubscribe after the source is available. The viewer retains up to 500 recent
+lines within a 262,144-character budget. The download remains the complete history.
+
 ## Website data hold records
 
 The separate [website data hold API](../runbooks/data-holds.md) at
