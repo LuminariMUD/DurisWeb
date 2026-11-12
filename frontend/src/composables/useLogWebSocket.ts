@@ -16,28 +16,33 @@ export function useLogWebSocket(
   logName: Ref<string | null>,
   enabled: Ref<boolean>,
 ) {
-  const { socket, isConnected, sendMessage } = useWebSocket()
+  const { socket, isConnected, sendMessage, getSubscriptionToken } = useWebSocket()
   const newLines = ref<string[]>([])
   const isSubscribed = ref(false)
 
   // Store cleanup function for proper unmount handling
   let messageCleanup: (() => void) | null = null
 
-  // Subscribe to log updates
-  function subscribe() {
-    if (!isConnected.value || !category.value || !logName.value) {
+  // Subscribe to log updates; the server requires a short-lived websocket capability.
+  async function subscribe() {
+    const cat = category.value
+    const log = logName.value
+    if (!isConnected.value || !cat || !log) {
       console.warn('Cannot subscribe: not connected or missing log info')
       return
     }
 
-    sendMessage({
-      type: 'SUBSCRIBE_LOG',
-      category: category.value,
-      logName: logName.value,
-    })
-
     isSubscribed.value = true
-    console.log(`📡 Subscribed to log: ${category.value}/${logName.value}`)
+    const token = await getSubscriptionToken()
+    // The selection may have changed, or been unsubscribed, while the token was fetched.
+    if (!isSubscribed.value || cat !== category.value || log !== logName.value) return
+    if (!token) {
+      isSubscribed.value = false
+      return
+    }
+
+    sendMessage({ type: 'SUBSCRIBE_LOG', token, category: cat, logName: log })
+    console.log(`📡 Subscribed to log: ${cat}/${log}`)
   }
 
   // Unsubscribe from log updates
@@ -121,7 +126,7 @@ export function useLogWebSocket(
     [isConnected, category, logName, enabled],
     ([connected, cat, log, shouldSubscribe]) => {
       if (connected && cat && log && shouldSubscribe) {
-        subscribe()
+        void subscribe()
       } else if (isSubscribed.value) {
         unsubscribe()
       }
