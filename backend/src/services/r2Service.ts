@@ -1,4 +1,6 @@
-import { PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { randomUUID } from 'node:crypto';
+import { safeFailureCode } from '../utils/safeFailureCode.js';
+import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import logger from '../utils/logger.js';
 import { isR2Enabled, requireR2Storage } from './r2Client.js';
@@ -111,13 +113,9 @@ export async function uploadAvatar(
   // Process the image
   const { buffer, extension, contentType } = await processImage(fileBuffer, mimeType, type);
 
-  // Generate unique filename with timestamp to bust cache
-  const timestamp = Date.now();
+  // Each publication owns an immutable object, including concurrent uploads.
   const folder = type === 'banner' ? 'banners' : 'avatars';
-  const key = `duris/${folder}/${accountName.toLowerCase()}_${timestamp}.${extension}`;
-
-  // Delete old images for this user first
-  await deleteOldImages(accountName, type);
+  const key = `duris/${folder}/${accountName.toLowerCase()}_${randomUUID()}.${extension}`;
 
   // Upload to R2
   const r2 = requireR2Storage();
@@ -135,80 +133,28 @@ export async function uploadAvatar(
   return `${r2.configuration.publicUrl}/${key}`;
 }
 
-/**
- * Delete old images for a user (cleanup before uploading new one)
- */
-async function deleteOldImages(
+/** Best-effort cleanup of one previously published image owned by this account and type. */
+export async function deleteAvatarByUrl(
+  imageUrl: string,
   accountName: string,
   type: ImageUploadType = 'avatar',
 ): Promise<void> {
+  if (!isR2Configured()) return;
   try {
-    // List objects with the user's prefix
-    const folder = type === 'banner' ? 'banners' : 'avatars';
-    const prefix = `duris/${folder}/${accountName.toLowerCase()}_`;
     const r2 = requireR2Storage();
-    const listResponse = await r2.client.send(
-      new ListObjectsV2Command({
-        Bucket: r2.configuration.bucketName,
-        Prefix: prefix,
-      }),
+    const base = r2.configuration.publicUrl + '/';
+    const folder = type === 'banner' ? 'banners' : 'avatars';
+    const prefix = 'duris/' + folder + '/' + accountName.toLowerCase() + '_';
+    if (!imageUrl.startsWith(base + prefix)) return;
+    const key = imageUrl.slice(base.length);
+    const suffix = key.slice(prefix.length);
+    if (!/^[a-zA-Z0-9-]+[.](webp|gif|png|jpg|jpeg)$/.test(suffix)) return;
+    await r2.client.send(
+      new DeleteObjectCommand({ Bucket: r2.configuration.bucketName, Key: key }),
     );
-
-    // Delete each old avatar
-    if (listResponse.Contents && listResponse.Contents.length > 0) {
-      for (const obj of listResponse.Contents) {
-        if (obj.Key) {
-          await r2.client.send(
-            new DeleteObjectCommand({
-              Bucket: r2.configuration.bucketName,
-              Key: obj.Key,
-            }),
-          );
-        }
-      }
-    }
   } catch (error) {
-    // Log but don't fail - old images will just remain
-    logger.warn(`Failed to delete old ${type}s:`, error);
+    logger.warn('Previous profile image cleanup failed', { code: safeFailureCode(error) });
   }
-}
-
-/**
- * Delete image from R2 by URL
- */
-export async function deleteAvatarByUrl(imageUrl: string): Promise<void> {
-  if (!isR2Configured()) {
-    throw new Error('R2 storage is not configured');
-  }
-
-  const r2 = requireR2Storage();
-  if (!imageUrl || !imageUrl.startsWith(r2.configuration.publicUrl)) {
-    return; // Not an R2 URL, nothing to delete
-  }
-
-  // Extract key from URL
-  const key = imageUrl.replace(`${r2.configuration.publicUrl}/`, '');
-
-  await r2.client.send(
-    new DeleteObjectCommand({
-      Bucket: r2.configuration.bucketName,
-      Key: key,
-    }),
-  );
-}
-
-/**
- * Delete all avatars/banners for an account
- */
-export async function deleteAllAvatars(
-  accountName: string,
-  type: ImageUploadType = 'avatar',
-): Promise<void> {
-  if (!isR2Configured()) {
-    throw new Error('R2 storage is not configured');
-  }
-
-  await deleteOldImages(accountName, type);
 }
 
 /**

@@ -23,7 +23,7 @@ import { isAccountOwner, privateProfileResponse } from '../../middleware/profile
 import { findAccountByCharacter } from '../../services/accountService.js';
 import {
   uploadAvatar,
-  deleteAllAvatars,
+  deleteAvatarByUrl,
   validateAvatarFile,
   isR2Configured,
 } from '../../services/r2Service.js';
@@ -280,10 +280,13 @@ forumProfileRoutes.post(
       const accountName = req.user!.accountName;
 
       // Upload to R2
+      const previousProfile = await getUserProfile(accountName);
       const avatarUrl = await uploadAvatar(file.buffer, accountName, file.mimetype);
 
       // Update profile with new avatar URL
       await updateUserProfile(accountName, { avatarUrl });
+      if (previousProfile?.avatarUrl)
+        await deleteAvatarByUrl(previousProfile.avatarUrl, accountName, 'avatar');
 
       return res.json({ avatarUrl });
     } catch (error) {
@@ -324,10 +327,13 @@ forumProfileRoutes.post(
       const { accountName } = req.params;
 
       // Upload to R2
+      const previousProfile = await getUserProfile(accountName);
       const avatarUrl = await uploadAvatar(file.buffer, accountName, file.mimetype);
 
       // Update profile with new avatar URL
       await updateUserProfile(accountName, { avatarUrl });
+      if (previousProfile?.avatarUrl)
+        await deleteAvatarByUrl(previousProfile.avatarUrl, accountName, 'avatar');
 
       return res.json({ avatarUrl });
     } catch (error) {
@@ -350,11 +356,11 @@ forumProfileRoutes.delete('/users/me/avatar', requireAuth, async (req: Request, 
 
     const accountName = req.user!.accountName;
 
-    // Delete from R2
-    await deleteAllAvatars(accountName);
-
     // Update profile to remove avatar URL
+    const previousProfile = await getUserProfile(accountName);
     await updateUserProfile(accountName, { avatarUrl: null });
+    if (previousProfile?.avatarUrl)
+      await deleteAvatarByUrl(previousProfile.avatarUrl, accountName, 'avatar');
 
     return res.json({ success: true });
   } catch (error) {
@@ -380,11 +386,11 @@ forumProfileRoutes.delete(
 
       const { accountName } = req.params;
 
-      // Delete from R2
-      await deleteAllAvatars(accountName);
-
       // Update profile to remove avatar URL
+      const previousProfile = await getUserProfile(accountName);
       await updateUserProfile(accountName, { avatarUrl: null });
+      if (previousProfile?.avatarUrl)
+        await deleteAvatarByUrl(previousProfile.avatarUrl, accountName, 'avatar');
 
       return res.json({ success: true });
     } catch (error) {
@@ -423,17 +429,16 @@ forumProfileRoutes.post(
         return res.status(400).json({ error: validation.error });
       }
 
-      const user = (req as any).user;
-      const accountName = user.accountName;
-
-      // Delete existing banners first
-      await deleteAllAvatars(accountName, 'banner');
+      const accountName = req.user!.accountName;
 
       // Upload new banner
+      const previousProfile = await getUserProfile(accountName);
       const bannerUrl = await uploadAvatar(file.buffer, accountName, file.mimetype, 'banner');
 
       // Update user profile with new banner URL
       await updateUserProfile(accountName, { bannerUrl });
+      if (previousProfile?.bannerUrl)
+        await deleteAvatarByUrl(previousProfile.bannerUrl, accountName, 'banner');
 
       return res.json({ bannerUrl });
     } catch (error) {
@@ -471,14 +476,14 @@ forumProfileRoutes.post(
 
       const { accountName } = req.params;
 
-      // Delete existing banners first
-      await deleteAllAvatars(accountName, 'banner');
-
       // Upload new banner
+      const previousProfile = await getUserProfile(accountName);
       const bannerUrl = await uploadAvatar(file.buffer, accountName, file.mimetype, 'banner');
 
       // Update user profile with new banner URL
       await updateUserProfile(accountName, { bannerUrl });
+      if (previousProfile?.bannerUrl)
+        await deleteAvatarByUrl(previousProfile.bannerUrl, accountName, 'banner');
 
       return res.json({ bannerUrl });
     } catch (error) {
@@ -494,14 +499,15 @@ forumProfileRoutes.post(
  */
 forumProfileRoutes.delete('/users/me/banner', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    const accountName = user.accountName;
-
-    // Delete all banners for this user
-    await deleteAllAvatars(accountName, 'banner');
+    if (!isR2Configured())
+      return res.status(503).json({ error: 'Banner deletion is not available' });
+    const accountName = req.user!.accountName;
 
     // Update profile to clear banner URL
+    const previousProfile = await getUserProfile(accountName);
     await updateUserProfile(accountName, { bannerUrl: null });
+    if (previousProfile?.bannerUrl)
+      await deleteAvatarByUrl(previousProfile.bannerUrl, accountName, 'banner');
 
     return res.json({ success: true });
   } catch (error) {
@@ -520,13 +526,15 @@ forumProfileRoutes.delete(
   requirePermission('manage_user_profiles'),
   async (req: Request, res: Response) => {
     try {
+      if (!isR2Configured())
+        return res.status(503).json({ error: 'Banner deletion is not available' });
       const { accountName } = req.params;
 
-      // Delete all banners for this user
-      await deleteAllAvatars(accountName, 'banner');
-
       // Update profile to clear banner URL
+      const previousProfile = await getUserProfile(accountName);
       await updateUserProfile(accountName, { bannerUrl: null });
+      if (previousProfile?.bannerUrl)
+        await deleteAvatarByUrl(previousProfile.bannerUrl, accountName, 'banner');
 
       return res.json({ success: true });
     } catch (error) {
