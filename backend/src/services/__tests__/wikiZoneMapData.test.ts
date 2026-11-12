@@ -191,7 +191,9 @@ describe('active-world numeric zone maps', () => {
       expect(await parser.getZoneBaseName(2)).toBe('other');
       const response = await request(app).get('/api/wiki/zones/344/map-data');
       expect(response.status).toBe(500);
-      expect(response.body.error.message).toBe('Active zone number 344 is ambiguous.');
+      // Server-side manifest faults stay in the log; the public body is generic (#176).
+      expect(response.body.error.message).toBe('Internal Server Error');
+      expect(JSON.stringify(response.body)).not.toContain('ambiguous');
       expect(response.body.nodes).toBeUndefined();
     },
   );

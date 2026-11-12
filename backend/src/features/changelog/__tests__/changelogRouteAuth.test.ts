@@ -44,6 +44,7 @@ jest.unstable_mockModule('../service.js', () => ({
 }));
 
 const { generateAccessToken } = await import('../../../middleware/auth.js');
+const { AppError } = await import('../../../middleware/errorHandler.js');
 const { changelogRouter } = await import('../routes.js');
 const app = express();
 app.use(cookieParser());
@@ -68,6 +69,17 @@ describe('changelog routes with real authentication middleware', () => {
     );
   });
 
+  it('keeps internal error text out of anonymous reads', async () => {
+    getChangelogEntries.mockRejectedValueOnce(new Error('SENTINEL_/srv/duris ER_ACCESS_DENIED'));
+    const response = await request(app).get('/api/changelog');
+    expect(response.status).toBe(500);
+    expect(JSON.stringify(response.body)).not.toContain('SENTINEL');
+    expect(response.body).toEqual({
+      error: 'Failed to load changelog',
+      reference: expect.any(String),
+    });
+  });
+
   it('rejects anonymous and unpermitted writes without mutating', async () => {
     expect((await request(app).post('/api/changelog').send(draft)).status).toBe(401);
     const forbidden = await request(app).post('/api/changelog').set('Cookie', cookie()).send(draft);
@@ -87,5 +99,13 @@ describe('changelog routes with real authentication middleware', () => {
     expect(createChangelogEntry).toHaveBeenCalledWith(
       expect.objectContaining({ createdBy: 'FixtureEditor', category: 'public' }),
     );
+  });
+
+  it('returns a typed content error to the editor', async () => {
+    grants = ['manage_news'];
+    createChangelogEntry.mockRejectedValueOnce(new AppError('Content is too long', 400));
+    const response = await request(app).post('/api/changelog').set('Cookie', cookie()).send(draft);
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Content is too long' });
   });
 });

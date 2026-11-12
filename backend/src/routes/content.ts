@@ -8,6 +8,7 @@ import { extractClientIP } from '../utils/ipExtractor.js';
 import { pool } from '../db/connection.js';
 import { parseLatestNewsEntry } from '../utils/newsParser.js';
 import { notifyNewsUpdate } from '../services/unifiedNotificationService.js';
+import { sendRouteError } from '../utils/routeError.js';
 import {
   validateBooleanField,
   validateIdParam,
@@ -495,7 +496,7 @@ router.get('/news', async (_req, res) => {
     const news = await contentService.getNews();
     res.json({ news: news ? news.content : null });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to load news', 'Get MUD news failed');
   }
 });
 

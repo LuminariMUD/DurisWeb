@@ -1,10 +1,10 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import { requireAuth, requirePermission, optionalAuth } from '../../middleware/auth.js';
-import { getErrorMessage } from '../../utils/logger.js';
 import * as changelogService from './service.js';
 import { processContentForWrite } from '../../utils/contentParser.js';
 import { validateIdParam } from '../../utils/validation.js';
 import { listPagination, validateChangelogWriteBody } from './validation.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const changelogRouter: ExpressRouter = Router();
 
@@ -33,7 +33,7 @@ changelogRouter.get('/', optionalAuth, async (req, res) => {
 
     return res.json(result);
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to load changelog', 'List changelog failed');
   }
 });
 
@@ -50,7 +50,7 @@ changelogRouter.get('/admin', requireAuth, requirePermission('manage_news'), asy
     const result = await changelogService.getAllChangelogEntriesForAdmin(page, limit);
     return res.json(result);
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to load changelog', 'List admin changelog failed');
   }
 });
 
@@ -66,7 +66,7 @@ changelogRouter.get('/unread-count', requireAuth, async (req, res) => {
     const count = await changelogService.getUnreadCount(accountName, includeAdmin);
     res.json({ count });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to load unread count', 'Changelog unread count failed');
   }
 });
 
@@ -97,7 +97,12 @@ changelogRouter.get('/:id', optionalAuth, async (req, res) => {
 
     return res.json(entry);
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(
+      res,
+      error,
+      'Failed to load changelog entry',
+      'Get changelog entry failed',
+    );
   }
 });
 
@@ -136,7 +141,12 @@ changelogRouter.post('/', requireAuth, requirePermission('manage_news'), async (
 
     return res.status(201).json({ id });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(
+      res,
+      error,
+      'Failed to create changelog entry',
+      'Create changelog entry failed',
+    );
   }
 });
 
@@ -185,7 +195,12 @@ changelogRouter.put('/:id', requireAuth, requirePermission('manage_news'), async
 
     return res.json({ success: true });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(
+      res,
+      error,
+      'Failed to update changelog entry',
+      'Update changelog entry failed',
+    );
   }
 });
 
@@ -207,7 +222,12 @@ changelogRouter.delete('/:id', requireAuth, requirePermission('manage_news'), as
 
     return res.json({ success: true });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(
+      res,
+      error,
+      'Failed to delete changelog entry',
+      'Delete changelog entry failed',
+    );
   }
 });
 
@@ -225,7 +245,12 @@ changelogRouter.post('/:id/read', requireAuth, async (req, res) => {
     await changelogService.markAsRead(id, accountName);
     return res.json({ success: true });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(
+      res,
+      error,
+      'Failed to mark entry as read',
+      'Mark changelog entry read failed',
+    );
   }
 });
 
@@ -241,6 +266,6 @@ changelogRouter.post('/read-all', requireAuth, async (req, res) => {
     const count = await changelogService.markAllAsRead(accountName, includeAdmin);
     res.json({ success: true, count });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to mark entries as read', 'Mark all changelog read failed');
   }
 });

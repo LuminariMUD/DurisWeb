@@ -6,7 +6,47 @@ Branch: `branch/issue-176-safe-error-responses` (linked to the issue)
 
 Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d5573c156`.
 
-**Status: planned; implementation not started.**
+**Status: in progress — implemented as stacked PRs, one per exposure group (see "Progress").**
+
+## Progress (handoff log — update with every PR)
+
+Worktree: `../durisweb-issue-176`. Each group is its own branch, stacked on the previous one,
+with its own PR. Rebase the stack onto `master` after each merge (see
+`merging-stacked-prs` practice: linear history, fast-forward per PR).
+
+| # | Branch | Scope | PR | State |
+|---|---|---|---|---|
+| 1 | `branch/issue-176-safe-error-responses` | plan, `sendRouteError`, `errorHandler`, anonymous routes (changelog, guide, `GET /api/content/news`) | see PR list on #176 | ready for review |
+| 2 | `branch/issue-176-player-routes` | players: notifications, help suggestions, auth, forum moderation/poll/profile/subscription, wiki text matches | — | next |
+| 3 | `branch/issue-176-admin-routes` | admin/staff: rest of `content.ts`, `features/admin/*` | — | pending |
+| 4 | `branch/issue-176-builder-routes` | builder, SSE/WebSocket, git/mud/deploy results, ESLint guard, docs | — | pending |
+
+Decisions taken while implementing (resolving the open questions below):
+
+- **Logging (Q1):** existing log lines are unchanged. `sendRouteError` logs `reference`,
+  `safeFailureCode` and the original message server-side (the issue asks to "log the error
+  server-side"; many converted sites had no log line at all). `errorHandler` still logs the
+  message, now with the reference. Tightening log content is a separate follow-up.
+- **Status codes (Q2):** user-facing service throws become `AppError` with the semantically
+  correct 4xx.
+- **Operator console (Q3):** the live MUD-control console stream stays unchanged.
+- **PR shape (Q4):** stacked PRs per exposure group, as requested for this work.
+
+Implementation notes for whoever continues:
+
+- Codemod used for the mechanical rewrite (not committed; recreate if needed): it replaces
+  `res.status(500).json({ error: getErrorMessage(e) [|| 'x'] })`, the builder
+  `{ error: 'x', message: getErrorMessage(e) }` form, and the inline
+  `e instanceof Error ? e.message : 'x'` form with `sendRouteError(res, e, 'x', 'x')`,
+  adds the import, and drops an unused `getErrorMessage` import. Sites without a fallback
+  string get a hand-written public message and log context.
+- Route tests that mock `utils/logger.js` with only `getErrorMessage` must also provide a
+  no-op `default` logger once the route imports `sendRouteError` (done for changelog ×4 and
+  guide; still needed in `helpSuggestionValidation.test.ts` and
+  `notificationIdValidation.test.ts`).
+- Tests that pinned a leaked 500 message are updated to the generic contract (first one:
+  `services/__tests__/wikiZoneMapData.test.ts`, the "zone is ambiguous" manifest fault).
+- The 12 skipped backend suites are pre-existing env-gated native/DB suites.
 
 This plan was built from the code, not from the issue text. Every count below comes from
 an AST pass over `backend/src` (non-test `.ts`), which finds wrapped call sites that a line
