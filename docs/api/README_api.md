@@ -204,6 +204,13 @@ watcher failure reports the log unavailable and retires its callbacks; the viewe
 can resubscribe after the source is available. The viewer retains up to 500 recent
 lines within a 262,144-character budget. The download remains the complete history.
 
+### Connection events
+
+The permissioned WebSocket CONNECTION_EVENT payload contains characterName, status
+and timestamp only. It carries no address. The existing connection-history API
+retains its permissioned address data; producer and broadcast failures log only
+fixed context and allowlisted codes, without driver SQL or bindings.
+
 ## Website data hold records
 
 The separate [website data hold API](../runbooks/data-holds.md) at

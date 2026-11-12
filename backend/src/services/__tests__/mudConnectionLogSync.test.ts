@@ -144,6 +144,31 @@ describe('strict connection line parsing', () => {
 });
 
 describe('historical ingestion gate and privacy', () => {
+  it.each(['lookup', 'insert'])(
+    'keeps driver SQL and address bindings out of %s diagnostics',
+    async (stage) => {
+      readMudTextFile.mockResolvedValue(IPV4_LOGIN);
+      query.mockImplementation(async (...args: unknown[]) => {
+        if (stage === 'lookup' || String(args[0]).startsWith('INSERT')) {
+          throw Object.assign(new Error('DRIVER_PRIVATE_SENTINEL'), {
+            code: 'ER_PARSE_ERROR',
+            sql: "SYNTHETIC_SQL '127.0.0.1'",
+            sqlMessage: 'DRIVER_PRIVATE_SENTINEL',
+          });
+        }
+        return [[{ account_name: 'account-one' }], []];
+      });
+      await importHistoricalLogs(1000);
+      expect(logger.error.mock.calls).toEqual([
+        [
+          stage === 'lookup'
+            ? 'Connection account lookup failed'
+            : 'Connection event storage failed',
+          { code: 'ER_PARSE_ERROR' },
+        ],
+      ]);
+    },
+  );
   it('does no read or database work when disabled', async () => {
     hookEnabled = false;
 
