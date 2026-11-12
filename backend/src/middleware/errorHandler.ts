@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Request, Response, NextFunction } from 'express';
+import multer from 'multer';
 import { getBackendConfiguration } from '../config/environment.js';
 import logger from '../utils/logger.js';
 
@@ -37,11 +38,15 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
-  // Only typed public errors and http-errors client errors (body-parser 400/413) carry text
-  // written for the caller; anything else is internal and must not reach the response (#176).
-  const requested = err.statusCode || 0;
+  // Only typed public errors, http-errors client errors (body-parser 400/413) and multer upload
+  // errors carry text written for the caller; anything else is internal and must not reach the
+  // response (#176).
+  const isUploadError = err instanceof multer.MulterError;
+  const requested = isUploadError ? 400 : err.statusCode || 0;
   const isPublic =
-    requested >= 400 && requested < 500 && (err instanceof AppError || err.expose === true);
+    requested >= 400 &&
+    requested < 500 &&
+    (isUploadError || err instanceof AppError || err.expose === true);
   const statusCode = isPublic ? requested : 500;
   const message = isPublic ? err.message : 'Internal Server Error';
   const reference = isPublic ? undefined : randomUUID();

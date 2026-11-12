@@ -3,6 +3,7 @@ import logger, { getErrorMessage } from '../../utils/logger.js';
 import { body, validationResult } from 'express-validator';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
+import { AppError } from '../../middleware/errorHandler.js';
 import {
   getUserProfile,
   updateUserProfile,
@@ -59,7 +60,7 @@ const avatarUpload = multer({
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only JPG, PNG, WebP, and GIF images are allowed'));
+      cb(new AppError('Only JPG, PNG, WebP, and GIF images are allowed', 400));
     }
   },
 });

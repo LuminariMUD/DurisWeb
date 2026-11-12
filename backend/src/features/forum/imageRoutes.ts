@@ -6,6 +6,7 @@ import logger, { isErrorWithCode } from '../../utils/logger.js';
 import { param, validationResult } from 'express-validator';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
+import { AppError } from '../../middleware/errorHandler.js';
 import { requireAuth } from '../../middleware/auth.js';
 import {
   uploadPostImage,
@@ -44,7 +45,7 @@ const postImageUpload = multer({
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only JPG, PNG, WebP, and GIF images are allowed'));
+      cb(new AppError('Only JPG, PNG, WebP, and GIF images are allowed', 400));
     }
   },
 });

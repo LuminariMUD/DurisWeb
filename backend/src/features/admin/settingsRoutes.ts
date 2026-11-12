@@ -14,6 +14,7 @@ import {
 import { requireAuth, requirePermission } from '../../middleware/auth.js';
 import { requireWebSettingAuthorization } from '../../middleware/webSettingsAuthorization.js';
 import multer from 'multer';
+import { AppError } from '../../middleware/errorHandler.js';
 
 export const adminSettingsRoutes: IRouter = Router();
 
@@ -32,7 +33,7 @@ const logoUpload = multer({
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only JPG, PNG, and WebP images are allowed'));
+      cb(new AppError('Only JPG, PNG, and WebP images are allowed', 400));
     }
   },
 });
@@ -48,7 +49,7 @@ const heroUpload = multer({
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only JPG, PNG, and WebP images are allowed'));
+      cb(new AppError('Only JPG, PNG, and WebP images are allowed', 400));
     }
   },
 });
