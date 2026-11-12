@@ -91,15 +91,15 @@ export async function getProcRequests(
 }
 
 /**
- * Get a specific proc request by ID
+ * Get a proc request by ID, only if it belongs to the given zone
  */
-export async function getProcRequest(id: number): Promise<ProcRequest | null> {
+export async function getProcRequest(zoneId: string, id: number): Promise<ProcRequest | null> {
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT id, zone_id, entity_type, vnum, title, description, description_html,
             status, assigned_to, requested_by, requested_at, updated_at
      FROM builder_proc_requests
-     WHERE id = ?`,
-    [id],
+     WHERE id = ? AND zone_id = ?`,
+    [id, zoneId],
   );
 
   if (rows.length === 0) {
@@ -147,7 +147,7 @@ export async function createProcRequest(
     ],
   );
 
-  const created = await getProcRequest(result.insertId);
+  const created = await getProcRequest(data.zoneId, result.insertId);
   if (!created) {
     throw new Error('Failed to create proc request');
   }
@@ -173,16 +173,17 @@ export async function createProcRequest(
 }
 
 /**
- * Update a proc request
+ * Update a proc request; returns null when the ID is missing or belongs to another zone
  */
 export async function updateProcRequest(
+  zoneId: string,
   id: number,
   data: UpdateProcRequest,
   updatedBy?: string,
   zoneName?: string | null,
 ): Promise<ProcRequest | null> {
   const sanitizedDescriptionHtml = sanitizeOptionalDescriptionHtml(data.descriptionHtml);
-  const existing = await getProcRequest(id);
+  const existing = await getProcRequest(zoneId, id);
   if (!existing) {
     return null;
   }
@@ -230,9 +231,12 @@ export async function updateProcRequest(
   }
 
   updates.push('updated_at = NOW()');
-  params.push(id);
+  params.push(id, zoneId);
 
-  await db.query(`UPDATE builder_proc_requests SET ${updates.join(', ')} WHERE id = ?`, params);
+  await db.query(
+    `UPDATE builder_proc_requests SET ${updates.join(', ')} WHERE id = ? AND zone_id = ?`,
+    params,
+  );
 
   // Create notifications for assignment and status changes
   if (updatedBy) {
@@ -276,13 +280,14 @@ export async function updateProcRequest(
     }
   }
 
-  return getProcRequest(id);
+  return getProcRequest(zoneId, id);
 }
 
 /**
  * Update just the status of a proc request
  */
 export async function updateProcRequestStatus(
+  zoneId: string,
   id: number,
   status: ProcRequestStatus,
   assignedTo?: string | null,
@@ -293,21 +298,23 @@ export async function updateProcRequestStatus(
   if (assignedTo !== undefined) {
     updates.assignedTo = assignedTo;
   }
-  return updateProcRequest(id, updates, updatedBy, zoneName);
+  return updateProcRequest(zoneId, id, updates, updatedBy, zoneName);
 }
 
 /**
- * Delete a proc request
+ * Delete a proc request; returns false when the ID is missing or belongs to another zone
  */
-export async function deleteProcRequest(id: number): Promise<boolean> {
-  // Delete mentions for this proc request
-  await deleteMentions('proc_request', id);
-
+export async function deleteProcRequest(zoneId: string, id: number): Promise<boolean> {
   const [result] = await db.query<ResultSetHeader>(
-    `DELETE FROM builder_proc_requests WHERE id = ?`,
-    [id],
+    `DELETE FROM builder_proc_requests WHERE id = ? AND zone_id = ?`,
+    [id, zoneId],
   );
-  return result.affectedRows > 0;
+  if (result.affectedRows === 0) {
+    return false;
+  }
+
+  await deleteMentions('proc_request', id);
+  return true;
 }
 
 /**
