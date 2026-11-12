@@ -109,6 +109,14 @@ describe('application broadcasts', () => {
     expect(operator.send).toHaveBeenCalledTimes(2);
     // The address never leaves the server, even for an entitled operator.
     expect(String(operator.send.mock.calls[1]?.[0])).not.toContain('192.0.2.1');
+    expect(JSON.parse(String(operator.send.mock.calls[1]?.[0]))).toEqual({
+      type: 'CONNECTION_EVENT',
+      data: {
+        characterName: 'Synthetic',
+        status: 'connect',
+        timestamp: '1970-01-01T00:00:00.000Z',
+      },
+    });
     expect(delivered(anonymous) || delivered(player)).toBe(false);
   });
 
@@ -148,5 +156,26 @@ describe('application broadcasts', () => {
       3,
       expect.objectContaining({ accountName: '', maxLevel: 0 }),
     );
+  });
+  it('fails closed without exposing driver details in broadcast authorization diagnostics', async () => {
+    const { default: logger } = await import('../../utils/logger.js');
+    const log = jest.spyOn(logger, 'error').mockImplementation(() => logger);
+    try {
+      const reader = socket('Reader');
+      attach(reader);
+      getCategoryAccessForAccount.mockRejectedValueOnce(
+        Object.assign(new Error('DRIVER_PRIVATE_SENTINEL'), {
+          code: 'ECONNREFUSED',
+          sql: "SYNTHETIC_SQL '192.0.2.1'",
+        }),
+      );
+      await broadcasts.broadcastForumPost(5, { id: 9 }, 'Author', 3);
+      expect(delivered(reader)).toBe(false);
+      expect(log.mock.calls).toEqual([
+        ['Error checking forum broadcast access:', { code: 'ECONNREFUSED' }],
+      ]);
+    } finally {
+      log.mockRestore();
+    }
   });
 });

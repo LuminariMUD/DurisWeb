@@ -1,5 +1,6 @@
 import { WebSocket, type WebSocketServer } from 'ws';
 import logger from '../utils/logger.js';
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 import type { UserPermissions } from '../services/permissionService.js';
 import { getCategoryAccessForAccount } from '../services/categoryService.js';
 import {
@@ -99,7 +100,7 @@ export async function broadcastFragUpdate() {
       logger.info(`broadcast frag update to ${sentCount} clients`);
     }
   } catch (error) {
-    logger.error('Error broadcasting frag update:', error);
+    logger.error('Error broadcasting frag update:', { code: safeFailureCode(error) });
   }
 }
 
@@ -235,14 +236,14 @@ export async function broadcastForumPost(
         );
         if (access.canView) sendApplicationMessage(client, message);
       } catch (error) {
-        logger.error('Error checking forum broadcast access:', error);
+        logger.error('Error checking forum broadcast access:', { code: safeFailureCode(error) });
       }
     }),
   );
 }
 
-// Broadcast connection log event to all connected WebSocket clients. The player's IP address
-// stays server-side: no client consumes it, and the connection log API serves it on request.
+// Connection events carry no address. Detailed history remains available only through
+// the permissioned connection-log API; no frontend consumes an address from this event.
 export function broadcastConnectionEvent(event: {
   characterName: string;
   status: string;

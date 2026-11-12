@@ -5,6 +5,7 @@ import { pool as db } from '../db/connection.js';
 import { isHookEnabledSync } from '../hooks/hookGate.js';
 import { markFlatfileUnavailable, recordDroppedFlatfileInput } from '../hooks/flatfileHookState.js';
 import logger from '../utils/logger.js';
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 import { analyzeAndFlagAccount } from './multiAccountDetectionService.js';
 import { broadcastConnectionEvent } from '../realtime/broadcasts.js';
 import {
@@ -186,7 +187,7 @@ async function getAccountForCharacter(characterName: string): Promise<string | n
 
     return result[0]?.account_name || null;
   } catch (error) {
-    logger.error(`Error fetching account for character ${characterName}:`, error);
+    logger.error('Connection account lookup failed', { code: safeFailureCode(error) });
     return null;
   }
 }
@@ -213,7 +214,7 @@ async function storeConnectionEvent(event: ConnectionEvent): Promise<string | nu
     logger.info(`[MudLogSync] Logged ${event.status}: ${event.characterName} (${accountName})`);
     return accountName;
   } catch (error) {
-    logger.error('Error storing connection event:', error);
+    logger.error('Connection event storage failed', { code: safeFailureCode(error) });
     return null;
   }
 }
@@ -403,7 +404,7 @@ async function hasExistingData(): Promise<boolean> {
     const count = rows[0]?.count ?? 0;
     return count > 0;
   } catch (error) {
-    logger.error('Error checking for existing data:', error);
+    logger.error('Connection history lookup failed', { code: safeFailureCode(error) });
     return false; // Import on error to be safe
   }
 }
