@@ -305,7 +305,7 @@ and `/character/<name>` signed out at phone and desktop widths. Confirm that no 
 appears and that links and struck-through styling behave as described.
 
 Release acceptance (separate from implementation, needs deployment authorization):
-- on `duris.sbs`, signed out, the two forum lookup URLs and `/api/frag/account/<name>` return
+- on the configured public origin, signed out, the two forum lookup URLs and `/api/frag/account/<name>` return
   404;
 - frag JSON has no `account_name`;
 - character links open `/character/:name`;
