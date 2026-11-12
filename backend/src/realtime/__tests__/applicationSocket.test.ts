@@ -255,7 +255,12 @@ describe('application socket dispatch', () => {
       category: 'runtime',
       logName: 'missing.log',
     });
-    expect(replies(ws).at(-1)).toEqual({ type: 'ERROR', message: 'Log unavailable' });
+    expect(replies(ws).at(-1)).toEqual({
+      type: 'ERROR',
+      category: 'runtime',
+      logName: 'missing.log',
+      message: 'Log unavailable',
+    });
     expect(state(ws).logSubscriptions?.size).toBe(0);
   });
 
@@ -278,6 +283,124 @@ describe('application socket dispatch', () => {
     await flush();
     expect(watchLog).not.toHaveBeenCalled();
     expect(state(ws).logSubscriptions?.size).toBe(0);
+  });
+  it('cancels a subscription when unsubscribe arrives before authentication completes', async () => {
+    const ws = connect();
+    grants = ['view_server_logs'];
+    ws.emit(
+      'message',
+      Buffer.from(
+        JSON.stringify({
+          type: 'SUBSCRIBE_LOG',
+          token: wsToken(),
+          category: 'runtime',
+          logName: 'game.log',
+        }),
+      ),
+    );
+    ws.emit(
+      'message',
+      Buffer.from(
+        JSON.stringify({ type: 'UNSUBSCRIBE_LOG', category: 'runtime', logName: 'game.log' }),
+      ),
+    );
+    await flush();
+    expect(watchLog).not.toHaveBeenCalled();
+    expect(state(ws).logSubscriptions?.size).toBe(0);
+    expect(replies(ws).filter((reply) => reply.type === 'LOG_SUBSCRIBED')).toHaveLength(0);
+  });
+  it('acknowledges an idempotent subscription without registering another watcher', async () => {
+    const ws = connect();
+    grants = ['view_server_logs'];
+    const message = {
+      type: 'SUBSCRIBE_LOG',
+      token: wsToken(),
+      category: 'runtime',
+      logName: 'game.log',
+    };
+    await send(ws, message);
+    await send(ws, message);
+    expect(watchLog).toHaveBeenCalledTimes(1);
+    expect(replies(ws).filter((reply) => reply.type === 'LOG_SUBSCRIBED')).toHaveLength(2);
+    ws.emit('close');
+  });
+  it('attempts every log cleanup and preserves colon-bearing filenames after a failure', async () => {
+    const log = jest.spyOn(logger, 'error').mockImplementation(() => logger);
+    const ws = connect();
+    grants = ['view_server_logs'];
+    await send(ws, {
+      type: 'SUBSCRIBE_LOG',
+      token: wsToken(),
+      category: 'runtime',
+      logName: 'sys:log',
+    });
+    await send(ws, {
+      type: 'SUBSCRIBE_LOG',
+      token: wsToken(),
+      category: 'player',
+      logName: 'game.log',
+    });
+    unwatchLog.mockImplementationOnce(() => {
+      throw new Error('CLEANUP_PRIVATE_SENTINEL');
+    });
+    ws.emit('close');
+    await flush();
+    expect(unwatchLog).toHaveBeenCalledTimes(2);
+    expect(unwatchLog).toHaveBeenCalledWith('runtime', 'sys:log', expect.any(Function));
+    expect(unwatchLog).toHaveBeenCalledWith('player', 'game.log', expect.any(Function));
+    expect(state(ws).logSubscriptions?.size).toBe(0);
+    expect(log.mock.calls).toEqual([['Log watcher cleanup failed', { code: 'unclassified' }]]);
+  });
+  it('does not revive a removed callback when the same log is subscribed again', async () => {
+    const ws = connect();
+    grants = ['view_server_logs'];
+    const message = {
+      type: 'SUBSCRIBE_LOG',
+      token: wsToken(),
+      category: 'runtime',
+      logName: 'game.log',
+    };
+    await send(ws, message);
+    const previous = watchLog.mock
+      .calls[0]?.[2] as import('../../services/logWatchService.js').LogWatchCallback;
+    unwatchLog.mockImplementationOnce(() => {
+      throw new Error('Synthetic close failure');
+    });
+    await send(ws, { type: 'UNSUBSCRIBE_LOG', category: 'runtime', logName: 'game.log' });
+    await send(ws, message);
+    const current = watchLog.mock
+      .calls[1]?.[2] as import('../../services/logWatchService.js').LogWatchCallback;
+    ws.send.mockClear();
+    previous(['stale']);
+    await flush();
+    expect(replies(ws)).toEqual([]);
+    current(['fresh']);
+    await flush();
+    expect(replies(ws)).toEqual([
+      { type: 'LOG_UPDATE', category: 'runtime', logName: 'game.log', newLines: ['fresh'] },
+    ]);
+    ws.emit('close');
+  });
+  it('invalidates its client subscription when the real reader reports unavailable', async () => {
+    const ws = connect();
+    grants = ['view_server_logs'];
+    await send(ws, {
+      type: 'SUBSCRIBE_LOG',
+      token: wsToken(),
+      category: 'runtime',
+      logName: 'game.log',
+    });
+    const callback = watchLog.mock
+      .calls[0]?.[2] as import('../../services/logWatchService.js').LogWatchCallback;
+    callback([], 'unavailable');
+    await flush();
+    expect(state(ws).logSubscriptions?.size).toBe(0);
+    expect(replies(ws).at(-1)).toEqual({
+      type: 'ERROR',
+      category: 'runtime',
+      logName: 'game.log',
+      message: 'Log unavailable',
+    });
   });
 
   it('still tears down the terminal when an earlier close step fails', async () => {

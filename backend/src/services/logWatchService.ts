@@ -1,187 +1,196 @@
 import fs from 'fs';
+import * as fsPromises from 'node:fs/promises';
+import { StringDecoder } from 'node:string_decoder';
+import { setImmediate } from 'node:timers/promises';
 import { getLogFilePath } from './logService.js';
 import logger from '../utils/logger.js';
+import { safeFailureCode } from '../utils/safeFailureCode.js';
+
+export type LogWatchCallback = (newLines: string[], unavailable?: 'unavailable') => void;
 
 interface LogWatcher {
   category: 'runtime' | 'player';
   logName: string;
   lastSize: number;
   watcher: fs.FSWatcher;
-  callbacks: Set<(newLines: string[]) => void>;
+  callbacks: Set<LogWatchCallback>;
+  reading: boolean;
+  pending: boolean;
+  decoder: StringDecoder;
+  remainder: string;
 }
 
-// Map of active log watchers: "category:logName" => LogWatcher
+const READ_CHUNK_BYTES = 64 * 1024;
 const activeWatchers = new Map<string, LogWatcher>();
 
-/**
- * Start watching a log file for new content
- */
+/** Remove this owner before notifying clients, so late work cannot revive it. */
+function invalidateWatcher(key: string, entry: LogWatcher): void {
+  if (activeWatchers.get(key) !== entry) return;
+  activeWatchers.delete(key);
+  for (const callback of entry.callbacks) {
+    try {
+      callback([], 'unavailable');
+    } catch (error) {
+      logger.error('Log watcher callback failed', { code: safeFailureCode(error) });
+    }
+  }
+  entry.callbacks.clear();
+  try {
+    entry.watcher.close();
+  } catch (error) {
+    logger.error('Log watcher close failed', { code: safeFailureCode(error) });
+  }
+}
+
+/** Start at the current file end; later changes are read in bounded chunks. */
 export function watchLog(
   category: 'runtime' | 'player',
   logName: string,
-  callback: (newLines: string[]) => void,
+  callback: LogWatchCallback,
 ): boolean {
-  const key = `${category}:${logName}`;
-
-  // If already watching, just add the callback
-  if (activeWatchers.has(key)) {
-    const watcher = activeWatchers.get(key)!;
-    watcher.callbacks.add(callback);
+  const key = category + ':' + logName;
+  const existing = activeWatchers.get(key);
+  if (existing) {
+    existing.callbacks.add(callback);
     return true;
   }
-
   try {
     const logPath = getLogFilePath(category, logName);
-
-    // Get initial file size
-    const stats = fs.statSync(logPath);
-    const initialSize = stats.size;
-
-    // Create file watcher
+    const initialSize = fs.statSync(logPath).size;
     const watcher = fs.watch(logPath, { persistent: false }, (eventType) => {
-      if (eventType === 'change') {
-        handleLogChange(key).catch((err) =>
-          logger.error(`Log change handler error for ${key}:`, err),
-        );
-      }
+      const entry = activeWatchers.get(key);
+      if (entry?.watcher !== watcher) return;
+      if (eventType === 'change') void handleLogChange(key);
+      else if (eventType === 'rename') invalidateWatcher(key, entry);
     });
-
-    // Create and store the log watcher
-    const logWatcher: LogWatcher = {
+    const entry: LogWatcher = {
       category,
       logName,
       lastSize: initialSize,
       watcher,
       callbacks: new Set([callback]),
+      reading: false,
+      pending: false,
+      decoder: new StringDecoder('utf8'),
+      remainder: '',
     };
-
-    activeWatchers.set(key, logWatcher);
+    activeWatchers.set(key, entry);
+    watcher.on('error', (error) => {
+      logger.error('Log filesystem watcher failed', { code: safeFailureCode(error) });
+      invalidateWatcher(key, entry);
+    });
     return true;
   } catch (error) {
-    logger.error(`Error starting log watcher for ${key}:`, error);
+    logger.error('Log watcher start failed', { code: safeFailureCode(error) });
     return false;
   }
 }
 
-/**
- * Stop watching a log file for a specific callback
- */
 export function unwatchLog(
   category: 'runtime' | 'player',
   logName: string,
-  callback: (newLines: string[]) => void,
+  callback: LogWatchCallback,
 ): void {
-  const key = `${category}:${logName}`;
-  const logWatcher = activeWatchers.get(key);
-
-  if (!logWatcher) {
-    return;
-  }
-
-  // Remove this specific callback
-  logWatcher.callbacks.delete(callback);
-
-  // If there are still other callbacks, don't stop watching yet
-  if (logWatcher.callbacks.size > 0) {
-    return;
-  }
-
-  // No more callbacks, close the watcher
-  logWatcher.watcher.close();
+  const key = category + ':' + logName;
+  const entry = activeWatchers.get(key);
+  if (!entry) return;
+  entry.callbacks.delete(callback);
+  if (entry.callbacks.size) return;
   activeWatchers.delete(key);
+  entry.watcher.close();
 }
 
-/**
- * Handle log file change event
- */
-async function handleLogChange(key: string): Promise<void> {
-  const logWatcher = activeWatchers.get(key);
-  if (!logWatcher) return;
-
-  try {
-    const logPath = getLogFilePath(logWatcher.category, logWatcher.logName);
-    const stats = fs.statSync(logPath);
-    const currentSize = stats.size;
-
-    // If file shrunk (was rotated/truncated), reset position
-    if (currentSize < logWatcher.lastSize) {
-      logWatcher.lastSize = 0;
+/** Keep UTF-8 and ordinary lines intact across read chunks, without unbounded long-line storage. */
+function deliver(entry: LogWatcher, content: string, flush = false): void {
+  const parts = (entry.remainder + content).split('\n');
+  let remainder = parts.pop() ?? '';
+  while (remainder.length > READ_CHUNK_BYTES) {
+    parts.push(remainder.slice(0, READ_CHUNK_BYTES));
+    remainder = remainder.slice(READ_CHUNK_BYTES);
+  }
+  if (flush && remainder) {
+    parts.push(remainder);
+    remainder = '';
+  }
+  entry.remainder = remainder;
+  const lines = parts.filter((line) => line.trim().length > 0);
+  if (!lines.length) return;
+  for (const callback of entry.callbacks) {
+    try {
+      callback(lines);
+    } catch (error) {
+      logger.error('Log watcher callback failed', { code: safeFailureCode(error) });
     }
-
-    // If no new content, skip
-    if (currentSize === logWatcher.lastSize) {
-      return;
-    }
-
-    // Read new content using createReadStream to avoid large buffer allocations
-    const bytesToRead = currentSize - logWatcher.lastSize;
-    const startPos = logWatcher.lastSize;
-
-    // Update last size first to avoid re-reading on rapid changes
-    logWatcher.lastSize = currentSize;
-
-    // Use streams for large reads, direct buffer for small reads
-    let newContent: string;
-    if (bytesToRead > 64 * 1024) {
-      // For large reads (>64KB), use streaming
-      const chunks: Buffer[] = [];
-      const stream = fs.createReadStream(logPath, {
-        start: startPos,
-        end: currentSize - 1,
-        highWaterMark: 64 * 1024,
-      });
-      for await (const chunk of stream) {
-        chunks.push(chunk as Buffer);
-      }
-      newContent = Buffer.concat(chunks).toString('utf-8');
-    } else {
-      // For small reads, use direct buffer (already optimized by V8)
-      const buffer = Buffer.allocUnsafe(bytesToRead);
-      const fd = fs.openSync(logPath, 'r');
-      fs.readSync(fd, buffer, 0, bytesToRead, startPos);
-      fs.closeSync(fd);
-      newContent = buffer.toString('utf-8');
-    }
-    const newLines = newContent.split('\n').filter((line) => line.trim().length > 0);
-
-    if (newLines.length > 0) {
-      // Notify all callbacks
-      logWatcher.callbacks.forEach((callback) => {
-        try {
-          callback(newLines);
-        } catch (error) {
-          logger.error(`Error in log watcher callback for ${key}:`, error);
-        }
-      });
-    }
-  } catch (error) {
-    logger.error(`Error handling log change for ${key}:`, error);
   }
 }
 
-/**
- * Get statistics about active log watchers
- */
+async function handleLogChange(key: string): Promise<void> {
+  const entry = activeWatchers.get(key);
+  if (!entry) return;
+  if (entry.reading) {
+    entry.pending = true;
+    return;
+  }
+  entry.reading = true;
+  try {
+    do {
+      entry.pending = false;
+      const logPath = getLogFilePath(entry.category, entry.logName);
+      const handle = await fsPromises.open(logPath, 'r');
+      try {
+        const size = (await handle.stat()).size;
+        if (!Number.isSafeInteger(size) || size < 0) throw new Error('Invalid log size');
+        if (size < entry.lastSize) {
+          entry.lastSize = 0;
+          entry.decoder = new StringDecoder('utf8');
+          entry.remainder = '';
+        }
+        while (entry.lastSize < size && activeWatchers.get(key) === entry && entry.callbacks.size) {
+          const length = Math.min(READ_CHUNK_BYTES, size - entry.lastSize);
+          const buffer = Buffer.alloc(length);
+          const { bytesRead } = await handle.read(buffer, 0, length, entry.lastSize);
+          if (bytesRead === 0) break;
+          entry.lastSize += bytesRead;
+          if (activeWatchers.get(key) !== entry) break;
+          deliver(entry, entry.decoder.write(buffer.subarray(0, bytesRead)));
+          if (entry.lastSize < size) await setImmediate();
+        }
+        if (activeWatchers.get(key) === entry) deliver(entry, '', true);
+      } finally {
+        await handle.close();
+      }
+    } while (entry.pending && activeWatchers.get(key) === entry && entry.callbacks.size);
+  } catch (error) {
+    logger.error('Log change read failed', { code: safeFailureCode(error) });
+    invalidateWatcher(key, entry);
+  } finally {
+    entry.reading = false;
+  }
+}
+
 export function getLogWatchStats(): {
   activeWatchers: number;
   watchers: Array<{ key: string; callbacks: number; lastSize: number }>;
 } {
   return {
     activeWatchers: activeWatchers.size,
-    watchers: Array.from(activeWatchers.entries()).map(([key, watcher]) => ({
+    watchers: Array.from(activeWatchers.entries()).map(([key, entry]) => ({
       key,
-      callbacks: watcher.callbacks.size,
-      lastSize: watcher.lastSize,
+      callbacks: entry.callbacks.size,
+      lastSize: entry.lastSize,
     })),
   };
 }
 
-/**
- * Cleanup all watchers (for graceful shutdown)
- */
 export function cleanupLogWatchers(): void {
-  activeWatchers.forEach((watcher) => {
-    watcher.watcher.close();
-  });
+  const entries = [...activeWatchers.values()];
   activeWatchers.clear();
+  for (const entry of entries) {
+    entry.callbacks.clear();
+    try {
+      entry.watcher.close();
+    } catch (error) {
+      logger.error('Log watcher close failed', { code: safeFailureCode(error) });
+    }
+  }
 }

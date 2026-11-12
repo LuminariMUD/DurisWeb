@@ -1,5 +1,6 @@
 import type { WebSocket } from 'ws';
 import type { WebSocketPrincipal } from '../utils/websocketAccess.js';
+import type { LogWatchCallback } from '../services/logWatchService.js';
 
 /** Per-connection fields set by the application socket handlers; some are read by broadcasts. */
 export interface ApplicationClientState {
@@ -9,7 +10,7 @@ export interface ApplicationClientState {
   messageCount?: number;
   lastReset?: number;
   /** `category:logName` to the callback registered with the log watcher. */
-  logSubscriptions?: Map<string, (newLines: string[]) => void>;
+  logSubscriptions?: Map<string, LogWatchCallback>;
   terminalAuth?: { accountName?: string; webSessionId?: string };
 }
 
