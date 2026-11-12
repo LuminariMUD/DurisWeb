@@ -25,6 +25,13 @@ export interface ChangelogListOptions {
   limit?: number;
 }
 
+interface ChangelogPublicationRow extends RowDataPacket {
+  version: string;
+  title: string;
+  category: 'public' | 'admin';
+  is_published: number;
+}
+
 function sanitizeChangelogContent(content: string): string {
   const processed = processContentForWrite(content);
   if (processed.error) {
@@ -233,7 +240,10 @@ export async function updateChangelogEntry(
     category: 'public' | 'admin';
     isPublished: boolean;
   }>,
-): Promise<{ found: boolean; published: boolean }> {
+): Promise<{
+  found: boolean;
+  publication: Pick<ChangelogEntry, 'version' | 'title' | 'category'> | null;
+}> {
   const updates: string[] = [];
   const params: (string | number | boolean)[] = [];
 
@@ -253,32 +263,52 @@ export async function updateChangelogEntry(
     updates.push('category = ?');
     params.push(data.category);
   }
-  // Publishing is a separate conditional statement below, so only one request can publish.
-  if (data.isPublished === false) {
+  if (data.isPublished !== undefined) {
     updates.push('is_published = ?');
-    params.push(false);
+    params.push(data.isPublished);
   }
 
-  if (updates.length === 0 && data.isPublished === undefined) {
-    return { found: false, published: false };
+  if (updates.length === 0) {
+    return { found: false, publication: null };
   }
 
   updates.push('updated_at = NOW()');
   params.push(id);
 
-  const [result] = await db.query<ResultSetHeader>(
-    `UPDATE website_changelog SET ${updates.join(', ')} WHERE id = ?`,
-    params,
-  );
-  if (result.affectedRows === 0) return { found: false, published: false };
-  if (data.isPublished !== true) return { found: true, published: false };
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [rows] = await connection.query<ChangelogPublicationRow[]>(
+      'SELECT version, title, category, is_published FROM website_changelog WHERE id = ? FOR UPDATE',
+      [id],
+    );
+    const existing = rows[0];
+    if (!existing) {
+      await connection.rollback();
+      return { found: false, publication: null };
+    }
 
-  // The row lock makes a concurrent publisher re-check is_published and match nothing.
-  const [publish] = await db.query<ResultSetHeader>(
-    'UPDATE website_changelog SET is_published = TRUE, updated_at = NOW() WHERE id = ? AND is_published = FALSE',
-    [id],
-  );
-  return { found: true, published: publish.affectedRows === 1 };
+    await connection.query(
+      `UPDATE website_changelog SET ${updates.join(', ')} WHERE id = ?`,
+      params,
+    );
+    // Capture this publication before a later edit can replace it with private draft fields.
+    const publication =
+      data.isPublished === true && !existing.is_published
+        ? {
+            version: data.version ?? existing.version,
+            title: data.title ?? existing.title,
+            category: data.category ?? existing.category,
+          }
+        : null;
+    await connection.commit();
+    return { found: true, publication };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 /**

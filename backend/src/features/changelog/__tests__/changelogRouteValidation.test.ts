@@ -5,7 +5,7 @@ import { beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals
 const createChangelogEntry = jest.fn();
 const updateChangelogEntry = jest.fn();
 const getChangelogEntry = jest.fn();
-const notifyChangelogPublished = jest.fn();
+const notifyChangelogPublished = jest.fn(async (..._args: unknown[]) => undefined);
 
 jest.unstable_mockModule('../../../middleware/auth.js', () => ({
   requireAuth: (req: any, _res: any, next: any) => {
@@ -81,8 +81,8 @@ describe('changelog route write validation', () => {
     };
     getChangelogEntry.mockImplementation(async () => saved);
     updateChangelogEntry
-      .mockImplementationOnce(async () => ({ found: true, published: true }))
-      .mockImplementationOnce(async () => ({ found: true, published: false }));
+      .mockImplementationOnce(async () => ({ found: true, publication: saved }))
+      .mockImplementationOnce(async () => ({ found: true, publication: null }));
 
     const [first, second] = await Promise.all([
       request(app).put('/api/changelog/42').send({ isPublished: true }),
@@ -93,17 +93,37 @@ describe('changelog route write validation', () => {
     expect([first.status, second.status]).toEqual([200, 200]);
     expect(notifyChangelogPublished).toHaveBeenCalledTimes(1);
     expect(notifyChangelogPublished).toHaveBeenCalledWith(42, '2.0.0', 'Saved title', 'public');
+    expect(getChangelogEntry).not.toHaveBeenCalled();
   });
 
   it('returns 404 without notifying when the entry does not exist', async () => {
     updateChangelogEntry.mockImplementationOnce(async () => ({
       found: false,
-      published: false,
+      publication: null,
     }));
 
     const response = await request(app).put('/api/changelog/9').send({ isPublished: true });
 
     expect(response.status).toBe(404);
     expect(notifyChangelogPublished).not.toHaveBeenCalled();
+  });
+
+  it('does not reread a later unpublished draft for notification fields', async () => {
+    const publication = { version: 'v1', title: 'Public release', category: 'public' };
+    updateChangelogEntry.mockImplementationOnce(async () => ({
+      found: true,
+      publication,
+      published: true,
+    }));
+    getChangelogEntry.mockImplementation(async () => ({
+      ...publication,
+      title: 'Private later draft',
+      isPublished: false,
+    }));
+    const response = await request(app).put('/api/changelog/42').send({ isPublished: true });
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(response.status).toBe(200);
+    expect(getChangelogEntry).not.toHaveBeenCalled();
+    expect(notifyChangelogPublished).toHaveBeenCalledWith(42, 'v1', 'Public release', 'public');
   });
 });

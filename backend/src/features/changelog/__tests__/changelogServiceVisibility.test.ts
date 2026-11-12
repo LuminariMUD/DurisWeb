@@ -1,9 +1,16 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const query = jest.fn((..._args: unknown[]): Promise<unknown> => Promise.resolve([[]]));
+const connection = {
+  query,
+  beginTransaction: jest.fn<() => Promise<void>>(),
+  commit: jest.fn<() => Promise<void>>(),
+  rollback: jest.fn<() => Promise<void>>(),
+  release: jest.fn(),
+};
 
 jest.unstable_mockModule('../../../db/connection.js', () => ({
-  pool: { query },
+  pool: { query, getConnection: async () => connection },
 }));
 const createNotification = jest.fn(async (..._args: unknown[]) => undefined);
 jest.unstable_mockModule('../../../services/unifiedNotificationService.js', () => ({
@@ -69,29 +76,52 @@ describe('changelog detail visibility', () => {
     expect(String(query.mock.calls[1][0])).not.toContain("category = 'public'");
   });
 
-  it('reports a publish only when this call flipped is_published', async () => {
-    query.mockResolvedValueOnce([{ affectedRows: 1 }]).mockResolvedValueOnce([{ affectedRows: 1 }]);
+  it('captures a publication only for the call holding the unpublished row lock', async () => {
+    const row = { version: 'v1', title: 'Draft', category: 'public', is_published: 0 };
+    query.mockResolvedValueOnce([[row]]).mockResolvedValueOnce([{ affectedRows: 1 }]);
     await expect(
       changelogService.updateChangelogEntry(42, {
         title: 'Release',
         isPublished: true,
       }),
-    ).resolves.toEqual({ found: true, published: true });
-    expect(String(query.mock.calls[0][0])).not.toContain('is_published');
-    expect(String(query.mock.calls[1][0])).toContain('WHERE id = ? AND is_published = FALSE');
+    ).resolves.toEqual({
+      found: true,
+      publication: { version: 'v1', title: 'Release', category: 'public' },
+    });
+    expect(String(query.mock.calls[0][0])).toContain('FOR UPDATE');
+    expect(String(query.mock.calls[1][0])).toContain('is_published = ?');
+    expect(connection.commit).toHaveBeenCalledTimes(1);
 
-    // A concurrent second publisher matches the row but not the unpublished condition.
-    query.mockResolvedValueOnce([{ affectedRows: 1 }]).mockResolvedValueOnce([{ affectedRows: 0 }]);
+    // A second publisher sees the committed publication after acquiring the lock.
+    query
+      .mockResolvedValueOnce([[{ ...row, is_published: 1 }]])
+      .mockResolvedValueOnce([{ affectedRows: 1 }]);
     await expect(changelogService.updateChangelogEntry(42, { isPublished: true })).resolves.toEqual(
-      { found: true, published: false },
+      { found: true, publication: null },
     );
 
-    query.mockResolvedValueOnce([{ affectedRows: 0 }]);
+    query.mockResolvedValueOnce([[]]);
     await expect(changelogService.updateChangelogEntry(7, { isPublished: true })).resolves.toEqual({
       found: false,
-      published: false,
+      publication: null,
     });
     expect(query).toHaveBeenCalledTimes(5);
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+    expect(connection.release).toHaveBeenCalledTimes(3);
+  });
+
+  it('rolls back failed content/publication updates before returning publication metadata', async () => {
+    query
+      .mockResolvedValueOnce([
+        [{ version: 'v1', title: 'Draft', category: 'public', is_published: 0 }],
+      ])
+      .mockRejectedValueOnce(new Error('update failed'));
+    await expect(
+      changelogService.updateChangelogEntry(42, { title: 'Release', isPublished: true }),
+    ).rejects.toThrow('update failed');
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+    expect(connection.commit).not.toHaveBeenCalled();
+    expect(connection.release).toHaveBeenCalledTimes(1);
   });
 
   it('never sends an admin entry to the login-history audience', async () => {
