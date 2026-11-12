@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { chartTheme, withAlpha } from '@/utils/chartTheme'
 import { ref, computed, onMounted, watch } from 'vue'
-import axios from 'axios'
+import { apiClient } from '@/services/httpClient'
 import { formatDistanceToNow } from 'date-fns'
 import type { ChartData, ChartOptions } from 'chart.js'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,9 +39,9 @@ import {
   TrendingUp,
   RefreshCw,
 } from '@lucide/vue'
-import { frontendConfiguration } from '@/config/environment'
 
-const API_URL = frontendConfiguration.apiUrl
+// Aggregation queries over long windows can exceed the shared 10 s default.
+const ANALYTICS_TIMEOUT_MS = 20_000
 
 // State
 const isLoading = ref(true)
@@ -67,9 +67,9 @@ const visitorsPage = ref(1)
 // Fetch overview stats
 async function fetchOverview() {
   try {
-    const response = await axios.get(`${API_URL}/api/admin/analytics/web/admin/overview`, {
+    const response = await apiClient.get(`/api/admin/analytics/web/admin/overview`, {
       params: { days: selectedDays.value },
-      withCredentials: true,
+      timeout: ANALYTICS_TIMEOUT_MS,
     })
     overview.value = response.data
   } catch (error) {
@@ -81,9 +81,9 @@ async function fetchOverview() {
 async function fetchTopPages() {
   pagesError.value = false
   try {
-    const response = await axios.get(`${API_URL}/api/admin/analytics/web/admin/pages`, {
+    const response = await apiClient.get(`/api/admin/analytics/web/admin/pages`, {
       params: { days: selectedDays.value, limit: 20 },
-      withCredentials: true,
+      timeout: ANALYTICS_TIMEOUT_MS,
     })
     topPages.value = response.data.data
   } catch (error) {
@@ -95,9 +95,9 @@ async function fetchTopPages() {
 // Fetch referrer stats
 async function fetchReferrers() {
   try {
-    const response = await axios.get(`${API_URL}/api/admin/analytics/web/admin/referrers`, {
+    const response = await apiClient.get(`/api/admin/analytics/web/admin/referrers`, {
       params: { days: selectedDays.value },
-      withCredentials: true,
+      timeout: ANALYTICS_TIMEOUT_MS,
     })
     referrers.value = response.data.data
   } catch (error) {
@@ -108,9 +108,9 @@ async function fetchReferrers() {
 // Fetch device stats
 async function fetchDeviceStats() {
   try {
-    const response = await axios.get(`${API_URL}/api/admin/analytics/web/admin/devices`, {
+    const response = await apiClient.get(`/api/admin/analytics/web/admin/devices`, {
       params: { days: selectedDays.value },
-      withCredentials: true,
+      timeout: ANALYTICS_TIMEOUT_MS,
     })
     deviceStats.value = response.data
   } catch (error) {
@@ -121,9 +121,9 @@ async function fetchDeviceStats() {
 // Fetch geo stats
 async function fetchGeoStats() {
   try {
-    const response = await axios.get(`${API_URL}/api/admin/analytics/web/admin/geo`, {
+    const response = await apiClient.get(`/api/admin/analytics/web/admin/geo`, {
       params: { days: selectedDays.value },
-      withCredentials: true,
+      timeout: ANALYTICS_TIMEOUT_MS,
     })
     geoStats.value = response.data.data
   } catch (error) {
@@ -135,9 +135,9 @@ async function fetchGeoStats() {
 async function fetchTrafficData() {
   try {
     const interval = parseInt(selectedDays.value) <= 7 ? 'hour' : 'day'
-    const response = await axios.get(`${API_URL}/api/admin/analytics/web/admin/traffic`, {
+    const response = await apiClient.get(`/api/admin/analytics/web/admin/traffic`, {
       params: { days: selectedDays.value, interval },
-      withCredentials: true,
+      timeout: ANALYTICS_TIMEOUT_MS,
     })
     trafficData.value = response.data.data
   } catch (error) {
@@ -148,8 +148,8 @@ async function fetchTrafficData() {
 // Fetch realtime visitors
 async function fetchRealtimeVisitors() {
   try {
-    const response = await axios.get(`${API_URL}/api/admin/analytics/web/admin/realtime`, {
-      withCredentials: true,
+    const response = await apiClient.get(`/api/admin/analytics/web/admin/realtime`, {
+      timeout: ANALYTICS_TIMEOUT_MS,
     })
     realtimeVisitors.value = response.data.visitors
     realtimeCount.value = response.data.count
@@ -161,9 +161,9 @@ async function fetchRealtimeVisitors() {
 // Fetch visitors list
 async function fetchVisitors(page: number = 1) {
   try {
-    const response = await axios.get(`${API_URL}/api/admin/analytics/web/admin/visitors`, {
+    const response = await apiClient.get(`/api/admin/analytics/web/admin/visitors`, {
       params: { days: selectedDays.value, page, limit: 50 },
-      withCredentials: true,
+      timeout: ANALYTICS_TIMEOUT_MS,
     })
     visitors.value = response.data.data
     visitorsPagination.value = response.data.pagination

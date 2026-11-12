@@ -496,10 +496,8 @@ import {
   useRevokePermission,
   type Role,
 } from '@/composables/useAdminPermissions'
-import axios from 'axios'
-import { frontendConfiguration } from '@/config/environment'
+import { apiClient } from '@/services/httpClient'
 
-const API_URL = frontendConfiguration.apiUrl
 const { success, error } = useToast()
 
 // Tab state
@@ -568,9 +566,7 @@ const accountPermissionsCache = ref<Record<string, any>>({})
 const { data: accountsWithPermissions, isLoading: accountsWithPermissionsLoading } = useQuery({
   queryKey: ['admin', 'accounts', 'with-permissions'],
   queryFn: async () => {
-    const response = await axios.get(`${API_URL}/api/admin/accounts`, {
-      withCredentials: true,
-    })
+    const response = await apiClient.get(`/api/admin/accounts`)
     // Populate cache from batch response
     const accounts: any[] = response.data
     accounts.forEach((acc) => {
@@ -586,9 +582,8 @@ const { data: accountsWithPermissions, isLoading: accountsWithPermissionsLoading
 const { data: allAccounts, isLoading: allAccountsLoading } = useQuery({
   queryKey: ['admin', 'accounts', 'all'],
   queryFn: async () => {
-    const response = await axios.get(`${API_URL}/api/admin/accounts/search`, {
+    const response = await apiClient.get(`/api/admin/accounts/search`, {
       params: { query: '', limit: 9999 },
-      withCredentials: true,
     })
     return response.data as string[]
   },
@@ -696,9 +691,7 @@ const visiblePages = computed(() => {
 // Fetch individual account permissions (used for refresh after changes)
 async function fetchAccountPermissions(accountName: string) {
   try {
-    const response = await axios.get(`${API_URL}/api/admin/accounts/${accountName}/permissions`, {
-      withCredentials: true,
-    })
+    const response = await apiClient.get(`/api/admin/accounts/${accountName}/permissions`)
     const data = response.data
 
     // Transform snake_case to camelCase for consistency
@@ -949,9 +942,7 @@ async function fetchAuditLog(page = 1) {
       params.append('changedBy', auditFilters.value.account)
     }
 
-    const response = await axios.get(`${API_URL}/api/admin/forum/audit-log?${params}`, {
-      withCredentials: true,
-    })
+    const response = await apiClient.get(`/api/admin/forum/audit-log?${params}`)
 
     // Filter for permission-related entries if showing "all"
     let entries = response.data.data

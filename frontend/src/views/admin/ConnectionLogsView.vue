@@ -389,7 +389,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import { apiClient } from '@/services/httpClient'
 import flatpickr from 'flatpickr'
 import 'flatpickr/dist/flatpickr.min.css'
 import 'flatpickr/dist/themes/dark.css'
@@ -434,10 +434,8 @@ import {
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
-import { frontendConfiguration } from '@/config/environment'
 
 const router = useRouter()
-const API_URL = frontendConfiguration.apiUrl
 
 // State
 const logs = ref<any[]>([])
@@ -493,9 +491,7 @@ const fetchLogs = async (page = 1) => {
     if (filters.value.startDate) params.append('startDate', filters.value.startDate)
     if (filters.value.endDate) params.append('endDate', filters.value.endDate)
 
-    const response = await axios.get(`${API_URL}/api/admin/connections/logs?${params}`, {
-      withCredentials: true,
-    })
+    const response = await apiClient.get(`/api/admin/connections/logs?${params}`)
 
     logs.value = response.data.data
     pagination.value = response.data.pagination
@@ -510,9 +506,7 @@ const fetchLogs = async (page = 1) => {
 // Fetch statistics
 const fetchStats = async () => {
   try {
-    const response = await axios.get(`${API_URL}/api/admin/connections/stats`, {
-      withCredentials: true,
-    })
+    const response = await apiClient.get(`/api/admin/connections/stats`)
     stats.value = response.data.data
   } catch (err) {
     console.error('Fetch stats error:', err)
@@ -526,9 +520,7 @@ const viewIPDetails = async (ip: string) => {
   ipDetailsLoading.value = true
 
   try {
-    const response = await axios.get(`${API_URL}/api/admin/connections/ip/${ip}`, {
-      withCredentials: true,
-    })
+    const response = await apiClient.get(`/api/admin/connections/ip/${ip}`)
     ipDetails.value = response.data.data
   } catch (err) {
     console.error('Fetch IP details error:', err)
@@ -544,9 +536,7 @@ const viewAccountTimeline = async (accountName: string) => {
   timelineLoading.value = true
 
   try {
-    const response = await axios.get(`${API_URL}/api/admin/connections/account/${accountName}`, {
-      withCredentials: true,
-    })
+    const response = await apiClient.get(`/api/admin/connections/account/${accountName}`)
     timeline.value = response.data.data
   } catch (err) {
     console.error('Fetch timeline error:', err)

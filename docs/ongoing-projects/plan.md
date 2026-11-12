@@ -22,9 +22,9 @@ fast-forward per PR, as the master ruleset requires linear history.
 |------|--------|----|--------|
 | plan + (b) | `branch/issue-183-structure-stack-followups` | #196 | done, verified |
 | (c) | `branch/issue-183-c-wholist-removal` | #199 | done, verified (backend 1,695 tests, frontend 765) |
-| (a) | `branch/issue-183-a-startup-abort` | (opening) | done, verified (backend 1,697 tests) |
-| (f) | `branch/issue-183-f-api-client-reads` | — | next |
-| (e) | `branch/issue-183-e-import-rules` | — | pending |
+| (a) | `branch/issue-183-a-startup-abort` | #208 | done, verified (backend 1,697 tests) |
+| (f) | `branch/issue-183-f-api-client-reads` | (opening) | done, verified (frontend 765 tests) |
+| (e) | `branch/issue-183-e-import-rules` | — | next |
 | (d) | `branch/issue-183-d-production-app-tests` | — | pending |
 
 Working notes for a new session:
@@ -362,10 +362,23 @@ Extend `backgroundJobs.test.ts`:
 - `pnpm --dir frontend lint` passes. A stdin probe of
   `import axios from 'axios'` in a view is flagged, while
   `import { isAxiosError } from 'axios'` is not.
-- Specs: there are none today for these five files. Add one spec for
-  `useServerHealth` asserting that it uses `apiClient` (mock `@/services/httpClient`
-  and assert the GET path), because that is the observable contract that changed.
-  The views get no new specs. The type-check, lint and the grep cover the swap.
+- Specs: no new specs. A planned `useServerHealth` spec was dropped during
+  implementation: it would only restate the import, and the lint guard now rejects
+  any private `axios.create` outside `httpClient.ts`. The type-check, lint, the
+  grep and the stdin probes cover the change.
+- **As built:**
+  - all 16 view reads use `apiClient.get('/api/…')`;
+  - `withCredentials` and the local `API_URL` constants are gone (the shared client
+    sends credentials);
+  - `WebAnalyticsView` passes `timeout: ANALYTICS_TIMEOUT_MS` (20 s);
+  - the composables import `apiClient`;
+  - `WikiMapView` uses named helpers;
+  - the guard is the `app/shared-http-client` block in `frontend/eslint.config.ts`.
+- **Probes** (`npx eslint --stdin --stdin-filename …`):
+  - a default import in `src/views/X.vue` or `src/composables/x.ts`: flagged;
+  - `import { isAxiosError }`: allowed;
+  - `src/services/httpClient.ts`: allowed;
+  - `src/**/__tests__/**`: allowed.
 
 ## (e) Entry-point import rule
 

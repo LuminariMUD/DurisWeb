@@ -25,6 +25,28 @@ export default defineConfigWithVueTs(
   },
 
   {
+    // Requests go through the shared client, which adds CSRF, a timeout and the
+    // site-unavailable notice. Named helpers such as isAxiosError stay allowed.
+    name: 'app/shared-http-client',
+    files: ['src/**/*.{ts,vue}'],
+    ignores: ['src/services/httpClient.ts', 'src/**/__tests__/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'axios',
+              importNames: ['default'],
+              message: 'Use apiClient from @/services/httpClient.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
     name: 'app/custom-rules',
     rules: {
       // Allow single-word component names for UI library components (shadcn-vue)

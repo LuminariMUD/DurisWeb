@@ -1,13 +1,6 @@
 import { useQuery } from '@tanstack/vue-query'
 import { computed, type Ref, unref } from 'vue'
-import axios from 'axios'
-import { frontendConfiguration } from '@/config/environment'
-
-const apiClient = axios.create({
-  baseURL: frontendConfiguration.apiUrl,
-  timeout: 10000,
-  withCredentials: true,
-})
+import { apiClient } from '@/services/httpClient'
 
 export interface ServerHealthMetrics {
   // MUD Server

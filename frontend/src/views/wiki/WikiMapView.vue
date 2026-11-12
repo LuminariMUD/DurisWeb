@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import { isAxiosError, isCancel } from 'axios'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -60,10 +60,10 @@ async function loadMapData() {
       return
     } catch (e) {
       if (request !== mapDataRequest) return
-      const status = axios.isAxiosError(e) ? e.response?.status : undefined
+      const status = isAxiosError(e) ? e.response?.status : undefined
       const temporary =
-        axios.isAxiosError(e) &&
-        !axios.isCancel(e) &&
+        isAxiosError(e) &&
+        !isCancel(e) &&
         (['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'].includes(e.code ?? '') ||
           (status !== undefined && status >= 500 && status < 600))
       if (temporary && attempt < 2) {
