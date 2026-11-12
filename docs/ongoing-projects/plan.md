@@ -6,7 +6,7 @@ Branch: `branch/issue-181-character-link-privacy` (linked to the issue)
 
 Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d5573c156`.
 
-**Status: implementation complete. PR A (#197) and PR B are ready for review; release acceptance is pending.**
+**Status: implementation complete. PR A (#197) and PR B (#203, stacked on A) are ready for review; release acceptance is pending.**
 Owner decision on the issue: "ADOPT OPTION # 4". The earlier plans in this file are
 preserved unchanged below the `Previous plans` divider.
 
@@ -17,8 +17,8 @@ live site:
 
 | PR | Branch | Scope | State |
 |---|---|---|---|
-| A | `branch/issue-181-character-link-privacy` → `master` | Live-character flags (steps 5–6), public `/character/:name` page, every link switched to it, lookup client methods and dead guard removed (steps 7–11) | ready for review |
-| B | `branch/issue-181-remove-account-lookups` → A | Remove the two forum lookups, `/api/frag/account` and frag `account_name` (steps 1–4), docs and changelog draft (12–13) | ready for review |
+| A (#197) | `branch/issue-181-character-link-privacy` → `master` | Live-character flags (steps 5–6), public `/character/:name` page, every link switched to it, lookup client methods and dead guard removed (steps 7–11) | ready for review |
+| B (#203) | `branch/issue-181-remove-account-lookups` → A | Remove the two forum lookups, `/api/frag/account` and frag `account_name` (steps 1–4), docs and changelog draft (12–13) | ready for review |
 
 PR A no longer calls any lookup, so PR B's removals cannot break a deployed PR A
 frontend. Deploy and merge A before B.
@@ -44,15 +44,16 @@ What PR A did, and decisions made while implementing it:
   and the mapping is `Boolean(...)`.
 - **Separate defect found.** `GuildProfileView.vue` `navigateToThread` pushes the
   route name `thread`, which does not exist (it should be `forum-thread`), so its
-  forum-activity cards throw. It is not part of this issue; fix it as its own PR.
+  forum-activity cards throw. It is not part of this issue, so it is fixed separately
+  in LuminariMUD/DurisWeb#207.
 
 PR A verification (worktree `/home/aiwithapex/projects/durisweb-issue-181`):
 
 - `NODE_ENV=test TEST_PVP_DB_PORT=47181 pnpm --dir backend test --runInBand src/features/forum src/services/__tests__/pvpService.test.ts src/routes/__tests__/pvpIdValidation.test.ts`
   → 5 suites, 149 passed. The new native case covers a live pid, a retired pid whose
   name was reused, and an unlinked pid.
-  - Port 47181 is a disposable `mariadb:11.8` container named `durisweb-181-pvp-db`,
-    with an empty root password.
+  - Port 47181 was a disposable container, since removed. To recreate it:
+    `docker run -d --rm --name durisweb-181-pvp-db -e MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=1 -p 127.0.0.1:47181:3306 mariadb:11.8`
 - `pnpm --dir backend format:check`, `lint`, `type-check` → clean.
 - `pnpm --dir frontend test:unit --run` → 98 files, 770 passed. This includes the
   updated `BattleDetailView.spec.ts` and the new `CharacterProfileView.spec.ts` and
@@ -108,7 +109,7 @@ PR B verification (it contains PR A):
 
 Remaining after merge:
 
-1. Fix the separate `GuildProfileView` `thread` route-name defect (own PR).
+1. The separate `GuildProfileView` `thread` route-name defect is fixed in its own PR, LuminariMUD/DurisWeb#207 (`branch/fix-guild-thread-link`, independent of this stack).
 2. Release acceptance: deploy A, then B. Signed out on `duris.sbs`, confirm that
    the three removed URLs return 404, that frag JSON has no `account_name`, and that
    names open `/character/:name`. Then publish the changelog draft via
