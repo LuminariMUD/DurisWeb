@@ -26,6 +26,7 @@ import { AlertCircle } from '@lucide/vue'
 import { parseAnsiForVue } from '@/utils/ansiParser'
 import { useToast } from '@/composables/useToast'
 import { analyticsApi } from '@/features/admin/api'
+import { apiClient } from '@/services/httpClient'
 import { useWebSocket } from '@/composables/useWebSocket'
 import type { ChartData } from 'chart.js'
 
@@ -54,8 +55,7 @@ let uptimeInterval: ReturnType<typeof setInterval> | null = null
 
 async function fetchBootTime() {
   try {
-    const response = await fetch('/api/admin/mud-boot-time')
-    const data = await response.json()
+    const { data } = await apiClient.get<{ bootTime: number | null }>('/api/admin/mud-boot-time')
     mudBootTime.value = data.bootTime
     updateUptime()
   } catch (err) {
