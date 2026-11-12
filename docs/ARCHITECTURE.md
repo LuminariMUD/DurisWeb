@@ -60,10 +60,11 @@ Import direction: features and services never import `index.ts`, `app.ts` or
 `runtime/` (ESLint blocks only `../index.js` and `../../index.js`; the rest is
 convention). Browser feature modules share the `apiClient` instance from
 `frontend/src/services/httpClient.ts`, which imports no features and adds the
-CSRF header to writes. Every browser request uses `apiClient`; ESLint
+CSRF header to writes. Ordinary JSON reads and writes use `apiClient`; ESLint
 (`frontend/eslint.config.ts`) rejects the default `axios` import outside
 `httpClient.ts` and tests, while named helpers such as `isAxiosError` stay
-allowed. MUD-owned writes keep their `backend/mud-write-allowlist.json`
+allowed. Specialized streaming and availability-probe transports retain their
+own fetch/socket lifecycle. MUD-owned writes keep their `backend/mud-write-allowlist.json`
 key in step with the file that holds the statement.
 
 ## Data and Dependency Flow

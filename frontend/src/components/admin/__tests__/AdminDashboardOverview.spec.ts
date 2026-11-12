@@ -4,6 +4,12 @@ import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { ref } from 'vue'
 import AdminDashboardOverview from '../AdminDashboardOverview.vue'
 import type { OverviewStats } from '@/composables/useAdminAnalytics'
+import { apiClient } from '@/services/httpClient'
+import { AxiosError, type InternalAxiosRequestConfig } from 'axios'
+
+const originalAdapter = apiClient.defaults.adapter
+const originalBaseUrl = apiClient.defaults.baseURL
+const requests: InternalAxiosRequestConfig[] = []
 
 const FIXTURE_STATS: OverviewStats = {
   currentOnlinePlayers: 5,
@@ -92,6 +98,11 @@ describe('AdminDashboardOverview', () => {
     whoListLoading.value = false
     isConnected.value = true
     vi.clearAllMocks()
+    requests.length = 0
+    apiClient.defaults.adapter = async (config) => {
+      requests.push(config)
+      return { data: { bootTime: null }, status: 200, statusText: 'OK', headers: {}, config }
+    }
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
@@ -102,6 +113,10 @@ describe('AdminDashboardOverview', () => {
 
   afterEach(() => {
     while (wrappers.length > 0) wrappers.pop()?.unmount()
+    queryClient.clear()
+    apiClient.defaults.adapter = originalAdapter
+    apiClient.defaults.baseURL = originalBaseUrl
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
 
@@ -177,5 +192,42 @@ describe('AdminDashboardOverview', () => {
     expect(text).toContain('Currently Online')
     expect(text).toContain('Cwial')
     expect(text).toContain('Human')
+  })
+
+  it('reads boot time from the configured API origin with the shared credentials and timeout', async () => {
+    apiClient.defaults.baseURL = 'https://separate-api.test.invalid'
+    createWrapper()
+    await flushPromises()
+    expect(requests).toHaveLength(1)
+    expect(requests[0]).toMatchObject({
+      url: '/api/admin/mud-boot-time',
+      baseURL: 'https://separate-api.test.invalid',
+      withCredentials: true,
+      timeout: 10000,
+    })
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('uses the shared unavailable response path when the boot-time API fails', async () => {
+    const unavailable = vi.fn()
+    window.addEventListener('site-unavailable', unavailable)
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    apiClient.defaults.adapter = async (config) => {
+      throw new AxiosError(
+        'Synthetic unavailable response',
+        'ERR_BAD_RESPONSE',
+        config,
+        undefined,
+        { data: {}, status: 503, statusText: 'Unavailable', headers: {}, config },
+      )
+    }
+    try {
+      const wrapper = createWrapper()
+      await flushPromises()
+      expect(unavailable).toHaveBeenCalledTimes(1)
+      expect(wrapper.text()).toContain('Not Running')
+    } finally {
+      window.removeEventListener('site-unavailable', unavailable)
+    }
   })
 })
