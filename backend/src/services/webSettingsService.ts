@@ -1,7 +1,9 @@
+import { randomUUID } from 'node:crypto';
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 import { RowDataPacket } from 'mysql2';
 import { AppError } from '../middleware/errorHandler.js';
 import { pool as db } from '../db/connection.js';
-import { PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import logger from '../utils/logger.js';
 import { extractImageUrls } from './postImageService.js';
@@ -422,7 +424,7 @@ export async function updateWebSetting(
 
   // Validate pvp_delay_minutes is a valid number
   if (key === 'pvp_delay_minutes') {
-    const numValue = parseInt(value, 10);
+    const numValue = /^\d+$/.test(value) ? Number(value) : Number.NaN;
     if (isNaN(numValue) || numValue < 0 || numValue > 1440) {
       throw new AppError('PvP delay must be between 0 and 1440 minutes (24 hours)', 400);
     }
@@ -443,7 +445,7 @@ export async function updateWebSetting(
 
   // Validate max_hourly_backups is a valid number (1-168, 1 week max)
   if (key === 'max_hourly_backups') {
-    const numValue = parseInt(value, 10);
+    const numValue = /^\d+$/.test(value) ? Number(value) : Number.NaN;
     if (isNaN(numValue) || numValue < 1 || numValue > 168) {
       throw new AppError('Max hourly backups must be between 1 and 168 (1 week)', 400);
     }
@@ -477,7 +479,7 @@ export async function updateWebSetting(
         );
         logger.info(`Linked ${imageUrls.length} images to front page content`);
       } catch (err) {
-        logger.error('Failed to link images to front page:', err);
+        logger.error('Failed to link images to front page:', { code: safeFailureCode(err) });
       }
     }
   }
@@ -531,34 +533,24 @@ async function processLogo(
   };
 }
 
-/**
- * Delete old site logos from R2
- */
-async function deleteOldLogos(): Promise<void> {
+/** Remove only the previously published owned object after its setting changes. */
+async function deletePreviousSiteAsset(
+  previousUrl: string | null,
+  kind: 'logo' | 'hero',
+): Promise<void> {
+  if (!previousUrl) return;
   try {
-    const prefix = 'duris/site/logo_';
     const r2 = requireR2Storage();
-    const listResponse = await r2.client.send(
-      new ListObjectsV2Command({
-        Bucket: r2.configuration.bucketName,
-        Prefix: prefix,
-      }),
+    const base = r2.configuration.publicUrl + '/';
+    if (!previousUrl.startsWith(base)) return;
+    const key = previousUrl.slice(base.length);
+    if (!new RegExp('^duris/site/' + kind + '_[a-zA-Z0-9-]+[.](webp|png|jpg|jpeg)$').test(key))
+      return;
+    await r2.client.send(
+      new DeleteObjectCommand({ Bucket: r2.configuration.bucketName, Key: key }),
     );
-
-    if (listResponse.Contents && listResponse.Contents.length > 0) {
-      for (const obj of listResponse.Contents) {
-        if (obj.Key) {
-          await r2.client.send(
-            new DeleteObjectCommand({
-              Bucket: r2.configuration.bucketName,
-              Key: obj.Key,
-            }),
-          );
-        }
-      }
-    }
   } catch (error) {
-    logger.warn('Failed to delete old logos:', error);
+    logger.warn('Previous site image cleanup failed', { code: safeFailureCode(error) });
   }
 }
 
@@ -583,12 +575,8 @@ export async function uploadSiteLogo(
   // Process the logo
   const { buffer, extension, contentType } = await processLogo(fileBuffer);
 
-  // Generate unique filename with timestamp
-  const timestamp = Date.now();
-  const key = `duris/site/logo_${timestamp}.${extension}`;
-
-  // Delete old logos first
-  await deleteOldLogos();
+  const previousUrl = await getWebSetting('site_logo_url');
+  const key = `duris/site/logo_${randomUUID()}.${extension}`;
 
   // Upload to R2
   const r2 = requireR2Storage();
@@ -607,6 +595,7 @@ export async function uploadSiteLogo(
 
   // Update the setting in database
   await updateWebSetting('site_logo_url', logoUrl, updatedBy);
+  await deletePreviousSiteAsset(previousUrl, 'logo');
 
   return logoUrl;
 }
@@ -619,11 +608,9 @@ export async function deleteSiteLogo(updatedBy: string): Promise<void> {
     throw new Error('R2 storage is not configured');
   }
 
-  // Delete from R2
-  await deleteOldLogos();
-
-  // Clear the setting
+  const previousUrl = await getWebSetting('site_logo_url');
   await updateWebSetting('site_logo_url', '', updatedBy);
+  await deletePreviousSiteAsset(previousUrl, 'logo');
 }
 
 /**
@@ -685,37 +672,6 @@ async function processHeroImage(
 }
 
 /**
- * Delete old hero images from R2
- */
-async function deleteOldHeroImages(): Promise<void> {
-  try {
-    const prefix = 'duris/site/hero_';
-    const r2 = requireR2Storage();
-    const listResponse = await r2.client.send(
-      new ListObjectsV2Command({
-        Bucket: r2.configuration.bucketName,
-        Prefix: prefix,
-      }),
-    );
-
-    if (listResponse.Contents && listResponse.Contents.length > 0) {
-      for (const obj of listResponse.Contents) {
-        if (obj.Key) {
-          await r2.client.send(
-            new DeleteObjectCommand({
-              Bucket: r2.configuration.bucketName,
-              Key: obj.Key,
-            }),
-          );
-        }
-      }
-    }
-  } catch (error) {
-    logger.warn('Failed to delete old hero images:', error);
-  }
-}
-
-/**
  * Upload hero image to R2 and update setting
  */
 export async function uploadHeroImage(
@@ -730,12 +686,8 @@ export async function uploadHeroImage(
   // Process the hero image
   const { buffer, extension, contentType } = await processHeroImage(fileBuffer);
 
-  // Generate unique filename with timestamp
-  const timestamp = Date.now();
-  const key = `duris/site/hero_${timestamp}.${extension}`;
-
-  // Delete old hero images first
-  await deleteOldHeroImages();
+  const previousUrl = await getWebSetting('front_page_hero_image_url');
+  const key = `duris/site/hero_${randomUUID()}.${extension}`;
 
   // Upload to R2
   const r2 = requireR2Storage();
@@ -754,6 +706,7 @@ export async function uploadHeroImage(
 
   // Update the setting in database
   await updateWebSetting('front_page_hero_image_url', heroUrl, updatedBy);
+  await deletePreviousSiteAsset(previousUrl, 'hero');
 
   return heroUrl;
 }
@@ -766,9 +719,7 @@ export async function deleteHeroImage(updatedBy: string): Promise<void> {
     throw new Error('R2 storage is not configured');
   }
 
-  // Delete from R2
-  await deleteOldHeroImages();
-
-  // Clear the setting
+  const previousUrl = await getWebSetting('front_page_hero_image_url');
   await updateWebSetting('front_page_hero_image_url', '', updatedBy);
+  await deletePreviousSiteAsset(previousUrl, 'hero');
 }
