@@ -1,5 +1,4 @@
-import { readFile, mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import express from 'express';
@@ -122,18 +121,5 @@ describe('fingerprinted frontend files before CSRF issuance', () => {
     expect(html.headers['cache-control']).toBe('public, max-age=0');
     expect((await request(app).get('/assets/index-NewHash1.js')).text).toBe('new release');
     expect((await request(app).get(`/assets/${versioned[0]}`)).status).toBe(200);
-  });
-
-  it('wires only production assets before CSRF and leaves canonical/CORS handling ahead of them', async () => {
-    const source = await readFile(fileURLToPath(new URL('../../app.ts', import.meta.url)), 'utf8');
-    const earlyAssets = source.indexOf(
-      "app.use('/assets', fingerprintedFrontendAssets(frontendDistPath))",
-    );
-    expect(earlyAssets).toBeGreaterThan(source.indexOf('app.use(canonicalHost('));
-    expect(earlyAssets).toBeGreaterThan(source.indexOf('cors({'));
-    expect(earlyAssets).toBeLessThan(source.indexOf('app.use(generateCsrfToken)'));
-    expect(source.slice(source.lastIndexOf('\n', earlyAssets - 10), earlyAssets)).toContain(
-      "if (environment.environment === 'production')",
-    );
   });
 });

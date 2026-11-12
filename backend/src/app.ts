@@ -43,10 +43,10 @@ import { configureRequestBodyParsers } from './middleware/requestLimits.js';
 import { getPvPEventDetail } from './services/pvpService.js';
 import { getWebSettings } from './services/webSettingsService.js';
 import { getHealthSnapshot } from './services/healthService.js';
-import { getBackendConfiguration } from './config/environment.js';
+import { getBackendConfiguration, type BackendConfiguration } from './config/environment.js';
 import { escapeHtml } from './utils/contentParser.js';
 
-const frontendDistPath = path.join(
+const defaultFrontendDistPath = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../frontend/dist',
 );
@@ -55,8 +55,14 @@ const frontendDistPath = path.join(
  * Compose the HTTP application: middleware, routes, metadata and static fallback,
  * in their behavior-carrying order. Starts no listener, job, integration or signal handler.
  */
-export function createApp(): Application {
-  const environment = getBackendConfiguration();
+export function createApp({
+  environment = getBackendConfiguration(),
+  frontendDistPath = defaultFrontendDistPath,
+}: {
+  /** Tests pass a production configuration to exercise the production-only composition. */
+  environment?: BackendConfiguration;
+  frontendDistPath?: string;
+} = {}): Application {
   const app: Application = express();
 
   // Trust proxy - required when running behind nginx/reverse proxy
