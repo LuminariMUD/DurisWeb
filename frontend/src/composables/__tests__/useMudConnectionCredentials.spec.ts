@@ -3,6 +3,7 @@ import { defineComponent, h } from 'vue'
 import { mount, type VueWrapper } from '@vue/test-utils'
 
 const textGag = vi.hoisted(() => ({ active: false }))
+const stopAllTimers = vi.hoisted(() => vi.fn())
 
 const {
   store,
@@ -93,7 +94,7 @@ vi.mock('@/composables/useSiteConfig', () => {
 vi.mock('@/composables/useTimers', () => ({
   useTimers: () => ({
     startAllTimers: vi.fn(),
-    stopAllTimers: vi.fn(),
+    stopAllTimers,
     setSendCommand: vi.fn(),
     setAddLogEntry: vi.fn(),
   }),
@@ -479,6 +480,45 @@ describe('useMudConnection credential lifecycle', () => {
     expect(sockets[0]!.sent).toEqual([])
     clock.mockRestore()
   })
+
+  it.each(['login', 'register'] as const)(
+    'leaves an actionable error after an asynchronous %s socket timeout',
+    async (method) => {
+      vi.stubGlobal(
+        'WebSocket',
+        class extends FakeSocket {
+          constructor(url: string) {
+            super(url)
+            this.readyState = 0
+          }
+          close() {
+            this.readyState = 2
+            setTimeout(() => {
+              this.readyState = 3
+              this.onclose?.({ code: 1006, reason: '', wasClean: false })
+            }, 1)
+          }
+        },
+      )
+      const connection = createConnection()
+      const pending =
+        method === 'login'
+          ? connection.login('Fixture', 'synthetic')
+          : connection.register('Fixture', 'synthetic', 'fixture@example.invalid')
+      await vi.advanceTimersByTimeAsync(10_050)
+      await expect(pending).resolves.toBe(false)
+      expect(store.connectionState).toBe('error')
+      expect(store.connectionError).toBe('Connection timed out. Please try again.')
+      expect(stopAllTimers).toHaveBeenCalled()
+      expect(window.__mudWebSocket).toBeNull()
+      await vi.advanceTimersByTimeAsync(50)
+      expect(store.connectionState).toBe('error')
+      expect(store.openReconnectDialog).not.toHaveBeenCalled()
+      expect(window.__mudConnecting).toBe(false)
+      await connection.connect()
+      expect(sockets).toHaveLength(2)
+    },
+  )
 
   it('bounds a connection that never opens and sends no credentials after it expires', async () => {
     vi.stubGlobal(

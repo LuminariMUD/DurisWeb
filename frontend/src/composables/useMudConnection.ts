@@ -338,9 +338,8 @@ export function useMudConnection() {
         } else if (candidate.readyState === WebSocket.OPEN) {
           resolve(true)
         } else if (performance.now() >= deadline) {
-          candidate.close()
-          if (getWsRef() === candidate) setWsRef(null)
-          setConnecting(false)
+          disconnect()
+          store.setConnectionState('error', 'Connection timed out. Please try again.')
           resolve(false)
         } else {
           setTimeout(check, 50)
@@ -351,6 +350,9 @@ export function useMudConnection() {
   }
 
   const disconnect = () => {
+    setConnecting(false)
+    pendingAuthCredentials = null
+    stopAllTimers()
     // Clear any pending reconnect timeout
     if (reconnectTimeoutId) {
       clearTimeout(reconnectTimeoutId)
