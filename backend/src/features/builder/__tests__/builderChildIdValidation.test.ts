@@ -27,14 +27,16 @@ const builderNotificationService = {
 
 const asyncMock = () => jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const canAccessZone = jest.fn<(...args: unknown[]) => Promise<boolean>>();
+const overlord = {
+  accountName: 'Cwial',
+  permissions: { role: 'overlord' },
+  adminPermissions: new Set(['manage_zones']),
+};
+let testUser: object = overlord;
 
 jest.unstable_mockModule('../../../middleware/auth.js', () => ({
   requireAuth: (req: any, _res: any, next: any) => {
-    req.user = {
-      accountName: 'Cwial',
-      permissions: { role: 'overlord' },
-      adminPermissions: new Set(['manage_zones']),
-    };
+    req.user = testUser;
     next();
   },
   requirePermission: () => (_req: any, _res: any, next: any) => next(),
@@ -44,7 +46,7 @@ jest.unstable_mockModule('../../../db/connection.js', () => ({
 }));
 jest.unstable_mockModule('../../../utils/logger.js', () => ({
   default: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
-  getErrorMessage: (error: unknown) => String(error),
+  getErrorMessage: (error: unknown) => (error instanceof Error ? error.message : String(error)),
 }));
 jest.unstable_mockModule('../../../utils/contentParser.js', () => ({
   processContentForWrite: (content: string) => ({ content }),
@@ -139,6 +141,7 @@ describe('builder child-resource ID validation', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    testUser = overlord;
     poolQuery.mockResolvedValue([[]]);
     getZoneName.mockResolvedValue('Zone A');
     procRequestService.updateProcRequest.mockResolvedValue(undefined);
@@ -261,5 +264,68 @@ describe('builder child-resource ID validation', () => {
     expect([update.status, status.status]).toEqual([200, 200]);
     expect(procRequestService.updateProcRequest.mock.calls[0][2]).toEqual({ assignedTo });
     expect(procRequestService.updateProcRequestStatus.mock.calls[0][3]).toBe(assignedTo);
+  });
+
+  it('scopes comment writes to the URL zone and logs nothing for a foreign ID', async () => {
+    zoneCommentService.updateComment.mockResolvedValueOnce(null);
+
+    const update = await request(app)
+      .put('/api/builder/zones/zone-a/comments/9')
+      .send({ content: 'Edited' });
+    const deleted = await request(app).delete('/api/builder/zones/zone-a/comments/9');
+
+    expect([update.status, deleted.status]).toEqual([404, 404]);
+    expect(zoneCommentService.updateComment).toHaveBeenCalledWith(
+      'zone-a',
+      9,
+      expect.objectContaining({ content: 'Edited' }),
+      'Cwial',
+      true,
+    );
+    expect(zoneCommentService.deleteComment).toHaveBeenCalledWith('zone-a', 9, 'Cwial', true);
+    expect(poolQuery).not.toHaveBeenCalledWith(
+      expect.stringContaining('builder_activity_log'),
+      expect.anything(),
+    );
+  });
+
+  it('grants comment moderation from zone-level manage, not from view access', async () => {
+    testUser = { accountName: 'Builder', permissions: {}, adminPermissions: new Set() };
+    canAccessZone.mockImplementation(async (...args) => args[2] !== 'manage');
+    zoneCommentService.deleteComment.mockRejectedValueOnce(
+      new Error('Not authorized to delete this comment'),
+    );
+
+    const denied = await request(app).delete('/api/builder/zones/zone-a/comments/9');
+
+    expect(denied.status).toBe(403);
+    expect(zoneCommentService.deleteComment).toHaveBeenCalledWith('zone-a', 9, 'Builder', false);
+
+    canAccessZone.mockResolvedValue(true);
+    zoneCommentService.deleteComment.mockResolvedValueOnce(true);
+    const moderated = await request(app).delete('/api/builder/zones/zone-a/comments/9');
+
+    expect(moderated.status).toBe(200);
+    expect(zoneCommentService.deleteComment).toHaveBeenLastCalledWith('zone-a', 9, 'Builder', true);
+  });
+
+  it('rejects malformed or foreign comment references on create with 400', async () => {
+    const malformed = await request(app)
+      .post('/api/builder/zones/zone-a/comments')
+      .send({ content: 'hi', parentId: '5abc' });
+    expect(malformed.status).toBe(400);
+    expect(zoneCommentService.createComment).not.toHaveBeenCalled();
+
+    zoneCommentService.createComment.mockRejectedValueOnce(new Error('Proc request not found'));
+    const foreign = await request(app)
+      .post('/api/builder/zones/zone-a/comments')
+      .send({ content: 'hi', procRequestId: 4 });
+
+    expect(foreign.status).toBe(400);
+    expect(zoneCommentService.createComment).toHaveBeenCalledWith(
+      expect.objectContaining({ zoneId: 'zone-a', parentId: null, procRequestId: 4 }),
+      'Cwial',
+      'Zone A',
+    );
   });
 });
