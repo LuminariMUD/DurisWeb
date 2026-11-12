@@ -8,7 +8,8 @@ Prepared: 12 November 2026 against DurisWeb `3734492` (`master`). Only Dependabo
 bumps have landed since the issue's reference commit `ab3e03c`, and none of them
 touch the files below.
 
-**Status: plan only. Implementation has not started.**
+**Status: plan only. Implementation has not started.** The owner answered the
+open questions on 12 November 2026; see [Decisions](#decisions).
 
 The six items were each checked against the code, not taken from the issue or from
 the earlier investigation comment. All six are real. Corrections to the issue and to
@@ -29,8 +30,10 @@ section.
 4. The production-only behaviour of `createApp` is proven by requests against a
    real production-mode app, and the three source-text assertions are deleted.
 5. The lint rule blocks every import that resolves to `backend/src/index.ts`, and
-   nothing else.
-6. Every frontend read listed in the issue goes through the shared `apiClient`.
+   nothing else. It also enforces the documented direction: feature and service
+   code never imports `app.ts` or `runtime/`.
+6. Every frontend read listed in the issue goes through the shared `apiClient`, and
+   a lint rule stops new code from bypassing it with the default `axios` export.
 
 ## Non-goals
 
@@ -38,16 +41,14 @@ section.
   already import `apiClient` directly (for example `AuditLogView.vue` and
   `CreditsView.vue`), so an inline swap follows an existing pattern. Moving them is
   a refactor this issue does not need.
-- Lint enforcement of the wider documented import direction (features and services
-  never import `app.ts` or `runtime/`). See open question 3.
 - The native `fetch` callers (`accountExport`, `privacy`, `useTerminal`,
   `usePlayMap`, `SurfaceMapView`, `useTriggers`, `HelpModal`,
   `SiteAvailabilityNotice`). They are deliberate and handle their own failures.
 - Races inside individual services, for example `stopPlayerEventSubscriber`
   running while `startPlayerEventSubscriber` is still in flight. Item (a) only
   ensures that startup does not *begin* anything after shutdown.
-- Re-notifying on unpublish then republish. This plan keeps today's behaviour. See
-  open question 1.
+- Changing what happens on unpublish then republish. Re-notifying is intended
+  (decision 1), so that behaviour is kept.
 
 ## Order and PR shape
 
@@ -95,6 +96,8 @@ entries are already skipped (`:346`), so only public entries are affected.
    saved `version`, `title` and `category`. This also stops the message from using a
    value read before the update ran.
 3. Keep the 404 when `found` is false. Keep the fire-and-forget `.catch`.
+4. Republishing (published → unpublished → published) notifies again, as it does
+   today. This is intended (decision 1). Only concurrent duplicates are removed.
 
 The two statements are not in one transaction. That is acceptable: each one is
 idempotent, and the only state they share is the publish flag, which the
@@ -128,6 +131,33 @@ connected:
 The dashboard already refreshes from REST plus Redis player events. Removal is
 safe for stale browser tabs: unknown socket message types are ignored
 (`applicationSocket.ts:54-58`).
+
+**Why removal and not reconnecting.** Reconnecting would not make the dashboard
+live, because it is live already:
+
+- The MUD sends a `wholist` frame only in response to `request_wholist`
+  (`hooks/registry.ts:96`). The only caller is the admin "cleanup connections"
+  route (`features/admin/analyticsRoutes.ts:256`), plus possibly one frame when the
+  MUD bridge connects.
+- Every login and logout already reaches the dashboard through the Redis player
+  event subscription, which triggers a REST refetch
+  (`AdminDashboardOverview.vue:106-115`).
+- The frontend handler ignores the pushed payload and only calls
+  `refetchWhoList()`.
+
+So a reconnected push would send the full player list to every subscribed admin
+socket, only to trigger a refetch that already happens, on an event that is almost
+never raised. It would also keep a second level-57 subscription path for #180's
+principal re-check to cover.
+
+**If reconnecting is still wanted:**
+
+- add `setWholistBroadcaster(broadcastWholist)` next to `setAuctionBroadcaster` in
+  `runtime/backgroundJobs.ts:208`;
+- call `subscribeWholist()` in the dashboard's connect watcher;
+- add a test that a `wholist` frame reaches a subscribed level-57 socket.
+
+That is about 30 minutes, and it replaces this item's removal work.
 
 **Remove:**
 
@@ -238,7 +268,9 @@ Extend `backgroundJobs.test.ts`:
 
 - None of the 16 view reads has a timeout.
 - `WikiMapView.vue`, `NewsAdminView.vue` and `MudBackupView.vue` only use the
-  `isAxiosError` and `isCancel` helpers. That is fine, and they are left alone.
+  `isAxiosError` and `isCancel` helpers. That is fine. `WikiMapView.vue` reaches
+  them through the default import (`axios.isAxiosError`), so the guard below
+  switches it to named imports.
 - `SiteAvailabilityNotice.vue` polls with `fetch('/api/site-availability')`, so
   routing `usePublicStatus` through `apiClient` cannot create a feedback loop with
   the banner.
@@ -251,20 +283,34 @@ Extend `backgroundJobs.test.ts`:
   `frontendConfiguration` and `axios` imports.
 - Pass query strings through `params` where a view currently builds them by hand,
   but only if the encoding is unchanged; otherwise keep the existing string.
+- In `WebAnalyticsView.vue`, pass `timeout: 20_000` on each of the 8 reads
+  (decision 2) through one local `const ANALYTICS_TIMEOUT_MS = 20_000`. The
+  analytics aggregation queries are the slowest reads here, so the shared default
+  of 10 s is not used for them. The other views keep the shared 10 s.
 - In both composables, import `apiClient` instead of creating a private instance.
+- **Guard (decision 3).** In `frontend/eslint.config.ts`, add `no-restricted-imports`
+  for `axios` with `importNames: ['default']` and the message
+  "Use apiClient from @/services/httpClient". It does not apply to
+  `src/services/httpClient.ts` or to test files (`src/**/__tests__/*`, as that config already scopes them). Named helpers (`isAxiosError`,
+  `isCancel`) and types stay allowed. Switch `WikiMapView.vue` to
+  `import { isAxiosError, isCancel } from 'axios'`.
 - Update the sentence in `docs/ARCHITECTURE.md:62-65` that lists these files as
-  exceptions.
+  exceptions. It should say that the shared client is now lint-enforced.
 
-**Behaviour changes to accept knowingly.** These reads gain a 10 s timeout and the
-availability banner. For example, a public status page that cannot reach the API
-will now raise the banner, which is correct for a down site. If any web-analytics
-query takes longer than 10 s on production data, that view will start failing
-instead of spinning. See open question 2.
+**Behaviour changes to accept knowingly:**
+
+- These reads gain a timeout (20 s for web analytics, 10 s elsewhere) and the
+  availability banner.
+- For example, a public status page that cannot reach the API will now raise the
+  banner, which is correct for a down site.
 
 **Proof:**
 
 - `rg "axios\.(get|post|put|patch|delete|create)\(" frontend/src -g '!**/__tests__/**'`
   matches only `services/httpClient.ts`.
+- `pnpm --dir frontend lint` passes. A stdin probe of
+  `import axios from 'axios'` in a view is flagged, while
+  `import { isAxiosError } from 'axios'` is not.
 - Specs: there are none today for these five files. Add one spec for
   `useServerHealth` asserting that it uses `apiClient` (mock `@/services/httpClient`
   and assert the GET path), because that is the observable contract that changed.
@@ -304,6 +350,17 @@ No file imports `src/index.ts` today. The only other `index.ts` files are
 - Apply it to `src/**/*.ts` and `scripts/**/*.ts`, excluding only `src/index.ts`
   itself. Drop the glob list and the hooks/types ignores, since the resolved
   comparison no longer needs them.
+- **Direction zone (decision 3).** The same rule takes a list of
+  `{ files, forbidden, message }` zones. It is a list of resolved targets rather
+  than one target, which keeps it a single rule:
+  - all of `src/**` and `scripts/**` → forbidden `src/index`;
+  - non-test files under `src/features/**` and `src/services/**` → forbidden
+    `src/app` and anything under `src/runtime/`.
+
+  This is the direction `docs/ARCHITECTURE.md:59` documents. No current file
+  violates it: a grep of `features`, `services`, `routes`, `realtime` and
+  `middleware` for imports of `app` or `runtime/` returns nothing. Tests are
+  excluded because composition tests legitimately build the app.
 
 `import-x/no-restricted-paths` was rejected because it adds a dependency
 (`docs/CONVENTIONS.md`: "justify additions"), and a 25-line resolver covers the need.
@@ -312,12 +369,16 @@ indirectly.
 
 **Proof:**
 
-- Re-run the stdin probe table: every resolving case is flagged, and
-  `src/features/admin/x.ts → ../index.js` and `src/hooks/__tests__/registry.test.ts`
-  are not.
+- Re-run the stdin probe table:
+  - every resolving case is flagged;
+  - `src/features/admin/x.ts → ../index.js` and
+    `src/hooks/__tests__/registry.test.ts` are not flagged;
+  - `src/services/x.ts → ../app.js` and `src/features/admin/x.ts → ../../runtime/shutdown.js`
+    are flagged, while the same imports from a `__tests__` file are not.
 - `pnpm --dir backend lint` passes on the real tree.
 - Record the probe commands in the PR, not as a test file.
-- Update the `docs/ARCHITECTURE.md:59-61` parenthesis to describe the resolved rule.
+- Update the `docs/ARCHITECTURE.md:59-61` parenthesis. The whole stated direction
+  is now lint-enforced, not "the rest is convention".
 
 ## (d) Prove the production half of `createApp` by behaviour
 
@@ -401,8 +462,6 @@ skill, and record the decision either way.
 
 - **Dropped:**
   - moving the admin reads into feature API modules (no requirement depends on it);
-  - an ESLint ban on default `axios` imports (not asked for; the grep proves the
-    outcome; see open question 3);
   - a new import lint plugin (an inline resolver meets the need with no
     dependency);
   - a transaction with `SELECT … FOR UPDATE` for (b) (the conditional `UPDATE`
@@ -414,34 +473,44 @@ skill, and record the decision either way.
 - **Kept, though not in the issue:** the watchdog release in (a), and the
   extensionless, `./../`, `src/*.ts` and `scripts/**` cases in (e). Each one leaves
   the stated outcome unmet if omitted.
+- **Added by the owner's decisions:** the two guards (decision 3) and the 20 s
+  analytics timeout (decision 2). They are kept because they are inexpensive, and
+  because nothing in the current tree violates them, so they add no churn.
+  The guards stop a class of bug that has already come back once: the bare-`axios`
+  writes were fixed in #177, and the reads remain.
 
-## Open questions
+## Decisions
 
-1. **(b) Republish:** should unpublish → republish notify everyone again? The plan
-   keeps today's behaviour (yes). Notifying only on the *first* publish would need a
-   `first_published_at` column, which means a migration.
-2. **(f) Timeout:** are the production web-analytics queries reliably under 10 s?
-   If not, give that view a per-request `timeout` rather than leaving it unbounded.
-3. **Guards:** should regressions be guarded beyond this fix? The two candidates are
-   a frontend lint rule against default `axios` imports outside `httpClient.ts`, and
-   extending (e) to `app.ts` and `runtime/` as `docs/ARCHITECTURE.md` describes.
-   Both are excluded unless requested.
-4. **(c) Removal vs. re-wiring:** removal is planned, as the earlier comment
-   recommends. Re-wiring would push the full player list on every MUD `wholist`
-   frame.
+Owner answers, 12 November 2026:
+
+1. **(b) Republish re-notifies:** yes, keep it. Only concurrent duplicates are fixed.
+2. **(f) Analytics timeout:** 20 s for the `WebAnalyticsView` reads; the shared
+   10 s applies elsewhere.
+3. **Guards:** add them where wise. Both are judged wise and planned:
+   - the frontend default-`axios` import ban;
+   - the backend direction zone (`features`/`services` never import `app.ts` or
+     `runtime/`).
+4. **(c) Remove or reconnect:** the owner leaned toward reconnecting and asked for
+   a recommendation. **Recommendation: remove.** The reasons are under (c):
+   - the dashboard is already live through Redis player events;
+   - the MUD frame is only sent on request;
+   - the pushed payload is ignored.
+
+   Removal stays in the plan. The reconnect variant is written out under (c) in
+   case the owner still prefers it. **Pending the owner's confirmation.**
 
 ## Estimate
 
-About **4–6 hours of Claude session time**, including dependency installs and full
-two-package verification:
+About **4.5–6.5 hours of Claude session time**, including dependency installs and
+full two-package verification:
 
 | Item | Time |
 |------|------|
 | b | ~40 min |
-| c | ~40 min |
+| c | ~40 min (removal) or ~30 min (reconnect) |
 | a | ~1 h |
-| f | ~45 min |
-| e | ~45 min |
+| f | ~1 h (includes the axios guard and the 20 s timeout) |
+| e | ~1 h (includes the direction zone) |
 | d | ~1.5–2 h |
 
 A human reviewer should budget about 1–2 hours for the PR.
