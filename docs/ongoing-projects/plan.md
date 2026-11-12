@@ -1,3 +1,455 @@
+# Issue #183: structure stack follow-ups
+
+Issue: [DurisWeb #183](https://github.com/LuminariMUD/DurisWeb/issues/183)
+
+Branch: `branch/issue-183-structure-stack-followups` (worktree `../durisweb-issue-183`)
+
+Prepared: 12 November 2026 against DurisWeb `3734492` (`master`). Only Dependabot
+bumps have landed since the issue's reference commit `ab3e03c`, and none of them
+touch the files below.
+
+**Status: plan only. Implementation has not started.**
+
+The six items were each checked against the code, not taken from the issue or from
+the earlier investigation comment. All six are real. Corrections to the issue and to
+the comment are listed under each item. The plan was then ablated: every step names
+the requirement or failure that justifies it, and the cuts are listed at the end.
+
+The content that was already in this file (the #136 plan and the security, privacy
+and schema plan it preserved) is kept unchanged below the divider at the end of this
+section.
+
+## Outcome
+
+1. A shutdown that starts during startup leaves nothing running that shutdown did
+   not stop, and the port is never bound after shutdown.
+2. Publishing a changelog entry notifies players exactly once, however many
+   publishing requests race.
+3. The dead WHO-list push path is gone from both packages.
+4. The production-only behaviour of `createApp` is proven by requests against a
+   real production-mode app, and the three source-text assertions are deleted.
+5. The lint rule blocks every import that resolves to `backend/src/index.ts`, and
+   nothing else.
+6. Every frontend read listed in the issue goes through the shared `apiClient`.
+
+## Non-goals
+
+- Moving the admin reads into `features/admin/*Api.ts` modules. Many admin views
+  already import `apiClient` directly (for example `AuditLogView.vue` and
+  `CreditsView.vue`), so an inline swap follows an existing pattern. Moving them is
+  a refactor this issue does not need.
+- Lint enforcement of the wider documented import direction (features and services
+  never import `app.ts` or `runtime/`). See open question 3.
+- The native `fetch` callers (`accountExport`, `privacy`, `useTerminal`,
+  `usePlayMap`, `SurfaceMapView`, `useTriggers`, `HelpModal`,
+  `SiteAvailabilityNotice`). They are deliberate and handle their own failures.
+- Races inside individual services, for example `stopPlayerEventSubscriber`
+  running while `startPlayerEventSubscriber` is still in flight. Item (a) only
+  ensures that startup does not *begin* anything after shutdown.
+- Re-notifying on unpublish then republish. This plan keeps today's behaviour. See
+  open question 1.
+
+## Order and PR shape
+
+One branch with one commit per item, in the order **b → c → a → f → e → d**: the
+user-visible bug first, then the deletion that shrinks later diffs, then the
+rest, with the largest item (d) last. If the owner wants (b) released before the
+rest, it can be cherry-picked to its own PR without changes.
+
+Probable textual conflicts with sibling branches, which have no commits yet:
+
+- **#176** (raw `error.message` in 500 responses) touches the same changelog PUT
+  `catch` block as (b).
+- **#180** (WebSocket principal re-check) likely touches
+  `realtime/subscriptionHandlers.ts`, where (c) deletes code.
+- Every sibling branch that also writes `docs/ongoing-projects/plan.md` will conflict
+  on this file.
+
+---
+
+## (b) Duplicate changelog notifications
+
+**Verified.** `backend/src/features/changelog/routes.ts:168-194` reads
+`existingEntry`, computes `wasUnpublished`, and then runs an unconditional update
+through `service.ts:233-274` (`... WHERE id = ?`). Two concurrent publishing PUTs can
+both read `is_published = 0`, and both then call `notifyChangelogPublished`
+(`service.ts:338-368`). That inserts one notification per distinct account in
+`account_login_history` and pushes each one over the WebSocket. Admin-category
+entries are already skipped (`:346`), so only public entries are affected.
+
+**Design.** Let the database pick the request that does the publishing:
+
+1. In `updateChangelogEntry`, when `data.isPublished === true`, leave
+   `is_published` out of the general `SET` list. Instead run
+   `UPDATE website_changelog SET is_published = TRUE, updated_at = NOW() WHERE id = ? AND is_published = FALSE`.
+   Return `{ found: boolean; published: boolean }` rather than a bare boolean, where
+   `published` means that this call made the change (`affectedRows === 1`).
+   - MariaDB/InnoDB evaluates an `UPDATE`'s `WHERE` against the latest committed
+     row. The second of two racing statements waits for the first one's row lock,
+     then matches nothing.
+   - The general field update still runs, so `found` stays correct for a PUT that
+     only republishes.
+   - An `isPublished === false` request keeps the plain `SET is_published = ?` path.
+2. In the route, delete the pre-read and `wasUnpublished`. When `published` is true,
+   re-read the entry (`getChangelogEntry(id, undefined, true)`) and notify with its
+   saved `version`, `title` and `category`. This also stops the message from using a
+   value read before the update ran.
+3. Keep the 404 when `found` is false. Keep the fire-and-forget `.catch`.
+
+The two statements are not in one transaction. That is acceptable: each one is
+idempotent, and the only state they share is the publish flag, which the
+conditional statement owns.
+
+**Proof.**
+
+- Extend `changelogRouteValidation.test.ts`, which already mocks the service:
+  - `published: false` → no notification;
+  - `published: true` → exactly one notification, using the re-read fields;
+  - `found: false` → 404.
+- In the service visibility and content suite style, mock `db.query` to assert that
+  the conditional SQL is sent and that `affectedRows` 1 and 0 map to `published`
+  true and false.
+- Optional manual check against the docker test database (`durisweb-test-db`): two
+  concurrent publishing calls give exactly one `published: true`.
+
+## (c) Remove the dead WHO-list push
+
+**Verified, with the comment's correction.** The producer exists but is not
+connected:
+
+- `mudAuctionClient.ts:558-563` calls `wholistBroadcaster`, but
+  `setWholistBroadcaster` (`:763`) has no caller, so the broadcaster is always null.
+- `broadcastWholist` (`realtime/broadcasts.ts:194-208`) is called only from
+  `broadcasts.test.ts:120`.
+- On the frontend, `subscribeWholist` (`useWebSocket.ts:598`) has no caller.
+  `AdminDashboardOverview.vue` registers `onWholist(handleWholist)`, which never
+  fires.
+
+The dashboard already refreshes from REST plus Redis player events. Removal is
+safe for stale browser tabs: unknown socket message types are ignored
+(`applicationSocket.ts:54-58`).
+
+**Remove:**
+
+- `broadcastWholist`;
+- the `SUBSCRIBE_WHOLIST` and `UNSUBSCRIBE_WHOLIST` handlers;
+- `wholistSubscribed` in `clientState.ts` and its reset in `applicationSocket.ts:72`;
+- `wholistBroadcaster`, `setWholistBroadcaster` and the broadcast branch in
+  `handleWhoList`;
+- `wholistCallbacks`, `onWholist`, `offWholist`, `subscribeWholist`,
+  `unsubscribeWholist` and the `WHOLIST` dispatch in `useWebSocket.ts`;
+- `handleWholist` and its on/off registration in `AdminDashboardOverview.vue`, plus
+  the spec mocks.
+
+**Keep:**
+
+- `handleWhoList` (it maintains the in-memory online list);
+- `requestWhoList`;
+- the `wholist` hook in `hooks/registry.ts` (the MUD → backend frame);
+- `wholist_snapshot` on incidents.
+
+**Tests:**
+
+- Trim the WHO-list half of `broadcasts.test.ts:112-124`, but keep the
+  player-events gate assertions.
+- Delete the "subscribes to the WHO list only at level 57" case in
+  `applicationSocket.test.ts:131-141`. Its access gate is still covered by
+  `SUBSCRIBE_PLAYER_EVENTS`.
+
+The historical mention in `docs/ongoing-projects/2026-11-10-backend-api-structure-plan.md`
+stays as it is, because it is a record of that work.
+
+**Proof:** `rg -i "wholist(Subscribed|Broadcaster|Callbacks)|SUBSCRIBE_WHOLIST|broadcastWholist|onWholist|subscribeWholist" backend/src frontend/src`
+returns nothing. Both packages pass lint, type-check and the affected suites.
+
+## (a) A signal during startup aborts startup
+
+**Verified, with corrections.**
+
+- `startServer.ts` and `backgroundJobs.ts` never check whether shutdown has begun.
+- A signal before `register` runs leaves `resources.jobs` unset, so shutdown skips
+  `stopProducers`, and every job then starts.
+- A signal before `listenOn` lets the port bind after `closeWebServer` has run.
+- One more case, not in the issue: if the signal lands during
+  `await startEventLoopWatchdog()`, the watchdog that is returned is never stopped.
+- Not a problem: `initializeFlatfileHealth` records the monitor *before* it awaits,
+  so shutdown releases it.
+
+**Design:**
+
+1. `RuntimeResources.aborted?: boolean`. In the function returned by
+   `createShutdown`, set `resources.aborted = true` as its first statement, before
+   the `??=`.
+2. In `startServer.ts`, export `class StartupAbortedError extends Error` and add a
+   local `checkAborted()` that throws it. Call `checkAborted()` immediately before
+   each acquisition that follows an await:
+   - before `startPoolSessionInvariantSampling`;
+   - before `http.createServer`;
+   - before `startBackgroundJobs`;
+   - before `listenOn`.
+
+   For the watchdog, whose handle only exists after its await: if aborted, call the
+   stop function it returned, then throw.
+
+   This places checks before acquisitions rather than after every await. The rule
+   is the same, with fewer call sites.
+3. `startBackgroundJobs(wss, register, isAborted)` throws `StartupAbortedError`
+   right after each await and before the next start:
+   - after `getLatestReleasedEvent` (`:114`);
+   - after the `serverHealthService` import (`:178`);
+   - after the `geoip` import and `initializeGeoIP` (`:187-188`);
+   - after the `backupService` import (`:191`);
+   - after the `mudControlService` import (`:200`);
+   - after `startPlayerEventSubscriber` (`:217`).
+
+   Anything started before the throw was already flagged, so the `stopProducers`
+   that ran (or runs) releases it.
+4. In the `index.ts` catch, when the error is a `StartupAbortedError`, log
+   "startup stopped by shutdown" at info level and return. Every other error keeps
+   today's path.
+
+**Proof.** Extend `runtimeLifecycle.test.ts`:
+
+- Make `startEventLoopWatchdog` deferred. Call `startServer`, run
+  `createShutdown(resources)()`, then resolve the deferred.
+- Assert:
+  - the watchdog stop ran;
+  - `startServer` rejects with `StartupAbortedError`;
+  - `resources.server` and `resources.jobs` are unset;
+  - nothing listens.
+
+Extend `backgroundJobs.test.ts`:
+
+- Defer `initializeGeoIP` and set `isAborted` while it is pending.
+- Assert that `startHourlyBackupScheduler`, `startMudAuctionClient` and the workers
+  are never called, and that the earlier intervals are cleared by `stopProducers`.
+
+## (f) Route the bare `axios` reads through `apiClient`
+
+**Verified. The list is complete.**
+
+| File | Bare reads |
+|------|------------|
+| `ConnectionLogsView.vue` | 4 × `axios.get` (`:496-547`) |
+| `PermissionsManagementView.vue` | 4 × `axios.get` (`:571-952`) |
+| `WebAnalyticsView.vue` | 8 × `axios.get` (`:70-164`) |
+| `usePublicStatus.ts` | private `axios.create`, no interceptors |
+| `useServerHealth.ts` | private `axios.create`, no interceptors |
+
+- None of the 16 view reads has a timeout.
+- `WikiMapView.vue`, `NewsAdminView.vue` and `MudBackupView.vue` only use the
+  `isAxiosError` and `isCancel` helpers. That is fine, and they are left alone.
+- `SiteAvailabilityNotice.vue` polls with `fetch('/api/site-availability')`, so
+  routing `usePublicStatus` through `apiClient` cannot create a feedback loop with
+  the banner.
+
+**Change:**
+
+- In the three views, replace
+  `axios.get(\`${API_URL}/api/...\`, { withCredentials: true, ... })` with
+  `apiClient.get('/api/...', { ... })`, and delete the now-unused `API_URL`,
+  `frontendConfiguration` and `axios` imports.
+- Pass query strings through `params` where a view currently builds them by hand,
+  but only if the encoding is unchanged; otherwise keep the existing string.
+- In both composables, import `apiClient` instead of creating a private instance.
+- Update the sentence in `docs/ARCHITECTURE.md:62-65` that lists these files as
+  exceptions.
+
+**Behaviour changes to accept knowingly.** These reads gain a 10 s timeout and the
+availability banner. For example, a public status page that cannot reach the API
+will now raise the banner, which is correct for a down site. If any web-analytics
+query takes longer than 10 s on production data, that view will start failing
+instead of spinning. See open question 2.
+
+**Proof:**
+
+- `rg "axios\.(get|post|put|patch|delete|create)\(" frontend/src -g '!**/__tests__/**'`
+  matches only `services/httpClient.ts`.
+- Specs: there are none today for these five files. Add one spec for
+  `useServerHealth` asserting that it uses `apiClient` (mock `@/services/httpClient`
+  and assert the GET path), because that is the observable contract that changed.
+  The views get no new specs. The type-check, lint and the grep cover the swap.
+
+## (e) Entry-point import rule
+
+**Verified by probing ESLint on stdin.** Two results the issue does not describe
+correctly:
+
+- `src/features/admin/__tests__/x.ts → ../../../index.js` is **missed**.
+- The claimed false positives are real but latent. Neither `src/features/index.ts`
+  nor `src/routes/index.ts` exists today.
+
+**Missed, though each resolves to `src/index.ts`:**
+
+- deeper paths;
+- anything under `src/hooks/**`;
+- dynamic `import()`;
+- extensionless specifiers;
+- `./../index.js`;
+- files directly under `src/`.
+
+No file imports `src/index.ts` today. The only other `index.ts` files are
+`src/hooks/index.ts` (imported by its own test) and `src/types/index.ts`. Note that
+`src/scripts/` exists, and so does `backend/scripts/`.
+
+**Design (no new dependency):**
+
+- Replace the block at `backend/eslint.config.js:52-70` with a small local rule
+  defined inline in that file: `local/no-entry-import`, about 25 lines.
+- On `ImportDeclaration`, `ExportNamedDeclaration`, `ExportAllDeclaration` and
+  `ImportExpression` with a string-literal source starting with `.`, it computes
+  `path.resolve(dirname(context.filename), spec)`, strips a `.js`/`.ts` extension,
+  and reports when the result equals `<backend>/src/index` or
+  `<backend>/src/index/index`.
+- Apply it to `src/**/*.ts` and `scripts/**/*.ts`, excluding only `src/index.ts`
+  itself. Drop the glob list and the hooks/types ignores, since the resolved
+  comparison no longer needs them.
+
+`import-x/no-restricted-paths` was rejected because it adds a dependency
+(`docs/CONVENTIONS.md`: "justify additions"), and a 25-line resolver covers the need.
+`import/no-cycle` was rejected because it is slow on this tree and reports
+indirectly.
+
+**Proof:**
+
+- Re-run the stdin probe table: every resolving case is flagged, and
+  `src/features/admin/x.ts → ../index.js` and `src/hooks/__tests__/registry.test.ts`
+  are not.
+- `pnpm --dir backend lint` passes on the real tree.
+- Record the probe commands in the PR, not as a test file.
+- Update the `docs/ARCHITECTURE.md:59-61` parenthesis to describe the resolved rule.
+
+## (d) Prove the production half of `createApp` by behaviour
+
+**Verified, with the comment's error corrected.** OG tags are served for
+`/pvp/:id`, not `/battle/:id` (`app.ts:266`). The production-only branches are:
+
+- `canonicalHost` (`:67-69`);
+- the early `/assets` mount before CSRF (`:100-102`);
+- `express.static(frontendDistPath)` plus the OG/SPA fallback (`:189-303`);
+- `notFoundHandler` being omitted (`:306-308`).
+
+`createApp.test.ts` builds the real composition, but only in `test` mode. The three
+source-text assertions are:
+
+- `apiNotFound.test.ts:74-79`;
+- `frontendAssets.test.ts:127-139`;
+- `productionReviewRegression.test.ts:86-98`.
+
+**Design:**
+
+1. `createApp({ environment = getBackendConfiguration(), frontendDistPath = defaultFrontendDistPath } = {})`.
+   `index.ts` and existing tests are unchanged. Only these two values are
+   injectable, because they are the only ones `createApp` reads itself. The other
+   58 modules keep reading the cached configuration, so the production test checks
+   *composition*, which is the claim the deleted assertions made.
+2. Add `src/__tests__/createApp.production.test.ts`:
+   - Reuse the module stubs from `createApp.test.ts`, and stub `getPvPEventDetail`
+     and `getWebSettings`.
+   - Write a temporary dist folder (`index.html` with a `<title>`, and
+     `assets/app-abc123.js`).
+   - Build the app with
+     `{ ...getBackendConfiguration(), environment: 'production', siteUrl: 'https://duris.example' }`.
+3. Assert with supertest:
+   - **Canonical host:** a `www.` Host is redirected to the canonical host.
+   - **Assets before CSRF:** `/assets/app-abc123.js` returns the file, has
+     immutable caching, and sets no `csrf_token` cookie, while an SPA route does
+     set one.
+   - **API boundary:** `/api/nope` returns a JSON 404 `{ error: 'API route not found' }`.
+   - **SPA fallback:** `/some/route` returns the `index.html` body. No JSON
+     `notFoundHandler` body is served for a non-API path.
+   - **OG escaping:** `/pvp/7` with a `Discordbot` user agent and a fixture whose
+     room name and player description contain `"<>&` returns encoded
+     `og:title`, `og:description` and `og:url`, and no raw `<script`.
+4. Delete the three source-text assertions. The ordering they asserted is now
+   proven by the responses above.
+
+**Proof:** the new suite passes. It fails when each production branch is
+temporarily disabled. This is checked once by hand during implementation and not
+committed.
+
+---
+
+## Verification (all items)
+
+```bash
+pnpm --dir backend install --frozen-lockfile    # the worktree has no node_modules
+pnpm --dir frontend install --frozen-lockfile
+pnpm --dir backend test --runInBand
+pnpm --dir backend format:check
+pnpm --dir backend lint
+pnpm --dir backend type-check
+pnpm --dir backend build
+pnpm --dir frontend test:unit --run
+pnpm --dir frontend format:check
+pnpm --dir frontend lint
+pnpm --dir frontend type-check
+pnpm --dir frontend build
+```
+
+`verify:mud-writes` is not required: no MUD-owned write changes. (b) changes
+`website_changelog`, which is website-owned. Run it anyway if the allowlist guard
+keys off file paths that change.
+
+## Release notes
+
+Only (b) is reader-visible, and only when it would have happened, so a changelog
+entry is probably not warranted. Decide at release time with the `news-update`
+skill, and record the decision either way.
+
+## Ablation record
+
+- **Dropped:**
+  - moving the admin reads into feature API modules (no requirement depends on it);
+  - an ESLint ban on default `axios` imports (not asked for; the grep proves the
+    outcome; see open question 3);
+  - a new import lint plugin (an inline resolver meets the need with no
+    dependency);
+  - a transaction with `SELECT … FOR UPDATE` for (b) (the conditional `UPDATE`
+    alone is atomic);
+  - per-await abort checks (checks before each acquisition cover the same windows);
+  - injecting the whole configuration into every module for (d).
+- **Simplified:** the comment's (a) helper plus sentinel became one local check
+  function and one exported error class. The `index.ts` change is a single branch.
+- **Kept, though not in the issue:** the watchdog release in (a), and the
+  extensionless, `./../`, `src/*.ts` and `scripts/**` cases in (e). Each one leaves
+  the stated outcome unmet if omitted.
+
+## Open questions
+
+1. **(b) Republish:** should unpublish → republish notify everyone again? The plan
+   keeps today's behaviour (yes). Notifying only on the *first* publish would need a
+   `first_published_at` column, which means a migration.
+2. **(f) Timeout:** are the production web-analytics queries reliably under 10 s?
+   If not, give that view a per-request `timeout` rather than leaving it unbounded.
+3. **Guards:** should regressions be guarded beyond this fix? The two candidates are
+   a frontend lint rule against default `axios` imports outside `httpClient.ts`, and
+   extending (e) to `app.ts` and `runtime/` as `docs/ARCHITECTURE.md` describes.
+   Both are excluded unless requested.
+4. **(c) Removal vs. re-wiring:** removal is planned, as the earlier comment
+   recommends. Re-wiring would push the full player list on every MUD `wholist`
+   frame.
+
+## Estimate
+
+About **4–6 hours of Claude session time**, including dependency installs and full
+two-package verification:
+
+| Item | Time |
+|------|------|
+| b | ~40 min |
+| c | ~40 min |
+| a | ~1 h |
+| f | ~45 min |
+| e | ~45 min |
+| d | ~1.5–2 h |
+
+A human reviewer should budget about 1–2 hours for the PR.
+
+---
+
+<!-- Content below predates issue #183 and is preserved unchanged. -->
+
 # Issue #182: scope builder proc requests and comments to their zone
 
 Issue: [DurisWeb #182](https://github.com/LuminariMUD/DurisWeb/issues/182)
