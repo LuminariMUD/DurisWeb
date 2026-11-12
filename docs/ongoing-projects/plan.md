@@ -1,3 +1,271 @@
+# Issue #180: revalidate application WebSocket principals after subscribe
+
+Issue: [DurisWeb #180](https://github.com/LuminariMUD/DurisWeb/issues/180)
+
+Branch: `branch/issue-180-socket-principal-revalidation` (linked to the issue)
+
+Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d5573c156`.
+
+**Status: plan only. No source changes yet.**
+
+The plan was built from the current code, not from the issue text. Section 2 records
+each claim and what the code actually shows. Section 4 is the ablation review: what
+was kept, simplified or dropped, and why. The previous contents of this file (the
+issue #136 plan and the website security plan) are preserved unchanged below the
+closing line of this section.
+
+## 1. Outcome, non-goals, files and proof
+
+**Outcome.** An application WebSocket stops receiving privileged pushes, and a
+terminal stops working, soon after the principal behind it loses the right to them:
+
+- **at once** on logout (that session only), own password change, god password
+  reset, and any role or permission change made on the website;
+- **within one revalidation interval (60 s)** for changes the website is never told
+  about: session expiry, a MUD-side level change (since #96), a removed account, or a
+  direct database edit.
+
+A late cookie hydration can no longer overwrite a principal that a token-authenticated
+subscribe has already set.
+
+**Non-goals** (each is separate work; see section 7):
+
+- Removing `ip` from `CONNECTION_EVENT`, or the broadcast itself.
+- The frontend's broken live log tail (it sends `SUBSCRIBE_LOG` without a token).
+- Re-checking `terminal_access` on every keystroke.
+- Any new frontend message type or close-code handling.
+- Changes to zone streams or deployment. Both authorize every request, and each run
+  is finite. A closed socket already stops them.
+
+**Files** (all in `backend/`, plus one doc):
+
+| File | Change |
+|---|---|
+| `src/realtime/socketAuth.ts` | Split `verifyWebSocketAuth` into token decoding and `resolvePrincipal(accountName, sessionId, minLevel)`. Fix hydration so it only fills an empty principal on an open socket. Add `revokeSocketSessions` and `revalidateSockets`. |
+| `src/realtime/broadcasts.ts` | Export a read-only `applicationClients()` iterator over the bound `wss` (empty when detached). |
+| `src/realtime/logStreamHandlers.ts` | The `LOG_UPDATE` callback also checks `view_server_logs` on the current principal. |
+| `src/services/sessionService.ts` | Add `getActiveWebSessionIds(pairs)`: one batched query, the same predicates as `hasSession`. |
+| `src/routes/auth.ts` | Logout and password change call `revokeSocketSessions`. |
+| `src/features/admin/godRoutes.ts` | God reset calls `revokeSocketSessions`. |
+| `src/features/admin/accessRoutes.ts` | The six role/permission mutations call `revalidateSockets()`. |
+| `src/runtime/backgroundJobs.ts` | Push one 60 s interval that runs `revalidateSockets()`. The existing `stopProducers` clears it. |
+| `src/realtime/__tests__/applicationSocket.test.ts` and the existing route tests | Regression tests (section 6). |
+| `docs/api/README_api.md` | Replace the "Every operation retains its session, level, and permission checks" overclaim with the actual guarantee. |
+
+**Proof.** The section 6 tests, plus:
+
+```bash
+pnpm --dir backend test --runInBand -- realtime
+pnpm --dir backend test --runInBand -- passwordChangeSessionTeardown godPasswordReset authCredentials accessRoutes
+pnpm --dir backend format:check
+pnpm --dir backend lint
+pnpm --dir backend type-check
+pnpm --dir backend build
+```
+
+No frontend file changes, so no frontend checks are needed. `verify:mud-writes` does not
+apply: the change adds one read-only query and no MUD writes.
+
+## 2. Issue claims checked against the code
+
+| Claim (issue or investigation comment) | What the code shows at `3734492` | Verdict |
+|---|---|---|
+| `verifyWebSocketAuth` checks the session and permissions once | `socketAuth.ts:12-46` returns a `{accountName, sessionId, permissions}` snapshot, stored in `clientState(ws).wsPrincipal` (`clientState.ts:6`). Nothing refreshes it. | Correct |
+| The principal is set at subscribe time | It is also set **on connect**: `applicationSocket.ts:73` hydrates from the `access_token` cookie at level 0. Every logged-in browser has a principal without subscribing. `SUBSCRIBE_LOG`, `SUBSCRIBE_PLAYER_EVENTS`/`WHOLIST` and `authorizeZoneStream` each replace it. | Incomplete in the issue; the comment is right |
+| The listed deliveries read only the cached principal | `broadcasts.ts`: `broadcastToPermission` (47), `CRASH_ALERT` (115), `BACKUP_PROGRESS` (133), `MUD_CONTROL_OUTPUT` (224), `CONNECTION_EVENT` (280), player events (185) and the WHO list (204). | Correct |
+| Missed paths | `MUD_STATE_CHANGE` (153), `NEW_FORUM_POST` (category access from the cached permissions, 249-252), `NEW_NOTIFICATION` (account match, 296). | Correct; add these to the scope |
+| The `LOG_UPDATE` callback is gated by the principal | It is not. The callback (`logStreamHandlers.ts:45-58`) checks only that the subscription exists and the socket is open. Permission is checked once, in `SUBSCRIBE_LOG`. | The comment is right; this needs its own fix |
+| `CONNECTION_EVENT` carries an IP address | `broadcasts.ts:275` sends `ip: event.ipAddress`. No file in `frontend/src` handles `CONNECTION_EVENT`. | Correct. Hardening is out of scope (section 7) |
+| Nothing re-checks on logout, revocation or permission change | Logout (`routes/auth.ts:164-181`) deletes one `web_sessions` row only. Password change (`:374-375`) and god reset (`godRoutes.ts:113-114`) call `revokeAllWebSessions` and `cleanupAccountSessions`, which end terminals but not application sockets. The six `adminPermissionService` mutations only call `invalidatePermissionCache`. | Correct |
+| The terminal re-checks access | `isTerminalOperationAuthorized` (`terminalService.ts:404-416`) checks socket ownership and the web session only, not `terminal_access`. It runs only on client input, resize or disconnect. | Narrower than the issue says: losing `terminal_access` leaves a working shell |
+| `void hydrateWebSocketPrincipal(...)` can overwrite a token principal | It can. Hydration assigns at `socketAuth.ts:61` without checking whether a principal is already set. In practice the cookie and the token come from one browser session, so the harm is near zero. | Real; fix as stated |
+| The heartbeat could carry revalidation | `utils/applicationWebSocket.ts:63-77` is a transport liveness check with its own tests and no principal knowledge. | Do not reuse it (section 4) |
+| `docs/api/README_api.md` overclaims | Lines 501-503: "Every operation retains its session, level, and permission checks." That does not hold for push deliveries. | Correct |
+
+**Found during this review, not in the issue or the comments:**
+
+- **The frontend log tail cannot subscribe.** `frontend/src/composables/useLogWebSocket.ts:32-36`
+  sends `SUBSCRIBE_LOG` with no `token`, so the backend always answers "Server log
+  permission required". The shipped UI therefore never opens the `LOG_UPDATE` path.
+  A hand-built client with a websocket token can, so the backend fix still matters.
+  The broken UI is a separate defect (section 7).
+- **The terminal uses its own socket.** `useTerminal.ts:149` opens a separate
+  connection and does not reconnect on close (`:200-203`). Closing that socket from
+  the server ends the terminal cleanly, with no frontend change.
+- **Pages recover after a reconnect.** `useWebSocket.ts:304-312` reconnects with
+  jittered backoff (2.5 s to 30 s). `AdminDashboardOverview.vue:107-116` resubscribes
+  whenever `isConnected` turns true. A server-initiated close is therefore safe for
+  legitimate users: their tab reconnects, rehydrates from the cookie, and the
+  dashboard resubscribes.
+- **Routes already import `realtime/`.** `routes/auction.ts`, `features/forum/contentRoutes.ts`
+  and two services import `realtime/broadcasts.ts`. Calling the realtime hooks from
+  routes follows existing practice.
+
+## 3. Design
+
+### 3.1 Two responses, chosen by what failed
+
+| Condition found for a socket | Action | Reason |
+|---|---|---|
+| Session gone or expired, account unreadable, or the lookup failed | `ws.close(4401, 'Session ended')` | The existing close listener (`applicationSocket.ts:78-93`) already clears zone streams, log watchers and the terminal, so no second teardown path is needed. The client reconnects and rehydrates: anonymous after logout, nothing after revocation. A lookup failure closes, which keeps the check fail-closed. A legitimate user recovers automatically on reconnect. |
+| Session valid, permissions recomputed | Replace `wsPrincipal` with the fresh snapshot. If the socket owns a terminal and the owner no longer has `terminal_access` or overlord, call `closeTerminal(ws)`. | Every broadcast already reads the principal at delivery time, so the new snapshot is enough for all of them. `LOG_UPDATE` gets a one-line delivery check (3.4). Only the terminal holds a capability outside the principal. |
+
+The check covers sockets with a principal (`wsPrincipal`) and terminal owners
+(`terminalAuth`), keyed by `(accountName, sessionId)`. Anonymous sockets are skipped.
+
+### 3.2 `socketAuth.ts`
+
+- `resolvePrincipal(accountName, sessionId, minLevel)`: the body of `verifyWebSocketAuth`
+  after token decoding (the session check, `parseAccountFile`, `getUserPermissions`,
+  the level check). `verifyWebSocketAuth` decodes the token and calls it, so its
+  behavior is unchanged. The dead `if (!accountData)` disappears with the move, because
+  `parseAccountFile` throws instead of returning a falsy value.
+- `hydrateWebSocketPrincipal`: assign only if `ws.readyState === OPEN` and
+  `wsPrincipal === undefined` at resolution. This fixes the race. A principal-epoch
+  counter is not needed (section 4).
+- `revokeSocketSessions({ accountName, sessionId? })`: close every application socket
+  whose `wsPrincipal` or `terminalAuth` matches. The account match is case-insensitive,
+  as in `revokeAllWebSessions`. With `sessionId`, only that session's sockets close.
+  The function is synchronous and needs no database work: the caller has just deleted
+  the rows.
+- `revalidateSockets()`: one pass over `applicationClients()`.
+  1. Collect the distinct `(accountName, sessionId)` pairs from `wsPrincipal` and `terminalAuth`.
+  2. Call `getActiveWebSessionIds` once.
+  3. For each distinct account with a live session, run `parseAccountFile` and
+     `getUserPermissions` once.
+  4. Apply section 3.1 per socket.
+
+  Passes are single-flight: a call made during a pass waits for it and then runs one
+  more pass, so a permission change is never checked against stale data. The function
+  never throws; errors are logged without account names or addresses, and the affected
+  sockets close.
+
+### 3.3 `sessionService.getActiveWebSessionIds(pairs)`
+
+`SELECT id FROM web_sessions WHERE (id, account_name) IN ((?, ?), ...) AND refresh_token_digest IS NOT NULL AND expires_at_epoch > UNIX_TIMESTAMP()`
+
+These are the same predicates and collation as `hasSession`, so a session that HTTP
+accepts is also accepted here. An empty input returns at once with no query. Errors
+are rethrown as the generic `Web session lookup failed`, as `hasSession` does, so SQL
+and bindings never leak.
+
+### 3.4 `LOG_UPDATE`
+
+In the callback, add `hasWebSocketPermission(clientState(ws).wsPrincipal, 'view_server_logs')`
+to the existing conditions. The callback then follows the current principal like every
+other delivery path. The watcher itself stays registered until unsubscribe or close,
+which is bounded per socket.
+
+### 3.5 Call sites
+
+| Event | Call |
+|---|---|
+| `POST /api/auth/logout`, after the `DELETE` | `revokeSocketSessions({ accountName, sessionId })`. This also closes that session's terminal socket, which fixes the logout terminal gap without a new per-session terminal API. |
+| Password change, after `cleanupAccountSessions` | `revokeSocketSessions({ accountName })` |
+| God reset, after `cleanupAccountSessions` | `revokeSocketSessions({ accountName: canonicalName })` |
+| `accessRoutes.ts`: `updateRole`, `deleteRole`, `assignRole`, `revokeRole`, `grantPermission`, `revokePermission` | `await revalidateSockets()` after the service call. The service has already invalidated the Redis permission cache. |
+| `backgroundJobs.ts` | `intervals.push(setInterval(() => void revalidateSockets(), 60_000))` |
+
+## 4. Ablation review
+
+| Item | Decision | Reason |
+|---|---|---|
+| Event hooks for logout, password change and god reset | **Keep** | Logout must cut off its own tab at once; the issue's regression test requires this. Each hook is a single synchronous call. |
+| Periodic revalidation | **Keep** | MUD-side demotion (#96), session expiry and direct DB edits have no website event. Nothing else can catch them. |
+| Per-account revalidation API for permission changes | **Simplify** to a full `revalidateSockets()` pass | `updateRole` and `deleteRole` affect many accounts. One entry point with no account plumbing costs one batched query plus one permission lookup per connected account, and admin changes are rare. |
+| A demote-in-place step plus an `AUTH_REVOKED` message | **Drop** | No frontend consumer exists. Closing reuses the tested close cleanup and the client's existing reconnect. |
+| Close code 4401 handling in the frontend | **Drop** | The client already treats every close the same way: reconnect with backoff. A rehydrated socket after logout is anonymous and is never closed again, so there is no loop. |
+| A separate socket index (`Map` by `sessionId`) | **Drop** | `wss.clients` holds at most 256 sockets. A scan is trivial and keeps no second state to leak. |
+| A `principalEpoch` counter against late subscribe or hydration | **Drop** | Revoked sockets are closed, and handlers already check `readyState` or write to a closed socket harmlessly. Hydration only fills an empty principal. A subscribe that read permissions just before an admin change can leave a stale snapshot for at most one interval, and the coalesced pass after the change makes even that narrow. No requirement needs the counter. |
+| Reusing the transport heartbeat in `utils/applicationWebSocket.ts` | **Drop** | It is deliberately principal-agnostic and tested that way. One interval in the existing `backgroundJobs` lifecycle needs no new start or stop wiring. |
+| Re-checking `terminal_access` on each terminal operation | **Drop** | It would add two MUD DB queries per keystroke. Hooks and the 60 s pass bound the window. |
+| A batched session query instead of `hasActiveWebSession` per session | **Keep** | Every logged-in browser has a cookie principal, so up to 256 sessions per tick. The repository requires care with production load. |
+| Clearing `logSubscriptions` on permission loss | **Simplify** to a delivery-time check | One condition covers every path that changes the principal, including races. |
+| Dropping `CONNECTION_EVENT.ip`; fixing the frontend log-tail token | **Separate change** | These are real defects, but not this issue's requirement (section 7). |
+| Removing the dead `if (!accountData)` | **Keep, at no extra cost** | It disappears naturally when `resolvePrincipal` is extracted. |
+
+## 5. Implementation order
+
+1. `sessionService.getActiveWebSessionIds` and its unit test (an empty input makes no query; the predicates match `hasSession`).
+2. `broadcasts.applicationClients()`.
+3. `socketAuth.ts`: `resolvePrincipal`, the hydration guard, `revokeSocketSessions`, `revalidateSockets`.
+4. The `LOG_UPDATE` delivery check.
+5. Call sites in `auth.ts`, `godRoutes.ts` and `accessRoutes.ts`, and the interval in `backgroundJobs.ts`.
+6. Tests (section 6), then the `README_api.md` wording.
+7. Run the verification gates from section 1.
+8. Changelog, at release through `$news-update`. This is a staff-only security fix with no reader-visible change for players. Either publish a short "staff live views now end on logout or permission loss" note, or record why no entry is needed.
+
+## 6. Tests
+
+All tests extend existing files and stubs. No new test infrastructure is needed.
+
+`realtime/__tests__/applicationSocket.test.ts` (make the `hasActiveWebSession` and
+`getActiveWebSessionIds` stubs mutable; register sockets through `attachBroadcastServer({ clients })`):
+
+1. **Issue regression.** Subscribe a `view_server_logs` socket with `SUBSCRIBE_LOG`,
+   then call `revokeSocketSessions({ accountName: 'Fixture', sessionId: 'sid' })`. The
+   socket is closed with 4401. After the close, `unwatchLog` has been called, the
+   captured `watchLog` callback sends nothing, and `broadcastCrashAlert` and
+   `broadcastConnectionEvent` do not reach it.
+2. **Permission loss through `revalidateSockets()`.** Revoke `view_connection_logs`:
+   no `CONNECTION_EVENT`, and the socket stays open. Revoke `view_server_logs`: the
+   `LOG_UPDATE` callback sends nothing. Lower the level from 57 to 50: no player events
+   or WHO list. Remove forum access: no restricted `NEW_FORUM_POST`.
+3. **Expiry and fail-closed.** Mark the session inactive: the socket closes. Make the
+   lookup throw: the socket closes.
+4. **Logout scope.** Two sockets on the same account with different `sid`s: revoking
+   one leaves the other open. An account-wide revoke closes both, and the account
+   match ignores case.
+5. **Terminal.** Remove `terminal_access` and revalidate: `destroySession` runs. A
+   session revoke closes the terminal socket.
+6. **Hydration race.** Connect with a `cookie` header; the current helper passes
+   `{ headers: {} }`, so hydration is untested today. Hold the hydration's session
+   lookup until a token `SUBSCRIBE_LOG` completes, then release it: the token principal
+   is kept. A hydration that resolves after the socket closed assigns nothing.
+7. **Cost.** N sockets on one account cause one session query and one permission
+   computation per pass. Concurrent `revalidateSockets()` calls are coalesced.
+8. **Unchanged behavior.** Anonymous sockets are never touched, and public broadcasts
+   still reach them.
+
+Route tests: extend `passwordChangeSessionTeardown.test.ts` and `godPasswordReset.test.ts`
+so they assert `revokeSocketSessions` is called with the account. Add a logout case
+asserting `{ accountName, sessionId }` (in `authCredentials.test.ts`, or beside the
+password-change test, whichever already mounts the auth router). Add one
+`accessRoutes` case asserting `revalidateSockets` runs after a permission revoke.
+
+## 7. Separate follow-ups (not part of #180)
+
+- **`CONNECTION_EVENT` sends raw IPs that no UI uses.** Drop the `ip` field, or the
+  broadcast. This is a one-line privacy hardening with no consumer to update.
+- **The frontend live log tail never subscribes.** `useLogWebSocket.ts` must fetch
+  `/api/auth/websocket-token` and send it with `SUBSCRIBE_LOG`, as `subscribePlayerEvents`
+  does. Once it works, it should also resubscribe on reconnect, as the dashboard does.
+  Otherwise a server-initiated close leaves the log view silent.
+
+## 8. Estimate and open questions
+
+**Estimate for this agent to implement:** about **2.5 to 3.5 hours** of working time.
+About 1 hour for the code, 1 to 1.5 hours for the tests (most of it in the socket test
+harness), and about 45 minutes for the gates, docs, review and PR. The change is
+backend-only, at roughly 150 to 200 lines of source and 250 to 350 lines of tests.
+
+**Open questions:**
+
+1. **Fail-closed on a lookup error.** If the database fails during a pass, every
+   checked socket closes. Clients reconnect within about 2.5 to 30 s, and the dashboard
+   resubscribes. During a database outage, staff live views would cycle. The
+   alternative is to keep the current principals and retry next tick. That is
+   fail-open, against `CLAUDE.md`. The plan assumes fail-closed.
+2. **60 s interval.** This sets the worst-case exposure for MUD-side demotion and
+   session expiry, at a cost of one session query and about two queries per connected
+   account per minute. Is 60 s acceptable, or should it be shorter or longer?
+3. **Follow-ups in section 7.** Should they be filed as new issues, or folded into this
+   branch as separate commits? The plan treats them as separate.
+4. **Release note.** Should a Website Changelog entry be published for this
+   staff-only security fix, or should the release record "no reader-visible change"?
+
+---
+
 # Issue #176: stop returning raw error text in API responses
 
 Issue: [DurisWeb #176](https://github.com/LuminariMUD/DurisWeb/issues/176)
