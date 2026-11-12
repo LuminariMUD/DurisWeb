@@ -19,7 +19,7 @@ with its own PR. Rebase the stack onto `master` after each merge (see
 | 1 | `branch/issue-176-safe-error-responses` | plan, `sendRouteError`, `errorHandler` (incl. multer upload errors), anonymous routes (changelog, guide, `GET /api/content/news`) | LuminariMUD/DurisWeb#200 | ready for review |
 | 2 | `branch/issue-176-player-routes` | players: notifications, help suggestions, auth change-password, forum moderation/poll/profile, wiki map-tile bounds; typed `pollService`, forum moderation and wiki bounds throws | LuminariMUD/DurisWeb#210 | ready for review |
 | 3 | `branch/issue-176-admin-routes` | admin/staff: rest of `content.ts` (26), `features/admin/*` (access, backup, community, connection, dupe, health, log, mud, settings, wipe); typed `categoryService`, `webSettingsService`, `adminPermissionService`, `dupeDetectionService` throws; AI-analysis notification and `wipe_history.error_message` | LuminariMUD/DurisWeb#214 | ready for review |
-| 4 | `branch/issue-176-builder-routes` | builder routes (61) and `routes/git.ts`, zone SSE/WebSocket streams, builder git commit result; typed zone builder/comment/info/proc-request throws; ESLint guard + test; `CONVENTIONS.md` and `SECURITY-COMPLIANCE.md` | see #176 | ready for review |
+| 4 | `branch/issue-176-builder-routes` | builder routes (61) and `routes/git.ts`, zone SSE/WebSocket streams, builder git commit result; typed zone builder/comment/info/proc-request throws; ESLint guard + test; `CONVENTIONS.md` and `SECURITY-COMPLIANCE.md` | LuminariMUD/DurisWeb#217 | ready for review |
 
 Decisions taken while implementing (resolving the open questions below):
 
