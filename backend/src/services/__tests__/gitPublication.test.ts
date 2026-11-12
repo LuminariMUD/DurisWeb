@@ -104,6 +104,25 @@ describe('zone git publication in a disposable repository', () => {
     );
     expect(await git('diff', '--cached', '--name-only')).toBe('unrelated.txt');
   });
+  it.each([false, true])(
+    'includes an already-staged deletion with another zone change=%s',
+    async (otherChange) => {
+      await git('rm', 'areas/wld/zone-a.wld');
+      if (otherChange) await fs.writeFile(path.join(root, 'areas/mob/zone-a.mob'), 'changed mob\n');
+      expect(await service.getZoneGitStatus('zone-a')).toMatchObject({
+        modified: true,
+        files: expect.arrayContaining([{ path: 'areas/wld/zone-a.wld', status: 'deleted' }]),
+      });
+      expect((await service.commitZoneFiles('zone-a', 'Publish staged deletion')).success).toBe(
+        true,
+      );
+      const changed = await git('show', '--pretty=format:', '--name-status', 'HEAD');
+      expect(changed).toContain('D\tareas/wld/zone-a.wld');
+      if (otherChange) expect(changed).toContain('M\tareas/mob/zone-a.mob');
+      expect(await git('diff', '--cached', '--name-only')).toBe('unrelated.txt');
+    },
+  );
+
   it('preserves literal commit-message punctuation', async () => {
     const message = "Player's zone $(literal) and backticks";
     await fs.writeFile(path.join(root, 'areas/wld/zone-a.wld'), 'zone change\n');

@@ -451,18 +451,30 @@ async function commitFilesInDir(
     } catch (error) {
       if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'ENOENT')
         throw error;
-      // Include tracked deletions, but ignore paths this zone has never owned.
+      // An unstaged deletion still appears in the index. A staged deletion instead
+      // appears in the cached diff against HEAD, and must not be passed to git add again.
       try {
         await execFileAsync('git', ['-C', dir, 'ls-files', '--error-unmatch', '--', file]);
       } catch (lookupError) {
         if (
-          lookupError &&
-          typeof lookupError === 'object' &&
-          'code' in lookupError &&
-          lookupError.code === 1
+          !lookupError ||
+          typeof lookupError !== 'object' ||
+          !('code' in lookupError) ||
+          lookupError.code !== 1
         )
-          continue;
-        throw lookupError;
+          throw lookupError;
+        const { stdout } = await execFileAsync('git', [
+          '-C',
+          dir,
+          'diff',
+          '--cached',
+          '--name-only',
+          '--diff-filter=D',
+          '--',
+          file,
+        ]);
+        if (stdout.trim()) selected.push(file);
+        continue;
       }
     }
     await execFileAsync('git', ['-C', dir, 'add', '--all', '--', file]);
