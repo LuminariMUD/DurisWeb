@@ -241,11 +241,11 @@ export async function broadcastForumPost(
   );
 }
 
-// Broadcast connection log event to all connected WebSocket clients
+// Broadcast connection log event to all connected WebSocket clients. The player's IP address
+// stays server-side: no client consumes it, and the connection log API serves it on request.
 export function broadcastConnectionEvent(event: {
   characterName: string;
   status: string;
-  ipAddress: string;
   timestamp: Date;
 }) {
   if (!wss) return;
@@ -255,7 +255,6 @@ export function broadcastConnectionEvent(event: {
     data: {
       characterName: event.characterName,
       status: event.status,
-      ip: event.ipAddress,
       timestamp: event.timestamp,
     },
   });
