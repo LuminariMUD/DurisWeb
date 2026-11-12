@@ -6,7 +6,7 @@ Branch: `branch/issue-176-safe-error-responses` (linked to the issue)
 
 Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d5573c156`.
 
-**Status: in progress — implemented as stacked PRs, one per exposure group (see "Progress").**
+**Status: implementation complete in four stacked PRs (see "Progress"); review, merge, deployment and the release changelog step remain.**
 
 ## Progress (handoff log — update with every PR)
 
@@ -18,8 +18,8 @@ with its own PR. Rebase the stack onto `master` after each merge (see
 |---|---|---|---|---|
 | 1 | `branch/issue-176-safe-error-responses` | plan, `sendRouteError`, `errorHandler` (incl. multer upload errors), anonymous routes (changelog, guide, `GET /api/content/news`) | LuminariMUD/DurisWeb#200 | ready for review |
 | 2 | `branch/issue-176-player-routes` | players: notifications, help suggestions, auth change-password, forum moderation/poll/profile, wiki map-tile bounds; typed `pollService`, forum moderation and wiki bounds throws | LuminariMUD/DurisWeb#210 | ready for review |
-| 3 | `branch/issue-176-admin-routes` | admin/staff: rest of `content.ts` (26), `features/admin/*` (access, backup, community, connection, dupe, health, log, mud, settings, wipe); typed `categoryService`, `webSettingsService`, `adminPermissionService`, `dupeDetectionService` throws; AI-analysis notification and `wipe_history.error_message` | see #176 | ready for review |
-| 4 | `branch/issue-176-builder-routes` | builder, SSE/WebSocket, git/mud/deploy results, ESLint guard, docs | — | next |
+| 3 | `branch/issue-176-admin-routes` | admin/staff: rest of `content.ts` (26), `features/admin/*` (access, backup, community, connection, dupe, health, log, mud, settings, wipe); typed `categoryService`, `webSettingsService`, `adminPermissionService`, `dupeDetectionService` throws; AI-analysis notification and `wipe_history.error_message` | LuminariMUD/DurisWeb#214 | ready for review |
+| 4 | `branch/issue-176-builder-routes` | builder routes (61) and `routes/git.ts`, zone SSE/WebSocket streams, builder git commit result; typed zone builder/comment/info/proc-request throws; ESLint guard + test; `CONVENTIONS.md` and `SECURITY-COMPLIANCE.md` | see #176 | ready for review |
 
 Decisions taken while implementing (resolving the open questions below):
 
@@ -71,6 +71,26 @@ Implementation notes for whoever continues:
   `webSettingsService`. Their text remains in the server log.
 - `wipe_history.error_message` now stores `safeFailureCode(error)`, because the history API
   returns that column; the AI-analysis failure notification shows only a reference.
+- Deploy (`realtime/deployHandler.ts`, `services/deploymentService.ts`) is treated like the MUD
+  control console (Q3): an operator console that already streams raw git/make output, so its
+  error text is unchanged. `mudControlService` results are unchanged for the same reason.
+- Not typed on purpose: `accountService` "Account 'x' not found" (typing it globally could
+  reveal account existence on routes that should stay generic), and the zone-manifest
+  "ambiguous" fault (a server fault, same as the wiki decision).
+- Guard (`backend/eslint.config.js`, last block): in `src/routes`, `src/features`,
+  `src/realtime` it rejects `getErrorMessage(...)` inside `.json/.send/.write/.end` and the
+  `x instanceof Error ? x.message : …` idiom. Direct `{ error: error.message }` stays allowed
+  because every remaining use sits behind a specific typed-error check (`PostImageAttachmentError`,
+  `HookToggleError`, privacy errors, `isPublicError`). `src/__tests__/errorResponseGuard.test.ts`
+  keeps the rule working.
+
+Remaining after merge (release steps, not code):
+
+1. Merge #200 → #210 → #214 → the builder PR in order (linear history; restack each child on
+   `master` after its parent merges).
+2. Deploy, then confirm on the live site that a forced failure returns the generic body.
+3. Run `$news-update`: expected entry "error messages no longer expose server details", or
+   record that no reader-visible change needs an entry.
 
 This plan was built from the code, not from the issue text. Every count below comes from
 an AST pass over `backend/src` (non-test `.ts`), which finds wrapped call sites that a line

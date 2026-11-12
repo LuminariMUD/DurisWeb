@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws';
-import logger, { getErrorMessage } from '../utils/logger.js';
+import logger from '../utils/logger.js';
 import {
   countZoneItems,
   streamRooms,
@@ -12,6 +12,7 @@ import { WebSocketStreamLimiter } from '../utils/websocketAccess.js';
 import { sendApplicationMessage } from '../utils/applicationWebSocket.js';
 import type { MessageHandler } from './clientState.js';
 import { authorizeZoneStream } from './socketAuth.js';
+import { isPublicError } from '../utils/routeError.js';
 
 const wsStreamLimiter = new WebSocketStreamLimiter<WebSocket>(2);
 
@@ -130,7 +131,7 @@ export const zoneStreamHandlers: Record<string, MessageHandler> = {
             type: 'ZONE_STREAM_ERROR',
             zoneId,
             streamType,
-            message: getErrorMessage(error),
+            message: isPublicError(error) ? error.message : 'Failed to load zone data',
           }),
         );
       }
@@ -234,7 +235,7 @@ export const zoneStreamHandlers: Record<string, MessageHandler> = {
           JSON.stringify({
             type: 'ZONE_RESETS_STREAM_ERROR',
             zoneId,
-            message: getErrorMessage(error),
+            message: isPublicError(error) ? error.message : 'Failed to load zone data',
           }),
         );
       }

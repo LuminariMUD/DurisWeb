@@ -1,11 +1,12 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
 import {
   validateRoom,
   validateObject,
   quickValidate,
 } from '../../services/zoneBuilderValidator.js';
 import type { Room, ZoneObject } from '../../types/builder.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const builderValidationRoutes: IRouter = Router();
 
@@ -48,7 +49,7 @@ builderValidationRoutes.post('/zones/:id/validate', async (req: Request, res: Re
     res.status(400).json({ error: 'Invalid validation request. Provide type and data.' });
   } catch (error) {
     logger.error('Error validating zone data:', error);
-    res.status(500).json({ error: 'Failed to validate', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to validate', 'Failed to validate');
   }
 });
 
@@ -72,7 +73,7 @@ builderValidationRoutes.post('/zones/:id/validate/exit', async (req: Request, re
     res.json(result);
   } catch (error) {
     logger.error('Error validating exit:', error);
-    res.status(500).json({ error: 'Failed to validate exit', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to validate exit', 'Failed to validate exit');
   }
 });
 
@@ -98,9 +99,12 @@ builderValidationRoutes.post(
       res.json(result);
     } catch (error) {
       logger.error('Error validating object values:', error);
-      res
-        .status(500)
-        .json({ error: 'Failed to validate object values', message: getErrorMessage(error) });
+      sendRouteError(
+        res,
+        error,
+        'Failed to validate object values',
+        'Failed to validate object values',
+      );
     }
   },
 );

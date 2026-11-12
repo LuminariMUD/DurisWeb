@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import type { IRouter } from 'express';
 import crypto from 'node:crypto';
 import rateLimit from 'express-rate-limit';
-import logger from '../utils/logger.js';
+import logger, { getErrorMessage } from '../utils/logger.js';
 import { recordDonation, type KofiDonation } from '../services/donationService.js';
 import { DonationDeliveryConfigurationError } from '../utils/donationEvent.js';
 import { validateKofiDonationPayload } from '../utils/kofiValidation.js';
@@ -109,8 +109,7 @@ router.post('/', kofiWebhookLimiter, async (req: Request, res: Response): Promis
       res.status(503).send('donation delivery unavailable');
       return;
     }
-    const message = error instanceof Error ? error.message : 'unknown internal error';
-    logger.error(`kofi webhook unavailable: ${message}`);
+    logger.error(`kofi webhook unavailable: ${getErrorMessage(error)}`);
     // Do not acknowledge an event that was not durably recorded. Ko-fi can retry.
     res.status(503).send('temporarily unavailable');
   }

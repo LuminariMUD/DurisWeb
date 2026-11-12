@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
 import type { Router as RouterType } from 'express';
-import logger, { getErrorMessage } from '../utils/logger.js';
+import logger from '../utils/logger.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { getCommits, getGitStatus } from '../services/gitService.js';
+import { sendRouteError } from '../utils/routeError.js';
 
 const router: RouterType = Router();
 
@@ -30,9 +31,7 @@ router.get(
       res.json(result);
     } catch (error) {
       logger.error('Error fetching git commits:', error);
-      res
-        .status(500)
-        .json({ error: 'Failed to fetch git commits', message: getErrorMessage(error) });
+      sendRouteError(res, error, 'Failed to fetch git commits', 'Failed to fetch git commits');
     }
   },
 );
@@ -51,9 +50,7 @@ router.get(
       res.json(status);
     } catch (error) {
       logger.error('Error fetching git status:', error);
-      res
-        .status(500)
-        .json({ error: 'Failed to fetch git status', message: getErrorMessage(error) });
+      sendRouteError(res, error, 'Failed to fetch git status', 'Failed to fetch git status');
     }
   },
 );

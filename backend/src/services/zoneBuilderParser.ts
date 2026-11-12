@@ -2,6 +2,7 @@
 // Parses .wld, .mob, .obj, .zon files
 
 import * as fs from 'fs/promises';
+import { AppError } from '../middleware/errorHandler.js';
 import * as path from 'path';
 import { setImmediate } from 'node:timers/promises';
 import logger from '../utils/logger.js';
@@ -44,7 +45,7 @@ import {
 
 function assertZoneBuilderParsingEnabled(): void {
   if (!isHookEnabledSync('zone_builder_parsing')) {
-    throw new Error('zone_builder_parsing is disabled on the website.');
+    throw new AppError('zone_builder_parsing is disabled on the website.', 409);
   }
 }
 
@@ -963,7 +964,7 @@ async function parseWorldRooms(content: string): Promise<Room[]> {
 export async function parseWldFile(zoneNumber: number): Promise<Room[]> {
   const baseName = await getZoneBaseName(zoneNumber);
   if (!baseName) {
-    throw new Error(`Zone ${zoneNumber} not found`);
+    throw new AppError(`Zone ${zoneNumber} not found`, 404);
   }
 
   const filePath = resolveSafeZoneFilePath(getAreasDir(), baseName, 'wld');
@@ -976,7 +977,7 @@ export async function parseWldFileById(zoneId: string): Promise<Room[]> {
   const filePath = resolveSafeZoneFilePath(getAreasDir(), zoneId, 'wld');
 
   if (!(await fileExists(filePath))) {
-    throw new Error(`Zone "${zoneId}" .wld file not found`);
+    throw new AppError(`Zone "${zoneId}" .wld file not found`, 404);
   }
 
   const content = await readFile(filePath);
@@ -991,7 +992,7 @@ export async function getZoneMapData(zoneId: string): Promise<ZoneMapData> {
   const wldPath = resolveSafeZoneFilePath(areasDir, zoneId, 'wld');
 
   if (!(await fileExists(wldPath))) {
-    throw new Error(`Zone "${zoneId}" not found`);
+    throw new AppError(`Zone "${zoneId}" not found`, 404);
   }
 
   // Parse zone number from .zon file (top_vnum / 100)

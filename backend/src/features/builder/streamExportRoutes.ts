@@ -1,5 +1,5 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ZipArchive } from 'archiver';
@@ -12,6 +12,7 @@ import {
   streamObjects,
 } from '../../services/zoneBuilderStreamer.js';
 import { logBuilderActivity } from './shared.js';
+import { isPublicError, sendRouteError } from '../../utils/routeError.js';
 
 export const builderStreamExportRoutes: IRouter = Router();
 
@@ -31,7 +32,7 @@ builderStreamExportRoutes.get('/zones/:id/counts', async (req: Request, res: Res
     res.json(counts);
   } catch (error) {
     logger.error('Error getting zone counts:', error);
-    res.status(500).json({ error: 'Failed to get zone counts', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to get zone counts', 'Failed to get zone counts');
   }
 });
 
@@ -94,7 +95,7 @@ builderStreamExportRoutes.get('/zones/:id/stream/:type', async (req: Request, re
   } catch (error) {
     logger.error(`Error streaming ${type} for zone ${zoneId}:`, error);
     res.write(
-      `event: error\ndata: ${JSON.stringify({ type, message: getErrorMessage(error) })}\n\n`,
+      `event: error\ndata: ${JSON.stringify({ type, message: isPublicError(error) ? error.message : 'Failed to load zone data' })}\n\n`,
     );
     res.end();
   }
@@ -197,8 +198,6 @@ builderStreamExportRoutes.get('/zones/:id/download/:type', async (req: Request, 
       return;
     }
     logger.error('Error downloading zone file:', error);
-    res
-      .status(500)
-      .json({ error: 'Failed to download zone file', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to download zone file', 'Failed to download zone file');
   }
 });

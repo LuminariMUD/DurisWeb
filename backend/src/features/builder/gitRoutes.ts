@@ -1,8 +1,9 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { getZoneGitStatus, commitZoneFiles } from '../../services/gitService.js';
 import { logBuilderActivity } from './shared.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const builderGitRoutes: IRouter = Router();
 
@@ -16,7 +17,7 @@ builderGitRoutes.get('/zones/:id/git/status', async (req: Request, res: Response
     res.json(status);
   } catch (error) {
     logger.error('Error getting zone git status:', error);
-    res.status(500).json({ error: 'Failed to get git status', message: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to get git status', 'Failed to get git status');
   }
 });
 
@@ -53,7 +54,7 @@ builderGitRoutes.post(
       res.json(result);
     } catch (error) {
       logger.error('Error committing zone files:', error);
-      res.status(500).json({ error: 'Failed to commit', message: getErrorMessage(error) });
+      sendRouteError(res, error, 'Failed to commit', 'Failed to commit');
     }
   },
 );
