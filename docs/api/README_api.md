@@ -167,6 +167,17 @@ most 10,000 cells; a single cell is valid. Coordinates must be safe integers and
 the layer must be an integer from -16 to 16. Invalid requests return a typed 400
 before cache or SQL work.
 
+### Image publication and downloads
+
+Logo, hero, avatar and banner replacements upload under immutable object keys,
+then save the new URL before best-effort cleanup of the previous published object.
+Explicit deletion clears the saved URL first and removes only that owned object.
+An ambiguous database write failure retains uploaded objects for recovery. Cleanup
+never enumerates and deletes an entire account or site prefix.
+
+Log-download read failures return fixed JSON before headers or terminate a partial
+stream after headers; client disconnects close the file stream.
+
 ## Website data hold records
 
 The separate [website data hold API](../runbooks/data-holds.md) at
