@@ -1,3 +1,242 @@
+# Issue #182: scope builder proc requests and comments to their zone
+
+Issue: [DurisWeb #182](https://github.com/LuminariMUD/DurisWeb/issues/182)
+
+Branch: `branch/issue-182-builder-zone-scoping`
+
+Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d5573c156`.
+
+**Status: plan only. Nothing is implemented yet.**
+The earlier plans in this file are kept below, unchanged. Their status lines describe
+those separate projects.
+
+Paths are relative to `backend/` unless they start with `frontend/`.
+
+## Outcome
+
+A proc request or comment can be read, changed or deleted only through the URL of the
+zone that owns it. A `:prId` or `:commentId` that belongs to another zone returns 404
+and changes nothing: no UPDATE, no DELETE, no notification, no mention cleanup and no
+activity-log row. New comments can reply only to a parent comment in the same zone, and
+can link only to a proc request in the same zone. The rule for who may edit or delete
+another person's comment lives in one helper and is tied to zone-level `manage`, not
+hard-coded to `manage_zones`. Legitimate same-zone requests behave exactly as they do
+today.
+
+## What the code shows (checked, not assumed)
+
+| Issue claim | Code evidence | Verdict |
+| --- | --- | --- |
+| Every builder route requires `manage_zones` "for now" | `src/features/builder/routes.ts:19-21`; pinned by `builderComposition.test.ts:67` | Confirmed |
+| `canAccessZone` passes anyone with `manage_zones` | `src/features/builder/shared.ts:59,62`, before the per-zone lookup at `:65` | Confirmed |
+| `isAdmin` means `manage_zones` | `collaborationRoutes.ts:534-536` (PUT comment), `:587-589` (DELETE comment) | Confirmed |
+| PUT/DELETE proc request ignores `:id` | Route passes only `prId` (`:259`, `:377`); service uses `WHERE id = ?` (`procRequestService.ts:101,235,307`) | Confirmed |
+| PUT/DELETE comment ignores `:id` | Route passes only `commentId` (`:538`, `:591`); service uses `WHERE id = ?` (`zoneCommentService.ts:115,210,240,246,253`) | Confirmed |
+| The activity log records the wrong zone | PUT proc request logs the URL zone with the real row's details (`:271-280`). DELETE proc request (`:384`) and DELETE comment (`:598`) log the URL zone. PUT comment logs nothing. | Confirmed for three routes |
+| Another builder's comment can be edited "via zone A's URL" | The service checks the author (`zoneCommentService.ts:203,232`). Today `isAdmin` is always true, so any builder can edit any comment in any zone, through any URL. A foreign zone ID adds nothing to that. After the gate is relaxed, the author check holds, but the zone check is still missing. | Overstated: the cause is `isAdmin`, not the zone |
+
+The issue also missed these:
+
+1. **`PUT /zones/:id/proc-requests/:prId/status`** (`collaborationRoutes.ts:292-351`) has the
+   same flaw. It goes through `updateProcRequestStatus`, then `updateProcRequest`, by ID
+   alone, and can change `status` and `assigned_to` in any zone.
+2. **`deleteProcRequest` deletes mentions before it checks the row** (`procRequestService.ts:304`).
+   A request for a missing or foreign ID still deletes that ID's mention rows.
+3. **Comment creation trusts body references.** `parentId` is checked only for existence and
+   top-level status (`zoneCommentService.ts:137-146`). `procRequestId` is not checked at all.
+   Both are taken raw from the body (`collaborationRoutes.ts:451,466-467`), and a string such
+   as `"5abc"` is coerced by MySQL. Deleting a parent removes replies by `parent_id` alone
+   (`:240-246`), so it can cross zones. The service errors ("Parent comment not found",
+   "Cannot reply to a reply") currently return **500**.
+4. **Notification text names the wrong zone** on a cross-zone update. It stores the real
+   `existing.zoneId` but uses the URL zone's `zoneName` (`procRequestService.ts:239-273`).
+
+Further defects found outside this issue's scope (see "Follow-ups"):
+
+5. **The frontend collaboration API does not match the backend.** It sends **PATCH** for
+   proc-request update, proc-request status and comment update
+   (`frontend/src/features/builder/collaborationApi.ts:89,105,163`). The backend registers
+   only **PUT**, so these calls hit the API 404 handler. Editing a proc request
+   (`ProcRequestDialog.vue:170`) and changing its status (`ProcRequestList.vue:90`) are
+   therefore broken in the UI today. The frontend also reads `data.request`/`data.requests`,
+   but the backend returns `{ procRequest }`/`{ procRequests }`. It calls
+   `GET .../proc-requests/:id` and `GET /my-proc-requests`, which have no backend route.
+   No UI edits comments. As a result, the routes this issue hardens are reachable today only
+   by direct API calls.
+6. **Most builder routes have no per-zone check.** These include rooms, mobs, objects,
+   resets, zone delete/clone/positions, validation, git, stream/export, `/flags/sync` and
+   `/settings`. Only `collaborationRoutes.ts` and `accessRoutes.ts` call `canAccessZone`.
+   Relaxing the gate today would open every zone file to every builder. That is the real
+   blocker for relaxing the gate, and it is larger than this issue.
+7. The general PUT accepts any `status` string, while `/status` validates it (`:253` vs
+   `:318-327`). Deleting a proc request leaves comments that point to it.
+
+Severity today is **low**. Only overlords and `manage_zones` holders reach these
+handlers, and they are already trusted for every zone. No privilege is gained. The
+visible effects are a wrong zone in the log and in notification text, plus cross-zone
+reply threading.
+
+Schema: `builder_proc_requests` and `builder_zone_comments` have `zone_id varchar(100)
+NOT NULL` with `idx_proc_zone`/`idx_comment_zone`, and no foreign keys
+(`migrations/031_proc_requests.ts`, `032_zone_comments.ts`). `WHERE id = ? AND zone_id = ?`
+is served by the primary key. **No migration is needed.**
+
+## Non-goals
+
+- Relaxing the `manage_zones` router gate, or adding a builder-access permission.
+- Per-zone checks on the room, mob, object, reset, zone, validation, git, export, flags and
+  settings routes (item 6).
+- Fixing the frontend PATCH/PUT and response-key mismatch, or the missing GET routes (item 5).
+- New activity-log events for comment edits or status changes, comment cleanup on
+  proc-request delete, and status validation on the general PUT (item 7).
+- Repairing any existing cross-zone rows.
+
+Each non-goal is either a separate defect or depends on a product decision. Each gets its
+own issue (see "Follow-ups") rather than being folded in here.
+
+## Plan
+
+### 1. Scope the proc-request service: `src/services/procRequestService.ts`
+
+- `getProcRequest(zoneId, id)`: `WHERE id = ? AND zone_id = ?`.
+  `createProcRequest` re-reads with `data.zoneId`.
+- `updateProcRequest(zoneId, id, data, updatedBy?, zoneName?)`: the scoped read returns
+  `null` on a mismatch before any write or notification. The UPDATE also carries
+  `AND zone_id = ?`, and so does the final re-read.
+- `updateProcRequestStatus(zoneId, id, status, assignedTo?, updatedBy?, zoneName?)`
+  passes `zoneId` through.
+- `deleteProcRequest(zoneId, id)`: run `DELETE ... WHERE id = ? AND zone_id = ?` first.
+  Call `deleteMentions('proc_request', id)` only if `affectedRows > 0`. This also fixes
+  item 2.
+- `zoneId` comes first, matching `revokeZonePermission(zoneId, account)`.
+
+### 2. Scope the comment service: `src/services/zoneCommentService.ts`
+
+- `getComment(zoneId, id)`: `WHERE id = ? AND zone_id = ?`.
+- `updateComment(zoneId, id, data, accountName, isAdmin)`: the scoped read comes first, so
+  a foreign ID gives 404 rather than 403 and does not reveal that it exists. Then the
+  author check runs. Then `UPDATE ... WHERE id = ? AND zone_id = ?`, then a scoped re-read.
+- `deleteComment(zoneId, id, accountName, isAdmin)`: the scoped read comes first. The reply
+  SELECT and DELETE use `parent_id = ? AND zone_id = ?`. The row DELETE uses
+  `id = ? AND zone_id = ?`.
+- `createComment`: look up the parent with `getComment(data.zoneId, parentId)`. If
+  `procRequestId` is set, require `getProcRequest(data.zoneId, procRequestId)` from
+  `procRequestService.js`. This import adds no cycle: `procRequestService` does not import
+  `zoneCommentService`. A miss throws `'Proc request not found'`, matching the existing
+  `'Parent comment not found'`.
+
+### 3. Routes: `src/features/builder/collaborationRoutes.ts`
+
+- Pass `zoneId` to the five changed service calls (`:259`, `:332`, `:377`, `:538`, `:591`).
+  The existing `null`/`false` checks already return 404. The activity log already uses
+  `zoneId`, and after scoping that is the row's real zone, so the log and the notification
+  zone name become correct with no further change.
+- POST comment: parse `parentId` and `procRequestId` with the existing
+  `parseStrictPositiveId` (`src/utils/validation.ts:208`). If either is present and
+  invalid, return 400 before calling the service. In the catch block, map
+  `'Parent comment not found'`, `'Proc request not found'` and
+  `'Cannot reply to a reply (single-level threading)'` to **400** instead of 500. The URL's
+  zone exists; it is the body that refers to something the zone does not contain. This
+  follows the message-mapping pattern this file already uses at `:552`/`:611`.
+- Replace the two inline `isAdmin` expressions with `canModerateZoneComments(req, zoneId)`.
+
+### 4. Moderator rule: `src/features/builder/shared.ts`
+
+```ts
+/** Who may edit or delete another account's comment in this zone. */
+export function canModerateZoneComments(req: Request, zoneId: string): Promise<boolean> {
+  return canAccessZone(req, zoneId, 'manage');
+}
+```
+
+This reuses the existing helper instead of adding new machinery. Today it returns true for
+the same callers as before (overlords and `manage_zones` holders), so nothing changes in
+behaviour. If the gate is relaxed and `manage_zones` stays a global-admin grant, ordinary
+builders moderate only the zones where they hold `manage`, which addresses the issue's
+"separate from `manage_zones`" point. A dedicated moderation permission was dropped: no
+requirement or caller needs it until the gate design is chosen (see Q1/Q2).
+
+### 5. Tests
+
+Extend the existing files; add no new test infrastructure.
+
+- `src/features/builder/__tests__/builderChildIdValidation.test.ts` already mounts the
+  composed router with mocked services and `canAccessZone`.
+  - Each of PUT proc request, PUT `/status`, DELETE proc request, PUT comment and DELETE
+    comment calls its service with the URL zone first.
+  - When the service returns `null`/`false` (foreign ID), the route returns 404 and
+    `poolQuery` gets no `builder_activity_log` insert.
+  - POST comment with a malformed `parentId`/`procRequestId` returns 400 without calling
+    the service. When the service throws "not found" or "reply to a reply", it returns 400.
+  - Update the existing assertion at `:201` to the new argument order.
+- `src/services/__tests__/procRequestContent.test.ts`, with mocked `pool.query`:
+  - A foreign-zone read returns no row, so update, status and delete return `null`/`false`
+    and issue no UPDATE or DELETE, no `createNotification` and no `deleteMentions`.
+  - Same-zone SQL includes `zone_id = ?` with the zone parameter.
+- `src/services/__tests__/zoneCommentContent.test.ts`:
+  - A foreign-zone update or delete returns `null`/`false` with no write.
+  - The reply delete is zone-scoped.
+  - A non-author with `isAdmin=false` is rejected with the existing error; an author
+    succeeds.
+  - `createComment` rejects a foreign `parentId` and a foreign `procRequestId`, with no
+    INSERT. Because `procRequestService` is now imported, mock it or mock its
+    `pool.query` call.
+
+## Proof
+
+```bash
+pnpm --dir backend test --runInBand builderChildIdValidation builderComposition procRequestContent zoneCommentContent
+pnpm --dir backend format:check
+pnpm --dir backend lint
+pnpm --dir backend type-check
+pnpm --dir backend build
+pnpm --dir backend verify:mud-writes
+```
+
+Run the full backend suite once at the end, because the service signatures change. No
+frontend change is planned: the frontend already sends the owning zone in every URL, so
+frontend checks are not needed. There is no live check: these routes cannot be reached
+through the UI (item 5), and the release does not change behaviour for legitimate calls.
+The changelog step should record "no reader-visible change".
+
+## Ablation notes
+
+- **Dropped:** a new permission and migration; new activity-log events; a
+  `requireZoneAccess` middleware; per-zone checks on the other route groups; frontend
+  fixes. None is required by this issue, and each is a separate defect or design choice.
+- **Simplified:** fixing the audit trail needs no code of its own. Once the services are
+  scoped, the URL zone that is logged is the row's zone. The moderator helper wraps
+  `canAccessZone` instead of adding a permission.
+- **Kept beyond the issue text:** the `/status` route, mention cleanup on delete, and the
+  `createComment` reference checks. These are the same zone-ownership defect in the same
+  files, and leaving any of them would keep a cross-zone write path open.
+
+## Follow-ups to file as separate issues
+
+1. Per-zone authorization on every `/zones/:id/...` builder route (item 6). This, not
+   #182, is the real prerequisite for relaxing `manage_zones`.
+2. Frontend/backend contract for builder collaboration (item 5): PATCH vs PUT, response
+   keys, missing `GET` proc request and `/my-proc-requests`, and the `procRequestId` vs
+   `proc_request_id` query parameter.
+3. Minor: status validation on the general PUT, and orphaned proc-request comments
+   (item 7).
+
+## Open questions
+
+- **Q1.** Who should moderate comments: zone-level `manage` (the default in this plan), or
+  a dedicated global permission?
+- **Q2.** How will the gate be relaxed: a new `access_builder` permission, with
+  `manage_zones` kept as global admin, or something else? The answer decides whether Q1
+  ever needs a migration. It does not block this plan.
+- **Q3.** Should the follow-up issues above be filed now?
+- **Q4.** #176 (raw error messages in 500s) also edits these catch blocks. Whichever lands
+  second must rebase.
+- **Q5.** Optional: run a read-only production query to count existing cross-zone replies
+  or proc-request links. Such rows would stay readable but be orphaned when their parent is
+  deleted. The query needs explicit approval because it touches production.
+
+---
+
 # Issue #136: resolve numeric zone maps from the active AREA manifest
 
 Issue: [DurisWeb #136](https://github.com/LuminariMUD/DurisWeb/issues/136)
