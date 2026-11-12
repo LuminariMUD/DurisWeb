@@ -13,6 +13,8 @@ const CHANNEL_REFRESH_INTERVAL_MS = 60_000;
 let subscriber: Redis | null = null;
 let subscribedChannel: string | null = null;
 let channelRefreshTimer: NodeJS.Timeout | null = null;
+let lifecycleGeneration = 0;
+let starting = false;
 type PlayerEventBroadcaster = (
   type: 'PLAYER_LOGIN' | 'PLAYER_LOGOUT',
   data: { pid: number },
@@ -65,6 +67,10 @@ async function waitForRedisReady(client: Redis): Promise<void> {
       cleanup();
       reject(error);
     };
+    const onEnd = () => {
+      cleanup();
+      reject(new Error('Redis readiness stopped'));
+    };
     const cleanup = () => {
       if (timeout) {
         clearTimeout(timeout);
@@ -72,9 +78,11 @@ async function waitForRedisReady(client: Redis): Promise<void> {
       }
       client.off('ready', onReady);
       client.off('error', onError);
+      client.off('end', onEnd);
     };
     client.once('ready', onReady);
     client.once('error', onError);
+    client.once('end', onEnd);
   });
 }
 
@@ -118,15 +126,19 @@ async function refreshPlayerEventChannel(): Promise<void> {
  * start subscribing to the active namespace/season player event channel
  */
 export async function startPlayerEventSubscriber(): Promise<void> {
-  if (subscriber) {
+  if (subscriber || starting) {
     logger.warn('[PlayerEventSubscriber] already running');
     return;
   }
 
+  starting = true;
+  const generation = ++lifecycleGeneration;
+  let client: Redis | undefined;
   try {
     const configuration = getScopedRedisConfiguration('presence');
     const channel = await getActivePlayerEventChannel();
-    const client = new Redis(configuration.options);
+    if (generation !== lifecycleGeneration) return;
+    client = new Redis(configuration.options);
     subscriber = client;
     subscribedChannel = channel;
 
@@ -205,7 +217,15 @@ export async function startPlayerEventSubscriber(): Promise<void> {
     });
 
     await waitForRedisReady(client);
+    if (generation !== lifecycleGeneration || subscriber !== client) {
+      client.disconnect();
+      return;
+    }
     await withSubscribeTimeout(client.subscribe(channel));
+    if (generation !== lifecycleGeneration || subscriber !== client) {
+      client.disconnect();
+      return;
+    }
     channelRefreshTimer = setInterval(() => {
       void refreshPlayerEventChannel().catch(() => {
         logger.warn('[PlayerEventSubscriber] season channel refresh failed');
@@ -213,16 +233,20 @@ export async function startPlayerEventSubscriber(): Promise<void> {
     }, CHANNEL_REFRESH_INTERVAL_MS);
     logger.info(`[PlayerEventSubscriber] subscribed to ${channel}`);
   } catch {
-    logger.warn('[PlayerEventSubscriber] disabled: subscription setup failed');
-    if (channelRefreshTimer) {
-      clearInterval(channelRefreshTimer);
-      channelRefreshTimer = null;
+    if (generation === lifecycleGeneration) {
+      logger.warn('[PlayerEventSubscriber] disabled: subscription setup failed');
     }
-    if (subscriber) {
-      subscriber.disconnect();
+    if (subscriber === client) {
+      if (channelRefreshTimer) {
+        clearInterval(channelRefreshTimer);
+        channelRefreshTimer = null;
+      }
       subscriber = null;
+      subscribedChannel = null;
     }
-    subscribedChannel = null;
+    client?.disconnect();
+  } finally {
+    if (generation === lifecycleGeneration) starting = false;
   }
 }
 
@@ -230,6 +254,8 @@ export async function startPlayerEventSubscriber(): Promise<void> {
  * stop the subscriber
  */
 export async function stopPlayerEventSubscriber(): Promise<void> {
+  lifecycleGeneration++;
+  starting = false;
   if (channelRefreshTimer) {
     clearInterval(channelRefreshTimer);
     channelRefreshTimer = null;
@@ -240,8 +266,12 @@ export async function stopPlayerEventSubscriber(): Promise<void> {
     subscriber = null;
     subscribedChannel = null;
     try {
-      if (channel) await current.unsubscribe(channel);
-      await current.quit();
+      if (current.status === 'ready') {
+        if (channel) await current.unsubscribe(channel);
+        await current.quit();
+      } else {
+        current.disconnect();
+      }
     } catch {
       logger.error('[PlayerEventSubscriber] close failed');
       current.disconnect();

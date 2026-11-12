@@ -101,6 +101,10 @@ WebSocket clients normally. Peers that do not acknowledge the close frame are
 terminated after five seconds, so upgraded connections cannot hold shutdown open
 until the service manager's stop timeout.
 
+Shutdown also marks pending startup as aborted. Late watchdog and player-event
+subscriber initialization release their resources; a retired subscriber attempt
+cannot start a new refresh timer or close its replacement.
+
 The application `/ws` transport accepts at most 256 simultaneous connections;
 excess upgrades receive HTTP 503 with `Retry-After: 5`. Its 10 KiB inbound limit
 applies to the complete uncompressed message, including fragmented and UTF-8

@@ -17,15 +17,19 @@ const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 const enabled = jest.fn<() => boolean>();
 const activity = jest.fn();
 const broadcast = jest.fn<(...args: unknown[]) => void>();
+let initialRedisStatus = 'ready';
+let subscribeGate: Promise<number> | undefined;
 class FakeRedis extends EventEmitter {
-  status = 'ready';
-  subscribe = jest.fn(async (_channel: string) => 1);
+  status = initialRedisStatus;
+  subscribe = jest.fn(async (_channel: string) => (subscribeGate ? await subscribeGate : 1));
   unsubscribe = jest.fn(async (_channel: string) => 0);
   quit = jest.fn(async () => {
     this.status = 'end';
+    this.emit('end');
   });
   disconnect = jest.fn(() => {
     this.status = 'end';
+    this.emit('end');
   });
 }
 const clients: FakeRedis[] = [];
@@ -63,16 +67,20 @@ async function message(
 }
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((done, fail) => {
     resolve = done;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
   clients.length = 0;
+  initialRedisStatus = 'ready';
+  subscribeGate = undefined;
   enabled.mockReturnValue(true);
   poolQuery.mockResolvedValue([[{ season_epoch: 1 }]]);
   getConnection.mockResolvedValue(connection);
@@ -88,6 +96,81 @@ afterEach(async () => {
 });
 
 describe('season-fenced player events', () => {
+  it('does not create a client when stopped during the initial season lookup', async () => {
+    const lookup = deferred<unknown>();
+    poolQuery.mockReturnValueOnce(lookup.promise);
+    const starting = startPlayerEventSubscriber();
+    await stopPlayerEventSubscriber();
+    lookup.resolve([[{ season_epoch: 1 }]]);
+    await starting;
+    expect(clients).toHaveLength(0);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('ends a Redis readiness wait promptly when stopped', async () => {
+    initialRedisStatus = 'connecting';
+    let settled = false;
+    const starting = startPlayerEventSubscriber().then(() => {
+      settled = true;
+    });
+    try {
+      await jest.advanceTimersByTimeAsync(0);
+      expect(clients).toHaveLength(1);
+      await stopPlayerEventSubscriber();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(settled).toBe(true);
+      expect(clients[0].disconnect).toHaveBeenCalled();
+      expect(clients[0].unsubscribe).not.toHaveBeenCalled();
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      await jest.advanceTimersByTimeAsync(10_000);
+      await starting;
+    }
+  });
+
+  it('does not install a refresh timer after a stopped subscription acknowledges late', async () => {
+    const subscription = deferred<number>();
+    subscribeGate = subscription.promise;
+    const starting = startPlayerEventSubscriber();
+    try {
+      await jest.advanceTimersByTimeAsync(0);
+      expect(clients[0].subscribe).toHaveBeenCalledTimes(1);
+      await stopPlayerEventSubscriber();
+      subscription.resolve(1);
+      await starting;
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      subscription.resolve(1);
+      await starting;
+    }
+  });
+
+  it('does not let a retired startup failure disconnect a replacement subscriber', async () => {
+    const lookup = deferred<unknown>();
+    poolQuery.mockReturnValueOnce(lookup.promise);
+    const retired = startPlayerEventSubscriber();
+    await stopPlayerEventSubscriber();
+    await startPlayerEventSubscriber();
+    const replacement = clients[0];
+    lookup.reject(new Error('Retired lookup failed'));
+    await retired;
+    expect(replacement.disconnect).not.toHaveBeenCalled();
+    await message(replacement);
+    expect(broadcast).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats a concurrent start during lookup as already starting', async () => {
+    const lookup = deferred<unknown>();
+    poolQuery.mockReturnValueOnce(lookup.promise);
+    const first = startPlayerEventSubscriber();
+    const second = startPlayerEventSubscriber();
+    lookup.resolve([[{ season_epoch: 1 }]]);
+    await Promise.all([first, second]);
+    expect(poolQuery).toHaveBeenCalledTimes(1);
+    expect(clients).toHaveLength(1);
+    expect(jest.getTimerCount()).toBe(1);
+  });
+
   it.each(['login', 'logout'])(
     'publishes an enabled current-season %s before releasing its SQL fence',
     async (event) => {
