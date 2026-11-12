@@ -1,5 +1,4 @@
 import { describe, expect, it } from '@jest/globals';
-import { readFileSync } from 'node:fs';
 import {
   WebSocketStreamLimiter,
   canReceiveAccountEvent,
@@ -44,27 +43,9 @@ describe('WebSocket access policy', () => {
       ),
     ).toBe(true);
 
-    // Pin the real subscription handlers to the tested authorization policy as well.
-    const handlers = readFileSync(
-      new URL('../../realtime/subscriptionHandlers.ts', import.meta.url),
-      'utf8',
-    );
-    for (const subscription of ['SUBSCRIBE_PLAYER_EVENTS', 'SUBSCRIBE_WHOLIST']) {
-      const block = handlers.slice(handlers.indexOf(`  ${subscription}: async (ws, data) => {`));
-      expect(block.slice(0, block.indexOf('Subscribed = true'))).toContain(
-        'await verifyWebSocketAuth(data.token, 57)',
-      );
-      expect(block.slice(0, block.indexOf('Subscribed = true'))).toContain('if (!principal)');
-    }
-    // Broadcast recipient filtering is exercised in realtime/__tests__/broadcasts.test.ts.
-    const admin = readFileSync(
-      new URL('../../features/admin/analyticsRoutes.ts', import.meta.url),
-      'utf8',
-    );
-    const who = admin.slice(admin.indexOf("adminAnalyticsRoutes.get(\n  '/who',"));
-    expect(who.slice(0, who.indexOf('async'))).toMatch(
-      /'\/who',\s*requireAuth,\s*requireOverlord,/,
-    );
+    // The subscription handlers are exercised in realtime/__tests__/applicationSocket.test.ts,
+    // broadcast filtering in realtime/__tests__/broadcasts.test.ts, and the overlord-only
+    // /who route in features/admin/__tests__/adminComposition.test.ts.
   });
 
   it('fails closed for privileged broadcasts without a principal', () => {

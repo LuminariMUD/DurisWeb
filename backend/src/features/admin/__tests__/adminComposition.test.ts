@@ -8,6 +8,8 @@ import { stubModule } from '../../../test/stubModule.js';
 // The composed /api/admin router with real auth; persistence and backups are synthetic.
 const deleteFailedBackups = jest.fn(async () => 2);
 const deleteBackup = jest.fn(async (_id: number) => true);
+let role: UserPermissions['role'] = 'overlord';
+let maxLevel = 62;
 const stub = (specifier: string, overrides?: Record<string, unknown>) =>
   jest.unstable_mockModule(specifier, stubModule(new URL(specifier, import.meta.url), overrides));
 
@@ -20,9 +22,9 @@ stub('../../../services/accountService.js', {
 stub('../../../services/permissionService.js', {
   getUserPermissions: async (accountName: string): Promise<UserPermissions> => ({
     accountName,
-    role: 'overlord',
-    immortalLevel: 62,
-    maxLevel: 62,
+    role,
+    immortalLevel: null,
+    maxLevel,
     canAccessImmortalForum: true,
     canAccessGodForum: true,
     guilds: [],
@@ -99,6 +101,37 @@ describe('composed admin router', () => {
     const failed = await request(app).delete('/api/admin/backup/failed').set('Cookie', cookie);
     expect(failed.status).toBe(200);
     expect(failed.body).toEqual(expect.objectContaining({ success: true, deletedCount: 2 }));
+    expect(deleteBackup).not.toHaveBeenCalled();
+  });
+
+  it('refuses a staff caller without admin grants on every guarded route', async () => {
+    // Overlord-only and permission-guarded routes must answer 403; these check level in the
+    // handler (god commands, level 60+) or are open to any signed-in account.
+    const levelOrAuthOnly = new Set([
+      'get /mud-boot-time',
+      'get /god/accounts/search',
+      'post /god/reset-password',
+    ]);
+    deleteFailedBackups.mockClear();
+    deleteBackup.mockClear();
+    role = 'forger';
+    maxLevel = 61;
+    try {
+      const cookie = `access_token=${generateAccessToken('Forger', 'f@example.invalid', 'sid')}`;
+      for (const [method, path] of routes(adminRouter)) {
+        const key = `${method} ${path}`;
+        if (PUBLIC.has(key) || levelOrAuthOnly.has(key)) continue;
+        const concrete = path.replace(/:(\w+)/g, '1');
+        const response = await request(app)
+          [method as 'get'](`/api/admin${concrete}`)
+          .set('Cookie', cookie);
+        expect([method, path, response.status]).toEqual([method, path, 403]);
+      }
+    } finally {
+      role = 'overlord';
+      maxLevel = 62;
+    }
+    expect(deleteFailedBackups).not.toHaveBeenCalled();
     expect(deleteBackup).not.toHaveBeenCalled();
   });
 });
