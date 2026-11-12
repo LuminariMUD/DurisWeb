@@ -128,18 +128,6 @@ describe('application socket dispatch', () => {
     expect(state(ws).wsPrincipal?.accountName).toBe('Fixture');
   });
 
-  it('subscribes to the WHO list only at level 57', async () => {
-    const ws = connect();
-    maxLevel = 56;
-    await send(ws, { type: 'SUBSCRIBE_WHOLIST', token: wsToken() });
-    expect(state(ws).wholistSubscribed).toBe(false);
-    await send(ws, { type: 'SUBSCRIBE_WHOLIST' });
-    expect(state(ws).wholistSubscribed).toBe(false);
-    maxLevel = 57;
-    await send(ws, { type: 'SUBSCRIBE_WHOLIST', token: wsToken() });
-    expect(state(ws).wholistSubscribed).toBe(true);
-  });
-
   it('requires terminal_access before creating a terminal', async () => {
     const ws = connect();
     const token = generateTerminalToken('Fixture', 'f@example.invalid', 'sid');

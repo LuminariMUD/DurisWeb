@@ -69,7 +69,6 @@ export function handleApplicationConnection(ws: WebSocket, request: IncomingMess
   state.lastReset = Date.now();
   state.logSubscriptions = new Map<string, (newLines: string[]) => void>();
   state.playerEventsSubscribed = false;
-  state.wholistSubscribed = false;
   void hydrateWebSocketPrincipal(ws, request.headers.cookie);
 
   // Handle incoming messages

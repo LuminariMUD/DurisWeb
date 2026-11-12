@@ -109,17 +109,16 @@ describe('application broadcasts', () => {
     expect(delivered(anonymous) || delivered(player)).toBe(false);
   });
 
-  it('requires a subscription plus health permission or level 57 for player events and wholist', () => {
-    const subscribed = { playerEventsSubscribed: true, wholistSubscribed: true };
+  it('requires a subscription plus health permission or level 57 for player events', () => {
+    const subscribed = { playerEventsSubscribed: true };
     const granted = socket('Granted', null, ['view_server_health'], subscribed);
     const levelled = socket('Levelled', 57, [], subscribed);
     const unsubscribed = socket('Quiet', 57, ['view_server_health']);
     const lowLevel = socket('Low', 56, [], subscribed);
     attach(granted, levelled, unsubscribed, lowLevel, socket(undefined, null, [], subscribed));
     broadcasts.broadcastPlayerEvent('PLAYER_LOGIN', {});
-    broadcasts.broadcastWholist('WHOLIST', []);
-    expect(granted.send).toHaveBeenCalledTimes(2);
-    expect(levelled.send).toHaveBeenCalledTimes(2);
+    expect(granted.send).toHaveBeenCalledTimes(1);
+    expect(levelled.send).toHaveBeenCalledTimes(1);
     expect(delivered(unsubscribed) || delivered(lowLevel)).toBe(false);
   });
 

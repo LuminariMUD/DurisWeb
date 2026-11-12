@@ -44,7 +44,6 @@ const deleteProgressCallbacks = ref<
 const mudOnlineCallbacks = ref<Array<(data: any) => void>>([])
 const mudCrashCallbacks = ref<Array<(data: any) => void>>([])
 const mudShutdownCallbacks = ref<Array<(data: any) => void>>([])
-const wholistCallbacks = ref<Array<(data: any) => void>>([])
 const playerLoginCallbacks = ref<Array<(data: any) => void>>([])
 const playerLogoutCallbacks = ref<Array<(data: any) => void>>([])
 
@@ -272,13 +271,6 @@ export function useWebSocket() {
           // Handle MUD shutdown
           if (message.type === 'MUD_SHUTDOWN' && message.data) {
             mudShutdownCallbacks.value.forEach((callback) => {
-              callback(message.data)
-            })
-          }
-
-          // Handle wholist update
-          if (message.type === 'WHOLIST' && message.data) {
-            wholistCallbacks.value.forEach((callback) => {
               callback(message.data)
             })
           }
@@ -540,17 +532,6 @@ export function useWebSocket() {
     }
   }
 
-  const onWholist = (callback: (data: any) => void) => {
-    wholistCallbacks.value.push(callback)
-  }
-
-  const offWholist = (callback: (data: any) => void) => {
-    const index = wholistCallbacks.value.indexOf(callback)
-    if (index > -1) {
-      wholistCallbacks.value.splice(index, 1)
-    }
-  }
-
   const onPlayerLogin = (callback: (data: any) => void) => {
     playerLoginCallbacks.value.push(callback)
   }
@@ -593,15 +574,6 @@ export function useWebSocket() {
 
   const unsubscribePlayerEvents = () => {
     sendMessage({ type: 'UNSUBSCRIBE_PLAYER_EVENTS' })
-  }
-
-  const subscribeWholist = async () => {
-    const token = await getAuthToken()
-    sendMessage({ type: 'SUBSCRIBE_WHOLIST', token })
-  }
-
-  const unsubscribeWholist = () => {
-    sendMessage({ type: 'UNSUBSCRIBE_WHOLIST' })
   }
 
   return {
@@ -649,15 +621,11 @@ export function useWebSocket() {
     offMudCrash,
     onMudShutdown,
     offMudShutdown,
-    onWholist,
-    offWholist,
     onPlayerLogin,
     offPlayerLogin,
     onPlayerLogout,
     offPlayerLogout,
     subscribePlayerEvents,
     unsubscribePlayerEvents,
-    subscribeWholist,
-    unsubscribeWholist,
   }
 }

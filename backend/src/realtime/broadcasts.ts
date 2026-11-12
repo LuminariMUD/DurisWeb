@@ -191,23 +191,6 @@ export function broadcastPlayerEvent(type: string, data: any) {
   logger.info(`[broadcastPlayerEvent] ${type} sent to ${sent} clients`);
 }
 
-// Broadcast wholist to subscribed clients only
-export function broadcastWholist(type: string, data: any) {
-  if (!wss) return;
-
-  const message = JSON.stringify({ type, data });
-
-  wss.clients.forEach((client) => {
-    if (
-      client.readyState === WebSocket.OPEN &&
-      clientState(client).wholistSubscribed &&
-      hasWebSocketPermission(getWebSocketPrincipal(client), 'view_server_health', 57)
-    ) {
-      sendApplicationMessage(client, message);
-    }
-  });
-}
-
 // Broadcast MUD control output to all connected WebSocket clients
 export function broadcastMudControlOutput(data: {
   operationId: string;

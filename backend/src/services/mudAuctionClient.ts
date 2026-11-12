@@ -97,7 +97,6 @@ let retriedWithPreviousSecret = false;
 let reconnectTimeout: NodeJS.Timeout | null = null;
 let broadcaster: AuctionBroadcaster | null = null;
 let playerEventBroadcaster: AuctionBroadcaster | null = null;
-let wholistBroadcaster: AuctionBroadcaster | null = null;
 let isShuttingDown = false;
 
 const RECONNECT_DELAY = 5000; // 5 seconds
@@ -555,12 +554,6 @@ async function handleWhoList(players: any[]): Promise<void> {
   }
 
   logger.info(`[MUD] wholist received: ${players.length} players online`);
-  if (wholistBroadcaster) {
-    wholistBroadcaster('WHOLIST', {
-      players: Array.from(onlinePlayers.values()),
-      counts: factionCounts,
-    });
-  }
 
   // broadcast MUD_ONLINE only after crash/shutdown/reboot, not on regular backend restart
   if (mudWasDown) {
@@ -755,13 +748,6 @@ export function setAuctionBroadcaster(fn: AuctionBroadcaster): void {
  */
 export function setPlayerEventBroadcaster(fn: AuctionBroadcaster): void {
   playerEventBroadcaster = fn;
-}
-
-/**
- * set the broadcaster function for wholist (subscribed clients only)
- */
-export function setWholistBroadcaster(fn: AuctionBroadcaster): void {
-  wholistBroadcaster = fn;
 }
 
 async function saveMudBootTime(uptimeSeconds: number): Promise<void> {
