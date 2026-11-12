@@ -107,27 +107,6 @@ export const profileApi = {
   },
 
   /**
-   * Get account name for a character
-   */
-  async getCharacterAccount(characterName: string): Promise<{ accountName: string }> {
-    const { data } = await api.get<{ accountName: string }>(
-      `/api/forum/characters/${encodeURIComponent(characterName)}/account`,
-    )
-    return data
-  },
-
-  /**
-   * Batch lookup account names for multiple characters
-   */
-  async getCharacterAccountsBatch(characterNames: string[]): Promise<Record<string, string>> {
-    const { data } = await api.post<Record<string, string>>(
-      '/api/forum/characters/batch/accounts',
-      { characterNames },
-    )
-    return data
-  },
-
-  /**
    * Upload own banner
    */
   async uploadBanner(file: File): Promise<{ bannerUrl: string }> {
@@ -168,14 +147,6 @@ export const profileApi = {
 
 // Character Profile API
 export const characterApi = {
-  /**
-   * Get character profile with stats
-   */
-  async getCharacterProfile(characterName: string): Promise<any> {
-    const { data } = await api.get(`/api/forum/characters/${characterName}/profile`)
-    return data
-  },
-
   /**
    * Get character's forum posts with pagination
    */

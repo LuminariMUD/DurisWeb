@@ -72,8 +72,9 @@ function getVisiblePages(current: number, total: number): (number | string)[] {
   return rangeWithDots
 }
 
-function goToUserProfile(accountName: string) {
-  router.push(`/user/${encodeURIComponent(accountName)}`)
+// Rows open the public character page; the owning account is never shown (issue #181).
+function goToCharacter(characterName: string) {
+  router.push({ name: 'character-profile', params: { characterName } })
 }
 </script>
 
@@ -112,7 +113,7 @@ function goToUserProfile(accountName: string) {
           v-for="gainer in paginatedData"
           :key="gainer.char_name"
           class="flex items-center justify-between p-2 rounded-lg hover:bg-accent cursor-pointer transition-colors"
-          @click="goToUserProfile(gainer.account_name)"
+          @click="goToCharacter(gainer.char_name)"
         >
           <div class="flex items-center gap-3">
             <div class="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">

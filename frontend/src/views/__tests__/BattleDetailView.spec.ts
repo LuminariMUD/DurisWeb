@@ -8,12 +8,10 @@ import { extractPlayerName } from '@/utils/pvpParticipant'
 const data = ref<BattleDetail>()
 const route = { params: { id: '1' }, query: {} as Record<string, string>, hash: '' }
 const replace = vi.fn()
-const accounts = vi.fn(async (names: string[]) =>
-  Object.fromEntries(names.map((name) => [name, 'fixture-account'])),
-)
+const push = vi.fn()
 vi.mock('vue-router', () => ({
   useRoute: () => route,
-  useRouter: () => ({ replace, push: vi.fn() }),
+  useRouter: () => ({ replace, push }),
 }))
 vi.mock('@/composables/usePvPEvents', () => ({
   useBattleDetail: () => ({ data, isLoading: ref(false), isError: ref(false), error: ref(null) }),
@@ -22,9 +20,6 @@ vi.mock('@/composables/useToast', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn() }),
 }))
 vi.mock('@/composables/useAuth', () => ({ useAuth: () => ({ permissions: ref(null) }) }))
-vi.mock('@/features/profile/api', () => ({
-  profileApi: { getCharacterAccountsBatch: (names: string[]) => accounts(names) },
-}))
 vi.mock('@/features/pvp/api', () => ({
   pvpApi: {
     getBattleStats: async () => ({
@@ -55,6 +50,7 @@ function participant(
     equip: '',
     inroom: true,
     leader: false,
+    character_exists: true,
     ...overrides,
   }
 }
@@ -109,7 +105,6 @@ describe('battle participants with incomplete historical snapshots', () => {
     expect(view.text()).toContain('No combat log was captured for this participant.')
     expect(view.text()).not.toContain('Select a participant to view their combat log')
     expect(view.text()).toContain('(Level 56)')
-    expect(accounts).toHaveBeenCalledWith(['Fixture', 'Other'])
     expect(view.findAllComponents(Select)[0]!.get('button').text()).toContain('Fixture')
     await view.get('button[title="View equipment"]').trigger('click')
     expect(view.text()).toContain('No equipment snapshot was captured for this participant.')
@@ -155,6 +150,25 @@ describe('battle participants with incomplete historical snapshots', () => {
     expect(view.text()).toContain('[56 Cleric] Other (Orc)')
     await view.get('button[title="View equipment"]').trigger('click')
     expect(view.text()).toContain('No equipment snapshot was captured for this participant.')
+  })
+})
+
+describe('participant character links', () => {
+  it('links live characters to their public page and strikes retired ones', async () => {
+    data.value!.participants[1] = participant(2, 'Other', {
+      pk_type: 'VICTIM',
+      character_exists: false,
+    })
+    const view = render()
+    await flushPromises()
+    const retired = view.findAll('span.line-through')
+    expect(retired.map((span) => span.text())).toEqual(['Other'])
+    await view.get('span.hover\\:underline').trigger('click')
+    expect(push).toHaveBeenCalledWith({
+      name: 'character-profile',
+      params: { characterName: 'Fixture' },
+    })
+    expect(view.html()).not.toContain('/user/')
   })
 })
 

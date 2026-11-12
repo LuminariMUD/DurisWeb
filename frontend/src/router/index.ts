@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { frontendConfiguration } from '@/config/environment'
 import { useAuth } from '@/composables/useAuth'
-import { profileApi } from '@/features/profile/api'
 import { wikiApi } from '@/features/wiki/api'
 
 declare module 'vue-router' {
@@ -545,6 +544,12 @@ const router = createRouter({
       meta: { requiresAuth: false },
     },
     {
+      path: '/character/:characterName',
+      name: 'character-profile',
+      component: () => import('../views/CharacterProfileView.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
       path: '/guild/:guildName',
       name: 'guild-profile',
       component: () => import('../views/GuildProfileView.vue'),
@@ -557,21 +562,6 @@ const router = createRouter({
 // Navigation guard for authentication
 router.beforeEach(async (to, from, next) => {
   const { isAuthenticated, isOverlord, permissions, loadUser, hasPermission } = useAuth()
-
-  // Redirect character routes to user profile
-  if (to.meta.redirectToUserProfile && to.params.characterName) {
-    try {
-      const { accountName } = await profileApi.getCharacterAccount(
-        to.params.characterName as string,
-      )
-      next({ name: 'user-profile', params: { accountName } })
-      return
-    } catch {
-      // If lookup fails, try using character name as account name
-      next({ name: 'user-profile', params: { accountName: to.params.characterName } })
-      return
-    }
-  }
 
   // Try to load user if not loaded yet (only on first navigation)
   if (!isAuthenticated.value && !to.meta.public) {

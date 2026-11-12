@@ -5,7 +5,6 @@ import { useBattleDetail } from '@/composables/usePvPEvents'
 import { format } from 'date-fns'
 import { parseAnsiForVue, stripAnsiCodes } from '@/utils/ansiParser'
 import { extractPlayerName } from '@/utils/pvpParticipant'
-import { profileApi } from '@/features/profile/api'
 import { pvpApi } from '@/features/pvp/api'
 import { adminApi } from '@/features/admin/api'
 import { useToast } from '@/composables/useToast'
@@ -25,7 +24,7 @@ import {
   Droplet,
   MessageSquare,
 } from '@lucide/vue'
-import type { PvPBattleStats, PvPBattleComment } from '@/types'
+import type { PvPBattleStats, PvPBattleComment, PvPParticipant } from '@/types'
 
 // Mobile tab state
 type MobileTab = 'log' | 'equipment' | 'comments'
@@ -58,55 +57,15 @@ async function postToDiscord() {
   }
 }
 
-// Track which characters exist (have accounts)
-const characterExists = ref<Map<string, boolean>>(new Map())
+// The battle payload flags participants whose character is still live (issue #181).
+const isCharacterDeleted = (p: PvPParticipant): boolean =>
+  !p.character_exists && extractPlayerName(p.player_description) !== null
 
-// Check if a character exists
-const isCharacterDeleted = (description: string): boolean => {
-  const charName = extractPlayerName(description)
-  if (!charName) return false
-  const exists = characterExists.value.get(charName.toLowerCase())
-  return exists === false // Only return true if explicitly false (checked and not found)
-}
+const isCharacterVerified = (p: PvPParticipant): boolean =>
+  p.character_exists && extractPlayerName(p.player_description) !== null
 
-// Check if character has been verified as existing
-const isCharacterVerified = (description: string): boolean => {
-  const charName = extractPlayerName(description)
-  if (!charName) return false
-  return characterExists.value.get(charName.toLowerCase()) === true
-}
-
-// Navigate to user profile by looking up account from character name
-const navigateToPlayer = async (characterName: string) => {
-  try {
-    const { accountName } = await profileApi.getCharacterAccount(characterName)
-    router.push({ name: 'user-profile', params: { accountName } })
-  } catch {
-    // Character not found - do nothing
-  }
-}
-
-// Check all characters when data loads (batch lookup)
-const checkCharacterAccounts = async () => {
-  if (!data.value?.participants) return
-
-  const charNames = new Set<string>()
-  for (const p of data.value.participants) {
-    const name = extractPlayerName(p.player_description)
-    if (name) charNames.add(name)
-  }
-
-  if (charNames.size === 0) return
-
-  try {
-    const accounts = await profileApi.getCharacterAccountsBatch(Array.from(charNames))
-    for (const charName of charNames) {
-      const exists = charName in accounts
-      characterExists.value.set(charName.toLowerCase(), exists)
-    }
-  } catch {
-    // on error, mark all as unknown (won't show deleted styling)
-  }
+const navigateToPlayer = (characterName: string) => {
+  router.push({ name: 'character-profile', params: { characterName } })
 }
 
 const eventId = computed(() => Number(route.params.id))
@@ -259,7 +218,6 @@ watch(
   (newData) => {
     if (newData) {
       autoSelectPov()
-      checkCharacterAccounts()
       loadBattleStats()
     }
   },
@@ -619,12 +577,12 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                   :class="killer.leader ? 'font-semibold' : ''"
                 >
                   <span
-                    v-if="isCharacterDeleted(killer.player_description)"
+                    v-if="isCharacterDeleted(killer)"
                     class="line-through decoration-danger"
                     v-html="parseAnsiForVue(killer.player_description)"
                   ></span>
                   <span
-                    v-else-if="isCharacterVerified(killer.player_description)"
+                    v-else-if="isCharacterVerified(killer)"
                     class="hover:underline cursor-pointer"
                     @click="navigateToPlayer(extractPlayerName(killer.player_description)!)"
                     v-html="parseAnsiForVue(killer.player_description)"
@@ -649,12 +607,12 @@ const navigateToQuote = async (comment: PvPBattleComment) => {
                   :class="victim.leader ? 'font-semibold' : ''"
                 >
                   <span
-                    v-if="isCharacterDeleted(victim.player_description)"
+                    v-if="isCharacterDeleted(victim)"
                     class="line-through decoration-danger"
                     v-html="parseAnsiForVue(victim.player_description)"
                   ></span>
                   <span
-                    v-else-if="isCharacterVerified(victim.player_description)"
+                    v-else-if="isCharacterVerified(victim)"
                     class="hover:underline cursor-pointer"
                     @click="navigateToPlayer(extractPlayerName(victim.player_description)!)"
                     v-html="parseAnsiForVue(victim.player_description)"

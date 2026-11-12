@@ -26,9 +26,9 @@ withDefaults(defineProps<Props>(), {
 
 const router = useRouter()
 
-function goToUserProfile(accountName: string) {
-  if (!accountName) return
-  router.push(`/user/${encodeURIComponent(accountName)}`)
+// Rows open the public character page; the owning account is never shown (issue #181).
+function goToCharacter(characterName: string) {
+  router.push({ name: 'character-profile', params: { characterName } })
 }
 
 function getRankBadge(rank: number) {
@@ -76,8 +76,8 @@ function getAlignmentColor(racewar: number) {
         <div
           v-for="entry in entries"
           :key="entry.char_name"
-          :class="['rounded-md border p-3 transition-colors', entry.account_name ? 'cursor-pointer hover:bg-accent' : '']"
-          @click="goToUserProfile(entry.account_name)"
+          class="rounded-md border p-3 transition-colors cursor-pointer hover:bg-accent"
+          @click="goToCharacter(entry.char_name)"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="flex items-center gap-2 min-w-0">
@@ -91,7 +91,6 @@ function getAlignmentColor(racewar: number) {
               </div>
               <div class="min-w-0">
                 <div class="font-medium truncate" v-html="parseAnsiToHtml(entry.char_name)"></div>
-                <div class="text-xs text-muted-foreground truncate">{{ entry.account_name }}</div>
               </div>
             </div>
             <Badge variant="secondary" class="font-mono text-sm flex-shrink-0">
@@ -146,8 +145,8 @@ function getAlignmentColor(racewar: number) {
             <TableRow
               v-for="entry in entries"
               :key="entry.char_name"
-              :class="['transition-colors', entry.account_name ? 'cursor-pointer hover:bg-accent' : '']"
-              @click="goToUserProfile(entry.account_name)"
+              class="transition-colors cursor-pointer hover:bg-accent"
+              @click="goToCharacter(entry.char_name)"
             >
               <!-- Rank -->
               <TableCell>
@@ -166,15 +165,10 @@ function getAlignmentColor(racewar: number) {
 
               <!-- Character Name -->
               <TableCell>
-                <div>
-                  <div
-                    class="font-medium"
-                    v-html="parseAnsiToHtml(entry.char_name)"
-                  ></div>
-                  <div class="text-xs text-muted-foreground">
-                    {{ entry.account_name }}
-                  </div>
-                </div>
+                <div
+                  class="font-medium"
+                  v-html="parseAnsiToHtml(entry.char_name)"
+                ></div>
               </TableCell>
 
               <!-- Frags -->

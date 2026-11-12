@@ -26,7 +26,6 @@ import {
 } from 'chart.js'
 import { format } from 'date-fns'
 import { parseAnsiForVue, stripAnsiCodes } from '@/utils/ansiParser'
-import { profileApi } from '@/features/profile/api'
 import { Trophy, Medal, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 
@@ -534,14 +533,9 @@ const handleMatchupClick = (killerClass: string, victimClass: string) => {
   })
 }
 
-// Navigate to user profile when clicking a player name
-const navigateToPlayer = async (playerName: string) => {
-  try {
-    const { accountName } = await profileApi.getCharacterAccount(playerName)
-    router.push({ name: 'user-profile', params: { accountName } })
-  } catch {
-    // Character not found - do nothing
-  }
+// Open the public character page when clicking a player name (issue #181).
+const navigateToPlayer = (playerName: string) => {
+  router.push({ name: 'character-profile', params: { characterName: playerName } })
 }
 </script>
 

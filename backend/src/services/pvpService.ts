@@ -389,7 +389,10 @@ export async function getPvPEventDetail(eventId: number): Promise<PvPEventDetail
       CASE WHEN (${publication}) = 'public' THEN p.log ELSE NULL END AS log,
       p.inroom,
       p.leader,
-      p.pid
+      p.pid,
+      EXISTS(
+        SELECT 1 FROM account_characters ac WHERE ac.pid = p.pid AND ac.deleted_at IS NULL
+      ) AS character_exists
     FROM pkill_event e
     LEFT JOIN pkill_info p ON e.id = p.event_id AND p.inroom = 1
     LEFT JOIN player_data pd ON p.pid = pd.pid
@@ -426,6 +429,7 @@ export async function getPvPEventDetail(eventId: number): Promise<PvPEventDetail
       log: row.log,
       inroom: row.inroom,
       leader: row.leader,
+      character_exists: Boolean(row.character_exists),
     }));
 
   return {

@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import BreadcrumbsNav from '@/components/layout/BreadcrumbsNav.vue'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
-import { guildApi, profileApi } from '@/features/profile/api'
+import { guildApi } from '@/features/profile/api'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -81,55 +81,13 @@ function navigateToThread(threadId: number) {
   router.push({ name: 'thread', params: { threadId: threadId.toString() } })
 }
 
-// Track which characters exist (have accounts)
-const characterExists = ref<Map<string, boolean>>(new Map())
+// The guild payload flags members whose character is still live (issue #181).
+const isCharacterDeleted = (member: { characterExists: boolean }): boolean =>
+  !member.characterExists
 
-// Check if a character is deleted
-const isCharacterDeleted = (charName: string): boolean => {
-  const exists = characterExists.value.get(charName.toLowerCase())
-  return exists === false
-}
-
-// Check if character has been verified as existing
-const isCharacterVerified = (charName: string): boolean => {
-  return characterExists.value.get(charName.toLowerCase()) === true
-}
-
-// Check all guild members when profile loads
-const checkMemberAccounts = async () => {
-  if (!profile.value?.members) return
-
-  for (const member of profile.value.members) {
-    const charName = member.name
-    if (characterExists.value.has(charName.toLowerCase())) continue
-    try {
-      await profileApi.getCharacterAccount(charName)
-      characterExists.value.set(charName.toLowerCase(), true)
-    } catch {
-      characterExists.value.set(charName.toLowerCase(), false)
-    }
-  }
-}
-
-// Watch for profile changes and check characters
-watch(
-  profile,
-  (newData) => {
-    if (newData) checkMemberAccounts()
-  },
-  { immediate: true },
-)
-
-async function navigateToUserProfile(characterName: string) {
-  // Don't navigate if character is deleted
-  if (characterExists.value.get(characterName.toLowerCase()) === false) return
-
-  try {
-    const { accountName } = await profileApi.getCharacterAccount(characterName)
-    router.push({ name: 'user-profile', params: { accountName } })
-  } catch {
-    // Character not found - do nothing
-  }
+function navigateToCharacter(member: { name: string; characterExists: boolean }) {
+  if (!member.characterExists) return
+  router.push({ name: 'character-profile', params: { characterName: member.name } })
 }
 
 // Watch for tab changes
@@ -259,20 +217,19 @@ onMounted(() => {
                   v-for="member in sortedMembers"
                   :key="member.pid"
                   class="flex items-center justify-between p-2 lg:p-3 rounded-lg transition-colors"
-                  :class="isCharacterDeleted(member.name) ? '' : 'hover:bg-accent/50 cursor-pointer'"
-                  @click="navigateToUserProfile(member.name)"
+                  :class="isCharacterDeleted(member) ? '' : 'hover:bg-accent/50 cursor-pointer'"
+                  @click="navigateToCharacter(member)"
                 >
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2 flex-wrap">
                       <p
-                        v-if="isCharacterDeleted(member.name)"
+                        v-if="isCharacterDeleted(member)"
                         class="text-sm lg:text-base font-medium line-through decoration-danger text-muted-foreground truncate"
                       >{{ member.name }}</p>
                       <p
-                        v-else-if="isCharacterVerified(member.name)"
+                        v-else
                         class="text-sm lg:text-base font-medium hover:underline truncate"
                       >{{ member.name }}</p>
-                      <p v-else class="text-sm lg:text-base font-medium truncate">{{ member.name }}</p>
                       <Badge v-if="!member.active" variant="outline" class="text-[10px] lg:text-xs">Inactive</Badge>
                     </div>
                     <p class="text-xs lg:text-sm text-muted-foreground">

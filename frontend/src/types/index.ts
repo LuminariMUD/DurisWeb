@@ -39,6 +39,8 @@ export interface PvPParticipant {
   log: string | null
   inroom: boolean
   leader: boolean
+  /** True while a live account link exists for this pid; never names the account. */
+  character_exists: boolean
 }
 
 // Battle Detail (event + all participants)
