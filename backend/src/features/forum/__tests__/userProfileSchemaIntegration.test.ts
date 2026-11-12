@@ -4,6 +4,33 @@ import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
 import express from 'express';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import request from 'supertest';
+import { stubModule } from '../../../test/stubModule.js';
+
+let nativeGuildName = '';
+const nativeGuild = () => ({
+  guildId: 1,
+  name: nativeGuildName,
+  racewar: 3,
+  frags: 0,
+  members: [],
+  rankTitles: {
+    enemy: 'Enemy',
+    onParole: 'On parole',
+    member: 'Member',
+    senior: 'Senior',
+    officer: 'Officer',
+    deputy: 'Deputy',
+    leader: 'Leader',
+    king: 'King',
+  },
+});
+jest.unstable_mockModule(
+  '../../../services/mudGuildParser.js',
+  stubModule(new URL('../../../services/mudGuildParser.js', import.meta.url), {
+    getAllGuilds: async () => (nativeGuildName ? [{ id: 'synthetic', name: nativeGuildName }] : []),
+    parseGuildFile: async () => (nativeGuildName ? nativeGuild() : null),
+  }),
+);
 
 const settings = { pvpDelayMinutes: 15, respectWebinfoToggle: false };
 jest.unstable_mockModule('../../../services/webSettingsService.js', () => ({
@@ -65,6 +92,7 @@ describe('user profile schema integration', () => {
   const secondCharacterName = `profile_b_${fixtureSuffix}`;
   let firstPid = 0;
   let secondPid = 0;
+  let accountCreated = false;
   const eventIds: number[] = [];
 
   beforeAll(async () => {
@@ -85,6 +113,7 @@ describe('user profile schema integration', () => {
     }
 
     await pool.query('INSERT INTO accounts (account_name) VALUES (?)', [accountName]);
+    accountCreated = true;
 
     const [firstPlayer] = await pool.query<ResultSetHeader>(
       `INSERT INTO player_data (
@@ -143,13 +172,23 @@ describe('user profile schema integration', () => {
   });
 
   afterAll(async () => {
-    await pool.query('DELETE FROM pkill_info WHERE pid IN (?, ?)', [firstPid, secondPid]);
-    if (eventIds.length) await pool.query('DELETE FROM pkill_event WHERE id IN (?)', [eventIds]);
-    await pool.query('DELETE FROM frag_leaderboard WHERE pid IN (?, ?)', [firstPid, secondPid]);
-    await pool.query('DELETE FROM account_characters WHERE account_name = ?', [accountName]);
-    await pool.query('DELETE FROM player_data WHERE pid IN (?, ?)', [firstPid, secondPid]);
-    await pool.query('DELETE FROM accounts WHERE account_name = ?', [accountName]);
-    await pool.end();
+    try {
+      if (eventIds.length) {
+        await pool.query('DELETE FROM pkill_info WHERE event_id IN (?)', [eventIds]);
+        await pool.query('DELETE FROM pkill_event WHERE id IN (?)', [eventIds]);
+      }
+      const playerIds = [firstPid, secondPid].filter((pid) => pid > 0);
+      if (playerIds.length)
+        await pool.query('DELETE FROM frag_leaderboard WHERE pid IN (?)', [playerIds]);
+      if (accountCreated)
+        await pool.query('DELETE FROM account_characters WHERE account_name = ?', [accountName]);
+      if (playerIds.length)
+        await pool.query('DELETE FROM player_data WHERE pid IN (?)', [playerIds]);
+      if (accountCreated)
+        await pool.query('DELETE FROM accounts WHERE account_name = ?', [accountName]);
+    } finally {
+      await pool.end();
+    }
   });
 
   it('filters character history and statistics until the delay expires', async () => {
@@ -165,6 +204,59 @@ describe('user profile schema integration', () => {
     expect(profile.stats.pvpDeaths).toBe(1);
     const characters = await getAccountCharacters(accountName);
     expect(characters.characters.find((c) => c.pid === firstPid)?.stats.deaths).toBe(1);
+  });
+
+  it('marks guild links live only when current positive pid and name both match', async () => {
+    const { getGuildProfile } = await import('../../../services/forumService.js');
+    const [next] = await pool.query<RowDataPacket[]>(
+      'SELECT COALESCE(MAX(id),0)+1 AS id FROM associations',
+    );
+    const associationId = Number(next[0].id);
+    const [original] = await pool.query<RowDataPacket[]>(
+      'SELECT pid,assoc_id FROM player_data WHERE pid IN (?,?)',
+      [firstPid, secondPid],
+    );
+    const differentName = `different_${fixtureSuffix}`;
+    nativeGuildName = `Synthetic guild ${fixtureSuffix}`;
+    let created = false;
+    try {
+      await pool.query('INSERT INTO associations (id,name) VALUES (?,?)', [
+        associationId,
+        nativeGuildName,
+      ]);
+      created = true;
+      await pool.query('UPDATE player_data SET assoc_id=? WHERE pid IN (?,?)', [
+        associationId,
+        firstPid,
+        secondPid,
+      ]);
+      await pool.query(
+        'UPDATE account_characters SET char_name=? WHERE account_name=? AND pid=? AND char_name=?',
+        [differentName, accountName, secondPid, secondCharacterName],
+      );
+      const profile = await getGuildProfile(nativeGuildName);
+      expect(
+        profile.members.map((member: { pid: number; characterExists: boolean }) => [
+          member.pid,
+          member.characterExists,
+        ]),
+      ).toEqual(
+        expect.arrayContaining([
+          [firstPid, true],
+          [secondPid, false],
+        ]),
+      );
+      expect(JSON.stringify(profile)).not.toContain(accountName);
+    } finally {
+      nativeGuildName = '';
+      await pool.query(
+        'UPDATE account_characters SET char_name=? WHERE account_name=? AND pid=? AND char_name=?',
+        [secondCharacterName, accountName, secondPid, differentName],
+      );
+      for (const row of original)
+        await pool.query('UPDATE player_data SET assoc_id=? WHERE pid=?', [row.assoc_id, row.pid]);
+      if (created) await pool.query('DELETE FROM associations WHERE id=?', [associationId]);
+    }
   });
 
   it('keeps independent aggregates while hiding character totals from public profiles', async () => {
