@@ -13,11 +13,11 @@ const APP = {
   message: 'Features and services must not import app.ts (docs/ARCHITECTURE.md).',
 };
 const RUNTIME = {
-  module: `${path.join(backendRoot, 'src/runtime')}/`,
+  module: `${path.join(backendRoot, 'src/runtime')}${path.sep}`,
   message: 'Features and services must not import runtime/ (docs/ARCHITECTURE.md).',
 };
 
-/** Report relative imports that resolve to a listed module; a trailing `/` lists a directory. */
+/** A trailing native path separator marks a directory of forbidden modules. */
 const noForbiddenImports = {
   meta: { type: 'problem', schema: [{ type: 'array' }] },
   create(context) {
@@ -29,8 +29,8 @@ const noForbiddenImports = {
       // A directory specifier loads its index module.
       const candidates = [resolved, path.join(resolved, 'index')];
       const target = targets.find(({ module }) =>
-        module.endsWith('/')
-          ? candidates.some((candidate) => `${candidate}/`.startsWith(module))
+        module.endsWith(path.sep)
+          ? candidates.some((candidate) => `${candidate}${path.sep}`.startsWith(module))
           : candidates.includes(module),
       );
       if (target) context.report({ node: node.source, message: target.message });
