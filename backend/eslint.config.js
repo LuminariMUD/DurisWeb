@@ -44,6 +44,94 @@ const noForbiddenImports = {
   },
 };
 
+/** Cover direct caught-error properties while preserving explicit public-error branches. */
+const noRawErrorResponse = {
+  meta: { type: 'problem', schema: [] },
+  create(context) {
+    const publicGuard = (test, name) => {
+      if (test?.type === 'LogicalExpression') {
+        const left = publicGuard(test.left, name);
+        const right = publicGuard(test.right, name);
+        return test.operator === '&&' ? left || right : left && right;
+      }
+      return (
+        (test?.type === 'CallExpression' &&
+          test.callee.name === 'isPublicError' &&
+          test.arguments[0]?.name === name) ||
+        (test?.type === 'BinaryExpression' &&
+          test.operator === 'instanceof' &&
+          test.left.name === name &&
+          test.right.type === 'Identifier' &&
+          ![
+            'Error',
+            'TypeError',
+            'RangeError',
+            'SyntaxError',
+            'ReferenceError',
+            'URIError',
+            'EvalError',
+            'AggregateError',
+          ].includes(test.right.name))
+      );
+    };
+    const unsafeProperty = (node) => {
+      if (
+        node.type !== 'MemberExpression' ||
+        !['message', 'stack'].includes(node.computed ? node.property.value : node.property.name)
+      )
+        return false;
+      let object = node.object;
+      while (['TSAsExpression', 'TSNonNullExpression', 'TSTypeAssertion'].includes(object.type))
+        object = object.expression;
+      if (object.type !== 'Identifier') return false;
+      let caught = false;
+      let child = node;
+      for (let parent = node.parent; parent; child = parent, parent = parent.parent) {
+        if (
+          (parent.type === 'IfStatement' || parent.type === 'ConditionalExpression') &&
+          child === parent.consequent &&
+          publicGuard(parent.test, object.name)
+        )
+          return false;
+        if (parent.type === 'CatchClause' && parent.param?.name === object.name) {
+          caught = true;
+          break;
+        }
+      }
+      return caught;
+    };
+    const rawProperty = (node) => {
+      if (!node || typeof node.type !== 'string') return undefined;
+      if (unsafeProperty(node)) return node;
+      for (const key of context.sourceCode.visitorKeys[node.type] ?? []) {
+        for (const child of Array.isArray(node[key]) ? node[key] : [node[key]]) {
+          const found = rawProperty(child);
+          if (found) return found;
+        }
+      }
+      return undefined;
+    };
+    return {
+      CallExpression(node) {
+        if (
+          node.callee.type !== 'MemberExpression' ||
+          !['json', 'send', 'write', 'end'].includes(node.callee.property.name)
+        )
+          return;
+        for (const arg of node.arguments) {
+          const found = rawProperty(arg);
+          if (found)
+            context.report({
+              node: found,
+              message:
+                'Do not send caught error properties; use a typed public error or sendRouteError.',
+            });
+        }
+      },
+    };
+  },
+};
+
 export default [
   {
     ignores: [
@@ -95,7 +183,14 @@ export default [
   {
     // Nothing imports the executable entry, however the relative specifier is spelled.
     files: ['src/**/*.ts', 'scripts/**/*.ts'],
-    plugins: { local: { rules: { 'no-forbidden-imports': noForbiddenImports } } },
+    plugins: {
+      local: {
+        rules: {
+          'no-forbidden-imports': noForbiddenImports,
+          'no-raw-error-response': noRawErrorResponse,
+        },
+      },
+    },
     rules: { 'local/no-forbidden-imports': ['error', [ENTRY]] },
   },
   {
@@ -111,6 +206,7 @@ export default [
     files: ['src/routes/**/*.ts', 'src/features/**/*.ts', 'src/realtime/**/*.ts'],
     ignores: ['**/__tests__/**'],
     rules: {
+      'local/no-raw-error-response': 'error',
       'no-restricted-syntax': [
         'error',
         {
@@ -122,7 +218,7 @@ export default [
           selector:
             "ConditionalExpression[test.operator='instanceof'][test.right.name='Error'] > MemberExpression.consequent[property.name='message']",
           message:
-            'Route code must not pick raw error text; use getErrorMessage for logs and sendRouteError for responses.',
+            'Route code must not pick raw error text; use allowlisted log codes and sendRouteError.',
         },
       ],
     },
