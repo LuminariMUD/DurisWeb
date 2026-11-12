@@ -211,6 +211,14 @@ and timestamp only. It carries no address. The existing connection-history API
 retains its permissioned address data; producer and broadcast failures log only
 fixed context and allowlisted codes, without driver SQL or bindings.
 
+### Guild navigation and activity
+
+Guild profile/activity path names are encoded once by the client and are already
+decoded by Express when handlers receive them. Literal percent sequences stay part
+of the name. The guild page accepts only the current guild/request result, resets
+history on navigation, and presents a failed activity page with a retry of that
+requested page. Activity cards target the registered forum-thread route.
+
 ## Website data hold records
 
 The separate [website data hold API](../runbooks/data-holds.md) at

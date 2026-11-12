@@ -16,6 +16,7 @@ for (const specifier of [
 const getCharacterPosts = jest.fn<typeof ForumService.getCharacterPosts>();
 const getCharacterPvPEvents = jest.fn<typeof ForumService.getCharacterPvPEvents>();
 const getGuildForumActivity = jest.fn<typeof ForumService.getGuildForumActivity>();
+const getGuildProfile = jest.fn<typeof ForumService.getGuildProfile>();
 const getUserPosts = jest.fn<typeof ForumService.getUserPosts>();
 const getUserThreads = jest.fn<typeof ForumService.getUserThreads>();
 const searchAccounts = jest.fn<typeof ForumService.searchAccounts>();
@@ -25,6 +26,7 @@ jest.unstable_mockModule(
     getCharacterPosts,
     getCharacterPvPEvents,
     getGuildForumActivity,
+    getGuildProfile,
     getUserPosts,
     getUserThreads,
     searchAccounts,
@@ -40,6 +42,7 @@ beforeEach(() => {
   getCharacterPosts.mockReset().mockResolvedValue({ posts: [], total: 0 });
   getCharacterPvPEvents.mockReset().mockResolvedValue({ events: [], total: 0 });
   getGuildForumActivity.mockReset().mockResolvedValue({ posts: [], total: 0 });
+  getGuildProfile.mockReset().mockResolvedValue({ name: 'Synthetic guild' });
   getUserPosts.mockReset().mockResolvedValue({ posts: [], total: 0 });
   getUserThreads.mockReset().mockResolvedValue({ threads: [], total: 0 });
   searchAccounts.mockReset().mockResolvedValue(['Player']);
@@ -63,6 +66,21 @@ describe.each([
     expect(response.status).toBe(200);
     expect(response.body.pagination).toMatchObject({ page, limit: limit ?? defaultLimit });
     expect(service.mock.calls[0]?.slice(1, 3)).toEqual([page, limit ?? defaultLimit]);
+  });
+});
+
+describe('guild path parameter decoding', () => {
+  it.each(
+    ['Guild%2FHeroes', 'Guild%Heroes'].flatMap((name) => [
+      { name, endpoint: 'profile', service: getGuildProfile },
+      { name, endpoint: 'activity', service: getGuildForumActivity },
+    ]),
+  )('passes the once-decoded name $name to $endpoint', async ({ name, endpoint, service }) => {
+    const response = await request(app).get(
+      '/api/forum/guilds/' + encodeURIComponent(name) + '/' + endpoint,
+    );
+    expect(response.status).toBe(200);
+    expect(service.mock.calls[0]?.[0]).toBe(name);
   });
 });
 
