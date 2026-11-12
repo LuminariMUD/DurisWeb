@@ -9,6 +9,7 @@ import { useTimers } from '@/composables/useTimers'
 import { useSiteConfig } from '@/composables/useSiteConfig'
 import { useAuth } from '@/composables/useAuth'
 import { buildDurisWebClientInfo } from '@/utils/duriswebAuth'
+import { buildMudCloseDiagnostic } from '@/utils/mudCloseDiagnostics'
 import type {
   MudClientCommand,
   MudServerMessage,
@@ -99,6 +100,22 @@ let copyoverReconnectAttempts = 0
 let copyoverFastPhaseEnd: number | null = null
 let copyoverReconnectTimeoutId: ReturnType<typeof setTimeout> | null = null
 
+// Activity timestamps for the active socket, summarized on close (issue #219).
+let socketOpenedAt: number | null = null
+let socketLastSentAt: number | null = null
+let socketLastReceivedAt: number | null = null
+let pageHiddenSince: number | null = null
+let visibilityTracked = false
+
+const trackPageVisibility = () => {
+  if (visibilityTracked || typeof document === 'undefined') return
+  visibilityTracked = true
+  pageHiddenSince = document.hidden ? Date.now() : null
+  document.addEventListener('visibilitychange', () => {
+    pageHiddenSince = document.hidden ? (pageHiddenSince ?? Date.now()) : null
+  })
+}
+
 /** Manages one browser MUD connection and its authentication lifecycle. */
 export function useMudConnection() {
   const store = useMudStore()
@@ -167,6 +184,10 @@ export function useMudConnection() {
 
     setConnecting(true)
     store.setConnectionState('connecting')
+    trackPageVisibility()
+    socketOpenedAt = null
+    socketLastSentAt = null
+    socketLastReceivedAt = null
 
     try {
       // Configuration failures use the same cleanup path as constructor failures.
@@ -178,6 +199,7 @@ export function useMudConnection() {
       newWs.onopen = async () => {
         if (getWsRef() !== newWs) return
         setConnecting(false)
+        socketOpenedAt = Date.now()
         // Don't set 'connected' yet - wait for welcome message from MUD
         reconnectAttempts.value = 0
 
@@ -210,6 +232,7 @@ export function useMudConnection() {
           const ws = getWsRef()
           if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'ping' }))
+            socketLastSentAt = Date.now()
           }
         }, PING_INTERVAL)
 
@@ -218,6 +241,7 @@ export function useMudConnection() {
 
       newWs.onmessage = (event) => {
         if (getWsRef() !== newWs) return
+        socketLastReceivedAt = Date.now()
         try {
           const message: MudServerMessage = JSON.parse(event.data)
           handleMessage(message)
@@ -241,6 +265,18 @@ export function useMudConnection() {
       newWs.onclose = (event) => {
         if (getWsRef() !== newWs) return
         console.log('[MUD] WebSocket closed', event.code, event.reason)
+        const closeDiagnostic = buildMudCloseDiagnostic({
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+          state: store.connectionState,
+          now: Date.now(),
+          openedAt: socketOpenedAt,
+          lastSentAt: socketLastSentAt,
+          lastReceivedAt: socketLastReceivedAt,
+          hiddenSince: pageHiddenSince,
+          online: typeof navigator === 'undefined' || navigator.onLine,
+        })
         pendingAuthCredentials = null
         setConnecting(false)
         setLoggingIn(false) // Clear login in progress flag
@@ -273,6 +309,7 @@ export function useMudConnection() {
 
         // Keep a server refusal (including the launch time) through its final close.
         store.setConnectionState('disconnected', store.connectionError ?? undefined)
+        store.setCloseDiagnostic(closeDiagnostic)
 
         // show reconnect dialog on any disconnect (clean or not)
         // this prevents auto-login from triggering when kicked by another session
@@ -566,6 +603,7 @@ export function useMudConnection() {
         break
       case 'logged_out':
         // Logged out - show reconnect dialog
+        store.setCloseDiagnostic(null)
         store.openReconnectDialog()
         store.setConnectionState('connected')
         store.clearAccount()
@@ -1001,6 +1039,7 @@ export function useMudConnection() {
     const ws = getWsRef()
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(command))
+      socketLastSentAt = Date.now()
       return true
     }
     return false
