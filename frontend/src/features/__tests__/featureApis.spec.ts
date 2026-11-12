@@ -24,9 +24,41 @@ function respond(data: unknown = {}) {
 
 describe('feature API modules on the shared client', () => {
   it('keeps every adminApi and builderApi method after splitting them by route group', () => {
-    // Counts of methods in the former single object literals (services/api.ts at 8a1986b).
+    // Counts of methods in the former single object literals (services/api.ts at 8a1986b),
+    // less getProcRequest and getMyProcRequests, which had no backend route (#182).
     expect(Object.keys(adminApi)).toHaveLength(53)
-    expect(Object.keys(builderApi)).toHaveLength(58)
+    expect(Object.keys(builderApi)).toHaveLength(56)
+  })
+
+  it('matches the builder collaboration routes, methods, params and response keys', async () => {
+    const procRequest = { id: 7 }
+    respond({ procRequest, procRequests: [procRequest], comment: { id: 9 } })
+
+    expect(await builderApi.createProcRequest('zone-a', {} as never)).toEqual(procRequest)
+    expect(await builderApi.updateProcRequest('zone-a', 7, { title: 'T' })).toEqual(procRequest)
+    expect(await builderApi.updateProcRequestStatus('zone-a', 7, 'completed')).toEqual(procRequest)
+    await builderApi.getProcRequests('zone-a', { entityType: 'mob', assignedTo: 'Cwial' })
+    await builderApi.updateZoneComment('zone-a', 9, { content: 'x' })
+    await builderApi.getZoneComments('zone-a', 7)
+    await builderApi.getBuilderNotifications({ isRead: false })
+
+    expect(seen.map((config) => [config.method, config.url, config.params])).toEqual([
+      ['post', '/api/builder/zones/zone-a/proc-requests', undefined],
+      ['put', '/api/builder/zones/zone-a/proc-requests/7', undefined],
+      ['put', '/api/builder/zones/zone-a/proc-requests/7/status', undefined],
+      [
+        'get',
+        '/api/builder/zones/zone-a/proc-requests',
+        { status: undefined, entity_type: 'mob', assigned_to: 'Cwial' },
+      ],
+      ['put', '/api/builder/zones/zone-a/comments/9', undefined],
+      ['get', '/api/builder/zones/zone-a/comments', { proc_request_id: '7' }],
+      [
+        'get',
+        '/api/builder/notifications',
+        { is_read: false, limit: undefined, offset: undefined },
+      ],
+    ])
   })
 
   it('encodes PvP query filters as before', async () => {
