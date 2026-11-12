@@ -26,7 +26,7 @@ fast-forward per PR, as the master ruleset requires linear history.
 | (a) | `branch/issue-183-a-startup-abort` | #208 | done, verified (backend 1,697 tests) |
 | (f) | `branch/issue-183-f-api-client-reads` | #209 | done, verified (frontend 765 tests) |
 | (e) | `branch/issue-183-e-import-rules` | #212 | done, verified (21/21 lint probes, real tree clean) |
-| (d) | `branch/issue-183-d-production-app-tests` | (opening) | done, verified (backend 1,699 tests) |
+| (d) | `branch/issue-183-d-production-app-tests` | #215 | done, verified (backend 1,699 tests) |
 
 Working notes for a new session:
 
