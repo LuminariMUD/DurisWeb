@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 import { WebSocket } from 'ws';
 import type { IncomingMessage } from 'node:http';
 import logger from '../utils/logger.js';
@@ -58,7 +59,7 @@ async function handleMessage(ws: WebSocket, message: string | Buffer): Promise<v
         : undefined;
     await handler?.(ws, data);
   } catch (error) {
-    logger.error('Error processing WebSocket message:', error);
+    logger.error('Error processing WebSocket message:', { code: safeFailureCode(error) });
   }
 }
 
@@ -86,7 +87,9 @@ export function handleApplicationConnection(ws: WebSocket, request: IncomingMess
       try {
         await step();
       } catch (error) {
-        logger.error('Application WebSocket close cleanup failed:', error);
+        logger.error('Application WebSocket close cleanup failed:', {
+          code: safeFailureCode(error),
+        });
       }
     }
   });

@@ -1,3 +1,4 @@
+import { safeFailureCode } from './safeFailureCode.js';
 import type { Server } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
 import logger from './logger.js';
@@ -45,7 +46,9 @@ export function createApplicationWebSocketServer(server: Server): WebSocketServe
 
   // ws re-emits the HTTP server's errors (EADDRINUSE on listen, for example); without a
   // listener that re-emit is an uncaught exception instead of a handled startup failure.
-  sockets.on('error', (error) => logger.error('Application WebSocket server error:', error));
+  sockets.on('error', (error) =>
+    logger.error('Application WebSocket server error:', { code: safeFailureCode(error) }),
+  );
 
   sockets.on('connection', (socket) => {
     alive.add(socket);

@@ -108,6 +108,19 @@ describe('password-change session teardown', () => {
     );
   });
 
+  it('revokes sockets even if terminal cleanup fails after the password is changed', async () => {
+    cleanupAccountSessions.mockRejectedValueOnce(new Error('fixture terminal storage failure'));
+    const response = await request(app)
+      .post('/api/auth/change-password')
+      .send({ currentPassword: 'old-password', newPassword: 'new-password' });
+    expect(response.status).toBe(500);
+    expect(revokeAllWebSessions).toHaveBeenCalledWith('Cwial');
+    expect(revokeSocketSessions).toHaveBeenCalledWith({ accountName: 'Cwial' });
+    expect(revokeSocketSessions.mock.invocationCallOrder[0]).toBeLessThan(
+      cleanupAccountSessions.mock.invocationCallOrder[0]!,
+    );
+  });
+
   it('logout ends only the current session and its open sockets', async () => {
     const response = await request(app).post('/api/auth/logout');
 

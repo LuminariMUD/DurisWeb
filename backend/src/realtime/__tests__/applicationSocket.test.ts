@@ -14,8 +14,12 @@ const watchLog = jest.fn((..._args: unknown[]) => true);
 const unwatchLog = jest.fn();
 const createSession = jest.fn(async (..._args: unknown[]) => ({ sessionId: 5 }));
 const destroySession = jest.fn(async (_sessionId: number) => undefined);
+const isTerminalOperationAuthorized = jest.fn<(...args: unknown[]) => Promise<boolean>>(
+  async () => false,
+);
 const deployToCommit = jest.fn(async () => undefined);
-const countZoneItems = jest.fn<typeof import('../../services/zoneBuilderStreamer.js').countZoneItems>();
+const countZoneItems =
+  jest.fn<typeof import('../../services/zoneBuilderStreamer.js').countZoneItems>();
 // Web sessions that are still active; revoking one simulates logout, reset or expiry.
 let activeSessions = new Set(['sid', 'sid2']);
 let sessionLookupFails = false;
@@ -24,7 +28,10 @@ const hasActiveWebSession = jest.fn(async (_account: string, sid?: string) =>
 );
 const getActiveWebSessionIds = jest.fn(async (_sessions: unknown) => {
   if (sessionLookupFails) throw new Error('Web session lookup failed');
-  return new Set(activeSessions);
+  const sessions = _sessions as Array<{ sessionId: string }>;
+  return new Set(
+    sessions.map(({ sessionId }) => sessionId).filter((sid) => activeSessions.has(sid)),
+  );
 });
 const getUserPermissions = jest.fn(
   async (accountName: string, _characters: unknown): Promise<UserPermissions> => ({
@@ -58,6 +65,7 @@ stub('../../services/logWatchService.js', { watchLog, unwatchLog });
 stub('../../services/terminalService.js', {
   createSession,
   destroySession,
+  isTerminalOperationAuthorized,
   getSessionByWebSocket: () => terminalSession,
 });
 stub('../../services/deploymentService.js', {
@@ -498,6 +506,10 @@ describe('application socket principal revalidation', () => {
     attachBroadcastServer({ clients } as never);
   });
   afterAll(() => detachBroadcastServer());
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
 
   it('stops log lines and privileged broadcasts once the subscribed session is revoked', async () => {
     const ws = connect();
@@ -581,6 +593,265 @@ describe('application socket principal revalidation', () => {
     await revalidateSockets();
     expect(destroySession).toHaveBeenCalledWith(5);
     expect(state(ws).terminalAuth).toBeUndefined();
+  });
+
+  it.each([false, true])(
+    'does not close a newer login after an old session lookup (failure=%s)',
+    async (failure) => {
+      const ws = connect();
+      await subscribeLog(ws);
+      let resolve!: (value: Set<string>) => void;
+      let reject!: (reason: Error) => void;
+      getActiveWebSessionIds.mockImplementationOnce(
+        () =>
+          new Promise<Set<string>>((yes, no) => {
+            resolve = yes;
+            reject = no;
+          }),
+      );
+      const pending = revalidateSockets();
+      await subscribeLog(ws, 'sid2');
+      const replacement = state(ws).wsPrincipal;
+      if (failure) reject(new Error('fixture private sql 192.0.2.1'));
+      else resolve(new Set(['sid']));
+      await pending;
+      expect(ws.close).not.toHaveBeenCalled();
+      expect(state(ws).wsPrincipal).toBe(replacement);
+    },
+  );
+
+  it.each([false, true])(
+    'never applies a late permission lookup to a newer login (failure=%s)',
+    async (failure) => {
+      const ws = connect();
+      await subscribeLog(ws);
+      const oldPermissions = state(ws).wsPrincipal!.permissions;
+      let resolve!: (value: UserPermissions) => void;
+      let reject!: (reason: Error) => void;
+      getUserPermissions.mockImplementationOnce(
+        () =>
+          new Promise<UserPermissions>((yes, no) => {
+            resolve = yes;
+            reject = no;
+          }),
+      );
+      const pending = revalidateSockets();
+      await flush();
+      grants = [];
+      maxLevel = 57;
+      await send(ws, { type: 'SUBSCRIBE_PLAYER_EVENTS', token: wsToken('sid2') });
+      const replacement = state(ws).wsPrincipal;
+      if (failure) reject(new Error('private account path 192.0.2.1'));
+      else resolve(oldPermissions);
+      await pending;
+      expect(ws.close).not.toHaveBeenCalled();
+      expect(state(ws).wsPrincipal).toBe(replacement);
+      expect(state(ws).wsPrincipal?.sessionId).toBe('sid2');
+      expect(state(ws).wsPrincipal?.permissions.adminPermissions).toEqual([]);
+    },
+  );
+
+  it('does not destroy a replacement terminal after its former owner lookup completes', async () => {
+    const ws = connect();
+    grants = ['terminal_access'];
+    await send(ws, {
+      type: 'TERMINAL_CONNECT',
+      token: generateTerminalToken('Fixture', 'f@example.invalid', 'sid'),
+    });
+    terminalSession = 5;
+    const denied = { ...(await getUserPermissions('Fixture', [])), adminPermissions: [] };
+    let release!: (value: UserPermissions) => void;
+    getUserPermissions.mockImplementationOnce(
+      () =>
+        new Promise<UserPermissions>((yes) => {
+          release = yes;
+        }),
+    );
+    const pending = revalidateSockets();
+    await flush();
+    createSession.mockResolvedValueOnce({ sessionId: 6 });
+    await send(ws, {
+      type: 'TERMINAL_CONNECT',
+      token: generateTerminalToken('Fixture', 'f@example.invalid', 'sid2'),
+    });
+    terminalSession = 6;
+    const replacement = state(ws).terminalAuth;
+    destroySession.mockClear();
+    release(denied);
+    await pending;
+    expect(destroySession).not.toHaveBeenCalled();
+    expect(state(ws).terminalAuth).toBe(replacement);
+  });
+
+  it('releases denied log watchers and sends scoped errors without reviving them on permission regain', async () => {
+    const ws = connect();
+    await send(ws, {
+      type: 'SUBSCRIBE_LOG',
+      token: wsToken(),
+      category: 'runtime',
+      logName: 'sys:log',
+    });
+    const callback = watchLog.mock.calls[0]?.[2];
+    grants = [];
+    await revalidateSockets();
+    expect(unwatchLog).toHaveBeenCalledWith('runtime', 'sys:log', callback);
+    expect(state(ws).logSubscriptions?.size).toBe(0);
+    expect(replies(ws)).toContainEqual({
+      type: 'ERROR',
+      category: 'runtime',
+      logName: 'sys:log',
+      message: 'Server log permission required',
+    });
+    grants = ['view_server_logs'];
+    await revalidateSockets();
+    expect(watchLog).toHaveBeenCalledTimes(1);
+    expect(ws.close).not.toHaveBeenCalled();
+  });
+
+  it.each(['sessions', 'permissions'])(
+    'bounds stalled %s checks, fences late completion and permits a later pass',
+    async (kind) => {
+      const ws = connect();
+      await subscribeLog(ws);
+      const principal = state(ws).wsPrincipal!;
+      let release!: () => void;
+      if (kind === 'sessions') {
+        getActiveWebSessionIds.mockImplementationOnce(
+          () =>
+            new Promise<Set<string>>((yes) => {
+              release = () => yes(new Set(['sid']));
+            }),
+        );
+      } else {
+        getUserPermissions.mockImplementationOnce(
+          () =>
+            new Promise<UserPermissions>((yes) => {
+              release = () => yes({ ...principal.permissions, adminPermissions: [] });
+            }),
+        );
+      }
+      jest.useFakeTimers({ doNotFake: ['setImmediate'] });
+      const pending = revalidateSockets();
+      await flush();
+      await jest.advanceTimersByTimeAsync(10_000);
+      let finished = false;
+      void pending.then(() => {
+        finished = true;
+      });
+      await flush();
+      try {
+        expect(finished).toBe(true);
+        expect(ws.close).toHaveBeenCalledWith(4401, 'Session ended');
+        const duringOutage = connect();
+        await subscribeLog(duringOutage, 'sid2');
+        const queries = getActiveWebSessionIds.mock.calls.length;
+        await Promise.all([revalidateSockets(), revalidateSockets()]);
+        expect(duringOutage.close).toHaveBeenCalledWith(4401, 'Session ended');
+        expect(getActiveWebSessionIds).toHaveBeenCalledTimes(queries);
+      } finally {
+        release();
+        await pending;
+      }
+      await flush();
+      expect(principal.permissions.adminPermissions).toContain('view_server_logs');
+      const next = connect();
+      await subscribeLog(next, 'sid2');
+      await revalidateSockets();
+      expect(next.close).not.toHaveBeenCalled();
+      jest.useRealTimers();
+    },
+  );
+
+  it('does not bind a subscription whose session ended during permission lookup', async () => {
+    const ws = connect();
+    const permissions = await getUserPermissions('Fixture', []);
+    let release!: (value: UserPermissions) => void;
+    getUserPermissions.mockImplementationOnce(
+      () =>
+        new Promise<UserPermissions>((yes) => {
+          release = yes;
+        }),
+    );
+    const pending = send(ws, {
+      type: 'SUBSCRIBE_LOG',
+      token: wsToken(),
+      category: 'runtime',
+      logName: 'syslog',
+    });
+    await flush();
+    activeSessions.delete('sid');
+    revokeSocketSessions({ accountName: 'Fixture', sessionId: 'sid' });
+    release(permissions);
+    await pending;
+    await flush();
+    expect(watchLog).not.toHaveBeenCalled();
+    expect(state(ws).wsPrincipal).toBeUndefined();
+  });
+
+  it('makes pending terminal creation visible to logout and never acknowledges it afterwards', async () => {
+    const ws = connect();
+    grants = ['terminal_access'];
+    let release!: (value: { sessionId: number }) => void;
+    createSession.mockImplementationOnce(
+      () =>
+        new Promise((yes) => {
+          release = yes;
+        }),
+    );
+    const pending = send(ws, {
+      type: 'TERMINAL_CONNECT',
+      token: generateTerminalToken('Fixture', 'f@example.invalid', 'sid'),
+    });
+    await flush();
+    expect(state(ws).terminalAuth?.webSessionId).toBe('sid');
+    activeSessions.delete('sid');
+    revokeSocketSessions({ accountName: 'Fixture', sessionId: 'sid' });
+    expect(ws.close).toHaveBeenCalledWith(4401, 'Session ended');
+    terminalSession = 9;
+    release({ sessionId: 9 });
+    await pending;
+    await flush();
+    expect(destroySession).toHaveBeenCalledWith(9);
+    expect(state(ws).terminalAuth).toBeUndefined();
+    expect(pushedTypes(ws)).not.toContain('TERMINAL_CONNECTED');
+  });
+
+  it('leaves a newer terminal alone when an old input authorization fails late', async () => {
+    const ws = connect();
+    terminalSession = 5;
+    state(ws).terminalAuth = { accountName: 'Fixture', webSessionId: 'sid' };
+    let release!: (value: boolean) => void;
+    isTerminalOperationAuthorized.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((yes) => {
+          release = yes;
+        }),
+    );
+    const pending = send(ws, { type: 'TERMINAL_INPUT', data: 'fixture' });
+    await flush();
+    const replacement = { accountName: 'Other', webSessionId: 'sid2' };
+    state(ws).terminalAuth = replacement;
+    terminalSession = 6;
+    release(false);
+    await pending;
+    expect(destroySession).not.toHaveBeenCalled();
+    expect(state(ws).terminalAuth).toBe(replacement);
+    expect(pushedTypes(ws)).not.toContain('TERMINAL_ERROR');
+  });
+
+  it('logs revalidation failures without raw SQL, paths or addresses', async () => {
+    const ws = connect();
+    await subscribeLog(ws);
+    const warn = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
+    getActiveWebSessionIds.mockRejectedValueOnce(
+      Object.assign(new Error('private SQL /accounts/private 192.0.2.1'), {
+        code: 'ER_ACCESS_DENIED_ERROR',
+      }),
+    );
+    await revalidateSockets();
+    expect(warn).toHaveBeenCalled();
+    expect(JSON.stringify(warn.mock.calls)).not.toMatch(/private SQL|\/accounts|192\.0\.2\.1/);
+    expect(JSON.stringify(warn.mock.calls)).toContain('ER_ACCESS_DENIED_ERROR');
   });
 
   it('computes permissions once per account and coalesces concurrent passes', async () => {

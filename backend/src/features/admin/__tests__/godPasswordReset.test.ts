@@ -127,6 +127,16 @@ describe('god password reset', () => {
     expect(response.body).toEqual({ error: 'Failed to reset password' });
   });
 
+  it('revokes sockets before a failed terminal cleanup can interrupt the reset', async () => {
+    cleanupAccountSessions.mockRejectedValueOnce(new Error('fixture terminal storage failure'));
+    const response = await reset('greater', 'mortal');
+    expect(response.status).toBe(500);
+    expect(revokeSocketSessions).toHaveBeenCalledWith({ accountName: 'Mortal' });
+    expect(revokeSocketSessions.mock.invocationCallOrder[0]).toBeLessThan(
+      cleanupAccountSessions.mock.invocationCallOrder[0]!,
+    );
+  });
+
   it('bounds account search results', async () => {
     const response = await request(app)
       .get('/api/admin/god/accounts/search?query=a&limit=100000')

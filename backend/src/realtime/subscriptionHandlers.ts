@@ -1,3 +1,4 @@
+import { WebSocket } from 'ws';
 import logger from '../utils/logger.js';
 import { clientState, type MessageHandler } from './clientState.js';
 import { verifyWebSocketAuth } from './socketAuth.js';
@@ -7,7 +8,7 @@ export const subscriptionHandlers: Record<string, MessageHandler> = {
   SUBSCRIBE_PLAYER_EVENTS: async (ws, data) => {
     logger.info('[WebSocket] SUBSCRIBE_PLAYER_EVENTS received');
     const principal = await verifyWebSocketAuth(data.token, 57);
-    if (!principal) {
+    if (!principal || ws.readyState !== WebSocket.OPEN) {
       logger.warn('[WebSocket] player events subscription auth failed');
       return;
     }

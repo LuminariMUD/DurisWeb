@@ -595,9 +595,15 @@ account's sockets, with close code `4401`; the client reconnects with whatever
 identity its cookie still holds. A role or permission change on the website
 re-checks open sockets at once. Every 60 seconds the backend also re-checks
 each socket that holds an identity or a terminal, so session expiry and
-MUD-side level changes take effect within a minute. A socket whose session is
+MUD-side level changes are checked on that cadence. A pass has a ten-second
+deadline; a stalled pass ends its captured sessions and never applies late
+results. Its unfinished I/O stays shared, and later passes fail closed without
+queuing more lookups until it settles. Identity changes during a check are
+owned by their newer authentication. A socket whose session is
 gone, or cannot be checked, is closed; one that lost a permission stops
-receiving the matching events, and a terminal whose owner lost
+receiving the matching events. Denied log watchers are removed and the viewer
+receives a scoped error instead of retaining a stale Live acknowledgement.
+A terminal whose owner lost
 `terminal_access` is ended.
 
 The application WebSocket is distinct from the backend's outbound

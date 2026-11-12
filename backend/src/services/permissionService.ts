@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 import { RowDataPacket } from 'mysql2';
 import { pool as db, mudPool } from '../db/connection.js';
 import type { MudAccountCharacter } from './accountService.js';
@@ -115,7 +116,7 @@ export async function getCharacterInfo(characterNames: string[]): Promise<Charac
 
     return result;
   } catch (error) {
-    logger.error('[Permissions] Error fetching character info:', error);
+    logger.error('[Permissions] Error fetching character info:', { code: safeFailureCode(error) });
     logger.error(`[Permissions] Requested characters: ${characterNames.join(', ')}`);
     // Re-throw to see the actual error instead of silently returning empty
     throw error;

@@ -1,3 +1,4 @@
+import logger from '../logger.js';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { once } from 'node:events';
 import { createServer, type Server } from 'node:http';
@@ -44,6 +45,7 @@ const fixtures: { server: Server; sockets: WebSocketServer; clients: WebSocket[]
 
 afterEach(async () => {
   jest.useRealTimers();
+  jest.restoreAllMocks();
   for (const fixture of fixtures.splice(0)) {
     for (const client of fixture.clients) client.terminate();
     for (const socket of fixture.sockets.clients) socket.terminate();
@@ -52,6 +54,18 @@ afterEach(async () => {
 });
 
 describe('application WebSocket transport bounds', () => {
+  it('reports server faults with a safe code instead of raw transport diagnostics', async () => {
+    const fixture = await gateway();
+    const log = jest.spyOn(logger, 'error').mockImplementation(() => logger);
+    fixture.sockets.emit(
+      'error',
+      Object.assign(new Error('private /server/path 192.0.2.1'), { code: 'EADDRINUSE' }),
+    );
+    expect(log.mock.calls).toEqual([
+      ['Application WebSocket server error:', { code: 'unclassified' }],
+    ]);
+  });
+
   it('accepts the exact byte bound and normal application/control traffic', async () => {
     const fixture = await gateway();
     const client = await fixture.connect();
