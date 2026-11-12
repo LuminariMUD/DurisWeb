@@ -36,8 +36,12 @@ stub('../../services/terminalService.js', { cleanupAllSessions: record('terminal
 stub('../../services/onlinePlayersService.js', {
   closeOnlinePlayersRedisConnections: record('presence redis'),
 });
+let watchdogGate: Promise<void> | undefined;
 stub('../../utils/eventLoopWatchdog.js', {
-  startEventLoopWatchdog: async () => record('watchdog'),
+  startEventLoopWatchdog: async () => {
+    await watchdogGate;
+    return record('watchdog');
+  },
 });
 stub('../backgroundJobs.js', {
   startBackgroundJobs: async () => {
@@ -155,6 +159,30 @@ describe('startup failure', () => {
       'database',
       'redis',
     ]);
+  });
+});
+
+describe('shutdown during startup', () => {
+  it('releases a late watchdog and acquires nothing else', async () => {
+    let release = () => {};
+    watchdogGate = new Promise((resolve) => {
+      release = resolve;
+    });
+    try {
+      const resources: Resources = {};
+      const starting = startServer(express(), resources);
+      await createShutdown(resources)();
+      expect(events).not.toContain('watchdog');
+
+      release();
+      await expect(starting).rejects.toThrow('Startup stopped by shutdown');
+      expect(events.at(-1)).toBe('watchdog');
+      expect(events).not.toContain('start flatfile monitor');
+      expect(resources.server).toBeUndefined();
+      expect(resources.jobs).toBeUndefined();
+    } finally {
+      watchdogGate = undefined;
+    }
   });
 });
 

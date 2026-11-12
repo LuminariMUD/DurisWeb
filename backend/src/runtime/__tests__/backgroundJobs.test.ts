@@ -28,7 +28,8 @@ stub('../../services/serverHealthService.js', {
   stopHealthMonitoring: note('stop health'),
   updateWebSocketCount: () => undefined,
 });
-stub('../../utils/geoip.js', { initializeGeoIP: async () => undefined });
+let geoipGate: Promise<void> | undefined;
+stub('../../utils/geoip.js', { initializeGeoIP: async () => geoipGate });
 stub('../../services/backupService.js', {
   setProgressBroadcaster: () => undefined,
   startHourlyBackupScheduler: note('start backup cron'),
@@ -75,16 +76,24 @@ describe('background jobs', () => {
     const intervals = () => created.mock.results.map((result) => result.value);
     try {
       let jobs: Jobs | undefined;
-      await startBackgroundJobs(wss, (handle) => {
-        jobs = handle;
-      });
+      await startBackgroundJobs(
+        wss,
+        (handle) => {
+          jobs = handle;
+        },
+        () => undefined,
+      );
       // PvP events, frags, Discord delivery, socket count, orphan-image cleanup.
       expect(created.mock.calls.map(([, delay]) => delay)).toEqual([
         15_000, 15_000, 15_000, 10_000, 3_600_000,
       ]);
-      await expect(startBackgroundJobs(wss, () => undefined)).rejects.toThrow(
-        'Background jobs are already started',
-      );
+      await expect(
+        startBackgroundJobs(
+          wss,
+          () => undefined,
+          () => undefined,
+        ),
+      ).rejects.toThrow('Background jobs are already started');
       expect(created).toHaveBeenCalledTimes(5);
       expect(calls.filter((call) => call === 'start health')).toHaveLength(1);
 
@@ -103,9 +112,13 @@ describe('background jobs', () => {
       // Fully stopped jobs may be started again by a later startup.
       created.mockClear();
       cleared.mockClear();
-      await startBackgroundJobs(wss, (handle) => {
-        jobs = handle;
-      });
+      await startBackgroundJobs(
+        wss,
+        (handle) => {
+          jobs = handle;
+        },
+        () => undefined,
+      );
       await jobs?.stopProducers();
       await jobs?.stopWorkers();
       expect(cleared.mock.calls.map(([interval]) => interval)).toEqual(intervals());
@@ -113,6 +126,46 @@ describe('background jobs', () => {
       created.mockRestore();
       cleared.mockRestore();
       jest.useRealTimers();
+    }
+  });
+
+  it('starts nothing more once shutdown has stopped the producers mid-startup', async () => {
+    let release = () => {};
+    geoipGate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const cleared = jest.spyOn(global, 'clearInterval');
+    let aborted = false;
+    let jobs: Jobs | undefined;
+    try {
+      calls.length = 0;
+      const starting = startBackgroundJobs(
+        wss,
+        (handle) => {
+          jobs = handle;
+        },
+        () => {
+          if (aborted) throw new Error('Startup stopped by shutdown');
+        },
+      );
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(calls).toContain('start health');
+
+      // A signal arrives while GeoIP is still loading.
+      aborted = true;
+      await jobs?.stopProducers();
+      expect(cleared).toHaveBeenCalledTimes(4);
+      release();
+
+      await expect(starting).rejects.toThrow('Startup stopped by shutdown');
+      expect(calls).toContain('stop health');
+      expect(calls).not.toContain('start backup cron');
+      expect(calls).not.toContain('start auction');
+      expect(calls).not.toContain('start hook audit');
+      await jobs?.stopWorkers();
+    } finally {
+      geoipGate = undefined;
+      cleared.mockRestore();
     }
   });
 });
