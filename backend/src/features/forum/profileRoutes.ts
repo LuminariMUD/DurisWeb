@@ -637,7 +637,7 @@ forumProfileRoutes.get('/characters/:characterName/pvp', async (req: Request, re
 forumProfileRoutes.get('/guilds/:guildName/profile', async (req: Request, res: Response) => {
   try {
     const { guildName } = req.params;
-    const profile = await getGuildProfile(decodeURIComponent(guildName));
+    const profile = await getGuildProfile(guildName);
 
     if (!profile) {
       return res.status(404).json({ error: 'Guild not found' });
@@ -661,12 +661,7 @@ forumProfileRoutes.get('/guilds/:guildName/activity', async (req: Request, res: 
     );
 
     const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
-    const result = await getGuildForumActivity(
-      decodeURIComponent(guildName),
-      page,
-      limit,
-      permissions,
-    );
+    const result = await getGuildForumActivity(guildName, page, limit, permissions);
 
     return res.json({
       posts: result.posts,
