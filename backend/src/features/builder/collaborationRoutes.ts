@@ -1,6 +1,6 @@
 import { Router, Request, Response, type IRouter } from 'express';
 import logger, { getErrorMessage } from '../../utils/logger.js';
-import { validateIdParam } from '../../utils/validation.js';
+import { validateIdParam, validateStringField } from '../../utils/validation.js';
 import { getZoneName } from '../../services/zoneBuilderParser.js';
 import procRequestService from '../../services/procRequestService.js';
 import zoneCommentService from '../../services/zoneCommentService.js';
@@ -14,6 +14,10 @@ import type {
 import { validateOptionalHtml, logBuilderActivity, canAccessZone } from './shared.js';
 
 export const builderCollaborationRoutes: IRouter = Router();
+
+function validateAssignee(value: unknown): string | null {
+  return value === null ? null : validateStringField(value, 'Assigned account', 50);
+}
 
 // ========== Builder Notifications ==========
 
@@ -235,6 +239,11 @@ builderCollaborationRoutes.put(
       }
 
       let processedDescriptionHtml: string | undefined;
+      const assigneeError = validateAssignee(req.body.assignedTo);
+      if (assigneeError) {
+        res.status(400).json({ error: assigneeError });
+        return;
+      }
       if (req.body.descriptionHtml !== undefined) {
         const result = validateOptionalHtml(req.body.descriptionHtml);
         if ('error' in result) {
@@ -315,6 +324,11 @@ builderCollaborationRoutes.put(
       }
 
       const { status, assignedTo } = req.body;
+      const assigneeError = validateAssignee(assignedTo);
+      if (assigneeError) {
+        res.status(400).json({ error: assigneeError });
+        return;
+      }
 
       const validStatuses: ProcRequestStatus[] = [
         'requested',

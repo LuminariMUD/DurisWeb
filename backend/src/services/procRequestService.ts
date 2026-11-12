@@ -233,10 +233,13 @@ export async function updateProcRequest(
   updates.push('updated_at = NOW()');
   params.push(id, zoneId);
 
-  await db.query(
+  const [result] = await db.query<ResultSetHeader>(
     `UPDATE builder_proc_requests SET ${updates.join(', ')} WHERE id = ? AND zone_id = ?`,
     params,
   );
+  if (result.affectedRows === 0) {
+    return null;
+  }
 
   // Create notifications for assignment and status changes
   if (updatedBy) {
@@ -305,16 +308,27 @@ export async function updateProcRequestStatus(
  * Delete a proc request; returns false when the ID is missing or belongs to another zone
  */
 export async function deleteProcRequest(zoneId: string, id: number): Promise<boolean> {
-  const [result] = await db.query<ResultSetHeader>(
-    `DELETE FROM builder_proc_requests WHERE id = ? AND zone_id = ?`,
-    [id, zoneId],
-  );
-  if (result.affectedRows === 0) {
-    return false;
-  }
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [result] = await connection.query<ResultSetHeader>(
+      `DELETE FROM builder_proc_requests WHERE id = ? AND zone_id = ?`,
+      [id, zoneId],
+    );
+    if (result.affectedRows === 0) {
+      await connection.rollback();
+      return false;
+    }
 
-  await deleteMentions('proc_request', id);
-  return true;
+    await deleteMentions('proc_request', id, connection);
+    await connection.commit();
+    return true;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 /**

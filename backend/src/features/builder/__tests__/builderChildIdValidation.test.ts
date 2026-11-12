@@ -232,4 +232,34 @@ describe('builder child-resource ID validation', () => {
       expect.anything(),
     );
   });
+
+  it.each([7, true, {}, [], 'x'.repeat(51)])(
+    'rejects malformed assignees before either mutation service: %p',
+    async (assignedTo) => {
+      const update = await request(app)
+        .put('/api/builder/zones/zone-a/proc-requests/12')
+        .send({ assignedTo });
+      const status = await request(app)
+        .put('/api/builder/zones/zone-a/proc-requests/12/status')
+        .send({ status: 'assigned', assignedTo });
+
+      expect([update.status, status.status]).toEqual([400, 400]);
+      expect(procRequestService.updateProcRequest).not.toHaveBeenCalled();
+      expect(procRequestService.updateProcRequestStatus).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([null, 'Someone'])('preserves assignment and unassignment: %p', async (assignedTo) => {
+    procRequestService.updateProcRequest.mockResolvedValueOnce({ id: 12, title: 'T' });
+    procRequestService.updateProcRequestStatus.mockResolvedValueOnce({ id: 12 });
+    const update = await request(app)
+      .put('/api/builder/zones/zone-a/proc-requests/12')
+      .send({ assignedTo });
+    const status = await request(app)
+      .put('/api/builder/zones/zone-a/proc-requests/12/status')
+      .send({ status: 'assigned', assignedTo });
+    expect([update.status, status.status]).toEqual([200, 200]);
+    expect(procRequestService.updateProcRequest.mock.calls[0][2]).toEqual({ assignedTo });
+    expect(procRequestService.updateProcRequestStatus.mock.calls[0][3]).toBe(assignedTo);
+  });
 });

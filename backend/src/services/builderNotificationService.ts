@@ -1,4 +1,5 @@
 import { pool as db } from '../db/connection.js';
+import type { PoolConnection } from 'mysql2/promise';
 import * as notificationService from './unifiedNotificationService.js';
 
 // ============================================================================
@@ -175,8 +176,12 @@ export async function createMentions(
 /**
  * Delete mentions for an entity (when entity is deleted)
  */
-export async function deleteMentions(entityType: string, entityId: number): Promise<void> {
-  await db.query(`DELETE FROM builder_mentions WHERE entity_type = ? AND entity_id = ?`, [
+export async function deleteMentions(
+  entityType: string,
+  entityId: number,
+  connection: Pick<PoolConnection, 'query'> = db,
+): Promise<void> {
+  await connection.query(`DELETE FROM builder_mentions WHERE entity_type = ? AND entity_id = ?`, [
     entityType,
     entityId,
   ]);
