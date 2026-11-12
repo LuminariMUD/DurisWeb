@@ -4,6 +4,7 @@ import { createNotification } from '../../services/unifiedNotificationService.js
 import { processContentForWrite } from '../../utils/contentParser.js';
 import { parsePagination } from '../../utils/validation.js';
 import logger from '../../utils/logger.js';
+import { AppError } from '../../middleware/errorHandler.js';
 
 export interface ChangelogEntry {
   id: number;
@@ -35,7 +36,7 @@ interface ChangelogPublicationRow extends RowDataPacket {
 function sanitizeChangelogContent(content: string): string {
   const processed = processContentForWrite(content);
   if (processed.error) {
-    throw new Error(processed.error);
+    throw new AppError(processed.error, 400);
   }
   return processed.content;
 }

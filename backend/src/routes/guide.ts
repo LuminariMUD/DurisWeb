@@ -1,8 +1,8 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import { pool } from '../db/connection.js';
-import { getErrorMessage } from '../utils/logger.js';
 import { validateIdParam } from '../utils/validation.js';
 import type { RowDataPacket } from 'mysql2';
+import { sendRouteError } from '../utils/routeError.js';
 
 const router: ExpressRouter = Router();
 
@@ -58,7 +58,7 @@ router.get('/categories', async (_req, res) => {
 
     res.json({ categories });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to load guide categories', 'Guide categories failed');
   }
 });
 
@@ -92,7 +92,7 @@ router.get('/help/search', async (req, res) => {
 
     return res.json({ results });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to search help', 'Help search failed');
   }
 });
 
@@ -127,7 +127,7 @@ router.get('/help/:id', async (req, res) => {
       last_update_by: page.last_update_by,
     });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to load help entry', 'Get help entry failed');
   }
 });
 
@@ -205,7 +205,7 @@ router.get('/help', async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to load help entries', 'List help entries failed');
   }
 });
 

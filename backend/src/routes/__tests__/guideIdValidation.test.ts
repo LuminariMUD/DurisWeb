@@ -8,6 +8,7 @@ jest.unstable_mockModule('../../db/connection.js', () => ({
   pool: { query },
 }));
 jest.unstable_mockModule('../../utils/logger.js', () => ({
+  default: { error: () => undefined, warn: () => undefined, info: () => undefined },
   getErrorMessage: (error: unknown) => String(error),
 }));
 

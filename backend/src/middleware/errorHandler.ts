@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Request, Response, NextFunction } from 'express';
 import { getBackendConfiguration } from '../config/environment.js';
 import logger from '../utils/logger.js';
@@ -7,6 +8,8 @@ const environment = getBackendConfiguration();
 export interface ApiError extends Error {
   statusCode?: number;
   isOperational?: boolean;
+  /** Set by http-errors (body-parser) when the message is safe to show. */
+  expose?: boolean;
 }
 
 /**
@@ -34,22 +37,28 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
+  // Only typed public errors and http-errors client errors (body-parser 400/413) carry text
+  // written for the caller; anything else is internal and must not reach the response (#176).
+  const requested = err.statusCode || 0;
+  const isPublic =
+    requested >= 400 && requested < 500 && (err instanceof AppError || err.expose === true);
+  const statusCode = isPublic ? requested : 500;
+  const message = isPublic ? err.message : 'Internal Server Error';
+  const reference = isPublic ? undefined : randomUUID();
 
-  // Log error details
-  logger.error(`Error ${statusCode}: ${message}`, {
+  logger.error(`Error ${statusCode}: ${err.message || 'Internal Server Error'}`, {
+    reference,
     url: req.url,
     method: req.method,
     stack: environment.environment === 'development' ? err.stack : undefined,
   });
 
-  // Send error response
   res.status(statusCode).json({
     success: false,
     error: {
       message,
       statusCode,
+      ...(reference && { reference }),
       ...(environment.environment === 'development' && {
         stack: err.stack,
       }),

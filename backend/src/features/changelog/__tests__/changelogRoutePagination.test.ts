@@ -60,6 +60,7 @@ jest.unstable_mockModule('../service.js', () => ({
   getAllChangelogEntriesForAdmin: adminList,
 }));
 jest.unstable_mockModule('../../../utils/logger.js', () => ({
+  default: { error: () => undefined, warn: () => undefined, info: () => undefined },
   getErrorMessage: () => 'Unexpected fixture failure',
 }));
 let app: express.Express;

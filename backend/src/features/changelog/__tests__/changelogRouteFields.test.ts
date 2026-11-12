@@ -27,6 +27,7 @@ jest.unstable_mockModule('../service.js', () => ({
   notifyChangelogPublished: jest.fn(),
 }));
 jest.unstable_mockModule('../../../utils/logger.js', () => ({
+  default: { error: () => undefined, warn: () => undefined, info: () => undefined },
   getErrorMessage: (error: unknown) => String(error),
 }));
 
