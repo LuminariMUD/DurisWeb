@@ -1,5 +1,4 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger from '../../utils/logger.js';
 import zoneInfoService from '../../services/zoneInfoService.js';
 import { searchAccounts } from '../../services/accountService.js';
 import type { ZonePermissionLevel } from '../../types/builder.js';
@@ -50,7 +49,6 @@ builderAccessRoutes.get('/zones/:id/access', async (req: Request, res: Response)
 
     res.json({ canView, canEdit, canManage, permissionLevel });
   } catch (error) {
-    logger.error('Error checking zone access:', error);
     sendRouteError(res, error, 'Failed to check access', 'Failed to check access');
   }
 });
@@ -78,7 +76,6 @@ builderAccessRoutes.get('/accessible-zones', async (req: Request, res: Response)
     const zoneIds = await zoneInfoService.getAccessibleZoneIds(accountName);
     res.json({ zoneIds });
   } catch (error) {
-    logger.error('Error getting accessible zones:', error);
     sendRouteError(res, error, 'Failed to get accessible zones', 'Failed to get accessible zones');
   }
 });
@@ -99,7 +96,6 @@ builderAccessRoutes.get('/zones/:id/info', async (req: Request, res: Response) =
     const info = await zoneInfoService.getZoneInfo(zoneId);
     res.json({ info });
   } catch (error) {
-    logger.error('Error getting zone info:', error);
     sendRouteError(res, error, 'Failed to get zone info', 'Failed to get zone info');
   }
 });
@@ -152,7 +148,6 @@ builderAccessRoutes.put('/zones/:id/info', async (req: Request, res: Response) =
 
     res.json({ info });
   } catch (error) {
-    logger.error('Error updating zone info:', error);
     sendRouteError(res, error, 'Failed to update zone info', 'Failed to update zone info');
   }
 });
@@ -174,7 +169,6 @@ builderAccessRoutes.get('/zones/:id/info/history', async (req: Request, res: Res
     const result = await zoneInfoService.getZoneInfoHistory(zoneId, limit, offset);
     res.json(result);
   } catch (error) {
-    logger.error('Error getting zone info history:', error);
     sendRouteError(res, error, 'Failed to get history', 'Failed to get history');
   }
 });
@@ -200,7 +194,6 @@ builderAccessRoutes.get('/zones/:id/permissions', async (req: Request, res: Resp
       ownerAccount: info?.ownerAccount ?? null,
     });
   } catch (error) {
-    logger.error('Error getting zone permissions:', error);
     sendRouteError(res, error, 'Failed to get zone permissions', 'Failed to get zone permissions');
   }
 });
@@ -259,7 +252,6 @@ builderAccessRoutes.post('/zones/:id/permissions', async (req: Request, res: Res
 
     res.json({ success: true });
   } catch (error) {
-    logger.error('Error granting zone permission:', error);
     sendRouteError(res, error, 'Failed to grant permission', 'Failed to grant permission');
   }
 });
@@ -313,7 +305,6 @@ builderAccessRoutes.delete(
 
       res.json({ success: true });
     } catch (error) {
-      logger.error('Error revoking zone permission:', error);
       sendRouteError(res, error, 'Failed to revoke permission', 'Failed to revoke permission');
     }
   },
@@ -332,7 +323,6 @@ builderAccessRoutes.get('/accounts/search', async (req: Request, res: Response) 
     const accounts = await searchAccounts(query, limit);
     res.json({ accounts });
   } catch (error) {
-    logger.error('Error searching accounts:', error);
     sendRouteError(res, error, 'Failed to search accounts', 'Failed to search accounts');
   }
 });

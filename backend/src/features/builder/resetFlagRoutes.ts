@@ -1,5 +1,4 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger from '../../utils/logger.js';
 import { pool } from '../../db/connection.js';
 import { writeZoneResets } from '../../services/zoneBuilderWriter.js';
 import { MudFlagParser } from '../../services/mudFlagParser.js';
@@ -68,7 +67,6 @@ builderResetFlagRoutes.put('/zones/:id/resets', async (req: Request, res: Respon
       resetCount: resets.length,
     });
   } catch (error) {
-    logger.error('Error saving resets:', error);
     sendRouteError(res, error, 'Failed to save resets', 'Failed to save resets');
   }
 });
@@ -162,7 +160,6 @@ builderResetFlagRoutes.get('/flags', async (_req: Request, res: Response) => {
 
     res.json(response);
   } catch (error) {
-    logger.error('Error fetching flags:', error);
     sendRouteError(res, error, 'Failed to fetch flags', 'Failed to fetch flags');
   }
 });
@@ -289,7 +286,6 @@ builderResetFlagRoutes.post('/flags/sync', async (req: Request, res: Response) =
       },
     });
   } catch (error) {
-    logger.error('Error syncing flags:', error);
     sendRouteError(res, error, 'Failed to sync flags', 'Failed to sync flags');
   }
 });
@@ -312,7 +308,6 @@ builderResetFlagRoutes.get('/flags/categories', async (_req: Request, res: Respo
       })),
     );
   } catch (error) {
-    logger.error('Error fetching flag categories:', error);
     sendRouteError(res, error, 'Failed to fetch categories', 'Failed to fetch categories');
   }
 });

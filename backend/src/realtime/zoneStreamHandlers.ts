@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 import { WebSocket } from 'ws';
 import logger from '../utils/logger.js';
 import {
@@ -13,6 +14,7 @@ import { sendApplicationMessage } from '../utils/applicationWebSocket.js';
 import type { MessageHandler } from './clientState.js';
 import { authorizeZoneStream } from './socketAuth.js';
 import { isPublicError } from '../utils/routeError.js';
+import { randomUUID } from 'node:crypto';
 
 const wsStreamLimiter = new WebSocketStreamLimiter<WebSocket>(2);
 
@@ -123,7 +125,8 @@ export const zoneStreamHandlers: Record<string, MessageHandler> = {
         );
       }
     } catch (error) {
-      logger.error(`Error streaming ${streamType} for zone ${zoneId}:`, error);
+      const reference = randomUUID();
+      logger.error('Zone WebSocket stream failed', { reference, code: safeFailureCode(error) });
       if (ws.readyState === WebSocket.OPEN) {
         sendApplicationMessage(
           ws,
@@ -131,7 +134,9 @@ export const zoneStreamHandlers: Record<string, MessageHandler> = {
             type: 'ZONE_STREAM_ERROR',
             zoneId,
             streamType,
-            message: isPublicError(error) ? error.message : 'Failed to load zone data',
+            message: isPublicError(error)
+              ? error.message
+              : `Failed to load zone data (reference ${reference})`,
           }),
         );
       }
@@ -228,14 +233,20 @@ export const zoneStreamHandlers: Record<string, MessageHandler> = {
         );
       }
     } catch (error) {
-      logger.error(`Error streaming resets for zone ${zoneId}:`, error);
+      const reference = randomUUID();
+      logger.error('Zone reset WebSocket stream failed', {
+        reference,
+        code: safeFailureCode(error),
+      });
       if (ws.readyState === WebSocket.OPEN) {
         sendApplicationMessage(
           ws,
           JSON.stringify({
             type: 'ZONE_RESETS_STREAM_ERROR',
             zoneId,
-            message: isPublicError(error) ? error.message : 'Failed to load zone data',
+            message: isPublicError(error)
+              ? error.message
+              : `Failed to load zone data (reference ${reference})`,
           }),
         );
       }

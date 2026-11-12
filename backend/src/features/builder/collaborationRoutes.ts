@@ -1,6 +1,5 @@
 import { sendRouteError } from '../../utils/routeError.js';
 import { Router, Request, Response, type IRouter } from 'express';
-import logger from '../../utils/logger.js';
 import {
   parseStrictPositiveId,
   validateIdParam,
@@ -53,7 +52,6 @@ builderCollaborationRoutes.get('/notifications', async (req: Request, res: Respo
     );
     res.json(result);
   } catch (error) {
-    logger.error('Error getting notifications:', error);
     sendRouteError(res, error, 'Failed to get notifications', 'Failed to get notifications');
   }
 });
@@ -72,7 +70,6 @@ builderCollaborationRoutes.get(
       const count = await builderNotificationService.getUnreadCount(accountName);
       res.json({ count });
     } catch (error) {
-      logger.error('Error getting unread count:', error);
       sendRouteError(res, error, 'Failed to get unread count', 'Failed to get unread count');
     }
   },
@@ -101,7 +98,6 @@ builderCollaborationRoutes.put('/notifications/:id/read', async (req: Request, r
 
     res.json({ success: true });
   } catch (error) {
-    logger.error('Error marking notification as read:', error);
     sendRouteError(res, error, 'Failed to mark as read', 'Failed to mark as read');
   }
 });
@@ -118,7 +114,6 @@ builderCollaborationRoutes.put('/notifications/read-all', async (req: Request, r
     const count = await builderNotificationService.markAllAsRead(accountName);
     res.json({ success: true, markedCount: count });
   } catch (error) {
-    logger.error('Error marking all as read:', error);
     sendRouteError(res, error, 'Failed to mark all as read', 'Failed to mark all as read');
   }
 });
@@ -148,7 +143,6 @@ builderCollaborationRoutes.get('/zones/:id/proc-requests', async (req: Request, 
 
     res.json({ procRequests });
   } catch (error) {
-    logger.error('Error getting proc requests:', error);
     sendRouteError(res, error, 'Failed to get proc requests', 'Failed to get proc requests');
   }
 });
@@ -223,7 +217,6 @@ builderCollaborationRoutes.post('/zones/:id/proc-requests', async (req: Request,
 
     res.status(201).json({ procRequest });
   } catch (error) {
-    logger.error('Error creating proc request:', error);
     sendRouteError(res, error, 'Failed to create proc request', 'Failed to create proc request');
   }
 });
@@ -314,7 +307,6 @@ builderCollaborationRoutes.put(
 
       res.json({ procRequest });
     } catch (error) {
-      logger.error('Error updating proc request:', error);
       sendRouteError(res, error, 'Failed to update proc request', 'Failed to update proc request');
     }
   },
@@ -375,7 +367,6 @@ builderCollaborationRoutes.put(
 
       res.json({ procRequest });
     } catch (error) {
-      logger.error('Error updating proc request status:', error);
       sendRouteError(res, error, 'Failed to update status', 'Failed to update status');
     }
   },
@@ -425,15 +416,12 @@ builderCollaborationRoutes.delete(
 
       res.json({ success: true });
     } catch (error) {
-      logger.error('Error deleting proc request:', error);
       sendRouteError(res, error, 'Failed to delete proc request', 'Failed to delete proc request');
     }
   },
 );
 
 // ========== Zone Comments ==========
-
-/** createComment errors caused by a body reference the zone does not contain. */
 
 // GET /api/builder/zones/:id/comments - List comments
 builderCollaborationRoutes.get('/zones/:id/comments', async (req: Request, res: Response) => {
@@ -457,7 +445,6 @@ builderCollaborationRoutes.get('/zones/:id/comments', async (req: Request, res: 
 
     res.json({ comments });
   } catch (error) {
-    logger.error('Error getting comments:', error);
     sendRouteError(res, error, 'Failed to get comments', 'Failed to get comments');
   }
 });
@@ -529,7 +516,6 @@ builderCollaborationRoutes.post('/zones/:id/comments', async (req: Request, res:
 
     res.status(201).json({ comment });
   } catch (error) {
-    logger.error('Error creating comment:', error);
     sendRouteError(res, error, 'Failed to create comment', 'Failed to create comment');
   }
 });
@@ -588,7 +574,6 @@ builderCollaborationRoutes.put(
 
       res.json({ comment });
     } catch (error) {
-      logger.error('Error updating comment:', error);
       sendRouteError(res, error, 'Failed to update comment', 'Failed to update comment');
     }
   },
@@ -645,7 +630,6 @@ builderCollaborationRoutes.delete(
 
       res.json({ success: true });
     } catch (error) {
-      logger.error('Error deleting comment:', error);
       sendRouteError(res, error, 'Failed to delete comment', 'Failed to delete comment');
     }
   },

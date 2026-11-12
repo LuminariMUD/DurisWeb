@@ -58,6 +58,14 @@ describe('global request error handling', () => {
     app.get('/invalid-status', (_req, _res, next) => {
       next(new AppError('STATUS_SENTINEL', 400.5));
     });
+    app.get(
+      '/partial',
+      asyncHandler(async (_req, res) => {
+        res.write('partial response');
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        throw new Error('PARTIAL_PRIVATE_SENTINEL');
+      }),
+    );
     app.use(errorHandler);
   });
 
@@ -138,5 +146,18 @@ describe('global request error handling', () => {
     expect(response.status).toBe(500);
     expect(response.body.error.message).toBe('Internal Server Error');
     expect(JSON.stringify(response.body)).not.toContain('STATUS_SENTINEL');
+  });
+  it('terminates an already-started response without writing another error body', async () => {
+    const result: unknown = await request(app)
+      .get('/partial')
+      .timeout({ deadline: 1000 })
+      .then(
+        () => null,
+        (error: unknown) => error,
+      );
+    expect(result).toMatchObject({ code: 'ECONNRESET' });
+    expect(JSON.stringify(jest.mocked(logger.error).mock.calls)).not.toContain(
+      'PARTIAL_PRIVATE_SENTINEL',
+    );
   });
 });

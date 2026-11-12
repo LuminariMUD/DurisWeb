@@ -24,11 +24,16 @@ export function sendRouteError(
   publicMessage: string,
   context: string,
 ): Response {
-  if (isPublicError(error)) return res.status(error.statusCode).json({ error: error.message });
+  if (!res.headersSent && !res.destroyed && !res.writableEnded && isPublicError(error))
+    return res.status(error.statusCode).json({ error: error.message });
   const reference = randomUUID();
   logger.error(context, {
     reference,
     code: safeFailureCode(error),
   });
+  if (res.headersSent || res.destroyed || res.writableEnded) {
+    res.destroy();
+    return res;
+  }
   return res.status(500).json({ error: publicMessage, reference });
 }

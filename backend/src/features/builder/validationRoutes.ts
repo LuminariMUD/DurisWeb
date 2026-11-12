@@ -1,5 +1,4 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger from '../../utils/logger.js';
 import {
   validateRoom,
   validateObject,
@@ -48,7 +47,6 @@ builderValidationRoutes.post('/zones/:id/validate', async (req: Request, res: Re
 
     res.status(400).json({ error: 'Invalid validation request. Provide type and data.' });
   } catch (error) {
-    logger.error('Error validating zone data:', error);
     sendRouteError(res, error, 'Failed to validate', 'Failed to validate');
   }
 });
@@ -72,7 +70,6 @@ builderValidationRoutes.post('/zones/:id/validate/exit', async (req: Request, re
 
     res.json(result);
   } catch (error) {
-    logger.error('Error validating exit:', error);
     sendRouteError(res, error, 'Failed to validate exit', 'Failed to validate exit');
   }
 });
@@ -98,7 +95,6 @@ builderValidationRoutes.post(
 
       res.json(result);
     } catch (error) {
-      logger.error('Error validating object values:', error);
       sendRouteError(
         res,
         error,

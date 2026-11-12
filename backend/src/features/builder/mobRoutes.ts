@@ -1,5 +1,4 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger from '../../utils/logger.js';
 import { getMobileData } from '../../services/zoneBuilderParser.js';
 import {
   updateMobile,
@@ -32,7 +31,6 @@ builderMobRoutes.get('/zones/:id/mobs/:vnum', async (req: Request, res: Response
 
     res.json({ mobile });
   } catch (error) {
-    logger.error('Error getting mobile:', error);
     sendRouteError(res, error, 'Failed to get mobile', 'Failed to get mobile');
   }
 });
@@ -68,7 +66,6 @@ builderMobRoutes.put('/zones/:id/mobs/:vnum', async (req: Request, res: Response
 
     res.json({ success: true, mobile: mobileData });
   } catch (error) {
-    logger.error('Error updating mobile:', error);
     sendRouteError(res, error, 'Failed to update mobile', 'Failed to update mobile');
   }
 });
@@ -130,7 +127,6 @@ builderMobRoutes.post('/zones/:id/mobs', async (req: Request, res: Response) => 
 
     res.status(201).json({ success: true, mobile });
   } catch (error) {
-    logger.error('Error creating mobile:', error);
     sendRouteError(res, error, 'Failed to create mobile', 'Failed to create mobile');
   }
 });
@@ -165,7 +161,6 @@ builderMobRoutes.delete('/zones/:id/mobs/:vnum', async (req: Request, res: Respo
 
     res.json({ success: true });
   } catch (error) {
-    logger.error('Error deleting mobile:', error);
     sendRouteError(res, error, 'Failed to delete mobile', 'Failed to delete mobile');
   }
 });
