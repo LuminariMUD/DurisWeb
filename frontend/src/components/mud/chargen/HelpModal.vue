@@ -10,6 +10,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { HelpCircle, Loader2 } from '@lucide/vue'
 import { parseAnsiToHtml } from '@/utils/ansiParser'
+import { apiClient } from '@/services/httpClient'
+import { isAxiosError } from 'axios'
 
 const props = defineProps<{
   type: 'race' | 'class'
@@ -40,17 +42,26 @@ async function fetchHelp() {
   error.value = null
 
   try {
-    const response = await fetch(`/api/help/${props.type}/${encodeURIComponent(props.name)}`)
-    if (response.ok) {
-      const data = await response.json()
-      helpTitle.value = data.title
-      helpText.value = data.text
-      helpCache.set(cacheKey, { title: data.title, text: data.text })
-    } else {
+    const { data } = await apiClient.get<unknown>(
+      `/api/help/${props.type}/${encodeURIComponent(props.name)}`,
+    )
+    if (
+      data === null ||
+      typeof data !== 'object' ||
+      !('title' in data) ||
+      !('text' in data) ||
+      typeof data.title !== 'string' ||
+      typeof data.text !== 'string'
+    ) {
       error.value = 'Help not available'
+      return
     }
-  } catch {
-    error.value = 'Failed to load help'
+    helpTitle.value = data.title
+    helpText.value = data.text
+    helpCache.set(cacheKey, { title: data.title, text: data.text })
+  } catch (cause) {
+    error.value =
+      isAxiosError(cause) && cause.response ? 'Help not available' : 'Failed to load help'
   } finally {
     loading.value = false
   }
@@ -69,7 +80,7 @@ function formatHelpText(text: string): string {
     const headerMatch = line.match(/^==([^=]+)==$/)
     if (headerMatch) {
       processedLines.push(
-        `<div class="text-lg font-bold text-primary mt-4 mb-2 border-b border-border pb-1">${headerMatch[1]}</div>`,
+        `<div class="text-lg font-bold text-primary mt-4 mb-2 border-b border-border pb-1">${parseAnsiToHtml(headerMatch[1])}</div>`,
       )
       continue
     }
