@@ -65,6 +65,14 @@ export async function canAccessZone(
   return zoneInfoService.canAccessZone(accountName, zoneId, level);
 }
 
+/**
+ * Who may edit or delete another account's comment in this zone. Tied to zone-level
+ * `manage` (which overlords and `manage_zones` holders also pass), not to `manage_zones`.
+ */
+export function canModerateZoneComments(req: Request, zoneId: string): Promise<boolean> {
+  return canAccessZone(req, zoneId, 'manage');
+}
+
 // Helper: Check if user can manage zone permissions
 export async function canManagePermissions(req: Request, zoneId: string): Promise<boolean> {
   const accountName = req.user?.accountName;

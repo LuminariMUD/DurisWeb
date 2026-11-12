@@ -1,6 +1,6 @@
 import { Router, Request, Response, type IRouter } from 'express';
 import logger, { getErrorMessage } from '../../utils/logger.js';
-import { validateIdParam, validateStringField } from '../../utils/validation.js';
+import { parseStrictPositiveId, validateIdParam, validateStringField } from '../../utils/validation.js';
 import { getZoneName } from '../../services/zoneBuilderParser.js';
 import procRequestService from '../../services/procRequestService.js';
 import zoneCommentService from '../../services/zoneCommentService.js';
@@ -11,7 +11,12 @@ import type {
   ProcRequestStatus,
   CreateZoneComment,
 } from '../../types/builder.js';
-import { validateOptionalHtml, logBuilderActivity, canAccessZone } from './shared.js';
+import {
+  validateOptionalHtml,
+  logBuilderActivity,
+  canAccessZone,
+  canModerateZoneComments,
+} from './shared.js';
 
 export const builderCollaborationRoutes: IRouter = Router();
 
@@ -420,6 +425,13 @@ builderCollaborationRoutes.delete(
 
 // ========== Zone Comments ==========
 
+/** createComment errors caused by a body reference the zone does not contain. */
+const COMMENT_REFERENCE_ERRORS = new Set([
+  'Parent comment not found',
+  'Proc request not found',
+  'Cannot reply to a reply (single-level threading)',
+]);
+
 // GET /api/builder/zones/:id/comments - List comments
 builderCollaborationRoutes.get('/zones/:id/comments', async (req: Request, res: Response) => {
   try {
@@ -477,10 +489,20 @@ builderCollaborationRoutes.post('/zones/:id/comments', async (req: Request, res:
       return;
     }
 
+    const parsedParentId = parentId == null ? null : parseStrictPositiveId(parentId);
+    const parsedProcRequestId = procRequestId == null ? null : parseStrictPositiveId(procRequestId);
+    if (
+      (parentId != null && parsedParentId === null) ||
+      (procRequestId != null && parsedProcRequestId === null)
+    ) {
+      res.status(400).json({ error: 'Invalid parent comment or proc request ID' });
+      return;
+    }
+
     const data: CreateZoneComment = {
       zoneId,
-      parentId: parentId ?? null,
-      procRequestId: procRequestId ?? null,
+      parentId: parsedParentId,
+      procRequestId: parsedProcRequestId,
       characterName: characterName ?? null,
       content,
       contentHtml: processedHtml.contentHtml ?? undefined,
@@ -504,6 +526,10 @@ builderCollaborationRoutes.post('/zones/:id/comments', async (req: Request, res:
 
     res.status(201).json({ comment });
   } catch (error) {
+    if (COMMENT_REFERENCE_ERRORS.has(getErrorMessage(error))) {
+      res.status(400).json({ error: getErrorMessage(error) });
+      return;
+    }
     logger.error('Error creating comment:', error);
     res.status(500).json({ error: 'Failed to create comment', message: getErrorMessage(error) });
   }
@@ -546,12 +572,10 @@ builderCollaborationRoutes.put(
         return;
       }
 
-      // Check if user is admin (can edit any comment)
-      const isAdmin =
-        req.user?.permissions?.role === 'overlord' ||
-        req.user?.adminPermissions?.has('manage_zones');
+      const isAdmin = await canModerateZoneComments(req, zoneId);
 
       const comment = await zoneCommentService.updateComment(
+        zoneId,
         commentId,
         { content, contentHtml: processedHtml.contentHtml ?? undefined },
         accountName,
@@ -599,12 +623,14 @@ builderCollaborationRoutes.delete(
         return;
       }
 
-      // Check if user is admin
-      const isAdmin =
-        req.user?.permissions?.role === 'overlord' ||
-        req.user?.adminPermissions?.has('manage_zones');
+      const isAdmin = await canModerateZoneComments(req, zoneId);
 
-      const deleted = await zoneCommentService.deleteComment(commentId, accountName, isAdmin);
+      const deleted = await zoneCommentService.deleteComment(
+        zoneId,
+        commentId,
+        accountName,
+        isAdmin,
+      );
 
       if (!deleted) {
         res.status(404).json({ error: 'Comment not found' });

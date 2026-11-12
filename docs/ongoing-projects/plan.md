@@ -6,12 +6,12 @@ Branch: `branch/issue-182-builder-zone-scoping`
 
 Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d5573c156`.
 
-**Status: in progress. Two stacked PRs.**
+**Status: implementation complete. Both stacked PRs are open for review.**
 
 | Chunk | Plan steps | Branch | State |
 | --- | --- | --- | --- |
-| PR 1: proc-request scoping | 1, the proc-request part of 3, proc-request tests in 5 | `branch/issue-182-builder-zone-scoping` → `master` | Implemented and verified; PR open |
-| PR 2: comment scoping and moderator helper | 2, the comment part of 3, 4, comment tests in 5 | `branch/issue-182-comment-scoping` → PR 1 branch | Not started |
+| PR 1: proc-request scoping | 1, the proc-request part of 3, proc-request tests in 5 | `branch/issue-182-builder-zone-scoping` → `master` | Done: LuminariMUD/DurisWeb#195 |
+| PR 2: comment scoping and moderator helper | 2, the comment part of 3, 4, comment tests in 5 | `branch/issue-182-comment-scoping` → PR 1 branch | Done: PR 2 (stacked on #195) |
 
 To continue in a new session: work in the worktree `../durisweb-issue-182` (it has its own
 `backend/node_modules`; copy the gitignored `.env` files from the main checkout if they are
@@ -226,6 +226,29 @@ The changelog step should record "no reader-visible change".
       (53 classified writes).
     - Full backend suite: 171 suites passed and 12 skipped. The skipped suites need a
       test database, which this worktree does not configure.
+
+- **PR 2 (comments and moderator helper), 12 November 2026.**
+  - `getComment`, `updateComment` and `deleteComment` now take `zoneId` first. The read,
+    UPDATE, reply SELECT/DELETE and row DELETE all use `zone_id = ?`. The scoped read runs
+    before the author check, so a foreign ID gives 404, not 403.
+  - `createComment` requires the parent comment and the proc request to be in
+    `data.zoneId`. It reuses `getProcRequest` from `procRequestService`, which adds no
+    import cycle.
+  - The POST route parses `parentId`/`procRequestId` with `parseStrictPositiveId` and
+    returns 400 for malformed values. It also maps the three reference errors
+    ("Parent comment not found", "Proc request not found", "Cannot reply to a reply")
+    to 400; before this change they returned 500.
+  - `canModerateZoneComments(req, zoneId)` in `shared.ts` replaces both inline `isAdmin`
+    expressions and delegates to `canAccessZone(..., 'manage')`.
+  - Test harness fix: the logger mock in `builderChildIdValidation.test.ts` returned
+    `String(error)`, unlike the real `getErrorMessage`. Error-message mapping could not
+    be tested until the mock matched the real function.
+  - Checks: same commands as PR 1, all passing. Full suite: 171 suites passed and 12
+    skipped.
+- **Release:** no change readers can see (the frontend already sends the owning zone, and
+  same-zone behaviour is unchanged), so no Website Changelog entry is needed.
+- **Left open:** the follow-ups and open questions below. None blocks closing #182 once
+  both PRs merge.
 
 ## Ablation notes
 
