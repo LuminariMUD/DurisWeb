@@ -96,9 +96,9 @@ const hasActiveFilters = computed(() => {
         />
       </div>
 
-      <!-- Alignment Filter -->
+      <!-- Faction Filter -->
       <div class="space-y-2">
-        <Label for="alignment">Alignment</Label>
+        <Label for="alignment">Faction</Label>
         <Select
           :model-value="filters.racewar?.toString() || 'all'"
           @update:model-value="(val: any) =>
@@ -106,12 +106,14 @@ const hasActiveFilters = computed(() => {
           "
         >
           <SelectTrigger id="alignment">
-            <SelectValue placeholder="All Alignments" />
+            <SelectValue placeholder="All Factions" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Alignments</SelectItem>
+            <SelectItem value="all">All Factions</SelectItem>
             <SelectItem value="1">Good</SelectItem>
             <SelectItem value="2">Evil</SelectItem>
+            <SelectItem value="3">Undead</SelectItem>
+            <SelectItem value="4">Neutral</SelectItem>
           </SelectContent>
         </Select>
       </div>
