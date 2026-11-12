@@ -1,5 +1,5 @@
 // Reference for the Lielz-derived helpers in the Arjinius Client Mudlet package
-// (LuminariMUD/duris-client 2.7.0: src/scripts/ArjUI.lua "PORTED INTELLIGENCE" and
+// (LuminariMUD/duris-client v2.6.3 (7f4e6ee5c0b623d8fa352e145c0fbe6aec7d112f): src/scripts/ArjUI.lua "PORTED INTELLIGENCE" and
 // src/scripts/ArjAuto.lua). Keep names, defaults, and command spellings in step
 // with those scripts; docs/ongoing-projects/lielz-port.md records the port.
 
@@ -43,7 +43,7 @@ export interface KeyBinding {
   action: string
 }
 
-export const lielzSourceVersion = '2.7.0'
+export const lielzSourceVersion = '2.6.3'
 
 export const displayHelpers: DisplayHelper[] = [
   {
@@ -459,7 +459,7 @@ export const commandGroups: CommandGroup[] = [
   {
     id: 'ship',
     title: 'Ships',
-    note: 'Relative headings use the contact locked in the SHIP tab.',
+    note: 'Relative headings use the contact locked in the SHIP tab. The fixed dock runs move your character and store coins in your container; they do not deposit money in a bank.',
     commands: [
       {
         command: 'oh <heading> · os <speed>',
@@ -488,7 +488,7 @@ export const commandGroups: CommandGroup[] = [
       {
         command: 'qkcargo',
         purpose:
-          'At a dock: sell cargo and contraband, buy your cargo and contra amounts, bank coins, and sail.',
+          'Fixed dock run: south twice, disembark, trade your cargo and contra amounts, and store coins in your container. With a known captain, returns aboard, goes north twice, and undocks. Check the route first.',
       },
       { command: 'qkreload', purpose: 'At a dock: sell cargo, repair, reload, and bank coins.' },
     ],

@@ -12,6 +12,7 @@ import {
   commandGroups,
   displayHelpers,
   keypadLayout,
+  lielzSourceVersion,
   shipKeyBindings,
   type AutomationToggle,
 } from '@/content/lielzGuide'
@@ -92,7 +93,7 @@ function clearSearch() {
         <p>
           The community <strong class="font-medium text-foreground">Lielz scripts</strong>, a
           collection built by players between 2015 and 2024, are part of the GUI package.
-          There is nothing extra to install.
+          There is nothing extra to install. This reference covers published client {{ lielzSourceVersion }}.
         </p>
         <p>
           Display helpers start on. Every automation starts <strong class="font-medium text-foreground">off</strong>
@@ -154,7 +155,8 @@ function clearSearch() {
       <div class="part-heading">
         <DisplayHeading id="lielz-display-heading" :level="3">Always on: display helpers</DisplayHeading>
         <p>
-          These only change what you see. They never send commands for you. Turn one off with
+          These do not send commands in response to game text. Numpad movement sends a command
+          only when you press a key. Turn one off with
           <code>ui set &lt;name&gt; off</code>.
         </p>
       </div>
