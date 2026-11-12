@@ -231,6 +231,25 @@ describe('admin account permission ID validation', () => {
     poolQuery.mockResolvedValue([[]]);
   });
 
+  it('keeps a typed web-setting validation message and hides driver text (#176)', async () => {
+    const settings = await import('../../../services/webSettingsService.js');
+    const { AppError } = await import('../../../middleware/errorHandler.js');
+    const update = jest.mocked(settings.updateWebSetting);
+    update.mockRejectedValueOnce(new AppError('MUD port must be between 1 and 65535', 400));
+    const invalid = await request(app).put('/api/admin/web/settings/mud_port').send({ value: '0' });
+    expect(invalid.status).toBe(400);
+    expect(invalid.body).toEqual({ error: 'MUD port must be between 1 and 65535' });
+
+    update.mockRejectedValueOnce(new Error("SENTINEL Unknown column 'value' in 'field list'"));
+    const failed = await request(app).put('/api/admin/web/settings/mud_port').send({ value: '1' });
+    expect(failed.status).toBe(500);
+    expect(JSON.stringify(failed.body)).not.toContain('SENTINEL');
+    expect(failed.body).toEqual({
+      error: 'Failed to update setting',
+      reference: expect.any(String),
+    });
+  });
+
   it.each(['/backup/status/1', '/backup/download/1', '/backup/1/contents'])(
     'makes foreign uploads indistinguishable from missing numeric IDs at %s',
     async (route) => {

@@ -24,6 +24,7 @@ import {
   parseStrictPositiveIdArray,
   validateIdParam,
 } from '../../utils/validation.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const adminAccessRoutes: IRouter = Router();
 
@@ -187,8 +188,7 @@ adminAccessRoutes.put(
       });
     } catch (error) {
       logger.error('Update role error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to update role';
-      return res.status(500).json({ error: message });
+      return sendRouteError(res, error, 'Failed to update role', 'Failed to update role');
     }
   },
 );
@@ -217,8 +217,7 @@ adminAccessRoutes.delete(
       });
     } catch (error) {
       logger.error('Delete role error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to delete role';
-      return res.status(500).json({ error: message });
+      return sendRouteError(res, error, 'Failed to delete role', 'Failed to delete role');
     }
   },
 );
@@ -392,8 +391,7 @@ adminAccessRoutes.post(
       });
     } catch (error) {
       logger.error('Assign role error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to assign role';
-      return res.status(500).json({ error: message });
+      return sendRouteError(res, error, 'Failed to assign role', 'Failed to assign role');
     }
   },
 );
@@ -425,8 +423,7 @@ adminAccessRoutes.delete(
       });
     } catch (error) {
       logger.error('Revoke role error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to revoke role';
-      return res.status(500).json({ error: message });
+      return sendRouteError(res, error, 'Failed to revoke role', 'Failed to revoke role');
     }
   },
 );
@@ -463,8 +460,7 @@ adminAccessRoutes.post(
       });
     } catch (error) {
       logger.error('Grant permission error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to grant permission';
-      return res.status(500).json({ error: message });
+      return sendRouteError(res, error, 'Failed to grant permission', 'Failed to grant permission');
     }
   },
 );
@@ -496,8 +492,12 @@ adminAccessRoutes.delete(
       });
     } catch (error) {
       logger.error('Revoke permission error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to revoke permission';
-      return res.status(500).json({ error: message });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to revoke permission',
+        'Failed to revoke permission',
+      );
     }
   },
 );

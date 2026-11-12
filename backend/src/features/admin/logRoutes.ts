@@ -1,9 +1,10 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
 import { param, validationResult } from 'express-validator';
 import { requireAuth, requirePermission } from '../../middleware/auth.js';
 import { listLogs, readLogPaginated, tailLog, getLogFilePath } from '../../services/logService.js';
 import { createReadStream } from 'fs';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const adminLogRoutes: IRouter = Router();
 
@@ -71,7 +72,7 @@ adminLogRoutes.get(
       return res.json(result);
     } catch (error) {
       logger.error('Read log error:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to read log file' });
+      return sendRouteError(res, error, 'Failed to read log file', 'Failed to read log file');
     }
   },
 );
@@ -105,7 +106,7 @@ adminLogRoutes.get(
       return res.json({ lines: result });
     } catch (error) {
       logger.error('Tail log error:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to tail log file' });
+      return sendRouteError(res, error, 'Failed to tail log file', 'Failed to tail log file');
     }
   },
 );
@@ -150,7 +151,7 @@ adminLogRoutes.get(
       });
     } catch (error) {
       logger.error('Download log error:', error);
-      res.status(500).json({ error: getErrorMessage(error) || 'Failed to download log file' });
+      sendRouteError(res, error, 'Failed to download log file', 'Failed to download log file');
     }
   },
 );

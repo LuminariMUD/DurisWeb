@@ -1,4 +1,5 @@
 import { pool as db } from '../db/connection.js';
+import { AppError } from '../middleware/errorHandler.js';
 import { RowDataPacket } from 'mysql2';
 import { getCache, setCache, deleteCache } from '../db/redis.js';
 
@@ -383,7 +384,7 @@ export async function updateRole(
   ]);
 
   if (roleRows.length === 0) {
-    throw new Error('Role not found');
+    throw new AppError('Role not found', 404);
   }
 
   // Update role metadata
@@ -425,7 +426,7 @@ export async function deleteRole(roleId: number): Promise<void> {
   ]);
 
   if (roleRows.length === 0) {
-    throw new Error('Role not found');
+    throw new AppError('Role not found', 404);
   }
 
   // Get accounts with this role (to invalidate cache)

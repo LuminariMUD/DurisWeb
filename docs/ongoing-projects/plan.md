@@ -17,9 +17,9 @@ with its own PR. Rebase the stack onto `master` after each merge (see
 | # | Branch | Scope | PR | State |
 |---|---|---|---|---|
 | 1 | `branch/issue-176-safe-error-responses` | plan, `sendRouteError`, `errorHandler` (incl. multer upload errors), anonymous routes (changelog, guide, `GET /api/content/news`) | LuminariMUD/DurisWeb#200 | ready for review |
-| 2 | `branch/issue-176-player-routes` | players: notifications, help suggestions, auth change-password, forum moderation/poll/profile, wiki map-tile bounds; typed `pollService`, forum moderation and wiki bounds throws | see #176 | ready for review |
-| 3 | `branch/issue-176-admin-routes` | admin/staff: rest of `content.ts`, `features/admin/*` | — | next |
-| 4 | `branch/issue-176-builder-routes` | builder, SSE/WebSocket, git/mud/deploy results, ESLint guard, docs | — | pending |
+| 2 | `branch/issue-176-player-routes` | players: notifications, help suggestions, auth change-password, forum moderation/poll/profile, wiki map-tile bounds; typed `pollService`, forum moderation and wiki bounds throws | LuminariMUD/DurisWeb#210 | ready for review |
+| 3 | `branch/issue-176-admin-routes` | admin/staff: rest of `content.ts` (26), `features/admin/*` (access, backup, community, connection, dupe, health, log, mud, settings, wipe); typed `categoryService`, `webSettingsService`, `adminPermissionService`, `dupeDetectionService` throws; AI-analysis notification and `wipe_history.error_message` | see #176 | ready for review |
+| 4 | `branch/issue-176-builder-routes` | builder, SSE/WebSocket, git/mud/deploy results, ESLint guard, docs | — | next |
 
 Decisions taken while implementing (resolving the open questions below):
 
@@ -60,6 +60,11 @@ Implementation notes for whoever continues:
 - Left unchanged on purpose (they map internal text to a fixed string, so nothing leaks):
   `subscriptionRoutes.ts:82,194`, `routes/wiki.ts:241`. The final guard must therefore target
   `getErrorMessage`/`.message` inside a response call, not ban the import outright.
+- Kept internal on purpose (now a generic 500 with a logged reference): `backupService`
+  restore-contract errors and the `R2 storage is not configured` throws in
+  `webSettingsService`. Their text remains in the server log.
+- `wipe_history.error_message` now stores `safeFailureCode(error)`, because the history API
+  returns that column; the AI-analysis failure notification shows only a reference.
 
 This plan was built from the code, not from the issue text. Every count below comes from
 an AST pass over `backend/src` (non-test `.ts`), which finds wrapped call sites that a line

@@ -1,5 +1,5 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
 import { body, param, validationResult } from 'express-validator';
 import {
   getForumSettings,
@@ -25,6 +25,7 @@ import {
 import { getDeletedThreads, getDeletedPosts } from '../../services/forumService.js';
 import { requireAuth, requireOverlord, requirePermission } from '../../middleware/auth.js';
 import { validateIdParam } from '../../utils/validation.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const adminCommunityRoutes: IRouter = Router();
 
@@ -347,7 +348,7 @@ adminCommunityRoutes.post(
       });
     } catch (error) {
       logger.error('Create category error:', error);
-      return res.status(400).json({ error: getErrorMessage(error) || 'Failed to create category' });
+      return sendRouteError(res, error, 'Failed to create category', 'Failed to create category');
     }
   },
 );
@@ -412,7 +413,7 @@ adminCommunityRoutes.patch(
       });
     } catch (error) {
       logger.error('Update category error:', error);
-      return res.status(400).json({ error: getErrorMessage(error) || 'Failed to update category' });
+      return sendRouteError(res, error, 'Failed to update category', 'Failed to update category');
     }
   },
 );
@@ -446,9 +447,7 @@ adminCommunityRoutes.post(
       });
     } catch (error) {
       logger.error('Archive category error:', error);
-      return res
-        .status(400)
-        .json({ error: getErrorMessage(error) || 'Failed to archive category' });
+      return sendRouteError(res, error, 'Failed to archive category', 'Failed to archive category');
     }
   },
 );
@@ -482,9 +481,7 @@ adminCommunityRoutes.post(
       });
     } catch (error) {
       logger.error('Restore category error:', error);
-      return res
-        .status(400)
-        .json({ error: getErrorMessage(error) || 'Failed to restore category' });
+      return sendRouteError(res, error, 'Failed to restore category', 'Failed to restore category');
     }
   },
 );
@@ -518,7 +515,7 @@ adminCommunityRoutes.delete(
       });
     } catch (error) {
       logger.error('Delete category error:', error);
-      return res.status(400).json({ error: getErrorMessage(error) || 'Failed to delete category' });
+      return sendRouteError(res, error, 'Failed to delete category', 'Failed to delete category');
     }
   },
 );
@@ -561,9 +558,12 @@ adminCommunityRoutes.post(
       });
     } catch (error) {
       logger.error('Reorder categories error:', error);
-      return res
-        .status(400)
-        .json({ error: getErrorMessage(error) || 'Failed to reorder categories' });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to reorder categories',
+        'Failed to reorder categories',
+      );
     }
   },
 );
@@ -662,9 +662,12 @@ adminCommunityRoutes.post(
       });
     } catch (error) {
       logger.error('Add ACL permission error:', error);
-      return res
-        .status(400)
-        .json({ error: getErrorMessage(error) || 'Failed to add ACL permission' });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to add ACL permission',
+        'Failed to add ACL permission',
+      );
     }
   },
 );

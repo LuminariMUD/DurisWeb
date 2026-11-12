@@ -1,10 +1,12 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
+import { safeFailureCode } from '../../utils/safeFailureCode.js';
 import { body, validationResult } from 'express-validator';
 import { requireAuth, requireOverlord } from '../../middleware/auth.js';
 import { requireMutationGate } from '../../middleware/mutationGate.js';
 import { getMudState } from '../../services/mudControlService.js';
 import { pool as db } from '../../db/connection.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const adminWipeRoutes: IRouter = Router();
 
@@ -71,9 +73,12 @@ adminWipeRoutes.get(
       });
     } catch (error) {
       logger.error('Error fetching wipe status:', error);
-      return res
-        .status(500)
-        .json({ error: getErrorMessage(error) || 'Failed to fetch wipe status' });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to fetch wipe status',
+        'Failed to fetch wipe status',
+      );
     }
   },
 );
@@ -118,7 +123,7 @@ adminWipeRoutes.get(
       });
     } catch (error) {
       logger.error('Error fetching players for wipe:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to fetch players' });
+      return sendRouteError(res, error, 'Failed to fetch players', 'Failed to fetch players');
     }
   },
 );
@@ -176,9 +181,12 @@ adminWipeRoutes.get(
       });
     } catch (error) {
       logger.error('Error fetching wipe history:', error);
-      return res
-        .status(500)
-        .json({ error: getErrorMessage(error) || 'Failed to fetch wipe history' });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to fetch wipe history',
+        'Failed to fetch wipe history',
+      );
     }
   },
 );
@@ -430,16 +438,20 @@ adminWipeRoutes.post(
         await db.query(
           `INSERT INTO wipe_history (executed_by, reason, success, error_message, ip_address)
            VALUES (?, ?, 0, ?, ?)`,
-          [req.user!.accountName, reason, getErrorMessage(error), req.ip],
+          // The history API returns this column; keep the driver text in the log (#176).
+          [req.user!.accountName, reason, safeFailureCode(error), req.ip],
         );
       } catch (logError) {
         logger.error('Failed to log wipe error:', logError);
       }
 
       logger.error('Error executing player wipe:', error);
-      return res
-        .status(500)
-        .json({ error: getErrorMessage(error) || 'Failed to execute player wipe' });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to execute player wipe',
+        'Failed to execute player wipe',
+      );
     } finally {
       if (connection) connection.release();
     }
@@ -490,9 +502,12 @@ adminWipeRoutes.post(
       });
     } catch (error) {
       logger.error('Error executing guild wipe:', error);
-      return res
-        .status(500)
-        .json({ error: getErrorMessage(error) || 'Failed to execute guild wipe' });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to execute guild wipe',
+        'Failed to execute guild wipe',
+      );
     }
   },
 );
