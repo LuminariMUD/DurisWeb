@@ -1,5 +1,6 @@
 import { pool as db } from '../db/connection.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
+import type { PoolConnection } from 'mysql2/promise';
 import type {
   ProcRequest,
   CreateProcRequest,
@@ -93,12 +94,16 @@ export async function getProcRequests(
 /**
  * Get a proc request by ID, only if it belongs to the given zone
  */
-export async function getProcRequest(zoneId: string, id: number): Promise<ProcRequest | null> {
-  const [rows] = await db.query<RowDataPacket[]>(
+export async function getProcRequest(
+  zoneId: string,
+  id: number,
+  connection?: PoolConnection,
+): Promise<ProcRequest | null> {
+  const [rows] = await (connection ?? db).query<RowDataPacket[]>(
     `SELECT id, zone_id, entity_type, vnum, title, description, description_html,
             status, assigned_to, requested_by, requested_at, updated_at
      FROM builder_proc_requests
-     WHERE id = ? AND zone_id = ?`,
+     WHERE id = ? AND zone_id = ?${connection ? ' FOR UPDATE' : ''}`,
     [id, zoneId],
   );
 

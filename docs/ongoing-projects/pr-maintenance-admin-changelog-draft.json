@@ -1,7 +1,7 @@
 {
   "version": "2026.11.12-draft",
   "title": "Zone Builder reliability fixes",
-  "content": "<h3>Zone Builder</h3><ul><li><strong>Proc requests stay within their zone.</strong> Editing or deleting a request through another zone is rejected. Failed deletions retain the request and its mentions together, and a request deleted during an edit no longer sends an assignment or status notification.</li></ul>",
+  "content": "<h3>Zone Builder</h3><ul><li><strong>Proc requests stay within their zone.</strong> Editing or deleting a request through another zone is rejected. Failed deletions retain the request and its mentions together, and a request deleted during an edit no longer sends an assignment or status notification.</li><li><strong>Keep discussions together.</strong> Comments stay within their zone and discussion. Deleting a discussion either removes the full discussion and its mentions or keeps them all when the operation fails. New replies cannot attach to a parent that is being deleted.</li></ul>",
   "category": "admin",
   "isPublished": false
 }

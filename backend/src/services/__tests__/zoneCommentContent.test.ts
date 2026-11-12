@@ -5,9 +5,16 @@ const extractMentions = jest.fn(() => []);
 const createMentions = jest.fn();
 const deleteMentions = jest.fn();
 const createNotification = jest.fn();
+const connection = {
+  query,
+  beginTransaction: jest.fn<() => Promise<void>>(),
+  commit: jest.fn<() => Promise<void>>(),
+  rollback: jest.fn<() => Promise<void>>(),
+  release: jest.fn(),
+};
 
 jest.unstable_mockModule('../../db/connection.js', () => ({
-  pool: { query },
+  pool: { query, getConnection: async () => connection },
 }));
 jest.unstable_mockModule('../builderNotificationService.js', () => ({
   extractMentions,
@@ -124,10 +131,15 @@ describe('zone comment zone scoping', () => {
     await expect(zoneCommentService.deleteComment('zone-a', 9, 'Author')).resolves.toBe(true);
     const sqls = query.mock.calls.slice(2).map(([sql, params]) => [String(sql), params]);
     expect(sqls).toEqual([
-      ['SELECT id FROM builder_zone_comments WHERE parent_id = ? AND zone_id = ?', [9, 'zone-a']],
+      [
+        'SELECT id FROM builder_zone_comments WHERE parent_id = ? AND zone_id = ? FOR UPDATE',
+        [9, 'zone-a'],
+      ],
       ['DELETE FROM builder_zone_comments WHERE parent_id = ? AND zone_id = ?', [9, 'zone-a']],
       ['DELETE FROM builder_zone_comments WHERE id = ? AND zone_id = ?', [9, 'zone-a']],
     ]);
+    expect(connection.commit).toHaveBeenCalledTimes(1);
+    expect(deleteMentions).toHaveBeenCalledWith('comment', 9, connection);
   });
 
   it('rejects a parent comment or proc request from another zone before inserting', async () => {
@@ -148,5 +160,55 @@ describe('zone comment zone scoping', () => {
     expect(query.mock.calls[1][1]).toEqual([4, 'zone-a']);
 
     expect(query).toHaveBeenCalledTimes(2);
+  });
+
+  it('rolls back the complete discussion when deleting the parent fails after reply deletion', async () => {
+    query
+      .mockResolvedValueOnce([[commentRow]])
+      .mockResolvedValueOnce([[{ id: 10 }]])
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockRejectedValueOnce(new Error('parent delete failed'));
+
+    await expect(zoneCommentService.deleteComment('zone-a', 9, 'Author')).rejects.toThrow(
+      'parent delete failed',
+    );
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+    expect(connection.commit).not.toHaveBeenCalled();
+    expect(connection.release).toHaveBeenCalledTimes(1);
+    expect(deleteMentions).toHaveBeenCalledWith('comment', 10, connection);
+    expect(deleteMentions).toHaveBeenCalledWith('comment', 9, connection);
+  });
+
+  it('rejects a reply whose parent belongs to another proc-request discussion', async () => {
+    query.mockResolvedValueOnce([[{ ...commentRow, proc_request_id: 4 }]]);
+    await expect(
+      zoneCommentService.createComment(
+        { zoneId: 'zone-a', parentId: 9, content: 'reply' },
+        'Author',
+      ),
+    ).rejects.toThrow('Parent comment belongs to another discussion');
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(connection.rollback).toHaveBeenCalledTimes(1);
+    expect(connection.commit).not.toHaveBeenCalled();
+  });
+
+  it('locks the proc request then its parent through insertion in the same transaction', async () => {
+    query
+      .mockResolvedValueOnce([[{ id: 4, zone_id: 'zone-a' }]])
+      .mockResolvedValueOnce([[{ ...commentRow, proc_request_id: 4 }]])
+      .mockResolvedValueOnce([{ insertId: 10 }])
+      .mockResolvedValueOnce([[{ ...commentRow, id: 10, parent_id: 9, proc_request_id: 4 }]]);
+
+    const reply = await zoneCommentService.createComment(
+      { zoneId: 'zone-a', parentId: 9, procRequestId: 4, content: 'reply' },
+      'Author',
+    );
+    expect(reply.parentId).toBe(9);
+    expect(reply.procRequestId).toBe(4);
+    expect(String(query.mock.calls[0][0])).toMatch(/FROM builder_proc_requests[\s\S]*FOR UPDATE$/);
+    expect(String(query.mock.calls[1][0])).toMatch(/FROM builder_zone_comments[\s\S]*FOR UPDATE$/);
+    expect(connection.beginTransaction).toHaveBeenCalledTimes(1);
+    expect(connection.commit).toHaveBeenCalledTimes(1);
+    expect(connection.release).toHaveBeenCalledTimes(1);
   });
 });
