@@ -399,8 +399,16 @@ const MAX_TILES_PER_REQUEST = 10000;
 
 export async function getMapTiles(bounds: MapBounds, zLevel: number = 0): Promise<WikiMapTile[]> {
   // Validate bounds to prevent excessive data requests
-  const width = bounds.maxX - bounds.minX;
-  const height = bounds.maxY - bounds.minY;
+  if (
+    ![bounds.minX, bounds.maxX, bounds.minY, bounds.maxY].every(Number.isSafeInteger) ||
+    !Number.isSafeInteger(zLevel) ||
+    zLevel < -16 ||
+    zLevel > 16
+  ) {
+    throw new AppError('Invalid bounds or layer: finite integers are required', 400);
+  }
+  const width = bounds.maxX - bounds.minX + 1;
+  const height = bounds.maxY - bounds.minY + 1;
   const area = width * height;
 
   if (area > MAX_TILES_PER_REQUEST) {

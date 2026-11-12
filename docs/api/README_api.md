@@ -160,6 +160,13 @@ per client. Malformed queries return 400; exceeding the limit returns 429 with
 Retry-After. Profile history pages clamp page to 1–10,000 and limit to 1–100.
 The frag leaderboard supports all four factions: Good, Evil, Undead and Neutral.
 
+### Map tile viewports
+
+The wiki map tile API uses inclusive integer coordinates. Requests may cover at
+most 10,000 cells; a single cell is valid. Coordinates must be safe integers and
+the layer must be an integer from -16 to 16. Invalid requests return a typed 400
+before cache or SQL work.
+
 ## Website data hold records
 
 The separate [website data hold API](../runbooks/data-holds.md) at

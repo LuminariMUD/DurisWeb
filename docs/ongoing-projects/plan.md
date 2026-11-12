@@ -33,6 +33,11 @@ Decisions taken while implementing (resolving the open questions below):
 - **Operator console (Q3):** the live MUD-control console stream stays unchanged.
 - **PR shape (Q4):** stacked PRs per exposure group, as requested for this work.
 
+Maintenance review of PR #210 also serializes poll vote changes on the poll row,
+rechecks closure inside the transaction, removes raw diagnostic bypasses in the
+touched player routes, and validates inclusive wiki tile bounds. Native SQL races
+and boundary/HTTP regressions qualify these repairs.
+
 Implementation notes for whoever continues:
 
 - Codemod used for the mechanical rewrite (not committed; recreate if needed): it replaces

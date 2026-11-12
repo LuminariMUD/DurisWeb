@@ -27,7 +27,52 @@ jest.unstable_mockModule('../zoneBuilderParser.js', () => ({
   parseZonFile: jest.fn(),
   parseMobFile: jest.fn(),
 }));
-const { getMapSectorGrid, NO_ROOM_SECTOR } = await import('../wikiService.js');
+const { getMapSectorGrid, getMapTiles, NO_ROOM_SECTOR } = await import('../wikiService.js');
+
+describe('viewport tile bounds', () => {
+  beforeEach(() => {
+    cache.clear();
+    jest.clearAllMocks();
+    query.mockReset().mockResolvedValue([[], []]);
+  });
+  it.each([
+    { minX: 0, maxX: 100, minY: 0, maxY: 100 },
+    { minX: 0, maxX: Number.POSITIVE_INFINITY, minY: 0, maxY: 1 },
+    { minX: 0, maxX: 1.5, minY: 0, maxY: 1 },
+    { minX: 0, maxX: 1, minY: Number.NaN, maxY: 1 },
+    { minX: 2, maxX: 0, minY: 0, maxY: 1 },
+  ])('rejects unsafe or excessive bounds before cache or SQL: %j', async (bounds) => {
+    await expect(getMapTiles(bounds)).rejects.toMatchObject({ statusCode: 400 });
+    expect(getCache).not.toHaveBeenCalled();
+    expect(query).not.toHaveBeenCalled();
+  });
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, 1.5, 17, -17])(
+    'rejects invalid layer %s before persistence',
+    async (layer) => {
+      await expect(
+        getMapTiles({ minX: 0, maxX: 1, minY: 0, maxY: 1 }, layer),
+      ).rejects.toMatchObject({
+        statusCode: 400,
+      });
+      expect(getCache).not.toHaveBeenCalled();
+      expect(query).not.toHaveBeenCalled();
+    },
+  );
+  it.each([
+    { minX: 0, maxX: 99, minY: 0, maxY: 99 },
+    { minX: 0, maxX: 0, minY: 0, maxY: 0 },
+  ])('accepts an inclusive viewport of at most 10000 cells: %j', async (bounds) => {
+    await expect(getMapTiles(bounds)).resolves.toEqual([]);
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(query.mock.calls[0]?.[1]).toEqual([
+      bounds.minX,
+      bounds.maxX,
+      bounds.minY,
+      bounds.maxY,
+      0,
+    ]);
+  });
+});
 
 describe('painted map sector grid', () => {
   beforeEach(() => {

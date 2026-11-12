@@ -164,9 +164,9 @@ async function loadChunk(chunkKey: string) {
     const chunkY = parts[1] ?? 0
     const chunkBounds = {
       minX: chunkX,
-      maxX: chunkX + CHUNK_SIZE,
+      maxX: chunkX + CHUNK_SIZE - 1,
       minY: chunkY,
-      maxY: chunkY + CHUNK_SIZE,
+      maxY: chunkY + CHUNK_SIZE - 1,
     }
 
     const [tiles, entrances] = await Promise.all([
