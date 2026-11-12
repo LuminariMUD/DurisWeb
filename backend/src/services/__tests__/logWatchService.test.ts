@@ -99,6 +99,24 @@ describe('bounded live-log reader ownership', () => {
     expect(service.getLogWatchStats().watchers[0].lastSize).toBe(content.length);
     expect(close).toHaveBeenCalledTimes(1);
   });
+  it.each([65534, 65535, 65536])(
+    'preserves supplementary Unicode at a long-line boundary after %s characters',
+    async (prefixLength) => {
+      const callback = jest.fn<LogWatchCallback>();
+      service.watchLog('runtime', 'synthetic.log', callback);
+      const line = 'x'.repeat(prefixLength) + '😀' + 'y'.repeat(2 * 65536);
+      content = Buffer.from(line);
+      reportedSize = content.length;
+      listeners[0]('change');
+      await flush();
+      const lines = callback.mock.calls.flatMap(([lines]) => lines);
+      expect(lines.join('')).toBe(line);
+      expect(lines.every((part) => Buffer.from(part).toString('utf8') === part)).toBe(true);
+      expect(lines.every((part) => part.length <= 65536)).toBe(true);
+      expect(read.mock.calls.every(([, , length]) => length <= 65536)).toBe(true);
+    },
+  );
+
   it('closes a failed read and explicitly invalidates the watcher without exposing the error', async () => {
     const callback = jest.fn<LogWatchCallback>();
     service.watchLog('runtime', 'synthetic.log', callback);

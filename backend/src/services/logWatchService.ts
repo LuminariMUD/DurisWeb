@@ -105,8 +105,12 @@ function deliver(entry: LogWatcher, content: string, flush = false): void {
   const parts = (entry.remainder + content).split('\n');
   let remainder = parts.pop() ?? '';
   while (remainder.length > READ_CHUNK_BYTES) {
-    parts.push(remainder.slice(0, READ_CHUNK_BYTES));
-    remainder = remainder.slice(READ_CHUNK_BYTES);
+    let boundary = READ_CHUNK_BYTES;
+    const before = remainder.charCodeAt(boundary - 1);
+    const after = remainder.charCodeAt(boundary);
+    if (before >= 0xd800 && before <= 0xdbff && after >= 0xdc00 && after <= 0xdfff) boundary--;
+    parts.push(remainder.slice(0, boundary));
+    remainder = remainder.slice(boundary);
   }
   if (flush && remainder) {
     parts.push(remainder);
