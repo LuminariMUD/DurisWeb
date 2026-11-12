@@ -2,7 +2,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { apiNotFound } from '../errorHandler.js';
@@ -69,12 +69,5 @@ describe('API namespace before static/SPA fallback', () => {
     expect(head.status).toBe(404);
     expect(head.headers['content-type']).toContain('application/json');
     expect(head.text).toBeUndefined();
-  });
-
-  it('wires the production boundary after registered routers and before static serving', async () => {
-    const source = await readFile(new URL('../../app.ts', import.meta.url), 'utf8');
-    const boundary = source.indexOf("app.use('/api', apiNotFound)");
-    expect(boundary).toBeGreaterThan(source.indexOf("app.use('/api/hooks', hookRoutes)"));
-    expect(boundary).toBeLessThan(source.indexOf('app.use(express.static(publicPath'));
   });
 });

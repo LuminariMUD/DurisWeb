@@ -83,20 +83,6 @@ describe('production review regression contracts', () => {
     expect(updateRoute).toContain('requireWebSettingAuthorization');
   });
 
-  it('encodes every dynamic battle metadata value before HTML interpolation', () => {
-    const composition = read('backend/src/app.ts');
-    const metadata = composition.slice(
-      composition.indexOf('const generateBattleOgTags'),
-      composition.indexOf('// Vue Router history mode support'),
-    );
-
-    expect(metadata).toContain('const title = escapeHtml(');
-    expect(metadata).toContain('const description = escapeHtml(');
-    expect(metadata).toContain('const url = escapeHtml(');
-    expect(metadata).toContain('const encodedSiteTitle = escapeHtml(siteTitle)');
-    expect(metadata).toContain('logoUrl ? escapeHtml(logoUrl) : undefined');
-  });
-
   it('reads user-profile wealth from the canonical player rows', () => {
     const forumService = read('backend/src/services/forumService.ts');
     const userProfile = forumService.slice(

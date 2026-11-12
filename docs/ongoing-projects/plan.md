@@ -8,7 +8,8 @@ Prepared: 12 November 2026 against DurisWeb `3734492` (`master`). Only Dependabo
 bumps have landed since the issue's reference commit `ab3e03c`, and none of them
 touch the files below.
 
-**Status: implementation in progress.** The owner answered the open questions on
+**Status: implementation complete. All six items are in review as the stacked PRs
+listed below.** The owner answered the open questions on
 12 November 2026; see [Decisions](#decisions). For item 4, removal was chosen on the
 owner's instruction to resolve open points autonomously.
 
@@ -24,8 +25,8 @@ fast-forward per PR, as the master ruleset requires linear history.
 | (c) | `branch/issue-183-c-wholist-removal` | #199 | done, verified (backend 1,695 tests, frontend 765) |
 | (a) | `branch/issue-183-a-startup-abort` | #208 | done, verified (backend 1,697 tests) |
 | (f) | `branch/issue-183-f-api-client-reads` | #209 | done, verified (frontend 765 tests) |
-| (e) | `branch/issue-183-e-import-rules` | (opening) | done, verified (21/21 lint probes, real tree clean) |
-| (d) | `branch/issue-183-d-production-app-tests` | — | next |
+| (e) | `branch/issue-183-e-import-rules` | #212 | done, verified (21/21 lint probes, real tree clean) |
+| (d) | `branch/issue-183-d-production-app-tests` | (opening) | done, verified (backend 1,699 tests) |
 
 Working notes for a new session:
 
@@ -36,6 +37,8 @@ Working notes for a new session:
 - The backend formats with **Biome**: run `npx biome format --write <files>`, never
   a bare `npx prettier`, which downloads an unrelated Prettier and reformats whole
   files.
+- Final counts at (d): backend 172 suites (12 skipped) and 1,699 tests; frontend 96
+  files and 765 tests.
 - With (b) applied, `pnpm --dir backend test --runInBand` passes 171 suites
   (12 skipped) and 1,696 tests. Later items compare against this count.
 - To prove that a test exercises a fix, run it against the unfixed source with
@@ -501,6 +504,31 @@ source-text assertions are:
 **Proof:** the new suite passes. It fails when each production branch is
 temporarily disabled. This is checked once by hand during implementation and not
 committed.
+
+**As built:**
+
+- `createApp({ environment, frontendDistPath } = {})`.
+- `src/__tests__/createApp.production.test.ts` has 5 tests:
+  - the alias redirect, including for an asset;
+  - the asset served before the CSRF cookie and after CORS (a foreign `Origin`
+    gets a 403);
+  - the API boundary (`/api/ping` works and `/api/nope` returns a JSON 404);
+  - the SPA fallback for `/some/route` and `/missing/page.png`;
+  - fully encoded OG metadata for a crawler on `/pvp/7`, and the plain shell for
+    people and for unknown battles.
+- The fixture asset is `app-abc12345.js`, because `fingerprintedFrontendAssets`
+  needs an 8-character hash; the `app-abc123.js` named above would not match.
+- The three source-text assertions are deleted.
+
+**Mutation check (by hand, not committed).** Removing `canonicalHost`, removing
+the early `/assets` mount, or making the OG title unescaped each fails exactly one
+test.
+
+**Finding:** mounting `notFoundHandler` in production is **not observable**. It
+sits after the SPA catch-all, which answers every request first, so its
+`environment !== 'production'` guard has no behavioural effect. No test pins it,
+and the SPA-fallback assertions cover what matters. Removing the guard would be a
+harmless cleanup, but it is left alone as out of scope.
 
 ---
 
