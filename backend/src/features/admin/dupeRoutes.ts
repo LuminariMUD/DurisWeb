@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../../utils/safeFailureCode.js';
 import { Router, Request, Response, type IRouter } from 'express';
 import logger from '../../utils/logger.js';
 import { requireAuth, requireOverlord } from '../../middleware/auth.js';
@@ -30,7 +31,7 @@ adminDupeRoutes.get(
       const summary = await getDupeSummary();
       return res.json({ items, summary });
     } catch (error) {
-      logger.error('Get duped items error:', error);
+      logger.error('Get duped items error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get duplicated items' });
     }
   },
@@ -53,7 +54,7 @@ adminDupeRoutes.get(
       const details = await getDupeDetails(objUid);
       return res.json({ details });
     } catch (error) {
-      logger.error('Get dupe details error:', error);
+      logger.error('Get dupe details error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get dupe details' });
     }
   },
@@ -80,7 +81,7 @@ adminDupeRoutes.delete(
       }
       return res.json({ success: true });
     } catch (error) {
-      logger.error('Delete item error:', error);
+      logger.error('Delete item error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to delete item' });
     }
   },
@@ -107,7 +108,7 @@ adminDupeRoutes.delete(
       }
       return res.json({ success: true });
     } catch (error) {
-      logger.error('Delete locker item error:', error);
+      logger.error('Delete locker item error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to delete locker item' });
     }
   },
@@ -132,7 +133,6 @@ adminDupeRoutes.delete(
       const deletedCount = await deleteAllDupesForUid(objUid, vnum);
       return res.json({ success: true, deletedCount });
     } catch (error) {
-      logger.error('Delete dupes for uid error:', error);
       return sendRouteError(
         res,
         error,
@@ -165,7 +165,7 @@ adminDupeRoutes.post(
       const deletedCount = await deletePlayerItems(ids);
       return res.json({ success: true, deletedCount });
     } catch (error) {
-      logger.error('Bulk delete items error:', error);
+      logger.error('Bulk delete items error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to delete items' });
     }
   },

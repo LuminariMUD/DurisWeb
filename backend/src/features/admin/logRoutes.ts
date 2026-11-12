@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../../utils/safeFailureCode.js';
 import { Router, Request, Response, type IRouter } from 'express';
 import logger from '../../utils/logger.js';
 import { param, validationResult } from 'express-validator';
@@ -25,7 +26,7 @@ adminLogRoutes.get(
       const logs = await listLogs();
       return res.json({ logs });
     } catch (error) {
-      logger.error('List logs error:', error);
+      logger.error('List logs error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to list log files' });
     }
   },
@@ -71,7 +72,6 @@ adminLogRoutes.get(
 
       return res.json(result);
     } catch (error) {
-      logger.error('Read log error:', error);
       return sendRouteError(res, error, 'Failed to read log file', 'Failed to read log file');
     }
   },
@@ -105,7 +105,6 @@ adminLogRoutes.get(
 
       return res.json({ lines: result });
     } catch (error) {
-      logger.error('Tail log error:', error);
       return sendRouteError(res, error, 'Failed to tail log file', 'Failed to tail log file');
     }
   },
@@ -144,13 +143,16 @@ adminLogRoutes.get(
       fileStream.pipe(res);
 
       fileStream.on('error', (error) => {
-        logger.error('Download log error:', error);
+        logger.error('Download log error:', { code: safeFailureCode(error) });
         if (!res.headersSent) {
-          res.status(500).json({ error: 'Failed to download log file' });
+          res.removeHeader('Content-Disposition');
+          res.type('json').status(500).json({ error: 'Failed to download log file' });
+        } else {
+          res.destroy();
         }
       });
+      res.on('close', () => fileStream.destroy());
     } catch (error) {
-      logger.error('Download log error:', error);
       sendRouteError(res, error, 'Failed to download log file', 'Failed to download log file');
     }
   },

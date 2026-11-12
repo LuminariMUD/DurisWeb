@@ -1,5 +1,4 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger from '../../utils/logger.js';
 import { body, validationResult } from 'express-validator';
 import { requireAuth, requireOverlord, requirePermission } from '../../middleware/auth.js';
 import { pool as db } from '../../db/connection.js';
@@ -121,7 +120,6 @@ adminConnectionRoutes.get(
         },
       });
     } catch (error) {
-      logger.error('Get connection logs error:', error);
       return sendRouteError(
         res,
         error,
@@ -156,7 +154,6 @@ adminConnectionRoutes.get(
 
       return res.json({ data: timeline });
     } catch (error) {
-      logger.error('Get account connections error:', error);
       return sendRouteError(
         res,
         error,
@@ -207,7 +204,6 @@ adminConnectionRoutes.get(
 
       return res.json({ data: accountDetails });
     } catch (error) {
-      logger.error('Get IP connections error:', error);
       return sendRouteError(
         res,
         error,
@@ -237,7 +233,6 @@ adminConnectionRoutes.get(
 
       return res.json({ data: accounts });
     } catch (error) {
-      logger.error('Get suspicious accounts error:', error);
       return sendRouteError(
         res,
         error,
@@ -280,7 +275,6 @@ adminConnectionRoutes.post(
         message: 'Account flag resolved',
       });
     } catch (error) {
-      logger.error('Resolve account flag error:', error);
       return sendRouteError(
         res,
         error,
@@ -341,7 +335,6 @@ adminConnectionRoutes.get(
         },
       });
     } catch (error) {
-      logger.error('Get connection stats error:', error);
       return sendRouteError(
         res,
         error,

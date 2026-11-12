@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../../utils/safeFailureCode.js';
 import {
   receiveBackupUpload,
   cancelRegisteredBackupUpload,
@@ -60,7 +61,6 @@ adminBackupRoutes.get(
       );
       return res.json({ backups });
     } catch (error) {
-      logger.error('List backups error:', error);
       return sendRouteError(res, error, 'Failed to list backups', 'Failed to list backups');
     }
   },
@@ -331,7 +331,7 @@ adminBackupRoutes.get(
       const running = isMudRunning();
       return res.json({ running });
     } catch (error) {
-      logger.error('Check MUD status error:', error);
+      logger.error('Check MUD status error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to check MUD status' });
     }
   },
@@ -361,7 +361,6 @@ adminBackupRoutes.get(
       const restores = await getRestoreList();
       return res.json(restores);
     } catch (error) {
-      logger.error('Get restore list error:', error);
       return sendRouteError(res, error, 'Failed to get restore list', 'Failed to get restore list');
     }
   },
@@ -389,7 +388,6 @@ adminBackupRoutes.get(
 
       return res.json(restore);
     } catch (error) {
-      logger.error('Get restore status error:', error);
       return sendRouteError(
         res,
         error,

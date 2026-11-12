@@ -72,7 +72,6 @@ adminWipeRoutes.get(
           : null,
       });
     } catch (error) {
-      logger.error('Error fetching wipe status:', error);
       return sendRouteError(
         res,
         error,
@@ -122,7 +121,6 @@ adminWipeRoutes.get(
         players,
       });
     } catch (error) {
-      logger.error('Error fetching players for wipe:', error);
       return sendRouteError(res, error, 'Failed to fetch players', 'Failed to fetch players');
     }
   },
@@ -180,7 +178,6 @@ adminWipeRoutes.get(
         offset,
       });
     } catch (error) {
-      logger.error('Error fetching wipe history:', error);
       return sendRouteError(
         res,
         error,
@@ -438,14 +435,13 @@ adminWipeRoutes.post(
         await db.query(
           `INSERT INTO wipe_history (executed_by, reason, success, error_message, ip_address)
            VALUES (?, ?, 0, ?, ?)`,
-          // The history API returns this column; keep the driver text in the log (#176).
+          // The history API returns this column; persist only an allowlisted code (#176).
           [req.user!.accountName, reason, safeFailureCode(error), req.ip],
         );
       } catch (logError) {
-        logger.error('Failed to log wipe error:', logError);
+        logger.error('Failed to log wipe error:', { code: safeFailureCode(logError) });
       }
 
-      logger.error('Error executing player wipe:', error);
       return sendRouteError(
         res,
         error,
@@ -501,7 +497,6 @@ adminWipeRoutes.post(
         rowsDeleted,
       });
     } catch (error) {
-      logger.error('Error executing guild wipe:', error);
       return sendRouteError(
         res,
         error,

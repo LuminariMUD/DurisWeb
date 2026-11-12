@@ -49,6 +49,9 @@ jest.unstable_mockModule('../../../utils/logger.js', () => ({
 jest.unstable_mockModule('../../../services/unifiedNotificationService.js', () => ({
   createNotification: asyncMock(),
 }));
+jest.unstable_mockModule('../../../services/geminiSuspicionAnalyzer.js', () =>
+  namedService(['analyzeWithGemini', 'storeAnalysis']),
+);
 jest.unstable_mockModule('../../../services/forumSettingsService.js', () =>
   namedService([
     'getForumSettings',
@@ -232,6 +235,7 @@ describe('admin account permission ID validation', () => {
   });
 
   it('keeps a typed web-setting validation message and hides driver text (#176)', async () => {
+    const { default: logger } = await import('../../../utils/logger.js');
     const settings = await import('../../../services/webSettingsService.js');
     const { AppError } = await import('../../../middleware/errorHandler.js');
     const update = jest.mocked(settings.updateWebSetting);
@@ -248,6 +252,45 @@ describe('admin account permission ID validation', () => {
       error: 'Failed to update setting',
       reference: expect.any(String),
     });
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(logger.error).mock.calls[0]).toEqual([
+      'Failed to update setting',
+      { reference: failed.body.reference, code: 'unclassified' },
+    ]);
+  });
+
+  it('keeps background AI failure diagnostics out of logs and notifications', async () => {
+    const analyzer = await import('../../../services/geminiSuspicionAnalyzer.js');
+    const { createNotification } = await import('../../../services/unifiedNotificationService.js');
+    const { default: logger } = await import('../../../utils/logger.js');
+    jest.mocked(analyzer.analyzeWithGemini).mockRejectedValueOnce(new Error('AI_PRIVATE_SENTINEL'));
+    let finish: (value: unknown) => void = () => {};
+    const notified = new Promise<unknown>((resolve) => {
+      finish = resolve;
+    });
+    jest.mocked(createNotification).mockImplementationOnce(async (input) => {
+      finish(input);
+      return 1;
+    });
+    const response = await request(app).post('/api/admin/ai-analysis/run').send({ daysBack: 1 });
+    expect(response.status).toBe(200);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const notification = await Promise.race([
+        notified,
+        new Promise((_, reject) => {
+          timeout = setTimeout(() => reject(new Error('Missing notification')), 1000);
+        }),
+      ]);
+      expect(JSON.stringify(notification)).not.toContain('AI_PRIVATE_SENTINEL');
+      expect(logger.error).toHaveBeenCalledTimes(1);
+      const logArguments: readonly unknown[] = jest.mocked(logger.error).mock.calls[0] ?? [];
+      const fields = logArguments[1];
+      expect(fields).toEqual({ reference: expect.any(String), code: 'unclassified' });
+      expect(JSON.stringify(notification)).toContain((fields as { reference: string }).reference);
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
   });
 
   it.each(['/backup/status/1', '/backup/download/1', '/backup/1/contents'])(

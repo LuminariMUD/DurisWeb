@@ -1,3 +1,4 @@
+import { safeFailureCode } from '../../utils/safeFailureCode.js';
 import { Router, Request, Response, type IRouter } from 'express';
 import logger from '../../utils/logger.js';
 import { requireAuth, requireOverlord } from '../../middleware/auth.js';
@@ -47,7 +48,7 @@ adminAccessRoutes.get(
       const permissions = await getAllPermissions();
       return res.json(permissions);
     } catch (error) {
-      logger.error('Get permissions error:', error);
+      logger.error('Get permissions error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to fetch permissions' });
     }
   },
@@ -66,7 +67,7 @@ adminAccessRoutes.get(
       const roles = await getAllRoles();
       return res.json(roles);
     } catch (error) {
-      logger.error('Get roles error:', error);
+      logger.error('Get roles error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to fetch roles' });
     }
   },
@@ -96,7 +97,7 @@ adminAccessRoutes.get(
 
       return res.json(role);
     } catch (error) {
-      logger.error('Get role error:', error);
+      logger.error('Get role error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to fetch role' });
     }
   },
@@ -142,7 +143,7 @@ adminAccessRoutes.post(
         message: 'Role created successfully',
       });
     } catch (error) {
-      logger.error('Create role error:', error);
+      logger.error('Create role error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to create role' });
     }
   },
@@ -187,7 +188,6 @@ adminAccessRoutes.put(
         message: 'Role updated successfully',
       });
     } catch (error) {
-      logger.error('Update role error:', error);
       return sendRouteError(res, error, 'Failed to update role', 'Failed to update role');
     }
   },
@@ -216,7 +216,6 @@ adminAccessRoutes.delete(
         message: 'Role deleted successfully',
       });
     } catch (error) {
-      logger.error('Delete role error:', error);
       return sendRouteError(res, error, 'Failed to delete role', 'Failed to delete role');
     }
   },
@@ -291,7 +290,7 @@ adminAccessRoutes.get(
 
       return res.json(accounts);
     } catch (error) {
-      logger.error('Get accounts with permissions error:', error);
+      logger.error('Get accounts with permissions error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to fetch accounts' });
     }
   },
@@ -314,7 +313,7 @@ adminAccessRoutes.get(
       const accounts = await searchAccounts(query, limit);
       return res.json(accounts);
     } catch (error) {
-      logger.error('Search accounts error:', error);
+      logger.error('Search accounts error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to search accounts' });
     }
   },
@@ -353,7 +352,7 @@ adminAccessRoutes.get(
         individualPermissions: accountDetails.individual_permissions,
       });
     } catch (error) {
-      logger.error('Get account permissions error:', error);
+      logger.error('Get account permissions error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to fetch account permissions' });
     }
   },
@@ -390,7 +389,6 @@ adminAccessRoutes.post(
         message: 'Role assigned successfully',
       });
     } catch (error) {
-      logger.error('Assign role error:', error);
       return sendRouteError(res, error, 'Failed to assign role', 'Failed to assign role');
     }
   },
@@ -422,7 +420,6 @@ adminAccessRoutes.delete(
         message: 'Role revoked successfully',
       });
     } catch (error) {
-      logger.error('Revoke role error:', error);
       return sendRouteError(res, error, 'Failed to revoke role', 'Failed to revoke role');
     }
   },
@@ -459,7 +456,6 @@ adminAccessRoutes.post(
         message: 'Permission granted successfully',
       });
     } catch (error) {
-      logger.error('Grant permission error:', error);
       return sendRouteError(res, error, 'Failed to grant permission', 'Failed to grant permission');
     }
   },
@@ -491,7 +487,6 @@ adminAccessRoutes.delete(
         message: 'Permission revoked successfully',
       });
     } catch (error) {
-      logger.error('Revoke permission error:', error);
       return sendRouteError(
         res,
         error,

@@ -1,6 +1,7 @@
+import { safeFailureCode } from '../../utils/safeFailureCode.js';
 import { randomUUID } from 'node:crypto';
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
 import { createNotification } from '../../services/unifiedNotificationService.js';
 import { body, param, validationResult } from 'express-validator';
 import { requireAuth, requirePermission } from '../../middleware/auth.js';
@@ -86,12 +87,14 @@ adminHealthRoutes.post(
           });
           logger.info(`Notification sent to ${accountName} for AI analysis complete`);
         } catch (notifError) {
-          logger.error('Failed to send AI analysis complete notification:', notifError);
+          logger.error('Failed to send AI analysis complete notification:', {
+            code: safeFailureCode(notifError),
+          });
         }
       } catch (error) {
-        // The notification is shown in the admin UI; the detail stays in the log (#176).
+        // The notification is shown in the admin UI; the log keeps only its reference and failure code (#176).
         const reference = randomUUID();
-        logger.error('AI analysis error:', { reference, message: getErrorMessage(error) });
+        logger.error('AI analysis error:', { reference, code: safeFailureCode(error) });
         try {
           await createNotification({
             accountName,
@@ -102,7 +105,9 @@ adminHealthRoutes.post(
           });
           logger.info(`Notification sent to ${accountName} for AI analysis error`);
         } catch (notifError) {
-          logger.error('Failed to send AI analysis error notification:', notifError);
+          logger.error('Failed to send AI analysis error notification:', {
+            code: safeFailureCode(notifError),
+          });
         }
       }
     })();
@@ -140,7 +145,6 @@ adminHealthRoutes.get(
 
       return res.json({ success: true, data });
     } catch (error) {
-      logger.error('Get AI history error:', error);
       return sendRouteError(
         res,
         error,
@@ -186,7 +190,6 @@ adminHealthRoutes.get(
 
       return res.json({ success: true, data });
     } catch (error) {
-      logger.error('Get AI analysis error:', error);
       return sendRouteError(res, error, 'Failed to get analysis', 'Failed to get analysis');
     }
   },
@@ -246,7 +249,7 @@ adminHealthRoutes.get(
         },
       });
     } catch (error) {
-      logger.error('Get crashes error:', error);
+      logger.error('Get crashes error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get crash logs' });
     }
   },
@@ -285,7 +288,7 @@ adminHealthRoutes.get(
 
       return res.json({ crash });
     } catch (error) {
-      logger.error('Get crash details error:', error);
+      logger.error('Get crash details error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get crash details' });
     }
   },
@@ -337,7 +340,7 @@ adminHealthRoutes.patch(
 
       return res.json({ success: true });
     } catch (error) {
-      logger.error('Update crash error:', error);
+      logger.error('Update crash error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to update crash' });
     }
   },
@@ -362,7 +365,7 @@ adminHealthRoutes.get(
 
       return res.json({ health, status });
     } catch (error) {
-      logger.error('Get server health error:', error);
+      logger.error('Get server health error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get server health' });
     }
   },
@@ -385,7 +388,7 @@ adminHealthRoutes.get(
 
       return res.json({ history });
     } catch (error) {
-      logger.error('Get health history error:', error);
+      logger.error('Get health history error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get health history' });
     }
   },
@@ -410,7 +413,7 @@ adminHealthRoutes.get(
 
       return res.json({ incidents });
     } catch (error) {
-      logger.error('Get incidents error:', error);
+      logger.error('Get incidents error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get incidents' });
     }
   },
@@ -433,7 +436,7 @@ adminHealthRoutes.get(
 
       return res.json({ uptime, days });
     } catch (error) {
-      logger.error('Get uptime error:', error);
+      logger.error('Get uptime error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get uptime' });
     }
   },
@@ -484,7 +487,7 @@ adminHealthRoutes.get(
         },
       });
     } catch (error) {
-      logger.error('Get incidents error:', error);
+      logger.error('Get incidents error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to get incidents' });
     }
   },
@@ -542,7 +545,7 @@ adminHealthRoutes.post(
         id: (result as any).insertId,
       });
     } catch (error) {
-      logger.error('Create incident error:', error);
+      logger.error('Create incident error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to create incident' });
     }
   },
@@ -628,7 +631,7 @@ adminHealthRoutes.patch(
 
       return res.json({ success: true });
     } catch (error) {
-      logger.error('Update incident error:', error);
+      logger.error('Update incident error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to update incident' });
     }
   },
@@ -662,7 +665,7 @@ adminHealthRoutes.delete(
 
       return res.json({ success: true });
     } catch (error) {
-      logger.error('Delete incident error:', error);
+      logger.error('Delete incident error:', { code: safeFailureCode(error) });
       return res.status(500).json({ error: 'Failed to delete incident' });
     }
   },
