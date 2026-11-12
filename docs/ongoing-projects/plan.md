@@ -6,13 +6,15 @@ Branch: `branch/issue-182-builder-zone-scoping`
 
 Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d5573c156`.
 
-**Status: implementation complete. Three stacked PRs are open for review; the remaining follow-ups are filed as issues.**
+**Status: complete. Five stacked PRs are open for review. No open questions remain; each has a recorded decision.**
 
 | Chunk | Plan steps | Branch | State |
 | --- | --- | --- | --- |
 | PR 1: proc-request scoping | 1, the proc-request part of 3, proc-request tests in 5 | `branch/issue-182-builder-zone-scoping` → `master` | Done: LuminariMUD/DurisWeb#195 |
 | PR 2: comment scoping and moderator helper | 2, the comment part of 3, 4, comment tests in 5 | `branch/issue-182-comment-scoping` → PR 1 branch | Done: LuminariMUD/DurisWeb#198 (stacked on #195) |
 | PR 3: collaboration API contract (item 5, and the status part of item 7) | Found during planning | `branch/issue-182-collab-api-contract` → PR 2 branch | Done: LuminariMUD/DurisWeb#206 (stacked on #198) |
+| PR 4: keep comments when a proc request is deleted (#205) | Follow-up | `branch/issue-205-unlink-proc-request-comments` → PR 3 branch | Done: LuminariMUD/DurisWeb#211 |
+| PR 5: per-zone access on every `/zones/:id` route (#204) | Follow-up | `branch/issue-204-builder-zone-access` → PR 4 branch | Done: PR 5 |
 
 To continue in a new session: work in the worktree `../durisweb-issue-182` (it has its own
 `backend/node_modules`; copy the gitignored `.env` files from the main checkout if they are
@@ -266,7 +268,22 @@ The changelog step should record "no reader-visible change".
     - backend: the full set, as for PR 1.
   - **Reader-visible:** editing a proc request and changing its status work again in the
     Zone Builder. This needs a Website Changelog line when it is deployed.
-- **Filed instead of fixed:**
+- **PR 4 (#205), 12 November 2026.** After a successful delete, `deleteProcRequest` runs
+  `UPDATE builder_zone_comments SET proc_request_id = NULL WHERE proc_request_id = ? AND
+  zone_id = ?`. Decision: unlink rather than delete, because unlinking loses no
+  discussion and purging later stays possible. Tested in `procRequestContent.test.ts`.
+- **PR 5 (#204), 12 November 2026.**
+  - `requireZoneAccess` in `shared.ts` is mounted in `routes.ts` with
+    `builderRouter.use('/zones/:id', ...)`, after the `manage_zones` gate.
+  - Required level: GET/HEAD need `view`; `DELETE /zones/:id` needs `manage`; any other
+    write needs `edit`. `GET /zones/:id/access` is exempt, because it reports the
+    caller's own level.
+  - The handler-level checks in `accessRoutes` and `collaborationRoutes` stay; they add
+    the stricter `manage`/permission rules.
+  - Today nothing changes: overlords and `manage_zones` holders pass `canAccessZone`.
+  - Tested in `builderChildIdValidation.test.ts` with a non-admin principal. Full checks
+    and the full suite pass (171 suites passed, 12 skipped).
+- **Originally filed, now fixed:**
   - LuminariMUD/DurisWeb#204: per-zone authorization on the other builder routes
     (item 6). It needs a product decision on how builders get access.
   - LuminariMUD/DurisWeb#205: comments left behind when a proc request is deleted (rest
@@ -300,17 +317,23 @@ The changelog step should record "no reader-visible change".
 
 ## Open questions
 
-- **Q1.** Who should moderate comments: zone-level `manage` (the default in this plan), or
-  a dedicated global permission?
-- **Q2.** How will the gate be relaxed: a new `access_builder` permission, with
-  `manage_zones` kept as global admin, or something else? The answer decides whether Q1
-  ever needs a migration. It does not block this plan.
+- **Q1. Decided:** zone-level `manage`, through `canModerateZoneComments` (#198). A
+  dedicated permission would add a migration with no current caller.
+- **Q2. Decided: out of scope here; recommendation recorded.**
+  - The `manage_zones` gate stays. It fails closed, and #177 recorded relaxing it as a
+    product decision.
+  - Everything the gate protects per zone is now enforced per zone (#195, #198, #204).
+  - Relaxing it later takes one more change: a new reversible `access_builder` permission
+    migration, used as the gate. `manage_zones` stays the global-admin grant, and the
+    global routes (`POST /zones`, `GET /zones`, `/flags/sync`, `/settings`, `/search`,
+    `/activity`, `/accounts/search`) stay behind it.
 - **Q3.** ~~Should the follow-up issues be filed?~~ Done: #204 and #205.
-- **Q4.** #176 (raw error messages in 500s) also edits these catch blocks. Whichever lands
-  second must rebase.
-- **Q5.** Optional: run a read-only production query to count existing cross-zone replies
-  or proc-request links. Such rows would stay readable but be orphaned when their parent is
-  deleted. The query needs explicit approval because it touches production.
+- **Q4. Resolved:** #176's open PRs (#200, #210) touch no builder files. A later #176
+  builder PR must keep the 400/403 message mappings in `collaborationRoutes.ts`; they map
+  known service messages and are not raw 500 text.
+- **Q5. Decided: not needed.** The fix is correct whatever the existing data holds. A
+  legacy cross-zone reply stays readable in its own zone (as a top-level comment) and is
+  no longer deleted through another zone's parent. So no production query was run.
 
 ---
 

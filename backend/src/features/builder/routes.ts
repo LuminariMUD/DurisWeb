@@ -11,14 +11,17 @@ import { builderGitRoutes } from './gitRoutes.js';
 import { builderSettingsRoutes } from './settingsRoutes.js';
 import { builderAccessRoutes } from './accessRoutes.js';
 import { builderCollaborationRoutes } from './collaborationRoutes.js';
+import { requireZoneAccess } from './shared.js';
 
-/** `/api/builder`: authentication and `manage_zones` first, then the route groups. */
+/** `/api/builder`: authentication, `manage_zones`, per-zone access, then the route groups. */
 export const builderRouter: IRouter = Router();
 
 // Apply auth middleware to all routes
 builderRouter.use(requireAuth);
 // For now, require manage_zones permission - can be changed to a specific builder permission later
 builderRouter.use(requirePermission('manage_zones'));
+// Per-zone access on every /zones/:id route, so relaxing the gate above cannot open every zone
+builderRouter.use('/zones/:id', requireZoneAccess);
 
 for (const group of [
   builderZoneRoutes,
