@@ -1,8 +1,8 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import * as notificationService from '../services/unifiedNotificationService.js';
-import { getErrorMessage } from '../utils/logger.js';
 import { validateIdParam } from '../utils/validation.js';
+import { sendRouteError } from '../utils/routeError.js';
 
 const router: ExpressRouter = Router();
 
@@ -37,7 +37,7 @@ router.get('/', requireAuth, async (req, res) => {
       unreadCount,
     });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to load notifications', 'List notifications failed');
   }
 });
 
@@ -51,7 +51,7 @@ router.get('/unread-count', requireAuth, async (req, res) => {
     const count = await notificationService.getUnreadCount(accountName);
     res.json({ count });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to load unread count', 'Notification unread count failed');
   }
 });
 
@@ -71,7 +71,12 @@ router.post('/:id/read', requireAuth, async (req, res) => {
     await notificationService.markAsRead(id, accountName);
     return res.json({ success: true });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(
+      res,
+      error,
+      'Failed to mark notification as read',
+      'Mark notification read failed',
+    );
   }
 });
 
@@ -85,7 +90,12 @@ router.post('/read-all', requireAuth, async (req, res) => {
     await notificationService.markAllAsRead(accountName);
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    sendRouteError(
+      res,
+      error,
+      'Failed to mark notifications as read',
+      'Mark all notifications read failed',
+    );
   }
 });
 
@@ -105,7 +115,12 @@ router.delete('/:id', requireAuth, async (req, res) => {
     await notificationService.deleteNotification(id, accountName);
     return res.json({ success: true });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(
+      res,
+      error,
+      'Failed to delete notification',
+      'Delete notification failed',
+    );
   }
 });
 
@@ -125,7 +140,12 @@ router.post('/:source/:id/read', requireAuth, async (req, res) => {
     await notificationService.markAsRead(id, accountName);
     return res.json({ success: true });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(
+      res,
+      error,
+      'Failed to mark notification as read',
+      'Mark source notification read failed',
+    );
   }
 });
 
@@ -141,7 +161,12 @@ router.delete('/:source/:id', requireAuth, async (req, res) => {
     await notificationService.deleteNotification(id, accountName);
     return res.json({ success: true });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(
+      res,
+      error,
+      'Failed to delete notification',
+      'Delete source notification failed',
+    );
   }
 });
 

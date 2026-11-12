@@ -1,6 +1,7 @@
 import express, { Router, Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
 import { getErrorMessage } from '../utils/logger.js';
+import { isPublicError } from '../utils/routeError.js';
 import * as wikiService from '../services/wikiService.js';
 import { optionalAuth, requireAuth, requirePermission } from '../middleware/auth.js';
 import type { WikiSourceIdentity } from '../services/wikiGeneration.js';
@@ -280,9 +281,8 @@ router.get(
       const tiles = await wikiService.getMapTiles(bounds, zLevel);
       res.json(tiles);
     } catch (error) {
-      const errorMsg = getErrorMessage(error);
-      if (errorMsg.includes('too large') || errorMsg.includes('Invalid bounds')) {
-        res.status(400).json({ error: errorMsg });
+      if (isPublicError(error)) {
+        res.status(error.statusCode).json({ error: error.message });
         return;
       }
       next(error);

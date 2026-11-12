@@ -1,4 +1,5 @@
 import { pool } from '../db/connection.js';
+import { AppError } from '../middleware/errorHandler.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import type { UserPermissions } from './permissionService.js';
 import { getCategoryAccessForAccount } from './categoryService.js';
@@ -161,22 +162,22 @@ export async function createPoll(
 ): Promise<number> {
   const threadAccess = await getThreadAccess(threadId, permissions);
   if (!threadAccess?.canPost) {
-    throw new Error('You do not have permission to create a poll in this category');
+    throw new AppError('You do not have permission to create a poll in this category', 403);
   }
 
   if (pollData.options.length < 2 || pollData.options.length > 10) {
-    throw new Error('Poll must have between 2 and 10 options');
+    throw new AppError('Poll must have between 2 and 10 options', 400);
   }
 
   if (pollData.isMultipleChoice) {
     if (pollData.minChoices < 1) {
-      throw new Error('Minimum choices must be at least 1');
+      throw new AppError('Minimum choices must be at least 1', 400);
     }
     if (pollData.maxChoices > pollData.options.length) {
-      throw new Error('Maximum choices cannot exceed number of options');
+      throw new AppError('Maximum choices cannot exceed number of options', 400);
     }
     if (pollData.minChoices > pollData.maxChoices) {
-      throw new Error('Minimum choices cannot exceed maximum choices');
+      throw new AppError('Minimum choices cannot exceed maximum choices', 400);
     }
   }
 
@@ -337,7 +338,7 @@ export async function castVote(
 ): Promise<void> {
   const pollAccess = await getPollAccess(pollId, permissions);
   if (!pollAccess?.canView) {
-    throw new Error('Poll not found or access denied');
+    throw new AppError('Poll not found or access denied', 404);
   }
 
   const connection = await pool.getConnection();
@@ -351,14 +352,14 @@ export async function castVote(
     );
 
     if (polls.length === 0) {
-      throw new Error('Poll not found');
+      throw new AppError('Poll not found', 404);
     }
 
     const poll = polls[0] as ForumPoll;
 
     // Check if poll is active
     if (!isPollActive(poll)) {
-      throw new Error('This poll is no longer accepting votes');
+      throw new AppError('This poll is no longer accepting votes', 409);
     }
 
     // Validate option IDs belong to this poll
@@ -368,20 +369,20 @@ export async function castVote(
     );
 
     if (options.length !== optionIds.length) {
-      throw new Error('Invalid option IDs');
+      throw new AppError('Invalid option IDs', 400);
     }
 
     // Validate selection count
     if (poll.is_multiple_choice) {
       if (optionIds.length < poll.min_choices) {
-        throw new Error(`Please select at least ${poll.min_choices} option(s)`);
+        throw new AppError(`Please select at least ${poll.min_choices} option(s)`, 400);
       }
       if (optionIds.length > poll.max_choices) {
-        throw new Error(`You can select at most ${poll.max_choices} option(s)`);
+        throw new AppError(`You can select at most ${poll.max_choices} option(s)`, 400);
       }
     } else {
       if (optionIds.length !== 1) {
-        throw new Error('Please select exactly one option');
+        throw new AppError('Please select exactly one option', 400);
       }
     }
 
@@ -446,7 +447,7 @@ export async function removeVote(
 ): Promise<void> {
   const pollAccess = await getPollAccess(pollId, permissions);
   if (!pollAccess?.canView) {
-    throw new Error('Poll not found or access denied');
+    throw new AppError('Poll not found or access denied', 404);
   }
 
   const connection = await pool.getConnection();
@@ -456,12 +457,12 @@ export async function removeVote(
     // Get poll
     const poll = pollAccess.poll;
     if (!poll) {
-      throw new Error('Poll not found');
+      throw new AppError('Poll not found', 404);
     }
 
     // Check if poll is active
     if (!isPollActive(poll)) {
-      throw new Error('This poll is no longer accepting votes');
+      throw new AppError('This poll is no longer accepting votes', 409);
     }
 
     // Get user's current votes
@@ -471,7 +472,7 @@ export async function removeVote(
     );
 
     if (votes.length === 0) {
-      throw new Error('You have not voted on this poll');
+      throw new AppError('You have not voted on this poll', 409);
     }
 
     const optionIds = votes.map((v: RowDataPacket) => v.option_id);
@@ -516,10 +517,10 @@ export async function closePoll(
   permissions: UserPermissions,
 ): Promise<void> {
   const pollAccess = await getPollAccess(pollId, permissions);
-  if (!pollAccess?.poll) throw new Error('Poll not found or access denied');
+  if (!pollAccess?.poll) throw new AppError('Poll not found or access denied', 404);
   const isCreator = pollAccess.poll.created_by_account === actorAccount;
   if ((!isCreator || !pollAccess.canPost) && !pollAccess.canModerate) {
-    throw new Error('Not authorized to close this poll');
+    throw new AppError('Not authorized to close this poll', 403);
   }
 
   const connection = await pool.getConnection();
@@ -539,10 +540,10 @@ export async function deletePoll(
   permissions: UserPermissions,
 ): Promise<void> {
   const pollAccess = await getPollAccess(pollId, permissions);
-  if (!pollAccess?.poll) throw new Error('Poll not found or access denied');
+  if (!pollAccess?.poll) throw new AppError('Poll not found or access denied', 404);
   const isCreator = pollAccess.poll.created_by_account === actorAccount;
   if ((!isCreator || !pollAccess.canPost) && !pollAccess.canModerate) {
-    throw new Error('Not authorized to delete this poll');
+    throw new AppError('Not authorized to delete this poll', 403);
   }
 
   const connection = await pool.getConnection();

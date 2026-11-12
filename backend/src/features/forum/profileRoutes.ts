@@ -1,5 +1,5 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
 import { body, validationResult } from 'express-validator';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
@@ -287,9 +287,6 @@ forumProfileRoutes.post(
       return res.json({ avatarUrl });
     } catch (error) {
       logger.error('Upload avatar error:', error);
-      if (getErrorMessage(error).includes('Only JPG')) {
-        return res.status(400).json({ error: getErrorMessage(error) });
-      }
       return res.status(500).json({ error: 'Failed to upload avatar' });
     }
   },
@@ -334,9 +331,6 @@ forumProfileRoutes.post(
       return res.json({ avatarUrl });
     } catch (error) {
       logger.error('Upload avatar error:', error);
-      if (getErrorMessage(error).includes('Only JPG')) {
-        return res.status(400).json({ error: getErrorMessage(error) });
-      }
       return res.status(500).json({ error: 'Failed to upload avatar' });
     }
   },

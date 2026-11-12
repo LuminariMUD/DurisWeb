@@ -1,5 +1,5 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
 import { body, param, query, validationResult } from 'express-validator';
 import {
   getPostById,
@@ -13,6 +13,7 @@ import {
 import { requireAuth, requireModerator } from '../../middleware/auth.js';
 import { getCategoryAccessForAccount } from '../../services/categoryService.js';
 import { getAuthorizedThread } from './shared.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const forumModerationRoutes: IRouter = Router();
 
@@ -59,7 +60,7 @@ forumModerationRoutes.delete(
       return res.json({ message: 'Post deleted successfully' });
     } catch (error) {
       logger.error('Moderator delete post error:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to delete post' });
+      return sendRouteError(res, error, 'Failed to delete post', 'Failed to delete post');
     }
   },
 );
@@ -106,7 +107,7 @@ forumModerationRoutes.post(
       return res.json({ message: 'Post restored successfully' });
     } catch (error) {
       logger.error('Restore post error:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to restore post' });
+      return sendRouteError(res, error, 'Failed to restore post', 'Failed to restore post');
     }
   },
 );
@@ -142,7 +143,7 @@ forumModerationRoutes.delete(
       return res.json({ message: 'Thread deleted successfully' });
     } catch (error) {
       logger.error('Moderator delete thread error:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to delete thread' });
+      return sendRouteError(res, error, 'Failed to delete thread', 'Failed to delete thread');
     }
   },
 );
@@ -183,7 +184,7 @@ forumModerationRoutes.post(
       return res.json({ message: 'Thread restored successfully' });
     } catch (error) {
       logger.error('Restore thread error:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to restore thread' });
+      return sendRouteError(res, error, 'Failed to restore thread', 'Failed to restore thread');
     }
   },
 );
@@ -230,7 +231,7 @@ forumModerationRoutes.post(
       return res.json({ message: 'Thread moved successfully' });
     } catch (error) {
       logger.error('Move thread error:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to move thread' });
+      return sendRouteError(res, error, 'Failed to move thread', 'Failed to move thread');
     }
   },
 );

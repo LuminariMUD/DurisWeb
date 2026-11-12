@@ -16,9 +16,9 @@ with its own PR. Rebase the stack onto `master` after each merge (see
 
 | # | Branch | Scope | PR | State |
 |---|---|---|---|---|
-| 1 | `branch/issue-176-safe-error-responses` | plan, `sendRouteError`, `errorHandler`, anonymous routes (changelog, guide, `GET /api/content/news`) | see PR list on #176 | ready for review |
-| 2 | `branch/issue-176-player-routes` | players: notifications, help suggestions, auth, forum moderation/poll/profile/subscription, wiki text matches | — | next |
-| 3 | `branch/issue-176-admin-routes` | admin/staff: rest of `content.ts`, `features/admin/*` | — | pending |
+| 1 | `branch/issue-176-safe-error-responses` | plan, `sendRouteError`, `errorHandler` (incl. multer upload errors), anonymous routes (changelog, guide, `GET /api/content/news`) | LuminariMUD/DurisWeb#200 | ready for review |
+| 2 | `branch/issue-176-player-routes` | players: notifications, help suggestions, auth change-password, forum moderation/poll/profile, wiki map-tile bounds; typed `pollService`, forum moderation and wiki bounds throws | see #176 | ready for review |
+| 3 | `branch/issue-176-admin-routes` | admin/staff: rest of `content.ts`, `features/admin/*` | — | next |
 | 4 | `branch/issue-176-builder-routes` | builder, SSE/WebSocket, git/mud/deploy results, ESLint guard, docs | — | pending |
 
 Decisions taken while implementing (resolving the open questions below):
@@ -48,6 +48,13 @@ Implementation notes for whoever continues:
 - Tests that pinned a leaked 500 message are updated to the generic contract (first one:
   `services/__tests__/wikiZoneMapData.test.ts`, the "zone is ambiguous" manifest fault).
 - The 12 skipped backend suites are pre-existing env-gated native/DB suites.
+- Multer reports file-filter and limit errors through `next(err)`, never the route's catch.
+  File filters now reject with `AppError(400)` and `errorHandler` treats `MulterError` as a
+  client 400 (fixed library text). The `includes('Only JPG')` branches in
+  `profileRoutes.ts` were dead for that reason and were removed.
+- Left unchanged on purpose (they map internal text to a fixed string, so nothing leaks):
+  `subscriptionRoutes.ts:82,194`, `routes/wiki.ts:241`. The final guard must therefore target
+  `getErrorMessage`/`.message` inside a response call, not ban the import outright.
 
 This plan was built from the code, not from the issue text. Every count below comes from
 an AST pass over `backend/src` (non-test `.ts`), which finds wrapped call sites that a line

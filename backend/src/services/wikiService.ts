@@ -1,4 +1,5 @@
 import { pool } from '../db/connection.js';
+import { AppError } from '../middleware/errorHandler.js';
 import { RowDataPacket } from 'mysql2';
 import { getCache, setCache, mapToObject, objectToMapNumeric, objectToMap } from '../db/redis.js';
 import sharp from 'sharp';
@@ -403,13 +404,14 @@ export async function getMapTiles(bounds: MapBounds, zLevel: number = 0): Promis
   const area = width * height;
 
   if (area > MAX_TILES_PER_REQUEST) {
-    throw new Error(
+    throw new AppError(
       `Requested area too large (${area} tiles). Maximum is ${MAX_TILES_PER_REQUEST}. Zoom in or reduce viewport.`,
+      400,
     );
   }
 
   if (width <= 0 || height <= 0) {
-    throw new Error('Invalid bounds: width and height must be positive');
+    throw new AppError('Invalid bounds: width and height must be positive', 400);
   }
 
   // Cache key based on bounds and layer
