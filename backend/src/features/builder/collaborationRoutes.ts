@@ -257,6 +257,7 @@ builderCollaborationRoutes.put(
       const zoneName = await getZoneName(zoneId);
 
       const procRequest = await procRequestService.updateProcRequest(
+        zoneId,
         prId,
         data,
         accountName,
@@ -330,6 +331,7 @@ builderCollaborationRoutes.put(
       const zoneName = await getZoneName(zoneId);
 
       const procRequest = await procRequestService.updateProcRequestStatus(
+        zoneId,
         prId,
         status,
         assignedTo,
@@ -374,7 +376,7 @@ builderCollaborationRoutes.delete(
         return;
       }
 
-      const deleted = await procRequestService.deleteProcRequest(prId);
+      const deleted = await procRequestService.deleteProcRequest(zoneId, prId);
 
       if (!deleted) {
         res.status(404).json({ error: 'Proc request not found' });

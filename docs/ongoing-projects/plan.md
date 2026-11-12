@@ -6,7 +6,18 @@ Branch: `branch/issue-182-builder-zone-scoping`
 
 Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d5573c156`.
 
-**Status: plan only. Nothing is implemented yet.**
+**Status: in progress. Two stacked PRs.**
+
+| Chunk | Plan steps | Branch | State |
+| --- | --- | --- | --- |
+| PR 1: proc-request scoping | 1, the proc-request part of 3, proc-request tests in 5 | `branch/issue-182-builder-zone-scoping` → `master` | Implemented and verified; PR open |
+| PR 2: comment scoping and moderator helper | 2, the comment part of 3, 4, comment tests in 5 | `branch/issue-182-comment-scoping` → PR 1 branch | Not started |
+
+To continue in a new session: work in the worktree `../durisweb-issue-182` (it has its own
+`backend/node_modules`; copy the gitignored `.env` files from the main checkout if they are
+missing). Check out the branch for the first chunk that is not done, implement its plan
+steps, run the commands under "Proof", then update this table.
+
 The earlier plans in this file are kept below, unchanged. Their status lines describe
 those separate projects.
 
@@ -198,6 +209,23 @@ frontend change is planned: the frontend already sends the owning zone in every 
 frontend checks are not needed. There is no live check: these routes cannot be reached
 through the UI (item 5), and the release does not change behaviour for legitimate calls.
 The changelog step should record "no reader-visible change".
+
+## Progress log
+
+- **PR 1 (proc requests), 12 November 2026.**
+  - `getProcRequest`, `updateProcRequest` and `updateProcRequestStatus` now take `zoneId`
+    first. Their reads, UPDATE and re-read use `id = ? AND zone_id = ?`.
+  - `deleteProcRequest(zoneId, id)` deletes by `(id, zone_id)` and removes mentions only
+    when a row was deleted.
+  - All three routes pass the URL zone; their existing `null`/`false` checks give 404.
+  - Tests: `builderChildIdValidation.test.ts` covers route scoping, 404 and no activity
+    log. `procRequestContent.test.ts` covers the scoped SQL, no write or notification
+    for a foreign ID, and mention handling on delete.
+  - Checks:
+    - Passed: `format:check`, `lint`, `type-check`, `build` and `verify:mud-writes`
+      (53 classified writes).
+    - Full backend suite: 171 suites passed and 12 skipped. The skipped suites need a
+      test database, which this worktree does not configure.
 
 ## Ablation notes
 

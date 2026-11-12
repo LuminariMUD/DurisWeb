@@ -199,10 +199,37 @@ describe('builder child-resource ID validation', () => {
 
     expect(response.status).toBe(200);
     expect(procRequestService.updateProcRequest).toHaveBeenCalledWith(
+      'zone-a',
       12,
       expect.objectContaining({ title: 'Updated title' }),
       'Cwial',
       'Zone A',
+    );
+  });
+
+  it('scopes proc-request writes to the URL zone and logs nothing for a foreign ID', async () => {
+    procRequestService.updateProcRequest.mockResolvedValueOnce(null);
+    procRequestService.updateProcRequestStatus.mockResolvedValueOnce(null);
+    procRequestService.deleteProcRequest.mockResolvedValueOnce(false);
+
+    const update = await request(app)
+      .put('/api/builder/zones/zone-a/proc-requests/12')
+      .send({ title: 'Updated title' });
+    const status = await request(app)
+      .put('/api/builder/zones/zone-a/proc-requests/12/status')
+      .send({ status: 'completed' });
+    const deleted = await request(app).delete('/api/builder/zones/zone-a/proc-requests/12');
+
+    expect([update.status, status.status, deleted.status]).toEqual([404, 404, 404]);
+    expect(procRequestService.updateProcRequest.mock.calls[0].slice(0, 2)).toEqual(['zone-a', 12]);
+    expect(procRequestService.updateProcRequestStatus.mock.calls[0].slice(0, 2)).toEqual([
+      'zone-a',
+      12,
+    ]);
+    expect(procRequestService.deleteProcRequest).toHaveBeenCalledWith('zone-a', 12);
+    expect(poolQuery).not.toHaveBeenCalledWith(
+      expect.stringContaining('builder_activity_log'),
+      expect.anything(),
     );
   });
 });
