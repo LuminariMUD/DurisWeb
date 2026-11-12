@@ -1,15 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
-import { getBackendConfiguration } from '../config/environment.js';
 import logger from '../utils/logger.js';
-
-const environment = getBackendConfiguration();
+import { safeFailureCode } from '../utils/safeFailureCode.js';
 
 export interface ApiError extends Error {
   statusCode?: number;
   isOperational?: boolean;
-  /** Set by http-errors (body-parser) when the message is safe to show. */
+  /** Set by http-errors (body-parser) for a client error; its message may contain input. */
   expose?: boolean;
 }
 
@@ -38,24 +36,30 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
-  // Only typed public errors, http-errors client errors (body-parser 400/413) and multer upload
-  // errors carry text written for the caller; anything else is internal and must not reach the
-  // response (#176).
+  // Parser errors retain their client status but may embed request bodies in their message.
+  // Only application and fixed upload errors carry text written for the caller (#176).
   const isUploadError = err instanceof multer.MulterError;
   const requested = isUploadError ? 400 : err.statusCode || 0;
   const isPublic =
+    Number.isInteger(requested) &&
     requested >= 400 &&
     requested < 500 &&
     (isUploadError || err instanceof AppError || err.expose === true);
   const statusCode = isPublic ? requested : 500;
-  const message = isPublic ? err.message : 'Internal Server Error';
+  const message = !isPublic
+    ? 'Internal Server Error'
+    : err instanceof AppError || isUploadError
+      ? err.message
+      : requested === 413
+        ? 'Request body too large'
+        : 'Invalid request';
   const reference = isPublic ? undefined : randomUUID();
 
-  logger.error(`Error ${statusCode}: ${err.message || 'Internal Server Error'}`, {
+  logger.error('Request failed', {
+    statusCode,
     reference,
-    url: req.url,
     method: req.method,
-    stack: environment.environment === 'development' ? err.stack : undefined,
+    code: safeFailureCode(err),
   });
 
   res.status(statusCode).json({
@@ -64,9 +68,6 @@ export function errorHandler(
       message,
       statusCode,
       ...(reference && { reference }),
-      ...(environment.environment === 'development' && {
-        stack: err.stack,
-      }),
     },
   });
 }
