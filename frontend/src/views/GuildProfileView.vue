@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { isAxiosError } from 'axios'
 import { useRoute, useRouter } from 'vue-router'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import BreadcrumbsNav from '@/components/layout/BreadcrumbsNav.vue'
 import PaginationWithEllipsis from '@/components/forum/PaginationWithEllipsis.vue'
 import { guildApi } from '@/features/profile/api'
@@ -26,8 +29,26 @@ const forumActivity = ref<any[]>([])
 const activityPage = ref(1)
 const activityPagination = ref<any>(null)
 const loadingActivity = ref(false)
+const activityError = ref<string | null>(null)
+let profileGeneration = 0
+let activityGeneration = 0
 
 const activeTab = ref('overview')
+
+function publicErrorMessage(error: unknown, fallback: string): string {
+  const data: unknown = isAxiosError(error) ? error.response?.data : undefined
+  if (!data || typeof data !== 'object' || !('error' in data)) return fallback
+  const detail = data.error
+  if (typeof detail === 'string') return detail
+  if (
+    detail &&
+    typeof detail === 'object' &&
+    'message' in detail &&
+    typeof detail.message === 'string'
+  )
+    return detail.message
+  return fallback
+}
 
 // Computed stats
 const kdRatio = computed(() => {
@@ -49,31 +70,54 @@ const sortedMembers = computed(() => {
 })
 
 async function loadProfile() {
+  const request = ++profileGeneration
+  const slug = guildSlug.value
+  activityGeneration++
+  profile.value = null
+  forumActivity.value = []
+  activityPagination.value = null
+  activityPage.value = 1
+  loadingActivity.value = false
+  activityError.value = null
   isLoading.value = true
   error.value = null
 
   try {
     // Send the slug to the API (backend will match it)
-    profile.value = await guildApi.getGuildProfile(guildSlug.value)
-  } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to load guild profile'
+    const result = await guildApi.getGuildProfile(slug)
+    if (request === profileGeneration && slug === guildSlug.value) profile.value = result
+  } catch (err: unknown) {
+    if (request === profileGeneration && slug === guildSlug.value)
+      error.value = publicErrorMessage(err, 'Failed to load guild profile')
   } finally {
-    isLoading.value = false
+    if (request === profileGeneration) isLoading.value = false
   }
 }
 
 async function loadForumActivity(page: number = 1) {
+  const name = profile.value?.name
+  if (!name) return
+  const request = ++activityGeneration
+  const slug = guildSlug.value
+  activityPage.value = page
+  activityError.value = null
   loadingActivity.value = true
 
   try {
     // Use the guild name from the loaded profile (with ANSI codes)
-    const result = await guildApi.getGuildForumActivity(profile.value.name, page, 20)
+    const result = await guildApi.getGuildForumActivity(name, page, 20)
+    if (request !== activityGeneration || slug !== guildSlug.value) return
     forumActivity.value = result.posts
     activityPagination.value = result.pagination
     activityPage.value = page
-  } catch {
+  } catch (err: unknown) {
+    if (request === activityGeneration && slug === guildSlug.value) {
+      forumActivity.value = []
+      activityPagination.value = null
+      activityError.value = publicErrorMessage(err, 'Failed to load guild activity')
+    }
   } finally {
-    loadingActivity.value = false
+    if (request === activityGeneration) loadingActivity.value = false
   }
 }
 
@@ -93,19 +137,22 @@ function navigateToCharacter(member: { name: string; characterExists: boolean })
 // Watch for tab changes
 watch(activeTab, (newTab) => {
   if (newTab === 'activity' && forumActivity.value.length === 0) {
-    loadForumActivity(1)
+    void loadForumActivity(1)
   }
 })
 
 // Watch for guild slug changes
 watch(guildSlug, () => {
-  loadProfile()
-  forumActivity.value = []
   activeTab.value = 'overview'
+  void loadProfile()
 })
 
 onMounted(() => {
-  loadProfile()
+  void loadProfile()
+})
+onUnmounted(() => {
+  profileGeneration++
+  activityGeneration++
 })
 </script>
 
@@ -254,6 +301,14 @@ onMounted(() => {
             <Skeleton class="h-24" />
             <Skeleton class="h-24" />
           </div>
+
+          <Alert v-else-if="activityError" variant="destructive">
+            <AlertTitle>Activity unavailable</AlertTitle>
+            <AlertDescription class="flex flex-col gap-2">
+              <p>{{ activityError }}</p>
+              <Button variant="outline" size="sm" class="self-start" @click="loadForumActivity(activityPage)">Retry</Button>
+            </AlertDescription>
+          </Alert>
 
           <div v-else-if="forumActivity.length === 0">
             <Card>
