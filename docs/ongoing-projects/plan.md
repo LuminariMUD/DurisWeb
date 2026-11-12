@@ -14,7 +14,7 @@ Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d557
 | PR 2: comment scoping and moderator helper | 2, the comment part of 3, 4, comment tests in 5 | `branch/issue-182-comment-scoping` → PR 1 branch | Done: LuminariMUD/DurisWeb#198 (stacked on #195) |
 | PR 3: collaboration API contract (item 5, and the status part of item 7) | Found during planning | `branch/issue-182-collab-api-contract` → PR 2 branch | Done: LuminariMUD/DurisWeb#206 (stacked on #198) |
 | PR 4: keep comments when a proc request is deleted (#205) | Follow-up | `branch/issue-205-unlink-proc-request-comments` → PR 3 branch | Done: LuminariMUD/DurisWeb#211 |
-| PR 5: per-zone access on every `/zones/:id` route (#204) | Follow-up | `branch/issue-204-builder-zone-access` → PR 4 branch | Done: PR 5 |
+| PR 5: per-zone access on every `/zones/:id` route (#204) | Follow-up | `branch/issue-204-builder-zone-access` → PR 4 branch | Done: LuminariMUD/DurisWeb#213 |
 
 To continue in a new session: work in the worktree `../durisweb-issue-182` (it has its own
 `backend/node_modules`; copy the gitignored `.env` files from the main checkout if they are
