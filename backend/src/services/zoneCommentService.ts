@@ -1,5 +1,6 @@
 import { pool as db } from '../db/connection.js';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
+import type { PoolConnection } from 'mysql2/promise';
 import type { ZoneComment, CreateZoneComment, UpdateZoneComment } from '../types/builder.js';
 import { extractMentions, createMentions, deleteMentions } from './builderNotificationService.js';
 import { processContentForWrite } from '../utils/contentParser.js';
@@ -108,12 +109,16 @@ export async function getComments(
 /**
  * Get a comment by ID, only if it belongs to the given zone
  */
-export async function getComment(zoneId: string, id: number): Promise<ZoneComment | null> {
-  const [rows] = await db.query<RowDataPacket[]>(
+export async function getComment(
+  zoneId: string,
+  id: number,
+  connection?: PoolConnection,
+): Promise<ZoneComment | null> {
+  const [rows] = await (connection ?? db).query<RowDataPacket[]>(
     `SELECT id, zone_id, parent_id, proc_request_id, account_name, character_name,
             content, content_html, created_at, updated_at
      FROM builder_zone_comments
-     WHERE id = ? AND zone_id = ?`,
+     WHERE id = ? AND zone_id = ?${connection ? ' FOR UPDATE' : ''}`,
     [id, zoneId],
   );
 
@@ -134,40 +139,57 @@ export async function createComment(
 ): Promise<ZoneComment> {
   const sanitizedContentHtml = sanitizeOptionalCommentHtml(data.contentHtml);
 
-  // Validate parent exists in this zone if specified
-  if (data.parentId) {
-    const parent = await getComment(data.zoneId, data.parentId);
-    if (!parent) {
-      throw new Error('Parent comment not found');
+  const connection = await db.getConnection();
+  let created: ZoneComment;
+  try {
+    await connection.beginTransaction();
+    // Lock proc requests before comments, matching proc-request deletion order.
+    if (
+      data.procRequestId &&
+      !(await getProcRequest(data.zoneId, data.procRequestId, connection))
+    ) {
+      throw new Error('Proc request not found');
     }
-    // Enforce single-level threading - don't allow reply to reply
-    if (parent.parentId !== null) {
-      throw new Error('Cannot reply to a reply (single-level threading)');
+
+    if (data.parentId) {
+      const parent = await getComment(data.zoneId, data.parentId, connection);
+      if (!parent) {
+        throw new Error('Parent comment not found');
+      }
+      if (parent.parentId !== null) {
+        throw new Error('Cannot reply to a reply (single-level threading)');
+      }
+      if (parent.procRequestId !== (data.procRequestId ?? null)) {
+        throw new Error('Parent comment belongs to another discussion');
+      }
     }
-  }
 
-  if (data.procRequestId && !(await getProcRequest(data.zoneId, data.procRequestId))) {
-    throw new Error('Proc request not found');
-  }
-
-  const [result] = await db.query<ResultSetHeader>(
-    `INSERT INTO builder_zone_comments
+    const [result] = await connection.query<ResultSetHeader>(
+      `INSERT INTO builder_zone_comments
      (zone_id, parent_id, proc_request_id, account_name, character_name, content, content_html)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [
-      data.zoneId,
-      data.parentId ?? null,
-      data.procRequestId ?? null,
-      accountName,
-      data.characterName ?? null,
-      data.content,
-      sanitizedContentHtml,
-    ],
-  );
+      [
+        data.zoneId,
+        data.parentId ?? null,
+        data.procRequestId ?? null,
+        accountName,
+        data.characterName ?? null,
+        data.content,
+        sanitizedContentHtml,
+      ],
+    );
 
-  const created = await getComment(data.zoneId, result.insertId);
-  if (!created) {
-    throw new Error('Failed to create comment');
+    const saved = await getComment(data.zoneId, result.insertId, connection);
+    if (!saved) {
+      throw new Error('Failed to create comment');
+    }
+    created = saved;
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
   }
 
   // Extract mentions and create notifications
@@ -232,41 +254,52 @@ export async function deleteComment(
   accountName: string,
   isAdmin: boolean = false,
 ): Promise<boolean> {
-  const existing = await getComment(zoneId, id);
-  if (!existing) {
-    return false;
-  }
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const existing = await getComment(zoneId, id, connection);
+    if (!existing) {
+      await connection.rollback();
+      return false;
+    }
 
-  // Check ownership (unless admin)
-  if (!isAdmin && existing.accountName !== accountName) {
-    throw new Error('Not authorized to delete this comment');
-  }
+    // Check ownership (unless admin)
+    if (!isAdmin && existing.accountName !== accountName) {
+      throw new Error('Not authorized to delete this comment');
+    }
 
-  // Delete replies first if this is a top-level comment
-  if (existing.parentId === null) {
-    // Get reply IDs to delete their mentions too
-    const [replies] = await db.query<RowDataPacket[]>(
-      `SELECT id FROM builder_zone_comments WHERE parent_id = ? AND zone_id = ?`,
+    // Delete replies first if this is a top-level comment
+    if (existing.parentId === null) {
+      // Get reply IDs to delete their mentions too
+      const [replies] = await connection.query<RowDataPacket[]>(
+        `SELECT id FROM builder_zone_comments WHERE parent_id = ? AND zone_id = ? FOR UPDATE`,
+        [id, zoneId],
+      );
+      for (const reply of replies) {
+        await deleteMentions('comment', reply.id, connection);
+      }
+      await connection.query(
+        `DELETE FROM builder_zone_comments WHERE parent_id = ? AND zone_id = ?`,
+        [id, zoneId],
+      );
+    }
+
+    // Delete mentions for this comment
+    await deleteMentions('comment', id, connection);
+
+    const [result] = await connection.query<ResultSetHeader>(
+      `DELETE FROM builder_zone_comments WHERE id = ? AND zone_id = ?`,
       [id, zoneId],
     );
-    for (const reply of replies) {
-      await deleteMentions('comment', reply.id);
-    }
-    await db.query(`DELETE FROM builder_zone_comments WHERE parent_id = ? AND zone_id = ?`, [
-      id,
-      zoneId,
-    ]);
+
+    await connection.commit();
+    return result.affectedRows > 0;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
   }
-
-  // Delete mentions for this comment
-  await deleteMentions('comment', id);
-
-  const [result] = await db.query<ResultSetHeader>(
-    `DELETE FROM builder_zone_comments WHERE id = ? AND zone_id = ?`,
-    [id, zoneId],
-  );
-
-  return result.affectedRows > 0;
 }
 
 /**

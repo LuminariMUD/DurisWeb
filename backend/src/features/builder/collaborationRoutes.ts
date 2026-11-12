@@ -1,6 +1,10 @@
 import { Router, Request, Response, type IRouter } from 'express';
 import logger, { getErrorMessage } from '../../utils/logger.js';
-import { parseStrictPositiveId, validateIdParam, validateStringField } from '../../utils/validation.js';
+import {
+  parseStrictPositiveId,
+  validateIdParam,
+  validateStringField,
+} from '../../utils/validation.js';
 import { getZoneName } from '../../services/zoneBuilderParser.js';
 import procRequestService from '../../services/procRequestService.js';
 import zoneCommentService from '../../services/zoneCommentService.js';
@@ -430,6 +434,7 @@ const COMMENT_REFERENCE_ERRORS = new Set([
   'Parent comment not found',
   'Proc request not found',
   'Cannot reply to a reply (single-level threading)',
+  'Parent comment belongs to another discussion',
 ]);
 
 // GET /api/builder/zones/:id/comments - List comments

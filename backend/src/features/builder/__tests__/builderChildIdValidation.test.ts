@@ -328,4 +328,15 @@ describe('builder child-resource ID validation', () => {
       'Zone A',
     );
   });
+
+  it('returns 400 for a parent from a different discussion', async () => {
+    zoneCommentService.createComment.mockRejectedValueOnce(
+      new Error('Parent comment belongs to another discussion'),
+    );
+    const response = await request(app)
+      .post('/api/builder/zones/zone-a/comments')
+      .send({ content: 'reply', parentId: 9 });
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('Parent comment belongs to another discussion');
+  });
 });
