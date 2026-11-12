@@ -64,8 +64,9 @@
   reference in every environment; parser failures keep fixed client text.
 - Error diagnostics use fixed context, the reference and `safeFailureCode`.
   Do not forward raw messages, request URLs, SQL/bindings or stacks into logs or responses.
-- ESLint guards route and realtime response calls against raw error messages. Keep
-  intended client errors typed; do not restore message-text matching in catches.
+- ESLint guards route and realtime response calls against raw error helpers and
+  caught message/stack properties outside typed public-error branches. Keep intended
+  client errors typed; do not restore message-text matching in catches.
 
 ## MUD Integration Hooks
 

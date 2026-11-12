@@ -44,6 +44,13 @@ admin diagnostic bypasses, rejects malformed numeric setting writes, and termina
 failed log downloads. Storage and persistence proofs are synthetic; no live objects
 or player data are touched.
 
+Maintenance review of PR #217 preserved the earlier SQL transactions, removed
+raw diagnostic bypasses and unexpected console exception text, strengthened the
+AST response guard, and repaired scoped git publication/status and ref execution.
+Child spawn, SSE/archive/read and partial HTTP failures are handled safely.
+Native SQL race checks were rerun; git proofs use only disposable repositories
+and control tests mock every process boundary.
+
 Implementation notes for whoever continues:
 
 - Codemod used for the mechanical rewrite (not committed; recreate if needed): it replaces
@@ -115,8 +122,8 @@ stated under "Verified against the code".
 
 ## Non-goals
 
-- Changing what the server logs. Existing `logger.error('...', error)` lines stay as they
-  are (see open question 1). This issue is about response bodies.
+- Intentional operator command output remains available. Unexpected errors use
+  fixed context, references and allowlisted codes in logs and responses.
 - Unifying the two existing error body shapes (`{ error }` from routes and
   `{ success: false, error: { message, statusCode } }` from `errorHandler`). Both are kept;
   the frontend reads both.
