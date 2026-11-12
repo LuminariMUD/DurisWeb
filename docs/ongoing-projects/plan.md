@@ -6,12 +6,13 @@ Branch: `branch/issue-182-builder-zone-scoping`
 
 Prepared: 12 November 2026 against DurisWeb `37344926c2873ef5afae0093467f054d5573c156`.
 
-**Status: implementation complete. Both stacked PRs are open for review.**
+**Status: implementation complete. Three stacked PRs are open for review; the remaining follow-ups are filed as issues.**
 
 | Chunk | Plan steps | Branch | State |
 | --- | --- | --- | --- |
 | PR 1: proc-request scoping | 1, the proc-request part of 3, proc-request tests in 5 | `branch/issue-182-builder-zone-scoping` → `master` | Done: LuminariMUD/DurisWeb#195 |
 | PR 2: comment scoping and moderator helper | 2, the comment part of 3, 4, comment tests in 5 | `branch/issue-182-comment-scoping` → PR 1 branch | Done: LuminariMUD/DurisWeb#198 (stacked on #195) |
+| PR 3: collaboration API contract (item 5, and the status part of item 7) | Found during planning | `branch/issue-182-collab-api-contract` → PR 2 branch | Done: PR 3 (stacked on #198) |
 
 To continue in a new session: work in the worktree `../durisweb-issue-182` (it has its own
 `backend/node_modules`; copy the gitignored `.env` files from the main checkout if they are
@@ -245,7 +246,32 @@ The changelog step should record "no reader-visible change".
     be tested until the mock matched the real function.
   - Checks: same commands as PR 1, all passing. Full suite: 171 suites passed and 12
     skipped.
-- **Release:** no change readers can see (the frontend already sends the owning zone, and
+- **PR 3 (collaboration API contract), 12 November 2026.** This fixes defects found while
+  planning, as separate work.
+  - `frontend/src/features/builder/collaborationApi.ts`:
+    - proc-request update, proc-request status and comment update now use PUT instead of
+      PATCH;
+    - responses are read from `procRequest` (it read `request`);
+    - filters are sent as `entity_type`, `assigned_to`, `is_read` and `proc_request_id`;
+    - the unrouted, uncalled `getProcRequest` and `getMyProcRequests` are removed (the
+      builderApi method count drops from 58 to 56).
+  - The backend general PUT now validates `status` and `entityType`, using lists shared
+    with `/status` and create.
+  - Tests:
+    - `featureApis.spec.ts` checks the method, URL, params and response key of each call;
+    - `builderChildIdValidation.test.ts` covers the PUT validation.
+  - Checks, all passing:
+    - frontend: `format:check`, `lint`, `type-check`, `build`, and `test:unit` (96 files,
+      766 tests);
+    - backend: the full set, as for PR 1.
+  - **Reader-visible:** editing a proc request and changing its status work again in the
+    Zone Builder. This needs a Website Changelog line when it is deployed.
+- **Filed instead of fixed:**
+  - LuminariMUD/DurisWeb#204: per-zone authorization on the other builder routes
+    (item 6). It needs a product decision on how builders get access.
+  - LuminariMUD/DurisWeb#205: comments left behind when a proc request is deleted (rest
+    of item 7). It needs a data-retention decision.
+- **Release (PRs 1–2):** no change readers can see (the frontend already sends the owning zone, and
   same-zone behaviour is unchanged), so no Website Changelog entry is needed.
 - **Left open:** the follow-ups and open questions below. None blocks closing #182 once
   both PRs merge.
@@ -262,7 +288,7 @@ The changelog step should record "no reader-visible change".
   `createComment` reference checks. These are the same zone-ownership defect in the same
   files, and leaving any of them would keep a cross-zone write path open.
 
-## Follow-ups to file as separate issues
+## Follow-ups (resolved: fixed in PR 3, or filed as #204 and #205)
 
 1. Per-zone authorization on every `/zones/:id/...` builder route (item 6). This, not
    #182, is the real prerequisite for relaxing `manage_zones`.
@@ -279,7 +305,7 @@ The changelog step should record "no reader-visible change".
 - **Q2.** How will the gate be relaxed: a new `access_builder` permission, with
   `manage_zones` kept as global admin, or something else? The answer decides whether Q1
   ever needs a migration. It does not block this plan.
-- **Q3.** Should the follow-up issues above be filed now?
+- **Q3.** ~~Should the follow-up issues be filed?~~ Done: #204 and #205.
 - **Q4.** #176 (raw error messages in 500s) also edits these catch blocks. Whichever lands
   second must rebase.
 - **Q5.** Optional: run a read-only production query to count existing cross-zone replies
