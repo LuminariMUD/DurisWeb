@@ -1,4 +1,5 @@
 import { pool as db } from '../db/connection.js';
+import { AppError } from '../middleware/errorHandler.js';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 interface DupedItem {
@@ -268,14 +269,16 @@ export async function deleteAllDupesForUid(objUid: string, vnum?: number): Promi
     }
 
     if (distinctVnums.size > 1) {
-      throw new Error(
+      throw new AppError(
         `Cannot bulk delete UID ${objUid}: item spans ${distinctVnums.size} distinct VNUMs. Explicit item selection required.`,
+        409,
       );
     }
 
     if (vnum !== undefined && distinctVnums.size === 1 && !distinctVnums.has(vnum)) {
-      throw new Error(
+      throw new AppError(
         `VNUM mismatch for UID ${objUid}: expected ${vnum}, found ${[...distinctVnums][0]}`,
+        409,
       );
     }
 

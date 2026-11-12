@@ -33,6 +33,7 @@ import {
   isMudRunning,
 } from '../../services/backupService.js';
 import { validateIdParam } from '../../utils/validation.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const adminBackupRoutes: IRouter = Router();
 
@@ -60,8 +61,7 @@ adminBackupRoutes.get(
       return res.json({ backups });
     } catch (error) {
       logger.error('List backups error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to list backups';
-      return res.status(500).json({ error: message });
+      return sendRouteError(res, error, 'Failed to list backups', 'Failed to list backups');
     }
   },
 );
@@ -362,8 +362,7 @@ adminBackupRoutes.get(
       return res.json(restores);
     } catch (error) {
       logger.error('Get restore list error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to get restore list';
-      return res.status(500).json({ error: message });
+      return sendRouteError(res, error, 'Failed to get restore list', 'Failed to get restore list');
     }
   },
 );
@@ -391,8 +390,12 @@ adminBackupRoutes.get(
       return res.json(restore);
     } catch (error) {
       logger.error('Get restore status error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to get restore status';
-      return res.status(500).json({ error: message });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to get restore status',
+        'Failed to get restore status',
+      );
     }
   },
 );

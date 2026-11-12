@@ -15,6 +15,7 @@ import { requireAuth, requirePermission } from '../../middleware/auth.js';
 import { requireWebSettingAuthorization } from '../../middleware/webSettingsAuthorization.js';
 import multer from 'multer';
 import { AppError } from '../../middleware/errorHandler.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const adminSettingsRoutes: IRouter = Router();
 
@@ -108,8 +109,7 @@ adminSettingsRoutes.put(
       });
     } catch (error) {
       logger.error('Update web setting error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to update setting';
-      return res.status(400).json({ error: message });
+      return sendRouteError(res, error, 'Failed to update setting', 'Failed to update setting');
     }
   },
 );
@@ -151,8 +151,7 @@ adminSettingsRoutes.post(
       });
     } catch (error) {
       logger.error('Upload logo error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to upload logo';
-      return res.status(500).json({ error: message });
+      return sendRouteError(res, error, 'Failed to upload logo', 'Failed to upload logo');
     }
   },
 );
@@ -179,8 +178,7 @@ adminSettingsRoutes.delete(
       });
     } catch (error) {
       logger.error('Delete logo error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to delete logo';
-      return res.status(500).json({ error: message });
+      return sendRouteError(res, error, 'Failed to delete logo', 'Failed to delete logo');
     }
   },
 );
@@ -222,8 +220,12 @@ adminSettingsRoutes.post(
       });
     } catch (error) {
       logger.error('Upload hero image error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to upload hero image';
-      return res.status(500).json({ error: message });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to upload hero image',
+        'Failed to upload hero image',
+      );
     }
   },
 );
@@ -250,8 +252,12 @@ adminSettingsRoutes.delete(
       });
     } catch (error) {
       logger.error('Delete hero image error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to delete hero image';
-      return res.status(500).json({ error: message });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to delete hero image',
+        'Failed to delete hero image',
+      );
     }
   },
 );

@@ -1,5 +1,5 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
 import { body, param, validationResult } from 'express-validator';
 import { requireAuth, requireOverlord, requirePermission } from '../../middleware/auth.js';
 import { pool as db } from '../../db/connection.js';
@@ -16,6 +16,7 @@ import {
   formatMudTime,
   getMudTimeDescription,
 } from '../../services/mudTimeService.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const adminMudRoutes: IRouter = Router();
 
@@ -267,7 +268,7 @@ adminMudRoutes.put(
       });
     } catch (error) {
       logger.error('Error updating property:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to update property' });
+      return sendRouteError(res, error, 'Failed to update property', 'Failed to update property');
     }
   },
 );
@@ -296,9 +297,12 @@ adminMudRoutes.get(
       return res.json({ history });
     } catch (error) {
       logger.error('Error fetching property history:', error);
-      return res
-        .status(500)
-        .json({ error: getErrorMessage(error) || 'Failed to fetch property history' });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to fetch property history',
+        'Failed to fetch property history',
+      );
     }
   },
 );
@@ -381,9 +385,7 @@ adminMudRoutes.put(
       });
     } catch (error) {
       logger.error('Error updating level cap:', error);
-      return res
-        .status(500)
-        .json({ error: getErrorMessage(error) || 'Failed to update level cap' });
+      return sendRouteError(res, error, 'Failed to update level cap', 'Failed to update level cap');
     }
   },
 );
@@ -443,7 +445,7 @@ adminMudRoutes.post(
       });
     } catch (error) {
       logger.error('Error resetting level cap:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to reset level cap' });
+      return sendRouteError(res, error, 'Failed to reset level cap', 'Failed to reset level cap');
     }
   },
 );
@@ -510,7 +512,7 @@ adminMudRoutes.post(
       });
     } catch (error) {
       logger.error('Error resetting timers:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to reset timers' });
+      return sendRouteError(res, error, 'Failed to reset timers', 'Failed to reset timers');
     }
   },
 );
@@ -568,9 +570,7 @@ adminMudRoutes.post(
       });
     } catch (error) {
       logger.error('Error resetting all timers:', error);
-      return res
-        .status(500)
-        .json({ error: getErrorMessage(error) || 'Failed to reset all timers' });
+      return sendRouteError(res, error, 'Failed to reset all timers', 'Failed to reset all timers');
     }
   },
 );

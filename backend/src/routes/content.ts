@@ -1,5 +1,5 @@
 import { Router, type Router as ExpressRouter } from 'express';
-import logger, { getErrorMessage } from '../utils/logger.js';
+import logger from '../utils/logger.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { processContentForWrite, processNewsForWrite } from '../utils/contentParser.js';
 import * as contentService from '../services/contentService.js';
@@ -152,7 +152,7 @@ router.get('/help', requireAuth, requirePermission('manage_help_files'), async (
     const result = await contentService.getAllHelpPages(page, limit, categoryId);
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to load help entries', 'Admin list help failed');
   }
 });
 
@@ -166,7 +166,7 @@ router.get(
       const categories = await contentService.getAllCategories();
       res.json({ categories });
     } catch (error) {
-      res.status(500).json({ error: getErrorMessage(error) });
+      sendRouteError(res, error, 'Failed to load help categories', 'Admin help categories failed');
     }
   },
 );
@@ -186,7 +186,7 @@ router.get(
       const results = await contentService.searchHelpPages(query);
       return res.json({ results });
     } catch (error) {
-      return res.status(500).json({ error: getErrorMessage(error) });
+      return sendRouteError(res, error, 'Failed to search help', 'Admin help search failed');
     }
   },
 );
@@ -204,7 +204,7 @@ router.get('/help/:id', requireAuth, requirePermission('manage_help_files'), asy
     }
     return res.json(page);
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to load help entry', 'Admin get help failed');
   }
 });
 
@@ -246,7 +246,7 @@ router.post('/help', requireAuth, requirePermission('manage_help_files'), async 
 
     return res.status(201).json(page);
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to create help entry', 'Create help failed');
   }
 });
 
@@ -301,7 +301,7 @@ router.patch('/help/:id', requireAuth, requirePermission('manage_help_files'), a
 
     return res.json(page);
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to update help entry', 'Update help failed');
   }
 });
 
@@ -336,7 +336,7 @@ router.delete(
 
       return res.json({ success: true });
     } catch (error) {
-      return res.status(500).json({ error: getErrorMessage(error) });
+      return sendRouteError(res, error, 'Failed to delete help entry', 'Delete help failed');
     }
   },
 );
@@ -360,7 +360,12 @@ router.get(
       }));
       return res.json(categories);
     } catch (error) {
-      return res.status(500).json({ error: getErrorMessage(error) });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to load categories',
+        'List forum categories failed',
+      );
     }
   },
 );
@@ -382,7 +387,12 @@ router.post(
       const category = await contentService.createCategory({ name, desc });
       return res.status(201).json(category);
     } catch (error) {
-      return res.status(500).json({ error: getErrorMessage(error) });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to create category',
+        'Create forum category failed',
+      );
     }
   },
 );
@@ -427,7 +437,12 @@ router.patch(
 
       return res.json(category);
     } catch (error) {
-      return res.status(500).json({ error: getErrorMessage(error) });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to update category',
+        'Update forum category failed',
+      );
     }
   },
 );
@@ -446,7 +461,12 @@ router.delete(
       await categoryService.deleteCategoryPermanent(id);
       return res.json({ success: true });
     } catch (error) {
-      return res.status(500).json({ error: getErrorMessage(error) });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to delete category',
+        'Delete forum category failed',
+      );
     }
   },
 );
@@ -459,7 +479,7 @@ router.get('/motd', requireAuth, requirePermission('manage_motd'), async (_req, 
     const motd = await contentService.getMotd();
     res.json({ motd: motd ? motd.content : null });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to load MOTD', 'Get MOTD failed');
   }
 });
 
@@ -486,7 +506,7 @@ router.put('/motd', requireAuth, requirePermission('manage_motd'), async (req, r
 
     return res.json({ motd: motd?.content || null });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to save MOTD', 'Update MOTD failed');
   }
 });
 
@@ -525,7 +545,7 @@ router.put('/news', requireAuth, requirePermission('manage_news'), async (req, r
 
     return res.json({ news: news?.content || null });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to save news', 'Update news failed');
   }
 });
 
@@ -570,7 +590,7 @@ router.post('/news/announce', requireAuth, requirePermission('manage_news'), asy
     });
   } catch (error) {
     logger.error('Error announcing news:', error);
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to announce news', 'Announce news failed');
   }
 });
 
@@ -580,7 +600,7 @@ router.get('/wizmotd', requireAuth, requirePermission('manage_motd'), async (_re
     const wizmotd = await contentService.getWizMotd();
     return res.json({ wizmotd: wizmotd ? wizmotd.content : null });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to load wizmotd', 'Get wizmotd failed');
   }
 });
 
@@ -607,7 +627,7 @@ router.put('/wizmotd', requireAuth, requirePermission('manage_motd'), async (req
 
     return res.json({ wizmotd: wizmotd?.content || null });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to save wizmotd', 'Update wizmotd failed');
   }
 });
 
@@ -617,7 +637,7 @@ router.get('/mud-info', requireAuth, requirePermission('manage_motd'), async (_r
     const entries = await contentService.getAllMudInfo();
     return res.json({ entries });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to load MUD info', 'Get MUD info failed');
   }
 });
 
@@ -627,7 +647,7 @@ router.get('/rules', requireAuth, requirePermission('manage_motd'), async (_req,
     const rules = await contentService.getRules();
     res.json({ rules: rules ? rules.content : null });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to load rules', 'Get rules failed');
   }
 });
 
@@ -654,7 +674,7 @@ router.put('/rules', requireAuth, requirePermission('manage_motd'), async (req, 
 
     return res.json({ rules: rules?.content || null });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to save rules', 'Update rules failed');
   }
 });
 
@@ -664,7 +684,7 @@ router.get('/credits', requireAuth, requirePermission('manage_motd'), async (_re
     const credits = await contentService.getCredits();
     res.json({ credits: credits ? credits.content : null });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to load credits', 'Get credits failed');
   }
 });
 
@@ -691,7 +711,7 @@ router.put('/credits', requireAuth, requirePermission('manage_motd'), async (req
 
     return res.json({ credits: credits?.content || null });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to save credits', 'Update credits failed');
   }
 });
 
@@ -701,7 +721,7 @@ router.get('/wizlist', requireAuth, requirePermission('manage_motd'), async (_re
     const wizlist = await contentService.getWizlist();
     res.json({ wizlist: wizlist ? wizlist.content : null });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to load wizlist', 'Get wizlist failed');
   }
 });
 
@@ -728,7 +748,7 @@ router.put('/wizlist', requireAuth, requirePermission('manage_motd'), async (req
 
     return res.json({ wizlist: wizlist?.content || null });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to save wizlist', 'Update wizlist failed');
   }
 });
 
@@ -738,7 +758,7 @@ router.get('/faq', requireAuth, requirePermission('manage_motd'), async (_req, r
     const faq = await contentService.getFaq();
     res.json({ faq: faq ? faq.content : null });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to load FAQ', 'Get FAQ failed');
   }
 });
 
@@ -765,7 +785,7 @@ router.put('/faq', requireAuth, requirePermission('manage_motd'), async (req, re
 
     return res.json({ faq: faq?.content || null });
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(res, error, 'Failed to save FAQ', 'Update FAQ failed');
   }
 });
 

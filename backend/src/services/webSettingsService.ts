@@ -1,4 +1,5 @@
 import { RowDataPacket } from 'mysql2';
+import { AppError } from '../middleware/errorHandler.js';
 import { pool as db } from '../db/connection.js';
 import { PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
@@ -336,7 +337,7 @@ export async function updateWebSetting(
   value: string,
   updatedBy: string,
 ): Promise<void> {
-  if (isInternalWebSettingKey(key)) throw new Error('Reserved internal setting');
+  if (isInternalWebSettingKey(key)) throw new AppError('Reserved internal setting', 400);
   // Validate key exists
   const validKeys = [
     'pvp_delay_minutes',
@@ -357,27 +358,27 @@ export async function updateWebSetting(
     'discord_webhook_enabled',
   ];
   if (!validKeys.includes(key)) {
-    throw new Error(`Invalid setting key: ${key}`);
+    throw new AppError(`Invalid setting key: ${key}`, 400);
   }
 
   // Validate front_page_hero_enabled is boolean string
   if (key === 'front_page_hero_enabled') {
     if (value !== 'true' && value !== 'false') {
-      throw new Error('Hero enabled must be "true" or "false"');
+      throw new AppError('Hero enabled must be "true" or "false"', 400);
     }
   }
 
   // Validate respect_webinfo_toggle is boolean string
   if (key === 'respect_webinfo_toggle') {
     if (value !== 'true' && value !== 'false') {
-      throw new Error('Respect webinfo toggle must be "true" or "false"');
+      throw new AppError('Respect webinfo toggle must be "true" or "false"', 400);
     }
   }
 
   // Validate discord_webhook_enabled is boolean string
   if (key === 'discord_webhook_enabled') {
     if (value !== 'true' && value !== 'false') {
-      throw new Error('Discord auto-post enabled must be "true" or "false"');
+      throw new AppError('Discord auto-post enabled must be "true" or "false"', 400);
     }
   }
 
@@ -390,14 +391,14 @@ export async function updateWebSetting(
         }
       }
     } catch {
-      throw new Error('Support URL must be a valid HTTP or HTTPS URL');
+      throw new AppError('Support URL must be a valid HTTP or HTTPS URL', 400);
     }
   }
 
   if (key === 'mud_ws_url') {
     const validationIssues: string[] = [];
     validateWebSocketUrl(value, key, validationIssues);
-    if (validationIssues.length > 0) throw new Error(validationIssues.join('; '));
+    if (validationIssues.length > 0) throw new AppError(validationIssues.join('; '), 400);
   }
 
   if (key === 'mud_host') {
@@ -408,14 +409,14 @@ export async function updateWebSetting(
         value,
       )
     ) {
-      throw new Error('MUD host must be a hostname without a scheme, port, or path');
+      throw new AppError('MUD host must be a hostname without a scheme, port, or path', 400);
     }
   }
 
   // Validate title/subtitle length
   if (key === 'front_page_hero_title' || key === 'front_page_hero_subtitle') {
     if (value.length > 200) {
-      throw new Error('Title/subtitle must be under 200 characters');
+      throw new AppError('Title/subtitle must be under 200 characters', 400);
     }
   }
 
@@ -423,7 +424,7 @@ export async function updateWebSetting(
   if (key === 'pvp_delay_minutes') {
     const numValue = parseInt(value, 10);
     if (isNaN(numValue) || numValue < 0 || numValue > 1440) {
-      throw new Error('PvP delay must be between 0 and 1440 minutes (24 hours)');
+      throw new AppError('PvP delay must be between 0 and 1440 minutes (24 hours)', 400);
     }
   }
 
@@ -436,7 +437,7 @@ export async function updateWebSetting(
       portValue < 1 ||
       portValue > 65535
     ) {
-      throw new Error('MUD port must be between 1 and 65535');
+      throw new AppError('MUD port must be between 1 and 65535', 400);
     }
   }
 
@@ -444,7 +445,7 @@ export async function updateWebSetting(
   if (key === 'max_hourly_backups') {
     const numValue = parseInt(value, 10);
     if (isNaN(numValue) || numValue < 1 || numValue > 168) {
-      throw new Error('Max hourly backups must be between 1 and 168 (1 week)');
+      throw new AppError('Max hourly backups must be between 1 and 168 (1 week)', 400);
     }
   }
 
@@ -573,10 +574,10 @@ export async function uploadSiteLogo(
     throw new Error('R2 storage is not configured');
   }
   if (!ALLOWED_LOGO_TYPES.includes(mimeType)) {
-    throw new Error('Only JPG, PNG, and WebP images are allowed for logo');
+    throw new AppError('Only JPG, PNG, and WebP images are allowed for logo', 400);
   }
   if (fileBuffer.length > MAX_LOGO_SIZE) {
-    throw new Error('Logo must be under 2MB');
+    throw new AppError('Logo must be under 2MB', 400);
   }
 
   // Process the logo

@@ -1,8 +1,9 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
 import { body, validationResult } from 'express-validator';
 import { requireAuth, requireOverlord, requirePermission } from '../../middleware/auth.js';
 import { pool as db } from '../../db/connection.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const adminConnectionRoutes: IRouter = Router();
 
@@ -121,9 +122,12 @@ adminConnectionRoutes.get(
       });
     } catch (error) {
       logger.error('Get connection logs error:', error);
-      return res
-        .status(500)
-        .json({ error: getErrorMessage(error) || 'Failed to get connection logs' });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to get connection logs',
+        'Failed to get connection logs',
+      );
     }
   },
 );
@@ -153,9 +157,12 @@ adminConnectionRoutes.get(
       return res.json({ data: timeline });
     } catch (error) {
       logger.error('Get account connections error:', error);
-      return res
-        .status(500)
-        .json({ error: getErrorMessage(error) || 'Failed to get account connections' });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to get account connections',
+        'Failed to get account connections',
+      );
     }
   },
 );
@@ -201,9 +208,12 @@ adminConnectionRoutes.get(
       return res.json({ data: accountDetails });
     } catch (error) {
       logger.error('Get IP connections error:', error);
-      return res
-        .status(500)
-        .json({ error: getErrorMessage(error) || 'Failed to get IP connections' });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to get IP connections',
+        'Failed to get IP connections',
+      );
     }
   },
 );
@@ -228,9 +238,12 @@ adminConnectionRoutes.get(
       return res.json({ data: accounts });
     } catch (error) {
       logger.error('Get suspicious accounts error:', error);
-      return res
-        .status(500)
-        .json({ error: getErrorMessage(error) || 'Failed to get suspicious accounts' });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to get suspicious accounts',
+        'Failed to get suspicious accounts',
+      );
     }
   },
 );
@@ -268,9 +281,12 @@ adminConnectionRoutes.post(
       });
     } catch (error) {
       logger.error('Resolve account flag error:', error);
-      return res
-        .status(500)
-        .json({ error: getErrorMessage(error) || 'Failed to resolve account flag' });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to resolve account flag',
+        'Failed to resolve account flag',
+      );
     }
   },
 );
@@ -326,9 +342,12 @@ adminConnectionRoutes.get(
       });
     } catch (error) {
       logger.error('Get connection stats error:', error);
-      return res
-        .status(500)
-        .json({ error: getErrorMessage(error) || 'Failed to get connection stats' });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to get connection stats',
+        'Failed to get connection stats',
+      );
     }
   },
 );

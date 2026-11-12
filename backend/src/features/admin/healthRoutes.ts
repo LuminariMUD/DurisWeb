@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Router, Request, Response, type IRouter } from 'express';
 import logger, { getErrorMessage } from '../../utils/logger.js';
 import { createNotification } from '../../services/unifiedNotificationService.js';
@@ -10,6 +11,7 @@ import {
   validateCreateIncidentBody,
   validateUpdateIncidentBody,
 } from '../../utils/incidentValidation.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const adminHealthRoutes: IRouter = Router();
 
@@ -87,13 +89,15 @@ adminHealthRoutes.post(
           logger.error('Failed to send AI analysis complete notification:', notifError);
         }
       } catch (error) {
-        logger.error('AI analysis error:', error);
+        // The notification is shown in the admin UI; the detail stays in the log (#176).
+        const reference = randomUUID();
+        logger.error('AI analysis error:', { reference, message: getErrorMessage(error) });
         try {
           await createNotification({
             accountName,
             source: 'ai_analysis',
             notificationType: 'ai_analysis_error',
-            message: `AI analysis failed: ${getErrorMessage(error) || 'Unknown error'}`,
+            message: `AI analysis failed (reference ${reference})`,
             link: '/admin/ai-analysis',
           });
           logger.info(`Notification sent to ${accountName} for AI analysis error`);
@@ -137,10 +141,12 @@ adminHealthRoutes.get(
       return res.json({ success: true, data });
     } catch (error) {
       logger.error('Get AI history error:', error);
-      return res.status(500).json({
-        success: false,
-        error: getErrorMessage(error) || 'Failed to get analysis history',
-      });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to get analysis history',
+        'Failed to get analysis history',
+      );
     }
   },
 );
@@ -181,10 +187,7 @@ adminHealthRoutes.get(
       return res.json({ success: true, data });
     } catch (error) {
       logger.error('Get AI analysis error:', error);
-      return res.status(500).json({
-        success: false,
-        error: getErrorMessage(error) || 'Failed to get analysis',
-      });
+      return sendRouteError(res, error, 'Failed to get analysis', 'Failed to get analysis');
     }
   },
 );

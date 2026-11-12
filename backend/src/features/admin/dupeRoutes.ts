@@ -12,6 +12,7 @@ import {
   deletePlayerItems,
   deleteAllDupesForUid,
 } from '../../services/dupeDetectionService.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const adminDupeRoutes: IRouter = Router();
 
@@ -132,9 +133,12 @@ adminDupeRoutes.delete(
       return res.json({ success: true, deletedCount });
     } catch (error) {
       logger.error('Delete dupes for uid error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to delete duplicates';
-      const status = error instanceof Error && error.message.includes('distinct VNUMs') ? 409 : 500;
-      return res.status(status).json({ error: message });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to delete duplicates',
+        'Delete dupes for uid failed',
+      );
     }
   },
 );

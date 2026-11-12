@@ -1,4 +1,5 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import { AppError } from '../middleware/errorHandler.js';
 import { pool as db } from '../db/connection.js';
 import { UserPermissions, CharacterInfo } from './permissionService.js';
 
@@ -138,22 +139,22 @@ export async function createCategory(
       );
 
       if (parents.length === 0) {
-        throw new Error('Parent category not found');
+        throw new AppError('Parent category not found', 404);
       }
 
       // Prevent nesting beyond one level (no grandchildren)
       if (parents[0].parent_id !== null) {
-        throw new Error('Cannot nest categories more than one level deep');
+        throw new AppError('Cannot nest categories more than one level deep', 400);
       }
     }
 
     // Validate access_type-specific fields
     if (accessType === 'role_based' && !options.minLevel) {
-      throw new Error('min_level is required for role_based access');
+      throw new AppError('min_level is required for role_based access', 400);
     }
 
     if (accessType === 'guild' && !options.guildName) {
-      throw new Error('guild_name is required for guild access');
+      throw new AppError('guild_name is required for guild access', 400);
     }
 
     // Get next sort_order if not provided
@@ -218,7 +219,7 @@ export async function updateCategory(
     // Validate parent_id if being updated
     if (updates.parentId !== undefined) {
       if (updates.parentId === categoryId) {
-        throw new Error('Category cannot be its own parent');
+        throw new AppError('Category cannot be its own parent', 400);
       }
 
       if (updates.parentId !== null) {
@@ -228,11 +229,11 @@ export async function updateCategory(
         );
 
         if (parents.length === 0) {
-          throw new Error('Parent category not found');
+          throw new AppError('Parent category not found', 404);
         }
 
         if (parents[0].parent_id !== null) {
-          throw new Error('Cannot nest categories more than one level deep');
+          throw new AppError('Cannot nest categories more than one level deep', 400);
         }
       }
 
@@ -243,7 +244,7 @@ export async function updateCategory(
       );
 
       if (children.length > 0 && updates.parentId !== null) {
-        throw new Error('Cannot make a parent category into a child category');
+        throw new AppError('Cannot make a parent category into a child category', 400);
       }
     }
 
@@ -323,7 +324,7 @@ export async function archiveCategory(categoryId: number, archivedBy: string): P
     );
 
     if (result.affectedRows === 0) {
-      throw new Error('Category not found');
+      throw new AppError('Category not found', 404);
     }
 
     // Archive all child categories
@@ -368,7 +369,7 @@ export async function restoreCategory(categoryId: number): Promise<boolean> {
     );
 
     if (categories.length === 0) {
-      throw new Error('Category not found');
+      throw new AppError('Category not found', 404);
     }
 
     if (categories[0].parent_id !== null) {
@@ -378,7 +379,7 @@ export async function restoreCategory(categoryId: number): Promise<boolean> {
       );
 
       if (parents.length > 0 && parents[0].is_archived === 1) {
-        throw new Error('Cannot restore category: parent category is archived');
+        throw new AppError('Cannot restore category: parent category is archived', 409);
       }
     }
 
@@ -419,7 +420,7 @@ export async function deleteCategoryPermanent(categoryId: number): Promise<boole
     );
 
     if (children.length > 0) {
-      throw new Error('Cannot delete category with child categories');
+      throw new AppError('Cannot delete category with child categories', 409);
     }
 
     // Check for threads
@@ -429,7 +430,7 @@ export async function deleteCategoryPermanent(categoryId: number): Promise<boole
     );
 
     if (threads.length > 0) {
-      throw new Error('Cannot delete category with threads');
+      throw new AppError('Cannot delete category with threads', 409);
     }
 
     // Delete permissions first (foreign key)
@@ -510,7 +511,10 @@ export async function addPermission(
     !target.accountName &&
     !target.characterPid
   ) {
-    throw new Error('At least one target must be specified (level, guild, account, or character)');
+    throw new AppError(
+      'At least one target must be specified (level, guild, account, or character)',
+      400,
+    );
   }
 
   // Validate min_immortal_level range
@@ -518,7 +522,7 @@ export async function addPermission(
     target.minImmortalLevel !== undefined &&
     (target.minImmortalLevel < 57 || target.minImmortalLevel > 62)
   ) {
-    throw new Error('min_immortal_level must be between 57 and 62');
+    throw new AppError('min_immortal_level must be between 57 and 62', 400);
   }
 
   const [result] = await db.query<ResultSetHeader>(
