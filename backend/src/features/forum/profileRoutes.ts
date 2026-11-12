@@ -26,6 +26,7 @@ import {
   isR2Configured,
 } from '../../services/r2Service.js';
 import { ANONYMOUS_PERMISSIONS } from './shared.js';
+import { parsePagination } from '../../utils/validation.js';
 
 export const forumProfileRoutes: IRouter = Router();
 
@@ -34,6 +35,14 @@ const avatarUploadLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 5, // 5 uploads per minute
   message: 'Too many avatar uploads, please wait before trying again',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const accountSearchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { error: 'Too many account searches, please try again shortly' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -126,8 +135,10 @@ forumProfileRoutes.get(
   async (req: Request, res: Response) => {
     try {
       const { accountName } = req.params;
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const { page, limit } = parsePagination(
+        typeof req.query.page === 'string' ? req.query.page : undefined,
+        typeof req.query.limit === 'string' ? req.query.limit : undefined,
+      );
 
       const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
       const { posts: rawPosts, total } = await getUserPosts(accountName, page, limit, permissions);
@@ -169,8 +180,10 @@ forumProfileRoutes.get(
   async (req: Request, res: Response) => {
     try {
       const { accountName } = req.params;
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const { page, limit } = parsePagination(
+        typeof req.query.page === 'string' ? req.query.page : undefined,
+        typeof req.query.limit === 'string' ? req.query.limit : undefined,
+      );
 
       const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
       const { threads: rawThreads, total } = await getUserThreads(
@@ -561,8 +574,11 @@ forumProfileRoutes.get(
 forumProfileRoutes.get('/characters/:characterName/posts', async (req: Request, res: Response) => {
   try {
     const { characterName } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const { page, limit } = parsePagination(
+      typeof req.query.page === 'string' ? req.query.page : undefined,
+      typeof req.query.limit === 'string' ? req.query.limit : undefined,
+      20,
+    );
 
     const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
     const result = await getCharacterPosts(characterName, page, limit, permissions);
@@ -586,8 +602,11 @@ forumProfileRoutes.get('/characters/:characterName/posts', async (req: Request, 
 forumProfileRoutes.get('/characters/:characterName/pvp', async (req: Request, res: Response) => {
   try {
     const { characterName } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const { page, limit } = parsePagination(
+      typeof req.query.page === 'string' ? req.query.page : undefined,
+      typeof req.query.limit === 'string' ? req.query.limit : undefined,
+      20,
+    );
 
     const result = await getCharacterPvPEvents(characterName, page, limit);
 
@@ -631,8 +650,11 @@ forumProfileRoutes.get('/guilds/:guildName/profile', async (req: Request, res: R
 forumProfileRoutes.get('/guilds/:guildName/activity', async (req: Request, res: Response) => {
   try {
     const { guildName } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const { page, limit } = parsePagination(
+      typeof req.query.page === 'string' ? req.query.page : undefined,
+      typeof req.query.limit === 'string' ? req.query.limit : undefined,
+      20,
+    );
 
     const permissions = req.user?.permissions || ANONYMOUS_PERMISSIONS;
     const result = await getGuildForumActivity(
@@ -662,20 +684,27 @@ forumProfileRoutes.get('/guilds/:guildName/activity', async (req: Request, res: 
 // ============================================================================
 
 // Search accounts for mention autocomplete
-forumProfileRoutes.get('/accounts/search', async (req: Request, res: Response) => {
-  try {
-    const query = req.query.q as string;
-    if (!query || query.length < 2) {
-      return res.json({ accounts: [] });
-    }
+forumProfileRoutes.get(
+  '/accounts/search',
+  accountSearchLimiter,
+  async (req: Request, res: Response) => {
+    try {
+      const query = req.query.q;
+      if (query !== undefined && (typeof query !== 'string' || query.length > 50)) {
+        return res.status(400).json({ error: 'q must be a string of at most 50 characters' });
+      }
+      if (!query || query.length < 2) {
+        return res.json({ accounts: [] });
+      }
 
-    const accounts = await searchAccounts(query, 10);
-    return res.json({ accounts });
-  } catch (error) {
-    logger.error('Search accounts error:', error);
-    return res.status(500).json({ error: 'Failed to search accounts' });
-  }
-});
+      const accounts = await searchAccounts(query, 10);
+      return res.json({ accounts });
+    } catch (error) {
+      logger.error('Search accounts error:', error);
+      return res.status(500).json({ error: 'Failed to search accounts' });
+    }
+  },
+);
 
 // Search guilds
 forumProfileRoutes.get('/guilds/search', async (req: Request, res: Response) => {
