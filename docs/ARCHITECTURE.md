@@ -57,8 +57,10 @@ No machine-specific service or nginx artifact is authoritative in the checkout.
 | A browser API call | `frontend/src/features/<domain>/api.ts`; admin and builder calls go in that feature's closest `*Api.ts` group file (for example `features/admin/backupApi.ts`), else its `api.ts` | Component/composable specs mock `@/features/<domain>/api`; adapter checks use `apiClient.defaults.adapter` |
 
 Import direction: features and services never import `index.ts`, `app.ts` or
-`runtime/` (ESLint blocks only `../index.js` and `../../index.js`; the rest is
-convention). Browser feature modules share the `apiClient` instance from
+`runtime/`, and nothing imports `index.ts`. ESLint enforces both through the local
+`no-forbidden-imports` rule in `backend/eslint.config.js`, which resolves each
+relative specifier (static, re-export or `import()`) before comparing it; tests may
+build the app. Browser feature modules share the `apiClient` instance from
 `frontend/src/services/httpClient.ts`, which imports no features and adds the
 CSRF header to writes. Ordinary JSON reads and writes use `apiClient`; ESLint
 (`frontend/eslint.config.ts`) rejects the default `axios` import outside
