@@ -69,6 +69,31 @@ describe('changelog detail visibility', () => {
     expect(String(query.mock.calls[1][0])).not.toContain("category = 'public'");
   });
 
+  it('reports a publish only when this call flipped is_published', async () => {
+    query.mockResolvedValueOnce([{ affectedRows: 1 }]).mockResolvedValueOnce([{ affectedRows: 1 }]);
+    await expect(
+      changelogService.updateChangelogEntry(42, {
+        title: 'Release',
+        isPublished: true,
+      }),
+    ).resolves.toEqual({ found: true, published: true });
+    expect(String(query.mock.calls[0][0])).not.toContain('is_published');
+    expect(String(query.mock.calls[1][0])).toContain('WHERE id = ? AND is_published = FALSE');
+
+    // A concurrent second publisher matches the row but not the unpublished condition.
+    query.mockResolvedValueOnce([{ affectedRows: 1 }]).mockResolvedValueOnce([{ affectedRows: 0 }]);
+    await expect(changelogService.updateChangelogEntry(42, { isPublished: true })).resolves.toEqual(
+      { found: true, published: false },
+    );
+
+    query.mockResolvedValueOnce([{ affectedRows: 0 }]);
+    await expect(changelogService.updateChangelogEntry(7, { isPublished: true })).resolves.toEqual({
+      found: false,
+      published: false,
+    });
+    expect(query).toHaveBeenCalledTimes(5);
+  });
+
   it('never sends an admin entry to the login-history audience', async () => {
     await changelogService.notifyChangelogPublished(7, '1.2.3', 'Staff-only note', 'admin');
     expect(query).not.toHaveBeenCalled();
