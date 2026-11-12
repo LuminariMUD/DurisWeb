@@ -5,6 +5,7 @@ import { BrandTextLink, DisplayHeading, IndexLabel, SectionRule } from '@/compon
 import { Button } from '@/components/ui/button'
 import { useSiteConfig } from '@/composables/useSiteConfig'
 import { mudletGuiLinks } from '@/config/links'
+import LielzGuide from '@/components/mudlet/LielzGuide.vue'
 import overview from '@/assets/mudlet-gui/overview.png'
 import combatGroup from '@/assets/mudlet-gui/combat-group.png'
 import chatEquipment from '@/assets/mudlet-gui/chat-equipment.png'
@@ -110,6 +111,10 @@ const illustratedBenefits: IllustratedBenefit[] = [
         <p class="text-bone-muted">
           Prefer to start here? <BrandTextLink to="/play">Play in your browser.</BrandTextLink>
         </p>
+        <p class="text-bone-muted">
+          Already installed? Explore the <a href="#lielz-guide" class="text-link">Lielz toolkit guide</a>
+          for automation, aliases, and hotkeys.
+        </p>
       </header>
 
       <figure class="space-y-4">
@@ -172,7 +177,8 @@ const illustratedBenefits: IllustratedBenefit[] = [
           <p class="max-w-prose leading-relaxed text-bone-muted">
             Use numpad movement and utility commands, then enable individual automation helpers if
             you want them. Automatic behaviors start off; <code>ui help</code> and <code>auto</code>
-            explain the available controls.
+            explain the available controls. The <a href="#lielz-guide" class="text-link">Lielz toolkit guide</a>
+            below covers every helper.
           </p>
         </div>
       </section>
@@ -225,9 +231,13 @@ const illustratedBenefits: IllustratedBenefit[] = [
 
       <SectionRule />
 
+      <LielzGuide />
+
+      <SectionRule />
+
       <section aria-labelledby="questions-heading" class="space-y-8">
         <div class="space-y-3">
-          <IndexLabel as="p">03 / Practical questions</IndexLabel>
+          <IndexLabel as="p">04 / Practical questions</IndexLabel>
           <DisplayHeading id="questions-heading" :level="2">Before you enter the world.</DisplayHeading>
         </div>
         <div class="grid gap-x-12 gap-y-8 md:grid-cols-2">
@@ -245,7 +255,7 @@ const illustratedBenefits: IllustratedBenefit[] = [
           </div>
           <div class="space-y-3">
             <h3 class="font-medium">Does it play for me?</h3>
-            <p class="max-w-prose leading-relaxed text-bone-muted">The interface organizes game information around your commands. Optional automation helpers are individually enabled and start off. Type <code>auto</code> to review them before changing settings.</p>
+            <p class="max-w-prose leading-relaxed text-bone-muted">The interface organizes game information around your commands. Optional automation helpers are individually enabled and start off. Type <code>auto</code> to review them before changing settings, or read the <a href="#lielz-guide" class="text-link">Lielz toolkit guide</a>.</p>
           </div>
           <div class="space-y-3">
             <h3 class="font-medium">Can I return to the standard console?</h3>

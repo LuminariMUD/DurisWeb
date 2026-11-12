@@ -47,7 +47,9 @@ describe('Mudlet GUI public page', () => {
     wrapper = mount(MudletGuiView)
     expect(wrapper.get('h1').text()).toBe('Mudlet GUI')
     expect(wrapper.text()).toContain('Keep the world in view.')
-    expect(wrapper.findAll('ol > li')).toHaveLength(4)
+    expect(
+      wrapper.get('section[aria-labelledby="installation-heading"]').findAll('ol > li'),
+    ).toHaveLength(4)
     for (const heading of [
       'Your adventure stays central',
       'Find your bearings',
@@ -66,6 +68,13 @@ describe('Mudlet GUI public page', () => {
     expect(wrapper.text()).toContain('GMCP enabled')
     expect(wrapper.text()).toContain('Automatic behaviors start off')
     expect(wrapper.text()).toContain('Originally created by Arjinius / Arjin.')
+  })
+
+  it('includes the Lielz toolkit guide and links to it from the page', () => {
+    wrapper = mount(MudletGuiView)
+    expect(wrapper.find('section#lielz-guide').exists()).toBe(true)
+    expect(wrapper.findAll('a[href="#lielz-guide"]').length).toBeGreaterThanOrEqual(3)
+    expect(wrapper.text()).toContain('04 / Practical questions')
   })
 
   it('uses named native download and help anchors at the intended external destinations', () => {
