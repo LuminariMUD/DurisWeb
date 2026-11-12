@@ -78,7 +78,7 @@ async function loadForumActivity(page: number = 1) {
 }
 
 function navigateToThread(threadId: number) {
-  router.push({ name: 'thread', params: { threadId: threadId.toString() } })
+  router.push({ name: 'forum-thread', params: { threadId: threadId.toString() } })
 }
 
 // The guild payload flags members whose character is still live (issue #181).
