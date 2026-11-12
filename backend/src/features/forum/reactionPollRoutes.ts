@@ -1,5 +1,6 @@
 import { Router, Request, Response, type IRouter } from 'express';
-import logger, { getErrorMessage } from '../../utils/logger.js';
+import logger from '../../utils/logger.js';
+import { safeFailureCode } from '../../utils/safeFailureCode.js';
 import { body, param, validationResult } from 'express-validator';
 import {
   getThreadById,
@@ -20,6 +21,7 @@ import {
 import { requireAuth } from '../../middleware/auth.js';
 import { getCategoryAccessForAccount } from '../../services/categoryService.js';
 import { ANONYMOUS_PERMISSIONS, getAuthorizedThread, postLimiter } from './shared.js';
+import { sendRouteError } from '../../utils/routeError.js';
 
 export const forumReactionPollRoutes: IRouter = Router();
 
@@ -279,10 +281,10 @@ forumReactionPollRoutes.post(
       });
     } catch (error) {
       logger.error('Create poll error:', error);
-      if (getErrorMessage(error).includes('Duplicate entry')) {
+      if (safeFailureCode(error) === 'ER_DUP_ENTRY') {
         return res.status(409).json({ error: 'This thread already has a poll' });
       }
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to create poll' });
+      return sendRouteError(res, error, 'Failed to create poll', 'Failed to create poll');
     }
   },
 );
@@ -365,7 +367,7 @@ forumReactionPollRoutes.post(
       return res.json({ message: 'Vote recorded successfully' });
     } catch (error) {
       logger.error('Vote error:', error);
-      return res.status(400).json({ error: getErrorMessage(error) || 'Failed to vote' });
+      return sendRouteError(res, error, 'Failed to vote', 'Vote failed');
     }
   },
 );
@@ -398,7 +400,7 @@ forumReactionPollRoutes.delete(
       return res.json({ message: 'Vote removed successfully' });
     } catch (error) {
       logger.error('Remove vote error:', error);
-      return res.status(400).json({ error: getErrorMessage(error) || 'Failed to remove vote' });
+      return sendRouteError(res, error, 'Failed to remove vote', 'Remove vote failed');
     }
   },
 );
@@ -442,7 +444,7 @@ forumReactionPollRoutes.patch(
       return res.json({ message: 'Poll closed successfully' });
     } catch (error) {
       logger.error('Close poll error:', error);
-      return res.status(500).json({ error: 'Failed to close poll' });
+      return sendRouteError(res, error, 'Failed to close poll', 'Close poll failed');
     }
   },
 );
@@ -486,7 +488,7 @@ forumReactionPollRoutes.delete(
       return res.json({ message: 'Poll deleted successfully' });
     } catch (error) {
       logger.error('Delete poll error:', error);
-      return res.status(500).json({ error: 'Failed to delete poll' });
+      return sendRouteError(res, error, 'Failed to delete poll', 'Delete poll failed');
     }
   },
 );

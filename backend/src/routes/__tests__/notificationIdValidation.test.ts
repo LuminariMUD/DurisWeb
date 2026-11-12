@@ -28,6 +28,7 @@ jest.unstable_mockModule('../../services/unifiedNotificationService.js', () => (
   deleteNotification,
 }));
 jest.unstable_mockModule('../../utils/logger.js', () => ({
+  default: { error: () => undefined, warn: () => undefined, info: () => undefined },
   getErrorMessage: (error: unknown) => String(error),
 }));
 

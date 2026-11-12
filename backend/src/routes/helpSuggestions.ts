@@ -1,6 +1,5 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import rateLimit from 'express-rate-limit';
-import { getErrorMessage } from '../utils/logger.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { extractClientIP } from '../utils/ipExtractor.js';
 import { pool } from '../db/connection.js';
@@ -12,6 +11,7 @@ import {
 } from '../utils/helpSuggestionValidation.js';
 import * as helpSuggestionService from '../services/helpSuggestionService.js';
 import type { SuggestionStatus, ReviewAction } from '../services/helpSuggestionService.js';
+import { sendRouteError } from '../utils/routeError.js';
 
 const router: ExpressRouter = Router();
 
@@ -72,7 +72,7 @@ router.get('/guide/suggestions', requireAuth, async (req, res) => {
     const suggestions = await helpSuggestionService.getUserSuggestions(accountName, status);
     res.json({ suggestions });
   } catch (error) {
-    res.status(500).json({ error: getErrorMessage(error) });
+    sendRouteError(res, error, 'Failed to load suggestions', 'List own help suggestions failed');
   }
 });
 
@@ -118,7 +118,12 @@ router.post('/guide/suggestions', requireAuth, suggestionCreateLimiter, async (r
 
     return res.status(201).json(suggestion);
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(
+      res,
+      error,
+      'Failed to submit suggestion',
+      'Create help suggestion failed',
+    );
   }
 });
 
@@ -144,7 +149,12 @@ router.get('/guide/suggestions/:id', requireAuth, async (req, res) => {
 
     return res.json(suggestion);
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(
+      res,
+      error,
+      'Failed to load suggestion',
+      'Get own help suggestion failed',
+    );
   }
 });
 
@@ -183,7 +193,12 @@ router.patch('/guide/suggestions/:id', requireAuth, suggestionMutationLimiter, a
 
     return res.json(updated);
   } catch (error) {
-    return res.status(500).json({ error: getErrorMessage(error) });
+    return sendRouteError(
+      res,
+      error,
+      'Failed to update suggestion',
+      'Update help suggestion failed',
+    );
   }
 });
 
@@ -208,7 +223,12 @@ router.delete(
 
       return res.json({ success: true });
     } catch (error) {
-      return res.status(500).json({ error: getErrorMessage(error) });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to delete suggestion',
+        'Delete help suggestion failed',
+      );
     }
   },
 );
@@ -231,7 +251,12 @@ router.get(
       const result = await helpSuggestionService.getAllSuggestions(page, limit, status);
       res.json(result);
     } catch (error) {
-      res.status(500).json({ error: getErrorMessage(error) });
+      sendRouteError(
+        res,
+        error,
+        'Failed to load suggestions',
+        'Admin list help suggestions failed',
+      );
     }
   },
 );
@@ -246,7 +271,12 @@ router.get(
       const count = await helpSuggestionService.getPendingSuggestionCount();
       res.json({ count });
     } catch (error) {
-      res.status(500).json({ error: getErrorMessage(error) });
+      sendRouteError(
+        res,
+        error,
+        'Failed to load pending count',
+        'Help suggestion pending count failed',
+      );
     }
   },
 );
@@ -271,7 +301,12 @@ router.get(
 
       return res.json(suggestion);
     } catch (error) {
-      return res.status(500).json({ error: getErrorMessage(error) });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to load suggestion',
+        'Admin get help suggestion failed',
+      );
     }
   },
 );
@@ -337,7 +372,12 @@ router.patch(
 
       return res.json(reviewed);
     } catch (error) {
-      return res.status(500).json({ error: getErrorMessage(error) });
+      return sendRouteError(
+        res,
+        error,
+        'Failed to review suggestion',
+        'Review help suggestion failed',
+      );
     }
   },
 );

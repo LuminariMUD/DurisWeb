@@ -4,7 +4,7 @@ import { body, validationResult } from 'express-validator';
 import rateLimit from 'express-rate-limit';
 import { v4 as uuidv4 } from 'uuid';
 import { pool as db } from '../db/connection.js';
-import logger, { getErrorMessage } from '../utils/logger.js';
+import logger from '../utils/logger.js';
 import {
   parseAccountFile,
   accountExists,
@@ -32,6 +32,7 @@ import {
 
 import { cleanupAccountSessions } from '../services/terminalService.js';
 import { getBackendConfiguration } from '../config/environment.js';
+import { sendRouteError } from '../utils/routeError.js';
 
 const environment = getBackendConfiguration();
 const router: IRouter = Router();
@@ -379,7 +380,7 @@ router.post(
       return res.json({ success: true, message: 'Password changed successfully' });
     } catch (error) {
       logger.error('Change password error:', error);
-      return res.status(500).json({ error: getErrorMessage(error) || 'Failed to change password' });
+      return sendRouteError(res, error, 'Failed to change password', 'Failed to change password');
     }
   },
 );

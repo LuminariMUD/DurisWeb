@@ -1,4 +1,5 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import { AppError } from '../middleware/errorHandler.js';
 import { pool as db } from '../db/connection.js';
 import { UserPermissions } from './permissionService.js';
 import { getCategoryAccessForAccount } from './categoryService.js';
@@ -1329,7 +1330,7 @@ export async function moderatorDeletePost(
     );
 
     if (posts.length === 0) {
-      throw new Error('Post not found or already deleted');
+      throw new AppError('Post not found or already deleted', 404);
     }
 
     const post = posts[0];
@@ -1380,7 +1381,7 @@ export async function restorePost(postId: number, moderatorAccount: string): Pro
     );
 
     if (posts.length === 0) {
-      throw new Error('Post not found or not deleted');
+      throw new AppError('Post not found or not deleted', 404);
     }
 
     const post = posts[0];
@@ -1435,7 +1436,7 @@ export async function moderatorDeleteThread(
     );
 
     if (threads.length === 0) {
-      throw new Error('Thread not found or already deleted');
+      throw new AppError('Thread not found or already deleted', 404);
     }
 
     const thread = threads[0];
@@ -1487,7 +1488,7 @@ export async function restoreThread(threadId: number, moderatorAccount: string):
     );
 
     if (threads.length === 0) {
-      throw new Error('Thread not found or not deleted');
+      throw new AppError('Thread not found or not deleted', 404);
     }
 
     const thread = threads[0];
@@ -1538,13 +1539,13 @@ export async function moveThread(
     );
 
     if (threads.length === 0) {
-      throw new Error('Thread not found or deleted');
+      throw new AppError('Thread not found or deleted', 404);
     }
 
     const oldCategoryId = threads[0].category_id;
 
     if (oldCategoryId === newCategoryId) {
-      throw new Error('Thread is already in this category');
+      throw new AppError('Thread is already in this category', 409);
     }
 
     // Check new category exists
@@ -1554,7 +1555,7 @@ export async function moveThread(
     );
 
     if (categories.length === 0) {
-      throw new Error('Target category not found');
+      throw new AppError('Target category not found', 404);
     }
 
     // Move the thread
