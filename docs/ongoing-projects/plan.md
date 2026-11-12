@@ -21,8 +21,8 @@ fast-forward per PR, as the master ruleset requires linear history.
 | Item | Branch | PR | Status |
 |------|--------|----|--------|
 | plan + (b) | `branch/issue-183-structure-stack-followups` | #196 | done, verified |
-| (c) | `branch/issue-183-c-wholist-removal` | — | next |
-| (a) | `branch/issue-183-a-startup-abort` | — | pending |
+| (c) | `branch/issue-183-c-wholist-removal` | (opening) | done, verified (backend 1,695 tests, frontend 765) |
+| (a) | `branch/issue-183-a-startup-abort` | — | next |
 | (f) | `branch/issue-183-f-api-client-reads` | — | pending |
 | (e) | `branch/issue-183-e-import-rules` | — | pending |
 | (d) | `branch/issue-183-d-production-app-tests` | — | pending |

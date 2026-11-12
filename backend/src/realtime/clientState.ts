@@ -5,7 +5,6 @@ import type { WebSocketPrincipal } from '../utils/websocketAccess.js';
 export interface ApplicationClientState {
   wsPrincipal?: WebSocketPrincipal;
   playerEventsSubscribed?: boolean;
-  wholistSubscribed?: boolean;
   /** Burst rate-limit window. */
   messageCount?: number;
   lastReset?: number;

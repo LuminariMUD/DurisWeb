@@ -63,8 +63,6 @@ const socketMethods = {
   offPlayerLogin: vi.fn(),
   onPlayerLogout: vi.fn(),
   offPlayerLogout: vi.fn(),
-  onWholist: vi.fn(),
-  offWholist: vi.fn(),
   onMudOnline: vi.fn(),
   offMudOnline: vi.fn(),
   onMudCrash: vi.fn(),

@@ -36,8 +36,6 @@ const {
   offPlayerLogin,
   onPlayerLogout,
   offPlayerLogout,
-  onWholist,
-  offWholist,
   onMudOnline,
   offMudOnline,
   onMudCrash,
@@ -83,10 +81,6 @@ const handlePlayerLogout = (_data: any) => {
   refetchWhoList()
 }
 
-const handleWholist = (_data: any) => {
-  refetchWhoList()
-}
-
 const handleMudOnline = async () => {
   // mud came back online, refetch boot time
   await fetchBootTime()
@@ -122,7 +116,6 @@ onMounted(() => {
 
   onPlayerLogin(handlePlayerLogin)
   onPlayerLogout(handlePlayerLogout)
-  onWholist(handleWholist)
   onMudOnline(handleMudOnline)
   onMudCrash(handleMudCrash)
 })
@@ -133,7 +126,6 @@ onUnmounted(() => {
   unsubscribePlayerEvents()
   offPlayerLogin(handlePlayerLogin)
   offPlayerLogout(handlePlayerLogout)
-  offWholist(handleWholist)
   offMudOnline(handleMudOnline)
   offMudCrash(handleMudCrash)
 })
