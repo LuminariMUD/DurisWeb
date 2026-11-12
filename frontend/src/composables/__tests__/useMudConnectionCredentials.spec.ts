@@ -56,7 +56,7 @@ class FakeSocket {
   readyState = FakeSocket.OPEN
   onopen: (() => void) | null = null
   onmessage: ((event: { data: string }) => void) | null = null
-  onclose: ((event: { code: number; reason: string; wasClean?: boolean }) => void) | null = null
+  onclose: ((event: { code: number; reason: string; wasClean: boolean }) => void) | null = null
   onerror: ((error: unknown) => void) | null = null
   sent: string[] = []
 
@@ -70,7 +70,7 @@ class FakeSocket {
 
   close() {
     this.readyState = 3
-    this.onclose?.({ code: 1000, reason: 'test reconnect' })
+    this.onclose?.({ code: 1000, reason: 'test reconnect', wasClean: true })
   }
 }
 
@@ -150,6 +150,7 @@ describe('useMudConnection credential lifecycle', () => {
     textGag.active = false
     store.connectionError = null
     store.setConnectionState.mockImplementation((_state: string, error?: string) => {
+      store.connectionState = _state
       store.connectionError = error ?? null
     })
     store.recoveryState = 'idle'
@@ -364,6 +365,144 @@ describe('useMudConnection credential lifecycle', () => {
     expect(store.openReconnectDialog).toHaveBeenCalledTimes(1)
   })
 
+  it('uses close diagnostics after a transport error instead of retaining the generic error', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    sockets[0]!.onerror?.(new Event('error'))
+    sockets[0]!.onclose?.({ code: 1006, reason: '', wasClean: false })
+    expect(store.connectionError).toBeNull()
+    expect(store.setCloseDiagnostic.mock.lastCall?.[0]).toMatchObject({ category: 'abnormal' })
+  })
+
+  it('preserves a real server refusal even when an error precedes the final close', async () => {
+    const connection = createConnection()
+    await connection.connect()
+    sockets[0]!.onmessage?.({
+      data: JSON.stringify({ type: 'auth', status: 'failed', error: 'Reconnect at 18:00 UTC.' }),
+    })
+    sockets[0]!.onerror?.(new Event('error'))
+    sockets[0]!.onclose?.({ code: 1006, reason: '', wasClean: false })
+    expect(store.connectionError).toBe('Reconnect at 18:00 UTC.')
+  })
+
+  it('keeps arbitrary peer close text and transport details out of the console', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const connection = createConnection()
+    await connection.connect()
+    sockets[0]!.onerror?.({ url: 'wss://192.0.2.1/?token=PRIVATE_SENTINEL' })
+    sockets[0]!.onclose?.({ code: 1006, reason: 'PRIVATE_SENTINEL 192.0.2.1', wasClean: false })
+    expect(JSON.stringify([...log.mock.calls, ...error.mock.calls])).not.toMatch(
+      /PRIVATE_SENTINEL|192\.0\.2\.1/,
+    )
+    log.mockRestore()
+    error.mockRestore()
+  })
+
+  it.each(['login', 'register'] as const)(
+    'settles %s when connection setup fails instead of polling forever',
+    async (method) => {
+      siteConfiguration.isAvailable.value = false
+      const connection = createConnection()
+      let result: boolean | undefined
+      const pending = (
+        method === 'login'
+          ? connection.login('Fixture', 'synthetic')
+          : connection.register('Fixture', 'synthetic', 'fixture@example.invalid')
+      ).then((value) => {
+        result = value
+      })
+      await vi.advanceTimersByTimeAsync(10_100)
+      expect(result).toBe(false)
+      await pending
+      expect(sockets).toHaveLength(0)
+    },
+  )
+
+  it.each(['closed', 'replaced'])(
+    'does not send pending credentials after the captured socket is %s',
+    async (mode) => {
+      vi.stubGlobal(
+        'WebSocket',
+        class extends FakeSocket {
+          constructor(url: string) {
+            super(url)
+            this.readyState = 0
+          }
+        },
+      )
+      const connection = createConnection()
+      let result: boolean | undefined
+      const pending = connection.login('Fixture', 'synthetic').then((value) => {
+        result = value
+      })
+      await vi.advanceTimersByTimeAsync(0)
+      const old = sockets[0]!
+      old.readyState = 3
+      old.onclose?.({ code: 1006, reason: '', wasClean: false })
+      if (mode === 'replaced') {
+        await connection.connect()
+        sockets[1]!.readyState = FakeSocket.OPEN
+        sockets[1]!.onopen?.()
+      }
+      await vi.advanceTimersByTimeAsync(100)
+      expect(result).toBe(false)
+      await pending
+      expect(
+        sockets.every((socket) => socket.sent.every((frame) => !frame.includes('synthetic'))),
+      ).toBe(true)
+    },
+  )
+
+  it('expires setup on the first delayed background timer instead of counting 200 ticks', async () => {
+    let elapsed = 0
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => elapsed)
+    vi.stubGlobal(
+      'WebSocket',
+      class extends FakeSocket {
+        constructor(url: string) {
+          super(url)
+          this.readyState = 0
+        }
+      },
+    )
+    const connection = createConnection()
+    let result: boolean | undefined
+    const pending = connection.login('Fixture', 'synthetic').then((value) => {
+      result = value
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    elapsed = 20_000
+    await vi.advanceTimersByTimeAsync(50)
+    expect(result).toBe(false)
+    await pending
+    expect(sockets[0]!.sent).toEqual([])
+    clock.mockRestore()
+  })
+
+  it('bounds a connection that never opens and sends no credentials after it expires', async () => {
+    vi.stubGlobal(
+      'WebSocket',
+      class extends FakeSocket {
+        constructor(url: string) {
+          super(url)
+          this.readyState = 0
+        }
+      },
+    )
+    const connection = createConnection()
+    let result: boolean | undefined
+    const pending = connection.login('Fixture', 'synthetic').then((value) => {
+      result = value
+    })
+    await vi.advanceTimersByTimeAsync(10_100)
+    expect(result).toBe(false)
+    await pending
+    expect(sockets[0]!.sent).toEqual([])
+    expect(window.__mudWebSocket).toBeNull()
+    expect(window.__mudLoggingIn).toBe(false)
+  })
+
   it('summarizes an abrupt 1006 close with activity ages and no peer text', async () => {
     vi.setSystemTime(new Date('2026-11-12T18:00:00Z'))
     const connection = createConnection()
@@ -415,13 +554,17 @@ describe('useMudConnection credential lifecycle', () => {
     store.setCloseDiagnostic.mockClear()
     store.openReconnectDialog.mockClear()
     stale.onclose?.({ code: 1006, reason: '', wasClean: false })
-    expect(store.setCloseDiagnostic).not.toHaveBeenCalled()
+    expect(store.setCloseDiagnostic.mock.calls.every(([diagnostic]) => diagnostic === null)).toBe(
+      true,
+    )
 
     store.copyoverInProgress = true
     try {
       expect(sockets).toHaveLength(2)
       sockets[1]!.onclose?.({ code: 1006, reason: '', wasClean: false })
-      expect(store.setCloseDiagnostic).not.toHaveBeenCalled()
+      expect(store.setCloseDiagnostic.mock.calls.every(([diagnostic]) => diagnostic === null)).toBe(
+        true,
+      )
       expect(store.openReconnectDialog).not.toHaveBeenCalled()
     } finally {
       store.copyoverInProgress = false

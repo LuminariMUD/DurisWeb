@@ -606,6 +606,16 @@ receives a scoped error instead of retaining a stale Live acknowledgement.
 A terminal whose owner lost
 `terminal_access` is ended.
 
+The separate browser game socket retains one bounded close summary for the
+reconnect dialog: UTC time, code/clean status, fixed reason category, connection
+state, recent send/receive ages, visibility and online state. A 1006 is an unknown
+abnormal close, not a diagnosed cause. Server authentication refusals retain
+priority over generic transport errors. Copied details and close diagnostics
+exclude arbitrary peer text, account identifiers and message payloads.
+Connection setup waits are bounded and belong to the captured socket; a failed,
+closed or replaced socket cannot receive a pending login on a newer connection.
+This does not change native heartbeat or Cloudflare ingress behavior.
+
 The application WebSocket is distinct from the backend's outbound
 privileged MUD bridge, whose endpoint is required through `MUD_WS_URL`. A
 loopback `ws://127.0.0.1:4050` value is a local example, not an application

@@ -70,7 +70,9 @@ export function buildMudCloseDiagnostic(input: MudCloseInput): MudCloseDiagnosti
   const category: MudCloseCategory =
     input.code === 1006
       ? 'abnormal'
-      : (REASON_CATEGORIES[input.reason] ??
+      : ((Object.hasOwn(REASON_CATEGORIES, input.reason)
+          ? REASON_CATEGORIES[input.reason]
+          : undefined) ??
         (input.code === 1000 ? 'normal' : input.code === 1001 ? 'going_away' : 'other'))
   return {
     closedAt: new Date(input.now).toISOString(),
