@@ -5,8 +5,9 @@ const query = jest.fn((..._args: unknown[]): Promise<unknown> => Promise.resolve
 jest.unstable_mockModule('../../../db/connection.js', () => ({
   pool: { query },
 }));
+const createNotification = jest.fn(async (..._args: unknown[]) => undefined);
 jest.unstable_mockModule('../../../services/unifiedNotificationService.js', () => ({
-  createNotification: jest.fn(),
+  createNotification,
 }));
 
 describe('changelog detail visibility', () => {
@@ -56,5 +57,30 @@ describe('changelog detail visibility', () => {
       expect.stringContaining('LIMIT ? OFFSET ?'),
       [100, 999900],
     );
+  });
+
+  it('counts only public entries when a non-admin marks everything read', async () => {
+    query.mockResolvedValueOnce([{ affectedRows: 0 }]);
+    await changelogService.markAllAsRead('mortal');
+    expect(String(query.mock.calls[0][0])).toContain("category = 'public'");
+
+    query.mockResolvedValueOnce([{ affectedRows: 0 }]);
+    await changelogService.markAllAsRead('staff', true);
+    expect(String(query.mock.calls[1][0])).not.toContain("category = 'public'");
+  });
+
+  it('never sends an admin entry to the login-history audience', async () => {
+    await changelogService.notifyChangelogPublished(7, '1.2.3', 'Staff-only note', 'admin');
+    expect(query).not.toHaveBeenCalled();
+    expect(createNotification).not.toHaveBeenCalled();
+  });
+
+  it('keeps notifying the remaining accounts after one public notification fails', async () => {
+    query.mockResolvedValueOnce([[{ account_name: 'a' }, { account_name: 'b' }]]);
+    createNotification.mockRejectedValueOnce(new Error('insert failed'));
+    await changelogService.notifyChangelogPublished(8, '1.2.4', 'Public note', 'public');
+    expect(
+      createNotification.mock.calls.map(([n]) => (n as { accountName: string }).accountName),
+    ).toEqual(['a', 'b']);
   });
 });

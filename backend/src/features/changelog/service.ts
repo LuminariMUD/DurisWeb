@@ -3,6 +3,7 @@ import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { createNotification } from '../../services/unifiedNotificationService.js';
 import { processContentForWrite } from '../../utils/contentParser.js';
 import { parsePagination } from '../../utils/validation.js';
+import logger from '../../utils/logger.js';
 
 export interface ChangelogEntry {
   id: number;
@@ -296,10 +297,12 @@ export async function markAsRead(changelogId: number, accountName: string): Prom
 /**
  * mark all entries as read for a user
  */
-export async function markAllAsRead(accountName: string): Promise<number> {
+export async function markAllAsRead(accountName: string, includeAdmin = false): Promise<number> {
+  // The returned count must not reveal how many admin entries exist to a non-admin.
+  const categoryFilter = includeAdmin ? '' : "AND category = 'public'";
   const [result] = await db.query<ResultSetHeader>(
     `INSERT IGNORE INTO website_changelog_reads (changelog_id, account_name)
-     SELECT id, ? FROM website_changelog WHERE is_published = TRUE`,
+     SELECT id, ? FROM website_changelog WHERE is_published = TRUE ${categoryFilter}`,
     [accountName],
   );
 
@@ -338,21 +341,29 @@ export async function notifyChangelogPublished(
   title: string,
   category: 'public' | 'admin',
 ): Promise<void> {
+  // Admin entries are visible only to staff (immortal level 57+), but the recipients below
+  // are every account that has logged in, so an admin title must never be sent to them.
+  if (category !== 'public') return;
+
   // get all unique account names from login history
   const [rows] = await db.query<RowDataPacket[]>(
     'SELECT DISTINCT account_name FROM account_login_history WHERE account_name IS NOT NULL',
   );
 
-  // create notification for each account
+  // create notification for each account; one failed insert must not drop the rest
   for (const row of rows) {
-    await createNotification({
-      accountName: row.account_name,
-      source: 'changelog',
-      notificationType: category === 'admin' ? 'changelog_admin' : 'changelog_public',
-      message: `New update: ${version} - ${title}`,
-      link: '/news?tab=changelog',
-      data: { entryId, version, title, category },
-    });
+    try {
+      await createNotification({
+        accountName: row.account_name,
+        source: 'changelog',
+        notificationType: 'changelog_public',
+        message: `New update: ${version} - ${title}`,
+        link: '/news?tab=changelog',
+        data: { entryId, version, title, category },
+      });
+    } catch (error) {
+      logger.error('[Changelog] failed to notify an account about a new entry:', error);
+    }
   }
 }
 

@@ -245,8 +245,10 @@ changelogRouter.post('/:id/read', requireAuth, async (req, res) => {
 changelogRouter.post('/read-all', requireAuth, async (req, res) => {
   try {
     const accountName = req.user!.accountName;
+    const includeAdmin =
+      req.user?.permissions?.immortalLevel != null && req.user.permissions.immortalLevel >= 57;
 
-    const count = await changelogService.markAllAsRead(accountName);
+    const count = await changelogService.markAllAsRead(accountName, includeAdmin);
     res.json({ success: true, count });
   } catch (error) {
     res.status(500).json({ error: getErrorMessage(error) });
