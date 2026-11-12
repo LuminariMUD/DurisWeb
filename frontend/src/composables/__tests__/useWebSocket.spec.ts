@@ -54,6 +54,20 @@ afterEach(() => {
 })
 
 describe('application socket reconnection', () => {
+  it.each([null, {}, { token: 7 }, { token: {} }, { token: '' }, { token: '  ' }])(
+    'rejects an invalid subscription capability response %j',
+    async (body) => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => body }))
+      expect(await api.getSubscriptionToken()).toBeNull()
+    },
+  )
+  it('exposes a valid capability through the shared typed getter', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ token: 'capability' }) }),
+    )
+    expect(await api.getSubscriptionToken()).toBe('capability')
+  })
   it('backs off through flapping connections and caps the retry window', () => {
     api.connect()
     for (const delay of [2500, 5000, 10000, 15000, 15000]) {

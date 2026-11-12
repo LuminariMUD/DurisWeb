@@ -56,8 +56,9 @@ async function getAuthToken(): Promise<string | null> {
       credentials: 'include',
     })
     if (!response.ok) return null
-    const data = await response.json()
-    return data.token || null
+    const data: unknown = await response.json()
+    const token = data && typeof data === 'object' && 'token' in data ? data.token : null
+    return typeof token === 'string' && token.trim().length > 0 ? token : null
   } catch {
     return null
   }
